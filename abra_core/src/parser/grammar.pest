@@ -1,0 +1,32 @@
+WHITESPACE = _{ " " | "\t" | "\n" }
+
+int = {
+    ASCII_DIGIT+
+}
+
+bool = {
+    "true" | "false"
+}
+
+binop = {
+    add | 
+    subtract | 
+    multiply | 
+    semicolon
+}
+add = { "+" }
+subtract = { "-" }
+multiply = { "*" }
+semicolon = { ";" }
+
+expr = {
+    binop_expr |
+    parenthesized_expr
+}
+binop_expr = { term ~ (binop ~ expr)* }
+parenthesized_expr = { "(" ~ expr ~ ")" }
+
+term = _{
+    int |
+    bool
+}
