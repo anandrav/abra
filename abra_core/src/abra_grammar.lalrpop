@@ -1,0 +1,40 @@
+use std::str::FromStr;
+use ast::{Expr, BinOpcode};
+
+grammar;
+
+Int: i32 = {
+    r"[0-9]+" => i32::from_str(<>).unwrap()
+};
+
+pub Expr: Box<Expr> = {
+    Expr SemicolonOp SummandOpExpr => Box::new(Expr::BinOp(<>)),
+    SummandOpExpr,
+};
+
+SummandOpExpr: Box<Expr> = {
+    SummandOpExpr SummandOp FactorOpExpr => Box::new(Expr::BinOp(<>)),
+    FactorOpExpr
+}
+
+FactorOpExpr: Box<Expr> = {
+    FactorOpExpr FactorOp Term => Box::new(Expr::BinOp(<>)),
+    Term
+}
+
+Term: Box<Expr> = {
+    Int => Box::new(Expr::Int(<>)),
+    "(" <Expr> ")",
+}
+
+FactorOp: BinOpcode = {
+    "*" => BinOpcode::Multiply,
+    "/" => BinOpcode::Divide
+};
+
+SummandOp: BinOpcode = {
+    "+" => BinOpcode::Add,
+    "-" => BinOpcode::Subtract,
+};
+
+SemicolonOp: BinOpcode = ";" => BinOpcode::Semicolon;

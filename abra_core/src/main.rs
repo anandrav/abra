@@ -1,13 +1,11 @@
-extern crate pest;
-#[macro_use]
-extern crate pest_derive;
+#[macro_use] 
+extern crate lalrpop_util;
 
-pub mod parser;
-
-use parser::parser::do_stuff;
+mod ast;
+mod parser;
 
 fn main() {
     println!("Hello world");
 
-    do_stuff();
+    parser::do_stuff();
 }
