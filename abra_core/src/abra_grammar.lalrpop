@@ -1,5 +1,6 @@
 use std::str::FromStr;
 use ast::*;
+use ast::Rule;
 
 grammar;
 
@@ -7,22 +8,41 @@ Int: i32 = {
     r"[0-9]+" => i32::from_str(<>).unwrap()
 };
 
+Bool: bool = {
+    "true" => true,
+    "false" => false
+}
+
+Unit: () = {
+    "()" => ()
+}
+
 Var: String = {
     r"[a-zA-Z_.][.a-zA-Z_0-9']*(\.:[.+/*=-]+)?" => (<>).to_string()
 }
-
-pub Expr: Box<Expr> = {
-    "let" <pat:Pat> ":" <typ:Type> "=" <e1:Expr> "in" <e2:SemicolonOpExpr> => Box::new(Expr::Let(pat, Some(typ), e1, e2)),
-    SemicolonOpExpr,
-};
 
 Pat: Box<Pat> = {
     Var => Box::new(Pat::Var(<>)),
 }
 
 Type: Type = {
-    "int" => Type::Int
+    "()" => Type::Unit,
+    "int" => Type::Int,
+    "bool" => Type::Bool,
+    "string" => Type::String
 }
+
+Rule: Rule = {
+    "|" <pat:Pat> "->" <e:Expr> => (pat, e)
+}
+
+pub Expr: Box<Expr> = {
+    "let" <pat:Pat> "=" <e1:Expr> "in" <e2:Expr> => Box::new(Expr::Let(pat, None, e1, e2)),
+    "let" <pat:Pat> ":" <typ:Type> "=" <e1:Expr> "in" <e2:Expr> => Box::new(Expr::Let(pat, Some(typ), e1, e2)),
+    "if" <e1:Expr> "then" <e2:Expr> "else" <e3:Expr> => Box::new(Expr::If(<>)),
+    "match" <e1:Expr> "{" <rules:Rule*> "}" => Box::new(Expr::Match(e1, rules)),
+    SemicolonOpExpr,
+};
 
 SemicolonOpExpr: Box<Expr> = {
     SemicolonOpExpr SemicolonOp SummandOpExpr => Box::new(Expr::BinOp(<>)),
@@ -41,7 +61,9 @@ FactorOpExpr: Box<Expr> = {
 
 Term: Box<Expr> = {
     Var => Box::new(Expr::Var(<>)),
+    Unit => Box::new(Expr::Unit),
     Int => Box::new(Expr::Int(<>)),
+    Bool => Box::new(Expr::Bool(<>)),
     "(" <Expr> ")",
 }
 
