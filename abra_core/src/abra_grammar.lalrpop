@@ -1,5 +1,5 @@
 use std::str::FromStr;
-use ast::{Expr, BinOpcode};
+use ast::*;
 
 grammar;
 
@@ -7,10 +7,27 @@ Int: i32 = {
     r"[0-9]+" => i32::from_str(<>).unwrap()
 };
 
+Var: String = {
+    r"[a-zA-Z_.][.a-zA-Z_0-9']*(\.:[.+/*=-]+)?" => (<>).to_string()
+}
+
 pub Expr: Box<Expr> = {
-    Expr SemicolonOp SummandOpExpr => Box::new(Expr::BinOp(<>)),
-    SummandOpExpr,
+    "let" <pat:Pat> ":" <typ:Type> "=" <e1:Expr> "in" <e2:SemicolonOpExpr> => Box::new(Expr::Let(pat, Some(typ), e1, e2)),
+    SemicolonOpExpr,
 };
+
+Pat: Box<Pat> = {
+    Var => Box::new(Pat::Var(<>)),
+}
+
+Type: Type = {
+    "int" => Type::Int
+}
+
+SemicolonOpExpr: Box<Expr> = {
+    SemicolonOpExpr SemicolonOp SummandOpExpr => Box::new(Expr::BinOp(<>)),
+    SummandOpExpr
+}
 
 SummandOpExpr: Box<Expr> = {
     SummandOpExpr SummandOp FactorOpExpr => Box::new(Expr::BinOp(<>)),
@@ -23,6 +40,7 @@ FactorOpExpr: Box<Expr> = {
 }
 
 Term: Box<Expr> = {
+    Var => Box::new(Expr::Var(<>)),
     Int => Box::new(Expr::Int(<>)),
     "(" <Expr> ")",
 }
