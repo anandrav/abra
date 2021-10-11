@@ -1,6 +1,6 @@
 use std::str::FromStr;
-use ast::*;
-use ast::Rule;
+use parsetree::*;
+use parsetree::Rule;
 
 grammar;
 
