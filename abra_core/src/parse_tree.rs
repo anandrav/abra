@@ -1,3 +1,6 @@
+use operators::BinOpcode;
+use types::Type;
+
 #[derive(Debug)]
 pub enum Expr {
     Var(String),
@@ -15,21 +18,4 @@ pub type Rule = (Box<Pat>, Box<Expr>);
 #[derive(Debug)]
 pub enum Pat {
     Var(String)
-}
-
-#[derive(Debug)]
-pub enum Type {
-    Unit,
-    Int,
-    Bool,
-    String
-}
-
-#[derive(Debug)]
-pub enum BinOpcode {
-    Semicolon,
-    Add,
-    Subtract,
-    Multiply,
-    Divide,
 }

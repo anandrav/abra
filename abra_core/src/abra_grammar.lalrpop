@@ -1,5 +1,7 @@
 use std::str::FromStr;
 use parse_tree::*;
+use types::*;
+use operators::*;
 
 grammar;
 
