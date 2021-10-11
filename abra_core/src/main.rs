@@ -1,7 +1,7 @@
 #[macro_use] 
 extern crate lalrpop_util;
 
-mod parsetree;
+mod parse_tree;
 mod parser;
 
 fn main() {
