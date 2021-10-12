@@ -11,7 +11,7 @@ pub enum Expr {
     Bool(bool),
     BinOp(Box<Expr>, BinOpcode, Box<Expr>),
     Let(Box<Pat>, Option<Type>, Box<Expr>, Box<Expr>),
-    Func(Identifier, Option<Type>, Box<Expr>),
+    Func(Identifier, Option<Type>, Option<Type>, Box<Expr>),
     FuncAp(Box<Expr>, Box<Expr>),
     If(Box<Expr>, Box<Expr>, Box<Expr>),
     Match(Box<Expr>, Vec<Rule>)
