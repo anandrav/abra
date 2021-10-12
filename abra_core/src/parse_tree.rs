@@ -1,7 +1,7 @@
 use operators::BinOpcode;
 use types::Type;
 
-type Identifier = String;
+pub type Identifier = String;
 
 #[derive(Debug)]
 pub enum Expr {
