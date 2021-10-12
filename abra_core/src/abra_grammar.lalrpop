@@ -40,6 +40,8 @@ Rule: Rule = {
 pub Expr: Box<Expr> = {
     "let" <pat:Pat> "=" <e1:Expr> "in" <e2:Expr> => Box::new(Expr::Let(pat, None, e1, e2)),
     "let" <pat:Pat> ":" <typ:Type> "=" <e1:Expr> "in" <e2:Expr> => Box::new(Expr::Let(pat, Some(typ), e1, e2)),
+    "func" <v:Var> "->" <body:Expr> => Box::new(Expr::Func(v, None, body)),
+    "func" <v:Var> ":" <typ:Type> "->" <body:Expr> => Box::new(Expr::Func(v, Some(typ), body)),
     "if" <e1:Expr> "then" <e2:Expr> "else" <e3:Expr> => Box::new(Expr::If(<>)),
     "match" <e1:Expr> "{" <rules:Rule*> "}" => Box::new(Expr::Match(e1, rules)),
     SemicolonOpExpr,
@@ -57,6 +59,11 @@ SummandOpExpr: Box<Expr> = {
 
 FactorOpExpr: Box<Expr> = {
     FactorOpExpr FactorOp Term => Box::new(Expr::BinOp(<>)),
+    FuncApExpr
+}
+
+FuncApExpr: Box<Expr> = {
+    <f:FuncApExpr> "(" <a:Expr> ")" => Box::new(Expr::FuncAp(f, a)),
     Term
 }
 

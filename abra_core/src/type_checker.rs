@@ -19,6 +19,9 @@ impl Context {
         }
         return None;
     }
+
+    fn extend(&self, a: Assumption) {
+    }
 }
 
 pub fn syn(ctx: &Context, e: Box<parse_tree::Expr>) -> (Type, Vec<Constraint>) {
