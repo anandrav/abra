@@ -86,6 +86,13 @@ fn subst(expr1 : Rc<Expr>, id : &Identifier, expr2 : Rc<Expr>) -> Rc<Expr> {
                 subst(expr1, id, sub_expr2.clone())
             ))
         }
+        If(sub_expr1, sub_expr2, sub_expr3) => {
+            Rc::new(If(
+                subst(expr1.clone(), id, sub_expr1.clone()),
+                subst(expr1.clone(), id, sub_expr2.clone()),
+                subst(expr1, id, sub_expr3.clone())
+            ))
+        }
         _ => panic!("todo")
     }
 }
@@ -141,9 +148,15 @@ pub fn eval(expr : Rc<Expr>, ctx : &Context) -> Rc<Expr> {
             println!("before substitution, val2 is {:#?} and id is {} and body is {:#?}", val2, id, body);
             let val = subst(val2, &id, body.clone());
             println!("after substitution, bodyval is {:#?}", val);
-            // println!("{:#?}", val);
-            // println!("and id is {}", id);
             eval(val, ctx)
+        }
+        If(expr1, expr2, expr3) => {
+            let val1 = eval(expr1.clone(), ctx);
+            match &*val1 {
+                | Bool(true) => eval(expr2.clone(), ctx),
+                | Bool(false) => eval(expr3.clone(), ctx),
+                | _ => panic!("If expression clause did not evaluate to a bool")
+            }
         }
         _ => panic!("todo")
     }
