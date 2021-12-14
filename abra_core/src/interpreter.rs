@@ -1,34 +1,18 @@
 use std::rc::Rc;
-use std::collections::LinkedList;
 use operators::*;
 use operators::BinOpcode::*;
-use parse_tree::*;
-use parse_tree::Expr::*;
+use typed_tree::*;
+use typed_tree::Expr::*;
+use side_effects::*;
+use side_effects::Output::*;
 
-struct Assumption {
-    id: Identifier,
-    expr: Rc<Expr>
+pub struct Effects {
+    outputs : Vec<Output>
 }
 
-pub struct Context {
-    assumptions : LinkedList<Assumption>
-}
-
-impl Context {
-    pub fn empty() -> Context {
-        Context{ assumptions : LinkedList::new() }
-    }
-
-    // pub fn extend(&self) 
-
-    fn lookup(&self, id : &Identifier) -> Option<Rc<Expr>> { // todo return type hsould be optional expr
-        let mut result = None;
-        for assumption in &self.assumptions {
-            if &assumption.id == id {
-                result = Some(assumption.expr.clone());
-            }
-        }
-        result
+impl Effects {
+    pub fn empty() -> Effects {
+        Effects{ outputs : Vec::new() }
     }
 }
 
@@ -115,7 +99,7 @@ fn perform_op(expr1 : Rc<Expr>, op : BinOpcode, expr2 : Rc<Expr>) -> Rc<Expr> {
     }
 }
 
-pub fn eval(expr : Rc<Expr>, ctx : &Context) -> Rc<Expr> {
+pub fn eval(expr : Rc<Expr>, effects : &Effects) -> Rc<Expr> {
     match &*expr {
         Var(id) => { panic!("Var should have been substituted before runtime"); }
         Unit |
@@ -123,22 +107,22 @@ pub fn eval(expr : Rc<Expr>, ctx : &Context) -> Rc<Expr> {
         Bool(_) |
         Func(_, _, _, _) => expr.clone(),
         BinOp(expr1, op, expr2) => {
-            let val1 = eval(expr1.clone(), ctx);
-            let val2 = eval(expr2.clone(), ctx);
+            let val1 = eval(expr1.clone(), effects);
+            let val2 = eval(expr2.clone(), effects);
             perform_op(val1, *op, val2)
         },
         Let(pat, _, expr1, expr2) => {
             match &*pat.clone() {
                 Pat::Var(id) => {
-                    let val = eval(expr1.clone(), ctx);
+                    let val = eval(expr1.clone(), effects);
                     let expr2 = subst(val, &id, expr2.clone());
-                    eval(expr2, ctx)
+                    eval(expr2, effects)
                 }
             }
         },
         FuncAp(expr1, expr2) => {
-            let val1 = eval(expr1.clone(), ctx);
-            let val2 = eval(expr2.clone(), ctx);
+            let val1 = eval(expr1.clone(), effects);
+            let val2 = eval(expr2.clone(), effects);
             let (id, body) = match &*val1.clone() {
                 Func(id, _, _, body) => {
                     (id.clone(), body.clone())
@@ -148,13 +132,13 @@ pub fn eval(expr : Rc<Expr>, ctx : &Context) -> Rc<Expr> {
             println!("before substitution, val2 is {:#?} and id is {} and body is {:#?}", val2, id, body);
             let val = subst(val2, &id, body.clone());
             println!("after substitution, bodyval is {:#?}", val);
-            eval(val, ctx)
+            eval(val, effects)
         }
         If(expr1, expr2, expr3) => {
-            let val1 = eval(expr1.clone(), ctx);
+            let val1 = eval(expr1.clone(), effects);
             match &*val1 {
-                | Bool(true) => eval(expr2.clone(), ctx),
-                | Bool(false) => eval(expr3.clone(), ctx),
+                | Bool(true) => eval(expr2.clone(), effects),
+                | Bool(false) => eval(expr3.clone(), effects),
                 | _ => panic!("If expression clause did not evaluate to a bool")
             }
         }
