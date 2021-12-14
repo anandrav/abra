@@ -1,5 +1,5 @@
-use std::rc::Rc;
 use operators::BinOpcode;
+use std::rc::Rc;
 use types::Type;
 
 pub type Identifier = String;
@@ -15,12 +15,12 @@ pub enum Expr {
     Func(Identifier, Option<Type>, Option<Type>, Rc<Expr>),
     FuncAp(Rc<Expr>, Rc<Expr>),
     If(Rc<Expr>, Rc<Expr>, Rc<Expr>),
-    Match(Rc<Expr>, Vec<Rule>)
+    Match(Rc<Expr>, Vec<Rule>),
 }
 
 pub type Rule = (Rc<Pat>, Rc<Expr>);
 
 #[derive(Debug)]
 pub enum Pat {
-    Var(Identifier)
+    Var(Identifier),
 }

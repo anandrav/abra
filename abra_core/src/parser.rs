@@ -1,7 +1,7 @@
 lalrpop_mod!(pub abra_grammar); // synthesized by LALRPOP
 
-use std::rc::Rc;
 use parse_tree;
+use std::rc::Rc;
 
 pub fn do_stuff() -> Rc<parse_tree::Expr> {
     // let expr = abra_grammar::ExprParser::new()
@@ -15,9 +15,7 @@ pub fn do_stuff() -> Rc<parse_tree::Expr> {
     // let to_parse = "let f = func x -> func y -> x + y in f(3)(4)";
     // let to_parse = "let f = func (x) -> int { func (y: int) -> int { x + y } } in f(3)(4)";
     println!("{}", to_parse);
-    let expr = abra_grammar::ExprParser::new()
-        .parse(to_parse)
-        .unwrap();
+    let expr = abra_grammar::ExprParser::new().parse(to_parse).unwrap();
     // println!("{}", format!("{:#?}", expr));
 
     return expr;

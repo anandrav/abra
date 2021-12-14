@@ -1,22 +1,24 @@
-use std::rc::Rc;
-use operators::*;
 use operators::BinOpcode::*;
-use typed_tree::*;
-use typed_tree::Expr::*;
-use side_effects::*;
+use operators::*;
 use side_effects::Output::*;
+use side_effects::*;
+use std::rc::Rc;
+use typed_tree::Expr::*;
+use typed_tree::*;
 
 pub struct Effects {
-    outputs : Vec<Output>
+    outputs: Vec<Output>,
 }
 
 impl Effects {
     pub fn empty() -> Effects {
-        Effects{ outputs : Vec::new() }
+        Effects {
+            outputs: Vec::new(),
+        }
     }
 }
 
-fn subst(expr1 : Rc<Expr>, id : &Identifier, expr2 : Rc<Expr>) -> Rc<Expr> {
+fn subst(expr1: Rc<Expr>, id: &Identifier, expr2: Rc<Expr>) -> Rc<Expr> {
     match &*expr2 {
         Var(sub_id) => {
             if sub_id == id {
@@ -25,16 +27,12 @@ fn subst(expr1 : Rc<Expr>, id : &Identifier, expr2 : Rc<Expr>) -> Rc<Expr> {
                 expr2
             }
         }
-        Unit |
-        Int(_) |
-        Bool(_) => expr2,
-        BinOp(sub_expr1, op, sub_expr2) =>  {
-            Rc::new(BinOp(
-                subst(expr1.clone(), id, sub_expr1.clone()),
-                *op,
-                subst(expr1, id, sub_expr2.clone())
-            ))
-        },
+        Unit | Int(_) | Bool(_) => expr2,
+        BinOp(sub_expr1, op, sub_expr2) => Rc::new(BinOp(
+            subst(expr1.clone(), id, sub_expr1.clone()),
+            *op,
+            subst(expr1, id, sub_expr2.clone()),
+        )),
         Let(pat, typ, sub_expr1, sub_expr2) => {
             let sub_expr1 = subst(expr1.clone(), id, sub_expr1.clone());
             match &*pat.clone() {
@@ -43,10 +41,10 @@ fn subst(expr1 : Rc<Expr>, id : &Identifier, expr2 : Rc<Expr>) -> Rc<Expr> {
                         expr2
                     } else {
                         Rc::new(Let(
-                            pat.clone(), 
-                            *typ, 
+                            pat.clone(),
+                            *typ,
                             sub_expr1,
-                            subst(expr1, id, sub_expr2.clone())
+                            subst(expr1, id, sub_expr2.clone()),
                         ))
                     }
                 }
@@ -60,76 +58,70 @@ fn subst(expr1 : Rc<Expr>, id : &Identifier, expr2 : Rc<Expr>) -> Rc<Expr> {
                     sub_id.clone(),
                     *typ1,
                     *typ2,
-                    subst(expr1, id, body.clone())
+                    subst(expr1, id, body.clone()),
                 ))
             }
         }
-        FuncAp(sub_expr1, sub_expr2) => {
-            Rc::new(FuncAp(
-                subst(expr1.clone(), id, sub_expr1.clone()),
-                subst(expr1, id, sub_expr2.clone())
-            ))
-        }
-        If(sub_expr1, sub_expr2, sub_expr3) => {
-            Rc::new(If(
-                subst(expr1.clone(), id, sub_expr1.clone()),
-                subst(expr1.clone(), id, sub_expr2.clone()),
-                subst(expr1, id, sub_expr3.clone())
-            ))
-        }
-        _ => panic!("todo")
+        FuncAp(sub_expr1, sub_expr2) => Rc::new(FuncAp(
+            subst(expr1.clone(), id, sub_expr1.clone()),
+            subst(expr1, id, sub_expr2.clone()),
+        )),
+        If(sub_expr1, sub_expr2, sub_expr3) => Rc::new(If(
+            subst(expr1.clone(), id, sub_expr1.clone()),
+            subst(expr1.clone(), id, sub_expr2.clone()),
+            subst(expr1, id, sub_expr3.clone()),
+        )),
+        _ => panic!("todo"),
     }
 }
 
-fn perform_op(expr1 : Rc<Expr>, op : BinOpcode, expr2 : Rc<Expr>) -> Rc<Expr> {
+fn perform_op(expr1: Rc<Expr>, op: BinOpcode, expr2: Rc<Expr>) -> Rc<Expr> {
     match op {
         Add => match (&*expr1, &*expr2) {
             (Int(i1), Int(i2)) => Rc::new(Int(i1 + i2)),
-            _ => panic!("one or more operands of Add are not Ints")
+            _ => panic!("one or more operands of Add are not Ints"),
         },
         Subtract => match (&*expr1, &*expr2) {
             (Int(i1), Int(i2)) => Rc::new(Int(i1 - i2)),
-            _ => panic!("one or more operands of Subtract are not Ints")
+            _ => panic!("one or more operands of Subtract are not Ints"),
         },
         Multiply => match (&*expr1, &*expr2) {
             (Int(i1), Int(i2)) => Rc::new(Int(i1 * i2)),
-            _ => panic!("one or more operands of Multiply are not Ints")
+            _ => panic!("one or more operands of Multiply are not Ints"),
         },
-        _ => panic!("todo")
+        _ => panic!("todo"),
     }
 }
 
-pub fn eval(expr : Rc<Expr>, effects : &Effects) -> Rc<Expr> {
+pub fn eval(expr: Rc<Expr>, effects: &Effects) -> Rc<Expr> {
     match &*expr {
-        Var(id) => { panic!("Var should have been substituted before runtime"); }
-        Unit |
-        Int(_) |
-        Bool(_) |
-        Func(_, _, _, _) => expr.clone(),
+        Var(id) => {
+            panic!("Var should have been substituted before runtime");
+        }
+        Unit | Int(_) | Bool(_) | Func(_, _, _, _) => expr.clone(),
         BinOp(expr1, op, expr2) => {
             let val1 = eval(expr1.clone(), effects);
             let val2 = eval(expr2.clone(), effects);
             perform_op(val1, *op, val2)
-        },
-        Let(pat, _, expr1, expr2) => {
-            match &*pat.clone() {
-                Pat::Var(id) => {
-                    let val = eval(expr1.clone(), effects);
-                    let expr2 = subst(val, &id, expr2.clone());
-                    eval(expr2, effects)
-                }
+        }
+        Let(pat, _, expr1, expr2) => match &*pat.clone() {
+            Pat::Var(id) => {
+                let val = eval(expr1.clone(), effects);
+                let expr2 = subst(val, &id, expr2.clone());
+                eval(expr2, effects)
             }
         },
         FuncAp(expr1, expr2) => {
             let val1 = eval(expr1.clone(), effects);
             let val2 = eval(expr2.clone(), effects);
             let (id, body) = match &*val1.clone() {
-                Func(id, _, _, body) => {
-                    (id.clone(), body.clone())
-                }
-                _ => panic!("Left expression of FuncAp is not a function")
+                Func(id, _, _, body) => (id.clone(), body.clone()),
+                _ => panic!("Left expression of FuncAp is not a function"),
             };
-            println!("before substitution, val2 is {:#?} and id is {} and body is {:#?}", val2, id, body);
+            println!(
+                "before substitution, val2 is {:#?} and id is {} and body is {:#?}",
+                val2, id, body
+            );
             let val = subst(val2, &id, body.clone());
             println!("after substitution, bodyval is {:#?}", val);
             eval(val, effects)
@@ -137,11 +129,11 @@ pub fn eval(expr : Rc<Expr>, effects : &Effects) -> Rc<Expr> {
         If(expr1, expr2, expr3) => {
             let val1 = eval(expr1.clone(), effects);
             match &*val1 {
-                | Bool(true) => eval(expr2.clone(), effects),
-                | Bool(false) => eval(expr3.clone(), effects),
-                | _ => panic!("If expression clause did not evaluate to a bool")
+                Bool(true) => eval(expr2.clone(), effects),
+                Bool(false) => eval(expr3.clone(), effects),
+                _ => panic!("If expression clause did not evaluate to a bool"),
             }
         }
-        _ => panic!("todo")
+        _ => panic!("todo"),
     }
 }

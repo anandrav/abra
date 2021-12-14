@@ -1,14 +1,14 @@
-#[macro_use] 
+#[macro_use]
 extern crate lalrpop_util;
 
+mod interpreter;
 mod operators;
-mod types;
-mod parser;
 mod parse_tree;
+mod parser;
+mod side_effects;
 mod type_checker;
 mod typed_tree;
-mod interpreter;
-mod side_effects;
+mod types;
 
 fn main() {
     println!("Hello world");
