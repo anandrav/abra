@@ -15,10 +15,10 @@ pub enum Expr {
     Func(Identifier, Type, Type, Rc<Expr>),
     FuncAp(Rc<Expr>, Rc<Expr>),
     If(Rc<Expr>, Rc<Expr>, Rc<Expr>),
-    Match(Rc<Expr>, Vec<Rule>),
+    // Match(Rc<Expr>, Vec<Rule>),
 }
 
-pub type Rule = (Rc<Pat>, Rc<Expr>);
+// pub type Rule = (Rc<Pat>, Rc<Expr>);
 
 #[derive(Debug)]
 pub enum Pat {

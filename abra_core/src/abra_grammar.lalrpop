@@ -50,13 +50,23 @@ pub Expr: Rc<Expr> = {
     "let" <pat:Pat> "=" <e1:Expr> "in" <e2:Expr> => Rc::new(Expr::Let(pat, None, e1, e2)),
     "let" <pat:Pat> ":" <typ:Type> "=" <e1:Expr> "in" <e2:Expr> => Rc::new(Expr::Let(pat, Some(typ), e1, e2)),
     "func" "(" <id:Identifier> <t_in:TypeAnn?> ")" <t_out:TypeAnnFuncOut?> "{" <body:Expr> "}" => Rc::new(Expr::Func(id, t_in, t_out, body)),
-    "if" <e1:Expr> "then" <e2:Expr> "else" <e3:Expr> => Rc::new(Expr::If(<>)),
+    "if" "(" <e1:Expr> ") {" <e2:Expr> "} else {" <e3:Expr> "}" => Rc::new(Expr::If(<>)),
     "match" <e1:Expr> "{" <rules:Rule*> "}" => Rc::new(Expr::Match(e1, rules)),
     SemicolonOpExpr,
 }
 
 SemicolonOpExpr: Rc<Expr> = {
-    SemicolonOpExpr SemicolonOp SummandOpExpr => Rc::new(Expr::BinOp(<>)),
+    SemicolonOpExpr SemicolonOp EqualityOpExpr => Rc::new(Expr::BinOp(<>)),
+    EqualityOpExpr
+}
+
+EqualityOpExpr: Rc<Expr> = {
+    EqualityOpExpr EqualityOp ComparisonOpExpr => Rc::new(Expr::BinOp(<>)),
+    ComparisonOpExpr
+}
+
+ComparisonOpExpr: Rc<Expr> = {
+    ComparisonOpExpr ComparisonOp SummandOpExpr => Rc::new(Expr::BinOp(<>)),
     SummandOpExpr
 }
 
@@ -91,6 +101,15 @@ FactorOp: BinOpcode = {
 SummandOp: BinOpcode = {
     "+" => BinOpcode::Add,
     "-" => BinOpcode::Subtract,
+}
+
+EqualityOp: BinOpcode = "==" => BinOpcode::Equals;
+
+ComparisonOp: BinOpcode = {
+    "<" => BinOpcode::LessThan,
+    "<=" => BinOpcode::LessThanOrEquals,
+    ">" => BinOpcode::GreaterThan,
+    ">=" => BinOpcode::GreaterThanOrEquals,
 }
 
 SemicolonOp: BinOpcode = ";" => BinOpcode::Semicolon;

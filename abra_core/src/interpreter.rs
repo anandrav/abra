@@ -71,23 +71,43 @@ fn subst(expr1: Rc<Expr>, id: &Identifier, expr2: Rc<Expr>) -> Rc<Expr> {
             subst(expr1.clone(), id, sub_expr2.clone()),
             subst(expr1, id, sub_expr3.clone()),
         )),
-        _ => panic!("todo"),
     }
 }
 
-fn perform_op(expr1: Rc<Expr>, op: BinOpcode, expr2: Rc<Expr>) -> Rc<Expr> {
+fn perform_op(val1: Rc<Expr>, op: BinOpcode, val2: Rc<Expr>) -> Rc<Expr> {
     match op {
-        Add => match (&*expr1, &*expr2) {
+        Add => match (&*val1, &*val2) {
             (Int(i1), Int(i2)) => Rc::new(Int(i1 + i2)),
             _ => panic!("one or more operands of Add are not Ints"),
         },
-        Subtract => match (&*expr1, &*expr2) {
+        Subtract => match (&*val1, &*val2) {
             (Int(i1), Int(i2)) => Rc::new(Int(i1 - i2)),
             _ => panic!("one or more operands of Subtract are not Ints"),
         },
-        Multiply => match (&*expr1, &*expr2) {
+        Multiply => match (&*val1, &*val2) {
             (Int(i1), Int(i2)) => Rc::new(Int(i1 * i2)),
             _ => panic!("one or more operands of Multiply are not Ints"),
+        },
+        Equals => match (&*val1, &*val2) {
+            (Int(i1), Int(i2)) => Rc::new(Bool(i1 == i2)),
+            (Bool(b1), Bool(b2)) => Rc::new(Bool(b1 == b2)),
+            _ => panic!("can only compare values which are both Ints or both Bools"),
+        },
+        GreaterThan => match (&*val1, &*val2) {
+            (Int(i1), Int(i2)) => Rc::new(Bool(i1 > i2)),
+            _ => panic!("one or more operands of GreaterThan are not Ints"),
+        },
+        GreaterThanOrEquals => match (&*val1, &*val2) {
+            (Int(i1), Int(i2)) => Rc::new(Bool(i1 >= i2)),
+            _ => panic!("one or more operands of GreaterThanOrEquals are not Ints"),
+        },
+        LessThan => match (&*val1, &*val2) {
+            (Int(i1), Int(i2)) => Rc::new(Bool(i1 < i2)),
+            _ => panic!("one or more operands of LessThan are not Ints"),
+        },
+        LessThanOrEquals => match (&*val1, &*val2) {
+            (Int(i1), Int(i2)) => Rc::new(Bool(i1 <= i2)),
+            _ => panic!("one or more operands of LessThanOrEquals are not Ints"),
         },
         _ => panic!("todo"),
     }
@@ -95,7 +115,7 @@ fn perform_op(expr1: Rc<Expr>, op: BinOpcode, expr2: Rc<Expr>) -> Rc<Expr> {
 
 pub fn eval(expr: Rc<Expr>, effects: &Effects) -> Rc<Expr> {
     match &*expr {
-        Var(id) => {
+        Var(_) => {
             panic!("Var should have been substituted before runtime");
         }
         Unit | Int(_) | Bool(_) | Func(_, _, _, _) => expr.clone(),
@@ -134,6 +154,5 @@ pub fn eval(expr: Rc<Expr>, effects: &Effects) -> Rc<Expr> {
                 _ => panic!("If expression clause did not evaluate to a bool"),
             }
         }
-        _ => panic!("todo"),
     }
 }
