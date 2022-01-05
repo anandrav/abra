@@ -2,6 +2,7 @@ use operators::BinOpcode::*;
 use operators::*;
 use side_effects::Output::*;
 use side_effects::*;
+use std::collections::HashMap;
 use std::rc::Rc;
 use typed_tree::Expr::*;
 use typed_tree::*;
@@ -14,6 +15,30 @@ impl Effects {
     pub fn empty() -> Effects {
         Effects {
             outputs: Vec::new(),
+        }
+    }
+}
+
+pub struct Environment {
+    vars: HashMap<Identifier, Rc<Expr>>,
+    enclosing: Option<Rc<Environment>>,
+}
+
+impl Environment {
+    pub fn new(enclosing: Option<Rc<Environment>>) -> Self {
+        Self {
+            vars: HashMap::new(),
+            enclosing: enclosing,
+        }
+    }
+
+    pub fn lookup(&self, id: &Identifier) -> Option<Rc<Expr>> {
+        match self.vars.get(id) {
+            Some(expr) => Some(expr.clone()),
+            None => match &self.enclosing {
+                Some(env) => env.lookup(id),
+                None => None,
+            },
         }
     }
 }
