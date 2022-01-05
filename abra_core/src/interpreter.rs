@@ -48,62 +48,6 @@ impl Environment {
     }
 }
 
-// fn subst(expr1: Rc<Expr>, id: &Identifier, expr2: Rc<Expr>) -> Rc<Expr> {
-//     match &*expr2 {
-//         Var(sub_id) => {
-//             if sub_id == id {
-//                 expr1
-//             } else {
-//                 expr2
-//             }
-//         }
-//         Unit | Int(_) | Bool(_) => expr2,
-//         BinOp(sub_expr1, op, sub_expr2) => Rc::new(BinOp(
-//             subst(expr1.clone(), id, sub_expr1.clone()),
-//             *op,
-//             subst(expr1, id, sub_expr2.clone()),
-//         )),
-//         Let(pat, typ, sub_expr1, sub_expr2) => {
-//             let sub_expr1 = subst(expr1.clone(), id, sub_expr1.clone());
-//             match &*pat.clone() {
-//                 Pat::Var(sub_id) => {
-//                     if sub_id == id {
-//                         expr2
-//                     } else {
-//                         Rc::new(Let(
-//                             pat.clone(),
-//                             *typ,
-//                             sub_expr1,
-//                             subst(expr1, id, sub_expr2.clone()),
-//                         ))
-//                     }
-//                 }
-//             }
-//         }
-//         Func(sub_id, typ1, typ2, body) => {
-//             if sub_id == id {
-//                 expr2
-//             } else {
-//                 Rc::new(Func(
-//                     sub_id.clone(),
-//                     *typ1,
-//                     *typ2,
-//                     subst(expr1, id, body.clone()),
-//                 ))
-//             }
-//         }
-//         FuncAp(sub_expr1, sub_expr2) => Rc::new(FuncAp(
-//             subst(expr1.clone(), id, sub_expr1.clone()),
-//             subst(expr1, id, sub_expr2.clone()),
-//         )),
-//         If(sub_expr1, sub_expr2, sub_expr3) => Rc::new(If(
-//             subst(expr1.clone(), id, sub_expr1.clone()),
-//             subst(expr1.clone(), id, sub_expr2.clone()),
-//             subst(expr1, id, sub_expr3.clone()),
-//         )),
-//     }
-// }
-
 fn perform_op(val1: Rc<Expr>, op: BinOpcode, val2: Rc<Expr>) -> Rc<Expr> {
     match op {
         Add => match (&*val1, &*val2) {
