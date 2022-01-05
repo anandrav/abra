@@ -52,14 +52,14 @@ pub fn strip_options_expr(parse_tree: Rc<Pte>) -> Rc<Tte> {
         )),
         Pte::Let(pat, t, expr1, expr2) => Rc::new(Tte::Let(
             strip_options_pat(pat.clone()),
-            t.unwrap(),
+            t.as_ref().unwrap().clone(),
             strip_options_expr(expr1.clone()),
             strip_options_expr(expr2.clone()),
         )),
         Pte::Func(id, t_in, t_out, expr) => Rc::new(Tte::Func(
             id.clone(),
-            t_in.unwrap(),
-            t_out.unwrap(),
+            t_in.as_ref().unwrap().clone(),
+            t_out.as_ref().unwrap().clone(),
             strip_options_expr(expr.clone()),
         )),
         Pte::FuncAp(expr1, expr2) => Rc::new(Tte::FuncAp(

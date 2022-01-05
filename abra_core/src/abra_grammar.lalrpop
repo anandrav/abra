@@ -48,8 +48,8 @@ TypeAnnFuncOut: Type = {
 
 pub Expr: Rc<Expr> = {
     "let" <pat:Pat> "=" <e1:Expr> "in" <e2:Expr> => Rc::new(Expr::Let(pat, None, e1, e2)),
-    "let" <pat:Pat> ":" <typ:Type> "=" <e1:Expr> "in" <e2:Expr> => Rc::new(Expr::Let(pat, Some(typ), e1, e2)),
-    "func" "(" <id:Identifier> <t_in:TypeAnn?> ")" <t_out:TypeAnnFuncOut?> "{" <body:Expr> "}" => Rc::new(Expr::Func(id, t_in, t_out, body)),
+    "let" <pat:Pat> ":" <typ:Type> "=" <e1:Expr> "in" <e2:Expr> => Rc::new(Expr::Let(pat, Some(Rc::new(typ)), e1, e2)),
+    "func" "(" <id:Identifier> <t_in:TypeAnn?> ")" <t_out:TypeAnnFuncOut?> "{" <body:Expr> "}" => Rc::new(Expr::Func(id, t_in.map(|t| Rc::new(t)), t_out.map(|t| Rc::new(t)), body)),
     "if" <e1:Expr> "{" <e2:Expr> "} else {" <e3:Expr> "}" => Rc::new(Expr::If(<>)),
     "match" <e1:Expr> "{" <rules:Rule*> "}" => Rc::new(Expr::Match(e1, rules)),
     SemicolonOpExpr,
