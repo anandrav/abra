@@ -1,6 +1,9 @@
 #[macro_use]
 extern crate lalrpop_util;
 
+use std::cell::RefCell;
+use std::rc::Rc;
+
 mod interpreter;
 mod operators;
 mod parse_tree;
@@ -15,7 +18,11 @@ fn main() {
 
     let parsed_expr = parser::do_stuff();
     let typed_expr = type_checker::strip_options_expr(parsed_expr.clone());
-    let val = interpreter::eval(typed_expr, &interpreter::Effects::empty());
+    let val = interpreter::eval(
+        typed_expr,
+        Rc::new(RefCell::new(interpreter::Environment::new(None))),
+        &interpreter::Effects::empty(),
+    );
 
     println!("Expr evaluated to val: {:#?}", val);
 }
