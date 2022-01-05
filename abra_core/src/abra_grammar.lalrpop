@@ -27,29 +27,34 @@ Pat: Rc<Pat> = {
     Identifier => Rc::new(Pat::Var(<>))
 }
 
-Type: Type = {
-    "()" => Type::Unit,
-    "int" => Type::Int,
-    "bool" => Type::Bool,
-    "string" => Type::String
+Type: Rc<Type> = {
+    <t_in:Type> "->" <t_out:TypePrimitive> => Rc::new(Type::Arrow(<>)),
+    TypePrimitive
+}
+
+TypePrimitive: Rc<Type> = {
+    "()" => Rc::new(Type::Unit),
+    "int" => Rc::new(Type::Int),
+    "bool" => Rc::new(Type::Bool),
+    "string" => Rc::new(Type::String)
 }
 
 Rule: Rule = {
     "|" <pat:Pat> "->" <e:Expr> => (pat, e)
 }
 
-TypeAnn: Type = {
+TypeAnn: Rc<Type> = {
     ":" <t:Type> => t
 }
 
-TypeAnnFuncOut: Type = {
+TypeAnnFuncOut: Rc<Type> = {
     "->" <t:Type> => t
 }
 
 pub Expr: Rc<Expr> = {
     "let" <pat:Pat> "=" <e1:Expr> "in" <e2:Expr> => Rc::new(Expr::Let(pat, None, e1, e2)),
-    "let" <pat:Pat> ":" <typ:Type> "=" <e1:Expr> "in" <e2:Expr> => Rc::new(Expr::Let(pat, Some(Rc::new(typ)), e1, e2)),
-    "func" "(" <id:Identifier> <t_in:TypeAnn?> ")" <t_out:TypeAnnFuncOut?> "{" <body:Expr> "}" => Rc::new(Expr::Func(id, t_in.map(|t| Rc::new(t)), t_out.map(|t| Rc::new(t)), body)),
+    "let" <pat:Pat> ":" <typ:Type> "=" <e1:Expr> "in" <e2:Expr> => Rc::new(Expr::Let(pat, Some(typ), e1, e2)),
+    "func" "(" <id:Identifier> <t_in:TypeAnn?> ")" <t_out:TypeAnnFuncOut?> "{" <body:Expr> "}" => Rc::new(Expr::Func(id, t_in, t_out, body)),
     "if" <e1:Expr> "{" <e2:Expr> "} else {" <e3:Expr> "}" => Rc::new(Expr::If(<>)),
     "match" <e1:Expr> "{" <rules:Rule*> "}" => Rc::new(Expr::Match(e1, rules)),
     SemicolonOpExpr,
