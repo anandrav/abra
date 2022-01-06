@@ -83,6 +83,14 @@ fn perform_op(val1: Rc<Expr>, op: BinOpcode, val2: Rc<Expr>) -> Rc<Expr> {
             (Int(i1), Int(i2)) => Rc::new(Bool(i1 <= i2)),
             _ => panic!("one or more operands of LessThanOrEquals are not Ints"),
         },
+        // FuncAp => match &*val1 {
+        //     Func(id, _, _, body) => {
+        //         let new_env = Rc::new(RefCell::new(Environment::new(Some(env))));
+        //         new_env.borrow_mut().extend(&id, val2.clone());
+        //         eval(body.clone(), new_env, effects)
+        //     }
+        //     _ => panic!("left operand of function application is not a function!"),
+        // },
         _ => panic!("todo"),
     }
 }
@@ -123,7 +131,7 @@ pub fn eval(expr: Rc<Expr>, env: Rc<RefCell<Environment>>, effects: &Effects) ->
             );
             let new_env = Rc::new(RefCell::new(Environment::new(Some(env))));
             new_env.borrow_mut().extend(&id, val2.clone());
-            eval(val2, new_env, effects)
+            eval(body, new_env, effects)
         }
         If(expr1, expr2, expr3) => {
             let val1 = eval(expr1.clone(), env.clone(), effects);
