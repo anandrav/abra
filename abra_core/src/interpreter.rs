@@ -1,9 +1,9 @@
+use environment::Environment;
 use operators::BinOpcode::*;
 use operators::*;
 use side_effects::Output::*;
 use side_effects::*;
 use std::cell::RefCell;
-use std::collections::HashMap;
 use std::rc::Rc;
 use typed_tree::Expr::*;
 use typed_tree::*;
@@ -17,34 +17,6 @@ impl Effects {
         Effects {
             outputs: Vec::new(),
         }
-    }
-}
-
-pub struct Environment {
-    vars: HashMap<Identifier, Rc<Expr>>,
-    enclosing: Option<Rc<RefCell<Environment>>>,
-}
-
-impl Environment {
-    pub fn new(enclosing: Option<Rc<RefCell<Environment>>>) -> Self {
-        Self {
-            vars: HashMap::new(),
-            enclosing: enclosing,
-        }
-    }
-
-    pub fn lookup(&self, id: &Identifier) -> Option<Rc<Expr>> {
-        match self.vars.get(id) {
-            Some(expr) => Some(expr.clone()),
-            None => match &self.enclosing {
-                Some(env) => env.borrow_mut().lookup(id),
-                None => None,
-            },
-        }
-    }
-
-    pub fn extend(&mut self, id: &Identifier, expr: Rc<Expr>) {
-        self.vars.insert(id.clone(), expr.clone());
     }
 }
 
@@ -83,14 +55,6 @@ fn perform_op(val1: Rc<Expr>, op: BinOpcode, val2: Rc<Expr>) -> Rc<Expr> {
             (Int(i1), Int(i2)) => Rc::new(Bool(i1 <= i2)),
             _ => panic!("one or more operands of LessThanOrEquals are not Ints"),
         },
-        // FuncAp => match &*val1 {
-        //     Func(id, _, _, body) => {
-        //         let new_env = Rc::new(RefCell::new(Environment::new(Some(env))));
-        //         new_env.borrow_mut().extend(&id, val2.clone());
-        //         eval(body.clone(), new_env, effects)
-        //     }
-        //     _ => panic!("left operand of function application is not a function!"),
-        // },
         _ => panic!("todo"),
     }
 }
@@ -104,7 +68,14 @@ pub fn eval(expr: Rc<Expr>, env: Rc<RefCell<Environment>>, effects: &Effects) ->
                 Some(val) => val,
             }
         }
-        Unit | Int(_) | Bool(_) | Func(_, _, _, _) => expr.clone(),
+        Unit | Int(_) | Bool(_) => expr.clone(),
+        Func(id, ty1, ty2, body, _) => Rc::new(Func(
+            id.clone(),
+            ty1.clone(),
+            ty2.clone(),
+            body.clone(),
+            env.clone(),
+        )), // todo: this is probably wrong
         BinOp(expr1, op, expr2) => {
             let val1 = eval(expr1.clone(), env.clone(), effects);
             let val2 = eval(expr2.clone(), env.clone(), effects);
@@ -121,16 +92,16 @@ pub fn eval(expr: Rc<Expr>, env: Rc<RefCell<Environment>>, effects: &Effects) ->
         FuncAp(expr1, expr2) => {
             let val1 = eval(expr1.clone(), env.clone(), effects);
             let val2 = eval(expr2.clone(), env.clone(), effects);
-            let (id, body) = match &*val1.clone() {
-                Func(id, _, _, body) => (id.clone(), body.clone()),
+            let (id, body, closure) = match &*val1.clone() {
+                Func(id, _, _, body, closure) => (id.clone(), body.clone(), closure.clone()),
                 _ => panic!("Left expression of FuncAp is not a function"),
             };
-            println!(
-                "before substitution, val2 is {:#?} and id is {} and body is {:#?}",
-                val2, id, body
-            );
-            let new_env = Rc::new(RefCell::new(Environment::new(Some(env))));
+            let new_env = Rc::new(RefCell::new(Environment::new(Some(closure))));
             new_env.borrow_mut().extend(&id, val2.clone());
+            // println!(
+            //     "before eval, val2 is {:#?} and id is {} and body is {:#?} and env is {:#?}",
+            //     val2, id, body, new_env
+            // );
             eval(body, new_env, effects)
         }
         If(expr1, expr2, expr3) => {

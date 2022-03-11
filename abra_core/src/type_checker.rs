@@ -1,4 +1,6 @@
+use environment::Environment;
 use parse_tree;
+use std::cell::RefCell;
 use std::rc::Rc;
 use typed_tree;
 // use types::Type;
@@ -61,6 +63,7 @@ pub fn strip_options_expr(parse_tree: Rc<Pte>) -> Rc<Tte> {
             t_in.as_ref().unwrap().clone(),
             t_out.as_ref().unwrap().clone(),
             strip_options_expr(expr.clone()),
+            Rc::new(RefCell::new(Environment::new(None))),
         )),
         Pte::FuncAp(expr1, expr2) => Rc::new(Tte::FuncAp(
             strip_options_expr(expr1.clone()),
