@@ -70,13 +70,13 @@ pub fn eval(expr: Rc<Expr>, env: Rc<RefCell<Environment>>, effects: &Effects) ->
         }
         Unit | Int(_) | Bool(_) => expr.clone(),
         Func(id, ty1, ty2, body, _) => {
-            let func_env = Rc::new(RefCell::new(Environment::new(Some(env))));
+            let closure = Rc::new(RefCell::new(Environment::new(Some(env))));
             Rc::new(Func(
                 id.clone(),
                 ty1.clone(),
                 ty2.clone(),
                 body.clone(),
-                func_env,
+                closure,
             ))
         }
         BinOp(expr1, op, expr2) => {
@@ -87,20 +87,20 @@ pub fn eval(expr: Rc<Expr>, env: Rc<RefCell<Environment>>, effects: &Effects) ->
         Let(pat, _, expr1, expr2) => match &*pat.clone() {
             Pat::Var(id) => {
                 let val = eval(expr1.clone(), env.clone(), effects);
-                let new_env = Rc::new(RefCell::new(Environment::new(Some(env))));
+                let new_env = Rc::new(RefCell::new(Environment::new(Some(env.clone()))));
                 let val = match &*val {
                     // TODO: need to use weak reference?
-                    //      may be a memory leak because func_env points to new_env, but new_env contains reference to Func()
+                    //      may be a memory leak because closure points to new_env, but new_env contains reference to Func()
                     //      which reference needs to be weak?
                     Func(id, ty1, ty2, body, _) => {
-                        let func_env =
-                            Rc::new(RefCell::new(Environment::new(Some(new_env.clone()))));
+                        let closure = Rc::new(RefCell::new(Environment::new(Some(env))));
+                        closure.borrow_mut().extend(&id, val.clone());
                         Rc::new(Func(
                             id.clone(),
                             ty1.clone(),
                             ty2.clone(),
                             body.clone(),
-                            func_env,
+                            closure,
                         ))
                     }
                     _ => val,
