@@ -30,17 +30,17 @@ pub fn do_stuff() -> Rc<parse_tree::Expr> {
     //     }
     // } in f(10)";
     let to_parse = "
-    let f : int -> int -> int = func (n: int) -> int { func  (x: int) -> int { func (y: int) -> int {
+    let f_helper : int -> int -> int = func (n: int) -> int { func  (x: int) -> int { func (y: int) -> int {
         if n == 0 {
-            0
+            x
         } else {
-            if n == 1 {
-                1
-            } else {
-                f(n-1)(y)(x+y)
-            }
+            f_helper(n-1)(y)(x+y)
         }
-    }}} in f(10)(0)(1)";
+    }}}
+    in let f : int -> int = func (n: int) -> int {
+        f_helper(n)(0)(1) 
+    } 
+    in f(30)";
 
     println!("{}", to_parse);
     let expr = abra_grammar::ExprParser::new().parse(to_parse).unwrap();
