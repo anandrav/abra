@@ -86,14 +86,15 @@ pub fn eval(expr: Rc<Expr>, env: Rc<RefCell<Environment>>, effects: &Effects) ->
         }
         Let(pat, _, expr1, expr2) => match &*pat.clone() {
             Pat::Var(id) => {
-                // todo something is wrong here lol, think hard and get it right... but not too hard lol
                 let val = eval(expr1.clone(), env.clone(), effects);
                 let new_env = Rc::new(RefCell::new(Environment::new(Some(env))));
                 let val = match &*val {
+                    // TODO: need to use weak reference?
+                    //      may be a memory leak because func_env points to new_env, but new_env contains reference to Func()
+                    //      which reference needs to be weak?
                     Func(id, ty1, ty2, body, _) => {
                         let func_env =
                             Rc::new(RefCell::new(Environment::new(Some(new_env.clone()))));
-                        func_env.borrow_mut().extend(&id.clone(), expr1.clone());
                         Rc::new(Func(
                             id.clone(),
                             ty1.clone(),
