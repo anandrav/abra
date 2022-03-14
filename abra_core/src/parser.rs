@@ -17,18 +17,30 @@ pub fn do_stuff() -> Rc<parse_tree::Expr> {
     // let to_parse =
     //     "let f: int -> int -> int = func (x: int) -> int { func (y: int) -> int { x + y } } in f(3)(4)";
     // let to_parse = "let butt : int = 2 in let butt : int = 3 in butt";
+    // let to_parse = "
+    // let f : int -> int = func (x: int) -> int {
+    //     if x == 0 {
+    //         0
+    //     } else {
+    //         if x == 1 {
+    //             1
+    //         } else {
+    //             f(x-1) + f(x-2)
+    //         }
+    //     }
+    // } in f(10)";
     let to_parse = "
-    let f : int -> int = func (x: int) -> int {
-        if x == 0 {
+    let f : int -> int -> int = func (n: int) -> int { func  (x: int) -> int { func (y: int) -> int {
+        if n == 0 {
             0
         } else {
-            if x == 1 {
+            if n == 1 {
                 1
             } else {
-                f(x-1) + f(x-2)
+                f(n-1)(y)(x+y)
             }
         }
-    } in f(10)";
+    }}} in f(10)(0)(1)";
 
     println!("{}", to_parse);
     let expr = abra_grammar::ExprParser::new().parse(to_parse).unwrap();
