@@ -69,13 +69,16 @@ pub fn eval(expr: Rc<Expr>, env: Rc<RefCell<Environment>>, effects: &Effects) ->
             }
         }
         Unit | Int(_) | Bool(_) => expr.clone(),
-        Func(id, ty1, ty2, body, _) => Rc::new(Func(
-            id.clone(),
-            ty1.clone(),
-            ty2.clone(),
-            body.clone(),
-            env.clone(),
-        )), // todo: this is probably wrong
+        Func(id, ty1, ty2, body, _) => {
+            let func_env = Rc::new(RefCell::new(Environment::new(Some(env))));
+            Rc::new(Func(
+                id.clone(),
+                ty1.clone(),
+                ty2.clone(),
+                body.clone(),
+                func_env,
+            ))
+        }
         BinOp(expr1, op, expr2) => {
             let val1 = eval(expr1.clone(), env.clone(), effects);
             let val2 = eval(expr2.clone(), env.clone(), effects);
@@ -83,9 +86,25 @@ pub fn eval(expr: Rc<Expr>, env: Rc<RefCell<Environment>>, effects: &Effects) ->
         }
         Let(pat, _, expr1, expr2) => match &*pat.clone() {
             Pat::Var(id) => {
+                // todo something is wrong here lol, think hard and get it right... but not too hard lol
                 let val = eval(expr1.clone(), env.clone(), effects);
                 let new_env = Rc::new(RefCell::new(Environment::new(Some(env))));
-                new_env.borrow_mut().extend(&id, val);
+                let val = match &*val {
+                    Func(id, ty1, ty2, body, _) => {
+                        let func_env =
+                            Rc::new(RefCell::new(Environment::new(Some(new_env.clone()))));
+                        func_env.borrow_mut().extend(&id.clone(), expr1.clone());
+                        Rc::new(Func(
+                            id.clone(),
+                            ty1.clone(),
+                            ty2.clone(),
+                            body.clone(),
+                            func_env,
+                        ))
+                    }
+                    _ => val,
+                };
+                new_env.borrow_mut().extend(&id, val.clone());
                 eval(expr2.clone(), new_env, effects)
             }
         },
