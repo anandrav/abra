@@ -11,6 +11,7 @@ pub enum Expr {
     Var(Identifier),
     Unit,
     Int(i32),
+    Str(String),
     Bool(bool),
     BinOp(Rc<Expr>, BinOpcode, Rc<Expr>),
     Let(Rc<Pat>, Rc<Type>, Rc<Expr>, Rc<Expr>),

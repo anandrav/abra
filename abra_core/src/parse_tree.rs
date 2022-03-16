@@ -10,6 +10,7 @@ pub enum Expr {
     Unit,
     Int(i32),
     Bool(bool),
+    Str(String),
     BinOp(Rc<Expr>, BinOpcode, Rc<Expr>),
     Let(Rc<Pat>, Option<Rc<Type>>, Rc<Expr>, Rc<Expr>),
     Func(Identifier, Option<Rc<Type>>, Option<Rc<Type>>, Rc<Expr>),

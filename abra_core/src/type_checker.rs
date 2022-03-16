@@ -47,6 +47,7 @@ pub fn strip_options_expr(parse_tree: Rc<Pte>) -> Rc<Tte> {
         Pte::Unit => Rc::new(Tte::Unit),
         Pte::Int(i) => Rc::new(Tte::Int(*i)),
         Pte::Bool(b) => Rc::new(Tte::Bool(*b)),
+        Pte::Str(s) => Rc::new(Tte::Str(s.clone())),
         Pte::BinOp(expr1, op, expr2) => Rc::new(Tte::BinOp(
             strip_options_expr(expr1.clone()),
             *op,

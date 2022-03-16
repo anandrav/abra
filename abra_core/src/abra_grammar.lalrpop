@@ -15,6 +15,13 @@ Bool: bool = {
     "false" => false
 }
 
+Str: String = {
+    r#""[^"]*""# => {
+      let a = <>;
+      a[1..a.len()-1].to_string()
+    }
+};
+
 Unit: () = {
     "()" => ()
 }
@@ -95,6 +102,7 @@ Term: Rc<Expr> = {
     Unit => Rc::new(Expr::Unit),
     Int => Rc::new(Expr::Int(<>)),
     Bool => Rc::new(Expr::Bool(<>)),
+    Str => Rc::new(Expr::Str(<>)),
     "(" <Expr> ")",
 }
 

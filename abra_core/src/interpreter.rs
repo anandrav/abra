@@ -68,7 +68,7 @@ pub fn eval(expr: Rc<Expr>, env: Rc<RefCell<Environment>>, effects: &Effects) ->
                 Some(val) => val,
             }
         }
-        Unit | Int(_) | Bool(_) => expr.clone(),
+        Unit | Int(_) | Bool(_) | Str(_) => expr.clone(),
         Func(id, ty1, ty2, body, _) => {
             let closure = Rc::new(RefCell::new(Environment::new(Some(env))));
             Rc::new(Func(
