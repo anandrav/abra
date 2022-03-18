@@ -1,8 +1,8 @@
+use eval_tree::Expr::*;
+use eval_tree::*;
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
-use typed_tree::Expr::*;
-use typed_tree::*;
 
 #[derive(Debug)]
 pub struct Environment {

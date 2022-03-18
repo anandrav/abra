@@ -35,7 +35,7 @@ Pat: Rc<Pat> = {
 }
 
 Type: Rc<Type> = {
-    <t_in:Type> "->" <t_out:TypePrimitive> => Rc::new(Type::Arrow(<>)),
+    <t_in:TypePrimitive> "->" <t_out:Type> => Rc::new(Type::Arrow(<>)),
     TypePrimitive
 }
 
@@ -54,6 +54,14 @@ TypeAnn: Rc<Type> = {
     ":" <t:Type> => t
 }
 
+FuncArg: FuncArg = {
+    <id:Identifier> <typ:TypeAnn?> => (id, typ)
+}
+
+CommaFuncArg: FuncArg = {
+    "," <id:Identifier> <typ:TypeAnn?> => (id, typ)
+}
+
 TypeAnnFuncOut: Rc<Type> = {
     "->" <t:Type> => t
 }
@@ -61,10 +69,14 @@ TypeAnnFuncOut: Rc<Type> = {
 pub Expr: Rc<Expr> = {
     "let" <pat:Pat> "=" <e1:Expr> "in" <e2:Expr> => Rc::new(Expr::Let(pat, None, e1, e2)),
     "let" <pat:Pat> ":" <typ:Type> "=" <e1:Expr> "in" <e2:Expr> => Rc::new(Expr::Let(pat, Some(typ), e1, e2)),
-    "func" "(" <id:Identifier> <t_in:TypeAnn?> ")" <t_out:TypeAnnFuncOut?> "{" <body:Expr> "}" => Rc::new(Expr::Func(id, t_in, t_out, body)),
+    "func" "(" <func_arg:FuncArg> <func_args:CommaFuncArg*> ")" <t_out:TypeAnnFuncOut?> "{" <body:Expr> "}" => Rc::new(Expr::Func(func_arg, func_args, t_out, body)),
     "if" <e1:Expr> "{" <e2:Expr> "} else {" <e3:Expr> "}" => Rc::new(Expr::If(<>)),
     "match" <e1:Expr> "{" <rules:Rule*> "}" => Rc::new(Expr::Match(e1, rules)),
     SemicolonOpExpr,
+}
+
+CommaExpr: Rc<Expr> = {
+    "," <expr:Expr> => expr
 }
 
 SemicolonOpExpr: Rc<Expr> = {
@@ -93,7 +105,7 @@ FactorOpExpr: Rc<Expr> = {
 }
 
 FuncApExpr: Rc<Expr> = {
-    <f:FuncApExpr> "(" <a:Expr> ")" => Rc::new(Expr::FuncAp(f, a)),
+    <f:FuncApExpr> "(" <e:Expr> <es:CommaExpr*> ")" => Rc::new(Expr::FuncAp(f, e, es)),
     Term
 }
 

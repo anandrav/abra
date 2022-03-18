@@ -1,12 +1,12 @@
 use environment::Environment;
+use eval_tree::Expr::*;
+use eval_tree::*;
 use operators::BinOpcode::*;
 use operators::*;
 use side_effects::Output::*;
 use side_effects::*;
 use std::cell::RefCell;
 use std::rc::Rc;
-use typed_tree::Expr::*;
-use typed_tree::*;
 
 pub struct Effects {
     outputs: Vec<Output>,

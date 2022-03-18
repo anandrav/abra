@@ -5,7 +5,6 @@ use std::rc::Rc;
 use types::Type;
 
 pub type Identifier = String;
-pub type FuncArg = (Identifier, Rc<Type>);
 
 #[derive(Debug)]
 pub enum Expr {
@@ -16,8 +15,14 @@ pub enum Expr {
     Bool(bool),
     BinOp(Rc<Expr>, BinOpcode, Rc<Expr>),
     Let(Rc<Pat>, Rc<Type>, Rc<Expr>, Rc<Expr>),
-    Func(FuncArg, Vec<FuncArg>, Rc<Type>, Rc<Expr>),
-    FuncAp(Rc<Expr>, Rc<Expr>, Vec<Rc<Expr>>),
+    Func(
+        Identifier,
+        Rc<Type>,
+        Rc<Type>,
+        Rc<Expr>,
+        Rc<RefCell<Environment>>,
+    ),
+    FuncAp(Rc<Expr>, Rc<Expr>),
     If(Rc<Expr>, Rc<Expr>, Rc<Expr>),
     // Match(Rc<Expr>, Vec<Rule>),
 }

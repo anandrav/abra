@@ -41,6 +41,15 @@ pub fn strip_options_pat(parse_tree: Rc<Ptp>) -> Rc<Ttp> {
     }
 }
 
+pub fn strip_options_arg((id, typ): &parse_tree::FuncArg) -> typed_tree::FuncArg {
+    (id.clone(), typ.as_ref().unwrap().clone())
+}
+
+// TODO: this is a hack, use references better...
+pub fn strip_options_expr_ref(parse_tree: &Rc<Pte>) -> Rc<Tte> {
+    strip_options_expr(parse_tree.clone())
+}
+
 pub fn strip_options_expr(parse_tree: Rc<Pte>) -> Rc<Tte> {
     match &*parse_tree {
         Pte::Var(id) => Rc::new(Tte::Var(id.clone())),
@@ -59,16 +68,16 @@ pub fn strip_options_expr(parse_tree: Rc<Pte>) -> Rc<Tte> {
             strip_options_expr(expr1.clone()),
             strip_options_expr(expr2.clone()),
         )),
-        Pte::Func(id, t_in, t_out, expr) => Rc::new(Tte::Func(
-            id.clone(),
-            t_in.as_ref().unwrap().clone(),
+        Pte::Func(func_arg, func_args, t_out, expr) => Rc::new(Tte::Func(
+            strip_options_arg(func_arg),
+            func_args.iter().map(strip_options_arg).collect(),
             t_out.as_ref().unwrap().clone(),
             strip_options_expr(expr.clone()),
-            Rc::new(RefCell::new(Environment::new(None))),
         )),
-        Pte::FuncAp(expr1, expr2) => Rc::new(Tte::FuncAp(
+        Pte::FuncAp(expr1, expr2, exprs) => Rc::new(Tte::FuncAp(
             strip_options_expr(expr1.clone()),
             strip_options_expr(expr2.clone()),
+            exprs.iter().map(strip_options_expr_ref).collect(),
         )),
         Pte::If(expr1, expr2, expr3) => Rc::new(Tte::If(
             strip_options_expr(expr1.clone()),
