@@ -19,30 +19,21 @@ pub fn translate_pat(parse_tree: Rc<Ttp>) -> Rc<Etp> {
 }
 
 pub fn translate_expr_func(
-    (id, t_in): typed_tree::FuncArg,
+    (id, _): typed_tree::FuncArg,
     func_args: Vec<typed_tree::FuncArg>,
-    t_out: Rc<Type>,
     body: Rc<Tte>,
 ) -> Rc<Ete> {
     if func_args.is_empty() {
         Rc::new(Ete::Func(
             id.clone(),
-            t_in.clone(),
-            t_out.clone(),
             translate_expr(body.clone()),
             Rc::new(RefCell::new(Environment::new(None))),
         ))
     } else {
-        let rest_of_function = translate_expr_func(
-            func_args[0].clone(),
-            func_args[1..].to_vec(),
-            t_out.clone(), // todo this definitely is wrong
-            body.clone(),
-        );
+        let rest_of_function =
+            translate_expr_func(func_args[0].clone(), func_args[1..].to_vec(), body.clone());
         Rc::new(Ete::Func(
             id.clone(),
-            t_in.clone(),
-            t_out.clone(),
             rest_of_function,
             Rc::new(RefCell::new(Environment::new(None))),
         ))
@@ -74,18 +65,14 @@ pub fn translate_expr(parse_tree: Rc<Tte>) -> Rc<Ete> {
             *op,
             translate_expr(expr2.clone()),
         )),
-        Tte::Let(pat, t, expr1, expr2) => Rc::new(Ete::Let(
+        Tte::Let(pat, _, expr1, expr2) => Rc::new(Ete::Let(
             translate_pat(pat.clone()),
-            t.clone(),
             translate_expr(expr1.clone()),
             translate_expr(expr2.clone()),
         )),
-        Tte::Func(func_arg, func_args, t_out, body) => translate_expr_func(
-            func_arg.clone(),
-            func_args.clone(),
-            t_out.clone(),
-            body.clone(),
-        ),
+        Tte::Func(func_arg, func_args, _, body) => {
+            translate_expr_func(func_arg.clone(), func_args.clone(), body.clone())
+        }
         Tte::FuncAp(expr1, expr2, exprs) => {
             translate_expr_ap(expr1.clone(), expr2.clone(), exprs.clone())
         }

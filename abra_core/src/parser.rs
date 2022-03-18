@@ -47,7 +47,7 @@ pub fn do_stuff() -> Rc<parse_tree::Expr> {
         if n == 0 {
             x
         } else {
-            f_helper(n-1)(y)(x+y)
+            f_helper(n-1,y,x+y)
         }
     }
     in let f : int -> int = func (n: int) -> int {

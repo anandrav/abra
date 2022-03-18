@@ -69,22 +69,16 @@ pub fn eval(expr: Rc<Expr>, env: Rc<RefCell<Environment>>, effects: &Effects) ->
             }
         }
         Unit | Int(_) | Bool(_) | Str(_) => expr.clone(),
-        Func(id, ty1, ty2, body, _) => {
+        Func(id, body, _) => {
             let closure = Rc::new(RefCell::new(Environment::new(Some(env))));
-            Rc::new(Func(
-                id.clone(),
-                ty1.clone(),
-                ty2.clone(),
-                body.clone(),
-                closure,
-            ))
+            Rc::new(Func(id.clone(), body.clone(), closure))
         }
         BinOp(expr1, op, expr2) => {
             let val1 = eval(expr1.clone(), env.clone(), effects);
             let val2 = eval(expr2.clone(), env.clone(), effects);
             perform_op(val1, *op, val2)
         }
-        Let(pat, _, expr1, expr2) => match &*pat.clone() {
+        Let(pat, expr1, expr2) => match &*pat.clone() {
             Pat::Var(id) => {
                 let val = eval(expr1.clone(), env.clone(), effects);
                 let new_env = Rc::new(RefCell::new(Environment::new(Some(env.clone()))));
@@ -92,16 +86,10 @@ pub fn eval(expr: Rc<Expr>, env: Rc<RefCell<Environment>>, effects: &Effects) ->
                     // TODO: need to use weak reference?
                     //      may be a memory leak because closure has ref to new_env, but new_env contains ref to the val/Func()
                     //      which reference needs to be weak?
-                    Func(id, ty1, ty2, body, _) => {
+                    Func(id, body, _) => {
                         let closure =
                             Rc::new(RefCell::new(Environment::new(Some(new_env.clone()))));
-                        Rc::new(Func(
-                            id.clone(),
-                            ty1.clone(),
-                            ty2.clone(),
-                            body.clone(),
-                            closure,
-                        ))
+                        Rc::new(Func(id.clone(), body.clone(), closure))
                     }
                     _ => val,
                 };
@@ -113,7 +101,7 @@ pub fn eval(expr: Rc<Expr>, env: Rc<RefCell<Environment>>, effects: &Effects) ->
             let val1 = eval(expr1.clone(), env.clone(), effects);
             let val2 = eval(expr2.clone(), env.clone(), effects);
             let (id, body, closure) = match &*val1.clone() {
-                Func(id, _, _, body, closure) => (id.clone(), body.clone(), closure.clone()),
+                Func(id, body, closure) => (id.clone(), body.clone(), closure.clone()),
                 _ => panic!("Left expression of FuncAp is not a function"),
             };
             let new_env = Rc::new(RefCell::new(Environment::new(Some(closure))));
