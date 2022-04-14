@@ -5,13 +5,13 @@ use std::cell::RefCell;
 use std::rc::Rc;
 
 mod environment;
-mod eval_translate;
 mod eval_tree;
 mod interpreter;
 mod operators;
 mod parse_tree;
 mod parser;
 mod side_effects;
+mod translate;
 mod type_checker;
 mod typed_tree;
 mod types;
@@ -19,14 +19,30 @@ mod types;
 fn main() {
     println!("abra_core::main()\n");
 
+    let env = Rc::new(RefCell::new(environment::Environment::new(None)));
+    // env.borrow_mut().extend(&String::from("print"));
+    // TODO anand: you were last here
+
     let parsed_expr = parser::do_stuff();
     let typed_expr = type_checker::strip_options_expr(parsed_expr.clone());
-    let eval_expr = eval_translate::translate_expr(typed_expr);
-    let val = interpreter::eval(
-        eval_expr,
-        Rc::new(RefCell::new(environment::Environment::new(None))),
-        &interpreter::Effects::empty(),
-    );
+    let mut eval_expr = translate::translate_expr(typed_expr);
+    // let val = interpreter::eval(
+    //     eval_expr,
+    //     Rc::new(RefCell::new(environment::Environment::new(None))),
+    // );
+    let mut next_input = None;
+    while true {
+        let result = interpreter::interpret(eval_expr, env.clone(), 1, &next_input);
+        eval_expr = result.expr;
+        next_input = match result.effect {
+            None => None,
+            Some(effect) => side_effects::handle_effect(&effect),
+        };
+        match (&next_input, eval_tree::is_val(&eval_expr)) {
+            (None, false) => break,
+            _ => (),
+        };
+    }
 
-    println!("Expr evaluated to val: {:#?}", val);
+    println!("Expr evaluated to val: {:#?}", eval_expr);
 }

@@ -1,5 +1,6 @@
 use environment::Environment;
 use operators::BinOpcode;
+use side_effects;
 use std::cell::RefCell;
 use std::rc::Rc;
 
@@ -18,6 +19,7 @@ pub enum Expr {
     FuncAp(Rc<Expr>, Rc<Expr>),
     If(Rc<Expr>, Rc<Expr>, Rc<Expr>),
     // Match(Rc<Expr>, Vec<Rule>),
+    Effect(side_effects::Effect),
 }
 
 // pub type Rule = (Rc<Pat>, Rc<Expr>);
@@ -25,4 +27,12 @@ pub enum Expr {
 #[derive(Debug)]
 pub enum Pat {
     Var(String),
+}
+
+pub fn is_val(expr: &Rc<Expr>) -> bool {
+    use self::Expr::*;
+    match &*expr.clone() {
+        Unit | Int(_) | Str(_) | Bool(_) => true,
+        _ => false,
+    }
 }
