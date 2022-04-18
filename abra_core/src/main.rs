@@ -20,7 +20,18 @@ fn main() {
     println!("abra_core::main()\n");
 
     let env = Rc::new(RefCell::new(environment::Environment::new(None)));
-    // env.borrow_mut().extend(&String::from("print"));
+    env.borrow_mut().extend(
+        &String::from("print"),
+        Rc::new(eval_tree::Expr::Func(
+            String::from("str"),
+            Rc::new(eval_tree::Expr::EffectAp(
+                side_effects::Effect::Print,
+                vec![Rc::new(eval_tree::Expr::Var(String::from("str")))],
+            )),
+            Rc::new(RefCell::new(environment::Environment::new(None))),
+        )),
+    );
+    // Rc::new(eval_tree::Expr::Effect(side_effects::Effect::Print))
     // TODO anand: you were last here
 
     let parsed_expr = parser::do_stuff();
@@ -31,12 +42,12 @@ fn main() {
     //     Rc::new(RefCell::new(environment::Environment::new(None))),
     // );
     let mut next_input = None;
-    while true {
+    loop {
         let result = interpreter::interpret(eval_expr, env.clone(), 1, &next_input);
         eval_expr = result.expr;
         next_input = match result.effect {
             None => None,
-            Some(effect) => side_effects::handle_effect(&effect),
+            Some((effect, args)) => side_effects::handle_effect(&effect, &args),
         };
         match (&next_input, eval_tree::is_val(&eval_expr)) {
             (None, false) => break,

@@ -1,3 +1,6 @@
+use eval_tree;
+use std::rc::Rc;
+
 #[derive(Debug, Clone)]
 pub struct Cout(String);
 #[derive(Debug, Clone)]
@@ -15,18 +18,19 @@ pub enum Input {
 
 #[derive(Debug, Clone)]
 pub enum Effect {
-    Print(Cout),
+    Print,
     Read,
 }
 
-use self::Effect::*;
-
-pub fn handle_effect(effect: &Effect) -> Option<Input> {
+pub fn handle_effect(effect: &Effect, args: &Vec<Rc<eval_tree::Expr>>) -> Option<Input> {
     match effect {
-        Print(Cout(string)) => {
-            println!("{}", string);
-            None
-        }
-        Read => Some(Input::Cin(String::from("this is input"))),
+        Effect::Print => match &*args[0] {
+            eval_tree::Expr::Str(string) => {
+                println!("{}", string);
+                None
+            }
+            _ => panic!("wrong arguments for {:#?} effect", effect),
+        },
+        Effect::Read => Some(Input::Cin(String::from("this is input"))),
     }
 }

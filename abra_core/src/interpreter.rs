@@ -108,14 +108,20 @@ pub fn eval(expr: Rc<Expr>, env: Rc<RefCell<Environment>>) -> Rc<Expr> {
                 _ => panic!("If expression clause did not evaluate to a bool"),
             }
         }
-        Effect(_) => panic!("Effects are not handled!"),
+        EffectAp(_, _) => panic!("EffectAp not implemented for eval()"),
+        ConsumedEffect => panic!("ConsumedEffect not implemented for eval()"),
     }
 }
+
+// pub struct EffectWithArgs {
+//     effect: side_effects::Effect,
+//     args: Vec<Rc<Expr>>,
+// }
 
 pub struct InterpretResult {
     pub expr: Rc<Expr>,
     pub steps: i32,
-    pub effect: Option<side_effects::Effect>,
+    pub effect: Option<(side_effects::Effect, Vec<Rc<Expr>>)>,
 }
 
 pub fn interpret(
@@ -307,6 +313,41 @@ pub fn interpret(
                 _ => panic!("If expression clause did not evaluate to a bool"),
             }
         }
-        Effect(_) => panic!("Effects are not handled"),
+        EffectAp(effect_enum, args) => {
+            let mut args = args.to_vec();
+            for i in 0..args.len() {
+                let InterpretResult {
+                    expr: arg,
+                    steps,
+                    effect,
+                } = interpret(args[i].clone(), env.clone(), steps, &input.clone());
+                args[i] = arg;
+                if effect.is_some() || steps <= 0 {
+                    return InterpretResult {
+                        expr: Rc::new(EffectAp(effect_enum.clone(), args.to_vec())),
+                        steps,
+                        effect,
+                    };
+                }
+            }
+            let steps = steps - 1;
+            return InterpretResult {
+                expr: Rc::new(ConsumedEffect),
+                steps,
+                effect: Some((effect_enum.clone(), args.to_vec())),
+            };
+        }
+        ConsumedEffect => match input {
+            None => panic!("no input to substitute for ConsumedEffect"),
+            Some(input) => match input {
+                Input::Cin(string) => {
+                    return InterpretResult {
+                        expr: Rc::new(Str(string.to_string())),
+                        steps,
+                        effect: None,
+                    }
+                }
+            },
+        },
     }
 }

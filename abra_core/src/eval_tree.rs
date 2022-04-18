@@ -19,7 +19,8 @@ pub enum Expr {
     FuncAp(Rc<Expr>, Rc<Expr>),
     If(Rc<Expr>, Rc<Expr>, Rc<Expr>),
     // Match(Rc<Expr>, Vec<Rule>),
-    Effect(side_effects::Effect),
+    EffectAp(side_effects::Effect, Vec<Rc<Expr>>),
+    ConsumedEffect,
 }
 
 // pub type Rule = (Rc<Pat>, Rc<Expr>);
