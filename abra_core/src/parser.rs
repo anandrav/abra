@@ -42,25 +42,25 @@ pub fn do_stuff() -> Rc<parse_tree::Expr> {
     // }
     // in f(10)
     // ";
-    // let to_parse = "
-    // let f_helper : int -> int -> int -> int = func (n: int, x: int, y: int) -> int {
-    //     if n == 0 {
-    //         x
-    //     } else {
-    //         f_helper(n-1,y,x+y)
-    //     }
-    // }
-    // in let f : int -> int = func (n: int) -> int {
-    //     f_helper(n,0,1)
-    // }
-    // in f(10)
-    // ";
+    let to_parse = "
+    let f_helper : int -> int -> int -> int = func (n: int, x: int, y: int) -> int {
+        if n == 0 {
+            x
+        } else {
+            f_helper(n-1,y,x+y)
+        }
+    }
+    in let f : int -> int = func (n: int) -> int {
+        f_helper(n,0,1)
+    }
+    in f(10)
+    ";
     // let f : int -> int = func (x: int) -> int {
     //     f(x)
     // } in f(0)";
     // let to_parse = "let s : string = \"hello world\" in s";
     // let to_parse = "let s : string -> string -> string = \"hello world\" in s";
-    let to_parse = "print(\"hello world\")";
+    // let to_parse = "print(\"hello world\")";
 
     println!("{}", to_parse);
     let expr = abra_grammar::ExprParser::new().parse(to_parse).unwrap();

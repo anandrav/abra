@@ -37,7 +37,7 @@ fn main() {
     let parsed_expr = parser::do_stuff();
     let typed_expr = type_checker::strip_options_expr(parsed_expr.clone());
     let mut eval_expr = translate::translate_expr(typed_expr);
-    // let val = interpreter::eval(
+    // let eval_expr = interpreter::eval(
     //     eval_expr,
     //     Rc::new(RefCell::new(environment::Environment::new(None))),
     // );
@@ -50,10 +50,11 @@ fn main() {
             Some((effect, args)) => side_effects::handle_effect(&effect, &args),
         };
         match (&next_input, eval_tree::is_val(&eval_expr)) {
-            (None, false) => break,
+            (None, true) => {
+                break;
+            }
             _ => (),
         };
     }
-
     println!("Expr evaluated to val: {:#?}", eval_expr);
 }
