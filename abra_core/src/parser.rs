@@ -60,7 +60,7 @@ pub fn do_stuff() -> Rc<parse_tree::Expr> {
     // } in f(0)";
     // let to_parse = "let s : string = \"hello world\" in s";
     // let to_parse = "let s : string -> string -> string = \"hello world\" in s";
-    // let to_parse = "print(\"hello world\")";
+    let to_parse = "print(\"hello world this is Anand\")";
 
     println!("{}", to_parse);
     let expr = abra_grammar::ExprParser::new().parse(to_parse).unwrap();

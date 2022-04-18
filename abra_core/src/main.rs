@@ -51,13 +51,13 @@ fn main() {
         }
         next_input = match result.effect {
             None => None,
-            Some((effect, args)) => side_effects::handle_effect(&effect, &args),
+            Some((effect, args)) => Some(side_effects::handle_effect(&effect, &args)),
         };
         match (&next_input, eval_tree::is_val(&eval_expr)) {
             (None, true) => {
                 break;
             }
-            _ => (), //println!("Expr is: {:#?}", eval_expr),
+            _ => println!("Expr is: {:#?}", eval_expr),
         };
     }
     println!("============================");

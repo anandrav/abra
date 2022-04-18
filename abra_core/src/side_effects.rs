@@ -13,6 +13,7 @@ pub struct Cin(String);
 
 #[derive(Debug, Clone)]
 pub enum Input {
+    Unit,
     Cin(String),
 }
 
@@ -22,15 +23,15 @@ pub enum Effect {
     Read,
 }
 
-pub fn handle_effect(effect: &Effect, args: &Vec<Rc<eval_tree::Expr>>) -> Option<Input> {
+pub fn handle_effect(effect: &Effect, args: &Vec<Rc<eval_tree::Expr>>) -> Input {
     match effect {
         Effect::Print => match &*args[0] {
             eval_tree::Expr::Str(string) => {
-                println!("{}", string);
-                None
+                println!(">>>{}", string);
+                Input::Unit
             }
             _ => panic!("wrong arguments for {:#?} effect", effect),
         },
-        Effect::Read => Some(Input::Cin(String::from("this is input"))),
+        Effect::Read => Input::Cin(String::from("this is input")),
     }
 }

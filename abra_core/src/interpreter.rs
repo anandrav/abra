@@ -413,6 +413,14 @@ pub fn interpret(
         ConsumedEffect => match input {
             None => panic!("no input to substitute for ConsumedEffect"),
             Some(input) => match input {
+                Input::Unit => {
+                    return InterpretResult {
+                        expr: Rc::new(Unit),
+                        steps,
+                        effect: None,
+                        new_env: None,
+                    }
+                }
                 Input::Cin(string) => {
                     return InterpretResult {
                         expr: Rc::new(Str(string.to_string())),
