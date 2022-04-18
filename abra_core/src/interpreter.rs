@@ -220,7 +220,7 @@ pub fn interpret(
                 let expr1 = match &*expr1 {
                     // TODO: need to use weak reference?
                     //      may be a memory leak because closure has ref to new_env, but new_env contains ref to the val/Func()
-                    //      which reference needs to be weak?
+                    //      ... which reference needs to be weak??
                     Func(id, body, _) => {
                         let closure =
                             Rc::new(RefCell::new(Environment::new(Some(new_env.clone()))));
@@ -267,6 +267,7 @@ pub fn interpret(
                     new_env,
                 };
             }
+            println!("evaluated expr1");
             let InterpretResult {
                 expr: expr2,
                 steps,
@@ -281,6 +282,7 @@ pub fn interpret(
                     new_env,
                 };
             }
+            println!("evaluated expr2");
             let (id, body, closure) = match &*expr1.clone() {
                 Func(id, body, closure) => (id.clone(), body.clone(), closure.clone()),
                 _ => panic!("Left expression of FuncAp is not a function"),
@@ -306,6 +308,7 @@ pub fn interpret(
                     new_env,
                 };
             }
+            println!("evaluated body of FuncAp to: {:#?}", expr);
 
             let steps = steps - 1;
             return InterpretResult {

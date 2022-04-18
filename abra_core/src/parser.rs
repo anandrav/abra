@@ -53,7 +53,7 @@ pub fn do_stuff() -> Rc<parse_tree::Expr> {
     in let f : int -> int = func (n: int) -> int {
         f_helper(n,0,1)
     }
-    in f(0)
+    in f(10)
     ";
     // let f : int -> int = func (x: int) -> int {
     //     f(x)

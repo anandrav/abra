@@ -43,7 +43,7 @@ fn main() {
     // );
     let mut next_input = None;
     loop {
-        let result = interpreter::interpret(eval_expr, env.clone(), 1, &next_input);
+        let result = interpreter::interpret(eval_expr, env.clone(), 1000, &next_input);
         eval_expr = result.expr;
         match result.new_env {
             None => (),
@@ -57,7 +57,7 @@ fn main() {
             (None, true) => {
                 break;
             }
-            _ => println!("Expr is: {:#?}", eval_expr),
+            _ => (), //println!("Expr is: {:#?}", eval_expr),
         };
     }
     println!("============================");
