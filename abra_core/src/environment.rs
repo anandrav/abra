@@ -2,12 +2,21 @@ use eval_tree::Expr::*;
 use eval_tree::*;
 use std::cell::RefCell;
 use std::collections::HashMap;
+use std::fmt;
 use std::rc::Rc;
 
-#[derive(Debug)]
 pub struct Environment {
     vars: HashMap<Identifier, Rc<Expr>>,
     enclosing: Option<Rc<RefCell<Environment>>>,
+}
+
+impl fmt::Debug for Environment {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("Environment").finish()
+        // .field("x", &self.x)
+        // .field("y", &self.y)
+        // .finish()
+    }
 }
 
 impl Environment {

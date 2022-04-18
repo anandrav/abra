@@ -19,7 +19,7 @@ mod types;
 fn main() {
     println!("abra_core::main()\n");
 
-    let env = Rc::new(RefCell::new(environment::Environment::new(None)));
+    let mut env = Rc::new(RefCell::new(environment::Environment::new(None)));
     env.borrow_mut().extend(
         &String::from("print"),
         Rc::new(eval_tree::Expr::Func(
@@ -45,6 +45,10 @@ fn main() {
     loop {
         let result = interpreter::interpret(eval_expr, env.clone(), 1, &next_input);
         eval_expr = result.expr;
+        match result.new_env {
+            None => (),
+            Some(new_env) => env = new_env,
+        }
         next_input = match result.effect {
             None => None,
             Some((effect, args)) => side_effects::handle_effect(&effect, &args),
@@ -53,8 +57,9 @@ fn main() {
             (None, true) => {
                 break;
             }
-            _ => (),
+            _ => println!("Expr is: {:#?}", eval_expr),
         };
     }
+    println!("============================");
     println!("Expr evaluated to val: {:#?}", eval_expr);
 }

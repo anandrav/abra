@@ -118,10 +118,13 @@ pub fn eval(expr: Rc<Expr>, env: Rc<RefCell<Environment>>) -> Rc<Expr> {
 //     args: Vec<Rc<Expr>>,
 // }
 
+// todo anand: separate into two cases: Success and Failure... new_env should only be present for failure,
+// steps should only be <= 0 and/or effect should be present for failure...
 pub struct InterpretResult {
     pub expr: Rc<Expr>,
     pub steps: i32,
     pub effect: Option<(side_effects::Effect, Vec<Rc<Expr>>)>,
+    pub new_env: Option<Rc<RefCell<Environment>>>,
 }
 
 pub fn interpret(
@@ -139,6 +142,7 @@ pub fn interpret(
                     expr: val,
                     steps,
                     effect: None,
+                    new_env: None,
                 },
             }
         }
@@ -146,6 +150,7 @@ pub fn interpret(
             expr: expr.clone(),
             steps,
             effect: None,
+            new_env: None,
         },
         Func(id, body, _) => {
             let closure = Rc::new(RefCell::new(Environment::new(Some(env))));
@@ -153,6 +158,7 @@ pub fn interpret(
                 expr: Rc::new(Func(id.clone(), body.clone(), closure)),
                 steps,
                 effect: None,
+                new_env: None,
             }
         }
         BinOp(expr1, op, expr2) => {
@@ -160,24 +166,28 @@ pub fn interpret(
                 expr: expr1,
                 steps,
                 effect,
+                new_env,
             } = interpret(expr1.clone(), env.clone(), steps, &input.clone());
             if effect.is_some() || steps <= 0 {
                 return InterpretResult {
                     expr: Rc::new(BinOp(expr1, *op, expr2.clone())),
                     steps,
                     effect,
+                    new_env,
                 };
             }
             let InterpretResult {
                 expr: expr2,
                 steps,
                 effect,
+                new_env,
             } = interpret(expr2.clone(), env.clone(), steps, input);
             if effect.is_some() || steps <= 0 {
                 return InterpretResult {
                     expr: Rc::new(BinOp(expr1, *op, expr2.clone())),
                     steps,
                     effect,
+                    new_env,
                 };
             }
             let val = perform_op(expr1, *op, expr2);
@@ -186,6 +196,7 @@ pub fn interpret(
                 expr: val,
                 steps,
                 effect: None,
+                new_env: None,
             }
         }
         Let(pat, expr1, expr2) => match &*pat.clone() {
@@ -194,14 +205,17 @@ pub fn interpret(
                     expr: expr1,
                     steps,
                     effect,
+                    new_env,
                 } = interpret(expr1.clone(), env.clone(), steps, &input.clone());
                 if effect.is_some() || steps <= 0 {
                     return InterpretResult {
                         expr: Rc::new(Let(pat.clone(), expr1.clone(), expr2.clone())),
                         steps,
                         effect,
+                        new_env,
                     };
                 }
+                // todo anand: explain this with comment
                 let new_env = Rc::new(RefCell::new(Environment::new(Some(env.clone()))));
                 let expr1 = match &*expr1 {
                     // TODO: need to use weak reference?
@@ -215,7 +229,27 @@ pub fn interpret(
                     _ => expr1,
                 };
                 new_env.borrow_mut().extend(&id, expr1.clone());
-                interpret(expr2.clone(), new_env, steps, input)
+
+                let InterpretResult {
+                    expr,
+                    steps,
+                    effect,
+                    new_env,
+                } = interpret(expr2.clone(), new_env, steps, input);
+                if effect.is_some() || steps <= 0 {
+                    return InterpretResult {
+                        expr: Rc::new(Let(pat.clone(), expr1, expr2.clone())),
+                        steps,
+                        effect,
+                        new_env,
+                    };
+                }
+                return InterpretResult {
+                    expr,
+                    steps,
+                    effect: None,
+                    new_env: None,
+                };
             }
         },
         FuncAp(expr1, expr2) => {
@@ -223,24 +257,28 @@ pub fn interpret(
                 expr: expr1,
                 steps,
                 effect,
+                new_env,
             } = interpret(expr1.clone(), env.clone(), steps, &input.clone());
             if effect.is_some() || steps <= 0 {
                 return InterpretResult {
                     expr: Rc::new(FuncAp(expr1, expr2.clone())),
                     steps,
                     effect,
+                    new_env,
                 };
             }
             let InterpretResult {
                 expr: expr2,
                 steps,
                 effect,
+                new_env,
             } = interpret(expr2.clone(), env.clone(), steps, &input.clone());
             if effect.is_some() || steps <= 0 {
                 return InterpretResult {
                     expr: Rc::new(FuncAp(expr1, expr2)),
                     steps,
                     effect,
+                    new_env,
                 };
             }
             let (id, body, closure) = match &*expr1.clone() {
@@ -253,20 +291,43 @@ pub fn interpret(
             //     "before eval, val2 is {:#?} and id is {} and body is {:#?} and env is {:#?}",
             //     val2, id, body, new_env
             // );
+
+            let InterpretResult {
+                expr,
+                steps,
+                effect,
+                new_env,
+            } = interpret(body, new_env, steps, input);
+            if effect.is_some() || steps <= 0 {
+                return InterpretResult {
+                    expr: Rc::new(FuncAp(expr1, expr2)),
+                    steps,
+                    effect,
+                    new_env,
+                };
+            }
+
             let steps = steps - 1;
-            interpret(body, new_env, steps, input)
+            return InterpretResult {
+                expr,
+                steps,
+                effect: None,
+                new_env: None,
+            };
         }
         If(expr1, expr2, expr3) => {
             let InterpretResult {
                 expr: expr1,
                 steps,
                 effect,
+                new_env,
             } = interpret(expr1.clone(), env.clone(), steps, &input.clone());
             if effect.is_some() || steps <= 0 {
                 return InterpretResult {
                     expr: Rc::new(If(expr1, expr2.clone(), expr3.clone())),
                     steps,
                     effect,
+                    new_env,
                 };
             }
             match &*expr1 {
@@ -275,12 +336,14 @@ pub fn interpret(
                         expr: expr2,
                         steps,
                         effect,
+                        new_env,
                     } = interpret(expr2.clone(), env.clone(), steps, input);
                     if effect.is_some() || steps <= 0 {
                         return InterpretResult {
                             expr: Rc::new(If(expr1, expr2, expr3.clone())),
                             steps,
                             effect,
+                            new_env,
                         };
                     }
                     let steps = steps - 1;
@@ -288,6 +351,7 @@ pub fn interpret(
                         expr: expr2,
                         steps,
                         effect,
+                        new_env: None,
                     };
                 }
                 Bool(false) => {
@@ -295,12 +359,14 @@ pub fn interpret(
                         expr: expr3,
                         steps,
                         effect,
+                        new_env,
                     } = interpret(expr3.clone(), env.clone(), steps, input);
                     if effect.is_some() || steps <= 0 {
                         return InterpretResult {
                             expr: Rc::new(If(expr1, expr2.clone(), expr3)),
                             steps,
                             effect,
+                            new_env,
                         };
                     }
                     let steps = steps - 1;
@@ -308,6 +374,7 @@ pub fn interpret(
                         expr: expr3,
                         steps,
                         effect,
+                        new_env: None,
                     };
                 }
                 _ => panic!("If expression clause did not evaluate to a bool"),
@@ -320,6 +387,7 @@ pub fn interpret(
                     expr: arg,
                     steps,
                     effect,
+                    new_env,
                 } = interpret(args[i].clone(), env.clone(), steps, &input.clone());
                 args[i] = arg;
                 if effect.is_some() || steps <= 0 {
@@ -327,6 +395,7 @@ pub fn interpret(
                         expr: Rc::new(EffectAp(effect_enum.clone(), args.to_vec())),
                         steps,
                         effect,
+                        new_env,
                     };
                 }
             }
@@ -335,6 +404,7 @@ pub fn interpret(
                 expr: Rc::new(ConsumedEffect),
                 steps,
                 effect: Some((effect_enum.clone(), args.to_vec())),
+                new_env: None,
             };
         }
         ConsumedEffect => match input {
@@ -345,6 +415,7 @@ pub fn interpret(
                         expr: Rc::new(Str(string.to_string())),
                         steps,
                         effect: None,
+                        new_env: None,
                     }
                 }
             },
