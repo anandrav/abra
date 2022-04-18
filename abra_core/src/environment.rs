@@ -10,12 +10,26 @@ pub struct Environment {
     enclosing: Option<Rc<RefCell<Environment>>>,
 }
 
+impl Environment {
+    pub fn debug_helper(&self) -> Vec<String> {
+        let mut current = Vec::new();
+        for (key, value) in &self.vars {
+            current.push(key.clone())
+        }
+        match &self.enclosing {
+            Some(env) => {
+                let mut all = env.borrow_mut().debug_helper();
+                all.append(&mut current);
+                all
+            }
+            None => current,
+        }
+    }
+}
+
 impl fmt::Debug for Environment {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("Environment").finish()
-        // .field("x", &self.x)
-        // .field("y", &self.y)
-        // .finish()
+        write!(f, "Environment(\n{:?}\n)", Environment::debug_helper(self))
     }
 }
 

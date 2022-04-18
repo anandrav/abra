@@ -124,7 +124,7 @@ pub struct InterpretResult {
     pub expr: Rc<Expr>,
     pub steps: i32,
     pub effect: Option<(side_effects::Effect, Vec<Rc<Expr>>)>,
-    pub new_env: Option<Rc<RefCell<Environment>>>,
+    pub new_env: Rc<RefCell<Environment>>,
 }
 
 pub fn interpret(
@@ -142,7 +142,7 @@ pub fn interpret(
                     expr: val,
                     steps,
                     effect: None,
-                    new_env: None,
+                    new_env: env,
                 },
             }
         }
@@ -150,15 +150,16 @@ pub fn interpret(
             expr: expr.clone(),
             steps,
             effect: None,
-            new_env: None,
+            new_env: env,
         },
         Func(id, body, _) => {
-            let closure = Rc::new(RefCell::new(Environment::new(Some(env))));
+            // todo anand: closure is getting overwritten when another parital execution happens and it forgets about variiables...
+            let closure = Rc::new(RefCell::new(Environment::new(Some(env.clone()))));
             InterpretResult {
                 expr: Rc::new(Func(id.clone(), body.clone(), closure)),
                 steps,
                 effect: None,
-                new_env: None,
+                new_env: env,
             }
         }
         BinOp(expr1, op, expr2) => {
@@ -196,7 +197,7 @@ pub fn interpret(
                 expr: val,
                 steps,
                 effect: None,
-                new_env: None,
+                new_env: env,
             }
         }
         Let(pat, expr1, expr2) => match &*pat.clone() {
@@ -238,7 +239,7 @@ pub fn interpret(
                 } = interpret(expr2.clone(), new_env, steps, input);
                 if effect.is_some() || steps <= 0 {
                     return InterpretResult {
-                        expr: Rc::new(Let(pat.clone(), expr1, expr2.clone())), // todo anand: I think this should just be "expr" here
+                        expr, // todo anand: I think this should just be "expr" here
                         steps,
                         effect,
                         new_env,
@@ -248,7 +249,7 @@ pub fn interpret(
                     expr,
                     steps,
                     effect: None,
-                    new_env: None,
+                    new_env: env,
                 };
             }
         },
@@ -267,7 +268,7 @@ pub fn interpret(
                     new_env,
                 };
             }
-            println!("evaluated expr1");
+            println!("evaluated expr1 to {:#?}", expr1);
             let InterpretResult {
                 expr: expr2,
                 steps,
@@ -282,13 +283,14 @@ pub fn interpret(
                     new_env,
                 };
             }
-            println!("evaluated expr2");
+            println!("evaluated expr2 to {:#?}", expr2);
             let (id, body, closure) = match &*expr1.clone() {
                 Func(id, body, closure) => (id.clone(), body.clone(), closure.clone()),
                 _ => panic!("Left expression of FuncAp is not a function"),
             };
             let new_env = Rc::new(RefCell::new(Environment::new(Some(closure))));
             new_env.borrow_mut().extend(&id, expr2.clone());
+            println!("new_env after extension: {:#?}", new_env);
             // println!(
             //     "before eval, val2 is {:#?} and id is {} and body is {:#?} and env is {:#?}",
             //     val2, id, body, new_env
@@ -302,8 +304,8 @@ pub fn interpret(
             } = interpret(body, new_env, steps, input);
             if effect.is_some() || steps <= 0 {
                 println!(
-                    "PARTIALLY EVALUATED body of FuncAp, resulting expr: {:#?}",
-                    expr
+                    "PARTIALLY EVALUATED body of FuncAp, resulting new_env: {:#?} and expr: {:#?}",
+                    new_env, expr
                 );
                 return InterpretResult {
                     expr: expr,
@@ -312,14 +314,14 @@ pub fn interpret(
                     new_env,
                 };
             }
-            println!("evaluated body of FuncAp to: {:#?}", expr);
+            // println!("evaluated body of FuncAp to: {:#?}", expr);
 
             let steps = steps - 1;
             return InterpretResult {
                 expr,
                 steps,
                 effect: None,
-                new_env: None,
+                new_env: env,
             };
         }
         If(expr1, expr2, expr3) => {
@@ -337,6 +339,7 @@ pub fn interpret(
                     new_env,
                 };
             }
+            println!("IF evaluated expr1");
             match &*expr1 {
                 Bool(true) => {
                     let InterpretResult {
@@ -353,12 +356,13 @@ pub fn interpret(
                             new_env,
                         };
                     }
+                    println!("IF evaluated expr2");
                     let steps = steps - 1;
                     return InterpretResult {
                         expr: expr2,
                         steps,
                         effect,
-                        new_env: None,
+                        new_env: env,
                     };
                 }
                 Bool(false) => {
@@ -376,12 +380,13 @@ pub fn interpret(
                             new_env,
                         };
                     }
+                    println!("IF evaluated expr2");
                     let steps = steps - 1;
                     return InterpretResult {
                         expr: expr3,
                         steps,
                         effect,
-                        new_env: None,
+                        new_env: env,
                     };
                 }
                 _ => panic!("If expression clause did not evaluate to a bool"),
@@ -411,7 +416,7 @@ pub fn interpret(
                 expr: Rc::new(ConsumedEffect),
                 steps,
                 effect: Some((effect_enum.clone(), args.to_vec())),
-                new_env: None,
+                new_env: env,
             };
         }
         ConsumedEffect => match input {
@@ -422,7 +427,7 @@ pub fn interpret(
                         expr: Rc::new(Unit),
                         steps,
                         effect: None,
-                        new_env: None,
+                        new_env: env,
                     }
                 }
                 Input::Cin(string) => {
@@ -430,7 +435,7 @@ pub fn interpret(
                         expr: Rc::new(Str(string.to_string())),
                         steps,
                         effect: None,
-                        new_env: None,
+                        new_env: env,
                     }
                 }
             },

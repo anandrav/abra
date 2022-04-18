@@ -43,12 +43,9 @@ fn main() {
     // );
     let mut next_input = None;
     loop {
-        let result = interpreter::interpret(eval_expr, env.clone(), 1000, &next_input);
+        let result = interpreter::interpret(eval_expr, env.clone(), 1, &next_input);
         eval_expr = result.expr;
-        match result.new_env {
-            None => (),
-            Some(new_env) => env = new_env,
-        }
+        env = result.new_env;
         next_input = match result.effect {
             None => None,
             Some((effect, args)) => Some(side_effects::handle_effect(&effect, &args)),
@@ -57,7 +54,10 @@ fn main() {
             (None, true) => {
                 break;
             }
-            _ => println!("Expr is: {:#?}", eval_expr),
+            _ => {
+                println!("Env is: {:#?}", env);
+                println!("Expr is: {:#?}", eval_expr)
+            }
         };
     }
     println!("============================");
