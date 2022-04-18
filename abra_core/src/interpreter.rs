@@ -238,7 +238,7 @@ pub fn interpret(
                 } = interpret(expr2.clone(), new_env, steps, input);
                 if effect.is_some() || steps <= 0 {
                     return InterpretResult {
-                        expr: Rc::new(Let(pat.clone(), expr1, expr2.clone())),
+                        expr: Rc::new(Let(pat.clone(), expr1, expr2.clone())), // todo anand: I think this should just be "expr" here
                         steps,
                         effect,
                         new_env,
@@ -301,8 +301,12 @@ pub fn interpret(
                 new_env,
             } = interpret(body, new_env, steps, input);
             if effect.is_some() || steps <= 0 {
+                println!(
+                    "PARTIALLY EVALUATED body of FuncAp, resulting expr: {:#?}",
+                    expr
+                );
                 return InterpretResult {
-                    expr: Rc::new(FuncAp(expr1, expr2)),
+                    expr: expr,
                     steps,
                     effect,
                     new_env,
