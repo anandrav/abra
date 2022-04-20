@@ -27,7 +27,7 @@ pub fn handle_effect(effect: &Effect, args: &Vec<Rc<eval_tree::Expr>>) -> Input 
     match effect {
         Effect::Print => match &*args[0] {
             eval_tree::Expr::Str(string) => {
-                println!(">>>{}", string);
+                println!("{}", string);
                 Input::Unit
             }
             _ => panic!("wrong arguments for {:#?} effect", effect),
