@@ -43,7 +43,7 @@ fn perform_op(val1: Rc<Expr>, op: BinOpcode, val2: Rc<Expr>) -> Rc<Expr> {
             (Int(i1), Int(i2)) => Rc::new(Bool(i1 <= i2)),
             _ => panic!("one or more operands of LessThanOrEquals are not Ints"),
         },
-        _ => panic!("todo"),
+        _ => val2,
     }
 }
 
@@ -287,7 +287,7 @@ pub fn interpret(
                     id.clone(),
                     body.clone(),
                     match closure {
-                        None => Rc::new(RefCell::new(Environment::new(None))),
+                        None => Rc::new(RefCell::new(Environment::new(Some(env.clone())))),
                         Some(closure) => closure.clone(),
                     },
                 ),
