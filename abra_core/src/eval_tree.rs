@@ -15,7 +15,7 @@ pub enum Expr {
     Bool(bool),
     BinOp(Rc<Expr>, BinOpcode, Rc<Expr>),
     Let(Rc<Pat>, Rc<Expr>, Rc<Expr>),
-    Func(Identifier, Rc<Expr>, Rc<RefCell<Environment>>),
+    Func(Identifier, Rc<Expr>, Option<Rc<RefCell<Environment>>>),
     FuncAp(Rc<Expr>, Rc<Expr>),
     If(Rc<Expr>, Rc<Expr>, Rc<Expr>),
     // Match(Rc<Expr>, Vec<Rule>),

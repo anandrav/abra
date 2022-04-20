@@ -28,7 +28,7 @@ fn main() {
                 side_effects::Effect::Print,
                 vec![Rc::new(eval_tree::Expr::Var(String::from("str")))],
             )),
-            Rc::new(RefCell::new(environment::Environment::new(None))),
+            None,
         )),
     );
     // Rc::new(eval_tree::Expr::Effect(side_effects::Effect::Print))

@@ -24,19 +24,11 @@ pub fn translate_expr_func(
     body: Rc<Tte>,
 ) -> Rc<Ete> {
     if func_args.is_empty() {
-        Rc::new(Ete::Func(
-            id.clone(),
-            translate_expr(body.clone()),
-            Rc::new(RefCell::new(Environment::new(None))),
-        ))
+        Rc::new(Ete::Func(id.clone(), translate_expr(body.clone()), None))
     } else {
         let rest_of_function =
             translate_expr_func(func_args[0].clone(), func_args[1..].to_vec(), body.clone());
-        Rc::new(Ete::Func(
-            id.clone(),
-            rest_of_function,
-            Rc::new(RefCell::new(Environment::new(None))),
-        ))
+        Rc::new(Ete::Func(id.clone(), rest_of_function, None))
     }
 }
 
