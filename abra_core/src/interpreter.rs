@@ -268,7 +268,6 @@ pub fn interpret(
                     new_env,
                 };
             }
-            println!("evaluated expr1 to {:#?}", expr1);
             let InterpretResult {
                 expr: expr2,
                 steps,
@@ -283,21 +282,19 @@ pub fn interpret(
                     new_env,
                 };
             }
-            println!("evaluated expr2 to {:#?}", expr2);
             let (id, body, closure) = match &*expr1.clone() {
-                Func(id, body, closure) => match closure {
-                    None => panic!("closure should not be None"),
-                    Some(closure) => (id.clone(), body.clone(), closure.clone()),
-                },
+                Func(id, body, closure) => (
+                    id.clone(),
+                    body.clone(),
+                    match closure {
+                        None => Rc::new(RefCell::new(Environment::new(None))),
+                        Some(closure) => closure.clone(),
+                    },
+                ),
                 _ => panic!("Left expression of FuncAp is not a function"),
             };
             let new_env = Rc::new(RefCell::new(Environment::new(Some(closure))));
             new_env.borrow_mut().extend(&id, expr2.clone());
-            println!("new_env after extension: {:#?}", new_env);
-            // println!(
-            //     "before eval, val2 is {:#?} and id is {} and body is {:#?} and env is {:#?}",
-            //     val2, id, body, new_env
-            // );
 
             let InterpretResult {
                 expr,
@@ -306,10 +303,6 @@ pub fn interpret(
                 new_env,
             } = interpret(body, new_env, steps, input);
             if effect.is_some() || steps <= 0 {
-                println!(
-                    "PARTIALLY EVALUATED body of FuncAp, resulting new_env: {:#?} and expr: {:#?}",
-                    new_env, expr
-                );
                 return InterpretResult {
                     expr: expr,
                     steps,
@@ -317,7 +310,6 @@ pub fn interpret(
                     new_env,
                 };
             }
-            // println!("evaluated body of FuncAp to: {:#?}", expr);
 
             let steps = steps - 1;
             return InterpretResult {
@@ -342,7 +334,6 @@ pub fn interpret(
                     new_env,
                 };
             }
-            println!("IF evaluated expr1");
             match &*expr1 {
                 Bool(true) => {
                     let InterpretResult {
@@ -359,7 +350,6 @@ pub fn interpret(
                             new_env,
                         };
                     }
-                    println!("IF evaluated expr2");
                     let steps = steps - 1;
                     return InterpretResult {
                         expr: expr2,
@@ -383,7 +373,6 @@ pub fn interpret(
                             new_env,
                         };
                     }
-                    println!("IF evaluated expr2");
                     let steps = steps - 1;
                     return InterpretResult {
                         expr: expr3,

@@ -42,6 +42,7 @@ fn main() {
     //     Rc::new(RefCell::new(environment::Environment::new(None))),
     // );
     let mut next_input = None;
+    println!("================================================================================");
     loop {
         let result = interpreter::interpret(eval_expr, env.clone(), 1, &next_input);
         eval_expr = result.expr;
@@ -55,11 +56,11 @@ fn main() {
                 break;
             }
             _ => {
-                println!("Env is: {:#?}", env);
-                println!("Expr is: {:#?}", eval_expr)
+                // println!("Env is: {:#?}", env);
+                // println!("Expr is: {:#?}", eval_expr)
             }
         };
     }
-    println!("============================");
+    println!("================================================================================");
     println!("Expr evaluated to val: {:#?}", eval_expr);
 }
