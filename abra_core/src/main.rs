@@ -34,7 +34,25 @@ fn main() {
     // Rc::new(eval_tree::Expr::Effect(side_effects::Effect::Print))
     // TODO anand: you were last here
 
-    let parsed_expr = parser::do_stuff();
+    let source = r#"
+print("hello world");
+print("I am Anand");
+print("bleep bloop")"#;
+    let source = "
+    let f_helper : int -> int -> int -> int = func (n: int, x: int, y: int) -> int {
+        if n == 0 {
+            x
+        } else {
+            f_helper(n-1,y,x+y)
+        }
+    }
+    in let fibonacci : int -> int = func (n: int) -> int {
+        f_helper(n,0,1)
+    }
+    in fibonacci(10)
+    ";
+    println!("{}", source);
+    let parsed_expr = parser::parse(&source);
     let typed_expr = type_checker::strip_options_expr(parsed_expr.clone());
     let mut eval_expr = translate::translate_expr(typed_expr);
     // let eval_expr = interpreter::eval(
@@ -62,5 +80,5 @@ fn main() {
         };
     }
     println!("================================================================================");
-    println!("Expr evaluated to val: {:#?}", eval_expr);
+    println!("Expr evaluated to: {:#?}", eval_expr);
 }

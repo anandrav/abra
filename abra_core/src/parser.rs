@@ -3,6 +3,10 @@ lalrpop_mod!(pub abra_grammar); // synthesized by LALRPOP
 use parse_tree;
 use std::rc::Rc;
 
+pub fn parse(to_parse: &str) -> Rc<parse_tree::Expr> {
+    return abra_grammar::ExprParser::new().parse(to_parse).unwrap();
+}
+
 pub fn do_stuff() -> Rc<parse_tree::Expr> {
     // let expr = abra_grammar::ExprParser::new()
     //     .parse("22 * 44 + 66; 85")
