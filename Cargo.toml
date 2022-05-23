@@ -5,7 +5,7 @@ build = "src/build.rs"
 
 [lib]
 name = "abra"
-crate-type = ["cdylib"]
+crate-type = ["lib"]
 path = "src/lib.rs"
 
 [dependencies]
