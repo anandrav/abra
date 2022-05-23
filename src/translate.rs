@@ -26,6 +26,7 @@ pub fn translate_expr_func(
     if func_args.is_empty() {
         Rc::new(Ete::Func(id.clone(), translate_expr(body.clone()), None))
     } else {
+        // currying
         let rest_of_function =
             translate_expr_func(func_args[0].clone(), func_args[1..].to_vec(), body.clone());
         Rc::new(Ete::Func(id.clone(), rest_of_function, None))
@@ -36,6 +37,7 @@ pub fn translate_expr_ap(expr1: Rc<Tte>, expr2: Rc<Tte>, exprs: Vec<Rc<Tte>>) ->
     if exprs.is_empty() {
         Rc::new(Ete::FuncAp(translate_expr(expr1), translate_expr(expr2)))
     } else {
+        // currying
         let rest_of_arguments_applied =
             translate_expr_ap(expr1.clone(), expr2, exprs[..exprs.len() - 1].to_vec());
         Rc::new(Ete::FuncAp(
