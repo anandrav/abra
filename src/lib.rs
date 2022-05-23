@@ -2,6 +2,7 @@
 extern crate lalrpop_util;
 
 use std::cell::RefCell;
+use std::fmt;
 use std::rc::Rc;
 
 mod environment;
@@ -16,8 +17,12 @@ mod type_checker;
 mod typed_tree;
 mod types;
 
-pub fn blahblah() {
+pub fn blahblah() -> String {
+    let mut output = String::new();
+
     println!("abra_core::main()\n");
+    fmt::write(&mut output, format_args!("abra_core::main()\n"))
+        .expect("Error occurred while trying to write in String");
 
     let mut env = Rc::new(RefCell::new(environment::Environment::new(None)));
     env.borrow_mut().extend(
@@ -52,6 +57,8 @@ print("bleep bloop")"#;
     in fibonacci(10)
     ";
     println!("{}", source);
+    fmt::write(&mut output, format_args!("{}", source))
+        .expect("Error occurred while trying to write in String");
     let parsed_expr = parser::parse(&source);
     let typed_expr = type_checker::strip_options_expr(parsed_expr.clone());
     let mut eval_expr = translate::translate_expr(typed_expr);
@@ -61,6 +68,13 @@ print("bleep bloop")"#;
     // );
     let mut next_input = None;
     println!("================================================================================");
+    fmt::write(
+        &mut output,
+        format_args!(
+            "================================================================================"
+        ),
+    )
+    .expect("Error occurred while trying to write in String");
     loop {
         let result = interpreter::interpret(eval_expr, env.clone(), 1, &next_input);
         eval_expr = result.expr;
@@ -80,5 +94,20 @@ print("bleep bloop")"#;
         };
     }
     println!("================================================================================");
+    fmt::write(
+        &mut output,
+        format_args!(
+            "================================================================================"
+        ),
+    )
+    .expect("Error occurred while trying to write in String");
+
     println!("Expr evaluated to: {:#?}", eval_expr);
+    fmt::write(
+        &mut output,
+        format_args!("Expr evaluated to: {:#?}", eval_expr),
+    )
+    .expect("Error occurred while trying to write in String");
+
+    output
 }
