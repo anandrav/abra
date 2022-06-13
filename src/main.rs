@@ -4,6 +4,7 @@ extern crate lalrpop_util;
 use std::cell::RefCell;
 use std::rc::Rc;
 
+mod edit_tree;
 mod environment;
 mod eval_tree;
 mod interpreter;
@@ -17,6 +18,10 @@ mod typed_tree;
 mod types;
 
 fn main() {
+    structure_edit_stuff()
+}
+
+fn interpreter_stuff() {
     println!("abra_core::main()\n");
 
     let mut env = Rc::new(RefCell::new(environment::Environment::new(None)));
@@ -81,4 +86,11 @@ print("bleep bloop")"#;
     }
     println!("================================================================================");
     println!("Expr evaluated to: {:#?}", eval_expr);
+}
+
+fn structure_edit_stuff() {
+    let s = edit_tree::make_new_program();
+    println!("S is : {:#?}", s);
+    let s = edit_tree::perform(edit_tree::Action::Insert('h'), s);
+    println!("S is : {:#?}", s);
 }
