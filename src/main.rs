@@ -1,5 +1,6 @@
 #[macro_use]
 extern crate lalrpop_util;
+extern crate regex;
 
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -92,5 +93,9 @@ fn structure_edit_stuff() {
     let s = edit_tree::make_new_program();
     println!("S is : {:#?}", s);
     let s = edit_tree::perform(edit_tree::Action::Insert('h'), s);
+    println!("S is : {:#?}", s);
+    let s = edit_tree::perform(edit_tree::Action::Insert('e'), s);
+    println!("S is : {:#?}", s);
+    let s = edit_tree::perform(edit_tree::Action::Backspace, s);
     println!("S is : {:#?}", s);
 }

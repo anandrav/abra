@@ -1,4 +1,5 @@
 use operators::BinOpcode;
+use regex::Regex;
 use std::collections::VecDeque;
 use std::rc::Rc;
 use types::Type;
@@ -16,6 +17,7 @@ pub type Rule = (Pat, Exp);
 #[derive(Debug)]
 pub enum Operand {
     Hole,
+    InvalidText(String),
     Var(Identifier),
     Unit,
     Int(i32),
@@ -62,6 +64,7 @@ pub type ZRuleR = (Pat, ZExp);
 pub enum ZOperand {
     Hole(CursorPosition),
     Block(VecDeque<OpSeq>, Rc<ZOpSeq>, VecDeque<OpSeq>),
+    InvalidText(String, CursorPositionText),
     Var(Identifier, CursorPositionText),
     Unit(CursorPosition),
     Int(i32, CursorPositionText),
@@ -93,8 +96,7 @@ pub enum CursorPosition {
     After,
 }
 
-#[derive(Debug)]
-pub struct CursorPositionText(i32);
+pub type CursorPositionText = usize;
 
 // TODO make OpOpSeq (thing below is just a OpSeq) and Skel
 
@@ -139,16 +141,50 @@ pub enum Action {
 pub fn perform(action: Action, zexp: Rc<ZExp>) -> Rc<ZExp> {
     match action {
         Action::Insert(c) => match &*zexp.clone() {
-            ZOperand::Hole(_) => perform_insert_operand(c, zexp),
-            _ => panic!("todo"),
+            ZOperand::Hole(_) | ZOperand::Var(_, _) => perform_insert_operand(c, zexp),
+            _ => panic!("todo case {:#?} not handled", zexp),
         },
-        _ => panic!("todo"),
+        Action::Backspace => match &*zexp.clone() {
+            ZOperand::Hole(_) | ZOperand::Var(_, _) => perform_backspace_operand(zexp),
+            _ => panic!("todo case {:#?} not handled", zexp),
+        },
+        _ => panic!("todo case {:#?} not handled", action),
     }
 }
 
-pub fn perform_insert_operand(c: char, zexp: Rc<ZExp>) -> Rc<ZExp> {
+fn perform_insert_operand(c: char, zexp: Rc<ZExp>) -> Rc<ZExp> {
     match &*zexp.clone() {
-        ZOperand::Hole(_) => Rc::new(ZOperand::Var(String::from(c), CursorPositionText(1))),
-        _ => panic!("todo"),
+        ZOperand::Hole(_) => Rc::new(ZOperand::Var(String::from(c), 1)),
+        ZOperand::Var(text, cursorpos) => {
+            let mut new_text = text.clone();
+            new_text.insert(*cursorpos, c);
+            make_text(new_text, cursorpos + 1)
+        }
+        _ => panic!("todo case {:#?} not handled", zexp),
     }
+}
+
+fn perform_backspace_operand(zexp: Rc<ZExp>) -> Rc<ZExp> {
+    match &*zexp.clone() {
+        ZOperand::Hole(CursorPosition::After) => Rc::new(ZOperand::Hole(CursorPosition::Before)),
+        ZOperand::Var(text, cursorpos) => {
+            let mut new_text = text.clone();
+            new_text.remove(*cursorpos - 1);
+            make_text(new_text, cursorpos - 1)
+        }
+        _ => panic!("todo case {:#?} not handled", zexp),
+    }
+}
+
+fn make_text(text: String, cursorpos: CursorPositionText) -> Rc<ZExp> {
+    if (is_identifier(&text)) {
+        Rc::new(ZOperand::Var(text, cursorpos))
+    } else {
+        Rc::new(ZOperand::InvalidText(text, cursorpos))
+    }
+}
+
+fn is_identifier(text: &str) -> bool {
+    let re = Regex::new(r"[a-zA-Z_.][.a-zA-Z_0-9']*(\.:[.+/*=-]+)?").unwrap();
+    return re.is_match(text);
 }
