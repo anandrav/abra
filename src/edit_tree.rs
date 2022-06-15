@@ -158,7 +158,7 @@ fn perform_insert_operand(c: char, zexp: Rc<ZExp>) -> Rc<ZExp> {
         ZOperand::Var(text, cursorpos) => {
             let mut new_text = text.clone();
             new_text.insert(*cursorpos, c);
-            make_text(new_text, cursorpos + 1)
+            make_text_operand(new_text, cursorpos + 1)
         }
         _ => panic!("todo case {:#?} not handled", zexp),
     }
@@ -170,14 +170,14 @@ fn perform_backspace_operand(zexp: Rc<ZExp>) -> Rc<ZExp> {
         ZOperand::Var(text, cursorpos) => {
             let mut new_text = text.clone();
             new_text.remove(*cursorpos - 1);
-            make_text(new_text, cursorpos - 1)
+            make_text_operand(new_text, cursorpos - 1)
         }
         _ => panic!("todo case {:#?} not handled", zexp),
     }
 }
 
-fn make_text(text: String, cursorpos: CursorPositionText) -> Rc<ZExp> {
-    if (is_identifier(&text)) {
+fn make_text_operand(text: String, cursorpos: CursorPositionText) -> Rc<ZExp> {
+    if is_identifier(&text) {
         Rc::new(ZOperand::Var(text, cursorpos))
     } else {
         Rc::new(ZOperand::InvalidText(text, cursorpos))

@@ -5,6 +5,8 @@ use std::cell::RefCell;
 use std::fmt;
 use std::rc::Rc;
 
+pub mod edit_tree;
+
 mod environment;
 mod eval_tree;
 mod interpreter;
