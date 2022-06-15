@@ -1,5 +1,6 @@
 #[macro_use]
 extern crate lalrpop_util;
+extern crate regex;
 
 use std::cell::RefCell;
 use std::fmt;
