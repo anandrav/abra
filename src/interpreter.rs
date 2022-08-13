@@ -8,6 +8,22 @@ use side_effects::*;
 use std::cell::RefCell;
 use std::rc::Rc;
 
+pub fn make_new_environment() -> Rc<RefCell<Environment>> {
+    let mut env = Rc::new(RefCell::new(Environment::new(None)));
+    env.borrow_mut().extend(
+        &String::from("print"),
+        Rc::new(Expr::Func(
+            String::from("str"),
+            Rc::new(Expr::EffectAp(
+                side_effects::Effect::Print,
+                vec![Rc::new(Expr::Var(String::from("str")))],
+            )),
+            None,
+        )),
+    );
+    env
+}
+
 fn perform_op(val1: Rc<Expr>, op: BinOpcode, val2: Rc<Expr>) -> Rc<Expr> {
     match op {
         Add => match (&*val1, &*val2) {

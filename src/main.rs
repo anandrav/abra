@@ -19,24 +19,13 @@ mod typed_tree;
 mod types;
 
 fn main() {
-    structure_edit_stuff()
+    interpreter_stuff()
 }
 
 fn interpreter_stuff() {
     println!("abra_core::main()\n");
 
-    let mut env = Rc::new(RefCell::new(environment::Environment::new(None)));
-    env.borrow_mut().extend(
-        &String::from("print"),
-        Rc::new(eval_tree::Expr::Func(
-            String::from("str"),
-            Rc::new(eval_tree::Expr::EffectAp(
-                side_effects::Effect::Print,
-                vec![Rc::new(eval_tree::Expr::Var(String::from("str")))],
-            )),
-            None,
-        )),
-    );
+    let mut env = interpreter::make_new_environment();
     // Rc::new(eval_tree::Expr::Effect(side_effects::Effect::Print))
     // TODO anand: you were last here
 
@@ -89,13 +78,13 @@ print("bleep bloop")"#;
     println!("Expr evaluated to: {:#?}", eval_expr);
 }
 
-fn structure_edit_stuff() {
-    let s = edit_tree::make_new_program();
-    println!("S is : {:#?}", s);
-    let s = edit_tree::perform(edit_tree::Action::Insert('h'), s);
-    println!("S is : {:#?}", s);
-    let s = edit_tree::perform(edit_tree::Action::Insert('e'), s);
-    println!("S is : {:#?}", s);
-    let s = edit_tree::perform(edit_tree::Action::Backspace, s);
-    println!("S is : {:#?}", s);
-}
+// fn structure_edit_stuff() {
+//     let s = edit_tree::make_new_program();
+//     println!("S is : {:#?}", s);
+//     let s = edit_tree::perform(edit_tree::Action::Insert('h'), s);
+//     println!("S is : {:#?}", s);
+//     let s = edit_tree::perform(edit_tree::Action::Insert('e'), s);
+//     println!("S is : {:#?}", s);
+//     let s = edit_tree::perform(edit_tree::Action::Backspace, s);
+//     println!("S is : {:#?}", s);
+// }
