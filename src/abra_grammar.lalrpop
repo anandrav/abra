@@ -1,5 +1,6 @@
 use std::rc::Rc;
 use std::str::FromStr;
+use std::collections::VecDeque;
 use parse_tree::*;
 use types::*;
 use operators::*;
@@ -66,22 +67,26 @@ TypeAnnFuncOut: Rc<Type> = {
     "->" <t:Type> => t
 }
 
+Stmt: Rc<Expr> = {
+    <expr:Expr> SemicolonOp => expr
+}
+
+Block: Rc<Expr> = {
+    "{" <statements:Stmt*> "}" => Rc::new(Expr::Block(VecDeque::from(statements)))
+}
+
 pub Expr: Rc<Expr> = {
     "let" <pat:Pat> "=" <e1:Expr> "in" <e2:Expr> => Rc::new(Expr::Let(pat, None, e1, e2)),
     "let" <pat:Pat> ":" <typ:Type> "=" <e1:Expr> "in" <e2:Expr> => Rc::new(Expr::Let(pat, Some(typ), e1, e2)),
     "func" "(" <func_arg:FuncArg> <func_args:CommaFuncArg*> ")" <t_out:TypeAnnFuncOut?> "{" <body:Expr> "}" => Rc::new(Expr::Func(func_arg, func_args, t_out, body)),
     "if" <e1:Expr> "{" <e2:Expr> "} else {" <e3:Expr> "}" => Rc::new(Expr::If(<>)),
     "match" <e1:Expr> "{" <rules:Rule*> "}" => Rc::new(Expr::Match(e1, rules)),
-    SemicolonOpExpr,
+    <block:Block> => block,
+    EqualityOpExpr,
 }
 
 CommaExpr: Rc<Expr> = {
     "," <expr:Expr> => expr
-}
-
-SemicolonOpExpr: Rc<Expr> = {
-    SemicolonOpExpr SemicolonOp EqualityOpExpr => Rc::new(Expr::BinOp(<>)),
-    EqualityOpExpr
 }
 
 EqualityOpExpr: Rc<Expr> = {
@@ -105,7 +110,7 @@ FactorOpExpr: Rc<Expr> = {
 }
 
 FuncApExpr: Rc<Expr> = {
-    <f:FuncApExpr> "(" <e:Expr> <es:CommaExpr*> ")" => Rc::new(Expr::FuncAp(f, e, es)),
+    <f:FuncApExpr> "(" <e:Expr> <es:CommaExpr*> ")" => Rc::new(Expr::FuncAp(f, e, VecDeque::from(es))),
     Term
 }
 
