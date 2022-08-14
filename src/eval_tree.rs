@@ -18,7 +18,6 @@ pub enum Expr {
     Func(Identifier, Rc<Expr>, Option<Rc<RefCell<Environment>>>),
     FuncAp(Rc<Expr>, Rc<Expr>),
     If(Rc<Expr>, Rc<Expr>, Rc<Expr>),
-    // Match(Rc<Expr>, Vec<Rule>),
     EffectAp(side_effects::Effect, Vec<Rc<Expr>>),
     ConsumedEffect,
 }

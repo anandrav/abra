@@ -4,10 +4,27 @@ use std::collections::VecDeque;
 use std::rc::Rc;
 use types::Type;
 
-use crate::parse_tree;
+use crate::parse_tree as pt;
 
 pub type Identifier = String;
 pub type FuncArg = (Identifier, Option<Rc<Type>>);
+
+pub struct Cursor {
+    parents: Vec<Rc<Expr>>,
+    current: Rc<Expr>,
+}
+
+impl Cursor {
+    pub fn next(self) -> Option<Self> {
+        match &*self.current {
+            _ => panic!("unimplemented"),
+        }
+    }
+
+    pub fn edit(self, action: Action) -> Option<Self> {
+        None
+    }
+}
 
 #[derive(Debug)]
 pub enum Expr {
@@ -27,10 +44,27 @@ pub enum Expr {
     FuncAp(Rc<Expr>, Rc<Expr>, VecDeque<Rc<Expr>>),
 }
 impl Expr {
-    pub fn from(parsed: &parse_tree::Expr) -> Self {
-        match *&parsed {
-            _ => panic!("unimplemented"),
-        }
+    pub fn from(parsed: Rc<pt::Expr>) -> Rc<Self> {
+        let expr = match &*parsed {
+            pt::Expr::Var(id) => Expr::Var(id.to_string()),
+            pt::Expr::Str(s) => Expr::Str(s.to_string()),
+            pt::Expr::Func(arg1, args, ty, body) => Expr::Func(
+                arg1.clone(),
+                args.clone(),
+                ty.clone(),
+                Expr::from(body.clone()),
+            ),
+            pt::Expr::FuncAp(f, arg1, args) => Expr::FuncAp(
+                Expr::from(f.clone()),
+                Expr::from(arg1.clone()),
+                args.iter().map(|x| Expr::from(x.clone())).collect(),
+            ),
+            _ => {
+                println!("{:#?} is unimplemented", parsed);
+                panic!("unimplemented")
+            }
+        };
+        Rc::new(expr)
     }
 }
 pub type Rule = (Rc<Pat>, Rc<Expr>);

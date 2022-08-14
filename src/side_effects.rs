@@ -6,11 +6,6 @@ pub struct Cout(String);
 #[derive(Debug, Clone)]
 pub struct Cin(String);
 
-// #[derive(Debug)]
-// pub enum Output {
-//     Cout(Cout),
-// }
-
 #[derive(Debug, Clone)]
 pub enum Input {
     Unit,

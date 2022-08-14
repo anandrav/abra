@@ -14,5 +14,5 @@ mod types;
 
 pub fn parse(to_parse: &str) -> Rc<edit_tree::Expr> {
     let parse_tree = abra_grammar::ExprParser::new().parse(to_parse).unwrap();
-    Rc::new(edit_tree::Expr::from(&parse_tree))
+    edit_tree::Expr::from(parse_tree)
 }
