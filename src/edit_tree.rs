@@ -20,6 +20,12 @@ pub enum Token {
 }
 
 #[derive(Debug)]
+pub enum TokenTree {
+    Leaf(Token),
+    Children(Vec<TokenTree>),
+}
+
+#[derive(Debug)]
 pub enum Delimiter {
     Parenthesis,
     Brace,
@@ -28,34 +34,31 @@ pub enum Delimiter {
 
 #[derive(Debug)]
 pub struct Stmt {
-    // pub id: NodeId,
     pub stmtkind: StmtKind,
-    // pub textinfo: TextInfo,
-    // pub tokens: Option<LazyTokenStream>,
+    // pub tokens: TokenTree,
 }
 
 #[derive(Debug)]
 pub enum StmtKind {
-    EmptyHole, // just a semicolon
+    /// just a semicolon
+    EmptyHole,
     Let(Rc<Pat>, Option<Rc<Type>>, Rc<Expr>, Rc<Expr>),
     Expr(Expr),
 }
 
 #[derive(Debug)]
 pub struct Expr {
-    // pub id: NodeId,
     pub exprkind: ExprKind,
-    // pub textinfo: TextInfo,
-    // pub tokens: Option<LazyTokenStream>,
+    // pub tokens: TokenTree,
 }
 
 type Count = u64;
 
-#[derive(Debug)]
-pub struct TextInfo {
-    pub chars: Count,
-    pub line_breaks: Count,
-}
+// #[derive(Debug)]
+// pub struct TextInfo {
+//     pub chars: Count,
+//     pub line_breaks: Count,
+// }
 
 #[derive(Debug)]
 pub enum ExprKind {
@@ -102,9 +105,8 @@ pub type Rule = (Rc<Pat>, Rc<Expr>);
 
 #[derive(Debug)]
 pub struct Pat {
-    // pub id: NodeId,
     pub patkind: ExprKind,
-    // pub tokens: Option<LazyTokenStream>,
+    // pub tokens: TokenTree,
 }
 
 #[derive(Debug)]
