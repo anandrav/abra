@@ -8,6 +8,12 @@ pub type Identifier = String;
 pub type FuncArg = (Identifier, Option<Rc<Type>>);
 
 #[derive(Debug)]
+pub enum Stmt {
+    EmptyHole,
+    Let(Rc<Pat>, Option<Rc<Type>>, Rc<Expr>),
+    Expr(Rc<Expr>),
+}
+#[derive(Debug)]
 pub enum Expr {
     EmptyHole,
     InvalidText(String),
@@ -16,11 +22,10 @@ pub enum Expr {
     Int(i32),
     Bool(bool),
     Str(String),
-    Let(Rc<Pat>, Option<Rc<Type>>, Rc<Expr>, Rc<Expr>),
     Func(FuncArg, Vec<FuncArg>, Option<Rc<Type>>, Rc<Expr>),
     If(Rc<Expr>, Rc<Expr>, Rc<Expr>),
     Match(Rc<Expr>, Vec<Rule>),
-    Block(VecDeque<Rc<Expr>>),
+    Block(VecDeque<Rc<Stmt>>),
     BinOp(Rc<Expr>, BinOpcode, Rc<Expr>),
     FuncAp(Rc<Expr>, Rc<Expr>, VecDeque<Rc<Expr>>),
 }
