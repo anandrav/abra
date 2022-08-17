@@ -1,11 +1,3 @@
-# abra
+# Abra
 
-Feature todo list
-- functions and closures with currying
-- lists, products, sums
-- case expressions
-- hindly-milner typechecker*
-- connect with Godot game engine, MVP with Print side-effect
-- imperative statements, blocks, looping
-
-*this is hard
+Abra is a programming language intended to be used in video games and for education.
