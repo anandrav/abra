@@ -3,12 +3,10 @@ extern crate lalrpop_util;
 extern crate abra;
 extern crate regex;
 
-use abra::parse;
+mod operators;
+mod parse_tree;
+mod types;
 
 fn main() {
-    println!("fn main()");
-    let to_parse = r#"
-print("hello world")
-"#;
-    let parsed = parse(to_parse);
+    println!("hello world");
 }
