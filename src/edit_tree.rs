@@ -19,6 +19,12 @@ pub enum Token {
     Identifier(String),
 }
 
+impl ToString for Token {
+    fn to_string(&self) -> String {
+        unimplemented!()
+    }
+}
+
 #[derive(Debug)]
 pub enum TokenTree {
     Leaf(Token),
@@ -78,16 +84,16 @@ pub enum ExprKind {
 
 impl Expr {
     pub fn from(parsed: Rc<pt::Expr>) -> Rc<Self> {
-        let exprkind = match &*parsed {
-            pt::Expr::Var(id) => ExprKind::Var(id.to_string()),
-            pt::Expr::Str(s) => ExprKind::Str(s.to_string()),
-            pt::Expr::Func(arg1, args, ty, body) => ExprKind::Func(
+        let exprkind = match &*parsed.exprkind {
+            pt::ExprKind::Var(id) => ExprKind::Var(id.to_string()),
+            pt::ExprKind::Str(s) => ExprKind::Str(s.to_string()),
+            pt::ExprKind::Func(arg1, args, ty, body) => ExprKind::Func(
                 arg1.clone(),
                 args.clone(),
                 ty.clone(),
                 Expr::from(body.clone()),
             ),
-            pt::Expr::FuncAp(f, arg1, args) => ExprKind::FuncAp(
+            pt::ExprKind::FuncAp(f, arg1, args) => ExprKind::FuncAp(
                 Expr::from(f.clone()),
                 Expr::from(arg1.clone()),
                 args.iter().map(|x| Expr::from(x.clone())).collect(),
@@ -146,18 +152,18 @@ pub enum CursorPosition {
 
 pub type CursorPositionText = usize;
 
-macro_rules! vecdeque {
-    () => (
-        VecDeque::new()
-    );
-    ($elem:expr; $n:expr) => (
-        $crate::vec::from_elem($elem, $n).to_iter().collect()
-    );
-    ($($x:expr),*) => (
-        $crate::slice::into_vec(box [$($x),*]).to_iter().collect()
-    );
-    ($($x:expr,)*) => (vec![$($x),*].to_iter().collect())
-}
+// macro_rules! vecdeque {
+//     () => (
+//         VecDeque::new()
+//     );
+//     ($elem:expr; $n:expr) => (
+//         $crate::vec::from_elem($elem, $n).to_iter().collect()
+//     );
+//     ($($x:expr),*) => (
+//         $crate::slice::into_vec(box [$($x),*]).to_iter().collect()
+//     );
+//     ($($x:expr,)*) => (vec![$($x),*].to_iter().collect())
+// }
 
 #[derive(Debug)]
 pub enum Action {

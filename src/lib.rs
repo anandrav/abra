@@ -3,8 +3,6 @@ extern crate lalrpop_util;
 extern crate regex;
 lalrpop_mod!(pub abra_grammar); // synthesized by LALRPOP
 
-use std::cell::RefCell;
-use std::fmt;
 use std::rc::Rc;
 
 mod edit_tree;
