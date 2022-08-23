@@ -13,6 +13,7 @@ lalrpop-util = "0.19.6"
 regex = "1"
 pest = "2.3.0"
 pest_derive = "2.3.0"
+eframe = "0.19.0"
 
 [build-dependencies]
 lalrpop = "0.19.6"

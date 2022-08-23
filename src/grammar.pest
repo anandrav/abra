@@ -1,8 +1,9 @@
 whitespace = { " " | "\t" | "\n" }
 
-statement = { declaration | (expression ~ semi) }
+statement = { declaration | expression_statement }
 
-declaration = { "let" ~ pattern ~ op_assign ~ expression ~ semi }
+declaration = { "let" ~ pattern ~ op_assign ~ expression ~ semicolon }
+expression_statement = { expression ~ semicolon }
 pattern = { identifier }
 op_assign = { "=" }
 
@@ -41,9 +42,7 @@ op_multiplication = { "*" }
 // NOTE: When changing this code, make sure you don't have a subset of a word before
 // another word. For example: { "type" | "typeof" } will never match "typeof"
 keyword = @{
-    "as" | "break" | "class" |
-    "continue" | "do" | "else" | "enum" |
-    "false" | "func" | "for" | "if" | "impl" | "let" | "true"
+   "else" | "false" | "func" | "if" | "let" | "true"
 }
 
-semi = { ";" }
+semicolon = { ";" }
