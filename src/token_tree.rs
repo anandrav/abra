@@ -111,7 +111,6 @@ impl TokenTree {
 
         // Because ident_list is silent, the iterator will contain idents
         for pair in pairs {
-            panic!();
             // A pair is a combination of the rule which matched and a span of input
             println!("Rule:    {:?}", pair.as_rule());
             println!("Span:    {:?}", pair.as_span());

@@ -1,4 +1,7 @@
-whitespace = { " " | "\t" | "\n" }
+WHITESPACE = { space | tab | newline }
+space = { " " }
+tab = { "\t" }
+newline = { "\n" }
 
 statement = { declaration | expression_statement }
 

@@ -13,13 +13,14 @@ mod types;
 use eframe::egui;
 
 fn main() {
+    let _ = token_tree::TokenTree::from("2 + 2;");
+
     let options = eframe::NativeOptions::default();
     eframe::run_native(
         "My egui App",
         options,
         Box::new(|_cc| Box::new(MyApp::default())),
     );
-    let _ = token_tree::TokenTree::from("200;");
 }
 
 struct MyApp {
