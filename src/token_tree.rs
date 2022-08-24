@@ -1,4 +1,5 @@
 use operators::BinOpcode;
+use pest::error::{Error, ErrorVariant, InputLocation::Pos};
 use pest::iterators::Pair;
 use pest::Parser;
 use pest_derive::Parser;
@@ -8,7 +9,7 @@ use std::rc::Rc;
 use types::Type;
 
 #[derive(Parser)]
-#[grammar = "grammar.pest"] // relative to src
+#[grammar = "grammar.pest"]
 struct MyParser;
 
 pub type Identifier = String;
@@ -84,6 +85,52 @@ pub struct TokenTree {
 pub enum TokenContents {
     Token(String),
     Children(Vec<Rc<TokenTree>>),
+}
+
+// pub fn fix(s: &str) -> String {
+//     println!("fix: {}", s);
+//     let _ = MyParser::parse(Rule::program, &s).unwrap_or_else(|e| match e {
+//         _ => {
+//             if let ErrorVariant::ParsingError {
+//                 positives,
+//                 negatives,
+//             } = e.variant
+//             {
+//                 if positives.contains(&Rule::placeholder) {
+//                     let mut s = String::from(s);
+//                     if let Pos(p) = e.location {
+//                         s.insert_str(p, "_placeholder_");
+//                         return fix(&s);
+//                     }
+//                 }
+//             }
+//             println!("{:#?}", e);
+//             panic!()
+//         }
+//     });
+//     s.to_string()
+// }
+
+pub fn fix(s: &str) -> String {
+    println!("fix: {}", s);
+    if let Err(e) = MyParser::parse(Rule::program, &s) {
+        if let ErrorVariant::ParsingError {
+            positives,
+            negatives,
+        } = e.variant
+        {
+            if positives.contains(&Rule::placeholder) {
+                let mut s = String::from(s);
+                if let Pos(p) = e.location {
+                    s.insert_str(p, "_placeholder_");
+                    return fix(&s);
+                }
+            }
+        }
+        // println!("{:#?}", e);
+        panic!()
+    }
+    s.to_string()
 }
 
 impl TokenTree {

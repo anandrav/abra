@@ -3,6 +3,10 @@ space = { " " }
 tab = { "\t" }
 newline = { "\n" }
 
+placeholder = { "_placeholder_" }
+
+program = { SOI ~ statement* ~ EOI }
+
 statement = { declaration | expression_statement }
 
 declaration = { "let" ~ pattern ~ op_assign ~ expression ~ semicolon }
@@ -11,7 +15,7 @@ pattern = { identifier }
 op_assign = { "=" }
 
 expression = { term ~ (op_binary ~ term)* }
-term = _{ ("(" ~ expression ~ ")") | if_else_expression | primary_expression }
+term = _{ placeholder | ("(" ~ expression ~ ")") | if_else_expression | primary_expression }
 
 if_else_expression = { "if" ~ expression ~ block_expression ~ "else" ~ block_expression }
 
