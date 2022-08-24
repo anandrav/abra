@@ -13,7 +13,9 @@ mod types;
 use eframe::egui;
 
 fn main() {
-    let _ = token_tree::TokenTree::from("2 + 2;");
+    let tt = token_tree::TokenTree::from("2 + 3");
+    // dbg!(tt);
+    println!("{}", tt.to_string());
 
     let options = eframe::NativeOptions::default();
     eframe::run_native(
@@ -50,6 +52,7 @@ impl eframe::App for MyApp {
                 self.age += 1;
             }
             ui.label(format!("Hello '{}', age {}", self.name, self.age));
+            ui.text_edit_multiline(&mut self.name);
         });
     }
 }

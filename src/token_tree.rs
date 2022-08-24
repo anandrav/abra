@@ -3,6 +3,7 @@ use pest::iterators::Pair;
 use pest::Parser;
 use pest_derive::Parser;
 use std::collections::VecDeque;
+use std::fmt;
 use std::rc::Rc;
 use types::Type;
 
@@ -74,53 +75,79 @@ impl Kind {
 }
 
 #[derive(Debug, PartialEq)]
-pub enum TokenTree {
-    Leaf(String),
-    Children {
-        kind: Kind,
-        children: Vec<Rc<TokenTree>>,
-    },
+pub struct TokenTree {
+    kind: Rule,
+    contents: TokenContents,
+}
+
+#[derive(Debug, PartialEq)]
+pub enum TokenContents {
+    Token(String),
+    Children(Vec<Rc<TokenTree>>),
 }
 
 impl TokenTree {
-    // fn from_pair(pair: &Pair<Rule>) -> Rc<Self> {
-    //     // A pair is a combination of the rule which matched and a span of input
-    //     println!("Rule:    {:?}", pair.as_rule());
-    //     println!("Span:    {:?}", pair.as_span());
-    //     println!("Text:    {}", pair.as_str());
+    fn from_pair(pair: Pair<Rule>) -> Rc<Self> {
+        // A pair is a combination of the rule which matched and a span of input
+        println!("Rule:    {:?}", pair.as_rule());
+        println!("Span:    {:?}", pair.as_span());
+        println!("Text:    {}", pair.as_str());
 
-    //     let inner: Vec<_> = pair.into_inner().collect();
-    //     if inner.is_empty() {
-    //         Rc::new(TokenTree::Leaf(pair.as_str().to_string()))
-    //     } else {
-    //         Rc::new(TokenTree::Children {
-    //             kind: Kind::from_rule(&pair.as_rule()),
-    //             children: inner.iter().map(|x| TokenTree::from_pair(x)).collect(),
-    //         })
+        let rule = pair.as_rule();
+        let as_str = pair.as_str();
+        let children: Vec<_> = pair.into_inner().map(|x| TokenTree::from_pair(x)).collect();
+        let contents = if !children.is_empty() {
+            TokenContents::Children(children)
+        } else {
+            TokenContents::Token(as_str.to_string())
+        };
+        Rc::new(TokenTree {
+            kind: rule,
+            contents,
+        })
+    }
+
+    pub fn from(s: &str) -> Rc<Self> {
+        let pairs = MyParser::parse(Rule::expression, &s).unwrap_or_else(|e| panic!("{}", e));
+        let pair = pairs.peek().unwrap();
+        Self::from_pair(pair)
+    }
+
+    // pub fn from(s: &str) {
+    //     let pairs = MyParser::parse(Rule::expression, &s).unwrap_or_else(|e| panic!("{}", e));
+
+    //     // Because ident_list is silent, the iterator will contain idents
+    //     for pair in pairs {
+    //         // A pair is a combination of the rule which matched and a span of input
+    //         println!("Rule:    {:?}", pair.as_rule());
+    //         println!("Span:    {:?}", pair.as_span());
+    //         println!("Text:    {}", pair.as_str());
+
+    //         // A pair can be converted to an iterator of the tokens which make it up:
+    //         for inner_pair in pair.into_inner() {
+    //             match inner_pair.as_rule() {
+    //                 rule => println!("Debug: {:#?}", rule),
+    //             };
+    //         }
     //     }
     // }
+}
 
-    // pub fn from(s: &str) -> Rc<Self> {
-    //     let pairs = MyParser::parse(Rule::statement, &s).unwrap_or_else(|e| panic!("{}", e));
-    //     let pair = pairs.peek().unwrap();
-    //     Self::from_pair(&pair)
-    // }
+impl fmt::Display for TokenTree {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.contents)
+    }
+}
 
-    pub fn from(s: &str) {
-        let pairs = MyParser::parse(Rule::statement, &s).unwrap_or_else(|e| panic!("{}", e));
-
-        // Because ident_list is silent, the iterator will contain idents
-        for pair in pairs {
-            // A pair is a combination of the rule which matched and a span of input
-            println!("Rule:    {:?}", pair.as_rule());
-            println!("Span:    {:?}", pair.as_span());
-            println!("Text:    {}", pair.as_str());
-
-            // A pair can be converted to an iterator of the tokens which make it up:
-            for inner_pair in pair.into_inner() {
-                match inner_pair.as_rule() {
-                    rule => println!("Debug: {:#?}", rule),
-                };
+impl fmt::Display for TokenContents {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            TokenContents::Token(s) => write!(f, "{}", s),
+            TokenContents::Children(children) => {
+                for child in children {
+                    write!(f, "{}", child)?;
+                }
+                Ok(())
             }
         }
     }
