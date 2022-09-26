@@ -9,7 +9,8 @@ program = { SOI ~ statement* ~ EOI }
 
 statement = { declaration | expression_statement }
 
-declaration = { "let" ~ pattern ~ op_assign ~ expression ~ semicolon }
+declaration = { let_keyword ~ pattern ~ op_assign ~ expression ~ semicolon }
+let_keyword = { "let" }
 expression_statement = { expression ~ semicolon }
 pattern = { identifier }
 op_assign = { "=" }
@@ -18,6 +19,8 @@ expression = { term ~ (op_binary ~ term)* }
 term = _{ placeholder | ("(" ~ expression ~ ")") | if_else_expression | primary_expression }
 
 if_else_expression = { "if" ~ expression ~ block_expression ~ "else" ~ block_expression }
+if_keyword = { "if" }
+else_keyword = { "else" }
 
 block_expression = { block_start ~ statement* ~ expression? ~ block_end }
 block_start = { "{" }
