@@ -23,7 +23,7 @@ pub fn handle_action(action: Action, tree: &mut Rc<TokenTree>, cursor: &mut Curs
                 if *tposition == 0 {
                     *cursor = Cursor::Point(Location {
                         token: *token - 1,
-                        tposition: t.num_points() - 1,
+                        tposition: t.num_points() - 2,
                     })
                 } else {
                     *cursor = Cursor::Point(Location {
@@ -40,7 +40,7 @@ pub fn handle_action(action: Action, tree: &mut Rc<TokenTree>, cursor: &mut Curs
                 if *tposition == t.num_points() - 1 {
                     *cursor = Cursor::Point(Location {
                         token: *token + 1,
-                        tposition: 0,
+                        tposition: 1,
                     })
                 } else {
                     *cursor = Cursor::Point(Location {
