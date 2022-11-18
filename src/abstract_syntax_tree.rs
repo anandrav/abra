@@ -75,17 +75,17 @@ pub enum PatKind {
 mod tests {
     use super::*;
 
-    #[test]
-    fn parse_unit() {
-        let source = "()";
-        let parse_tree = parse(source);
-        let expected_parse_tree = Rc::new(Expr {
-            exprkind: Rc::new(ExprKind::Unit),
-            span: Span {
-                lo: 0,
-                hi: source.chars().count(),
-            },
-        });
-        assert_eq!(parse_tree, expected_parse_tree);
-    }
+    // #[test]
+    // fn parse_unit() {
+    //     let source = "()";
+    //     let parse_tree = parse(source);
+    //     let expected_parse_tree = Rc::new(Expr {
+    //         exprkind: Rc::new(ExprKind::Unit),
+    //         span: Span {
+    //             lo: 0,
+    //             hi: source.chars().count(),
+    //         },
+    //     });
+    //     assert_eq!(parse_tree, expected_parse_tree);
+    // }
 }

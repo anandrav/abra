@@ -6,11 +6,15 @@ extern crate pest;
 extern crate pest_derive;
 extern crate regex;
 
+mod abstract_syntax_tree;
+mod environment;
+mod eval_tree;
+mod interpreter;
 mod operators;
-mod parse_tree;
+mod side_effects;
 mod token_tree;
+mod translate;
 mod types;
-use std::rc::Rc;
 
 use eframe::{
     egui::{
@@ -24,10 +28,6 @@ use eframe::{
 use token_tree::*;
 
 fn main() {
-    let tt = TokenTree::from("2 + 3;");
-    // dbg!(tt);
-    println!("{}", tt.to_string());
-
     let options = eframe::NativeOptions::default();
     eframe::run_native(
         "My egui App",
@@ -38,129 +38,67 @@ fn main() {
 
 struct MyApp {
     text: String,
-    program: Rc<TokenTree>,
-    cursor: Cursor,
+    output: String,
 }
 
 impl Default for MyApp {
     fn default() -> Self {
         Self {
-            text: "2 +3 +  83 + 9;".to_owned(),
-            program: TokenTree::from("2 +3 +  83 + 9;"),
-            cursor: Cursor::Point(Location {
-                token: 0,
-                tposition: 0,
-            }),
+            text: String::from(
+                r#"
+1 + 2 * 3 - 4 * 5
+                "#,
+            ),
+            output: String::default(),
         }
     }
 }
 
+fn get_program_output(text: &String) -> Option<String> {
+    let mut env = interpreter::make_new_environment();
+    let parse_tree = abstract_syntax_tree::parse(&text);
+    // let token_tree = token_tree::TokenTree::from(text);
+    // let eval_tree = translate::
+    let mut eval_tree = translate::translate_expr(parse_tree.exprkind.clone());
+    let mut result = String::from("");
+    let mut next_input = None;
+    result += "===============================PROGRAM OUTPUT=================================\n";
+    loop {
+        let result = interpreter::interpret(eval_tree, env.clone(), 1, &next_input);
+        eval_tree = result.expr;
+        env = result.new_env;
+        next_input = match result.effect {
+            None => None,
+            Some((effect, args)) => Some(side_effects::handle_effect(&effect, &args)),
+        };
+        match (&next_input, eval_tree::is_val(&eval_tree)) {
+            (None, true) => {
+                break;
+            }
+            _ => {
+                // println!("Env is: {:#?}", env);
+                // println!("Expr is: {:#?}", eval_tree)
+            }
+        };
+    }
+    result += "================================================================================\n";
+    result += &format!("Expr evaluated to: {:#?}", eval_tree);
+    Some(result)
+}
+
 impl eframe::App for MyApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
-        if ctx.input().key_pressed(egui::Key::ArrowLeft) {
-            println!("key left pressed");
-            handle_action(Action::MoveLeft, &mut self.program, &mut self.cursor);
-        }
-        if ctx.input().key_pressed(egui::Key::ArrowRight) {
-            println!("key right pressed");
-            handle_action(Action::MoveRight, &mut self.program, &mut self.cursor);
-        }
-        self.text = fix(&mut self.text);
+        // self.text = fix(&mut self.text);
         egui::CentralPanel::default().show(ctx, |ui| {
             ui.heading("Abra Editor");
-            // ui.text_edit_multiline(&mut self.text);
-            egui::ScrollArea::vertical().show(ui, |ui| {
-                ui.horizontal(|ui| {
-                    let mut tokens: Vec<Token> = vec![];
-                    fn collect_leaves(tt: &Rc<TokenTree>, leaves: &mut Vec<Token>) {
-                        match &tt.contents {
-                            Contents::Token(t) => leaves.push(t.clone()),
-                            Contents::Children(children) => {
-                                for c in children.iter() {
-                                    collect_leaves(c, leaves)
-                                }
-                            }
-                        }
-                    }
-
-                    collect_leaves(&self.program, &mut tokens);
-
-                    match (&self.cursor) {
-                        Cursor::Point(Location { token, tposition }) => {
-                            let index = token;
-                            for i in 0..*index {
-                                ui.spacing_mut().item_spacing = Vec2 { x: 0.0, y: 0.0 };
-                                ui.label(
-                                    RichText::new(tokens[i].to_string())
-                                        .monospace()
-                                        .color(Color32::WHITE)
-                                        .background_color(Color32::DARK_GRAY),
-                                );
-                            }
-                            if tokens[*index].num_points() == 2 {
-                                if *tposition != 0 {
-                                    ui.spacing_mut().item_spacing = Vec2 { x: 0.0, y: 0.0 };
-                                    ui.label(
-                                        RichText::new(tokens[*index].to_string())
-                                            .monospace()
-                                            .color(Color32::WHITE)
-                                            .background_color(Color32::DARK_GRAY),
-                                    );
-                                }
-                                ui.spacing_mut().item_spacing = Vec2 { x: 0.0, y: 0.0 };
-                                ui.label(
-                                    RichText::new("|")
-                                        .color(Color32::RED)
-                                        .background_color(Color32::DARK_GRAY),
-                                );
-                                if *tposition == 0 {
-                                    ui.spacing_mut().item_spacing = Vec2 { x: 0.0, y: 0.0 };
-                                    ui.label(
-                                        RichText::new(tokens[*index].to_string())
-                                            .monospace()
-                                            .color(Color32::WHITE)
-                                            .background_color(Color32::DARK_GRAY),
-                                    );
-                                }
-                            } else {
-                                let mut first = tokens[*index].to_string();
-                                let second = first.split_off(*tposition);
-                                println!("{}, {}", first, second);
-                                ui.spacing_mut().item_spacing = Vec2 { x: 0.0, y: 0.0 };
-                                ui.label(
-                                    RichText::new(first.to_string())
-                                        .monospace()
-                                        .color(Color32::WHITE)
-                                        .background_color(Color32::DARK_GRAY),
-                                );
-                                ui.spacing_mut().item_spacing = Vec2 { x: 0.0, y: 0.0 };
-                                ui.label(
-                                    RichText::new("|")
-                                        .color(Color32::RED)
-                                        .background_color(Color32::DARK_GRAY),
-                                );
-                                ui.spacing_mut().item_spacing = Vec2 { x: 0.0, y: 0.0 };
-                                ui.label(
-                                    RichText::new(second.to_string())
-                                        .monospace()
-                                        .color(Color32::WHITE)
-                                        .background_color(Color32::DARK_GRAY),
-                                );
-                            }
-                            for i in *index + 1..tokens.len() {
-                                ui.spacing_mut().item_spacing = Vec2 { x: 0.0, y: 0.0 };
-                                ui.label(
-                                    RichText::new(tokens[i].to_string())
-                                        .monospace()
-                                        .color(Color32::WHITE)
-                                        .background_color(Color32::DARK_GRAY),
-                                );
-                            }
-                        }
-                        Cursor::Selection { begin, end } => unimplemented!(),
-                    }
-                });
-            });
+            ui.text_edit_multiline(&mut self.text);
+            if ui.button("Run code").clicked() {
+                self.output = match get_program_output(&self.text) {
+                    Some(output) => output,
+                    None => String::from("could not run program ;("),
+                }
+            }
+            ui.label(&self.output);
         });
     }
 }

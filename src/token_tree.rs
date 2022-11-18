@@ -149,7 +149,7 @@ impl Token {
             Space => " ",
             Tab => "\t",
             Newline => "\n",
-            Placeholder => "_placeholder_",
+            Placeholder => "_",
             OpenParen => "(",
             CloseParen => ")",
             OpenBrace => "{",
@@ -244,7 +244,7 @@ pub fn fix(s: &str) -> String {
             if positives.contains(&Rule::placeholder) {
                 let mut s = String::from(s);
                 if let Pos(p) = e.location {
-                    s.insert_str(p, "_placeholder_");
+                    s.insert_str(p, &Token::Placeholder.to_str());
                     return fix(&s);
                 }
             }
