@@ -27,13 +27,36 @@ use eframe::{
 
 use token_tree::*;
 
+// When compiling natively:
+#[cfg(not(target_arch = "wasm32"))]
 fn main() {
+    // Log to stdout (if you run with `RUST_LOG=debug`).
+    tracing_subscriber::fmt::init();
+
     let options = eframe::NativeOptions::default();
     eframe::run_native(
         "My egui App",
         options,
         Box::new(|_cc| Box::new(MyApp::default())),
     );
+}
+
+// when compiling to web using trunk.
+#[cfg(target_arch = "wasm32")]
+fn main() {
+    // Make sure panics are logged using `console.error`.
+    console_error_panic_hook::set_once();
+
+    // Redirect tracing to console.log and friends:
+    tracing_wasm::set_as_global_default();
+
+    let options = eframe::WebOptions::default();
+    eframe::start_web(
+        "the_canvas_id",
+        options,
+        Box::new(|_cc| Box::new(MyApp::default())),
+    )
+    .expect("failed to start eframe");
 }
 
 struct MyApp {
