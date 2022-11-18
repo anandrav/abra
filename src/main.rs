@@ -70,7 +70,7 @@ impl Default for MyApp {
             text: String::from(
                 r#"
 1 + 2 * 3 - 4 * 5
-                "#,
+"#,
             ),
             output: String::default(),
         }
