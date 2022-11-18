@@ -1,90 +1,127 @@
 #[macro_use]
 extern crate lalrpop_util;
+extern crate abra;
+extern crate eframe;
+extern crate pest;
+extern crate pest_derive;
 extern crate regex;
 
-use std::cell::RefCell;
-use std::rc::Rc;
-
-mod edit_tree;
+mod abstract_syntax_tree;
 mod environment;
 mod eval_tree;
 mod interpreter;
 mod operators;
-mod parse_tree;
-mod parser;
 mod side_effects;
+mod token_tree;
 mod translate;
-mod type_checker;
-mod typed_tree;
 mod types;
 
+use eframe::{
+    egui::{
+        self,
+        style::{Margin, Spacing},
+        Color32, Label, RichText,
+    },
+    epaint::Vec2,
+};
+
+use token_tree::*;
+
+// When compiling natively:
+#[cfg(not(target_arch = "wasm32"))]
 fn main() {
-    interpreter_stuff()
+    // Log to stdout (if you run with `RUST_LOG=debug`).
+    tracing_subscriber::fmt::init();
+
+    let options = eframe::NativeOptions::default();
+    eframe::run_native(
+        "My egui App",
+        options,
+        Box::new(|_cc| Box::new(MyApp::default())),
+    );
 }
 
-fn interpreter_stuff() {
-    println!("abra_core::main()\n");
+// when compiling to web using trunk.
+#[cfg(target_arch = "wasm32")]
+fn main() {
+    // Make sure panics are logged using `console.error`.
+    console_error_panic_hook::set_once();
 
-    let mut env = interpreter::make_new_environment();
-    // Rc::new(eval_tree::Expr::Effect(side_effects::Effect::Print))
-    // TODO anand: you were last here
+    // Redirect tracing to console.log and friends:
+    tracing_wasm::set_as_global_default();
 
-    let source = r#"
-print("hello world");
-print("I am Anand");
-print("bleep bloop")"#;
-    let source = "
-    let f_helper : int -> int -> int -> int = func (n: int, x: int, y: int) -> int {
-        if n == 0 {
-            x
-        } else {
-            f_helper(n-1,y,x+y)
+    let options = eframe::WebOptions::default();
+    eframe::start_web(
+        "the_canvas_id",
+        options,
+        Box::new(|_cc| Box::new(MyApp::default())),
+    )
+    .expect("failed to start eframe");
+}
+
+struct MyApp {
+    text: String,
+    output: String,
+}
+
+impl Default for MyApp {
+    fn default() -> Self {
+        Self {
+            text: String::from(
+                r#"
+1 + 2 * 3 - 4 * 5
+                "#,
+            ),
+            output: String::default(),
         }
     }
-    in let fibonacci : int -> int = func (n: int) -> int {
-        f_helper(n,0,1)
-    }
-    in fibonacci(10)
-    ";
-    println!("{}", source);
-    let parsed_expr = parser::parse(&source);
-    let typed_expr = type_checker::strip_options_expr(parsed_expr.clone());
-    let mut eval_expr = translate::translate_expr(typed_expr);
-    // let eval_expr = interpreter::eval(
-    //     eval_expr,
-    //     Rc::new(RefCell::new(environment::Environment::new(None))),
-    // );
+}
+
+fn get_program_output(text: &String) -> Option<String> {
+    let mut env = interpreter::make_new_environment();
+    let parse_tree = abstract_syntax_tree::parse(&text);
+    // let token_tree = token_tree::TokenTree::from(text);
+    // let eval_tree = translate::
+    let mut eval_tree = translate::translate_expr(parse_tree.exprkind.clone());
+    let mut result = String::from("");
     let mut next_input = None;
-    println!("================================================================================");
+    result += "===============================PROGRAM OUTPUT=================================\n";
     loop {
-        let result = interpreter::interpret(eval_expr, env.clone(), 1, &next_input);
-        eval_expr = result.expr;
+        let result = interpreter::interpret(eval_tree, env.clone(), 1, &next_input);
+        eval_tree = result.expr;
         env = result.new_env;
         next_input = match result.effect {
             None => None,
             Some((effect, args)) => Some(side_effects::handle_effect(&effect, &args)),
         };
-        match (&next_input, eval_tree::is_val(&eval_expr)) {
+        match (&next_input, eval_tree::is_val(&eval_tree)) {
             (None, true) => {
                 break;
             }
             _ => {
                 // println!("Env is: {:#?}", env);
-                // println!("Expr is: {:#?}", eval_expr)
+                // println!("Expr is: {:#?}", eval_tree)
             }
         };
     }
-    println!("================================================================================");
-    println!("Expr evaluated to: {:#?}", eval_expr);
+    result += "================================================================================\n";
+    result += &format!("Expr evaluated to: {:#?}", eval_tree);
+    Some(result)
 }
 
-// fn structure_edit_stuff() {
-//     let s = edit_tree::make_new_program();
-//     println!("S is : {:#?}", s);
-//     let s = edit_tree::perform(edit_tree::Action::Insert('h'), s);
-//     println!("S is : {:#?}", s);
-//     let s = edit_tree::perform(edit_tree::Action::Insert('e'), s);
-//     println!("S is : {:#?}", s);
-//     let s = edit_tree::perform(edit_tree::Action::Backspace, s);
-//     println!("S is : {:#?}", s);
-// }
+impl eframe::App for MyApp {
+    fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+        // self.text = fix(&mut self.text);
+        egui::CentralPanel::default().show(ctx, |ui| {
+            ui.heading("Abra Editor");
+            ui.text_edit_multiline(&mut self.text);
+            if ui.button("Run code").clicked() {
+                self.output = match get_program_output(&self.text) {
+                    Some(output) => output,
+                    None => String::from("could not run program ;("),
+                }
+            }
+            ui.label(&self.output);
+        });
+    }
+}

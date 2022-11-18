@@ -1,0 +1,58 @@
+WHITESPACE = { space | tab | newline }
+space = { " " }
+tab = { "\t" }
+newline = { "\n" }
+
+placeholder = { "_" }
+
+program = { SOI ~ statement* ~ EOI }
+
+statement = { declaration | expression_statement }
+
+declaration = { let_keyword ~ pattern ~ op_assign ~ expression ~ semicolon }
+let_keyword = { "let" }
+expression_statement = { expression ~ semicolon }
+pattern = { identifier }
+op_assign = { "=" }
+
+expression = { term ~ (op_binary ~ term)* }
+term = _{ placeholder | ("(" ~ expression ~ ")") | if_else_expression | primary_expression }
+
+if_else_expression = { "if" ~ expression ~ block_expression ~ "else" ~ block_expression }
+if_keyword = { "if" }
+else_keyword = { "else" }
+
+block_expression = { block_start ~ statement* ~ expression? ~ block_end }
+block_start = { "{" }
+block_end = { "}" }
+
+func_call = { identifier ~ func_args }
+func_args = _{ func_args_start ~ (func_arg ~ ",")* ~ func_arg? ~ func_args_end }
+func_args_start = { "(" }
+func_args_end = { ")" }
+func_arg = _{ expression }
+
+primary_expression = _{ identifier | literal }
+
+identifier = @{ !keyword ~ (alpha | "_") ~ (alphanumeric | "_")* }
+alpha = _{ 'a'..'z' | 'A'..'Z' }
+alphanumeric = _{ alpha | '0'..'9' }
+
+literal = _{ literal_number | literal_bool | literal_string }
+literal_number = @{ "0" | ASCII_NONZERO_DIGIT ~ ASCII_DIGIT* }
+literal_string = @{ "b\"" ~ ANY* ~ "\"" }
+literal_bool = @{ "true" | "false" }
+
+op_binary = _{op_eq | op_addition | op_subtraction | op_multiplication }
+op_eq = { "==" }
+op_addition = { "+" }
+op_subtraction = { "-" }
+op_multiplication = { "*" }
+
+// NOTE: When changing this code, make sure you don't have a subset of a word before
+// another word. For example: { "type" | "typeof" } will never match "typeof"
+keyword = @{
+   "else" | "false" | "func" | "if" | "let" | "true"
+}
+
+semicolon = { ";" }

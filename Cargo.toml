@@ -3,6 +3,9 @@ name = "abra"
 version = "0.1.0"
 build = "src/build.rs"
 
+# to prevent accidental publish to crates.io
+publish = false
+
 [lib]
 name = "abra"
 crate-type = ["lib"]
@@ -11,6 +14,25 @@ path = "src/lib.rs"
 [dependencies]
 lalrpop-util = "0.19.6"
 regex = "1"
+pest = "2.3.0"
+pest_derive = "2.3.0"
+eframe = "0.19.0"
+
+# native:
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+tracing-subscriber = "0.3"
+
+# web:
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+console_error_panic_hook = "0.1.6"
+tracing-wasm = "0.2"
+
+[profile.release]
+opt-level = 2 # fast and small wasm
+
+# Optimize all dependencies even in debug builds:
+[profile.dev.package."*"]
+opt-level = 2
 
 [build-dependencies]
 lalrpop = "0.19.6"

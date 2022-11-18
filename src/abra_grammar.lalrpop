@@ -1,8 +1,6 @@
 use std::rc::Rc;
 use std::str::FromStr;
-use parse_tree::*;
-use types::*;
-use operators::*;
+use abstract_syntax_tree::*;
 
 grammar;
 
@@ -30,8 +28,8 @@ Identifier: Identifier = {
     r"[a-zA-Z_.][.a-zA-Z_0-9']*(\.:[.+/*=-]+)?" => (<>).to_string()
 }
 
-Pat: Rc<Pat> = {
-    Identifier => Rc::new(Pat::Var(<>))
+PatKind: Rc<PatKind> = {
+    Identifier => Rc::new(PatKind::Var(<>))
 }
 
 Type: Rc<Type> = {
@@ -66,56 +64,73 @@ TypeAnnFuncOut: Rc<Type> = {
     "->" <t:Type> => t
 }
 
+pub Stmt: Rc<Stmt> = {
+    <lo:@L> <stmtkind:StmtKind> <hi:@R> => Rc::new(Stmt{stmtkind, span: Span{lo, hi}})
+}
+
 pub Expr: Rc<Expr> = {
-    "let" <pat:Pat> "=" <e1:Expr> "in" <e2:Expr> => Rc::new(Expr::Let(pat, None, e1, e2)),
-    "let" <pat:Pat> ":" <typ:Type> "=" <e1:Expr> "in" <e2:Expr> => Rc::new(Expr::Let(pat, Some(typ), e1, e2)),
-    "func" "(" <func_arg:FuncArg> <func_args:CommaFuncArg*> ")" <t_out:TypeAnnFuncOut?> "{" <body:Expr> "}" => Rc::new(Expr::Func(func_arg, func_args, t_out, body)),
-    "if" <e1:Expr> "{" <e2:Expr> "} else {" <e3:Expr> "}" => Rc::new(Expr::If(<>)),
-    "match" <e1:Expr> "{" <rules:Rule*> "}" => Rc::new(Expr::Match(e1, rules)),
-    SemicolonOpExpr,
+    <lo:@L> <exprkind:ExprKind> <hi:@R> => Rc::new(Expr{exprkind, span: Span{lo, hi}}),
+    EqualityOpExpr,
+}
+
+Pat: Rc<Pat> = {
+    <lo:@L> <patkind:PatKind> <hi:@R> => Rc::new(Pat{patkind, span: Span{lo, hi}})
+}
+
+StmtKind: Rc<StmtKind> = {
+    SemicolonOp => Rc::new(StmtKind::EmptyHole),
+    <e:Expr> SemicolonOp => Rc::new(StmtKind::Expr(e)),
+    "let" <pat:Pat> "=" <e:Expr> SemicolonOp => Rc::new(StmtKind::Let(pat, None, e)),
+    "let" <pat:Pat> ":" <typ:Type> "=" <e:Expr> SemicolonOp => Rc::new(StmtKind::Let(pat, Some(typ), e)),
+}
+
+ExprKind: Rc<ExprKind> = {
+    "func" "(" <func_arg:FuncArg> <func_args:CommaFuncArg*> ")" <t_out:TypeAnnFuncOut?> "{" <body:Expr> "}" => Rc::new(ExprKind::Func(func_arg, func_args, t_out, body)),
+    "if" <e1:Expr> "{" <e2:Expr> "} else {" <e3:Expr> "}" => Rc::new(ExprKind::If(<>)),
+    "match" <e1:Expr> "{" <rules:Rule*> "}" => Rc::new(ExprKind::Match(e1, rules)),
+    "{" <statements:Stmt*> "}" => Rc::new(ExprKind::Block(statements)),
 }
 
 CommaExpr: Rc<Expr> = {
     "," <expr:Expr> => expr
 }
 
-SemicolonOpExpr: Rc<Expr> = {
-    SemicolonOpExpr SemicolonOp EqualityOpExpr => Rc::new(Expr::BinOp(<>)),
-    EqualityOpExpr
-}
-
 EqualityOpExpr: Rc<Expr> = {
-    EqualityOpExpr EqualityOp ComparisonOpExpr => Rc::new(Expr::BinOp(<>)),
+    <lo:@L> <e1:EqualityOpExpr> <op:EqualityOp> <e2:ComparisonOpExpr> <hi:@R> => Rc::new(Expr{exprkind: Rc::new(ExprKind::BinOp(e1, op, e2)), span: Span{lo, hi}}),
     ComparisonOpExpr
 }
 
 ComparisonOpExpr: Rc<Expr> = {
-    ComparisonOpExpr ComparisonOp SummandOpExpr => Rc::new(Expr::BinOp(<>)),
+    <lo:@L> <e1:ComparisonOpExpr> <op:ComparisonOp> <e2:SummandOpExpr> <hi:@R> => Rc::new(Expr{exprkind: Rc::new(ExprKind::BinOp(e1, op, e2)), span: Span{lo, hi}}),
     SummandOpExpr
 }
 
 SummandOpExpr: Rc<Expr> = {
-    SummandOpExpr SummandOp FactorOpExpr => Rc::new(Expr::BinOp(<>)),
+    <lo:@L> <e1:SummandOpExpr> <op:SummandOp> <e2:FactorOpExpr> <hi:@R> => Rc::new(Expr{exprkind: Rc::new(ExprKind::BinOp(e1, op, e2)), span: Span{lo, hi}}),
     FactorOpExpr
 }
 
 FactorOpExpr: Rc<Expr> = {
-    FactorOpExpr FactorOp Term => Rc::new(Expr::BinOp(<>)),
+    <lo:@L> <e1:FactorOpExpr> <op:FactorOp> <e2:TermSpanned> <hi:@R> => Rc::new(Expr{exprkind: Rc::new(ExprKind::BinOp(e1, op, e2)), span: Span{lo, hi}}),
     FuncApExpr
 }
 
 FuncApExpr: Rc<Expr> = {
-    <f:FuncApExpr> "(" <e:Expr> <es:CommaExpr*> ")" => Rc::new(Expr::FuncAp(f, e, es)),
-    Term
+    <lo:@L> <f:FuncApExpr> "(" <e:Expr> <es:CommaExpr*> ")" <hi:@R> => Rc::new(Expr{exprkind: Rc::new(ExprKind::FuncAp(f, e, es)), span: Span{lo, hi}}),
+    TermSpanned
 }
 
-Term: Rc<Expr> = {
-    Identifier => Rc::new(Expr::Var(<>)),
-    Unit => Rc::new(Expr::Unit),
-    Int => Rc::new(Expr::Int(<>)),
-    Bool => Rc::new(Expr::Bool(<>)),
-    Str => Rc::new(Expr::Str(<>)),
-    "(" <Expr> ")",
+TermSpanned: Rc<Expr> = {
+    <lo:@L> <t:Term> <hi:@R> => Rc::new(Expr{exprkind: t, span: Span{lo, hi}}),
+}
+
+Term: Rc<ExprKind> = {
+    Identifier => Rc::new(ExprKind::Var(<>)),
+    Unit => Rc::new(ExprKind::Unit),
+    Int => Rc::new(ExprKind::Int(<>)),
+    Bool => Rc::new(ExprKind::Bool(<>)),
+    Str => Rc::new(ExprKind::Str(<>)),
+    "(" <ExprKind> ")",
 }
 
 FactorOp: BinOpcode = {

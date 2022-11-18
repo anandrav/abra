@@ -1,27 +1,29 @@
+use abstract_syntax_tree;
 use environment::Environment;
 use eval_tree;
-use parse_tree;
 use std::cell::RefCell;
 use std::rc::Rc;
-use typed_tree;
 use types::Type;
 
-type Tte = typed_tree::Expr;
+type ASTek = abstract_syntax_tree::ExprKind;
 type Ete = eval_tree::Expr;
 
-type Ttp = typed_tree::Pat;
+type ASTpk = abstract_syntax_tree::PatKind;
 type Etp = eval_tree::Pat;
 
-pub fn translate_pat(parse_tree: Rc<Ttp>) -> Rc<Etp> {
-    match &*parse_tree {
-        Ttp::Var(id) => Rc::new(Etp::Var(id.clone())),
+type ASTs = abstract_syntax_tree::StmtKind;
+
+pub fn translate_pat(parse_tree: Rc<abstract_syntax_tree::Pat>) -> Rc<Etp> {
+    match &*parse_tree.patkind {
+        ASTpk::Var(id) => Rc::new(Etp::Var(id.clone())),
+        _ => unimplemented!(),
     }
 }
 
 pub fn translate_expr_func(
-    (id, _): typed_tree::FuncArg,
-    func_args: Vec<typed_tree::FuncArg>,
-    body: Rc<Tte>,
+    (id, _): abstract_syntax_tree::FuncArg,
+    func_args: Vec<abstract_syntax_tree::FuncArg>,
+    body: Rc<ASTek>,
 ) -> Rc<Ete> {
     if func_args.is_empty() {
         Rc::new(Ete::Func(id.clone(), translate_expr(body.clone()), None))
@@ -33,7 +35,7 @@ pub fn translate_expr_func(
     }
 }
 
-pub fn translate_expr_ap(expr1: Rc<Tte>, expr2: Rc<Tte>, exprs: Vec<Rc<Tte>>) -> Rc<Ete> {
+pub fn translate_expr_ap(expr1: Rc<ASTek>, expr2: Rc<ASTek>, exprs: Vec<Rc<ASTek>>) -> Rc<Ete> {
     if exprs.is_empty() {
         Rc::new(Ete::FuncAp(translate_expr(expr1), translate_expr(expr2)))
     } else {
@@ -47,33 +49,36 @@ pub fn translate_expr_ap(expr1: Rc<Tte>, expr2: Rc<Tte>, exprs: Vec<Rc<Tte>>) ->
     }
 }
 
-pub fn translate_expr(parse_tree: Rc<Tte>) -> Rc<Ete> {
+pub fn translate_expr(parse_tree: Rc<ASTek>) -> Rc<Ete> {
     match &*parse_tree {
-        Tte::Var(id) => Rc::new(Ete::Var(id.clone())),
-        Tte::Unit => Rc::new(Ete::Unit),
-        Tte::Int(i) => Rc::new(Ete::Int(*i)),
-        Tte::Bool(b) => Rc::new(Ete::Bool(*b)),
-        Tte::Str(s) => Rc::new(Ete::Str(s.clone())),
-        Tte::BinOp(expr1, op, expr2) => Rc::new(Ete::BinOp(
-            translate_expr(expr1.clone()),
+        ASTek::Var(id) => Rc::new(Ete::Var(id.clone())),
+        ASTek::Unit => Rc::new(Ete::Unit),
+        ASTek::Int(i) => Rc::new(Ete::Int(*i)),
+        ASTek::Bool(b) => Rc::new(Ete::Bool(*b)),
+        ASTek::Str(s) => Rc::new(Ete::Str(s.clone())),
+        ASTek::BinOp(expr1, op, expr2) => Rc::new(Ete::BinOp(
+            translate_expr(expr1.exprkind.clone()),
             *op,
-            translate_expr(expr2.clone()),
+            translate_expr(expr2.exprkind.clone()),
         )),
-        Tte::Let(pat, _, expr1, expr2) => Rc::new(Ete::Let(
-            translate_pat(pat.clone()),
-            translate_expr(expr1.clone()),
-            translate_expr(expr2.clone()),
-        )),
-        Tte::Func(func_arg, func_args, _, body) => {
-            translate_expr_func(func_arg.clone(), func_args.clone(), body.clone())
+        // ASTek::Let(pat, _, expr1, expr2) => Rc::new(Ete::Let(
+        //     translate_pat(pat.clone()),
+        //     translate_expr(expr1.clone()),
+        //     translate_expr(expr2.clone()),
+        // )),
+        ASTek::Func(func_arg, func_args, _, body) => {
+            translate_expr_func(func_arg.clone(), func_args.clone(), body.exprkind.clone())
         }
-        Tte::FuncAp(expr1, expr2, exprs) => {
-            translate_expr_ap(expr1.clone(), expr2.clone(), exprs.clone())
-        }
-        Tte::If(expr1, expr2, expr3) => Rc::new(Ete::If(
-            translate_expr(expr1.clone()),
-            translate_expr(expr2.clone()),
-            translate_expr(expr3.clone()),
+        ASTek::FuncAp(expr1, expr2, exprs) => translate_expr_ap(
+            expr1.exprkind.clone(),
+            expr2.exprkind.clone(),
+            exprs.iter().map(|expr| expr.exprkind.clone()).collect(),
+        ),
+        ASTek::If(expr1, expr2, expr3) => Rc::new(Ete::If(
+            translate_expr(expr1.exprkind.clone()),
+            translate_expr(expr2.exprkind.clone()),
+            translate_expr(expr3.exprkind.clone()),
         )),
+        _ => unimplemented!(),
     }
 }
