@@ -67,7 +67,25 @@ struct MyApp {
 impl Default for MyApp {
     fn default() -> Self {
         Self {
-            text: String::from(r#"1 + 2 * 3 - 4 * 5"#),
+            text: String::from(
+                r#"{
+
+let fib = func(n) {
+    if n == 0 {
+        0
+    } else {
+        if n == 1 {
+            1
+        } else {
+            fib(n-1) + fib(n-2)
+        }
+    }
+};
+
+fib(10);
+
+}"#,
+            ),
             output: String::default(),
         }
     }
