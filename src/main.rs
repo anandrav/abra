@@ -77,9 +77,9 @@ impl Default for MyApp {
     }
 }
 
-fn get_program_output(text: &String) -> Option<String> {
+fn get_program_output(text: &String) -> Result<String, String> {
     let mut env = interpreter::make_new_environment();
-    let parse_tree = abstract_syntax_tree::parse(&text);
+    let parse_tree = abstract_syntax_tree::parse(&text)?;
     // let token_tree = token_tree::TokenTree::from(text);
     // let eval_tree = translate::
     let mut eval_tree = translate::translate_expr(parse_tree.exprkind.clone());
@@ -106,7 +106,7 @@ fn get_program_output(text: &String) -> Option<String> {
     }
     result += "================================================================================\n";
     result += &format!("Expr evaluated to: {:#?}", eval_tree);
-    Some(result)
+    Ok(result)
 }
 
 impl eframe::App for MyApp {
@@ -117,8 +117,8 @@ impl eframe::App for MyApp {
             ui.text_edit_multiline(&mut self.text);
             if ui.button("Run code").clicked() {
                 self.output = match get_program_output(&self.text) {
-                    Some(output) => output,
-                    None => String::from("could not run program ;("),
+                    Ok(output) => output,
+                    Err(error) => error,
                 }
             }
             ui.label(&self.output);

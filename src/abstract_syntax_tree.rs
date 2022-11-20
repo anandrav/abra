@@ -6,8 +6,10 @@ lalrpop_mod!(pub abra_grammar); // synthesized by LALRPOP
 pub type Identifier = String;
 pub type FuncArg = (Identifier, Option<Rc<Type>>);
 
-pub fn parse(source: &str) -> Rc<Expr> {
-    abra_grammar::ExprParser::new().parse(source).unwrap()
+pub fn parse(source: &str) -> Result<Rc<Expr>, String> {
+    abra_grammar::ExprParser::new()
+        .parse(source)
+        .map_err(|err| err.to_string())
 }
 
 #[derive(Debug, PartialEq)]
