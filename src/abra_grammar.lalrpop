@@ -1,6 +1,6 @@
 use std::rc::Rc;
 use std::str::FromStr;
-use abstract_syntax_tree::*;
+use ast::*;
 
 grammar;
 

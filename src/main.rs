@@ -6,7 +6,7 @@ extern crate pest;
 extern crate pest_derive;
 extern crate regex;
 
-mod abstract_syntax_tree;
+mod ast;
 mod environment;
 mod eval_tree;
 mod interpreter;
@@ -67,11 +67,7 @@ struct MyApp {
 impl Default for MyApp {
     fn default() -> Self {
         Self {
-            text: String::from(
-                r#"
-1 + 2 * 3 - 4 * 5
-"#,
-            ),
+            text: String::from(r#"1 + 2 * 3 - 4 * 5"#),
             output: String::default(),
         }
     }
@@ -79,7 +75,7 @@ impl Default for MyApp {
 
 fn get_program_output(text: &String) -> Result<String, String> {
     let mut env = interpreter::make_new_environment();
-    let parse_tree = abstract_syntax_tree::parse(&text)?;
+    let parse_tree = ast::parse(&text)?;
     // let token_tree = token_tree::TokenTree::from(text);
     // let eval_tree = translate::
     let mut eval_tree = translate::translate_expr(parse_tree.exprkind.clone());

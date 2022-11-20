@@ -1,28 +1,60 @@
-use abstract_syntax_tree;
+use ast;
 use environment::Environment;
 use eval_tree;
 use std::cell::RefCell;
 use std::rc::Rc;
 use types::Type;
 
-type ASTek = abstract_syntax_tree::ExprKind;
+type ASTek = ast::ExprKind;
 type Ete = eval_tree::Expr;
 
-type ASTpk = abstract_syntax_tree::PatKind;
+type ASTpk = ast::PatKind;
 type Etp = eval_tree::Pat;
 
-type ASTs = abstract_syntax_tree::StmtKind;
+type ASTs = ast::StmtKind;
 
-pub fn translate_pat(parse_tree: Rc<abstract_syntax_tree::Pat>) -> Rc<Etp> {
+pub fn translate_pat(parse_tree: Rc<ast::Pat>) -> Rc<Etp> {
     match &*parse_tree.patkind {
         ASTpk::Var(id) => Rc::new(Etp::Var(id.clone())),
         _ => unimplemented!(),
     }
 }
 
+pub fn translate_expr_block(stmts: Vec<Rc<ast::Stmt>>) -> Rc<Ete> {
+    match stmts.len() {
+        0 => panic!("empty expression block!"),
+        1 => {
+            let statement = &stmts[0];
+            match &*statement.stmtkind {
+                ast::StmtKind::EmptyHole => {
+                    panic!("empty hole found during translation")
+                }
+                ast::StmtKind::Let(..) => {
+                    panic!("let statement on last line of block")
+                }
+                ast::StmtKind::Expr(e) => translate_expr(e.exprkind.clone()),
+            }
+        }
+        _ => {
+            let statement = &stmts[0];
+            match &*statement.stmtkind {
+                ast::StmtKind::EmptyHole => {
+                    panic!("empty hole found during translation")
+                }
+                ast::StmtKind::Let(pat, _, expr) => Rc::new(Ete::Let(
+                    translate_pat(pat.clone()),
+                    translate_expr(expr.exprkind.clone()),
+                    translate_expr_block(stmts[1..].to_vec()),
+                )),
+                ast::StmtKind::Expr(e) => translate_expr(e.exprkind.clone()),
+            }
+        }
+    }
+}
+
 pub fn translate_expr_func(
-    (id, _): abstract_syntax_tree::FuncArg,
-    func_args: Vec<abstract_syntax_tree::FuncArg>,
+    (id, _): ast::FuncArg,
+    func_args: Vec<ast::FuncArg>,
     body: Rc<ASTek>,
 ) -> Rc<Ete> {
     if func_args.is_empty() {
@@ -61,6 +93,7 @@ pub fn translate_expr(parse_tree: Rc<ASTek>) -> Rc<Ete> {
             *op,
             translate_expr(expr2.exprkind.clone()),
         )),
+        ASTek::Block(stmts) => translate_expr_block(stmts.clone()),
         // ASTek::Let(pat, _, expr1, expr2) => Rc::new(Ete::Let(
         //     translate_pat(pat.clone()),
         //     translate_expr(expr1.clone()),
