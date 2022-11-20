@@ -289,7 +289,7 @@ pub fn interpret(
                     } = interpret(expr2.clone(), env.clone(), steps, input);
                     if effect.is_some() || steps <= 0 {
                         return InterpretResult {
-                            expr: Rc::new(If(expr1, expr2, expr3.clone())),
+                            expr: expr2,
                             steps,
                             effect,
                             new_env,
@@ -312,7 +312,7 @@ pub fn interpret(
                     } = interpret(expr3.clone(), env.clone(), steps, input);
                     if effect.is_some() || steps <= 0 {
                         return InterpretResult {
-                            expr: Rc::new(If(expr1, expr2.clone(), expr3)),
+                            expr: expr3,
                             steps,
                             effect,
                             new_env,

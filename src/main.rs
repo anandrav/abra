@@ -97,9 +97,11 @@ fn get_program_output(text: &String) -> Result<String, String> {
     // let token_tree = token_tree::TokenTree::from(text);
     // let eval_tree = translate::
     let mut eval_tree = translate::translate_expr(parse_tree.exprkind.clone());
+    println!("{:#?}", eval_tree);
     let mut result = String::from("");
     let mut next_input = None;
     result += "===============================PROGRAM OUTPUT=================================\n";
+    println!("Expr is: {:#?}", eval_tree);
     loop {
         let result = interpreter::interpret(eval_tree, env.clone(), 1, &next_input);
         eval_tree = result.expr;
@@ -114,7 +116,7 @@ fn get_program_output(text: &String) -> Result<String, String> {
             }
             _ => {
                 // println!("Env is: {:#?}", env);
-                // println!("Expr is: {:#?}", eval_tree)
+                println!("Expr is: {:#?}", eval_tree)
             }
         };
     }
