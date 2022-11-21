@@ -102,7 +102,7 @@ fn get_program_output(text: &String) -> Result<String, String> {
     println!("{:#?}", eval_tree);
     let mut output = String::from("");
     let mut next_input = None;
-    output += "=================================PROGRAM OUTPUT=================================\n";
+    output += "=====PROGRAM OUTPUT=====\n\n";
     println!("Expr is: {:#?}", eval_tree);
     loop {
         let result = interpreter::interpret(eval_tree, env.clone(), 1, &next_input);
@@ -122,35 +122,35 @@ fn get_program_output(text: &String) -> Result<String, String> {
             }
         };
     }
-    output += "================================================================================\n";
+    output += "\n========================\n";
     output += &format!("Expression evaluated to: {:#?}", eval_tree);
     Ok(output)
 }
 
 impl eframe::App for MyApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
-        // self.text = fix(&mut self.text);
-        egui::CentralPanel::default()
-            .frame(
-                egui::Frame::none()
-                    .fill(Color32::LIGHT_GRAY)
-                    .inner_margin(egui::vec2(100.0, 100.0)), // .inner_margin(egui::vec2(200.0, 10.0)),
-            )
-            .show(ctx, |ui| {
-                ui.vertical_centered_justified(|ui| {
-                    ui.set_width(600.0);
-                    ui.heading("Abra Editor");
-                    ui.code_editor(&mut self.text);
-                    if ui.button("Run code").clicked() {
-                        self.output = match get_program_output(&self.text) {
-                            Ok(output) => output,
-                            Err(error) => error,
+        egui::CentralPanel::default().show(ctx, |ui| {
+            egui::Window::new("Abra Editor")
+                .title_bar(false)
+                .anchor(egui::Align2::CENTER_TOP, egui::vec2(0.0, 0.0))
+                .scroll2([true, false])
+                .default_width(700.0)
+                .show(ctx, |ui| {
+                    ui.set_width(570.0);
+                    ui.vertical_centered_justified(|ui| {
+                        ui.heading("Abra Editor");
+                        ui.code_editor(&mut self.text);
+                        if ui.button("Run code").clicked() {
+                            self.output = match get_program_output(&self.text) {
+                                Ok(output) => output,
+                                Err(error) => error,
+                            }
                         }
-                    }
-                    ui.vertical(|ui| {
-                        ui.monospace(&self.output);
+                        ui.vertical(|ui| {
+                            ui.monospace(&self.output);
+                        });
                     });
                 });
-            });
+        });
     }
 }
