@@ -123,7 +123,7 @@ fn get_program_output(text: &String) -> Result<String, String> {
         };
     }
     output += "================================================================================\n";
-    output += &format!("Expr evaluated to: {:#?}", eval_tree);
+    output += &format!("Expression evaluated to: {:#?}", eval_tree);
     Ok(output)
 }
 
