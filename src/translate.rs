@@ -69,7 +69,11 @@ pub fn translate_expr_func(
 
 pub fn translate_expr_ap(expr1: Rc<ASTek>, expr2: Rc<ASTek>, exprs: Vec<Rc<ASTek>>) -> Rc<Ete> {
     if exprs.is_empty() {
-        Rc::new(Ete::FuncAp(translate_expr(expr1), translate_expr(expr2)))
+        Rc::new(Ete::FuncAp(
+            translate_expr(expr1),
+            translate_expr(expr2),
+            None,
+        ))
     } else {
         // currying
         let rest_of_arguments_applied =
@@ -77,6 +81,7 @@ pub fn translate_expr_ap(expr1: Rc<ASTek>, expr2: Rc<ASTek>, exprs: Vec<Rc<ASTek
         Rc::new(Ete::FuncAp(
             rest_of_arguments_applied,
             translate_expr(exprs.last().unwrap().clone()),
+            None,
         ))
     }
 }

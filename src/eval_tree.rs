@@ -16,7 +16,7 @@ pub enum Expr {
     BinOp(Rc<Expr>, BinOpcode, Rc<Expr>),
     Let(Rc<Pat>, Rc<Expr>, Rc<Expr>),
     Func(Identifier, Rc<Expr>, Option<Rc<RefCell<Environment>>>),
-    FuncAp(Rc<Expr>, Rc<Expr>),
+    FuncAp(Rc<Expr>, Rc<Expr>, Option<Rc<RefCell<Environment>>>),
     If(Rc<Expr>, Rc<Expr>, Rc<Expr>),
     EffectAp(side_effects::Effect, Vec<Rc<Expr>>),
     ConsumedEffect,

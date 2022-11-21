@@ -14,7 +14,15 @@ impl Environment {
     pub fn debug_helper(&self) -> Vec<String> {
         let mut current = Vec::new();
         for (key, value) in &self.vars {
-            current.push(key.clone())
+            match &*value.clone() {
+                Expr::Int(n) => {
+                    let mut s = key.clone();
+                    s.push_str("=");
+                    s.push_str(n.to_string().as_str());
+                    current.push(s);
+                }
+                _ => current.push(key.clone()),
+            }
         }
         match &self.enclosing {
             Some(env) => {
