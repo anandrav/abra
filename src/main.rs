@@ -70,19 +70,15 @@ impl Default for MyApp {
             text: String::from(
                 r#"{
 
-let fib = func(n) {
+let fib = func(dummy, n) {
     if n == 0 {
         0
     } else {
-        if n == 1 {
-            1
-        } else {
-            fib(n-1) + fib(n-2)
-        }
+        fib(dummy, n-1)
     }
 };
 
-fib(10);
+fib(1, 10);
 
 }"#,
             ),
@@ -115,7 +111,7 @@ fn get_program_output(text: &String) -> Result<String, String> {
                 break;
             }
             _ => {
-                // println!("Env is: {:#?}", env);
+                println!("Env is: {:#?}", env);
                 println!("Expr is: {:#?}", eval_tree)
             }
         };

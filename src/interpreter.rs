@@ -199,6 +199,7 @@ pub fn interpret(
             }
         },
         FuncAp(expr1, expr2) => {
+            println!("before funcap eval expr1 env is {:#?}", env);
             let InterpretResult {
                 expr: expr1,
                 steps,
@@ -213,12 +214,14 @@ pub fn interpret(
                     new_env,
                 };
             }
+            println!("before funcap eval expr2 env is {:#?}", new_env);
             let InterpretResult {
                 expr: expr2,
                 steps,
                 effect,
                 new_env,
             } = interpret(expr2.clone(), env.clone(), steps, &input.clone());
+            println!("after funcap eval expr2 env is {:#?}", new_env);
             if effect.is_some() || steps <= 0 {
                 return InterpretResult {
                     expr: Rc::new(FuncAp(expr1, expr2)),
@@ -241,28 +244,12 @@ pub fn interpret(
             let new_env = Rc::new(RefCell::new(Environment::new(Some(closure))));
             new_env.borrow_mut().extend(&id, expr2.clone());
 
-            let InterpretResult {
-                expr,
-                steps,
-                effect,
-                new_env,
-            } = interpret(body, new_env, steps, input);
-            if effect.is_some() || steps <= 0 {
-                return InterpretResult {
-                    expr: expr,
-                    steps,
-                    effect,
-                    new_env,
-                };
-            }
+            println!("new_env is {:#?}", new_env);
 
             let steps = steps - 1;
-            return InterpretResult {
-                expr,
-                steps,
-                effect: None,
-                new_env: env,
-            };
+            let result = interpret(body, new_env, steps, input);
+            println!("then env is {:#?}", result.new_env);
+            result
         }
         If(expr1, expr2, expr3) => {
             let InterpretResult {
