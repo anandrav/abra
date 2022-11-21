@@ -230,25 +230,25 @@ pub fn interpret(
                     new_env,
                 };
             }
-            let (id, body, closure, funcapp_env) = match &*expr1.clone() {
-                Func(id, body, closure) => (
-                    id.clone(),
-                    body.clone(),
-                    closure.clone(),
-                    match closure {
-                        None => panic!("function should have closure by now"), //Rc::new(RefCell::new(Environment::new(Some(env.clone())))),
-                        Some(closure) => match funcapp_env {
-                            Some(funcapp_env) => funcapp_env.clone(),
-                            None => {
-                                let funcapp_env =
-                                    Rc::new(RefCell::new(Environment::new(Some(closure.clone()))));
-                                funcapp_env.borrow_mut().extend(&id, expr2.clone());
-                                funcapp_env
-                            }
-                        },
-                    },
-                ),
-                _ => panic!("Left expression of FuncAp is not a function"),
+            let (id, body, closure) = match &*expr1 {
+                Func(id, body, closure) => match closure {
+                    None => (
+                        id,
+                        body,
+                        Rc::new(RefCell::new(Environment::new(Some(env.clone())))),
+                    ),
+                    Some(closure) => (id, body, closure.clone()),
+                },
+                _ => panic!("not a function"),
+            };
+            let (funcapp_env) = match funcapp_env {
+                Some(funcapp_env) => funcapp_env.clone(),
+                None => {
+                    let funcapp_env =
+                        Rc::new(RefCell::new(Environment::new(Some(closure.clone()))));
+                    funcapp_env.borrow_mut().extend(&id, expr2.clone());
+                    funcapp_env
+                }
             };
 
             println!("funcapp_env is {:#?}", funcapp_env);
@@ -268,14 +268,14 @@ pub fn interpret(
                 steps,
                 effect,
                 new_env: funcapp_env,
-            } = interpret(body, funcapp_env.clone(), steps, input);
+            } = interpret(body.clone(), funcapp_env.clone(), steps, input);
             // if didn't finish executing for the body of function application,
             // return a FuncApp for the expression field and set environment to new_env... So we can try again later.
             // Can't return funcapp_env for environment! Because it only contains the closure and the function's arguments!
             if effect.is_some() || steps <= 0 {
                 return InterpretResult {
                     expr: Rc::new(FuncAp(
-                        Rc::new(Func(id, body, closure)),
+                        Rc::new(Func(id.clone(), body, Some(closure))),
                         expr2,
                         Some(funcapp_env),
                     )),
