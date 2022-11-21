@@ -70,15 +70,21 @@ impl Default for MyApp {
             text: String::from(
                 r#"{
 
-let fib = func(dummy, n) {
+let fibonacci = func(n) {
     if n == 0 {
         0
     } else {
-        fib(dummy, n-1)
+        if n == 1 {
+            1
+        } else {
+            fibonacci(n-1) + fibonacci(n-2)
+        }
     }
 };
 
-fib(1, 10);
+print("hello world");
+
+fibonacci(10);
 
 }"#,
             ),
@@ -94,9 +100,9 @@ fn get_program_output(text: &String) -> Result<String, String> {
     // let eval_tree = translate::
     let mut eval_tree = translate::translate_expr(parse_tree.exprkind.clone());
     println!("{:#?}", eval_tree);
-    let mut result = String::from("");
+    let mut output = String::from("");
     let mut next_input = None;
-    result += "===============================PROGRAM OUTPUT=================================\n";
+    output += "===============================PROGRAM OUTPUT=================================\n";
     println!("Expr is: {:#?}", eval_tree);
     loop {
         let result = interpreter::interpret(eval_tree, env.clone(), 1, &next_input);
@@ -104,7 +110,7 @@ fn get_program_output(text: &String) -> Result<String, String> {
         env = result.new_env;
         next_input = match result.effect {
             None => None,
-            Some((effect, args)) => Some(side_effects::handle_effect(&effect, &args)),
+            Some((effect, args)) => Some(side_effects::handle_effect(&effect, &args, &mut output)),
         };
         match (&next_input, eval_tree::is_val(&eval_tree)) {
             (None, true) => {
@@ -116,9 +122,9 @@ fn get_program_output(text: &String) -> Result<String, String> {
             }
         };
     }
-    result += "================================================================================\n";
-    result += &format!("Expr evaluated to: {:#?}", eval_tree);
-    Ok(result)
+    output += "================================================================================\n";
+    output += &format!("Expr evaluated to: {:#?}", eval_tree);
+    Ok(output)
 }
 
 impl eframe::App for MyApp {

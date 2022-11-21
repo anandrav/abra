@@ -18,10 +18,16 @@ pub enum Effect {
     Read,
 }
 
-pub fn handle_effect(effect: &Effect, args: &Vec<Rc<eval_tree::Expr>>) -> Input {
+pub fn handle_effect(
+    effect: &Effect,
+    args: &Vec<Rc<eval_tree::Expr>>,
+    output: &mut String,
+) -> Input {
     match effect {
         Effect::Print => match &*args[0] {
             eval_tree::Expr::Str(string) => {
+                output.push_str(string);
+                output.push('\n');
                 println!("{}", string);
                 Input::Unit
             }
