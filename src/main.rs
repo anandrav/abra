@@ -20,7 +20,7 @@ use eframe::{
     egui::{
         self,
         style::{Margin, Spacing},
-        Color32, Label, RichText,
+        Color32, Frame, Label, RichText,
     },
     epaint::Vec2,
 };
@@ -102,7 +102,7 @@ fn get_program_output(text: &String) -> Result<String, String> {
     println!("{:#?}", eval_tree);
     let mut output = String::from("");
     let mut next_input = None;
-    output += "===============================PROGRAM OUTPUT=================================\n";
+    output += "=================================PROGRAM OUTPUT=================================\n";
     println!("Expr is: {:#?}", eval_tree);
     loop {
         let result = interpreter::interpret(eval_tree, env.clone(), 1, &next_input);
@@ -130,16 +130,27 @@ fn get_program_output(text: &String) -> Result<String, String> {
 impl eframe::App for MyApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         // self.text = fix(&mut self.text);
-        egui::CentralPanel::default().show(ctx, |ui| {
-            ui.heading("Abra Editor");
-            ui.text_edit_multiline(&mut self.text);
-            if ui.button("Run code").clicked() {
-                self.output = match get_program_output(&self.text) {
-                    Ok(output) => output,
-                    Err(error) => error,
-                }
-            }
-            ui.label(&self.output);
-        });
+        egui::CentralPanel::default()
+            .frame(
+                egui::Frame::none()
+                    .fill(Color32::LIGHT_GRAY)
+                    .inner_margin(egui::vec2(100.0, 100.0)), // .inner_margin(egui::vec2(200.0, 10.0)),
+            )
+            .show(ctx, |ui| {
+                ui.vertical_centered_justified(|ui| {
+                    ui.set_width(600.0);
+                    ui.heading("Abra Editor");
+                    ui.code_editor(&mut self.text);
+                    if ui.button("Run code").clicked() {
+                        self.output = match get_program_output(&self.text) {
+                            Ok(output) => output,
+                            Err(error) => error,
+                        }
+                    }
+                    ui.vertical(|ui| {
+                        ui.monospace(&self.output);
+                    });
+                });
+            });
     }
 }
