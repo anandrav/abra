@@ -92,10 +92,10 @@ let print_fib = func(n) {
 let iter_n = func(i, n, f) {
     if i > n {
         ()
-    } else {{
+    } else {
         f(i);
         iter_n(i+1, n, f);
-    }}
+    }
 };
 iter_n(0, 10, print_fib);
 
