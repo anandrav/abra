@@ -125,6 +125,7 @@ FuncApExpr: Rc<Expr> = {
 
 TermSpanned: Rc<Expr> = {
     <lo:@L> <t:Term> <hi:@R> => Rc::new(Expr{exprkind: t, span: Span{lo, hi}}),
+    "(" <e:Expr> ")" => e,
 }
 
 Term: Rc<ExprKind> = {
@@ -133,7 +134,6 @@ Term: Rc<ExprKind> = {
     Int => Rc::new(ExprKind::Int(<>)),
     Bool => Rc::new(ExprKind::Bool(<>)),
     Str => Rc::new(ExprKind::Str(<>)),
-    "(" <ExprKind> ")",
 }
 
 FactorOp: BinOpcode = {
