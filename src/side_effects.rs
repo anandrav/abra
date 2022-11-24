@@ -15,6 +15,7 @@ pub enum Input {
 #[derive(Debug, Clone)]
 pub enum Effect {
     Print,
+    StringOfInt,
     Read,
 }
 
@@ -31,6 +32,10 @@ pub fn handle_effect(
                 println!("{}", string);
                 Input::Unit
             }
+            _ => panic!("wrong arguments for {:#?} effect", effect),
+        },
+        Effect::StringOfInt => match &*args[0] {
+            eval_tree::Expr::Int(n) => Input::Cin(n.to_string()),
             _ => panic!("wrong arguments for {:#?} effect", effect),
         },
         Effect::Read => Input::Cin(String::from("this is input")),

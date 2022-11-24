@@ -21,6 +21,17 @@ pub fn make_new_environment() -> Rc<RefCell<Environment>> {
             None,
         )),
     );
+    env.borrow_mut().extend(
+        &String::from("string_of_int"),
+        Rc::new(Expr::Func(
+            String::from("some_int"),
+            Rc::new(Expr::EffectAp(
+                side_effects::Effect::StringOfInt,
+                vec![Rc::new(Expr::Var(String::from("some_int")))],
+            )),
+            None,
+        )),
+    );
     env
 }
 

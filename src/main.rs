@@ -70,21 +70,31 @@ impl Default for MyApp {
             text: String::from(
                 r#"{
 
-let fibonacci = func(n) {
+let helper = func(x,y,n) {
     if n == 0 {
-        0
+        x
     } else {
-        if n == 1 {
-            1
-        } else {
-            fibonacci(n-1) + fibonacci(n-2)
-        }
+        helper(y,x+y,n-1)
     }
 };
 
-print("hello world");
+let fibonacci = func(n) {
+    helper(0,1,n)
+};
 
-fibonacci(10);
+print("The first 10 fibonacci numbers are:");
+let print_fib = func(n) {
+    print(string_of_int(fibonacci(n)))
+};
+let iter_n = func(i, n, f) {
+    if i > n {
+        ()
+    } else {{
+        f(i);
+        iter_n(i+1, n, f);
+    }}
+};
+iter_n(0, 10, print_fib);
 
 }"#,
             ),
@@ -133,8 +143,9 @@ impl eframe::App for MyApp {
             egui::Window::new("Abra Editor")
                 .title_bar(false)
                 .anchor(egui::Align2::CENTER_TOP, egui::vec2(0.0, 0.0))
-                .scroll2([true, false])
+                .scroll2([true, true])
                 .default_width(700.0)
+                .default_height(1000.0)
                 .show(ctx, |ui| {
                     ui.set_width(570.0);
                     ui.vertical_centered_justified(|ui| {
