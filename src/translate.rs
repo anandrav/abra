@@ -47,7 +47,7 @@ pub fn translate_expr_block(stmts: Vec<Rc<ast::Stmt>>) -> Rc<Ete> {
                     translate_expr_block(stmts[1..].to_vec()),
                 )),
                 ast::StmtKind::Expr(expr) => Rc::new(Ete::Let(
-                    Rc::new(eval_tree::Pat::Var("_".to_string())),
+                    Rc::new(eval_tree::Pat::Var("_".to_string())), // TODO anandduk: add actual wildcard
                     translate_expr(expr.exprkind.clone()),
                     translate_expr_block(stmts[1..].to_vec()),
                 )),

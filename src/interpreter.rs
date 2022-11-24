@@ -38,6 +38,10 @@ fn perform_op(val1: Rc<Expr>, op: BinOpcode, val2: Rc<Expr>) -> Rc<Expr> {
             (Int(i1), Int(i2)) => Rc::new(Int(i1 * i2)),
             _ => panic!("one or more operands of Multiply are not Ints"),
         },
+        Divide => match (&*val1, &*val2) {
+            (Int(i1), Int(i2)) => Rc::new(Int(i1 / i2)),
+            _ => panic!("one or more operands of Divide are not Ints"),
+        },
         Equals => match (&*val1, &*val2) {
             (Int(i1), Int(i2)) => Rc::new(Bool(i1 == i2)),
             (Bool(b1), Bool(b2)) => Rc::new(Bool(b1 == b2)),
@@ -59,7 +63,7 @@ fn perform_op(val1: Rc<Expr>, op: BinOpcode, val2: Rc<Expr>) -> Rc<Expr> {
             (Int(i1), Int(i2)) => Rc::new(Bool(i1 <= i2)),
             _ => panic!("one or more operands of LessThanOrEquals are not Ints"),
         },
-        _ => val2,
+        _ => panic!("operation not supported"),
     }
 }
 
