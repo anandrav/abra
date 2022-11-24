@@ -88,7 +88,7 @@ ExprKind: Rc<ExprKind> = {
     "func" "(" <func_arg:FuncArg> <func_args:CommaFuncArg*> ")" <t_out:TypeAnnFuncOut?> "{" <body:Expr> "}" => Rc::new(ExprKind::Func(func_arg, func_args, t_out, body)),
     "if" <e1:Expr> "{" <e2:Expr> "} else {" <e3:Expr> "}" => Rc::new(ExprKind::If(<>)),
     "match" <e1:Expr> "{" <rules:Rule*> "}" => Rc::new(ExprKind::Match(e1, rules)),
-    "{" <statements:Stmt*> "}" => Rc::new(ExprKind::Block(statements)),
+    "{" <statements:Stmt*> <final_operand:Expr?> "}" => Rc::new(ExprKind::Block(statements, final_operand)),
 }
 
 CommaExpr: Rc<Expr> = {

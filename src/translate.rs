@@ -20,21 +20,28 @@ pub fn translate_pat(parse_tree: Rc<ast::Pat>) -> Rc<Etp> {
     }
 }
 
-pub fn translate_expr_block(stmts: Vec<Rc<ast::Stmt>>) -> Rc<Ete> {
-    match stmts.len() {
+pub fn translate_expr_block(
+    stmts: Vec<Rc<ast::Stmt>>,
+    final_operand: Option<Rc<ast::Expr>>,
+) -> Rc<Ete> {
+    let final_operand_size = if final_operand.is_some() { 1 } else { 0 };
+    match stmts.len() + final_operand_size {
         0 => panic!("empty expression block!"),
-        1 => {
-            let statement = &stmts[0];
-            match &*statement.stmtkind {
-                ast::StmtKind::EmptyHole => {
-                    panic!("empty hole found during translation")
+        1 => match final_operand {
+            None => {
+                let statement = &stmts[0];
+                match &*statement.stmtkind {
+                    ast::StmtKind::EmptyHole => {
+                        panic!("empty hole found during translation")
+                    }
+                    ast::StmtKind::Let(..) => {
+                        panic!("let statement on last line of block")
+                    }
+                    ast::StmtKind::Expr(e) => translate_expr(e.exprkind.clone()),
                 }
-                ast::StmtKind::Let(..) => {
-                    panic!("let statement on last line of block")
-                }
-                ast::StmtKind::Expr(e) => translate_expr(e.exprkind.clone()),
             }
-        }
+            Some(expr) => translate_expr(expr.exprkind.clone()),
+        },
         _ => {
             let statement = &stmts[0];
             match &*statement.stmtkind {
@@ -44,12 +51,12 @@ pub fn translate_expr_block(stmts: Vec<Rc<ast::Stmt>>) -> Rc<Ete> {
                 ast::StmtKind::Let(pat, _, expr) => Rc::new(Ete::Let(
                     translate_pat(pat.clone()),
                     translate_expr(expr.exprkind.clone()),
-                    translate_expr_block(stmts[1..].to_vec()),
+                    translate_expr_block(stmts[1..].to_vec(), final_operand),
                 )),
                 ast::StmtKind::Expr(expr) => Rc::new(Ete::Let(
                     Rc::new(eval_tree::Pat::Var("_".to_string())), // TODO anandduk: add actual wildcard
                     translate_expr(expr.exprkind.clone()),
-                    translate_expr_block(stmts[1..].to_vec()),
+                    translate_expr_block(stmts[1..].to_vec(), final_operand),
                 )),
             }
         }
@@ -102,7 +109,9 @@ pub fn translate_expr(parse_tree: Rc<ASTek>) -> Rc<Ete> {
             *op,
             translate_expr(expr2.exprkind.clone()),
         )),
-        ASTek::Block(stmts) => translate_expr_block(stmts.clone()),
+        ASTek::Block(stmts, final_operand) => {
+            translate_expr_block(stmts.clone(), final_operand.clone())
+        }
         // ASTek::Let(pat, _, expr1, expr2) => Rc::new(Ete::Let(
         //     translate_pat(pat.clone()),
         //     translate_expr(expr1.clone()),

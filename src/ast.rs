@@ -49,7 +49,7 @@ pub enum ExprKind {
     Func(FuncArg, Vec<FuncArg>, Option<Rc<Type>>, Rc<Expr>),
     If(Rc<Expr>, Rc<Expr>, Rc<Expr>),
     Match(Rc<Expr>, Vec<Rule>),
-    Block(Vec<Rc<Stmt>>),
+    Block(Vec<Rc<Stmt>>, Option<Rc<Expr>>),
     BinOp(Rc<Expr>, BinOpcode, Rc<Expr>),
     FuncAp(Rc<Expr>, Rc<Expr>, Vec<Rc<Expr>>),
 }
