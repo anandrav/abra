@@ -113,7 +113,12 @@ fn get_program_output(text: &String) -> Result<String, String> {
     let mut next_input = None;
     output += "=====PROGRAM OUTPUT=====\n\n";
     debug_println!("Expr is: {:#?}", eval_tree);
-    let steps = 1;
+    let steps = if cfg!(debug_assertions) {
+        debug_println!("Debugging enabled");
+        1
+    } else {
+        i32::MAX
+    };
 
     loop {
         let result = interpreter::interpret(eval_tree, env.clone(), steps, &next_input);
