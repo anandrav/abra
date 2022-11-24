@@ -265,7 +265,7 @@ pub fn interpret(
 
             // TODO consume a step if interpret result is success, but only after! that's hwne funcapp is done.
             // let result = interpret(body, funcapp_env, steps, input);
-            // println!("then env is {:#?}", result.new_env);
+            // debug_println!("then env is {:#?}", result.new_env);
             // return InterpretResult {
             //     expr: Rc::new(FuncAp(expr1, result.expr)),
             //     steps: result.steps,

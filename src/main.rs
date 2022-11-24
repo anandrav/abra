@@ -1,6 +1,7 @@
 #[macro_use]
 extern crate lalrpop_util;
 extern crate abra;
+extern crate debug_print;
 extern crate eframe;
 extern crate pest;
 extern crate pest_derive;
@@ -15,6 +16,8 @@ mod side_effects;
 mod token_tree;
 mod translate;
 mod types;
+
+use debug_print::debug_println;
 
 use eframe::{
     egui::{
@@ -109,11 +112,11 @@ fn get_program_output(text: &String) -> Result<String, String> {
     // let token_tree = token_tree::TokenTree::from(text);
     // let eval_tree = translate::
     let mut eval_tree = translate::translate_expr(parse_tree.exprkind.clone());
-    println!("{:#?}", eval_tree);
+    debug_println!("{:#?}", eval_tree);
     let mut output = String::from("");
     let mut next_input = None;
     output += "=====PROGRAM OUTPUT=====\n\n";
-    println!("Expr is: {:#?}", eval_tree);
+    debug_println!("Expr is: {:#?}", eval_tree);
     loop {
         let result = interpreter::interpret(eval_tree, env.clone(), 1, &next_input);
         eval_tree = result.expr;
@@ -127,8 +130,8 @@ fn get_program_output(text: &String) -> Result<String, String> {
                 break;
             }
             _ => {
-                println!("Env is: {:#?}", env);
-                println!("Expr is: {:#?}", eval_tree)
+                debug_println!("Env is: {:#?}", env);
+                debug_println!("Expr is: {:#?}", eval_tree)
             }
         };
     }

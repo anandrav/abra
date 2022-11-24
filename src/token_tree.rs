@@ -1,3 +1,4 @@
+use debug_print::debug_println;
 use operators::BinOpcode;
 use pest::error::{Error, ErrorVariant, InputLocation::Pos};
 use pest::iterators::Pair;
@@ -234,7 +235,7 @@ pub enum Contents {
 }
 
 pub fn fix(s: &str) -> String {
-    // println!("fix: {}", s);
+    // debug_println!("fix: {}", s);
     if let Err(e) = MyParser::parse(Rule::program, &s) {
         if let ErrorVariant::ParsingError {
             positives,
@@ -249,7 +250,7 @@ pub fn fix(s: &str) -> String {
                 }
             }
         }
-        // println!("{:#?}", e);
+        // debug_println!("{:#?}", e);
         panic!()
     }
     s.to_string()
@@ -258,9 +259,9 @@ pub fn fix(s: &str) -> String {
 impl TokenTree {
     fn from_pair(pair: Pair<Rule>) -> Rc<Self> {
         // A pair is a combination of the rule which matched and a span of input
-        println!("Rule:    {:?}", pair.as_rule());
-        println!("Span:    {:?}", pair.as_span());
-        println!("Text:    {}", pair.as_str());
+        debug_println!("Rule:    {:?}", pair.as_rule());
+        debug_println!("Span:    {:?}", pair.as_span());
+        debug_println!("Text:    {}", pair.as_str());
 
         let rule = pair.as_rule();
         let as_str = pair.as_str();

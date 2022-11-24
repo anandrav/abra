@@ -13,6 +13,7 @@ path = "src/lib.rs"
 
 [dependencies]
 lalrpop-util = "0.19.6"
+debug_print = "1.0.0"
 regex = "1"
 pest = "2.3.0"
 pest_derive = "2.3.0"

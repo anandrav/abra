@@ -1,3 +1,4 @@
+use debug_print::debug_println;
 use eval_tree;
 use std::rc::Rc;
 
@@ -29,7 +30,7 @@ pub fn handle_effect(
             eval_tree::Expr::Str(string) => {
                 output.push_str(string);
                 output.push('\n');
-                println!("{}", string);
+                debug_println!("{}", string);
                 Input::Unit
             }
             _ => panic!("wrong arguments for {:#?} effect", effect),
