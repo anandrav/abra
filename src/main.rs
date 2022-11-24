@@ -107,16 +107,16 @@ fn get_program_output(text: &String) -> Result<String, String> {
     // add braces to make it a block expression
     let text_with_braces = "{".to_owned() + text + "}";
     let parse_tree = ast::parse(&text_with_braces)?;
-    // let token_tree = token_tree::TokenTree::from(text);
-    // let eval_tree = translate::
     let mut eval_tree = translate::translate_expr(parse_tree.exprkind.clone());
     debug_println!("{:#?}", eval_tree);
     let mut output = String::from("");
     let mut next_input = None;
     output += "=====PROGRAM OUTPUT=====\n\n";
     debug_println!("Expr is: {:#?}", eval_tree);
+    let steps = 1;
+
     loop {
-        let result = interpreter::interpret(eval_tree, env.clone(), 1, &next_input);
+        let result = interpreter::interpret(eval_tree, env.clone(), steps, &next_input);
         eval_tree = result.expr;
         env = result.new_env;
         next_input = match result.effect {
@@ -140,6 +140,7 @@ fn get_program_output(text: &String) -> Result<String, String> {
 
 impl eframe::App for MyApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+        let width = 570.0;
         egui::CentralPanel::default().show(ctx, |ui| {
             egui::Window::new("Abra Editor")
                 .title_bar(false)
@@ -148,10 +149,16 @@ impl eframe::App for MyApp {
                 .default_width(700.0)
                 .default_height(1000.0)
                 .show(ctx, |ui| {
-                    ui.set_width(570.0);
+                    ui.set_width(width);
                     ui.vertical_centered_justified(|ui| {
+                        ui.set_width(width);
                         ui.heading("Abra Editor");
-                        ui.code_editor(&mut self.text);
+                        egui::ScrollArea::vertical()
+                            .max_height(400.0)
+                            .min_scrolled_height(300.0)
+                            .show(ui, |ui| {
+                                ui.code_editor(&mut self.text);
+                            });
                         if ui.button("Run code").clicked() {
                             self.output = match get_program_output(&self.text) {
                                 Ok(output) => output,
@@ -159,7 +166,13 @@ impl eframe::App for MyApp {
                             }
                         }
                         ui.vertical(|ui| {
-                            ui.monospace(&self.output);
+                            egui::ScrollArea::vertical()
+                                .max_height(400.0)
+                                .min_scrolled_height(300.0)
+                                .show(ui, |ui| {
+                                    ui.set_width(width);
+                                    ui.monospace(&self.output);
+                                });
                         });
                     });
                 });
