@@ -71,9 +71,7 @@ impl Default for MyApp {
     fn default() -> Self {
         Self {
             text: String::from(
-                r#"{
-
-let helper = func(x,y,n) {
+                r#"let helper = func(x,y,n) {
     if n == 0 {
         x
     } else {
@@ -97,9 +95,7 @@ let iter_n = func(i, n, f) {
         iter_n(i+1, n, f);
     }
 };
-iter_n(0, 10, print_fib);
-
-}"#,
+iter_n(0, 10, print_fib);"#,
             ),
             output: String::default(),
         }
@@ -108,7 +104,9 @@ iter_n(0, 10, print_fib);
 
 fn get_program_output(text: &String) -> Result<String, String> {
     let mut env = interpreter::make_new_environment();
-    let parse_tree = ast::parse(&text)?;
+    // add braces to make it a block expression
+    let text_with_braces = "{".to_owned() + text + "}";
+    let parse_tree = ast::parse(&text_with_braces)?;
     // let token_tree = token_tree::TokenTree::from(text);
     // let eval_tree = translate::
     let mut eval_tree = translate::translate_expr(parse_tree.exprkind.clone());
