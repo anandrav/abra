@@ -31,9 +31,6 @@ pub fn translate_expr_block(
             None => {
                 let statement = &stmts[0];
                 match &*statement.stmtkind {
-                    ast::StmtKind::EmptyHole => {
-                        panic!("empty hole found during translation")
-                    }
                     ast::StmtKind::Let(..) => {
                         panic!("let statement on last line of block")
                     }
@@ -45,9 +42,6 @@ pub fn translate_expr_block(
         _ => {
             let statement = &stmts[0];
             match &*statement.stmtkind {
-                ast::StmtKind::EmptyHole => {
-                    panic!("empty hole found during translation")
-                }
                 ast::StmtKind::Let(pat, _, expr) => Rc::new(Ete::Let(
                     translate_pat(pat.clone()),
                     translate_expr(expr.exprkind.clone()),

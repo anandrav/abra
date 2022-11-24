@@ -83,7 +83,6 @@ Pat: Rc<Pat> = {
 }
 
 StmtKind: Rc<StmtKind> = {
-    SemicolonOp => Rc::new(StmtKind::EmptyHole),
     <e:Expr> SemicolonOp => Rc::new(StmtKind::Expr(e)),
     "let" <pat:Pat> "=" <e:Expr> SemicolonOp => Rc::new(StmtKind::Let(pat, None, e)),
     "let" <pat:Pat> ":" <typ:Type> "=" <e:Expr> SemicolonOp => Rc::new(StmtKind::Let(pat, Some(typ), e)),

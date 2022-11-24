@@ -26,7 +26,6 @@ pub struct Stmt {
 
 #[derive(Debug, PartialEq)]
 pub enum StmtKind {
-    EmptyHole,
     Let(Rc<Pat>, Option<Rc<Type>>, Rc<Expr>),
     Expr(Rc<Expr>),
 }
