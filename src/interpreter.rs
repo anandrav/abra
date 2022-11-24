@@ -214,7 +214,6 @@ pub fn interpret(
             }
         },
         FuncAp(expr1, expr2, funcapp_env) => {
-            println!("before funcap eval expr1 env is {:#?}", env);
             let InterpretResult {
                 expr: expr1,
                 steps,
@@ -229,14 +228,12 @@ pub fn interpret(
                     new_env,
                 };
             }
-            println!("before funcap eval expr2 env is {:#?}", new_env);
             let InterpretResult {
                 expr: expr2,
                 steps,
                 effect,
                 new_env,
             } = interpret(expr2.clone(), env.clone(), steps, &input.clone());
-            println!("after funcap eval expr2 env is {:#?}", new_env);
             if effect.is_some() || steps <= 0 {
                 return InterpretResult {
                     expr: Rc::new(FuncAp(expr1, expr2, funcapp_env.clone())),
@@ -265,8 +262,6 @@ pub fn interpret(
                     funcapp_env
                 }
             };
-
-            println!("funcapp_env is {:#?}", funcapp_env);
 
             // TODO consume a step if interpret result is success, but only after! that's hwne funcapp is done.
             // let result = interpret(body, funcapp_env, steps, input);
