@@ -9,7 +9,7 @@ use std::cell::RefCell;
 use std::rc::Rc;
 
 pub fn make_new_environment() -> Rc<RefCell<Environment>> {
-    let mut env = Rc::new(RefCell::new(Environment::new(None)));
+    let env = Rc::new(RefCell::new(Environment::new(None)));
     env.borrow_mut().extend(
         &String::from("print"),
         Rc::new(Expr::Func(
@@ -253,7 +253,7 @@ pub fn interpret(
                 },
                 _ => panic!("not a function"),
             };
-            let (funcapp_env) = match funcapp_env {
+            let funcapp_env = match funcapp_env {
                 Some(funcapp_env) => funcapp_env.clone(),
                 None => {
                     let funcapp_env =

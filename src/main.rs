@@ -13,22 +13,12 @@ mod eval_tree;
 mod interpreter;
 mod operators;
 mod side_effects;
-mod token_tree;
 mod translate;
 mod types;
 
 use debug_print::debug_println;
 
-use eframe::{
-    egui::{
-        self,
-        style::{Margin, Spacing},
-        Color32, Frame, Label, RichText,
-    },
-    epaint::Vec2,
-};
-
-use token_tree::*;
+use eframe::egui;
 
 // When compiling natively:
 #[cfg(not(target_arch = "wasm32"))]
@@ -146,7 +136,7 @@ fn get_program_output(text: &String) -> Result<String, String> {
 impl eframe::App for MyApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         let width = 570.0;
-        egui::CentralPanel::default().show(ctx, |ui| {
+        egui::CentralPanel::default().show(ctx, |_ui| {
             egui::Window::new("Abra Editor")
                 .title_bar(false)
                 .anchor(egui::Align2::CENTER_TOP, egui::vec2(0.0, 0.0))

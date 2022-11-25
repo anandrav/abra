@@ -1,9 +1,6 @@
 use ast;
-use environment::Environment;
 use eval_tree;
-use std::cell::RefCell;
 use std::rc::Rc;
-use types::Type;
 
 type ASTek = ast::ExprKind;
 type Ete = eval_tree::Expr;
@@ -11,12 +8,10 @@ type Ete = eval_tree::Expr;
 type ASTpk = ast::PatKind;
 type Etp = eval_tree::Pat;
 
-type ASTs = ast::StmtKind;
-
 pub fn translate_pat(parse_tree: Rc<ast::Pat>) -> Rc<Etp> {
     match &*parse_tree.patkind {
         ASTpk::Var(id) => Rc::new(Etp::Var(id.clone())),
-        _ => unimplemented!(),
+        // _ => unimplemented!(),
     }
 }
 
@@ -106,11 +101,6 @@ pub fn translate_expr(parse_tree: Rc<ASTek>) -> Rc<Ete> {
         ASTek::Block(stmts, final_operand) => {
             translate_expr_block(stmts.clone(), final_operand.clone())
         }
-        // ASTek::Let(pat, _, expr1, expr2) => Rc::new(Ete::Let(
-        //     translate_pat(pat.clone()),
-        //     translate_expr(expr1.clone()),
-        //     translate_expr(expr2.clone()),
-        // )),
         ASTek::Func(func_arg, func_args, _, body) => {
             translate_expr_func(func_arg.clone(), func_args.clone(), body.exprkind.clone())
         }

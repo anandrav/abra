@@ -64,7 +64,7 @@ TypeAnnFuncOut: Rc<Type> = {
     "->" <t:Type> => t
 }
 
-pub Stmt: Rc<Stmt> = {
+Stmt: Rc<Stmt> = {
     <lo:@L> <stmtkind:StmtKind> <hi:@R> => Rc::new(Stmt{stmtkind, span: Span{lo, hi}})
 }
 

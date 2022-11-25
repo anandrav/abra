@@ -17,7 +17,7 @@ pub enum Input {
 pub enum Effect {
     Print,
     StringOfInt,
-    Read,
+    // ReadLn,
 }
 
 pub fn handle_effect(
@@ -39,6 +39,6 @@ pub fn handle_effect(
             eval_tree::Expr::Int(n) => Input::Cin(n.to_string()),
             _ => panic!("wrong arguments for {:#?} effect", effect),
         },
-        Effect::Read => Input::Cin(String::from("this is input")),
+        // Effect::ReadLn => Input::Cin(String::from("this is input")),
     }
 }

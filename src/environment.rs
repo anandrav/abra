@@ -1,4 +1,3 @@
-use eval_tree::Expr::*;
 use eval_tree::*;
 use std::cell::RefCell;
 use std::collections::HashMap;

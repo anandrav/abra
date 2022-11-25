@@ -38,8 +38,8 @@ pub struct Expr {
 
 #[derive(Debug, PartialEq)]
 pub enum ExprKind {
-    EmptyHole,
-    InvalidText(String),
+    // EmptyHole,
+    // InvalidText(String),
     Var(Identifier),
     Unit,
     Int(i32),
@@ -63,13 +63,13 @@ pub struct Pat {
 
 #[derive(Debug, PartialEq)]
 pub enum PatKind {
-    EmptyHole,
-    InvalidText(String),
+    // EmptyHole,
+    // InvalidText(String),
     Var(Identifier),
-    Unit,
-    Int(i32),
-    Bool(bool),
-    Str(String),
+    // Unit,
+    // Int(i32),
+    // Bool(bool),
+    // Str(String),
 }
 
 #[cfg(test)]
