@@ -1,6 +1,8 @@
 use debug_print::debug_println;
+use eframe::egui;
 use eval_tree;
 use std::rc::Rc;
+use std::sync::mpsc::Sender;
 
 #[derive(Debug, Clone)]
 pub struct Cout(String);
@@ -23,13 +25,16 @@ pub enum Effect {
 pub fn handle_effect(
     effect: &Effect,
     args: &Vec<Rc<eval_tree::Expr>>,
-    output: &mut String,
+    tx: &Sender<String>,
+    ctx: &egui::Context,
 ) -> Input {
     match effect {
         Effect::Print => match &*args[0] {
             eval_tree::Expr::Str(string) => {
-                output.push_str(string);
-                output.push('\n');
+                let mut with_newline = string.clone();
+                with_newline.push('\n');
+                tx.send(with_newline).unwrap();
+                ctx.request_repaint();
                 debug_println!("{}", string);
                 Input::Unit
             }

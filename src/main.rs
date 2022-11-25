@@ -17,6 +17,11 @@ mod translate;
 mod types;
 
 use debug_print::debug_println;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::mpsc::{self, Receiver, Sender};
+use std::sync::Arc;
+use std::thread::{self, JoinHandle};
+use std::time::Duration;
 
 use eframe::egui;
 
@@ -55,68 +60,81 @@ fn main() {
 struct MyApp {
     text: String,
     output: String,
+    running: Arc<AtomicBool>,
+    running_thread: Option<std::thread::JoinHandle<()>>,
+    tx: Sender<String>,
+    rx: Receiver<String>,
 }
 
 impl Default for MyApp {
     fn default() -> Self {
+        let (tx, rx) = mpsc::channel::<String>();
         Self {
             text: String::from(
-                r#"let helper = func(x,y,n) {
+                r#"let fibonacci = func(n) {
     if n == 0 {
-        x
+        0
     } else {
-        helper(y,x+y,n-1)
+        if n == 1 {
+            1
+        } else {
+            fibonacci(n-1) + fibonacci(n-2)
+        }
     }
 };
 
-let fibonacci = func(n) {
-    helper(0,1,n)
-};
-
-print("The first 10 fibonacci numbers are:");
-let print_fib = func(n) {
-    print(string_of_int(fibonacci(n)))
-};
-let iter_n = func(i, n, f) {
+print("The first 30 fibonacci numbers are:");
+let iter_n = func(i, n) {
     if i > n {
         ()
     } else {
-        f(i);
-        iter_n(i+1, n, f);
+        print(string_of_int(fibonacci(i)));
+        iter_n(i+1, n);
     }
 };
-iter_n(0, 10, print_fib);"#,
+iter_n(0, 30);"#,
             ),
             output: String::default(),
+            running: Arc::new(AtomicBool::new(false)),
+            running_thread: None,
+            tx: tx,
+            rx: rx,
         }
     }
 }
 
-fn get_program_output(text: &String) -> Result<String, String> {
+fn run_program(
+    text: &String,
+    tx: &Sender<String>,
+    ctx: &egui::Context,
+    running: Arc<AtomicBool>,
+) -> Result<(), String> {
     let mut env = interpreter::make_new_environment();
     // add braces to make it a block expression
     let text_with_braces = "{".to_owned() + text + "}";
     let parse_tree = ast::parse(&text_with_braces)?;
     let mut eval_tree = translate::translate_expr(parse_tree.exprkind.clone());
     debug_println!("{:#?}", eval_tree);
-    let mut output = String::from("");
     let mut next_input = None;
-    output += "=====PROGRAM OUTPUT=====\n\n";
     debug_println!("Expr is: {:#?}", eval_tree);
     let steps = if cfg!(debug_assertions) {
         debug_println!("Debugging enabled");
         1
     } else {
-        i32::MAX
+        1000000
     };
 
     loop {
+        let still_running = running.load(Ordering::Relaxed);
+        if !still_running {
+            return Ok(());
+        }
         let result = interpreter::interpret(eval_tree, env.clone(), steps, &next_input);
         eval_tree = result.expr;
         env = result.new_env;
         next_input = match result.effect {
             None => None,
-            Some((effect, args)) => Some(side_effects::handle_effect(&effect, &args, &mut output)),
+            Some((effect, args)) => Some(side_effects::handle_effect(&effect, &args, &tx, &ctx)),
         };
         match (&next_input, eval_tree::is_val(&eval_tree)) {
             (None, true) => {
@@ -128,14 +146,17 @@ fn get_program_output(text: &String) -> Result<String, String> {
             }
         };
     }
-    output += "\n========================\n";
-    output += &format!("Expression evaluated to: {:#?}", eval_tree);
-    Ok(output)
+    tx.send("========================\n".to_string()).unwrap();
+    tx.send(format!("Expression evaluated to: {:#?}", eval_tree))
+        .unwrap();
+    ctx.request_repaint();
+    Ok(())
 }
 
 impl eframe::App for MyApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         let width = 570.0;
+
         egui::CentralPanel::default().show(ctx, |_ui| {
             egui::Window::new("Abra Editor")
                 .title_bar(false)
@@ -155,11 +176,31 @@ impl eframe::App for MyApp {
                                 ui.code_editor(&mut self.text);
                             });
                         if ui.button("Run code").clicked() {
-                            self.output = match get_program_output(&self.text) {
-                                Ok(output) => output,
-                                Err(error) => error,
-                            }
+                            // stop the old program
+                            self.running.swap(false, Ordering::Relaxed);
+                            self.running_thread.take().map(JoinHandle::join);
+                            self.running_thread = None;
+                            self.output.clear();
+                            // clear the receiver too
+                            let mut iter = self.rx.try_iter();
+                            while iter.next().is_some() {}
+                            // start new program
+                            let text_capture = self.text.clone();
+                            let tx = self.tx.clone();
+                            let ctx = ctx.clone();
+                            self.running.swap(true, Ordering::Relaxed);
+                            let running = self.running.clone();
+                            self.running_thread = Some(std::thread::spawn(move || {
+                                if let Err(err) = run_program(&text_capture, &tx, &ctx, running) {
+                                    tx.send(err).unwrap();
+                                    ctx.request_repaint();
+                                }
+                            }));
                         }
+                        if let Ok(str) = self.rx.try_recv() {
+                            self.output.push_str(&str);
+                        }
+
                         ui.vertical(|ui| {
                             egui::ScrollArea::vertical()
                                 .max_height(400.0)
