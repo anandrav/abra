@@ -13,6 +13,7 @@ mod eval_tree;
 mod interpreter;
 mod operators;
 mod side_effects;
+mod token_tree;
 mod translate;
 mod types;
 
@@ -85,7 +86,7 @@ let iter_n = func(i, n, f) {
         iter_n(i+1, n, f);
     }
 };
-iter_n(0, 10, print_fib);"#,
+iter_n(0, 3, print_fib);"#,
             ),
             output: String::default(),
         }
@@ -97,6 +98,10 @@ fn get_program_output(text: &String) -> Result<String, String> {
     // add braces to make it a block expression
     let text_with_braces = "{".to_owned() + text + "}";
     let parse_tree = ast::parse(&text_with_braces)?;
+    {
+        let token_tree = token_tree::TokenTree::from(&text_with_braces);
+        // let ast = ast::parse2(token_tree);
+    }
     let mut eval_tree = translate::translate_expr(parse_tree.exprkind.clone());
     debug_println!("{:#?}", eval_tree);
     let mut output = String::from("");
@@ -152,7 +157,10 @@ impl eframe::App for MyApp {
                             .max_height(400.0)
                             .min_scrolled_height(300.0)
                             .show(ui, |ui| {
-                                ui.code_editor(&mut self.text);
+                                if ui.code_editor(&mut self.text).changed() {
+                                    // self.text =
+                                    debug_println!("was changed");
+                                };
                             });
                         if ui.button("Run code").clicked() {
                             self.output = match get_program_output(&self.text) {

@@ -1,5 +1,6 @@
 use operators::BinOpcode;
 use std::rc::Rc;
+use token_tree::*;
 use types::Type;
 lalrpop_mod!(pub abra_grammar); // synthesized by LALRPOP
 
@@ -11,6 +12,38 @@ pub fn parse(source: &str) -> Result<Rc<Expr>, String> {
         .parse(source)
         .map_err(|err| err.to_string())
 }
+
+pub fn parse2(token_tree: Rc<TokenTree>) -> Rc<Expr> {
+    let TokenTree::Children { children, kind } = &*token_tree else {
+        panic!("block expression token tree malformed")
+    };
+    match kind {
+        
+        _ => todo!(),
+    }
+}
+
+// pub fn fix(s: &str) -> String {
+//     // debug_println!("fix: {}", s);
+//     if let Err(e) = MyParser::parse(Rule::program, &s) {
+//         if let ErrorVariant::ParsingError {
+//             positives,
+//             negatives,
+//         } = e.variant
+//         {
+//             if positives.contains(&Rule::placeholder) {
+//                 let mut s = String::from(s);
+//                 if let Pos(p) = e.location {
+//                     s.insert_str(p, &Token::Placeholder.to_str());
+//                     return fix(&s);
+//                 }
+//             }
+//         }
+//         // debug_println!("{:#?}", e);
+//         panic!()
+//     }
+//     s.to_string()
+// }
 
 #[derive(Debug, PartialEq)]
 pub struct Span {
@@ -47,13 +80,13 @@ pub enum ExprKind {
     Str(String),
     Func(FuncArg, Vec<FuncArg>, Option<Rc<Type>>, Rc<Expr>),
     If(Rc<Expr>, Rc<Expr>, Rc<Expr>),
-    Match(Rc<Expr>, Vec<Rule>),
+    Match(Rc<Expr>, Vec<MatchArm>),
     Block(Vec<Rc<Stmt>>, Option<Rc<Expr>>),
     BinOp(Rc<Expr>, BinOpcode, Rc<Expr>),
     FuncAp(Rc<Expr>, Rc<Expr>, Vec<Rc<Expr>>),
 }
 
-pub type Rule = (Rc<Pat>, Rc<Expr>);
+pub type MatchArm = (Rc<Pat>, Rc<Expr>);
 
 #[derive(Debug, PartialEq)]
 pub struct Pat {

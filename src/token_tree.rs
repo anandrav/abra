@@ -110,6 +110,7 @@ pub enum Token {
     Semicolon,
 
     // Keywords
+    Func,
     Let,
     If,
     Else,
@@ -119,6 +120,8 @@ impl Token {
     fn from(rule: &Rule, s: &str) -> Self {
         match rule {
             Rule::placeholder => Self::Placeholder,
+            Rule::func_args_start => Self::OpenParen,
+            Rule::func_args_end => Self::CloseParen,
             Rule::block_start => Self::OpenBrace,
             Rule::block_end => Self::CloseBrace,
             Rule::identifier => Self::Identifier(s.to_string()),
@@ -132,6 +135,7 @@ impl Token {
             Rule::op_multiplication => Self::OpMult,
             Rule::semicolon => Self::Semicolon,
             Rule::let_keyword => Self::Let,
+            Rule::func_keyword => Self::Func,
             Rule::if_keyword => Self::If,
             Rule::else_keyword => Self::Else,
             Rule::WHITESPACE => match s {
@@ -168,6 +172,7 @@ impl Token {
             OpMult => "*",
             Semicolon => ";",
             Let => "let",
+            Func => "func",
             If => "if",
             Else => "else",
             _ => panic!(),
@@ -179,8 +184,8 @@ impl Token {
         use self::Token::*;
         match self {
             Space | Tab | Placeholder | OpenParen | CloseParen | OpenBrace | CloseBrace
-            | OpenBracket | CloseBracket | OpAssign | OpAdd | OpSub | OpMult | Semicolon | Let
-            | If | Else | OpEq => 2,
+            | OpenBracket | CloseBracket | OpAssign | OpAdd | OpSub | OpMult | Semicolon | Func
+            | Let | If | Else | OpEq => 2,
             Identifier(s) | IntLit(s) | StrLit(s) | BoolLit(s) => s.len() + 1,
             Newline => 0,
         }
@@ -213,26 +218,32 @@ pub enum Kind {
 }
 
 impl Kind {
-    pub fn from_rule(rule: &Rule) -> Self {
+    pub fn from_rule(rule: &Rule) -> Option<Self> {
         match rule {
-            Rule::declaration => Kind::Declaration,
-            Rule::expression_statement => Kind::ExprStatement,
-            _ => unimplemented!(),
+            Rule::declaration => Some(Kind::Declaration),
+            Rule::expression_statement => Some(Kind::ExprStatement),
+            _ => None,
         }
     }
 }
 
 #[derive(Debug, PartialEq)]
-pub struct TokenTree {
-    pub form: Rule,
-    pub contents: Contents,
+pub enum TokenTree {
+    Leaf(Token),
+    Children {
+        children: Vec<Rc<TokenTree>>,
+        kind: Kind,
+    },
 }
 
-#[derive(Debug, PartialEq)]
-pub enum Contents {
-    Token(Token),
-    Children(Vec<Rc<TokenTree>>),
-}
+// #[derive(Debug, PartialEq)]
+// pub enum Contents {
+//     Token(Token),
+//     Children {
+//         children: Vec<Rc<TokenTree>>,
+//         kind: Kind,
+//     },
+// }
 
 pub fn fix(s: &str) -> String {
     // debug_println!("fix: {}", s);
@@ -266,15 +277,11 @@ impl TokenTree {
         let rule = pair.as_rule();
         let as_str = pair.as_str();
         let children: Vec<_> = pair.into_inner().map(|x| TokenTree::from_pair(x)).collect();
-        let contents = if !children.is_empty() {
-            Contents::Children(children)
+        if let Some(kind) = Kind::from_rule(&rule) {
+            Rc::new(TokenTree::Children { children, kind })
         } else {
-            Contents::Token(Token::from(&rule, &as_str))
-        };
-        Rc::new(TokenTree {
-            form: rule,
-            contents,
-        })
+            Rc::new(TokenTree::Leaf(Token::from(&rule, as_str)))
+        }
     }
 
     pub fn from(s: &str) -> Rc<Self> {
@@ -284,16 +291,16 @@ impl TokenTree {
     }
 
     pub fn num_tokens(&self) -> i32 {
-        match &self.contents {
-            Contents::Token(_) => 1,
-            Contents::Children(children) => children.iter().map(|x| x.num_tokens()).sum(),
+        match &self {
+            TokenTree::Leaf(_) => 1,
+            TokenTree::Children { children, kind } => children.iter().map(|x| x.num_tokens()).sum(),
         }
     }
 
     pub fn token_at_index(&self, index: usize) -> Option<Token> {
-        match (&self.contents, index) {
-            (Contents::Token(t), 0) => Some(t.clone()),
-            (Contents::Children(children), _) => {
+        match (&self, index) {
+            (TokenTree::Leaf(t), 0) => Some(t.clone()),
+            (TokenTree::Children { children, kind }, _) => {
                 let mut index = index;
                 for c in children {
                     let len = c.num_tokens() as usize;
@@ -312,15 +319,9 @@ impl TokenTree {
 
 impl fmt::Display for TokenTree {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.contents)
-    }
-}
-
-impl fmt::Display for Contents {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Contents::Token(t) => write!(f, "{}", t),
-            Contents::Children(children) => {
+            TokenTree::Leaf(t) => write!(f, "{}", t),
+            TokenTree::Children { children, kind } => {
                 for child in children {
                     write!(f, "{}", child)?;
                 }
