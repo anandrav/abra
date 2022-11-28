@@ -12,37 +12,6 @@ pub fn parse(source: &str) -> Result<Rc<Expr>, String> {
         .map_err(|err| err.to_string())
 }
 
-// pub fn parse2(token_tree: Rc<TokenTree>) -> Rc<Expr> {
-//     let TokenTree::Children { children, kind } = &*token_tree else {
-//         panic!("block expression token tree malformed")
-//     };
-//     match kind {
-//         _ => todo!(),
-//     }
-// }
-
-// pub fn fix(s: &str) -> String {
-//     // debug_println!("fix: {}", s);
-//     if let Err(e) = MyParser::parse(Rule::program, &s) {
-//         if let ErrorVariant::ParsingError {
-//             positives,
-//             negatives,
-//         } = e.variant
-//         {
-//             if positives.contains(&Rule::placeholder) {
-//                 let mut s = String::from(s);
-//                 if let Pos(p) = e.location {
-//                     s.insert_str(p, &Token::Placeholder.to_str());
-//                     return fix(&s);
-//                 }
-//             }
-//         }
-//         // debug_println!("{:#?}", e);
-//         panic!()
-//     }
-//     s.to_string()
-// }
-
 #[derive(Debug, PartialEq)]
 pub struct Span {
     pub lo: usize,
@@ -70,7 +39,6 @@ pub struct Expr {
 #[derive(Debug, PartialEq)]
 pub enum ExprKind {
     // EmptyHole,
-    // InvalidText(String),
     Var(Identifier),
     Unit,
     Int(i32),
@@ -95,7 +63,6 @@ pub struct Pat {
 #[derive(Debug, PartialEq)]
 pub enum PatKind {
     // EmptyHole,
-    // InvalidText(String),
     Var(Identifier),
     // Unit,
     // Int(i32),

@@ -25,7 +25,6 @@ use eframe::egui;
 fn main() {
     // Log to stdout (if you run with `RUST_LOG=debug`).
 
-    use ast::parse;
     tracing_subscriber::fmt::init();
 
     let options = eframe::NativeOptions::default();

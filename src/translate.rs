@@ -11,7 +11,6 @@ type Etp = eval_tree::Pat;
 pub fn translate_pat(parse_tree: Rc<ast::Pat>) -> Rc<Etp> {
     match &*parse_tree.patkind {
         ASTpk::Var(id) => Rc::new(Etp::Var(id.clone())),
-        // _ => unimplemented!(),
     }
 }
 

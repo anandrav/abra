@@ -22,8 +22,6 @@ pub enum Expr {
     ConsumedEffect,
 }
 
-// pub type Rule = (Rc<Pat>, Rc<Expr>);
-
 #[derive(Debug)]
 pub enum Pat {
     Var(String),
