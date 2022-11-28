@@ -13,7 +13,6 @@ mod eval_tree;
 mod interpreter;
 mod operators;
 mod side_effects;
-mod token_tree;
 mod translate;
 mod types;
 
@@ -25,6 +24,8 @@ use eframe::egui;
 #[cfg(not(target_arch = "wasm32"))]
 fn main() {
     // Log to stdout (if you run with `RUST_LOG=debug`).
+
+    use ast::parse;
     tracing_subscriber::fmt::init();
 
     let options = eframe::NativeOptions::default();
@@ -98,10 +99,6 @@ fn get_program_output(text: &String) -> Result<String, String> {
     // add braces to make it a block expression
     let text_with_braces = "{".to_owned() + text + "}";
     let parse_tree = ast::parse(&text_with_braces)?;
-    {
-        let token_tree = token_tree::TokenTree::from(&text_with_braces);
-        // let ast = ast::parse2(token_tree);
-    }
     let mut eval_tree = translate::translate_expr(parse_tree.exprkind.clone());
     debug_println!("{:#?}", eval_tree);
     let mut output = String::from("");

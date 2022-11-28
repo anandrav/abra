@@ -96,6 +96,7 @@ pub enum Token {
     CloseBracket,
 
     Identifier(String),
+    UnitLit,
     IntLit(String),
     StrLit(String),
     BoolLit(String),
@@ -103,6 +104,8 @@ pub enum Token {
     // Operators
     OpAssign,
     OpEq,
+    OpGt,
+    OpLt,
     OpAdd,
     OpSub,
     OpMult,
@@ -110,10 +113,10 @@ pub enum Token {
     Semicolon,
 
     // Keywords
-    Func,
-    Let,
-    If,
-    Else,
+    FuncKeyword,
+    LetKeyword,
+    IfKeyword,
+    ElseKeyword,
 }
 
 impl Token {
@@ -125,19 +128,22 @@ impl Token {
             Rule::block_start => Self::OpenBrace,
             Rule::block_end => Self::CloseBrace,
             Rule::identifier => Self::Identifier(s.to_string()),
+            Rule::literal_unit => Self::UnitLit,
             Rule::literal_number => Self::IntLit(s.to_string()),
             Rule::literal_string => Self::StrLit(s.to_string()),
             Rule::literal_bool => Self::BoolLit(s.to_string()),
             Rule::op_assign => Self::OpAssign,
             Rule::op_eq => Self::OpEq,
+            Rule::op_gt => Self::OpGt,
+            Rule::op_lt => Self::OpLt,
             Rule::op_addition => Self::OpAdd,
             Rule::op_subtraction => Self::OpSub,
             Rule::op_multiplication => Self::OpMult,
             Rule::semicolon => Self::Semicolon,
-            Rule::let_keyword => Self::Let,
-            Rule::func_keyword => Self::Func,
-            Rule::if_keyword => Self::If,
-            Rule::else_keyword => Self::Else,
+            Rule::let_keyword => Self::LetKeyword,
+            Rule::func_keyword => Self::FuncKeyword,
+            Rule::if_keyword => Self::IfKeyword,
+            Rule::else_keyword => Self::ElseKeyword,
             Rule::WHITESPACE => match s {
                 " " => Self::Space,
                 "\t" => Self::Tab,
@@ -171,10 +177,10 @@ impl Token {
             OpSub => "-",
             OpMult => "*",
             Semicolon => ";",
-            Let => "let",
-            Func => "func",
-            If => "if",
-            Else => "else",
+            LetKeyword => "let",
+            FuncKeyword => "func",
+            IfKeyword => "if",
+            ElseKeyword => "else",
             _ => panic!(),
         };
         s.to_owned()
@@ -184,8 +190,9 @@ impl Token {
         use self::Token::*;
         match self {
             Space | Tab | Placeholder | OpenParen | CloseParen | OpenBrace | CloseBrace
-            | OpenBracket | CloseBracket | OpAssign | OpAdd | OpSub | OpMult | Semicolon | Func
-            | Let | If | Else | OpEq => 2,
+            | OpenBracket | CloseBracket | UnitLit | OpAssign | OpAdd | OpSub | OpMult
+            | Semicolon | FuncKeyword | LetKeyword | IfKeyword | ElseKeyword | OpEq | OpGt
+            | OpLt => 2,
             Identifier(s) | IntLit(s) | StrLit(s) | BoolLit(s) => s.len() + 1,
             Newline => 0,
         }
@@ -200,28 +207,31 @@ impl fmt::Display for Token {
 
 #[derive(Debug, PartialEq)]
 pub enum Kind {
-    Declaration,
-    ExprStatement,
+    SLet,
+    SExpr,
 
-    EmptyHole,
-    InvalidText,
-    Var,
-    Unit,
-    Int,
-    Bool,
-    Str,
-    Func,
-    If,
-    Block,
-    BinOp,
-    FuncAp,
+    EVar,
+    EUnit,
+    EInt,
+    EBool,
+    EStr,
+    EFunc,
+    EIf,
+    EBlock,
+    EBinOp,
+    EFuncAp,
 }
 
 impl Kind {
     pub fn from_rule(rule: &Rule) -> Option<Self> {
         match rule {
-            Rule::declaration => Some(Kind::Declaration),
-            Rule::expression_statement => Some(Kind::ExprStatement),
+            Rule::let_statement => Some(Kind::SLet),
+            Rule::expression_statement => Some(Kind::SExpr),
+
+            Rule::block_expression => Some(Kind::EBlock),
+            Rule::func_call_expression => Some(Kind::EFuncAp),
+            Rule::if_else_expression => Some(Kind::EIf),
+            Rule::func_expression => Some(Kind::EFunc),
             _ => None,
         }
     }

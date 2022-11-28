@@ -1,6 +1,5 @@
 use operators::BinOpcode;
 use std::rc::Rc;
-use token_tree::*;
 use types::Type;
 lalrpop_mod!(pub abra_grammar); // synthesized by LALRPOP
 
@@ -13,15 +12,14 @@ pub fn parse(source: &str) -> Result<Rc<Expr>, String> {
         .map_err(|err| err.to_string())
 }
 
-pub fn parse2(token_tree: Rc<TokenTree>) -> Rc<Expr> {
-    let TokenTree::Children { children, kind } = &*token_tree else {
-        panic!("block expression token tree malformed")
-    };
-    match kind {
-        
-        _ => todo!(),
-    }
-}
+// pub fn parse2(token_tree: Rc<TokenTree>) -> Rc<Expr> {
+//     let TokenTree::Children { children, kind } = &*token_tree else {
+//         panic!("block expression token tree malformed")
+//     };
+//     match kind {
+//         _ => todo!(),
+//     }
+// }
 
 // pub fn fix(s: &str) -> String {
 //     // debug_println!("fix: {}", s);
@@ -103,23 +101,4 @@ pub enum PatKind {
     // Int(i32),
     // Bool(bool),
     // Str(String),
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    // #[test]
-    // fn parse_unit() {
-    //     let source = "()";
-    //     let parse_tree = parse(source);
-    //     let expected_parse_tree = Rc::new(Expr {
-    //         exprkind: Rc::new(ExprKind::Unit),
-    //         span: Span {
-    //             lo: 0,
-    //             hi: source.chars().count(),
-    //         },
-    //     });
-    //     assert_eq!(parse_tree, expected_parse_tree);
-    // }
 }

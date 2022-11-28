@@ -26,10 +26,9 @@ pub fn translate_expr_block(
             None => {
                 let statement = &stmts[0];
                 match &*statement.stmtkind {
-                    ast::StmtKind::Let(..) => {
-                        panic!("let statement on last line of block")
+                    ast::StmtKind::Let(_, _, e) | ast::StmtKind::Expr(e) => {
+                        translate_expr(e.exprkind.clone())
                     }
-                    ast::StmtKind::Expr(e) => translate_expr(e.exprkind.clone()),
                 }
             }
             Some(expr) => translate_expr(expr.exprkind.clone()),

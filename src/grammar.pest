@@ -7,15 +7,15 @@ placeholder = { "_" }
 
 program = { SOI ~ statement* ~ EOI }
 
-statement = { declaration | expression_statement }
+statement = _{ let_statement | expression_statement }
 
-declaration = { let_keyword ~ pattern ~ op_assign ~ expression ~ semicolon }
+let_statement = { let_keyword ~ pattern ~ op_assign ~ expression ~ semicolon }
 let_keyword = { "let" }
 expression_statement = { expression ~ semicolon }
-pattern = { identifier }
+pattern = _{ identifier }
 op_assign = { "=" }
 
-expression = { term ~ (op_binary ~ term)* }
+expression = _{ term ~ (op_binary ~ term)* }
 term = _{ block_expression | func_expression | func_call_expression | parenthesized_expression | if_else_expression | primary_expression }
 
 if_else_expression = { if_keyword ~ expression ~ block_expression ~ else_keyword ~ block_expression }
