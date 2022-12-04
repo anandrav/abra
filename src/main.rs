@@ -64,34 +64,7 @@ struct MyApp {
 impl Default for MyApp {
     fn default() -> Self {
         Self {
-            text: String::from(
-                r#"
-let fibonacci = func(n) {
-    if n == 0 {
-        0
-    } else {
-        if n == 1 {
-            1
-        } else {
-            fibonacci(n-1) + fibonacci(n-2)
-        }
-    }
-};
-let run_fibonacci = func(n) {
-    print(string_of_int(fibonacci(n)))
-};
-let from_i_to_n = func(i, n, f) {
-    if i > n {
-        ()
-    } else {
-        f(i);
-        from_i_to_n(i+1, n, f);
-    }
-};
-
-print("The first 30 fibonacci numbers are:");
-from_i_to_n(0, 30, run_fibonacci);"#,
-            ),
+            text: String::from(r#"2 + 2"#),
             output: String::default(),
             interpreter: None,
         }
@@ -141,6 +114,7 @@ impl eframe::App for MyApp {
                             self.interpreter = None;
                             self.output.clear();
                             let text_with_braces = "{".to_owned() + &self.text + "}";
+                            let _ = ast::parse2(&self.text);
                             match ast::parse(&text_with_braces) {
                                 Ok(parse_tree) => {
                                     let eval_tree =

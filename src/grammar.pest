@@ -1,4 +1,4 @@
-WHITESPACE = { space | tab | newline }
+WHITESPACE = _{ space | tab | newline }
 space = { " " }
 tab = { "\t" }
 newline = { "\n" }
@@ -23,12 +23,12 @@ if_keyword = { "if" }
 else_keyword = { "else" }
 
 block_expression = { block_start ~ statement* ~ expression? ~ block_end }
-block_start = { "{" }
-block_end = { "}" }
+block_start = _{ "{" }
+block_end = _{ "}" }
 
 parenthesized_expression = { paren_start ~ expression ~ paren_end }
-paren_start = { "(" }
-paren_end = { ")" }
+paren_start = _{ "(" }
+paren_end = _{ ")" }
 
 func_call_expression = { identifier ~ func_args }
 func_args = _{ func_args_start ~ (func_arg ~ ",")* ~ func_arg? ~ func_args_end }
@@ -58,6 +58,7 @@ op_lt = { "<" }
 op_addition = { "+" }
 op_subtraction = { "-" }
 op_multiplication = { "*" }
+op_division = { "/" }
 
 // NOTE: When changing this code, make sure you don't have a subset of a word before
 // another word. For example: { "type" | "typeof" } will never match "typeof"
