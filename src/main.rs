@@ -64,7 +64,7 @@ struct MyApp {
 impl Default for MyApp {
     fn default() -> Self {
         Self {
-            text: String::from(r#"2 + 2"#),
+            text: String::from(r#"if true { 2 } else { 3 }"#),
             output: String::default(),
             interpreter: None,
         }

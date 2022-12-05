@@ -79,8 +79,17 @@ pub fn parse_expr(pairs: Pairs<Rule>, pratt: &PrattParser<Rule>) -> Rc<Expr> {
             //     //     span: Span::from(primary.as_span()),
             //     // })
             // }
+            Rule::if_else_expression => {
+                let inner = primary.into_inner();
+                let e = parse_expr(inner, pratt);
+                panic!("{:#?}", e)
+            }
             Rule::literal_number => Rc::new(Expr {
                 exprkind: Rc::new(ExprKind::Int(primary.as_str().parse().unwrap())),
+                span: Span::from(primary.as_span()),
+            }),
+            Rule::literal_bool => Rc::new(Expr {
+                exprkind: Rc::new(ExprKind::Bool(primary.as_str().parse().unwrap())),
                 span: Span::from(primary.as_span()),
             }),
             _ => {

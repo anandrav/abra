@@ -19,8 +19,8 @@ expression = _{ term ~ (op_binary ~ term)* }
 term = _{ block_expression | func_expression | func_call_expression | parenthesized_expression | if_else_expression | primary_expression }
 
 if_else_expression = { if_keyword ~ expression ~ block_expression ~ else_keyword ~ block_expression }
-if_keyword = { "if" }
-else_keyword = { "else" }
+if_keyword = _{ "if" }
+else_keyword = _{ "else" }
 
 block_expression = { block_start ~ statement* ~ expression? ~ block_end }
 block_start = _{ "{" }
