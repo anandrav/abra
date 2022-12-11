@@ -35,46 +35,43 @@ pub fn make_new_environment() -> Rc<RefCell<Environment>> {
     env
 }
 
-fn perform_op(val1: Rc<Expr>, op: BinOpcode, val2: Rc<Expr>) -> Rc<Expr> {
-    match op {
-        Add => match (&*val1, &*val2) {
-            (Int(i1), Int(i2)) => Rc::new(Int(i1 + i2)),
-            _ => panic!("one or more operands of Add are not Ints"),
-        },
-        Subtract => match (&*val1, &*val2) {
-            (Int(i1), Int(i2)) => Rc::new(Int(i1 - i2)),
-            _ => panic!("one or more operands of Subtract are not Ints"),
-        },
-        Multiply => match (&*val1, &*val2) {
-            (Int(i1), Int(i2)) => Rc::new(Int(i1 * i2)),
-            _ => panic!("one or more operands of Multiply are not Ints"),
-        },
-        Divide => match (&*val1, &*val2) {
-            (Int(i1), Int(i2)) => Rc::new(Int(i1 / i2)),
-            _ => panic!("one or more operands of Divide are not Ints"),
-        },
-        Equals => match (&*val1, &*val2) {
-            (Int(i1), Int(i2)) => Rc::new(Bool(i1 == i2)),
-            (Bool(b1), Bool(b2)) => Rc::new(Bool(b1 == b2)),
-            _ => panic!("can only compare values which are both Ints or both Bools"),
-        },
-        GreaterThan => match (&*val1, &*val2) {
-            (Int(i1), Int(i2)) => Rc::new(Bool(i1 > i2)),
-            _ => panic!("one or more operands of GreaterThan are not Ints"),
-        },
-        GreaterThanOrEquals => match (&*val1, &*val2) {
-            (Int(i1), Int(i2)) => Rc::new(Bool(i1 >= i2)),
-            _ => panic!("one or more operands of GreaterThanOrEquals are not Ints"),
-        },
-        LessThan => match (&*val1, &*val2) {
-            (Int(i1), Int(i2)) => Rc::new(Bool(i1 < i2)),
-            _ => panic!("one or more operands of LessThan are not Ints"),
-        },
-        LessThanOrEquals => match (&*val1, &*val2) {
-            (Int(i1), Int(i2)) => Rc::new(Bool(i1 <= i2)),
-            _ => panic!("one or more operands of LessThanOrEquals are not Ints"),
-        },
-        _ => panic!("operation not supported"),
+pub struct Interpreter {
+    program_expr: Rc<Expr>,
+    env: Rc<RefCell<Environment>>,
+    next_input: Option<Input>,
+}
+
+impl Interpreter {
+    pub fn new(program_expr: Rc<Expr>) -> Self {
+        Interpreter {
+            program_expr: program_expr,
+            env: make_new_environment(),
+            next_input: None,
+        }
+    }
+
+    pub fn is_finished(&self) -> bool {
+        // TODO: is the second part of this necessary?
+        is_val(&self.program_expr) == true && self.next_input.is_none()
+    }
+
+    pub fn run(
+        &mut self,
+        mut effect_handler: impl FnMut(Effect, Vec<Rc<Expr>>) -> Input,
+        steps: i32,
+    ) {
+        let result = interpret(
+            self.program_expr.clone(),
+            self.env.clone(),
+            steps,
+            &self.next_input,
+        );
+        self.program_expr = result.expr;
+        self.env = result.new_env;
+        self.next_input = match result.effect {
+            None => None,
+            Some((effect, args)) => Some(effect_handler(effect, args)),
+        };
     }
 }
 
@@ -414,5 +411,48 @@ pub fn interpret(
                 }
             },
         },
+    }
+}
+
+fn perform_op(val1: Rc<Expr>, op: BinOpcode, val2: Rc<Expr>) -> Rc<Expr> {
+    match op {
+        Add => match (&*val1, &*val2) {
+            (Int(i1), Int(i2)) => Rc::new(Int(i1 + i2)),
+            _ => panic!("one or more operands of Add are not Ints"),
+        },
+        Subtract => match (&*val1, &*val2) {
+            (Int(i1), Int(i2)) => Rc::new(Int(i1 - i2)),
+            _ => panic!("one or more operands of Subtract are not Ints"),
+        },
+        Multiply => match (&*val1, &*val2) {
+            (Int(i1), Int(i2)) => Rc::new(Int(i1 * i2)),
+            _ => panic!("one or more operands of Multiply are not Ints"),
+        },
+        Divide => match (&*val1, &*val2) {
+            (Int(i1), Int(i2)) => Rc::new(Int(i1 / i2)),
+            _ => panic!("one or more operands of Divide are not Ints"),
+        },
+        Equals => match (&*val1, &*val2) {
+            (Int(i1), Int(i2)) => Rc::new(Bool(i1 == i2)),
+            (Bool(b1), Bool(b2)) => Rc::new(Bool(b1 == b2)),
+            _ => panic!("can only compare values which are both Ints or both Bools"),
+        },
+        GreaterThan => match (&*val1, &*val2) {
+            (Int(i1), Int(i2)) => Rc::new(Bool(i1 > i2)),
+            _ => panic!("one or more operands of GreaterThan are not Ints"),
+        },
+        GreaterThanOrEquals => match (&*val1, &*val2) {
+            (Int(i1), Int(i2)) => Rc::new(Bool(i1 >= i2)),
+            _ => panic!("one or more operands of GreaterThanOrEquals are not Ints"),
+        },
+        LessThan => match (&*val1, &*val2) {
+            (Int(i1), Int(i2)) => Rc::new(Bool(i1 < i2)),
+            _ => panic!("one or more operands of LessThan are not Ints"),
+        },
+        LessThanOrEquals => match (&*val1, &*val2) {
+            (Int(i1), Int(i2)) => Rc::new(Bool(i1 <= i2)),
+            _ => panic!("one or more operands of LessThanOrEquals are not Ints"),
+        },
+        _ => panic!("operation not supported"),
     }
 }

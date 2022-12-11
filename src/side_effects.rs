@@ -20,11 +20,7 @@ pub enum Effect {
     // ReadLn,
 }
 
-pub fn handle_effect(
-    effect: &Effect,
-    args: &Vec<Rc<eval_tree::Expr>>,
-    output: &mut String,
-) -> Input {
+pub fn handle_effect(effect: Effect, args: Vec<Rc<eval_tree::Expr>>, output: &mut String) -> Input {
     match effect {
         Effect::Print => match &*args[0] {
             eval_tree::Expr::Str(string) => {
