@@ -65,31 +65,32 @@ impl Default for MyApp {
     fn default() -> Self {
         Self {
             text: String::from(
-                r#"let helper = func(x,y,n) {
+                r#"
+let fibonacci = func(n) {
     if n == 0 {
-        x
+        0
     } else {
-        helper(y,x+y,n-1)
+        if n == 1 {
+            1
+        } else {
+            fibonacci(n-1) + fibonacci(n-2)
+        }
     }
 };
-
-let fibonacci = func(n) {
-    helper(0,1,n)
-};
-
-print("The first 30 fibonacci numbers are:");
-let print_fib = func(n) {
+let run_fibonacci = func(n) {
     print(string_of_int(fibonacci(n)))
 };
-let iter_n = func(i, n, f) {
+let from_i_to_n = func(i, n, f) {
     if i > n {
         ()
     } else {
         f(i);
-        iter_n(i+1, n, f);
+        from_i_to_n(i+1, n, f);
     }
 };
-iter_n(0, 30, print_fib);"#,
+
+print("The first 30 fibonacci numbers are:");
+from_i_to_n(0, 30, run_fibonacci);"#,
             ),
             output: String::default(),
             interpreter: None,
@@ -97,72 +98,23 @@ iter_n(0, 30, print_fib);"#,
     }
 }
 
-/*
-game plan:
-    - in interpreter.rs, make a struct that contains the interpreter's state and a function for running for a step
-    - make the interpreter struct have a function is_finished() (which uses is_val() underneath)
-    - add a bool to UI's state that tracks whether the interpreter is running
-    - if a print side effect occurred after running, append the string to the console window and make it scroll to the bottom
-    - whenever Run code is clicked, reset the interpreter's state and set 'running' to true
-*/
-
-fn get_program_output(text: &String) -> Result<String, String> {
-    let mut env = interpreter::make_new_environment();
-    // add braces to make it a block expression
-    let text_with_braces = "{".to_owned() + text + "}";
-    let parse_tree = ast::parse(&text_with_braces)?;
-    let mut eval_tree = translate::translate_expr(parse_tree.exprkind.clone());
-    debug_println!("{:#?}", eval_tree);
-    let mut output = String::from("");
-    let mut next_input = None;
-    output += "=====PROGRAM OUTPUT=====\n\n";
-    debug_println!("Expr is: {:#?}", eval_tree);
-    let steps = if cfg!(debug_assertions) {
-        debug_println!("Debugging enabled");
-        1
-    } else {
-        i32::MAX
-    };
-
-    loop {
-        let result = interpreter::interpret(eval_tree, env.clone(), steps, &next_input);
-        eval_tree = result.expr;
-        env = result.new_env;
-        next_input = match result.effect {
-            None => None,
-            Some((effect, args)) => Some(side_effects::handle_effect(effect, args, &mut output)),
-        };
-        match (&next_input, eval_tree::is_val(&eval_tree)) {
-            (None, true) => {
-                break;
-            }
-            _ => {
-                debug_println!("Env is: {:#?}", env);
-                debug_println!("Expr is: {:#?}", eval_tree)
-            }
-        };
-    }
-    output += "\n========================\n";
-    output += &format!("Expression evaluated to: {:#?}", eval_tree);
-    Ok(output)
-}
-
 impl eframe::App for MyApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         let width = 570.0;
         egui::CentralPanel::default().show(ctx, |ui| {
-            // this is a bad hack. this forces update() to be called as much as possible
+            // HACK. this forces update() to be called as much as possible
             // so that the program can run on the UI thread.
             // I did this because web assembly does not support threads currently
             ui.ctx().request_repaint();
-            let steps = if cfg!(debug_assertions) { 1 } else { i32::MAX };
-            // sig Fn(&side_effects::Effect, &Vec<Rc<Expr>>) -> side_effects::Input
+            let steps = if cfg!(debug_assertions) { 1 } else { 1000 };
             let mut output_copy = self.output.clone();
             let effect_handler =
                 |effect, args| side_effects::handle_effect(effect, args, &mut output_copy);
             if let Some(interpreter) = &mut self.interpreter {
-                interpreter.run(effect_handler, steps);
-                self.output = output_copy;
+                if !interpreter.is_finished() {
+                    interpreter.run(effect_handler, steps);
+                    self.output = output_copy;
+                }
             }
 
             egui::Window::new("Abra Editor")
@@ -186,10 +138,6 @@ impl eframe::App for MyApp {
                                 };
                             });
                         if ui.button("Run code").clicked() {
-                            // self.output = match get_program_output(&self.text) {
-                            //     Ok(output) => output,
-                            //     Err(error) => error,
-                            // };
                             self.interpreter = None;
                             self.output.clear();
                             let text_with_braces = "{".to_owned() + &self.text + "}";

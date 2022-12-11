@@ -84,7 +84,7 @@ pub struct InterpretResult {
     pub new_env: Rc<RefCell<Environment>>,
 }
 
-pub fn interpret(
+fn interpret(
     expr: Rc<Expr>,
     env: Rc<RefCell<Environment>>,
     steps: i32,
