@@ -55,14 +55,19 @@ pub fn get_pairs(source: &str) -> Pairs<Rule> {
 //     match pair {}
 // }
 
+pub fn parse_stmt(pair: Pair<Rule>, pratt: &PrattParser<Rule>) -> Rc<Stmt> {
+    let span = Span::from(pair.as_span());
+    
+}
+
 pub fn parse_expr_term(pair: Pair<Rule>, pratt: &PrattParser<Rule>) -> Rc<Expr> {
     let span = Span::from(pair.as_span());
     match pair.as_rule() {
         Rule::block_expression => {
             let inner = pair.into_inner();
-            let statements = ();
+            let statements = parse_expr_pratt(inner, pratt);
             println!("block");
-            panic!("{:#?}", inner);
+            panic!("{:#?}", 3);
             // Rc::new(Expr {
             //     exprkind: Rc::new(ExprKind::Block((), ())),
             //     span,
