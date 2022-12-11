@@ -137,7 +137,12 @@ fn get_program_output(text: &String) -> Result<String, String> {
 impl eframe::App for MyApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         let width = 570.0;
-        egui::CentralPanel::default().show(ctx, |_ui| {
+        egui::CentralPanel::default().show(ctx, |ui| {
+            // this is a bad hack. this forces update() to be called as much as possible
+            // so that the program can run on the UI thread.
+            // I did this because web assembly does not support threads currently
+            ui.ctx().request_repaint();
+
             egui::Window::new("Abra Editor")
                 .title_bar(false)
                 .anchor(egui::Align2::CENTER_TOP, egui::vec2(0.0, 0.0))
