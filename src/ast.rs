@@ -1,5 +1,5 @@
 use operators::BinOpcode;
-use pest::error::{Error, ErrorVariant, InputLocation::Pos};
+// use pest::error::{Error, ErrorVariant, InputLocation::Pos};
 use pest::iterators::{Pair, Pairs};
 use pest::pratt_parser::{Assoc, Op, PrattParser};
 use pest::Parser;
@@ -44,16 +44,58 @@ pub fn parse(source: &str) -> Result<Rc<Expr>, String> {
 
 // TODO: fix in the future
 pub fn get_pairs(source: &str) -> Pairs<Rule> {
-    MyParser::parse(Rule::expression, &source).unwrap_or_else(|e| panic!("{}", e))
+    let x = MyParser::parse(Rule::expression, &source).unwrap_or_else(|e| panic!("{}", e));
+    let y = x.clone();
+    let size = x.collect::<Vec<_>>().len();
+    println!("size is {}", size);
+    y
 }
 
 // pub fn parse_pat(pair: Pair<Rule>) -> Rc<Pat> {
 //     match pair {}
 // }
 
-pub fn parse_expr(pairs: Pairs<Rule>, pratt: &PrattParser<Rule>) -> Rc<Expr> {
+pub fn parse_expr_term(pair: Pair<Rule>, pratt: &PrattParser<Rule>) -> Rc<Expr> {
+    let span = Span::from(pair.as_span());
+    match pair.as_rule() {
+        Rule::block_expression => {
+            let inner = pair.into_inner();
+            let statements = ();
+            println!("block");
+            panic!("{:#?}", inner);
+            // Rc::new(Expr {
+            //     exprkind: Rc::new(ExprKind::Block((), ())),
+            //     span,
+            // })
+        }
+        Rule::if_else_expression => {
+            let inner: Vec<_> = pair.into_inner().collect();
+            let cond = parse_expr_term(inner[0].clone(), pratt);
+            let e1 = parse_expr_term(inner[1].clone(), pratt);
+            let e2 = parse_expr_term(inner[2].clone(), pratt);
+            println!("{:#?}", inner);
+            Rc::new(Expr {
+                exprkind: Rc::new(ExprKind::If(cond, e1, e2)),
+                span,
+            })
+        }
+        Rule::literal_number => Rc::new(Expr {
+            exprkind: Rc::new(ExprKind::Int(pair.as_str().parse().unwrap())),
+            span,
+        }),
+        Rule::literal_bool => Rc::new(Expr {
+            exprkind: Rc::new(ExprKind::Bool(pair.as_str().parse().unwrap())),
+            span,
+        }),
+        _ => unreachable!(),
+    }
+}
+
+pub fn parse_expr_pratt(pairs: Pairs<Rule>, pratt: &PrattParser<Rule>) -> Rc<Expr> {
     pratt
-        .map_primary(|primary| match primary.as_rule() {
+        .map_primary(|primary| {
+            parse_expr_term(primary, pratt)
+            // match primary.as_rule() {
             // Rule::block_expression => {
             //     let pairs = primary.into_inner();
             //     let statements: Vec<_> = pairs
@@ -79,24 +121,24 @@ pub fn parse_expr(pairs: Pairs<Rule>, pratt: &PrattParser<Rule>) -> Rc<Expr> {
             //     //     span: Span::from(primary.as_span()),
             //     // })
             // }
-            Rule::if_else_expression => {
-                let inner = primary.into_inner();
-                let e = parse_expr(inner, pratt);
-                panic!("{:#?}", e)
-            }
-            Rule::literal_number => Rc::new(Expr {
-                exprkind: Rc::new(ExprKind::Int(primary.as_str().parse().unwrap())),
-                span: Span::from(primary.as_span()),
-            }),
-            Rule::literal_bool => Rc::new(Expr {
-                exprkind: Rc::new(ExprKind::Bool(primary.as_str().parse().unwrap())),
-                span: Span::from(primary.as_span()),
-            }),
-            _ => {
-                println!("{:#?}", primary.as_rule());
-                panic!("heyyy")
-            } // Rule::term => primary.as_str().parse().unwrap(),
-              // Rule::expr => parse2(primary.into_inner()), // from "(" ~ expr ~ ")"
+            // Rule::if_else_expression => {
+            //     let inner = primary.into_inner();
+            //     let e = parse_expr(inner, pratt);
+            //     panic!("{:#?}", e)
+            // }
+            // Rule::literal_number => Rc::new(Expr {
+            //     exprkind: Rc::new(ExprKind::Int(primary.as_str().parse().unwrap())),
+            //     span: Span::from(primary.as_span()),
+            // }),
+            // Rule::literal_bool => Rc::new(Expr {
+            //     exprkind: Rc::new(ExprKind::Bool(primary.as_str().parse().unwrap())),
+            //     span: Span::from(primary.as_span()),
+            // }),
+            // _ => {
+            //     println!("{:#?}", primary.as_rule());
+            //     panic!("heyyy")
+            // } // Rule::term => primary.as_str().parse().unwrap(),
+            // Rule::expr => parse2(primary.into_inner()), // from "(" ~ expr ~ ")"
         })
         // .map_prefix(|op, rhs| match op.as_rule() {
         //     Rule::neg  => -rhs,
@@ -131,7 +173,7 @@ pub fn parse2(source: &str) -> Rc<Expr> {
             | Op::infix(Rule::op_subtraction, Assoc::Left))
         .op(Op::infix(Rule::op_multiplication, Assoc::Left)
             | Op::infix(Rule::op_division, Assoc::Left));
-    parse_expr(pairs, &pratt)
+    parse_expr_pratt(pairs, &pratt)
 }
 
 #[derive(Debug, PartialEq)]
