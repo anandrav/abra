@@ -57,15 +57,28 @@ pub fn get_pairs(source: &str) -> Pairs<Rule> {
 
 pub fn parse_stmt(pair: Pair<Rule>, pratt: &PrattParser<Rule>) -> Rc<Stmt> {
     let span = Span::from(pair.as_span());
-    
+    panic!("{:#?}", pair.as_rule());
 }
 
 pub fn parse_expr_term(pair: Pair<Rule>, pratt: &PrattParser<Rule>) -> Rc<Expr> {
     let span = Span::from(pair.as_span());
     match pair.as_rule() {
+        /* All rules listed here should be non-operator expressions */
         Rule::block_expression => {
             let inner = pair.into_inner();
-            let statements = parse_expr_pratt(inner, pratt);
+            let mut statements: Vec<Rc<Stmt>> = Vec::new();
+            let mut expression: Option<Rc<Expr>> = None;
+            for pair in inner {
+                match pair.as_rule() {
+                    Rule::let_statement => {
+                        statements.push(parse_stmt(pair, pratt));
+                    }
+                    Rule::expression_statement => {
+                        expression = Some(parse_expr_pratt(pair.into_inner(), pratt));
+                    }
+                    _ => unreachable!(),
+                }
+            }
             println!("block");
             panic!("{:#?}", 3);
             // Rc::new(Expr {
