@@ -144,17 +144,7 @@ impl eframe::App for MyApp {
                             self.interpreter = None;
                             self.output.clear();
                             let text_with_braces = "{".to_owned() + &self.text + "}";
-                            let parse_tree = ast::parse2(&text_with_braces);
-                            // match ast::parse(&text_with_braces) {
-                            //     Ok(parse_tree) => {
-                            //         let eval_tree =
-                            //             translate::translate_expr(parse_tree.exprkind.clone());
-                            //         self.interpreter = Some(Interpreter::new(eval_tree));
-                            //     }
-                            //     Err(err) => {
-                            //         self.output = err;
-                            //     }
-                            // }
+                            let parse_tree = ast::parse(&text_with_braces);
                             let eval_tree = translate::translate_expr(parse_tree.exprkind.clone());
                             self.interpreter = Some(Interpreter::new(eval_tree));
                         }

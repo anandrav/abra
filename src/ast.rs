@@ -229,7 +229,7 @@ pub fn parse_expr_pratt(pairs: Pairs<Rule>, pratt: &PrattParser<Rule>) -> Rc<Exp
         .parse(pairs)
 }
 
-pub fn parse2(source: &str) -> Rc<Expr> {
+pub fn parse(source: &str) -> Rc<Expr> {
     let pairs = get_pairs(source);
     // at this point, we know it's syntactically correct,
     // so we figure out operator precedence using the pratt parser
