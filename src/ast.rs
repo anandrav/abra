@@ -42,17 +42,13 @@ pub fn parse(source: &str) -> Result<Rc<Expr>, String> {
 //     s.to_string()
 // }
 
-// TODO: fix in the future
+// TODO: use fix() method in the future
 pub fn get_pairs(source: &str) -> Pairs<Rule> {
     let x = MyParser::parse(Rule::expression, &source).unwrap_or_else(|e| panic!("{}", e));
     let y = x.clone();
     let size = x.collect::<Vec<_>>().len();
     y
 }
-
-// pub fn parse_pat(pair: Pair<Rule>) -> Rc<Pat> {
-//     match pair {}
-// }
 
 pub fn parse_pat(pair: Pair<Rule>, pratt: &PrattParser<Rule>) -> Rc<Pat> {
     let span = Span::from(pair.as_span());
@@ -123,7 +119,7 @@ pub fn parse_expr_term(pair: Pair<Rule>, pratt: &PrattParser<Rule>) -> Rc<Expr> 
          * (n == 0) would be parsed as a Rule::expression, followed by two Rule::block_expressions
          * If 'n' '==' and '0' were not grouped under a Rule::expression, it would be difficult
          * to run the pratt parser on just them.
-         *  */
+         */
         Rule::expression => parse_expr_pratt(pair.into_inner(), pratt),
         // All rules listed below should be non-operator expressions
         Rule::block_expression => {
