@@ -15,10 +15,10 @@ expression_statement = { expression ~ semicolon }
 pattern = _{ identifier }
 op_assign = _{ "=" }
 
-expression = _{ term ~ (op_binary ~ term)* }
+expression = { term ~ (op_binary ~ term)* }
 term = _{ block_expression | func_expression | func_call_expression | parenthesized_expression | if_else_expression | primary_expression }
 
-if_else_expression = { if_keyword ~ expression ~ expression ~ else_keyword ~ expression }
+if_else_expression = { if_keyword ~ expression ~ block_expression ~ else_keyword ~ block_expression }
 if_keyword = _{ "if" }
 else_keyword = _{ "else" }
 
@@ -37,7 +37,7 @@ func_args_end = _{ ")" }
 func_arg = _{ expression }
 
 func_expression = { func_keyword ~ func_args ~ block_expression }
-func_keyword = { "func" }
+func_keyword = _{ "func" }
 
 primary_expression = _{ identifier | literal | placeholder }
 

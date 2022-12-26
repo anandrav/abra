@@ -367,7 +367,10 @@ fn interpret(
                         new_env: env,
                     };
                 }
-                _ => panic!("If expression clause did not evaluate to a bool"),
+                _ => panic!(
+                    "If expression clause did not evaluate to a bool: {:#?}",
+                    expr1
+                ),
             }
         }
         EffectAp(effect_enum, args) => {
