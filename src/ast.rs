@@ -47,7 +47,6 @@ pub fn get_pairs(source: &str) -> Pairs<Rule> {
     let x = MyParser::parse(Rule::expression, &source).unwrap_or_else(|e| panic!("{}", e));
     let y = x.clone();
     let size = x.collect::<Vec<_>>().len();
-    println!("size is {}", size);
     y
 }
 
@@ -55,25 +54,59 @@ pub fn get_pairs(source: &str) -> Pairs<Rule> {
 //     match pair {}
 // }
 
+pub fn parse_pat(pair: Pair<Rule>, pratt: &PrattParser<Rule>) -> Rc<Pat> {
+    let span = Span::from(pair.as_span());
+    let rule = pair.as_rule();
+    match rule {
+        Rule::identifier => Rc::new(Pat {
+            patkind: Rc::new(PatKind::Var(pair.as_str().to_owned())),
+            span,
+        }),
+        _ => panic!("unreachable rule {:#?}", rule),
+    }
+}
+
 pub fn parse_stmt(pair: Pair<Rule>, pratt: &PrattParser<Rule>) -> Rc<Stmt> {
     let span = Span::from(pair.as_span());
-    panic!("{:#?}", pair.as_rule());
+    let rule = pair.as_rule();
+    let inner: Vec<_> = pair.into_inner().collect();
+    match rule {
+        Rule::let_statement => {
+            let pat = parse_pat(inner[0].clone(), pratt);
+            let expr = parse_expr_pratt(Pairs::single(inner[1].clone()), pratt);
+            Rc::new(Stmt {
+                stmtkind: Rc::new(StmtKind::Let(pat, None, expr)),
+                span,
+            })
+        }
+        Rule::expression_statement => {
+            panic!()
+        }
+        _ => panic!("unreachable rule {:#?}", rule),
+    }
+}
+
+fn rule_is_of_stmt(rule: &Rule) -> bool {
+    match rule {
+        Rule::let_statement | Rule::expression_statement => true,
+        _ => false,
+    }
 }
 
 pub fn parse_expr_term(pair: Pair<Rule>, pratt: &PrattParser<Rule>) -> Rc<Expr> {
     let span = Span::from(pair.as_span());
-    match pair.as_rule() {
+    let rule = pair.as_rule();
+    match rule {
         /* All rules listed here should be non-operator expressions */
         Rule::block_expression => {
             let inner = pair.into_inner();
             let mut statements: Vec<Rc<Stmt>> = Vec::new();
             let mut expression: Option<Rc<Expr>> = None;
             for pair in inner {
-                match pair.as_rule() {
-                    Rule::let_statement => {
-                        statements.push(parse_stmt(pair, pratt));
-                    }
-                    _ => expression = Some(parse_expr_pratt(Pairs::single(pair), pratt)),
+                if rule_is_of_stmt(&pair.as_rule()) {
+                    statements.push(parse_stmt(pair, pratt));
+                } else {
+                    expression = Some(parse_expr_pratt(Pairs::single(pair), pratt));
                 }
             }
             Rc::new(Expr {
@@ -91,6 +124,19 @@ pub fn parse_expr_term(pair: Pair<Rule>, pratt: &PrattParser<Rule>) -> Rc<Expr> 
                 span,
             })
         }
+        Rule::func_call_expression => {
+            let inner: Vec<_> = pair.into_inner().collect();
+            let f = parse_expr_term(inner[0].clone(), pratt);
+            let arg1 = parse_expr_term(inner[1].clone(), pratt);
+            let mut remaining_args = Vec::new();
+            for p in &inner[2..] {
+                remaining_args.push(parse_expr_term(p.clone(), pratt));
+            }
+            Rc::new(Expr {
+                exprkind: Rc::new(ExprKind::FuncAp(f, arg1, remaining_args)),
+                span,
+            })
+        }
         Rule::literal_number => Rc::new(Expr {
             exprkind: Rc::new(ExprKind::Int(pair.as_str().parse().unwrap())),
             span,
@@ -99,7 +145,19 @@ pub fn parse_expr_term(pair: Pair<Rule>, pratt: &PrattParser<Rule>) -> Rc<Expr> 
             exprkind: Rc::new(ExprKind::Bool(pair.as_str().parse().unwrap())),
             span,
         }),
-        _ => unreachable!(),
+        Rule::literal_string => Rc::new(Expr {
+            exprkind: Rc::new(ExprKind::Str({
+                let s = pair.as_str();
+                // remove quotes
+                s[1..s.len() - 1].to_owned()
+            })),
+            span,
+        }),
+        Rule::identifier => Rc::new(Expr {
+            exprkind: Rc::new(ExprKind::Var(pair.as_str().to_owned())),
+            span,
+        }),
+        _ => panic!("unreachable rule {:#?}", rule),
     }
 }
 

@@ -10,10 +10,10 @@ program = { SOI ~ statement* ~ EOI }
 statement = _{ let_statement | expression_statement }
 
 let_statement = { let_keyword ~ pattern ~ op_assign ~ expression ~ semicolon }
-let_keyword = { "let" }
+let_keyword = _{ "let" }
 expression_statement = { expression ~ semicolon }
 pattern = _{ identifier }
-op_assign = { "=" }
+op_assign = _{ "=" }
 
 expression = _{ term ~ (op_binary ~ term)* }
 term = _{ block_expression | func_expression | func_call_expression | parenthesized_expression | if_else_expression | primary_expression }
@@ -32,8 +32,8 @@ paren_end = _{ ")" }
 
 func_call_expression = { identifier ~ func_args }
 func_args = _{ func_args_start ~ (func_arg ~ ",")* ~ func_arg? ~ func_args_end }
-func_args_start = { "(" }
-func_args_end = { ")" }
+func_args_start = _{ "(" }
+func_args_end = _{ ")" }
 func_arg = _{ expression }
 
 func_expression = { func_keyword ~ func_args ~ block_expression }

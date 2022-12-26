@@ -51,8 +51,15 @@ impl Interpreter {
     }
 
     pub fn is_finished(&self) -> bool {
-        // TODO: is the second part of this necessary?
-        is_val(&self.program_expr) == true && self.next_input.is_none()
+        is_val(&self.program_expr) == true
+    }
+
+    pub fn get_val(&self) -> Option<Rc<Expr>> {
+        if self.is_finished() {
+            Some(self.program_expr.clone())
+        } else {
+            None
+        }
     }
 
     pub fn run(

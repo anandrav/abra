@@ -87,6 +87,10 @@ impl eframe::App for MyApp {
                 if !interpreter.is_finished() {
                     interpreter.run(effect_handler, steps);
                     self.output = output_copy;
+                    if interpreter.is_finished() {
+                        self.output +=
+                            &format!("Evaluated to: {:?}", interpreter.get_val().unwrap());
+                    }
                 }
             }
 
