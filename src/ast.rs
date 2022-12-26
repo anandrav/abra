@@ -6,7 +6,7 @@ use pest::Parser;
 use pest_derive::Parser;
 use std::rc::Rc;
 use types::Type;
-lalrpop_mod!(pub abra_grammar); // synthesized by LALRPOP
+// lalrpop_mod!(pub abra_grammar); // synthesized by LALRPOP
 #[derive(Parser)]
 #[grammar = "grammar.pest"]
 struct MyParser;
@@ -14,11 +14,11 @@ struct MyParser;
 pub type Identifier = String;
 pub type FuncArg = (Identifier, Option<Rc<Type>>);
 
-pub fn parse(source: &str) -> Result<Rc<Expr>, String> {
-    abra_grammar::ExprParser::new()
-        .parse(source)
-        .map_err(|err| err.to_string())
-}
+// pub fn parse(source: &str) -> Result<Rc<Expr>, String> {
+//     abra_grammar::ExprParser::new()
+//         .parse(source)
+//         .map_err(|err| err.to_string())
+// }
 
 // pub fn fix(s: &str) -> String {
 //     // debug_println!("fix: {}", s);
@@ -44,13 +44,10 @@ pub fn parse(source: &str) -> Result<Rc<Expr>, String> {
 
 // TODO: use fix() method in the future
 pub fn get_pairs(source: &str) -> Pairs<Rule> {
-    let x = MyParser::parse(Rule::expression, &source).unwrap_or_else(|e| panic!("{}", e));
-    let y = x.clone();
-    let size = x.collect::<Vec<_>>().len();
-    y
+    MyParser::parse(Rule::expression, &source).unwrap_or_else(|e| panic!("{}", e))
 }
 
-pub fn parse_pat(pair: Pair<Rule>, pratt: &PrattParser<Rule>) -> Rc<Pat> {
+pub fn parse_pat(pair: Pair<Rule>, _pratt: &PrattParser<Rule>) -> Rc<Pat> {
     let span = Span::from(pair.as_span());
     let rule = pair.as_rule();
     match rule {
@@ -63,7 +60,7 @@ pub fn parse_pat(pair: Pair<Rule>, pratt: &PrattParser<Rule>) -> Rc<Pat> {
 }
 // TODO: make func args patterns
 pub fn parse_func_arg(pair: Pair<Rule>, pratt: &PrattParser<Rule>) -> FuncArg {
-    let span = Span::from(pair.as_span());
+    let _span = Span::from(pair.as_span());
     let rule = pair.as_rule();
     match rule {
         Rule::expression => {

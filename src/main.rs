@@ -1,5 +1,5 @@
-#[macro_use]
-extern crate lalrpop_util;
+// #[macro_use]
+// extern crate lalrpop_util;
 extern crate abra;
 extern crate debug_print;
 extern crate eframe;
