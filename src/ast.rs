@@ -73,25 +73,19 @@ pub fn parse_expr_term(pair: Pair<Rule>, pratt: &PrattParser<Rule>) -> Rc<Expr> 
                     Rule::let_statement => {
                         statements.push(parse_stmt(pair, pratt));
                     }
-                    Rule::expression_statement => {
-                        expression = Some(parse_expr_pratt(pair.into_inner(), pratt));
-                    }
-                    _ => unreachable!(),
+                    _ => expression = Some(parse_expr_pratt(Pairs::single(pair), pratt)),
                 }
             }
-            println!("block");
-            panic!("{:#?}", 3);
-            // Rc::new(Expr {
-            //     exprkind: Rc::new(ExprKind::Block((), ())),
-            //     span,
-            // })
+            Rc::new(Expr {
+                exprkind: Rc::new(ExprKind::Block(statements, expression)),
+                span,
+            })
         }
         Rule::if_else_expression => {
             let inner: Vec<_> = pair.into_inner().collect();
             let cond = parse_expr_term(inner[0].clone(), pratt);
             let e1 = parse_expr_term(inner[1].clone(), pratt);
             let e2 = parse_expr_term(inner[2].clone(), pratt);
-            println!("{:#?}", inner);
             Rc::new(Expr {
                 exprkind: Rc::new(ExprKind::If(cond, e1, e2)),
                 span,
