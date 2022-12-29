@@ -44,7 +44,7 @@ pub type FuncArg = (Identifier, Option<Rc<Type>>);
 
 // TODO: use fix() method in the future
 pub fn get_pairs(source: &str) -> Pairs<Rule> {
-    MyParser::parse(Rule::expression, &source).unwrap_or_else(|e| panic!("{}", e))
+    MyParser::parse(Rule::expression, &source).unwrap_or_else(|e| panic!("{:#?}", e))
 }
 
 pub fn parse_pat(pair: Pair<Rule>, _pratt: &PrattParser<Rule>) -> Rc<Pat> {

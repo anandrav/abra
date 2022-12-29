@@ -51,7 +51,7 @@ literal_number = @{ "0" | ASCII_NONZERO_DIGIT ~ ASCII_DIGIT* }
 literal_string = @{ "\"" ~ (!"\"" ~ ANY)* ~ "\"" }
 literal_bool = @{ "true" | "false" }
 
-op_binary = _{op_eq | op_gt | op_lt | op_addition | op_subtraction | op_multiplication }
+op_binary = _{op_eq | op_gt | op_lt | op_addition | op_subtraction | op_multiplication | op_division }
 op_eq = { "==" }
 op_gt = { ">" }
 op_lt = { "<" }
