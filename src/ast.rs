@@ -43,8 +43,8 @@ pub type FuncArg = (Identifier, Option<Rc<Type>>);
 // }
 
 // TODO: use fix() method in the future
-pub fn get_pairs(source: &str) -> Pairs<Rule> {
-    MyParser::parse(Rule::expression, &source).unwrap_or_else(|e| panic!("{:#?}", e))
+pub fn get_pairs(source: &str) -> Result<Pairs<Rule>, String> {
+    MyParser::parse(Rule::expression, &source).map_err(|e| e.to_string())
 }
 
 pub fn parse_pat(pair: Pair<Rule>, _pratt: &PrattParser<Rule>) -> Rc<Pat> {
@@ -229,8 +229,8 @@ pub fn parse_expr_pratt(pairs: Pairs<Rule>, pratt: &PrattParser<Rule>) -> Rc<Exp
         .parse(pairs)
 }
 
-pub fn parse(source: &str) -> Rc<Expr> {
-    let pairs = get_pairs(source);
+pub fn parse_or_err(source: &str) -> Result<Rc<Expr>, String> {
+    let pairs = get_pairs(source)?;
     // at this point, we know it's syntactically correct,
     // so we figure out operator precedence using the pratt parser
     let pratt = PrattParser::new()
@@ -240,7 +240,7 @@ pub fn parse(source: &str) -> Rc<Expr> {
             | Op::infix(Rule::op_subtraction, Assoc::Left))
         .op(Op::infix(Rule::op_multiplication, Assoc::Left)
             | Op::infix(Rule::op_division, Assoc::Left));
-    parse_expr_pratt(pairs, &pratt)
+    Ok(parse_expr_pratt(pairs, &pratt))
 }
 
 #[derive(Debug, PartialEq)]
