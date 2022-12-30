@@ -6,7 +6,6 @@ use pest::Parser;
 use pest_derive::Parser;
 use std::rc::Rc;
 use types::Type;
-// lalrpop_mod!(pub abra_grammar); // synthesized by LALRPOP
 #[derive(Parser)]
 #[grammar = "grammar.pest"]
 struct MyParser;
