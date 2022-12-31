@@ -135,7 +135,7 @@ impl eframe::App for MyApp {
                             .show(ui, |ui| {
                                 if ui.code_editor(&mut self.text).changed() {
                                     let text_with_braces = "{".to_owned() + &self.text + "}";
-                                    if let Some(fixed) = ast::fix(&text_with_braces, 1) {
+                                    if let Some(fixed) = ast::fix(&text_with_braces, 10) {
                                         self.text = fixed[1..fixed.len() - 1].into();
                                         debug_println!("fixed! {:#?}", self.text);
                                     } else {

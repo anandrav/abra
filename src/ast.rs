@@ -29,10 +29,26 @@ pub fn fix(s: &str, n: i32) -> Option<String> {
         } = e.variant
         {
             println!("pos:{:#?}, neg:{:#?}", positives, negatives);
-            if positives.contains(&Rule::placeholder) {
+            if positives.contains(&Rule::placeholder)
+                || positives.contains(&Rule::expression)
+                || positives.contains(&Rule::identifier)
+            {
                 let mut s = String::from(s);
                 if let Pos(p) = e.location {
                     s.insert_str(p, "_");
+                    if n == 0 {
+                        println!("fix ran out of steps");
+                        None
+                    } else {
+                        fix(&s, n - 1)
+                    }
+                } else {
+                    None
+                }
+            } else if (positives.contains(&Rule::op_assign)) {
+                if let Pos(p) = e.location {
+                    let mut s = s.to_owned();
+                    s.insert_str(p, "=");
                     if n == 0 {
                         println!("fix ran out of steps");
                         None
@@ -46,7 +62,25 @@ pub fn fix(s: &str, n: i32) -> Option<String> {
                 if let Pos(p) = e.location {
                     let mut s = s.to_string();
                     s.remove(p);
-                    Some(s)
+                    if n == 0 {
+                        println!("fix ran out of steps");
+                        None
+                    } else {
+                        fix(&s, n - 1)
+                    }
+                } else {
+                    None
+                }
+            } else if (positives.contains(&Rule::semicolon)) {
+                if let Pos(p) = e.location {
+                    let mut s = s.to_owned();
+                    s.insert_str(p, ";");
+                    if n == 0 {
+                        println!("fix ran out of steps");
+                        None
+                    } else {
+                        fix(&s, n - 1)
+                    }
                 } else {
                     None
                 }
@@ -67,7 +101,7 @@ pub fn fix(s: &str, n: i32) -> Option<String> {
 // they are used by the editor for error-reporting and fixing broken syntax
 fn of_ast(pair: &Pair<Rule>) -> bool {
     match pair.as_rule() {
-        Rule::func_args_start | Rule::func_args_end => false,
+        Rule::op_assign | Rule::let_keyword | Rule::func_args_start | Rule::func_args_end => false,
         _ => true,
     }
 }
