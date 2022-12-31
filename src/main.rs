@@ -29,7 +29,7 @@ fn main() {
 
     let options = eframe::NativeOptions::default();
     eframe::run_native(
-        "My egui App",
+        "Abra Editor",
         options,
         Box::new(|_cc| Box::new(MyApp::default())),
     );
@@ -134,8 +134,13 @@ impl eframe::App for MyApp {
                             .min_scrolled_height(300.0)
                             .show(ui, |ui| {
                                 if ui.code_editor(&mut self.text).changed() {
-                                    // self.text =
-                                    debug_println!("was changed");
+                                    let text_with_braces = "{".to_owned() + &self.text + "}";
+                                    if let Some(fixed) = ast::fix(&text_with_braces, 1) {
+                                        self.text = fixed[1..fixed.len() - 1].into();
+                                        debug_println!("fixed! {:#?}", self.text);
+                                    } else {
+                                        debug_println!("fix no work :(");
+                                    }
                                 };
                             });
                         if ui.button("Run code").clicked() {

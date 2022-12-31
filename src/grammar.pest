@@ -15,7 +15,7 @@ expression_statement = { expression ~ semicolon }
 pattern = _{ identifier }
 op_assign = _{ "=" }
 
-expression = { term ~ (op_binary ~ term)* }
+expression = { term ~ (!placeholder ~ op_binary ~ term)* }
 term = _{ block_expression | func_expression | func_call_expression | parenthesized_expression | if_else_expression | primary_expression }
 
 if_else_expression = { if_keyword ~ expression ~ block_expression ~ else_keyword ~ block_expression }

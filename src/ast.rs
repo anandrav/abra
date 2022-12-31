@@ -1,6 +1,6 @@
 use debug_print::debug_println;
 use operators::BinOpcode;
-// use pest::error::{Error, ErrorVariant, InputLocation::Pos};
+use pest::error::{Error, ErrorVariant, InputLocation::Pos};
 use pest::iterators::{Pair, Pairs};
 use pest::pratt_parser::{Assoc, Op, PrattParser};
 use pest::Parser;
@@ -20,27 +20,47 @@ pub type FuncArg = (Identifier, Option<Rc<Type>>);
 //         .map_err(|err| err.to_string())
 // }
 
-// pub fn fix(s: &str) -> String {
-//     // debug_println!("fix: {}", s);
-//     if let Err(e) = MyParser::parse(Rule::program, &s) {
-//         if let ErrorVariant::ParsingError {
-//             positives,
-//             negatives,
-//         } = e.variant
-//         {
-//             if positives.contains(&Rule::placeholder) {
-//                 let mut s = String::from(s);
-//                 if let Pos(p) = e.location {
-//                     s.insert_str(p, &Token::Placeholder.to_str());
-//                     return fix(&s);
-//                 }
-//             }
-//         }
-//         // debug_println!("{:#?}", e);
-//         panic!()
-//     }
-//     s.to_string()
-// }
+pub fn fix(s: &str, n: i32) -> Option<String> {
+    // debug_println!("fix: {}", s);
+    if let Err(e) = MyParser::parse(Rule::expression, &s) {
+        if let ErrorVariant::ParsingError {
+            positives,
+            negatives,
+        } = e.variant
+        {
+            println!("pos:{:#?}, neg:{:#?}", positives, negatives);
+            if positives.contains(&Rule::placeholder) {
+                let mut s = String::from(s);
+                if let Pos(p) = e.location {
+                    s.insert_str(p, "_");
+                    if n == 0 {
+                        println!("fix ran out of steps");
+                        None
+                    } else {
+                        fix(&s, n - 1)
+                    }
+                } else {
+                    None
+                }
+            } else if (negatives.contains(&Rule::placeholder)) {
+                if let Pos(p) = e.location {
+                    let mut s = s.to_string();
+                    s.remove(p);
+                    Some(s)
+                } else {
+                    None
+                }
+            } else {
+                None
+            }
+        } else {
+            None
+        }
+    } else {
+        println!("hello");
+        Some(s.to_string())
+    }
+}
 
 // return false for Rules which do not represent AST nodes
 // when converting Pairs to an AST, we want to ignore these.
