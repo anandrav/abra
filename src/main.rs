@@ -55,6 +55,7 @@ fn main() {
 
 struct MyApp {
     text: String,
+    prev_text: String,
     output: String,
     interpreter: Option<Interpreter>,
 }
@@ -89,6 +90,7 @@ let from_i_to_n = func(i, n, f) {
 print("The first 30 fibonacci numbers are:");
 from_i_to_n(0, 30, run_fibonacci);"#,
             ),
+            prev_text: "".into(),
             output: String::default(),
             interpreter: None,
         }
@@ -134,19 +136,21 @@ impl eframe::App for MyApp {
                             .min_scrolled_height(300.0)
                             .show(ui, |ui| {
                                 if ui.code_editor(&mut self.text).changed() {
-                                    let text_with_braces = "{".to_owned() + &self.text + "}";
+                                    let text_with_braces = "{ ".to_owned() + &self.text + " }";
                                     if let Some(fixed) = ast::fix(&text_with_braces, 10) {
-                                        self.text = fixed[1..fixed.len() - 1].into();
-                                        debug_println!("fixed! {:#?}", self.text);
+                                        self.text = fixed[2..fixed.len() - 2].into();
+                                        debug_println!("valid syntax {:#?}", self.text);
+                                        self.prev_text = self.text.clone();
                                     } else {
-                                        debug_println!("fix no work :(");
+                                        debug_println!("invalid syntax");
+                                        self.text = self.prev_text.clone();
                                     }
                                 };
                             });
                         if ui.button("Run code").clicked() {
                             self.interpreter = None;
                             self.output.clear();
-                            let text_with_braces = "{".to_owned() + &self.text + "}";
+                            let text_with_braces = "{ ".to_owned() + &self.text + " }";
                             match ast::parse_or_err(&text_with_braces) {
                                 Ok(parse_tree) => {
                                     let eval_tree =
