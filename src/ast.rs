@@ -1,3 +1,4 @@
+use debug_print::debug_println;
 use operators::BinOpcode;
 // use pest::error::{Error, ErrorVariant, InputLocation::Pos};
 use pest::iterators::{Pair, Pairs};
@@ -41,9 +42,22 @@ pub type FuncArg = (Identifier, Option<Rc<Type>>);
 //     s.to_string()
 // }
 
+// return false for Rules which do not represent AST nodes
+// when converting Pairs to an AST, we want to ignore these.
+// they are used by the editor for error-reporting and fixing broken syntax
+fn of_ast(pair: &Pair<Rule>) -> bool {
+    match pair.as_rule() {
+        Rule::func_args_start | Rule::func_args_end => false,
+        _ => true,
+    }
+}
+
 // TODO: use fix() method in the future
 pub fn get_pairs(source: &str) -> Result<Pairs<Rule>, String> {
-    MyParser::parse(Rule::expression, &source).map_err(|e| e.to_string())
+    MyParser::parse(Rule::expression, &source).map_err(|e| {
+        debug_println!("{:#?}", e);
+        e.to_string()
+    })
 }
 
 pub fn parse_pat(pair: Pair<Rule>, _pratt: &PrattParser<Rule>) -> Rc<Pat> {
@@ -63,7 +77,7 @@ pub fn parse_func_arg(pair: Pair<Rule>, pratt: &PrattParser<Rule>) -> FuncArg {
     let rule = pair.as_rule();
     match rule {
         Rule::expression => {
-            let inner: Vec<_> = pair.into_inner().collect();
+            let inner: Vec<_> = pair.into_inner().filter(of_ast).collect();
             let pair = inner.first().unwrap().clone();
             parse_func_arg(pair, pratt)
         }
@@ -75,7 +89,7 @@ pub fn parse_func_arg(pair: Pair<Rule>, pratt: &PrattParser<Rule>) -> FuncArg {
 pub fn parse_stmt(pair: Pair<Rule>, pratt: &PrattParser<Rule>) -> Rc<Stmt> {
     let span = Span::from(pair.as_span());
     let rule = pair.as_rule();
-    let inner: Vec<_> = pair.into_inner().collect();
+    let inner: Vec<_> = pair.into_inner().filter(of_ast).collect();
     match rule {
         Rule::let_statement => {
             let pat = parse_pat(inner[0].clone(), pratt);
@@ -119,7 +133,7 @@ pub fn parse_expr_term(pair: Pair<Rule>, pratt: &PrattParser<Rule>) -> Rc<Expr> 
         Rule::expression => parse_expr_pratt(pair.into_inner(), pratt),
         // All rules listed below should be non-operator expressions
         Rule::block_expression => {
-            let inner = pair.into_inner();
+            let inner = pair.into_inner().filter(of_ast);
             let mut statements: Vec<Rc<Stmt>> = Vec::new();
             let mut expression: Option<Rc<Expr>> = None;
             for pair in inner {
@@ -135,7 +149,7 @@ pub fn parse_expr_term(pair: Pair<Rule>, pratt: &PrattParser<Rule>) -> Rc<Expr> 
             })
         }
         Rule::if_else_expression => {
-            let inner: Vec<_> = pair.into_inner().collect();
+            let inner: Vec<_> = pair.into_inner().filter(of_ast).collect();
             let cond = parse_expr_pratt(Pairs::single(inner[0].clone()), pratt);
             let e1 = parse_expr_pratt(Pairs::single(inner[1].clone()), pratt);
             let e2 = parse_expr_pratt(Pairs::single(inner[2].clone()), pratt);
@@ -145,7 +159,7 @@ pub fn parse_expr_term(pair: Pair<Rule>, pratt: &PrattParser<Rule>) -> Rc<Expr> 
             })
         }
         Rule::func_expression => {
-            let inner: Vec<_> = pair.into_inner().collect();
+            let inner: Vec<_> = pair.into_inner().filter(of_ast).collect();
             let arg1 = parse_func_arg(inner[0].clone(), pratt);
             let mut remaining_args = Vec::new();
             for p in &inner[1..inner.len() - 1] {
@@ -158,7 +172,7 @@ pub fn parse_expr_term(pair: Pair<Rule>, pratt: &PrattParser<Rule>) -> Rc<Expr> 
             })
         }
         Rule::func_call_expression => {
-            let inner: Vec<_> = pair.into_inner().collect();
+            let inner: Vec<_> = pair.into_inner().filter(of_ast).collect();
             let f = parse_expr_pratt(Pairs::single(inner[0].clone()), pratt);
             let arg1 = parse_expr_pratt(Pairs::single(inner[1].clone()), pratt);
             let mut remaining_args = Vec::new();
@@ -199,6 +213,7 @@ pub fn parse_expr_term(pair: Pair<Rule>, pratt: &PrattParser<Rule>) -> Rc<Expr> 
 }
 
 pub fn parse_expr_pratt(pairs: Pairs<Rule>, pratt: &PrattParser<Rule>) -> Rc<Expr> {
+    let pairs = pairs.filter(of_ast);
     pratt
         .map_primary(|primary| parse_expr_term(primary, pratt))
         // .map_prefix(|op, rhs| match op.as_rule() {

@@ -146,7 +146,14 @@ impl eframe::App for MyApp {
                                 Ok(parse_tree) => {
                                     let eval_tree =
                                         translate::translate_expr(parse_tree.exprkind.clone());
-                                    self.interpreter = Some(Interpreter::new(eval_tree));
+                                    let interpreter = Interpreter::new(eval_tree);
+                                    if interpreter.is_finished() {
+                                        self.output += &format!(
+                                            "Evaluated to: {:?}",
+                                            interpreter.get_val().unwrap()
+                                        );
+                                    }
+                                    self.interpreter = Some(interpreter);
                                 }
                                 Err(err) => {
                                     self.output = err;

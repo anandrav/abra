@@ -20,7 +20,7 @@ pub fn translate_expr_block(
 ) -> Rc<Ete> {
     let final_operand_size = if final_operand.is_some() { 1 } else { 0 };
     match stmts.len() + final_operand_size {
-        0 => panic!("empty expression block!"),
+        0 => Rc::new(Ete::Unit),
         1 => match final_operand {
             None => {
                 let statement = &stmts[0];
