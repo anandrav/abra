@@ -62,16 +62,15 @@ struct MyApp {
 
 impl Default for MyApp {
     fn default() -> Self {
-        Self {
-            text: String::from(
-                r#"let fibonacci = func(n) {
+        let blah = String::from(
+            r#"let fibonacci = func(n) {
     if n == 0 {
         0
     } else {
         if n == 1 {
             1
         } else {
-            fibonacci(n-1) + fibonacci(n-2)
+            fibonacci(n - 1) + fibonacci(n - 2)
         }
     }
 };
@@ -83,14 +82,16 @@ let from_i_to_n = func(i, n, f) {
         ()
     } else {
         f(i);
-        from_i_to_n(i+1, n, f);
+        from_i_to_n(i + 1, n, f);
     }
 };
 
 print("The first 30 fibonacci numbers are:");
 from_i_to_n(0, 30, run_fibonacci);"#,
-            ),
-            prev_text: "".into(),
+        );
+        Self {
+            text: blah.clone(),
+            prev_text: blah,
             output: String::default(),
             interpreter: None,
         }
@@ -136,9 +137,8 @@ impl eframe::App for MyApp {
                             .min_scrolled_height(300.0)
                             .show(ui, |ui| {
                                 if ui.code_editor(&mut self.text).changed() {
-                                    let text_with_braces = "{ ".to_owned() + &self.text + " }";
-                                    if let Some(fixed) = ast::fix(&text_with_braces, 10) {
-                                        self.text = fixed[2..fixed.len() - 2].into();
+                                    if let Some(fixed) = ast::fix(&self.text, 10) {
+                                        self.text = fixed;
                                         debug_println!("valid syntax {:#?}", self.text);
                                         self.prev_text = self.text.clone();
                                     } else {
@@ -150,8 +150,7 @@ impl eframe::App for MyApp {
                         if ui.button("Run code").clicked() {
                             self.interpreter = None;
                             self.output.clear();
-                            let text_with_braces = "{ ".to_owned() + &self.text + " }";
-                            match ast::parse_or_err(&text_with_braces) {
+                            match ast::parse_or_err(&self.text) {
                                 Ok(parse_tree) => {
                                     let eval_tree =
                                         translate::translate_expr(parse_tree.exprkind.clone());

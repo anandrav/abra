@@ -22,8 +22,18 @@ pub type FuncArg = (Identifier, Option<Rc<Type>>);
 
 pub fn fix(s: &str, n: i32) -> Option<String> {
     // debug_println!("fix: {}", s);
-    if let Err(e) = MyParser::parse(Rule::expression, &s) {
+    if n == 0 {
+        println!("fix ran out of steps");
+        return None;
+    }
+    if let Err(e) = MyParser::parse(Rule::program, &s) {
         println!("Could not parse {} into AST", s);
+        let mut p: usize;
+        if let Pos(p_in) = e.location {
+            p = p_in;
+        } else {
+            return None;
+        }
         if let ErrorVariant::ParsingError {
             positives,
             negatives,
@@ -35,74 +45,29 @@ pub fn fix(s: &str, n: i32) -> Option<String> {
                 || positives.contains(&Rule::identifier)
             {
                 let mut s = String::from(s);
-                if let Pos(p) = e.location {
-                    s.insert_str(p, "_");
-                    if n == 0 {
-                        println!("fix ran out of steps");
-                        None
-                    } else {
-                        println!("inserting _");
-                        fix(&s, n - 1)
-                    }
-                } else {
-                    None
-                }
+                println!("insert _");
+                s.insert_str(p, "_");
+                fix(&s, n - 1)
             } else if positives.contains(&Rule::op_assign) {
-                if let Pos(p) = e.location {
-                    let mut s = s.to_owned();
-                    s.insert_str(p, "=");
-                    if n == 0 {
-                        println!("fix ran out of steps");
-                        None
-                    } else {
-                        println!("inserting =");
-                        fix(&s, n - 1)
-                    }
-                } else {
-                    None
-                }
+                let mut s = s.to_owned();
+                println!("insert =");
+                s.insert_str(p, "=");
+                fix(&s, n - 1)
             } else if negatives.contains(&Rule::placeholder) {
-                if let Pos(p) = e.location {
-                    let mut s = s.to_string();
-                    s.remove(p);
-                    if n == 0 {
-                        println!("fix ran out of steps");
-                        None
-                    } else {
-                        println!("removing _");
-                        fix(&s, n - 1)
-                    }
-                } else {
-                    None
-                }
+                let mut s = s.to_string();
+                println!("remove _");
+                s.remove(p);
+                fix(&s, n - 1)
             } else if positives.contains(&Rule::WHITESPACE) {
-                if let Pos(p) = e.location {
-                    let mut s = s.to_owned();
-                    s.insert_str(p, " ");
-                    if n == 0 {
-                        println!("fix ran out of steps");
-                        None
-                    } else {
-                        println!("inserting ' '");
-                        fix(&s, n - 1)
-                    }
-                } else {
-                    None
-                }
+                let mut s = s.to_owned();
+                println!("insert ' '");
+                s.insert_str(p, " ");
+                fix(&s, n - 1)
             } else if positives.contains(&Rule::semicolon) {
-                if let Pos(p) = e.location {
-                    let mut s = s.to_owned();
-                    s.insert_str(p, ";");
-                    if n == 0 {
-                        println!("fix ran out of steps");
-                        None
-                    } else {
-                        println!("inserting ;");
-                        fix(&s, n - 1)
-                    }
-                } else {
-                    None
-                }
+                let mut s = s.to_owned();
+                println!("insert ;");
+                s.insert_str(p, ";");
+                fix(&s, n - 1)
             } else {
                 None
             }
@@ -121,6 +86,7 @@ pub fn fix(s: &str, n: i32) -> Option<String> {
 fn of_ast(pair: &Pair<Rule>) -> bool {
     match pair.as_rule() {
         Rule::WHITESPACE
+        | Rule::EOI
         | Rule::op_assign
         | Rule::let_keyword
         | Rule::func_args_start
@@ -131,7 +97,7 @@ fn of_ast(pair: &Pair<Rule>) -> bool {
 
 // TODO: use fix() method in the future
 pub fn get_pairs(source: &str) -> Result<Pairs<Rule>, String> {
-    MyParser::parse(Rule::expression, &source).map_err(|e| {
+    MyParser::parse(Rule::program, &source).map_err(|e| {
         debug_println!("{:#?}", e);
         e.to_string()
     })
@@ -209,7 +175,9 @@ pub fn parse_expr_term(pair: Pair<Rule>, pratt: &PrattParser<Rule>) -> Rc<Expr> 
          */
         Rule::expression => parse_expr_pratt(pair.into_inner(), pratt),
         // All rules listed below should be non-operator expressions
-        Rule::block_expression => {
+
+        // a "program" is a block without the curly braces, at the top-level
+        Rule::block_expression | Rule::program => {
             let inner = pair.into_inner().filter(of_ast);
             let mut statements: Vec<Rc<Stmt>> = Vec::new();
             let mut expression: Option<Rc<Expr>> = None;
