@@ -53,12 +53,28 @@ pub fn fix(s: &str, n: i32) -> Option<String> {
                 println!("insert =");
                 s.insert_str(p, "=");
                 fix(&s, n - 1)
+            } else if positives.contains(&Rule::block_start) {
+                let mut s = s.to_owned();
+                println!("insert {{");
+                s.insert_str(p, "{");
+                fix(&s, n - 1)
+            } else if positives.contains(&Rule::block_end) {
+                let mut s = s.to_owned();
+                println!("insert }}");
+                s.insert_str(p, "}");
+                fix(&s, n - 1)
+            } else if positives.contains(&Rule::else_keyword) {
+                let mut s = s.to_owned();
+                println!("insert else");
+                s.insert_str(p, "else");
+                fix(&s, n - 1)
             } else if negatives.contains(&Rule::placeholder) {
                 let mut s = s.to_string();
                 println!("remove _");
                 s.remove(p);
                 fix(&s, n - 1)
-            } else if positives.contains(&Rule::WHITESPACE) {
+            // if whitespace is suggested and there's not already whitespace (don't want to keep adding redundant whitespace)
+            } else if positives.contains(&Rule::WHITESPACE) && s.get(p - 1..p).unwrap() != " " {
                 let mut s = s.to_owned();
                 println!("insert ' '");
                 s.insert_str(p, " ");
@@ -83,12 +99,16 @@ pub fn fix(s: &str, n: i32) -> Option<String> {
 // return false for Rules which do not represent AST nodes
 // when converting Pairs to an AST, we want to ignore these.
 // they are used by the editor for error-reporting and fixing broken syntax
-fn of_ast(pair: &Pair<Rule>) -> bool {
+fn of_ast_node(pair: &Pair<Rule>) -> bool {
     match pair.as_rule() {
         Rule::WHITESPACE
         | Rule::EOI
         | Rule::op_assign
         | Rule::let_keyword
+        | Rule::block_start
+        | Rule::block_end
+        | Rule::if_keyword
+        | Rule::else_keyword
         | Rule::func_args_start
         | Rule::func_args_end => false,
         _ => true,
@@ -120,7 +140,7 @@ pub fn parse_func_arg(pair: Pair<Rule>, pratt: &PrattParser<Rule>) -> FuncArg {
     let rule = pair.as_rule();
     match rule {
         Rule::expression => {
-            let inner: Vec<_> = pair.into_inner().filter(of_ast).collect();
+            let inner: Vec<_> = pair.into_inner().filter(of_ast_node).collect();
             let pair = inner.first().unwrap().clone();
             parse_func_arg(pair, pratt)
         }
@@ -132,7 +152,7 @@ pub fn parse_func_arg(pair: Pair<Rule>, pratt: &PrattParser<Rule>) -> FuncArg {
 pub fn parse_stmt(pair: Pair<Rule>, pratt: &PrattParser<Rule>) -> Rc<Stmt> {
     let span = Span::from(pair.as_span());
     let rule = pair.as_rule();
-    let inner: Vec<_> = pair.into_inner().filter(of_ast).collect();
+    let inner: Vec<_> = pair.into_inner().filter(of_ast_node).collect();
     match rule {
         Rule::let_statement => {
             let pat = parse_pat(inner[0].clone(), pratt);
@@ -178,7 +198,7 @@ pub fn parse_expr_term(pair: Pair<Rule>, pratt: &PrattParser<Rule>) -> Rc<Expr> 
 
         // a "program" is a block without the curly braces, at the top-level
         Rule::block_expression | Rule::program => {
-            let inner = pair.into_inner().filter(of_ast);
+            let inner = pair.into_inner().filter(of_ast_node);
             let mut statements: Vec<Rc<Stmt>> = Vec::new();
             let mut expression: Option<Rc<Expr>> = None;
             for pair in inner {
@@ -194,7 +214,7 @@ pub fn parse_expr_term(pair: Pair<Rule>, pratt: &PrattParser<Rule>) -> Rc<Expr> 
             })
         }
         Rule::if_else_expression => {
-            let inner: Vec<_> = pair.into_inner().filter(of_ast).collect();
+            let inner: Vec<_> = pair.into_inner().filter(of_ast_node).collect();
             let cond = parse_expr_pratt(Pairs::single(inner[0].clone()), pratt);
             let e1 = parse_expr_pratt(Pairs::single(inner[1].clone()), pratt);
             let e2 = parse_expr_pratt(Pairs::single(inner[2].clone()), pratt);
@@ -204,7 +224,7 @@ pub fn parse_expr_term(pair: Pair<Rule>, pratt: &PrattParser<Rule>) -> Rc<Expr> 
             })
         }
         Rule::func_expression => {
-            let inner: Vec<_> = pair.into_inner().filter(of_ast).collect();
+            let inner: Vec<_> = pair.into_inner().filter(of_ast_node).collect();
             let arg1 = parse_func_arg(inner[0].clone(), pratt);
             let mut remaining_args = Vec::new();
             for p in &inner[1..inner.len() - 1] {
@@ -217,7 +237,7 @@ pub fn parse_expr_term(pair: Pair<Rule>, pratt: &PrattParser<Rule>) -> Rc<Expr> 
             })
         }
         Rule::func_call_expression => {
-            let inner: Vec<_> = pair.into_inner().filter(of_ast).collect();
+            let inner: Vec<_> = pair.into_inner().filter(of_ast_node).collect();
             let f = parse_expr_pratt(Pairs::single(inner[0].clone()), pratt);
             let arg1 = parse_expr_pratt(Pairs::single(inner[1].clone()), pratt);
             let mut remaining_args = Vec::new();
@@ -258,7 +278,7 @@ pub fn parse_expr_term(pair: Pair<Rule>, pratt: &PrattParser<Rule>) -> Rc<Expr> 
 }
 
 pub fn parse_expr_pratt(pairs: Pairs<Rule>, pratt: &PrattParser<Rule>) -> Rc<Expr> {
-    let pairs = pairs.filter(of_ast);
+    let pairs = pairs.filter(of_ast_node);
     pratt
         .map_primary(|primary| parse_expr_term(primary, pratt))
         // .map_prefix(|op, rhs| match op.as_rule() {

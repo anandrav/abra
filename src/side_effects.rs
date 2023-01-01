@@ -26,7 +26,6 @@ pub fn handle_effect(effect: Effect, args: Vec<Rc<eval_tree::Expr>>, output: &mu
             eval_tree::Expr::Str(string) => {
                 output.push_str(string);
                 output.push('\n');
-                debug_println!("{}", string);
                 Input::Unit
             }
             _ => panic!("wrong arguments for {:#?} effect", effect),
