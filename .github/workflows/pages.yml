@@ -5,7 +5,6 @@ on:
   push:
     branches:
       - main
-      - ci
 
 permissions:
   contents: write # for committing to gh-pages branch.
