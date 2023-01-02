@@ -1,5 +1,6 @@
+use crate::operators::BinOpcode;
+use crate::types::Type;
 use debug_print::debug_println;
-use operators::BinOpcode;
 use pest::error::{Error, ErrorVariant, InputLocation::Pos};
 use pest::iterators::Pair;
 use pest::Parser;
@@ -7,7 +8,6 @@ use pest_derive::Parser;
 use std::collections::VecDeque;
 use std::fmt;
 use std::rc::Rc;
-use types::Type;
 
 #[derive(Parser)]
 #[grammar = "grammar.pest"]

@@ -1,11 +1,11 @@
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub enum BinOpcode {
-    Semicolon,
+    // Semicolon,
     Equals,
     LessThan,
-    LessThanOrEquals,
+    // LessThanOrEquals,
     GreaterThan,
-    GreaterThanOrEquals,
+    // GreaterThanOrEquals,
     Add,
     Subtract,
     Multiply,
