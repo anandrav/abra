@@ -1,11 +1,11 @@
-use operators::BinOpcode;
+use crate::operators::BinOpcode;
 // use pest::error::{Error, ErrorVariant, InputLocation::Pos};
+use crate::types::Type;
 use pest::iterators::{Pair, Pairs};
 use pest::pratt_parser::{Assoc, Op, PrattParser};
 use pest::Parser;
 use pest_derive::Parser;
 use std::rc::Rc;
-use types::Type;
 #[derive(Parser)]
 #[grammar = "grammar.pest"]
 struct MyParser;

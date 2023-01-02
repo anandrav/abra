@@ -45,12 +45,15 @@ fn main() {
     tracing_wasm::set_as_global_default();
 
     let options = eframe::WebOptions::default();
-    eframe::start_web(
-        "the_canvas_id",
-        options,
-        Box::new(|_cc| Box::new(MyApp::default())),
-    )
-    .expect("failed to start eframe");
+    wasm_bindgen_futures::spawn_local(async {
+        eframe::start_web(
+            "the_canvas_id", // hardcode it
+            options,
+            Box::new(|cc| Box::new(MyApp::default())),
+        )
+        .await
+        .expect("failed to start eframe");
+    });
 }
 
 struct MyApp {

@@ -1,6 +1,8 @@
 [package]
 name = "abra"
 version = "0.1.0"
+authors = ["Anand Dukkipati <aRdukkipati@gmail.com>"]
+edition = "2021"
 
 # to prevent accidental publish to crates.io
 publish = false
@@ -12,10 +14,10 @@ path = "src/lib.rs"
 
 [dependencies]
 debug_print = "1.0.0"
-regex = "1"
+regex = "1.7.0"
 pest = "2.3.0"
 pest_derive = "2.3.0"
-eframe = "0.19.0"
+eframe = "0.20.1"
 
 # native:
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
@@ -25,6 +27,7 @@ tracing-subscriber = "0.3"
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 console_error_panic_hook = "0.1.6"
 tracing-wasm = "0.2"
+wasm-bindgen-futures = "0.4"
 
 [profile.release]
 opt-level = 2 # fast and small wasm

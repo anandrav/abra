@@ -1,10 +1,10 @@
-use environment::Environment;
-use eval_tree::Expr::*;
-use eval_tree::*;
-use operators::BinOpcode::*;
-use operators::*;
-use side_effects;
-use side_effects::*;
+use crate::environment::Environment;
+use crate::eval_tree::Expr::*;
+use crate::eval_tree::*;
+use crate::operators::BinOpcode::*;
+use crate::operators::*;
+use crate::side_effects;
+use crate::side_effects::*;
 use std::cell::RefCell;
 use std::rc::Rc;
 

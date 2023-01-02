@@ -1,6 +1,6 @@
-use environment::Environment;
-use operators::BinOpcode;
-use side_effects;
+use crate::environment::Environment;
+use crate::operators::BinOpcode;
+use crate::side_effects;
 use std::cell::RefCell;
 use std::rc::Rc;
 

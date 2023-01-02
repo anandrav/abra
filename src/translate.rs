@@ -1,5 +1,5 @@
-use ast;
-use eval_tree;
+use crate::ast;
+use crate::eval_tree;
 use std::rc::Rc;
 
 type ASTek = ast::ExprKind;
