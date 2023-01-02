@@ -49,7 +49,9 @@ alphanumeric = _{ alpha | '0'..'9' }
 literal = _{ literal_unit | literal_number | literal_bool | literal_string }
 literal_unit = @{ "()" }
 literal_number = @{ "0" | ASCII_NONZERO_DIGIT ~ ASCII_DIGIT* }
-literal_string = @{ "\"" ~ (!"\"" ~ ANY)* ~ "\"" }
+literal_string = @{ strlit_start ~ (!"\"" ~ ANY)* ~ strlit_end }
+strlit_start = { "\"" }
+strlit_end = { "\"" }
 literal_bool = @{ "true" | "false" }
 
 op_binary = _{op_eq | op_gt | op_lt | op_addition | op_subtraction | op_multiplication | op_division }

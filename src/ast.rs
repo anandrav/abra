@@ -27,7 +27,7 @@ pub fn fix(s: &str, n: i32) -> Option<String> {
         return None;
     }
     if let Err(e) = MyParser::parse(Rule::program, &s) {
-        println!("Could not parse {} into AST", s);
+        println!("Could not parse `{}` into AST", s);
         let mut p: usize;
         if let Pos(p_in) = e.location {
             p = p_in;
@@ -40,7 +40,22 @@ pub fn fix(s: &str, n: i32) -> Option<String> {
         } = e.variant
         {
             println!("pos:{:#?}, neg:{:#?}", positives, negatives);
-            if positives.contains(&Rule::placeholder)
+            if positives.contains(&Rule::strlit_end) {
+                let mut s = s.to_owned();
+                println!("insert \"");
+                s.insert_str(p - 1, "\"");
+                fix(&s, n - 1)
+            } else if positives.contains(&Rule::block_end) {
+                let mut s = s.to_owned();
+                println!("insert }}");
+                s.insert_str(p, "}");
+                fix(&s, n - 1)
+            } else if positives.contains(&Rule::func_args_end) {
+                let mut s = s.to_owned();
+                println!("insert )");
+                s.insert_str(p, ")");
+                fix(&s, n - 1)
+            } else if positives.contains(&Rule::placeholder)
                 || positives.contains(&Rule::expression)
                 || positives.contains(&Rule::identifier)
             {
@@ -53,16 +68,6 @@ pub fn fix(s: &str, n: i32) -> Option<String> {
                 println!("insert =");
                 s.insert_str(p, "=");
                 fix(&s, n - 1)
-            } else if positives.contains(&Rule::block_start) {
-                let mut s = s.to_owned();
-                println!("insert {{");
-                s.insert_str(p, "{");
-                fix(&s, n - 1)
-            } else if positives.contains(&Rule::block_end) {
-                let mut s = s.to_owned();
-                println!("insert }}");
-                s.insert_str(p, "}");
-                fix(&s, n - 1)
             } else if positives.contains(&Rule::else_keyword) {
                 let mut s = s.to_owned();
                 println!("insert else");
@@ -73,16 +78,31 @@ pub fn fix(s: &str, n: i32) -> Option<String> {
                 println!("remove _");
                 s.remove(p);
                 fix(&s, n - 1)
+            } else if positives.contains(&Rule::semicolon) {
+                let mut s = s.to_owned();
+                println!("insert ;");
+                s.insert_str(p, ";");
+                fix(&s, n - 1)
             // if whitespace is suggested and there's not already whitespace (don't want to keep adding redundant whitespace)
             } else if positives.contains(&Rule::WHITESPACE) && s.get(p - 1..p).unwrap() != " " {
                 let mut s = s.to_owned();
                 println!("insert ' '");
                 s.insert_str(p, " ");
                 fix(&s, n - 1)
-            } else if positives.contains(&Rule::semicolon) {
+            } else if positives.contains(&Rule::block_start) {
                 let mut s = s.to_owned();
-                println!("insert ;");
-                s.insert_str(p, ";");
+                println!("insert {{");
+                s.insert_str(p, "{");
+                fix(&s, n - 1)
+            } else if positives.contains(&Rule::func_args_start) {
+                let mut s = s.to_owned();
+                println!("insert (");
+                s.insert_str(p, "(");
+                fix(&s, n - 1)
+            } else if positives.contains(&Rule::strlit_start) {
+                let mut s = s.to_owned();
+                println!("insert \"");
+                s.insert_str(p, "\"");
                 fix(&s, n - 1)
             } else {
                 None
