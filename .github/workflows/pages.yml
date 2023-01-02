@@ -1,6 +1,6 @@
 name: Github Pages
 
-# By default, runs if you push to master. keeps your deployed app in sync with master branch.
+# By default, runs if you push to main. keeps your deployed app in sync with main branch.
 on:
   push:
     branches:
