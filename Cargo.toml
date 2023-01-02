@@ -15,8 +15,8 @@ path = "src/lib.rs"
 [dependencies]
 debug_print = "1.0.0"
 regex = "1.7.0"
-pest = "2.3.0"
-pest_derive = "2.3.0"
+pest = "2.5.2"
+pest_derive = "2.5.2"
 eframe = "0.20.1"
 
 # native:
