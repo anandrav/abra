@@ -2,7 +2,9 @@
 
 [![Build Status](https://github.com/anandrav/abra/workflows/CI/badge.svg)](https://github.com/anandrav/abra/actions?workflow=CI)
 
-This is the main source code repository for Abra. It contains a GUI editor and the interpreter.
+This is the main source code repository for Abra.
+Try the [editor](https://abra-editor.anandrav.repl.co/).
+
 ## Running on Desktop
 
 `cargo run`
