@@ -16,7 +16,7 @@ impl Environment {
             match &*value.clone() {
                 Expr::Int(n) => {
                     let mut s = key.clone();
-                    s.push_str("=");
+                    s.push('=');
                     s.push_str(n.to_string().as_str());
                     current.push(s);
                 }
@@ -44,7 +44,7 @@ impl Environment {
     pub fn new(enclosing: Option<Rc<RefCell<Environment>>>) -> Self {
         Self {
             vars: HashMap::new(),
-            enclosing: enclosing,
+            enclosing,
         }
     }
 
@@ -59,6 +59,6 @@ impl Environment {
     }
 
     pub fn extend(&mut self, id: &Identifier, expr: Rc<Expr>) {
-        self.vars.insert(id.clone(), expr.clone());
+        self.vars.insert(id.clone(), expr);
     }
 }

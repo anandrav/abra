@@ -31,7 +31,7 @@ fn main() {
     eframe::run_native(
         "My egui App",
         options,
-        Box::new(|_cc| Box::new(MyApp::default())),
+        Box::new(|_cc| Box::<MyApp>::default()),
     );
 }
 
@@ -49,7 +49,7 @@ fn main() {
         eframe::start_web(
             "the_canvas_id", // hardcode it
             options,
-            Box::new(|cc| Box::new(MyApp::default())),
+            Box::new(|_cc| Box::<MyApp>::default()),
         )
         .await
         .expect("failed to start eframe");

@@ -18,7 +18,7 @@ pub fn translate_expr_block(
     stmts: Vec<Rc<ast::Stmt>>,
     final_operand: Option<Rc<ast::Expr>>,
 ) -> Rc<Ete> {
-    let final_operand_size = if final_operand.is_some() { 1 } else { 0 };
+    let final_operand_size = usize::from(final_operand.is_some());
     match stmts.len() + final_operand_size {
         0 => panic!("empty expression block!"),
         1 => match final_operand {
@@ -56,12 +56,12 @@ pub fn translate_expr_func(
     body: Rc<ASTek>,
 ) -> Rc<Ete> {
     if func_args.is_empty() {
-        Rc::new(Ete::Func(id.clone(), translate_expr(body.clone()), None))
+        Rc::new(Ete::Func(id, translate_expr(body), None))
     } else {
         // currying
         let rest_of_function =
-            translate_expr_func(func_args[0].clone(), func_args[1..].to_vec(), body.clone());
-        Rc::new(Ete::Func(id.clone(), rest_of_function, None))
+            translate_expr_func(func_args[0].clone(), func_args[1..].to_vec(), body);
+        Rc::new(Ete::Func(id, rest_of_function, None))
     }
 }
 
@@ -75,7 +75,7 @@ pub fn translate_expr_ap(expr1: Rc<ASTek>, expr2: Rc<ASTek>, exprs: Vec<Rc<ASTek
     } else {
         // currying
         let rest_of_arguments_applied =
-            translate_expr_ap(expr1.clone(), expr2, exprs[..exprs.len() - 1].to_vec());
+            translate_expr_ap(expr1, expr2, exprs[..exprs.len() - 1].to_vec());
         Rc::new(Ete::FuncAp(
             rest_of_arguments_applied,
             translate_expr(exprs.last().unwrap().clone()),
@@ -112,6 +112,6 @@ pub fn translate_expr(parse_tree: Rc<ASTek>) -> Rc<Ete> {
             translate_expr(expr2.exprkind.clone()),
             translate_expr(expr3.exprkind.clone()),
         )),
-        _ => unimplemented!(),
+        // _ => unimplemented!(),
     }
 }

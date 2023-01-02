@@ -29,8 +29,5 @@ pub enum Pat {
 
 pub fn is_val(expr: &Rc<Expr>) -> bool {
     use self::Expr::*;
-    match &*expr.clone() {
-        Unit | Int(_) | Str(_) | Bool(_) | Func(..) => true,
-        _ => false,
-    }
+    matches!(&*expr.clone(), Unit | Int(_) | Str(_) | Bool(_) | Func(..))
 }

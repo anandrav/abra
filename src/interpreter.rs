@@ -44,14 +44,14 @@ pub struct Interpreter {
 impl Interpreter {
     pub fn new(program_expr: Rc<Expr>) -> Self {
         Interpreter {
-            program_expr: program_expr,
+            program_expr,
             env: make_new_environment(),
             next_input: None,
         }
     }
 
     pub fn is_finished(&self) -> bool {
-        is_val(&self.program_expr) == true
+        is_val(&self.program_expr)
     }
 
     pub fn get_val(&self) -> Option<Rc<Expr>> {
@@ -75,10 +75,9 @@ impl Interpreter {
         );
         self.program_expr = result.expr;
         self.env = result.new_env;
-        self.next_input = match result.effect {
-            None => None,
-            Some((effect, args)) => Some(effect_handler(effect, args)),
-        };
+        self.next_input = result
+            .effect
+            .map(|(effect, args)| effect_handler(effect, args))
     }
 }
 
@@ -149,7 +148,7 @@ fn interpret(
             } = interpret(expr2.clone(), env.clone(), steps, input);
             if effect.is_some() || steps <= 0 {
                 return InterpretResult {
-                    expr: Rc::new(BinOp(expr1, *op, expr2.clone())),
+                    expr: Rc::new(BinOp(expr1, *op, expr2)),
                     steps,
                     effect,
                     new_env,
@@ -174,7 +173,7 @@ fn interpret(
                 } = interpret(expr1.clone(), env.clone(), steps, &input.clone());
                 if effect.is_some() || steps <= 0 {
                     return InterpretResult {
-                        expr: Rc::new(Let(pat.clone(), expr1.clone(), expr2.clone())),
+                        expr: Rc::new(Let(pat.clone(), expr1, expr2.clone())),
                         steps,
                         effect,
                         new_env,
@@ -193,7 +192,7 @@ fn interpret(
                     }
                     _ => expr1,
                 };
-                new_env.borrow_mut().extend(&id, expr1.clone());
+                new_env.borrow_mut().extend(id, expr1);
 
                 let InterpretResult {
                     expr,
@@ -209,12 +208,12 @@ fn interpret(
                         new_env,
                     };
                 }
-                return InterpretResult {
+                InterpretResult {
                     expr,
                     steps,
                     effect: None,
                     new_env: env,
-                };
+                }
             }
         },
         FuncAp(expr1, expr2, funcapp_env) => {
@@ -262,7 +261,7 @@ fn interpret(
                 None => {
                     let funcapp_env =
                         Rc::new(RefCell::new(Environment::new(Some(closure.clone()))));
-                    funcapp_env.borrow_mut().extend(&id, expr2.clone());
+                    funcapp_env.borrow_mut().extend(id, expr2.clone());
                     funcapp_env
                 }
             };
@@ -282,7 +281,7 @@ fn interpret(
                 steps,
                 effect,
                 new_env: funcapp_env,
-            } = interpret(body.clone(), funcapp_env.clone(), steps, input);
+            } = interpret(body.clone(), funcapp_env, steps, input);
             // if didn't finish executing for the body of function application,
             // return a FuncApp for the expression field and set environment to new_env... So we can try again later.
             // Can't return funcapp_env for environment! Because it only contains the closure and the function's arguments!
@@ -337,12 +336,12 @@ fn interpret(
                         };
                     }
                     let steps = steps - 1;
-                    return InterpretResult {
+                    InterpretResult {
                         expr: expr2,
                         steps,
                         effect,
                         new_env: env,
-                    };
+                    }
                 }
                 Bool(false) => {
                     let InterpretResult {
@@ -360,12 +359,12 @@ fn interpret(
                         };
                     }
                     let steps = steps - 1;
-                    return InterpretResult {
+                    InterpretResult {
                         expr: expr3,
                         steps,
                         effect,
                         new_env: env,
-                    };
+                    }
                 }
                 _ => panic!(
                     "If expression clause did not evaluate to a bool: {:#?}",
@@ -393,32 +392,28 @@ fn interpret(
                 }
             }
             let steps = steps - 1;
-            return InterpretResult {
+            InterpretResult {
                 expr: Rc::new(ConsumedEffect),
                 steps,
                 effect: Some((effect_enum.clone(), args.to_vec())),
                 new_env: env,
-            };
+            }
         }
         ConsumedEffect => match input {
             None => panic!("no input to substitute for ConsumedEffect"),
             Some(input) => match input {
-                Input::Unit => {
-                    return InterpretResult {
-                        expr: Rc::new(Unit),
-                        steps,
-                        effect: None,
-                        new_env: env,
-                    }
-                }
-                Input::Cin(string) => {
-                    return InterpretResult {
-                        expr: Rc::new(Str(string.to_string())),
-                        steps,
-                        effect: None,
-                        new_env: env,
-                    }
-                }
+                Input::Unit => InterpretResult {
+                    expr: Rc::new(Unit),
+                    steps,
+                    effect: None,
+                    new_env: env,
+                },
+                Input::Cin(string) => InterpretResult {
+                    expr: Rc::new(Str(string.to_string())),
+                    steps,
+                    effect: None,
+                    new_env: env,
+                },
             },
         },
     }
@@ -451,18 +446,18 @@ fn perform_op(val1: Rc<Expr>, op: BinOpcode, val2: Rc<Expr>) -> Rc<Expr> {
             (Int(i1), Int(i2)) => Rc::new(Bool(i1 > i2)),
             _ => panic!("one or more operands of GreaterThan are not Ints"),
         },
-        GreaterThanOrEquals => match (&*val1, &*val2) {
-            (Int(i1), Int(i2)) => Rc::new(Bool(i1 >= i2)),
-            _ => panic!("one or more operands of GreaterThanOrEquals are not Ints"),
-        },
+        // GreaterThanOrEquals => match (&*val1, &*val2) {
+        //     (Int(i1), Int(i2)) => Rc::new(Bool(i1 >= i2)),
+        //     _ => panic!("one or more operands of GreaterThanOrEquals are not Ints"),
+        // },
         LessThan => match (&*val1, &*val2) {
             (Int(i1), Int(i2)) => Rc::new(Bool(i1 < i2)),
             _ => panic!("one or more operands of LessThan are not Ints"),
         },
-        LessThanOrEquals => match (&*val1, &*val2) {
-            (Int(i1), Int(i2)) => Rc::new(Bool(i1 <= i2)),
-            _ => panic!("one or more operands of LessThanOrEquals are not Ints"),
-        },
-        _ => panic!("operation not supported"),
+        // LessThanOrEquals => match (&*val1, &*val2) {
+        //     (Int(i1), Int(i2)) => Rc::new(Bool(i1 <= i2)),
+        //     _ => panic!("one or more operands of LessThanOrEquals are not Ints"),
+        // },
+        // _ => panic!("operation not supported"),
     }
 }

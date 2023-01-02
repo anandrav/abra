@@ -1,10 +1,10 @@
-use std::rc::Rc;
+// use std::rc::Rc;
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Type {
-    Unit,
-    Int,
-    Bool,
-    String,
-    Arrow(Rc<Type>, Rc<Type>),
+    // Unit,
+    // Int,
+    // Bool,
+    // String,
+    // Arrow(Rc<Type>, Rc<Type>),
 }

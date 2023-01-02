@@ -43,7 +43,7 @@ pub type FuncArg = (Identifier, Option<Rc<Type>>);
 
 // TODO: use fix() method in the future
 pub fn get_pairs(source: &str) -> Result<Pairs<Rule>, String> {
-    MyParser::parse(Rule::expression, &source).map_err(|e| e.to_string())
+    MyParser::parse(Rule::expression, source).map_err(|e| e.to_string())
 }
 
 pub fn parse_pat(pair: Pair<Rule>, _pratt: &PrattParser<Rule>) -> Rc<Pat> {
@@ -58,14 +58,14 @@ pub fn parse_pat(pair: Pair<Rule>, _pratt: &PrattParser<Rule>) -> Rc<Pat> {
     }
 }
 // TODO: make func args patterns
-pub fn parse_func_arg(pair: Pair<Rule>, pratt: &PrattParser<Rule>) -> FuncArg {
+pub fn parse_func_arg(pair: Pair<Rule>, _pratt: &PrattParser<Rule>) -> FuncArg {
     let _span = Span::from(pair.as_span());
     let rule = pair.as_rule();
     match rule {
         Rule::expression => {
             let inner: Vec<_> = pair.into_inner().collect();
             let pair = inner.first().unwrap().clone();
-            parse_func_arg(pair, pratt)
+            parse_func_arg(pair, _pratt)
         }
         Rule::identifier => (pair.as_str().to_owned(), None),
         _ => panic!("unreachable rule {:#?}", rule),
@@ -97,10 +97,7 @@ pub fn parse_stmt(pair: Pair<Rule>, pratt: &PrattParser<Rule>) -> Rc<Stmt> {
 }
 
 fn rule_is_of_stmt(rule: &Rule) -> bool {
-    match rule {
-        Rule::let_statement | Rule::expression_statement => true,
-        _ => false,
-    }
+    matches!(rule, Rule::let_statement | Rule::expression_statement)
 }
 
 pub fn parse_expr_term(pair: Pair<Rule>, pratt: &PrattParser<Rule>) -> Rc<Expr> {
@@ -285,13 +282,13 @@ pub enum ExprKind {
     Str(String),
     Func(FuncArg, Vec<FuncArg>, Option<Rc<Type>>, Rc<Expr>),
     If(Rc<Expr>, Rc<Expr>, Rc<Expr>),
-    Match(Rc<Expr>, Vec<MatchArm>),
+    // Match(Rc<Expr>, Vec<MatchArm>),
     Block(Vec<Rc<Stmt>>, Option<Rc<Expr>>),
     BinOp(Rc<Expr>, BinOpcode, Rc<Expr>),
     FuncAp(Rc<Expr>, Rc<Expr>, Vec<Rc<Expr>>),
 }
 
-pub type MatchArm = (Rc<Pat>, Rc<Expr>);
+// pub type MatchArm = (Rc<Pat>, Rc<Expr>);
 
 #[derive(Debug, PartialEq)]
 pub struct Pat {
