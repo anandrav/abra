@@ -14,17 +14,20 @@ struct MyParser;
 pub type Identifier = String;
 pub type FuncArg = (Identifier, Option<Rc<Type>>);
 
-// pub fn parse(source: &str) -> Result<Rc<Expr>, String> {
-//     abra_grammar::ExprParser::new()
-//         .parse(source)
-//         .map_err(|err| err.to_string())
-// }
+pub fn fix_source(source: &str, max_steps: i32) -> Option<String> {
+    let mut s = source.to_string();
+    if fix(&mut s, max_steps) {
+        Some(s)
+    } else {
+        None
+    }
+}
 
-pub fn fix(s: &str, n: i32) -> Option<String> {
+fn fix(s: &mut String, n: i32) -> bool {
     // debug_println!("fix: {}", s);
     if n == 0 {
         println!("fix ran out of steps");
-        return None;
+        return false;
     }
     if let Err(e) = MyParser::parse(Rule::program, s) {
         println!("Could not parse `{}` into AST", s);
@@ -32,7 +35,7 @@ pub fn fix(s: &str, n: i32) -> Option<String> {
         if let Pos(p_in) = e.location {
             p = p_in;
         } else {
-            return None;
+            return false;
         }
         if let ErrorVariant::ParsingError {
             positives,
@@ -41,88 +44,74 @@ pub fn fix(s: &str, n: i32) -> Option<String> {
         {
             println!("pos:{:#?}, neg:{:#?}", positives, negatives);
             if negatives.contains(&Rule::placeholder) {
-                let mut s = s.to_string();
                 println!("remove _");
                 s.remove(p);
-                fix(&s, n - 1)
+                fix(s, n - 1)
             } else if positives.contains(&Rule::strlit_end) {
-                let mut s = s.to_owned();
                 println!("insert \"");
                 s.insert(p - 1, '"');
-                fix(&s, n - 1)
+                fix(s, n - 1)
             } else if positives.contains(&Rule::paren_end) {
-                let mut s = s.to_owned();
                 println!("insert )");
                 s.insert(p, ')');
-                fix(&s, n - 1)
+                fix(s, n - 1)
             } else if positives.contains(&Rule::block_end) {
-                let mut s = s.to_owned();
                 println!("insert }}");
                 s.insert(p, '}');
-                fix(&s, n - 1)
+                fix(s, n - 1)
             } else if positives.contains(&Rule::func_args_end) {
-                let mut s = s.to_owned();
                 println!("insert )");
                 s.insert(p, ')');
-                fix(&s, n - 1)
+                fix(s, n - 1)
             } else if positives.contains(&Rule::placeholder)
                 || positives.contains(&Rule::expression)
                 || positives.contains(&Rule::identifier)
             {
-                let mut s = String::from(s);
                 println!("insert _");
                 s.insert(p, '_');
-                fix(&s, n - 1)
+                fix(s, n - 1)
             } else if positives.contains(&Rule::op_assign) {
-                let mut s = s.to_owned();
                 println!("insert =");
                 s.insert(p, '=');
-                fix(&s, n - 1)
+                fix(s, n - 1)
             } else if positives.contains(&Rule::else_keyword) {
-                let mut s = s.to_owned();
                 println!("insert else");
                 s.insert_str(p, "else");
-                fix(&s, n - 1)
+                fix(s, n - 1)
             } else if positives.contains(&Rule::semicolon) {
-                let mut s = s.to_owned();
                 println!("insert ;");
                 s.insert(p, ';');
-                fix(&s, n - 1)
+                fix(s, n - 1)
             // if whitespace is suggested and there's not already whitespace (don't want to keep adding redundant whitespace)
             } else if positives.contains(&Rule::WHITESPACE) && s.get(p - 1..p).unwrap() != " " {
-                let mut s = s.to_owned();
                 println!("insert ' '");
                 s.insert(p, ' ');
-                fix(&s, n - 1)
+                fix(s, n - 1)
             } else if positives.contains(&Rule::paren_start) {
-                let mut s = s.to_owned();
                 println!("insert (");
                 s.insert(p, '(');
-                fix(&s, n - 1)
+                fix(s, n - 1)
             } else if positives.contains(&Rule::block_start) {
-                let mut s = s.to_owned();
                 println!("insert {{");
                 s.insert(p, '{');
-                fix(&s, n - 1)
+                fix(s, n - 1)
             } else if positives.contains(&Rule::func_args_start) {
-                let mut s = s.to_owned();
                 println!("insert (");
                 s.insert(p, '(');
-                fix(&s, n - 1)
+                fix(s, n - 1)
             } else if positives.contains(&Rule::strlit_start) {
-                let mut s = s.to_owned();
                 println!("insert \"");
                 s.insert(p, '\"');
-                fix(&s, n - 1)
+                fix(s, n - 1)
             } else {
-                None
+                false
             }
         } else {
-            None
+            false
         }
     } else {
         println!("hello");
-        Some(s.to_string())
+        true
     }
 }
 

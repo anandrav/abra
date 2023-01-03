@@ -140,7 +140,7 @@ impl eframe::App for MyApp {
                             .min_scrolled_height(300.0)
                             .show(ui, |ui| {
                                 if ui.code_editor(&mut self.text).changed() {
-                                    if let Some(fixed) = ast::fix(&self.text, 15) {
+                                    if let Some(fixed) = ast::fix_source(&self.text, 15) {
                                         self.text = fixed;
                                         debug_println!("valid syntax {:#?}", self.text);
                                         self.prev_text = self.text.clone();

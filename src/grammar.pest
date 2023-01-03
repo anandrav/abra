@@ -19,7 +19,7 @@ expression_statement = ${ expression ~ semicolon ~ WHITESPACE* }
 expression = ${ term ~ (WHITESPACE* ~ !placeholder ~ op_binary ~ WHITESPACE* ~ term)* }
 term = _{ block_expression | func_expression | func_call_expression | parenthesized_expression | if_else_expression | primary_expression }
 
-if_else_expression = { if_keyword ~ WHITESPACE ~ expression ~WHITESPACE+ ~ block_expression ~WHITESPACE* ~ else_keyword ~ WHITESPACE* ~ block_expression }
+if_else_expression = { if_keyword ~ WHITESPACE+ ~ expression ~WHITESPACE+ ~ block_expression ~WHITESPACE+ ~ else_keyword ~ WHITESPACE* ~ block_expression }
 if_keyword = { "if" }
 else_keyword = { "else" }
 
