@@ -18,6 +18,7 @@ use debug_print::debug_println;
 
 use eframe::egui;
 
+use egui::Color32;
 use interpreter::Interpreter;
 
 // When compiling natively:
@@ -147,7 +148,10 @@ impl eframe::App for MyApp {
                                     debug_println!("was changed");
                                 };
                             });
-                        if ui.button("Run code").clicked() {
+                        if ui
+                            .add(egui::Button::new("Run code").fill(Color32::LIGHT_GREEN))
+                            .clicked()
+                        {
                             self.interpreter = None;
                             self.output.clear();
                             let text_with_braces = "{".to_owned() + &self.text + "}";
