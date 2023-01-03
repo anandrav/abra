@@ -27,7 +27,7 @@ block_expression = { block_start ~ WHITESPACE* ~ statement* ~ expression? ~ WHIT
 block_start = { "{" }
 block_end = { "}" }
 
-parenthesized_expression = { paren_start ~ expression ~ paren_end }
+parenthesized_expression = { paren_start ~ WHITESPACE* ~ expression ~ WHITESPACE* ~ paren_end }
 paren_start = { "(" }
 paren_end = { ")" }
 

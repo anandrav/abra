@@ -135,6 +135,8 @@ fn of_ast_node(pair: &Pair<Rule>) -> bool {
         | Rule::EOI
         | Rule::op_assign
         | Rule::let_keyword
+        | Rule::paren_start
+        | Rule::paren_end
         | Rule::block_start
         | Rule::block_end
         | Rule::if_keyword
@@ -211,6 +213,7 @@ pub fn parse_expr_term(pair: Pair<Rule>, pratt: &PrattParser<Rule>) -> Rc<Expr> 
     let span = Span::from(pair.as_span());
     let rule = pair.as_rule();
     match rule {
+        Rule::parenthesized_expression => parse_expr_pratt(pair.into_inner(), pratt),
         /* emitting Pairs for expression and then re-running on its inner pairs is
          * necessary to be able to distinguish its inner pairs from the pairs of an adjacent,
          * but different, expression.
