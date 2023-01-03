@@ -26,9 +26,9 @@ pub fn fix(s: &str, n: i32) -> Option<String> {
         println!("fix ran out of steps");
         return None;
     }
-    if let Err(e) = MyParser::parse(Rule::program, &s) {
+    if let Err(e) = MyParser::parse(Rule::program, s) {
         println!("Could not parse `{}` into AST", s);
-        let mut p: usize;
+        let p: usize;
         if let Pos(p_in) = e.location {
             p = p_in;
         } else {
@@ -48,22 +48,22 @@ pub fn fix(s: &str, n: i32) -> Option<String> {
             } else if positives.contains(&Rule::strlit_end) {
                 let mut s = s.to_owned();
                 println!("insert \"");
-                s.insert_str(p - 1, "\"");
+                s.insert(p - 1, '"');
                 fix(&s, n - 1)
             } else if positives.contains(&Rule::paren_end) {
                 let mut s = s.to_owned();
                 println!("insert )");
-                s.insert_str(p, ")");
+                s.insert(p, ')');
                 fix(&s, n - 1)
             } else if positives.contains(&Rule::block_end) {
                 let mut s = s.to_owned();
                 println!("insert }}");
-                s.insert_str(p, "}");
+                s.insert(p, '}');
                 fix(&s, n - 1)
             } else if positives.contains(&Rule::func_args_end) {
                 let mut s = s.to_owned();
                 println!("insert )");
-                s.insert_str(p, ")");
+                s.insert(p, ')');
                 fix(&s, n - 1)
             } else if positives.contains(&Rule::placeholder)
                 || positives.contains(&Rule::expression)
@@ -71,12 +71,12 @@ pub fn fix(s: &str, n: i32) -> Option<String> {
             {
                 let mut s = String::from(s);
                 println!("insert _");
-                s.insert_str(p, "_");
+                s.insert(p, '_');
                 fix(&s, n - 1)
             } else if positives.contains(&Rule::op_assign) {
                 let mut s = s.to_owned();
                 println!("insert =");
-                s.insert_str(p, "=");
+                s.insert(p, '=');
                 fix(&s, n - 1)
             } else if positives.contains(&Rule::else_keyword) {
                 let mut s = s.to_owned();
@@ -86,33 +86,33 @@ pub fn fix(s: &str, n: i32) -> Option<String> {
             } else if positives.contains(&Rule::semicolon) {
                 let mut s = s.to_owned();
                 println!("insert ;");
-                s.insert_str(p, ";");
+                s.insert(p, ';');
                 fix(&s, n - 1)
             // if whitespace is suggested and there's not already whitespace (don't want to keep adding redundant whitespace)
             } else if positives.contains(&Rule::WHITESPACE) && s.get(p - 1..p).unwrap() != " " {
                 let mut s = s.to_owned();
                 println!("insert ' '");
-                s.insert_str(p, " ");
+                s.insert(p, ' ');
                 fix(&s, n - 1)
             } else if positives.contains(&Rule::paren_start) {
                 let mut s = s.to_owned();
                 println!("insert (");
-                s.insert_str(p, "(");
+                s.insert(p, '(');
                 fix(&s, n - 1)
             } else if positives.contains(&Rule::block_start) {
                 let mut s = s.to_owned();
                 println!("insert {{");
-                s.insert_str(p, "{");
+                s.insert(p, '{');
                 fix(&s, n - 1)
             } else if positives.contains(&Rule::func_args_start) {
                 let mut s = s.to_owned();
                 println!("insert (");
-                s.insert_str(p, "(");
+                s.insert(p, '(');
                 fix(&s, n - 1)
             } else if positives.contains(&Rule::strlit_start) {
                 let mut s = s.to_owned();
                 println!("insert \"");
-                s.insert_str(p, "\"");
+                s.insert(p, '\"');
                 fix(&s, n - 1)
             } else {
                 None
@@ -130,26 +130,26 @@ pub fn fix(s: &str, n: i32) -> Option<String> {
 // when converting Pairs to an AST, we want to ignore these.
 // they are used by the editor for error-reporting and fixing broken syntax
 fn of_ast_node(pair: &Pair<Rule>) -> bool {
-    match pair.as_rule() {
+    !matches!(
+        pair.as_rule(),
         Rule::WHITESPACE
-        | Rule::EOI
-        | Rule::op_assign
-        | Rule::let_keyword
-        | Rule::paren_start
-        | Rule::paren_end
-        | Rule::block_start
-        | Rule::block_end
-        | Rule::if_keyword
-        | Rule::else_keyword
-        | Rule::func_args_start
-        | Rule::func_args_end => false,
-        _ => true,
-    }
+            | Rule::EOI
+            | Rule::op_assign
+            | Rule::let_keyword
+            | Rule::paren_start
+            | Rule::paren_end
+            | Rule::block_start
+            | Rule::block_end
+            | Rule::if_keyword
+            | Rule::else_keyword
+            | Rule::func_args_start
+            | Rule::func_args_end
+    )
 }
 
 // TODO: use fix() method in the future
 pub fn get_pairs(source: &str) -> Result<Pairs<Rule>, String> {
-    MyParser::parse(Rule::program, &source).map_err(|e| {
+    MyParser::parse(Rule::program, source).map_err(|e| {
         debug_println!("{:#?}", e);
         e.to_string()
     })

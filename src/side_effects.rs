@@ -1,5 +1,4 @@
 use crate::eval_tree;
-use debug_print::debug_println;
 use std::rc::Rc;
 
 #[derive(Debug, Clone)]
