@@ -40,10 +40,20 @@ pub fn fix(s: &str, n: i32) -> Option<String> {
         } = e.variant
         {
             println!("pos:{:#?}, neg:{:#?}", positives, negatives);
-            if positives.contains(&Rule::strlit_end) {
+            if negatives.contains(&Rule::placeholder) {
+                let mut s = s.to_string();
+                println!("remove _");
+                s.remove(p);
+                fix(&s, n - 1)
+            } else if positives.contains(&Rule::strlit_end) {
                 let mut s = s.to_owned();
                 println!("insert \"");
                 s.insert_str(p - 1, "\"");
+                fix(&s, n - 1)
+            } else if positives.contains(&Rule::paren_end) {
+                let mut s = s.to_owned();
+                println!("insert )");
+                s.insert_str(p, ")");
                 fix(&s, n - 1)
             } else if positives.contains(&Rule::block_end) {
                 let mut s = s.to_owned();
@@ -73,11 +83,6 @@ pub fn fix(s: &str, n: i32) -> Option<String> {
                 println!("insert else");
                 s.insert_str(p, "else");
                 fix(&s, n - 1)
-            } else if negatives.contains(&Rule::placeholder) {
-                let mut s = s.to_string();
-                println!("remove _");
-                s.remove(p);
-                fix(&s, n - 1)
             } else if positives.contains(&Rule::semicolon) {
                 let mut s = s.to_owned();
                 println!("insert ;");
@@ -88,6 +93,11 @@ pub fn fix(s: &str, n: i32) -> Option<String> {
                 let mut s = s.to_owned();
                 println!("insert ' '");
                 s.insert_str(p, " ");
+                fix(&s, n - 1)
+            } else if positives.contains(&Rule::paren_start) {
+                let mut s = s.to_owned();
+                println!("insert (");
+                s.insert_str(p, "(");
                 fix(&s, n - 1)
             } else if positives.contains(&Rule::block_start) {
                 let mut s = s.to_owned();
