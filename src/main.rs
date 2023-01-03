@@ -105,7 +105,13 @@ impl eframe::App for MyApp {
             // HACK. this forces update() to be called as much as possible
             // so that the program can run on the UI thread.
             // I did this because web assembly does not support threads currently
-            ui.ctx().request_repaint();
+            if let Some(interpreter) = &self.interpreter {
+                if interpreter.is_finished() {
+                    self.interpreter = None;
+                } else {
+                    ui.ctx().request_repaint();
+                }
+            }
             let steps = if cfg!(debug_assertions) { 1 } else { 1000 };
             let mut output_copy = self.output.clone();
             let effect_handler =
