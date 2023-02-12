@@ -5,12 +5,111 @@ use pest::pratt_parser::{Assoc, Op, PrattParser};
 use pest::Parser;
 use pest_derive::Parser;
 use std::rc::Rc;
+use std::sync::atomic::{AtomicUsize, Ordering};
 #[derive(Parser)]
 #[grammar = "grammar.pest"]
 struct MyParser;
 
 pub type Identifier = String;
 pub type FuncArg = (Identifier, Option<Rc<Type>>);
+
+#[derive(Debug, PartialEq)]
+pub struct Stmt {
+    pub stmtkind: Rc<StmtKind>,
+    pub span: Span,
+    pub id: NodeId,
+}
+
+#[derive(Debug, PartialEq)]
+pub enum StmtKind {
+    Let(Rc<Pat>, Option<Rc<Type>>, Rc<Expr>),
+    Expr(Rc<Expr>),
+}
+
+#[derive(Debug, PartialEq)]
+pub struct Expr {
+    pub exprkind: Rc<ExprKind>,
+    pub span: Span,
+    pub id: NodeId,
+}
+
+#[derive(Debug, PartialEq)]
+pub enum ExprKind {
+    // EmptyHole,
+    Var(Identifier),
+    Unit,
+    Int(i32),
+    Bool(bool),
+    Str(String),
+    Func(FuncArg, Vec<FuncArg>, Option<Rc<Type>>, Rc<Expr>),
+    If(Rc<Expr>, Rc<Expr>, Rc<Expr>),
+    // Match(Rc<Expr>, Vec<MatchArm>),
+    Block(Vec<Rc<Stmt>>, Option<Rc<Expr>>),
+    BinOp(Rc<Expr>, BinOpcode, Rc<Expr>),
+    FuncAp(Rc<Expr>, Rc<Expr>, Vec<Rc<Expr>>),
+}
+
+// pub type MatchArm = (Rc<Pat>, Rc<Expr>);
+
+#[derive(Debug, PartialEq)]
+pub struct Pat {
+    pub patkind: Rc<PatKind>,
+    pub span: Span,
+    pub id: NodeId,
+}
+
+#[derive(Debug, PartialEq)]
+pub enum PatKind {
+    // EmptyHole,
+    Var(Identifier),
+    // Unit,
+    // Int(i32),
+    // Bool(bool),
+    // Str(String),
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum Type {
+    Unit,
+    Int,
+    Bool,
+    String,
+    Arrow(Rc<Type>, Rc<Type>),
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct NodeId {
+    pub id: usize,
+}
+
+impl NodeId {
+    pub fn new() -> Self {
+        static ID_COUNTER: std::sync::atomic::AtomicUsize = AtomicUsize::new(1);
+        let id = ID_COUNTER.fetch_add(1, Ordering::Relaxed);
+        Self { id }
+    }
+}
+
+impl Default for NodeId {
+    fn default() -> Self {
+        NodeId::new()
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct Span {
+    pub lo: usize,
+    pub hi: usize,
+}
+
+impl From<pest::Span<'_>> for Span {
+    fn from(value: pest::Span) -> Self {
+        Span {
+            lo: value.start(),
+            hi: value.end(),
+        }
+    }
+}
 
 // pub fn parse(source: &str) -> Result<Rc<Expr>, String> {
 //     abra_grammar::ExprParser::new()
@@ -52,6 +151,7 @@ pub fn parse_pat(pair: Pair<Rule>, _pratt: &PrattParser<Rule>) -> Rc<Pat> {
         Rule::identifier => Rc::new(Pat {
             patkind: Rc::new(PatKind::Var(pair.as_str().to_owned())),
             span,
+            id: NodeId::new(),
         }),
         _ => panic!("unreachable rule {:#?}", rule),
     }
@@ -82,6 +182,7 @@ pub fn parse_stmt(pair: Pair<Rule>, pratt: &PrattParser<Rule>) -> Rc<Stmt> {
             Rc::new(Stmt {
                 stmtkind: Rc::new(StmtKind::Let(pat, None, expr)),
                 span,
+                id: NodeId::new(),
             })
         }
         Rule::expression_statement => {
@@ -89,6 +190,7 @@ pub fn parse_stmt(pair: Pair<Rule>, pratt: &PrattParser<Rule>) -> Rc<Stmt> {
             Rc::new(Stmt {
                 stmtkind: Rc::new(StmtKind::Expr(expr)),
                 span,
+                id: NodeId::new(),
             })
         }
         _ => panic!("unreachable rule {:#?}", rule),
@@ -128,6 +230,7 @@ pub fn parse_expr_term(pair: Pair<Rule>, pratt: &PrattParser<Rule>) -> Rc<Expr> 
             Rc::new(Expr {
                 exprkind: Rc::new(ExprKind::Block(statements, expression)),
                 span,
+                id: NodeId::new(),
             })
         }
         Rule::if_else_expression => {
@@ -138,6 +241,7 @@ pub fn parse_expr_term(pair: Pair<Rule>, pratt: &PrattParser<Rule>) -> Rc<Expr> 
             Rc::new(Expr {
                 exprkind: Rc::new(ExprKind::If(cond, e1, e2)),
                 span,
+                id: NodeId::new(),
             })
         }
         Rule::func_expression => {
@@ -151,6 +255,7 @@ pub fn parse_expr_term(pair: Pair<Rule>, pratt: &PrattParser<Rule>) -> Rc<Expr> 
             Rc::new(Expr {
                 exprkind: Rc::new(ExprKind::Func(arg1, remaining_args, None, body)),
                 span,
+                id: NodeId::new(),
             })
         }
         Rule::func_call_expression => {
@@ -164,19 +269,23 @@ pub fn parse_expr_term(pair: Pair<Rule>, pratt: &PrattParser<Rule>) -> Rc<Expr> 
             Rc::new(Expr {
                 exprkind: Rc::new(ExprKind::FuncAp(f, arg1, remaining_args)),
                 span,
+                id: NodeId::new(),
             })
         }
         Rule::literal_unit => Rc::new(Expr {
             exprkind: Rc::new(ExprKind::Unit),
             span,
+            id: NodeId::new(),
         }),
         Rule::literal_number => Rc::new(Expr {
             exprkind: Rc::new(ExprKind::Int(pair.as_str().parse().unwrap())),
             span,
+            id: NodeId::new(),
         }),
         Rule::literal_bool => Rc::new(Expr {
             exprkind: Rc::new(ExprKind::Bool(pair.as_str().parse().unwrap())),
             span,
+            id: NodeId::new(),
         }),
         Rule::literal_string => Rc::new(Expr {
             exprkind: Rc::new(ExprKind::Str({
@@ -185,10 +294,12 @@ pub fn parse_expr_term(pair: Pair<Rule>, pratt: &PrattParser<Rule>) -> Rc<Expr> 
                 s[1..s.len() - 1].to_owned()
             })),
             span,
+            id: NodeId::new(),
         }),
         Rule::identifier => Rc::new(Expr {
             exprkind: Rc::new(ExprKind::Var(pair.as_str().to_owned())),
             span,
+            id: NodeId::new(),
         }),
         _ => panic!("unreachable rule {:#?}", rule),
     }
@@ -219,6 +330,7 @@ pub fn parse_expr_pratt(pairs: Pairs<Rule>, pratt: &PrattParser<Rule>) -> Rc<Exp
             Rc::new(Expr {
                 exprkind: Rc::new(ExprKind::BinOp(lhs, opcode, rhs)),
                 span: Span::from(op.as_span()),
+                id: NodeId::new(),
             })
         })
         .parse(pairs)
@@ -236,81 +348,4 @@ pub fn parse_or_err(source: &str) -> Result<Rc<Expr>, String> {
         .op(Op::infix(Rule::op_multiplication, Assoc::Left)
             | Op::infix(Rule::op_division, Assoc::Left));
     Ok(parse_expr_pratt(pairs, &pratt))
-}
-
-#[derive(Debug, PartialEq)]
-pub struct Span {
-    pub lo: usize,
-    pub hi: usize,
-}
-
-impl From<pest::Span<'_>> for Span {
-    fn from(value: pest::Span) -> Self {
-        Span {
-            lo: value.start(),
-            hi: value.end(),
-        }
-    }
-}
-
-#[derive(Debug, PartialEq)]
-pub struct Stmt {
-    pub stmtkind: Rc<StmtKind>,
-    pub span: Span,
-}
-
-#[derive(Debug, PartialEq)]
-pub enum StmtKind {
-    Let(Rc<Pat>, Option<Rc<Type>>, Rc<Expr>),
-    Expr(Rc<Expr>),
-}
-
-#[derive(Debug, PartialEq)]
-pub struct Expr {
-    pub exprkind: Rc<ExprKind>,
-    pub span: Span,
-}
-
-#[derive(Debug, PartialEq)]
-pub enum ExprKind {
-    // EmptyHole,
-    Var(Identifier),
-    Unit,
-    Int(i32),
-    Bool(bool),
-    Str(String),
-    Func(FuncArg, Vec<FuncArg>, Option<Rc<Type>>, Rc<Expr>),
-    If(Rc<Expr>, Rc<Expr>, Rc<Expr>),
-    // Match(Rc<Expr>, Vec<MatchArm>),
-    Block(Vec<Rc<Stmt>>, Option<Rc<Expr>>),
-    BinOp(Rc<Expr>, BinOpcode, Rc<Expr>),
-    FuncAp(Rc<Expr>, Rc<Expr>, Vec<Rc<Expr>>),
-}
-
-// pub type MatchArm = (Rc<Pat>, Rc<Expr>);
-
-#[derive(Debug, PartialEq)]
-pub struct Pat {
-    pub patkind: Rc<PatKind>,
-    pub span: Span,
-}
-
-#[derive(Debug, PartialEq)]
-pub enum PatKind {
-    // EmptyHole,
-    Var(Identifier),
-    // Unit,
-    // Int(i32),
-    // Bool(bool),
-    // Str(String),
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub enum Type {
-    Unknown,
-    Unit,
-    Int,
-    Bool,
-    String,
-    Arrow(Rc<Type>, Rc<Type>),
 }

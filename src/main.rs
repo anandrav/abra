@@ -8,10 +8,10 @@ extern crate regex;
 mod ast;
 mod environment;
 mod eval_tree;
-mod statics;
 mod interpreter;
 mod operators;
 mod side_effects;
+mod statics;
 mod translate;
 
 use debug_print::debug_println;
@@ -157,6 +157,13 @@ impl eframe::App for MyApp {
                             let text_with_braces = "{".to_owned() + &self.text + "}";
                             match ast::parse_or_err(&text_with_braces) {
                                 Ok(parse_tree) => {
+                                    let mut constraints = Vec::new();
+                                    statics::collect_constraints(
+                                        statics::TyCtx::empty(),
+                                        statics::Mode::Syn,
+                                        parse_tree.clone(),
+                                        &mut constraints,
+                                    );
                                     let eval_tree =
                                         translate::translate_expr(parse_tree.exprkind.clone());
                                     self.interpreter = Some(Interpreter::new(eval_tree));
