@@ -13,6 +13,7 @@ mod operators;
 mod side_effects;
 mod statics;
 mod translate;
+mod types;
 
 use debug_print::debug_println;
 
@@ -158,7 +159,7 @@ impl eframe::App for MyApp {
                             match ast::parse_or_err(&text_with_braces) {
                                 Ok(parse_tree) => {
                                     let mut constraints = Vec::new();
-                                    statics::collect_constraints(
+                                    statics::generate_constraints_expr(
                                         statics::TyCtx::empty(),
                                         statics::Mode::Syn,
                                         parse_tree.clone(),

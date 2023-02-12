@@ -1,5 +1,6 @@
 use crate::operators::BinOpcode;
 // use pest::error::{Error, ErrorVariant, InputLocation::Pos};
+use crate::types::*;
 use pest::iterators::{Pair, Pairs};
 use pest::pratt_parser::{Assoc, Op, PrattParser};
 use pest::Parser;
@@ -17,7 +18,7 @@ pub type FuncArg = (Identifier, Option<Rc<Type>>);
 pub struct Stmt {
     pub stmtkind: Rc<StmtKind>,
     pub span: Span,
-    pub id: NodeId,
+    pub id: Id,
 }
 
 #[derive(Debug, PartialEq)]
@@ -30,7 +31,7 @@ pub enum StmtKind {
 pub struct Expr {
     pub exprkind: Rc<ExprKind>,
     pub span: Span,
-    pub id: NodeId,
+    pub id: Id,
 }
 
 #[derive(Debug, PartialEq)]
@@ -55,7 +56,7 @@ pub enum ExprKind {
 pub struct Pat {
     pub patkind: Rc<PatKind>,
     pub span: Span,
-    pub id: NodeId,
+    pub id: Id,
 }
 
 #[derive(Debug, PartialEq)]
@@ -69,20 +70,11 @@ pub enum PatKind {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub enum Type {
-    Unit,
-    Int,
-    Bool,
-    String,
-    Arrow(Rc<Type>, Rc<Type>),
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub struct NodeId {
+pub struct Id {
     pub id: usize,
 }
 
-impl NodeId {
+impl Id {
     pub fn new() -> Self {
         static ID_COUNTER: std::sync::atomic::AtomicUsize = AtomicUsize::new(1);
         let id = ID_COUNTER.fetch_add(1, Ordering::Relaxed);
@@ -90,9 +82,9 @@ impl NodeId {
     }
 }
 
-impl Default for NodeId {
+impl Default for Id {
     fn default() -> Self {
-        NodeId::new()
+        Id::new()
     }
 }
 
@@ -151,7 +143,7 @@ pub fn parse_pat(pair: Pair<Rule>, _pratt: &PrattParser<Rule>) -> Rc<Pat> {
         Rule::identifier => Rc::new(Pat {
             patkind: Rc::new(PatKind::Var(pair.as_str().to_owned())),
             span,
-            id: NodeId::new(),
+            id: Id::new(),
         }),
         _ => panic!("unreachable rule {:#?}", rule),
     }
@@ -182,7 +174,7 @@ pub fn parse_stmt(pair: Pair<Rule>, pratt: &PrattParser<Rule>) -> Rc<Stmt> {
             Rc::new(Stmt {
                 stmtkind: Rc::new(StmtKind::Let(pat, None, expr)),
                 span,
-                id: NodeId::new(),
+                id: Id::new(),
             })
         }
         Rule::expression_statement => {
@@ -190,7 +182,7 @@ pub fn parse_stmt(pair: Pair<Rule>, pratt: &PrattParser<Rule>) -> Rc<Stmt> {
             Rc::new(Stmt {
                 stmtkind: Rc::new(StmtKind::Expr(expr)),
                 span,
-                id: NodeId::new(),
+                id: Id::new(),
             })
         }
         _ => panic!("unreachable rule {:#?}", rule),
@@ -230,7 +222,7 @@ pub fn parse_expr_term(pair: Pair<Rule>, pratt: &PrattParser<Rule>) -> Rc<Expr> 
             Rc::new(Expr {
                 exprkind: Rc::new(ExprKind::Block(statements, expression)),
                 span,
-                id: NodeId::new(),
+                id: Id::new(),
             })
         }
         Rule::if_else_expression => {
@@ -241,7 +233,7 @@ pub fn parse_expr_term(pair: Pair<Rule>, pratt: &PrattParser<Rule>) -> Rc<Expr> 
             Rc::new(Expr {
                 exprkind: Rc::new(ExprKind::If(cond, e1, e2)),
                 span,
-                id: NodeId::new(),
+                id: Id::new(),
             })
         }
         Rule::func_expression => {
@@ -255,7 +247,7 @@ pub fn parse_expr_term(pair: Pair<Rule>, pratt: &PrattParser<Rule>) -> Rc<Expr> 
             Rc::new(Expr {
                 exprkind: Rc::new(ExprKind::Func(arg1, remaining_args, None, body)),
                 span,
-                id: NodeId::new(),
+                id: Id::new(),
             })
         }
         Rule::func_call_expression => {
@@ -269,23 +261,23 @@ pub fn parse_expr_term(pair: Pair<Rule>, pratt: &PrattParser<Rule>) -> Rc<Expr> 
             Rc::new(Expr {
                 exprkind: Rc::new(ExprKind::FuncAp(f, arg1, remaining_args)),
                 span,
-                id: NodeId::new(),
+                id: Id::new(),
             })
         }
         Rule::literal_unit => Rc::new(Expr {
             exprkind: Rc::new(ExprKind::Unit),
             span,
-            id: NodeId::new(),
+            id: Id::new(),
         }),
         Rule::literal_number => Rc::new(Expr {
             exprkind: Rc::new(ExprKind::Int(pair.as_str().parse().unwrap())),
             span,
-            id: NodeId::new(),
+            id: Id::new(),
         }),
         Rule::literal_bool => Rc::new(Expr {
             exprkind: Rc::new(ExprKind::Bool(pair.as_str().parse().unwrap())),
             span,
-            id: NodeId::new(),
+            id: Id::new(),
         }),
         Rule::literal_string => Rc::new(Expr {
             exprkind: Rc::new(ExprKind::Str({
@@ -294,12 +286,12 @@ pub fn parse_expr_term(pair: Pair<Rule>, pratt: &PrattParser<Rule>) -> Rc<Expr> 
                 s[1..s.len() - 1].to_owned()
             })),
             span,
-            id: NodeId::new(),
+            id: Id::new(),
         }),
         Rule::identifier => Rc::new(Expr {
             exprkind: Rc::new(ExprKind::Var(pair.as_str().to_owned())),
             span,
-            id: NodeId::new(),
+            id: Id::new(),
         }),
         _ => panic!("unreachable rule {:#?}", rule),
     }
@@ -330,7 +322,7 @@ pub fn parse_expr_pratt(pairs: Pairs<Rule>, pratt: &PrattParser<Rule>) -> Rc<Exp
             Rc::new(Expr {
                 exprkind: Rc::new(ExprKind::BinOp(lhs, opcode, rhs)),
                 span: Span::from(op.as_span()),
-                id: NodeId::new(),
+                id: Id::new(),
             })
         })
         .parse(pairs)

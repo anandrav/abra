@@ -1,13 +1,14 @@
 use crate::ast::*;
 use crate::operators::BinOpcode;
+use crate::types::*;
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::fmt;
 use std::rc::Rc;
 
 pub struct Constraint {
-    expected: Type,
-    actual: Type,
+    expected: Rc<Type>,
+    actual: Rc<Type>,
     cause: Span,
 }
 
@@ -74,10 +75,10 @@ impl TyCtx {
 
 pub enum Mode {
     Syn,
-    Ana(Type),
+    Ana(Rc<Type>),
 }
 
-pub fn collect_constraints(
+pub fn generate_constraints_expr(
     ctx: Rc<RefCell<TyCtx>>,
     mode: Mode,
     expr: Rc<Expr>,
@@ -89,7 +90,7 @@ pub fn collect_constraints(
             Mode::Syn => (),
             Mode::Ana(expected) => constraints.push(Constraint {
                 expected,
-                actual: Type::Unit,
+                actual: Rc::new(Type::Unit),
                 cause: expr.span.clone(),
             }),
         },
@@ -97,7 +98,7 @@ pub fn collect_constraints(
             Mode::Syn => (),
             Mode::Ana(expected) => constraints.push(Constraint {
                 expected,
-                actual: Type::Int,
+                actual: Rc::new(Type::Int),
                 cause: expr.span.clone(),
             }),
         },
@@ -105,7 +106,7 @@ pub fn collect_constraints(
             Mode::Syn => (),
             Mode::Ana(expected) => constraints.push(Constraint {
                 expected,
-                actual: Type::Bool,
+                actual: Rc::new(Type::Bool),
                 cause: expr.span.clone(),
             }),
         },
@@ -113,21 +114,55 @@ pub fn collect_constraints(
             Mode::Syn => (),
             Mode::Ana(expected) => constraints.push(Constraint {
                 expected,
-                actual: Type::String,
+                actual: Rc::new(Type::String),
                 cause: expr.span.clone(),
             }),
         },
-        ExprKind::Var(_) => unimplemented!(),
-        // ExprKind::BinOp(_, op, _) => match op {
-        //     BinOpcode::Add | BinOpcode::Subtract | BinOpcode::Multiply | BinOpcode::Divide => {
-        //         Rc::new(Type::Int)
-        //     }
-        //     BinOpcode::Equals | BinOpcode::LessThan | BinOpcode::GreaterThan => Rc::new(Type::Bool),
-        // },
-        // ExprKind::Block(_statements, opt_expr) => match &*opt_expr {
-        //     Some(expr) => collect_constraints(TyCtx::empty(), mode, expr.clone(), constraints),
-        //     None => Rc::new(Type::Unit),
-        // },
+        ExprKind::Var(id) => {
+            let lookup = ctx.borrow_mut().lookup(id);
+            match lookup {
+                Some(typ) => match mode {
+                    Mode::Syn => (),
+                    Mode::Ana(expected) => constraints.push(Constraint {
+                        expected,
+                        actual: typ,
+                        cause: expr.span.clone(),
+                    }),
+                },
+                None => panic!("Variable not found"),
+            }
+        }
+        ExprKind::BinOp(left, op, right) => {
+            let ty_op = Type::of_binop(op);
+            match mode {
+                Mode::Syn => (),
+                Mode::Ana(expected) => {
+                    constraints.push(Constraint {
+                        expected,
+                        actual: ty_op.clone(),
+                        cause: expr.span.clone(),
+                    });
+                }
+            };
+            generate_constraints_expr(
+                ctx.clone(),
+                Mode::Ana(ty_op.clone()),
+                left.clone(),
+                constraints,
+            );
+            generate_constraints_expr(ctx, Mode::Ana(ty_op), right.clone(), constraints);
+        }
+        ExprKind::Block(statements, opt_terminal_expr) => {
+            for statement in statements {
+                // generate_constraints_stmt(ctx, Mode::Syn, statement.clone(), constraints);
+            }
+            match &*opt_terminal_expr {
+                Some(terminal_expr) => {
+                    generate_constraints_expr(ctx, mode, terminal_expr.clone(), constraints)
+                }
+                None => (),
+            };
+        }
         // ExprKind::Func(arg, args, opt_typ_body, body) => {
         //     let mut ctx = TyCtx::new(Some(ctx.clone()));
         //     let (id, arg_annot) = arg;
@@ -152,6 +187,9 @@ pub fn collect_constraints(
         //     }
         // }
         ExprKind::FuncAp(_, _, _) => unimplemented!(),
-        _ => unimplemented!(),
+        _ => {
+            panic!("expr: {:#?}", expr);
+            unimplemented!()
+        }
     }
 }
