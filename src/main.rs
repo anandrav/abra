@@ -8,11 +8,11 @@ extern crate regex;
 mod ast;
 mod environment;
 mod eval_tree;
+mod statics;
 mod interpreter;
 mod operators;
 mod side_effects;
 mod translate;
-mod types;
 
 use debug_print::debug_println;
 

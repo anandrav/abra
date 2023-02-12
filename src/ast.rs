@@ -1,6 +1,5 @@
 use crate::operators::BinOpcode;
 // use pest::error::{Error, ErrorVariant, InputLocation::Pos};
-use crate::types::Type;
 use pest::iterators::{Pair, Pairs};
 use pest::pratt_parser::{Assoc, Op, PrattParser};
 use pest::Parser;
@@ -304,4 +303,14 @@ pub enum PatKind {
     // Int(i32),
     // Bool(bool),
     // Str(String),
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum Type {
+    Unknown,
+    Unit,
+    Int,
+    Bool,
+    String,
+    Arrow(Rc<Type>, Rc<Type>),
 }
