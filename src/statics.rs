@@ -97,7 +97,7 @@ pub fn condense_candidates(uf_type_candidates: &UFTypeCandidates) -> TypeCandida
     let condensed = uf_type_candidates.clone_data();
     let mut types = Vec::new();
     for candidate in &condensed.types {
-        types.push(condense_candidate(&candidate));
+        types.push(condense_candidate(candidate));
     }
     TypeCandidates { types }
 }
@@ -112,8 +112,7 @@ pub fn condense_candidate(uf_type_candidate: &UFTypeCandidate) -> TypeCandidate 
         UFTypeCandidate::Arrow(t1, t2) => {
             let t1 = condense_candidates(t1);
             let t2 = condense_candidates(t2);
-            let t = TypeCandidate::Arrow(t1, t2);
-            t
+            TypeCandidate::Arrow(t1, t2)
         }
     }
 }
@@ -188,7 +187,8 @@ pub fn solve_constraints(constraints: Vec<Constraint>) {
                 }
                 t_node
             };
-            hole_node.union_with(&mut t_node, UFTypeCandidates_::merge);
+            // hole_node.union_with(&mut t_node, UFTypeCandidates_::merge);
+            hole_node.union(&mut t_node);
         } else {
             hole_node.with_data(|t1| t1.extend(t.into()));
         }
@@ -394,36 +394,21 @@ pub fn generate_constraints_expr(
         }
         ExprKind::Func((arg1, _), args, _, body) => {
             let mut new_ctx = TyCtx::new(Some(ctx));
-            new_ctx.borrow_mut().extend(arg1, Type::fresh());
-            for (arg, _) in args {
-                new_ctx.borrow_mut().extend(arg, Type::fresh());
-            }
-            generate_constraints_expr(new_ctx, Mode::Syn, body.clone(), constraints);
-        }
-        ExprKind::FuncAp(func, arg1, args) => {
-            let ty_func = Type::matched_arrow();
-            generate_constraints_expr(
-                ctx.clone(),
-                Mode::Ana(ty_func.clone()),
-                func.clone(),
-                constraints,
-            );
             let ty_arg = Type::fresh();
+            new_ctx.borrow_mut().extend(arg1, ty_arg.clone());
+            // TODO n args not just 1
+            // for (arg, _) in args {
+            //     new_ctx.borrow_mut().extend(arg, Type::fresh());
+            // }
+            let ty_body = Type::fresh();
             generate_constraints_expr(
-                ctx.clone(),
-                Mode::Ana(ty_arg.clone()),
-                arg1.clone(),
+                new_ctx,
+                Mode::Ana(ty_body.clone()),
+                body.clone(),
                 constraints,
             );
-            for arg in args {
-                let ty_arg = Type::fresh();
-                generate_constraints_expr(
-                    ctx.clone(),
-                    Mode::Ana(ty_arg.clone()),
-                    arg.clone(),
-                    constraints,
-                );
-            }
+
+            let ty_func = Rc::new(Type::Arrow(ty_arg, ty_body));
             match mode {
                 Mode::Syn => (),
                 Mode::Ana(expected) => constraints.push(Constraint {
@@ -433,9 +418,41 @@ pub fn generate_constraints_expr(
                 }),
             };
         }
-        _ => {
-            panic!("expr: {:#?}", expr);
-            unimplemented!()
+        ExprKind::FuncAp(func, arg1, args) => {
+            let ty_arg = Type::fresh();
+            generate_constraints_expr(
+                ctx.clone(),
+                Mode::Ana(ty_arg.clone()),
+                arg1.clone(),
+                constraints,
+            );
+            let ty_body = Type::fresh();
+
+            let ty_func = Rc::new(Type::Arrow(ty_arg, ty_body.clone()));
+            generate_constraints_expr(
+                ctx.clone(),
+                Mode::Ana(ty_func.clone()),
+                func.clone(),
+                constraints,
+            );
+            // TODO n args not just 1
+            // for arg in args {
+            //     let ty_arg = Type::fresh();
+            //     generate_constraints_expr(
+            //         ctx.clone(),
+            //         Mode::Ana(ty_arg.clone()),
+            //         arg.clone(),
+            //         constraints,
+            //     );
+            // }
+            match mode {
+                Mode::Syn => (),
+                Mode::Ana(expected) => constraints.push(Constraint {
+                    expected,
+                    actual: ty_body,
+                    cause: expr.span.clone(),
+                }),
+            };
         }
     }
 }

@@ -24,6 +24,19 @@ impl Type {
         Rc::new(Type::Arrow(Type::fresh(), Type::fresh()))
     }
 
+    pub fn matched_arrow_n(tys: Vec<Rc<Type>>) -> Rc<Type> {
+        if tys.len() == 0 {
+            unreachable!()
+        } else if tys.len() == 1 {
+            tys[0].clone()
+        } else {
+            Rc::new(Type::Arrow(
+                tys[0].clone(),
+                Type::matched_arrow_n(tys[1..].to_vec()),
+            ))
+        }
+    }
+
     pub fn is_unknown(&self) -> bool {
         matches!(self, Type::Unknown(_))
     }
