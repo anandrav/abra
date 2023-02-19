@@ -69,9 +69,11 @@ impl Default for MyApp {
     fn default() -> Self {
         Self {
             text: String::from(
-                r#"let x = 2;
+                r#"let inc = func(x) {
+    x + 1
+};
 let y = 4;
-x + y"#,
+inc(y)"#,
             ),
             output: String::default(),
             interpreter: None,
@@ -148,7 +150,7 @@ impl eframe::App for MyApp {
                                     statics::solve_constraints(constraints);
                                     let eval_tree =
                                         translate::translate_expr(parse_tree.exprkind.clone());
-                                    self.interpreter = Some(Interpreter::new(eval_tree));
+                                    // self.interpreter = Some(Interpreter::new(eval_tree));
                                 }
                                 Err(err) => {
                                     self.output = err;

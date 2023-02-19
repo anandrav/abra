@@ -20,6 +20,10 @@ impl Type {
         Rc::new(Type::Unknown(Id::new()))
     }
 
+    pub fn matched_arrow() -> Rc<Self> {
+        Rc::new(Type::Arrow(Type::fresh(), Type::fresh()))
+    }
+
     pub fn contains_unknown(&self) -> bool {
         match self {
             Type::Unknown(_) => true,
@@ -41,7 +45,7 @@ impl Type {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Id {
     pub id: usize,
 }
