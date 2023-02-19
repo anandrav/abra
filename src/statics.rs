@@ -55,6 +55,21 @@ impl UFTypeCandidate {
     }
 }
 
+fn retrieve_or_add_node(
+    unknown_ty_to_candidates: &mut HashMap<Rc<Type>, UFTypeCandidates>,
+    unknown: Rc<Type>,
+) -> UFTypeCandidates {
+    if unknown_ty_to_candidates.contains_key(&unknown) {
+        unknown_ty_to_candidates[&unknown].clone()
+    } else {
+        let node = UnionFindNode::new(UFTypeCandidates_::singleton(
+            UFTypeCandidate::from(unknown.clone()).into(),
+        ));
+        unknown_ty_to_candidates.insert(unknown, node.clone());
+        node
+    }
+}
+
 impl From<Rc<Type>> for UFTypeCandidate {
     fn from(t: Rc<Type>) -> Self {
         match &*t {
@@ -131,31 +146,60 @@ impl UFTypeCandidates_ {
         if t_other.is_primitive() && !self.types.contains(&t_other) {
             self.types.push(t_other.clone());
         } else {
+            let mut contains_arrow = false;
             for (i, t) in self.types.iter_mut().enumerate() {
                 let t = t.clone();
-                if let UFTypeCandidate::Arrow(other_L, other_R) = &t_other {
-                    if let UFTypeCandidate::Arrow(t_L, t_R) = &t {
-                        t_L.with_data(|t1| {
-                            UFTypeCandidates_::merge(t_L.clone_data(), other_L.clone_data())
-                        });
-                        t_R.with_data(|t1| {
-                            UFTypeCandidates_::merge(t_R.clone_data(), other_R.clone_data())
-                        });
+                if let UFTypeCandidate::Arrow(mut other_L, mut other_R) = t_other.clone() {
+                    if let UFTypeCandidate::Arrow(mut t_L, mut t_R) = t {
+                        contains_arrow = true;
+                        t_L.union_with(&mut other_L, UFTypeCandidates_::merge);
+                        t_R.union_with(&mut other_R, UFTypeCandidates_::merge);
                     }
                 }
+            }
+            if (!contains_arrow) {
+                self.types.push(t_other.clone());
             }
         }
     }
 
     fn merge(first: Self, second: Self) -> Self {
-        let mut merged = Self {
-            types: first.types.clone(),
-        };
-        for t in &second.types {
-            merged.extend(t.clone());
+        let mut merged_types = Self { types: first.types };
+        for t in second.types {
+            merged_types.extend(t);
         }
-        merged
+        merged_types
     }
+
+    // fn extend(&mut self, t_other: UFTypeCandidate) {
+    //     if t_other.is_primitive() && !self.types.contains(&t_other) {
+    //         self.types.push(t_other.clone());
+    //     } else {
+    //         for (i, t) in self.types.iter_mut().enumerate() {
+    //             let t = t.clone();
+    //             if let UFTypeCandidate::Arrow(other_L, other_R) = &t_other {
+    //                 if let UFTypeCandidate::Arrow(t_L, t_R) = &t {
+    //                     t_L.with_data(|t1| {
+    //                         UFTypeCandidates_::merge(t_L.clone_data(), other_L.clone_data())
+    //                     });
+    //                     t_R.with_data(|t1| {
+    //                         UFTypeCandidates_::merge(t_R.clone_data(), other_R.clone_data())
+    //                     });
+    //                 }
+    //             }
+    //         }
+    //     }
+    // }
+
+    // fn merge(first: Self, second: Self) -> Self {
+    //     let mut merged = Self {
+    //         types: first.types.clone(),
+    //     };
+    //     for t in &second.types {
+    //         merged.extend(t.clone());
+    //     }
+    //     merged
+    // }
 
     fn contains_unknown(&mut self) -> bool {
         self.types.iter().any(|t| t.contains_unknown())
@@ -163,47 +207,72 @@ impl UFTypeCandidates_ {
 }
 
 pub fn solve_constraints(constraints: Vec<Constraint>) {
+    let mut constraints = constraints;
     let mut unknown_ty_to_candidates: HashMap<Rc<Type>, UFTypeCandidates> = HashMap::new();
 
     let mut add_hole_and_t = |hole: Rc<Type>, t: Rc<Type>| {
-        let mut hole_node = if unknown_ty_to_candidates.contains_key(&hole) {
-            unknown_ty_to_candidates[&hole].clone()
-        } else {
-            let hole_node = UnionFindNode::new(UFTypeCandidates_::singleton(
-                UFTypeCandidate::from(hole.clone()).into(),
-            ));
-            unknown_ty_to_candidates.insert(hole, hole_node.clone());
-            hole_node
-        };
+        // let mut hole_node = if unknown_ty_to_candidates.contains_key(&hole) {
+        //     unknown_ty_to_candidates[&hole].clone()
+        // } else {
+        //     let hole_node = UnionFindNode::new(UFTypeCandidates_::singleton(
+        //         UFTypeCandidate::from(hole.clone()).into(),
+        //     ));
+        //     unknown_ty_to_candidates.insert(hole, hole_node.clone());
+        //     hole_node
+        // };
+        let mut hole_node = retrieve_or_add_node(&mut unknown_ty_to_candidates, hole);
         if t.contains_unknown() {
-            let mut t_node = if unknown_ty_to_candidates.contains_key(&t) {
-                unknown_ty_to_candidates[&t].clone()
+            // let mut t_node = if unknown_ty_to_candidates.contains_key(&t) {
+            //     unknown_ty_to_candidates[&t].clone()
+            // } else {
+            //     let t_node = UnionFindNode::new(UFTypeCandidates_::singleton(
+            //         UFTypeCandidate::from(t.clone()).into(),
+            //     ));
+            //     if t.is_unknown() {
+            //         unknown_ty_to_candidates.insert(t, t_node.clone());
+            //     }
+            //     t_node
+            // };
+            let mut t_node = if t.is_unknown() {
+                retrieve_or_add_node(&mut unknown_ty_to_candidates, t)
             } else {
-                let t_node = UnionFindNode::new(UFTypeCandidates_::singleton(
-                    UFTypeCandidate::from(t.clone()).into(),
-                ));
-                if t.is_unknown() {
-                    unknown_ty_to_candidates.insert(t, t_node.clone());
-                }
-                t_node
+                UnionFindNode::new(UFTypeCandidates_::singleton(UFTypeCandidate::from(t)))
             };
-            // hole_node.union_with(&mut t_node, UFTypeCandidates_::merge);
-            hole_node.union(&mut t_node);
+            hole_node.union_with(&mut t_node, UFTypeCandidates_::merge);
+            // hole_node.union(&mut t_node);
         } else {
             hole_node.with_data(|t1| t1.extend(t.into()));
         }
     };
-    for constraint in constraints {
+    while !constraints.is_empty() {
+        let constraint = constraints.pop().unwrap();
         match (&*constraint.expected, &*constraint.actual) {
             (Type::Unknown(id), t) => {
-                let hole = constraint.expected;
-                let t = constraint.actual;
+                let hole = constraint.expected.clone();
+                let t = constraint.actual.clone();
                 add_hole_and_t(hole, t);
             }
             (t, Type::Unknown(id)) => {
-                let hole = constraint.actual;
-                let t = constraint.expected;
+                let hole = constraint.actual.clone();
+                let t = constraint.expected.clone();
                 add_hole_and_t(hole, t);
+            }
+            (Type::Arrow(t1_L, t1_R), Type::Arrow(t2_L, t2_R)) => {
+                panic!("TODO: solve_constraints: (Arrow, Arrow)");
+                let constraint_L = Constraint {
+                    expected: t1_L.clone(),
+                    actual: t2_L.clone(),
+                    cause: constraint.cause.clone(),
+                };
+                println!("constraint_L: {:#?}", constraint_L);
+                constraints.push(constraint_L);
+                let constraint_R = Constraint {
+                    expected: t1_R.clone(),
+                    actual: t2_R.clone(),
+                    cause: constraint.cause.clone(),
+                };
+                println!("constraint_R: {:#?}", constraint_R);
+                constraints.push(constraint_R);
             }
             _ => {}
         }
