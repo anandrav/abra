@@ -20,6 +20,17 @@ impl Type {
         Rc::new(Type::Unknown(Id::new()))
     }
 
+    pub fn contains_unknown(&self) -> bool {
+        match self {
+            Type::Unknown(_) => true,
+            Type::Unit => false,
+            Type::Int => false,
+            Type::Bool => false,
+            Type::String => false,
+            Type::Arrow(t1, t2) => t1.contains_unknown() || t2.contains_unknown(),
+        }
+    }
+
     pub fn of_binop(opcode: &BinOpcode) -> Rc<Self> {
         match opcode {
             BinOpcode::Add | BinOpcode::Subtract | BinOpcode::Multiply | BinOpcode::Divide => {
@@ -30,7 +41,7 @@ impl Type {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Id {
     pub id: usize,
 }

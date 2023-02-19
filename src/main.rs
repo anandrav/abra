@@ -1,5 +1,6 @@
 extern crate abra;
 extern crate debug_print;
+extern crate disjoint_sets;
 extern crate eframe;
 extern crate pest;
 extern crate pest_derive;
@@ -68,31 +69,9 @@ impl Default for MyApp {
     fn default() -> Self {
         Self {
             text: String::from(
-                r#"let fibonacci = func(n) {
-    if n == 0 {
-        0
-    } else {
-        if n == 1 {
-            1
-        } else {
-            fibonacci(n-1) + fibonacci(n-2)
-        }
-    }
-};
-let run_fibonacci = func(n) {
-    print(string_of_int(fibonacci(n)))
-};
-let from_i_to_n = func(i, n, f) {
-    if i > n {
-        ()
-    } else {
-        f(i);
-        from_i_to_n(i+1, n, f);
-    }
-};
-
-print("The first 30 fibonacci numbers are:");
-from_i_to_n(0, 30, run_fibonacci);"#,
+                r#"let x = 2;
+let y = 4;
+x + y"#,
             ),
             output: String::default(),
             interpreter: None,
@@ -165,6 +144,8 @@ impl eframe::App for MyApp {
                                         parse_tree.clone(),
                                         &mut constraints,
                                     );
+                                    println!("Constraints: {:#?}", constraints);
+                                    statics::solve_constraints(constraints);
                                     let eval_tree =
                                         translate::translate_expr(parse_tree.exprkind.clone());
                                     self.interpreter = Some(Interpreter::new(eval_tree));
