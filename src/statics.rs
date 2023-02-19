@@ -16,7 +16,7 @@ pub struct Constraint {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub enum TypeCandidate {
+pub enum UFTypeCandidate {
     Unknown(types::Id),
     Unit,
     Int,
@@ -25,15 +25,15 @@ pub enum TypeCandidate {
     Arrow(UFTypeCandidates, UFTypeCandidates),
 }
 
-impl TypeCandidate {
+impl UFTypeCandidate {
     pub fn is_primitive(&self) -> bool {
         match self {
-            TypeCandidate::Unknown(_) => true,
-            TypeCandidate::Unit => true,
-            TypeCandidate::Int => true,
-            TypeCandidate::Bool => true,
-            TypeCandidate::String => true,
-            TypeCandidate::Arrow(_, _) => false,
+            UFTypeCandidate::Unknown(_) => true,
+            UFTypeCandidate::Unit => true,
+            UFTypeCandidate::Int => true,
+            UFTypeCandidate::Bool => true,
+            UFTypeCandidate::String => true,
+            UFTypeCandidate::Arrow(_, _) => false,
         }
     }
 
@@ -43,64 +43,104 @@ impl TypeCandidate {
 
     pub fn contains_unknown(&self) -> bool {
         match self {
-            TypeCandidate::Unknown(_) => true,
-            TypeCandidate::Unit => false,
-            TypeCandidate::Int => false,
-            TypeCandidate::Bool => false,
-            TypeCandidate::String => false,
-            TypeCandidate::Arrow(t1, t2) => {
+            UFTypeCandidate::Unknown(_) => true,
+            UFTypeCandidate::Unit => false,
+            UFTypeCandidate::Int => false,
+            UFTypeCandidate::Bool => false,
+            UFTypeCandidate::String => false,
+            UFTypeCandidate::Arrow(t1, t2) => {
                 t1.clone_data().contains_unknown() || t2.clone_data().contains_unknown()
             }
         }
     }
 }
 
-impl From<Rc<Type>> for TypeCandidate {
+impl From<Rc<Type>> for UFTypeCandidate {
     fn from(t: Rc<Type>) -> Self {
         match &*t {
-            Type::Unknown(id) => TypeCandidate::Unknown(id.clone()),
-            Type::Unit => TypeCandidate::Unit,
-            Type::Int => TypeCandidate::Int,
-            Type::Bool => TypeCandidate::Bool,
-            Type::String => TypeCandidate::String,
+            Type::Unknown(id) => UFTypeCandidate::Unknown(id.clone()),
+            Type::Unit => UFTypeCandidate::Unit,
+            Type::Int => UFTypeCandidate::Int,
+            Type::Bool => UFTypeCandidate::Bool,
+            Type::String => UFTypeCandidate::String,
             Type::Arrow(t1, t2) => {
-                let t1 = UnionFindNode::new(TypeCandidates::singleton(
-                    TypeCandidate::from(t1.clone()).into(),
+                let t1 = UnionFindNode::new(UFTypeCandidates_::singleton(
+                    UFTypeCandidate::from(t1.clone()).into(),
                 ));
-                let t2 = UnionFindNode::new(TypeCandidates::singleton(
-                    TypeCandidate::from(t2.clone()).into(),
+                let t2 = UnionFindNode::new(UFTypeCandidates_::singleton(
+                    UFTypeCandidate::from(t2.clone()).into(),
                 ));
-                TypeCandidate::Arrow(t1, t2)
+                UFTypeCandidate::Arrow(t1, t2)
             }
         }
     }
 }
 
-type UFTypeCandidates = UnionFindNode<TypeCandidates>;
+type UFTypeCandidates = UnionFindNode<UFTypeCandidates_>;
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum TypeCandidate {
+    Unknown(types::Id),
+    Unit,
+    Int,
+    Bool,
+    String,
+    Arrow(TypeCandidates, TypeCandidates),
+}
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct TypeCandidates {
     types: Vec<TypeCandidate>,
 }
 
-impl TypeCandidates {
-    fn singleton(t: TypeCandidate) -> Self {
+pub fn condense_candidates(uf_type_candidates: &UFTypeCandidates) -> TypeCandidates {
+    let condensed = uf_type_candidates.clone_data();
+    let mut types = Vec::new();
+    for candidate in &condensed.types {
+        types.push(condense_candidate(&candidate));
+    }
+    TypeCandidates { types }
+}
+
+pub fn condense_candidate(uf_type_candidate: &UFTypeCandidate) -> TypeCandidate {
+    match uf_type_candidate {
+        UFTypeCandidate::Unit => TypeCandidate::Unit,
+        UFTypeCandidate::Int => TypeCandidate::Int,
+        UFTypeCandidate::Bool => TypeCandidate::Bool,
+        UFTypeCandidate::String => TypeCandidate::String,
+        UFTypeCandidate::Unknown(id) => TypeCandidate::Unknown(id.clone()),
+        UFTypeCandidate::Arrow(t1, t2) => {
+            let t1 = condense_candidates(t1);
+            let t2 = condense_candidates(t2);
+            let t = TypeCandidate::Arrow(t1, t2);
+            t
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct UFTypeCandidates_ {
+    types: Vec<UFTypeCandidate>,
+}
+
+impl UFTypeCandidates_ {
+    fn singleton(t: UFTypeCandidate) -> Self {
         Self { types: vec![t] }
     }
 
-    fn extend(&mut self, t_other: TypeCandidate) {
+    fn extend(&mut self, t_other: UFTypeCandidate) {
         if t_other.is_primitive() && !self.types.contains(&t_other) {
             self.types.push(t_other.clone());
         } else {
             for (i, t) in self.types.iter_mut().enumerate() {
                 let t = t.clone();
-                if let TypeCandidate::Arrow(other_L, other_R) = &t_other {
-                    if let TypeCandidate::Arrow(t_L, t_R) = &t {
+                if let UFTypeCandidate::Arrow(other_L, other_R) = &t_other {
+                    if let UFTypeCandidate::Arrow(t_L, t_R) = &t {
                         t_L.with_data(|t1| {
-                            TypeCandidates::merge(t_L.clone_data(), other_L.clone_data())
+                            UFTypeCandidates_::merge(t_L.clone_data(), other_L.clone_data())
                         });
                         t_R.with_data(|t1| {
-                            TypeCandidates::merge(t_R.clone_data(), other_R.clone_data())
+                            UFTypeCandidates_::merge(t_R.clone_data(), other_R.clone_data())
                         });
                     }
                 }
@@ -130,8 +170,8 @@ pub fn solve_constraints(constraints: Vec<Constraint>) {
         let mut hole_node = if unknown_ty_to_candidates.contains_key(&hole) {
             unknown_ty_to_candidates[&hole].clone()
         } else {
-            let hole_node = UnionFindNode::new(TypeCandidates::singleton(
-                TypeCandidate::from(hole.clone()).into(),
+            let hole_node = UnionFindNode::new(UFTypeCandidates_::singleton(
+                UFTypeCandidate::from(hole.clone()).into(),
             ));
             unknown_ty_to_candidates.insert(hole, hole_node.clone());
             hole_node
@@ -140,13 +180,15 @@ pub fn solve_constraints(constraints: Vec<Constraint>) {
             let mut t_node = if unknown_ty_to_candidates.contains_key(&t) {
                 unknown_ty_to_candidates[&t].clone()
             } else {
-                let t_node = UnionFindNode::new(TypeCandidates::singleton(
-                    TypeCandidate::from(t.clone()).into(),
+                let t_node = UnionFindNode::new(UFTypeCandidates_::singleton(
+                    UFTypeCandidate::from(t.clone()).into(),
                 ));
-                unknown_ty_to_candidates.insert(t, t_node.clone());
+                if t.is_unknown() {
+                    unknown_ty_to_candidates.insert(t, t_node.clone());
+                }
                 t_node
             };
-            hole_node.union_with(&mut t_node, TypeCandidates::merge);
+            hole_node.union_with(&mut t_node, UFTypeCandidates_::merge);
         } else {
             hole_node.with_data(|t1| t1.extend(t.into()));
         }
@@ -167,16 +209,16 @@ pub fn solve_constraints(constraints: Vec<Constraint>) {
         }
     }
 
-    let mut unknown_ty_to_candidates_: Vec<(TypeCandidate, TypeCandidates)> = Vec::new();
+    let mut unknown_ty_to_candidates_: Vec<(Rc<Type>, TypeCandidates)> = Vec::new();
 
     for (unknown_ty, candidates) in unknown_ty_to_candidates {
-        unknown_ty_to_candidates_.push((
-            TypeCandidate::from(unknown_ty).into(),
-            candidates.clone_data(),
-        ));
+        unknown_ty_to_candidates_.push((unknown_ty, condense_candidates(&candidates)));
     }
 
-    println!("unknown_ty_to_candidates: {:#?}", unknown_ty_to_candidates_);
+    println!(
+        "unknown_ty_to_candidates_: {:#?}",
+        unknown_ty_to_candidates_
+    );
 }
 
 pub struct TyCtx {
@@ -359,14 +401,14 @@ pub fn generate_constraints_expr(
             generate_constraints_expr(new_ctx, Mode::Syn, body.clone(), constraints);
         }
         ExprKind::FuncAp(func, arg1, args) => {
-            let ty_func = Type::fresh();
-            let ty_arg = Type::fresh();
+            let ty_func = Type::matched_arrow();
             generate_constraints_expr(
                 ctx.clone(),
                 Mode::Ana(ty_func.clone()),
                 func.clone(),
                 constraints,
             );
+            let ty_arg = Type::fresh();
             generate_constraints_expr(
                 ctx.clone(),
                 Mode::Ana(ty_arg.clone()),

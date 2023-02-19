@@ -24,6 +24,10 @@ impl Type {
         Rc::new(Type::Arrow(Type::fresh(), Type::fresh()))
     }
 
+    pub fn is_unknown(&self) -> bool {
+        matches!(self, Type::Unknown(_))
+    }
+
     pub fn contains_unknown(&self) -> bool {
         match self {
             Type::Unknown(_) => true,
