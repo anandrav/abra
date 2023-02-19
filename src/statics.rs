@@ -1,6 +1,6 @@
 use crate::ast::*;
 use crate::operators::BinOpcode;
-use crate::types::*;
+use crate::types::{self, Type};
 use disjoint_sets::UnionFindNode;
 use std::cell::RefCell;
 use std::collections::HashMap;
@@ -10,14 +10,14 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 
 #[derive(Debug)]
 pub struct Constraint {
-    expected: Rc<TypeCandidate>,
-    actual: Rc<TypeCandidate>,
+    expected: Rc<Type>,
+    actual: Rc<Type>,
     cause: Span,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum TypeCandidate {
-    Unknown(Id),
+    Unknown(types::Id),
     Unit,
     Int,
     Bool,
@@ -26,10 +26,6 @@ pub enum TypeCandidate {
 }
 
 impl TypeCandidate {
-    pub fn fresh() -> Rc<Self> {
-        Rc::new(TypeCandidate::Unknown(Id::new()))
-    }
-
     pub fn is_primitive(&self) -> bool {
         match self {
             TypeCandidate::Unknown(_) => true,
@@ -57,23 +53,12 @@ impl TypeCandidate {
             }
         }
     }
-
-    pub fn of_binop(opcode: &BinOpcode) -> Rc<Self> {
-        match opcode {
-            BinOpcode::Add | BinOpcode::Subtract | BinOpcode::Multiply | BinOpcode::Divide => {
-                Rc::new(TypeCandidate::Int)
-            }
-            BinOpcode::Equals | BinOpcode::LessThan | BinOpcode::GreaterThan => {
-                Rc::new(TypeCandidate::Bool)
-            }
-        }
-    }
 }
 
 impl From<Rc<Type>> for TypeCandidate {
     fn from(t: Rc<Type>) -> Self {
         match &*t {
-            Type::Unknown(id) => TypeCandidate::Unknown(Id::new()),
+            Type::Unknown(id) => TypeCandidate::Unknown(id.clone()),
             Type::Unit => TypeCandidate::Unit,
             Type::Int => TypeCandidate::Int,
             Type::Bool => TypeCandidate::Bool,
@@ -91,40 +76,26 @@ impl From<Rc<Type>> for TypeCandidate {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-
-pub struct Id {
-    pub id: usize,
-}
-
-impl Id {
-    pub fn new() -> Self {
-        static ID_COUNTER: std::sync::atomic::AtomicUsize = AtomicUsize::new(1);
-        let id = ID_COUNTER.fetch_add(1, Ordering::Relaxed);
-        Self { id }
-    }
-}
-
 type UFTypeCandidates = UnionFindNode<TypeCandidates>;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct TypeCandidates {
-    types: Vec<Rc<TypeCandidate>>,
+    types: Vec<TypeCandidate>,
 }
 
 impl TypeCandidates {
-    fn singleton(t: Rc<TypeCandidate>) -> Self {
+    fn singleton(t: TypeCandidate) -> Self {
         Self { types: vec![t] }
     }
 
-    fn extend(&mut self, t_other: Rc<TypeCandidate>) {
+    fn extend(&mut self, t_other: TypeCandidate) {
         if t_other.is_primitive() && !self.types.contains(&t_other) {
             self.types.push(t_other.clone());
         } else {
             for (i, t) in self.types.iter_mut().enumerate() {
                 let t = t.clone();
-                if let TypeCandidate::Arrow(other_L, other_R) = &*t_other {
-                    if let TypeCandidate::Arrow(t_L, t_R) = &*t {
+                if let TypeCandidate::Arrow(other_L, other_R) = &t_other {
+                    if let TypeCandidate::Arrow(t_L, t_R) = &t {
                         t_L.with_data(|t1| {
                             TypeCandidates::merge(t_L.clone_data(), other_L.clone_data())
                         });
@@ -153,13 +124,15 @@ impl TypeCandidates {
 }
 
 pub fn solve_constraints(constraints: Vec<Constraint>) {
-    let mut unknown_ty_to_candidates: HashMap<Rc<TypeCandidate>, UFTypeCandidates> = HashMap::new();
+    let mut unknown_ty_to_candidates: HashMap<Rc<Type>, UFTypeCandidates> = HashMap::new();
 
-    let mut add_hole_and_t = |hole: Rc<TypeCandidate>, t: Rc<TypeCandidate>| {
+    let mut add_hole_and_t = |hole: Rc<Type>, t: Rc<Type>| {
         let mut hole_node = if unknown_ty_to_candidates.contains_key(&hole) {
             unknown_ty_to_candidates[&hole].clone()
         } else {
-            let hole_node = UnionFindNode::new(TypeCandidates::singleton(hole.clone()));
+            let hole_node = UnionFindNode::new(TypeCandidates::singleton(
+                TypeCandidate::from(hole.clone()).into(),
+            ));
             unknown_ty_to_candidates.insert(hole, hole_node.clone());
             hole_node
         };
@@ -167,23 +140,25 @@ pub fn solve_constraints(constraints: Vec<Constraint>) {
             let mut t_node = if unknown_ty_to_candidates.contains_key(&t) {
                 unknown_ty_to_candidates[&t].clone()
             } else {
-                let t_node = UnionFindNode::new(TypeCandidates::singleton(t.clone()));
+                let t_node = UnionFindNode::new(TypeCandidates::singleton(
+                    TypeCandidate::from(t.clone()).into(),
+                ));
                 unknown_ty_to_candidates.insert(t, t_node.clone());
                 t_node
             };
             hole_node.union_with(&mut t_node, TypeCandidates::merge);
         } else {
-            hole_node.with_data(|t1| t1.extend(t));
+            hole_node.with_data(|t1| t1.extend(t.into()));
         }
     };
     for constraint in constraints {
         match (&*constraint.expected, &*constraint.actual) {
-            (TypeCandidate::Unknown(id), t) => {
+            (Type::Unknown(id), t) => {
                 let hole = constraint.expected;
                 let t = constraint.actual;
                 add_hole_and_t(hole, t);
             }
-            (t, TypeCandidate::Unknown(id)) => {
+            (t, Type::Unknown(id)) => {
                 let hole = constraint.actual;
                 let t = constraint.expected;
                 add_hole_and_t(hole, t);
@@ -192,17 +167,20 @@ pub fn solve_constraints(constraints: Vec<Constraint>) {
         }
     }
 
-    let mut unknown_ty_to_candidates_: Vec<(Rc<TypeCandidate>, TypeCandidates)> = Vec::new();
+    let mut unknown_ty_to_candidates_: Vec<(TypeCandidate, TypeCandidates)> = Vec::new();
 
     for (unknown_ty, candidates) in unknown_ty_to_candidates {
-        unknown_ty_to_candidates_.push((unknown_ty, candidates.clone_data()));
+        unknown_ty_to_candidates_.push((
+            TypeCandidate::from(unknown_ty).into(),
+            candidates.clone_data(),
+        ));
     }
 
     println!("unknown_ty_to_candidates: {:#?}", unknown_ty_to_candidates_);
 }
 
 pub struct TyCtx {
-    vars: HashMap<Identifier, Rc<TypeCandidate>>,
+    vars: HashMap<Identifier, Rc<Type>>,
     enclosing: Option<Rc<RefCell<TyCtx>>>,
 }
 
@@ -211,7 +189,7 @@ impl TyCtx {
     pub fn debug_helper(&self) -> Vec<String> {
         let mut current = Vec::new();
         for (key, value) in &self.vars {
-            match &*value.clone() {
+            match &value {
                 _ => current.push(key.clone()),
             }
         }
@@ -247,7 +225,7 @@ impl TyCtx {
         }))
     }
 
-    pub fn lookup(&self, id: &Identifier) -> Option<Rc<TypeCandidate>> {
+    pub fn lookup(&self, id: &Identifier) -> Option<Rc<Type>> {
         match self.vars.get(id) {
             Some(typ) => Some(typ.clone()),
             None => match &self.enclosing {
@@ -257,7 +235,7 @@ impl TyCtx {
         }
     }
 
-    pub fn extend(&mut self, id: &Identifier, typ: Rc<TypeCandidate>) {
+    pub fn extend(&mut self, id: &Identifier, typ: Rc<Type>) {
         self.vars.insert(id.clone(), typ);
     }
 }
@@ -265,7 +243,7 @@ impl TyCtx {
 #[derive(Debug, Clone)]
 pub enum Mode {
     Syn,
-    Ana(Rc<TypeCandidate>),
+    Ana(Rc<Type>),
 }
 
 pub fn generate_constraints_expr(
@@ -280,7 +258,7 @@ pub fn generate_constraints_expr(
             Mode::Syn => (),
             Mode::Ana(expected) => constraints.push(Constraint {
                 expected,
-                actual: Rc::new(TypeCandidate::Unit),
+                actual: Rc::new(Type::Unit),
                 cause: expr.span.clone(),
             }),
         },
@@ -288,7 +266,7 @@ pub fn generate_constraints_expr(
             Mode::Syn => (),
             Mode::Ana(expected) => constraints.push(Constraint {
                 expected,
-                actual: Rc::new(TypeCandidate::Int),
+                actual: Rc::new(Type::Int),
                 cause: expr.span.clone(),
             }),
         },
@@ -296,7 +274,7 @@ pub fn generate_constraints_expr(
             Mode::Syn => (),
             Mode::Ana(expected) => constraints.push(Constraint {
                 expected,
-                actual: Rc::new(TypeCandidate::Bool),
+                actual: Rc::new(Type::Bool),
                 cause: expr.span.clone(),
             }),
         },
@@ -304,7 +282,7 @@ pub fn generate_constraints_expr(
             Mode::Syn => (),
             Mode::Ana(expected) => constraints.push(Constraint {
                 expected,
-                actual: Rc::new(TypeCandidate::String),
+                actual: Rc::new(Type::String),
                 cause: expr.span.clone(),
             }),
         },
@@ -323,7 +301,7 @@ pub fn generate_constraints_expr(
             }
         }
         ExprKind::BinOp(left, op, right) => {
-            let ty_op = TypeCandidate::of_binop(op);
+            let ty_op = Type::of_binop(op);
             match mode {
                 Mode::Syn => (),
                 Mode::Ana(expected) => {
@@ -365,7 +343,7 @@ pub fn generate_constraints_expr(
         ExprKind::If(cond, expr1, expr2) => {
             generate_constraints_expr(
                 ctx.clone(),
-                Mode::Ana(Rc::new(TypeCandidate::Bool)),
+                Mode::Ana(Rc::new(Type::Bool)),
                 cond.clone(),
                 constraints,
             );
@@ -374,15 +352,15 @@ pub fn generate_constraints_expr(
         }
         ExprKind::Func((arg1, _), args, _, body) => {
             let mut new_ctx = TyCtx::new(Some(ctx));
-            new_ctx.borrow_mut().extend(arg1, TypeCandidate::fresh());
+            new_ctx.borrow_mut().extend(arg1, Type::fresh());
             for (arg, _) in args {
-                new_ctx.borrow_mut().extend(arg, TypeCandidate::fresh());
+                new_ctx.borrow_mut().extend(arg, Type::fresh());
             }
             generate_constraints_expr(new_ctx, Mode::Syn, body.clone(), constraints);
         }
         ExprKind::FuncAp(func, arg1, args) => {
-            let ty_func = TypeCandidate::fresh();
-            let ty_arg = TypeCandidate::fresh();
+            let ty_func = Type::fresh();
+            let ty_arg = Type::fresh();
             generate_constraints_expr(
                 ctx.clone(),
                 Mode::Ana(ty_func.clone()),
@@ -396,7 +374,7 @@ pub fn generate_constraints_expr(
                 constraints,
             );
             for arg in args {
-                let ty_arg = TypeCandidate::fresh();
+                let ty_arg = Type::fresh();
                 generate_constraints_expr(
                     ctx.clone(),
                     Mode::Ana(ty_arg.clone()),
@@ -437,8 +415,8 @@ pub fn generate_constraints_stmt(
                 _ => unimplemented!(),
             };
             let ty_pat = match ty_opt {
-                Some(ty) => Rc::new(TypeCandidate::from(ty.clone())),
-                None => TypeCandidate::fresh(),
+                Some(ty) => ty.clone(),
+                None => Type::fresh(),
             };
             // todo generate constraints using pattern itself as well... pattern could be a tuple or variant, or have a type annotation?
             generate_constraints_expr(

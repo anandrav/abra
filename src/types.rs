@@ -5,7 +5,7 @@ use std::{
 
 use crate::operators::BinOpcode;
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum Type {
     Unknown(Id),
     Unit,
