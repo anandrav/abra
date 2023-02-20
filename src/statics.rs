@@ -55,25 +55,50 @@ impl UFTypeCandidate {
     }
 }
 
-fn retrieve_or_add_node(
+// creates a UFTypeCandidates from the unknown type
+// only adds/retrieves from the graph if the type is holey!
+fn retrieve_and_or_add_node(
     unknown_ty_to_candidates: &mut HashMap<Rc<Type>, UFTypeCandidates>,
     unknown: Rc<Type>,
 ) -> UFTypeCandidates {
     if unknown_ty_to_candidates.contains_key(&unknown) {
         unknown_ty_to_candidates[&unknown].clone()
     } else {
-        let node = UnionFindNode::new(UFTypeCandidates_::singleton(
-            UFTypeCandidate::from(unknown.clone()).into(),
-        ));
-        unknown_ty_to_candidates.insert(unknown, node.clone());
-        node
+        match &*unknown {
+            Type::Unknown(id) => {
+                let node = UnionFindNode::new(UFTypeCandidates_::singleton(
+                    UFTypeCandidate::Unknown(id.clone()),
+                ));
+                unknown_ty_to_candidates.insert(unknown, node.clone());
+                node
+            }
+            Type::Arrow(t1, t2) => {
+                let t1 = retrieve_and_or_add_node(unknown_ty_to_candidates, t1.clone());
+                let t2 = retrieve_and_or_add_node(unknown_ty_to_candidates, t2.clone());
+                let node = UnionFindNode::new(UFTypeCandidates_::singleton(
+                    UFTypeCandidate::Arrow(t1, t2),
+                ));
+                // unknown_ty_to_candidates.insert(unknown, node.clone());
+                node
+            }
+            Type::Unit => UnionFindNode::new(UFTypeCandidates_::singleton(UFTypeCandidate::Unit)),
+            Type::Int => UnionFindNode::new(UFTypeCandidates_::singleton(UFTypeCandidate::Int)),
+            Type::Bool => UnionFindNode::new(UFTypeCandidates_::singleton(UFTypeCandidate::Bool)),
+            Type::String => {
+                UnionFindNode::new(UFTypeCandidates_::singleton(UFTypeCandidate::String))
+            }
+        }
     }
 }
 
+// TODO this should probbably be removed... or maybe not idk. Just don't create two nodes for the same unknown type...
+// Maybe distinguish between nodes in the graph (holey types) and types which are not
+// holey types are represented by UFTypeCandidate
+// non-holey type are represented by TypeCandidate, which doesn't have Unknown case
 impl From<Rc<Type>> for UFTypeCandidate {
-    fn from(t: Rc<Type>) -> Self {
+    fn from(t: Rc<Type>) -> UFTypeCandidate {
         match &*t {
-            Type::Unknown(id) => UFTypeCandidate::Unknown(id.clone()),
+            Type::Unknown(id) => unreachable!(),
             Type::Unit => UFTypeCandidate::Unit,
             Type::Int => UFTypeCandidate::Int,
             Type::Bool => UFTypeCandidate::Bool,
@@ -208,6 +233,7 @@ impl UFTypeCandidates_ {
 
 pub fn solve_constraints(constraints: Vec<Constraint>) {
     let mut constraints = constraints;
+    // this is the graph, which only contains unknown types or types containing unknown types. Make a new struct for it later.
     let mut unknown_ty_to_candidates: HashMap<Rc<Type>, UFTypeCandidates> = HashMap::new();
 
     let mut add_hole_and_t = |hole: Rc<Type>, t: Rc<Type>| {
@@ -220,7 +246,7 @@ pub fn solve_constraints(constraints: Vec<Constraint>) {
         //     unknown_ty_to_candidates.insert(hole, hole_node.clone());
         //     hole_node
         // };
-        let mut hole_node = retrieve_or_add_node(&mut unknown_ty_to_candidates, hole);
+        let mut hole_node = retrieve_and_or_add_node(&mut unknown_ty_to_candidates, hole);
         if t.contains_unknown() {
             // let mut t_node = if unknown_ty_to_candidates.contains_key(&t) {
             //     unknown_ty_to_candidates[&t].clone()
@@ -233,11 +259,8 @@ pub fn solve_constraints(constraints: Vec<Constraint>) {
             //     }
             //     t_node
             // };
-            let mut t_node = if t.is_unknown() {
-                retrieve_or_add_node(&mut unknown_ty_to_candidates, t)
-            } else {
-                UnionFindNode::new(UFTypeCandidates_::singleton(UFTypeCandidate::from(t)))
-            };
+            let mut t_node = retrieve_and_or_add_node(&mut unknown_ty_to_candidates, t);
+            // let mut t_node = retrieve_or_add_node(&mut unknown_ty_to_candidates, t);
             hole_node.union_with(&mut t_node, UFTypeCandidates_::merge);
             // hole_node.union(&mut t_node);
         } else {
