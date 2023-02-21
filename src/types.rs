@@ -1,4 +1,5 @@
 use std::{
+    fmt,
     rc::Rc,
     sync::atomic::{AtomicUsize, Ordering},
 };
@@ -58,6 +59,19 @@ impl Type {
                 Rc::new(Type::Int)
             }
             BinOpcode::Equals | BinOpcode::LessThan | BinOpcode::GreaterThan => Rc::new(Type::Bool),
+        }
+    }
+}
+
+impl fmt::Display for Type {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Type::Unknown(id) => write!(f, "?{}", id.id),
+            Type::Unit => write!(f, "unit"),
+            Type::Int => write!(f, "int"),
+            Type::Bool => write!(f, "bool"),
+            Type::String => write!(f, "string"),
+            Type::Arrow(t1, t2) => write!(f, "{} -> {}", t1, t2),
         }
     }
 }
