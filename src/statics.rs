@@ -68,9 +68,7 @@ fn retrieve_and_or_add_node(
     } else {
         match &*unknown {
             Type::Unknown(id) => {
-                let node = UnionFindNode::new(UFPossibleTypes_::singleton(
-                    UFPossibleType::Unknown(id.clone()),
-                ));
+                let node = UnionFindNode::new(UFPossibleTypes_::empty());
                 unknown_ty_to_candidates.insert(unknown, node.clone());
                 node
             }
@@ -206,6 +204,10 @@ pub struct UFPossibleTypes_ {
 }
 
 impl UFPossibleTypes_ {
+    fn empty() -> Self {
+        Self { types: vec![] }
+    }
+
     fn singleton(t: UFPossibleType) -> Self {
         Self { types: vec![t] }
     }
