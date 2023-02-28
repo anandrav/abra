@@ -1,4 +1,4 @@
-use crate::ast::*;
+use crate::ast::{self, *};
 use crate::operators::BinOpcode;
 use crate::types::{self, Type};
 use disjoint_sets::UnionFindNode;
@@ -19,7 +19,7 @@ type UFPossibleTypes = UnionFindNode<UFPossibleTypes_>;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum UFPossibleType {
-    Unknown(types::Id),
+    Unknown(ast::Id),
     Unit,
     Int,
     Bool,
@@ -148,7 +148,7 @@ impl fmt::Display for TypeSuggestions {
             if i == 0 {
                 s.push_str(&format!("{}", t));
             } else {
-                s.push_str(&format!(" | {}", t));
+                s.push_str(&format!(" // {}", t));
             }
         }
         write!(f, "{}", s)
@@ -247,7 +247,7 @@ impl UFPossibleTypes_ {
     }
 }
 
-pub fn solve_constraints(constraints: Vec<Constraint>) {
+pub fn solve_constraints(constraints: Vec<Constraint>, node_map: ast::NodeMap, source: &str) {
     let mut constraints = constraints;
     // this is the graph, which only contains unknown types or types containing unknown types. Make a new struct for it later.
     let mut unknown_ty_to_candidates: HashMap<Rc<Type>, UFPossibleTypes> = HashMap::new();
@@ -285,8 +285,14 @@ pub fn solve_constraints(constraints: Vec<Constraint>) {
 
     println!("Type Suggestions:");
     for (unknown_ty, candidates) in unknown_ty_to_candidates {
+        let ast_node_str = if let Type::Unknown(id) = &*unknown_ty {
+            let span = node_map.get(id).unwrap().span();
+            source[span.lo..span.hi].to_string()
+        } else {
+            panic!("not an unknown type!");
+        };
         ty_suggestions.push((unknown_ty.clone(), condense_candidates(&candidates)));
-        println!("{}: {}", unknown_ty, condense_candidates(&candidates));
+        println!("{}: {}", ast_node_str, condense_candidates(&candidates));
     }
 }
 
@@ -412,7 +418,7 @@ pub fn generate_constraints_expr(
                     Mode::Syn => (),
                     Mode::Ana(expected) => constraints.push(Constraint {
                         expected,
-                        actual: Type::fresh(),
+                        actual: Type::Unknown(expr.id.clone()).into(),
                         cause: expr.span.clone(),
                     }),
                 },
@@ -470,13 +476,13 @@ pub fn generate_constraints_expr(
         }
         ExprKind::Func((arg1, _), args, _, body) => {
             let mut new_ctx = TyCtx::new(Some(ctx));
-            let ty_arg = Type::fresh();
+            let ty_arg = Rc::new(Type::Unknown(expr.id.clone())); // TODO wrong id, need id of arg, make args patterns later
             new_ctx.borrow_mut().extend(arg1, ty_arg.clone());
             // TODO n args not just 1
             // for (arg, _) in args {
             //     new_ctx.borrow_mut().extend(arg, Type::fresh());
             // }
-            let ty_body = Type::fresh();
+            let ty_body = Rc::new(Type::Unknown(body.id.clone()));
             generate_constraints_expr(
                 new_ctx,
                 Mode::Ana(ty_body.clone()),
@@ -495,15 +501,16 @@ pub fn generate_constraints_expr(
             };
         }
         ExprKind::FuncAp(func, arg1, args) => {
-            let ty_arg = Type::fresh();
+            let ty_arg = Rc::new(Type::Unknown(arg1.id.clone())); // TODO matched arrow
             generate_constraints_expr(
                 ctx.clone(),
                 Mode::Ana(ty_arg.clone()),
                 arg1.clone(),
                 constraints,
             );
-            let ty_body = Type::fresh();
+            let ty_body = Rc::new(Type::Unknown(arg1.id.clone()));
 
+            // TODO matched arrow
             let ty_func = Rc::new(Type::Arrow(ty_arg, ty_body.clone()));
             generate_constraints_expr(
                 ctx.clone(),
@@ -551,7 +558,7 @@ pub fn generate_constraints_stmt(
             };
             let ty_pat = match ty_opt {
                 Some(ty) => ty.clone(),
-                None => Type::fresh(),
+                None => Rc::new(Type::Unknown(pat.id.clone())), // TODO wrong id, need id of type annotation
             };
             // todo generate constraints using pattern itself as well... pattern could be a tuple or variant, or have a type annotation?
             generate_constraints_expr(

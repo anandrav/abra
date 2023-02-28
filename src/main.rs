@@ -16,6 +16,8 @@ mod statics;
 mod translate;
 mod types;
 
+use std::rc::Rc;
+
 use debug_print::debug_println;
 
 use eframe::egui;
@@ -146,8 +148,17 @@ impl eframe::App for MyApp {
                                         parse_tree.clone(),
                                         &mut constraints,
                                     );
+                                    let mut node_map = ast::NodeMap::new();
+                                    ast::populate_node_map(
+                                        &mut node_map,
+                                        &(parse_tree.clone() as Rc<dyn ast::Node>),
+                                    );
                                     println!("Constraints: {:#?}", constraints);
-                                    statics::solve_constraints(constraints);
+                                    statics::solve_constraints(
+                                        constraints,
+                                        node_map,
+                                        &text_with_braces,
+                                    );
                                     let eval_tree =
                                         translate::translate_expr(parse_tree.exprkind.clone());
                                     // self.interpreter = Some(Interpreter::new(eval_tree));

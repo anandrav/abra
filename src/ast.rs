@@ -5,6 +5,7 @@ use pest::iterators::{Pair, Pairs};
 use pest::pratt_parser::{Assoc, Op, PrattParser};
 use pest::Parser;
 use pest_derive::Parser;
+use std::collections::HashMap;
 use std::rc::Rc;
 use std::sync::atomic::{AtomicUsize, Ordering};
 #[derive(Parser)]
@@ -14,11 +15,33 @@ struct MyParser;
 pub type Identifier = String;
 pub type FuncArg = (Identifier, Option<Rc<Type>>);
 
+pub trait Node {
+    fn span(&self) -> Span;
+    fn id(&self) -> Id;
+    fn children(&self) -> Vec<Rc<dyn Node>>;
+}
+
 #[derive(Debug, PartialEq)]
 pub struct Stmt {
     pub stmtkind: Rc<StmtKind>,
     pub span: Span,
     pub id: Id,
+}
+
+impl Node for Stmt {
+    fn span(&self) -> Span {
+        self.span.clone()
+    }
+    fn id(&self) -> Id {
+        self.id.clone()
+    }
+
+    fn children(&self) -> Vec<Rc<dyn Node>> {
+        match &*self.stmtkind {
+            StmtKind::Let(pat, ty, expr) => vec![pat.clone(), expr.clone()],
+            StmtKind::Expr(expr) => vec![expr.clone()],
+        }
+    }
 }
 
 #[derive(Debug, PartialEq)]
@@ -32,6 +55,43 @@ pub struct Expr {
     pub exprkind: Rc<ExprKind>,
     pub span: Span,
     pub id: Id,
+}
+
+impl Node for Expr {
+    fn span(&self) -> Span {
+        self.span.clone()
+    }
+    fn id(&self) -> Id {
+        self.id.clone()
+    }
+
+    fn children(&self) -> Vec<Rc<dyn Node>> {
+        match &*self.exprkind {
+            ExprKind::Var(_) => vec![],
+            ExprKind::Unit => vec![],
+            ExprKind::Int(_) => vec![],
+            ExprKind::Bool(_) => vec![],
+            ExprKind::Str(_) => vec![],
+            ExprKind::Func(_, _, _, expr) => vec![expr.clone()],
+            ExprKind::If(cond, then, els) => vec![cond.clone(), then.clone(), els.clone()],
+            ExprKind::Block(stmts, expr) => {
+                let mut children: Vec<Rc<dyn Node>> = stmts
+                    .iter()
+                    .map(|s| s.clone() as Rc<dyn Node>)
+                    .collect::<Vec<_>>();
+                if let Some(expr) = expr {
+                    children.push(expr.clone());
+                }
+                children
+            }
+            ExprKind::BinOp(lhs, _, rhs) => vec![lhs.clone(), rhs.clone()],
+            ExprKind::FuncAp(func, arg, args) => {
+                let mut children: Vec<Rc<dyn Node>> = vec![func.clone(), arg.clone()];
+                children.extend(args.iter().map(|a| a.clone() as Rc<dyn Node>));
+                children
+            }
+        }
+    }
 }
 
 #[derive(Debug, PartialEq)]
@@ -59,6 +119,21 @@ pub struct Pat {
     pub id: Id,
 }
 
+impl Node for Pat {
+    fn span(&self) -> Span {
+        self.span.clone()
+    }
+    fn id(&self) -> Id {
+        self.id.clone()
+    }
+
+    fn children(&self) -> Vec<Rc<dyn Node>> {
+        match &*self.patkind {
+            PatKind::Var(_) => vec![],
+        }
+    }
+}
+
 #[derive(Debug, PartialEq)]
 pub enum PatKind {
     // EmptyHole,
@@ -69,7 +144,7 @@ pub enum PatKind {
     // Str(String),
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Id {
     pub id: usize,
 }
@@ -340,4 +415,13 @@ pub fn parse_or_err(source: &str) -> Result<Rc<Expr>, String> {
         .op(Op::infix(Rule::op_multiplication, Assoc::Left)
             | Op::infix(Rule::op_division, Assoc::Left));
     Ok(parse_expr_pratt(pairs, &pratt))
+}
+
+pub type NodeMap = HashMap<Id, Rc<dyn Node>>;
+
+pub fn populate_node_map(node_map: &mut NodeMap, node: &Rc<dyn Node>) {
+    node_map.insert(node.id(), node.clone());
+    for child in node.children() {
+        populate_node_map(node_map, &child);
+    }
 }

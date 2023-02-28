@@ -4,11 +4,11 @@ use std::{
     sync::atomic::{AtomicUsize, Ordering},
 };
 
-use crate::operators::BinOpcode;
+use crate::{ast, operators::BinOpcode};
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum Type {
-    Unknown(Id),
+    Unknown(ast::Id),
     Unit,
     Int,
     Bool,
@@ -17,12 +17,15 @@ pub enum Type {
 }
 
 impl Type {
-    pub fn fresh() -> Rc<Self> {
-        Rc::new(Type::Unknown(Id::new()))
-    }
+    // pub fn fresh() -> Rc<Self> {
+    //     Rc::new(Type::Unknown(Id::new()))
+    // }
 
-    pub fn matched_arrow() -> Rc<Self> {
-        Rc::new(Type::Arrow(Type::fresh(), Type::fresh()))
+    pub fn matched_arrow(id: ast::Id) -> Rc<Self> {
+        Rc::new(Type::Arrow(
+            Type::Unknown(id.clone()).into(),
+            Type::Unknown(id).into(),
+        ))
     }
 
     pub fn matched_arrow_n(tys: Vec<Rc<Type>>) -> Rc<Type> {
@@ -76,15 +79,15 @@ impl fmt::Display for Type {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct Id {
-    pub id: usize,
-}
+// #[derive(Debug, Clone, PartialEq, Eq, Hash)]
+// pub struct Id {
+//     pub id: usize,
+// }
 
-impl Id {
-    pub fn new() -> Self {
-        static ID_COUNTER: std::sync::atomic::AtomicUsize = AtomicUsize::new(1);
-        let id = ID_COUNTER.fetch_add(1, Ordering::Relaxed);
-        Self { id }
-    }
-}
+// impl Id {
+//     pub fn new() -> Self {
+//         static ID_COUNTER: std::sync::atomic::AtomicUsize = AtomicUsize::new(1);
+//         let id = ID_COUNTER.fetch_add(1, Ordering::Relaxed);
+//         Self { id }
+//     }
+// }
