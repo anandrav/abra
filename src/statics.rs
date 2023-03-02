@@ -1,5 +1,5 @@
 use crate::ast::{self, *};
-use crate::types::{Prov, Type};
+use crate::types::{types_of_binop, Prov, Type};
 use disjoint_sets::UnionFindNode;
 use std::cell::RefCell;
 use std::collections::HashMap;
@@ -439,24 +439,23 @@ pub fn generate_constraints_expr(
             }
         }
         ExprKind::BinOp(left, op, right) => {
-            let ty_op = Type::of_binop(op);
+            let types_of_binop = types_of_binop(op);
+            // TODO use a type not a vector
+            let ty_left = types_of_binop[0].clone();
+            let ty_right = types_of_binop[1].clone();
+            let ty_out = types_of_binop[2].clone();
             match mode {
                 Mode::Syn => (),
                 Mode::Ana(expected) => {
                     constraints.push(Constraint {
                         expected,
-                        actual: ty_op.clone(),
+                        actual: ty_out.clone(),
                         cause: expr.span.clone(),
                     });
                 }
             };
-            generate_constraints_expr(
-                ctx.clone(),
-                Mode::Ana(ty_op.clone()),
-                left.clone(),
-                constraints,
-            );
-            generate_constraints_expr(ctx, Mode::Ana(ty_op), right.clone(), constraints);
+            generate_constraints_expr(ctx.clone(), Mode::Ana(ty_left), left.clone(), constraints);
+            generate_constraints_expr(ctx, Mode::Ana(ty_right), right.clone(), constraints);
         }
         ExprKind::Block(statements, opt_terminal_expr) => {
             let mut new_ctx = TyCtx::new(Some(ctx));
