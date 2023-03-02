@@ -161,7 +161,7 @@ impl eframe::App for MyApp {
                                     );
                                     let eval_tree =
                                         translate::translate_expr(parse_tree.exprkind.clone());
-                                    // self.interpreter = Some(Interpreter::new(eval_tree));
+                                    self.interpreter = Some(Interpreter::new(eval_tree));
                                 }
                                 Err(err) => {
                                     self.output = err;

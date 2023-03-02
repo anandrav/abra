@@ -38,7 +38,7 @@ impl Node for Stmt {
 
     fn children(&self) -> Vec<Rc<dyn Node>> {
         match &*self.stmtkind {
-            StmtKind::Let(pat, ty, expr) => vec![pat.clone(), expr.clone()],
+            StmtKind::Let(pat, _, expr) => vec![pat.clone(), expr.clone()],
             StmtKind::Expr(expr) => vec![expr.clone()],
         }
     }
@@ -72,10 +72,10 @@ impl Node for Expr {
             ExprKind::Int(_) => vec![],
             ExprKind::Bool(_) => vec![],
             ExprKind::Str(_) => vec![],
-            ExprKind::Func((arg, annot), args, ty, body) => {
+            ExprKind::Func((arg, _), args, _, body) => {
                 let mut children: Vec<Rc<dyn Node>> =
                     vec![arg.clone() as Rc<dyn Node>, body.clone()];
-                children.extend(args.iter().map(|(a, annot)| a.clone() as Rc<dyn Node>));
+                children.extend(args.iter().map(|(a, _)| a.clone() as Rc<dyn Node>));
                 children
             }
             ExprKind::If(cond, then, els) => vec![cond.clone(), then.clone(), els.clone()],

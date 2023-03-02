@@ -1,12 +1,10 @@
 use crate::ast::{self, *};
-use crate::operators::BinOpcode;
-use crate::types::{self, Type};
+use crate::types::{Prov, Type};
 use disjoint_sets::UnionFindNode;
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::fmt;
 use std::rc::Rc;
-use std::sync::atomic::{AtomicUsize, Ordering};
 
 #[derive(Debug)]
 pub struct Constraint {
@@ -15,42 +13,42 @@ pub struct Constraint {
     cause: Span,
 }
 
-type UFPossibleTypes = UnionFindNode<UFPossibleTypes_>;
+type UFPotentialTypes = UnionFindNode<UFPotentialTypes_>;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub enum UFPossibleType {
+pub enum UFPotentialType {
     Unknown(ast::Id),
     Unit,
     Int,
     Bool,
     String,
-    Arrow(UFPossibleTypes, UFPossibleTypes),
+    Arrow(UFPotentialTypes, UFPotentialTypes),
 }
 
-impl UFPossibleType {
+impl UFPotentialType {
     pub fn is_primitive(&self) -> bool {
         match self {
-            UFPossibleType::Unknown(_) => true,
-            UFPossibleType::Unit => true,
-            UFPossibleType::Int => true,
-            UFPossibleType::Bool => true,
-            UFPossibleType::String => true,
-            UFPossibleType::Arrow(_, _) => false,
+            UFPotentialType::Unknown(_) => true,
+            UFPotentialType::Unit => true,
+            UFPotentialType::Int => true,
+            UFPotentialType::Bool => true,
+            UFPotentialType::String => true,
+            UFPotentialType::Arrow(_, _) => false,
         }
     }
 
-    pub fn is_compound(&self) -> bool {
-        !self.is_primitive()
-    }
+    // pub fn is_compound(&self) -> bool {
+    //     !self.is_primitive()
+    // }
 
     pub fn contains_unknown(&self) -> bool {
         match self {
-            UFPossibleType::Unknown(_) => true,
-            UFPossibleType::Unit => false,
-            UFPossibleType::Int => false,
-            UFPossibleType::Bool => false,
-            UFPossibleType::String => false,
-            UFPossibleType::Arrow(t1, t2) => {
+            UFPotentialType::Unknown(_) => true,
+            UFPotentialType::Unit => false,
+            UFPotentialType::Int => false,
+            UFPotentialType::Bool => false,
+            UFPotentialType::String => false,
+            UFPotentialType::Arrow(t1, t2) => {
                 t1.clone_data().contains_unknown() || t2.clone_data().contains_unknown()
             }
         }
@@ -60,30 +58,33 @@ impl UFPossibleType {
 // creates a UFTypeCandidates from the unknown type
 // only adds/retrieves from the graph if the type is holey!
 fn retrieve_and_or_add_node(
-    unknown_ty_to_candidates: &mut HashMap<Rc<Type>, UFPossibleTypes>,
+    unknown_ty_to_candidates: &mut HashMap<Rc<Type>, UFPotentialTypes>,
     unknown: Rc<Type>,
-) -> UFPossibleTypes {
+) -> UFPotentialTypes {
     if unknown_ty_to_candidates.contains_key(&unknown) {
         unknown_ty_to_candidates[&unknown].clone()
     } else {
         match &*unknown {
-            Type::Unknown(id) => {
-                let node = UnionFindNode::new(UFPossibleTypes_::empty());
+            Type::Unknown(_id) => {
+                let node = UnionFindNode::new(UFPotentialTypes_::empty());
                 unknown_ty_to_candidates.insert(unknown, node.clone());
                 node
             }
             Type::Arrow(t1, t2) => {
                 let t1 = retrieve_and_or_add_node(unknown_ty_to_candidates, t1.clone());
                 let t2 = retrieve_and_or_add_node(unknown_ty_to_candidates, t2.clone());
-                let node =
-                    UnionFindNode::new(UFPossibleTypes_::singleton(UFPossibleType::Arrow(t1, t2)));
+                let node = UnionFindNode::new(UFPotentialTypes_::singleton(
+                    UFPotentialType::Arrow(t1, t2),
+                ));
                 // unknown_ty_to_candidates.insert(unknown, node.clone());
                 node
             }
-            Type::Unit => UnionFindNode::new(UFPossibleTypes_::singleton(UFPossibleType::Unit)),
-            Type::Int => UnionFindNode::new(UFPossibleTypes_::singleton(UFPossibleType::Int)),
-            Type::Bool => UnionFindNode::new(UFPossibleTypes_::singleton(UFPossibleType::Bool)),
-            Type::String => UnionFindNode::new(UFPossibleTypes_::singleton(UFPossibleType::String)),
+            Type::Unit => UnionFindNode::new(UFPotentialTypes_::singleton(UFPotentialType::Unit)),
+            Type::Int => UnionFindNode::new(UFPotentialTypes_::singleton(UFPotentialType::Int)),
+            Type::Bool => UnionFindNode::new(UFPotentialTypes_::singleton(UFPotentialType::Bool)),
+            Type::String => {
+                UnionFindNode::new(UFPotentialTypes_::singleton(UFPotentialType::String))
+            }
         }
     }
 }
@@ -92,22 +93,22 @@ fn retrieve_and_or_add_node(
 // Maybe distinguish between nodes in the graph (holey types) and types which are not
 // holey types are represented by UFTypeCandidate
 // non-holey type are represented by TypeCandidate, which doesn't have Unknown case
-impl From<Rc<Type>> for UFPossibleType {
-    fn from(t: Rc<Type>) -> UFPossibleType {
+impl From<Rc<Type>> for UFPotentialType {
+    fn from(t: Rc<Type>) -> UFPotentialType {
         match &*t {
-            Type::Unknown(id) => unreachable!(),
-            Type::Unit => UFPossibleType::Unit,
-            Type::Int => UFPossibleType::Int,
-            Type::Bool => UFPossibleType::Bool,
-            Type::String => UFPossibleType::String,
+            Type::Unknown(_id) => unreachable!(),
+            Type::Unit => UFPotentialType::Unit,
+            Type::Int => UFPotentialType::Int,
+            Type::Bool => UFPotentialType::Bool,
+            Type::String => UFPotentialType::String,
             Type::Arrow(t1, t2) => {
-                let t1 = UnionFindNode::new(UFPossibleTypes_::singleton(
-                    UFPossibleType::from(t1.clone()).into(),
+                let t1 = UnionFindNode::new(UFPotentialTypes_::singleton(
+                    UFPotentialType::from(t1.clone()).into(),
                 ));
-                let t2 = UnionFindNode::new(UFPossibleTypes_::singleton(
-                    UFPossibleType::from(t2.clone()).into(),
+                let t2 = UnionFindNode::new(UFPotentialTypes_::singleton(
+                    UFPotentialType::from(t2.clone()).into(),
                 ));
-                UFPossibleType::Arrow(t1, t2)
+                UFPotentialType::Arrow(t1, t2)
             }
         }
     }
@@ -155,37 +156,37 @@ impl fmt::Display for TypeSuggestions {
     }
 }
 
-pub fn condense_candidates(uf_type_candidates: &UFPossibleTypes) -> TypeSuggestions {
+pub fn condense_candidates(uf_type_candidates: &UFPotentialTypes) -> TypeSuggestions {
     let condensed = uf_type_candidates.clone_data();
     let mut types = Vec::new();
     for candidate in &condensed.types {
         match candidate {
-            UFPossibleType::Unit => {
+            UFPotentialType::Unit => {
                 let t = TypeSuggestion::Unit;
                 if !types.contains(&t) {
                     types.push(t);
                 }
             }
-            UFPossibleType::Int => {
+            UFPotentialType::Int => {
                 let t = TypeSuggestion::Int;
                 if !types.contains(&t) {
                     types.push(t);
                 }
             }
-            UFPossibleType::Bool => {
+            UFPotentialType::Bool => {
                 let t = TypeSuggestion::Bool;
                 if !types.contains(&t) {
                     types.push(t);
                 }
             }
-            UFPossibleType::String => {
+            UFPotentialType::String => {
                 let t = TypeSuggestion::String;
                 if !types.contains(&t) {
                     types.push(t);
                 }
             }
-            UFPossibleType::Unknown(_) => (),
-            UFPossibleType::Arrow(t1, t2) => {
+            UFPotentialType::Unknown(_) => (),
+            UFPotentialType::Arrow(t1, t2) => {
                 let t1 = condense_candidates(t1);
                 let t2 = condense_candidates(t2);
                 types.push(TypeSuggestion::Arrow(t1, t2));
@@ -199,36 +200,36 @@ pub fn condense_candidates(uf_type_candidates: &UFPossibleTypes) -> TypeSuggesti
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct UFPossibleTypes_ {
-    types: Vec<UFPossibleType>,
+pub struct UFPotentialTypes_ {
+    types: Vec<UFPotentialType>,
 }
 
-impl UFPossibleTypes_ {
+impl UFPotentialTypes_ {
     fn empty() -> Self {
         Self { types: vec![] }
     }
 
-    fn singleton(t: UFPossibleType) -> Self {
+    fn singleton(t: UFPotentialType) -> Self {
         Self { types: vec![t] }
     }
 
     // TODO cleanup:
-    fn extend(&mut self, t_other: UFPossibleType) {
+    fn extend(&mut self, t_other: UFPotentialType) {
         if t_other.is_primitive() && !self.types.contains(&t_other) {
             self.types.push(t_other.clone());
         } else {
             let mut contains_arrow = false;
-            for (i, t) in self.types.iter_mut().enumerate() {
+            for (_i, t) in self.types.iter_mut().enumerate() {
                 let t = t.clone();
-                if let UFPossibleType::Arrow(mut other_L, mut other_R) = t_other.clone() {
-                    if let UFPossibleType::Arrow(mut t_L, mut t_R) = t {
+                if let UFPotentialType::Arrow(mut other_left, mut other_right) = t_other.clone() {
+                    if let UFPotentialType::Arrow(mut t_left, mut t_right) = t {
                         contains_arrow = true;
-                        t_L.union_with(&mut other_L, UFPossibleTypes_::merge);
-                        t_R.union_with(&mut other_R, UFPossibleTypes_::merge);
+                        t_left.union_with(&mut other_left, UFPotentialTypes_::merge);
+                        t_right.union_with(&mut other_right, UFPotentialTypes_::merge);
                     }
                 }
             }
-            if (!contains_arrow) {
+            if !contains_arrow {
                 self.types.push(t_other.clone());
             }
         }
@@ -250,13 +251,14 @@ impl UFPossibleTypes_ {
 pub fn solve_constraints(constraints: Vec<Constraint>, node_map: ast::NodeMap, source: &str) {
     let mut constraints = constraints;
     // this is the graph, which only contains unknown types or types containing unknown types. Make a new struct for it later.
-    let mut unknown_ty_to_candidates: HashMap<Rc<Type>, UFPossibleTypes> = HashMap::new();
+    let mut unknown_ty_to_potential_types: HashMap<Rc<Type>, UFPotentialTypes> = HashMap::new();
 
     let mut add_hole_and_t = |hole: Rc<Type>, t: Rc<Type>| {
-        let mut hole_node = retrieve_and_or_add_node(&mut unknown_ty_to_candidates, hole);
+        let mut hole_node = retrieve_and_or_add_node(&mut unknown_ty_to_potential_types, hole);
+        // TODO is this contains unknown check necessary?
         if t.contains_unknown() {
-            let mut t_node = retrieve_and_or_add_node(&mut unknown_ty_to_candidates, t);
-            hole_node.union_with(&mut t_node, UFPossibleTypes_::merge);
+            let mut t_node = retrieve_and_or_add_node(&mut unknown_ty_to_potential_types, t);
+            hole_node.union_with(&mut t_node, UFPotentialTypes_::merge);
         } else {
             hole_node.with_data(|t1| t1.extend(t.into()));
         }
@@ -284,10 +286,22 @@ pub fn solve_constraints(constraints: Vec<Constraint>, node_map: ast::NodeMap, s
     let mut ty_suggestions: Vec<(Rc<Type>, TypeSuggestions)> = Vec::new();
 
     println!("Type Suggestions:");
-    for (unknown_ty, candidates) in unknown_ty_to_candidates {
-        let ast_node_str = if let Type::Unknown(id) = &*unknown_ty {
-            let span = node_map.get(id).unwrap().span();
-            source[span.lo..span.hi].to_string()
+    for (unknown_ty, candidates) in unknown_ty_to_potential_types {
+        let ast_node_str = if let Type::Unknown(prov) = &*unknown_ty {
+            match prov {
+                Prov::Node(id) => {
+                    let span = node_map.get(id).unwrap().span();
+                    source[span.lo..span.hi].to_string()
+                }
+                Prov::MALeft(id) => {
+                    let span = node_map.get(id).unwrap().span();
+                    format!("argument of {}", source[span.lo..span.hi].to_string())
+                }
+                Prov::MARight(id) => {
+                    let span = node_map.get(id).unwrap().span();
+                    format!("body of {}", source[span.lo..span.hi].to_string())
+                }
+            }
         } else {
             panic!("not an unknown type!");
         };
@@ -418,7 +432,7 @@ pub fn generate_constraints_expr(
                     Mode::Syn => (),
                     Mode::Ana(expected) => constraints.push(Constraint {
                         expected,
-                        actual: Type::Unknown(expr.id.clone()).into(),
+                        actual: Type::Unknown(Prov::Node(expr.id.clone())).into(),
                         cause: expr.span.clone(),
                     }),
                 },
@@ -474,16 +488,16 @@ pub fn generate_constraints_expr(
             generate_constraints_expr(ctx.clone(), mode.clone(), expr1.clone(), constraints);
             generate_constraints_expr(ctx, mode, expr2.clone(), constraints);
         }
-        ExprKind::Func((arg1, _), args, _, body) => {
+        ExprKind::Func((arg1, _), _, _, body) => {
             let mut new_ctx = TyCtx::new(Some(ctx));
-            let ty_arg = Rc::new(Type::Unknown(arg1.id.clone())); // TODO wrong id, need id of arg, make args patterns later
+            let ty_arg = Rc::new(Type::Unknown(Prov::Node(arg1.id.clone())));
             let arg1id = arg1.patkind.get_identifier();
             new_ctx.borrow_mut().extend(&arg1id, ty_arg.clone());
             // TODO n args not just 1
             // for (arg, _) in args {
             //     new_ctx.borrow_mut().extend(arg, Type::fresh());
             // }
-            let ty_body = Rc::new(Type::Unknown(body.id.clone()));
+            let ty_body = Rc::new(Type::Unknown(Prov::Node(body.id.clone())));
             generate_constraints_expr(
                 new_ctx,
                 Mode::Ana(ty_body.clone()),
@@ -501,17 +515,16 @@ pub fn generate_constraints_expr(
                 }),
             };
         }
-        ExprKind::FuncAp(func, arg1, args) => {
-            let ty_arg = Rc::new(Type::Unknown(arg1.id.clone())); // TODO matched arrow
+        ExprKind::FuncAp(func, arg1, _) => {
+            let ty_arg = Rc::new(Type::Unknown(Prov::MALeft(func.id.clone())));
             generate_constraints_expr(
                 ctx.clone(),
                 Mode::Ana(ty_arg.clone()),
                 arg1.clone(),
                 constraints,
             );
-            let ty_body = Rc::new(Type::Unknown(arg1.id.clone()));
+            let ty_body = Rc::new(Type::Unknown(Prov::MARight(func.id.clone())));
 
-            // TODO matched arrow
             let ty_func = Rc::new(Type::Arrow(ty_arg, ty_body.clone()));
             generate_constraints_expr(
                 ctx.clone(),
@@ -553,13 +566,10 @@ pub fn generate_constraints_stmt(
             None
         }
         StmtKind::Let(pat, ty_opt, expr) => {
-            let identifier = match &*pat.patkind {
-                PatKind::Var(identifier) => identifier,
-                _ => unimplemented!(),
-            };
+            let PatKind::Var(identifier) = &*pat.patkind;
             let ty_pat = match ty_opt {
                 Some(ty) => ty.clone(),
-                None => Rc::new(Type::Unknown(pat.id.clone())), // TODO wrong id, need id of type annotation
+                None => Rc::new(Type::Unknown(Prov::Node(pat.id.clone()))), // TODO wrong id, need id of type annotation
             };
             // todo generate constraints using pattern itself as well... pattern could be a tuple or variant, or have a type annotation?
             generate_constraints_expr(
