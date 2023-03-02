@@ -51,10 +51,11 @@ pub fn translate_expr_block(
 }
 
 pub fn translate_expr_func(
-    (id, _): ast::FuncArg,
+    (pat, _): ast::FuncArg,
     func_args: Vec<ast::FuncArg>,
     body: Rc<ASTek>,
 ) -> Rc<Ete> {
+    let id = pat.patkind.get_identifier();
     if func_args.is_empty() {
         Rc::new(Ete::Func(id, translate_expr(body), None))
     } else {

@@ -476,8 +476,9 @@ pub fn generate_constraints_expr(
         }
         ExprKind::Func((arg1, _), args, _, body) => {
             let mut new_ctx = TyCtx::new(Some(ctx));
-            let ty_arg = Rc::new(Type::Unknown(expr.id.clone())); // TODO wrong id, need id of arg, make args patterns later
-            new_ctx.borrow_mut().extend(arg1, ty_arg.clone());
+            let ty_arg = Rc::new(Type::Unknown(arg1.id.clone())); // TODO wrong id, need id of arg, make args patterns later
+            let arg1id = arg1.patkind.get_identifier();
+            new_ctx.borrow_mut().extend(&arg1id, ty_arg.clone());
             // TODO n args not just 1
             // for (arg, _) in args {
             //     new_ctx.borrow_mut().extend(arg, Type::fresh());

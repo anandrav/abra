@@ -13,7 +13,7 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 struct MyParser;
 
 pub type Identifier = String;
-pub type FuncArg = (Identifier, Option<Rc<Type>>);
+pub type FuncArg = (Rc<Pat>, Option<Rc<Type>>);
 
 pub trait Node {
     fn span(&self) -> Span;
@@ -72,7 +72,12 @@ impl Node for Expr {
             ExprKind::Int(_) => vec![],
             ExprKind::Bool(_) => vec![],
             ExprKind::Str(_) => vec![],
-            ExprKind::Func(_, _, _, expr) => vec![expr.clone()],
+            ExprKind::Func((arg, annot), args, ty, body) => {
+                let mut children: Vec<Rc<dyn Node>> =
+                    vec![arg.clone() as Rc<dyn Node>, body.clone()];
+                children.extend(args.iter().map(|(a, annot)| a.clone() as Rc<dyn Node>));
+                children
+            }
             ExprKind::If(cond, then, els) => vec![cond.clone(), then.clone(), els.clone()],
             ExprKind::Block(stmts, expr) => {
                 let mut children: Vec<Rc<dyn Node>> = stmts
@@ -142,6 +147,14 @@ pub enum PatKind {
     // Int(i32),
     // Bool(bool),
     // Str(String),
+}
+
+impl PatKind {
+    pub fn get_identifier(&self) -> Identifier {
+        match self {
+            PatKind::Var(id) => id.clone(),
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -215,6 +228,11 @@ pub fn parse_pat(pair: Pair<Rule>, _pratt: &PrattParser<Rule>) -> Rc<Pat> {
     let span = Span::from(pair.as_span());
     let rule = pair.as_rule();
     match rule {
+        Rule::expression => {
+            let inner: Vec<_> = pair.into_inner().collect();
+            let pair = inner.first().unwrap().clone();
+            parse_pat(pair, _pratt)
+        }
         Rule::identifier => Rc::new(Pat {
             patkind: Rc::new(PatKind::Var(pair.as_str().to_owned())),
             span,
@@ -224,18 +242,21 @@ pub fn parse_pat(pair: Pair<Rule>, _pratt: &PrattParser<Rule>) -> Rc<Pat> {
     }
 }
 // TODO: make func args patterns
-pub fn parse_func_arg(pair: Pair<Rule>, _pratt: &PrattParser<Rule>) -> FuncArg {
-    let _span = Span::from(pair.as_span());
-    let rule = pair.as_rule();
-    match rule {
-        Rule::expression => {
-            let inner: Vec<_> = pair.into_inner().collect();
-            let pair = inner.first().unwrap().clone();
-            parse_func_arg(pair, _pratt)
-        }
-        Rule::identifier => (pair.as_str().to_owned(), None),
-        _ => panic!("unreachable rule {:#?}", rule),
-    }
+// pub fn parse_func_arg(pair: Pair<Rule>, _pratt: &PrattParser<Rule>) -> FuncArg {
+//     let _span = Span::from(pair.as_span());
+//     let rule = pair.as_rule();
+//     match rule {
+//         Rule::expression => {
+//             let inner: Vec<_> = pair.into_inner().collect();
+//             let pair = inner.first().unwrap().clone();
+//             parse_func_arg(pair, _pratt)
+//         }
+//         Rule::identifier => (pair.as_str().to_owned(), None),
+//         _ => panic!("unreachable rule {:#?}", rule),
+//     }
+// }
+pub fn parse_func_arg(pair: Pair<Rule>, pratt: &PrattParser<Rule>) -> FuncArg {
+    (parse_pat(pair, pratt), None)
 }
 
 pub fn parse_stmt(pair: Pair<Rule>, pratt: &PrattParser<Rule>) -> Rc<Stmt> {
