@@ -38,15 +38,6 @@ impl Type {
             Type::Arrow(t1, t2) => t1.contains_unknown() || t2.contains_unknown(),
         }
     }
-
-    pub fn of_binop(opcode: &BinOpcode) -> Rc<Self> {
-        match opcode {
-            BinOpcode::Add | BinOpcode::Subtract | BinOpcode::Multiply | BinOpcode::Divide => {
-                Rc::new(Type::Int)
-            }
-            BinOpcode::Equals | BinOpcode::LessThan | BinOpcode::GreaterThan => Rc::new(Type::Bool),
-        }
-    }
 }
 
 pub fn types_of_binop(opcode: &BinOpcode) -> Vec<Rc<Type>> {
@@ -63,7 +54,7 @@ pub fn types_of_binop(opcode: &BinOpcode) -> Vec<Rc<Type>> {
 impl fmt::Display for Type {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Type::Unknown(id) => write!(f, "?"),
+            Type::Unknown(_id) => write!(f, "?"),
             Type::Unit => write!(f, "unit"),
             Type::Int => write!(f, "int"),
             Type::Bool => write!(f, "bool"),

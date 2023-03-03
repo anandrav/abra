@@ -17,7 +17,7 @@ type UFPotentialTypes = UnionFindNode<UFPotentialTypes_>;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum UFPotentialType {
-    Unknown(ast::Id),
+    // Unknown(ast::Id),
     Unit,
     Int,
     Bool,
@@ -28,29 +28,12 @@ pub enum UFPotentialType {
 impl UFPotentialType {
     pub fn is_primitive(&self) -> bool {
         match self {
-            UFPotentialType::Unknown(_) => true,
+            // UFPotentialType::Unknown(_) => true,
             UFPotentialType::Unit => true,
             UFPotentialType::Int => true,
             UFPotentialType::Bool => true,
             UFPotentialType::String => true,
             UFPotentialType::Arrow(_, _) => false,
-        }
-    }
-
-    // pub fn is_compound(&self) -> bool {
-    //     !self.is_primitive()
-    // }
-
-    pub fn contains_unknown(&self) -> bool {
-        match self {
-            UFPotentialType::Unknown(_) => true,
-            UFPotentialType::Unit => false,
-            UFPotentialType::Int => false,
-            UFPotentialType::Bool => false,
-            UFPotentialType::String => false,
-            UFPotentialType::Arrow(t1, t2) => {
-                t1.clone_data().contains_unknown() || t2.clone_data().contains_unknown()
-            }
         }
     }
 }
@@ -61,8 +44,8 @@ fn retrieve_and_or_add_node(
     unknown_ty_to_candidates: &mut HashMap<Rc<Type>, UFPotentialTypes>,
     unknown: Rc<Type>,
 ) -> UFPotentialTypes {
-    if unknown_ty_to_candidates.contains_key(&unknown) {
-        unknown_ty_to_candidates[&unknown].clone()
+    if let Some(node) = unknown_ty_to_candidates.get(&unknown) {
+        node.clone()
     } else {
         match &*unknown {
             Type::Unknown(_id) => {
@@ -73,11 +56,7 @@ fn retrieve_and_or_add_node(
             Type::Arrow(t1, t2) => {
                 let t1 = retrieve_and_or_add_node(unknown_ty_to_candidates, t1.clone());
                 let t2 = retrieve_and_or_add_node(unknown_ty_to_candidates, t2.clone());
-                let node = UnionFindNode::new(UFPotentialTypes_::singleton(
-                    UFPotentialType::Arrow(t1, t2),
-                ));
-                // unknown_ty_to_candidates.insert(unknown, node.clone());
-                node
+                UnionFindNode::new(UFPotentialTypes_::singleton(UFPotentialType::Arrow(t1, t2)))
             }
             Type::Unit => UnionFindNode::new(UFPotentialTypes_::singleton(UFPotentialType::Unit)),
             Type::Int => UnionFindNode::new(UFPotentialTypes_::singleton(UFPotentialType::Int)),
@@ -102,12 +81,12 @@ impl From<Rc<Type>> for UFPotentialType {
             Type::Bool => UFPotentialType::Bool,
             Type::String => UFPotentialType::String,
             Type::Arrow(t1, t2) => {
-                let t1 = UnionFindNode::new(UFPotentialTypes_::singleton(
-                    UFPotentialType::from(t1.clone()).into(),
-                ));
-                let t2 = UnionFindNode::new(UFPotentialTypes_::singleton(
-                    UFPotentialType::from(t2.clone()).into(),
-                ));
+                let t1 = UnionFindNode::new(UFPotentialTypes_::singleton(UFPotentialType::from(
+                    t1.clone(),
+                )));
+                let t2 = UnionFindNode::new(UFPotentialTypes_::singleton(UFPotentialType::from(
+                    t2.clone(),
+                )));
                 UFPotentialType::Arrow(t1, t2)
             }
         }
@@ -191,7 +170,7 @@ pub fn condense_candidates(uf_type_candidates: &UFPotentialTypes) -> TypeSuggest
                     types.push(t);
                 }
             }
-            UFPotentialType::Unknown(_) => (),
+            // UFPotentialType::Unknown(_) => (),
             UFPotentialType::Arrow(t1, t2) => {
                 let t1 = condense_candidates(t1);
                 let t2 = condense_candidates(t2);
@@ -222,7 +201,7 @@ impl UFPotentialTypes_ {
     // TODO cleanup:
     fn extend(&mut self, t_other: UFPotentialType) {
         if t_other.is_primitive() && !self.types.contains(&t_other) {
-            self.types.push(t_other.clone());
+            self.types.push(t_other);
         } else {
             let mut contains_arrow = false;
             for (_i, t) in self.types.iter_mut().enumerate() {
@@ -236,7 +215,7 @@ impl UFPotentialTypes_ {
                 }
             }
             if !contains_arrow {
-                self.types.push(t_other.clone());
+                self.types.push(t_other);
             }
         }
     }
@@ -247,10 +226,6 @@ impl UFPotentialTypes_ {
             merged_types.extend(t);
         }
         merged_types
-    }
-
-    fn contains_unknown(&mut self) -> bool {
-        self.types.iter().any(|t| t.contains_unknown())
     }
 }
 
@@ -314,14 +289,14 @@ pub fn solve_constraints(constraints: Vec<Constraint>, node_map: ast::NodeMap, s
                     format!(
                         "argument #{} of {}",
                         n + 1,
-                        source[span.lo..span.hi].to_string()
+                        source[span.lo..span.hi].to_owned()
                     )
                 }
                 Prov::FuncOut(id, n) => {
                     let span = node_map.get(id).unwrap().span();
                     format!(
                         "output of {} after {} arguments are passed",
-                        source[span.lo..span.hi].to_string(),
+                        source[span.lo..span.hi].to_owned(),
                         n
                     )
                 }
@@ -357,9 +332,7 @@ impl TyCtx {
     pub fn debug_helper(&self) -> Vec<String> {
         let mut current = Vec::new();
         for (key, value) in &self.vars {
-            match &value {
-                _ => current.push(key.clone()),
-            }
+            current.push(format!("{}: {}", key.clone(), value.clone()))
         }
         match &self.enclosing {
             Some(env) => {
@@ -486,7 +459,7 @@ pub fn generate_constraints_expr(
                 Mode::Ana(expected) => {
                     constraints.push(Constraint {
                         expected,
-                        actual: ty_out.clone(),
+                        actual: ty_out,
                         cause: expr.span.clone(),
                     });
                 }
@@ -532,7 +505,7 @@ pub fn generate_constraints_expr(
             generate_constraints_expr(ctx, mode, expr2.clone(), constraints);
         }
         ExprKind::Func(args, _, body) => {
-            let mut new_ctx = TyCtx::new(Some(ctx));
+            let new_ctx = TyCtx::new(Some(ctx));
 
             let ty_args = args
                 .iter()
@@ -584,12 +557,7 @@ pub fn generate_constraints_expr(
             )));
 
             let ty_func = Type::make_arrow(tys_args, ty_body.clone());
-            generate_constraints_expr(
-                ctx.clone(),
-                Mode::Ana(ty_func.clone()),
-                func.clone(),
-                constraints,
-            );
+            generate_constraints_expr(ctx, Mode::Ana(ty_func), func.clone(), constraints);
             match mode {
                 Mode::Syn => (),
                 Mode::Ana(expected) => constraints.push(Constraint {
@@ -626,7 +594,7 @@ pub fn generate_constraints_stmt(
             new_ctx.borrow_mut().extend(identifier, ty_pat.clone());
             generate_constraints_expr(
                 new_ctx.clone(),
-                Mode::Ana(ty_pat.clone()),
+                Mode::Ana(ty_pat),
                 expr.clone(),
                 constraints,
             );
