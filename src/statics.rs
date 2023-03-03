@@ -449,11 +449,7 @@ pub fn generate_constraints_expr(
             }
         }
         ExprKind::BinOp(left, op, right) => {
-            let types_of_binop = types_of_binop(op);
-            // TODO use a type not a vector
-            let ty_left = types_of_binop[0].clone();
-            let ty_right = types_of_binop[1].clone();
-            let ty_out = types_of_binop[2].clone();
+            let (ty_left, ty_right, ty_out) = types_of_binop(op);
             match mode {
                 Mode::Syn => (),
                 Mode::Ana(expected) => {

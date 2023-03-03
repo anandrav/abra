@@ -40,13 +40,13 @@ impl Type {
     }
 }
 
-pub fn types_of_binop(opcode: &BinOpcode) -> Vec<Rc<Type>> {
+pub fn types_of_binop(opcode: &BinOpcode) -> (Rc<Type>, Rc<Type>, Rc<Type>) {
     match opcode {
         BinOpcode::Add | BinOpcode::Subtract | BinOpcode::Multiply | BinOpcode::Divide => {
-            vec![Rc::new(Type::Int), Rc::new(Type::Int), Rc::new(Type::Int)]
+            (Rc::new(Type::Int), Rc::new(Type::Int), Rc::new(Type::Int))
         }
         BinOpcode::Equals | BinOpcode::LessThan | BinOpcode::GreaterThan => {
-            vec![Rc::new(Type::Int), Rc::new(Type::Int), Rc::new(Type::Bool)]
+            (Rc::new(Type::Int), Rc::new(Type::Int), Rc::new(Type::Bool))
         }
     }
 }
