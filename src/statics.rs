@@ -145,12 +145,18 @@ pub struct TypeSuggestions {
 impl fmt::Display for TypeSuggestions {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut s = String::new();
+        if self.types.len() > 1 {
+            s.push('{');
+        }
         for (i, t) in self.types.iter().enumerate() {
             if i == 0 {
                 s.push_str(&format!("{}", t));
             } else {
-                s.push_str(&format!(" // {}", t));
+                s.push_str(&format!("//{}", t));
             }
+        }
+        if self.types.len() > 1 {
+            s.push('}');
         }
         write!(f, "{}", s)
     }
