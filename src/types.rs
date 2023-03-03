@@ -23,8 +23,8 @@ impl Type {
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum Prov {
     Node(ast::Id),
-    FuncArg(ast::Id, u8),
-    FuncOut(ast::Id),
+    FuncArg(ast::Id, u8), // u8 represents the index of the argument
+    FuncOut(ast::Id, u8), // u8 represents how many arguments before this output
 }
 
 impl Type {

@@ -282,8 +282,18 @@ pub fn solve_constraints(constraints: Vec<Constraint>, node_map: ast::NodeMap, s
                 let t = constraint.expected.clone();
                 add_hole_and_t(hole, t);
             }
-            (Type::Arrow(..), Type::Arrow(..)) => {
-                panic!("TODO: unhandled case: (Arrow, Arrow)");
+            (Type::Arrow(left1, right1), Type::Arrow(left2, right2)) => {
+                let cause = constraint.cause;
+                constraints.push(Constraint {
+                    expected: left1.clone(),
+                    actual: left2.clone(),
+                    cause: cause.clone(),
+                });
+                constraints.push(Constraint {
+                    expected: right1.clone(),
+                    actual: right2.clone(),
+                    cause,
+                });
             }
             _ => {}
         }
@@ -307,9 +317,13 @@ pub fn solve_constraints(constraints: Vec<Constraint>, node_map: ast::NodeMap, s
                         source[span.lo..span.hi].to_string()
                     )
                 }
-                Prov::FuncOut(id) => {
+                Prov::FuncOut(id, n) => {
                     let span = node_map.get(id).unwrap().span();
-                    format!("body of {}", source[span.lo..span.hi].to_string())
+                    format!(
+                        "output of {} after {} arguments are passed",
+                        source[span.lo..span.hi].to_string(),
+                        n
+                    )
                 }
             }
         } else {
@@ -323,6 +337,19 @@ pub fn solve_constraints(constraints: Vec<Constraint>, node_map: ast::NodeMap, s
 pub struct TyCtx {
     vars: HashMap<Identifier, Rc<Type>>,
     enclosing: Option<Rc<RefCell<TyCtx>>>,
+}
+
+pub fn make_new_environment() -> Rc<RefCell<TyCtx>> {
+    let ctx = TyCtx::empty();
+    ctx.borrow_mut().extend(
+        &String::from("print"),
+        Rc::new(Type::Arrow(Rc::new(Type::String), Rc::new(Type::Unit))),
+    );
+    ctx.borrow_mut().extend(
+        &String::from("string_of_int"),
+        Rc::new(Type::Arrow(Rc::new(Type::Int), Rc::new(Type::String))),
+    );
+    ctx
 }
 
 // TODO reuse Environment instead of making a new struct
@@ -529,7 +556,7 @@ pub fn generate_constraints_expr(
             };
         }
         ExprKind::FuncAp(func, args) => {
-            let ty_args = args
+            let tys_args: Vec<Rc<Type>> = args
                 .iter()
                 .enumerate()
                 .map(|(n, arg)| {
@@ -544,9 +571,12 @@ pub fn generate_constraints_expr(
                 })
                 .collect();
 
-            let ty_body = Rc::new(Type::Unknown(Prov::FuncOut(func.id.clone())));
+            let ty_body = Rc::new(Type::Unknown(Prov::FuncOut(
+                func.id.clone(),
+                tys_args.len() as u8,
+            )));
 
-            let ty_func = Type::make_arrow(ty_args, ty_body.clone());
+            let ty_func = Type::make_arrow(tys_args, ty_body.clone());
             generate_constraints_expr(
                 ctx.clone(),
                 Mode::Ana(ty_func.clone()),

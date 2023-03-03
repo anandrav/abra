@@ -25,6 +25,8 @@ use eframe::egui;
 use egui::Color32;
 use interpreter::Interpreter;
 
+use crate::statics::make_new_environment;
+
 // When compiling natively:
 #[cfg(not(target_arch = "wasm32"))]
 fn main() {
@@ -163,7 +165,7 @@ impl eframe::App for MyApp {
                                 Ok(parse_tree) => {
                                     let mut constraints = Vec::new();
                                     statics::generate_constraints_expr(
-                                        statics::TyCtx::empty(),
+                                        make_new_environment(),
                                         statics::Mode::Syn,
                                         parse_tree.clone(),
                                         &mut constraints,
