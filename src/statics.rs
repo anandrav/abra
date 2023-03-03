@@ -293,11 +293,15 @@ pub fn solve_constraints(constraints: Vec<Constraint>, node_map: ast::NodeMap, s
                     let span = node_map.get(id).unwrap().span();
                     source[span.lo..span.hi].to_string()
                 }
-                Prov::MALeft(id) => {
+                Prov::FuncArg(id, n) => {
                     let span = node_map.get(id).unwrap().span();
-                    format!("argument of {}", source[span.lo..span.hi].to_string())
+                    format!(
+                        "argument #{} of {}",
+                        n + 1,
+                        source[span.lo..span.hi].to_string()
+                    )
                 }
-                Prov::MARight(id) => {
+                Prov::FuncOut(id) => {
                     let span = node_map.get(id).unwrap().span();
                     format!("body of {}", source[span.lo..span.hi].to_string())
                 }
@@ -487,15 +491,19 @@ pub fn generate_constraints_expr(
             generate_constraints_expr(ctx.clone(), mode.clone(), expr1.clone(), constraints);
             generate_constraints_expr(ctx, mode, expr2.clone(), constraints);
         }
-        ExprKind::Func((arg1, _), _, _, body) => {
+        ExprKind::Func(args, _, body) => {
             let mut new_ctx = TyCtx::new(Some(ctx));
-            let ty_arg = Rc::new(Type::Unknown(Prov::Node(arg1.id.clone())));
-            let arg1id = arg1.patkind.get_identifier();
-            new_ctx.borrow_mut().extend(&arg1id, ty_arg.clone());
-            // TODO n args not just 1
-            // for (arg, _) in args {
-            //     new_ctx.borrow_mut().extend(arg, Type::fresh());
-            // }
+
+            let ty_args = args
+                .iter()
+                .map(|(arg, _)| {
+                    let ty_arg = Rc::new(Type::Unknown(Prov::Node(arg.id.clone())));
+                    let arg1id = arg.patkind.get_identifier();
+                    new_ctx.borrow_mut().extend(&arg1id, ty_arg.clone());
+                    ty_arg
+                })
+                .collect();
+
             let ty_body = Rc::new(Type::Unknown(Prov::Node(body.id.clone())));
             generate_constraints_expr(
                 new_ctx,
@@ -504,7 +512,7 @@ pub fn generate_constraints_expr(
                 constraints,
             );
 
-            let ty_func = Rc::new(Type::Arrow(ty_arg, ty_body));
+            let ty_func = Type::make_arrow(ty_args, ty_body);
             match mode {
                 Mode::Syn => (),
                 Mode::Ana(expected) => constraints.push(Constraint {
@@ -514,33 +522,31 @@ pub fn generate_constraints_expr(
                 }),
             };
         }
-        ExprKind::FuncAp(func, arg1, _) => {
-            let ty_arg = Rc::new(Type::Unknown(Prov::MALeft(func.id.clone())));
-            generate_constraints_expr(
-                ctx.clone(),
-                Mode::Ana(ty_arg.clone()),
-                arg1.clone(),
-                constraints,
-            );
-            let ty_body = Rc::new(Type::Unknown(Prov::MARight(func.id.clone())));
+        ExprKind::FuncAp(func, args) => {
+            let ty_args = args
+                .iter()
+                .enumerate()
+                .map(|(n, arg)| {
+                    let unknown = Rc::new(Type::Unknown(Prov::FuncArg(func.id.clone(), n as u8)));
+                    generate_constraints_expr(
+                        ctx.clone(),
+                        Mode::Ana(unknown.clone()),
+                        arg.clone(),
+                        constraints,
+                    );
+                    unknown
+                })
+                .collect();
 
-            let ty_func = Rc::new(Type::Arrow(ty_arg, ty_body.clone()));
+            let ty_body = Rc::new(Type::Unknown(Prov::FuncOut(func.id.clone())));
+
+            let ty_func = Type::make_arrow(ty_args, ty_body.clone());
             generate_constraints_expr(
                 ctx.clone(),
                 Mode::Ana(ty_func.clone()),
                 func.clone(),
                 constraints,
             );
-            // TODO n args not just 1
-            // for arg in args {
-            //     let ty_arg = Type::fresh();
-            //     generate_constraints_expr(
-            //         ctx.clone(),
-            //         Mode::Ana(ty_arg.clone()),
-            //         arg.clone(),
-            //         constraints,
-            //     );
-            // }
             match mode {
                 Mode::Syn => (),
                 Mode::Ana(expected) => constraints.push(Constraint {

@@ -50,18 +50,13 @@ pub fn translate_expr_block(
     }
 }
 
-pub fn translate_expr_func(
-    (pat, _): ast::FuncArg,
-    func_args: Vec<ast::FuncArg>,
-    body: Rc<ASTek>,
-) -> Rc<Ete> {
-    let id = pat.patkind.get_identifier();
-    if func_args.is_empty() {
+pub fn translate_expr_func(func_args: Vec<ast::FuncArg>, body: Rc<ASTek>) -> Rc<Ete> {
+    let id = func_args[0].0.patkind.get_identifier();
+    if func_args.len() == 1 {
         Rc::new(Ete::Func(id, translate_expr(body), None))
     } else {
         // currying
-        let rest_of_function =
-            translate_expr_func(func_args[0].clone(), func_args[1..].to_vec(), body);
+        let rest_of_function = translate_expr_func(func_args[1..].to_vec(), body);
         Rc::new(Ete::Func(id, rest_of_function, None))
     }
 }
@@ -100,13 +95,16 @@ pub fn translate_expr(parse_tree: Rc<ASTek>) -> Rc<Ete> {
         ASTek::Block(stmts, final_operand) => {
             translate_expr_block(stmts.clone(), final_operand.clone())
         }
-        ASTek::Func(func_arg, func_args, _, body) => {
-            translate_expr_func(func_arg.clone(), func_args.clone(), body.exprkind.clone())
+        ASTek::Func(func_args, _, body) => {
+            translate_expr_func(func_args.clone(), body.exprkind.clone())
         }
-        ASTek::FuncAp(expr1, expr2, exprs) => translate_expr_ap(
+        ASTek::FuncAp(expr1, exprs) => translate_expr_ap(
             expr1.exprkind.clone(),
-            expr2.exprkind.clone(),
-            exprs.iter().map(|expr| expr.exprkind.clone()).collect(),
+            exprs[0].exprkind.clone(),
+            exprs[1..]
+                .iter()
+                .map(|expr| expr.exprkind.clone())
+                .collect(),
         ),
         ASTek::If(expr1, expr2, expr3) => Rc::new(Ete::If(
             translate_expr(expr1.exprkind.clone()),

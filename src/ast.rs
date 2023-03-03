@@ -72,10 +72,12 @@ impl Node for Expr {
             ExprKind::Int(_) => vec![],
             ExprKind::Bool(_) => vec![],
             ExprKind::Str(_) => vec![],
-            ExprKind::Func((arg, _), args, _, body) => {
-                let mut children: Vec<Rc<dyn Node>> =
-                    vec![arg.clone() as Rc<dyn Node>, body.clone()];
-                children.extend(args.iter().map(|(a, _)| a.clone() as Rc<dyn Node>));
+            ExprKind::Func(args, _, body) => {
+                let mut children: Vec<Rc<dyn Node>> = args
+                    .iter()
+                    .map(|(pat, _)| pat.clone() as Rc<dyn Node>)
+                    .collect::<Vec<_>>();
+                children.push(body.clone());
                 children
             }
             ExprKind::If(cond, then, els) => vec![cond.clone(), then.clone(), els.clone()],
@@ -90,8 +92,8 @@ impl Node for Expr {
                 children
             }
             ExprKind::BinOp(lhs, _, rhs) => vec![lhs.clone(), rhs.clone()],
-            ExprKind::FuncAp(func, arg, args) => {
-                let mut children: Vec<Rc<dyn Node>> = vec![func.clone(), arg.clone()];
+            ExprKind::FuncAp(func, args) => {
+                let mut children: Vec<Rc<dyn Node>> = vec![func.clone() as Rc<dyn Node>];
                 children.extend(args.iter().map(|a| a.clone() as Rc<dyn Node>));
                 children
             }
@@ -107,12 +109,12 @@ pub enum ExprKind {
     Int(i32),
     Bool(bool),
     Str(String),
-    Func(FuncArg, Vec<FuncArg>, Option<Rc<Type>>, Rc<Expr>),
+    Func(Vec<FuncArg>, Option<Rc<Type>>, Rc<Expr>),
     If(Rc<Expr>, Rc<Expr>, Rc<Expr>),
     // Match(Rc<Expr>, Vec<MatchArm>),
     Block(Vec<Rc<Stmt>>, Option<Rc<Expr>>),
     BinOp(Rc<Expr>, BinOpcode, Rc<Expr>),
-    FuncAp(Rc<Expr>, Rc<Expr>, Vec<Rc<Expr>>),
+    FuncAp(Rc<Expr>, Vec<Rc<Expr>>),
 }
 
 // pub type MatchArm = (Rc<Pat>, Rc<Expr>);
@@ -335,13 +337,13 @@ pub fn parse_expr_term(pair: Pair<Rule>, pratt: &PrattParser<Rule>) -> Rc<Expr> 
         Rule::func_expression => {
             let inner: Vec<_> = pair.into_inner().collect();
             let arg1 = parse_func_arg(inner[0].clone(), pratt);
-            let mut remaining_args = Vec::new();
+            let mut args = vec![arg1];
             for p in &inner[1..inner.len() - 1] {
-                remaining_args.push(parse_func_arg(p.clone(), pratt));
+                args.push(parse_func_arg(p.clone(), pratt));
             }
             let body = parse_expr_pratt(Pairs::single(inner.last().unwrap().clone()), pratt);
             Rc::new(Expr {
-                exprkind: Rc::new(ExprKind::Func(arg1, remaining_args, None, body)),
+                exprkind: Rc::new(ExprKind::Func(args, None, body)),
                 span,
                 id: Id::new(),
             })
@@ -350,12 +352,12 @@ pub fn parse_expr_term(pair: Pair<Rule>, pratt: &PrattParser<Rule>) -> Rc<Expr> 
             let inner: Vec<_> = pair.into_inner().collect();
             let f = parse_expr_pratt(Pairs::single(inner[0].clone()), pratt);
             let arg1 = parse_expr_pratt(Pairs::single(inner[1].clone()), pratt);
-            let mut remaining_args = Vec::new();
+            let mut args = vec![arg1];
             for p in &inner[2..] {
-                remaining_args.push(parse_expr_pratt(Pairs::single(p.clone()), pratt));
+                args.push(parse_expr_pratt(Pairs::single(p.clone()), pratt));
             }
             Rc::new(Expr {
-                exprkind: Rc::new(ExprKind::FuncAp(f, arg1, remaining_args)),
+                exprkind: Rc::new(ExprKind::FuncAp(f, args)),
                 span,
                 id: Id::new(),
             })

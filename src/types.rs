@@ -12,42 +12,22 @@ pub enum Type {
     Arrow(Rc<Type>, Rc<Type>),
 }
 
+impl Type {
+    pub fn make_arrow(args: Vec<Rc<Type>>, out: Rc<Type>) -> Rc<Type> {
+        args.into_iter()
+            .rev()
+            .fold(out, |acc, arg| Rc::new(Type::Arrow(arg, acc)))
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum Prov {
     Node(ast::Id),
-    MALeft(ast::Id),
-    MARight(ast::Id),
+    FuncArg(ast::Id, u8),
+    FuncOut(ast::Id),
 }
 
 impl Type {
-    // pub fn fresh() -> Rc<Self> {
-    //     Rc::new(Type::Unknown(Id::new()))
-    // }
-
-    // pub fn matched_arrow(id: ast::Id) -> Rc<Self> {
-    //     Rc::new(Type::Arrow(
-    //         Type::Unknown(id.clone()).into(),
-    //         Type::Unknown(id).into(),
-    //     ))
-    // }
-
-    // pub fn matched_arrow_n(tys: Vec<Rc<Type>>) -> Rc<Type> {
-    //     if tys.len() == 0 {
-    //         unreachable!()
-    //     } else if tys.len() == 1 {
-    //         tys[0].clone()
-    //     } else {
-    //         Rc::new(Type::Arrow(
-    //             tys[0].clone(),
-    //             Type::matched_arrow_n(tys[1..].to_vec()),
-    //         ))
-    //     }
-    // }
-
-    // pub fn is_unknown(&self) -> bool {
-    //     matches!(self, Type::Unknown(_))
-    // }
-
     pub fn contains_unknown(&self) -> bool {
         match self {
             Type::Unknown(_) => true,
@@ -88,20 +68,7 @@ impl fmt::Display for Type {
             Type::Int => write!(f, "int"),
             Type::Bool => write!(f, "bool"),
             Type::String => write!(f, "string"),
-            Type::Arrow(t1, t2) => write!(f, "{} -> {}", t1, t2),
+            Type::Arrow(t1, t2) => write!(f, "({} -> {})", t1, t2),
         }
     }
 }
-
-// #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-// pub struct Id {
-//     pub id: usize,
-// }
-
-// impl Id {
-//     pub fn new() -> Self {
-//         static ID_COUNTER: std::sync::atomic::AtomicUsize = AtomicUsize::new(1);
-//         let id = ID_COUNTER.fetch_add(1, Ordering::Relaxed);
-//         Self { id }
-//     }
-// }
