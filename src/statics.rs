@@ -511,7 +511,14 @@ pub fn generate_constraints_expr(
                 Some(terminal_expr) => {
                     generate_constraints_expr(new_ctx, mode, terminal_expr.clone(), constraints)
                 }
-                None => (),
+                None => match mode {
+                    Mode::Syn => (),
+                    Mode::Ana(expected) => constraints.push(Constraint {
+                        expected,
+                        actual: Rc::new(Type::Unit),
+                        cause: expr.span.clone(),
+                    }),
+                },
             };
         }
         ExprKind::If(cond, expr1, expr2) => {
@@ -613,14 +620,16 @@ pub fn generate_constraints_stmt(
                 None => Rc::new(Type::Unknown(Prov::Node(pat.id.clone()))), // TODO wrong id, need id of type annotation
             };
             // todo generate constraints using pattern itself as well... pattern could be a tuple or variant, or have a type annotation?
+
+            // letrec: extend context with id and type before analyzing against said type
+            let new_ctx = TyCtx::new(Some(ctx));
+            new_ctx.borrow_mut().extend(identifier, ty_pat.clone());
             generate_constraints_expr(
-                ctx.clone(),
+                new_ctx.clone(),
                 Mode::Ana(ty_pat.clone()),
                 expr.clone(),
                 constraints,
             );
-            let new_ctx = TyCtx::new(Some(ctx));
-            new_ctx.borrow_mut().extend(identifier, ty_pat);
             Some(new_ctx)
         }
     }
