@@ -1,9 +1,10 @@
 use crate::ast::{self, *};
 use crate::types::{types_of_binop, Prov, Type};
 use disjoint_sets::UnionFindNode;
+use multimap::MultiMap;
 use std::cell::RefCell;
 use std::collections::HashMap;
-use std::fmt;
+use std::fmt::{self, Write};
 use std::rc::Rc;
 
 #[derive(Debug)]
@@ -93,7 +94,7 @@ impl From<Rc<Type>> for UFPotentialType {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum TypeSuggestion {
     Unknown,
     Unit,
@@ -116,9 +117,19 @@ impl fmt::Display for TypeSuggestion {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct TypeSuggestions {
     types: Vec<TypeSuggestion>,
+}
+
+impl TypeSuggestions {
+    pub fn solved(&self) -> bool {
+        self.types.len() == 1
+    }
+
+    pub fn unsolved(&self) -> bool {
+        !self.solved()
+    }
 }
 
 impl fmt::Display for TypeSuggestions {
@@ -131,7 +142,7 @@ impl fmt::Display for TypeSuggestions {
             if i == 0 {
                 s.push_str(&format!("{}", t));
             } else {
-                s.push_str(&format!("//{}", t));
+                s.push_str(&format!("/{}", t));
             }
         }
         if self.types.len() > 1 {
@@ -229,7 +240,11 @@ impl UFPotentialTypes_ {
     }
 }
 
-pub fn solve_constraints(constraints: Vec<Constraint>, node_map: ast::NodeMap, source: &str) {
+pub fn solve_constraints(
+    constraints: Vec<Constraint>,
+    node_map: ast::NodeMap,
+    source: &str,
+) -> Result<(), String> {
     let mut constraints = constraints;
     // this is the graph, which only contains unknown types or types containing unknown types. Make a new struct for it later.
     let mut unknown_ty_to_potential_types: HashMap<Rc<Type>, UFPotentialTypes> = HashMap::new();
@@ -274,9 +289,23 @@ pub fn solve_constraints(constraints: Vec<Constraint>, node_map: ast::NodeMap, s
         }
     }
 
+    let mut unsolved_type_suggestions_to_unknown_tys = MultiMap::new();
+    for (unknown_ty, potential_types) in &unknown_ty_to_potential_types {
+        let type_suggestions = condense_candidates(potential_types);
+        if type_suggestions.unsolved() {
+            unsolved_type_suggestions_to_unknown_tys.insert(type_suggestions, unknown_ty);
+        }
+    }
+
+    if unsolved_type_suggestions_to_unknown_tys.is_empty() {
+        return Ok(());
+    }
+    let mut err_string = String::new();
+    err_string.push_str("You have a type error!\n");
+
     let mut ty_suggestions: Vec<(Rc<Type>, TypeSuggestions)> = Vec::new();
 
-    println!("Type Suggestions:");
+    err_string.push_str("Type Information:\n");
     for (unknown_ty, candidates) in unknown_ty_to_potential_types {
         let ast_node_str = if let Type::Unknown(prov) = &*unknown_ty {
             match prov {
@@ -305,8 +334,15 @@ pub fn solve_constraints(constraints: Vec<Constraint>, node_map: ast::NodeMap, s
             panic!("not an unknown type!");
         };
         ty_suggestions.push((unknown_ty.clone(), condense_candidates(&candidates)));
-        println!("{}: {}", ast_node_str, condense_candidates(&candidates));
+        writeln!(
+            &mut err_string,
+            "{}: {}",
+            ast_node_str,
+            condense_candidates(&candidates)
+        )
+        .unwrap();
     }
+    Err(err_string)
 }
 
 pub struct TyCtx {
@@ -400,35 +436,67 @@ pub fn generate_constraints_expr(
         // TODO: (tangent) since each expr/pattern node has a type, the node map should be populated with the types of each node. So node id -> {Rc<Node>, StaticsSummary}
         ExprKind::Unit => match mode {
             Mode::Syn => (),
-            Mode::Ana(expected) => constraints.push(Constraint {
-                expected,
-                actual: Rc::new(Type::Unit),
-                cause: expr.span.clone(),
-            }),
+            Mode::Ana(expected) => {
+                let node_ty = Rc::new(Type::Unknown(Prov::Node(expr.id.clone())));
+                constraints.push(Constraint {
+                    expected,
+                    actual: node_ty.clone(),
+                    cause: expr.span.clone(),
+                });
+                constraints.push(Constraint {
+                    expected: node_ty,
+                    actual: Rc::new(Type::Unit),
+                    cause: expr.span.clone(),
+                });
+            }
         },
         ExprKind::Int(_) => match mode {
             Mode::Syn => (),
-            Mode::Ana(expected) => constraints.push(Constraint {
-                expected,
-                actual: Rc::new(Type::Int),
-                cause: expr.span.clone(),
-            }),
+            Mode::Ana(expected) => {
+                let node_ty = Rc::new(Type::Unknown(Prov::Node(expr.id.clone())));
+                constraints.push(Constraint {
+                    expected,
+                    actual: node_ty.clone(),
+                    cause: expr.span.clone(),
+                });
+                constraints.push(Constraint {
+                    expected: node_ty,
+                    actual: Rc::new(Type::Int),
+                    cause: expr.span.clone(),
+                });
+            }
         },
         ExprKind::Bool(_) => match mode {
             Mode::Syn => (),
-            Mode::Ana(expected) => constraints.push(Constraint {
-                expected,
-                actual: Rc::new(Type::Bool),
-                cause: expr.span.clone(),
-            }),
+            Mode::Ana(expected) => {
+                let node_ty = Rc::new(Type::Unknown(Prov::Node(expr.id.clone())));
+                constraints.push(Constraint {
+                    expected,
+                    actual: node_ty.clone(),
+                    cause: expr.span.clone(),
+                });
+                constraints.push(Constraint {
+                    expected: node_ty,
+                    actual: Rc::new(Type::Bool),
+                    cause: expr.span.clone(),
+                });
+            }
         },
         ExprKind::Str(_) => match mode {
             Mode::Syn => (),
-            Mode::Ana(expected) => constraints.push(Constraint {
-                expected,
-                actual: Rc::new(Type::String),
-                cause: expr.span.clone(),
-            }),
+            Mode::Ana(expected) => {
+                let node_ty = Rc::new(Type::Unknown(Prov::Node(expr.id.clone())));
+                constraints.push(Constraint {
+                    expected,
+                    actual: node_ty.clone(),
+                    cause: expr.span.clone(),
+                });
+                constraints.push(Constraint {
+                    expected: node_ty,
+                    actual: Rc::new(Type::String),
+                    cause: expr.span.clone(),
+                });
+            }
         },
         ExprKind::Var(id) => {
             let lookup = ctx.borrow_mut().lookup(id);

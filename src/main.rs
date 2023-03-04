@@ -175,15 +175,22 @@ impl eframe::App for MyApp {
                                         &mut node_map,
                                         &(parse_tree.clone() as Rc<dyn ast::Node>),
                                     );
-                                    println!("Constraints: {:#?}", constraints);
-                                    statics::solve_constraints(
+                                    let result = statics::solve_constraints(
                                         constraints,
                                         node_map,
                                         &text_with_braces,
                                     );
-                                    let eval_tree =
-                                        translate::translate_expr(parse_tree.exprkind.clone());
-                                    self.interpreter = Some(Interpreter::new(eval_tree));
+                                    match result {
+                                        Ok(_) => {
+                                            let eval_tree = translate::translate_expr(
+                                                parse_tree.exprkind.clone(),
+                                            );
+                                            self.interpreter = Some(Interpreter::new(eval_tree))
+                                        }
+                                        Err(err) => {
+                                            self.output = err;
+                                        }
+                                    }
                                 }
                                 Err(err) => {
                                     self.output = err;
