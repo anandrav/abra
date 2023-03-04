@@ -94,7 +94,7 @@ impl From<Rc<Type>> for UFPotentialType {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum TypeSuggestion {
     Unknown,
     Unit,
@@ -117,7 +117,7 @@ impl fmt::Display for TypeSuggestion {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct TypeSuggestions {
     types: Vec<TypeSuggestion>,
 }
@@ -303,7 +303,7 @@ pub fn solve_constraints(
     let mut err_string = String::new();
     err_string.push_str("You have a type error!\n");
 
-    let mut ty_suggestions: Vec<(Rc<Type>, TypeSuggestions)> = Vec::new();
+    let mut ty_suggestions: Vec<(String, TypeSuggestions)> = Vec::new();
 
     err_string.push_str("Type Information:\n");
     for (unknown_ty, candidates) in unknown_ty_to_potential_types {
@@ -333,14 +333,11 @@ pub fn solve_constraints(
         } else {
             panic!("not an unknown type!");
         };
-        ty_suggestions.push((unknown_ty.clone(), condense_candidates(&candidates)));
-        writeln!(
-            &mut err_string,
-            "{}: {}",
-            ast_node_str,
-            condense_candidates(&candidates)
-        )
-        .unwrap();
+        ty_suggestions.push((ast_node_str, condense_candidates(&candidates)));
+    }
+    ty_suggestions.sort();
+    for (ast_node_str, type_suggestions) in ty_suggestions {
+        writeln!(&mut err_string, "{}: {}", ast_node_str, type_suggestions).unwrap();
     }
     Err(err_string)
 }
