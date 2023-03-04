@@ -184,6 +184,39 @@ pub struct Span {
     pub hi: usize,
 }
 
+impl Span {
+    pub fn line_number(&self, source: &str) -> usize {
+        source[..self.lo].lines().count()
+    }
+
+    pub fn display(&self, source: &str, detail: &str) -> String {
+        let mut s = String::new();
+        s.push_str(&format!(
+            "--> On line {}, {}\n",
+            self.line_number(source),
+            detail
+        ));
+        s.push_str(
+            format!(
+                " | {}\n",
+                source.lines().nth(self.line_number(source) - 1).unwrap()
+            )
+            .as_str(),
+        );
+        s.push_str(" | ");
+        let begin_line_index = source[..self.lo].rfind('\n').unwrap_or(0);
+        let num_spaces = self.lo - begin_line_index - 1;
+        for _ in 0..num_spaces {
+            s.push(' ');
+        }
+        for _ in 0..(self.hi - self.lo) {
+            s.push('^');
+        }
+        s.push('\n');
+        s
+    }
+}
+
 impl From<pest::Span<'_>> for Span {
     fn from(value: pest::Span) -> Self {
         Span {

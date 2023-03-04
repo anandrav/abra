@@ -160,7 +160,7 @@ impl eframe::App for MyApp {
                         {
                             self.interpreter = None;
                             self.output.clear();
-                            let text_with_braces = "{".to_owned() + &self.text + "}";
+                            let text_with_braces = "{\n".to_owned() + &self.text + "\n}";
                             match ast::parse_or_err(&text_with_braces) {
                                 Ok(parse_tree) => {
                                     let mut constraints = Vec::new();

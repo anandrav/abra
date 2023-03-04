@@ -3,7 +3,7 @@ use crate::types::{types_of_binop, Prov, Type};
 use disjoint_sets::UnionFindNode;
 use multimap::MultiMap;
 use std::cell::RefCell;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::fmt::{self, Write};
 use std::rc::Rc;
 
@@ -11,8 +11,9 @@ use std::rc::Rc;
 pub struct Constraint {
     expected: Rc<Type>,
     actual: Rc<Type>,
-    cause: Span,
+    reason: Span,
 }
+// TODO: give constraints provenances, and perhaps an additional description... but maybe provenances will suffice!
 
 type UFPotentialTypes = UnionFindNode<UFPotentialTypes_>;
 
@@ -42,30 +43,28 @@ impl UFPotentialType {
 // creates a UFTypeCandidates from the unknown type
 // only adds/retrieves from the graph if the type is holey!
 fn retrieve_and_or_add_node(
-    unknown_ty_to_candidates: &mut HashMap<Rc<Type>, UFPotentialTypes>,
+    unknown_ty_to_candidates: &mut HashMap<Prov, UFPotentialTypes>,
     unknown: Rc<Type>,
 ) -> UFPotentialTypes {
-    if let Some(node) = unknown_ty_to_candidates.get(&unknown) {
-        node.clone()
-    } else {
-        match &*unknown {
-            Type::Unknown(_id) => {
+    match &*unknown {
+        Type::Unknown(prov) => {
+            if let Some(node) = unknown_ty_to_candidates.get(&prov) {
+                node.clone()
+            } else {
                 let node = UnionFindNode::new(UFPotentialTypes_::empty());
-                unknown_ty_to_candidates.insert(unknown, node.clone());
+                unknown_ty_to_candidates.insert(prov.clone(), node.clone());
                 node
             }
-            Type::Arrow(t1, t2) => {
-                let t1 = retrieve_and_or_add_node(unknown_ty_to_candidates, t1.clone());
-                let t2 = retrieve_and_or_add_node(unknown_ty_to_candidates, t2.clone());
-                UnionFindNode::new(UFPotentialTypes_::singleton(UFPotentialType::Arrow(t1, t2)))
-            }
-            Type::Unit => UnionFindNode::new(UFPotentialTypes_::singleton(UFPotentialType::Unit)),
-            Type::Int => UnionFindNode::new(UFPotentialTypes_::singleton(UFPotentialType::Int)),
-            Type::Bool => UnionFindNode::new(UFPotentialTypes_::singleton(UFPotentialType::Bool)),
-            Type::String => {
-                UnionFindNode::new(UFPotentialTypes_::singleton(UFPotentialType::String))
-            }
         }
+        Type::Arrow(t1, t2) => {
+            let t1 = retrieve_and_or_add_node(unknown_ty_to_candidates, t1.clone());
+            let t2 = retrieve_and_or_add_node(unknown_ty_to_candidates, t2.clone());
+            UnionFindNode::new(UFPotentialTypes_::singleton(UFPotentialType::Arrow(t1, t2)))
+        }
+        Type::Unit => UnionFindNode::new(UFPotentialTypes_::singleton(UFPotentialType::Unit)),
+        Type::Int => UnionFindNode::new(UFPotentialTypes_::singleton(UFPotentialType::Int)),
+        Type::Bool => UnionFindNode::new(UFPotentialTypes_::singleton(UFPotentialType::Bool)),
+        Type::String => UnionFindNode::new(UFPotentialTypes_::singleton(UFPotentialType::String)),
     }
 }
 
@@ -247,11 +246,11 @@ pub fn solve_constraints(
 ) -> Result<(), String> {
     let mut constraints = constraints;
     // this is the graph, which only contains unknown types or types containing unknown types. Make a new struct for it later.
-    let mut unknown_ty_to_potential_types: HashMap<Rc<Type>, UFPotentialTypes> = HashMap::new();
+    let mut unknown_ty_to_potential_types: HashMap<Prov, UFPotentialTypes> = HashMap::new();
 
     let mut add_hole_and_t = |hole: Rc<Type>, t: Rc<Type>| {
         let mut hole_node = retrieve_and_or_add_node(&mut unknown_ty_to_potential_types, hole);
-        // TODO is this contains unknown check necessary?
+        // TODO is this contains unknown check necessary? Seems to work as long as t is merged into hole, but direction matters...
         if t.contains_unknown() {
             let mut t_node = retrieve_and_or_add_node(&mut unknown_ty_to_potential_types, t);
             hole_node.union_with(&mut t_node, UFPotentialTypes_::merge);
@@ -273,72 +272,90 @@ pub fn solve_constraints(
                 add_hole_and_t(hole, t);
             }
             (Type::Arrow(left1, right1), Type::Arrow(left2, right2)) => {
-                let cause = constraint.cause;
+                let cause = constraint.reason;
                 constraints.push(Constraint {
                     expected: left1.clone(),
                     actual: left2.clone(),
-                    cause: cause.clone(),
+                    reason: cause.clone(),
                 });
                 constraints.push(Constraint {
                     expected: right1.clone(),
                     actual: right2.clone(),
-                    cause,
+                    reason: cause,
                 });
             }
             _ => {}
         }
     }
 
-    let mut unsolved_type_suggestions_to_unknown_tys = MultiMap::new();
+    let mut unsolved_type_suggestions_to_unknown_ty = MultiMap::new();
     for (unknown_ty, potential_types) in &unknown_ty_to_potential_types {
         let type_suggestions = condense_candidates(potential_types);
         if type_suggestions.unsolved() {
-            unsolved_type_suggestions_to_unknown_tys.insert(type_suggestions, unknown_ty);
+            unsolved_type_suggestions_to_unknown_ty.insert(type_suggestions, unknown_ty);
         }
     }
 
-    if unsolved_type_suggestions_to_unknown_tys.is_empty() {
+    if unsolved_type_suggestions_to_unknown_ty.is_empty() {
         return Ok(());
     }
+
     let mut err_string = String::new();
     err_string.push_str("You have a type error!\n");
 
-    let mut ty_suggestions: Vec<(String, TypeSuggestions)> = Vec::new();
-
-    err_string.push_str("Type Information:\n");
-    for (unknown_ty, candidates) in unknown_ty_to_potential_types {
-        let ast_node_str = if let Type::Unknown(prov) = &*unknown_ty {
-            match prov {
+    for (type_conflict, unknown_tys) in unsolved_type_suggestions_to_unknown_ty {
+        err_string.push_str(&format!("Type Conflict: {}\n", type_conflict));
+        err_string.push_str("Sources:\n");
+        for unknown_ty in unknown_tys {
+            match unknown_ty {
                 Prov::Node(id) => {
                     let span = node_map.get(id).unwrap().span();
-                    source[span.lo..span.hi].to_string()
+                    err_string.push_str(&span.display(source, ""));
                 }
                 Prov::FuncArg(id, n) => {
                     let span = node_map.get(id).unwrap().span();
-                    format!(
-                        "argument #{} of {}",
-                        n + 1,
-                        source[span.lo..span.hi].to_owned()
-                    )
+                    err_string.push_str(&span.display(source, &format!("the #{} argument", n + 1)));
                 }
                 Prov::FuncOut(id, n) => {
                     let span = node_map.get(id).unwrap().span();
-                    format!(
-                        "output of {} after {} arguments are passed",
-                        source[span.lo..span.hi].to_owned(),
-                        n
-                    )
+                    err_string
+                        .push_str(&span.display(source, &format!("output after {} arguments", n)));
                 }
             }
-        } else {
-            panic!("not an unknown type!");
-        };
-        ty_suggestions.push((ast_node_str, condense_candidates(&candidates)));
+        }
     }
-    ty_suggestions.sort();
-    for (ast_node_str, type_suggestions) in ty_suggestions {
-        writeln!(&mut err_string, "{}: {}", ast_node_str, type_suggestions).unwrap();
-    }
+
+    // let mut ty_suggestions: Vec<(String, TypeSuggestions)> = Vec::new();
+    // err_string.push_str("OLD Type Information:\n");
+    // for (unknown_ty, candidates) in unknown_ty_to_potential_types {
+    //     let ast_node_str = match unknown_ty {
+    //         Prov::Node(id) => {
+    //             let span = node_map.get(&id).unwrap().span();
+    //             source[span.lo..span.hi].to_string()
+    //         }
+    //         Prov::FuncArg(id, n) => {
+    //             let span = node_map.get(&id).unwrap().span();
+    //             format!(
+    //                 "argument #{} of {}",
+    //                 n + 1,
+    //                 source[span.lo..span.hi].to_owned()
+    //             )
+    //         }
+    //         Prov::FuncOut(id, n) => {
+    //             let span = node_map.get(&id).unwrap().span();
+    //             format!(
+    //                 "output of {} after {} arguments are passed",
+    //                 source[span.lo..span.hi].to_owned(),
+    //                 n
+    //             )
+    //         }
+    //     };
+    //     ty_suggestions.push((ast_node_str, condense_candidates(&candidates)));
+    // }
+    // ty_suggestions.sort();
+    // for (ast_node_str, type_suggestions) in ty_suggestions {
+    //     writeln!(&mut err_string, "{}: {}", ast_node_str, type_suggestions).unwrap();
+    // }
     Err(err_string)
 }
 
@@ -438,12 +455,12 @@ pub fn generate_constraints_expr(
                 constraints.push(Constraint {
                     expected,
                     actual: node_ty.clone(),
-                    cause: expr.span.clone(),
+                    reason: expr.span.clone(),
                 });
                 constraints.push(Constraint {
                     expected: node_ty,
                     actual: Rc::new(Type::Unit),
-                    cause: expr.span.clone(),
+                    reason: expr.span.clone(),
                 });
             }
         },
@@ -454,12 +471,12 @@ pub fn generate_constraints_expr(
                 constraints.push(Constraint {
                     expected,
                     actual: node_ty.clone(),
-                    cause: expr.span.clone(),
+                    reason: expr.span.clone(),
                 });
                 constraints.push(Constraint {
                     expected: node_ty,
                     actual: Rc::new(Type::Int),
-                    cause: expr.span.clone(),
+                    reason: expr.span.clone(),
                 });
             }
         },
@@ -470,12 +487,12 @@ pub fn generate_constraints_expr(
                 constraints.push(Constraint {
                     expected,
                     actual: node_ty.clone(),
-                    cause: expr.span.clone(),
+                    reason: expr.span.clone(),
                 });
                 constraints.push(Constraint {
                     expected: node_ty,
                     actual: Rc::new(Type::Bool),
-                    cause: expr.span.clone(),
+                    reason: expr.span.clone(),
                 });
             }
         },
@@ -486,12 +503,12 @@ pub fn generate_constraints_expr(
                 constraints.push(Constraint {
                     expected,
                     actual: node_ty.clone(),
-                    cause: expr.span.clone(),
+                    reason: expr.span.clone(),
                 });
                 constraints.push(Constraint {
                     expected: node_ty,
                     actual: Rc::new(Type::String),
-                    cause: expr.span.clone(),
+                    reason: expr.span.clone(),
                 });
             }
         },
@@ -503,7 +520,7 @@ pub fn generate_constraints_expr(
                     Mode::Ana(expected) => constraints.push(Constraint {
                         expected,
                         actual: typ,
-                        cause: expr.span.clone(),
+                        reason: expr.span.clone(),
                     }),
                 },
                 None => match mode {
@@ -511,7 +528,7 @@ pub fn generate_constraints_expr(
                     Mode::Ana(expected) => constraints.push(Constraint {
                         expected,
                         actual: Type::Unknown(Prov::Node(expr.id.clone())).into(),
-                        cause: expr.span.clone(),
+                        reason: expr.span.clone(),
                     }),
                 },
             }
@@ -524,7 +541,7 @@ pub fn generate_constraints_expr(
                     constraints.push(Constraint {
                         expected,
                         actual: ty_out,
-                        cause: expr.span.clone(),
+                        reason: expr.span.clone(),
                     });
                 }
             };
@@ -553,7 +570,7 @@ pub fn generate_constraints_expr(
                     Mode::Ana(expected) => constraints.push(Constraint {
                         expected,
                         actual: Rc::new(Type::Unit),
-                        cause: expr.span.clone(),
+                        reason: expr.span.clone(),
                     }),
                 },
             };
@@ -595,7 +612,7 @@ pub fn generate_constraints_expr(
                 Mode::Ana(expected) => constraints.push(Constraint {
                     expected,
                     actual: ty_func,
-                    cause: expr.span.clone(),
+                    reason: expr.span.clone(),
                 }),
             };
         }
@@ -627,7 +644,7 @@ pub fn generate_constraints_expr(
                 Mode::Ana(expected) => constraints.push(Constraint {
                     expected,
                     actual: ty_body,
-                    cause: expr.span.clone(),
+                    reason: expr.span.clone(),
                 }),
             };
         }
