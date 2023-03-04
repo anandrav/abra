@@ -395,6 +395,9 @@ pub fn generate_constraints_expr(
 ) {
     print!("collect_constraints: {:#?} ", expr);
     match &*expr.exprkind {
+        // TODO: for these cases, we need an Unknown type for the expression node so that conflicts are discovered.
+        // does subsumption play a role?
+        // TODO: (tangent) since each expr/pattern node has a type, the node map should be populated with the types of each node. So node id -> {Rc<Node>, StaticsSummary}
         ExprKind::Unit => match mode {
             Mode::Syn => (),
             Mode::Ana(expected) => constraints.push(Constraint {
