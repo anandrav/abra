@@ -171,7 +171,7 @@ impl eframe::App for MyApp {
                                         &mut constraints,
                                     );
                                     let mut node_map = ast::NodeMap::new();
-                                    ast::populate_node_map(
+                                    ast::initialize_node_map(
                                         &mut node_map,
                                         &(parse_tree.clone() as Rc<dyn ast::Node>),
                                     );

@@ -475,9 +475,9 @@ pub fn parse_or_err(source: &str) -> Result<Rc<Expr>, String> {
 
 pub type NodeMap = HashMap<Id, Rc<dyn Node>>;
 
-pub fn populate_node_map(node_map: &mut NodeMap, node: &Rc<dyn Node>) {
+pub fn initialize_node_map(node_map: &mut NodeMap, node: &Rc<dyn Node>) {
     node_map.insert(node.id(), node.clone());
     for child in node.children() {
-        populate_node_map(node_map, &child);
+        initialize_node_map(node_map, &child);
     }
 }

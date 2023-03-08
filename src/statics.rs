@@ -11,7 +11,7 @@ use std::rc::Rc;
 pub struct Constraint {
     expected: Rc<Type>,
     actual: Rc<Type>,
-    reason: Span,
+    cause: Option<ast::Id>,
 }
 // TODO: give constraints provenances, and perhaps an additional description... but maybe provenances will suffice!
 
@@ -20,21 +20,23 @@ type UFPotentialTypes = UnionFindNode<UFPotentialTypes_>;
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum UFPotentialType {
     // Unknown(ast::Id),
-    Unit,
-    Int,
-    Bool,
-    String,
+    Unit(ConstraintCauses),
+    Int(ConstraintCauses),
+    Bool(ConstraintCauses),
+    String(ConstraintCauses),
     Arrow(UFPotentialTypes, UFPotentialTypes),
 }
+
+pub type ConstraintCauses = Vec<ast::Id>;
 
 impl UFPotentialType {
     pub fn is_primitive(&self) -> bool {
         match self {
             // UFPotentialType::Unknown(_) => true,
-            UFPotentialType::Unit => true,
-            UFPotentialType::Int => true,
-            UFPotentialType::Bool => true,
-            UFPotentialType::String => true,
+            UFPotentialType::Unit(_) => true,
+            UFPotentialType::Int(_) => true,
+            UFPotentialType::Bool(_) => true,
+            UFPotentialType::String(_) => true,
             UFPotentialType::Arrow(_, _) => false,
         }
     }
@@ -45,6 +47,7 @@ impl UFPotentialType {
 fn retrieve_and_or_add_node(
     unknown_ty_to_candidates: &mut HashMap<Prov, UFPotentialTypes>,
     unknown: Rc<Type>,
+    cause: Option<ast::Id>,
 ) -> UFPotentialTypes {
     match &*unknown {
         Type::Unknown(prov) => {
@@ -57,39 +60,14 @@ fn retrieve_and_or_add_node(
             }
         }
         Type::Arrow(t1, t2) => {
-            let t1 = retrieve_and_or_add_node(unknown_ty_to_candidates, t1.clone());
-            let t2 = retrieve_and_or_add_node(unknown_ty_to_candidates, t2.clone());
+            let t1 = retrieve_and_or_add_node(unknown_ty_to_candidates, t1.clone(), None);
+            let t2 = retrieve_and_or_add_node(unknown_ty_to_candidates, t2.clone(), None);
             UnionFindNode::new(UFPotentialTypes_::singleton(UFPotentialType::Arrow(t1, t2)))
         }
         Type::Unit => UnionFindNode::new(UFPotentialTypes_::singleton(UFPotentialType::Unit)),
         Type::Int => UnionFindNode::new(UFPotentialTypes_::singleton(UFPotentialType::Int)),
         Type::Bool => UnionFindNode::new(UFPotentialTypes_::singleton(UFPotentialType::Bool)),
         Type::String => UnionFindNode::new(UFPotentialTypes_::singleton(UFPotentialType::String)),
-    }
-}
-
-// TODO this should probbably be removed... or maybe not idk. Just don't create two nodes for the same unknown type...
-// Maybe distinguish between nodes in the graph (holey types) and types which are not
-// holey types are represented by UFTypeCandidate
-// non-holey type are represented by TypeCandidate, which doesn't have Unknown case
-impl From<Rc<Type>> for UFPotentialType {
-    fn from(t: Rc<Type>) -> UFPotentialType {
-        match &*t {
-            Type::Unknown(_id) => unreachable!(),
-            Type::Unit => UFPotentialType::Unit,
-            Type::Int => UFPotentialType::Int,
-            Type::Bool => UFPotentialType::Bool,
-            Type::String => UFPotentialType::String,
-            Type::Arrow(t1, t2) => {
-                let t1 = UnionFindNode::new(UFPotentialTypes_::singleton(UFPotentialType::from(
-                    t1.clone(),
-                )));
-                let t2 = UnionFindNode::new(UFPotentialTypes_::singleton(UFPotentialType::from(
-                    t2.clone(),
-                )));
-                UFPotentialType::Arrow(t1, t2)
-            }
-        }
     }
 }
 
@@ -250,13 +228,8 @@ pub fn solve_constraints(
 
     let mut add_hole_and_t = |hole: Rc<Type>, t: Rc<Type>| {
         let mut hole_node = retrieve_and_or_add_node(&mut unknown_ty_to_potential_types, hole);
-        // TODO is this contains unknown check necessary? Seems to work as long as t is merged into hole, but direction matters...
-        if t.contains_unknown() {
-            let mut t_node = retrieve_and_or_add_node(&mut unknown_ty_to_potential_types, t);
-            hole_node.union_with(&mut t_node, UFPotentialTypes_::merge);
-        } else {
-            hole_node.with_data(|t1| t1.extend(t.into()));
-        }
+        let mut t_node = retrieve_and_or_add_node(&mut unknown_ty_to_potential_types, t);
+        hole_node.union_with(&mut t_node, UFPotentialTypes_::merge);
     };
     while !constraints.is_empty() {
         let constraint = constraints.pop().unwrap();
@@ -272,16 +245,16 @@ pub fn solve_constraints(
                 add_hole_and_t(hole, t);
             }
             (Type::Arrow(left1, right1), Type::Arrow(left2, right2)) => {
-                let cause = constraint.reason;
+                let cause = constraint.cause;
                 constraints.push(Constraint {
                     expected: left1.clone(),
                     actual: left2.clone(),
-                    reason: cause.clone(),
+                    cause: cause.clone(),
                 });
                 constraints.push(Constraint {
                     expected: right1.clone(),
                     actual: right2.clone(),
-                    reason: cause,
+                    cause,
                 });
             }
             _ => {}
@@ -455,12 +428,12 @@ pub fn generate_constraints_expr(
                 constraints.push(Constraint {
                     expected,
                     actual: node_ty.clone(),
-                    reason: expr.span.clone(),
+                    cause: None,
                 });
                 constraints.push(Constraint {
                     expected: node_ty,
                     actual: Rc::new(Type::Unit),
-                    reason: expr.span.clone(),
+                    cause: Some(expr.id.clone()),
                 });
             }
         },
@@ -471,12 +444,12 @@ pub fn generate_constraints_expr(
                 constraints.push(Constraint {
                     expected,
                     actual: node_ty.clone(),
-                    reason: expr.span.clone(),
+                    cause: None,
                 });
                 constraints.push(Constraint {
                     expected: node_ty,
                     actual: Rc::new(Type::Int),
-                    reason: expr.span.clone(),
+                    cause: Some(expr.id.clone()),
                 });
             }
         },
@@ -487,12 +460,12 @@ pub fn generate_constraints_expr(
                 constraints.push(Constraint {
                     expected,
                     actual: node_ty.clone(),
-                    reason: expr.span.clone(),
+                    cause: None,
                 });
                 constraints.push(Constraint {
                     expected: node_ty,
                     actual: Rc::new(Type::Bool),
-                    reason: expr.span.clone(),
+                    cause: Some(expr.id.clone()),
                 });
             }
         },
@@ -503,12 +476,12 @@ pub fn generate_constraints_expr(
                 constraints.push(Constraint {
                     expected,
                     actual: node_ty.clone(),
-                    reason: expr.span.clone(),
+                    cause: None,
                 });
                 constraints.push(Constraint {
                     expected: node_ty,
                     actual: Rc::new(Type::String),
-                    reason: expr.span.clone(),
+                    cause: Some(expr.id.clone()),
                 });
             }
         },
@@ -520,7 +493,7 @@ pub fn generate_constraints_expr(
                     Mode::Ana(expected) => constraints.push(Constraint {
                         expected,
                         actual: typ,
-                        reason: expr.span.clone(),
+                        cause: Some(expr.id.clone()),
                     }),
                 },
                 None => match mode {
@@ -528,7 +501,7 @@ pub fn generate_constraints_expr(
                     Mode::Ana(expected) => constraints.push(Constraint {
                         expected,
                         actual: Type::Unknown(Prov::Node(expr.id.clone())).into(),
-                        reason: expr.span.clone(),
+                        cause: None,
                     }),
                 },
             }
@@ -541,7 +514,7 @@ pub fn generate_constraints_expr(
                     constraints.push(Constraint {
                         expected,
                         actual: ty_out,
-                        reason: expr.span.clone(),
+                        cause: Some(expr.id.clone()),
                     });
                 }
             };
@@ -570,7 +543,7 @@ pub fn generate_constraints_expr(
                     Mode::Ana(expected) => constraints.push(Constraint {
                         expected,
                         actual: Rc::new(Type::Unit),
-                        reason: expr.span.clone(),
+                        cause: Some(expr.id.clone()),
                     }),
                 },
             };
@@ -612,7 +585,7 @@ pub fn generate_constraints_expr(
                 Mode::Ana(expected) => constraints.push(Constraint {
                     expected,
                     actual: ty_func,
-                    reason: expr.span.clone(),
+                    cause: None,
                 }),
             };
         }
@@ -644,7 +617,7 @@ pub fn generate_constraints_expr(
                 Mode::Ana(expected) => constraints.push(Constraint {
                     expected,
                     actual: ty_body,
-                    reason: expr.span.clone(),
+                    cause: None,
                 }),
             };
         }
