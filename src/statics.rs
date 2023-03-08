@@ -3,8 +3,8 @@ use crate::types::{types_of_binop, Prov, Type};
 use disjoint_sets::UnionFindNode;
 use multimap::MultiMap;
 use std::cell::RefCell;
-use std::collections::{HashMap, HashSet};
-use std::fmt::{self, Write};
+use std::collections::HashMap;
+use std::fmt::{self};
 use std::rc::Rc;
 
 #[derive(Debug)]
@@ -48,7 +48,7 @@ fn retrieve_and_or_add_node(
 ) -> UFPotentialTypes {
     match &*unknown {
         Type::Unknown(prov) => {
-            if let Some(node) = unknown_ty_to_candidates.get(&prov) {
+            if let Some(node) = unknown_ty_to_candidates.get(prov) {
                 node.clone()
             } else {
                 let node = UnionFindNode::new(UFPotentialTypes_::empty());
