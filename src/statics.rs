@@ -3,7 +3,7 @@ use crate::types::{types_of_binop, Prov, Type};
 use disjoint_sets::UnionFindNode;
 use multimap::MultiMap;
 use std::cell::RefCell;
-use std::collections::{BTreeSet, HashMap, HashSet};
+use std::collections::{BTreeSet, HashMap};
 use std::fmt::{self};
 use std::rc::Rc;
 
@@ -337,7 +337,7 @@ pub fn solve_constraints(
     let mut err_string = String::new();
     err_string.push_str("You have a type error!\n");
 
-    for (type_conflict, unknown_tys) in unsolved_type_suggestions_to_unknown_ty {
+    for (type_conflict, _unknown_tys) in unsolved_type_suggestions_to_unknown_ty {
         err_string.push_str(&format!("Type Conflict: {}\n", type_conflict));
         err_string.push_str("Sources of ");
         for ty in type_conflict.types {
@@ -354,7 +354,7 @@ pub fn solve_constraints(
                         _ => unreachable!(),
                     };
                     for cause in causes {
-                        let span = node_map.get(&cause).unwrap().span();
+                        let span = node_map.get(cause).unwrap().span();
                         err_string.push_str(&span.display(source, ""));
                     }
                 }
@@ -541,7 +541,7 @@ pub fn generate_constraints_expr(
                     Mode::Syn => (),
                     Mode::Ana {
                         expected,
-                        ana_cause,
+                        ana_cause: _,
                     } => constraints.push(Constraint {
                         expected,
                         actual: typ,
@@ -567,7 +567,7 @@ pub fn generate_constraints_expr(
                 Mode::Syn => (),
                 Mode::Ana {
                     expected,
-                    ana_cause,
+                    ana_cause: _,
                 } => {
                     constraints.push(Constraint {
                         expected,
@@ -616,7 +616,7 @@ pub fn generate_constraints_expr(
                     Mode::Syn => (),
                     Mode::Ana {
                         expected,
-                        ana_cause,
+                        ana_cause: _,
                     } => constraints.push(Constraint {
                         expected,
                         actual: Rc::new(Type::Unit),
@@ -667,7 +667,7 @@ pub fn generate_constraints_expr(
                 Mode::Syn => (),
                 Mode::Ana {
                     expected,
-                    ana_cause,
+                    ana_cause: _,
                 } => constraints.push(Constraint {
                     expected,
                     actual: ty_func,
