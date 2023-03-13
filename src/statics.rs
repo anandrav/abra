@@ -3,7 +3,7 @@ use crate::types::{types_of_binop, Prov, Type};
 use disjoint_sets::UnionFindNode;
 use multimap::MultiMap;
 use std::cell::RefCell;
-use std::collections::{BTreeSet, HashMap};
+use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::fmt::{self};
 use std::rc::Rc;
 
@@ -13,37 +13,61 @@ pub struct Constraint {
     // they should also have a cause if they are the origin of an arrow type ctor... Arrow should have optional cause as well.
     expected: Rc<Type>, // maybe replace with (Rc<Type>, Option<ast::Id>)
     actual: Rc<Type>,
-    cause: Option<ast::Id>,
+    origin: Option<ast::Id>,
 }
 // TODO: give constraints provenances, and perhaps an additional description... but maybe provenances will suffice!
 
 type UFPotentialTypes = UnionFindNode<UFPotentialTypes_>;
 
 // TODO: maybe have primitive ctors (Unit, Int, Bool, String) and Binary ctor Arrow, and Unary ctor List, etc.
+
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Copy)]
+pub enum PotentialTypeCtor {
+    Unit,
+    Int,
+    Bool,
+    String,
+    Arrow,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum UFPotentialType {
-    // Unknown(ast::Id),
-    Unit(ConstraintCauses),
-    Int(ConstraintCauses),
-    Bool(ConstraintCauses),
-    String(ConstraintCauses),
-    Arrow(UFPotentialTypes, UFPotentialTypes),
+    // TODO: don't store Ctor in Primitive/Binary, it's already the key of the map.
+    Primitive(PotentialTypeCtor, ConstraintCauses),
+    Binary(
+        PotentialTypeCtor,
+        ConstraintCauses,
+        UFPotentialTypes,
+        UFPotentialTypes,
+    ),
+}
+
+impl UFPotentialType {
+    pub fn causes(&self) -> &ConstraintCauses {
+        match &self {
+            Self::Primitive(_, causes) => causes,
+            Self::Binary(_, causes, _, _) => causes,
+        }
+    }
+
+    pub fn causes_mut(&mut self) -> &mut ConstraintCauses {
+        match self {
+            Self::Primitive(_, causes) => causes,
+            Self::Binary(_, causes, _, _) => causes,
+        }
+    }
 }
 
 pub type ConstraintCauses = BTreeSet<ast::Id>;
 
-impl UFPotentialType {
-    pub fn is_primitive(&self) -> bool {
-        match self {
-            // UFPotentialType::Unknown(_) => true,
-            UFPotentialType::Unit(_) => true,
-            UFPotentialType::Int(_) => true,
-            UFPotentialType::Bool(_) => true,
-            UFPotentialType::String(_) => true,
-            UFPotentialType::Arrow(_, _) => false,
-        }
-    }
-}
+// impl UFPotentialType {
+//     pub fn is_primitive(&self) -> bool {
+//         match self {
+//             UFPotentialType::Primitive(..) => true,
+//             _ => false,
+//         }
+//     }
+// }
 
 // creates a UFTypeCandidates from the unknown type
 // only adds/retrieves from the graph if the type is holey!
@@ -73,20 +97,27 @@ fn retrieve_and_or_add_node(
         Type::Arrow(t1, t2) => {
             let t1 = retrieve_and_or_add_node(unknown_ty_to_candidates, t1.clone(), None);
             let t2 = retrieve_and_or_add_node(unknown_ty_to_candidates, t2.clone(), None);
-            UnionFindNode::new(UFPotentialTypes_::singleton(UFPotentialType::Arrow(t1, t2)))
+            UnionFindNode::new(UFPotentialTypes_::singleton(
+                PotentialTypeCtor::Arrow,
+                UFPotentialType::Binary(PotentialTypeCtor::Arrow, causes_single, t1, t2),
+            ))
         }
-        Type::Unit => UnionFindNode::new(UFPotentialTypes_::singleton(UFPotentialType::Unit(
-            causes_single,
-        ))),
-        Type::Int => UnionFindNode::new(UFPotentialTypes_::singleton(UFPotentialType::Int(
-            causes_single,
-        ))),
-        Type::Bool => UnionFindNode::new(UFPotentialTypes_::singleton(UFPotentialType::Bool(
-            causes_single,
-        ))),
-        Type::String => UnionFindNode::new(UFPotentialTypes_::singleton(UFPotentialType::String(
-            causes_single,
-        ))),
+        Type::Unit => UnionFindNode::new(UFPotentialTypes_::singleton(
+            PotentialTypeCtor::Unit,
+            UFPotentialType::Primitive(PotentialTypeCtor::Unit, causes_single),
+        )),
+        Type::Int => UnionFindNode::new(UFPotentialTypes_::singleton(
+            PotentialTypeCtor::Int,
+            UFPotentialType::Primitive(PotentialTypeCtor::Int, causes_single),
+        )),
+        Type::Bool => UnionFindNode::new(UFPotentialTypes_::singleton(
+            PotentialTypeCtor::Bool,
+            UFPotentialType::Primitive(PotentialTypeCtor::Bool, causes_single),
+        )),
+        Type::String => UnionFindNode::new(UFPotentialTypes_::singleton(
+            PotentialTypeCtor::String,
+            UFPotentialType::Primitive(PotentialTypeCtor::String, causes_single),
+        )),
     }
 }
 
@@ -151,29 +182,34 @@ impl fmt::Display for TypeSuggestions {
 pub fn condense_candidates(uf_type_candidates: &UFPotentialTypes) -> TypeSuggestions {
     let condensed = uf_type_candidates.clone_data();
     let mut types: BTreeSet<TypeSuggestion> = BTreeSet::new();
-    for candidate in &condensed.types {
-        match candidate {
-            UFPotentialType::Unit(causes) => {
-                let t = TypeSuggestion::Unit(causes.clone());
+    for (ctor, potential_type) in &condensed.types {
+        match (ctor, potential_type) {
+            (PotentialTypeCtor::Unit, _) => {
+                let t = TypeSuggestion::Unit(potential_type.causes().clone());
                 types.insert(t);
             }
-            UFPotentialType::Int(causes) => {
-                let t = TypeSuggestion::Int(causes.clone());
+            (PotentialTypeCtor::Int, _) => {
+                let t = TypeSuggestion::Int(potential_type.causes().clone());
                 types.insert(t);
             }
-            UFPotentialType::Bool(causes) => {
-                let t = TypeSuggestion::Bool(causes.clone());
+            (PotentialTypeCtor::Bool, _) => {
+                let t = TypeSuggestion::Bool(potential_type.causes().clone());
                 types.insert(t);
             }
-            UFPotentialType::String(causes) => {
-                let t = TypeSuggestion::String(causes.clone());
+            (PotentialTypeCtor::String, _) => {
+                let t = TypeSuggestion::String(potential_type.causes().clone());
                 types.insert(t);
             }
-            UFPotentialType::Arrow(t1, t2) => {
+            (
+                PotentialTypeCtor::Arrow,
+                // TODO: use the causes from the Arrow potential type
+                UFPotentialType::Binary(PotentialTypeCtor::Arrow, _causes, t1, t2),
+            ) => {
                 let t1 = condense_candidates(t1);
                 let t2 = condense_candidates(t2);
                 types.insert(TypeSuggestion::Arrow(t1, t2));
             }
+            _ => unreachable!(),
         }
     }
     if types.is_empty() {
@@ -184,94 +220,62 @@ pub fn condense_candidates(uf_type_candidates: &UFPotentialTypes) -> TypeSuggest
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct UFPotentialTypes_ {
-    types: BTreeSet<UFPotentialType>,
+    types: BTreeMap<PotentialTypeCtor, UFPotentialType>,
 }
 
 impl UFPotentialTypes_ {
     fn empty() -> Self {
         Self {
-            types: BTreeSet::new(),
+            types: BTreeMap::new(),
         }
     }
 
-    fn singleton(t: UFPotentialType) -> Self {
+    fn singleton(ctor: PotentialTypeCtor, t: UFPotentialType) -> Self {
         Self {
             types: {
-                let mut s = BTreeSet::new();
-                s.insert(t);
+                let mut s = BTreeMap::new();
+                s.insert(ctor, t);
                 s
             },
         }
     }
 
     // TODO cleanup:
-    fn extend(&mut self, t_other: UFPotentialType) {
-        if t_other.is_primitive()
-        /*&& !self.types.contains(&t_other)*/
-        {
-            let lookup = self.types.iter().find(|t| {
-                matches!(
-                    (t, &t_other),
-                    (UFPotentialType::Unit(..), UFPotentialType::Unit(..))
-                        | (UFPotentialType::Int(..), UFPotentialType::Int(..))
-                        | (UFPotentialType::Bool(..), UFPotentialType::Bool(..))
-                        | (UFPotentialType::String(..), UFPotentialType::String(..))
-                )
-            });
-            if let Some(t) = lookup {
-                let t = t.clone();
-                match (&t, t_other) {
-                    (UFPotentialType::Unit(causes), UFPotentialType::Unit(causes_other)) => {
-                        let mut causes = causes.clone();
-                        causes.extend(causes_other);
-                        self.types.remove(&t);
-                        self.types.insert(UFPotentialType::Unit(causes));
-                    }
-                    (UFPotentialType::Int(causes), UFPotentialType::Int(causes_other)) => {
-                        let mut causes = causes.clone();
-                        causes.extend(causes_other);
-                        self.types.remove(&t);
-                        self.types.insert(UFPotentialType::Int(causes));
-                    }
-                    (UFPotentialType::Bool(causes), UFPotentialType::Bool(causes_other)) => {
-                        let mut causes = causes.clone();
-                        causes.extend(causes_other);
-                        self.types.remove(&t);
-                        self.types.insert(UFPotentialType::Bool(causes));
-                    }
-                    (UFPotentialType::String(causes), UFPotentialType::String(causes_other)) => {
-                        let mut causes = causes.clone();
-                        causes.extend(causes_other);
-                        self.types.remove(&t);
-                        self.types.insert(UFPotentialType::String(causes));
-                    }
-                    _ => unreachable!(),
+    fn extend(&mut self, ctor: PotentialTypeCtor, mut t_other: UFPotentialType) {
+        if let Some(mut t) = self.types.get_mut(&ctor) {
+            match t_other {
+                UFPotentialType::Primitive(_, other_causes) => {
+                    t.causes_mut().extend(other_causes);
                 }
-            } else {
-                self.types.insert(t_other);
+                UFPotentialType::Binary(
+                    PotentialTypeCtor::Arrow,
+                    other_causes,
+                    ref mut other_left,
+                    ref mut other_right,
+                ) => match &mut t {
+                    UFPotentialType::Binary(
+                        PotentialTypeCtor::Arrow,
+                        t_causes,
+                        ref mut t_left,
+                        ref mut t_right,
+                    ) => {
+                        t_causes.extend(other_causes);
+                        t_left.union_with(other_left, UFPotentialTypes_::merge);
+                        t_right.union_with(other_right, UFPotentialTypes_::merge);
+                    }
+                    _ => unreachable!("should be binary"),
+                },
+                _ => unreachable!("ctor of binary should be arrow"),
             }
         } else {
-            let mut contains_arrow = false;
-            for (_i, t) in self.types.iter().enumerate() {
-                let t = t.clone();
-                if let UFPotentialType::Arrow(mut other_left, mut other_right) = t_other.clone() {
-                    if let UFPotentialType::Arrow(mut t_left, mut t_right) = t {
-                        contains_arrow = true;
-                        t_left.union_with(&mut other_left, UFPotentialTypes_::merge);
-                        t_right.union_with(&mut other_right, UFPotentialTypes_::merge);
-                    }
-                }
-            }
-            if !contains_arrow {
-                self.types.insert(t_other);
-            }
+            self.types.insert(ctor, t_other);
         }
     }
 
     fn merge(first: Self, second: Self) -> Self {
         let mut merged_types = Self { types: first.types };
-        for t in second.types {
-            merged_types.extend(t);
+        for (ctor, t) in second.types {
+            merged_types.extend(ctor, t);
         }
         merged_types
     }
@@ -298,24 +302,24 @@ pub fn solve_constraints(
             (Type::Unknown(_), _t) => {
                 let hole = constraint.expected.clone();
                 let t = constraint.actual.clone();
-                add_hole_and_t(hole, t, constraint.cause);
+                add_hole_and_t(hole, t, constraint.origin);
             }
             (_t, Type::Unknown(_)) => {
                 let hole = constraint.actual.clone();
                 let t = constraint.expected.clone();
-                add_hole_and_t(hole, t, constraint.cause);
+                add_hole_and_t(hole, t, constraint.origin);
             }
             (Type::Arrow(left1, right1), Type::Arrow(left2, right2)) => {
-                let cause = constraint.cause;
+                let cause = constraint.origin;
                 constraints.push(Constraint {
                     expected: left1.clone(),
                     actual: left2.clone(),
-                    cause: cause.clone(),
+                    origin: cause.clone(),
                 });
                 constraints.push(Constraint {
                     expected: right1.clone(),
                     actual: right2.clone(),
-                    cause,
+                    origin: cause,
                 });
             }
             _ => {}
@@ -468,12 +472,12 @@ pub fn generate_constraints_expr(
                 constraints.push(Constraint {
                     expected,
                     actual: node_ty.clone(),
-                    cause: ana_cause,
+                    origin: ana_cause,
                 });
                 constraints.push(Constraint {
                     expected: node_ty,
                     actual: Rc::new(Type::Unit),
-                    cause: Some(expr.id.clone()),
+                    origin: Some(expr.id.clone()),
                 });
             }
         },
@@ -487,12 +491,12 @@ pub fn generate_constraints_expr(
                 constraints.push(Constraint {
                     expected,
                     actual: node_ty.clone(),
-                    cause: ana_cause,
+                    origin: ana_cause,
                 });
                 constraints.push(Constraint {
                     expected: node_ty,
                     actual: Rc::new(Type::Int),
-                    cause: Some(expr.id.clone()),
+                    origin: Some(expr.id.clone()),
                 });
             }
         },
@@ -506,12 +510,12 @@ pub fn generate_constraints_expr(
                 constraints.push(Constraint {
                     expected,
                     actual: node_ty.clone(),
-                    cause: ana_cause,
+                    origin: ana_cause,
                 });
                 constraints.push(Constraint {
                     expected: node_ty,
                     actual: Rc::new(Type::Bool),
-                    cause: Some(expr.id.clone()),
+                    origin: Some(expr.id.clone()),
                 });
             }
         },
@@ -525,12 +529,12 @@ pub fn generate_constraints_expr(
                 constraints.push(Constraint {
                     expected,
                     actual: node_ty.clone(),
-                    cause: ana_cause,
+                    origin: ana_cause,
                 });
                 constraints.push(Constraint {
                     expected: node_ty,
                     actual: Rc::new(Type::String),
-                    cause: Some(expr.id.clone()),
+                    origin: Some(expr.id.clone()),
                 });
             }
         },
@@ -545,7 +549,7 @@ pub fn generate_constraints_expr(
                     } => constraints.push(Constraint {
                         expected,
                         actual: typ,
-                        cause: Some(expr.id.clone()), // TODO: ana_cause isn't used here... this will lead to a bug. Expected and Actual should each have their own optional cause if concrete...
+                        origin: Some(expr.id.clone()), // TODO: ana_cause isn't used here... this will lead to a bug. Expected and Actual should each have their own optional cause if concrete...
                     }),
                 },
                 None => match mode {
@@ -556,7 +560,7 @@ pub fn generate_constraints_expr(
                     } => constraints.push(Constraint {
                         expected,
                         actual: Type::Unknown(Prov::Node(expr.id.clone())).into(),
-                        cause: ana_cause,
+                        origin: ana_cause,
                     }),
                 },
             }
@@ -572,7 +576,7 @@ pub fn generate_constraints_expr(
                     constraints.push(Constraint {
                         expected,
                         actual: ty_out,
-                        cause: Some(expr.id.clone()), // TODO: ana_cause isn't used here... this will lead to a bug.
+                        origin: Some(expr.id.clone()), // TODO: ana_cause isn't used here... this will lead to a bug.
                     });
                 }
             };
@@ -620,7 +624,7 @@ pub fn generate_constraints_expr(
                     } => constraints.push(Constraint {
                         expected,
                         actual: Rc::new(Type::Unit),
-                        cause: Some(expr.id.clone()), // TODO: ana_cause isn't used here. This will lead to a bug.
+                        origin: Some(expr.id.clone()), // TODO: ana_cause isn't used here. This will lead to a bug.
                     }),
                 },
             };
@@ -671,7 +675,7 @@ pub fn generate_constraints_expr(
                 } => constraints.push(Constraint {
                     expected,
                     actual: ty_func,
-                    cause: None, // TODO: ana_cause isn't used here...
+                    origin: None, // TODO: ana_cause isn't used here...
                 }),
             };
         }
@@ -717,7 +721,7 @@ pub fn generate_constraints_expr(
                 } => constraints.push(Constraint {
                     expected,
                     actual: ty_body,
-                    cause: ana_cause,
+                    origin: ana_cause,
                 }),
             };
         }
