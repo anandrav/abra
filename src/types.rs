@@ -28,16 +28,16 @@ pub enum Prov {
 }
 
 impl Type {
-    pub fn contains_unknown(&self) -> bool {
-        match self {
-            Type::Unknown(_) => true,
-            Type::Unit => false,
-            Type::Int => false,
-            Type::Bool => false,
-            Type::String => false,
-            Type::Arrow(t1, t2) => t1.contains_unknown() || t2.contains_unknown(),
-        }
-    }
+    // pub fn contains_unknown(&self) -> bool {
+    //     match self {
+    //         Type::Unknown(_) => true,
+    //         Type::Unit => false,
+    //         Type::Int => false,
+    //         Type::Bool => false,
+    //         Type::String => false,
+    //         Type::Arrow(t1, t2) => t1.contains_unknown() || t2.contains_unknown(),
+    //     }
+    // }
 }
 
 pub fn types_of_binop(opcode: &BinOpcode) -> (Rc<Type>, Rc<Type>, Rc<Type>) {
