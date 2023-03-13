@@ -9,7 +9,9 @@ use std::rc::Rc;
 
 #[derive(Debug)]
 pub struct Constraint {
-    expected: Rc<Type>,
+    // TODO: expected and actual types both have causes if they are primitive (unit, int, bool, string)
+    // they should also have a cause if they are the origin of an arrow type ctor... Arrow should have optional cause as well.
+    expected: Rc<Type>, // maybe replace with (Rc<Type>, Option<ast::Id>)
     actual: Rc<Type>,
     cause: Option<ast::Id>,
 }
@@ -17,6 +19,7 @@ pub struct Constraint {
 
 type UFPotentialTypes = UnionFindNode<UFPotentialTypes_>;
 
+// TODO: maybe have primitive ctors (Unit, Int, Bool, String) and Binary ctor Arrow, and Unary ctor List, etc.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum UFPotentialType {
     // Unknown(ast::Id),
@@ -336,7 +339,7 @@ pub fn solve_constraints(
 
     for (type_conflict, unknown_tys) in unsolved_type_suggestions_to_unknown_ty {
         err_string.push_str(&format!("Type Conflict: {}\n", type_conflict));
-        err_string.push_str("Sources:\n");
+        err_string.push_str("Sources of ");
         for ty in type_conflict.types {
             match &ty {
                 TypeSuggestion::Unit(causes)
@@ -344,10 +347,10 @@ pub fn solve_constraints(
                 | TypeSuggestion::Bool(causes)
                 | TypeSuggestion::String(causes) => {
                     match &ty {
-                        TypeSuggestion::Unit(_) => err_string.push_str("Unit\n"),
-                        TypeSuggestion::Int(_) => err_string.push_str("Int\n"),
-                        TypeSuggestion::Bool(_) => err_string.push_str("Bool\n"),
-                        TypeSuggestion::String(_) => err_string.push_str("String\n"),
+                        TypeSuggestion::Unit(_) => err_string.push_str("unit:\n"),
+                        TypeSuggestion::Int(_) => err_string.push_str("int:\n"),
+                        TypeSuggestion::Bool(_) => err_string.push_str("bool:\n"),
+                        TypeSuggestion::String(_) => err_string.push_str("string:\n"),
                         _ => unreachable!(),
                     };
                     for cause in causes {
@@ -438,7 +441,10 @@ impl TyCtx {
 #[derive(Debug, Clone)]
 pub enum Mode {
     Syn,
-    Ana(Rc<Type>),
+    Ana {
+        expected: Rc<Type>,
+        ana_cause: Option<ast::Id>,
+    },
 }
 
 pub fn generate_constraints_expr(
@@ -454,12 +460,15 @@ pub fn generate_constraints_expr(
         // TODO: (tangent) since each expr/pattern node has a type, the node map should be populated with the types of each node. So node id -> {Rc<Node>, StaticsSummary}
         ExprKind::Unit => match mode {
             Mode::Syn => (),
-            Mode::Ana(expected) => {
+            Mode::Ana {
+                expected,
+                ana_cause,
+            } => {
                 let node_ty = Rc::new(Type::Unknown(Prov::Node(expr.id.clone())));
                 constraints.push(Constraint {
                     expected,
                     actual: node_ty.clone(),
-                    cause: None,
+                    cause: ana_cause,
                 });
                 constraints.push(Constraint {
                     expected: node_ty,
@@ -470,12 +479,15 @@ pub fn generate_constraints_expr(
         },
         ExprKind::Int(_) => match mode {
             Mode::Syn => (),
-            Mode::Ana(expected) => {
+            Mode::Ana {
+                expected,
+                ana_cause,
+            } => {
                 let node_ty = Rc::new(Type::Unknown(Prov::Node(expr.id.clone())));
                 constraints.push(Constraint {
                     expected,
                     actual: node_ty.clone(),
-                    cause: None,
+                    cause: ana_cause,
                 });
                 constraints.push(Constraint {
                     expected: node_ty,
@@ -486,12 +498,15 @@ pub fn generate_constraints_expr(
         },
         ExprKind::Bool(_) => match mode {
             Mode::Syn => (),
-            Mode::Ana(expected) => {
+            Mode::Ana {
+                expected,
+                ana_cause,
+            } => {
                 let node_ty = Rc::new(Type::Unknown(Prov::Node(expr.id.clone())));
                 constraints.push(Constraint {
                     expected,
                     actual: node_ty.clone(),
-                    cause: None,
+                    cause: ana_cause,
                 });
                 constraints.push(Constraint {
                     expected: node_ty,
@@ -502,12 +517,15 @@ pub fn generate_constraints_expr(
         },
         ExprKind::Str(_) => match mode {
             Mode::Syn => (),
-            Mode::Ana(expected) => {
+            Mode::Ana {
+                expected,
+                ana_cause,
+            } => {
                 let node_ty = Rc::new(Type::Unknown(Prov::Node(expr.id.clone())));
                 constraints.push(Constraint {
                     expected,
                     actual: node_ty.clone(),
-                    cause: None,
+                    cause: ana_cause,
                 });
                 constraints.push(Constraint {
                     expected: node_ty,
@@ -521,18 +539,24 @@ pub fn generate_constraints_expr(
             match lookup {
                 Some(typ) => match mode {
                     Mode::Syn => (),
-                    Mode::Ana(expected) => constraints.push(Constraint {
+                    Mode::Ana {
+                        expected,
+                        ana_cause,
+                    } => constraints.push(Constraint {
                         expected,
                         actual: typ,
-                        cause: Some(expr.id.clone()),
+                        cause: Some(expr.id.clone()), // TODO: ana_cause isn't used here... this will lead to a bug. Expected and Actual should each have their own optional cause if concrete...
                     }),
                 },
                 None => match mode {
                     Mode::Syn => (),
-                    Mode::Ana(expected) => constraints.push(Constraint {
+                    Mode::Ana {
+                        expected,
+                        ana_cause,
+                    } => constraints.push(Constraint {
                         expected,
                         actual: Type::Unknown(Prov::Node(expr.id.clone())).into(),
-                        cause: None,
+                        cause: ana_cause,
                     }),
                 },
             }
@@ -541,16 +565,35 @@ pub fn generate_constraints_expr(
             let (ty_left, ty_right, ty_out) = types_of_binop(op);
             match mode {
                 Mode::Syn => (),
-                Mode::Ana(expected) => {
+                Mode::Ana {
+                    expected,
+                    ana_cause,
+                } => {
                     constraints.push(Constraint {
                         expected,
                         actual: ty_out,
-                        cause: Some(expr.id.clone()),
+                        cause: Some(expr.id.clone()), // TODO: ana_cause isn't used here... this will lead to a bug.
                     });
                 }
             };
-            generate_constraints_expr(ctx.clone(), Mode::Ana(ty_left), left.clone(), constraints);
-            generate_constraints_expr(ctx, Mode::Ana(ty_right), right.clone(), constraints);
+            generate_constraints_expr(
+                ctx.clone(),
+                Mode::Ana {
+                    expected: ty_left,
+                    ana_cause: Some(expr.id.clone()),
+                },
+                left.clone(),
+                constraints,
+            );
+            generate_constraints_expr(
+                ctx,
+                Mode::Ana {
+                    expected: ty_right,
+                    ana_cause: Some(expr.id.clone()),
+                },
+                right.clone(),
+                constraints,
+            );
         }
         ExprKind::Block(statements, opt_terminal_expr) => {
             let mut new_ctx = TyCtx::new(Some(ctx));
@@ -571,10 +614,13 @@ pub fn generate_constraints_expr(
                 }
                 None => match mode {
                     Mode::Syn => (),
-                    Mode::Ana(expected) => constraints.push(Constraint {
+                    Mode::Ana {
+                        expected,
+                        ana_cause,
+                    } => constraints.push(Constraint {
                         expected,
                         actual: Rc::new(Type::Unit),
-                        cause: Some(expr.id.clone()),
+                        cause: Some(expr.id.clone()), // TODO: ana_cause isn't used here. This will lead to a bug.
                     }),
                 },
             };
@@ -582,7 +628,10 @@ pub fn generate_constraints_expr(
         ExprKind::If(cond, expr1, expr2) => {
             generate_constraints_expr(
                 ctx.clone(),
-                Mode::Ana(Rc::new(Type::Bool)),
+                Mode::Ana {
+                    expected: Rc::new(Type::Bool),
+                    ana_cause: Some(cond.id.clone()),
+                },
                 cond.clone(),
                 constraints,
             );
@@ -605,7 +654,10 @@ pub fn generate_constraints_expr(
             let ty_body = Rc::new(Type::Unknown(Prov::Node(body.id.clone())));
             generate_constraints_expr(
                 new_ctx,
-                Mode::Ana(ty_body.clone()),
+                Mode::Ana {
+                    expected: ty_body.clone(),
+                    ana_cause: None,
+                },
                 body.clone(),
                 constraints,
             );
@@ -613,10 +665,13 @@ pub fn generate_constraints_expr(
             let ty_func = Type::make_arrow(ty_args, ty_body);
             match mode {
                 Mode::Syn => (),
-                Mode::Ana(expected) => constraints.push(Constraint {
+                Mode::Ana {
+                    expected,
+                    ana_cause,
+                } => constraints.push(Constraint {
                     expected,
                     actual: ty_func,
-                    cause: None,
+                    cause: None, // TODO: ana_cause isn't used here...
                 }),
             };
         }
@@ -628,7 +683,10 @@ pub fn generate_constraints_expr(
                     let unknown = Rc::new(Type::Unknown(Prov::FuncArg(func.id.clone(), n as u8)));
                     generate_constraints_expr(
                         ctx.clone(),
-                        Mode::Ana(unknown.clone()),
+                        Mode::Ana {
+                            expected: unknown.clone(),
+                            ana_cause: None,
+                        },
                         arg.clone(),
                         constraints,
                     );
@@ -642,13 +700,24 @@ pub fn generate_constraints_expr(
             )));
 
             let ty_func = Type::make_arrow(tys_args, ty_body.clone());
-            generate_constraints_expr(ctx, Mode::Ana(ty_func), func.clone(), constraints);
+            generate_constraints_expr(
+                ctx,
+                Mode::Ana {
+                    expected: ty_func,
+                    ana_cause: None,
+                },
+                func.clone(),
+                constraints,
+            );
             match mode {
                 Mode::Syn => (),
-                Mode::Ana(expected) => constraints.push(Constraint {
+                Mode::Ana {
+                    expected,
+                    ana_cause,
+                } => constraints.push(Constraint {
                     expected,
                     actual: ty_body,
-                    cause: None,
+                    cause: ana_cause,
                 }),
             };
         }
@@ -679,7 +748,10 @@ pub fn generate_constraints_stmt(
             new_ctx.borrow_mut().extend(identifier, ty_pat.clone());
             generate_constraints_expr(
                 new_ctx.clone(),
-                Mode::Ana(ty_pat),
+                Mode::Ana {
+                    expected: ty_pat,
+                    ana_cause: None,
+                },
                 expr.clone(),
                 constraints,
             );
