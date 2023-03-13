@@ -60,15 +60,6 @@ impl UFPotentialType {
 
 pub type ConstraintCauses = BTreeSet<ast::Id>;
 
-// impl UFPotentialType {
-//     pub fn is_primitive(&self) -> bool {
-//         match self {
-//             UFPotentialType::Primitive(..) => true,
-//             _ => false,
-//         }
-//     }
-// }
-
 // creates a UFTypeCandidates from the unknown type
 // only adds/retrieves from the graph if the type is holey!
 fn retrieve_and_or_add_node(
@@ -240,7 +231,6 @@ impl UFPotentialTypes_ {
         }
     }
 
-    // TODO cleanup:
     fn extend(&mut self, ctor: PotentialTypeCtor, mut t_other: UFPotentialType) {
         if let Some(mut t) = self.types.get_mut(&ctor) {
             match t_other {
