@@ -29,24 +29,24 @@ pub enum PotentialTypeCtor {
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum UFPotentialType {
     // TODO: don't store Ctor in Primitive/Binary, it's already the key of the map.
-    Primitive(PotentialTypeCtor, ConstraintCauses),
+    Primitive(PotentialTypeCtor, Origins),
     Binary(
         PotentialTypeCtor,
-        ConstraintCauses,
+        Origins,
         UFPotentialTypes,
         UFPotentialTypes,
     ),
 }
 
 impl UFPotentialType {
-    pub fn causes(&self) -> &ConstraintCauses {
+    pub fn causes(&self) -> &Origins {
         match &self {
             Self::Primitive(_, causes) => causes,
             Self::Binary(_, causes, _, _) => causes,
         }
     }
 
-    pub fn causes_mut(&mut self) -> &mut ConstraintCauses {
+    pub fn causes_mut(&mut self) -> &mut Origins {
         match self {
             Self::Primitive(_, causes) => causes,
             Self::Binary(_, causes, _, _) => causes,
@@ -54,7 +54,7 @@ impl UFPotentialType {
     }
 }
 
-pub type ConstraintCauses = BTreeSet<ast::Id>;
+pub type Origins = BTreeSet<ast::Id>;
 
 // creates a UFTypeCandidates from the unknown type
 // only adds/retrieves from the graph if the type is holey!
@@ -111,17 +111,17 @@ fn retrieve_and_or_add_node(
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum TypeSuggestion {
     Unknown,
-    Unit(ConstraintCauses),
-    Int(ConstraintCauses),
-    Bool(ConstraintCauses),
-    String(ConstraintCauses),
+    Unit(Origins),
+    Int(Origins),
+    Bool(Origins),
+    String(Origins),
     Arrow(TypeSuggestions, TypeSuggestions),
 }
 
 impl fmt::Display for TypeSuggestion {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            TypeSuggestion::Unknown => write!(f, "Unknown"),
+            TypeSuggestion::Unknown => write!(f, "?"),
             TypeSuggestion::Unit(_) => write!(f, "unit"),
             TypeSuggestion::Int(_) => write!(f, "int"),
             TypeSuggestion::Bool(_) => write!(f, "bool"),
@@ -227,6 +227,7 @@ impl UFPotentialTypes_ {
         }
     }
 
+    // TODO: occurs check
     fn extend(&mut self, ctor: PotentialTypeCtor, mut t_other: UFPotentialType) {
         if let Some(mut t) = self.types.get_mut(&ctor) {
             match t_other {
@@ -258,6 +259,7 @@ impl UFPotentialTypes_ {
         }
     }
 
+    // TODO: occurs check
     fn merge(first: Self, second: Self) -> Self {
         let mut merged_types = Self { types: first.types };
         for (ctor, t) in second.types {
@@ -267,6 +269,7 @@ impl UFPotentialTypes_ {
     }
 }
 
+// TODO: since each expr/pattern node has a type, the node map should be populated with the types of each node. So node id -> {Rc<Node>, StaticsSummary}
 pub fn solve_constraints(
     constraints: Vec<Constraint>,
     node_map: ast::NodeMap,
@@ -444,11 +447,7 @@ pub fn generate_constraints_expr(
     expr: Rc<Expr>,
     constraints: &mut Vec<Constraint>,
 ) {
-    print!("collect_constraints: {:#?} ", expr);
     match &*expr.exprkind {
-        // TODO: for these cases, we need an Unknown type for the expression node so that conflicts are discovered.
-        // does subsumption play a role?
-        // TODO: (tangent) since each expr/pattern node has a type, the node map should be populated with the types of each node. So node id -> {Rc<Node>, StaticsSummary}
         ExprKind::Unit => match mode {
             Mode::Syn => (),
             Mode::Ana {
