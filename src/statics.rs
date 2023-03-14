@@ -10,6 +10,7 @@ use std::rc::Rc;
 #[derive(Debug)]
 pub struct Constraint {
     expected: Rc<Type>,
+    // TODO: it might be better for origin to go in the type itself. There is overlap between Unknown provenances and Known type origins...
     expected_origin: Option<ast::Id>,
     actual: Rc<Type>,
     actual_origin: Option<ast::Id>,
@@ -115,7 +116,7 @@ pub enum TypeSuggestion {
     Int(Origins),
     Bool(Origins),
     String(Origins),
-    Arrow(TypeSuggestions, TypeSuggestions),
+    Arrow(Origins, TypeSuggestions, TypeSuggestions),
 }
 
 impl fmt::Display for TypeSuggestion {
@@ -126,7 +127,7 @@ impl fmt::Display for TypeSuggestion {
             TypeSuggestion::Int(_) => write!(f, "int"),
             TypeSuggestion::Bool(_) => write!(f, "bool"),
             TypeSuggestion::String(_) => write!(f, "string"),
-            TypeSuggestion::Arrow(t1, t2) => write!(f, "({} -> {})", t1, t2),
+            TypeSuggestion::Arrow(_, t1, t2) => write!(f, "({} -> {})", t1, t2),
         }
     }
 }
@@ -189,12 +190,11 @@ pub fn condense_candidates(uf_type_candidates: &UFPotentialTypes) -> TypeSuggest
             }
             (
                 PotentialTypeCtor::Arrow,
-                // TODO: use the causes from the Arrow potential type
-                UFPotentialType::Binary(PotentialTypeCtor::Arrow, _causes, t1, t2),
+                UFPotentialType::Binary(PotentialTypeCtor::Arrow, causes, t1, t2),
             ) => {
                 let t1 = condense_candidates(t1);
                 let t2 = condense_candidates(t2);
-                types.insert(TypeSuggestion::Arrow(t1, t2));
+                types.insert(TypeSuggestion::Arrow(causes.clone(), t1, t2));
             }
             _ => unreachable!(),
         }
@@ -301,15 +301,15 @@ pub fn solve_constraints(
             (Type::Arrow(left1, right1), Type::Arrow(left2, right2)) => {
                 constraints.push(Constraint {
                     expected: left1.clone(),
-                    expected_origin: None,
+                    expected_origin: constraint.expected_origin.clone(),
                     actual: left2.clone(),
-                    actual_origin: None,
+                    actual_origin: constraint.actual_origin.clone(),
                 });
                 constraints.push(Constraint {
                     expected: right1.clone(),
-                    expected_origin: None,
+                    expected_origin: constraint.expected_origin,
                     actual: right2.clone(),
-                    actual_origin: None,
+                    actual_origin: constraint.actual_origin,
                 });
             }
             _ => {}
@@ -336,23 +336,24 @@ pub fn solve_constraints(
         err_string.push_str("Sources of ");
         for ty in type_conflict.types {
             match &ty {
+                TypeSuggestion::Unknown => unreachable!(),
+                TypeSuggestion::Unit(_) => err_string.push_str("unit:\n"),
+                TypeSuggestion::Int(_) => err_string.push_str("int:\n"),
+                TypeSuggestion::Bool(_) => err_string.push_str("bool:\n"),
+                TypeSuggestion::String(_) => err_string.push_str("string:\n"),
+                TypeSuggestion::Arrow(_, _, _) => err_string.push_str("function:\n"),
+            };
+            let causes = match &ty {
+                TypeSuggestion::Unknown => unreachable!(),
                 TypeSuggestion::Unit(causes)
                 | TypeSuggestion::Int(causes)
                 | TypeSuggestion::Bool(causes)
-                | TypeSuggestion::String(causes) => {
-                    match &ty {
-                        TypeSuggestion::Unit(_) => err_string.push_str("unit:\n"),
-                        TypeSuggestion::Int(_) => err_string.push_str("int:\n"),
-                        TypeSuggestion::Bool(_) => err_string.push_str("bool:\n"),
-                        TypeSuggestion::String(_) => err_string.push_str("string:\n"),
-                        _ => unreachable!(),
-                    };
-                    for cause in causes {
-                        let span = node_map.get(cause).unwrap().span();
-                        err_string.push_str(&span.display(source, ""));
-                    }
-                }
-                _ => (),
+                | TypeSuggestion::String(causes)
+                | TypeSuggestion::Arrow(causes, _, _) => causes,
+            };
+            for cause in causes {
+                let span = node_map.get(cause).unwrap().span();
+                err_string.push_str(&span.display(source, ""));
             }
         }
     }
@@ -658,7 +659,7 @@ pub fn generate_constraints_expr(
                 new_ctx,
                 Mode::Ana {
                     expected: ty_body.clone(),
-                    expected_origin: None,
+                    expected_origin: Some(expr.id.clone()),
                 },
                 body.clone(),
                 constraints,
@@ -674,7 +675,7 @@ pub fn generate_constraints_expr(
                     expected,
                     expected_origin,
                     actual: ty_func,
-                    actual_origin: None,
+                    actual_origin: Some(expr.id.clone()),
                 }),
             };
         }
@@ -688,7 +689,7 @@ pub fn generate_constraints_expr(
                         ctx.clone(),
                         Mode::Ana {
                             expected: unknown.clone(),
-                            expected_origin: None,
+                            expected_origin: Some(expr.id.clone()), // TODO origin needs more detail like provenances... nth arg of func application
                         },
                         arg.clone(),
                         constraints,
@@ -707,7 +708,7 @@ pub fn generate_constraints_expr(
                 ctx,
                 Mode::Ana {
                     expected: ty_func,
-                    expected_origin: None,
+                    expected_origin: Some(expr.id.clone()),
                 },
                 func.clone(),
                 constraints,
@@ -721,7 +722,7 @@ pub fn generate_constraints_expr(
                     expected,
                     expected_origin,
                     actual: ty_body,
-                    actual_origin: None,
+                    actual_origin: Some(expr.id.clone()),
                 }),
             };
         }

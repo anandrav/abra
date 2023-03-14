@@ -83,6 +83,7 @@ impl Interpreter {
 
 // todo anand: separate into two cases: Success and Failure... new_env should only be present for failure,
 // steps should only be <= 0 and/or effect should be present for failure...
+#[derive(Debug)]
 pub struct InterpretResult {
     pub expr: Rc<Expr>,
     pub steps: i32,
@@ -179,19 +180,33 @@ fn interpret(
                         new_env,
                     };
                 }
-                // todo anand: explain this with comment
-                let new_env = Rc::new(RefCell::new(Environment::new(Some(env.clone()))));
-                let expr1 = match &*expr1 {
+
+                // Letrec: this code is confusing, and has circular references, sorry :(
+                let (expr1, closure) = match &*expr1 {
                     // TODO: need to use weak reference?
                     //      may be a memory leak because closure has ref to new_env, but new_env contains ref to the val/Func()
                     //      ... which reference needs to be weak??
-                    Func(id, body, _) => {
-                        let closure =
-                            Rc::new(RefCell::new(Environment::new(Some(new_env.clone()))));
-                        Rc::new(Func(id.clone(), body.clone(), Some(closure)))
+
+                    // letrec
+                    Func(id, body, Some(closure)) => (
+                        Rc::new(Func(id.clone(), body.clone(), Some(closure.clone()))),
+                        Some(closure.clone()),
+                    ),
+                    // letrec
+                    Func(id, body, None) => {
+                        let closure = Rc::new(RefCell::new(Environment::new(Some(env.clone()))));
+                        (
+                            Rc::new(Func(id.clone(), body.clone(), Some(closure.clone()))),
+                            Some(closure),
+                        )
                     }
-                    _ => expr1,
+                    _ => (expr1, None),
                 };
+                if let Some(closure) = closure {
+                    closure.borrow_mut().extend(id, expr1.clone());
+                }
+
+                let new_env = Rc::new(RefCell::new(Environment::new(Some(env.clone()))));
                 new_env.borrow_mut().extend(id, expr1);
 
                 let InterpretResult {
@@ -217,6 +232,7 @@ fn interpret(
             }
         },
         FuncAp(expr1, expr2, funcapp_env) => {
+            println!("funcapp_env: {:?}", funcapp_env);
             let InterpretResult {
                 expr: expr1,
                 steps,
@@ -256,6 +272,8 @@ fn interpret(
                 },
                 _ => panic!("not a function"),
             };
+            println!("closure is: {:?}", closure);
+
             let funcapp_env = match funcapp_env {
                 Some(funcapp_env) => funcapp_env.clone(),
                 None => {
@@ -265,6 +283,8 @@ fn interpret(
                     funcapp_env
                 }
             };
+
+            println!("funcapp_env: {:?}", funcapp_env);
 
             // TODO consume a step if interpret result is success, but only after! that's hwne funcapp is done.
             // let result = interpret(body, funcapp_env, steps, input);
@@ -286,7 +306,7 @@ fn interpret(
             // return a FuncApp for the expression field and set environment to new_env... So we can try again later.
             // Can't return funcapp_env for environment! Because it only contains the closure and the function's arguments!
             if effect.is_some() || steps <= 0 {
-                return InterpretResult {
+                let result = InterpretResult {
                     expr: Rc::new(FuncAp(
                         Rc::new(Func(id.clone(), body, Some(closure))),
                         expr2,
@@ -296,13 +316,18 @@ fn interpret(
                     effect,
                     new_env,
                 };
+                println!("result3 is {:#?}", &result);
+                return result;
             }
-            InterpretResult {
-                expr: body,
+            let result = InterpretResult {
+                expr: body.clone(),
                 steps,
                 effect,
                 new_env: env, // return env to normal
-            }
+            };
+            println!("body is {:#?}", &body);
+            println!("result4 is {:#?}", &result);
+            result
         }
         If(expr1, expr2, expr3) => {
             let InterpretResult {
