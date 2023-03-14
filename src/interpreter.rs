@@ -232,7 +232,6 @@ fn interpret(
             }
         },
         FuncAp(expr1, expr2, funcapp_env) => {
-            println!("funcapp_env: {:?}", funcapp_env);
             let InterpretResult {
                 expr: expr1,
                 steps,
@@ -272,7 +271,6 @@ fn interpret(
                 },
                 _ => panic!("not a function"),
             };
-            println!("closure is: {:?}", closure);
 
             let funcapp_env = match funcapp_env {
                 Some(funcapp_env) => funcapp_env.clone(),
@@ -283,8 +281,6 @@ fn interpret(
                     funcapp_env
                 }
             };
-
-            println!("funcapp_env: {:?}", funcapp_env);
 
             // TODO consume a step if interpret result is success, but only after! that's hwne funcapp is done.
             // let result = interpret(body, funcapp_env, steps, input);
@@ -316,18 +312,14 @@ fn interpret(
                     effect,
                     new_env,
                 };
-                println!("result3 is {:#?}", &result);
                 return result;
             }
-            let result = InterpretResult {
-                expr: body.clone(),
+            InterpretResult {
+                expr: body,
                 steps,
                 effect,
                 new_env: env, // return env to normal
-            };
-            println!("body is {:#?}", &body);
-            println!("result4 is {:#?}", &result);
-            result
+            }
         }
         If(expr1, expr2, expr3) => {
             let InterpretResult {
