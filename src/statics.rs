@@ -3,6 +3,7 @@ use crate::types::{types_of_binop, Prov, Type};
 use disjoint_sets::UnionFindNode;
 use multimap::MultiMap;
 use std::cell::RefCell;
+use std::cmp::min;
 use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::fmt::{self};
 use std::rc::Rc;
@@ -24,33 +25,46 @@ pub enum PotentialTypeCtor {
     Int,
     Bool,
     String,
-    Arrow,
+    ArrowNArgs(u8),
+    // weaker constraint: function must have >= n args, but because of currying, it could have more.
+    ArrowAtLeastNArgs(u8),
+}
+
+impl PotentialTypeCtor {
+    fn is_primitive(&self) -> bool {
+        match self {
+            Self::Unit | Self::Int | Self::Bool | Self::String => true,
+            Self::ArrowNArgs(_) | Self::ArrowAtLeastNArgs(_) => false,
+        }
+    }
+
+    fn is_arrow(&self) -> bool {
+        match self {
+            Self::ArrowNArgs(_) | Self::ArrowAtLeastNArgs(_) => true,
+            Self::Unit | Self::Int | Self::Bool | Self::String => false,
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum UFPotentialType {
     // TODO: don't store Ctor in Primitive/Binary, it's already the key of the map.
     Primitive(PotentialTypeCtor, Origins),
-    Binary(
-        PotentialTypeCtor,
-        Origins,
-        UFPotentialTypes,
-        UFPotentialTypes,
-    ),
+    Nary(PotentialTypeCtor, Origins, Vec<UFPotentialTypes>),
 }
 
 impl UFPotentialType {
     pub fn causes(&self) -> &Origins {
         match &self {
             Self::Primitive(_, causes) => causes,
-            Self::Binary(_, causes, _, _) => causes,
+            Self::Nary(_, causes, _) => causes,
         }
     }
 
     pub fn causes_mut(&mut self) -> &mut Origins {
         match self {
             Self::Primitive(_, causes) => causes,
-            Self::Binary(_, causes, _, _) => causes,
+            Self::Nary(_, causes, _) => causes,
         }
     }
 }
@@ -82,12 +96,19 @@ fn retrieve_and_or_add_node(
                 node
             }
         }
-        Type::Arrow(t1, t2) => {
-            let t1 = retrieve_and_or_add_node(unknown_ty_to_candidates, t1.clone(), None);
-            let t2 = retrieve_and_or_add_node(unknown_ty_to_candidates, t2.clone(), None);
+        Type::Arrow(types) => {
+            let types: Vec<_> = types
+                .iter()
+                .map(|t| retrieve_and_or_add_node(unknown_ty_to_candidates, t.clone(), None))
+                .collect();
+            // TODO: need to know which Arrow ctor to use here!
             UnionFindNode::new(UFPotentialTypes_::singleton(
-                PotentialTypeCtor::Arrow,
-                UFPotentialType::Binary(PotentialTypeCtor::Arrow, causes_single, t1, t2),
+                PotentialTypeCtor::ArrowNArgs(types.len() as u8),
+                UFPotentialType::Nary(
+                    PotentialTypeCtor::ArrowNArgs(types.len() as u8),
+                    causes_single,
+                    types,
+                ),
             ))
         }
         Type::Unit => UnionFindNode::new(UFPotentialTypes_::singleton(
@@ -116,7 +137,7 @@ pub enum TypeSuggestion {
     Int(Origins),
     Bool(Origins),
     String(Origins),
-    Arrow(Origins, TypeSuggestions, TypeSuggestions),
+    Arrow(Origins, Vec<TypeSuggestions>),
 }
 
 impl fmt::Display for TypeSuggestion {
@@ -127,7 +148,17 @@ impl fmt::Display for TypeSuggestion {
             TypeSuggestion::Int(_) => write!(f, "int"),
             TypeSuggestion::Bool(_) => write!(f, "bool"),
             TypeSuggestion::String(_) => write!(f, "string"),
-            TypeSuggestion::Arrow(_, t1, t2) => write!(f, "({} -> {})", t1, t2),
+            TypeSuggestion::Arrow(_, types) => {
+                write!(f, "(")?;
+                for (i, t) in types.iter().enumerate() {
+                    if i == 0 {
+                        write!(f, "{}", t)?;
+                    } else {
+                        write!(f, " -> {}", t)?;
+                    }
+                }
+                write!(f, ")")
+            }
         }
     }
 }
@@ -189,12 +220,15 @@ pub fn condense_candidates(uf_type_candidates: &UFPotentialTypes) -> TypeSuggest
                 types.insert(t);
             }
             (
-                PotentialTypeCtor::Arrow,
-                UFPotentialType::Binary(PotentialTypeCtor::Arrow, causes, t1, t2),
+                PotentialTypeCtor::ArrowNArgs(_) | PotentialTypeCtor::ArrowAtLeastNArgs(_),
+                UFPotentialType::Nary(
+                    PotentialTypeCtor::ArrowNArgs(_) | PotentialTypeCtor::ArrowAtLeastNArgs(_),
+                    causes,
+                    tys,
+                ),
             ) => {
-                let t1 = condense_candidates(t1);
-                let t2 = condense_candidates(t2);
-                types.insert(TypeSuggestion::Arrow(causes.clone(), t1, t2));
+                let tys: Vec<_> = tys.iter().map(|t| condense_candidates(t)).collect();
+                types.insert(TypeSuggestion::Arrow(causes.clone(), tys));
             }
             _ => unreachable!(),
         }
@@ -227,35 +261,98 @@ impl UFPotentialTypes_ {
         }
     }
 
-    // TODO: occurs check
-    fn extend(&mut self, ctor: PotentialTypeCtor, mut t_other: UFPotentialType) {
-        if let Some(mut t) = self.types.get_mut(&ctor) {
-            match t_other {
-                UFPotentialType::Primitive(_, other_causes) => {
-                    t.causes_mut().extend(other_causes);
+    fn should_arrows_merge(
+        arrow1: PotentialTypeCtor,
+        arrow2: PotentialTypeCtor,
+    ) -> Option<PotentialTypeCtor> {
+        match (&arrow1, &arrow2) {
+            (PotentialTypeCtor::ArrowNArgs(n1), PotentialTypeCtor::ArrowNArgs(n2)) => Some(arrow1),
+            (PotentialTypeCtor::ArrowAtLeastNArgs(n1), PotentialTypeCtor::ArrowNArgs(n2)) => {
+                if n1 <= n2 {
+                    Some(arrow2)
+                } else {
+                    None
                 }
-                UFPotentialType::Binary(
-                    PotentialTypeCtor::Arrow,
-                    other_causes,
-                    ref mut other_left,
-                    ref mut other_right,
-                ) => match &mut t {
-                    UFPotentialType::Binary(
-                        PotentialTypeCtor::Arrow,
-                        t_causes,
-                        ref mut t_left,
-                        ref mut t_right,
-                    ) => {
-                        t_causes.extend(other_causes);
-                        t_left.union_with(other_left, UFPotentialTypes_::merge);
-                        t_right.union_with(other_right, UFPotentialTypes_::merge);
-                    }
-                    _ => unreachable!("should be binary"),
-                },
-                _ => unreachable!("ctor of binary should be arrow"),
             }
-        } else {
-            self.types.insert(ctor, t_other);
+            (
+                PotentialTypeCtor::ArrowAtLeastNArgs(n1),
+                PotentialTypeCtor::ArrowAtLeastNArgs(n2),
+            ) => {
+                if n1 > n2 {
+                    Some(arrow1)
+                } else {
+                    Some(arrow2)
+                }
+            }
+            (PotentialTypeCtor::ArrowNArgs(n1), PotentialTypeCtor::ArrowAtLeastNArgs(n2)) => {
+                if n1 >= n2 {
+                    Some(arrow1)
+                } else {
+                    None
+                }
+            }
+            _ => unreachable!("should only be called with arrows"),
+        }
+    }
+
+    // TODO: occurs check
+    fn extend(&mut self, ctor_other: PotentialTypeCtor, mut t_other: UFPotentialType) {
+        // if primitive, just want to merge the causes if already in there, or else plain insert
+        if ctor_other.is_primitive() {
+            if let Some(mut t) = self.types.get_mut(&ctor_other) {
+                match t_other {
+                    UFPotentialType::Primitive(_, other_causes) => {
+                        t.causes_mut().extend(other_causes);
+                    }
+                    _ => unreachable!(),
+                }
+            } else {
+                self.types.insert(ctor_other, t_other);
+            }
+        } else if ctor_other.is_arrow() {
+            let mut to_insert = false;
+            for (ctor, t) in &mut self.types {
+                if !ctor.is_arrow() {
+                    continue;
+                }
+                match (&mut t_other, t) {
+                    (
+                        UFPotentialType::Nary(
+                            PotentialTypeCtor::ArrowNArgs(_)
+                            | PotentialTypeCtor::ArrowAtLeastNArgs(_),
+                            other_causes,
+                            ref mut other_children,
+                        ),
+                        UFPotentialType::Nary(
+                            PotentialTypeCtor::ArrowNArgs(_)
+                            | PotentialTypeCtor::ArrowAtLeastNArgs(_),
+                            t_causes,
+                            ref mut children,
+                        ),
+                    ) => {
+                        if let Some(new_ctor) =
+                            UFPotentialTypes_::should_arrows_merge(ctor_other, ctor)
+                        {
+                            once = true;
+                            t_causes.extend(other_causes.clone());
+                            let n = min(children.len(), other_children.len());
+                            for i in 0..n {
+                                children[i]
+                                    .union_with(&mut other_children[i], UFPotentialTypes_::merge);
+                            }
+                            t = UFPotentialType::Nary(new_ctor, t_causes.clone(), children.clone());
+                            // self.types.insert(
+                            //     new_ctor,
+                            //     UFPotentialType::Nary(new_ctor, t_causes.clone(), children.clone()),
+                            // );
+                        }
+                    }
+                    _ => unreachable!("should be arrow"),
+                }
+            }
+            if !once {
+                self.types.insert(ctor_other, t_other);
+            }
         }
     }
 
@@ -299,19 +396,16 @@ pub fn solve_constraints(
                 let t = constraint.expected.clone();
                 add_hole_and_t(hole, t, constraint.expected_origin);
             }
-            (Type::Arrow(left1, right1), Type::Arrow(left2, right2)) => {
-                constraints.push(Constraint {
-                    expected: left1.clone(),
-                    expected_origin: constraint.expected_origin.clone(),
-                    actual: left2.clone(),
-                    actual_origin: constraint.actual_origin.clone(),
-                });
-                constraints.push(Constraint {
-                    expected: right1.clone(),
-                    expected_origin: constraint.expected_origin,
-                    actual: right2.clone(),
-                    actual_origin: constraint.actual_origin,
-                });
+            (Type::Arrow(children1), Type::Arrow(children2)) => {
+                let n = min(children1.len(), children2.len());
+                for i in 0..n {
+                    constraints.push(Constraint {
+                        expected: children1[i].clone(),
+                        expected_origin: constraint.expected_origin.clone(),
+                        actual: children2[i].clone(),
+                        actual_origin: constraint.actual_origin.clone(),
+                    });
+                }
             }
             _ => {}
         }
@@ -342,7 +436,7 @@ pub fn solve_constraints(
                 TypeSuggestion::Int(_) => err_string.push_str("int:\n"),
                 TypeSuggestion::Bool(_) => err_string.push_str("bool:\n"),
                 TypeSuggestion::String(_) => err_string.push_str("string:\n"),
-                TypeSuggestion::Arrow(_, _, _) => err_string.push_str("function:\n"),
+                TypeSuggestion::Arrow(_, _) => err_string.push_str("function:\n"),
             };
             let causes = match &ty {
                 TypeSuggestion::Unknown => unreachable!(),
@@ -350,7 +444,7 @@ pub fn solve_constraints(
                 | TypeSuggestion::Int(causes)
                 | TypeSuggestion::Bool(causes)
                 | TypeSuggestion::String(causes)
-                | TypeSuggestion::Arrow(causes, _, _) => causes,
+                | TypeSuggestion::Arrow(causes, _) => causes,
             };
             for cause in causes {
                 let span = node_map.get(cause).unwrap().span();
@@ -371,11 +465,14 @@ pub fn make_new_environment() -> Rc<RefCell<TyCtx>> {
     let ctx = TyCtx::empty();
     ctx.borrow_mut().extend(
         &String::from("print"),
-        Rc::new(Type::Arrow(Rc::new(Type::String), Rc::new(Type::Unit))),
+        Rc::new(Type::Arrow(vec![
+            Rc::new(Type::String),
+            Rc::new(Type::Unit),
+        ])),
     );
     ctx.borrow_mut().extend(
         &String::from("string_of_int"),
-        Rc::new(Type::Arrow(Rc::new(Type::Int), Rc::new(Type::String))),
+        Rc::new(Type::Arrow(vec![Rc::new(Type::Int), Rc::new(Type::String)])),
     );
     ctx
 }
@@ -645,7 +742,7 @@ pub fn generate_constraints_expr(
         ExprKind::Func(args, _, body) => {
             let new_ctx = TyCtx::new(Some(ctx));
 
-            let ty_args = args
+            let ty_args: Vec<_> = args
                 .iter()
                 .map(|(arg, _)| {
                     let ty_arg = Rc::new(Type::Unknown(Prov::Node(arg.id.clone())));
@@ -666,7 +763,9 @@ pub fn generate_constraints_expr(
                 constraints,
             );
 
-            let ty_func = Type::make_arrow(ty_args, ty_body);
+            let mut ty_func_children = ty_args.clone();
+            ty_func_children.push(ty_body);
+            let ty_func = Rc::new(Type::Arrow(ty_func_children));
             match mode {
                 Mode::Syn => (),
                 Mode::Ana {
@@ -704,7 +803,9 @@ pub fn generate_constraints_expr(
                 tys_args.len() as u8,
             )));
 
-            let ty_func = Type::make_arrow(tys_args, ty_body.clone());
+            let mut ty_func_children = tys_args;
+            ty_func_children.push(ty_body.clone());
+            let ty_func = Rc::new(Type::Arrow(ty_func_children));
             generate_constraints_expr(
                 ctx,
                 Mode::Ana {

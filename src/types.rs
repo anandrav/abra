@@ -9,15 +9,15 @@ pub enum Type {
     Int,
     Bool,
     String,
-    Arrow(Rc<Type>, Rc<Type>),
+    Arrow(Vec<Rc<Type>>),
 }
 
 impl Type {
-    pub fn make_arrow(args: Vec<Rc<Type>>, out: Rc<Type>) -> Rc<Type> {
-        args.into_iter()
-            .rev()
-            .fold(out, |acc, arg| Rc::new(Type::Arrow(arg, acc)))
-    }
+    // pub fn make_arrow(args: Vec<Rc<Type>>, out: Rc<Type>) -> Rc<Type> {
+    //     args.into_iter()
+    //         .rev()
+    //         .fold(out, |acc, arg| Rc::new(Type::Arrow(arg, acc)))
+    // }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -59,7 +59,17 @@ impl fmt::Display for Type {
             Type::Int => write!(f, "int"),
             Type::Bool => write!(f, "bool"),
             Type::String => write!(f, "string"),
-            Type::Arrow(t1, t2) => write!(f, "({} -> {})", t1, t2),
+            Type::Arrow(types) => {
+                write!(f, "(")?;
+                for (i, t) in types.iter().enumerate() {
+                    if i == 0 {
+                        write!(f, "{}", t)?;
+                    } else {
+                        write!(f, " -> {}", t)?;
+                    }
+                }
+                write!(f, ")")
+            }
         }
     }
 }
