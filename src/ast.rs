@@ -186,7 +186,7 @@ pub struct Span {
 
 impl Span {
     pub fn line_number(&self, source: &str) -> usize {
-        source[..self.lo].lines().count()
+        source[..self.lo + 1].lines().count()
     }
 
     pub fn display(&self, source: &str, detail: &str) -> String {

@@ -269,7 +269,8 @@ impl UFPotentialTypes_ {
     }
 }
 
-// TODO: since each expr/pattern node has a type, the node map should be populated with the types of each node. So node id -> {Rc<Node>, StaticsSummary}
+// TODO: since each expr/pattern node has a type, the node map should be populated with the types (and errors) of each node. So node id -> {Rc<Node>, StaticsSummary}
+// errors would be unbound variable, wrong number of arguments, occurs check, etc.
 pub fn solve_constraints(
     constraints: Vec<Constraint>,
     node_map: ast::NodeMap,
