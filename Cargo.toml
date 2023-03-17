@@ -13,6 +13,10 @@ crate-type = ["lib"]
 path = "src/lib.rs"
 
 [dependencies]
+tokio = { version = "1.15.0", features = ["full"] }
+dioxus = "0.3.0"
+dioxus-desktop = "0.3.0"
+futures-util = "0.3.21"
 disjoint-sets = "0.4.2"
 multimap = "0.8.3"
 debug_print = "1.0.0"

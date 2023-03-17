@@ -1,7 +1,5 @@
 extern crate abra;
 extern crate debug_print;
-extern crate disjoint_sets;
-extern crate eframe;
 extern crate pest;
 extern crate pest_derive;
 extern crate regex;
@@ -12,35 +10,165 @@ mod eval_tree;
 mod interpreter;
 mod operators;
 mod side_effects;
-mod statics;
 mod translate;
 mod types;
 
-use std::rc::Rc;
+use std::borrow::Borrow;
 
 use debug_print::debug_println;
-
-use eframe::egui;
 
 use egui::Color32;
 use interpreter::Interpreter;
 
-use crate::statics::make_new_environment;
+// This example shows how to create a popup window and send data back to the parent window.
 
-// When compiling natively:
-#[cfg(not(target_arch = "wasm32"))]
+use dioxus::prelude::*;
+use dioxus_desktop::use_window;
+use futures_util::StreamExt;
+use std::time::Duration;
+
 fn main() {
-    // Log to stdout (if you run with `RUST_LOG=debug`).
-
-    tracing_subscriber::fmt::init();
-
-    let options = eframe::NativeOptions::default();
-    eframe::run_native(
-        "My egui App",
-        options,
-        Box::new(|_cc| Box::<MyApp>::default()),
-    );
+    dioxus_desktop::launch(app);
 }
+
+struct ComposeProps {
+    app_tx: Coroutine<String>,
+}
+
+fn app(cx: Scope) -> Element {
+    // let window = use_window(cx);
+    let output = use_state(cx, String::new);
+    let interpreter = use_ref(cx, || None::<Interpreter>);
+    let user_input = use_state(cx, || {
+        String::from(
+            r#"let fibonacci = func(n) {
+if n == 0 {
+0
+} else {
+if n == 1 {
+    1
+} else {
+    fibonacci(n-1) + fibonacci(n-2)
+}
+}
+};
+let run_fibonacci = func(n) {
+print(string_of_int(fibonacci(n)))
+};
+let from_i_to_n = func(i, n, f) {
+if i > n {
+()
+} else {
+f(i);
+from_i_to_n(i+1, n, f);
+}
+};
+
+print("The first 30 fibonacci numbers are:");
+from_i_to_n(0, 30, run_fibonacci);"#,
+        )
+    });
+
+    let tx = use_coroutine(cx, |mut rx: UnboundedReceiver<String>| {
+        to_owned![output];
+        to_owned![interpreter];
+        async move {
+            while let Some(message) = rx.next().await {
+                output.set(String::new());
+
+                let text_with_braces = "{".to_owned() + &message + "}";
+                match ast::parse_or_err(&text_with_braces) {
+                    Ok(parse_tree) => {
+                        let eval_tree = translate::translate_expr(parse_tree.exprkind.clone());
+                        interpreter.set(Some(Interpreter::new(eval_tree)));
+                    }
+                    Err(err) => {
+                        output.set(err);
+                    }
+                }
+            }
+        }
+    });
+
+    use_future(cx, (), move |_| {
+        to_owned![output];
+        to_owned![interpreter];
+        // let mut count = count.clone();
+        async move {
+            loop {
+                let steps = if cfg!(debug_assertions) { 1 } else { 1000 };
+                let effect_handler = |effect, args| {
+                    side_effects::handle_effect2(effect, args, |to_append| {
+                        output.with_mut(|output| {
+                            output.push_str(to_append);
+                        });
+                    })
+                };
+                interpreter.with_mut(|i| {
+                    if let Some(interpreter) = i {
+                        if !interpreter.is_finished() {
+                            interpreter.run(effect_handler, steps);
+                            if interpreter.is_finished() {
+                                // self.output +=
+                                //     &format!("Evaluated to: {:?}", interpreter.get_val().unwrap());
+                            }
+                        }
+                    }
+                });
+
+                tokio::time::sleep(Duration::from_millis(10)).await;
+                // count += 1;
+            }
+        }
+    });
+
+    cx.render(rsx! {
+        div {
+
+            h1 {
+                "Abra Editor"
+            }
+
+            textarea {
+                style: "white-space: pre-wrap",
+
+                oninput: move |e| {
+                    user_input.set(e.value.clone());
+                },
+                cols: 50,
+                rows: 28,
+                value: "{user_input}"
+            }
+
+            button {
+                onclick: move |_| {
+                    tx.send(user_input.get().clone());
+                },
+                "Run Code ⏵"
+            }
+
+            p {
+                style: "white-space: pre-wrap",
+                "{output}"
+            }
+        }
+    })
+}
+
+// // When compiling natively:
+// #[cfg(not(target_arch = "wasm32"))]
+// fn main() {
+//     // Log to stdout (if you run with `RUST_LOG=debug`).
+
+//     tracing_subscriber::fmt::init();
+
+//     let options = eframe::NativeOptions::default();
+//     eframe::run_native(
+//         "My egui App",
+//         options,
+//         Box::new(|_cc| Box::<MyApp>::default()),
+//     );
+// }
 
 // when compiling to web using trunk.
 #[cfg(target_arch = "wasm32")]
@@ -160,37 +288,12 @@ impl eframe::App for MyApp {
                         {
                             self.interpreter = None;
                             self.output.clear();
-                            let text_with_braces = "{\n".to_owned() + &self.text + "\n}";
+                            let text_with_braces = "{".to_owned() + &self.text + "}";
                             match ast::parse_or_err(&text_with_braces) {
                                 Ok(parse_tree) => {
-                                    let mut constraints = Vec::new();
-                                    statics::generate_constraints_expr(
-                                        make_new_environment(),
-                                        statics::Mode::Syn,
-                                        parse_tree.clone(),
-                                        &mut constraints,
-                                    );
-                                    let mut node_map = ast::NodeMap::new();
-                                    ast::initialize_node_map(
-                                        &mut node_map,
-                                        &(parse_tree.clone() as Rc<dyn ast::Node>),
-                                    );
-                                    let result = statics::solve_constraints(
-                                        constraints,
-                                        node_map,
-                                        &text_with_braces,
-                                    );
-                                    match result {
-                                        Ok(_) => {
-                                            let eval_tree = translate::translate_expr(
-                                                parse_tree.exprkind.clone(),
-                                            );
-                                            self.interpreter = Some(Interpreter::new(eval_tree))
-                                        }
-                                        Err(err) => {
-                                            self.output = err;
-                                        }
-                                    }
+                                    let eval_tree =
+                                        translate::translate_expr(parse_tree.exprkind.clone());
+                                    self.interpreter = Some(Interpreter::new(eval_tree));
                                 }
                                 Err(err) => {
                                     self.output = err;
