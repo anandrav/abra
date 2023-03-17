@@ -15,6 +15,7 @@ path = "src/lib.rs"
 [dependencies]
 debug_print = "1.0.0"
 regex = "1.7.0"
+tokio = { version = "1.15.0", features = ["full"] }
 pest = "2.5.2"
 pest_derive = "2.5.2"
 egui = "0.20.1"
@@ -24,6 +25,9 @@ eframe = { version = "0.20.0", default-features = false, features = [
     "glow",          # Use the glow rendering backend. Alternative: "wgpu".
     "persistence",   # Enable restoring app state when restarting the app.
 ] }
+dioxus = "0.3.0"
+dioxus-desktop = "0.3.0"
+futures-util = "0.3.21"
 
 # native:
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
