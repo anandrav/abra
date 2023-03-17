@@ -130,6 +130,8 @@ from_i_to_n(0, 30, run_fibonacci);"#,
             }
 
             textarea {
+                style: "white-space: pre-wrap",
+
                 oninput: move |e| {
                     user_input.set(e.value.clone());
                 },
@@ -146,6 +148,7 @@ from_i_to_n(0, 30, run_fibonacci);"#,
             }
 
             p {
+                style: "white-space: pre-wrap",
                 "{output}"
             }
         }
