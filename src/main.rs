@@ -10,10 +10,11 @@ mod eval_tree;
 mod interpreter;
 mod operators;
 mod side_effects;
+mod statics;
 mod translate;
 mod types;
 
-use std::borrow::Borrow;
+use std::{borrow::Borrow, rc::Rc};
 
 use debug_print::debug_println;
 
@@ -79,8 +80,30 @@ from_i_to_n(0, 30, run_fibonacci);"#,
                 let text_with_braces = "{".to_owned() + &message + "}";
                 match ast::parse_or_err(&text_with_braces) {
                     Ok(parse_tree) => {
-                        let eval_tree = translate::translate_expr(parse_tree.exprkind.clone());
-                        interpreter.set(Some(Interpreter::new(eval_tree)));
+                        let mut constraints = Vec::new();
+                        statics::generate_constraints_expr(
+                            statics::make_new_environment(),
+                            statics::Mode::Syn,
+                            parse_tree.clone(),
+                            &mut constraints,
+                        );
+                        let mut node_map = ast::NodeMap::new();
+                        ast::initialize_node_map(
+                            &mut node_map,
+                            &(parse_tree.clone() as Rc<dyn ast::Node>),
+                        );
+                        let result =
+                            statics::solve_constraints(constraints, node_map, &text_with_braces);
+                        match result {
+                            Ok(_) => {
+                                let eval_tree =
+                                    translate::translate_expr(parse_tree.exprkind.clone());
+                                interpreter.set(Some(Interpreter::new(eval_tree)));
+                            }
+                            Err(err) => {
+                                output.set(err);
+                            }
+                        }
                     }
                     Err(err) => {
                         output.set(err);
@@ -130,7 +153,7 @@ from_i_to_n(0, 30, run_fibonacci);"#,
             }
 
             textarea {
-                style: "white-space: pre-wrap",
+                style: "white-space: pre-wrap; font-family: monospace;",
 
                 oninput: move |e| {
                     user_input.set(e.value.clone());
@@ -148,7 +171,7 @@ from_i_to_n(0, 30, run_fibonacci);"#,
             }
 
             p {
-                style: "white-space: pre-wrap",
+                style: "white-space: pre-wrap; font-family: monospace;",
                 "{output}"
             }
         }
