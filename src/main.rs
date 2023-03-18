@@ -49,7 +49,7 @@ fn app(cx: Scope) -> Element {
             while let Some(message) = rx.next().await {
                 output.set(String::new());
 
-                let text_with_braces = "{".to_owned() + &message + "}";
+                let text_with_braces = "{\n".to_owned() + &message + "\n}";
                 match ast::parse_or_err(&text_with_braces) {
                     Ok(parse_tree) => {
                         let mut constraints = Vec::new();
