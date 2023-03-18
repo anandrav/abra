@@ -414,7 +414,10 @@ pub fn parse_expr_term(pair: Pair<Rule>, pratt: &PrattParser<Rule>) -> Rc<Expr> 
             exprkind: Rc::new(ExprKind::Str({
                 let s = pair.as_str();
                 // remove quotes
-                s[1..s.len() - 1].to_owned()
+                let is_quote = |c| c == '"' || c == '“' || c == '”';
+                let s = s.trim_start_matches(is_quote);
+                let s = s.trim_end_matches(is_quote);
+                s.to_owned()
             })),
             span,
             id: Id::new(),

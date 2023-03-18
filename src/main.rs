@@ -40,35 +40,7 @@ fn app(cx: Scope) -> Element {
     // let window = use_window(cx);
     let output = use_state(cx, String::new);
     let interpreter = use_ref(cx, || None::<Interpreter>);
-    let user_input = use_state(cx, || {
-        String::from(
-            r#"let fibonacci = func(n) {
-if n == 0 {
-0
-} else {
-if n == 1 {
-    1
-} else {
-    fibonacci(n-1) + fibonacci(n-2)
-}
-}
-};
-let run_fibonacci = func(n) {
-print(string_of_int(fibonacci(n)))
-};
-let from_i_to_n = func(i, n, f) {
-if i > n {
-()
-} else {
-f(i);
-from_i_to_n(i+1, n, f);
-}
-};
-
-print("The first 30 fibonacci numbers are:");
-from_i_to_n(0, 30, run_fibonacci);"#,
-        )
-    });
+    let user_input = use_state(cx, || String::from(r#"print("hello world")"#));
 
     let tx = use_coroutine(cx, |mut rx: UnboundedReceiver<String>| {
         to_owned![output];
@@ -132,15 +104,18 @@ from_i_to_n(0, 30, run_fibonacci);"#,
                         if !interpreter.is_finished() {
                             interpreter.run(effect_handler, steps);
                             if interpreter.is_finished() {
-                                // self.output +=
-                                //     &format!("Evaluated to: {:?}", interpreter.get_val().unwrap());
+                                output.with_mut(|output| {
+                                    output.push_str(&format!(
+                                        "Evaluated to: {:?}",
+                                        interpreter.get_val().unwrap()
+                                    ));
+                                });
                             }
                         }
                     }
                 });
 
                 tokio::time::sleep(Duration::from_millis(10)).await;
-                // count += 1;
             }
         }
     });
@@ -155,12 +130,12 @@ from_i_to_n(0, 30, run_fibonacci);"#,
             textarea {
                 style: "white-space: pre-wrap; font-family: monospace;",
 
+                cols: 50,
+                rows: 28,
+                value: r#"print("hello world")"#,
                 oninput: move |e| {
                     user_input.set(e.value.clone());
                 },
-                cols: 50,
-                rows: 28,
-                value: "{user_input}"
             }
 
             button {
