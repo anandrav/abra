@@ -79,11 +79,14 @@ impl Node for Expr {
             ExprKind::Int(_) => vec![],
             ExprKind::Bool(_) => vec![],
             ExprKind::Str(_) => vec![],
-            ExprKind::Func(args, _, body) => {
-                let mut children: Vec<Rc<dyn Node>> = args
-                    .iter()
-                    .map(|(pat, _)| pat.clone() as Rc<dyn Node>)
-                    .collect::<Vec<_>>();
+            ExprKind::Func(args, ty_opt, body) => {
+                let mut children: Vec<Rc<dyn Node>> = Vec::new();
+                args.iter().for_each(|(pat, ty_opt)| {
+                    children.push(pat.clone());
+                    if let Some(ty) = ty_opt {
+                        children.push(ty.clone())
+                    }
+                });
                 children.push(body.clone());
                 children
             }

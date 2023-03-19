@@ -643,15 +643,28 @@ pub fn generate_constraints_expr(
             generate_constraints_expr(ctx, mode, expr2.clone(), constraints);
         }
         ExprKind::Func(args, _, body) => {
-            let new_ctx = TyCtx::new(Some(ctx));
+            let mut new_ctx = TyCtx::new(Some(ctx.clone()));
 
             let ty_args = args
                 .iter()
                 .map(|(arg, ty_opt)| {
-                    let ty_arg = Rc::new(Type::Unknown(Prov::Node(arg.id.clone())));
-                    let arg1id = arg.patkind.get_identifier();
-                    new_ctx.borrow_mut().extend(&arg1id, ty_arg.clone());
-                    ty_arg
+                    let ty_pat = Rc::new(Type::Unknown(Prov::Node(arg.id.clone())));
+                    let argid = arg.patkind.get_identifier();
+                    new_ctx = if let Some(ty_annotation) = ty_opt {
+                        generate_constraints_pat(
+                            ctx.clone(),
+                            Mode::Ana {
+                                expected: ast_type_to_boring_type(ty_annotation.clone()),
+                                expected_origin: Some(ty_annotation.id()),
+                            },
+                            arg.clone(),
+                            constraints,
+                        )
+                    } else {
+                        generate_constraints_pat(ctx.clone(), Mode::Syn, arg.clone(), constraints)
+                    }
+                    .unwrap_or(new_ctx.clone());
+                    ty_pat
                 })
                 .collect();
 
