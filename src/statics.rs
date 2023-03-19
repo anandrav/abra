@@ -742,31 +742,29 @@ pub fn generate_constraints_stmt(
             None
         }
         StmtKind::Let((pat, ty_opt), expr) => {
-            let PatKind::Var(identifier) = &*pat.patkind;
-
             let ty_pat = Rc::new(Type::Unknown(Prov::Node(pat.id.clone())));
-            let ty_annotation = match ty_opt {
-                Some(ty) => Some((ast_type_to_boring_type(ty.clone()), ty.id())),
-                None => None, // TODO wrong id, need id of type annotation
-            };
-            // todo generate constraints using pattern itself as well... pattern could be a tuple or variant, or have a type annotation?
-            if let Some((ty_annotation, id)) = ty_annotation {
+            // TODO don't use ast_type_to_boring_type
+            let ty_annotation = ty_opt
+                .as_ref()
+                .map(|ty| (ast_type_to_boring_type(ty.clone()), ty.id()));
+
+            let new_ctx = if let Some((ty_annotation, id)) = ty_annotation {
                 generate_constraints_pat(
                     ctx.clone(),
                     Mode::Ana {
                         expected: ty_annotation,
-                        expected_origin: Some(id.clone()),
+                        expected_origin: Some(id),
                     },
                     pat.clone(),
                     constraints,
-                );
-            }
+                )
+            } else {
+                generate_constraints_pat(ctx.clone(), Mode::Syn, pat.clone(), constraints)
+            };
 
-            // letrec: extend context with id and type before analyzing against said type
-            let new_ctx = TyCtx::new(Some(ctx));
-            new_ctx.borrow_mut().extend(identifier, ty_pat.clone());
+            let ctx = new_ctx.unwrap_or(ctx);
             generate_constraints_expr(
-                new_ctx.clone(),
+                ctx.clone(),
                 Mode::Ana {
                     expected: ty_pat,
                     expected_origin: None,
@@ -774,7 +772,7 @@ pub fn generate_constraints_stmt(
                 expr.clone(),
                 constraints,
             );
-            Some(new_ctx)
+            Some(ctx)
         }
     }
 }
@@ -786,9 +784,12 @@ pub fn generate_constraints_pat(
     pat: Rc<Pat>,
     constraints: &mut Vec<Constraint>,
 ) -> Option<Rc<RefCell<TyCtx>>> {
+    let new_ctx = TyCtx::new(Some(ctx));
     match &*pat.patkind {
         PatKind::Var(identifier) => {
+            // letrec?: extend context with id and type before analyzing against said type
             let ty_pat = Rc::new(Type::Unknown(Prov::Node(pat.id.clone())));
+            new_ctx.borrow_mut().extend(identifier, ty_pat.clone());
             match mode {
                 Mode::Syn => (),
                 Mode::Ana {
@@ -801,7 +802,7 @@ pub fn generate_constraints_pat(
                     actual_origin: Some(pat.id.clone()),
                 }),
             };
-            None
+            Some(new_ctx)
         }
     }
 }
