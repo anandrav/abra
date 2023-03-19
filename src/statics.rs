@@ -649,7 +649,6 @@ pub fn generate_constraints_expr(
                 .iter()
                 .map(|(arg, ty_opt)| {
                     let ty_pat = Rc::new(Type::Unknown(Prov::Node(arg.id.clone())));
-                    let argid = arg.patkind.get_identifier();
                     new_ctx = if let Some(ty_annotation) = ty_opt {
                         generate_constraints_pat(
                             ctx.clone(),

@@ -2,6 +2,23 @@ use std::{fmt, rc::Rc};
 
 use crate::{ast, operators::BinOpcode};
 
+// TODO: use this for Types instead, because all Types have a provenance.
+// #[derive(Debug, Clone, PartialEq, Eq, Hash)]
+// pub struct Type {
+//     pub typekind: TypeKind,
+//     pub prov: Prov,
+// }
+
+// #[derive(Debug, Clone, PartialEq, Eq, Hash)]
+// pub enum TypeKind {
+//     Unknown(Prov),
+//     Unit,
+//     Int,
+//     Bool,
+//     String,
+//     Arrow(Rc<Type>, Rc<Type>),
+// }
+
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum Type {
     Unknown(Prov),

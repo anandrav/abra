@@ -79,6 +79,7 @@ impl Node for Expr {
             ExprKind::Int(_) => vec![],
             ExprKind::Bool(_) => vec![],
             ExprKind::Str(_) => vec![],
+            // TODO: output of function needs to be annotated as well!
             ExprKind::Func(args, ty_opt, body) => {
                 let mut children: Vec<Rc<dyn Node>> = Vec::new();
                 args.iter().for_each(|(pat, ty_opt)| {
@@ -316,17 +317,15 @@ pub fn get_pairs(source: &str) -> Result<Pairs<Rule>, String> {
 }
 
 pub fn parse_pat_annotated(pair: Pair<Rule>, _pratt: &PrattParser<Rule>) -> PatAnnotated {
-    let span = Span::from(pair.as_span());
     let rule = pair.as_rule();
     match rule {
         Rule::pattern_annotated => {
             let inner: Vec<_> = pair.into_inner().collect();
             let pat_pair = inner[0].clone();
             let pat = parse_pat(pat_pair, _pratt);
-            let ty = match inner.get(1) {
-                Some(type_pair) => Some(parse_type_term(type_pair.clone(), _pratt)),
-                None => None,
-            };
+            let ty = inner
+                .get(1)
+                .map(|type_pair| parse_type_term(type_pair.clone(), _pratt));
             (pat, ty)
         }
         _ => panic!("unreachable rule {:#?}", rule),
