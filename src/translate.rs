@@ -50,7 +50,7 @@ pub fn translate_expr_block(
     }
 }
 
-pub fn translate_expr_func(func_args: Vec<ast::FuncArg>, body: Rc<ASTek>) -> Rc<Ete> {
+pub fn translate_expr_func(func_args: Vec<ast::PatAnnotated>, body: Rc<ASTek>) -> Rc<Ete> {
     let id = func_args[0].0.patkind.get_identifier();
     if func_args.len() == 1 {
         Rc::new(Ete::Func(id, translate_expr(body), None))

@@ -1,6 +1,6 @@
 use crate::operators::BinOpcode;
 // use pest::error::{Error, ErrorVariant, InputLocation::Pos};
-use crate::types::*;
+use crate::types::{self, *};
 use pest::iterators::{Pair, Pairs};
 use pest::pratt_parser::{Assoc, Op, PrattParser};
 use pest::Parser;
@@ -13,7 +13,7 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 struct MyParser;
 
 pub type Identifier = String;
-pub type FuncArg = (Rc<Pat>, Option<Rc<Type>>);
+pub type PatAnnotated = (Rc<Pat>, Option<Rc<AstType>>);
 
 pub trait Node {
     fn span(&self) -> Span;
@@ -46,7 +46,7 @@ impl Node for Stmt {
 
 #[derive(Debug, PartialEq)]
 pub enum StmtKind {
-    Let(Rc<Pat>, Option<Rc<Type>>, Rc<Expr>),
+    Let(Rc<Pat>, Option<Rc<AstType>>, Rc<Expr>),
     Expr(Rc<Expr>),
 }
 
@@ -109,7 +109,7 @@ pub enum ExprKind {
     Int(i32),
     Bool(bool),
     Str(String),
-    Func(Vec<FuncArg>, Option<Rc<Type>>, Rc<Expr>),
+    Func(Vec<PatAnnotated>, Option<Rc<AstType>>, Rc<Expr>),
     If(Rc<Expr>, Rc<Expr>, Rc<Expr>),
     // Match(Rc<Expr>, Vec<MatchArm>),
     Block(Vec<Rc<Stmt>>, Option<Rc<Expr>>),
@@ -157,6 +157,52 @@ impl PatKind {
             PatKind::Var(id) => id.clone(),
         }
     }
+}
+
+#[derive(Debug, PartialEq)]
+pub struct AstType {
+    // TODO make AType and Type structs the same, probably useful
+    pub typekind: Rc<TypeKind>,
+    pub span: Span,
+    pub id: Id,
+}
+
+pub fn ast_type_to_boring_type(ast_type: Rc<AstType>) -> Rc<types::Type> {
+    match &*ast_type.typekind {
+        TypeKind::Unit => types::Type::Unit.into(),
+        TypeKind::Int => types::Type::Int.into(),
+        TypeKind::Bool => types::Type::Bool.into(),
+        TypeKind::Str => types::Type::String.into(),
+        TypeKind::Arrow(lhs, rhs) => Rc::new(types::Type::Arrow(
+            ast_type_to_boring_type(lhs.clone()),
+            ast_type_to_boring_type(rhs.clone()),
+        )),
+    }
+}
+
+impl Node for AstType {
+    fn span(&self) -> Span {
+        self.span.clone()
+    }
+    fn id(&self) -> Id {
+        self.id.clone()
+    }
+
+    fn children(&self) -> Vec<Rc<dyn Node>> {
+        match &*self.typekind {
+            TypeKind::Unit | TypeKind::Int | TypeKind::Bool | TypeKind::Str => vec![],
+            TypeKind::Arrow(lhs, rhs) => vec![lhs.clone(), rhs.clone()],
+        }
+    }
+}
+
+#[derive(Debug, PartialEq)]
+pub enum TypeKind {
+    Unit,
+    Int,
+    Bool,
+    Str,
+    Arrow(Rc<AstType>, Rc<AstType>),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -259,6 +305,24 @@ pub fn get_pairs(source: &str) -> Result<Pairs<Rule>, String> {
     MyParser::parse(Rule::expression, source).map_err(|e| e.to_string())
 }
 
+pub fn parse_pat_annotated(pair: Pair<Rule>, _pratt: &PrattParser<Rule>) -> PatAnnotated {
+    let span = Span::from(pair.as_span());
+    let rule = pair.as_rule();
+    match rule {
+        Rule::pattern_annotated => {
+            let inner: Vec<_> = pair.into_inner().collect();
+            let pat_pair = inner[0].clone();
+            let pat = parse_pat(pat_pair, _pratt);
+            let ty = match inner.get(1) {
+                Some(type_pair) => Some(parse_type(type_pair.clone(), _pratt)),
+                None => None,
+            };
+            (pat, ty)
+        }
+        _ => panic!("unreachable rule {:#?}", rule),
+    }
+}
+
 pub fn parse_pat(pair: Pair<Rule>, _pratt: &PrattParser<Rule>) -> Rc<Pat> {
     let span = Span::from(pair.as_span());
     let rule = pair.as_rule();
@@ -270,6 +334,34 @@ pub fn parse_pat(pair: Pair<Rule>, _pratt: &PrattParser<Rule>) -> Rc<Pat> {
         }
         Rule::identifier => Rc::new(Pat {
             patkind: Rc::new(PatKind::Var(pair.as_str().to_owned())),
+            span,
+            id: Id::new(),
+        }),
+        _ => panic!("unreachable rule {:#?}", rule),
+    }
+}
+
+pub fn parse_type(pair: Pair<Rule>, _pratt: &PrattParser<Rule>) -> Rc<AstType> {
+    let span = Span::from(pair.as_span());
+    let rule = pair.as_rule();
+    match rule {
+        Rule::type_literal_unit => Rc::new(AstType {
+            typekind: Rc::new(TypeKind::Unit),
+            span,
+            id: Id::new(),
+        }),
+        Rule::type_literal_number => Rc::new(AstType {
+            typekind: Rc::new(TypeKind::Int),
+            span,
+            id: Id::new(),
+        }),
+        Rule::type_literal_bool => Rc::new(AstType {
+            typekind: Rc::new(TypeKind::Bool),
+            span,
+            id: Id::new(),
+        }),
+        Rule::type_literal_string => Rc::new(AstType {
+            typekind: Rc::new(TypeKind::Str),
             span,
             id: Id::new(),
         }),
@@ -290,9 +382,6 @@ pub fn parse_pat(pair: Pair<Rule>, _pratt: &PrattParser<Rule>) -> Rc<Pat> {
 //         _ => panic!("unreachable rule {:#?}", rule),
 //     }
 // }
-pub fn parse_func_arg(pair: Pair<Rule>, pratt: &PrattParser<Rule>) -> FuncArg {
-    (parse_pat(pair, pratt), None)
-}
 
 pub fn parse_stmt(pair: Pair<Rule>, pratt: &PrattParser<Rule>) -> Rc<Stmt> {
     let span = Span::from(pair.as_span());
@@ -300,7 +389,7 @@ pub fn parse_stmt(pair: Pair<Rule>, pratt: &PrattParser<Rule>) -> Rc<Stmt> {
     let inner: Vec<_> = pair.into_inner().collect();
     match rule {
         Rule::let_statement => {
-            let pat = parse_pat(inner[0].clone(), pratt);
+            let (pat, typ) = parse_pat_annotated(inner[0].clone(), pratt);
             let expr = parse_expr_pratt(Pairs::single(inner[1].clone()), pratt);
             Rc::new(Stmt {
                 stmtkind: Rc::new(StmtKind::Let(pat, None, expr)),
@@ -369,10 +458,11 @@ pub fn parse_expr_term(pair: Pair<Rule>, pratt: &PrattParser<Rule>) -> Rc<Expr> 
         }
         Rule::func_expression => {
             let inner: Vec<_> = pair.into_inner().collect();
-            let arg1 = parse_func_arg(inner[0].clone(), pratt);
-            let mut args = vec![arg1];
+            let pat_annotated1 = parse_pat_annotated(inner[0].clone(), pratt);
+            let mut args = vec![pat_annotated1];
             for p in &inner[1..inner.len() - 1] {
-                args.push(parse_func_arg(p.clone(), pratt));
+                let pat_annotated = parse_pat_annotated(p.clone(), pratt);
+                args.push(pat_annotated);
             }
             let body = parse_expr_pratt(Pairs::single(inner.last().unwrap().clone()), pratt);
             Rc::new(Expr {

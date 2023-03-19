@@ -744,7 +744,7 @@ pub fn generate_constraints_stmt(
         StmtKind::Let(pat, ty_opt, expr) => {
             let PatKind::Var(identifier) = &*pat.patkind;
             let ty_pat = match ty_opt {
-                Some(ty) => ty.clone(),
+                Some(ty) => ast_type_to_boring_type(ty.clone()),
                 None => Rc::new(Type::Unknown(Prov::Node(pat.id.clone()))), // TODO wrong id, need id of type annotation
             };
             // todo generate constraints using pattern itself as well... pattern could be a tuple or variant, or have a type annotation?
