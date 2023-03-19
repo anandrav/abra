@@ -324,7 +324,7 @@ pub fn parse_pat_annotated(pair: Pair<Rule>, _pratt: &PrattParser<Rule>) -> PatA
             let pat_pair = inner[0].clone();
             let pat = parse_pat(pat_pair, _pratt);
             let ty = match inner.get(1) {
-                Some(type_pair) => Some(parse_type(type_pair.clone(), _pratt)),
+                Some(type_pair) => Some(parse_type_term(type_pair.clone(), _pratt)),
                 None => None,
             };
             (pat, ty)
@@ -351,15 +351,25 @@ pub fn parse_pat(pair: Pair<Rule>, _pratt: &PrattParser<Rule>) -> Rc<Pat> {
     }
 }
 
-pub fn parse_type(pair: Pair<Rule>, _pratt: &PrattParser<Rule>) -> Rc<AstType> {
+pub fn parse_type_pratt(pairs: Pairs<Rule>) -> Rc<AstType> {
+    let pratt = PrattParser::new().op(Op::infix(Rule::type_op_arrow, Assoc::Right));
+    pratt
+        .map_primary(|primary| parse_type_term(primary, &pratt))
+        .map_infix(|lhs, op, rhs| {
+            Rc::new(AstType {
+                typekind: Rc::new(TypeKind::Arrow(lhs, rhs)),
+                span: Span::from(op.as_span()),
+                id: Id::new(),
+            })
+        })
+        .parse(pairs)
+}
+
+pub fn parse_type_term(pair: Pair<Rule>, _pratt: &PrattParser<Rule>) -> Rc<AstType> {
     let span = Span::from(pair.as_span());
     let rule = pair.as_rule();
     match rule {
-        Rule::typ => {
-            let inner: Vec<_> = pair.into_inner().collect();
-            let pair = inner.first().unwrap().clone();
-            parse_type(pair, _pratt)
-        }
+        Rule::typ => parse_type_pratt(pair.into_inner()),
         Rule::type_literal_unit => Rc::new(AstType {
             typekind: Rc::new(TypeKind::Unit),
             span,
@@ -564,6 +574,7 @@ pub fn parse_expr_pratt(pairs: Pairs<Rule>, pratt: &PrattParser<Rule>) -> Rc<Exp
         .parse(pairs)
 }
 
+// TODO: this never errors lol
 pub fn parse_or_err(source: &str) -> Result<Rc<Expr>, String> {
     let pairs = get_pairs(source)?;
     // at this point, we know it's syntactically correct,
