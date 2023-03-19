@@ -163,6 +163,7 @@ impl eframe::App for MyApp {
                             let text_with_braces = "{\n".to_owned() + &self.text + "\n}";
                             match ast::parse_or_err(&text_with_braces) {
                                 Ok(parse_tree) => {
+                                    dbg!(parse_tree.clone());
                                     let mut constraints = Vec::new();
                                     statics::generate_constraints_expr(
                                         make_new_environment(),

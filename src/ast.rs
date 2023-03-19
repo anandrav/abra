@@ -1,6 +1,6 @@
 use crate::operators::BinOpcode;
 // use pest::error::{Error, ErrorVariant, InputLocation::Pos};
-use crate::types::{self, *};
+use crate::types::{self};
 use pest::iterators::{Pair, Pairs};
 use pest::pratt_parser::{Assoc, Op, PrattParser};
 use pest::Parser;
@@ -38,7 +38,14 @@ impl Node for Stmt {
 
     fn children(&self) -> Vec<Rc<dyn Node>> {
         match &*self.stmtkind {
-            StmtKind::Let(pat, _, expr) => vec![pat.clone(), expr.clone()],
+            StmtKind::Let((pat, ty), expr) => {
+                let mut children: Vec<Rc<dyn Node>> = vec![pat.clone() as Rc<dyn Node>];
+                if let Some(ty) = ty {
+                    children.push(ty.clone());
+                }
+                children.push(expr.clone());
+                children
+            }
             StmtKind::Expr(expr) => vec![expr.clone()],
         }
     }
@@ -46,7 +53,7 @@ impl Node for Stmt {
 
 #[derive(Debug, PartialEq)]
 pub enum StmtKind {
-    Let(Rc<Pat>, Option<Rc<AstType>>, Rc<Expr>),
+    Let(PatAnnotated, Rc<Expr>),
     Expr(Rc<Expr>),
 }
 
@@ -345,6 +352,11 @@ pub fn parse_type(pair: Pair<Rule>, _pratt: &PrattParser<Rule>) -> Rc<AstType> {
     let span = Span::from(pair.as_span());
     let rule = pair.as_rule();
     match rule {
+        Rule::typ => {
+            let inner: Vec<_> = pair.into_inner().collect();
+            let pair = inner.first().unwrap().clone();
+            parse_type(pair, _pratt)
+        }
         Rule::type_literal_unit => Rc::new(AstType {
             typekind: Rc::new(TypeKind::Unit),
             span,
@@ -389,10 +401,10 @@ pub fn parse_stmt(pair: Pair<Rule>, pratt: &PrattParser<Rule>) -> Rc<Stmt> {
     let inner: Vec<_> = pair.into_inner().collect();
     match rule {
         Rule::let_statement => {
-            let (pat, typ) = parse_pat_annotated(inner[0].clone(), pratt);
+            let pat_annotated = parse_pat_annotated(inner[0].clone(), pratt);
             let expr = parse_expr_pratt(Pairs::single(inner[1].clone()), pratt);
             Rc::new(Stmt {
-                stmtkind: Rc::new(StmtKind::Let(pat, None, expr)),
+                stmtkind: Rc::new(StmtKind::Let(pat_annotated, expr)),
                 span,
                 id: Id::new(),
             })

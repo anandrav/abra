@@ -25,7 +25,7 @@ pub fn translate_expr_block(
             None => {
                 let statement = &stmts[0];
                 match &*statement.stmtkind {
-                    ast::StmtKind::Let(_, _, e) | ast::StmtKind::Expr(e) => {
+                    ast::StmtKind::Let(_, e) | ast::StmtKind::Expr(e) => {
                         translate_expr(e.exprkind.clone())
                     }
                 }
@@ -35,7 +35,7 @@ pub fn translate_expr_block(
         _ => {
             let statement = &stmts[0];
             match &*statement.stmtkind {
-                ast::StmtKind::Let(pat, _, expr) => Rc::new(Ete::Let(
+                ast::StmtKind::Let((pat, ty_opt), expr) => Rc::new(Ete::Let(
                     translate_pat(pat.clone()),
                     translate_expr(expr.exprkind.clone()),
                     translate_expr_block(stmts[1..].to_vec(), final_operand),
