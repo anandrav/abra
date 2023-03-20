@@ -93,12 +93,14 @@ impl SType {
     }
 }
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum Prov {
     Node(ast::Id),
-    FuncArg(ast::Id, u8), // u8 represents the index of the argument
-    FuncOut(ast::Id, u8), // u8 represents how many arguments before this output
-    Builtin,              // a builtin function or constant
+    Builtin(String), // a builtin function or constant, which doesn't exist in the AST
+
+    // INVARIANT: the provenances in FuncArg and FuncOut are either Node or Builtin.
+    FuncArg(Box<Prov>, u8), // u8 represents the index of the argument
+    FuncOut(Box<Prov>, u8), // u8 represents how many arguments before this output
 }
 
 impl SType {

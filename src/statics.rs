@@ -27,50 +27,39 @@ pub enum PotentialTypeCtor {
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum UFPotentialType {
     // TODO: don't store Ctor in Primitive/Binary, it's already the key of the map.
-    Primitive(PotentialTypeCtor, Origins),
-    Binary(
-        PotentialTypeCtor,
-        Origins,
-        UFPotentialTypes,
-        UFPotentialTypes,
-    ),
+    Primitive(PotentialTypeCtor, Provs),
+    Binary(PotentialTypeCtor, Provs, UFPotentialTypes, UFPotentialTypes),
 }
 
 impl UFPotentialType {
-    pub fn causes(&self) -> &Origins {
+    pub fn provs(&self) -> &Provs {
         match &self {
-            Self::Primitive(_, causes) => causes,
-            Self::Binary(_, causes, _, _) => causes,
+            Self::Primitive(_, provs) => provs,
+            Self::Binary(_, provs, _, _) => provs,
         }
     }
 
-    pub fn causes_mut(&mut self) -> &mut Origins {
+    pub fn provs_mut(&mut self) -> &mut Provs {
         match self {
-            Self::Primitive(_, causes) => causes,
-            Self::Binary(_, causes, _, _) => causes,
+            Self::Primitive(_, provs) => provs,
+            Self::Binary(_, provs, _, _) => provs,
         }
     }
 }
 
-pub type Origins = BTreeSet<ast::Id>;
+pub type Provs = BTreeSet<Prov>;
 
 // creates a UFTypeCandidates from the unknown type
 // only adds/retrieves from the graph if the type is holey!
 fn retrieve_and_or_add_node(
     unknown_ty_to_candidates: &mut HashMap<Prov, UFPotentialTypes>,
     unknown: Rc<SType>,
-    cause: Option<Prov>,
+    _: Option<Prov>,
 ) -> UFPotentialTypes {
-    let causes_single = if unknown.typekind.is_primitive() {
-        if let Some(Prov::Node(cause)) = cause {
-            let mut set = BTreeSet::new();
-            set.insert(cause);
-            set
-        } else {
-            BTreeSet::new()
-        }
-    } else {
-        BTreeSet::new()
+    let provs_single = {
+        let mut set = BTreeSet::new();
+        set.insert(unknown.prov.clone());
+        set
     };
     match &unknown.typekind {
         STypeKind::Unknown => {
@@ -79,7 +68,7 @@ fn retrieve_and_or_add_node(
                 node.clone()
             } else {
                 let node = UnionFindNode::new(UFPotentialTypes_::empty());
-                unknown_ty_to_candidates.insert(*prov, node.clone());
+                unknown_ty_to_candidates.insert(prov.clone(), node.clone());
                 node
             }
         }
@@ -88,24 +77,24 @@ fn retrieve_and_or_add_node(
             let t2 = retrieve_and_or_add_node(unknown_ty_to_candidates, t2.clone(), None);
             UnionFindNode::new(UFPotentialTypes_::singleton(
                 PotentialTypeCtor::Arrow,
-                UFPotentialType::Binary(PotentialTypeCtor::Arrow, causes_single, t1, t2),
+                UFPotentialType::Binary(PotentialTypeCtor::Arrow, provs_single, t1, t2),
             ))
         }
         STypeKind::Unit => UnionFindNode::new(UFPotentialTypes_::singleton(
             PotentialTypeCtor::Unit,
-            UFPotentialType::Primitive(PotentialTypeCtor::Unit, causes_single),
+            UFPotentialType::Primitive(PotentialTypeCtor::Unit, provs_single),
         )),
         STypeKind::Int => UnionFindNode::new(UFPotentialTypes_::singleton(
             PotentialTypeCtor::Int,
-            UFPotentialType::Primitive(PotentialTypeCtor::Int, causes_single),
+            UFPotentialType::Primitive(PotentialTypeCtor::Int, provs_single),
         )),
         STypeKind::Bool => UnionFindNode::new(UFPotentialTypes_::singleton(
             PotentialTypeCtor::Bool,
-            UFPotentialType::Primitive(PotentialTypeCtor::Bool, causes_single),
+            UFPotentialType::Primitive(PotentialTypeCtor::Bool, provs_single),
         )),
         STypeKind::String => UnionFindNode::new(UFPotentialTypes_::singleton(
             PotentialTypeCtor::String,
-            UFPotentialType::Primitive(PotentialTypeCtor::String, causes_single),
+            UFPotentialType::Primitive(PotentialTypeCtor::String, provs_single),
         )),
     }
 }
@@ -113,11 +102,11 @@ fn retrieve_and_or_add_node(
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum TypeSuggestion {
     Unknown,
-    Unit(Origins),
-    Int(Origins),
-    Bool(Origins),
-    String(Origins),
-    Arrow(Origins, TypeSuggestions, TypeSuggestions),
+    Unit(Provs),
+    Int(Provs),
+    Bool(Provs),
+    String(Provs),
+    Arrow(Provs, TypeSuggestions, TypeSuggestions),
 }
 
 impl fmt::Display for TypeSuggestion {
@@ -174,28 +163,28 @@ pub fn condense_candidates(uf_type_candidates: &UFPotentialTypes) -> TypeSuggest
     for (ctor, potential_type) in &condensed.types {
         match (ctor, potential_type) {
             (PotentialTypeCtor::Unit, _) => {
-                let t = TypeSuggestion::Unit(potential_type.causes().clone());
+                let t = TypeSuggestion::Unit(potential_type.provs().clone());
                 types.insert(t);
             }
             (PotentialTypeCtor::Int, _) => {
-                let t = TypeSuggestion::Int(potential_type.causes().clone());
+                let t = TypeSuggestion::Int(potential_type.provs().clone());
                 types.insert(t);
             }
             (PotentialTypeCtor::Bool, _) => {
-                let t = TypeSuggestion::Bool(potential_type.causes().clone());
+                let t = TypeSuggestion::Bool(potential_type.provs().clone());
                 types.insert(t);
             }
             (PotentialTypeCtor::String, _) => {
-                let t = TypeSuggestion::String(potential_type.causes().clone());
+                let t = TypeSuggestion::String(potential_type.provs().clone());
                 types.insert(t);
             }
             (
                 PotentialTypeCtor::Arrow,
-                UFPotentialType::Binary(PotentialTypeCtor::Arrow, causes, t1, t2),
+                UFPotentialType::Binary(PotentialTypeCtor::Arrow, provs, t1, t2),
             ) => {
                 let t1 = condense_candidates(t1);
                 let t2 = condense_candidates(t2);
-                types.insert(TypeSuggestion::Arrow(causes.clone(), t1, t2));
+                types.insert(TypeSuggestion::Arrow(provs.clone(), t1, t2));
             }
             _ => unreachable!(),
         }
@@ -232,22 +221,22 @@ impl UFPotentialTypes_ {
     fn extend(&mut self, ctor: PotentialTypeCtor, mut t_other: UFPotentialType) {
         if let Some(mut t) = self.types.get_mut(&ctor) {
             match t_other {
-                UFPotentialType::Primitive(_, other_causes) => {
-                    t.causes_mut().extend(other_causes);
+                UFPotentialType::Primitive(_, other_provs) => {
+                    t.provs_mut().extend(other_provs);
                 }
                 UFPotentialType::Binary(
                     PotentialTypeCtor::Arrow,
-                    other_causes,
+                    other_provs,
                     ref mut other_left,
                     ref mut other_right,
                 ) => match &mut t {
                     UFPotentialType::Binary(
                         PotentialTypeCtor::Arrow,
-                        t_causes,
+                        t_provs,
                         ref mut t_left,
                         ref mut t_right,
                     ) => {
-                        t_causes.extend(other_causes);
+                        t_provs.extend(other_provs);
                         t_left.union_with(other_left, UFPotentialTypes_::merge);
                         t_right.union_with(other_right, UFPotentialTypes_::merge);
                     }
@@ -294,12 +283,12 @@ pub fn solve_constraints(
             (STypeKind::Unknown, _t) => {
                 let hole = constraint.expected.clone();
                 let t = constraint.actual.clone();
-                add_hole_and_t(hole, t, constraint.actual.prov);
+                add_hole_and_t(hole, t, constraint.actual.prov.clone());
             }
             (_t, STypeKind::Unknown) => {
                 let hole = constraint.actual.clone();
                 let t = constraint.expected.clone();
-                add_hole_and_t(hole, t, constraint.expected.prov);
+                add_hole_and_t(hole, t, constraint.expected.prov.clone());
             }
             (STypeKind::Arrow(left1, right1), STypeKind::Arrow(left2, right2)) => {
                 constraints.push(Constraint {
@@ -332,27 +321,71 @@ pub fn solve_constraints(
 
     for (type_conflict, _unknown_tys) in unsolved_type_suggestions_to_unknown_ty {
         err_string.push_str(&format!("Type Conflict: {}\n", type_conflict));
-        err_string.push_str("Sources of ");
         for ty in type_conflict.types {
             match &ty {
                 TypeSuggestion::Unknown => unreachable!(),
-                TypeSuggestion::Unit(_) => err_string.push_str("unit:\n"),
-                TypeSuggestion::Int(_) => err_string.push_str("int:\n"),
-                TypeSuggestion::Bool(_) => err_string.push_str("bool:\n"),
-                TypeSuggestion::String(_) => err_string.push_str("string:\n"),
-                TypeSuggestion::Arrow(_, _, _) => err_string.push_str("function:\n"),
+                TypeSuggestion::Unit(_) => err_string.push_str("Sources of unit:\n"),
+                TypeSuggestion::Int(_) => err_string.push_str("Sources of int:\n"),
+                TypeSuggestion::Bool(_) => err_string.push_str("Sources of bool:\n"),
+                TypeSuggestion::String(_) => err_string.push_str("Sources of string:\n"),
+                TypeSuggestion::Arrow(_, _, _) => err_string.push_str("Sources of function:\n"),
             };
-            let causes = match &ty {
+            let provs = match &ty {
                 TypeSuggestion::Unknown => unreachable!(),
-                TypeSuggestion::Unit(causes)
-                | TypeSuggestion::Int(causes)
-                | TypeSuggestion::Bool(causes)
-                | TypeSuggestion::String(causes)
-                | TypeSuggestion::Arrow(causes, _, _) => causes,
+                TypeSuggestion::Unit(provs)
+                | TypeSuggestion::Int(provs)
+                | TypeSuggestion::Bool(provs)
+                | TypeSuggestion::String(provs)
+                | TypeSuggestion::Arrow(provs, _, _) => provs,
             };
-            for cause in causes {
-                let span = node_map.get(cause).unwrap().span();
-                err_string.push_str(&span.display(source, ""));
+            for cause in provs {
+                // TODO give feedback for other types of Provenances. Do this soon, it will help with debugging!
+                match cause {
+                    Prov::Builtin(s) => {
+                        err_string.push_str(&format!("The builtin function '{}'", s));
+                    }
+                    Prov::Node(id) => {
+                        let span = node_map.get(id).unwrap().span();
+                        err_string.push_str(&span.display(source, ""));
+                    }
+                    Prov::FuncArg(prov, n) => {
+                        match prov.as_ref() {
+                            Prov::Builtin(s) => {
+                                let n = n + 1; // readability
+                                err_string.push_str(&format!(
+                                    "The #{n} argument of the builtin function '{}'",
+                                    s
+                                ));
+                            }
+                            Prov::Node(id) => {
+                                let span = node_map.get(id).unwrap().span();
+                                err_string.push_str(&span.display(
+                                    source,
+                                    &format!("The #{n} argument of this function"),
+                                ));
+                            }
+                            _ => unreachable!(),
+                        }
+                    }
+                    Prov::FuncOut(prov, n) => {
+                        match prov.as_ref() {
+                            Prov::Builtin(s) => {
+                                err_string.push_str(&format!(
+                                    "The output after {n} arguments are passed to the builtin function '{}'",
+                                    s
+                                ));
+                            }
+                            Prov::Node(id) => {
+                                let span = node_map.get(id).unwrap().span();
+                                err_string.push_str(&span.display(
+                                    source,
+                                    &format!("The output after {n} arguments are passed to this function"),
+                                ));
+                            }
+                            _ => unreachable!(),
+                        }
+                    }
+                }
             }
         }
     }
@@ -371,20 +404,32 @@ pub fn make_new_environment() -> Rc<RefCell<TyCtx>> {
         &String::from("print"),
         Rc::new(SType {
             typekind: STypeKind::Arrow(
-                SType::make_string(Prov::Builtin),
-                SType::make_unit(Prov::Builtin),
+                SType::make_string(Prov::FuncArg(
+                    Box::new(Prov::Builtin("print".to_string())),
+                    0,
+                )),
+                SType::make_unit(Prov::FuncArg(
+                    Box::new(Prov::Builtin("print".to_string())),
+                    1,
+                )),
             ),
-            prov: Prov::Builtin,
+            prov: Prov::Builtin("print".to_string()),
         }),
     );
     ctx.borrow_mut().extend(
         &String::from("string_of_int"),
         Rc::new(SType {
             typekind: STypeKind::Arrow(
-                SType::make_int(Prov::Builtin),
-                SType::make_string(Prov::Builtin),
+                SType::make_int(Prov::FuncArg(
+                    Box::new(Prov::Builtin("string_of_int".to_string())),
+                    0,
+                )),
+                SType::make_string(Prov::FuncArg(
+                    Box::new(Prov::Builtin("string_of_int".to_string())),
+                    1,
+                )),
             ),
-            prov: Prov::Builtin,
+            prov: Prov::Builtin("string_of_int".to_string()),
         }),
     );
     ctx
@@ -587,7 +632,7 @@ pub fn generate_constraints_expr(
             generate_constraints_expr(
                 ctx.clone(),
                 Mode::Ana {
-                    expected: SType::make_bool(Prov::Node(cond.id)), // TODO: Prov should mention it's the condition of an if
+                    expected: SType::make_bool(Prov::Node(cond.id)),
                 },
                 cond.clone(),
                 constraints,
@@ -643,7 +688,8 @@ pub fn generate_constraints_expr(
                 .iter()
                 .enumerate()
                 .map(|(n, arg)| {
-                    let unknown = SType::make_unknown(Prov::FuncArg(func.id, n as u8));
+                    let unknown =
+                        SType::make_unknown(Prov::FuncArg(Box::new(Prov::Node(func.id)), n as u8));
                     generate_constraints_expr(
                         ctx.clone(),
                         Mode::Ana {
@@ -656,7 +702,10 @@ pub fn generate_constraints_expr(
                 })
                 .collect();
 
-            let ty_body = SType::make_unknown(Prov::FuncOut(func.id, tys_args.len() as u8));
+            let ty_body = SType::make_unknown(Prov::FuncOut(
+                Box::new(Prov::Node(func.id)),
+                tys_args.len() as u8,
+            ));
 
             let ty_func = SType::make_arrow(tys_args, ty_body.clone(), expr.id);
             generate_constraints_expr(

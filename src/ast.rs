@@ -69,7 +69,7 @@ impl Node for Expr {
         self.span.clone()
     }
     fn id(&self) -> Id {
-        self.id.clone()
+        self.id
     }
 
     fn children(&self) -> Vec<Rc<dyn Node>> {
