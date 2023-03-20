@@ -69,28 +69,31 @@ pub enum STypeKind {
     Arrow(Rc<SType>, Rc<SType>),
 }
 
-// #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-// pub enum Type {
-//     Unknown(Prov),
-//     Unit,
-//     Int,
-//     Bool,
-//     String,
-//     Arrow(Rc<Type>, Rc<Type>),
-// }
+impl STypeKind {
+    pub fn is_primitive(&self) -> bool {
+        match self {
+            STypeKind::Unknown => false,
+            STypeKind::Unit => true,
+            STypeKind::Int => true,
+            STypeKind::Bool => true,
+            STypeKind::String => true,
+            STypeKind::Arrow(_, _) => false,
+        }
+    }
+}
 
 impl SType {
     pub fn make_arrow(args: Vec<Rc<SType>>, out: Rc<SType>, id: ast::Id) -> Rc<SType> {
         args.into_iter().rev().fold(out, |acc, arg| {
             Rc::new(SType {
                 typekind: STypeKind::Arrow(arg, acc),
-                prov: Prov::Node(id),
+                prov: Prov::Node(id.clone()),
             })
         })
     }
 }
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum Prov {
     Node(ast::Id),
     FuncArg(ast::Id, u8), // u8 represents the index of the argument
@@ -119,14 +122,14 @@ pub fn types_of_binop(
 ) -> (Rc<SType>, Rc<SType>, Rc<SType>) {
     match opcode {
         BinOpcode::Add | BinOpcode::Subtract | BinOpcode::Multiply | BinOpcode::Divide => (
-            SType::make_int(Prov::Node(node_left.id)),
-            SType::make_int(Prov::Node(node_right.id)),
-            SType::make_int(Prov::Node(node_op.id)),
+            SType::make_int(Prov::Node(node_left.id.clone())),
+            SType::make_int(Prov::Node(node_right.id.clone())),
+            SType::make_int(Prov::Node(node_op.id.clone())),
         ),
         BinOpcode::Equals | BinOpcode::LessThan | BinOpcode::GreaterThan => (
-            SType::make_int(Prov::Node(node_left.id)),
-            SType::make_int(Prov::Node(node_right.id)),
-            SType::make_bool(Prov::Node(node_op.id)),
+            SType::make_int(Prov::Node(node_left.id.clone())),
+            SType::make_int(Prov::Node(node_right.id.clone())),
+            SType::make_bool(Prov::Node(node_op.id.clone())),
         ),
     }
 }

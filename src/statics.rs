@@ -10,10 +10,7 @@ use std::rc::Rc;
 #[derive(Debug)]
 pub struct Constraint {
     expected: Rc<SType>,
-    // TODO: it might be better for origin to go in the type itself. There is overlap between Unknown provenances and Known type origins...
-    expected_origin: Option<ast::Id>,
     actual: Rc<SType>,
-    actual_origin: Option<ast::Id>,
 }
 
 type UFPotentialTypes = UnionFindNode<UFPotentialTypes_>;
@@ -62,15 +59,18 @@ pub type Origins = BTreeSet<ast::Id>;
 fn retrieve_and_or_add_node(
     unknown_ty_to_candidates: &mut HashMap<Prov, UFPotentialTypes>,
     unknown: Rc<SType>,
-    cause: Option<ast::Id>,
+    cause: Option<Prov>,
 ) -> UFPotentialTypes {
-    let causes_single = match cause {
-        Some(cause) => {
+    let causes_single = if unknown.typekind.is_primitive() {
+        if let Some(Prov::Node(cause)) = cause {
             let mut set = BTreeSet::new();
             set.insert(cause);
             set
+        } else {
+            BTreeSet::new()
         }
-        None => BTreeSet::new(),
+    } else {
+        BTreeSet::new()
     };
     match &unknown.typekind {
         STypeKind::Unknown => {
@@ -281,10 +281,11 @@ pub fn solve_constraints(
     // this is the graph, which only contains unknown types or types containing unknown types. Make a new struct for it later.
     let mut unknown_ty_to_potential_types: HashMap<Prov, UFPotentialTypes> = HashMap::new();
 
-    let mut add_hole_and_t = |hole: Rc<SType>, t: Rc<SType>, cause: Option<ast::Id>| {
+    let mut add_hole_and_t = |hole: Rc<SType>, t: Rc<SType>, cause: Prov| {
         let mut hole_node =
             retrieve_and_or_add_node(&mut unknown_ty_to_potential_types, hole, None);
-        let mut t_node = retrieve_and_or_add_node(&mut unknown_ty_to_potential_types, t, cause);
+        let mut t_node =
+            retrieve_and_or_add_node(&mut unknown_ty_to_potential_types, t, Some(cause));
         hole_node.union_with(&mut t_node, UFPotentialTypes_::merge);
     };
     while !constraints.is_empty() {
@@ -293,25 +294,21 @@ pub fn solve_constraints(
             (STypeKind::Unknown, _t) => {
                 let hole = constraint.expected.clone();
                 let t = constraint.actual.clone();
-                add_hole_and_t(hole, t, constraint.actual_origin);
+                add_hole_and_t(hole, t, constraint.actual.prov);
             }
             (_t, STypeKind::Unknown) => {
                 let hole = constraint.actual.clone();
                 let t = constraint.expected.clone();
-                add_hole_and_t(hole, t, constraint.expected_origin);
+                add_hole_and_t(hole, t, constraint.expected.prov);
             }
             (STypeKind::Arrow(left1, right1), STypeKind::Arrow(left2, right2)) => {
                 constraints.push(Constraint {
                     expected: left1.clone(),
-                    expected_origin: constraint.expected_origin.clone(),
                     actual: left2.clone(),
-                    actual_origin: constraint.actual_origin.clone(),
                 });
                 constraints.push(Constraint {
                     expected: right1.clone(),
-                    expected_origin: constraint.expected_origin,
                     actual: right2.clone(),
-                    actual_origin: constraint.actual_origin,
                 });
             }
             _ => {}
@@ -450,10 +447,7 @@ impl TyCtx {
 #[derive(Debug, Clone)]
 pub enum Mode {
     Syn,
-    Ana {
-        expected: Rc<SType>,
-        expected_origin: Option<ast::Id>,
-    },
+    Ana { expected: Rc<SType> },
 }
 
 pub fn generate_constraints_expr(
@@ -465,85 +459,57 @@ pub fn generate_constraints_expr(
     match &*expr.exprkind {
         ExprKind::Unit => match mode {
             Mode::Syn => (),
-            Mode::Ana {
-                expected,
-                expected_origin,
-            } => {
+            Mode::Ana { expected } => {
                 let node_ty = SType::from_node(expr.clone());
                 constraints.push(Constraint {
                     expected,
-                    expected_origin,
                     actual: node_ty.clone(),
-                    actual_origin: None,
                 });
                 constraints.push(Constraint {
                     expected: node_ty,
-                    expected_origin: None,
                     actual: SType::make_unit(Prov::Node(expr.id.clone())),
-                    actual_origin: Some(expr.id.clone()),
                 });
             }
         },
         ExprKind::Int(_) => match mode {
             Mode::Syn => (),
-            Mode::Ana {
-                expected,
-                expected_origin,
-            } => {
+            Mode::Ana { expected } => {
                 let node_ty = SType::from_node(expr.clone());
                 constraints.push(Constraint {
                     expected,
-                    expected_origin,
                     actual: node_ty.clone(),
-                    actual_origin: None,
                 });
                 constraints.push(Constraint {
                     expected: node_ty,
-                    expected_origin: None,
                     actual: SType::make_int(Prov::Node(expr.id.clone())),
-                    actual_origin: Some(expr.id.clone()),
                 });
             }
         },
         ExprKind::Bool(_) => match mode {
             Mode::Syn => (),
-            Mode::Ana {
-                expected,
-                expected_origin,
-            } => {
+            Mode::Ana { expected } => {
                 let node_ty = SType::from_node(expr.clone());
                 constraints.push(Constraint {
                     expected,
-                    expected_origin,
                     actual: node_ty.clone(),
-                    actual_origin: None,
                 });
                 constraints.push(Constraint {
                     expected: node_ty,
-                    expected_origin: None,
                     actual: SType::make_bool(Prov::Node(expr.id.clone())),
-                    actual_origin: Some(expr.id.clone()),
                 });
             }
         },
         ExprKind::Str(_) => match mode {
             Mode::Syn => (),
-            Mode::Ana {
-                expected,
-                expected_origin,
-            } => {
+            Mode::Ana { expected } => {
                 let node_ty = SType::from_node(expr.clone());
                 constraints.push(Constraint {
                     expected,
-                    expected_origin,
                     actual: node_ty.clone(),
-                    actual_origin: None,
                 });
                 constraints.push(Constraint {
                     expected: node_ty,
-                    expected_origin: None,
                     actual: SType::make_string(Prov::Node(expr.id.clone())),
-                    actual_origin: Some(expr.id.clone()),
                 });
             }
         },
@@ -552,26 +518,16 @@ pub fn generate_constraints_expr(
             match lookup {
                 Some(typ) => match mode {
                     Mode::Syn => (),
-                    Mode::Ana {
+                    Mode::Ana { expected } => constraints.push(Constraint {
                         expected,
-                        expected_origin,
-                    } => constraints.push(Constraint {
-                        expected,
-                        expected_origin,
                         actual: typ,
-                        actual_origin: Some(expr.id.clone()),
                     }),
                 },
                 None => match mode {
                     Mode::Syn => (),
-                    Mode::Ana {
+                    Mode::Ana { expected } => constraints.push(Constraint {
                         expected,
-                        expected_origin,
-                    } => constraints.push(Constraint {
-                        expected,
-                        expected_origin,
                         actual: SType::from_node(expr.clone()),
-                        actual_origin: None,
                     }),
                 },
             }
@@ -581,33 +537,22 @@ pub fn generate_constraints_expr(
                 types_of_binop(op, left.clone(), right.clone(), expr.clone());
             match mode {
                 Mode::Syn => (),
-                Mode::Ana {
-                    expected,
-                    expected_origin,
-                } => {
+                Mode::Ana { expected } => {
                     constraints.push(Constraint {
                         expected,
-                        expected_origin,
                         actual: ty_out,
-                        actual_origin: Some(expr.id.clone()),
                     });
                 }
             };
             generate_constraints_expr(
                 ctx.clone(),
-                Mode::Ana {
-                    expected: ty_left,
-                    expected_origin: Some(expr.id.clone()),
-                },
+                Mode::Ana { expected: ty_left },
                 left.clone(),
                 constraints,
             );
             generate_constraints_expr(
                 ctx,
-                Mode::Ana {
-                    expected: ty_right,
-                    expected_origin: Some(expr.id.clone()),
-                },
+                Mode::Ana { expected: ty_right },
                 right.clone(),
                 constraints,
             );
@@ -631,14 +576,9 @@ pub fn generate_constraints_expr(
                 }
                 None => match mode {
                     Mode::Syn => (),
-                    Mode::Ana {
+                    Mode::Ana { expected } => constraints.push(Constraint {
                         expected,
-                        expected_origin,
-                    } => constraints.push(Constraint {
-                        expected,
-                        expected_origin,
                         actual: SType::make_unit(Prov::Node(expr.id.clone())),
-                        actual_origin: Some(expr.id.clone()),
                     }),
                 },
             };
@@ -648,7 +588,6 @@ pub fn generate_constraints_expr(
                 ctx.clone(),
                 Mode::Ana {
                     expected: SType::make_bool(Prov::Node(cond.id.clone())), // TODO: Prov should mention it's the condition of an if
-                    expected_origin: Some(cond.id.clone()),
                 },
                 cond.clone(),
                 constraints,
@@ -668,7 +607,6 @@ pub fn generate_constraints_expr(
                             ctx.clone(),
                             Mode::Ana {
                                 expected: ast_type_to_statics_type(ty_annotation.clone()),
-                                expected_origin: Some(ty_annotation.id()),
                             },
                             arg.clone(),
                             constraints,
@@ -686,23 +624,17 @@ pub fn generate_constraints_expr(
                 new_ctx,
                 Mode::Ana {
                     expected: ty_body.clone(),
-                    expected_origin: Some(expr.id.clone()),
                 },
                 body.clone(),
                 constraints,
             );
 
-            let ty_func = SType::make_arrow(ty_args, ty_body, expr.id);
+            let ty_func = SType::make_arrow(ty_args, ty_body, expr.id.clone());
             match mode {
                 Mode::Syn => (),
-                Mode::Ana {
+                Mode::Ana { expected } => constraints.push(Constraint {
                     expected,
-                    expected_origin,
-                } => constraints.push(Constraint {
-                    expected,
-                    expected_origin,
                     actual: ty_func,
-                    actual_origin: Some(expr.id.clone()),
                 }),
             };
         }
@@ -716,7 +648,6 @@ pub fn generate_constraints_expr(
                         ctx.clone(),
                         Mode::Ana {
                             expected: unknown.clone(),
-                            expected_origin: Some(expr.id.clone()), // TODO origin needs more detail like provenances... nth arg of func application
                         },
                         arg.clone(),
                         constraints,
@@ -727,26 +658,18 @@ pub fn generate_constraints_expr(
 
             let ty_body = SType::make_unknown(Prov::FuncOut(func.id.clone(), tys_args.len() as u8));
 
-            let ty_func = SType::make_arrow(tys_args, ty_body.clone(), expr.id);
+            let ty_func = SType::make_arrow(tys_args, ty_body.clone(), expr.id.clone());
             generate_constraints_expr(
                 ctx,
-                Mode::Ana {
-                    expected: ty_func,
-                    expected_origin: Some(expr.id.clone()),
-                },
+                Mode::Ana { expected: ty_func },
                 func.clone(),
                 constraints,
             );
             match mode {
                 Mode::Syn => (),
-                Mode::Ana {
+                Mode::Ana { expected } => constraints.push(Constraint {
                     expected,
-                    expected_origin,
-                } => constraints.push(Constraint {
-                    expected,
-                    expected_origin,
                     actual: ty_body,
-                    actual_origin: Some(expr.id.clone()),
                 }),
             };
         }
@@ -766,7 +689,6 @@ pub fn generate_constraints_stmt(
         }
         StmtKind::Let((pat, ty_opt), expr) => {
             let ty_pat = SType::from_node(pat.clone());
-            // TODO don't use ast_type_to_boring_type
             let ty_annotation = ty_opt
                 .as_ref()
                 .map(|ty| (ast_type_to_statics_type(ty.clone()), ty.id()));
@@ -776,7 +698,6 @@ pub fn generate_constraints_stmt(
                     ctx.clone(),
                     Mode::Ana {
                         expected: ty_annotation,
-                        expected_origin: Some(id),
                     },
                     pat.clone(),
                     constraints,
@@ -788,10 +709,7 @@ pub fn generate_constraints_stmt(
             let ctx = new_ctx.unwrap_or(ctx);
             generate_constraints_expr(
                 ctx.clone(),
-                Mode::Ana {
-                    expected: ty_pat,
-                    expected_origin: None,
-                },
+                Mode::Ana { expected: ty_pat },
                 expr.clone(),
                 constraints,
             );
@@ -815,14 +733,9 @@ pub fn generate_constraints_pat(
             new_ctx.borrow_mut().extend(identifier, ty_pat.clone());
             match mode {
                 Mode::Syn => (),
-                Mode::Ana {
+                Mode::Ana { expected } => constraints.push(Constraint {
                     expected,
-                    expected_origin,
-                } => constraints.push(Constraint {
-                    expected,
-                    expected_origin,
                     actual: ty_pat,
-                    actual_origin: Some(pat.id.clone()),
                 }),
             };
             Some(new_ctx)
