@@ -73,7 +73,7 @@ impl Default for MyApp {
     fn default() -> Self {
         Self {
             text: String::from(
-                r#"let fibonacci = func(n) {
+                r#"let fibonacci = func(n: int) -> int {
     if n == 0 {
         0
     } else {
@@ -84,10 +84,10 @@ impl Default for MyApp {
         }
     }
 };
-let run_fibonacci = func(n) {
+let run_fibonacci = func(n: int) -> unit {
     print(string_of_int(fibonacci(n)))
 };
-let from_i_to_n = func(i, n, f) {
+let from_i_to_n = func(i: int, n: int, f: int -> unit) {
     if i > n {
         ()
     } else {
@@ -163,7 +163,6 @@ impl eframe::App for MyApp {
                             let text_with_braces = "{\n".to_owned() + &self.text + "\n}";
                             match ast::parse_or_err(&text_with_braces) {
                                 Ok(parse_tree) => {
-                                    dbg!(parse_tree.clone());
                                     let mut constraints = Vec::new();
                                     statics::generate_constraints_expr(
                                         make_new_environment(),

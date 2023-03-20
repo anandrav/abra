@@ -80,7 +80,7 @@ impl Node for Expr {
             ExprKind::Bool(_) => vec![],
             ExprKind::Str(_) => vec![],
             // TODO: output of function needs to be annotated as well!
-            ExprKind::Func(args, _ty_opt, body) => {
+            ExprKind::Func(args, ty_opt, body) => {
                 let mut children: Vec<Rc<dyn Node>> = Vec::new();
                 args.iter().for_each(|(pat, ty_opt)| {
                     children.push(pat.clone());
@@ -88,6 +88,9 @@ impl Node for Expr {
                         children.push(ty.clone())
                     }
                 });
+                if let Some(ty) = ty_opt {
+                    children.push(ty.clone())
+                }
                 children.push(body.clone());
                 children
             }
@@ -334,6 +337,18 @@ pub fn parse_pat_annotated(pair: Pair<Rule>, _pratt: &PrattParser<Rule>) -> PatA
     }
 }
 
+pub fn parse_func_out_annotation(pair: Pair<Rule>, _pratt: &PrattParser<Rule>) -> Rc<AstType> {
+    let rule = pair.as_rule();
+    match rule {
+        Rule::func_out_annotation => {
+            let inner: Vec<_> = pair.into_inner().collect();
+            let type_pair = inner[0].clone();
+            parse_type_term(type_pair, _pratt)
+        }
+        _ => panic!("unreachable rule {:#?}", rule),
+    }
+}
+
 pub fn parse_pat(pair: Pair<Rule>, _pratt: &PrattParser<Rule>) -> Rc<Pat> {
     let span = Span::from(pair.as_span());
     let rule = pair.as_rule();
@@ -470,15 +485,25 @@ pub fn parse_expr_term(pair: Pair<Rule>, pratt: &PrattParser<Rule>) -> Rc<Expr> 
         }
         Rule::func_expression => {
             let inner: Vec<_> = pair.into_inner().collect();
-            let pat_annotated1 = parse_pat_annotated(inner[0].clone(), pratt);
-            let mut args = vec![pat_annotated1];
-            for p in &inner[1..inner.len() - 1] {
-                let pat_annotated = parse_pat_annotated(p.clone(), pratt);
+            let mut n = 0;
+            let mut args = vec![];
+            while let Rule::pattern_annotated = inner[n].as_rule() {
+                let pat_annotated = parse_pat_annotated(inner[n].clone(), pratt);
                 args.push(pat_annotated);
+                n += 1;
             }
+
+            let maybe_func_out = &inner[n];
+            let ty_out = match maybe_func_out.as_rule() {
+                Rule::func_out_annotation => {
+                    // n += 1;
+                    Some(parse_func_out_annotation(maybe_func_out.clone(), pratt))
+                }
+                _ => None,
+            };
             let body = parse_expr_pratt(Pairs::single(inner.last().unwrap().clone()), pratt);
             Rc::new(Expr {
-                exprkind: Rc::new(ExprKind::Func(args, None, body)),
+                exprkind: Rc::new(ExprKind::Func(args, ty_out, body)),
                 span,
                 id: Id::new(),
             })

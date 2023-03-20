@@ -30,13 +30,14 @@ parenthesized_expression = _{ paren_start ~ expression ~ paren_end }
 paren_start = _{ "(" }
 paren_end = _{ ")" }
 
-func_call_expression = { identifier ~ func_call_args }
+func_call_expression = { primary_expression ~ func_call_args }
 func_call_args = _{ func_call_args_start ~ (func_call_arg ~ ",")* ~ func_call_arg? ~ func_call_args_end }
 func_call_args_start = _{ "(" }
 func_call_args_end = _{ ")" }
 func_call_arg = _{ expression }
 
-func_expression = { func_keyword ~ func_args ~ block_expression }
+func_expression = { func_keyword ~ func_args ~ func_out_annotation? ~ block_expression }
+func_out_annotation = { "->" ~ typ }
 func_args_start = _{ "(" }
 func_args_end = _{ ")" }
 func_args = _{ func_args_start ~ (pattern_annotated ~ ",")* ~ pattern_annotated? ~ func_args_end }
@@ -49,7 +50,7 @@ typ = { type_term ~ (type_op_binary ~ type_term)* }
 type_term = _{ type_literal | placeholder }
 
 type_literal = _{ type_literal_unit | type_literal_number | type_literal_bool | type_literal_string }
-type_literal_unit = @{ "()" }
+type_literal_unit = @{ "unit" }
 type_literal_number = @{ "int" }
 type_literal_bool = @{ "bool" }
 type_literal_string = @{ "string" }

@@ -322,6 +322,7 @@ pub fn solve_constraints(
     for (type_conflict, _unknown_tys) in unsolved_type_suggestions_to_unknown_ty {
         err_string.push_str(&format!("Type Conflict: {}\n", type_conflict));
         for ty in type_conflict.types {
+            err_string.push('\n');
             match &ty {
                 TypeSuggestion::Unknown => unreachable!(),
                 TypeSuggestion::Unit(_) => err_string.push_str("Sources of unit:\n"),
@@ -352,7 +353,7 @@ pub fn solve_constraints(
                             Prov::Builtin(s) => {
                                 let n = n + 1; // readability
                                 err_string.push_str(&format!(
-                                    "The #{n} argument of the builtin function '{}'",
+                                    "--> The #{n} argument of the builtin function '{}'\n",
                                     s
                                 ));
                             }
@@ -370,7 +371,7 @@ pub fn solve_constraints(
                         match prov.as_ref() {
                             Prov::Builtin(s) => {
                                 err_string.push_str(&format!(
-                                    "The output after {n} arguments are passed to the builtin function '{}'",
+                                    "--> The output after {n} arguments are passed to the builtin function '{}'\n",
                                     s
                                 ));
                             }
@@ -638,7 +639,7 @@ pub fn generate_constraints_expr(
             generate_constraints_expr(ctx.clone(), mode.clone(), expr1.clone(), constraints);
             generate_constraints_expr(ctx, mode, expr2.clone(), constraints);
         }
-        ExprKind::Func(args, _, body) => {
+        ExprKind::Func(args, ty_out, body) => {
             let mut new_ctx = TyCtx::new(Some(ctx.clone()));
 
             let ty_args = args
@@ -664,13 +665,23 @@ pub fn generate_constraints_expr(
 
             let ty_body = SType::from_node(body.clone());
             generate_constraints_expr(
-                new_ctx,
+                new_ctx.clone(),
                 Mode::Ana {
                     expected: ty_body.clone(),
                 },
                 body.clone(),
                 constraints,
             );
+            if let Some(ty_out) = ty_out {
+                generate_constraints_expr(
+                    new_ctx,
+                    Mode::Ana {
+                        expected: ast_type_to_statics_type(ty_out.clone()),
+                    },
+                    body.clone(),
+                    constraints,
+                );
+            }
 
             let ty_func = SType::make_arrow(ty_args, ty_body, expr.id);
             match mode {
