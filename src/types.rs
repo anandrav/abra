@@ -2,7 +2,6 @@ use std::{fmt, rc::Rc};
 
 use crate::{ast, operators::BinOpcode};
 
-// TODO: use this for Types instead, because all Types have a provenance.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct SType {
     pub typekind: STypeKind,

@@ -339,7 +339,6 @@ pub fn solve_constraints(
                 | TypeSuggestion::Arrow(provs, _, _) => provs,
             };
             for cause in provs {
-                // TODO give feedback for other types of Provenances. Do this soon, it will help with debugging!
                 match cause {
                     Prov::Builtin(s) => {
                         err_string.push_str(&format!("The builtin function '{}'", s));
@@ -435,7 +434,6 @@ pub fn make_new_environment() -> Rc<RefCell<TyCtx>> {
     ctx
 }
 
-// TODO reuse Environment instead of making a new struct
 impl TyCtx {
     pub fn debug_helper(&self) -> Vec<String> {
         let mut current = Vec::new();
@@ -767,7 +765,6 @@ pub fn generate_constraints_stmt(
     }
 }
 
-// TODO extend ctx with identifier in here, not up there
 pub fn generate_constraints_pat(
     ctx: Rc<RefCell<TyCtx>>,
     mode: Mode,

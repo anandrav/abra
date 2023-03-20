@@ -83,6 +83,7 @@ impl Interpreter {
 
 // todo anand: separate into two cases: Success and Failure... new_env should only be present for failure,
 // steps should only be <= 0 and/or effect should be present for failure...
+// OR maybe Failure case should be when a runtime error occurs...
 #[derive(Debug)]
 pub struct InterpretResult {
     pub expr: Rc<Expr>,
@@ -117,7 +118,6 @@ fn interpret(
             new_env: env,
         },
         Func(id, body, None) => {
-            // todo anand: closure is getting overwritten when another parital execution happens and it forgets about variiables...
             let closure = Rc::new(RefCell::new(Environment::new(Some(env.clone()))));
             InterpretResult {
                 expr: Rc::new(Func(id.clone(), body.clone(), Some(closure))),
@@ -217,7 +217,7 @@ fn interpret(
                 } = interpret(expr2.clone(), new_env, steps, input);
                 if effect.is_some() || steps <= 0 {
                     return InterpretResult {
-                        expr, // todo anand: I think this should just be "expr" here
+                        expr,
                         steps,
                         effect,
                         new_env,
@@ -282,25 +282,13 @@ fn interpret(
                 }
             };
 
-            // TODO consume a step if interpret result is success, but only after! that's hwne funcapp is done.
-            // let result = interpret(body, funcapp_env, steps, input);
-            // debug_println!("then env is {:#?}", result.new_env);
-            // return InterpretResult {
-            //     expr: Rc::new(FuncAp(expr1, result.expr)),
-            //     steps: result.steps,
-            //     effect: result.effect,
-            //     new_env,
-            // };
-
             let InterpretResult {
                 expr: body,
                 steps,
                 effect,
                 new_env: funcapp_env,
             } = interpret(body.clone(), funcapp_env, steps, input);
-            // if didn't finish executing for the body of function application,
-            // return a FuncApp for the expression field and set environment to new_env... So we can try again later.
-            // Can't return funcapp_env for environment! Because it only contains the closure and the function's arguments!
+            // if didn't finish executing for the body of function application, return a FuncApp as the expression field try again next time.
             if effect.is_some() || steps <= 0 {
                 let result = InterpretResult {
                     expr: Rc::new(FuncAp(

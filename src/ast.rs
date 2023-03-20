@@ -172,7 +172,6 @@ impl PatKind {
 
 #[derive(Debug, PartialEq)]
 pub struct AstType {
-    // TODO make AType and Type structs the same, probably useful
     pub typekind: Rc<TypeKind>,
     pub span: Span,
     pub id: Id,
@@ -395,20 +394,6 @@ pub fn parse_type_term(pair: Pair<Rule>, _pratt: &PrattParser<Rule>) -> Rc<AstTy
         _ => panic!("unreachable rule {:#?}", rule),
     }
 }
-// TODO: make func args patterns
-// pub fn parse_func_arg(pair: Pair<Rule>, _pratt: &PrattParser<Rule>) -> FuncArg {
-//     let _span = Span::from(pair.as_span());
-//     let rule = pair.as_rule();
-//     match rule {
-//         Rule::expression => {
-//             let inner: Vec<_> = pair.into_inner().collect();
-//             let pair = inner.first().unwrap().clone();
-//             parse_func_arg(pair, _pratt)
-//         }
-//         Rule::identifier => (pair.as_str().to_owned(), None),
-//         _ => panic!("unreachable rule {:#?}", rule),
-//     }
-// }
 
 pub fn parse_stmt(pair: Pair<Rule>, pratt: &PrattParser<Rule>) -> Rc<Stmt> {
     let span = Span::from(pair.as_span());
