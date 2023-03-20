@@ -75,11 +75,11 @@ fn retrieve_and_or_add_node(
     match &unknown.typekind {
         STypeKind::Unknown => {
             let prov = &unknown.prov;
-            if let Some(node) = unknown_ty_to_candidates.get(&prov) {
+            if let Some(node) = unknown_ty_to_candidates.get(prov) {
                 node.clone()
             } else {
                 let node = UnionFindNode::new(UFPotentialTypes_::empty());
-                unknown_ty_to_candidates.insert(prov.clone(), node.clone());
+                unknown_ty_to_candidates.insert(*prov, node.clone());
                 node
             }
         }
@@ -467,7 +467,7 @@ pub fn generate_constraints_expr(
                 });
                 constraints.push(Constraint {
                     expected: node_ty,
-                    actual: SType::make_unit(Prov::Node(expr.id.clone())),
+                    actual: SType::make_unit(Prov::Node(expr.id)),
                 });
             }
         },
@@ -481,7 +481,7 @@ pub fn generate_constraints_expr(
                 });
                 constraints.push(Constraint {
                     expected: node_ty,
-                    actual: SType::make_int(Prov::Node(expr.id.clone())),
+                    actual: SType::make_int(Prov::Node(expr.id)),
                 });
             }
         },
@@ -495,7 +495,7 @@ pub fn generate_constraints_expr(
                 });
                 constraints.push(Constraint {
                     expected: node_ty,
-                    actual: SType::make_bool(Prov::Node(expr.id.clone())),
+                    actual: SType::make_bool(Prov::Node(expr.id)),
                 });
             }
         },
@@ -509,7 +509,7 @@ pub fn generate_constraints_expr(
                 });
                 constraints.push(Constraint {
                     expected: node_ty,
-                    actual: SType::make_string(Prov::Node(expr.id.clone())),
+                    actual: SType::make_string(Prov::Node(expr.id)),
                 });
             }
         },
@@ -578,7 +578,7 @@ pub fn generate_constraints_expr(
                     Mode::Syn => (),
                     Mode::Ana { expected } => constraints.push(Constraint {
                         expected,
-                        actual: SType::make_unit(Prov::Node(expr.id.clone())),
+                        actual: SType::make_unit(Prov::Node(expr.id)),
                     }),
                 },
             };
@@ -587,7 +587,7 @@ pub fn generate_constraints_expr(
             generate_constraints_expr(
                 ctx.clone(),
                 Mode::Ana {
-                    expected: SType::make_bool(Prov::Node(cond.id.clone())), // TODO: Prov should mention it's the condition of an if
+                    expected: SType::make_bool(Prov::Node(cond.id)), // TODO: Prov should mention it's the condition of an if
                 },
                 cond.clone(),
                 constraints,
@@ -629,7 +629,7 @@ pub fn generate_constraints_expr(
                 constraints,
             );
 
-            let ty_func = SType::make_arrow(ty_args, ty_body, expr.id.clone());
+            let ty_func = SType::make_arrow(ty_args, ty_body, expr.id);
             match mode {
                 Mode::Syn => (),
                 Mode::Ana { expected } => constraints.push(Constraint {
@@ -643,7 +643,7 @@ pub fn generate_constraints_expr(
                 .iter()
                 .enumerate()
                 .map(|(n, arg)| {
-                    let unknown = SType::make_unknown(Prov::FuncArg(func.id.clone(), n as u8));
+                    let unknown = SType::make_unknown(Prov::FuncArg(func.id, n as u8));
                     generate_constraints_expr(
                         ctx.clone(),
                         Mode::Ana {
@@ -656,9 +656,9 @@ pub fn generate_constraints_expr(
                 })
                 .collect();
 
-            let ty_body = SType::make_unknown(Prov::FuncOut(func.id.clone(), tys_args.len() as u8));
+            let ty_body = SType::make_unknown(Prov::FuncOut(func.id, tys_args.len() as u8));
 
-            let ty_func = SType::make_arrow(tys_args, ty_body.clone(), expr.id.clone());
+            let ty_func = SType::make_arrow(tys_args, ty_body.clone(), expr.id);
             generate_constraints_expr(
                 ctx,
                 Mode::Ana { expected: ty_func },
@@ -691,9 +691,9 @@ pub fn generate_constraints_stmt(
             let ty_pat = SType::from_node(pat.clone());
             let ty_annotation = ty_opt
                 .as_ref()
-                .map(|ty| (ast_type_to_statics_type(ty.clone()), ty.id()));
+                .map(|ty| ast_type_to_statics_type(ty.clone()));
 
-            let new_ctx = if let Some((ty_annotation, id)) = ty_annotation {
+            let new_ctx = if let Some(ty_annotation) = ty_annotation {
                 generate_constraints_pat(
                     ctx.clone(),
                     Mode::Ana {
