@@ -1,5 +1,5 @@
 use crate::ast::{self, *};
-use crate::types::{types_of_binop, Prov, Type};
+use crate::types::{types_of_binop, Prov, SType, STypeKind};
 use disjoint_sets::UnionFindNode;
 use multimap::MultiMap;
 use std::cell::RefCell;
@@ -9,10 +9,10 @@ use std::rc::Rc;
 
 #[derive(Debug)]
 pub struct Constraint {
-    expected: Rc<Type>,
+    expected: Rc<SType>,
     // TODO: it might be better for origin to go in the type itself. There is overlap between Unknown provenances and Known type origins...
     expected_origin: Option<ast::Id>,
-    actual: Rc<Type>,
+    actual: Rc<SType>,
     actual_origin: Option<ast::Id>,
 }
 
@@ -61,7 +61,7 @@ pub type Origins = BTreeSet<ast::Id>;
 // only adds/retrieves from the graph if the type is holey!
 fn retrieve_and_or_add_node(
     unknown_ty_to_candidates: &mut HashMap<Prov, UFPotentialTypes>,
-    unknown: Rc<Type>,
+    unknown: Rc<SType>,
     cause: Option<ast::Id>,
 ) -> UFPotentialTypes {
     let causes_single = match cause {
@@ -72,9 +72,10 @@ fn retrieve_and_or_add_node(
         }
         None => BTreeSet::new(),
     };
-    match &*unknown {
-        Type::Unknown(prov) => {
-            if let Some(node) = unknown_ty_to_candidates.get(prov) {
+    match &unknown.typekind {
+        STypeKind::Unknown => {
+            let prov = &unknown.prov;
+            if let Some(node) = unknown_ty_to_candidates.get(&prov) {
                 node.clone()
             } else {
                 let node = UnionFindNode::new(UFPotentialTypes_::empty());
@@ -82,7 +83,7 @@ fn retrieve_and_or_add_node(
                 node
             }
         }
-        Type::Arrow(t1, t2) => {
+        STypeKind::Arrow(t1, t2) => {
             let t1 = retrieve_and_or_add_node(unknown_ty_to_candidates, t1.clone(), None);
             let t2 = retrieve_and_or_add_node(unknown_ty_to_candidates, t2.clone(), None);
             UnionFindNode::new(UFPotentialTypes_::singleton(
@@ -90,19 +91,19 @@ fn retrieve_and_or_add_node(
                 UFPotentialType::Binary(PotentialTypeCtor::Arrow, causes_single, t1, t2),
             ))
         }
-        Type::Unit => UnionFindNode::new(UFPotentialTypes_::singleton(
+        STypeKind::Unit => UnionFindNode::new(UFPotentialTypes_::singleton(
             PotentialTypeCtor::Unit,
             UFPotentialType::Primitive(PotentialTypeCtor::Unit, causes_single),
         )),
-        Type::Int => UnionFindNode::new(UFPotentialTypes_::singleton(
+        STypeKind::Int => UnionFindNode::new(UFPotentialTypes_::singleton(
             PotentialTypeCtor::Int,
             UFPotentialType::Primitive(PotentialTypeCtor::Int, causes_single),
         )),
-        Type::Bool => UnionFindNode::new(UFPotentialTypes_::singleton(
+        STypeKind::Bool => UnionFindNode::new(UFPotentialTypes_::singleton(
             PotentialTypeCtor::Bool,
             UFPotentialType::Primitive(PotentialTypeCtor::Bool, causes_single),
         )),
-        Type::String => UnionFindNode::new(UFPotentialTypes_::singleton(
+        STypeKind::String => UnionFindNode::new(UFPotentialTypes_::singleton(
             PotentialTypeCtor::String,
             UFPotentialType::Primitive(PotentialTypeCtor::String, causes_single),
         )),
@@ -280,7 +281,7 @@ pub fn solve_constraints(
     // this is the graph, which only contains unknown types or types containing unknown types. Make a new struct for it later.
     let mut unknown_ty_to_potential_types: HashMap<Prov, UFPotentialTypes> = HashMap::new();
 
-    let mut add_hole_and_t = |hole: Rc<Type>, t: Rc<Type>, cause: Option<ast::Id>| {
+    let mut add_hole_and_t = |hole: Rc<SType>, t: Rc<SType>, cause: Option<ast::Id>| {
         let mut hole_node =
             retrieve_and_or_add_node(&mut unknown_ty_to_potential_types, hole, None);
         let mut t_node = retrieve_and_or_add_node(&mut unknown_ty_to_potential_types, t, cause);
@@ -288,18 +289,18 @@ pub fn solve_constraints(
     };
     while !constraints.is_empty() {
         let constraint = constraints.pop().unwrap();
-        match (&*constraint.expected, &*constraint.actual) {
-            (Type::Unknown(_), _t) => {
+        match (&constraint.expected.typekind, &constraint.actual.typekind) {
+            (STypeKind::Unknown, _t) => {
                 let hole = constraint.expected.clone();
                 let t = constraint.actual.clone();
                 add_hole_and_t(hole, t, constraint.actual_origin);
             }
-            (_t, Type::Unknown(_)) => {
+            (_t, STypeKind::Unknown) => {
                 let hole = constraint.actual.clone();
                 let t = constraint.expected.clone();
                 add_hole_and_t(hole, t, constraint.expected_origin);
             }
-            (Type::Arrow(left1, right1), Type::Arrow(left2, right2)) => {
+            (STypeKind::Arrow(left1, right1), STypeKind::Arrow(left2, right2)) => {
                 constraints.push(Constraint {
                     expected: left1.clone(),
                     expected_origin: constraint.expected_origin.clone(),
@@ -363,7 +364,7 @@ pub fn solve_constraints(
 }
 
 pub struct TyCtx {
-    vars: HashMap<Identifier, Rc<Type>>,
+    vars: HashMap<Identifier, Rc<SType>>,
     enclosing: Option<Rc<RefCell<TyCtx>>>,
 }
 
@@ -371,11 +372,23 @@ pub fn make_new_environment() -> Rc<RefCell<TyCtx>> {
     let ctx = TyCtx::empty();
     ctx.borrow_mut().extend(
         &String::from("print"),
-        Rc::new(Type::Arrow(Rc::new(Type::String), Rc::new(Type::Unit))),
+        Rc::new(SType {
+            typekind: STypeKind::Arrow(
+                SType::make_string(Prov::Builtin),
+                SType::make_unit(Prov::Builtin),
+            ),
+            prov: Prov::Builtin,
+        }),
     );
     ctx.borrow_mut().extend(
         &String::from("string_of_int"),
-        Rc::new(Type::Arrow(Rc::new(Type::Int), Rc::new(Type::String))),
+        Rc::new(SType {
+            typekind: STypeKind::Arrow(
+                SType::make_int(Prov::Builtin),
+                SType::make_string(Prov::Builtin),
+            ),
+            prov: Prov::Builtin,
+        }),
     );
     ctx
 }
@@ -419,7 +432,7 @@ impl TyCtx {
         }))
     }
 
-    pub fn lookup(&self, id: &Identifier) -> Option<Rc<Type>> {
+    pub fn lookup(&self, id: &Identifier) -> Option<Rc<SType>> {
         match self.vars.get(id) {
             Some(typ) => Some(typ.clone()),
             None => match &self.enclosing {
@@ -429,7 +442,7 @@ impl TyCtx {
         }
     }
 
-    pub fn extend(&mut self, id: &Identifier, typ: Rc<Type>) {
+    pub fn extend(&mut self, id: &Identifier, typ: Rc<SType>) {
         self.vars.insert(id.clone(), typ);
     }
 }
@@ -438,7 +451,7 @@ impl TyCtx {
 pub enum Mode {
     Syn,
     Ana {
-        expected: Rc<Type>,
+        expected: Rc<SType>,
         expected_origin: Option<ast::Id>,
     },
 }
@@ -456,7 +469,7 @@ pub fn generate_constraints_expr(
                 expected,
                 expected_origin,
             } => {
-                let node_ty = Rc::new(Type::Unknown(Prov::Node(expr.id.clone())));
+                let node_ty = SType::from_node(expr.clone());
                 constraints.push(Constraint {
                     expected,
                     expected_origin,
@@ -466,7 +479,7 @@ pub fn generate_constraints_expr(
                 constraints.push(Constraint {
                     expected: node_ty,
                     expected_origin: None,
-                    actual: Rc::new(Type::Unit),
+                    actual: SType::make_unit(Prov::Node(expr.id.clone())),
                     actual_origin: Some(expr.id.clone()),
                 });
             }
@@ -477,7 +490,7 @@ pub fn generate_constraints_expr(
                 expected,
                 expected_origin,
             } => {
-                let node_ty = Rc::new(Type::Unknown(Prov::Node(expr.id.clone())));
+                let node_ty = SType::from_node(expr.clone());
                 constraints.push(Constraint {
                     expected,
                     expected_origin,
@@ -487,7 +500,7 @@ pub fn generate_constraints_expr(
                 constraints.push(Constraint {
                     expected: node_ty,
                     expected_origin: None,
-                    actual: Rc::new(Type::Int),
+                    actual: SType::make_int(Prov::Node(expr.id.clone())),
                     actual_origin: Some(expr.id.clone()),
                 });
             }
@@ -498,7 +511,7 @@ pub fn generate_constraints_expr(
                 expected,
                 expected_origin,
             } => {
-                let node_ty = Rc::new(Type::Unknown(Prov::Node(expr.id.clone())));
+                let node_ty = SType::from_node(expr.clone());
                 constraints.push(Constraint {
                     expected,
                     expected_origin,
@@ -508,7 +521,7 @@ pub fn generate_constraints_expr(
                 constraints.push(Constraint {
                     expected: node_ty,
                     expected_origin: None,
-                    actual: Rc::new(Type::Bool),
+                    actual: SType::make_bool(Prov::Node(expr.id.clone())),
                     actual_origin: Some(expr.id.clone()),
                 });
             }
@@ -519,7 +532,7 @@ pub fn generate_constraints_expr(
                 expected,
                 expected_origin,
             } => {
-                let node_ty = Rc::new(Type::Unknown(Prov::Node(expr.id.clone())));
+                let node_ty = SType::from_node(expr.clone());
                 constraints.push(Constraint {
                     expected,
                     expected_origin,
@@ -529,7 +542,7 @@ pub fn generate_constraints_expr(
                 constraints.push(Constraint {
                     expected: node_ty,
                     expected_origin: None,
-                    actual: Rc::new(Type::String),
+                    actual: SType::make_string(Prov::Node(expr.id.clone())),
                     actual_origin: Some(expr.id.clone()),
                 });
             }
@@ -557,14 +570,15 @@ pub fn generate_constraints_expr(
                     } => constraints.push(Constraint {
                         expected,
                         expected_origin,
-                        actual: Type::Unknown(Prov::Node(expr.id.clone())).into(),
+                        actual: SType::from_node(expr.clone()),
                         actual_origin: None,
                     }),
                 },
             }
         }
         ExprKind::BinOp(left, op, right) => {
-            let (ty_left, ty_right, ty_out) = types_of_binop(op);
+            let (ty_left, ty_right, ty_out) =
+                types_of_binop(op, left.clone(), right.clone(), expr.clone());
             match mode {
                 Mode::Syn => (),
                 Mode::Ana {
@@ -623,7 +637,7 @@ pub fn generate_constraints_expr(
                     } => constraints.push(Constraint {
                         expected,
                         expected_origin,
-                        actual: Rc::new(Type::Unit),
+                        actual: SType::make_unit(Prov::Node(expr.id.clone())),
                         actual_origin: Some(expr.id.clone()),
                     }),
                 },
@@ -633,7 +647,7 @@ pub fn generate_constraints_expr(
             generate_constraints_expr(
                 ctx.clone(),
                 Mode::Ana {
-                    expected: Rc::new(Type::Bool),
+                    expected: SType::make_bool(Prov::Node(cond.id.clone())), // TODO: Prov should mention it's the condition of an if
                     expected_origin: Some(cond.id.clone()),
                 },
                 cond.clone(),
@@ -648,12 +662,12 @@ pub fn generate_constraints_expr(
             let ty_args = args
                 .iter()
                 .map(|(arg, ty_opt)| {
-                    let ty_pat = Rc::new(Type::Unknown(Prov::Node(arg.id.clone())));
+                    let ty_pat = SType::from_node(arg.clone());
                     new_ctx = if let Some(ty_annotation) = ty_opt {
                         generate_constraints_pat(
                             ctx.clone(),
                             Mode::Ana {
-                                expected: ast_type_to_boring_type(ty_annotation.clone()),
+                                expected: ast_type_to_statics_type(ty_annotation.clone()),
                                 expected_origin: Some(ty_annotation.id()),
                             },
                             arg.clone(),
@@ -667,7 +681,7 @@ pub fn generate_constraints_expr(
                 })
                 .collect();
 
-            let ty_body = Rc::new(Type::Unknown(Prov::Node(body.id.clone())));
+            let ty_body = SType::from_node(body.clone());
             generate_constraints_expr(
                 new_ctx,
                 Mode::Ana {
@@ -678,7 +692,7 @@ pub fn generate_constraints_expr(
                 constraints,
             );
 
-            let ty_func = Type::make_arrow(ty_args, ty_body);
+            let ty_func = SType::make_arrow(ty_args, ty_body, expr.id);
             match mode {
                 Mode::Syn => (),
                 Mode::Ana {
@@ -693,11 +707,11 @@ pub fn generate_constraints_expr(
             };
         }
         ExprKind::FuncAp(func, args) => {
-            let tys_args: Vec<Rc<Type>> = args
+            let tys_args: Vec<Rc<SType>> = args
                 .iter()
                 .enumerate()
                 .map(|(n, arg)| {
-                    let unknown = Rc::new(Type::Unknown(Prov::FuncArg(func.id.clone(), n as u8)));
+                    let unknown = SType::make_unknown(Prov::FuncArg(func.id.clone(), n as u8));
                     generate_constraints_expr(
                         ctx.clone(),
                         Mode::Ana {
@@ -711,12 +725,9 @@ pub fn generate_constraints_expr(
                 })
                 .collect();
 
-            let ty_body = Rc::new(Type::Unknown(Prov::FuncOut(
-                func.id.clone(),
-                tys_args.len() as u8,
-            )));
+            let ty_body = SType::make_unknown(Prov::FuncOut(func.id.clone(), tys_args.len() as u8));
 
-            let ty_func = Type::make_arrow(tys_args, ty_body.clone());
+            let ty_func = SType::make_arrow(tys_args, ty_body.clone(), expr.id);
             generate_constraints_expr(
                 ctx,
                 Mode::Ana {
@@ -754,11 +765,11 @@ pub fn generate_constraints_stmt(
             None
         }
         StmtKind::Let((pat, ty_opt), expr) => {
-            let ty_pat = Rc::new(Type::Unknown(Prov::Node(pat.id.clone())));
+            let ty_pat = SType::from_node(pat.clone());
             // TODO don't use ast_type_to_boring_type
             let ty_annotation = ty_opt
                 .as_ref()
-                .map(|ty| (ast_type_to_boring_type(ty.clone()), ty.id()));
+                .map(|ty| (ast_type_to_statics_type(ty.clone()), ty.id()));
 
             let new_ctx = if let Some((ty_annotation, id)) = ty_annotation {
                 generate_constraints_pat(
@@ -800,7 +811,7 @@ pub fn generate_constraints_pat(
     match &*pat.patkind {
         PatKind::Var(identifier) => {
             // letrec?: extend context with id and type before analyzing against said type
-            let ty_pat = Rc::new(Type::Unknown(Prov::Node(pat.id.clone())));
+            let ty_pat = SType::from_node(pat.clone());
             new_ctx.borrow_mut().extend(identifier, ty_pat.clone());
             match mode {
                 Mode::Syn => (),

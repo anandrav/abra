@@ -1,6 +1,6 @@
 use crate::operators::BinOpcode;
 // use pest::error::{Error, ErrorVariant, InputLocation::Pos};
-use crate::types::{self};
+use crate::types::{self, Prov};
 use pest::iterators::{Pair, Pairs};
 use pest::pratt_parser::{Assoc, Op, PrattParser};
 use pest::Parser;
@@ -178,16 +178,19 @@ pub struct AstType {
     pub id: Id,
 }
 
-pub fn ast_type_to_boring_type(ast_type: Rc<AstType>) -> Rc<types::Type> {
+pub fn ast_type_to_statics_type(ast_type: Rc<AstType>) -> Rc<types::SType> {
     match &*ast_type.typekind {
-        TypeKind::Unit => types::Type::Unit.into(),
-        TypeKind::Int => types::Type::Int.into(),
-        TypeKind::Bool => types::Type::Bool.into(),
-        TypeKind::Str => types::Type::String.into(),
-        TypeKind::Arrow(lhs, rhs) => Rc::new(types::Type::Arrow(
-            ast_type_to_boring_type(lhs.clone()),
-            ast_type_to_boring_type(rhs.clone()),
-        )),
+        TypeKind::Unit => types::SType::make_unit(Prov::Node(ast_type.id())).into(),
+        TypeKind::Int => types::SType::make_int(Prov::Node(ast_type.id())).into(),
+        TypeKind::Bool => types::SType::make_bool(Prov::Node(ast_type.id())).into(),
+        TypeKind::Str => types::SType::make_string(Prov::Node(ast_type.id())).into(),
+        TypeKind::Arrow(lhs, rhs) => Rc::new(types::SType {
+            typekind: types::STypeKind::Arrow(
+                ast_type_to_statics_type(lhs.clone()),
+                ast_type_to_statics_type(rhs.clone()),
+            ),
+            prov: Prov::Node(ast_type.id()),
+        }),
     }
 }
 
@@ -216,7 +219,7 @@ pub enum TypeKind {
     Arrow(Rc<AstType>, Rc<AstType>),
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Id {
     pub id: usize,
 }
