@@ -84,7 +84,7 @@ impl Default for MyApp {
         }
     }
 };
-let run_fibonacci = func(n: int) -> unit {
+let print_fibonacci = func(n: int) -> unit {
     print(string_of_int(fibonacci(n)))
 };
 let from_i_to_n = func(i: int, n: int, f: int -> unit) {
@@ -97,7 +97,7 @@ let from_i_to_n = func(i: int, n: int, f: int -> unit) {
 };
 
 print("The first 30 fibonacci numbers are:");
-from_i_to_n(0, 30, run_fibonacci);"#,
+from_i_to_n(0, 30, print_fibonacci);"#,
             ),
             output: String::default(),
             interpreter: None,
