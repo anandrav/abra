@@ -69,16 +69,16 @@ pub enum STypeKind {
 }
 
 impl STypeKind {
-    pub fn is_primitive(&self) -> bool {
-        match self {
-            STypeKind::Unknown => false,
-            STypeKind::Unit => true,
-            STypeKind::Int => true,
-            STypeKind::Bool => true,
-            STypeKind::String => true,
-            STypeKind::Arrow(_, _) => false,
-        }
-    }
+    // pub fn is_primitive(&self) -> bool {
+    //     match self {
+    //         STypeKind::Unknown => false,
+    //         STypeKind::Unit => true,
+    //         STypeKind::Int => true,
+    //         STypeKind::Bool => true,
+    //         STypeKind::String => true,
+    //         STypeKind::Arrow(_, _) => false,
+    //     }
+    // }
 }
 
 impl SType {
@@ -86,7 +86,7 @@ impl SType {
         args.into_iter().rev().fold(out, |acc, arg| {
             Rc::new(SType {
                 typekind: STypeKind::Arrow(arg, acc),
-                prov: Prov::Node(id.clone()),
+                prov: Prov::Node(id),
             })
         })
     }
@@ -123,14 +123,14 @@ pub fn types_of_binop(
 ) -> (Rc<SType>, Rc<SType>, Rc<SType>) {
     match opcode {
         BinOpcode::Add | BinOpcode::Subtract | BinOpcode::Multiply | BinOpcode::Divide => (
-            SType::make_int(Prov::Node(node_left.id.clone())),
-            SType::make_int(Prov::Node(node_right.id.clone())),
-            SType::make_int(Prov::Node(node_op.id.clone())),
+            SType::make_int(Prov::Node(node_left.id)),
+            SType::make_int(Prov::Node(node_right.id)),
+            SType::make_int(Prov::Node(node_op.id)),
         ),
         BinOpcode::Equals | BinOpcode::LessThan | BinOpcode::GreaterThan => (
-            SType::make_int(Prov::Node(node_left.id.clone())),
-            SType::make_int(Prov::Node(node_right.id.clone())),
-            SType::make_bool(Prov::Node(node_op.id.clone())),
+            SType::make_int(Prov::Node(node_left.id)),
+            SType::make_int(Prov::Node(node_right.id)),
+            SType::make_bool(Prov::Node(node_op.id)),
         ),
     }
 }

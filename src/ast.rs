@@ -33,7 +33,7 @@ impl Node for Stmt {
         self.span.clone()
     }
     fn id(&self) -> Id {
-        self.id.clone()
+        self.id
     }
 
     fn children(&self) -> Vec<Rc<dyn Node>> {
@@ -80,7 +80,7 @@ impl Node for Expr {
             ExprKind::Bool(_) => vec![],
             ExprKind::Str(_) => vec![],
             // TODO: output of function needs to be annotated as well!
-            ExprKind::Func(args, ty_opt, body) => {
+            ExprKind::Func(args, _ty_opt, body) => {
                 let mut children: Vec<Rc<dyn Node>> = Vec::new();
                 args.iter().for_each(|(pat, ty_opt)| {
                     children.push(pat.clone());
@@ -142,7 +142,7 @@ impl Node for Pat {
         self.span.clone()
     }
     fn id(&self) -> Id {
-        self.id.clone()
+        self.id
     }
 
     fn children(&self) -> Vec<Rc<dyn Node>> {
@@ -179,10 +179,10 @@ pub struct AstType {
 
 pub fn ast_type_to_statics_type(ast_type: Rc<AstType>) -> Rc<types::SType> {
     match &*ast_type.typekind {
-        TypeKind::Unit => types::SType::make_unit(Prov::Node(ast_type.id())).into(),
-        TypeKind::Int => types::SType::make_int(Prov::Node(ast_type.id())).into(),
-        TypeKind::Bool => types::SType::make_bool(Prov::Node(ast_type.id())).into(),
-        TypeKind::Str => types::SType::make_string(Prov::Node(ast_type.id())).into(),
+        TypeKind::Unit => types::SType::make_unit(Prov::Node(ast_type.id())),
+        TypeKind::Int => types::SType::make_int(Prov::Node(ast_type.id())),
+        TypeKind::Bool => types::SType::make_bool(Prov::Node(ast_type.id())),
+        TypeKind::Str => types::SType::make_string(Prov::Node(ast_type.id())),
         TypeKind::Arrow(lhs, rhs) => Rc::new(types::SType {
             typekind: types::STypeKind::Arrow(
                 ast_type_to_statics_type(lhs.clone()),
@@ -198,7 +198,7 @@ impl Node for AstType {
         self.span.clone()
     }
     fn id(&self) -> Id {
-        self.id.clone()
+        self.id
     }
 
     fn children(&self) -> Vec<Rc<dyn Node>> {
