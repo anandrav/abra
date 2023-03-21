@@ -22,7 +22,7 @@ use debug_print::debug_println;
 
 use eframe::egui;
 
-use egui::Color32;
+use crate::egui::Color32;
 use interpreter::Interpreter;
 
 use crate::statics::make_new_environment;
@@ -39,7 +39,8 @@ fn main() {
         "My egui App",
         options,
         Box::new(|_cc| Box::<MyApp>::default()),
-    );
+    )
+    .expect("Could not launch egui app");
 }
 
 // when compiling to web using trunk.
@@ -60,7 +61,8 @@ fn main() {
         )
         .await
         .expect("failed to start eframe");
-    });
+    })
+    .expect("Could not launch egui app");
 }
 
 struct MyApp {
