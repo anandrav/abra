@@ -85,10 +85,10 @@ impl Default for MyApp {
         }
     }
 };
-let print_fibonacci = func(n: int) -> unit {
+let print_fibonacci = func(n: int) -> nothing {
     print(string_of_int(fibonacci(n)))
 };
-let from_i_to_n = func(i: int, n: int, f: int -> unit) {
+let from_i_to_n = func(i: int, n: int, f: int -> nothing) {
     if i > n {
         ()
     } else {
