@@ -61,8 +61,7 @@ fn main() {
         )
         .await
         .expect("failed to start eframe");
-    })
-    .expect("Could not launch egui app");
+    });
 }
 
 struct MyApp {
