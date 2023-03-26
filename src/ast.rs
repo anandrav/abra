@@ -248,34 +248,72 @@ pub struct Span {
 }
 
 impl Span {
-    pub fn line_number(&self, source: &str) -> usize {
-        source[..self.lo + 1].lines().count()
+    pub fn line_numbers(&self, source: &str) -> (usize, usize) {
+        let begin = {
+            let mut first_char = self.lo;
+            while source.chars().collect::<Vec<_>>()[first_char].is_whitespace() {
+                first_char += 1;
+            }
+            source[..=self.lo].lines().count() - 1
+        };
+        let end = {
+            let mut last_char = self.hi - 1;
+            while source.chars().collect::<Vec<_>>()[last_char].is_whitespace() {
+                last_char -= 1;
+            }
+            source[..=self.hi].lines().count() - 1
+        };
+        (begin, end)
     }
 
     pub fn display(&self, source: &str, detail: &str) -> String {
         let mut s = String::new();
-        s.push_str(&format!(
-            "--> On line {}, {}\n",
-            self.line_number(source),
-            detail
-        ));
-        s.push_str(
-            format!(
-                " | {}\n",
-                source.lines().nth(self.line_number(source) - 1).unwrap()
-            )
-            .as_str(),
-        );
-        s.push_str(" | ");
-        let begin_line_index = source[..self.lo].rfind('\n').unwrap_or(0);
-        let num_spaces = self.lo - begin_line_index - 1;
-        for _ in 0..num_spaces {
-            s.push(' ');
+        let (begin, end) = self.line_numbers(source);
+        if begin != end {
+            s.push_str(&format!("--> On lines {}-{}, {}\n", begin, end, detail));
+        } else {
+            s.push_str(&format!("--> On line {}, {}\n", begin, detail));
         }
-        for _ in 0..(self.hi - self.lo) {
-            s.push('^');
+        for line_number in begin..=end {
+            let line = source.lines().nth(line_number).unwrap();
+            s.push_str(&format!("{:3} | {}\n", line_number, line));
+
+            let pad_before = if line_number == begin {
+                let num_tabs = line.chars().take_while(|c| *c == '\t').count();
+                let num_whitespace = line.chars().take_while(|c| c.is_whitespace()).count();
+                num_whitespace + num_tabs * 3
+            } else {
+                0
+            };
+            let pad_end = if line_number == end {
+                let num_tabs = line.chars().rev().take_while(|c| *c == '\t').count();
+                let num_whitespace = line.chars().rev().take_while(|c| c.is_whitespace()).count();
+                num_whitespace + num_tabs * 3
+            } else {
+                0
+            };
+            let underline = line.len() - pad_end - pad_before;
+            s.push_str(&format!("{:3} | ", "")); // line number placeholder
+            s.push_str(&format!("{:1$}", "", pad_before)); // pad before
+            s.push_str(&format!("{:^<1$}\n", "", underline)); // underline
         }
-        s.push('\n');
+        // s.push_str(
+        //     format!(
+        //         " | {}\n",
+        //         source.lines().nth(self.line_number(source) - 1).unwrap()
+        //     )
+        //     .as_str(),
+        // );
+        // s.push_str(" | ");
+        // let begin_line_index = source[..self.lo].rfind('\n').unwrap_or(0);
+        // let num_spaces = self.lo - begin_line_index - 1;
+        // for _ in 0..num_spaces {
+        //     s.push(' ');
+        // }
+        // for _ in 0..(self.hi - self.lo) {
+        //     s.push('^');
+        // }
+        // s.push('\n');
         s
     }
 }
