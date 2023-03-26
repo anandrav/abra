@@ -188,7 +188,7 @@ pub fn ast_type_to_statics_type(ast_type: Rc<AstType>) -> Rc<types::SType> {
         TypeKind::Str => types::SType::make_string(Prov::Node(ast_type.id())),
         TypeKind::Arrow(lhs, rhs) => Rc::new(types::SType {
             typekind: types::STypeKind::Arrow(
-                ast_type_to_statics_type(lhs.clone()),
+                vec![ast_type_to_statics_type(lhs.clone())],
                 ast_type_to_statics_type(rhs.clone()),
             ),
             prov: Prov::Node(ast_type.id()),
@@ -218,6 +218,7 @@ pub enum TypeKind {
     Int,
     Bool,
     Str,
+    // TODO: make this nary as well
     Arrow(Rc<AstType>, Rc<AstType>),
 }
 

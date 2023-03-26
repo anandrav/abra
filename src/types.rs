@@ -65,7 +65,7 @@ pub enum STypeKind {
     Int,
     Bool,
     String,
-    Arrow(Rc<SType>, Rc<SType>),
+    Arrow(Vec<Rc<SType>>, Rc<SType>),
 }
 
 impl STypeKind {
@@ -82,12 +82,18 @@ impl STypeKind {
 }
 
 impl SType {
+    // pub fn make_arrow(args: Vec<Rc<SType>>, out: Rc<SType>, id: ast::Id) -> Rc<SType> {
+    //     args.into_iter().rev().fold(out, |acc, arg| {
+    //         Rc::new(SType {
+    //             typekind: STypeKind::Arrow(vec![arg], acc),
+    //             prov: Prov::Node(id),
+    //         })
+    //     })
+    // }
     pub fn make_arrow(args: Vec<Rc<SType>>, out: Rc<SType>, id: ast::Id) -> Rc<SType> {
-        args.into_iter().rev().fold(out, |acc, arg| {
-            Rc::new(SType {
-                typekind: STypeKind::Arrow(arg, acc),
-                prov: Prov::Node(id),
-            })
+        Rc::new(SType {
+            typekind: STypeKind::Arrow(args, out),
+            prov: Prov::Node(id),
         })
     }
 }
@@ -99,7 +105,8 @@ pub enum Prov {
 
     // INVARIANT: the provenances in FuncArg and FuncOut are either Node or Builtin.
     FuncArg(Box<Prov>, u8), // u8 represents the index of the argument
-    FuncOut(Box<Prov>, u8), // u8 represents how many arguments before this output
+    FuncOut(Box<Prov>),     // u8 represents how many arguments before this output
+                            // TODO remove the u8 from FuncOut because no more currying
 }
 
 impl SType {
@@ -143,7 +150,13 @@ impl fmt::Display for SType {
             STypeKind::Int => write!(f, "int"),
             STypeKind::Bool => write!(f, "bool"),
             STypeKind::String => write!(f, "string"),
-            STypeKind::Arrow(t1, t2) => write!(f, "({} -> {})", t1, t2),
+            STypeKind::Arrow(t1, t2) => {
+                write!(f, "(")?;
+                for t in t1 {
+                    write!(f, "{}, ", t)?;
+                }
+                write!(f, ") -> {}", t2)
+            }
         }
     }
 }
