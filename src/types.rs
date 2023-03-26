@@ -68,28 +68,7 @@ pub enum STypeKind {
     Arrow(Vec<Rc<SType>>, Rc<SType>),
 }
 
-impl STypeKind {
-    // pub fn is_primitive(&self) -> bool {
-    //     match self {
-    //         STypeKind::Unknown => false,
-    //         STypeKind::Unit => true,
-    //         STypeKind::Int => true,
-    //         STypeKind::Bool => true,
-    //         STypeKind::String => true,
-    //         STypeKind::Arrow(_, _) => false,
-    //     }
-    // }
-}
-
 impl SType {
-    // pub fn make_arrow(args: Vec<Rc<SType>>, out: Rc<SType>, id: ast::Id) -> Rc<SType> {
-    //     args.into_iter().rev().fold(out, |acc, arg| {
-    //         Rc::new(SType {
-    //             typekind: STypeKind::Arrow(vec![arg], acc),
-    //             prov: Prov::Node(id),
-    //         })
-    //     })
-    // }
     pub fn make_arrow(args: Vec<Rc<SType>>, out: Rc<SType>, id: ast::Id) -> Rc<SType> {
         Rc::new(SType {
             typekind: STypeKind::Arrow(args, out),
@@ -106,20 +85,6 @@ pub enum Prov {
     // INVARIANT: the provenances in FuncArg and FuncOut are either Node or Builtin.
     FuncArg(Box<Prov>, u8), // u8 represents the index of the argument
     FuncOut(Box<Prov>),     // u8 represents how many arguments before this output
-                            // TODO remove the u8 from FuncOut because no more currying
-}
-
-impl SType {
-    // pub fn contains_unknown(&self) -> bool {
-    //     match self {
-    //         Type::Unknown(_) => true,
-    //         Type::Unit => false,
-    //         Type::Int => false,
-    //         Type::Bool => false,
-    //         Type::String => false,
-    //         Type::Arrow(t1, t2) => t1.contains_unknown() || t2.contains_unknown(),
-    //     }
-    // }
 }
 
 pub fn types_of_binop(

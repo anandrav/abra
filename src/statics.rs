@@ -320,20 +320,6 @@ pub fn solve_constraints(
                 let t = constraint.expected.clone();
                 add_hole_and_t(hole, t, constraint.expected.prov.clone());
             }
-            (STypeKind::Arrow(args1, _out1), STypeKind::Arrow(args2, _out2))
-                if args1.len() == args2.len() =>
-            {
-                // for i in 0..args1.len() {
-                //     constraints.push(Constraint {
-                //         expected: args1[i].clone(),
-                //         actual: args2[i].clone(),
-                //     });
-                // }
-                // constraints.push(Constraint {
-                //     expected: out1.clone(),
-                //     actual: out2.clone(),
-                // });
-            }
             _ => {}
         }
     }
