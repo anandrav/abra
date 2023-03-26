@@ -251,14 +251,14 @@ impl Span {
     pub fn line_numbers(&self, source: &str) -> (usize, usize) {
         let begin = {
             let mut first_char = self.lo;
-            while source.chars().collect::<Vec<_>>()[first_char].is_whitespace() {
+            while source.chars().nth(first_char).unwrap().is_whitespace() {
                 first_char += 1;
             }
             source[..=self.lo].lines().count() - 1
         };
         let end = {
             let mut last_char = self.hi - 1;
-            while source.chars().collect::<Vec<_>>()[last_char].is_whitespace() {
+            while source.chars().nth(last_char).unwrap().is_whitespace() {
                 last_char -= 1;
             }
             source[..=self.hi].lines().count() - 1
@@ -297,23 +297,6 @@ impl Span {
             s.push_str(&format!("{:1$}", "", pad_before)); // pad before
             s.push_str(&format!("{:^<1$}\n", "", underline)); // underline
         }
-        // s.push_str(
-        //     format!(
-        //         " | {}\n",
-        //         source.lines().nth(self.line_number(source) - 1).unwrap()
-        //     )
-        //     .as_str(),
-        // );
-        // s.push_str(" | ");
-        // let begin_line_index = source[..self.lo].rfind('\n').unwrap_or(0);
-        // let num_spaces = self.lo - begin_line_index - 1;
-        // for _ in 0..num_spaces {
-        //     s.push(' ');
-        // }
-        // for _ in 0..(self.hi - self.lo) {
-        //     s.push('^');
-        // }
-        // s.push('\n');
         s
     }
 }
