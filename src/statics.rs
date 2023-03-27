@@ -143,7 +143,8 @@ impl fmt::Display for TypeSuggestion {
                     if arg.types.len() > 1 {
                         write!(f, "?")?;
                     } else {
-                        write!(f, "{}", arg.types.first().unwrap())?;
+                        let arg = arg.types.iter().next().unwrap();
+                        write!(f, "{}", arg)?;
                     }
                 }
                 if args.len() > 1 {
@@ -153,7 +154,8 @@ impl fmt::Display for TypeSuggestion {
                 if out.types.len() > 1 {
                     write!(f, "?")
                 } else {
-                    write!(f, "{}", out.types.first().unwrap())
+                    let out = out.types.iter().next().unwrap();
+                    write!(f, "{}", out)
                 }
             }
         }
