@@ -87,22 +87,17 @@ pub enum Prov {
     FuncOut(Box<Prov>),     // u8 represents how many arguments before this output
 }
 
-pub fn types_of_binop(
-    opcode: &BinOpcode,
-    node_left: Rc<ast::Expr>,
-    node_right: Rc<ast::Expr>,
-    node_op: Rc<ast::Expr>,
-) -> (Rc<SType>, Rc<SType>, Rc<SType>) {
+pub fn types_of_binop(opcode: &BinOpcode, id: ast::Id) -> (Rc<SType>, Rc<SType>, Rc<SType>) {
     match opcode {
         BinOpcode::Add | BinOpcode::Subtract | BinOpcode::Multiply | BinOpcode::Divide => (
-            SType::make_int(Prov::Node(node_left.id)),
-            SType::make_int(Prov::Node(node_right.id)),
-            SType::make_int(Prov::Node(node_op.id)),
+            SType::make_int(Prov::Node(id)),
+            SType::make_int(Prov::Node(id)),
+            SType::make_int(Prov::Node(id)),
         ),
         BinOpcode::Equals | BinOpcode::LessThan | BinOpcode::GreaterThan => (
-            SType::make_int(Prov::Node(node_left.id)),
-            SType::make_int(Prov::Node(node_right.id)),
-            SType::make_bool(Prov::Node(node_op.id)),
+            SType::make_int(Prov::Node(id)),
+            SType::make_int(Prov::Node(id)),
+            SType::make_bool(Prov::Node(id)),
         ),
     }
 }
