@@ -256,9 +256,17 @@ impl Span {
             .filter(|(i, _)| *i < lo_line)
             .map(|(_, l)| l.len())
             .sum::<usize>()
-            + lo_line;
+            + lo_line; // account for newlines
         let lo_col = self.lo - num_chars_of_lines_before;
+
         let hi_line = source[..=self.hi].lines().count() - 1;
+        let num_chars_of_lines_before = source
+            .lines()
+            .enumerate()
+            .filter(|(i, _)| *i < hi_line)
+            .map(|(_, l)| l.len())
+            .sum::<usize>()
+            + hi_line; // account for newlines
         let hi_col = self.hi - num_chars_of_lines_before;
         ((lo_line, lo_col), (hi_line, hi_col))
     }
@@ -279,12 +287,13 @@ impl Span {
             s.push_str(&format!("{:3} | {}\n", line_number, line));
 
             let pad_before = if line_number == lo_line { lo_col } else { 0 };
+
             let pad_end = if line_number == hi_line {
                 line.len() - hi_col
             } else {
                 0
             };
-            dbg!(pad_end);
+
             let underline = line.len() - pad_end - pad_before;
             s.push_str(&format!("{:3} | ", "")); // line number placeholder
             s.push_str(&format!("{:1$}", "", pad_before)); // pad before
