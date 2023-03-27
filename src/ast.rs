@@ -248,50 +248,43 @@ pub struct Span {
 }
 
 impl Span {
-    pub fn line_numbers(&self, source: &str) -> (usize, usize) {
-        let begin = {
-            let mut first_char = self.lo;
-            while source.chars().nth(first_char).unwrap().is_whitespace() {
-                first_char += 1;
-            }
-            source[..=self.lo].lines().count() - 1
-        };
-        let end = {
-            let mut last_char = self.hi - 1;
-            while source.chars().nth(last_char).unwrap().is_whitespace() {
-                last_char -= 1;
-            }
-            source[..=self.hi].lines().count() - 1
-        };
-        (begin, end)
+    pub fn lines_and_columns(&self, source: &str) -> ((usize, usize), (usize, usize)) {
+        let lo_line = source[..=self.lo].lines().count() - 1;
+        let num_chars_of_lines_before = source
+            .lines()
+            .enumerate()
+            .filter(|(i, _)| *i < lo_line)
+            .map(|(_, l)| l.len())
+            .sum::<usize>()
+            + lo_line;
+        let lo_col = self.lo - num_chars_of_lines_before;
+        let hi_line = source[..=self.hi].lines().count() - 1;
+        let hi_col = self.hi - num_chars_of_lines_before;
+        ((lo_line, lo_col), (hi_line, hi_col))
     }
 
     pub fn display(&self, source: &str, detail: &str) -> String {
         let mut s = String::new();
-        let (begin, end) = self.line_numbers(source);
-        if begin != end {
-            s.push_str(&format!("--> On lines {}-{}, {}\n", begin, end, detail));
+        let ((lo_line, lo_col), (hi_line, hi_col)) = self.lines_and_columns(source);
+        if lo_line != hi_line {
+            s.push_str(&format!(
+                "--> On lines {}-{}, {}\n",
+                lo_line, hi_line, detail
+            ));
         } else {
-            s.push_str(&format!("--> On line {}, {}\n", begin, detail));
+            s.push_str(&format!("--> On line {}, {}\n", lo_line, detail));
         }
-        for line_number in begin..=end {
+        for line_number in lo_line..=hi_line {
             let line = source.lines().nth(line_number).unwrap();
             s.push_str(&format!("{:3} | {}\n", line_number, line));
 
-            let pad_before = if line_number == begin {
-                let num_tabs = line.chars().take_while(|c| *c == '\t').count();
-                let num_whitespace = line.chars().take_while(|c| c.is_whitespace()).count();
-                num_whitespace + num_tabs * 3
+            let pad_before = if line_number == lo_line { lo_col } else { 0 };
+            let pad_end = if line_number == hi_line {
+                line.len() - hi_col
             } else {
                 0
             };
-            let pad_end = if line_number == end {
-                let num_tabs = line.chars().rev().take_while(|c| *c == '\t').count();
-                let num_whitespace = line.chars().rev().take_while(|c| c.is_whitespace()).count();
-                num_whitespace + num_tabs * 3
-            } else {
-                0
-            };
+            dbg!(pad_end);
             let underline = line.len() - pad_end - pad_before;
             s.push_str(&format!("{:3} | ", "")); // line number placeholder
             s.push_str(&format!("{:1$}", "", pad_before)); // pad before

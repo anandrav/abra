@@ -341,7 +341,16 @@ pub fn solve_constraints(
 
     for (type_conflict, _unknown_tys) in unsolved_type_suggestions_to_unknown_ty {
         err_string.push_str(&format!("Type Conflict: {}\n", type_conflict));
-        for ty in type_conflict.types {
+        let mut types_sorted: Vec<_> = type_conflict.types.iter().collect();
+        types_sorted.sort_by_key(|ty| match ty {
+            TypeSuggestion::Unknown => unreachable!(),
+            TypeSuggestion::Unit(provs)
+            | TypeSuggestion::Int(provs)
+            | TypeSuggestion::Bool(provs)
+            | TypeSuggestion::String(provs)
+            | TypeSuggestion::Arrow(provs, _, _) => provs.len(),
+        });
+        for ty in types_sorted {
             err_string.push('\n');
             match &ty {
                 TypeSuggestion::Unknown => unreachable!(),
