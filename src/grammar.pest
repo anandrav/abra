@@ -50,7 +50,7 @@ typ = { type_term ~ (type_op_binary ~ type_term)* }
 type_term = _{ type_literal | placeholder }
 
 type_literal = _{ type_literal_unit | type_literal_number | type_literal_bool | type_literal_string }
-type_literal_unit = @{ "nothing" }
+type_literal_unit = @{ "void" }
 type_literal_number = @{ "int" }
 type_literal_bool = @{ "bool" }
 type_literal_string = @{ "string" }

@@ -4,7 +4,7 @@ use disjoint_sets::UnionFindNode;
 use multimap::MultiMap;
 use std::cell::RefCell;
 use std::collections::{BTreeMap, BTreeSet, HashMap};
-use std::fmt::{self};
+use std::fmt::{self, Write};
 use std::rc::Rc;
 
 #[derive(Debug)]
@@ -128,19 +128,33 @@ impl fmt::Display for TypeSuggestion {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             TypeSuggestion::Unknown => write!(f, "?"),
-            TypeSuggestion::Unit(_) => write!(f, "unit"),
+            TypeSuggestion::Unit(_) => write!(f, "void"),
             TypeSuggestion::Int(_) => write!(f, "int"),
             TypeSuggestion::Bool(_) => write!(f, "bool"),
             TypeSuggestion::String(_) => write!(f, "string"),
             TypeSuggestion::Arrow(_, args, out) => {
-                write!(f, "(")?;
+                if args.len() > 1 {
+                    write!(f, "(")?;
+                }
                 for (i, arg) in args.iter().enumerate() {
                     if i > 0 {
                         write!(f, ", ")?;
                     }
-                    write!(f, "{}", arg)?;
+                    if arg.types.len() > 1 {
+                        write!(f, "?")?;
+                    } else {
+                        write!(f, "{}", arg.types.first().unwrap())?;
+                    }
                 }
-                write!(f, ") -> {}", out)
+                if args.len() > 1 {
+                    write!(f, ")")?;
+                }
+                write!(f, " -> ")?;
+                if out.types.len() > 1 {
+                    write!(f, "?")
+                } else {
+                    write!(f, "{}", out.types.first().unwrap())
+                }
             }
         }
     }
@@ -161,24 +175,26 @@ impl TypeSuggestions {
     }
 }
 
-impl fmt::Display for TypeSuggestions {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let mut s = String::new();
-        if self.types.len() > 1 {
-            s.push('{');
-        }
-        for (i, t) in self.types.iter().enumerate() {
-            if i == 0 {
-                s.push_str(&format!("{}", t));
-            } else {
-                s.push_str(&format!("/{}", t));
-            }
-        }
-        if self.types.len() > 1 {
-            s.push('}');
-        }
-        write!(f, "{}", s)
+fn fmt_type_suggestions(types: &Vec<&TypeSuggestion>, f: &mut dyn Write) -> fmt::Result {
+    let mut s = String::new();
+    if types.len() > 1 {
+        s.push_str("{\n");
     }
+    for (i, t) in types.iter().enumerate() {
+        if types.len() == 1 {
+            s.push_str(&format!("{}", t));
+            break;
+        }
+        if i == 0 {
+            s.push_str(&format!("\t{}", t));
+        } else {
+            s.push_str(&format!("\n\t{}", t));
+        }
+    }
+    if types.len() > 1 {
+        s.push_str("\n}");
+    }
+    write!(f, "{}", s)
 }
 
 pub fn condense_candidates(uf_type_candidates: &UFPotentialTypes) -> TypeSuggestions {
@@ -339,18 +355,27 @@ pub fn solve_constraints(
     let mut err_string = String::new();
     err_string.push_str("You have a type error!\n");
 
-    for (type_conflict, _unknown_tys) in unsolved_type_suggestions_to_unknown_ty {
-        err_string.push_str(&format!("Type Conflict: {}\n", type_conflict));
-        let mut types_sorted: Vec<_> = type_conflict.types.iter().collect();
-        types_sorted.sort_by_key(|ty| match ty {
-            TypeSuggestion::Unknown => unreachable!(),
-            TypeSuggestion::Unit(provs)
-            | TypeSuggestion::Int(provs)
-            | TypeSuggestion::Bool(provs)
-            | TypeSuggestion::String(provs)
-            | TypeSuggestion::Arrow(provs, _, _) => provs.len(),
-        });
-        for ty in types_sorted {
+    let mut type_conflicts = unsolved_type_suggestions_to_unknown_ty
+        .keys()
+        .map(|type_suggestions| {
+            let mut types_sorted: Vec<_> = type_suggestions.types.iter().collect();
+            types_sorted.sort_by_key(|ty| match ty {
+                TypeSuggestion::Unknown => unreachable!(),
+                TypeSuggestion::Unit(provs)
+                | TypeSuggestion::Int(provs)
+                | TypeSuggestion::Bool(provs)
+                | TypeSuggestion::String(provs)
+                | TypeSuggestion::Arrow(provs, _, _) => provs.len(),
+            });
+            types_sorted
+        })
+        .collect::<Vec<_>>();
+    type_conflicts.sort();
+    for type_conflict in type_conflicts {
+        err_string.push_str("Type Conflict: ");
+        fmt_type_suggestions(&type_conflict, &mut err_string).unwrap();
+        writeln!(err_string).unwrap();
+        for ty in type_conflict {
             err_string.push('\n');
             match &ty {
                 TypeSuggestion::Unknown => unreachable!(),
@@ -416,6 +441,7 @@ pub fn solve_constraints(
                 }
             }
         }
+        writeln!(err_string).unwrap();
     }
 
     Err(err_string)

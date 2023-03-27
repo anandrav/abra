@@ -111,7 +111,7 @@ impl fmt::Display for SType {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match &self.typekind {
             STypeKind::Unknown => write!(f, "?"),
-            STypeKind::Unit => write!(f, "unit"),
+            STypeKind::Unit => write!(f, "void"),
             STypeKind::Int => write!(f, "int"),
             STypeKind::Bool => write!(f, "bool"),
             STypeKind::String => write!(f, "string"),
