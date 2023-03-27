@@ -394,7 +394,14 @@ pub fn solve_constraints(
                 | TypeSuggestion::String(provs)
                 | TypeSuggestion::Arrow(provs, _, _) => provs,
             };
-            for cause in provs {
+            let mut provs_vec = provs.iter().collect::<Vec<_>>();
+            provs_vec.sort_by_key(|prov| match prov {
+                Prov::Builtin(_) => 0,
+                Prov::Node(id) => node_map.get(id).unwrap().span().lo,
+                Prov::FuncArg(_, _) => 2,
+                Prov::FuncOut(_) => 2,
+            });
+            for cause in provs_vec {
                 match cause {
                     Prov::Builtin(s) => {
                         err_string.push_str(&format!("The builtin function '{}'", s));
@@ -408,7 +415,7 @@ pub fn solve_constraints(
                             Prov::Builtin(s) => {
                                 let n = n + 1; // readability
                                 err_string.push_str(&format!(
-                                    "--> The #{n} argument of the builtin function '{}'\n",
+                                    "--> The #{n} argument of function '{}'\n",
                                     s
                                 ));
                             }
@@ -457,15 +464,15 @@ pub fn make_new_environment() -> Rc<RefCell<TyCtx>> {
         Rc::new(SType {
             typekind: STypeKind::Arrow(
                 vec![SType::make_string(Prov::FuncArg(
-                    Box::new(Prov::Builtin("print".to_string())),
+                    Box::new(Prov::Builtin("print: string -> void".to_string())),
                     0,
                 ))],
                 SType::make_unit(Prov::FuncArg(
-                    Box::new(Prov::Builtin("print".to_string())),
+                    Box::new(Prov::Builtin("print: string -> void".to_string())),
                     1,
                 )),
             ),
-            prov: Prov::Builtin("print".to_string()),
+            prov: Prov::Builtin("print: string -> void".to_string()),
         }),
     );
     ctx.borrow_mut().extend(
@@ -473,15 +480,15 @@ pub fn make_new_environment() -> Rc<RefCell<TyCtx>> {
         Rc::new(SType {
             typekind: STypeKind::Arrow(
                 vec![SType::make_int(Prov::FuncArg(
-                    Box::new(Prov::Builtin("string_of_int".to_string())),
+                    Box::new(Prov::Builtin("string_of_int: int -> string".to_string())),
                     0,
                 ))],
                 SType::make_string(Prov::FuncArg(
-                    Box::new(Prov::Builtin("string_of_int".to_string())),
+                    Box::new(Prov::Builtin("string_of_int: int -> string".to_string())),
                     1,
                 )),
             ),
-            prov: Prov::Builtin("string_of_int".to_string()),
+            prov: Prov::Builtin("string_of_int: int -> string".to_string()),
         }),
     );
     ctx
