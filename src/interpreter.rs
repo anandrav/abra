@@ -126,6 +126,34 @@ fn interpret(
                 new_env: env,
             }
         }
+        Tuple(exprs) => {
+            let mut new_exprs = exprs.clone();
+            let mut new_env = env;
+            for (i, expr) in exprs.iter().enumerate() {
+                let InterpretResult {
+                    expr,
+                    steps,
+                    effect,
+                    new_env: new_env2,
+                } = interpret(expr.clone(), new_env.clone(), steps, &input.clone());
+                new_exprs[i] = expr;
+                if effect.is_some() || steps <= 0 {
+                    return InterpretResult {
+                        expr: Rc::new(Tuple(new_exprs)),
+                        steps,
+                        effect,
+                        new_env,
+                    };
+                }
+                new_env = new_env2;
+            }
+            InterpretResult {
+                expr: Rc::new(Tuple(new_exprs)),
+                steps,
+                effect: None,
+                new_env,
+            }
+        }
         BinOp(expr1, op, expr2) => {
             let InterpretResult {
                 expr: expr1,

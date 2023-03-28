@@ -113,25 +113,18 @@ impl eframe::App for MyApp {
             // HACK. this forces update() to be called as much as possible
             // so that the program can run on the UI thread.
             // I did this because web assembly does not support threads currently
-            if let Some(interpreter) = &self.interpreter {
-                if interpreter.is_finished() {
-                    self.interpreter = None;
-                } else {
-                    ui.ctx().request_repaint();
-                }
-            }
             let steps = if cfg!(debug_assertions) { 1 } else { 1000 };
             let mut output_copy = self.output.clone();
             let effect_handler =
                 |effect, args| side_effects::handle_effect(effect, args, &mut output_copy);
             if let Some(interpreter) = &mut self.interpreter {
-                if !interpreter.is_finished() {
-                    interpreter.run(effect_handler, steps);
-                    self.output = output_copy;
-                    if interpreter.is_finished() {
-                        self.output +=
-                            &format!("Evaluated to: {:?}", interpreter.get_val().unwrap());
-                    }
+                interpreter.run(effect_handler, steps);
+                self.output = output_copy;
+                if interpreter.is_finished() {
+                    self.output += &format!("Evaluated to: {:?}", interpreter.get_val().unwrap());
+                    self.interpreter = None;
+                } else {
+                    ui.ctx().request_repaint();
                 }
             }
 
@@ -150,10 +143,7 @@ impl eframe::App for MyApp {
                             .max_height(400.0)
                             .min_scrolled_height(300.0)
                             .show(ui, |ui| {
-                                if ui.code_editor(&mut self.text).changed() {
-                                    // self.text =
-                                    debug_println!("was changed");
-                                };
+                                if ui.code_editor(&mut self.text).changed() {};
                             });
                         if ui
                             .add(egui::Button::new("Run code").fill(Color32::LIGHT_GREEN))
@@ -164,6 +154,13 @@ impl eframe::App for MyApp {
                             let text_with_braces = "{\n".to_owned() + &self.text + "\n}";
                             match ast::parse_or_err(&text_with_braces) {
                                 Ok(parse_tree) => {
+                                    debug_println!("successfully parsed.");
+                                    let mut node_map = ast::NodeMap::new();
+                                    ast::initialize_node_map(
+                                        &mut node_map,
+                                        &(parse_tree.clone() as Rc<dyn ast::Node>),
+                                    );
+                                    debug_println!("initialized node map.");
                                     let mut constraints = Vec::new();
                                     statics::generate_constraints_expr(
                                         make_new_environment(),
@@ -171,11 +168,7 @@ impl eframe::App for MyApp {
                                         parse_tree.clone(),
                                         &mut constraints,
                                     );
-                                    let mut node_map = ast::NodeMap::new();
-                                    ast::initialize_node_map(
-                                        &mut node_map,
-                                        &(parse_tree.clone() as Rc<dyn ast::Node>),
-                                    );
+                                    debug_println!("generated constraints.");
                                     let result = statics::solve_constraints(
                                         constraints,
                                         node_map,
@@ -183,12 +176,15 @@ impl eframe::App for MyApp {
                                     );
                                     match result {
                                         Ok(_) => {
+                                            debug_println!("solved constraints.");
                                             let eval_tree = translate::translate_expr(
                                                 parse_tree.exprkind.clone(),
                                             );
-                                            self.interpreter = Some(Interpreter::new(eval_tree))
+                                            self.interpreter = Some(Interpreter::new(eval_tree));
+                                            debug_println!("initialized new interpreter.");
                                         }
                                         Err(err) => {
+                                            debug_println!("constraint solving failed.");
                                             self.output = err;
                                         }
                                     }

@@ -16,7 +16,7 @@ pattern = _{ identifier }
 op_assign = _{ "=" }
 
 expression = { term ~ (op_binary ~ term)* }
-term = _{ block_expression | func_expression | func_call_expression | parenthesized_expression | if_else_expression | primary_expression }
+term = _{ block_expression | func_expression | func_call_expression | parenthesized_expression | if_else_expression | tuple_expr | primary_expression }
 
 if_else_expression = { if_keyword ~ expression ~ block_expression ~ else_keyword ~ block_expression }
 if_keyword = _{ "if" }
@@ -25,6 +25,11 @@ else_keyword = _{ "else" }
 block_expression = { block_start ~ statement* ~ expression? ~ block_end }
 block_start = _{ "{" }
 block_end = _{ "}" }
+
+tuple_expr = { tuple_start ~ (tuple_expr_element ~ ",")+ ~ tuple_expr_element ~ tuple_end }
+tuple_start = _{ "(" }
+tuple_end = _{ ")" }
+tuple_expr_element = _{ expression }
 
 parenthesized_expression = _{ paren_start ~ expression ~ paren_end }
 paren_start = _{ "(" }
@@ -47,7 +52,7 @@ pattern_annotated = { pattern ~ type_annotation? }
 
 type_annotation = _{ ":" ~ typ }
 typ = { type_term ~ (type_op_binary ~ type_term)* }
-type_term = _{ type_literal | placeholder }
+type_term = _{ type_literal }
 
 type_literal = _{ type_literal_unit | type_literal_number | type_literal_bool | type_literal_string }
 type_literal_unit = @{ "void" }
@@ -58,7 +63,7 @@ type_literal_string = @{ "string" }
 type_op_binary = _{ type_op_arrow }
 type_op_arrow = { "->" }
 
-primary_expression = _{ identifier | literal | placeholder }
+primary_expression = _{ identifier | literal }
 
 identifier = @{ !keyword ~ (alpha | "_") ~ (alphanumeric | "_")* }
 alpha = _{ 'a'..'z' | 'A'..'Z' }

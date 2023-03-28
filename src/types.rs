@@ -66,12 +66,20 @@ pub enum STypeKind {
     Bool,
     String,
     Arrow(Vec<Rc<SType>>, Rc<SType>),
+    Tuple(Vec<Rc<SType>>),
 }
 
 impl SType {
     pub fn make_arrow(args: Vec<Rc<SType>>, out: Rc<SType>, id: ast::Id) -> Rc<SType> {
         Rc::new(SType {
             typekind: STypeKind::Arrow(args, out),
+            prov: Prov::Node(id),
+        })
+    }
+
+    pub fn make_tuple(types: Vec<Rc<SType>>, id: ast::Id) -> Rc<SType> {
+        Rc::new(SType {
+            typekind: STypeKind::Tuple(types),
             prov: Prov::Node(id),
         })
     }
@@ -116,6 +124,13 @@ impl fmt::Display for SType {
                     write!(f, "{}, ", t)?;
                 }
                 write!(f, ") -> {}", t2)
+            }
+            STypeKind::Tuple(types) => {
+                write!(f, "(")?;
+                for t in types {
+                    write!(f, "{}, ", t)?;
+                }
+                write!(f, ")")
             }
         }
     }

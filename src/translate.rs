@@ -87,6 +87,13 @@ pub fn translate_expr(parse_tree: Rc<ASTek>) -> Rc<Ete> {
         ASTek::Int(i) => Rc::new(Ete::Int(*i)),
         ASTek::Bool(b) => Rc::new(Ete::Bool(*b)),
         ASTek::Str(s) => Rc::new(Ete::Str(s.clone())),
+        ASTek::Tuple(exprs) => {
+            let mut translated_exprs = Vec::new();
+            for expr in exprs {
+                translated_exprs.push(translate_expr(expr.exprkind.clone()));
+            }
+            Rc::new(Ete::Tuple(translated_exprs))
+        }
         ASTek::BinOp(expr1, op, expr2) => Rc::new(Ete::BinOp(
             translate_expr(expr1.exprkind.clone()),
             *op,
@@ -111,6 +118,5 @@ pub fn translate_expr(parse_tree: Rc<ASTek>) -> Rc<Ete> {
             translate_expr(expr2.exprkind.clone()),
             translate_expr(expr3.exprkind.clone()),
         )),
-        // _ => unimplemented!(),
     }
 }

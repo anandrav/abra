@@ -13,6 +13,7 @@ pub enum Expr {
     Int(i32),
     Str(String),
     Bool(bool),
+    Tuple(Vec<Rc<Expr>>),
     BinOp(Rc<Expr>, BinOpcode, Rc<Expr>),
     Let(Rc<Pat>, Rc<Expr>, Rc<Expr>),
     Func(Identifier, Rc<Expr>, Option<Rc<RefCell<Environment>>>),
@@ -29,5 +30,19 @@ pub enum Pat {
 
 pub fn is_val(expr: &Rc<Expr>) -> bool {
     use self::Expr::*;
-    matches!(&*expr.clone(), Unit | Int(_) | Str(_) | Bool(_) | Func(..))
+    match expr.as_ref() {
+        Var(_) => false,
+        Unit => true,
+        Int(_) => true,
+        Str(_) => true,
+        Bool(_) => true,
+        Func(_, _, _) => true,
+        Tuple(elements) => elements.iter().all(is_val),
+        BinOp(_, _, _) => false,
+        Let(_, _, _) => false,
+        FuncAp(_, _, _) => false,
+        If(_, _, _) => false,
+        EffectAp(_, _) => false,
+        ConsumedEffect => false,
+    }
 }

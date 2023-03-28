@@ -111,6 +111,10 @@ impl Node for Expr {
                 children.extend(args.iter().map(|a| a.clone() as Rc<dyn Node>));
                 children
             }
+            ExprKind::Tuple(exprs) => exprs
+                .iter()
+                .map(|e| e.clone() as Rc<dyn Node>)
+                .collect::<Vec<_>>(),
         }
     }
 }
@@ -129,6 +133,7 @@ pub enum ExprKind {
     Block(Vec<Rc<Stmt>>, Option<Rc<Expr>>),
     BinOp(Rc<Expr>, BinOpcode, Rc<Expr>),
     FuncAp(Rc<Expr>, Vec<Rc<Expr>>),
+    Tuple(Vec<Rc<Expr>>),
 }
 
 // pub type MatchArm = (Rc<Pat>, Rc<Expr>);
@@ -542,6 +547,18 @@ pub fn parse_expr_term(pair: Pair<Rule>, pratt: &PrattParser<Rule>) -> Rc<Expr> 
             }
             Rc::new(Expr {
                 exprkind: Rc::new(ExprKind::FuncAp(f, args)),
+                span,
+                id: Id::new(),
+            })
+        }
+        Rule::tuple_expr => {
+            let inner: Vec<_> = pair.into_inner().collect();
+            let mut exprs = vec![];
+            for p in inner {
+                exprs.push(parse_expr_pratt(Pairs::single(p), pratt));
+            }
+            Rc::new(Expr {
+                exprkind: Rc::new(ExprKind::Tuple(exprs)),
                 span,
                 id: Id::new(),
             })
