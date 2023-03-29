@@ -421,7 +421,7 @@ pub fn solve_constraints(
             err_string.push('\n');
             match &ty {
                 TypeSuggestion::Unknown => unreachable!(),
-                TypeSuggestion::Unit(_) => err_string.push_str("Sources of unit:\n"),
+                TypeSuggestion::Unit(_) => err_string.push_str("Sources of void:\n"),
                 TypeSuggestion::Int(_) => err_string.push_str("Sources of int:\n"),
                 TypeSuggestion::Bool(_) => err_string.push_str("Sources of bool:\n"),
                 TypeSuggestion::String(_) => err_string.push_str("Sources of string:\n"),
@@ -877,7 +877,7 @@ pub fn generate_constraints_pat(
     pat: Rc<Pat>,
     constraints: &mut Vec<Constraint>,
 ) -> Option<Rc<RefCell<TyCtx>>> {
-    let new_ctx = TyCtx::new(Some(ctx));
+    let mut new_ctx = TyCtx::new(Some(ctx));
     match &*pat.patkind {
         PatKind::Var(identifier) => {
             // letrec?: extend context with id and type before analyzing against said type
@@ -890,6 +890,22 @@ pub fn generate_constraints_pat(
                     actual: ty_pat,
                 }),
             };
+            Some(new_ctx)
+        }
+        PatKind::Tuple(pats) => {
+            let tys = pats
+                .iter()
+                .map(|pat| SType::make_unknown(Prov::Node(pat.id)))
+                .collect();
+            constraints.push(Constraint {
+                expected: SType::make_tuple(tys, pat.id),
+                actual: SType::from_node(pat.clone()),
+            });
+            for pat in pats {
+                new_ctx =
+                    generate_constraints_pat(new_ctx.clone(), Mode::Syn, pat.clone(), constraints)
+                        .unwrap_or(new_ctx);
+            }
             Some(new_ctx)
         }
     }

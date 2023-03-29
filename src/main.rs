@@ -90,7 +90,6 @@ let print_fibonacci = func(n: int) -> void {
 };
 let from_i_to_n = func(i: int, n: int, f: int -> void) {
     if i > n {
-        ()
     } else {
         f(i);
         from_i_to_n(i+1, n, f);

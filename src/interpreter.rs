@@ -258,6 +258,44 @@ fn interpret(
                     new_env: env,
                 }
             }
+            Pat::Tuple(_pats) => {
+                let InterpretResult {
+                    expr: expr1,
+                    steps,
+                    effect,
+                    new_env,
+                } = interpret(expr1.clone(), env.clone(), steps, &input.clone());
+                if effect.is_some() || steps <= 0 {
+                    return InterpretResult {
+                        expr: Rc::new(Let(pat.clone(), expr1, expr2.clone())),
+                        steps,
+                        effect,
+                        new_env,
+                    };
+                }
+                let new_env = Rc::new(RefCell::new(Environment::new(Some(env.clone()))));
+                populate_env(new_env.clone(), pat.clone(), expr1.clone());
+                let InterpretResult {
+                    expr,
+                    steps,
+                    effect,
+                    new_env,
+                } = interpret(expr2.clone(), new_env, steps, input);
+                if effect.is_some() || steps <= 0 {
+                    return InterpretResult {
+                        expr,
+                        steps,
+                        effect,
+                        new_env,
+                    };
+                }
+                InterpretResult {
+                    expr,
+                    steps,
+                    effect: None,
+                    new_env: env,
+                }
+            }
         },
         FuncAp(expr1, expr2, funcapp_env) => {
             let InterpretResult {
@@ -449,6 +487,24 @@ fn interpret(
                 },
             },
         },
+    }
+}
+
+fn populate_env(env: Rc<RefCell<Environment>>, pat: Rc<Pat>, expr: Rc<Expr>) {
+    match (&*pat, &*expr) {
+        (Pat::Var(id), _) => env.borrow_mut().extend(id, expr.clone()),
+        (Pat::Tuple(pats), Tuple(exprs)) if pats.len() == exprs.len() => {
+            for (pat, expr) in pats.iter().zip(exprs.iter()) {
+                populate_env(env.clone(), pat.clone(), expr.clone());
+            }
+        }
+        // (Pat::List(pats), Expr::List(exprs)) => {
+        //     for (pat, expr) in pats.iter().zip(exprs.iter()) {
+        //         populate_env(env.clone(), pat.clone(), expr.clone());
+        //     }
+        // }
+        // (Pat::Wildcard, _) => {}
+        _ => panic!("pattern and expression do not match"),
     }
 }
 

@@ -26,6 +26,7 @@ pub enum Expr {
 #[derive(Debug)]
 pub enum Pat {
     Var(String),
+    Tuple(Vec<Rc<Pat>>),
 }
 
 pub fn is_val(expr: &Rc<Expr>) -> bool {

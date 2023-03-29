@@ -156,6 +156,10 @@ impl Node for Pat {
     fn children(&self) -> Vec<Rc<dyn Node>> {
         match &*self.patkind {
             PatKind::Var(_) => vec![],
+            PatKind::Tuple(pats) => pats
+                .iter()
+                .map(|p| p.clone() as Rc<dyn Node>)
+                .collect::<Vec<_>>(),
         }
     }
 }
@@ -168,12 +172,14 @@ pub enum PatKind {
     // Int(i32),
     // Bool(bool),
     // Str(String),
+    Tuple(Vec<Rc<Pat>>),
 }
 
 impl PatKind {
     pub fn get_identifier(&self) -> Identifier {
         match self {
             PatKind::Var(id) => id.clone(),
+            PatKind::Tuple(_) => panic!("Pattern is not a variable"),
         }
     }
 }
@@ -198,6 +204,16 @@ pub fn ast_type_to_statics_type(ast_type: Rc<AstType>) -> Rc<types::SType> {
             ),
             prov: Prov::Node(ast_type.id()),
         }),
+        TypeKind::Tuple(types) => {
+            let mut statics_types = Vec::new();
+            for t in types {
+                statics_types.push(ast_type_to_statics_type(t.clone()));
+            }
+            Rc::new(types::SType {
+                typekind: types::STypeKind::Tuple(statics_types),
+                prov: Prov::Node(ast_type.id()),
+            })
+        }
     }
 }
 
@@ -213,6 +229,10 @@ impl Node for AstType {
         match &*self.typekind {
             TypeKind::Unit | TypeKind::Int | TypeKind::Bool | TypeKind::Str => vec![],
             TypeKind::Arrow(lhs, rhs) => vec![lhs.clone(), rhs.clone()],
+            TypeKind::Tuple(types) => types
+                .iter()
+                .map(|t| t.clone() as Rc<dyn Node>)
+                .collect::<Vec<_>>(),
         }
     }
 }
@@ -225,6 +245,7 @@ pub enum TypeKind {
     Str,
     // TODO: make this nary as well
     Arrow(Rc<AstType>, Rc<AstType>),
+    Tuple(Vec<Rc<AstType>>),
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -292,6 +313,8 @@ impl Span {
             s.push_str(&format!("{:3} | {}\n", line_number, line));
 
             let pad_before = if line_number == lo_line { lo_col } else { 0 };
+            let num_tabs = line.chars().take(pad_before).filter(|c| *c == '\t').count();
+            let pad_before_in_spaces = pad_before + num_tabs * 3;
 
             let pad_end = if line_number == hi_line {
                 line.len() - hi_col
@@ -301,7 +324,7 @@ impl Span {
 
             let underline = line.len() - pad_end - pad_before;
             s.push_str(&format!("{:3} | ", "")); // line number placeholder
-            s.push_str(&format!("{:1$}", "", pad_before)); // pad before
+            s.push_str(&format!("{:1$}", "", pad_before_in_spaces)); // pad before
             s.push_str(&format!("{:^<1$}\n", "", underline)); // underline
         }
         s
@@ -392,6 +415,18 @@ pub fn parse_pat(pair: Pair<Rule>, _pratt: &PrattParser<Rule>) -> Rc<Pat> {
             span,
             id: Id::new(),
         }),
+        Rule::tuple_pat => {
+            let inner: Vec<_> = pair.into_inner().collect();
+            let pats = inner
+                .iter()
+                .map(|pair| parse_pat(pair.clone(), _pratt))
+                .collect();
+            Rc::new(Pat {
+                patkind: Rc::new(PatKind::Tuple(pats)),
+                span,
+                id: Id::new(),
+            })
+        }
         _ => panic!("unreachable rule {:#?}", rule),
     }
 }
@@ -435,6 +470,18 @@ pub fn parse_type_term(pair: Pair<Rule>, _pratt: &PrattParser<Rule>) -> Rc<AstTy
             span,
             id: Id::new(),
         }),
+        Rule::tuple_type => {
+            let inner: Vec<_> = pair.into_inner().collect();
+            let types = inner
+                .into_iter()
+                .map(|pair| parse_type_term(pair, _pratt))
+                .collect();
+            Rc::new(AstType {
+                typekind: Rc::new(TypeKind::Tuple(types)),
+                span,
+                id: Id::new(),
+            })
+        }
         _ => panic!("unreachable rule {:#?}", rule),
     }
 }

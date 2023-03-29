@@ -3,8 +3,6 @@ space = { " " }
 tab = { "\t" }
 newline = { "\n" }
 
-placeholder = { "_" }
-
 program = { SOI ~ statement* ~ EOI }
 
 statement = _{ let_statement | expression_statement }
@@ -12,8 +10,12 @@ statement = _{ let_statement | expression_statement }
 let_statement = { let_keyword ~ pattern_annotated ~ op_assign ~ expression ~ semicolon }
 let_keyword = _{ "let" }
 expression_statement = { expression ~ semicolon }
-pattern = _{ identifier }
+pattern = _{ tuple_pat | wildcard | identifier }
+wildcard = @{ "_" }
 op_assign = _{ "=" }
+
+tuple_pat = { tuple_start ~ (tuple_pat_element ~ ",")+ ~ tuple_pat_element ~ tuple_end }
+tuple_pat_element = _{ pattern }
 
 expression = { term ~ (op_binary ~ term)* }
 term = _{ block_expression | func_expression | func_call_expression | parenthesized_expression | if_else_expression | tuple_expr | primary_expression }
@@ -52,7 +54,10 @@ pattern_annotated = { pattern ~ type_annotation? }
 
 type_annotation = _{ ":" ~ typ }
 typ = { type_term ~ (type_op_binary ~ type_term)* }
-type_term = _{ type_literal }
+type_term = _{ tuple_type | type_literal }
+
+tuple_type = { tuple_start ~ (tuple_type_element ~ ",")+ ~ tuple_type_element ~ tuple_end }
+tuple_type_element = _{ typ }
 
 type_literal = _{ type_literal_unit | type_literal_number | type_literal_bool | type_literal_string }
 type_literal_unit = @{ "void" }
@@ -70,7 +75,7 @@ alpha = _{ 'a'..'z' | 'A'..'Z' }
 alphanumeric = _{ alpha | '0'..'9' }
 
 literal = _{ literal_unit | literal_number | literal_bool | literal_string }
-literal_unit = @{ "()" }
+literal_unit = @{ "nothing" }
 literal_number = @{ "0" | ASCII_NONZERO_DIGIT ~ ASCII_DIGIT* }
 literal_string = @{ "\"" ~ (!"\"" ~ ANY)* ~ "\"" }
 literal_bool = @{ "true" | "false" }

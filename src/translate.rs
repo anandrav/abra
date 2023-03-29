@@ -11,6 +11,9 @@ type Etp = eval_tree::Pat;
 pub fn translate_pat(parse_tree: Rc<ast::Pat>) -> Rc<Etp> {
     match &*parse_tree.patkind {
         ASTpk::Var(id) => Rc::new(Etp::Var(id.clone())),
+        ASTpk::Tuple(pats) => Rc::new(Etp::Tuple(
+            pats.iter().map(|pat| translate_pat(pat.clone())).collect(),
+        )),
     }
 }
 
@@ -20,7 +23,7 @@ pub fn translate_expr_block(
 ) -> Rc<Ete> {
     let final_operand_size = usize::from(final_operand.is_some());
     match stmts.len() + final_operand_size {
-        0 => panic!("empty expression block!"),
+        0 => Rc::new(Ete::Unit),
         1 => match final_operand {
             None => {
                 let statement = &stmts[0];
@@ -51,7 +54,7 @@ pub fn translate_expr_block(
 }
 
 pub fn translate_expr_func(func_args: Vec<ast::PatAnnotated>, body: Rc<ASTek>) -> Rc<Ete> {
-    let id = func_args[0].0.patkind.get_identifier();
+    let id = func_args[0].0.patkind.get_identifier(); // TODO: allow function arguments to be patterns
     if func_args.len() == 1 {
         Rc::new(Ete::Func(id, translate_expr(body), None))
     } else {
