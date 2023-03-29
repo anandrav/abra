@@ -11,7 +11,7 @@ let_statement = { let_keyword ~ pattern_annotated ~ op_assign ~ expression ~ sem
 let_keyword = _{ "let" }
 expression_statement = { expression ~ semicolon }
 pattern = _{ tuple_pat | wildcard | identifier }
-wildcard = @{ "_" }
+wildcard = @{ "_" } // TODO this doesn't parse yet.
 op_assign = _{ "=" }
 
 tuple_pat = { tuple_start ~ (tuple_pat_element ~ ",")+ ~ tuple_pat_element ~ tuple_end }
@@ -50,7 +50,7 @@ func_args_end = _{ ")" }
 func_args = _{ func_args_start ~ (pattern_annotated ~ ",")* ~ pattern_annotated? ~ func_args_end }
 func_keyword = _{ "func" }
 
-pattern_annotated = { pattern ~ type_annotation? }
+pattern_annotated = { pattern ~ type_annotation? } // TODO: this doesn't work for functions yet.
 
 type_annotation = _{ ":" ~ typ }
 typ = { type_term ~ (type_op_binary ~ type_term)* }

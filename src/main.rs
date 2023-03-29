@@ -113,12 +113,12 @@ impl eframe::App for MyApp {
             // so that the program can run on the UI thread.
             // I did this because web assembly does not support threads currently
             let steps = if cfg!(debug_assertions) { 1 } else { 1000 };
-            let mut output_copy = self.output.clone();
+            let mut more_output = String::new();
             let effect_handler =
-                |effect, args| side_effects::handle_effect(effect, args, &mut output_copy);
+                |effect, args| side_effects::handle_effect(effect, args, &mut more_output);
             if let Some(interpreter) = &mut self.interpreter {
                 interpreter.run(effect_handler, steps);
-                self.output = output_copy;
+                self.output.push_str(&more_output);
                 if interpreter.is_finished() {
                     self.output += &format!("Evaluated to: {:?}", interpreter.get_val().unwrap());
                     self.interpreter = None;
