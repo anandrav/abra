@@ -75,30 +75,26 @@ impl Default for MyApp {
         Self {
             text: String::from(
                 r#"let fibonacci = func(n: int) -> int {
-    if n == 0 {
+    if n == 0
         0
-    } else { if n == 1 {
+    else if n == 1
         1
-    } else {
+    else
         fibonacci(n-1) + fibonacci(n-2)
-    }}
-};
-
-let print_fibonacci = func(n) {
-    print(string_of_int(fibonacci(n)))
 };
 
 let for_range = func(range: (int, int), f: int -> void) {
     let (i, n) = range;
-    if i > n {
-    } else {
+    if i < n {
         f(i);
         for_range((i+1, n), f);
-    }
+    } else {}
 };
 
 print("The first 30 fibonacci numbers are:");
-for_range((0, 30), print_fibonacci);"#,
+for_range((0, 30), func(n)
+    print(string_of_int(fibonacci(n)))
+)"#,
             ),
             output: String::default(),
             interpreter: None,

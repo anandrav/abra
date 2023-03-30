@@ -102,7 +102,11 @@ pub fn types_of_binop(opcode: &BinOpcode, id: ast::Id) -> (Rc<SType>, Rc<SType>,
             SType::make_int(Prov::Node(id)),
             SType::make_int(Prov::Node(id)),
         ),
-        BinOpcode::Equals | BinOpcode::LessThan | BinOpcode::GreaterThan => (
+        BinOpcode::Equals
+        | BinOpcode::LessThan
+        | BinOpcode::GreaterThan
+        | BinOpcode::LessThanOrEqual
+        | BinOpcode::GreaterThanOrEqual => (
             SType::make_int(Prov::Node(id)),
             SType::make_int(Prov::Node(id)),
             SType::make_bool(Prov::Node(id)),

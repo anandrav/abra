@@ -535,18 +535,18 @@ fn perform_op(val1: Rc<Expr>, op: BinOpcode, val2: Rc<Expr>) -> Rc<Expr> {
             (Int(i1), Int(i2)) => Rc::new(Bool(i1 > i2)),
             _ => panic!("one or more operands of GreaterThan are not Ints"),
         },
-        // GreaterThanOrEquals => match (&*val1, &*val2) {
-        //     (Int(i1), Int(i2)) => Rc::new(Bool(i1 >= i2)),
-        //     _ => panic!("one or more operands of GreaterThanOrEquals are not Ints"),
-        // },
+        GreaterThanOrEqual => match (&*val1, &*val2) {
+            (Int(i1), Int(i2)) => Rc::new(Bool(i1 >= i2)),
+            _ => panic!("one or more operands of GreaterThanOrEqual are not Ints"),
+        },
         LessThan => match (&*val1, &*val2) {
             (Int(i1), Int(i2)) => Rc::new(Bool(i1 < i2)),
             _ => panic!("one or more operands of LessThan are not Ints"),
         },
-        // LessThanOrEquals => match (&*val1, &*val2) {
-        //     (Int(i1), Int(i2)) => Rc::new(Bool(i1 <= i2)),
-        //     _ => panic!("one or more operands of LessThanOrEquals are not Ints"),
-        // },
+        LessThanOrEqual => match (&*val1, &*val2) {
+            (Int(i1), Int(i2)) => Rc::new(Bool(i1 <= i2)),
+            _ => panic!("one or more operands of LessThanOrEqual are not Ints"),
+        },
         // _ => panic!("operation not supported"),
     }
 }

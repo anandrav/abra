@@ -20,7 +20,7 @@ tuple_pat_element = _{ pattern }
 expression = { term ~ (op_binary ~ term)* }
 term = _{ block_expression | func_expression | func_call_expression | parenthesized_expression | if_else_expression | tuple_expr | primary_expression }
 
-if_else_expression = { if_keyword ~ expression ~ block_expression ~ else_keyword ~ block_expression }
+if_else_expression = { if_keyword ~ expression ~ expression ~ else_keyword ~ expression }
 if_keyword = _{ "if" }
 else_keyword = _{ "else" }
 
@@ -43,7 +43,7 @@ func_call_args_start = _{ "(" }
 func_call_args_end = _{ ")" }
 func_call_arg = _{ expression }
 
-func_expression = { func_keyword ~ func_args ~ func_out_annotation? ~ block_expression }
+func_expression = { func_keyword ~ func_args ~ func_out_annotation? ~ expression }
 func_out_annotation = { "->" ~ typ }
 func_args_start = _{ "(" }
 func_args_end = _{ ")" }
@@ -80,10 +80,12 @@ literal_number = @{ "0" | ASCII_NONZERO_DIGIT ~ ASCII_DIGIT* }
 literal_string = @{ "\"" ~ (!"\"" ~ ANY)* ~ "\"" }
 literal_bool = @{ "true" | "false" }
 
-op_binary = _{op_eq | op_gt | op_lt | op_addition | op_subtraction | op_multiplication | op_division }
+op_binary = _{op_eq | op_gte | op_lte | op_gt | op_lt | op_addition | op_subtraction | op_multiplication | op_division }
 op_eq = { "==" }
 op_gt = { ">" }
 op_lt = { "<" }
+op_gte = { ">=" }
+op_lte = { "<=" }
 op_addition = { "+" }
 op_subtraction = { "-" }
 op_multiplication = { "*" }

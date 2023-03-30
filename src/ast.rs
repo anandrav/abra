@@ -659,6 +659,8 @@ pub fn parse_expr_pratt(pairs: Pairs<Rule>, pratt: &PrattParser<Rule>) -> Rc<Exp
                 Rule::op_eq => BinOpcode::Equals,
                 Rule::op_gt => BinOpcode::GreaterThan,
                 Rule::op_lt => BinOpcode::LessThan,
+                Rule::op_gte => BinOpcode::GreaterThanOrEqual,
+                Rule::op_lte => BinOpcode::LessThanOrEqual,
                 Rule::op_addition => BinOpcode::Add,
                 Rule::op_subtraction => BinOpcode::Subtract,
                 Rule::op_multiplication => BinOpcode::Multiply,
@@ -681,7 +683,10 @@ pub fn parse_or_err(source: &str) -> Result<Rc<Expr>, String> {
     // so we figure out operator precedence using the pratt parser
     let pratt = PrattParser::new()
         .op(Op::infix(Rule::op_eq, Assoc::Left))
-        .op(Op::infix(Rule::op_lt, Assoc::Left) | Op::infix(Rule::op_gt, Assoc::Left))
+        .op(Op::infix(Rule::op_lt, Assoc::Left)
+            | Op::infix(Rule::op_gt, Assoc::Left)
+            | Op::infix(Rule::op_lte, Assoc::Left)
+            | Op::infix(Rule::op_gte, Assoc::Left))
         .op(Op::infix(Rule::op_addition, Assoc::Left)
             | Op::infix(Rule::op_subtraction, Assoc::Left))
         .op(Op::infix(Rule::op_multiplication, Assoc::Left)
