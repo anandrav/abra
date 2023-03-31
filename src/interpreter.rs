@@ -274,7 +274,7 @@ fn interpret(
                     };
                 }
                 let new_env = Rc::new(RefCell::new(Environment::new(Some(env.clone()))));
-                populate_env(new_env.clone(), pat.clone(), expr1.clone());
+                populate_env(new_env.clone(), pat.clone(), expr1);
                 let InterpretResult {
                     expr,
                     steps,
