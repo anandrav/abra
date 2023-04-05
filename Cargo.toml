@@ -14,7 +14,6 @@ path = "src/lib.rs"
 
 [dependencies]
 disjoint-sets = "0.4.2"
-multimap = "0.8.3"
 debug_print = "1.0.0"
 regex = "1.7.0"
 pest = "2.5.2"

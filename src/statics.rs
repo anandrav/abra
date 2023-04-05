@@ -1,9 +1,8 @@
 use crate::ast::{self, *};
 use crate::types::{types_of_binop, Prov, SType, STypeKind};
 use disjoint_sets::UnionFindNode;
-use multimap::MultiMap;
 use std::cell::RefCell;
-use std::collections::{BTreeMap, BTreeSet, HashMap};
+use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 use std::fmt::{self, Write};
 use std::rc::Rc;
 
@@ -56,6 +55,102 @@ impl UFPotentialType {
 }
 
 pub type Provs = BTreeSet<Prov>;
+
+pub type SolutionMap = HashMap<Prov, UFPotentialTypes>;
+trait SolutionMapTrait {
+    fn add_constraint(&mut self, constraint: Constraint);
+
+    fn retrieve_and_or_add_node(&mut self, unknown: Rc<SType>) -> UFPotentialTypes;
+}
+
+impl SolutionMapTrait for SolutionMap {
+    fn retrieve_and_or_add_node(&mut self, unknown: Rc<SType>) -> UFPotentialTypes {
+        let provs_single = {
+            let mut set = BTreeSet::new();
+            set.insert(unknown.prov.clone());
+            set
+        };
+        match &unknown.typekind {
+            STypeKind::Unknown => {
+                let prov = &unknown.prov;
+                if let Some(node) = self.get(prov) {
+                    node.clone()
+                } else {
+                    let node = UnionFindNode::new(UFPotentialTypes_::empty());
+                    self.insert(prov.clone(), node.clone());
+                    node
+                }
+            }
+            STypeKind::Arrow(args, out) => {
+                let args: Vec<_> = args
+                    .iter()
+                    .map(|arg| self.retrieve_and_or_add_node(arg.clone()))
+                    .collect();
+                let out = self.retrieve_and_or_add_node(out.clone());
+                UnionFindNode::new(UFPotentialTypes_::singleton(
+                    PotentialTypeCtor::Arrow(args.len() as u8),
+                    UFPotentialType::Function(
+                        PotentialTypeCtor::Arrow(args.len() as u8),
+                        provs_single,
+                        args,
+                        out,
+                    ),
+                ))
+            }
+            STypeKind::Tuple(exprs) => {
+                let exprs: Vec<_> = exprs
+                    .iter()
+                    .map(|expr| self.retrieve_and_or_add_node(expr.clone()))
+                    .collect();
+                UnionFindNode::new(UFPotentialTypes_::singleton(
+                    PotentialTypeCtor::Tuple(exprs.len() as u8),
+                    UFPotentialType::Tuple(
+                        PotentialTypeCtor::Tuple(exprs.len() as u8),
+                        provs_single,
+                        exprs,
+                    ),
+                ))
+            }
+            STypeKind::Unit => UnionFindNode::new(UFPotentialTypes_::singleton(
+                PotentialTypeCtor::Unit,
+                UFPotentialType::Primitive(PotentialTypeCtor::Unit, provs_single),
+            )),
+            STypeKind::Int => UnionFindNode::new(UFPotentialTypes_::singleton(
+                PotentialTypeCtor::Int,
+                UFPotentialType::Primitive(PotentialTypeCtor::Int, provs_single),
+            )),
+            STypeKind::Bool => UnionFindNode::new(UFPotentialTypes_::singleton(
+                PotentialTypeCtor::Bool,
+                UFPotentialType::Primitive(PotentialTypeCtor::Bool, provs_single),
+            )),
+            STypeKind::String => UnionFindNode::new(UFPotentialTypes_::singleton(
+                PotentialTypeCtor::String,
+                UFPotentialType::Primitive(PotentialTypeCtor::String, provs_single),
+            )),
+        }
+    }
+
+    fn add_constraint(&mut self, constraint: Constraint) {
+        let mut add_hole_and_t = |hole: Rc<SType>, t: Rc<SType>| {
+            let mut hole_node = self.retrieve_and_or_add_node(hole);
+            let mut t_node = self.retrieve_and_or_add_node(t);
+            hole_node.union_with(&mut t_node, UFPotentialTypes_::merge);
+        };
+        match (&constraint.expected.typekind, &constraint.actual.typekind) {
+            (STypeKind::Unknown, _t) => {
+                let hole = constraint.expected.clone();
+                let t = constraint.actual.clone();
+                add_hole_and_t(hole, t);
+            }
+            (_t, STypeKind::Unknown) => {
+                let hole = constraint.actual.clone();
+                let t = constraint.expected.clone();
+                add_hole_and_t(hole, t);
+            }
+            _ => {}
+        }
+    }
+}
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum TypeSuggestion {
@@ -276,128 +371,31 @@ impl UFPotentialTypes_ {
     }
 }
 
-// creates a UFTypeCandidates from the unknown type
-// only adds/retrieves from the graph if the type is holey!
-fn retrieve_and_or_add_node(
-    unknown_ty_to_potential_types: &mut HashMap<Prov, UFPotentialTypes>,
-    unknown: Rc<SType>,
-) -> UFPotentialTypes {
-    let provs_single = {
-        let mut set = BTreeSet::new();
-        set.insert(unknown.prov.clone());
-        set
-    };
-    match &unknown.typekind {
-        STypeKind::Unknown => {
-            let prov = &unknown.prov;
-            if let Some(node) = unknown_ty_to_potential_types.get(prov) {
-                node.clone()
-            } else {
-                let node = UnionFindNode::new(UFPotentialTypes_::empty());
-                unknown_ty_to_potential_types.insert(prov.clone(), node.clone());
-                node
-            }
-        }
-        STypeKind::Arrow(args, out) => {
-            let args: Vec<_> = args
-                .iter()
-                .map(|arg| retrieve_and_or_add_node(unknown_ty_to_potential_types, arg.clone()))
-                .collect();
-            let out = retrieve_and_or_add_node(unknown_ty_to_potential_types, out.clone());
-            UnionFindNode::new(UFPotentialTypes_::singleton(
-                PotentialTypeCtor::Arrow(args.len() as u8),
-                UFPotentialType::Function(
-                    PotentialTypeCtor::Arrow(args.len() as u8),
-                    provs_single,
-                    args,
-                    out,
-                ),
-            ))
-        }
-        STypeKind::Tuple(exprs) => {
-            let exprs: Vec<_> = exprs
-                .iter()
-                .map(|expr| retrieve_and_or_add_node(unknown_ty_to_potential_types, expr.clone()))
-                .collect();
-            UnionFindNode::new(UFPotentialTypes_::singleton(
-                PotentialTypeCtor::Tuple(exprs.len() as u8),
-                UFPotentialType::Tuple(
-                    PotentialTypeCtor::Tuple(exprs.len() as u8),
-                    provs_single,
-                    exprs,
-                ),
-            ))
-        }
-        STypeKind::Unit => UnionFindNode::new(UFPotentialTypes_::singleton(
-            PotentialTypeCtor::Unit,
-            UFPotentialType::Primitive(PotentialTypeCtor::Unit, provs_single),
-        )),
-        STypeKind::Int => UnionFindNode::new(UFPotentialTypes_::singleton(
-            PotentialTypeCtor::Int,
-            UFPotentialType::Primitive(PotentialTypeCtor::Int, provs_single),
-        )),
-        STypeKind::Bool => UnionFindNode::new(UFPotentialTypes_::singleton(
-            PotentialTypeCtor::Bool,
-            UFPotentialType::Primitive(PotentialTypeCtor::Bool, provs_single),
-        )),
-        STypeKind::String => UnionFindNode::new(UFPotentialTypes_::singleton(
-            PotentialTypeCtor::String,
-            UFPotentialType::Primitive(PotentialTypeCtor::String, provs_single),
-        )),
-    }
-}
-
 // TODO: since each expr/pattern node has a type, the node map should be populated with the types (and errors) of each node. So node id -> {Rc<Node>, StaticsSummary}
 // errors would be unbound variable, wrong number of arguments, occurs check, etc.
-pub fn solve_constraints(
-    constraints: Vec<Constraint>,
+pub fn result_of_constraint_solving(
+    solution_map: SolutionMap,
     node_map: ast::NodeMap,
     source: &str,
 ) -> Result<(), String> {
-    let mut constraints = constraints;
-    // this is the graph, which only contains unknown types or types containing unknown types. Make a new struct for it later.
-    let mut unknown_ty_to_potential_types: HashMap<Prov, UFPotentialTypes> = HashMap::new();
-
-    let mut add_hole_and_t = |hole: Rc<SType>, t: Rc<SType>| {
-        let mut hole_node = retrieve_and_or_add_node(&mut unknown_ty_to_potential_types, hole);
-        let mut t_node = retrieve_and_or_add_node(&mut unknown_ty_to_potential_types, t);
-        hole_node.union_with(&mut t_node, UFPotentialTypes_::merge);
-    };
-    while !constraints.is_empty() {
-        let constraint = constraints.pop().unwrap();
-        match (&constraint.expected.typekind, &constraint.actual.typekind) {
-            (STypeKind::Unknown, _t) => {
-                let hole = constraint.expected.clone();
-                let t = constraint.actual.clone();
-                add_hole_and_t(hole, t);
-            }
-            (_t, STypeKind::Unknown) => {
-                let hole = constraint.actual.clone();
-                let t = constraint.expected.clone();
-                add_hole_and_t(hole, t);
-            }
-            _ => {}
-        }
-    }
-
     // TODO: you should assert that every node in the AST is in unsovled_type_suggestions_to_unknown_ty, solved or not!
-    let mut unsolved_type_suggestions_to_unknown_ty = MultiMap::new();
-    for (unknown_ty, potential_types) in &unknown_ty_to_potential_types {
+    let mut type_conflicts = HashSet::new();
+    for potential_types in solution_map.values() {
         let type_suggestions = condense_candidates(potential_types);
         if type_suggestions.unsolved() {
-            unsolved_type_suggestions_to_unknown_ty.insert(type_suggestions, unknown_ty);
+            type_conflicts.insert(type_suggestions);
         }
     }
 
-    if unsolved_type_suggestions_to_unknown_ty.is_empty() {
+    if type_conflicts.is_empty() {
         return Ok(());
     }
 
     let mut err_string = String::new();
     err_string.push_str("You have a type error!\n");
 
-    let mut type_conflicts = unsolved_type_suggestions_to_unknown_ty
-        .keys()
+    let mut type_conflicts = type_conflicts
+        .iter()
         .map(|type_suggestions| {
             let mut types_sorted: Vec<_> = type_suggestions.types.iter().collect();
             types_sorted.sort_by_key(|ty| match ty {
@@ -606,37 +604,37 @@ pub fn generate_constraints_expr(
     ctx: Rc<RefCell<TyCtx>>,
     mode: Mode,
     expr: Rc<Expr>,
-    constraints: &mut Vec<Constraint>,
+    solution_map: &mut SolutionMap,
 ) {
     let node_ty = SType::from_node(expr.clone());
     match mode {
         Mode::Syn => (),
-        Mode::Ana { expected } => constraints.push(Constraint {
+        Mode::Ana { expected } => solution_map.add_constraint(Constraint {
             expected,
             actual: node_ty.clone(),
         }),
     };
     match &*expr.exprkind {
         ExprKind::Unit => {
-            constraints.push(Constraint {
+            solution_map.add_constraint(Constraint {
                 expected: node_ty,
                 actual: SType::make_unit(Prov::Node(expr.id)),
             });
         }
         ExprKind::Int(_) => {
-            constraints.push(Constraint {
+            solution_map.add_constraint(Constraint {
                 expected: node_ty,
                 actual: SType::make_int(Prov::Node(expr.id)),
             });
         }
         ExprKind::Bool(_) => {
-            constraints.push(Constraint {
+            solution_map.add_constraint(Constraint {
                 expected: node_ty,
                 actual: SType::make_bool(Prov::Node(expr.id)),
             });
         }
         ExprKind::Str(_) => {
-            constraints.push(Constraint {
+            solution_map.add_constraint(Constraint {
                 expected: node_ty,
                 actual: SType::make_string(Prov::Node(expr.id)),
             });
@@ -644,7 +642,7 @@ pub fn generate_constraints_expr(
         ExprKind::Var(id) => {
             let lookup = ctx.borrow_mut().lookup(id);
             if let Some(typ) = lookup {
-                constraints.push(Constraint {
+                solution_map.add_constraint(Constraint {
                     expected: typ,
                     actual: node_ty,
                 })
@@ -652,7 +650,7 @@ pub fn generate_constraints_expr(
         }
         ExprKind::BinOp(left, op, right) => {
             let (ty_left, ty_right, ty_out) = types_of_binop(op, expr.id);
-            constraints.push(Constraint {
+            solution_map.add_constraint(Constraint {
                 expected: ty_out,
                 actual: node_ty,
             });
@@ -660,13 +658,13 @@ pub fn generate_constraints_expr(
                 ctx.clone(),
                 Mode::Ana { expected: ty_left },
                 left.clone(),
-                constraints,
+                solution_map,
             );
             generate_constraints_expr(
                 ctx,
                 Mode::Ana { expected: ty_right },
                 right.clone(),
-                constraints,
+                solution_map,
             );
         }
         ExprKind::Block(statements, opt_terminal_expr) => {
@@ -676,7 +674,7 @@ pub fn generate_constraints_expr(
                     new_ctx.clone(),
                     Mode::Syn,
                     statement.clone(),
-                    constraints,
+                    solution_map,
                 );
                 if let Some(ctx) = updated {
                     new_ctx = ctx
@@ -687,10 +685,10 @@ pub fn generate_constraints_expr(
                     new_ctx,
                     Mode::Ana { expected: node_ty },
                     terminal_expr.clone(),
-                    constraints,
+                    solution_map,
                 )
             } else {
-                constraints.push(Constraint {
+                solution_map.add_constraint(Constraint {
                     expected: node_ty,
                     actual: SType::make_unit(Prov::Node(expr.id)),
                 })
@@ -703,7 +701,7 @@ pub fn generate_constraints_expr(
                     expected: SType::make_bool(Prov::Node(cond.id)),
                 },
                 cond.clone(),
-                constraints,
+                solution_map,
             );
             generate_constraints_expr(
                 ctx.clone(),
@@ -711,13 +709,13 @@ pub fn generate_constraints_expr(
                     expected: node_ty.clone(),
                 },
                 expr1.clone(),
-                constraints,
+                solution_map,
             );
             generate_constraints_expr(
                 ctx,
                 Mode::Ana { expected: node_ty },
                 expr2.clone(),
-                constraints,
+                solution_map,
             );
         }
         ExprKind::Func(args, out_annot, body) => {
@@ -734,14 +732,14 @@ pub fn generate_constraints_expr(
                                 expected: ast_type_to_statics_type(arg_annot.clone()),
                             },
                             arg.clone(),
-                            constraints,
+                            solution_map,
                         )
                     } else {
                         generate_constraints_pat(
                             new_ctx.clone(),
                             Mode::Syn,
                             arg.clone(),
-                            constraints,
+                            solution_map,
                         )
                     }
                     .unwrap_or(new_ctx.clone());
@@ -757,7 +755,7 @@ pub fn generate_constraints_expr(
                     expected: ty_body.clone(),
                 },
                 body.clone(),
-                constraints,
+                solution_map,
             );
             if let Some(out_annot) = out_annot {
                 generate_constraints_expr(
@@ -766,13 +764,13 @@ pub fn generate_constraints_expr(
                         expected: ast_type_to_statics_type(out_annot.clone()),
                     },
                     body.clone(),
-                    constraints,
+                    solution_map,
                 );
             }
 
             // function type
             let ty_func = SType::make_arrow(ty_args, ty_body, expr.id);
-            constraints.push(Constraint {
+            solution_map.add_constraint(Constraint {
                 expected: ty_func,
                 actual: node_ty,
             });
@@ -791,7 +789,7 @@ pub fn generate_constraints_expr(
                             expected: unknown.clone(),
                         },
                         arg.clone(),
-                        constraints,
+                        solution_map,
                     );
                     unknown
                 })
@@ -799,7 +797,7 @@ pub fn generate_constraints_expr(
 
             // body
             let ty_body = SType::make_unknown(Prov::FuncOut(Box::new(Prov::Node(func.id))));
-            constraints.push(Constraint {
+            solution_map.add_constraint(Constraint {
                 expected: ty_body.clone(),
                 actual: node_ty,
             });
@@ -810,7 +808,7 @@ pub fn generate_constraints_expr(
                 ctx,
                 Mode::Ana { expected: ty_func },
                 func.clone(),
-                constraints,
+                solution_map,
             );
         }
         ExprKind::Tuple(exprs) => {
@@ -818,12 +816,12 @@ pub fn generate_constraints_expr(
                 .iter()
                 .map(|expr| SType::make_unknown(Prov::Node(expr.id)))
                 .collect();
-            constraints.push(Constraint {
+            solution_map.add_constraint(Constraint {
                 expected: SType::make_tuple(tys, expr.id),
                 actual: node_ty,
             });
             for expr in exprs {
-                generate_constraints_expr(ctx.clone(), Mode::Syn, expr.clone(), constraints);
+                generate_constraints_expr(ctx.clone(), Mode::Syn, expr.clone(), solution_map);
             }
         }
     }
@@ -833,11 +831,11 @@ pub fn generate_constraints_stmt(
     ctx: Rc<RefCell<TyCtx>>,
     mode: Mode,
     stmt: Rc<Stmt>,
-    constraints: &mut Vec<Constraint>,
+    solution_map: &mut SolutionMap,
 ) -> Option<Rc<RefCell<TyCtx>>> {
     match &*stmt.stmtkind {
         StmtKind::Expr(expr) => {
-            generate_constraints_expr(ctx, mode, expr.clone(), constraints);
+            generate_constraints_expr(ctx, mode, expr.clone(), solution_map);
             None
         }
         StmtKind::Let((pat, ty_opt), expr) => {
@@ -853,10 +851,10 @@ pub fn generate_constraints_stmt(
                         expected: ty_annotation,
                     },
                     pat.clone(),
-                    constraints,
+                    solution_map,
                 )
             } else {
-                generate_constraints_pat(ctx.clone(), Mode::Syn, pat.clone(), constraints)
+                generate_constraints_pat(ctx.clone(), Mode::Syn, pat.clone(), solution_map)
             };
 
             let ctx = new_ctx.unwrap_or(ctx);
@@ -864,7 +862,7 @@ pub fn generate_constraints_stmt(
                 ctx.clone(),
                 Mode::Ana { expected: ty_pat },
                 expr.clone(),
-                constraints,
+                solution_map,
             );
             Some(ctx)
         }
@@ -875,7 +873,7 @@ pub fn generate_constraints_pat(
     ctx: Rc<RefCell<TyCtx>>,
     mode: Mode,
     pat: Rc<Pat>,
-    constraints: &mut Vec<Constraint>,
+    solution_map: &mut SolutionMap,
 ) -> Option<Rc<RefCell<TyCtx>>> {
     let mut new_ctx = TyCtx::new(Some(ctx));
     match &*pat.patkind {
@@ -885,7 +883,7 @@ pub fn generate_constraints_pat(
             new_ctx.borrow_mut().extend(identifier, ty_pat.clone());
             match mode {
                 Mode::Syn => (),
-                Mode::Ana { expected } => constraints.push(Constraint {
+                Mode::Ana { expected } => solution_map.add_constraint(Constraint {
                     expected,
                     actual: ty_pat,
                 }),
@@ -897,13 +895,13 @@ pub fn generate_constraints_pat(
                 .iter()
                 .map(|pat| SType::make_unknown(Prov::Node(pat.id)))
                 .collect();
-            constraints.push(Constraint {
+            solution_map.add_constraint(Constraint {
                 expected: SType::make_tuple(tys, pat.id),
                 actual: SType::from_node(pat.clone()),
             });
             for pat in pats {
                 new_ctx =
-                    generate_constraints_pat(new_ctx.clone(), Mode::Syn, pat.clone(), constraints)
+                    generate_constraints_pat(new_ctx.clone(), Mode::Syn, pat.clone(), solution_map)
                         .unwrap_or(new_ctx);
             }
             Some(new_ctx)

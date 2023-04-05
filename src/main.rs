@@ -157,16 +157,16 @@ impl eframe::App for MyApp {
                                         &(parse_tree.clone() as Rc<dyn ast::Node>),
                                     );
                                     debug_println!("initialized node map.");
-                                    let mut constraints = Vec::new();
+                                    let mut solution_map = statics::SolutionMap::new();
                                     statics::generate_constraints_expr(
                                         make_new_environment(),
                                         statics::Mode::Syn,
                                         parse_tree.clone(),
-                                        &mut constraints,
+                                        &mut solution_map,
                                     );
                                     debug_println!("generated constraints.");
-                                    let result = statics::solve_constraints(
-                                        constraints,
+                                    let result = statics::result_of_constraint_solving(
+                                        solution_map,
                                         node_map,
                                         &text_with_braces,
                                     );
