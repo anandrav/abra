@@ -8,7 +8,23 @@ use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::fmt::{self, Write};
 use std::rc::Rc;
 
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+pub enum Type {
+    Var(TypeVar),
+    Unit(Provs),
+    Int(Provs),
+    Bool(Provs),
+    String(Provs),
+    Function(Provs, Vec<Type>, Box<Type>),
+    Tuple(Provs, Vec<Type>),
+}
+
 type TypeVar = UnionFindNode<UFTypeVar_>;
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct UFTypeVar_ {
+    types: BTreeMap<TypeCtor, Type>,
+}
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Copy)]
 pub enum TypeCtor {
@@ -20,15 +36,14 @@ pub enum TypeCtor {
     Tuple(u8),
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
-pub enum Type {
-    Var(TypeVar),
-    Unit(Provs),
-    Int(Provs),
-    Bool(Provs),
-    String(Provs),
-    Function(Provs, Vec<Type>, Box<Type>),
-    Tuple(Provs, Vec<Type>),
+#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
+pub enum Prov {
+    Node(ast::Id),
+    Builtin(String), // a builtin function or constant, which doesn't exist in the AST
+
+    // INVARIANT: the provenances in FuncArg and FuncOut are either Node or Builtin.
+    FuncArg(Box<Prov>, u8), // u8 represents the index of the argument
+    FuncOut(Box<Prov>),     // u8 represents how many arguments before this output
 }
 
 impl Type {
@@ -84,16 +99,18 @@ impl Type {
     pub fn make_tuple(elems: Vec<Type>, id: ast::Id) -> Type {
         Type::Tuple(provs_singleton(Prov::Node(id)), elems)
     }
-}
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
-pub enum Prov {
-    Node(ast::Id),
-    Builtin(String), // a builtin function or constant, which doesn't exist in the AST
-
-    // INVARIANT: the provenances in FuncArg and FuncOut are either Node or Builtin.
-    FuncArg(Box<Prov>, u8), // u8 represents the index of the argument
-    FuncOut(Box<Prov>),     // u8 represents how many arguments before this output
+    pub fn provs(&self) -> &Provs {
+        match self {
+            Self::Var(_) => panic!("Type::provs called on Type::Var"),
+            Self::Unit(provs)
+            | Self::Int(provs)
+            | Self::Bool(provs)
+            | Self::String(provs)
+            | Self::Function(provs, _, _)
+            | Self::Tuple(provs, _) => provs,
+        }
+    }
 }
 
 pub fn types_of_binop(opcode: &BinOpcode, id: ast::Id) -> (Type, Type, Type) {
@@ -115,52 +132,6 @@ pub fn types_of_binop(opcode: &BinOpcode, id: ast::Id) -> (Type, Type, Type) {
     }
 }
 
-impl fmt::Display for Type {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Type::Var(_) => write!(f, "?"),
-            Type::Unit(_) => write!(f, "void"),
-            Type::Int(_) => write!(f, "int"),
-            Type::Bool(_) => write!(f, "bool"),
-            Type::String(_) => write!(f, "string"),
-            Type::Function(_, args, out) => {
-                for (i, arg) in args.iter().enumerate() {
-                    if i > 0 {
-                        write!(f, ", ")?;
-                    }
-                    write!(f, "{arg}")?;
-                }
-                write!(f, " -> ")?;
-                write!(f, "{out}")
-            }
-            Type::Tuple(_, elems) => {
-                write!(f, "(")?;
-                for (i, elem) in elems.iter().enumerate() {
-                    if i > 0 {
-                        write!(f, ", ")?;
-                    }
-                    write!(f, "{:#?}", elem)?;
-                }
-                write!(f, ")")
-            }
-        }
-    }
-}
-
-impl Type {
-    pub fn provs(&self) -> &Provs {
-        match self {
-            Self::Var(_) => panic!("Type::provs called on Type::Var"),
-            Self::Unit(provs)
-            | Self::Int(provs)
-            | Self::Bool(provs)
-            | Self::String(provs)
-            | Self::Function(provs, _, _)
-            | Self::Tuple(provs, _) => provs,
-        }
-    }
-}
-
 pub type Provs = RefCell<BTreeSet<Prov>>;
 
 pub fn provs_singleton(prov: Prov) -> Provs {
@@ -170,34 +141,6 @@ pub fn provs_singleton(prov: Prov) -> Provs {
 }
 
 pub type SolutionMap = HashMap<Prov, TypeVar>;
-trait SolutionMapTrait {}
-
-fn fmt_type_suggestions(types: &Vec<&Type>, f: &mut dyn Write) -> fmt::Result {
-    let mut s = String::new();
-    if types.len() > 1 {
-        s.push_str("{\n");
-    }
-    for (i, t) in types.iter().enumerate() {
-        if types.len() == 1 {
-            s.push_str(&format!("{}", t));
-            break;
-        }
-        if i == 0 {
-            s.push_str(&format!("\t{}", t));
-        } else {
-            s.push_str(&format!("\n\t{}", t));
-        }
-    }
-    if types.len() > 1 {
-        s.push_str("\n}");
-    }
-    write!(f, "{}", s)
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub struct UFTypeVar_ {
-    types: BTreeMap<TypeCtor, Type>,
-}
 
 impl UFTypeVar_ {
     fn empty() -> Self {
@@ -282,119 +225,6 @@ fn constrain(expected: Type, actual: Type) {
         }
         _ => {}
     }
-}
-
-// TODO: since each expr/pattern node has a type, the node map should be populated with the types (and errors) of each node. So node id -> {Rc<Node>, StaticsSummary}
-// errors would be unbound variable, wrong number of arguments, occurs check, etc.
-pub fn result_of_constraint_solving(
-    solution_map: SolutionMap,
-    node_map: ast::NodeMap,
-    source: &str,
-) -> Result<(), String> {
-    // TODO: you should assert that every node in the AST is in unsovled_type_suggestions_to_unknown_ty, solved or not!
-    let mut type_conflicts = Vec::new();
-    for potential_types in solution_map.values() {
-        // let type_suggestions = condense_candidates(potential_types);
-        let type_suggestions = potential_types.clone_data().types;
-        if type_suggestions.len() > 1 && (!type_conflicts.contains(&type_suggestions)) {
-            type_conflicts.push(type_suggestions);
-        }
-    }
-
-    if type_conflicts.is_empty() {
-        return Ok(());
-    }
-
-    let mut err_string = String::new();
-    err_string.push_str("You have a type error!\n");
-
-    let mut type_conflicts = type_conflicts
-        .iter()
-        .map(|type_suggestions| {
-            let mut types_sorted: Vec<_> = type_suggestions.values().collect();
-            types_sorted.sort_by_key(|ty| ty.provs().borrow().len());
-            types_sorted
-        })
-        .collect::<Vec<_>>();
-    type_conflicts.sort();
-    for type_conflict in type_conflicts {
-        err_string.push_str("Type Conflict: ");
-        fmt_type_suggestions(&type_conflict, &mut err_string).unwrap();
-        writeln!(err_string).unwrap();
-        for ty in type_conflict {
-            err_string.push('\n');
-            match &ty {
-                Type::Var(_) => err_string.push_str("Sources of var:\n"), // idk about this
-                Type::Unit(_) => err_string.push_str("Sources of void:\n"),
-                Type::Int(_) => err_string.push_str("Sources of int:\n"),
-                Type::Bool(_) => err_string.push_str("Sources of bool:\n"),
-                Type::String(_) => err_string.push_str("Sources of string:\n"),
-                Type::Function(_, args, _) => err_string.push_str(&format!(
-                    "Sources of function with {} arguments:\n",
-                    args.len()
-                )),
-                Type::Tuple(_, elems) => err_string.push_str(&format!(
-                    "Sources of tuple with {} elements:\n",
-                    elems.len()
-                )),
-            };
-            let provs = ty.provs().borrow().clone(); // TODO don't clone here
-            let mut provs_vec = provs.iter().collect::<Vec<_>>();
-            provs_vec.sort_by_key(|prov| match prov {
-                Prov::Builtin(_) => 0,
-                Prov::Node(id) => node_map.get(id).unwrap().span().lo,
-                Prov::FuncArg(_, _) => 2,
-                Prov::FuncOut(_) => 2,
-            });
-            for cause in provs_vec {
-                match cause {
-                    Prov::Builtin(s) => {
-                        err_string.push_str(&format!("The builtin function '{}'", s));
-                    }
-                    Prov::Node(id) => {
-                        let span = node_map.get(id).unwrap().span();
-                        err_string.push_str(&span.display(source, ""));
-                    }
-                    Prov::FuncArg(prov, n) => {
-                        match prov.as_ref() {
-                            Prov::Builtin(s) => {
-                                let n = n + 1; // readability
-                                err_string.push_str(&format!(
-                                    "--> The #{n} argument of function '{}'\n",
-                                    s
-                                ));
-                            }
-                            Prov::Node(id) => {
-                                let span = node_map.get(id).unwrap().span();
-                                err_string.push_str(&span.display(
-                                    source,
-                                    &format!("The #{n} argument of this function"),
-                                ));
-                            }
-                            _ => unreachable!(),
-                        }
-                    }
-                    Prov::FuncOut(prov) => match prov.as_ref() {
-                        Prov::Builtin(s) => {
-                            err_string.push_str(&format!(
-                                "--> The output of the builtin function '{}'\n",
-                                s
-                            ));
-                        }
-                        Prov::Node(id) => {
-                            let span = node_map.get(id).unwrap().span();
-                            err_string
-                                .push_str(&span.display(source, "The output of this function"));
-                        }
-                        _ => unreachable!(),
-                    },
-                }
-            }
-        }
-        writeln!(err_string).unwrap();
-    }
-
-    Err(err_string)
 }
 
 pub struct TyCtx {
@@ -769,4 +599,171 @@ pub fn generate_constraints_pat(
             Some(new_ctx)
         }
     }
+}
+
+// TODO: since each expr/pattern node has a type, the node map should be populated with the types (and errors) of each node. So node id -> {Rc<Node>, StaticsSummary}
+// errors would be unbound variable, wrong number of arguments, occurs check, etc.
+pub fn result_of_constraint_solving(
+    solution_map: SolutionMap,
+    node_map: ast::NodeMap,
+    source: &str,
+) -> Result<(), String> {
+    // TODO: you should assert that every node in the AST is in unsovled_type_suggestions_to_unknown_ty, solved or not!
+    let mut type_conflicts = Vec::new();
+    for potential_types in solution_map.values() {
+        // let type_suggestions = condense_candidates(potential_types);
+        let type_suggestions = potential_types.clone_data().types;
+        if type_suggestions.len() > 1 && (!type_conflicts.contains(&type_suggestions)) {
+            type_conflicts.push(type_suggestions);
+        }
+    }
+
+    if type_conflicts.is_empty() {
+        return Ok(());
+    }
+
+    let mut err_string = String::new();
+    err_string.push_str("You have a type error!\n");
+
+    let mut type_conflicts = type_conflicts
+        .iter()
+        .map(|type_suggestions| {
+            let mut types_sorted: Vec<_> = type_suggestions.values().collect();
+            types_sorted.sort_by_key(|ty| ty.provs().borrow().len());
+            types_sorted
+        })
+        .collect::<Vec<_>>();
+    type_conflicts.sort();
+    for type_conflict in type_conflicts {
+        err_string.push_str("Type Conflict: ");
+        fmt_conflicting_types(&type_conflict, &mut err_string).unwrap();
+        writeln!(err_string).unwrap();
+        for ty in type_conflict {
+            err_string.push('\n');
+            match &ty {
+                Type::Var(_) => err_string.push_str("Sources of var:\n"), // idk about this
+                Type::Unit(_) => err_string.push_str("Sources of void:\n"),
+                Type::Int(_) => err_string.push_str("Sources of int:\n"),
+                Type::Bool(_) => err_string.push_str("Sources of bool:\n"),
+                Type::String(_) => err_string.push_str("Sources of string:\n"),
+                Type::Function(_, args, _) => err_string.push_str(&format!(
+                    "Sources of function with {} arguments:\n",
+                    args.len()
+                )),
+                Type::Tuple(_, elems) => err_string.push_str(&format!(
+                    "Sources of tuple with {} elements:\n",
+                    elems.len()
+                )),
+            };
+            let provs = ty.provs().borrow().clone(); // TODO don't clone here
+            let mut provs_vec = provs.iter().collect::<Vec<_>>();
+            provs_vec.sort_by_key(|prov| match prov {
+                Prov::Builtin(_) => 0,
+                Prov::Node(id) => node_map.get(id).unwrap().span().lo,
+                Prov::FuncArg(_, _) => 2,
+                Prov::FuncOut(_) => 2,
+            });
+            for cause in provs_vec {
+                match cause {
+                    Prov::Builtin(s) => {
+                        err_string.push_str(&format!("The builtin function '{}'", s));
+                    }
+                    Prov::Node(id) => {
+                        let span = node_map.get(id).unwrap().span();
+                        err_string.push_str(&span.display(source, ""));
+                    }
+                    Prov::FuncArg(prov, n) => {
+                        match prov.as_ref() {
+                            Prov::Builtin(s) => {
+                                let n = n + 1; // readability
+                                err_string.push_str(&format!(
+                                    "--> The #{n} argument of function '{}'\n",
+                                    s
+                                ));
+                            }
+                            Prov::Node(id) => {
+                                let span = node_map.get(id).unwrap().span();
+                                err_string.push_str(&span.display(
+                                    source,
+                                    &format!("The #{n} argument of this function"),
+                                ));
+                            }
+                            _ => unreachable!(),
+                        }
+                    }
+                    Prov::FuncOut(prov) => match prov.as_ref() {
+                        Prov::Builtin(s) => {
+                            err_string.push_str(&format!(
+                                "--> The output of the builtin function '{}'\n",
+                                s
+                            ));
+                        }
+                        Prov::Node(id) => {
+                            let span = node_map.get(id).unwrap().span();
+                            err_string
+                                .push_str(&span.display(source, "The output of this function"));
+                        }
+                        _ => unreachable!(),
+                    },
+                }
+            }
+        }
+        writeln!(err_string).unwrap();
+    }
+
+    Err(err_string)
+}
+
+impl fmt::Display for Type {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Type::Var(_) => write!(f, "?"),
+            Type::Unit(_) => write!(f, "void"),
+            Type::Int(_) => write!(f, "int"),
+            Type::Bool(_) => write!(f, "bool"),
+            Type::String(_) => write!(f, "string"),
+            Type::Function(_, args, out) => {
+                for (i, arg) in args.iter().enumerate() {
+                    if i > 0 {
+                        write!(f, ", ")?;
+                    }
+                    write!(f, "{arg}")?;
+                }
+                write!(f, " -> ")?;
+                write!(f, "{out}")
+            }
+            Type::Tuple(_, elems) => {
+                write!(f, "(")?;
+                for (i, elem) in elems.iter().enumerate() {
+                    if i > 0 {
+                        write!(f, ", ")?;
+                    }
+                    write!(f, "{:#?}", elem)?;
+                }
+                write!(f, ")")
+            }
+        }
+    }
+}
+
+fn fmt_conflicting_types(types: &Vec<&Type>, f: &mut dyn Write) -> fmt::Result {
+    let mut s = String::new();
+    if types.len() > 1 {
+        s.push_str("{\n");
+    }
+    for (i, t) in types.iter().enumerate() {
+        if types.len() == 1 {
+            s.push_str(&format!("{}", t));
+            break;
+        }
+        if i == 0 {
+            s.push_str(&format!("\t{}", t));
+        } else {
+            s.push_str(&format!("\n\t{}", t));
+        }
+    }
+    if types.len() > 1 {
+        s.push_str("\n}");
+    }
+    write!(f, "{}", s)
 }
