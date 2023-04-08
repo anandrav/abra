@@ -208,21 +208,6 @@ fn constrain(expected: Type, actual: Type) {
             data.extend(t);
             tvar.replace_data(data);
         }
-        (Type::Function(_, args1, out1), Type::Function(_, args2, out2)) => {
-            if args1.len() == args2.len() {
-                for (arg, arg2) in args1.iter().zip(args2.iter()) {
-                    constrain(arg.clone(), arg2.clone());
-                }
-                constrain(*out1, *out2);
-            }
-        }
-        (Type::Tuple(_, elems1), Type::Tuple(_, elems2)) => {
-            if elems1.len() == elems2.len() {
-                for (elem, elem2) in elems1.iter().zip(elems2.iter()) {
-                    constrain(elem.clone(), elem2.clone());
-                }
-            }
-        }
         _ => {}
     }
 }
@@ -250,15 +235,15 @@ pub fn make_new_environment() -> Rc<RefCell<TyCtx>> {
         ),
     );
     ctx.borrow_mut().extend(
-        &String::from("string_of_int"),
+        &String::from("int_to_string"),
         Type::Function(
             RefCell::new(BTreeSet::new()),
             vec![Type::make_int(Prov::FuncArg(
-                Box::new(Prov::Builtin("string_of_int: int -> string".to_string())),
+                Box::new(Prov::Builtin("int_to_string: int -> string".to_string())),
                 0,
             ))],
             Type::make_string(Prov::FuncArg(
-                Box::new(Prov::Builtin("string_of_int: int -> string".to_string())),
+                Box::new(Prov::Builtin("int_to_string: int -> string".to_string())),
                 1,
             ))
             .into(),

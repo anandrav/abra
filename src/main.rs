@@ -90,7 +90,7 @@ let for_range(range, f) = {
     } else {}
 };
 
-let print_fibonacci(n) = print(string_of_int(fibonacci(n)));
+let print_fibonacci(n) = print(int_to_string(fibonacci(n)));
 
 print("The first 30 fibonacci numbers are:");
 for_range((0, 30), print_fibonacci)"#,

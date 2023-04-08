@@ -22,7 +22,7 @@ pub fn make_new_environment() -> Rc<RefCell<Environment>> {
         )),
     );
     env.borrow_mut().extend(
-        &String::from("string_of_int"),
+        &String::from("int_to_string"),
         Rc::new(Expr::Func(
             String::from("some_int"),
             Rc::new(Expr::EffectAp(
