@@ -28,6 +28,15 @@ pub fn translate_expr_block(
             None => {
                 let statement = &stmts[0];
                 match &*statement.stmtkind {
+                    ast::StmtKind::LetFunc(pat, func_args, _, body) => {
+                        let id = pat.patkind.get_identifier();
+                        let func = translate_expr_func(func_args.clone(), body.exprkind.clone());
+                        Rc::new(Ete::Let(
+                            Rc::new(Etp::Var(id)),
+                            func,
+                            translate_expr_block(stmts[1..].to_vec(), final_operand),
+                        ))
+                    }
                     ast::StmtKind::Let(_, e) | ast::StmtKind::Expr(e) => {
                         translate_expr(e.exprkind.clone())
                     }
@@ -38,6 +47,15 @@ pub fn translate_expr_block(
         _ => {
             let statement = &stmts[0];
             match &*statement.stmtkind {
+                ast::StmtKind::LetFunc(pat, func_args, _, body) => {
+                    let id = pat.patkind.get_identifier();
+                    let func = translate_expr_func(func_args.clone(), body.exprkind.clone());
+                    Rc::new(Ete::Let(
+                        Rc::new(Etp::Var(id)),
+                        func,
+                        translate_expr_block(stmts[1..].to_vec(), final_operand),
+                    ))
+                }
                 ast::StmtKind::Let((pat, _), expr) => Rc::new(Ete::Let(
                     translate_pat(pat.clone()),
                     translate_expr(expr.exprkind.clone()),

@@ -563,6 +563,64 @@ pub fn generate_constraints_stmt(
             );
             Some(ctx)
         }
+        StmtKind::LetFunc(name, args, out_annot, body) => {
+            // arguments
+            let mut new_ctx = TyCtx::new(Some(ctx));
+            let ty_args = args
+                .iter()
+                .map(|(arg, arg_annot)| {
+                    let ty_pat = Type::from_node(solution_map, arg.id);
+                    new_ctx = if let Some(arg_annot) = arg_annot {
+                        generate_constraints_pat(
+                            new_ctx.clone(), // TODO what are the consequences of analyzing patterns with context containing previous pattern... probs should not do that
+                            Mode::Ana {
+                                expected: ast_type_to_statics_type(arg_annot.clone()),
+                            },
+                            arg.clone(),
+                            solution_map,
+                        )
+                    } else {
+                        generate_constraints_pat(
+                            new_ctx.clone(),
+                            Mode::Syn,
+                            arg.clone(),
+                            solution_map,
+                        )
+                    }
+                    .unwrap_or(new_ctx.clone());
+                    ty_pat
+                })
+                .collect();
+
+            // body
+            let ty_body =
+                Type::make_var(solution_map, Prov::FuncOut(Box::new(Prov::Node(stmt.id))));
+            generate_constraints_expr(
+                new_ctx.clone(),
+                Mode::Ana {
+                    expected: ty_body.clone(),
+                },
+                body.clone(),
+                solution_map,
+            );
+            if let Some(out_annot) = out_annot {
+                generate_constraints_expr(
+                    new_ctx.clone(),
+                    Mode::Ana {
+                        expected: ast_type_to_statics_type(out_annot.clone()),
+                    },
+                    body.clone(),
+                    solution_map,
+                );
+            }
+
+            // function type
+            let ty_func = Type::make_arrow(ty_args, ty_body, stmt.id);
+            new_ctx
+                .borrow_mut()
+                .extend(&name.patkind.get_identifier(), ty_func);
+            Some(new_ctx)
+        }
     }
 }
 

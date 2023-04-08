@@ -13,6 +13,7 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 struct MyParser;
 
 pub type Identifier = String;
+
 pub type PatAnnotated = (Rc<Pat>, Option<Rc<AstType>>);
 
 pub trait Node {
@@ -38,6 +39,20 @@ impl Node for Stmt {
 
     fn children(&self) -> Vec<Rc<dyn Node>> {
         match &*self.stmtkind {
+            StmtKind::LetFunc(id, args, ty, expr) => {
+                let mut children: Vec<Rc<dyn Node>> = vec![id.clone() as Rc<dyn Node>];
+                for (pat, ty) in args {
+                    children.push(pat.clone() as Rc<dyn Node>);
+                    if let Some(ty) = ty {
+                        children.push(ty.clone());
+                    }
+                }
+                if let Some(ty) = ty {
+                    children.push(ty.clone());
+                }
+                children.push(expr.clone());
+                children
+            }
             StmtKind::Let((pat, ty), expr) => {
                 let mut children: Vec<Rc<dyn Node>> = vec![pat.clone() as Rc<dyn Node>];
                 if let Some(ty) = ty {
@@ -53,6 +68,7 @@ impl Node for Stmt {
 
 #[derive(Debug, PartialEq)]
 pub enum StmtKind {
+    LetFunc(Rc<Pat>, Vec<PatAnnotated>, Option<Rc<AstType>>, Rc<Expr>),
     Let(PatAnnotated, Rc<Expr>),
     Expr(Rc<Expr>),
 }
@@ -503,6 +519,32 @@ pub fn parse_stmt(pair: Pair<Rule>, pratt: &PrattParser<Rule>) -> Rc<Stmt> {
     let rule = pair.as_rule();
     let inner: Vec<_> = pair.into_inner().collect();
     match rule {
+        Rule::let_func_statement => {
+            let mut n = 0;
+            let mut args = vec![];
+            let ident = parse_pat(inner[0].clone(), pratt);
+            n += 1;
+            while let Rule::pattern_annotated = inner[n].as_rule() {
+                let pat_annotated = parse_pat_annotated(inner[n].clone(), pratt);
+                args.push(pat_annotated);
+                n += 1;
+            }
+
+            let maybe_func_out = &inner[n];
+            let ty_out = match maybe_func_out.as_rule() {
+                Rule::func_out_annotation => {
+                    // n += 1;
+                    Some(parse_func_out_annotation(maybe_func_out.clone(), pratt))
+                }
+                _ => None,
+            };
+            let body = parse_expr_pratt(Pairs::single(inner.last().unwrap().clone()), pratt);
+            Rc::new(Stmt {
+                stmtkind: Rc::new(StmtKind::LetFunc(ident, args, ty_out, body)),
+                span,
+                id: Id::new(),
+            })
+        }
         Rule::let_statement => {
             let pat_annotated = parse_pat_annotated(inner[0].clone(), pratt);
             let expr = parse_expr_pratt(Pairs::single(inner[1].clone()), pratt);
@@ -525,7 +567,10 @@ pub fn parse_stmt(pair: Pair<Rule>, pratt: &PrattParser<Rule>) -> Rc<Stmt> {
 }
 
 fn rule_is_of_stmt(rule: &Rule) -> bool {
-    matches!(rule, Rule::let_statement | Rule::expression_statement)
+    matches!(
+        rule,
+        Rule::let_func_statement | Rule::let_statement | Rule::expression_statement
+    )
 }
 
 pub fn parse_expr_term(pair: Pair<Rule>, pratt: &PrattParser<Rule>) -> Rc<Expr> {
