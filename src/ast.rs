@@ -1,6 +1,6 @@
 use crate::operators::BinOpcode;
+use crate::statics::{self, Prov};
 // use pest::error::{Error, ErrorVariant, InputLocation::Pos};
-use crate::types::{self, Prov};
 use pest::iterators::{Pair, Pairs};
 use pest::pratt_parser::{Assoc, Op, PrattParser};
 use pest::Parser;
@@ -191,29 +191,41 @@ pub struct AstType {
     pub id: Id,
 }
 
-pub fn ast_type_to_statics_type(ast_type: Rc<AstType>) -> Rc<types::SType> {
+pub fn ast_type_to_statics_type(ast_type: Rc<AstType>) -> Rc<statics::Type> {
     match &*ast_type.typekind {
-        TypeKind::Unit => types::SType::make_unit(Prov::Node(ast_type.id())),
-        TypeKind::Int => types::SType::make_int(Prov::Node(ast_type.id())),
-        TypeKind::Bool => types::SType::make_bool(Prov::Node(ast_type.id())),
-        TypeKind::Str => types::SType::make_string(Prov::Node(ast_type.id())),
-        TypeKind::Arrow(lhs, rhs) => Rc::new(types::SType {
-            typekind: types::STypeKind::Arrow(
-                vec![ast_type_to_statics_type(lhs.clone())],
-                ast_type_to_statics_type(rhs.clone()),
-            ),
-            prov: Prov::Node(ast_type.id()),
-        }),
+        TypeKind::Unit => statics::Type::make_unit(Prov::Node(ast_type.id())),
+        TypeKind::Int => statics::Type::make_int(Prov::Node(ast_type.id())),
+        TypeKind::Bool => statics::Type::make_bool(Prov::Node(ast_type.id())),
+        TypeKind::Str => statics::Type::make_string(Prov::Node(ast_type.id())),
+        // TODO wait is this only curried??
+        TypeKind::Arrow(lhs, rhs) => statics::Type::make_arrow(
+            vec![ast_type_to_statics_type(lhs.clone())],
+            ast_type_to_statics_type(rhs.clone()),
+            ast_type.id(),
+        ),
         TypeKind::Tuple(types) => {
             let mut statics_types = Vec::new();
             for t in types {
                 statics_types.push(ast_type_to_statics_type(t.clone()));
             }
-            Rc::new(types::SType {
-                typekind: types::STypeKind::Tuple(statics_types),
-                prov: Prov::Node(ast_type.id()),
-            })
-        }
+            statics::Type::make_tuple(statics_types, ast_type.id())
+        } // TypeKind::Arrow(lhs, rhs) => Rc::new(statics::Type {
+          //     typekind: statics::TypeKind::Arrow(
+          //         vec![ast_type_to_statics_type(lhs.clone())],
+          //         ast_type_to_statics_type(rhs.clone()),
+          //     ),
+          //     prov: Prov::Node(ast_type.id()),
+          // }),
+          // TypeKind::Tuple(types) => {
+          //     let mut statics_types = Vec::new();
+          //     for t in types {
+          //         statics_types.push(ast_type_to_statics_type(t.clone()));
+          //     }
+          //     Rc::new(statics::Type {
+          //         typekind: statics::TypeKind::Tuple(statics_types),
+          //         prov: Prov::Node(ast_type.id()),
+          //     })
+          // }
     }
 }
 

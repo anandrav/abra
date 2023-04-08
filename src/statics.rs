@@ -1,5 +1,7 @@
-use crate::ast::{self, *};
-use crate::types::{types_of_binop, Prov, SType, STypeKind};
+use crate::ast::{
+    self, ast_type_to_statics_type, Expr, ExprKind, Identifier, Pat, PatKind, Stmt, StmtKind,
+};
+use crate::operators::BinOpcode;
 use disjoint_sets::UnionFindNode;
 use std::cell::RefCell;
 use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
@@ -8,13 +10,13 @@ use std::rc::Rc;
 
 #[derive(Debug)]
 pub struct Constraint {
-    expected: Rc<SType>,
-    actual: Rc<SType>,
+    expected: Rc<Type>,
+    actual: Rc<Type>,
 }
 
-type UFTypeVar = UnionFindNode<UFTypeVar_>;
+type TypeVar = UnionFindNode<UFTypeVar_>;
 
-fn fmt_uftype_var(tvar: &UFTypeVar, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+fn fmt_uftype_var(tvar: &TypeVar, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
     let mut result = Ok(());
     tvar.with_data(|tvar_| {
         result = if tvar_.types.is_empty() {
@@ -38,34 +40,137 @@ pub enum TypeCtor {
     Tuple(u8),
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub enum UFType {
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+pub enum Type {
+    Var(Rc<RefCell<TypeVar>>),
     Unit(Provs),
     Int(Provs),
     Bool(Provs),
     String(Provs),
-    Function(Provs, Vec<UFTypeVar>, UFTypeVar),
-    Tuple(Provs, Vec<UFTypeVar>), // TODO remove this ctor if you can
+    Function(Provs, Vec<Rc<Type>>, Rc<Type>), // TODO; just use Vec<Type> and Type for children
+    Tuple(Provs, Vec<Rc<Type>>),              // TODO remove this ctor if you can
 }
 
-impl fmt::Display for UFType {
+impl Type {
+    pub fn ctor(&self) -> TypeCtor {
+        match self {
+            Type::Var(_) => panic!("Type::ctor called on Type::Var"),
+            Type::Unit(_) => TypeCtor::Unit,
+            Type::Int(_) => TypeCtor::Int,
+            Type::Bool(_) => TypeCtor::Bool,
+            Type::String(_) => TypeCtor::String,
+            Type::Function(_, args, _) => TypeCtor::Arrow(args.len() as u8),
+            Type::Tuple(_, elems) => TypeCtor::Tuple(elems.len() as u8),
+        }
+    }
+
+    pub fn from_node(node: Rc<impl ast::Node>) -> Rc<Type> {
+        Type::Var(Rc::new(RefCell::new(TypeVar::new(UFTypeVar_::empty())))).into()
+    }
+
+    pub fn make_unknown(prov: Prov) -> Rc<Type> {
+        Type::Var(Rc::new(RefCell::new(TypeVar::new(UFTypeVar_::empty())))).into()
+    }
+
+    pub fn make_unit(prov: Prov) -> Rc<Type> {
+        Type::Unit(provs_singleton(prov)).into()
+    }
+
+    pub fn make_int(prov: Prov) -> Rc<Type> {
+        Type::Int(provs_singleton(prov)).into()
+    }
+
+    pub fn make_bool(prov: Prov) -> Rc<Type> {
+        Type::Bool(provs_singleton(prov)).into()
+    }
+
+    pub fn make_string(prov: Prov) -> Rc<Type> {
+        Type::String(provs_singleton(prov)).into()
+    }
+
+    pub fn make_arrow(args: Vec<Rc<Type>>, out: Rc<Type>, id: ast::Id) -> Rc<Type> {
+        Type::Function(provs_singleton(Prov::Node(id)), args, out).into()
+    }
+
+    pub fn make_tuple(elems: Vec<Rc<Type>>, id: ast::Id) -> Rc<Type> {
+        Type::Tuple(provs_singleton(Prov::Node(id)), elems).into()
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
+pub enum Prov {
+    Node(ast::Id),
+    Builtin(String), // a builtin function or constant, which doesn't exist in the AST
+
+    // INVARIANT: the provenances in FuncArg and FuncOut are either Node or Builtin.
+    FuncArg(Box<Prov>, u8), // u8 represents the index of the argument
+    FuncOut(Box<Prov>),     // u8 represents how many arguments before this output
+}
+
+pub fn types_of_binop(opcode: &BinOpcode, id: ast::Id) -> (Rc<Type>, Rc<Type>, Rc<Type>) {
+    match opcode {
+        BinOpcode::Add | BinOpcode::Subtract | BinOpcode::Multiply | BinOpcode::Divide => (
+            Type::make_int(Prov::Node(id)),
+            Type::make_int(Prov::Node(id)),
+            Type::make_int(Prov::Node(id)),
+        ),
+        BinOpcode::Equals
+        | BinOpcode::LessThan
+        | BinOpcode::GreaterThan
+        | BinOpcode::LessThanOrEqual
+        | BinOpcode::GreaterThanOrEqual => (
+            Type::make_int(Prov::Node(id)),
+            Type::make_int(Prov::Node(id)),
+            Type::make_bool(Prov::Node(id)),
+        ),
+    }
+}
+
+// impl fmt::Display for Type {
+//     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+//         match &self.typekind {
+//             TypeKind::Unknown => write!(f, "?"),
+//             TypeKind::Unit => write!(f, "void"),
+//             TypeKind::Int => write!(f, "int"),
+//             TypeKind::Bool => write!(f, "bool"),
+//             TypeKind::String => write!(f, "string"),
+//             TypeKind::Arrow(t1, t2) => {
+//                 write!(f, "(")?;
+//                 for t in t1 {
+//                     write!(f, "{}, ", t)?;
+//                 }
+//                 write!(f, ") -> {}", t2)
+//             }
+//             TypeKind::Tuple(types) => {
+//                 write!(f, "(")?;
+//                 for t in types {
+//                     write!(f, "{}, ", t)?;
+//                 }
+//                 write!(f, ")")
+//             }
+//         }
+//     }
+// }
+
+impl fmt::Display for Type {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            UFType::Unit(_) => write!(f, "void"),
-            UFType::Int(_) => write!(f, "int"),
-            UFType::Bool(_) => write!(f, "bool"),
-            UFType::String(_) => write!(f, "string"),
-            UFType::Function(_, args, out) => {
+            Type::Var(_) => write!(f, "?"),
+            Type::Unit(_) => write!(f, "void"),
+            Type::Int(_) => write!(f, "int"),
+            Type::Bool(_) => write!(f, "bool"),
+            Type::String(_) => write!(f, "string"),
+            Type::Function(_, args, out) => {
                 for (i, arg) in args.iter().enumerate() {
                     if i > 0 {
                         write!(f, ", ")?;
                     }
-                    fmt_uftype_var(arg, f)?;
+                    write!(f, "{arg}")?;
                 }
                 write!(f, " -> ")?;
-                fmt_uftype_var(out, f)
+                write!(f, "{out}")
             }
-            UFType::Tuple(_, elems) => {
+            Type::Tuple(_, elems) => {
                 write!(f, "(")?;
                 for (i, elem) in elems.iter().enumerate() {
                     if i > 0 {
@@ -79,9 +184,10 @@ impl fmt::Display for UFType {
     }
 }
 
-impl UFType {
+impl Type {
     pub fn provs(&self) -> &Provs {
         match self {
+            Self::Var(_) => panic!("Type::provs called on Type::Var"),
             Self::Unit(provs)
             | Self::Int(provs)
             | Self::Bool(provs)
@@ -93,6 +199,7 @@ impl UFType {
 
     pub fn provs_mut(&mut self) -> &mut Provs {
         match self {
+            Self::Var(_) => panic!("Type::provs_mut called on Type::Var"),
             Self::Unit(provs)
             | Self::Int(provs)
             | Self::Bool(provs)
@@ -103,96 +210,38 @@ impl UFType {
     }
 }
 
-pub type Provs = BTreeSet<Prov>;
+pub type Provs = RefCell<BTreeSet<Prov>>;
 
-pub type SolutionMap = HashMap<Prov, UFTypeVar>;
+pub fn provs_singleton(prov: Prov) -> Provs {
+    let mut set = BTreeSet::new();
+    set.insert(prov);
+    RefCell::new(set)
+}
+
+pub type SolutionMap = HashMap<ast::Id, Rc<RefCell<TypeVar>>>;
 trait SolutionMapTrait {
     fn add_constraint(&mut self, constraint: Constraint);
-
-    fn retrieve_and_or_add_node(&mut self, unknown: Rc<SType>) -> UFTypeVar;
 }
 
 impl SolutionMapTrait for SolutionMap {
-    fn retrieve_and_or_add_node(&mut self, unknown: Rc<SType>) -> UFTypeVar {
-        let provs_single = {
-            let mut set = BTreeSet::new();
-            set.insert(unknown.prov.clone());
-            set
-        };
-        match &unknown.typekind {
-            STypeKind::Unknown => {
-                let prov = &unknown.prov;
-                if let Some(node) = self.get(prov) {
-                    node.clone()
-                } else {
-                    let node = UnionFindNode::new(UFTypeVar_::empty());
-                    self.insert(prov.clone(), node.clone());
-                    node
-                }
-            }
-            STypeKind::Arrow(args, out) => {
-                let args: Vec<_> = args
-                    .iter()
-                    .map(|arg| self.retrieve_and_or_add_node(arg.clone()))
-                    .collect();
-                let out = self.retrieve_and_or_add_node(out.clone());
-                UnionFindNode::new(UFTypeVar_::singleton(
-                    TypeCtor::Arrow(args.len() as u8),
-                    UFType::Function(provs_single, args, out),
-                ))
-            }
-            STypeKind::Tuple(exprs) => {
-                let exprs: Vec<_> = exprs
-                    .iter()
-                    .map(|expr| self.retrieve_and_or_add_node(expr.clone()))
-                    .collect();
-                UnionFindNode::new(UFTypeVar_::singleton(
-                    TypeCtor::Tuple(exprs.len() as u8),
-                    UFType::Tuple(provs_single, exprs),
-                ))
-            }
-            STypeKind::Unit => UnionFindNode::new(UFTypeVar_::singleton(
-                TypeCtor::Unit,
-                UFType::Unit(provs_single),
-            )),
-            STypeKind::Int => UnionFindNode::new(UFTypeVar_::singleton(
-                TypeCtor::Int,
-                UFType::Int(provs_single),
-            )),
-            STypeKind::Bool => UnionFindNode::new(UFTypeVar_::singleton(
-                TypeCtor::Bool,
-                UFType::Bool(provs_single),
-            )),
-            STypeKind::String => UnionFindNode::new(UFTypeVar_::singleton(
-                TypeCtor::String,
-                UFType::String(provs_single),
-            )),
-        }
-    }
-
     fn add_constraint(&mut self, constraint: Constraint) {
-        let mut add_hole_and_t = |hole: Rc<SType>, t: Rc<SType>| {
-            let mut hole_node = self.retrieve_and_or_add_node(hole);
-            let mut t_node = self.retrieve_and_or_add_node(t);
-            hole_node.union_with(&mut t_node, UFTypeVar_::merge);
-        };
-        match (&constraint.expected.typekind, &constraint.actual.typekind) {
-            (STypeKind::Unknown, _t) => {
-                let hole = constraint.expected.clone();
-                let t = constraint.actual.clone();
-                add_hole_and_t(hole, t);
+        match (&*constraint.expected, &*constraint.actual) {
+            (Type::Var(tvar), Type::Var(tvar2)) => {
+                tvar.borrow_mut()
+                    .union_with(&mut tvar2.borrow_mut(), UFTypeVar_::merge);
             }
-            (_t, STypeKind::Unknown) => {
-                let hole = constraint.actual.clone();
-                let t = constraint.expected.clone();
-                add_hole_and_t(hole, t);
-            }
+            (t, Type::Var(tvar)) => tvar.borrow_mut().with_data(|data| {
+                data.extend(t.ctor(), constraint.expected.clone()); // TODO: just pass the type, ctor can be derived
+            }),
+            (Type::Var(tvar), t) => tvar.borrow_mut().with_data(|data| {
+                data.extend(t.ctor(), constraint.actual.clone()); // TODO: just pass the type, ctor can be derived
+            }),
             _ => {}
         }
     }
 }
 
-fn fmt_type_suggestions(types: &Vec<&UFType>, f: &mut dyn Write) -> fmt::Result {
+fn fmt_type_suggestions(types: &Vec<&Rc<Type>>, f: &mut dyn Write) -> fmt::Result {
     let mut s = String::new();
     if types.len() > 1 {
         s.push_str("{\n");
@@ -216,7 +265,7 @@ fn fmt_type_suggestions(types: &Vec<&UFType>, f: &mut dyn Write) -> fmt::Result 
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct UFTypeVar_ {
-    types: BTreeMap<TypeCtor, UFType>,
+    types: BTreeMap<TypeCtor, Rc<Type>>,
 }
 
 impl UFTypeVar_ {
@@ -226,7 +275,7 @@ impl UFTypeVar_ {
         }
     }
 
-    fn singleton(ctor: TypeCtor, t: UFType) -> Self {
+    fn singleton(ctor: TypeCtor, t: Rc<Type>) -> Self {
         Self {
             types: {
                 let mut s = BTreeMap::new();
@@ -237,44 +286,80 @@ impl UFTypeVar_ {
     }
 
     // TODO: occurs check
-    fn extend(&mut self, ctor: TypeCtor, mut t_other: UFType) {
+    fn extend(&mut self, ctor: TypeCtor, mut t_other: Rc<Type>) {
         if let Some(mut t) = self.types.get_mut(&ctor) {
-            match t_other {
-                UFType::Unit(other_provs)
-                | UFType::Int(other_provs)
-                | UFType::Bool(other_provs)
-                | UFType::String(other_provs) => {
-                    t.provs_mut().extend(other_provs);
+            match &*t_other {
+                Type::Var(_) => panic!("should not be Type::Var"),
+                Type::Unit(other_provs)
+                | Type::Int(other_provs)
+                | Type::Bool(other_provs)
+                | Type::String(other_provs) => {
+                    t.provs().borrow_mut().extend(other_provs.borrow().clone());
+                    // TODO don't clone here
                 }
-                UFType::Function(other_provs, ref mut args_other, ref mut out_other) => {
-                    match &mut t {
-                        UFType::Function(t_provs, ref mut args, ref mut out) => {
-                            if args.len() != args_other.len() {
-                                panic!("should be same arity");
-                            }
-                            t_provs.extend(other_provs);
-                            for i in 0..args.len() {
-                                let (t_arg, other_arg) = (&mut args[i], &mut args_other[i]);
-                                t_arg.union_with(other_arg, UFTypeVar_::merge);
-                            }
-                            out.union_with(out_other, UFTypeVar_::merge);
-                        }
-                        _ => panic!("ctor should be function"),
-                    }
-                }
-                UFType::Tuple(other_provs, ref mut elements_other) => match &mut t {
-                    UFType::Tuple(t_provs, ref mut elements) => {
-                        if elements.len() != elements_other.len() {
-                            panic!("should be same arity");
-                        }
-                        t_provs.extend(other_provs);
-                        for i in 0..elements.len() {
-                            let (t_arg, other_arg) = (&mut elements[i], &mut elements_other[i]);
-                            t_arg.union_with(other_arg, UFTypeVar_::merge);
-                        }
-                    }
-                    _ => panic!("ctor should be tuple"),
-                },
+                _ => unreachable!(),
+                // TODOO!!!!!!
+                // Type::Function(other_provs, mut other_args, mut other_out) => {
+                //     match &**t {
+                //         Type::Function(t_provs, t_args, t_out) => {
+                //             t_provs.extend(other_provs);
+                //             if t_args.len() != other_args.len() {
+                //                 panic!("should be same arity");
+                //             }
+                //             for i in 0..t_args.len() {
+                //                 let (t_arg, t_other_arg) = (&mut t_args[i], &mut other_args[i]);
+                //                 self.
+                //                 t_arg.union_with(t_other_arg, UFTypeVar_::merge);
+                //             }
+                //             t_out.union_with(&mut other_out, UFTypeVar_::merge);
+                //         }
+                //         _ => panic!("ctor should be function"),
+                //     }
+                // }
+                // Type::Tuple(other_provs, mut other_elems) => {
+                //     match &**t {
+                //         Type::Tuple(t_provs, t_elems) => {
+                //             t_provs.extend(other_provs);
+                //             if t_elems.len() != other_elems.len() {
+                //                 panic!("should be same arity");
+                //             }
+                //             for i in 0..t_elems.len() {
+                //                 let (t_elem, other_elem) = (&mut t_elems[i], &mut other_elems[i]);
+                //                 t_elem.union_with(other_elem, UFTypeVar_::merge);
+                //             }
+                //         }
+                //         _ => panic!("ctor should be tuple"),
+                //     }
+                // }
+                // Type::Function(other_provs, ref mut args_other, ref mut out_other) => {
+                //     match &mut t {
+                //         Type::Function(t_provs, ref mut args, ref mut out) => {
+                //             if args.len() != args_other.len() {
+                //                 panic!("should be same arity");
+                //             }
+                //             t_provs.extend(other_provs);
+                //             for i in 0..args.len() {
+                //                 let (t_arg, other_arg) = (&mut args[i], &mut args_other[i]);
+                //                 t_arg.union_with(other_arg, UFTypeVar_::merge);
+                //             }
+                //             out.union_with(out_other, UFTypeVar_::merge);
+                //         }
+                //         _ => panic!("ctor should be function"),
+                //     }
+                // }
+                // Type::Tuple(other_provs, ref mut elements_other) => match &mut t {
+                //     Type::Tuple(t_provs, ref mut elements) => {
+                //         if elements.len() != elements_other.len() {
+                //             panic!("should be same arity");
+                //         }
+                //         t_provs.extend(other_provs);
+                //         for i in 0..elements.len() {
+                //             let (t_arg, other_arg) = (&mut elements[i], &mut elements_other[i]);
+                //             t_arg.union_with(other_arg, UFTypeVar_::merge);
+                //         }
+                //     }
+                //     _ => panic!("ctor should be tuple"),
+                // },
             }
         } else {
             self.types.insert(ctor, t_other);
@@ -299,12 +384,12 @@ pub fn result_of_constraint_solving(
     source: &str,
 ) -> Result<(), String> {
     // TODO: you should assert that every node in the AST is in unsovled_type_suggestions_to_unknown_ty, solved or not!
-    let mut type_conflicts = HashSet::new();
+    let mut type_conflicts = Vec::new();
     for potential_types in solution_map.values() {
         // let type_suggestions = condense_candidates(potential_types);
-        let type_suggestions = potential_types.clone_data().types;
+        let type_suggestions = potential_types.borrow_mut().clone_data().types;
         if type_suggestions.len() > 1 {
-            type_conflicts.insert(type_suggestions);
+            type_conflicts.push(type_suggestions);
         }
     }
 
@@ -319,14 +404,7 @@ pub fn result_of_constraint_solving(
         .iter()
         .map(|type_suggestions| {
             let mut types_sorted: Vec<_> = type_suggestions.values().collect();
-            types_sorted.sort_by_key(|ty| match ty {
-                UFType::Unit(provs)
-                | UFType::Int(provs)
-                | UFType::Bool(provs)
-                | UFType::String(provs)
-                | UFType::Function(provs, _, _)
-                | UFType::Tuple(provs, _) => provs.len(),
-            });
+            types_sorted.sort_by_key(|ty| ty.provs().borrow().len());
             types_sorted
         })
         .collect::<Vec<_>>();
@@ -337,21 +415,22 @@ pub fn result_of_constraint_solving(
         writeln!(err_string).unwrap();
         for ty in type_conflict {
             err_string.push('\n');
-            match &ty {
-                UFType::Unit(_) => err_string.push_str("Sources of void:\n"),
-                UFType::Int(_) => err_string.push_str("Sources of int:\n"),
-                UFType::Bool(_) => err_string.push_str("Sources of bool:\n"),
-                UFType::String(_) => err_string.push_str("Sources of string:\n"),
-                UFType::Function(_, args, _) => err_string.push_str(&format!(
+            match &**ty {
+                Type::Var(_) => err_string.push_str("Sources of var:\n"), // idk about this
+                Type::Unit(_) => err_string.push_str("Sources of void:\n"),
+                Type::Int(_) => err_string.push_str("Sources of int:\n"),
+                Type::Bool(_) => err_string.push_str("Sources of bool:\n"),
+                Type::String(_) => err_string.push_str("Sources of string:\n"),
+                Type::Function(_, args, _) => err_string.push_str(&format!(
                     "Sources of function with {} arguments:\n",
                     args.len()
                 )),
-                UFType::Tuple(_, elems) => err_string.push_str(&format!(
+                Type::Tuple(_, elems) => err_string.push_str(&format!(
                     "Sources of tuple with {} elements:\n",
                     elems.len()
                 )),
             };
-            let provs = ty.provs();
+            let provs = ty.provs().borrow().clone(); // TODO don't clone here
             let mut provs_vec = provs.iter().collect::<Vec<_>>();
             provs_vec.sort_by_key(|prov| match prov {
                 Prov::Builtin(_) => 0,
@@ -411,44 +490,55 @@ pub fn result_of_constraint_solving(
 }
 
 pub struct TyCtx {
-    vars: HashMap<Identifier, Rc<SType>>,
+    vars: HashMap<Identifier, Rc<Type>>,
     enclosing: Option<Rc<RefCell<TyCtx>>>,
 }
 
 pub fn make_new_environment() -> Rc<RefCell<TyCtx>> {
     let ctx = TyCtx::empty();
-    ctx.borrow_mut().extend(
-        &String::from("print"),
-        Rc::new(SType {
-            typekind: STypeKind::Arrow(
-                vec![SType::make_string(Prov::FuncArg(
-                    Box::new(Prov::Builtin("print: string -> void".to_string())),
-                    0,
-                ))],
-                SType::make_unit(Prov::FuncArg(
-                    Box::new(Prov::Builtin("print: string -> void".to_string())),
-                    1,
-                )),
-            ),
-            prov: Prov::Builtin("print: string -> void".to_string()),
-        }),
-    );
-    ctx.borrow_mut().extend(
-        &String::from("string_of_int"),
-        Rc::new(SType {
-            typekind: STypeKind::Arrow(
-                vec![SType::make_int(Prov::FuncArg(
-                    Box::new(Prov::Builtin("string_of_int: int -> string".to_string())),
-                    0,
-                ))],
-                SType::make_string(Prov::FuncArg(
-                    Box::new(Prov::Builtin("string_of_int: int -> string".to_string())),
-                    1,
-                )),
-            ),
-            prov: Prov::Builtin("string_of_int: int -> string".to_string()),
-        }),
-    );
+    // TODO!!!!!!!
+    // ctx.borrow_mut().extend(
+    //     &String::from("print"),
+    //     Rc::new(Type::Function(
+    //         Provs::new(),
+    //         vec![Type::make_string(Prov::FuncArg(
+    //             Box::new(Prov::Builtin("print: string -> void".to_string())),
+    //             0,
+    //         ))],
+    //         Type::make_unit(Prov::FuncArg(
+    //             Box::new(Prov::Builtin("print: string -> void".to_string())),
+    //             1,
+    //         )))
+    //     // Rc::new(Type::Function {
+    //     //     typekind: TypeKind::Arrow(
+    //     //         vec![Type::make_string(Prov::FuncArg(
+    //     //             Box::new(Prov::Builtin("print: string -> void".to_string())),
+    //     //             0,
+    //     //         ))],
+    //     //         Type::make_unit(Prov::FuncArg(
+    //     //             Box::new(Prov::Builtin("print: string -> void".to_string())),
+    //     //             1,
+    //     //         )),
+    //     //     ),
+    //     //     prov: Prov::Builtin("print: string -> void".to_string()),
+    //     // }),
+    // );
+    // ctx.borrow_mut().extend(
+    //     &String::from("string_of_int"),
+    //     Rc::new(Type {
+    //         typekind: TypeKind::Arrow(
+    //             vec![Type::make_int(Prov::FuncArg(
+    //                 Box::new(Prov::Builtin("string_of_int: int -> string".to_string())),
+    //                 0,
+    //             ))],
+    //             Type::make_string(Prov::FuncArg(
+    //                 Box::new(Prov::Builtin("string_of_int: int -> string".to_string())),
+    //                 1,
+    //             )),
+    //         ),
+    //         prov: Prov::Builtin("string_of_int: int -> string".to_string()),
+    //     }),
+    // );
     ctx
 }
 
@@ -490,7 +580,7 @@ impl TyCtx {
         }))
     }
 
-    pub fn lookup(&self, id: &Identifier) -> Option<Rc<SType>> {
+    pub fn lookup(&self, id: &Identifier) -> Option<Rc<Type>> {
         match self.vars.get(id) {
             Some(typ) => Some(typ.clone()),
             None => match &self.enclosing {
@@ -500,7 +590,7 @@ impl TyCtx {
         }
     }
 
-    pub fn extend(&mut self, id: &Identifier, typ: Rc<SType>) {
+    pub fn extend(&mut self, id: &Identifier, typ: Rc<Type>) {
         self.vars.insert(id.clone(), typ);
     }
 }
@@ -508,7 +598,7 @@ impl TyCtx {
 #[derive(Debug, Clone)]
 pub enum Mode {
     Syn,
-    Ana { expected: Rc<SType> },
+    Ana { expected: Rc<Type> },
 }
 
 pub fn generate_constraints_expr(
@@ -517,7 +607,15 @@ pub fn generate_constraints_expr(
     expr: Rc<Expr>,
     solution_map: &mut SolutionMap,
 ) {
-    let node_ty = SType::from_node(expr.clone());
+    let node_ty = Rc::new(match solution_map.get(&expr.id.clone()) {
+        Some(ty) => Type::Var(ty.clone()),
+        None => {
+            let ty_var = Rc::new(RefCell::new(TypeVar::new(UFTypeVar_::empty())));
+            let ty = Type::Var(ty_var.clone());
+            solution_map.insert(expr.id.clone(), ty_var);
+            ty
+        }
+    });
     match mode {
         Mode::Syn => (),
         Mode::Ana { expected } => solution_map.add_constraint(Constraint {
@@ -529,29 +627,29 @@ pub fn generate_constraints_expr(
         ExprKind::Unit => {
             solution_map.add_constraint(Constraint {
                 expected: node_ty,
-                actual: SType::make_unit(Prov::Node(expr.id)),
+                actual: Type::make_unit(Prov::Node(expr.id)),
             });
         }
         ExprKind::Int(_) => {
             solution_map.add_constraint(Constraint {
                 expected: node_ty,
-                actual: SType::make_int(Prov::Node(expr.id)),
+                actual: Type::make_int(Prov::Node(expr.id)),
             });
         }
         ExprKind::Bool(_) => {
             solution_map.add_constraint(Constraint {
                 expected: node_ty,
-                actual: SType::make_bool(Prov::Node(expr.id)),
+                actual: Type::make_bool(Prov::Node(expr.id)),
             });
         }
         ExprKind::Str(_) => {
             solution_map.add_constraint(Constraint {
                 expected: node_ty,
-                actual: SType::make_string(Prov::Node(expr.id)),
+                actual: Type::make_string(Prov::Node(expr.id)),
             });
         }
         ExprKind::Var(id) => {
-            let lookup = ctx.borrow_mut().lookup(id);
+            let lookup = ctx.borrow_mut().lookup(&id);
             if let Some(typ) = lookup {
                 solution_map.add_constraint(Constraint {
                     expected: typ,
@@ -560,7 +658,7 @@ pub fn generate_constraints_expr(
             }
         }
         ExprKind::BinOp(left, op, right) => {
-            let (ty_left, ty_right, ty_out) = types_of_binop(op, expr.id);
+            let (ty_left, ty_right, ty_out) = types_of_binop(&op, expr.id);
             solution_map.add_constraint(Constraint {
                 expected: ty_out,
                 actual: node_ty,
@@ -601,7 +699,7 @@ pub fn generate_constraints_expr(
             } else {
                 solution_map.add_constraint(Constraint {
                     expected: node_ty,
-                    actual: SType::make_unit(Prov::Node(expr.id)),
+                    actual: Type::make_unit(Prov::Node(expr.id)),
                 })
             }
         }
@@ -609,7 +707,7 @@ pub fn generate_constraints_expr(
             generate_constraints_expr(
                 ctx.clone(),
                 Mode::Ana {
-                    expected: SType::make_bool(Prov::Node(cond.id)),
+                    expected: Type::make_bool(Prov::Node(cond.id)),
                 },
                 cond.clone(),
                 solution_map,
@@ -635,7 +733,7 @@ pub fn generate_constraints_expr(
             let ty_args = args
                 .iter()
                 .map(|(arg, arg_annot)| {
-                    let ty_pat = SType::from_node(arg.clone());
+                    let ty_pat = Type::from_node(arg.clone());
                     new_ctx = if let Some(arg_annot) = arg_annot {
                         generate_constraints_pat(
                             new_ctx.clone(), // TODO what are the consequences of analyzing patterns with context containing previous pattern... probs should not do that
@@ -659,7 +757,7 @@ pub fn generate_constraints_expr(
                 .collect();
 
             // body
-            let ty_body = SType::make_unknown(Prov::FuncOut(Box::new(Prov::Node(expr.id))));
+            let ty_body = Type::make_unknown(Prov::FuncOut(Box::new(Prov::Node(expr.id))));
             generate_constraints_expr(
                 new_ctx.clone(),
                 Mode::Ana {
@@ -680,7 +778,7 @@ pub fn generate_constraints_expr(
             }
 
             // function type
-            let ty_func = SType::make_arrow(ty_args, ty_body, expr.id);
+            let ty_func = Type::make_arrow(ty_args, ty_body, expr.id);
             solution_map.add_constraint(Constraint {
                 expected: ty_func,
                 actual: node_ty,
@@ -688,12 +786,12 @@ pub fn generate_constraints_expr(
         }
         ExprKind::FuncAp(func, args) => {
             // arguments
-            let tys_args: Vec<Rc<SType>> = args
+            let tys_args: Vec<Rc<Type>> = args
                 .iter()
                 .enumerate()
                 .map(|(n, arg)| {
                     let unknown =
-                        SType::make_unknown(Prov::FuncArg(Box::new(Prov::Node(func.id)), n as u8));
+                        Type::make_unknown(Prov::FuncArg(Box::new(Prov::Node(func.id)), n as u8));
                     generate_constraints_expr(
                         ctx.clone(),
                         Mode::Ana {
@@ -707,14 +805,14 @@ pub fn generate_constraints_expr(
                 .collect();
 
             // body
-            let ty_body = SType::make_unknown(Prov::FuncOut(Box::new(Prov::Node(func.id))));
+            let ty_body = Type::make_unknown(Prov::FuncOut(Box::new(Prov::Node(func.id))));
             solution_map.add_constraint(Constraint {
                 expected: ty_body.clone(),
                 actual: node_ty,
             });
 
             // function type
-            let ty_func = SType::make_arrow(tys_args, ty_body, expr.id);
+            let ty_func = Type::make_arrow(tys_args, ty_body, expr.id);
             generate_constraints_expr(
                 ctx,
                 Mode::Ana { expected: ty_func },
@@ -725,10 +823,10 @@ pub fn generate_constraints_expr(
         ExprKind::Tuple(exprs) => {
             let tys = exprs
                 .iter()
-                .map(|expr| SType::make_unknown(Prov::Node(expr.id)))
+                .map(|expr| Type::make_unknown(Prov::Node(expr.id)))
                 .collect();
             solution_map.add_constraint(Constraint {
-                expected: SType::make_tuple(tys, expr.id),
+                expected: Type::make_tuple(tys, expr.id),
                 actual: node_ty,
             });
             for expr in exprs {
@@ -750,7 +848,7 @@ pub fn generate_constraints_stmt(
             None
         }
         StmtKind::Let((pat, ty_opt), expr) => {
-            let ty_pat = SType::from_node(pat.clone());
+            let ty_pat = Type::from_node(pat.clone());
             let ty_annotation = ty_opt
                 .as_ref()
                 .map(|ty| ast_type_to_statics_type(ty.clone()));
@@ -790,7 +888,7 @@ pub fn generate_constraints_pat(
     match &*pat.patkind {
         PatKind::Var(identifier) => {
             // letrec?: extend context with id and type before analyzing against said type
-            let ty_pat = SType::from_node(pat.clone());
+            let ty_pat = Type::from_node(pat.clone());
             new_ctx.borrow_mut().extend(identifier, ty_pat.clone());
             match mode {
                 Mode::Syn => (),
@@ -804,11 +902,11 @@ pub fn generate_constraints_pat(
         PatKind::Tuple(pats) => {
             let tys = pats
                 .iter()
-                .map(|pat| SType::make_unknown(Prov::Node(pat.id)))
+                .map(|pat| Type::make_unknown(Prov::Node(pat.id)))
                 .collect();
             solution_map.add_constraint(Constraint {
-                expected: SType::make_tuple(tys, pat.id),
-                actual: SType::from_node(pat.clone()),
+                expected: Type::make_tuple(tys, pat.id),
+                actual: Type::from_node(pat.clone()),
             });
             for pat in pats {
                 new_ctx =
