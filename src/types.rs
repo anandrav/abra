@@ -60,7 +60,8 @@ impl SType {
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum STypeKind {
-    Unknown,
+    Unknown, // ?
+    // TypeVar(u8), // 'a
     Unit,
     Int,
     Bool,

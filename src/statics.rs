@@ -15,7 +15,7 @@ pub struct Constraint {
 type UFPotentialTypes = UnionFindNode<UFPotentialTypes_>;
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Copy)]
-pub enum PotentialTypeCtor {
+pub enum TypeCtor {
     Unit,
     Int,
     Bool,
@@ -25,31 +25,73 @@ pub enum PotentialTypeCtor {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub enum UFPotentialType {
-    Primitive(PotentialTypeCtor, Provs),
+pub enum UFType {
+    Unit(Provs),
+    Int(Provs),
+    Bool(Provs),
+    String(Provs),
     Function(
-        PotentialTypeCtor,
+        TypeCtor, // TODO remove ctor if you can
         Provs,
         Vec<UFPotentialTypes>,
         UFPotentialTypes,
     ),
-    Tuple(PotentialTypeCtor, Provs, Vec<UFPotentialTypes>),
+    Tuple(TypeCtor, Provs, Vec<UFPotentialTypes>), // TODO remove this ctor if you can
 }
 
-impl UFPotentialType {
+impl fmt::Display for UFType {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            UFType::Unit(_) => write!(f, "void"),
+            UFType::Int(_) => write!(f, "int"),
+            UFType::Bool(_) => write!(f, "bool"),
+            UFType::String(_) => write!(f, "string"),
+            UFType::Function(_, _, args, out) => {
+                write!(f, "(")?;
+                for (i, arg) in args.iter().enumerate() {
+                    if i > 0 {
+                        write!(f, ", ")?;
+                    }
+                    write!(f, "{:#?}", arg)?;
+                }
+                write!(f, ") -> ")?;
+                write!(f, "{:#?}", out)
+            }
+            UFType::Tuple(_, _, elems) => {
+                write!(f, "(")?;
+                for (i, elem) in elems.iter().enumerate() {
+                    if i > 0 {
+                        write!(f, ", ")?;
+                    }
+                    write!(f, "{:#?}", elem)?;
+                }
+                write!(f, ")")
+            }
+            _ => unreachable!(" TODO get rid of this"),
+        }
+    }
+}
+
+impl UFType {
     pub fn provs(&self) -> &Provs {
-        match &self {
-            Self::Primitive(_, provs) => provs,
-            Self::Function(_, provs, _, _) => provs,
-            Self::Tuple(_, provs, _) => provs,
+        match self {
+            Self::Unit(provs)
+            | Self::Int(provs)
+            | Self::Bool(provs)
+            | Self::String(provs)
+            | Self::Function(_, provs, _, _)
+            | Self::Tuple(_, provs, _) => provs,
         }
     }
 
     pub fn provs_mut(&mut self) -> &mut Provs {
         match self {
-            Self::Primitive(_, provs) => provs,
-            Self::Function(_, provs, _, _) => provs,
-            Self::Tuple(_, provs, _) => provs,
+            Self::Unit(provs)
+            | Self::Int(provs)
+            | Self::Bool(provs)
+            | Self::String(provs)
+            | Self::Function(_, provs, _, _)
+            | Self::Tuple(_, provs, _) => provs,
         }
     }
 }
@@ -88,13 +130,8 @@ impl SolutionMapTrait for SolutionMap {
                     .collect();
                 let out = self.retrieve_and_or_add_node(out.clone());
                 UnionFindNode::new(UFPotentialTypes_::singleton(
-                    PotentialTypeCtor::Arrow(args.len() as u8),
-                    UFPotentialType::Function(
-                        PotentialTypeCtor::Arrow(args.len() as u8),
-                        provs_single,
-                        args,
-                        out,
-                    ),
+                    TypeCtor::Arrow(args.len() as u8),
+                    UFType::Function(TypeCtor::Arrow(args.len() as u8), provs_single, args, out),
                 ))
             }
             STypeKind::Tuple(exprs) => {
@@ -103,29 +140,25 @@ impl SolutionMapTrait for SolutionMap {
                     .map(|expr| self.retrieve_and_or_add_node(expr.clone()))
                     .collect();
                 UnionFindNode::new(UFPotentialTypes_::singleton(
-                    PotentialTypeCtor::Tuple(exprs.len() as u8),
-                    UFPotentialType::Tuple(
-                        PotentialTypeCtor::Tuple(exprs.len() as u8),
-                        provs_single,
-                        exprs,
-                    ),
+                    TypeCtor::Tuple(exprs.len() as u8),
+                    UFType::Tuple(TypeCtor::Tuple(exprs.len() as u8), provs_single, exprs),
                 ))
             }
             STypeKind::Unit => UnionFindNode::new(UFPotentialTypes_::singleton(
-                PotentialTypeCtor::Unit,
-                UFPotentialType::Primitive(PotentialTypeCtor::Unit, provs_single),
+                TypeCtor::Unit,
+                UFType::Unit(provs_single),
             )),
             STypeKind::Int => UnionFindNode::new(UFPotentialTypes_::singleton(
-                PotentialTypeCtor::Int,
-                UFPotentialType::Primitive(PotentialTypeCtor::Int, provs_single),
+                TypeCtor::Int,
+                UFType::Int(provs_single),
             )),
             STypeKind::Bool => UnionFindNode::new(UFPotentialTypes_::singleton(
-                PotentialTypeCtor::Bool,
-                UFPotentialType::Primitive(PotentialTypeCtor::Bool, provs_single),
+                TypeCtor::Bool,
+                UFType::Bool(provs_single),
             )),
             STypeKind::String => UnionFindNode::new(UFPotentialTypes_::singleton(
-                PotentialTypeCtor::String,
-                UFPotentialType::Primitive(PotentialTypeCtor::String, provs_single),
+                TypeCtor::String,
+                UFType::String(provs_single),
             )),
         }
     }
@@ -152,91 +185,12 @@ impl SolutionMapTrait for SolutionMap {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub enum TypeSuggestion {
-    Unknown,
-    Unit(Provs),
-    Int(Provs),
-    Bool(Provs),
-    String(Provs),
-    Arrow(Provs, Vec<TypeSuggestions>, TypeSuggestions),
-    Tuple(Provs, Vec<TypeSuggestions>),
-}
-
-impl fmt::Display for TypeSuggestion {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            TypeSuggestion::Unknown => write!(f, "?"),
-            TypeSuggestion::Unit(_) => write!(f, "void"),
-            TypeSuggestion::Int(_) => write!(f, "int"),
-            TypeSuggestion::Bool(_) => write!(f, "bool"),
-            TypeSuggestion::String(_) => write!(f, "string"),
-            TypeSuggestion::Arrow(_, args, out) => {
-                if args.len() > 1 {
-                    write!(f, "(")?;
-                }
-                for (i, arg) in args.iter().enumerate() {
-                    if i > 0 {
-                        write!(f, ", ")?;
-                    }
-                    if arg.types.len() > 1 {
-                        write!(f, "?")?;
-                    } else {
-                        let arg = arg.types.iter().next().unwrap();
-                        write!(f, "{}", arg)?;
-                    }
-                }
-                if args.len() > 1 {
-                    write!(f, ")")?;
-                }
-                write!(f, " -> ")?;
-                if out.types.len() > 1 {
-                    write!(f, "?")
-                } else {
-                    let out = out.types.iter().next().unwrap();
-                    write!(f, "{}", out)
-                }
-            }
-            TypeSuggestion::Tuple(_, types) => {
-                write!(f, "(")?;
-                for (i, t) in types.iter().enumerate() {
-                    if i > 0 {
-                        write!(f, ", ")?;
-                    }
-                    if t.types.len() > 1 {
-                        write!(f, "?")?;
-                    } else {
-                        let t = t.types.iter().next().unwrap();
-                        write!(f, "{}", t)?;
-                    }
-                }
-                write!(f, ")")
-            }
-        }
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct TypeSuggestions {
-    types: BTreeSet<TypeSuggestion>,
-}
-
-impl TypeSuggestions {
-    pub fn solved(&self) -> bool {
-        self.types.len() == 1
-    }
-
-    pub fn unsolved(&self) -> bool {
-        !self.solved()
-    }
-}
-
-fn fmt_type_suggestions(types: &Vec<&TypeSuggestion>, f: &mut dyn Write) -> fmt::Result {
+fn fmt_type_suggestions(types: &Vec<(&TypeCtor, &UFType)>, f: &mut dyn Write) -> fmt::Result {
     let mut s = String::new();
     if types.len() > 1 {
         s.push_str("{\n");
     }
-    for (i, t) in types.iter().enumerate() {
+    for (i, (_, t)) in types.iter().enumerate() {
         if types.len() == 1 {
             s.push_str(&format!("{}", t));
             break;
@@ -253,50 +207,9 @@ fn fmt_type_suggestions(types: &Vec<&TypeSuggestion>, f: &mut dyn Write) -> fmt:
     write!(f, "{}", s)
 }
 
-pub fn condense_candidates(uf_type_candidates: &UFPotentialTypes) -> TypeSuggestions {
-    let condensed = uf_type_candidates.clone_data();
-    let mut types: BTreeSet<TypeSuggestion> = BTreeSet::new();
-    for (ctor, potential_type) in &condensed.types {
-        match (ctor, potential_type) {
-            (PotentialTypeCtor::Unit, _) => {
-                let t = TypeSuggestion::Unit(potential_type.provs().clone());
-                types.insert(t);
-            }
-            (PotentialTypeCtor::Int, _) => {
-                let t = TypeSuggestion::Int(potential_type.provs().clone());
-                types.insert(t);
-            }
-            (PotentialTypeCtor::Bool, _) => {
-                let t = TypeSuggestion::Bool(potential_type.provs().clone());
-                types.insert(t);
-            }
-            (PotentialTypeCtor::String, _) => {
-                let t = TypeSuggestion::String(potential_type.provs().clone());
-                types.insert(t);
-            }
-            // function
-            (_, UFPotentialType::Function(_, provs, args, out)) => {
-                let args: Vec<_> = args.iter().map(condense_candidates).collect();
-                let out = condense_candidates(out);
-                types.insert(TypeSuggestion::Arrow(provs.clone(), args, out));
-            }
-            // tuple
-            (_, UFPotentialType::Tuple(_, provs, elements)) => {
-                let elements: Vec<_> = elements.iter().map(condense_candidates).collect();
-                types.insert(TypeSuggestion::Tuple(provs.clone(), elements));
-            }
-            _ => panic!("unexpected type ctor: {:?} {:?}", ctor, potential_type),
-        }
-    }
-    if types.is_empty() {
-        types.insert(TypeSuggestion::Unknown);
-    };
-    TypeSuggestions { types }
-}
-
 #[derive(Debug, Clone, PartialEq)]
 pub struct UFPotentialTypes_ {
-    types: BTreeMap<PotentialTypeCtor, UFPotentialType>,
+    types: BTreeMap<TypeCtor, UFType>,
 }
 
 impl UFPotentialTypes_ {
@@ -306,7 +219,7 @@ impl UFPotentialTypes_ {
         }
     }
 
-    fn singleton(ctor: PotentialTypeCtor, t: UFPotentialType) -> Self {
+    fn singleton(ctor: TypeCtor, t: UFType) -> Self {
         Self {
             types: {
                 let mut s = BTreeMap::new();
@@ -317,33 +230,33 @@ impl UFPotentialTypes_ {
     }
 
     // TODO: occurs check
-    fn extend(&mut self, ctor: PotentialTypeCtor, mut t_other: UFPotentialType) {
+    fn extend(&mut self, ctor: TypeCtor, mut t_other: UFType) {
         if let Some(mut t) = self.types.get_mut(&ctor) {
             match t_other {
-                UFPotentialType::Primitive(_, other_provs) => {
+                UFType::Unit(other_provs)
+                | UFType::Int(other_provs)
+                | UFType::Bool(other_provs)
+                | UFType::String(other_provs) => {
                     t.provs_mut().extend(other_provs);
                 }
-                UFPotentialType::Function(
-                    _,
-                    other_provs,
-                    ref mut args_other,
-                    ref mut out_other,
-                ) => match &mut t {
-                    UFPotentialType::Function(_, t_provs, ref mut args, ref mut out) => {
-                        if args.len() != args_other.len() {
-                            panic!("should be same arity");
+                UFType::Function(_, other_provs, ref mut args_other, ref mut out_other) => {
+                    match &mut t {
+                        UFType::Function(_, t_provs, ref mut args, ref mut out) => {
+                            if args.len() != args_other.len() {
+                                panic!("should be same arity");
+                            }
+                            t_provs.extend(other_provs);
+                            for i in 0..args.len() {
+                                let (t_arg, other_arg) = (&mut args[i], &mut args_other[i]);
+                                t_arg.union_with(other_arg, UFPotentialTypes_::merge);
+                            }
+                            out.union_with(out_other, UFPotentialTypes_::merge);
                         }
-                        t_provs.extend(other_provs);
-                        for i in 0..args.len() {
-                            let (t_arg, other_arg) = (&mut args[i], &mut args_other[i]);
-                            t_arg.union_with(other_arg, UFPotentialTypes_::merge);
-                        }
-                        out.union_with(out_other, UFPotentialTypes_::merge);
+                        _ => panic!("ctor should be function"),
                     }
-                    _ => panic!("ctor should be function"),
-                },
-                UFPotentialType::Tuple(_, other_provs, ref mut elements_other) => match &mut t {
-                    UFPotentialType::Tuple(_, t_provs, ref mut elements) => {
+                }
+                UFType::Tuple(_, other_provs, ref mut elements_other) => match &mut t {
+                    UFType::Tuple(_, t_provs, ref mut elements) => {
                         if elements.len() != elements_other.len() {
                             panic!("should be same arity");
                         }
@@ -381,8 +294,9 @@ pub fn result_of_constraint_solving(
     // TODO: you should assert that every node in the AST is in unsovled_type_suggestions_to_unknown_ty, solved or not!
     let mut type_conflicts = HashSet::new();
     for potential_types in solution_map.values() {
-        let type_suggestions = condense_candidates(potential_types);
-        if type_suggestions.unsolved() {
+        // let type_suggestions = condense_candidates(potential_types);
+        let type_suggestions = potential_types.clone_data().types;
+        if type_suggestions.len() > 1 {
             type_conflicts.insert(type_suggestions);
         }
     }
@@ -397,15 +311,14 @@ pub fn result_of_constraint_solving(
     let mut type_conflicts = type_conflicts
         .iter()
         .map(|type_suggestions| {
-            let mut types_sorted: Vec<_> = type_suggestions.types.iter().collect();
-            types_sorted.sort_by_key(|ty| match ty {
-                TypeSuggestion::Unknown => unreachable!(),
-                TypeSuggestion::Unit(provs)
-                | TypeSuggestion::Int(provs)
-                | TypeSuggestion::Bool(provs)
-                | TypeSuggestion::String(provs)
-                | TypeSuggestion::Arrow(provs, _, _)
-                | TypeSuggestion::Tuple(provs, _) => provs.len(),
+            let mut types_sorted: Vec<_> = type_suggestions.iter().collect();
+            types_sorted.sort_by_key(|(_, ty)| match ty {
+                UFType::Unit(provs)
+                | UFType::Int(provs)
+                | UFType::Bool(provs)
+                | UFType::String(provs)
+                | UFType::Function(_, provs, _, _)
+                | UFType::Tuple(_, provs, _) => provs.len(),
             });
             types_sorted
         })
@@ -415,32 +328,24 @@ pub fn result_of_constraint_solving(
         err_string.push_str("Type Conflict: ");
         fmt_type_suggestions(&type_conflict, &mut err_string).unwrap();
         writeln!(err_string).unwrap();
-        for ty in type_conflict {
+        for (_, ty) in type_conflict {
             err_string.push('\n');
             match &ty {
-                TypeSuggestion::Unknown => unreachable!(),
-                TypeSuggestion::Unit(_) => err_string.push_str("Sources of void:\n"),
-                TypeSuggestion::Int(_) => err_string.push_str("Sources of int:\n"),
-                TypeSuggestion::Bool(_) => err_string.push_str("Sources of bool:\n"),
-                TypeSuggestion::String(_) => err_string.push_str("Sources of string:\n"),
-                TypeSuggestion::Arrow(_, args, _) => err_string.push_str(&format!(
+                UFType::Unit(_) => err_string.push_str("Sources of void:\n"),
+                UFType::Int(_) => err_string.push_str("Sources of int:\n"),
+                UFType::Bool(_) => err_string.push_str("Sources of bool:\n"),
+                UFType::String(_) => err_string.push_str("Sources of string:\n"),
+                UFType::Function(_, _, args, _) => err_string.push_str(&format!(
                     "Sources of function with {} arguments:\n",
                     args.len()
                 )),
-                TypeSuggestion::Tuple(_, elems) => err_string.push_str(&format!(
+                UFType::Tuple(_, _, elems) => err_string.push_str(&format!(
                     "Sources of tuple with {} elements:\n",
                     elems.len()
                 )),
+                _ => unreachable!("TODO get rid of this"),
             };
-            let provs = match &ty {
-                TypeSuggestion::Unknown => unreachable!(),
-                TypeSuggestion::Unit(provs)
-                | TypeSuggestion::Int(provs)
-                | TypeSuggestion::Bool(provs)
-                | TypeSuggestion::String(provs)
-                | TypeSuggestion::Arrow(provs, _, _)
-                | TypeSuggestion::Tuple(provs, _) => provs,
-            };
+            let provs = ty.provs();
             let mut provs_vec = provs.iter().collect::<Vec<_>>();
             provs_vec.sort_by_key(|prov| match prov {
                 Prov::Builtin(_) => 0,
