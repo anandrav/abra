@@ -3,15 +3,15 @@ use crate::ast::{
 };
 use crate::operators::BinOpcode;
 use disjoint_sets::UnionFindNode;
-use std::cell::RefCell;
+use std::cell::{RefCell, UnsafeCell};
 use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::fmt::{self, Write};
 use std::rc::Rc;
 
 #[derive(Debug)]
 pub struct Constraint {
-    expected: Rc<Type>,
-    actual: Rc<Type>,
+    expected: Type,
+    actual: Type,
 }
 
 type TypeVar = UnionFindNode<UFTypeVar_>;
@@ -42,13 +42,13 @@ pub enum TypeCtor {
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Type {
-    Var(Rc<RefCell<TypeVar>>),
+    Var(TypeVar),
     Unit(Provs),
     Int(Provs),
     Bool(Provs),
     String(Provs),
-    Function(Provs, Vec<Rc<Type>>, Rc<Type>), // TODO; just use Vec<Type> and Type for children
-    Tuple(Provs, Vec<Rc<Type>>),              // TODO remove this ctor if you can
+    Function(Provs, Vec<Type>, Box<Type>), // TODO; just use Vec<Type> and Type for children
+    Tuple(Provs, Vec<Type>),               // TODO remove this ctor if you can
 }
 
 impl Type {
@@ -64,44 +64,44 @@ impl Type {
         }
     }
 
-    pub fn from_node(solution_map: &mut SolutionMap, id: ast::Id) -> Rc<Type> {
+    pub fn from_node(solution_map: &mut SolutionMap, id: ast::Id) -> Type {
         let prov = Prov::Node(id);
         Type::make_var(solution_map, prov)
     }
 
-    pub fn make_var(solution_map: &mut SolutionMap, prov: Prov) -> Rc<Type> {
-        Rc::new(match solution_map.get(&prov) {
+    pub fn make_var(solution_map: &mut SolutionMap, prov: Prov) -> Type {
+        match solution_map.get(&prov) {
             Some(ty) => Type::Var(ty.clone()),
             None => {
-                let ty_var = Rc::new(RefCell::new(TypeVar::new(UFTypeVar_::empty())));
+                let ty_var = TypeVar::new(UFTypeVar_::empty());
                 let ty = Type::Var(ty_var.clone());
                 solution_map.insert(prov, ty_var);
                 ty
             }
-        })
+        }
     }
 
-    pub fn make_unit(prov: Prov) -> Rc<Type> {
+    pub fn make_unit(prov: Prov) -> Type {
         Type::Unit(provs_singleton(prov)).into()
     }
 
-    pub fn make_int(prov: Prov) -> Rc<Type> {
+    pub fn make_int(prov: Prov) -> Type {
         Type::Int(provs_singleton(prov)).into()
     }
 
-    pub fn make_bool(prov: Prov) -> Rc<Type> {
+    pub fn make_bool(prov: Prov) -> Type {
         Type::Bool(provs_singleton(prov)).into()
     }
 
-    pub fn make_string(prov: Prov) -> Rc<Type> {
+    pub fn make_string(prov: Prov) -> Type {
         Type::String(provs_singleton(prov)).into()
     }
 
-    pub fn make_arrow(args: Vec<Rc<Type>>, out: Rc<Type>, id: ast::Id) -> Rc<Type> {
-        Type::Function(provs_singleton(Prov::Node(id)), args, out).into()
+    pub fn make_arrow(args: Vec<Type>, out: Type, id: ast::Id) -> Type {
+        Type::Function(provs_singleton(Prov::Node(id)), args, out.into()).into()
     }
 
-    pub fn make_tuple(elems: Vec<Rc<Type>>, id: ast::Id) -> Rc<Type> {
+    pub fn make_tuple(elems: Vec<Type>, id: ast::Id) -> Type {
         Type::Tuple(provs_singleton(Prov::Node(id)), elems).into()
     }
 }
@@ -116,7 +116,7 @@ pub enum Prov {
     FuncOut(Box<Prov>),     // u8 represents how many arguments before this output
 }
 
-pub fn types_of_binop(opcode: &BinOpcode, id: ast::Id) -> (Rc<Type>, Rc<Type>, Rc<Type>) {
+pub fn types_of_binop(opcode: &BinOpcode, id: ast::Id) -> (Type, Type, Type) {
     match opcode {
         BinOpcode::Add | BinOpcode::Subtract | BinOpcode::Multiply | BinOpcode::Divide => (
             Type::make_int(Prov::Node(id)),
@@ -201,10 +201,10 @@ pub fn provs_singleton(prov: Prov) -> Provs {
     RefCell::new(set)
 }
 
-pub type SolutionMap = HashMap<Prov, Rc<RefCell<TypeVar>>>;
+pub type SolutionMap = HashMap<Prov, TypeVar>;
 trait SolutionMapTrait {}
 
-fn fmt_type_suggestions(types: &Vec<&Rc<Type>>, f: &mut dyn Write) -> fmt::Result {
+fn fmt_type_suggestions(types: &Vec<&Type>, f: &mut dyn Write) -> fmt::Result {
     let mut s = String::new();
     if types.len() > 1 {
         s.push_str("{\n");
@@ -228,7 +228,7 @@ fn fmt_type_suggestions(types: &Vec<&Rc<Type>>, f: &mut dyn Write) -> fmt::Resul
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct UFTypeVar_ {
-    types: BTreeMap<TypeCtor, Rc<Type>>,
+    types: BTreeMap<TypeCtor, Type>,
 }
 
 impl UFTypeVar_ {
@@ -238,7 +238,7 @@ impl UFTypeVar_ {
         }
     }
 
-    fn singleton(ctor: TypeCtor, t: Rc<Type>) -> Self {
+    fn singleton(ctor: TypeCtor, t: Type) -> Self {
         Self {
             types: {
                 let mut s = BTreeMap::new();
@@ -249,10 +249,10 @@ impl UFTypeVar_ {
     }
 
     // TODO: occurs check
-    fn extend(&mut self, t_other: Rc<Type>) {
+    fn extend(&mut self, t_other: Type) {
         let ctor = t_other.ctor();
         if let Some(t) = self.types.get_mut(&ctor) {
-            match &*t_other {
+            match &t_other {
                 Type::Var(_) => panic!("should not be Type::Var"),
                 Type::Unit(other_provs)
                 | Type::Int(other_provs)
@@ -262,59 +262,57 @@ impl UFTypeVar_ {
                 }
                 Type::Function(other_provs, args1, out1) => {
                     t.provs().borrow_mut().extend(other_provs.borrow().clone());
-                    // if let Type::Function(_, args2, out2) = &**t {
-                    //     if args1.len() == args2.len() {
-                    //         for (arg, arg2) in args1.iter().zip(args2.iter()) {
-                    //             constrain(arg.clone(), arg2.clone());
-                    //         }
-                    //         constrain(out1.clone(), out2.clone());
-                    //     }
-                    // }
+                    if let Type::Function(_, args2, out2) = t {
+                        if args1.len() == args2.len() {
+                            for (arg, arg2) in args1.iter().zip(args2.iter()) {
+                                constrain(arg.clone(), arg2.clone());
+                            }
+                            constrain(*out1.clone(), *out2.clone());
+                        }
+                    }
                 }
                 Type::Tuple(other_provs, elems1) => {
                     t.provs().borrow_mut().extend(other_provs.borrow().clone());
-                    // if let Type::Tuple(_, elems2) = &**t {
-                    //     if elems1.len() == elems2.len() {
-                    //         for (elem, elem2) in elems1.iter().zip(elems2.iter()) {
-                    //             constrain(elem.clone(), elem2.clone());
-                    //         }
-                    //     }
-                    // }
+                    if let Type::Tuple(_, elems2) = t {
+                        if elems1.len() == elems2.len() {
+                            for (elem, elem2) in elems1.iter().zip(elems2.iter()) {
+                                constrain(elem.clone(), elem2.clone());
+                            }
+                        }
+                    }
                 }
             }
         } else {
-            self.types.insert(ctor, t_other);
+            self.types.insert(ctor, t_other.clone());
         }
     }
 
     // TODO: occurs check
     fn merge(first: Self, second: Self) -> Self {
         let mut merged_types = Self { types: first.types };
-        for (ctor, t) in second.types {
+        for (ctor, mut t) in second.types {
             merged_types.extend(t);
         }
         merged_types
     }
 }
 
-fn constrain(expected: Rc<Type>, actual: Rc<Type>) {
-    match (&*expected, &*actual) {
-        (Type::Var(tvar), Type::Var(tvar2)) => {
-            tvar.borrow_mut()
-                .union_with(&mut tvar2.borrow_mut(), UFTypeVar_::merge);
+fn constrain(expected: Type, actual: Type) {
+    match (expected, actual) {
+        (Type::Var(ref mut tvar), Type::Var(ref mut tvar2)) => {
+            tvar.union_with(tvar2, UFTypeVar_::merge);
         }
-        (t, Type::Var(tvar)) => tvar.borrow_mut().with_data(|data| {
-            data.extend(expected.clone()); // TODO: just pass the type, ctor can be derived
-        }),
-        (Type::Var(tvar), t) => tvar.borrow_mut().with_data(|data| {
-            data.extend(actual.clone()); // TODO: just pass the type, ctor can be derived
-        }),
+        (t, Type::Var(tvar)) | (Type::Var(tvar), t) => {
+            let mut data = tvar.clone_data();
+            data.extend(t);
+            tvar.replace_data(data);
+        }
         (Type::Function(_, args1, out1), Type::Function(_, args2, out2)) => {
             if args1.len() == args2.len() {
                 for (arg, arg2) in args1.iter().zip(args2.iter()) {
                     constrain(arg.clone(), arg2.clone());
                 }
-                constrain(out1.clone(), out2.clone());
+                constrain(*out1.clone(), *out2.clone());
             }
         }
         (Type::Tuple(_, elems1), Type::Tuple(_, elems2)) => {
@@ -339,7 +337,7 @@ pub fn result_of_constraint_solving(
     let mut type_conflicts = Vec::new();
     for potential_types in solution_map.values() {
         // let type_suggestions = condense_candidates(potential_types);
-        let type_suggestions = potential_types.borrow_mut().clone_data().types;
+        let type_suggestions = potential_types.clone_data().types;
         if type_suggestions.len() > 1 && (!type_conflicts.contains(&type_suggestions)) {
             type_conflicts.push(type_suggestions);
         }
@@ -367,7 +365,7 @@ pub fn result_of_constraint_solving(
         writeln!(err_string).unwrap();
         for ty in type_conflict {
             err_string.push('\n');
-            match &**ty {
+            match &ty {
                 Type::Var(_) => err_string.push_str("Sources of var:\n"), // idk about this
                 Type::Unit(_) => err_string.push_str("Sources of void:\n"),
                 Type::Int(_) => err_string.push_str("Sources of int:\n"),
@@ -442,7 +440,7 @@ pub fn result_of_constraint_solving(
 }
 
 pub struct TyCtx {
-    vars: HashMap<Identifier, Rc<Type>>,
+    vars: HashMap<Identifier, Type>,
     enclosing: Option<Rc<RefCell<TyCtx>>>,
 }
 
@@ -532,7 +530,7 @@ impl TyCtx {
         }))
     }
 
-    pub fn lookup(&self, id: &Identifier) -> Option<Rc<Type>> {
+    pub fn lookup(&self, id: &Identifier) -> Option<Type> {
         match self.vars.get(id) {
             Some(typ) => Some(typ.clone()),
             None => match &self.enclosing {
@@ -542,7 +540,7 @@ impl TyCtx {
         }
     }
 
-    pub fn extend(&mut self, id: &Identifier, typ: Rc<Type>) {
+    pub fn extend(&mut self, id: &Identifier, typ: Type) {
         self.vars.insert(id.clone(), typ);
     }
 }
@@ -550,7 +548,7 @@ impl TyCtx {
 #[derive(Debug, Clone)]
 pub enum Mode {
     Syn,
-    Ana { expected: Rc<Type> },
+    Ana { expected: Type },
 }
 
 pub fn generate_constraints_expr(
@@ -559,10 +557,10 @@ pub fn generate_constraints_expr(
     expr: Rc<Expr>,
     solution_map: &mut SolutionMap,
 ) {
-    let node_ty = Type::from_node(solution_map, expr.id);
+    let mut node_ty = Type::from_node(solution_map, expr.id);
     match mode {
         Mode::Syn => (),
-        Mode::Ana { expected } => constrain(expected, node_ty.clone()),
+        Mode::Ana { mut expected } => constrain(expected, node_ty.clone()),
     };
     match &*expr.exprkind {
         ExprKind::Unit => {
@@ -579,12 +577,12 @@ pub fn generate_constraints_expr(
         }
         ExprKind::Var(id) => {
             let lookup = ctx.borrow_mut().lookup(&id);
-            if let Some(typ) = lookup {
+            if let Some(mut typ) = lookup {
                 constrain(typ, node_ty)
             }
         }
         ExprKind::BinOp(left, op, right) => {
-            let (ty_left, ty_right, ty_out) = types_of_binop(&op, expr.id);
+            let (ty_left, ty_right, mut ty_out) = types_of_binop(&op, expr.id);
             constrain(ty_out, node_ty);
             generate_constraints_expr(
                 ctx.clone(),
@@ -699,12 +697,12 @@ pub fn generate_constraints_expr(
             }
 
             // function type
-            let ty_func = Type::make_arrow(ty_args, ty_body, expr.id);
+            let mut ty_func = Type::make_arrow(ty_args, ty_body, expr.id);
             constrain(ty_func, node_ty);
         }
         ExprKind::FuncAp(func, args) => {
             // arguments
-            let tys_args: Vec<Rc<Type>> = args
+            let tys_args: Vec<Type> = args
                 .iter()
                 .enumerate()
                 .map(|(n, arg)| {
@@ -803,11 +801,11 @@ pub fn generate_constraints_pat(
     match &*pat.patkind {
         PatKind::Var(identifier) => {
             // letrec?: extend context with id and type before analyzing against said type
-            let ty_pat = Type::from_node(solution_map, pat.id);
+            let mut ty_pat = Type::from_node(solution_map, pat.id);
             new_ctx.borrow_mut().extend(identifier, ty_pat.clone());
             match mode {
                 Mode::Syn => (),
-                Mode::Ana { expected } => constrain(expected, ty_pat),
+                Mode::Ana { mut expected } => constrain(expected, ty_pat),
             };
             Some(new_ctx)
         }
@@ -816,7 +814,7 @@ pub fn generate_constraints_pat(
                 .iter()
                 .map(|pat| Type::make_var(solution_map, Prov::Node(pat.id)))
                 .collect();
-            let actual = Type::from_node(solution_map, pat.id);
+            let mut actual = Type::from_node(solution_map, pat.id);
             constrain(Type::make_tuple(tys, pat.id), actual);
             for pat in pats {
                 new_ctx =

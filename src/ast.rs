@@ -191,7 +191,7 @@ pub struct AstType {
     pub id: Id,
 }
 
-pub fn ast_type_to_statics_type(ast_type: Rc<AstType>) -> Rc<statics::Type> {
+pub fn ast_type_to_statics_type(ast_type: Rc<AstType>) -> statics::Type {
     match &*ast_type.typekind {
         TypeKind::Unit => statics::Type::make_unit(Prov::Node(ast_type.id())),
         TypeKind::Int => statics::Type::make_int(Prov::Node(ast_type.id())),
