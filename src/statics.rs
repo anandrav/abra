@@ -12,7 +12,21 @@ pub struct Constraint {
     actual: Rc<SType>,
 }
 
-type UFPotentialTypes = UnionFindNode<UFPotentialTypes_>;
+type UFTypeVar = UnionFindNode<UFTypeVar_>;
+
+fn fmt_uftype_var(tvar: &UFTypeVar, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    let mut result = Ok(());
+    tvar.with_data(|tvar_| {
+        result = if tvar_.types.is_empty() {
+            write!(f, "'?")
+        } else if tvar_.types.len() == 1 {
+            write!(f, "{}", tvar_.types.iter().next().unwrap().1)
+        } else {
+            write!(f, "'?")
+        }
+    });
+    result
+}
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Copy)]
 pub enum TypeCtor {
@@ -30,13 +44,8 @@ pub enum UFType {
     Int(Provs),
     Bool(Provs),
     String(Provs),
-    Function(
-        TypeCtor, // TODO remove ctor if you can
-        Provs,
-        Vec<UFPotentialTypes>,
-        UFPotentialTypes,
-    ),
-    Tuple(TypeCtor, Provs, Vec<UFPotentialTypes>), // TODO remove this ctor if you can
+    Function(Provs, Vec<UFTypeVar>, UFTypeVar),
+    Tuple(Provs, Vec<UFTypeVar>), // TODO remove this ctor if you can
 }
 
 impl fmt::Display for UFType {
@@ -46,18 +55,17 @@ impl fmt::Display for UFType {
             UFType::Int(_) => write!(f, "int"),
             UFType::Bool(_) => write!(f, "bool"),
             UFType::String(_) => write!(f, "string"),
-            UFType::Function(_, _, args, out) => {
-                write!(f, "(")?;
+            UFType::Function(_, args, out) => {
                 for (i, arg) in args.iter().enumerate() {
                     if i > 0 {
                         write!(f, ", ")?;
                     }
-                    write!(f, "{:#?}", arg)?;
+                    fmt_uftype_var(arg, f)?;
                 }
-                write!(f, ") -> ")?;
-                write!(f, "{:#?}", out)
+                write!(f, " -> ")?;
+                fmt_uftype_var(out, f)
             }
-            UFType::Tuple(_, _, elems) => {
+            UFType::Tuple(_, elems) => {
                 write!(f, "(")?;
                 for (i, elem) in elems.iter().enumerate() {
                     if i > 0 {
@@ -67,7 +75,6 @@ impl fmt::Display for UFType {
                 }
                 write!(f, ")")
             }
-            _ => unreachable!(" TODO get rid of this"),
         }
     }
 }
@@ -79,8 +86,8 @@ impl UFType {
             | Self::Int(provs)
             | Self::Bool(provs)
             | Self::String(provs)
-            | Self::Function(_, provs, _, _)
-            | Self::Tuple(_, provs, _) => provs,
+            | Self::Function(provs, _, _)
+            | Self::Tuple(provs, _) => provs,
         }
     }
 
@@ -90,23 +97,23 @@ impl UFType {
             | Self::Int(provs)
             | Self::Bool(provs)
             | Self::String(provs)
-            | Self::Function(_, provs, _, _)
-            | Self::Tuple(_, provs, _) => provs,
+            | Self::Function(provs, _, _)
+            | Self::Tuple(provs, _) => provs,
         }
     }
 }
 
 pub type Provs = BTreeSet<Prov>;
 
-pub type SolutionMap = HashMap<Prov, UFPotentialTypes>;
+pub type SolutionMap = HashMap<Prov, UFTypeVar>;
 trait SolutionMapTrait {
     fn add_constraint(&mut self, constraint: Constraint);
 
-    fn retrieve_and_or_add_node(&mut self, unknown: Rc<SType>) -> UFPotentialTypes;
+    fn retrieve_and_or_add_node(&mut self, unknown: Rc<SType>) -> UFTypeVar;
 }
 
 impl SolutionMapTrait for SolutionMap {
-    fn retrieve_and_or_add_node(&mut self, unknown: Rc<SType>) -> UFPotentialTypes {
+    fn retrieve_and_or_add_node(&mut self, unknown: Rc<SType>) -> UFTypeVar {
         let provs_single = {
             let mut set = BTreeSet::new();
             set.insert(unknown.prov.clone());
@@ -118,7 +125,7 @@ impl SolutionMapTrait for SolutionMap {
                 if let Some(node) = self.get(prov) {
                     node.clone()
                 } else {
-                    let node = UnionFindNode::new(UFPotentialTypes_::empty());
+                    let node = UnionFindNode::new(UFTypeVar_::empty());
                     self.insert(prov.clone(), node.clone());
                     node
                 }
@@ -129,9 +136,9 @@ impl SolutionMapTrait for SolutionMap {
                     .map(|arg| self.retrieve_and_or_add_node(arg.clone()))
                     .collect();
                 let out = self.retrieve_and_or_add_node(out.clone());
-                UnionFindNode::new(UFPotentialTypes_::singleton(
+                UnionFindNode::new(UFTypeVar_::singleton(
                     TypeCtor::Arrow(args.len() as u8),
-                    UFType::Function(TypeCtor::Arrow(args.len() as u8), provs_single, args, out),
+                    UFType::Function(provs_single, args, out),
                 ))
             }
             STypeKind::Tuple(exprs) => {
@@ -139,24 +146,24 @@ impl SolutionMapTrait for SolutionMap {
                     .iter()
                     .map(|expr| self.retrieve_and_or_add_node(expr.clone()))
                     .collect();
-                UnionFindNode::new(UFPotentialTypes_::singleton(
+                UnionFindNode::new(UFTypeVar_::singleton(
                     TypeCtor::Tuple(exprs.len() as u8),
-                    UFType::Tuple(TypeCtor::Tuple(exprs.len() as u8), provs_single, exprs),
+                    UFType::Tuple(provs_single, exprs),
                 ))
             }
-            STypeKind::Unit => UnionFindNode::new(UFPotentialTypes_::singleton(
+            STypeKind::Unit => UnionFindNode::new(UFTypeVar_::singleton(
                 TypeCtor::Unit,
                 UFType::Unit(provs_single),
             )),
-            STypeKind::Int => UnionFindNode::new(UFPotentialTypes_::singleton(
+            STypeKind::Int => UnionFindNode::new(UFTypeVar_::singleton(
                 TypeCtor::Int,
                 UFType::Int(provs_single),
             )),
-            STypeKind::Bool => UnionFindNode::new(UFPotentialTypes_::singleton(
+            STypeKind::Bool => UnionFindNode::new(UFTypeVar_::singleton(
                 TypeCtor::Bool,
                 UFType::Bool(provs_single),
             )),
-            STypeKind::String => UnionFindNode::new(UFPotentialTypes_::singleton(
+            STypeKind::String => UnionFindNode::new(UFTypeVar_::singleton(
                 TypeCtor::String,
                 UFType::String(provs_single),
             )),
@@ -167,7 +174,7 @@ impl SolutionMapTrait for SolutionMap {
         let mut add_hole_and_t = |hole: Rc<SType>, t: Rc<SType>| {
             let mut hole_node = self.retrieve_and_or_add_node(hole);
             let mut t_node = self.retrieve_and_or_add_node(t);
-            hole_node.union_with(&mut t_node, UFPotentialTypes_::merge);
+            hole_node.union_with(&mut t_node, UFTypeVar_::merge);
         };
         match (&constraint.expected.typekind, &constraint.actual.typekind) {
             (STypeKind::Unknown, _t) => {
@@ -185,12 +192,12 @@ impl SolutionMapTrait for SolutionMap {
     }
 }
 
-fn fmt_type_suggestions(types: &Vec<(&TypeCtor, &UFType)>, f: &mut dyn Write) -> fmt::Result {
+fn fmt_type_suggestions(types: &Vec<&UFType>, f: &mut dyn Write) -> fmt::Result {
     let mut s = String::new();
     if types.len() > 1 {
         s.push_str("{\n");
     }
-    for (i, (_, t)) in types.iter().enumerate() {
+    for (i, t) in types.iter().enumerate() {
         if types.len() == 1 {
             s.push_str(&format!("{}", t));
             break;
@@ -208,11 +215,11 @@ fn fmt_type_suggestions(types: &Vec<(&TypeCtor, &UFType)>, f: &mut dyn Write) ->
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct UFPotentialTypes_ {
+pub struct UFTypeVar_ {
     types: BTreeMap<TypeCtor, UFType>,
 }
 
-impl UFPotentialTypes_ {
+impl UFTypeVar_ {
     fn empty() -> Self {
         Self {
             types: BTreeMap::new(),
@@ -239,31 +246,31 @@ impl UFPotentialTypes_ {
                 | UFType::String(other_provs) => {
                     t.provs_mut().extend(other_provs);
                 }
-                UFType::Function(_, other_provs, ref mut args_other, ref mut out_other) => {
+                UFType::Function(other_provs, ref mut args_other, ref mut out_other) => {
                     match &mut t {
-                        UFType::Function(_, t_provs, ref mut args, ref mut out) => {
+                        UFType::Function(t_provs, ref mut args, ref mut out) => {
                             if args.len() != args_other.len() {
                                 panic!("should be same arity");
                             }
                             t_provs.extend(other_provs);
                             for i in 0..args.len() {
                                 let (t_arg, other_arg) = (&mut args[i], &mut args_other[i]);
-                                t_arg.union_with(other_arg, UFPotentialTypes_::merge);
+                                t_arg.union_with(other_arg, UFTypeVar_::merge);
                             }
-                            out.union_with(out_other, UFPotentialTypes_::merge);
+                            out.union_with(out_other, UFTypeVar_::merge);
                         }
                         _ => panic!("ctor should be function"),
                     }
                 }
-                UFType::Tuple(_, other_provs, ref mut elements_other) => match &mut t {
-                    UFType::Tuple(_, t_provs, ref mut elements) => {
+                UFType::Tuple(other_provs, ref mut elements_other) => match &mut t {
+                    UFType::Tuple(t_provs, ref mut elements) => {
                         if elements.len() != elements_other.len() {
                             panic!("should be same arity");
                         }
                         t_provs.extend(other_provs);
                         for i in 0..elements.len() {
                             let (t_arg, other_arg) = (&mut elements[i], &mut elements_other[i]);
-                            t_arg.union_with(other_arg, UFPotentialTypes_::merge);
+                            t_arg.union_with(other_arg, UFTypeVar_::merge);
                         }
                     }
                     _ => panic!("ctor should be tuple"),
@@ -311,14 +318,14 @@ pub fn result_of_constraint_solving(
     let mut type_conflicts = type_conflicts
         .iter()
         .map(|type_suggestions| {
-            let mut types_sorted: Vec<_> = type_suggestions.iter().collect();
-            types_sorted.sort_by_key(|(_, ty)| match ty {
+            let mut types_sorted: Vec<_> = type_suggestions.values().collect();
+            types_sorted.sort_by_key(|ty| match ty {
                 UFType::Unit(provs)
                 | UFType::Int(provs)
                 | UFType::Bool(provs)
                 | UFType::String(provs)
-                | UFType::Function(_, provs, _, _)
-                | UFType::Tuple(_, provs, _) => provs.len(),
+                | UFType::Function(provs, _, _)
+                | UFType::Tuple(provs, _) => provs.len(),
             });
             types_sorted
         })
@@ -328,22 +335,21 @@ pub fn result_of_constraint_solving(
         err_string.push_str("Type Conflict: ");
         fmt_type_suggestions(&type_conflict, &mut err_string).unwrap();
         writeln!(err_string).unwrap();
-        for (_, ty) in type_conflict {
+        for ty in type_conflict {
             err_string.push('\n');
             match &ty {
                 UFType::Unit(_) => err_string.push_str("Sources of void:\n"),
                 UFType::Int(_) => err_string.push_str("Sources of int:\n"),
                 UFType::Bool(_) => err_string.push_str("Sources of bool:\n"),
                 UFType::String(_) => err_string.push_str("Sources of string:\n"),
-                UFType::Function(_, _, args, _) => err_string.push_str(&format!(
+                UFType::Function(_, args, _) => err_string.push_str(&format!(
                     "Sources of function with {} arguments:\n",
                     args.len()
                 )),
-                UFType::Tuple(_, _, elems) => err_string.push_str(&format!(
+                UFType::Tuple(_, elems) => err_string.push_str(&format!(
                     "Sources of tuple with {} elements:\n",
                     elems.len()
                 )),
-                _ => unreachable!("TODO get rid of this"),
             };
             let provs = ty.provs();
             let mut provs_vec = provs.iter().collect::<Vec<_>>();
