@@ -27,8 +27,8 @@ pub enum Type {
     Int(Provs),
     Bool(Provs),
     String(Provs),
-    Function(Provs, Vec<Type>, Box<Type>), // TODO; just use Vec<Type> and Type for children
-    Tuple(Provs, Vec<Type>),               // TODO remove this ctor if you can
+    Function(Provs, Vec<Type>, Box<Type>),
+    Tuple(Provs, Vec<Type>),
 }
 
 impl Type {
@@ -203,16 +203,6 @@ impl UFTypeVar_ {
     fn empty() -> Self {
         Self {
             types: BTreeMap::new(),
-        }
-    }
-
-    fn singleton(ctor: TypeCtor, t: Type) -> Self {
-        Self {
-            types: {
-                let mut s = BTreeMap::new();
-                s.insert(ctor, t);
-                s
-            },
         }
     }
 
