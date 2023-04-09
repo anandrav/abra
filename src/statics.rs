@@ -468,9 +468,13 @@ pub fn generate_constraints_expr(
                 solution_map,
             );
         }
-        ExprKind::Block(statements, opt_terminal_expr) => {
+        ExprKind::Block(statements) => {
+            if statements.is_empty() {
+                constrain(node_ty, Type::make_unit(Prov::Node(expr.id)));
+                return;
+            }
             let mut new_ctx = TyCtx::new(Some(ctx));
-            for statement in statements {
+            for statement in statements[..statements.len() - 1].iter() {
                 let updated = generate_constraints_stmt(
                     new_ctx.clone(),
                     Mode::Syn,
@@ -481,7 +485,8 @@ pub fn generate_constraints_expr(
                     new_ctx = ctx
                 }
             }
-            if let Some(terminal_expr) = &opt_terminal_expr {
+            // if last statement is an expression, the block will have that expression's type
+            if let StmtKind::Expr(terminal_expr) = &*statements.last().unwrap().stmtkind {
                 generate_constraints_expr(
                     new_ctx,
                     Mode::Ana { expected: node_ty },

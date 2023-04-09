@@ -7,14 +7,14 @@ program = { SOI ~ statement* ~ EOI }
 
 statement = _{ let_func_statement | let_statement | expression_statement }
 
-let_statement = { let_keyword ~ pattern_annotated ~ op_assign ~ expression ~ semicolon }
+let_statement = { let_keyword ~ pattern_annotated ~ op_assign ~ expression }
 let_keyword = _{ "let" }
-expression_statement = { expression ~ semicolon }
+expression_statement = { expression }
 pattern = _{ tuple_pat | wildcard | identifier }
 wildcard = @{ "_" } // TODO this doesn't parse yet.
 op_assign = _{ "=" }
 
-let_func_statement = { let_keyword ~ identifier ~ func_args ~ func_out_annotation? ~ op_assign ~ expression ~ semicolon }
+let_func_statement = { let_keyword ~ identifier ~ func_args ~ func_out_annotation? ~ op_assign ~ expression }
 
 tuple_pat = { tuple_start ~ (tuple_pat_element ~ ",")+ ~ tuple_pat_element ~ tuple_end }
 tuple_pat_element = _{ pattern }
@@ -26,7 +26,7 @@ if_else_expression = { if_keyword ~ expression ~ expression ~ else_keyword ~ exp
 if_keyword = _{ "if" }
 else_keyword = _{ "else" }
 
-block_expression = { block_start ~ statement* ~ expression? ~ block_end }
+block_expression = { block_start ~ statement* ~ block_end }
 block_start = _{ "{" }
 block_end = _{ "}" }
 
@@ -100,4 +100,4 @@ keyword = @{
    else_keyword | "false" | "func" | if_keyword | let_keyword | "nothing" | "true"
 }
 
-semicolon = _{ ";" }
+// semicolon = _{ ";" }

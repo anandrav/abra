@@ -111,16 +111,10 @@ impl Node for Expr {
                 children
             }
             ExprKind::If(cond, then, els) => vec![cond.clone(), then.clone(), els.clone()],
-            ExprKind::Block(stmts, expr) => {
-                let mut children: Vec<Rc<dyn Node>> = stmts
-                    .iter()
-                    .map(|s| s.clone() as Rc<dyn Node>)
-                    .collect::<Vec<_>>();
-                if let Some(expr) = expr {
-                    children.push(expr.clone());
-                }
-                children
-            }
+            ExprKind::Block(stmts) => stmts
+                .iter()
+                .map(|s| s.clone() as Rc<dyn Node>)
+                .collect::<Vec<_>>(),
             ExprKind::BinOp(lhs, _, rhs) => vec![lhs.clone(), rhs.clone()],
             ExprKind::FuncAp(func, args) => {
                 let mut children: Vec<Rc<dyn Node>> = vec![func.clone() as Rc<dyn Node>];
@@ -146,7 +140,7 @@ pub enum ExprKind {
     Func(Vec<PatAnnotated>, Option<Rc<AstType>>, Rc<Expr>),
     If(Rc<Expr>, Rc<Expr>, Rc<Expr>),
     // Match(Rc<Expr>, Vec<MatchArm>),
-    Block(Vec<Rc<Stmt>>, Option<Rc<Expr>>),
+    Block(Vec<Rc<Stmt>>),
     BinOp(Rc<Expr>, BinOpcode, Rc<Expr>),
     FuncAp(Rc<Expr>, Vec<Rc<Expr>>),
     Tuple(Vec<Rc<Expr>>),
@@ -559,13 +553,6 @@ pub fn parse_stmt(pair: Pair<Rule>, pratt: &PrattParser<Rule>) -> Rc<Stmt> {
     }
 }
 
-fn rule_is_of_stmt(rule: &Rule) -> bool {
-    matches!(
-        rule,
-        Rule::let_func_statement | Rule::let_statement | Rule::expression_statement
-    )
-}
-
 pub fn parse_expr_term(pair: Pair<Rule>, pratt: &PrattParser<Rule>) -> Rc<Expr> {
     let span = Span::from(pair.as_span());
     let rule = pair.as_rule();
@@ -584,16 +571,11 @@ pub fn parse_expr_term(pair: Pair<Rule>, pratt: &PrattParser<Rule>) -> Rc<Expr> 
         Rule::block_expression => {
             let inner = pair.into_inner();
             let mut statements: Vec<Rc<Stmt>> = Vec::new();
-            let mut expression: Option<Rc<Expr>> = None;
             for pair in inner {
-                if rule_is_of_stmt(&pair.as_rule()) {
-                    statements.push(parse_stmt(pair, pratt));
-                } else {
-                    expression = Some(parse_expr_pratt(Pairs::single(pair), pratt));
-                }
+                statements.push(parse_stmt(pair, pratt));
             }
             Rc::new(Expr {
-                exprkind: Rc::new(ExprKind::Block(statements, expression)),
+                exprkind: Rc::new(ExprKind::Block(statements)),
                 span,
                 id: Id::new(),
             })
