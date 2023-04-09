@@ -209,6 +209,7 @@ pub struct AstType {
 
 pub fn ast_type_to_statics_type(ast_type: Rc<AstType>) -> statics::Type {
     match &*ast_type.typekind {
+        TypeKind::Poly(ident) => statics::Type::make_poly(Prov::Node(ast_type.id()), ident.clone()),
         TypeKind::Unit => statics::Type::make_unit(Prov::Node(ast_type.id())),
         TypeKind::Int => statics::Type::make_int(Prov::Node(ast_type.id())),
         TypeKind::Bool => statics::Type::make_bool(Prov::Node(ast_type.id())),
@@ -255,7 +256,9 @@ impl Node for AstType {
 
     fn children(&self) -> Vec<Rc<dyn Node>> {
         match &*self.typekind {
-            TypeKind::Unit | TypeKind::Int | TypeKind::Bool | TypeKind::Str => vec![],
+            TypeKind::Poly(_) | TypeKind::Unit | TypeKind::Int | TypeKind::Bool | TypeKind::Str => {
+                vec![]
+            }
             TypeKind::Arrow(lhs, rhs) => vec![lhs.clone(), rhs.clone()],
             TypeKind::Tuple(types) => types
                 .iter()
@@ -267,6 +270,7 @@ impl Node for AstType {
 
 #[derive(Debug, PartialEq)]
 pub enum TypeKind {
+    Poly(Identifier),
     Unit,
     Int,
     Bool,
@@ -478,6 +482,11 @@ pub fn parse_type_term(pair: Pair<Rule>, _pratt: &PrattParser<Rule>) -> Rc<AstTy
     let rule = pair.as_rule();
     match rule {
         Rule::typ => parse_type_pratt(pair.into_inner()),
+        Rule::type_poly => Rc::new(AstType {
+            typekind: Rc::new(TypeKind::Poly(pair.as_str().into())),
+            span,
+            id: Id::new(),
+        }),
         Rule::type_literal_unit => Rc::new(AstType {
             typekind: Rc::new(TypeKind::Unit),
             span,

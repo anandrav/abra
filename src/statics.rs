@@ -4,13 +4,15 @@ use crate::ast::{
 use crate::operators::BinOpcode;
 use disjoint_sets::UnionFindNode;
 use std::cell::RefCell;
-use std::collections::{BTreeMap, BTreeSet, HashMap};
+use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 use std::fmt::{self, Write};
 use std::rc::Rc;
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Type {
-    Var(TypeVar),
+    UnifVar(UnifVar),
+
+    Poly(Provs, Identifier),
     Unit(Provs),
     Int(Provs),
     Bool(Provs),
@@ -19,15 +21,16 @@ pub enum Type {
     Tuple(Provs, Vec<Type>),
 }
 
-type TypeVar = UnionFindNode<UFTypeVar_>;
+type UnifVar = UnionFindNode<UnifVar_>; // todo make a UnifVar Trait and implement it for both UnifVar and UnifVar_... try to not directly access UnifVar_
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct UFTypeVar_ {
+pub struct UnifVar_ {
     types: BTreeMap<TypeCtor, Type>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Copy)]
 pub enum TypeCtor {
+    Poly,
     Unit,
     Int,
     Bool,
@@ -40,6 +43,7 @@ pub enum TypeCtor {
 pub enum Prov {
     Node(ast::Id),
     Builtin(String), // a builtin function or constant, which doesn't exist in the AST
+    InstantiatePoly(ast::Id),
 
     // INVARIANT: the provenances in FuncArg and FuncOut are either Node or Builtin.
     FuncArg(Box<Prov>, u8), // u8 represents the index of the argument
@@ -49,7 +53,8 @@ pub enum Prov {
 impl Type {
     pub fn ctor(&self) -> TypeCtor {
         match self {
-            Type::Var(_) => panic!("Type::ctor called on Type::Var"),
+            Type::UnifVar(_) => panic!("Type::ctor called on Type::Var"),
+            Type::Poly(_, _) => TypeCtor::Poly,
             Type::Unit(_) => TypeCtor::Unit,
             Type::Int(_) => TypeCtor::Int,
             Type::Bool(_) => TypeCtor::Bool,
@@ -59,21 +64,73 @@ impl Type {
         }
     }
 
-    pub fn from_node(solution_map: &mut SolutionMap, id: ast::Id) -> Type {
-        let prov = Prov::Node(id);
-        Type::make_var(solution_map, prov)
+    // Creates a clone of a Type with polymorphic variables replaced with fresh unification variables
+    pub fn instantiate(
+        self,
+        ctx: Rc<RefCell<TyCtx>>,
+        solution_map: &mut SolutionMap,
+        id: ast::Id,
+    ) -> Type {
+        match self {
+            Type::Unit(_) | Type::Int(_) | Type::Bool(_) | Type::String(_) => {
+                self // noop
+            }
+            Type::UnifVar(unifvar) => {
+                let poly = {
+                    let data = unifvar.clone_data();
+                    data.types.get(&TypeCtor::Poly).cloned()
+                };
+                if let Some(poly) = poly {
+                    poly.instantiate(ctx, solution_map, id)
+                } else {
+                    Type::UnifVar(unifvar) // noop
+                }
+            }
+            Type::Poly(provs, ident) => {
+                dbg!(ctx.clone());
+                if !ctx.borrow().lookup_poly(&ident) {
+                    Type::make_unifvar(solution_map, Prov::InstantiatePoly(id))
+                } else {
+                    Type::Poly(provs, ident) // noop
+                }
+            }
+            Type::Function(provs, args, out) => {
+                let args = args
+                    .into_iter()
+                    .map(|ty| ty.instantiate(ctx.clone(), solution_map, id))
+                    .collect();
+                let out = Box::new(out.instantiate(ctx, solution_map, id));
+                Type::Function(provs, args, out)
+            }
+            Type::Tuple(provs, elems) => {
+                let elems = elems
+                    .into_iter()
+                    .map(|ty| ty.instantiate(ctx.clone(), solution_map, id))
+                    .collect();
+                Type::Tuple(provs, elems)
+            }
+        }
     }
 
-    pub fn make_var(solution_map: &mut SolutionMap, prov: Prov) -> Type {
+    pub fn from_node(solution_map: &mut SolutionMap, id: ast::Id) -> Type {
+        let prov = Prov::Node(id);
+        Type::make_unifvar(solution_map, prov)
+    }
+
+    pub fn make_unifvar(solution_map: &mut SolutionMap, prov: Prov) -> Type {
         match solution_map.get(&prov) {
-            Some(ty) => Type::Var(ty.clone()),
+            Some(ty) => Type::UnifVar(ty.clone()),
             None => {
-                let ty_var = TypeVar::new(UFTypeVar_::empty());
-                let ty = Type::Var(ty_var.clone());
+                let ty_var = UnifVar::new(UnifVar_::empty());
+                let ty = Type::UnifVar(ty_var.clone());
                 solution_map.insert(prov, ty_var);
                 ty
             }
         }
+    }
+
+    pub fn make_poly(prov: Prov, ident: String) -> Type {
+        Type::Poly(provs_singleton(prov), ident)
     }
 
     pub fn make_unit(prov: Prov) -> Type {
@@ -102,8 +159,9 @@ impl Type {
 
     pub fn provs(&self) -> &Provs {
         match self {
-            Self::Var(_) => panic!("Type::provs called on Type::Var"),
-            Self::Unit(provs)
+            Self::UnifVar(_) => panic!("Type::provs called on Type::Var"),
+            Self::Poly(provs, _)
+            | Self::Unit(provs)
             | Self::Int(provs)
             | Self::Bool(provs)
             | Self::String(provs)
@@ -140,9 +198,9 @@ pub fn provs_singleton(prov: Prov) -> Provs {
     RefCell::new(set)
 }
 
-pub type SolutionMap = HashMap<Prov, TypeVar>;
+pub type SolutionMap = HashMap<Prov, UnifVar>;
 
-impl UFTypeVar_ {
+impl UnifVar_ {
     fn empty() -> Self {
         Self {
             types: BTreeMap::new(),
@@ -154,8 +212,9 @@ impl UFTypeVar_ {
         let ctor = t_other.ctor();
         if let Some(t) = self.types.get_mut(&ctor) {
             match &t_other {
-                Type::Var(_) => panic!("should not be Type::Var"),
-                Type::Unit(other_provs)
+                Type::UnifVar(_) => panic!("should not be Type::Var"),
+                Type::Poly(other_provs, _)
+                | Type::Unit(other_provs)
                 | Type::Int(other_provs)
                 | Type::Bool(other_provs)
                 | Type::String(other_provs) => {
@@ -200,10 +259,10 @@ impl UFTypeVar_ {
 
 fn constrain(expected: Type, actual: Type) {
     match (expected, actual) {
-        (Type::Var(ref mut tvar), Type::Var(ref mut tvar2)) => {
-            tvar.union_with(tvar2, UFTypeVar_::merge);
+        (Type::UnifVar(ref mut tvar), Type::UnifVar(ref mut tvar2)) => {
+            tvar.union_with(tvar2, UnifVar_::merge);
         }
-        (t, Type::Var(tvar)) | (Type::Var(tvar), t) => {
+        (t, Type::UnifVar(tvar)) | (Type::UnifVar(tvar), t) => {
             let mut data = tvar.clone_data();
             data.extend(t);
             tvar.replace_data(data);
@@ -212,8 +271,10 @@ fn constrain(expected: Type, actual: Type) {
     }
 }
 
+#[derive(Debug)]
 pub struct TyCtx {
     vars: HashMap<Identifier, Type>,
+    poly_type_vars: HashSet<Identifier>,
     enclosing: Option<Rc<RefCell<TyCtx>>>,
 }
 
@@ -252,6 +313,12 @@ pub fn make_new_environment() -> Rc<RefCell<TyCtx>> {
     ctx
 }
 
+// impl fmt::Debug for TyCtx {
+//     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+//         write!(f, "Environment(\n{:?}\n)", TyCtx::debug_helper(self))
+//     }
+// }
+
 impl TyCtx {
     pub fn debug_helper(&self) -> Vec<String> {
         let mut current = Vec::new();
@@ -267,18 +334,11 @@ impl TyCtx {
             None => current,
         }
     }
-}
 
-impl fmt::Debug for TyCtx {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "Environment(\n{:?}\n)", TyCtx::debug_helper(self))
-    }
-}
-
-impl TyCtx {
     pub fn empty() -> Rc<RefCell<Self>> {
         Rc::new(RefCell::new(Self {
             vars: HashMap::new(),
+            poly_type_vars: HashSet::new(),
             enclosing: None,
         }))
     }
@@ -286,6 +346,7 @@ impl TyCtx {
     pub fn new(enclosing: Option<Rc<RefCell<TyCtx>>>) -> Rc<RefCell<Self>> {
         Rc::new(RefCell::new(Self {
             vars: HashMap::new(),
+            poly_type_vars: HashSet::new(),
             enclosing,
         }))
     }
@@ -302,6 +363,21 @@ impl TyCtx {
 
     pub fn extend(&mut self, id: &Identifier, typ: Type) {
         self.vars.insert(id.clone(), typ);
+    }
+
+    pub fn extend_poly(&mut self, id: &Identifier) {
+        // TODO: track by Type not id
+        self.poly_type_vars.insert(id.clone());
+    }
+
+    pub fn lookup_poly(&self, id: &Identifier) -> bool {
+        match self.poly_type_vars.get(id) {
+            Some(_) => true,
+            None => match &self.enclosing {
+                Some(env) => env.borrow_mut().lookup_poly(id),
+                None => false,
+            },
+        }
     }
 }
 
@@ -338,7 +414,9 @@ pub fn generate_constraints_expr(
         ExprKind::Var(id) => {
             let lookup = ctx.borrow_mut().lookup(id);
             if let Some(typ) = lookup {
-                constrain(typ, node_ty)
+                // if type is a polymorphic type, instantiate it here as a unifvar
+                let typ = typ.instantiate(ctx, solution_map, expr.id);
+                constrain(typ, node_ty);
             }
         }
         ExprKind::BinOp(left, op, right) => {
@@ -406,58 +484,15 @@ pub fn generate_constraints_expr(
             );
         }
         ExprKind::Func(args, out_annot, body) => {
-            // arguments
-            let mut new_ctx = TyCtx::new(Some(ctx));
-            let ty_args = args
-                .iter()
-                .map(|(arg, arg_annot)| {
-                    let ty_pat = Type::from_node(solution_map, arg.id);
-                    new_ctx = if let Some(arg_annot) = arg_annot {
-                        generate_constraints_pat(
-                            new_ctx.clone(), // TODO what are the consequences of analyzing patterns with context containing previous pattern... probs should not do that
-                            Mode::Ana {
-                                expected: ast_type_to_statics_type(arg_annot.clone()),
-                            },
-                            arg.clone(),
-                            solution_map,
-                        )
-                    } else {
-                        generate_constraints_pat(
-                            new_ctx.clone(),
-                            Mode::Syn,
-                            arg.clone(),
-                            solution_map,
-                        )
-                    }
-                    .unwrap_or(new_ctx.clone());
-                    ty_pat
-                })
-                .collect();
-
-            // body
-            let ty_body =
-                Type::make_var(solution_map, Prov::FuncOut(Box::new(Prov::Node(expr.id))));
-            generate_constraints_expr(
-                new_ctx.clone(),
-                Mode::Ana {
-                    expected: ty_body.clone(),
-                },
-                body.clone(),
+            let (ty_func, _body_ctx) = generate_constraints_function_helper(
+                ctx,
                 solution_map,
+                args,
+                out_annot,
+                body,
+                expr.id,
             );
-            if let Some(out_annot) = out_annot {
-                generate_constraints_expr(
-                    new_ctx,
-                    Mode::Ana {
-                        expected: ast_type_to_statics_type(out_annot.clone()),
-                    },
-                    body.clone(),
-                    solution_map,
-                );
-            }
 
-            // function type
-            let ty_func = Type::make_arrow(ty_args, ty_body, expr.id);
             constrain(ty_func, node_ty);
         }
         ExprKind::FuncAp(func, args) => {
@@ -466,7 +501,7 @@ pub fn generate_constraints_expr(
                 .iter()
                 .enumerate()
                 .map(|(n, arg)| {
-                    let unknown = Type::make_var(
+                    let unknown = Type::make_unifvar(
                         solution_map,
                         Prov::FuncArg(Box::new(Prov::Node(func.id)), n as u8),
                     );
@@ -484,7 +519,7 @@ pub fn generate_constraints_expr(
 
             // body
             let ty_body =
-                Type::make_var(solution_map, Prov::FuncOut(Box::new(Prov::Node(func.id))));
+                Type::make_unifvar(solution_map, Prov::FuncOut(Box::new(Prov::Node(func.id))));
             constrain(ty_body.clone(), node_ty);
 
             // function type
@@ -499,7 +534,7 @@ pub fn generate_constraints_expr(
         ExprKind::Tuple(exprs) => {
             let tys = exprs
                 .iter()
-                .map(|expr| Type::make_var(solution_map, Prov::Node(expr.id)))
+                .map(|expr| Type::make_unifvar(solution_map, Prov::Node(expr.id)))
                 .collect();
             constrain(Type::make_tuple(tys, expr.id), node_ty);
             for expr in exprs {
@@ -507,6 +542,71 @@ pub fn generate_constraints_expr(
             }
         }
     }
+}
+
+// helper function for common code between Expr::Func and Expr::LetFunc
+pub fn generate_constraints_function_helper(
+    ctx: Rc<RefCell<TyCtx>>,
+    solution_map: &mut SolutionMap,
+    args: &[(Rc<ast::Pat>, Option<Rc<ast::AstType>>)],
+    out_annot: &Option<Rc<ast::AstType>>,
+    body: &Rc<Expr>,
+    func_node_id: ast::Id,
+) -> (Type, Rc<RefCell<TyCtx>>) {
+    // arguments
+    let mut body_ctx = TyCtx::new(Some(ctx));
+    let ty_args = args
+        .iter()
+        .map(|(arg, arg_annot)| {
+            let ty_pat = Type::from_node(solution_map, arg.id);
+            body_ctx = if let Some(arg_annot) = arg_annot {
+                if let ast::TypeKind::Poly(ident) = &*arg_annot.typekind {
+                    body_ctx.borrow_mut().extend_poly(ident);
+                }
+                generate_constraints_pat(
+                    body_ctx.clone(), // TODO what are the consequences of analyzing patterns with context containing previous pattern... probs should not do that
+                    Mode::Ana {
+                        expected: ast_type_to_statics_type(arg_annot.clone()),
+                    },
+                    arg.clone(),
+                    solution_map,
+                )
+            } else {
+                generate_constraints_pat(body_ctx.clone(), Mode::Syn, arg.clone(), solution_map)
+            }
+            .unwrap_or(body_ctx.clone());
+            ty_pat
+        })
+        .collect();
+
+    // body
+    let ty_body = Type::make_unifvar(
+        solution_map,
+        Prov::FuncOut(Box::new(Prov::Node(func_node_id))),
+    );
+    generate_constraints_expr(
+        body_ctx.clone(),
+        Mode::Ana {
+            expected: ty_body.clone(),
+        },
+        body.clone(),
+        solution_map,
+    );
+    if let Some(out_annot) = out_annot {
+        if let ast::TypeKind::Poly(ident) = &*out_annot.typekind {
+            body_ctx.borrow_mut().extend_poly(ident);
+        }
+        generate_constraints_expr(
+            body_ctx.clone(),
+            Mode::Ana {
+                expected: ast_type_to_statics_type(out_annot.clone()),
+            },
+            body.clone(),
+            solution_map,
+        );
+    }
+
+    (Type::make_arrow(ty_args, ty_body, func_node_id), body_ctx)
 }
 
 pub fn generate_constraints_stmt(
@@ -520,87 +620,53 @@ pub fn generate_constraints_stmt(
             generate_constraints_expr(ctx, mode, expr.clone(), solution_map);
             None
         }
-        StmtKind::Let((pat, ty_opt), expr) => {
+        StmtKind::Let((pat, ty_ann), expr) => {
             let ty_pat = Type::from_node(solution_map, pat.id);
-            let ty_annotation = ty_opt
-                .as_ref()
-                .map(|ty| ast_type_to_statics_type(ty.clone()));
 
-            let new_ctx = if let Some(ty_annotation) = ty_annotation {
-                generate_constraints_pat(
-                    ctx.clone(),
-                    Mode::Ana {
-                        expected: ty_annotation,
-                    },
-                    pat.clone(),
-                    solution_map,
-                )
+            let new_ctx = if let Some(ty_ann) = ty_ann {
+                if let ast::TypeKind::Poly(ident) = &*ty_ann.typekind {
+                    let new_ctx = TyCtx::new(Some(ctx.clone()));
+                    new_ctx.borrow_mut().extend_poly(ident);
+                    new_ctx
+                } else {
+                    let ty_ann = ast_type_to_statics_type(ty_ann.clone());
+                    generate_constraints_pat(
+                        ctx.clone(),
+                        Mode::Ana { expected: ty_ann },
+                        pat.clone(),
+                        solution_map,
+                    )
+                    .unwrap_or(ctx)
+                }
             } else {
                 generate_constraints_pat(ctx.clone(), Mode::Syn, pat.clone(), solution_map)
+                    .unwrap_or(ctx)
             };
 
-            let ctx = new_ctx.unwrap_or(ctx);
             generate_constraints_expr(
-                ctx.clone(),
+                new_ctx.clone(),
                 Mode::Ana { expected: ty_pat },
                 expr.clone(),
                 solution_map,
             );
-            Some(ctx)
+            Some(new_ctx)
         }
         StmtKind::LetFunc(name, args, out_annot, body) => {
-            // arguments
-            let mut new_ctx = TyCtx::new(Some(ctx));
-            let ty_args = args
-                .iter()
-                .map(|(arg, arg_annot)| {
-                    let ty_pat = Type::from_node(solution_map, arg.id);
-                    new_ctx = if let Some(arg_annot) = arg_annot {
-                        generate_constraints_pat(
-                            new_ctx.clone(), // TODO what are the consequences of analyzing patterns with context containing previous pattern... probs should not do that
-                            Mode::Ana {
-                                expected: ast_type_to_statics_type(arg_annot.clone()),
-                            },
-                            arg.clone(),
-                            solution_map,
-                        )
-                    } else {
-                        generate_constraints_pat(
-                            new_ctx.clone(),
-                            Mode::Syn,
-                            arg.clone(),
-                            solution_map,
-                        )
-                    }
-                    .unwrap_or(new_ctx.clone());
-                    ty_pat
-                })
-                .collect();
-
-            // body
-            let ty_body =
-                Type::make_var(solution_map, Prov::FuncOut(Box::new(Prov::Node(stmt.id))));
-            generate_constraints_expr(
-                new_ctx.clone(),
-                Mode::Ana {
-                    expected: ty_body.clone(),
-                },
-                body.clone(),
+            let (ty_func, body_ctx) = generate_constraints_function_helper(
+                ctx.clone(),
                 solution_map,
+                args,
+                out_annot,
+                body,
+                stmt.id,
             );
-            if let Some(out_annot) = out_annot {
-                generate_constraints_expr(
-                    new_ctx.clone(),
-                    Mode::Ana {
-                        expected: ast_type_to_statics_type(out_annot.clone()),
-                    },
-                    body.clone(),
-                    solution_map,
-                );
-            }
 
-            // function type
-            let ty_func = Type::make_arrow(ty_args, ty_body, stmt.id);
+            // letrec
+            body_ctx
+                .borrow_mut()
+                .extend(&name.patkind.get_identifier(), ty_func.clone());
+
+            let new_ctx = TyCtx::new(Some(ctx));
             new_ctx
                 .borrow_mut()
                 .extend(&name.patkind.get_identifier(), ty_func);
@@ -630,7 +696,7 @@ pub fn generate_constraints_pat(
         PatKind::Tuple(pats) => {
             let tys = pats
                 .iter()
-                .map(|pat| Type::make_var(solution_map, Prov::Node(pat.id)))
+                .map(|pat| Type::make_unifvar(solution_map, Prov::Node(pat.id)))
                 .collect();
             let actual = Type::from_node(solution_map, pat.id);
             constrain(Type::make_tuple(tys, pat.id), actual);
@@ -684,7 +750,8 @@ pub fn result_of_constraint_solving(
         for ty in type_conflict {
             err_string.push('\n');
             match &ty {
-                Type::Var(_) => err_string.push_str("Sources of var:\n"), // idk about this
+                Type::UnifVar(_) => err_string.push_str("Sources of unknown:\n"), // idk about this
+                Type::Poly(_, _) => err_string.push_str("Sources of polymorphic type:\n"),
                 Type::Unit(_) => err_string.push_str("Sources of void:\n"),
                 Type::Int(_) => err_string.push_str("Sources of int:\n"),
                 Type::Bool(_) => err_string.push_str("Sources of bool:\n"),
@@ -702,7 +769,7 @@ pub fn result_of_constraint_solving(
             let mut provs_vec = provs.iter().collect::<Vec<_>>();
             provs_vec.sort_by_key(|prov| match prov {
                 Prov::Builtin(_) => 0,
-                Prov::Node(id) => node_map.get(id).unwrap().span().lo,
+                Prov::Node(id) | Prov::InstantiatePoly(id) => node_map.get(id).unwrap().span().lo,
                 Prov::FuncArg(_, _) => 2,
                 Prov::FuncOut(_) => 2,
             });
@@ -714,6 +781,12 @@ pub fn result_of_constraint_solving(
                     Prov::Node(id) => {
                         let span = node_map.get(id).unwrap().span();
                         err_string.push_str(&span.display(source, ""));
+                    }
+                    Prov::InstantiatePoly(id) => {
+                        let span = node_map.get(id).unwrap().span();
+                        err_string.push_str(
+                            &span.display(source, "The instantiation of this polymorphic type"),
+                        );
                     }
                     Prov::FuncArg(prov, n) => {
                         match prov.as_ref() {
@@ -760,7 +833,8 @@ pub fn result_of_constraint_solving(
 impl fmt::Display for Type {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Type::Var(_) => write!(f, "?"),
+            Type::Poly(_, ident) => write!(f, "{}", ident),
+            Type::UnifVar(_) => write!(f, "?"),
             Type::Unit(_) => write!(f, "void"),
             Type::Int(_) => write!(f, "int"),
             Type::Bool(_) => write!(f, "bool"),

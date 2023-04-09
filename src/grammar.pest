@@ -61,7 +61,8 @@ type_term = _{ tuple_type | type_literal }
 tuple_type = { tuple_start ~ (tuple_type_element ~ ",")+ ~ tuple_type_element ~ tuple_end }
 tuple_type_element = _{ typ }
 
-type_literal = _{ type_literal_unit | type_literal_number | type_literal_bool | type_literal_string }
+type_literal = _{ type_literal_unit | type_literal_number | type_literal_bool | type_literal_string | type_poly }
+type_poly = @{ !keyword ~ "'" ~ (alpha | "_") ~ (alphanumeric | "_")* } // 'a, 'b, 'c, etc.
 type_literal_unit = @{ "void" }
 type_literal_number = @{ "int" }
 type_literal_bool = @{ "bool" }
