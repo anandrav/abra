@@ -63,7 +63,7 @@ impl Type {
         }
     }
 
-    // Creates a clone of a Type with polymorphic variables replaced with fresh unification variables
+    // Creates a clone of a Type with polymorphic variables not in scope replaced with fresh unification variables
     pub fn instantiate(
         self,
         ctx: Rc<RefCell<TyCtx>>,
@@ -75,15 +75,16 @@ impl Type {
                 self // noop
             }
             Type::UnifVar(ref unifvar) => {
-                let poly = {
-                    let data = unifvar.clone_data();
-                    data.types.get(&TypeCtor::Poly).cloned()
+                let data = unifvar.clone_data();
+                let new_types = data.types.into_values().map(|ty| {
+                    let ty = ty.instantiate(ctx.clone(), solution_map, prov.clone());
+                    let ctor = ty.ctor();
+                    (ctor, ty)
+                });
+                let new_data = UnifVar_ {
+                    types: new_types.collect(),
                 };
-                if let Some(poly) = poly {
-                    poly.instantiate(ctx, solution_map, prov)
-                } else {
-                    self // noop
-                }
+                Type::UnifVar(UnifVar::new(new_data))
             }
             Type::Poly(_, ref ident) => {
                 if !ctx.borrow().lookup_poly(ident) {
@@ -301,10 +302,9 @@ pub fn make_new_environment() -> Rc<RefCell<TyCtx>> {
                 Box::new(Prov::Builtin("print: string -> void".to_string())),
                 0,
             ))],
-            Type::make_unit(Prov::FuncArg(
-                Box::new(Prov::Builtin("print: string -> void".to_string())),
-                1,
-            ))
+            Type::make_unit(Prov::FuncOut(Box::new(Prov::Builtin(
+                "print: string -> void".to_string(),
+            ))))
             .into(),
         ),
     );
@@ -316,10 +316,9 @@ pub fn make_new_environment() -> Rc<RefCell<TyCtx>> {
                 Box::new(Prov::Builtin("int_to_string: int -> string".to_string())),
                 0,
             ))],
-            Type::make_string(Prov::FuncArg(
-                Box::new(Prov::Builtin("int_to_string: int -> string".to_string())),
-                1,
-            ))
+            Type::make_string(Prov::FuncOut(Box::new(Prov::Builtin(
+                "int_to_string: int -> string".to_string(),
+            ))))
             .into(),
         ),
     );
@@ -428,6 +427,7 @@ pub fn generate_constraints_expr(
             let lookup = ctx.borrow_mut().lookup(id);
             if let Some(typ) = lookup {
                 // if type is a polymorphic type, instantiate it here as a unifvar
+                dbg!(typ.clone());
                 let typ = typ.instantiate(ctx, solution_map, Prov::Node(expr.id));
                 constrain(typ, node_ty);
             }
@@ -574,7 +574,7 @@ pub fn generate_constraints_function_helper(
             let ty_pat = Type::from_node(solution_map, arg.id);
             body_ctx = if let Some(arg_annot) = arg_annot {
                 if let ast::TypeKind::Poly(ident) = &*arg_annot.typekind {
-                    body_ctx.borrow_mut().extend_poly(ident);
+                    body_ctx.borrow_mut().extend_poly(ident); // TODO needs to recurse on children of annotation (e.g. for tuples)
                 }
                 generate_constraints_pat(
                     body_ctx.clone(), // TODO what are the consequences of analyzing patterns with context containing previous pattern... probs should not do that
@@ -638,7 +638,7 @@ pub fn generate_constraints_stmt(
 
             let new_ctx = if let Some(ty_ann) = ty_ann {
                 if let ast::TypeKind::Poly(ident) = &*ty_ann.typekind {
-                    let new_ctx = TyCtx::new(Some(ctx.clone()));
+                    let new_ctx = TyCtx::new(Some(ctx));
                     new_ctx.borrow_mut().extend_poly(ident);
                     new_ctx
                 } else {

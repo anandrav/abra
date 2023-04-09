@@ -226,23 +226,7 @@ pub fn ast_type_to_statics_type(ast_type: Rc<AstType>) -> statics::Type {
                 statics_types.push(ast_type_to_statics_type(t.clone()));
             }
             statics::Type::make_tuple(statics_types, ast_type.id())
-        } // TypeKind::Arrow(lhs, rhs) => Rc::new(statics::Type {
-          //     typekind: statics::TypeKind::Arrow(
-          //         vec![ast_type_to_statics_type(lhs.clone())],
-          //         ast_type_to_statics_type(rhs.clone()),
-          //     ),
-          //     prov: Prov::Node(ast_type.id()),
-          // }),
-          // TypeKind::Tuple(types) => {
-          //     let mut statics_types = Vec::new();
-          //     for t in types {
-          //         statics_types.push(ast_type_to_statics_type(t.clone()));
-          //     }
-          //     Rc::new(statics::Type {
-          //         typekind: statics::TypeKind::Tuple(statics_types),
-          //         prov: Prov::Node(ast_type.id()),
-          //     })
-          // }
+        }
     }
 }
 

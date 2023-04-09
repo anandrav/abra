@@ -73,10 +73,12 @@ impl Default for MyApp {
     fn default() -> Self {
         Self {
             text: String::from(
-                r#"let first(one: 'a, two: 'b) = one;
+                r#"let get_first(pair: ('a, 'b)) = {
+    let (one, two) = pair;
+    one
+};
 
-first(1, true)
-"#,
+get_first((1, 2))"#,
             ),
             output: String::default(),
             interpreter: None,
