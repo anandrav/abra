@@ -43,11 +43,10 @@ pub enum TypeCtor {
 pub enum Prov {
     Node(ast::Id),
     Builtin(String), // a builtin function or constant, which doesn't exist in the AST
-    InstantiatePoly(ast::Id),
-
-    // INVARIANT: the provenances in FuncArg and FuncOut are either Node or Builtin.
-    FuncArg(Box<Prov>, u8), // u8 represents the index of the argument
-    FuncOut(Box<Prov>),     // u8 represents how many arguments before this output
+    InstantiatePoly(Box<Prov>),
+    FuncArg(Box<Prov>, u8),   // u8 represents the index of the argument
+    FuncOut(Box<Prov>),       // u8 represents how many arguments before this output
+    TupleElem(Box<Prov>, u8), // u8 represents the index of the element
 }
 
 impl Type {
@@ -69,43 +68,57 @@ impl Type {
         self,
         ctx: Rc<RefCell<TyCtx>>,
         solution_map: &mut SolutionMap,
-        id: ast::Id,
+        prov: Prov,
     ) -> Type {
         match self {
             Type::Unit(_) | Type::Int(_) | Type::Bool(_) | Type::String(_) => {
                 self // noop
             }
-            Type::UnifVar(unifvar) => {
+            Type::UnifVar(ref unifvar) => {
                 let poly = {
                     let data = unifvar.clone_data();
                     data.types.get(&TypeCtor::Poly).cloned()
                 };
                 if let Some(poly) = poly {
-                    poly.instantiate(ctx, solution_map, id)
+                    poly.instantiate(ctx, solution_map, prov)
                 } else {
-                    Type::UnifVar(unifvar) // noop
+                    self // noop
                 }
             }
-            Type::Poly(provs, ident) => {
-                dbg!(ctx.clone());
-                if !ctx.borrow().lookup_poly(&ident) {
-                    Type::make_unifvar(solution_map, Prov::InstantiatePoly(id))
+            Type::Poly(_, ref ident) => {
+                if !ctx.borrow().lookup_poly(ident) {
+                    Type::make_unifvar(solution_map, Prov::InstantiatePoly(Box::new(prov)))
                 } else {
-                    Type::Poly(provs, ident) // noop
+                    self // noop
                 }
             }
             Type::Function(provs, args, out) => {
                 let args = args
                     .into_iter()
-                    .map(|ty| ty.instantiate(ctx.clone(), solution_map, id))
+                    .enumerate()
+                    .map(|(n, ty)| {
+                        ty.instantiate(
+                            ctx.clone(),
+                            solution_map,
+                            Prov::FuncArg(Box::new(prov.clone()), n as u8),
+                        )
+                    })
                     .collect();
-                let out = Box::new(out.instantiate(ctx, solution_map, id));
+                let out =
+                    Box::new(out.instantiate(ctx, solution_map, Prov::FuncOut(Box::new(prov))));
                 Type::Function(provs, args, out)
             }
             Type::Tuple(provs, elems) => {
                 let elems = elems
                     .into_iter()
-                    .map(|ty| ty.instantiate(ctx.clone(), solution_map, id))
+                    .enumerate()
+                    .map(|(n, ty)| {
+                        ty.instantiate(
+                            ctx.clone(),
+                            solution_map,
+                            Prov::TupleElem(Box::new(prov.clone()), n as u8),
+                        )
+                    })
                     .collect();
                 Type::Tuple(provs, elems)
             }
@@ -415,7 +428,7 @@ pub fn generate_constraints_expr(
             let lookup = ctx.borrow_mut().lookup(id);
             if let Some(typ) = lookup {
                 // if type is a polymorphic type, instantiate it here as a unifvar
-                let typ = typ.instantiate(ctx, solution_map, expr.id);
+                let typ = typ.instantiate(ctx, solution_map, Prov::Node(expr.id));
                 constrain(typ, node_ty);
             }
         }
@@ -769,9 +782,11 @@ pub fn result_of_constraint_solving(
             let mut provs_vec = provs.iter().collect::<Vec<_>>();
             provs_vec.sort_by_key(|prov| match prov {
                 Prov::Builtin(_) => 0,
-                Prov::Node(id) | Prov::InstantiatePoly(id) => node_map.get(id).unwrap().span().lo,
-                Prov::FuncArg(_, _) => 2,
-                Prov::FuncOut(_) => 2,
+                Prov::Node(id) => node_map.get(id).unwrap().span().lo,
+                Prov::InstantiatePoly(_) => 2,
+                Prov::FuncArg(_, _) => 3,
+                Prov::FuncOut(_) => 4,
+                Prov::TupleElem(_, _) => 5,
             });
             for cause in provs_vec {
                 match cause {
@@ -782,11 +797,8 @@ pub fn result_of_constraint_solving(
                         let span = node_map.get(id).unwrap().span();
                         err_string.push_str(&span.display(source, ""));
                     }
-                    Prov::InstantiatePoly(id) => {
-                        let span = node_map.get(id).unwrap().span();
-                        err_string.push_str(
-                            &span.display(source, "The instantiation of this polymorphic type"),
-                        );
+                    Prov::InstantiatePoly(_) => {
+                        err_string.push_str("The instantiation of polymorphic type");
                     }
                     Prov::FuncArg(prov, n) => {
                         match prov.as_ref() {
@@ -821,6 +833,9 @@ pub fn result_of_constraint_solving(
                         }
                         _ => unreachable!(),
                     },
+                    Prov::TupleElem(_, n) => {
+                        err_string.push_str(&format!("The #{n} element of tuple"))
+                    }
                 }
             }
         }
