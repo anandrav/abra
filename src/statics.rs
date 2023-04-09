@@ -21,10 +21,10 @@ pub enum Type {
     Tuple(Provs, Vec<Type>),
 }
 
-type UnifVar = UnionFindNode<UnifVar_>; // todo make a UnifVar Trait and implement it for both UnifVar and UnifVar_... try to not directly access UnifVar_
+type UnifVar = UnionFindNode<UnifVarData>;
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct UnifVar_ {
+pub struct UnifVarData {
     types: BTreeMap<TypeCtor, Type>,
 }
 
@@ -50,16 +50,16 @@ pub enum Prov {
 }
 
 impl Type {
-    pub fn ctor(&self) -> TypeCtor {
+    pub fn ctor(&self) -> Option<TypeCtor> {
         match self {
-            Type::UnifVar(_) => panic!("Type::ctor called on Type::Var"),
-            Type::Poly(_, _) => TypeCtor::Poly,
-            Type::Unit(_) => TypeCtor::Unit,
-            Type::Int(_) => TypeCtor::Int,
-            Type::Bool(_) => TypeCtor::Bool,
-            Type::String(_) => TypeCtor::String,
-            Type::Function(_, args, _) => TypeCtor::Arrow(args.len() as u8),
-            Type::Tuple(_, elems) => TypeCtor::Tuple(elems.len() as u8),
+            Type::UnifVar(_) => None,
+            Type::Poly(_, _) => Some(TypeCtor::Poly),
+            Type::Unit(_) => Some(TypeCtor::Unit),
+            Type::Int(_) => Some(TypeCtor::Int),
+            Type::Bool(_) => Some(TypeCtor::Bool),
+            Type::String(_) => Some(TypeCtor::String),
+            Type::Function(_, args, _) => Some(TypeCtor::Arrow(args.len() as u8)),
+            Type::Tuple(_, elems) => Some(TypeCtor::Tuple(elems.len() as u8)),
         }
     }
 
@@ -76,14 +76,14 @@ impl Type {
             }
             Type::UnifVar(ref unifvar) => {
                 let data = unifvar.clone_data();
-                let new_types = data.types.into_values().map(|ty| {
+                let mut new_types = BTreeMap::new();
+                for ty in data.types.into_values() {
                     let ty = ty.instantiate(ctx.clone(), solution_map, prov.clone());
-                    let ctor = ty.ctor();
-                    (ctor, ty)
-                });
-                let new_data = UnifVar_ {
-                    types: new_types.collect(),
-                };
+                    if let Some(ctor) = ty.ctor() {
+                        new_types.insert(ctor, ty);
+                    }
+                }
+                let new_data = UnifVarData { types: new_types };
                 Type::UnifVar(UnifVar::new(new_data))
             }
             Type::Poly(_, ref ident) => {
@@ -135,7 +135,7 @@ impl Type {
         match solution_map.get(&prov) {
             Some(ty) => Type::UnifVar(ty.clone()),
             None => {
-                let ty_var = UnifVar::new(UnifVar_::empty());
+                let ty_var = UnifVar::new(UnifVarData::empty());
                 let ty = Type::UnifVar(ty_var.clone());
                 solution_map.insert(prov, ty_var);
                 ty
@@ -214,7 +214,7 @@ pub fn provs_singleton(prov: Prov) -> Provs {
 
 pub type SolutionMap = HashMap<Prov, UnifVar>;
 
-impl UnifVar_ {
+impl UnifVarData {
     fn empty() -> Self {
         Self {
             types: BTreeMap::new(),
@@ -223,7 +223,7 @@ impl UnifVar_ {
 
     // TODO: occurs check
     fn extend(&mut self, t_other: Type) {
-        let ctor = t_other.ctor();
+        let ctor = t_other.ctor().unwrap();
         if let Some(t) = self.types.get_mut(&ctor) {
             match &t_other {
                 Type::UnifVar(_) => panic!("should not be Type::Var"),
@@ -274,7 +274,7 @@ impl UnifVar_ {
 fn constrain(expected: Type, actual: Type) {
     match (expected, actual) {
         (Type::UnifVar(ref mut tvar), Type::UnifVar(ref mut tvar2)) => {
-            tvar.union_with(tvar2, UnifVar_::merge);
+            tvar.union_with(tvar2, UnifVarData::merge);
         }
         (t, Type::UnifVar(tvar)) | (Type::UnifVar(tvar), t) => {
             let mut data = tvar.clone_data();
@@ -376,9 +376,31 @@ impl TyCtx {
         self.vars.insert(id.clone(), typ);
     }
 
-    pub fn extend_poly(&mut self, id: &Identifier) {
-        // TODO: track by Type not id
-        self.poly_type_vars.insert(id.clone());
+    pub fn extend_poly(&mut self, ty: &Type) {
+        match ty {
+            Type::Poly(_, ident) => {
+                self.poly_type_vars.insert(ident.clone());
+            }
+            // TODO: need this??
+            // Type::UnifVar(tvar) => {
+            //     let data = tvar.clone_data();
+            //     for (_, ty) in data.types {
+            //         self.extend_poly(&ty);
+            //     }
+            // }
+            Type::Function(_, args, out) => {
+                for arg in args {
+                    self.extend_poly(arg);
+                }
+                self.extend_poly(out);
+            }
+            Type::Tuple(_, elems) => {
+                for elem in elems {
+                    self.extend_poly(elem);
+                }
+            }
+            _ => {}
+        }
     }
 
     pub fn lookup_poly(&self, id: &Identifier) -> bool {
@@ -572,13 +594,12 @@ pub fn generate_constraints_function_helper(
         .map(|(arg, arg_annot)| {
             let ty_pat = Type::from_node(solution_map, arg.id);
             body_ctx = if let Some(arg_annot) = arg_annot {
-                if let ast::TypeKind::Poly(ident) = &*arg_annot.typekind {
-                    body_ctx.borrow_mut().extend_poly(ident); // TODO needs to recurse on children of annotation (e.g. for tuples)
-                }
+                let arg_annot = ast_type_to_statics_type(arg_annot.clone());
+                body_ctx.borrow_mut().extend_poly(&arg_annot);
                 generate_constraints_pat(
                     body_ctx.clone(), // TODO what are the consequences of analyzing patterns with context containing previous pattern... probs should not do that
                     Mode::Ana {
-                        expected: ast_type_to_statics_type(arg_annot.clone()),
+                        expected: arg_annot,
                     },
                     arg.clone(),
                     solution_map,
@@ -605,13 +626,12 @@ pub fn generate_constraints_function_helper(
         solution_map,
     );
     if let Some(out_annot) = out_annot {
-        if let ast::TypeKind::Poly(ident) = &*out_annot.typekind {
-            body_ctx.borrow_mut().extend_poly(ident);
-        }
+        let out_annot = ast_type_to_statics_type(out_annot.clone());
+        body_ctx.borrow_mut().extend_poly(&out_annot);
         generate_constraints_expr(
             body_ctx.clone(),
             Mode::Ana {
-                expected: ast_type_to_statics_type(out_annot.clone()),
+                expected: out_annot,
             },
             body.clone(),
             solution_map,
@@ -636,20 +656,16 @@ pub fn generate_constraints_stmt(
             let ty_pat = Type::from_node(solution_map, pat.id);
 
             let new_ctx = if let Some(ty_ann) = ty_ann {
-                if let ast::TypeKind::Poly(ident) = &*ty_ann.typekind {
-                    let new_ctx = TyCtx::new(Some(ctx));
-                    new_ctx.borrow_mut().extend_poly(ident);
-                    new_ctx
-                } else {
-                    let ty_ann = ast_type_to_statics_type(ty_ann.clone());
-                    generate_constraints_pat(
-                        ctx.clone(),
-                        Mode::Ana { expected: ty_ann },
-                        pat.clone(),
-                        solution_map,
-                    )
-                    .unwrap_or(ctx)
-                }
+                let ty_ann = ast_type_to_statics_type(ty_ann.clone());
+                let new_ctx = TyCtx::new(Some(ctx));
+                new_ctx.borrow_mut().extend_poly(&ty_ann);
+                generate_constraints_pat(
+                    new_ctx.clone(),
+                    Mode::Ana { expected: ty_ann },
+                    pat.clone(),
+                    solution_map,
+                )
+                .unwrap_or(new_ctx)
             } else {
                 generate_constraints_pat(ctx.clone(), Mode::Syn, pat.clone(), solution_map)
                     .unwrap_or(ctx)
