@@ -285,7 +285,6 @@ fn constrain(expected: Type, actual: Type) {
     }
 }
 
-#[derive(Debug)]
 pub struct TyCtx {
     vars: HashMap<Identifier, Type>,
     poly_type_vars: HashSet<Identifier>,
@@ -325,11 +324,11 @@ pub fn make_new_environment() -> Rc<RefCell<TyCtx>> {
     ctx
 }
 
-// impl fmt::Debug for TyCtx {
-//     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-//         write!(f, "Environment(\n{:?}\n)", TyCtx::debug_helper(self))
-//     }
-// }
+impl fmt::Debug for TyCtx {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "Environment(\n{:?}\n)", TyCtx::debug_helper(self))
+    }
+}
 
 impl TyCtx {
     pub fn debug_helper(&self) -> Vec<String> {
