@@ -779,7 +779,7 @@ pub fn result_of_constraint_solving(
             err_string.push('\n');
             match &ty {
                 Type::UnifVar(_) => err_string.push_str("Sources of unknown:\n"), // idk about this
-                Type::Poly(_, _) => err_string.push_str("Sources of polymorphic type:\n"),
+                Type::Poly(_, _) => err_string.push_str("Sources of generic type:\n"),
                 Type::Unit(_) => err_string.push_str("Sources of void:\n"),
                 Type::Int(_) => err_string.push_str("Sources of int:\n"),
                 Type::Bool(_) => err_string.push_str("Sources of bool:\n"),
@@ -864,7 +864,14 @@ impl fmt::Display for Type {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Type::Poly(_, ident) => write!(f, "{}", ident),
-            Type::UnifVar(_) => write!(f, "?"),
+            Type::UnifVar(unifvar) => {
+                let types = unifvar.clone_data().types;
+                match types.len() {
+                    0 => write!(f, "?"),
+                    1 => write!(f, "{}", types.values().next().unwrap()),
+                    _ => write!(f, "!"),
+                }
+            }
             Type::Unit(_) => write!(f, "void"),
             Type::Int(_) => write!(f, "int"),
             Type::Bool(_) => write!(f, "bool"),
@@ -885,7 +892,7 @@ impl fmt::Display for Type {
                     if i > 0 {
                         write!(f, ", ")?;
                     }
-                    write!(f, "{:#?}", elem)?;
+                    write!(f, "{}", elem)?;
                 }
                 write!(f, ")")
             }
