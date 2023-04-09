@@ -447,8 +447,7 @@ pub fn generate_constraints_expr(
         ExprKind::Var(id) => {
             let lookup = ctx.borrow_mut().lookup(id);
             if let Some(typ) = lookup {
-                // if type is a polymorphic type, instantiate it here as a unifvar
-                dbg!(typ.clone());
+                // replace polymorphic types with unifvars if necessary
                 let typ = typ.instantiate(ctx, solution_map, Prov::Node(expr.id));
                 constrain(typ, node_ty);
             }
