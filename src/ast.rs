@@ -110,7 +110,14 @@ impl Node for Expr {
                 children.push(body.clone());
                 children
             }
-            ExprKind::If(cond, then, els) => vec![cond.clone(), then.clone(), els.clone()],
+            ExprKind::If(cond, then, els) => {
+                let mut children: Vec<Rc<dyn Node>> = vec![cond.clone()];
+                children.push(then.clone());
+                if let Some(els) = els {
+                    children.push(els.clone());
+                }
+                children
+            }
             ExprKind::Block(stmts) => stmts
                 .iter()
                 .map(|s| s.clone() as Rc<dyn Node>)
@@ -138,7 +145,7 @@ pub enum ExprKind {
     Bool(bool),
     Str(String),
     Func(Vec<PatAnnotated>, Option<Rc<AstType>>, Rc<Expr>),
-    If(Rc<Expr>, Rc<Expr>, Rc<Expr>),
+    If(Rc<Expr>, Rc<Expr>, Option<Rc<Expr>>),
     // Match(Rc<Expr>, Vec<MatchArm>),
     Block(Vec<Rc<Stmt>>),
     BinOp(Rc<Expr>, BinOpcode, Rc<Expr>),
@@ -584,7 +591,11 @@ pub fn parse_expr_term(pair: Pair<Rule>, pratt: &PrattParser<Rule>) -> Rc<Expr> 
             let inner: Vec<_> = pair.into_inner().collect();
             let cond = parse_expr_pratt(Pairs::single(inner[0].clone()), pratt);
             let e1 = parse_expr_pratt(Pairs::single(inner[1].clone()), pratt);
-            let e2 = parse_expr_pratt(Pairs::single(inner[2].clone()), pratt);
+            let e2 = if inner.len() == 3 {
+                Some(parse_expr_pratt(Pairs::single(inner[2].clone()), pratt))
+            } else {
+                None
+            };
             Rc::new(Expr {
                 exprkind: Rc::new(ExprKind::If(cond, e1, e2)),
                 span,

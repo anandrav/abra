@@ -18,49 +18,31 @@ pub fn translate_pat(parse_tree: Rc<ast::Pat>) -> Rc<Etp> {
 }
 
 pub fn translate_expr_block(stmts: Vec<Rc<ast::Stmt>>) -> Rc<Ete> {
-    match stmts.len() {
-        0 => Rc::new(Ete::Unit),
-        1 => {
-            let statement = &stmts[0];
-            match &*statement.stmtkind {
-                ast::StmtKind::LetFunc(pat, func_args, _, body) => {
-                    let id = pat.patkind.get_identifier();
-                    let func = translate_expr_func(func_args.clone(), body.exprkind.clone());
-                    Rc::new(Ete::Let(
-                        Rc::new(Etp::Var(id)),
-                        func,
-                        translate_expr_block(stmts[1..].to_vec()),
-                    ))
-                }
-                ast::StmtKind::Let(_, e) | ast::StmtKind::Expr(e) => {
-                    translate_expr(e.exprkind.clone())
-                }
-            }
+    if stmts.is_empty() {
+        return Rc::new(Ete::Unit);
+    }
+    let statement = &stmts[0];
+    match &*statement.stmtkind {
+        ast::StmtKind::LetFunc(pat, func_args, _, body) => {
+            let id = pat.patkind.get_identifier();
+            let func = translate_expr_func(func_args.clone(), body.exprkind.clone());
+            Rc::new(Ete::Let(
+                Rc::new(Etp::Var(id)),
+                func,
+                translate_expr_block(stmts[1..].to_vec()),
+            ))
         }
-        _ => {
-            let statement = &stmts[0];
-            match &*statement.stmtkind {
-                ast::StmtKind::LetFunc(pat, func_args, _, body) => {
-                    let id = pat.patkind.get_identifier();
-                    let func = translate_expr_func(func_args.clone(), body.exprkind.clone());
-                    Rc::new(Ete::Let(
-                        Rc::new(Etp::Var(id)),
-                        func,
-                        translate_expr_block(stmts[1..].to_vec()),
-                    ))
-                }
-                ast::StmtKind::Let((pat, _), expr) => Rc::new(Ete::Let(
-                    translate_pat(pat.clone()),
-                    translate_expr(expr.exprkind.clone()),
-                    translate_expr_block(stmts[1..].to_vec()),
-                )),
-                ast::StmtKind::Expr(expr) => Rc::new(Ete::Let(
-                    Rc::new(eval_tree::Pat::Var("_".to_string())), // TODO anandduk: add actual wildcard
-                    translate_expr(expr.exprkind.clone()),
-                    translate_expr_block(stmts[1..].to_vec()),
-                )),
-            }
-        }
+        ast::StmtKind::Let((pat, _), expr) => Rc::new(Ete::Let(
+            translate_pat(pat.clone()),
+            translate_expr(expr.exprkind.clone()),
+            translate_expr_block(stmts[1..].to_vec()),
+        )),
+        ast::StmtKind::Expr(e) if stmts.len() == 1 => translate_expr(e.exprkind.clone()),
+        ast::StmtKind::Expr(expr) => Rc::new(Ete::Let(
+            Rc::new(eval_tree::Pat::Var("_".to_string())), // TODO anandduk: add actual wildcard
+            translate_expr(expr.exprkind.clone()),
+            translate_expr_block(stmts[1..].to_vec()),
+        )),
     }
 }
 
@@ -125,10 +107,19 @@ pub fn translate_expr(parse_tree: Rc<ASTek>) -> Rc<Ete> {
                 .map(|expr| expr.exprkind.clone())
                 .collect(),
         ),
-        ASTek::If(expr1, expr2, expr3) => Rc::new(Ete::If(
-            translate_expr(expr1.exprkind.clone()),
-            translate_expr(expr2.exprkind.clone()),
-            translate_expr(expr3.exprkind.clone()),
-        )),
+        ASTek::If(expr1, expr2, expr3) => match expr3 {
+            // if-else
+            Some(expr3) => Rc::new(Ete::If(
+                translate_expr(expr1.exprkind.clone()),
+                translate_expr(expr2.exprkind.clone()),
+                translate_expr(expr3.exprkind.clone()),
+            )),
+            // just
+            None => Rc::new(Ete::If(
+                translate_expr(expr1.exprkind.clone()),
+                translate_expr(expr2.exprkind.clone()),
+                Rc::new(Ete::Unit),
+            )),
+        },
     }
 }

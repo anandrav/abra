@@ -87,7 +87,7 @@ let for_range(range, f) = {
     if i < n {
         f(i)
         for_range((i+1, n), f)
-    } else {}
+    }
 }
 
 let print_fibonacci(n) = print(int_to_string(fibonacci(n)))

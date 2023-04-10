@@ -22,7 +22,7 @@ tuple_pat_element = _{ pattern }
 expression = { term ~ (op_binary ~ term)* }
 term = _{ block_expression | func_expression | func_call_expression | parenthesized_expression | if_else_expression | tuple_expr | primary_expression }
 
-if_else_expression = { if_keyword ~ expression ~ expression ~ else_keyword ~ expression }
+if_else_expression = { if_keyword ~ expression ~ expression ~ (else_keyword ~ expression)? }
 if_keyword = _{ "if" }
 else_keyword = _{ "else" }
 

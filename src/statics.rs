@@ -506,20 +506,37 @@ pub fn generate_constraints_expr(
                 cond.clone(),
                 solution_map,
             );
-            generate_constraints_expr(
-                ctx.clone(),
-                Mode::Ana {
-                    expected: node_ty.clone(),
-                },
-                expr1.clone(),
-                solution_map,
-            );
-            generate_constraints_expr(
-                ctx,
-                Mode::Ana { expected: node_ty },
-                expr2.clone(),
-                solution_map,
-            );
+            match &expr2 {
+                // if-else
+                Some(expr2) => {
+                    generate_constraints_expr(
+                        ctx.clone(),
+                        Mode::Ana {
+                            expected: node_ty.clone(),
+                        },
+                        expr1.clone(),
+                        solution_map,
+                    );
+                    generate_constraints_expr(
+                        ctx,
+                        Mode::Ana { expected: node_ty },
+                        expr2.clone(),
+                        solution_map,
+                    );
+                }
+                // just if
+                None => {
+                    generate_constraints_expr(
+                        ctx,
+                        Mode::Ana {
+                            expected: Type::make_unit(Prov::Node(expr.id)),
+                        },
+                        expr1.clone(),
+                        solution_map,
+                    );
+                    constrain(node_ty, Type::make_unit(Prov::Node(expr.id)))
+                }
+            }
         }
         ExprKind::Func(args, out_annot, body) => {
             let (ty_func, _body_ctx) = generate_constraints_function_helper(
