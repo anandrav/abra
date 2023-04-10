@@ -7,7 +7,7 @@ program = { SOI ~ statement* ~ EOI }
 
 statement = _{ let_func_statement | let_statement | expression_statement }
 
-let_statement = { let_keyword ~ pattern_annotated ~ op_assign ~ expression ~ semicolon }
+let_statement = { let_keyword ~ pattern_annotated ~ op_assign ~ expression }
 let_keyword = _{ "let" }
 expression_statement = { expression }
 pattern = _{ tuple_pat | wildcard | identifier }
@@ -39,8 +39,8 @@ parenthesized_expression = _{ paren_start ~ expression ~ paren_end }
 paren_start = _{ "(" }
 paren_end = _{ ")" }
 
-func_call_expression = { primary_expression ~ func_call_args }
-func_call_args = _{ func_call_args_start ~ (func_call_arg ~ ",")* ~ func_call_arg? ~ func_call_args_end }
+func_call_expression = ${ primary_expression ~ func_call_args }
+func_call_args = !{ func_call_args_start ~ (func_call_arg ~ ",")* ~ func_call_arg? ~ func_call_args_end }
 func_call_args_start = _{ "(" }
 func_call_args_end = _{ ")" }
 func_call_arg = _{ expression }

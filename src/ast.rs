@@ -630,9 +630,10 @@ pub fn parse_expr_term(pair: Pair<Rule>, pratt: &PrattParser<Rule>) -> Rc<Expr> 
         Rule::func_call_expression => {
             let inner: Vec<_> = pair.into_inner().collect();
             let f = parse_expr_pratt(Pairs::single(inner[0].clone()), pratt);
-            let arg1 = parse_expr_pratt(Pairs::single(inner[1].clone()), pratt);
+            let inner: Vec<_> = inner[1].clone().into_inner().collect();
+            let arg1 = parse_expr_pratt(Pairs::single(inner[0].clone()), pratt);
             let mut args = vec![arg1];
-            for p in &inner[2..] {
+            for p in &inner[1..] {
                 args.push(parse_expr_pratt(Pairs::single(p.clone()), pratt));
             }
             Rc::new(Expr {
