@@ -47,7 +47,6 @@ pub enum Prov {
     InstantiatePoly(Box<Prov>, Identifier),
     FuncArg(Box<Prov>, u8), // u8 represents the index of the argument
     FuncOut(Box<Prov>),     // u8 represents how many arguments before this output
-                            // TupleElem(Box<Prov>, u8), // u8 represents the index of the element
 }
 
 impl Type {
@@ -923,9 +922,6 @@ pub fn result_of_constraint_solving(
                         }
                         _ => unreachable!(),
                     },
-                    // Prov::TupleElem(_, n) => {
-                    //     err_string.push_str(&format!("The #{n} element of tuple"))
-                    // }
                 }
             }
         }
