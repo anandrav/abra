@@ -771,7 +771,7 @@ pub fn generate_constraints_stmt(
                 let out_annot = ast_type_to_statics_type(out_annot.clone());
                 body_ctx.borrow_mut().add_polys(&out_annot);
                 generate_constraints_expr(
-                    body_ctx.clone(),
+                    body_ctx,
                     Mode::Ana {
                         expected: out_annot,
                     },

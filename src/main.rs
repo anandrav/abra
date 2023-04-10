@@ -109,7 +109,7 @@ impl eframe::App for MyApp {
             // HACK. this forces update() to be called as much as possible
             // so that the program can run on the UI thread.
             // I did this because web assembly does not support threads currently
-            let steps = if cfg!(debug_assertions) { 1000 } else { 1000 };
+            let steps = if cfg!(debug_assertions) { 1 } else { 1000 };
             let mut more_output = String::new();
             let effect_handler =
                 |effect, args| side_effects::handle_effect(effect, args, &mut more_output);
