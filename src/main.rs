@@ -82,7 +82,7 @@ impl Default for MyApp {
         fibonacci(n-1) + fibonacci(n-2)
 }
 
-let for_range(range, f) = {
+let for_range(range: (int, int), f: int -> void) = {
     let (i, n) = range
     if i < n {
         f(i)
@@ -90,7 +90,8 @@ let for_range(range, f) = {
     }
 }
 
-let print_fibonacci(n) = print(int_to_string(fibonacci(n)))
+let print_fibonacci(n) = 
+    print(int_to_string(fibonacci(n)))
 
 print("The first 30 fibonacci numbers are:")
 for_range((0, 30), print_fibonacci)"#,
