@@ -82,19 +82,19 @@ impl Default for MyApp {
         fibonacci(n-1) + fibonacci(n-2)
 }
 
-let for_range(range: (int, int), f: int -> void) = {
-    let (i, n) = range
+let for_range(range, f) = {
+    let (i, n) = range;
     if i < n {
         f(i)
         for_range((i+1, n), f)
     }
 }
 
-let print_fibonacci(n) = 
-    print(int_to_string(fibonacci(n)))
+let print_fibonacci(n) = print(int_to_string(fibonacci(n)))
 
 print("The first 30 fibonacci numbers are:")
-for_range((0, 30), print_fibonacci)"#,
+for_range((0, 30), print_fibonacci)
+"#,
             ),
             output: String::default(),
             interpreter: None,
@@ -109,7 +109,7 @@ impl eframe::App for MyApp {
             // HACK. this forces update() to be called as much as possible
             // so that the program can run on the UI thread.
             // I did this because web assembly does not support threads currently
-            let steps = if cfg!(debug_assertions) { 1 } else { 1000 };
+            let steps = if cfg!(debug_assertions) { 1000 } else { 1000 };
             let mut more_output = String::new();
             let effect_handler =
                 |effect, args| side_effects::handle_effect(effect, args, &mut more_output);

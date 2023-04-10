@@ -7,7 +7,7 @@ program = { SOI ~ statement* ~ EOI }
 
 statement = _{ let_func_statement | let_statement | expression_statement }
 
-let_statement = { let_keyword ~ pattern_annotated ~ op_assign ~ expression }
+let_statement = { let_keyword ~ pattern_annotated ~ op_assign ~ expression ~ semicolon }
 let_keyword = _{ "let" }
 expression_statement = { expression }
 pattern = _{ tuple_pat | wildcard | identifier }
@@ -100,4 +100,4 @@ keyword = @{
    else_keyword | "false" | "func" | if_keyword | let_keyword | "nothing" | "true"
 }
 
-// semicolon = _{ ";" }
+semicolon = _{ ";" }

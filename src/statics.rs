@@ -2,6 +2,7 @@ use crate::ast::{
     self, ast_type_to_statics_type, Expr, ExprKind, Identifier, Pat, PatKind, Stmt, StmtKind,
 };
 use crate::operators::BinOpcode;
+use core::panic;
 use disjoint_sets::UnionFindNode;
 use std::cell::RefCell;
 use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
@@ -64,6 +65,7 @@ impl Type {
     }
 
     // Creates a clone of a Type with polymorphic variables not in scope replaced with fresh unification variables
+    // Cloning type variables is very subtle...
     pub fn instantiate(
         self,
         ctx: Rc<RefCell<TyCtx>>,
@@ -74,13 +76,24 @@ impl Type {
             Type::Unit(_) | Type::Int(_) | Type::Bool(_) | Type::String(_) => {
                 self // noop
             }
-            Type::UnifVar(ref unifvar) => {
+            Type::UnifVar(unifvar) => {
                 let data = unifvar.clone_data();
                 if data.types.len() == 1 {
+                    // TODO consider relaxing this if it gives better editor feedback. But test thoroughly after
                     let ty = data.types.into_values().next().unwrap();
-                    ty.instantiate(ctx, solution_map, prov)
+                    if let Type::Poly(_, _) = ty {
+                        ty.instantiate(ctx, solution_map, prov)
+                    } else {
+                        let ty = ty.instantiate(ctx, solution_map, prov.clone());
+                        let mut types = BTreeMap::new();
+                        types.insert(ty.ctor().unwrap(), ty);
+                        let data = UnifVarData { types };
+                        let unifvar = UnionFindNode::new(data);
+                        solution_map.insert(prov, unifvar.clone());
+                        Type::UnifVar(unifvar) // TODO clone this? But test thoroughly after lol
+                    }
                 } else {
-                    self // noop
+                    Type::UnifVar(unifvar) // noop
                 }
             }
             Type::Poly(_, ref ident) => {
