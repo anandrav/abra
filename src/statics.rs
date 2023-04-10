@@ -74,18 +74,14 @@ impl Type {
             Type::Unit(_) | Type::Int(_) | Type::Bool(_) | Type::String(_) => {
                 self // noop
             }
-            Type::UnifVar(unifvar) => {
+            Type::UnifVar(ref unifvar) => {
                 let data = unifvar.clone_data();
-                let mut new_types = BTreeMap::new();
-                for ty in data.types.into_values() {
-                    let ty = ty.instantiate(ctx.clone(), solution_map, prov.clone());
-                    if let Some(ctor) = ty.ctor() {
-                        new_types.insert(ctor, ty);
-                    }
+                if data.types.len() == 1 {
+                    let ty = data.types.into_values().next().unwrap();
+                    ty.instantiate(ctx, solution_map, prov)
+                } else {
+                    self // noop
                 }
-                let new_data = UnifVarData { types: new_types };
-                unifvar.replace_data(new_data);
-                Type::UnifVar(unifvar)
             }
             Type::Poly(_, ref ident) => {
                 if !ctx.borrow().lookup_poly(ident) {
