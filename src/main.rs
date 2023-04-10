@@ -70,9 +70,9 @@ struct MyApp {
 }
 
 const FIB: &str = r#"let fibonacci(n) = {
-    if n == 0
+    if n = 0
         0
-    else if n == 1
+    else if n = 1
         1
     else
         fibonacci(n-1) + fibonacci(n-2)

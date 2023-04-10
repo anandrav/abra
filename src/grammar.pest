@@ -84,7 +84,7 @@ literal_string = @{ "\"" ~ (!"\"" ~ ANY)* ~ "\"" }
 literal_bool = @{ "true" | "false" }
 
 op_binary = _{op_eq | op_gte | op_lte | op_gt | op_lt | op_addition | op_subtraction | op_multiplication | op_division }
-op_eq = { "==" }
+op_eq = { "=" }
 op_gt = { ">" }
 op_lt = { "<" }
 op_gte = { ">=" }
