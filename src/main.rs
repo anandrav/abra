@@ -118,7 +118,7 @@ impl eframe::App for MyApp {
                 interpreter.run(effect_handler, steps);
                 self.output.push_str(&more_output);
                 if interpreter.is_finished() {
-                    self.output += &format!("Evaluated to: {:?}", interpreter.get_val().unwrap());
+                    self.output += &format!("Last line evaluated to: {}", interpreter.get_val().unwrap());
                     self.interpreter = None;
                 } else {
                     ui.ctx().request_repaint();

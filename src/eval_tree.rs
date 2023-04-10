@@ -23,6 +23,31 @@ pub enum Expr {
     ConsumedEffect,
 }
 
+// only works for values right now:
+impl std::fmt::Display for Expr {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        use self::Expr::*;
+        match self {
+            Unit => write!(f, "no result"),
+            Int(i) => write!(f, "{}", i),
+            Str(s) => write!(f, "{}", s),
+            Bool(b) => write!(f, "{}", b),
+            Tuple(elements) => {
+                write!(f, "(")?;
+                for (i, element) in elements.iter().enumerate() {
+                    write!(f, "{}", element)?;
+                    if i != elements.len() - 1 {
+                        write!(f, ", ")?;
+                    }
+                }
+                write!(f, ")")
+            }
+            Func(param, body, _) => write!(f, "(fn {} -> {})", param, body),
+            _ => panic!("only implemented for values"),
+        }
+    }
+}
+
 #[derive(Debug)]
 pub enum Pat {
     Var(String),
