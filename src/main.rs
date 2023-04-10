@@ -69,11 +69,7 @@ struct MyApp {
     interpreter: Option<Interpreter>,
 }
 
-impl Default for MyApp {
-    fn default() -> Self {
-        Self {
-            text: String::from(
-                r#"let fibonacci(n) = {
+const FIB: &str = r#"let fibonacci(n) = {
     if n == 0
         0
     else if n == 1
@@ -95,8 +91,22 @@ let print_fibonacci(n) =
 
 print("The first 30 fibonacci numbers are:")
 for_range((0, 30), print_fibonacci)
-"#,
-            ),
+"#;
+
+const _SWAP: &str = r#"let swap(pair: ('a, 'b)) = {
+    let (first, second) = pair
+    (second, first)
+}
+
+swap((1, true))
+
+swap(("hello", 2))
+"#;
+
+impl Default for MyApp {
+    fn default() -> Self {
+        Self {
+            text: String::from(FIB),
             output: String::default(),
             interpreter: None,
         }
@@ -118,7 +128,8 @@ impl eframe::App for MyApp {
                 interpreter.run(effect_handler, steps);
                 self.output.push_str(&more_output);
                 if interpreter.is_finished() {
-                    self.output += &format!("Last line evaluated to: {}", interpreter.get_val().unwrap());
+                    self.output +=
+                        &format!("Last line evaluated to: {}", interpreter.get_val().unwrap());
                     self.interpreter = None;
                 } else {
                     ui.ctx().request_repaint();

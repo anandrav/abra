@@ -44,10 +44,10 @@ pub enum TypeCtor {
 pub enum Prov {
     Node(ast::Id),
     Builtin(String), // a builtin function or constant, which doesn't exist in the AST
-    InstantiatePoly(Box<Prov>),
-    FuncArg(Box<Prov>, u8),   // u8 represents the index of the argument
-    FuncOut(Box<Prov>),       // u8 represents how many arguments before this output
-    TupleElem(Box<Prov>, u8), // u8 represents the index of the element
+    InstantiatePoly(Box<Prov>, Identifier),
+    FuncArg(Box<Prov>, u8), // u8 represents the index of the argument
+    FuncOut(Box<Prov>),     // u8 represents how many arguments before this output
+                            // TupleElem(Box<Prov>, u8), // u8 represents the index of the element
 }
 
 impl Type {
@@ -98,7 +98,10 @@ impl Type {
             }
             Type::Poly(_, ref ident) => {
                 if !ctx.borrow().lookup_poly(ident) {
-                    Type::fresh_unifvar(solution_map, Prov::InstantiatePoly(Box::new(prov)))
+                    Type::fresh_unifvar(
+                        solution_map,
+                        Prov::InstantiatePoly(Box::new(prov), ident.clone()),
+                    )
                 } else {
                     self // noop
                 }
@@ -106,30 +109,15 @@ impl Type {
             Type::Function(provs, args, out) => {
                 let args = args
                     .into_iter()
-                    .enumerate()
-                    .map(|(n, ty)| {
-                        ty.instantiate(
-                            ctx.clone(),
-                            solution_map,
-                            Prov::FuncArg(Box::new(prov.clone()), n as u8),
-                        )
-                    })
+                    .map(|ty| ty.instantiate(ctx.clone(), solution_map, prov.clone()))
                     .collect();
-                let out =
-                    Box::new(out.instantiate(ctx, solution_map, Prov::FuncOut(Box::new(prov))));
+                let out = Box::new(out.instantiate(ctx, solution_map, prov));
                 Type::Function(provs, args, out)
             }
             Type::Tuple(provs, elems) => {
                 let elems = elems
                     .into_iter()
-                    .enumerate()
-                    .map(|(n, ty)| {
-                        ty.instantiate(
-                            ctx.clone(),
-                            solution_map,
-                            Prov::TupleElem(Box::new(prov.clone()), n as u8),
-                        )
-                    })
+                    .map(|ty| ty.instantiate(ctx.clone(), solution_map, prov.clone()))
                     .collect();
                 Type::Tuple(provs, elems)
             }
@@ -885,10 +873,9 @@ pub fn result_of_constraint_solving(
             provs_vec.sort_by_key(|prov| match prov {
                 Prov::Builtin(_) => 0,
                 Prov::Node(id) => node_map.get(id).unwrap().span().lo,
-                Prov::InstantiatePoly(_) => 2,
+                Prov::InstantiatePoly(_, _ident) => 2,
                 Prov::FuncArg(_, _) => 3,
                 Prov::FuncOut(_) => 4,
-                Prov::TupleElem(_, _) => 5,
             });
             for cause in provs_vec {
                 match cause {
@@ -899,8 +886,9 @@ pub fn result_of_constraint_solving(
                         let span = node_map.get(id).unwrap().span();
                         err_string.push_str(&span.display(source, ""));
                     }
-                    Prov::InstantiatePoly(_) => {
-                        err_string.push_str("The instantiation of polymorphic type");
+                    Prov::InstantiatePoly(_, ident) => {
+                        err_string
+                            .push_str(&format!("The instantiation of polymorphic type {ident}"));
                     }
                     Prov::FuncArg(prov, n) => {
                         match prov.as_ref() {
@@ -935,9 +923,9 @@ pub fn result_of_constraint_solving(
                         }
                         _ => unreachable!(),
                     },
-                    Prov::TupleElem(_, n) => {
-                        err_string.push_str(&format!("The #{n} element of tuple"))
-                    }
+                    // Prov::TupleElem(_, n) => {
+                    //     err_string.push_str(&format!("The #{n} element of tuple"))
+                    // }
                 }
             }
         }
