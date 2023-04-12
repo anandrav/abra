@@ -28,6 +28,7 @@ impl std::fmt::Display for Expr {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         use self::Expr::*;
         match self {
+            Var(ident) => write!(f, "{}", ident),
             Unit => write!(f, "no result"),
             Int(i) => write!(f, "{}", i),
             Str(s) => write!(f, "{}", s),
@@ -42,9 +43,8 @@ impl std::fmt::Display for Expr {
                 }
                 write!(f, ")")
             }
-            Func(param, body, _) => write!(f, "(fn {} -> {})", param, body),
-            Var(ident) => write!(f, "{}", ident),
-            _ => panic!("only implemented for values"),
+            Func(_, _, _) => write!(f, "<function>"),
+            _ => panic!("not implemented for non-values"),
         }
     }
 }
