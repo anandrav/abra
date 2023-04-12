@@ -103,14 +103,12 @@ fn interpret(
             let result = env.borrow_mut().lookup(id);
             match result {
                 None => panic!("No value for variable with id: {}", id),
-                Some(val) => {
-                    InterpretResult {
-                        expr: val,
-                        steps,
-                        effect: None,
-                        new_env: env,
-                    }
-                }
+                Some(val) => InterpretResult {
+                    expr: val,
+                    steps,
+                    effect: None,
+                    new_env: env,
+                },
             }
         }
         Unit | Int(_) | Bool(_) | Str(_) | Func(_, _, Some(_)) => InterpretResult {

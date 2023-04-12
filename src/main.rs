@@ -186,8 +186,7 @@ impl eframe::App for MyApp {
                                     match result {
                                         Ok(_) => {
                                             debug_println!("solved constraints.");
-                                            let eval_tree =
-                                                translate::translate(parse_tree);
+                                            let eval_tree = translate::translate(parse_tree);
                                             self.interpreter = Some(Interpreter::new(eval_tree));
                                             debug_println!("initialized new interpreter.");
                                         }

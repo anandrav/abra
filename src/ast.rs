@@ -545,10 +545,7 @@ pub fn parse_type_term(pair: Pair<Rule>) -> Rc<AstType> {
         }),
         Rule::tuple_type => {
             let inner: Vec<_> = pair.into_inner().collect();
-            let types = inner
-                .into_iter()
-                .map(parse_type_term)
-                .collect();
+            let types = inner.into_iter().map(parse_type_term).collect();
             Rc::new(AstType {
                 typekind: Rc::new(TypeKind::Tuple(types)),
                 span,
