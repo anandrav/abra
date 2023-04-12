@@ -73,7 +73,6 @@ impl Interpreter {
             steps,
             &self.next_input,
         );
-        dbg!(&result);
         self.program_expr = result.expr;
         self.env = result.new_env;
         self.next_input = result
@@ -99,14 +98,12 @@ fn interpret(
     steps: i32,
     input: &Option<Input>,
 ) -> InterpretResult {
-    dbg!(expr.clone());
     match &*expr {
         Var(id) => {
             let result = env.borrow_mut().lookup(id);
             match result {
                 None => panic!("No value for variable with id: {}", id),
                 Some(val) => {
-                    dbg!(val.clone());
                     InterpretResult {
                         expr: val,
                         steps,

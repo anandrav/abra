@@ -88,10 +88,10 @@ let for_range(r: range, f) = {
     }
 }
 
-let print_fibonacci(n) = 
-    print(int_to_string(fibonacci(n)))
+let print_fibonacci(n) = print(int_to_string(fibonacci(n)))
 
 print("The first 30 fibonacci numbers are:")
+
 for_range((0, 30), print_fibonacci)
 "#;
 
@@ -161,12 +161,10 @@ impl eframe::App for MyApp {
                         {
                             self.interpreter = None;
                             self.output.clear();
-                            let text_with_braces = &self.text;
                             // let text_with_braces = "{\n".to_owned() + &self.text + "\n}";
-                            match ast::parse_or_err(&text_with_braces) {
+                            match ast::parse_or_err(&self.text) {
                                 Ok(parse_tree) => {
                                     debug_println!("successfully parsed.");
-                                    dbg!(parse_tree.clone());
                                     let mut node_map = ast::NodeMap::new();
                                     ast::initialize_node_map(
                                         &mut node_map,
@@ -183,13 +181,13 @@ impl eframe::App for MyApp {
                                     let result = statics::result_of_constraint_solving(
                                         solution_map,
                                         node_map,
-                                        &text_with_braces,
+                                        &self.text,
                                     );
                                     match result {
                                         Ok(_) => {
                                             debug_println!("solved constraints.");
                                             let eval_tree =
-                                                translate::translate(parse_tree.clone());
+                                                translate::translate(parse_tree);
                                             self.interpreter = Some(Interpreter::new(eval_tree));
                                             debug_println!("initialized new interpreter.");
                                         }

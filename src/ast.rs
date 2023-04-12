@@ -1,5 +1,4 @@
 use crate::operators::BinOpcode;
-use crate::statics::{self, Prov};
 // use pest::error::{Error, ErrorVariant, InputLocation::Pos};
 use pest::iterators::{Pair, Pairs};
 use pest::pratt_parser::{Assoc, Op, PrattParser};
@@ -39,20 +38,14 @@ impl Node for Toplevel {
     }
 }
 
-#[derive(Debug)]
-pub enum Item {
-    Stmt(Rc<Stmt>),
-    TypeDef(Rc<TypeDef>),
-}
-
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub struct TypeDef {
     pub kind: TypeDefKind,
     pub span: Span,
     pub id: Id,
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum TypeDefKind {
     Alias(Identifier, Rc<AstType>),
 }
@@ -118,6 +111,9 @@ impl Node for Stmt {
                 children
             }
             StmtKind::Expr(expr) => vec![expr.clone()],
+            StmtKind::TypeDef(tydefkind) => match &**tydefkind {
+                TypeDefKind::Alias(_, ty) => vec![ty.clone()],
+            },
         }
     }
 }
@@ -127,6 +123,7 @@ pub enum StmtKind {
     LetFunc(Rc<Pat>, Vec<PatAnnotated>, Option<Rc<AstType>>, Rc<Expr>),
     Let(PatAnnotated, Rc<Expr>),
     Expr(Rc<Expr>),
+    TypeDef(Rc<TypeDefKind>),
 }
 
 #[derive(Debug, PartialEq)]
@@ -262,30 +259,6 @@ pub struct AstType {
     pub typekind: Rc<TypeKind>,
     pub span: Span,
     pub id: Id,
-}
-
-pub fn ast_type_to_statics_type(ast_type: Rc<AstType>) -> statics::Type {
-    match &*ast_type.typekind {
-        TypeKind::Poly(ident) => statics::Type::make_poly(Prov::Node(ast_type.id()), ident.clone()),
-        TypeKind::Alias(_ident) => unimplemented!(),
-        TypeKind::Unit => statics::Type::make_unit(Prov::Node(ast_type.id())),
-        TypeKind::Int => statics::Type::make_int(Prov::Node(ast_type.id())),
-        TypeKind::Bool => statics::Type::make_bool(Prov::Node(ast_type.id())),
-        TypeKind::Str => statics::Type::make_string(Prov::Node(ast_type.id())),
-        // TODO wait is this only curried??
-        TypeKind::Arrow(lhs, rhs) => statics::Type::make_arrow(
-            vec![ast_type_to_statics_type(lhs.clone())],
-            ast_type_to_statics_type(rhs.clone()),
-            ast_type.id(),
-        ),
-        TypeKind::Tuple(types) => {
-            let mut statics_types = Vec::new();
-            for t in types {
-                statics_types.push(ast_type_to_statics_type(t.clone()));
-            }
-            statics::Type::make_tuple(statics_types, ast_type.id())
-        }
-    }
 }
 
 impl Node for AstType {
@@ -511,7 +484,7 @@ pub fn parse_pat(pair: Pair<Rule>) -> Rc<Pat> {
 pub fn parse_type_pratt(pairs: Pairs<Rule>) -> Rc<AstType> {
     let pratt = PrattParser::new().op(Op::infix(Rule::type_op_arrow, Assoc::Right));
     pratt
-        .map_primary(|primary| parse_type_term(primary))
+        .map_primary(parse_type_term)
         .map_infix(|lhs, op, rhs| {
             Rc::new(AstType {
                 typekind: Rc::new(TypeKind::Arrow(lhs, rhs)),
@@ -574,7 +547,7 @@ pub fn parse_type_term(pair: Pair<Rule>) -> Rc<AstType> {
             let inner: Vec<_> = pair.into_inner().collect();
             let types = inner
                 .into_iter()
-                .map(|pair| parse_type_term(pair))
+                .map(parse_type_term)
                 .collect();
             Rc::new(AstType {
                 typekind: Rc::new(TypeKind::Tuple(types)),
@@ -583,24 +556,6 @@ pub fn parse_type_term(pair: Pair<Rule>) -> Rc<AstType> {
             })
         }
         _ => panic!("unreachable rule {:#?}", pair),
-    }
-}
-
-pub fn parse_typedef(pair: Pair<Rule>) -> Rc<TypeDef> {
-    let span = Span::from(pair.as_span());
-    let rule = pair.as_rule();
-    match rule {
-        Rule::type_def => {
-            let inner: Vec<_> = pair.into_inner().collect();
-            let ident = inner[0].as_str().to_string();
-            let definition = parse_type_pratt(inner[1].clone().into_inner());
-            Rc::new(TypeDef {
-                kind: TypeDefKind::Alias(ident, definition),
-                span,
-                id: Id::new(),
-            })
-        }
-        _ => panic!("unreachable rule {:#?}", rule),
     }
 }
 
@@ -652,7 +607,17 @@ pub fn parse_stmt(pair: Pair<Rule>) -> Rc<Stmt> {
                 id: Id::new(),
             })
         }
-        // CHECKPOINT
+        Rule::type_def => {
+            let ident = inner[0].as_str().to_string();
+            let definition = parse_type_pratt(inner[1].clone().into_inner());
+            Rc::new(Stmt {
+                stmtkind: Rc::new(StmtKind::TypeDef(Rc::new(TypeDefKind::Alias(
+                    ident, definition,
+                )))),
+                span,
+                id: Id::new(),
+            })
+        }
         _ => panic!("unreachable rule {:#?}", rule),
     }
 }

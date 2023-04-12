@@ -1,5 +1,5 @@
 use crate::ast::{
-    self, ast_type_to_statics_type, Expr, ExprKind, Identifier, Pat, PatKind, Stmt, StmtKind,
+    self, Expr, ExprKind, Identifier, Node, Pat, PatKind, Stmt, StmtKind, TypeDefKind,
 };
 use crate::operators::BinOpcode;
 use core::panic;
@@ -42,7 +42,8 @@ pub enum TypeCtor {
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum Prov {
-    Node(ast::Id),
+    Node(ast::Id), // the type of an expression or statement
+    Alias(Identifier),
     Builtin(String), // a builtin function or constant, which doesn't exist in the AST
     InstantiatePoly(Box<Prov>, Identifier),
     FuncArg(Box<Prov>, u8), // u8 represents the index of the argument
@@ -198,6 +199,35 @@ pub fn types_of_binop(opcode: &BinOpcode, id: ast::Id) -> (Type, Type, Type) {
             Type::make_int(Prov::Node(id)),
             Type::make_bool(Prov::Node(id)),
         ),
+    }
+}
+
+pub fn ast_type_to_statics_type(
+    solution_map: &mut SolutionMap,
+    ast_type: Rc<ast::AstType>,
+) -> Type {
+    match &*ast_type.typekind {
+        ast::TypeKind::Poly(ident) => Type::make_poly(Prov::Node(ast_type.id()), ident.clone()),
+        ast::TypeKind::Alias(ident) => {
+            Type::fresh_unifvar(solution_map, Prov::Alias(ident.clone()))
+        }
+        ast::TypeKind::Unit => Type::make_unit(Prov::Node(ast_type.id())),
+        ast::TypeKind::Int => Type::make_int(Prov::Node(ast_type.id())),
+        ast::TypeKind::Bool => Type::make_bool(Prov::Node(ast_type.id())),
+        ast::TypeKind::Str => Type::make_string(Prov::Node(ast_type.id())),
+        // TODO wait does this only allow one argument??
+        ast::TypeKind::Arrow(lhs, rhs) => Type::make_arrow(
+            vec![ast_type_to_statics_type(solution_map, lhs.clone())],
+            ast_type_to_statics_type(solution_map, rhs.clone()),
+            ast_type.id(),
+        ),
+        ast::TypeKind::Tuple(types) => {
+            let mut statics_types = Vec::new();
+            for t in types {
+                statics_types.push(ast_type_to_statics_type(solution_map, t.clone()));
+            }
+            Type::make_tuple(statics_types, ast_type.id())
+        }
     }
 }
 
@@ -614,7 +644,7 @@ pub fn generate_constraints_function_helper(
         .map(|(arg, arg_annot)| {
             let ty_pat = Type::from_node(solution_map, arg.id);
             body_ctx = if let Some(arg_annot) = arg_annot {
-                let arg_annot = ast_type_to_statics_type(arg_annot.clone());
+                let arg_annot = ast_type_to_statics_type(solution_map, arg_annot.clone());
                 body_ctx.borrow_mut().add_polys(&arg_annot);
                 generate_constraints_pat(
                     body_ctx.clone(), // TODO what are the consequences of analyzing patterns with context containing previous pattern... probs should not do that
@@ -646,7 +676,7 @@ pub fn generate_constraints_function_helper(
         solution_map,
     );
     if let Some(out_annot) = out_annot {
-        let out_annot = ast_type_to_statics_type(out_annot.clone());
+        let out_annot = ast_type_to_statics_type(solution_map, out_annot.clone());
         body_ctx.borrow_mut().add_polys(&out_annot);
         generate_constraints_expr(
             body_ctx.clone(),
@@ -668,6 +698,17 @@ pub fn generate_constraints_stmt(
     solution_map: &mut SolutionMap,
 ) -> Option<Rc<RefCell<TyCtx>>> {
     match &*stmt.stmtkind {
+        StmtKind::TypeDef(typdefkind) => match &**typdefkind {
+            TypeDefKind::Alias(ident, ty) => {
+                let new_ctx = TyCtx::new(Some(ctx));
+                let left = Type::fresh_unifvar(solution_map, Prov::Alias(ident.clone()));
+                let right = ast_type_to_statics_type(solution_map, ty.clone());
+                // new_ctx.borrow_mut().add_polys(&ty);
+                // new_ctx.borrow_mut().extend(ident, left.clone());
+                constrain(left, right);
+                Some(new_ctx)
+            }
+        },
         StmtKind::Expr(expr) => {
             generate_constraints_expr(ctx, mode, expr.clone(), solution_map);
             None
@@ -676,7 +717,7 @@ pub fn generate_constraints_stmt(
             let ty_pat = Type::from_node(solution_map, pat.id);
 
             let new_ctx = if let Some(ty_ann) = ty_ann {
-                let ty_ann = ast_type_to_statics_type(ty_ann.clone());
+                let ty_ann = ast_type_to_statics_type(solution_map, ty_ann.clone());
                 let new_ctx = TyCtx::new(Some(ctx));
                 new_ctx.borrow_mut().add_polys(&ty_ann);
                 generate_constraints_pat(
@@ -718,7 +759,7 @@ pub fn generate_constraints_stmt(
                 .map(|(arg, arg_annot)| {
                     let ty_pat = Type::from_node(solution_map, arg.id);
                     body_ctx = if let Some(arg_annot) = arg_annot {
-                        let arg_annot = ast_type_to_statics_type(arg_annot.clone());
+                        let arg_annot = ast_type_to_statics_type(solution_map, arg_annot.clone());
                         body_ctx.borrow_mut().add_polys(&arg_annot);
                         generate_constraints_pat(
                             body_ctx.clone(), // TODO what are the consequences of analyzing patterns with context containing previous pattern... probs should not do that
@@ -755,7 +796,7 @@ pub fn generate_constraints_stmt(
                 solution_map,
             );
             if let Some(out_annot) = out_annot {
-                let out_annot = ast_type_to_statics_type(out_annot.clone());
+                let out_annot = ast_type_to_statics_type(solution_map, out_annot.clone());
                 body_ctx.borrow_mut().add_polys(&out_annot);
                 generate_constraints_expr(
                     body_ctx,
@@ -891,6 +932,7 @@ pub fn result_of_constraint_solving(
                 Prov::InstantiatePoly(_, _ident) => 2,
                 Prov::FuncArg(_, _) => 3,
                 Prov::FuncOut(_) => 4,
+                Prov::Alias(_) => 5,
             });
             for cause in provs_vec {
                 match cause {
@@ -938,6 +980,9 @@ pub fn result_of_constraint_solving(
                         }
                         _ => unreachable!(),
                     },
+                    Prov::Alias(ident) => {
+                        err_string.push_str(&format!("The type alias {ident}"));
+                    }
                 }
             }
         }
