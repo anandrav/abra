@@ -651,11 +651,12 @@ pub fn parse_stmt(pair: Pair<Rule>) -> Rc<Stmt> {
                 id: Id::new(),
             })
         }
+        // CHECKPOINT
         _ => panic!("unreachable rule {:#?}", rule),
     }
 }
 
-pub fn parse_expr_term(pair: Pair<Rule>, pratt: &PrattParser<Rule>) -> Rc<Expr> {
+pub fn parse_expr_term(pair: Pair<Rule>) -> Rc<Expr> {
     let span = Span::from(pair.as_span());
     let rule = pair.as_rule();
     match rule {
@@ -785,23 +786,10 @@ pub fn parse_expr_term(pair: Pair<Rule>, pratt: &PrattParser<Rule>) -> Rc<Expr> 
 pub fn parse_toplevel(pairs: Pairs<Rule>) -> Rc<Toplevel> {
     let mut items = Vec::new();
     let pairs: Vec<_> = pairs.into_iter().collect();
-    dbg!(pairs.len());
     for pair in pairs {
-        let rule = pair.as_rule();
-        match rule {
-            Rule::let_statement | Rule::let_func_statement | Rule::expression_statement => {
-                let stmt = parse_stmt(pair);
-                items.push(stmt)
-            }
-            Rule::type_def => {
-                // let typedef = parse_typedef(pair);
-                // items.push(Rc::new(Item::TypeDef(typedef)))
-            }
-            Rule::EOI => {}
-            _ => panic!("unreachable rule {:#?}", rule),
-        }
+        let stmt = parse_stmt(pair);
+        items.push(stmt)
     }
-    dbg!(items.len());
     Rc::new(Toplevel {
         statements: items,
         span: Span { lo: 0, hi: 0 }, // TODO
@@ -821,7 +809,7 @@ pub fn parse_expr_pratt(pairs: Pairs<Rule>) -> Rc<Expr> {
         .op(Op::infix(Rule::op_multiplication, Assoc::Left)
             | Op::infix(Rule::op_division, Assoc::Left));
     pratt
-        .map_primary(|primary| parse_expr_term(primary, &pratt))
+        .map_primary(parse_expr_term)
         // .map_prefix(|op, rhs| match op.as_rule() {
         //     Rule::neg  => -rhs,
         //     _          => unreachable!(),
