@@ -44,7 +44,6 @@ impl std::fmt::Display for Expr {
                 write!(f, ")")
             }
             Func(param, body, _) => write!(f, "fn {} -> {}", param, body),
-            Var(id) => write!(f, "{}", id),
             _ => panic!("only implemented for values, {:?}", self),
         }
     }
