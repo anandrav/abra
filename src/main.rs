@@ -166,6 +166,7 @@ impl eframe::App for MyApp {
                             match ast::parse_or_err(&text_with_braces) {
                                 Ok(parse_tree) => {
                                     debug_println!("successfully parsed.");
+                                    dbg!(parse_tree.clone());
                                     let mut node_map = ast::NodeMap::new();
                                     ast::initialize_node_map(
                                         &mut node_map,

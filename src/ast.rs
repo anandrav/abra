@@ -16,6 +16,7 @@ pub type Identifier = String;
 
 pub type PatAnnotated = (Rc<Pat>, Option<Rc<AstType>>);
 
+#[derive(Debug)]
 pub struct Toplevel {
     pub statements: Vec<Rc<Stmt>>,
     pub span: Span,
@@ -787,6 +788,9 @@ pub fn parse_toplevel(pairs: Pairs<Rule>) -> Rc<Toplevel> {
     let mut items = Vec::new();
     let pairs: Vec<_> = pairs.into_iter().collect();
     for pair in pairs {
+        if pair.as_rule() == Rule::EOI {
+            break;
+        }
         let stmt = parse_stmt(pair);
         items.push(stmt)
     }

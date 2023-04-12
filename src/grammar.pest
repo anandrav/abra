@@ -75,7 +75,7 @@ type_literal_string = @{ "string" }
 type_op_binary = _{ type_op_arrow }
 type_op_arrow = { "->" }
 
-primary_expression = _{ identifier | literal }
+primary_expression = _{ literal | identifier }
 
 identifier = @{ (alpha | "_") ~ (alphanumeric | "_")* }
 alpha = _{ 'a'..'z' | 'A'..'Z' }
