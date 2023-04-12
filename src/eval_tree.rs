@@ -43,8 +43,9 @@ impl std::fmt::Display for Expr {
                 }
                 write!(f, ")")
             }
-            Func(_, _, _) => write!(f, "<function>"),
-            _ => panic!("not implemented for non-values"),
+            Func(param, body, _) => write!(f, "fn {} -> {}", param, body),
+            Var(id) => write!(f, "{}", id),
+            _ => panic!("only implemented for values, {:?}", self),
         }
     }
 }

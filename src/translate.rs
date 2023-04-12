@@ -43,6 +43,7 @@ pub fn translate_expr_block(stmts: Vec<Rc<ast::Stmt>>) -> Rc<Ete> {
             translate_expr(expr.exprkind.clone()),
             translate_expr_block(stmts[1..].to_vec()),
         )),
+        ast::StmtKind::TypeDef(_) => translate_expr_block(stmts[1..].to_vec()),
     }
 }
 
@@ -122,4 +123,8 @@ pub fn translate_expr(parse_tree: Rc<ASTek>) -> Rc<Ete> {
             )),
         },
     }
+}
+
+pub fn translate(toplevel: Rc<ast::Toplevel>) -> Rc<Ete> {
+    translate_expr_block(toplevel.statements.clone())
 }

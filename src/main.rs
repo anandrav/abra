@@ -78,18 +78,20 @@ const FIB: &str = r#"let fibonacci(n) = {
         fibonacci(n-1) + fibonacci(n-2)
 }
 
-let for_range(range, f) = {
-    let (i, n) = range
+type range = (int, int)
+
+let for_range(r: range, f) = {
+    let (i, n) = r
     if i < n {
         f(i)
         for_range((i+1, n), f)
     }
 }
 
-let print_fibonacci(n) = 
-    print(int_to_string(fibonacci(n)))
+let print_fibonacci(n) = print(int_to_string(fibonacci(n)))
 
 print("The first 30 fibonacci numbers are:")
+
 for_range((0, 30), print_fibonacci)
 "#;
 
@@ -159,8 +161,8 @@ impl eframe::App for MyApp {
                         {
                             self.interpreter = None;
                             self.output.clear();
-                            let text_with_braces = "{\n".to_owned() + &self.text + "\n}";
-                            match ast::parse_or_err(&text_with_braces) {
+                            // let text_with_braces = "{\n".to_owned() + &self.text + "\n}";
+                            match ast::parse_or_err(&self.text) {
                                 Ok(parse_tree) => {
                                     debug_println!("successfully parsed.");
                                     let mut node_map = ast::NodeMap::new();
@@ -170,9 +172,8 @@ impl eframe::App for MyApp {
                                     );
                                     debug_println!("initialized node map.");
                                     let mut solution_map = statics::SolutionMap::new();
-                                    statics::generate_constraints_expr(
+                                    statics::generate_constraints_toplevel(
                                         make_new_environment(),
-                                        statics::Mode::Syn,
                                         parse_tree.clone(),
                                         &mut solution_map,
                                     );
@@ -180,14 +181,13 @@ impl eframe::App for MyApp {
                                     let result = statics::result_of_constraint_solving(
                                         solution_map,
                                         node_map,
-                                        &text_with_braces,
+                                        &self.text,
                                     );
                                     match result {
                                         Ok(_) => {
                                             debug_println!("solved constraints.");
-                                            let eval_tree = translate::translate_expr(
-                                                parse_tree.exprkind.clone(),
-                                            );
+                                            let eval_tree =
+                                                translate::translate(parse_tree);
                                             self.interpreter = Some(Interpreter::new(eval_tree));
                                             debug_println!("initialized new interpreter.");
                                         }
