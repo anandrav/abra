@@ -123,3 +123,7 @@ pub fn translate_expr(parse_tree: Rc<ASTek>) -> Rc<Ete> {
         },
     }
 }
+
+pub fn translate(toplevel: Rc<ast::Toplevel>) -> Rc<Ete> {
+    translate_expr_block(toplevel.statements.clone())
+}

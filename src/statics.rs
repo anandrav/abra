@@ -812,6 +812,22 @@ pub fn generate_constraints_pat(
     }
 }
 
+pub fn generate_constraints_toplevel(
+    ctx: Rc<RefCell<TyCtx>>,
+    toplevel: Rc<ast::Toplevel>,
+    solution_map: &mut SolutionMap,
+) -> Option<Rc<RefCell<TyCtx>>> {
+    let mut new_ctx = TyCtx::new(Some(ctx));
+    for statement in toplevel.statements.iter() {
+        let updated =
+            generate_constraints_stmt(new_ctx.clone(), Mode::Syn, statement.clone(), solution_map);
+        if let Some(ctx) = updated {
+            new_ctx = ctx
+        }
+    }
+    Some(new_ctx)
+}
+
 // TODO: since each expr/pattern node has a type, the node map should be populated with the types (and errors) of each node. So node id -> {Rc<Node>, StaticsSummary}
 // errors would be unbound variable, wrong number of arguments, occurs check, etc.
 pub fn result_of_constraint_solving(

@@ -3,7 +3,11 @@ space = { " " }
 tab = { "\t" }
 newline = { "\n" }
 
-program = { SOI ~ statement* ~ EOI }
+toplevel = _{ SOI ~ toplevel_item* ~ EOI }
+
+toplevel_item = _{ statement | type_def }
+
+type_def = { "type" ~ identifier ~ "=" ~ typ}
 
 statement = _{ let_func_statement | let_statement | expression_statement }
 
@@ -62,7 +66,7 @@ tuple_type = { tuple_start ~ (tuple_type_element ~ ",")+ ~ tuple_type_element ~ 
 tuple_type_element = _{ typ }
 
 type_literal = _{ type_literal_unit | type_literal_number | type_literal_bool | type_literal_string | type_poly }
-type_poly = @{ !keyword ~ "'" ~ (alpha | "_") ~ (alphanumeric | "_")* } // 'a, 'b, 'c, etc.
+type_poly = @{ "'" ~ (alpha | "_") ~ (alphanumeric | "_")* } // 'a, 'b, 'c, etc.
 type_literal_unit = @{ "void" }
 type_literal_number = @{ "int" }
 type_literal_bool = @{ "bool" }
@@ -73,7 +77,7 @@ type_op_arrow = { "->" }
 
 primary_expression = _{ identifier | literal }
 
-identifier = @{ !keyword ~ (alpha | "_") ~ (alphanumeric | "_")* }
+identifier = @{ (alpha | "_") ~ (alphanumeric | "_")* }
 alpha = _{ 'a'..'z' | 'A'..'Z' }
 alphanumeric = _{ alpha | '0'..'9' }
 
@@ -97,7 +101,7 @@ op_division = { "/" }
 // NOTE: When changing this code, make sure you don't have a subset of a word before
 // another word. For example: { "type" | "typeof" } will never match "typeof"
 keyword = @{
-   else_keyword | "false" | "func" | if_keyword | let_keyword | "nothing" | "true"
+   "bool" | "else" | "false" | "func" | "let" | "if" | "int" | "string" | "type" | "nothing" | "true" | "void"
 }
 
 semicolon = _{ ";" }
