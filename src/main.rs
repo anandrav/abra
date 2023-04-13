@@ -190,7 +190,6 @@ impl eframe::App for MyApp {
                                         parse_tree.clone(),
                                         &mut solution_map,
                                     );
-                                    dbg!(tyctx.clone());
                                     debug_println!("generated constraints.");
                                     let result = statics::result_of_constraint_solving(
                                         solution_map,

@@ -33,7 +33,7 @@ type UnifVar = UnionFindNode<UnifVarData>;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct UnifVarData {
-    types: BTreeMap<TypeKey, Type>,
+    pub types: BTreeMap<TypeKey, Type>,
 }
 
 impl UnifVarData {
@@ -919,7 +919,7 @@ pub fn generate_constraints_toplevel(
     toplevel: Rc<ast::Toplevel>,
     solution_map: &mut SolutionMap,
 ) -> Rc<RefCell<TyCtx>> {
-    let mut new_ctx = TyCtx::new(Some(ctx));
+    let mut new_ctx = ctx;
     for statement in toplevel.statements.iter() {
         let updated =
             generate_constraints_stmt(new_ctx.clone(), Mode::Syn, statement.clone(), solution_map);

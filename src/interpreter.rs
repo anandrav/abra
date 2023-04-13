@@ -35,35 +35,39 @@ pub fn make_new_environment(tyctx: Rc<RefCell<TyCtx>>) -> Rc<RefCell<Environment
             None,
         )),
     );
+    dbg!(tyctx.clone());
     // replace variables with variants or variant constructors
-    for (_, ty) in &tyctx.borrow().vars {
-        if let Type::UnifVar(unifvar) = ty {
+    for (key, ty) in tyctx.borrow().vars.iter() {
+        println!("key: {key}, ty: {:?}", ty);
+        let solution = if let Type::UnifVar(unifvar) = ty {
             println!("UNIFVAR!");
-            let solution = unifvar.clone_data().solution();
-            dbg!(solution.clone());
-            if let Some(Type::Adt(_, _, variants)) = solution {
-                println!("ADT!");
-                for (i, variant) in variants.iter().enumerate() {
-                    let ctor = &variant.ctor;
-                    dbg!(ctor);
-                    if let Type::Unit(_) = variant.data {
-                        env.borrow_mut().extend(
-                            ctor,
-                            Rc::new(Expr::TaggedVariant(i as u8, Rc::new(Expr::Unit))),
-                        );
-                    } else {
-                        env.borrow_mut().extend(
-                            ctor,
-                            Rc::new(Expr::Func(
-                                "data".to_string(),
-                                Rc::new(Expr::TaggedVariant(
-                                    i as u8,
-                                    Rc::new(Expr::Var("data".to_string())),
-                                )),
-                                None,
+            println!("unifvar: {:?}", unifvar.clone_data().types);
+            unifvar.clone_data().solution()
+        } else {
+            Some(ty.clone())
+        };
+        if let Some(Type::Adt(_, _, variants)) = solution {
+            println!("ADT!");
+            for (i, variant) in variants.iter().enumerate() {
+                let ctor = &variant.ctor;
+                dbg!(ctor);
+                if let Type::Unit(_) = variant.data {
+                    env.borrow_mut().extend(
+                        ctor,
+                        Rc::new(Expr::TaggedVariant(i as u8, Rc::new(Expr::Unit))),
+                    );
+                } else {
+                    env.borrow_mut().extend(
+                        ctor,
+                        Rc::new(Expr::Func(
+                            "data".to_string(),
+                            Rc::new(Expr::TaggedVariant(
+                                i as u8,
+                                Rc::new(Expr::Var("data".to_string())),
                             )),
-                        );
-                    }
+                            None,
+                        )),
+                    );
                 }
             }
         }
@@ -111,6 +115,7 @@ impl Interpreter {
         );
         self.program_expr = result.expr;
         self.env = result.new_env;
+        dbg!(self.env.clone());
         self.next_input = result
             .effect
             .map(|(effect, args)| effect_handler(effect, args))
