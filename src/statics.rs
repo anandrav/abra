@@ -36,6 +36,16 @@ pub struct UnifVarData {
     types: BTreeMap<TypeKey, Type>,
 }
 
+impl UnifVarData {
+    pub fn solution(&self) -> Option<Type> {
+        if self.types.len() == 1 {
+            Some(self.types.values().next().unwrap().clone())
+        } else {
+            None
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum TypeKey {
     Poly, // TODO: why isn't the Identifier included here?
@@ -745,6 +755,7 @@ pub fn generate_constraints_stmt(
                 let ty_adt = Type::fresh_unifvar(solution_map, Prov::Node(stmt.id));
                 let mut tys_variants = vec![];
                 for variant in variants {
+                    dbg!(&variant.ctor);
                     new_ctx.borrow_mut().extend(&variant.ctor, ty_adt.clone());
                     let data = match &variant.data {
                         Some(data) => ast_type_to_statics_type(solution_map, data.clone()),

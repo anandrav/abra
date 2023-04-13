@@ -37,30 +37,37 @@ pub fn make_new_environment(tyctx: Rc<RefCell<TyCtx>>) -> Rc<RefCell<Environment
     );
     // replace variables with variants or variant constructors
     for (identifier, ty) in &tyctx.borrow().vars {
-        if let Type::Adt(_, _, variants) = ty {
-            for (i, variant) in variants.iter().enumerate() {
-                let ctor = &variant.ctor;
-                if let Type::Unit(_) = variant.data {
-                    env.borrow_mut().extend(
-                        identifier,
-                        Rc::new(Expr::Func(
-                            identifier.clone(),
-                            Rc::new(Expr::TaggedVariant(i as u8, Rc::new(Expr::Unit))),
-                            None,
-                        )),
-                    );
-                } else {
-                    env.borrow_mut().extend(
-                        identifier,
-                        Rc::new(Expr::Func(
-                            ctor.clone(),
-                            Rc::new(Expr::TaggedVariant(
-                                i as u8,
-                                Rc::new(Expr::Var(ctor.clone())),
+        if let Type::UnifVar(unifvar) = ty {
+            println!("UNIFVAR!");
+            let solution = unifvar.clone_data().solution();
+            dbg!(solution.clone());
+            if let Some(Type::Adt(_, _, variants)) = solution {
+                println!("ADT!");
+                for (i, variant) in variants.iter().enumerate() {
+                    let ctor = &variant.ctor;
+                    dbg!(ctor);
+                    if let Type::Unit(_) = variant.data {
+                        env.borrow_mut().extend(
+                            ctor,
+                            Rc::new(Expr::Func(
+                                identifier.clone(),
+                                Rc::new(Expr::TaggedVariant(i as u8, Rc::new(Expr::Unit))),
+                                None,
                             )),
-                            None,
-                        )),
-                    );
+                        );
+                    } else {
+                        env.borrow_mut().extend(
+                            ctor,
+                            Rc::new(Expr::Func(
+                                ctor.clone(),
+                                Rc::new(Expr::TaggedVariant(
+                                    i as u8,
+                                    Rc::new(Expr::Var(ctor.clone())),
+                                )),
+                                None,
+                            )),
+                        );
+                    }
                 }
             }
         }
