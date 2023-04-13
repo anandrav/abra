@@ -44,6 +44,7 @@ impl std::fmt::Display for Expr {
                 }
                 write!(f, ")")
             }
+            TaggedVariant(tag, data) => write!(f, "variant[{tag}], {data}"),
             Func(param, body, _) => write!(f, "fn {} -> {}", param, body),
             _ => panic!("only implemented for values, {:?}", self),
         }

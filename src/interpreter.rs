@@ -36,7 +36,7 @@ pub fn make_new_environment(tyctx: Rc<RefCell<TyCtx>>) -> Rc<RefCell<Environment
         )),
     );
     // replace variables with variants or variant constructors
-    for (identifier, ty) in &tyctx.borrow().vars {
+    for (_, ty) in &tyctx.borrow().vars {
         if let Type::UnifVar(unifvar) = ty {
             println!("UNIFVAR!");
             let solution = unifvar.clone_data().solution();
@@ -49,20 +49,16 @@ pub fn make_new_environment(tyctx: Rc<RefCell<TyCtx>>) -> Rc<RefCell<Environment
                     if let Type::Unit(_) = variant.data {
                         env.borrow_mut().extend(
                             ctor,
-                            Rc::new(Expr::Func(
-                                identifier.clone(),
-                                Rc::new(Expr::TaggedVariant(i as u8, Rc::new(Expr::Unit))),
-                                None,
-                            )),
+                            Rc::new(Expr::TaggedVariant(i as u8, Rc::new(Expr::Unit))),
                         );
                     } else {
                         env.borrow_mut().extend(
                             ctor,
                             Rc::new(Expr::Func(
-                                ctor.clone(),
+                                "data".to_string(),
                                 Rc::new(Expr::TaggedVariant(
                                     i as u8,
-                                    Rc::new(Expr::Var(ctor.clone())),
+                                    Rc::new(Expr::Var("data".to_string())),
                                 )),
                                 None,
                             )),
