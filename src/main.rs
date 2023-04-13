@@ -80,6 +80,19 @@ const FIB: &str = r#"let fibonacci(n) = {
 
 type range = (int, int)
 
+type color = red | blue | green
+
+let color_to_string(c) = {
+	if c = red
+		"red"
+	else if c = blue
+		"blue"
+	else
+		"green"
+}
+
+print(color_to_string(red))
+
 let for_range(r: range, f) = {
     let (i, n) = r
     if i < n {
@@ -172,7 +185,7 @@ impl eframe::App for MyApp {
                                     );
                                     debug_println!("initialized node map.");
                                     let mut solution_map = statics::SolutionMap::new();
-                                    statics::generate_constraints_toplevel(
+                                    let tyctx = statics::generate_constraints_toplevel(
                                         make_new_environment(),
                                         parse_tree.clone(),
                                         &mut solution_map,
@@ -187,7 +200,8 @@ impl eframe::App for MyApp {
                                         Ok(_) => {
                                             debug_println!("solved constraints.");
                                             let eval_tree = translate::translate(parse_tree);
-                                            self.interpreter = Some(Interpreter::new(eval_tree));
+                                            self.interpreter =
+                                                Some(Interpreter::new(tyctx, eval_tree));
                                             debug_println!("initialized new interpreter.");
                                         }
                                         Err(err) => {

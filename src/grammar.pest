@@ -5,9 +5,14 @@ newline = { "\n" }
 
 toplevel = _{ SOI ~ toplevel_item* ~ EOI }
 
-toplevel_item = _{ type_def | statement }
+toplevel_item = _{ adt_declaration | typealias | statement }
 
-type_def = { "type" ~ identifier ~ "=" ~ typ}
+typealias = { "type" ~ identifier ~ "=" ~ typ}
+
+adt_declaration = { "type" ~ identifier ~ type_args? ~ "=" ~ variant ~ ("|" ~ variant)* }
+type_args = { "<" ~ (type_poly ~ ",")* ~ type_poly? ~ ">" }
+variant = { identifier ~ packed_data? }
+packed_data = { "of" ~ typ }
 
 statement = _{ let_func_statement | let_statement | expression_statement }
 

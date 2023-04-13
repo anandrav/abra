@@ -48,6 +48,32 @@ pub struct TypeDef {
 #[derive(Debug, PartialEq)]
 pub enum TypeDefKind {
     Alias(Identifier, Rc<AstType>),
+    Adt(Identifier, Vec<Rc<Variant>>),
+}
+
+#[derive(Debug, PartialEq)]
+pub struct Variant {
+    pub ctor: Identifier,
+    pub data: Option<Rc<AstType>>,
+
+    pub span: Span,
+    pub id: Id,
+}
+
+impl Node for Variant {
+    fn span(&self) -> Span {
+        self.span.clone()
+    }
+    fn id(&self) -> Id {
+        self.id
+    }
+
+    fn children(&self) -> Vec<Rc<dyn Node>> {
+        match &self.data {
+            Some(ty) => vec![ty.clone()],
+            None => vec![],
+        }
+    }
 }
 
 impl Node for TypeDef {
@@ -61,6 +87,7 @@ impl Node for TypeDef {
     fn children(&self) -> Vec<Rc<dyn Node>> {
         match &self.kind {
             TypeDefKind::Alias(_, ty) => vec![ty.clone()],
+            TypeDefKind::Adt(..) => todo!(),
         }
     }
 }
@@ -113,6 +140,13 @@ impl Node for Stmt {
             StmtKind::Expr(expr) => vec![expr.clone()],
             StmtKind::TypeDef(tydefkind) => match &**tydefkind {
                 TypeDefKind::Alias(_, ty) => vec![ty.clone()],
+                TypeDefKind::Adt(_, variants) => {
+                    let mut children: Vec<Rc<dyn Node>> = Vec::new();
+                    for variant in variants {
+                        children.push(variant.clone() as Rc<dyn Node>);
+                    }
+                    children
+                }
             },
         }
     }
@@ -505,16 +539,6 @@ pub fn parse_type_term(pair: Pair<Rule>) -> Rc<AstType> {
             span,
             id: Id::new(),
         }),
-        // Rule::type_def => {
-        //     let inner: Vec<_> = pair.into_inner().collect();
-        //     let ident = inner[0].as_str().to_string();
-        //     let definition = parse_type_pratt(inner[1].clone().into_inner());
-        //     Rc::new(AstType {
-        //         typekind: Rc::new(TypeKind::Alias(ident, definition)),
-        //         span,
-        //         id: Id::new(),
-        //     })
-        // }
         Rule::identifier => {
             let ident = pair.as_str().to_string();
             Rc::new(AstType {
@@ -604,13 +628,64 @@ pub fn parse_stmt(pair: Pair<Rule>) -> Rc<Stmt> {
                 id: Id::new(),
             })
         }
-        Rule::type_def => {
+        Rule::typealias => {
             let ident = inner[0].as_str().to_string();
             let definition = parse_type_pratt(inner[1].clone().into_inner());
             Rc::new(Stmt {
                 stmtkind: Rc::new(StmtKind::TypeDef(Rc::new(TypeDefKind::Alias(
                     ident, definition,
                 )))),
+                span,
+                id: Id::new(),
+            })
+        }
+        Rule::adt_declaration => {
+            let ident = inner[0].as_str().to_string();
+            let mut n = 1;
+            let mut type_params = vec![];
+            while let Rule::type_poly = inner[n].as_rule() {
+                type_params.push(inner[n].as_str().to_string());
+                n += 1;
+            }
+            let mut variants = vec![];
+            while let Some(pair) = inner.get(n) {
+                let variant = parse_variant(pair.clone());
+                variants.push(variant);
+                n += 1;
+            }
+            Rc::new(Stmt {
+                stmtkind: Rc::new(StmtKind::TypeDef(Rc::new(TypeDefKind::Adt(
+                    ident, variants,
+                )))),
+                span,
+                id: Id::new(),
+            })
+        }
+        _ => panic!("unreachable rule {:#?}", rule),
+    }
+}
+
+pub fn parse_variant(pair: Pair<Rule>) -> Rc<Variant> {
+    let span = Span::from(pair.as_span());
+    let rule = pair.as_rule();
+    let inner: Vec<_> = pair.into_inner().collect();
+    match rule {
+        Rule::variant => {
+            let ident = inner[0].as_str().to_string();
+            let n = 1;
+            // while let Rule::type_poly = inner[n].as_rule() {
+            //     type_params.push(inner[n].as_str().to_string());
+            //     n += 1;
+            // }
+            let data = if let Some(pair) = inner.get(n) {
+                let data = parse_type_pratt(pair.clone().into_inner());
+                Some(data)
+            } else {
+                None
+            };
+            Rc::new(Variant {
+                ctor: ident,
+                data,
                 span,
                 id: Id::new(),
             })

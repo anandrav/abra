@@ -20,24 +20,32 @@ pub enum Type {
     String(Provs),
     Function(Provs, Vec<Type>, Box<Type>),
     Tuple(Provs, Vec<Type>),
+    Adt(Provs, Identifier, Vec<Variant>),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+pub struct Variant {
+    pub ctor: Identifier,
+    pub data: Type,
 }
 
 type UnifVar = UnionFindNode<UnifVarData>;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct UnifVarData {
-    types: BTreeMap<TypeCtor, Type>,
+    types: BTreeMap<TypeKey, Type>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Copy)]
-pub enum TypeCtor {
-    Poly,
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub enum TypeKey {
+    Poly, // TODO: why isn't the Identifier included here?
     Unit,
     Int,
     Bool,
     String,
-    Arrow(u8),
-    Tuple(u8),
+    Arrow(u8),           // u8 represents the number of arguments
+    Tuple(u8),           // u8 represents the number of elements
+    Adt(Identifier, u8), // u8 represents the number of type arguments
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
@@ -51,16 +59,19 @@ pub enum Prov {
 }
 
 impl Type {
-    pub fn ctor(&self) -> Option<TypeCtor> {
+    pub fn key(&self) -> Option<TypeKey> {
         match self {
             Type::UnifVar(_) => None,
-            Type::Poly(_, _) => Some(TypeCtor::Poly),
-            Type::Unit(_) => Some(TypeCtor::Unit),
-            Type::Int(_) => Some(TypeCtor::Int),
-            Type::Bool(_) => Some(TypeCtor::Bool),
-            Type::String(_) => Some(TypeCtor::String),
-            Type::Function(_, args, _) => Some(TypeCtor::Arrow(args.len() as u8)),
-            Type::Tuple(_, elems) => Some(TypeCtor::Tuple(elems.len() as u8)),
+            Type::Poly(_, _) => Some(TypeKey::Poly),
+            Type::Unit(_) => Some(TypeKey::Unit),
+            Type::Int(_) => Some(TypeKey::Int),
+            Type::Bool(_) => Some(TypeKey::Bool),
+            Type::String(_) => Some(TypeKey::String),
+            Type::Function(_, args, _) => Some(TypeKey::Arrow(args.len() as u8)),
+            Type::Tuple(_, elems) => Some(TypeKey::Tuple(elems.len() as u8)),
+            Type::Adt(_, ident, variants) => {
+                Some(TypeKey::Adt(ident.clone(), variants.len() as u8))
+            }
         }
     }
 
@@ -86,7 +97,7 @@ impl Type {
                     } else {
                         let ty = ty.instantiate(ctx, solution_map, prov.clone());
                         let mut types = BTreeMap::new();
-                        types.insert(ty.ctor().unwrap(), ty);
+                        types.insert(ty.key().unwrap(), ty);
                         let data = UnifVarData { types };
                         let unifvar = UnionFindNode::new(data);
                         solution_map.insert(prov, unifvar.clone());
@@ -121,6 +132,18 @@ impl Type {
                     .collect();
                 Type::Tuple(provs, elems)
             }
+            Type::Adt(provs, ident, variants) => {
+                let variants = variants
+                    .into_iter()
+                    .map(|variant| Variant {
+                        ctor: variant.ctor,
+                        data: variant
+                            .data
+                            .instantiate(ctx.clone(), solution_map, prov.clone()),
+                    })
+                    .collect();
+                Type::Adt(provs, ident, variants)
+            }
         }
     }
 
@@ -143,6 +166,10 @@ impl Type {
 
     pub fn make_poly(prov: Prov, ident: String) -> Type {
         Type::Poly(provs_singleton(prov), ident)
+    }
+
+    pub fn make_adt(ident: String, variants: Vec<Variant>, id: ast::Id) -> Type {
+        Type::Adt(provs_singleton(Prov::Node(id)), ident, variants)
     }
 
     pub fn make_unit(prov: Prov) -> Type {
@@ -178,7 +205,8 @@ impl Type {
             | Self::Bool(provs)
             | Self::String(provs)
             | Self::Function(provs, _, _)
-            | Self::Tuple(provs, _) => provs,
+            | Self::Tuple(provs, _)
+            | Self::Adt(provs, _, _) => provs,
         }
     }
 }
@@ -250,8 +278,8 @@ impl UnifVarData {
 
     // TODO: occurs check
     fn extend(&mut self, t_other: Type) {
-        let ctor = t_other.ctor().unwrap();
-        if let Some(t) = self.types.get_mut(&ctor) {
+        let key = t_other.key().unwrap();
+        if let Some(t) = self.types.get_mut(&key) {
             match &t_other {
                 Type::UnifVar(_) => panic!("should not be Type::Var"),
                 Type::Poly(other_provs, _)
@@ -282,16 +310,19 @@ impl UnifVarData {
                         }
                     }
                 }
+                Type::Adt(other_provs, _, _) => {
+                    t.provs().borrow_mut().extend(other_provs.borrow().clone())
+                }
             }
         } else {
-            self.types.insert(ctor, t_other);
+            self.types.insert(key, t_other);
         }
     }
 
     // TODO: occurs check
     fn merge(first: Self, second: Self) -> Self {
         let mut merged_types = Self { types: first.types };
-        for (_ctor, t) in second.types {
+        for (_key, t) in second.types {
             merged_types.extend(t);
         }
         merged_types
@@ -313,7 +344,7 @@ fn constrain(expected: Type, actual: Type) {
 }
 
 pub struct TyCtx {
-    vars: HashMap<Identifier, Type>,
+    pub vars: HashMap<Identifier, Type>,
     poly_type_vars: HashSet<Identifier>,
     enclosing: Option<Rc<RefCell<TyCtx>>>,
 }
@@ -708,6 +739,25 @@ pub fn generate_constraints_stmt(
                 constrain(left, right);
                 Some(new_ctx)
             }
+            // TypeDefKind::Adt(..) =>  todo!()
+            TypeDefKind::Adt(ident, variants) => {
+                let new_ctx = TyCtx::new(Some(ctx));
+                let ty_adt = Type::fresh_unifvar(solution_map, Prov::Node(stmt.id));
+                let mut tys_variants = vec![];
+                for variant in variants {
+                    new_ctx.borrow_mut().extend(&variant.ctor, ty_adt.clone());
+                    let data = match &variant.data {
+                        Some(data) => ast_type_to_statics_type(solution_map, data.clone()),
+                        None => Type::make_unit(Prov::Node(variant.id())),
+                    };
+                    tys_variants.push(Variant {
+                        ctor: variant.ctor.clone(),
+                        data,
+                    });
+                }
+                constrain(ty_adt, Type::make_adt(ident.clone(), tys_variants, stmt.id));
+                Some(new_ctx)
+            }
         },
         StmtKind::Expr(expr) => {
             generate_constraints_expr(ctx, mode, expr.clone(), solution_map);
@@ -857,7 +907,7 @@ pub fn generate_constraints_toplevel(
     ctx: Rc<RefCell<TyCtx>>,
     toplevel: Rc<ast::Toplevel>,
     solution_map: &mut SolutionMap,
-) -> Option<Rc<RefCell<TyCtx>>> {
+) -> Rc<RefCell<TyCtx>> {
     let mut new_ctx = TyCtx::new(Some(ctx));
     for statement in toplevel.statements.iter() {
         let updated =
@@ -866,7 +916,7 @@ pub fn generate_constraints_toplevel(
             new_ctx = ctx
         }
     }
-    Some(new_ctx)
+    new_ctx
 }
 
 // TODO: since each expr/pattern node has a type, the node map should be populated with the types (and errors) of each node. So node id -> {Rc<Node>, StaticsSummary}
@@ -923,6 +973,9 @@ pub fn result_of_constraint_solving(
                     "Sources of tuple with {} elements:\n",
                     elems.len()
                 )),
+                Type::Adt(_, ident, _) => {
+                    err_string.push_str(&format!("Sources of enum {ident}:\n"))
+                }
             };
             let provs = ty.provs().borrow().clone(); // TODO don't clone here
             let mut provs_vec = provs.iter().collect::<Vec<_>>();
@@ -1027,6 +1080,9 @@ impl fmt::Display for Type {
                     write!(f, "{}", elem)?;
                 }
                 write!(f, ")")
+            }
+            Type::Adt(_, ident, _) => {
+                write!(f, "{}", ident)
             }
         }
     }

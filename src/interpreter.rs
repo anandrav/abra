@@ -5,10 +5,13 @@ use crate::operators::BinOpcode::*;
 use crate::operators::*;
 use crate::side_effects;
 use crate::side_effects::*;
+use crate::statics::TyCtx;
+use crate::statics::Type;
 use std::cell::RefCell;
 use std::rc::Rc;
 
-pub fn make_new_environment() -> Rc<RefCell<Environment>> {
+pub fn make_new_environment(tyctx: Rc<RefCell<TyCtx>>) -> Rc<RefCell<Environment>> {
+    // builtins
     let env = Rc::new(RefCell::new(Environment::new(None)));
     env.borrow_mut().extend(
         &String::from("print"),
@@ -32,6 +35,36 @@ pub fn make_new_environment() -> Rc<RefCell<Environment>> {
             None,
         )),
     );
+    // replace variables with variants or variant constructors
+    for (identifier, ty) in &tyctx.borrow().vars {
+        if let Type::Adt(_, _, variants) = ty {
+            for (i, variant) in variants.iter().enumerate() {
+                let ctor = &variant.ctor;
+                if let Type::Unit(_) = variant.data {
+                    env.borrow_mut().extend(
+                        identifier,
+                        Rc::new(Expr::Func(
+                            identifier.clone(),
+                            Rc::new(Expr::TaggedVariant(i as u8, Rc::new(Expr::Unit))),
+                            None,
+                        )),
+                    );
+                } else {
+                    env.borrow_mut().extend(
+                        identifier,
+                        Rc::new(Expr::Func(
+                            ctor.clone(),
+                            Rc::new(Expr::TaggedVariant(
+                                i as u8,
+                                Rc::new(Expr::Var(ctor.clone())),
+                            )),
+                            None,
+                        )),
+                    );
+                }
+            }
+        }
+    }
     env
 }
 
@@ -42,10 +75,10 @@ pub struct Interpreter {
 }
 
 impl Interpreter {
-    pub fn new(program_expr: Rc<Expr>) -> Self {
+    pub fn new(tyctx: Rc<RefCell<TyCtx>>, program_expr: Rc<Expr>) -> Self {
         Interpreter {
             program_expr,
-            env: make_new_environment(),
+            env: make_new_environment(tyctx),
             next_input: None,
         }
     }
@@ -147,6 +180,28 @@ fn interpret(
             }
             InterpretResult {
                 expr: Rc::new(Tuple(new_exprs)),
+                steps,
+                effect: None,
+                new_env: env,
+            }
+        }
+        TaggedVariant(tag, expr) => {
+            let InterpretResult {
+                expr,
+                steps,
+                effect,
+                new_env,
+            } = interpret(expr.clone(), env.clone(), steps, &input.clone());
+            if effect.is_some() || steps <= 0 {
+                return InterpretResult {
+                    expr: Rc::new(TaggedVariant(*tag, expr)),
+                    steps,
+                    effect,
+                    new_env,
+                };
+            }
+            InterpretResult {
+                expr: Rc::new(TaggedVariant(*tag, expr)),
                 steps,
                 effect: None,
                 new_env: env,
