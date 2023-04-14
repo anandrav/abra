@@ -122,7 +122,7 @@ swap(("hello", 2))
 impl Default for MyApp {
     fn default() -> Self {
         Self {
-            text: String::from(FIB),
+            text: String::from(UNION),
             output: String::default(),
             interpreter: None,
         }

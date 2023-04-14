@@ -543,7 +543,7 @@ pub fn generate_constraints_expr(
                 constrain(node_ty, Type::make_unit(Prov::Node(expr.id)));
                 return;
             }
-            let mut new_ctx = TyCtx::new(Some(ctx));
+            let new_ctx = TyCtx::new(Some(ctx));
             for statement in statements[..statements.len() - 1].iter() {
                 generate_constraints_stmt(
                     new_ctx.clone(),
@@ -748,7 +748,6 @@ pub fn generate_constraints_stmt(
                 let ty_adt = Type::fresh_unifvar(solution_map, Prov::Node(stmt.id));
                 let mut tys_variants = vec![];
                 for variant in variants {
-                    dbg!(&variant.ctor);
                     ctx.borrow_mut().extend(&variant.ctor, ty_adt.clone());
                     let data = match &variant.data {
                         Some(data) => ast_type_to_statics_type(solution_map, data.clone()),

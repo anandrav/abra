@@ -35,7 +35,6 @@ pub fn make_new_environment(tyctx: Rc<RefCell<TyCtx>>) -> Rc<RefCell<Environment
             None,
         )),
     );
-    dbg!(tyctx.clone());
     // replace variables with variants or variant constructors
     for (key, ty) in tyctx.borrow().vars.iter() {
         println!("key: {key}, ty: {:?}", ty);
@@ -50,7 +49,6 @@ pub fn make_new_environment(tyctx: Rc<RefCell<TyCtx>>) -> Rc<RefCell<Environment
             println!("ADT!");
             for (i, variant) in variants.iter().enumerate() {
                 let ctor = &variant.ctor;
-                dbg!(ctor);
                 if let Type::Unit(_) = variant.data {
                     env.borrow_mut().extend(
                         ctor,
@@ -115,7 +113,6 @@ impl Interpreter {
         );
         self.program_expr = result.expr;
         self.env = result.new_env;
-        dbg!(self.env.clone());
         self.next_input = result
             .effect
             .map(|(effect, args)| effect_handler(effect, args))
