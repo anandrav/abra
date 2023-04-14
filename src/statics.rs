@@ -545,15 +545,12 @@ pub fn generate_constraints_expr(
             }
             let mut new_ctx = TyCtx::new(Some(ctx));
             for statement in statements[..statements.len() - 1].iter() {
-                let updated = generate_constraints_stmt(
+                generate_constraints_stmt(
                     new_ctx.clone(),
                     Mode::Syn,
                     statement.clone(),
                     solution_map,
                 );
-                if let Some(ctx) = updated {
-                    new_ctx = ctx
-                }
             }
             // if last statement is an expression, the block will have that expression's type
             if let StmtKind::Expr(terminal_expr) = &*statements.last().unwrap().stmtkind {
@@ -679,12 +676,12 @@ pub fn generate_constraints_function_helper(
     func_node_id: ast::Id,
 ) -> (Type, Rc<RefCell<TyCtx>>) {
     // arguments
-    let mut body_ctx = TyCtx::new(Some(ctx));
+    let body_ctx = TyCtx::new(Some(ctx));
     let ty_args = args
         .iter()
         .map(|(arg, arg_annot)| {
             let ty_pat = Type::from_node(solution_map, arg.id);
-            body_ctx = if let Some(arg_annot) = arg_annot {
+            if let Some(arg_annot) = arg_annot {
                 let arg_annot = ast_type_to_statics_type(solution_map, arg_annot.clone());
                 body_ctx.borrow_mut().add_polys(&arg_annot);
                 generate_constraints_pat(
@@ -698,7 +695,6 @@ pub fn generate_constraints_function_helper(
             } else {
                 generate_constraints_pat(body_ctx.clone(), Mode::Syn, arg.clone(), solution_map)
             }
-            .unwrap_or(body_ctx.clone());
             ty_pat
         })
         .collect();
@@ -737,26 +733,23 @@ pub fn generate_constraints_stmt(
     mode: Mode,
     stmt: Rc<Stmt>,
     solution_map: &mut SolutionMap,
-) -> Option<Rc<RefCell<TyCtx>>> {
+) {
     match &*stmt.stmtkind {
         StmtKind::TypeDef(typdefkind) => match &**typdefkind {
             TypeDefKind::Alias(ident, ty) => {
-                let new_ctx = TyCtx::new(Some(ctx));
                 let left = Type::fresh_unifvar(solution_map, Prov::Alias(ident.clone()));
                 let right = ast_type_to_statics_type(solution_map, ty.clone());
                 // new_ctx.borrow_mut().add_polys(&ty);
                 // new_ctx.borrow_mut().extend(ident, left.clone());
                 constrain(left, right);
-                Some(new_ctx)
             }
             // TypeDefKind::Adt(..) =>  todo!()
             TypeDefKind::Adt(ident, variants) => {
-                let new_ctx = TyCtx::new(Some(ctx));
                 let ty_adt = Type::fresh_unifvar(solution_map, Prov::Node(stmt.id));
                 let mut tys_variants = vec![];
                 for variant in variants {
                     dbg!(&variant.ctor);
-                    new_ctx.borrow_mut().extend(&variant.ctor, ty_adt.clone());
+                    ctx.borrow_mut().extend(&variant.ctor, ty_adt.clone());
                     let data = match &variant.data {
                         Some(data) => ast_type_to_statics_type(solution_map, data.clone()),
                         None => Type::make_unit(Prov::Node(variant.id())),
@@ -767,50 +760,42 @@ pub fn generate_constraints_stmt(
                     });
                 }
                 constrain(ty_adt, Type::make_adt(ident.clone(), tys_variants, stmt.id));
-                Some(new_ctx)
             }
         },
         StmtKind::Expr(expr) => {
             generate_constraints_expr(ctx, mode, expr.clone(), solution_map);
-            None
         }
         StmtKind::Let((pat, ty_ann), expr) => {
             let ty_pat = Type::from_node(solution_map, pat.id);
 
-            let new_ctx = if let Some(ty_ann) = ty_ann {
+            if let Some(ty_ann) = ty_ann {
                 let ty_ann = ast_type_to_statics_type(solution_map, ty_ann.clone());
-                let new_ctx = TyCtx::new(Some(ctx));
-                new_ctx.borrow_mut().add_polys(&ty_ann);
+                ctx.borrow_mut().add_polys(&ty_ann);
                 generate_constraints_pat(
-                    new_ctx.clone(),
+                    ctx.clone(),
                     Mode::Ana { expected: ty_ann },
                     pat.clone(),
                     solution_map,
                 )
-                .unwrap_or(new_ctx)
             } else {
                 generate_constraints_pat(ctx.clone(), Mode::Syn, pat.clone(), solution_map)
-                    .unwrap_or(ctx)
             };
 
             generate_constraints_expr(
-                new_ctx.clone(),
+                ctx.clone(),
                 Mode::Ana { expected: ty_pat },
                 expr.clone(),
                 solution_map,
             );
-            Some(new_ctx)
         }
         StmtKind::LetFunc(name, args, out_annot, body) => {
             let func_node_id = stmt.id;
 
             let ty_pat = Type::from_node(solution_map, name.id);
-            let new_ctx = TyCtx::new(Some(ctx));
-            new_ctx
-                .borrow_mut()
+            ctx.borrow_mut()
                 .extend(&name.patkind.get_identifier(), ty_pat.clone());
 
-            let mut body_ctx = TyCtx::new(Some(new_ctx.clone()));
+            let body_ctx = TyCtx::new(Some(ctx.clone()));
 
             // BEGIN TODO use helper function for functions again
 
@@ -819,7 +804,7 @@ pub fn generate_constraints_stmt(
                 .iter()
                 .map(|(arg, arg_annot)| {
                     let ty_pat = Type::from_node(solution_map, arg.id);
-                    body_ctx = if let Some(arg_annot) = arg_annot {
+                    if let Some(arg_annot) = arg_annot {
                         let arg_annot = ast_type_to_statics_type(solution_map, arg_annot.clone());
                         body_ctx.borrow_mut().add_polys(&arg_annot);
                         generate_constraints_pat(
@@ -838,7 +823,6 @@ pub fn generate_constraints_stmt(
                             solution_map,
                         )
                     }
-                    .unwrap_or(body_ctx.clone());
                     ty_pat
                 })
                 .collect();
@@ -873,8 +857,6 @@ pub fn generate_constraints_stmt(
             // END TODO use helper function for functions again
 
             constrain(ty_pat, ty_func);
-
-            Some(new_ctx)
         }
     }
 }
@@ -884,18 +866,16 @@ pub fn generate_constraints_pat(
     mode: Mode,
     pat: Rc<Pat>,
     solution_map: &mut SolutionMap,
-) -> Option<Rc<RefCell<TyCtx>>> {
-    let mut new_ctx = TyCtx::new(Some(ctx));
+) {
     match &*pat.patkind {
         PatKind::Var(identifier) => {
             // letrec?: extend context with id and type before analyzing against said type
             let ty_pat = Type::from_node(solution_map, pat.id);
-            new_ctx.borrow_mut().extend(identifier, ty_pat.clone());
+            ctx.borrow_mut().extend(identifier, ty_pat.clone());
             match mode {
                 Mode::Syn => (),
                 Mode::Ana { expected } => constrain(expected, ty_pat),
             };
-            Some(new_ctx)
         }
         PatKind::Tuple(pats) => {
             let tys = pats
@@ -905,11 +885,8 @@ pub fn generate_constraints_pat(
             let actual = Type::from_node(solution_map, pat.id);
             constrain(Type::make_tuple(tys, pat.id), actual);
             for pat in pats {
-                new_ctx =
-                    generate_constraints_pat(new_ctx.clone(), Mode::Syn, pat.clone(), solution_map)
-                        .unwrap_or(new_ctx);
+                generate_constraints_pat(ctx.clone(), Mode::Syn, pat.clone(), solution_map)
             }
-            Some(new_ctx)
         }
     }
 }
@@ -919,15 +896,10 @@ pub fn generate_constraints_toplevel(
     toplevel: Rc<ast::Toplevel>,
     solution_map: &mut SolutionMap,
 ) -> Rc<RefCell<TyCtx>> {
-    let mut new_ctx = ctx;
     for statement in toplevel.statements.iter() {
-        let updated =
-            generate_constraints_stmt(new_ctx.clone(), Mode::Syn, statement.clone(), solution_map);
-        if let Some(ctx) = updated {
-            new_ctx = ctx
-        }
+        generate_constraints_stmt(ctx.clone(), Mode::Syn, statement.clone(), solution_map);
     }
-    new_ctx
+    ctx
 }
 
 // TODO: since each expr/pattern node has a type, the node map should be populated with the types (and errors) of each node. So node id -> {Rc<Node>, StaticsSummary}

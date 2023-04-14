@@ -69,18 +69,7 @@ struct MyApp {
     interpreter: Option<Interpreter>,
 }
 
-const FIB: &str = r#"let fibonacci(n) = {
-    if n = 0
-        0
-    else if n = 1
-        1
-    else
-        fibonacci(n-1) + fibonacci(n-2)
-}
-
-type range = (int, int)
-
-type color = red | blue | green
+const UNION: &str = r#"type color = red | blue | green
 
 let color_to_string(c) = {
 	if c = red
@@ -92,6 +81,18 @@ let color_to_string(c) = {
 }
 
 print(color_to_string(red))
+"#;
+
+const FIB: &str = r#"let fibonacci(n) = {
+    if n = 0
+        0
+    else if n = 1
+        1
+    else
+        fibonacci(n-1) + fibonacci(n-2)
+}
+
+type range = (int, int)
 
 let for_range(r: range, f) = {
     let (i, n) = r
