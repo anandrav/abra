@@ -219,6 +219,14 @@ impl Node for Expr {
                 .iter()
                 .map(|e| e.clone() as Rc<dyn Node>)
                 .collect::<Vec<_>>(),
+            ExprKind::Match(expr, arms) => {
+                let mut children: Vec<Rc<dyn Node>> = vec![expr.clone()];
+                for arm in arms {
+                    children.push(arm.pat.clone() as Rc<dyn Node>);
+                    children.push(arm.expr.clone() as Rc<dyn Node>);
+                }
+                children
+            }
         }
     }
 }
@@ -233,11 +241,17 @@ pub enum ExprKind {
     Str(String),
     Func(Vec<PatAnnotated>, Option<Rc<AstType>>, Rc<Expr>),
     If(Rc<Expr>, Rc<Expr>, Option<Rc<Expr>>),
-    // Match(Rc<Expr>, Vec<MatchArm>),
+    Match(Rc<Expr>, Vec<MatchArm>),
     Block(Vec<Rc<Stmt>>),
     BinOp(Rc<Expr>, BinOpcode, Rc<Expr>),
     FuncAp(Rc<Expr>, Vec<Rc<Expr>>),
     Tuple(Vec<Rc<Expr>>),
+}
+
+#[derive(Debug, PartialEq)]
+pub struct MatchArm {
+    pub pat: Rc<Pat>,
+    pub expr: Rc<Expr>,
 }
 
 // pub type MatchArm = (Rc<Pat>, Rc<Expr>);
@@ -260,6 +274,13 @@ impl Node for Pat {
     fn children(&self) -> Vec<Rc<dyn Node>> {
         match &*self.patkind {
             PatKind::Var(_) => vec![],
+            PatKind::Variant(_, pat_opt) => {
+                if let Some(pat) = pat_opt {
+                    vec![pat.clone()]
+                } else {
+                    vec![]
+                }
+            }
             PatKind::Tuple(pats) => pats
                 .iter()
                 .map(|p| p.clone() as Rc<dyn Node>)
@@ -272,6 +293,7 @@ impl Node for Pat {
 pub enum PatKind {
     // EmptyHole,
     Var(Identifier),
+    Variant(Identifier, Option<Rc<Pat>>),
     // Unit,
     // Int(i32),
     // Bool(bool),
@@ -280,10 +302,10 @@ pub enum PatKind {
 }
 
 impl PatKind {
-    pub fn get_identifier(&self) -> Identifier {
+    pub fn get_identifier_of_variable(&self) -> Identifier {
         match self {
             PatKind::Var(id) => id.clone(),
-            PatKind::Tuple(_) => panic!("Pattern is not a variable"),
+            PatKind::Variant(_, _) | PatKind::Tuple(_) => panic!("Pattern is not a variable"),
         }
     }
 }
@@ -460,13 +482,13 @@ pub fn get_pairs(source: &str) -> Result<Pairs<Rule>, String> {
     MyParser::parse(Rule::toplevel, source).map_err(|e| e.to_string())
 }
 
-pub fn parse_pat_annotated(pair: Pair<Rule>) -> PatAnnotated {
+pub fn parse_annotated_let_pattern(pair: Pair<Rule>) -> PatAnnotated {
     let rule = pair.as_rule();
     match rule {
-        Rule::pattern_annotated => {
+        Rule::let_pattern_annotated => {
             let inner: Vec<_> = pair.into_inner().collect();
             let pat_pair = inner[0].clone();
-            let pat = parse_pat(pat_pair);
+            let pat = parse_let_pattern(pat_pair);
             let ty = inner
                 .get(1)
                 .map(|type_pair| parse_type_term(type_pair.clone()));
@@ -488,25 +510,68 @@ pub fn parse_func_out_annotation(pair: Pair<Rule>) -> Rc<AstType> {
     }
 }
 
-pub fn parse_pat(pair: Pair<Rule>) -> Rc<Pat> {
+pub fn parse_let_pattern(pair: Pair<Rule>) -> Rc<Pat> {
     let span = Span::from(pair.as_span());
     let rule = pair.as_rule();
     match rule {
         Rule::expression => {
             let inner: Vec<_> = pair.into_inner().collect();
             let pair = inner.first().unwrap().clone();
-            parse_pat(pair)
+            parse_let_pattern(pair)
         }
         Rule::identifier => Rc::new(Pat {
             patkind: Rc::new(PatKind::Var(pair.as_str().to_owned())),
             span,
             id: Id::new(),
         }),
-        Rule::tuple_pat => {
+        Rule::let_pattern_tuple => {
             let inner: Vec<_> = pair.into_inner().collect();
-            let pats = inner.iter().map(|pair| parse_pat(pair.clone())).collect();
+            let pats = inner
+                .iter()
+                .map(|pair| parse_let_pattern(pair.clone()))
+                .collect();
             Rc::new(Pat {
                 patkind: Rc::new(PatKind::Tuple(pats)),
+                span,
+                id: Id::new(),
+            })
+        }
+        _ => panic!("unreachable rule {:#?}", rule),
+    }
+}
+
+pub fn parse_match_pattern(pair: Pair<Rule>) -> Rc<Pat> {
+    let span = Span::from(pair.as_span());
+    let rule = pair.as_rule();
+    match rule {
+        Rule::match_pattern => {
+            let inner: Vec<_> = pair.into_inner().collect();
+            let pair = inner.first().unwrap().clone();
+            parse_match_pattern(pair)
+        }
+        Rule::match_pattern_variable => Rc::new(Pat {
+            patkind: Rc::new(PatKind::Var(pair.as_str()[1..].to_owned())),
+            span,
+            id: Id::new(),
+        }),
+        Rule::match_pattern_tuple => {
+            let inner: Vec<_> = pair.into_inner().collect();
+            let pats = inner
+                .iter()
+                .map(|pair| parse_match_pattern(pair.clone()))
+                .collect();
+            Rc::new(Pat {
+                patkind: Rc::new(PatKind::Tuple(pats)),
+                span,
+                id: Id::new(),
+            })
+        }
+        Rule::match_pattern_variant => {
+            let inner: Vec<_> = pair.into_inner().collect();
+            let name = inner[0].as_str().to_owned();
+            let pat = inner.get(1).map(|pair| parse_match_pattern(pair.clone()));
+            Rc::new(Pat {
+                patkind: Rc::new(PatKind::Variant(name, pat)),
                 span,
                 id: Id::new(),
             })
@@ -588,10 +653,10 @@ pub fn parse_stmt(pair: Pair<Rule>) -> Rc<Stmt> {
         Rule::let_func_statement => {
             let mut n = 0;
             let mut args = vec![];
-            let ident = parse_pat(inner[0].clone());
+            let ident = parse_let_pattern(inner[0].clone());
             n += 1;
-            while let Rule::pattern_annotated = inner[n].as_rule() {
-                let pat_annotated = parse_pat_annotated(inner[n].clone());
+            while let Rule::let_pattern_annotated = inner[n].as_rule() {
+                let pat_annotated = parse_annotated_let_pattern(inner[n].clone());
                 args.push(pat_annotated);
                 n += 1;
             }
@@ -612,7 +677,7 @@ pub fn parse_stmt(pair: Pair<Rule>) -> Rc<Stmt> {
             })
         }
         Rule::let_statement => {
-            let pat_annotated = parse_pat_annotated(inner[0].clone());
+            let pat_annotated = parse_annotated_let_pattern(inner[0].clone());
             let expr = parse_expr_pratt(Pairs::single(inner[1].clone()));
             Rc::new(Stmt {
                 stmtkind: Rc::new(StmtKind::Let(pat_annotated, expr)),
@@ -736,12 +801,31 @@ pub fn parse_expr_term(pair: Pair<Rule>) -> Rc<Expr> {
                 id: Id::new(),
             })
         }
+        Rule::match_expression => {
+            let inner: Vec<_> = pair.into_inner().collect();
+            let expr = parse_expr_pratt(Pairs::single(inner[0].clone()));
+            let mut arms = vec![];
+            fn parse_match_arm(pair: &Pair<Rule>) -> MatchArm {
+                let inner: Vec<_> = pair.clone().into_inner().collect();
+                let pat = parse_match_pattern(inner[0].clone());
+                let expr = parse_expr_pratt(Pairs::single(inner[1].clone()));
+                MatchArm { pat, expr }
+            }
+            for pair in &inner[1..] {
+                arms.push(parse_match_arm(pair));
+            }
+            Rc::new(Expr {
+                exprkind: Rc::new(ExprKind::Match(expr, arms)),
+                span,
+                id: Id::new(),
+            })
+        }
         Rule::func_expression => {
             let inner: Vec<_> = pair.into_inner().collect();
             let mut n = 0;
             let mut args = vec![];
-            while let Rule::pattern_annotated = inner[n].as_rule() {
-                let pat_annotated = parse_pat_annotated(inner[n].clone());
+            while let Rule::let_pattern_annotated = inner[n].as_rule() {
+                let pat_annotated = parse_annotated_let_pattern(inner[n].clone());
                 args.push(pat_annotated);
                 n += 1;
             }

@@ -16,24 +16,34 @@ packed_data = { "of" ~ typ }
 
 statement = _{ let_func_statement | let_statement | expression_statement }
 
-let_statement = { let_keyword ~ pattern_annotated ~ op_assign ~ expression }
+let_statement = { let_keyword ~ let_pattern_annotated ~ op_assign ~ expression }
 let_keyword = _{ "let" }
 expression_statement = { expression }
-pattern = _{ tuple_pat | wildcard | identifier }
+let_pattern = _{ let_pattern_tuple | wildcard | identifier }
 wildcard = @{ "_" } // TODO this doesn't parse yet.
 op_assign = _{ "=" }
 
 let_func_statement = { let_keyword ~ identifier ~ func_args ~ func_out_annotation? ~ op_assign ~ expression }
 
-tuple_pat = { tuple_start ~ (tuple_pat_element ~ ",")+ ~ tuple_pat_element ~ tuple_end }
-tuple_pat_element = _{ pattern }
+let_pattern_tuple = { tuple_start ~ (let_pattern_tuple_element ~ ",")+ ~ let_pattern_tuple_element ~ tuple_end }
+let_pattern_tuple_element = _{ let_pattern }
 
 expression = { term ~ (op_binary ~ term)* }
-term = _{ block_expression | func_expression | func_call_expression | parenthesized_expression | if_else_expression | tuple_expr | primary_expression }
+term = _{ block_expression | func_expression | func_call_expression | parenthesized_expression | if_else_expression | match_expression | tuple_expr | primary_expression }
 
 if_else_expression = { if_keyword ~ expression ~ expression ~ (else_keyword ~ expression)? }
 if_keyword = _{ "if" }
 else_keyword = _{ "else" }
+
+match_expression = { "match" ~ expression ~ match_branch ~ (match_branch)* }
+match_branch = { match_pattern ~ "->" ~ expression }
+
+match_pattern = { match_pattern_tuple | match_pattern_variant | match_pattern_variable | wildcard }
+match_pattern_tuple = { tuple_start ~ (match_pattern_tuple_element ~ ",")+ ~ match_pattern_tuple_element ~ tuple_end }
+match_pattern_tuple_element = _{ match_pattern }
+match_pattern_variant = { identifier ~ match_pattern_variant_data? }
+match_pattern_variant_data = { "of" ~ match_pattern }
+match_pattern_variable = @{ "~" ~ (alpha | "_") ~ (alphanumeric | "_")* }
 
 block_expression = { block_start ~ statement* ~ block_end }
 block_start = _{ "{" }
@@ -58,10 +68,10 @@ func_expression = { func_keyword ~ func_args ~ func_out_annotation? ~ expression
 func_out_annotation = { "->" ~ typ }
 func_args_start = _{ "(" }
 func_args_end = _{ ")" }
-func_args = _{ func_args_start ~ (pattern_annotated ~ ",")* ~ pattern_annotated? ~ func_args_end }
+func_args = _{ func_args_start ~ (let_pattern_annotated ~ ",")* ~ let_pattern_annotated? ~ func_args_end }
 func_keyword = _{ "func" }
 
-pattern_annotated = { pattern ~ type_annotation? } // TODO: this doesn't work for functions yet.
+let_pattern_annotated = { let_pattern ~ type_annotation? } // TODO: this doesn't work for functions yet.
 
 type_annotation = _{ ":" ~ typ }
 typ = { type_term ~ (type_op_binary ~ type_term)* }
@@ -106,7 +116,7 @@ op_division = { "/" }
 // NOTE: When changing this code, make sure you don't have a subset of a word before
 // another word. For example: { "type" | "typeof" } will never match "typeof"
 keyword = @{
-   "bool" | "else" | "false" | "func" | "let" | "if" | "int" | "string" | "type" | "nothing" | "true" | "void"
+   "bool" | "else" | "false" | "func" | "let" | "if" | "int" | "match" | "string" | "type" | "nothing" | "true" | "void"
 }
 
 semicolon = _{ ";" }

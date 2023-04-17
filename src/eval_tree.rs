@@ -6,7 +6,7 @@ use std::rc::Rc;
 
 pub type Identifier = String;
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 pub enum Expr {
     Var(Identifier),
     Unit,
@@ -14,15 +14,18 @@ pub enum Expr {
     Str(String),
     Bool(bool),
     Tuple(Vec<Rc<Expr>>),
-    TaggedVariant(u8, Rc<Expr>),
+    TaggedVariant(Identifier, Rc<Expr>),
     BinOp(Rc<Expr>, BinOpcode, Rc<Expr>),
     Let(Rc<Pat>, Rc<Expr>, Rc<Expr>),
     Func(Identifier, Rc<Expr>, Option<Rc<RefCell<Environment>>>),
     FuncAp(Rc<Expr>, Rc<Expr>, Option<Rc<RefCell<Environment>>>),
     If(Rc<Expr>, Rc<Expr>, Rc<Expr>),
+    Match(Rc<Expr>, Vec<MatchArm>),
     EffectAp(side_effects::Effect, Vec<Rc<Expr>>),
     ConsumedEffect,
 }
+
+pub type MatchArm = (Rc<Pat>, Rc<Expr>);
 
 // only works for values right now:
 impl std::fmt::Display for Expr {
@@ -52,9 +55,11 @@ impl std::fmt::Display for Expr {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 pub enum Pat {
+    Unit,
     Var(String),
+    TaggedVariant(Identifier, Option<Rc<Pat>>),
     Tuple(Vec<Rc<Pat>>),
 }
 
@@ -73,7 +78,21 @@ pub fn is_val(expr: &Rc<Expr>) -> bool {
         Let(_, _, _) => false,
         FuncAp(_, _, _) => false,
         If(_, _, _) => false,
+        Match(_, _) => false,
         EffectAp(_, _) => false,
         ConsumedEffect => false,
+    }
+}
+
+pub fn pat_is_val(pat: &Rc<Pat>) -> bool {
+    use self::Pat::*;
+    match pat.as_ref() {
+        Unit => true,
+        Var(_) => false,
+        TaggedVariant(_, data) => match data {
+            Some(pat) => pat_is_val(pat),
+            None => true,
+        },
+        Tuple(elements) => elements.iter().all(pat_is_val),
     }
 }

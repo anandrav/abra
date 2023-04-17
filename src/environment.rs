@@ -4,6 +4,7 @@ use std::collections::HashMap;
 use std::fmt;
 use std::rc::Rc;
 
+#[derive(PartialEq, Eq)]
 pub struct Environment {
     vars: HashMap<Identifier, Rc<Expr>>,
     enclosing: Option<Rc<RefCell<Environment>>>,

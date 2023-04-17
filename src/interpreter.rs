@@ -52,7 +52,7 @@ pub fn make_new_environment(tyctx: Rc<RefCell<TyCtx>>) -> Rc<RefCell<Environment
                 if let Type::Unit(_) = variant.data {
                     env.borrow_mut().extend(
                         ctor,
-                        Rc::new(Expr::TaggedVariant(i as u8, Rc::new(Expr::Unit))),
+                        Rc::new(Expr::TaggedVariant(ctor.clone(), Rc::new(Expr::Unit))),
                     );
                 } else {
                     env.borrow_mut().extend(
@@ -60,7 +60,7 @@ pub fn make_new_environment(tyctx: Rc<RefCell<TyCtx>>) -> Rc<RefCell<Environment
                         Rc::new(Expr::Func(
                             "data".to_string(),
                             Rc::new(Expr::TaggedVariant(
-                                i as u8,
+                                ctor.clone(),
                                 Rc::new(Expr::Var("data".to_string())),
                             )),
                             None,
@@ -199,14 +199,14 @@ fn interpret(
             } = interpret(expr.clone(), env.clone(), steps, &input.clone());
             if effect.is_some() || steps <= 0 {
                 return InterpretResult {
-                    expr: Rc::new(TaggedVariant(*tag, expr)),
+                    expr: Rc::new(TaggedVariant(tag.clone(), expr)),
                     steps,
                     effect,
                     new_env,
                 };
             }
             InterpretResult {
-                expr: Rc::new(TaggedVariant(*tag, expr)),
+                expr: Rc::new(TaggedVariant(tag.clone(), expr)),
                 steps,
                 effect: None,
                 new_env: env,
@@ -251,6 +251,9 @@ fn interpret(
             }
         }
         Let(pat, expr1, expr2) => match &*pat.clone() {
+            Pat::TaggedVariant(..) | Pat::Unit => {
+                panic!("Pattern in let is a value, not a variable!")
+            }
             Pat::Var(id) => {
                 let InterpretResult {
                     expr: expr1,
@@ -501,6 +504,49 @@ fn interpret(
                 ),
             }
         }
+        Match(expr1, cases) => {
+            let InterpretResult {
+                expr: expr1,
+                steps,
+                effect,
+                new_env,
+            } = interpret(expr1.clone(), env.clone(), steps, &input.clone());
+            if effect.is_some() || steps <= 0 {
+                return InterpretResult {
+                    expr: Rc::new(Match(expr1, cases.clone())),
+                    steps,
+                    effect,
+                    new_env,
+                };
+            }
+            for (pat, expr) in cases {
+                let new_env = Rc::new(RefCell::new(Environment::new(Some(env.clone()))));
+                if match_pattern(pat.clone(), expr1.clone(), new_env.clone()) {
+                    let InterpretResult {
+                        expr,
+                        steps,
+                        effect,
+                        new_env,
+                    } = interpret(expr.clone(), new_env, steps, input);
+                    if effect.is_some() || steps <= 0 {
+                        return InterpretResult {
+                            expr,
+                            steps,
+                            effect,
+                            new_env,
+                        };
+                    }
+                    let steps = steps - 1;
+                    return InterpretResult {
+                        expr,
+                        steps,
+                        effect,
+                        new_env: env,
+                    };
+                }
+            }
+            panic!("no match found");
+        }
         EffectAp(effect_enum, args) => {
             let mut args = args.to_vec();
             for i in 0..args.len() {
@@ -548,6 +594,33 @@ fn interpret(
     }
 }
 
+fn match_pattern(pat: Rc<Pat>, expr: Rc<Expr>, env: Rc<RefCell<Environment>>) -> bool {
+    match (&*pat, &*expr) {
+        (Pat::Unit, Unit) => true,
+        (Pat::TaggedVariant(ptag, pdata), _) => {
+            if let TaggedVariant(etag, edata) = &*expr {
+                let pdata = pdata.clone().unwrap_or(Rc::new(Pat::Unit));
+                ptag == etag && match_pattern(pdata.clone(), edata.clone(), env.clone())
+            } else {
+                false
+            }
+        }
+        (Pat::Var(id), _) => {
+            env.borrow_mut().extend(id, expr.clone());
+            true
+        }
+        (Pat::Tuple(pats), Tuple(exprs)) if pats.len() == exprs.len() => {
+            for (pat, expr) in pats.iter().zip(exprs.iter()) {
+                if !match_pattern(pat.clone(), expr.clone(), env.clone()) {
+                    return false;
+                }
+            }
+            true
+        }
+        _ => false,
+    }
+}
+
 fn populate_env(env: Rc<RefCell<Environment>>, pat: Rc<Pat>, expr: Rc<Expr>) {
     match (&*pat, &*expr) {
         (Pat::Var(id), _) => env.borrow_mut().extend(id, expr.clone()),
@@ -556,12 +629,6 @@ fn populate_env(env: Rc<RefCell<Environment>>, pat: Rc<Pat>, expr: Rc<Expr>) {
                 populate_env(env.clone(), pat.clone(), expr.clone());
             }
         }
-        // (Pat::List(pats), Expr::List(exprs)) => {
-        //     for (pat, expr) in pats.iter().zip(exprs.iter()) {
-        //         populate_env(env.clone(), pat.clone(), expr.clone());
-        //     }
-        // }
-        // (Pat::Wildcard, _) => {}
         _ => panic!("pattern and expression do not match"),
     }
 }

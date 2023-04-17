@@ -11,8 +11,10 @@ use std::rc::Rc;
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Type {
+    // a type which must be solved for
     UnifVar(UnifVar),
 
+    // valid solutions
     Poly(Provs, Identifier),
     Unit(Provs),
     Int(Provs),
@@ -21,6 +23,9 @@ pub enum Type {
     Function(Provs, Vec<Type>, Box<Type>),
     Tuple(Provs, Vec<Type>),
     Adt(Provs, Identifier, Vec<Variant>),
+
+    // incomplete solutions
+    Variants(Provs, Vec<Variant>), // "some Adt which has these variants, and maybe more"
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
@@ -46,6 +51,8 @@ impl UnifVarData {
     }
 }
 
+// If two types don't share the same key, they must be in conflict
+// If two types share the same key, they may be in conflict
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum TypeKey {
     Poly, // TODO: why isn't the Identifier included here?
@@ -53,9 +60,9 @@ pub enum TypeKey {
     Int,
     Bool,
     String,
-    Arrow(u8),           // u8 represents the number of arguments
-    Tuple(u8),           // u8 represents the number of elements
-    Adt(Identifier, u8), // u8 represents the number of type arguments
+    Arrow(u8), // u8 represents the number of arguments
+    Tuple(u8), // u8 represents the number of elements
+    Adt,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
@@ -79,9 +86,8 @@ impl Type {
             Type::String(_) => Some(TypeKey::String),
             Type::Function(_, args, _) => Some(TypeKey::Arrow(args.len() as u8)),
             Type::Tuple(_, elems) => Some(TypeKey::Tuple(elems.len() as u8)),
-            Type::Adt(_, ident, variants) => {
-                Some(TypeKey::Adt(ident.clone(), variants.len() as u8))
-            }
+            Type::Adt(_, _, _) => Some(TypeKey::Adt),
+            Type::Variants(_, _) => Some(TypeKey::Adt),
         }
     }
 
@@ -154,6 +160,18 @@ impl Type {
                     .collect();
                 Type::Adt(provs, ident, variants)
             }
+            Type::Variants(provs, variants) => {
+                let variants = variants
+                    .into_iter()
+                    .map(|variant| Variant {
+                        ctor: variant.ctor,
+                        data: variant
+                            .data
+                            .instantiate(ctx.clone(), solution_map, prov.clone()),
+                    })
+                    .collect();
+                Type::Variants(provs, variants)
+            }
         }
     }
 
@@ -180,6 +198,10 @@ impl Type {
 
     pub fn make_adt(ident: String, variants: Vec<Variant>, id: ast::Id) -> Type {
         Type::Adt(provs_singleton(Prov::Node(id)), ident, variants)
+    }
+
+    pub fn make_variants(ident: String, variants: Vec<Variant>, id: ast::Id) -> Type {
+        Type::Variants(provs_singleton(Prov::Node(id)), variants)
     }
 
     pub fn make_unit(prov: Prov) -> Type {
@@ -216,7 +238,8 @@ impl Type {
             | Self::String(provs)
             | Self::Function(provs, _, _)
             | Self::Tuple(provs, _)
-            | Self::Adt(provs, _, _) => provs,
+            | Self::Adt(provs, _, _)
+            | Self::Variants(provs, _) => provs,
         }
     }
 }
@@ -291,7 +314,7 @@ impl UnifVarData {
         let key = t_other.key().unwrap();
         if let Some(t) = self.types.get_mut(&key) {
             match &t_other {
-                Type::UnifVar(_) => panic!("should not be Type::Var"),
+                Type::UnifVar(_) => panic!("should not be Type::UnifVar"),
                 Type::Poly(other_provs, _)
                 | Type::Unit(other_provs)
                 | Type::Int(other_provs)
@@ -303,6 +326,7 @@ impl UnifVarData {
                     t.provs().borrow_mut().extend(other_provs.borrow().clone());
                     if let Type::Function(_, args2, out2) = t {
                         if args1.len() == args2.len() {
+                            // TODO unnecessary because key contains arity
                             for (arg, arg2) in args1.iter().zip(args2.iter()) {
                                 constrain(arg.clone(), arg2.clone());
                             }
@@ -314,17 +338,95 @@ impl UnifVarData {
                     t.provs().borrow_mut().extend(other_provs.borrow().clone());
                     if let Type::Tuple(_, elems2) = t {
                         if elems1.len() == elems2.len() {
+                            // TODO unnecessary because key contains arity
                             for (elem, elem2) in elems1.iter().zip(elems2.iter()) {
                                 constrain(elem.clone(), elem2.clone());
                             }
                         }
                     }
                 }
-                Type::Adt(other_provs, _, _) => {
-                    t.provs().borrow_mut().extend(other_provs.borrow().clone())
+                Type::Adt(other_provs, other_identifier, other_variants) => {
+                    match &t {
+                        Type::Adt(_, identifier, variants) => {
+                            if identifier == other_identifier
+                                && variants.len() == other_variants.len()
+                            {
+                                for (variant, variant2) in
+                                    variants.iter().zip(other_variants.iter())
+                                {
+                                    constrain(variant.data.clone(), variant2.data.clone());
+                                }
+                                // no conflict
+                                t.provs().borrow_mut().extend(other_provs.borrow().clone())
+                            } else {
+                                // conflict
+                                self.types.insert(key, t_other);
+                            }
+                        }
+                        Type::Variants(_, variants) => {
+                            let mut conflict = false;
+                            for variant in variants {
+                                if other_variants
+                                    .iter()
+                                    .find(|v| v.ctor == variant.ctor)
+                                    .is_none()
+                                {
+                                    conflict = true;
+                                    break;
+                                }
+                            }
+
+                            if conflict {
+                                self.types.insert(key, t_other);
+                            } else {
+                                // no conflict
+                                t.provs().borrow_mut().extend(other_provs.borrow().clone())
+                            }
+                        }
+                        _ => panic!("should be Adt or Variants for key Adt"),
+                    }
+                }
+                Type::Variants(other_provs, other_variants) => {
+                    match t {
+                        Type::Adt(_, identifier, variants) => {
+                            let mut conflict = false;
+                            for variant in variants {
+                                if other_variants
+                                    .iter()
+                                    .find(|v| v.ctor == variant.ctor)
+                                    .is_none()
+                                {
+                                    conflict = true;
+                                    break;
+                                }
+                            }
+
+                            if conflict {
+                                self.types.insert(key, t_other);
+                            } else {
+                                // no conflict
+                                t.provs().borrow_mut().extend(other_provs.borrow().clone())
+                            }
+                        }
+                        Type::Variants(_, variants) => {
+                            // no conflict
+                            for other_variant in other_variants {
+                                if variants
+                                    .iter()
+                                    .find(|v| v.ctor == other_variant.ctor)
+                                    .is_none()
+                                {
+                                    variants.push(other_variant.clone());
+                                }
+                            }
+                            t.provs().borrow_mut().extend(other_provs.borrow().clone())
+                        }
+                        _ => panic!("should be Adt or Variants for key Adt"),
+                    }
                 }
             }
         } else {
+            // conflict
             self.types.insert(key, t_other);
         }
     }
@@ -605,6 +707,28 @@ pub fn generate_constraints_expr(
                 }
             }
         }
+        ExprKind::Match(expr, arms) => {
+            let ty_scrutiny = Type::from_node(solution_map, expr.id);
+            for arm in arms {
+                let new_ctx = TyCtx::new(Some(ctx.clone()));
+                generate_constraints_pat(
+                    new_ctx.clone(),
+                    Mode::Ana {
+                        expected: ty_scrutiny.clone(),
+                    },
+                    arm.pat.clone(),
+                    solution_map,
+                );
+                generate_constraints_expr(
+                    new_ctx,
+                    Mode::Ana {
+                        expected: node_ty.clone(),
+                    },
+                    arm.expr.clone(),
+                    solution_map,
+                );
+            }
+        }
         ExprKind::Func(args, out_annot, body) => {
             let (ty_func, _body_ctx) = generate_constraints_function_helper(
                 ctx,
@@ -792,7 +916,7 @@ pub fn generate_constraints_stmt(
 
             let ty_pat = Type::from_node(solution_map, name.id);
             ctx.borrow_mut()
-                .extend(&name.patkind.get_identifier(), ty_pat.clone());
+                .extend(&name.patkind.get_identifier_of_variable(), ty_pat.clone());
 
             let body_ctx = TyCtx::new(Some(ctx.clone()));
 
@@ -874,6 +998,25 @@ pub fn generate_constraints_pat(
             match mode {
                 Mode::Syn => (),
                 Mode::Ana { expected } => constrain(expected, ty_pat),
+            };
+        }
+        PatKind::Variant(tag, data) => {
+            let ty_pat = Type::from_node(solution_map, pat.id);
+            let ty_data = match data {
+                Some(data) => Type::from_node(solution_map, data.id),
+                None => Type::make_unit(Prov::Node(pat.id)),
+            };
+            let ty_variant = Type::make_variants(
+                tag.clone(),
+                vec![Variant {
+                    ctor: tag.clone(),
+                    data: ty_data,
+                }],
+                pat.id,
+            );
+            constrain(ty_pat, ty_variant);
+            if let Some(data) = data {
+                generate_constraints_pat(ctx, mode, data.clone(), solution_map)
             };
         }
         PatKind::Tuple(pats) => {
@@ -958,6 +1101,8 @@ pub fn result_of_constraint_solving(
                 Type::Adt(_, ident, _) => {
                     err_string.push_str(&format!("Sources of enum {ident}:\n"))
                 }
+                Type::Variants(_, variants) => err_string
+                    .push_str(&format!("Sources of enum with variants: {:#?}\n", variants)),
             };
             let provs = ty.provs().borrow().clone(); // TODO don't clone here
             let mut provs_vec = provs.iter().collect::<Vec<_>>();
@@ -1066,7 +1211,23 @@ impl fmt::Display for Type {
             Type::Adt(_, ident, _) => {
                 write!(f, "{}", ident)
             }
+            Type::Variants(_, variants) => {
+                write!(f, "enum {{")?;
+                for (i, variant) in variants.iter().enumerate() {
+                    if i > 0 {
+                        write!(f, ", ")?;
+                    }
+                    write!(f, "{}", variant)?;
+                }
+                write!(f, "}}")
+            }
         }
+    }
+}
+
+impl fmt::Display for Variant {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{} {}", self.ctor, self.data)
     }
 }
 

@@ -71,16 +71,17 @@ struct MyApp {
 
 const UNION: &str = r#"type color = red | blue | green
 
+type value = black | white
+
 let color_to_string(c) = {
-	if c = red
-		"red"
-	else if c = blue
-		"blue"
-	else
-		"green"
+	match c
+        red -> "red"
+        blue -> "blue"
+        white -> "green"
 }
 
-print(color_to_string(red))
+color_to_string(red)
+
 "#;
 
 const FIB: &str = r#"let fibonacci(n) = {

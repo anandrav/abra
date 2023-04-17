@@ -11,6 +11,10 @@ type Etp = eval_tree::Pat;
 pub fn translate_pat(parse_tree: Rc<ast::Pat>) -> Rc<Etp> {
     match &*parse_tree.patkind {
         ASTpk::Var(id) => Rc::new(Etp::Var(id.clone())),
+        ASTpk::Variant(id, pat) => Rc::new(Etp::TaggedVariant(
+            id.clone(),
+            pat.clone().map(translate_pat),
+        )), // TODO: 0 is not correct, need to get the correct variant index
         ASTpk::Tuple(pats) => Rc::new(Etp::Tuple(
             pats.iter().map(|pat| translate_pat(pat.clone())).collect(),
         )),
@@ -25,7 +29,7 @@ pub fn translate_expr_block(stmts: Vec<Rc<ast::Stmt>>) -> Rc<Ete> {
     match &*statement.stmtkind {
         ast::StmtKind::TypeDef(_) => translate_expr_block(stmts[1..].to_vec()),
         ast::StmtKind::LetFunc(pat, func_args, _, body) => {
-            let id = pat.patkind.get_identifier();
+            let id = pat.patkind.get_identifier_of_variable();
             let func = translate_expr_func(func_args.clone(), body.exprkind.clone());
             Rc::new(Ete::Let(
                 Rc::new(Etp::Var(id)),
@@ -48,7 +52,7 @@ pub fn translate_expr_block(stmts: Vec<Rc<ast::Stmt>>) -> Rc<Ete> {
 }
 
 pub fn translate_expr_func(func_args: Vec<ast::PatAnnotated>, body: Rc<ASTek>) -> Rc<Ete> {
-    let id = func_args[0].0.patkind.get_identifier(); // TODO: allow function arguments to be patterns
+    let id = func_args[0].0.patkind.get_identifier_of_variable(); // TODO: allow function arguments to be patterns
     if func_args.len() == 1 {
         Rc::new(Ete::Func(id, translate_expr(body), None))
     } else {
@@ -122,6 +126,19 @@ pub fn translate_expr(parse_tree: Rc<ASTek>) -> Rc<Ete> {
                 Rc::new(Ete::Unit),
             )),
         },
+        ASTek::Match(expr, arms) => {
+            let mut translated_arms = Vec::new();
+            for arm in arms {
+                translated_arms.push((
+                    translate_pat(arm.pat.clone()),
+                    translate_expr(arm.expr.exprkind.clone()),
+                ));
+            }
+            Rc::new(Ete::Match(
+                translate_expr(expr.exprkind.clone()),
+                translated_arms,
+            ))
+        }
     }
 }
 

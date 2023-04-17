@@ -13,7 +13,7 @@ pub enum Input {
     Cin(String),
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Effect {
     Print,
     StringOfInt,
