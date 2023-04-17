@@ -1033,6 +1033,7 @@ pub fn generate_constraints_pat(
         Mode::Ana { expected } => constrain(expected, ty_pat.clone()),
     };
     match &*pat.patkind {
+        PatKind::Wildcard => (),
         PatKind::Var(identifier) => {
             // letrec?: extend context with id and type before analyzing against said type
             let ty_pat = Type::from_node(solution_map, pat.id);

@@ -273,6 +273,7 @@ impl Node for Pat {
 
     fn children(&self) -> Vec<Rc<dyn Node>> {
         match &*self.patkind {
+            PatKind::Wildcard => vec![],
             PatKind::Var(_) => vec![],
             PatKind::Variant(_, pat_opt) => {
                 if let Some(pat) = pat_opt {
@@ -292,6 +293,7 @@ impl Node for Pat {
 #[derive(Debug, PartialEq)]
 pub enum PatKind {
     // EmptyHole,
+    Wildcard,
     Var(Identifier),
     Variant(Identifier, Option<Rc<Pat>>),
     // Unit,
@@ -305,7 +307,9 @@ impl PatKind {
     pub fn get_identifier_of_variable(&self) -> Identifier {
         match self {
             PatKind::Var(id) => id.clone(),
-            PatKind::Variant(_, _) | PatKind::Tuple(_) => panic!("Pattern is not a variable"),
+            PatKind::Wildcard | PatKind::Variant(_, _) | PatKind::Tuple(_) => {
+                panic!("Pattern is not a variable")
+            }
         }
     }
 }
@@ -576,6 +580,11 @@ pub fn parse_match_pattern(pair: Pair<Rule>) -> Rc<Pat> {
                 id: Id::new(),
             })
         }
+        Rule::wildcard => Rc::new(Pat {
+            patkind: Rc::new(PatKind::Wildcard),
+            span,
+            id: Id::new(),
+        }),
         _ => panic!("unreachable rule {:#?}", rule),
     }
 }

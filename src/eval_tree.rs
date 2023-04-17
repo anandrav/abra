@@ -57,7 +57,8 @@ impl std::fmt::Display for Expr {
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum Pat {
-    Unit,
+    Wildcard,
+    Unit, // used for variant with no associated data
     Var(String),
     TaggedVariant(Identifier, Option<Rc<Pat>>),
     Tuple(Vec<Rc<Pat>>),
@@ -87,6 +88,7 @@ pub fn is_val(expr: &Rc<Expr>) -> bool {
 pub fn pat_is_val(pat: &Rc<Pat>) -> bool {
     use self::Pat::*;
     match pat.as_ref() {
+        Wildcard => false,
         Unit => true,
         Var(_) => false,
         TaggedVariant(_, data) => match data {

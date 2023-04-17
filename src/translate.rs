@@ -10,6 +10,7 @@ type Etp = eval_tree::Pat;
 
 pub fn translate_pat(parse_tree: Rc<ast::Pat>) -> Rc<Etp> {
     match &*parse_tree.patkind {
+        ASTpk::Wildcard => Rc::new(Etp::Wildcard),
         ASTpk::Var(id) => Rc::new(Etp::Var(id.clone())),
         ASTpk::Variant(id, pat) => Rc::new(Etp::TaggedVariant(
             id.clone(),

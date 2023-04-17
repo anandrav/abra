@@ -254,6 +254,45 @@ fn interpret(
             Pat::TaggedVariant(..) | Pat::Unit => {
                 panic!("Pattern in let is a value, not a variable!")
             }
+            Pat::Wildcard => {
+                let InterpretResult {
+                    expr: expr1,
+                    steps,
+                    effect,
+                    new_env,
+                } = interpret(expr1.clone(), env.clone(), steps, &input.clone());
+                if effect.is_some() || steps <= 0 {
+                    return InterpretResult {
+                        expr: Rc::new(Let(pat.clone(), expr1, expr2.clone())),
+                        steps,
+                        effect,
+                        new_env,
+                    };
+                }
+
+                let new_env = Rc::new(RefCell::new(Environment::new(Some(env.clone()))));
+
+                let InterpretResult {
+                    expr,
+                    steps,
+                    effect,
+                    new_env,
+                } = interpret(expr2.clone(), new_env, steps, input);
+                if effect.is_some() || steps <= 0 {
+                    return InterpretResult {
+                        expr,
+                        steps,
+                        effect,
+                        new_env,
+                    };
+                }
+                InterpretResult {
+                    expr,
+                    steps,
+                    effect: None,
+                    new_env: env,
+                }
+            }
             Pat::Var(id) => {
                 let InterpretResult {
                     expr: expr1,
@@ -596,6 +635,7 @@ fn interpret(
 
 fn match_pattern(pat: Rc<Pat>, expr: Rc<Expr>, env: Rc<RefCell<Environment>>) -> bool {
     match (&*pat, &*expr) {
+        (Pat::Wildcard, _) => true,
         (Pat::Unit, Unit) => true,
         (Pat::TaggedVariant(ptag, pdata), _) => {
             if let TaggedVariant(etag, edata) = &*expr {
