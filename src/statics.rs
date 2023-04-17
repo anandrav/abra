@@ -333,8 +333,18 @@ impl UnifVarData {
                     return;
                 }
 
-                let (k, ref mut t) = lookup[0];
+                if lookup.len() > 1 {
+                    for (_k, ref mut t) in lookup {
+                        if let Type::Adt(provs, _, variants) = &t {
+                            if let Type::Variants(provs, other_variants) = &t_other {
+                                t.provs().borrow_mut().extend(provs.borrow().clone())
+                            }
+                        }
+                    }
+                    return;
+                }
 
+                let (k, ref mut t) = lookup[0];
                 match &t_other {
                     Type::Adt(other_provs, other_identifier, other_variants) => {
                         match &t {
