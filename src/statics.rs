@@ -65,6 +65,9 @@ pub enum TypeKey {
     Adt,
 }
 
+// Provenances are used to:
+// (1) track the origin of a type solution
+// (2) uniquely identify a UnifVar (unknown type variable) in the SolutionMap
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum Prov {
     Node(ast::Id), // the type of an expression or statement
@@ -200,7 +203,7 @@ impl Type {
         Type::Adt(provs_singleton(Prov::Node(id)), ident, variants)
     }
 
-    pub fn make_variants(ident: String, variants: Vec<Variant>, id: ast::Id) -> Type {
+    pub fn make_variants(variants: Vec<Variant>, id: ast::Id) -> Type {
         Type::Variants(provs_singleton(Prov::Node(id)), variants)
     }
 
@@ -366,11 +369,7 @@ impl UnifVarData {
                         Type::Variants(_, variants) => {
                             let mut conflict = false;
                             for variant in variants {
-                                if other_variants
-                                    .iter()
-                                    .find(|v| v.ctor == variant.ctor)
-                                    .is_none()
-                                {
+                                if !other_variants.iter().any(|v| v.ctor == variant.ctor) {
                                     conflict = true;
                                     break;
                                 }
@@ -391,11 +390,7 @@ impl UnifVarData {
                         Type::Adt(_, identifier, variants) => {
                             let mut conflict = false;
                             for variant in variants {
-                                if other_variants
-                                    .iter()
-                                    .find(|v| v.ctor == variant.ctor)
-                                    .is_none()
-                                {
+                                if !other_variants.iter().any(|v| v.ctor == variant.ctor) {
                                     conflict = true;
                                     break;
                                 }
@@ -411,11 +406,7 @@ impl UnifVarData {
                         Type::Variants(_, variants) => {
                             // no conflict
                             for other_variant in other_variants {
-                                if variants
-                                    .iter()
-                                    .find(|v| v.ctor == other_variant.ctor)
-                                    .is_none()
-                                {
+                                if !variants.iter().any(|v| v.ctor == other_variant.ctor) {
                                     variants.push(other_variant.clone());
                                 }
                             }
@@ -990,24 +981,23 @@ pub fn generate_constraints_pat(
     pat: Rc<Pat>,
     solution_map: &mut SolutionMap,
 ) {
+    let ty_pat = Type::from_node(solution_map, pat.id);
+    match mode {
+        Mode::Syn => (),
+        Mode::Ana { expected } => constrain(expected, ty_pat.clone()),
+    };
     match &*pat.patkind {
         PatKind::Var(identifier) => {
             // letrec?: extend context with id and type before analyzing against said type
             let ty_pat = Type::from_node(solution_map, pat.id);
-            ctx.borrow_mut().extend(identifier, ty_pat.clone());
-            match mode {
-                Mode::Syn => (),
-                Mode::Ana { expected } => constrain(expected, ty_pat),
-            };
+            ctx.borrow_mut().extend(identifier, ty_pat);
         }
         PatKind::Variant(tag, data) => {
-            let ty_pat = Type::from_node(solution_map, pat.id);
             let ty_data = match data {
                 Some(data) => Type::from_node(solution_map, data.id),
                 None => Type::make_unit(Prov::Node(pat.id)),
             };
             let ty_variant = Type::make_variants(
-                tag.clone(),
                 vec![Variant {
                     ctor: tag.clone(),
                     data: ty_data,
@@ -1016,16 +1006,15 @@ pub fn generate_constraints_pat(
             );
             constrain(ty_pat, ty_variant);
             if let Some(data) = data {
-                generate_constraints_pat(ctx, mode, data.clone(), solution_map)
+                generate_constraints_pat(ctx, Mode::Syn, data.clone(), solution_map)
             };
         }
         PatKind::Tuple(pats) => {
-            let tys = pats
+            let tys_elements = pats
                 .iter()
                 .map(|pat| Type::fresh_unifvar(solution_map, Prov::Node(pat.id)))
                 .collect();
-            let actual = Type::from_node(solution_map, pat.id);
-            constrain(Type::make_tuple(tys, pat.id), actual);
+            constrain(Type::make_tuple(tys_elements, pat.id), ty_pat);
             for pat in pats {
                 generate_constraints_pat(ctx.clone(), Mode::Syn, pat.clone(), solution_map)
             }
@@ -1057,7 +1046,12 @@ pub fn result_of_constraint_solving(
         // let type_suggestions = condense_candidates(potential_types);
         let type_suggestions = potential_types.clone_data().types;
         if type_suggestions.len() > 1 && (!type_conflicts.contains(&type_suggestions)) {
-            type_conflicts.push(type_suggestions);
+            type_conflicts.push(type_suggestions.clone());
+        }
+        if type_suggestions.len() == 1 {
+            if let Type::Variants(_, _) = type_suggestions.values().next().unwrap() {
+                type_conflicts.push(type_suggestions);
+            }
         }
     }
 
