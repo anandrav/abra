@@ -14,7 +14,6 @@ pub enum Type {
     // a type which must be solved for
     UnifVar(UnifVar),
 
-    // valid solutions
     Poly(Provs, Identifier),
     Unit(Provs),
     Int(Provs),
@@ -353,14 +352,6 @@ impl UnifVarData {
                 }
                 Type::Adt(other_provs, other_identifier, other_variants) => {
                     t.provs().borrow_mut().extend(other_provs.borrow().clone());
-                    // if let Type::Adt(_, identifier, variants) = t {
-                    //     if identifier == other_identifier && variants == other_variants {
-                    //         // no conflict
-                    //     } else {
-                    //         // conflict
-                    //         self.types.insert(key, t_other);
-                    //     }
-                    // }
                 }
             }
         } else {
@@ -995,7 +986,7 @@ pub fn result_of_constraint_solving(
     source: &str,
 ) -> Result<(), String> {
     // TODO: you should assert that every node in the AST is in unsovled_type_suggestions_to_unknown_ty, solved or not!
-    let mut type_conflicts = Vec::new();
+    let mut type_conflicts_to_provs = BTreeMap::new();
     let mut unknown_nodes = Vec::new();
     for (prov, potential_types) in solution_map.iter() {
         // let type_suggestions = condense_candidates(potential_types);
@@ -1003,30 +994,22 @@ pub fn result_of_constraint_solving(
         match data.solution() {
             UnifStatus::Solved(_) => continue,
             UnifStatus::Unsolved => {
-                unknown_nodes.push(prov);
+                if let Prov::Node(_) = prov {
+                    unknown_nodes.push(prov);
+                }
             }
             UnifStatus::Conflict => {
-                if !type_conflicts.contains(&data.types) {
-                    type_conflicts.push(data.types.clone());
+                if let Prov::Node(_) = prov {
+                    type_conflicts_to_provs
+                        .entry(data.types.clone())
+                        .or_insert_with(BTreeSet::new)
+                        .insert(prov);
                 }
             }
         }
-
-        // if let Some(variants) = data.variants {
-        //     for variant in variants.free_variants {
-        //         if !type_conflicts.contains(&variant) {
-        //             type_conflicts.push(variant.types.clone());
-        //         }
-        //     }
-        // }
-        // if type_suggestions.len() == 1 {
-        //     if let Type::Variants(_, _) = type_suggestions.values().next().unwrap() {
-        //         type_conflicts.push(type_suggestions);
-        //     }
-        // }
     }
 
-    if type_conflicts.is_empty() && unknown_nodes.is_empty() {
+    if type_conflicts_to_provs.is_empty() && unknown_nodes.is_empty() {
         return Ok(());
     }
 
@@ -1035,6 +1018,7 @@ pub fn result_of_constraint_solving(
     if !unknown_nodes.is_empty() {
         err_string.push_str("Can't determine types of these expressions: \n");
     }
+    unknown_nodes.sort();
     for unknown_node in unknown_nodes {
         dbg!("hello");
         match unknown_node {
@@ -1084,23 +1068,15 @@ pub fn result_of_constraint_solving(
         }
     }
 
-    let mut type_conflicts = type_conflicts
-        .iter()
-        .map(|type_suggestions| {
-            let mut types_sorted: Vec<_> = type_suggestions.values().collect();
-            types_sorted.sort_by_key(|ty| ty.provs().borrow().len());
-            types_sorted
-        })
-        .collect::<Vec<_>>();
-    type_conflicts.sort();
-    if !type_conflicts.is_empty() {
+    if !type_conflicts_to_provs.is_empty() {
         err_string.push_str("You have a type conflict!\n");
     }
-    for type_conflict in type_conflicts {
+    for (type_conflict, conflict_provs) in type_conflicts_to_provs {
+        let types = type_conflict.values().collect::<Vec<_>>();
         err_string.push_str("Type Conflict: ");
-        fmt_conflicting_types(&type_conflict, &mut err_string).unwrap();
+        fmt_conflicting_types(&types, &mut err_string).unwrap();
         writeln!(err_string).unwrap();
-        for ty in type_conflict {
+        for ty in types {
             err_string.push('\n');
             match &ty {
                 Type::UnifVar(_) => err_string.push_str("Sources of unknown:\n"), // idk about this
@@ -1121,7 +1097,10 @@ pub fn result_of_constraint_solving(
                     err_string.push_str(&format!("Sources of enum {ident}:\n"))
                 }
             };
-            let provs = ty.provs().borrow().clone(); // TODO don't clone here
+            let provs = ty.provs().borrow().clone();
+            // for prov in &conflict_provs {
+            //     provs.insert((*prov).clone());
+            // }
             let mut provs_vec = provs.iter().collect::<Vec<_>>();
             provs_vec.sort_by_key(|prov| match prov {
                 Prov::Builtin(_) => 0,
