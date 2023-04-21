@@ -310,6 +310,15 @@ pub fn provs_singleton(prov: Prov) -> Provs {
 
 pub type SolutionMap = HashMap<Prov, UnifVar>;
 
+fn variants_superset(big: &Vec<Variant>, small: &Vec<Variant>) -> bool {
+    for s in small {
+        if !big.iter().any(|b| b.ctor == s.ctor) {
+            return false;
+        }
+    }
+    true
+}
+
 impl UnifVarData {
     fn empty() -> Self {
         Self {
@@ -339,16 +348,8 @@ impl UnifVarData {
                 let mut merges = 0;
                 for (_, ref mut t) in lookup {
                     match t {
-                        Type::Adt(_, identifier, variants) => {
-                            let mut conflict = false;
-                            for other_variant in other_variants {
-                                if !variants.iter().any(|v| v.ctor == other_variant.ctor) {
-                                    conflict = true;
-                                    break;
-                                }
-                            }
-
-                            if !conflict {
+                        Type::Adt(_, _, variants) => {
+                            if variants_superset(variants, other_variants) {
                                 merges += 1;
                                 t.provs().borrow_mut().extend(other_provs.borrow().clone())
                             }
@@ -374,7 +375,7 @@ impl UnifVarData {
                 }
                 return;
             }
-            (TypeKey::Adt(_), Type::Adt(other_provs, other_identifier, other_variants)) => {
+            (TypeKey::Adt(_), Type::Adt(other_provs, other_identifier, adt_variants)) => {
                 let lookup = self
                     .types
                     .iter()
@@ -389,33 +390,22 @@ impl UnifVarData {
                     .types
                     .iter_mut()
                     .filter(|(k, _)| matches!(k, TypeKey::Variants | TypeKey::Adt(_)));
-                let mut more_types = BTreeMap::new();
                 let mut merges = 0;
                 for (_, ref mut t) in lookup {
                     match t {
                         Type::Adt(_, identifier, variants) => {
                             // dbg!(t.clone());
                             dbg!(t_other.clone());
-                            if identifier == other_identifier && variants == other_variants {
+                            if identifier == other_identifier && variants == adt_variants {
                                 // no conflict
                                 merges += 1;
                                 t.provs().borrow_mut().extend(other_provs.borrow().clone())
                             }
                         }
                         Type::Variants(_, variants) => {
-                            if count == 1 {
-                                let mut conflict = false;
-                                for variant in variants {
-                                    if !other_variants.iter().any(|v| v.ctor == variant.ctor) {
-                                        conflict = true;
-                                        break;
-                                    }
-                                }
-
-                                if !conflict {
-                                    merges += 1;
-                                    t.provs().borrow_mut().extend(other_provs.borrow().clone())
-                                }
+                            if count == 1 && variants_superset(adt_variants, variants) {
+                                merges += 1;
+                                t.provs().borrow_mut().extend(other_provs.borrow().clone())
                             }
                         }
                         _ => panic!("should be Adt or Variants"),
@@ -425,113 +415,10 @@ impl UnifVarData {
                 if count == 1 && merges == 0 {
                     self.types.insert(key.clone(), t_other.clone());
                 }
-                self.types.extend(more_types);
                 return;
             }
             _ => {}
         }
-        // match key {
-        //     TypeKey::Variants | TypeKey::Adt(_) => {
-        //         let mut lookup: Vec<_> = self
-        //             .types
-        //             .iter_mut()
-        //             .filter(|(k, _)| matches!(k, TypeKey::Variants | TypeKey::Adt(_)))
-        //             .collect();
-        //         if lookup.is_empty() {
-        //             // conflict
-        //             self.types.insert(key, t_other);
-        //             return;
-        //         }
-
-        //         if lookup.len() > 1 {
-        //             for (_k, ref mut t) in lookup {
-        //                 if let Type::Adt(provs, _, variants) = &t {
-        //                     if let Type::Variants(provs, other_variants) = &t_other {
-        //                         t.provs().borrow_mut().extend(provs.borrow().clone())
-        //                     }
-        //                 }
-        //             }
-        //             return;
-        //         }
-
-        //         let (k, ref mut t) = lookup[0];
-        //         match &t_other {
-        //             Type::Adt(other_provs, other_identifier, other_variants) => {
-        //                 match &t {
-        //                     Type::Adt(_, identifier, variants) => {
-        //                         println!("ADT CONFLICT?");
-        //                         dbg!(t.clone());
-        //                         dbg!(t_other.clone());
-        //                         if identifier == other_identifier && variants == other_variants {
-        //                             println!("no conflict");
-        //                             // no conflict
-        //                             t.provs().borrow_mut().extend(other_provs.borrow().clone())
-        //                         } else {
-        //                             println!("conflict!");
-        //                             // conflict
-        //                             self.types.insert(key, t_other); // BUG! getting replaced
-        //                         }
-        //                     }
-        //                     Type::Variants(_, variants) => {
-        //                         let mut conflict = false;
-        //                         for variant in variants {
-        //                             if !other_variants.iter().any(|v| v.ctor == variant.ctor) {
-        //                                 conflict = true;
-        //                                 break;
-        //                             }
-        //                         }
-
-        //                         if conflict {
-        //                             self.types.insert(key, t_other);
-        //                         } else {
-        //                             // no conflict
-        //                             t.provs().borrow_mut().extend(other_provs.borrow().clone())
-        //                         }
-        //                     }
-        //                     _ => panic!("should be Adt or Variants for key Adt"),
-        //                 }
-        //             }
-        //             Type::Variants(other_provs, other_variants) => {
-        //                 match t {
-        //                     Type::Adt(_, identifier, variants) => {
-        //                         // println!("variants: {:?}", variants);
-        //                         // println!("other_variants: {:?}", other_variants);
-        //                         let mut conflict = false;
-        //                         for other_variant in other_variants {
-        //                             if !variants.iter().any(|v| v.ctor == other_variant.ctor) {
-        //                                 conflict = true;
-        //                                 break;
-        //                             }
-        //                         }
-
-        //                         if conflict {
-        //                             // println!("there was a conflict :(");
-        //                             self.types.insert(key, t_other);
-        //                         } else {
-        //                             // println!("there wasn't a conflict");
-        //                             // no conflict
-        //                             t.provs().borrow_mut().extend(other_provs.borrow().clone())
-        //                         }
-        //                     }
-        //                     Type::Variants(_, ref mut variants) => {
-        //                         // no conflict
-        //                         for other_variant in other_variants {
-        //                             if !variants.iter().any(|v| v.ctor == other_variant.ctor) {
-        //                                 variants.push(other_variant.clone());
-        //                             }
-        //                         }
-        //                         t.provs().borrow_mut().extend(other_provs.borrow().clone())
-        //                     }
-        //                     _ => panic!("should be Adt or Variants"),
-        //                 }
-        //             }
-        //             _ => panic!("should be Adt or Variants"),
-        //         }
-
-        //         return;
-        //     }
-        //     _ => {}
-        // }
         if let Some(t) = self.types.get_mut(&key) {
             match &t_other {
                 Type::UnifVar(_) => panic!("should not be Type::UnifVar"),
