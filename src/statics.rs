@@ -23,9 +23,14 @@ pub enum Type {
     Function(Provs, Vec<Type>, Box<Type>),
     Tuple(Provs, Vec<Type>),
     Adt(Provs, Identifier, Vec<Variant>),
+}
 
-    // incomplete solutions
-    Variants(Provs, Vec<Variant>), // "some Adt which has these variants, and maybe more"
+type UnifVar = UnionFindNode<UnifVarData>;
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct UnifVarData {
+    pub types: BTreeMap<TypeKey, Type>,
+    // pub variants: Option<Variants>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
@@ -34,28 +39,40 @@ pub struct Variant {
     pub data: Type,
 }
 
-type UnifVar = UnionFindNode<UnifVarData>;
-
-#[derive(Debug, Clone, PartialEq)]
-pub struct UnifVarData {
-    pub types: BTreeMap<TypeKey, Type>,
-}
+// #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+// pub struct Variants {
+//     pub provs: Provs,
+//     pub free_variants: BTreeSet<Variant>,
+// }
 
 impl UnifVarData {
-    pub fn solution(&self) -> Option<Type> {
-        if self.types.len() == 1 {
-            Some(self.types.values().next().unwrap().clone())
-        } else {
-            None
+    pub fn new() -> Self {
+        Self {
+            types: BTreeMap::new(),
+            // variants: None,
         }
     }
+
+    pub fn solution(&self) -> UnifStatus {
+        match self.types.len() {
+            0 => UnifStatus::Unsolved,
+            1 => UnifStatus::Solved(self.types.values().next().unwrap().clone()),
+            _ => UnifStatus::Conflict,
+        }
+    }
+}
+
+pub enum UnifStatus {
+    Conflict,
+    Solved(Type),
+    Unsolved,
 }
 
 // If two types don't share the same key, they must be in conflict
 // If two types share the same key, they may be in conflict
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum TypeKey {
-    Poly, // TODO: why isn't the Identifier included here?
+    Poly, // TODO: why isn't the Identifier included here? To differentiate 'a from 'b?
     Unit,
     Int,
     Bool,
@@ -63,7 +80,6 @@ pub enum TypeKey {
     Arrow(u8), // u8 represents the number of arguments
     Tuple(u8), // u8 represents the number of elements
     Adt(Identifier),
-    Variants,
 }
 
 // Provenances are used to:
@@ -92,7 +108,6 @@ impl Type {
             Type::Function(_, args, _) => Some(TypeKey::Arrow(args.len() as u8)),
             Type::Tuple(_, elems) => Some(TypeKey::Tuple(elems.len() as u8)),
             Type::Adt(_, ident, _) => Some(TypeKey::Adt(ident.clone())),
-            Type::Variants(_, _) => Some(TypeKey::Variants),
         }
     }
 
@@ -109,17 +124,19 @@ impl Type {
                 self // noop
             }
             Type::UnifVar(unifvar) => {
-                let data = unifvar.clone_data();
-                if data.types.len() == 1 {
+                let data = unifvar.clone_data(); // TODO: instantiate the variants field?
+                if let UnifStatus::Solved(ty) = data.solution() {
                     // TODO consider relaxing this if it gives better editor feedback. But test thoroughly after
-                    let ty = data.types.into_values().next().unwrap();
                     if let Type::Poly(_, _) = ty {
                         ty.instantiate(ctx, solution_map, prov)
                     } else {
                         let ty = ty.instantiate(ctx, solution_map, prov.clone());
                         let mut types = BTreeMap::new();
                         types.insert(ty.key().unwrap(), ty);
-                        let data = UnifVarData { types };
+                        let data = UnifVarData {
+                            types,
+                            // variants: None,
+                        };
                         let unifvar = UnionFindNode::new(data);
                         solution_map.insert(prov, unifvar.clone());
                         Type::UnifVar(unifvar) // TODO clone this? But test thoroughly after lol
@@ -165,18 +182,6 @@ impl Type {
                     .collect();
                 Type::Adt(provs, ident, variants)
             }
-            Type::Variants(provs, variants) => {
-                let variants = variants
-                    .into_iter()
-                    .map(|variant| Variant {
-                        ctor: variant.ctor,
-                        data: variant
-                            .data
-                            .instantiate(ctx.clone(), solution_map, prov.clone()),
-                    })
-                    .collect();
-                Type::Variants(provs, variants)
-            }
         }
     }
 
@@ -189,7 +194,7 @@ impl Type {
         match solution_map.get(&prov) {
             Some(ty) => Type::UnifVar(ty.clone()),
             None => {
-                let ty_var = UnifVar::new(UnifVarData::empty());
+                let ty_var = UnifVar::new(UnifVarData::new());
                 let ty = Type::UnifVar(ty_var.clone());
                 solution_map.insert(prov, ty_var);
                 ty
@@ -205,12 +210,12 @@ impl Type {
         Type::Adt(provs_singleton(Prov::Node(id)), ident, variants)
     }
 
-    pub fn make_variant(ctor: Identifier, data: Type, id: ast::Id) -> Type {
-        Type::Variants(
-            provs_singleton(Prov::Node(id)),
-            vec![Variant { ctor, data }],
-        )
-    }
+    // pub fn make_variant(ctor: Identifier, data: Type, id: ast::Id) -> Type {
+    //     Type::Variants(
+    //         provs_singleton(Prov::Node(id)),
+    //         vec![Variant { ctor, data }],
+    //     )
+    // }
 
     pub fn make_unit(prov: Prov) -> Type {
         Type::Unit(provs_singleton(prov))
@@ -246,8 +251,7 @@ impl Type {
             | Self::String(provs)
             | Self::Function(provs, _, _)
             | Self::Tuple(provs, _)
-            | Self::Adt(provs, _, _)
-            | Self::Variants(provs, _) => provs,
+            | Self::Adt(provs, _, _) => provs,
         }
     }
 }
@@ -311,117 +315,9 @@ pub fn provs_singleton(prov: Prov) -> Provs {
 pub type SolutionMap = HashMap<Prov, UnifVar>;
 
 impl UnifVarData {
-    fn empty() -> Self {
-        Self {
-            types: BTreeMap::new(),
-        }
-    }
-
     // TODO: occurs check
     fn extend(&mut self, t_other: Type) {
         let key = t_other.key().unwrap();
-        match key {
-            TypeKey::Variants | TypeKey::Adt(_) => {
-                let mut lookup: Vec<_> = self
-                    .types
-                    .iter_mut()
-                    .filter(|(k, _)| matches!(k, TypeKey::Variants | TypeKey::Adt(_)))
-                    .collect();
-                if lookup.is_empty() {
-                    // conflict
-                    self.types.insert(key, t_other);
-                    return;
-                }
-
-                if lookup.len() > 1 {
-                    for (_k, ref mut t) in lookup {
-                        if let Type::Adt(provs, _, variants) = &t {
-                            if let Type::Variants(provs, other_variants) = &t_other {
-                                t.provs().borrow_mut().extend(provs.borrow().clone())
-                            }
-                        }
-                    }
-                    return;
-                }
-
-                let (k, ref mut t) = lookup[0];
-                match &t_other {
-                    Type::Adt(other_provs, other_identifier, other_variants) => {
-                        match &t {
-                            Type::Adt(_, identifier, variants) => {
-                                println!("ADT CONFLICT?");
-                                dbg!(t.clone());
-                                dbg!(t_other.clone());
-                                if identifier == other_identifier && variants == other_variants {
-                                    println!("no conflict");
-                                    // no conflict
-                                    t.provs().borrow_mut().extend(other_provs.borrow().clone())
-                                } else {
-                                    println!("conflict!");
-                                    // conflict
-                                    self.types.insert(key, t_other); // BUG! getting replaced
-                                }
-                            }
-                            Type::Variants(_, variants) => {
-                                let mut conflict = false;
-                                for variant in variants {
-                                    if !other_variants.iter().any(|v| v.ctor == variant.ctor) {
-                                        conflict = true;
-                                        break;
-                                    }
-                                }
-
-                                if conflict {
-                                    self.types.insert(key, t_other);
-                                } else {
-                                    // no conflict
-                                    t.provs().borrow_mut().extend(other_provs.borrow().clone())
-                                }
-                            }
-                            _ => panic!("should be Adt or Variants for key Adt"),
-                        }
-                    }
-                    Type::Variants(other_provs, other_variants) => {
-                        match t {
-                            Type::Adt(_, identifier, variants) => {
-                                // println!("variants: {:?}", variants);
-                                // println!("other_variants: {:?}", other_variants);
-                                let mut conflict = false;
-                                for other_variant in other_variants {
-                                    if !variants.iter().any(|v| v.ctor == other_variant.ctor) {
-                                        conflict = true;
-                                        break;
-                                    }
-                                }
-
-                                if conflict {
-                                    // println!("there was a conflict :(");
-                                    self.types.insert(key, t_other);
-                                } else {
-                                    // println!("there wasn't a conflict");
-                                    // no conflict
-                                    t.provs().borrow_mut().extend(other_provs.borrow().clone())
-                                }
-                            }
-                            Type::Variants(_, ref mut variants) => {
-                                // no conflict
-                                for other_variant in other_variants {
-                                    if !variants.iter().any(|v| v.ctor == other_variant.ctor) {
-                                        variants.push(other_variant.clone());
-                                    }
-                                }
-                                t.provs().borrow_mut().extend(other_provs.borrow().clone())
-                            }
-                            _ => panic!("should be Adt or Variants"),
-                        }
-                    }
-                    _ => panic!("should be Adt or Variants"),
-                }
-
-                return;
-            }
-            _ => {}
-        }
         if let Some(t) = self.types.get_mut(&key) {
             match &t_other {
                 Type::UnifVar(_) => panic!("should not be Type::UnifVar"),
@@ -455,7 +351,17 @@ impl UnifVarData {
                         }
                     }
                 }
-                _ => {}
+                Type::Adt(other_provs, other_identifier, other_variants) => {
+                    t.provs().borrow_mut().extend(other_provs.borrow().clone());
+                    // if let Type::Adt(_, identifier, variants) = t {
+                    //     if identifier == other_identifier && variants == other_variants {
+                    //         // no conflict
+                    //     } else {
+                    //         // conflict
+                    //         self.types.insert(key, t_other);
+                    //     }
+                    // }
+                }
             }
         } else {
             // conflict
@@ -464,12 +370,11 @@ impl UnifVarData {
     }
 
     // TODO: occurs check
-    fn merge(first: Self, second: Self) -> Self {
-        let mut merged_types = Self { types: first.types };
+    fn merge(mut first: Self, second: Self) -> Self {
         for (_key, t) in second.types {
-            merged_types.extend(t);
+            first.extend(t);
         }
-        merged_types
+        first
     }
 }
 
@@ -653,7 +558,7 @@ pub fn generate_constraints_expr(
                 let typ = typ.instantiate(ctx, solution_map, Prov::Node(expr.id));
                 constrain(typ, node_ty);
             } else {
-                panic!("variable not bound in TyCtx: {}", id);
+                dbg!("variable not bound in TyCtx: {}", id);
             }
         }
         ExprKind::BinOp(left, op, right) => {
@@ -741,6 +646,14 @@ pub fn generate_constraints_expr(
         }
         ExprKind::Match(expr, arms) => {
             let ty_scrutiny = Type::from_node(solution_map, expr.id);
+            generate_constraints_expr(
+                ctx.clone(),
+                Mode::Ana {
+                    expected: ty_scrutiny.clone(),
+                },
+                expr.clone(),
+                solution_map,
+            );
             for arm in arms {
                 let new_ctx = TyCtx::new(Some(ctx.clone()));
                 generate_constraints_pat(
@@ -1040,14 +953,12 @@ pub fn generate_constraints_pat(
             ctx.borrow_mut().extend(identifier, ty_pat);
         }
         PatKind::Variant(tag, data) => {
-            let ty_data = match data {
-                Some(data) => Type::from_node(solution_map, data.id),
-                None => Type::make_unit(Prov::Node(pat.id)),
-            };
+            // let ty_data = match data {
+            //     Some(data) => Type::from_node(solution_map, data.id),
+            //     None => Type::make_unit(Prov::Node(pat.id)),
+            // };
             let ty_some_variant = Type::fresh_unifvar(solution_map, Prov::Variant(tag.clone()));
-            let ty_variant = Type::make_variant(tag.clone(), ty_data, pat.id);
-            constrain(ty_pat.clone(), ty_some_variant);
-            constrain(ty_pat, ty_variant);
+            constrain(ty_pat, ty_some_variant);
             if let Some(data) = data {
                 generate_constraints_pat(ctx, Mode::Syn, data.clone(), solution_map)
             };
@@ -1085,25 +996,93 @@ pub fn result_of_constraint_solving(
 ) -> Result<(), String> {
     // TODO: you should assert that every node in the AST is in unsovled_type_suggestions_to_unknown_ty, solved or not!
     let mut type_conflicts = Vec::new();
-    for potential_types in solution_map.values() {
+    let mut unknown_nodes = Vec::new();
+    for (prov, potential_types) in solution_map.iter() {
         // let type_suggestions = condense_candidates(potential_types);
-        let type_suggestions = potential_types.clone_data().types;
-        if type_suggestions.len() > 1 && (!type_conflicts.contains(&type_suggestions)) {
-            type_conflicts.push(type_suggestions.clone());
-        }
-        if type_suggestions.len() == 1 {
-            if let Type::Variants(_, _) = type_suggestions.values().next().unwrap() {
-                type_conflicts.push(type_suggestions);
+        let data = potential_types.clone_data();
+        match data.solution() {
+            UnifStatus::Solved(_) => continue,
+            UnifStatus::Unsolved => {
+                unknown_nodes.push(prov);
+            }
+            UnifStatus::Conflict => {
+                if !type_conflicts.contains(&data.types) {
+                    type_conflicts.push(data.types.clone());
+                }
             }
         }
+
+        // if let Some(variants) = data.variants {
+        //     for variant in variants.free_variants {
+        //         if !type_conflicts.contains(&variant) {
+        //             type_conflicts.push(variant.types.clone());
+        //         }
+        //     }
+        // }
+        // if type_suggestions.len() == 1 {
+        //     if let Type::Variants(_, _) = type_suggestions.values().next().unwrap() {
+        //         type_conflicts.push(type_suggestions);
+        //     }
+        // }
     }
 
-    if type_conflicts.is_empty() {
+    if type_conflicts.is_empty() && unknown_nodes.is_empty() {
         return Ok(());
     }
 
     let mut err_string = String::new();
-    err_string.push_str("You have a type error!\n");
+
+    if !unknown_nodes.is_empty() {
+        err_string.push_str("Can't determine types of these expressions: \n");
+    }
+    for unknown_node in unknown_nodes {
+        dbg!("hello");
+        match unknown_node {
+            Prov::Builtin(s) => {
+                err_string.push_str(&format!("The builtin function '{}'", s));
+            }
+            Prov::Node(id) => {
+                let span = node_map.get(id).unwrap().span();
+                err_string.push_str(&span.display(source, ""));
+            }
+            Prov::InstantiatePoly(_, ident) => {
+                err_string.push_str(&format!("The instantiation of polymorphic type {ident}"));
+            }
+            Prov::FuncArg(prov, n) => {
+                match prov.as_ref() {
+                    Prov::Builtin(s) => {
+                        let n = n + 1; // readability
+                        err_string
+                            .push_str(&format!("--> The #{n} argument of function '{}'\n", s));
+                    }
+                    Prov::Node(id) => {
+                        let span = node_map.get(id).unwrap().span();
+                        err_string.push_str(
+                            &span.display(source, &format!("The #{n} argument of this function")),
+                        );
+                    }
+                    _ => unreachable!(),
+                }
+            }
+            Prov::FuncOut(prov) => match prov.as_ref() {
+                Prov::Builtin(s) => {
+                    err_string
+                        .push_str(&format!("--> The output of the builtin function '{}'\n", s));
+                }
+                Prov::Node(id) => {
+                    let span = node_map.get(id).unwrap().span();
+                    err_string.push_str(&span.display(source, "The output of this function"));
+                }
+                _ => unreachable!(),
+            },
+            Prov::Alias(ident) => {
+                err_string.push_str(&format!("The type alias {ident}\n"));
+            }
+            Prov::Variant(ident) => {
+                err_string.push_str(&format!("The enum variant {ident}\n"));
+            }
+        }
+    }
 
     let mut type_conflicts = type_conflicts
         .iter()
@@ -1114,6 +1093,9 @@ pub fn result_of_constraint_solving(
         })
         .collect::<Vec<_>>();
     type_conflicts.sort();
+    if !type_conflicts.is_empty() {
+        err_string.push_str("You have a type conflict!\n");
+    }
     for type_conflict in type_conflicts {
         err_string.push_str("Type Conflict: ");
         fmt_conflicting_types(&type_conflict, &mut err_string).unwrap();
@@ -1138,8 +1120,6 @@ pub fn result_of_constraint_solving(
                 Type::Adt(_, ident, _) => {
                     err_string.push_str(&format!("Sources of enum {ident}:\n"))
                 }
-                Type::Variants(_, variants) => err_string
-                    .push_str(&format!("Sources of enum with variants: {:#?}\n", variants)),
             };
             let provs = ty.provs().borrow().clone(); // TODO don't clone here
             let mut provs_vec = provs.iter().collect::<Vec<_>>();
@@ -1251,16 +1231,6 @@ impl fmt::Display for Type {
             }
             Type::Adt(_, ident, _) => {
                 write!(f, "{}", ident)
-            }
-            Type::Variants(_, variants) => {
-                write!(f, "enum {{")?;
-                for (i, variant) in variants.iter().enumerate() {
-                    if i > 0 {
-                        write!(f, ", ")?;
-                    }
-                    write!(f, "{}", variant)?;
-                }
-                write!(f, "}}")
             }
         }
     }
