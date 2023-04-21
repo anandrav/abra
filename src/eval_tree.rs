@@ -84,17 +84,3 @@ pub fn is_val(expr: &Rc<Expr>) -> bool {
         ConsumedEffect => false,
     }
 }
-
-pub fn pat_is_val(pat: &Rc<Pat>) -> bool {
-    use self::Pat::*;
-    match pat.as_ref() {
-        Wildcard => false,
-        Unit => true,
-        Var(_) => false,
-        TaggedVariant(_, data) => match data {
-            Some(pat) => pat_is_val(pat),
-            None => true,
-        },
-        Tuple(elements) => elements.iter().all(pat_is_val),
-    }
-}

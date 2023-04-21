@@ -310,7 +310,7 @@ pub fn provs_singleton(prov: Prov) -> Provs {
 
 pub type SolutionMap = HashMap<Prov, UnifVar>;
 
-fn variants_superset(big: &Vec<Variant>, small: &Vec<Variant>) -> bool {
+fn variants_superset(big: &[Variant], small: &[Variant]) -> bool {
     for s in small {
         if !big.iter().any(|b| b.ctor == s.ctor) {
             return false;

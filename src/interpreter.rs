@@ -36,7 +36,7 @@ pub fn make_new_environment(tyctx: Rc<RefCell<TyCtx>>) -> Rc<RefCell<Environment
         )),
     );
     // replace variables with variants or variant constructors
-    for (key, ty) in tyctx.borrow().vars.iter() {
+    for (_key, ty) in tyctx.borrow().vars.iter() {
         // println!("key: {key}, ty: {:?}", ty);
         let solution = if let Type::UnifVar(unifvar) = ty {
             // println!("UNIFVAR!");
@@ -47,7 +47,7 @@ pub fn make_new_environment(tyctx: Rc<RefCell<TyCtx>>) -> Rc<RefCell<Environment
         };
         if let Some(Type::Adt(_, _, variants)) = solution {
             // println!("ADT!");
-            for (i, variant) in variants.iter().enumerate() {
+            for (_i, variant) in variants.iter().enumerate() {
                 let ctor = &variant.ctor;
                 if let Type::Unit(_) = variant.data {
                     env.borrow_mut().extend(
@@ -640,7 +640,7 @@ fn match_pattern(pat: Rc<Pat>, expr: Rc<Expr>, env: Rc<RefCell<Environment>>) ->
         (Pat::TaggedVariant(ptag, pdata), _) => {
             if let TaggedVariant(etag, edata) = &*expr {
                 let pdata = pdata.clone().unwrap_or(Rc::new(Pat::Unit));
-                ptag == etag && match_pattern(pdata.clone(), edata.clone(), env.clone())
+                ptag == etag && match_pattern(pdata, edata.clone(), env)
             } else {
                 false
             }
