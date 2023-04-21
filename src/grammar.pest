@@ -38,7 +38,7 @@ else_keyword = _{ "else" }
 match_expression = { "match" ~ expression ~ match_branch ~ (match_branch)* }
 match_branch = { match_pattern ~ "->" ~ expression }
 
-match_pattern = { wildcard | match_pattern_tuple | match_pattern_variant | match_pattern_variable }
+match_pattern = { literal | wildcard | match_pattern_tuple | match_pattern_variant | match_pattern_variable }
 match_pattern_tuple = { tuple_start ~ (match_pattern_tuple_element ~ ",")+ ~ match_pattern_tuple_element ~ tuple_end }
 match_pattern_tuple_element = _{ match_pattern }
 match_pattern_variant = { identifier ~ match_pattern_variant_data? }

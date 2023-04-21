@@ -19,6 +19,10 @@ pub fn translate_pat(parse_tree: Rc<ast::Pat>) -> Rc<Etp> {
         ASTpk::Tuple(pats) => Rc::new(Etp::Tuple(
             pats.iter().map(|pat| translate_pat(pat.clone())).collect(),
         )),
+        ASTpk::Unit => Rc::new(Etp::Unit),
+        ASTpk::Int(i) => Rc::new(Etp::Int(*i)),
+        ASTpk::Bool(b) => Rc::new(Etp::Bool(*b)),
+        ASTpk::Str(s) => Rc::new(Etp::Str(s.clone())),
     }
 }
 

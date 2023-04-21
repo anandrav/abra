@@ -69,7 +69,7 @@ struct MyApp {
     interpreter: Option<Interpreter>,
 }
 
-const UNION: &str = r#"type color = red | blue | green
+const _UNION: &str = r#"type color = red | blue | green
 
 type value = black | white
 
@@ -85,12 +85,10 @@ color_to_string(red)
 "#;
 
 const FIB: &str = r#"let fibonacci(n) = {
-    if n = 0
-        0
-    else if n = 1
-        1
-    else
-        fibonacci(n-1) + fibonacci(n-2)
+    match n
+        0 -> 0
+        1 -> 1
+        _ -> fibonacci(n-1) + fibonacci(n-2)
 }
 
 type range = (int, int)
@@ -123,7 +121,7 @@ swap(("hello", 2))
 impl Default for MyApp {
     fn default() -> Self {
         Self {
-            text: String::from(UNION),
+            text: String::from(FIB),
             output: String::default(),
             interpreter: None,
         }

@@ -1031,6 +1031,18 @@ pub fn generate_constraints_pat(
     };
     match &*pat.patkind {
         PatKind::Wildcard => (),
+        PatKind::Unit => {
+            constrain(ty_pat, Type::make_unit(Prov::Node(pat.id)));
+        }
+        PatKind::Int(_) => {
+            constrain(ty_pat, Type::make_int(Prov::Node(pat.id)));
+        }
+        PatKind::Bool(_) => {
+            constrain(ty_pat, Type::make_bool(Prov::Node(pat.id)));
+        }
+        PatKind::Str(_) => {
+            constrain(ty_pat, Type::make_string(Prov::Node(pat.id)));
+        }
         PatKind::Var(identifier) => {
             // letrec?: extend context with id and type before analyzing against said type
             let ty_pat = Type::from_node(solution_map, pat.id);

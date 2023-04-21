@@ -251,7 +251,7 @@ fn interpret(
             }
         }
         Let(pat, expr1, expr2) => match &*pat.clone() {
-            Pat::TaggedVariant(..) | Pat::Unit => {
+            Pat::TaggedVariant(..) | Pat::Unit | Pat::Int(_) | Pat::Bool(_) | Pat::Str(_) => {
                 panic!("Pattern in let is a value, not a variable!")
             }
             Pat::Wildcard => {
@@ -637,6 +637,9 @@ fn match_pattern(pat: Rc<Pat>, expr: Rc<Expr>, env: Rc<RefCell<Environment>>) ->
     match (&*pat, &*expr) {
         (Pat::Wildcard, _) => true,
         (Pat::Unit, Unit) => true,
+        (Pat::Bool(b1), Bool(b2)) => b1 == b2,
+        (Pat::Int(i1), Int(i2)) => i1 == i2,
+        (Pat::Str(s1), Str(s2)) => s1 == s2,
         (Pat::TaggedVariant(ptag, pdata), _) => {
             if let TaggedVariant(etag, edata) = &*expr {
                 let pdata = pdata.clone().unwrap_or(Rc::new(Pat::Unit));

@@ -58,7 +58,10 @@ impl std::fmt::Display for Expr {
 #[derive(Debug, PartialEq, Eq)]
 pub enum Pat {
     Wildcard,
-    Unit, // used for variant with no associated data
+    Unit,
+    Int(i32),
+    Str(String),
+    Bool(bool),
     Var(String),
     TaggedVariant(Identifier, Option<Rc<Pat>>),
     Tuple(Vec<Rc<Pat>>),

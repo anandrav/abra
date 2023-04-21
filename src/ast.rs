@@ -275,6 +275,10 @@ impl Node for Pat {
         match &*self.patkind {
             PatKind::Wildcard => vec![],
             PatKind::Var(_) => vec![],
+            PatKind::Unit => vec![],
+            PatKind::Int(_) => vec![],
+            PatKind::Bool(_) => vec![],
+            PatKind::Str(_) => vec![],
             PatKind::Variant(_, pat_opt) => {
                 if let Some(pat) = pat_opt {
                     vec![pat.clone()]
@@ -296,10 +300,10 @@ pub enum PatKind {
     Wildcard,
     Var(Identifier),
     Variant(Identifier, Option<Rc<Pat>>),
-    // Unit,
-    // Int(i32),
-    // Bool(bool),
-    // Str(String),
+    Unit,
+    Int(i32),
+    Bool(bool),
+    Str(String),
     Tuple(Vec<Rc<Pat>>),
 }
 
@@ -307,7 +311,7 @@ impl PatKind {
     pub fn get_identifier_of_variable(&self) -> Identifier {
         match self {
             PatKind::Var(id) => id.clone(),
-            PatKind::Wildcard | PatKind::Variant(_, _) | PatKind::Tuple(_) => {
+            _ => {
                 panic!("Pattern is not a variable")
             }
         }
@@ -582,6 +586,30 @@ pub fn parse_match_pattern(pair: Pair<Rule>) -> Rc<Pat> {
         }
         Rule::wildcard => Rc::new(Pat {
             patkind: Rc::new(PatKind::Wildcard),
+            span,
+            id: Id::new(),
+        }),
+        Rule::literal_unit => Rc::new(Pat {
+            patkind: Rc::new(PatKind::Unit),
+            span,
+            id: Id::new(),
+        }),
+        Rule::literal_number => Rc::new(Pat {
+            patkind: Rc::new(PatKind::Int(pair.as_str().parse().unwrap())),
+            span,
+            id: Id::new(),
+        }),
+        Rule::literal_bool => Rc::new(Pat {
+            patkind: Rc::new(PatKind::Bool(pair.as_str().parse().unwrap())),
+            span,
+            id: Id::new(),
+        }),
+        Rule::literal_string => Rc::new(Pat {
+            patkind: Rc::new(PatKind::Str({
+                let s = pair.as_str();
+                // remove quotes
+                s[1..s.len() - 1].to_owned()
+            })),
             span,
             id: Id::new(),
         }),
