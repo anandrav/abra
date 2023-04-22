@@ -16,7 +16,7 @@ pub enum Input {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Effect {
     Print,
-    StringOfInt,
+    IntToString,
     // ReadLn,
 }
 
@@ -31,9 +31,9 @@ pub fn handle_effect(effect: Effect, args: Vec<Rc<eval_tree::Expr>>, output: &mu
             }
             _ => panic!("wrong arguments for {:#?} effect", effect),
         },
-        Effect::StringOfInt => match &*args[0] {
+        Effect::IntToString => match &*args[0] {
             eval_tree::Expr::Int(n) => Input::Cin(n.to_string()),
-            _ => panic!("wrong arguments for {:#?} effect", effect),
+            _ => panic!("wrong arguments ({:#?}) for {:#?} effect", args[0], effect),
         },
         // Effect::ReadLn => Input::Cin(String::from("this is input")),
     }

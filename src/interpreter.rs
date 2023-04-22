@@ -29,7 +29,7 @@ pub fn make_new_environment(tyctx: Rc<RefCell<TyCtx>>) -> Rc<RefCell<Environment
         Rc::new(Expr::Func(
             String::from("some_int"),
             Rc::new(Expr::EffectAp(
-                side_effects::Effect::StringOfInt,
+                side_effects::Effect::IntToString,
                 vec![Rc::new(Expr::Var(String::from("some_int")))],
             )),
             None,
@@ -55,17 +55,36 @@ pub fn make_new_environment(tyctx: Rc<RefCell<TyCtx>>) -> Rc<RefCell<Environment
                         Rc::new(Expr::TaggedVariant(ctor.clone(), Rc::new(Expr::Unit))),
                     );
                 } else {
-                    env.borrow_mut().extend(
-                        ctor,
-                        Rc::new(Expr::Func(
-                            "data".to_string(),
-                            Rc::new(Expr::TaggedVariant(
+                    match &variant.data {
+                        Type::Tuple(_, elems) => {
+                            let mut args = vec![];
+                            for (i, _) in elems.iter().enumerate() {
+                                args.push(Rc::new(Expr::Var(format!("arg{}", i))));
+                            }
+                            let mut expr = Rc::new(Expr::TaggedVariant(
                                 ctor.clone(),
-                                Rc::new(Expr::Var("data".to_string())),
-                            )),
-                            None,
-                        )),
-                    );
+                                Rc::new(Expr::Tuple(args)),
+                            ));
+                            for (i, _) in elems.iter().enumerate().rev() {
+                                expr = Rc::new(Expr::Func(format!("arg{}", i), expr, None));
+                            }
+                            println!("ctor function: {:?}", expr);
+                            env.borrow_mut().extend(ctor, expr);
+                        }
+                        _ => {
+                            env.borrow_mut().extend(
+                                ctor,
+                                Rc::new(Expr::Func(
+                                    "data".to_string(),
+                                    Rc::new(Expr::TaggedVariant(
+                                        ctor.clone(),
+                                        Rc::new(Expr::Var("data".to_string())),
+                                    )),
+                                    None,
+                                )),
+                            );
+                        }
+                    }
                 }
             }
         }
@@ -435,7 +454,7 @@ fn interpret(
                     ),
                     Some(closure) => (id, body, closure.clone()),
                 },
-                _ => panic!("not a function"),
+                _ => panic!("not a function {:#?}", expr1),
             };
 
             let funcapp_env = match funcapp_env {
@@ -640,13 +659,10 @@ fn match_pattern(pat: Rc<Pat>, expr: Rc<Expr>, env: Rc<RefCell<Environment>>) ->
         (Pat::Bool(b1), Bool(b2)) => b1 == b2,
         (Pat::Int(i1), Int(i2)) => i1 == i2,
         (Pat::Str(s1), Str(s2)) => s1 == s2,
-        (Pat::TaggedVariant(ptag, pdata), _) => {
-            if let TaggedVariant(etag, edata) = &*expr {
-                let pdata = pdata.clone().unwrap_or(Rc::new(Pat::Unit));
-                ptag == etag && match_pattern(pdata, edata.clone(), env)
-            } else {
-                false
-            }
+        (Pat::TaggedVariant(ptag, pdata), TaggedVariant(etag, edata)) => {
+            dbg!(ptag, pdata, etag, edata);
+            let pdata = pdata.clone().unwrap_or(Rc::new(Pat::Unit));
+            ptag == etag && match_pattern(pdata, edata.clone(), env)
         }
         (Pat::Var(id), _) => {
             env.borrow_mut().extend(id, expr.clone());

@@ -71,13 +71,16 @@ pub enum TypeKey {
 // (2) give the *unique* identity of an unknown type variable (UnifVar) in the SolutionMap
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum Prov {
-    Node(ast::Id), // the type of an expression or statement
-    Alias(Identifier),
-    Variant(Identifier),
+    Node(ast::Id),   // the type of an expression or statement
     Builtin(String), // a builtin function or constant, which doesn't exist in the AST
+
+    Alias(Identifier),
+    VariantName(Identifier), // the (ADT) type that a variant name is associated with
+
     InstantiatePoly(Box<Prov>, Identifier),
     FuncArg(Box<Prov>, u8), // u8 represents the index of the argument
     FuncOut(Box<Prov>),     // u8 represents how many arguments before this output
+    VariantData(Box<Prov>), // the type of the data of a variant pattern
 }
 
 impl Type {
@@ -105,7 +108,13 @@ impl Type {
         prov: Prov,
     ) -> Type {
         match self {
-            Type::Unit(_) | Type::Int(_) | Type::Bool(_) | Type::String(_) => {
+            Type::Unit(_)
+            | Type::Int(_)
+            | Type::Bool(_)
+            | Type::String(_)
+            | Type::Tuple(..)
+            | Type::Adt(..)
+            | Type::Variants(..) => {
                 self // noop
             }
             Type::UnifVar(unifvar) => {
@@ -145,40 +154,41 @@ impl Type {
                     .collect();
                 let out = Box::new(out.instantiate(ctx, solution_map, prov));
                 Type::Function(provs, args, out)
-            }
-            Type::Tuple(provs, elems) => {
-                let elems = elems
-                    .into_iter()
-                    .map(|ty| ty.instantiate(ctx.clone(), solution_map, prov.clone()))
-                    .collect();
-                Type::Tuple(provs, elems)
-            }
-            Type::Adt(provs, ident, variants) => {
-                let variants = variants
-                    .into_iter()
-                    .map(|variant| Variant {
-                        ctor: variant.ctor,
-                        data: variant
-                            .data
-                            .instantiate(ctx.clone(), solution_map, prov.clone()),
-                    })
-                    .collect();
-                Type::Adt(provs, ident, variants)
-            }
-            Type::Variants(provs, variants) => {
-                let variants = variants
-                    .into_iter()
-                    .map(|variant| Variant {
-                        ctor: variant.ctor,
-                        data: variant
-                            .data
-                            .instantiate(ctx.clone(), solution_map, prov.clone()),
-                    })
-                    .collect();
-                Type::Variants(provs, variants)
-            }
+            } // Type::Tuple(provs, elems) => {
+              //     let elems = elems
+              //         .into_iter()
+              //         .map(|ty| ty.instantiate(ctx.clone(), solution_map, prov.clone()))
+              //         .collect();
+              //     Type::Tuple(provs, elems)
+              // }
+              // Type::Adt(provs, ident, variants) => {
+              //     let variants = variants
+              //         .into_iter()
+              //         .map(|variant| Variant {
+              //             ctor: variant.ctor,
+              //             data: variant
+              //                 .data
+              //                 .instantiate(ctx.clone(), solution_map, prov.clone()),
+              //         })
+              //         .collect();
+              //     Type::Adt(provs, ident, variants)
+              // }
+              // Type::Variants(provs, variants) => {
+              //     let variants = variants
+              //         .into_iter()
+              //         .map(|variant| Variant {
+              //             ctor: variant.ctor,
+              //             data: variant
+              //                 .data
+              //                 .instantiate(ctx.clone(), solution_map, prov.clone()),
+              //         })
+              //         .collect();
+              //     Type::Variants(provs, variants)
+              // }
         }
     }
+
+    // type list('a) = nil | cons('a, list('a))
 
     pub fn from_node(solution_map: &mut SolutionMap, id: ast::Id) -> Type {
         let prov = Prov::Node(id);
@@ -644,6 +654,7 @@ pub fn generate_constraints_expr(
             constrain(node_ty, Type::make_string(Prov::Node(expr.id)));
         }
         ExprKind::Var(id) => {
+            dbg!("var: {id}");
             let lookup = ctx.borrow_mut().lookup(id);
             if let Some(typ) = lookup {
                 // replace polymorphic types with unifvars if necessary
@@ -736,16 +747,18 @@ pub fn generate_constraints_expr(
                 }
             }
         }
-        ExprKind::Match(expr, arms) => {
-            let ty_scrutiny = Type::from_node(solution_map, expr.id);
+        ExprKind::Match(scrut, arms) => {
+            dbg!("match 1");
+            let ty_scrutiny = Type::from_node(solution_map, scrut.id);
             generate_constraints_expr(
                 ctx.clone(),
                 Mode::Ana {
                     expected: ty_scrutiny.clone(),
                 },
-                expr.clone(),
+                scrut.clone(),
                 solution_map,
             );
+            dbg!("match 2");
             for arm in arms {
                 let new_ctx = TyCtx::new(Some(ctx.clone()));
                 generate_constraints_pat(
@@ -756,6 +769,7 @@ pub fn generate_constraints_expr(
                     arm.pat.clone(),
                     solution_map,
                 );
+                dbg!("match 2.1");
                 generate_constraints_expr(
                     new_ctx,
                     Mode::Ana {
@@ -764,7 +778,9 @@ pub fn generate_constraints_expr(
                     arm.expr.clone(),
                     solution_map,
                 );
+                dbg!("match 2.2");
             }
+            dbg!("match 3");
         }
         ExprKind::Func(args, out_annot, body) => {
             let (ty_func, _body_ctx) = generate_constraints_function_helper(
@@ -779,6 +795,7 @@ pub fn generate_constraints_expr(
             constrain(ty_func, node_ty);
         }
         ExprKind::FuncAp(func, args) => {
+            dbg!("func ap");
             // arguments
             let tys_args: Vec<Type> = args
                 .iter()
@@ -799,11 +816,13 @@ pub fn generate_constraints_expr(
                     unknown
                 })
                 .collect();
+            dbg!("func ap 1");
 
             // body
             let ty_body =
                 Type::fresh_unifvar(solution_map, Prov::FuncOut(Box::new(Prov::Node(func.id))));
             constrain(ty_body.clone(), node_ty);
+            dbg!("func ap 2");
 
             // function type
             let ty_func = Type::make_arrow(tys_args, ty_body, expr.id);
@@ -813,6 +832,7 @@ pub fn generate_constraints_expr(
                 func.clone(),
                 solution_map,
             );
+            dbg!("func ap 3");
         }
         ExprKind::Tuple(exprs) => {
             let tys = exprs
@@ -909,7 +929,7 @@ pub fn generate_constraints_stmt(
                 for variant in variants {
                     constrain(
                         ty_node.clone(),
-                        Type::fresh_unifvar(solution_map, Prov::Variant(variant.ctor.clone())),
+                        Type::fresh_unifvar(solution_map, Prov::VariantName(variant.ctor.clone())),
                     );
                     let data = match &variant.data {
                         Some(data) => ast_type_to_statics_type(solution_map, data.clone()),
@@ -1065,22 +1085,37 @@ pub fn generate_constraints_pat(
             constrain(ty_pat, Type::make_string(Prov::Node(pat.id)));
         }
         PatKind::Var(identifier) => {
+            dbg!(identifier);
             // letrec?: extend context with id and type before analyzing against said type
             let ty_pat = Type::from_node(solution_map, pat.id);
+            dbg!("here20");
             ctx.borrow_mut().extend(identifier, ty_pat);
+            dbg!("here21");
         }
         PatKind::Variant(tag, data) => {
+            dbg!(tag);
             let ty_data = match data {
                 Some(data) => Type::from_node(solution_map, data.id),
-                None => Type::make_unit(Prov::Node(pat.id)),
+                None => Type::make_unit(Prov::VariantData(Box::new(Prov::Node(pat.id)))), // TODO BUG
             };
-            let ty_some_variant = Type::fresh_unifvar(solution_map, Prov::Variant(tag.clone()));
-            let ty_variant = Type::make_variant(tag.clone(), ty_data, pat.id);
+            dbg!("here1");
+            let ty_some_variant = Type::fresh_unifvar(solution_map, Prov::VariantName(tag.clone()));
+            dbg!("here2");
+            let ty_variant = Type::make_variant(tag.clone(), ty_data.clone(), pat.id);
+            dbg!("here3");
             constrain(ty_pat.clone(), ty_some_variant);
+            dbg!("here4");
             constrain(ty_pat, ty_variant);
+            dbg!("here5");
             if let Some(data) = data {
-                generate_constraints_pat(ctx, Mode::Syn, data.clone(), solution_map)
+                generate_constraints_pat(
+                    ctx,
+                    Mode::Ana { expected: ty_data },
+                    data.clone(),
+                    solution_map,
+                )
             };
+            dbg!("here6");
         }
         PatKind::Tuple(pats) => {
             let tys_elements = pats
@@ -1180,7 +1215,8 @@ pub fn result_of_constraint_solving(
                 Prov::FuncArg(_, _) => 3,
                 Prov::FuncOut(_) => 4,
                 Prov::Alias(_) => 5,
-                Prov::Variant(_) => 6,
+                Prov::VariantName(_) => 6,
+                Prov::VariantData(_) => 7,
             });
             for cause in provs_vec {
                 match cause {
@@ -1231,8 +1267,11 @@ pub fn result_of_constraint_solving(
                     Prov::Alias(ident) => {
                         err_string.push_str(&format!("The type alias {ident}"));
                     }
-                    Prov::Variant(ident) => {
+                    Prov::VariantName(ident) => {
                         err_string.push_str(&format!("The enum variant {ident}"));
+                    }
+                    Prov::VariantData(_prov) => {
+                        err_string.push_str("The data of some enum variant");
                     }
                 }
             }

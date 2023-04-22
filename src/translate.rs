@@ -15,7 +15,7 @@ pub fn translate_pat(parse_tree: Rc<ast::Pat>) -> Rc<Etp> {
         ASTpk::Variant(id, pat) => Rc::new(Etp::TaggedVariant(
             id.clone(),
             pat.clone().map(translate_pat),
-        )), // TODO: 0 is not correct, need to get the correct variant index
+        )),
         ASTpk::Tuple(pats) => Rc::new(Etp::Tuple(
             pats.iter().map(|pat| translate_pat(pat.clone())).collect(),
         )),

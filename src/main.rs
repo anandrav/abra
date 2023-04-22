@@ -79,13 +79,13 @@ match my_list
 
 "#;
 
-const _OPTION: &str = r#"type maybe_int = nothing | just of int
+const _OPTION: &str = r#"type maybe_int = none | some of int
 
-let n = nothing
+let n = none
 
 match n
-    nothing -> print("nothing")
-    just of ~n -> print(int_to_string(n))
+    none -> print("no int")
+    some of ~n -> print(int_to_string(n))
 
 "#;
 
@@ -126,7 +126,7 @@ swap(("hello", 2))
 impl Default for MyApp {
     fn default() -> Self {
         Self {
-            text: String::from(_OPTION),
+            text: String::from(_LIST),
             output: String::default(),
             interpreter: None,
         }
