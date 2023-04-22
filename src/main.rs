@@ -69,18 +69,23 @@ struct MyApp {
     interpreter: Option<Interpreter>,
 }
 
-const _UNION: &str = r#"type color = red | blue | green
+const _LIST: &str = r#"type list = nil | cons of (int, list)
 
-type value = black | white
+let my_list = cons(1, nil)
 
-let color_to_string(c) = {
-	match c
-        red -> "red"
-        blue -> "blue"
-        white -> "green"
-}
+match my_list
+    nil -> print("empty list")
+    cons of (~head, ~tail) -> print(int_to_string(head))
 
-color_to_string(red)
+"#;
+
+const _OPTION: &str = r#"type maybe_int = nothing | just of int
+
+let n = nothing
+
+match n
+    nothing -> print("nothing")
+    just of ~n -> print(int_to_string(n))
 
 "#;
 
@@ -121,7 +126,7 @@ swap(("hello", 2))
 impl Default for MyApp {
     fn default() -> Self {
         Self {
-            text: String::from(FIB),
+            text: String::from(_OPTION),
             output: String::default(),
             interpreter: None,
         }

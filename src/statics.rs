@@ -738,6 +738,14 @@ pub fn generate_constraints_expr(
         }
         ExprKind::Match(expr, arms) => {
             let ty_scrutiny = Type::from_node(solution_map, expr.id);
+            generate_constraints_expr(
+                ctx.clone(),
+                Mode::Ana {
+                    expected: ty_scrutiny.clone(),
+                },
+                expr.clone(),
+                solution_map,
+            );
             for arm in arms {
                 let new_ctx = TyCtx::new(Some(ctx.clone()));
                 generate_constraints_pat(
@@ -903,11 +911,24 @@ pub fn generate_constraints_stmt(
                         ty_node.clone(),
                         Type::fresh_unifvar(solution_map, Prov::Variant(variant.ctor.clone())),
                     );
-                    ctx.borrow_mut().extend(&variant.ctor, ty_node.clone());
                     let data = match &variant.data {
                         Some(data) => ast_type_to_statics_type(solution_map, data.clone()),
                         None => Type::make_unit(Prov::Node(variant.id())),
                     };
+                    match &data {
+                        Type::Unit(_) => {
+                            ctx.borrow_mut().extend(&variant.ctor, ty_node.clone());
+                        }
+                        Type::Tuple(_, args) => {
+                            let ty_arrow = Type::make_arrow(args.clone(), ty_node.clone(), stmt.id);
+                            ctx.borrow_mut().extend(&variant.ctor, ty_arrow);
+                        }
+                        _ => {
+                            let ty_arrow =
+                                Type::make_arrow(vec![data.clone()], ty_node.clone(), stmt.id);
+                            ctx.borrow_mut().extend(&variant.ctor, ty_arrow);
+                        }
+                    }
                     tys_variants.push(Variant {
                         ctor: variant.ctor.clone(),
                         data,
