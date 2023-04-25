@@ -69,7 +69,7 @@ struct MyApp {
     interpreter: Option<Interpreter>,
 }
 
-const _LIST: &str = r#"type list = nil | cons of (int, list)
+const _LIST: &str = r#"type list = nil | cons of ('a, list)
 
 let my_list = cons(1, nil)
 
@@ -79,13 +79,21 @@ match my_list
 
 "#;
 
-const _OPTION: &str = r#"type maybe_int = none | some of int
+const _OPTION: &str = r#"type maybe = none | some of 'a
 
-let n = none
+let n = some(3)
 
 match n
     none -> print("no int")
-    some of ~n -> print(int_to_string(n))
+    some of ~n -> print(n)
+
+"#;
+
+const _TYPE_FUNCTION: &str = r#"type pair<'a> = ('a, 'a)
+
+let npair: pair<int> = (1, 2)
+
+let bpair: pair<bool> = (true, false)
 
 "#;
 
@@ -126,7 +134,7 @@ swap(("hello", 2))
 impl Default for MyApp {
     fn default() -> Self {
         Self {
-            text: String::from(_LIST),
+            text: String::from(_OPTION),
             output: String::default(),
             interpreter: None,
         }

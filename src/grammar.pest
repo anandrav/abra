@@ -9,8 +9,8 @@ toplevel_item = _{ adt_declaration | typealias | statement }
 
 typealias = { "type" ~ identifier ~ "=" ~ typ}
 
-adt_declaration = { "type" ~ identifier ~ type_args? ~ "=" ~ variant ~ ("|" ~ variant)* }
-type_args = { "<" ~ (type_poly ~ ",")* ~ type_poly? ~ ">" }
+adt_declaration = { "type" ~ identifier ~ /*type_args? ~*/ "=" ~ variant ~ ("|" ~ variant)* }
+type_args = _{ "<" ~ (type_poly ~ ",")* ~ type_poly? ~ ">" }
 variant = { identifier ~ packed_data? }
 packed_data = _{ "of" ~ typ }
 
