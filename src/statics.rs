@@ -941,7 +941,7 @@ pub fn generate_constraints_stmt(
                 let right = ast_type_to_statics_type(solution_map, ty.clone());
                 constrain(left, right);
             }
-            TypeDefKind::Adt(ident, variants) => {
+            TypeDefKind::Adt(ident, params, variants) => {
                 let ty_node = Type::fresh_unifvar(solution_map, Prov::Node(stmt.id));
                 let mut tys_variants = vec![];
                 for variant in variants {

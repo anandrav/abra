@@ -48,7 +48,7 @@ pub struct TypeDef {
 #[derive(Debug, PartialEq)]
 pub enum TypeDefKind {
     Alias(Identifier, Rc<AstType>),
-    Adt(Identifier, Vec<Rc<Variant>>),
+    Adt(Identifier, Vec<Rc<AstType>>, Vec<Rc<Variant>>),
 }
 
 #[derive(Debug, PartialEq)]
@@ -140,8 +140,11 @@ impl Node for Stmt {
             StmtKind::Expr(expr) => vec![expr.clone()],
             StmtKind::TypeDef(tydefkind) => match &**tydefkind {
                 TypeDefKind::Alias(_, ty) => vec![ty.clone()],
-                TypeDefKind::Adt(_, variants) => {
+                TypeDefKind::Adt(_, params, variants) => {
                     let mut children: Vec<Rc<dyn Node>> = Vec::new();
+                    for param in params {
+                        children.push(param.clone());
+                    }
                     for variant in variants {
                         children.push(variant.clone() as Rc<dyn Node>);
                     }
@@ -360,7 +363,7 @@ pub enum TypeKind {
     Int,
     Bool,
     Str,
-    // TODO: make this nary as well
+    // TODO: make Arrow nary as well
     Arrow(Rc<AstType>, Rc<AstType>),
     Tuple(Vec<Rc<AstType>>),
 }
@@ -744,9 +747,9 @@ pub fn parse_stmt(pair: Pair<Rule>) -> Rc<Stmt> {
         Rule::adt_declaration => {
             let ident = inner[0].as_str().to_string();
             let mut n = 1;
-            let mut type_params = vec![];
+            let mut params = vec![];
             while let Rule::type_poly = inner[n].as_rule() {
-                type_params.push(inner[n].as_str().to_string());
+                params.push(parse_type_term(inner[n].clone()));
                 n += 1;
             }
             let mut variants = vec![];
@@ -757,7 +760,7 @@ pub fn parse_stmt(pair: Pair<Rule>) -> Rc<Stmt> {
             }
             Rc::new(Stmt {
                 stmtkind: Rc::new(StmtKind::TypeDef(Rc::new(TypeDefKind::Adt(
-                    ident, variants,
+                    ident, params, variants,
                 )))),
                 span,
                 id: Id::new(),

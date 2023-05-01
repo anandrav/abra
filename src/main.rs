@@ -134,7 +134,7 @@ swap(("hello", 2))
 impl Default for MyApp {
     fn default() -> Self {
         Self {
-            text: String::from(_OPTION),
+            text: String::from(_LIST),
             output: String::default(),
             interpreter: None,
         }
