@@ -69,23 +69,23 @@ struct MyApp {
     interpreter: Option<Interpreter>,
 }
 
-const _LIST: &str = r#"type list<'a> = nil | cons of ('a, list<'a>)
+const _LIST: &str = r#"type list<'a> = nil | cons ('a, list<'a>)
 
 let my_list = cons(1, nil)
 
 match my_list
     nil -> print("empty list")
-    cons of (~head, ~tail) -> print(int_to_string(head))
+    cons (~head, ~tail) -> print(int_to_string(head))
 
 "#;
 
-const _OPTION: &str = r#"type maybe = none | some of 'a
+const _OPTION: &str = r#"type maybe = none | some 'a
 
 let n = some(3)
 
 match n
     none -> print("no int")
-    some of ~n -> print(n)
+    some ~n -> print(n)
 
 "#;
 
@@ -97,7 +97,7 @@ let bpair: pair<bool> = (true, false)
 
 "#;
 
-const FIB: &str = r#"let fibonacci(n) = {
+const _FIB: &str = r#"let fibonacci(n) = {
     match n
         0 -> 0
         1 -> 1
@@ -121,6 +121,18 @@ print("The first 30 fibonacci numbers are:")
 for_range((0, 30), print_fibonacci)
 "#;
 
+const _MORE_LIST: &str = r#"type list<'a> = nil | cons ('a, list<'a>)
+
+let numbers = cons(1,nil)
+let bools = cons(true,nil)
+"#;
+
+// let map(l: list<'a>, f: 'a -> 'b) = {
+// 	match l
+// 		nil -> nil
+// 		cons (~head, ~tail) -> cons(f(head), map(tail, f))
+// }
+
 const _SWAP: &str = r#"let swap(pair: ('a, 'b)) = {
     let (first, second) = pair
     (second, first)
@@ -134,7 +146,7 @@ swap(("hello", 2))
 impl Default for MyApp {
     fn default() -> Self {
         Self {
-            text: String::from(_LIST),
+            text: String::from(_MORE_LIST),
             output: String::default(),
             interpreter: None,
         }

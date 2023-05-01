@@ -3,6 +3,7 @@ use crate::ast::{
 };
 use crate::operators::BinOpcode;
 use core::panic;
+use debug_print::debug_println;
 use disjoint_sets::UnionFindNode;
 use std::cell::RefCell;
 use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
@@ -112,13 +113,7 @@ impl Type {
         prov: Prov,
     ) -> Type {
         match self {
-            Type::Unit(_)
-            | Type::Int(_)
-            | Type::Bool(_)
-            | Type::String(_)
-            // | Type::Adt(..)
-            // | Type::Variants(..)
-            => {
+            Type::Unit(_) | Type::Int(_) | Type::Bool(_) | Type::String(_) => {
                 println!("it was a noop");
                 self // noop
             }
@@ -132,17 +127,17 @@ impl Type {
                         ty.instantiate(ctx, solution_map, prov)
                     } else {
                         println!("it was a unifvar but no polyvar.");
-                        let ty = ty.instantiate(ctx, solution_map, prov);
+                        let ty = ty.instantiate(ctx, solution_map, prov.clone());
                         let mut types = BTreeMap::new();
                         types.insert(ty.key().unwrap(), ty);
                         let data_instantiated = UnifVarData { types };
-                        unifvar.replace_data(data_instantiated);
-                        // unifvar.with_data(|data| *data = data_instantiated);
-                        Type::UnifVar(unifvar)
+                        // unifvar.replace_data(data_instantiated);
+                        // // unifvar.with_data(|data| *data = data_instantiated);
+                        // Type::UnifVar(unifvar)
 
-                        // let unifvar = UnionFindNode::new(data);
-                        // solution_map.insert(prov, unifvar.clone());
-                        // Type::UnifVar(unifvar) // TODO clone this? But test thoroughly after lol
+                        let unifvar = UnionFindNode::new(data_instantiated);
+                        solution_map.insert(prov, unifvar.clone());
+                        Type::UnifVar(unifvar) // TODO clone this? But test thoroughly after lol
                     }
                 } else if data.types.is_empty() {
                     println!("it was a unifvar (empty)");
@@ -163,7 +158,7 @@ impl Type {
                     self // noop
                 }
             }
-            | Type::Ap(provs, ident, params) => {
+            Type::Ap(provs, ident, params) => {
                 println!("it was an ap");
                 let params = params
                     .into_iter()
@@ -484,7 +479,9 @@ impl UnifVarData {
         //     }
         //     _ => {}
         // }
-        // non-ADT-related
+
+        // accumulate provenances for common key
+        // constrain children to each other if applicable
         if let Some(t) = self.types.get_mut(&key) {
             match &t_other {
                 Type::UnifVar(_) => panic!("should not be Type::UnifVar"),
@@ -1040,10 +1037,9 @@ pub fn generate_constraints_stmt(
                         data,
                     });
                 }
-                constrain(
-                    ty_node,
-                    Type::make_adt(ident.clone(), tys_params, tys_variants, stmt.id),
-                );
+                let ty_adt = Type::make_adt(ident.clone(), tys_params, tys_variants, stmt.id);
+                // let ty_adt = ty_adt.instantiate(ctx, solution_map, Prov::Node(stmt.id));
+                constrain(ty_node, ty_adt);
                 // let ty_node = Type::fresh_unifvar(solution_map, Prov::Node(stmt.id));
                 // let mut tys_variants = vec![];
                 // for variant in variants {
@@ -1257,6 +1253,7 @@ pub fn generate_constraints_toplevel(
 }
 
 pub fn refine_solution_map(solution_map: &mut SolutionMap) {
+    // if new constraints are added, we must refine again
     let mut again = false;
     for ufnode in solution_map.values_mut() {
         let mut data = ufnode.clone_data();
@@ -1280,6 +1277,7 @@ pub fn refine_solution_map(solution_map: &mut SolutionMap) {
                 let Type::Variants(other_provs, other_variants) = data.types[&kvariant].clone() else { panic!() };
                 if variants_superset(&variants, &other_variants) {
                     variants_superset_constrain(&variants, &other_variants);
+                    again = true;
                     data.types.remove(&kvariant);
                     provs.borrow_mut().extend(other_provs.borrow().clone());
                 }
@@ -1298,6 +1296,7 @@ pub fn refine_solution_map(solution_map: &mut SolutionMap) {
                     // constrain the parameters
                     for (param, other_param) in params.iter().zip(other_params.iter()) {
                         constrain(param.clone(), other_param.clone());
+                        again = true;
                     }
                     data.types.remove(&kaps);
                     provs.borrow_mut().extend(other_provs.borrow().clone());
@@ -1311,6 +1310,7 @@ pub fn refine_solution_map(solution_map: &mut SolutionMap) {
     }
 
     if again {
+        debug_println!("refine again");
         refine_solution_map(solution_map);
     }
 }
@@ -1531,6 +1531,7 @@ impl fmt::Display for Type {
                     }
                     write!(f, ">")?;
                 }
+                write!(f, "{{")?;
                 for (i, variant) in variants.iter().enumerate() {
                     if i > 0 {
                         write!(f, ", ")?;

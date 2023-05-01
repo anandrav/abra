@@ -77,7 +77,8 @@ type_annotation = _{ ":" ~ typ }
 typ = { type_term ~ (type_op_binary ~ type_term)* }
 type_term = _{ type_ap | tuple_type | type_literal }
 
-type_ap = { identifier ~ type_params }
+type_ap = { identifier ~ type_args }
+type_args = _{ "<" ~ (typ ~ ",")* ~ typ? ~ ">" }
 
 tuple_type = { tuple_start ~ (tuple_type_element ~ ",")+ ~ tuple_type_element ~ tuple_end }
 tuple_type_element = _{ typ }
