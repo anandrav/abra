@@ -209,16 +209,16 @@ impl eframe::App for MyApp {
                                         &(parse_tree.clone() as Rc<dyn ast::Node>),
                                     );
                                     debug_println!("initialized node map.");
-                                    let mut solution_map = statics::SolutionMap::new();
+                                    let mut inference_ctx = statics::InferenceContext::new();
                                     let tyctx = statics::generate_constraints_toplevel(
                                         make_new_environment(),
                                         parse_tree.clone(),
-                                        &mut solution_map,
+                                        &mut inference_ctx,
                                     );
-                                    statics::refine_solution_map(&mut solution_map);
+                                    statics::refine_inference_ctx(&mut inference_ctx);
                                     debug_println!("generated constraints.");
                                     let result = statics::result_of_constraint_solving(
-                                        solution_map,
+                                        inference_ctx,
                                         node_map,
                                         &self.text,
                                     );

@@ -5,12 +5,12 @@ use crate::operators::BinOpcode::*;
 use crate::operators::*;
 use crate::side_effects;
 use crate::side_effects::*;
-use crate::statics::TyCtx;
+use crate::statics::Gamma;
 use crate::statics::Type;
 use std::cell::RefCell;
 use std::rc::Rc;
 
-pub fn make_new_environment(tyctx: Rc<RefCell<TyCtx>>) -> Rc<RefCell<Environment>> {
+pub fn make_new_environment(tyctx: Rc<RefCell<Gamma>>) -> Rc<RefCell<Environment>> {
     // builtins
     let env = Rc::new(RefCell::new(Environment::new(None)));
     env.borrow_mut().extend(
@@ -99,7 +99,7 @@ pub struct Interpreter {
 }
 
 impl Interpreter {
-    pub fn new(tyctx: Rc<RefCell<TyCtx>>, program_expr: Rc<Expr>) -> Self {
+    pub fn new(tyctx: Rc<RefCell<Gamma>>, program_expr: Rc<Expr>) -> Self {
         Interpreter {
             program_expr,
             env: make_new_environment(tyctx),

@@ -108,8 +108,8 @@ impl Type {
     // Cloning type variables is very subtle...
     pub fn instantiate(
         self,
-        ctx: Rc<RefCell<TyCtx>>,
-        solution_map: &mut SolutionMap,
+        gamma: Rc<RefCell<Gamma>>,
+        inference_ctx: &mut InferenceContext,
         prov: Prov,
     ) -> Type {
         match self {
@@ -124,10 +124,10 @@ impl Type {
                     let ty = data.types.into_values().next().unwrap();
                     if let Type::Poly(_, _) = ty {
                         println!("it was a unifvar with a poly var in it");
-                        ty.instantiate(ctx, solution_map, prov)
+                        ty.instantiate(gamma, inference_ctx, prov)
                     } else {
                         println!("it was a unifvar but no polyvar.");
-                        let ty = ty.instantiate(ctx, solution_map, prov.clone());
+                        let ty = ty.instantiate(gamma, inference_ctx, prov.clone());
                         let mut types = BTreeMap::new();
                         types.insert(ty.key().unwrap(), ty);
                         let data_instantiated = UnifVarData { types };
@@ -136,7 +136,7 @@ impl Type {
                         // Type::UnifVar(unifvar)
 
                         let unifvar = UnionFindNode::new(data_instantiated);
-                        solution_map.insert(prov, unifvar.clone());
+                        inference_ctx.insert(prov, unifvar.clone());
                         Type::UnifVar(unifvar) // TODO clone this? But test thoroughly after lol
                     }
                 } else if data.types.is_empty() {
@@ -149,9 +149,9 @@ impl Type {
             }
             Type::Poly(_, ref ident) => {
                 println!("it was a INSTANTIATE POLY, ident: {:?}", ident);
-                if !ctx.borrow().lookup_poly(ident) {
+                if !gamma.borrow().lookup_poly(ident) {
                     Type::fresh_unifvar(
-                        solution_map,
+                        inference_ctx,
                         Prov::InstantiatePoly(Box::new(prov), ident.clone()),
                     )
                 } else {
@@ -162,7 +162,7 @@ impl Type {
                 println!("it was an ap");
                 let params = params
                     .into_iter()
-                    .map(|ty| ty.instantiate(ctx.clone(), solution_map, prov.clone()))
+                    .map(|ty| ty.instantiate(gamma.clone(), inference_ctx, prov.clone()))
                     .collect();
                 Type::Ap(provs, ident, params)
             }
@@ -170,16 +170,16 @@ impl Type {
                 println!("it was a func");
                 let args = args
                     .into_iter()
-                    .map(|ty| ty.instantiate(ctx.clone(), solution_map, prov.clone()))
+                    .map(|ty| ty.instantiate(gamma.clone(), inference_ctx, prov.clone()))
                     .collect();
-                let out = Box::new(out.instantiate(ctx, solution_map, prov));
+                let out = Box::new(out.instantiate(gamma, inference_ctx, prov));
                 Type::Function(provs, args, out)
             }
             Type::Tuple(provs, elems) => {
                 println!("it was a tuple");
                 let elems = elems
                     .into_iter()
-                    .map(|ty| ty.instantiate(ctx.clone(), solution_map, prov.clone()))
+                    .map(|ty| ty.instantiate(gamma.clone(), inference_ctx, prov.clone()))
                     .collect();
                 Type::Tuple(provs, elems)
             }
@@ -187,7 +187,7 @@ impl Type {
                 println!("it was an adt!");
                 let params = params
                     .into_iter()
-                    .map(|ty| ty.instantiate(ctx.clone(), solution_map, prov.clone()))
+                    .map(|ty| ty.instantiate(gamma.clone(), inference_ctx, prov.clone()))
                     .collect();
                 let variants = variants
                     .into_iter()
@@ -195,7 +195,7 @@ impl Type {
                         ctor: variant.ctor,
                         data: variant
                             .data
-                            .instantiate(ctx.clone(), solution_map, prov.clone()),
+                            .instantiate(gamma.clone(), inference_ctx, prov.clone()),
                     })
                     .collect();
                 Type::Adt(provs, ident, params, variants)
@@ -208,7 +208,7 @@ impl Type {
                         ctor: variant.ctor,
                         data: variant
                             .data
-                            .instantiate(ctx.clone(), solution_map, prov.clone()),
+                            .instantiate(gamma.clone(), inference_ctx, prov.clone()),
                     })
                     .collect();
                 Type::Variants(provs, variants)
@@ -218,18 +218,18 @@ impl Type {
 
     // type list('a) = nil | cons('a, list('a))
 
-    pub fn from_node(solution_map: &mut SolutionMap, id: ast::Id) -> Type {
+    pub fn from_node(inference_ctx: &mut InferenceContext, id: ast::Id) -> Type {
         let prov = Prov::Node(id);
-        Type::fresh_unifvar(solution_map, prov)
+        Type::fresh_unifvar(inference_ctx, prov)
     }
 
-    pub fn fresh_unifvar(solution_map: &mut SolutionMap, prov: Prov) -> Type {
-        match solution_map.get(&prov) {
+    pub fn fresh_unifvar(inference_ctx: &mut InferenceContext, prov: Prov) -> Type {
+        match inference_ctx.get(&prov) {
             Some(ty) => Type::UnifVar(ty.clone()),
             None => {
                 let ty_var = UnifVar::new(UnifVarData::empty());
                 let ty = Type::UnifVar(ty_var.clone());
-                solution_map.insert(prov, ty_var);
+                inference_ctx.insert(prov, ty_var);
                 ty
             }
         }
@@ -311,20 +311,20 @@ pub fn types_of_binop(opcode: &BinOpcode, id: ast::Id) -> (Type, Type, Type) {
 }
 
 pub fn ast_type_to_statics_type(
-    solution_map: &mut SolutionMap,
+    inference_ctx: &mut InferenceContext,
     ast_type: Rc<ast::AstType>,
 ) -> Type {
     match &*ast_type.typekind {
         ast::TypeKind::Poly(ident) => Type::make_poly(Prov::Node(ast_type.id()), ident.clone()),
         ast::TypeKind::Alias(ident) => {
-            Type::fresh_unifvar(solution_map, Prov::Alias(ident.clone()))
+            Type::fresh_unifvar(inference_ctx, Prov::Alias(ident.clone()))
         }
         ast::TypeKind::Ap(ident, params) => Type::Ap(
             provs_singleton(Prov::Node(ast_type.id())),
             ident.clone(),
             params
                 .iter()
-                .map(|param| ast_type_to_statics_type(solution_map, param.clone()))
+                .map(|param| ast_type_to_statics_type(inference_ctx, param.clone()))
                 .collect(),
         ),
         ast::TypeKind::Unit => Type::make_unit(Prov::Node(ast_type.id())),
@@ -333,14 +333,14 @@ pub fn ast_type_to_statics_type(
         ast::TypeKind::Str => Type::make_string(Prov::Node(ast_type.id())),
         // TODO wait does this only allow one argument??
         ast::TypeKind::Arrow(lhs, rhs) => Type::make_arrow(
-            vec![ast_type_to_statics_type(solution_map, lhs.clone())],
-            ast_type_to_statics_type(solution_map, rhs.clone()),
+            vec![ast_type_to_statics_type(inference_ctx, lhs.clone())],
+            ast_type_to_statics_type(inference_ctx, rhs.clone()),
             ast_type.id(),
         ),
         ast::TypeKind::Tuple(types) => {
             let mut statics_types = Vec::new();
             for t in types {
-                statics_types.push(ast_type_to_statics_type(solution_map, t.clone()));
+                statics_types.push(ast_type_to_statics_type(inference_ctx, t.clone()));
             }
             Type::make_tuple(statics_types, ast_type.id())
         }
@@ -355,7 +355,7 @@ pub fn provs_singleton(prov: Prov) -> Provs {
     RefCell::new(set)
 }
 
-pub type SolutionMap = HashMap<Prov, UnifVar>;
+pub type InferenceContext = HashMap<Prov, UnifVar>;
 
 fn variants_superset(big: &[Variant], small: &[Variant]) -> bool {
     for s in small {
@@ -577,15 +577,15 @@ fn constrain(expected: Type, actual: Type) {
     }
 }
 
-pub struct TyCtx {
+pub struct Gamma {
     pub vars: HashMap<Identifier, Type>,
     poly_type_vars: HashSet<Identifier>,
-    enclosing: Option<Rc<RefCell<TyCtx>>>,
+    enclosing: Option<Rc<RefCell<Gamma>>>,
 }
 
-pub fn make_new_environment() -> Rc<RefCell<TyCtx>> {
-    let ctx = TyCtx::empty();
-    ctx.borrow_mut().extend(
+pub fn make_new_environment() -> Rc<RefCell<Gamma>> {
+    let gamma = Gamma::empty();
+    gamma.borrow_mut().extend(
         &String::from("print"),
         Type::Function(
             RefCell::new(BTreeSet::new()),
@@ -599,7 +599,7 @@ pub fn make_new_environment() -> Rc<RefCell<TyCtx>> {
             .into(),
         ),
     );
-    ctx.borrow_mut().extend(
+    gamma.borrow_mut().extend(
         &String::from("int_to_string"),
         Type::Function(
             RefCell::new(BTreeSet::new()),
@@ -613,16 +613,16 @@ pub fn make_new_environment() -> Rc<RefCell<TyCtx>> {
             .into(),
         ),
     );
-    ctx
+    gamma
 }
 
-impl fmt::Debug for TyCtx {
+impl fmt::Debug for Gamma {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "Environment(\n{:?}\n)", TyCtx::debug_helper(self))
+        write!(f, "Environment(\n{:?}\n)", Gamma::debug_helper(self))
     }
 }
 
-impl TyCtx {
+impl Gamma {
     pub fn debug_helper(&self) -> Vec<String> {
         let mut current = Vec::new();
         for (key, value) in &self.vars {
@@ -646,7 +646,7 @@ impl TyCtx {
         }))
     }
 
-    pub fn new(enclosing: Option<Rc<RefCell<TyCtx>>>) -> Rc<RefCell<Self>> {
+    pub fn new(enclosing: Option<Rc<RefCell<Gamma>>>) -> Rc<RefCell<Self>> {
         Rc::new(RefCell::new(Self {
             vars: HashMap::new(),
             poly_type_vars: HashSet::new(),
@@ -713,12 +713,12 @@ pub enum Mode {
 }
 
 pub fn generate_constraints_expr(
-    ctx: Rc<RefCell<TyCtx>>,
+    gamma: Rc<RefCell<Gamma>>,
     mode: Mode,
     expr: Rc<Expr>,
-    solution_map: &mut SolutionMap,
+    inference_ctx: &mut InferenceContext,
 ) {
-    let node_ty = Type::from_node(solution_map, expr.id);
+    let node_ty = Type::from_node(inference_ctx, expr.id);
     match mode {
         Mode::Syn => (),
         Mode::Ana { expected } => constrain(expected, node_ty.clone()),
@@ -737,11 +737,11 @@ pub fn generate_constraints_expr(
             constrain(node_ty, Type::make_string(Prov::Node(expr.id)));
         }
         ExprKind::Var(id) => {
-            let lookup = ctx.borrow_mut().lookup(id);
+            let lookup = gamma.borrow_mut().lookup(id);
             if let Some(typ) = lookup {
                 // replace polymorphic types with unifvars if necessary
                 println!("instantiating type with id: {}", id);
-                let typ = typ.instantiate(ctx, solution_map, Prov::Node(expr.id));
+                let typ = typ.instantiate(gamma, inference_ctx, Prov::Node(expr.id));
                 println!("{}", typ);
                 constrain(typ, node_ty);
             } else {
@@ -752,16 +752,16 @@ pub fn generate_constraints_expr(
             let (ty_left, ty_right, ty_out) = types_of_binop(op, expr.id);
             constrain(ty_out, node_ty);
             generate_constraints_expr(
-                ctx.clone(),
+                gamma.clone(),
                 Mode::Ana { expected: ty_left },
                 left.clone(),
-                solution_map,
+                inference_ctx,
             );
             generate_constraints_expr(
-                ctx,
+                gamma,
                 Mode::Ana { expected: ty_right },
                 right.clone(),
-                solution_map,
+                inference_ctx,
             );
         }
         ExprKind::Block(statements) => {
@@ -769,22 +769,22 @@ pub fn generate_constraints_expr(
                 constrain(node_ty, Type::make_unit(Prov::Node(expr.id)));
                 return;
             }
-            let new_ctx = TyCtx::new(Some(ctx));
+            let new_gamma = Gamma::new(Some(gamma));
             for statement in statements[..statements.len() - 1].iter() {
                 generate_constraints_stmt(
-                    new_ctx.clone(),
+                    new_gamma.clone(),
                     Mode::Syn,
                     statement.clone(),
-                    solution_map,
+                    inference_ctx,
                 );
             }
             // if last statement is an expression, the block will have that expression's type
             if let StmtKind::Expr(terminal_expr) = &*statements.last().unwrap().stmtkind {
                 generate_constraints_expr(
-                    new_ctx,
+                    new_gamma,
                     Mode::Ana { expected: node_ty },
                     terminal_expr.clone(),
-                    solution_map,
+                    inference_ctx,
                 )
             } else {
                 constrain(node_ty, Type::make_unit(Prov::Node(expr.id)))
@@ -792,79 +792,79 @@ pub fn generate_constraints_expr(
         }
         ExprKind::If(cond, expr1, expr2) => {
             generate_constraints_expr(
-                ctx.clone(),
+                gamma.clone(),
                 Mode::Ana {
                     expected: Type::make_bool(Prov::Node(cond.id)),
                 },
                 cond.clone(),
-                solution_map,
+                inference_ctx,
             );
             match &expr2 {
                 // if-else
                 Some(expr2) => {
                     generate_constraints_expr(
-                        ctx.clone(),
+                        gamma.clone(),
                         Mode::Ana {
                             expected: node_ty.clone(),
                         },
                         expr1.clone(),
-                        solution_map,
+                        inference_ctx,
                     );
                     generate_constraints_expr(
-                        ctx,
+                        gamma,
                         Mode::Ana { expected: node_ty },
                         expr2.clone(),
-                        solution_map,
+                        inference_ctx,
                     );
                 }
                 // just if
                 None => {
                     generate_constraints_expr(
-                        ctx,
+                        gamma,
                         Mode::Ana {
                             expected: Type::make_unit(Prov::Node(expr.id)),
                         },
                         expr1.clone(),
-                        solution_map,
+                        inference_ctx,
                     );
                     constrain(node_ty, Type::make_unit(Prov::Node(expr.id)))
                 }
             }
         }
         ExprKind::Match(scrut, arms) => {
-            let ty_scrutiny = Type::from_node(solution_map, scrut.id);
+            let ty_scrutiny = Type::from_node(inference_ctx, scrut.id);
             generate_constraints_expr(
-                ctx.clone(),
+                gamma.clone(),
                 Mode::Ana {
                     expected: ty_scrutiny.clone(),
                 },
                 scrut.clone(),
-                solution_map,
+                inference_ctx,
             );
             for arm in arms {
-                let new_ctx = TyCtx::new(Some(ctx.clone()));
+                let new_gamma = Gamma::new(Some(gamma.clone()));
                 generate_constraints_pat(
-                    new_ctx.clone(),
+                    new_gamma.clone(),
                     Mode::Ana {
                         expected: ty_scrutiny.clone(),
                     },
                     arm.pat.clone(),
-                    solution_map,
+                    inference_ctx,
                 );
                 generate_constraints_expr(
-                    new_ctx,
+                    new_gamma,
                     Mode::Ana {
                         expected: node_ty.clone(),
                     },
                     arm.expr.clone(),
-                    solution_map,
+                    inference_ctx,
                 );
             }
         }
         ExprKind::Func(args, out_annot, body) => {
-            let (ty_func, _body_ctx) = generate_constraints_function_helper(
-                ctx,
-                solution_map,
+            let (ty_func, _body_gamma) = generate_constraints_function_helper(
+                gamma,
+                inference_ctx,
                 args,
                 out_annot,
                 body,
@@ -880,16 +880,16 @@ pub fn generate_constraints_expr(
                 .enumerate()
                 .map(|(n, arg)| {
                     let unknown = Type::fresh_unifvar(
-                        solution_map,
+                        inference_ctx,
                         Prov::FuncArg(Box::new(Prov::Node(func.id)), n as u8),
                     );
                     generate_constraints_expr(
-                        ctx.clone(),
+                        gamma.clone(),
                         Mode::Ana {
                             expected: unknown.clone(),
                         },
                         arg.clone(),
-                        solution_map,
+                        inference_ctx,
                     );
                     unknown
                 })
@@ -897,26 +897,26 @@ pub fn generate_constraints_expr(
 
             // body
             let ty_body =
-                Type::fresh_unifvar(solution_map, Prov::FuncOut(Box::new(Prov::Node(func.id))));
+                Type::fresh_unifvar(inference_ctx, Prov::FuncOut(Box::new(Prov::Node(func.id))));
             constrain(ty_body.clone(), node_ty);
 
             // function type
             let ty_func = Type::make_arrow(tys_args, ty_body, expr.id);
             generate_constraints_expr(
-                ctx,
+                gamma,
                 Mode::Ana { expected: ty_func },
                 func.clone(),
-                solution_map,
+                inference_ctx,
             );
         }
         ExprKind::Tuple(exprs) => {
             let tys = exprs
                 .iter()
-                .map(|expr| Type::fresh_unifvar(solution_map, Prov::Node(expr.id)))
+                .map(|expr| Type::fresh_unifvar(inference_ctx, Prov::Node(expr.id)))
                 .collect();
             constrain(Type::make_tuple(tys, expr.id), node_ty);
             for expr in exprs {
-                generate_constraints_expr(ctx.clone(), Mode::Syn, expr.clone(), solution_map);
+                generate_constraints_expr(gamma.clone(), Mode::Syn, expr.clone(), inference_ctx);
             }
         }
     }
@@ -924,32 +924,32 @@ pub fn generate_constraints_expr(
 
 // helper function for common code between Expr::Func and Expr::LetFunc
 pub fn generate_constraints_function_helper(
-    ctx: Rc<RefCell<TyCtx>>,
-    solution_map: &mut SolutionMap,
+    gamma: Rc<RefCell<Gamma>>,
+    inference_ctx: &mut InferenceContext,
     args: &[(Rc<ast::Pat>, Option<Rc<ast::AstType>>)],
     out_annot: &Option<Rc<ast::AstType>>,
     body: &Rc<Expr>,
     func_node_id: ast::Id,
-) -> (Type, Rc<RefCell<TyCtx>>) {
+) -> (Type, Rc<RefCell<Gamma>>) {
     // arguments
-    let body_ctx = TyCtx::new(Some(ctx));
+    let body_gamma = Gamma::new(Some(gamma));
     let ty_args = args
         .iter()
         .map(|(arg, arg_annot)| {
-            let ty_pat = Type::from_node(solution_map, arg.id);
+            let ty_pat = Type::from_node(inference_ctx, arg.id);
             if let Some(arg_annot) = arg_annot {
-                let arg_annot = ast_type_to_statics_type(solution_map, arg_annot.clone());
-                body_ctx.borrow_mut().add_polys(&arg_annot);
+                let arg_annot = ast_type_to_statics_type(inference_ctx, arg_annot.clone());
+                body_gamma.borrow_mut().add_polys(&arg_annot);
                 generate_constraints_pat(
-                    body_ctx.clone(), // TODO what are the consequences of analyzing patterns with context containing previous pattern... probs should not do that
+                    body_gamma.clone(), // TODO what are the consequences of analyzing patterns with context containing previous pattern... probs should not do that
                     Mode::Ana {
                         expected: arg_annot,
                     },
                     arg.clone(),
-                    solution_map,
+                    inference_ctx,
                 )
             } else {
-                generate_constraints_pat(body_ctx.clone(), Mode::Syn, arg.clone(), solution_map)
+                generate_constraints_pat(body_gamma.clone(), Mode::Syn, arg.clone(), inference_ctx)
             }
             ty_pat
         })
@@ -957,49 +957,49 @@ pub fn generate_constraints_function_helper(
 
     // body
     let ty_body = Type::fresh_unifvar(
-        solution_map,
+        inference_ctx,
         Prov::FuncOut(Box::new(Prov::Node(func_node_id))),
     );
     generate_constraints_expr(
-        body_ctx.clone(),
+        body_gamma.clone(),
         Mode::Ana {
             expected: ty_body.clone(),
         },
         body.clone(),
-        solution_map,
+        inference_ctx,
     );
     if let Some(out_annot) = out_annot {
-        let out_annot = ast_type_to_statics_type(solution_map, out_annot.clone());
-        body_ctx.borrow_mut().add_polys(&out_annot);
+        let out_annot = ast_type_to_statics_type(inference_ctx, out_annot.clone());
+        body_gamma.borrow_mut().add_polys(&out_annot);
         generate_constraints_expr(
-            body_ctx.clone(),
+            body_gamma.clone(),
             Mode::Ana {
                 expected: out_annot,
             },
             body.clone(),
-            solution_map,
+            inference_ctx,
         );
     }
 
-    (Type::make_arrow(ty_args, ty_body, func_node_id), body_ctx)
+    (Type::make_arrow(ty_args, ty_body, func_node_id), body_gamma)
 }
 
 pub fn generate_constraints_stmt(
-    ctx: Rc<RefCell<TyCtx>>,
+    gamma: Rc<RefCell<Gamma>>,
     mode: Mode,
     stmt: Rc<Stmt>,
-    solution_map: &mut SolutionMap,
+    inference_ctx: &mut InferenceContext,
 ) {
     match &*stmt.stmtkind {
         StmtKind::TypeDef(typdefkind) => match &**typdefkind {
             // TODO: make Alias and Adt separate StmtKinds... nesting is unnecessary
             TypeDefKind::Alias(ident, ty) => {
-                let left = Type::fresh_unifvar(solution_map, Prov::Alias(ident.clone()));
-                let right = ast_type_to_statics_type(solution_map, ty.clone());
+                let left = Type::fresh_unifvar(inference_ctx, Prov::Alias(ident.clone()));
+                let right = ast_type_to_statics_type(inference_ctx, ty.clone());
                 constrain(left, right);
             }
             TypeDefKind::Adt(ident, params, variants) => {
-                let ty_node = Type::fresh_unifvar(solution_map, Prov::Node(stmt.id));
+                let ty_node = Type::fresh_unifvar(inference_ctx, Prov::Node(stmt.id));
                 let mut tys_params = vec![];
                 for param in params {
                     if let TypeKind::Poly(ident) = &*param.typekind {
@@ -1012,24 +1012,24 @@ pub fn generate_constraints_stmt(
                 for variant in variants {
                     constrain(
                         ty_node.clone(),
-                        Type::fresh_unifvar(solution_map, Prov::VariantName(variant.ctor.clone())),
+                        Type::fresh_unifvar(inference_ctx, Prov::VariantName(variant.ctor.clone())),
                     );
                     let data = match &variant.data {
-                        Some(data) => ast_type_to_statics_type(solution_map, data.clone()),
+                        Some(data) => ast_type_to_statics_type(inference_ctx, data.clone()),
                         None => Type::make_unit(Prov::Node(variant.id())),
                     };
                     match &data {
                         Type::Unit(_) => {
-                            ctx.borrow_mut().extend(&variant.ctor, ty_node.clone());
+                            gamma.borrow_mut().extend(&variant.ctor, ty_node.clone());
                         }
                         Type::Tuple(_, args) => {
                             let ty_arrow = Type::make_arrow(args.clone(), ty_node.clone(), stmt.id);
-                            ctx.borrow_mut().extend(&variant.ctor, ty_arrow);
+                            gamma.borrow_mut().extend(&variant.ctor, ty_arrow);
                         }
                         _ => {
                             let ty_arrow =
                                 Type::make_arrow(vec![data.clone()], ty_node.clone(), stmt.id);
-                            ctx.borrow_mut().extend(&variant.ctor, ty_arrow);
+                            gamma.borrow_mut().extend(&variant.ctor, ty_arrow);
                         }
                     }
                     tys_variants.push(Variant {
@@ -1038,31 +1038,31 @@ pub fn generate_constraints_stmt(
                     });
                 }
                 let ty_adt = Type::make_adt(ident.clone(), tys_params, tys_variants, stmt.id);
-                // let ty_adt = ty_adt.instantiate(ctx, solution_map, Prov::Node(stmt.id));
+                // let ty_adt = ty_adt.instantiate(gamma, inference_ctx, Prov::Node(stmt.id));
                 constrain(ty_node, ty_adt);
-                // let ty_node = Type::fresh_unifvar(solution_map, Prov::Node(stmt.id));
+                // let ty_node = Type::fresh_unifvar(inference_ctx, Prov::Node(stmt.id));
                 // let mut tys_variants = vec![];
                 // for variant in variants {
                 //     constrain(
                 //         ty_node.clone(),
-                //         Type::fresh_unifvar(solution_map, Prov::VariantName(variant.ctor.clone())),
+                //         Type::fresh_unifvar(inference_ctx, Prov::VariantName(variant.ctor.clone())),
                 //     );
                 //     let data = match &variant.data {
-                //         Some(data) => ast_type_to_statics_type(solution_map, data.clone()),
+                //         Some(data) => ast_type_to_statics_type(inference_ctx, data.clone()),
                 //         None => Type::make_unit(Prov::Node(variant.id())),
                 //     };
                 //     match &data {
                 //         Type::Unit(_) => {
-                //             ctx.borrow_mut().extend(&variant.ctor, ty_node.clone());
+                //             gamma.borrow_mut().extend(&variant.ctor, ty_node.clone());
                 //         }
                 //         Type::Tuple(_, args) => {
                 //             let ty_arrow = Type::make_arrow(args.clone(), ty_node.clone(), stmt.id);
-                //             ctx.borrow_mut().extend(&variant.ctor, ty_arrow);
+                //             gamma.borrow_mut().extend(&variant.ctor, ty_arrow);
                 //         }
                 //         _ => {
                 //             let ty_arrow =
                 //                 Type::make_arrow(vec![data.clone()], ty_node.clone(), stmt.id);
-                //             ctx.borrow_mut().extend(&variant.ctor, ty_arrow);
+                //             gamma.borrow_mut().extend(&variant.ctor, ty_arrow);
                 //         }
                 //     }
                 //     tys_variants.push(Variant {
@@ -1077,39 +1077,40 @@ pub fn generate_constraints_stmt(
             }
         },
         StmtKind::Expr(expr) => {
-            generate_constraints_expr(ctx, mode, expr.clone(), solution_map);
+            generate_constraints_expr(gamma, mode, expr.clone(), inference_ctx);
         }
         StmtKind::Let((pat, ty_ann), expr) => {
-            let ty_pat = Type::from_node(solution_map, pat.id);
+            let ty_pat = Type::from_node(inference_ctx, pat.id);
 
             if let Some(ty_ann) = ty_ann {
-                let ty_ann = ast_type_to_statics_type(solution_map, ty_ann.clone());
-                ctx.borrow_mut().add_polys(&ty_ann);
+                let ty_ann = ast_type_to_statics_type(inference_ctx, ty_ann.clone());
+                gamma.borrow_mut().add_polys(&ty_ann);
                 generate_constraints_pat(
-                    ctx.clone(),
+                    gamma.clone(),
                     Mode::Ana { expected: ty_ann },
                     pat.clone(),
-                    solution_map,
+                    inference_ctx,
                 )
             } else {
-                generate_constraints_pat(ctx.clone(), Mode::Syn, pat.clone(), solution_map)
+                generate_constraints_pat(gamma.clone(), Mode::Syn, pat.clone(), inference_ctx)
             };
 
             generate_constraints_expr(
-                ctx,
+                gamma,
                 Mode::Ana { expected: ty_pat },
                 expr.clone(),
-                solution_map,
+                inference_ctx,
             );
         }
         StmtKind::LetFunc(name, args, out_annot, body) => {
             let func_node_id = stmt.id;
 
-            let ty_pat = Type::from_node(solution_map, name.id);
-            ctx.borrow_mut()
+            let ty_pat = Type::from_node(inference_ctx, name.id);
+            gamma
+                .borrow_mut()
                 .extend(&name.patkind.get_identifier_of_variable(), ty_pat.clone());
 
-            let body_ctx = TyCtx::new(Some(ctx));
+            let body_gamma = Gamma::new(Some(gamma));
 
             // BEGIN TODO use helper function for functions again
 
@@ -1117,24 +1118,24 @@ pub fn generate_constraints_stmt(
             let ty_args = args
                 .iter()
                 .map(|(arg, arg_annot)| {
-                    let ty_pat = Type::from_node(solution_map, arg.id);
+                    let ty_pat = Type::from_node(inference_ctx, arg.id);
                     if let Some(arg_annot) = arg_annot {
-                        let arg_annot = ast_type_to_statics_type(solution_map, arg_annot.clone());
-                        body_ctx.borrow_mut().add_polys(&arg_annot);
+                        let arg_annot = ast_type_to_statics_type(inference_ctx, arg_annot.clone());
+                        body_gamma.borrow_mut().add_polys(&arg_annot);
                         generate_constraints_pat(
-                            body_ctx.clone(), // TODO what are the consequences of analyzing patterns with context containing previous pattern... probs should not do that
+                            body_gamma.clone(), // TODO what are the consequences of analyzing patterns with context containing previous pattern... probs should not do that
                             Mode::Ana {
                                 expected: arg_annot,
                             },
                             arg.clone(),
-                            solution_map,
+                            inference_ctx,
                         )
                     } else {
                         generate_constraints_pat(
-                            body_ctx.clone(),
+                            body_gamma.clone(),
                             Mode::Syn,
                             arg.clone(),
-                            solution_map,
+                            inference_ctx,
                         )
                     }
                     ty_pat
@@ -1143,27 +1144,27 @@ pub fn generate_constraints_stmt(
 
             // body
             let ty_body = Type::fresh_unifvar(
-                solution_map,
+                inference_ctx,
                 Prov::FuncOut(Box::new(Prov::Node(func_node_id))),
             );
             generate_constraints_expr(
-                body_ctx.clone(),
+                body_gamma.clone(),
                 Mode::Ana {
                     expected: ty_body.clone(),
                 },
                 body.clone(),
-                solution_map,
+                inference_ctx,
             );
             if let Some(out_annot) = out_annot {
-                let out_annot = ast_type_to_statics_type(solution_map, out_annot.clone());
-                body_ctx.borrow_mut().add_polys(&out_annot);
+                let out_annot = ast_type_to_statics_type(inference_ctx, out_annot.clone());
+                body_gamma.borrow_mut().add_polys(&out_annot);
                 generate_constraints_expr(
-                    body_ctx,
+                    body_gamma,
                     Mode::Ana {
                         expected: out_annot,
                     },
                     body.clone(),
-                    solution_map,
+                    inference_ctx,
                 );
             }
 
@@ -1176,12 +1177,12 @@ pub fn generate_constraints_stmt(
 }
 
 pub fn generate_constraints_pat(
-    ctx: Rc<RefCell<TyCtx>>,
+    gamma: Rc<RefCell<Gamma>>,
     mode: Mode,
     pat: Rc<Pat>,
-    solution_map: &mut SolutionMap,
+    inference_ctx: &mut InferenceContext,
 ) {
-    let ty_pat = Type::from_node(solution_map, pat.id);
+    let ty_pat = Type::from_node(inference_ctx, pat.id);
     match mode {
         Mode::Syn => (),
         Mode::Ana { expected } => constrain(expected, ty_pat.clone()),
@@ -1203,59 +1204,61 @@ pub fn generate_constraints_pat(
         PatKind::Var(identifier) => {
             dbg!(identifier);
             // letrec?: extend context with id and type before analyzing against said type
-            let ty_pat = Type::from_node(solution_map, pat.id);
-            ctx.borrow_mut().extend(identifier, ty_pat);
+            let ty_pat = Type::from_node(inference_ctx, pat.id);
+            gamma.borrow_mut().extend(identifier, ty_pat);
         }
         PatKind::Variant(tag, data) => {
             let ty_data = match data {
-                Some(data) => Type::from_node(solution_map, data.id),
+                Some(data) => Type::from_node(inference_ctx, data.id),
                 None => Type::make_unit(Prov::VariantData(Box::new(Prov::Node(pat.id)))), // TODO BUG <---- I don't remember what this means.
             };
-            let ty_some_variant = Type::fresh_unifvar(solution_map, Prov::VariantName(tag.clone()));
+            let ty_some_variant =
+                Type::fresh_unifvar(inference_ctx, Prov::VariantName(tag.clone()));
             let ty_variant = Type::make_variant(tag.clone(), ty_data.clone(), pat.id);
             // instantiate
             println!("instantiating variant with tag: {}", tag);
-            let ty_variant = ty_variant.instantiate(ctx.clone(), solution_map, Prov::Node(pat.id));
+            let ty_variant =
+                ty_variant.instantiate(gamma.clone(), inference_ctx, Prov::Node(pat.id));
             println!("ty_variant: {}", ty_variant);
             constrain(ty_pat.clone(), ty_some_variant);
             constrain(ty_pat, ty_variant);
             if let Some(data) = data {
                 generate_constraints_pat(
-                    ctx,
+                    gamma,
                     Mode::Ana { expected: ty_data },
                     data.clone(),
-                    solution_map,
+                    inference_ctx,
                 )
             };
         }
         PatKind::Tuple(pats) => {
             let tys_elements = pats
                 .iter()
-                .map(|pat| Type::fresh_unifvar(solution_map, Prov::Node(pat.id)))
+                .map(|pat| Type::fresh_unifvar(inference_ctx, Prov::Node(pat.id)))
                 .collect();
             constrain(Type::make_tuple(tys_elements, pat.id), ty_pat);
             for pat in pats {
-                generate_constraints_pat(ctx.clone(), Mode::Syn, pat.clone(), solution_map)
+                generate_constraints_pat(gamma.clone(), Mode::Syn, pat.clone(), inference_ctx)
             }
         }
     }
 }
 
 pub fn generate_constraints_toplevel(
-    ctx: Rc<RefCell<TyCtx>>,
+    gamma: Rc<RefCell<Gamma>>,
     toplevel: Rc<ast::Toplevel>,
-    solution_map: &mut SolutionMap,
-) -> Rc<RefCell<TyCtx>> {
+    inference_ctx: &mut InferenceContext,
+) -> Rc<RefCell<Gamma>> {
     for statement in toplevel.statements.iter() {
-        generate_constraints_stmt(ctx.clone(), Mode::Syn, statement.clone(), solution_map);
+        generate_constraints_stmt(gamma.clone(), Mode::Syn, statement.clone(), inference_ctx);
     }
-    ctx
+    gamma
 }
 
-pub fn refine_solution_map(solution_map: &mut SolutionMap) {
+pub fn refine_inference_ctx(inference_ctx: &mut InferenceContext) {
     // if new constraints are added, we must refine again
     let mut again = false;
-    for ufnode in solution_map.values_mut() {
+    for ufnode in inference_ctx.values_mut() {
         let mut data = ufnode.clone_data();
         let adt_keys: Vec<_> = data
             .types
@@ -1311,20 +1314,20 @@ pub fn refine_solution_map(solution_map: &mut SolutionMap) {
 
     if again {
         debug_println!("refine again");
-        refine_solution_map(solution_map);
+        refine_inference_ctx(inference_ctx);
     }
 }
 
 // TODO: since each expr/pattern node has a type, the node map should be populated with the types (and errors) of each node. So node id -> {Rc<Node>, StaticsSummary}
 // errors would be unbound variable, wrong number of arguments, occurs check, etc.
 pub fn result_of_constraint_solving(
-    solution_map: SolutionMap,
+    inference_ctx: InferenceContext,
     node_map: ast::NodeMap,
     source: &str,
 ) -> Result<(), String> {
     // TODO: you should assert that every node in the AST is in unsovled_type_suggestions_to_unknown_ty, solved or not!
     let mut type_conflicts = Vec::new();
-    for potential_types in solution_map.values() {
+    for potential_types in inference_ctx.values() {
         // let type_suggestions = condense_candidates(potential_types);
         let type_suggestions = potential_types.clone_data().types;
         if type_suggestions.len() > 1 && (!type_conflicts.contains(&type_suggestions)) {
