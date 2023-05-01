@@ -45,7 +45,7 @@ pub fn make_new_environment(tyctx: Rc<RefCell<TyCtx>>) -> Rc<RefCell<Environment
         } else {
             Some(ty.clone())
         };
-        if let Some(Type::Adt(_, _, variants)) = solution {
+        if let Some(Type::Adt(_, _, params, variants)) = solution {
             // println!("ADT!");
             for (_i, variant) in variants.iter().enumerate() {
                 let ctor = &variant.ctor;

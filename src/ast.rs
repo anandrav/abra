@@ -346,6 +346,11 @@ impl Node for AstType {
             | TypeKind::Str => {
                 vec![]
             }
+            TypeKind::Ap(_ty, params) => {
+                let mut children: Vec<Rc<dyn Node>> = vec![];
+                children.extend(params.iter().map(|t| t.clone() as Rc<dyn Node>));
+                children
+            }
             TypeKind::Arrow(lhs, rhs) => vec![lhs.clone(), rhs.clone()],
             TypeKind::Tuple(types) => types
                 .iter()
@@ -359,6 +364,7 @@ impl Node for AstType {
 pub enum TypeKind {
     Poly(Identifier),
     Alias(Identifier),
+    Ap(Identifier, Vec<Rc<AstType>>),
     Unit,
     Int,
     Bool,
@@ -677,6 +683,16 @@ pub fn parse_type_term(pair: Pair<Rule>) -> Rc<AstType> {
             let types = inner.into_iter().map(parse_type_term).collect();
             Rc::new(AstType {
                 typekind: Rc::new(TypeKind::Tuple(types)),
+                span,
+                id: Id::new(),
+            })
+        }
+        Rule::type_ap => {
+            let inner: Vec<_> = pair.into_inner().collect();
+            let name = inner[0].as_str().to_owned();
+            let types = inner.into_iter().skip(1).map(parse_type_term).collect();
+            Rc::new(AstType {
+                typekind: Rc::new(TypeKind::Ap(name, types)),
                 span,
                 id: Id::new(),
             })

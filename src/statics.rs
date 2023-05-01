@@ -1,5 +1,5 @@
 use crate::ast::{
-    self, Expr, ExprKind, Identifier, Node, Pat, PatKind, Stmt, StmtKind, TypeDefKind,
+    self, Expr, ExprKind, Identifier, Node, Pat, PatKind, Stmt, StmtKind, TypeDefKind, TypeKind,
 };
 use crate::operators::BinOpcode;
 use core::panic;
@@ -22,10 +22,11 @@ pub enum Type {
     String(Provs),
     Function(Provs, Vec<Type>, Box<Type>),
     Tuple(Provs, Vec<Type>),
-    Adt(Provs, Identifier, Vec<Variant>),
+    Adt(Provs, Identifier, Vec<Type>, Vec<Variant>),
 
-    // incomplete solutions
+    // incomplete solutions. must be resolved to a defined ADT
     Variants(Provs, Vec<Variant>), // "some Adt which has these variants, and maybe more"
+    Ap(Provs, Identifier, Vec<Type>), // "application of some type with name 'Identifier' to some type params"
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
@@ -56,6 +57,7 @@ impl UnifVarData {
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum TypeKey {
     Poly, // TODO: why isn't the Identifier included here?
+    Ap,
     Unit,
     Int,
     Bool,
@@ -75,6 +77,7 @@ pub enum Prov {
     Builtin(String), // a builtin function or constant, which doesn't exist in the AST
 
     Alias(Identifier),
+    TypeFunc(Identifier, u8),
     VariantName(Identifier), // the (ADT) type that a variant name is associated with
 
     InstantiatePoly(Box<Prov>, Identifier),
@@ -88,13 +91,14 @@ impl Type {
         match self {
             Type::UnifVar(_) => None,
             Type::Poly(_, _) => Some(TypeKey::Poly),
+            Type::Ap(_, _, _) => Some(TypeKey::Ap),
             Type::Unit(_) => Some(TypeKey::Unit),
             Type::Int(_) => Some(TypeKey::Int),
             Type::Bool(_) => Some(TypeKey::Bool),
             Type::String(_) => Some(TypeKey::String),
             Type::Function(_, args, _) => Some(TypeKey::Arrow(args.len() as u8)),
             Type::Tuple(_, elems) => Some(TypeKey::Tuple(elems.len() as u8)),
-            Type::Adt(_, ident, _) => Some(TypeKey::Adt(ident.clone())),
+            Type::Adt(_, ident, _, _) => Some(TypeKey::Adt(ident.clone())),
             Type::Variants(_, _) => Some(TypeKey::Variants),
         }
     }
@@ -159,6 +163,14 @@ impl Type {
                     self // noop
                 }
             }
+            | Type::Ap(provs, ident, params) => {
+                println!("it was an ap");
+                let params = params
+                    .into_iter()
+                    .map(|ty| ty.instantiate(ctx.clone(), solution_map, prov.clone()))
+                    .collect();
+                Type::Ap(provs, ident, params)
+            }
             Type::Function(provs, args, out) => {
                 println!("it was a func");
                 let args = args
@@ -176,8 +188,12 @@ impl Type {
                     .collect();
                 Type::Tuple(provs, elems)
             }
-            Type::Adt(provs, ident, variants) => {
+            Type::Adt(provs, ident, params, variants) => {
                 println!("it was an adt!");
+                let params = params
+                    .into_iter()
+                    .map(|ty| ty.instantiate(ctx.clone(), solution_map, prov.clone()))
+                    .collect();
                 let variants = variants
                     .into_iter()
                     .map(|variant| Variant {
@@ -187,7 +203,7 @@ impl Type {
                             .instantiate(ctx.clone(), solution_map, prov.clone()),
                     })
                     .collect();
-                Type::Adt(provs, ident, variants)
+                Type::Adt(provs, ident, params, variants)
             }
             Type::Variants(provs, variants) => {
                 println!("it was a variant!");
@@ -228,8 +244,8 @@ impl Type {
         Type::Poly(provs_singleton(prov), ident)
     }
 
-    pub fn make_adt(ident: String, variants: Vec<Variant>, id: ast::Id) -> Type {
-        Type::Adt(provs_singleton(Prov::Node(id)), ident, variants)
+    pub fn make_adt(ident: String, params: Vec<Type>, variants: Vec<Variant>, id: ast::Id) -> Type {
+        Type::Adt(provs_singleton(Prov::Node(id)), ident, params, variants)
     }
 
     pub fn make_variant(ctor: Identifier, data: Type, id: ast::Id) -> Type {
@@ -267,13 +283,14 @@ impl Type {
         match self {
             Self::UnifVar(_) => panic!("Type::provs called on Type::Var"),
             Self::Poly(provs, _)
+            | Self::Ap(provs, _, _)
             | Self::Unit(provs)
             | Self::Int(provs)
             | Self::Bool(provs)
             | Self::String(provs)
             | Self::Function(provs, _, _)
             | Self::Tuple(provs, _)
-            | Self::Adt(provs, _, _)
+            | Self::Adt(provs, _, _, _)
             | Self::Variants(provs, _) => provs,
         }
     }
@@ -307,6 +324,14 @@ pub fn ast_type_to_statics_type(
         ast::TypeKind::Alias(ident) => {
             Type::fresh_unifvar(solution_map, Prov::Alias(ident.clone()))
         }
+        ast::TypeKind::Ap(ident, params) => Type::Ap(
+            provs_singleton(Prov::Node(ast_type.id())),
+            ident.clone(),
+            params
+                .iter()
+                .map(|param| ast_type_to_statics_type(solution_map, param.clone()))
+                .collect(),
+        ),
         ast::TypeKind::Unit => Type::make_unit(Prov::Node(ast_type.id())),
         ast::TypeKind::Int => Type::make_int(Prov::Node(ast_type.id())),
         ast::TypeKind::Bool => Type::make_bool(Prov::Node(ast_type.id())),
@@ -363,98 +388,103 @@ impl UnifVarData {
     // TODO: occurs check
     fn extend(&mut self, t_other: Type) {
         let key = t_other.key().unwrap();
-        match (&key, &t_other) {
-            (TypeKey::Variants, Type::Variants(other_provs, other_variants)) => {
-                let lookup = self
-                    .types
-                    .iter()
-                    .filter(|(k, _)| matches!(k, TypeKey::Variants | TypeKey::Adt(_)));
-                let count = lookup.count();
-                if count == 0 {
-                    self.types.insert(key, t_other);
-                    return;
-                }
+        // ADT-related
+        // match (&key, &t_other) {
+        //     (TypeKey::Variants, Type::Variants(other_provs, other_variants)) => {
+        //         let lookup = self
+        //             .types
+        //             .iter()
+        //             .filter(|(k, _)| matches!(k, TypeKey::Variants | TypeKey::Adt(_)));
+        //         let count = lookup.count();
+        //         if count == 0 {
+        //             self.types.insert(key, t_other);
+        //             return;
+        //         }
 
-                let lookup = self
-                    .types
-                    .iter_mut()
-                    .filter(|(k, _)| matches!(k, TypeKey::Variants | TypeKey::Adt(_)));
-                let mut merges = 0;
-                for (_, ref mut t) in lookup {
-                    match t {
-                        Type::Adt(_, _, variants) => {
-                            if variants_superset(variants, other_variants) {
-                                variants_superset_constrain(variants, other_variants);
-                                merges += 1;
-                                t.provs().borrow_mut().extend(other_provs.borrow().clone())
-                            }
-                        }
-                        Type::Variants(_, ref mut variants) => {
-                            if count == 1 {
-                                // no conflict
-                                merges += 1;
-                                for other_variant in other_variants {
-                                    if !variants.iter().any(|v| v.ctor == other_variant.ctor) {
-                                        variants.push(other_variant.clone());
-                                    }
-                                }
-                                t.provs().borrow_mut().extend(other_provs.borrow().clone())
-                            }
-                        }
-                        _ => panic!("should be Adt or Variants"),
-                    }
-                }
-                // if there is only one type in this unifvar, but other_type wasn't compatible with it
-                if count == 1 && merges == 0 {
-                    self.types.insert(key.clone(), t_other.clone());
-                }
-                return;
-            }
-            (TypeKey::Adt(_), Type::Adt(other_provs, other_identifier, adt_variants)) => {
-                let lookup = self
-                    .types
-                    .iter()
-                    .filter(|(k, _)| matches!(k, TypeKey::Variants | TypeKey::Adt(_)));
-                let count = lookup.count();
-                if count == 0 {
-                    self.types.insert(key, t_other);
-                    return;
-                }
+        //         let lookup = self
+        //             .types
+        //             .iter_mut()
+        //             .filter(|(k, _)| matches!(k, TypeKey::Variants | TypeKey::Adt(_)));
+        //         let mut merges = 0;
+        //         for (_, ref mut t) in lookup {
+        //             match t {
+        //                 Type::Adt(_, _, params, variants) => {
+        //                     if variants_superset(variants, other_variants) {
+        //                         variants_superset_constrain(variants, other_variants);
+        //                         merges += 1;
+        //                         t.provs().borrow_mut().extend(other_provs.borrow().clone())
+        //                     }
+        //                 }
+        //                 Type::Variants(_, ref mut variants) => {
+        //                     if count == 1 {
+        //                         // no conflict
+        //                         merges += 1;
+        //                         for other_variant in other_variants {
+        //                             if !variants.iter().any(|v| v.ctor == other_variant.ctor) {
+        //                                 variants.push(other_variant.clone());
+        //                             }
+        //                         }
+        //                         t.provs().borrow_mut().extend(other_provs.borrow().clone())
+        //                     }
+        //                 }
+        //                 _ => panic!("should be Adt or Variants"),
+        //             }
+        //         }
+        //         // if there is only one type in this unifvar, but other_type wasn't compatible with it
+        //         if count == 1 && merges == 0 {
+        //             self.types.insert(key.clone(), t_other.clone());
+        //         }
+        //         return;
+        //     }
+        //     (
+        //         TypeKey::Adt(_),
+        //         Type::Adt(other_provs, other_identifier, adt_params, adt_variants),
+        //     ) => {
+        //         let lookup = self
+        //             .types
+        //             .iter()
+        //             .filter(|(k, _)| matches!(k, TypeKey::Variants | TypeKey::Adt(_)));
+        //         let count = lookup.count();
+        //         if count == 0 {
+        //             self.types.insert(key, t_other);
+        //             return;
+        //         }
 
-                let lookup = self
-                    .types
-                    .iter_mut()
-                    .filter(|(k, _)| matches!(k, TypeKey::Variants | TypeKey::Adt(_)));
-                let mut merges = 0;
-                for (_, ref mut t) in lookup {
-                    match t {
-                        Type::Adt(_, identifier, variants) => {
-                            // dbg!(t.clone());
-                            // dbg!(t_other.clone());
-                            if identifier == other_identifier && variants == adt_variants {
-                                // no conflict
-                                merges += 1;
-                                t.provs().borrow_mut().extend(other_provs.borrow().clone())
-                            }
-                        }
-                        Type::Variants(_, variants) => {
-                            if count == 1 && variants_superset(adt_variants, variants) {
-                                variants_superset_constrain(adt_variants, variants);
-                                merges += 1;
-                                t.provs().borrow_mut().extend(other_provs.borrow().clone())
-                            }
-                        }
-                        _ => panic!("should be Adt or Variants"),
-                    }
-                }
-                // if there is only one type in this unifvar, but other_type wasn't compatible with it
-                if count == 1 && merges == 0 {
-                    self.types.insert(key.clone(), t_other.clone());
-                }
-                return;
-            }
-            _ => {}
-        }
+        //         let lookup = self
+        //             .types
+        //             .iter_mut()
+        //             .filter(|(k, _)| matches!(k, TypeKey::Variants | TypeKey::Adt(_)));
+        //         let mut merges = 0;
+        //         for (_, ref mut t) in lookup {
+        //             match t {
+        //                 Type::Adt(_, identifier, params, variants) => {
+        //                     // dbg!(t.clone());
+        //                     // dbg!(t_other.clone());
+        //                     if identifier == other_identifier && variants == adt_variants {
+        //                         // no conflict
+        //                         merges += 1;
+        //                         t.provs().borrow_mut().extend(other_provs.borrow().clone())
+        //                     }
+        //                 }
+        //                 Type::Variants(_, variants) => {
+        //                     if count == 1 && variants_superset(adt_variants, variants) {
+        //                         variants_superset_constrain(adt_variants, variants);
+        //                         merges += 1;
+        //                         t.provs().borrow_mut().extend(other_provs.borrow().clone())
+        //                     }
+        //                 }
+        //                 _ => panic!("should be Adt or Variants"),
+        //             }
+        //         }
+        //         // if there is only one type in this unifvar, but other_type wasn't compatible with it
+        //         if count == 1 && merges == 0 {
+        //             self.types.insert(key.clone(), t_other.clone());
+        //         }
+        //         return;
+        //     }
+        //     _ => {}
+        // }
+        // non-ADT-related
         if let Some(t) = self.types.get_mut(&key) {
             match &t_other {
                 Type::UnifVar(_) => panic!("should not be Type::UnifVar"),
@@ -491,7 +521,7 @@ impl UnifVarData {
                 _ => {}
             }
         } else {
-            // conflict
+            // potential conflict
             self.types.insert(key, t_other);
         }
     }
@@ -943,6 +973,14 @@ pub fn generate_constraints_stmt(
             }
             TypeDefKind::Adt(ident, params, variants) => {
                 let ty_node = Type::fresh_unifvar(solution_map, Prov::Node(stmt.id));
+                let mut tys_params = vec![];
+                for param in params {
+                    if let TypeKind::Poly(ident) = &*param.typekind {
+                        tys_params.push(Type::make_poly(Prov::Node(param.id()), ident.clone()));
+                    } else {
+                        panic!("expected poly typekind");
+                    }
+                }
                 let mut tys_variants = vec![];
                 for variant in variants {
                     constrain(
@@ -974,8 +1012,42 @@ pub fn generate_constraints_stmt(
                 }
                 constrain(
                     ty_node,
-                    Type::make_adt(ident.clone(), tys_variants, stmt.id),
+                    Type::make_adt(ident.clone(), tys_params, tys_variants, stmt.id),
                 );
+                // let ty_node = Type::fresh_unifvar(solution_map, Prov::Node(stmt.id));
+                // let mut tys_variants = vec![];
+                // for variant in variants {
+                //     constrain(
+                //         ty_node.clone(),
+                //         Type::fresh_unifvar(solution_map, Prov::VariantName(variant.ctor.clone())),
+                //     );
+                //     let data = match &variant.data {
+                //         Some(data) => ast_type_to_statics_type(solution_map, data.clone()),
+                //         None => Type::make_unit(Prov::Node(variant.id())),
+                //     };
+                //     match &data {
+                //         Type::Unit(_) => {
+                //             ctx.borrow_mut().extend(&variant.ctor, ty_node.clone());
+                //         }
+                //         Type::Tuple(_, args) => {
+                //             let ty_arrow = Type::make_arrow(args.clone(), ty_node.clone(), stmt.id);
+                //             ctx.borrow_mut().extend(&variant.ctor, ty_arrow);
+                //         }
+                //         _ => {
+                //             let ty_arrow =
+                //                 Type::make_arrow(vec![data.clone()], ty_node.clone(), stmt.id);
+                //             ctx.borrow_mut().extend(&variant.ctor, ty_arrow);
+                //         }
+                //     }
+                //     tys_variants.push(Variant {
+                //         ctor: variant.ctor.clone(),
+                //         data,
+                //     });
+                // }
+                // constrain(
+                //     ty_node,
+                //     Type::make_adt(ident.clone(), tys_variants, stmt.id),
+                // );
             }
         },
         StmtKind::Expr(expr) => {
@@ -1201,6 +1273,16 @@ pub fn result_of_constraint_solving(
             match &ty {
                 Type::UnifVar(_) => err_string.push_str("Sources of unknown:\n"), // idk about this
                 Type::Poly(_, _) => err_string.push_str("Sources of generic type:\n"),
+                Type::Ap(_, ident, params) => {
+                    err_string.push_str(&format!("Sources of type {}<", ident));
+                    for (i, param) in params.iter().enumerate() {
+                        if i != 0 {
+                            err_string.push_str(", ");
+                        }
+                        err_string.push_str(&format!("{}", param));
+                    }
+                    err_string.push_str(">\n");
+                }
                 Type::Unit(_) => err_string.push_str("Sources of void:\n"),
                 Type::Int(_) => err_string.push_str("Sources of int:\n"),
                 Type::Bool(_) => err_string.push_str("Sources of bool:\n"),
@@ -1213,11 +1295,12 @@ pub fn result_of_constraint_solving(
                     "Sources of tuple with {} elements:\n",
                     elems.len()
                 )),
-                Type::Adt(_, ident, _) => {
-                    err_string.push_str(&format!("Sources of enum {ident}:\n"))
+                Type::Adt(_, ident, _, _) => {
+                    err_string.push_str(&format!("Sources of ADT {ident}:\n"))
                 }
-                Type::Variants(_, variants) => err_string
-                    .push_str(&format!("Sources of enum with variants: {:#?}\n", variants)),
+                Type::Variants(_, variants) => {
+                    err_string.push_str(&format!("Sources of ADT with variants: {:#?}\n", variants))
+                }
             };
             let provs = ty.provs().borrow().clone(); // TODO don't clone here
             let mut provs_vec = provs.iter().collect::<Vec<_>>();
@@ -1230,6 +1313,7 @@ pub fn result_of_constraint_solving(
                 Prov::Alias(_) => 5,
                 Prov::VariantName(_) => 6,
                 Prov::VariantData(_) => 7,
+                Prov::TypeFunc(_, _) => 8,
             });
             for cause in provs_vec {
                 match cause {
@@ -1243,6 +1327,10 @@ pub fn result_of_constraint_solving(
                     Prov::InstantiatePoly(_, ident) => {
                         err_string
                             .push_str(&format!("The instantiation of polymorphic type {ident}"));
+                    }
+                    Prov::TypeFunc(ident, nparams) => {
+                        err_string
+                            .push_str(&format!("The type function {ident}, nparams: {nparams}"));
                     }
                     Prov::FuncArg(prov, n) => {
                         match prov.as_ref() {
@@ -1281,10 +1369,10 @@ pub fn result_of_constraint_solving(
                         err_string.push_str(&format!("The type alias {ident}"));
                     }
                     Prov::VariantName(ident) => {
-                        err_string.push_str(&format!("The enum variant {ident}"));
+                        err_string.push_str(&format!("The ADT variant {ident}"));
                     }
                     Prov::VariantData(_prov) => {
-                        err_string.push_str("The data of some enum variant");
+                        err_string.push_str("The data of some ADT variant");
                     }
                 }
             }
@@ -1299,10 +1387,21 @@ impl fmt::Display for Type {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Type::Poly(_, ident) => write!(f, "{}", ident),
+            Type::Ap(_, ident, params) => {
+                write!(f, "{}<", ident)?;
+                for (i, param) in params.iter().enumerate() {
+                    if i != 0 {
+                        write!(f, ", ")?;
+                    }
+                    write!(f, "{}", param)?;
+                }
+                write!(f, ">")
+            }
             Type::UnifVar(unifvar) => {
                 let types = unifvar.clone_data().types;
                 match types.len() {
-                    0 => write!(f, "? {:#?}", unifvar),
+                    // 0 => write!(f, "? {:#?}", unifvar),
+                    0 => write!(f, "?"),
                     1 => write!(f, "{}", types.values().next().unwrap()),
                     _ => write!(f, "!"),
                 }
@@ -1331,8 +1430,18 @@ impl fmt::Display for Type {
                 }
                 write!(f, ")")
             }
-            Type::Adt(_, ident, variants) => {
-                write!(f, "{} {{", ident)?;
+            Type::Adt(_, ident, params, variants) => {
+                write!(f, "{ident}")?;
+                if !params.is_empty() {
+                    write!(f, "<")?;
+                    for (i, param) in params.iter().enumerate() {
+                        if i > 0 {
+                            write!(f, ", ")?;
+                        }
+                        write!(f, "{}", param)?;
+                    }
+                    write!(f, ">")?;
+                }
                 for (i, variant) in variants.iter().enumerate() {
                     if i > 0 {
                         write!(f, ", ")?;
@@ -1342,7 +1451,7 @@ impl fmt::Display for Type {
                 write!(f, "}}")
             }
             Type::Variants(_, variants) => {
-                write!(f, "enum {{")?;
+                write!(f, "ADT variants {{")?;
                 for (i, variant) in variants.iter().enumerate() {
                     if i > 0 {
                         write!(f, ", ")?;

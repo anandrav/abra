@@ -69,7 +69,7 @@ struct MyApp {
     interpreter: Option<Interpreter>,
 }
 
-const _LIST: &str = r#"type list = nil | cons of ('a, list)
+const _LIST: &str = r#"type list<'a> = nil | cons of ('a, list<'a>)
 
 let my_list = cons(1, nil)
 

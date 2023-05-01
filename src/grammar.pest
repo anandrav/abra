@@ -75,7 +75,9 @@ let_pattern_annotated = { let_pattern ~ type_annotation? } // TODO: this doesn't
 
 type_annotation = _{ ":" ~ typ }
 typ = { type_term ~ (type_op_binary ~ type_term)* }
-type_term = _{ tuple_type | type_literal }
+type_term = _{ type_ap | tuple_type | type_literal }
+
+type_ap = { identifier ~ type_params }
 
 tuple_type = { tuple_start ~ (tuple_type_element ~ ",")+ ~ tuple_type_element ~ tuple_end }
 tuple_type_element = _{ typ }
