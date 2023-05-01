@@ -56,8 +56,8 @@ impl UnifVarData {
 // If two types share the same key, they may be in conflict
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum TypeKey {
-    Poly, // TODO: why isn't the Identifier included here?
-    Ap,
+    Poly,               // TODO: why isn't the Identifier included here?
+    Ap(Identifier, u8), // u8 represents the number of type params
     Unit,
     Int,
     Bool,
@@ -91,7 +91,7 @@ impl Type {
         match self {
             Type::UnifVar(_) => None,
             Type::Poly(_, _) => Some(TypeKey::Poly),
-            Type::Ap(_, _, _) => Some(TypeKey::Ap),
+            Type::Ap(_, ident, params) => Some(TypeKey::Ap(ident.clone(), params.len() as u8)),
             Type::Unit(_) => Some(TypeKey::Unit),
             Type::Int(_) => Some(TypeKey::Int),
             Type::Bool(_) => Some(TypeKey::Bool),
@@ -492,7 +492,8 @@ impl UnifVarData {
                 | Type::Unit(other_provs)
                 | Type::Int(other_provs)
                 | Type::Bool(other_provs)
-                | Type::String(other_provs) => {
+                | Type::String(other_provs)
+                | Type::Adt(other_provs, _, _, _) => {
                     t.provs().borrow_mut().extend(other_provs.borrow().clone())
                 }
                 Type::Function(other_provs, args1, out1) => {
@@ -504,6 +505,8 @@ impl UnifVarData {
                                 constrain(arg.clone(), arg2.clone());
                             }
                             constrain(*out1.clone(), *out2.clone());
+                        } else {
+                            panic!("should be same length")
                         }
                     }
                 }
@@ -515,10 +518,37 @@ impl UnifVarData {
                             for (elem, elem2) in elems1.iter().zip(elems2.iter()) {
                                 constrain(elem.clone(), elem2.clone());
                             }
+                        } else {
+                            panic!("should be same length")
                         }
                     }
                 }
-                _ => {}
+                Type::Variants(other_provs, other_variants) => {
+                    if let Type::Variants(_, variants) = t {
+                        for other_variant in other_variants {
+                            if !variants.iter().any(|v| v.ctor == other_variant.ctor) {
+                                variants.push(other_variant.clone());
+                            }
+                        }
+                        t.provs().borrow_mut().extend(other_provs.borrow().clone())
+                    } else {
+                        panic!("should be Variants")
+                    }
+                }
+                Type::Ap(other_provs, _, other_tys) => {
+                    if let Type::Ap(_, _, tys) = t {
+                        if tys.len() == other_tys.len() {
+                            for (ty, other_ty) in tys.iter().zip(other_tys.iter()) {
+                                constrain(ty.clone(), other_ty.clone());
+                            }
+                        } else {
+                            panic!("should be same length")
+                        }
+                        t.provs().borrow_mut().extend(other_provs.borrow().clone());
+                    } else {
+                        panic!("should be Ap")
+                    }
+                }
             }
         } else {
             // potential conflict
@@ -715,7 +745,7 @@ pub fn generate_constraints_expr(
                 // replace polymorphic types with unifvars if necessary
                 println!("instantiating type with id: {}", id);
                 let typ = typ.instantiate(ctx, solution_map, Prov::Node(expr.id));
-                println!("{}", typ.clone());
+                println!("{}", typ);
                 constrain(typ, node_ty);
             } else {
                 panic!("variable not bound in TyCtx: {}", id);
@@ -1224,6 +1254,65 @@ pub fn generate_constraints_toplevel(
         generate_constraints_stmt(ctx.clone(), Mode::Syn, statement.clone(), solution_map);
     }
     ctx
+}
+
+pub fn refine_solution_map(solution_map: &mut SolutionMap) {
+    let mut again = false;
+    for ufnode in solution_map.values_mut() {
+        let mut data = ufnode.clone_data();
+        let adt_keys: Vec<_> = data
+            .types
+            .keys()
+            .filter(|key| matches!(key, TypeKey::Adt(_)))
+            .cloned()
+            .collect();
+        if adt_keys.len() == 1 {
+            let adt_key = &adt_keys[0];
+            let Type::Adt(provs, ident, params, variants) = data.types[adt_key].clone() else { panic!() };
+            // merge Adt with any Variants which match
+            let variant_keys: Vec<_> = data
+                .types
+                .keys()
+                .filter(|key| matches!(key, TypeKey::Variants))
+                .cloned()
+                .collect();
+            for kvariant in variant_keys {
+                let Type::Variants(other_provs, other_variants) = data.types[&kvariant].clone() else { panic!() };
+                if variants_superset(&variants, &other_variants) {
+                    variants_superset_constrain(&variants, &other_variants);
+                    data.types.remove(&kvariant);
+                    provs.borrow_mut().extend(other_provs.borrow().clone());
+                }
+            }
+
+            // merge Adt with any Aps which match
+            let aps_keys: Vec<_> = data
+                .types
+                .keys()
+                .filter(|key| matches!(key, TypeKey::Ap(_, _)))
+                .cloned()
+                .collect();
+            for kaps in aps_keys {
+                let Type::Ap(other_provs, other_ident, other_params) = data.types[&kaps].clone() else { panic!() };
+                if ident == other_ident && params.len() == other_params.len() {
+                    // constrain the parameters
+                    for (param, other_param) in params.iter().zip(other_params.iter()) {
+                        constrain(param.clone(), other_param.clone());
+                    }
+                    data.types.remove(&kaps);
+                    provs.borrow_mut().extend(other_provs.borrow().clone());
+                }
+            }
+
+            data.types
+                .insert(adt_key.clone(), Type::Adt(provs, ident, params, variants));
+            ufnode.replace_data(data);
+        }
+    }
+
+    if again {
+        refine_solution_map(solution_map);
+    }
 }
 
 // TODO: since each expr/pattern node has a type, the node map should be populated with the types (and errors) of each node. So node id -> {Rc<Node>, StaticsSummary}
