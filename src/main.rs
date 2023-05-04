@@ -124,7 +124,16 @@ for_range((0, 30), print_fibonacci)
 const _MORE_LIST: &str = r#"type list<'a> = nil | cons ('a, list<'a>)
 
 let numbers = cons(1,nil)
-let bools = cons(true,nil)
+let bools = cons(true, cons(true,nil))
+
+let f(x: list<'a>) = {
+	match x
+		nil -> print("nil")
+		cons (false, _) -> print("false")
+		_ -> print("true")
+}
+
+f(bools)
 "#;
 
 // let map(l: list<'a>, f: 'a -> 'b) = {
@@ -215,7 +224,7 @@ impl eframe::App for MyApp {
                                         parse_tree.clone(),
                                         &mut inference_ctx,
                                     );
-                                    statics::refine_inference_ctx(&mut inference_ctx);
+                                    statics::refine_inf_ctx(&mut inference_ctx);
                                     debug_println!("generated constraints.");
                                     let result = statics::result_of_constraint_solving(
                                         inference_ctx,
