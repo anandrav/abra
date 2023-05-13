@@ -82,7 +82,7 @@ pub enum Prov {
     Alias(Identifier),
     AdtDef(Box<Prov>),
 
-    AdtVariantInstance(Box<Prov>, u8),
+    InstantiateAdtParam(Box<Prov>, u8),
     InstantiatePoly(Box<Prov>, Identifier),
     FuncArg(Box<Prov>, u8),   // u8 represents the index of the argument
     FuncOut(Box<Prov>),       // u8 represents how many arguments before this output
@@ -125,10 +125,10 @@ impl Type {
                 if data.types.len() == 1 {
                     let ty = data.types.into_values().next().unwrap();
                     if let Type::Poly(_, _) = ty {
-                        println!("it was a unifvar with a poly var in it");
+                        // println!("it was a unifvar with a poly var in it");
                         ty.instantiate(gamma, inf_ctx, prov)
                     } else {
-                        println!("it was a unifvar but no polyvar.");
+                        // println!("it was a unifvar but no polyvar.");
                         let ty = ty.instantiate(gamma, inf_ctx, prov.clone());
                         let mut types = BTreeMap::new();
                         types.insert(ty.key().unwrap(), ty);
@@ -141,16 +141,13 @@ impl Type {
                         inf_ctx.vars.insert(prov, unifvar.clone());
                         Type::UnifVar(unifvar) // TODO clone this? But test thoroughly after lol
                     }
-                } else if data.types.is_empty() {
-                    println!("it was a unifvar (empty)");
-                    Type::UnifVar(unifvar) // noop
                 } else {
-                    println!("it was a unifvar but a noop");
+                    // println!("it was a unifvar but a noop");
                     Type::UnifVar(unifvar) // noop
                 }
             }
             Type::Poly(_, ref ident) => {
-                println!("it was a INSTANTIATE POLY, ident: {:?}", ident);
+                // println!("it was a INSTANTIATE POLY, ident: {:?}", ident);
                 if !gamma.borrow().lookup_poly(ident) {
                     Type::fresh_unifvar(
                         inf_ctx,
@@ -161,7 +158,7 @@ impl Type {
                 }
             }
             Type::DefInstance(provs, ident, params) => {
-                println!("it was a def instance");
+                // println!("it was a def instance");
                 let params = params
                     .into_iter()
                     .map(|ty| ty.instantiate(gamma.clone(), inf_ctx, prov.clone()))
@@ -204,23 +201,23 @@ impl Type {
             Type::UnifVar(unifvar) => {
                 let data = unifvar.clone_data();
                 // TODO consider relaxing the types.len() == 1 if it gives better editor feedback. But test thoroughly after
-                if data.types.len() == 1 {
-                    let ty = data.types.into_values().next().unwrap();
-                    if let Type::Poly(_, _) = ty {
-                        ty.subst(gamma, inf_ctx, prov, substitution)
-                    } else {
-                        let ty = ty.subst(gamma, inf_ctx, prov.clone(), substitution);
-                        let mut types = BTreeMap::new();
-                        types.insert(ty.key().unwrap(), ty);
-                        let data_instantiated = UnifVarData { types };
-
-                        let unifvar = UnionFindNode::new(data_instantiated);
-                        inf_ctx.vars.insert(prov, unifvar.clone());
-                        Type::UnifVar(unifvar) // TODO clone this? But test thoroughly after lol
-                    }
+                // if data.types.len() == 1 {
+                let ty = data.types.into_values().next().unwrap();
+                if let Type::Poly(_, _) = ty {
+                    ty.subst(gamma, inf_ctx, prov, substitution)
                 } else {
-                    Type::UnifVar(unifvar) // noop
+                    let ty = ty.subst(gamma, inf_ctx, prov.clone(), substitution);
+                    let mut types = BTreeMap::new();
+                    types.insert(ty.key().unwrap(), ty);
+                    let data_instantiated = UnifVarData { types };
+
+                    let unifvar = UnionFindNode::new(data_instantiated);
+                    inf_ctx.vars.insert(prov, unifvar.clone());
+                    Type::UnifVar(unifvar) // TODO clone this? But test thoroughly after lol
                 }
+                // } else {
+                //     Type::UnifVar(unifvar) // noop
+                // }
             }
             Type::Poly(_, ref ident) => {
                 if !gamma.borrow().lookup_poly(ident) {
@@ -465,6 +462,7 @@ impl UnifVarData {
                     if let Type::DefInstance(_, _, tys) = t {
                         if tys.len() == other_tys.len() {
                             for (ty, other_ty) in tys.iter().zip(other_tys.iter()) {
+                                println!("{} CONSTRAIN TO {}", ty, other_ty);
                                 constrain(ty.clone(), other_ty.clone());
                             }
                         } else {
@@ -666,6 +664,15 @@ pub fn generate_constraints_expr(
             constrain(node_ty, Type::make_string(Prov::Node(expr.id)));
         }
         ExprKind::Var(id) => {
+            let lookup = gamma.borrow_mut().lookup(id);
+            if let Some(typ) = lookup {
+                // replace polymorphic types with unifvars if necessary
+                println!("instantiating type with id: {}", id);
+                let typ = typ.instantiate(gamma, inf_ctx, Prov::Node(expr.id));
+                println!("{}", typ);
+                constrain(typ, node_ty);
+                return;
+            }
             let adt_def = inf_ctx.adt_def_of_variant(id);
             if let Some(adt_def) = adt_def {
                 let nparams = adt_def.params.len();
@@ -674,7 +681,7 @@ pub fn generate_constraints_expr(
                 for i in 0..nparams {
                     params.push(Type::fresh_unifvar(
                         inf_ctx,
-                        Prov::AdtVariantInstance(Box::new(Prov::Node(expr.id)), i as u8),
+                        Prov::InstantiateAdtParam(Box::new(Prov::Node(expr.id)), i as u8),
                     ));
                     substitution.insert(adt_def.params[i].clone(), params[i].clone());
                 }
@@ -683,6 +690,8 @@ pub fn generate_constraints_expr(
                     adt_def.name,
                     params,
                 );
+                // let def_type =
+                //     def_type.subst(gamma.clone(), inf_ctx, Prov::Node(expr.id), &substitution);
                 let the_variant = adt_def.variants.iter().find(|v| v.ctor == *id).unwrap();
                 if let Type::Unit(_) = the_variant.data {
                     constrain(node_ty, def_type);
@@ -714,16 +723,6 @@ pub fn generate_constraints_expr(
                         ),
                     );
                 }
-
-                return;
-            }
-            let lookup = gamma.borrow_mut().lookup(id);
-            if let Some(typ) = lookup {
-                // replace polymorphic types with unifvars if necessary
-                println!("instantiating type with id: {}", id);
-                let typ = typ.instantiate(gamma, inf_ctx, Prov::Node(expr.id));
-                println!("{}", typ);
-                constrain(typ, node_ty);
                 return;
             }
             panic!("variable not bound in TyCtx: {}", id);
@@ -1086,8 +1085,8 @@ pub fn generate_constraints_pat(
         }
         PatKind::Var(identifier) => {
             dbg!(identifier);
+            println!("ty_pat: {}", ty_pat);
             // letrec?: extend context with id and type before analyzing against said type
-            let ty_pat = Type::from_node(inf_ctx, pat.id);
             gamma.borrow_mut().extend(identifier, ty_pat);
         }
         PatKind::Variant(tag, data) => {
@@ -1105,7 +1104,7 @@ pub fn generate_constraints_pat(
                     for i in 0..nparams {
                         params.push(Type::fresh_unifvar(
                             inf_ctx,
-                            Prov::AdtVariantInstance(Box::new(Prov::Node(pat.id)), i as u8),
+                            Prov::InstantiateAdtParam(Box::new(Prov::Node(pat.id)), i as u8),
                         ));
                         substitution.insert(adt_def.params[i].clone(), params[i].clone());
                     }
@@ -1114,8 +1113,8 @@ pub fn generate_constraints_pat(
                         adt_def.name,
                         params,
                     );
-                    let def_type =
-                        def_type.subst(gamma.clone(), inf_ctx, Prov::Node(pat.id), &substitution); // TODO this subst isn't necessary right?
+                    // let def_type =
+                    //     def_type.subst(gamma.clone(), inf_ctx, Prov::Node(pat.id), &substitution); // TODO this subst isn't necessary right?
 
                     let variant_def = adt_def.variants.iter().find(|v| v.ctor == *tag).unwrap();
                     let variant_data_ty = variant_def.data.clone().subst(
@@ -1292,7 +1291,7 @@ pub fn result_of_constraint_solving(
                 Prov::Alias(_) => 5,
                 Prov::VariantNoData(_) => 7,
                 Prov::AdtDef(_) => 8,
-                Prov::AdtVariantInstance(_, _) => 9,
+                Prov::InstantiateAdtParam(_, _) => 9,
             });
             for cause in provs_vec {
                 match cause {
@@ -1346,7 +1345,7 @@ pub fn result_of_constraint_solving(
                     Prov::AdtDef(_prov) => {
                         err_string.push_str("Some ADT definition");
                     }
-                    Prov::AdtVariantInstance(_, _) => {
+                    Prov::InstantiateAdtParam(_, _) => {
                         err_string.push_str("Some instance of an Adt's variant");
                     }
                     Prov::VariantNoData(_prov) => {
@@ -1381,7 +1380,16 @@ impl fmt::Display for Type {
                     // 0 => write!(f, "? {:#?}", unifvar),
                     0 => write!(f, "?"),
                     1 => write!(f, "{}", types.values().next().unwrap()),
-                    _ => write!(f, "!"),
+                    _ => {
+                        write!(f, "!{{")?;
+                        for (i, ty) in types.values().enumerate() {
+                            if i > 0 {
+                                write!(f, "/ ")?;
+                            }
+                            write!(f, "{}", ty)?;
+                        }
+                        write!(f, "}}")
+                    }
                 }
             }
             Type::Unit(_) => write!(f, "void"),
