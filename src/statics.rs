@@ -82,13 +82,11 @@ pub enum Prov {
     Alias(Identifier),
     AdtDef(Box<Prov>),
 
-    VariantName(Identifier), // the (ADT) type that a variant name is associated with
-
     AdtVariantInstance(Box<Prov>, u8),
     InstantiatePoly(Box<Prov>, Identifier),
-    FuncArg(Box<Prov>, u8), // u8 represents the index of the argument
-    FuncOut(Box<Prov>),     // u8 represents how many arguments before this output
-    VariantData(Box<Prov>), // the type of the data of a variant pattern
+    FuncArg(Box<Prov>, u8),   // u8 represents the index of the argument
+    FuncOut(Box<Prov>),       // u8 represents how many arguments before this output
+    VariantNoData(Box<Prov>), // the type of the data of a variant with no data, always Unit.
 }
 
 impl Type {
@@ -961,7 +959,6 @@ pub fn generate_constraints_stmt(
 ) {
     match &*stmt.stmtkind {
         StmtKind::TypeDef(typdefkind) => match &**typdefkind {
-            // TODO: make Alias and Adt separate StmtKinds... nesting is unnecessary
             TypeDefKind::Alias(ident, ty) => {
                 let left = Type::fresh_unifvar(inf_ctx, Prov::Alias(ident.clone()));
                 let right = ast_type_to_statics_type(inf_ctx, ty.clone());
@@ -1096,16 +1093,15 @@ pub fn generate_constraints_pat(
         PatKind::Variant(tag, data) => {
             let ty_data = match data {
                 Some(data) => Type::from_node(inf_ctx, data.id),
-                None => Type::make_unit(Prov::VariantData(Box::new(Prov::Node(pat.id)))), // TODO BUG <---- I don't remember what this means.
+                None => Type::make_unit(Prov::VariantNoData(Box::new(Prov::Node(pat.id)))), // TODO BUG <---- I don't remember what this means.
             };
-            let ty_some_variant = Type::fresh_unifvar(inf_ctx, Prov::VariantName(tag.clone()));
-            let ty_variant = {
+            let mut substitution = BTreeMap::new();
+            let ty_adt_instance = {
                 let adt_def = inf_ctx.adt_def_of_variant(tag);
 
                 if let Some(adt_def) = adt_def {
                     let nparams = adt_def.params.len();
                     let mut params = vec![];
-                    let mut substitution = BTreeMap::new();
                     for i in 0..nparams {
                         params.push(Type::fresh_unifvar(
                             inf_ctx,
@@ -1118,14 +1114,25 @@ pub fn generate_constraints_pat(
                         adt_def.name,
                         params,
                     );
-                    def_type.subst(gamma.clone(), inf_ctx, Prov::Node(pat.id), &substitution)
+                    let def_type =
+                        def_type.subst(gamma.clone(), inf_ctx, Prov::Node(pat.id), &substitution); // TODO this subst isn't necessary right?
+
+                    let variant_def = adt_def.variants.iter().find(|v| v.ctor == *tag).unwrap();
+                    let variant_data_ty = variant_def.data.clone().subst(
+                        gamma.clone(),
+                        inf_ctx,
+                        Prov::Node(pat.id),
+                        &substitution,
+                    );
+                    constrain(ty_data.clone(), variant_data_ty.clone());
+
+                    def_type
                 } else {
                     panic!("variant not found");
                 }
             };
-            println!("ty_variant: {}", ty_variant);
-            constrain(ty_pat.clone(), ty_some_variant);
-            constrain(ty_pat, ty_variant);
+            println!("ty_variant: {}", ty_adt_instance);
+            constrain(ty_pat, ty_adt_instance);
             if let Some(data) = data {
                 generate_constraints_pat(
                     gamma,
@@ -1159,7 +1166,7 @@ pub fn gather_definitions_stmt(inf_ctx: &mut InferenceContext, stmt: Rc<ast::Stm
                         if let Some(data) = &v.data {
                             ast_type_to_statics_type(inf_ctx, data.clone())
                         } else {
-                            Type::make_unit(Prov::VariantData(Box::new(Prov::Node(v.id))))
+                            Type::make_unit(Prov::VariantNoData(Box::new(Prov::Node(v.id))))
                         }
                     };
                     defvariants.push(Variant {
@@ -1283,8 +1290,7 @@ pub fn result_of_constraint_solving(
                 Prov::FuncArg(_, _) => 3,
                 Prov::FuncOut(_) => 4,
                 Prov::Alias(_) => 5,
-                Prov::VariantName(_) => 6,
-                Prov::VariantData(_) => 7,
+                Prov::VariantNoData(_) => 7,
                 Prov::AdtDef(_) => 8,
                 Prov::AdtVariantInstance(_, _) => 9,
             });
@@ -1343,10 +1349,7 @@ pub fn result_of_constraint_solving(
                     Prov::AdtVariantInstance(_, _) => {
                         err_string.push_str("Some instance of an Adt's variant");
                     }
-                    Prov::VariantName(ident) => {
-                        err_string.push_str(&format!("The ADT variant {ident}"));
-                    }
-                    Prov::VariantData(_prov) => {
+                    Prov::VariantNoData(_prov) => {
                         err_string.push_str("The data of some ADT variant");
                     }
                 }
