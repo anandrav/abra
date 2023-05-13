@@ -1144,25 +1144,24 @@ pub fn generate_constraints_pat(
                 if is_adt_variant {
                     let nparams = adt_def.params.len();
                     let mut params = vec![];
+                    let mut substitution = BTreeMap::new();
                     for i in 0..nparams {
                         params.push(Type::fresh_unifvar(
                             inf_ctx,
                             Prov::AdtVariantInstance(Box::new(Prov::Node(pat.id)), i as u8),
                         ));
+                        substitution.insert(adt_def.params[i].clone(), params[i].clone());
                     }
                     let def_type = Type::make_def_instance(
                         Prov::AdtDef(Box::new(Prov::Node(pat.id))),
                         adt_def.name,
                         params,
                     );
-                    def_type
+                    def_type.subst(gamma.clone(), inf_ctx, Prov::Node(pat.id), &substitution)
                 } else {
                     panic!("variant not found");
                 }
             };
-            // instantiate
-            println!("instantiating variant with tag: {}", tag);
-            let ty_variant = ty_variant.instantiate(gamma.clone(), inf_ctx, Prov::Node(pat.id));
             println!("ty_variant: {}", ty_variant);
             constrain(ty_pat.clone(), ty_some_variant);
             constrain(ty_pat, ty_variant);
