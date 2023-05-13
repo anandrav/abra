@@ -228,7 +228,6 @@ impl eframe::App for MyApp {
                                         parse_tree.clone(),
                                         &mut inference_ctx,
                                     );
-                                    statics::refine_inf_ctx(&mut inference_ctx);
                                     debug_println!("generated constraints.");
                                     let result = statics::result_of_constraint_solving(
                                         inference_ctx,

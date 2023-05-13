@@ -976,50 +976,7 @@ pub fn generate_constraints_stmt(
                 let right = ast_type_to_statics_type(inf_ctx, ty.clone());
                 constrain(left, right);
             }
-            TypeDefKind::Adt(ident, params, variants) => { /*
-                     let ty_node = Type::fresh_unifvar(inf_ctx, Prov::Node(stmt.id));
-                     let mut tys_params = vec![];
-                     for param in params {
-                         if let TypeKind::Poly(ident) = &*param.typekind {
-                             tys_params.push(Type::make_poly(Prov::Node(param.id()), ident.clone()));
-                         } else {
-                             panic!("expected poly typekind");
-                         }
-                     }
-                     let mut tys_variants = vec![];
-                     for variant in variants {
-                         constrain(
-                             ty_node.clone(),
-                             Type::fresh_unifvar(inf_ctx, Prov::VariantName(variant.ctor.clone())),
-                         );
-                         let data = match &variant.data {
-                             Some(data) => ast_type_to_statics_type(inf_ctx, data.clone()),
-                             None => Type::make_unit(Prov::Node(variant.id())),
-                         };
-                         match &data {
-                             Type::Unit(_) => {
-                                 gamma.borrow_mut().extend(&variant.ctor, ty_node.clone());
-                             }
-                             Type::Tuple(_, args) => {
-                                 let ty_arrow = Type::make_arrow(args.clone(), ty_node.clone(), stmt.id);
-                                 gamma.borrow_mut().extend(&variant.ctor, ty_arrow);
-                             }
-                             _ => {
-                                 let ty_arrow =
-                                     Type::make_arrow(vec![data.clone()], ty_node.clone(), stmt.id);
-                                 gamma.borrow_mut().extend(&variant.ctor, ty_arrow);
-                             }
-                         }
-                         tys_variants.push(Variant {
-                             ctor: variant.ctor.clone(),
-                             data,
-                         });
-                     }
-                     let ty_adt = Type::make_adt(ident.clone(), tys_params, tys_variants, stmt.id);
-                     // let ty_adt = ty_adt.instantiate(gamma, inf_ctx, Prov::Node(stmt.id));
-                     constrain(ty_node, ty_adt);
-                 */
-            }
+            TypeDefKind::Adt(..) => {}
         },
         StmtKind::Expr(expr) => {
             generate_constraints_expr(gamma, mode, expr.clone(), inf_ctx);
@@ -1239,69 +1196,6 @@ pub fn generate_constraints_toplevel(
         generate_constraints_stmt(gamma.clone(), Mode::Syn, statement.clone(), inf_ctx);
     }
     gamma
-}
-
-pub fn refine_inf_ctx(inf_ctx: &mut InferenceContext) {
-    // if new constraints are added, we must refine again
-    // let mut again = false;
-    // for ufnode in inf_ctx.vars.values_mut() {
-    //     let mut data = ufnode.clone_data();
-    //     let adt_keys: Vec<_> = data
-    //         .types
-    //         .keys()
-    //         .filter(|key| matches!(key, TypeKey::Adt(_)))
-    //         .cloned()
-    //         .collect();
-    //     if adt_keys.len() == 1 {
-    //         let adt_key = &adt_keys[0];
-    //         let Type::Adt(provs, ident, params, variants) = data.types[adt_key].clone() else { panic!() };
-    //         // merge Adt with any Variants which match
-    //         let variant_keys: Vec<_> = data
-    //             .types
-    //             .keys()
-    //             .filter(|key| matches!(key, TypeKey::Variants))
-    //             .cloned()
-    //             .collect();
-    //         for kvariant in variant_keys {
-    //             let Type::Variants(other_provs, other_variants) = data.types[&kvariant].clone() else { panic!() };
-    //             if variants_superset(&variants, &other_variants) {
-    //                 variants_superset_constrain(&variants, &other_variants);
-    //                 again = true;
-    //                 data.types.remove(&kvariant);
-    //                 provs.borrow_mut().extend(other_provs.borrow().clone());
-    //             }
-    //         }
-
-    //         // merge Adt with any Aps which match
-    //         let aps_keys: Vec<_> = data
-    //             .types
-    //             .keys()
-    //             .filter(|key| matches!(key, TypeKey::TyApp(_, _)))
-    //             .cloned()
-    //             .collect();
-    //         for kaps in aps_keys {
-    //             let Type::Ap(other_provs, other_ident, other_params) = data.types[&kaps].clone() else { panic!() };
-    //             if ident == other_ident && params.len() == other_params.len() {
-    //                 // constrain the parameters
-    //                 for (param, other_param) in params.iter().zip(other_params.iter()) {
-    //                     constrain(param.clone(), other_param.clone());
-    //                     again = true;
-    //                 }
-    //                 data.types.remove(&kaps);
-    //                 provs.borrow_mut().extend(other_provs.borrow().clone());
-    //             }
-    //         }
-
-    //         data.types
-    //             .insert(adt_key.clone(), Type::Adt(provs, ident, params, variants));
-    //         ufnode.replace_data(data);
-    //     }
-    // }
-
-    // if again {
-    //     debug_println!("refine again");
-    //     refine_inf_ctx(inf_ctx);
-    // }
 }
 
 // TODO: since each expr/pattern node has a type, the node map should be populated with the types (and errors) of each node. So node id -> {Rc<Node>, StaticsSummary}
