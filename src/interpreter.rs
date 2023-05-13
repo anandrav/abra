@@ -50,7 +50,7 @@ pub fn make_new_environment(
             Some(ty.clone())
         };
         if let Some(Type::DefInstance(_, ident, _params)) = solution {
-            let adt_def = inf_ctx.tydefs.get(&ident).unwrap();
+            let adt_def = inf_ctx.adt_def_of_name(&ident).unwrap();
             // println!("ADT!");
             for (_i, variant) in adt_def.variants.iter().enumerate() {
                 let ctor = &variant.ctor;

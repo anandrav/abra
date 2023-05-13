@@ -387,9 +387,11 @@ pub fn provs_singleton(prov: Prov) -> Provs {
 }
 
 pub struct InferenceContext {
+    // unification variables which must be solved
     pub vars: HashMap<Prov, UnifVar>,
     // nominal type definitions (ADTs)
     pub tydefs: HashMap<Identifier, AdtDef>,
+    // map from variant names to ADT names
     pub variants_to_adt: HashMap<Identifier, Identifier>,
 }
 
@@ -400,6 +402,15 @@ impl InferenceContext {
             tydefs: HashMap::new(),
             variants_to_adt: HashMap::new(),
         }
+    }
+
+    pub fn adt_def_of_name(&self, name: &Identifier) -> Option<AdtDef> {
+        self.tydefs.get(name).cloned()
+    }
+
+    pub fn adt_def_of_variant(&self, variant: &Identifier) -> Option<AdtDef> {
+        let adt_name = self.variants_to_adt.get(variant)?;
+        self.tydefs.get(adt_name).cloned()
     }
 }
 
@@ -657,22 +668,8 @@ pub fn generate_constraints_expr(
             constrain(node_ty, Type::make_string(Prov::Node(expr.id)));
         }
         ExprKind::Var(id) => {
-            let mut is_adt_variant = false;
-            let mut adt_def = AdtDef {
-                name: String::new(),
-                params: vec![],
-                variants: vec![],
-                location: ast::Id { id: 0 },
-            }; // not initialized
-
-            if let Some(ident) = inf_ctx.variants_to_adt.get(id) {
-                if let Some(the_adt_def) = inf_ctx.tydefs.get(ident) {
-                    is_adt_variant = true;
-                    adt_def = the_adt_def.clone();
-                }
-            }
-
-            if is_adt_variant {
+            let adt_def = inf_ctx.adt_def_of_variant(id);
+            if let Some(adt_def) = adt_def {
                 let nparams = adt_def.params.len();
                 let mut params = vec![];
                 let mut substitution = BTreeMap::new();
@@ -1103,22 +1100,9 @@ pub fn generate_constraints_pat(
             };
             let ty_some_variant = Type::fresh_unifvar(inf_ctx, Prov::VariantName(tag.clone()));
             let ty_variant = {
-                let mut is_adt_variant = false;
-                let mut adt_def = AdtDef {
-                    name: String::new(),
-                    params: vec![],
-                    variants: vec![],
-                    location: ast::Id { id: 0 },
-                }; // not initialized
+                let adt_def = inf_ctx.adt_def_of_variant(tag);
 
-                if let Some(ident) = inf_ctx.variants_to_adt.get(tag) {
-                    if let Some(the_adt_def) = inf_ctx.tydefs.get(ident) {
-                        is_adt_variant = true;
-                        adt_def = the_adt_def.clone();
-                    }
-                }
-
-                if is_adt_variant {
+                if let Some(adt_def) = adt_def {
                     let nparams = adt_def.params.len();
                     let mut params = vec![];
                     let mut substitution = BTreeMap::new();
