@@ -1,9 +1,9 @@
 use crate::ast::{
-    self, Expr, ExprKind, Identifier, Node, Pat, PatKind, Stmt, StmtKind, TypeDefKind, TypeKind,
+    self, Expr, ExprKind, Identifier, Node, Pat, PatKind, Stmt, StmtKind, TypeDefKind,
 };
 use crate::operators::BinOpcode;
 use core::panic;
-use debug_print::debug_println;
+
 use disjoint_sets::UnionFindNode;
 use std::cell::RefCell;
 use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
@@ -32,11 +32,6 @@ pub struct AdtDef {
     pub params: Vec<Identifier>,
     pub variants: Vec<Variant>,
     pub location: ast::Id,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
-pub enum DefErr {
-    MultipleDefinitions(Vec<ast::Id>),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
@@ -74,8 +69,6 @@ pub enum TypeKey {
     String,
     Arrow(u8), // u8 represents the number of arguments
     Tuple(u8), // u8 represents the number of elements
-    Adt(Identifier),
-    Variants,
 }
 
 // Provenances are used to:
@@ -407,22 +400,6 @@ impl InferenceContext {
             tydefs: HashMap::new(),
             variants_to_adt: HashMap::new(),
         }
-    }
-}
-
-fn variants_superset(big: &[Variant], small: &[Variant]) -> bool {
-    for s in small {
-        if !big.iter().any(|b| b.ctor == s.ctor) {
-            return false;
-        }
-    }
-    true
-}
-
-fn variants_superset_constrain(big: &[Variant], small: &[Variant]) {
-    for s in small {
-        let corresponding = big.iter().find(|b| b.ctor == s.ctor).unwrap();
-        constrain(s.data.clone(), corresponding.data.clone());
     }
 }
 
@@ -1190,7 +1167,7 @@ pub fn generate_constraints_pat(
 pub fn gather_definitions_stmt(inf_ctx: &mut InferenceContext, stmt: Rc<ast::Stmt>) {
     match &*stmt.stmtkind {
         StmtKind::TypeDef(typdefkind) => match &**typdefkind {
-            TypeDefKind::Alias(ident, ty) => {}
+            TypeDefKind::Alias(_ident, _ty) => {}
             TypeDefKind::Adt(ident, params, variants) => {
                 let mut defvariants = vec![];
                 for v in variants {
@@ -1225,9 +1202,9 @@ pub fn gather_definitions_stmt(inf_ctx: &mut InferenceContext, stmt: Rc<ast::Stm
                 );
             }
         },
-        StmtKind::Expr(expr) => {}
-        StmtKind::Let((pat, ty_ann), expr) => {}
-        StmtKind::LetFunc(name, args, out_annot, body) => {}
+        StmtKind::Expr(_expr) => {}
+        StmtKind::Let((_pat, _ty_ann), _expr) => {}
+        StmtKind::LetFunc(_name, _args, _out_annot, _body) => {}
     }
 }
 
@@ -1377,10 +1354,10 @@ pub fn result_of_constraint_solving(
                         err_string.push_str(&format!("The type alias {ident}"));
                     }
                     Prov::AdtDef(_prov) => {
-                        err_string.push_str(&format!("Some ADT definition"));
+                        err_string.push_str("Some ADT definition");
                     }
                     Prov::AdtVariantInstance(_, _) => {
-                        err_string.push_str(&format!("Some instance of an Adt's variant"));
+                        err_string.push_str("Some instance of an Adt's variant");
                     }
                     Prov::VariantName(ident) => {
                         err_string.push_str(&format!("The ADT variant {ident}"));
