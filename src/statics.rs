@@ -197,6 +197,76 @@ impl Type {
         }
     }
 
+    // Creates a clone of a Type with polymorphic variabels replaced by subtitutions
+    pub fn subst(
+        self,
+        gamma: Rc<RefCell<Gamma>>,
+        inf_ctx: &mut InferenceContext,
+        prov: Prov,
+        substitution: &BTreeMap<Identifier, Type>,
+    ) -> Type {
+        match self {
+            Type::Unit(_) | Type::Int(_) | Type::Bool(_) | Type::String(_) => {
+                println!("it was a noop");
+                self // noop
+            }
+            Type::UnifVar(unifvar) => {
+                let data = unifvar.clone_data();
+                // TODO consider relaxing the types.len() == 1 if it gives better editor feedback. But test thoroughly after
+                if data.types.len() == 1 {
+                    let ty = data.types.into_values().next().unwrap();
+                    if let Type::Poly(_, _) = ty {
+                        ty.subst(gamma, inf_ctx, prov, substitution)
+                    } else {
+                        let ty = ty.subst(gamma, inf_ctx, prov.clone(), substitution);
+                        let mut types = BTreeMap::new();
+                        types.insert(ty.key().unwrap(), ty);
+                        let data_instantiated = UnifVarData { types };
+
+                        let unifvar = UnionFindNode::new(data_instantiated);
+                        inf_ctx.vars.insert(prov, unifvar.clone());
+                        Type::UnifVar(unifvar) // TODO clone this? But test thoroughly after lol
+                    }
+                } else {
+                    Type::UnifVar(unifvar) // noop
+                }
+            }
+            Type::Poly(_, ref ident) => {
+                if !gamma.borrow().lookup_poly(ident) {
+                    if let Some(ty) = substitution.get(ident) {
+                        ty.clone()
+                    } else {
+                        self // noop
+                    }
+                } else {
+                    self // noop
+                }
+            }
+            Type::DefInstance(provs, ident, params) => {
+                let params = params
+                    .into_iter()
+                    .map(|ty| ty.subst(gamma.clone(), inf_ctx, prov.clone(), substitution))
+                    .collect();
+                Type::DefInstance(provs, ident, params)
+            }
+            Type::Function(provs, args, out) => {
+                let args = args
+                    .into_iter()
+                    .map(|ty| ty.subst(gamma.clone(), inf_ctx, prov.clone(), substitution))
+                    .collect();
+                let out = Box::new(out.subst(gamma, inf_ctx, prov, substitution));
+                Type::Function(provs, args, out)
+            }
+            Type::Tuple(provs, elems) => {
+                let elems = elems
+                    .into_iter()
+                    .map(|ty| ty.subst(gamma.clone(), inf_ctx, prov.clone(), substitution))
+                    .collect();
+                Type::Tuple(provs, elems)
+            }
+        }
+    }
+
     pub fn from_node(inf_ctx: &mut InferenceContext, id: ast::Id) -> Type {
         let prov = Prov::Node(id);
         Type::fresh_unifvar(inf_ctx, prov)
@@ -628,11 +698,13 @@ pub fn generate_constraints_expr(
             if is_adt_variant {
                 let nparams = adt_def.params.len();
                 let mut params = vec![];
+                let mut substitution = BTreeMap::new();
                 for i in 0..nparams {
                     params.push(Type::fresh_unifvar(
                         inf_ctx,
                         Prov::AdtVariantInstance(Box::new(Prov::Node(expr.id)), i as u8),
                     ));
+                    substitution.insert(adt_def.params[i].clone(), params[i].clone());
                 }
                 let def_type = Type::make_def_instance(
                     Prov::AdtDef(Box::new(Prov::Node(expr.id))),
@@ -646,15 +718,28 @@ pub fn generate_constraints_expr(
                     let args = elems
                         .iter()
                         .map(|e| {
-                            e.clone()
-                                .instantiate(gamma.clone(), inf_ctx, Prov::Node(expr.id))
+                            e.clone().subst(
+                                gamma.clone(),
+                                inf_ctx,
+                                Prov::Node(expr.id),
+                                &substitution,
+                            )
                         })
                         .collect();
                     constrain(node_ty, Type::make_arrow(args, def_type, expr.id));
                 } else {
                     constrain(
                         node_ty,
-                        Type::make_arrow(vec![the_variant.data.clone()], def_type, expr.id),
+                        Type::make_arrow(
+                            vec![the_variant.data.clone().subst(
+                                gamma,
+                                inf_ctx,
+                                Prov::Node(expr.id),
+                                &substitution,
+                            )],
+                            def_type,
+                            expr.id,
+                        ),
                     );
                 }
 
