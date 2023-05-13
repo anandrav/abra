@@ -230,7 +230,7 @@ impl eframe::App for MyApp {
                                     );
                                     debug_println!("generated constraints.");
                                     let result = statics::result_of_constraint_solving(
-                                        inference_ctx,
+                                        &inference_ctx,
                                         node_map,
                                         &self.text,
                                     );
@@ -238,8 +238,11 @@ impl eframe::App for MyApp {
                                         Ok(_) => {
                                             debug_println!("solved constraints.");
                                             let eval_tree = translate::translate(parse_tree);
-                                            self.interpreter =
-                                                Some(Interpreter::new(tyctx, eval_tree));
+                                            self.interpreter = Some(Interpreter::new(
+                                                &inference_ctx,
+                                                tyctx,
+                                                eval_tree,
+                                            ));
                                             debug_println!("initialized new interpreter.");
                                         }
                                         Err(err) => {

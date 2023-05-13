@@ -24,14 +24,6 @@ pub enum Type {
     Function(Provs, Vec<Type>, Box<Type>),
     Tuple(Provs, Vec<Type>),
     DefInstance(Provs, Identifier, Vec<Type>),
-
-    // ADD THIS: | DefInstance(Provs, Identifier, Vec<Type>)
-    // DELETE THE STUFF BELOW
-    Adt(Provs, Identifier, Vec<Type>, Vec<Variant>),
-    // UHHH these should be stored INSIDE the UnifVar data.. and/or constraints which are solved later
-    // "type must have these variants" or "type must be application of this scheme to these type params"
-    Variants(Provs, Vec<Variant>), // "some Adt which has these variants, and maybe more"
-                                   // Ap(Provs, Identifier, Vec<Type>), // "application of some type with name 'Identifier' to some type params"
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
@@ -120,8 +112,6 @@ impl Type {
             Type::DefInstance(_, ident, params) => {
                 Some(TypeKey::TyApp(ident.clone(), params.len() as u8))
             }
-            Type::Adt(_, ident, _, _) => Some(TypeKey::Adt(ident.clone())),
-            Type::Variants(_, _) => Some(TypeKey::Variants),
         }
     }
 
@@ -134,11 +124,7 @@ impl Type {
         prov: Prov,
     ) -> Type {
         match self {
-            Type::Unit(_)
-            | Type::Int(_)
-            | Type::Bool(_)
-            | Type::String(_)
-            | Type::DefInstance(..) => {
+            Type::Unit(_) | Type::Int(_) | Type::Bool(_) | Type::String(_) => {
                 println!("it was a noop");
                 self // noop
             }
@@ -208,36 +194,6 @@ impl Type {
                     .collect();
                 Type::Tuple(provs, elems)
             }
-            Type::Adt(provs, ident, params, variants) => {
-                println!("it was an adt!");
-                let params = params
-                    .into_iter()
-                    .map(|ty| ty.instantiate(gamma.clone(), inf_ctx, prov.clone()))
-                    .collect();
-                let variants = variants
-                    .into_iter()
-                    .map(|variant| Variant {
-                        ctor: variant.ctor,
-                        data: variant
-                            .data
-                            .instantiate(gamma.clone(), inf_ctx, prov.clone()),
-                    })
-                    .collect();
-                Type::Adt(provs, ident, params, variants)
-            }
-            Type::Variants(provs, variants) => {
-                println!("it was a variant!");
-                let variants = variants
-                    .into_iter()
-                    .map(|variant| Variant {
-                        ctor: variant.ctor,
-                        data: variant
-                            .data
-                            .instantiate(gamma.clone(), inf_ctx, prov.clone()),
-                    })
-                    .collect();
-                Type::Variants(provs, variants)
-            }
         }
     }
 
@@ -262,24 +218,8 @@ impl Type {
         Type::Poly(provs_singleton(prov), ident)
     }
 
-    pub fn make_adt(ident: String, params: Vec<Type>, variants: Vec<Variant>, id: ast::Id) -> Type {
-        Type::Adt(provs_singleton(Prov::Node(id)), ident, params, variants)
-    }
-
     pub fn make_def_instance(prov: Prov, ident: String, params: Vec<Type>) -> Type {
         Type::DefInstance(provs_singleton(prov), ident, params)
-    }
-
-    // pub fn make_def_instance_fresh_params(prov: Prov, ident: String, n: u8) -> Type {
-    //     let params = (0..n).map(|_| Type::fresh_unifvar(prov.clone())).collect();
-    //     Type::DefInstance(provs_singleton(prov), ident)
-    // }
-
-    pub fn make_variant(ctor: Identifier, data: Type, id: ast::Id) -> Type {
-        Type::Variants(
-            provs_singleton(Prov::Node(id)),
-            vec![Variant { ctor, data }],
-        )
     }
 
     pub fn make_unit(prov: Prov) -> Type {
@@ -316,9 +256,7 @@ impl Type {
             | Self::String(provs)
             | Self::Function(provs, _, _)
             | Self::Tuple(provs, _)
-            | Self::DefInstance(provs, _, _)
-            | Self::Adt(provs, _, _, _)
-            | Self::Variants(provs, _) => provs,
+            | Self::DefInstance(provs, _, _) => provs,
         }
     }
 }
@@ -386,10 +324,10 @@ pub fn provs_singleton(prov: Prov) -> Provs {
 }
 
 pub struct InferenceContext {
-    vars: HashMap<Prov, UnifVar>,
+    pub vars: HashMap<Prov, UnifVar>,
     // nominal type definitions (ADTs)
-    tydefs: HashMap<Identifier, AdtDef>,
-    variants_to_adt: HashMap<Identifier, Identifier>,
+    pub tydefs: HashMap<Identifier, AdtDef>,
+    pub variants_to_adt: HashMap<Identifier, Identifier>,
 }
 
 impl InferenceContext {
@@ -437,8 +375,7 @@ impl UnifVarData {
                 | Type::Unit(other_provs)
                 | Type::Int(other_provs)
                 | Type::Bool(other_provs)
-                | Type::String(other_provs)
-                | Type::Adt(other_provs, _, _, _) => {
+                | Type::String(other_provs) => {
                     t.provs().borrow_mut().extend(other_provs.borrow().clone())
                 }
                 Type::Function(other_provs, args1, out1) => {
@@ -466,18 +403,6 @@ impl UnifVarData {
                         } else {
                             panic!("should be same length")
                         }
-                    }
-                }
-                Type::Variants(other_provs, other_variants) => {
-                    if let Type::Variants(_, variants) = t {
-                        for other_variant in other_variants {
-                            if !variants.iter().any(|v| v.ctor == other_variant.ctor) {
-                                variants.push(other_variant.clone());
-                            }
-                        }
-                        t.provs().borrow_mut().extend(other_provs.borrow().clone())
-                    } else {
-                        panic!("should be Variants")
                     }
                 }
                 Type::DefInstance(other_provs, _, other_tys) => {
@@ -718,7 +643,14 @@ pub fn generate_constraints_expr(
                 if let Type::Unit(_) = the_variant.data {
                     constrain(node_ty, def_type);
                 } else if let Type::Tuple(_, elems) = &the_variant.data {
-                    constrain(node_ty, Type::make_arrow(elems.clone(), def_type, expr.id));
+                    let args = elems
+                        .iter()
+                        .map(|e| {
+                            e.clone()
+                                .instantiate(gamma.clone(), inf_ctx, Prov::Node(expr.id))
+                        })
+                        .collect();
+                    constrain(node_ty, Type::make_arrow(args, def_type, expr.id));
                 } else {
                     constrain(
                         node_ty,
@@ -1108,7 +1040,41 @@ pub fn generate_constraints_pat(
                 None => Type::make_unit(Prov::VariantData(Box::new(Prov::Node(pat.id)))), // TODO BUG <---- I don't remember what this means.
             };
             let ty_some_variant = Type::fresh_unifvar(inf_ctx, Prov::VariantName(tag.clone()));
-            let ty_variant = Type::make_variant(tag.clone(), ty_data.clone(), pat.id);
+            let ty_variant = {
+                let mut is_adt_variant = false;
+                let mut adt_def = AdtDef {
+                    name: String::new(),
+                    params: vec![],
+                    variants: vec![],
+                    location: ast::Id { id: 0 },
+                }; // not initialized
+
+                if let Some(ident) = inf_ctx.variants_to_adt.get(tag) {
+                    if let Some(the_adt_def) = inf_ctx.tydefs.get(ident) {
+                        is_adt_variant = true;
+                        adt_def = the_adt_def.clone();
+                    }
+                }
+
+                if is_adt_variant {
+                    let nparams = adt_def.params.len();
+                    let mut params = vec![];
+                    for i in 0..nparams {
+                        params.push(Type::fresh_unifvar(
+                            inf_ctx,
+                            Prov::AdtVariantInstance(Box::new(Prov::Node(pat.id)), i as u8),
+                        ));
+                    }
+                    let def_type = Type::make_def_instance(
+                        Prov::AdtDef(Box::new(Prov::Node(pat.id))),
+                        adt_def.name,
+                        params,
+                    );
+                    def_type
+                } else {
+                    panic!("variant not found");
+                }
+            };
             // instantiate
             println!("instantiating variant with tag: {}", tag);
             let ty_variant = ty_variant.instantiate(gamma.clone(), inf_ctx, Prov::Node(pat.id));
@@ -1201,7 +1167,7 @@ pub fn generate_constraints_toplevel(
 // TODO: since each expr/pattern node has a type, the node map should be populated with the types (and errors) of each node. So node id -> {Rc<Node>, StaticsSummary}
 // errors would be unbound variable, wrong number of arguments, occurs check, etc.
 pub fn result_of_constraint_solving(
-    inf_ctx: InferenceContext,
+    inf_ctx: &InferenceContext,
     node_map: ast::NodeMap,
     source: &str,
 ) -> Result<(), String> {
@@ -1212,11 +1178,6 @@ pub fn result_of_constraint_solving(
         let type_suggestions = potential_types.clone_data().types;
         if type_suggestions.len() > 1 && (!type_conflicts.contains(&type_suggestions)) {
             type_conflicts.push(type_suggestions.clone());
-        }
-        if type_suggestions.len() == 1 {
-            if let Type::Variants(_, _) = type_suggestions.values().next().unwrap() {
-                type_conflicts.push(type_suggestions);
-            }
         }
     }
 
@@ -1267,12 +1228,6 @@ pub fn result_of_constraint_solving(
                     "Sources of tuple with {} elements:\n",
                     elems.len()
                 )),
-                Type::Adt(_, ident, _, _) => {
-                    err_string.push_str(&format!("Sources of ADT {ident}:\n"))
-                }
-                Type::Variants(_, variants) => {
-                    err_string.push_str(&format!("Sources of ADT with variants: {:#?}\n", variants))
-                }
             };
             let provs = ty.provs().borrow().clone(); // TODO don't clone here
             let mut provs_vec = provs.iter().collect::<Vec<_>>();
@@ -1404,37 +1359,6 @@ impl fmt::Display for Type {
                     write!(f, "{}", elem)?;
                 }
                 write!(f, ")")
-            }
-            Type::Adt(_, ident, params, variants) => {
-                write!(f, "{ident}")?;
-                if !params.is_empty() {
-                    write!(f, "<")?;
-                    for (i, param) in params.iter().enumerate() {
-                        if i > 0 {
-                            write!(f, ", ")?;
-                        }
-                        write!(f, "{}", param)?;
-                    }
-                    write!(f, ">")?;
-                }
-                write!(f, "{{")?;
-                for (i, variant) in variants.iter().enumerate() {
-                    if i > 0 {
-                        write!(f, ", ")?;
-                    }
-                    write!(f, "{}", variant)?;
-                }
-                write!(f, "}}")
-            }
-            Type::Variants(_, variants) => {
-                write!(f, "ADT variants {{")?;
-                for (i, variant) in variants.iter().enumerate() {
-                    if i > 0 {
-                        write!(f, ", ")?;
-                    }
-                    write!(f, "{}", variant)?;
-                }
-                write!(f, "}}")
             }
         }
     }

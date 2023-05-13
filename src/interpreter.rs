@@ -6,11 +6,15 @@ use crate::operators::*;
 use crate::side_effects;
 use crate::side_effects::*;
 use crate::statics::Gamma;
+use crate::statics::InferenceContext;
 use crate::statics::Type;
 use std::cell::RefCell;
 use std::rc::Rc;
 
-pub fn make_new_environment(tyctx: Rc<RefCell<Gamma>>) -> Rc<RefCell<Environment>> {
+pub fn make_new_environment(
+    inf_ctx: &InferenceContext,
+    gamma: Rc<RefCell<Gamma>>,
+) -> Rc<RefCell<Environment>> {
     // builtins
     let env = Rc::new(RefCell::new(Environment::new(None)));
     env.borrow_mut().extend(
@@ -36,7 +40,7 @@ pub fn make_new_environment(tyctx: Rc<RefCell<Gamma>>) -> Rc<RefCell<Environment
         )),
     );
     // replace variables with variants or variant constructors
-    for (_key, ty) in tyctx.borrow().vars.iter() {
+    for (_key, ty) in gamma.borrow().vars.iter() {
         // println!("key: {key}, ty: {:?}", ty);
         let solution = if let Type::UnifVar(unifvar) = ty {
             // println!("UNIFVAR!");
@@ -45,9 +49,10 @@ pub fn make_new_environment(tyctx: Rc<RefCell<Gamma>>) -> Rc<RefCell<Environment
         } else {
             Some(ty.clone())
         };
-        if let Some(Type::Adt(_, _, params, variants)) = solution {
+        if let Some(Type::DefInstance(_, ident, params)) = solution {
+            let adt_def = inf_ctx.tydefs.get(&ident).unwrap();
             // println!("ADT!");
-            for (_i, variant) in variants.iter().enumerate() {
+            for (_i, variant) in adt_def.variants.iter().enumerate() {
                 let ctor = &variant.ctor;
                 if let Type::Unit(_) = variant.data {
                     env.borrow_mut().extend(
@@ -99,10 +104,14 @@ pub struct Interpreter {
 }
 
 impl Interpreter {
-    pub fn new(tyctx: Rc<RefCell<Gamma>>, program_expr: Rc<Expr>) -> Self {
+    pub fn new(
+        inf_ctx: &InferenceContext,
+        tyctx: Rc<RefCell<Gamma>>,
+        program_expr: Rc<Expr>,
+    ) -> Self {
         Interpreter {
             program_expr,
-            env: make_new_environment(tyctx),
+            env: make_new_environment(inf_ctx, tyctx),
             next_input: None,
         }
     }
