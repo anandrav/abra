@@ -219,6 +219,10 @@ impl eframe::App for MyApp {
                                     );
                                     debug_println!("initialized node map.");
                                     let mut inference_ctx = statics::InferenceContext::new();
+                                    statics::gather_definitions_toplevel(
+                                        &mut inference_ctx,
+                                        parse_tree.clone(),
+                                    );
                                     let tyctx = statics::generate_constraints_toplevel(
                                         make_new_environment(),
                                         parse_tree.clone(),
