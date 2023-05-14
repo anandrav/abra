@@ -136,6 +136,29 @@ let f(x: list<'a>) = {
 f(bools)
 "#;
 
+const _SQUARED_LIST: &str = r#"type list<'a> = nil | cons ('a, list<'a>)
+
+let print_list(xs: list<int>) =
+	match xs
+		nil -> print("")
+		cons (~x, ~xs) -> {
+			print(int_to_string(x))
+			print_list(xs)
+		}
+
+let squared_list(xs: list<int>) =
+	match xs
+		nil -> nil
+		cons (~x, ~xs) -> cons(x*x, squared_list(xs))
+
+
+let my_list = cons(1, cons(2, cons(3, cons(4, cons(5, nil)))))
+print("some numbers:")
+print_list(my_list)
+print("the same numbers, squared:")
+print_list(squared_list(my_list))
+"#;
+
 // let map(l: list<'a>, f: 'a -> 'b) = {
 // 	match l
 // 		nil -> nil
@@ -155,7 +178,7 @@ swap(("hello", 2))
 impl Default for MyApp {
     fn default() -> Self {
         Self {
-            text: String::from(_MORE_LIST),
+            text: String::from(_SQUARED_LIST),
             output: String::default(),
             interpreter: None,
         }

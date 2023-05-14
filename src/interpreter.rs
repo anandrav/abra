@@ -73,7 +73,7 @@ pub fn make_new_environment(
                             for (i, _) in elems.iter().enumerate().rev() {
                                 expr = Rc::new(Expr::Func(format!("arg{}", i), expr, None));
                             }
-                            println!("ctor function: {:?}", expr);
+                            // println!("ctor function: {:?}", expr);
                             env.borrow_mut().extend(ctor, expr);
                         }
                         _ => {
@@ -669,7 +669,6 @@ fn match_pattern(pat: Rc<Pat>, expr: Rc<Expr>, env: Rc<RefCell<Environment>>) ->
         (Pat::Int(i1), Int(i2)) => i1 == i2,
         (Pat::Str(s1), Str(s2)) => s1 == s2,
         (Pat::TaggedVariant(ptag, pdata), TaggedVariant(etag, edata)) => {
-            dbg!(ptag, pdata, etag, edata);
             let pdata = pdata.clone().unwrap_or(Rc::new(Pat::Unit));
             ptag == etag && match_pattern(pdata, edata.clone(), env)
         }

@@ -116,7 +116,6 @@ impl Type {
     ) -> Type {
         match self {
             Type::Unit(_) | Type::Int(_) | Type::Bool(_) | Type::String(_) => {
-                println!("it was a noop");
                 self // noop
             }
             Type::UnifVar(unifvar) => {
@@ -125,10 +124,10 @@ impl Type {
                 if data.types.len() == 1 {
                     let ty = data.types.into_values().next().unwrap();
                     if let Type::Poly(_, _) = ty {
-                        // println!("it was a unifvar with a poly var in it");
+                        //
                         ty.instantiate(gamma, inf_ctx, prov)
                     } else {
-                        // println!("it was a unifvar but no polyvar.");
+                        //
                         let ty = ty.instantiate(gamma, inf_ctx, prov.clone());
                         let mut types = BTreeMap::new();
                         types.insert(ty.key().unwrap(), ty);
@@ -142,12 +141,12 @@ impl Type {
                         Type::UnifVar(unifvar) // TODO clone this? But test thoroughly after lol
                     }
                 } else {
-                    // println!("it was a unifvar but a noop");
+                    //
                     Type::UnifVar(unifvar) // noop
                 }
             }
             Type::Poly(_, ref ident) => {
-                // println!("it was a INSTANTIATE POLY, ident: {:?}", ident);
+                //
                 if !gamma.borrow().lookup_poly(ident) {
                     Type::fresh_unifvar(
                         inf_ctx,
@@ -158,7 +157,7 @@ impl Type {
                 }
             }
             Type::DefInstance(provs, ident, params) => {
-                // println!("it was a def instance");
+                //
                 let params = params
                     .into_iter()
                     .map(|ty| ty.instantiate(gamma.clone(), inf_ctx, prov.clone()))
@@ -166,7 +165,6 @@ impl Type {
                 Type::DefInstance(provs, ident, params)
             }
             Type::Function(provs, args, out) => {
-                println!("it was a func");
                 let args = args
                     .into_iter()
                     .map(|ty| ty.instantiate(gamma.clone(), inf_ctx, prov.clone()))
@@ -175,7 +173,6 @@ impl Type {
                 Type::Function(provs, args, out)
             }
             Type::Tuple(provs, elems) => {
-                println!("it was a tuple");
                 let elems = elems
                     .into_iter()
                     .map(|ty| ty.instantiate(gamma.clone(), inf_ctx, prov.clone()))
@@ -195,7 +192,6 @@ impl Type {
     ) -> Type {
         match self {
             Type::Unit(_) | Type::Int(_) | Type::Bool(_) | Type::String(_) => {
-                println!("it was a noop");
                 self // noop
             }
             Type::UnifVar(unifvar) => {
@@ -458,7 +454,6 @@ impl UnifVarData {
                     if let Type::DefInstance(_, _, tys) = t {
                         if tys.len() == other_tys.len() {
                             for (ty, other_ty) in tys.iter().zip(other_tys.iter()) {
-                                println!("{} CONSTRAIN TO {}", ty, other_ty);
                                 constrain(ty.clone(), other_ty.clone());
                             }
                         } else {
@@ -668,9 +663,7 @@ pub fn generate_constraints_expr(
             let lookup = gamma.borrow_mut().lookup(id);
             if let Some(typ) = lookup {
                 // replace polymorphic types with unifvars if necessary
-                println!("instantiating type with id: {}", id);
                 let typ = typ.instantiate(gamma, inf_ctx, Prov::Node(expr.id));
-                println!("{}", typ);
                 constrain(typ, node_ty);
                 return;
             }
@@ -1085,9 +1078,7 @@ pub fn generate_constraints_pat(
             constrain(ty_pat, Type::make_string(Prov::Node(pat.id)));
         }
         PatKind::Var(identifier) => {
-            dbg!(identifier);
-            println!("ty_pat: {}", ty_pat);
-            // letrec?: extend context with id and type before analyzing against said type
+            // letrec: extend context with id and type before analyzing against said type
             gamma.borrow_mut().extend(identifier, ty_pat);
         }
         PatKind::Variant(tag, data) => {
@@ -1124,14 +1115,14 @@ pub fn generate_constraints_pat(
                         Prov::Node(pat.id),
                         &substitution,
                     );
-                    constrain(ty_data.clone(), variant_data_ty.clone());
+                    constrain(ty_data.clone(), variant_data_ty);
 
                     def_type
                 } else {
                     panic!("variant not found");
                 }
             };
-            println!("ty_variant: {}", ty_adt_instance);
+
             constrain(ty_pat, ty_adt_instance);
             if let Some(data) = data {
                 generate_constraints_pat(
