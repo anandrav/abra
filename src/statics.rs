@@ -220,12 +220,8 @@ impl Type {
                 }
             }
             Type::Poly(_, ref ident) => {
-                if !gamma.borrow().lookup_poly(ident) {
-                    if let Some(ty) = substitution.get(ident) {
-                        ty.clone()
-                    } else {
-                        self // noop
-                    }
+                if let Some(ty) = substitution.get(ident) {
+                    ty.clone()
                 } else {
                     self // noop
                 }
