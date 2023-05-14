@@ -201,23 +201,23 @@ impl Type {
             Type::UnifVar(unifvar) => {
                 let data = unifvar.clone_data();
                 // TODO consider relaxing the types.len() == 1 if it gives better editor feedback. But test thoroughly after
-                // if data.types.len() == 1 {
-                let ty = data.types.into_values().next().unwrap();
-                if let Type::Poly(_, _) = ty {
-                    ty.subst(gamma, inf_ctx, prov, substitution)
-                } else {
-                    let ty = ty.subst(gamma, inf_ctx, prov.clone(), substitution);
-                    let mut types = BTreeMap::new();
-                    types.insert(ty.key().unwrap(), ty);
-                    let data_instantiated = UnifVarData { types };
+                if data.types.len() == 1 {
+                    let ty = data.types.into_values().next().unwrap();
+                    if let Type::Poly(_, _) = ty {
+                        ty.subst(gamma, inf_ctx, prov, substitution)
+                    } else {
+                        let ty = ty.subst(gamma, inf_ctx, prov.clone(), substitution);
+                        let mut types = BTreeMap::new();
+                        types.insert(ty.key().unwrap(), ty);
+                        let data_instantiated = UnifVarData { types };
 
-                    let unifvar = UnionFindNode::new(data_instantiated);
-                    inf_ctx.vars.insert(prov, unifvar.clone());
-                    Type::UnifVar(unifvar) // TODO clone this? But test thoroughly after lol
+                        let unifvar = UnionFindNode::new(data_instantiated);
+                        inf_ctx.vars.insert(prov, unifvar.clone());
+                        Type::UnifVar(unifvar) // TODO clone this? But test thoroughly after lol
+                    }
+                } else {
+                    Type::UnifVar(unifvar) // noop
                 }
-                // } else {
-                //     Type::UnifVar(unifvar) // noop
-                // }
             }
             Type::Poly(_, ref ident) => {
                 if !gamma.borrow().lookup_poly(ident) {
@@ -599,6 +599,11 @@ impl Gamma {
         match ty {
             Type::Poly(_, ident) => {
                 self.poly_type_vars.insert(ident.clone());
+            }
+            Type::DefInstance(_, _, params) => {
+                for param in params {
+                    self.add_polys(param);
+                }
             }
             // TODO: need this??
             // Type::UnifVar(tvar) => {
