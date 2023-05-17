@@ -38,12 +38,13 @@ else_keyword = _{ "else" }
 match_expression = { "match" ~ expression ~ match_branch ~ (match_branch)* }
 match_branch = { match_pattern ~ "->" ~ expression }
 
-match_pattern = { literal | wildcard | match_pattern_tuple | match_pattern_variant | match_pattern_variable }
+match_pattern = { match_pattern_parenthesized | literal | wildcard | match_pattern_tuple | match_pattern_variant | match_pattern_variable }
 match_pattern_tuple = { tuple_start ~ (match_pattern_tuple_element ~ ",")+ ~ match_pattern_tuple_element ~ tuple_end }
 match_pattern_tuple_element = _{ match_pattern }
 match_pattern_variant = { identifier ~ match_pattern_variant_data? }
 match_pattern_variant_data = _{ match_pattern }
 match_pattern_variable = @{ "~" ~ (alpha | "_") ~ (alphanumeric | "_")* }
+match_pattern_parenthesized = _{ paren_start ~ match_pattern ~ paren_end }
 
 block_expression = { block_start ~ statement* ~ block_end }
 block_start = _{ "{" }
@@ -75,7 +76,9 @@ let_pattern_annotated = { let_pattern ~ type_annotation? } // TODO: this doesn't
 
 type_annotation = _{ ":" ~ typ }
 typ = { type_term ~ (type_op_binary ~ type_term)* }
-type_term = _{ type_ap | tuple_type | type_literal }
+type_term = _{ type_parenthesized | type_ap | tuple_type | type_literal }
+
+type_parenthesized = _{ paren_start ~ typ ~ paren_end }
 
 type_ap = { identifier ~ type_args }
 type_args = _{ "<" ~ (typ ~ ",")* ~ typ? ~ ">" }
