@@ -98,7 +98,7 @@ type_op_arrow = { "->" }
 
 primary_expression = _{ literal | identifier }
 
-identifier = @{ (alpha | "_") ~ (alphanumeric | "_")* }
+identifier = @{ !(keyword ~ WHITESPACE) ~ ( alpha | "_") ~ (alphanumeric | "_")* }
 alpha = _{ 'a'..'z' | 'A'..'Z' }
 alphanumeric = _{ alpha | '0'..'9' }
 

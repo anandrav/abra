@@ -684,8 +684,7 @@ pub fn generate_constraints_expr(
                     adt_def.name,
                     params,
                 );
-                // let def_type =
-                //     def_type.subst(gamma.clone(), inf_ctx, Prov::Node(expr.id), &substitution);
+
                 let the_variant = adt_def.variants.iter().find(|v| v.ctor == *id).unwrap();
                 if let Type::Unit(_) = the_variant.data {
                     constrain(node_ty, def_type);
@@ -1105,8 +1104,6 @@ pub fn generate_constraints_pat(
                         adt_def.name,
                         params,
                     );
-                    // let def_type =
-                    //     def_type.subst(gamma.clone(), inf_ctx, Prov::Node(pat.id), &substitution); // TODO this subst isn't necessary right?
 
                     let variant_def = adt_def.variants.iter().find(|v| v.ctor == *tag).unwrap();
                     let variant_data_ty = variant_def.data.clone().subst(
