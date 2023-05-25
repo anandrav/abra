@@ -821,6 +821,24 @@ pub fn parse_stmt(pair: Pair<Rule>) -> Rc<Stmt> {
                 id: Id::new(),
             })
         }
+        Rule::interface_implementation => {
+            let ident = inner[0].as_str().to_string();
+            let ty = parse_type_term(inner[1].clone());
+            let mut n = 2;
+            let mut stmts = vec![];
+            while let Some(pair) = inner.get(n) {
+                let stmt = parse_stmt(pair.clone());
+                stmts.push(stmt);
+                n += 1;
+            }
+            Rc::new(Stmt {
+                stmtkind: StmtKind::InterfaceImpl(
+                    ident, ty, stmts
+                ).into(),
+                span,
+                id: Id::new(),
+            })
+        }
         _ => panic!("unreachable rule {:#?}", rule),
     }
 }
