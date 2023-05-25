@@ -180,7 +180,12 @@ interface ToString {
     to_string: self -> string
 }
 
+implement ToString for int {
+	let to_string(x: int) = int_to_string(x)
+}
+
 print("hello world")
+
 "#;
 
 impl Default for MyApp {

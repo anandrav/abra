@@ -5,13 +5,16 @@ newline = { "\n" }
 
 toplevel = _{ SOI ~ toplevel_item* ~ EOI }
 
-toplevel_item = _{ interface_declaration | adt_declaration | typealias | statement }
+toplevel_item = _{ interface_declaration | interface_implementation | adt_declaration | typealias | statement }
 
 typealias = { "type" ~ identifier ~ "=" ~ typ}
 
 interface_declaration = { "interface" ~ identifier ~ interface_body }
 interface_body = _{ "{" ~ interface_property* ~ "}" }
 interface_property = { identifier ~ type_annotation }
+
+interface_implementation = { "implement" ~ identifier ~ "for" ~ typ ~ interface_implementation_body }
+interface_implementation_body = _{ "{" ~ let_func_statement* ~ "}" }
 
 adt_declaration = { "type" ~ identifier ~ type_params? ~ "=" ~ variant ~ ("|" ~ variant)* }
 type_params = _{ "<" ~ (type_poly ~ ",")* ~ type_poly? ~ ">" }
