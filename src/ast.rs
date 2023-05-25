@@ -151,6 +151,13 @@ impl Node for Stmt {
                     children
                 }
             },
+            StmtKind::InterfaceDef(_, props) => {
+                let mut children: Vec<Rc<dyn Node>> = Vec::new();
+                for prop in props {
+                    children.push(prop.ty.clone());
+                }
+                children
+            }
         }
     }
 }
@@ -161,6 +168,13 @@ pub enum StmtKind {
     Let(PatAnnotated, Rc<Expr>),
     Expr(Rc<Expr>),
     TypeDef(Rc<TypeDefKind>),
+    InterfaceDef(Identifier, Vec<InterfaceProperty>),
+}
+
+#[derive(Debug, PartialEq)]
+pub struct InterfaceProperty {
+    ident: Identifier,
+    ty: Rc<AstType>,
 }
 
 #[derive(Debug, PartialEq)]
@@ -781,6 +795,36 @@ pub fn parse_stmt(pair: Pair<Rule>) -> Rc<Stmt> {
                 span,
                 id: Id::new(),
             })
+        }
+        Rule::interface_declaration => {
+            let ident = inner[0].as_str().to_string();
+            let mut n = 1;
+            let mut methods = vec![];
+            while let Some(pair) = inner.get(n) {
+                let method = parse_interface_method(pair.clone());
+                methods.push(method);
+                n += 1;
+            }
+            Rc::new(Stmt {
+                stmtkind: StmtKind::InterfaceDef(
+                    ident, methods
+                ).into(),
+                span,
+                id: Id::new(),
+            })
+        }
+        _ => panic!("unreachable rule {:#?}", rule),
+    }
+}
+
+pub fn parse_interface_method(pair: Pair<Rule>) -> InterfaceProperty {
+    let rule = pair.as_rule();
+    let inner: Vec<_> = pair.into_inner().collect();
+    match rule {
+        Rule::interface_property => {
+            let ident = inner[0].as_str().to_string();
+            let ty = parse_type_pratt(inner[1].clone().into_inner());
+            InterfaceProperty { ident, ty }
         }
         _ => panic!("unreachable rule {:#?}", rule),
     }

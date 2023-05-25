@@ -950,6 +950,7 @@ pub fn generate_constraints_stmt(
     inf_ctx: &mut InferenceContext,
 ) {
     match &*stmt.stmtkind {
+        StmtKind::InterfaceDef(..) => unimplemented!(),
         StmtKind::TypeDef(typdefkind) => match &**typdefkind {
             TypeDefKind::Alias(ident, ty) => {
                 let left = Type::fresh_unifvar(inf_ctx, Prov::Alias(ident.clone()));
@@ -1145,6 +1146,7 @@ pub fn generate_constraints_pat(
 
 pub fn gather_definitions_stmt(inf_ctx: &mut InferenceContext, stmt: Rc<ast::Stmt>) {
     match &*stmt.stmtkind {
+        StmtKind::InterfaceDef(..) => unimplemented!(),
         StmtKind::TypeDef(typdefkind) => match &**typdefkind {
             TypeDefKind::Alias(_ident, _ty) => {}
             TypeDefKind::Adt(ident, params, variants) => {

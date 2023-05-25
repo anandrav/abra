@@ -10,11 +10,8 @@ toplevel_item = _{ interface_declaration | adt_declaration | typealias | stateme
 typealias = { "type" ~ identifier ~ "=" ~ typ}
 
 interface_declaration = { "interface" ~ identifier ~ interface_body }
-interface_body = { interface_body_start ~ interface_body_item* ~ interface_body_end }
-interface_body_start = _{ "{" }
-interface_body_end = _{ "}" }
-interface_body_item = { identifier ~ type_annotation }
-// interface_property = { "let" ~ identifier ~ type_annotation? }
+interface_body = _{ "{" ~ interface_property* ~ "}" }
+interface_property = { identifier ~ type_annotation }
 
 adt_declaration = { "type" ~ identifier ~ type_params? ~ "=" ~ variant ~ ("|" ~ variant)* }
 type_params = _{ "<" ~ (type_poly ~ ",")* ~ type_poly? ~ ">" }
