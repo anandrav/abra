@@ -40,6 +40,19 @@ pub struct Variant {
     pub data: Type,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+pub struct InterfaceDef {
+    pub name: Identifier,
+    pub methods: Vec<InterfaceMethod>,
+    pub location: ast::Id,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+pub struct InterfaceMethod {
+    pub name: Identifier,
+    pub ty: Type,
+}
+
 type UnifVar = UnionFindNode<UnifVarData>;
 
 #[derive(Debug, Clone, PartialEq)]
@@ -380,6 +393,8 @@ pub struct InferenceContext {
     pub tydefs: HashMap<Identifier, AdtDef>,
     // map from variant names to ADT names
     pub variants_to_adt: HashMap<Identifier, Identifier>,
+    // interface definitions
+    pub interface_defs: HashMap<Identifier, InterfaceDef>,
 }
 
 impl InferenceContext {
@@ -388,6 +403,7 @@ impl InferenceContext {
             vars: HashMap::new(),
             tydefs: HashMap::new(),
             variants_to_adt: HashMap::new(),
+            interface_defs: HashMap::new(),
         }
     }
 
@@ -950,7 +966,7 @@ pub fn generate_constraints_stmt(
     inf_ctx: &mut InferenceContext,
 ) {
     match &*stmt.stmtkind {
-        StmtKind::InterfaceDef(..) => unimplemented!(),
+        StmtKind::InterfaceDef(..) => {},
         StmtKind::TypeDef(typdefkind) => match &**typdefkind {
             TypeDefKind::Alias(ident, ty) => {
                 let left = Type::fresh_unifvar(inf_ctx, Prov::Alias(ident.clone()));
@@ -1146,7 +1162,19 @@ pub fn generate_constraints_pat(
 
 pub fn gather_definitions_stmt(inf_ctx: &mut InferenceContext, stmt: Rc<ast::Stmt>) {
     match &*stmt.stmtkind {
-        StmtKind::InterfaceDef(..) => unimplemented!(),
+        StmtKind::InterfaceDef(ident, properties) => {
+            let mut methods = vec![];
+            for p in properties {
+                let ty = ast_type_to_statics_type(inf_ctx, p.ty.clone());
+                methods.push(InterfaceMethod {
+                    name: p.ident.clone(),
+                    ty,
+                });
+            }
+            inf_ctx
+                .interface_defs
+                .insert(ident.clone(), InterfaceDef { name: ident.clone(), methods, location: stmt.id });
+        }
         StmtKind::TypeDef(typdefkind) => match &**typdefkind {
             TypeDefKind::Alias(_ident, _ty) => {}
             TypeDefKind::Adt(ident, params, variants) => {

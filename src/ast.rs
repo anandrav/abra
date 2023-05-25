@@ -173,8 +173,8 @@ pub enum StmtKind {
 
 #[derive(Debug, PartialEq)]
 pub struct InterfaceProperty {
-    ident: Identifier,
-    ty: Rc<AstType>,
+    pub ident: Identifier,
+    pub ty: Rc<AstType>,
 }
 
 #[derive(Debug, PartialEq)]
