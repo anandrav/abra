@@ -158,6 +158,13 @@ impl Node for Stmt {
                 }
                 children
             }
+            StmtKind::InterfaceImpl(_, ty, stmts) => {
+                let mut children: Vec<Rc<dyn Node>> = vec![ty.clone()];
+                for stmt in stmts {
+                    children.push(stmt.clone() as Rc<dyn Node>);
+                }
+                children
+            }
         }
     }
 }
@@ -169,6 +176,7 @@ pub enum StmtKind {
     Expr(Rc<Expr>),
     TypeDef(Rc<TypeDefKind>),
     InterfaceDef(Identifier, Vec<InterfaceProperty>),
+    InterfaceImpl(Identifier, Rc<AstType>, Vec<Rc<Stmt>>),
 }
 
 #[derive(Debug, PartialEq)]

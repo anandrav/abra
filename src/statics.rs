@@ -80,7 +80,7 @@ pub enum TypeKey {
     Int,
     Bool,
     String,
-    Arrow(u8), // u8 represents the number of arguments
+    Function(u8), // u8 represents the number of arguments
     Tuple(u8), // u8 represents the number of elements
 }
 
@@ -111,7 +111,7 @@ impl Type {
             Type::Int(_) => Some(TypeKey::Int),
             Type::Bool(_) => Some(TypeKey::Bool),
             Type::String(_) => Some(TypeKey::String),
-            Type::Function(_, args, _) => Some(TypeKey::Arrow(args.len() as u8)),
+            Type::Function(_, args, _) => Some(TypeKey::Function(args.len() as u8)),
             Type::Tuple(_, elems) => Some(TypeKey::Tuple(elems.len() as u8)),
             Type::DefInstance(_, ident, params) => {
                 Some(TypeKey::TyApp(ident.clone(), params.len() as u8))
@@ -967,6 +967,7 @@ pub fn generate_constraints_stmt(
 ) {
     match &*stmt.stmtkind {
         StmtKind::InterfaceDef(..) => {},
+        StmtKind::InterfaceImpl(..) => unimplemented!(),
         StmtKind::TypeDef(typdefkind) => match &**typdefkind {
             TypeDefKind::Alias(ident, ty) => {
                 let left = Type::fresh_unifvar(inf_ctx, Prov::Alias(ident.clone()));
@@ -1175,6 +1176,7 @@ pub fn gather_definitions_stmt(inf_ctx: &mut InferenceContext, stmt: Rc<ast::Stm
                 .interface_defs
                 .insert(ident.clone(), InterfaceDef { name: ident.clone(), methods, location: stmt.id });
         }
+        StmtKind::InterfaceImpl(..) => {},
         StmtKind::TypeDef(typdefkind) => match &**typdefkind {
             TypeDefKind::Alias(_ident, _ty) => {}
             TypeDefKind::Adt(ident, params, variants) => {

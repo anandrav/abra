@@ -32,7 +32,8 @@ pub fn translate_expr_block(stmts: Vec<Rc<ast::Stmt>>) -> Rc<Ete> {
     }
     let statement = &stmts[0];
     match &*statement.stmtkind {
-        ast::StmtKind::InterfaceDef(..) => translate_expr_block(stmts[1..].to_vec()),
+        ast::StmtKind::InterfaceDef(..) |
+        ast::StmtKind::InterfaceImpl(..) |
         ast::StmtKind::TypeDef(_) => translate_expr_block(stmts[1..].to_vec()),
         ast::StmtKind::LetFunc(pat, func_args, _, body) => {
             let id = pat.patkind.get_identifier_of_variable();
