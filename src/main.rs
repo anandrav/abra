@@ -175,10 +175,18 @@ swap((1, true))
 swap(("hello", 2))
 "#;
 
+const _INTERFACES: &str = r#"
+interface ToString {
+    to_string: self -> string
+}
+
+print("hello world")
+"#;
+
 impl Default for MyApp {
     fn default() -> Self {
         Self {
-            text: String::from(_SQUARED_LIST),
+            text: String::from(_INTERFACES),
             output: String::default(),
             interpreter: None,
         }

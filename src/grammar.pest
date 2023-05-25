@@ -5,9 +5,16 @@ newline = { "\n" }
 
 toplevel = _{ SOI ~ toplevel_item* ~ EOI }
 
-toplevel_item = _{ adt_declaration | typealias | statement }
+toplevel_item = _{ interface_declaration | adt_declaration | typealias | statement }
 
 typealias = { "type" ~ identifier ~ "=" ~ typ}
+
+interface_declaration = { "interface" ~ identifier ~ interface_body }
+interface_body = { interface_body_start ~ interface_body_item* ~ interface_body_end }
+interface_body_start = _{ "{" }
+interface_body_end = _{ "}" }
+interface_body_item = { identifier ~ type_annotation }
+// interface_property = { "let" ~ identifier ~ type_annotation? }
 
 adt_declaration = { "type" ~ identifier ~ type_params? ~ "=" ~ variant ~ ("|" ~ variant)* }
 type_params = _{ "<" ~ (type_poly ~ ",")* ~ type_poly? ~ ">" }
@@ -20,7 +27,7 @@ let_statement = { let_keyword ~ let_pattern_annotated ~ op_assign ~ expression }
 let_keyword = _{ "let" }
 expression_statement = { expression }
 let_pattern = _{ let_pattern_tuple | wildcard | identifier }
-wildcard = @{ "_" } // TODO this doesn't parse yet.
+wildcard = @{ "_" }
 op_assign = _{ "=" }
 
 let_func_statement = { let_keyword ~ identifier ~ func_args ~ func_out_annotation? ~ op_assign ~ expression }
@@ -119,7 +126,7 @@ op_subtraction = { "-" }
 op_multiplication = { "*" }
 op_division = { "/" }
 // op_concat = { "++" }
-// op_not = { "!" }
+// op_not = { "not" }
 // op_and = { "and" }
 // op_or = { "or" }
 // op_mod = { "mod" }
