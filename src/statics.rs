@@ -887,6 +887,9 @@ pub fn generate_constraints_expr(
                 inf_ctx,
             );
         }
+        ExprKind::MethodAp(receiver, methodname, args) => {
+            unimplemented!()
+        }
         ExprKind::Tuple(exprs) => {
             let tys = exprs
                 .iter()
@@ -967,7 +970,9 @@ pub fn generate_constraints_stmt(
 ) {
     match &*stmt.stmtkind {
         StmtKind::InterfaceDef(..) => {},
-        StmtKind::InterfaceImpl(..) => unimplemented!(),
+        StmtKind::InterfaceImpl(ident, typ, statements) =>  {
+            // TODO!
+        },
         StmtKind::TypeDef(typdefkind) => match &**typdefkind {
             TypeDefKind::Alias(ident, ty) => {
                 let left = Type::fresh_unifvar(inf_ctx, Prov::Alias(ident.clone()));

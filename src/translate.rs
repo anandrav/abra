@@ -119,6 +119,7 @@ pub fn translate_expr(parse_tree: Rc<ASTek>) -> Rc<Ete> {
                 .map(|expr| expr.exprkind.clone())
                 .collect(),
         ),
+        ASTek::MethodAp(..) => unimplemented!(),
         ASTek::If(expr1, expr2, expr3) => match expr3 {
             // if-else
             Some(expr3) => Rc::new(Ete::If(

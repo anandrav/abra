@@ -177,14 +177,15 @@ swap(("hello", 2))
 
 const _INTERFACES: &str = r#"
 interface ToString {
-    to_string: self -> string
+    to_string: void -> string
 }
 
 implement ToString for int {
-	let to_string(x: int) = int_to_string(x)
+	let to_string() = int_to_string(self)
 }
 
-print("hello world")
+let s = 3.to_string()
+print(s)
 
 "#;
 

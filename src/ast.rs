@@ -240,6 +240,11 @@ impl Node for Expr {
                 children.extend(args.iter().map(|a| a.clone() as Rc<dyn Node>));
                 children
             }
+            ExprKind::MethodAp(obj, _, args) => {
+                let mut children: Vec<Rc<dyn Node>> = vec![obj.clone() as Rc<dyn Node>];
+                children.extend(args.iter().map(|a| a.clone() as Rc<dyn Node>));
+                children
+            }
             ExprKind::Tuple(exprs) => exprs
                 .iter()
                 .map(|e| e.clone() as Rc<dyn Node>)
@@ -270,6 +275,7 @@ pub enum ExprKind {
     Block(Vec<Rc<Stmt>>),
     BinOp(Rc<Expr>, BinOpcode, Rc<Expr>),
     FuncAp(Rc<Expr>, Vec<Rc<Expr>>),
+    MethodAp(Rc<Expr>, Identifier, Vec<Rc<Expr>>),
     Tuple(Vec<Rc<Expr>>),
 }
 
