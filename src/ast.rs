@@ -992,6 +992,23 @@ pub fn parse_expr_term(pair: Pair<Rule>) -> Rc<Expr> {
                 id: Id::new(),
             })
         }
+        Rule::method_call_expression => {
+            let inner: Vec<_> = pair.into_inner().collect();
+            let receiver = parse_expr_pratt(Pairs::single(inner[0].clone()));
+            let Rule::method_call_ident_and_args = inner[1].as_rule() else { unreachable!() };
+            let inner: Vec<_> = inner[1].clone().into_inner().collect();
+            let method = inner[0].as_str().to_string();
+            let inner: Vec<_> = inner[1].clone().into_inner().collect();
+            let mut args = vec![];
+            for p in &inner[0..] {
+                args.push(parse_expr_pratt(Pairs::single(p.clone())));
+            }
+            Rc::new(Expr {
+                exprkind: Rc::new(ExprKind::MethodAp(receiver, method, args)),
+                span,
+                id: Id::new(),
+            })
+        }
         Rule::tuple_expr => {
             let inner: Vec<_> = pair.into_inner().collect();
             let mut exprs = vec![];

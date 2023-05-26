@@ -36,7 +36,7 @@ let_pattern_tuple = { tuple_start ~ (let_pattern_tuple_element ~ ",")+ ~ let_pat
 let_pattern_tuple_element = _{ let_pattern }
 
 expression = { term ~ (op_binary ~ term)* }
-term = _{ block_expression | func_expression | func_call_expression | method_call_expression | parenthesized_expression | if_else_expression | match_expression | tuple_expr | primary_expression }
+term = _{ block_expression | func_expression | method_call_expression | func_call_expression | parenthesized_expression | if_else_expression | match_expression | tuple_expr | primary_expression }
 
 if_else_expression = { if_keyword ~ expression ~ expression ~ (else_keyword ~ expression)? }
 if_keyword = _{ "if" }
