@@ -79,8 +79,11 @@ func_expression = { func_keyword ~ func_args ~ func_out_annotation? ~ expression
 func_out_annotation = { "->" ~ typ }
 func_args_start = _{ "(" }
 func_args_end = _{ ")" }
-func_args = _{ func_args_start ~ (let_pattern_annotated ~ ",")* ~ let_pattern_annotated? ~ func_args_end }
+func_args = _{ func_args_start ~ (func_arg ~ ",")* ~ func_arg? ~ func_args_end }
 func_keyword = _{ "func" }
+func_arg = { let_pattern ~ (interface_annotation | type_annotation )?}
+
+interface_annotation = { ":" ~ "impl" ~ identifier }
 
 let_pattern_annotated = { let_pattern ~ type_annotation? } // TODO: this doesn't work for functions yet.
 

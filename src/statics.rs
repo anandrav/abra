@@ -1,5 +1,6 @@
 use crate::ast::{
-    self, Expr, ExprKind, Identifier, Node, Pat, PatKind, Stmt, StmtKind, TypeDefKind,
+    self, ArgAnnotation, Expr, ExprKind, Identifier, Node, Pat, PatKind, Stmt, StmtKind,
+    TypeDefKind,
 };
 use crate::operators::BinOpcode;
 use core::panic;
@@ -16,7 +17,7 @@ pub enum Type {
     UnifVar(UnifVar),
 
     // "type must be equal to this"
-    Poly(Provs, Identifier),
+    Poly(Provs, Identifier, Vec<Identifier>), // type name, then list of Interfaces it must match
     Unit(Provs),
     Int(Provs),
     Bool(Provs),
@@ -24,6 +25,17 @@ pub enum Type {
     Function(Provs, Vec<Type>, Box<Type>),
     Tuple(Provs, Vec<Type>),
     DefInstance(Provs, Identifier, Vec<Type>),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub enum NamedType {
+    Unit,
+    Int,
+    Bool,
+    String,
+    Function(Vec<NamedType>, Box<NamedType>),
+    Tuple(Vec<NamedType>),
+    DefInstance(Identifier, Vec<NamedType>),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
@@ -43,14 +55,27 @@ pub struct Variant {
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct InterfaceDef {
     pub name: Identifier,
-    pub methods: Vec<InterfaceMethod>,
+    pub methods: Vec<InterfaceDefMethod>,
     pub location: ast::Id,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
-pub struct InterfaceMethod {
+pub struct InterfaceImpl {
+    pub name: Identifier,
+    pub methods: Vec<InterfaceImplMethod>,
+    pub location: ast::Id,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+pub struct InterfaceDefMethod {
     pub name: Identifier,
     pub ty: Type,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+pub struct InterfaceImplMethod {
+    pub name: Identifier,
+    pub location: ast::Id,
 }
 
 type UnifVar = UnionFindNode<UnifVarData>;
@@ -81,7 +106,7 @@ pub enum TypeKey {
     Bool,
     String,
     Function(u8), // u8 represents the number of arguments
-    Tuple(u8), // u8 represents the number of elements
+    Tuple(u8),    // u8 represents the number of elements
 }
 
 // Provenances are used to:
@@ -100,13 +125,14 @@ pub enum Prov {
     FuncArg(Box<Prov>, u8),   // u8 represents the index of the argument
     FuncOut(Box<Prov>),       // u8 represents how many arguments before this output
     VariantNoData(Box<Prov>), // the type of the data of a variant with no data, always Unit.
+    Method(Box<Prov>, Identifier),
 }
 
 impl Type {
     pub fn key(&self) -> Option<TypeKey> {
         match self {
             Type::UnifVar(_) => None,
-            Type::Poly(_, _) => Some(TypeKey::Poly),
+            Type::Poly(_, _, _) => Some(TypeKey::Poly),
             Type::Unit(_) => Some(TypeKey::Unit),
             Type::Int(_) => Some(TypeKey::Int),
             Type::Bool(_) => Some(TypeKey::Bool),
@@ -136,7 +162,7 @@ impl Type {
                 // TODO consider relaxing the types.len() == 1 if it gives better editor feedback. But test thoroughly after
                 if data.types.len() == 1 {
                     let ty = data.types.into_values().next().unwrap();
-                    if let Type::Poly(_, _) = ty {
+                    if let Type::Poly(_, _, ref interfaces) = ty {
                         //
                         ty.instantiate(gamma, inf_ctx, prov)
                     } else {
@@ -158,7 +184,7 @@ impl Type {
                     Type::UnifVar(unifvar) // noop
                 }
             }
-            Type::Poly(_, ref ident) => {
+            Type::Poly(_, ref ident, ref interfaces) => {
                 //
                 if !gamma.borrow().lookup_poly(ident) {
                     Type::fresh_unifvar(
@@ -212,7 +238,7 @@ impl Type {
                 // TODO consider relaxing the types.len() == 1 if it gives better editor feedback. But test thoroughly after
                 if data.types.len() == 1 {
                     let ty = data.types.into_values().next().unwrap();
-                    if let Type::Poly(_, _) = ty {
+                    if let Type::Poly(_, _, ref interfaces) = ty {
                         ty.subst(gamma, inf_ctx, prov, substitution)
                     } else {
                         let ty = ty.subst(gamma, inf_ctx, prov.clone(), substitution);
@@ -228,7 +254,7 @@ impl Type {
                     Type::UnifVar(unifvar) // noop
                 }
             }
-            Type::Poly(_, ref ident) => {
+            Type::Poly(_, ref ident, ref interfaces) => {
                 if let Some(ty) = substitution.get(ident) {
                     ty.clone()
                 } else {
@@ -278,7 +304,7 @@ impl Type {
     }
 
     pub fn make_poly(prov: Prov, ident: String) -> Type {
-        Type::Poly(provs_singleton(prov), ident)
+        Type::Poly(provs_singleton(prov), ident, vec![])
     }
 
     pub fn make_def_instance(prov: Prov, ident: String, params: Vec<Type>) -> Type {
@@ -312,7 +338,7 @@ impl Type {
     pub fn provs(&self) -> &Provs {
         match self {
             Self::UnifVar(_) => panic!("Type::provs called on Type::Var"),
-            Self::Poly(provs, _)
+            Self::Poly(provs, _, _)
             | Self::Unit(provs)
             | Self::Int(provs)
             | Self::Bool(provs)
@@ -320,6 +346,20 @@ impl Type {
             | Self::Function(provs, _, _)
             | Self::Tuple(provs, _)
             | Self::DefInstance(provs, _, _) => provs,
+        }
+    }
+
+    pub fn named_type(&self) -> Option<NamedType> {
+        match self {
+            Self::UnifVar(_) => None,
+            Self::Poly(_, ident, interfaces) => None,
+            Self::Unit(_) => Some(NamedType::Unit),
+            Self::Int(_) => Some(NamedType::Int),
+            Self::Bool(_) => Some(NamedType::Bool),
+            Self::String(_) => Some(NamedType::String),
+            Self::Function(_, args, out) => unimplemented!(),
+            Self::Tuple(_, elems) => unimplemented!(),
+            Self::DefInstance(_, ident, _) => unimplemented!(),
         }
     }
 }
@@ -378,6 +418,39 @@ pub fn ast_type_to_statics_type(
     }
 }
 
+pub fn ast_type_to_named_type(
+    inf_ctx: &mut InferenceContext,
+    ast_type: Rc<ast::AstType>,
+) -> NamedType {
+    match &*ast_type.typekind {
+        ast::TypeKind::Poly(ident) => panic!(), // TODO remove this and others
+        ast::TypeKind::Alias(ident) => panic!(),
+        ast::TypeKind::Ap(ident, params) => NamedType::DefInstance(
+            ident.clone(),
+            params
+                .iter()
+                .map(|param| ast_type_to_named_type(inf_ctx, param.clone()))
+                .collect(),
+        ),
+        ast::TypeKind::Unit => NamedType::Unit,
+        ast::TypeKind::Int => NamedType::Int,
+        ast::TypeKind::Bool => NamedType::Bool,
+        ast::TypeKind::Str => NamedType::String,
+        // TODO wait does this only allow one argument??
+        ast::TypeKind::Arrow(lhs, rhs) => NamedType::Function(
+            vec![ast_type_to_named_type(inf_ctx, lhs.clone())],
+            Box::new(ast_type_to_named_type(inf_ctx, rhs.clone())),
+        ),
+        ast::TypeKind::Tuple(types) => {
+            let mut statics_types = Vec::new();
+            for t in types {
+                statics_types.push(ast_type_to_named_type(inf_ctx, t.clone()));
+            }
+            NamedType::Tuple(statics_types)
+        }
+    }
+}
+
 pub type Provs = RefCell<BTreeSet<Prov>>;
 
 pub fn provs_singleton(prov: Prov) -> Provs {
@@ -387,14 +460,18 @@ pub fn provs_singleton(prov: Prov) -> Provs {
 }
 
 pub struct InferenceContext {
-    // unification variables which must be solved
+    // unification variables (skolems) which must be solved
     pub vars: HashMap<Prov, UnifVar>,
+
     // nominal type definitions (ADTs)
     pub tydefs: HashMap<Identifier, AdtDef>,
     // map from variant names to ADT names
     pub variants_to_adt: HashMap<Identifier, Identifier>,
+
     // interface definitions
     pub interface_defs: HashMap<Identifier, InterfaceDef>,
+    // interface implementations
+    pub interface_impls: HashMap<NamedType, InterfaceImpl>,
 }
 
 impl InferenceContext {
@@ -404,6 +481,7 @@ impl InferenceContext {
             tydefs: HashMap::new(),
             variants_to_adt: HashMap::new(),
             interface_defs: HashMap::new(),
+            interface_impls: HashMap::new(),
         }
     }
 
@@ -432,11 +510,13 @@ impl UnifVarData {
         if let Some(t) = self.types.get_mut(&key) {
             match &t_other {
                 Type::UnifVar(_) => panic!("should not be Type::UnifVar"),
-                Type::Poly(other_provs, _)
-                | Type::Unit(other_provs)
+                Type::Unit(other_provs)
                 | Type::Int(other_provs)
                 | Type::Bool(other_provs)
                 | Type::String(other_provs) => {
+                    t.provs().borrow_mut().extend(other_provs.borrow().clone())
+                }
+                Type::Poly(other_provs, _, interfaces) => {
                     t.provs().borrow_mut().extend(other_provs.borrow().clone())
                 }
                 Type::Function(other_provs, args1, out1) => {
@@ -604,7 +684,7 @@ impl Gamma {
 
     pub fn add_polys(&mut self, ty: &Type) {
         match ty {
-            Type::Poly(_, ident) => {
+            Type::Poly(_, ident, interfaces) => {
                 self.poly_type_vars.insert(ident.clone());
             }
             Type::DefInstance(_, _, params) => {
@@ -888,7 +968,51 @@ pub fn generate_constraints_expr(
             );
         }
         ExprKind::MethodAp(receiver, methodname, args) => {
-            unimplemented!()
+            let ty_receiver = Type::from_node(inf_ctx, receiver.id);
+            // make sure receiver has method
+            // let ty_method = Type::fresh_unifvar(
+            //     inf_ctx,
+            //     Prov::Method(
+            //         Box::new(Prov::Node(methodname.id())),
+            //         methodname.ident.clone(),
+            //     ),
+            // );
+            let ty_method = Type::fresh_unifvar(inf_ctx, Prov::Node(methodname.id()));
+
+            // arguments
+            let tys_args: Vec<Type> = args
+                .iter()
+                .enumerate()
+                .map(|(n, arg)| {
+                    let unknown = Type::fresh_unifvar(
+                        inf_ctx,
+                        Prov::FuncArg(Box::new(Prov::Node(methodname.id)), n as u8),
+                    );
+                    generate_constraints_expr(
+                        gamma.clone(),
+                        Mode::Ana {
+                            expected: unknown.clone(),
+                        },
+                        arg.clone(),
+                        inf_ctx,
+                    );
+                    unknown
+                })
+                .collect();
+
+            // body
+            let ty_body =
+                Type::fresh_unifvar(inf_ctx, Prov::FuncOut(Box::new(Prov::Node(methodname.id))));
+            constrain(ty_body.clone(), node_ty);
+
+            // function type
+            // let ty_func = Type::make_arrow(tys_args, ty_body, expr.id);
+            // generate_constraints_expr(
+            //     gamma,
+            //     Mode::Ana { expected: ty_func },
+            //     func.clone(),
+            //     inf_ctx,
+            // );
         }
         ExprKind::Tuple(exprs) => {
             let tys = exprs
@@ -907,7 +1031,7 @@ pub fn generate_constraints_expr(
 pub fn generate_constraints_function_helper(
     gamma: Rc<RefCell<Gamma>>,
     inf_ctx: &mut InferenceContext,
-    args: &[(Rc<ast::Pat>, Option<Rc<ast::AstType>>)],
+    args: &[(Rc<ast::Pat>, ArgAnnotation)],
     out_annot: &Option<Rc<ast::AstType>>,
     body: &Rc<Expr>,
     func_node_id: ast::Id,
@@ -918,19 +1042,23 @@ pub fn generate_constraints_function_helper(
         .iter()
         .map(|(arg, arg_annot)| {
             let ty_pat = Type::from_node(inf_ctx, arg.id);
-            if let Some(arg_annot) = arg_annot {
-                let arg_annot = ast_type_to_statics_type(inf_ctx, arg_annot.clone());
-                body_gamma.borrow_mut().add_polys(&arg_annot);
-                generate_constraints_pat(
-                    body_gamma.clone(), // TODO what are the consequences of analyzing patterns with context containing previous pattern... probs should not do that
-                    Mode::Ana {
-                        expected: arg_annot,
-                    },
-                    arg.clone(),
-                    inf_ctx,
-                )
-            } else {
-                generate_constraints_pat(body_gamma.clone(), Mode::Syn, arg.clone(), inf_ctx)
+            match arg_annot {
+                ArgAnnotation::Type(arg_annot) => {
+                    let arg_annot = ast_type_to_statics_type(inf_ctx, arg_annot.clone());
+                    body_gamma.borrow_mut().add_polys(&arg_annot);
+                    generate_constraints_pat(
+                        body_gamma.clone(), // TODO what are the consequences of analyzing patterns with context containing previous pattern... probs should not do that
+                        Mode::Ana {
+                            expected: arg_annot,
+                        },
+                        arg.clone(),
+                        inf_ctx,
+                    )
+                }
+                ArgAnnotation::Interface(..) => unimplemented!(),
+                ArgAnnotation::None => {
+                    generate_constraints_pat(body_gamma.clone(), Mode::Syn, arg.clone(), inf_ctx)
+                }
             }
             ty_pat
         })
@@ -969,10 +1097,10 @@ pub fn generate_constraints_stmt(
     inf_ctx: &mut InferenceContext,
 ) {
     match &*stmt.stmtkind {
-        StmtKind::InterfaceDef(..) => {},
-        StmtKind::InterfaceImpl(ident, typ, statements) =>  {
+        StmtKind::InterfaceDef(..) => {}
+        StmtKind::InterfaceImpl(ident, typ, statements) => {
             // TODO!
-        },
+        }
         StmtKind::TypeDef(typdefkind) => match &**typdefkind {
             TypeDefKind::Alias(ident, ty) => {
                 let left = Type::fresh_unifvar(inf_ctx, Prov::Alias(ident.clone()));
@@ -1019,24 +1147,26 @@ pub fn generate_constraints_stmt(
                 .iter()
                 .map(|(arg, arg_annot)| {
                     let ty_pat = Type::from_node(inf_ctx, arg.id);
-                    if let Some(arg_annot) = arg_annot {
-                        let arg_annot = ast_type_to_statics_type(inf_ctx, arg_annot.clone());
-                        body_gamma.borrow_mut().add_polys(&arg_annot);
-                        generate_constraints_pat(
-                            body_gamma.clone(), // TODO what are the consequences of analyzing patterns with context containing previous pattern... probs should not do that
-                            Mode::Ana {
-                                expected: arg_annot,
-                            },
-                            arg.clone(),
-                            inf_ctx,
-                        )
-                    } else {
-                        generate_constraints_pat(
+                    match arg_annot {
+                        ArgAnnotation::Type(arg_annot) => {
+                            let arg_annot = ast_type_to_statics_type(inf_ctx, arg_annot.clone());
+                            body_gamma.borrow_mut().add_polys(&arg_annot);
+                            generate_constraints_pat(
+                                body_gamma.clone(), // TODO what are the consequences of analyzing patterns with context containing previous pattern... probs should not do that
+                                Mode::Ana {
+                                    expected: arg_annot,
+                                },
+                                arg.clone(),
+                                inf_ctx,
+                            )
+                        }
+                        ArgAnnotation::Interface(..) => unimplemented!(),
+                        ArgAnnotation::None => generate_constraints_pat(
                             body_gamma.clone(),
                             Mode::Syn,
                             arg.clone(),
                             inf_ctx,
-                        )
+                        ),
                     }
                     ty_pat
                 })
@@ -1172,16 +1302,44 @@ pub fn gather_definitions_stmt(inf_ctx: &mut InferenceContext, stmt: Rc<ast::Stm
             let mut methods = vec![];
             for p in properties {
                 let ty = ast_type_to_statics_type(inf_ctx, p.ty.clone());
-                methods.push(InterfaceMethod {
+                methods.push(InterfaceDefMethod {
                     name: p.ident.clone(),
                     ty,
                 });
             }
-            inf_ctx
-                .interface_defs
-                .insert(ident.clone(), InterfaceDef { name: ident.clone(), methods, location: stmt.id });
+            inf_ctx.interface_defs.insert(
+                ident.clone(),
+                InterfaceDef {
+                    name: ident.clone(),
+                    methods,
+                    location: stmt.id,
+                },
+            );
         }
-        StmtKind::InterfaceImpl(..) => {},
+        StmtKind::InterfaceImpl(ident, ty, stmts) => {
+            let ty = ast_type_to_named_type(inf_ctx, ty.clone());
+            let methods = stmts
+                .iter()
+                .map(|stmt| match &*stmt.stmtkind {
+                    StmtKind::LetFunc(pat, _, _, _) => {
+                        let ident = pat.patkind.get_identifier_of_variable();
+                        InterfaceImplMethod {
+                            name: ident.clone(),
+                            location: pat.id(),
+                        }
+                    }
+                    _ => unreachable!(),
+                })
+                .collect();
+            inf_ctx.interface_impls.insert(
+                ty,
+                InterfaceImpl {
+                    name: ident.clone(),
+                    methods,
+                    location: stmt.id,
+                },
+            );
+        }
         StmtKind::TypeDef(typdefkind) => match &**typdefkind {
             TypeDefKind::Alias(_ident, _ty) => {}
             TypeDefKind::Adt(ident, params, variants) => {
@@ -1248,6 +1406,8 @@ pub fn result_of_constraint_solving(
     node_map: ast::NodeMap,
     source: &str,
 ) -> Result<(), String> {
+    dbg!(&inf_ctx.interface_defs);
+    dbg!(&inf_ctx.interface_impls);
     // TODO: you should assert that every node in the AST is in unsovled_type_suggestions_to_unknown_ty, solved or not!
     let mut type_conflicts = Vec::new();
     for potential_types in inf_ctx.vars.values() {
@@ -1282,7 +1442,7 @@ pub fn result_of_constraint_solving(
             err_string.push('\n');
             match &ty {
                 Type::UnifVar(_) => err_string.push_str("Sources of unknown:\n"), // idk about this
-                Type::Poly(_, _) => err_string.push_str("Sources of generic type:\n"),
+                Type::Poly(_, _, _) => err_string.push_str("Sources of generic type:\n"),
                 Type::DefInstance(_, ident, params) => {
                     err_string.push_str(&format!("Sources of type {}<", ident));
                     for (i, param) in params.iter().enumerate() {
@@ -1318,6 +1478,7 @@ pub fn result_of_constraint_solving(
                 Prov::VariantNoData(_) => 7,
                 Prov::AdtDef(_) => 8,
                 Prov::InstantiateAdtParam(_, _) => 9,
+                Prov::Method(_, _) => 10,
             });
             for cause in provs_vec {
                 match cause {
@@ -1377,6 +1538,9 @@ pub fn result_of_constraint_solving(
                     Prov::VariantNoData(_prov) => {
                         err_string.push_str("The data of some ADT variant");
                     }
+                    Prov::Method(_, ident) => {
+                        err_string.push_str(&format!("The method {ident}"));
+                    }
                 }
             }
         }
@@ -1389,7 +1553,19 @@ pub fn result_of_constraint_solving(
 impl fmt::Display for Type {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Type::Poly(_, ident) => write!(f, "{}", ident),
+            Type::Poly(_, ident, interfaces) => {
+                write!(f, "{}", ident)?;
+                if !interfaces.is_empty() {
+                    write!(f, ": ")?;
+                    for (i, interface) in interfaces.iter().enumerate() {
+                        if i != 0 {
+                            write!(f, " + ")?;
+                        }
+                        write!(f, "{}", interface)?;
+                    }
+                }
+                Ok(())
+            }
             Type::DefInstance(_, ident, params) => {
                 write!(f, "{}<", ident)?;
                 for (i, param) in params.iter().enumerate() {

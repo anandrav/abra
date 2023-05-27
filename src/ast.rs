@@ -13,6 +13,50 @@ struct MyParser;
 
 pub type Identifier = String;
 
+pub type ArgAnnotated = (Rc<Pat>, ArgAnnotation);
+
+#[derive(Debug, PartialEq, Clone)]
+pub enum ArgAnnotation {
+    Type(Rc<AstType>),
+    Interface(Rc<InterfaceAnnotation>),
+    None,
+}
+#[derive(Debug, PartialEq)]
+pub struct InterfaceAnnotation {
+    pub ident: Identifier,
+    pub span: Span,
+    pub id: Id,
+}
+impl Node for InterfaceAnnotation {
+    fn span(&self) -> Span {
+        self.span.clone()
+    }
+    fn id(&self) -> Id {
+        self.id
+    }
+    fn children(&self) -> Vec<Rc<dyn Node>> {
+        vec![]
+    }
+}
+
+#[derive(Debug, PartialEq)]
+pub struct MethodName {
+    pub ident: Identifier,
+    pub span: Span,
+    pub id: Id,
+}
+impl Node for MethodName {
+    fn span(&self) -> Span {
+        self.span.clone()
+    }
+    fn id(&self) -> Id {
+        self.id
+    }
+    fn children(&self) -> Vec<Rc<dyn Node>> {
+        vec![]
+    }
+}
+
 pub type PatAnnotated = (Rc<Pat>, Option<Rc<AstType>>);
 
 #[derive(Debug)]
@@ -117,10 +161,12 @@ impl Node for Stmt {
         match &*self.stmtkind {
             StmtKind::LetFunc(id, args, ty, expr) => {
                 let mut children: Vec<Rc<dyn Node>> = vec![id.clone() as Rc<dyn Node>];
-                for (pat, ty) in args {
+                for (pat, annot) in args {
                     children.push(pat.clone() as Rc<dyn Node>);
-                    if let Some(ty) = ty {
-                        children.push(ty.clone());
+                    match annot {
+                        ArgAnnotation::Type(ty) => children.push(ty.clone()),
+                        ArgAnnotation::Interface(interface) => children.push(interface.clone()),
+                        ArgAnnotation::None => {}
                     }
                 }
                 if let Some(ty) = ty {
@@ -171,7 +217,7 @@ impl Node for Stmt {
 
 #[derive(Debug, PartialEq)]
 pub enum StmtKind {
-    LetFunc(Rc<Pat>, Vec<PatAnnotated>, Option<Rc<AstType>>, Rc<Expr>),
+    LetFunc(Rc<Pat>, Vec<ArgAnnotated>, Option<Rc<AstType>>, Rc<Expr>),
     Let(PatAnnotated, Rc<Expr>),
     Expr(Rc<Expr>),
     TypeDef(Rc<TypeDefKind>),
@@ -210,10 +256,12 @@ impl Node for Expr {
             // TODO: output of function needs to be annotated as well!
             ExprKind::Func(args, ty_opt, body) => {
                 let mut children: Vec<Rc<dyn Node>> = Vec::new();
-                args.iter().for_each(|(pat, ty_opt)| {
+                args.iter().for_each(|(pat, annot)| {
                     children.push(pat.clone());
-                    if let Some(ty) = ty_opt {
-                        children.push(ty.clone())
+                    match annot {
+                        ArgAnnotation::Type(ty) => children.push(ty.clone()),
+                        ArgAnnotation::Interface(interface) => children.push(interface.clone()),
+                        ArgAnnotation::None => {}
                     }
                 });
                 if let Some(ty) = ty_opt {
@@ -269,13 +317,13 @@ pub enum ExprKind {
     Int(i32),
     Bool(bool),
     Str(String),
-    Func(Vec<PatAnnotated>, Option<Rc<AstType>>, Rc<Expr>),
+    Func(Vec<ArgAnnotated>, Option<Rc<AstType>>, Rc<Expr>),
     If(Rc<Expr>, Rc<Expr>, Option<Rc<Expr>>),
     Match(Rc<Expr>, Vec<MatchArm>),
     Block(Vec<Rc<Stmt>>),
     BinOp(Rc<Expr>, BinOpcode, Rc<Expr>),
     FuncAp(Rc<Expr>, Vec<Rc<Expr>>),
-    MethodAp(Rc<Expr>, Identifier, Vec<Rc<Expr>>),
+    MethodAp(Rc<Expr>, MethodName, Vec<Rc<Expr>>),
     Tuple(Vec<Rc<Expr>>),
 }
 
@@ -527,6 +575,26 @@ pub fn get_pairs(source: &str) -> Result<Pairs<Rule>, String> {
     MyParser::parse(Rule::toplevel, source).map_err(|e| e.to_string())
 }
 
+pub fn parse_func_arg_annotation(pair: Pair<Rule>) -> ArgAnnotated {
+    let rule = pair.as_rule();
+    match rule {
+        Rule::func_arg => {
+            let inner: Vec<_> = pair.into_inner().collect();
+            let pat_pair = inner[0].clone();
+            let pat = parse_let_pattern(pat_pair);
+            let ty = inner
+                .get(1)
+                .map(|type_pair| parse_type_term(type_pair.clone()));
+            let annot = match ty {
+                Some(ty) => ArgAnnotation::Type(ty),
+                None => ArgAnnotation::None,
+            };
+            (pat, annot)
+        }
+        _ => panic!("unreachable rule {:#?}", rule),
+    }
+}
+
 pub fn parse_annotated_let_pattern(pair: Pair<Rule>) -> PatAnnotated {
     let rule = pair.as_rule();
     match rule {
@@ -740,7 +808,7 @@ pub fn parse_stmt(pair: Pair<Rule>) -> Rc<Stmt> {
             let ident = parse_let_pattern(inner[0].clone());
             n += 1;
             while let Rule::let_pattern_annotated = inner[n].as_rule() {
-                let pat_annotated = parse_annotated_let_pattern(inner[n].clone());
+                let pat_annotated = parse_func_arg_annotation(inner[n].clone());
                 args.push(pat_annotated);
                 n += 1;
             }
@@ -820,9 +888,7 @@ pub fn parse_stmt(pair: Pair<Rule>) -> Rc<Stmt> {
                 n += 1;
             }
             Rc::new(Stmt {
-                stmtkind: StmtKind::InterfaceDef(
-                    ident, methods
-                ).into(),
+                stmtkind: StmtKind::InterfaceDef(ident, methods).into(),
                 span,
                 id: Id::new(),
             })
@@ -838,9 +904,7 @@ pub fn parse_stmt(pair: Pair<Rule>) -> Rc<Stmt> {
                 n += 1;
             }
             Rc::new(Stmt {
-                stmtkind: StmtKind::InterfaceImpl(
-                    ident, ty, stmts
-                ).into(),
+                stmtkind: StmtKind::InterfaceImpl(ident, ty, stmts).into(),
                 span,
                 id: Id::new(),
             })
@@ -957,7 +1021,7 @@ pub fn parse_expr_term(pair: Pair<Rule>) -> Rc<Expr> {
             let mut n = 0;
             let mut args = vec![];
             while let Rule::let_pattern_annotated = inner[n].as_rule() {
-                let pat_annotated = parse_annotated_let_pattern(inner[n].clone());
+                let pat_annotated = parse_func_arg_annotation(inner[n].clone());
                 args.push(pat_annotated);
                 n += 1;
             }
@@ -981,9 +1045,8 @@ pub fn parse_expr_term(pair: Pair<Rule>) -> Rc<Expr> {
             let inner: Vec<_> = pair.into_inner().collect();
             let f = parse_expr_pratt(Pairs::single(inner[0].clone()));
             let inner: Vec<_> = inner[1].clone().into_inner().collect();
-            let arg1 = parse_expr_pratt(Pairs::single(inner[0].clone()));
-            let mut args = vec![arg1];
-            for p in &inner[1..] {
+            let mut args = vec![];
+            for p in &inner[0..] {
                 args.push(parse_expr_pratt(Pairs::single(p.clone())));
             }
             Rc::new(Expr {
@@ -997,7 +1060,11 @@ pub fn parse_expr_term(pair: Pair<Rule>) -> Rc<Expr> {
             let receiver = parse_expr_pratt(Pairs::single(inner[0].clone()));
             let Rule::method_call_ident_and_args = inner[1].as_rule() else { unreachable!() };
             let inner: Vec<_> = inner[1].clone().into_inner().collect();
-            let method = inner[0].as_str().to_string();
+            let method = MethodName {
+                ident: inner[0].as_str().to_string(),
+                span: inner[0].as_span().into(),
+                id: Id::new(),
+            };
             let inner: Vec<_> = inner[1].clone().into_inner().collect();
             let mut args = vec![];
             for p in &inner[0..] {

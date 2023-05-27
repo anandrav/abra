@@ -184,7 +184,8 @@ implement ToString for int {
 	let to_string() = int_to_string(self)
 }
 
-let s = 3.to_string()
+let x = 3
+let s = x.to_string()
 print(s)
 
 "#;

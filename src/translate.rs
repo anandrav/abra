@@ -58,7 +58,7 @@ pub fn translate_expr_block(stmts: Vec<Rc<ast::Stmt>>) -> Rc<Ete> {
     }
 }
 
-pub fn translate_expr_func(func_args: Vec<ast::PatAnnotated>, body: Rc<ASTek>) -> Rc<Ete> {
+pub fn translate_expr_func(func_args: Vec<ast::ArgAnnotated>, body: Rc<ASTek>) -> Rc<Ete> {
     let id = func_args[0].0.patkind.get_identifier_of_variable(); // TODO: allow function arguments to be patterns
     if func_args.len() == 1 {
         Rc::new(Ete::Func(id, translate_expr(body), None))
@@ -119,7 +119,7 @@ pub fn translate_expr(parse_tree: Rc<ASTek>) -> Rc<Ete> {
                 .map(|expr| expr.exprkind.clone())
                 .collect(),
         ),
-        ASTek::MethodAp(..) => unimplemented!(),
+        ASTek::MethodAp(receiver, method, args) => Rc::new(Ete::Unit),
         ASTek::If(expr1, expr2, expr3) => match expr3 {
             // if-else
             Some(expr3) => Rc::new(Ete::If(
