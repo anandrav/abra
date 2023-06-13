@@ -24,7 +24,7 @@ use eframe::egui;
 use crate::egui::Color32;
 use interpreter::Interpreter;
 
-use crate::statics::make_new_environment;
+use crate::statics::make_new_gamma;
 
 // When compiling natively:
 #[cfg(not(target_arch = "wasm32"))]
@@ -257,12 +257,14 @@ impl eframe::App for MyApp {
                                     );
                                     debug_println!("initialized node map.");
                                     let mut inference_ctx = statics::InferenceContext::new();
+                                    let tyctx = make_new_gamma();
                                     statics::gather_definitions_toplevel(
                                         &mut inference_ctx,
+                                        tyctx.clone(),
                                         parse_tree.clone(),
                                     );
                                     let tyctx = statics::generate_constraints_toplevel(
-                                        make_new_environment(),
+                                        tyctx,
                                         parse_tree.clone(),
                                         &mut inference_ctx,
                                     );

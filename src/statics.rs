@@ -307,6 +307,10 @@ impl Type {
         Type::Poly(provs_singleton(prov), ident, vec![])
     }
 
+    pub fn make_poly_constrained(prov: Prov, ident: String, interface_ident: String) -> Type {
+        Type::Poly(provs_singleton(prov), ident, vec![interface_ident])
+    }
+
     pub fn make_def_instance(prov: Prov, ident: String, params: Vec<Type>) -> Type {
         Type::DefInstance(provs_singleton(prov), ident, params)
     }
@@ -383,19 +387,36 @@ pub fn types_of_binop(opcode: &BinOpcode, id: ast::Id) -> (Type, Type, Type) {
     }
 }
 
-pub fn ast_type_to_statics_type(
+pub fn ast_type_to_statics_type_interface(
     inf_ctx: &mut InferenceContext,
     ast_type: Rc<ast::AstType>,
+    interface_ident: Option<&String>,
 ) -> Type {
     match &*ast_type.typekind {
         ast::TypeKind::Poly(ident) => Type::make_poly(Prov::Node(ast_type.id()), ident.clone()),
-        ast::TypeKind::Alias(ident) => Type::fresh_unifvar(inf_ctx, Prov::Alias(ident.clone())),
+        ast::TypeKind::Alias(ident) => {
+            if let Some(interface_ident) = interface_ident {
+                if ident == "self" {
+                    Type::make_poly_constrained(
+                        Prov::Node(ast_type.id()),
+                        "a".to_string(),
+                        interface_ident.clone(),
+                    )
+                } else {
+                    Type::fresh_unifvar(inf_ctx, Prov::Alias(ident.clone()))
+                }
+            } else {
+                Type::fresh_unifvar(inf_ctx, Prov::Alias(ident.clone()))
+            }
+        }
         ast::TypeKind::Ap(ident, params) => Type::DefInstance(
             provs_singleton(Prov::Node(ast_type.id())),
             ident.clone(),
             params
                 .iter()
-                .map(|param| ast_type_to_statics_type(inf_ctx, param.clone()))
+                .map(|param| {
+                    ast_type_to_statics_type_interface(inf_ctx, param.clone(), interface_ident)
+                })
                 .collect(),
         ),
         ast::TypeKind::Unit => Type::make_unit(Prov::Node(ast_type.id())),
@@ -404,18 +425,33 @@ pub fn ast_type_to_statics_type(
         ast::TypeKind::Str => Type::make_string(Prov::Node(ast_type.id())),
         // TODO wait does this only allow one argument??
         ast::TypeKind::Arrow(lhs, rhs) => Type::make_arrow(
-            vec![ast_type_to_statics_type(inf_ctx, lhs.clone())],
-            ast_type_to_statics_type(inf_ctx, rhs.clone()),
+            vec![ast_type_to_statics_type_interface(
+                inf_ctx,
+                lhs.clone(),
+                interface_ident,
+            )],
+            ast_type_to_statics_type_interface(inf_ctx, rhs.clone(), interface_ident),
             ast_type.id(),
         ),
         ast::TypeKind::Tuple(types) => {
             let mut statics_types = Vec::new();
             for t in types {
-                statics_types.push(ast_type_to_statics_type(inf_ctx, t.clone()));
+                statics_types.push(ast_type_to_statics_type_interface(
+                    inf_ctx,
+                    t.clone(),
+                    interface_ident,
+                ));
             }
             Type::make_tuple(statics_types, ast_type.id())
         }
     }
+}
+
+pub fn ast_type_to_statics_type(
+    inf_ctx: &mut InferenceContext,
+    ast_type: Rc<ast::AstType>,
+) -> Type {
+    ast_type_to_statics_type_interface(inf_ctx, ast_type, None)
 }
 
 pub fn ast_type_to_named_type(
@@ -597,7 +633,7 @@ pub struct Gamma {
     enclosing: Option<Rc<RefCell<Gamma>>>,
 }
 
-pub fn make_new_environment() -> Rc<RefCell<Gamma>> {
+pub fn make_new_gamma() -> Rc<RefCell<Gamma>> {
     let gamma = Gamma::empty();
     gamma.borrow_mut().extend(
         &String::from("print"),
@@ -1296,16 +1332,21 @@ pub fn generate_constraints_pat(
     }
 }
 
-pub fn gather_definitions_stmt(inf_ctx: &mut InferenceContext, stmt: Rc<ast::Stmt>) {
+pub fn gather_definitions_stmt(
+    inf_ctx: &mut InferenceContext,
+    gamma: Rc<RefCell<Gamma>>,
+    stmt: Rc<ast::Stmt>,
+) {
     match &*stmt.stmtkind {
         StmtKind::InterfaceDef(ident, properties) => {
             let mut methods = vec![];
             for p in properties {
-                let ty = ast_type_to_statics_type(inf_ctx, p.ty.clone());
+                let ty = ast_type_to_statics_type_interface(inf_ctx, p.ty.clone(), Some(ident));
                 methods.push(InterfaceDefMethod {
                     name: p.ident.clone(),
-                    ty,
+                    ty: ty.clone(),
                 });
+                gamma.borrow_mut().extend(&p.ident, ty);
             }
             inf_ctx.interface_defs.insert(
                 ident.clone(),
@@ -1382,9 +1423,13 @@ pub fn gather_definitions_stmt(inf_ctx: &mut InferenceContext, stmt: Rc<ast::Stm
     }
 }
 
-pub fn gather_definitions_toplevel(inf_ctx: &mut InferenceContext, toplevel: Rc<ast::Toplevel>) {
+pub fn gather_definitions_toplevel(
+    inf_ctx: &mut InferenceContext,
+    gamma: Rc<RefCell<Gamma>>,
+    toplevel: Rc<ast::Toplevel>,
+) {
     for statement in toplevel.statements.iter() {
-        gather_definitions_stmt(inf_ctx, statement.clone());
+        gather_definitions_stmt(inf_ctx, gamma.clone(), statement.clone());
     }
 }
 
@@ -1556,9 +1601,9 @@ impl fmt::Display for Type {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Type::Poly(_, ident, interfaces) => {
-                write!(f, "{}", ident)?;
+                write!(f, "'{}", ident)?;
                 if !interfaces.is_empty() {
-                    write!(f, ": ")?;
+                    write!(f, " ")?;
                     for (i, interface) in interfaces.iter().enumerate() {
                         if i != 0 {
                             write!(f, " + ")?;
