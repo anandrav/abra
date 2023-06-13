@@ -177,16 +177,16 @@ swap(("hello", 2))
 
 const _INTERFACES: &str = r#"
 interface ToString {
-    to_string: void -> string
+    to_string: self -> string
 }
 
 implement ToString for int {
-	let to_string() = int_to_string(self)
+	let to_string(n) = int_to_string(n)
 }
 
 let x = 3
-let s = x.to_string()
-print(s)
+let s = to_string(x)
+s
 
 "#;
 
@@ -269,6 +269,7 @@ impl eframe::App for MyApp {
                                     debug_println!("generated constraints.");
                                     let result = statics::result_of_constraint_solving(
                                         &inference_ctx,
+                                        tyctx.clone(),
                                         node_map,
                                         &self.text,
                                     );

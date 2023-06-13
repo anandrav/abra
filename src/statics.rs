@@ -1403,11 +1403,13 @@ pub fn generate_constraints_toplevel(
 // errors would be unbound variable, wrong number of arguments, occurs check, etc.
 pub fn result_of_constraint_solving(
     inf_ctx: &InferenceContext,
+    tyctx: Rc<RefCell<Gamma>>,
     node_map: ast::NodeMap,
     source: &str,
 ) -> Result<(), String> {
     dbg!(&inf_ctx.interface_defs);
     dbg!(&inf_ctx.interface_impls);
+    dbg!(tyctx.borrow());
     // TODO: you should assert that every node in the AST is in unsovled_type_suggestions_to_unknown_ty, solved or not!
     let mut type_conflicts = Vec::new();
     for potential_types in inf_ctx.vars.values() {
