@@ -88,7 +88,7 @@ pub struct UnifVarData {
 impl UnifVarData {
     pub fn solution(&self) -> Option<Type> {
         if self.types.len() == 1 {
-            Some(self.types.values().next().unwrap().clone())
+            self.types.values().next().unwrap().solution()
         } else {
             None
         }
@@ -353,17 +353,72 @@ impl Type {
         }
     }
 
+    pub fn solution(&self) -> Option<Type> {
+        match self {
+            Self::Bool(_)
+            | Self::Int(_)
+            | Self::String(_)
+            | Self::Unit(_)
+            | Self::Poly(_, _, _) => Some(self.clone()),
+            Self::Function(provs, args, out) => {
+                let mut args2: Vec<Type> = vec![];
+                for arg in args {
+                    if let Some(arg) = arg.solution() {
+                        args2.push(arg);
+                    } else {
+                        return None;
+                    }
+                }
+                let out = if let Some(out) = out.solution() {
+                    out
+                } else {
+                    return None;
+                };
+                Some(Type::Function(provs.clone(), args2, out.into()))
+            }
+            Self::Tuple(provs, elems) => {
+                let mut elems2: Vec<Type> = vec![];
+                for elem in elems {
+                    if let Some(elem) = elem.solution() {
+                        elems2.push(elem);
+                    } else {
+                        return None;
+                    }
+                }
+                Some(Type::Tuple(provs.clone(), elems2))
+            }
+            Self::DefInstance(provs, ident, params) => {
+                let mut params2: Vec<Type> = vec![];
+                for param in params {
+                    if let Some(param) = param.solution() {
+                        params2.push(param);
+                    } else {
+                        return None;
+                    }
+                }
+                Some(Type::DefInstance(provs.clone(), ident.clone(), params2))
+            }
+            Self::UnifVar(unifvar) => unifvar.clone_data().solution(),
+        }
+    }
+
     pub fn named_type(&self) -> Option<NamedType> {
         match self {
-            Self::UnifVar(_) => None,
+            Self::UnifVar(_) => {
+                println!("matched with unifvar");
+                None
+            }
             Self::Poly(_, ident, interfaces) => None,
             Self::Unit(_) => Some(NamedType::Unit),
-            Self::Int(_) => Some(NamedType::Int),
+            Self::Int(_) => {
+                println!("matched with int");
+                Some(NamedType::Int)
+            }
             Self::Bool(_) => Some(NamedType::Bool),
             Self::String(_) => Some(NamedType::String),
-            Self::Function(_, args, out) => unimplemented!(),
-            Self::Tuple(_, elems) => unimplemented!(),
-            Self::DefInstance(_, ident, _) => unimplemented!(),
+            Self::Function(_, args, out) => None, // TODO unimplemented
+            Self::Tuple(_, elems) => None,        // TODO unimplemented
+            Self::DefInstance(_, ident, _) => None, // TODO unimplemented
         }
     }
 }
@@ -1366,7 +1421,7 @@ pub fn gather_definitions_stmt(
                         let ident = pat.patkind.get_identifier_of_variable();
                         InterfaceImplMethod {
                             name: ident.clone(),
-                            location: pat.id(),
+                            location: stmt.id(),
                         }
                     }
                     _ => unreachable!(),
@@ -1449,11 +1504,11 @@ pub fn generate_constraints_toplevel(
 pub fn result_of_constraint_solving(
     inf_ctx: &InferenceContext,
     tyctx: Rc<RefCell<Gamma>>,
-    node_map: ast::NodeMap,
+    node_map: &ast::NodeMap,
     source: &str,
 ) -> Result<(), String> {
-    dbg!(&inf_ctx.interface_defs);
-    dbg!(&inf_ctx.interface_impls);
+    // dbg!(&inf_ctx.interface_defs);
+    // dbg!(&inf_ctx.interface_impls);
     dbg!(tyctx.borrow());
     // TODO: you should assert that every node in the AST is in unsovled_type_suggestions_to_unknown_ty, solved or not!
     let mut type_conflicts = Vec::new();

@@ -272,13 +272,18 @@ impl eframe::App for MyApp {
                                     let result = statics::result_of_constraint_solving(
                                         &inference_ctx,
                                         tyctx.clone(),
-                                        node_map,
+                                        &node_map,
                                         &self.text,
                                     );
                                     match result {
                                         Ok(_) => {
                                             debug_println!("solved constraints.");
-                                            let eval_tree = translate::translate(parse_tree);
+                                            let eval_tree = translate::translate(
+                                                &inference_ctx,
+                                                tyctx.clone(),
+                                                &node_map,
+                                                parse_tree,
+                                            );
                                             self.interpreter = Some(Interpreter::new(
                                                 &inference_ctx,
                                                 tyctx,

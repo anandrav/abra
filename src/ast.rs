@@ -136,6 +136,15 @@ impl Node for TypeDef {
     }
 }
 
+impl std::fmt::Debug for dyn Node {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Node")
+            .field("span", &self.span())
+            .field("id", &self.id())
+            .finish()
+    }
+}
+
 pub trait Node {
     fn span(&self) -> Span;
     fn id(&self) -> Id;
