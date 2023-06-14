@@ -183,26 +183,35 @@ pub fn translate_expr(
 ) -> Rc<Ete> {
     match &*parse_tree {
         ASTek::Var(id) => {
+            println!("id: {:?}", id);
             if gamma.borrow().vars.contains_key(id) {
-                if (id == "to_string") {
-                    println!("it's in the gamma");
-                }
+                println!("it's in the gamma");
                 let unifvar = inf_ctx.vars.get(&Prov::Node(ast_id)).unwrap();
                 let solved_ty = unifvar.clone_data().solution().unwrap();
                 println!("solved_ty: {:?}", solved_ty);
                 if let Some(named_ty) = solved_ty.named_type() {
                     println!("named_ty: {:?}", named_ty);
-                    if let Some(interface_impl) = inf_ctx.interface_impls.get(&named_ty) {
-                        println!("interface_impl: {:?}", interface_impl);
-                        for method in &interface_impl.methods {
-                            println!("method name: {:?}", method.name);
-                            println!("id: {:?}", id);
-                            if method.name == *id {
-                                let func_node = node_map.get(&method.location).unwrap();
-                                println!("func_node: {:?}", func_node);
-                                // return translation of whatever function impl is located here
-                            }
-                        }
+                    if let Some(interface_name) = inf_ctx.method_to_interface.get(&id.clone()) {
+                        println!("interface_name: {:?}", interface_name);
+                        let impl_list = inf_ctx.interface_impls.get(interface_name);
+                        // find an impl that matches
+                        dbg!(impl_list);
+
+                        // if let Some(interface_impl) = inf_ctx
+                        //     .interface_impls
+                        //     .get(&(named_ty, interface_name.clone()))
+                        // {
+                        //     println!("interface_impl: {:?}", interface_impl);
+                        //     for method in &interface_impl.methods {
+                        //         println!("method name: {:?}", method.name);
+                        //         println!("id: {:?}", id);
+                        //         if method.name == *id {
+                        //             let func_node = node_map.get(&method.location).unwrap();
+                        //             println!("func_node: {:?}", func_node);
+                        //             // return translation of whatever function impl is located here
+                        //         }
+                        //     }
+                        // }
                     }
                 }
             }

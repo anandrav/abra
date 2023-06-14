@@ -416,8 +416,23 @@ impl Type {
             }
             Self::Bool(_) => Some(NamedType::Bool),
             Self::String(_) => Some(NamedType::String),
-            Self::Function(_, args, out) => None, // TODO unimplemented
-            Self::Tuple(_, elems) => None,        // TODO unimplemented
+            Self::Function(_, args, out) => {
+                let mut args2: Vec<NamedType> = vec![];
+                for arg in args {
+                    if let Some(arg) = arg.named_type() {
+                        args2.push(arg);
+                    } else {
+                        return None;
+                    }
+                }
+                let out = if let Some(out) = out.named_type() {
+                    out
+                } else {
+                    return None;
+                };
+                Some(NamedType::Function(args2, out.into()))
+            } // TODO unimplemented
+            Self::Tuple(_, elems) => None, // TODO unimplemented
             Self::DefInstance(_, ident, _) => None, // TODO unimplemented
         }
     }
@@ -561,8 +576,10 @@ pub struct InferenceContext {
 
     // interface definitions
     pub interface_defs: HashMap<Identifier, InterfaceDef>,
-    // interface implementations
-    pub interface_impls: HashMap<NamedType, InterfaceImpl>,
+    // map from methods to interface names
+    pub method_to_interface: HashMap<Identifier, Identifier>,
+    // map from interface name to list of implementations
+    pub interface_impls: HashMap<Identifier, Vec<InterfaceImpl>>,
 }
 
 impl InferenceContext {
@@ -572,6 +589,7 @@ impl InferenceContext {
             tydefs: HashMap::new(),
             variants_to_adt: HashMap::new(),
             interface_defs: HashMap::new(),
+            method_to_interface: HashMap::new(),
             interface_impls: HashMap::new(),
         }
     }
@@ -1190,7 +1208,29 @@ pub fn generate_constraints_stmt(
     match &*stmt.stmtkind {
         StmtKind::InterfaceDef(..) => {}
         StmtKind::InterfaceImpl(ident, typ, statements) => {
-            // TODO!
+            let typ = ast_type_to_statics_type(inf_ctx, typ.clone());
+
+            for statement in statements {
+                let StmtKind::LetFunc(pat, args, out, body) = &*statement.stmtkind else { continue; };
+                let pat_name = pat.patkind.get_identifier_of_variable();
+                let def = inf_ctx.interface_defs.get(ident).unwrap(); // todo don't unwrap
+                let original_method = def.methods.iter().find(|m| m.name == pat_name).unwrap(); // todo don't unwrap
+                let mut substitution = BTreeMap::new();
+                substitution.insert("'a".to_string(), typ.clone());
+                let expected = original_method.ty.clone().subst(
+                    gamma.clone(),
+                    inf_ctx,
+                    Prov::Node(stmt.id),
+                    &substitution,
+                );
+
+                generate_constraints_stmt(
+                    gamma.clone(),
+                    Mode::Ana { expected },
+                    statement.clone(),
+                    inf_ctx,
+                );
+            }
         }
         StmtKind::TypeDef(typdefkind) => match &**typdefkind {
             TypeDefKind::Alias(ident, ty) => {
@@ -1401,6 +1441,9 @@ pub fn gather_definitions_stmt(
                     name: p.ident.clone(),
                     ty: ty.clone(),
                 });
+                inf_ctx
+                    .method_to_interface
+                    .insert(p.ident.clone(), ident.clone());
                 gamma.borrow_mut().extend(&p.ident, ty);
             }
             inf_ctx.interface_defs.insert(
@@ -1427,14 +1470,15 @@ pub fn gather_definitions_stmt(
                     _ => unreachable!(),
                 })
                 .collect();
-            inf_ctx.interface_impls.insert(
-                ty,
-                InterfaceImpl {
-                    name: ident.clone(),
-                    methods,
-                    location: stmt.id,
-                },
-            );
+            let impl_list = inf_ctx
+                .interface_impls
+                .entry(ident.clone())
+                .or_insert(vec![]);
+            impl_list.push(InterfaceImpl {
+                name: ident.clone(),
+                methods,
+                location: stmt.id,
+            });
         }
         StmtKind::TypeDef(typdefkind) => match &**typdefkind {
             TypeDefKind::Alias(_ident, _ty) => {}
@@ -1508,7 +1552,8 @@ pub fn result_of_constraint_solving(
     source: &str,
 ) -> Result<(), String> {
     // dbg!(&inf_ctx.interface_defs);
-    // dbg!(&inf_ctx.interface_impls);
+    dbg!(&inf_ctx.interface_impls);
+    dbg!(&inf_ctx.method_to_interface);
     dbg!(tyctx.borrow());
     // TODO: you should assert that every node in the AST is in unsovled_type_suggestions_to_unknown_ty, solved or not!
     let mut type_conflicts = Vec::new();
