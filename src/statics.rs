@@ -1262,6 +1262,7 @@ pub fn generate_constraints_stmt(
             generate_constraints_expr(gamma, Mode::Ana { expected: ty_pat }, expr.clone(), inf_ctx);
         }
         StmtKind::LetFunc(name, args, out_annot, body) => {
+            dbg!(&stmt);
             let func_node_id = stmt.id;
 
             let ty_pat = Type::from_node(inf_ctx, name.id);

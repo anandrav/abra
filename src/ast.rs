@@ -588,6 +588,7 @@ pub fn parse_func_arg_annotation(pair: Pair<Rule>) -> ArgAnnotated {
     let rule = pair.as_rule();
     match rule {
         Rule::func_arg => {
+            println!("func_arg detected");
             let inner: Vec<_> = pair.into_inner().collect();
             let pat_pair = inner[0].clone();
             let pat = parse_let_pattern(pat_pair);
@@ -816,7 +817,7 @@ pub fn parse_stmt(pair: Pair<Rule>) -> Rc<Stmt> {
             let mut args = vec![];
             let ident = parse_let_pattern(inner[0].clone());
             n += 1;
-            while let Rule::let_pattern_annotated = inner[n].as_rule() {
+            while let Rule::func_arg = inner[n].as_rule() {
                 let pat_annotated = parse_func_arg_annotation(inner[n].clone());
                 args.push(pat_annotated);
                 n += 1;
