@@ -193,25 +193,57 @@ pub fn translate_expr(
                     println!("named_ty: {:?}", named_ty);
                     if let Some(interface_name) = inf_ctx.method_to_interface.get(&id.clone()) {
                         println!("interface_name: {:?}", interface_name);
-                        let impl_list = inf_ctx.interface_impls.get(interface_name);
+                        let impl_list = inf_ctx.interface_impls.get(interface_name).unwrap();
                         // find an impl that matches
                         dbg!(impl_list);
 
-                        // if let Some(interface_impl) = inf_ctx
-                        //     .interface_impls
-                        //     .get(&(named_ty, interface_name.clone()))
-                        // {
-                        //     println!("interface_impl: {:?}", interface_impl);
-                        //     for method in &interface_impl.methods {
-                        //         println!("method name: {:?}", method.name);
-                        //         println!("id: {:?}", id);
-                        //         if method.name == *id {
-                        //             let func_node = node_map.get(&method.location).unwrap();
-                        //             println!("func_node: {:?}", func_node);
-                        //             // return translation of whatever function impl is located here
-                        //         }
-                        //     }
-                        // }
+                        for imp in impl_list {
+                            println!("interface_impl: {:?}", imp);
+                            for method in &imp.methods {
+                                println!("method name: {:?}", method.name);
+                                println!("id: {:?}", id);
+                                if method.name == *id {
+                                    let method_identifier_node =
+                                        node_map.get(&method.identifier_location).unwrap();
+                                    println!("func_node: {:?}", method_identifier_node);
+                                    let func_id = method_identifier_node.id();
+                                    let unifvar = inf_ctx.vars.get(&Prov::Node(func_id)).unwrap();
+                                    let solved_ty = unifvar.clone_data().solution().unwrap();
+                                    if let Some(named_ty_impl) = solved_ty.named_type() {
+                                        println!("named_ty_impl: {:?}", named_ty_impl);
+                                        if (named_ty == named_ty_impl) {
+                                            println!("THEY ARE EQUAL!!!!!!!!");
+                                            let method_node =
+                                                node_map.get(&method.method_location).unwrap();
+                                            let method_node_id = method_node.id();
+                                            let method_node =
+                                                Rc::new(method_node.into_stmt().unwrap());
+                                            if let ast::StmtKind::LetFunc(_, args, _, body) =
+                                                &*method_node.stmtkind
+                                            {
+                                                println!("it's a let func");
+                                                return translate_expr_func(
+                                                    inf_ctx,
+                                                    gamma,
+                                                    node_map,
+                                                    args.clone(),
+                                                    body.clone(),
+                                                );
+                                            }
+                                            return translate_expr_block(
+                                                inf_ctx,
+                                                gamma,
+                                                node_map,
+                                                vec![method_node],
+                                            );
+                                        }
+                                    }
+
+                                    ()
+                                    // return translation of whatever function impl is located here
+                                }
+                            }
+                        }
                     }
                 }
             }

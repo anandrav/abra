@@ -75,7 +75,8 @@ pub struct InterfaceDefMethod {
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct InterfaceImplMethod {
     pub name: Identifier,
-    pub location: ast::Id,
+    pub method_location: ast::Id,
+    pub identifier_location: ast::Id,
 }
 
 type UnifVar = UnionFindNode<UnifVarData>;
@@ -948,7 +949,13 @@ pub fn generate_constraints_expr(
             }
             let new_gamma = Gamma::new(Some(gamma));
             for statement in statements[..statements.len() - 1].iter() {
-                generate_constraints_stmt(new_gamma.clone(), Mode::Syn, statement.clone(), inf_ctx);
+                generate_constraints_stmt(
+                    new_gamma.clone(),
+                    Mode::Syn,
+                    statement.clone(),
+                    inf_ctx,
+                    true,
+                );
             }
             // if last statement is an expression, the block will have that expression's type
             if let StmtKind::Expr(terminal_expr) = &*statements.last().unwrap().stmtkind {
@@ -1204,6 +1211,7 @@ pub fn generate_constraints_stmt(
     mode: Mode,
     stmt: Rc<Stmt>,
     inf_ctx: &mut InferenceContext,
+    add_to_gamma: bool,
 ) {
     match &*stmt.stmtkind {
         StmtKind::InterfaceDef(..) => {}
@@ -1216,19 +1224,24 @@ pub fn generate_constraints_stmt(
                 let def = inf_ctx.interface_defs.get(ident).unwrap(); // todo don't unwrap
                 let original_method = def.methods.iter().find(|m| m.name == pat_name).unwrap(); // todo don't unwrap
                 let mut substitution = BTreeMap::new();
-                substitution.insert("'a".to_string(), typ.clone());
+                substitution.insert("a".to_string(), typ.clone());
                 let expected = original_method.ty.clone().subst(
                     gamma.clone(),
                     inf_ctx,
                     Prov::Node(stmt.id),
                     &substitution,
                 );
+                dbg!(&expected);
+
+                // let this_impl = inf_ctx.interface_impls.get(&ident).unwrap().iter().find(|i| i.name == ident).unwrap();
 
                 generate_constraints_stmt(
+                    // added to gamma when it shouldn't be
                     gamma.clone(),
                     Mode::Ana { expected },
                     statement.clone(),
                     inf_ctx,
+                    false,
                 );
             }
         }
@@ -1262,13 +1275,14 @@ pub fn generate_constraints_stmt(
             generate_constraints_expr(gamma, Mode::Ana { expected: ty_pat }, expr.clone(), inf_ctx);
         }
         StmtKind::LetFunc(name, args, out_annot, body) => {
-            dbg!(&stmt);
             let func_node_id = stmt.id;
 
             let ty_pat = Type::from_node(inf_ctx, name.id);
-            gamma
-                .borrow_mut()
-                .extend(&name.patkind.get_identifier_of_variable(), ty_pat.clone());
+            if add_to_gamma {
+                gamma
+                    .borrow_mut()
+                    .extend(&name.patkind.get_identifier_of_variable(), ty_pat.clone());
+            }
 
             let body_gamma = Gamma::new(Some(gamma));
 
@@ -1465,7 +1479,8 @@ pub fn gather_definitions_stmt(
                         let ident = pat.patkind.get_identifier_of_variable();
                         InterfaceImplMethod {
                             name: ident.clone(),
-                            location: stmt.id(),
+                            identifier_location: pat.id(),
+                            method_location: stmt.id(),
                         }
                     }
                     _ => unreachable!(),
@@ -1539,7 +1554,7 @@ pub fn generate_constraints_toplevel(
     inf_ctx: &mut InferenceContext,
 ) -> Rc<RefCell<Gamma>> {
     for statement in toplevel.statements.iter() {
-        generate_constraints_stmt(gamma.clone(), Mode::Syn, statement.clone(), inf_ctx);
+        generate_constraints_stmt(gamma.clone(), Mode::Syn, statement.clone(), inf_ctx, true);
     }
     gamma
 }
@@ -1553,8 +1568,8 @@ pub fn result_of_constraint_solving(
     source: &str,
 ) -> Result<(), String> {
     // dbg!(&inf_ctx.interface_defs);
-    dbg!(&inf_ctx.interface_impls);
-    dbg!(&inf_ctx.method_to_interface);
+    // dbg!(&inf_ctx.interface_impls);
+    // dbg!(&inf_ctx.method_to_interface);
     dbg!(tyctx.borrow());
     // TODO: you should assert that every node in the AST is in unsovled_type_suggestions_to_unknown_ty, solved or not!
     let mut type_conflicts = Vec::new();

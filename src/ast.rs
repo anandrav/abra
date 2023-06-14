@@ -15,13 +15,13 @@ pub type Identifier = String;
 
 pub type ArgAnnotated = (Rc<Pat>, ArgAnnotation);
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum ArgAnnotation {
     Type(Rc<AstType>),
     Interface(Rc<InterfaceAnnotation>),
     None,
 }
-#[derive(Debug, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct InterfaceAnnotation {
     pub ident: Identifier,
     pub span: Span,
@@ -37,9 +37,13 @@ impl Node for InterfaceAnnotation {
     fn children(&self) -> Vec<Rc<dyn Node>> {
         vec![]
     }
+
+    fn into_stmt(&self) -> Option<Stmt> {
+        None
+    }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct MethodName {
     pub ident: Identifier,
     pub span: Span,
@@ -55,11 +59,15 @@ impl Node for MethodName {
     fn children(&self) -> Vec<Rc<dyn Node>> {
         vec![]
     }
+
+    fn into_stmt(&self) -> Option<Stmt> {
+        None
+    }
 }
 
 pub type PatAnnotated = (Rc<Pat>, Option<Rc<AstType>>);
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Toplevel {
     pub statements: Vec<Rc<Stmt>>,
     pub span: Span,
@@ -80,22 +88,26 @@ impl Node for Toplevel {
             .map(|i| i.clone() as Rc<dyn Node>)
             .collect()
     }
+
+    fn into_stmt(&self) -> Option<Stmt> {
+        None
+    }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct TypeDef {
     pub kind: TypeDefKind,
     pub span: Span,
     pub id: Id,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum TypeDefKind {
     Alias(Identifier, Rc<AstType>),
     Adt(Identifier, Vec<Rc<AstType>>, Vec<Rc<Variant>>),
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Variant {
     pub ctor: Identifier,
     pub data: Option<Rc<AstType>>,
@@ -118,6 +130,10 @@ impl Node for Variant {
             None => vec![],
         }
     }
+
+    fn into_stmt(&self) -> Option<Stmt> {
+        None
+    }
 }
 
 impl Node for TypeDef {
@@ -134,6 +150,10 @@ impl Node for TypeDef {
             TypeDefKind::Adt(..) => todo!(),
         }
     }
+
+    fn into_stmt(&self) -> Option<Stmt> {
+        None
+    }
 }
 
 impl std::fmt::Debug for dyn Node {
@@ -149,9 +169,11 @@ pub trait Node {
     fn span(&self) -> Span;
     fn id(&self) -> Id;
     fn children(&self) -> Vec<Rc<dyn Node>>;
+
+    fn into_stmt(&self) -> Option<Stmt>;
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Stmt {
     pub stmtkind: Rc<StmtKind>,
     pub span: Span,
@@ -222,9 +244,13 @@ impl Node for Stmt {
             }
         }
     }
+
+    fn into_stmt(&self) -> Option<Stmt> {
+        Some(self.clone())
+    }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum StmtKind {
     LetFunc(Rc<Pat>, Vec<ArgAnnotated>, Option<Rc<AstType>>, Rc<Expr>),
     Let(PatAnnotated, Rc<Expr>),
@@ -234,13 +260,13 @@ pub enum StmtKind {
     InterfaceImpl(Identifier, Rc<AstType>, Vec<Rc<Stmt>>),
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct InterfaceProperty {
     pub ident: Identifier,
     pub ty: Rc<AstType>,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Expr {
     pub exprkind: Rc<ExprKind>,
     pub span: Span,
@@ -316,9 +342,13 @@ impl Node for Expr {
             }
         }
     }
+
+    fn into_stmt(&self) -> Option<Stmt> {
+        None
+    }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum ExprKind {
     // EmptyHole,
     Var(Identifier),
@@ -336,7 +366,7 @@ pub enum ExprKind {
     Tuple(Vec<Rc<Expr>>),
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct MatchArm {
     pub pat: Rc<Pat>,
     pub expr: Rc<Expr>,
@@ -344,7 +374,7 @@ pub struct MatchArm {
 
 // pub type MatchArm = (Rc<Pat>, Rc<Expr>);
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Pat {
     pub patkind: Rc<PatKind>,
     pub span: Span,
@@ -380,9 +410,13 @@ impl Node for Pat {
                 .collect::<Vec<_>>(),
         }
     }
+
+    fn into_stmt(&self) -> Option<Stmt> {
+        None
+    }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum PatKind {
     // EmptyHole,
     Wildcard,
@@ -406,7 +440,7 @@ impl PatKind {
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct AstType {
     pub typekind: Rc<TypeKind>,
     pub span: Span,
@@ -443,9 +477,13 @@ impl Node for AstType {
                 .collect::<Vec<_>>(),
         }
     }
+
+    fn into_stmt(&self) -> Option<Stmt> {
+        None
+    }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum TypeKind {
     Poly(Identifier),
     Alias(Identifier),
@@ -459,7 +497,7 @@ pub enum TypeKind {
     Tuple(Vec<Rc<AstType>>),
 }
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Id {
     pub id: usize,
 }
