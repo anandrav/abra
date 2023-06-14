@@ -18,7 +18,7 @@ pub fn make_new_environment(
     // builtins
     let env = Rc::new(RefCell::new(Environment::new(None)));
     env.borrow_mut().extend(
-        &String::from("print"),
+        &String::from("print_string"),
         Rc::new(Expr::Func(
             String::from("str"),
             Rc::new(Expr::EffectAp(

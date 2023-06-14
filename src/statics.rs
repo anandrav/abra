@@ -710,15 +710,15 @@ pub struct Gamma {
 pub fn make_new_gamma() -> Rc<RefCell<Gamma>> {
     let gamma = Gamma::empty();
     gamma.borrow_mut().extend(
-        &String::from("print"),
+        &String::from("print_string"),
         Type::Function(
             RefCell::new(BTreeSet::new()),
             vec![Type::make_string(Prov::FuncArg(
-                Box::new(Prov::Builtin("print: string -> void".to_string())),
+                Box::new(Prov::Builtin("print_string: string -> void".to_string())),
                 0,
             ))],
             Type::make_unit(Prov::FuncOut(Box::new(Prov::Builtin(
-                "print: string -> void".to_string(),
+                "print_string: string -> void".to_string(),
             ))))
             .into(),
         ),

@@ -175,19 +175,19 @@ swap((1, true))
 swap(("hello", 2))
 "#;
 
-const _INTERFACES: &str = r#"
-interface ToString {
+const _INTERFACES: &str = r#"interface ToString {
     to_string: self -> string
 }
-
+implement ToString for string {
+	let to_string(s) = s
+}
 implement ToString for int {
 	let to_string(n) = int_to_string(n)
 }
+let print(x: 'a ToString) = print_string(to_string(x))
 
-let x = 3
-let s = to_string(x)
-s
-
+print("123")
+print(456)
 "#;
 
 impl Default for MyApp {
