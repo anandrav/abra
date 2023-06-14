@@ -114,9 +114,9 @@ let for_range(r: range, f) = {
     }
 }
 
-let print_fibonacci(n) = print(int_to_string(fibonacci(n)))
+let print_fibonacci(n) = print_string(int_to_string(fibonacci(n)))
 
-print("The first 30 fibonacci numbers are:")
+print_string("The first 30 fibonacci numbers are:")
 
 for_range((0, 30), print_fibonacci)
 "#;
@@ -175,6 +175,19 @@ swap((1, true))
 swap(("hello", 2))
 "#;
 
+// const _INTERFACES: &str = r#"interface ToString {
+//     to_string: self -> string
+// }
+// implement ToString for string {
+// 	let to_string(s) = s
+// }
+// implement ToString for int {
+// 	let to_string(n) = int_to_string(n)
+// }
+
+// print_string(to_string("123"))
+// "#;
+
 const _INTERFACES: &str = r#"interface ToString {
     to_string: self -> string
 }
@@ -193,7 +206,7 @@ print(456)
 impl Default for MyApp {
     fn default() -> Self {
         Self {
-            text: String::from(_INTERFACES),
+            text: String::from(_FIB),
             output: String::default(),
             interpreter: None,
         }

@@ -790,7 +790,7 @@ pub fn parse_type_term(pair: Pair<Rule>) -> Rc<AstType> {
     match rule {
         Rule::typ => parse_type_pratt(pair.into_inner()),
         Rule::type_poly => Rc::new(AstType {
-            typekind: Rc::new(TypeKind::Poly(pair.as_str().into())),
+            typekind: Rc::new(TypeKind::Poly(pair.as_str()[1..].into())),
             span,
             id: Id::new(),
         }),

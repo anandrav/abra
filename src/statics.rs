@@ -1225,20 +1225,21 @@ pub fn generate_constraints_stmt(
                 let original_method = def.methods.iter().find(|m| m.name == pat_name).unwrap(); // todo don't unwrap
                 let mut substitution = BTreeMap::new();
                 substitution.insert("a".to_string(), typ.clone());
+                println!("original method ty: {}", original_method.ty);
+
                 let expected = original_method.ty.clone().subst(
                     gamma.clone(),
                     inf_ctx,
                     Prov::Node(stmt.id),
                     &substitution,
                 );
-                dbg!(&expected);
+                println!("expected ty: {}", expected);
 
-                // let this_impl = inf_ctx.interface_impls.get(&ident).unwrap().iter().find(|i| i.name == ident).unwrap();
+                constrain(expected, Type::from_node(inf_ctx, pat.id));
 
                 generate_constraints_stmt(
-                    // added to gamma when it shouldn't be
                     gamma.clone(),
-                    Mode::Ana { expected },
+                    Mode::Syn,
                     statement.clone(),
                     inf_ctx,
                     false,

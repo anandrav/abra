@@ -183,70 +183,70 @@ pub fn translate_expr(
 ) -> Rc<Ete> {
     match &*parse_tree {
         ASTek::Var(id) => {
-            println!("id: {:?}", id);
-            if gamma.borrow().vars.contains_key(id) {
-                println!("it's in the gamma");
-                let unifvar = inf_ctx.vars.get(&Prov::Node(ast_id)).unwrap();
-                let solved_ty = unifvar.clone_data().solution().unwrap();
-                println!("solved_ty: {:?}", solved_ty);
-                if let Some(named_ty) = solved_ty.named_type() {
-                    println!("named_ty: {:?}", named_ty);
-                    if let Some(interface_name) = inf_ctx.method_to_interface.get(&id.clone()) {
-                        println!("interface_name: {:?}", interface_name);
-                        let impl_list = inf_ctx.interface_impls.get(interface_name).unwrap();
-                        // find an impl that matches
-                        dbg!(impl_list);
+            // println!("id: {:?}", id);
+            // if gamma.borrow().vars.contains_key(id) {
+            //     println!("it's in the gamma");
+            //     let unifvar = inf_ctx.vars.get(&Prov::Node(ast_id)).unwrap();
+            //     let solved_ty = unifvar.clone_data().solution().unwrap();
+            //     println!("solved_ty: {:?}", solved_ty);
+            //     if let Some(named_ty) = solved_ty.named_type() {
+            //         println!("named_ty: {:?}", named_ty);
+            //         if let Some(interface_name) = inf_ctx.method_to_interface.get(&id.clone()) {
+            //             println!("interface_name: {:?}", interface_name);
+            //             let impl_list = inf_ctx.interface_impls.get(interface_name).unwrap();
+            //             // find an impl that matches
+            //             dbg!(impl_list);
 
-                        for imp in impl_list {
-                            println!("interface_impl: {:?}", imp);
-                            for method in &imp.methods {
-                                println!("method name: {:?}", method.name);
-                                println!("id: {:?}", id);
-                                if method.name == *id {
-                                    let method_identifier_node =
-                                        node_map.get(&method.identifier_location).unwrap();
-                                    println!("func_node: {:?}", method_identifier_node);
-                                    let func_id = method_identifier_node.id();
-                                    let unifvar = inf_ctx.vars.get(&Prov::Node(func_id)).unwrap();
-                                    let solved_ty = unifvar.clone_data().solution().unwrap();
-                                    if let Some(named_ty_impl) = solved_ty.named_type() {
-                                        println!("named_ty_impl: {:?}", named_ty_impl);
-                                        if (named_ty == named_ty_impl) {
-                                            println!("THEY ARE EQUAL!!!!!!!!");
-                                            let method_node =
-                                                node_map.get(&method.method_location).unwrap();
-                                            let method_node_id = method_node.id();
-                                            let method_node =
-                                                Rc::new(method_node.into_stmt().unwrap());
-                                            if let ast::StmtKind::LetFunc(_, args, _, body) =
-                                                &*method_node.stmtkind
-                                            {
-                                                println!("it's a let func");
-                                                return translate_expr_func(
-                                                    inf_ctx,
-                                                    gamma,
-                                                    node_map,
-                                                    args.clone(),
-                                                    body.clone(),
-                                                );
-                                            }
-                                            return translate_expr_block(
-                                                inf_ctx,
-                                                gamma,
-                                                node_map,
-                                                vec![method_node],
-                                            );
-                                        }
-                                    }
+            //             for imp in impl_list {
+            //                 println!("interface_impl: {:?}", imp);
+            //                 for method in &imp.methods {
+            //                     println!("method name: {:?}", method.name);
+            //                     println!("id: {:?}", id);
+            //                     if method.name == *id {
+            //                         let method_identifier_node =
+            //                             node_map.get(&method.identifier_location).unwrap();
+            //                         println!("func_node: {:?}", method_identifier_node);
+            //                         let func_id = method_identifier_node.id();
+            //                         let unifvar = inf_ctx.vars.get(&Prov::Node(func_id)).unwrap();
+            //                         let solved_ty = unifvar.clone_data().solution().unwrap();
+            //                         if let Some(named_ty_impl) = solved_ty.named_type() {
+            //                             println!("named_ty_impl: {:?}", named_ty_impl);
+            //                             if (named_ty == named_ty_impl) {
+            //                                 println!("THEY ARE EQUAL!!!!!!!!");
+            //                                 let method_node =
+            //                                     node_map.get(&method.method_location).unwrap();
+            //                                 let method_node_id = method_node.id();
+            //                                 let method_node =
+            //                                     Rc::new(method_node.into_stmt().unwrap());
+            //                                 if let ast::StmtKind::LetFunc(_, args, _, body) =
+            //                                     &*method_node.stmtkind
+            //                                 {
+            //                                     println!("it's a let func");
+            //                                     return translate_expr_func(
+            //                                         inf_ctx,
+            //                                         gamma,
+            //                                         node_map,
+            //                                         args.clone(),
+            //                                         body.clone(),
+            //                                     );
+            //                                 }
+            //                                 return translate_expr_block(
+            //                                     inf_ctx,
+            //                                     gamma,
+            //                                     node_map,
+            //                                     vec![method_node],
+            //                                 );
+            //                             }
+            //                         }
 
-                                    ()
-                                    // return translation of whatever function impl is located here
-                                }
-                            }
-                        }
-                    }
-                }
-            }
+            //                         ()
+            //                         // return translation of whatever function impl is located here
+            //                     }
+            //                 }
+            //             }
+            //         }
+            //     }
+            // }
             return Rc::new(Ete::Var(id.clone()));
         }
         ASTek::Unit => Rc::new(Ete::Unit),
