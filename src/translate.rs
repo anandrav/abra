@@ -201,32 +201,35 @@ pub fn translate_expr_func(
     func_args: Vec<ast::ArgAnnotated>,
     body: Rc<ast::Expr>,
 ) -> Rc<Ete> {
-    let id = func_args[0].0.patkind.get_identifier_of_variable(); // TODO: allow function arguments to be patterns
-    if func_args.len() == 1 {
-        Rc::new(Ete::Func(
-            id,
-            translate_expr(
-                inf_ctx,
-                monomorphenv,
-                gamma.clone(),
-                node_map,
-                body.exprkind.clone(),
-                body.id,
-            ),
-            None,
-        ))
-    } else {
-        // currying
-        let rest_of_function = translate_expr_func(
+    let args = func_args
+        .iter()
+        .map(|arg| arg.0.patkind.get_identifier_of_variable())
+        .collect(); // TODO: allow function arguments to be patterns
+                    // if func_args.len() == 1 {
+    Rc::new(Ete::Func(
+        args,
+        translate_expr(
             inf_ctx,
             monomorphenv,
             gamma.clone(),
             node_map,
-            func_args[1..].to_vec(),
-            body,
-        );
-        Rc::new(Ete::Func(id, rest_of_function, None))
-    }
+            body.exprkind.clone(),
+            body.id,
+        ),
+        None,
+    ))
+    // } else {
+    //     // currying
+    //     let rest_of_function = translate_expr_func(
+    //         inf_ctx,
+    //         monomorphenv,
+    //         gamma.clone(),
+    //         node_map,
+    //         func_args[1..].to_vec(),
+    //         body,
+    //     );
+    //     Rc::new(Ete::Func(vec![id], rest_of_function, None))
+    // }
 }
 
 pub fn translate_expr_ap(
@@ -235,54 +238,32 @@ pub fn translate_expr_ap(
     gamma: Rc<RefCell<Gamma>>,
     node_map: &NodeMap,
     expr1: Rc<ast::Expr>,
-    expr2: Rc<ast::Expr>,
     exprs: Vec<Rc<ast::Expr>>,
 ) -> Rc<Ete> {
-    if exprs.is_empty() {
-        Rc::new(Ete::FuncAp(
-            translate_expr(
-                inf_ctx,
-                monomorphenv.clone(),
-                gamma.clone(),
-                node_map,
-                expr1.exprkind.clone(),
-                expr1.id,
-            ),
-            translate_expr(
-                inf_ctx,
-                monomorphenv.clone(),
-                gamma.clone(),
-                node_map,
-                expr2.exprkind.clone(),
-                expr2.id,
-            ),
-            None,
-        ))
-    } else {
-        // currying
-        let rest_of_arguments_applied = translate_expr_ap(
+    Rc::new(Ete::FuncAp(
+        translate_expr(
             inf_ctx,
             monomorphenv.clone(),
             gamma.clone(),
             node_map,
-            expr1,
-            expr2,
-            exprs[..exprs.len() - 1].to_vec(),
-        );
-        let last = exprs.last().unwrap();
-        Rc::new(Ete::FuncAp(
-            rest_of_arguments_applied,
-            translate_expr(
-                inf_ctx,
-                monomorphenv.clone(),
-                gamma.clone(),
-                node_map,
-                last.exprkind.clone(),
-                last.id,
-            ),
-            None,
-        ))
-    }
+            expr1.exprkind.clone(),
+            expr1.id,
+        ),
+        exprs
+            .iter()
+            .map(|e| {
+                translate_expr(
+                    inf_ctx,
+                    monomorphenv.clone(),
+                    gamma.clone(),
+                    node_map,
+                    e.exprkind.clone(),
+                    e.id,
+                )
+            })
+            .collect(),
+        None,
+    ))
 }
 
 pub fn inf_ty_of_node(
@@ -658,8 +639,7 @@ pub fn translate_expr(
             gamma.clone(),
             node_map,
             expr1.clone(),
-            exprs[0].clone(),
-            exprs[1..].iter().map(|expr| expr.clone()).collect(),
+            exprs.clone(),
         ),
         ASTek::MethodAp(receiver, method, args) => Rc::new(Ete::Unit),
         ASTek::If(expr1, expr2, expr3) => match expr3 {

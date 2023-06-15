@@ -17,8 +17,8 @@ pub enum Expr {
     TaggedVariant(Identifier, Rc<Expr>),
     BinOp(Rc<Expr>, BinOpcode, Rc<Expr>),
     Let(Rc<Pat>, Rc<Expr>, Rc<Expr>),
-    Func(Identifier, Rc<Expr>, Option<Rc<RefCell<Environment>>>),
-    FuncAp(Rc<Expr>, Rc<Expr>, Option<Rc<RefCell<Environment>>>),
+    Func(Vec<Identifier>, Rc<Expr>, Option<Rc<RefCell<Environment>>>),
+    FuncAp(Rc<Expr>, Vec<Rc<Expr>>, Option<Rc<RefCell<Environment>>>),
     If(Rc<Expr>, Rc<Expr>, Rc<Expr>),
     Match(Rc<Expr>, Vec<MatchArm>),
     EffectAp(side_effects::Effect, Vec<Rc<Expr>>),
@@ -48,7 +48,7 @@ impl std::fmt::Display for Expr {
                 write!(f, ")")
             }
             TaggedVariant(tag, data) => write!(f, "variant[{tag}], {data}"),
-            Func(param, body, _) => write!(f, "fn {} -> {}", param, body),
+            Func(param, body, _) => write!(f, "fn {:?} -> {}", param, body),
             EffectAp(_eff, _) => write!(f, "built-in effect"),
             _ => panic!("only implemented for values, {:?}", self),
         }

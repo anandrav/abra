@@ -20,7 +20,7 @@ pub fn make_new_environment(
     env.borrow_mut().extend(
         &String::from("print_string"),
         Rc::new(Expr::Func(
-            String::from("str"),
+            vec![String::from("str")],
             Rc::new(Expr::EffectAp(
                 side_effects::Effect::Print,
                 vec![Rc::new(Expr::Var(String::from("str")))],
@@ -31,7 +31,7 @@ pub fn make_new_environment(
     env.borrow_mut().extend(
         &String::from("int_to_string"),
         Rc::new(Expr::Func(
-            String::from("some_int"),
+            vec![String::from("some_int")],
             Rc::new(Expr::EffectAp(
                 side_effects::Effect::IntToString,
                 vec![Rc::new(Expr::Var(String::from("some_int")))],
@@ -66,13 +66,22 @@ pub fn make_new_environment(
                             for (i, _) in elems.iter().enumerate() {
                                 args.push(Rc::new(Expr::Var(format!("arg{}", i))));
                             }
-                            let mut expr = Rc::new(Expr::TaggedVariant(
+                            let body = Rc::new(Expr::TaggedVariant(
                                 ctor.clone(),
                                 Rc::new(Expr::Tuple(args)),
                             ));
-                            for (i, _) in elems.iter().enumerate().rev() {
-                                expr = Rc::new(Expr::Func(format!("arg{}", i), expr, None));
-                            }
+                            // for (i, _) in elems.iter().enumerate().rev() {
+                            //     expr = Rc::new(Expr::Func(vec![format!("arg{}", i)], expr, None));
+                            // }
+                            let expr = Rc::new(Expr::Func(
+                                elems
+                                    .iter()
+                                    .enumerate()
+                                    .map(|(i, _)| format!("arg{}", i))
+                                    .collect(),
+                                body,
+                                None,
+                            ));
                             // println!("ctor function: {:?}", expr);
                             env.borrow_mut().extend(ctor, expr);
                         }
@@ -80,7 +89,7 @@ pub fn make_new_environment(
                             env.borrow_mut().extend(
                                 ctor,
                                 Rc::new(Expr::Func(
-                                    "data".to_string(),
+                                    vec!["data".to_string()],
                                     Rc::new(Expr::TaggedVariant(
                                         ctor.clone(),
                                         Rc::new(Expr::Var("data".to_string())),
@@ -344,15 +353,15 @@ fn interpret(
                     //      ... which reference needs to be weak??
 
                     // letrec
-                    Func(id, body, Some(closure)) => (
-                        Rc::new(Func(id.clone(), body.clone(), Some(closure.clone()))),
+                    Func(args, body, Some(closure)) => (
+                        Rc::new(Func(args.clone(), body.clone(), Some(closure.clone()))),
                         Some(closure.clone()),
                     ),
                     // letrec
-                    Func(id, body, None) => {
+                    Func(args, body, None) => {
                         let closure = Rc::new(RefCell::new(Environment::new(Some(env.clone()))));
                         (
-                            Rc::new(Func(id.clone(), body.clone(), Some(closure.clone()))),
+                            Rc::new(Func(args.clone(), body.clone(), Some(closure.clone()))),
                             Some(closure),
                         )
                     }
@@ -425,7 +434,7 @@ fn interpret(
                 }
             }
         },
-        FuncAp(expr1, expr2, funcapp_env) => {
+        FuncAp(expr1, args, funcapp_env) => {
             let InterpretResult {
                 expr: expr1,
                 steps,
@@ -434,27 +443,31 @@ fn interpret(
             } = interpret(expr1.clone(), env.clone(), steps, &input.clone());
             if effect.is_some() || steps <= 0 {
                 return InterpretResult {
-                    expr: Rc::new(FuncAp(expr1, expr2.clone(), funcapp_env.clone())),
+                    expr: Rc::new(FuncAp(expr1, args.clone(), funcapp_env.clone())),
                     steps,
                     effect,
                     new_env,
                 };
             }
-            let InterpretResult {
-                expr: expr2,
-                steps,
-                effect,
-                new_env,
-            } = interpret(expr2.clone(), env.clone(), steps, &input.clone());
-            if effect.is_some() || steps <= 0 {
-                return InterpretResult {
-                    expr: Rc::new(FuncAp(expr1, expr2, funcapp_env.clone())),
+            let mut new_args = args.clone();
+            for (i, arg) in args.iter().enumerate() {
+                let InterpretResult {
+                    expr: arg,
                     steps,
                     effect,
                     new_env,
-                };
+                } = interpret(arg.clone(), env.clone(), steps, &input.clone());
+                new_args[i] = arg;
+                if effect.is_some() || steps <= 0 {
+                    return InterpretResult {
+                        expr: Rc::new(FuncAp(expr1, new_args.clone(), funcapp_env.clone())),
+                        steps,
+                        effect,
+                        new_env,
+                    };
+                }
             }
-            let (id, body, closure) = match &*expr1 {
+            let (ids, body, closure) = match &*expr1 {
                 Func(id, body, closure) => match closure {
                     None => (
                         id,
@@ -471,7 +484,9 @@ fn interpret(
                 None => {
                     let funcapp_env =
                         Rc::new(RefCell::new(Environment::new(Some(closure.clone()))));
-                    funcapp_env.borrow_mut().extend(id, expr2.clone());
+                    for (i, id) in ids.iter().enumerate() {
+                        funcapp_env.borrow_mut().extend(id, new_args[i].clone());
+                    }
                     funcapp_env
                 }
             };
@@ -486,8 +501,8 @@ fn interpret(
             if effect.is_some() || steps <= 0 {
                 let result = InterpretResult {
                     expr: Rc::new(FuncAp(
-                        Rc::new(Func(id.clone(), body, Some(closure))),
-                        expr2,
+                        Rc::new(Func(ids.clone(), body, Some(closure))),
+                        new_args,
                         Some(funcapp_env),
                     )),
                     steps,

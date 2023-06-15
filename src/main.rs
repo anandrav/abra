@@ -205,7 +205,7 @@ print(123)
 impl Default for MyApp {
     fn default() -> Self {
         Self {
-            text: String::from(_INTERFACES),
+            text: String::from(_FIB),
             output: String::default(),
             interpreter: None,
         }
