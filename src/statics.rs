@@ -28,14 +28,14 @@ pub enum Type {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub enum NamedType {
+pub enum NamedMonomorphType {
     Unit,
     Int,
     Bool,
     String,
-    Function(Vec<NamedType>, Box<NamedType>),
-    Tuple(Vec<NamedType>),
-    DefInstance(Identifier, Vec<NamedType>),
+    Function(Vec<NamedMonomorphType>, Box<NamedMonomorphType>),
+    Tuple(Vec<NamedMonomorphType>),
+    DefInstance(Identifier, Vec<NamedMonomorphType>),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
@@ -79,7 +79,7 @@ pub struct InterfaceImplMethod {
     pub identifier_location: ast::Id,
 }
 
-type UnifVar = UnionFindNode<UnifVarData>;
+pub type UnifVar = UnionFindNode<UnifVarData>;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct UnifVarData {
@@ -304,8 +304,8 @@ impl Type {
         }
     }
 
-    pub fn make_poly(prov: Prov, ident: String) -> Type {
-        Type::Poly(provs_singleton(prov), ident, vec![])
+    pub fn make_poly(prov: Prov, ident: String, interfaces: Vec<String>) -> Type {
+        Type::Poly(provs_singleton(prov), ident, interfaces)
     }
 
     pub fn make_poly_constrained(prov: Prov, ident: String, interface_ident: String) -> Type {
@@ -403,22 +403,22 @@ impl Type {
         }
     }
 
-    pub fn named_type(&self) -> Option<NamedType> {
+    pub fn named_type(&self) -> Option<NamedMonomorphType> {
         match self {
             Self::UnifVar(_) => {
                 println!("matched with unifvar");
                 None
             }
             Self::Poly(_, ident, interfaces) => None,
-            Self::Unit(_) => Some(NamedType::Unit),
+            Self::Unit(_) => Some(NamedMonomorphType::Unit),
             Self::Int(_) => {
                 println!("matched with int");
-                Some(NamedType::Int)
+                Some(NamedMonomorphType::Int)
             }
-            Self::Bool(_) => Some(NamedType::Bool),
-            Self::String(_) => Some(NamedType::String),
+            Self::Bool(_) => Some(NamedMonomorphType::Bool),
+            Self::String(_) => Some(NamedMonomorphType::String),
             Self::Function(_, args, out) => {
-                let mut args2: Vec<NamedType> = vec![];
+                let mut args2: Vec<NamedMonomorphType> = vec![];
                 for arg in args {
                     if let Some(arg) = arg.named_type() {
                         args2.push(arg);
@@ -431,10 +431,26 @@ impl Type {
                 } else {
                     return None;
                 };
-                Some(NamedType::Function(args2, out.into()))
+                Some(NamedMonomorphType::Function(args2, out.into()))
             } // TODO unimplemented
             Self::Tuple(_, elems) => None, // TODO unimplemented
             Self::DefInstance(_, ident, _) => None, // TODO unimplemented
+        }
+    }
+
+    pub fn is_overloaded(&self) -> bool {
+        match self {
+            Self::UnifVar(_) => false,
+            Self::Poly(_, _, interfaces) => !interfaces.is_empty(),
+            Self::Unit(_) => false,
+            Self::Int(_) => false,
+            Self::Bool(_) => false,
+            Self::String(_) => false,
+            Self::Function(_, args, out) => {
+                args.iter().any(|ty| ty.is_overloaded()) || out.is_overloaded()
+            }
+            Self::Tuple(_, tys) => tys.iter().any(|ty| ty.is_overloaded()),
+            Self::DefInstance(_, _, tys) => false,
         }
     }
 }
@@ -464,7 +480,9 @@ pub fn ast_type_to_statics_type_interface(
     interface_ident: Option<&String>,
 ) -> Type {
     match &*ast_type.typekind {
-        ast::TypeKind::Poly(ident) => Type::make_poly(Prov::Node(ast_type.id()), ident.clone()),
+        ast::TypeKind::Poly(ident, interfaces) => {
+            Type::make_poly(Prov::Node(ast_type.id()), ident.clone(), interfaces.clone())
+        }
         ast::TypeKind::Alias(ident) => {
             if let Some(interface_ident) = interface_ident {
                 if ident == "self" {
@@ -528,23 +546,23 @@ pub fn ast_type_to_statics_type(
 pub fn ast_type_to_named_type(
     inf_ctx: &mut InferenceContext,
     ast_type: Rc<ast::AstType>,
-) -> NamedType {
+) -> NamedMonomorphType {
     match &*ast_type.typekind {
-        ast::TypeKind::Poly(ident) => panic!(), // TODO remove this and others
+        ast::TypeKind::Poly(ident, _) => panic!(), // TODO remove this and others
         ast::TypeKind::Alias(ident) => panic!(),
-        ast::TypeKind::Ap(ident, params) => NamedType::DefInstance(
+        ast::TypeKind::Ap(ident, params) => NamedMonomorphType::DefInstance(
             ident.clone(),
             params
                 .iter()
                 .map(|param| ast_type_to_named_type(inf_ctx, param.clone()))
                 .collect(),
         ),
-        ast::TypeKind::Unit => NamedType::Unit,
-        ast::TypeKind::Int => NamedType::Int,
-        ast::TypeKind::Bool => NamedType::Bool,
-        ast::TypeKind::Str => NamedType::String,
+        ast::TypeKind::Unit => NamedMonomorphType::Unit,
+        ast::TypeKind::Int => NamedMonomorphType::Int,
+        ast::TypeKind::Bool => NamedMonomorphType::Bool,
+        ast::TypeKind::Str => NamedMonomorphType::String,
         // TODO wait does this only allow one argument??
-        ast::TypeKind::Arrow(lhs, rhs) => NamedType::Function(
+        ast::TypeKind::Arrow(lhs, rhs) => NamedMonomorphType::Function(
             vec![ast_type_to_named_type(inf_ctx, lhs.clone())],
             Box::new(ast_type_to_named_type(inf_ctx, rhs.clone())),
         ),
@@ -553,7 +571,7 @@ pub fn ast_type_to_named_type(
             for t in types {
                 statics_types.push(ast_type_to_named_type(inf_ctx, t.clone()));
             }
-            NamedType::Tuple(statics_types)
+            NamedMonomorphType::Tuple(statics_types)
         }
     }
 }
@@ -575,6 +593,8 @@ pub struct InferenceContext {
     // map from variant names to ADT names
     pub variants_to_adt: HashMap<Identifier, Identifier>,
 
+    // function definition locations
+    pub fun_defs: HashMap<Identifier, Rc<Stmt>>,
     // interface definitions
     pub interface_defs: HashMap<Identifier, InterfaceDef>,
     // map from methods to interface names
@@ -589,6 +609,7 @@ impl InferenceContext {
             vars: HashMap::new(),
             tydefs: HashMap::new(),
             variants_to_adt: HashMap::new(),
+            fun_defs: HashMap::new(),
             interface_defs: HashMap::new(),
             method_to_interface: HashMap::new(),
             interface_impls: HashMap::new(),
@@ -1452,15 +1473,20 @@ pub fn gather_definitions_stmt(
         StmtKind::InterfaceDef(ident, properties) => {
             let mut methods = vec![];
             for p in properties {
-                let ty = ast_type_to_statics_type_interface(inf_ctx, p.ty.clone(), Some(ident));
+                let ty_annot =
+                    ast_type_to_statics_type_interface(inf_ctx, p.ty.clone(), Some(ident));
+                let node_ty = Type::from_node(inf_ctx, p.id());
+                constrain(node_ty.clone(), ty_annot.clone());
                 methods.push(InterfaceDefMethod {
                     name: p.ident.clone(),
-                    ty: ty.clone(),
+                    // ty: ty_annot.clone(),
+                    ty: node_ty.clone(),
                 });
                 inf_ctx
                     .method_to_interface
                     .insert(p.ident.clone(), ident.clone());
-                gamma.borrow_mut().extend(&p.ident, ty);
+                // gamma.borrow_mut().extend(&p.ident, ty_annot);
+                gamma.borrow_mut().extend(&p.ident, node_ty);
             }
             inf_ctx.interface_defs.insert(
                 ident.clone(),
@@ -1519,7 +1545,7 @@ pub fn gather_definitions_stmt(
                 }
                 let mut defparams = vec![];
                 for p in params {
-                    let ast::TypeKind::Poly(ident) = &*p.typekind else { panic!("expected poly type for ADT def param") };
+                    let ast::TypeKind::Poly(ident, _) = &*p.typekind else { panic!("expected poly type for ADT def param") };
                     defparams.push(ident.clone());
                 }
                 inf_ctx.tydefs.insert(
@@ -1535,7 +1561,11 @@ pub fn gather_definitions_stmt(
         },
         StmtKind::Expr(_expr) => {}
         StmtKind::Let((_pat, _ty_ann), _expr) => {}
-        StmtKind::LetFunc(_name, _args, _out_annot, _body) => {}
+        StmtKind::LetFunc(name, _args, _out_annot, _body) => {
+            inf_ctx
+                .fun_defs
+                .insert(name.patkind.get_identifier_of_variable(), stmt.clone());
+        }
     }
 }
 

@@ -199,14 +199,13 @@ implement ToString for int {
 }
 let print(x: 'a ToString) = print_string(to_string(x))
 
-print("123")
-print(456)
+print(123)
 "#;
 
 impl Default for MyApp {
     fn default() -> Self {
         Self {
-            text: String::from(_FIB),
+            text: String::from(_INTERFACES),
             output: String::default(),
             interpreter: None,
         }

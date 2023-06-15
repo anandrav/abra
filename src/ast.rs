@@ -231,7 +231,7 @@ impl Node for Stmt {
             StmtKind::InterfaceDef(_, props) => {
                 let mut children: Vec<Rc<dyn Node>> = Vec::new();
                 for prop in props {
-                    children.push(prop.ty.clone());
+                    children.push(prop.clone() as Rc<dyn Node>);
                 }
                 children
             }
@@ -256,7 +256,7 @@ pub enum StmtKind {
     Let(PatAnnotated, Rc<Expr>),
     Expr(Rc<Expr>),
     TypeDef(Rc<TypeDefKind>),
-    InterfaceDef(Identifier, Vec<InterfaceProperty>),
+    InterfaceDef(Identifier, Vec<Rc<InterfaceProperty>>),
     InterfaceImpl(Identifier, Rc<AstType>, Vec<Rc<Stmt>>),
 }
 
@@ -264,6 +264,23 @@ pub enum StmtKind {
 pub struct InterfaceProperty {
     pub ident: Identifier,
     pub ty: Rc<AstType>,
+}
+
+impl Node for InterfaceProperty {
+    fn span(&self) -> Span {
+        self.ty.span()
+    }
+    fn id(&self) -> Id {
+        self.ty.id()
+    }
+
+    fn children(&self) -> Vec<Rc<dyn Node>> {
+        vec![self.ty.clone()]
+    }
+
+    fn into_stmt(&self) -> Option<Stmt> {
+        None
+    }
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -457,7 +474,7 @@ impl Node for AstType {
 
     fn children(&self) -> Vec<Rc<dyn Node>> {
         match &*self.typekind {
-            TypeKind::Poly(_)
+            TypeKind::Poly(_, _)
             | TypeKind::Alias(_)
             | TypeKind::Unit
             | TypeKind::Int
@@ -485,7 +502,7 @@ impl Node for AstType {
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum TypeKind {
-    Poly(Identifier),
+    Poly(Identifier, Vec<Identifier>),
     Alias(Identifier),
     Ap(Identifier, Vec<Rc<AstType>>),
     Unit,
@@ -789,11 +806,23 @@ pub fn parse_type_term(pair: Pair<Rule>) -> Rc<AstType> {
     let rule = pair.as_rule();
     match rule {
         Rule::typ => parse_type_pratt(pair.into_inner()),
-        Rule::type_poly => Rc::new(AstType {
-            typekind: Rc::new(TypeKind::Poly(pair.as_str()[1..].into())),
-            span,
-            id: Id::new(),
-        }),
+        Rule::type_poly => {
+            let inner: Vec<_> = pair.into_inner().collect();
+            let name = inner[0].as_str()[1..].to_owned();
+            let mut interfaces = vec![];
+            for (i, pair) in inner.iter().enumerate() {
+                if i == 0 {
+                    continue;
+                }
+                let interface = pair.as_str().to_owned();
+                interfaces.push(interface);
+            }
+            Rc::new(AstType {
+                typekind: Rc::new(TypeKind::Poly(name, interfaces)),
+                span,
+                id: Id::new(),
+            })
+        }
         Rule::identifier => {
             let ident = pair.as_str().to_string();
             Rc::new(AstType {
@@ -932,7 +961,7 @@ pub fn parse_stmt(pair: Pair<Rule>) -> Rc<Stmt> {
             let mut methods = vec![];
             while let Some(pair) = inner.get(n) {
                 let method = parse_interface_method(pair.clone());
-                methods.push(method);
+                methods.push(Rc::new(method));
                 n += 1;
             }
             Rc::new(Stmt {
