@@ -435,6 +435,24 @@ fn interpret(
             }
         },
         FuncAp(expr1, args, funcapp_env) => {
+            let mut new_args = args.clone();
+            for (i, arg) in args.iter().enumerate() {
+                let InterpretResult {
+                    expr: arg,
+                    steps,
+                    effect,
+                    new_env,
+                } = interpret(arg.clone(), env.clone(), steps, &input.clone());
+                new_args[i] = arg;
+                if effect.is_some() || steps <= 0 {
+                    return InterpretResult {
+                        expr: Rc::new(FuncAp(expr1.clone(), new_args.clone(), funcapp_env.clone())),
+                        steps,
+                        effect,
+                        new_env,
+                    };
+                }
+            }
             let InterpretResult {
                 expr: expr1,
                 steps,
@@ -448,24 +466,6 @@ fn interpret(
                     effect,
                     new_env,
                 };
-            }
-            let mut new_args = args.clone();
-            for (i, arg) in args.iter().enumerate() {
-                let InterpretResult {
-                    expr: arg,
-                    steps,
-                    effect,
-                    new_env,
-                } = interpret(arg.clone(), env.clone(), steps, &input.clone());
-                new_args[i] = arg;
-                if effect.is_some() || steps <= 0 {
-                    return InterpretResult {
-                        expr: Rc::new(FuncAp(expr1, new_args.clone(), funcapp_env.clone())),
-                        steps,
-                        effect,
-                        new_env,
-                    };
-                }
             }
             let (ids, body, closure) = match &*expr1 {
                 Func(id, body, closure) => match closure {

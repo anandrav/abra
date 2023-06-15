@@ -197,9 +197,16 @@ implement ToString for string {
 implement ToString for int {
 	let to_string(n) = int_to_string(n)
 }
+implement ToString for bool {
+	let to_string(b) = if b "true" else "false"
+}
 let print(x: 'b ToString) = print_string(to_string(x))
 
+
+print("hello world")
 print(123)
+print(true)
+print(false)
 "#;
 
 impl Default for MyApp {

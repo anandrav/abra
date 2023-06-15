@@ -1255,14 +1255,18 @@ pub fn generate_constraints_stmt(
 
             for statement in statements {
                 let StmtKind::LetFunc(pat, args, out, body) = &*statement.stmtkind else { continue; };
-                let pat_name = pat.patkind.get_identifier_of_variable();
-                let def = inf_ctx.interface_defs.get(ident).unwrap(); // todo don't unwrap
-                let original_method = def.methods.iter().find(|m| m.name == pat_name).unwrap(); // todo don't unwrap
+                let method_name = pat.patkind.get_identifier_of_variable();
+                let interface_def = inf_ctx.interface_defs.get(ident).unwrap(); // todo don't unwrap
+                let interface_method = interface_def
+                    .methods
+                    .iter()
+                    .find(|m| m.name == method_name)
+                    .unwrap(); // todo don't unwrap
                 let mut substitution = BTreeMap::new();
                 substitution.insert("a".to_string(), typ.clone());
-                println!("original method ty: {}", original_method.ty);
+                println!("original method ty: {}", interface_method.ty);
 
-                let expected = original_method.ty.clone().subst(
+                let expected = interface_method.ty.clone().subst(
                     gamma.clone(),
                     inf_ctx,
                     Prov::Node(stmt.id),
@@ -1331,13 +1335,13 @@ pub fn generate_constraints_stmt(
                     let ty_pat = Type::from_node(inf_ctx, arg.id);
                     match arg_annot {
                         ArgAnnotation::Type(arg_annot) => {
+                            let ty_annot = Type::from_node(inf_ctx, arg_annot.id());
                             let arg_annot = ast_type_to_statics_type(inf_ctx, arg_annot.clone());
+                            constrain(ty_annot.clone(), arg_annot.clone());
                             body_gamma.borrow_mut().add_polys(&arg_annot);
                             generate_constraints_pat(
                                 body_gamma.clone(), // TODO what are the consequences of analyzing patterns with context containing previous pattern... probs should not do that
-                                Mode::Ana {
-                                    expected: arg_annot,
-                                },
+                                Mode::Ana { expected: ty_annot },
                                 arg.clone(),
                                 inf_ctx,
                             )
@@ -1512,7 +1516,7 @@ pub fn gather_definitions_stmt(
             );
         }
         StmtKind::InterfaceImpl(ident, ty, stmts) => {
-            let ty = ast_type_to_named_type(inf_ctx, ty.clone());
+            let named_ty = ast_type_to_named_type(inf_ctx, ty.clone());
             let methods = stmts
                 .iter()
                 .map(|stmt| match &*stmt.stmtkind {
