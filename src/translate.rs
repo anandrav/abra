@@ -18,9 +18,47 @@ type Ete = eval_tree::Expr;
 type ASTpk = ast::PatKind;
 type Etp = eval_tree::Pat;
 
+#[derive(Debug, Clone)]
+pub struct UnifVarCompWrapper {
+    pub unifvar: UnifVar,
+}
+
+impl UnifVarCompWrapper {
+    pub fn new(unifvar: UnifVar) -> Self {
+        Self { unifvar }
+    }
+}
+
+impl PartialEq for UnifVarCompWrapper {
+    fn eq(&self, other: &Self) -> bool {
+        self.unifvar.equiv(&other.unifvar)
+    }
+}
+
+impl Eq for UnifVarCompWrapper {}
+
+impl PartialOrd for UnifVarCompWrapper {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        if self == other {
+            Some(std::cmp::Ordering::Equal)
+        } else {
+            self.unifvar.partial_cmp(&other.unifvar)
+        }
+    }
+}
+impl Ord for UnifVarCompWrapper {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        if self == other {
+            std::cmp::Ordering::Equal
+        } else {
+            self.unifvar.cmp(&other.unifvar)
+        }
+    }
+}
+
 #[derive(PartialEq, Eq, Debug)]
 pub struct MonomorphEnv {
-    vars: BTreeMap<UnifVar, NamedMonomorphType>,
+    vars: BTreeMap<UnifVarCompWrapper, NamedMonomorphType>,
     enclosing: Option<Rc<RefCell<MonomorphEnv>>>,
 }
 
@@ -32,7 +70,7 @@ impl MonomorphEnv {
         }
     }
 
-    pub fn lookup(&self, key: &UnifVar) -> Option<NamedMonomorphType> {
+    pub fn lookup(&self, key: &UnifVarCompWrapper) -> Option<NamedMonomorphType> {
         match self.vars.get(key) {
             Some(expr) => Some(expr.clone()),
             None => match &self.enclosing {
@@ -42,7 +80,7 @@ impl MonomorphEnv {
         }
     }
 
-    pub fn extend(&mut self, key: &UnifVar, expr: NamedMonomorphType) {
+    pub fn extend(&mut self, key: &UnifVarCompWrapper, expr: NamedMonomorphType) {
         self.vars.insert(key.clone(), expr);
     }
 }
@@ -247,6 +285,16 @@ pub fn translate_expr_ap(
     }
 }
 
+pub fn inf_ty_of_node(
+    inf_ctx: &InferenceContext,
+    node_map: &NodeMap,
+    node_id: ast::Id,
+) -> Option<Type> {
+    println!("named_monomorphic_type_of_node");
+    let unifvar = inf_ctx.vars.get(&Prov::Node(node_id)).unwrap();
+    Some(Type::UnifVar(unifvar.clone()))
+}
+
 pub fn named_monomorphic_type_of_node(
     inf_ctx: &InferenceContext,
     node_map: &NodeMap,
@@ -273,7 +321,9 @@ pub fn inf_ty_of_identifier(
     println!("inf_ty_of_identifier");
     println!("ident: {}", ident);
     let gamma = gamma.borrow();
-    gamma.vars.get(ident).cloned()
+    let inf_ty = gamma.vars.get(ident).cloned();
+    println!("inf_ty: {:?}", inf_ty);
+    inf_ty
 }
 
 pub fn solved_ty_of_identifier(
@@ -299,7 +349,10 @@ pub fn update_monomorphenv(
 ) {
     if let Type::UnifVar(unifvar) = inf_ty.clone() {
         let mut m = monomorphenv.borrow_mut();
-        m.extend(&unifvar, named_monomorph_ty.clone());
+        m.extend(
+            &UnifVarCompWrapper::new(unifvar),
+            named_monomorph_ty.clone(),
+        );
     }
     match (inf_ty.clone(), named_monomorph_ty.clone()) {
         // recurse
@@ -320,23 +373,38 @@ pub fn update_monomorphenv(
     }
 }
 
+// ANAND YOU WERE LAST HERE! YOU CAN JUST BLINDLY SUBSTITUTE POLYMORPHIC VARIABLES BASED ON THEIR SYMBOL, IT WILL WORK
 pub fn specialize_type(
+    inf_ctx: &InferenceContext,
     monomorphenv: Rc<RefCell<MonomorphEnv>>,
     inf_ty: Type,
 ) -> Option<NamedMonomorphType> {
     if let Type::UnifVar(unifvar) = inf_ty.clone() {
         let mut m = monomorphenv.borrow_mut();
-        return m.lookup(&unifvar);
+        let lookup = m.lookup(&UnifVarCompWrapper::new(unifvar));
+        if lookup.is_some() {
+            return lookup;
+        }
+    } else {
+        let provs = inf_ty.provs().borrow();
+        let prov = provs.first().unwrap();
+        let unifvar = inf_ctx.vars.get(&prov).unwrap();
+        let lookup = monomorphenv
+            .borrow_mut()
+            .lookup(&UnifVarCompWrapper::new(unifvar.clone()));
+        if lookup.is_some() {
+            return lookup;
+        }
     }
     match inf_ty.clone() {
         // recurse
         Type::Function(_, args, out) => {
             let mut args2 = vec![];
             for i in 0..args.len() {
-                let arg2 = specialize_type(monomorphenv.clone(), args[i].clone())?;
+                let arg2 = specialize_type(inf_ctx, monomorphenv.clone(), args[i].clone())?;
                 args2.push(arg2);
             }
-            let out2 = specialize_type(monomorphenv.clone(), *out.clone())?;
+            let out2 = specialize_type(inf_ctx, monomorphenv.clone(), *out.clone())?;
             Some(NamedMonomorphType::Function(args2, out2.into()))
         } // (Type::UnifVar(unifvar), _) => {
         //     let data = unifvar.clone_data();
@@ -344,7 +412,7 @@ pub fn specialize_type(
         //         update_monomorphenv(monomorphenv.clone(), ty, named_monomorph_ty.clone());
         //     }
         // }
-        _ => inf_ty.named_type(),
+        _ => inf_ty.solution().unwrap().named_type(),
     }
 }
 
@@ -398,10 +466,12 @@ pub fn translate_expr(
 ) -> Rc<Ete> {
     match &*parse_tree {
         ASTek::Var(ident) => {
-            if let Some(inf_ty) = inf_ty_of_identifier(inf_ctx, gamma.clone(), node_map, ident) {
+            if let Some(inf_ty) = inf_ty_of_node(inf_ctx, node_map, ast_id) {
+                // if let Some(inf_ty) = inf_ty_of_identifier(inf_ctx, gamma.clone(), node_map, ident) {
                 if let Some(st) = solved_ty_of_identifier(inf_ctx, gamma.clone(), node_map, ident) {
                     if st.is_overloaded() {
                         println!("{} is overloaded", st);
+                        println!("overloaded node's type is: {}", inf_ty);
                         dbg!(monomorphenv.borrow());
                         if let Some(nt) = named_monomorphic_type_of_node(inf_ctx, node_map, ast_id)
                         {
@@ -429,12 +499,9 @@ pub fn translate_expr(
                             }
                         } else {
                             println!("not specialized, must specialize using env");
-                            println!("want to specialize st: {}", st);
-                            println!("which is:");
-                            dbg!(&inf_ty);
-                            println!("aka: {}", inf_ty);
+                            println!("want to specialize inf_ty from node: {}", inf_ty);
                             if let Some(specialized_ty) =
-                                specialize_type(monomorphenv.clone(), inf_ty)
+                                specialize_type(inf_ctx, monomorphenv.clone(), inf_ty)
                             {
                                 println!("specialized_ty: {:?}", specialized_ty);
                                 let func_node = get_func_definition_node(

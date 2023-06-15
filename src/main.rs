@@ -197,7 +197,7 @@ implement ToString for string {
 implement ToString for int {
 	let to_string(n) = int_to_string(n)
 }
-let print(x: 'a ToString) = print_string(to_string(x))
+let print(x: 'b ToString) = print_string(to_string(x))
 
 print(123)
 "#;

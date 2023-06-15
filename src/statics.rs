@@ -406,10 +406,13 @@ impl Type {
     pub fn named_type(&self) -> Option<NamedMonomorphType> {
         match self {
             Self::UnifVar(_) => {
-                println!("matched with unifvar");
+                println!("named_type matched with unifvar");
                 None
             }
-            Self::Poly(_, ident, interfaces) => None,
+            Self::Poly(_, ident, interfaces) => {
+                println!("named_type matched with poly");
+                None
+            }
             Self::Unit(_) => Some(NamedMonomorphType::Unit),
             Self::Int(_) => {
                 println!("matched with int");
