@@ -327,7 +327,7 @@ pub fn translate_expr(
                             ident,
                             substituted_ty.named_type().unwrap(),
                         )
-                        .into_stmt()
+                        .to_stmt()
                         .unwrap();
                         let ast::StmtKind::LetFunc(_, args, _, body) = &*func_def_node.stmtkind else { panic!() };
                         {

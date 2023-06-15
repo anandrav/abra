@@ -32,7 +32,7 @@ impl Node for InterfaceAnnotation {
         vec![]
     }
 
-    fn into_stmt(&self) -> Option<Stmt> {
+    fn to_stmt(&self) -> Option<Stmt> {
         None
     }
 }
@@ -54,7 +54,7 @@ impl Node for MethodName {
         vec![]
     }
 
-    fn into_stmt(&self) -> Option<Stmt> {
+    fn to_stmt(&self) -> Option<Stmt> {
         None
     }
 }
@@ -83,7 +83,7 @@ impl Node for Toplevel {
             .collect()
     }
 
-    fn into_stmt(&self) -> Option<Stmt> {
+    fn to_stmt(&self) -> Option<Stmt> {
         None
     }
 }
@@ -125,7 +125,7 @@ impl Node for Variant {
         }
     }
 
-    fn into_stmt(&self) -> Option<Stmt> {
+    fn to_stmt(&self) -> Option<Stmt> {
         None
     }
 }
@@ -145,7 +145,7 @@ impl Node for TypeDef {
         }
     }
 
-    fn into_stmt(&self) -> Option<Stmt> {
+    fn to_stmt(&self) -> Option<Stmt> {
         None
     }
 }
@@ -164,7 +164,7 @@ pub trait Node {
     fn id(&self) -> Id;
     fn children(&self) -> Vec<Rc<dyn Node>>;
 
-    fn into_stmt(&self) -> Option<Stmt>;
+    fn to_stmt(&self) -> Option<Stmt>;
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -238,7 +238,7 @@ impl Node for Stmt {
         }
     }
 
-    fn into_stmt(&self) -> Option<Stmt> {
+    fn to_stmt(&self) -> Option<Stmt> {
         Some(self.clone())
     }
 }
@@ -271,7 +271,7 @@ impl Node for InterfaceProperty {
         vec![self.ty.clone()]
     }
 
-    fn into_stmt(&self) -> Option<Stmt> {
+    fn to_stmt(&self) -> Option<Stmt> {
         None
     }
 }
@@ -352,7 +352,7 @@ impl Node for Expr {
         }
     }
 
-    fn into_stmt(&self) -> Option<Stmt> {
+    fn to_stmt(&self) -> Option<Stmt> {
         None
     }
 }
@@ -420,7 +420,7 @@ impl Node for Pat {
         }
     }
 
-    fn into_stmt(&self) -> Option<Stmt> {
+    fn to_stmt(&self) -> Option<Stmt> {
         None
     }
 }
@@ -487,7 +487,7 @@ impl Node for AstType {
         }
     }
 
-    fn into_stmt(&self) -> Option<Stmt> {
+    fn to_stmt(&self) -> Option<Stmt> {
         None
     }
 }
