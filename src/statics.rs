@@ -163,7 +163,7 @@ impl Type {
                 // TODO consider relaxing the types.len() == 1 if it gives better editor feedback. But test thoroughly after
                 if data.types.len() == 1 {
                     let ty = data.types.into_values().next().unwrap();
-                    if let Type::Poly(_, _, ref interfaces) = ty {
+                    if let Type::Poly(_, _, ref _interfaces) = ty {
                         //
                         ty.instantiate(gamma, inf_ctx, prov)
                     } else {
@@ -185,7 +185,7 @@ impl Type {
                     Type::UnifVar(unifvar) // noop
                 }
             }
-            Type::Poly(_, ref ident, ref interfaces) => {
+            Type::Poly(_, ref ident, ref _interfaces) => {
                 //
                 if !gamma.borrow().lookup_poly(ident) {
                     Type::fresh_unifvar(
@@ -239,7 +239,7 @@ impl Type {
                 // TODO consider relaxing the types.len() == 1 if it gives better editor feedback. But test thoroughly after
                 if data.types.len() == 1 {
                     let ty = data.types.into_values().next().unwrap();
-                    if let Type::Poly(_, _, ref interfaces) = ty {
+                    if let Type::Poly(_, _, ref _interfaces) = ty {
                         ty.subst(gamma, inf_ctx, prov, substitution)
                     } else {
                         let ty = ty.subst(gamma, inf_ctx, prov.clone(), substitution);
@@ -255,7 +255,7 @@ impl Type {
                     Type::UnifVar(unifvar) // noop
                 }
             }
-            Type::Poly(_, ref ident, ref interfaces) => {
+            Type::Poly(_, ref ident, ref _interfaces) => {
                 if let Some(ty) = substitution.get(ident) {
                     ty.clone()
                 } else {
@@ -295,10 +295,7 @@ impl Type {
     pub fn solution_of_node(inf_ctx: &InferenceContext, id: ast::Id) -> Option<Type> {
         let prov = Prov::Node(id);
         match inf_ctx.vars.get(&prov) {
-            Some(unifvar) => match Type::UnifVar(unifvar.clone()).solution() {
-                Some(ty) => Some(ty),
-                None => None,
-            },
+            Some(unifvar) => Type::UnifVar(unifvar.clone()).solution(),
             None => None,
         }
     }
@@ -381,11 +378,7 @@ impl Type {
                         return None;
                     }
                 }
-                let out = if let Some(out) = out.solution() {
-                    out
-                } else {
-                    return None;
-                };
+                let out = out.solution()?;
                 Some(Type::Function(provs.clone(), args2, out.into()))
             }
             Self::Tuple(provs, elems) => {
@@ -420,7 +413,7 @@ impl Type {
                 println!("named_type matched with unifvar");
                 None
             }
-            Self::Poly(_, ident, interfaces) => {
+            Self::Poly(_, _ident, _interfaces) => {
                 println!("named_type matched with poly");
                 None
             }
@@ -440,15 +433,11 @@ impl Type {
                         return None;
                     }
                 }
-                let out = if let Some(out) = out.named_type() {
-                    out
-                } else {
-                    return None;
-                };
+                let out = out.named_type()?;
                 Some(NamedMonomorphType::Function(args2, out.into()))
             } // TODO unimplemented
-            Self::Tuple(_, elems) => None, // TODO unimplemented
-            Self::DefInstance(_, ident, _) => None, // TODO unimplemented
+            Self::Tuple(_, _elems) => None, // TODO unimplemented
+            Self::DefInstance(_, _ident, _) => None, // TODO unimplemented
         }
     }
 
@@ -464,7 +453,7 @@ impl Type {
                 args.iter().any(|ty| ty.is_overloaded()) || out.is_overloaded()
             }
             Self::Tuple(_, tys) => tys.iter().any(|ty| ty.is_overloaded()),
-            Self::DefInstance(_, _, tys) => false,
+            Self::DefInstance(_, _, _tys) => false,
         }
     }
 }
@@ -562,8 +551,8 @@ pub fn ast_type_to_named_type(
     ast_type: Rc<ast::AstType>,
 ) -> NamedMonomorphType {
     match &*ast_type.typekind {
-        ast::TypeKind::Poly(ident, _) => panic!(), // TODO remove this and others
-        ast::TypeKind::Alias(ident) => panic!(),
+        ast::TypeKind::Poly(_ident, _) => panic!(), // TODO remove this and others
+        ast::TypeKind::Alias(_ident) => panic!(),
         ast::TypeKind::Ap(ident, params) => NamedMonomorphType::DefInstance(
             ident.clone(),
             params
@@ -661,7 +650,7 @@ impl UnifVarData {
                 | Type::String(other_provs) => {
                     t.provs().borrow_mut().extend(other_provs.borrow().clone())
                 }
-                Type::Poly(other_provs, _, interfaces) => {
+                Type::Poly(other_provs, _, _interfaces) => {
                     t.provs().borrow_mut().extend(other_provs.borrow().clone())
                 }
                 Type::Function(other_provs, args1, out1) => {
@@ -829,7 +818,7 @@ impl Gamma {
 
     pub fn add_polys(&mut self, ty: &Type) {
         match ty {
-            Type::Poly(_, ident, interfaces) => {
+            Type::Poly(_, ident, _interfaces) => {
                 self.poly_type_vars.insert(ident.clone());
             }
             Type::DefInstance(_, _, params) => {
@@ -1119,7 +1108,7 @@ pub fn generate_constraints_expr(
             );
         }
         ExprKind::MethodAp(receiver, methodname, args) => {
-            let ty_receiver = Type::from_node(inf_ctx, receiver.id);
+            let _ty_receiver = Type::from_node(inf_ctx, receiver.id);
             // make sure receiver has method
             // let ty_method = Type::fresh_unifvar(
             //     inf_ctx,
@@ -1128,10 +1117,10 @@ pub fn generate_constraints_expr(
             //         methodname.ident.clone(),
             //     ),
             // );
-            let ty_method = Type::fresh_unifvar(inf_ctx, Prov::Node(methodname.id()));
+            let _ty_method = Type::fresh_unifvar(inf_ctx, Prov::Node(methodname.id()));
 
             // arguments
-            let tys_args: Vec<Type> = args
+            let _tys_args: Vec<Type> = args
                 .iter()
                 .enumerate()
                 .map(|(n, arg)| {
@@ -1154,7 +1143,7 @@ pub fn generate_constraints_expr(
             // body
             let ty_body =
                 Type::fresh_unifvar(inf_ctx, Prov::FuncOut(Box::new(Prov::Node(methodname.id))));
-            constrain(ty_body.clone(), node_ty);
+            constrain(ty_body, node_ty);
 
             // function type
             // let ty_func = Type::make_arrow(tys_args, ty_body, expr.id);
@@ -1254,7 +1243,7 @@ pub fn generate_constraints_stmt(
             let typ = ast_type_to_statics_type(inf_ctx, typ.clone());
 
             for statement in statements {
-                let StmtKind::LetFunc(pat, args, out, body) = &*statement.stmtkind else { continue; };
+                let StmtKind::LetFunc(pat, _args, _out, _body) = &*statement.stmtkind else { continue; };
                 let method_name = pat.patkind.get_identifier_of_variable();
                 let interface_def = inf_ctx.interface_defs.get(ident).unwrap(); // todo don't unwrap
                 let interface_method = interface_def
@@ -1516,14 +1505,14 @@ pub fn gather_definitions_stmt(
             );
         }
         StmtKind::InterfaceImpl(ident, ty, stmts) => {
-            let named_ty = ast_type_to_named_type(inf_ctx, ty.clone());
+            let _named_ty = ast_type_to_named_type(inf_ctx, ty.clone());
             let methods = stmts
                 .iter()
                 .map(|stmt| match &*stmt.stmtkind {
                     StmtKind::LetFunc(pat, _, _, _) => {
                         let ident = pat.patkind.get_identifier_of_variable();
                         InterfaceImplMethod {
-                            name: ident.clone(),
+                            name: ident,
                             identifier_location: pat.id(),
                             method_location: stmt.id(),
                         }

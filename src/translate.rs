@@ -80,7 +80,7 @@ pub fn translate_expr_block(
         | ast::StmtKind::TypeDef(_) => translate_expr_block(
             inf_ctx,
             monomorphenv,
-            gamma.clone(),
+            gamma,
             node_map,
             stmts[1..].to_vec(),
         ),
@@ -91,7 +91,7 @@ pub fn translate_expr_block(
                 return translate_expr_block(
                     inf_ctx,
                     monomorphenv,
-                    gamma.clone(),
+                    gamma,
                     node_map,
                     stmts[1..].to_vec(),
                 );
@@ -110,8 +110,8 @@ pub fn translate_expr_block(
                 func,
                 translate_expr_block(
                     inf_ctx,
-                    monomorphenv.clone(),
-                    gamma.clone(),
+                    monomorphenv,
+                    gamma,
                     node_map,
                     stmts[1..].to_vec(),
                 ),
@@ -129,8 +129,8 @@ pub fn translate_expr_block(
             ),
             translate_expr_block(
                 inf_ctx,
-                monomorphenv.clone(),
-                gamma.clone(),
+                monomorphenv,
+                gamma,
                 node_map,
                 stmts[1..].to_vec(),
             ),
@@ -138,7 +138,7 @@ pub fn translate_expr_block(
         ast::StmtKind::Expr(e) if stmts.len() == 1 => translate_expr(
             inf_ctx,
             monomorphenv,
-            gamma.clone(),
+            gamma,
             node_map,
             e.exprkind.clone(),
             e.id,
@@ -155,8 +155,8 @@ pub fn translate_expr_block(
             ),
             translate_expr_block(
                 inf_ctx,
-                monomorphenv.clone(),
-                gamma.clone(),
+                monomorphenv,
+                gamma,
                 node_map,
                 stmts[1..].to_vec(),
             ),
@@ -182,7 +182,7 @@ pub fn translate_expr_func(
         translate_expr(
             inf_ctx,
             monomorphenv,
-            gamma.clone(),
+            gamma,
             node_map,
             body.exprkind.clone(),
             body.id,
@@ -242,7 +242,7 @@ pub fn update_monomorphenv(
     overloaded_ty: Type,
     monomorphic_ty: Type,
 ) {
-    match (overloaded_ty.clone(), monomorphic_ty.clone()) {
+    match (overloaded_ty, monomorphic_ty.clone()) {
         // recurse
         (Type::Function(_, args, out), Type::Function(_, args2, out2)) => {
             for i in 0..args.len() {
@@ -253,13 +253,13 @@ pub fn update_monomorphenv(
                     args2[i].clone(),
                 );
             }
-            update_monomorphenv(inf_ctx, monomorphenv.clone(), *out.clone(), *out2.clone());
+            update_monomorphenv(inf_ctx, monomorphenv, *out, *out2);
         }
         // TODO recurse on tuples and records and adts
         (Type::Poly(_, ident, _), _) => {
             monomorphenv
                 .borrow_mut()
-                .extend(&ident, monomorphic_ty.clone());
+                .extend(&ident, monomorphic_ty);
         }
         _ => {}
     }
@@ -276,8 +276,8 @@ pub fn subst_with_monomorphic_env(monomorphic_env: Rc<RefCell<MonomorphEnv>>, ty
             Type::Function(provs, new_args, Box::new(new_out))
         }
         Type::Poly(_, ref ident, _) => {
-            if let Some(monomorphic_ty) = monomorphic_env.borrow().lookup(&ident) {
-                monomorphic_ty.clone()
+            if let Some(monomorphic_ty) = monomorphic_env.borrow().lookup(ident) {
+                monomorphic_ty
             } else {
                 ty
             }
@@ -311,7 +311,7 @@ pub fn get_func_definition_node(
                     let solved_ty = unifvar.clone_data().solution().unwrap();
                     if let Some(named_ty_impl) = solved_ty.named_type() {
                         println!("named_ty_impl: {:?}", named_ty_impl);
-                        if (named_monomorph_ty == named_ty_impl) {
+                        if named_monomorph_ty == named_ty_impl {
                             println!("THEY ARE EQUAL!!!!!!!!");
                             let method_node = node_map.get(&method.method_location).unwrap();
                             return method_node.clone();
@@ -343,7 +343,7 @@ pub fn translate_expr(
                         println!("global_ty: {} (overloaded)", global_ty);
                         println!("node's type is: {},", node_ty);
                         let substituted_ty =
-                            subst_with_monomorphic_env(monomorphenv.clone(), node_ty.clone());
+                            subst_with_monomorphic_env(monomorphenv, node_ty);
                         println!("substituted type: {}", substituted_ty);
                         let monomorphenv = Rc::new(RefCell::new(MonomorphEnv::new(None)));
                         update_monomorphenv(
@@ -357,7 +357,7 @@ pub fn translate_expr(
                             inf_ctx,
                             node_map,
                             ident,
-                            substituted_ty.clone().named_type().unwrap(),
+                            substituted_ty.named_type().unwrap(),
                         )
                         .into_stmt()
                         .unwrap();
@@ -376,7 +376,7 @@ pub fn translate_expr(
                     }
                 }
             }
-            return Rc::new(Ete::Var(ident.clone()));
+            Rc::new(Ete::Var(ident.clone()))
         }
         ASTek::Unit => Rc::new(Ete::Unit),
         ASTek::Int(i) => Rc::new(Ete::Int(*i)),
@@ -408,8 +408,8 @@ pub fn translate_expr(
             *op,
             translate_expr(
                 inf_ctx,
-                monomorphenv.clone(),
-                gamma.clone(),
+                monomorphenv,
+                gamma,
                 node_map,
                 expr2.exprkind.clone(),
                 expr2.id,
@@ -418,14 +418,14 @@ pub fn translate_expr(
         ASTek::Block(stmts) => translate_expr_block(
             inf_ctx,
             monomorphenv,
-            gamma.clone(),
+            gamma,
             node_map,
             stmts.clone(),
         ),
         ASTek::Func(func_args, _, body) => translate_expr_func(
             inf_ctx,
             monomorphenv,
-            gamma.clone(),
+            gamma,
             node_map,
             func_args.clone(),
             body.clone(),
@@ -433,12 +433,12 @@ pub fn translate_expr(
         ASTek::FuncAp(expr1, exprs) => translate_expr_ap(
             inf_ctx,
             monomorphenv,
-            gamma.clone(),
+            gamma,
             node_map,
             expr1.clone(),
             exprs.clone(),
         ),
-        ASTek::MethodAp(receiver, method, args) => Rc::new(Ete::Unit),
+        ASTek::MethodAp(_receiver, _method, _args) => Rc::new(Ete::Unit),
         ASTek::If(expr1, expr2, expr3) => match expr3 {
             // if-else
             Some(expr3) => Rc::new(Ete::If(
@@ -460,8 +460,8 @@ pub fn translate_expr(
                 ),
                 translate_expr(
                     inf_ctx,
-                    monomorphenv.clone(),
-                    gamma.clone(),
+                    monomorphenv,
+                    gamma,
                     node_map,
                     expr3.exprkind.clone(),
                     expr3.id,
@@ -479,8 +479,8 @@ pub fn translate_expr(
                 ),
                 translate_expr(
                     inf_ctx,
-                    monomorphenv.clone(),
-                    gamma.clone(),
+                    monomorphenv,
+                    gamma,
                     node_map,
                     expr2.exprkind.clone(),
                     expr2.id,
@@ -507,7 +507,7 @@ pub fn translate_expr(
                 translate_expr(
                     inf_ctx,
                     monomorphenv,
-                    gamma.clone(),
+                    gamma,
                     node_map,
                     expr.exprkind.clone(),
                     expr.id,
@@ -530,7 +530,7 @@ pub fn translate(
     translate_expr_block(
         inf_ctx,
         monomorphenv,
-        gamma.clone(),
+        gamma,
         node_map,
         toplevel.statements.clone(),
     )
