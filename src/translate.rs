@@ -466,74 +466,74 @@ pub fn translate_expr(
 ) -> Rc<Ete> {
     match &*parse_tree {
         ASTek::Var(ident) => {
-            if let Some(inf_ty) = inf_ty_of_node(inf_ctx, node_map, ast_id) {
-                // if let Some(inf_ty) = inf_ty_of_identifier(inf_ctx, gamma.clone(), node_map, ident) {
-                if let Some(st) = solved_ty_of_identifier(inf_ctx, gamma.clone(), node_map, ident) {
-                    if st.is_overloaded() {
-                        println!("{} is overloaded", st);
-                        println!("overloaded node's type is: {}", inf_ty);
-                        dbg!(monomorphenv.borrow());
-                        if let Some(nt) = named_monomorphic_type_of_node(inf_ctx, node_map, ast_id)
-                        {
-                            println!("specialized, add to env");
-                            // println!("which is:");
-                            // dbg!(&inf_ty);
-                            let monomorphenv =
-                                Rc::new(RefCell::new(MonomorphEnv::new(Some(monomorphenv))));
-                            update_monomorphenv(monomorphenv.clone(), inf_ty, nt.clone());
-                            dbg!(&monomorphenv);
-                            let func_node = get_func_definition_node(inf_ctx, node_map, ident, nt);
-                            let func_node_id = func_node.id();
-                            let method_node = Rc::new(func_node.into_stmt().unwrap());
-                            if let ast::StmtKind::LetFunc(_, args, _, body) = &*method_node.stmtkind
-                            {
-                                println!("it's a let func");
-                                return translate_expr_func(
-                                    inf_ctx,
-                                    monomorphenv,
-                                    gamma,
-                                    node_map,
-                                    args.clone(),
-                                    body.clone(),
-                                );
-                            }
-                        } else {
-                            println!("not specialized, must specialize using env");
-                            println!("want to specialize inf_ty from node: {}", inf_ty);
-                            if let Some(specialized_ty) =
-                                specialize_type(inf_ctx, monomorphenv.clone(), inf_ty)
-                            {
-                                println!("specialized_ty: {:?}", specialized_ty);
-                                let func_node = get_func_definition_node(
-                                    inf_ctx,
-                                    node_map,
-                                    ident,
-                                    specialized_ty,
-                                );
-                                let func_node_id = func_node.id();
-                                let method_node = Rc::new(func_node.into_stmt().unwrap());
-                                if let ast::StmtKind::LetFunc(_, args, _, body) =
-                                    &*method_node.stmtkind
-                                {
-                                    println!("it's a let func");
-                                    return translate_expr_func(
-                                        inf_ctx,
-                                        monomorphenv,
-                                        gamma,
-                                        node_map,
-                                        args.clone(),
-                                        body.clone(),
-                                    );
-                                }
-                            } else {
-                                println!("couldn't specialize");
-                            }
-                        }
-                    } else {
-                        println!("{} is NOT overloaded", st);
-                    }
-                }
-            }
+            // if let Some(inf_ty) = inf_ty_of_node(inf_ctx, node_map, ast_id) {
+            //     // if let Some(inf_ty) = inf_ty_of_identifier(inf_ctx, gamma.clone(), node_map, ident) {
+            //     if let Some(st) = solved_ty_of_identifier(inf_ctx, gamma.clone(), node_map, ident) {
+            //         if st.is_overloaded() {
+            //             println!("{} is overloaded", st);
+            //             println!("overloaded node's type is: {}", inf_ty);
+            //             dbg!(monomorphenv.borrow());
+            //             if let Some(nt) = named_monomorphic_type_of_node(inf_ctx, node_map, ast_id)
+            //             {
+            //                 println!("specialized, add to env");
+            //                 // println!("which is:");
+            //                 // dbg!(&inf_ty);
+            //                 let monomorphenv =
+            //                     Rc::new(RefCell::new(MonomorphEnv::new(Some(monomorphenv))));
+            //                 update_monomorphenv(monomorphenv.clone(), inf_ty, nt.clone());
+            //                 dbg!(&monomorphenv);
+            //                 let func_node = get_func_definition_node(inf_ctx, node_map, ident, nt);
+            //                 let func_node_id = func_node.id();
+            //                 let method_node = Rc::new(func_node.into_stmt().unwrap());
+            //                 if let ast::StmtKind::LetFunc(_, args, _, body) = &*method_node.stmtkind
+            //                 {
+            //                     println!("it's a let func");
+            //                     return translate_expr_func(
+            //                         inf_ctx,
+            //                         monomorphenv,
+            //                         gamma,
+            //                         node_map,
+            //                         args.clone(),
+            //                         body.clone(),
+            //                     );
+            //                 }
+            //             } else {
+            //                 println!("not specialized, must specialize using env");
+            //                 println!("want to specialize inf_ty from node: {}", inf_ty);
+            //                 if let Some(specialized_ty) =
+            //                     specialize_type(inf_ctx, monomorphenv.clone(), inf_ty)
+            //                 {
+            //                     println!("specialized_ty: {:?}", specialized_ty);
+            //                     let func_node = get_func_definition_node(
+            //                         inf_ctx,
+            //                         node_map,
+            //                         ident,
+            //                         specialized_ty,
+            //                     );
+            //                     let func_node_id = func_node.id();
+            //                     let method_node = Rc::new(func_node.into_stmt().unwrap());
+            //                     if let ast::StmtKind::LetFunc(_, args, _, body) =
+            //                         &*method_node.stmtkind
+            //                     {
+            //                         println!("it's a let func");
+            //                         return translate_expr_func(
+            //                             inf_ctx,
+            //                             monomorphenv,
+            //                             gamma,
+            //                             node_map,
+            //                             args.clone(),
+            //                             body.clone(),
+            //                         );
+            //                     }
+            //                 } else {
+            //                     println!("couldn't specialize");
+            //                 }
+            //             }
+            //         } else {
+            //             println!("{} is NOT overloaded", st);
+            //         }
+            //     }
+            // }
             // println!("id: {:?}", id);
             // if gamma.borrow().vars.contains_key(id) {
             //     println!("it's in the gamma");
