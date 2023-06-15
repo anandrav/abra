@@ -1,6 +1,5 @@
 use crate::ast::{
-    self, ArgAnnotation, Expr, ExprKind, Identifier, Node, Pat, PatKind, Stmt, StmtKind,
-    TypeDefKind,
+    self, Expr, ExprKind, Identifier, Node, Pat, PatKind, Stmt, StmtKind, TypeDefKind,
 };
 use crate::operators::BinOpcode;
 use core::panic;
@@ -126,7 +125,6 @@ pub enum Prov {
     FuncArg(Box<Prov>, u8),   // u8 represents the index of the argument
     FuncOut(Box<Prov>),       // u8 represents how many arguments before this output
     VariantNoData(Box<Prov>), // the type of the data of a variant with no data, always Unit.
-    Method(Box<Prov>, Identifier),
 }
 
 impl Type {
@@ -1171,7 +1169,7 @@ pub fn generate_constraints_expr(
 pub fn generate_constraints_function_helper(
     gamma: Rc<RefCell<Gamma>>,
     inf_ctx: &mut InferenceContext,
-    args: &[(Rc<ast::Pat>, ArgAnnotation)],
+    args: &[(Rc<ast::Pat>, Option<Rc<ast::AstType>>)],
     out_annot: &Option<Rc<ast::AstType>>,
     body: &Rc<Expr>,
     func_node_id: ast::Id,
@@ -1183,7 +1181,7 @@ pub fn generate_constraints_function_helper(
         .map(|(arg, arg_annot)| {
             let ty_pat = Type::from_node(inf_ctx, arg.id);
             match arg_annot {
-                ArgAnnotation::Type(arg_annot) => {
+                Some(arg_annot) => {
                     let arg_annot = ast_type_to_statics_type(inf_ctx, arg_annot.clone());
                     body_gamma.borrow_mut().add_polys(&arg_annot);
                     generate_constraints_pat(
@@ -1195,8 +1193,7 @@ pub fn generate_constraints_function_helper(
                         inf_ctx,
                     )
                 }
-                ArgAnnotation::Interface(..) => unimplemented!(),
-                ArgAnnotation::None => {
+                None => {
                     generate_constraints_pat(body_gamma.clone(), Mode::Syn, arg.clone(), inf_ctx)
                 }
             }
@@ -1323,7 +1320,7 @@ pub fn generate_constraints_stmt(
                 .map(|(arg, arg_annot)| {
                     let ty_pat = Type::from_node(inf_ctx, arg.id);
                     match arg_annot {
-                        ArgAnnotation::Type(arg_annot) => {
+                        Some(arg_annot) => {
                             let ty_annot = Type::from_node(inf_ctx, arg_annot.id());
                             let arg_annot = ast_type_to_statics_type(inf_ctx, arg_annot.clone());
                             constrain(ty_annot.clone(), arg_annot.clone());
@@ -1335,8 +1332,7 @@ pub fn generate_constraints_stmt(
                                 inf_ctx,
                             )
                         }
-                        ArgAnnotation::Interface(..) => unimplemented!(),
-                        ArgAnnotation::None => generate_constraints_pat(
+                        None => generate_constraints_pat(
                             body_gamma.clone(),
                             Mode::Syn,
                             arg.clone(),
@@ -1692,7 +1688,6 @@ pub fn result_of_constraint_solving(
                 Prov::VariantNoData(_) => 7,
                 Prov::AdtDef(_) => 8,
                 Prov::InstantiateAdtParam(_, _) => 9,
-                Prov::Method(_, _) => 10,
             });
             for cause in provs_vec {
                 match cause {
@@ -1751,9 +1746,6 @@ pub fn result_of_constraint_solving(
                     }
                     Prov::VariantNoData(_prov) => {
                         err_string.push_str("The data of some ADT variant");
-                    }
-                    Prov::Method(_, ident) => {
-                        err_string.push_str(&format!("The method {ident}"));
                     }
                 }
             }

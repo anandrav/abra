@@ -13,14 +13,8 @@ struct MyParser;
 
 pub type Identifier = String;
 
-pub type ArgAnnotated = (Rc<Pat>, ArgAnnotation);
+pub type ArgAnnotated = (Rc<Pat>, Option<Rc<AstType>>);
 
-#[derive(Debug, Clone, PartialEq)]
-pub enum ArgAnnotation {
-    Type(Rc<AstType>),
-    Interface(Rc<InterfaceAnnotation>),
-    None,
-}
 #[derive(Debug, Clone, PartialEq)]
 pub struct InterfaceAnnotation {
     pub ident: Identifier,
@@ -195,9 +189,8 @@ impl Node for Stmt {
                 for (pat, annot) in args {
                     children.push(pat.clone() as Rc<dyn Node>);
                     match annot {
-                        ArgAnnotation::Type(ty) => children.push(ty.clone()),
-                        ArgAnnotation::Interface(interface) => children.push(interface.clone()),
-                        ArgAnnotation::None => {}
+                        Some(ty) => children.push(ty.clone()),
+                        None => {}
                     }
                 }
                 if let Some(ty) = ty {
@@ -311,9 +304,8 @@ impl Node for Expr {
                 args.iter().for_each(|(pat, annot)| {
                     children.push(pat.clone());
                     match annot {
-                        ArgAnnotation::Type(ty) => children.push(ty.clone()),
-                        ArgAnnotation::Interface(interface) => children.push(interface.clone()),
-                        ArgAnnotation::None => {}
+                        Some(ty) => children.push(ty.clone()),
+                        None => {}
                     }
                 });
                 if let Some(ty) = ty_opt {
@@ -653,13 +645,9 @@ pub fn parse_func_arg_annotation(pair: Pair<Rule>) -> ArgAnnotated {
             let inner: Vec<_> = pair.into_inner().collect();
             let pat_pair = inner[0].clone();
             let pat = parse_let_pattern(pat_pair);
-            let ty = inner
+            let annot = inner
                 .get(1)
                 .map(|type_pair| parse_type_term(type_pair.clone()));
-            let annot = match ty {
-                Some(ty) => ArgAnnotation::Type(ty),
-                None => ArgAnnotation::None,
-            };
             (pat, annot)
         }
         _ => panic!("unreachable rule {:#?}", rule),
