@@ -218,18 +218,6 @@ pub fn translate_expr_func(
         ),
         None,
     ))
-    // } else {
-    //     // currying
-    //     let rest_of_function = translate_expr_func(
-    //         inf_ctx,
-    //         monomorphenv,
-    //         gamma.clone(),
-    //         node_map,
-    //         func_args[1..].to_vec(),
-    //         body,
-    //     );
-    //     Rc::new(Ete::Func(vec![id], rest_of_function, None))
-    // }
 }
 
 pub fn translate_expr_ap(
@@ -324,6 +312,7 @@ pub fn solved_ty_of_identifier(
 }
 
 pub fn update_monomorphenv(
+    inf_ctx: &InferenceContext,
     monomorphenv: Rc<RefCell<MonomorphEnv>>,
     inf_ty: Type,
     named_monomorph_ty: NamedMonomorphType,
@@ -334,34 +323,58 @@ pub fn update_monomorphenv(
             &UnifVarCompWrapper::new(unifvar),
             named_monomorph_ty.clone(),
         );
+    } else {
+        // grab a prov
+        let provs = inf_ty.provs().borrow();
+        let prov = provs.first().unwrap();
+        // get the unifvar associated with that prov
+        let unifvar = inf_ctx.vars.get(&prov);
+        // map from unifvar to type
+        if let Some(unifvar) = unifvar {
+            let mut m = monomorphenv.borrow_mut();
+            m.extend(
+                &UnifVarCompWrapper::new(unifvar.clone()),
+                named_monomorph_ty.clone(),
+            );
+        }
     }
     match (inf_ty.clone(), named_monomorph_ty.clone()) {
         // recurse
         (Type::Function(_, args, out), NamedMonomorphType::Function(args2, out2)) => {
             for i in 0..args.len() {
                 println!("recursing!!!!!");
-                update_monomorphenv(monomorphenv.clone(), args[i].clone(), args2[i].clone());
+                update_monomorphenv(
+                    inf_ctx,
+                    monomorphenv.clone(),
+                    args[i].clone(),
+                    args2[i].clone(),
+                );
             }
-            update_monomorphenv(monomorphenv.clone(), *out.clone(), *out2.clone());
+            update_monomorphenv(inf_ctx, monomorphenv.clone(), *out.clone(), *out2.clone());
         }
         (Type::UnifVar(unifvar), _) => {
             let data = unifvar.clone_data();
             for (_key, ty) in data.types {
-                update_monomorphenv(monomorphenv.clone(), ty, named_monomorph_ty.clone());
+                update_monomorphenv(
+                    inf_ctx,
+                    monomorphenv.clone(),
+                    ty,
+                    named_monomorph_ty.clone(),
+                );
             }
         }
         _ => {}
     }
 }
 
-// ANAND YOU WERE LAST HERE! YOU CAN JUST BLINDLY SUBSTITUTE POLYMORPHIC VARIABLES BASED ON THEIR SYMBOL, IT WILL WORK
-pub fn specialize_type(
+pub fn monomorphized_type(
     inf_ctx: &InferenceContext,
     monomorphenv: Rc<RefCell<MonomorphEnv>>,
     inf_ty: Type,
 ) -> Option<NamedMonomorphType> {
+    let inf_ty = inf_ty.solution().unwrap();
     if let Type::UnifVar(unifvar) = inf_ty.clone() {
-        let mut m = monomorphenv.borrow_mut();
+        let m = monomorphenv.borrow_mut();
         let lookup = m.lookup(&UnifVarCompWrapper::new(unifvar));
         if lookup.is_some() {
             return lookup;
@@ -369,12 +382,15 @@ pub fn specialize_type(
     } else {
         let provs = inf_ty.provs().borrow();
         let prov = provs.first().unwrap();
+        dbg!(prov);
         let unifvar = inf_ctx.vars.get(&prov).unwrap();
         let lookup = monomorphenv
             .borrow_mut()
             .lookup(&UnifVarCompWrapper::new(unifvar.clone()));
         if lookup.is_some() {
             return lookup;
+        } else {
+            println!("monomorphized_type: no lookup");
         }
     }
     match inf_ty.clone() {
@@ -382,18 +398,16 @@ pub fn specialize_type(
         Type::Function(_, args, out) => {
             let mut args2 = vec![];
             for i in 0..args.len() {
-                let arg2 = specialize_type(inf_ctx, monomorphenv.clone(), args[i].clone())?;
+                let arg2 = monomorphized_type(inf_ctx, monomorphenv.clone(), args[i].clone())?;
                 args2.push(arg2);
             }
-            let out2 = specialize_type(inf_ctx, monomorphenv.clone(), *out.clone())?;
+            let out2 = monomorphized_type(inf_ctx, monomorphenv.clone(), *out.clone())?;
             Some(NamedMonomorphType::Function(args2, out2.into()))
-        } // (Type::UnifVar(unifvar), _) => {
-        //     let data = unifvar.clone_data();
-        //     for (_key, ty) in data.types {
-        //         update_monomorphenv(monomorphenv.clone(), ty, named_monomorph_ty.clone());
-        //     }
-        // }
-        _ => inf_ty.solution().unwrap().named_type(),
+        }
+        _ => {
+            println!("monomorph catchall");
+            inf_ty.solution().unwrap().named_type()
+        }
     }
 }
 
@@ -447,74 +461,74 @@ pub fn translate_expr(
 ) -> Rc<Ete> {
     match &*parse_tree {
         ASTek::Var(ident) => {
-            // if let Some(inf_ty) = inf_ty_of_node(inf_ctx, node_map, ast_id) {
-            //     // if let Some(inf_ty) = inf_ty_of_identifier(inf_ctx, gamma.clone(), node_map, ident) {
-            //     if let Some(st) = solved_ty_of_identifier(inf_ctx, gamma.clone(), node_map, ident) {
-            //         if st.is_overloaded() {
-            //             println!("{} is overloaded", st);
-            //             println!("overloaded node's type is: {}", inf_ty);
-            //             dbg!(monomorphenv.borrow());
-            //             if let Some(nt) = named_monomorphic_type_of_node(inf_ctx, node_map, ast_id)
-            //             {
-            //                 println!("specialized, add to env");
-            //                 // println!("which is:");
-            //                 // dbg!(&inf_ty);
-            //                 let monomorphenv =
-            //                     Rc::new(RefCell::new(MonomorphEnv::new(Some(monomorphenv))));
-            //                 update_monomorphenv(monomorphenv.clone(), inf_ty, nt.clone());
-            //                 dbg!(&monomorphenv);
-            //                 let func_node = get_func_definition_node(inf_ctx, node_map, ident, nt);
-            //                 let func_node_id = func_node.id();
-            //                 let method_node = Rc::new(func_node.into_stmt().unwrap());
-            //                 if let ast::StmtKind::LetFunc(_, args, _, body) = &*method_node.stmtkind
-            //                 {
-            //                     println!("it's a let func");
-            //                     return translate_expr_func(
-            //                         inf_ctx,
-            //                         monomorphenv,
-            //                         gamma,
-            //                         node_map,
-            //                         args.clone(),
-            //                         body.clone(),
-            //                     );
-            //                 }
-            //             } else {
-            //                 println!("not specialized, must specialize using env");
-            //                 println!("want to specialize inf_ty from node: {}", inf_ty);
-            //                 if let Some(specialized_ty) =
-            //                     specialize_type(inf_ctx, monomorphenv.clone(), inf_ty)
-            //                 {
-            //                     println!("specialized_ty: {:?}", specialized_ty);
-            //                     let func_node = get_func_definition_node(
-            //                         inf_ctx,
-            //                         node_map,
-            //                         ident,
-            //                         specialized_ty,
-            //                     );
-            //                     let func_node_id = func_node.id();
-            //                     let method_node = Rc::new(func_node.into_stmt().unwrap());
-            //                     if let ast::StmtKind::LetFunc(_, args, _, body) =
-            //                         &*method_node.stmtkind
-            //                     {
-            //                         println!("it's a let func");
-            //                         return translate_expr_func(
-            //                             inf_ctx,
-            //                             monomorphenv,
-            //                             gamma,
-            //                             node_map,
-            //                             args.clone(),
-            //                             body.clone(),
-            //                         );
-            //                     }
-            //                 } else {
-            //                     println!("couldn't specialize");
-            //                 }
-            //             }
-            //         } else {
-            //             println!("{} is NOT overloaded", st);
-            //         }
-            //     }
-            // }
+            if let Some(inf_ty) = inf_ty_of_node(inf_ctx, node_map, ast_id) {
+                // if let Some(inf_ty) = inf_ty_of_identifier(inf_ctx, gamma.clone(), node_map, ident) {
+                if let Some(st) = solved_ty_of_identifier(inf_ctx, gamma.clone(), node_map, ident) {
+                    if st.is_overloaded() {
+                        println!("{} is overloaded", st);
+                        println!("overloaded node's type is: {}", inf_ty);
+                        dbg!(monomorphenv.borrow());
+                        if let Some(nt) = named_monomorphic_type_of_node(inf_ctx, node_map, ast_id)
+                        {
+                            println!("specialized, add to env");
+                            // println!("which is:");
+                            // dbg!(&inf_ty);
+                            let monomorphenv =
+                                Rc::new(RefCell::new(MonomorphEnv::new(Some(monomorphenv))));
+                            update_monomorphenv(inf_ctx, monomorphenv.clone(), inf_ty, nt.clone());
+                            dbg!(&monomorphenv);
+                            let func_node = get_func_definition_node(inf_ctx, node_map, ident, nt);
+                            let func_node_id = func_node.id();
+                            let method_node = Rc::new(func_node.into_stmt().unwrap());
+                            if let ast::StmtKind::LetFunc(_, args, _, body) = &*method_node.stmtkind
+                            {
+                                println!("it's a let func");
+                                return translate_expr_func(
+                                    inf_ctx,
+                                    monomorphenv,
+                                    gamma,
+                                    node_map,
+                                    args.clone(),
+                                    body.clone(),
+                                );
+                            }
+                        } else {
+                            println!("not specialized, must monomorphize using env");
+                            println!("want to monomorphize inf_ty from node: {}", inf_ty);
+                            if let Some(monomorphized_ty) =
+                                monomorphized_type(inf_ctx, monomorphenv.clone(), inf_ty)
+                            {
+                                println!("monomorphized ty: {:?}", monomorphized_ty);
+                                let func_node = get_func_definition_node(
+                                    inf_ctx,
+                                    node_map,
+                                    ident,
+                                    monomorphized_ty,
+                                );
+                                let func_node_id = func_node.id();
+                                let method_node = Rc::new(func_node.into_stmt().unwrap());
+                                if let ast::StmtKind::LetFunc(_, args, _, body) =
+                                    &*method_node.stmtkind
+                                {
+                                    println!("it's a let func");
+                                    return translate_expr_func(
+                                        inf_ctx,
+                                        monomorphenv,
+                                        gamma,
+                                        node_map,
+                                        args.clone(),
+                                        body.clone(),
+                                    );
+                                }
+                            } else {
+                                println!("couldn't specialize");
+                            }
+                        }
+                    } else {
+                        println!("{} is NOT overloaded", st);
+                    }
+                }
+            }
             // println!("id: {:?}", id);
             // if gamma.borrow().vars.contains_key(id) {
             //     println!("it's in the gamma");

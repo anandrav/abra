@@ -292,6 +292,17 @@ impl Type {
         Type::fresh_unifvar(inf_ctx, prov)
     }
 
+    pub fn solution_of_node(inf_ctx: &InferenceContext, id: ast::Id) -> Option<Type> {
+        let prov = Prov::Node(id);
+        match inf_ctx.vars.get(&prov) {
+            Some(unifvar) => match Type::UnifVar(unifvar.clone()).solution() {
+                Some(ty) => Some(ty),
+                None => None,
+            },
+            None => None,
+        }
+    }
+
     pub fn fresh_unifvar(inf_ctx: &mut InferenceContext, prov: Prov) -> Type {
         match inf_ctx.vars.get(&prov) {
             Some(ty) => Type::UnifVar(ty.clone()),
@@ -1616,6 +1627,19 @@ pub fn result_of_constraint_solving(
     }
 
     if type_conflicts.is_empty() {
+        for (node_id, node) in node_map.iter() {
+            let ty = Type::solution_of_node(inf_ctx, *node_id);
+            let span = node.span();
+            println!("Node {}", node_id);
+            if let Some(ty) = ty {
+                println!("Type: {}", ty);
+            } else {
+                println!("Type: none");
+            }
+            println!("Span: {:?}", span);
+            println!("{}", span.display(source, ""));
+            println!();
+        }
         return Ok(());
     }
 

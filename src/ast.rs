@@ -527,6 +527,12 @@ impl Id {
     }
 }
 
+impl std::fmt::Display for Id {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "Id[{}]", self.id)
+    }
+}
+
 impl Default for Id {
     fn default() -> Self {
         Id::new()
@@ -551,7 +557,7 @@ impl Span {
             + lo_line; // account for newlines
         let lo_col = self.lo - num_chars_of_lines_before;
 
-        let hi_line = source[..=self.hi].lines().count() - 1;
+        let hi_line = source[..self.hi].lines().count() - 1;
         let num_chars_of_lines_before = source
             .lines()
             .enumerate()
@@ -559,7 +565,7 @@ impl Span {
             .map(|(_, l)| l.len())
             .sum::<usize>()
             + hi_line; // account for newlines
-        let hi_col = self.hi - num_chars_of_lines_before;
+        let hi_col = self.hi - num_chars_of_lines_before - 1;
         ((lo_line, lo_col), (hi_line, hi_col))
     }
 
@@ -1201,16 +1207,21 @@ pub fn parse_expr_term(pair: Pair<Rule>) -> Rc<Expr> {
 pub fn parse_toplevel(pairs: Pairs<Rule>) -> Rc<Toplevel> {
     let mut items = Vec::new();
     let pairs: Vec<_> = pairs.into_iter().collect();
-    for pair in pairs {
+    for pair in &pairs {
         if pair.as_rule() == Rule::EOI {
             break;
         }
-        let stmt = parse_stmt(pair);
+        let stmt = parse_stmt(pair.clone());
         items.push(stmt)
     }
+    let span1: Span = pairs.first().unwrap().as_span().into();
+    let span2: Span = pairs.last().unwrap().as_span().into();
     Rc::new(Toplevel {
         statements: items,
-        span: Span { lo: 0, hi: 0 }, // TODO
+        span: Span {
+            lo: span1.lo,
+            hi: span2.hi,
+        }, // TODO
         id: Id::new(),
     })
 }
