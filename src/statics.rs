@@ -544,10 +544,7 @@ pub fn ast_type_to_statics_type(
     ast_type_to_statics_type_interface(inf_ctx, ast_type, None)
 }
 
-pub fn ast_type_to_named_type(
-    inf_ctx: &mut InferenceContext,
-    ast_type: Rc<ast::AstType>,
-) -> NamedMonomorphType {
+pub fn ast_type_to_named_type(ast_type: Rc<ast::AstType>) -> NamedMonomorphType {
     match &*ast_type.typekind {
         ast::TypeKind::Poly(_ident, _) => panic!(), // TODO remove this and others
         ast::TypeKind::Alias(_ident) => panic!(),
@@ -555,7 +552,7 @@ pub fn ast_type_to_named_type(
             ident.clone(),
             params
                 .iter()
-                .map(|param| ast_type_to_named_type(inf_ctx, param.clone()))
+                .map(|param| ast_type_to_named_type(param.clone()))
                 .collect(),
         ),
         ast::TypeKind::Unit => NamedMonomorphType::Unit,
@@ -564,13 +561,13 @@ pub fn ast_type_to_named_type(
         ast::TypeKind::Str => NamedMonomorphType::String,
         // TODO wait does this only allow one argument??
         ast::TypeKind::Arrow(lhs, rhs) => NamedMonomorphType::Function(
-            vec![ast_type_to_named_type(inf_ctx, lhs.clone())],
-            Box::new(ast_type_to_named_type(inf_ctx, rhs.clone())),
+            vec![ast_type_to_named_type(lhs.clone())],
+            Box::new(ast_type_to_named_type(rhs.clone())),
         ),
         ast::TypeKind::Tuple(types) => {
             let mut statics_types = Vec::new();
             for t in types {
-                statics_types.push(ast_type_to_named_type(inf_ctx, t.clone()));
+                statics_types.push(ast_type_to_named_type(t.clone()));
             }
             NamedMonomorphType::Tuple(statics_types)
         }
@@ -1501,7 +1498,7 @@ pub fn gather_definitions_stmt(
             );
         }
         StmtKind::InterfaceImpl(ident, ty, stmts) => {
-            let _named_ty = ast_type_to_named_type(inf_ctx, ty.clone());
+            let _named_ty = ast_type_to_named_type(ty.clone());
             let methods = stmts
                 .iter()
                 .map(|stmt| match &*stmt.stmtkind {

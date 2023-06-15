@@ -77,13 +77,9 @@ pub fn translate_expr_block(
     match &*statement.stmtkind {
         ast::StmtKind::InterfaceDef(..)
         | ast::StmtKind::InterfaceImpl(..)
-        | ast::StmtKind::TypeDef(_) => translate_expr_block(
-            inf_ctx,
-            monomorphenv,
-            gamma,
-            node_map,
-            stmts[1..].to_vec(),
-        ),
+        | ast::StmtKind::TypeDef(_) => {
+            translate_expr_block(inf_ctx, monomorphenv, gamma, node_map, stmts[1..].to_vec())
+        }
         ast::StmtKind::LetFunc(pat, func_args, _, body) => {
             let ty = Type::solution_of_node(inf_ctx, pat.id).unwrap();
             if ty.is_overloaded() {
@@ -108,13 +104,7 @@ pub fn translate_expr_block(
             Rc::new(Ete::Let(
                 Rc::new(Etp::Var(id)),
                 func,
-                translate_expr_block(
-                    inf_ctx,
-                    monomorphenv,
-                    gamma,
-                    node_map,
-                    stmts[1..].to_vec(),
-                ),
+                translate_expr_block(inf_ctx, monomorphenv, gamma, node_map, stmts[1..].to_vec()),
             ))
         }
         ast::StmtKind::Let((pat, _), expr) => Rc::new(Ete::Let(
@@ -127,13 +117,7 @@ pub fn translate_expr_block(
                 expr.exprkind.clone(),
                 expr.id,
             ),
-            translate_expr_block(
-                inf_ctx,
-                monomorphenv,
-                gamma,
-                node_map,
-                stmts[1..].to_vec(),
-            ),
+            translate_expr_block(inf_ctx, monomorphenv, gamma, node_map, stmts[1..].to_vec()),
         )),
         ast::StmtKind::Expr(e) if stmts.len() == 1 => translate_expr(
             inf_ctx,
@@ -153,13 +137,7 @@ pub fn translate_expr_block(
                 expr.exprkind.clone(),
                 expr.id,
             ),
-            translate_expr_block(
-                inf_ctx,
-                monomorphenv,
-                gamma,
-                node_map,
-                stmts[1..].to_vec(),
-            ),
+            translate_expr_block(inf_ctx, monomorphenv, gamma, node_map, stmts[1..].to_vec()),
         )),
     }
 }
@@ -237,7 +215,6 @@ pub fn ty_of_global_ident(gamma: Rc<RefCell<Gamma>>, ident: &ast::Identifier) ->
 }
 
 pub fn update_monomorphenv(
-    inf_ctx: &InferenceContext,
     monomorphenv: Rc<RefCell<MonomorphEnv>>,
     overloaded_ty: Type,
     monomorphic_ty: Type,
@@ -246,20 +223,13 @@ pub fn update_monomorphenv(
         // recurse
         (Type::Function(_, args, out), Type::Function(_, args2, out2)) => {
             for i in 0..args.len() {
-                update_monomorphenv(
-                    inf_ctx,
-                    monomorphenv.clone(),
-                    args[i].clone(),
-                    args2[i].clone(),
-                );
+                update_monomorphenv(monomorphenv.clone(), args[i].clone(), args2[i].clone());
             }
-            update_monomorphenv(inf_ctx, monomorphenv, *out, *out2);
+            update_monomorphenv(monomorphenv, *out, *out2);
         }
         // TODO recurse on tuples and records and adts
         (Type::Poly(_, ident, _), _) => {
-            monomorphenv
-                .borrow_mut()
-                .extend(&ident, monomorphic_ty);
+            monomorphenv.borrow_mut().extend(&ident, monomorphic_ty);
         }
         _ => {}
     }
@@ -342,12 +312,10 @@ pub fn translate_expr(
                     if global_ty.is_overloaded() {
                         println!("global_ty: {} (overloaded)", global_ty);
                         println!("node's type is: {},", node_ty);
-                        let substituted_ty =
-                            subst_with_monomorphic_env(monomorphenv, node_ty);
+                        let substituted_ty = subst_with_monomorphic_env(monomorphenv, node_ty);
                         println!("substituted type: {}", substituted_ty);
                         let monomorphenv = Rc::new(RefCell::new(MonomorphEnv::new(None)));
                         update_monomorphenv(
-                            inf_ctx,
                             monomorphenv.clone(),
                             global_ty,
                             substituted_ty.clone(),
@@ -415,13 +383,9 @@ pub fn translate_expr(
                 expr2.id,
             ),
         )),
-        ASTek::Block(stmts) => translate_expr_block(
-            inf_ctx,
-            monomorphenv,
-            gamma,
-            node_map,
-            stmts.clone(),
-        ),
+        ASTek::Block(stmts) => {
+            translate_expr_block(inf_ctx, monomorphenv, gamma, node_map, stmts.clone())
+        }
         ASTek::Func(func_args, _, body) => translate_expr_func(
             inf_ctx,
             monomorphenv,
