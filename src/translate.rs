@@ -209,9 +209,8 @@ pub fn ty_of_global_ident(gamma: Rc<RefCell<Gamma>>, ident: &ast::Identifier) ->
     let gamma = gamma.borrow();
     let ty = gamma.vars.get(ident)?;
     // println!("it's in the gamma");
-    let solved = ty.solution().unwrap();
+    ty.solution()
     // println!("solved_ty: {}", solved);
-    Some(solved)
 }
 
 pub fn update_monomorphenv(
