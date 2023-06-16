@@ -38,27 +38,27 @@ pub enum TypeFullyInstantiated {
     Adt(Identifier, Vec<TypeFullyInstantiated>),
 }
 
-impl TypeFullyInstantiated {
-    pub fn to_interface_impl(self) -> TypeInterfaceImpl {
-        match self {
-            TypeFullyInstantiated::Unit => TypeInterfaceImpl::Unit,
-            TypeFullyInstantiated::Int => TypeInterfaceImpl::Int,
-            TypeFullyInstantiated::Bool => TypeInterfaceImpl::Bool,
-            TypeFullyInstantiated::String => TypeInterfaceImpl::String,
-            TypeFullyInstantiated::Function(params, ret) => TypeInterfaceImpl::Function(
-                params.into_iter().map(|x| x.to_interface_impl()).collect(),
-                ret.to_interface_impl().into(),
-            ),
-            TypeFullyInstantiated::Tuple(elements) => TypeInterfaceImpl::Tuple(
-                elements
-                    .into_iter()
-                    .map(|x| x.to_interface_impl())
-                    .collect(),
-            ),
-            TypeFullyInstantiated::Adt(name, _params) => TypeInterfaceImpl::Adt(name),
-        }
-    }
-}
+// impl TypeFullyInstantiated {
+//     pub fn to_interface_impl(self) -> TypeInterfaceImpl {
+//         match self {
+//             TypeFullyInstantiated::Unit => TypeInterfaceImpl::Unit,
+//             TypeFullyInstantiated::Int => TypeInterfaceImpl::Int,
+//             TypeFullyInstantiated::Bool => TypeInterfaceImpl::Bool,
+//             TypeFullyInstantiated::String => TypeInterfaceImpl::String,
+//             TypeFullyInstantiated::Function(params, ret) => TypeInterfaceImpl::Function(
+//                 params.into_iter().map(|x| x.to_interface_impl()).collect(),
+//                 ret.to_interface_impl().into(),
+//             ),
+//             TypeFullyInstantiated::Tuple(elements) => TypeInterfaceImpl::Tuple(
+//                 elements
+//                     .into_iter()
+//                     .map(|x| x.to_interface_impl())
+//                     .collect(),
+//             ),
+//             TypeFullyInstantiated::Adt(name, _params) => TypeInterfaceImpl::Adt(name),
+//         }
+//     }
+// }
 
 // This is the type of an interface's implementation, which is not fully instantiated.
 // For instance, an interface may be implemented for list<'a SomeInterface>, so its
@@ -471,7 +471,17 @@ impl Type {
                 let out = out.interface_impl_type()?;
                 Some(TypeInterfaceImpl::Function(args2, out.into()))
             } // TODO unimplemented
-            Self::Tuple(_, _elems) => None, // TODO unimplemented
+            Self::Tuple(_, elems) => {
+                let mut elems2 = vec![];
+                for elem in elems {
+                    if let Some(elem) = elem.interface_impl_type() {
+                        elems2.push(elem);
+                    } else {
+                        return None;
+                    }
+                }
+                Some(TypeInterfaceImpl::Tuple(elems2))
+            }
             Self::AdtInstance(_, ident, _params) => Some(TypeInterfaceImpl::Adt(ident.clone())),
         }
     }
@@ -504,8 +514,18 @@ impl Type {
                 }
                 let out = out.instance_type()?;
                 Some(TypeFullyInstantiated::Function(args2, out.into()))
-            } // TODO unimplemented
-            Self::Tuple(_, _elems) => None, // TODO unimplemented
+            }
+            Self::Tuple(_, _elems) => {
+                let mut elems2 = vec![];
+                for elem in _elems {
+                    if let Some(elem) = elem.instance_type() {
+                        elems2.push(elem);
+                    } else {
+                        return None;
+                    }
+                }
+                Some(TypeFullyInstantiated::Tuple(elems2))
+            }
             Self::AdtInstance(_, ident, params) => {
                 let mut params2: Vec<TypeFullyInstantiated> = vec![];
                 for param in params {
@@ -1602,7 +1622,7 @@ pub fn gather_definitions_stmt(
                 },
             );
         }
-        StmtKind::InterfaceImpl(ident, ty, stmts) => {
+        StmtKind::InterfaceImpl(ident, _ty, stmts) => {
             // let _named_ty = ast_type_to_interface_instance_type(ty.clone());
             let methods = stmts
                 .iter()

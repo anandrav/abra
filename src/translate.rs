@@ -392,7 +392,7 @@ pub fn translate_expr(
                         update_monomorphenv(
                             monomorphenv.clone(),
                             overloaded_func_ty,
-                            substituted_ty.clone(),
+                            substituted_ty,
                         );
                         println!("monomorphic env after is: {:?}", monomorphenv.borrow());
                         overloaded_func_map.insert((ident.clone(), instance_ty.clone()), None);
