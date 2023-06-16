@@ -3,7 +3,7 @@ use crate::ast::NodeMap;
 use crate::eval_tree;
 use crate::statics::Gamma;
 use crate::statics::InferenceContext;
-use crate::statics::NamedMonomorphType;
+use crate::statics::InterfaceInstance;
 use crate::statics::Prov;
 use crate::statics::Type;
 use std::cell::RefCell;
@@ -260,7 +260,7 @@ pub fn get_func_definition_node(
     inf_ctx: &InferenceContext,
     node_map: &NodeMap,
     ident: &ast::Identifier,
-    named_monomorph_ty: NamedMonomorphType,
+    named_monomorph_ty: InterfaceInstance,
 ) -> Rc<dyn ast::Node> {
     if let Some(interface_name) = inf_ctx.method_to_interface.get(&ident.clone()) {
         println!("interface_name: {:?}", interface_name);

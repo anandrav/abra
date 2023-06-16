@@ -39,6 +39,20 @@ pub fn make_new_environment(
             None,
         )),
     );
+    env.borrow_mut().extend(
+        &String::from("append_strings"),
+        Rc::new(Expr::Func(
+            vec![String::from("s1"), String::from("s2")],
+            Rc::new(Expr::EffectAp(
+                side_effects::Effect::AppendStrings,
+                vec![
+                    Rc::new(Expr::Var(String::from("s1"))),
+                    Rc::new(Expr::Var(String::from("s2"))),
+                ],
+            )),
+            None,
+        )),
+    );
     // replace variables with variants or variant constructors
     for (_key, ty) in gamma.borrow().vars.iter() {
         // println!("key: {key}, ty: {:?}", ty);
@@ -49,7 +63,7 @@ pub fn make_new_environment(
         } else {
             Some(ty.clone())
         };
-        if let Some(Type::DefInstance(_, ident, _params)) = solution {
+        if let Some(Type::AdtInstance(_, ident, _params)) = solution {
             let adt_def = inf_ctx.adt_def_of_name(&ident).unwrap();
             // println!("ADT!");
             for (_i, variant) in adt_def.variants.iter().enumerate() {

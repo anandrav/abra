@@ -17,6 +17,7 @@ pub enum Input {
 pub enum Effect {
     Print,
     IntToString,
+    AppendStrings,
     // ReadLn,
 }
 
@@ -33,6 +34,14 @@ pub fn handle_effect(effect: Effect, args: Vec<Rc<eval_tree::Expr>>, output: &mu
         },
         Effect::IntToString => match &*args[0] {
             eval_tree::Expr::Int(n) => Input::Cin(n.to_string()),
+            _ => panic!("wrong arguments ({:#?}) for {:#?} effect", args[0], effect),
+        },
+        Effect::AppendStrings => match (&*args[0], &*args[1]) {
+            (eval_tree::Expr::Str(s1), eval_tree::Expr::Str(s2)) => Input::Cin({
+                let mut s1 = s1.clone();
+                s1.push_str(s2);
+                s1
+            }),
             _ => panic!("wrong arguments ({:#?}) for {:#?} effect", args[0], effect),
         },
         // Effect::ReadLn => Input::Cin(String::from("this is input")),

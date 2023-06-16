@@ -200,13 +200,48 @@ implement ToString for int {
 implement ToString for bool {
 	let to_string(b) = if b "true" else "false"
 }
+type list<'a> = nil | cons ('a, list<'a>)
+implement ToString for list<'a ToString> {
+    let to_string(xs) = {
+            let helper(xs) = {
+                match xs
+                nil -> ""
+                cons (~x, ~xs) -> {
+                    append_strings(
+                        helper(x),
+                        helper(xs))
+            }
+            helper(xs)
+		}
+    }
+}
 let print(x: 'b ToString) = print_string(to_string(x))
+
+
+let print_list(xs: list<int>) =
+	match xs
+		nil -> print("")
+		cons (~x, ~xs) -> {
+			print(int_to_string(x))
+			print_list(xs)
+		}
+
+let squared_list(xs: list<int>) =
+	match xs
+		nil -> nil
+		cons (~x, ~xs) -> cons(x*x, squared_list(xs))
+
+
+let my_list = cons(1, cons(2, cons(3, cons(4, cons(5, nil)))))
+print("some numbers:")
+print_list(my_list)
 
 
 print("hello world")
 print(123)
 print(true)
 print(false)
+print(my_list)
 "#;
 
 impl Default for MyApp {
