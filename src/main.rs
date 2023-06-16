@@ -321,15 +321,17 @@ impl eframe::App for MyApp {
                                     match result {
                                         Ok(_) => {
                                             debug_println!("solved constraints.");
-                                            let eval_tree = translate::translate(
-                                                &inference_ctx,
-                                                tyctx.clone(),
-                                                &node_map,
-                                                parse_tree,
-                                            );
+                                            let (eval_tree, overloaded_func_map) =
+                                                translate::translate(
+                                                    &inference_ctx,
+                                                    tyctx.clone(),
+                                                    &node_map,
+                                                    parse_tree,
+                                                );
                                             self.interpreter = Some(Interpreter::new(
                                                 &inference_ctx,
                                                 tyctx,
+                                                overloaded_func_map,
                                                 eval_tree,
                                             ));
                                             debug_println!("initialized new interpreter.");

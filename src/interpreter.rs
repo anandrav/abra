@@ -7,8 +7,10 @@ use crate::side_effects;
 use crate::side_effects::*;
 use crate::statics::Gamma;
 use crate::statics::InferenceContext;
+use crate::statics::InterfaceInstance;
 use crate::statics::Type;
 use std::cell::RefCell;
+use std::collections::HashMap;
 use std::rc::Rc;
 
 pub fn make_new_environment(
@@ -120,9 +122,12 @@ pub fn make_new_environment(
     env
 }
 
+pub type OverloadedFuncMap = HashMap<(Identifier, InterfaceInstance), Rc<Expr>>;
+
 pub struct Interpreter {
     program_expr: Rc<Expr>,
     env: Rc<RefCell<Environment>>,
+    overloaded_func_map: OverloadedFuncMap,
     next_input: Option<Input>,
 }
 
@@ -130,11 +135,13 @@ impl Interpreter {
     pub fn new(
         inf_ctx: &InferenceContext,
         tyctx: Rc<RefCell<Gamma>>,
+        overloaded_func_map: OverloadedFuncMap,
         program_expr: Rc<Expr>,
     ) -> Self {
         Interpreter {
             program_expr,
             env: make_new_environment(inf_ctx, tyctx),
+            overloaded_func_map,
             next_input: None,
         }
     }
