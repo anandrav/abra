@@ -166,6 +166,7 @@ impl Interpreter {
         let result = interpret(
             self.program_expr.clone(),
             self.env.clone(),
+            &self.overloaded_func_map,
             steps,
             &self.next_input,
         );
@@ -191,6 +192,7 @@ pub struct InterpretResult {
 fn interpret(
     expr: Rc<Expr>,
     env: Rc<RefCell<Environment>>,
+    overloaded_func_map: &OverloadedFuncMap,
     steps: i32,
     input: &Option<Input>,
 ) -> InterpretResult {
@@ -201,6 +203,18 @@ fn interpret(
                 None => panic!("No value for variable with id: {}", id),
                 Some(val) => InterpretResult {
                     expr: val,
+                    steps,
+                    effect: None,
+                    new_env: env,
+                },
+            }
+        }
+        VarOverloaded(id, instance) => {
+            let result = overloaded_func_map.get(&(id.clone(), instance.clone()));
+            match result {
+                None => panic!("No value for variable with id: {}", id),
+                Some(val) => InterpretResult {
+                    expr: val.clone(),
                     steps,
                     effect: None,
                     new_env: env,
@@ -230,7 +244,13 @@ fn interpret(
                     steps,
                     effect,
                     new_env,
-                } = interpret(expr.clone(), env.clone(), steps, &input.clone());
+                } = interpret(
+                    expr.clone(),
+                    env.clone(),
+                    overloaded_func_map,
+                    steps,
+                    &input.clone(),
+                );
                 new_exprs[i] = expr;
                 if effect.is_some() || steps <= 0 {
                     return InterpretResult {
@@ -254,7 +274,13 @@ fn interpret(
                 steps,
                 effect,
                 new_env,
-            } = interpret(expr.clone(), env.clone(), steps, &input.clone());
+            } = interpret(
+                expr.clone(),
+                env.clone(),
+                overloaded_func_map,
+                steps,
+                &input.clone(),
+            );
             if effect.is_some() || steps <= 0 {
                 return InterpretResult {
                     expr: Rc::new(TaggedVariant(tag.clone(), expr)),
@@ -276,7 +302,13 @@ fn interpret(
                 steps,
                 effect,
                 new_env,
-            } = interpret(expr1.clone(), env.clone(), steps, &input.clone());
+            } = interpret(
+                expr1.clone(),
+                env.clone(),
+                overloaded_func_map,
+                steps,
+                &input.clone(),
+            );
             if effect.is_some() || steps <= 0 {
                 return InterpretResult {
                     expr: Rc::new(BinOp(expr1, *op, expr2.clone())),
@@ -290,7 +322,13 @@ fn interpret(
                 steps,
                 effect,
                 new_env,
-            } = interpret(expr2.clone(), env.clone(), steps, input);
+            } = interpret(
+                expr2.clone(),
+                env.clone(),
+                overloaded_func_map,
+                steps,
+                input,
+            );
             if effect.is_some() || steps <= 0 {
                 return InterpretResult {
                     expr: Rc::new(BinOp(expr1, *op, expr2)),
@@ -318,7 +356,13 @@ fn interpret(
                     steps,
                     effect,
                     new_env,
-                } = interpret(expr1.clone(), env.clone(), steps, &input.clone());
+                } = interpret(
+                    expr1.clone(),
+                    env.clone(),
+                    overloaded_func_map,
+                    steps,
+                    &input.clone(),
+                );
                 if effect.is_some() || steps <= 0 {
                     return InterpretResult {
                         expr: Rc::new(Let(pat.clone(), expr1, expr2.clone())),
@@ -335,7 +379,7 @@ fn interpret(
                     steps,
                     effect,
                     new_env,
-                } = interpret(expr2.clone(), new_env, steps, input);
+                } = interpret(expr2.clone(), new_env, overloaded_func_map, steps, input);
                 if effect.is_some() || steps <= 0 {
                     return InterpretResult {
                         expr,
@@ -357,7 +401,13 @@ fn interpret(
                     steps,
                     effect,
                     new_env,
-                } = interpret(expr1.clone(), env.clone(), steps, &input.clone());
+                } = interpret(
+                    expr1.clone(),
+                    env.clone(),
+                    overloaded_func_map,
+                    steps,
+                    &input.clone(),
+                );
                 if effect.is_some() || steps <= 0 {
                     return InterpretResult {
                         expr: Rc::new(Let(pat.clone(), expr1, expr2.clone())),
@@ -400,7 +450,7 @@ fn interpret(
                     steps,
                     effect,
                     new_env,
-                } = interpret(expr2.clone(), new_env, steps, input);
+                } = interpret(expr2.clone(), new_env, overloaded_func_map, steps, input);
                 if effect.is_some() || steps <= 0 {
                     return InterpretResult {
                         expr,
@@ -422,7 +472,13 @@ fn interpret(
                     steps,
                     effect,
                     new_env,
-                } = interpret(expr1.clone(), env.clone(), steps, &input.clone());
+                } = interpret(
+                    expr1.clone(),
+                    env.clone(),
+                    overloaded_func_map,
+                    steps,
+                    &input.clone(),
+                );
                 if effect.is_some() || steps <= 0 {
                     return InterpretResult {
                         expr: Rc::new(Let(pat.clone(), expr1, expr2.clone())),
@@ -438,7 +494,7 @@ fn interpret(
                     steps,
                     effect,
                     new_env,
-                } = interpret(expr2.clone(), new_env, steps, input);
+                } = interpret(expr2.clone(), new_env, overloaded_func_map, steps, input);
                 if effect.is_some() || steps <= 0 {
                     return InterpretResult {
                         expr,
@@ -463,7 +519,13 @@ fn interpret(
                     steps,
                     effect,
                     new_env,
-                } = interpret(arg.clone(), env.clone(), steps, &input.clone());
+                } = interpret(
+                    arg.clone(),
+                    env.clone(),
+                    overloaded_func_map,
+                    steps,
+                    &input.clone(),
+                );
                 new_args[i] = arg;
                 if effect.is_some() || steps <= 0 {
                     return InterpretResult {
@@ -479,7 +541,13 @@ fn interpret(
                 steps,
                 effect,
                 new_env,
-            } = interpret(expr1.clone(), env.clone(), steps, &input.clone());
+            } = interpret(
+                expr1.clone(),
+                env.clone(),
+                overloaded_func_map,
+                steps,
+                &input.clone(),
+            );
             if effect.is_some() || steps <= 0 {
                 return InterpretResult {
                     expr: Rc::new(FuncAp(expr1, args.clone(), funcapp_env.clone())),
@@ -517,7 +585,7 @@ fn interpret(
                 steps,
                 effect,
                 new_env: funcapp_env,
-            } = interpret(body.clone(), funcapp_env, steps, input);
+            } = interpret(body.clone(), funcapp_env, overloaded_func_map, steps, input);
             // if didn't finish executing for the body of function application, return a FuncApp as the expression field try again next time.
             if effect.is_some() || steps <= 0 {
                 let result = InterpretResult {
@@ -545,7 +613,13 @@ fn interpret(
                 steps,
                 effect,
                 new_env,
-            } = interpret(expr1.clone(), env.clone(), steps, &input.clone());
+            } = interpret(
+                expr1.clone(),
+                env.clone(),
+                overloaded_func_map,
+                steps,
+                &input.clone(),
+            );
             if effect.is_some() || steps <= 0 {
                 return InterpretResult {
                     expr: Rc::new(If(expr1, expr2.clone(), expr3.clone())),
@@ -561,7 +635,13 @@ fn interpret(
                         steps,
                         effect,
                         new_env,
-                    } = interpret(expr2.clone(), env.clone(), steps, input);
+                    } = interpret(
+                        expr2.clone(),
+                        env.clone(),
+                        overloaded_func_map,
+                        steps,
+                        input,
+                    );
                     if effect.is_some() || steps <= 0 {
                         return InterpretResult {
                             expr: expr2,
@@ -584,7 +664,13 @@ fn interpret(
                         steps,
                         effect,
                         new_env,
-                    } = interpret(expr3.clone(), env.clone(), steps, input);
+                    } = interpret(
+                        expr3.clone(),
+                        env.clone(),
+                        overloaded_func_map,
+                        steps,
+                        input,
+                    );
                     if effect.is_some() || steps <= 0 {
                         return InterpretResult {
                             expr: expr3,
@@ -613,7 +699,13 @@ fn interpret(
                 steps,
                 effect,
                 new_env,
-            } = interpret(expr1.clone(), env.clone(), steps, &input.clone());
+            } = interpret(
+                expr1.clone(),
+                env.clone(),
+                overloaded_func_map,
+                steps,
+                &input.clone(),
+            );
             if effect.is_some() || steps <= 0 {
                 return InterpretResult {
                     expr: Rc::new(Match(expr1, cases.clone())),
@@ -630,7 +722,7 @@ fn interpret(
                         steps,
                         effect,
                         new_env,
-                    } = interpret(expr.clone(), new_env, steps, input);
+                    } = interpret(expr.clone(), new_env, overloaded_func_map, steps, input);
                     if effect.is_some() || steps <= 0 {
                         return InterpretResult {
                             expr,
@@ -658,7 +750,13 @@ fn interpret(
                     steps,
                     effect,
                     new_env,
-                } = interpret(args[i].clone(), env.clone(), steps, &input.clone());
+                } = interpret(
+                    args[i].clone(),
+                    env.clone(),
+                    overloaded_func_map,
+                    steps,
+                    &input.clone(),
+                );
                 args[i] = arg;
                 if effect.is_some() || steps <= 0 {
                     return InterpretResult {

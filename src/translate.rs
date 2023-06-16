@@ -265,6 +265,12 @@ pub fn update_monomorphenv(
             }
             update_monomorphenv(monomorphenv, *out, *out2);
         }
+        (Type::AdtInstance(_, ident, params), Type::AdtInstance(_, ident2, params2)) => {
+            assert_eq!(ident, ident2);
+            for i in 0..params.len() {
+                update_monomorphenv(monomorphenv.clone(), params[i].clone(), params2[i].clone());
+            }
+        }
         // TODO recurse on tuples and records and adts
         (Type::Poly(_, ident, _), _) => {
             monomorphenv.borrow_mut().extend(&ident, monomorphic_ty);
@@ -282,6 +288,13 @@ pub fn subst_with_monomorphic_env(monomorphic_env: Rc<RefCell<MonomorphEnv>>, ty
                 .collect();
             let new_out = subst_with_monomorphic_env(monomorphic_env, *out);
             Type::Function(provs, new_args, Box::new(new_out))
+        }
+        Type::AdtInstance(provs, ident, params) => {
+            let new_params = params
+                .iter()
+                .map(|param| subst_with_monomorphic_env(monomorphic_env.clone(), param.clone()))
+                .collect();
+            Type::AdtInstance(provs, ident, new_params)
         }
         Type::Poly(_, ref ident, _) => {
             if let Some(monomorphic_ty) = monomorphic_env.borrow().lookup(ident) {
@@ -307,20 +320,20 @@ pub fn get_func_definition_node(
         dbg!(impl_list);
 
         for imp in impl_list {
-            println!("interface_impl: {:?}", imp);
+            // println!("interface_impl: {:?}", imp);
             for method in &imp.methods {
-                println!("method name: {:?}", method.name);
-                println!("id: {:?}", ident);
+                // println!("method name: {:?}", method.name);
+                // println!("id: {:?}", ident);
                 if method.name == *ident {
                     let method_identifier_node = node_map.get(&method.identifier_location).unwrap();
-                    println!("func_node: {:?}", method_identifier_node);
+                    // println!("func_node: {:?}", method_identifier_node);
                     let func_id = method_identifier_node.id();
                     let unifvar = inf_ctx.vars.get(&Prov::Node(func_id)).unwrap();
                     let solved_ty = unifvar.clone_data().solution().unwrap();
                     if let Some(named_ty_impl) = solved_ty.named_type() {
-                        println!("named_ty_impl: {:?}", named_ty_impl);
+                        // println!("named_ty_impl: {:?}", named_ty_impl);
                         if named_monomorph_ty == named_ty_impl {
-                            println!("THEY ARE EQUAL!!!!!!!!");
+                            println!("found an impl");
                             let method_node = node_map.get(&method.method_location).unwrap();
                             return method_node.clone();
                         }
@@ -351,6 +364,7 @@ pub fn translate_expr(
                     if global_ty.is_overloaded() {
                         println!("global_ty: {} (overloaded)", global_ty);
                         println!("node's type is: {},", node_ty);
+                        println!("monomorphic env before is: {:?}", monomorphenv.borrow());
                         let substituted_ty = subst_with_monomorphic_env(monomorphenv, node_ty);
                         println!("substituted type: {}", substituted_ty);
                         let monomorphenv = Rc::new(RefCell::new(MonomorphEnv::new(None)));
@@ -359,7 +373,14 @@ pub fn translate_expr(
                             global_ty,
                             substituted_ty.clone(),
                         );
-                        println!("monomorphic env is: {:?}", monomorphenv.borrow());
+                        println!("monomorphic env after is: {:?}", monomorphenv.borrow());
+                        let instance_ty = substituted_ty.named_type().unwrap();
+                        if let Some(overloaded_func) =
+                            overloaded_func_map.get(&(ident.clone(), instance_ty.clone()))
+                        {
+                            println!("overloaded func: {:?}", overloaded_func);
+                            return Rc::new(Ete::VarOverloaded(ident.clone(), instance_ty));
+                        }
                         let func_def_node = get_func_definition_node(
                             inf_ctx,
                             node_map,
@@ -369,18 +390,21 @@ pub fn translate_expr(
                         .to_stmt()
                         .unwrap();
                         let ast::StmtKind::LetFunc(_, args, _, body) = &*func_def_node.stmtkind else { panic!() };
-                        {
-                            println!("it's a let func");
-                            return translate_expr_func(
-                                inf_ctx,
-                                monomorphenv,
-                                gamma,
-                                node_map,
-                                overloaded_func_map,
-                                args.clone(),
-                                body.clone(),
-                            );
-                        }
+
+                        println!("it's a let func");
+                        overloaded_func_map.insert((ident.clone(), instance_ty.clone()), None);
+                        let overloaded_func = translate_expr_func(
+                            inf_ctx,
+                            monomorphenv,
+                            gamma,
+                            node_map,
+                            overloaded_func_map,
+                            args.clone(),
+                            body.clone(),
+                        );
+                        overloaded_func_map
+                            .insert((ident.clone(), instance_ty.clone()), Some(overloaded_func));
+                        return Rc::new(Ete::VarOverloaded(ident.clone(), instance_ty));
                     }
                 }
             }

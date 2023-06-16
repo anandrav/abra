@@ -1,6 +1,7 @@
 use crate::environment::Environment;
 use crate::operators::BinOpcode;
 use crate::side_effects;
+use crate::statics::InterfaceInstance;
 
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -10,6 +11,7 @@ pub type Identifier = String;
 #[derive(Debug, PartialEq, Eq)]
 pub enum Expr {
     Var(Identifier),
+    VarOverloaded(Identifier, InterfaceInstance),
     Unit,
     Int(i32),
     Str(String),
@@ -72,6 +74,7 @@ pub fn is_val(expr: &Rc<Expr>) -> bool {
     use self::Expr::*;
     match expr.as_ref() {
         Var(_) => false,
+        VarOverloaded(_, _) => false,
         Unit => true,
         Int(_) => true,
         Str(_) => true,

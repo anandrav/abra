@@ -202,7 +202,14 @@ implement ToString for bool {
 }
 type list<'a> = nil | cons ('a, list<'a>)
 implement ToString for list<'a ToString> {
-    let to_string(xs) = "a list"
+    let to_string(xs) = {
+        match xs
+            nil -> "nil"
+            cons (~x, ~xs) -> {
+                let s = append_strings(to_string(x), " ")
+                append_strings(s, to_string(xs))
+            }
+    }
 }
 let print(x: 'b ToString) = print_string(to_string(x))
 
