@@ -1,12 +1,14 @@
 use crate::ast;
+use crate::ast::Node;
 use crate::ast::NodeMap;
 use crate::eval_tree;
 use crate::interpreter;
 use crate::statics::Gamma;
 use crate::statics::InferenceContext;
-use crate::statics::InterfaceInstance;
 use crate::statics::Prov;
 use crate::statics::Type;
+use crate::statics::TypeFullyInstantiated;
+use crate::statics::TypeInterfaceImpl;
 use std::cell::RefCell;
 use std::collections::BTreeMap;
 use std::collections::HashMap;
@@ -311,7 +313,7 @@ pub fn get_func_definition_node(
     inf_ctx: &InferenceContext,
     node_map: &NodeMap,
     ident: &ast::Identifier,
-    named_monomorph_ty: InterfaceInstance,
+    desired_interface_impl: TypeInterfaceImpl,
 ) -> Rc<dyn ast::Node> {
     if let Some(interface_name) = inf_ctx.method_to_interface.get(&ident.clone()) {
         println!("interface_name: {:?}", interface_name);
@@ -320,19 +322,20 @@ pub fn get_func_definition_node(
         dbg!(impl_list);
 
         for imp in impl_list {
-            // println!("interface_impl: {:?}", imp);
+            println!("interface_impl: {:?}", imp);
             for method in &imp.methods {
-                // println!("method name: {:?}", method.name);
-                // println!("id: {:?}", ident);
+                println!("method name: {:?}", method.name);
+                println!("id: {:?}", ident);
                 if method.name == *ident {
                     let method_identifier_node = node_map.get(&method.identifier_location).unwrap();
-                    // println!("func_node: {:?}", method_identifier_node);
+                    println!("func_node: {:?}", method_identifier_node);
                     let func_id = method_identifier_node.id();
                     let unifvar = inf_ctx.vars.get(&Prov::Node(func_id)).unwrap();
                     let solved_ty = unifvar.clone_data().solution().unwrap();
-                    if let Some(named_ty_impl) = solved_ty.named_type() {
-                        // println!("named_ty_impl: {:?}", named_ty_impl);
-                        if named_monomorph_ty == named_ty_impl {
+                    if let Some(interface_impl) = solved_ty.interface_impl_type() {
+                        println!("interface_impl: {:?}", interface_impl);
+                        println!("desired_interface_impl: {:?}", desired_interface_impl);
+                        if desired_interface_impl.clone() == interface_impl {
                             println!("found an impl");
                             let method_node = node_map.get(&method.method_location).unwrap();
                             return method_node.clone();
@@ -367,14 +370,7 @@ pub fn translate_expr(
                         println!("monomorphic env before is: {:?}", monomorphenv.borrow());
                         let substituted_ty = subst_with_monomorphic_env(monomorphenv, node_ty);
                         println!("substituted type: {}", substituted_ty);
-                        let monomorphenv = Rc::new(RefCell::new(MonomorphEnv::new(None)));
-                        update_monomorphenv(
-                            monomorphenv.clone(),
-                            global_ty,
-                            substituted_ty.clone(),
-                        );
-                        println!("monomorphic env after is: {:?}", monomorphenv.borrow());
-                        let instance_ty = substituted_ty.named_type().unwrap();
+                        let instance_ty = substituted_ty.instance_type().unwrap();
                         if let Some(overloaded_func) =
                             overloaded_func_map.get(&(ident.clone(), instance_ty.clone()))
                         {
@@ -385,13 +381,20 @@ pub fn translate_expr(
                             inf_ctx,
                             node_map,
                             ident,
-                            substituted_ty.named_type().unwrap(),
+                            substituted_ty.interface_impl_type().unwrap(),
                         )
                         .to_stmt()
                         .unwrap();
-                        let ast::StmtKind::LetFunc(_, args, _, body) = &*func_def_node.stmtkind else { panic!() };
+                        let ast::StmtKind::LetFunc(pat, args, _, body) = &*func_def_node.stmtkind else { panic!() };
 
-                        println!("it's a let func");
+                        let overloaded_func_ty = Type::solution_of_node(inf_ctx, pat.id()).unwrap();
+                        let monomorphenv = Rc::new(RefCell::new(MonomorphEnv::new(None)));
+                        update_monomorphenv(
+                            monomorphenv.clone(),
+                            overloaded_func_ty,
+                            substituted_ty.clone(),
+                        );
+                        println!("monomorphic env after is: {:?}", monomorphenv.borrow());
                         overloaded_func_map.insert((ident.clone(), instance_ty.clone()), None);
                         let overloaded_func = translate_expr_func(
                             inf_ctx,
@@ -563,7 +566,8 @@ pub fn translate_expr(
     }
 }
 
-type OverloadedFuncMapTemp = HashMap<(eval_tree::Identifier, InterfaceInstance), Option<Rc<Ete>>>;
+type OverloadedFuncMapTemp =
+    HashMap<(eval_tree::Identifier, TypeFullyInstantiated), Option<Rc<Ete>>>;
 
 fn strip_temp_overloaded_func_map(
     overloaded_func_map_temp: &OverloadedFuncMapTemp,

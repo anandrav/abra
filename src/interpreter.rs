@@ -7,8 +7,8 @@ use crate::side_effects;
 use crate::side_effects::*;
 use crate::statics::Gamma;
 use crate::statics::InferenceContext;
-use crate::statics::InterfaceInstance;
 use crate::statics::Type;
+use crate::statics::TypeFullyInstantiated;
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
@@ -122,7 +122,7 @@ pub fn make_new_environment(
     env
 }
 
-pub type OverloadedFuncMap = HashMap<(Identifier, InterfaceInstance), Rc<Expr>>;
+pub type OverloadedFuncMap = HashMap<(Identifier, TypeFullyInstantiated), Rc<Expr>>;
 
 pub struct Interpreter {
     program_expr: Rc<Expr>,

@@ -26,14 +26,51 @@ pub enum Type {
     AdtInstance(Provs, Identifier, Vec<Type>),
 }
 
+// This is the fully instantiated, monomorphized type of an interface
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub enum InterfaceInstance {
+pub enum TypeFullyInstantiated {
     Unit,
     Int,
     Bool,
     String,
-    Function(Vec<InterfaceInstance>, Box<InterfaceInstance>),
-    Tuple(Vec<InterfaceInstance>),
+    Function(Vec<TypeFullyInstantiated>, Box<TypeFullyInstantiated>),
+    Tuple(Vec<TypeFullyInstantiated>),
+    Adt(Identifier, Vec<TypeFullyInstantiated>),
+}
+
+impl TypeFullyInstantiated {
+    pub fn to_interface_impl(self) -> TypeInterfaceImpl {
+        match self {
+            TypeFullyInstantiated::Unit => TypeInterfaceImpl::Unit,
+            TypeFullyInstantiated::Int => TypeInterfaceImpl::Int,
+            TypeFullyInstantiated::Bool => TypeInterfaceImpl::Bool,
+            TypeFullyInstantiated::String => TypeInterfaceImpl::String,
+            TypeFullyInstantiated::Function(params, ret) => TypeInterfaceImpl::Function(
+                params.into_iter().map(|x| x.to_interface_impl()).collect(),
+                ret.to_interface_impl().into(),
+            ),
+            TypeFullyInstantiated::Tuple(elements) => TypeInterfaceImpl::Tuple(
+                elements
+                    .into_iter()
+                    .map(|x| x.to_interface_impl())
+                    .collect(),
+            ),
+            TypeFullyInstantiated::Adt(name, _params) => TypeInterfaceImpl::Adt(name),
+        }
+    }
+}
+
+// This is the type of an interface's implementation, which is not fully instantiated.
+// For instance, an interface may be implemented for list<'a SomeInterface>, so its
+// implementation type will be list<'a>, which is not fully instantiated
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub enum TypeInterfaceImpl {
+    Unit,
+    Int,
+    Bool,
+    String,
+    Function(Vec<TypeInterfaceImpl>, Box<TypeInterfaceImpl>),
+    Tuple(Vec<TypeInterfaceImpl>),
     Adt(Identifier),
 }
 
@@ -405,37 +442,81 @@ impl Type {
         }
     }
 
-    pub fn named_type(&self) -> Option<InterfaceInstance> {
+    pub fn interface_impl_type(&self) -> Option<TypeInterfaceImpl> {
         match self {
             Self::UnifVar(_) => {
-                println!("named_type matched with unifvar");
+                println!("interface_impl_type() matched with unifvar");
                 None
             }
             Self::Poly(_, _ident, _interfaces) => {
-                println!("named_type matched with poly");
+                println!("interface_impl_type() matched with poly");
                 None
             }
-            Self::Unit(_) => Some(InterfaceInstance::Unit),
+            Self::Unit(_) => Some(TypeInterfaceImpl::Unit),
             Self::Int(_) => {
-                println!("matched with int");
-                Some(InterfaceInstance::Int)
+                println!("interface_impl_type() matched with int");
+                Some(TypeInterfaceImpl::Int)
             }
-            Self::Bool(_) => Some(InterfaceInstance::Bool),
-            Self::String(_) => Some(InterfaceInstance::String),
+            Self::Bool(_) => Some(TypeInterfaceImpl::Bool),
+            Self::String(_) => Some(TypeInterfaceImpl::String),
             Self::Function(_, args, out) => {
-                let mut args2: Vec<InterfaceInstance> = vec![];
+                let mut args2: Vec<TypeInterfaceImpl> = vec![];
                 for arg in args {
-                    if let Some(arg) = arg.named_type() {
+                    if let Some(arg) = arg.interface_impl_type() {
                         args2.push(arg);
                     } else {
                         return None;
                     }
                 }
-                let out = out.named_type()?;
-                Some(InterfaceInstance::Function(args2, out.into()))
+                let out = out.interface_impl_type()?;
+                Some(TypeInterfaceImpl::Function(args2, out.into()))
             } // TODO unimplemented
             Self::Tuple(_, _elems) => None, // TODO unimplemented
-            Self::AdtInstance(_, ident, _) => Some(InterfaceInstance::Adt(ident.clone())),
+            Self::AdtInstance(_, ident, _params) => Some(TypeInterfaceImpl::Adt(ident.clone())),
+        }
+    }
+
+    pub fn instance_type(&self) -> Option<TypeFullyInstantiated> {
+        match self {
+            Self::UnifVar(_) => {
+                println!("instance_type() matched with unifvar");
+                None
+            }
+            Self::Poly(_, _ident, _interfaces) => {
+                println!("instance_type() matched with poly");
+                None
+            }
+            Self::Unit(_) => Some(TypeFullyInstantiated::Unit),
+            Self::Int(_) => {
+                println!("instance_type() matched with int");
+                Some(TypeFullyInstantiated::Int)
+            }
+            Self::Bool(_) => Some(TypeFullyInstantiated::Bool),
+            Self::String(_) => Some(TypeFullyInstantiated::String),
+            Self::Function(_, args, out) => {
+                let mut args2: Vec<TypeFullyInstantiated> = vec![];
+                for arg in args {
+                    if let Some(arg) = arg.instance_type() {
+                        args2.push(arg);
+                    } else {
+                        return None;
+                    }
+                }
+                let out = out.instance_type()?;
+                Some(TypeFullyInstantiated::Function(args2, out.into()))
+            } // TODO unimplemented
+            Self::Tuple(_, _elems) => None, // TODO unimplemented
+            Self::AdtInstance(_, ident, params) => {
+                let mut params2: Vec<TypeFullyInstantiated> = vec![];
+                for param in params {
+                    if let Some(param) = param.instance_type() {
+                        params2.push(param);
+                    } else {
+                        return None;
+                    }
+                }
+                Some(TypeFullyInstantiated::Adt(ident.clone(), params2))
+            }
         }
     }
 
@@ -544,29 +625,35 @@ pub fn ast_type_to_statics_type(
     ast_type_to_statics_type_interface(inf_ctx, ast_type, None)
 }
 
-pub fn ast_type_to_interface_instance_type(ast_type: Rc<ast::AstType>) -> InterfaceInstance {
-    match &*ast_type.typekind {
-        ast::TypeKind::Poly(_ident, _) => panic!(), // TODO remove this and others
-        ast::TypeKind::Alias(_ident) => panic!(),
-        ast::TypeKind::Ap(ident, params) => InterfaceInstance::Adt(ident.clone()),
-        ast::TypeKind::Unit => InterfaceInstance::Unit,
-        ast::TypeKind::Int => InterfaceInstance::Int,
-        ast::TypeKind::Bool => InterfaceInstance::Bool,
-        ast::TypeKind::Str => InterfaceInstance::String,
-        // TODO wait does this only allow one argument??
-        ast::TypeKind::Arrow(lhs, rhs) => InterfaceInstance::Function(
-            vec![ast_type_to_interface_instance_type(lhs.clone())],
-            Box::new(ast_type_to_interface_instance_type(rhs.clone())),
-        ),
-        ast::TypeKind::Tuple(types) => {
-            let mut statics_types = Vec::new();
-            for t in types {
-                statics_types.push(ast_type_to_interface_instance_type(t.clone()));
-            }
-            InterfaceInstance::Tuple(statics_types)
-        }
-    }
-}
+// pub fn ast_type_to_interface_instance_type(ast_type: Rc<ast::AstType>) -> InterfaceInstance {
+//     match &*ast_type.typekind {
+//         ast::TypeKind::Poly(_ident, _) => panic!(), // TODO remove this and others
+//         ast::TypeKind::Alias(_ident) => panic!(),
+//         ast::TypeKind::Ap(ident, params) => InterfaceInstance::Adt(
+//             ident.clone(),
+//             params
+//                 .iter()
+//                 .map(|param| ast_type_to_interface_instance_type(param.clone()))
+//                 .collect(),
+//         ),
+//         ast::TypeKind::Unit => InterfaceInstance::Unit,
+//         ast::TypeKind::Int => InterfaceInstance::Int,
+//         ast::TypeKind::Bool => InterfaceInstance::Bool,
+//         ast::TypeKind::Str => InterfaceInstance::String,
+//         // TODO wait does this only allow one argument??
+//         ast::TypeKind::Arrow(lhs, rhs) => InterfaceInstance::Function(
+//             vec![ast_type_to_interface_instance_type(lhs.clone())],
+//             Box::new(ast_type_to_interface_instance_type(rhs.clone())),
+//         ),
+//         ast::TypeKind::Tuple(types) => {
+//             let mut statics_types = Vec::new();
+//             for t in types {
+//                 statics_types.push(ast_type_to_interface_instance_type(t.clone()));
+//             }
+//             InterfaceInstance::Tuple(statics_types)
+//         }
+//     }
+// }
 
 pub type Provs = RefCell<BTreeSet<Prov>>;
 
@@ -1516,7 +1603,7 @@ pub fn gather_definitions_stmt(
             );
         }
         StmtKind::InterfaceImpl(ident, ty, stmts) => {
-            let _named_ty = ast_type_to_interface_instance_type(ty.clone());
+            // let _named_ty = ast_type_to_interface_instance_type(ty.clone());
             let methods = stmts
                 .iter()
                 .map(|stmt| match &*stmt.stmtkind {
