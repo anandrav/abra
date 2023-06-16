@@ -203,40 +203,33 @@ implement ToString for bool {
 type list<'a> = nil | cons ('a, list<'a>)
 implement ToString for list<'a ToString> {
     let to_string(xs) = {
-        match xs
-            nil -> "nil"
-            cons (~x, ~xs) -> {
-                let s = append_strings(to_string(x), " ")
-                append_strings(s, to_string(xs))
-            }
+        let helper(xs) = 
+            match xs
+                nil -> ""
+                cons (~x, nil) -> {
+                    to_string(x)
+                }
+                cons (~x, ~xs) -> {
+                    let s = append_strings(to_string(x), ", ")
+                    append_strings(s, helper(xs))
+                }
+        append_strings("[ ", append_strings(helper(xs), "]"))
     }
 }
 let print(x: 'b ToString) = print_string(to_string(x))
-
-
-let print_list(xs: list<int>) =
-	match xs
-		nil -> print("")
-		cons (~x, ~xs) -> {
-			print(int_to_string(x))
-			print_list(xs)
-		}
 
 let squared_list(xs: list<int>) =
 	match xs
 		nil -> nil
 		cons (~x, ~xs) -> cons(x*x, squared_list(xs))
 
-
-let my_list = cons(1, cons(2, cons(3, cons(4, cons(5, nil)))))
-print("some numbers:")
-print_list(my_list)
-
-
 print("hello world")
 print(123)
 print(true)
 print(false)
+let my_list = cons(1, cons(2, cons(3, cons(4, cons(5, nil)))))
+print(my_list)
+let my_list = squared_list(my_list)
 print(my_list)
 "#;
 
