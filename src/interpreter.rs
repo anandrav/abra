@@ -20,6 +20,10 @@ pub fn make_new_environment(
     // builtins
     let env = Rc::new(RefCell::new(Environment::new(None)));
     env.borrow_mut().extend(
+        &String::from("newline"),
+        Rc::new(Expr::Str(String::from("\n"))),
+    );
+    env.borrow_mut().extend(
         &String::from("print_string"),
         Rc::new(Expr::Func(
             vec![String::from("str")],
@@ -34,8 +38,8 @@ pub fn make_new_environment(
         &String::from("int_to_string"),
         Rc::new(Expr::Func(
             vec![String::from("some_int")],
-            Rc::new(Expr::EffectAp(
-                side_effects::Effect::IntToString,
+            Rc::new(Expr::BuiltinAp(
+                Builtin::IntToString,
                 vec![Rc::new(Expr::Var(String::from("some_int")))],
             )),
             None,
@@ -45,8 +49,8 @@ pub fn make_new_environment(
         &String::from("append_strings"),
         Rc::new(Expr::Func(
             vec![String::from("s1"), String::from("s2")],
-            Rc::new(Expr::EffectAp(
-                side_effects::Effect::AppendStrings,
+            Rc::new(Expr::BuiltinAp(
+                Builtin::AppendStrings,
                 vec![
                     Rc::new(Expr::Var(String::from("s1"))),
                     Rc::new(Expr::Var(String::from("s2"))),
@@ -775,6 +779,40 @@ fn interpret(
                 new_env: env,
             }
         }
+        BuiltinAp(builtin, args) => {
+            let mut args = args.to_vec();
+            for i in 0..args.len() {
+                let InterpretResult {
+                    expr: arg,
+                    steps,
+                    effect,
+                    new_env,
+                } = interpret(
+                    args[i].clone(),
+                    env.clone(),
+                    overloaded_func_map,
+                    steps,
+                    &input.clone(),
+                );
+                args[i] = arg;
+                if effect.is_some() || steps <= 0 {
+                    return InterpretResult {
+                        expr: Rc::new(BuiltinAp(*builtin, args.to_vec())),
+                        steps,
+                        effect,
+                        new_env,
+                    };
+                }
+            }
+            let steps = steps - 1;
+            let result = handle_builtin(*builtin, args.to_vec());
+            InterpretResult {
+                expr: result,
+                steps,
+                effect: None,
+                new_env: env,
+            }
+        }
         ConsumedEffect => match input {
             None => panic!("no input to substitute for ConsumedEffect"),
             Some(input) => match input {
@@ -831,6 +869,26 @@ fn populate_env(env: Rc<RefCell<Environment>>, pat: Rc<Pat>, expr: Rc<Expr>) {
             }
         }
         _ => panic!("pattern and expression do not match"),
+    }
+}
+
+fn handle_builtin(builtin: Builtin, args: Vec<Rc<Expr>>) -> Rc<Expr> {
+    match builtin {
+        Builtin::IntToString => {
+            let arg = args[0].clone();
+            match &*arg {
+                Int(i) => Rc::new(Str(i.to_string())),
+                _ => panic!("IntToString expects an Int"),
+            }
+        }
+        Builtin::AppendStrings => {
+            let arg1 = args[0].clone();
+            let arg2 = args[1].clone();
+            match (&*arg1, &*arg2) {
+                (Str(s1), Str(s2)) => Rc::new(Str(s1.to_string() + &s2.to_string())),
+                _ => panic!("AppendStrings expects two Strings"),
+            }
+        }
     }
 }
 

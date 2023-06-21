@@ -75,10 +75,11 @@ func_call_arg = _{ expression }
 method_call_expression = { primary_expression ~ "." ~ method_call_ident_and_args }
 method_call_ident_and_args = ${ identifier ~ func_call_args }
 
-func_expression = { func_keyword ~ func_args ~ func_out_annotation? ~ expression }
+func_expression = { func_expression_args ~ "->" ~ func_out_annotation? ~ expression }
 func_out_annotation = { "->" ~ typ }
 func_args_start = _{ "(" }
 func_args_end = _{ ")" }
+func_expression_args = _{ func_args | func_arg }
 func_args = _{ func_args_start ~ (func_arg ~ ",")* ~ func_arg? ~ func_args_end }
 func_keyword = _{ "func" }
 func_arg = { let_pattern ~ (interface_annotation | type_annotation )?}

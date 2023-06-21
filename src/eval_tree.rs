@@ -25,10 +25,17 @@ pub enum Expr {
     If(Rc<Expr>, Rc<Expr>, Rc<Expr>),
     Match(Rc<Expr>, Vec<MatchArm>),
     EffectAp(side_effects::Effect, Vec<Rc<Expr>>),
+    BuiltinAp(Builtin, Vec<Rc<Expr>>),
     ConsumedEffect,
 }
 
 pub type MatchArm = (Rc<Pat>, Rc<Expr>);
+
+#[derive(Debug, PartialEq, Eq, Copy, Clone)]
+pub enum Builtin {
+    IntToString,
+    AppendStrings,
+}
 
 // only works for values right now:
 impl std::fmt::Display for Expr {
@@ -88,6 +95,7 @@ pub fn is_val(expr: &Rc<Expr>) -> bool {
         If(_, _, _) => false,
         Match(_, _) => false,
         EffectAp(_, _) => false,
+        BuiltinAp(_, _) => false,
         ConsumedEffect => false,
     }
 }

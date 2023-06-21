@@ -830,6 +830,10 @@ pub struct Gamma {
 pub fn make_new_gamma() -> Rc<RefCell<Gamma>> {
     let gamma = Gamma::empty();
     gamma.borrow_mut().extend(
+        &String::from("newline"),
+        Type::String(RefCell::new(BTreeSet::new())),
+    );
+    gamma.borrow_mut().extend(
         &String::from("print_string"),
         Type::Function(
             RefCell::new(BTreeSet::new()),
@@ -1185,9 +1189,63 @@ pub fn generate_constraints_expr(
             }
         }
         ExprKind::Func(args, out_annot, body) => {
-            let (ty_func, _body_gamma) = generate_constraints_function_helper(
-                gamma, inf_ctx, args, out_annot, body, expr.id,
+            let func_node_id = expr.id;
+            let body_gamma = Gamma::new(Some(gamma));
+
+            // arguments
+            let ty_args = args
+                .iter()
+                .map(|(arg, arg_annot)| {
+                    let ty_pat = Type::from_node(inf_ctx, arg.id);
+                    match arg_annot {
+                        Some(arg_annot) => {
+                            let ty_annot = Type::from_node(inf_ctx, arg_annot.id());
+                            let arg_annot = ast_type_to_statics_type(inf_ctx, arg_annot.clone());
+                            constrain(ty_annot.clone(), arg_annot.clone());
+                            body_gamma.borrow_mut().add_polys(&arg_annot);
+                            generate_constraints_pat(
+                                body_gamma.clone(), // TODO what are the consequences of analyzing patterns with context containing previous pattern... probs should not do that
+                                Mode::Ana { expected: ty_annot },
+                                arg.clone(),
+                                inf_ctx,
+                            )
+                        }
+                        None => generate_constraints_pat(
+                            body_gamma.clone(),
+                            Mode::Syn,
+                            arg.clone(),
+                            inf_ctx,
+                        ),
+                    }
+                    ty_pat
+                })
+                .collect();
+
+            // body
+            let ty_body =
+                Type::fresh_unifvar(inf_ctx, Prov::FuncOut(Box::new(Prov::Node(func_node_id))));
+            generate_constraints_expr(
+                body_gamma.clone(),
+                Mode::Ana {
+                    expected: ty_body.clone(),
+                },
+                body.clone(),
+                inf_ctx,
             );
+            if let Some(out_annot) = out_annot {
+                let out_annot = ast_type_to_statics_type(inf_ctx, out_annot.clone());
+                body_gamma.borrow_mut().add_polys(&out_annot);
+                generate_constraints_expr(
+                    body_gamma,
+                    Mode::Ana {
+                        expected: out_annot,
+                    },
+                    body.clone(),
+                    inf_ctx,
+                );
+            }
+
+            let ty_func = Type::make_arrow(ty_args, ty_body, func_node_id);
 
             constrain(ty_func, node_ty);
         }
@@ -1288,66 +1346,66 @@ pub fn generate_constraints_expr(
 }
 
 // helper function for common code between Expr::Func and Expr::LetFunc
-pub fn generate_constraints_function_helper(
-    gamma: Rc<RefCell<Gamma>>,
-    inf_ctx: &mut InferenceContext,
-    args: &[(Rc<ast::Pat>, Option<Rc<ast::AstType>>)],
-    out_annot: &Option<Rc<ast::AstType>>,
-    body: &Rc<Expr>,
-    func_node_id: ast::Id,
-) -> (Type, Rc<RefCell<Gamma>>) {
-    // arguments
-    let body_gamma = Gamma::new(Some(gamma));
-    let ty_args = args
-        .iter()
-        .map(|(arg, arg_annot)| {
-            let ty_pat = Type::from_node(inf_ctx, arg.id);
-            match arg_annot {
-                Some(arg_annot) => {
-                    let arg_annot = ast_type_to_statics_type(inf_ctx, arg_annot.clone());
-                    body_gamma.borrow_mut().add_polys(&arg_annot);
-                    generate_constraints_pat(
-                        body_gamma.clone(), // TODO what are the consequences of analyzing patterns with context containing previous pattern... probs should not do that
-                        Mode::Ana {
-                            expected: arg_annot,
-                        },
-                        arg.clone(),
-                        inf_ctx,
-                    )
-                }
-                None => {
-                    generate_constraints_pat(body_gamma.clone(), Mode::Syn, arg.clone(), inf_ctx)
-                }
-            }
-            ty_pat
-        })
-        .collect();
+// pub fn generate_constraints_function_helper(
+//     gamma: Rc<RefCell<Gamma>>,
+//     inf_ctx: &mut InferenceContext,
+//     args: &[(Rc<ast::Pat>, Option<Rc<ast::AstType>>)],
+//     out_annot: &Option<Rc<ast::AstType>>,
+//     body: &Rc<Expr>,
+//     func_node_id: ast::Id,
+// ) -> (Type, Rc<RefCell<Gamma>>) {
+//     // arguments
+//     let body_gamma = Gamma::new(Some(gamma));
+//     let ty_args = args
+//         .iter()
+//         .map(|(arg, arg_annot)| {
+//             let ty_pat = Type::from_node(inf_ctx, arg.id);
+//             match arg_annot {
+//                 Some(arg_annot) => {
+//                     let arg_annot = ast_type_to_statics_type(inf_ctx, arg_annot.clone());
+//                     body_gamma.borrow_mut().add_polys(&arg_annot);
+//                     generate_constraints_pat(
+//                         body_gamma.clone(), // TODO what are the consequences of analyzing patterns with context containing previous pattern... probs should not do that
+//                         Mode::Ana {
+//                             expected: arg_annot,
+//                         },
+//                         arg.clone(),
+//                         inf_ctx,
+//                     )
+//                 }
+//                 None => {
+//                     generate_constraints_pat(body_gamma.clone(), Mode::Syn, arg.clone(), inf_ctx)
+//                 }
+//             }
+//             ty_pat
+//         })
+//         .collect();
 
-    // body
-    let ty_body = Type::fresh_unifvar(inf_ctx, Prov::FuncOut(Box::new(Prov::Node(func_node_id))));
-    generate_constraints_expr(
-        body_gamma.clone(),
-        Mode::Ana {
-            expected: ty_body.clone(),
-        },
-        body.clone(),
-        inf_ctx,
-    );
-    if let Some(out_annot) = out_annot {
-        let out_annot = ast_type_to_statics_type(inf_ctx, out_annot.clone());
-        body_gamma.borrow_mut().add_polys(&out_annot);
-        generate_constraints_expr(
-            body_gamma.clone(),
-            Mode::Ana {
-                expected: out_annot,
-            },
-            body.clone(),
-            inf_ctx,
-        );
-    }
+//     // body
+//     let ty_body = Type::fresh_unifvar(inf_ctx, Prov::FuncOut(Box::new(Prov::Node(func_node_id))));
+//     generate_constraints_expr(
+//         body_gamma.clone(),
+//         Mode::Ana {
+//             expected: ty_body.clone(),
+//         },
+//         body.clone(),
+//         inf_ctx,
+//     );
+//     if let Some(out_annot) = out_annot {
+//         let out_annot = ast_type_to_statics_type(inf_ctx, out_annot.clone());
+//         body_gamma.borrow_mut().add_polys(&out_annot);
+//         generate_constraints_expr(
+//             body_gamma.clone(),
+//             Mode::Ana {
+//                 expected: out_annot,
+//             },
+//             body.clone(),
+//             inf_ctx,
+//         );
+//     }
 
-    (Type::make_arrow(ty_args, ty_body, func_node_id), body_gamma)
-}
+//     (Type::make_arrow(ty_args, ty_body, func_node_id), body_gamma)
+// }
 
 pub fn generate_constraints_stmt(
     gamma: Rc<RefCell<Gamma>>,

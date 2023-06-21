@@ -213,24 +213,34 @@ implement ToString for list<'a ToString> {
                     let s = append_strings(to_string(x), ", ")
                     append_strings(s, helper(xs))
                 }
-        append_strings("[ ", append_strings(helper(xs), "]"))
+        append_strings("[ ", append_strings(helper(xs), " ]"))
     }
 }
 let print(x: 'b ToString) = print_string(to_string(x))
+let println(x: 'b ToString) = {
+    print_string(to_string(x))
+    print_string(newline)
+}
 
-let squared_list(xs: list<int>) =
-	match xs
-		nil -> nil
-		cons (~x, ~xs) -> cons(x*x, squared_list(xs))
+let map(xs: list<'a>, f: 'a -> 'b) =
+    match xs
+        nil -> nil
+        cons (~head, ~tail) -> cons(f(head), map(tail, f))
 
-print("hello world")
-print(123)
-print(true)
-print(false)
-let my_list = cons(1, cons(2, cons(3, cons(4, cons(5, nil)))))
-print(my_list)
-let my_list = squared_list(my_list)
-print(my_list)
+let filter(xs: list<'a>, f: 'a -> bool) =
+    match xs
+        nil -> nil
+        cons (~head, ~tail) -> 
+            if f(head) cons(head, filter(tail, f)) else filter(tail, f)
+
+println("hello world")
+println(123)
+println(true)
+println(false)
+let numbers = cons(1, cons(2, cons(3, cons(4, cons(5, nil)))))
+println(numbers)
+let numbers = map(numbers, x -> x * x)
+println(numbers)
 "#;
 
 impl Default for MyApp {

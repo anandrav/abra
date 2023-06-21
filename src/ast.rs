@@ -1091,7 +1091,7 @@ pub fn parse_expr_term(pair: Pair<Rule>) -> Rc<Expr> {
             let inner: Vec<_> = pair.into_inner().collect();
             let mut n = 0;
             let mut args = vec![];
-            while let Rule::let_pattern_annotated = inner[n].as_rule() {
+            while let Rule::func_arg = inner[n].as_rule() {
                 let pat_annotated = parse_func_arg_annotation(inner[n].clone());
                 args.push(pat_annotated);
                 n += 1;
