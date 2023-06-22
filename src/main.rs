@@ -201,7 +201,35 @@ add(1, 2)
 // print_string(to_string("123"))
 // "#;
 
-const _INTERFACES: &str = r#"interface ToString {
+const _INTERFACES: &str = r#"
+interface Equals {
+    equals: (self, self) -> bool
+}
+implement Equals for void {
+    let equals(a, b) = true
+}
+implement Equals for int {
+    let equals(a, b) = equals_int(a, b)
+}
+implement Equals for bool {
+    let equals(a, b) = 
+        if a and b {
+            true
+        } else if a or b {
+            false
+        } else {
+            true
+        }
+}
+implement Equals for string {
+    let equals(a, b) = equals_string(a, b)
+}
+let hack = equals((), ())
+let hack = equals(1, 1)
+let hack = equals(true, true)
+let hack = equals("hello", "hello")
+
+interface ToString {
     to_string: self -> string
 }
 implement ToString for string {
@@ -253,9 +281,42 @@ let numbers = cons(1, cons(2, cons(3, cons(4, cons(5, nil)))))
 println(numbers)
 let numbers = map(numbers, x -> x * x)
 println(numbers)
+
+println("2 + 2 = 4?")
+println(equals(2 + 2,4))
+println("true = false?")
+println(equals(true, false))
+println("hello = hello?")
+println(equals("hello", "hello"))
 "#;
 
 const PRELUDE: &str = r#"
+interface Equals {
+    equals: (self, self) -> bool
+}
+implement Equals for void {
+    let equals(a, b) = true
+}
+implement Equals for int {
+    let equals(a, b) = equals_int(a, b)
+}
+implement Equals for bool {
+    let equals(a, b) = 
+        if a and b {
+            true
+        } else if a or b {
+            false
+        } else {
+            true
+        }
+}
+implement Equals for string {
+    let equals(a, b) = equals_string(a, b)
+}
+let hack = equals((), ())
+let hack = equals(1, 1)
+let hack = equals(true, true)
+let hack = equals("hello", "hello")
 
 interface ToString {
     to_string: self -> string
@@ -306,7 +367,7 @@ let filter(xs: list<'a>, f: 'a -> bool) =
 impl Default for MyApp {
     fn default() -> Self {
         Self {
-            text: String::from(_INTERFACES),
+            text: String::from(_FIB),
             output: String::default(),
             interpreter: None,
         }
@@ -361,8 +422,8 @@ impl eframe::App for MyApp {
                         {
                             self.interpreter = None;
                             self.output.clear();
-                            // let source = PRELUDE.to_owned() + &self.text;
-                            let source = &self.text;
+                            let source = PRELUDE.to_owned() + &self.text;
+                            // let source = &self.text;
                             match ast::parse_or_err(&source) {
                                 Ok(parse_tree) => {
                                     debug_println!("successfully parsed.");

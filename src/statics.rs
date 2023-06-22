@@ -573,8 +573,7 @@ pub fn types_of_binop(opcode: &BinOpcode, id: ast::Id) -> (Type, Type, Type) {
             Type::make_int(Prov::Node(id)),
             Type::make_int(Prov::Node(id)),
         ),
-        BinOpcode::Equals
-        | BinOpcode::LessThan
+        BinOpcode::LessThan
         | BinOpcode::GreaterThan
         | BinOpcode::LessThanOrEqual
         | BinOpcode::GreaterThanOrEqual => (
@@ -587,6 +586,11 @@ pub fn types_of_binop(opcode: &BinOpcode, id: ast::Id) -> (Type, Type, Type) {
             Type::make_string(Prov::Node(id)),
             Type::make_string(Prov::Node(id)),
         ),
+        BinOpcode::Equals => {
+            let ty =
+                Type::make_poly_constrained(Prov::Node(id), "a".to_owned(), "Equals".to_owned());
+            (ty.clone(), ty.clone(), Type::make_bool(Prov::Node(id)))
+        }
     }
 }
 
@@ -860,6 +864,50 @@ pub fn make_new_gamma() -> Rc<RefCell<Gamma>> {
         ),
     );
     gamma.borrow_mut().extend(
+        &String::from("equals_int"),
+        Type::Function(
+            RefCell::new(BTreeSet::new()),
+            vec![
+                Type::make_int(Prov::FuncArg(
+                    Box::new(Prov::Builtin("equals_int: (int, int) -> bool".to_string())),
+                    0,
+                )),
+                Type::make_int(Prov::FuncArg(
+                    Box::new(Prov::Builtin("equals_int: (int, int) -> bool".to_string())),
+                    1,
+                )),
+            ],
+            Type::make_bool(Prov::FuncOut(Box::new(Prov::Builtin(
+                "equals_int: (int, int) -> bool".to_string(),
+            ))))
+            .into(),
+        ),
+    );
+    gamma.borrow_mut().extend(
+        &String::from("equals_string"),
+        Type::Function(
+            RefCell::new(BTreeSet::new()),
+            vec![
+                Type::make_string(Prov::FuncArg(
+                    Box::new(Prov::Builtin(
+                        "equals_string: (string, string) -> bool".to_string(),
+                    )),
+                    0,
+                )),
+                Type::make_string(Prov::FuncArg(
+                    Box::new(Prov::Builtin(
+                        "equals_string: (string, string) -> bool".to_string(),
+                    )),
+                    1,
+                )),
+            ],
+            Type::make_bool(Prov::FuncOut(Box::new(Prov::Builtin(
+                "equals_string: (string, string) -> bool".to_string(),
+            ))))
+            .into(),
+        ),
+    );
+    gamma.borrow_mut().extend(
         &String::from("int_to_string"),
         Type::Function(
             RefCell::new(BTreeSet::new()),
@@ -1088,6 +1136,11 @@ pub fn generate_constraints_expr(
         }
         ExprKind::BinOp(left, op, right) => {
             let (ty_left, ty_right, ty_out) = types_of_binop(op, expr.id);
+            let (ty_left, ty_right, ty_out) = (
+                ty_left.instantiate(gamma.clone(), inf_ctx, Prov::Node(expr.id)),
+                ty_right.instantiate(gamma.clone(), inf_ctx, Prov::Node(expr.id)),
+                ty_out.instantiate(gamma.clone(), inf_ctx, Prov::Node(expr.id)),
+            );
             constrain(ty_out, node_ty);
             generate_constraints_expr(
                 gamma.clone(),

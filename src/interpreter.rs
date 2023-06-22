@@ -35,6 +35,34 @@ pub fn make_new_environment(
         )),
     );
     env.borrow_mut().extend(
+        &String::from("equals_int"),
+        Rc::new(Expr::Func(
+            vec![String::from("i1"), String::from("i2")],
+            Rc::new(Expr::BuiltinAp(
+                Builtin::EqualsInt,
+                vec![
+                    Rc::new(Expr::Var(String::from("i1"))),
+                    Rc::new(Expr::Var(String::from("i2"))),
+                ],
+            )),
+            None,
+        )),
+    );
+    env.borrow_mut().extend(
+        &String::from("equals_string"),
+        Rc::new(Expr::Func(
+            vec![String::from("s1"), String::from("s2")],
+            Rc::new(Expr::BuiltinAp(
+                Builtin::EqualsString,
+                vec![
+                    Rc::new(Expr::Var(String::from("s1"))),
+                    Rc::new(Expr::Var(String::from("s2"))),
+                ],
+            )),
+            None,
+        )),
+    );
+    env.borrow_mut().extend(
         &String::from("int_to_string"),
         Rc::new(Expr::Func(
             vec![String::from("some_int")],
@@ -889,6 +917,22 @@ fn handle_builtin(builtin: Builtin, args: Vec<Rc<Expr>>) -> Rc<Expr> {
                 _ => panic!("AppendStrings expects two Strings"),
             }
         }
+        Builtin::EqualsInt => {
+            let arg1 = args[0].clone();
+            let arg2 = args[1].clone();
+            match (&*arg1, &*arg2) {
+                (Int(i1), Int(i2)) => Rc::new(Bool(i1 == i2)),
+                _ => panic!("EqualsInt expects two Ints"),
+            }
+        }
+        Builtin::EqualsString => {
+            let arg1 = args[0].clone();
+            let arg2 = args[1].clone();
+            match (&*arg1, &*arg2) {
+                (Str(s1), Str(s2)) => Rc::new(Bool(s1 == s2)),
+                _ => panic!("EqualsString expects two Strings"),
+            }
+        }
     }
 }
 
@@ -914,11 +958,7 @@ fn perform_op(val1: Rc<Expr>, op: BinOpcode, val2: Rc<Expr>) -> Rc<Expr> {
             (Int(i1), Int(i2)) => Rc::new(Int(i1 % i2)),
             _ => panic!("one or more operands of Mod are not Ints"),
         },
-        Equals => match (&*val1, &*val2) {
-            (Int(i1), Int(i2)) => Rc::new(Bool(i1 == i2)),
-            (Bool(b1), Bool(b2)) => Rc::new(Bool(b1 == b2)),
-            _ => panic!("can only compare values which are both Ints or both Bools"),
-        },
+        Equals => panic!("equals operator was not overloaded properly!"),
         GreaterThan => match (&*val1, &*val2) {
             (Int(i1), Int(i2)) => Rc::new(Bool(i1 > i2)),
             _ => panic!("one or more operands of GreaterThan are not Ints"),

@@ -35,6 +35,8 @@ pub type MatchArm = (Rc<Pat>, Rc<Expr>);
 pub enum Builtin {
     IntToString,
     AppendStrings,
+    EqualsInt,
+    EqualsString,
 }
 
 // only works for values right now:

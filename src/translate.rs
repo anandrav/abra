@@ -3,6 +3,7 @@ use crate::ast::Node;
 use crate::ast::NodeMap;
 use crate::eval_tree;
 use crate::interpreter;
+use crate::operators::BinOpcode;
 use crate::statics::Gamma;
 use crate::statics::InferenceContext;
 use crate::statics::Prov;
@@ -431,6 +432,45 @@ pub fn translate_expr(
                 ));
             }
             Rc::new(Ete::Tuple(translated_exprs))
+        }
+        ASTek::BinOp(expr1, BinOpcode::Equals, expr2) => {
+            let ty1 = Type::solution_of_node(inf_ctx, expr1.id())
+                .unwrap()
+                .instance_type()
+                .unwrap();
+            let ty2 = Type::solution_of_node(inf_ctx, expr2.id())
+                .unwrap()
+                .instance_type()
+                .unwrap();
+            let ty = TypeFullyInstantiated::Function(
+                vec![ty1.clone(), ty2.clone()],
+                TypeFullyInstantiated::Bool.into(),
+            );
+            dbg!(&ty);
+            Rc::new(Ete::FuncAp(
+                Rc::new(Ete::VarOverloaded("equals".to_owned(), ty)),
+                vec![
+                    translate_expr(
+                        inf_ctx,
+                        monomorphenv.clone(),
+                        gamma.clone(),
+                        node_map,
+                        overloaded_func_map,
+                        expr1.exprkind.clone(),
+                        expr1.id,
+                    ),
+                    translate_expr(
+                        inf_ctx,
+                        monomorphenv.clone(),
+                        gamma.clone(),
+                        node_map,
+                        overloaded_func_map,
+                        expr2.exprkind.clone(),
+                        expr2.id,
+                    ),
+                ],
+                None,
+            ))
         }
         ASTek::BinOp(expr1, op, expr2) => Rc::new(Ete::BinOp(
             translate_expr(
