@@ -1085,7 +1085,7 @@ pub fn generate_constraints_expr(
         ExprKind::List(exprs) => {
             let elem_ty = Type::fresh_unifvar(inf_ctx, Prov::ListElem(Prov::Node(expr.id).into()));
             constrain(
-                node_ty.clone(),
+                node_ty,
                 Type::make_def_instance(
                     Prov::Node(expr.id),
                     "list".to_owned(),

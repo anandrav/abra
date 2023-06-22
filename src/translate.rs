@@ -463,7 +463,7 @@ pub fn translate_expr(
                 .instance_type()
                 .unwrap();
             let ty = TypeFullyInstantiated::Function(
-                vec![ty1.clone(), ty2.clone()],
+                vec![ty1, ty2],
                 TypeFullyInstantiated::Bool.into(),
             );
             dbg!(&ty);
