@@ -128,8 +128,36 @@ const _FIB: &str = r#"let fibonacci(n) = {
         _ -> fibonacci(n-1) + fibonacci(n-2)
 }
 
-println("The first 20 fibonacci numbers are:")
-foreach(range(1, 20), n -> println(fibonacci(n)))
+println("The first 10 fibonacci numbers are:")
+for_each(range(0, 9), n -> println(fibonacci(n)))
+"#;
+
+const _DEMO: &str = r#"let fibonacci(n) = {
+    match n
+        0 -> 0
+        1 -> 1
+        _ -> fibonacci(n-1) + fibonacci(n-2)
+}
+
+let list = range(0,9)
+println("numbers: ")
+println(list)
+
+let list = map(list, fibonacci)
+println("fibonacci: ")
+println(list)
+
+let list = map(list, x -> x * x * x)
+println("cubed: ")
+println(list)
+
+let list = filter(list, x -> x mod 2 = 1)
+println("only odds: ")
+println(list)
+
+print(newline)
+print("they add up to: ")
+println(sum(list))
 "#;
 
 const _MORE_LIST: &str = r#"type list<'a> = nil | cons ('a, list<'a>)
@@ -204,16 +232,20 @@ print("numbers: ")
 println(list)
 
 let list = map(list, x -> x * x * x)
-print("squared: ")
+print("cubed: ")
 println(list)
 
 let list = filter(list, x -> x mod 2 = 0)
 print("only even: ")
 println(list)
 
+let sum = fold(list, (x, y) -> x + y, 0)
+print("they add up to: ")
+println(sum)
+
 let list = ["The", "Abra", "Programming", "Language"]
 let s = concat(list, " ~ ")
-println(newline & s)
+println(s)
 
 "#;
 
@@ -406,6 +438,8 @@ let fold(xs: list<'b>, f: ('a, 'b) -> 'a, acc: 'a) -> 'a =
         nil -> acc
         cons (~head, ~tail) -> fold(tail, f, f(acc, head))
 
+let sum(xs: list<int>) -> int = fold(xs, (a, b) -> a + b, 0)
+
 let concat(xs: list<string>, sep: string) -> string =
     match xs
         nil -> ""
@@ -421,12 +455,12 @@ let map(xs: list<'a>, f: 'a -> 'b) -> list<'b> =
         nil -> nil
         cons (~head, ~tail) -> cons(f(head), map(tail, f))
 
-let foreach(xs: list<'a>, f: 'a -> 'b) -> void =
+let for_each(xs: list<'a>, f: 'a -> 'b) -> void =
     match xs
         nil -> ()
         cons (~head, ~tail) -> {
             f(head)
-            foreach(tail, f)
+            for_each(tail, f)
         }
 
 let filter(xs: list<'a>, f: 'a -> bool) -> list<'a> =
@@ -435,6 +469,9 @@ let filter(xs: list<'a>, f: 'a -> bool) -> list<'a> =
         cons (~head, ~tail) -> 
             if f(head) cons(head, filter(tail, f)) else filter(tail, f)
 
+let reverse(xs: list<'c>) -> list<'c> =
+    fold(xs, (acc, head) -> cons(head, acc), nil)
+
 let hack = [1, 2, 3, 4]
 
 "#;
@@ -442,7 +479,7 @@ let hack = [1, 2, 3, 4]
 impl Default for MyApp {
     fn default() -> Self {
         Self {
-            text: String::from(_SCRATCH),
+            text: String::from(_DEMO),
             output: String::default(),
             interpreter: None,
         }
