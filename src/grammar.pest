@@ -92,12 +92,13 @@ type_annotation = _{ ":" ~ typ }
 // typ = { type_term ~ (type_op_binary ~ type_term)* }
 // type_term = _{ type_parenthesized | type_ap | tuple_type | type_literal }
 typ = _{ type_parenthesized | type_ap | func_type | tuple_type | type_literal }
+typ_not_func = _{ type_parenthesized | type_ap | tuple_type | type_literal }
 
 type_parenthesized = _{ paren_start ~ typ ~ paren_end }
 
 func_type = { func_type_args ~ "->" ~ typ }
-func_type_args = _{ func_type_arg_list }
-func_type_arg_list = _{ "(" ~ (func_type_arg_single ~ ",")* ~ func_type_arg_single? ~ ")" }
+func_type_args = _{ func_type_arg_list | typ_not_func }
+func_type_arg_list = _{ "(" ~ (func_type_arg_single ~ ",")* ~ func_type_arg_single ~ ")" }
 func_type_arg_single = _{ typ }
 
 type_ap = { identifier ~ type_args }

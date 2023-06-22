@@ -786,25 +786,10 @@ pub fn parse_match_pattern(pair: Pair<Rule>) -> Rc<Pat> {
     }
 }
 
-pub fn parse_type_pratt(pairs: Pairs<Rule>) -> Rc<AstType> {
-    let pratt = PrattParser::new(); //.op(Op::infix(Rule::type_op_arrow, Assoc::Right));
-    pratt
-        .map_primary(parse_type_term)
-        // .map_infix(|lhs, op, rhs| {
-        //     Rc::new(AstType {
-        //         typekind: Rc::new(TypeKind::Arrow(lhs, rhs)),
-        //         span: Span::from(op.as_span()),
-        //         id: Id::new(),
-        //     })
-        // })
-        .parse(pairs)
-}
-
 pub fn parse_type_term(pair: Pair<Rule>) -> Rc<AstType> {
     let span = Span::from(pair.as_span());
     let rule = pair.as_rule();
     match rule {
-        Rule::typ => parse_type_pratt(pair.into_inner()),
         Rule::type_poly => {
             let inner: Vec<_> = pair.into_inner().collect();
             let name = inner[0].as_str()[1..].to_owned();
@@ -939,7 +924,7 @@ pub fn parse_stmt(pair: Pair<Rule>) -> Rc<Stmt> {
         }
         Rule::typealias => {
             let ident = inner[0].as_str().to_string();
-            let definition = parse_type_pratt(inner[1].clone().into_inner());
+            let definition = parse_type_term(inner[1].clone());
             Rc::new(Stmt {
                 stmtkind: Rc::new(StmtKind::TypeDef(Rc::new(TypeDefKind::Alias(
                     ident, definition,
@@ -1011,7 +996,7 @@ pub fn parse_interface_method(pair: Pair<Rule>) -> InterfaceProperty {
     match rule {
         Rule::interface_property => {
             let ident = inner[0].as_str().to_string();
-            let ty = parse_type_pratt(inner[1].clone().into_inner());
+            let ty = parse_type_term(inner[1].clone());
             InterfaceProperty { ident, ty }
         }
         _ => panic!("unreachable rule {:#?}", rule),
@@ -1031,7 +1016,7 @@ pub fn parse_variant(pair: Pair<Rule>) -> Rc<Variant> {
             //     n += 1;
             // }
             let data = if let Some(pair) = inner.get(n) {
-                let data = parse_type_pratt(pair.clone().into_inner());
+                let data = parse_type_term(pair.clone());
                 Some(data)
             } else {
                 None

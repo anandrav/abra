@@ -306,7 +306,7 @@ let filter(xs: list<'a>, f: 'a -> bool) =
 impl Default for MyApp {
     fn default() -> Self {
         Self {
-            text: String::from(_FUNC_ANNOT),
+            text: String::from(_INTERFACES),
             output: String::default(),
             interpreter: None,
         }
