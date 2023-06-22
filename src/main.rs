@@ -114,9 +114,11 @@ let for_range(r: range, f) = {
     }
 }
 
-println("The first 30 fibonacci numbers are:")
+let n = 10
 
-for_range((0, 30), n -> println(fibonacci(n)))
+println("The first " & to_string(n) & " fibonacci numbers are:")
+for_range((0,n), i -> println(fibonacci(i)))
+println("done!")
 "#;
 
 const _MORE_LIST: &str = r#"type list<'a> = nil | cons ('a, list<'a>)
@@ -317,8 +319,10 @@ impl eframe::App for MyApp {
                 interpreter.run(effect_handler, steps);
                 self.output.push_str(&more_output);
                 if interpreter.is_finished() {
-                    self.output +=
-                        &format!("Last line evaluated to: {}", interpreter.get_val().unwrap());
+                    self.output += &format!(
+                        "\nLast line evaluated to: {}",
+                        interpreter.get_val().unwrap()
+                    );
                     self.interpreter = None;
                 } else {
                     ui.ctx().request_repaint();
