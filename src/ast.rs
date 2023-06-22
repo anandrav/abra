@@ -587,16 +587,14 @@ impl Span {
             let num_tabs = line.chars().take(pad_before).filter(|c| *c == '\t').count();
             let pad_before_in_spaces = pad_before + num_tabs * 3;
 
-            let pad_end = if line_number == hi_line {
-                line.len() - hi_col
+            let underline_length = if line_number == hi_line {
+                hi_col - pad_before + 1
             } else {
-                0
+                line.len() - pad_before
             };
-
-            let underline = line.len() - pad_end - pad_before + 1;
             s.push_str(&format!("{:3} | ", "")); // line number placeholder
             s.push_str(&format!("{:1$}", "", pad_before_in_spaces)); // pad before
-            s.push_str(&format!("{:^<1$}\n", "", underline)); // underline
+            s.push_str(&format!("{:^<1$}\n", "", underline_length)); // underline
         }
         s
     }
