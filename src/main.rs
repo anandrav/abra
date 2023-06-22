@@ -182,6 +182,12 @@ println(y)
 println(x and y)
 "#;
 
+const _FUNC_ANNOT: &str = r#"
+let add: (int, int) -> int = (x, y) -> x + y
+
+add(1, 2)
+"#;
+
 // const _INTERFACES: &str = r#"interface ToString {
 //     to_string: self -> string
 // }
@@ -249,7 +255,9 @@ let numbers = map(numbers, x -> x * x)
 println(numbers)
 "#;
 
-const PRELUDE: &str = r#"interface ToString {
+const PRELUDE: &str = r#"
+
+interface ToString {
     to_string: self -> string
 }
 implement ToString for string {
@@ -292,12 +300,13 @@ let filter(xs: list<'a>, f: 'a -> bool) =
         nil -> nil
         cons (~head, ~tail) -> 
             if f(head) cons(head, filter(tail, f)) else filter(tail, f)
+
 "#;
 
 impl Default for MyApp {
     fn default() -> Self {
         Self {
-            text: String::from(_FIB),
+            text: String::from(_FUNC_ANNOT),
             output: String::default(),
             interpreter: None,
         }
@@ -352,7 +361,8 @@ impl eframe::App for MyApp {
                         {
                             self.interpreter = None;
                             self.output.clear();
-                            let source = PRELUDE.to_owned() + &self.text;
+                            // let source = PRELUDE.to_owned() + &self.text;
+                            let source = &self.text;
                             match ast::parse_or_err(&source) {
                                 Ok(parse_tree) => {
                                     debug_println!("successfully parsed.");

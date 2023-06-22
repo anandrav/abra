@@ -479,7 +479,12 @@ impl Node for AstType {
                 children.extend(params.iter().map(|t| t.clone() as Rc<dyn Node>));
                 children
             }
-            TypeKind::Arrow(lhs, rhs) => vec![lhs.clone(), rhs.clone()],
+            TypeKind::Function(lhs, rhs) => {
+                let mut children: Vec<Rc<dyn Node>> = vec![];
+                children.extend(lhs.iter().map(|t| t.clone() as Rc<dyn Node>));
+                children.push(rhs.clone() as Rc<dyn Node>);
+                children
+            }
             TypeKind::Tuple(types) => types
                 .iter()
                 .map(|t| t.clone() as Rc<dyn Node>)
@@ -502,7 +507,7 @@ pub enum TypeKind {
     Bool,
     Str,
     // TODO: make Arrow nary as well
-    Arrow(Rc<AstType>, Rc<AstType>),
+    Function(Vec<Rc<AstType>>, Rc<AstType>),
     Tuple(Vec<Rc<AstType>>),
 }
 
@@ -782,16 +787,16 @@ pub fn parse_match_pattern(pair: Pair<Rule>) -> Rc<Pat> {
 }
 
 pub fn parse_type_pratt(pairs: Pairs<Rule>) -> Rc<AstType> {
-    let pratt = PrattParser::new().op(Op::infix(Rule::type_op_arrow, Assoc::Right));
+    let pratt = PrattParser::new(); //.op(Op::infix(Rule::type_op_arrow, Assoc::Right));
     pratt
         .map_primary(parse_type_term)
-        .map_infix(|lhs, op, rhs| {
-            Rc::new(AstType {
-                typekind: Rc::new(TypeKind::Arrow(lhs, rhs)),
-                span: Span::from(op.as_span()),
-                id: Id::new(),
-            })
-        })
+        // .map_infix(|lhs, op, rhs| {
+        //     Rc::new(AstType {
+        //         typekind: Rc::new(TypeKind::Arrow(lhs, rhs)),
+        //         span: Span::from(op.as_span()),
+        //         id: Id::new(),
+        //     })
+        // })
         .parse(pairs)
 }
 
@@ -860,6 +865,22 @@ pub fn parse_type_term(pair: Pair<Rule>) -> Rc<AstType> {
             let types = inner.into_iter().skip(1).map(parse_type_term).collect();
             Rc::new(AstType {
                 typekind: Rc::new(TypeKind::Ap(name, types)),
+                span,
+                id: Id::new(),
+            })
+        }
+        Rule::func_type => {
+            let inner: Vec<_> = pair.into_inner().collect();
+            let len = inner.len();
+            let args: Vec<_> = inner
+                .clone()
+                .into_iter()
+                .take(len - 1)
+                .map(parse_type_term)
+                .collect();
+            let ret = parse_type_term(inner.last().unwrap().clone());
+            Rc::new(AstType {
+                typekind: Rc::new(TypeKind::Function(args, ret)),
                 span,
                 id: Id::new(),
             })

@@ -629,12 +629,10 @@ pub fn ast_type_to_statics_type_interface(
         ast::TypeKind::Bool => Type::make_bool(Prov::Node(ast_type.id())),
         ast::TypeKind::Str => Type::make_string(Prov::Node(ast_type.id())),
         // TODO wait does this only allow one argument??
-        ast::TypeKind::Arrow(lhs, rhs) => Type::make_arrow(
-            vec![ast_type_to_statics_type_interface(
-                inf_ctx,
-                lhs.clone(),
-                interface_ident,
-            )],
+        ast::TypeKind::Function(lhs, rhs) => Type::make_arrow(
+            lhs.iter()
+                .map(|t| ast_type_to_statics_type_interface(inf_ctx, t.clone(), interface_ident))
+                .collect(),
             ast_type_to_statics_type_interface(inf_ctx, rhs.clone(), interface_ident),
             ast_type.id(),
         ),
