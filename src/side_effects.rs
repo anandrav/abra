@@ -10,7 +10,7 @@ pub struct Cin(String);
 #[derive(Debug, Clone)]
 pub enum Input {
     Unit,
-    Cin(String),
+    // Cin(String),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

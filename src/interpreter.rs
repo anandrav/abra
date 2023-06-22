@@ -850,12 +850,12 @@ fn interpret(
                     effect: None,
                     new_env: env,
                 },
-                Input::Cin(string) => InterpretResult {
-                    expr: Rc::new(Str(string.to_string())),
-                    steps,
-                    effect: None,
-                    new_env: env,
-                },
+                // Input::Cin(string) => InterpretResult {
+                //     expr: Rc::new(Str(string.to_string())),
+                //     steps,
+                //     effect: None,
+                //     new_env: env,
+                // },
             },
         },
     }

@@ -161,6 +161,8 @@ pub enum Prov {
     InstantiatePoly(Box<Prov>, Identifier),
     FuncArg(Box<Prov>, u8), // u8 represents the index of the argument
     FuncOut(Box<Prov>),     // u8 represents how many arguments before this output
+    BinopLeft(Box<Prov>),
+    BinopRight(Box<Prov>),
     ListElem(Box<Prov>),
     VariantNoData(Box<Prov>), // the type of the data of a variant with no data, always Unit.
 }
@@ -471,7 +473,7 @@ impl Type {
                 }
                 let out = out.interface_impl_type()?;
                 Some(TypeInterfaceImpl::Function(args2, out.into()))
-            } // TODO unimplemented
+            }
             Self::Tuple(_, elems) => {
                 let mut elems2 = vec![];
                 for elem in elems {
@@ -559,38 +561,44 @@ impl Type {
 }
 
 pub fn types_of_binop(opcode: &BinOpcode, id: ast::Id) -> (Type, Type, Type) {
+    let prov_left = Prov::BinopLeft(Prov::Node(id).into());
+    let prov_right = Prov::BinopRight(Prov::Node(id).into());
+    let prov_out = Prov::Node(id);
     match opcode {
         BinOpcode::And | BinOpcode::Or => (
-            Type::make_bool(Prov::Node(id)),
-            Type::make_bool(Prov::Node(id)),
-            Type::make_bool(Prov::Node(id)),
+            Type::make_bool(prov_left),
+            Type::make_bool(prov_right),
+            Type::make_bool(prov_out),
         ),
         BinOpcode::Add
         | BinOpcode::Subtract
         | BinOpcode::Multiply
         | BinOpcode::Divide
         | BinOpcode::Mod => (
-            Type::make_int(Prov::Node(id)),
-            Type::make_int(Prov::Node(id)),
-            Type::make_int(Prov::Node(id)),
+            Type::make_int(prov_left),
+            Type::make_int(prov_right),
+            Type::make_int(prov_out),
         ),
         BinOpcode::LessThan
         | BinOpcode::GreaterThan
         | BinOpcode::LessThanOrEqual
         | BinOpcode::GreaterThanOrEqual => (
-            Type::make_int(Prov::Node(id)),
-            Type::make_int(Prov::Node(id)),
-            Type::make_bool(Prov::Node(id)),
+            Type::make_int(prov_left),
+            Type::make_int(prov_right),
+            Type::make_bool(prov_out),
         ),
         BinOpcode::Concat => (
-            Type::make_string(Prov::Node(id)),
-            Type::make_string(Prov::Node(id)),
-            Type::make_string(Prov::Node(id)),
+            Type::make_string(prov_left),
+            Type::make_string(prov_right),
+            Type::make_string(prov_out),
         ),
         BinOpcode::Equals => {
-            let ty =
-                Type::make_poly_constrained(Prov::Node(id), "a".to_owned(), "Equals".to_owned());
-            (ty.clone(), ty.clone(), Type::make_bool(Prov::Node(id)))
+            let ty_left =
+                Type::make_poly_constrained(prov_left, "a".to_owned(), "Equals".to_owned());
+            let ty_right =
+                Type::make_poly_constrained(prov_right, "a".to_owned(), "Equals".to_owned());
+            constrain(ty_left.clone(), ty_right.clone());
+            (ty_left, ty_right, Type::make_bool(prov_out))
         }
     }
 }
@@ -1159,8 +1167,16 @@ pub fn generate_constraints_expr(
         ExprKind::BinOp(left, op, right) => {
             let (ty_left, ty_right, ty_out) = types_of_binop(op, expr.id);
             let (ty_left, ty_right, ty_out) = (
-                ty_left.instantiate(gamma.clone(), inf_ctx, Prov::Node(expr.id)),
-                ty_right.instantiate(gamma.clone(), inf_ctx, Prov::Node(expr.id)),
+                ty_left.instantiate(
+                    gamma.clone(),
+                    inf_ctx,
+                    Prov::BinopLeft(Prov::Node(expr.id).into()),
+                ),
+                ty_right.instantiate(
+                    gamma.clone(),
+                    inf_ctx,
+                    Prov::BinopRight(Prov::Node(expr.id).into()),
+                ),
                 ty_out.instantiate(gamma.clone(), inf_ctx, Prov::Node(expr.id)),
             );
             constrain(ty_out, node_ty);
@@ -1552,20 +1568,25 @@ pub fn generate_constraints_stmt(
         StmtKind::Let((pat, ty_ann), expr) => {
             let ty_pat = Type::from_node(inf_ctx, pat.id);
 
+            generate_constraints_expr(
+                gamma.clone(),
+                Mode::Ana { expected: ty_pat },
+                expr.clone(),
+                inf_ctx,
+            );
+
             if let Some(ty_ann) = ty_ann {
                 let ty_ann = ast_type_to_statics_type(inf_ctx, ty_ann.clone());
                 gamma.borrow_mut().add_polys(&ty_ann);
                 generate_constraints_pat(
-                    gamma.clone(),
+                    gamma,
                     Mode::Ana { expected: ty_ann },
                     pat.clone(),
                     inf_ctx,
                 )
             } else {
-                generate_constraints_pat(gamma.clone(), Mode::Syn, pat.clone(), inf_ctx)
+                generate_constraints_pat(gamma, Mode::Syn, pat.clone(), inf_ctx)
             };
-
-            generate_constraints_expr(gamma, Mode::Ana { expected: ty_pat }, expr.clone(), inf_ctx);
         }
         StmtKind::LetFunc(name, args, out_annot, body) => {
             let func_node_id = stmt.id;
@@ -1956,6 +1977,8 @@ pub fn result_of_constraint_solving(
                 Prov::AdtDef(_) => 8,
                 Prov::InstantiateAdtParam(_, _) => 9,
                 Prov::ListElem(_) => 10,
+                Prov::BinopLeft(_) => 11,
+                Prov::BinopRight(_) => 12,
             });
             for cause in provs_vec {
                 match cause {
@@ -2003,6 +2026,20 @@ pub fn result_of_constraint_solving(
                         }
                         _ => unreachable!(),
                     },
+                    Prov::BinopLeft(inner) => {
+                        err_string.push_str("The left operand of operator\n");
+                        if let Prov::Node(id) = **inner {
+                            let span = node_map.get(&id).unwrap().span();
+                            err_string.push_str(&span.display(source, ""));
+                        }
+                    }
+                    Prov::BinopRight(inner) => {
+                        err_string.push_str("The left operand of this operator\n");
+                        if let Prov::Node(id) = **inner {
+                            let span = node_map.get(&id).unwrap().span();
+                            err_string.push_str(&span.display(source, ""));
+                        }
+                    }
                     Prov::ListElem(_) => {
                         err_string.push_str("The element of some list");
                     }

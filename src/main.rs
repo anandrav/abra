@@ -419,7 +419,7 @@ let hack = [1, 2, 3, 4]
 impl Default for MyApp {
     fn default() -> Self {
         Self {
-            text: String::from(_FIB),
+            text: String::from(_SCRATCH),
             output: String::default(),
             interpreter: None,
         }

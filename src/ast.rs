@@ -593,7 +593,7 @@ impl Span {
                 0
             };
 
-            let underline = line.len() - pad_end - pad_before;
+            let underline = line.len() - pad_end - pad_before + 1;
             s.push_str(&format!("{:3} | ", "")); // line number placeholder
             s.push_str(&format!("{:1$}", "", pad_before_in_spaces)); // pad before
             s.push_str(&format!("{:^<1$}\n", "", underline)); // underline

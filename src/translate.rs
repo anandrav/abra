@@ -481,8 +481,8 @@ pub fn translate_expr(
                     ),
                     translate_expr(
                         inf_ctx,
-                        monomorphenv.clone(),
-                        gamma.clone(),
+                        monomorphenv,
+                        gamma,
                         node_map,
                         overloaded_func_map,
                         expr2.exprkind.clone(),
