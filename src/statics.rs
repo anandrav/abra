@@ -159,8 +159,9 @@ pub enum Prov {
 
     InstantiateAdtParam(Box<Prov>, u8),
     InstantiatePoly(Box<Prov>, Identifier),
-    FuncArg(Box<Prov>, u8),   // u8 represents the index of the argument
-    FuncOut(Box<Prov>),       // u8 represents how many arguments before this output
+    FuncArg(Box<Prov>, u8), // u8 represents the index of the argument
+    FuncOut(Box<Prov>),     // u8 represents how many arguments before this output
+    ListElem(Box<Prov>),
     VariantNoData(Box<Prov>), // the type of the data of a variant with no data, always Unit.
 }
 
@@ -1073,6 +1074,27 @@ pub fn generate_constraints_expr(
         ExprKind::Str(_) => {
             constrain(node_ty, Type::make_string(Prov::Node(expr.id)));
         }
+        ExprKind::List(exprs) => {
+            let elem_ty = Type::fresh_unifvar(inf_ctx, Prov::ListElem(Prov::Node(expr.id).into()));
+            constrain(
+                node_ty.clone(),
+                Type::make_def_instance(
+                    Prov::Node(expr.id),
+                    "list".to_owned(),
+                    vec![elem_ty.clone()],
+                ),
+            );
+            for expr in exprs {
+                generate_constraints_expr(
+                    gamma.clone(),
+                    Mode::Ana {
+                        expected: elem_ty.clone(),
+                    },
+                    expr.clone(),
+                    inf_ctx,
+                );
+            }
+        }
         ExprKind::Var(id) => {
             let lookup = gamma.borrow_mut().lookup(id);
             if let Some(typ) = lookup {
@@ -1933,6 +1955,7 @@ pub fn result_of_constraint_solving(
                 Prov::VariantNoData(_) => 7,
                 Prov::AdtDef(_) => 8,
                 Prov::InstantiateAdtParam(_, _) => 9,
+                Prov::ListElem(_) => 10,
             });
             for cause in provs_vec {
                 match cause {
@@ -1980,6 +2003,9 @@ pub fn result_of_constraint_solving(
                         }
                         _ => unreachable!(),
                     },
+                    Prov::ListElem(_) => {
+                        err_string.push_str("The element of some list");
+                    }
                     Prov::Alias(ident) => {
                         err_string.push_str(&format!("The type alias {ident}"));
                     }

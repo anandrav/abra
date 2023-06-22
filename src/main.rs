@@ -97,7 +97,7 @@ let bpair: pair<bool> = (true, false)
 
 "#;
 
-const _FIB: &str = r#"let fibonacci(n) = {
+const _OLD_FIB: &str = r#"let fibonacci(n) = {
     match n
         0 -> 0
         1 -> 1
@@ -114,11 +114,22 @@ let for_range(r: range, f) = {
     }
 }
 
-let n = 10
+let print_fibonacci(n) = println(int_to_string(fibonacci(n)))
 
-println("The first " & to_string(n) & " fibonacci numbers are:")
-for_range((0,n), i -> println(fibonacci(i)))
-println("done!")
+println("The first 20 fibonacci numbers are:")
+
+for_range((0, 20), print_fibonacci)
+"#;
+
+const _FIB: &str = r#"let fibonacci(n) = {
+    match n
+        0 -> 0
+        1 -> 1
+        _ -> fibonacci(n-1) + fibonacci(n-2)
+}
+
+println("The first 20 fibonacci numbers are:")
+foreach(range(1, 20), n -> println(fibonacci(n)))
 "#;
 
 const _MORE_LIST: &str = r#"type list<'a> = nil | cons ('a, list<'a>)
@@ -188,18 +199,15 @@ let add: (int, int) -> int = (x, y) -> x + y
 add(1, 2)
 "#;
 
-// const _INTERFACES: &str = r#"interface ToString {
-//     to_string: self -> string
-// }
-// implement ToString for string {
-// 	let to_string(s) = s
-// }
-// implement ToString for int {
-// 	let to_string(n) = int_to_string(n)
-// }
+const _SCRATCH: &str = r#"let list = [1, 2, 3, 4]
+println(list)
 
-// print_string(to_string("123"))
-// "#;
+let list = map(list, x -> x * x)
+println(list)
+
+let list = map(list, x -> x mod 2 = 0)
+println(list)
+"#;
 
 const _INTERFACES: &str = r#"
 interface Equals {
@@ -224,10 +232,21 @@ implement Equals for bool {
 implement Equals for string {
     let equals(a, b) = equals_string(a, b)
 }
+implement Equals for list<'a Equals> {
+    let equals(a, b) = {
+        match (a, b)
+            (nil, nil) -> true
+            (cons (~x, ~xs), cons (~y, ~ys)) -> {
+                equals(x, y) and equals(xs, ys)
+            }
+            _ -> false
+    }
+}
 let hack = equals((), ())
 let hack = equals(1, 1)
 let hack = equals(true, true)
 let hack = equals("hello", "hello")
+let hack = equals(cons(1, nil), cons(1, nil))
 
 interface ToString {
     to_string: self -> string
@@ -291,6 +310,8 @@ println(equals("hello", "hello"))
 "#;
 
 const PRELUDE: &str = r#"
+type list<'a> = nil | cons ('a, list<'a>)
+
 interface Equals {
     equals: (self, self) -> bool
 }
@@ -313,10 +334,22 @@ implement Equals for bool {
 implement Equals for string {
     let equals(a, b) = equals_string(a, b)
 }
+implement Equals for list<'a Equals> {
+    let equals(a, b) = {
+        match (a, b)
+            (nil, nil) -> true
+            (cons (~x, ~xs), cons (~y, ~ys)) -> {
+                equals(x, y) and equals(xs, ys)
+            }
+            _ -> false
+    }
+}
 let hack = equals((), ())
 let hack = equals(1, 1)
 let hack = equals(true, true)
 let hack = equals("hello", "hello")
+let hack = [1, 2, 3, 4]
+let hack = equals(cons(true, nil), cons(false, nil))
 
 interface ToString {
     to_string: self -> string
@@ -324,13 +357,16 @@ interface ToString {
 implement ToString for string {
 	let to_string(s) = s
 }
+implement ToString for void {
+	let to_string(s) = "()"
+}
 implement ToString for int {
 	let to_string(n) = int_to_string(n)
 }
 implement ToString for bool {
 	let to_string(b) = if b "true" else "false"
 }
-type list<'a> = nil | cons ('a, list<'a>)
+
 implement ToString for list<'a ToString> {
     let to_string(xs) = {
         let helper(xs) = 
@@ -351,16 +387,32 @@ let println(x: 'b ToString) = {
     print_string(newline)
 }
 
-let map(xs: list<'a>, f: 'a -> 'b) =
+let range(lo: int, hi: int) =
+    if lo > hi
+        nil
+    else
+        cons(lo, range(lo + 1, hi))
+
+let map(xs: list<'a>, f: 'a -> 'b) -> list<'b> =
     match xs
         nil -> nil
         cons (~head, ~tail) -> cons(f(head), map(tail, f))
 
-let filter(xs: list<'a>, f: 'a -> bool) =
+let foreach(xs: list<'a>, f: 'a -> 'b) -> void =
+    match xs
+        nil -> ()
+        cons (~head, ~tail) -> {
+            f(head)
+            foreach(tail, f)
+        }
+
+let filter(xs: list<'a>, f: 'a -> bool) -> list<'a> =
     match xs
         nil -> nil
         cons (~head, ~tail) -> 
             if f(head) cons(head, filter(tail, f)) else filter(tail, f)
+
+let hack = [1, 2, 3, 4]
 
 "#;
 

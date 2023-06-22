@@ -298,6 +298,7 @@ impl Node for Expr {
             ExprKind::Int(_) => vec![],
             ExprKind::Bool(_) => vec![],
             ExprKind::Str(_) => vec![],
+            ExprKind::List(exprs) => exprs.iter().map(|e| e.clone() as Rc<dyn Node>).collect(),
             // TODO: output of function needs to be annotated as well!
             ExprKind::Func(args, ty_opt, body) => {
                 let mut children: Vec<Rc<dyn Node>> = Vec::new();
@@ -365,6 +366,7 @@ pub enum ExprKind {
     Int(i32),
     Bool(bool),
     Str(String),
+    List(Vec<Rc<Expr>>),
     Func(Vec<ArgAnnotated>, Option<Rc<AstType>>, Rc<Expr>),
     If(Rc<Expr>, Rc<Expr>, Option<Rc<Expr>>),
     Match(Rc<Expr>, Vec<MatchArm>),
@@ -1189,6 +1191,18 @@ pub fn parse_expr_term(pair: Pair<Rule>) -> Rc<Expr> {
             span,
             id: Id::new(),
         }),
+        Rule::literal_list => {
+            let inner: Vec<_> = pair.into_inner().collect();
+            let mut exprs = vec![];
+            for p in inner {
+                exprs.push(parse_expr_pratt(Pairs::single(p)));
+            }
+            Rc::new(Expr {
+                exprkind: Rc::new(ExprKind::List(exprs)),
+                span,
+                id: Id::new(),
+            })
+        }
         Rule::identifier => Rc::new(Expr {
             exprkind: Rc::new(ExprKind::Var(pair.as_str().to_owned())),
             span,

@@ -125,11 +125,12 @@ identifier = @{ !(keyword ~ WHITESPACE) ~ ( alpha | "_") ~ (alphanumeric | "_")*
 alpha = _{ 'a'..'z' | 'A'..'Z' }
 alphanumeric = _{ alpha | '0'..'9' }
 
-literal = _{ literal_unit | literal_number | literal_bool | literal_string }
+literal = _{ literal_unit | literal_number | literal_bool | literal_string | literal_list }
 literal_unit = @{ "()" }
 literal_number = @{ "0" | ASCII_NONZERO_DIGIT ~ ASCII_DIGIT* }
 literal_string = @{ "\"" ~ (!"\"" ~ ANY)* ~ "\"" }
 literal_bool = @{ "true" | "false" }
+literal_list = { "[" ~ (expression ~ ",")* ~ expression? ~ "]" }
 
 op_binary = _{op_eq | op_gte | op_lte | op_gt | op_lt | op_addition | op_subtraction | op_multiplication | op_division | op_and | op_or | op_mod | op_concat }
 op_eq = { "=" }

@@ -418,6 +418,26 @@ pub fn translate_expr(
         ASTek::Int(i) => Rc::new(Ete::Int(*i)),
         ASTek::Bool(b) => Rc::new(Ete::Bool(*b)),
         ASTek::Str(s) => Rc::new(Ete::Str(s.clone())),
+        ASTek::List(exprs) => {
+            let mut result = Rc::new(Ete::Var("nil".to_owned()));
+            for expr in exprs.iter().rev() {
+                let translated_expr = translate_expr(
+                    inf_ctx,
+                    monomorphenv.clone(),
+                    gamma.clone(),
+                    node_map,
+                    overloaded_func_map,
+                    expr.exprkind.clone(),
+                    expr.id,
+                );
+                result = Rc::new(Ete::FuncAp(
+                    Rc::new(Ete::Var("cons".to_owned())),
+                    vec![translated_expr, result],
+                    None,
+                ));
+            }
+            result
+        }
         ASTek::Tuple(exprs) => {
             let mut translated_exprs = Vec::new();
             for expr in exprs {
