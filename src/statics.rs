@@ -4,6 +4,7 @@ use crate::ast::{
 use crate::operators::BinOpcode;
 use core::panic;
 
+use debug_print::debug_println;
 use disjoint_sets::UnionFindNode;
 use std::cell::RefCell;
 use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
@@ -448,16 +449,16 @@ impl Type {
     pub fn interface_impl_type(&self) -> Option<TypeInterfaceImpl> {
         match self {
             Self::UnifVar(_) => {
-                println!("interface_impl_type() matched with unifvar");
+                debug_println!("interface_impl_type() matched with unifvar");
                 None
             }
             Self::Poly(_, _ident, _interfaces) => {
-                println!("interface_impl_type() matched with poly");
+                debug_println!("interface_impl_type() matched with poly");
                 None
             }
             Self::Unit(_) => Some(TypeInterfaceImpl::Unit),
             Self::Int(_) => {
-                println!("interface_impl_type() matched with int");
+                debug_println!("interface_impl_type() matched with int");
                 Some(TypeInterfaceImpl::Int)
             }
             Self::Bool(_) => Some(TypeInterfaceImpl::Bool),
@@ -492,16 +493,16 @@ impl Type {
     pub fn instance_type(&self) -> Option<TypeFullyInstantiated> {
         match self {
             Self::UnifVar(_) => {
-                println!("instance_type() matched with unifvar");
+                debug_println!("instance_type() matched with unifvar");
                 None
             }
             Self::Poly(_, _ident, _interfaces) => {
-                println!("instance_type() matched with poly");
+                debug_println!("instance_type() matched with poly");
                 None
             }
             Self::Unit(_) => Some(TypeFullyInstantiated::Unit),
             Self::Int(_) => {
-                println!("instance_type() matched with int");
+                debug_println!("instance_type() matched with int");
                 Some(TypeFullyInstantiated::Int)
             }
             Self::Bool(_) => Some(TypeFullyInstantiated::Bool),
@@ -1533,7 +1534,7 @@ pub fn generate_constraints_stmt(
                     .unwrap(); // todo don't unwrap
                 let mut substitution = BTreeMap::new();
                 substitution.insert("a".to_string(), typ.clone());
-                println!("original method ty: {}", interface_method.ty);
+                debug_println!("original method ty: {}", interface_method.ty);
 
                 let expected = interface_method.ty.clone().subst(
                     gamma.clone(),
@@ -1541,7 +1542,7 @@ pub fn generate_constraints_stmt(
                     Prov::Node(stmt.id),
                     &substitution,
                 );
-                println!("expected ty: {}", expected);
+                debug_println!("expected ty: {}", expected);
 
                 constrain(expected, Type::from_node(inf_ctx, pat.id));
 
@@ -1892,7 +1893,7 @@ pub fn result_of_constraint_solving(
     // dbg!(&inf_ctx.interface_defs);
     // dbg!(&inf_ctx.interface_impls);
     // dbg!(&inf_ctx.method_to_interface);
-    dbg!(tyctx.borrow());
+    debug_println!("{:?}", tyctx.borrow());
     // TODO: you should assert that every node in the AST is in unsovled_type_suggestions_to_unknown_ty, solved or not!
     let mut type_conflicts = Vec::new();
     for potential_types in inf_ctx.vars.values() {
@@ -1907,15 +1908,15 @@ pub fn result_of_constraint_solving(
         for (node_id, node) in node_map.iter() {
             let ty = Type::solution_of_node(inf_ctx, *node_id);
             let span = node.span();
-            println!("Node {}", node_id);
+            debug_println!("Node {}", node_id);
             if let Some(ty) = ty {
-                println!("Type: {}", ty);
+                debug_println!("Type: {}", ty);
             } else {
-                println!("Type: none");
+                debug_println!("Type: none");
             }
-            println!("Span: {:?}", span);
-            println!("{}", span.display(source, ""));
-            println!();
+            debug_println!("Span: {:?}", span);
+            debug_println!("{}", span.display(source, ""));
+            debug_println!();
         }
         return Ok(());
     }

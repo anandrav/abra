@@ -199,14 +199,22 @@ let add: (int, int) -> int = (x, y) -> x + y
 add(1, 2)
 "#;
 
-const _SCRATCH: &str = r#"let list = [1, 2, 3, 4]
+const _SCRATCH: &str = r#"let list = [1, 2, 3, 4, 5, 6]
+print("numbers: ")
 println(list)
 
-let list = map(list, x -> x * x)
+let list = map(list, x -> x * x * x)
+print("squared: ")
 println(list)
 
-let list = map(list, x -> x mod 2 = 0)
+let list = filter(list, x -> x mod 2 = 0)
+print("only even: ")
 println(list)
+
+let list = ["The", "Abra", "Programming", "Language"]
+let s = concat(list, " ~ ")
+println(newline & s)
+
 "#;
 
 const _INTERFACES: &str = r#"
@@ -392,6 +400,21 @@ let range(lo: int, hi: int) =
         nil
     else
         cons(lo, range(lo + 1, hi))
+
+let fold(xs: list<'b>, f: ('a, 'b) -> 'a, acc: 'a) -> 'a =
+    match xs
+        nil -> acc
+        cons (~head, ~tail) -> fold(tail, f, f(acc, head))
+
+let concat(xs: list<string>, sep: string) -> string =
+    match xs
+        nil -> ""
+        cons (~head, cons(~last, nil)) -> {
+            head & sep & last
+        }
+        cons (~head, ~tail) -> {
+            head & sep & concat(tail, sep)
+        }
 
 let map(xs: list<'a>, f: 'a -> 'b) -> list<'b> =
     match xs

@@ -648,7 +648,6 @@ pub fn parse_func_arg_annotation(pair: Pair<Rule>) -> ArgAnnotated {
     let rule = pair.as_rule();
     match rule {
         Rule::func_arg => {
-            println!("func_arg detected");
             let inner: Vec<_> = pair.into_inner().collect();
             let pat_pair = inner[0].clone();
             let pat = parse_let_pattern(pat_pair);

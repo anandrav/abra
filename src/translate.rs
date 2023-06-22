@@ -1,3 +1,5 @@
+use debug_print::debug_println;
+
 use crate::ast;
 use crate::ast::Node;
 use crate::ast::NodeMap;
@@ -246,13 +248,13 @@ pub fn translate_expr_ap(
 }
 
 pub fn ty_of_global_ident(gamma: Rc<RefCell<Gamma>>, ident: &ast::Identifier) -> Option<Type> {
-    // println!("ty_of_global_ident");
-    // println!("ident: {}", ident);
+    // debug_println!("ty_of_global_ident");
+    // debug_println!("ident: {}", ident);
     let gamma = gamma.borrow();
     let ty = gamma.vars.get(ident)?;
-    // println!("it's in the gamma");
+    // debug_println!("it's in the gamma");
     ty.solution()
-    // println!("solved_ty: {}", solved);
+    // debug_println!("solved_ty: {}", solved);
 }
 
 pub fn update_monomorphenv(
@@ -317,27 +319,28 @@ pub fn get_func_definition_node(
     desired_interface_impl: TypeInterfaceImpl,
 ) -> Rc<dyn ast::Node> {
     if let Some(interface_name) = inf_ctx.method_to_interface.get(&ident.clone()) {
-        println!("interface_name: {:?}", interface_name);
+        debug_println!("interface_name: {:?}", interface_name);
         let impl_list = inf_ctx.interface_impls.get(interface_name).unwrap();
         // find an impl that matches
-        dbg!(impl_list);
+        // dbg!(impl_list);
+        debug_println!("{:?}", impl_list);
 
         for imp in impl_list {
-            println!("interface_impl: {:?}", imp);
+            debug_println!("interface_impl: {:?}", imp);
             for method in &imp.methods {
-                println!("method name: {:?}", method.name);
-                println!("id: {:?}", ident);
+                debug_println!("method name: {:?}", method.name);
+                debug_println!("id: {:?}", ident);
                 if method.name == *ident {
                     let method_identifier_node = node_map.get(&method.identifier_location).unwrap();
-                    println!("func_node: {:?}", method_identifier_node);
+                    debug_println!("func_node: {:?}", method_identifier_node);
                     let func_id = method_identifier_node.id();
                     let unifvar = inf_ctx.vars.get(&Prov::Node(func_id)).unwrap();
                     let solved_ty = unifvar.clone_data().solution().unwrap();
                     if let Some(interface_impl) = solved_ty.interface_impl_type() {
-                        println!("interface_impl: {:?}", interface_impl);
-                        println!("desired_interface_impl: {:?}", desired_interface_impl);
+                        debug_println!("interface_impl: {:?}", interface_impl);
+                        debug_println!("desired_interface_impl: {:?}", desired_interface_impl);
                         if desired_interface_impl.clone() == interface_impl {
-                            println!("found an impl");
+                            debug_println!("found an impl");
                             let method_node = node_map.get(&method.method_location).unwrap();
                             return method_node.clone();
                         }
@@ -362,20 +365,20 @@ pub fn translate_expr(
 ) -> Rc<Ete> {
     match &*parse_tree {
         ASTek::Var(ident) => {
-            println!("identifier: {ident}");
+            debug_println!("identifier: {ident}");
             if let Some(node_ty) = Type::solution_of_node(inf_ctx, ast_id) {
                 if let Some(global_ty) = ty_of_global_ident(gamma.clone(), ident) {
                     if global_ty.is_overloaded() {
-                        println!("global_ty: {} (overloaded)", global_ty);
-                        println!("node's type is: {},", node_ty);
-                        println!("monomorphic env before is: {:?}", monomorphenv.borrow());
+                        debug_println!("global_ty: {} (overloaded)", global_ty);
+                        debug_println!("node's type is: {},", node_ty);
+                        debug_println!("monomorphic env before is: {:?}", monomorphenv.borrow());
                         let substituted_ty = subst_with_monomorphic_env(monomorphenv, node_ty);
-                        println!("substituted type: {}", substituted_ty);
+                        debug_println!("substituted type: {}", substituted_ty);
                         let instance_ty = substituted_ty.instance_type().unwrap();
                         if let Some(overloaded_func) =
                             overloaded_func_map.get(&(ident.clone(), instance_ty.clone()))
                         {
-                            println!("overloaded func: {:?}", overloaded_func);
+                            debug_println!("overloaded func: {:?}", overloaded_func);
                             return Rc::new(Ete::VarOverloaded(ident.clone(), instance_ty));
                         }
                         let func_def_node = get_func_definition_node(
@@ -395,7 +398,7 @@ pub fn translate_expr(
                             overloaded_func_ty,
                             substituted_ty,
                         );
-                        println!("monomorphic env after is: {:?}", monomorphenv.borrow());
+                        debug_println!("monomorphic env after is: {:?}", monomorphenv.borrow());
                         overloaded_func_map.insert((ident.clone(), instance_ty.clone()), None);
                         let overloaded_func = translate_expr_func(
                             inf_ctx,
@@ -462,11 +465,9 @@ pub fn translate_expr(
                 .unwrap()
                 .instance_type()
                 .unwrap();
-            let ty = TypeFullyInstantiated::Function(
-                vec![ty1, ty2],
-                TypeFullyInstantiated::Bool.into(),
-            );
-            dbg!(&ty);
+            let ty =
+                TypeFullyInstantiated::Function(vec![ty1, ty2], TypeFullyInstantiated::Bool.into());
+            debug_println!("{:?}", &ty);
             Rc::new(Ete::FuncAp(
                 Rc::new(Ete::VarOverloaded("equals".to_owned(), ty)),
                 vec![
@@ -648,7 +649,7 @@ pub fn translate(
     node_map: &NodeMap,
     toplevel: Rc<ast::Toplevel>,
 ) -> (Rc<Ete>, interpreter::OverloadedFuncMap) {
-    dbg!(gamma.borrow());
+    debug_println!("{:?}", gamma.borrow());
 
     let mut overloaded_func_map_temp = OverloadedFuncMapTemp::new();
     let monomorphenv = Rc::new(RefCell::new(MonomorphEnv::new(None)));

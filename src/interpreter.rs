@@ -89,17 +89,17 @@ pub fn make_new_environment(
     );
     // replace variables with variants or variant constructors
     for (_key, ty) in gamma.borrow().vars.iter() {
-        // println!("key: {key}, ty: {:?}", ty);
+        // debug_println!("key: {key}, ty: {:?}", ty);
         let solution = if let Type::UnifVar(unifvar) = ty {
-            // println!("UNIFVAR!");
-            // println!("unifvar: {:?}", unifvar.clone_data().types);
+            // debug_println!("UNIFVAR!");
+            // debug_println!("unifvar: {:?}", unifvar.clone_data().types);
             unifvar.clone_data().solution()
         } else {
             Some(ty.clone())
         };
         if let Some(Type::AdtInstance(_, ident, _params)) = solution {
             let adt_def = inf_ctx.adt_def_of_name(&ident).unwrap();
-            // println!("ADT!");
+            // debug_println!("ADT!");
             for (_i, variant) in adt_def.variants.iter().enumerate() {
                 let ctor = &variant.ctor;
                 if let Type::Unit(_) = variant.data {
@@ -130,7 +130,7 @@ pub fn make_new_environment(
                                 body,
                                 None,
                             ));
-                            // println!("ctor function: {:?}", expr);
+                            // debug_println!("ctor function: {:?}", expr);
                             env.borrow_mut().extend(ctor, expr);
                         }
                         _ => {
