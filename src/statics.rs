@@ -1886,14 +1886,14 @@ pub fn generate_constraints_toplevel(
 // errors would be unbound variable, wrong number of arguments, occurs check, etc.
 pub fn result_of_constraint_solving(
     inf_ctx: &InferenceContext,
-    tyctx: Rc<RefCell<Gamma>>,
+    _tyctx: Rc<RefCell<Gamma>>,
     node_map: &ast::NodeMap,
     source: &str,
 ) -> Result<(), String> {
     // dbg!(&inf_ctx.interface_defs);
     // dbg!(&inf_ctx.interface_impls);
     // dbg!(&inf_ctx.method_to_interface);
-    debug_println!("{:?}", tyctx.borrow());
+    debug_println!("{:?}", _tyctx.borrow());
     // TODO: you should assert that every node in the AST is in unsovled_type_suggestions_to_unknown_ty, solved or not!
     let mut type_conflicts = Vec::new();
     for potential_types in inf_ctx.vars.values() {
@@ -1907,15 +1907,15 @@ pub fn result_of_constraint_solving(
     if type_conflicts.is_empty() {
         for (node_id, node) in node_map.iter() {
             let ty = Type::solution_of_node(inf_ctx, *node_id);
-            let span = node.span();
+            let _span = node.span();
             debug_println!("Node {}", node_id);
-            if let Some(ty) = ty {
-                debug_println!("Type: {}", ty);
+            if let Some(_ty) = ty {
+                debug_println!("Type: {}", _ty);
             } else {
                 debug_println!("Type: none");
             }
-            debug_println!("Span: {:?}", span);
-            debug_println!("{}", span.display(source, ""));
+            debug_println!("Span: {:?}", _span);
+            debug_println!("{}", _span.display(source, ""));
             debug_println!();
         }
         return Ok(());

@@ -375,10 +375,10 @@ pub fn translate_expr(
                         let substituted_ty = subst_with_monomorphic_env(monomorphenv, node_ty);
                         debug_println!("substituted type: {}", substituted_ty);
                         let instance_ty = substituted_ty.instance_type().unwrap();
-                        if let Some(overloaded_func) =
+                        if let Some(_overloaded_func) =
                             overloaded_func_map.get(&(ident.clone(), instance_ty.clone()))
                         {
-                            debug_println!("overloaded func: {:?}", overloaded_func);
+                            debug_println!("overloaded func: {:?}", _overloaded_func);
                             return Rc::new(Ete::VarOverloaded(ident.clone(), instance_ty));
                         }
                         let func_def_node = get_func_definition_node(
