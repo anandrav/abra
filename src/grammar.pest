@@ -124,7 +124,7 @@ literal_number = @{ "0" | ASCII_NONZERO_DIGIT ~ ASCII_DIGIT* }
 literal_string = @{ "\"" ~ (!"\"" ~ ANY)* ~ "\"" }
 literal_bool = @{ "true" | "false" }
 
-op_binary = _{op_eq | op_gte | op_lte | op_gt | op_lt | op_addition | op_subtraction | op_multiplication | op_division }
+op_binary = _{op_eq | op_gte | op_lte | op_gt | op_lt | op_addition | op_subtraction | op_multiplication | op_division | op_and | op_or | op_mod | op_concat }
 op_eq = { "=" }
 op_gt = { ">" }
 op_lt = { "<" }
@@ -134,19 +134,19 @@ op_addition = { "+" }
 op_subtraction = { "-" }
 op_multiplication = { "*" }
 op_division = { "/" }
-// op_concat = { "++" }
-// op_not = { "not" }
-// op_and = { "and" }
-// op_or = { "or" }
-// op_mod = { "mod" }
+op_mod = { "mod" }
 // op_pow = { "^" }
+op_concat = { "&" }
+// op_not = { "not" }
+op_and = { "and" }
+op_or = { "or" }
 // op_range_inclusive = { "..." }
 // op_range_exclusive = { "..<" }
 
 // NOTE: When changing this code, make sure you don't have a subset of a word before
 // another word. For example: { "type" | "typeof" } will never match "typeof"
 keyword = @{
-   "bool" | "else" | "false" | "func" | "let" | "if" | "int" | "match" | "string" | "type" | "nothing" | "true" | "void"
+   "and" | "bool" | "else" | "false" | "func" | "let" | "if" | "int" | "match" | "mod" | "or" | "string" | "type" | "nothing" | "true" | "void"
 }
 
 semicolon = _{ ";" }

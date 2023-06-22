@@ -885,7 +885,7 @@ fn handle_builtin(builtin: Builtin, args: Vec<Rc<Expr>>) -> Rc<Expr> {
             let arg1 = args[0].clone();
             let arg2 = args[1].clone();
             match (&*arg1, &*arg2) {
-                (Str(s1), Str(s2)) => Rc::new(Str(s1.to_string() + &s2.to_string())),
+                (Str(s1), Str(s2)) => Rc::new(Str(s1.to_owned() + s2)),
                 _ => panic!("AppendStrings expects two Strings"),
             }
         }
@@ -910,6 +910,10 @@ fn perform_op(val1: Rc<Expr>, op: BinOpcode, val2: Rc<Expr>) -> Rc<Expr> {
             (Int(i1), Int(i2)) => Rc::new(Int(i1 / i2)),
             _ => panic!("one or more operands of Divide are not Ints"),
         },
+        Mod => match (&*val1, &*val2) {
+            (Int(i1), Int(i2)) => Rc::new(Int(i1 % i2)),
+            _ => panic!("one or more operands of Mod are not Ints"),
+        },
         Equals => match (&*val1, &*val2) {
             (Int(i1), Int(i2)) => Rc::new(Bool(i1 == i2)),
             (Bool(b1), Bool(b2)) => Rc::new(Bool(b1 == b2)),
@@ -930,6 +934,18 @@ fn perform_op(val1: Rc<Expr>, op: BinOpcode, val2: Rc<Expr>) -> Rc<Expr> {
         LessThanOrEqual => match (&*val1, &*val2) {
             (Int(i1), Int(i2)) => Rc::new(Bool(i1 <= i2)),
             _ => panic!("one or more operands of LessThanOrEqual are not Ints"),
+        },
+        And => match (&*val1, &*val2) {
+            (Bool(b1), Bool(b2)) => Rc::new(Bool(*b1 && *b2)),
+            _ => panic!("one or more operands of And are not Bools"),
+        },
+        Or => match (&*val1, &*val2) {
+            (Bool(b1), Bool(b2)) => Rc::new(Bool(*b1 || *b2)),
+            _ => panic!("one or more operands of Or are not Bools"),
+        },
+        Concat => match (&*val1, &*val2) {
+            (Str(s1), Str(s2)) => Rc::new(Str(s1.to_owned() + s2)),
+            _ => panic!("one or more operands of Concat are not Strings"),
         },
         // _ => panic!("operation not supported"),
     }

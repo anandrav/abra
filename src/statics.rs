@@ -559,7 +559,16 @@ impl Type {
 
 pub fn types_of_binop(opcode: &BinOpcode, id: ast::Id) -> (Type, Type, Type) {
     match opcode {
-        BinOpcode::Add | BinOpcode::Subtract | BinOpcode::Multiply | BinOpcode::Divide => (
+        BinOpcode::And | BinOpcode::Or => (
+            Type::make_bool(Prov::Node(id)),
+            Type::make_bool(Prov::Node(id)),
+            Type::make_bool(Prov::Node(id)),
+        ),
+        BinOpcode::Add
+        | BinOpcode::Subtract
+        | BinOpcode::Multiply
+        | BinOpcode::Divide
+        | BinOpcode::Mod => (
             Type::make_int(Prov::Node(id)),
             Type::make_int(Prov::Node(id)),
             Type::make_int(Prov::Node(id)),
@@ -572,6 +581,11 @@ pub fn types_of_binop(opcode: &BinOpcode, id: ast::Id) -> (Type, Type, Type) {
             Type::make_int(Prov::Node(id)),
             Type::make_int(Prov::Node(id)),
             Type::make_bool(Prov::Node(id)),
+        ),
+        BinOpcode::Concat => (
+            Type::make_string(Prov::Node(id)),
+            Type::make_string(Prov::Node(id)),
+            Type::make_string(Prov::Node(id)),
         ),
     }
 }

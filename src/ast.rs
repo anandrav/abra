@@ -1217,6 +1217,8 @@ pub fn parse_toplevel(pairs: Pairs<Rule>) -> Rc<Toplevel> {
 pub fn parse_expr_pratt(pairs: Pairs<Rule>) -> Rc<Expr> {
     let pratt = PrattParser::new()
         .op(Op::infix(Rule::op_eq, Assoc::Left))
+        .op(Op::infix(Rule::op_concat, Assoc::Right))
+        .op(Op::infix(Rule::op_and, Assoc::Left) | Op::infix(Rule::op_or, Assoc::Left))
         .op(Op::infix(Rule::op_lt, Assoc::Left)
             | Op::infix(Rule::op_gt, Assoc::Left)
             | Op::infix(Rule::op_lte, Assoc::Left)
@@ -1224,7 +1226,8 @@ pub fn parse_expr_pratt(pairs: Pairs<Rule>) -> Rc<Expr> {
         .op(Op::infix(Rule::op_addition, Assoc::Left)
             | Op::infix(Rule::op_subtraction, Assoc::Left))
         .op(Op::infix(Rule::op_multiplication, Assoc::Left)
-            | Op::infix(Rule::op_division, Assoc::Left));
+            | Op::infix(Rule::op_division, Assoc::Left)
+            | Op::infix(Rule::op_mod, Assoc::Left));
     pratt
         .map_primary(parse_expr_term)
         // .map_prefix(|op, rhs| match op.as_rule() {
@@ -1246,6 +1249,10 @@ pub fn parse_expr_pratt(pairs: Pairs<Rule>) -> Rc<Expr> {
                 Rule::op_subtraction => BinOpcode::Subtract,
                 Rule::op_multiplication => BinOpcode::Multiply,
                 Rule::op_division => BinOpcode::Divide,
+                Rule::op_mod => BinOpcode::Mod,
+                Rule::op_and => BinOpcode::And,
+                Rule::op_or => BinOpcode::Or,
+                Rule::op_concat => BinOpcode::Concat,
                 _ => unreachable!(),
             };
             Rc::new(Expr {

@@ -114,11 +114,9 @@ let for_range(r: range, f) = {
     }
 }
 
-let print_fibonacci(n) = print_string(int_to_string(fibonacci(n)))
+println("The first 30 fibonacci numbers are:")
 
-print_string("The first 30 fibonacci numbers are:")
-
-for_range((0, 30), print_fibonacci)
+for_range((0, 30), n -> println(fibonacci(n)))
 "#;
 
 const _MORE_LIST: &str = r#"type list<'a> = nil | cons ('a, list<'a>)
@@ -175,6 +173,13 @@ swap((1, true))
 swap(("hello", 2))
 "#;
 
+const _MORE_OPS: &str = r#"let x = 2 + 2 = 4
+let y = true
+println(x)
+println(y)
+println(x and y)
+"#;
+
 // const _INTERFACES: &str = r#"interface ToString {
 //     to_string: self -> string
 // }
@@ -210,10 +215,9 @@ implement ToString for list<'a ToString> {
                     to_string(x)
                 }
                 cons (~x, ~xs) -> {
-                    let s = append_strings(to_string(x), ", ")
-                    append_strings(s, helper(xs))
+                    to_string(x) & ", " & helper(xs)
                 }
-        append_strings("[ ", append_strings(helper(xs), " ]"))
+        "[ " & helper(xs) & " ]"
     }
 }
 let print(x: 'b ToString) = print_string(to_string(x))
@@ -243,10 +247,55 @@ let numbers = map(numbers, x -> x * x)
 println(numbers)
 "#;
 
+const PRELUDE: &str = r#"interface ToString {
+    to_string: self -> string
+}
+implement ToString for string {
+	let to_string(s) = s
+}
+implement ToString for int {
+	let to_string(n) = int_to_string(n)
+}
+implement ToString for bool {
+	let to_string(b) = if b "true" else "false"
+}
+type list<'a> = nil | cons ('a, list<'a>)
+implement ToString for list<'a ToString> {
+    let to_string(xs) = {
+        let helper(xs) = 
+            match xs
+                nil -> ""
+                cons (~x, nil) -> {
+                    to_string(x)
+                }
+                cons (~x, ~xs) -> {
+                    to_string(x) & ", " & helper(xs)
+                }
+        "[ " & helper(xs) & " ]"
+    }
+}
+let print(x: 'b ToString) = print_string(to_string(x))
+let println(x: 'b ToString) = {
+    print_string(to_string(x))
+    print_string(newline)
+}
+
+let map(xs: list<'a>, f: 'a -> 'b) =
+    match xs
+        nil -> nil
+        cons (~head, ~tail) -> cons(f(head), map(tail, f))
+
+let filter(xs: list<'a>, f: 'a -> bool) =
+    match xs
+        nil -> nil
+        cons (~head, ~tail) -> 
+            if f(head) cons(head, filter(tail, f)) else filter(tail, f)
+"#;
+
 impl Default for MyApp {
     fn default() -> Self {
         Self {
-            text: String::from(_INTERFACES),
+            text: String::from(_FIB),
             output: String::default(),
             interpreter: None,
         }
@@ -299,8 +348,8 @@ impl eframe::App for MyApp {
                         {
                             self.interpreter = None;
                             self.output.clear();
-                            // let text_with_braces = "{\n".to_owned() + &self.text + "\n}";
-                            match ast::parse_or_err(&self.text) {
+                            let source = PRELUDE.to_owned() + &self.text;
+                            match ast::parse_or_err(&source) {
                                 Ok(parse_tree) => {
                                     debug_println!("successfully parsed.");
                                     let mut node_map = ast::NodeMap::new();
@@ -326,7 +375,7 @@ impl eframe::App for MyApp {
                                         &inference_ctx,
                                         tyctx.clone(),
                                         &node_map,
-                                        &self.text,
+                                        &source,
                                     );
                                     match result {
                                         Ok(_) => {
