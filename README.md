@@ -2,8 +2,19 @@
 
 [![Build Status](https://github.com/anandrav/abra/workflows/CI/badge.svg)](https://github.com/anandrav/abra/actions?workflow=CI)
 
-This is the main source code repository for Abra.
-Try the [editor](https://abra-editor.anandrav.repl.co/).
+```ocaml
+let fibonacci(n) = {
+    match n
+        0 -> 0
+        1 -> 1
+        _ -> fibonacci(n-1) + fibonacci(n-2)
+}
+
+println("The first 10 fibonacci numbers are:")
+for_each(range(0, 9), n -> println(fibonacci(n)))
+```
+
+Try the [online editor](https://abra-editor.anandrav.repl.co/).
 
 ## Running on Desktop
 
