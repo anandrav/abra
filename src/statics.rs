@@ -39,28 +39,6 @@ pub enum TypeFullyInstantiated {
     Adt(Identifier, Vec<TypeFullyInstantiated>),
 }
 
-// impl TypeFullyInstantiated {
-//     pub fn to_interface_impl(self) -> TypeInterfaceImpl {
-//         match self {
-//             TypeFullyInstantiated::Unit => TypeInterfaceImpl::Unit,
-//             TypeFullyInstantiated::Int => TypeInterfaceImpl::Int,
-//             TypeFullyInstantiated::Bool => TypeInterfaceImpl::Bool,
-//             TypeFullyInstantiated::String => TypeInterfaceImpl::String,
-//             TypeFullyInstantiated::Function(params, ret) => TypeInterfaceImpl::Function(
-//                 params.into_iter().map(|x| x.to_interface_impl()).collect(),
-//                 ret.to_interface_impl().into(),
-//             ),
-//             TypeFullyInstantiated::Tuple(elements) => TypeInterfaceImpl::Tuple(
-//                 elements
-//                     .into_iter()
-//                     .map(|x| x.to_interface_impl())
-//                     .collect(),
-//             ),
-//             TypeFullyInstantiated::Adt(name, _params) => TypeInterfaceImpl::Adt(name),
-//         }
-//     }
-// }
-
 // This is the type of an interface's implementation, which is not fully instantiated.
 // For instance, an interface may be implemented for list<'a SomeInterface>, so its
 // implementation type will be list<'a>, which is not fully instantiated
@@ -1374,53 +1352,6 @@ pub fn generate_constraints_expr(
                 func.clone(),
                 inf_ctx,
             );
-        }
-        ExprKind::MethodAp(receiver, methodname, args) => {
-            let _ty_receiver = Type::from_node(inf_ctx, receiver.id);
-            // make sure receiver has method
-            // let ty_method = Type::fresh_unifvar(
-            //     inf_ctx,
-            //     Prov::Method(
-            //         Box::new(Prov::Node(methodname.id())),
-            //         methodname.ident.clone(),
-            //     ),
-            // );
-            let _ty_method = Type::fresh_unifvar(inf_ctx, Prov::Node(methodname.id()));
-
-            // arguments
-            let _tys_args: Vec<Type> = args
-                .iter()
-                .enumerate()
-                .map(|(n, arg)| {
-                    let unknown = Type::fresh_unifvar(
-                        inf_ctx,
-                        Prov::FuncArg(Box::new(Prov::Node(methodname.id)), n as u8),
-                    );
-                    generate_constraints_expr(
-                        gamma.clone(),
-                        Mode::Ana {
-                            expected: unknown.clone(),
-                        },
-                        arg.clone(),
-                        inf_ctx,
-                    );
-                    unknown
-                })
-                .collect();
-
-            // body
-            let ty_body =
-                Type::fresh_unifvar(inf_ctx, Prov::FuncOut(Box::new(Prov::Node(methodname.id))));
-            constrain(ty_body, node_ty);
-
-            // function type
-            // let ty_func = Type::make_arrow(tys_args, ty_body, expr.id);
-            // generate_constraints_expr(
-            //     gamma,
-            //     Mode::Ana { expected: ty_func },
-            //     func.clone(),
-            //     inf_ctx,
-            // );
         }
         ExprKind::Tuple(exprs) => {
             let tys = exprs

@@ -540,7 +540,6 @@ pub fn translate_expr(
             expr1.clone(),
             exprs.clone(),
         ),
-        ASTek::MethodAp(_receiver, _method, _args) => Rc::new(Ete::Unit),
         ASTek::If(expr1, expr2, expr3) => match expr3 {
             // if-else
             Some(expr3) => Rc::new(Ete::If(

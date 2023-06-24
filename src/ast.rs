@@ -37,28 +37,6 @@ impl Node for InterfaceAnnotation {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
-pub struct MethodName {
-    pub ident: Identifier,
-    pub span: Span,
-    pub id: Id,
-}
-impl Node for MethodName {
-    fn span(&self) -> Span {
-        self.span.clone()
-    }
-    fn id(&self) -> Id {
-        self.id
-    }
-    fn children(&self) -> Vec<Rc<dyn Node>> {
-        vec![]
-    }
-
-    fn to_stmt(&self) -> Option<Stmt> {
-        None
-    }
-}
-
 pub type PatAnnotated = (Rc<Pat>, Option<Rc<AstType>>);
 
 #[derive(Debug, Clone)]
@@ -333,11 +311,6 @@ impl Node for Expr {
                 children.extend(args.iter().map(|a| a.clone() as Rc<dyn Node>));
                 children
             }
-            ExprKind::MethodAp(obj, _, args) => {
-                let mut children: Vec<Rc<dyn Node>> = vec![obj.clone() as Rc<dyn Node>];
-                children.extend(args.iter().map(|a| a.clone() as Rc<dyn Node>));
-                children
-            }
             ExprKind::Tuple(exprs) => exprs
                 .iter()
                 .map(|e| e.clone() as Rc<dyn Node>)
@@ -373,7 +346,6 @@ pub enum ExprKind {
     Block(Vec<Rc<Stmt>>),
     BinOp(Rc<Expr>, BinOpcode, Rc<Expr>),
     FuncAp(Rc<Expr>, Vec<Rc<Expr>>),
-    MethodAp(Rc<Expr>, MethodName, Vec<Rc<Expr>>),
     Tuple(Vec<Rc<Expr>>),
 }
 
@@ -609,35 +581,6 @@ impl From<pest::Span<'_>> for Span {
     }
 }
 
-// pub fn parse(source: &str) -> Result<Rc<Expr>, String> {
-//     abra_grammar::ExprParser::new()
-//         .parse(source)
-//         .map_err(|err| err.to_string())
-// }
-
-// pub fn fix(s: &str) -> String {
-//     // debug_println!("fix: {}", s);
-//     if let Err(e) = MyParser::parse(Rule::program, &s) {
-//         if let ErrorVariant::ParsingError {
-//             positives,
-//             negatives,
-//         } = e.variant
-//         {
-//             if positives.contains(&Rule::placeholder) {
-//                 let mut s = String::from(s);
-//                 if let Pos(p) = e.location {
-//                     s.insert_str(p, &Token::Placeholder.to_str());
-//                     return fix(&s);
-//                 }
-//             }
-//         }
-//         // debug_println!("{:#?}", e);
-//         panic!()
-//     }
-//     s.to_string()
-// }
-
-// TODO: use fix() method in the future
 pub fn get_pairs(source: &str) -> Result<Pairs<Rule>, String> {
     MyParser::parse(Rule::toplevel, source).map_err(|e| e.to_string())
 }
@@ -1127,27 +1070,6 @@ pub fn parse_expr_term(pair: Pair<Rule>) -> Rc<Expr> {
             }
             Rc::new(Expr {
                 exprkind: Rc::new(ExprKind::FuncAp(f, args)),
-                span,
-                id: Id::new(),
-            })
-        }
-        Rule::method_call_expression => {
-            let inner: Vec<_> = pair.into_inner().collect();
-            let receiver = parse_expr_pratt(Pairs::single(inner[0].clone()));
-            let Rule::method_call_ident_and_args = inner[1].as_rule() else { unreachable!() };
-            let inner: Vec<_> = inner[1].clone().into_inner().collect();
-            let method = MethodName {
-                ident: inner[0].as_str().to_string(),
-                span: inner[0].as_span().into(),
-                id: Id::new(),
-            };
-            let inner: Vec<_> = inner[1].clone().into_inner().collect();
-            let mut args = vec![];
-            for p in &inner[0..] {
-                args.push(parse_expr_pratt(Pairs::single(p.clone())));
-            }
-            Rc::new(Expr {
-                exprkind: Rc::new(ExprKind::MethodAp(receiver, method, args)),
                 span,
                 id: Id::new(),
             })
