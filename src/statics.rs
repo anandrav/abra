@@ -691,7 +691,7 @@ pub struct InferenceContext {
     // function definition locations
     pub fun_defs: HashMap<Identifier, Rc<Stmt>>,
     // interface definitions
-    pub interface_defs: HashMap<Identifier, InterfaceDef>,
+    pub interface_defs: HashMap<Identifier, Vec<InterfaceDef>>,
     // map from methods to interface names
     pub method_to_interface: HashMap<Identifier, Identifier>,
     // map from interface name to list of implementations
@@ -722,6 +722,18 @@ impl InferenceContext {
     pub fn adt_def_of_variant(&self, variant: &Identifier) -> Option<AdtDef> {
         let adt_name = self.variants_to_adt.get(variant)?;
         self.tydefs.get(adt_name).cloned()
+    }
+
+    pub fn interface_def_of_ident(&self, ident: &Identifier) -> Option<InterfaceDef> {
+        let vec = &self.interface_defs.get(ident);
+        if let Some(vec) = vec {
+            if vec.len() != 1 {
+                return None;
+            }
+            return Some(vec[0].clone());
+        } else {
+            None
+        }
     }
 }
 
@@ -1423,68 +1435,6 @@ pub fn generate_constraints_expr(
     }
 }
 
-// helper function for common code between Expr::Func and Expr::LetFunc
-// pub fn generate_constraints_function_helper(
-//     gamma: Rc<RefCell<Gamma>>,
-//     inf_ctx: &mut InferenceContext,
-//     args: &[(Rc<ast::Pat>, Option<Rc<ast::AstType>>)],
-//     out_annot: &Option<Rc<ast::AstType>>,
-//     body: &Rc<Expr>,
-//     func_node_id: ast::Id,
-// ) -> (Type, Rc<RefCell<Gamma>>) {
-//     // arguments
-//     let body_gamma = Gamma::new(Some(gamma));
-//     let ty_args = args
-//         .iter()
-//         .map(|(arg, arg_annot)| {
-//             let ty_pat = Type::from_node(inf_ctx, arg.id);
-//             match arg_annot {
-//                 Some(arg_annot) => {
-//                     let arg_annot = ast_type_to_statics_type(inf_ctx, arg_annot.clone());
-//                     body_gamma.borrow_mut().add_polys(&arg_annot);
-//                     generate_constraints_pat(
-//                         body_gamma.clone(), // TODO what are the consequences of analyzing patterns with context containing previous pattern... probs should not do that
-//                         Mode::Ana {
-//                             expected: arg_annot,
-//                         },
-//                         arg.clone(),
-//                         inf_ctx,
-//                     )
-//                 }
-//                 None => {
-//                     generate_constraints_pat(body_gamma.clone(), Mode::Syn, arg.clone(), inf_ctx)
-//                 }
-//             }
-//             ty_pat
-//         })
-//         .collect();
-
-//     // body
-//     let ty_body = Type::fresh_unifvar(inf_ctx, Prov::FuncOut(Box::new(Prov::Node(func_node_id))));
-//     generate_constraints_expr(
-//         body_gamma.clone(),
-//         Mode::Ana {
-//             expected: ty_body.clone(),
-//         },
-//         body.clone(),
-//         inf_ctx,
-//     );
-//     if let Some(out_annot) = out_annot {
-//         let out_annot = ast_type_to_statics_type(inf_ctx, out_annot.clone());
-//         body_gamma.borrow_mut().add_polys(&out_annot);
-//         generate_constraints_expr(
-//             body_gamma.clone(),
-//             Mode::Ana {
-//                 expected: out_annot,
-//             },
-//             body.clone(),
-//             inf_ctx,
-//         );
-//     }
-
-//     (Type::make_arrow(ty_args, ty_body, func_node_id), body_gamma)
-// }
-
 pub fn generate_constraints_stmt(
     gamma: Rc<RefCell<Gamma>>,
     mode: Mode,
@@ -1500,33 +1450,37 @@ pub fn generate_constraints_stmt(
             for statement in statements {
                 let StmtKind::LetFunc(pat, _args, _out, _body) = &*statement.stmtkind else { continue; };
                 let method_name = pat.patkind.get_identifier_of_variable();
-                let interface_def = inf_ctx.interface_defs.get(ident).unwrap(); // todo don't unwrap
-                let interface_method = interface_def
-                    .methods
-                    .iter()
-                    .find(|m| m.name == method_name)
-                    .unwrap(); // todo don't unwrap
-                let mut substitution = BTreeMap::new();
-                substitution.insert("a".to_string(), typ.clone());
-                debug_println!("original method ty: {}", interface_method.ty);
+                if let Some(interface_def) = inf_ctx.interface_def_of_ident(ident) {
+                    if let Some(interface_method) =
+                        interface_def.methods.iter().find(|m| m.name == method_name)
+                    {
+                        let mut substitution = BTreeMap::new();
+                        substitution.insert("a".to_string(), typ.clone());
+                        debug_println!("original method ty: {}", interface_method.ty);
 
-                let expected = interface_method.ty.clone().subst(
-                    gamma.clone(),
-                    inf_ctx,
-                    Prov::Node(stmt.id),
-                    &substitution,
-                );
-                debug_println!("expected ty: {}", expected);
+                        let expected = interface_method.ty.clone().subst(
+                            gamma.clone(),
+                            inf_ctx,
+                            Prov::Node(stmt.id),
+                            &substitution,
+                        );
+                        debug_println!("expected ty: {}", expected);
 
-                constrain(expected, Type::from_node(inf_ctx, pat.id));
+                        constrain(expected, Type::from_node(inf_ctx, pat.id));
 
-                generate_constraints_stmt(
-                    gamma.clone(),
-                    Mode::Syn,
-                    statement.clone(),
-                    inf_ctx,
-                    false,
-                );
+                        generate_constraints_stmt(
+                            gamma.clone(),
+                            Mode::Syn,
+                            statement.clone(),
+                            inf_ctx,
+                            false,
+                        );
+                    } else {
+                        // todo: emit error interface doesn't have method
+                    }
+                } else {
+                    // todo: emit error interface doesn't exist
+                }
             }
         }
         StmtKind::TypeDef(typdefkind) => match &**typdefkind {
@@ -1754,14 +1708,15 @@ pub fn gather_definitions_stmt(
                 // gamma.borrow_mut().extend(&p.ident, ty_annot);
                 gamma.borrow_mut().extend(&p.ident, node_ty);
             }
-            inf_ctx.interface_defs.insert(
-                ident.clone(),
-                InterfaceDef {
-                    name: ident.clone(),
-                    methods,
-                    location: stmt.id,
-                },
-            );
+            let entry = inf_ctx
+                .interface_defs
+                .entry(ident.clone())
+                .or_insert(vec![]);
+            entry.push(InterfaceDef {
+                name: ident.clone(),
+                methods,
+                location: stmt.id,
+            });
         }
         StmtKind::InterfaceImpl(ident, _ty, stmts) => {
             // let _named_ty = ast_type_to_interface_instance_type(ty.clone());

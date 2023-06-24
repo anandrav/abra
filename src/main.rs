@@ -221,10 +221,135 @@ let add: (int, int) -> int = (x, y) -> x + y
 add(1, 2)
 "#;
 
-const _SCRATCH: &str = r#"
-x + y
+const _SCRATCH: &str = r#"type list<'a> = nil | cons ('a, list<'a>)
 
+interface Equals {
+    equals: (self, self) -> bool
+}
+implement Equals for void {
+    let equals(a, b) = true
+}
+implement Equals for int {
+    let equals(a, b) = equals_int(a, b)
+}
+implement Equals for bool {
+    let equals(a, b) = 
+        if a and b {
+            true
+        } else if a or b {
+            false
+        } else {
+            true
+        }
+}
+implement Equals for string {
+    let equals(a, b) = equals_string(a, b)
+}
+implement Equals for list<'a Equals> {
+    let equals(a, b) = {
+        match (a, b)
+            (nil, nil) -> true
+            (cons (~x, ~xs), cons (~y, ~ys)) -> {
+                equals(x, y) and equals(xs, ys)
+            }
+            _ -> false
+    }
+}
+let hack = equals((), ())
+let hack = equals(1, 1)
+let hack = equals(true, true)
+let hack = equals("hello", "hello")
+let hack = [1, 2, 3, 4]
+let hack = equals(cons(true, nil), cons(false, nil))
 
+interface ToString {
+    to_string: self -> string
+}
+implement ToString for string {
+	let to_string(s) = s
+}
+implement ToString for void {
+	let to_string(s) = "()"
+}
+implement ToString for int {
+	let to_string(n) = int_to_string(n)
+}
+implement ToString for bool {
+	let to_string(b) = if b "true" else "false"
+}
+
+implement ToString for list<'a ToString> {
+    let to_string(xs) = {
+        let helper(xs) = 
+            match xs
+                nil -> ""
+                cons (~x, nil) -> {
+                    to_string(x)
+                }
+                cons (~x, ~xs) -> {
+                    to_string(x) & ", " & helper(xs)
+                }
+        "[ " & helper(xs) & " ]"
+    }
+}
+let print(x: 'b ToString) = print_string(to_string(x))
+let println(x: 'b ToString) = {
+    print_string(to_string(x))
+    print_string(newline)
+}
+
+let range(lo: int, hi: int) =
+    if lo > hi
+        nil
+    else
+        cons(lo, range(lo + 1, hi))
+
+let fold(xs: list<'b>, f: ('a, 'b) -> 'a, acc: 'a) -> 'a =
+    match xs
+        nil -> acc
+        cons (~head, ~tail) -> fold(tail, f, f(acc, head))
+
+let sum(xs: list<int>) -> int = fold(xs, (a, b) -> a + b, 0)
+
+let concat(xs: list<string>, sep: string) -> string =
+    match xs
+        nil -> ""
+        cons (~head, cons(~last, nil)) -> {
+            head & sep & last
+        }
+        cons (~head, ~tail) -> {
+            head & sep & concat(tail, sep)
+        }
+
+let map(xs: list<'a>, f: 'a -> 'b) -> list<'b> =
+    match xs
+        nil -> nil
+        cons (~head, ~tail) -> cons(f(head), map(tail, f))
+
+let for_each(xs: list<'a>, f: 'a -> 'b) -> void =
+    match xs
+        nil -> ()
+        cons (~head, ~tail) -> {
+            f(head)
+            for_each(tail, f)
+        }
+
+let filter(xs: list<'a>, f: 'a -> bool) -> list<'a> =
+    match xs
+        nil -> nil
+        cons (~head, ~tail) -> 
+            if f(head) cons(head, filter(tail, f)) else filter(tail, f)
+
+let reverse(xs: list<'c>) -> list<'c> =
+    fold(xs, (acc, head) -> cons(head, acc), nil)
+
+let hack = [1, 2, 3, 4]
+
+type lol = none | some
+
+let x: lol = none
+
+println(x)
 "#;
 
 const _INTERFACES: &str = r#"
@@ -512,8 +637,8 @@ impl eframe::App for MyApp {
                         {
                             self.interpreter = None;
                             self.output.clear();
-                            let source = PRELUDE.to_owned() + &self.text;
-                            // let source = &self.text;
+                            // let source = PRELUDE.to_owned() + &self.text;
+                            let source = &self.text;
                             match ast::parse_or_err(&source) {
                                 Ok(parse_tree) => {
                                     debug_println!("successfully parsed.");
