@@ -452,7 +452,7 @@ println("hello = hello?")
 println(equals("hello", "hello"))
 "#;
 
-const PRELUDE: &str = r#"
+const _PRELUDE: &str = r#"
 type list<'a> = nil | cons ('a, list<'a>)
 
 interface Equals {
@@ -639,7 +639,7 @@ impl eframe::App for MyApp {
                             self.output.clear();
                             // let source = PRELUDE.to_owned() + &self.text;
                             let source = &self.text;
-                            match ast::parse_or_err(&source) {
+                            match ast::parse_or_err(source) {
                                 Ok(parse_tree) => {
                                     debug_println!("successfully parsed.");
                                     let mut node_map = ast::NodeMap::new();
@@ -665,7 +665,7 @@ impl eframe::App for MyApp {
                                         &inference_ctx,
                                         tyctx.clone(),
                                         &node_map,
-                                        &source,
+                                        source,
                                     );
                                     match result {
                                         Ok(_) => {

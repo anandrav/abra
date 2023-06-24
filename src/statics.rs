@@ -730,7 +730,7 @@ impl InferenceContext {
             if vec.len() != 1 {
                 return None;
             }
-            return Some(vec[0].clone());
+            Some(vec[0].clone())
         } else {
             None
         }
