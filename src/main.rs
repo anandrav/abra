@@ -198,12 +198,6 @@ print("the same numbers, squared:")
 print_list(squared_list(my_list))
 "#;
 
-// let map(l: list<'a>, f: 'a -> 'b) = {
-// 	match l
-// 		nil -> nil
-// 		cons (~head, ~tail) -> cons(f(head), map(tail, f))
-// }
-
 const _SWAP: &str = r#"let swap(pair: ('a, 'b)) = {
     let (first, second) = pair
     (second, first)
@@ -227,25 +221,9 @@ let add: (int, int) -> int = (x, y) -> x + y
 add(1, 2)
 "#;
 
-const _SCRATCH: &str = r#"let list = [1, 2, 3, 4, 5, 6]
-print("numbers: ")
-println(list)
+const _SCRATCH: &str = r#"
+x + y
 
-let list = map(list, x -> x * x * x)
-print("cubed: ")
-println(list)
-
-let list = filter(list, x -> x mod 2 = 0)
-print("only even: ")
-println(list)
-
-let sum = fold(list, (x, y) -> x + y, 0)
-print("they add up to: ")
-println(sum)
-
-let list = ["The", "Abra", "Programming", "Language"]
-let s = concat(list, " ~ ")
-println(s)
 
 "#;
 
@@ -479,7 +457,7 @@ let hack = [1, 2, 3, 4]
 impl Default for MyApp {
     fn default() -> Self {
         Self {
-            text: String::from(_DEMO),
+            text: String::from(_SCRATCH),
             output: String::default(),
             interpreter: None,
         }
