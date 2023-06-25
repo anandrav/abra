@@ -345,11 +345,7 @@ let reverse(xs: list<'c>) -> list<'c> =
 
 let hack = [1, 2, 3, 4]
 
-type lol = none | some
-
-let x: lol = none
-
-println(x)
+println("hello world")
 "#;
 
 const _INTERFACES: &str = r#"

@@ -673,10 +673,11 @@ pub struct InferenceContext {
     // map from methods to interface names
     pub method_to_interface: HashMap<Identifier, Identifier>,
     // map from interface name to list of implementations
-    pub interface_impls: HashMap<Identifier, Vec<InterfaceImpl>>,
+    pub interface_impls: HashMap<Identifier, Vec<InterfaceImpl>>, // TODO map from (Identifier, InterfaceImplType) -> InterfaceImpl
 
     // unbound variables
     pub unbound_vars: BTreeSet<ast::Id>,
+    pub unbound_interfaces: BTreeSet<ast::Id>,
 }
 
 impl InferenceContext {
@@ -690,6 +691,7 @@ impl InferenceContext {
             method_to_interface: HashMap::new(),
             interface_impls: HashMap::new(),
             unbound_vars: BTreeSet::new(),
+            unbound_interfaces: BTreeSet::new(),
         }
     }
 
@@ -1378,10 +1380,10 @@ pub fn generate_constraints_stmt(
         StmtKind::InterfaceImpl(ident, typ, statements) => {
             let typ = ast_type_to_statics_type(inf_ctx, typ.clone());
 
-            for statement in statements {
-                let StmtKind::LetFunc(pat, _args, _out, _body) = &*statement.stmtkind else { continue; };
-                let method_name = pat.patkind.get_identifier_of_variable();
-                if let Some(interface_def) = inf_ctx.interface_def_of_ident(ident) {
+            if let Some(interface_def) = inf_ctx.interface_def_of_ident(ident) {
+                for statement in statements {
+                    let StmtKind::LetFunc(pat, _args, _out, _body) = &*statement.stmtkind else { continue; };
+                    let method_name = pat.patkind.get_identifier_of_variable();
                     if let Some(interface_method) =
                         interface_def.methods.iter().find(|m| m.name == method_name)
                     {
@@ -1409,9 +1411,9 @@ pub fn generate_constraints_stmt(
                     } else {
                         // todo: emit error interface doesn't have method
                     }
-                } else {
-                    // todo: emit error interface doesn't exist
                 }
+            } else {
+                inf_ctx.unbound_interfaces.insert(stmt.id);
             }
         }
         StmtKind::TypeDef(typdefkind) => match &**typdefkind {
@@ -1764,7 +1766,10 @@ pub fn result_of_constraint_solving(
         }
     }
 
-    if inf_ctx.unbound_vars.is_empty() && type_conflicts.is_empty() {
+    if inf_ctx.unbound_vars.is_empty()
+        && inf_ctx.unbound_interfaces.is_empty()
+        && type_conflicts.is_empty()
+    {
         for (node_id, node) in node_map.iter() {
             let ty = Type::solution_of_node(inf_ctx, *node_id);
             let _span = node.span();
@@ -1788,6 +1793,13 @@ pub fn result_of_constraint_solving(
         for ast_id in inf_ctx.unbound_vars.iter() {
             let span = node_map.get(ast_id).unwrap().span();
             err_string.push_str(&span.display(source, ""));
+        }
+    }
+    if !inf_ctx.unbound_interfaces.is_empty() {
+        for ast_id in inf_ctx.unbound_interfaces.iter() {
+            let span = node_map.get(ast_id).unwrap().span();
+            err_string
+                .push_str(&span.display(source, "Interface being implemented is not defined\n"));
         }
     }
 
