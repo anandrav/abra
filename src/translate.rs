@@ -6,6 +6,7 @@ use crate::ast::NodeMap;
 use crate::eval_tree;
 use crate::interpreter;
 use crate::operators::BinOpcode;
+use crate::statics;
 use crate::statics::Gamma;
 use crate::statics::InferenceContext;
 use crate::statics::Prov;
@@ -354,6 +355,60 @@ pub fn get_func_definition_node(
     }
 }
 
+pub fn monomorphize_overloaded_var(
+    inf_ctx: &InferenceContext,
+    monomorphenv: Rc<RefCell<MonomorphEnv>>,
+    gamma: Rc<RefCell<Gamma>>,
+    node_map: &NodeMap,
+    overloaded_func_map: &mut OverloadedFuncMapTemp,
+    ident: &ast::Identifier,
+    node_ty: Type,
+) -> Option<TypeFullyInstantiated> {
+    if let Some(global_ty) = ty_of_global_ident(gamma.clone(), ident) {
+        if global_ty.is_overloaded() {
+            debug_println!("global_ty: {} (overloaded)", global_ty);
+            debug_println!("node's type is: {},", node_ty);
+            debug_println!("monomorphic env before is: {:?}", monomorphenv.borrow());
+            let substituted_ty = subst_with_monomorphic_env(monomorphenv, node_ty);
+            debug_println!("substituted type: {}", substituted_ty);
+            let instance_ty = substituted_ty.instance_type().unwrap();
+            if let Some(_overloaded_func) =
+                overloaded_func_map.get(&(ident.clone(), instance_ty.clone()))
+            {
+                debug_println!("overloaded func: {:?}", _overloaded_func);
+                return Some(instance_ty);
+            }
+            let func_def_node = get_func_definition_node(
+                inf_ctx,
+                node_map,
+                ident,
+                substituted_ty.interface_impl_type().unwrap(),
+            )
+            .to_stmt()
+            .unwrap();
+            let ast::StmtKind::LetFunc(pat, args, _, body) = &*func_def_node.stmtkind else { panic!() };
+
+            let overloaded_func_ty = Type::solution_of_node(inf_ctx, pat.id()).unwrap();
+            let monomorphenv = Rc::new(RefCell::new(MonomorphEnv::new(None)));
+            update_monomorphenv(monomorphenv.clone(), overloaded_func_ty, substituted_ty);
+            debug_println!("monomorphic env after is: {:?}", monomorphenv.borrow());
+            overloaded_func_map.insert((ident.clone(), instance_ty.clone()), None);
+            let overloaded_func = translate_expr_func(
+                inf_ctx,
+                monomorphenv,
+                gamma,
+                node_map,
+                overloaded_func_map,
+                args.clone(),
+                body.clone(),
+            );
+            overloaded_func_map.insert((ident.clone(), instance_ty.clone()), Some(overloaded_func));
+            return Some(instance_ty);
+        }
+    }
+    None
+}
+
 pub fn translate_expr(
     inf_ctx: &InferenceContext,
     monomorphenv: Rc<RefCell<MonomorphEnv>>,
@@ -367,52 +422,16 @@ pub fn translate_expr(
         ASTek::Var(ident) => {
             debug_println!("identifier: {ident}");
             if let Some(node_ty) = Type::solution_of_node(inf_ctx, ast_id) {
-                if let Some(global_ty) = ty_of_global_ident(gamma.clone(), ident) {
-                    if global_ty.is_overloaded() {
-                        debug_println!("global_ty: {} (overloaded)", global_ty);
-                        debug_println!("node's type is: {},", node_ty);
-                        debug_println!("monomorphic env before is: {:?}", monomorphenv.borrow());
-                        let substituted_ty = subst_with_monomorphic_env(monomorphenv, node_ty);
-                        debug_println!("substituted type: {}", substituted_ty);
-                        let instance_ty = substituted_ty.instance_type().unwrap();
-                        if let Some(_overloaded_func) =
-                            overloaded_func_map.get(&(ident.clone(), instance_ty.clone()))
-                        {
-                            debug_println!("overloaded func: {:?}", _overloaded_func);
-                            return Rc::new(Ete::VarOverloaded(ident.clone(), instance_ty));
-                        }
-                        let func_def_node = get_func_definition_node(
-                            inf_ctx,
-                            node_map,
-                            ident,
-                            substituted_ty.interface_impl_type().unwrap(),
-                        )
-                        .to_stmt()
-                        .unwrap();
-                        let ast::StmtKind::LetFunc(pat, args, _, body) = &*func_def_node.stmtkind else { panic!() };
-
-                        let overloaded_func_ty = Type::solution_of_node(inf_ctx, pat.id()).unwrap();
-                        let monomorphenv = Rc::new(RefCell::new(MonomorphEnv::new(None)));
-                        update_monomorphenv(
-                            monomorphenv.clone(),
-                            overloaded_func_ty,
-                            substituted_ty,
-                        );
-                        debug_println!("monomorphic env after is: {:?}", monomorphenv.borrow());
-                        overloaded_func_map.insert((ident.clone(), instance_ty.clone()), None);
-                        let overloaded_func = translate_expr_func(
-                            inf_ctx,
-                            monomorphenv,
-                            gamma,
-                            node_map,
-                            overloaded_func_map,
-                            args.clone(),
-                            body.clone(),
-                        );
-                        overloaded_func_map
-                            .insert((ident.clone(), instance_ty.clone()), Some(overloaded_func));
-                        return Rc::new(Ete::VarOverloaded(ident.clone(), instance_ty));
-                    }
+                if let Some(instance_ty) = monomorphize_overloaded_var(
+                    inf_ctx,
+                    monomorphenv,
+                    gamma,
+                    node_map,
+                    overloaded_func_map,
+                    ident,
+                    node_ty,
+                ) {
+                    return Rc::new(Ete::VarOverloaded(ident.clone(), instance_ty));
                 }
             }
             Rc::new(Ete::Var(ident.clone()))
@@ -457,16 +476,23 @@ pub fn translate_expr(
             Rc::new(Ete::Tuple(translated_exprs))
         }
         ASTek::BinOp(expr1, BinOpcode::Equals, expr2) => {
-            let ty1 = Type::solution_of_node(inf_ctx, expr1.id())
-                .unwrap()
-                .instance_type()
-                .unwrap();
-            let ty2 = Type::solution_of_node(inf_ctx, expr2.id())
-                .unwrap()
-                .instance_type()
-                .unwrap();
-            let ty =
-                TypeFullyInstantiated::Function(vec![ty1, ty2], TypeFullyInstantiated::Bool.into());
+            let ty1 = Type::solution_of_node(inf_ctx, expr1.id()).unwrap();
+            let ty2 = Type::solution_of_node(inf_ctx, expr2.id()).unwrap();
+            let ty = Type::Function(
+                statics::provs_singleton(Prov::Node(ast_id)),
+                vec![ty1, ty2],
+                Type::make_bool(Prov::FuncOut(Prov::Node(ast_id).into())).into(),
+            );
+            let ty = monomorphize_overloaded_var(
+                inf_ctx,
+                monomorphenv.clone(),
+                gamma.clone(),
+                node_map,
+                overloaded_func_map,
+                &"equals".to_owned(),
+                ty,
+            )
+            .expect("could not overload equals operator");
             debug_println!("{:?}", &ty);
             Rc::new(Ete::FuncAp(
                 Rc::new(Ete::VarOverloaded("equals".to_owned(), ty)),

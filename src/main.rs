@@ -255,12 +255,7 @@ implement Equals for list<'a Equals> {
             _ -> false
     }
 }
-let hack = equals((), ())
-let hack = equals(1, 1)
-let hack = equals(true, true)
-let hack = equals("hello", "hello")
 let hack = [1, 2, 3, 4]
-let hack = equals(cons(true, nil), cons(false, nil))
 
 interface ToString {
     to_string: self -> string
@@ -346,6 +341,9 @@ let reverse(xs: list<'c>) -> list<'c> =
 let hack = [1, 2, 3, 4]
 
 println("hello world")
+
+println(1 = 1)
+println([1,2,3] = [1,2,3])
 "#;
 
 const _INTERFACES: &str = r#"
