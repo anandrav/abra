@@ -573,7 +573,16 @@ pub fn types_of_binop(opcode: &BinOpcode, id: ast::Id) -> (Type, Type, Type) {
         | BinOpcode::Subtract
         | BinOpcode::Multiply
         | BinOpcode::Divide
-        | BinOpcode::Mod => (
+        | BinOpcode::Pow => {
+            let ty_left = Type::make_poly_constrained(prov_left, "a".to_owned(), "Num".to_owned());
+            let ty_right =
+                Type::make_poly_constrained(prov_right, "a".to_owned(), "Num".to_owned());
+            let ty_out = Type::make_poly_constrained(prov_out, "a".to_owned(), "Num".to_owned());
+            constrain(ty_left.clone(), ty_right.clone());
+            constrain(ty_left.clone(), ty_out.clone());
+            (ty_left, ty_right, ty_out)
+        }
+        BinOpcode::Mod => (
             Type::make_int(prov_left),
             Type::make_int(prov_right),
             Type::make_int(prov_out),
@@ -933,6 +942,34 @@ pub fn make_new_gamma() -> Rc<RefCell<Gamma>> {
         ),
     );
     gamma.borrow_mut().extend(
+        &String::from("to_float"),
+        Type::Function(
+            RefCell::new(BTreeSet::new()),
+            vec![Type::make_int(Prov::FuncArg(
+                Box::new(Prov::Builtin("to_float: int -> float".to_string())),
+                0,
+            ))],
+            Type::make_float(Prov::FuncOut(Box::new(Prov::Builtin(
+                "to_float: int -> float".to_string(),
+            ))))
+            .into(),
+        ),
+    );
+    gamma.borrow_mut().extend(
+        &String::from("round"),
+        Type::Function(
+            RefCell::new(BTreeSet::new()),
+            vec![Type::make_float(Prov::FuncArg(
+                Box::new(Prov::Builtin("round: float -> int".to_string())),
+                0,
+            ))],
+            Type::make_int(Prov::FuncOut(Box::new(Prov::Builtin(
+                "round: float -> int".to_string(),
+            ))))
+            .into(),
+        ),
+    );
+    gamma.borrow_mut().extend(
         &String::from("append_strings"),
         Type::Function(
             RefCell::new(BTreeSet::new()),
@@ -1079,9 +1116,9 @@ pub fn make_new_gamma() -> Rc<RefCell<Gamma>> {
     gamma
 }
 
-impl fmt::Debug for Gamma {
+impl fmt::Display for Gamma {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "Environment(\n{:?}\n)", Gamma::debug_helper(self))
+        write!(f, "Environment(\n{:#?})\n", Gamma::debug_helper(self))
     }
 }
 
@@ -1292,16 +1329,8 @@ pub fn generate_constraints_expr(
         ExprKind::BinOp(left, op, right) => {
             let (ty_left, ty_right, ty_out) = types_of_binop(op, expr.id);
             let (ty_left, ty_right, ty_out) = (
-                ty_left.instantiate(
-                    gamma.clone(),
-                    inf_ctx,
-                    Prov::BinopLeft(Prov::Node(expr.id).into()),
-                ),
-                ty_right.instantiate(
-                    gamma.clone(),
-                    inf_ctx,
-                    Prov::BinopRight(Prov::Node(expr.id).into()),
-                ),
+                ty_left.instantiate(gamma.clone(), inf_ctx, Prov::Node(expr.id)),
+                ty_right.instantiate(gamma.clone(), inf_ctx, Prov::Node(expr.id)),
                 ty_out.instantiate(gamma.clone(), inf_ctx, Prov::Node(expr.id)),
             );
             constrain(ty_out, node_ty);
@@ -1933,7 +1962,8 @@ pub fn result_of_constraint_solving(
     // dbg!(&inf_ctx.interface_defs);
     // dbg!(&inf_ctx.interface_impls);
     // dbg!(&inf_ctx.method_to_interface);
-    debug_println!("{:?}", _tyctx.borrow());
+    println!("here!");
+    println!("{}", _tyctx.borrow());
     // TODO: you should assert that every node in the AST is in unsovled_type_suggestions_to_unknown_ty, solved or not!
     let mut type_conflicts = Vec::new();
     for potential_types in inf_ctx.vars.values() {
@@ -1942,6 +1972,12 @@ pub fn result_of_constraint_solving(
         if type_suggestions.len() > 1 && (!type_conflicts.contains(&type_suggestions)) {
             type_conflicts.push(type_suggestions.clone());
         }
+        // } else if type_suggestions.len() == 1 {
+        //     let solution = type_suggestions.iter().next().unwrap().1.solution();
+        //     if solution.is_none() && (!type_conflicts.contains(&type_suggestions)) {
+        //         type_conflicts.push(type_suggestions.clone());
+        //     }
+        // }
     }
 
     if inf_ctx.unbound_vars.is_empty()
@@ -2177,8 +2213,8 @@ impl fmt::Display for Type {
             Type::UnifVar(unifvar) => {
                 let types = unifvar.clone_data().types;
                 match types.len() {
-                    // 0 => write!(f, "? {:#?}", unifvar),
-                    0 => write!(f, "?"),
+                    0 => write!(f, "? {:?}", unifvar.clone_data()),
+                    // 0 => write!(f, "?"),
                     1 => write!(f, "{}", types.values().next().unwrap()),
                     _ => {
                         write!(f, "!{{")?;

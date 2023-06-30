@@ -38,6 +38,8 @@ pub type MatchArm = (Rc<Pat>, Rc<Expr>);
 pub enum Builtin {
     IntToString,
     FloatToString,
+    IntToFloat,
+    RoundFloatToInt,
     AppendStrings,
     EqualsInt,
     EqualsString,

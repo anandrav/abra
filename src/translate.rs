@@ -405,7 +405,11 @@ pub fn monomorphize_overloaded_var(
             );
             overloaded_func_map.insert((ident.clone(), instance_ty.clone()), Some(overloaded_func));
             return Some(instance_ty);
+        } else {
+            debug_println!("global ty {} of ident {ident} is not overloaded", global_ty);
         }
+    } else {
+        debug_println!("ident {ident} has no global ty");
     }
     None
 }
@@ -498,6 +502,67 @@ pub fn translate_expr(
             debug_println!("{:?}", &ty);
             Rc::new(Ete::FuncAp(
                 Rc::new(Ete::VarOverloaded("equals".to_owned(), ty)),
+                vec![
+                    translate_expr(
+                        inf_ctx,
+                        monomorphenv.clone(),
+                        gamma.clone(),
+                        node_map,
+                        overloaded_func_map,
+                        expr1.exprkind.clone(),
+                        expr1.id,
+                    ),
+                    translate_expr(
+                        inf_ctx,
+                        monomorphenv,
+                        gamma,
+                        node_map,
+                        overloaded_func_map,
+                        expr2.exprkind.clone(),
+                        expr2.id,
+                    ),
+                ],
+                None,
+            ))
+        }
+        ASTek::BinOp(
+            expr1,
+            opcode @ (BinOpcode::Add
+            | BinOpcode::Subtract
+            | BinOpcode::Multiply
+            | BinOpcode::Divide
+            | BinOpcode::Pow),
+            expr2,
+        ) => {
+            let ty1 = Type::solution_of_node(inf_ctx, expr1.id()).unwrap();
+            let ty2 = Type::solution_of_node(inf_ctx, expr2.id()).unwrap();
+            let ty = Type::Function(
+                statics::provs_singleton(Prov::Node(ast_id)),
+                vec![ty1.clone(), ty2],
+                ty1.into(),
+            );
+            let func_name = match opcode {
+                BinOpcode::Add => "add",
+                BinOpcode::Subtract => "minus",
+                BinOpcode::Multiply => "multiply",
+                BinOpcode::Divide => "divide",
+                BinOpcode::Pow => "pow",
+                _ => unreachable!(),
+            }
+            .to_owned();
+            let ty = monomorphize_overloaded_var(
+                inf_ctx,
+                monomorphenv.clone(),
+                gamma.clone(),
+                node_map,
+                overloaded_func_map,
+                &func_name,
+                ty,
+            )
+            .unwrap_or_else(|| panic!("could not overload {func_name} operator"));
+            debug_println!("{:?}", &ty);
+            Rc::new(Ete::FuncAp(
+                Rc::new(Ete::VarOverloaded(func_name, ty)),
                 vec![
                     translate_expr(
                         inf_ctx,
@@ -676,7 +741,8 @@ pub fn translate(
     node_map: &NodeMap,
     toplevel: Rc<ast::Toplevel>,
 ) -> (Rc<Ete>, interpreter::OverloadedFuncMap) {
-    debug_println!("{:?}", gamma.borrow());
+    println!("before");
+    println!("{}", gamma.borrow());
 
     let mut overloaded_func_map_temp = OverloadedFuncMapTemp::new();
     let monomorphenv = Rc::new(RefCell::new(MonomorphEnv::new(None)));

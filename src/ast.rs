@@ -1187,7 +1187,8 @@ pub fn parse_expr_pratt(pairs: Pairs<Rule>) -> Rc<Expr> {
             | Op::infix(Rule::op_subtraction, Assoc::Left))
         .op(Op::infix(Rule::op_multiplication, Assoc::Left)
             | Op::infix(Rule::op_division, Assoc::Left)
-            | Op::infix(Rule::op_mod, Assoc::Left));
+            | Op::infix(Rule::op_mod, Assoc::Left))
+        .op(Op::infix(Rule::op_pow, Assoc::Left));
     pratt
         .map_primary(parse_expr_term)
         // .map_prefix(|op, rhs| match op.as_rule() {
@@ -1209,6 +1210,7 @@ pub fn parse_expr_pratt(pairs: Pairs<Rule>) -> Rc<Expr> {
                 Rule::op_subtraction => BinOpcode::Subtract,
                 Rule::op_multiplication => BinOpcode::Multiply,
                 Rule::op_division => BinOpcode::Divide,
+                Rule::op_pow => BinOpcode::Pow,
                 Rule::op_mod => BinOpcode::Mod,
                 Rule::op_and => BinOpcode::And,
                 Rule::op_or => BinOpcode::Or,

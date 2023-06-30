@@ -85,6 +85,28 @@ pub fn make_new_environment(
         )),
     );
     env.borrow_mut().extend(
+        &String::from("to_float"),
+        Rc::new(Expr::Func(
+            vec![String::from("some_int")],
+            Rc::new(Expr::BuiltinAp(
+                Builtin::IntToFloat,
+                vec![Rc::new(Expr::Var(String::from("some_int")))],
+            )),
+            None,
+        )),
+    );
+    env.borrow_mut().extend(
+        &String::from("round"),
+        Rc::new(Expr::Func(
+            vec![String::from("some_float")],
+            Rc::new(Expr::BuiltinAp(
+                Builtin::RoundFloatToInt,
+                vec![Rc::new(Expr::Var(String::from("some_float")))],
+            )),
+            None,
+        )),
+    );
+    env.borrow_mut().extend(
         &String::from("append_strings"),
         Rc::new(Expr::Func(
             vec![String::from("s1"), String::from("s2")],
@@ -1072,6 +1094,20 @@ fn handle_builtin(builtin: Builtin, args: Vec<Rc<Expr>>) -> Rc<Expr> {
                 _ => panic!("FloatToString expects a Float"),
             }
         }
+        Builtin::IntToFloat => {
+            let arg = args[0].clone();
+            match &*arg {
+                Int(i) => Rc::new(Float(*i as f32)),
+                _ => panic!("IntToFloat expects an Int"),
+            }
+        }
+        Builtin::RoundFloatToInt => {
+            let arg = args[0].clone();
+            match &*arg {
+                Float(f) => Rc::new(Int(f.round() as i32)),
+                _ => panic!("RoundFloatToInt expects a Float"),
+            }
+        }
         Builtin::AppendStrings => {
             let arg1 = args[0].clone();
             let arg2 = args[1].clone();
@@ -1181,27 +1217,13 @@ fn handle_builtin(builtin: Builtin, args: Vec<Rc<Expr>>) -> Rc<Expr> {
 
 fn perform_op(val1: Rc<Expr>, op: BinOpcode, val2: Rc<Expr>) -> Rc<Expr> {
     match op {
-        Add => match (&*val1, &*val2) {
-            (Int(i1), Int(i2)) => Rc::new(Int(i1 + i2)),
-            _ => panic!("one or more operands of Add are not Ints"),
-        },
-        Subtract => match (&*val1, &*val2) {
-            (Int(i1), Int(i2)) => Rc::new(Int(i1 - i2)),
-            _ => panic!("one or more operands of Subtract are not Ints"),
-        },
-        Multiply => match (&*val1, &*val2) {
-            (Int(i1), Int(i2)) => Rc::new(Int(i1 * i2)),
-            _ => panic!("one or more operands of Multiply are not Ints"),
-        },
-        Divide => match (&*val1, &*val2) {
-            (Int(i1), Int(i2)) => Rc::new(Int(i1 / i2)),
-            _ => panic!("one or more operands of Divide are not Ints"),
-        },
+        Add | Subtract | Multiply | Divide | Pow | Equals => {
+            panic!("{:?} operator was not overloaded properly!", op)
+        }
         Mod => match (&*val1, &*val2) {
             (Int(i1), Int(i2)) => Rc::new(Int(i1 % i2)),
             _ => panic!("one or more operands of Mod are not Ints"),
         },
-        Equals => panic!("equals operator was not overloaded properly!"),
         GreaterThan => match (&*val1, &*val2) {
             (Int(i1), Int(i2)) => Rc::new(Bool(i1 > i2)),
             _ => panic!("one or more operands of GreaterThan are not Ints"),

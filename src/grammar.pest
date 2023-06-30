@@ -131,7 +131,7 @@ literal_string = @{ "\"" ~ (!"\"" ~ ANY)* ~ "\"" }
 literal_bool = @{ "true" | "false" }
 literal_list = { "[" ~ (expression ~ ",")* ~ expression? ~ "]" }
 
-op_binary = _{op_eq | op_gte | op_lte | op_gt | op_lt | op_addition | op_subtraction | op_multiplication | op_division | op_and | op_or | op_mod | op_concat }
+op_binary = _{op_eq | op_gte | op_lte | op_gt | op_lt | op_addition | op_subtraction | op_multiplication | op_division | op_pow | op_and | op_or | op_mod | op_concat }
 op_eq = { "=" }
 op_gt = { ">" }
 op_lt = { "<" }
@@ -142,7 +142,7 @@ op_subtraction = { "-" }
 op_multiplication = { "*" }
 op_division = { "/" }
 op_mod = { "mod" }
-// op_pow = { "^" }
+op_pow = { "^" }
 op_concat = { "&" }
 // op_not = { "not" }
 op_and = { "and" }

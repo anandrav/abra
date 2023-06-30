@@ -12,6 +12,7 @@ pub enum BinOpcode {
     Multiply,
     Divide,
     Mod,
+    Pow,
     // boolean
     And,
     Or,
