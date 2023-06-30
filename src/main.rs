@@ -394,6 +394,9 @@ implement ToString for string {
 implement ToString for int {
 	let to_string(n) = int_to_string(n)
 }
+implement ToString for float {
+    let to_string(n) = float_to_string(n)
+}
 implement ToString for bool {
 	let to_string(b) = if b "true" else "false"
 }
@@ -444,6 +447,12 @@ println("true = false?")
 println(equals(true, false))
 println("hello = hello?")
 println(equals("hello", "hello"))
+
+println(add_float(2.1, 3.60001))
+println(minus_float(2.1, 3.60001))
+println(multiply_float(2.1, 3.60001))
+println(divide_float(2.1, 3.60001))
+println(pow_float(2.1, 3.60001))
 "#;
 
 const _PRELUDE: &str = r#"
@@ -518,6 +527,9 @@ implement ToString for int {
 }
 implement ToString for bool {
 	let to_string(b) = if b "true" else "false"
+}
+implement ToString for float {
+    let to_string(f) = float_to_string(f)
 }
 
 implement ToString for list<'a ToString> {

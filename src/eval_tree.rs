@@ -8,12 +8,13 @@ use std::rc::Rc;
 
 pub type Identifier = String;
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq)]
 pub enum Expr {
     Var(Identifier),
     VarOverloaded(Identifier, TypeFullyInstantiated),
     Unit,
     Int(i32),
+    Float(f32),
     Str(String),
     Bool(bool),
     Tuple(Vec<Rc<Expr>>),
@@ -29,11 +30,14 @@ pub enum Expr {
     ConsumedEffect,
 }
 
+impl Eq for Expr {}
+
 pub type MatchArm = (Rc<Pat>, Rc<Expr>);
 
 #[derive(Debug, PartialEq, Eq, Copy, Clone)]
 pub enum Builtin {
     IntToString,
+    FloatToString,
     AppendStrings,
     EqualsInt,
     EqualsString,
@@ -42,6 +46,11 @@ pub enum Builtin {
     MultiplyInt,
     DivideInt,
     PowInt,
+    AddFloat,
+    MinusFloat,
+    MultiplyFloat,
+    DivideFloat,
+    PowFloat,
 }
 
 // only works for values right now:
@@ -52,6 +61,7 @@ impl std::fmt::Display for Expr {
             Var(ident) => write!(f, "{}", ident),
             Unit => write!(f, "no result"),
             Int(i) => write!(f, "{}", i),
+            Float(fl) => write!(f, "{}", fl),
             Str(s) => write!(f, "{}", s),
             Bool(b) => write!(f, "{}", b),
             Tuple(elements) => {
@@ -72,17 +82,20 @@ impl std::fmt::Display for Expr {
     }
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq)]
 pub enum Pat {
     Wildcard,
     Unit,
     Int(i32),
+    Float(f32),
     Str(String),
     Bool(bool),
     Var(String),
     TaggedVariant(Identifier, Option<Rc<Pat>>),
     Tuple(Vec<Rc<Pat>>),
 }
+
+impl Eq for Pat {}
 
 pub fn is_val(expr: &Rc<Expr>) -> bool {
     use self::Expr::*;
@@ -91,6 +104,7 @@ pub fn is_val(expr: &Rc<Expr>) -> bool {
         VarOverloaded(_, _) => false,
         Unit => true,
         Int(_) => true,
+        Float(_) => true,
         Str(_) => true,
         Bool(_) => true,
         Func(_, _, _) => true,

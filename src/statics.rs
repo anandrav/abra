@@ -20,6 +20,7 @@ pub enum Type {
     Poly(Provs, Identifier, Vec<Identifier>), // type name, then list of Interfaces it must match
     Unit(Provs),
     Int(Provs),
+    Float(Provs),
     Bool(Provs),
     String(Provs),
     Function(Provs, Vec<Type>, Box<Type>),
@@ -32,6 +33,7 @@ pub enum Type {
 pub enum TypeFullyInstantiated {
     Unit,
     Int,
+    Float,
     Bool,
     String,
     Function(Vec<TypeFullyInstantiated>, Box<TypeFullyInstantiated>),
@@ -46,6 +48,7 @@ pub enum TypeFullyInstantiated {
 pub enum TypeInterfaceImpl {
     Unit,
     Int,
+    Float,
     Bool,
     String,
     Function(Vec<TypeInterfaceImpl>, Box<TypeInterfaceImpl>),
@@ -119,6 +122,7 @@ pub enum TypeKey {
     TyApp(Identifier, u8), // u8 represents the number of type params
     Unit,
     Int,
+    Float,
     Bool,
     String,
     Function(u8), // u8 represents the number of arguments
@@ -131,7 +135,7 @@ pub enum TypeKey {
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum Prov {
     Node(ast::Id),   // the type of an expression or statement
-    Builtin(String), // a builtin function or constant, which doesn't exist in the AST
+    Builtin(String), // a function or constant, which doesn't exist in the AST
 
     Alias(Identifier),
     AdtDef(Box<Prov>),
@@ -153,6 +157,7 @@ impl Type {
             Type::Poly(_, _, _) => Some(TypeKey::Poly),
             Type::Unit(_) => Some(TypeKey::Unit),
             Type::Int(_) => Some(TypeKey::Int),
+            Type::Float(_) => Some(TypeKey::Float),
             Type::Bool(_) => Some(TypeKey::Bool),
             Type::String(_) => Some(TypeKey::String),
             Type::Function(_, args, _) => Some(TypeKey::Function(args.len() as u8)),
@@ -172,7 +177,7 @@ impl Type {
         prov: Prov,
     ) -> Type {
         match self {
-            Type::Unit(_) | Type::Int(_) | Type::Bool(_) | Type::String(_) => {
+            Type::Unit(_) | Type::Int(_) | Type::Float(_) | Type::Bool(_) | Type::String(_) => {
                 self // noop
             }
             Type::UnifVar(unifvar) => {
@@ -248,7 +253,7 @@ impl Type {
         substitution: &BTreeMap<Identifier, Type>,
     ) -> Type {
         match self {
-            Type::Unit(_) | Type::Int(_) | Type::Bool(_) | Type::String(_) => {
+            Type::Unit(_) | Type::Int(_) | Type::Float(_) | Type::Bool(_) | Type::String(_) => {
                 self // noop
             }
             Type::UnifVar(unifvar) => {
@@ -349,6 +354,10 @@ impl Type {
         Type::Int(provs_singleton(prov))
     }
 
+    pub fn make_float(prov: Prov) -> Type {
+        Type::Float(provs_singleton(prov))
+    }
+
     pub fn make_bool(prov: Prov) -> Type {
         Type::Bool(provs_singleton(prov))
     }
@@ -371,6 +380,7 @@ impl Type {
             Self::Poly(provs, _, _)
             | Self::Unit(provs)
             | Self::Int(provs)
+            | Self::Float(provs)
             | Self::Bool(provs)
             | Self::String(provs)
             | Self::Function(provs, _, _)
@@ -383,6 +393,7 @@ impl Type {
         match self {
             Self::Bool(_)
             | Self::Int(_)
+            | Self::Float(_)
             | Self::String(_)
             | Self::Unit(_)
             | Self::Poly(_, _, _) => Some(self.clone()),
@@ -439,6 +450,10 @@ impl Type {
                 debug_println!("interface_impl_type() matched with int");
                 Some(TypeInterfaceImpl::Int)
             }
+            Self::Float(_) => {
+                debug_println!("interface_impl_type() matched with int");
+                Some(TypeInterfaceImpl::Float)
+            }
             Self::Bool(_) => Some(TypeInterfaceImpl::Bool),
             Self::String(_) => Some(TypeInterfaceImpl::String),
             Self::Function(_, args, out) => {
@@ -482,6 +497,10 @@ impl Type {
             Self::Int(_) => {
                 debug_println!("instance_type() matched with int");
                 Some(TypeFullyInstantiated::Int)
+            }
+            Self::Float(_) => {
+                debug_println!("instance_type() matched with int");
+                Some(TypeFullyInstantiated::Float)
             }
             Self::Bool(_) => Some(TypeFullyInstantiated::Bool),
             Self::String(_) => Some(TypeFullyInstantiated::String),
@@ -528,6 +547,7 @@ impl Type {
             Self::Poly(_, _, interfaces) => !interfaces.is_empty(),
             Self::Unit(_) => false,
             Self::Int(_) => false,
+            Self::Float(_) => false,
             Self::Bool(_) => false,
             Self::String(_) => false,
             Self::Function(_, args, out) => {
@@ -618,6 +638,7 @@ pub fn ast_type_to_statics_type_interface(
         ),
         ast::TypeKind::Unit => Type::make_unit(Prov::Node(ast_type.id())),
         ast::TypeKind::Int => Type::make_int(Prov::Node(ast_type.id())),
+        ast::TypeKind::Float => Type::make_float(Prov::Node(ast_type.id())),
         ast::TypeKind::Bool => Type::make_bool(Prov::Node(ast_type.id())),
         ast::TypeKind::Str => Type::make_string(Prov::Node(ast_type.id())),
         // TODO wait does this only allow one argument??
@@ -731,6 +752,7 @@ impl UnifVarData {
                 Type::UnifVar(_) => panic!("should not be Type::UnifVar"),
                 Type::Unit(other_provs)
                 | Type::Int(other_provs)
+                | Type::Float(other_provs)
                 | Type::Bool(other_provs)
                 | Type::String(other_provs) => {
                     t.provs().borrow_mut().extend(other_provs.borrow().clone())
@@ -895,6 +917,22 @@ pub fn make_new_gamma() -> Rc<RefCell<Gamma>> {
         ),
     );
     gamma.borrow_mut().extend(
+        &String::from("float_to_string"),
+        Type::Function(
+            RefCell::new(BTreeSet::new()),
+            vec![Type::make_float(Prov::FuncArg(
+                Box::new(Prov::Builtin(
+                    "float_to_string: float -> string".to_string(),
+                )),
+                0,
+            ))],
+            Type::make_string(Prov::FuncOut(Box::new(Prov::Builtin(
+                "float_to_string: float -> string".to_string(),
+            ))))
+            .into(),
+        ),
+    );
+    gamma.borrow_mut().extend(
         &String::from("append_strings"),
         Type::Function(
             RefCell::new(BTreeSet::new()),
@@ -976,6 +1014,66 @@ pub fn make_new_gamma() -> Rc<RefCell<Gamma>> {
                 Type::make_int(Prov::FuncArg(prov.clone().into(), 1)),
             ],
             Type::make_int(Prov::FuncOut(prov.into())).into(),
+        ),
+    );
+    let prov = Prov::Builtin("add_float: (float, float) -> float".to_string());
+    gamma.borrow_mut().extend(
+        &String::from("add_float"),
+        Type::Function(
+            RefCell::new(BTreeSet::new()),
+            vec![
+                Type::make_float(Prov::FuncArg(prov.clone().into(), 0)),
+                Type::make_float(Prov::FuncArg(prov.clone().into(), 1)),
+            ],
+            Type::make_float(Prov::FuncOut(prov.into())).into(),
+        ),
+    );
+    let prov = Prov::Builtin("minus_float: (float, float) -> float".to_string());
+    gamma.borrow_mut().extend(
+        &String::from("minus_float"),
+        Type::Function(
+            RefCell::new(BTreeSet::new()),
+            vec![
+                Type::make_float(Prov::FuncArg(prov.clone().into(), 0)),
+                Type::make_float(Prov::FuncArg(prov.clone().into(), 1)),
+            ],
+            Type::make_float(Prov::FuncOut(prov.into())).into(),
+        ),
+    );
+    let prov = Prov::Builtin("multiply_float: (float, float) -> float".to_string());
+    gamma.borrow_mut().extend(
+        &String::from("multiply_float"),
+        Type::Function(
+            RefCell::new(BTreeSet::new()),
+            vec![
+                Type::make_float(Prov::FuncArg(prov.clone().into(), 0)),
+                Type::make_float(Prov::FuncArg(prov.clone().into(), 1)),
+            ],
+            Type::make_float(Prov::FuncOut(prov.into())).into(),
+        ),
+    );
+    let prov = Prov::Builtin("divide_float: (float, float) -> float".to_string());
+    gamma.borrow_mut().extend(
+        &String::from("divide_float"),
+        Type::Function(
+            RefCell::new(BTreeSet::new()),
+            vec![
+                Type::make_float(Prov::FuncArg(prov.clone().into(), 0)),
+                Type::make_float(Prov::FuncArg(prov.clone().into(), 1)),
+            ],
+            Type::make_float(Prov::FuncOut(prov.into())).into(),
+        ),
+    );
+    let prov = Prov::Builtin("pow_float: (float, float) -> float".to_string());
+    gamma.borrow_mut().extend(
+        &String::from("pow_float"),
+        Type::Function(
+            RefCell::new(BTreeSet::new()),
+            vec![
+                Type::make_float(Prov::FuncArg(prov.clone().into(), 0)),
+                Type::make_float(Prov::FuncArg(prov.clone().into(), 1)),
+            ],
+            Type::make_float(Prov::FuncOut(prov.into())).into(),
         ),
     );
     gamma
@@ -1099,6 +1197,9 @@ pub fn generate_constraints_expr(
         }
         ExprKind::Int(_) => {
             constrain(node_ty, Type::make_int(Prov::Node(expr.id)));
+        }
+        ExprKind::Float(_) => {
+            constrain(node_ty, Type::make_float(Prov::Node(expr.id)));
         }
         ExprKind::Bool(_) => {
             constrain(node_ty, Type::make_bool(Prov::Node(expr.id)));
@@ -1601,6 +1702,9 @@ pub fn generate_constraints_pat(
         PatKind::Int(_) => {
             constrain(ty_pat, Type::make_int(Prov::Node(pat.id)));
         }
+        PatKind::Float(_) => {
+            constrain(ty_pat, Type::make_float(Prov::Node(pat.id)));
+        }
         PatKind::Bool(_) => {
             constrain(ty_pat, Type::make_bool(Prov::Node(pat.id)));
         }
@@ -1930,6 +2034,7 @@ pub fn result_of_constraint_solving(
                     }
                     Type::Unit(_) => err_string.push_str("Sources of void:\n"),
                     Type::Int(_) => err_string.push_str("Sources of int:\n"),
+                    Type::Float(_) => err_string.push_str("Sources of float:\n"),
                     Type::Bool(_) => err_string.push_str("Sources of bool:\n"),
                     Type::String(_) => err_string.push_str("Sources of string:\n"),
                     Type::Function(_, args, _) => err_string.push_str(&format!(
@@ -2089,6 +2194,7 @@ impl fmt::Display for Type {
             }
             Type::Unit(_) => write!(f, "void"),
             Type::Int(_) => write!(f, "int"),
+            Type::Float(_) => write!(f, "float"),
             Type::Bool(_) => write!(f, "bool"),
             Type::String(_) => write!(f, "string"),
             Type::Function(_, args, out) => {

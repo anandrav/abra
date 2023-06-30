@@ -104,12 +104,13 @@ type_args = _{ "<" ~ (typ ~ ",")* ~ typ? ~ ">" }
 tuple_type = { tuple_start ~ (tuple_type_element ~ ",")+ ~ tuple_type_element ~ tuple_end }
 tuple_type_element = _{ typ }
 
-type_literal = _{ type_literal_unit | type_literal_number | type_literal_bool | type_literal_string | type_poly | identifier }
+type_literal = _{ type_literal_unit | type_literal_int | type_literal_float | type_literal_bool | type_literal_string | type_poly | identifier }
 type_poly = { type_poly_ident ~ interface_constraint* }
 interface_constraint = { identifier }
 type_poly_ident = @{ "'" ~ (alpha | "_") ~ (alphanumeric | "_")* } // 'a, 'b, 'c, etc.
 type_literal_unit = @{ "void" }
-type_literal_number = @{ "int" }
+type_literal_int = @{ "int" }
+type_literal_float = @{ "float" }
 type_literal_bool = @{ "bool" }
 type_literal_string = @{ "string" }
 
@@ -122,9 +123,10 @@ identifier = @{ !(keyword ~ WHITESPACE) ~ ( alpha | "_") ~ (alphanumeric | "_")*
 alpha = _{ 'a'..'z' | 'A'..'Z' }
 alphanumeric = _{ alpha | '0'..'9' }
 
-literal = _{ literal_unit | literal_number | literal_bool | literal_string | literal_list }
+literal = _{ literal_unit | literal_float | literal_int | literal_bool | literal_string | literal_list }
 literal_unit = @{ "()" }
-literal_number = @{ "0" | ASCII_NONZERO_DIGIT ~ ASCII_DIGIT* }
+literal_int = @{ "0" | ASCII_NONZERO_DIGIT ~ ASCII_DIGIT* }
+literal_float = @{ "0.0" | "0." | ASCII_NONZERO_DIGIT ~ ASCII_DIGIT* ~ "." ~ ASCII_DIGIT* | "." ~ ASCII_DIGIT+ }
 literal_string = @{ "\"" ~ (!"\"" ~ ANY)* ~ "\"" }
 literal_bool = @{ "true" | "false" }
 literal_list = { "[" ~ (expression ~ ",")* ~ expression? ~ "]" }

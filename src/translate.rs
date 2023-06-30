@@ -66,6 +66,7 @@ pub fn translate_pat(parse_tree: Rc<ast::Pat>) -> Rc<Etp> {
         )),
         ASTpk::Unit => Rc::new(Etp::Unit),
         ASTpk::Int(i) => Rc::new(Etp::Int(*i)),
+        ASTpk::Float(f) => Rc::new(Etp::Float(*f)),
         ASTpk::Bool(b) => Rc::new(Etp::Bool(*b)),
         ASTpk::Str(s) => Rc::new(Etp::Str(s.clone())),
     }
@@ -438,6 +439,7 @@ pub fn translate_expr(
         }
         ASTek::Unit => Rc::new(Ete::Unit),
         ASTek::Int(i) => Rc::new(Ete::Int(*i)),
+        ASTek::Float(f) => Rc::new(Ete::Float(*f)),
         ASTek::Bool(b) => Rc::new(Ete::Bool(*b)),
         ASTek::Str(s) => Rc::new(Ete::Str(s.clone())),
         ASTek::List(exprs) => {

@@ -274,6 +274,7 @@ impl Node for Expr {
             ExprKind::Var(_) => vec![],
             ExprKind::Unit => vec![],
             ExprKind::Int(_) => vec![],
+            ExprKind::Float(_) => vec![],
             ExprKind::Bool(_) => vec![],
             ExprKind::Str(_) => vec![],
             ExprKind::List(exprs) => exprs.iter().map(|e| e.clone() as Rc<dyn Node>).collect(),
@@ -337,6 +338,7 @@ pub enum ExprKind {
     Var(Identifier),
     Unit,
     Int(i32),
+    Float(f32),
     Bool(bool),
     Str(String),
     List(Vec<Rc<Expr>>),
@@ -378,6 +380,7 @@ impl Node for Pat {
             PatKind::Var(_) => vec![],
             PatKind::Unit => vec![],
             PatKind::Int(_) => vec![],
+            PatKind::Float(_) => vec![],
             PatKind::Bool(_) => vec![],
             PatKind::Str(_) => vec![],
             PatKind::Variant(_, pat_opt) => {
@@ -407,6 +410,7 @@ pub enum PatKind {
     Variant(Identifier, Option<Rc<Pat>>),
     Unit,
     Int(i32),
+    Float(f32),
     Bool(bool),
     Str(String),
     Tuple(Vec<Rc<Pat>>),
@@ -444,6 +448,7 @@ impl Node for AstType {
             | TypeKind::Alias(_)
             | TypeKind::Unit
             | TypeKind::Int
+            | TypeKind::Float
             | TypeKind::Bool
             | TypeKind::Str => {
                 vec![]
@@ -478,6 +483,7 @@ pub enum TypeKind {
     Ap(Identifier, Vec<Rc<AstType>>),
     Unit,
     Int,
+    Float,
     Bool,
     Str,
     // TODO: make Arrow nary as well
@@ -705,8 +711,13 @@ pub fn parse_match_pattern(pair: Pair<Rule>) -> Rc<Pat> {
             span,
             id: Id::new(),
         }),
-        Rule::literal_number => Rc::new(Pat {
+        Rule::literal_int => Rc::new(Pat {
             patkind: Rc::new(PatKind::Int(pair.as_str().parse().unwrap())),
+            span,
+            id: Id::new(),
+        }),
+        Rule::literal_float => Rc::new(Pat {
+            patkind: Rc::new(PatKind::Float(pair.as_str().parse().unwrap())),
             span,
             id: Id::new(),
         }),
@@ -762,8 +773,13 @@ pub fn parse_type_term(pair: Pair<Rule>) -> Rc<AstType> {
             span,
             id: Id::new(),
         }),
-        Rule::type_literal_number => Rc::new(AstType {
+        Rule::type_literal_int => Rc::new(AstType {
             typekind: Rc::new(TypeKind::Int),
+            span,
+            id: Id::new(),
+        }),
+        Rule::type_literal_float => Rc::new(AstType {
+            typekind: Rc::new(TypeKind::Float),
             span,
             id: Id::new(),
         }),
@@ -1091,8 +1107,13 @@ pub fn parse_expr_term(pair: Pair<Rule>) -> Rc<Expr> {
             span,
             id: Id::new(),
         }),
-        Rule::literal_number => Rc::new(Expr {
+        Rule::literal_int => Rc::new(Expr {
             exprkind: Rc::new(ExprKind::Int(pair.as_str().parse().unwrap())),
+            span,
+            id: Id::new(),
+        }),
+        Rule::literal_float => Rc::new(Expr {
+            exprkind: Rc::new(ExprKind::Float(pair.as_str().parse().unwrap())),
             span,
             id: Id::new(),
         }),

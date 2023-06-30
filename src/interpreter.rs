@@ -74,6 +74,17 @@ pub fn make_new_environment(
         )),
     );
     env.borrow_mut().extend(
+        &String::from("float_to_string"),
+        Rc::new(Expr::Func(
+            vec![String::from("some_float")],
+            Rc::new(Expr::BuiltinAp(
+                Builtin::FloatToString,
+                vec![Rc::new(Expr::Var(String::from("some_float")))],
+            )),
+            None,
+        )),
+    );
+    env.borrow_mut().extend(
         &String::from("append_strings"),
         Rc::new(Expr::Func(
             vec![String::from("s1"), String::from("s2")],
@@ -149,6 +160,76 @@ pub fn make_new_environment(
             vec![String::from("i1"), String::from("i2")],
             Rc::new(Expr::BuiltinAp(
                 Builtin::PowInt,
+                vec![
+                    Rc::new(Expr::Var(String::from("i1"))),
+                    Rc::new(Expr::Var(String::from("i2"))),
+                ],
+            )),
+            None,
+        )),
+    );
+    env.borrow_mut().extend(
+        &String::from("add_float"),
+        Rc::new(Expr::Func(
+            vec![String::from("i1"), String::from("i2")],
+            Rc::new(Expr::BuiltinAp(
+                Builtin::AddFloat,
+                vec![
+                    Rc::new(Expr::Var(String::from("i1"))),
+                    Rc::new(Expr::Var(String::from("i2"))),
+                ],
+            )),
+            None,
+        )),
+    );
+    env.borrow_mut().extend(
+        &String::from("minus_float"),
+        Rc::new(Expr::Func(
+            vec![String::from("i1"), String::from("i2")],
+            Rc::new(Expr::BuiltinAp(
+                Builtin::MinusFloat,
+                vec![
+                    Rc::new(Expr::Var(String::from("i1"))),
+                    Rc::new(Expr::Var(String::from("i2"))),
+                ],
+            )),
+            None,
+        )),
+    );
+    env.borrow_mut().extend(
+        &String::from("multiply_float"),
+        Rc::new(Expr::Func(
+            vec![String::from("i1"), String::from("i2")],
+            Rc::new(Expr::BuiltinAp(
+                Builtin::MultiplyFloat,
+                vec![
+                    Rc::new(Expr::Var(String::from("i1"))),
+                    Rc::new(Expr::Var(String::from("i2"))),
+                ],
+            )),
+            None,
+        )),
+    );
+    env.borrow_mut().extend(
+        &String::from("divide_float"),
+        Rc::new(Expr::Func(
+            vec![String::from("i1"), String::from("i2")],
+            Rc::new(Expr::BuiltinAp(
+                Builtin::DivideFloat,
+                vec![
+                    Rc::new(Expr::Var(String::from("i1"))),
+                    Rc::new(Expr::Var(String::from("i2"))),
+                ],
+            )),
+            None,
+        )),
+    );
+    env.borrow_mut().extend(
+        &String::from("pow_float"),
+        Rc::new(Expr::Func(
+            vec![String::from("i1"), String::from("i2")],
+            Rc::new(Expr::BuiltinAp(
+                Builtin::PowFloat,
                 vec![
                     Rc::new(Expr::Var(String::from("i1"))),
                     Rc::new(Expr::Var(String::from("i2"))),
@@ -323,7 +404,7 @@ fn interpret(
                 },
             }
         }
-        Unit | Int(_) | Bool(_) | Str(_) | Func(_, _, Some(_)) => InterpretResult {
+        Unit | Int(_) | Float(_) | Bool(_) | Str(_) | Func(_, _, Some(_)) => InterpretResult {
             expr: expr.clone(),
             steps,
             effect: None,
@@ -449,7 +530,12 @@ fn interpret(
             }
         }
         Let(pat, expr1, expr2) => match &*pat.clone() {
-            Pat::TaggedVariant(..) | Pat::Unit | Pat::Int(_) | Pat::Bool(_) | Pat::Str(_) => {
+            Pat::TaggedVariant(..)
+            | Pat::Unit
+            | Pat::Int(_)
+            | Pat::Float(_)
+            | Pat::Bool(_)
+            | Pat::Str(_) => {
                 panic!("Pattern in let is a value, not a variable!")
             }
             Pat::Wildcard => {
@@ -979,6 +1065,13 @@ fn handle_builtin(builtin: Builtin, args: Vec<Rc<Expr>>) -> Rc<Expr> {
                 _ => panic!("IntToString expects an Int"),
             }
         }
+        Builtin::FloatToString => {
+            let arg = args[0].clone();
+            match &*arg {
+                Float(f) => Rc::new(Str(f.to_string())),
+                _ => panic!("FloatToString expects a Float"),
+            }
+        }
         Builtin::AppendStrings => {
             let arg1 = args[0].clone();
             let arg2 = args[1].clone();
@@ -1041,6 +1134,46 @@ fn handle_builtin(builtin: Builtin, args: Vec<Rc<Expr>>) -> Rc<Expr> {
             match (&*arg1, &*arg2) {
                 (Int(s1), Int(s2)) => Rc::new(Int(s1.pow(i32::try_into(*s2).unwrap()))),
                 _ => panic!("PowInt expects two Ints"),
+            }
+        }
+        Builtin::AddFloat => {
+            let arg1 = args[0].clone();
+            let arg2 = args[1].clone();
+            match (&*arg1, &*arg2) {
+                (Float(s1), Float(s2)) => Rc::new(Float(s1 + s2)),
+                _ => panic!("AddFloat expects two Ints"),
+            }
+        }
+        Builtin::MinusFloat => {
+            let arg1 = args[0].clone();
+            let arg2 = args[1].clone();
+            match (&*arg1, &*arg2) {
+                (Float(s1), Float(s2)) => Rc::new(Float(s1 - s2)),
+                _ => panic!("MinusFloat expects two Floats"),
+            }
+        }
+        Builtin::MultiplyFloat => {
+            let arg1 = args[0].clone();
+            let arg2 = args[1].clone();
+            match (&*arg1, &*arg2) {
+                (Float(s1), Float(s2)) => Rc::new(Float(s1 * s2)),
+                _ => panic!("MultiplyFloat expects two Floats"),
+            }
+        }
+        Builtin::DivideFloat => {
+            let arg1 = args[0].clone();
+            let arg2 = args[1].clone();
+            match (&*arg1, &*arg2) {
+                (Float(s1), Float(s2)) => Rc::new(Float(s1 / s2)),
+                _ => panic!("DivideFloat expects two Floats"),
+            }
+        }
+        Builtin::PowFloat => {
+            let arg1 = args[0].clone();
+            let arg2 = args[1].clone();
+            match (&*arg1, &*arg2) {
+                (Float(s1), Float(s2)) => Rc::new(Float(s1.powf(*s2))),
+                _ => panic!("PowFloat expects two Floats"),
             }
         }
     }
