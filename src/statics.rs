@@ -678,6 +678,8 @@ pub struct InferenceContext {
     // unbound variables
     pub unbound_vars: BTreeSet<ast::Id>,
     pub unbound_interfaces: BTreeSet<ast::Id>,
+    // multiple definitions
+    pub multiple_adt_defs: BTreeMap<Identifier, Vec<ast::Id>>,
 }
 
 impl InferenceContext {
@@ -692,6 +694,7 @@ impl InferenceContext {
             interface_impls: HashMap::new(),
             unbound_vars: BTreeSet::new(),
             unbound_interfaces: BTreeSet::new(),
+            multiple_adt_defs: BTreeMap::new(),
         }
     }
 
@@ -1680,6 +1683,15 @@ pub fn gather_definitions_stmt(
         StmtKind::TypeDef(typdefkind) => match &**typdefkind {
             TypeDefKind::Alias(_ident, _ty) => {}
             TypeDefKind::Adt(ident, params, variants) => {
+                if let Some(adt_def) = inf_ctx.tydefs.get(ident) {
+                    let entry = inf_ctx
+                        .multiple_adt_defs
+                        .entry(ident.clone())
+                        .or_insert(vec![]);
+                    entry.push(adt_def.location);
+                    entry.push(stmt.id);
+                    return;
+                }
                 let mut defvariants = vec![];
                 for v in variants {
                     let data = {
@@ -1769,6 +1781,7 @@ pub fn result_of_constraint_solving(
     if inf_ctx.unbound_vars.is_empty()
         && inf_ctx.unbound_interfaces.is_empty()
         && type_conflicts.is_empty()
+        && inf_ctx.multiple_adt_defs.is_empty()
     {
         for (node_id, node) in node_map.iter() {
             let ty = Type::solution_of_node(inf_ctx, *node_id);
@@ -1800,6 +1813,15 @@ pub fn result_of_constraint_solving(
             let span = node_map.get(ast_id).unwrap().span();
             err_string
                 .push_str(&span.display(source, "Interface being implemented is not defined\n"));
+        }
+    }
+    if !inf_ctx.multiple_adt_defs.is_empty() {
+        for (ident, adt_ids) in inf_ctx.multiple_adt_defs.iter() {
+            err_string.push_str(&format!("Multiple definitions for {}\n", ident));
+            for ast_id in adt_ids {
+                let span = node_map.get(ast_id).unwrap().span();
+                err_string.push_str(&span.display(source, ""));
+            }
         }
     }
 

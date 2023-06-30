@@ -449,6 +449,8 @@ println(equals("hello", "hello"))
 const _PRELUDE: &str = r#"
 type list<'a> = nil | cons ('a, list<'a>)
 
+type list = nil | cons (string, list)
+
 interface Equals {
     equals: (self, self) -> bool
 }
