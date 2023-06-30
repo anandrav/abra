@@ -481,12 +481,6 @@ implement Equals for list<'a Equals> {
             _ -> false
     }
 }
-let hack = equals((), ())
-let hack = equals(1, 1)
-let hack = equals(true, true)
-let hack = equals("hello", "hello")
-let hack = [1, 2, 3, 4]
-let hack = equals(cons(true, nil), cons(false, nil))
 
 interface ToString {
     to_string: self -> string
@@ -569,14 +563,12 @@ let filter(xs: list<'a>, f: 'a -> bool) -> list<'a> =
 let reverse(xs: list<'c>) -> list<'c> =
     fold(xs, (acc, head) -> cons(head, acc), nil)
 
-let hack = [1, 2, 3, 4]
-
 "#;
 
 impl Default for MyApp {
     fn default() -> Self {
         Self {
-            text: String::from(_SCRATCH),
+            text: String::from(_DEMO),
             output: String::default(),
             interpreter: None,
         }
@@ -631,9 +623,9 @@ impl eframe::App for MyApp {
                         {
                             self.interpreter = None;
                             self.output.clear();
-                            // let source = PRELUDE.to_owned() + &self.text;
-                            let source = &self.text;
-                            match ast::parse_or_err(source) {
+                            let source = _PRELUDE.to_owned() + &self.text;
+                            // let source = &self.text;
+                            match ast::parse_or_err(&source) {
                                 Ok(parse_tree) => {
                                     debug_println!("successfully parsed.");
                                     let mut node_map = ast::NodeMap::new();
@@ -659,7 +651,7 @@ impl eframe::App for MyApp {
                                         &inference_ctx,
                                         tyctx.clone(),
                                         &node_map,
-                                        source,
+                                        &source,
                                     );
                                     match result {
                                         Ok(_) => {
