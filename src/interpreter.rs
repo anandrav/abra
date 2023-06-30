@@ -87,6 +87,76 @@ pub fn make_new_environment(
             None,
         )),
     );
+    env.borrow_mut().extend(
+        &String::from("add_int"),
+        Rc::new(Expr::Func(
+            vec![String::from("i1"), String::from("i2")],
+            Rc::new(Expr::BuiltinAp(
+                Builtin::AddInt,
+                vec![
+                    Rc::new(Expr::Var(String::from("i1"))),
+                    Rc::new(Expr::Var(String::from("i2"))),
+                ],
+            )),
+            None,
+        )),
+    );
+    env.borrow_mut().extend(
+        &String::from("minus_int"),
+        Rc::new(Expr::Func(
+            vec![String::from("i1"), String::from("i2")],
+            Rc::new(Expr::BuiltinAp(
+                Builtin::MinusInt,
+                vec![
+                    Rc::new(Expr::Var(String::from("i1"))),
+                    Rc::new(Expr::Var(String::from("i2"))),
+                ],
+            )),
+            None,
+        )),
+    );
+    env.borrow_mut().extend(
+        &String::from("multiply_int"),
+        Rc::new(Expr::Func(
+            vec![String::from("i1"), String::from("i2")],
+            Rc::new(Expr::BuiltinAp(
+                Builtin::MultiplyInt,
+                vec![
+                    Rc::new(Expr::Var(String::from("i1"))),
+                    Rc::new(Expr::Var(String::from("i2"))),
+                ],
+            )),
+            None,
+        )),
+    );
+    env.borrow_mut().extend(
+        &String::from("divide_int"),
+        Rc::new(Expr::Func(
+            vec![String::from("i1"), String::from("i2")],
+            Rc::new(Expr::BuiltinAp(
+                Builtin::DivideInt,
+                vec![
+                    Rc::new(Expr::Var(String::from("i1"))),
+                    Rc::new(Expr::Var(String::from("i2"))),
+                ],
+            )),
+            None,
+        )),
+    );
+    env.borrow_mut().extend(
+        &String::from("pow_int"),
+        Rc::new(Expr::Func(
+            vec![String::from("i1"), String::from("i2")],
+            Rc::new(Expr::BuiltinAp(
+                Builtin::PowInt,
+                vec![
+                    Rc::new(Expr::Var(String::from("i1"))),
+                    Rc::new(Expr::Var(String::from("i2"))),
+                ],
+            )),
+            None,
+        )),
+    );
     // replace variables with variants or variant constructors
     for (_key, ty) in gamma.borrow().vars.iter() {
         // debug_println!("key: {key}, ty: {:?}", ty);
@@ -931,6 +1001,46 @@ fn handle_builtin(builtin: Builtin, args: Vec<Rc<Expr>>) -> Rc<Expr> {
             match (&*arg1, &*arg2) {
                 (Str(s1), Str(s2)) => Rc::new(Bool(s1 == s2)),
                 _ => panic!("EqualsString expects two Strings"),
+            }
+        }
+        Builtin::AddInt => {
+            let arg1 = args[0].clone();
+            let arg2 = args[1].clone();
+            match (&*arg1, &*arg2) {
+                (Int(s1), Int(s2)) => Rc::new(Int(s1 + s2)),
+                _ => panic!("AddInt expects two Ints"),
+            }
+        }
+        Builtin::MinusInt => {
+            let arg1 = args[0].clone();
+            let arg2 = args[1].clone();
+            match (&*arg1, &*arg2) {
+                (Int(s1), Int(s2)) => Rc::new(Int(s1 - s2)),
+                _ => panic!("MinusInt expects two Ints"),
+            }
+        }
+        Builtin::MultiplyInt => {
+            let arg1 = args[0].clone();
+            let arg2 = args[1].clone();
+            match (&*arg1, &*arg2) {
+                (Int(s1), Int(s2)) => Rc::new(Int(s1 * s2)),
+                _ => panic!("MultiplyInt expects two Ints"),
+            }
+        }
+        Builtin::DivideInt => {
+            let arg1 = args[0].clone();
+            let arg2 = args[1].clone();
+            match (&*arg1, &*arg2) {
+                (Int(s1), Int(s2)) => Rc::new(Int(s1 / s2)),
+                _ => panic!("DivideInt expects two Ints"),
+            }
+        }
+        Builtin::PowInt => {
+            let arg1 = args[0].clone();
+            let arg2 = args[1].clone();
+            match (&*arg1, &*arg2) {
+                (Int(s1), Int(s2)) => Rc::new(Int(s1.pow(i32::try_into(*s2).unwrap()))),
+                _ => panic!("PowInt expects two Ints"),
             }
         }
     }

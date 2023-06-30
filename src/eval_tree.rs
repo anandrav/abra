@@ -37,6 +37,11 @@ pub enum Builtin {
     AppendStrings,
     EqualsInt,
     EqualsString,
+    AddInt,
+    MinusInt,
+    MultiplyInt,
+    DivideInt,
+    PowInt,
 }
 
 // only works for values right now:

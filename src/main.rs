@@ -447,6 +447,28 @@ println(equals("hello", "hello"))
 "#;
 
 const _PRELUDE: &str = r#"
+interface Num {
+    plus: (self, self) -> self
+    minus: (self, self) -> self
+    multiply: (self, self) -> self
+    divide: (self, self) -> self
+    pow: (self, self) -> self
+}
+implement Num for int {
+    let plus(a, b) = add_int(a, b)
+    let minus(a, b) = minus_int(a, b)
+    let multiply(a, b) = multiply_int(a, b)
+    let divide(a, b) = divide_int(a, b)
+    let pow(a, b) = pow_int(a, b)
+}
+implement Num for float {
+    let plus(a, b) = add_float(a, b)
+    let minus(a, b) = minus_float(a, b)
+    let multiply(a, b) = multiply_float(a, b)
+    let divide(a, b) = divide_float(a, b)
+    let pow(a, b) = pow_float(a, b)
+}
+
 type list<'a> = nil | cons ('a, list<'a>)
 
 interface Equals {

@@ -918,6 +918,66 @@ pub fn make_new_gamma() -> Rc<RefCell<Gamma>> {
             .into(),
         ),
     );
+    let prov = Prov::Builtin("add_int: (int, int) -> int".to_string());
+    gamma.borrow_mut().extend(
+        &String::from("add_int"),
+        Type::Function(
+            RefCell::new(BTreeSet::new()),
+            vec![
+                Type::make_int(Prov::FuncArg(prov.clone().into(), 0)),
+                Type::make_int(Prov::FuncArg(prov.clone().into(), 1)),
+            ],
+            Type::make_int(Prov::FuncOut(prov.into())).into(),
+        ),
+    );
+    let prov = Prov::Builtin("minus_int: (int, int) -> int".to_string());
+    gamma.borrow_mut().extend(
+        &String::from("minus_int"),
+        Type::Function(
+            RefCell::new(BTreeSet::new()),
+            vec![
+                Type::make_int(Prov::FuncArg(prov.clone().into(), 0)),
+                Type::make_int(Prov::FuncArg(prov.clone().into(), 1)),
+            ],
+            Type::make_int(Prov::FuncOut(prov.into())).into(),
+        ),
+    );
+    let prov = Prov::Builtin("multiply_int: (int, int) -> int".to_string());
+    gamma.borrow_mut().extend(
+        &String::from("multiply_int"),
+        Type::Function(
+            RefCell::new(BTreeSet::new()),
+            vec![
+                Type::make_int(Prov::FuncArg(prov.clone().into(), 0)),
+                Type::make_int(Prov::FuncArg(prov.clone().into(), 1)),
+            ],
+            Type::make_int(Prov::FuncOut(prov.into())).into(),
+        ),
+    );
+    let prov = Prov::Builtin("divide_int: (int, int) -> int".to_string());
+    gamma.borrow_mut().extend(
+        &String::from("divide_int"),
+        Type::Function(
+            RefCell::new(BTreeSet::new()),
+            vec![
+                Type::make_int(Prov::FuncArg(prov.clone().into(), 0)),
+                Type::make_int(Prov::FuncArg(prov.clone().into(), 1)),
+            ],
+            Type::make_int(Prov::FuncOut(prov.into())).into(),
+        ),
+    );
+    let prov = Prov::Builtin("pow_int: (int, int) -> int".to_string());
+    gamma.borrow_mut().extend(
+        &String::from("pow_int"),
+        Type::Function(
+            RefCell::new(BTreeSet::new()),
+            vec![
+                Type::make_int(Prov::FuncArg(prov.clone().into(), 0)),
+                Type::make_int(Prov::FuncArg(prov.clone().into(), 1)),
+            ],
+            Type::make_int(Prov::FuncOut(prov.into())).into(),
+        ),
+    );
     gamma
 }
 
