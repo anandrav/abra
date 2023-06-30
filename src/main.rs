@@ -449,8 +449,6 @@ println(equals("hello", "hello"))
 const _PRELUDE: &str = r#"
 type list<'a> = nil | cons ('a, list<'a>)
 
-type list = nil | cons (string, list)
-
 interface Equals {
     equals: (self, self) -> bool
 }
@@ -570,7 +568,7 @@ let reverse(xs: list<'c>) -> list<'c> =
 impl Default for MyApp {
     fn default() -> Self {
         Self {
-            text: String::from(_DEMO),
+            text: String::from(_INTERFACES),
             output: String::default(),
             interpreter: None,
         }
@@ -625,9 +623,9 @@ impl eframe::App for MyApp {
                         {
                             self.interpreter = None;
                             self.output.clear();
-                            let source = _PRELUDE.to_owned() + &self.text;
-                            // let source = &self.text;
-                            match ast::parse_or_err(&source) {
+                            // let source = _PRELUDE.to_owned() + &self.text;
+                            let source = &self.text;
+                            match ast::parse_or_err(source) {
                                 Ok(parse_tree) => {
                                     debug_println!("successfully parsed.");
                                     let mut node_map = ast::NodeMap::new();
@@ -653,7 +651,7 @@ impl eframe::App for MyApp {
                                         &inference_ctx,
                                         tyctx.clone(),
                                         &node_map,
-                                        &source,
+                                        source,
                                     );
                                     match result {
                                         Ok(_) => {

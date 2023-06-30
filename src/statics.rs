@@ -669,7 +669,7 @@ pub struct InferenceContext {
     // function definition locations
     pub fun_defs: HashMap<Identifier, Rc<Stmt>>,
     // interface definitions
-    pub interface_defs: HashMap<Identifier, Vec<InterfaceDef>>,
+    pub interface_defs: HashMap<Identifier, InterfaceDef>,
     // map from methods to interface names
     pub method_to_interface: HashMap<Identifier, Identifier>,
     // map from interface name to list of implementations
@@ -680,6 +680,7 @@ pub struct InferenceContext {
     pub unbound_interfaces: BTreeSet<ast::Id>,
     // multiple definitions
     pub multiple_adt_defs: BTreeMap<Identifier, Vec<ast::Id>>,
+    pub multiple_interface_defs: BTreeMap<Identifier, Vec<ast::Id>>,
 }
 
 impl InferenceContext {
@@ -695,6 +696,7 @@ impl InferenceContext {
             unbound_vars: BTreeSet::new(),
             unbound_interfaces: BTreeSet::new(),
             multiple_adt_defs: BTreeMap::new(),
+            multiple_interface_defs: BTreeMap::new(),
         }
     }
 
@@ -708,15 +710,7 @@ impl InferenceContext {
     }
 
     pub fn interface_def_of_ident(&self, ident: &Identifier) -> Option<InterfaceDef> {
-        let vec = &self.interface_defs.get(ident);
-        if let Some(vec) = vec {
-            if vec.len() != 1 {
-                return None;
-            }
-            Some(vec[0].clone())
-        } else {
-            None
-        }
+        self.interface_defs.get(ident).cloned() // TODO this helper function is not needed
     }
 }
 
@@ -1627,6 +1621,15 @@ pub fn gather_definitions_stmt(
 ) {
     match &*stmt.stmtkind {
         StmtKind::InterfaceDef(ident, properties) => {
+            if let Some(interface_def) = inf_ctx.interface_defs.get(ident) {
+                let entry = inf_ctx
+                    .multiple_interface_defs
+                    .entry(ident.clone())
+                    .or_insert(vec![]);
+                entry.push(interface_def.location);
+                entry.push(stmt.id);
+                return;
+            }
             let mut methods = vec![];
             for p in properties {
                 let ty_annot =
@@ -1644,15 +1647,14 @@ pub fn gather_definitions_stmt(
                 // gamma.borrow_mut().extend(&p.ident, ty_annot);
                 gamma.borrow_mut().extend(&p.ident, node_ty);
             }
-            let entry = inf_ctx
-                .interface_defs
-                .entry(ident.clone())
-                .or_insert(vec![]);
-            entry.push(InterfaceDef {
-                name: ident.clone(),
-                methods,
-                location: stmt.id,
-            });
+            inf_ctx.interface_defs.insert(
+                ident.clone(),
+                InterfaceDef {
+                    name: ident.clone(),
+                    methods,
+                    location: stmt.id,
+                },
+            );
         }
         StmtKind::InterfaceImpl(ident, _ty, stmts) => {
             // let _named_ty = ast_type_to_interface_instance_type(ty.clone());
@@ -1782,6 +1784,7 @@ pub fn result_of_constraint_solving(
         && inf_ctx.unbound_interfaces.is_empty()
         && type_conflicts.is_empty()
         && inf_ctx.multiple_adt_defs.is_empty()
+        && inf_ctx.multiple_interface_defs.is_empty()
     {
         for (node_id, node) in node_map.iter() {
             let ty = Type::solution_of_node(inf_ctx, *node_id);
@@ -1817,8 +1820,17 @@ pub fn result_of_constraint_solving(
     }
     if !inf_ctx.multiple_adt_defs.is_empty() {
         for (ident, adt_ids) in inf_ctx.multiple_adt_defs.iter() {
-            err_string.push_str(&format!("Multiple definitions for {}\n", ident));
+            err_string.push_str(&format!("Multiple definitions for type {}\n", ident));
             for ast_id in adt_ids {
+                let span = node_map.get(ast_id).unwrap().span();
+                err_string.push_str(&span.display(source, ""));
+            }
+        }
+    }
+    if !inf_ctx.multiple_interface_defs.is_empty() {
+        for (ident, interface_ids) in inf_ctx.multiple_interface_defs.iter() {
+            err_string.push_str(&format!("Multiple definitions for interface {}\n", ident));
+            for ast_id in interface_ids {
                 let span = node_map.get(ast_id).unwrap().span();
                 err_string.push_str(&span.display(source, ""));
             }
