@@ -794,7 +794,7 @@ impl eframe::App for MyApp {
                                             let (eval_tree, overloaded_func_map) =
                                                 translate::translate(
                                                     &inference_ctx,
-                                                    tyctx.clone(),
+                                                    tyctx,
                                                     &node_map,
                                                     parse_tree,
                                                 );
