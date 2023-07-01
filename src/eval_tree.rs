@@ -47,12 +47,14 @@ pub enum Builtin {
     MinusInt,
     MultiplyInt,
     DivideInt,
+    LessThanInt,
     PowInt,
     AddFloat,
     MinusFloat,
     MultiplyFloat,
     DivideFloat,
     PowFloat,
+    LessThanFloat,
 }
 
 // only works for values right now:

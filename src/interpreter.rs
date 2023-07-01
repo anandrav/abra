@@ -187,6 +187,20 @@ pub fn make_new_environment(inf_ctx: &InferenceContext) -> Rc<RefCell<Environmen
         )),
     );
     env.borrow_mut().extend(
+        &String::from("less_than_int"),
+        Rc::new(Expr::Func(
+            vec![String::from("i1"), String::from("i2")],
+            Rc::new(Expr::BuiltinAp(
+                Builtin::LessThanInt,
+                vec![
+                    Rc::new(Expr::Var(String::from("i1"))),
+                    Rc::new(Expr::Var(String::from("i2"))),
+                ],
+            )),
+            None,
+        )),
+    );
+    env.borrow_mut().extend(
         &String::from("add_float"),
         Rc::new(Expr::Func(
             vec![String::from("i1"), String::from("i2")],
@@ -248,6 +262,20 @@ pub fn make_new_environment(inf_ctx: &InferenceContext) -> Rc<RefCell<Environmen
             vec![String::from("i1"), String::from("i2")],
             Rc::new(Expr::BuiltinAp(
                 Builtin::PowFloat,
+                vec![
+                    Rc::new(Expr::Var(String::from("i1"))),
+                    Rc::new(Expr::Var(String::from("i2"))),
+                ],
+            )),
+            None,
+        )),
+    );
+    env.borrow_mut().extend(
+        &String::from("less_than_float"),
+        Rc::new(Expr::Func(
+            vec![String::from("i1"), String::from("i2")],
+            Rc::new(Expr::BuiltinAp(
+                Builtin::LessThanFloat,
                 vec![
                     Rc::new(Expr::Var(String::from("i1"))),
                     Rc::new(Expr::Var(String::from("i2"))),
@@ -1150,6 +1178,14 @@ fn handle_builtin(builtin: Builtin, args: Vec<Rc<Expr>>) -> Rc<Expr> {
                 _ => panic!("PowInt expects two Ints"),
             }
         }
+        Builtin::LessThanInt => {
+            let arg1 = args[0].clone();
+            let arg2 = args[1].clone();
+            match (&*arg1, &*arg2) {
+                (Int(s1), Int(s2)) => Rc::new(Bool(s1 < s2)),
+                _ => panic!("LessThanInt expects two Ints"),
+            }
+        }
         Builtin::AddFloat => {
             let arg1 = args[0].clone();
             let arg2 = args[1].clone();
@@ -1188,6 +1224,14 @@ fn handle_builtin(builtin: Builtin, args: Vec<Rc<Expr>>) -> Rc<Expr> {
             match (&*arg1, &*arg2) {
                 (Float(s1), Float(s2)) => Rc::new(Float(s1.powf(*s2))),
                 _ => panic!("PowFloat expects two Floats"),
+            }
+        }
+        Builtin::LessThanFloat => {
+            let arg1 = args[0].clone();
+            let arg2 = args[1].clone();
+            match (&*arg1, &*arg2) {
+                (Float(s1), Float(s2)) => Rc::new(Bool(s1 < s2)),
+                _ => panic!("LessThanFloat expects two Floats"),
             }
         }
     }

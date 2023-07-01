@@ -482,7 +482,15 @@ pub fn translate_expr(
             }
             Rc::new(Ete::Tuple(translated_exprs))
         }
-        ASTek::BinOp(expr1, BinOpcode::Equals, expr2) => {
+        ASTek::BinOp(
+            expr1,
+            opcode @ (BinOpcode::Equals
+            | BinOpcode::LessThan
+            | BinOpcode::LessThanOrEqual
+            | BinOpcode::GreaterThan
+            | BinOpcode::GreaterThanOrEqual),
+            expr2,
+        ) => {
             let ty1 = Type::solution_of_node(inf_ctx, expr1.id()).unwrap();
             let ty2 = Type::solution_of_node(inf_ctx, expr2.id()).unwrap();
             let ty = Type::Function(
@@ -490,19 +498,28 @@ pub fn translate_expr(
                 vec![ty1, ty2],
                 Type::make_bool(Prov::FuncOut(Prov::Node(ast_id).into())).into(),
             );
+            let func_name = match opcode {
+                BinOpcode::Equals => "equals",
+                BinOpcode::LessThan => "less_than",
+                BinOpcode::LessThanOrEqual => "less_than_or_equal",
+                BinOpcode::GreaterThan => "greater_than",
+                BinOpcode::GreaterThanOrEqual => "greater_than_or_equal",
+                _ => unreachable!(),
+            }
+            .to_owned();
             let ty = monomorphize_overloaded_var(
                 inf_ctx,
                 monomorphenv.clone(),
                 gamma.clone(),
                 node_map,
                 overloaded_func_map,
-                &"equals".to_owned(),
+                &func_name,
                 ty,
             )
             .expect("could not overload equals operator");
             debug_println!("{:?}", &ty);
             Rc::new(Ete::FuncAp(
-                Rc::new(Ete::VarOverloaded("equals".to_owned(), ty)),
+                Rc::new(Ete::VarOverloaded(func_name, ty)),
                 vec![
                     translate_expr(
                         inf_ctx,

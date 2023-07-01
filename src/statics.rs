@@ -594,11 +594,14 @@ pub fn types_of_binop(opcode: &BinOpcode, id: ast::Id) -> (Type, Type, Type) {
         BinOpcode::LessThan
         | BinOpcode::GreaterThan
         | BinOpcode::LessThanOrEqual
-        | BinOpcode::GreaterThanOrEqual => (
-            Type::make_int(prov_left),
-            Type::make_int(prov_right),
-            Type::make_bool(prov_out),
-        ),
+        | BinOpcode::GreaterThanOrEqual => {
+            let ty_left = Type::make_poly_constrained(prov_left, "a".to_owned(), "Num".to_owned());
+            let ty_right =
+                Type::make_poly_constrained(prov_right, "a".to_owned(), "Num".to_owned());
+            constrain(ty_left.clone(), ty_right.clone());
+            let ty_out = Type::make_bool(prov_out);
+            (ty_left, ty_right, ty_out)
+        }
         BinOpcode::Concat => (
             Type::make_string(prov_left),
             Type::make_string(prov_right),
@@ -1053,6 +1056,18 @@ pub fn make_new_gamma() -> Rc<RefCell<Gamma>> {
             Type::make_int(Prov::FuncOut(prov.into())).into(),
         ),
     );
+    let prov = Prov::Builtin("less_than_int: (int, int) -> bool".to_string());
+    gamma.borrow_mut().extend(
+        &String::from("less_than_int"),
+        Type::Function(
+            RefCell::new(BTreeSet::new()),
+            vec![
+                Type::make_int(Prov::FuncArg(prov.clone().into(), 0)),
+                Type::make_int(Prov::FuncArg(prov.clone().into(), 1)),
+            ],
+            Type::make_bool(Prov::FuncOut(prov.into())).into(),
+        ),
+    );
     let prov = Prov::Builtin("add_float: (float, float) -> float".to_string());
     gamma.borrow_mut().extend(
         &String::from("add_float"),
@@ -1111,6 +1126,18 @@ pub fn make_new_gamma() -> Rc<RefCell<Gamma>> {
                 Type::make_float(Prov::FuncArg(prov.clone().into(), 1)),
             ],
             Type::make_float(Prov::FuncOut(prov.into())).into(),
+        ),
+    );
+    let prov = Prov::Builtin("less_than_float: (float, float) -> bool".to_string());
+    gamma.borrow_mut().extend(
+        &String::from("less_than_float"),
+        Type::Function(
+            RefCell::new(BTreeSet::new()),
+            vec![
+                Type::make_float(Prov::FuncArg(prov.clone().into(), 0)),
+                Type::make_float(Prov::FuncArg(prov.clone().into(), 1)),
+            ],
+            Type::make_bool(Prov::FuncOut(prov.into())).into(),
         ),
     );
     gamma

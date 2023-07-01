@@ -532,12 +532,18 @@ println(pow_float(2.1, 3.60001))
 "#;
 
 const _PRELUDE: &str = r#"
+let not(b: bool) = if b false else true
+
 interface Num {
     add: (self, self) -> self
     minus: (self, self) -> self
     multiply: (self, self) -> self
     divide: (self, self) -> self
     pow: (self, self) -> self
+    less_than: (self, self) -> bool
+    less_than_or_equal: (self, self) -> bool
+    greater_than: (self, self) -> bool
+    greater_than_or_equal: (self, self) -> bool
 }
 implement Num for int {
     let add(a, b) = add_int(a, b)
@@ -545,6 +551,10 @@ implement Num for int {
     let multiply(a, b) = multiply_int(a, b)
     let divide(a, b) = divide_int(a, b)
     let pow(a, b) = pow_int(a, b)
+    let less_than(a, b) = less_than_int(a, b)
+    let less_than_or_equal(a, b) = (a < b) or (a = b)
+    let greater_than(a, b) = not(a < b) and not(a = b)
+    let greater_than_or_equal(a, b) = not(a < b)
 }
 implement Num for float {
     let add(a, b) = add_float(a, b)
@@ -552,6 +562,10 @@ implement Num for float {
     let multiply(a, b) = multiply_float(a, b)
     let divide(a, b) = divide_float(a, b)
     let pow(a, b) = pow_float(a, b)
+    let less_than(a, b) = less_than_float(a, b)
+    let less_than_or_equal(a, b) = a < b
+    let greater_than(a, b) = b < a
+    let greater_than_or_equal(a, b) = b < a
 }
 
 type list<'a> = nil | cons ('a, list<'a>)
@@ -564,6 +578,9 @@ implement Equals for void {
 }
 implement Equals for int {
     let equals(a, b) = equals_int(a, b)
+}
+implement Equals for float {
+    let equals(a, b) = false
 }
 implement Equals for bool {
     let equals(a, b) = 
@@ -627,8 +644,6 @@ let println(x: 'b ToString) = {
     print_string(to_string(x))
     print_string(newline)
 }
-
-let not(b: bool) = if b false else true
 
 let range(lo: int, hi: int) =
     if lo > hi
