@@ -860,62 +860,25 @@ impl eframe::App for MyApp {
 
 #[derive(Clone, Copy, Hash, PartialEq)]
 enum SyntectTheme {
-    Base16EightiesDark,
-    Base16MochaDark,
-    Base16OceanDark,
-    Base16OceanLight,
+    // Base16EightiesDark,
+    // Base16MochaDark,
+    // Base16OceanDark,
+    // Base16OceanLight,
     InspiredGitHub,
-    SolarizedDark,
-    SolarizedLight,
+    // SolarizedDark,
+    // SolarizedLight,
 }
 
 impl SyntectTheme {
-    fn all() -> impl ExactSizeIterator<Item = Self> {
-        [
-            Self::Base16EightiesDark,
-            Self::Base16MochaDark,
-            Self::Base16OceanDark,
-            Self::Base16OceanLight,
-            Self::InspiredGitHub,
-            Self::SolarizedDark,
-            Self::SolarizedLight,
-        ]
-        .iter()
-        .copied()
-    }
-
-    fn name(&self) -> &'static str {
-        match self {
-            Self::Base16EightiesDark => "Base16 Eighties (dark)",
-            Self::Base16MochaDark => "Base16 Mocha (dark)",
-            Self::Base16OceanDark => "Base16 Ocean (dark)",
-            Self::Base16OceanLight => "Base16 Ocean (light)",
-            Self::InspiredGitHub => "InspiredGitHub (light)",
-            Self::SolarizedDark => "Solarized (dark)",
-            Self::SolarizedLight => "Solarized (light)",
-        }
-    }
-
     fn syntect_key_name(&self) -> &'static str {
         match self {
-            Self::Base16EightiesDark => "base16-eighties.dark",
-            Self::Base16MochaDark => "base16-mocha.dark",
-            Self::Base16OceanDark => "base16-ocean.dark",
-            Self::Base16OceanLight => "base16-ocean.light",
+            // Self::Base16EightiesDark => "base16-eighties.dark",
+            // Self::Base16MochaDark => "base16-mocha.dark",
+            // Self::Base16OceanDark => "base16-ocean.dark",
+            // Self::Base16OceanLight => "base16-ocean.light",
             Self::InspiredGitHub => "InspiredGitHub",
-            Self::SolarizedDark => "Solarized (dark)",
-            Self::SolarizedLight => "Solarized (light)",
-        }
-    }
-
-    pub fn is_dark(&self) -> bool {
-        match self {
-            Self::Base16EightiesDark
-            | Self::Base16MochaDark
-            | Self::Base16OceanDark
-            | Self::SolarizedDark => true,
-
-            Self::Base16OceanLight | Self::InspiredGitHub | Self::SolarizedLight => false,
+            // Self::SolarizedDark => "Solarized (dark)",
+            // Self::SolarizedLight => "Solarized (light)",
         }
     }
 }
