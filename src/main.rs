@@ -628,6 +628,8 @@ let println(x: 'b ToString) = {
     print_string(newline)
 }
 
+let not(b: bool) = if b false else true
+
 let range(lo: int, hi: int) =
     if lo > hi
         nil
