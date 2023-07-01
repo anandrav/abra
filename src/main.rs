@@ -281,7 +281,6 @@ implement Equals for list<'a Equals> {
             _ -> false
     }
 }
-let hack = [1, 2, 3, 4]
 
 interface ToString {
     to_string: self -> string
@@ -361,8 +360,6 @@ let filter(xs: list<'a>, f: 'a -> bool) -> list<'a> =
 
 let reverse(xs: list<'c>) -> list<'c> =
     fold(xs, (acc, head) -> cons(head, acc), nil)
-
-let hack = [1, 2, 3, 4]
 
 let numbers = range(1, 9)
 let numbers = map(numbers, x -> x * x * x)
@@ -510,9 +507,6 @@ let filter(xs: list<'a>, f: 'a -> bool) -> list<'a> =
 
 let reverse(xs: list<'c>) -> list<'c> =
     fold(xs, (acc, head) -> cons(head, acc), nil)
-
-
-let hack = [1, 2, 3, 4]
 
 println("hello world")
 println(123)
@@ -804,7 +798,6 @@ impl eframe::App for MyApp {
                                                 );
                                             self.interpreter = Some(Interpreter::new(
                                                 &inference_ctx,
-                                                tyctx,
                                                 overloaded_func_map,
                                                 eval_tree,
                                             ));
@@ -831,6 +824,7 @@ impl eframe::App for MyApp {
                             egui::ScrollArea::vertical()
                                 .max_height(400.0)
                                 .min_scrolled_height(300.0)
+                                .stick_to_bottom(true)
                                 .show(ui, |ui| {
                                     ui.style_mut().visuals.faint_bg_color = parchment;
                                     ui.style_mut().visuals.extreme_bg_color = parchment;

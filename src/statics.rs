@@ -109,6 +109,7 @@ impl UnifVarData {
         if self.types.len() == 1 {
             self.types.values().next().unwrap().solution()
         } else {
+            debug_println!("no solution for {:?}", self);
             None
         }
     }
@@ -317,8 +318,11 @@ impl Type {
     pub fn solution_of_node(inf_ctx: &InferenceContext, id: ast::Id) -> Option<Type> {
         let prov = Prov::Node(id);
         match inf_ctx.vars.get(&prov) {
-            Some(unifvar) => Type::UnifVar(unifvar.clone()).solution(),
-            None => None,
+            Some(unifvar) => unifvar.clone_data().solution(),
+            None => {
+                debug_println!("var not in inf_ctx");
+                None
+            }
         }
     }
 
@@ -728,10 +732,6 @@ impl InferenceContext {
             multiple_adt_defs: BTreeMap::new(),
             multiple_interface_defs: BTreeMap::new(),
         }
-    }
-
-    pub fn adt_def_of_name(&self, name: &Identifier) -> Option<AdtDef> {
-        self.tydefs.get(name).cloned()
     }
 
     pub fn adt_def_of_variant(&self, variant: &Identifier) -> Option<AdtDef> {
@@ -1959,25 +1959,19 @@ pub fn result_of_constraint_solving(
     node_map: &ast::NodeMap,
     source: &str,
 ) -> Result<(), String> {
-    // dbg!(&inf_ctx.interface_defs);
-    // dbg!(&inf_ctx.interface_impls);
-    // dbg!(&inf_ctx.method_to_interface);
-    println!("here!");
-    println!("{}", _tyctx.borrow());
-    // TODO: you should assert that every node in the AST is in unsovled_type_suggestions_to_unknown_ty, solved or not!
+    debug_println!("tyctx:");
+    debug_println!("{}", _tyctx.borrow());
     let mut type_conflicts = Vec::new();
     for potential_types in inf_ctx.vars.values() {
-        // let type_suggestions = condense_candidates(potential_types);
         let type_suggestions = potential_types.clone_data().types;
         if type_suggestions.len() > 1 && (!type_conflicts.contains(&type_suggestions)) {
             type_conflicts.push(type_suggestions.clone());
+        } else if type_suggestions.len() == 1 {
+            let solution = type_suggestions.iter().next().unwrap().1.solution();
+            if solution.is_none() && (!type_conflicts.contains(&type_suggestions)) {
+                type_conflicts.push(type_suggestions.clone());
+            }
         }
-        // } else if type_suggestions.len() == 1 {
-        //     let solution = type_suggestions.iter().next().unwrap().1.solution();
-        //     if solution.is_none() && (!type_conflicts.contains(&type_suggestions)) {
-        //         type_conflicts.push(type_suggestions.clone());
-        //     }
-        // }
     }
 
     if inf_ctx.unbound_vars.is_empty()
@@ -2213,8 +2207,7 @@ impl fmt::Display for Type {
             Type::UnifVar(unifvar) => {
                 let types = unifvar.clone_data().types;
                 match types.len() {
-                    0 => write!(f, "? {:?}", unifvar.clone_data()),
-                    // 0 => write!(f, "?"),
+                    0 => write!(f, "?"),
                     1 => write!(f, "{}", types.values().next().unwrap()),
                     _ => {
                         write!(f, "!{{")?;

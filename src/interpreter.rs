@@ -5,7 +5,6 @@ use crate::operators::BinOpcode::*;
 use crate::operators::*;
 use crate::side_effects;
 use crate::side_effects::*;
-use crate::statics::Gamma;
 use crate::statics::InferenceContext;
 use crate::statics::Type;
 use crate::statics::TypeFullyInstantiated;
@@ -13,10 +12,7 @@ use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
 
-pub fn make_new_environment(
-    inf_ctx: &InferenceContext,
-    gamma: Rc<RefCell<Gamma>>,
-) -> Rc<RefCell<Environment>> {
+pub fn make_new_environment(inf_ctx: &InferenceContext) -> Rc<RefCell<Environment>> {
     // builtins
     let env = Rc::new(RefCell::new(Environment::new(None)));
     env.borrow_mut().extend(
@@ -260,65 +256,48 @@ pub fn make_new_environment(
             None,
         )),
     );
-    // replace variables with variants or variant constructors
-    for (_key, ty) in gamma.borrow().vars.iter() {
-        // debug_println!("key: {key}, ty: {:?}", ty);
-        let solution = if let Type::UnifVar(unifvar) = ty {
-            // debug_println!("UNIFVAR!");
-            // debug_println!("unifvar: {:?}", unifvar.clone_data().types);
-            unifvar.clone_data().solution()
-        } else {
-            Some(ty.clone())
-        };
-        if let Some(Type::AdtInstance(_, ident, _params)) = solution {
-            let adt_def = inf_ctx.adt_def_of_name(&ident).unwrap();
-            // debug_println!("ADT!");
-            for (_i, variant) in adt_def.variants.iter().enumerate() {
-                let ctor = &variant.ctor;
-                if let Type::Unit(_) = variant.data {
-                    env.borrow_mut().extend(
-                        ctor,
-                        Rc::new(Expr::TaggedVariant(ctor.clone(), Rc::new(Expr::Unit))),
-                    );
-                } else {
-                    match &variant.data {
-                        Type::Tuple(_, elems) => {
-                            let mut args = vec![];
-                            for (i, _) in elems.iter().enumerate() {
-                                args.push(Rc::new(Expr::Var(format!("arg{}", i))));
-                            }
-                            let body = Rc::new(Expr::TaggedVariant(
-                                ctor.clone(),
-                                Rc::new(Expr::Tuple(args)),
-                            ));
-                            // for (i, _) in elems.iter().enumerate().rev() {
-                            //     expr = Rc::new(Expr::Func(vec![format!("arg{}", i)], expr, None));
-                            // }
-                            let expr = Rc::new(Expr::Func(
-                                elems
-                                    .iter()
-                                    .enumerate()
-                                    .map(|(i, _)| format!("arg{}", i))
-                                    .collect(),
-                                body,
-                                None,
-                            ));
-                            // debug_println!("ctor function: {:?}", expr);
-                            env.borrow_mut().extend(ctor, expr);
+    for (_name, adt_def) in inf_ctx.tydefs.iter() {
+        for (_i, variant) in adt_def.variants.iter().enumerate() {
+            let ctor = &variant.ctor;
+            if let Type::Unit(_) = variant.data {
+                env.borrow_mut().extend(
+                    ctor,
+                    Rc::new(Expr::TaggedVariant(ctor.clone(), Rc::new(Expr::Unit))),
+                );
+            } else {
+                match &variant.data {
+                    Type::Tuple(_, elems) => {
+                        let mut args = vec![];
+                        for (i, _) in elems.iter().enumerate() {
+                            args.push(Rc::new(Expr::Var(format!("arg{}", i))));
                         }
-                        _ => {
-                            env.borrow_mut().extend(
-                                ctor,
-                                Rc::new(Expr::Func(
-                                    vec!["data".to_string()],
-                                    Rc::new(Expr::TaggedVariant(
-                                        ctor.clone(),
-                                        Rc::new(Expr::Var("data".to_string())),
-                                    )),
-                                    None,
+                        let body = Rc::new(Expr::TaggedVariant(
+                            ctor.clone(),
+                            Rc::new(Expr::Tuple(args)),
+                        ));
+                        let expr = Rc::new(Expr::Func(
+                            elems
+                                .iter()
+                                .enumerate()
+                                .map(|(i, _)| format!("arg{}", i))
+                                .collect(),
+                            body,
+                            None,
+                        ));
+                        env.borrow_mut().extend(ctor, expr);
+                    }
+                    _ => {
+                        env.borrow_mut().extend(
+                            ctor,
+                            Rc::new(Expr::Func(
+                                vec!["data".to_string()],
+                                Rc::new(Expr::TaggedVariant(
+                                    ctor.clone(),
+                                    Rc::new(Expr::Var("data".to_string())),
                                 )),
-                            );
-                        }
+                                None,
+                            )),
+                        );
                     }
                 }
             }
@@ -339,13 +318,12 @@ pub struct Interpreter {
 impl Interpreter {
     pub fn new(
         inf_ctx: &InferenceContext,
-        tyctx: Rc<RefCell<Gamma>>,
         overloaded_func_map: OverloadedFuncMap,
         program_expr: Rc<Expr>,
     ) -> Self {
         Interpreter {
             program_expr,
-            env: make_new_environment(inf_ctx, tyctx),
+            env: make_new_environment(inf_ctx),
             overloaded_func_map,
             next_input: None,
         }

@@ -96,6 +96,7 @@ pub fn translate_expr_block(
             stmts[1..].to_vec(),
         ),
         ast::StmtKind::LetFunc(pat, func_args, _, body) => {
+            debug_println!("node is {}", pat.id);
             let ty = Type::solution_of_node(inf_ctx, pat.id).unwrap();
             if ty.is_overloaded() {
                 // if function is overloaded, don't translate its body
@@ -741,9 +742,6 @@ pub fn translate(
     node_map: &NodeMap,
     toplevel: Rc<ast::Toplevel>,
 ) -> (Rc<Ete>, interpreter::OverloadedFuncMap) {
-    println!("before");
-    println!("{}", gamma.borrow());
-
     let mut overloaded_func_map_temp = OverloadedFuncMapTemp::new();
     let monomorphenv = Rc::new(RefCell::new(MonomorphEnv::new(None)));
     let toplevel = translate_expr_block(
