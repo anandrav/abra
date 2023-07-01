@@ -849,7 +849,6 @@ impl eframe::App for MyApp {
                                             .monospace()
                                             .color(egui::Color32::LIGHT_GRAY),
                                     );
-                                    // ui.monospace(&self.output)
                                 });
                         });
                     });
@@ -872,13 +871,7 @@ enum SyntectTheme {
 impl SyntectTheme {
     fn syntect_key_name(&self) -> &'static str {
         match self {
-            // Self::Base16EightiesDark => "base16-eighties.dark",
-            // Self::Base16MochaDark => "base16-mocha.dark",
-            // Self::Base16OceanDark => "base16-ocean.dark",
-            // Self::Base16OceanLight => "base16-ocean.light",
             Self::InspiredGitHub => "InspiredGitHub",
-            // Self::SolarizedDark => "Solarized (dark)",
-            // Self::SolarizedLight => "Solarized (light)",
         }
     }
 }
