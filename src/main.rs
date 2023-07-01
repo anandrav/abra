@@ -5,6 +5,7 @@ extern crate eframe;
 extern crate pest;
 extern crate pest_derive;
 extern crate regex;
+extern crate syntect;
 
 mod ast;
 mod environment;
@@ -731,7 +732,27 @@ impl eframe::App for MyApp {
                             .max_height(500.0)
                             .min_scrolled_height(400.0)
                             .show(ui, |ui| {
-                                if ui.code_editor(&mut self.text).changed() {};
+                                let mut layouter =
+                                    |ui: &egui::Ui, string: &str, _wrap_width: f32| {
+                                        let language = "rs";
+                                        let highlighter = Highlighter::default();
+                                        let layout_job = highlighter
+                                            .highlight_impl(
+                                                &SyntectTheme::Base16MochaDark,
+                                                string,
+                                                language,
+                                            )
+                                            .unwrap();
+                                        // layout_job.wrap.max_width = wrap_width; // no wrapping
+                                        ui.fonts(|f| f.layout_job(layout_job))
+                                    };
+
+                                let code_editor = egui::TextEdit::multiline(&mut self.text)
+                                    .desired_rows(20)
+                                    .code_editor()
+                                    .layouter(&mut layouter);
+                                ui.add(code_editor);
+                                // if ui.code_editor(&mut self.text).changed() {};
                             });
                         if ui
                             .add(egui::Button::new("Run code").fill(Color32::LIGHT_GREEN))
@@ -810,5 +831,145 @@ impl eframe::App for MyApp {
                     });
                 });
         });
+    }
+}
+
+#[derive(Clone, Copy, Hash, PartialEq)]
+enum SyntectTheme {
+    Base16EightiesDark,
+    Base16MochaDark,
+    Base16OceanDark,
+    Base16OceanLight,
+    InspiredGitHub,
+    SolarizedDark,
+    SolarizedLight,
+}
+
+impl SyntectTheme {
+    fn all() -> impl ExactSizeIterator<Item = Self> {
+        [
+            Self::Base16EightiesDark,
+            Self::Base16MochaDark,
+            Self::Base16OceanDark,
+            Self::Base16OceanLight,
+            Self::InspiredGitHub,
+            Self::SolarizedDark,
+            Self::SolarizedLight,
+        ]
+        .iter()
+        .copied()
+    }
+
+    fn name(&self) -> &'static str {
+        match self {
+            Self::Base16EightiesDark => "Base16 Eighties (dark)",
+            Self::Base16MochaDark => "Base16 Mocha (dark)",
+            Self::Base16OceanDark => "Base16 Ocean (dark)",
+            Self::Base16OceanLight => "Base16 Ocean (light)",
+            Self::InspiredGitHub => "InspiredGitHub (light)",
+            Self::SolarizedDark => "Solarized (dark)",
+            Self::SolarizedLight => "Solarized (light)",
+        }
+    }
+
+    fn syntect_key_name(&self) -> &'static str {
+        match self {
+            Self::Base16EightiesDark => "base16-eighties.dark",
+            Self::Base16MochaDark => "base16-mocha.dark",
+            Self::Base16OceanDark => "base16-ocean.dark",
+            Self::Base16OceanLight => "base16-ocean.light",
+            Self::InspiredGitHub => "InspiredGitHub",
+            Self::SolarizedDark => "Solarized (dark)",
+            Self::SolarizedLight => "Solarized (light)",
+        }
+    }
+
+    pub fn is_dark(&self) -> bool {
+        match self {
+            Self::Base16EightiesDark
+            | Self::Base16MochaDark
+            | Self::Base16OceanDark
+            | Self::SolarizedDark => true,
+
+            Self::Base16OceanLight | Self::InspiredGitHub | Self::SolarizedLight => false,
+        }
+    }
+}
+
+struct Highlighter {
+    ps: syntect::parsing::SyntaxSet,
+    ts: syntect::highlighting::ThemeSet,
+}
+
+impl Default for Highlighter {
+    fn default() -> Self {
+        Self {
+            ps: syntect::parsing::SyntaxSet::load_defaults_newlines(),
+            ts: syntect::highlighting::ThemeSet::load_defaults(),
+        }
+    }
+}
+
+fn as_byte_range(whole: &str, range: &str) -> std::ops::Range<usize> {
+    let whole_start = whole.as_ptr() as usize;
+    let range_start = range.as_ptr() as usize;
+    assert!(whole_start <= range_start);
+    assert!(range_start + range.len() <= whole_start + whole.len());
+    let offset = range_start - whole_start;
+    offset..(offset + range.len())
+}
+
+impl Highlighter {
+    fn highlight_impl(
+        &self,
+        theme: &SyntectTheme,
+        text: &str,
+        language: &str,
+    ) -> Option<egui::text::LayoutJob> {
+        use syntect::easy::HighlightLines;
+        use syntect::highlighting::FontStyle;
+        use syntect::util::LinesWithEndings;
+
+        let syntax = self
+            .ps
+            .find_syntax_by_name(language)
+            .or_else(|| self.ps.find_syntax_by_extension(language))?;
+
+        let theme = theme.syntect_key_name();
+        let mut h = HighlightLines::new(syntax, &self.ts.themes[theme]);
+
+        use egui::text::{LayoutSection, TextFormat};
+
+        let mut job = egui::text::LayoutJob {
+            text: text.into(),
+            ..Default::default()
+        };
+
+        for line in LinesWithEndings::from(text) {
+            for (style, range) in h.highlight_line(line, &self.ps).ok()? {
+                let fg = style.foreground;
+                let text_color = egui::Color32::from_rgb(fg.r, fg.g, fg.b);
+                let italics = style.font_style.contains(FontStyle::ITALIC);
+                let underline = style.font_style.contains(FontStyle::ITALIC);
+                let underline = if underline {
+                    egui::Stroke::new(1.0, text_color)
+                } else {
+                    egui::Stroke::NONE
+                };
+                job.sections.push(LayoutSection {
+                    leading_space: 0.0,
+                    byte_range: as_byte_range(text, range),
+                    format: TextFormat {
+                        font_id: egui::FontId::monospace(12.0),
+                        color: text_color,
+                        italics,
+                        underline,
+                        ..Default::default()
+                    },
+                });
+            }
+        }
+
+        Some(job)
     }
 }

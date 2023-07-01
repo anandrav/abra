@@ -25,6 +25,9 @@ eframe = { version = "0.21.3", default-features = false, features = [
     "glow",          # Use the glow rendering backend. Alternative: "wgpu".
     "persistence",   # Enable restoring app state when restarting the app.
 ] }
+syntect = { version = "5", default-features = false, features = [
+    "default-fancy",
+] }
 
 # native:
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
