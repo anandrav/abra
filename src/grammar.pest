@@ -125,8 +125,8 @@ alphanumeric = _{ alpha | '0'..'9' }
 
 literal = _{ literal_unit | literal_float | literal_int | literal_bool | literal_string | literal_list }
 literal_unit = @{ "()" }
-literal_int = @{ "0" | ASCII_NONZERO_DIGIT ~ ASCII_DIGIT* }
-literal_float = @{ "0.0" | "0." | ASCII_NONZERO_DIGIT ~ ASCII_DIGIT* ~ "." ~ ASCII_DIGIT* | "." ~ ASCII_DIGIT+ }
+literal_int = @{ ("-")? ~ ("0" | ASCII_NONZERO_DIGIT ~ ASCII_DIGIT*) }
+literal_float = @{ ("-")? ~ ("0.0" | "0." | ASCII_NONZERO_DIGIT ~ ASCII_DIGIT* ~ "." ~ ASCII_DIGIT* | "." ~ ASCII_DIGIT+) }
 literal_string = @{ "\"" ~ (!"\"" ~ ANY)* ~ "\"" }
 literal_bool = @{ "true" | "false" }
 literal_list = { "[" ~ (expression ~ ",")* ~ expression? ~ "]" }
