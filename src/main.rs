@@ -746,14 +746,8 @@ impl eframe::App for MyApp {
                                     |ui: &egui::Ui, string: &str, _wrap_width: f32| {
                                         let language = "hs";
                                         let highlighter = Highlighter::default();
-                                        let layout_job = highlighter
-                                            .highlight_impl(
-                                                &SyntectTheme::InspiredGitHub,
-                                                string,
-                                                language,
-                                            )
-                                            .unwrap();
-                                        // layout_job.wrap.max_width = wrap_width; // no wrapping
+                                        let layout_job =
+                                            highlighter.highlight_impl(string, language).unwrap();
                                         ui.fonts(|f| f.layout_job(layout_job))
                                     };
 
@@ -762,7 +756,6 @@ impl eframe::App for MyApp {
                                     .code_editor()
                                     .layouter(&mut layouter);
                                 ui.add(code_editor);
-                                // if ui.code_editor(&mut self.text).changed() {};
                             });
                         if ui
                             .add(egui::Button::new("Run code").fill(Color32::LIGHT_GRAY))
@@ -771,7 +764,6 @@ impl eframe::App for MyApp {
                             self.interpreter = None;
                             self.output.clear();
                             let source = _PRELUDE.to_owned() + &self.text;
-                            // let source = &self.text;
                             match ast::parse_or_err(&source) {
                                 Ok(parse_tree) => {
                                     debug_println!("successfully parsed.");
@@ -857,25 +849,6 @@ impl eframe::App for MyApp {
     }
 }
 
-#[derive(Clone, Copy, Hash, PartialEq)]
-enum SyntectTheme {
-    // Base16EightiesDark,
-    // Base16MochaDark,
-    // Base16OceanDark,
-    // Base16OceanLight,
-    InspiredGitHub,
-    // SolarizedDark,
-    // SolarizedLight,
-}
-
-impl SyntectTheme {
-    fn syntect_key_name(&self) -> &'static str {
-        match self {
-            Self::InspiredGitHub => "InspiredGitHub",
-        }
-    }
-}
-
 struct Highlighter {
     ps: syntect::parsing::SyntaxSet,
     ts: syntect::highlighting::ThemeSet,
@@ -900,12 +873,7 @@ fn as_byte_range(whole: &str, range: &str) -> std::ops::Range<usize> {
 }
 
 impl Highlighter {
-    fn highlight_impl(
-        &self,
-        theme: &SyntectTheme,
-        text: &str,
-        language: &str,
-    ) -> Option<egui::text::LayoutJob> {
+    fn highlight_impl(&self, text: &str, language: &str) -> Option<egui::text::LayoutJob> {
         use syntect::easy::HighlightLines;
         use syntect::highlighting::FontStyle;
         use syntect::util::LinesWithEndings;
@@ -915,7 +883,7 @@ impl Highlighter {
             .find_syntax_by_name(language)
             .or_else(|| self.ps.find_syntax_by_extension(language))?;
 
-        let theme = theme.syntect_key_name();
+        let theme = "InspiredGitHub";
         let mut h = HighlightLines::new(syntax, &self.ts.themes[theme]);
 
         use egui::text::{LayoutSection, TextFormat};
