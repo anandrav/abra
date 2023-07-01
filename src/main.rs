@@ -694,6 +694,12 @@ impl Default for MyApp {
 
 impl eframe::App for MyApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+        let mut visuals = egui::Visuals::light();
+        let chestnut = egui::Color32::from_rgb(75, 35, 26);
+        visuals.window_fill = chestnut;
+        let parchment = egui::Color32::from_rgb(252, 245, 229);
+        visuals.extreme_bg_color = parchment;
+        ctx.set_visuals(visuals);
         let width = 570.0;
         egui::CentralPanel::default().show(ctx, |ui| {
             // HACK. this forces update() to be called as much as possible
@@ -727,18 +733,22 @@ impl eframe::App for MyApp {
                     ui.set_width(width);
                     ui.vertical_centered_justified(|ui| {
                         ui.set_width(width);
-                        ui.heading("Abra Editor");
+                        ui.label(
+                            egui::RichText::new("Abra Editor")
+                                .heading()
+                                .color(egui::Color32::GOLD),
+                        );
                         egui::ScrollArea::vertical()
                             .max_height(500.0)
                             .min_scrolled_height(400.0)
                             .show(ui, |ui| {
                                 let mut layouter =
                                     |ui: &egui::Ui, string: &str, _wrap_width: f32| {
-                                        let language = "rs";
+                                        let language = "hs";
                                         let highlighter = Highlighter::default();
                                         let layout_job = highlighter
                                             .highlight_impl(
-                                                &SyntectTheme::Base16MochaDark,
+                                                &SyntectTheme::InspiredGitHub,
                                                 string,
                                                 language,
                                             )
@@ -755,7 +765,7 @@ impl eframe::App for MyApp {
                                 // if ui.code_editor(&mut self.text).changed() {};
                             });
                         if ui
-                            .add(egui::Button::new("Run code").fill(Color32::LIGHT_GREEN))
+                            .add(egui::Button::new("Run code").fill(Color32::LIGHT_GRAY))
                             .clicked()
                         {
                             self.interpreter = None;
@@ -819,13 +829,27 @@ impl eframe::App for MyApp {
                                 }
                             }
                         }
+                        ui.style_mut().visuals.faint_bg_color = parchment;
+                        ui.style_mut().visuals.extreme_bg_color = parchment;
+                        ui.style_mut().visuals.window_fill = parchment;
                         ui.vertical(|ui| {
+                            ui.style_mut().visuals.faint_bg_color = parchment;
+                            ui.style_mut().visuals.extreme_bg_color = parchment;
+                            ui.style_mut().visuals.window_fill = parchment;
                             egui::ScrollArea::vertical()
                                 .max_height(400.0)
                                 .min_scrolled_height(300.0)
                                 .show(ui, |ui| {
+                                    ui.style_mut().visuals.faint_bg_color = parchment;
+                                    ui.style_mut().visuals.extreme_bg_color = parchment;
+                                    ui.style_mut().visuals.window_fill = parchment;
                                     ui.set_width(width);
-                                    ui.monospace(&self.output);
+                                    ui.label(
+                                        egui::RichText::new(&self.output)
+                                            .monospace()
+                                            .color(egui::Color32::LIGHT_GRAY),
+                                    );
+                                    // ui.monospace(&self.output)
                                 });
                         });
                     });
