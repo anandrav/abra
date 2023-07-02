@@ -771,7 +771,7 @@ impl eframe::App for MyApp {
                             });
                         ui.visuals_mut().override_text_color = Some(Color32::WHITE);
                         if ui
-                            .add(egui::Button::new("Run code").fill(Color32::from_rgb(71, 207, 63)))
+                            .add(egui::Button::new("Run Code").fill(Color32::from_rgb(71, 207, 63)))
                             .clicked()
                         {
                             self.interpreter = None;
@@ -839,7 +839,11 @@ impl eframe::App for MyApp {
                             .max_height(400.0)
                             .stick_to_bottom(true)
                             .show(ui, |ui| {
-                                let mut output_clone = self.output.clone();
+                                let mut output_clone = if self.output.is_empty() {
+                                    "output will appear here when you click `Run Code`".to_owned()
+                                } else {
+                                    self.output.clone()
+                                };
                                 ui.code_editor(&mut output_clone);
                             });
                     });
