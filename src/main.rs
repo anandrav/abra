@@ -706,6 +706,8 @@ impl Default for MyApp {
 impl eframe::App for MyApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         let mut visuals = egui::Visuals::light();
+        // let ink = egui::Color32::from_rgb(35, 20, 16);
+        visuals.override_text_color = Some(Color32::WHITE);
         let chestnut = egui::Color32::from_rgb(75, 35, 26);
         visuals.window_fill = chestnut;
         let parchment = egui::Color32::from_rgb(252, 245, 229);
@@ -743,7 +745,6 @@ impl eframe::App for MyApp {
                 .show(ctx, |ui| {
                     ui.set_width(width);
                     ui.vertical_centered_justified(|ui| {
-                        ui.set_width(width);
                         ui.label(
                             egui::RichText::new("Abra Editor")
                                 .heading()
@@ -768,8 +769,9 @@ impl eframe::App for MyApp {
                                     .layouter(&mut layouter);
                                 ui.add(code_editor);
                             });
+                        ui.visuals_mut().override_text_color = Some(Color32::WHITE);
                         if ui
-                            .add(egui::Button::new("Run code").fill(Color32::LIGHT_GRAY))
+                            .add(egui::Button::new("Run code").fill(Color32::from_rgb(71, 207, 63)))
                             .clicked()
                         {
                             self.interpreter = None;
@@ -831,29 +833,15 @@ impl eframe::App for MyApp {
                                 }
                             }
                         }
-                        ui.style_mut().visuals.faint_bg_color = parchment;
-                        ui.style_mut().visuals.extreme_bg_color = parchment;
-                        ui.style_mut().visuals.window_fill = parchment;
-                        ui.vertical(|ui| {
-                            ui.style_mut().visuals.faint_bg_color = parchment;
-                            ui.style_mut().visuals.extreme_bg_color = parchment;
-                            ui.style_mut().visuals.window_fill = parchment;
-                            egui::ScrollArea::vertical()
-                                .max_height(400.0)
-                                .min_scrolled_height(300.0)
-                                .stick_to_bottom(true)
-                                .show(ui, |ui| {
-                                    ui.style_mut().visuals.faint_bg_color = parchment;
-                                    ui.style_mut().visuals.extreme_bg_color = parchment;
-                                    ui.style_mut().visuals.window_fill = parchment;
-                                    ui.set_width(width);
-                                    ui.label(
-                                        egui::RichText::new(&self.output)
-                                            .monospace()
-                                            .color(egui::Color32::LIGHT_GRAY),
-                                    );
-                                });
-                        });
+                        ui.visuals_mut().override_text_color = None;
+                        egui::ScrollArea::vertical()
+                            .id_source("output_scroll_area")
+                            .max_height(400.0)
+                            .stick_to_bottom(true)
+                            .show(ui, |ui| {
+                                let mut output_clone = self.output.clone();
+                                ui.code_editor(&mut output_clone);
+                            });
                     });
                 });
         });
