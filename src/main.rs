@@ -833,19 +833,17 @@ impl eframe::App for MyApp {
                                 }
                             }
                         }
-                        ui.visuals_mut().override_text_color = None;
-                        egui::ScrollArea::vertical()
-                            .id_source("output_scroll_area")
-                            .max_height(400.0)
-                            .stick_to_bottom(true)
-                            .show(ui, |ui| {
-                                let mut output_clone = if self.output.is_empty() {
-                                    "output will appear here when you click `Run Code`".to_owned()
-                                } else {
-                                    self.output.clone()
-                                };
-                                ui.code_editor(&mut output_clone);
-                            });
+                        if !self.output.is_empty() {
+                            ui.visuals_mut().override_text_color = None;
+                            egui::ScrollArea::vertical()
+                                .id_source("output_scroll_area")
+                                .max_height(400.0)
+                                .stick_to_bottom(true)
+                                .show(ui, |ui| {
+                                    let mut output_clone = self.output.clone();
+                                    ui.code_editor(&mut output_clone)
+                                });
+                        }
                     });
                 });
         });
