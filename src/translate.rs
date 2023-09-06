@@ -388,7 +388,9 @@ pub fn monomorphize_overloaded_var(
             )
             .to_stmt()
             .unwrap();
-            let ast::StmtKind::LetFunc(pat, args, _, body) = &*func_def_node.stmtkind else { panic!() };
+            let ast::StmtKind::LetFunc(pat, args, _, body) = &*func_def_node.stmtkind else {
+                panic!()
+            };
 
             let overloaded_func_ty = Type::solution_of_node(inf_ctx, pat.id()).unwrap();
             let monomorphenv = Rc::new(RefCell::new(MonomorphEnv::new(None)));

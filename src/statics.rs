@@ -1596,7 +1596,9 @@ pub fn generate_constraints_stmt(
 
             if let Some(interface_def) = inf_ctx.interface_def_of_ident(ident) {
                 for statement in statements {
-                    let StmtKind::LetFunc(pat, _args, _out, _body) = &*statement.stmtkind else { continue; };
+                    let StmtKind::LetFunc(pat, _args, _out, _body) = &*statement.stmtkind else {
+                        continue;
+                    };
                     let method_name = pat.patkind.get_identifier_of_variable();
                     if let Some(interface_method) =
                         interface_def.methods.iter().find(|m| m.name == method_name)
@@ -1933,7 +1935,9 @@ pub fn gather_definitions_stmt(
                 }
                 let mut defparams = vec![];
                 for p in params {
-                    let ast::TypeKind::Poly(ident, _) = &*p.typekind else { panic!("expected poly type for ADT def param") };
+                    let ast::TypeKind::Poly(ident, _) = &*p.typekind else {
+                        panic!("expected poly type for ADT def param")
+                    };
                     defparams.push(ident.clone());
                 }
                 inf_ctx.tydefs.insert(
