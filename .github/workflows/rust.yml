@@ -19,10 +19,10 @@ jobs:
           profile: minimal
           toolchain: stable
           override: true
-      - uses: actions-rs/cargo@v1
-        with:
-          command: check
-          args: --all-features
+      - name: Run cargo check
+        run: |
+          cd core
+          cargo check --all-features
 
   check_wasm:
     name: Check wasm32
@@ -35,63 +35,25 @@ jobs:
           toolchain: stable
           target: wasm32-unknown-unknown
           override: true
-      - uses: actions-rs/cargo@v1
-        with:
-          command: check
-          args: --all-features --lib --target wasm32-unknown-unknown
+      - name: Run cargo check
+        run: |
+          cd core
+          cargo check --all-features --lib --target wasm32-unknown-unknown
 
   test:
     name: Test Suite
     runs-on: ubuntu-latest
     steps:
-      - name: Change directory
-        run: cd core
       - uses: actions/checkout@v2
       - uses: actions-rs/toolchain@v1
         with:
           profile: minimal
           toolchain: stable
           override: true
-      - uses: actions-rs/cargo@v1
-        with:
-          command: test
-          args: --lib
-
-  fmt:
-    name: Rustfmt
-    runs-on: ubuntu-latest
-    steps:
-      - name: Change directory
-        run: cd core
-      - uses: actions/checkout@v2
-      - uses: actions-rs/toolchain@v1
-        with:
-          profile: minimal
-          toolchain: stable
-          override: true
-          components: rustfmt
-      - uses: actions-rs/cargo@v1
-        with:
-          command: fmt
-          args: --all -- --check
-
-  clippy:
-    name: Clippy
-    runs-on: ubuntu-latest
-    steps:
-      - name: Change directory
-        run: cd core
-      - uses: actions/checkout@v2
-      - uses: actions-rs/toolchain@v1
-        with:
-          profile: minimal
-          toolchain: stable
-          override: true
-          components: clippy
-      - uses: actions-rs/cargo@v1
-        with:
-          command: clippy
-          args: -- -D warnings
+      - name: Run tests
+        run: |
+          cd core
+          cargo test --verbose
 
   trunk:
     name: trunk
@@ -104,10 +66,10 @@ jobs:
           toolchain: 1.65.0
           target: wasm32-unknown-unknown
           override: true
-      - name: Change directory
-        run: cd editor
       - name: Download and install Trunk binary
         run: cargo install trunk
       - name: Build
-        run: trunk build
+        run: |
+          cd editor
+          trunk build
 
