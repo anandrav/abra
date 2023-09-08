@@ -1,0 +1,20 @@
+[package]
+name = "abra_core"
+version = "0.1.0"
+authors = ["Anand Dukkipati <aRdukkipati@gmail.com>"]
+edition = "2021"
+
+# to prevent accidental publish to crates.io
+publish = false
+
+[lib]
+name = "abra_core"
+crate-type = ["lib"]
+path = "src/lib.rs"
+
+[dependencies]
+disjoint-sets = "0.4.2"
+debug_print = "1.0.0"
+regex = "1.7.0"
+pest = "2.5.2"
+pest_derive = "2.5.2"

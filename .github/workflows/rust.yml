@@ -44,6 +44,8 @@ jobs:
     name: Test Suite
     runs-on: ubuntu-latest
     steps:
+      - name: Change directory
+        run: cd core
       - uses: actions/checkout@v2
       - uses: actions-rs/toolchain@v1
         with:
@@ -59,6 +61,8 @@ jobs:
     name: Rustfmt
     runs-on: ubuntu-latest
     steps:
+      - name: Change directory
+        run: cd core
       - uses: actions/checkout@v2
       - uses: actions-rs/toolchain@v1
         with:
@@ -75,6 +79,8 @@ jobs:
     name: Clippy
     runs-on: ubuntu-latest
     steps:
+      - name: Change directory
+        run: cd core
       - uses: actions/checkout@v2
       - uses: actions-rs/toolchain@v1
         with:
@@ -98,6 +104,8 @@ jobs:
           toolchain: 1.65.0
           target: wasm32-unknown-unknown
           override: true
+      - name: Change directory
+        run: cd editor
       - name: Download and install Trunk binary
         run: cargo install trunk
       - name: Build

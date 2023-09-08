@@ -1,20 +1,8 @@
-extern crate abra;
+extern crate abra_core;
 extern crate debug_print;
-extern crate disjoint_sets;
 extern crate eframe;
-extern crate pest;
-extern crate pest_derive;
 extern crate regex;
 extern crate syntect;
-
-mod ast;
-mod environment;
-mod eval_tree;
-mod interpreter;
-mod operators;
-mod side_effects;
-mod statics;
-mod translate;
 
 use std::rc::Rc;
 
@@ -23,9 +11,13 @@ use debug_print::debug_println;
 use eframe::egui;
 
 use crate::egui::Color32;
-use interpreter::Interpreter;
+use abra_core::interpreter::Interpreter;
+use abra_core::ast;
+use abra_core::statics;
+use abra_core::translate;
+use abra_core::side_effects;
 
-use crate::statics::make_new_gamma;
+use abra_core::statics::make_new_gamma;
 
 // When compiling natively:
 #[cfg(not(target_arch = "wasm32"))]
