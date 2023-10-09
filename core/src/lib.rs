@@ -1,6 +1,6 @@
 pub mod ast;
 mod environment;
-mod eval_tree;
+pub mod eval_tree;
 pub mod interpreter;
 mod operators;
 pub mod side_effects;
