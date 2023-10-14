@@ -341,6 +341,7 @@ pub struct Interpreter {
     env: Rc<RefCell<Environment>>,
     overloaded_func_map: OverloadedFuncMap,
     next_input: Option<Input>,
+    pub error: Option<InterpretErr>,
 }
 
 impl Interpreter {
@@ -354,11 +355,12 @@ impl Interpreter {
             env: make_new_environment(inf_ctx),
             overloaded_func_map,
             next_input: None,
+            error: None,
         }
     }
 
     pub fn is_finished(&self) -> bool {
-        is_val(&self.program_expr)
+        is_val(&self.program_expr) || self.error.is_some()
     }
 
     pub fn get_val(&self) -> Option<Rc<Expr>> {
@@ -374,6 +376,9 @@ impl Interpreter {
         mut effect_handler: impl FnMut(Effect, Vec<Rc<Expr>>) -> Input,
         steps: i32,
     ) {
+        if self.error.is_some() {
+            return;
+        }
         let result = interpret(
             self.program_expr.clone(),
             self.env.clone(),
@@ -381,11 +386,22 @@ impl Interpreter {
             steps,
             &self.next_input,
         );
-        self.program_expr = result.expr;
-        self.env = result.new_env;
-        self.next_input = result
-            .effect
-            .map(|(effect, args)| effect_handler(effect, args))
+        match result {
+            Ok(InterpretOk {
+                expr,
+                steps: _,
+                effect,
+                new_env,
+            }) => {
+                self.program_expr = expr;
+                self.env = new_env;
+                self.next_input = effect.map(|(effect, args)| effect_handler(effect, args))
+            }
+            Err(err) => {
+                self.error = Some(err);
+                return;
+            }
+        }
     }
 }
 
@@ -393,11 +409,17 @@ impl Interpreter {
 // steps should only be <= 0 and/or effect should be present for failure...
 // OR maybe Failure case should be when a runtime error occurs...
 #[derive(Debug)]
-pub struct InterpretResult {
+pub struct InterpretOk {
     pub expr: Rc<Expr>,
     pub steps: i32,
     pub effect: Option<(side_effects::Effect, Vec<Rc<Expr>>)>,
     pub new_env: Rc<RefCell<Environment>>,
+}
+
+#[derive(Debug)]
+pub struct InterpretErr {
+    // TODO: add location
+    pub message: String,
 }
 
 fn interpret(
@@ -406,51 +428,55 @@ fn interpret(
     overloaded_func_map: &OverloadedFuncMap,
     steps: i32,
     input: &Option<Input>,
-) -> InterpretResult {
+) -> Result<InterpretOk, InterpretErr> {
     match &*expr {
         Var(id) => {
             let result = env.borrow_mut().lookup(id);
             match result {
-                None => panic!("No value for variable with id: {}", id),
-                Some(val) => InterpretResult {
+                None => Err(InterpretErr {
+                    message: format!("No value for variable with id: {}", id),
+                }),
+                Some(val) => Ok(InterpretOk {
                     expr: val,
                     steps,
                     effect: None,
                     new_env: env,
-                },
+                }),
             }
         }
         VarOverloaded(id, instance) => {
             let result = overloaded_func_map.get(&(id.clone(), instance.clone()));
             match result {
-                None => panic!("No value for variable with id: {}", id),
-                Some(val) => InterpretResult {
+                None => Err(InterpretErr {
+                    message: format!("No value for variable with id: {}", id),
+                }),
+                Some(val) => Ok(InterpretOk {
                     expr: val.clone(),
                     steps,
                     effect: None,
                     new_env: env,
-                },
+                }),
             }
         }
-        Unit | Int(_) | Float(_) | Bool(_) | Str(_) | Func(_, _, Some(_)) => InterpretResult {
+        Unit | Int(_) | Float(_) | Bool(_) | Str(_) | Func(_, _, Some(_)) => Ok(InterpretOk {
             expr: expr.clone(),
             steps,
             effect: None,
             new_env: env,
-        },
+        }),
         Func(id, body, None) => {
             let closure = Rc::new(RefCell::new(Environment::new(Some(env.clone()))));
-            InterpretResult {
+            Ok(InterpretOk {
                 expr: Rc::new(Func(id.clone(), body.clone(), Some(closure))),
                 steps,
                 effect: None,
                 new_env: env,
-            }
+            })
         }
         Tuple(exprs) => {
             let mut new_exprs = exprs.clone();
             for (i, expr) in exprs.iter().enumerate() {
-                let InterpretResult {
+                let InterpretOk {
                     expr,
                     steps,
                     effect,
@@ -461,26 +487,26 @@ fn interpret(
                     overloaded_func_map,
                     steps,
                     &input.clone(),
-                );
+                )?;
                 new_exprs[i] = expr;
                 if effect.is_some() || steps <= 0 {
-                    return InterpretResult {
+                    return Ok(InterpretOk {
                         expr: Rc::new(Tuple(new_exprs)),
                         steps,
                         effect,
                         new_env,
-                    };
+                    });
                 }
             }
-            InterpretResult {
+            Ok(InterpretOk {
                 expr: Rc::new(Tuple(new_exprs)),
                 steps,
                 effect: None,
                 new_env: env,
-            }
+            })
         }
         TaggedVariant(tag, expr) => {
-            let InterpretResult {
+            let InterpretOk {
                 expr,
                 steps,
                 effect,
@@ -491,24 +517,24 @@ fn interpret(
                 overloaded_func_map,
                 steps,
                 &input.clone(),
-            );
+            )?;
             if effect.is_some() || steps <= 0 {
-                return InterpretResult {
+                return Ok(InterpretOk {
                     expr: Rc::new(TaggedVariant(tag.clone(), expr)),
                     steps,
                     effect,
                     new_env,
-                };
+                });
             }
-            InterpretResult {
+            Ok(InterpretOk {
                 expr: Rc::new(TaggedVariant(tag.clone(), expr)),
                 steps,
                 effect: None,
                 new_env: env,
-            }
+            })
         }
         BinOp(expr1, op, expr2) => {
-            let InterpretResult {
+            let InterpretOk {
                 expr: expr1,
                 steps,
                 effect,
@@ -519,16 +545,16 @@ fn interpret(
                 overloaded_func_map,
                 steps,
                 &input.clone(),
-            );
+            )?;
             if effect.is_some() || steps <= 0 {
-                return InterpretResult {
+                return Ok(InterpretOk {
                     expr: Rc::new(BinOp(expr1, *op, expr2.clone())),
                     steps,
                     effect,
                     new_env,
-                };
+                });
             }
-            let InterpretResult {
+            let InterpretOk {
                 expr: expr2,
                 steps,
                 effect,
@@ -539,23 +565,23 @@ fn interpret(
                 overloaded_func_map,
                 steps,
                 input,
-            );
+            )?;
             if effect.is_some() || steps <= 0 {
-                return InterpretResult {
+                return Ok(InterpretOk {
                     expr: Rc::new(BinOp(expr1, *op, expr2)),
                     steps,
                     effect,
                     new_env,
-                };
+                });
             }
-            let val = perform_op(expr1, *op, expr2);
+            let val = perform_op(expr1, *op, expr2)?;
             let steps = steps - 1;
-            InterpretResult {
+            Ok(InterpretOk {
                 expr: val,
                 steps,
                 effect: None,
                 new_env: env,
-            }
+            })
         }
         Let(pat, expr1, expr2) => match &*pat.clone() {
             Pat::TaggedVariant(..)
@@ -563,11 +589,11 @@ fn interpret(
             | Pat::Int(_)
             | Pat::Float(_)
             | Pat::Bool(_)
-            | Pat::Str(_) => {
-                panic!("Pattern in let is a value, not a variable!")
-            }
+            | Pat::Str(_) => Err(InterpretErr {
+                message: "Pattern in let is a value, not a variable!".to_string(),
+            }),
             Pat::Wildcard => {
-                let InterpretResult {
+                let InterpretOk {
                     expr: expr1,
                     steps,
                     effect,
@@ -578,41 +604,41 @@ fn interpret(
                     overloaded_func_map,
                     steps,
                     &input.clone(),
-                );
+                )?;
                 if effect.is_some() || steps <= 0 {
-                    return InterpretResult {
+                    return Ok(InterpretOk {
                         expr: Rc::new(Let(pat.clone(), expr1, expr2.clone())),
                         steps,
                         effect,
                         new_env,
-                    };
+                    });
                 }
 
                 let new_env = Rc::new(RefCell::new(Environment::new(Some(env.clone()))));
 
-                let InterpretResult {
+                let InterpretOk {
                     expr,
                     steps,
                     effect,
                     new_env,
-                } = interpret(expr2.clone(), new_env, overloaded_func_map, steps, input);
+                } = interpret(expr2.clone(), new_env, overloaded_func_map, steps, input)?;
                 if effect.is_some() || steps <= 0 {
-                    return InterpretResult {
+                    return Ok(InterpretOk {
                         expr,
                         steps,
                         effect,
                         new_env,
-                    };
+                    });
                 }
-                InterpretResult {
+                Ok(InterpretOk {
                     expr,
                     steps,
                     effect: None,
                     new_env: env,
-                }
+                })
             }
             Pat::Var(id) => {
-                let InterpretResult {
+                let InterpretOk {
                     expr: expr1,
                     steps,
                     effect,
@@ -623,14 +649,14 @@ fn interpret(
                     overloaded_func_map,
                     steps,
                     &input.clone(),
-                );
+                )?;
                 if effect.is_some() || steps <= 0 {
-                    return InterpretResult {
+                    return Ok(InterpretOk {
                         expr: Rc::new(Let(pat.clone(), expr1, expr2.clone())),
                         steps,
                         effect,
                         new_env,
-                    };
+                    });
                 }
 
                 // Letrec: this code is confusing, and has circular references, sorry :(
@@ -661,29 +687,29 @@ fn interpret(
                 let new_env = Rc::new(RefCell::new(Environment::new(Some(env.clone()))));
                 new_env.borrow_mut().extend(id, expr1);
 
-                let InterpretResult {
+                let InterpretOk {
                     expr,
                     steps,
                     effect,
                     new_env,
-                } = interpret(expr2.clone(), new_env, overloaded_func_map, steps, input);
+                } = interpret(expr2.clone(), new_env, overloaded_func_map, steps, input)?;
                 if effect.is_some() || steps <= 0 {
-                    return InterpretResult {
+                    return Ok(InterpretOk {
                         expr,
                         steps,
                         effect,
                         new_env,
-                    };
+                    });
                 }
-                InterpretResult {
+                Ok(InterpretOk {
                     expr,
                     steps,
                     effect: None,
                     new_env: env,
-                }
+                })
             }
             Pat::Tuple(_pats) => {
-                let InterpretResult {
+                let InterpretOk {
                     expr: expr1,
                     steps,
                     effect,
@@ -694,43 +720,43 @@ fn interpret(
                     overloaded_func_map,
                     steps,
                     &input.clone(),
-                );
+                )?;
                 if effect.is_some() || steps <= 0 {
-                    return InterpretResult {
+                    return Ok(InterpretOk {
                         expr: Rc::new(Let(pat.clone(), expr1, expr2.clone())),
                         steps,
                         effect,
                         new_env,
-                    };
+                    });
                 }
                 let new_env = Rc::new(RefCell::new(Environment::new(Some(env.clone()))));
                 populate_env(new_env.clone(), pat.clone(), expr1);
-                let InterpretResult {
+                let InterpretOk {
                     expr,
                     steps,
                     effect,
                     new_env,
-                } = interpret(expr2.clone(), new_env, overloaded_func_map, steps, input);
+                } = interpret(expr2.clone(), new_env, overloaded_func_map, steps, input)?;
                 if effect.is_some() || steps <= 0 {
-                    return InterpretResult {
+                    return Ok(InterpretOk {
                         expr,
                         steps,
                         effect,
                         new_env,
-                    };
+                    });
                 }
-                InterpretResult {
+                Ok(InterpretOk {
                     expr,
                     steps,
                     effect: None,
                     new_env: env,
-                }
+                })
             }
         },
         FuncAp(expr1, args, funcapp_env) => {
             let mut new_args = args.clone();
             for (i, arg) in args.iter().enumerate() {
-                let InterpretResult {
+                let InterpretOk {
                     expr: arg,
                     steps,
                     effect,
@@ -741,18 +767,18 @@ fn interpret(
                     overloaded_func_map,
                     steps,
                     &input.clone(),
-                );
+                )?;
                 new_args[i] = arg;
                 if effect.is_some() || steps <= 0 {
-                    return InterpretResult {
+                    return Ok(InterpretOk {
                         expr: Rc::new(FuncAp(expr1.clone(), new_args.clone(), funcapp_env.clone())),
                         steps,
                         effect,
                         new_env,
-                    };
+                    });
                 }
             }
-            let InterpretResult {
+            let InterpretOk {
                 expr: expr1,
                 steps,
                 effect,
@@ -763,14 +789,14 @@ fn interpret(
                 overloaded_func_map,
                 steps,
                 &input.clone(),
-            );
+            )?;
             if effect.is_some() || steps <= 0 {
-                return InterpretResult {
+                return Ok(InterpretOk {
                     expr: Rc::new(FuncAp(expr1, args.clone(), funcapp_env.clone())),
                     steps,
                     effect,
                     new_env,
-                };
+                });
             }
             let (ids, body, closure) = match &*expr1 {
                 Func(id, body, closure) => match closure {
@@ -781,7 +807,11 @@ fn interpret(
                     ),
                     Some(closure) => (id, body, closure.clone()),
                 },
-                _ => panic!("not a function {:#?}", expr1),
+                _ => {
+                    return Err(InterpretErr {
+                        message: format!("not a function {:#?}", expr1),
+                    })
+                }
             };
 
             let funcapp_env = match funcapp_env {
@@ -796,15 +826,15 @@ fn interpret(
                 }
             };
 
-            let InterpretResult {
+            let InterpretOk {
                 expr: body,
                 steps,
                 effect,
                 new_env: funcapp_env,
-            } = interpret(body.clone(), funcapp_env, overloaded_func_map, steps, input);
+            } = interpret(body.clone(), funcapp_env, overloaded_func_map, steps, input)?;
             // if didn't finish executing for the body of function application, return a FuncApp as the expression field try again next time.
             if effect.is_some() || steps <= 0 {
-                let result = InterpretResult {
+                let result = Ok(InterpretOk {
                     expr: Rc::new(FuncAp(
                         Rc::new(Func(ids.clone(), body, Some(closure))),
                         new_args,
@@ -813,18 +843,18 @@ fn interpret(
                     steps,
                     effect,
                     new_env,
-                };
+                });
                 return result;
             }
-            InterpretResult {
+            Ok(InterpretOk {
                 expr: body,
                 steps,
                 effect,
                 new_env: env, // return env to normal
-            }
+            })
         }
         If(expr1, expr2, expr3) => {
-            let InterpretResult {
+            let InterpretOk {
                 expr: expr1,
                 steps,
                 effect,
@@ -835,18 +865,18 @@ fn interpret(
                 overloaded_func_map,
                 steps,
                 &input.clone(),
-            );
+            )?;
             if effect.is_some() || steps <= 0 {
-                return InterpretResult {
+                return Ok(InterpretOk {
                     expr: Rc::new(If(expr1, expr2.clone(), expr3.clone())),
                     steps,
                     effect,
                     new_env,
-                };
+                });
             }
             match &*expr1 {
                 Bool(true) => {
-                    let InterpretResult {
+                    let InterpretOk {
                         expr: expr2,
                         steps,
                         effect,
@@ -857,25 +887,25 @@ fn interpret(
                         overloaded_func_map,
                         steps,
                         input,
-                    );
+                    )?;
                     if effect.is_some() || steps <= 0 {
-                        return InterpretResult {
+                        return Ok(InterpretOk {
                             expr: expr2,
                             steps,
                             effect,
                             new_env,
-                        };
+                        });
                     }
                     let steps = steps - 1;
-                    InterpretResult {
+                    Ok(InterpretOk {
                         expr: expr2,
                         steps,
                         effect,
                         new_env: env,
-                    }
+                    })
                 }
                 Bool(false) => {
-                    let InterpretResult {
+                    let InterpretOk {
                         expr: expr3,
                         steps,
                         effect,
@@ -886,31 +916,33 @@ fn interpret(
                         overloaded_func_map,
                         steps,
                         input,
-                    );
+                    )?;
                     if effect.is_some() || steps <= 0 {
-                        return InterpretResult {
+                        return Ok(InterpretOk {
                             expr: expr3,
                             steps,
                             effect,
                             new_env,
-                        };
+                        });
                     }
                     let steps = steps - 1;
-                    InterpretResult {
+                    Ok(InterpretOk {
                         expr: expr3,
                         steps,
                         effect,
                         new_env: env,
-                    }
+                    })
                 }
-                _ => panic!(
-                    "If expression clause did not evaluate to a bool: {:#?}",
-                    expr1
-                ),
+                _ => Err(InterpretErr {
+                    message: format!(
+                        "If expression clause did not evaluate to a bool: {:#?}",
+                        expr1
+                    ),
+                }),
             }
         }
         Match(expr1, cases) => {
-            let InterpretResult {
+            let InterpretOk {
                 expr: expr1,
                 steps,
                 effect,
@@ -921,47 +953,49 @@ fn interpret(
                 overloaded_func_map,
                 steps,
                 &input.clone(),
-            );
+            )?;
             if effect.is_some() || steps <= 0 {
-                return InterpretResult {
+                return Ok(InterpretOk {
                     expr: Rc::new(Match(expr1, cases.clone())),
                     steps,
                     effect,
                     new_env,
-                };
+                });
             }
             for (pat, expr) in cases {
                 let new_env = Rc::new(RefCell::new(Environment::new(Some(env.clone()))));
                 if match_pattern(pat.clone(), expr1.clone(), new_env.clone()) {
-                    let InterpretResult {
+                    let InterpretOk {
                         expr,
                         steps,
                         effect,
                         new_env,
-                    } = interpret(expr.clone(), new_env, overloaded_func_map, steps, input);
+                    } = interpret(expr.clone(), new_env, overloaded_func_map, steps, input)?;
                     if effect.is_some() || steps <= 0 {
-                        return InterpretResult {
+                        return Ok(InterpretOk {
                             expr,
                             steps,
                             effect,
                             new_env,
-                        };
+                        });
                     }
                     let steps = steps - 1;
-                    return InterpretResult {
+                    return Ok(InterpretOk {
                         expr,
                         steps,
                         effect,
                         new_env: env,
-                    };
+                    });
                 }
             }
-            panic!("no match found");
+            Err(InterpretErr {
+                message: "no match found".to_string(),
+            })
         }
         EffectAp(effect_enum, args) => {
             let mut args = args.to_vec();
             for i in 0..args.len() {
-                let InterpretResult {
+                let InterpretOk {
                     expr: arg,
                     steps,
                     effect,
@@ -972,29 +1006,29 @@ fn interpret(
                     overloaded_func_map,
                     steps,
                     &input.clone(),
-                );
+                )?;
                 args[i] = arg;
                 if effect.is_some() || steps <= 0 {
-                    return InterpretResult {
+                    return Ok(InterpretOk {
                         expr: Rc::new(EffectAp(effect_enum.clone(), args.to_vec())),
                         steps,
                         effect,
                         new_env,
-                    };
+                    });
                 }
             }
             let steps = steps - 1;
-            InterpretResult {
+            Ok(InterpretOk {
                 expr: Rc::new(ConsumedEffect),
                 steps,
                 effect: Some((effect_enum.clone(), args.to_vec())),
                 new_env: env,
-            }
+            })
         }
         BuiltinAp(builtin, args) => {
             let mut args = args.to_vec();
             for i in 0..args.len() {
-                let InterpretResult {
+                let InterpretOk {
                     expr: arg,
                     steps,
                     effect,
@@ -1005,36 +1039,38 @@ fn interpret(
                     overloaded_func_map,
                     steps,
                     &input.clone(),
-                );
+                )?;
                 args[i] = arg;
                 if effect.is_some() || steps <= 0 {
-                    return InterpretResult {
+                    return Ok(InterpretOk {
                         expr: Rc::new(BuiltinAp(*builtin, args.to_vec())),
                         steps,
                         effect,
                         new_env,
-                    };
+                    });
                 }
             }
             let steps = steps - 1;
-            let result = handle_builtin(*builtin, args.to_vec());
-            InterpretResult {
+            let result = handle_builtin(*builtin, args.to_vec())?;
+            Ok(InterpretOk {
                 expr: result,
                 steps,
                 effect: None,
                 new_env: env,
-            }
+            })
         }
         ConsumedEffect => match input {
-            None => panic!("no input to substitute for ConsumedEffect"),
+            None => Err(InterpretErr {
+                message: "no input to substitute for ConsumedEffect".to_string(),
+            }),
             Some(input) => match input {
-                Input::Unit => InterpretResult {
+                Input::Unit => Ok(InterpretOk {
                     expr: Rc::new(Unit),
                     steps,
                     effect: None,
                     new_env: env,
-                },
-                // Input::Cin(string) => InterpretResult {
+                })
+                // Input::Cin(string) => InterpretOk {
                 //     expr: Rc::new(Str(string.to_string())),
                 //     steps,
                 //     effect: None,
@@ -1084,196 +1120,249 @@ fn populate_env(env: Rc<RefCell<Environment>>, pat: Rc<Pat>, expr: Rc<Expr>) {
     }
 }
 
-fn handle_builtin(builtin: Builtin, args: Vec<Rc<Expr>>) -> Rc<Expr> {
+fn handle_builtin(builtin: Builtin, args: Vec<Rc<Expr>>) -> Result<Rc<Expr>, InterpretErr> {
     match builtin {
         Builtin::IntToString => {
             let arg = args[0].clone();
             match &*arg {
-                Int(i) => Rc::new(Str(i.to_string())),
-                _ => panic!("IntToString expects an Int"),
+                Int(i) => Ok(Rc::new(Str(i.to_string()))),
+                _ => Err(InterpretErr {
+                    message: "IntToString expects an int".to_string(),
+                }),
             }
         }
         Builtin::FloatToString => {
             let arg = args[0].clone();
             match &*arg {
-                Float(f) => Rc::new(Str(f.to_string())),
-                _ => panic!("FloatToString expects a Float"),
+                Float(f) => Ok(Rc::new(Str(f.to_string()))),
+                _ => Err(InterpretErr {
+                    message: "FloatToString expects a float".to_string(),
+                }),
             }
         }
         Builtin::IntToFloat => {
             let arg = args[0].clone();
             match &*arg {
-                Int(i) => Rc::new(Float(*i as f32)),
-                _ => panic!("IntToFloat expects an Int"),
+                Int(i) => Ok(Rc::new(Float(*i as f32))),
+                _ => Err(InterpretErr {
+                    message: "IntToFloat expects an int".to_string(),
+                }),
             }
         }
         Builtin::RoundFloatToInt => {
             let arg = args[0].clone();
             match &*arg {
-                Float(f) => Rc::new(Int(f.round() as i32)),
-                _ => panic!("RoundFloatToInt expects a Float"),
+                Float(f) => Ok(Rc::new(Int(f.round() as i32))),
+                _ => Err(InterpretErr {
+                    message: "RoundFloatToInt expects a float".to_string(),
+                }),
             }
         }
         Builtin::AppendStrings => {
             let arg1 = args[0].clone();
             let arg2 = args[1].clone();
             match (&*arg1, &*arg2) {
-                (Str(s1), Str(s2)) => Rc::new(Str(s1.to_owned() + s2)),
-                _ => panic!("AppendStrings expects two Strings"),
+                (Str(s1), Str(s2)) => Ok(Rc::new(Str(s1.to_owned() + s2))),
+                _ => Err(InterpretErr {
+                    message: "AppendStrings expects two strings".to_string(),
+                }),
             }
         }
         Builtin::EqualsInt => {
             let arg1 = args[0].clone();
             let arg2 = args[1].clone();
             match (&*arg1, &*arg2) {
-                (Int(i1), Int(i2)) => Rc::new(Bool(i1 == i2)),
-                _ => panic!("EqualsInt expects two Ints"),
+                (Int(i1), Int(i2)) => Ok(Rc::new(Bool(i1 == i2))),
+                _ => Err(InterpretErr {
+                    message: "EqualsInt expects two ints".to_string(),
+                }),
             }
         }
         Builtin::EqualsString => {
             let arg1 = args[0].clone();
             let arg2 = args[1].clone();
             match (&*arg1, &*arg2) {
-                (Str(s1), Str(s2)) => Rc::new(Bool(s1 == s2)),
-                _ => panic!("EqualsString expects two Strings"),
+                (Str(s1), Str(s2)) => Ok(Rc::new(Bool(s1 == s2))),
+                _ => Err(InterpretErr {
+                    message: "EqualsString expects two strings".to_string(),
+                }),
             }
         }
         Builtin::AddInt => {
             let arg1 = args[0].clone();
             let arg2 = args[1].clone();
             match (&*arg1, &*arg2) {
-                (Int(s1), Int(s2)) => Rc::new(Int(s1 + s2)),
-                _ => panic!("AddInt expects two Ints"),
+                (Int(s1), Int(s2)) => Ok(Rc::new(Int(s1 + s2))),
+                _ => Err(InterpretErr {
+                    message: "AddInt expects two ints".to_string(),
+                }),
             }
         }
         Builtin::MinusInt => {
             let arg1 = args[0].clone();
             let arg2 = args[1].clone();
             match (&*arg1, &*arg2) {
-                (Int(s1), Int(s2)) => Rc::new(Int(s1 - s2)),
-                _ => panic!("MinusInt expects two Ints"),
+                (Int(s1), Int(s2)) => Ok(Rc::new(Int(s1 - s2))),
+                _ => Err(InterpretErr {
+                    message: "MinusInt expects two ints".to_string(),
+                }),
             }
         }
         Builtin::MultiplyInt => {
             let arg1 = args[0].clone();
             let arg2 = args[1].clone();
             match (&*arg1, &*arg2) {
-                (Int(s1), Int(s2)) => Rc::new(Int(s1 * s2)),
-                _ => panic!("MultiplyInt expects two Ints"),
+                (Int(s1), Int(s2)) => Ok(Rc::new(Int(s1 * s2))),
+                _ => Err(InterpretErr {
+                    message: "MultiplyInt expects two ints".to_string(),
+                }),
             }
         }
         Builtin::DivideInt => {
             let arg1 = args[0].clone();
             let arg2 = args[1].clone();
             match (&*arg1, &*arg2) {
-                (Int(s1), Int(s2)) => Rc::new(Int(s1 / s2)),
-                _ => panic!("DivideInt expects two Ints"),
+                (Int(s1), Int(s2)) => Ok(Rc::new(Int(s1 / s2))),
+                _ => Err(InterpretErr {
+                    message: "DivideInt expects two ints".to_string(),
+                }),
             }
         }
         Builtin::PowInt => {
             let arg1 = args[0].clone();
             let arg2 = args[1].clone();
             match (&*arg1, &*arg2) {
-                (Int(s1), Int(s2)) => Rc::new(Int(s1.pow(i32::try_into(*s2).unwrap()))),
-                _ => panic!("PowInt expects two Ints"),
+                (Int(s1), Int(s2)) => Ok(Rc::new(Int(s1.pow(i32::try_into(*s2).unwrap())))),
+                _ => Err(InterpretErr {
+                    message: "PowInt expects two ints".to_string(),
+                }),
             }
         }
         Builtin::LessThanInt => {
             let arg1 = args[0].clone();
             let arg2 = args[1].clone();
             match (&*arg1, &*arg2) {
-                (Int(s1), Int(s2)) => Rc::new(Bool(s1 < s2)),
-                _ => panic!("LessThanInt expects two Ints"),
+                (Int(s1), Int(s2)) => Ok(Rc::new(Bool(s1 < s2))),
+                _ => Err(InterpretErr {
+                    message: "LessThanInt expects two ints".to_string(),
+                }),
             }
         }
         Builtin::AddFloat => {
             let arg1 = args[0].clone();
             let arg2 = args[1].clone();
             match (&*arg1, &*arg2) {
-                (Float(s1), Float(s2)) => Rc::new(Float(s1 + s2)),
-                _ => panic!("AddFloat expects two Ints"),
+                (Float(s1), Float(s2)) => Ok(Rc::new(Float(s1 + s2))),
+                _ => Err(InterpretErr {
+                    message: "AddFloat expects two floats".to_string(),
+                }),
             }
         }
         Builtin::MinusFloat => {
             let arg1 = args[0].clone();
             let arg2 = args[1].clone();
             match (&*arg1, &*arg2) {
-                (Float(s1), Float(s2)) => Rc::new(Float(s1 - s2)),
-                _ => panic!("MinusFloat expects two Floats"),
+                (Float(s1), Float(s2)) => Ok(Rc::new(Float(s1 - s2))),
+                _ => Err(InterpretErr {
+                    message: "MinusFloat expects two floats".to_string(),
+                }),
             }
         }
         Builtin::MultiplyFloat => {
             let arg1 = args[0].clone();
             let arg2 = args[1].clone();
             match (&*arg1, &*arg2) {
-                (Float(s1), Float(s2)) => Rc::new(Float(s1 * s2)),
-                _ => panic!("MultiplyFloat expects two Floats"),
+                (Float(s1), Float(s2)) => Ok(Rc::new(Float(s1 * s2))),
+                _ => Err(InterpretErr {
+                    message: "MultiplyFloat expects two floats".to_string(),
+                }),
             }
         }
         Builtin::DivideFloat => {
             let arg1 = args[0].clone();
             let arg2 = args[1].clone();
             match (&*arg1, &*arg2) {
-                (Float(s1), Float(s2)) => Rc::new(Float(s1 / s2)),
-                _ => panic!("DivideFloat expects two Floats"),
+                (Float(s1), Float(s2)) => Ok(Rc::new(Float(s1 / s2))),
+                _ => Err(InterpretErr {
+                    message: "DivideFloat expects two floats".to_string(),
+                }),
             }
         }
         Builtin::PowFloat => {
             let arg1 = args[0].clone();
             let arg2 = args[1].clone();
             match (&*arg1, &*arg2) {
-                (Float(s1), Float(s2)) => Rc::new(Float(s1.powf(*s2))),
-                _ => panic!("PowFloat expects two Floats"),
+                (Float(s1), Float(s2)) => Ok(Rc::new(Float(s1.powf(*s2)))),
+                _ => Err(InterpretErr {
+                    message: "PowFloat expects two floats".to_string(),
+                }),
             }
         }
         Builtin::LessThanFloat => {
             let arg1 = args[0].clone();
             let arg2 = args[1].clone();
             match (&*arg1, &*arg2) {
-                (Float(s1), Float(s2)) => Rc::new(Bool(s1 < s2)),
-                _ => panic!("LessThanFloat expects two Floats"),
+                (Float(s1), Float(s2)) => Ok(Rc::new(Bool(s1 < s2))),
+                _ => Err(InterpretErr {
+                    message: "LessThanFloat expects two floats".to_string(),
+                }),
             }
         }
     }
 }
 
-fn perform_op(val1: Rc<Expr>, op: BinOpcode, val2: Rc<Expr>) -> Rc<Expr> {
+fn perform_op(val1: Rc<Expr>, op: BinOpcode, val2: Rc<Expr>) -> Result<Rc<Expr>, InterpretErr> {
     match op {
-        Add | Subtract | Multiply | Divide | Pow | Equals => {
-            panic!("{:?} operator was not overloaded properly!", op)
-        }
+        Add | Subtract | Multiply | Divide | Pow | Equals => Err(InterpretErr {
+            message: format!("{:?} operator was not overloaded properly!", op),
+        }),
         Mod => match (&*val1, &*val2) {
-            (Int(i1), Int(i2)) => Rc::new(Int(i1 % i2)),
-            _ => panic!("one or more operands of Mod are not Ints"),
+            (Int(i1), Int(i2)) => Ok(Rc::new(Int(i1 % i2))),
+            _ => Err(InterpretErr {
+                message: "one or more operands of Mod are not ints".to_string(),
+            }),
         },
         GreaterThan => match (&*val1, &*val2) {
-            (Int(i1), Int(i2)) => Rc::new(Bool(i1 > i2)),
-            _ => panic!("one or more operands of GreaterThan are not Ints"),
+            (Int(i1), Int(i2)) => Ok(Rc::new(Bool(i1 > i2))),
+            _ => Err(InterpretErr {
+                message: "one or more operands of GreaterThan are not ints".to_string(),
+            }),
         },
         GreaterThanOrEqual => match (&*val1, &*val2) {
-            (Int(i1), Int(i2)) => Rc::new(Bool(i1 >= i2)),
-            _ => panic!("one or more operands of GreaterThanOrEqual are not Ints"),
+            (Int(i1), Int(i2)) => Ok(Rc::new(Bool(i1 >= i2))),
+            _ => Err(InterpretErr {
+                message: "one or more operands of GreaterThanOrEqual are not ints".to_string(),
+            }),
         },
         LessThan => match (&*val1, &*val2) {
-            (Int(i1), Int(i2)) => Rc::new(Bool(i1 < i2)),
-            _ => panic!("one or more operands of LessThan are not Ints"),
+            (Int(i1), Int(i2)) => Ok(Rc::new(Bool(i1 < i2))),
+            _ => Err(InterpretErr {
+                message: "one or more operands of LessThan are not ints".to_string(),
+            }),
         },
         LessThanOrEqual => match (&*val1, &*val2) {
-            (Int(i1), Int(i2)) => Rc::new(Bool(i1 <= i2)),
-            _ => panic!("one or more operands of LessThanOrEqual are not Ints"),
+            (Int(i1), Int(i2)) => Ok(Rc::new(Bool(i1 <= i2))),
+            _ => Err(InterpretErr {
+                message: "one or more operands of LessThanOrEqual are not ints".to_string(),
+            }),
         },
         And => match (&*val1, &*val2) {
-            (Bool(b1), Bool(b2)) => Rc::new(Bool(*b1 && *b2)),
-            _ => panic!("one or more operands of And are not Bools"),
+            (Bool(b1), Bool(b2)) => Ok(Rc::new(Bool(*b1 && *b2))),
+            _ => Err(InterpretErr {
+                message: "one or more operands of And are not bools".to_string(),
+            }),
         },
         Or => match (&*val1, &*val2) {
-            (Bool(b1), Bool(b2)) => Rc::new(Bool(*b1 || *b2)),
-            _ => panic!("one or more operands of Or are not Bools"),
+            (Bool(b1), Bool(b2)) => Ok(Rc::new(Bool(*b1 || *b2))),
+            _ => Err(InterpretErr {
+                message: "one or more operands of Or are not bools".to_string(),
+            }),
         },
         Concat => match (&*val1, &*val2) {
-            (Str(s1), Str(s2)) => Rc::new(Str(s1.to_owned() + s2)),
-            _ => panic!("one or more operands of Concat are not Strings"),
+            (Str(s1), Str(s2)) => Ok(Rc::new(Str(s1.to_owned() + s2))),
+            _ => Err(InterpretErr {
+                message: "one or more operands of Concat are not strings".to_string(),
+            }),
         },
-        // _ => panic!("operation not supported"),
     }
 }

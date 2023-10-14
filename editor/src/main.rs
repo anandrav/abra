@@ -11,11 +11,11 @@ use debug_print::debug_println;
 use eframe::egui;
 
 use crate::egui::Color32;
-use abra_core::interpreter::Interpreter;
 use abra_core::ast;
+use abra_core::interpreter::Interpreter;
+use abra_core::side_effects;
 use abra_core::statics;
 use abra_core::translate;
-use abra_core::side_effects;
 
 use abra_core::statics::make_new_gamma;
 
@@ -718,10 +718,14 @@ impl eframe::App for MyApp {
                 interpreter.run(effect_handler, steps);
                 self.output.push_str(&more_output);
                 if interpreter.is_finished() {
-                    self.output += &format!(
-                        "\nLast line evaluated to: {}",
-                        interpreter.get_val().unwrap()
-                    );
+                    if let Some(err) = &interpreter.error {
+                        self.output += &format!("\nError: {}\n", err.message);
+                    } else {
+                        self.output += &format!(
+                            "\nLast line evaluated to: {}",
+                            interpreter.get_val().unwrap()
+                        );
+                    }
                     self.interpreter = None;
                 } else {
                     ui.ctx().request_repaint();
