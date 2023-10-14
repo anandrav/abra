@@ -405,9 +405,6 @@ impl Interpreter {
     }
 }
 
-// todo anand: separate into two cases: Success and Failure... new_env should only be present for failure,
-// steps should only be <= 0 and/or effect should be present for failure...
-// OR maybe Failure case should be when a runtime error occurs...
 #[derive(Debug)]
 pub struct InterpretOk {
     pub expr: Rc<Expr>,
