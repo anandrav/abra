@@ -796,7 +796,7 @@ impl eframe::App for MyApp {
                                     );
                                     debug_println!("generated constraints.");
                                     let result = statics::result_of_constraint_solving(
-                                        &inference_ctx,
+                                        &mut inference_ctx,
                                         tyctx.clone(),
                                         &node_map,
                                         &source,

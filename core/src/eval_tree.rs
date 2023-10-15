@@ -1,7 +1,7 @@
 use crate::environment::Environment;
 use crate::operators::BinOpcode;
 use crate::side_effects;
-use crate::statics::TypeFullyInstantiated;
+use crate::statics::TypeMonomorphized;
 
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -11,7 +11,7 @@ pub type Identifier = String;
 #[derive(Debug, PartialEq)]
 pub enum Expr {
     Var(Identifier),
-    VarOverloaded(Identifier, TypeFullyInstantiated),
+    VarOverloaded(Identifier, TypeMonomorphized),
     Unit,
     Int(i32),
     Float(f32),

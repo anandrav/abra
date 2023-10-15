@@ -7,7 +7,7 @@ use crate::side_effects;
 use crate::side_effects::*;
 use crate::statics::InferenceContext;
 use crate::statics::Type;
-use crate::statics::TypeFullyInstantiated;
+use crate::statics::TypeMonomorphized;
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
@@ -334,7 +334,7 @@ pub fn make_new_environment(inf_ctx: &InferenceContext) -> Rc<RefCell<Environmen
     env
 }
 
-pub type OverloadedFuncMap = HashMap<(Identifier, TypeFullyInstantiated), Rc<Expr>>;
+pub type OverloadedFuncMap = HashMap<(Identifier, TypeMonomorphized), Rc<Expr>>;
 
 pub struct Interpreter {
     program_expr: Rc<Expr>,

@@ -11,8 +11,8 @@ use crate::statics::Gamma;
 use crate::statics::InferenceContext;
 use crate::statics::Prov;
 use crate::statics::Type;
-use crate::statics::TypeFullyInstantiated;
-use crate::statics::TypeInterfaceImpl;
+use crate::statics::TypeImpl;
+use crate::statics::TypeMonomorphized;
 use std::cell::RefCell;
 use std::collections::BTreeMap;
 use std::collections::HashMap;
@@ -319,7 +319,7 @@ pub fn get_func_definition_node(
     inf_ctx: &InferenceContext,
     node_map: &NodeMap,
     ident: &ast::Identifier,
-    desired_interface_impl: TypeInterfaceImpl,
+    desired_interface_impl: TypeImpl,
 ) -> Rc<dyn ast::Node> {
     if let Some(interface_name) = inf_ctx.method_to_interface.get(&ident.clone()) {
         debug_println!("interface_name: {:?}", interface_name);
@@ -339,10 +339,10 @@ pub fn get_func_definition_node(
                     let func_id = method_identifier_node.id();
                     let unifvar = inf_ctx.vars.get(&Prov::Node(func_id)).unwrap();
                     let solved_ty = unifvar.clone_data().solution().unwrap();
-                    if let Some(interface_impl) = solved_ty.interface_impl_type() {
-                        debug_println!("interface_impl: {:?}", interface_impl);
+                    if let Some(interface_impl_ty) = solved_ty.interface_impl_type() {
+                        debug_println!("interface_impl: {:?}", interface_impl_ty);
                         debug_println!("desired_interface_impl: {:?}", desired_interface_impl);
-                        if desired_interface_impl.clone() == interface_impl {
+                        if desired_interface_impl.clone() == interface_impl_ty {
                             debug_println!("found an impl");
                             let method_node = node_map.get(&method.method_location).unwrap();
                             return method_node.clone();
@@ -365,7 +365,7 @@ pub fn monomorphize_overloaded_var(
     overloaded_func_map: &mut OverloadedFuncMapTemp,
     ident: &ast::Identifier,
     node_ty: Type,
-) -> Option<TypeFullyInstantiated> {
+) -> Option<TypeMonomorphized> {
     if let Some(global_ty) = ty_of_global_ident(gamma.clone(), ident) {
         if global_ty.is_overloaded() {
             debug_println!("global_ty: {} (overloaded)", global_ty);
@@ -739,8 +739,7 @@ pub fn translate_expr(
     }
 }
 
-type OverloadedFuncMapTemp =
-    HashMap<(eval_tree::Identifier, TypeFullyInstantiated), Option<Rc<Ete>>>;
+type OverloadedFuncMapTemp = HashMap<(eval_tree::Identifier, TypeMonomorphized), Option<Rc<Ete>>>;
 
 fn strip_temp_overloaded_func_map(
     overloaded_func_map_temp: &OverloadedFuncMapTemp,

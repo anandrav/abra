@@ -13,7 +13,7 @@ use std::rc::Rc;
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Type {
-    // a type which must be solved for
+    // a type which must be solved for (skolem)
     UnifVar(UnifVar),
 
     // "type must be equal to this"
@@ -28,33 +28,39 @@ pub enum Type {
     AdtInstance(Provs, Identifier, Vec<Type>),
 }
 
-// This is the fully instantiated, monomorphized type of an interface
+// This is the fully instantiated AKA monomorphized type of an interface's implementation
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub enum TypeFullyInstantiated {
+pub enum TypeMonomorphized {
     Unit,
     Int,
     Float,
     Bool,
     String,
-    Function(Vec<TypeFullyInstantiated>, Box<TypeFullyInstantiated>),
-    Tuple(Vec<TypeFullyInstantiated>),
-    Adt(Identifier, Vec<TypeFullyInstantiated>),
+    Function(Vec<TypeMonomorphized>, Box<TypeMonomorphized>),
+    Tuple(Vec<TypeMonomorphized>),
+    Adt(Identifier, Vec<TypeMonomorphized>),
 }
 
 // This is the type of an interface's implementation, which is not fully instantiated.
 // For instance, an interface may be implemented for list<'a SomeInterface>, so its
 // implementation type will be list<'a>, which is not fully instantiated
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub enum TypeInterfaceImpl {
+pub enum TypeImpl {
+    // Poly(TypeImplPoly),
     Unit,
     Int,
     Float,
     Bool,
     String,
-    Function(Vec<TypeInterfaceImpl>, Box<TypeInterfaceImpl>),
-    Tuple(Vec<TypeInterfaceImpl>),
-    Adt(Identifier),
+    Function(Vec<TypeImpl>, Box<TypeImpl>),
+    Tuple(Vec<TypeImpl>),
+    Adt(Identifier /*, Vec<TypeImplPoly>*/),
 }
+
+// #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+// pub struct TypeImplPoly {
+//     pub interfaces: Vec<Identifier>,
+// }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct AdtDef {
@@ -80,6 +86,7 @@ pub struct InterfaceDef {
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct InterfaceImpl {
     pub name: Identifier,
+    pub typ: Type,
     pub methods: Vec<InterfaceImplMethod>,
     pub location: ast::Id,
 }
@@ -439,7 +446,7 @@ impl Type {
         }
     }
 
-    pub fn interface_impl_type(&self) -> Option<TypeInterfaceImpl> {
+    pub fn interface_impl_type(&self) -> Option<TypeImpl> {
         match self {
             Self::UnifVar(_) => {
                 debug_println!("interface_impl_type() matched with unifvar");
@@ -449,19 +456,19 @@ impl Type {
                 debug_println!("interface_impl_type() matched with poly");
                 None
             }
-            Self::Unit(_) => Some(TypeInterfaceImpl::Unit),
+            Self::Unit(_) => Some(TypeImpl::Unit),
             Self::Int(_) => {
                 debug_println!("interface_impl_type() matched with int");
-                Some(TypeInterfaceImpl::Int)
+                Some(TypeImpl::Int)
             }
             Self::Float(_) => {
-                debug_println!("interface_impl_type() matched with int");
-                Some(TypeInterfaceImpl::Float)
+                debug_println!("interface_impl_type() matched with float");
+                Some(TypeImpl::Float)
             }
-            Self::Bool(_) => Some(TypeInterfaceImpl::Bool),
-            Self::String(_) => Some(TypeInterfaceImpl::String),
+            Self::Bool(_) => Some(TypeImpl::Bool),
+            Self::String(_) => Some(TypeImpl::String),
             Self::Function(_, args, out) => {
-                let mut args2: Vec<TypeInterfaceImpl> = vec![];
+                let mut args2: Vec<TypeImpl> = vec![];
                 for arg in args {
                     if let Some(arg) = arg.interface_impl_type() {
                         args2.push(arg);
@@ -470,7 +477,7 @@ impl Type {
                     }
                 }
                 let out = out.interface_impl_type()?;
-                Some(TypeInterfaceImpl::Function(args2, out.into()))
+                Some(TypeImpl::Function(args2, out.into()))
             }
             Self::Tuple(_, elems) => {
                 let mut elems2 = vec![];
@@ -481,13 +488,13 @@ impl Type {
                         return None;
                     }
                 }
-                Some(TypeInterfaceImpl::Tuple(elems2))
+                Some(TypeImpl::Tuple(elems2))
             }
-            Self::AdtInstance(_, ident, _params) => Some(TypeInterfaceImpl::Adt(ident.clone())),
+            Self::AdtInstance(_, ident, _params) => Some(TypeImpl::Adt(ident.clone())),
         }
     }
 
-    pub fn instance_type(&self) -> Option<TypeFullyInstantiated> {
+    pub fn instance_type(&self) -> Option<TypeMonomorphized> {
         match self {
             Self::UnifVar(_) => {
                 debug_println!("instance_type() matched with unifvar");
@@ -497,19 +504,19 @@ impl Type {
                 debug_println!("instance_type() matched with poly");
                 None
             }
-            Self::Unit(_) => Some(TypeFullyInstantiated::Unit),
+            Self::Unit(_) => Some(TypeMonomorphized::Unit),
             Self::Int(_) => {
                 debug_println!("instance_type() matched with int");
-                Some(TypeFullyInstantiated::Int)
+                Some(TypeMonomorphized::Int)
             }
             Self::Float(_) => {
                 debug_println!("instance_type() matched with int");
-                Some(TypeFullyInstantiated::Float)
+                Some(TypeMonomorphized::Float)
             }
-            Self::Bool(_) => Some(TypeFullyInstantiated::Bool),
-            Self::String(_) => Some(TypeFullyInstantiated::String),
+            Self::Bool(_) => Some(TypeMonomorphized::Bool),
+            Self::String(_) => Some(TypeMonomorphized::String),
             Self::Function(_, args, out) => {
-                let mut args2: Vec<TypeFullyInstantiated> = vec![];
+                let mut args2: Vec<TypeMonomorphized> = vec![];
                 for arg in args {
                     if let Some(arg) = arg.instance_type() {
                         args2.push(arg);
@@ -518,7 +525,7 @@ impl Type {
                     }
                 }
                 let out = out.instance_type()?;
-                Some(TypeFullyInstantiated::Function(args2, out.into()))
+                Some(TypeMonomorphized::Function(args2, out.into()))
             }
             Self::Tuple(_, _elems) => {
                 let mut elems2 = vec![];
@@ -529,10 +536,10 @@ impl Type {
                         return None;
                     }
                 }
-                Some(TypeFullyInstantiated::Tuple(elems2))
+                Some(TypeMonomorphized::Tuple(elems2))
             }
             Self::AdtInstance(_, ident, params) => {
-                let mut params2: Vec<TypeFullyInstantiated> = vec![];
+                let mut params2: Vec<TypeMonomorphized> = vec![];
                 for param in params {
                     if let Some(param) = param.instance_type() {
                         params2.push(param);
@@ -540,7 +547,7 @@ impl Type {
                         return None;
                     }
                 }
-                Some(TypeFullyInstantiated::Adt(ident.clone(), params2))
+                Some(TypeMonomorphized::Adt(ident.clone(), params2))
             }
         }
     }
@@ -559,6 +566,17 @@ impl Type {
             }
             Self::Tuple(_, tys) => tys.iter().any(|ty| ty.is_overloaded()),
             Self::AdtInstance(_, _, _tys) => false,
+        }
+    }
+
+    // return true if the type is an adt with at least one parameter instantiated
+    // this is used to see if an implementation of an interface is for an instantiated adt, which is not allowed
+    // example: implement ToString for list<int> rather than list<'a>
+    pub fn is_instantiated_adt(&self) -> bool {
+        match self {
+            // return true if an adt with at least one parameter instantiated
+            Self::AdtInstance(_, _, tys) => !tys.iter().all(|ty| matches!(ty, Self::Poly(..))),
+            _ => false,
         }
     }
 }
@@ -710,7 +728,9 @@ pub struct InferenceContext {
     // map from methods to interface names
     pub method_to_interface: HashMap<Identifier, Identifier>,
     // map from interface name to list of implementations
-    pub interface_impls: HashMap<Identifier, Vec<InterfaceImpl>>, // TODO map from (Identifier, InterfaceImplType) -> InterfaceImpl
+    pub interface_impls: BTreeMap<Identifier, Vec<InterfaceImpl>>, // TODO map from (Identifier, InterfaceImplType) -> InterfaceImpl
+
+    // ERRORS
 
     // unbound variables
     pub unbound_vars: BTreeSet<ast::Id>,
@@ -718,6 +738,9 @@ pub struct InferenceContext {
     // multiple definitions
     pub multiple_adt_defs: BTreeMap<Identifier, Vec<ast::Id>>,
     pub multiple_interface_defs: BTreeMap<Identifier, Vec<ast::Id>>,
+    // interface implementations
+    pub multiple_interface_impls: BTreeMap<Identifier, Vec<ast::Id>>,
+    pub interface_impl_for_instantiated_adt: Vec<ast::Id>,
 }
 
 impl InferenceContext {
@@ -729,11 +752,13 @@ impl InferenceContext {
             fun_defs: HashMap::new(),
             interface_defs: HashMap::new(),
             method_to_interface: HashMap::new(),
-            interface_impls: HashMap::new(),
+            interface_impls: BTreeMap::new(),
             unbound_vars: BTreeSet::new(),
             unbound_interfaces: BTreeSet::new(),
             multiple_adt_defs: BTreeMap::new(),
             multiple_interface_defs: BTreeMap::new(),
+            multiple_interface_impls: BTreeMap::new(),
+            interface_impl_for_instantiated_adt: Vec::new(),
         }
     }
 
@@ -744,6 +769,12 @@ impl InferenceContext {
 
     pub fn interface_def_of_ident(&self, ident: &Identifier) -> Option<InterfaceDef> {
         self.interface_defs.get(ident).cloned() // TODO this helper function is not needed
+    }
+}
+
+impl Default for InferenceContext {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
@@ -1847,7 +1878,7 @@ pub fn gather_definitions_stmt(
                 let entry = inf_ctx
                     .multiple_interface_defs
                     .entry(ident.clone())
-                    .or_insert(vec![]);
+                    .or_default();
                 entry.push(interface_def.location);
                 entry.push(stmt.id);
                 return;
@@ -1878,8 +1909,13 @@ pub fn gather_definitions_stmt(
                 },
             );
         }
-        StmtKind::InterfaceImpl(ident, _ty, stmts) => {
-            // let _named_ty = ast_type_to_interface_instance_type(ty.clone());
+        StmtKind::InterfaceImpl(ident, typ, stmts) => {
+            let typ = ast_type_to_statics_type(inf_ctx, typ.clone());
+
+            if typ.is_instantiated_adt() {
+                inf_ctx.interface_impl_for_instantiated_adt.push(stmt.id);
+            }
+
             let methods = stmts
                 .iter()
                 .map(|stmt| match &*stmt.stmtkind {
@@ -1894,12 +1930,10 @@ pub fn gather_definitions_stmt(
                     _ => unreachable!(),
                 })
                 .collect();
-            let impl_list = inf_ctx
-                .interface_impls
-                .entry(ident.clone())
-                .or_insert(vec![]);
+            let impl_list = inf_ctx.interface_impls.entry(ident.clone()).or_default();
             impl_list.push(InterfaceImpl {
                 name: ident.clone(),
+                typ,
                 methods,
                 location: stmt.id,
             });
@@ -1908,10 +1942,7 @@ pub fn gather_definitions_stmt(
             TypeDefKind::Alias(_ident, _ty) => {}
             TypeDefKind::Adt(ident, params, variants) => {
                 if let Some(adt_def) = inf_ctx.tydefs.get(ident) {
-                    let entry = inf_ctx
-                        .multiple_adt_defs
-                        .entry(ident.clone())
-                        .or_insert(vec![]);
+                    let entry = inf_ctx.multiple_adt_defs.entry(ident.clone()).or_default();
                     entry.push(adt_def.location);
                     entry.push(stmt.id);
                     return;
@@ -1985,13 +2016,14 @@ pub fn generate_constraints_toplevel(
 // TODO: since each expr/pattern node has a type, the node map should be populated with the types (and errors) of each node. So node id -> {Rc<Node>, StaticsSummary}
 // errors would be unbound variable, wrong number of arguments, occurs check, etc.
 pub fn result_of_constraint_solving(
-    inf_ctx: &InferenceContext,
+    inf_ctx: &mut InferenceContext,
     _tyctx: Rc<RefCell<Gamma>>,
     node_map: &ast::NodeMap,
     source: &str,
 ) -> Result<(), String> {
     debug_println!("tyctx:");
     debug_println!("{}", _tyctx.borrow());
+    // get list of type conflicts
     let mut type_conflicts = Vec::new();
     for potential_types in inf_ctx.vars.values() {
         let type_suggestions = potential_types.clone_data().types;
@@ -2005,11 +2037,34 @@ pub fn result_of_constraint_solving(
         }
     }
 
+    // look for error of multiple interface implementations for the same type
+    for (ident, impls) in inf_ctx.interface_impls.iter() {
+        // map from implementation type to location
+        let mut impls_by_type: BTreeMap<TypeImpl, Vec<ast::Id>> = BTreeMap::new();
+        for imp in impls.iter() {
+            if let Some(impl_typ) = imp.typ.interface_impl_type() {
+                impls_by_type
+                    .entry(impl_typ)
+                    .or_default()
+                    .push(imp.location);
+            }
+        }
+        for (impl_typ, impl_locs) in impls_by_type.iter() {
+            if impl_locs.len() > 1 {
+                inf_ctx
+                    .multiple_interface_impls
+                    .insert(ident.clone(), impl_locs.clone());
+            }
+        }
+    }
+
     if inf_ctx.unbound_vars.is_empty()
         && inf_ctx.unbound_interfaces.is_empty()
         && type_conflicts.is_empty()
         && inf_ctx.multiple_adt_defs.is_empty()
         && inf_ctx.multiple_interface_defs.is_empty()
+        && inf_ctx.multiple_interface_impls.is_empty()
+        && inf_ctx.interface_impl_for_instantiated_adt.is_empty()
     {
         for (node_id, node) in node_map.iter() {
             let ty = Type::solution_of_node(inf_ctx, *node_id);
@@ -2059,6 +2114,29 @@ pub fn result_of_constraint_solving(
                 let span = node_map.get(ast_id).unwrap().span();
                 err_string.push_str(&span.display(source, ""));
             }
+        }
+    }
+
+    if !inf_ctx.multiple_interface_impls.is_empty() {
+        for (ident, impl_ids) in inf_ctx.multiple_interface_impls.iter() {
+            err_string.push_str(&format!(
+                "Multiple implementations for interface {}\n",
+                ident
+            ));
+            for ast_id in impl_ids {
+                let span = node_map.get(ast_id).unwrap().span();
+                err_string.push_str(&span.display(source, ""));
+            }
+        }
+    }
+
+    if !inf_ctx.interface_impl_for_instantiated_adt.is_empty() {
+        for ast_id in inf_ctx.interface_impl_for_instantiated_adt.iter() {
+            let span = node_map.get(ast_id).unwrap().span();
+            err_string.push_str(&span.display(
+                source,
+                "Interface implementations for instantiated ADTs are not supported.\n",
+            ));
         }
     }
 
