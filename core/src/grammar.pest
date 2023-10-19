@@ -19,7 +19,7 @@ interface_implementation_body = _{ "{" ~ let_func_statement* ~ "}" }
 adt_declaration = { "type" ~ identifier ~ type_params? ~ "=" ~ variant ~ ("|" ~ variant)* }
 type_params = _{ "<" ~ (type_poly ~ ",")* ~ type_poly? ~ ">" }
 variant = { identifier ~ packed_data? }
-packed_data = _{ typ }
+packed_data = _{ "of" ~ typ }
 
 statement = _{ let_func_statement | let_statement | expression_statement }
 

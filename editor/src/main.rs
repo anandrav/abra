@@ -62,7 +62,7 @@ struct MyApp {
     interpreter: Option<Interpreter>,
 }
 
-const _LIST: &str = r#"type list<'a> = nil | cons ('a, list<'a>)
+const _LIST: &str = r#"type list<'a> = nil | cons of ('a, list<'a>)
 
 let my_list = cons(1, nil)
 
@@ -72,7 +72,7 @@ match my_list
 
 "#;
 
-const _OPTION: &str = r#"type maybe = none | some 'a
+const _OPTION: &str = r#"type maybe = none | some of 'a
 
 let n = some(3)
 
@@ -560,7 +560,7 @@ implement Num for float {
     let greater_than_or_equal(a, b) = b < a
 }
 
-type list<'a> = nil | cons ('a, list<'a>)
+type list<'a> = nil | cons of ('a, list<'a>)
 
 interface Equals {
     equals: (self, self) -> bool
