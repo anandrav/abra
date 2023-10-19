@@ -215,13 +215,19 @@ impl Type {
                     Type::UnifVar(unifvar) // noop
                 }
             }
-            Type::Poly(_, ref ident, ref _interfaces) => {
-                //
+            Type::Poly(_, ref ident, ref interfaces) => {
+                // TODO anand here you need to use _interfaces, can't blindly instantiate. Maybe add a constraint to the newly created Type? That it conforms to Interfaces
                 if !gamma.borrow().lookup_poly(ident) {
-                    Type::fresh_unifvar(
+                    let ret = Type::fresh_unifvar(
                         inf_ctx,
                         Prov::InstantiatePoly(Box::new(prov), ident.clone()),
-                    )
+                    );
+                    inf_ctx
+                        .types_constrained_to_interfaces
+                        .entry(ret.clone())
+                        .or_default()
+                        .extend(interfaces.iter().cloned());
+                    ret
                 } else {
                     self // noop
                 }
@@ -345,6 +351,7 @@ impl Type {
         }
     }
 
+    // TODO: interfaces should be a Set not a Vec
     pub fn make_poly(prov: Prov, ident: String, interfaces: Vec<String>) -> Type {
         Type::Poly(provs_singleton(prov), ident, interfaces)
     }
@@ -446,7 +453,7 @@ impl Type {
         }
     }
 
-    pub fn interface_impl_type(&self) -> Option<TypeImpl> {
+    pub fn interface_impl_type(self) -> Option<TypeImpl> {
         match self {
             Self::UnifVar(_) => {
                 debug_println!("interface_impl_type() matched with unifvar");
@@ -723,12 +730,19 @@ pub struct InferenceContext {
 
     // function definition locations
     pub fun_defs: HashMap<Identifier, Rc<Stmt>>,
+
+    // BOOKKEEPING
+
     // interface definitions
     pub interface_defs: HashMap<Identifier, InterfaceDef>,
     // map from methods to interface names
     pub method_to_interface: HashMap<Identifier, Identifier>,
     // map from interface name to list of implementations
-    pub interface_impls: BTreeMap<Identifier, Vec<InterfaceImpl>>, // TODO map from (Identifier, InterfaceImplType) -> InterfaceImpl
+    pub interface_impls: BTreeMap<Identifier, Vec<InterfaceImpl>>,
+
+    // ADDITIONAL CONSTRAINTS
+    // map from types to interfaces they have been constrained to
+    pub types_constrained_to_interfaces: BTreeMap<Type, Vec<Identifier>>,
 
     // ERRORS
 
@@ -753,6 +767,7 @@ impl InferenceContext {
             interface_defs: HashMap::new(),
             method_to_interface: HashMap::new(),
             interface_impls: BTreeMap::new(),
+            types_constrained_to_interfaces: BTreeMap::new(),
             unbound_vars: BTreeSet::new(),
             unbound_interfaces: BTreeSet::new(),
             multiple_adt_defs: BTreeMap::new(),
@@ -2042,7 +2057,7 @@ pub fn result_of_constraint_solving(
         // map from implementation type to location
         let mut impls_by_type: BTreeMap<TypeImpl, Vec<ast::Id>> = BTreeMap::new();
         for imp in impls.iter() {
-            if let Some(impl_typ) = imp.typ.interface_impl_type() {
+            if let Some(impl_typ) = imp.typ.clone().interface_impl_type() {
                 impls_by_type
                     .entry(impl_typ)
                     .or_default()
@@ -2058,6 +2073,48 @@ pub fn result_of_constraint_solving(
         }
     }
 
+    let mut err_string = String::new();
+
+    let mut bad_instantiations = false;
+    // check for bad instantiation of polymorphic types constrained to an Interface
+    for (typ, interfaces) in inf_ctx.types_constrained_to_interfaces.iter() {
+        let Some(typ) = typ.solution() else {
+            continue;
+        };
+        if let Type::Poly(..) = typ {
+            // if 'a Interface1 is constrained to [Interfaces...], ignore
+            continue;
+        }
+        // for each interface
+        for interface in interfaces {
+            let mut bad_instantiation: bool = true;
+            if let Some(impl_list) = inf_ctx.interface_impls.get(interface) {
+                // find at least one implementation of interface that matches the type constrained to the interface
+                for impl_ in impl_list {
+                    debug_println!("impl: {}", impl_.typ);
+                    if let Some(impl_ty) = impl_.typ.solution().and_then(Type::interface_impl_type)
+                    {
+                        debug_println!("impl_ty: {:?}", impl_ty);
+                        if let Some(impl_ty2) = typ.clone().interface_impl_type() {
+                            debug_println!("impl_ty2: {:?}", impl_ty2);
+                            println!("THIS PATH WAS HIT");
+                            if impl_ty == impl_ty2 {
+                                bad_instantiation = false;
+                            }
+                        }
+                    }
+                }
+            }
+            if (bad_instantiation) {
+                bad_instantiations = true;
+                err_string.push_str(&format!(
+                        "Type {} is constrained to interface {}, but no implementation of that interface exists for that type.\n",
+                        typ, interface
+                    ));
+            }
+        }
+    }
+
     if inf_ctx.unbound_vars.is_empty()
         && inf_ctx.unbound_interfaces.is_empty()
         && type_conflicts.is_empty()
@@ -2065,6 +2122,7 @@ pub fn result_of_constraint_solving(
         && inf_ctx.multiple_interface_defs.is_empty()
         && inf_ctx.multiple_interface_impls.is_empty()
         && inf_ctx.interface_impl_for_instantiated_adt.is_empty()
+        && !bad_instantiations
     {
         for (node_id, node) in node_map.iter() {
             let ty = Type::solution_of_node(inf_ctx, *node_id);
@@ -2081,8 +2139,6 @@ pub fn result_of_constraint_solving(
         }
         return Ok(());
     }
-
-    let mut err_string = String::new();
 
     if !inf_ctx.unbound_vars.is_empty() {
         err_string.push_str("You have unbound variables!\n");

@@ -324,6 +324,9 @@ pub fn get_func_definition_node(
     if let Some(interface_name) = inf_ctx.method_to_interface.get(&ident.clone()) {
         debug_println!("interface_name: {:?}", interface_name);
         let impl_list = inf_ctx.interface_impls.get(interface_name).unwrap();
+        // TODO just because the variable is the same name as an overloaded function doesn't mean the overloaded function is actually being used here.
+        // use the type of the variable to determine if it's the same as the overloaded function?
+
         // find an impl that matches
         // dbg!(impl_list);
         debug_println!("{:?}", impl_list);
@@ -384,7 +387,7 @@ pub fn monomorphize_overloaded_var(
                 inf_ctx,
                 node_map,
                 ident,
-                substituted_ty.interface_impl_type().unwrap(),
+                substituted_ty.clone().interface_impl_type().unwrap(),
             )
             .to_stmt()
             .unwrap();
