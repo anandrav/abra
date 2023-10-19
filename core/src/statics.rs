@@ -140,6 +140,7 @@ pub enum TypeKey {
 // Provenances are used to:
 // (1) track the origins (plural!) of a type solution
 // (2) give the *unique* identity of an unknown type variable (UnifVar) in the SolutionMap
+// TODO: Does Prov really need to be that deeply nested? Will there really be FuncArg -> InstantiatedPoly -> BinopLeft -> Node? Or can we simplify here?
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum Prov {
     Node(ast::Id),   // the type of an expression or statement
@@ -156,6 +157,27 @@ pub enum Prov {
     BinopRight(Box<Prov>),
     ListElem(Box<Prov>),
     VariantNoData(Box<Prov>), // the type of the data of a variant with no data, always Unit.
+}
+
+impl Prov {
+    // TODO: Can we make this not Optional? Only reason it would fail is if the last prov in the chain is a builtin
+    // TODO: remove Builtin prov for this reason, defeats the purpose. Builtins should be declared in the PRELUDE, and that declaration will be the Prov.
+    pub fn get_location(&self) -> Option<ast::Id> {
+        match self {
+            Prov::Node(id) => Some(*id),
+            Prov::Builtin(_) => None,
+            Prov::Alias(_) => None,
+            Prov::AdtDef(inner)
+            | Prov::InstantiateAdtParam(inner, _)
+            | Prov::InstantiatePoly(inner, _)
+            | Prov::FuncArg(inner, _)
+            | Prov::FuncOut(inner)
+            | Prov::BinopLeft(inner)
+            | Prov::BinopRight(inner)
+            | Prov::ListElem(inner)
+            | Prov::VariantNoData(inner) => inner.get_location(),
+        }
+    }
 }
 
 impl Type {
@@ -220,13 +242,17 @@ impl Type {
                 if !gamma.borrow().lookup_poly(ident) {
                     let ret = Type::fresh_unifvar(
                         inf_ctx,
-                        Prov::InstantiatePoly(Box::new(prov), ident.clone()),
+                        Prov::InstantiatePoly(Box::new(prov.clone()), ident.clone()),
                     );
+                    let mut extension = Vec::new();
+                    for i in interfaces {
+                        extension.push((i.clone(), prov.clone()));
+                    }
                     inf_ctx
                         .types_constrained_to_interfaces
                         .entry(ret.clone())
                         .or_default()
-                        .extend(interfaces.iter().cloned());
+                        .extend(extension);
                     ret
                 } else {
                     self // noop
@@ -742,7 +768,7 @@ pub struct InferenceContext {
 
     // ADDITIONAL CONSTRAINTS
     // map from types to interfaces they have been constrained to
-    pub types_constrained_to_interfaces: BTreeMap<Type, Vec<Identifier>>,
+    pub types_constrained_to_interfaces: BTreeMap<Type, Vec<(Identifier, Prov)>>,
 
     // ERRORS
 
@@ -2064,7 +2090,7 @@ pub fn result_of_constraint_solving(
                     .push(imp.location);
             }
         }
-        for (impl_typ, impl_locs) in impls_by_type.iter() {
+        for (_impl_typ, impl_locs) in impls_by_type.iter() {
             if impl_locs.len() > 1 {
                 inf_ctx
                     .multiple_interface_impls
@@ -2088,6 +2114,7 @@ pub fn result_of_constraint_solving(
         // for each interface
         for interface in interfaces {
             let mut bad_instantiation: bool = true;
+            let (interface, prov) = interface;
             if let Some(impl_list) = inf_ctx.interface_impls.get(interface) {
                 // find at least one implementation of interface that matches the type constrained to the interface
                 for impl_ in impl_list {
@@ -2097,7 +2124,6 @@ pub fn result_of_constraint_solving(
                         debug_println!("impl_ty: {:?}", impl_ty);
                         if let Some(impl_ty2) = typ.clone().interface_impl_type() {
                             debug_println!("impl_ty2: {:?}", impl_ty2);
-                            println!("THIS PATH WAS HIT");
                             if impl_ty == impl_ty2 {
                                 bad_instantiation = false;
                             }
@@ -2105,12 +2131,16 @@ pub fn result_of_constraint_solving(
                     }
                 }
             }
-            if (bad_instantiation) {
+            if bad_instantiation {
                 bad_instantiations = true;
                 err_string.push_str(&format!(
-                        "Type {} is constrained to interface {}, but no implementation of that interface exists for that type.\n",
-                        typ, interface
-                    ));
+                    "error: the interface '{}' is not implemented for type '{}'\n",
+                    interface, typ
+                ));
+                if let Some(id) = prov.get_location() {
+                    let span = node_map.get(&id).unwrap().span();
+                    err_string.push_str(&span.display(source, ""));
+                }
             }
         }
     }
@@ -2360,14 +2390,18 @@ impl fmt::Display for Type {
                 Ok(())
             }
             Type::AdtInstance(_, ident, params) => {
-                write!(f, "{}<", ident)?;
-                for (i, param) in params.iter().enumerate() {
-                    if i != 0 {
-                        write!(f, ", ")?;
+                if !params.is_empty() {
+                    write!(f, "{}<", ident)?;
+                    for (i, param) in params.iter().enumerate() {
+                        if i != 0 {
+                            write!(f, ", ")?;
+                        }
+                        write!(f, "{}", param)?;
                     }
-                    write!(f, "{}", param)?;
+                    write!(f, ">")
+                } else {
+                    write!(f, "{}", ident)
                 }
-                write!(f, ">")
             }
             Type::UnifVar(unifvar) => {
                 let types = unifvar.clone_data().types;
