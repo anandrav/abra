@@ -2107,15 +2107,16 @@ pub fn result_of_constraint_solving(
         let Some(typ) = typ.solution() else {
             continue;
         };
-        if let Type::Poly(..) = typ {
-            // if 'a Interface1 is constrained to [Interfaces...], ignore
-            continue;
-        }
         // for each interface
         for interface in interfaces {
             let mut bad_instantiation: bool = true;
             let (interface, prov) = interface;
-            if let Some(impl_list) = inf_ctx.interface_impls.get(interface) {
+            if let Type::Poly(_, _, ref interfaces2) = typ {
+                // if 'a Interface1 is constrained to [Interfaces...], ignore
+                if interfaces2.contains(interface) {
+                    bad_instantiation = false;
+                }
+            } else if let Some(impl_list) = inf_ctx.interface_impls.get(interface) {
                 // find at least one implementation of interface that matches the type constrained to the interface
                 for impl_ in impl_list {
                     debug_println!("impl: {}", impl_.typ);
