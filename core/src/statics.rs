@@ -54,13 +54,13 @@ pub enum TypeImpl {
     String,
     Function(Vec<TypeImpl>, Box<TypeImpl>),
     Tuple(Vec<TypeImpl>),
-    Adt(Identifier /*, Vec<TypeImplPoly>*/),
+    Adt(Identifier, Vec<TypeImplPoly>),
 }
 
-// #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
-// pub struct TypeImplPoly {
-//     pub interfaces: Vec<Identifier>,
-// }
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct TypeImplPoly {
+    pub interfaces: BTreeSet<Identifier>,
+}
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct AdtDef {
@@ -523,7 +523,19 @@ impl Type {
                 }
                 Some(TypeImpl::Tuple(elems2))
             }
-            Self::AdtInstance(_, ident, _params) => Some(TypeImpl::Adt(ident.clone())),
+            Self::AdtInstance(_, ident, params) => {
+                let mut new_params = vec![];
+                for param in params {
+                    if let Type::Poly(_, _, interfaces) = param {
+                        new_params.push(TypeImplPoly {
+                            interfaces: interfaces.into_iter().collect(),
+                        });
+                    } else {
+                        return None;
+                    }
+                }
+                Some(TypeImpl::Adt(ident.clone(), new_params))
+            }
         }
     }
 
