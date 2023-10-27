@@ -319,7 +319,7 @@ pub fn get_func_definition_node(
     inf_ctx: &InferenceContext,
     node_map: &NodeMap,
     ident: &ast::Identifier,
-    desired_interface_impl: TypeImpl,
+    desired_interface_impl: Type,
 ) -> Rc<dyn ast::Node> {
     if let Some(interface_name) = inf_ctx.method_to_interface.get(&ident.clone()) {
         debug_println!("interface_name: {:?}", interface_name);
@@ -345,7 +345,14 @@ pub fn get_func_definition_node(
                     if let Some(interface_impl_ty) = solved_ty.interface_impl_type() {
                         debug_println!("interface_impl: {:?}", interface_impl_ty);
                         debug_println!("desired_interface_impl: {:?}", desired_interface_impl);
-                        if desired_interface_impl.clone() == interface_impl_ty {
+                        if statics::ty_fits_impl_ty(
+                            inf_ctx,
+                            desired_interface_impl.clone(),
+                            interface_impl_ty,
+                        )
+                        .is_ok()
+                        {
+                            // if desired_interface_impl.clone() == interface_impl_ty {
                             debug_println!("found an impl");
                             let method_node = node_map.get(&method.method_location).unwrap();
                             return method_node.clone();
@@ -387,7 +394,7 @@ pub fn monomorphize_overloaded_var(
                 inf_ctx,
                 node_map,
                 ident,
-                substituted_ty.clone().interface_impl_type().unwrap(),
+                substituted_ty.clone().solution().unwrap(),
             )
             .to_stmt()
             .unwrap();

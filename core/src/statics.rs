@@ -506,10 +506,14 @@ impl Type {
                     if let Some(arg) = arg.interface_impl_type() {
                         args2.push(arg);
                     } else {
+                        debug_println!("interface_impl_type() matched with function, but arg is not instance_type");
                         return None;
                     }
                 }
-                let out = out.interface_impl_type()?;
+                let Some(out) = out.interface_impl_type() else {
+                    debug_println!("interface_impl_type() matched with func, but func out is not instance_type");
+                    return None;
+                };
                 Some(TypeImpl::Function(args2, out.into()))
             }
             Self::Tuple(_, elems) => {
@@ -531,6 +535,9 @@ impl Type {
                             interfaces: interfaces.into_iter().collect(),
                         });
                     } else {
+                        debug_println!("interface_impl_type() matched with adtinstance, but param is not instance_type");
+                        debug_println!("param: {:?}", param);
+                        debug_println!("adt: {:?}", ident);
                         return None;
                     }
                 }
@@ -566,10 +573,18 @@ impl Type {
                     if let Some(arg) = arg.instance_type() {
                         args2.push(arg);
                     } else {
+                        debug_println!(
+                            "instance_type() matched with function, but param is not instance_type"
+                        );
                         return None;
                     }
                 }
-                let out = out.instance_type()?;
+                let Some(out) = out.instance_type() else {
+                    debug_println!(
+                        "instance_type() matched with function, but func output is not instance_type"
+                    );
+                    return None;
+                };
                 Some(TypeMonomorphized::Function(args2, out.into()))
             }
             Self::Tuple(_, _elems) => {
@@ -578,6 +593,9 @@ impl Type {
                     if let Some(elem) = elem.instance_type() {
                         elems2.push(elem);
                     } else {
+                        debug_println!(
+                            "instance_type() matched with tuple, but element is not instance_type"
+                        );
                         return None;
                     }
                 }
@@ -589,6 +607,7 @@ impl Type {
                     if let Some(param) = param.instance_type() {
                         params2.push(param);
                     } else {
+                        debug_println!("instance_type() matched with adtinstance, but param is not instance_type");
                         return None;
                     }
                 }
@@ -2116,14 +2135,14 @@ pub fn result_of_constraint_solving(
     let mut bad_instantiations = false;
     // check for bad instantiation of polymorphic types constrained to an Interface
     for (typ, interfaces) in inf_ctx.types_constrained_to_interfaces.iter() {
-        let Some(typ) = typ.solution() else {
+        let Some(typ) = &typ.solution() else {
             continue;
         };
         // for each interface
         for interface in interfaces {
             let mut bad_instantiation: bool = true;
             let (interface, prov) = interface;
-            if let Type::Poly(_, _, ref interfaces2) = typ {
+            if let Type::Poly(_, _, interfaces2) = &typ {
                 // if 'a Interface1 is constrained to [Interfaces...], ignore
                 if interfaces2.contains(interface) {
                     bad_instantiation = false;
@@ -2135,11 +2154,13 @@ pub fn result_of_constraint_solving(
                     if let Some(impl_ty) = impl_.typ.solution().and_then(Type::interface_impl_type)
                     {
                         debug_println!("impl_ty: {:?}", impl_ty);
-                        if let Some(impl_ty2) = typ.clone().interface_impl_type() {
-                            debug_println!("impl_ty2: {:?}", impl_ty2);
-                            if impl_ty == impl_ty2 {
-                                bad_instantiation = false;
-                            }
+                        if let Err((err_monoty, err_impl_ty)) =
+                            ty_fits_impl_ty(inf_ctx, typ.clone(), impl_ty)
+                        {
+                            debug_println!("err_monoty: {:#?}", err_monoty);
+                            debug_println!("err_impl_ty: {:#?}", err_impl_ty);
+                        } else {
+                            bad_instantiation = false;
                         }
                     }
                 }
@@ -2384,6 +2405,79 @@ pub fn result_of_constraint_solving(
     }
 
     Err(err_string)
+}
+
+pub fn ty_fits_impl_ty(
+    ctx: &InferenceContext,
+    typ: Type,
+    impl_ty: TypeImpl,
+) -> Result<(), (Type, TypeImpl)> {
+    match (&typ, &impl_ty) {
+        (Type::Int(..), TypeImpl::Int)
+        | (Type::Bool(..), TypeImpl::Bool)
+        | (Type::Float(..), TypeImpl::Float)
+        | (Type::String(..), TypeImpl::String)
+        | (Type::Unit(..), TypeImpl::Unit) => Ok(()),
+        (Type::Tuple(_, tys1), TypeImpl::Tuple(tys2)) => {
+            if tys1.len() == tys2.len() {
+                for (ty1, ty2) in tys1.iter().zip(tys2.iter()) {
+                    ty_fits_impl_ty(ctx, ty1.clone(), ty2.clone())?;
+                }
+                Ok(())
+            } else {
+                Err((typ, impl_ty))
+            }
+        }
+        (Type::Function(_, args1, out1), TypeImpl::Function(args2, out2)) => {
+            if args1.len() == args2.len() {
+                for (ty1, ty2) in args1.iter().zip(args2.iter()) {
+                    ty_fits_impl_ty(ctx, ty1.clone(), ty2.clone())?;
+                }
+                ty_fits_impl_ty(ctx, *out1.clone(), *out2.clone())
+            } else {
+                Err((typ, impl_ty))
+            }
+        }
+        (Type::AdtInstance(_, ident1, tys1), TypeImpl::Adt(ident2, tys2)) => {
+            if ident1 == ident2 && tys1.len() == tys2.len() {
+                for (ty1, ty2) in tys1.iter().zip(tys2.iter()) {
+                    if !ty_fits_impl_ty_poly(ctx, ty1.clone(), ty2.clone()) {
+                        return Err((typ, impl_ty));
+                    }
+                }
+                Ok(())
+            } else {
+                Err((typ, impl_ty))
+            }
+        }
+        _ => Err((typ, impl_ty)),
+    }
+}
+
+fn ty_fits_impl_ty_poly(inf_ctx: &InferenceContext, typ: Type, impl_ty: TypeImplPoly) -> bool {
+    // TODO just return bool
+    let interfaces = impl_ty.interfaces;
+    for interface in interfaces {
+        if let Type::Poly(_, _, interfaces2) = &typ {
+            // if 'a Interface1 is constrained to [Interfaces...], ignore
+            if interfaces2.contains(&interface) {
+                return true;
+            }
+        }
+        if let Some(impl_list) = inf_ctx.interface_impls.get(&interface) {
+            // find at least one implementation of interface that matches the type constrained to the interface
+            for impl_ in impl_list {
+                debug_println!("impl: {}", impl_.typ);
+                if let Some(impl_ty) = impl_.typ.solution().and_then(Type::interface_impl_type) {
+                    debug_println!("impl_ty: {:?}", impl_ty);
+                    if let Ok(_) = ty_fits_impl_ty(inf_ctx, typ.clone(), impl_ty) {
+                        return true;
+                    }
+                }
+            }
+        }
+    }
+    false
 }
 
 impl fmt::Display for Type {
