@@ -11,7 +11,6 @@ use crate::statics::Gamma;
 use crate::statics::InferenceContext;
 use crate::statics::Prov;
 use crate::statics::Type;
-use crate::statics::TypeImpl;
 use crate::statics::TypeMonomorphized;
 use std::cell::RefCell;
 use std::collections::BTreeMap;
@@ -341,22 +340,20 @@ pub fn get_func_definition_node(
                     debug_println!("func_node: {:?}", method_identifier_node);
                     let func_id = method_identifier_node.id();
                     let unifvar = inf_ctx.vars.get(&Prov::Node(func_id)).unwrap();
-                    let solved_ty = unifvar.clone_data().solution().unwrap();
-                    if let Some(interface_impl_ty) = solved_ty.interface_impl_type() {
-                        debug_println!("interface_impl: {:?}", interface_impl_ty);
-                        debug_println!("desired_interface_impl: {:?}", desired_interface_impl);
-                        if statics::ty_fits_impl_ty(
-                            inf_ctx,
-                            desired_interface_impl.clone(),
-                            interface_impl_ty,
-                        )
-                        .is_ok()
-                        {
-                            // if desired_interface_impl.clone() == interface_impl_ty {
-                            debug_println!("found an impl");
-                            let method_node = node_map.get(&method.method_location).unwrap();
-                            return method_node.clone();
-                        }
+                    let interface_impl_ty = unifvar.clone_data().solution().unwrap();
+                    debug_println!("interface_impl: {:?}", interface_impl_ty);
+                    debug_println!("desired_interface_impl: {:?}", desired_interface_impl);
+                    if statics::ty_fits_impl_ty(
+                        inf_ctx,
+                        desired_interface_impl.clone(),
+                        interface_impl_ty,
+                    )
+                    .is_ok()
+                    {
+                        // if desired_interface_impl.clone() == interface_impl_ty {
+                        debug_println!("found an impl");
+                        let method_node = node_map.get(&method.method_location).unwrap();
+                        return method_node.clone();
                     }
                 }
             }

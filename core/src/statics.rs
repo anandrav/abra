@@ -41,27 +41,6 @@ pub enum TypeMonomorphized {
     Adt(Identifier, Vec<TypeMonomorphized>),
 }
 
-// This is the type of an interface's implementation, which is not fully instantiated.
-// For instance, an interface may be implemented for list<'a SomeInterface>, so its
-// implementation type will be list<'a>, which is not fully instantiated
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub enum TypeImpl {
-    // Poly(TypeImplPoly),
-    Unit,
-    Int,
-    Float,
-    Bool,
-    String,
-    Function(Vec<TypeImpl>, Box<TypeImpl>),
-    Tuple(Vec<TypeImpl>),
-    Adt(Identifier, Vec<TypeImplPoly>),
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct TypeImplPoly {
-    pub interfaces: BTreeSet<Identifier>,
-}
-
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct AdtDef {
     pub name: Identifier,
@@ -476,73 +455,6 @@ impl Type {
                 Some(Type::AdtInstance(provs.clone(), ident.clone(), params2))
             }
             Self::UnifVar(unifvar) => unifvar.clone_data().solution(),
-        }
-    }
-
-    pub fn interface_impl_type(self) -> Option<TypeImpl> {
-        match self {
-            Self::UnifVar(_) => {
-                debug_println!("interface_impl_type() matched with unifvar");
-                None
-            }
-            Self::Poly(_, _ident, _interfaces) => {
-                debug_println!("interface_impl_type() matched with poly");
-                None
-            }
-            Self::Unit(_) => Some(TypeImpl::Unit),
-            Self::Int(_) => {
-                debug_println!("interface_impl_type() matched with int");
-                Some(TypeImpl::Int)
-            }
-            Self::Float(_) => {
-                debug_println!("interface_impl_type() matched with float");
-                Some(TypeImpl::Float)
-            }
-            Self::Bool(_) => Some(TypeImpl::Bool),
-            Self::String(_) => Some(TypeImpl::String),
-            Self::Function(_, args, out) => {
-                let mut args2: Vec<TypeImpl> = vec![];
-                for arg in args {
-                    if let Some(arg) = arg.interface_impl_type() {
-                        args2.push(arg);
-                    } else {
-                        debug_println!("interface_impl_type() matched with function, but arg is not instance_type");
-                        return None;
-                    }
-                }
-                let Some(out) = out.interface_impl_type() else {
-                    debug_println!("interface_impl_type() matched with func, but func out is not instance_type");
-                    return None;
-                };
-                Some(TypeImpl::Function(args2, out.into()))
-            }
-            Self::Tuple(_, elems) => {
-                let mut elems2 = vec![];
-                for elem in elems {
-                    if let Some(elem) = elem.interface_impl_type() {
-                        elems2.push(elem);
-                    } else {
-                        return None;
-                    }
-                }
-                Some(TypeImpl::Tuple(elems2))
-            }
-            Self::AdtInstance(_, ident, params) => {
-                let mut new_params = vec![];
-                for param in params {
-                    if let Type::Poly(_, _, interfaces) = param {
-                        new_params.push(TypeImplPoly {
-                            interfaces: interfaces.into_iter().collect(),
-                        });
-                    } else {
-                        debug_println!("interface_impl_type() matched with adtinstance, but param is not instance_type");
-                        debug_println!("param: {:?}", param);
-                        debug_println!("adt: {:?}", ident);
-                        return None;
-                    }
-                }
-                Some(TypeImpl::Adt(ident.clone(), new_params))
-            }
         }
     }
 
@@ -2112,9 +2024,9 @@ pub fn result_of_constraint_solving(
     // look for error of multiple interface implementations for the same type
     for (ident, impls) in inf_ctx.interface_impls.iter() {
         // map from implementation type to location
-        let mut impls_by_type: BTreeMap<TypeImpl, Vec<ast::Id>> = BTreeMap::new();
+        let mut impls_by_type: BTreeMap<Type, Vec<ast::Id>> = BTreeMap::new();
         for imp in impls.iter() {
-            if let Some(impl_typ) = imp.typ.clone().interface_impl_type() {
+            if let Some(impl_typ) = imp.typ.clone().solution() {
                 impls_by_type
                     .entry(impl_typ)
                     .or_default()
@@ -2151,8 +2063,7 @@ pub fn result_of_constraint_solving(
                 // find at least one implementation of interface that matches the type constrained to the interface
                 for impl_ in impl_list {
                     debug_println!("impl: {}", impl_.typ);
-                    if let Some(impl_ty) = impl_.typ.solution().and_then(Type::interface_impl_type)
-                    {
+                    if let Some(impl_ty) = impl_.typ.solution() {
                         debug_println!("impl_ty: {:?}", impl_ty);
                         if let Err((err_monoty, err_impl_ty)) =
                             ty_fits_impl_ty(inf_ctx, typ.clone(), impl_ty)
@@ -2410,15 +2321,15 @@ pub fn result_of_constraint_solving(
 pub fn ty_fits_impl_ty(
     ctx: &InferenceContext,
     typ: Type,
-    impl_ty: TypeImpl,
-) -> Result<(), (Type, TypeImpl)> {
+    impl_ty: Type,
+) -> Result<(), (Type, Type)> {
     match (&typ, &impl_ty) {
-        (Type::Int(..), TypeImpl::Int)
-        | (Type::Bool(..), TypeImpl::Bool)
-        | (Type::Float(..), TypeImpl::Float)
-        | (Type::String(..), TypeImpl::String)
-        | (Type::Unit(..), TypeImpl::Unit) => Ok(()),
-        (Type::Tuple(_, tys1), TypeImpl::Tuple(tys2)) => {
+        (Type::Int(..), Type::Int(..))
+        | (Type::Bool(..), Type::Bool(..))
+        | (Type::Float(..), Type::Float(..))
+        | (Type::String(..), Type::String(..))
+        | (Type::Unit(..), Type::Unit(..)) => Ok(()),
+        (Type::Tuple(_, tys1), Type::Tuple(_, tys2)) => {
             if tys1.len() == tys2.len() {
                 for (ty1, ty2) in tys1.iter().zip(tys2.iter()) {
                     ty_fits_impl_ty(ctx, ty1.clone(), ty2.clone())?;
@@ -2428,7 +2339,7 @@ pub fn ty_fits_impl_ty(
                 Err((typ, impl_ty))
             }
         }
-        (Type::Function(_, args1, out1), TypeImpl::Function(args2, out2)) => {
+        (Type::Function(_, args1, out1), Type::Function(_, args2, out2)) => {
             if args1.len() == args2.len() {
                 for (ty1, ty2) in args1.iter().zip(args2.iter()) {
                     ty_fits_impl_ty(ctx, ty1.clone(), ty2.clone())?;
@@ -2438,10 +2349,17 @@ pub fn ty_fits_impl_ty(
                 Err((typ, impl_ty))
             }
         }
-        (Type::AdtInstance(_, ident1, tys1), TypeImpl::Adt(ident2, tys2)) => {
+        (Type::AdtInstance(_, ident1, tys1), Type::AdtInstance(_, ident2, tys2)) => {
             if ident1 == ident2 && tys1.len() == tys2.len() {
                 for (ty1, ty2) in tys1.iter().zip(tys2.iter()) {
-                    if !ty_fits_impl_ty_poly(ctx, ty1.clone(), ty2.clone()) {
+                    let Type::Poly(_, _, interfaces) = ty2.clone() else {
+                        panic!()
+                    };
+                    if !ty_fits_impl_ty_poly(
+                        ctx,
+                        ty1.clone(),
+                        interfaces.iter().cloned().collect::<BTreeSet<_>>(),
+                    ) {
                         return Err((typ, impl_ty));
                     }
                 }
@@ -2454,9 +2372,11 @@ pub fn ty_fits_impl_ty(
     }
 }
 
-fn ty_fits_impl_ty_poly(inf_ctx: &InferenceContext, typ: Type, impl_ty: TypeImplPoly) -> bool {
-    // TODO just return bool
-    let interfaces = impl_ty.interfaces;
+fn ty_fits_impl_ty_poly(
+    inf_ctx: &InferenceContext,
+    typ: Type,
+    interfaces: BTreeSet<Identifier>,
+) -> bool {
     for interface in interfaces {
         if let Type::Poly(_, _, interfaces2) = &typ {
             // if 'a Interface1 is constrained to [Interfaces...], ignore
@@ -2468,7 +2388,7 @@ fn ty_fits_impl_ty_poly(inf_ctx: &InferenceContext, typ: Type, impl_ty: TypeImpl
             // find at least one implementation of interface that matches the type constrained to the interface
             for impl_ in impl_list {
                 debug_println!("impl: {}", impl_.typ);
-                if let Some(impl_ty) = impl_.typ.solution().and_then(Type::interface_impl_type) {
+                if let Some(impl_ty) = impl_.typ.solution() {
                     debug_println!("impl_ty: {:?}", impl_ty);
                     if let Ok(_) = ty_fits_impl_ty(inf_ctx, typ.clone(), impl_ty) {
                         return true;
