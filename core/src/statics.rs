@@ -2014,10 +2014,10 @@ pub fn result_of_constraint_solving(
         if type_suggestions.len() > 1 && (!type_conflicts.contains(&type_suggestions)) {
             type_conflicts.push(type_suggestions.clone());
         } else if type_suggestions.len() == 1 {
-            let solution = type_suggestions.iter().next().unwrap().1.solution();
-            if solution.is_none() && (!type_conflicts.contains(&type_suggestions)) {
-                type_conflicts.push(type_suggestions.clone());
-            }
+            // let solution = type_suggestions.iter().next().unwrap().1.solution();
+            // if solution.is_none() && (!type_conflicts.contains(&type_suggestions)) {
+            //     type_conflicts.push(type_suggestions.clone());
+            // }
         }
     }
 
