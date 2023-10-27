@@ -765,17 +765,23 @@ pub fn translate(
     inf_ctx: &InferenceContext,
     gamma: Rc<RefCell<Gamma>>,
     node_map: &NodeMap,
-    toplevel: Rc<ast::Toplevel>,
+    toplevels: &Vec<Rc<ast::Toplevel>>,
 ) -> (Rc<Ete>, interpreter::OverloadedFuncMap) {
     let mut overloaded_func_map_temp = OverloadedFuncMapTemp::new();
     let monomorphenv = Rc::new(RefCell::new(MonomorphEnv::new(None)));
+    let mut statements = Vec::new();
+    for toplevel in toplevels {
+        for s in &toplevel.statements {
+            statements.push(s.clone());
+        }
+    }
     let toplevel = translate_expr_block(
         inf_ctx,
         monomorphenv,
         gamma,
         node_map,
         &mut overloaded_func_map_temp,
-        toplevel.statements.clone(),
+        statements,
     );
     let overloaded_func_map = strip_temp_overloaded_func_map(&overloaded_func_map_temp);
     (toplevel, overloaded_func_map)

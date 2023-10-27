@@ -2003,7 +2003,7 @@ pub fn result_of_constraint_solving(
     inf_ctx: &mut InferenceContext,
     _tyctx: Rc<RefCell<Gamma>>,
     node_map: &ast::NodeMap,
-    source: &str,
+    sources: &ast::Sources,
 ) -> Result<(), String> {
     debug_println!("tyctx:");
     debug_println!("{}", _tyctx.borrow());
@@ -2084,7 +2084,7 @@ pub fn result_of_constraint_solving(
                 ));
                 if let Some(id) = prov.get_location() {
                     let span = node_map.get(&id).unwrap().span();
-                    err_string.push_str(&span.display(source, ""));
+                    err_string.push_str(&span.display(sources, ""));
                 }
             }
         }
@@ -2109,7 +2109,7 @@ pub fn result_of_constraint_solving(
                 debug_println!("Type: none");
             }
             debug_println!("Span: {:?}", _span);
-            debug_println!("{}", _span.display(source, ""));
+            debug_println!("{}", _span.display(sources, ""));
             debug_println!();
         }
         return Ok(());
@@ -2119,14 +2119,14 @@ pub fn result_of_constraint_solving(
         err_string.push_str("You have unbound variables!\n");
         for ast_id in inf_ctx.unbound_vars.iter() {
             let span = node_map.get(ast_id).unwrap().span();
-            err_string.push_str(&span.display(source, ""));
+            err_string.push_str(&span.display(sources, ""));
         }
     }
     if !inf_ctx.unbound_interfaces.is_empty() {
         for ast_id in inf_ctx.unbound_interfaces.iter() {
             let span = node_map.get(ast_id).unwrap().span();
             err_string
-                .push_str(&span.display(source, "Interface being implemented is not defined\n"));
+                .push_str(&span.display(sources, "Interface being implemented is not defined\n"));
         }
     }
     if !inf_ctx.multiple_adt_defs.is_empty() {
@@ -2134,7 +2134,7 @@ pub fn result_of_constraint_solving(
             err_string.push_str(&format!("Multiple definitions for type {}\n", ident));
             for ast_id in adt_ids {
                 let span = node_map.get(ast_id).unwrap().span();
-                err_string.push_str(&span.display(source, ""));
+                err_string.push_str(&span.display(sources, ""));
             }
         }
     }
@@ -2143,7 +2143,7 @@ pub fn result_of_constraint_solving(
             err_string.push_str(&format!("Multiple definitions for interface {}\n", ident));
             for ast_id in interface_ids {
                 let span = node_map.get(ast_id).unwrap().span();
-                err_string.push_str(&span.display(source, ""));
+                err_string.push_str(&span.display(sources, ""));
             }
         }
     }
@@ -2156,7 +2156,7 @@ pub fn result_of_constraint_solving(
             ));
             for ast_id in impl_ids {
                 let span = node_map.get(ast_id).unwrap().span();
-                err_string.push_str(&span.display(source, ""));
+                err_string.push_str(&span.display(sources, ""));
             }
         }
     }
@@ -2165,7 +2165,7 @@ pub fn result_of_constraint_solving(
         for ast_id in inf_ctx.interface_impl_for_instantiated_adt.iter() {
             let span = node_map.get(ast_id).unwrap().span();
             err_string.push_str(&span.display(
-                source,
+                sources,
                 "Interface implementations for instantiated ADTs are not supported.\n",
             ));
         }
@@ -2239,7 +2239,7 @@ pub fn result_of_constraint_solving(
                         }
                         Prov::Node(id) => {
                             let span = node_map.get(id).unwrap().span();
-                            err_string.push_str(&span.display(source, ""));
+                            err_string.push_str(&span.display(sources, ""));
                         }
                         Prov::InstantiatePoly(_, ident) => {
                             err_string.push_str(&format!(
@@ -2258,7 +2258,7 @@ pub fn result_of_constraint_solving(
                                 Prov::Node(id) => {
                                     let span = node_map.get(id).unwrap().span();
                                     err_string.push_str(&span.display(
-                                        source,
+                                        sources,
                                         &format!("The #{n} argument of this function"),
                                     ));
                                 }
@@ -2274,8 +2274,9 @@ pub fn result_of_constraint_solving(
                             }
                             Prov::Node(id) => {
                                 let span = node_map.get(id).unwrap().span();
-                                err_string
-                                    .push_str(&span.display(source, "The output of this function"));
+                                err_string.push_str(
+                                    &span.display(sources, "The output of this function"),
+                                );
                             }
                             _ => unreachable!(),
                         },
@@ -2283,14 +2284,14 @@ pub fn result_of_constraint_solving(
                             err_string.push_str("The left operand of operator\n");
                             if let Prov::Node(id) = **inner {
                                 let span = node_map.get(&id).unwrap().span();
-                                err_string.push_str(&span.display(source, ""));
+                                err_string.push_str(&span.display(sources, ""));
                             }
                         }
                         Prov::BinopRight(inner) => {
                             err_string.push_str("The left operand of this operator\n");
                             if let Prov::Node(id) = **inner {
                                 let span = node_map.get(&id).unwrap().span();
-                                err_string.push_str(&span.display(source, ""));
+                                err_string.push_str(&span.display(sources, ""));
                             }
                         }
                         Prov::ListElem(_) => {

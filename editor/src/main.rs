@@ -772,34 +772,42 @@ impl eframe::App for MyApp {
                         {
                             self.interpreter = None;
                             self.output.clear();
-                            let source = _PRELUDE.to_owned() + &self.text;
-                            match ast::parse_or_err(&source) {
-                                Ok(parse_tree) => {
+                            let mut sources = ast::Sources::new();
+                            sources.insert("prelude.abra".to_string(), _PRELUDE.to_string());
+                            sources.insert("main.abra".to_string(), self.text.clone());
+                            match &ast::parse_or_err(&sources) {
+                                Ok(toplevels) => {
                                     debug_println!("successfully parsed.");
                                     let mut node_map = ast::NodeMap::new();
-                                    ast::initialize_node_map(
-                                        &mut node_map,
-                                        &(parse_tree.clone() as Rc<dyn ast::Node>),
-                                    );
+                                    for parse_tree in toplevels {
+                                        ast::initialize_node_map(
+                                            &mut node_map,
+                                            &(parse_tree.clone() as Rc<dyn ast::Node>),
+                                        );
+                                    }
                                     debug_println!("initialized node map.");
                                     let mut inference_ctx = statics::InferenceContext::new();
                                     let tyctx = make_new_gamma();
-                                    statics::gather_definitions_toplevel(
-                                        &mut inference_ctx,
-                                        tyctx.clone(),
-                                        parse_tree.clone(),
-                                    );
-                                    let tyctx = statics::generate_constraints_toplevel(
-                                        tyctx,
-                                        parse_tree.clone(),
-                                        &mut inference_ctx,
-                                    );
+                                    for parse_tree in toplevels {
+                                        statics::gather_definitions_toplevel(
+                                            &mut inference_ctx,
+                                            tyctx.clone(),
+                                            parse_tree.clone(),
+                                        );
+                                    }
+                                    for parse_tree in toplevels {
+                                        statics::generate_constraints_toplevel(
+                                            tyctx.clone(),
+                                            parse_tree.clone(),
+                                            &mut inference_ctx,
+                                        );
+                                    }
                                     debug_println!("generated constraints.");
                                     let result = statics::result_of_constraint_solving(
                                         &mut inference_ctx,
                                         tyctx.clone(),
                                         &node_map,
-                                        &source,
+                                        &sources,
                                     );
                                     match result {
                                         Ok(_) => {
@@ -809,7 +817,7 @@ impl eframe::App for MyApp {
                                                     &inference_ctx,
                                                     tyctx,
                                                     &node_map,
-                                                    parse_tree,
+                                                    toplevels,
                                                 );
                                             self.interpreter = Some(Interpreter::new(
                                                 &inference_ctx,
@@ -825,7 +833,7 @@ impl eframe::App for MyApp {
                                     }
                                 }
                                 Err(err) => {
-                                    self.output = err;
+                                    self.output = err.to_string();
                                 }
                             }
                         }
