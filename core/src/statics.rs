@@ -125,7 +125,7 @@ pub enum Prov {
     Node(ast::Id),   // the type of an expression or statement
     Builtin(String), // a function or constant, which doesn't exist in the AST
 
-    Alias(Identifier),
+    Alias(Identifier), // TODO add Box<Prov>
     AdtDef(Box<Prov>),
 
     InstantiateAdtParam(Box<Prov>, u8),
