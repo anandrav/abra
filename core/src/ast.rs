@@ -15,7 +15,10 @@ pub type Identifier = String;
 
 pub type ArgAnnotated = (Rc<Pat>, Option<Rc<AstType>>);
 
-pub type Sources = HashMap<String, String>;
+pub struct Sources {
+    pub files: Vec<String>, // order matters
+    pub filename_to_source: HashMap<String, String>,
+}
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct InterfaceAnnotation {
@@ -558,7 +561,7 @@ impl Span {
     }
 
     pub fn display(&self, sources: &Sources, detail: &str) -> String {
-        let source = sources.get(&self.filename).unwrap();
+        let source = sources.filename_to_source.get(&self.filename).unwrap();
         let mut s = String::new();
         let ((lo_line, lo_col), (hi_line, hi_col)) = self.lines_and_columns(source);
         if lo_line != hi_line {
@@ -1250,7 +1253,8 @@ pub fn parse_expr_pratt(pairs: Pairs<Rule>, filename: &str) -> Rc<Expr> {
 // TODO: this never errors lol
 pub fn parse_or_err(sources: &Sources) -> Result<Vec<Rc<Toplevel>>, String> {
     let mut toplevels = vec![];
-    for (filename, source) in sources {
+    for filename in &sources.files {
+        let source = sources.filename_to_source.get(filename).unwrap();
         let pairs = get_pairs(source)?;
 
         let toplevel = parse_toplevel(pairs, filename);

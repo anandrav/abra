@@ -4,6 +4,7 @@ extern crate eframe;
 extern crate regex;
 extern crate syntect;
 
+use std::collections::HashMap;
 use std::rc::Rc;
 
 use debug_print::debug_println;
@@ -772,9 +773,15 @@ impl eframe::App for MyApp {
                         {
                             self.interpreter = None;
                             self.output.clear();
-                            let mut sources = ast::Sources::new();
-                            sources.insert("prelude.abra".to_string(), _PRELUDE.to_string());
-                            sources.insert("main.abra".to_string(), self.text.clone());
+                            let mut filename_to_source = HashMap::new();
+                            filename_to_source
+                                .insert("prelude.abra".to_string(), _PRELUDE.to_string());
+                            filename_to_source.insert("main.abra".to_string(), self.text.clone());
+                            let files = vec!["prelude.abra".to_string(), "main.abra".to_string()];
+                            let sources = ast::Sources {
+                                filename_to_source,
+                                files,
+                            };
                             match &ast::parse_or_err(&sources) {
                                 Ok(toplevels) => {
                                     debug_println!("successfully parsed.");
