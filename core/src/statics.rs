@@ -2452,13 +2452,14 @@ impl fmt::Display for Type {
             Type::Bool(_) => write!(f, "bool"),
             Type::String(_) => write!(f, "string"),
             Type::Function(_, args, out) => {
+                write!(f, "fn(")?;
                 for (i, arg) in args.iter().enumerate() {
                     if i > 0 {
                         write!(f, ", ")?;
                     }
                     write!(f, "{arg}")?;
                 }
-                write!(f, " -> ")?;
+                write!(f, ") -> ")?;
                 write!(f, "{out}")
             }
             Type::Tuple(_, elems) => {
