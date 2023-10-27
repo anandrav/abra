@@ -2065,11 +2065,11 @@ pub fn result_of_constraint_solving(
                     debug_println!("impl: {}", impl_.typ);
                     if let Some(impl_ty) = impl_.typ.solution() {
                         debug_println!("impl_ty: {:?}", impl_ty);
-                        if let Err((err_monoty, err_impl_ty)) =
+                        if let Err((_err_monoty, _err_impl_ty)) =
                             ty_fits_impl_ty(inf_ctx, typ.clone(), impl_ty)
                         {
-                            debug_println!("err_monoty: {:#?}", err_monoty);
-                            debug_println!("err_impl_ty: {:#?}", err_impl_ty);
+                            debug_println!("err_monoty: {:#?}", _err_monoty);
+                            debug_println!("err_impl_ty: {:#?}", _err_impl_ty);
                         } else {
                             bad_instantiation = false;
                         }
