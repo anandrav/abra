@@ -102,7 +102,7 @@ impl UnifVarData {
 }
 
 // If two types don't share the same key, they must be in conflict
-// If two types share the same key, they may be in conflict
+// (If two types share the same key, they may or may not be in conflict)
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum TypeKey {
     Poly,                  // TODO: why isn't the Identifier included here?
@@ -2390,7 +2390,7 @@ fn ty_fits_impl_ty_poly(
                 debug_println!("impl: {}", impl_.typ);
                 if let Some(impl_ty) = impl_.typ.solution() {
                     debug_println!("impl_ty: {:?}", impl_ty);
-                    if let Ok(_) = ty_fits_impl_ty(inf_ctx, typ.clone(), impl_ty) {
+                    if ty_fits_impl_ty(inf_ctx, typ.clone(), impl_ty).is_ok() {
                         return true;
                     }
                 }

@@ -399,7 +399,6 @@ impl Interpreter {
             }
             Err(err) => {
                 self.error = Some(err);
-                return;
             }
         }
     }
