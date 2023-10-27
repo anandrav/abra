@@ -2172,8 +2172,6 @@ pub fn result_of_constraint_solving(
     }
 
     if !type_conflicts.is_empty() {
-        err_string.push_str("You have a type conflict!\n");
-
         let mut type_conflicts = type_conflicts
             .iter()
             .map(|type_suggestions| {
@@ -2184,7 +2182,7 @@ pub fn result_of_constraint_solving(
             .collect::<Vec<_>>();
         type_conflicts.sort();
         for type_conflict in type_conflicts {
-            err_string.push_str("Type Conflict: ");
+            err_string.push_str("Conflicting types: ");
             fmt_conflicting_types(&type_conflict, &mut err_string).unwrap();
             writeln!(err_string).unwrap();
             for ty in type_conflict {
@@ -2485,22 +2483,20 @@ impl fmt::Display for Variant {
 
 fn fmt_conflicting_types(types: &Vec<&Type>, f: &mut dyn Write) -> fmt::Result {
     let mut s = String::new();
-    if types.len() > 1 {
-        s.push_str("{\n");
-    }
+    s.push_str("\n");
     for (i, t) in types.iter().enumerate() {
         if types.len() == 1 {
             s.push_str(&format!("{}", t));
             break;
         }
         if i == 0 {
-            s.push_str(&format!("\t{}", t));
+            s.push_str(&format!("\t- {}", t));
         } else {
-            s.push_str(&format!("\n\t{}", t));
+            s.push_str(&format!("\n\t- {}", t));
         }
     }
-    if types.len() > 1 {
-        s.push_str("\n}");
-    }
+    // if types.len() > 1 {
+    //     s.push_str("\n}");
+    // }
     write!(f, "{}", s)
 }

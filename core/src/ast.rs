@@ -579,7 +579,7 @@ impl Span {
         }
         for line_number in lo_line..=hi_line {
             let line = source.lines().nth(line_number).unwrap();
-            s.push_str(&format!("{:3} | {}\n", line_number, line));
+            s.push_str(&format!("{:3} | {}\n", line_number + 1, line));
 
             let pad_before = if line_number == lo_line { lo_col } else { 0 };
             let num_tabs = line.chars().take(pad_before).filter(|c| *c == '\t').count();
