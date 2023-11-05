@@ -18,11 +18,6 @@ pub trait EffectTrait {
 }
 
 #[derive(Debug, Clone)]
-pub struct Cout(String);
-#[derive(Debug, Clone)]
-pub struct Cin(String);
-
-#[derive(Debug, Clone)]
 pub enum Input {
     Unit,
     // Cin(String),
@@ -31,7 +26,7 @@ pub enum Input {
 #[derive(Debug, Clone, PartialEq, Eq, EnumIter)]
 pub enum Effect {
     // TODO rename to DefaultEffects
-    Print,
+    PrintString,
     // ReadLn,
 }
 
@@ -43,7 +38,7 @@ impl EffectTrait for Effect {
     fn type_signature(&self) -> (Vec<statics::TypeMonomorphized>, statics::TypeMonomorphized) {
         match self {
             // print_string: string -> void
-            Effect::Print => (
+            Effect::PrintString => (
                 vec![statics::TypeMonomorphized::String],
                 statics::TypeMonomorphized::Unit,
             ),
@@ -52,7 +47,7 @@ impl EffectTrait for Effect {
 
     fn function_name(&self) -> String {
         match self {
-            Effect::Print => String::from("print_string"),
+            Effect::PrintString => String::from("print_string"),
         }
     }
 }
@@ -66,7 +61,7 @@ pub fn handle_effect_example(
 ) -> Input {
     let effect = &EFFECT_LIST[effect_code as usize];
     match effect {
-        Effect::Print => match &*args[0] {
+        Effect::PrintString => match &*args[0] {
             eval_tree::Expr::Str(string) => {
                 output.push_str(string);
                 // output.push('\n');
