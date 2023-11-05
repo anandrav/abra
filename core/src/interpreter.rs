@@ -12,24 +12,43 @@ use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
 
-pub fn make_new_environment(inf_ctx: &InferenceContext) -> Rc<RefCell<Environment>> {
+pub fn make_new_environment<Effects: EffectTrait>(
+    inf_ctx: &InferenceContext,
+) -> Rc<RefCell<Environment>> {
     // builtins
     let env = Rc::new(RefCell::new(Environment::new(None)));
     env.borrow_mut().extend(
         &String::from("newline"),
         Rc::new(Expr::Str(String::from("\n"))),
     );
-    env.borrow_mut().extend(
-        &String::from("print_string"),
-        Rc::new(Expr::Func(
-            vec![String::from("str")],
-            Rc::new(Expr::EffectAp(
-                side_effects::Effect::Print,
-                vec![Rc::new(Expr::Var(String::from("str")))],
-            )),
-            None,
-        )),
-    );
+    for (idx, eff) in Effects::enumerate().iter().enumerate() {
+        let (arg_types, ret_type) = eff.type_signature();
+        let mut args = vec![];
+        for (i, _) in arg_types.iter().enumerate() {
+            args.push(format!("arg{}", i));
+        }
+        let body = Rc::new(Expr::EffectAp(
+            idx.try_into().unwrap(),
+            arg_types
+                .iter()
+                .enumerate()
+                .map(|(i, _)| Rc::new(Expr::Var(format!("arg{}", i))))
+                .collect(),
+        ));
+        let expr = Rc::new(Expr::Func(args, body, None));
+        env.borrow_mut().extend(&eff.function_name(), expr);
+    }
+    // env.borrow_mut().extend(
+    //     &String::from("print_string"),
+    //     Rc::new(Expr::Func(
+    //         vec![String::from("str")],
+    //         Rc::new(Expr::EffectAp(
+    //             side_effects::Effect::Print,
+    //             vec![Rc::new(Expr::Var(String::from("str")))],
+    //         )),
+    //         None,
+    //     )),
+    // );
     env.borrow_mut().extend(
         &String::from("equals_int"),
         Rc::new(Expr::Func(
@@ -352,7 +371,7 @@ impl Interpreter {
     ) -> Self {
         Interpreter {
             program_expr,
-            env: make_new_environment(inf_ctx),
+            env: make_new_environment::<side_effects::Effect>(inf_ctx),
             overloaded_func_map,
             next_input: None,
             error: None,
@@ -373,7 +392,7 @@ impl Interpreter {
 
     pub fn run(
         &mut self,
-        mut effect_handler: impl FnMut(Effect, Vec<Rc<Expr>>) -> Input,
+        mut effect_handler: impl FnMut(EffectCode, Vec<Rc<Expr>>) -> Input,
         steps: i32,
     ) {
         if self.error.is_some() {
@@ -408,7 +427,7 @@ impl Interpreter {
 pub struct InterpretOk {
     pub expr: Rc<Expr>,
     pub steps: i32,
-    pub effect: Option<(side_effects::Effect, Vec<Rc<Expr>>)>,
+    pub effect: Option<(EffectCode, Vec<Rc<Expr>>)>,
     pub new_env: Rc<RefCell<Environment>>,
 }
 
@@ -1017,7 +1036,7 @@ fn interpret(
             Ok(InterpretOk {
                 expr: Rc::new(ConsumedEffect),
                 steps,
-                effect: Some((effect_enum.clone(), args.to_vec())),
+                effect: Some((*effect_enum, args.to_vec())),
                 new_env: env,
             })
         }

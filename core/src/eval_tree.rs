@@ -7,6 +7,7 @@ use std::cell::RefCell;
 use std::rc::Rc;
 
 pub type Identifier = String;
+pub type EffectCode = u16;
 
 #[derive(Debug, PartialEq)]
 pub enum Expr {
@@ -25,7 +26,7 @@ pub enum Expr {
     FuncAp(Rc<Expr>, Vec<Rc<Expr>>, Option<Rc<RefCell<Environment>>>),
     If(Rc<Expr>, Rc<Expr>, Rc<Expr>),
     Match(Rc<Expr>, Vec<MatchArm>),
-    EffectAp(side_effects::Effect, Vec<Rc<Expr>>),
+    EffectAp(EffectCode, Vec<Rc<Expr>>),
     BuiltinAp(Builtin, Vec<Rc<Expr>>),
     ConsumedEffect,
 }

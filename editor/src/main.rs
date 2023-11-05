@@ -714,7 +714,7 @@ impl eframe::App for MyApp {
             let steps = if cfg!(debug_assertions) { 1 } else { 1000 };
             let mut more_output = String::new();
             let effect_handler =
-                |effect, args| side_effects::handle_effect(effect, args, &mut more_output);
+                |effect, args| side_effects::handle_effect_example(effect, args, &mut more_output);
             if let Some(interpreter) = &mut self.interpreter {
                 interpreter.run(effect_handler, steps);
                 self.output.push_str(&more_output);
