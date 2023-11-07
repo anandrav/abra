@@ -1,7 +1,7 @@
 use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
 use environment::Environment;
-use side_effects::EffectTrait;
+pub use side_effects::EffectTrait;
 
 use debug_print::debug_println;
 

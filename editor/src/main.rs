@@ -7,11 +7,12 @@ extern crate syntect;
 use abra_core::SourceFile;
 
 use eframe::egui;
+use once_cell::sync::Lazy;
 
 use crate::egui::Color32;
 
-use abra_core::interpreter::Interpreter;
-use abra_core::side_effects;
+use abra_core::interpreter::{Interpreter, InterpreterStatus};
+use abra_core::side_effects::{self, EffectTrait};
 
 // When compiling natively:
 #[cfg(not(target_arch = "wasm32"))]
@@ -48,12 +49,6 @@ fn main() {
         .await
         .expect("failed to start eframe");
     });
-}
-
-struct MyApp {
-    text: String,
-    output: String,
-    interpreter: Option<Interpreter>,
 }
 
 const _LIST: &str = r#"type list<'a> = nil | cons of ('a, list<'a>)
@@ -517,15 +512,26 @@ println(divide_float(2.1, 3.60001))
 println(pow_float(2.1, 3.60001))
 "#;
 
+struct MyApp {
+    text: String,
+    output: String,
+    interpreter: Option<Interpreter>,
+    effect_result: Option<abra_core::side_effects::Input>,
+}
+
 impl Default for MyApp {
     fn default() -> Self {
         Self {
             text: String::from(_DEMO),
             output: String::default(),
             interpreter: None,
+            effect_result: None,
         }
     }
 }
+
+static EFFECT_LIST: Lazy<Vec<abra_core::side_effects::Effect>> =
+    Lazy::new(abra_core::side_effects::Effect::enumerate);
 
 impl eframe::App for MyApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
@@ -543,24 +549,37 @@ impl eframe::App for MyApp {
             // so that the program can run on the UI thread.
             // I did this because web assembly does not support threads currently
             let steps = if cfg!(debug_assertions) { 1 } else { 1000 };
-            let mut more_output = String::new();
-            let effect_handler =
-                |effect, args| side_effects::handle_effect_example(effect, args, &mut more_output);
             if let Some(interpreter) = &mut self.interpreter {
-                interpreter.run(effect_handler, steps);
-                self.output.push_str(&more_output);
-                if interpreter.is_finished() {
-                    if let Some(err) = &interpreter.error {
-                        self.output += &format!("\nError: {}\n", err.message);
-                    } else {
+                let status = interpreter.run(steps, self.effect_result.take());
+                match status {
+                    InterpreterStatus::Error(msg) => {
+                        self.output += &msg;
+                        self.interpreter = None;
+                    }
+                    InterpreterStatus::Finished => {
                         self.output += &format!(
                             "\nLast line evaluated to: {}",
                             interpreter.get_val().unwrap()
                         );
+                        self.interpreter = None;
                     }
-                    self.interpreter = None;
-                } else {
-                    ui.ctx().request_repaint();
+                    InterpreterStatus::OutOfSteps => {
+                        ui.ctx().request_repaint();
+                    }
+                    InterpreterStatus::Effect(code, args) => {
+                        let effect = &EFFECT_LIST[code as usize];
+                        match effect {
+                            abra_core::side_effects::Effect::PrintString => match &*args[0] {
+                                abra_core::eval_tree::Expr::Str(string) => {
+                                    self.output.push_str(string);
+                                    self.effect_result = Some(abra_core::side_effects::Input::Unit);
+                                }
+                                _ => panic!("wrong arguments for {:#?} effect", effect),
+                            },
+                            // Effect::ReadLn => Input::Cin(String::from("this is input")),
+                        }
+                        ui.ctx().request_repaint();
+                    }
                 }
             }
 

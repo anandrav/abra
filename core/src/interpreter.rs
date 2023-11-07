@@ -348,8 +348,14 @@ pub struct Interpreter {
     program_expr: Rc<Expr>,
     env: Rc<RefCell<Environment>>,
     overloaded_func_map: OverloadedFuncMap,
-    next_input: Option<Input>,
-    pub error: Option<InterpretErr>,
+    error: Option<InterpretErr>,
+}
+
+pub enum InterpreterStatus {
+    OutOfSteps,
+    Finished,
+    Error(String),
+    Effect(EffectCode, Vec<Rc<Expr>>),
 }
 
 impl Interpreter {
@@ -362,7 +368,6 @@ impl Interpreter {
             program_expr,
             env,
             overloaded_func_map,
-            next_input: None,
             error: None,
         }
     }
@@ -379,20 +384,13 @@ impl Interpreter {
         }
     }
 
-    pub fn run(
-        &mut self,
-        mut effect_handler: impl FnMut(EffectCode, Vec<Rc<Expr>>) -> Input,
-        steps: i32,
-    ) {
-        if self.error.is_some() {
-            return;
-        }
+    pub fn run(&mut self, steps: i32, effect_result: Option<Input>) -> InterpreterStatus {
         let result = interpret(
             self.program_expr.clone(),
             self.env.clone(),
             &self.overloaded_func_map,
             steps,
-            &self.next_input,
+            &effect_result,
         );
         match result {
             Ok(InterpretOk {
@@ -403,11 +401,15 @@ impl Interpreter {
             }) => {
                 self.program_expr = expr;
                 self.env = new_env;
-                self.next_input = effect.map(|(effect, args)| effect_handler(effect, args))
+                if let Some(effect) = effect {
+                    return InterpreterStatus::Effect(effect.0, effect.1);
+                }
+                if is_val(&self.program_expr) {
+                    return InterpreterStatus::Finished;
+                }
+                InterpreterStatus::OutOfSteps
             }
-            Err(err) => {
-                self.error = Some(err);
-            }
+            Err(err) => InterpreterStatus::Error(err.message),
         }
     }
 }
