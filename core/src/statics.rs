@@ -1972,6 +1972,10 @@ pub fn gather_definitions_stmt(
             inf_ctx
                 .fun_defs
                 .insert(name.patkind.get_identifier_of_variable(), stmt.clone());
+            gamma.borrow_mut().extend(
+                &name.patkind.get_identifier_of_variable(),
+                Type::from_node(inf_ctx, name.id),
+            );
         }
     }
 }

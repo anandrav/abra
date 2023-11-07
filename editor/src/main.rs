@@ -4,15 +4,18 @@ extern crate eframe;
 extern crate regex;
 extern crate syntect;
 
+use abra_core::SourceFile;
+use debug_print::debug_println;
+use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
-
-use debug_print::debug_println;
 
 use eframe::egui;
 
 use crate::egui::Color32;
 use abra_core::ast;
+use abra_core::environment::Environment;
+use abra_core::interpreter::add_builtins_and_variants;
 use abra_core::interpreter::Interpreter;
 use abra_core::side_effects;
 use abra_core::statics;
@@ -126,7 +129,7 @@ println("The first 10 fibonacci numbers are:")
 for_each(range(0, 9), n -> println(fibonacci(n)))
 "#;
 
-const _DEMO: &str = r#"let fibonacci(n) = {
+const _DEMO: &str = r#"func fibonacci(n) = {
     match n
         0 -> 0
         1 -> 1
@@ -525,7 +528,7 @@ println(pow_float(2.1, 3.60001))
 "#;
 
 const _PRELUDE: &str = r#"
-let not(b: bool) = if b false else true
+func not(b: bool) = if b false else true
 
 interface Num {
     add: (self, self) -> self
@@ -539,26 +542,26 @@ interface Num {
     greater_than_or_equal: (self, self) -> bool
 }
 implement Num for int {
-    let add(a, b) = add_int(a, b)
-    let minus(a, b) = minus_int(a, b)
-    let multiply(a, b) = multiply_int(a, b)
-    let divide(a, b) = divide_int(a, b)
-    let pow(a, b) = pow_int(a, b)
-    let less_than(a, b) = less_than_int(a, b)
-    let less_than_or_equal(a, b) = (a < b) or (a = b)
-    let greater_than(a, b) = not(a < b) and not(a = b)
-    let greater_than_or_equal(a, b) = not(a < b)
+    func add(a, b) = add_int(a, b)
+    func minus(a, b) = minus_int(a, b)
+    func multiply(a, b) = multiply_int(a, b)
+    func divide(a, b) = divide_int(a, b)
+    func pow(a, b) = pow_int(a, b)
+    func less_than(a, b) = less_than_int(a, b)
+    func less_than_or_equal(a, b) = (a < b) or (a = b)
+    func greater_than(a, b) = not(a < b) and not(a = b)
+    func greater_than_or_equal(a, b) = not(a < b)
 }
 implement Num for float {
-    let add(a, b) = add_float(a, b)
-    let minus(a, b) = minus_float(a, b)
-    let multiply(a, b) = multiply_float(a, b)
-    let divide(a, b) = divide_float(a, b)
-    let pow(a, b) = pow_float(a, b)
-    let less_than(a, b) = less_than_float(a, b)
-    let less_than_or_equal(a, b) = a < b
-    let greater_than(a, b) = b < a
-    let greater_than_or_equal(a, b) = b < a
+    func add(a, b) = add_float(a, b)
+    func minus(a, b) = minus_float(a, b)
+    func multiply(a, b) = multiply_float(a, b)
+    func divide(a, b) = divide_float(a, b)
+    func pow(a, b) = pow_float(a, b)
+    func less_than(a, b) = less_than_float(a, b)
+    func less_than_or_equal(a, b) = a < b
+    func greater_than(a, b) = b < a
+    func greater_than_or_equal(a, b) = b < a
 }
 
 type list<'a> = nil | cons of ('a, list<'a>)
@@ -567,16 +570,16 @@ interface Equals {
     equals: (self, self) -> bool
 }
 implement Equals for void {
-    let equals(a, b) = true
+    func equals(a, b) = true
 }
 implement Equals for int {
-    let equals(a, b) = equals_int(a, b)
+    func equals(a, b) = equals_int(a, b)
 }
 implement Equals for float {
-    let equals(a, b) = false
+    func equals(a, b) = false
 }
 implement Equals for bool {
-    let equals(a, b) = 
+    func equals(a, b) = 
         if a and b {
             true
         } else if a or b {
@@ -586,10 +589,10 @@ implement Equals for bool {
         }
 }
 implement Equals for string {
-    let equals(a, b) = equals_string(a, b)
+    func equals(a, b) = equals_string(a, b)
 }
 implement Equals for list<'a Equals> {
-    let equals(a, b) = {
+    func equals(a, b) = {
         match (a, b)
             (nil, nil) -> true
             (cons (~x, ~xs), cons (~y, ~ys)) -> {
@@ -603,24 +606,24 @@ interface ToString {
     to_string: self -> string
 }
 implement ToString for string {
-	let to_string(s) = s
+	func to_string(s) = s
 }
 implement ToString for void {
-	let to_string(s) = "()"
+	func to_string(s) = "()"
 }
 implement ToString for int {
-	let to_string(n) = int_to_string(n)
+	func to_string(n) = int_to_string(n)
 }
 implement ToString for bool {
-	let to_string(b) = if b "true" else "false"
+	func to_string(b) = if b "true" else "false"
 }
 implement ToString for float {
-    let to_string(f) = float_to_string(f)
+    func to_string(f) = float_to_string(f)
 }
 
 implement ToString for list<'a ToString> {
-    let to_string(xs) = {
-        let helper(xs) = 
+    func to_string(xs) = {
+        func helper(xs) = 
             match xs
                 nil -> ""
                 cons (~x, nil) -> {
@@ -632,27 +635,27 @@ implement ToString for list<'a ToString> {
         "[ " & helper(xs) & " ]"
     }
 }
-let print(x: 'b ToString) = print_string(to_string(x))
-let println(x: 'b ToString) = {
+func print(x: 'b ToString) = print_string(to_string(x))
+func println(x: 'b ToString) = {
     print_string(to_string(x))
     print_string(newline)
 }
 
-let range(lo: int, hi: int) =
+func range(lo: int, hi: int) =
     if lo > hi
         nil
     else
         cons(lo, range(lo + 1, hi))
 
-let fold(xs: list<'b>, f: ('a, 'b) -> 'a, acc: 'a) -> 'a =
+func fold(xs: list<'b>, f: ('a, 'b) -> 'a, acc: 'a) -> 'a =
     match xs
         nil -> acc
         cons (~head, ~tail) -> fold(tail, f, f(acc, head))
 
-let sum(xs: list<int>) -> int = fold(xs, (a, b) -> a + b, 0)
-let sumf(xs: list<float>) -> float = fold(xs, (a, b) -> a + b, 0.0)
+func sum(xs: list<int>) -> int = fold(xs, (a, b) -> a + b, 0)
+func sumf(xs: list<float>) -> float = fold(xs, (a, b) -> a + b, 0.0)
 
-let concat(xs: list<string>, sep: string) -> string =
+func concat(xs: list<string>, sep: string) -> string =
     match xs
         nil -> ""
         cons (~head, cons(~last, nil)) -> {
@@ -662,12 +665,12 @@ let concat(xs: list<string>, sep: string) -> string =
             head & sep & concat(tail, sep)
         }
 
-let map(xs: list<'a>, f: 'a -> 'b) -> list<'b> =
+func map(xs: list<'a>, f: 'a -> 'b) -> list<'b> =
     match xs
         nil -> nil
         cons (~head, ~tail) -> cons(f(head), map(tail, f))
 
-let for_each(xs: list<'a>, f: 'a -> 'b) -> void =
+func for_each(xs: list<'a>, f: 'a -> 'b) -> void =
     match xs
         nil -> ()
         cons (~head, ~tail) -> {
@@ -675,13 +678,13 @@ let for_each(xs: list<'a>, f: 'a -> 'b) -> void =
             for_each(tail, f)
         }
 
-let filter(xs: list<'a>, f: 'a -> bool) -> list<'a> =
+func filter(xs: list<'a>, f: 'a -> bool) -> list<'a> =
     match xs
         nil -> nil
         cons (~head, ~tail) -> 
             if f(head) cons(head, filter(tail, f)) else filter(tail, f)
 
-let reverse(xs: list<'c>) -> list<'c> =
+func reverse(xs: list<'c>) -> list<'c> =
     fold(xs, (acc, head) -> cons(head, acc), nil)
 
 "#;
@@ -773,71 +776,22 @@ impl eframe::App for MyApp {
                         {
                             self.interpreter = None;
                             self.output.clear();
-                            let mut filename_to_source = HashMap::new();
-                            filename_to_source
-                                .insert("prelude.abra".to_string(), _PRELUDE.to_string());
-                            filename_to_source.insert("main.abra".to_string(), self.text.clone());
-                            let files = vec!["prelude.abra".to_string(), "main.abra".to_string()];
-                            let sources = ast::Sources {
-                                filename_to_source,
-                                files,
-                            };
-                            match &ast::parse_or_err(&sources) {
-                                Ok(toplevels) => {
-                                    debug_println!("successfully parsed.");
-                                    let mut node_map = ast::NodeMap::new();
-                                    for parse_tree in toplevels {
-                                        ast::initialize_node_map(
-                                            &mut node_map,
-                                            &(parse_tree.clone() as Rc<dyn ast::Node>),
-                                        );
-                                    }
-                                    debug_println!("initialized node map.");
-                                    let mut inference_ctx = statics::InferenceContext::new();
-                                    let tyctx = make_new_gamma();
-                                    for parse_tree in toplevels {
-                                        statics::gather_definitions_toplevel(
-                                            &mut inference_ctx,
-                                            tyctx.clone(),
-                                            parse_tree.clone(),
-                                        );
-                                    }
-                                    for parse_tree in toplevels {
-                                        statics::generate_constraints_toplevel(
-                                            tyctx.clone(),
-                                            parse_tree.clone(),
-                                            &mut inference_ctx,
-                                        );
-                                    }
-                                    debug_println!("generated constraints.");
-                                    let result = statics::result_of_constraint_solving(
-                                        &mut inference_ctx,
-                                        tyctx.clone(),
-                                        &node_map,
-                                        &sources,
-                                    );
-                                    match result {
-                                        Ok(_) => {
-                                            debug_println!("solved constraints.");
-                                            let (eval_tree, overloaded_func_map) =
-                                                translate::translate(
-                                                    &inference_ctx,
-                                                    tyctx,
-                                                    &node_map,
-                                                    toplevels,
-                                                );
-                                            self.interpreter = Some(Interpreter::new(
-                                                &inference_ctx,
-                                                overloaded_func_map,
-                                                eval_tree,
-                                            ));
-                                            debug_println!("initialized new interpreter.");
-                                        }
-                                        Err(err) => {
-                                            debug_println!("constraint solving failed.");
-                                            self.output = err;
-                                        }
-                                    }
+                            let mut source_files = Vec::new();
+                            source_files.push(SourceFile {
+                                name: "prelude.abra".to_string(),
+                                contents: _PRELUDE.to_string(),
+                            });
+                            source_files.push(SourceFile {
+                                name: "main.abra".to_string(),
+                                contents: self.text.clone(),
+                            });
+
+                            match abra_core::compile::<side_effects::Effect>(source_files) {
+                                Ok(runtime) => {
+                                    self.interpreter = Some(runtime.toplevel_interpreter());
+                                    // let args = vec![runtime.make_int(10)];
+                                    // self.interpreter =
+                                    //     Some(runtime.func_interpreter("fibonacci", args));
                                 }
                                 Err(err) => {
                                     self.output = err.to_string();

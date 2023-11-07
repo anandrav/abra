@@ -30,7 +30,8 @@ let_pattern = _{ let_pattern_tuple | wildcard | identifier }
 wildcard = @{ "_" }
 op_assign = _{ "=" }
 
-let_func_statement = { let_keyword ~ identifier ~ func_args ~ func_out_annotation? ~ op_assign ~ expression }
+let_func_statement = { func_keyword ~ identifier ~ func_args ~ func_out_annotation? ~ op_assign ~ expression }
+func_keyword = _{ "func" }
 
 let_pattern_tuple = { tuple_start ~ (let_pattern_tuple_element ~ ",")+ ~ let_pattern_tuple_element ~ tuple_end }
 let_pattern_tuple_element = _{ let_pattern }
@@ -78,7 +79,6 @@ func_args_start = _{ "(" }
 func_args_end = _{ ")" }
 func_expression_args = _{ func_args | func_arg }
 func_args = _{ func_args_start ~ (func_arg ~ ",")* ~ func_arg? ~ func_args_end }
-func_keyword = _{ "func" }
 func_arg = { let_pattern ~ (interface_annotation | type_annotation )?}
 
 interface_annotation = { ":" ~ "impl" ~ identifier }

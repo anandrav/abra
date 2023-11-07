@@ -3,6 +3,7 @@ use debug_print::debug_println;
 use crate::ast;
 use crate::ast::Node;
 use crate::ast::NodeMap;
+use crate::environment::Environment;
 use crate::eval_tree;
 use crate::interpreter;
 use crate::operators::BinOpcode;
@@ -78,6 +79,7 @@ pub fn translate_expr_block(
     node_map: &NodeMap,
     overloaded_func_map: &mut OverloadedFuncMapTemp,
     stmts: Vec<Rc<ast::Stmt>>,
+    env: Option<Rc<RefCell<Environment>>>,
 ) -> Rc<Ete> {
     if stmts.is_empty() {
         return Rc::new(Ete::Unit);
@@ -93,6 +95,7 @@ pub fn translate_expr_block(
             node_map,
             overloaded_func_map,
             stmts[1..].to_vec(),
+            env.clone(),
         ),
         ast::StmtKind::LetFunc(pat, func_args, _, body) => {
             debug_println!("node is {}", pat.id);
@@ -106,9 +109,11 @@ pub fn translate_expr_block(
                     node_map,
                     overloaded_func_map,
                     stmts[1..].to_vec(),
+                    env.clone(),
                 );
             }
             let id = pat.patkind.get_identifier_of_variable();
+            println!("letfunc id: {}", id);
             let func = translate_expr_func(
                 inf_ctx,
                 monomorphenv.clone(),
@@ -118,6 +123,10 @@ pub fn translate_expr_block(
                 func_args.clone(),
                 body.clone(),
             );
+            if let Some(env) = &env {
+                println!("extending env with {}", id);
+                env.borrow_mut().extend(&id, func.clone());
+            }
             Rc::new(Ete::Let(
                 Rc::new(Etp::Var(id)),
                 func,
@@ -128,6 +137,7 @@ pub fn translate_expr_block(
                     node_map,
                     overloaded_func_map,
                     stmts[1..].to_vec(),
+                    env.clone(),
                 ),
             ))
         }
@@ -149,6 +159,7 @@ pub fn translate_expr_block(
                 node_map,
                 overloaded_func_map,
                 stmts[1..].to_vec(),
+                env.clone(),
             ),
         )),
         ast::StmtKind::Expr(e) if stmts.len() == 1 => translate_expr(
@@ -178,6 +189,7 @@ pub fn translate_expr_block(
                 node_map,
                 overloaded_func_map,
                 stmts[1..].to_vec(),
+                env.clone(),
             ),
         )),
     }
@@ -641,6 +653,7 @@ pub fn translate_expr(
             node_map,
             overloaded_func_map,
             stmts.clone(),
+            None,
         ),
         ASTek::Func(func_args, _, body) => translate_expr_func(
             inf_ctx,
@@ -766,6 +779,7 @@ pub fn translate(
     gamma: Rc<RefCell<Gamma>>,
     node_map: &NodeMap,
     toplevels: &Vec<Rc<ast::Toplevel>>,
+    env: Rc<RefCell<Environment>>,
 ) -> (Rc<Ete>, interpreter::OverloadedFuncMap) {
     let mut overloaded_func_map_temp = OverloadedFuncMapTemp::new();
     let monomorphenv = Rc::new(RefCell::new(MonomorphEnv::new(None)));
@@ -782,6 +796,7 @@ pub fn translate(
         node_map,
         &mut overloaded_func_map_temp,
         statements,
+        Some(env),
     );
     let overloaded_func_map = strip_temp_overloaded_func_map(&overloaded_func_map_temp);
     (toplevel, overloaded_func_map)

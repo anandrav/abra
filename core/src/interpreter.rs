@@ -12,11 +12,11 @@ use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
 
-pub fn make_new_environment<Effects: EffectTrait>(
+pub fn add_builtins_and_variants<Effects: EffectTrait>(
+    env: Rc<RefCell<Environment>>,
     inf_ctx: &InferenceContext,
 ) -> Rc<RefCell<Environment>> {
     // builtins
-    let env = Rc::new(RefCell::new(Environment::new(None)));
     env.borrow_mut().extend(
         &String::from("newline"),
         Rc::new(Expr::Str(String::from("\n"))),
@@ -38,17 +38,6 @@ pub fn make_new_environment<Effects: EffectTrait>(
         let expr = Rc::new(Expr::Func(args, body, None));
         env.borrow_mut().extend(&eff.function_name(), expr);
     }
-    // env.borrow_mut().extend(
-    //     &String::from("print_string"),
-    //     Rc::new(Expr::Func(
-    //         vec![String::from("str")],
-    //         Rc::new(Expr::EffectAp(
-    //             side_effects::Effect::Print,
-    //             vec![Rc::new(Expr::Var(String::from("str")))],
-    //         )),
-    //         None,
-    //     )),
-    // );
     env.borrow_mut().extend(
         &String::from("equals_int"),
         Rc::new(Expr::Func(
@@ -365,13 +354,13 @@ pub struct Interpreter {
 
 impl Interpreter {
     pub fn new(
-        inf_ctx: &InferenceContext,
         overloaded_func_map: OverloadedFuncMap,
         program_expr: Rc<Expr>,
+        env: Rc<RefCell<Environment>>,
     ) -> Self {
         Interpreter {
             program_expr,
-            env: make_new_environment::<side_effects::Effect>(inf_ctx),
+            env,
             overloaded_func_map,
             next_input: None,
             error: None,
