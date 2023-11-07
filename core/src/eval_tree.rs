@@ -1,6 +1,6 @@
 use crate::environment::Environment;
 use crate::operators::BinOpcode;
-use crate::side_effects;
+
 use crate::statics::TypeMonomorphized;
 
 use std::cell::RefCell;

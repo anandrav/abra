@@ -2488,7 +2488,7 @@ impl fmt::Display for Variant {
 
 fn fmt_conflicting_types(types: &Vec<&Type>, f: &mut dyn Write) -> fmt::Result {
     let mut s = String::new();
-    s.push_str("\n");
+    s.push('\n');
     for (i, t) in types.iter().enumerate() {
         if types.len() == 1 {
             s.push_str(&format!("{}", t));

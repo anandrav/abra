@@ -3,7 +3,7 @@ use crate::eval_tree::Expr::*;
 use crate::eval_tree::*;
 use crate::operators::BinOpcode::*;
 use crate::operators::*;
-use crate::side_effects;
+
 use crate::side_effects::*;
 use crate::statics::InferenceContext;
 use crate::statics::Type;
@@ -22,7 +22,7 @@ pub fn add_builtins_and_variants<Effects: EffectTrait>(
         Rc::new(Expr::Str(String::from("\n"))),
     );
     for (idx, eff) in Effects::enumerate().iter().enumerate() {
-        let (arg_types, ret_type) = eff.type_signature();
+        let (arg_types, _ret_type) = eff.type_signature();
         let mut args = vec![];
         for (i, _) in arg_types.iter().enumerate() {
             args.push(format!("arg{}", i));
@@ -1014,7 +1014,7 @@ fn interpret(
                 args[i] = arg;
                 if effect.is_some() || steps <= 0 {
                     return Ok(InterpretOk {
-                        expr: Rc::new(EffectAp(effect_enum.clone(), args.to_vec())),
+                        expr: Rc::new(EffectAp(*effect_enum, args.to_vec())),
                         steps,
                         effect,
                         new_env,

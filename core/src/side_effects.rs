@@ -52,7 +52,7 @@ impl EffectTrait for Effect {
     }
 }
 
-static EFFECT_LIST: Lazy<Vec<Effect>> = Lazy::new(|| Effect::enumerate());
+static EFFECT_LIST: Lazy<Vec<Effect>> = Lazy::new(Effect::enumerate);
 
 pub fn handle_effect_example(
     effect_code: EffectCode,
