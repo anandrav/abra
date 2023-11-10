@@ -1149,7 +1149,7 @@ fn handle_builtin(builtin: Builtin, args: Vec<Rc<Expr>>) -> Result<Rc<Expr>, Int
         Builtin::IntToFloat => {
             let arg = args[0].clone();
             match &*arg {
-                Int(i) => Ok(Rc::new(Float(*i as f32))),
+                Int(i) => Ok(Rc::new(Float(*i as f64))),
                 _ => Err(InterpretErr {
                     message: "IntToFloat expects an int".to_string(),
                 }),
@@ -1158,7 +1158,7 @@ fn handle_builtin(builtin: Builtin, args: Vec<Rc<Expr>>) -> Result<Rc<Expr>, Int
         Builtin::RoundFloatToInt => {
             let arg = args[0].clone();
             match &*arg {
-                Float(f) => Ok(Rc::new(Int(f.round() as i32))),
+                Float(f) => Ok(Rc::new(Int(f.round() as i64))),
                 _ => Err(InterpretErr {
                     message: "RoundFloatToInt expects a float".to_string(),
                 }),
@@ -1238,7 +1238,7 @@ fn handle_builtin(builtin: Builtin, args: Vec<Rc<Expr>>) -> Result<Rc<Expr>, Int
             let arg1 = args[0].clone();
             let arg2 = args[1].clone();
             match (&*arg1, &*arg2) {
-                (Int(s1), Int(s2)) => Ok(Rc::new(Int(s1.pow(i32::try_into(*s2).unwrap())))),
+                (Int(s1), Int(s2)) => Ok(Rc::new(Int(s1.pow(i64::try_into(*s2).unwrap())))),
                 _ => Err(InterpretErr {
                     message: "PowInt expects two ints".to_string(),
                 }),

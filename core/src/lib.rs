@@ -102,7 +102,7 @@ impl Runtime {
         )
     }
 
-    pub fn make_int(&self, i: i32) -> Rc<eval_tree::Expr> {
+    pub fn make_int(&self, i: i64) -> Rc<eval_tree::Expr> {
         Rc::new(eval_tree::Expr::Int(i))
     }
 
