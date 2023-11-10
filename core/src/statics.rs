@@ -124,6 +124,7 @@ pub enum TypeKey {
 pub enum Prov {
     Node(ast::Id),   // the type of an expression or statement
     Builtin(String), // a function or constant, which doesn't exist in the AST
+    UnderdeterminedCoerceToUnit,
 
     Alias(Identifier), // TODO add Box<Prov>
     AdtDef(Box<Prov>),
@@ -145,6 +146,7 @@ impl Prov {
         match self {
             Prov::Node(id) => Some(*id),
             Prov::Builtin(_) => None,
+            Prov::UnderdeterminedCoerceToUnit => None,
             Prov::Alias(_) => None,
             Prov::AdtDef(inner)
             | Prov::InstantiateAdtParam(inner, _)
@@ -2025,6 +2027,21 @@ pub fn result_of_constraint_solving(
         }
     }
 
+    // replace underdetermined types with unit
+    if type_conflicts.len() == 0 {
+        for potential_types in inf_ctx.vars.values() {
+            let mut data = potential_types.clone_data();
+            let suggestions = &mut data.types;
+            if suggestions.len() == 0 {
+                suggestions.insert(
+                    TypeKey::Unit,
+                    Type::make_unit(Prov::UnderdeterminedCoerceToUnit),
+                );
+                potential_types.replace_data(data);
+            }
+        }
+    }
+
     // look for error of multiple interface implementations for the same type
     for (ident, impls) in inf_ctx.interface_impls.iter() {
         // map from implementation type to location
@@ -2233,6 +2250,7 @@ pub fn result_of_constraint_solving(
                     Prov::ListElem(_) => 10,
                     Prov::BinopLeft(_) => 11,
                     Prov::BinopRight(_) => 12,
+                    Prov::UnderdeterminedCoerceToUnit => 13,
                 });
                 for cause in provs_vec {
                     match cause {
@@ -2242,6 +2260,11 @@ pub fn result_of_constraint_solving(
                         Prov::Node(id) => {
                             let span = node_map.get(id).unwrap().span();
                             err_string.push_str(&span.display(sources, ""));
+                        }
+                        Prov::UnderdeterminedCoerceToUnit => {
+                            err_string.push_str(
+                                "The type was underdetermined, so it was coerced to void.",
+                            );
                         }
                         Prov::InstantiatePoly(_, ident) => {
                             err_string.push_str(&format!(
