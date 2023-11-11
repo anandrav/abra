@@ -391,12 +391,12 @@ impl Type {
         Type::String(provs_singleton(prov))
     }
 
-    pub fn make_arrow(args: Vec<Type>, out: Type, id: ast::Id) -> Type {
-        Type::Function(provs_singleton(Prov::Node(id)), args, out.into())
+    pub fn make_arrow(args: Vec<Type>, out: Type, prov: Prov) -> Type {
+        Type::Function(provs_singleton(prov), args, out.into())
     }
 
-    pub fn make_tuple(elems: Vec<Type>, id: ast::Id) -> Type {
-        Type::Tuple(provs_singleton(Prov::Node(id)), elems)
+    pub fn make_tuple(elems: Vec<Type>, prov: Prov) -> Type {
+        Type::Tuple(provs_singleton(prov), elems)
     }
 
     pub fn provs(&self) -> &Provs {
@@ -659,7 +659,7 @@ pub fn ast_type_to_statics_type_interface(
                 .map(|t| ast_type_to_statics_type_interface(inf_ctx, t.clone(), interface_ident))
                 .collect(),
             ast_type_to_statics_type_interface(inf_ctx, rhs.clone(), interface_ident),
-            ast_type.id(),
+            Prov::Node(ast_type.id()),
         ),
         ast::TypeKind::Tuple(types) => {
             let mut statics_types = Vec::new();
@@ -670,7 +670,7 @@ pub fn ast_type_to_statics_type_interface(
                     interface_ident,
                 ));
             }
-            Type::make_tuple(statics_types, ast_type.id())
+            Type::make_tuple(statics_types, Prov::Node(ast_type.id()))
         }
     }
 }
@@ -1350,7 +1350,10 @@ pub fn generate_constraints_expr(
                             )
                         })
                         .collect();
-                    constrain(node_ty, Type::make_arrow(args, def_type, expr.id));
+                    constrain(
+                        node_ty,
+                        Type::make_arrow(args, def_type, Prov::Node(expr.id)),
+                    );
                 } else {
                     constrain(
                         node_ty,
@@ -1362,7 +1365,7 @@ pub fn generate_constraints_expr(
                                 &substitution,
                             )],
                             def_type,
-                            expr.id,
+                            Prov::Node(expr.id),
                         ),
                     );
                 }
@@ -1546,7 +1549,7 @@ pub fn generate_constraints_expr(
                 );
             }
 
-            let ty_func = Type::make_arrow(ty_args, ty_body, func_node_id);
+            let ty_func = Type::make_arrow(ty_args, ty_body, Prov::Node(func_node_id));
 
             constrain(ty_func, node_ty);
         }
@@ -1578,7 +1581,7 @@ pub fn generate_constraints_expr(
             constrain(ty_body.clone(), node_ty);
 
             // function type
-            let ty_func = Type::make_arrow(tys_args, ty_body, expr.id);
+            let ty_func = Type::make_arrow(tys_args, ty_body, Prov::Node(expr.id));
             generate_constraints_expr(
                 gamma,
                 Mode::Ana { expected: ty_func },
@@ -1591,7 +1594,7 @@ pub fn generate_constraints_expr(
                 .iter()
                 .map(|expr| Type::fresh_unifvar(inf_ctx, Prov::Node(expr.id)))
                 .collect();
-            constrain(Type::make_tuple(tys, expr.id), node_ty);
+            constrain(Type::make_tuple(tys, Prov::Node(expr.id)), node_ty);
             for expr in exprs {
                 generate_constraints_expr(gamma.clone(), Mode::Syn, expr.clone(), inf_ctx);
             }
@@ -1750,7 +1753,7 @@ pub fn generate_constraints_stmt(
                 );
             }
 
-            let ty_func = Type::make_arrow(ty_args, ty_body, func_node_id);
+            let ty_func = Type::make_arrow(ty_args, ty_body, Prov::Node(func_node_id));
             // END TODO use helper function for functions again
 
             constrain(ty_pat, ty_func);
@@ -1845,7 +1848,7 @@ pub fn generate_constraints_pat(
                 .iter()
                 .map(|pat| Type::fresh_unifvar(inf_ctx, Prov::Node(pat.id)))
                 .collect();
-            constrain(Type::make_tuple(tys_elements, pat.id), ty_pat);
+            constrain(Type::make_tuple(tys_elements, Prov::Node(pat.id)), ty_pat);
             for pat in pats {
                 generate_constraints_pat(gamma.clone(), Mode::Syn, pat.clone(), inf_ctx)
             }
@@ -1982,11 +1985,62 @@ pub fn gather_definitions_stmt(
     }
 }
 
-pub fn gather_definitions_toplevel(
+fn monomorphized_ty_to_builtin_ty(ty: TypeMonomorphized, prov_builtin: Prov) -> Type {
+    match ty {
+        TypeMonomorphized::Unit => Type::make_unit(prov_builtin),
+        TypeMonomorphized::Int => Type::make_int(prov_builtin),
+        TypeMonomorphized::Float => Type::make_float(prov_builtin),
+        TypeMonomorphized::Bool => Type::make_bool(prov_builtin),
+        TypeMonomorphized::String => Type::make_string(prov_builtin),
+        TypeMonomorphized::Tuple(elements) => {
+            let elements = elements
+                .into_iter()
+                .map(|e| monomorphized_ty_to_builtin_ty(e, prov_builtin.clone()))
+                .collect();
+            Type::make_tuple(elements, prov_builtin)
+        }
+        TypeMonomorphized::Function(args, out) => {
+            let args = args
+                .into_iter()
+                .map(|a| monomorphized_ty_to_builtin_ty(a, prov_builtin.clone()))
+                .collect();
+            let out = monomorphized_ty_to_builtin_ty(*out, prov_builtin.clone());
+            Type::make_arrow(args, out, prov_builtin.clone())
+        }
+        TypeMonomorphized::Adt(name, params) => {
+            let params = params
+                .into_iter()
+                .map(|p| monomorphized_ty_to_builtin_ty(p, prov_builtin.clone()))
+                .collect();
+            Type::make_def_instance(prov_builtin, name, params)
+        }
+    }
+}
+
+pub fn gather_definitions_toplevel<Effect: crate::side_effects::EffectTrait>(
     inf_ctx: &mut InferenceContext,
     gamma: Rc<RefCell<Gamma>>,
     toplevel: Rc<ast::Toplevel>,
 ) {
+    for (idx, eff) in Effect::enumerate().iter().enumerate() {
+        let provs = RefCell::new(BTreeSet::new());
+        let prov = Prov::Builtin(format!(
+            "{}: {:#?}",
+            eff.function_name(),
+            eff.type_signature()
+        ));
+        provs.borrow_mut().insert(prov.clone());
+        let mut args = Vec::new();
+        for arg in eff.type_signature().0 {
+            args.push(monomorphized_ty_to_builtin_ty(arg, prov.clone()));
+        }
+        let typ = Type::Function(
+            provs,
+            args,
+            monomorphized_ty_to_builtin_ty(eff.type_signature().1, prov).into(),
+        );
+        gamma.borrow_mut().extend(&eff.function_name(), typ)
+    }
     for statement in toplevel.statements.iter() {
         gather_definitions_stmt(inf_ctx, gamma.clone(), statement.clone());
     }
