@@ -2022,7 +2022,7 @@ pub fn gather_definitions_toplevel<Effect: crate::side_effects::EffectTrait>(
     gamma: Rc<RefCell<Gamma>>,
     toplevel: Rc<ast::Toplevel>,
 ) {
-    for (idx, eff) in Effect::enumerate().iter().enumerate() {
+    for (_idx, eff) in Effect::enumerate().iter().enumerate() {
         let provs = RefCell::new(BTreeSet::new());
         let prov = Prov::Builtin(format!(
             "{}: {:#?}",
