@@ -31,6 +31,49 @@ pub enum Expr {
     ConsumedEffect,
 }
 
+impl Expr {
+    pub fn get_int(&self) -> i64 {
+        match self {
+            Expr::Int(i) => *i,
+            _ => panic!("not an int"),
+        }
+    }
+    pub fn get_float(&self) -> f64 {
+        match self {
+            Expr::Float(f) => *f,
+            _ => panic!("not a float"),
+        }
+    }
+    pub fn get_string(&self) -> String {
+        match self {
+            Expr::Str(s) => s.clone(),
+            _ => panic!("not a string"),
+        }
+    }
+    pub fn get_tuple(&self) -> Vec<Rc<Expr>> {
+        match self {
+            Expr::Tuple(t) => t.clone(),
+            _ => panic!("not a tuple"),
+        }
+    }
+}
+
+impl From<i64> for Expr {
+    fn from(i: i64) -> Self {
+        Expr::Int(i)
+    }
+}
+impl From<f64> for Expr {
+    fn from(f: f64) -> Self {
+        Expr::Float(f)
+    }
+}
+impl From<&str> for Expr {
+    fn from(s: &str) -> Self {
+        Expr::Str(s.to_owned())
+    }
+}
+
 impl Eq for Expr {}
 
 pub type MatchArm = (Rc<Pat>, Rc<Expr>);
