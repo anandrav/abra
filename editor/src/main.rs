@@ -4,6 +4,8 @@ extern crate eframe;
 extern crate regex;
 extern crate syntect;
 
+use std::rc::Rc;
+
 use abra_core::SourceFile;
 
 use eframe::egui;
@@ -516,7 +518,7 @@ struct MyApp {
     text: String,
     output: String,
     interpreter: Option<Interpreter>,
-    effect_result: Option<abra_core::side_effects::Input>,
+    effect_result: Option<Rc<abra_core::eval_tree::Expr>>,
 }
 
 impl Default for MyApp {
@@ -572,7 +574,8 @@ impl eframe::App for MyApp {
                             abra_core::side_effects::Effect::PrintString => match &*args[0] {
                                 abra_core::eval_tree::Expr::Str(string) => {
                                     self.output.push_str(string);
-                                    self.effect_result = Some(abra_core::side_effects::Input::Unit);
+                                    self.effect_result =
+                                        Some(abra_core::eval_tree::Expr::Unit.into());
                                 }
                                 _ => panic!("wrong arguments for {:#?} effect", effect),
                             },

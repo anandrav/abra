@@ -58,6 +58,11 @@ impl Expr {
     }
 }
 
+impl From<()> for Expr {
+    fn from(_: ()) -> Self {
+        Expr::Unit
+    }
+}
 impl From<i64> for Expr {
     fn from(i: i64) -> Self {
         Expr::Int(i)

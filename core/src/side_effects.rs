@@ -58,7 +58,7 @@ pub fn handle_effect_example(
     effect_code: EffectCode,
     args: Vec<Rc<eval_tree::Expr>>,
     output: &mut String,
-) -> Input {
+) -> Rc<eval_tree::Expr> {
     let effect = &EFFECT_LIST[effect_code as usize];
     match effect {
         Effect::PrintString => match &*args[0] {
@@ -66,7 +66,7 @@ pub fn handle_effect_example(
                 output.push_str(string);
                 // output.push('\n');
                 debug_print!("{}", string);
-                Input::Unit
+                eval_tree::Expr::from(()).into()
             }
             _ => panic!("wrong arguments for {:#?} effect", effect),
         },

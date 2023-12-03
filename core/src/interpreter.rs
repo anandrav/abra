@@ -384,7 +384,7 @@ impl Interpreter {
         }
     }
 
-    pub fn run(&mut self, steps: i32, effect_result: Option<Input>) -> InterpreterStatus {
+    pub fn run(&mut self, steps: i32, effect_result: Option<Rc<Expr>>) -> InterpreterStatus {
         let result = interpret(
             self.program_expr.clone(),
             self.env.clone(),
@@ -433,7 +433,7 @@ fn interpret(
     env: Rc<RefCell<Environment>>,
     overloaded_func_map: &OverloadedFuncMap,
     steps: i32,
-    input: &Option<Input>,
+    input: &Option<Rc<Expr>>,
 ) -> Result<InterpretOk, InterpretErr> {
     match &*expr {
         Var(id) => {
@@ -1069,9 +1069,9 @@ fn interpret(
             None => Err(InterpretErr {
                 message: "no input to substitute for ConsumedEffect".to_string(),
             }),
-            Some(input) => match input {
-                Input::Unit => Ok(InterpretOk {
-                    expr: Rc::new(Unit),
+            Some(input) =>
+                Ok(InterpretOk {
+                    expr: input.clone(),
                     steps,
                     effect: None,
                     new_env: env,
@@ -1082,7 +1082,7 @@ fn interpret(
                 //     effect: None,
                 //     new_env: env,
                 // },
-            },
+            
         },
     }
 }
