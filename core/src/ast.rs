@@ -343,7 +343,7 @@ pub enum ExprKind {
     Var(Identifier),
     Unit,
     Int(i64),
-    Float(f64),
+    Float(f32),
     Bool(bool),
     Str(String),
     List(Vec<Rc<Expr>>),

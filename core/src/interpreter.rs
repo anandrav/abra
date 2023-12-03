@@ -1149,7 +1149,7 @@ fn handle_builtin(builtin: Builtin, args: Vec<Rc<Expr>>) -> Result<Rc<Expr>, Int
         Builtin::IntToFloat => {
             let arg = args[0].clone();
             match &*arg {
-                Int(i) => Ok(Rc::new(Float(*i as f64))),
+                Int(i) => Ok(Rc::new(Float(*i as f32))),
                 _ => Err(InterpretErr {
                     message: "IntToFloat expects an int".to_string(),
                 }),
