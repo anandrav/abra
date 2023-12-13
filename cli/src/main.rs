@@ -4,10 +4,7 @@ use abra_core::interpreter::InterpreterStatus;
 use abra_core::side_effects::{self, EffectTrait};
 use abra_core::SourceFile;
 use clap::Parser;
-use colored::*;
 use once_cell::sync::Lazy;
-use rustyline::error::ReadlineError;
-use rustyline::{DefaultEditor, Result};
 
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
