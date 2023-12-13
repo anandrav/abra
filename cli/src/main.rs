@@ -6,6 +6,8 @@ use abra_core::interpreter::InterpreterStatus;
 use abra_core::side_effects::{self, EffectTrait};
 use clap::Parser;
 use once_cell::sync::Lazy;
+use rustyline::error::ReadlineError;
+use rustyline::{DefaultEditor, Result};
 
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
@@ -15,7 +17,7 @@ struct Args {
     files: Option<Vec<String>>,
 }
 
-fn main() {
+fn main() -> Result<()> {
     let args = Args::parse();
 
     if let Some(files) = args.files {
@@ -26,6 +28,7 @@ fn main() {
         });
         for file in files {
             let contents = std::fs::read_to_string(&file).unwrap();
+            //.unwrap_or_else(|_| panic!("file '{}' not found", file));
             source_files.push(SourceFile {
                 name: file,
                 contents,
@@ -59,13 +62,35 @@ fn main() {
                         }
                     }
                 }
+                Ok(())
             }
             Err(err) => {
                 println!("{}", err);
+                Ok(())
             }
         }
     } else {
-        println!("REPL not implemented");
+        let mut rl = DefaultEditor::new().unwrap();
+        loop {
+            let readline = rl.readline(">> ");
+            match readline {
+                Ok(line) => {
+                    let _ = rl.add_history_entry(line.as_str());
+                    println!("Line: {}", line);
+                }
+                Err(ReadlineError::Interrupted) => {
+                    break;
+                }
+                Err(ReadlineError::Eof) => {
+                    break;
+                }
+                Err(err) => {
+                    println!("Error: {:?}", err);
+                    break;
+                }
+            }
+        }
+        Ok(())
     }
 }
 
