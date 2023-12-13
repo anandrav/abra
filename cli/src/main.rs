@@ -1,10 +1,10 @@
 extern crate abra_core;
 
-use abra_core::SourceFile;
-
 use abra_core::interpreter::InterpreterStatus;
 use abra_core::side_effects::{self, EffectTrait};
+use abra_core::SourceFile;
 use clap::Parser;
+use colored::*;
 use once_cell::sync::Lazy;
 use rustyline::error::ReadlineError;
 use rustyline::{DefaultEditor, Result};
@@ -70,6 +70,20 @@ fn main() -> Result<()> {
             }
         }
     } else {
+        println!(
+            "{}",
+            r#"
+        ___                      
+        -   -_, ,,                
+       (  ~/||  ||            _   
+       (  / ||  ||/|, ,._-_  < \,       Version 0.1.0
+        \/==||  || ||  ||    /-||       https://github.com/anandrav/abra
+        /_ _||  || |'  ||   (( || 
+       (  - \\, \\/    \\,   \/\\ 
+        "#
+            .magenta()
+            .bold()
+        );
         let mut rl = DefaultEditor::new().unwrap();
         loop {
             let readline = rl.readline(">> ");
