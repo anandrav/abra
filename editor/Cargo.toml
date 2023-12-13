@@ -4,10 +4,15 @@ version = "0.1.0"
 authors = ["Anand Dukkipati <aRdukkipati@gmail.com>"]
 edition = "2021"
 
+# to prevent accidental publish to crates.io
+publish = false
+
 [[bin]]
 name = "abra_editor"
 path = "src/main.rs"
 
+# TODO move Editor into a separate package that depends on this library, so that building library
+# doesn't build all of EGUI, EFRAME, WASM-BINDGEN, etc.
 [dependencies]
 abra_core = { path = "../core" }
 debug_print = "1.0.0"
