@@ -4,9 +4,6 @@ version = "0.1.0"
 authors = ["Anand Dukkipati <aRdukkipati@gmail.com>"]
 edition = "2021"
 
-# to prevent accidental publish to crates.io
-publish = false
-
 [lib]
 name = "abra_core"
 crate-type = ["lib"]

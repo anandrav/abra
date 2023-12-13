@@ -113,7 +113,7 @@ pub fn translate_expr_block(
                 );
             }
             let id = pat.patkind.get_identifier_of_variable();
-            println!("letfunc id: {}", id);
+            debug_println!("letfunc id: {}", id);
             let func = translate_expr_func(
                 inf_ctx,
                 monomorphenv.clone(),
@@ -124,7 +124,7 @@ pub fn translate_expr_block(
                 body.clone(),
             );
             if let Some(env) = &env {
-                println!("extending env with {}", id);
+                debug_println!("extending env with {}", id);
                 env.borrow_mut().extend(&id, func.clone());
             }
             Rc::new(Ete::Let(
