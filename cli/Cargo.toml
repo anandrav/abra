@@ -1,0 +1,17 @@
+[package]
+name = "abra_cli"
+version = "0.1.0"
+authors = ["Anand Dukkipati <aRdukkipati@gmail.com>"]
+edition = "2021"
+
+# to prevent accidental publish to crates.io
+publish = false
+
+[[bin]]
+name = "abra_cli"
+path = "src/main.rs"
+
+[dependencies]
+abra_core = { path = "../core" }
+clap = { version = "4.4.11", features = ["derive"] }
+once_cell = "1.18.0"
