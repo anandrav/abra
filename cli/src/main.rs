@@ -14,7 +14,7 @@ struct Args {
     files: Vec<String>,
 }
 
-fn main() -> Result<()> {
+fn main() {
     let args = Args::parse();
 
     let mut source_files = Vec::new();
@@ -57,11 +57,9 @@ fn main() -> Result<()> {
                     }
                 }
             }
-            Ok(())
         }
         Err(err) => {
             println!("{}", err);
-            Ok(())
         }
     }
 }
