@@ -279,6 +279,17 @@ pub fn add_builtins_and_variants<Effects: EffectTrait>(
         )),
     );
     env.borrow_mut().extend(
+        &String::from("sqrt_float"),
+        Rc::new(Expr::Func(
+            vec![String::from("f")],
+            Rc::new(Expr::BuiltinAp(
+                Builtin::SqrtFloat,
+                vec![Rc::new(Expr::Var(String::from("f")))],
+            )),
+            None,
+        )),
+    );
+    env.borrow_mut().extend(
         &String::from("less_than_float"),
         Rc::new(Expr::Func(
             vec![String::from("i1"), String::from("i2")],
@@ -1082,7 +1093,6 @@ fn interpret(
                 //     effect: None,
                 //     new_env: env,
                 // },
-            
         },
     }
 }
@@ -1301,6 +1311,15 @@ fn handle_builtin(builtin: Builtin, args: Vec<Rc<Expr>>) -> Result<Rc<Expr>, Int
                 (Float(s1), Float(s2)) => Ok(Rc::new(Float(s1.powf(*s2)))),
                 _ => Err(InterpretErr {
                     message: "PowFloat expects two floats".to_string(),
+                }),
+            }
+        }
+        Builtin::SqrtFloat => {
+            let arg = args[0].clone();
+            match &*arg {
+                Float(s1) => Ok(Rc::new(Float(s1.sqrt()))),
+                _ => Err(InterpretErr {
+                    message: "SqrtFloat expects one float".to_string(),
                 }),
             }
         }

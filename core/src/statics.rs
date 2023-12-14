@@ -1145,6 +1145,15 @@ pub fn make_new_gamma() -> Rc<RefCell<Gamma>> {
             Type::make_float(Prov::FuncOut(prov.into())).into(),
         ),
     );
+    let prov = Prov::Builtin("sqrt_float: (float) -> float".to_string());
+    gamma.borrow_mut().extend(
+        &String::from("sqrt_float"),
+        Type::Function(
+            RefCell::new(BTreeSet::new()),
+            vec![Type::make_float(Prov::FuncArg(prov.clone().into(), 0))],
+            Type::make_float(Prov::FuncOut(prov.into())).into(),
+        ),
+    );
     let prov = Prov::Builtin("less_than_float: (float, float) -> bool".to_string());
     gamma.borrow_mut().extend(
         &String::from("less_than_float"),

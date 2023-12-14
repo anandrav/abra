@@ -247,6 +247,12 @@ func fold(xs: list<'b>, f: ('a, 'b) -> 'a, acc: 'a) -> 'a =
 func sum(xs: list<int>) -> int = fold(xs, (a, b) -> a + b, 0)
 func sumf(xs: list<float>) -> float = fold(xs, (a, b) -> a + b, 0.0)
 
+func max(a: float, b: float) -> float = if a > b a else b
+func min(a: float, b: float) -> float = if a < b a else b
+func clamp(lo: float, hi: float, x: float) -> float = max(lo, min(hi, x))
+func abs(x: float) -> float = if x < 0.0 (0.0 - x) else x
+func sqrt(x: float) -> float = sqrt_float(x)
+
 func concat(xs: list<string>, sep: string) -> string =
     match xs
         nil -> ""

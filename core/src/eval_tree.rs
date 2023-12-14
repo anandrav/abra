@@ -103,6 +103,7 @@ pub enum Builtin {
     MultiplyFloat,
     DivideFloat,
     PowFloat,
+    SqrtFloat,
     LessThanFloat,
 }
 
