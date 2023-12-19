@@ -15,7 +15,7 @@ pub enum Expr {
     VarOverloaded(Identifier, TypeMonomorphized),
     Unit,
     Int(i64),
-    Float(f32),
+    Float(f64),
     Str(String),
     Bool(bool),
     Tuple(Vec<Rc<Expr>>),
@@ -38,7 +38,7 @@ impl Expr {
             _ => panic!("not an int"),
         }
     }
-    pub fn get_float(&self) -> f32 {
+    pub fn get_float(&self) -> f64 {
         match self {
             Expr::Float(f) => *f,
             _ => panic!("not a float"),
@@ -68,8 +68,8 @@ impl From<i64> for Expr {
         Expr::Int(i)
     }
 }
-impl From<f32> for Expr {
-    fn from(f: f32) -> Self {
+impl From<f64> for Expr {
+    fn from(f: f64) -> Self {
         Expr::Float(f)
     }
 }
