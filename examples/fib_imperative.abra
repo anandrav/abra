@@ -1,0 +1,13 @@
+func fibonacci(n) = {
+    let mutable x = 0
+    let mutable y = 1
+    let mutable n = n
+    while n > 0 {
+        let old_x = x
+        set x = y
+        set y = old_x + y
+        set n = n - 1
+    }
+    x
+}
+for_each(range(0, 29), n -> println(fibonacci(n)))
