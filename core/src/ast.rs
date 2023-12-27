@@ -309,6 +309,7 @@ impl Node for Expr {
                 }
                 children
             }
+            ExprKind::WhileLoop(cond, body) => vec![cond.clone(), body.clone()],
             ExprKind::Block(stmts) => stmts
                 .iter()
                 .map(|s| s.clone() as Rc<dyn Node>)
@@ -351,6 +352,7 @@ pub enum ExprKind {
     List(Vec<Rc<Expr>>),
     Func(Vec<ArgAnnotated>, Option<Rc<AstType>>, Rc<Expr>),
     If(Rc<Expr>, Rc<Expr>, Option<Rc<Expr>>),
+    WhileLoop(Rc<Expr>, Rc<Expr>),
     Match(Rc<Expr>, Vec<MatchArm>),
     Block(Vec<Rc<Stmt>>),
     BinOp(Rc<Expr>, BinOpcode, Rc<Expr>),
@@ -1064,6 +1066,16 @@ pub fn parse_expr_term(pair: Pair<Rule>, filename: &str) -> Rc<Expr> {
             };
             Rc::new(Expr {
                 exprkind: Rc::new(ExprKind::If(cond, e1, e2)),
+                span,
+                id: Id::new(),
+            })
+        }
+        Rule::while_loop_expression => {
+            let inner: Vec<_> = pair.into_inner().collect();
+            let cond = parse_expr_pratt(Pairs::single(inner[0].clone()), filename);
+            let e = parse_expr_pratt(Pairs::single(inner[1].clone()), filename);
+            Rc::new(Expr {
+                exprkind: Rc::new(ExprKind::WhileLoop(cond, e)),
                 span,
                 id: Id::new(),
             })

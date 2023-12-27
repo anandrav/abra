@@ -1471,6 +1471,18 @@ pub fn generate_constraints_expr(
                 }
             }
         }
+        ExprKind::WhileLoop(cond, expr) => {
+            generate_constraints_expr(
+                gamma.clone(),
+                Mode::Ana {
+                    expected: Type::make_bool(Prov::Node(cond.id)),
+                },
+                cond.clone(),
+                inf_ctx,
+            );
+            generate_constraints_expr(gamma, Mode::Syn, expr.clone(), inf_ctx);
+            constrain(node_ty, Type::make_unit(Prov::Node(expr.id)))
+        }
         ExprKind::Match(scrut, arms) => {
             let ty_scrutiny = Type::from_node(inf_ctx, scrut.id);
             generate_constraints_expr(
@@ -1697,7 +1709,17 @@ pub fn generate_constraints_stmt(
         }
         StmtKind::Set(pat, expr) => {
             let ty_pat: Type = Type::from_node(inf_ctx, pat.id);
+            generate_constraints_expr(
+                gamma.clone(),
+                Mode::Ana {
+                    expected: ty_pat.clone(),
+                },
+                expr.clone(),
+                inf_ctx,
+            );
+
             let ty_expr = Type::from_node(inf_ctx, expr.id);
+
             constrain(ty_pat, ty_expr);
         }
         StmtKind::LetFunc(name, args, out_annot, body) => {

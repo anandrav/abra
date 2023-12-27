@@ -770,7 +770,8 @@ fn interpret(
                 })
             }
         },
-        Set(pat, expr1, expr2) => match &*pat.clone() { // TODO you were here
+        Set(pat, expr1, expr2) => match &*pat.clone() {
+            // TODO you were here
             Pat::TaggedVariant(..)
             | Pat::Unit
             | Pat::Int(_)
@@ -809,7 +810,13 @@ fn interpret(
                     steps,
                     effect,
                     new_env,
-                } = interpret(expr2.clone(), env.clone(), overloaded_func_map, steps, input)?;
+                } = interpret(
+                    expr2.clone(),
+                    env.clone(),
+                    overloaded_func_map,
+                    steps,
+                    input,
+                )?;
                 if effect.is_some() || steps <= 0 {
                     return Ok(InterpretOk {
                         expr,
@@ -1058,6 +1065,71 @@ fn interpret(
                     ),
                 }),
             }
+        }
+        WhileLoop(cond, body, original_body) => {
+            let original_cond = cond;
+            let InterpretOk {
+                expr: cond,
+                steps,
+                effect,
+                new_env,
+            } = interpret(
+                cond.clone(),
+                env.clone(),
+                overloaded_func_map,
+                steps,
+                &input.clone(),
+            )?;
+            if effect.is_some() || steps <= 0 {
+                return Ok(InterpretOk {
+                    expr: Rc::new(WhileLoop(cond, body.clone(), original_body.clone())),
+                    steps,
+                    effect,
+                    new_env,
+                });
+            }
+            let cond_is_true = *cond == Expr::Bool(true);
+            if !cond_is_true {
+                return Ok(InterpretOk {
+                    expr: Rc::new(Expr::Unit),
+                    steps,
+                    effect,
+                    new_env,
+                });
+            }
+
+            let InterpretOk {
+                expr: new_body,
+                steps,
+                effect,
+                new_env,
+            } = interpret(
+                body.clone(),
+                env.clone(),
+                overloaded_func_map,
+                steps,
+                &input.clone(),
+            )?;
+            if effect.is_some() || steps <= 0 {
+                return Ok(InterpretOk {
+                    expr: Rc::new(WhileLoop(cond, new_body.clone(), original_body.clone())),
+                    steps,
+                    effect,
+                    new_env,
+                });
+            }
+            let steps = steps - 1;
+            interpret(
+                Rc::new(WhileLoop(
+                    original_cond.clone(),
+                    original_body.clone(),
+                    original_body.clone(),
+                )),
+                env,
+                overloaded_func_map,
+                steps,
+                input,
+            )
         }
         Match(expr1, cases) => {
             let InterpretOk {

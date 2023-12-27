@@ -35,17 +35,20 @@ set_statement = { set_keyword ~ identifier ~ op_assign ~ expression }
 set_keyword = _{ "set" }
 
 let_func_statement = { func_keyword ~ identifier ~ func_args ~ func_out_annotation? ~ op_assign ~ expression }
-func_keyword = _{ "func" } // TODO change to 'function'
+func_keyword = _{ "func" }
 
 let_pattern_tuple = { tuple_start ~ (let_pattern_tuple_element ~ ",")+ ~ let_pattern_tuple_element ~ tuple_end }
 let_pattern_tuple_element = _{ let_pattern }
 
 expression = { term ~ (op_binary ~ term)* }
-term = _{ block_expression | func_expression | func_call_expression | parenthesized_expression | if_else_expression | match_expression | tuple_expr | primary_expression }
+term = _{ block_expression | func_expression | func_call_expression | parenthesized_expression | if_else_expression | while_loop_expression | match_expression | tuple_expr | primary_expression }
 
 if_else_expression = { if_keyword ~ expression ~ expression ~ (else_keyword ~ expression)? }
 if_keyword = _{ "if" }
 else_keyword = _{ "else" }
+
+while_loop_expression = { while_keyword ~ expression ~ expression }
+while_keyword = _{ "while" }
 
 match_expression = { "match" ~ expression ~ match_branch ~ (match_branch)* }
 match_branch = { match_pattern ~ "->" ~ expression }
