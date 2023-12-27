@@ -62,4 +62,14 @@ impl Environment {
     pub fn extend(&mut self, id: &Identifier, expr: Rc<Expr>) {
         self.vars.insert(id.clone(), expr);
     }
+
+    pub fn replace(&mut self, id: &Identifier, expr: Rc<Expr>) {
+        match self.vars.get_mut(id) {
+            Some(e) => *e = expr,
+            None => match &self.enclosing {
+                Some(env) => env.borrow_mut().replace(id, expr),
+                None => panic!("variable not found"),
+            },
+        }
+    }
 }

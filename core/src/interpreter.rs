@@ -770,6 +770,107 @@ fn interpret(
                 })
             }
         },
+        Set(pat, expr1, expr2) => match &*pat.clone() { // TODO you were here
+            Pat::TaggedVariant(..)
+            | Pat::Unit
+            | Pat::Int(_)
+            | Pat::Float(_)
+            | Pat::Bool(_)
+            | Pat::Str(_) => Err(InterpretErr {
+                message: "Pattern in let is a value, not a variable!".to_string(),
+            }),
+            Pat::Tuple(_) => Err(InterpretErr {
+                message: "Tuple not supported".to_string(),
+            }),
+            Pat::Wildcard => {
+                let InterpretOk {
+                    expr: expr1,
+                    steps,
+                    effect,
+                    new_env,
+                } = interpret(
+                    expr1.clone(),
+                    env.clone(),
+                    overloaded_func_map,
+                    steps,
+                    &input.clone(),
+                )?;
+                if effect.is_some() || steps <= 0 {
+                    return Ok(InterpretOk {
+                        expr: Rc::new(Let(pat.clone(), expr1, expr2.clone())),
+                        steps,
+                        effect,
+                        new_env,
+                    });
+                }
+
+                let InterpretOk {
+                    expr,
+                    steps,
+                    effect,
+                    new_env,
+                } = interpret(expr2.clone(), env.clone(), overloaded_func_map, steps, input)?;
+                if effect.is_some() || steps <= 0 {
+                    return Ok(InterpretOk {
+                        expr,
+                        steps,
+                        effect,
+                        new_env,
+                    });
+                }
+                Ok(InterpretOk {
+                    expr,
+                    steps,
+                    effect: None,
+                    new_env: env,
+                })
+            }
+            Pat::Var(id) => {
+                let InterpretOk {
+                    expr: expr1,
+                    steps,
+                    effect,
+                    new_env,
+                } = interpret(
+                    expr1.clone(),
+                    env.clone(),
+                    overloaded_func_map,
+                    steps,
+                    &input.clone(),
+                )?;
+                if effect.is_some() || steps <= 0 {
+                    return Ok(InterpretOk {
+                        expr: Rc::new(Let(pat.clone(), expr1, expr2.clone())),
+                        steps,
+                        effect,
+                        new_env,
+                    });
+                }
+
+                env.borrow_mut().replace(id, expr1);
+
+                let InterpretOk {
+                    expr,
+                    steps,
+                    effect,
+                    new_env,
+                } = interpret(expr2.clone(), new_env, overloaded_func_map, steps, input)?;
+                if effect.is_some() || steps <= 0 {
+                    return Ok(InterpretOk {
+                        expr,
+                        steps,
+                        effect,
+                        new_env,
+                    });
+                }
+                Ok(InterpretOk {
+                    expr,
+                    steps,
+                    effect: None,
+                    new_env: env,
+                })
+            }
+        },
         FuncAp(expr1, args, funcapp_env) => {
             let mut new_args = args.clone();
             for (i, arg) in args.iter().enumerate() {

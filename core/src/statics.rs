@@ -1672,7 +1672,7 @@ pub fn generate_constraints_stmt(
         StmtKind::Expr(expr) => {
             generate_constraints_expr(gamma, mode, expr.clone(), inf_ctx);
         }
-        StmtKind::Let((pat, ty_ann), expr) => {
+        StmtKind::Let(_mutable, (pat, ty_ann), expr) => {
             let ty_pat = Type::from_node(inf_ctx, pat.id);
 
             generate_constraints_expr(
@@ -1694,6 +1694,11 @@ pub fn generate_constraints_stmt(
             } else {
                 generate_constraints_pat(gamma, Mode::Syn, pat.clone(), inf_ctx)
             };
+        }
+        StmtKind::Set(pat, expr) => {
+            let ty_pat: Type = Type::from_node(inf_ctx, pat.id);
+            let ty_expr = Type::from_node(inf_ctx, expr.id);
+            constrain(ty_pat, ty_expr);
         }
         StmtKind::LetFunc(name, args, out_annot, body) => {
             let func_node_id = stmt.id;
@@ -1981,7 +1986,7 @@ pub fn gather_definitions_stmt(
             }
         },
         StmtKind::Expr(_expr) => {}
-        StmtKind::Let((_pat, _ty_ann), _expr) => {}
+        StmtKind::Let(_mutable, (_pat, _ty_ann), _expr) => {}
         StmtKind::LetFunc(name, _args, _out_annot, _body) => {
             inf_ctx
                 .fun_defs
@@ -1991,6 +1996,7 @@ pub fn gather_definitions_stmt(
                 Type::from_node(inf_ctx, name.id),
             );
         }
+        StmtKind::Set(_pat, _expr) => {}
     }
 }
 

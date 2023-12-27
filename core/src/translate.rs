@@ -141,7 +141,28 @@ pub fn translate_expr_block(
                 ),
             ))
         }
-        ast::StmtKind::Let((pat, _), expr) => Rc::new(Ete::Let(
+        ast::StmtKind::Let(_mutable, (pat, _), expr) => Rc::new(Ete::Let(
+            translate_pat(pat.clone()),
+            translate_expr(
+                inf_ctx,
+                monomorphenv.clone(),
+                gamma.clone(),
+                node_map,
+                overloaded_func_map,
+                expr.exprkind.clone(),
+                expr.id,
+            ),
+            translate_expr_block(
+                inf_ctx,
+                monomorphenv,
+                gamma,
+                node_map,
+                overloaded_func_map,
+                stmts[1..].to_vec(),
+                env.clone(),
+            ),
+        )),
+        ast::StmtKind::Set(pat, expr) => Rc::new(Ete::Set(
             translate_pat(pat.clone()),
             translate_expr(
                 inf_ctx,

@@ -21,17 +21,21 @@ type_params = _{ "<" ~ (type_poly ~ ",")* ~ type_poly? ~ ">" }
 variant = { identifier ~ packed_data? }
 packed_data = _{ "of" ~ typ }
 
-statement = _{ let_func_statement | let_statement | expression_statement }
+statement = _{ let_func_statement | let_statement | set_statement | expression_statement }
 
-let_statement = { let_keyword ~ let_pattern_annotated ~ op_assign ~ expression }
+let_statement = { let_keyword ~ mutable_keyword? ~ let_pattern_annotated ~ op_assign ~ expression }
 let_keyword = _{ "let" }
+mutable_keyword = { "mutable" }
 expression_statement = { expression }
 let_pattern = _{ let_pattern_tuple | wildcard | identifier }
 wildcard = @{ "_" }
 op_assign = _{ "=" }
 
+set_statement = { set_keyword ~ identifier ~ op_assign ~ expression }
+set_keyword = _{ "set" }
+
 let_func_statement = { func_keyword ~ identifier ~ func_args ~ func_out_annotation? ~ op_assign ~ expression }
-func_keyword = _{ "func" }
+func_keyword = _{ "func" } // TODO change to 'function'
 
 let_pattern_tuple = { tuple_start ~ (let_pattern_tuple_element ~ ",")+ ~ let_pattern_tuple_element ~ tuple_end }
 let_pattern_tuple_element = _{ let_pattern }

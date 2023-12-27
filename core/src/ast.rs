@@ -182,7 +182,7 @@ impl Node for Stmt {
                 children.push(expr.clone());
                 children
             }
-            StmtKind::Let((pat, ty), expr) => {
+            StmtKind::Let(_mutable, (pat, ty), expr) => {
                 let mut children: Vec<Rc<dyn Node>> = vec![pat.clone() as Rc<dyn Node>];
                 if let Some(ty) = ty {
                     children.push(ty.clone());
@@ -190,6 +190,7 @@ impl Node for Stmt {
                 children.push(expr.clone());
                 children
             }
+            StmtKind::Set(_, expr) => vec![expr.clone()],
             StmtKind::Expr(expr) => vec![expr.clone()],
             StmtKind::TypeDef(tydefkind) => match &**tydefkind {
                 TypeDefKind::Alias(_, ty) => vec![ty.clone()],
@@ -228,8 +229,9 @@ impl Node for Stmt {
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum StmtKind {
-    LetFunc(Rc<Pat>, Vec<ArgAnnotated>, Option<Rc<AstType>>, Rc<Expr>),
-    Let(PatAnnotated, Rc<Expr>),
+    LetFunc(Rc<Pat>, Vec<ArgAnnotated>, Option<Rc<AstType>>, Rc<Expr>), // TODO rename to function definition
+    Let(bool, PatAnnotated, Rc<Expr>), // bool is whether it's mutable
+    Set(Rc<Pat>, Rc<Expr>),
     Expr(Rc<Expr>),
     TypeDef(Rc<TypeDefKind>),
     InterfaceDef(Identifier, Vec<Rc<InterfaceProperty>>),
@@ -887,10 +889,21 @@ pub fn parse_stmt(pair: Pair<Rule>, filename: &str) -> Rc<Stmt> {
             })
         }
         Rule::let_statement => {
-            let pat_annotated = parse_annotated_let_pattern(inner[0].clone(), filename);
+            let mutable = inner[0].as_rule() == Rule::mutable_keyword;
+            let offset = if mutable { 1 } else { 0 };
+            let pat_annotated = parse_annotated_let_pattern(inner[offset].clone(), filename);
+            let expr = parse_expr_pratt(Pairs::single(inner[offset + 1].clone()), filename);
+            Rc::new(Stmt {
+                stmtkind: Rc::new(StmtKind::Let(mutable, pat_annotated, expr)),
+                span,
+                id: Id::new(),
+            })
+        }
+        Rule::set_statement => {
+            let pat = parse_let_pattern(inner[0].clone(), filename);
             let expr = parse_expr_pratt(Pairs::single(inner[1].clone()), filename);
             Rc::new(Stmt {
-                stmtkind: Rc::new(StmtKind::Let(pat_annotated, expr)),
+                stmtkind: Rc::new(StmtKind::Set(pat, expr)),
                 span,
                 id: Id::new(),
             })
