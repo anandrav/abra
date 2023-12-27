@@ -336,6 +336,7 @@ impl Type {
     }
 
     pub fn solution_of_node(inf_ctx: &InferenceContext, id: ast::Id) -> Option<Type> {
+        debug_println!("getting solution for node {:?}", id);
         let prov = Prov::Node(id);
         match inf_ctx.vars.get(&prov) {
             Some(unifvar) => unifvar.clone_data().solution(),
@@ -1427,6 +1428,13 @@ pub fn generate_constraints_expr(
                     inf_ctx,
                 )
             } else {
+                generate_constraints_stmt(
+                    new_gamma.clone(),
+                    Mode::Syn,
+                    statements.last().unwrap().clone(),
+                    inf_ctx,
+                    true,
+                );
                 constrain(node_ty, Type::make_unit(Prov::Node(expr.id)))
             }
         }
