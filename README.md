@@ -14,7 +14,7 @@ println("The first 10 fibonacci numbers are:")
 for_each(range(0, 9), n -> println(fibonacci(n)))
 ```
 
-Try the [online editor](https://abra-editor.anandrav.repl.co/).
+Try the [online editor](https://abra-editor.replit.app).
 
 ## Running on Desktop
 
