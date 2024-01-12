@@ -27,7 +27,7 @@ pub enum Input {
 pub enum Effect {
     // TODO rename to DefaultEffects
     PrintString,
-    // ReadLn,
+    Read,
 }
 
 impl EffectTrait for Effect {
@@ -42,12 +42,15 @@ impl EffectTrait for Effect {
                 vec![statics::TypeMonomorphized::String],
                 statics::TypeMonomorphized::Unit,
             ),
+            // read: void -> string
+            Effect::Read => (vec![], statics::TypeMonomorphized::String),
         }
     }
 
     fn function_name(&self) -> String {
         match self {
             Effect::PrintString => String::from("print_string"),
+            Effect::Read => String::from("read"),
         }
     }
 }
@@ -64,12 +67,15 @@ pub fn handle_effect_example(
         Effect::PrintString => match &*args[0] {
             eval_tree::Expr::Str(string) => {
                 output.push_str(string);
-                // output.push('\n');
                 debug_print!("{}", string);
                 eval_tree::Expr::from(()).into()
             }
             _ => panic!("wrong arguments for {:#?} effect", effect),
         },
-        // Effect::ReadLn => Input::Cin(String::from("this is input")),
+        Effect::Read => {
+            let mut input = String::new();
+            std::io::stdin().read_line(&mut input).unwrap();
+            eval_tree::Expr::from(input.trim()).into()
+        }
     }
 }

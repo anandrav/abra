@@ -53,6 +53,12 @@ fn main() {
                                 }
                                 _ => panic!("wrong arguments for {:#?} effect", effect),
                             },
+                            abra_core::side_effects::Effect::Read => {
+                                let mut input = String::new();
+                                std::io::stdin().read_line(&mut input).unwrap();
+                                effect_result =
+                                    Some(abra_core::eval_tree::Expr::from(input.trim()).into());
+                            }
                         }
                     }
                 }

@@ -517,6 +517,8 @@ println(pow_float(2.1, 3.60001))
 
 struct MyApp {
     text: String,
+    readline: bool,
+    input: String,
     output: String,
     interpreter: Option<Interpreter>,
     effect_result: Option<Rc<abra_core::eval_tree::Expr>>,
@@ -526,6 +528,8 @@ impl Default for MyApp {
     fn default() -> Self {
         Self {
             text: String::from(_DEMO),
+            readline: false,
+            input: String::default(),
             output: String::default(),
             interpreter: None,
             effect_result: None,
@@ -552,37 +556,41 @@ impl eframe::App for MyApp {
             // so that the program can run on the UI thread.
             // I did this because web assembly does not support threads currently
             let steps = if cfg!(debug_assertions) { 1 } else { 1000 };
-            if let Some(interpreter) = &mut self.interpreter {
-                let status = interpreter.run(steps, self.effect_result.take());
-                match status {
-                    InterpreterStatus::Error(msg) => {
-                        self.output += &msg;
-                        self.interpreter = None;
-                    }
-                    InterpreterStatus::Finished => {
-                        self.output += &format!(
-                            "\nLast line evaluated to: {}",
-                            interpreter.get_val().unwrap()
-                        );
-                        self.interpreter = None;
-                    }
-                    InterpreterStatus::OutOfSteps => {
-                        ui.ctx().request_repaint();
-                    }
-                    InterpreterStatus::Effect(code, args) => {
-                        let effect = &EFFECT_LIST[code as usize];
-                        match effect {
-                            abra_core::side_effects::Effect::PrintString => match &*args[0] {
-                                abra_core::eval_tree::Expr::Str(string) => {
-                                    self.output.push_str(string);
-                                    self.effect_result =
-                                        Some(abra_core::eval_tree::Expr::Unit.into());
-                                }
-                                _ => panic!("wrong arguments for {:#?} effect", effect),
-                            },
-                            // Effect::ReadLn => Input::Cin(String::from("this is input")),
+            if !self.readline {
+                if let Some(interpreter) = &mut self.interpreter {
+                    let status = interpreter.run(steps, self.effect_result.take());
+                    match status {
+                        InterpreterStatus::Error(msg) => {
+                            self.output += &msg;
+                            self.interpreter = None;
                         }
-                        ui.ctx().request_repaint();
+                        InterpreterStatus::Finished => {
+                            self.output += &format!(
+                                "\nLast line evaluated to: {}",
+                                interpreter.get_val().unwrap()
+                            );
+                            self.interpreter = None;
+                        }
+                        InterpreterStatus::OutOfSteps => {
+                            ui.ctx().request_repaint();
+                        }
+                        InterpreterStatus::Effect(code, args) => {
+                            let effect = &EFFECT_LIST[code as usize];
+                            match effect {
+                                abra_core::side_effects::Effect::PrintString => match &*args[0] {
+                                    abra_core::eval_tree::Expr::Str(string) => {
+                                        self.output.push_str(string);
+                                        self.effect_result =
+                                            Some(abra_core::eval_tree::Expr::Unit.into());
+                                    }
+                                    _ => panic!("wrong arguments for {:#?} effect", effect),
+                                },
+                                abra_core::side_effects::Effect::Read => {
+                                    self.readline = true;
+                                }
+                            }
+                            ui.ctx().request_repaint();
+                        }
                     }
                 }
             }
@@ -620,6 +628,27 @@ impl eframe::App for MyApp {
                                     .layouter(&mut layouter);
                                 ui.add(code_editor);
                             });
+
+                        ui.visuals_mut().override_text_color = Some(Color32::WHITE);
+                        let enter_color = if self.readline {
+                            Color32::from_rgb(71, 207, 63)
+                        } else {
+                            Color32::from_rgb(150, 150, 150)
+                        };
+                        if ui
+                            .add(egui::Button::new("Enter").fill(enter_color))
+                            .clicked()
+                            && self.readline
+                        {
+                            self.effect_result =
+                                Some(abra_core::eval_tree::Expr::from(self.input.trim()).into());
+                            self.readline = false;
+                            self.input.clear();
+                        }
+
+                        ui.visuals_mut().override_text_color = None;
+                        ui.add(egui::TextEdit::singleline(&mut self.input));
+
                         ui.visuals_mut().override_text_color = Some(Color32::WHITE);
                         if ui
                             .add(egui::Button::new("Run Code").fill(Color32::from_rgb(71, 207, 63)))
@@ -649,6 +678,8 @@ impl eframe::App for MyApp {
                                 }
                             }
                         }
+
+                        ui.visuals_mut().override_text_color = None;
                         if !self.output.is_empty() {
                             ui.visuals_mut().override_text_color = None;
                             egui::ScrollArea::vertical()
