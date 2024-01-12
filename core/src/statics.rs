@@ -2067,7 +2067,7 @@ pub fn gather_definitions_toplevel<Effect: crate::side_effects::EffectTrait>(
     gamma: Rc<RefCell<Gamma>>,
     toplevel: Rc<ast::Toplevel>,
 ) {
-    for (_idx, eff) in Effect::enumerate().iter().enumerate() {
+    for eff in Effect::enumerate().iter() {
         let provs = RefCell::new(BTreeSet::new());
         let prov = Prov::Builtin(format!(
             "{}: {:#?}",
@@ -2127,11 +2127,11 @@ pub fn result_of_constraint_solving(
     }
 
     // replace underdetermined types with unit
-    if type_conflicts.len() == 0 {
+    if type_conflicts.is_empty() {
         for potential_types in inf_ctx.vars.values() {
             let mut data = potential_types.clone_data();
             let suggestions = &mut data.types;
-            if suggestions.len() == 0 {
+            if suggestions.is_empty() {
                 suggestions.insert(
                     TypeKey::Unit,
                     Type::make_unit(Prov::UnderdeterminedCoerceToUnit),
@@ -2144,6 +2144,7 @@ pub fn result_of_constraint_solving(
     // look for error of multiple interface implementations for the same type
     for (ident, impls) in inf_ctx.interface_impls.iter() {
         // map from implementation type to location
+        // TODO: key is mutable. Can TypeKey or TypeMonomorphic be used instead? If not, create a TypeImmutable datatype
         let mut impls_by_type: BTreeMap<Type, Vec<ast::Id>> = BTreeMap::new();
         for imp in impls.iter() {
             if let Some(impl_typ) = imp.typ.clone().solution() {

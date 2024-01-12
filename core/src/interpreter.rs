@@ -304,7 +304,7 @@ pub fn add_builtins_and_variants<Effects: EffectTrait>(
         )),
     );
     for (_name, adt_def) in inf_ctx.tydefs.iter() {
-        for (_i, variant) in adt_def.variants.iter().enumerate() {
+        for variant in adt_def.variants.iter() {
             let ctor = &variant.ctor;
             if let Type::Unit(_) = variant.data {
                 env.borrow_mut().extend(
@@ -1253,14 +1253,12 @@ fn interpret(
             None => Err(InterpretErr {
                 message: "no input to substitute for ConsumedEffect".to_string(),
             }),
-            Some(input) =>
-                Ok(InterpretOk {
-                    expr: input.clone(),
-                    steps,
-                    effect: None,
-                    new_env: env,
-                })
-                // Input::Cin(string) => InterpretOk {
+            Some(input) => Ok(InterpretOk {
+                expr: input.clone(),
+                steps,
+                effect: None,
+                new_env: env,
+            }), // Input::Cin(string) => InterpretOk {
                 //     expr: Rc::new(Str(string.to_string())),
                 //     steps,
                 //     effect: None,
