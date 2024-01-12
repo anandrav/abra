@@ -311,9 +311,13 @@ pub fn update_monomorphenv(
                 update_monomorphenv(monomorphenv.clone(), params[i].clone(), params2[i].clone());
             }
         }
-        // TODO recurse on tuples and records and adts
         (Type::Poly(_, ident, _), _) => {
             monomorphenv.borrow_mut().extend(&ident, monomorphic_ty);
+        }
+        (Type::Tuple(_, elems1), Type::Tuple(_, elems2)) => {
+            for i in 0..elems1.len() {
+                update_monomorphenv(monomorphenv.clone(), elems1[i].clone(), elems2[i].clone());
+            }
         }
         _ => {}
     }
@@ -342,6 +346,13 @@ pub fn subst_with_monomorphic_env(monomorphic_env: Rc<RefCell<MonomorphEnv>>, ty
             } else {
                 ty
             }
+        }
+        Type::Tuple(provs, elems) => {
+            let new_elems = elems
+                .iter()
+                .map(|elem| subst_with_monomorphic_env(monomorphic_env.clone(), elem.clone()))
+                .collect();
+            Type::Tuple(provs, new_elems)
         }
         _ => ty,
     }

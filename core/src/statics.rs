@@ -2186,11 +2186,12 @@ pub fn result_of_constraint_solving(
                     if let Some(impl_ty) = impl_.typ.solution() {
                         debug_println!("impl_ty: {:?}", impl_ty);
                         if let Err((_err_monoty, _err_impl_ty)) =
-                            ty_fits_impl_ty(inf_ctx, typ.clone(), impl_ty)
+                            ty_fits_impl_ty(inf_ctx, typ.clone(), impl_ty.clone())
                         {
                             debug_println!("err_monoty: {:#?}", _err_monoty);
                             debug_println!("err_impl_ty: {:#?}", _err_impl_ty);
                         } else {
+                            debug_println!("typ {:#?} fits impl_ty {:#?}", typ, impl_ty.clone());
                             bad_instantiation = false;
                         }
                     }
@@ -2492,6 +2493,17 @@ pub fn ty_fits_impl_ty(
             } else {
                 Err((typ, impl_ty))
             }
+        }
+        // TODO double-check this could be buggy adding it here arbitrarily
+        (_, Type::Poly(_, _, interfaces)) => {
+            if !ty_fits_impl_ty_poly(
+                ctx,
+                typ.clone(),
+                interfaces.iter().cloned().collect::<BTreeSet<_>>(),
+            ) {
+                return Err((typ, impl_ty));
+            }
+            Ok(())
         }
         _ => Err((typ, impl_ty)),
     }

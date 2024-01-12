@@ -212,6 +212,12 @@ implement ToString for bool {
 implement ToString for float {
     func to_string(f) = float_to_string(f)
 }
+implement ToString for ('a ToString, 'b ToString) {
+    func to_string(p) = {
+        let (a, b) = p
+        "(" & to_string(a) & ", " & to_string(b) & ")"
+    }
+}
 
 implement ToString for list<'a ToString> {
     func to_string(xs) = {
