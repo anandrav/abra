@@ -218,6 +218,66 @@ implement ToString for ('a ToString, 'b ToString) {
         "(" & to_string(a) & ", " & to_string(b) & ")"
     }
 }
+implement ToString for ('a ToString, 'b ToString, 'c ToString) {
+    func to_string(p) = {
+        let (a, b, c) = p
+        "(" & to_string(a) & ", " & to_string(b) & ", " & to_string(c) & ")"
+    }
+}
+implement ToString for ('a ToString, 'b ToString, 'c ToString, 'd ToString) {
+    func to_string(p) = {
+        let (a, b, c, d) = p
+        "(" & to_string(a) & ", " & to_string(b) & ", " & to_string(c) & ", " & to_string(d) & ")"
+    }
+}
+implement ToString for ('a ToString, 'b ToString, 'c ToString, 'd ToString, 'e ToString) {
+    func to_string(p) = {
+        let (a, b, c, d, e) = p
+        "(" & to_string(a) & ", " & to_string(b) & ", " & to_string(c) & ", " & to_string(d) & ", " & to_string(e) & ")"
+    }
+}
+implement ToString for ('a ToString, 'b ToString, 'c ToString, 'd ToString, 'e ToString, 'f ToString) {
+    func to_string(p) = {
+        let (a, b, c, d, e, f) = p
+        "(" & to_string(a) & ", " & to_string(b) & ", " & to_string(c) & ", " & to_string(d) & ", " & to_string(e) & ", " & to_string(f) & ")"
+    }
+}
+implement ToString for ('a ToString, 'b ToString, 'c ToString, 'd ToString, 'e ToString, 'f ToString, 'g ToString) {
+    func to_string(p) = {
+        let (a, b, c, d, e, f, g) = p
+        "(" & to_string(a) & ", " & to_string(b) & ", " & to_string(c) & ", " & to_string(d) & ", " & to_string(e) & ", " & to_string(f) & ", " & to_string(g) & ")"
+    }
+}
+implement ToString for ('a ToString, 'b ToString, 'c ToString, 'd ToString, 'e ToString, 'f ToString, 'g ToString, 'h ToString) {
+    func to_string(p) = {
+        let (a, b, c, d, e, f, g, h) = p
+        "(" & to_string(a) & ", " & to_string(b) & ", " & to_string(c) & ", " & to_string(d) & ", " & to_string(e) & ", " & to_string(f) & ", " & to_string(g) & ", " & to_string(h) & ")"
+    }
+}
+implement ToString for ('a ToString, 'b ToString, 'c ToString, 'd ToString, 'e ToString, 'f ToString, 'g ToString, 'h ToString, 'i ToString) {
+    func to_string(p) = {
+        let (a, b, c, d, e, f, g, h, i) = p
+        "(" & to_string(a) & ", " & to_string(b) & ", " & to_string(c) & ", " & to_string(d) & ", " & to_string(e) & ", " & to_string(f) & ", " & to_string(g) & ", " & to_string(h) & ", " & to_string(i) & ")"
+    }
+}
+implement ToString for ('a ToString, 'b ToString, 'c ToString, 'd ToString, 'e ToString, 'f ToString, 'g ToString, 'h ToString, 'i ToString, 'j ToString) {
+    func to_string(p) = {
+        let (a, b, c, d, e, f, g, h, i, j) = p
+        "(" & to_string(a) & ", " & to_string(b) & ", " & to_string(c) & ", " & to_string(d) & ", " & to_string(e) & ", " & to_string(f) & ", " & to_string(g) & ", " & to_string(h) & ", " & to_string(i) & ", " & to_string(j) & ")"
+    }
+}
+implement ToString for ('a ToString, 'b ToString, 'c ToString, 'd ToString, 'e ToString, 'f ToString, 'g ToString, 'h ToString, 'i ToString, 'j ToString, 'k ToString) {
+    func to_string(p) = {
+        let (a, b, c, d, e, f, g, h, i, j, k) = p
+        "(" & to_string(a) & ", " & to_string(b) & ", " & to_string(c) & ", " & to_string(d) & ", " & to_string(e) & ", " & to_string(f) & ", " & to_string(g) & ", " & to_string(h) & ", " & to_string(i) & ", " & to_string(j) & ", " & to_string(k) & ")"
+    }
+}
+implement ToString for ('a ToString, 'b ToString, 'c ToString, 'd ToString, 'e ToString, 'f ToString, 'g ToString, 'h ToString, 'i ToString, 'j ToString, 'k ToString, 'l ToString) {
+    func to_string(p) = {
+        let (a, b, c, d, e, f, g, h, i, j, k, l) = p
+        "(" & to_string(a) & ", " & to_string(b) & ", " & to_string(c) & ", " & to_string(d) & ", " & to_string(e) & ", " & to_string(f) & ", " & to_string(g) & ", " & to_string(h) & ", " & to_string(i) & ", " & to_string(j) & ", " & to_string(k) & ", " & to_string(l) & ")"
+    }
+}
 
 implement ToString for list<'a ToString> {
     func to_string(xs) = {
