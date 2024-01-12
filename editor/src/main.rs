@@ -43,13 +43,14 @@ fn main() {
 
     let options = eframe::WebOptions::default();
     wasm_bindgen_futures::spawn_local(async {
-        eframe::start_web(
-            "the_canvas_id", // hardcode it
-            options,
-            Box::new(|_cc| Box::<MyApp>::default()),
-        )
-        .await
-        .expect("failed to start eframe");
+        eframe::WebRunner::new()
+            .start(
+                "the_canvas_id", // hardcode it
+                options,
+                Box::new(|_cc| Box::<MyApp>::default()),
+            )
+            .await
+            .expect("failed to start eframe");
     });
 }
 
