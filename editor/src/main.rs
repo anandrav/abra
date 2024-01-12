@@ -117,7 +117,11 @@ println("The first 10 fibonacci numbers are:")
 for_each(range(0, 9), n -> println(fibonacci(n)))
 "#;
 
-const _DEMO: &str = r#"func fibonacci(n) = {
+const _DEMO: &str = r#"println("Enter your name: ")
+let name = read()
+println("Your name is " & name)
+
+func fibonacci(n) = {
     match n
         0 -> 0
         1 -> 1
@@ -656,6 +660,8 @@ impl eframe::App for MyApp {
                         {
                             self.interpreter = None;
                             self.output.clear();
+                            self.input.clear();
+                            self.readline = false;
 
                             let mut source_files = Vec::new();
                             source_files.push(SourceFile {
