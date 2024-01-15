@@ -667,6 +667,11 @@ pub fn parse_let_pattern(pair: Pair<Rule>, filename: &str) -> Rc<Pat> {
             span,
             id: Id::new(),
         }),
+        Rule::wildcard => Rc::new(Pat {
+            patkind: Rc::new(PatKind::Wildcard),
+            span,
+            id: Id::new(),
+        }),
         Rule::let_pattern_tuple => {
             let inner: Vec<_> = pair.into_inner().collect();
             let pats = inner
