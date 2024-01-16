@@ -2455,11 +2455,13 @@ pub fn result_of_constraint_solving(
 // errors would be unbound variable, wrong number of arguments, occurs check, etc.
 pub fn result_of_additional_analysis(
     inf_ctx: &mut InferenceContext,
-    toplevel: &ast::Toplevel,
+    toplevels: &[Rc<ast::Toplevel>],
     node_map: &ast::NodeMap,
     sources: &ast::Sources,
 ) -> Result<(), String> {
-    check_pattern_exhaustiveness_toplevel(inf_ctx, toplevel);
+    for toplevel in toplevels {
+        check_pattern_exhaustiveness_toplevel(inf_ctx, toplevel);
+    }
 
     if inf_ctx.nonexhaustive_matches.is_empty() && inf_ctx.redundant_matches.is_empty() {
         return Ok(());
@@ -2475,10 +2477,15 @@ pub fn result_of_additional_analysis(
             .push_str(&span.display(sources, "Non-exhaustive match. Try adding more cases\n"));
     }
 
-    for (pat, redundant_pattern_suggestions) in inf_ctx.redundant_matches.iter() {
-        let span = node_map.get(pat).unwrap().span();
+    for (_match, redundant_pattern_suggestions) in inf_ctx.redundant_matches.iter() {
+        for pat in redundant_pattern_suggestions {
+            let span = node_map.get(pat).unwrap().span();
 
-        err_string.push_str(&span.display(sources, "Redundant match. Try removing this case\n"));
+            err_string.push_str(&span.display(
+                sources,
+                &format!("Redundant match. Try removing this case\n{}", pat),
+            ));
+        }
     }
 
     Err(err_string)
@@ -2721,78 +2728,100 @@ impl PatExhaustiveness {
                 redundant_pats.push(pat);
             }
 
-            PatExhaustiveness::SomeBools(bools) => {
-                let PatKind::Bool(b) = &*pat.patkind else {
-                    panic!();
-                };
-
-                if bools.contains(b) {
-                    redundant_pats.push(pat);
-                } else {
-                    bools.insert(*b);
+            PatExhaustiveness::SomeBools(bools) => match &*pat.patkind {
+                PatKind::Bool(b) => {
+                    if bools.contains(b) {
+                        redundant_pats.push(pat);
+                    } else {
+                        bools.insert(*b);
+                    }
                 }
-            }
-            PatExhaustiveness::SomeConstructors(ctors, nparams) => {
-                let PatKind::Variant(ref ctor, pat_inner) = &*pat.patkind else {
-                    panic!();
-                };
-
-                if let entry @ Occupied(_) = ctors.entry(ctor.to_string()) {
-                    if let Occupied(occupied) = entry {
-                        if occupied.get() == &PatExhaustiveness::All {
-                            redundant_pats.push(pat);
+                PatKind::Wildcard => {
+                    *self = PatExhaustiveness::All;
+                }
+                _ => {
+                    unreachable!()
+                }
+            },
+            PatExhaustiveness::SomeConstructors(ctors, nparams) => match &*pat.patkind {
+                PatKind::Variant(ref ctor, pat_inner) => {
+                    if let entry @ Occupied(_) = ctors.entry(ctor.to_string()) {
+                        if let Occupied(occupied) = entry {
+                            if occupied.get() == &PatExhaustiveness::All {
+                                redundant_pats.push(pat);
+                            }
+                        } else {
+                            entry.and_modify(|e| {
+                                e.add_pat(inf_ctx, pat, redundant_pats);
+                                e.reduce();
+                            });
                         }
                     } else {
-                        entry.and_modify(|e| {
-                            e.add_pat(inf_ctx, pat, redundant_pats);
-                            e.reduce();
-                        });
-                    }
-                } else {
-                    match pat_inner {
-                        Some(pat_inner) => {
-                            let inner_ty = Type::solution_of_node(inf_ctx, pat_inner.id).unwrap();
-                            ctors.insert(ctor.clone(), PatExhaustiveness::new(inf_ctx, inner_ty));
+                        match pat_inner {
+                            Some(pat_inner) => {
+                                let inner_ty =
+                                    Type::solution_of_node(inf_ctx, pat_inner.id).unwrap();
+                                ctors.insert(
+                                    ctor.clone(),
+                                    PatExhaustiveness::new(inf_ctx, inner_ty),
+                                );
+                            }
+                            _ => {
+                                ctors.insert(ctor.clone(), PatExhaustiveness::All);
+                            }
                         }
-                        _ => {
-                            ctors.insert(ctor.clone(), PatExhaustiveness::All);
-                        }
                     }
                 }
-            }
-
-            PatExhaustiveness::SomeInts(ints) => {
-                let PatKind::Int(i) = &*pat.patkind else {
-                    panic!();
-                };
-
-                if ints.contains(i) {
-                    redundant_pats.push(pat);
-                } else {
-                    ints.insert(*i);
+                PatKind::Wildcard => {
+                    *self = PatExhaustiveness::All;
                 }
-            }
-            PatExhaustiveness::SomeStrings(strings) => {
-                let PatKind::Str(s) = &*pat.patkind else {
-                    panic!();
-                };
-
-                if strings.contains(s) {
-                    redundant_pats.push(pat);
-                } else {
-                    strings.insert(s.clone());
+                _ => {
+                    unreachable!()
                 }
-            }
-
-            PatExhaustiveness::Tuple(pats) => {
-                let PatKind::Tuple(pats2) = &*pat.patkind else {
-                    panic!();
-                };
-
-                for (i, pat2) in pats2.iter().enumerate() {
-                    pats[i].add_pat(inf_ctx, pat2.clone(), redundant_pats);
+            },
+            PatExhaustiveness::SomeInts(ints) => match &*pat.patkind {
+                PatKind::Int(i) => {
+                    if ints.contains(i) {
+                        redundant_pats.push(pat);
+                    } else {
+                        ints.insert(*i);
+                    }
                 }
-            }
+                PatKind::Wildcard => {
+                    *self = PatExhaustiveness::All;
+                }
+                _ => {
+                    unreachable!()
+                }
+            },
+            PatExhaustiveness::SomeStrings(strings) => match &*pat.patkind {
+                PatKind::Str(s) => {
+                    if strings.contains(s) {
+                        redundant_pats.push(pat);
+                    } else {
+                        strings.insert(s.clone());
+                    }
+                }
+                PatKind::Wildcard => {
+                    *self = PatExhaustiveness::All;
+                }
+                _ => {
+                    unreachable!()
+                }
+            },
+            PatExhaustiveness::Tuple(pats) => match &*pat.patkind {
+                PatKind::Tuple(pats2) => {
+                    for (i, pat2) in pats2.iter().enumerate() {
+                        pats[i].add_pat(inf_ctx, pat2.clone(), redundant_pats);
+                    }
+                }
+                PatKind::Wildcard => {
+                    *self = PatExhaustiveness::All;
+                }
+                _ => {
+                    unreachable!()
+                }
+            },
         }
         self.reduce();
     }
