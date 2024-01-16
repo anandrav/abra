@@ -7,6 +7,7 @@ use core::panic;
 use debug_print::debug_println;
 use disjoint_sets::UnionFindNode;
 use std::cell::RefCell;
+use std::collections::btree_map::Entry::{Occupied, Vacant};
 use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 use std::fmt::{self, Write};
 use std::rc::Rc;
@@ -696,7 +697,7 @@ pub struct InferenceContext {
     pub vars: HashMap<Prov, UnifVar>,
 
     // nominal type definitions (ADTs)
-    pub tydefs: HashMap<Identifier, AdtDef>,
+    pub adt_defs: HashMap<Identifier, AdtDef>,
     // map from variant names to ADT names
     pub variants_to_adt: HashMap<Identifier, Identifier>,
 
@@ -727,13 +728,16 @@ pub struct InferenceContext {
     // interface implementations
     pub multiple_interface_impls: BTreeMap<Identifier, Vec<ast::Id>>,
     pub interface_impl_for_instantiated_adt: Vec<ast::Id>,
+    // non-exhaustive matches
+    pub nonexhaustive_matches: BTreeMap<ast::Id, Vec<MissingPatternSuggestion>>,
+    pub redundant_matches: BTreeMap<ast::Id, Vec<ast::Id>>,
 }
 
 impl InferenceContext {
     pub fn new() -> Self {
         Self {
             vars: HashMap::new(),
-            tydefs: HashMap::new(),
+            adt_defs: HashMap::new(),
             variants_to_adt: HashMap::new(),
             fun_defs: HashMap::new(),
             interface_defs: HashMap::new(),
@@ -746,12 +750,15 @@ impl InferenceContext {
             multiple_interface_defs: BTreeMap::new(),
             multiple_interface_impls: BTreeMap::new(),
             interface_impl_for_instantiated_adt: Vec::new(),
+            nonexhaustive_matches: BTreeMap::new(),
+            redundant_matches: BTreeMap::new(),
+            // TODO ..Default::default()
         }
     }
 
     pub fn adt_def_of_variant(&self, variant: &Identifier) -> Option<AdtDef> {
         let adt_name = self.variants_to_adt.get(variant)?;
-        self.tydefs.get(adt_name).cloned()
+        self.adt_defs.get(adt_name).cloned()
     }
 
     pub fn interface_def_of_ident(&self, ident: &Identifier) -> Option<InterfaceDef> {
@@ -1974,7 +1981,7 @@ pub fn gather_definitions_stmt(
         StmtKind::TypeDef(typdefkind) => match &**typdefkind {
             TypeDefKind::Alias(_ident, _ty) => {}
             TypeDefKind::Adt(ident, params, variants) => {
-                if let Some(adt_def) = inf_ctx.tydefs.get(ident) {
+                if let Some(adt_def) = inf_ctx.adt_defs.get(ident) {
                     let entry = inf_ctx.multiple_adt_defs.entry(ident.clone()).or_default();
                     entry.push(adt_def.location);
                     entry.push(stmt.id);
@@ -2004,7 +2011,7 @@ pub fn gather_definitions_stmt(
                     };
                     defparams.push(ident.clone());
                 }
-                inf_ctx.tydefs.insert(
+                inf_ctx.adt_defs.insert(
                     ident.clone(),
                     AdtDef {
                         name: ident.clone(),
@@ -2445,6 +2452,127 @@ pub fn result_of_constraint_solving(
     Err(err_string)
 }
 
+// errors would be unbound variable, wrong number of arguments, occurs check, etc.
+pub fn result_of_additional_analysis(
+    inf_ctx: &mut InferenceContext,
+    toplevel: &ast::Toplevel,
+    node_map: &ast::NodeMap,
+    sources: &ast::Sources,
+) -> Result<(), String> {
+    check_pattern_exhaustiveness_toplevel(inf_ctx, toplevel);
+
+    if inf_ctx.nonexhaustive_matches.is_empty() && inf_ctx.redundant_matches.is_empty() {
+        return Ok(());
+    }
+
+    let mut err_string = String::new();
+    err_string.push_str("Pattern matching errors:\n");
+
+    for (pat, missing_pattern_suggestions) in inf_ctx.nonexhaustive_matches.iter() {
+        let span = node_map.get(pat).unwrap().span();
+
+        err_string
+            .push_str(&span.display(sources, "Non-exhaustive match. Try adding more cases\n"));
+    }
+
+    for (pat, redundant_pattern_suggestions) in inf_ctx.redundant_matches.iter() {
+        let span = node_map.get(pat).unwrap().span();
+
+        err_string.push_str(&span.display(sources, "Redundant match. Try removing this case\n"));
+    }
+
+    Err(err_string)
+}
+
+fn check_pattern_exhaustiveness_toplevel(inf_ctx: &mut InferenceContext, toplevel: &ast::Toplevel) {
+    debug_println!("check_pattern_exhaustiveness_toplevel");
+    for statement in toplevel.statements.iter() {
+        check_pattern_exhaustiveness_stmt(inf_ctx, statement);
+    }
+}
+
+fn check_pattern_exhaustiveness_stmt(inf_ctx: &mut InferenceContext, stmt: &ast::Stmt) {
+    debug_println!("check_pattern_exhaustiveness_stmt");
+    match &*stmt.stmtkind {
+        StmtKind::InterfaceDef(..) => {}
+        StmtKind::TypeDef(..) => {}
+        StmtKind::InterfaceImpl(_, _, stmts) => {
+            for stmt in stmts {
+                debug_println!("check_pattern_exhaustiveness_stmt IMPL");
+                check_pattern_exhaustiveness_stmt(inf_ctx, stmt);
+            }
+        }
+        StmtKind::Set(_, expr) => {
+            debug_println!("check_pattern_exhaustiveness_stmt SET");
+            check_pattern_exhaustiveness_expr(inf_ctx, expr);
+        }
+        StmtKind::Let(_, _, expr) => {
+            debug_println!("check_pattern_exhaustiveness_stmt LET");
+            check_pattern_exhaustiveness_expr(inf_ctx, expr);
+        }
+        StmtKind::LetFunc(_, _, _, body) => {
+            debug_println!("check_pattern_exhaustiveness_stmt LET_FUNC");
+            check_pattern_exhaustiveness_expr(inf_ctx, body);
+        }
+        StmtKind::Expr(expr) => {
+            debug_println!("check_pattern_exhaustiveness_stmt EXPR");
+            check_pattern_exhaustiveness_expr(inf_ctx, expr);
+        }
+    }
+}
+
+fn check_pattern_exhaustiveness_expr(inf_ctx: &mut InferenceContext, expr: &ast::Expr) {
+    match &*expr.exprkind {
+        ExprKind::Match(..) => match_expr_exhaustive_check(inf_ctx, expr),
+
+        ExprKind::Unit
+        | ExprKind::Int(_)
+        | ExprKind::Float(_)
+        | ExprKind::Bool(_)
+        | ExprKind::Str(_)
+        | ExprKind::Var(_) => {}
+        ExprKind::List(exprs) => {
+            for expr in exprs {
+                check_pattern_exhaustiveness_expr(inf_ctx, expr);
+            }
+        }
+        ExprKind::BinOp(left, op, right) => {
+            check_pattern_exhaustiveness_expr(inf_ctx, left);
+            check_pattern_exhaustiveness_expr(inf_ctx, right);
+        }
+        ExprKind::Block(statements) => {
+            for statement in statements {
+                check_pattern_exhaustiveness_stmt(inf_ctx, statement);
+            }
+        }
+        ExprKind::If(e1, e2, e3) => {
+            check_pattern_exhaustiveness_expr(inf_ctx, e1);
+            check_pattern_exhaustiveness_expr(inf_ctx, e2);
+            if let Some(e3) = e3 {
+                check_pattern_exhaustiveness_expr(inf_ctx, e3);
+            }
+        }
+        ExprKind::WhileLoop(cond, expr) => {
+            check_pattern_exhaustiveness_expr(inf_ctx, cond);
+            check_pattern_exhaustiveness_expr(inf_ctx, expr);
+        }
+        ExprKind::Func(args, out_annot, body) => {
+            check_pattern_exhaustiveness_expr(inf_ctx, body);
+        }
+        ExprKind::FuncAp(func, args) => {
+            check_pattern_exhaustiveness_expr(inf_ctx, func);
+            for arg in args {
+                check_pattern_exhaustiveness_expr(inf_ctx, arg);
+            }
+        }
+        ExprKind::Tuple(exprs) => {
+            for expr in exprs {
+                check_pattern_exhaustiveness_expr(inf_ctx, expr);
+            }
+        }
+    }
+}
+
 pub fn ty_fits_impl_ty(
     ctx: &InferenceContext,
     typ: Type,
@@ -2536,6 +2664,247 @@ fn ty_fits_impl_ty_poly(
         }
     }
     false
+}
+
+#[derive(PartialEq, Eq, Debug)]
+enum PatExhaustiveness {
+    // exhaustive
+    All,
+
+    // finite
+    SomeBools(BTreeSet<bool>),
+
+    // not finite
+    SomeInts(BTreeSet<i64>),
+    SomeStrings(HashSet<String>),
+
+    SomeConstructors(BTreeMap<Identifier, PatExhaustiveness>, u8),
+
+    Tuple(Vec<PatExhaustiveness>),
+}
+
+enum MissingPatternSuggestion {
+    Wildcard,
+    Bool(bool),
+    Constructor(Identifier, Box<MissingPatternSuggestion>),
+    Tuple(Vec<MissingPatternSuggestion>),
+}
+
+impl PatExhaustiveness {
+    fn new(inf_ctx: &InferenceContext, ty: Type) -> Self {
+        match ty {
+            Type::Bool(_) => PatExhaustiveness::SomeBools(BTreeSet::new()),
+            Type::Int(_) => PatExhaustiveness::SomeInts(BTreeSet::new()),
+            Type::AdtInstance(_, ident, _) => {
+                let adt_def = inf_ctx.adt_defs.get(&ident).unwrap();
+                let nparams = adt_def.params.len();
+                PatExhaustiveness::SomeConstructors(BTreeMap::new(), nparams as u8)
+            }
+            Type::Tuple(_, elems) => {
+                let mut new_elems = Vec::new();
+                for elem in elems {
+                    new_elems.push(PatExhaustiveness::new(inf_ctx, elem));
+                }
+                PatExhaustiveness::Tuple(new_elems)
+            }
+            _ => PatExhaustiveness::All,
+        }
+    }
+    fn add_pat(
+        &mut self,
+        inf_ctx: &InferenceContext,
+        pat: Rc<Pat>,
+        redundant_pats: &mut Vec<Rc<Pat>>,
+    ) {
+        match self {
+            PatExhaustiveness::All => {
+                redundant_pats.push(pat);
+            }
+
+            PatExhaustiveness::SomeBools(bools) => {
+                let PatKind::Bool(b) = &*pat.patkind else {
+                    panic!();
+                };
+
+                if bools.contains(b) {
+                    redundant_pats.push(pat);
+                } else {
+                    bools.insert(*b);
+                }
+            }
+            PatExhaustiveness::SomeConstructors(ctors, nparams) => {
+                let PatKind::Variant(ref ctor, pat_inner) = &*pat.patkind else {
+                    panic!();
+                };
+
+                if let entry @ Occupied(_) = ctors.entry(ctor.to_string()) {
+                    if let Occupied(occupied) = entry {
+                        if occupied.get() == &PatExhaustiveness::All {
+                            redundant_pats.push(pat);
+                        }
+                    } else {
+                        entry.and_modify(|e| {
+                            e.add_pat(inf_ctx, pat, redundant_pats);
+                            e.reduce();
+                        });
+                    }
+                } else {
+                    match pat_inner {
+                        Some(pat_inner) => {
+                            let inner_ty = Type::solution_of_node(inf_ctx, pat_inner.id).unwrap();
+                            ctors.insert(ctor.clone(), PatExhaustiveness::new(inf_ctx, inner_ty));
+                        }
+                        _ => {
+                            ctors.insert(ctor.clone(), PatExhaustiveness::All);
+                        }
+                    }
+                }
+            }
+
+            PatExhaustiveness::SomeInts(ints) => {
+                let PatKind::Int(i) = &*pat.patkind else {
+                    panic!();
+                };
+
+                if ints.contains(i) {
+                    redundant_pats.push(pat);
+                } else {
+                    ints.insert(*i);
+                }
+            }
+            PatExhaustiveness::SomeStrings(strings) => {
+                let PatKind::Str(s) = &*pat.patkind else {
+                    panic!();
+                };
+
+                if strings.contains(s) {
+                    redundant_pats.push(pat);
+                } else {
+                    strings.insert(s.clone());
+                }
+            }
+
+            PatExhaustiveness::Tuple(pats) => {
+                let PatKind::Tuple(pats2) = &*pat.patkind else {
+                    panic!();
+                };
+
+                for (i, pat2) in pats2.iter().enumerate() {
+                    pats[i].add_pat(inf_ctx, pat2.clone(), redundant_pats);
+                }
+            }
+        }
+        self.reduce();
+    }
+
+    fn reduce(&mut self) {
+        match self {
+            PatExhaustiveness::Tuple(pats) => {
+                for pat in pats.iter_mut() {
+                    pat.reduce();
+                }
+                if pats.iter().all(|pat| matches!(pat, PatExhaustiveness::All)) {
+                    *self = PatExhaustiveness::All;
+                }
+            }
+            PatExhaustiveness::SomeBools(bools) => {
+                if bools.len() == 2 {
+                    *self = PatExhaustiveness::All;
+                }
+            }
+            PatExhaustiveness::SomeConstructors(ctors, n) => {
+                if ctors.len() == *n as usize {
+                    *self = PatExhaustiveness::All;
+                }
+            }
+            _ => {}
+        }
+    }
+}
+
+// identify missing and extra constructors in patterns
+fn match_expr_exhaustive_check(inf_ctx: &mut InferenceContext, expr: &ast::Expr) {
+    let ExprKind::Match(scrutiny, arms) = &*expr.exprkind else {
+        panic!()
+    };
+
+    debug_println!("match_expr_exhaustive_check");
+    debug_println!("expr: {:#?}", expr);
+
+    let scrutinee_ty = Type::solution_of_node(inf_ctx, scrutiny.id);
+    let Some(scrutinee_ty) = scrutinee_ty else {
+        return;
+    };
+    let mut exhaustiveness = PatExhaustiveness::new(inf_ctx, scrutinee_ty);
+    let mut redundant_pats = Vec::new();
+    for arm in arms.iter() {
+        let pat = &arm.pat;
+        exhaustiveness.add_pat(inf_ctx, pat.clone(), &mut redundant_pats);
+    }
+
+    debug_println!("Exhaustiveness: {:#?}", exhaustiveness);
+    if exhaustiveness != PatExhaustiveness::All {
+        let mut missing_pattern_suggestions = Vec::new();
+        make_missing_pattern_suggestions(&exhaustiveness, &mut missing_pattern_suggestions);
+        inf_ctx
+            .nonexhaustive_matches
+            .insert(expr.id, missing_pattern_suggestions);
+    }
+
+    if !redundant_pats.is_empty() {
+        inf_ctx.redundant_matches.insert(
+            expr.id,
+            redundant_pats.iter().cloned().map(|p| p.id).collect(),
+        );
+    }
+}
+
+fn make_missing_pattern_suggestions(
+    exhaustiveness: &PatExhaustiveness,
+    missing_pattern_suggestions: &mut Vec<MissingPatternSuggestion>,
+) {
+    match exhaustiveness {
+        PatExhaustiveness::All => {}
+        PatExhaustiveness::SomeBools(bools) => {
+            if !bools.contains(&true) {
+                missing_pattern_suggestions.push(MissingPatternSuggestion::Bool(true));
+            }
+            if !bools.contains(&false) {
+                missing_pattern_suggestions.push(MissingPatternSuggestion::Bool(false));
+            }
+        }
+        PatExhaustiveness::SomeInts(_ints) => {
+            missing_pattern_suggestions.push(MissingPatternSuggestion::Wildcard);
+        }
+        PatExhaustiveness::SomeStrings(_strings) => {
+            missing_pattern_suggestions.push(MissingPatternSuggestion::Wildcard);
+        }
+        PatExhaustiveness::SomeConstructors(ctors, nparams) => {
+            // TODO!
+            // for (ctor, exhaustiveness) in ctors.iter() {
+            //     let mut missing_pattern_suggestions2 = Vec::new();
+            //     make_missing_pattern_suggestions(
+            //         inf_ctx,
+            //         exhaustiveness,
+            //         &mut missing_pattern_suggestions2,
+            //     );
+            //     missing_pattern_suggestions.push(MissingPatternSuggestion::Constructor(
+            //         ctor.clone(),
+            //         missing_pattern_suggestions2,
+            //     ));
+            // }
+        }
+        PatExhaustiveness::Tuple(pats) => {
+            // TODO!
+            // for pat in pats.iter() {
+            //     let mut missing_pattern_suggestions2 = Vec::new();
+            //     make_missing_pattern_suggestions(inf_ctx, pat, &mut missing_pattern_suggestions2);
+            //     missing_pattern_suggestions.push(MissingPatternSuggestion::Tuple(
+            //         missing_pattern_suggestions2,
+            //     ));
+            // }
+        }
+    }
 }
 
 impl fmt::Display for Type {

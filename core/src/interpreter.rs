@@ -303,7 +303,7 @@ pub fn add_builtins_and_variants<Effects: EffectTrait>(
             None,
         )),
     );
-    for (_name, adt_def) in inf_ctx.tydefs.iter() {
+    for (_name, adt_def) in inf_ctx.adt_defs.iter() {
         for variant in adt_def.variants.iter() {
             let ctor = &variant.ctor;
             if let Type::Unit(_) = variant.data {
