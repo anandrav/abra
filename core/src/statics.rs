@@ -2673,183 +2673,12 @@ fn ty_fits_impl_ty_poly(
     false
 }
 
-#[derive(PartialEq, Eq, Debug)]
-enum PatExhaustiveness {
-    // exhaustive
-    All,
-
-    // finite
-    SomeBools(BTreeSet<bool>),
-
-    // not finite
-    SomeInts(BTreeSet<i64>),
-    SomeStrings(HashSet<String>),
-
-    SomeConstructors(BTreeMap<Identifier, PatExhaustiveness>, u8),
-
-    Tuple(Vec<PatExhaustiveness>),
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone)]
+struct Matrix {
+    mat: Vec<Vec<Rc<Pat>>,
+    
 }
 
-enum MissingPatternSuggestion {
-    Wildcard,
-    Bool(bool),
-    Constructor(Identifier, Box<MissingPatternSuggestion>),
-    Tuple(Vec<MissingPatternSuggestion>),
-}
-
-impl PatExhaustiveness {
-    fn new(inf_ctx: &InferenceContext, ty: Type) -> Self {
-        match ty {
-            Type::Bool(_) => PatExhaustiveness::SomeBools(BTreeSet::new()),
-            Type::Int(_) => PatExhaustiveness::SomeInts(BTreeSet::new()),
-            Type::AdtInstance(_, ident, _) => {
-                let adt_def = inf_ctx.adt_defs.get(&ident).unwrap();
-                let nparams = adt_def.params.len();
-                PatExhaustiveness::SomeConstructors(BTreeMap::new(), nparams as u8)
-            }
-            Type::Tuple(_, elems) => {
-                let mut new_elems = Vec::new();
-                for elem in elems {
-                    new_elems.push(PatExhaustiveness::new(inf_ctx, elem));
-                }
-                PatExhaustiveness::Tuple(new_elems)
-            }
-            _ => PatExhaustiveness::All,
-        }
-    }
-    fn add_pat(
-        &mut self,
-        inf_ctx: &InferenceContext,
-        pat: Rc<Pat>,
-        redundant_pats: &mut Vec<Rc<Pat>>,
-    ) {
-        match self {
-            PatExhaustiveness::All => {
-                redundant_pats.push(pat);
-            }
-
-            PatExhaustiveness::SomeBools(bools) => match &*pat.patkind {
-                PatKind::Bool(b) => {
-                    if bools.contains(b) {
-                        redundant_pats.push(pat);
-                    } else {
-                        bools.insert(*b);
-                    }
-                }
-                PatKind::Wildcard => {
-                    *self = PatExhaustiveness::All;
-                }
-                _ => {
-                    unreachable!()
-                }
-            },
-            PatExhaustiveness::SomeConstructors(ctors, nparams) => match &*pat.patkind {
-                PatKind::Variant(ref ctor, pat_inner) => {
-                    if let entry @ Occupied(_) = ctors.entry(ctor.to_string()) {
-                        if let Occupied(occupied) = entry {
-                            if occupied.get() == &PatExhaustiveness::All {
-                                redundant_pats.push(pat);
-                            }
-                        } else {
-                            entry.and_modify(|e| {
-                                e.add_pat(inf_ctx, pat, redundant_pats);
-                                e.reduce();
-                            });
-                        }
-                    } else {
-                        match pat_inner {
-                            Some(pat_inner) => {
-                                let inner_ty =
-                                    Type::solution_of_node(inf_ctx, pat_inner.id).unwrap();
-                                ctors.insert(
-                                    ctor.clone(),
-                                    PatExhaustiveness::new(inf_ctx, inner_ty),
-                                );
-                            }
-                            _ => {
-                                ctors.insert(ctor.clone(), PatExhaustiveness::All);
-                            }
-                        }
-                    }
-                }
-                PatKind::Wildcard => {
-                    *self = PatExhaustiveness::All;
-                }
-                _ => {
-                    unreachable!()
-                }
-            },
-            PatExhaustiveness::SomeInts(ints) => match &*pat.patkind {
-                PatKind::Int(i) => {
-                    if ints.contains(i) {
-                        redundant_pats.push(pat);
-                    } else {
-                        ints.insert(*i);
-                    }
-                }
-                PatKind::Wildcard => {
-                    *self = PatExhaustiveness::All;
-                }
-                _ => {
-                    unreachable!()
-                }
-            },
-            PatExhaustiveness::SomeStrings(strings) => match &*pat.patkind {
-                PatKind::Str(s) => {
-                    if strings.contains(s) {
-                        redundant_pats.push(pat);
-                    } else {
-                        strings.insert(s.clone());
-                    }
-                }
-                PatKind::Wildcard => {
-                    *self = PatExhaustiveness::All;
-                }
-                _ => {
-                    unreachable!()
-                }
-            },
-            PatExhaustiveness::Tuple(pats) => match &*pat.patkind {
-                PatKind::Tuple(pats2) => {
-                    for (i, pat2) in pats2.iter().enumerate() {
-                        pats[i].add_pat(inf_ctx, pat2.clone(), redundant_pats);
-                    }
-                }
-                PatKind::Wildcard => {
-                    *self = PatExhaustiveness::All;
-                }
-                _ => {
-                    unreachable!()
-                }
-            },
-        }
-        self.reduce();
-    }
-
-    fn reduce(&mut self) {
-        match self {
-            PatExhaustiveness::Tuple(pats) => {
-                for pat in pats.iter_mut() {
-                    pat.reduce();
-                }
-                if pats.iter().all(|pat| matches!(pat, PatExhaustiveness::All)) {
-                    *self = PatExhaustiveness::All;
-                }
-            }
-            PatExhaustiveness::SomeBools(bools) => {
-                if bools.len() == 2 {
-                    *self = PatExhaustiveness::All;
-                }
-            }
-            PatExhaustiveness::SomeConstructors(ctors, n) => {
-                if ctors.len() == *n as usize {
-                    *self = PatExhaustiveness::All;
-                }
-            }
-            _ => {}
-        }
-    }
-}
 
 // identify missing and extra constructors in patterns
 fn match_expr_exhaustive_check(inf_ctx: &mut InferenceContext, expr: &ast::Expr) {
@@ -2864,17 +2693,26 @@ fn match_expr_exhaustive_check(inf_ctx: &mut InferenceContext, expr: &ast::Expr)
     let Some(scrutinee_ty) = scrutinee_ty else {
         return;
     };
-    let mut exhaustiveness = PatExhaustiveness::new(inf_ctx, scrutinee_ty);
+    let mut permutation = Permutation::new();
+    // let mut exhaustiveness = PatExhaustiveness::new(inf_ctx, scrutinee_ty);
     let mut redundant_pats = Vec::new();
     for arm in arms.iter() {
         let pat = &arm.pat;
-        exhaustiveness.add_pat(inf_ctx, pat.clone(), &mut redundant_pats);
+        permutation.add_pat(inf_ctx, pat.clone(), &mut redundant_pats);
+        // exhaustiveness.add_pat(inf_ctx, pat.clone(), &mut redundant_pats);
     }
 
-    debug_println!("Exhaustiveness: {:#?}", exhaustiveness);
-    if exhaustiveness != PatExhaustiveness::All {
+    debug_println!("Permutation: {:#?}", permutation);
+    // debug_println!("Exhaustiveness: {:#?}", exhaustiveness);
+    // if exhaustiveness != PatExhaustiveness::All {
+    if !permutation.exhaustive {
         let mut missing_pattern_suggestions = Vec::new();
-        make_missing_pattern_suggestions(&exhaustiveness, &mut missing_pattern_suggestions);
+        make_missing_pattern_suggestions2(
+            &permutation,
+            &scrutinee_ty,
+            &mut missing_pattern_suggestions,
+        );
+        // make_missing_pattern_suggestions(&exhaustiveness, &mut missing_pattern_suggestions);
         inf_ctx
             .nonexhaustive_matches
             .insert(expr.id, missing_pattern_suggestions);
@@ -2934,6 +2772,15 @@ fn make_missing_pattern_suggestions(
             // }
         }
     }
+}
+
+fn make_missing_pattern_suggestions2(
+    permutation: &Permutation,
+    ty: &Type,
+    missing_pattern_suggestions: &mut Vec<MissingPatternSuggestion>,
+) {
+    // TODO
+    missing_pattern_suggestions.push(MissingPatternSuggestion::Wildcard);
 }
 
 impl fmt::Display for Type {
