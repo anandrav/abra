@@ -729,7 +729,7 @@ pub struct InferenceContext {
     pub multiple_interface_impls: BTreeMap<Identifier, Vec<ast::Id>>,
     pub interface_impl_for_instantiated_adt: Vec<ast::Id>,
     // non-exhaustive matches
-    pub nonexhaustive_matches: BTreeMap<ast::Id, Vec<MissingPatternSuggestion>>,
+    // pub nonexhaustive_matches: BTreeMap<ast::Id, Vec<MissingPatternSuggestion>>,
     pub redundant_matches: BTreeMap<ast::Id, Vec<ast::Id>>,
 }
 
@@ -750,7 +750,7 @@ impl InferenceContext {
             multiple_interface_defs: BTreeMap::new(),
             multiple_interface_impls: BTreeMap::new(),
             interface_impl_for_instantiated_adt: Vec::new(),
-            nonexhaustive_matches: BTreeMap::new(),
+            // nonexhaustive_matches: BTreeMap::new(),
             redundant_matches: BTreeMap::new(),
             // TODO ..Default::default()
         }
@@ -2463,19 +2463,22 @@ pub fn result_of_additional_analysis(
         check_pattern_exhaustiveness_toplevel(inf_ctx, toplevel);
     }
 
-    if inf_ctx.nonexhaustive_matches.is_empty() && inf_ctx.redundant_matches.is_empty() {
+    if
+    /*inf_ctx.nonexhaustive_matches.is_empty() &&*/
+    inf_ctx.redundant_matches.is_empty() {
         return Ok(());
     }
 
     let mut err_string = String::new();
+
     err_string.push_str("Pattern matching errors:\n");
 
-    for (pat, missing_pattern_suggestions) in inf_ctx.nonexhaustive_matches.iter() {
-        let span = node_map.get(pat).unwrap().span();
+    // for (pat, missing_pattern_suggestions) in inf_ctx.nonexhaustive_matches.iter() {
+    //     let span = node_map.get(pat).unwrap().span();
 
-        err_string
-            .push_str(&span.display(sources, "Non-exhaustive match. Try adding more cases\n"));
-    }
+    //     err_string
+    //         .push_str(&span.display(sources, "Non-exhaustive match. Try adding more cases\n"));
+    // }
 
     for (_match, redundant_pattern_suggestions) in inf_ctx.redundant_matches.iter() {
         for pat in redundant_pattern_suggestions {
@@ -2673,12 +2676,90 @@ fn ty_fits_impl_ty_poly(
     false
 }
 
-#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone)]
+// Exhaustiveness and usefulness analysis for pattern matching
+// uses same algorithm as Rust compiler: https://doc.rust-lang.org/nightly/nightly-rustc/rustc_pattern_analysis/usefulness/index.html
+#[derive(Debug, Clone)]
 struct Matrix {
-    mat: Vec<Vec<Rc<Pat>>,
-    
+    rows: Vec<MatrixRow>,
 }
 
+impl Matrix {
+    fn new(inf_ctx: &InferenceContext, scrutinee_ty: Type, arms: &[ast::MatchArm]) -> Self {
+        let mut rows = Vec::new();
+        for arm in arms {
+            let pats = vec![PatOrWild::Pat(DeconstructedPat::from_ast_pat(
+                inf_ctx,
+                arm.pat.clone(),
+            ))];
+            let useful = false;
+            rows.push(MatrixRow { pats, useful });
+        }
+        Self { rows }
+    }
+}
+
+#[derive(Debug, Clone)]
+struct MatrixRow {
+    pats: Vec<PatOrWild>,
+    // parent_row: usize,
+    useful: bool,
+}
+
+#[derive(Debug, Clone)]
+enum PatOrWild {
+    Pat(DeconstructedPat),
+    Wild,
+}
+#[derive(Debug, Clone)]
+struct DeconstructedPat {
+    ctor: Constructor,
+    fields: Vec<DeconstructedPat>,
+    ty: Type,
+}
+
+impl DeconstructedPat {
+    fn from_ast_pat(inf_ctx: &InferenceContext, pat: Rc<ast::Pat>) -> Self {
+        let ty = Type::solution_of_node(inf_ctx, pat.id).unwrap();
+        let mut fields = vec![];
+        let ctor = match &*pat.patkind {
+            PatKind::Wildcard => Constructor::Wildcard,
+            PatKind::Var(ident) => Constructor::Var,
+            PatKind::Bool(b) => Constructor::Bool(*b),
+            PatKind::Int(i) => Constructor::Int(*i),
+            PatKind::Float(f) => Constructor::Float(*f),
+            PatKind::Str(s) => Constructor::String(s.clone()),
+            PatKind::Unit => Constructor::Unit,
+            PatKind::Tuple(pats) => {
+                fields = pats
+                    .iter()
+                    .map(|pat| DeconstructedPat::from_ast_pat(inf_ctx, pat.clone()))
+                    .collect();
+                Constructor::Tuple
+            }
+            PatKind::Variant(ident, pats) => {
+                fields = pats
+                    .iter()
+                    .map(|pat| DeconstructedPat::from_ast_pat(inf_ctx, pat.clone()))
+                    .collect();
+                Constructor::Variant(ident.clone())
+            }
+        };
+        Self { ctor, fields, ty }
+    }
+}
+
+#[derive(Debug, Clone)]
+enum Constructor {
+    Wildcard,
+    Var,
+    Bool(bool),
+    Int(i64),
+    Float(f32),
+    String(String),
+    Unit,
+    Tuple,
+    Variant(Identifier),
+}
 
 // identify missing and extra constructors in patterns
 fn match_expr_exhaustive_check(inf_ctx: &mut InferenceContext, expr: &ast::Expr) {
@@ -2693,95 +2774,97 @@ fn match_expr_exhaustive_check(inf_ctx: &mut InferenceContext, expr: &ast::Expr)
     let Some(scrutinee_ty) = scrutinee_ty else {
         return;
     };
-    let mut permutation = Permutation::new();
-    // let mut exhaustiveness = PatExhaustiveness::new(inf_ctx, scrutinee_ty);
-    let mut redundant_pats = Vec::new();
-    for arm in arms.iter() {
-        let pat = &arm.pat;
-        permutation.add_pat(inf_ctx, pat.clone(), &mut redundant_pats);
-        // exhaustiveness.add_pat(inf_ctx, pat.clone(), &mut redundant_pats);
-    }
 
-    debug_println!("Permutation: {:#?}", permutation);
-    // debug_println!("Exhaustiveness: {:#?}", exhaustiveness);
-    // if exhaustiveness != PatExhaustiveness::All {
-    if !permutation.exhaustive {
-        let mut missing_pattern_suggestions = Vec::new();
-        make_missing_pattern_suggestions2(
-            &permutation,
-            &scrutinee_ty,
-            &mut missing_pattern_suggestions,
-        );
-        // make_missing_pattern_suggestions(&exhaustiveness, &mut missing_pattern_suggestions);
-        inf_ctx
-            .nonexhaustive_matches
-            .insert(expr.id, missing_pattern_suggestions);
-    }
+    let matrix = Matrix::new(inf_ctx, scrutinee_ty, arms);
 
-    if !redundant_pats.is_empty() {
-        inf_ctx.redundant_matches.insert(
-            expr.id,
-            redundant_pats.iter().cloned().map(|p| p.id).collect(),
-        );
-    }
+    // // let mut exhaustiveness = PatExhaustiveness::new(inf_ctx, scrutinee_ty);
+    // let mut redundant_pats = Vec::new();
+    // for arm in arms.iter() {
+    //     let pat = &arm.pat;
+    //     permutation.add_pat(inf_ctx, pat.clone(), &mut redundant_pats);
+    //     // exhaustiveness.add_pat(inf_ctx, pat.clone(), &mut redundant_pats);
+    // }
+
+    // debug_println!("Permutation: {:#?}", permutation);
+    // // debug_println!("Exhaustiveness: {:#?}", exhaustiveness);
+    // // if exhaustiveness != PatExhaustiveness::All {
+    // if !permutation.exhaustive {
+    //     let mut missing_pattern_suggestions = Vec::new();
+    //     make_missing_pattern_suggestions2(
+    //         &permutation,
+    //         &scrutinee_ty,
+    //         &mut missing_pattern_suggestions,
+    //     );
+    //     // make_missing_pattern_suggestions(&exhaustiveness, &mut missing_pattern_suggestions);
+    //     inf_ctx
+    //         .nonexhaustive_matches
+    //         .insert(expr.id, missing_pattern_suggestions);
+    // }
+
+    // if !redundant_pats.is_empty() {
+    //     inf_ctx.redundant_matches.insert(
+    //         expr.id,
+    //         redundant_pats.iter().cloned().map(|p| p.id).collect(),
+    //     );
+    // }
 }
 
-fn make_missing_pattern_suggestions(
-    exhaustiveness: &PatExhaustiveness,
-    missing_pattern_suggestions: &mut Vec<MissingPatternSuggestion>,
-) {
-    match exhaustiveness {
-        PatExhaustiveness::All => {}
-        PatExhaustiveness::SomeBools(bools) => {
-            if !bools.contains(&true) {
-                missing_pattern_suggestions.push(MissingPatternSuggestion::Bool(true));
-            }
-            if !bools.contains(&false) {
-                missing_pattern_suggestions.push(MissingPatternSuggestion::Bool(false));
-            }
-        }
-        PatExhaustiveness::SomeInts(_ints) => {
-            missing_pattern_suggestions.push(MissingPatternSuggestion::Wildcard);
-        }
-        PatExhaustiveness::SomeStrings(_strings) => {
-            missing_pattern_suggestions.push(MissingPatternSuggestion::Wildcard);
-        }
-        PatExhaustiveness::SomeConstructors(ctors, nparams) => {
-            // TODO!
-            // for (ctor, exhaustiveness) in ctors.iter() {
-            //     let mut missing_pattern_suggestions2 = Vec::new();
-            //     make_missing_pattern_suggestions(
-            //         inf_ctx,
-            //         exhaustiveness,
-            //         &mut missing_pattern_suggestions2,
-            //     );
-            //     missing_pattern_suggestions.push(MissingPatternSuggestion::Constructor(
-            //         ctor.clone(),
-            //         missing_pattern_suggestions2,
-            //     ));
-            // }
-        }
-        PatExhaustiveness::Tuple(pats) => {
-            // TODO!
-            // for pat in pats.iter() {
-            //     let mut missing_pattern_suggestions2 = Vec::new();
-            //     make_missing_pattern_suggestions(inf_ctx, pat, &mut missing_pattern_suggestions2);
-            //     missing_pattern_suggestions.push(MissingPatternSuggestion::Tuple(
-            //         missing_pattern_suggestions2,
-            //     ));
-            // }
-        }
-    }
-}
+// fn make_missing_pattern_suggestions(
+//     exhaustiveness: &PatExhaustiveness,
+//     missing_pattern_suggestions: &mut Vec<MissingPatternSuggestion>,
+// ) {
+//     match exhaustiveness {
+//         PatExhaustiveness::All => {}
+//         PatExhaustiveness::SomeBools(bools) => {
+//             if !bools.contains(&true) {
+//                 missing_pattern_suggestions.push(MissingPatternSuggestion::Bool(true));
+//             }
+//             if !bools.contains(&false) {
+//                 missing_pattern_suggestions.push(MissingPatternSuggestion::Bool(false));
+//             }
+//         }
+//         PatExhaustiveness::SomeInts(_ints) => {
+//             missing_pattern_suggestions.push(MissingPatternSuggestion::Wildcard);
+//         }
+//         PatExhaustiveness::SomeStrings(_strings) => {
+//             missing_pattern_suggestions.push(MissingPatternSuggestion::Wildcard);
+//         }
+//         PatExhaustiveness::SomeConstructors(ctors, nparams) => {
+//             // TODO!
+//             // for (ctor, exhaustiveness) in ctors.iter() {
+//             //     let mut missing_pattern_suggestions2 = Vec::new();
+//             //     make_missing_pattern_suggestions(
+//             //         inf_ctx,
+//             //         exhaustiveness,
+//             //         &mut missing_pattern_suggestions2,
+//             //     );
+//             //     missing_pattern_suggestions.push(MissingPatternSuggestion::Constructor(
+//             //         ctor.clone(),
+//             //         missing_pattern_suggestions2,
+//             //     ));
+//             // }
+//         }
+//         PatExhaustiveness::Tuple(pats) => {
+//             // TODO!
+//             // for pat in pats.iter() {
+//             //     let mut missing_pattern_suggestions2 = Vec::new();
+//             //     make_missing_pattern_suggestions(inf_ctx, pat, &mut missing_pattern_suggestions2);
+//             //     missing_pattern_suggestions.push(MissingPatternSuggestion::Tuple(
+//             //         missing_pattern_suggestions2,
+//             //     ));
+//             // }
+//         }
+//     }
+// }
 
-fn make_missing_pattern_suggestions2(
-    permutation: &Permutation,
-    ty: &Type,
-    missing_pattern_suggestions: &mut Vec<MissingPatternSuggestion>,
-) {
-    // TODO
-    missing_pattern_suggestions.push(MissingPatternSuggestion::Wildcard);
-}
+// fn make_missing_pattern_suggestions2(
+//     permutation: &Permutation,
+//     ty: &Type,
+//     missing_pattern_suggestions: &mut Vec<MissingPatternSuggestion>,
+// ) {
+//     // TODO
+//     missing_pattern_suggestions.push(MissingPatternSuggestion::Wildcard);
+// }
 
 impl fmt::Display for Type {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
