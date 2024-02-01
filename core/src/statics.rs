@@ -2761,6 +2761,11 @@ enum Constructor {
     Variant(Identifier),
 }
 
+#[derive(Debug, Clone)]
+struct WitnessMatrix {
+    rows: Vec<Vec<DeconstructedPat>>,
+}
+
 // identify missing and extra constructors in patterns
 fn match_expr_exhaustive_check(inf_ctx: &mut InferenceContext, expr: &ast::Expr) {
     let ExprKind::Match(scrutiny, arms) = &*expr.exprkind else {
@@ -2806,6 +2811,15 @@ fn match_expr_exhaustive_check(inf_ctx: &mut InferenceContext, expr: &ast::Expr)
     //         expr.id,
     //         redundant_pats.iter().cloned().map(|p| p.id).collect(),
     //     );
+    // }
+}
+
+// here's where the actual algorithm goes
+fn compute_exhaustiveness_and_usefulness(matrix: &mut Matrix) { // -> WitnessMatrix
+
+    // base case
+    // if matrix.rows.is_empty() {
+    //     return WitnessMatrix { rows: vec![] };
     // }
 }
 
