@@ -2837,11 +2837,12 @@ fn compute_exhaustiveness_and_usefulness(matrix: &mut Matrix) -> WitnessMatrix {
     let mut witness_matrix = WitnessMatrix::empty();
 
     // enumerate all the constructors
-        // for each constructor, specialize the matrix
-        // take the returned witnesses and reapply the constructor
-        // append the witnesses to return value
+    // for each constructor, specialize the matrix
+    // take the returned witnesses and reapply the constructor
+    // append the witnesses to return value
 
     return WitnessMatrix::empty();
+}
 
 // fn make_missing_pattern_suggestions(
 //     exhaustiveness: &PatExhaustiveness,
