@@ -2766,6 +2766,12 @@ struct WitnessMatrix {
     rows: Vec<Vec<DeconstructedPat>>,
 }
 
+impl WitnessMatrix {
+    fn empty() -> Self {
+        Self { rows: vec![] }
+    }
+}
+
 // identify missing and extra constructors in patterns
 fn match_expr_exhaustive_check(inf_ctx: &mut InferenceContext, expr: &ast::Expr) {
     let ExprKind::Match(scrutiny, arms) = &*expr.exprkind else {
@@ -2815,13 +2821,27 @@ fn match_expr_exhaustive_check(inf_ctx: &mut InferenceContext, expr: &ast::Expr)
 }
 
 // here's where the actual algorithm goes
-fn compute_exhaustiveness_and_usefulness(matrix: &mut Matrix) { // -> WitnessMatrix
-
+fn compute_exhaustiveness_and_usefulness(matrix: &mut Matrix) -> WitnessMatrix {
     // base case
-    // if matrix.rows.is_empty() {
-    //     return WitnessMatrix { rows: vec![] };
-    // }
-}
+    if matrix.rows.is_empty() {
+        return WitnessMatrix { rows: vec![] };
+    } else if matrix.rows[0].pats.len() == 1 {
+        let mut useful = true;
+        for row in matrix.rows.iter_mut() {
+            row.useful = useful;
+            useful = false;
+        }
+        return WitnessMatrix::empty();
+    }
+
+    let mut witness_matrix = WitnessMatrix::empty();
+
+    // enumerate all the constructors
+        // for each constructor, specialize the matrix
+        // take the returned witnesses and reapply the constructor
+        // append the witnesses to return value
+
+    return WitnessMatrix::empty();
 
 // fn make_missing_pattern_suggestions(
 //     exhaustiveness: &PatExhaustiveness,
