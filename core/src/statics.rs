@@ -2681,10 +2681,12 @@ fn ty_fits_impl_ty_poly(
 #[derive(Debug, Clone)]
 struct Matrix {
     rows: Vec<MatrixRow>,
+    types: Vec<Type>,
 }
 
 impl Matrix {
     fn new(inf_ctx: &InferenceContext, scrutinee_ty: Type, arms: &[ast::MatchArm]) -> Self {
+        let types = vec![scrutinee_ty.clone()];
         let mut rows = Vec::new();
         for arm in arms {
             let pats = vec![PatOrWild::Pat(DeconstructedPat::from_ast_pat(
@@ -2694,7 +2696,7 @@ impl Matrix {
             let useful = false;
             rows.push(MatrixRow { pats, useful });
         }
-        Self { rows }
+        Self { rows, types }
     }
 }
 
@@ -2786,7 +2788,9 @@ fn match_expr_exhaustive_check(inf_ctx: &mut InferenceContext, expr: &ast::Expr)
         return;
     };
 
-    let matrix = Matrix::new(inf_ctx, scrutinee_ty, arms);
+    let mut matrix = Matrix::new(inf_ctx, scrutinee_ty, arms);
+    debug_println!("Matrix: {:#?}", matrix);
+    let witness_matrix = compute_exhaustiveness_and_usefulness(&mut matrix);
 
     // // let mut exhaustiveness = PatExhaustiveness::new(inf_ctx, scrutinee_ty);
     // let mut redundant_pats = Vec::new();
@@ -2841,8 +2845,18 @@ fn compute_exhaustiveness_and_usefulness(matrix: &mut Matrix) -> WitnessMatrix {
     // take the returned witnesses and reapply the constructor
     // append the witnesses to return value
 
+    let head_ty = &matrix.types[0];
+    let ctors = ctors_of_ty(head_ty);
+
     return WitnessMatrix::empty();
 }
+
+fn ctors_of_ty(ty: &Type) -> Vec<Constructor> {
+    match ty {
+        Type::AdtInstance(_, ident, _) => {
+        }
+        
+    }
 
 // fn make_missing_pattern_suggestions(
 //     exhaustiveness: &PatExhaustiveness,
