@@ -2699,30 +2699,27 @@ impl Matrix {
         let types = vec![scrutinee_ty.clone()];
         let mut rows = Vec::new();
         for arm in arms {
-            let pats = vec![PatOrWild::Pat(DeconstructedPat::from_ast_pat(
-                inf_ctx,
-                arm.pat.clone(),
-            ))];
+            let pats = vec![DeconstructedPat::from_ast_pat(inf_ctx, arm.pat.clone())];
             let useful = false;
             rows.push(MatrixRow { pats, useful });
         }
         Self { rows, types }
     }
 
-    fn head_column(&self) -> Vec<PatOrWild> {
+    fn head_column(&self) -> Vec<DeconstructedPat> {
         self.rows.iter().map(|row| row.head()).collect()
     }
 }
 
 #[derive(Debug, Clone)]
 struct MatrixRow {
-    pats: Vec<PatOrWild>,
+    pats: Vec<DeconstructedPat>,
     // parent_row: usize,
     useful: bool,
 }
 
 impl MatrixRow {
-    fn head(&self) -> PatOrWild {
+    fn head(&self) -> DeconstructedPat {
         match self.pats.first() {
             Some(p) => p.clone(),
             None => panic!(),
@@ -2730,11 +2727,6 @@ impl MatrixRow {
     }
 }
 
-#[derive(Debug, Clone)]
-enum PatOrWild {
-    Pat(DeconstructedPat),
-    Wild,
-}
 #[derive(Debug, Clone)]
 struct DeconstructedPat {
     ctor: Constructor,
@@ -2747,7 +2739,7 @@ impl DeconstructedPat {
         let ty = Type::solution_of_node(inf_ctx, pat.id).unwrap();
         let mut fields = vec![];
         let ctor = match &*pat.patkind {
-            PatKind::Wildcard => Constructor::Wildcard,
+            PatKind::Wildcard => Constructor::Wildcard(WildcardReason::UserCreated),
             PatKind::Var(ident) => Constructor::Var,
             PatKind::Bool(b) => Constructor::Bool(*b),
             PatKind::Int(i) => Constructor::Int(*i),
@@ -2775,7 +2767,7 @@ impl DeconstructedPat {
 
 #[derive(Debug, Clone)]
 enum Constructor {
-    Wildcard,
+    Wildcard(WildcardReason), // user-created wildcard pattern
     Var,
     Bool(bool),
     Int(i64),
@@ -2784,6 +2776,13 @@ enum Constructor {
     Unit,
     Tuple,
     Variant(Identifier),
+}
+
+#[derive(Debug, Clone)]
+enum WildcardReason {
+    UserCreated,
+    NonExhaustive, // wildcards introduced by algorithm when user did not cover all constructors
+    MatrixSpecialization, // wildcards introduced by algorithm during matrix specialization, which are potentially expanded from _ to (_, _, _) etc.
 }
 
 #[derive(Debug, Clone)]
