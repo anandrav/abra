@@ -764,6 +764,16 @@ impl InferenceContext {
     pub fn interface_def_of_ident(&self, ident: &Identifier) -> Option<InterfaceDef> {
         self.interface_defs.get(ident).cloned() // TODO this helper function is not needed
     }
+
+    pub fn variants_of_adt(&self, adt: &Identifier) -> Vec<Identifier> {
+        self.adt_defs
+            .get(adt)
+            .unwrap()
+            .variants
+            .iter()
+            .map(|v| v.ctor.clone())
+            .collect()
+    }
 }
 
 impl Default for InferenceContext {
@@ -2698,6 +2708,10 @@ impl Matrix {
         }
         Self { rows, types }
     }
+
+    fn head_column(&self) -> Vec<PatOrWild> {
+        self.rows.iter().map(|row| row.head()).collect()
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -2705,6 +2719,15 @@ struct MatrixRow {
     pats: Vec<PatOrWild>,
     // parent_row: usize,
     useful: bool,
+}
+
+impl MatrixRow {
+    fn head(&self) -> PatOrWild {
+        match self.pats.first() {
+            Some(p) => p.clone(),
+            None => panic!(),
+        }
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -2772,6 +2795,18 @@ impl WitnessMatrix {
     fn empty() -> Self {
         Self { rows: vec![] }
     }
+
+    fn unit_witness() -> Self {
+        Self { rows: vec![vec![]] }
+    }
+}
+
+#[derive(Debug, Clone)]
+enum ConstructorSet {
+    Bool,
+    AdtVariants(Vec<Identifier>),
+    Product,    // tuple, unit
+    Unlistable, // int, float, string
 }
 
 // identify missing and extra constructors in patterns
@@ -2790,7 +2825,7 @@ fn match_expr_exhaustive_check(inf_ctx: &mut InferenceContext, expr: &ast::Expr)
 
     let mut matrix = Matrix::new(inf_ctx, scrutinee_ty, arms);
     debug_println!("Matrix: {:#?}", matrix);
-    let witness_matrix = compute_exhaustiveness_and_usefulness(&mut matrix);
+    let witness_matrix = compute_exhaustiveness_and_usefulness(inf_ctx, &mut matrix);
 
     // // let mut exhaustiveness = PatExhaustiveness::new(inf_ctx, scrutinee_ty);
     // let mut redundant_pats = Vec::new();
@@ -2825,18 +2860,27 @@ fn match_expr_exhaustive_check(inf_ctx: &mut InferenceContext, expr: &ast::Expr)
 }
 
 // here's where the actual algorithm goes
-fn compute_exhaustiveness_and_usefulness(matrix: &mut Matrix) -> WitnessMatrix {
+fn compute_exhaustiveness_and_usefulness(
+    inf_ctx: &InferenceContext,
+    matrix: &mut Matrix,
+) -> WitnessMatrix {
     // base case
-    if matrix.rows.is_empty() {
-        return WitnessMatrix { rows: vec![] };
-    } else if matrix.rows[0].pats.len() == 1 {
+    let Some(head_ty) = &matrix.types.first() else {
+        // we are pattern matching on ()
         let mut useful = true;
+        // only the first row is useful
         for row in matrix.rows.iter_mut() {
             row.useful = useful;
             useful = false;
         }
-        return WitnessMatrix::empty();
-    }
+        return if useful {
+            // match was not exhaustive (there were no rows)
+            WitnessMatrix::unit_witness()
+        } else {
+            // match was exhaustive
+            WitnessMatrix::empty()
+        };
+    };
 
     let mut witness_matrix = WitnessMatrix::empty();
 
@@ -2845,18 +2889,26 @@ fn compute_exhaustiveness_and_usefulness(matrix: &mut Matrix) -> WitnessMatrix {
     // take the returned witnesses and reapply the constructor
     // append the witnesses to return value
 
-    let head_ty = &matrix.types[0];
-    let ctors = ctors_of_ty(head_ty);
+    let ctor_set = ctors_of_ty(inf_ctx, head_ty);
 
     return WitnessMatrix::empty();
 }
 
-fn ctors_of_ty(ty: &Type) -> Vec<Constructor> {
-    match ty {
+fn ctors_of_ty(inf_ctx: &InferenceContext, ty: &Type) -> ConstructorSet {
+    match ty.solution().unwrap() {
+        Type::Bool(_) => ConstructorSet::Bool,
         Type::AdtInstance(_, ident, _) => {
+            let variants = inf_ctx.variants_of_adt(&ident);
+            ConstructorSet::AdtVariants(variants)
         }
-        
+        Type::Tuple(..) => ConstructorSet::Product,
+        Type::Unit(_) => ConstructorSet::Product,
+        Type::Int(_) | Type::Float(_) | Type::String(_) | Type::Function(..) => {
+            ConstructorSet::Unlistable
+        }
+        Type::UnifVar(..) | Type::Poly(..) => panic!("Unexpected type in ctors_of_ty {:#?}", ty),
     }
+}
 
 // fn make_missing_pattern_suggestions(
 //     exhaustiveness: &PatExhaustiveness,
