@@ -2773,9 +2773,21 @@ enum Constructor {
     Int(i64),
     Float(f32),
     String(String),
-    Unit,
-    Tuple,
+    Product, // tuples, including unit
     Variant(Identifier),
+}
+
+impl Constructor {
+    fn is_covered_by(&self, other: &Constructor) -> bool {
+        match (self, other) {
+            (_, Wildcard(_)) => true,
+            (Wildcard(_), _) => false,
+
+            (Bool(b1), Bool(b2)) => b1 == b2,
+            (Variant(v1), Variant(v2)) => v1 == v2,
+            ()
+        }
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -2804,7 +2816,7 @@ impl WitnessMatrix {
 enum ConstructorSet {
     Bool,
     AdtVariants(Vec<Identifier>),
-    Product,    // tuple, unit
+    Product,    // tuples, including unit
     Unlistable, // int, float, string
 }
 
