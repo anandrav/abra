@@ -2740,18 +2740,18 @@ impl DeconstructedPat {
         let mut fields = vec![];
         let ctor = match &*pat.patkind {
             PatKind::Wildcard => Constructor::Wildcard(WildcardReason::UserCreated),
-            PatKind::Var(ident) => Constructor::Var,
+            PatKind::Var(ident) => Constructor::Wildcard(WildcardReason::VarPat),
             PatKind::Bool(b) => Constructor::Bool(*b),
             PatKind::Int(i) => Constructor::Int(*i),
             PatKind::Float(f) => Constructor::Float(*f),
             PatKind::Str(s) => Constructor::String(s.clone()),
-            PatKind::Unit => Constructor::Unit,
+            PatKind::Unit => Constructor::Product,
             PatKind::Tuple(pats) => {
                 fields = pats
                     .iter()
                     .map(|pat| DeconstructedPat::from_ast_pat(inf_ctx, pat.clone()))
                     .collect();
-                Constructor::Tuple
+                Constructor::Product
             }
             PatKind::Variant(ident, pats) => {
                 fields = pats
@@ -2768,7 +2768,6 @@ impl DeconstructedPat {
 #[derive(Debug, Clone)]
 enum Constructor {
     Wildcard(WildcardReason), // user-created wildcard pattern
-    Var,
     Bool(bool),
     Int(i64),
     Float(f32),
@@ -2780,12 +2779,16 @@ enum Constructor {
 impl Constructor {
     fn is_covered_by(&self, other: &Constructor) -> bool {
         match (self, other) {
-            (_, Wildcard(_)) => true,
-            (Wildcard(_), _) => false,
+            (_, Constructor::Wildcard(_)) => true,
+            (Constructor::Wildcard(_), _) => false,
 
-            (Bool(b1), Bool(b2)) => b1 == b2,
-            (Variant(v1), Variant(v2)) => v1 == v2,
-            ()
+            (Constructor::Bool(b1), Constructor::Bool(b2)) => b1 == b2,
+            (Constructor::Variant(v1), Constructor::Variant(v2)) => v1 == v2,
+            (Constructor::Int(i1), Constructor::Int(i2)) => i1 == i2,
+            (Constructor::Float(f1), Constructor::Float(f2)) => f1 == f2,
+            (Constructor::String(s1), Constructor::String(s2)) => s1 == s2,
+            (Constructor::Product, Constructor::Product) => true,
+            _ => panic!("comparing incompatible constructors"),
         }
     }
 }
@@ -2793,6 +2796,7 @@ impl Constructor {
 #[derive(Debug, Clone)]
 enum WildcardReason {
     UserCreated,
+    VarPat,               // a variable pattern
     NonExhaustive, // wildcards introduced by algorithm when user did not cover all constructors
     MatrixSpecialization, // wildcards introduced by algorithm during matrix specialization, which are potentially expanded from _ to (_, _, _) etc.
 }
@@ -2837,37 +2841,6 @@ fn match_expr_exhaustive_check(inf_ctx: &mut InferenceContext, expr: &ast::Expr)
     let mut matrix = Matrix::new(inf_ctx, scrutinee_ty, arms);
     debug_println!("Matrix: {:#?}", matrix);
     let witness_matrix = compute_exhaustiveness_and_usefulness(inf_ctx, &mut matrix);
-
-    // // let mut exhaustiveness = PatExhaustiveness::new(inf_ctx, scrutinee_ty);
-    // let mut redundant_pats = Vec::new();
-    // for arm in arms.iter() {
-    //     let pat = &arm.pat;
-    //     permutation.add_pat(inf_ctx, pat.clone(), &mut redundant_pats);
-    //     // exhaustiveness.add_pat(inf_ctx, pat.clone(), &mut redundant_pats);
-    // }
-
-    // debug_println!("Permutation: {:#?}", permutation);
-    // // debug_println!("Exhaustiveness: {:#?}", exhaustiveness);
-    // // if exhaustiveness != PatExhaustiveness::All {
-    // if !permutation.exhaustive {
-    //     let mut missing_pattern_suggestions = Vec::new();
-    //     make_missing_pattern_suggestions2(
-    //         &permutation,
-    //         &scrutinee_ty,
-    //         &mut missing_pattern_suggestions,
-    //     );
-    //     // make_missing_pattern_suggestions(&exhaustiveness, &mut missing_pattern_suggestions);
-    //     inf_ctx
-    //         .nonexhaustive_matches
-    //         .insert(expr.id, missing_pattern_suggestions);
-    // }
-
-    // if !redundant_pats.is_empty() {
-    //     inf_ctx.redundant_matches.insert(
-    //         expr.id,
-    //         redundant_pats.iter().cloned().map(|p| p.id).collect(),
-    //     );
-    // }
 }
 
 // here's where the actual algorithm goes
@@ -2920,63 +2893,6 @@ fn ctors_of_ty(inf_ctx: &InferenceContext, ty: &Type) -> ConstructorSet {
         Type::UnifVar(..) | Type::Poly(..) => panic!("Unexpected type in ctors_of_ty {:#?}", ty),
     }
 }
-
-// fn make_missing_pattern_suggestions(
-//     exhaustiveness: &PatExhaustiveness,
-//     missing_pattern_suggestions: &mut Vec<MissingPatternSuggestion>,
-// ) {
-//     match exhaustiveness {
-//         PatExhaustiveness::All => {}
-//         PatExhaustiveness::SomeBools(bools) => {
-//             if !bools.contains(&true) {
-//                 missing_pattern_suggestions.push(MissingPatternSuggestion::Bool(true));
-//             }
-//             if !bools.contains(&false) {
-//                 missing_pattern_suggestions.push(MissingPatternSuggestion::Bool(false));
-//             }
-//         }
-//         PatExhaustiveness::SomeInts(_ints) => {
-//             missing_pattern_suggestions.push(MissingPatternSuggestion::Wildcard);
-//         }
-//         PatExhaustiveness::SomeStrings(_strings) => {
-//             missing_pattern_suggestions.push(MissingPatternSuggestion::Wildcard);
-//         }
-//         PatExhaustiveness::SomeConstructors(ctors, nparams) => {
-//             // TODO!
-//             // for (ctor, exhaustiveness) in ctors.iter() {
-//             //     let mut missing_pattern_suggestions2 = Vec::new();
-//             //     make_missing_pattern_suggestions(
-//             //         inf_ctx,
-//             //         exhaustiveness,
-//             //         &mut missing_pattern_suggestions2,
-//             //     );
-//             //     missing_pattern_suggestions.push(MissingPatternSuggestion::Constructor(
-//             //         ctor.clone(),
-//             //         missing_pattern_suggestions2,
-//             //     ));
-//             // }
-//         }
-//         PatExhaustiveness::Tuple(pats) => {
-//             // TODO!
-//             // for pat in pats.iter() {
-//             //     let mut missing_pattern_suggestions2 = Vec::new();
-//             //     make_missing_pattern_suggestions(inf_ctx, pat, &mut missing_pattern_suggestions2);
-//             //     missing_pattern_suggestions.push(MissingPatternSuggestion::Tuple(
-//             //         missing_pattern_suggestions2,
-//             //     ));
-//             // }
-//         }
-//     }
-// }
-
-// fn make_missing_pattern_suggestions2(
-//     permutation: &Permutation,
-//     ty: &Type,
-//     missing_pattern_suggestions: &mut Vec<MissingPatternSuggestion>,
-// ) {
-//     // TODO
-//     missing_pattern_suggestions.push(MissingPatternSuggestion::Wildcard);
-// }
 
 impl fmt::Display for Type {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
