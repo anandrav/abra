@@ -2709,6 +2709,21 @@ impl Matrix {
     fn head_column(&self) -> Vec<DeconstructedPat> {
         self.rows.iter().map(|row| row.head()).collect()
     }
+
+    fn specialize(&self, ctor: &Constructor) -> Matrix {
+        let new_types = self.types[1..].iter().cloned().collect();
+        let mut new_matrix = Matrix {
+            rows: vec![],
+            types: new_types,
+        };
+        for row in &self.rows {
+            if row.head().ctor.is_covered_by(ctor) {
+                let new_row = row.pop_head();
+                new_matrix.rows.push(new_row);
+            }
+        }
+        new_matrix
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -2724,6 +2739,10 @@ impl MatrixRow {
             Some(p) => p.clone(),
             None => panic!(),
         }
+    }
+
+    fn pop_head(&self) -> MatrixRow {
+        unimplemented!() // TODO last here
     }
 }
 
