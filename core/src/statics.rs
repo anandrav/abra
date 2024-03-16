@@ -2727,7 +2727,12 @@ impl Matrix {
         };
         for row in &self.rows {
             if row.head().ctor.is_covered_by(ctor) {
-                let new_row = row.pop_head(ctor, self.head_arity());
+                let new_row = row.pop_head(self.head_arity());
+                debug_println!(
+                    "before pop: {}, after pop: {}",
+                    row.pats.len(),
+                    new_row.pats.len(),
+                );
                 new_matrix.rows.push(new_row);
             }
         }
@@ -2750,9 +2755,9 @@ impl MatrixRow {
         }
     }
 
-    fn pop_head(&self, other_ctor: &Constructor, arity: usize) -> MatrixRow {
+    fn pop_head(&self, arity: usize) -> MatrixRow {
         let head_pat = self.head();
-        let mut new_pats = head_pat.specialize(other_ctor, arity);
+        let mut new_pats = head_pat.specialize(arity);
         new_pats.extend_from_slice(&self.pats[1..]);
         MatrixRow {
             pats: new_pats,
@@ -2798,7 +2803,7 @@ impl DeconstructedPat {
         Self { ctor, fields, ty }
     }
 
-    fn specialize(&self, other_ctor: &Constructor, arity: usize) -> Vec<DeconstructedPat> {
+    fn specialize(&self, arity: usize) -> Vec<DeconstructedPat> {
         match &self.ctor {
             Constructor::Wildcard(WildcardReason::MatrixSpecialization) => {
                 let field_tys = self.field_tys();
@@ -3034,6 +3039,13 @@ fn compute_exhaustiveness_and_usefulness(
     debug_println!("present_ctors: {:#?}", present_ctors);
     debug_println!("missing_ctors: {:#?}", missing_ctors);
     // for each constructor, specialize the matrix
+    for ctor in present_ctors {
+        let mut specialized_matrix = matrix.specialize(&ctor);
+        debug_println!("specialized_matrix: {:#?}", specialized_matrix);
+        let mut witnesses = compute_exhaustiveness_and_usefulness(inf_ctx, &mut specialized_matrix);
+        debug_println!("witnesses: {:#?}", witnesses);
+        // witnesses.apply_constructor(&ctor);
+    }
     // take the returned witnesses and reapply the constructor
     // append the witnesses to return value
 
