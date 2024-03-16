@@ -2791,12 +2791,26 @@ impl Constructor {
             _ => panic!("comparing incompatible constructors"),
         }
     }
+
+    fn as_bool(&self) -> Option<bool> {
+        match self {
+            Constructor::Bool(b) => Some(*b),
+            _ => None,
+        }
+    }
+
+    fn as_variant_identifier(&self) -> Option<Identifier> {
+        match self {
+            Constructor::Variant(i) => Some(i.clone()),
+            _ => None,
+        }
+    }
 }
 
 #[derive(Debug, Clone)]
 enum WildcardReason {
-    UserCreated,
-    VarPat,               // a variable pattern
+    UserCreated,          // a wildcard typed by the user
+    VarPat, // a variable pattern created by the user, which similar to wildcard, matches anything
     NonExhaustive, // wildcards introduced by algorithm when user did not cover all constructors
     MatrixSpecialization, // wildcards introduced by algorithm during matrix specialization, which are potentially expanded from _ to (_, _, _) etc.
 }
@@ -2824,6 +2838,83 @@ enum ConstructorSet {
     Unlistable, // int, float, string
 }
 
+impl ConstructorSet {
+    fn is_unlistable(&self) -> bool {
+        matches!(self, ConstructorSet::Unlistable)
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct SplitConstructorSet {
+    pub present_ctors: Vec<Constructor>,
+    pub missing_ctors: Vec<Constructor>,
+}
+
+impl ConstructorSet {
+    fn split(&self, head_ctors: &Vec<Constructor>) -> SplitConstructorSet {
+        let mut present_ctors = Vec::new();
+        let mut missing_ctors = Vec::new();
+        // Constructors in `head_ctors`, except wildcards and opaques.
+        let mut seen: Vec<Constructor> = Vec::new();
+        for ctor in head_ctors.iter().cloned() {
+            match ctor {
+                Constructor::Wildcard(_) => {} // discard wildcards
+                _ => seen.push(ctor),
+            }
+        }
+
+        match self {
+            ConstructorSet::Product => {
+                if !seen.is_empty() {
+                    present_ctors.push(Constructor::Product);
+                } else {
+                    missing_ctors.push(Constructor::Product);
+                }
+            }
+            ConstructorSet::AdtVariants(adt_variants) => {
+                let mut missing_set: HashSet<Identifier> = adt_variants.iter().cloned().collect();
+                for identifier in seen.iter().filter_map(|ctor| ctor.as_variant_identifier()) {
+                    if missing_set.remove(&identifier) {
+                        present_ctors.push(Constructor::Variant(identifier.clone()));
+                    }
+                }
+                for identifier in missing_set {
+                    missing_ctors.push(Constructor::Variant(identifier));
+                }
+            }
+            ConstructorSet::Bool => {
+                let mut seen_false = false;
+                let mut seen_true = false;
+                for b in seen.iter().filter_map(|ctor| ctor.as_bool()) {
+                    if b {
+                        seen_true = true;
+                    } else {
+                        seen_false = true;
+                    }
+                }
+                if seen_false {
+                    present_ctors.push(Constructor::Bool(false));
+                } else {
+                    missing_ctors.push(Constructor::Bool(false));
+                }
+                if seen_true {
+                    present_ctors.push(Constructor::Bool(true));
+                } else {
+                    missing_ctors.push(Constructor::Bool(true));
+                }
+            }
+            ConstructorSet::Unlistable => {
+                present_ctors.extend(seen);
+            }
+        }
+
+        SplitConstructorSet {
+            present_ctors,
+            missing_ctors,
+        }
+    }
+}
+
 // identify missing and extra constructors in patterns
 fn match_expr_exhaustive_check(inf_ctx: &mut InferenceContext, expr: &ast::Expr) {
     let ExprKind::Match(scrutiny, arms) = &*expr.exprkind else {
@@ -2848,6 +2939,7 @@ fn compute_exhaustiveness_and_usefulness(
     inf_ctx: &InferenceContext,
     matrix: &mut Matrix,
 ) -> WitnessMatrix {
+    debug_println!("compute_exhaustiveness_and_usefulness");
     // base case
     let Some(head_ty) = &matrix.types.first() else {
         // we are pattern matching on ()
@@ -2869,16 +2961,28 @@ fn compute_exhaustiveness_and_usefulness(
     let mut witness_matrix = WitnessMatrix::empty();
 
     // enumerate all the constructors
+    let head_ctors: Vec<Constructor> = matrix
+        .head_column()
+        .iter()
+        .cloned()
+        .map(|pat| pat.ctor)
+        .collect();
+    debug_println!("head_ctors: {:#?}", head_ctors);
+    let ctors_for_ty = ctors_for_ty(inf_ctx, head_ty);
+    let SplitConstructorSet {
+        present_ctors,
+        missing_ctors,
+    } = ctors_for_ty.split(&head_ctors);
+    debug_println!("present_ctors: {:#?}", present_ctors);
+    debug_println!("missing_ctors: {:#?}", missing_ctors);
     // for each constructor, specialize the matrix
     // take the returned witnesses and reapply the constructor
     // append the witnesses to return value
 
-    let ctor_set = ctors_of_ty(inf_ctx, head_ty);
-
     return WitnessMatrix::empty();
 }
 
-fn ctors_of_ty(inf_ctx: &InferenceContext, ty: &Type) -> ConstructorSet {
+fn ctors_for_ty(inf_ctx: &InferenceContext, ty: &Type) -> ConstructorSet {
     match ty.solution().unwrap() {
         Type::Bool(_) => ConstructorSet::Bool,
         Type::AdtInstance(_, ident, _) => {
