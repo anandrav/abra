@@ -2723,7 +2723,7 @@ impl Matrix {
         }
     }
 
-    fn specialize(&self, ctor: &Constructor) -> Matrix {
+    fn specialize(&self, ctor: &Constructor, ctor_arity: usize) -> Matrix {
         let new_types = self.types[1..].iter().cloned().collect();
         let mut new_matrix = Matrix {
             rows: vec![],
@@ -2731,7 +2731,7 @@ impl Matrix {
         };
         for (i, row) in self.rows.iter().enumerate() {
             if row.head().ctor.is_covered_by(ctor) {
-                let new_row = row.pop_head(self.head_arity(), i);
+                let new_row = row.pop_head(ctor_arity, i);
                 debug_println!(
                     "before pop: {}, after pop: {}",
                     row.pats.len(),
@@ -2744,7 +2744,10 @@ impl Matrix {
     }
 
     fn unspecialize(&mut self, specialized: Self) {
-        // TODO
+        for child_row in specialized.rows.iter() {
+            let parent_row = &mut self.rows[child_row.parent_row];
+            parent_row.useful |= child_row.useful;
+        }
     }
 }
 
@@ -2835,6 +2838,25 @@ impl DeconstructedPat {
             _ => vec![],
         }
     }
+
+    fn missing_from_ctor(ctor: &Constructor, ty: Type) -> Self {
+        let fields = match ty.clone() {
+            Type::Tuple(_, tys) | Type::AdtInstance(_, _, tys) => tys
+                .iter()
+                .map(|ty| DeconstructedPat {
+                    ctor: Constructor::Wildcard(WildcardReason::NonExhaustive),
+                    fields: vec![],
+                    ty: ty.clone(),
+                })
+                .collect(),
+            _ => vec![],
+        };
+        Self {
+            ctor: ctor.clone(),
+            fields,
+            ty,
+        }
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -2877,6 +2899,20 @@ impl Constructor {
             _ => None,
         }
     }
+
+    fn arity(&self, ty: &Type) -> usize {
+        match ty {
+            Type::Tuple(_, tys) => tys.len(),
+            Type::AdtInstance(_, _, tys) => tys.len(),
+            Type::Bool(..)
+            | Type::Int(..)
+            | Type::String(..)
+            | Type::Float(..)
+            | Type::Function(..)
+            | Type::Unit(..) => 0,
+            _ => panic!("unexpected type"),
+        }
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -2905,8 +2941,40 @@ impl WitnessMatrix {
         self.rows.extend_from_slice(&other.rows);
     }
 
-    fn apply_constructor(&mut self, ctor: &Constructor) {
-        // TODO!
+    fn push_pattern(&mut self, pat: DeconstructedPat) {
+        for witness in self.rows.iter_mut() {
+            witness.push(pat.clone());
+        }
+    }
+
+    fn apply_constructor(&mut self, ctor: &Constructor, arity: usize, head_ty: &Type) {
+        debug_println!("applying constructor {:#?}, arity={}", ctor, arity);
+        for witness in self.rows.iter_mut() {
+            let len = witness.len();
+            let fields: Vec<DeconstructedPat> = witness.drain((len - arity)..).rev().collect(); // todo wtf is this doing, why is it being reversed?
+            let first_pat = DeconstructedPat {
+                ctor: ctor.clone(),
+                fields,
+                ty: head_ty.clone(),
+            };
+            debug_println!("first_pat: {:#?}", first_pat);
+            witness.push(first_pat);
+        }
+    }
+
+    fn apply_missing_constructors(&mut self, missing_ctors: &Vec<Constructor>, head_ty: &Type) {
+        if (missing_ctors.is_empty()) {
+            return;
+        }
+        debug_println!("applying missing constructors {:#?}", missing_ctors);
+        let mut ret = Self::empty();
+        for ctor in missing_ctors.iter() {
+            let mut witness_matrix = self.clone();
+            let missing_pat = DeconstructedPat::missing_from_ctor(ctor, head_ty.clone());
+            witness_matrix.push_pattern(missing_pat);
+            ret.extend(&witness_matrix);
+        }
+        *self = ret;
     }
 }
 
@@ -3012,6 +3080,7 @@ fn match_expr_exhaustive_check(inf_ctx: &mut InferenceContext, expr: &ast::Expr)
     let mut matrix = Matrix::new(inf_ctx, scrutinee_ty, arms);
     debug_println!("Matrix: {:#?}", matrix);
     let witness_matrix = compute_exhaustiveness_and_usefulness(inf_ctx, &mut matrix);
+    debug_println!("Witness matrix: {:#?}", witness_matrix);
 }
 
 // here's where the actual algorithm goes
@@ -3021,7 +3090,7 @@ fn compute_exhaustiveness_and_usefulness(
 ) -> WitnessMatrix {
     debug_println!("compute_exhaustiveness_and_usefulness");
     // base case
-    let Some(head_ty) = &matrix.types.first() else {
+    let Some(head_ty) = matrix.types.first().cloned() else {
         // we are pattern matching on ()
         let mut useful = true;
         // only the first row is useful
@@ -3048,7 +3117,7 @@ fn compute_exhaustiveness_and_usefulness(
         .map(|pat| pat.ctor)
         .collect();
     debug_println!("head_ctors: {:#?}", head_ctors);
-    let ctors_for_ty = ctors_for_ty(inf_ctx, head_ty);
+    let ctors_for_ty = ctors_for_ty(inf_ctx, &head_ty);
     let SplitConstructorSet {
         present_ctors,
         missing_ctors,
@@ -3057,12 +3126,16 @@ fn compute_exhaustiveness_and_usefulness(
     debug_println!("missing_ctors: {:#?}", missing_ctors);
     // for each constructor, specialize the matrix
     for ctor in present_ctors {
-        let mut specialized_matrix = matrix.specialize(&ctor);
+        let ctor_arity = ctor.arity(&head_ty);
+        let mut specialized_matrix = matrix.specialize(&ctor, ctor_arity);
         debug_println!("specialized_matrix: {:#?}", specialized_matrix);
         let mut witnesses = compute_exhaustiveness_and_usefulness(inf_ctx, &mut specialized_matrix);
         debug_println!("witnesses: {:#?}", witnesses);
-        witnesses.apply_constructor(&ctor);
+        witnesses.apply_constructor(&ctor, ctor_arity, &head_ty);
+        witnesses.apply_missing_constructors(&missing_ctors, &head_ty);
         ret_witnesses.extend(&witnesses);
+
+        matrix.unspecialize(specialized_matrix);
     }
     // take the returned witnesses and reapply the constructor
     // append the witnesses to return value
