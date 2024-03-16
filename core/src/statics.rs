@@ -2698,10 +2698,14 @@ impl Matrix {
     fn new(inf_ctx: &InferenceContext, scrutinee_ty: Type, arms: &[ast::MatchArm]) -> Self {
         let types = vec![scrutinee_ty.clone()];
         let mut rows = Vec::new();
-        for arm in arms {
+        for (dummy, arm) in arms.iter().enumerate() {
             let pats = vec![DeconstructedPat::from_ast_pat(inf_ctx, arm.pat.clone())];
             let useful = false;
-            rows.push(MatrixRow { pats, useful });
+            rows.push(MatrixRow {
+                pats,
+                parent_row: dummy,
+                useful,
+            });
         }
         Self { rows, types }
     }
@@ -2725,9 +2729,9 @@ impl Matrix {
             rows: vec![],
             types: new_types,
         };
-        for row in &self.rows {
+        for (i, row) in self.rows.iter().enumerate() {
             if row.head().ctor.is_covered_by(ctor) {
-                let new_row = row.pop_head(self.head_arity());
+                let new_row = row.pop_head(self.head_arity(), i);
                 debug_println!(
                     "before pop: {}, after pop: {}",
                     row.pats.len(),
@@ -2738,12 +2742,16 @@ impl Matrix {
         }
         new_matrix
     }
+
+    fn unspecialize(&mut self, specialized: Self) {
+        // TODO
+    }
 }
 
 #[derive(Debug, Clone)]
 struct MatrixRow {
     pats: Vec<DeconstructedPat>,
-    // parent_row: usize,
+    parent_row: usize,
     useful: bool,
 }
 
@@ -2755,12 +2763,13 @@ impl MatrixRow {
         }
     }
 
-    fn pop_head(&self, arity: usize) -> MatrixRow {
+    fn pop_head(&self, arity: usize, parent_row: usize) -> MatrixRow {
         let head_pat = self.head();
         let mut new_pats = head_pat.specialize(arity);
         new_pats.extend_from_slice(&self.pats[1..]);
         MatrixRow {
             pats: new_pats,
+            parent_row,
             useful: false,
         }
     }
@@ -2890,6 +2899,14 @@ impl WitnessMatrix {
 
     fn unit_witness() -> Self {
         Self { rows: vec![vec![]] }
+    }
+
+    fn extend(&mut self, other: &Self) {
+        self.rows.extend_from_slice(&other.rows);
+    }
+
+    fn apply_constructor(&mut self, ctor: &Constructor) {
+        // TODO!
     }
 }
 
@@ -3021,7 +3038,7 @@ fn compute_exhaustiveness_and_usefulness(
         };
     };
 
-    let mut witness_matrix = WitnessMatrix::empty();
+    let mut ret_witnesses = WitnessMatrix::empty();
 
     // enumerate all the constructors
     let head_ctors: Vec<Constructor> = matrix
@@ -3044,12 +3061,13 @@ fn compute_exhaustiveness_and_usefulness(
         debug_println!("specialized_matrix: {:#?}", specialized_matrix);
         let mut witnesses = compute_exhaustiveness_and_usefulness(inf_ctx, &mut specialized_matrix);
         debug_println!("witnesses: {:#?}", witnesses);
-        // witnesses.apply_constructor(&ctor);
+        witnesses.apply_constructor(&ctor);
+        ret_witnesses.extend(&witnesses);
     }
     // take the returned witnesses and reapply the constructor
     // append the witnesses to return value
 
-    return WitnessMatrix::empty();
+    return ret_witnesses;
 }
 
 fn ctors_for_ty(inf_ctx: &InferenceContext, ty: &Type) -> ConstructorSet {
