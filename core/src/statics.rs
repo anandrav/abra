@@ -2710,6 +2710,15 @@ impl Matrix {
         self.rows.iter().map(|row| row.head()).collect()
     }
 
+    fn head_arity(&self) -> usize {
+        let ty = &self.types[0];
+        match ty {
+            Type::Tuple(_, tys) => tys.len(),
+            Type::AdtInstance(_, _, tys) => tys.len(),
+            _ => 1,
+        }
+    }
+
     fn specialize(&self, ctor: &Constructor) -> Matrix {
         let new_types = self.types[1..].iter().cloned().collect();
         let mut new_matrix = Matrix {
@@ -2718,7 +2727,7 @@ impl Matrix {
         };
         for row in &self.rows {
             if row.head().ctor.is_covered_by(ctor) {
-                let new_row = row.pop_head();
+                let new_row = row.pop_head(ctor, self.head_arity());
                 new_matrix.rows.push(new_row);
             }
         }
@@ -2741,8 +2750,14 @@ impl MatrixRow {
         }
     }
 
-    fn pop_head(&self) -> MatrixRow {
-        unimplemented!() // TODO last here
+    fn pop_head(&self, other_ctor: &Constructor, arity: usize) -> MatrixRow {
+        let head_pat = self.head();
+        let mut new_pats = head_pat.specialize(other_ctor, arity);
+        new_pats.extend_from_slice(&self.pats[1..]);
+        MatrixRow {
+            pats: new_pats,
+            useful: false,
+        }
     }
 }
 
@@ -2781,6 +2796,30 @@ impl DeconstructedPat {
             }
         };
         Self { ctor, fields, ty }
+    }
+
+    fn specialize(&self, other_ctor: &Constructor, arity: usize) -> Vec<DeconstructedPat> {
+        match &self.ctor {
+            Constructor::Wildcard(WildcardReason::MatrixSpecialization) => {
+                let field_tys = self.field_tys();
+                (0..arity)
+                    .map(|i| DeconstructedPat {
+                        ctor: Constructor::Wildcard(WildcardReason::MatrixSpecialization),
+                        fields: vec![],
+                        ty: field_tys[i].clone(),
+                    })
+                    .collect()
+            }
+            _ => self.fields.clone(),
+        }
+    }
+
+    fn field_tys(&self) -> Vec<Type> {
+        match self.ty.clone() {
+            Type::Tuple(_, tys) => tys,
+            Type::AdtInstance(_, _, tys) => tys,
+            _ => vec![],
+        }
     }
 }
 
