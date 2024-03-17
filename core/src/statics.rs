@@ -2926,7 +2926,6 @@ impl DeconstructedPat {
     }
 
     fn field_tys(&self, ctor: &Constructor, inf_ctx: &InferenceContext) -> Vec<Type> {
-        // TODO: this code is somewhat duplicated elsewhere. Try to reuse this function.
         match &self.ty {
             Type::Int(..)
             | Type::Float(..)
@@ -2947,7 +2946,6 @@ impl DeconstructedPat {
                     }
                 }
                 Constructor::Wildcard(_) => {
-                    // TODO: is this right?? Should this apply to Tuple as well?
                     vec![]
                 }
                 _ => panic!("unexpected constructor"),
