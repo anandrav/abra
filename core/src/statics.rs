@@ -2495,22 +2495,24 @@ pub fn result_of_additional_analysis(
 
     for (pat, missing_pattern_suggestions) in inf_ctx.nonexhaustive_matches.iter() {
         let span = node_map.get(pat).unwrap().span();
-        err_string.push_str(&span.display(sources, "Non-exhaustive match:\n"));
-        err_string.push_str("The following cases are missing:\n");
+        err_string.push_str(&span.display(
+            sources,
+            "This match expression doesn't cover every possibility:\n",
+        ));
+        err_string.push_str("\nThe following cases are missing:\n");
         let ty = Type::solution_of_node(inf_ctx, *pat).unwrap();
         for pat in missing_pattern_suggestions {
-            err_string.push_str(&format!("`{}`\n", pat.suggestion(&ty)));
+            err_string.push_str(&format!("\t`{}`\n", pat.suggestion(&ty)));
         }
     }
 
     for (_match, redundant_pattern_suggestions) in inf_ctx.redundant_matches.iter() {
         for pat in redundant_pattern_suggestions {
             let span = node_map.get(pat).unwrap().span();
-
-            err_string.push_str(&span.display(
-                sources,
-                &format!("Redundant match. Try removing this case\n{}", pat),
-            ));
+            err_string
+                .push_str(&span.display(sources, "This match expression has redundant cases:\n"));
+            err_string.push_str("\nTry removing these cases\n");
+            err_string.push_str(&span.display(sources, &format!("\t`{}`", pat)));
         }
     }
 
