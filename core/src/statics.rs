@@ -2716,8 +2716,8 @@ impl Matrix {
     }
 
     fn head_column(&self) -> Vec<DeconstructedPat> {
-        if self.rows[0].pats.is_empty() {
-            panic!("no pats in rows");
+        if self.rows.is_empty() {
+            return vec![];
         }
         self.rows.iter().map(|row| row.head()).collect()
     }
@@ -3261,9 +3261,12 @@ impl ConstructorSet {
         let mut missing_ctors = Vec::new();
         // Constructors in `head_ctors`, except wildcards and opaques.
         let mut seen: Vec<Constructor> = Vec::new();
+        let mut wildcard_seen = false;
         for ctor in head_ctors.iter().cloned() {
             match ctor {
-                Constructor::Wildcard(_) => {} // discard wildcards
+                Constructor::Wildcard(_) => {
+                    wildcard_seen = true;
+                }
                 _ => seen.push(ctor),
             }
         }
@@ -3310,6 +3313,9 @@ impl ConstructorSet {
             }
             ConstructorSet::Unlistable => {
                 present_ctors.extend(seen);
+                if !wildcard_seen {
+                    missing_ctors.push(Constructor::Wildcard(WildcardReason::NonExhaustive));
+                }
             }
         }
 
