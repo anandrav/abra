@@ -63,9 +63,13 @@ pub fn compile<Effect: EffectTrait>(source_files: Vec<SourceFile>) -> Result<Run
         );
     }
     debug_println!("generated constraints.");
-    statics::result_of_constraint_solving(&mut inference_ctx, tyctx.clone(), &node_map, &sources)?;
 
+    statics::result_of_constraint_solving(&mut inference_ctx, tyctx.clone(), &node_map, &sources)?;
     debug_println!("solved constraints.");
+
+    statics::result_of_additional_analysis(&mut inference_ctx, &toplevels, &node_map, &sources)?;
+    debug_println!("additional analysis complete, no errors.");
+
     let env: Rc<RefCell<Environment>> = Rc::new(RefCell::new(Environment::new(None)));
     let (eval_tree, overloaded_func_map) =
         translate::translate(&inference_ctx, tyctx, &node_map, &toplevels, env.clone());
