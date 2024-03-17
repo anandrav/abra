@@ -2738,41 +2738,65 @@ impl Matrix {
         inf_ctx: &InferenceContext,
     ) -> Matrix {
         let mut new_types = Vec::new();
-        if !self.types.is_empty() {
-            // TODO: necessary check? remove this and see what happens...
-            match &self.types[0] {
+        match ctor {
+            Constructor::Int(..)
+            | Constructor::Float(..)
+            | Constructor::String(..)
+            | Constructor::Bool(..)
+            | Constructor::Wildcard(..) => {}
+            Constructor::Product => match &self.types[0] {
                 Type::Tuple(_, tys) => {
                     new_types.extend(tys.clone());
                 }
-                Type::AdtInstance(..) => {
-                    // TODO bug: If constructor is Wildcard NonExhaustive, this will fail.
-                    let variant_ident = ctor.as_variant_identifier().unwrap();
-                    let adt = inf_ctx.adt_def_of_variant(&variant_ident).unwrap();
-                    let variant = adt
-                        .variants
-                        .iter()
-                        .find(|(v)| v.ctor == variant_ident)
-                        .unwrap();
-                    match &variant.data {
-                        Type::Bool(..)
-                        | Type::Int(..)
-                        | Type::String(..)
-                        | Type::Float(..)
-                        | Type::Function(..) => new_types.push(variant.data.clone()),
-                        Type::Unit(..) => {}
-                        Type::Tuple(_, tys) => new_types.extend(tys.clone()),
-                        Type::AdtInstance(..) => new_types.push(variant.data.clone()),
-                        _ => panic!("unexpected type"),
-                    }
+                Type::Unit(..) => {}
+                _ => panic!("expected type for product constructor"),
+            },
+            Constructor::Variant(ident) => {
+                let adt = inf_ctx.adt_def_of_variant(ident).unwrap();
+                let variant = adt.variants.iter().find(|(v)| v.ctor == *ident).unwrap();
+                match &variant.data {
+                    Type::Bool(..)
+                    | Type::Int(..)
+                    | Type::String(..)
+                    | Type::Float(..)
+                    | Type::Function(..) => new_types.push(variant.data.clone()),
+                    Type::Unit(..) => {}
+                    Type::Tuple(_, tys) => new_types.extend(tys.clone()),
+                    Type::AdtInstance(..) => new_types.push(variant.data.clone()),
+                    _ => panic!("unexpected type"),
                 }
-                _ => {}
             }
         }
-        // TODO: necessary check? remove this and see what happens...
+        // match &self.types[0] {
+        //     Type::Tuple(_, tys) => {
+        //         new_types.extend(tys.clone());
+        //     }
+        //     Type::AdtInstance(..) => {
+        //         // TODO bug: If constructor is Wildcard NonExhaustive, this will fail.
+        //         let variant_ident = ctor.as_variant_identifier().unwrap();
+        //         let adt = inf_ctx.adt_def_of_variant(&variant_ident).unwrap();
+        //         let variant = adt
+        //             .variants
+        //             .iter()
+        //             .find(|(v)| v.ctor == variant_ident)
+        //             .unwrap();
+        //         match &variant.data {
+        //             Type::Bool(..)
+        //             | Type::Int(..)
+        //             | Type::String(..)
+        //             | Type::Float(..)
+        //             | Type::Function(..) => new_types.push(variant.data.clone()),
+        //             Type::Unit(..) => {}
+        //             Type::Tuple(_, tys) => new_types.extend(tys.clone()),
+        //             Type::AdtInstance(..) => new_types.push(variant.data.clone()),
+        //             _ => panic!("unexpected type"),
+        //         }
+        //     }
+        //     _ => {}
+        // }
 
-        if (self.types.len() >= 1) {
-            new_types.extend(self.types[1..].iter().cloned());
-        }
+        new_types.extend(self.types[1..].iter().cloned());
+
         let mut new_matrix = Matrix {
             rows: vec![],
             types: new_types,
@@ -3009,18 +3033,20 @@ impl Constructor {
     }
 
     fn arity(&self, ty: &Type, inf_ctx: &InferenceContext) -> usize {
-        match ty {
-            Type::Tuple(_, tys) => tys.len(),
-            Type::AdtInstance(..) => {
-                debug_println!("variants_to_adt {:#?}", inf_ctx.variants_to_adt);
-                debug_println!("adt_defs {:#?}", inf_ctx.adt_defs);
-                let variant_ident = self.as_variant_identifier().unwrap();
-                let adt = inf_ctx.adt_def_of_variant(&variant_ident).unwrap();
-                let variant = adt
-                    .variants
-                    .iter()
-                    .find(|(v)| v.ctor == variant_ident)
-                    .unwrap();
+        match self {
+            Constructor::Bool(..)
+            | Constructor::Int(..)
+            | Constructor::String(..)
+            | Constructor::Float(..)
+            | Constructor::Wildcard(..) => 0,
+            Constructor::Product => match ty {
+                Type::Tuple(_, tys) => tys.len(),
+                Type::Unit(..) => 0,
+                _ => panic!("unexpected type for product constructor"),
+            },
+            Constructor::Variant(ident) => {
+                let adt = inf_ctx.adt_def_of_variant(ident).unwrap();
+                let variant = adt.variants.iter().find(|(v)| v.ctor == *ident).unwrap();
                 match &variant.data {
                     Type::Bool(..) | Type::Int(..) | Type::String(..) | Type::Float(..) => 1,
                     Type::Unit(..) => 0,
@@ -3030,14 +3056,36 @@ impl Constructor {
                     _ => panic!("unexpected type"),
                 }
             }
-            Type::Bool(..)
-            | Type::Int(..)
-            | Type::String(..)
-            | Type::Float(..)
-            | Type::Function(..)
-            | Type::Unit(..) => 0,
-            _ => panic!("unexpected type"),
         }
+        // match ty {
+        //     Type::Tuple(_, tys) => tys.len(),
+        //     Type::AdtInstance(..) => {
+        //         debug_println!("variants_to_adt {:#?}", inf_ctx.variants_to_adt);
+        //         debug_println!("adt_defs {:#?}", inf_ctx.adt_defs);
+        //         let variant_ident = self.as_variant_identifier().unwrap();
+        //         let adt = inf_ctx.adt_def_of_variant(&variant_ident).unwrap();
+        //         let variant = adt
+        //             .variants
+        //             .iter()
+        //             .find(|(v)| v.ctor == variant_ident)
+        //             .unwrap();
+        //         match &variant.data {
+        //             Type::Bool(..) | Type::Int(..) | Type::String(..) | Type::Float(..) => 1,
+        //             Type::Unit(..) => 0,
+        //             Type::Tuple(_, tys) => tys.len(),
+        //             Type::AdtInstance(..) => 1,
+        //             Type::Function(..) => 1,
+        //             _ => panic!("unexpected type"),
+        //         }
+        //     }
+        //     Type::Bool(..)
+        //     | Type::Int(..)
+        //     | Type::String(..)
+        //     | Type::Float(..)
+        //     | Type::Function(..)
+        //     | Type::Unit(..) => 0,
+        //     _ => panic!("unexpected type"),
+        // }
     }
 
     fn is_wildcard_nonexhaustive(&self) -> bool {
