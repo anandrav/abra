@@ -2486,6 +2486,12 @@ pub fn result_of_additional_analysis(
     let mut err_string = String::new();
 
     err_string.push_str("Pattern matching errors:\n");
+    if !inf_ctx.nonexhaustive_matches.is_empty() {
+        debug_println!("non_exh isn't empty");
+    }
+    if !inf_ctx.redundant_matches.is_empty() {
+        debug_println!("redundant isn't empty");
+    }
 
     for (pat, missing_pattern_suggestions) in inf_ctx.nonexhaustive_matches.iter() {
         let span = node_map.get(pat).unwrap().span();
@@ -2706,11 +2712,10 @@ impl Matrix {
         let mut rows = Vec::new();
         for (dummy, arm) in arms.iter().enumerate() {
             let pats = vec![DeconstructedPat::from_ast_pat(inf_ctx, arm.pat.clone())];
-            let useful = false;
             rows.push(MatrixRow {
                 pats,
                 parent_row: dummy,
-                useful,
+                useful: false,
             });
         }
         Self { rows, types }
@@ -2954,6 +2959,7 @@ impl DeconstructedPat {
             | Type::String(..)
             | Type::Bool(..)
             | Type::Unit(..)
+            | Type::Poly(..)
             | Type::Function(..) => vec![],
             Type::Tuple(_, tys) => tys.clone(),
             Type::AdtInstance(_, _, _) => match ctor {
@@ -2979,7 +2985,7 @@ impl DeconstructedPat {
                 }
                 _ => panic!("unexpected constructor"),
             },
-            Type::Poly(..) | Type::UnifVar(..) => panic!("unexpected type"),
+            Type::UnifVar(..) => panic!("unexpected type"),
         }
     }
 
@@ -3303,12 +3309,13 @@ impl ConstructorSet {
         let mut seen: Vec<Constructor> = Vec::new();
         let mut wildcard_seen = false;
         for ctor in head_ctors.iter().cloned() {
-            match ctor {
+            match &ctor {
                 Constructor::Wildcard(_) => {
                     wildcard_seen = true;
                 }
-                _ => seen.push(ctor),
+                _ => {}
             }
+            seen.push(ctor)
         }
 
         match self {
@@ -3413,7 +3420,9 @@ fn match_expr_exhaustive_check(inf_ctx: &mut InferenceContext, expr: &ast::Expr)
             None
         }
     }));
-    // inf_ctx.redundant_matches.insert(expr.id, redundant_arms);
+    if !redundant_arms.is_empty() {
+        inf_ctx.redundant_matches.insert(expr.id, redundant_arms);
+    }
 }
 
 // here's where the actual algorithm goes
@@ -3426,7 +3435,7 @@ fn compute_exhaustiveness_and_usefulness(
     // base case
     let Some(head_ty) = matrix.types.first().cloned() else {
         debug_println!("base case");
-        // we are pattern matching on ()
+        // we are morally pattern matching on ()
         let mut useful = true;
         // only the first row is useful
         for row in matrix.rows.iter_mut() {
