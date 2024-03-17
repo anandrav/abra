@@ -2505,37 +2505,36 @@ pub fn result_of_additional_analysis(
 }
 
 fn check_pattern_exhaustiveness_toplevel(inf_ctx: &mut InferenceContext, toplevel: &ast::Toplevel) {
-    debug_println!("check_pattern_exhaustiveness_toplevel");
+    // debug_println!("check_pattern_exhaustiveness_toplevel");
     for statement in toplevel.statements.iter() {
         check_pattern_exhaustiveness_stmt(inf_ctx, statement);
     }
 }
 
 fn check_pattern_exhaustiveness_stmt(inf_ctx: &mut InferenceContext, stmt: &ast::Stmt) {
-    debug_println!("check_pattern_exhaustiveness_stmt");
     match &*stmt.stmtkind {
         StmtKind::InterfaceDef(..) => {}
         StmtKind::TypeDef(..) => {}
         StmtKind::InterfaceImpl(_, _, stmts) => {
             for stmt in stmts {
-                debug_println!("check_pattern_exhaustiveness_stmt IMPL");
+                // debug_println!("check_pattern_exhaustiveness_stmt IMPL");
                 check_pattern_exhaustiveness_stmt(inf_ctx, stmt);
             }
         }
         StmtKind::Set(_, expr) => {
-            debug_println!("check_pattern_exhaustiveness_stmt SET");
+            // debug_println!("check_pattern_exhaustiveness_stmt SET");
             check_pattern_exhaustiveness_expr(inf_ctx, expr);
         }
         StmtKind::Let(_, _, expr) => {
-            debug_println!("check_pattern_exhaustiveness_stmt LET");
+            // debug_println!("check_pattern_exhaustiveness_stmt LET");
             check_pattern_exhaustiveness_expr(inf_ctx, expr);
         }
         StmtKind::LetFunc(_, _, _, body) => {
-            debug_println!("check_pattern_exhaustiveness_stmt LET_FUNC");
+            // debug_println!("check_pattern_exhaustiveness_stmt LET_FUNC");
             check_pattern_exhaustiveness_expr(inf_ctx, body);
         }
         StmtKind::Expr(expr) => {
-            debug_println!("check_pattern_exhaustiveness_stmt EXPR");
+            // debug_println!("check_pattern_exhaustiveness_stmt EXPR");
             check_pattern_exhaustiveness_expr(inf_ctx, expr);
         }
     }
@@ -2711,6 +2710,9 @@ impl Matrix {
     }
 
     fn head_column(&self) -> Vec<DeconstructedPat> {
+        if self.rows[0].pats.is_empty() {
+            panic!("no pats in rows");
+        }
         self.rows.iter().map(|row| row.head()).collect()
     }
 
@@ -2724,13 +2726,31 @@ impl Matrix {
     }
 
     fn specialize(&self, ctor: &Constructor, ctor_arity: usize) -> Matrix {
-        let new_types = self.types[1..].iter().cloned().collect();
+        debug_println!("specializing with ctor: {:#?}", ctor);
+        let mut new_types = Vec::new();
+        if !self.types.is_empty() {
+            // TODO: necessary check? remove this and see what happens...
+            match &self.types[0] {
+                Type::AdtInstance(_, _, tys) | Type::Tuple(_, tys) => {
+                    new_types.extend(tys.clone());
+                }
+                _ => {}
+            }
+        }
+        // TODO: necessary check? remove this and see what happens...
+
+        if (self.types.len() >= 1) {
+            new_types.extend(self.types[1..].iter().cloned());
+        }
         let mut new_matrix = Matrix {
             rows: vec![],
             types: new_types,
         };
         for (i, row) in self.rows.iter().enumerate() {
-            if row.head().ctor.is_covered_by(ctor) {
+            if row.pats.is_empty() {
+                panic!("no pats in row");
+            }
+            if ctor.is_covered_by(&row.head().ctor) {
                 let new_row = row.pop_head(ctor_arity, i);
                 debug_println!(
                     "before pop: {}, after pop: {}",
@@ -2751,6 +2771,25 @@ impl Matrix {
     }
 }
 
+impl fmt::Display for Matrix {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        writeln!(f, "")?;
+        for row in self.rows.iter() {
+            if row.pats.is_empty() {
+                write!(f, "()")?;
+            }
+            for (i, pat) in row.pats.iter().enumerate() {
+                if (i != 0) {
+                    write!(f, ", ")?;
+                }
+                write!(f, "{}", pat)?;
+            }
+            writeln!(f, "")?;
+        }
+        Ok(())
+    }
+}
+
 #[derive(Debug, Clone)]
 struct MatrixRow {
     pats: Vec<DeconstructedPat>,
@@ -2767,6 +2806,9 @@ impl MatrixRow {
     }
 
     fn pop_head(&self, arity: usize, parent_row: usize) -> MatrixRow {
+        if self.pats.is_empty() {
+            panic!("no pats in row");
+        }
         let head_pat = self.head();
         let mut new_pats = head_pat.specialize(arity);
         new_pats.extend_from_slice(&self.pats[1..]);
@@ -2859,6 +2901,41 @@ impl DeconstructedPat {
     }
 }
 
+impl fmt::Display for DeconstructedPat {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match &self.ctor {
+            Constructor::Wildcard(_) => write!(f, "_"),
+            Constructor::Bool(b) => write!(f, "{}", b),
+            Constructor::Int(i) => write!(f, "{}", i),
+            Constructor::Float(fl) => write!(f, "{}", fl),
+            Constructor::String(s) => write!(f, "{}", s),
+            Constructor::Product => {
+                write!(f, "(")?;
+                for (i, field) in self.fields.iter().enumerate() {
+                    if i != 0 {
+                        write!(f, ", ")?;
+                    }
+                    write!(f, "{}", field)?;
+                }
+                write!(f, ")")
+            }
+            Constructor::Variant(ident) => {
+                write!(f, "{}", ident)?;
+                if !self.fields.is_empty() {
+                    write!(f, " of ")?;
+                    for (i, field) in self.fields.iter().enumerate() {
+                        if i != 0 {
+                            write!(f, ", ")?;
+                        }
+                        write!(f, "{}", field)?;
+                    }
+                }
+                Ok(())
+            }
+        }
+    }
+}
+
 #[derive(Debug, Clone)]
 enum Constructor {
     Wildcard(WildcardReason), // user-created wildcard pattern
@@ -2911,6 +2988,13 @@ impl Constructor {
             | Type::Function(..)
             | Type::Unit(..) => 0,
             _ => panic!("unexpected type"),
+        }
+    }
+
+    fn is_wildcard_nonexhaustive(&self) -> bool {
+        match self {
+            Constructor::Wildcard(WildcardReason::NonExhaustive) => true,
+            _ => false,
         }
     }
 }
@@ -2975,6 +3059,27 @@ impl WitnessMatrix {
             ret.extend(&witness_matrix);
         }
         *self = ret;
+    }
+}
+
+impl fmt::Display for WitnessMatrix {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        writeln!(f, "")?;
+        for row in self.rows.iter() {
+            if (row.len() > 1) {
+                write!(f, "(")?;
+            }
+            for (i, pat) in row.iter().enumerate() {
+                if i != 0 {
+                    write!(f, ", ")?;
+                }
+                write!(f, "{}", pat)?;
+            }
+            if (row.len() > 1) {
+                write!(f, ")")?;
+            }
+        }
+        Ok(())
     }
 }
 
@@ -3080,7 +3185,22 @@ fn match_expr_exhaustive_check(inf_ctx: &mut InferenceContext, expr: &ast::Expr)
     let mut matrix = Matrix::new(inf_ctx, scrutinee_ty, arms);
     debug_println!("Matrix: {:#?}", matrix);
     let witness_matrix = compute_exhaustiveness_and_usefulness(inf_ctx, &mut matrix);
-    debug_println!("Witness matrix: {:#?}", witness_matrix);
+    debug_println!("Witness matrix: {}", witness_matrix);
+    let mut useless_indices = HashSet::new();
+    for (i, row) in matrix.rows.iter().enumerate() {
+        if !row.useful {
+            useless_indices.insert(i);
+        }
+    }
+    let mut redundant_arms = Vec::new();
+    redundant_arms.extend(arms.iter().enumerate().filter_map(|(i, arm)| {
+        if useless_indices.contains(&i) {
+            Some(arm.pat.id)
+        } else {
+            None
+        }
+    }));
+    // inf_ctx.redundant_matches.insert(expr.id, redundant_arms);
 }
 
 // here's where the actual algorithm goes
@@ -3088,9 +3208,14 @@ fn compute_exhaustiveness_and_usefulness(
     inf_ctx: &InferenceContext,
     matrix: &mut Matrix,
 ) -> WitnessMatrix {
-    debug_println!("compute_exhaustiveness_and_usefulness");
+    debug_println!(
+        "compute_exhaustiveness_and_usefulness, matrix:\n{:#?}",
+        matrix
+    );
+    debug_println!("matrix: {}", matrix);
     // base case
     let Some(head_ty) = matrix.types.first().cloned() else {
+        debug_println!("base case");
         // we are pattern matching on ()
         let mut useful = true;
         // only the first row is useful
@@ -3098,14 +3223,18 @@ fn compute_exhaustiveness_and_usefulness(
             row.useful = useful;
             useful = false;
         }
-        return if useful {
+        let no_useful_rows = useful;
+        return if no_useful_rows {
             // match was not exhaustive (there were no rows)
+            debug_println!("no useful rows, unit witness");
             WitnessMatrix::unit_witness()
         } else {
             // match was exhaustive
+            debug_println!("empty witness matrix");
             WitnessMatrix::empty()
         };
     };
+    debug_println!("NOT base case");
 
     let mut ret_witnesses = WitnessMatrix::empty();
 
@@ -3116,27 +3245,39 @@ fn compute_exhaustiveness_and_usefulness(
         .cloned()
         .map(|pat| pat.ctor)
         .collect();
-    debug_println!("head_ctors: {:#?}", head_ctors);
+    debug_println!("head_ctors: {:?}", head_ctors);
     let ctors_for_ty = ctors_for_ty(inf_ctx, &head_ty);
     let SplitConstructorSet {
-        present_ctors,
+        mut present_ctors,
         missing_ctors,
     } = ctors_for_ty.split(&head_ctors);
-    debug_println!("present_ctors: {:#?}", present_ctors);
-    debug_println!("missing_ctors: {:#?}", missing_ctors);
-    // for each constructor, specialize the matrix
+    debug_println!("missing_ctors: {:?}", missing_ctors);
+
+    // special constructor representing cases not listed by user
+    if (!missing_ctors.is_empty()) {
+        present_ctors.push(Constructor::Wildcard(WildcardReason::NonExhaustive));
+    }
+    debug_println!("specialize_ctors: {:?}", present_ctors);
     for ctor in present_ctors {
         let ctor_arity = ctor.arity(&head_ty);
+        debug_println!("before specialization: {}", matrix);
         let mut specialized_matrix = matrix.specialize(&ctor, ctor_arity);
-        debug_println!("specialized_matrix: {:#?}", specialized_matrix);
+        debug_println!("specialized_matrix: {}", specialized_matrix);
         let mut witnesses = compute_exhaustiveness_and_usefulness(inf_ctx, &mut specialized_matrix);
-        debug_println!("witnesses: {:#?}", witnesses);
-        witnesses.apply_constructor(&ctor, ctor_arity, &head_ty);
-        witnesses.apply_missing_constructors(&missing_ctors, &head_ty);
+        debug_println!("witnesses: {}", witnesses);
+        if (ctor.is_wildcard_nonexhaustive()) {
+            // special constructor representing cases not listed by user
+            witnesses.apply_missing_constructors(&missing_ctors, &head_ty);
+        } else {
+            witnesses.apply_constructor(&ctor, ctor_arity, &head_ty);
+        }
         ret_witnesses.extend(&witnesses);
+        debug_println!("ret_witnesses: {}", ret_witnesses);
 
         matrix.unspecialize(specialized_matrix);
     }
+    // specialize missing constructors??
+
     // take the returned witnesses and reapply the constructor
     // append the witnesses to return value
 
