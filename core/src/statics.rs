@@ -559,6 +559,10 @@ impl Type {
             _ => false,
         }
     }
+
+    pub fn is_unit(&self) -> bool {
+        matches!(self, Self::Unit(_))
+    }
 }
 
 pub fn types_of_binop(opcode: &BinOpcode, id: ast::Id) -> (Type, Type, Type) {
@@ -757,7 +761,9 @@ impl InferenceContext {
     }
 
     pub fn adt_def_of_variant(&self, variant: &Identifier) -> Option<AdtDef> {
+        debug_println!("calling get(), identifier={}", variant);
         let adt_name = self.variants_to_adt.get(variant)?;
+        debug_println!("adt_name: {}", adt_name);
         self.adt_defs.get(adt_name).cloned()
     }
 
@@ -2725,14 +2731,39 @@ impl Matrix {
         }
     }
 
-    fn specialize(&self, ctor: &Constructor, ctor_arity: usize) -> Matrix {
-        debug_println!("specializing with ctor: {:#?}", ctor);
+    fn specialize(
+        &self,
+        ctor: &Constructor,
+        ctor_arity: usize,
+        inf_ctx: &InferenceContext,
+    ) -> Matrix {
+        debug_println!("specializing with ctor: {:#?}, arity: {}", ctor, ctor_arity);
         let mut new_types = Vec::new();
         if !self.types.is_empty() {
             // TODO: necessary check? remove this and see what happens...
             match &self.types[0] {
-                Type::AdtInstance(_, _, tys) | Type::Tuple(_, tys) => {
+                Type::Tuple(_, tys) => {
                     new_types.extend(tys.clone());
+                }
+                Type::AdtInstance(..) => {
+                    let variant_ident = ctor.as_variant_identifier().unwrap();
+                    let adt = inf_ctx.adt_def_of_variant(&variant_ident).unwrap();
+                    let variant = adt
+                        .variants
+                        .iter()
+                        .find(|(v)| v.ctor == variant_ident)
+                        .unwrap();
+                    match &variant.data {
+                        Type::Bool(..)
+                        | Type::Int(..)
+                        | Type::String(..)
+                        | Type::Float(..)
+                        | Type::Function(..) => new_types.push(variant.data.clone()),
+                        Type::Unit(..) => {}
+                        Type::Tuple(_, tys) => new_types.extend(tys.clone()),
+                        Type::AdtInstance(..) => new_types.push(variant.data.clone()),
+                        _ => panic!("unexpected type"),
+                    }
                 }
                 _ => {}
             }
@@ -2859,7 +2890,7 @@ impl DeconstructedPat {
 
     fn specialize(&self, arity: usize) -> Vec<DeconstructedPat> {
         match &self.ctor {
-            Constructor::Wildcard(WildcardReason::MatrixSpecialization) => {
+            Constructor::Wildcard(_) => {
                 let field_tys = self.field_tys();
                 (0..arity)
                     .map(|i| DeconstructedPat {
@@ -2977,10 +3008,28 @@ impl Constructor {
         }
     }
 
-    fn arity(&self, ty: &Type) -> usize {
+    fn arity(&self, ty: &Type, inf_ctx: &InferenceContext) -> usize {
         match ty {
             Type::Tuple(_, tys) => tys.len(),
-            Type::AdtInstance(_, _, tys) => tys.len(),
+            Type::AdtInstance(..) => {
+                debug_println!("variants_to_adt {:#?}", inf_ctx.variants_to_adt);
+                debug_println!("adt_defs {:#?}", inf_ctx.adt_defs);
+                let variant_ident = self.as_variant_identifier().unwrap();
+                let adt = inf_ctx.adt_def_of_variant(&variant_ident).unwrap();
+                let variant = adt
+                    .variants
+                    .iter()
+                    .find(|(v)| v.ctor == variant_ident)
+                    .unwrap();
+                match &variant.data {
+                    Type::Bool(..) | Type::Int(..) | Type::String(..) | Type::Float(..) => 1,
+                    Type::Unit(..) => 0,
+                    Type::Tuple(_, tys) => tys.len(),
+                    Type::AdtInstance(..) => 1,
+                    Type::Function(..) => 1,
+                    _ => panic!("unexpected type"),
+                }
+            }
             Type::Bool(..)
             | Type::Int(..)
             | Type::String(..)
@@ -3259,9 +3308,9 @@ fn compute_exhaustiveness_and_usefulness(
     }
     debug_println!("specialize_ctors: {:?}", present_ctors);
     for ctor in present_ctors {
-        let ctor_arity = ctor.arity(&head_ty);
+        let ctor_arity = ctor.arity(&head_ty, inf_ctx);
         debug_println!("before specialization: {}", matrix);
-        let mut specialized_matrix = matrix.specialize(&ctor, ctor_arity);
+        let mut specialized_matrix = matrix.specialize(&ctor, ctor_arity, inf_ctx);
         debug_println!("specialized_matrix: {}", specialized_matrix);
         let mut witnesses = compute_exhaustiveness_and_usefulness(inf_ctx, &mut specialized_matrix);
         debug_println!("witnesses: {}", witnesses);
@@ -3296,7 +3345,7 @@ fn ctors_for_ty(inf_ctx: &InferenceContext, ty: &Type) -> ConstructorSet {
         Type::Int(_) | Type::Float(_) | Type::String(_) | Type::Function(..) => {
             ConstructorSet::Unlistable
         }
-        Type::UnifVar(..) | Type::Poly(..) => panic!("Unexpected type in ctors_of_ty {:#?}", ty),
+        Type::UnifVar(..) | Type::Poly(..) => panic!("Unexpected type in ctors_for_ty {:#?}", ty),
     }
 }
 
