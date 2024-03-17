@@ -2802,11 +2802,12 @@ impl Matrix {
             types: new_types,
         };
         for (i, row) in self.rows.iter().enumerate() {
+            debug_println!("i={}", i);
             if row.pats.is_empty() {
                 panic!("no pats in row");
             }
             if ctor.is_covered_by(&row.head().ctor) {
-                let new_row = row.pop_head(ctor_arity, i);
+                let new_row = row.pop_head(ctor, ctor_arity, i, inf_ctx);
                 debug_println!(
                     "before pop: {}, after pop: {}",
                     row.pats.len(),
@@ -2860,12 +2861,21 @@ impl MatrixRow {
         }
     }
 
-    fn pop_head(&self, arity: usize, parent_row: usize) -> MatrixRow {
+    fn pop_head(
+        &self,
+        other_ctor: &Constructor,
+        arity: usize,
+        parent_row: usize,
+        inf_ctx: &InferenceContext,
+    ) -> MatrixRow {
         if self.pats.is_empty() {
             panic!("no pats in row");
         }
+        debug_println!("before head()");
         let head_pat = self.head();
-        let mut new_pats = head_pat.specialize(arity);
+        debug_println!("before specialize");
+        let mut new_pats = head_pat.specialize(other_ctor, arity, inf_ctx);
+        debug_println!("after specialize");
         new_pats.extend_from_slice(&self.pats[1..]);
         MatrixRow {
             pats: new_pats,
@@ -2912,10 +2922,16 @@ impl DeconstructedPat {
         Self { ctor, fields, ty }
     }
 
-    fn specialize(&self, arity: usize) -> Vec<DeconstructedPat> {
+    fn specialize(
+        &self,
+        other_ctor: &Constructor,
+        arity: usize,
+        inf_ctx: &InferenceContext,
+    ) -> Vec<DeconstructedPat> {
+        debug_println!("deconstructed pat type: {}", self.ty);
         match &self.ctor {
             Constructor::Wildcard(_) => {
-                let field_tys = self.field_tys();
+                let field_tys = self.field_tys(other_ctor, inf_ctx);
                 (0..arity)
                     .map(|i| DeconstructedPat {
                         ctor: Constructor::Wildcard(WildcardReason::MatrixSpecialization),
@@ -2928,11 +2944,38 @@ impl DeconstructedPat {
         }
     }
 
-    fn field_tys(&self) -> Vec<Type> {
-        match self.ty.clone() {
-            Type::Tuple(_, tys) => tys,
-            Type::AdtInstance(_, _, tys) => tys,
-            _ => vec![],
+    fn field_tys(&self, ctor: &Constructor, inf_ctx: &InferenceContext) -> Vec<Type> {
+        // TODO: this code is somewhat duplicated elsewhere. Try to reuse this function.
+        match &self.ty {
+            Type::Int(..)
+            | Type::Float(..)
+            | Type::String(..)
+            | Type::Bool(..)
+            | Type::Unit(..)
+            | Type::Function(..) => vec![],
+            Type::Tuple(_, tys) => tys.clone(),
+            Type::AdtInstance(_, _, _) => match ctor {
+                Constructor::Variant(ident) => {
+                    let adt = inf_ctx.adt_def_of_variant(&ident).unwrap();
+                    let variant = adt.variants.iter().find(|v| v.ctor == *ident).unwrap();
+                    match &variant.data {
+                        Type::Bool(..)
+                        | Type::Int(..)
+                        | Type::String(..)
+                        | Type::Float(..)
+                        | Type::Function(..) => vec![variant.data.clone()],
+                        Type::Unit(..) => vec![],
+                        Type::Tuple(_, tys) => tys.clone(),
+                        Type::AdtInstance(..) => vec![variant.data.clone()],
+                        _ => panic!("unexpected type"),
+                    }
+                }
+                Constructor::Wildcard(_) => {
+                    vec![]
+                }
+                _ => panic!("unexpected constructor"),
+            },
+            Type::Poly(..) | Type::UnifVar(..) => panic!("unexpected type"),
         }
     }
 
