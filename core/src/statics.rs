@@ -2737,7 +2737,6 @@ impl Matrix {
         ctor_arity: usize,
         inf_ctx: &InferenceContext,
     ) -> Matrix {
-        debug_println!("specializing with ctor: {:#?}, arity: {}", ctor, ctor_arity);
         let mut new_types = Vec::new();
         if !self.types.is_empty() {
             // TODO: necessary check? remove this and see what happens...
@@ -2746,6 +2745,7 @@ impl Matrix {
                     new_types.extend(tys.clone());
                 }
                 Type::AdtInstance(..) => {
+                    // TODO bug: If constructor is Wildcard NonExhaustive, this will fail.
                     let variant_ident = ctor.as_variant_identifier().unwrap();
                     let adt = inf_ctx.adt_def_of_variant(&variant_ident).unwrap();
                     let variant = adt
@@ -3308,7 +3308,9 @@ fn compute_exhaustiveness_and_usefulness(
     }
     debug_println!("specialize_ctors: {:?}", present_ctors);
     for ctor in present_ctors {
+        debug_println!("specializing with ctor: {:#?}", ctor);
         let ctor_arity = ctor.arity(&head_ty, inf_ctx);
+        debug_println!("arity: {}", ctor_arity);
         debug_println!("before specialization: {}", matrix);
         let mut specialized_matrix = matrix.specialize(&ctor, ctor_arity, inf_ctx);
         debug_println!("specialized_matrix: {}", specialized_matrix);
@@ -3320,6 +3322,7 @@ fn compute_exhaustiveness_and_usefulness(
         } else {
             witnesses.apply_constructor(&ctor, ctor_arity, &head_ty);
         }
+        debug_println!("witnesses after applying: {}", witnesses);
         ret_witnesses.extend(&witnesses);
         debug_println!("ret_witnesses: {}", ret_witnesses);
 
