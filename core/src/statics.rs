@@ -2762,47 +2762,19 @@ impl Matrix {
             Constructor::Variant(ident) => {
                 let adt = inf_ctx.adt_def_of_variant(ident).unwrap();
                 let variant = adt.variants.iter().find(|(v)| v.ctor == *ident).unwrap();
-                // TODO: this can be simplified ot just new_types.push(variant.data.clone()), same in all cases...
                 match &variant.data {
+                    Type::Unit(..) => {}
                     Type::Bool(..)
                     | Type::Int(..)
                     | Type::String(..)
                     | Type::Float(..)
-                    | Type::Function(..) => new_types.push(variant.data.clone()),
-                    Type::Unit(..) => {}
-                    Type::Tuple(_, tys) => new_types.push(variant.data.clone()),
-                    Type::AdtInstance(..) => new_types.push(variant.data.clone()),
+                    | Type::Function(..)
+                    | Type::Tuple(_, _)
+                    | Type::AdtInstance(..) => new_types.push(variant.data.clone()),
                     _ => panic!("unexpected type"),
                 }
             }
         }
-        // match &self.types[0] {
-        //     Type::Tuple(_, tys) => {
-        //         new_types.extend(tys.clone());
-        //     }
-        //     Type::AdtInstance(..) => {
-        //         // TODO bug: If constructor is Wildcard NonExhaustive, this will fail.
-        //         let variant_ident = ctor.as_variant_identifier().unwrap();
-        //         let adt = inf_ctx.adt_def_of_variant(&variant_ident).unwrap();
-        //         let variant = adt
-        //             .variants
-        //             .iter()
-        //             .find(|(v)| v.ctor == variant_ident)
-        //             .unwrap();
-        //         match &variant.data {
-        //             Type::Bool(..)
-        //             | Type::Int(..)
-        //             | Type::String(..)
-        //             | Type::Float(..)
-        //             | Type::Function(..) => new_types.push(variant.data.clone()),
-        //             Type::Unit(..) => {}
-        //             Type::Tuple(_, tys) => new_types.extend(tys.clone()),
-        //             Type::AdtInstance(..) => new_types.push(variant.data.clone()),
-        //             _ => panic!("unexpected type"),
-        //         }
-        //     }
-        //     _ => {}
-        // }
 
         new_types.extend(self.types[1..].iter().cloned());
 
@@ -2968,17 +2940,10 @@ impl DeconstructedPat {
                 Constructor::Variant(ident) => {
                     let adt = inf_ctx.adt_def_of_variant(&ident).unwrap();
                     let variant = adt.variants.iter().find(|v| v.ctor == *ident).unwrap();
-                    // TODO this can be simplified to just vec![variant.data.clone()]
-                    match &variant.data {
-                        Type::Bool(..)
-                        | Type::Int(..)
-                        | Type::String(..)
-                        | Type::Float(..)
-                        | Type::Function(..) => vec![variant.data.clone()],
-                        Type::Unit(..) => vec![],
-                        Type::Tuple(_, _) => vec![variant.data.clone()],
-                        Type::AdtInstance(..) => vec![variant.data.clone()],
-                        _ => panic!("unexpected type"),
+                    if !matches!(&variant.data, Type::Unit(..)) {
+                        vec![variant.data.clone()]
+                    } else {
+                        vec![]
                     }
                 }
                 Constructor::Wildcard(_) => {
@@ -3145,46 +3110,13 @@ impl Constructor {
             Constructor::Variant(ident) => {
                 let adt = inf_ctx.adt_def_of_variant(ident).unwrap();
                 let variant = adt.variants.iter().find(|(v)| v.ctor == *ident).unwrap();
-                // TODO the code below can be simplified... also, maybe just called .field_tys().len() ?
-                match &variant.data {
-                    Type::Bool(..) | Type::Int(..) | Type::String(..) | Type::Float(..) => 1,
-                    Type::Unit(..) => 0,
-                    Type::Tuple(_, _) => 1,
-                    Type::AdtInstance(..) => 1,
-                    Type::Function(..) => 1,
-                    _ => panic!("unexpected type"),
+                if !matches!(&variant.data, Type::Unit(..)) {
+                    1
+                } else {
+                    0
                 }
             }
         }
-        // match ty {
-        //     Type::Tuple(_, tys) => tys.len(),
-        //     Type::AdtInstance(..) => {
-        //         debug_println!("variants_to_adt {:#?}", inf_ctx.variants_to_adt);
-        //         debug_println!("adt_defs {:#?}", inf_ctx.adt_defs);
-        //         let variant_ident = self.as_variant_identifier().unwrap();
-        //         let adt = inf_ctx.adt_def_of_variant(&variant_ident).unwrap();
-        //         let variant = adt
-        //             .variants
-        //             .iter()
-        //             .find(|(v)| v.ctor == variant_ident)
-        //             .unwrap();
-        //         match &variant.data {
-        //             Type::Bool(..) | Type::Int(..) | Type::String(..) | Type::Float(..) => 1,
-        //             Type::Unit(..) => 0,
-        //             Type::Tuple(_, tys) => tys.len(),
-        //             Type::AdtInstance(..) => 1,
-        //             Type::Function(..) => 1,
-        //             _ => panic!("unexpected type"),
-        //         }
-        //     }
-        //     Type::Bool(..)
-        //     | Type::Int(..)
-        //     | Type::String(..)
-        //     | Type::Float(..)
-        //     | Type::Function(..)
-        //     | Type::Unit(..) => 0,
-        //     _ => panic!("unexpected type"),
-        // }
     }
 
     fn is_wildcard_nonexhaustive(&self) -> bool {
@@ -3231,7 +3163,7 @@ impl WitnessMatrix {
         debug_println!("applying constructor {:#?}, arity={}", ctor, arity);
         for witness in self.rows.iter_mut() {
             let len = witness.len();
-            let fields: Vec<DeconstructedPat> = witness.drain((len - arity)..).rev().collect(); // todo wtf is this doing, why is it being reversed?
+            let fields: Vec<DeconstructedPat> = witness.drain((len - arity)..).rev().collect();
             let first_pat = DeconstructedPat {
                 ctor: ctor.clone(),
                 fields,
