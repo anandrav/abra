@@ -733,7 +733,7 @@ pub struct InferenceContext {
     pub multiple_interface_impls: BTreeMap<Identifier, Vec<ast::Id>>,
     pub interface_impl_for_instantiated_adt: Vec<ast::Id>,
     // non-exhaustive matches
-    // pub nonexhaustive_matches: BTreeMap<ast::Id, Vec<MissingPatternSuggestion>>,
+    pub nonexhaustive_matches: BTreeMap<ast::Id, Vec<DeconstructedPat>>,
     pub redundant_matches: BTreeMap<ast::Id, Vec<ast::Id>>,
 }
 
@@ -754,7 +754,7 @@ impl InferenceContext {
             multiple_interface_defs: BTreeMap::new(),
             multiple_interface_impls: BTreeMap::new(),
             interface_impl_for_instantiated_adt: Vec::new(),
-            // nonexhaustive_matches: BTreeMap::new(),
+            nonexhaustive_matches: BTreeMap::new(),
             redundant_matches: BTreeMap::new(),
             // TODO ..Default::default()
         }
@@ -2479,9 +2479,7 @@ pub fn result_of_additional_analysis(
         check_pattern_exhaustiveness_toplevel(inf_ctx, toplevel);
     }
 
-    if
-    /*inf_ctx.nonexhaustive_matches.is_empty() &&*/
-    inf_ctx.redundant_matches.is_empty() {
+    if inf_ctx.nonexhaustive_matches.is_empty() && inf_ctx.redundant_matches.is_empty() {
         return Ok(());
     }
 
@@ -2489,12 +2487,15 @@ pub fn result_of_additional_analysis(
 
     err_string.push_str("Pattern matching errors:\n");
 
-    // for (pat, missing_pattern_suggestions) in inf_ctx.nonexhaustive_matches.iter() {
-    //     let span = node_map.get(pat).unwrap().span();
-
-    //     err_string
-    //         .push_str(&span.display(sources, "Non-exhaustive match. Try adding more cases\n"));
-    // }
+    for (pat, missing_pattern_suggestions) in inf_ctx.nonexhaustive_matches.iter() {
+        let span = node_map.get(pat).unwrap().span();
+        err_string.push_str(&span.display(sources, "Non-exhaustive match:\n"));
+        err_string.push_str("The following cases are missing:\n");
+        let ty = Type::solution_of_node(inf_ctx, *pat).unwrap();
+        for pat in missing_pattern_suggestions {
+            err_string.push_str(&format!("`{}`\n", pat.suggestion(&ty)));
+        }
+    }
 
     for (_match, redundant_pattern_suggestions) in inf_ctx.redundant_matches.iter() {
         for pat in redundant_pattern_suggestions {
@@ -3000,6 +3001,41 @@ impl DeconstructedPat {
             ty,
         }
     }
+
+    fn suggestion(&self, ty: &Type) -> String {
+        match &self.ctor {
+            Constructor::Wildcard(_) => "_".to_string(),
+            Constructor::Bool(b) => b.to_string(),
+            Constructor::Int(i) => i.to_string(),
+            Constructor::Float(fl) => fl.to_string(),
+            Constructor::String(s) => s.to_string(),
+            Constructor::Product => {
+                let mut s = "(".to_string();
+                for (i, field) in self.fields.iter().enumerate() {
+                    if i != 0 {
+                        s.push_str(", ");
+                    }
+                    s.push_str(&field.suggestion(ty));
+                }
+                s.push_str(")");
+                s
+            }
+            Constructor::Variant(ident) => {
+                let mut s = ident.to_string();
+                if !self.fields.is_empty() {
+                    s.push_str("(");
+                    for (i, field) in self.fields.iter().enumerate() {
+                        if i != 0 {
+                            s.push_str(", ");
+                        }
+                        s.push_str(&field.suggestion(ty));
+                    }
+                    s.push_str(")");
+                }
+                s
+            }
+        }
+    }
 }
 
 impl fmt::Display for DeconstructedPat {
@@ -3212,6 +3248,10 @@ impl WitnessMatrix {
         }
         *self = ret;
     }
+
+    fn first_column(&self) -> Vec<DeconstructedPat> {
+        self.rows.iter().map(|row| row[0].clone()).collect()
+    }
 }
 
 impl fmt::Display for WitnessMatrix {
@@ -3352,6 +3392,13 @@ fn match_expr_exhaustive_check(inf_ctx: &mut InferenceContext, expr: &ast::Expr)
     debug_println!();
     let witness_matrix = compute_exhaustiveness_and_usefulness(inf_ctx, &mut matrix);
     debug_println!("Witness matrix: {}", witness_matrix);
+    let witness_patterns = witness_matrix.first_column();
+    if !witness_patterns.is_empty() {
+        inf_ctx
+            .nonexhaustive_matches
+            .insert(expr.id, witness_patterns);
+    }
+
     let mut useless_indices = HashSet::new();
     for (i, row) in matrix.rows.iter().enumerate() {
         if !row.useful {
