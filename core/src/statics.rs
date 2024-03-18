@@ -2800,7 +2800,7 @@ impl Matrix {
 
 impl fmt::Display for Matrix {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        writeln!(f, "")?;
+        writeln!(f)?;
         for row in self.rows.iter() {
             if row.pats.is_empty() {
                 write!(f, "()")?;
@@ -2811,7 +2811,7 @@ impl fmt::Display for Matrix {
                 }
                 write!(f, "{}", pat)?;
             }
-            writeln!(f, "")?;
+            writeln!(f)?;
         }
         Ok(())
     }
@@ -2927,7 +2927,7 @@ impl DeconstructedPat {
             Type::Tuple(_, tys) => tys.clone(),
             Type::AdtInstance(_, _, _) => match ctor {
                 Constructor::Variant(ident) => {
-                    let adt = inf_ctx.adt_def_of_variant(&ident).unwrap();
+                    let adt = inf_ctx.adt_def_of_variant(ident).unwrap();
                     let variant = adt.variants.iter().find(|v| v.ctor == *ident).unwrap();
                     if !matches!(&variant.data, Type::Unit(..)) {
                         vec![variant.data.clone()]
@@ -2978,20 +2978,20 @@ impl DeconstructedPat {
                     }
                     s.push_str(&field.suggestion(ty));
                 }
-                s.push_str(")");
+                s.push(')');
                 s
             }
             Constructor::Variant(ident) => {
                 let mut s = ident.to_string();
                 if !self.fields.is_empty() {
-                    s.push_str("(");
+                    s.push('(');
                     for (i, field) in self.fields.iter().enumerate() {
                         if i != 0 {
                             s.push_str(", ");
                         }
                         s.push_str(&field.suggestion(ty));
                     }
-                    s.push_str(")");
+                    s.push(')');
                 }
                 s
             }
@@ -3184,7 +3184,7 @@ impl WitnessMatrix {
 
 impl fmt::Display for WitnessMatrix {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        writeln!(f, "")?;
+        writeln!(f)?;
         for row in self.rows.iter() {
             if row.len() > 1 {
                 write!(f, "(")?;
@@ -3418,7 +3418,7 @@ fn compute_exhaustiveness_and_usefulness(
     // take the returned witnesses and reapply the constructor
     // append the witnesses to return value
 
-    return ret_witnesses;
+    ret_witnesses
 }
 
 fn ctors_for_ty(inf_ctx: &InferenceContext, ty: &Type) -> ConstructorSet {
