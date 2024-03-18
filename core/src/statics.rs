@@ -7,7 +7,6 @@ use core::panic;
 use debug_print::{debug_print, debug_println};
 use disjoint_sets::UnionFindNode;
 use std::cell::RefCell;
-use std::collections::btree_map::Entry::{Occupied, Vacant};
 use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 use std::fmt::{self, Write};
 use std::rc::Rc;
@@ -2730,15 +2729,6 @@ impl Matrix {
         self.rows.iter().map(|row| row.head()).collect()
     }
 
-    fn head_arity(&self) -> usize {
-        let ty = &self.types[0];
-        match ty {
-            Type::Tuple(_, tys) => tys.len(),
-            Type::AdtInstance(_, _, tys) => tys.len(),
-            _ => 1,
-        }
-    }
-
     fn specialize(
         &self,
         ctor: &Constructor,
@@ -3221,14 +3211,8 @@ enum ConstructorSet {
     Unlistable, // int, float, string
 }
 
-impl ConstructorSet {
-    fn is_unlistable(&self) -> bool {
-        matches!(self, ConstructorSet::Unlistable)
-    }
-}
-
 #[derive(Debug, Clone)]
-pub struct SplitConstructorSet {
+struct SplitConstructorSet {
     pub present_ctors: Vec<Constructor>,
     pub missing_ctors: Vec<Constructor>,
 }
