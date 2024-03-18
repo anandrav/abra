@@ -34,7 +34,7 @@ op_assign = _{ "=" }
 set_statement = { set_keyword ~ identifier ~ op_assign ~ expression }
 set_keyword = _{ "set" }
 
-let_func_statement = { func_keyword ~ identifier ~ func_args ~ func_out_annotation? ~ block_expression }
+let_func_statement = { func_keyword ~ identifier ~ func_args ~ func_out_annotation? ~ (block_expression | (op_assign ~ expression)) }
 func_keyword = _{ "func" }
 
 let_pattern_tuple = { tuple_start ~ (let_pattern_tuple_element ~ ",")+ ~ let_pattern_tuple_element ~ tuple_end }

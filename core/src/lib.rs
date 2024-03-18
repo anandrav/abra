@@ -124,7 +124,7 @@ impl Runtime {
 }
 
 pub const _PRELUDE: &str = r#"
-func not(b: bool) { if b false else true }
+func not(b: bool) = if b false else true
 
 interface Num {
     add: (self, self) -> self
@@ -138,26 +138,26 @@ interface Num {
     greater_than_or_equal: (self, self) -> bool
 }
 implement Num for int {
-    func add(a, b) { add_int(a, b) }
-    func minus(a, b) { minus_int(a, b) }
-    func multiply(a, b) { multiply_int(a, b) }
-    func divide(a, b) { divide_int(a, b) }
-    func pow(a, b) { pow_int(a, b) }
-    func less_than(a, b) { less_than_int(a, b) }
-    func less_than_or_equal(a, b) { (a < b) or (a = b) }
-    func greater_than(a, b) { not(a < b) and not(a = b) }
-    func greater_than_or_equal(a, b) { not(a < b) }
+    func add(a, b) = add_int(a, b)
+    func minus(a, b) = minus_int(a, b)
+    func multiply(a, b) = multiply_int(a, b)
+    func divide(a, b) = divide_int(a, b)
+    func pow(a, b) = pow_int(a, b)
+    func less_than(a, b) = less_than_int(a, b)
+    func less_than_or_equal(a, b) = (a < b) or (a = b)
+    func greater_than(a, b) = not(a < b) and not(a = b)
+    func greater_than_or_equal(a, b) = not(a < b)
 }
 implement Num for float {
-    func add(a, b) { add_float(a, b) }
-    func minus(a, b) { minus_float(a, b) }
-    func multiply(a, b) { multiply_float(a, b) }
-    func divide(a, b) { divide_float(a, b) }
-    func pow(a, b) { pow_float(a, b) }
-    func less_than(a, b) { less_than_float(a, b) }
-    func less_than_or_equal(a, b) { a < b }
-    func greater_than(a, b) { b < a }
-    func greater_than_or_equal(a, b) { b < a }
+    func add(a, b) = add_float(a, b)
+    func minus(a, b) = minus_float(a, b)
+    func multiply(a, b) = multiply_float(a, b)
+    func divide(a, b) = divide_float(a, b)
+    func pow(a, b) = pow_float(a, b)
+    func less_than(a, b) = less_than_float(a, b)
+    func less_than_or_equal(a, b) = a < b
+    func greater_than(a, b) = b < a
+    func greater_than_or_equal(a, b) = b < a
 }
 
 type list<'a> = nil | cons of ('a, list<'a>)
@@ -166,13 +166,13 @@ interface Equals {
     equals: (self, self) -> bool
 }
 implement Equals for void {
-    func equals(a, b) { true }
+    func equals(a, b) = true
 }
 implement Equals for int {
-    func equals(a, b) { equals_int(a, b) }
+    func equals(a, b) = equals_int(a, b)
 }
 implement Equals for float {
-    func equals(a, b) { false }
+    func equals(a, b) = false
 }
 implement Equals for bool {
     func equals(a, b) {
@@ -186,7 +186,7 @@ implement Equals for bool {
     }
 }
 implement Equals for string {
-    func equals(a, b) { equals_string(a, b) }
+    func equals(a, b) = equals_string(a, b)
 }
 implement Equals for list<'a Equals> {
     func equals(a, b) {
@@ -204,19 +204,19 @@ interface ToString {
     to_string: self -> string
 }
 implement ToString for string {
-	func to_string(s) { s }
+	func to_string(s) = s
 }
 implement ToString for void {
-	func to_string(s) { "()" }
+	func to_string(s) = "()"
 }
 implement ToString for int {
-	func to_string(n) { int_to_string(n) }
+	func to_string(n) = int_to_string(n)
 }
 implement ToString for bool {
-	func to_string(b) { if b "true" else "false" }
+	func to_string(b) = if b "true" else "false"
 }
 implement ToString for float {
-    func to_string(f) { float_to_string(f) }
+    func to_string(f) = float_to_string(f)
 }
 implement ToString for ('a ToString, 'b ToString) {
     func to_string(p) {
