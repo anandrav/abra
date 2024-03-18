@@ -2569,7 +2569,7 @@ fn check_pattern_exhaustiveness_expr(inf_ctx: &mut InferenceContext, expr: &ast:
                 check_pattern_exhaustiveness_expr(inf_ctx, expr);
             }
         }
-        ExprKind::BinOp(left, op, right) => {
+        ExprKind::BinOp(left, _op, right) => {
             check_pattern_exhaustiveness_expr(inf_ctx, left);
             check_pattern_exhaustiveness_expr(inf_ctx, right);
         }
@@ -2589,7 +2589,7 @@ fn check_pattern_exhaustiveness_expr(inf_ctx: &mut InferenceContext, expr: &ast:
             check_pattern_exhaustiveness_expr(inf_ctx, cond);
             check_pattern_exhaustiveness_expr(inf_ctx, expr);
         }
-        ExprKind::Func(args, out_annot, body) => {
+        ExprKind::Func(_args, _out_annot, body) => {
             check_pattern_exhaustiveness_expr(inf_ctx, body);
         }
         ExprKind::FuncAp(func, args) => {
@@ -2751,7 +2751,7 @@ impl Matrix {
             },
             Constructor::Variant(ident) => {
                 let adt = inf_ctx.adt_def_of_variant(ident).unwrap();
-                let variant = adt.variants.iter().find(|(v)| v.ctor == *ident).unwrap();
+                let variant = adt.variants.iter().find(|v| v.ctor == *ident).unwrap();
                 match &variant.data {
                     Type::Unit(..) => {}
                     Type::Bool(..)
@@ -2806,7 +2806,7 @@ impl fmt::Display for Matrix {
                 write!(f, "()")?;
             }
             for (i, pat) in row.pats.iter().enumerate() {
-                if (i != 0) {
+                if i != 0 {
                     write!(f, ", ")?;
                 }
                 write!(f, "{}", pat)?;
@@ -2869,7 +2869,7 @@ impl DeconstructedPat {
         let mut fields = vec![];
         let ctor = match &*pat.patkind {
             PatKind::Wildcard => Constructor::Wildcard(WildcardReason::UserCreated),
-            PatKind::Var(ident) => Constructor::Wildcard(WildcardReason::VarPat),
+            PatKind::Var(_ident) => Constructor::Wildcard(WildcardReason::VarPat),
             PatKind::Bool(b) => Constructor::Bool(*b),
             PatKind::Int(i) => Constructor::Int(*i),
             PatKind::Float(f) => Constructor::Float(*f),
@@ -3097,7 +3097,7 @@ impl Constructor {
             },
             Constructor::Variant(ident) => {
                 let adt = inf_ctx.adt_def_of_variant(ident).unwrap();
-                let variant = adt.variants.iter().find(|(v)| v.ctor == *ident).unwrap();
+                let variant = adt.variants.iter().find(|v| v.ctor == *ident).unwrap();
                 if !matches!(&variant.data, Type::Unit(..)) {
                     1
                 } else {
@@ -3163,7 +3163,7 @@ impl WitnessMatrix {
     }
 
     fn apply_missing_constructors(&mut self, missing_ctors: &Vec<Constructor>, head_ty: &Type) {
-        if (missing_ctors.is_empty()) {
+        if missing_ctors.is_empty() {
             return;
         }
         debug_println!("applying missing constructors {:#?}", missing_ctors);
@@ -3186,7 +3186,7 @@ impl fmt::Display for WitnessMatrix {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         writeln!(f, "")?;
         for row in self.rows.iter() {
-            if (row.len() > 1) {
+            if row.len() > 1 {
                 write!(f, "(")?;
             }
             for (i, pat) in row.iter().enumerate() {
@@ -3195,7 +3195,7 @@ impl fmt::Display for WitnessMatrix {
                 }
                 write!(f, "{}", pat)?;
             }
-            if (row.len() > 1) {
+            if row.len() > 1 {
                 write!(f, ")")?;
             }
         }
@@ -3388,7 +3388,7 @@ fn compute_exhaustiveness_and_usefulness(
     debug_println!("missing_ctors: {:?}", missing_ctors);
 
     // special constructor representing cases not listed by user
-    if (!missing_ctors.is_empty()) {
+    if !missing_ctors.is_empty() {
         present_ctors.push(Constructor::Wildcard(WildcardReason::NonExhaustive));
     }
     debug_println!("specialize_ctors: {:?}", present_ctors);
@@ -3401,7 +3401,7 @@ fn compute_exhaustiveness_and_usefulness(
         debug_println!("specialized_matrix: {}", specialized_matrix);
         let mut witnesses = compute_exhaustiveness_and_usefulness(inf_ctx, &mut specialized_matrix);
         debug_println!("witnesses: {}", witnesses);
-        if (ctor.is_wildcard_nonexhaustive()) {
+        if ctor.is_wildcard_nonexhaustive() {
             // special constructor representing cases not listed by user
             witnesses.apply_missing_constructors(&missing_ctors, &head_ty);
         } else {
