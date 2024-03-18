@@ -2499,9 +2499,8 @@ pub fn result_of_additional_analysis(
             "This match expression doesn't cover every possibility:\n",
         ));
         err_string.push_str("\nThe following cases are missing:\n");
-        let ty = Type::solution_of_node(inf_ctx, *pat).unwrap();
         for pat in missing_pattern_suggestions {
-            err_string.push_str(&format!("\t`{}`\n", pat.suggestion(&ty)));
+            err_string.push_str(&format!("\t`{}`\n", pat));
         }
     }
 
@@ -2857,7 +2856,7 @@ impl MatrixRow {
 }
 
 #[derive(Debug, Clone)]
-struct DeconstructedPat {
+pub struct DeconstructedPat {
     ctor: Constructor,
     fields: Vec<DeconstructedPat>,
     ty: Type,
@@ -2962,41 +2961,6 @@ impl DeconstructedPat {
             ty,
         }
     }
-
-    fn suggestion(&self, ty: &Type) -> String {
-        match &self.ctor {
-            Constructor::Wildcard(_) => "_".to_string(),
-            Constructor::Bool(b) => b.to_string(),
-            Constructor::Int(i) => i.to_string(),
-            Constructor::Float(fl) => fl.to_string(),
-            Constructor::String(s) => s.to_string(),
-            Constructor::Product => {
-                let mut s = "(".to_string();
-                for (i, field) in self.fields.iter().enumerate() {
-                    if i != 0 {
-                        s.push_str(", ");
-                    }
-                    s.push_str(&field.suggestion(ty));
-                }
-                s.push(')');
-                s
-            }
-            Constructor::Variant(ident) => {
-                let mut s = ident.to_string();
-                if !self.fields.is_empty() {
-                    s.push('(');
-                    for (i, field) in self.fields.iter().enumerate() {
-                        if i != 0 {
-                            s.push_str(", ");
-                        }
-                        s.push_str(&field.suggestion(ty));
-                    }
-                    s.push(')');
-                }
-                s
-            }
-        }
-    }
 }
 
 impl fmt::Display for DeconstructedPat {
@@ -3075,7 +3039,7 @@ impl Constructor {
         }
     }
 
-    fn arity(&self, matrix_tys: &Vec<Type>, inf_ctx: &InferenceContext) -> usize {
+    fn arity(&self, matrix_tys: &[Type], inf_ctx: &InferenceContext) -> usize {
         debug_println!("matrix_tys:");
         for (i, ty) in matrix_tys.iter().enumerate() {
             if i != 0 {
@@ -3108,10 +3072,7 @@ impl Constructor {
     }
 
     fn is_wildcard_nonexhaustive(&self) -> bool {
-        match self {
-            Constructor::Wildcard(WildcardReason::NonExhaustive) => true,
-            _ => false,
-        }
+        matches!(self, Constructor::Wildcard(WildcardReason::NonExhaustive))
     }
 }
 
@@ -3218,18 +3179,15 @@ struct SplitConstructorSet {
 }
 
 impl ConstructorSet {
-    fn split(&self, head_ctors: &Vec<Constructor>) -> SplitConstructorSet {
+    fn split(&self, head_ctors: &[Constructor]) -> SplitConstructorSet {
         let mut present_ctors = Vec::new();
         let mut missing_ctors = Vec::new();
         // Constructors in `head_ctors`, except wildcards and opaques.
         let mut seen: Vec<Constructor> = Vec::new();
         let mut wildcard_seen = false;
         for ctor in head_ctors.iter().cloned() {
-            match &ctor {
-                Constructor::Wildcard(_) => {
-                    wildcard_seen = true;
-                }
-                _ => {}
+            if let Constructor::Wildcard(_) = &ctor {
+                wildcard_seen = true;
             }
             seen.push(ctor)
         }
@@ -3521,7 +3479,7 @@ impl fmt::Display for Variant {
     }
 }
 
-fn fmt_conflicting_types(types: &Vec<&Type>, f: &mut dyn Write) -> fmt::Result {
+fn fmt_conflicting_types(types: &[&Type], f: &mut dyn Write) -> fmt::Result {
     let mut s = String::new();
     s.push('\n');
     for (i, t) in types.iter().enumerate() {
