@@ -121,11 +121,12 @@ const _DEMO: &str = r#"println("Enter your name: ")
 let name = read()
 println("Your name is " & name)
 
-func fibonacci(n) = {
-    match n
+func fibonacci(n) {
+    match n {
         0 -> 0
         1 -> 1
         _ -> fibonacci(n-1) + fibonacci(n-2)
+    }
 }
 
 let list = range(0,9)
@@ -247,7 +248,7 @@ implement Equals for int {
     let equals(a, b) = equals_int(a, b)
 }
 implement Equals for bool {
-    let equals(a, b) = 
+    let equals(a, b) =
         if a and b {
             true
         } else if a or b {
@@ -288,7 +289,7 @@ implement ToString for bool {
 
 implement ToString for list<'a ToString> {
     let to_string(xs) = {
-        let helper(xs) = 
+        let helper(xs) =
             match xs
                 nil -> ""
                 cons (~x, nil) -> {
@@ -343,7 +344,7 @@ let for_each(xs: list<'a>, f: 'a -> 'b) -> void =
 let filter(xs: list<'a>, f: 'a -> bool) -> list<'a> =
     match xs
         nil -> nil
-        cons (~head, ~tail) -> 
+        cons (~head, ~tail) ->
             if f(head) cons(head, filter(tail, f)) else filter(tail, f)
 
 let reverse(xs: list<'c>) -> list<'c> =
@@ -389,7 +390,7 @@ implement Equals for int {
     let equals(a, b) = equals_int(a, b)
 }
 implement Equals for bool {
-    let equals(a, b) = 
+    let equals(a, b) =
         if a and b {
             true
         } else if a or b {
@@ -433,7 +434,7 @@ implement ToString for float {
 
 implement ToString for list<'a ToString> {
     let to_string(xs) = {
-        let helper(xs) = 
+        let helper(xs) =
             match xs
                 nil -> ""
                 cons (~x, nil) -> {
@@ -490,7 +491,7 @@ let for_each(xs: list<'a>, f: 'a -> 'b) -> void =
 let filter(xs: list<'a>, f: 'a -> bool) -> list<'a> =
     match xs
         nil -> nil
-        cons (~head, ~tail) -> 
+        cons (~head, ~tail) ->
             if f(head) cons(head, filter(tail, f)) else filter(tail, f)
 
 let reverse(xs: list<'c>) -> list<'c> =
