@@ -33,6 +33,7 @@ fn handler_inner(
     code: eval_tree::EffectCode,
     args: Vec<Rc<eval_tree::Expr>>,
     output: Rc<RefCell<String>>,
+    inputs: Rc<RefCell<Vec<&str>>>,
 ) -> Rc<eval_tree::Expr> {
     let effect = &side_effects::DEFAULT_EFFECT_LIST[code as usize];
     match effect {
@@ -44,8 +45,8 @@ fn handler_inner(
             _ => panic!("wrong arguments for {:#?} effect", effect),
         },
         side_effects::DefaultEffects::Read => {
-            let mut input = String::new();
-            std::io::stdin().read_line(&mut input).unwrap();
+            let mut inputs = inputs.borrow_mut();
+            let input = inputs.pop().unwrap();
             eval_tree::Expr::from(input.trim()).into()
         }
     }
@@ -54,10 +55,24 @@ fn handler_inner(
 #[test]
 fn hello_world() {
     let output_str = Rc::new(RefCell::new("".to_owned()));
+    let inputs = Rc::new(RefCell::new(vec![]));
     let _ = run_with_handler::<side_effects::DefaultEffects>(
         r#"println("hello world")"#,
-        Box::new(|code, args| handler_inner(code, args, output_str.clone())),
+        Box::new(|code, args| handler_inner(code, args, output_str.clone(), inputs.clone())),
     )
     .unwrap();
     assert_eq!(*output_str.borrow(), "hello world\n");
+}
+
+#[test]
+fn readline() {
+    let output_str = Rc::new(RefCell::new("".to_owned()));
+    let inputs = Rc::new(RefCell::new(vec!["world", "hello"]));
+    let _ = run_with_handler::<side_effects::DefaultEffects>(
+        r#"let s = read()
+        println(s)"#,
+        Box::new(|code, args| handler_inner(code, args, output_str.clone(), inputs.clone())),
+    )
+    .unwrap();
+    assert_eq!(*output_str.borrow(), "hello\n");
 }
