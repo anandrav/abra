@@ -68,11 +68,24 @@ fn hello_world() {
 fn readline() {
     let output_str = Rc::new(RefCell::new("".to_owned()));
     let inputs = Rc::new(RefCell::new(vec!["world", "hello"]));
+    let src = r#"let s = read()
+println(s)"#;
     let _ = run_with_handler::<side_effects::DefaultEffects>(
-        r#"let s = read()
-        println(s)"#,
+        src,
         Box::new(|code, args| handler_inner(code, args, output_str.clone(), inputs.clone())),
     )
     .unwrap();
     assert_eq!(*output_str.borrow(), "hello\n");
+}
+
+#[test]
+fn addition_bad() {
+    assert!(run("2 + true").is_err());
+}
+
+#[test]
+fn map_bad() {
+    let src = r#"let list = range(0,9)
+ map(list, x -> x & "hello")"#;
+    assert!(run(src).is_err());
 }
