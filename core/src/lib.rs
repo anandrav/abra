@@ -1,6 +1,7 @@
 use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
 use environment::Environment;
+pub use eval_tree::EffectCode;
 pub use side_effects::EffectTrait;
 
 use debug_print::debug_println;
@@ -79,6 +80,61 @@ pub fn compile<Effect: EffectTrait>(source_files: Vec<SourceFile>) -> Result<Run
         toplevel_env: env,
         overloaded_func_map,
     })
+}
+
+pub fn run(source: &str) -> Result<(Rc<eval_tree::Expr>, Runtime), String> {
+    let source_file = SourceFile {
+        name: "main.abra".to_owned(),
+        contents: source.to_owned(),
+    };
+    let prelude = SourceFile {
+        name: "prelude.abra".to_owned(),
+        contents: _PRELUDE.to_string(),
+    };
+    let source_files = vec![prelude, source_file];
+    let runtime = compile::<side_effects::DefaultEffects>(source_files)?;
+    let mut interpreter = runtime.toplevel_interpreter();
+    let mut effect_result = None;
+    while !interpreter.is_finished() {
+        interpreter.run(10000, effect_result.take());
+    }
+    Ok((interpreter.get_val().unwrap(), runtime))
+}
+
+pub fn run_with_handler<'b>(
+    source: &str,
+    mut handler: Box<
+        dyn FnMut(eval_tree::EffectCode, Vec<Rc<eval_tree::Expr>>) -> Rc<eval_tree::Expr> + 'b,
+    >,
+) -> Result<(Rc<eval_tree::Expr>, Runtime), String> {
+    let source_file = SourceFile {
+        name: "main.abra".to_owned(),
+        contents: source.to_owned(),
+    };
+    let prelude = SourceFile {
+        name: "prelude.abra".to_owned(),
+        contents: _PRELUDE.to_string(),
+    };
+    let source_files = vec![prelude, source_file];
+    let runtime = compile::<side_effects::DefaultEffects>(source_files)?;
+    let mut interpreter = runtime.toplevel_interpreter();
+    let mut effect_result = None;
+    loop {
+        // TODO instead of 10000, need an option for infinite steps
+        let status = interpreter.run(10000, effect_result.take());
+        match status {
+            interpreter::InterpreterStatus::Error(msg) => {
+                return Err(msg);
+            }
+            interpreter::InterpreterStatus::Finished => {
+                return Ok((interpreter.get_val().unwrap(), runtime));
+            }
+            interpreter::InterpreterStatus::OutOfSteps => {}
+            interpreter::InterpreterStatus::Effect(code, args) => {
+                effect_result = Some(handler(code, args));
+            }
+        }
+    }
 }
 
 pub struct Runtime {

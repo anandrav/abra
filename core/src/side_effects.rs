@@ -54,14 +54,14 @@ impl EffectTrait for DefaultEffects {
     }
 }
 
-static EFFECT_LIST: Lazy<Vec<DefaultEffects>> = Lazy::new(DefaultEffects::enumerate);
+pub static DEFAULT_EFFECT_LIST: Lazy<Vec<DefaultEffects>> = Lazy::new(DefaultEffects::enumerate);
 
 pub fn handle_effect_example(
     effect_code: EffectCode,
     args: Vec<Rc<eval_tree::Expr>>,
     output: &mut String,
 ) -> Rc<eval_tree::Expr> {
-    let effect = &EFFECT_LIST[effect_code as usize];
+    let effect = &DEFAULT_EFFECT_LIST[effect_code as usize];
     match effect {
         DefaultEffects::PrintString => match &*args[0] {
             eval_tree::Expr::Str(string) => {
