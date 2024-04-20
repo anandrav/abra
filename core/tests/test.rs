@@ -12,7 +12,7 @@ fn basic() {
         contents: _PRELUDE.to_string(),
     };
     let source_files = vec![prelude, source_file];
-    let runtime = compile::<side_effects::Effect>(source_files);
+    let runtime = compile::<side_effects::DefaultEffects>(source_files);
     let runtime = runtime.unwrap();
     let mut interpreter = runtime.toplevel_interpreter();
     let mut effect_result = None;

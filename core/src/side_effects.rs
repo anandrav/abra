@@ -24,38 +24,37 @@ pub enum Input {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, EnumIter)]
-pub enum Effect {
-    // TODO rename to DefaultEffects
+pub enum DefaultEffects {
     PrintString,
     Read,
 }
 
-impl EffectTrait for Effect {
+impl EffectTrait for DefaultEffects {
     fn enumerate() -> Vec<Self> {
-        Effect::iter().collect()
+        DefaultEffects::iter().collect()
     }
 
     fn type_signature(&self) -> (Vec<statics::TypeMonomorphized>, statics::TypeMonomorphized) {
         match self {
             // print_string: string -> void
-            Effect::PrintString => (
+            DefaultEffects::PrintString => (
                 vec![statics::TypeMonomorphized::String],
                 statics::TypeMonomorphized::Unit,
             ),
             // read: void -> string
-            Effect::Read => (vec![], statics::TypeMonomorphized::String),
+            DefaultEffects::Read => (vec![], statics::TypeMonomorphized::String),
         }
     }
 
     fn function_name(&self) -> String {
         match self {
-            Effect::PrintString => String::from("print_string"),
-            Effect::Read => String::from("read"),
+            DefaultEffects::PrintString => String::from("print_string"),
+            DefaultEffects::Read => String::from("read"),
         }
     }
 }
 
-static EFFECT_LIST: Lazy<Vec<Effect>> = Lazy::new(Effect::enumerate);
+static EFFECT_LIST: Lazy<Vec<DefaultEffects>> = Lazy::new(DefaultEffects::enumerate);
 
 pub fn handle_effect_example(
     effect_code: EffectCode,
@@ -64,7 +63,7 @@ pub fn handle_effect_example(
 ) -> Rc<eval_tree::Expr> {
     let effect = &EFFECT_LIST[effect_code as usize];
     match effect {
-        Effect::PrintString => match &*args[0] {
+        DefaultEffects::PrintString => match &*args[0] {
             eval_tree::Expr::Str(string) => {
                 output.push_str(string);
                 debug_print!("{}", string);
@@ -72,7 +71,7 @@ pub fn handle_effect_example(
             }
             _ => panic!("wrong arguments for {:#?} effect", effect),
         },
-        Effect::Read => {
+        DefaultEffects::Read => {
             let mut input = String::new();
             std::io::stdin().read_line(&mut input).unwrap();
             eval_tree::Expr::from(input.trim()).into()

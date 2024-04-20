@@ -542,8 +542,8 @@ impl Default for MyApp {
     }
 }
 
-static EFFECT_LIST: Lazy<Vec<abra_core::side_effects::Effect>> =
-    Lazy::new(abra_core::side_effects::Effect::enumerate);
+static EFFECT_LIST: Lazy<Vec<abra_core::side_effects::DefaultEffects>> =
+    Lazy::new(abra_core::side_effects::DefaultEffects::enumerate);
 
 impl eframe::App for MyApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
@@ -582,15 +582,17 @@ impl eframe::App for MyApp {
                         InterpreterStatus::Effect(code, args) => {
                             let effect = &EFFECT_LIST[code as usize];
                             match effect {
-                                abra_core::side_effects::Effect::PrintString => match &*args[0] {
-                                    abra_core::eval_tree::Expr::Str(string) => {
-                                        self.output.push_str(string);
-                                        self.effect_result =
-                                            Some(abra_core::eval_tree::Expr::Unit.into());
+                                abra_core::side_effects::DefaultEffects::PrintString => {
+                                    match &*args[0] {
+                                        abra_core::eval_tree::Expr::Str(string) => {
+                                            self.output.push_str(string);
+                                            self.effect_result =
+                                                Some(abra_core::eval_tree::Expr::Unit.into());
+                                        }
+                                        _ => panic!("wrong arguments for {:#?} effect", effect),
                                     }
-                                    _ => panic!("wrong arguments for {:#?} effect", effect),
-                                },
-                                abra_core::side_effects::Effect::Read => {
+                                }
+                                abra_core::side_effects::DefaultEffects::Read => {
                                     self.readline = true;
                                 }
                             }
@@ -673,7 +675,7 @@ impl eframe::App for MyApp {
                                 name: "main.abra".to_string(),
                                 contents: self.text.clone(),
                             });
-                            match abra_core::compile::<side_effects::Effect>(source_files) {
+                            match abra_core::compile::<side_effects::DefaultEffects>(source_files) {
                                 Ok(runtime) => {
                                     self.interpreter = Some(runtime.toplevel_interpreter());
                                     // let args = vec![runtime.make_int(10)];

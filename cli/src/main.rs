@@ -30,7 +30,7 @@ fn main() {
             contents,
         });
     }
-    match abra_core::compile::<side_effects::Effect>(source_files) {
+    match abra_core::compile::<side_effects::DefaultEffects>(source_files) {
         Ok(runtime) => {
             let mut interpreter = runtime.toplevel_interpreter();
             let steps = i32::MAX;
@@ -46,14 +46,17 @@ fn main() {
                     InterpreterStatus::Effect(code, args) => {
                         let effect = &EFFECT_LIST[code as usize];
                         match effect {
-                            abra_core::side_effects::Effect::PrintString => match &*args[0] {
-                                abra_core::eval_tree::Expr::Str(string) => {
-                                    print!("{}", string);
-                                    effect_result = Some(abra_core::eval_tree::Expr::Unit.into());
+                            abra_core::side_effects::DefaultEffects::PrintString => {
+                                match &*args[0] {
+                                    abra_core::eval_tree::Expr::Str(string) => {
+                                        print!("{}", string);
+                                        effect_result =
+                                            Some(abra_core::eval_tree::Expr::Unit.into());
+                                    }
+                                    _ => panic!("wrong arguments for {:#?} effect", effect),
                                 }
-                                _ => panic!("wrong arguments for {:#?} effect", effect),
-                            },
-                            abra_core::side_effects::Effect::Read => {
+                            }
+                            abra_core::side_effects::DefaultEffects::Read => {
                                 let mut input = String::new();
                                 std::io::stdin().read_line(&mut input).unwrap();
                                 effect_result =
@@ -70,5 +73,5 @@ fn main() {
     }
 }
 
-static EFFECT_LIST: Lazy<Vec<abra_core::side_effects::Effect>> =
-    Lazy::new(abra_core::side_effects::Effect::enumerate);
+static EFFECT_LIST: Lazy<Vec<abra_core::side_effects::DefaultEffects>> =
+    Lazy::new(abra_core::side_effects::DefaultEffects::enumerate);
