@@ -124,7 +124,16 @@ impl Node for TypeDef {
     fn children(&self) -> Vec<Rc<dyn Node>> {
         match &self.kind {
             TypeDefKind::Alias(_, ty) => vec![ty.clone()],
-            TypeDefKind::Adt(..) => todo!(),
+            TypeDefKind::Adt(_, tys, variants) => {
+                let mut children: Vec<Rc<dyn Node>> = Vec::new();
+                for ty in tys {
+                    children.push(ty.clone());
+                }
+                for variant in variants {
+                    children.push(variant.clone());
+                }
+                children
+            }
         }
     }
 
@@ -167,7 +176,7 @@ impl Node for Stmt {
 
     fn children(&self) -> Vec<Rc<dyn Node>> {
         match &*self.stmtkind {
-            StmtKind::LetFunc(id, args, ty, expr) => {
+            StmtKind::FuncDef(id, args, ty, expr) => {
                 let mut children: Vec<Rc<dyn Node>> = vec![id.clone() as Rc<dyn Node>];
                 for (pat, annot) in args {
                     children.push(pat.clone() as Rc<dyn Node>);
@@ -229,7 +238,7 @@ impl Node for Stmt {
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum StmtKind {
-    LetFunc(Rc<Pat>, Vec<ArgAnnotated>, Option<Rc<AstType>>, Rc<Expr>), // TODO rename to function definition
+    FuncDef(Rc<Pat>, Vec<ArgAnnotated>, Option<Rc<AstType>>, Rc<Expr>),
     Let(bool, PatAnnotated, Rc<Expr>), // bool is whether it's mutable
     Set(Rc<Pat>, Rc<Expr>),
     Expr(Rc<Expr>),
@@ -285,7 +294,6 @@ impl Node for Expr {
             ExprKind::Bool(_) => vec![],
             ExprKind::Str(_) => vec![],
             ExprKind::List(exprs) => exprs.iter().map(|e| e.clone() as Rc<dyn Node>).collect(),
-            // TODO: output of function needs to be annotated as well!
             ExprKind::Func(args, ty_opt, body) => {
                 let mut children: Vec<Rc<dyn Node>> = Vec::new();
                 args.iter().for_each(|(pat, annot)| {
@@ -495,7 +503,6 @@ pub enum TypeKind {
     Float,
     Bool,
     Str,
-    // TODO: make Arrow nary as well
     Function(Vec<Rc<AstType>>, Rc<AstType>),
     Tuple(Vec<Rc<AstType>>),
 }
@@ -890,7 +897,7 @@ pub fn parse_stmt(pair: Pair<Rule>, filename: &str) -> Rc<Stmt> {
             };
             let body = parse_expr_pratt(Pairs::single(inner.last().unwrap().clone()), filename);
             Rc::new(Stmt {
-                stmtkind: Rc::new(StmtKind::LetFunc(ident, args, ty_out, body)),
+                stmtkind: Rc::new(StmtKind::FuncDef(ident, args, ty_out, body)),
                 span,
                 id: Id::new(),
             })
@@ -1223,7 +1230,7 @@ pub fn parse_toplevel(pairs: Pairs<Rule>, filename: &str) -> Rc<Toplevel> {
             filename: filename.to_string(),
             lo: span1.lo,
             hi: span2.hi,
-        }, // TODO
+        },
         id: Id::new(),
     })
 }
@@ -1280,11 +1287,13 @@ pub fn parse_expr_pratt(pairs: Pairs<Rule>, filename: &str) -> Rc<Expr> {
         .parse(pairs)
 }
 
-// TODO: this never errors lol
 pub fn parse_or_err(sources: &Sources) -> Result<Vec<Rc<Toplevel>>, String> {
     let mut toplevels = vec![];
     for filename in &sources.files {
-        let source = sources.filename_to_source.get(filename).unwrap();
+        let source = sources
+            .filename_to_source
+            .get(filename)
+            .ok_or(format!("Could not find file {}", filename))?;
         let pairs = get_pairs(source)?;
 
         let toplevel = parse_toplevel(pairs, filename);

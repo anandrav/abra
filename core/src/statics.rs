@@ -1667,7 +1667,7 @@ pub fn generate_constraints_stmt(
 
             if let Some(interface_def) = inf_ctx.interface_def_of_ident(ident) {
                 for statement in statements {
-                    let StmtKind::LetFunc(pat, _args, _out, _body) = &*statement.stmtkind else {
+                    let StmtKind::FuncDef(pat, _args, _out, _body) = &*statement.stmtkind else {
                         continue;
                     };
                     let method_name = pat.patkind.get_identifier_of_variable();
@@ -1752,7 +1752,7 @@ pub fn generate_constraints_stmt(
 
             constrain(ty_pat, ty_expr);
         }
-        StmtKind::LetFunc(name, args, out_annot, body) => {
+        StmtKind::FuncDef(name, args, out_annot, body) => {
             let func_node_id = stmt.id;
 
             let ty_pat = Type::from_node(inf_ctx, name.id);
@@ -1974,7 +1974,7 @@ pub fn gather_definitions_stmt(
             let methods = stmts
                 .iter()
                 .map(|stmt| match &*stmt.stmtkind {
-                    StmtKind::LetFunc(pat, _, _, _) => {
+                    StmtKind::FuncDef(pat, _, _, _) => {
                         let ident = pat.patkind.get_identifier_of_variable();
                         InterfaceImplMethod {
                             name: ident,
@@ -2039,7 +2039,7 @@ pub fn gather_definitions_stmt(
         },
         StmtKind::Expr(_expr) => {}
         StmtKind::Let(_mutable, (_pat, _ty_ann), _expr) => {}
-        StmtKind::LetFunc(name, _args, _out_annot, _body) => {
+        StmtKind::FuncDef(name, _args, _out_annot, _body) => {
             inf_ctx
                 .fun_defs
                 .insert(name.patkind.get_identifier_of_variable(), stmt.clone());
@@ -2542,7 +2542,7 @@ fn check_pattern_exhaustiveness_stmt(inf_ctx: &mut InferenceContext, stmt: &ast:
             // debug_println!("check_pattern_exhaustiveness_stmt LET");
             check_pattern_exhaustiveness_expr(inf_ctx, expr);
         }
-        StmtKind::LetFunc(_, _, _, body) => {
+        StmtKind::FuncDef(_, _, _, body) => {
             // debug_println!("check_pattern_exhaustiveness_stmt LET_FUNC");
             check_pattern_exhaustiveness_expr(inf_ctx, body);
         }

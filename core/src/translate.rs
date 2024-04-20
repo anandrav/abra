@@ -97,7 +97,7 @@ pub fn translate_expr_block(
             stmts[1..].to_vec(),
             env.clone(),
         ),
-        ast::StmtKind::LetFunc(pat, func_args, _, body) => {
+        ast::StmtKind::FuncDef(pat, func_args, _, body) => {
             debug_println!("node is {}", pat.id);
             let ty = Type::solution_of_node(inf_ctx, pat.id).unwrap();
             if ty.is_overloaded() {
@@ -439,7 +439,7 @@ pub fn monomorphize_overloaded_var(
             )
             .to_stmt()
             .unwrap();
-            let ast::StmtKind::LetFunc(pat, args, _, body) = &*func_def_node.stmtkind else {
+            let ast::StmtKind::FuncDef(pat, args, _, body) = &*func_def_node.stmtkind else {
                 panic!()
             };
 
