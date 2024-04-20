@@ -54,7 +54,7 @@ fn handler_inner(
 #[test]
 fn hello_world() {
     let output_str = Rc::new(RefCell::new("".to_owned()));
-    let _ = run_with_handler(
+    let _ = run_with_handler::<side_effects::DefaultEffects>(
         r#"println("hello world")"#,
         Box::new(|code, args| handler_inner(code, args, output_str.clone())),
     )

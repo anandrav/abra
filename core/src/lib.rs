@@ -83,25 +83,13 @@ pub fn compile<Effect: EffectTrait>(source_files: Vec<SourceFile>) -> Result<Run
 }
 
 pub fn run(source: &str) -> Result<(Rc<eval_tree::Expr>, Runtime), String> {
-    let source_file = SourceFile {
-        name: "main.abra".to_owned(),
-        contents: source.to_owned(),
-    };
-    let prelude = SourceFile {
-        name: "prelude.abra".to_owned(),
-        contents: _PRELUDE.to_string(),
-    };
-    let source_files = vec![prelude, source_file];
-    let runtime = compile::<side_effects::DefaultEffects>(source_files)?;
-    let mut interpreter = runtime.toplevel_interpreter();
-    let mut effect_result = None;
-    while !interpreter.is_finished() {
-        interpreter.run(10000, effect_result.take());
-    }
-    Ok((interpreter.get_val().unwrap(), runtime))
+    run_with_handler::<side_effects::DefaultEffects>(
+        source,
+        Box::new(side_effects::default_effect_handler),
+    )
 }
 
-pub fn run_with_handler<'b>(
+pub fn run_with_handler<'b, Effect: EffectTrait>(
     source: &str,
     mut handler: Box<
         dyn FnMut(eval_tree::EffectCode, Vec<Rc<eval_tree::Expr>>) -> Rc<eval_tree::Expr> + 'b,
@@ -116,7 +104,7 @@ pub fn run_with_handler<'b>(
         contents: _PRELUDE.to_string(),
     };
     let source_files = vec![prelude, source_file];
-    let runtime = compile::<side_effects::DefaultEffects>(source_files)?;
+    let runtime = compile::<Effect>(source_files)?;
     let mut interpreter = runtime.toplevel_interpreter();
     let mut effect_result = None;
     loop {
