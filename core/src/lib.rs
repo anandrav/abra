@@ -26,20 +26,26 @@ pub struct SourceFile {
     pub contents: String,
 }
 
+pub fn source_files_single(src: &str) -> Vec<SourceFile> {
+    vec![SourceFile {
+        name: "test.abra".to_owned(),
+        contents: src.to_owned(),
+    }]
+}
+
 pub fn compile<Effect: EffectTrait>(source_files: Vec<SourceFile>) -> Result<Runtime, String> {
-    // TODO remove this source files conversion garbage
     let mut filename_to_source = HashMap::new();
     let mut filenames = Vec::new();
-    for source_file in source_files {
+    for source_file in &source_files {
         filenames.push(source_file.name.clone());
-        filename_to_source.insert(source_file.name, source_file.contents);
+        filename_to_source.insert(source_file.name.clone(), source_file.contents.clone());
     }
     let sources = ast::Sources {
         filename_to_source,
         files: filenames,
     };
 
-    let toplevels = ast::parse_or_err(&sources)?;
+    let toplevels = ast::parse_or_err(&source_files)?;
 
     debug_println!("successfully parsed.");
     let mut node_map = ast::NodeMap::new();

@@ -1,4 +1,5 @@
 use crate::operators::BinOpcode;
+use crate::SourceFile;
 // use pest::error::{Error, ErrorVariant, InputLocation::Pos};
 use pest::iterators::{Pair, Pairs};
 use pest::pratt_parser::{Assoc, Op, PrattParser};
@@ -1287,16 +1288,12 @@ pub fn parse_expr_pratt(pairs: Pairs<Rule>, filename: &str) -> Rc<Expr> {
         .parse(pairs)
 }
 
-pub fn parse_or_err(sources: &Sources) -> Result<Vec<Rc<Toplevel>>, String> {
+pub fn parse_or_err(sources: &Vec<SourceFile>) -> Result<Vec<Rc<Toplevel>>, String> {
     let mut toplevels = vec![];
-    for filename in &sources.files {
-        let source = sources
-            .filename_to_source
-            .get(filename)
-            .ok_or(format!("Could not find file {}", filename))?;
-        let pairs = get_pairs(source)?;
+    for sf in sources {
+        let pairs = get_pairs(&sf.contents)?;
 
-        let toplevel = parse_toplevel(pairs, filename);
+        let toplevel = parse_toplevel(pairs, &sf.name);
         toplevels.push(toplevel);
     }
     Ok(toplevels)
