@@ -1,5 +1,3 @@
-use debug_print::debug_println;
-
 use crate::ast;
 use crate::ast::Node;
 use crate::ast::NodeMap;
@@ -98,7 +96,6 @@ pub fn translate_expr_block(
             env.clone(),
         ),
         ast::StmtKind::FuncDef(pat, func_args, _, body) => {
-            debug_println!("node is {}", pat.id);
             let ty = Type::solution_of_node(inf_ctx, pat.id).unwrap();
             if ty.is_overloaded() {
                 // if function is overloaded, don't translate its body
@@ -113,7 +110,7 @@ pub fn translate_expr_block(
                 );
             }
             let id = pat.patkind.get_identifier_of_variable();
-            debug_println!("letfunc id: {}", id);
+
             let func = translate_expr_func(
                 inf_ctx,
                 monomorphenv.clone(),
@@ -124,7 +121,6 @@ pub fn translate_expr_block(
                 body.clone(),
             );
             if let Some(env) = &env {
-                debug_println!("extending env with {}", id);
                 env.borrow_mut().extend(&id, func.clone());
             }
             Rc::new(Ete::Let(
@@ -283,13 +279,13 @@ pub fn translate_expr_ap(
 }
 
 pub fn ty_of_global_ident(gamma: Rc<RefCell<Gamma>>, ident: &ast::Identifier) -> Option<Type> {
-    // debug_println!("ty_of_global_ident");
-    // debug_println!("ident: {}", ident);
+    //
+    //
     let gamma = gamma.borrow();
     let ty = gamma.vars.get(ident)?;
-    // debug_println!("it's in the gamma");
+    //
     ty.solution()
-    // debug_println!("solved_ty: {}", solved);
+    //
 }
 
 pub fn update_monomorphenv(
@@ -365,28 +361,22 @@ pub fn get_func_definition_node(
     desired_interface_impl: Type,
 ) -> Rc<dyn ast::Node> {
     if let Some(interface_name) = inf_ctx.method_to_interface.get(&ident.clone()) {
-        debug_println!("interface_name: {:?}", interface_name);
         let impl_list = inf_ctx.interface_impls.get(interface_name).unwrap();
         // TODO just because the variable is the same name as an overloaded function doesn't mean the overloaded function is actually being used here.
         // use the type of the variable to determine if it's the same as the overloaded function?
 
         // find an impl that matches
         // dbg!(impl_list);
-        debug_println!("{:?}", impl_list);
 
         for imp in impl_list {
-            debug_println!("interface_impl: {:?}", imp);
             for method in &imp.methods {
-                debug_println!("method name: {:?}", method.name);
-                debug_println!("id: {:?}", ident);
                 if method.name == *ident {
                     let method_identifier_node = node_map.get(&method.identifier_location).unwrap();
-                    debug_println!("func_node: {:?}", method_identifier_node);
+
                     let func_id = method_identifier_node.id();
                     let unifvar = inf_ctx.vars.get(&Prov::Node(func_id)).unwrap();
                     let interface_impl_ty = unifvar.clone_data().solution().unwrap();
-                    debug_println!("interface_impl: {:?}", interface_impl_ty);
-                    debug_println!("desired_interface_impl: {:?}", desired_interface_impl);
+
                     if statics::ty_fits_impl_ty(
                         inf_ctx,
                         desired_interface_impl.clone(),
@@ -395,7 +385,7 @@ pub fn get_func_definition_node(
                     .is_ok()
                     {
                         // if desired_interface_impl.clone() == interface_impl_ty {
-                        debug_println!("found an impl");
+
                         let method_node = node_map.get(&method.method_location).unwrap();
                         return method_node.clone();
                     }
@@ -419,16 +409,12 @@ pub fn monomorphize_overloaded_var(
 ) -> Option<TypeMonomorphized> {
     if let Some(global_ty) = ty_of_global_ident(gamma.clone(), ident) {
         if global_ty.is_overloaded() {
-            debug_println!("global_ty: {} (overloaded)", global_ty);
-            debug_println!("node's type is: {},", node_ty);
-            debug_println!("monomorphic env before is: {:?}", monomorphenv.borrow());
             let substituted_ty = subst_with_monomorphic_env(monomorphenv, node_ty);
-            debug_println!("substituted type: {}", substituted_ty);
+
             let instance_ty = substituted_ty.instance_type().unwrap();
             if let Some(_overloaded_func) =
                 overloaded_func_map.get(&(ident.clone(), instance_ty.clone()))
             {
-                debug_println!("overloaded func: {:?}", _overloaded_func);
                 return Some(instance_ty);
             }
             let func_def_node = get_func_definition_node(
@@ -446,7 +432,7 @@ pub fn monomorphize_overloaded_var(
             let overloaded_func_ty = Type::solution_of_node(inf_ctx, pat.id()).unwrap();
             let monomorphenv = Rc::new(RefCell::new(MonomorphEnv::new(None)));
             update_monomorphenv(monomorphenv.clone(), overloaded_func_ty, substituted_ty);
-            debug_println!("monomorphic env after is: {:?}", monomorphenv.borrow());
+
             overloaded_func_map.insert((ident.clone(), instance_ty.clone()), None);
             let overloaded_func = translate_expr_func(
                 inf_ctx,
@@ -460,10 +446,8 @@ pub fn monomorphize_overloaded_var(
             overloaded_func_map.insert((ident.clone(), instance_ty.clone()), Some(overloaded_func));
             return Some(instance_ty);
         } else {
-            debug_println!("global ty {} of ident {ident} is not overloaded", global_ty);
         }
     } else {
-        debug_println!("ident {ident} has no global ty");
     }
     None
 }
@@ -479,7 +463,6 @@ pub fn translate_expr(
 ) -> Rc<Ete> {
     match &*parse_tree {
         ASTek::Var(ident) => {
-            debug_println!("identifier: {ident}");
             if let Some(node_ty) = Type::solution_of_node(inf_ctx, ast_id) {
                 if let Some(instance_ty) = monomorphize_overloaded_var(
                     inf_ctx,
@@ -570,7 +553,7 @@ pub fn translate_expr(
                 ty,
             )
             .expect("could not overload equals operator");
-            debug_println!("{:?}", &ty);
+
             Rc::new(Ete::FuncAp(
                 Rc::new(Ete::VarOverloaded(func_name, ty)),
                 vec![
@@ -631,7 +614,7 @@ pub fn translate_expr(
                 ty,
             )
             .unwrap_or_else(|| panic!("could not overload {func_name} operator"));
-            debug_println!("{:?}", &ty);
+
             Rc::new(Ete::FuncAp(
                 Rc::new(Ete::VarOverloaded(func_name, ty)),
                 vec![

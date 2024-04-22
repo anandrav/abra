@@ -1,7 +1,6 @@
 use crate::eval_tree;
 use crate::eval_tree::EffectCode;
 use crate::statics;
-use debug_print::debug_print;
 use once_cell::sync::Lazy;
 use std::rc::Rc;
 use strum::IntoEnumIterator;

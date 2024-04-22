@@ -4,8 +4,6 @@ use environment::Environment;
 pub use eval_tree::EffectCode;
 pub use side_effects::EffectTrait;
 
-use debug_print::debug_println;
-
 pub mod ast;
 pub mod environment;
 pub mod eval_tree;
@@ -27,10 +25,16 @@ pub struct SourceFile {
 }
 
 pub fn source_files_single(src: &str) -> Vec<SourceFile> {
-    vec![SourceFile {
-        name: "test.abra".to_owned(),
-        contents: src.to_owned(),
-    }]
+    vec![
+        SourceFile {
+            name: "prelude.abra".to_owned(),
+            contents: _PRELUDE.to_owned(),
+        },
+        SourceFile {
+            name: "test.abra".to_owned(),
+            contents: src.to_owned(),
+        },
+    ]
 }
 
 pub fn compile<Effect: EffectTrait>(source_files: Vec<SourceFile>) -> Result<Runtime, String> {
@@ -47,12 +51,11 @@ pub fn compile<Effect: EffectTrait>(source_files: Vec<SourceFile>) -> Result<Run
 
     let toplevels = ast::parse_or_err(&source_files)?;
 
-    debug_println!("successfully parsed.");
     let mut node_map = ast::NodeMap::new();
     for parse_tree in &toplevels {
         ast::initialize_node_map(&mut node_map, &(parse_tree.clone() as Rc<dyn ast::Node>));
     }
-    debug_println!("initialized node map.");
+
     let mut inference_ctx = statics::InferenceContext::new();
     let tyctx = statics::make_new_gamma();
     for parse_tree in &toplevels {
@@ -69,13 +72,10 @@ pub fn compile<Effect: EffectTrait>(source_files: Vec<SourceFile>) -> Result<Run
             &mut inference_ctx,
         );
     }
-    debug_println!("generated constraints.");
 
     statics::result_of_constraint_solving(&mut inference_ctx, tyctx.clone(), &node_map, &sources)?;
-    debug_println!("solved constraints.");
 
     statics::result_of_additional_analysis(&mut inference_ctx, &toplevels, &node_map, &sources)?;
-    debug_println!("additional analysis complete, no errors.");
 
     let env: Rc<RefCell<Environment>> = Rc::new(RefCell::new(Environment::new(None)));
     let (eval_tree, overloaded_func_map) =

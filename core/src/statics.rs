@@ -4,7 +4,6 @@ use crate::ast::{
 use crate::operators::BinOpcode;
 use core::panic;
 
-use debug_print::{debug_print, debug_println};
 use disjoint_sets::UnionFindNode;
 use std::cell::RefCell;
 use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
@@ -95,7 +94,6 @@ impl UnifVarData {
         if self.types.len() == 1 {
             self.types.values().next().unwrap().solution()
         } else {
-            debug_println!("no solution for {:?}", self);
             None
         }
     }
@@ -336,14 +334,10 @@ impl Type {
     }
 
     pub fn solution_of_node(inf_ctx: &InferenceContext, id: ast::Id) -> Option<Type> {
-        debug_println!("getting solution for node {:?}", id);
         let prov = Prov::Node(id);
         match inf_ctx.vars.get(&prov) {
             Some(unifvar) => unifvar.clone_data().solution(),
-            None => {
-                debug_println!("var not in inf_ctx");
-                None
-            }
+            None => None,
         }
     }
 
@@ -463,23 +457,11 @@ impl Type {
 
     pub fn instance_type(&self) -> Option<TypeMonomorphized> {
         match self {
-            Self::UnifVar(_) => {
-                debug_println!("instance_type() matched with unifvar");
-                None
-            }
-            Self::Poly(_, _ident, _interfaces) => {
-                debug_println!("instance_type() matched with poly");
-                None
-            }
+            Self::UnifVar(_) => None,
+            Self::Poly(_, _ident, _interfaces) => None,
             Self::Unit(_) => Some(TypeMonomorphized::Unit),
-            Self::Int(_) => {
-                debug_println!("instance_type() matched with int");
-                Some(TypeMonomorphized::Int)
-            }
-            Self::Float(_) => {
-                debug_println!("instance_type() matched with int");
-                Some(TypeMonomorphized::Float)
-            }
+            Self::Int(_) => Some(TypeMonomorphized::Int),
+            Self::Float(_) => Some(TypeMonomorphized::Float),
             Self::Bool(_) => Some(TypeMonomorphized::Bool),
             Self::String(_) => Some(TypeMonomorphized::String),
             Self::Function(_, args, out) => {
@@ -488,16 +470,10 @@ impl Type {
                     if let Some(arg) = arg.instance_type() {
                         args2.push(arg);
                     } else {
-                        debug_println!(
-                            "instance_type() matched with function, but param is not instance_type"
-                        );
                         return None;
                     }
                 }
                 let Some(out) = out.instance_type() else {
-                    debug_println!(
-                        "instance_type() matched with function, but func output is not instance_type"
-                    );
                     return None;
                 };
                 Some(TypeMonomorphized::Function(args2, out.into()))
@@ -508,9 +484,6 @@ impl Type {
                     if let Some(elem) = elem.instance_type() {
                         elems2.push(elem);
                     } else {
-                        debug_println!(
-                            "instance_type() matched with tuple, but element is not instance_type"
-                        );
                         return None;
                     }
                 }
@@ -522,7 +495,6 @@ impl Type {
                     if let Some(param) = param.instance_type() {
                         params2.push(param);
                     } else {
-                        debug_println!("instance_type() matched with adtinstance, but param is not instance_type");
                         return None;
                     }
                 }
@@ -760,9 +732,7 @@ impl InferenceContext {
     }
 
     pub fn adt_def_of_variant(&self, variant: &Identifier) -> Option<AdtDef> {
-        debug_println!("calling get(), identifier={}", variant);
         let adt_name = self.variants_to_adt.get(variant)?;
-        debug_println!("adt_name: {}", adt_name);
         self.adt_defs.get(adt_name).cloned()
     }
 
@@ -1676,7 +1646,6 @@ pub fn generate_constraints_stmt(
                     {
                         let mut substitution = BTreeMap::new();
                         substitution.insert("a".to_string(), typ.clone());
-                        debug_println!("original method ty: {}", interface_method.ty);
 
                         let expected = interface_method.ty.clone().subst(
                             gamma.clone(),
@@ -1684,7 +1653,6 @@ pub fn generate_constraints_stmt(
                             Prov::Node(stmt.id),
                             &substitution,
                         );
-                        debug_println!("expected ty: {}", expected);
 
                         constrain(expected, Type::from_node(inf_ctx, pat.id));
 
@@ -2132,8 +2100,6 @@ pub fn result_of_constraint_solving(
     node_map: &ast::NodeMap,
     sources: &ast::Sources,
 ) -> Result<(), String> {
-    debug_println!("tyctx:");
-    debug_println!("{}", _tyctx.borrow());
     // get list of type conflicts
     let mut type_conflicts = Vec::new();
     for potential_types in inf_ctx.vars.values() {
@@ -2205,16 +2171,11 @@ pub fn result_of_constraint_solving(
             } else if let Some(impl_list) = inf_ctx.interface_impls.get(interface) {
                 // find at least one implementation of interface that matches the type constrained to the interface
                 for impl_ in impl_list {
-                    debug_println!("impl: {}", impl_.typ);
                     if let Some(impl_ty) = impl_.typ.solution() {
-                        debug_println!("impl_ty: {:?}", impl_ty);
                         if let Err((_err_monoty, _err_impl_ty)) =
                             ty_fits_impl_ty(inf_ctx, typ.clone(), impl_ty.clone())
                         {
-                            debug_println!("err_monoty: {:#?}", _err_monoty);
-                            debug_println!("err_impl_ty: {:#?}", _err_impl_ty);
                         } else {
-                            debug_println!("typ {:#?} fits impl_ty {:#?}", typ, impl_ty.clone());
                             bad_instantiation = false;
                         }
                     }
@@ -2246,15 +2207,9 @@ pub fn result_of_constraint_solving(
         for (node_id, node) in node_map.iter() {
             let ty = Type::solution_of_node(inf_ctx, *node_id);
             let _span = node.span();
-            debug_println!("Node {}", node_id);
             if let Some(_ty) = ty {
-                debug_println!("Type: {}", _ty);
             } else {
-                debug_println!("Type: none");
             }
-            debug_println!("Span: {:?}", _span);
-            debug_println!("{}", _span.display(sources, ""));
-            debug_println!();
         }
         return Ok(());
     }
@@ -2485,12 +2440,8 @@ pub fn result_of_additional_analysis(
     let mut err_string = String::new();
 
     err_string.push_str("Pattern matching errors:\n");
-    if !inf_ctx.nonexhaustive_matches.is_empty() {
-        debug_println!("non_exh isn't empty");
-    }
-    if !inf_ctx.redundant_matches.is_empty() {
-        debug_println!("redundant isn't empty");
-    }
+    if !inf_ctx.nonexhaustive_matches.is_empty() {}
+    if !inf_ctx.redundant_matches.is_empty() {}
 
     for (pat, missing_pattern_suggestions) in inf_ctx.nonexhaustive_matches.iter() {
         let span = node_map.get(pat).unwrap().span();
@@ -2518,7 +2469,6 @@ pub fn result_of_additional_analysis(
 }
 
 fn check_pattern_exhaustiveness_toplevel(inf_ctx: &mut InferenceContext, toplevel: &ast::Toplevel) {
-    // debug_println!("check_pattern_exhaustiveness_toplevel");
     for statement in toplevel.statements.iter() {
         check_pattern_exhaustiveness_stmt(inf_ctx, statement);
     }
@@ -2530,24 +2480,22 @@ fn check_pattern_exhaustiveness_stmt(inf_ctx: &mut InferenceContext, stmt: &ast:
         StmtKind::TypeDef(..) => {}
         StmtKind::InterfaceImpl(_, _, stmts) => {
             for stmt in stmts {
-                // debug_println!("check_pattern_exhaustiveness_stmt IMPL");
                 check_pattern_exhaustiveness_stmt(inf_ctx, stmt);
             }
         }
         StmtKind::Set(_, expr) => {
-            // debug_println!("check_pattern_exhaustiveness_stmt SET");
             check_pattern_exhaustiveness_expr(inf_ctx, expr);
         }
         StmtKind::Let(_, _, expr) => {
-            // debug_println!("check_pattern_exhaustiveness_stmt LET");
+            //
             check_pattern_exhaustiveness_expr(inf_ctx, expr);
         }
         StmtKind::FuncDef(_, _, _, body) => {
-            // debug_println!("check_pattern_exhaustiveness_stmt LET_FUNC");
+            //
             check_pattern_exhaustiveness_expr(inf_ctx, body);
         }
         StmtKind::Expr(expr) => {
-            // debug_println!("check_pattern_exhaustiveness_stmt EXPR");
+            //
             check_pattern_exhaustiveness_expr(inf_ctx, expr);
         }
     }
@@ -2685,9 +2633,7 @@ fn ty_fits_impl_ty_poly(
         if let Some(impl_list) = inf_ctx.interface_impls.get(&interface) {
             // find at least one implementation of interface that matches the type constrained to the interface
             for impl_ in impl_list {
-                debug_println!("impl: {}", impl_.typ);
                 if let Some(impl_ty) = impl_.typ.solution() {
-                    debug_println!("impl_ty: {:?}", impl_ty);
                     if ty_fits_impl_ty(inf_ctx, typ.clone(), impl_ty).is_ok() {
                         return true;
                     }
@@ -2772,17 +2718,11 @@ impl Matrix {
             types: new_types,
         };
         for (i, row) in self.rows.iter().enumerate() {
-            debug_println!("i={}", i);
             if row.pats.is_empty() {
                 panic!("no pats in row");
             }
             if ctor.is_covered_by(&row.head().ctor) {
                 let new_row = row.pop_head(ctor, ctor_arity, i, inf_ctx);
-                debug_println!(
-                    "before pop: {}, after pop: {}",
-                    row.pats.len(),
-                    new_row.pats.len(),
-                );
                 new_matrix.rows.push(new_row);
             }
         }
@@ -2841,11 +2781,11 @@ impl MatrixRow {
         if self.pats.is_empty() {
             panic!("no pats in row");
         }
-        debug_println!("before head()");
+
         let head_pat = self.head();
-        debug_println!("before specialize");
+
         let mut new_pats = head_pat.specialize(other_ctor, arity, inf_ctx);
-        debug_println!("after specialize");
+
         new_pats.extend_from_slice(&self.pats[1..]);
         MatrixRow {
             pats: new_pats,
@@ -2898,7 +2838,6 @@ impl DeconstructedPat {
         arity: usize,
         inf_ctx: &InferenceContext,
     ) -> Vec<DeconstructedPat> {
-        debug_println!("deconstructed pat type: {}", self.ty);
         match &self.ctor {
             Constructor::Wildcard(_) => {
                 let field_tys = self.field_tys(other_ctor, inf_ctx);
@@ -3040,14 +2979,6 @@ impl Constructor {
     }
 
     fn arity(&self, matrix_tys: &[Type], inf_ctx: &InferenceContext) -> usize {
-        debug_println!("matrix_tys:");
-        for (i, ty) in matrix_tys.iter().enumerate() {
-            if i != 0 {
-                debug_print!(", ");
-            }
-            debug_print!("{}", ty);
-        }
-        debug_println!();
         match self {
             Constructor::Bool(..)
             | Constructor::Int(..)
@@ -3109,7 +3040,6 @@ impl WitnessMatrix {
     }
 
     fn apply_constructor(&mut self, ctor: &Constructor, arity: usize, head_ty: &Type) {
-        debug_println!("applying constructor {:#?}, arity={}", ctor, arity);
         for witness in self.rows.iter_mut() {
             let len = witness.len();
             let fields: Vec<DeconstructedPat> = witness.drain((len - arity)..).rev().collect();
@@ -3118,7 +3048,7 @@ impl WitnessMatrix {
                 fields,
                 ty: head_ty.clone(),
             };
-            debug_println!("first_pat: {:#?}", first_pat);
+
             witness.push(first_pat);
         }
     }
@@ -3127,7 +3057,7 @@ impl WitnessMatrix {
         if missing_ctors.is_empty() {
             return;
         }
-        debug_println!("applying missing constructors {:#?}", missing_ctors);
+
         let mut ret = Self::empty();
         for ctor in missing_ctors.iter() {
             let mut witness_matrix = self.clone();
@@ -3253,26 +3183,15 @@ fn match_expr_exhaustive_check(inf_ctx: &mut InferenceContext, expr: &ast::Expr)
         panic!()
     };
 
-    debug_println!("match_expr_exhaustive_check");
-    debug_println!("expr: {:#?}", expr);
-
     let scrutinee_ty = Type::solution_of_node(inf_ctx, scrutiny.id);
     let Some(scrutinee_ty) = scrutinee_ty else {
         return;
     };
 
     let mut matrix = Matrix::new(inf_ctx, scrutinee_ty, arms);
-    debug_println!("Matrix: {:#?}", matrix);
-    debug_println!("matrix_tys:");
-    for (i, ty) in matrix.types.iter().enumerate() {
-        if i != 0 {
-            debug_print!(", ");
-        }
-        debug_print!("{}", ty);
-    }
-    debug_println!();
+
     let witness_matrix = compute_exhaustiveness_and_usefulness(inf_ctx, &mut matrix);
-    debug_println!("Witness matrix: {}", witness_matrix);
+
     let witness_patterns = witness_matrix.first_column();
     if !witness_patterns.is_empty() {
         inf_ctx
@@ -3304,11 +3223,8 @@ fn compute_exhaustiveness_and_usefulness(
     inf_ctx: &InferenceContext,
     matrix: &mut Matrix,
 ) -> WitnessMatrix {
-    debug_println!("compute_exhaustiveness_and_usefulness, matrix:\n{}", matrix);
-    debug_println!("matrix: {}", matrix);
     // base case
     let Some(head_ty) = matrix.types.first().cloned() else {
-        debug_println!("base case");
         // we are morally pattern matching on ()
         let mut useful = true;
         // only the first row is useful
@@ -3319,15 +3235,14 @@ fn compute_exhaustiveness_and_usefulness(
         let no_useful_rows = useful;
         return if no_useful_rows {
             // match was not exhaustive (there were no rows)
-            debug_println!("no useful rows, unit witness");
+
             WitnessMatrix::unit_witness()
         } else {
             // match was exhaustive
-            debug_println!("empty witness matrix");
+
             WitnessMatrix::empty()
         };
     };
-    debug_println!("NOT base case. head_ty is {}", head_ty);
 
     let mut ret_witnesses = WitnessMatrix::empty();
 
@@ -3337,37 +3252,33 @@ fn compute_exhaustiveness_and_usefulness(
         .cloned()
         .map(|pat| pat.ctor)
         .collect();
-    debug_println!("head_ctors: {:?}", head_ctors);
+
     let ctors_for_ty = ctors_for_ty(inf_ctx, &head_ty);
     let SplitConstructorSet {
         mut present_ctors,
         missing_ctors,
     } = ctors_for_ty.split(&head_ctors);
-    debug_println!("missing_ctors: {:?}", missing_ctors);
 
     // special constructor representing cases not listed by user
     if !missing_ctors.is_empty() {
         present_ctors.push(Constructor::Wildcard(WildcardReason::NonExhaustive));
     }
-    debug_println!("specialize_ctors: {:?}", present_ctors);
+
     for ctor in present_ctors {
-        debug_println!("specializing with ctor: {:#?}", ctor);
         let ctor_arity = ctor.arity(&matrix.types, inf_ctx);
-        debug_println!("arity: {}", ctor_arity);
-        debug_println!("before specialization: {}", matrix);
+
         let mut specialized_matrix = matrix.specialize(&ctor, ctor_arity, inf_ctx);
-        debug_println!("specialized_matrix: {}", specialized_matrix);
+
         let mut witnesses = compute_exhaustiveness_and_usefulness(inf_ctx, &mut specialized_matrix);
-        debug_println!("witnesses: {}", witnesses);
+
         if ctor.is_wildcard_nonexhaustive() {
             // special constructor representing cases not listed by user
             witnesses.apply_missing_constructors(&missing_ctors, &head_ty);
         } else {
             witnesses.apply_constructor(&ctor, ctor_arity, &head_ty);
         }
-        debug_println!("witnesses after applying: {}", witnesses);
+
         ret_witnesses.extend(&witnesses);
-        debug_println!("ret_witnesses: {}", ret_witnesses);
 
         matrix.unspecialize(specialized_matrix);
     }
