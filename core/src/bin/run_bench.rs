@@ -8,6 +8,6 @@ fn main() {
             _ -> fibonacci(n-1) + fibonacci(n-2)
         }
     }
-    fibonacci(12)";
-    let _ = run(src);
+    fibonacci(20)";
+    let _ = run(src).unwrap();
 }

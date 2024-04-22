@@ -3,7 +3,7 @@ set -eou pipefail
 
 for bench in compile_bench run_bench
 do
-  cargo flamegraph --dev --package abra_core --bin $bench --output ${bench}_flamegraph.svg
+  cargo flamegraph --package abra_core --bin $bench --output ${bench}_flamegraph.svg
   open ${bench}_flamegraph.svg
 done
 
