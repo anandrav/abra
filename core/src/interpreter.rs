@@ -435,7 +435,7 @@ pub struct InterpretOk {
 
 #[derive(Debug)]
 pub struct InterpretErr {
-    // TODO: add location
+    // TODO: add location (line and column numbers)
     pub message: String,
 }
 

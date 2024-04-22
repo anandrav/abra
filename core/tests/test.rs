@@ -78,11 +78,13 @@ println(s)"#;
     assert_eq!(*output_str.borrow(), "hello\n");
 }
 
+// TODO call compile() instead of run() to make sure it's a type error, not a runtime error
 #[test]
 fn addition_bad() {
     assert!(run("2 + true").is_err());
 }
 
+// TODO call compile() instead of run() to make sure it's a type error, not a runtime error
 #[test]
 fn map_bad() {
     let src = r#"let list = range(0,9)
