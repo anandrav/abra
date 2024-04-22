@@ -3,6 +3,7 @@ name = "abra_editor"
 version = "0.1.0"
 authors = ["Anand Dukkipati <aRdukkipati@gmail.com>"]
 edition = "2021"
+license = "MPL-2.0"
 
 [[bin]]
 name = "abra_editor"
