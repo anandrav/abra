@@ -81,12 +81,12 @@ println(s)"#;
 #[test]
 fn addition_bad() {
     let src = "2 + true";
-    assert!(compile::<side_effects::DefaultEffects>(make_source_files(src)).is_err());
+    assert!(compile::<side_effects::DefaultEffects>(source_files_single(src)).is_err());
 }
 
 #[test]
 fn map_bad() {
     let src = r#"let list = range(0,9)
  map(list, x -> x & "hello")"#;
-    assert!(compile::<side_effects::DefaultEffects>(make_source_files(src)).is_err());
+    assert!(compile::<side_effects::DefaultEffects>(source_files_single(src)).is_err());
 }

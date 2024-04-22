@@ -1,9 +1,12 @@
 #!/bin/bash
 set -eou pipefail
 
-for bench in compile_bench run_bench
-do
-  cargo flamegraph --package abra_core --bin $bench --output ${bench}_flamegraph.svg
-  open ${bench}_flamegraph.svg
-done
+bench=$1
+
+if [[ "$OSTYPE" == "darwin"* ]]; then
+    cargo instruments --package abra_core --template "CPU Profiler" --bin ${bench} 
+else
+    cargo flamegraph --package abra_core --bin $bench --output ${bench}_flamegraph.svg 
+    open ${bench}_flamegraph.svg
+fi
 
