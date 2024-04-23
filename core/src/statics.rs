@@ -2138,7 +2138,7 @@ pub fn result_of_constraint_solving(
                 );
                 if let Some(id) = prov.get_location() {
                     let span = node_map.get(&id).unwrap().span();
-                    err_string.push_str(&span.display(sources, ""));
+                    span.display(&mut err_string, sources, "");
                 }
             }
         }
@@ -2165,14 +2165,17 @@ pub fn result_of_constraint_solving(
         err_string.push_str("You have unbound variables!\n");
         for ast_id in inf_ctx.unbound_vars.iter() {
             let span = node_map.get(ast_id).unwrap().span();
-            err_string.push_str(&span.display(sources, ""));
+            span.display(&mut err_string, sources, "");
         }
     }
     if !inf_ctx.unbound_interfaces.is_empty() {
         for ast_id in inf_ctx.unbound_interfaces.iter() {
             let span = node_map.get(ast_id).unwrap().span();
-            err_string
-                .push_str(&span.display(sources, "Interface being implemented is not defined\n"));
+            span.display(
+                &mut err_string,
+                sources,
+                "Interface being implemented is not defined\n",
+            );
         }
     }
     if !inf_ctx.multiple_adt_defs.is_empty() {
@@ -2180,7 +2183,7 @@ pub fn result_of_constraint_solving(
             let _ = writeln!(err_string, "Multiple definitions for type {}, ident", ident);
             for ast_id in adt_ids {
                 let span = node_map.get(ast_id).unwrap().span();
-                err_string.push_str(&span.display(sources, ""));
+                span.display(&mut err_string, sources, "");
             }
         }
     }
@@ -2189,7 +2192,7 @@ pub fn result_of_constraint_solving(
             let _ = writeln!(err_string, "Multiple definitions for interface {}", ident);
             for ast_id in interface_ids {
                 let span = node_map.get(ast_id).unwrap().span();
-                err_string.push_str(&span.display(sources, ""));
+                span.display(&mut err_string, sources, "");
             }
         }
     }
@@ -2203,7 +2206,7 @@ pub fn result_of_constraint_solving(
             );
             for ast_id in impl_ids {
                 let span = node_map.get(ast_id).unwrap().span();
-                err_string.push_str(&span.display(sources, ""));
+                span.display(&mut err_string, sources, "");
             }
         }
     }
@@ -2211,10 +2214,11 @@ pub fn result_of_constraint_solving(
     if !inf_ctx.interface_impl_for_instantiated_adt.is_empty() {
         for ast_id in inf_ctx.interface_impl_for_instantiated_adt.iter() {
             let span = node_map.get(ast_id).unwrap().span();
-            err_string.push_str(&span.display(
+            span.display(
+                &mut err_string,
                 sources,
                 "Interface implementations for instantiated ADTs are not supported.\n",
-            ));
+            );
         }
     }
 
@@ -2288,7 +2292,7 @@ pub fn result_of_constraint_solving(
                         }
                         Prov::Node(id) => {
                             let span = node_map.get(id).unwrap().span();
-                            err_string.push_str(&span.display(sources, ""));
+                            span.display(&mut err_string, sources, "");
                         }
                         Prov::UnderdeterminedCoerceToUnit => {
                             err_string.push_str(
@@ -2312,10 +2316,11 @@ pub fn result_of_constraint_solving(
                                 }
                                 Prov::Node(id) => {
                                     let span = node_map.get(id).unwrap().span();
-                                    err_string.push_str(&span.display(
+                                    span.display(
+                                        &mut err_string,
                                         sources,
                                         &format!("The #{n} argument of this function"),
-                                    ));
+                                    );
                                 }
                                 _ => unreachable!(),
                             }
@@ -2330,8 +2335,10 @@ pub fn result_of_constraint_solving(
                             }
                             Prov::Node(id) => {
                                 let span = node_map.get(id).unwrap().span();
-                                err_string.push_str(
-                                    &span.display(sources, "The output of this function"),
+                                span.display(
+                                    &mut err_string,
+                                    sources,
+                                    "The output of this function",
                                 );
                             }
                             _ => unreachable!(),
@@ -2340,14 +2347,14 @@ pub fn result_of_constraint_solving(
                             err_string.push_str("The left operand of operator\n");
                             if let Prov::Node(id) = **inner {
                                 let span = node_map.get(&id).unwrap().span();
-                                err_string.push_str(&span.display(sources, ""));
+                                span.display(&mut err_string, sources, "");
                             }
                         }
                         Prov::BinopRight(inner) => {
                             err_string.push_str("The left operand of this operator\n");
                             if let Prov::Node(id) = **inner {
                                 let span = node_map.get(&id).unwrap().span();
-                                err_string.push_str(&span.display(sources, ""));
+                                span.display(&mut err_string, sources, "");
                             }
                         }
                         Prov::ListElem(_) => {
@@ -2395,10 +2402,11 @@ pub fn result_of_additional_analysis(
 
     for (pat, missing_pattern_suggestions) in inf_ctx.nonexhaustive_matches.iter() {
         let span = node_map.get(pat).unwrap().span();
-        err_string.push_str(&span.display(
+        span.display(
+            &mut err_string,
             sources,
             "This match expression doesn't cover every possibility:\n",
-        ));
+        );
         err_string.push_str("\nThe following cases are missing:\n");
         for pat in missing_pattern_suggestions {
             let _ = writeln!(err_string, "\t`{pat}`\n");
@@ -2407,11 +2415,15 @@ pub fn result_of_additional_analysis(
 
     for (match_expr, redundant_pattern_suggestions) in inf_ctx.redundant_matches.iter() {
         let span = node_map.get(match_expr).unwrap().span();
-        err_string.push_str(&span.display(sources, "This match expression has redundant cases:\n"));
+        span.display(
+            &mut err_string,
+            sources,
+            "This match expression has redundant cases:\n",
+        );
         err_string.push_str("\nTry removing these cases\n");
         for pat in redundant_pattern_suggestions {
             let span = node_map.get(pat).unwrap().span();
-            err_string.push_str(&span.display(sources, ""));
+            span.display(&mut err_string, sources, "");
         }
     }
 

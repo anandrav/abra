@@ -572,9 +572,8 @@ impl Span {
         ((lo_line, lo_col), (hi_line, hi_col))
     }
 
-    pub fn display(&self, sources: &Sources, detail: &str) -> String {
+    pub fn display(&self, s: &mut String, sources: &Sources, detail: &str) {
         let source = sources.filename_to_source.get(&self.filename).unwrap();
-        let mut s = String::new();
         let ((lo_line, lo_col), (hi_line, hi_col)) = self.lines_and_columns(source);
         if lo_line != hi_line {
             s.push_str(&format!(
@@ -609,7 +608,6 @@ impl Span {
             s.push_str(&format!("{:1$}", "", pad_before_in_spaces)); // pad before
             s.push_str(&format!("{:^<1$}\n", "", underline_length)); // underline
         }
-        s
     }
 }
 
