@@ -1623,7 +1623,7 @@ pub fn generate_constraints_stmt(
                             false,
                         );
                     } else {
-                        // todo: emit error interface doesn't have method
+                        // TODO: emit error interface doesn't have method
                     }
                 }
             } else {
@@ -1789,7 +1789,7 @@ pub fn generate_constraints_pat(
         PatKind::Variant(tag, data) => {
             let ty_data = match data {
                 Some(data) => Type::from_node(inf_ctx, data.id),
-                None => Type::make_unit(Prov::VariantNoData(Box::new(Prov::Node(pat.id)))), // TODO BUG <---- I don't remember what this means.
+                None => Type::make_unit(Prov::VariantNoData(Box::new(Prov::Node(pat.id)))),
             };
             let mut substitution = BTreeMap::new();
             let ty_adt_instance = {
@@ -2269,7 +2269,7 @@ pub fn result_of_constraint_solving(
                         elems.len()
                     )),
                 };
-                let provs = ty.provs().borrow().clone(); // TODO don't clone here
+                let provs = ty.provs().borrow();
                 let mut provs_vec = provs.iter().collect::<Vec<_>>();
                 provs_vec.sort_by_key(|prov| match prov {
                     Prov::Builtin(_) => 0,
