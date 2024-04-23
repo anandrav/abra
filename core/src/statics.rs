@@ -10,6 +10,39 @@ use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 use std::fmt::{self, Write};
 use std::rc::Rc;
 
+pub(crate) type Skolem = UnionFindNode<SkolemData>;
+
+#[derive(Debug, Clone, PartialEq)]
+pub(crate) struct SkolemData {
+    pub(crate) types: BTreeMap<TypeKey, UnsolvedType>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+pub(crate) enum UnsolvedType {
+    Poly(Provs, Identifier, Vec<Identifier>), // type name, then list of Interfaces it must match
+    Unit(Provs),
+    Int(Provs),
+    Float(Provs),
+    Bool(Provs),
+    String(Provs),
+    Function(Provs, Vec<Skolem>, Skolem),
+    Tuple(Provs, Vec<Skolem>),
+    AdtInstance(Provs, Identifier, Vec<Skolem>),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+pub(crate) enum SolvedType {
+    Poly(Provs, Identifier, Vec<Identifier>), // type name, then list of Interfaces it must match
+    Unit(Provs),
+    Int(Provs),
+    Float(Provs),
+    Bool(Provs),
+    String(Provs),
+    Function(Provs, Vec<SolvedType>, Box<SolvedType>),
+    Tuple(Provs, Vec<SolvedType>),
+    AdtInstance(Provs, Identifier, Vec<SolvedType>),
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub(crate) enum Type {
     // a type which must be solved for (skolem)
