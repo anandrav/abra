@@ -3,4 +3,8 @@ set -eou pipefail
 
 cargo fmt
 cargo clippy
+
 cargo test
+
+cargo udeps
+cargo deny check
