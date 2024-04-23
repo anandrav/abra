@@ -90,7 +90,7 @@ func_arg = { let_pattern ~ (interface_annotation | type_annotation )?}
 
 interface_annotation = { ":" ~ "impl" ~ identifier }
 
-let_pattern_annotated = { let_pattern ~ type_annotation? } // TODO: this doesn't work for functions yet.
+let_pattern_annotated = { let_pattern ~ type_annotation? }
 
 type_annotation = _{ ":" ~ typ }
 // typ = { type_term ~ (type_op_binary ~ type_term)* }
