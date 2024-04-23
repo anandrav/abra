@@ -203,9 +203,6 @@ impl Type {
                         let mut types = BTreeMap::new();
                         types.insert(ty.key().unwrap(), ty);
                         let data_instantiated = UnifVarData { types };
-                        // unifvar.replace_data(data_instantiated);
-                        // // unifvar.with_data(|data| *data = data_instantiated);
-                        // Type::UnifVar(unifvar)
 
                         let unifvar = UnionFindNode::new(data_instantiated);
                         inf_ctx.vars.insert(prov, unifvar.clone());
@@ -3234,10 +3231,6 @@ fn compute_exhaustiveness_and_usefulness(
 
         matrix.unspecialize(specialized_matrix);
     }
-    // specialize missing constructors??
-
-    // take the returned witnesses and reapply the constructor
-    // append the witnesses to return value
 
     ret_witnesses
 }
