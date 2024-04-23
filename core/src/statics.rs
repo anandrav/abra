@@ -191,7 +191,7 @@ impl Type {
             }
             Type::UnifVar(unifvar) => {
                 let data = unifvar.clone_data();
-                // TODO consider relaxing the types.len() == 1 if it gives better editor feedback. But test thoroughly after
+                // To avoid confusing error feedback, only specialize a unifvar if it has a single type so far
                 if data.types.len() == 1 {
                     let ty = data.types.into_values().next().unwrap();
                     if let Type::Poly(_, _, ref _interfaces) = ty {
@@ -209,7 +209,7 @@ impl Type {
 
                         let unifvar = UnionFindNode::new(data_instantiated);
                         inf_ctx.vars.insert(prov, unifvar.clone());
-                        Type::UnifVar(unifvar) // TODO clone this? But test thoroughly after lol
+                        Type::UnifVar(unifvar)
                     }
                 } else {
                     //
@@ -217,7 +217,6 @@ impl Type {
                 }
             }
             Type::Poly(_, ref ident, ref interfaces) => {
-                // TODO anand here you need to use _interfaces, can't blindly instantiate. Maybe add a constraint to the newly created Type? That it conforms to Interfaces
                 if !gamma.borrow().lookup_poly(ident) {
                     let ret = Type::fresh_unifvar(
                         inf_ctx,
@@ -277,7 +276,6 @@ impl Type {
             }
             Type::UnifVar(unifvar) => {
                 let data = unifvar.clone_data();
-                // TODO consider relaxing the types.len() == 1 if it gives better editor feedback. But test thoroughly after
                 if data.types.len() == 1 {
                     let ty = data.types.into_values().next().unwrap();
                     if let Type::Poly(_, _, ref _interfaces) = ty {
@@ -290,7 +288,7 @@ impl Type {
 
                         let unifvar = UnionFindNode::new(data_instantiated);
                         inf_ctx.vars.insert(prov, unifvar.clone());
-                        Type::UnifVar(unifvar) // TODO clone this? But test thoroughly after lol
+                        Type::UnifVar(unifvar)
                     }
                 } else {
                     Type::UnifVar(unifvar) // noop
@@ -353,7 +351,6 @@ impl Type {
         }
     }
 
-    // TODO: interfaces should be a Set not a Vec
     pub fn make_poly(prov: Prov, ident: String, interfaces: Vec<String>) -> Type {
         Type::Poly(provs_singleton(prov), ident, interfaces)
     }
@@ -630,7 +627,6 @@ pub fn ast_type_to_statics_type_interface(
         ast::TypeKind::Float => Type::make_float(Prov::Node(ast_type.id())),
         ast::TypeKind::Bool => Type::make_bool(Prov::Node(ast_type.id())),
         ast::TypeKind::Str => Type::make_string(Prov::Node(ast_type.id())),
-        // TODO wait does this only allow one argument??
         ast::TypeKind::Function(lhs, rhs) => Type::make_arrow(
             lhs.iter()
                 .map(|t| ast_type_to_statics_type_interface(inf_ctx, t.clone(), interface_ident))
@@ -667,6 +663,7 @@ pub fn provs_singleton(prov: Prov) -> Provs {
     RefCell::new(set)
 }
 
+#[derive(Default)]
 pub struct InferenceContext {
     // unification variables (skolems) which must be solved
     pub vars: HashMap<Prov, UnifVar>,
@@ -710,25 +707,7 @@ pub struct InferenceContext {
 
 impl InferenceContext {
     pub fn new() -> Self {
-        Self {
-            vars: HashMap::new(),
-            adt_defs: HashMap::new(),
-            variants_to_adt: HashMap::new(),
-            fun_defs: HashMap::new(),
-            interface_defs: HashMap::new(),
-            method_to_interface: HashMap::new(),
-            interface_impls: BTreeMap::new(),
-            types_constrained_to_interfaces: BTreeMap::new(),
-            unbound_vars: BTreeSet::new(),
-            unbound_interfaces: BTreeSet::new(),
-            multiple_adt_defs: BTreeMap::new(),
-            multiple_interface_defs: BTreeMap::new(),
-            multiple_interface_impls: BTreeMap::new(),
-            interface_impl_for_instantiated_adt: Vec::new(),
-            nonexhaustive_matches: BTreeMap::new(),
-            redundant_matches: BTreeMap::new(),
-            // TODO ..Default::default()
-        }
+        Self::default()
     }
 
     pub fn adt_def_of_variant(&self, variant: &Identifier) -> Option<AdtDef> {
@@ -737,7 +716,7 @@ impl InferenceContext {
     }
 
     pub fn interface_def_of_ident(&self, ident: &Identifier) -> Option<InterfaceDef> {
-        self.interface_defs.get(ident).cloned() // TODO this helper function is not needed
+        self.interface_defs.get(ident).cloned()
     }
 
     pub fn variants_of_adt(&self, adt: &Identifier) -> Vec<Identifier> {
@@ -751,12 +730,6 @@ impl InferenceContext {
     }
 }
 
-impl Default for InferenceContext {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
 impl UnifVarData {
     fn empty() -> Self {
         Self {
@@ -764,7 +737,6 @@ impl UnifVarData {
         }
     }
 
-    // TODO: occurs check
     fn extend(&mut self, t_other: Type) {
         let key = t_other.key().unwrap();
 
@@ -785,27 +757,17 @@ impl UnifVarData {
                 Type::Function(other_provs, args1, out1) => {
                     t.provs().borrow_mut().extend(other_provs.borrow().clone());
                     if let Type::Function(_, args2, out2) = t {
-                        if args1.len() == args2.len() {
-                            // TODO unnecessary because key contains arity
-                            for (arg, arg2) in args1.iter().zip(args2.iter()) {
-                                constrain(arg.clone(), arg2.clone());
-                            }
-                            constrain(*out1.clone(), *out2.clone());
-                        } else {
-                            panic!("should be same length")
+                        for (arg, arg2) in args1.iter().zip(args2.iter()) {
+                            constrain(arg.clone(), arg2.clone());
                         }
+                        constrain(*out1.clone(), *out2.clone());
                     }
                 }
                 Type::Tuple(other_provs, elems1) => {
                     t.provs().borrow_mut().extend(other_provs.borrow().clone());
                     if let Type::Tuple(_, elems2) = t {
-                        if elems1.len() == elems2.len() {
-                            // TODO unnecessary because key contains arity
-                            for (elem, elem2) in elems1.iter().zip(elems2.iter()) {
-                                constrain(elem.clone(), elem2.clone());
-                            }
-                        } else {
-                            panic!("should be same length")
+                        for (elem, elem2) in elems1.iter().zip(elems2.iter()) {
+                            constrain(elem.clone(), elem2.clone());
                         }
                     }
                 }
@@ -830,7 +792,6 @@ impl UnifVarData {
         }
     }
 
-    // TODO: occurs check
     fn merge(first: Self, second: Self) -> Self {
         let mut merged_types = Self { types: first.types };
         for (_key, t) in second.types {
@@ -2092,7 +2053,6 @@ pub fn generate_constraints_toplevel(
     gamma
 }
 
-// TODO: since each expr/pattern node has a type, the node map should be populated with the types (and errors) of each node. So node id -> {Rc<Node>, StaticsSummary}
 // errors would be unbound variable, wrong number of arguments, occurs check, etc.
 pub fn result_of_constraint_solving(
     inf_ctx: &mut InferenceContext,
@@ -2422,7 +2382,6 @@ pub fn result_of_constraint_solving(
     Err(err_string)
 }
 
-// errors would be unbound variable, wrong number of arguments, occurs check, etc.
 pub fn result_of_additional_analysis(
     inf_ctx: &mut InferenceContext,
     toplevels: &[Rc<ast::Toplevel>],
@@ -2603,7 +2562,6 @@ pub fn ty_fits_impl_ty(
                 Err((typ, impl_ty))
             }
         }
-        // TODO double-check this could be buggy adding it here arbitrarily
         (_, Type::Poly(_, _, interfaces)) => {
             if !ty_fits_impl_ty_poly(
                 ctx,
@@ -3404,8 +3362,5 @@ fn fmt_conflicting_types(types: &[&Type], f: &mut dyn Write) -> fmt::Result {
             s.push_str(&format!("\n\t- {}", t));
         }
     }
-    // if types.len() > 1 {
-    //     s.push_str("\n}");
-    // }
     write!(f, "{}", s)
 }
