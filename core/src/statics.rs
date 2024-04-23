@@ -1870,13 +1870,11 @@ pub fn gather_definitions_stmt(
                 constrain(node_ty.clone(), ty_annot.clone());
                 methods.push(InterfaceDefMethod {
                     name: p.ident.clone(),
-                    // ty: ty_annot.clone(),
                     ty: node_ty.clone(),
                 });
                 inf_ctx
                     .method_to_interface
                     .insert(p.ident.clone(), ident.clone());
-                // gamma.borrow_mut().extend(&p.ident, ty_annot);
                 gamma.borrow_mut().extend(&p.ident, node_ty);
             }
             inf_ctx.interface_defs.insert(
@@ -1961,8 +1959,8 @@ pub fn gather_definitions_stmt(
                 );
             }
         },
-        StmtKind::Expr(_expr) => {}
-        StmtKind::Let(_mutable, (_pat, _ty_ann), _expr) => {}
+        StmtKind::Expr(_) => {}
+        StmtKind::Let(..) => {}
         StmtKind::FuncDef(name, _args, _out_annot, _body) => {
             inf_ctx
                 .fun_defs
@@ -1972,7 +1970,7 @@ pub fn gather_definitions_stmt(
                 Type::from_node(inf_ctx, name.id),
             );
         }
-        StmtKind::Set(_pat, _expr) => {}
+        StmtKind::Set(..) => {}
     }
 }
 
@@ -2061,11 +2059,6 @@ pub fn result_of_constraint_solving(
         let type_suggestions = potential_types.clone_data().types;
         if type_suggestions.len() > 1 && (!type_conflicts.contains(&type_suggestions)) {
             type_conflicts.push(type_suggestions.clone());
-        } else if type_suggestions.len() == 1 {
-            // let solution = type_suggestions.iter().next().unwrap().1.solution();
-            // if solution.is_none() && (!type_conflicts.contains(&type_suggestions)) {
-            //     type_conflicts.push(type_suggestions.clone());
-            // }
         }
     }
 
@@ -2444,15 +2437,12 @@ fn check_pattern_exhaustiveness_stmt(inf_ctx: &mut InferenceContext, stmt: &ast:
             check_pattern_exhaustiveness_expr(inf_ctx, expr);
         }
         StmtKind::Let(_, _, expr) => {
-            //
             check_pattern_exhaustiveness_expr(inf_ctx, expr);
         }
         StmtKind::FuncDef(_, _, _, body) => {
-            //
             check_pattern_exhaustiveness_expr(inf_ctx, body);
         }
         StmtKind::Expr(expr) => {
-            //
             check_pattern_exhaustiveness_expr(inf_ctx, expr);
         }
     }
@@ -3174,7 +3164,7 @@ fn match_expr_exhaustive_check(inf_ctx: &mut InferenceContext, expr: &ast::Expr)
     }
 }
 
-// here's where the actual algorithm goes
+// here's where the actual match usefulness algorithm goes
 fn compute_exhaustiveness_and_usefulness(
     inf_ctx: &InferenceContext,
     matrix: &mut Matrix,
