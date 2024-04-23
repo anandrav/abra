@@ -11,7 +11,7 @@ use std::fmt::{self, Write};
 use std::rc::Rc;
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
-pub enum Type {
+pub(crate) enum Type {
     // a type which must be solved for (skolem)
     UnifVar(UnifVar),
 
@@ -29,7 +29,7 @@ pub enum Type {
 
 // This is the fully instantiated AKA monomorphized type of an interface's implementation
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub enum TypeMonomorphized {
+pub(crate) enum TypeMonomorphized {
     Unit,
     Int,
     Float,
@@ -41,56 +41,56 @@ pub enum TypeMonomorphized {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
-pub struct AdtDef {
-    pub name: Identifier,
-    pub params: Vec<Identifier>,
-    pub variants: Vec<Variant>,
-    pub location: ast::Id,
+pub(crate) struct AdtDef {
+    pub(crate) name: Identifier,
+    pub(crate) params: Vec<Identifier>,
+    pub(crate) variants: Vec<Variant>,
+    pub(crate) location: ast::Id,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
-pub struct Variant {
-    pub ctor: Identifier,
-    pub data: Type,
+pub(crate) struct Variant {
+    pub(crate) ctor: Identifier,
+    pub(crate) data: Type,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
-pub struct InterfaceDef {
-    pub name: Identifier,
-    pub methods: Vec<InterfaceDefMethod>,
-    pub location: ast::Id,
+pub(crate) struct InterfaceDef {
+    pub(crate) name: Identifier,
+    pub(crate) methods: Vec<InterfaceDefMethod>,
+    pub(crate) location: ast::Id,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
-pub struct InterfaceImpl {
-    pub name: Identifier,
-    pub typ: Type,
-    pub methods: Vec<InterfaceImplMethod>,
-    pub location: ast::Id,
+pub(crate) struct InterfaceImpl {
+    pub(crate) name: Identifier,
+    pub(crate) typ: Type,
+    pub(crate) methods: Vec<InterfaceImplMethod>,
+    pub(crate) location: ast::Id,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
-pub struct InterfaceDefMethod {
-    pub name: Identifier,
-    pub ty: Type,
+pub(crate) struct InterfaceDefMethod {
+    pub(crate) name: Identifier,
+    pub(crate) ty: Type,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
-pub struct InterfaceImplMethod {
-    pub name: Identifier,
-    pub method_location: ast::Id,
-    pub identifier_location: ast::Id,
+pub(crate) struct InterfaceImplMethod {
+    pub(crate) name: Identifier,
+    pub(crate) method_location: ast::Id,
+    pub(crate) identifier_location: ast::Id,
 }
 
-pub type UnifVar = UnionFindNode<UnifVarData>;
+pub(crate) type UnifVar = UnionFindNode<UnifVarData>;
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct UnifVarData {
-    pub types: BTreeMap<TypeKey, Type>,
+pub(crate) struct UnifVarData {
+    pub(crate) types: BTreeMap<TypeKey, Type>,
 }
 
 impl UnifVarData {
-    pub fn solution(&self) -> Option<Type> {
+    pub(crate) fn solution(&self) -> Option<Type> {
         if self.types.len() == 1 {
             self.types.values().next().unwrap().solution()
         } else {
@@ -102,7 +102,7 @@ impl UnifVarData {
 // If two types don't share the same key, they must be in conflict
 // (If two types share the same key, they may or may not be in conflict)
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub enum TypeKey {
+pub(crate) enum TypeKey {
     Poly,                  // TODO: why isn't the Identifier included here?
     TyApp(Identifier, u8), // u8 represents the number of type params
     Unit,
@@ -119,7 +119,7 @@ pub enum TypeKey {
 // (2) give the *unique* identity of an unknown type variable (UnifVar) in the SolutionMap
 // TODO: Does Prov really need to be that deeply nested? Will there really be FuncArg -> InstantiatedPoly -> BinopLeft -> Node? Or can we simplify here?
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
-pub enum Prov {
+pub(crate) enum Prov {
     Node(ast::Id),   // the type of an expression or statement
     Builtin(String), // a function or constant, which doesn't exist in the AST
     UnderdeterminedCoerceToUnit,
@@ -140,7 +140,7 @@ pub enum Prov {
 impl Prov {
     // TODO: Can we make this not Optional? Only reason it would fail is if the last prov in the chain is a builtin
     // TODO: remove Builtin prov for this reason, defeats the purpose. Builtins should be declared in the PRELUDE, and that declaration will be the Prov.
-    pub fn get_location(&self) -> Option<ast::Id> {
+    pub(crate) fn get_location(&self) -> Option<ast::Id> {
         match self {
             Prov::Node(id) => Some(*id),
             Prov::Builtin(_) => None,
@@ -160,7 +160,7 @@ impl Prov {
 }
 
 impl Type {
-    pub fn key(&self) -> Option<TypeKey> {
+    pub(crate) fn key(&self) -> Option<TypeKey> {
         match self {
             Type::UnifVar(_) => None,
             Type::Poly(_, _, _) => Some(TypeKey::Poly),
@@ -179,7 +179,7 @@ impl Type {
 
     // Creates a clone of a Type with polymorphic variables not in scope replaced with fresh unification variables
     // Cloning type variables is very subtle...
-    pub fn instantiate(
+    pub(crate) fn instantiate(
         self,
         gamma: Rc<RefCell<Gamma>>,
         inf_ctx: &mut InferenceContext,
@@ -256,7 +256,7 @@ impl Type {
     }
 
     // Creates a clone of a Type with polymorphic variabels replaced by subtitutions
-    pub fn subst(
+    pub(crate) fn subst(
         self,
         gamma: Rc<RefCell<Gamma>>,
         inf_ctx: &mut InferenceContext,
@@ -319,12 +319,12 @@ impl Type {
         }
     }
 
-    pub fn from_node(inf_ctx: &mut InferenceContext, id: ast::Id) -> Type {
+    pub(crate) fn from_node(inf_ctx: &mut InferenceContext, id: ast::Id) -> Type {
         let prov = Prov::Node(id);
         Type::fresh_unifvar(inf_ctx, prov)
     }
 
-    pub fn solution_of_node(inf_ctx: &InferenceContext, id: ast::Id) -> Option<Type> {
+    pub(crate) fn solution_of_node(inf_ctx: &InferenceContext, id: ast::Id) -> Option<Type> {
         let prov = Prov::Node(id);
         match inf_ctx.vars.get(&prov) {
             Some(unifvar) => unifvar.clone_data().solution(),
@@ -332,7 +332,7 @@ impl Type {
         }
     }
 
-    pub fn fresh_unifvar(inf_ctx: &mut InferenceContext, prov: Prov) -> Type {
+    pub(crate) fn fresh_unifvar(inf_ctx: &mut InferenceContext, prov: Prov) -> Type {
         match inf_ctx.vars.get(&prov) {
             Some(ty) => Type::UnifVar(ty.clone()),
             None => {
@@ -344,47 +344,51 @@ impl Type {
         }
     }
 
-    pub fn make_poly(prov: Prov, ident: String, interfaces: Vec<String>) -> Type {
+    pub(crate) fn make_poly(prov: Prov, ident: String, interfaces: Vec<String>) -> Type {
         Type::Poly(provs_singleton(prov), ident, interfaces)
     }
 
-    pub fn make_poly_constrained(prov: Prov, ident: String, interface_ident: String) -> Type {
+    pub(crate) fn make_poly_constrained(
+        prov: Prov,
+        ident: String,
+        interface_ident: String,
+    ) -> Type {
         Type::Poly(provs_singleton(prov), ident, vec![interface_ident])
     }
 
-    pub fn make_def_instance(prov: Prov, ident: String, params: Vec<Type>) -> Type {
+    pub(crate) fn make_def_instance(prov: Prov, ident: String, params: Vec<Type>) -> Type {
         Type::AdtInstance(provs_singleton(prov), ident, params)
     }
 
-    pub fn make_unit(prov: Prov) -> Type {
+    pub(crate) fn make_unit(prov: Prov) -> Type {
         Type::Unit(provs_singleton(prov))
     }
 
-    pub fn make_int(prov: Prov) -> Type {
+    pub(crate) fn make_int(prov: Prov) -> Type {
         Type::Int(provs_singleton(prov))
     }
 
-    pub fn make_float(prov: Prov) -> Type {
+    pub(crate) fn make_float(prov: Prov) -> Type {
         Type::Float(provs_singleton(prov))
     }
 
-    pub fn make_bool(prov: Prov) -> Type {
+    pub(crate) fn make_bool(prov: Prov) -> Type {
         Type::Bool(provs_singleton(prov))
     }
 
-    pub fn make_string(prov: Prov) -> Type {
+    pub(crate) fn make_string(prov: Prov) -> Type {
         Type::String(provs_singleton(prov))
     }
 
-    pub fn make_arrow(args: Vec<Type>, out: Type, prov: Prov) -> Type {
+    pub(crate) fn make_arrow(args: Vec<Type>, out: Type, prov: Prov) -> Type {
         Type::Function(provs_singleton(prov), args, out.into())
     }
 
-    pub fn make_tuple(elems: Vec<Type>, prov: Prov) -> Type {
+    pub(crate) fn make_tuple(elems: Vec<Type>, prov: Prov) -> Type {
         Type::Tuple(provs_singleton(prov), elems)
     }
 
-    pub fn provs(&self) -> &Provs {
+    pub(crate) fn provs(&self) -> &Provs {
         match self {
             Self::UnifVar(_) => panic!("Type::provs called on Type::Var"),
             Self::Poly(provs, _, _)
@@ -399,7 +403,7 @@ impl Type {
         }
     }
 
-    pub fn solution(&self) -> Option<Type> {
+    pub(crate) fn solution(&self) -> Option<Type> {
         match self {
             Self::Bool(_)
             | Self::Int(_)
@@ -445,7 +449,7 @@ impl Type {
         }
     }
 
-    pub fn instance_type(&self) -> Option<TypeMonomorphized> {
+    pub(crate) fn instance_type(&self) -> Option<TypeMonomorphized> {
         match self {
             Self::UnifVar(_) => None,
             Self::Poly(_, _ident, _interfaces) => None,
@@ -491,7 +495,7 @@ impl Type {
         }
     }
 
-    pub fn is_overloaded(&self) -> bool {
+    pub(crate) fn is_overloaded(&self) -> bool {
         match self {
             Self::UnifVar(_) => false,
             Self::Poly(_, _, interfaces) => !interfaces.is_empty(),
@@ -511,7 +515,7 @@ impl Type {
     // return true if the type is an adt with at least one parameter instantiated
     // this is used to see if an implementation of an interface is for an instantiated adt, which is not allowed
     // example: implement ToString for list<int> rather than list<'a>
-    pub fn is_instantiated_adt(&self) -> bool {
+    pub(crate) fn is_instantiated_adt(&self) -> bool {
         match self {
             // return true if an adt with at least one parameter instantiated
             Self::AdtInstance(_, _, tys) => !tys.iter().all(|ty| matches!(ty, Self::Poly(..))),
@@ -519,7 +523,7 @@ impl Type {
         }
     }
 
-    pub fn is_unit(&self) -> bool {
+    pub(crate) fn is_unit(&self) -> bool {
         matches!(self, Self::Unit(_))
     }
 }
@@ -643,35 +647,35 @@ fn ast_type_to_statics_type(inf_ctx: &mut InferenceContext, ast_type: Rc<ast::As
     ast_type_to_statics_type_interface(inf_ctx, ast_type, None)
 }
 
-pub type Provs = RefCell<BTreeSet<Prov>>;
+pub(crate) type Provs = RefCell<BTreeSet<Prov>>;
 
-pub fn provs_singleton(prov: Prov) -> Provs {
+pub(crate) fn provs_singleton(prov: Prov) -> Provs {
     let mut set = BTreeSet::new();
     set.insert(prov);
     RefCell::new(set)
 }
 
 #[derive(Default)]
-pub struct InferenceContext {
+pub(crate) struct InferenceContext {
     // unification variables (skolems) which must be solved
-    pub vars: HashMap<Prov, UnifVar>,
+    pub(crate) vars: HashMap<Prov, UnifVar>,
 
     // nominal type definitions (ADTs)
-    pub adt_defs: HashMap<Identifier, AdtDef>,
+    pub(crate) adt_defs: HashMap<Identifier, AdtDef>,
     // map from variant names to ADT names
     variants_to_adt: HashMap<Identifier, Identifier>,
 
     // function definition locations
-    pub fun_defs: HashMap<Identifier, Rc<Stmt>>,
+    pub(crate) fun_defs: HashMap<Identifier, Rc<Stmt>>,
 
     // BOOKKEEPING
 
     // interface definitions
     interface_defs: HashMap<Identifier, InterfaceDef>,
     // map from methods to interface names
-    pub method_to_interface: HashMap<Identifier, Identifier>,
+    pub(crate) method_to_interface: HashMap<Identifier, Identifier>,
     // map from interface name to list of implementations
-    pub interface_impls: BTreeMap<Identifier, Vec<InterfaceImpl>>,
+    pub(crate) interface_impls: BTreeMap<Identifier, Vec<InterfaceImpl>>,
 
     // ADDITIONAL CONSTRAINTS
     // map from types to interfaces they have been constrained to
@@ -694,20 +698,20 @@ pub struct InferenceContext {
 }
 
 impl InferenceContext {
-    pub fn new() -> Self {
+    pub(crate) fn new() -> Self {
         Self::default()
     }
 
-    pub fn adt_def_of_variant(&self, variant: &Identifier) -> Option<AdtDef> {
+    pub(crate) fn adt_def_of_variant(&self, variant: &Identifier) -> Option<AdtDef> {
         let adt_name = self.variants_to_adt.get(variant)?;
         self.adt_defs.get(adt_name).cloned()
     }
 
-    pub fn interface_def_of_ident(&self, ident: &Identifier) -> Option<InterfaceDef> {
+    pub(crate) fn interface_def_of_ident(&self, ident: &Identifier) -> Option<InterfaceDef> {
         self.interface_defs.get(ident).cloned()
     }
 
-    pub fn variants_of_adt(&self, adt: &Identifier) -> Vec<Identifier> {
+    pub(crate) fn variants_of_adt(&self, adt: &Identifier) -> Vec<Identifier> {
         self.adt_defs
             .get(adt)
             .unwrap()
@@ -803,13 +807,13 @@ fn constrain(expected: Type, actual: Type) {
     }
 }
 
-pub struct Gamma {
-    pub vars: HashMap<Identifier, Type>,
+pub(crate) struct Gamma {
+    pub(crate) vars: HashMap<Identifier, Type>,
     poly_type_vars: HashSet<Identifier>,
     enclosing: Option<Rc<RefCell<Gamma>>>,
 }
 
-pub fn make_new_gamma() -> Rc<RefCell<Gamma>> {
+pub(crate) fn make_new_gamma() -> Rc<RefCell<Gamma>> {
     let gamma = Gamma::empty();
     gamma.borrow_mut().extend(
         &String::from("newline"),
@@ -1118,7 +1122,7 @@ impl fmt::Display for Gamma {
 }
 
 impl Gamma {
-    pub fn debug_helper(&self) -> Vec<String> {
+    pub(crate) fn debug_helper(&self) -> Vec<String> {
         let mut current = Vec::new();
         for (key, value) in &self.vars {
             current.push(format!("{}: {}", key.clone(), value.clone()))
@@ -1133,7 +1137,7 @@ impl Gamma {
         }
     }
 
-    pub fn empty() -> Rc<RefCell<Self>> {
+    pub(crate) fn empty() -> Rc<RefCell<Self>> {
         Rc::new(RefCell::new(Self {
             vars: HashMap::new(),
             poly_type_vars: HashSet::new(),
@@ -1141,7 +1145,7 @@ impl Gamma {
         }))
     }
 
-    pub fn new(enclosing: Option<Rc<RefCell<Gamma>>>) -> Rc<RefCell<Self>> {
+    pub(crate) fn new(enclosing: Option<Rc<RefCell<Gamma>>>) -> Rc<RefCell<Self>> {
         Rc::new(RefCell::new(Self {
             vars: HashMap::new(),
             poly_type_vars: HashSet::new(),
@@ -1149,7 +1153,7 @@ impl Gamma {
         }))
     }
 
-    pub fn lookup(&self, id: &Identifier) -> Option<Type> {
+    pub(crate) fn lookup(&self, id: &Identifier) -> Option<Type> {
         match self.vars.get(id) {
             Some(typ) => Some(typ.clone()),
             None => match &self.enclosing {
@@ -1159,11 +1163,11 @@ impl Gamma {
         }
     }
 
-    pub fn extend(&mut self, id: &Identifier, typ: Type) {
+    pub(crate) fn extend(&mut self, id: &Identifier, typ: Type) {
         self.vars.insert(id.clone(), typ);
     }
 
-    pub fn add_polys(&mut self, ty: &Type) {
+    pub(crate) fn add_polys(&mut self, ty: &Type) {
         match ty {
             Type::Poly(_, ident, _interfaces) => {
                 self.poly_type_vars.insert(ident.clone());
@@ -1188,7 +1192,7 @@ impl Gamma {
         }
     }
 
-    pub fn lookup_poly(&self, id: &Identifier) -> bool {
+    pub(crate) fn lookup_poly(&self, id: &Identifier) -> bool {
         match self.poly_type_vars.get(id) {
             Some(_) => true,
             None => match &self.enclosing {
@@ -1200,12 +1204,12 @@ impl Gamma {
 }
 
 #[derive(Debug, Clone)]
-pub enum Mode {
+pub(crate) enum Mode {
     Syn,
     Ana { expected: Type },
 }
 
-pub fn generate_constraints_expr(
+pub(crate) fn generate_constraints_expr(
     gamma: Rc<RefCell<Gamma>>,
     mode: Mode,
     expr: Rc<Expr>,
@@ -1565,7 +1569,7 @@ pub fn generate_constraints_expr(
     }
 }
 
-pub fn generate_constraints_stmt(
+pub(crate) fn generate_constraints_stmt(
     gamma: Rc<RefCell<Gamma>>,
     mode: Mode,
     stmt: Rc<Stmt>,
@@ -1737,7 +1741,7 @@ pub fn generate_constraints_stmt(
     }
 }
 
-pub fn generate_constraints_pat(
+pub(crate) fn generate_constraints_pat(
     gamma: Rc<RefCell<Gamma>>,
     mode: Mode,
     pat: Rc<Pat>,
@@ -1832,7 +1836,7 @@ pub fn generate_constraints_pat(
     }
 }
 
-pub fn gather_definitions_stmt(
+pub(crate) fn gather_definitions_stmt(
     inf_ctx: &mut InferenceContext,
     gamma: Rc<RefCell<Gamma>>,
     stmt: Rc<ast::Stmt>,
@@ -1992,7 +1996,7 @@ fn monomorphized_ty_to_builtin_ty(ty: TypeMonomorphized, prov_builtin: Prov) -> 
     }
 }
 
-pub fn gather_definitions_toplevel<Effect: crate::side_effects::EffectTrait>(
+pub(crate) fn gather_definitions_toplevel<Effect: crate::side_effects::EffectTrait>(
     inf_ctx: &mut InferenceContext,
     gamma: Rc<RefCell<Gamma>>,
     toplevel: Rc<ast::Toplevel>,
@@ -2021,7 +2025,7 @@ pub fn gather_definitions_toplevel<Effect: crate::side_effects::EffectTrait>(
     }
 }
 
-pub fn generate_constraints_toplevel(
+pub(crate) fn generate_constraints_toplevel(
     gamma: Rc<RefCell<Gamma>>,
     toplevel: Rc<ast::Toplevel>,
     inf_ctx: &mut InferenceContext,
@@ -2033,7 +2037,7 @@ pub fn generate_constraints_toplevel(
 }
 
 // errors would be unbound variable, wrong number of arguments, occurs check, etc.
-pub fn result_of_constraint_solving(
+pub(crate) fn result_of_constraint_solving(
     inf_ctx: &mut InferenceContext,
     _tyctx: Rc<RefCell<Gamma>>,
     node_map: &ast::NodeMap,
@@ -2368,7 +2372,7 @@ pub fn result_of_constraint_solving(
     Err(err_string)
 }
 
-pub fn result_of_additional_analysis(
+pub(crate) fn result_of_additional_analysis(
     inf_ctx: &mut InferenceContext,
     toplevels: &[Rc<ast::Toplevel>],
     node_map: &ast::NodeMap,
@@ -2498,7 +2502,7 @@ fn check_pattern_exhaustiveness_expr(inf_ctx: &mut InferenceContext, expr: &ast:
     }
 }
 
-pub fn ty_fits_impl_ty(
+pub(crate) fn ty_fits_impl_ty(
     ctx: &InferenceContext,
     typ: Type,
     impl_ty: Type,
@@ -2740,7 +2744,7 @@ impl MatrixRow {
 }
 
 #[derive(Debug, Clone)]
-pub struct DeconstructedPat {
+pub(crate) struct DeconstructedPat {
     ctor: Constructor,
     fields: Vec<DeconstructedPat>,
     ty: Type,
@@ -3048,8 +3052,8 @@ enum ConstructorSet {
 
 #[derive(Debug, Clone)]
 struct SplitConstructorSet {
-    pub present_ctors: Vec<Constructor>,
-    pub missing_ctors: Vec<Constructor>,
+    pub(crate) present_ctors: Vec<Constructor>,
+    pub(crate) missing_ctors: Vec<Constructor>,
 }
 
 impl ConstructorSet {
