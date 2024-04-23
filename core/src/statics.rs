@@ -195,10 +195,8 @@ impl Type {
                 if data.types.len() == 1 {
                     let ty = data.types.into_values().next().unwrap();
                     if let Type::Poly(_, _, ref _interfaces) = ty {
-                        //
                         ty.instantiate(gamma, inf_ctx, prov)
                     } else {
-                        //
                         let ty = ty.instantiate(gamma, inf_ctx, prov.clone());
                         let mut types = BTreeMap::new();
                         types.insert(ty.key().unwrap(), ty);
@@ -209,7 +207,6 @@ impl Type {
                         Type::UnifVar(unifvar)
                     }
                 } else {
-                    //
                     Type::UnifVar(unifvar) // noop
                 }
             }
@@ -234,7 +231,6 @@ impl Type {
                 }
             }
             Type::AdtInstance(provs, ident, params) => {
-                //
                 let params = params
                     .into_iter()
                     .map(|ty| ty.instantiate(gamma.clone(), inf_ctx, prov.clone()))
@@ -528,7 +524,7 @@ impl Type {
     }
 }
 
-pub fn types_of_binop(opcode: &BinOpcode, id: ast::Id) -> (Type, Type, Type) {
+fn types_of_binop(opcode: &BinOpcode, id: ast::Id) -> (Type, Type, Type) {
     let prov_left = Prov::BinopLeft(Prov::Node(id).into());
     let prov_right = Prov::BinopRight(Prov::Node(id).into());
     let prov_out = Prov::Node(id);
@@ -583,7 +579,7 @@ pub fn types_of_binop(opcode: &BinOpcode, id: ast::Id) -> (Type, Type, Type) {
     }
 }
 
-pub fn ast_type_to_statics_type_interface(
+fn ast_type_to_statics_type_interface(
     inf_ctx: &mut InferenceContext,
     ast_type: Rc<ast::AstType>,
     interface_ident: Option<&String>,
@@ -643,10 +639,7 @@ pub fn ast_type_to_statics_type_interface(
     }
 }
 
-pub fn ast_type_to_statics_type(
-    inf_ctx: &mut InferenceContext,
-    ast_type: Rc<ast::AstType>,
-) -> Type {
+fn ast_type_to_statics_type(inf_ctx: &mut InferenceContext, ast_type: Rc<ast::AstType>) -> Type {
     ast_type_to_statics_type_interface(inf_ctx, ast_type, None)
 }
 
@@ -666,7 +659,7 @@ pub struct InferenceContext {
     // nominal type definitions (ADTs)
     pub adt_defs: HashMap<Identifier, AdtDef>,
     // map from variant names to ADT names
-    pub variants_to_adt: HashMap<Identifier, Identifier>,
+    variants_to_adt: HashMap<Identifier, Identifier>,
 
     // function definition locations
     pub fun_defs: HashMap<Identifier, Rc<Stmt>>,
@@ -674,7 +667,7 @@ pub struct InferenceContext {
     // BOOKKEEPING
 
     // interface definitions
-    pub interface_defs: HashMap<Identifier, InterfaceDef>,
+    interface_defs: HashMap<Identifier, InterfaceDef>,
     // map from methods to interface names
     pub method_to_interface: HashMap<Identifier, Identifier>,
     // map from interface name to list of implementations
@@ -682,22 +675,22 @@ pub struct InferenceContext {
 
     // ADDITIONAL CONSTRAINTS
     // map from types to interfaces they have been constrained to
-    pub types_constrained_to_interfaces: BTreeMap<Type, Vec<(Identifier, Prov)>>,
+    types_constrained_to_interfaces: BTreeMap<Type, Vec<(Identifier, Prov)>>,
 
     // ERRORS
 
     // unbound variables
-    pub unbound_vars: BTreeSet<ast::Id>,
-    pub unbound_interfaces: BTreeSet<ast::Id>,
+    unbound_vars: BTreeSet<ast::Id>,
+    unbound_interfaces: BTreeSet<ast::Id>,
     // multiple definitions
-    pub multiple_adt_defs: BTreeMap<Identifier, Vec<ast::Id>>,
-    pub multiple_interface_defs: BTreeMap<Identifier, Vec<ast::Id>>,
+    multiple_adt_defs: BTreeMap<Identifier, Vec<ast::Id>>,
+    multiple_interface_defs: BTreeMap<Identifier, Vec<ast::Id>>,
     // interface implementations
-    pub multiple_interface_impls: BTreeMap<Identifier, Vec<ast::Id>>,
-    pub interface_impl_for_instantiated_adt: Vec<ast::Id>,
+    multiple_interface_impls: BTreeMap<Identifier, Vec<ast::Id>>,
+    interface_impl_for_instantiated_adt: Vec<ast::Id>,
     // non-exhaustive matches
-    pub nonexhaustive_matches: BTreeMap<ast::Id, Vec<DeconstructedPat>>,
-    pub redundant_matches: BTreeMap<ast::Id, Vec<ast::Id>>,
+    nonexhaustive_matches: BTreeMap<ast::Id, Vec<DeconstructedPat>>,
+    redundant_matches: BTreeMap<ast::Id, Vec<ast::Id>>,
 }
 
 impl InferenceContext {
@@ -1180,13 +1173,6 @@ impl Gamma {
                     self.add_polys(param);
                 }
             }
-            // TODO: need this??
-            // Type::UnifVar(tvar) => {
-            //     let data = tvar.clone_data();
-            //     for (_, ty) in data.types {
-            //         self.extend_poly(&ty);
-            //     }
-            // }
             Type::Function(_, args, out) => {
                 for arg in args {
                     self.add_polys(arg);
