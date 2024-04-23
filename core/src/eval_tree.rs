@@ -2,12 +2,12 @@ use crate::environment::Environment;
 use crate::operators::BinOpcode;
 
 use crate::statics::TypeMonomorphized;
+use crate::EffectCode;
 
 use std::cell::RefCell;
 use std::rc::Rc;
 
 pub type Identifier = String;
-pub type EffectCode = u16;
 
 #[derive(Debug, PartialEq)]
 pub enum Expr {

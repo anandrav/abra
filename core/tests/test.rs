@@ -28,9 +28,8 @@ fn fib() {
     assert_eq!(val, rt.make_int(8));
 }
 
-// TODO: why eval_tree is namespace for EffectCode ?
 fn handler_inner(
-    code: eval_tree::EffectCode,
+    code: EffectCode,
     args: Vec<Rc<eval_tree::Expr>>,
     output: Rc<RefCell<String>>,
     inputs: Rc<RefCell<Vec<&str>>>,

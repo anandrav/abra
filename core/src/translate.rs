@@ -189,7 +189,7 @@ pub fn translate_expr_block(
             e.id,
         ),
         ast::StmtKind::Expr(expr) => Rc::new(Ete::Let(
-            Rc::new(eval_tree::Pat::Var("_".to_string())), // TODO anandduk: add actual wildcard
+            Rc::new(eval_tree::Pat::Wildcard),
             translate_expr(
                 inf_ctx,
                 monomorphenv.clone(),
@@ -224,8 +224,7 @@ pub fn translate_expr_func(
     let args = func_args
         .iter()
         .map(|arg| arg.0.patkind.get_identifier_of_variable())
-        .collect(); // TODO: allow function arguments to be patterns
-                    // if func_args.len() == 1 {
+        .collect();
     Rc::new(Ete::Func(
         args,
         translate_expr(

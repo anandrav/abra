@@ -1,7 +1,7 @@
 use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
 use environment::Environment;
-pub use eval_tree::EffectCode;
+pub use side_effects::EffectCode;
 pub use side_effects::EffectTrait;
 
 pub mod ast;
@@ -96,7 +96,7 @@ pub fn run(source: &str) -> Result<(Rc<eval_tree::Expr>, Runtime), String> {
 }
 
 pub type EffectHandler<'b> =
-    Box<dyn FnMut(eval_tree::EffectCode, Vec<Rc<eval_tree::Expr>>) -> Rc<eval_tree::Expr> + 'b>;
+    Box<dyn FnMut(EffectCode, Vec<Rc<eval_tree::Expr>>) -> Rc<eval_tree::Expr> + 'b>;
 
 pub fn run_with_handler<Effect: EffectTrait>(
     source: &str,

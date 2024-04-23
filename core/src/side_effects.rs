@@ -1,5 +1,4 @@
 use crate::eval_tree;
-use crate::eval_tree::EffectCode;
 use crate::statics;
 use once_cell::sync::Lazy;
 use std::rc::Rc;
@@ -19,7 +18,6 @@ pub trait EffectTrait {
 #[derive(Debug, Clone)]
 pub enum Input {
     Unit,
-    // Cin(String),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, EnumIter)]
@@ -52,6 +50,8 @@ impl EffectTrait for DefaultEffects {
         }
     }
 }
+
+pub type EffectCode = u16;
 
 pub static DEFAULT_EFFECT_LIST: Lazy<Vec<DefaultEffects>> = Lazy::new(DefaultEffects::enumerate);
 
