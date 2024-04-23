@@ -6,7 +6,7 @@ use crate::operators::*;
 
 use crate::side_effects::*;
 use crate::statics::InferenceContext;
-use crate::statics::Type;
+use crate::statics::SolvedType;
 use crate::statics::TypeMonomorphized;
 use std::cell::RefCell;
 use std::collections::HashMap;

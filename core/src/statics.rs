@@ -10,11 +10,21 @@ use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 use std::fmt::{self, Write};
 use std::rc::Rc;
 
-pub(crate) type Skolem = UnionFindNode<SkolemData>;
+pub(crate) type TypeVar = UnionFindNode<SkolemData>;
 
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) struct SkolemData {
     pub(crate) types: BTreeMap<TypeKey, UnsolvedType>,
+}
+
+impl SkolemData {
+    pub(crate) fn solution(&self) -> Option<SolvedType> {
+        if self.types.len() == 1 {
+            self.types.values().next().unwrap().solution()
+        } else {
+            None
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
@@ -25,9 +35,9 @@ pub(crate) enum UnsolvedType {
     Float(Provs),
     Bool(Provs),
     String(Provs),
-    Function(Provs, Vec<Skolem>, Skolem),
-    Tuple(Provs, Vec<Skolem>),
-    AdtInstance(Provs, Identifier, Vec<Skolem>),
+    Function(Provs, Vec<TypeVar>, TypeVar),
+    Tuple(Provs, Vec<TypeVar>),
+    AdtInstance(Provs, Identifier, Vec<TypeVar>),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
@@ -41,23 +51,6 @@ pub(crate) enum SolvedType {
     Function(Provs, Vec<SolvedType>, Box<SolvedType>),
     Tuple(Provs, Vec<SolvedType>),
     AdtInstance(Provs, Identifier, Vec<SolvedType>),
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
-pub(crate) enum Type {
-    // a type which must be solved for (skolem)
-    UnifVar(UnifVar),
-
-    // "type must be equal to this"
-    Poly(Provs, Identifier, Vec<Identifier>), // type name, then list of Interfaces it must match
-    Unit(Provs),
-    Int(Provs),
-    Float(Provs),
-    Bool(Provs),
-    String(Provs),
-    Function(Provs, Vec<Type>, Box<Type>),
-    Tuple(Provs, Vec<Type>),
-    AdtInstance(Provs, Identifier, Vec<Type>),
 }
 
 // This is the fully instantiated AKA monomorphized type of an interface's implementation
@@ -84,7 +77,7 @@ pub(crate) struct AdtDef {
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub(crate) struct Variant {
     pub(crate) ctor: Identifier,
-    pub(crate) data: Type,
+    pub(crate) data: TypeVar,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
@@ -97,7 +90,7 @@ pub(crate) struct InterfaceDef {
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub(crate) struct InterfaceImpl {
     pub(crate) name: Identifier,
-    pub(crate) typ: Type,
+    pub(crate) typ: UnsolvedType,
     pub(crate) methods: Vec<InterfaceImplMethod>,
     pub(crate) location: ast::Id,
 }
@@ -105,7 +98,7 @@ pub(crate) struct InterfaceImpl {
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub(crate) struct InterfaceDefMethod {
     pub(crate) name: Identifier,
-    pub(crate) ty: Type,
+    pub(crate) ty: UnsolvedType,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
@@ -119,11 +112,11 @@ pub(crate) type UnifVar = UnionFindNode<UnifVarData>;
 
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) struct UnifVarData {
-    pub(crate) types: BTreeMap<TypeKey, Type>,
+    pub(crate) types: BTreeMap<TypeKey, UnsolvedType>,
 }
 
 impl UnifVarData {
-    pub(crate) fn solution(&self) -> Option<Type> {
+    pub(crate) fn solution(&self) -> Option<SolvedType> {
         if self.types.len() == 1 {
             self.types.values().next().unwrap().solution()
         } else {
@@ -192,19 +185,19 @@ impl Prov {
     }
 }
 
-impl Type {
+impl UnsolvedType {
     pub(crate) fn key(&self) -> Option<TypeKey> {
         match self {
-            Type::UnifVar(_) => None,
-            Type::Poly(_, _, _) => Some(TypeKey::Poly),
-            Type::Unit(_) => Some(TypeKey::Unit),
-            Type::Int(_) => Some(TypeKey::Int),
-            Type::Float(_) => Some(TypeKey::Float),
-            Type::Bool(_) => Some(TypeKey::Bool),
-            Type::String(_) => Some(TypeKey::String),
-            Type::Function(_, args, _) => Some(TypeKey::Function(args.len() as u8)),
-            Type::Tuple(_, elems) => Some(TypeKey::Tuple(elems.len() as u8)),
-            Type::AdtInstance(_, ident, params) => {
+            UnsolvedType::UnifVar(_) => None,
+            UnsolvedType::Poly(_, _, _) => Some(TypeKey::Poly),
+            UnsolvedType::Unit(_) => Some(TypeKey::Unit),
+            UnsolvedType::Int(_) => Some(TypeKey::Int),
+            UnsolvedType::Float(_) => Some(TypeKey::Float),
+            UnsolvedType::Bool(_) => Some(TypeKey::Bool),
+            UnsolvedType::String(_) => Some(TypeKey::String),
+            UnsolvedType::Function(_, args, _) => Some(TypeKey::Function(args.len() as u8)),
+            UnsolvedType::Tuple(_, elems) => Some(TypeKey::Tuple(elems.len() as u8)),
+            UnsolvedType::AdtInstance(_, ident, params) => {
                 Some(TypeKey::TyApp(ident.clone(), params.len() as u8))
             }
         }
@@ -217,17 +210,21 @@ impl Type {
         gamma: Rc<RefCell<Gamma>>,
         inf_ctx: &mut InferenceContext,
         prov: Prov,
-    ) -> Type {
+    ) -> UnsolvedType {
         match self {
-            Type::Unit(_) | Type::Int(_) | Type::Float(_) | Type::Bool(_) | Type::String(_) => {
+            UnsolvedType::Unit(_)
+            | UnsolvedType::Int(_)
+            | UnsolvedType::Float(_)
+            | UnsolvedType::Bool(_)
+            | UnsolvedType::String(_) => {
                 self // noop
             }
-            Type::UnifVar(unifvar) => {
+            UnsolvedType::UnifVar(unifvar) => {
                 let data = unifvar.clone_data();
                 // To avoid confusing error feedback, only specialize a unifvar if it has a single type so far
                 if data.types.len() == 1 {
                     let ty = data.types.into_values().next().unwrap();
-                    if let Type::Poly(_, _, ref _interfaces) = ty {
+                    if let UnsolvedType::Poly(_, _, ref _interfaces) = ty {
                         ty.instantiate(gamma, inf_ctx, prov)
                     } else {
                         let ty = ty.instantiate(gamma, inf_ctx, prov.clone());
@@ -237,15 +234,15 @@ impl Type {
 
                         let unifvar = UnionFindNode::new(data_instantiated);
                         inf_ctx.vars.insert(prov, unifvar.clone());
-                        Type::UnifVar(unifvar)
+                        UnsolvedType::UnifVar(unifvar)
                     }
                 } else {
-                    Type::UnifVar(unifvar) // noop
+                    UnsolvedType::UnifVar(unifvar) // noop
                 }
             }
-            Type::Poly(_, ref ident, ref interfaces) => {
+            UnsolvedType::Poly(_, ref ident, ref interfaces) => {
                 if !gamma.borrow().lookup_poly(ident) {
-                    let ret = Type::fresh_unifvar(
+                    let ret = UnsolvedType::fresh_unifvar(
                         inf_ctx,
                         Prov::InstantiatePoly(Box::new(prov.clone()), ident.clone()),
                     );
@@ -263,27 +260,27 @@ impl Type {
                     self // noop
                 }
             }
-            Type::AdtInstance(provs, ident, params) => {
+            UnsolvedType::AdtInstance(provs, ident, params) => {
                 let params = params
                     .into_iter()
                     .map(|ty| ty.instantiate(gamma.clone(), inf_ctx, prov.clone()))
                     .collect();
-                Type::AdtInstance(provs, ident, params)
+                UnsolvedType::AdtInstance(provs, ident, params)
             }
-            Type::Function(provs, args, out) => {
+            UnsolvedType::Function(provs, args, out) => {
                 let args = args
                     .into_iter()
                     .map(|ty| ty.instantiate(gamma.clone(), inf_ctx, prov.clone()))
                     .collect();
                 let out = Box::new(out.instantiate(gamma, inf_ctx, prov));
-                Type::Function(provs, args, out)
+                UnsolvedType::Function(provs, args, out)
             }
-            Type::Tuple(provs, elems) => {
+            UnsolvedType::Tuple(provs, elems) => {
                 let elems = elems
                     .into_iter()
                     .map(|ty| ty.instantiate(gamma.clone(), inf_ctx, prov.clone()))
                     .collect();
-                Type::Tuple(provs, elems)
+                UnsolvedType::Tuple(provs, elems)
             }
         }
     }
@@ -294,17 +291,21 @@ impl Type {
         gamma: Rc<RefCell<Gamma>>,
         inf_ctx: &mut InferenceContext,
         prov: Prov,
-        substitution: &BTreeMap<Identifier, Type>,
-    ) -> Type {
+        substitution: &BTreeMap<Identifier, UnsolvedType>,
+    ) -> UnsolvedType {
         match self {
-            Type::Unit(_) | Type::Int(_) | Type::Float(_) | Type::Bool(_) | Type::String(_) => {
+            UnsolvedType::Unit(_)
+            | UnsolvedType::Int(_)
+            | UnsolvedType::Float(_)
+            | UnsolvedType::Bool(_)
+            | UnsolvedType::String(_) => {
                 self // noop
             }
-            Type::UnifVar(unifvar) => {
+            UnsolvedType::UnifVar(unifvar) => {
                 let data = unifvar.clone_data();
                 if data.types.len() == 1 {
                     let ty = data.types.into_values().next().unwrap();
-                    if let Type::Poly(_, _, ref _interfaces) = ty {
+                    if let UnsolvedType::Poly(_, _, ref _interfaces) = ty {
                         ty.subst(gamma, inf_ctx, prov, substitution)
                     } else {
                         let ty = ty.subst(gamma, inf_ctx, prov.clone(), substitution);
@@ -314,50 +315,53 @@ impl Type {
 
                         let unifvar = UnionFindNode::new(data_instantiated);
                         inf_ctx.vars.insert(prov, unifvar.clone());
-                        Type::UnifVar(unifvar)
+                        UnsolvedType::UnifVar(unifvar)
                     }
                 } else {
-                    Type::UnifVar(unifvar) // noop
+                    UnsolvedType::UnifVar(unifvar) // noop
                 }
             }
-            Type::Poly(_, ref ident, ref _interfaces) => {
+            UnsolvedType::Poly(_, ref ident, ref _interfaces) => {
                 if let Some(ty) = substitution.get(ident) {
                     ty.clone()
                 } else {
                     self // noop
                 }
             }
-            Type::AdtInstance(provs, ident, params) => {
+            UnsolvedType::AdtInstance(provs, ident, params) => {
                 let params = params
                     .into_iter()
                     .map(|ty| ty.subst(gamma.clone(), inf_ctx, prov.clone(), substitution))
                     .collect();
-                Type::AdtInstance(provs, ident, params)
+                UnsolvedType::AdtInstance(provs, ident, params)
             }
-            Type::Function(provs, args, out) => {
+            UnsolvedType::Function(provs, args, out) => {
                 let args = args
                     .into_iter()
                     .map(|ty| ty.subst(gamma.clone(), inf_ctx, prov.clone(), substitution))
                     .collect();
                 let out = Box::new(out.subst(gamma, inf_ctx, prov, substitution));
-                Type::Function(provs, args, out)
+                UnsolvedType::Function(provs, args, out)
             }
-            Type::Tuple(provs, elems) => {
+            UnsolvedType::Tuple(provs, elems) => {
                 let elems = elems
                     .into_iter()
                     .map(|ty| ty.subst(gamma.clone(), inf_ctx, prov.clone(), substitution))
                     .collect();
-                Type::Tuple(provs, elems)
+                UnsolvedType::Tuple(provs, elems)
             }
         }
     }
 
-    pub(crate) fn from_node(inf_ctx: &mut InferenceContext, id: ast::Id) -> Type {
+    pub(crate) fn from_node(inf_ctx: &mut InferenceContext, id: ast::Id) -> UnsolvedType {
         let prov = Prov::Node(id);
-        Type::fresh_unifvar(inf_ctx, prov)
+        UnsolvedType::fresh_unifvar(inf_ctx, prov)
     }
 
-    pub(crate) fn solution_of_node(inf_ctx: &InferenceContext, id: ast::Id) -> Option<Type> {
+    pub(crate) fn solution_of_node(
+        inf_ctx: &InferenceContext,
+        id: ast::Id,
+    ) -> Option<UnsolvedType> {
         let prov = Prov::Node(id);
         match inf_ctx.vars.get(&prov) {
             Some(unifvar) => unifvar.clone_data().solution(),
@@ -365,65 +369,72 @@ impl Type {
         }
     }
 
-    pub(crate) fn fresh_unifvar(inf_ctx: &mut InferenceContext, prov: Prov) -> Type {
+    pub(crate) fn fresh_unifvar(inf_ctx: &mut InferenceContext, prov: Prov) -> UnsolvedType {
         match inf_ctx.vars.get(&prov) {
-            Some(ty) => Type::UnifVar(ty.clone()),
+            Some(ty) => UnsolvedType::UnifVar(ty.clone()),
             None => {
                 let ty_var = UnifVar::new(UnifVarData::empty());
-                let ty = Type::UnifVar(ty_var.clone());
+                let ty = UnsolvedType::UnifVar(ty_var.clone());
                 inf_ctx.vars.insert(prov, ty_var);
                 ty
             }
         }
     }
 
-    pub(crate) fn make_poly(prov: Prov, ident: String, interfaces: Vec<String>) -> Type {
-        Type::Poly(provs_singleton(prov), ident, interfaces)
+    pub(crate) fn make_poly(prov: Prov, ident: String, interfaces: Vec<String>) -> UnsolvedType {
+        UnsolvedType::Poly(provs_singleton(prov), ident, interfaces)
     }
 
     pub(crate) fn make_poly_constrained(
         prov: Prov,
         ident: String,
         interface_ident: String,
-    ) -> Type {
-        Type::Poly(provs_singleton(prov), ident, vec![interface_ident])
+    ) -> UnsolvedType {
+        UnsolvedType::Poly(provs_singleton(prov), ident, vec![interface_ident])
     }
 
-    pub(crate) fn make_def_instance(prov: Prov, ident: String, params: Vec<Type>) -> Type {
-        Type::AdtInstance(provs_singleton(prov), ident, params)
+    pub(crate) fn make_def_instance(
+        prov: Prov,
+        ident: String,
+        params: Vec<UnsolvedType>,
+    ) -> UnsolvedType {
+        UnsolvedType::AdtInstance(provs_singleton(prov), ident, params)
     }
 
-    pub(crate) fn make_unit(prov: Prov) -> Type {
-        Type::Unit(provs_singleton(prov))
+    pub(crate) fn make_unit(prov: Prov) -> UnsolvedType {
+        UnsolvedType::Unit(provs_singleton(prov))
     }
 
-    pub(crate) fn make_int(prov: Prov) -> Type {
-        Type::Int(provs_singleton(prov))
+    pub(crate) fn make_int(prov: Prov) -> UnsolvedType {
+        UnsolvedType::Int(provs_singleton(prov))
     }
 
-    pub(crate) fn make_float(prov: Prov) -> Type {
-        Type::Float(provs_singleton(prov))
+    pub(crate) fn make_float(prov: Prov) -> UnsolvedType {
+        UnsolvedType::Float(provs_singleton(prov))
     }
 
-    pub(crate) fn make_bool(prov: Prov) -> Type {
-        Type::Bool(provs_singleton(prov))
+    pub(crate) fn make_bool(prov: Prov) -> UnsolvedType {
+        UnsolvedType::Bool(provs_singleton(prov))
     }
 
-    pub(crate) fn make_string(prov: Prov) -> Type {
-        Type::String(provs_singleton(prov))
+    pub(crate) fn make_string(prov: Prov) -> UnsolvedType {
+        UnsolvedType::String(provs_singleton(prov))
     }
 
-    pub(crate) fn make_arrow(args: Vec<Type>, out: Type, prov: Prov) -> Type {
-        Type::Function(provs_singleton(prov), args, out.into())
+    pub(crate) fn make_arrow(
+        args: Vec<UnsolvedType>,
+        out: UnsolvedType,
+        prov: Prov,
+    ) -> UnsolvedType {
+        UnsolvedType::Function(provs_singleton(prov), args, out.into())
     }
 
-    pub(crate) fn make_tuple(elems: Vec<Type>, prov: Prov) -> Type {
-        Type::Tuple(provs_singleton(prov), elems)
+    pub(crate) fn make_tuple(elems: Vec<UnsolvedType>, prov: Prov) -> UnsolvedType {
+        UnsolvedType::Tuple(provs_singleton(prov), elems)
     }
 
     pub(crate) fn provs(&self) -> &Provs {
         match self {
-            Self::UnifVar(_) => panic!("Type::provs called on Type::Var"),
             Self::Poly(provs, _, _)
             | Self::Unit(provs)
             | Self::Int(provs)
@@ -436,49 +447,56 @@ impl Type {
         }
     }
 
-    pub(crate) fn solution(&self) -> Option<Type> {
+    pub(crate) fn solution(&self) -> Option<SolvedType> {
         match self {
-            Self::Bool(_)
-            | Self::Int(_)
-            | Self::Float(_)
-            | Self::String(_)
-            | Self::Unit(_)
-            | Self::Poly(_, _, _) => Some(self.clone()),
+            Self::Bool(provs) => Some(SolvedType::Bool(provs.clone())),
+            Self::Int(provs) => Some(SolvedType::Int(provs.clone())),
+            Self::Float(provs) => Some(SolvedType::Float(provs.clone())),
+            Self::String(provs) => Some(SolvedType::String(provs.clone())),
+            Self::Unit(provs) => Some(SolvedType::Unit(provs.clone())),
+            Self::Poly(provs, ident, interfaces) => Some(SolvedType::Poly(
+                provs.clone(),
+                ident.clone(),
+                interfaces.clone(),
+            )),
             Self::Function(provs, args, out) => {
-                let mut args2: Vec<Type> = vec![];
+                let mut args2: Vec<SolvedType> = vec![];
                 for arg in args {
-                    if let Some(arg) = arg.solution() {
+                    if let Some(arg) = arg.clone_data().solution() {
                         args2.push(arg);
                     } else {
                         return None;
                     }
                 }
-                let out = out.solution()?;
-                Some(Type::Function(provs.clone(), args2, out.into()))
+                let out = out.clone_data().solution()?;
+                Some(SolvedType::Function(provs.clone(), args2, out.into()))
             }
             Self::Tuple(provs, elems) => {
-                let mut elems2: Vec<Type> = vec![];
+                let mut elems2: Vec<SolvedType> = vec![];
                 for elem in elems {
-                    if let Some(elem) = elem.solution() {
+                    if let Some(elem) = elem.clone_data().solution() {
                         elems2.push(elem);
                     } else {
                         return None;
                     }
                 }
-                Some(Type::Tuple(provs.clone(), elems2))
+                Some(SolvedType::Tuple(provs.clone(), elems2))
             }
             Self::AdtInstance(provs, ident, params) => {
-                let mut params2: Vec<Type> = vec![];
+                let mut params2: Vec<SolvedType> = vec![];
                 for param in params {
-                    if let Some(param) = param.solution() {
+                    if let Some(param) = param.clone_data().solution() {
                         params2.push(param);
                     } else {
                         return None;
                     }
                 }
-                Some(Type::AdtInstance(provs.clone(), ident.clone(), params2))
+                Some(SolvedType::AdtInstance(
+                    provs.clone(),
+                    ident.clone(),
+                    params2,
+                ))
             }
-            Self::UnifVar(unifvar) => unifvar.clone_data().solution(),
         }
     }
 
@@ -557,57 +575,63 @@ impl Type {
     }
 }
 
-fn types_of_binop(opcode: &BinOpcode, id: ast::Id) -> (Type, Type, Type) {
+fn types_of_binop(opcode: &BinOpcode, id: ast::Id) -> (UnsolvedType, UnsolvedType, UnsolvedType) {
     let prov_left = Prov::BinopLeft(Prov::Node(id).into());
     let prov_right = Prov::BinopRight(Prov::Node(id).into());
     let prov_out = Prov::Node(id);
     match opcode {
         BinOpcode::And | BinOpcode::Or => (
-            Type::make_bool(prov_left),
-            Type::make_bool(prov_right),
-            Type::make_bool(prov_out),
+            UnsolvedType::make_bool(prov_left),
+            UnsolvedType::make_bool(prov_right),
+            UnsolvedType::make_bool(prov_out),
         ),
         BinOpcode::Add
         | BinOpcode::Subtract
         | BinOpcode::Multiply
         | BinOpcode::Divide
         | BinOpcode::Pow => {
-            let ty_left = Type::make_poly_constrained(prov_left, "a".to_owned(), "Num".to_owned());
+            let ty_left =
+                UnsolvedType::make_poly_constrained(prov_left, "a".to_owned(), "Num".to_owned());
             let ty_right =
-                Type::make_poly_constrained(prov_right, "a".to_owned(), "Num".to_owned());
-            let ty_out = Type::make_poly_constrained(prov_out, "a".to_owned(), "Num".to_owned());
+                UnsolvedType::make_poly_constrained(prov_right, "a".to_owned(), "Num".to_owned());
+            let ty_out =
+                UnsolvedType::make_poly_constrained(prov_out, "a".to_owned(), "Num".to_owned());
             constrain(ty_left.clone(), ty_right.clone());
             constrain(ty_left.clone(), ty_out.clone());
             (ty_left, ty_right, ty_out)
         }
         BinOpcode::Mod => (
-            Type::make_int(prov_left),
-            Type::make_int(prov_right),
-            Type::make_int(prov_out),
+            UnsolvedType::make_int(prov_left),
+            UnsolvedType::make_int(prov_right),
+            UnsolvedType::make_int(prov_out),
         ),
         BinOpcode::LessThan
         | BinOpcode::GreaterThan
         | BinOpcode::LessThanOrEqual
         | BinOpcode::GreaterThanOrEqual => {
-            let ty_left = Type::make_poly_constrained(prov_left, "a".to_owned(), "Num".to_owned());
+            let ty_left =
+                UnsolvedType::make_poly_constrained(prov_left, "a".to_owned(), "Num".to_owned());
             let ty_right =
-                Type::make_poly_constrained(prov_right, "a".to_owned(), "Num".to_owned());
+                UnsolvedType::make_poly_constrained(prov_right, "a".to_owned(), "Num".to_owned());
             constrain(ty_left.clone(), ty_right.clone());
-            let ty_out = Type::make_bool(prov_out);
+            let ty_out = UnsolvedType::make_bool(prov_out);
             (ty_left, ty_right, ty_out)
         }
         BinOpcode::Concat => (
-            Type::make_string(prov_left),
-            Type::make_string(prov_right),
-            Type::make_string(prov_out),
+            UnsolvedType::make_string(prov_left),
+            UnsolvedType::make_string(prov_right),
+            UnsolvedType::make_string(prov_out),
         ),
         BinOpcode::Equals => {
             let ty_left =
-                Type::make_poly_constrained(prov_left, "a".to_owned(), "Equals".to_owned());
-            let ty_right =
-                Type::make_poly_constrained(prov_right, "a".to_owned(), "Equals".to_owned());
+                UnsolvedType::make_poly_constrained(prov_left, "a".to_owned(), "Equals".to_owned());
+            let ty_right = UnsolvedType::make_poly_constrained(
+                prov_right,
+                "a".to_owned(),
+                "Equals".to_owned(),
+            );
             constrain(ty_left.clone(), ty_right.clone());
-            (ty_left, ty_right, Type::make_bool(prov_out))
+            (ty_left, ty_right, UnsolvedType::make_bool(prov_out))
         }
     }
 }
@@ -616,27 +640,27 @@ fn ast_type_to_statics_type_interface(
     inf_ctx: &mut InferenceContext,
     ast_type: Rc<ast::AstType>,
     interface_ident: Option<&String>,
-) -> Type {
+) -> UnsolvedType {
     match &*ast_type.typekind {
         ast::TypeKind::Poly(ident, interfaces) => {
-            Type::make_poly(Prov::Node(ast_type.id()), ident.clone(), interfaces.clone())
+            UnsolvedType::make_poly(Prov::Node(ast_type.id()), ident.clone(), interfaces.clone())
         }
         ast::TypeKind::Alias(ident) => {
             if let Some(interface_ident) = interface_ident {
                 if ident == "self" {
-                    Type::make_poly_constrained(
+                    UnsolvedType::make_poly_constrained(
                         Prov::Node(ast_type.id()),
                         "a".to_string(),
                         interface_ident.clone(),
                     )
                 } else {
-                    Type::fresh_unifvar(inf_ctx, Prov::Alias(ident.clone()))
+                    UnsolvedType::fresh_unifvar(inf_ctx, Prov::Alias(ident.clone()))
                 }
             } else {
-                Type::fresh_unifvar(inf_ctx, Prov::Alias(ident.clone()))
+                UnsolvedType::fresh_unifvar(inf_ctx, Prov::Alias(ident.clone()))
             }
         }
-        ast::TypeKind::Ap(ident, params) => Type::AdtInstance(
+        ast::TypeKind::Ap(ident, params) => UnsolvedType::AdtInstance(
             provs_singleton(Prov::Node(ast_type.id())),
             ident.clone(),
             params
@@ -646,12 +670,12 @@ fn ast_type_to_statics_type_interface(
                 })
                 .collect(),
         ),
-        ast::TypeKind::Unit => Type::make_unit(Prov::Node(ast_type.id())),
-        ast::TypeKind::Int => Type::make_int(Prov::Node(ast_type.id())),
-        ast::TypeKind::Float => Type::make_float(Prov::Node(ast_type.id())),
-        ast::TypeKind::Bool => Type::make_bool(Prov::Node(ast_type.id())),
-        ast::TypeKind::Str => Type::make_string(Prov::Node(ast_type.id())),
-        ast::TypeKind::Function(lhs, rhs) => Type::make_arrow(
+        ast::TypeKind::Unit => UnsolvedType::make_unit(Prov::Node(ast_type.id())),
+        ast::TypeKind::Int => UnsolvedType::make_int(Prov::Node(ast_type.id())),
+        ast::TypeKind::Float => UnsolvedType::make_float(Prov::Node(ast_type.id())),
+        ast::TypeKind::Bool => UnsolvedType::make_bool(Prov::Node(ast_type.id())),
+        ast::TypeKind::Str => UnsolvedType::make_string(Prov::Node(ast_type.id())),
+        ast::TypeKind::Function(lhs, rhs) => UnsolvedType::make_arrow(
             lhs.iter()
                 .map(|t| ast_type_to_statics_type_interface(inf_ctx, t.clone(), interface_ident))
                 .collect(),
@@ -667,12 +691,15 @@ fn ast_type_to_statics_type_interface(
                     interface_ident,
                 ));
             }
-            Type::make_tuple(statics_types, Prov::Node(ast_type.id()))
+            UnsolvedType::make_tuple(statics_types, Prov::Node(ast_type.id()))
         }
     }
 }
 
-fn ast_type_to_statics_type(inf_ctx: &mut InferenceContext, ast_type: Rc<ast::AstType>) -> Type {
+fn ast_type_to_statics_type(
+    inf_ctx: &mut InferenceContext,
+    ast_type: Rc<ast::AstType>,
+) -> UnsolvedType {
     ast_type_to_statics_type_interface(inf_ctx, ast_type, None)
 }
 
@@ -708,7 +735,7 @@ pub(crate) struct InferenceContext {
 
     // ADDITIONAL CONSTRAINTS
     // map from types to interfaces they have been constrained to
-    types_constrained_to_interfaces: BTreeMap<Type, Vec<(Identifier, Prov)>>,
+    types_constrained_to_interfaces: BTreeMap<UnsolvedType, Vec<(Identifier, Prov)>>,
 
     // ERRORS
 
@@ -758,42 +785,42 @@ impl UnifVarData {
         }
     }
 
-    fn extend(&mut self, t_other: Type) {
+    fn extend(&mut self, t_other: UnsolvedType) {
         let key = t_other.key().unwrap();
 
         // accumulate provenances and constrain children to each other if applicable
         if let Some(t) = self.types.get_mut(&key) {
             match &t_other {
-                Type::UnifVar(_) => panic!("should not be Type::UnifVar"),
-                Type::Unit(other_provs)
-                | Type::Int(other_provs)
-                | Type::Float(other_provs)
-                | Type::Bool(other_provs)
-                | Type::String(other_provs) => {
+                UnsolvedType::UnifVar(_) => panic!("should not be Type::UnifVar"),
+                UnsolvedType::Unit(other_provs)
+                | UnsolvedType::Int(other_provs)
+                | UnsolvedType::Float(other_provs)
+                | UnsolvedType::Bool(other_provs)
+                | UnsolvedType::String(other_provs) => {
                     t.provs().borrow_mut().extend(other_provs.borrow().clone())
                 }
-                Type::Poly(other_provs, _, _interfaces) => {
+                UnsolvedType::Poly(other_provs, _, _interfaces) => {
                     t.provs().borrow_mut().extend(other_provs.borrow().clone())
                 }
-                Type::Function(other_provs, args1, out1) => {
+                UnsolvedType::Function(other_provs, args1, out1) => {
                     t.provs().borrow_mut().extend(other_provs.borrow().clone());
-                    if let Type::Function(_, args2, out2) = t {
+                    if let UnsolvedType::Function(_, args2, out2) = t {
                         for (arg, arg2) in args1.iter().zip(args2.iter()) {
                             constrain(arg.clone(), arg2.clone());
                         }
                         constrain(*out1.clone(), *out2.clone());
                     }
                 }
-                Type::Tuple(other_provs, elems1) => {
+                UnsolvedType::Tuple(other_provs, elems1) => {
                     t.provs().borrow_mut().extend(other_provs.borrow().clone());
-                    if let Type::Tuple(_, elems2) = t {
+                    if let UnsolvedType::Tuple(_, elems2) = t {
                         for (elem, elem2) in elems1.iter().zip(elems2.iter()) {
                             constrain(elem.clone(), elem2.clone());
                         }
                     }
                 }
-                Type::AdtInstance(other_provs, _, other_tys) => {
-                    if let Type::AdtInstance(_, _, tys) = t {
+                UnsolvedType::AdtInstance(other_provs, _, other_tys) => {
+                    if let UnsolvedType::AdtInstance(_, _, tys) = t {
                         if tys.len() == other_tys.len() {
                             for (ty, other_ty) in tys.iter().zip(other_tys.iter()) {
                                 constrain(ty.clone(), other_ty.clone());
@@ -822,12 +849,12 @@ impl UnifVarData {
     }
 }
 
-fn constrain(expected: Type, actual: Type) {
+fn constrain(expected: UnsolvedType, actual: UnsolvedType) {
     match (expected, actual) {
-        (Type::UnifVar(ref mut tvar), Type::UnifVar(ref mut tvar2)) => {
+        (UnsolvedType::UnifVar(ref mut tvar), UnsolvedType::UnifVar(ref mut tvar2)) => {
             tvar.union_with(tvar2, UnifVarData::merge);
         }
-        (t, Type::UnifVar(tvar)) | (Type::UnifVar(tvar), t) => {
+        (t, UnsolvedType::UnifVar(tvar)) | (UnsolvedType::UnifVar(tvar), t) => {
             let mut data = tvar.clone_data();
             data.extend(t);
             tvar.replace_data(data);
@@ -837,7 +864,7 @@ fn constrain(expected: Type, actual: Type) {
 }
 
 pub(crate) struct Gamma {
-    pub(crate) vars: HashMap<Identifier, Type>,
+    pub(crate) vars: HashMap<Identifier, UnsolvedType>,
     poly_type_vars: HashSet<Identifier>,
     enclosing: Option<Rc<RefCell<Gamma>>>,
 }
@@ -846,17 +873,17 @@ pub(crate) fn make_new_gamma() -> Rc<RefCell<Gamma>> {
     let gamma = Gamma::empty();
     gamma.borrow_mut().extend(
         &String::from("newline"),
-        Type::String(RefCell::new(BTreeSet::new())),
+        UnsolvedType::String(RefCell::new(BTreeSet::new())),
     );
     gamma.borrow_mut().extend(
         &String::from("print_string"),
-        Type::Function(
+        UnsolvedType::Function(
             RefCell::new(BTreeSet::new()),
-            vec![Type::make_string(Prov::FuncArg(
+            vec![UnsolvedType::make_string(Prov::FuncArg(
                 Box::new(Prov::Builtin("print_string: string -> void".to_string())),
                 0,
             ))],
-            Type::make_unit(Prov::FuncOut(Box::new(Prov::Builtin(
+            UnsolvedType::make_unit(Prov::FuncOut(Box::new(Prov::Builtin(
                 "print_string: string -> void".to_string(),
             ))))
             .into(),
@@ -864,19 +891,19 @@ pub(crate) fn make_new_gamma() -> Rc<RefCell<Gamma>> {
     );
     gamma.borrow_mut().extend(
         &String::from("equals_int"),
-        Type::Function(
+        UnsolvedType::Function(
             RefCell::new(BTreeSet::new()),
             vec![
-                Type::make_int(Prov::FuncArg(
+                UnsolvedType::make_int(Prov::FuncArg(
                     Box::new(Prov::Builtin("equals_int: (int, int) -> bool".to_string())),
                     0,
                 )),
-                Type::make_int(Prov::FuncArg(
+                UnsolvedType::make_int(Prov::FuncArg(
                     Box::new(Prov::Builtin("equals_int: (int, int) -> bool".to_string())),
                     1,
                 )),
             ],
-            Type::make_bool(Prov::FuncOut(Box::new(Prov::Builtin(
+            UnsolvedType::make_bool(Prov::FuncOut(Box::new(Prov::Builtin(
                 "equals_int: (int, int) -> bool".to_string(),
             ))))
             .into(),
@@ -884,23 +911,23 @@ pub(crate) fn make_new_gamma() -> Rc<RefCell<Gamma>> {
     );
     gamma.borrow_mut().extend(
         &String::from("equals_string"),
-        Type::Function(
+        UnsolvedType::Function(
             RefCell::new(BTreeSet::new()),
             vec![
-                Type::make_string(Prov::FuncArg(
+                UnsolvedType::make_string(Prov::FuncArg(
                     Box::new(Prov::Builtin(
                         "equals_string: (string, string) -> bool".to_string(),
                     )),
                     0,
                 )),
-                Type::make_string(Prov::FuncArg(
+                UnsolvedType::make_string(Prov::FuncArg(
                     Box::new(Prov::Builtin(
                         "equals_string: (string, string) -> bool".to_string(),
                     )),
                     1,
                 )),
             ],
-            Type::make_bool(Prov::FuncOut(Box::new(Prov::Builtin(
+            UnsolvedType::make_bool(Prov::FuncOut(Box::new(Prov::Builtin(
                 "equals_string: (string, string) -> bool".to_string(),
             ))))
             .into(),
@@ -908,13 +935,13 @@ pub(crate) fn make_new_gamma() -> Rc<RefCell<Gamma>> {
     );
     gamma.borrow_mut().extend(
         &String::from("int_to_string"),
-        Type::Function(
+        UnsolvedType::Function(
             RefCell::new(BTreeSet::new()),
-            vec![Type::make_int(Prov::FuncArg(
+            vec![UnsolvedType::make_int(Prov::FuncArg(
                 Box::new(Prov::Builtin("int_to_string: int -> string".to_string())),
                 0,
             ))],
-            Type::make_string(Prov::FuncOut(Box::new(Prov::Builtin(
+            UnsolvedType::make_string(Prov::FuncOut(Box::new(Prov::Builtin(
                 "int_to_string: int -> string".to_string(),
             ))))
             .into(),
@@ -922,15 +949,15 @@ pub(crate) fn make_new_gamma() -> Rc<RefCell<Gamma>> {
     );
     gamma.borrow_mut().extend(
         &String::from("float_to_string"),
-        Type::Function(
+        UnsolvedType::Function(
             RefCell::new(BTreeSet::new()),
-            vec![Type::make_float(Prov::FuncArg(
+            vec![UnsolvedType::make_float(Prov::FuncArg(
                 Box::new(Prov::Builtin(
                     "float_to_string: float -> string".to_string(),
                 )),
                 0,
             ))],
-            Type::make_string(Prov::FuncOut(Box::new(Prov::Builtin(
+            UnsolvedType::make_string(Prov::FuncOut(Box::new(Prov::Builtin(
                 "float_to_string: float -> string".to_string(),
             ))))
             .into(),
@@ -938,13 +965,13 @@ pub(crate) fn make_new_gamma() -> Rc<RefCell<Gamma>> {
     );
     gamma.borrow_mut().extend(
         &String::from("to_float"),
-        Type::Function(
+        UnsolvedType::Function(
             RefCell::new(BTreeSet::new()),
-            vec![Type::make_int(Prov::FuncArg(
+            vec![UnsolvedType::make_int(Prov::FuncArg(
                 Box::new(Prov::Builtin("to_float: int -> float".to_string())),
                 0,
             ))],
-            Type::make_float(Prov::FuncOut(Box::new(Prov::Builtin(
+            UnsolvedType::make_float(Prov::FuncOut(Box::new(Prov::Builtin(
                 "to_float: int -> float".to_string(),
             ))))
             .into(),
@@ -952,13 +979,13 @@ pub(crate) fn make_new_gamma() -> Rc<RefCell<Gamma>> {
     );
     gamma.borrow_mut().extend(
         &String::from("round"),
-        Type::Function(
+        UnsolvedType::Function(
             RefCell::new(BTreeSet::new()),
-            vec![Type::make_float(Prov::FuncArg(
+            vec![UnsolvedType::make_float(Prov::FuncArg(
                 Box::new(Prov::Builtin("round: float -> int".to_string())),
                 0,
             ))],
-            Type::make_int(Prov::FuncOut(Box::new(Prov::Builtin(
+            UnsolvedType::make_int(Prov::FuncOut(Box::new(Prov::Builtin(
                 "round: float -> int".to_string(),
             ))))
             .into(),
@@ -966,23 +993,23 @@ pub(crate) fn make_new_gamma() -> Rc<RefCell<Gamma>> {
     );
     gamma.borrow_mut().extend(
         &String::from("append_strings"),
-        Type::Function(
+        UnsolvedType::Function(
             RefCell::new(BTreeSet::new()),
             vec![
-                Type::make_string(Prov::FuncArg(
+                UnsolvedType::make_string(Prov::FuncArg(
                     Box::new(Prov::Builtin(
                         "append_strings: (string, string) -> string".to_string(),
                     )),
                     0,
                 )),
-                Type::make_string(Prov::FuncArg(
+                UnsolvedType::make_string(Prov::FuncArg(
                     Box::new(Prov::Builtin(
                         "append_strings: (string, string) -> string".to_string(),
                     )),
                     1,
                 )),
             ],
-            Type::make_string(Prov::FuncOut(Box::new(Prov::Builtin(
+            UnsolvedType::make_string(Prov::FuncOut(Box::new(Prov::Builtin(
                 "append_strings: (string, string) -> string".to_string(),
             ))))
             .into(),
@@ -991,154 +1018,157 @@ pub(crate) fn make_new_gamma() -> Rc<RefCell<Gamma>> {
     let prov = Prov::Builtin("add_int: (int, int) -> int".to_string());
     gamma.borrow_mut().extend(
         &String::from("add_int"),
-        Type::Function(
+        UnsolvedType::Function(
             RefCell::new(BTreeSet::new()),
             vec![
-                Type::make_int(Prov::FuncArg(prov.clone().into(), 0)),
-                Type::make_int(Prov::FuncArg(prov.clone().into(), 1)),
+                UnsolvedType::make_int(Prov::FuncArg(prov.clone().into(), 0)),
+                UnsolvedType::make_int(Prov::FuncArg(prov.clone().into(), 1)),
             ],
-            Type::make_int(Prov::FuncOut(prov.into())).into(),
+            UnsolvedType::make_int(Prov::FuncOut(prov.into())).into(),
         ),
     );
     let prov = Prov::Builtin("minus_int: (int, int) -> int".to_string());
     gamma.borrow_mut().extend(
         &String::from("minus_int"),
-        Type::Function(
+        UnsolvedType::Function(
             RefCell::new(BTreeSet::new()),
             vec![
-                Type::make_int(Prov::FuncArg(prov.clone().into(), 0)),
-                Type::make_int(Prov::FuncArg(prov.clone().into(), 1)),
+                UnsolvedType::make_int(Prov::FuncArg(prov.clone().into(), 0)),
+                UnsolvedType::make_int(Prov::FuncArg(prov.clone().into(), 1)),
             ],
-            Type::make_int(Prov::FuncOut(prov.into())).into(),
+            UnsolvedType::make_int(Prov::FuncOut(prov.into())).into(),
         ),
     );
     let prov = Prov::Builtin("multiply_int: (int, int) -> int".to_string());
     gamma.borrow_mut().extend(
         &String::from("multiply_int"),
-        Type::Function(
+        UnsolvedType::Function(
             RefCell::new(BTreeSet::new()),
             vec![
-                Type::make_int(Prov::FuncArg(prov.clone().into(), 0)),
-                Type::make_int(Prov::FuncArg(prov.clone().into(), 1)),
+                UnsolvedType::make_int(Prov::FuncArg(prov.clone().into(), 0)),
+                UnsolvedType::make_int(Prov::FuncArg(prov.clone().into(), 1)),
             ],
-            Type::make_int(Prov::FuncOut(prov.into())).into(),
+            UnsolvedType::make_int(Prov::FuncOut(prov.into())).into(),
         ),
     );
     let prov = Prov::Builtin("divide_int: (int, int) -> int".to_string());
     gamma.borrow_mut().extend(
         &String::from("divide_int"),
-        Type::Function(
+        UnsolvedType::Function(
             RefCell::new(BTreeSet::new()),
             vec![
-                Type::make_int(Prov::FuncArg(prov.clone().into(), 0)),
-                Type::make_int(Prov::FuncArg(prov.clone().into(), 1)),
+                UnsolvedType::make_int(Prov::FuncArg(prov.clone().into(), 0)),
+                UnsolvedType::make_int(Prov::FuncArg(prov.clone().into(), 1)),
             ],
-            Type::make_int(Prov::FuncOut(prov.into())).into(),
+            UnsolvedType::make_int(Prov::FuncOut(prov.into())).into(),
         ),
     );
     let prov = Prov::Builtin("pow_int: (int, int) -> int".to_string());
     gamma.borrow_mut().extend(
         &String::from("pow_int"),
-        Type::Function(
+        UnsolvedType::Function(
             RefCell::new(BTreeSet::new()),
             vec![
-                Type::make_int(Prov::FuncArg(prov.clone().into(), 0)),
-                Type::make_int(Prov::FuncArg(prov.clone().into(), 1)),
+                UnsolvedType::make_int(Prov::FuncArg(prov.clone().into(), 0)),
+                UnsolvedType::make_int(Prov::FuncArg(prov.clone().into(), 1)),
             ],
-            Type::make_int(Prov::FuncOut(prov.into())).into(),
+            UnsolvedType::make_int(Prov::FuncOut(prov.into())).into(),
         ),
     );
     let prov = Prov::Builtin("less_than_int: (int, int) -> bool".to_string());
     gamma.borrow_mut().extend(
         &String::from("less_than_int"),
-        Type::Function(
+        UnsolvedType::Function(
             RefCell::new(BTreeSet::new()),
             vec![
-                Type::make_int(Prov::FuncArg(prov.clone().into(), 0)),
-                Type::make_int(Prov::FuncArg(prov.clone().into(), 1)),
+                UnsolvedType::make_int(Prov::FuncArg(prov.clone().into(), 0)),
+                UnsolvedType::make_int(Prov::FuncArg(prov.clone().into(), 1)),
             ],
-            Type::make_bool(Prov::FuncOut(prov.into())).into(),
+            UnsolvedType::make_bool(Prov::FuncOut(prov.into())).into(),
         ),
     );
     let prov = Prov::Builtin("add_float: (float, float) -> float".to_string());
     gamma.borrow_mut().extend(
         &String::from("add_float"),
-        Type::Function(
+        UnsolvedType::Function(
             RefCell::new(BTreeSet::new()),
             vec![
-                Type::make_float(Prov::FuncArg(prov.clone().into(), 0)),
-                Type::make_float(Prov::FuncArg(prov.clone().into(), 1)),
+                UnsolvedType::make_float(Prov::FuncArg(prov.clone().into(), 0)),
+                UnsolvedType::make_float(Prov::FuncArg(prov.clone().into(), 1)),
             ],
-            Type::make_float(Prov::FuncOut(prov.into())).into(),
+            UnsolvedType::make_float(Prov::FuncOut(prov.into())).into(),
         ),
     );
     let prov = Prov::Builtin("minus_float: (float, float) -> float".to_string());
     gamma.borrow_mut().extend(
         &String::from("minus_float"),
-        Type::Function(
+        UnsolvedType::Function(
             RefCell::new(BTreeSet::new()),
             vec![
-                Type::make_float(Prov::FuncArg(prov.clone().into(), 0)),
-                Type::make_float(Prov::FuncArg(prov.clone().into(), 1)),
+                UnsolvedType::make_float(Prov::FuncArg(prov.clone().into(), 0)),
+                UnsolvedType::make_float(Prov::FuncArg(prov.clone().into(), 1)),
             ],
-            Type::make_float(Prov::FuncOut(prov.into())).into(),
+            UnsolvedType::make_float(Prov::FuncOut(prov.into())).into(),
         ),
     );
     let prov = Prov::Builtin("multiply_float: (float, float) -> float".to_string());
     gamma.borrow_mut().extend(
         &String::from("multiply_float"),
-        Type::Function(
+        UnsolvedType::Function(
             RefCell::new(BTreeSet::new()),
             vec![
-                Type::make_float(Prov::FuncArg(prov.clone().into(), 0)),
-                Type::make_float(Prov::FuncArg(prov.clone().into(), 1)),
+                UnsolvedType::make_float(Prov::FuncArg(prov.clone().into(), 0)),
+                UnsolvedType::make_float(Prov::FuncArg(prov.clone().into(), 1)),
             ],
-            Type::make_float(Prov::FuncOut(prov.into())).into(),
+            UnsolvedType::make_float(Prov::FuncOut(prov.into())).into(),
         ),
     );
     let prov = Prov::Builtin("divide_float: (float, float) -> float".to_string());
     gamma.borrow_mut().extend(
         &String::from("divide_float"),
-        Type::Function(
+        UnsolvedType::Function(
             RefCell::new(BTreeSet::new()),
             vec![
-                Type::make_float(Prov::FuncArg(prov.clone().into(), 0)),
-                Type::make_float(Prov::FuncArg(prov.clone().into(), 1)),
+                UnsolvedType::make_float(Prov::FuncArg(prov.clone().into(), 0)),
+                UnsolvedType::make_float(Prov::FuncArg(prov.clone().into(), 1)),
             ],
-            Type::make_float(Prov::FuncOut(prov.into())).into(),
+            UnsolvedType::make_float(Prov::FuncOut(prov.into())).into(),
         ),
     );
     let prov = Prov::Builtin("pow_float: (float, float) -> float".to_string());
     gamma.borrow_mut().extend(
         &String::from("pow_float"),
-        Type::Function(
+        UnsolvedType::Function(
             RefCell::new(BTreeSet::new()),
             vec![
-                Type::make_float(Prov::FuncArg(prov.clone().into(), 0)),
-                Type::make_float(Prov::FuncArg(prov.clone().into(), 1)),
+                UnsolvedType::make_float(Prov::FuncArg(prov.clone().into(), 0)),
+                UnsolvedType::make_float(Prov::FuncArg(prov.clone().into(), 1)),
             ],
-            Type::make_float(Prov::FuncOut(prov.into())).into(),
+            UnsolvedType::make_float(Prov::FuncOut(prov.into())).into(),
         ),
     );
     let prov = Prov::Builtin("sqrt_float: (float) -> float".to_string());
     gamma.borrow_mut().extend(
         &String::from("sqrt_float"),
-        Type::Function(
+        UnsolvedType::Function(
             RefCell::new(BTreeSet::new()),
-            vec![Type::make_float(Prov::FuncArg(prov.clone().into(), 0))],
-            Type::make_float(Prov::FuncOut(prov.into())).into(),
+            vec![UnsolvedType::make_float(Prov::FuncArg(
+                prov.clone().into(),
+                0,
+            ))],
+            UnsolvedType::make_float(Prov::FuncOut(prov.into())).into(),
         ),
     );
     let prov = Prov::Builtin("less_than_float: (float, float) -> bool".to_string());
     gamma.borrow_mut().extend(
         &String::from("less_than_float"),
-        Type::Function(
+        UnsolvedType::Function(
             RefCell::new(BTreeSet::new()),
             vec![
-                Type::make_float(Prov::FuncArg(prov.clone().into(), 0)),
-                Type::make_float(Prov::FuncArg(prov.clone().into(), 1)),
+                UnsolvedType::make_float(Prov::FuncArg(prov.clone().into(), 0)),
+                UnsolvedType::make_float(Prov::FuncArg(prov.clone().into(), 1)),
             ],
-            Type::make_bool(Prov::FuncOut(prov.into())).into(),
+            UnsolvedType::make_bool(Prov::FuncOut(prov.into())).into(),
         ),
     );
     gamma
@@ -1182,7 +1212,7 @@ impl Gamma {
         }))
     }
 
-    pub(crate) fn lookup(&self, id: &Identifier) -> Option<Type> {
+    pub(crate) fn lookup(&self, id: &Identifier) -> Option<UnsolvedType> {
         match self.vars.get(id) {
             Some(typ) => Some(typ.clone()),
             None => match &self.enclosing {
@@ -1192,27 +1222,27 @@ impl Gamma {
         }
     }
 
-    pub(crate) fn extend(&mut self, id: &Identifier, typ: Type) {
+    pub(crate) fn extend(&mut self, id: &Identifier, typ: UnsolvedType) {
         self.vars.insert(id.clone(), typ);
     }
 
-    pub(crate) fn add_polys(&mut self, ty: &Type) {
+    pub(crate) fn add_polys(&mut self, ty: &UnsolvedType) {
         match ty {
-            Type::Poly(_, ident, _interfaces) => {
+            UnsolvedType::Poly(_, ident, _interfaces) => {
                 self.poly_type_vars.insert(ident.clone());
             }
-            Type::AdtInstance(_, _, params) => {
+            UnsolvedType::AdtInstance(_, _, params) => {
                 for param in params {
                     self.add_polys(param);
                 }
             }
-            Type::Function(_, args, out) => {
+            UnsolvedType::Function(_, args, out) => {
                 for arg in args {
                     self.add_polys(arg);
                 }
                 self.add_polys(out);
             }
-            Type::Tuple(_, elems) => {
+            UnsolvedType::Tuple(_, elems) => {
                 for elem in elems {
                     self.add_polys(elem);
                 }
@@ -1235,7 +1265,7 @@ impl Gamma {
 #[derive(Debug, Clone)]
 pub(crate) enum Mode {
     Syn,
-    Ana { expected: Type },
+    Ana { expected: UnsolvedType },
 }
 
 pub(crate) fn generate_constraints_expr(
@@ -1244,32 +1274,33 @@ pub(crate) fn generate_constraints_expr(
     expr: Rc<Expr>,
     inf_ctx: &mut InferenceContext,
 ) {
-    let node_ty = Type::from_node(inf_ctx, expr.id);
+    let node_ty = UnsolvedType::from_node(inf_ctx, expr.id);
     match mode {
         Mode::Syn => (),
         Mode::Ana { expected } => constrain(expected, node_ty.clone()),
     };
     match &*expr.exprkind {
         ExprKind::Unit => {
-            constrain(node_ty, Type::make_unit(Prov::Node(expr.id)));
+            constrain(node_ty, UnsolvedType::make_unit(Prov::Node(expr.id)));
         }
         ExprKind::Int(_) => {
-            constrain(node_ty, Type::make_int(Prov::Node(expr.id)));
+            constrain(node_ty, UnsolvedType::make_int(Prov::Node(expr.id)));
         }
         ExprKind::Float(_) => {
-            constrain(node_ty, Type::make_float(Prov::Node(expr.id)));
+            constrain(node_ty, UnsolvedType::make_float(Prov::Node(expr.id)));
         }
         ExprKind::Bool(_) => {
-            constrain(node_ty, Type::make_bool(Prov::Node(expr.id)));
+            constrain(node_ty, UnsolvedType::make_bool(Prov::Node(expr.id)));
         }
         ExprKind::Str(_) => {
-            constrain(node_ty, Type::make_string(Prov::Node(expr.id)));
+            constrain(node_ty, UnsolvedType::make_string(Prov::Node(expr.id)));
         }
         ExprKind::List(exprs) => {
-            let elem_ty = Type::fresh_unifvar(inf_ctx, Prov::ListElem(Prov::Node(expr.id).into()));
+            let elem_ty =
+                UnsolvedType::fresh_unifvar(inf_ctx, Prov::ListElem(Prov::Node(expr.id).into()));
             constrain(
                 node_ty,
-                Type::make_def_instance(
+                UnsolvedType::make_def_instance(
                     Prov::Node(expr.id),
                     "list".to_owned(),
                     vec![elem_ty.clone()],
@@ -1300,22 +1331,22 @@ pub(crate) fn generate_constraints_expr(
                 let mut params = vec![];
                 let mut substitution = BTreeMap::new();
                 for i in 0..nparams {
-                    params.push(Type::fresh_unifvar(
+                    params.push(UnsolvedType::fresh_unifvar(
                         inf_ctx,
                         Prov::InstantiateAdtParam(Box::new(Prov::Node(expr.id)), i as u8),
                     ));
                     substitution.insert(adt_def.params[i].clone(), params[i].clone());
                 }
-                let def_type = Type::make_def_instance(
+                let def_type = UnsolvedType::make_def_instance(
                     Prov::AdtDef(Box::new(Prov::Node(expr.id))),
                     adt_def.name,
                     params,
                 );
 
                 let the_variant = adt_def.variants.iter().find(|v| v.ctor == *id).unwrap();
-                if let Type::Unit(_) = the_variant.data {
+                if let UnsolvedType::Unit(_) = the_variant.data {
                     constrain(node_ty, def_type);
-                } else if let Type::Tuple(_, elems) = &the_variant.data {
+                } else if let UnsolvedType::Tuple(_, elems) = &the_variant.data {
                     let args = elems
                         .iter()
                         .map(|e| {
@@ -1329,12 +1360,12 @@ pub(crate) fn generate_constraints_expr(
                         .collect();
                     constrain(
                         node_ty,
-                        Type::make_arrow(args, def_type, Prov::Node(expr.id)),
+                        UnsolvedType::make_arrow(args, def_type, Prov::Node(expr.id)),
                     );
                 } else {
                     constrain(
                         node_ty,
-                        Type::make_arrow(
+                        UnsolvedType::make_arrow(
                             vec![the_variant.data.clone().subst(
                                 gamma,
                                 inf_ctx,
@@ -1373,7 +1404,7 @@ pub(crate) fn generate_constraints_expr(
         }
         ExprKind::Block(statements) => {
             if statements.is_empty() {
-                constrain(node_ty, Type::make_unit(Prov::Node(expr.id)));
+                constrain(node_ty, UnsolvedType::make_unit(Prov::Node(expr.id)));
                 return;
             }
             let new_gamma = Gamma::new(Some(gamma));
@@ -1402,14 +1433,14 @@ pub(crate) fn generate_constraints_expr(
                     inf_ctx,
                     true,
                 );
-                constrain(node_ty, Type::make_unit(Prov::Node(expr.id)))
+                constrain(node_ty, UnsolvedType::make_unit(Prov::Node(expr.id)))
             }
         }
         ExprKind::If(cond, expr1, expr2) => {
             generate_constraints_expr(
                 gamma.clone(),
                 Mode::Ana {
-                    expected: Type::make_bool(Prov::Node(cond.id)),
+                    expected: UnsolvedType::make_bool(Prov::Node(cond.id)),
                 },
                 cond.clone(),
                 inf_ctx,
@@ -1437,12 +1468,12 @@ pub(crate) fn generate_constraints_expr(
                     generate_constraints_expr(
                         gamma,
                         Mode::Ana {
-                            expected: Type::make_unit(Prov::Node(expr.id)),
+                            expected: UnsolvedType::make_unit(Prov::Node(expr.id)),
                         },
                         expr1.clone(),
                         inf_ctx,
                     );
-                    constrain(node_ty, Type::make_unit(Prov::Node(expr.id)))
+                    constrain(node_ty, UnsolvedType::make_unit(Prov::Node(expr.id)))
                 }
             }
         }
@@ -1450,16 +1481,16 @@ pub(crate) fn generate_constraints_expr(
             generate_constraints_expr(
                 gamma.clone(),
                 Mode::Ana {
-                    expected: Type::make_bool(Prov::Node(cond.id)),
+                    expected: UnsolvedType::make_bool(Prov::Node(cond.id)),
                 },
                 cond.clone(),
                 inf_ctx,
             );
             generate_constraints_expr(gamma, Mode::Syn, expr.clone(), inf_ctx);
-            constrain(node_ty, Type::make_unit(Prov::Node(expr.id)))
+            constrain(node_ty, UnsolvedType::make_unit(Prov::Node(expr.id)))
         }
         ExprKind::Match(scrut, arms) => {
-            let ty_scrutiny = Type::from_node(inf_ctx, scrut.id);
+            let ty_scrutiny = UnsolvedType::from_node(inf_ctx, scrut.id);
             generate_constraints_expr(
                 gamma.clone(),
                 Mode::Ana {
@@ -1504,11 +1535,11 @@ pub(crate) fn generate_constraints_expr(
         }
         ExprKind::FuncAp(func, args) => {
             // arguments
-            let tys_args: Vec<Type> = args
+            let tys_args: Vec<UnsolvedType> = args
                 .iter()
                 .enumerate()
                 .map(|(n, arg)| {
-                    let unknown = Type::fresh_unifvar(
+                    let unknown = UnsolvedType::fresh_unifvar(
                         inf_ctx,
                         Prov::FuncArg(Box::new(Prov::Node(func.id)), n as u8),
                     );
@@ -1526,11 +1557,11 @@ pub(crate) fn generate_constraints_expr(
 
             // body
             let ty_body =
-                Type::fresh_unifvar(inf_ctx, Prov::FuncOut(Box::new(Prov::Node(func.id))));
+                UnsolvedType::fresh_unifvar(inf_ctx, Prov::FuncOut(Box::new(Prov::Node(func.id))));
             constrain(ty_body.clone(), node_ty);
 
             // function type
-            let ty_func = Type::make_arrow(tys_args, ty_body, Prov::Node(expr.id));
+            let ty_func = UnsolvedType::make_arrow(tys_args, ty_body, Prov::Node(expr.id));
             generate_constraints_expr(
                 gamma,
                 Mode::Ana { expected: ty_func },
@@ -1541,9 +1572,9 @@ pub(crate) fn generate_constraints_expr(
         ExprKind::Tuple(exprs) => {
             let tys = exprs
                 .iter()
-                .map(|expr| Type::fresh_unifvar(inf_ctx, Prov::Node(expr.id)))
+                .map(|expr| UnsolvedType::fresh_unifvar(inf_ctx, Prov::Node(expr.id)))
                 .collect();
-            constrain(Type::make_tuple(tys, Prov::Node(expr.id)), node_ty);
+            constrain(UnsolvedType::make_tuple(tys, Prov::Node(expr.id)), node_ty);
             for expr in exprs {
                 generate_constraints_expr(gamma.clone(), Mode::Syn, expr.clone(), inf_ctx);
             }
@@ -1558,15 +1589,15 @@ fn generate_constraints_func_helper(
     args: &Vec<ast::ArgAnnotated>,
     out_annot: &Option<Rc<ast::AstType>>,
     body: &Rc<Expr>,
-) -> Type {
+) -> UnsolvedType {
     // arguments
     let ty_args = args
         .iter()
         .map(|(arg, arg_annot)| {
-            let ty_pat = Type::from_node(inf_ctx, arg.id);
+            let ty_pat = UnsolvedType::from_node(inf_ctx, arg.id);
             match arg_annot {
                 Some(arg_annot) => {
-                    let ty_annot = Type::from_node(inf_ctx, arg_annot.id());
+                    let ty_annot = UnsolvedType::from_node(inf_ctx, arg_annot.id());
                     let arg_annot = ast_type_to_statics_type(inf_ctx, arg_annot.clone());
                     constrain(ty_annot.clone(), arg_annot.clone());
                     gamma.borrow_mut().add_polys(&arg_annot);
@@ -1584,7 +1615,8 @@ fn generate_constraints_func_helper(
         .collect();
 
     // body
-    let ty_body = Type::fresh_unifvar(inf_ctx, Prov::FuncOut(Box::new(Prov::Node(node_id))));
+    let ty_body =
+        UnsolvedType::fresh_unifvar(inf_ctx, Prov::FuncOut(Box::new(Prov::Node(node_id))));
     generate_constraints_expr(
         gamma.clone(),
         Mode::Ana {
@@ -1606,7 +1638,7 @@ fn generate_constraints_func_helper(
         );
     }
 
-    Type::make_arrow(ty_args, ty_body, Prov::Node(node_id))
+    UnsolvedType::make_arrow(ty_args, ty_body, Prov::Node(node_id))
 }
 
 pub(crate) fn generate_constraints_stmt(
@@ -1640,7 +1672,7 @@ pub(crate) fn generate_constraints_stmt(
                             &substitution,
                         );
 
-                        constrain(expected, Type::from_node(inf_ctx, pat.id));
+                        constrain(expected, UnsolvedType::from_node(inf_ctx, pat.id));
 
                         generate_constraints_stmt(
                             gamma.clone(),
@@ -1659,7 +1691,7 @@ pub(crate) fn generate_constraints_stmt(
         }
         StmtKind::TypeDef(typdefkind) => match &**typdefkind {
             TypeDefKind::Alias(ident, ty) => {
-                let left = Type::fresh_unifvar(inf_ctx, Prov::Alias(ident.clone()));
+                let left = UnsolvedType::fresh_unifvar(inf_ctx, Prov::Alias(ident.clone()));
                 let right = ast_type_to_statics_type(inf_ctx, ty.clone());
                 constrain(left, right);
             }
@@ -1669,7 +1701,7 @@ pub(crate) fn generate_constraints_stmt(
             generate_constraints_expr(gamma, mode, expr.clone(), inf_ctx);
         }
         StmtKind::Let(_mutable, (pat, ty_ann), expr) => {
-            let ty_pat = Type::from_node(inf_ctx, pat.id);
+            let ty_pat = UnsolvedType::from_node(inf_ctx, pat.id);
 
             generate_constraints_expr(
                 gamma.clone(),
@@ -1692,7 +1724,7 @@ pub(crate) fn generate_constraints_stmt(
             };
         }
         StmtKind::Set(pat, expr) => {
-            let ty_pat: Type = Type::from_node(inf_ctx, pat.id);
+            let ty_pat: UnsolvedType = UnsolvedType::from_node(inf_ctx, pat.id);
             generate_constraints_expr(
                 gamma.clone(),
                 Mode::Ana {
@@ -1702,13 +1734,13 @@ pub(crate) fn generate_constraints_stmt(
                 inf_ctx,
             );
 
-            let ty_expr = Type::from_node(inf_ctx, expr.id);
+            let ty_expr = UnsolvedType::from_node(inf_ctx, expr.id);
 
             constrain(ty_pat, ty_expr);
         }
         StmtKind::FuncDef(name, args, out_annot, body) => {
             let func_node_id = stmt.id;
-            let ty_pat = Type::from_node(inf_ctx, name.id);
+            let ty_pat = UnsolvedType::from_node(inf_ctx, name.id);
             if add_to_gamma {
                 gamma
                     .borrow_mut()
@@ -1735,7 +1767,7 @@ pub(crate) fn generate_constraints_pat(
     pat: Rc<Pat>,
     inf_ctx: &mut InferenceContext,
 ) {
-    let ty_pat = Type::from_node(inf_ctx, pat.id);
+    let ty_pat = UnsolvedType::from_node(inf_ctx, pat.id);
     match mode {
         Mode::Syn => (),
         Mode::Ana { expected } => constrain(expected, ty_pat.clone()),
@@ -1743,19 +1775,19 @@ pub(crate) fn generate_constraints_pat(
     match &*pat.patkind {
         PatKind::Wildcard => (),
         PatKind::Unit => {
-            constrain(ty_pat, Type::make_unit(Prov::Node(pat.id)));
+            constrain(ty_pat, UnsolvedType::make_unit(Prov::Node(pat.id)));
         }
         PatKind::Int(_) => {
-            constrain(ty_pat, Type::make_int(Prov::Node(pat.id)));
+            constrain(ty_pat, UnsolvedType::make_int(Prov::Node(pat.id)));
         }
         PatKind::Float(_) => {
-            constrain(ty_pat, Type::make_float(Prov::Node(pat.id)));
+            constrain(ty_pat, UnsolvedType::make_float(Prov::Node(pat.id)));
         }
         PatKind::Bool(_) => {
-            constrain(ty_pat, Type::make_bool(Prov::Node(pat.id)));
+            constrain(ty_pat, UnsolvedType::make_bool(Prov::Node(pat.id)));
         }
         PatKind::Str(_) => {
-            constrain(ty_pat, Type::make_string(Prov::Node(pat.id)));
+            constrain(ty_pat, UnsolvedType::make_string(Prov::Node(pat.id)));
         }
         PatKind::Var(identifier) => {
             // letrec: extend context with id and type before analyzing against said type
@@ -1763,8 +1795,8 @@ pub(crate) fn generate_constraints_pat(
         }
         PatKind::Variant(tag, data) => {
             let ty_data = match data {
-                Some(data) => Type::from_node(inf_ctx, data.id),
-                None => Type::make_unit(Prov::VariantNoData(Box::new(Prov::Node(pat.id)))),
+                Some(data) => UnsolvedType::from_node(inf_ctx, data.id),
+                None => UnsolvedType::make_unit(Prov::VariantNoData(Box::new(Prov::Node(pat.id)))),
             };
             let mut substitution = BTreeMap::new();
             let ty_adt_instance = {
@@ -1774,13 +1806,13 @@ pub(crate) fn generate_constraints_pat(
                     let nparams = adt_def.params.len();
                     let mut params = vec![];
                     for i in 0..nparams {
-                        params.push(Type::fresh_unifvar(
+                        params.push(UnsolvedType::fresh_unifvar(
                             inf_ctx,
                             Prov::InstantiateAdtParam(Box::new(Prov::Node(pat.id)), i as u8),
                         ));
                         substitution.insert(adt_def.params[i].clone(), params[i].clone());
                     }
-                    let def_type = Type::make_def_instance(
+                    let def_type = UnsolvedType::make_def_instance(
                         Prov::AdtDef(Box::new(Prov::Node(pat.id))),
                         adt_def.name,
                         params,
@@ -1814,9 +1846,12 @@ pub(crate) fn generate_constraints_pat(
         PatKind::Tuple(pats) => {
             let tys_elements = pats
                 .iter()
-                .map(|pat| Type::fresh_unifvar(inf_ctx, Prov::Node(pat.id)))
+                .map(|pat| UnsolvedType::fresh_unifvar(inf_ctx, Prov::Node(pat.id)))
                 .collect();
-            constrain(Type::make_tuple(tys_elements, Prov::Node(pat.id)), ty_pat);
+            constrain(
+                UnsolvedType::make_tuple(tys_elements, Prov::Node(pat.id)),
+                ty_pat,
+            );
             for pat in pats {
                 generate_constraints_pat(gamma.clone(), Mode::Syn, pat.clone(), inf_ctx)
             }
@@ -1844,7 +1879,7 @@ pub(crate) fn gather_definitions_stmt(
             for p in properties {
                 let ty_annot =
                     ast_type_to_statics_type_interface(inf_ctx, p.ty.clone(), Some(ident));
-                let node_ty = Type::from_node(inf_ctx, p.id());
+                let node_ty = UnsolvedType::from_node(inf_ctx, p.id());
                 constrain(node_ty.clone(), ty_annot.clone());
                 methods.push(InterfaceDefMethod {
                     name: p.ident.clone(),
@@ -1908,7 +1943,7 @@ pub(crate) fn gather_definitions_stmt(
                         if let Some(data) = &v.data {
                             ast_type_to_statics_type(inf_ctx, data.clone())
                         } else {
-                            Type::make_unit(Prov::VariantNoData(Box::new(Prov::Node(v.id))))
+                            UnsolvedType::make_unit(Prov::VariantNoData(Box::new(Prov::Node(v.id))))
                         }
                     };
                     defvariants.push(Variant {
@@ -1945,26 +1980,26 @@ pub(crate) fn gather_definitions_stmt(
                 .insert(name.patkind.get_identifier_of_variable(), stmt.clone());
             gamma.borrow_mut().extend(
                 &name.patkind.get_identifier_of_variable(),
-                Type::from_node(inf_ctx, name.id),
+                UnsolvedType::from_node(inf_ctx, name.id),
             );
         }
         StmtKind::Set(..) => {}
     }
 }
 
-fn monomorphized_ty_to_builtin_ty(ty: TypeMonomorphized, prov_builtin: Prov) -> Type {
+fn monomorphized_ty_to_builtin_ty(ty: TypeMonomorphized, prov_builtin: Prov) -> UnsolvedType {
     match ty {
-        TypeMonomorphized::Unit => Type::make_unit(prov_builtin),
-        TypeMonomorphized::Int => Type::make_int(prov_builtin),
-        TypeMonomorphized::Float => Type::make_float(prov_builtin),
-        TypeMonomorphized::Bool => Type::make_bool(prov_builtin),
-        TypeMonomorphized::String => Type::make_string(prov_builtin),
+        TypeMonomorphized::Unit => UnsolvedType::make_unit(prov_builtin),
+        TypeMonomorphized::Int => UnsolvedType::make_int(prov_builtin),
+        TypeMonomorphized::Float => UnsolvedType::make_float(prov_builtin),
+        TypeMonomorphized::Bool => UnsolvedType::make_bool(prov_builtin),
+        TypeMonomorphized::String => UnsolvedType::make_string(prov_builtin),
         TypeMonomorphized::Tuple(elements) => {
             let elements = elements
                 .into_iter()
                 .map(|e| monomorphized_ty_to_builtin_ty(e, prov_builtin.clone()))
                 .collect();
-            Type::make_tuple(elements, prov_builtin)
+            UnsolvedType::make_tuple(elements, prov_builtin)
         }
         TypeMonomorphized::Function(args, out) => {
             let args = args
@@ -1972,14 +2007,14 @@ fn monomorphized_ty_to_builtin_ty(ty: TypeMonomorphized, prov_builtin: Prov) -> 
                 .map(|a| monomorphized_ty_to_builtin_ty(a, prov_builtin.clone()))
                 .collect();
             let out = monomorphized_ty_to_builtin_ty(*out, prov_builtin.clone());
-            Type::make_arrow(args, out, prov_builtin.clone())
+            UnsolvedType::make_arrow(args, out, prov_builtin.clone())
         }
         TypeMonomorphized::Adt(name, params) => {
             let params = params
                 .into_iter()
                 .map(|p| monomorphized_ty_to_builtin_ty(p, prov_builtin.clone()))
                 .collect();
-            Type::make_def_instance(prov_builtin, name, params)
+            UnsolvedType::make_def_instance(prov_builtin, name, params)
         }
     }
 }
@@ -2001,7 +2036,7 @@ pub(crate) fn gather_definitions_toplevel<Effect: crate::side_effects::EffectTra
         for arg in eff.type_signature().0 {
             args.push(monomorphized_ty_to_builtin_ty(arg, prov.clone()));
         }
-        let typ = Type::Function(
+        let typ = UnsolvedType::Function(
             provs,
             args,
             monomorphized_ty_to_builtin_ty(eff.type_signature().1, prov).into(),
@@ -2048,7 +2083,7 @@ pub(crate) fn result_of_constraint_solving(
             if suggestions.is_empty() {
                 suggestions.insert(
                     TypeKey::Unit,
-                    Type::make_unit(Prov::UnderdeterminedCoerceToUnit),
+                    UnsolvedType::make_unit(Prov::UnderdeterminedCoerceToUnit),
                 );
                 potential_types.replace_data(data);
             }
@@ -2059,7 +2094,7 @@ pub(crate) fn result_of_constraint_solving(
     for (ident, impls) in inf_ctx.interface_impls.iter() {
         // map from implementation type to location
         // TODO: key is mutable. Can TypeKey or TypeMonomorphic be used instead? If not, create a TypeImmutable datatype
-        let mut impls_by_type: BTreeMap<Type, Vec<ast::Id>> = BTreeMap::new();
+        let mut impls_by_type: BTreeMap<UnsolvedType, Vec<ast::Id>> = BTreeMap::new();
         for imp in impls.iter() {
             if let Some(impl_typ) = imp.typ.clone().solution() {
                 impls_by_type
@@ -2089,7 +2124,7 @@ pub(crate) fn result_of_constraint_solving(
         for interface in interfaces {
             let mut bad_instantiation: bool = true;
             let (interface, prov) = interface;
-            if let Type::Poly(_, _, interfaces2) = &typ {
+            if let UnsolvedType::Poly(_, _, interfaces2) = &typ {
                 // if 'a Interface1 is constrained to [Interfaces...], ignore
                 if interfaces2.contains(interface) {
                     bad_instantiation = false;
@@ -2132,7 +2167,7 @@ pub(crate) fn result_of_constraint_solving(
         && !bad_instantiations
     {
         for (node_id, node) in node_map.iter() {
-            let ty = Type::solution_of_node(inf_ctx, *node_id);
+            let ty = UnsolvedType::solution_of_node(inf_ctx, *node_id);
             let _span = node.span();
             if let Some(_ty) = ty {}
         }
@@ -2217,9 +2252,11 @@ pub(crate) fn result_of_constraint_solving(
             for ty in type_conflict {
                 err_string.push('\n');
                 match &ty {
-                    Type::UnifVar(_) => err_string.push_str("Sources of unknown:\n"), // idk about this
-                    Type::Poly(_, _, _) => err_string.push_str("Sources of generic type:\n"),
-                    Type::AdtInstance(_, ident, params) => {
+                    UnsolvedType::UnifVar(_) => err_string.push_str("Sources of unknown:\n"), // idk about this
+                    UnsolvedType::Poly(_, _, _) => {
+                        err_string.push_str("Sources of generic type:\n")
+                    }
+                    UnsolvedType::AdtInstance(_, ident, params) => {
                         let _ = write!(err_string, "Sources of type {}<", ident);
                         for (i, param) in params.iter().enumerate() {
                             if i != 0 {
@@ -2229,19 +2266,19 @@ pub(crate) fn result_of_constraint_solving(
                         }
                         err_string.push_str(">\n");
                     }
-                    Type::Unit(_) => err_string.push_str("Sources of void:\n"),
-                    Type::Int(_) => err_string.push_str("Sources of int:\n"),
-                    Type::Float(_) => err_string.push_str("Sources of float:\n"),
-                    Type::Bool(_) => err_string.push_str("Sources of bool:\n"),
-                    Type::String(_) => err_string.push_str("Sources of string:\n"),
-                    Type::Function(_, args, _) => {
+                    UnsolvedType::Unit(_) => err_string.push_str("Sources of void:\n"),
+                    UnsolvedType::Int(_) => err_string.push_str("Sources of int:\n"),
+                    UnsolvedType::Float(_) => err_string.push_str("Sources of float:\n"),
+                    UnsolvedType::Bool(_) => err_string.push_str("Sources of bool:\n"),
+                    UnsolvedType::String(_) => err_string.push_str("Sources of string:\n"),
+                    UnsolvedType::Function(_, args, _) => {
                         let _ = writeln!(
                             err_string,
                             "Sources of function with {} arguments",
                             args.len()
                         );
                     }
-                    Type::Tuple(_, elems) => {
+                    UnsolvedType::Tuple(_, elems) => {
                         let _ =
                             writeln!(err_string, "Sources of tuple with {} elements", elems.len());
                     }
@@ -2492,16 +2529,16 @@ fn check_pattern_exhaustiveness_expr(inf_ctx: &mut InferenceContext, expr: &ast:
 
 pub(crate) fn ty_fits_impl_ty(
     ctx: &InferenceContext,
-    typ: Type,
-    impl_ty: Type,
-) -> Result<(), (Type, Type)> {
+    typ: UnsolvedType,
+    impl_ty: UnsolvedType,
+) -> Result<(), (UnsolvedType, UnsolvedType)> {
     match (&typ, &impl_ty) {
-        (Type::Int(..), Type::Int(..))
-        | (Type::Bool(..), Type::Bool(..))
-        | (Type::Float(..), Type::Float(..))
-        | (Type::String(..), Type::String(..))
-        | (Type::Unit(..), Type::Unit(..)) => Ok(()),
-        (Type::Tuple(_, tys1), Type::Tuple(_, tys2)) => {
+        (UnsolvedType::Int(..), UnsolvedType::Int(..))
+        | (UnsolvedType::Bool(..), UnsolvedType::Bool(..))
+        | (UnsolvedType::Float(..), UnsolvedType::Float(..))
+        | (UnsolvedType::String(..), UnsolvedType::String(..))
+        | (UnsolvedType::Unit(..), UnsolvedType::Unit(..)) => Ok(()),
+        (UnsolvedType::Tuple(_, tys1), UnsolvedType::Tuple(_, tys2)) => {
             if tys1.len() == tys2.len() {
                 for (ty1, ty2) in tys1.iter().zip(tys2.iter()) {
                     ty_fits_impl_ty(ctx, ty1.clone(), ty2.clone())?;
@@ -2511,7 +2548,7 @@ pub(crate) fn ty_fits_impl_ty(
                 Err((typ, impl_ty))
             }
         }
-        (Type::Function(_, args1, out1), Type::Function(_, args2, out2)) => {
+        (UnsolvedType::Function(_, args1, out1), UnsolvedType::Function(_, args2, out2)) => {
             if args1.len() == args2.len() {
                 for (ty1, ty2) in args1.iter().zip(args2.iter()) {
                     ty_fits_impl_ty(ctx, ty1.clone(), ty2.clone())?;
@@ -2521,10 +2558,13 @@ pub(crate) fn ty_fits_impl_ty(
                 Err((typ, impl_ty))
             }
         }
-        (Type::AdtInstance(_, ident1, tys1), Type::AdtInstance(_, ident2, tys2)) => {
+        (
+            UnsolvedType::AdtInstance(_, ident1, tys1),
+            UnsolvedType::AdtInstance(_, ident2, tys2),
+        ) => {
             if ident1 == ident2 && tys1.len() == tys2.len() {
                 for (ty1, ty2) in tys1.iter().zip(tys2.iter()) {
-                    let Type::Poly(_, _, interfaces) = ty2.clone() else {
+                    let UnsolvedType::Poly(_, _, interfaces) = ty2.clone() else {
                         panic!()
                     };
                     if !ty_fits_impl_ty_poly(
@@ -2540,7 +2580,7 @@ pub(crate) fn ty_fits_impl_ty(
                 Err((typ, impl_ty))
             }
         }
-        (_, Type::Poly(_, _, interfaces)) => {
+        (_, UnsolvedType::Poly(_, _, interfaces)) => {
             if !ty_fits_impl_ty_poly(
                 ctx,
                 typ.clone(),
@@ -2556,11 +2596,11 @@ pub(crate) fn ty_fits_impl_ty(
 
 fn ty_fits_impl_ty_poly(
     inf_ctx: &InferenceContext,
-    typ: Type,
+    typ: UnsolvedType,
     interfaces: BTreeSet<Identifier>,
 ) -> bool {
     for interface in interfaces {
-        if let Type::Poly(_, _, interfaces2) = &typ {
+        if let UnsolvedType::Poly(_, _, interfaces2) = &typ {
             // if 'a Interface1 is constrained to [Interfaces...], ignore
             if interfaces2.contains(&interface) {
                 return true;
@@ -2585,11 +2625,11 @@ fn ty_fits_impl_ty_poly(
 #[derive(Debug, Clone)]
 struct Matrix {
     rows: Vec<MatrixRow>,
-    types: Vec<Type>,
+    types: Vec<UnsolvedType>,
 }
 
 impl Matrix {
-    fn new(inf_ctx: &InferenceContext, scrutinee_ty: Type, arms: &[ast::MatchArm]) -> Self {
+    fn new(inf_ctx: &InferenceContext, scrutinee_ty: UnsolvedType, arms: &[ast::MatchArm]) -> Self {
         let types = vec![scrutinee_ty.clone()];
         let mut rows = Vec::new();
         for (dummy, arm) in arms.iter().enumerate() {
@@ -2624,24 +2664,24 @@ impl Matrix {
             | Constructor::Bool(..)
             | Constructor::Wildcard(..) => {}
             Constructor::Product => match &self.types[0] {
-                Type::Tuple(_, tys) => {
+                UnsolvedType::Tuple(_, tys) => {
                     new_types.extend(tys.clone());
                 }
-                Type::Unit(..) => {}
+                UnsolvedType::Unit(..) => {}
                 _ => panic!("expected type for product constructor"),
             },
             Constructor::Variant(ident) => {
                 let adt = inf_ctx.adt_def_of_variant(ident).unwrap();
                 let variant = adt.variants.iter().find(|v| v.ctor == *ident).unwrap();
                 match &variant.data {
-                    Type::Unit(..) => {}
-                    Type::Bool(..)
-                    | Type::Int(..)
-                    | Type::String(..)
-                    | Type::Float(..)
-                    | Type::Function(..)
-                    | Type::Tuple(_, _)
-                    | Type::AdtInstance(..) => new_types.push(variant.data.clone()),
+                    UnsolvedType::Unit(..) => {}
+                    UnsolvedType::Bool(..)
+                    | UnsolvedType::Int(..)
+                    | UnsolvedType::String(..)
+                    | UnsolvedType::Float(..)
+                    | UnsolvedType::Function(..)
+                    | UnsolvedType::Tuple(_, _)
+                    | UnsolvedType::AdtInstance(..) => new_types.push(variant.data.clone()),
                     _ => panic!("unexpected type"),
                 }
             }
@@ -2735,12 +2775,12 @@ impl MatrixRow {
 pub(crate) struct DeconstructedPat {
     ctor: Constructor,
     fields: Vec<DeconstructedPat>,
-    ty: Type,
+    ty: UnsolvedType,
 }
 
 impl DeconstructedPat {
     fn from_ast_pat(inf_ctx: &InferenceContext, pat: Rc<ast::Pat>) -> Self {
-        let ty = Type::solution_of_node(inf_ctx, pat.id).unwrap();
+        let ty = UnsolvedType::solution_of_node(inf_ctx, pat.id).unwrap();
         let mut fields = vec![];
         let ctor = match &*pat.patkind {
             PatKind::Wildcard => Constructor::Wildcard(WildcardReason::UserCreated),
@@ -2789,21 +2829,21 @@ impl DeconstructedPat {
         }
     }
 
-    fn field_tys(&self, ctor: &Constructor, inf_ctx: &InferenceContext) -> Vec<Type> {
+    fn field_tys(&self, ctor: &Constructor, inf_ctx: &InferenceContext) -> Vec<UnsolvedType> {
         match &self.ty {
-            Type::Int(..)
-            | Type::Float(..)
-            | Type::String(..)
-            | Type::Bool(..)
-            | Type::Unit(..)
-            | Type::Poly(..)
-            | Type::Function(..) => vec![],
-            Type::Tuple(_, tys) => tys.clone(),
-            Type::AdtInstance(_, _, _) => match ctor {
+            UnsolvedType::Int(..)
+            | UnsolvedType::Float(..)
+            | UnsolvedType::String(..)
+            | UnsolvedType::Bool(..)
+            | UnsolvedType::Unit(..)
+            | UnsolvedType::Poly(..)
+            | UnsolvedType::Function(..) => vec![],
+            UnsolvedType::Tuple(_, tys) => tys.clone(),
+            UnsolvedType::AdtInstance(_, _, _) => match ctor {
                 Constructor::Variant(ident) => {
                     let adt = inf_ctx.adt_def_of_variant(ident).unwrap();
                     let variant = adt.variants.iter().find(|v| v.ctor == *ident).unwrap();
-                    if !matches!(&variant.data, Type::Unit(..)) {
+                    if !matches!(&variant.data, UnsolvedType::Unit(..)) {
                         vec![variant.data.clone()]
                     } else {
                         vec![]
@@ -2814,13 +2854,13 @@ impl DeconstructedPat {
                 }
                 _ => panic!("unexpected constructor"),
             },
-            Type::UnifVar(..) => panic!("unexpected type"),
+            UnsolvedType::UnifVar(..) => panic!("unexpected type"),
         }
     }
 
-    fn missing_from_ctor(ctor: &Constructor, ty: Type) -> Self {
+    fn missing_from_ctor(ctor: &Constructor, ty: UnsolvedType) -> Self {
         let fields = match ty.clone() {
-            Type::Tuple(_, tys) | Type::AdtInstance(_, _, tys) => tys
+            UnsolvedType::Tuple(_, tys) | UnsolvedType::AdtInstance(_, _, tys) => tys
                 .iter()
                 .map(|ty| DeconstructedPat {
                     ctor: Constructor::Wildcard(WildcardReason::NonExhaustive),
@@ -2914,7 +2954,7 @@ impl Constructor {
         }
     }
 
-    fn arity(&self, matrix_tys: &[Type], inf_ctx: &InferenceContext) -> usize {
+    fn arity(&self, matrix_tys: &[UnsolvedType], inf_ctx: &InferenceContext) -> usize {
         match self {
             Constructor::Bool(..)
             | Constructor::Int(..)
@@ -2922,14 +2962,14 @@ impl Constructor {
             | Constructor::Float(..)
             | Constructor::Wildcard(..) => 0,
             Constructor::Product => match &matrix_tys[0] {
-                Type::Tuple(_, tys) => tys.len(),
-                Type::Unit(..) => 0,
+                UnsolvedType::Tuple(_, tys) => tys.len(),
+                UnsolvedType::Unit(..) => 0,
                 _ => panic!("unexpected type for product constructor: {}", matrix_tys[0]),
             },
             Constructor::Variant(ident) => {
                 let adt = inf_ctx.adt_def_of_variant(ident).unwrap();
                 let variant = adt.variants.iter().find(|v| v.ctor == *ident).unwrap();
-                if !matches!(&variant.data, Type::Unit(..)) {
+                if !matches!(&variant.data, UnsolvedType::Unit(..)) {
                     1
                 } else {
                     0
@@ -2975,7 +3015,7 @@ impl WitnessMatrix {
         }
     }
 
-    fn apply_constructor(&mut self, ctor: &Constructor, arity: usize, head_ty: &Type) {
+    fn apply_constructor(&mut self, ctor: &Constructor, arity: usize, head_ty: &UnsolvedType) {
         for witness in self.rows.iter_mut() {
             let len = witness.len();
             let fields: Vec<DeconstructedPat> = witness.drain((len - arity)..).rev().collect();
@@ -2989,7 +3029,11 @@ impl WitnessMatrix {
         }
     }
 
-    fn apply_missing_constructors(&mut self, missing_ctors: &[Constructor], head_ty: &Type) {
+    fn apply_missing_constructors(
+        &mut self,
+        missing_ctors: &[Constructor],
+        head_ty: &UnsolvedType,
+    ) {
         if missing_ctors.is_empty() {
             return;
         }
@@ -3119,7 +3163,7 @@ fn match_expr_exhaustive_check(inf_ctx: &mut InferenceContext, expr: &ast::Expr)
         panic!()
     };
 
-    let scrutinee_ty = Type::solution_of_node(inf_ctx, scrutiny.id);
+    let scrutinee_ty = UnsolvedType::solution_of_node(inf_ctx, scrutiny.id);
     let Some(scrutinee_ty) = scrutinee_ty else {
         return;
     };
@@ -3222,27 +3266,28 @@ fn compute_exhaustiveness_and_usefulness(
     ret_witnesses
 }
 
-fn ctors_for_ty(inf_ctx: &InferenceContext, ty: &Type) -> ConstructorSet {
+fn ctors_for_ty(inf_ctx: &InferenceContext, ty: &UnsolvedType) -> ConstructorSet {
     match ty.solution().unwrap() {
-        Type::Bool(_) => ConstructorSet::Bool,
-        Type::AdtInstance(_, ident, _) => {
+        UnsolvedType::Bool(_) => ConstructorSet::Bool,
+        UnsolvedType::AdtInstance(_, ident, _) => {
             let variants = inf_ctx.variants_of_adt(&ident);
             ConstructorSet::AdtVariants(variants)
         }
-        Type::Tuple(..) => ConstructorSet::Product,
-        Type::Unit(_) => ConstructorSet::Product,
-        Type::Int(_) | Type::Float(_) | Type::String(_) | Type::Function(..) => {
-            ConstructorSet::Unlistable
-        }
-        Type::Poly(..) => ConstructorSet::Unlistable,
-        Type::UnifVar(..) => panic!("Unexpected type in ctors_for_ty {:#?}", ty),
+        UnsolvedType::Tuple(..) => ConstructorSet::Product,
+        UnsolvedType::Unit(_) => ConstructorSet::Product,
+        UnsolvedType::Int(_)
+        | UnsolvedType::Float(_)
+        | UnsolvedType::String(_)
+        | UnsolvedType::Function(..) => ConstructorSet::Unlistable,
+        UnsolvedType::Poly(..) => ConstructorSet::Unlistable,
+        UnsolvedType::UnifVar(..) => panic!("Unexpected type in ctors_for_ty {:#?}", ty),
     }
 }
 
-impl fmt::Display for Type {
+impl fmt::Display for UnsolvedType {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Type::Poly(_, ident, interfaces) => {
+            UnsolvedType::Poly(_, ident, interfaces) => {
                 write!(f, "'{}", ident)?;
                 if !interfaces.is_empty() {
                     write!(f, " ")?;
@@ -3255,7 +3300,7 @@ impl fmt::Display for Type {
                 }
                 Ok(())
             }
-            Type::AdtInstance(_, ident, params) => {
+            UnsolvedType::AdtInstance(_, ident, params) => {
                 if !params.is_empty() {
                     write!(f, "{}<", ident)?;
                     for (i, param) in params.iter().enumerate() {
@@ -3269,7 +3314,7 @@ impl fmt::Display for Type {
                     write!(f, "{}", ident)
                 }
             }
-            Type::UnifVar(unifvar) => {
+            UnsolvedType::UnifVar(unifvar) => {
                 let types = unifvar.clone_data().types;
                 match types.len() {
                     0 => write!(f, "?"),
@@ -3286,12 +3331,12 @@ impl fmt::Display for Type {
                     }
                 }
             }
-            Type::Unit(_) => write!(f, "void"),
-            Type::Int(_) => write!(f, "int"),
-            Type::Float(_) => write!(f, "float"),
-            Type::Bool(_) => write!(f, "bool"),
-            Type::String(_) => write!(f, "string"),
-            Type::Function(_, args, out) => {
+            UnsolvedType::Unit(_) => write!(f, "void"),
+            UnsolvedType::Int(_) => write!(f, "int"),
+            UnsolvedType::Float(_) => write!(f, "float"),
+            UnsolvedType::Bool(_) => write!(f, "bool"),
+            UnsolvedType::String(_) => write!(f, "string"),
+            UnsolvedType::Function(_, args, out) => {
                 write!(f, "fn(")?;
                 for (i, arg) in args.iter().enumerate() {
                     if i > 0 {
@@ -3302,7 +3347,7 @@ impl fmt::Display for Type {
                 write!(f, ") -> ")?;
                 write!(f, "{out}")
             }
-            Type::Tuple(_, elems) => {
+            UnsolvedType::Tuple(_, elems) => {
                 write!(f, "(")?;
                 for (i, elem) in elems.iter().enumerate() {
                     if i > 0 {
@@ -3322,7 +3367,7 @@ impl fmt::Display for Variant {
     }
 }
 
-fn fmt_conflicting_types(types: &[&Type], f: &mut dyn Write) -> fmt::Result {
+fn fmt_conflicting_types(types: &[&UnsolvedType], f: &mut dyn Write) -> fmt::Result {
     writeln!(f)?;
     for (i, t) in types.iter().enumerate() {
         if types.len() == 1 {
