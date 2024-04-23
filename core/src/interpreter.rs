@@ -12,7 +12,8 @@ use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
 
-pub fn add_builtins_and_variants<Effects: EffectTrait>(
+// TODO why do we have to manually call this?
+pub(crate) fn add_builtins_and_variants<Effects: EffectTrait>(
     env: Rc<RefCell<Environment>>,
     inf_ctx: &InferenceContext,
 ) -> Rc<RefCell<Environment>> {
@@ -353,7 +354,7 @@ pub fn add_builtins_and_variants<Effects: EffectTrait>(
     env
 }
 
-pub type OverloadedFuncMap = HashMap<(Identifier, TypeMonomorphized), Rc<Expr>>;
+pub(crate) type OverloadedFuncMap = HashMap<(Identifier, TypeMonomorphized), Rc<Expr>>;
 
 pub struct Interpreter {
     program_expr: Rc<Expr>,
@@ -370,7 +371,7 @@ pub enum InterpreterStatus {
 }
 
 impl Interpreter {
-    pub fn new(
+    pub(crate) fn new(
         overloaded_func_map: OverloadedFuncMap,
         program_expr: Rc<Expr>,
         env: Rc<RefCell<Environment>>,
@@ -426,17 +427,17 @@ impl Interpreter {
 }
 
 #[derive(Debug)]
-pub struct InterpretOk {
-    pub expr: Rc<Expr>,
-    pub steps: i32,
-    pub effect: Option<(EffectCode, Vec<Rc<Expr>>)>,
-    pub new_env: Rc<RefCell<Environment>>,
+struct InterpretOk {
+    expr: Rc<Expr>,
+    steps: i32,
+    effect: Option<(EffectCode, Vec<Rc<Expr>>)>,
+    new_env: Rc<RefCell<Environment>>,
 }
 
 #[derive(Debug)]
-pub struct InterpretErr {
+struct InterpretErr {
     // TODO: add location (line and column) of error
-    pub message: String,
+    message: String,
 }
 
 fn interpret(

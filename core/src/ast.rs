@@ -17,7 +17,6 @@ pub(crate) type Identifier = String;
 pub(crate) type ArgAnnotated = (Rc<Pat>, Option<Rc<AstType>>);
 
 pub(crate) struct Sources {
-    pub(crate) files: Vec<String>, // order matters
     pub(crate) filename_to_source: HashMap<String, String>,
 }
 

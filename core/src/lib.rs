@@ -44,10 +44,7 @@ pub fn compile<Effect: EffectTrait>(source_files: Vec<SourceFile>) -> Result<Run
         filenames.push(source_file.name.clone());
         filename_to_source.insert(source_file.name.clone(), source_file.contents.clone());
     }
-    let sources = ast::Sources {
-        filename_to_source,
-        files: filenames,
-    };
+    let sources = ast::Sources { filename_to_source };
 
     let toplevels = ast::parse_or_err(&source_files)?;
 

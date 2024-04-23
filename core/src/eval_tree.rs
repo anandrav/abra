@@ -7,7 +7,7 @@ use crate::EffectCode;
 use std::cell::RefCell;
 use std::rc::Rc;
 
-pub type Identifier = String;
+pub(crate) type Identifier = String;
 
 #[derive(Debug, PartialEq)]
 pub enum Expr {
@@ -54,7 +54,7 @@ impl Expr {
     }
     pub fn get_tuple(&self) -> Vec<Rc<Expr>> {
         match self {
-            Expr::Tuple(t) => t.clone(),
+            Expr::Tuple(elems) => elems.clone(),
             _ => panic!("not a tuple"),
         }
     }
@@ -83,7 +83,7 @@ impl From<&str> for Expr {
 
 impl Eq for Expr {}
 
-pub type MatchArm = (Rc<Pat>, Rc<Expr>);
+pub(crate) type MatchArm = (Rc<Pat>, Rc<Expr>);
 
 #[derive(Debug, PartialEq, Eq, Copy, Clone)]
 pub enum Builtin {
@@ -153,7 +153,7 @@ pub enum Pat {
 
 impl Eq for Pat {}
 
-pub fn is_val(expr: &Rc<Expr>) -> bool {
+pub(crate) fn is_val(expr: &Rc<Expr>) -> bool {
     use self::Expr::*;
     match expr.as_ref() {
         Var(_) => false,

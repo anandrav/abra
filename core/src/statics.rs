@@ -29,7 +29,7 @@ pub(crate) enum Type {
 
 // This is the fully instantiated AKA monomorphized type of an interface's implementation
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub(crate) enum TypeMonomorphized {
+pub enum TypeMonomorphized {
     Unit,
     Int,
     Float,
@@ -521,10 +521,6 @@ impl Type {
             Self::AdtInstance(_, _, tys) => !tys.iter().all(|ty| matches!(ty, Self::Poly(..))),
             _ => false,
         }
-    }
-
-    pub(crate) fn is_unit(&self) -> bool {
-        matches!(self, Self::Unit(_))
     }
 }
 
