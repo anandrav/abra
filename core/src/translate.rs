@@ -23,20 +23,20 @@ type ASTpk = ast::PatKind;
 type Etp = eval_tree::Pat;
 
 #[derive(PartialEq, Eq, Debug)]
-pub struct MonomorphEnv {
+struct MonomorphEnv {
     vars: BTreeMap<ast::Identifier, Type>,
     enclosing: Option<Rc<RefCell<MonomorphEnv>>>,
 }
 
 impl MonomorphEnv {
-    pub fn new(enclosing: Option<Rc<RefCell<MonomorphEnv>>>) -> Self {
+    fn new(enclosing: Option<Rc<RefCell<MonomorphEnv>>>) -> Self {
         Self {
             vars: BTreeMap::new(),
             enclosing,
         }
     }
 
-    pub fn lookup(&self, key: &ast::Identifier) -> Option<Type> {
+    fn lookup(&self, key: &ast::Identifier) -> Option<Type> {
         match self.vars.get(key) {
             Some(ty) => Some(ty.clone()),
             None => match &self.enclosing {
@@ -46,12 +46,12 @@ impl MonomorphEnv {
         }
     }
 
-    pub fn extend(&mut self, key: &ast::Identifier, ty: Type) {
+    fn extend(&mut self, key: &ast::Identifier, ty: Type) {
         self.vars.insert(key.clone(), ty);
     }
 }
 
-pub fn translate_pat(parse_tree: Rc<ast::Pat>) -> Rc<Etp> {
+fn translate_pat(parse_tree: Rc<ast::Pat>) -> Rc<Etp> {
     match &*parse_tree.patkind {
         ASTpk::Wildcard => Rc::new(Etp::Wildcard),
         ASTpk::Var(id) => Rc::new(Etp::Var(id.clone())),
@@ -70,7 +70,7 @@ pub fn translate_pat(parse_tree: Rc<ast::Pat>) -> Rc<Etp> {
     }
 }
 
-pub fn translate_expr_block(
+fn translate_expr_block(
     inf_ctx: &InferenceContext,
     monomorphenv: Rc<RefCell<MonomorphEnv>>,
     gamma: Rc<RefCell<Gamma>>,
@@ -212,7 +212,7 @@ pub fn translate_expr_block(
     }
 }
 
-pub fn translate_expr_func(
+fn translate_expr_func(
     inf_ctx: &InferenceContext,
     monomorphenv: Rc<RefCell<MonomorphEnv>>,
     gamma: Rc<RefCell<Gamma>>,
@@ -240,7 +240,7 @@ pub fn translate_expr_func(
     ))
 }
 
-pub fn translate_expr_ap(
+fn translate_expr_ap(
     inf_ctx: &InferenceContext,
     monomorphenv: Rc<RefCell<MonomorphEnv>>,
     gamma: Rc<RefCell<Gamma>>,
@@ -277,17 +277,13 @@ pub fn translate_expr_ap(
     ))
 }
 
-pub fn ty_of_global_ident(gamma: Rc<RefCell<Gamma>>, ident: &ast::Identifier) -> Option<Type> {
-    //
-    //
+fn ty_of_global_ident(gamma: Rc<RefCell<Gamma>>, ident: &ast::Identifier) -> Option<Type> {
     let gamma = gamma.borrow();
     let ty = gamma.vars.get(ident)?;
-    //
     ty.solution()
-    //
 }
 
-pub fn update_monomorphenv(
+fn update_monomorphenv(
     monomorphenv: Rc<RefCell<MonomorphEnv>>,
     overloaded_ty: Type,
     monomorphic_ty: Type,
@@ -318,7 +314,7 @@ pub fn update_monomorphenv(
     }
 }
 
-pub fn subst_with_monomorphic_env(monomorphic_env: Rc<RefCell<MonomorphEnv>>, ty: Type) -> Type {
+fn subst_with_monomorphic_env(monomorphic_env: Rc<RefCell<MonomorphEnv>>, ty: Type) -> Type {
     match ty {
         Type::Function(provs, args, out) => {
             let new_args = args
@@ -353,7 +349,7 @@ pub fn subst_with_monomorphic_env(monomorphic_env: Rc<RefCell<MonomorphEnv>>, ty
     }
 }
 
-pub fn get_func_definition_node(
+fn get_func_definition_node(
     inf_ctx: &InferenceContext,
     node_map: &NodeMap,
     ident: &ast::Identifier,
@@ -397,7 +393,7 @@ pub fn get_func_definition_node(
     }
 }
 
-pub fn monomorphize_overloaded_var(
+fn monomorphize_overloaded_var(
     inf_ctx: &InferenceContext,
     monomorphenv: Rc<RefCell<MonomorphEnv>>,
     gamma: Rc<RefCell<Gamma>>,
@@ -449,7 +445,7 @@ pub fn monomorphize_overloaded_var(
     None
 }
 
-pub fn translate_expr(
+fn translate_expr(
     inf_ctx: &InferenceContext,
     monomorphenv: Rc<RefCell<MonomorphEnv>>,
     gamma: Rc<RefCell<Gamma>>,
