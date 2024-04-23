@@ -2138,10 +2138,11 @@ pub fn result_of_constraint_solving(
             }
             if bad_instantiation {
                 bad_instantiations = true;
-                err_string.push_str(&format!(
+                let _ = write!(
+                    err_string,
                     "error: the interface '{}' is not implemented for type '{}'\n",
                     interface, typ
-                ));
+                );
                 if let Some(id) = prov.get_location() {
                     let span = node_map.get(&id).unwrap().span();
                     err_string.push_str(&span.display(sources, ""));
@@ -2183,7 +2184,7 @@ pub fn result_of_constraint_solving(
     }
     if !inf_ctx.multiple_adt_defs.is_empty() {
         for (ident, adt_ids) in inf_ctx.multiple_adt_defs.iter() {
-            err_string.push_str(&format!("Multiple definitions for type {}\n", ident));
+            let _ = writeln!(err_string, "Multiple definitions for type {}, ident", ident);
             for ast_id in adt_ids {
                 let span = node_map.get(ast_id).unwrap().span();
                 err_string.push_str(&span.display(sources, ""));
@@ -2192,7 +2193,7 @@ pub fn result_of_constraint_solving(
     }
     if !inf_ctx.multiple_interface_defs.is_empty() {
         for (ident, interface_ids) in inf_ctx.multiple_interface_defs.iter() {
-            err_string.push_str(&format!("Multiple definitions for interface {}\n", ident));
+            let _ = writeln!(err_string, "Multiple definitions for interface {}", ident);
             for ast_id in interface_ids {
                 let span = node_map.get(ast_id).unwrap().span();
                 err_string.push_str(&span.display(sources, ""));
@@ -2202,10 +2203,11 @@ pub fn result_of_constraint_solving(
 
     if !inf_ctx.multiple_interface_impls.is_empty() {
         for (ident, impl_ids) in inf_ctx.multiple_interface_impls.iter() {
-            err_string.push_str(&format!(
-                "Multiple implementations for interface {}\n",
+            let _ = writeln!(
+                err_string,
+                "Multiple implementations for interface {}",
                 ident
-            ));
+            );
             for ast_id in impl_ids {
                 let span = node_map.get(ast_id).unwrap().span();
                 err_string.push_str(&span.display(sources, ""));
@@ -2243,12 +2245,12 @@ pub fn result_of_constraint_solving(
                     Type::UnifVar(_) => err_string.push_str("Sources of unknown:\n"), // idk about this
                     Type::Poly(_, _, _) => err_string.push_str("Sources of generic type:\n"),
                     Type::AdtInstance(_, ident, params) => {
-                        err_string.push_str(&format!("Sources of type {}<", ident));
+                        let _ = write!(err_string, "Sources of type {}<", ident);
                         for (i, param) in params.iter().enumerate() {
                             if i != 0 {
                                 err_string.push_str(", ");
                             }
-                            err_string.push_str(&format!("{}", param));
+                            let _ = writeln!(err_string, "{param}");
                         }
                         err_string.push_str(">\n");
                     }
@@ -2257,14 +2259,17 @@ pub fn result_of_constraint_solving(
                     Type::Float(_) => err_string.push_str("Sources of float:\n"),
                     Type::Bool(_) => err_string.push_str("Sources of bool:\n"),
                     Type::String(_) => err_string.push_str("Sources of string:\n"),
-                    Type::Function(_, args, _) => err_string.push_str(&format!(
-                        "Sources of function with {} arguments:\n",
-                        args.len()
-                    )),
-                    Type::Tuple(_, elems) => err_string.push_str(&format!(
-                        "Sources of tuple with {} elements:\n",
-                        elems.len()
-                    )),
+                    Type::Function(_, args, _) => {
+                        let _ = writeln!(
+                            err_string,
+                            "Sources of function with {} arguments",
+                            args.len()
+                        );
+                    }
+                    Type::Tuple(_, elems) => {
+                        let _ =
+                            writeln!(err_string, "Sources of tuple with {} elements", elems.len());
+                    }
                 };
                 let provs = ty.provs().borrow();
                 let mut provs_vec = provs.iter().collect::<Vec<_>>();
@@ -2286,7 +2291,7 @@ pub fn result_of_constraint_solving(
                 for cause in provs_vec {
                     match cause {
                         Prov::Builtin(s) => {
-                            err_string.push_str(&format!("The builtin function '{}'", s));
+                            let _ = writeln!(err_string, "The builtin function {s}");
                         }
                         Prov::Node(id) => {
                             let span = node_map.get(id).unwrap().span();
@@ -2298,18 +2303,19 @@ pub fn result_of_constraint_solving(
                             );
                         }
                         Prov::InstantiatePoly(_, ident) => {
-                            err_string.push_str(&format!(
+                            let _ = writeln!(
+                                err_string,
                                 "The instantiation of polymorphic type {ident}"
-                            ));
+                            );
                         }
                         Prov::FuncArg(prov, n) => {
                             match prov.as_ref() {
                                 Prov::Builtin(s) => {
                                     let n = n + 1; // readability
-                                    err_string.push_str(&format!(
-                                        "--> The #{n} argument of function '{}'\n",
-                                        s
-                                    ));
+                                    let _ = writeln!(
+                                        err_string,
+                                        "--> The #{n} argument of function '{s}'"
+                                    );
                                 }
                                 Prov::Node(id) => {
                                     let span = node_map.get(id).unwrap().span();
@@ -2323,10 +2329,11 @@ pub fn result_of_constraint_solving(
                         }
                         Prov::FuncOut(prov) => match prov.as_ref() {
                             Prov::Builtin(s) => {
-                                err_string.push_str(&format!(
-                                    "--> The output of the builtin function '{}'\n",
-                                    s
-                                ));
+                                let _ = writeln!(
+                                    err_string,
+                                    "
+                                    --> The output of the builtin function '{s}'"
+                                );
                             }
                             Prov::Node(id) => {
                                 let span = node_map.get(id).unwrap().span();
@@ -2354,7 +2361,7 @@ pub fn result_of_constraint_solving(
                             err_string.push_str("The element of some list");
                         }
                         Prov::Alias(ident) => {
-                            err_string.push_str(&format!("The type alias {ident}"));
+                            let _ = writeln!(err_string, "The type alias {ident}");
                         }
                         Prov::AdtDef(_prov) => {
                             err_string.push_str("Some ADT definition");
@@ -2401,7 +2408,7 @@ pub fn result_of_additional_analysis(
         ));
         err_string.push_str("\nThe following cases are missing:\n");
         for pat in missing_pattern_suggestions {
-            err_string.push_str(&format!("\t`{}`\n", pat));
+            let _ = writeln!(err_string, "\t`{pat}`\n");
         }
     }
 
@@ -3336,18 +3343,17 @@ impl fmt::Display for Variant {
 }
 
 fn fmt_conflicting_types(types: &[&Type], f: &mut dyn Write) -> fmt::Result {
-    let mut s = String::new();
-    s.push('\n');
+    writeln!(f)?;
     for (i, t) in types.iter().enumerate() {
         if types.len() == 1 {
-            s.push_str(&format!("{}", t));
+            write!(f, "{t}")?;
             break;
         }
         if i == 0 {
-            s.push_str(&format!("\t- {}", t));
+            write!(f, "\t- {t}")?;
         } else {
-            s.push_str(&format!("\n\t- {}", t));
+            write!(f, "\n\t- {t}")?;
         }
     }
-    write!(f, "{}", s)
+    Ok(())
 }
