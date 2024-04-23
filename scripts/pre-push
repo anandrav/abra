@@ -1,0 +1,6 @@
+#!/bin/bash
+set -eou pipefail
+
+cargo fmt
+cargo clippy
+cargo test
