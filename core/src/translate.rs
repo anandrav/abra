@@ -445,9 +445,7 @@ pub fn monomorphize_overloaded_var(
             );
             overloaded_func_map.insert((ident.clone(), instance_ty.clone()), Some(overloaded_func));
             return Some(instance_ty);
-        } else {
         }
-    } else {
     }
     None
 }

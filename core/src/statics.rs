@@ -470,9 +470,7 @@ impl Type {
                         return None;
                     }
                 }
-                let Some(out) = out.instance_type() else {
-                    return None;
-                };
+                let out = out.instance_type()?;
                 Some(TypeMonomorphized::Function(args2, out.into()))
             }
             Self::Tuple(_, _elems) => {
@@ -2167,9 +2165,7 @@ pub fn result_of_constraint_solving(
         for (node_id, node) in node_map.iter() {
             let ty = Type::solution_of_node(inf_ctx, *node_id);
             let _span = node.span();
-            if let Some(_ty) = ty {
-            } else {
-            }
+            if let Some(_ty) = ty {}
         }
         return Ok(());
     }
@@ -2399,8 +2395,6 @@ pub fn result_of_additional_analysis(
     let mut err_string = String::new();
 
     err_string.push_str("Pattern matching errors:\n");
-    if !inf_ctx.nonexhaustive_matches.is_empty() {}
-    if !inf_ctx.redundant_matches.is_empty() {}
 
     for (pat, missing_pattern_suggestions) in inf_ctx.nonexhaustive_matches.iter() {
         let span = node_map.get(pat).unwrap().span();
@@ -3011,7 +3005,7 @@ impl WitnessMatrix {
         }
     }
 
-    fn apply_missing_constructors(&mut self, missing_ctors: &Vec<Constructor>, head_ty: &Type) {
+    fn apply_missing_constructors(&mut self, missing_ctors: &[Constructor], head_ty: &Type) {
         if missing_ctors.is_empty() {
             return;
         }

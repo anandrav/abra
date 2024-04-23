@@ -14,7 +14,7 @@ fn fib() {
 }
 
 fn run_benchmark(c: &mut Criterion) {
-    c.bench_function("run fib", |b| b.iter(|| fib()));
+    c.bench_function("run fib", |b| b.iter(fib));
 }
 
 criterion_group!(benches, run_benchmark);

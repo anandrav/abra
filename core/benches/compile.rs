@@ -14,7 +14,7 @@ fn fib() {
 }
 
 fn compile_benchmark(c: &mut Criterion) {
-    c.bench_function("compile fib", |b| b.iter(|| fib()));
+    c.bench_function("compile fib", |b| b.iter(fib));
 }
 
 criterion_group!(benches, compile_benchmark);

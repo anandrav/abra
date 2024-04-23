@@ -95,11 +95,12 @@ pub fn run(source: &str) -> Result<(Rc<eval_tree::Expr>, Runtime), String> {
     )
 }
 
-pub fn run_with_handler<'b, Effect: EffectTrait>(
+pub type EffectHandler<'b> =
+    Box<dyn FnMut(eval_tree::EffectCode, Vec<Rc<eval_tree::Expr>>) -> Rc<eval_tree::Expr> + 'b>;
+
+pub fn run_with_handler<Effect: EffectTrait>(
     source: &str,
-    mut handler: Box<
-        dyn FnMut(eval_tree::EffectCode, Vec<Rc<eval_tree::Expr>>) -> Rc<eval_tree::Expr> + 'b,
-    >,
+    mut handler: EffectHandler,
 ) -> Result<(Rc<eval_tree::Expr>, Runtime), String> {
     let source_file = SourceFile {
         name: "main.abra".to_owned(),
