@@ -2412,13 +2412,13 @@ pub fn result_of_additional_analysis(
         }
     }
 
-    for (_match, redundant_pattern_suggestions) in inf_ctx.redundant_matches.iter() {
+    for (match_expr, redundant_pattern_suggestions) in inf_ctx.redundant_matches.iter() {
+        let span = node_map.get(match_expr).unwrap().span();
+        err_string.push_str(&span.display(sources, "This match expression has redundant cases:\n"));
+        err_string.push_str("\nTry removing these cases\n");
         for pat in redundant_pattern_suggestions {
             let span = node_map.get(pat).unwrap().span();
-            err_string
-                .push_str(&span.display(sources, "This match expression has redundant cases:\n"));
-            err_string.push_str("\nTry removing these cases\n");
-            err_string.push_str(&span.display(sources, &format!("\t`{}`", pat)));
+            err_string.push_str(&span.display(sources, ""));
         }
     }
 
