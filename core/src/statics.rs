@@ -1458,61 +1458,14 @@ pub(crate) fn generate_constraints_expr(
         ExprKind::Func(args, out_annot, body) => {
             let func_node_id = expr.id;
             let body_gamma = Gamma::new(Some(gamma));
-
-            // arguments
-            let ty_args = args
-                .iter()
-                .map(|(arg, arg_annot)| {
-                    let ty_pat = Type::from_node(inf_ctx, arg.id);
-                    match arg_annot {
-                        Some(arg_annot) => {
-                            let ty_annot = Type::from_node(inf_ctx, arg_annot.id());
-                            let arg_annot = ast_type_to_statics_type(inf_ctx, arg_annot.clone());
-                            constrain(ty_annot.clone(), arg_annot.clone());
-                            body_gamma.borrow_mut().add_polys(&arg_annot);
-                            generate_constraints_pat(
-                                body_gamma.clone(), // TODO what are the consequences of analyzing patterns with context containing previous pattern... probs should not do that
-                                Mode::Ana { expected: ty_annot },
-                                arg.clone(),
-                                inf_ctx,
-                            )
-                        }
-                        None => generate_constraints_pat(
-                            body_gamma.clone(),
-                            Mode::Syn,
-                            arg.clone(),
-                            inf_ctx,
-                        ),
-                    }
-                    ty_pat
-                })
-                .collect();
-
-            // body
-            let ty_body =
-                Type::fresh_unifvar(inf_ctx, Prov::FuncOut(Box::new(Prov::Node(func_node_id))));
-            generate_constraints_expr(
-                body_gamma.clone(),
-                Mode::Ana {
-                    expected: ty_body.clone(),
-                },
-                body.clone(),
+            let ty_func = generate_constraints_func_helper(
                 inf_ctx,
+                func_node_id,
+                body_gamma,
+                args,
+                out_annot,
+                body,
             );
-            if let Some(out_annot) = out_annot {
-                let out_annot = ast_type_to_statics_type(inf_ctx, out_annot.clone());
-                body_gamma.borrow_mut().add_polys(&out_annot);
-                generate_constraints_expr(
-                    body_gamma,
-                    Mode::Ana {
-                        expected: out_annot,
-                    },
-                    body.clone(),
-                    inf_ctx,
-                );
-            }
-
-            let ty_func = Type::make_arrow(ty_args, ty_body, Prov::Node(func_node_id));
 
             constrain(ty_func, node_ty);
         }
@@ -1563,6 +1516,64 @@ pub(crate) fn generate_constraints_expr(
             }
         }
     }
+}
+
+fn generate_constraints_func_helper(
+    inf_ctx: &mut InferenceContext,
+    node_id: ast::Id,
+    gamma: Rc<RefCell<Gamma>>,
+    args: &Vec<ast::ArgAnnotated>,
+    out_annot: &Option<Rc<ast::AstType>>,
+    body: &Rc<Expr>,
+) -> Type {
+    // arguments
+    let ty_args = args
+        .iter()
+        .map(|(arg, arg_annot)| {
+            let ty_pat = Type::from_node(inf_ctx, arg.id);
+            match arg_annot {
+                Some(arg_annot) => {
+                    let ty_annot = Type::from_node(inf_ctx, arg_annot.id());
+                    let arg_annot = ast_type_to_statics_type(inf_ctx, arg_annot.clone());
+                    constrain(ty_annot.clone(), arg_annot.clone());
+                    gamma.borrow_mut().add_polys(&arg_annot);
+                    generate_constraints_pat(
+                        gamma.clone(), // TODO what are the consequences of analyzing patterns with context containing previous pattern... probs should not do that
+                        Mode::Ana { expected: ty_annot },
+                        arg.clone(),
+                        inf_ctx,
+                    )
+                }
+                None => generate_constraints_pat(gamma.clone(), Mode::Syn, arg.clone(), inf_ctx),
+            }
+            ty_pat
+        })
+        .collect();
+
+    // body
+    let ty_body = Type::fresh_unifvar(inf_ctx, Prov::FuncOut(Box::new(Prov::Node(node_id))));
+    generate_constraints_expr(
+        gamma.clone(),
+        Mode::Ana {
+            expected: ty_body.clone(),
+        },
+        body.clone(),
+        inf_ctx,
+    );
+    if let Some(out_annot) = out_annot {
+        let out_annot = ast_type_to_statics_type(inf_ctx, out_annot.clone());
+        gamma.borrow_mut().add_polys(&out_annot);
+        generate_constraints_expr(
+            gamma,
+            Mode::Ana {
+                expected: out_annot,
+            },
+            body.clone(),
+            inf_ctx,
+        );
+    }
+
+    Type::make_arrow(ty_args, ty_body, Prov::Node(node_id))
 }
 
 pub(crate) fn generate_constraints_stmt(
@@ -1664,73 +1675,21 @@ pub(crate) fn generate_constraints_stmt(
         }
         StmtKind::FuncDef(name, args, out_annot, body) => {
             let func_node_id = stmt.id;
-
             let ty_pat = Type::from_node(inf_ctx, name.id);
             if add_to_gamma {
                 gamma
                     .borrow_mut()
                     .extend(&name.patkind.get_identifier_of_variable(), ty_pat.clone());
             }
-
             let body_gamma = Gamma::new(Some(gamma));
-
-            // BEGIN TODO use helper function for functions again
-
-            // arguments
-            let ty_args = args
-                .iter()
-                .map(|(arg, arg_annot)| {
-                    let ty_pat = Type::from_node(inf_ctx, arg.id);
-                    match arg_annot {
-                        Some(arg_annot) => {
-                            let ty_annot = Type::from_node(inf_ctx, arg_annot.id());
-                            let arg_annot = ast_type_to_statics_type(inf_ctx, arg_annot.clone());
-                            constrain(ty_annot.clone(), arg_annot.clone());
-                            body_gamma.borrow_mut().add_polys(&arg_annot);
-                            generate_constraints_pat(
-                                body_gamma.clone(), // TODO what are the consequences of analyzing patterns with context containing previous pattern... probs should not do that
-                                Mode::Ana { expected: ty_annot },
-                                arg.clone(),
-                                inf_ctx,
-                            )
-                        }
-                        None => generate_constraints_pat(
-                            body_gamma.clone(),
-                            Mode::Syn,
-                            arg.clone(),
-                            inf_ctx,
-                        ),
-                    }
-                    ty_pat
-                })
-                .collect();
-
-            // body
-            let ty_body =
-                Type::fresh_unifvar(inf_ctx, Prov::FuncOut(Box::new(Prov::Node(func_node_id))));
-            generate_constraints_expr(
-                body_gamma.clone(),
-                Mode::Ana {
-                    expected: ty_body.clone(),
-                },
-                body.clone(),
+            let ty_func = generate_constraints_func_helper(
                 inf_ctx,
+                func_node_id,
+                body_gamma,
+                args,
+                out_annot,
+                body,
             );
-            if let Some(out_annot) = out_annot {
-                let out_annot = ast_type_to_statics_type(inf_ctx, out_annot.clone());
-                body_gamma.borrow_mut().add_polys(&out_annot);
-                generate_constraints_expr(
-                    body_gamma,
-                    Mode::Ana {
-                        expected: out_annot,
-                    },
-                    body.clone(),
-                    inf_ctx,
-                );
-            }
-
-            let ty_func = Type::make_arrow(ty_args, ty_body, Prov::Node(func_node_id));
-            // END TODO use helper function for functions again
 
             constrain(ty_pat, ty_func);
         }
