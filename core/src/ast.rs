@@ -12,20 +12,20 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 #[grammar = "grammar.pest"]
 struct MyParser;
 
-pub type Identifier = String;
+pub(crate) type Identifier = String;
 
-pub type ArgAnnotated = (Rc<Pat>, Option<Rc<AstType>>);
+pub(crate) type ArgAnnotated = (Rc<Pat>, Option<Rc<AstType>>);
 
-pub struct Sources {
-    pub files: Vec<String>, // order matters
-    pub filename_to_source: HashMap<String, String>,
+pub(crate) struct Sources {
+    pub(crate) files: Vec<String>, // order matters
+    pub(crate) filename_to_source: HashMap<String, String>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct InterfaceAnnotation {
-    pub ident: Identifier,
-    pub span: Span,
-    pub id: Id,
+pub(crate) struct InterfaceAnnotation {
+    pub(crate) ident: Identifier,
+    pub(crate) span: Span,
+    pub(crate) id: Id,
 }
 impl Node for InterfaceAnnotation {
     fn span(&self) -> Span {
@@ -43,13 +43,13 @@ impl Node for InterfaceAnnotation {
     }
 }
 
-pub type PatAnnotated = (Rc<Pat>, Option<Rc<AstType>>);
+pub(crate) type PatAnnotated = (Rc<Pat>, Option<Rc<AstType>>);
 
 #[derive(Debug, Clone)]
-pub struct Toplevel {
-    pub statements: Vec<Rc<Stmt>>,
-    pub span: Span,
-    pub id: Id,
+pub(crate) struct Toplevel {
+    pub(crate) statements: Vec<Rc<Stmt>>,
+    pub(crate) span: Span,
+    pub(crate) id: Id,
 }
 
 impl Node for Toplevel {
@@ -73,25 +73,25 @@ impl Node for Toplevel {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct TypeDef {
-    pub kind: TypeDefKind,
-    pub span: Span,
-    pub id: Id,
+pub(crate) struct TypeDef {
+    pub(crate) kind: TypeDefKind,
+    pub(crate) span: Span,
+    pub(crate) id: Id,
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub enum TypeDefKind {
+pub(crate) enum TypeDefKind {
     Alias(Identifier, Rc<AstType>),
     Adt(Identifier, Vec<Rc<AstType>>, Vec<Rc<Variant>>),
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct Variant {
-    pub ctor: Identifier,
-    pub data: Option<Rc<AstType>>,
+pub(crate) struct Variant {
+    pub(crate) ctor: Identifier,
+    pub(crate) data: Option<Rc<AstType>>,
 
-    pub span: Span,
-    pub id: Id,
+    pub(crate) span: Span,
+    pub(crate) id: Id,
 }
 
 impl Node for Variant {
@@ -152,7 +152,7 @@ impl std::fmt::Debug for dyn Node {
     }
 }
 
-pub trait Node {
+pub(crate) trait Node {
     fn span(&self) -> Span;
     fn id(&self) -> Id;
     fn children(&self) -> Vec<Rc<dyn Node>>;
@@ -161,10 +161,10 @@ pub trait Node {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct Stmt {
-    pub stmtkind: Rc<StmtKind>,
-    pub span: Span,
-    pub id: Id,
+pub(crate) struct Stmt {
+    pub(crate) stmtkind: Rc<StmtKind>,
+    pub(crate) span: Span,
+    pub(crate) id: Id,
 }
 
 impl Node for Stmt {
@@ -238,7 +238,7 @@ impl Node for Stmt {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub enum StmtKind {
+pub(crate) enum StmtKind {
     FuncDef(Rc<Pat>, Vec<ArgAnnotated>, Option<Rc<AstType>>, Rc<Expr>),
     Let(bool, PatAnnotated, Rc<Expr>), // bool is whether it's mutable
     Set(Rc<Pat>, Rc<Expr>),
@@ -249,9 +249,9 @@ pub enum StmtKind {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct InterfaceProperty {
-    pub ident: Identifier,
-    pub ty: Rc<AstType>,
+pub(crate) struct InterfaceProperty {
+    pub(crate) ident: Identifier,
+    pub(crate) ty: Rc<AstType>,
 }
 
 impl Node for InterfaceProperty {
@@ -272,10 +272,10 @@ impl Node for InterfaceProperty {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct Expr {
-    pub exprkind: Rc<ExprKind>,
-    pub span: Span,
-    pub id: Id,
+pub(crate) struct Expr {
+    pub(crate) exprkind: Rc<ExprKind>,
+    pub(crate) span: Span,
+    pub(crate) id: Id,
 }
 
 impl Node for Expr {
@@ -350,7 +350,7 @@ impl Node for Expr {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub enum ExprKind {
+pub(crate) enum ExprKind {
     // EmptyHole,
     Var(Identifier),
     Unit,
@@ -370,18 +370,18 @@ pub enum ExprKind {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct MatchArm {
-    pub pat: Rc<Pat>,
-    pub expr: Rc<Expr>,
+pub(crate) struct MatchArm {
+    pub(crate) pat: Rc<Pat>,
+    pub(crate) expr: Rc<Expr>,
 }
 
-// pub type MatchArm = (Rc<Pat>, Rc<Expr>);
+// pub(crate) type MatchArm = (Rc<Pat>, Rc<Expr>);
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct Pat {
-    pub patkind: Rc<PatKind>,
-    pub span: Span,
-    pub id: Id,
+pub(crate) struct Pat {
+    pub(crate) patkind: Rc<PatKind>,
+    pub(crate) span: Span,
+    pub(crate) id: Id,
 }
 
 impl Node for Pat {
@@ -421,7 +421,7 @@ impl Node for Pat {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub enum PatKind {
+pub(crate) enum PatKind {
     // EmptyHole,
     Wildcard,
     Var(Identifier),
@@ -435,7 +435,7 @@ pub enum PatKind {
 }
 
 impl PatKind {
-    pub fn get_identifier_of_variable(&self) -> Identifier {
+    pub(crate) fn get_identifier_of_variable(&self) -> Identifier {
         match self {
             PatKind::Var(id) => id.clone(),
             _ => {
@@ -446,10 +446,10 @@ impl PatKind {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct AstType {
-    pub typekind: Rc<TypeKind>,
-    pub span: Span,
-    pub id: Id,
+pub(crate) struct AstType {
+    pub(crate) typekind: Rc<TypeKind>,
+    pub(crate) span: Span,
+    pub(crate) id: Id,
 }
 
 impl Node for AstType {
@@ -495,7 +495,7 @@ impl Node for AstType {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub enum TypeKind {
+pub(crate) enum TypeKind {
     Poly(Identifier, Vec<Identifier>),
     Alias(Identifier),
     Ap(Identifier, Vec<Rc<AstType>>),
@@ -509,12 +509,12 @@ pub enum TypeKind {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct Id {
-    pub id: usize,
+pub(crate) struct Id {
+    pub(crate) id: usize,
 }
 
 impl Id {
-    pub fn new() -> Self {
+    pub(crate) fn new() -> Self {
         static ID_COUNTER: std::sync::atomic::AtomicUsize = AtomicUsize::new(1);
         let id = ID_COUNTER.fetch_add(1, Ordering::Relaxed);
         Self { id }
@@ -534,10 +534,10 @@ impl Default for Id {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct Span {
-    pub filename: String,
-    pub lo: usize,
-    pub hi: usize,
+pub(crate) struct Span {
+    pub(crate) filename: String,
+    pub(crate) lo: usize,
+    pub(crate) hi: usize,
 }
 
 impl Span {
@@ -549,7 +549,7 @@ impl Span {
         }
     }
 
-    pub fn lines_and_columns(&self, source: &str) -> ((usize, usize), (usize, usize)) {
+    pub(crate) fn lines_and_columns(&self, source: &str) -> ((usize, usize), (usize, usize)) {
         let lo_line = source[..=self.lo].lines().count() - 1;
         let num_chars_of_lines_before = source
             .lines()
@@ -572,7 +572,7 @@ impl Span {
         ((lo_line, lo_col), (hi_line, hi_col))
     }
 
-    pub fn display(&self, s: &mut String, sources: &Sources, detail: &str) {
+    pub(crate) fn display(&self, s: &mut String, sources: &Sources, detail: &str) {
         let source = sources.filename_to_source.get(&self.filename).unwrap();
         let ((lo_line, lo_col), (hi_line, hi_col)) = self.lines_and_columns(source);
         if lo_line != hi_line {
@@ -611,11 +611,11 @@ impl Span {
     }
 }
 
-pub fn get_pairs(source: &str) -> Result<Pairs<Rule>, String> {
+pub(crate) fn get_pairs(source: &str) -> Result<Pairs<Rule>, String> {
     MyParser::parse(Rule::toplevel, source).map_err(|e| e.to_string())
 }
 
-pub fn parse_func_arg_annotation(pair: Pair<Rule>, filename: &str) -> ArgAnnotated {
+pub(crate) fn parse_func_arg_annotation(pair: Pair<Rule>, filename: &str) -> ArgAnnotated {
     let rule = pair.as_rule();
     match rule {
         Rule::func_arg => {
@@ -631,7 +631,7 @@ pub fn parse_func_arg_annotation(pair: Pair<Rule>, filename: &str) -> ArgAnnotat
     }
 }
 
-pub fn parse_annotated_let_pattern(pair: Pair<Rule>, filename: &str) -> PatAnnotated {
+pub(crate) fn parse_annotated_let_pattern(pair: Pair<Rule>, filename: &str) -> PatAnnotated {
     let rule = pair.as_rule();
     match rule {
         Rule::let_pattern_annotated => {
@@ -647,7 +647,7 @@ pub fn parse_annotated_let_pattern(pair: Pair<Rule>, filename: &str) -> PatAnnot
     }
 }
 
-pub fn parse_func_out_annotation(pair: Pair<Rule>, filename: &str) -> Rc<AstType> {
+pub(crate) fn parse_func_out_annotation(pair: Pair<Rule>, filename: &str) -> Rc<AstType> {
     let rule = pair.as_rule();
     match rule {
         Rule::func_out_annotation => {
@@ -659,7 +659,7 @@ pub fn parse_func_out_annotation(pair: Pair<Rule>, filename: &str) -> Rc<AstType
     }
 }
 
-pub fn parse_let_pattern(pair: Pair<Rule>, filename: &str) -> Rc<Pat> {
+pub(crate) fn parse_let_pattern(pair: Pair<Rule>, filename: &str) -> Rc<Pat> {
     let span = Span::new(filename, pair.as_span());
     let rule = pair.as_rule();
     match rule {
@@ -694,7 +694,7 @@ pub fn parse_let_pattern(pair: Pair<Rule>, filename: &str) -> Rc<Pat> {
     }
 }
 
-pub fn parse_match_pattern(pair: Pair<Rule>, filename: &str) -> Rc<Pat> {
+pub(crate) fn parse_match_pattern(pair: Pair<Rule>, filename: &str) -> Rc<Pat> {
     let span = Span::new(filename, pair.as_span());
     let rule = pair.as_rule();
     match rule {
@@ -770,7 +770,7 @@ pub fn parse_match_pattern(pair: Pair<Rule>, filename: &str) -> Rc<Pat> {
     }
 }
 
-pub fn parse_type_term(pair: Pair<Rule>, filename: &str) -> Rc<AstType> {
+pub(crate) fn parse_type_term(pair: Pair<Rule>, filename: &str) -> Rc<AstType> {
     let span = Span::new(filename, pair.as_span());
     let rule = pair.as_rule();
     match rule {
@@ -870,7 +870,7 @@ pub fn parse_type_term(pair: Pair<Rule>, filename: &str) -> Rc<AstType> {
     }
 }
 
-pub fn parse_stmt(pair: Pair<Rule>, filename: &str) -> Rc<Stmt> {
+pub(crate) fn parse_stmt(pair: Pair<Rule>, filename: &str) -> Rc<Stmt> {
     let span = Span::new(filename, pair.as_span());
     let rule = pair.as_rule();
     let inner: Vec<_> = pair.into_inner().collect();
@@ -997,7 +997,7 @@ pub fn parse_stmt(pair: Pair<Rule>, filename: &str) -> Rc<Stmt> {
     }
 }
 
-pub fn parse_interface_method(pair: Pair<Rule>, filename: &str) -> InterfaceProperty {
+pub(crate) fn parse_interface_method(pair: Pair<Rule>, filename: &str) -> InterfaceProperty {
     let rule = pair.as_rule();
     let inner: Vec<_> = pair.into_inner().collect();
     match rule {
@@ -1010,7 +1010,7 @@ pub fn parse_interface_method(pair: Pair<Rule>, filename: &str) -> InterfaceProp
     }
 }
 
-pub fn parse_variant(pair: Pair<Rule>, filename: &str) -> Rc<Variant> {
+pub(crate) fn parse_variant(pair: Pair<Rule>, filename: &str) -> Rc<Variant> {
     let span = Span::new(filename, pair.as_span());
     let rule = pair.as_rule();
     let inner: Vec<_> = pair.into_inner().collect();
@@ -1039,7 +1039,7 @@ pub fn parse_variant(pair: Pair<Rule>, filename: &str) -> Rc<Variant> {
     }
 }
 
-pub fn parse_expr_term(pair: Pair<Rule>, filename: &str) -> Rc<Expr> {
+pub(crate) fn parse_expr_term(pair: Pair<Rule>, filename: &str) -> Rc<Expr> {
     let span = Span::new(filename, pair.as_span());
     let rule = pair.as_rule();
     match rule {
@@ -1211,7 +1211,7 @@ pub fn parse_expr_term(pair: Pair<Rule>, filename: &str) -> Rc<Expr> {
     }
 }
 
-pub fn parse_toplevel(pairs: Pairs<Rule>, filename: &str) -> Rc<Toplevel> {
+pub(crate) fn parse_toplevel(pairs: Pairs<Rule>, filename: &str) -> Rc<Toplevel> {
     let mut items = Vec::new();
     let pairs: Vec<_> = pairs.into_iter().collect();
     for pair in &pairs {
@@ -1234,7 +1234,7 @@ pub fn parse_toplevel(pairs: Pairs<Rule>, filename: &str) -> Rc<Toplevel> {
     })
 }
 
-pub fn parse_expr_pratt(pairs: Pairs<Rule>, filename: &str) -> Rc<Expr> {
+pub(crate) fn parse_expr_pratt(pairs: Pairs<Rule>, filename: &str) -> Rc<Expr> {
     let pratt = PrattParser::new()
         .op(Op::infix(Rule::op_eq, Assoc::Left))
         .op(Op::infix(Rule::op_concat, Assoc::Right))
@@ -1286,7 +1286,7 @@ pub fn parse_expr_pratt(pairs: Pairs<Rule>, filename: &str) -> Rc<Expr> {
         .parse(pairs)
 }
 
-pub fn parse_or_err(sources: &Vec<SourceFile>) -> Result<Vec<Rc<Toplevel>>, String> {
+pub(crate) fn parse_or_err(sources: &Vec<SourceFile>) -> Result<Vec<Rc<Toplevel>>, String> {
     let mut toplevels = vec![];
     for sf in sources {
         let pairs = get_pairs(&sf.contents)?;
@@ -1297,9 +1297,9 @@ pub fn parse_or_err(sources: &Vec<SourceFile>) -> Result<Vec<Rc<Toplevel>>, Stri
     Ok(toplevels)
 }
 
-pub type NodeMap = HashMap<Id, Rc<dyn Node>>;
+pub(crate) type NodeMap = HashMap<Id, Rc<dyn Node>>;
 
-pub fn initialize_node_map(node_map: &mut NodeMap, node: &Rc<dyn Node>) {
+pub(crate) fn initialize_node_map(node_map: &mut NodeMap, node: &Rc<dyn Node>) {
     node_map.insert(node.id(), node.clone());
     for child in node.children() {
         initialize_node_map(node_map, &child);

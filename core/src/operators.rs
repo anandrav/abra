@@ -1,5 +1,5 @@
 #[derive(Debug, Copy, Clone, Hash, PartialEq, Eq)]
-pub enum BinOpcode {
+pub(crate) enum BinOpcode {
     // comparison
     Equals,
     LessThan,

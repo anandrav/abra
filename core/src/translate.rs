@@ -806,7 +806,7 @@ fn strip_temp_overloaded_func_map(
     overloaded_func_map
 }
 
-pub fn translate(
+pub(crate) fn translate(
     inf_ctx: &InferenceContext,
     gamma: Rc<RefCell<Gamma>>,
     node_map: &NodeMap,
