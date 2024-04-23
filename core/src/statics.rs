@@ -2131,9 +2131,9 @@ pub fn result_of_constraint_solving(
             }
             if bad_instantiation {
                 bad_instantiations = true;
-                let _ = write!(
+                let _ = writeln!(
                     err_string,
-                    "error: the interface '{}' is not implemented for type '{}'\n",
+                    "error: the interface '{}' is not implemented for type '{}'",
                     interface, typ
                 );
                 if let Some(id) = prov.get_location() {
