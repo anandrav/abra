@@ -115,7 +115,6 @@ pub fn run_with_handler<Effect: EffectTrait>(
     let mut interpreter = runtime.toplevel_interpreter();
     let mut effect_result = None;
     loop {
-        // TODO instead of 10000, need an option for infinite steps
         let status = interpreter.run(10000, effect_result.take());
         match status {
             interpreter::InterpreterStatus::Error(msg) => {

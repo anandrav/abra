@@ -435,7 +435,7 @@ pub struct InterpretOk {
 
 #[derive(Debug)]
 pub struct InterpretErr {
-    // TODO: add location (line and column numbers)
+    // TODO: add location (line and column) of error
     pub message: String,
 }
 
@@ -771,7 +771,6 @@ fn interpret(
             }
         },
         Set(pat, expr1, expr2) => match &*pat.clone() {
-            // TODO you were here
             Pat::TaggedVariant(..)
             | Pat::Unit
             | Pat::Int(_)
