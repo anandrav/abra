@@ -28,6 +28,46 @@ fn fib() {
     assert_eq!(val, rt.make_int(8));
 }
 
+#[test]
+fn transform_list_then_sum() {
+    let src = r#"func fibonacci(n) {
+        match n {
+            0 -> 0
+            1 -> 1
+            _ -> fibonacci(n-1) + fibonacci(n-2)
+        }
+    }
+
+    let list = range(0,9)
+    println("numbers: ")
+    println(list)
+
+    let list = map(list, fibonacci)
+    println("fibonacci: ")
+    println(list)
+
+    let list = map(list, x -> x ^ 3)
+    println("cubed: ")
+    println(list)
+
+    let list = filter(list, x -> x mod 2 = 1)
+    println("only odds: ")
+    println(list)
+
+    let list = map(list, x -> to_float(x) * 3.14)
+    println("times pi: ")
+    println(list)
+
+    print(newline)
+    print("they add up to: ")
+    let n = sumf(list)
+    println(sumf(list))
+    n
+    "#;
+    let (val, _) = run(src).unwrap();
+    assert!(val.get_float() - 36461.68 < 0.001);
+}
+
 fn handler_inner(
     code: EffectCode,
     args: Vec<Rc<eval_tree::Expr>>,
