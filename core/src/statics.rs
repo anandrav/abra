@@ -553,11 +553,15 @@ impl TypeVar {
         };
         let mut types = BTreeMap::new();
         types.insert(ty.key(), ty);
-        self.0.replace_data(TypeVarData { types });
-        self
+        let data_instantiated = TypeVarData { types };
+        let tvar = TypeVar {
+            0: UnionFindNode::new(data_instantiated),
+        };
+        inf_ctx.vars.insert(prov, tvar.clone());
+        tvar
     }
 
-    // Creates a clone of a Type with polymorphic variabels replaced by subtitutions
+    // Creates a *new* Type with polymorphic variabels replaced by subtitutions
     pub(crate) fn subst(
         self,
         gamma: Rc<RefCell<Gamma>>,

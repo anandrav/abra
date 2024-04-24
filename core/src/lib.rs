@@ -178,6 +178,11 @@ interface Num {
     minus: (self, self) -> self
     multiply: (self, self) -> self
     divide: (self, self) -> self
+    pow: (self, self) -> self
+    less_than: (self, self) -> bool
+    less_than_or_equal: (self, self) -> bool
+    greater_than: (self, self) -> bool
+    greater_than_or_equal: (self, self) -> bool
 }
 
 implement Num for int {
@@ -185,7 +190,66 @@ implement Num for int {
     func minus(a, b) = minus_int(a, b)
     func multiply(a, b) = multiply_int(a, b)
     func divide(a, b) = divide_int(a, b)
+    func pow(a, b) = pow_int(a, b)
+    func less_than(a, b) = less_than_int(a, b)
+    func less_than_or_equal(a, b) = (a < b) or (a = b)
+    func greater_than(a, b) = not(a < b) and not(a = b)
+    func greater_than_or_equal(a, b) = not(a < b)
 }
+
+implement Num for float {
+    func add(a, b) = add_float(a, b)
+    func minus(a, b) = minus_float(a, b)
+    func multiply(a, b) = multiply_float(a, b)
+    func divide(a, b) = divide_float(a, b)
+    func pow(a, b) = pow_float(a, b)
+    func less_than(a, b) = less_than_float(a, b)
+    func less_than_or_equal(a, b) = a < b
+    func greater_than(a, b) = b < a
+    func greater_than_or_equal(a, b) = b < a
+}
+
+type list<'a> = nil | cons of ('a, list<'a>)
+
+interface Equals {
+    equals: (self, self) -> bool
+}
+implement Equals for void {
+    func equals(a, b) = true
+}
+implement Equals for int {
+    func equals(a, b) = equals_int(a, b)
+}
+implement Equals for float {
+    func equals(a, b) = false
+}
+implement Equals for bool {
+    func equals(a, b) {
+        if a and b {
+            true
+        } else if a or b {
+            false
+        } else {
+            true
+        }
+    }
+}
+implement Equals for string {
+    func equals(a, b) = equals_string(a, b)
+}
+
+implement Equals for list<'a Equals> {
+    func equals(a, b) {
+        match (a, b) {
+            (nil, nil) -> true
+            (cons (~x, ~xs), cons (~y, ~ys)) -> {
+                equals(x, y) and equals(xs, ys)
+            }
+            _ -> false
+        }
+    }
+}
+
 "#;
 
 // pub const _PRELUDE: &str = r#"
