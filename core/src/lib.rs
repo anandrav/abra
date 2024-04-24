@@ -187,6 +187,7 @@ interface Num {
 
 implement Num for int {
     func add(a, b) = add_int(a, b)
+    func minus(a, b) = minus_int(a, b)
     func multiply(a, b) = multiply_int(a, b)
     func divide(a, b) = divide_int(a, b)
     func pow(a, b) = pow_int(a, b)

@@ -854,6 +854,8 @@ pub(crate) struct InferenceContext {
     // interface implementations
     multiple_interface_impls: BTreeMap<Identifier, Vec<ast::Id>>,
     interface_impl_for_instantiated_adt: Vec<ast::Id>,
+    interface_impl_extra_method: BTreeMap<ast::Id, Vec<ast::Id>>,
+    interface_impl_missing_method: BTreeMap<ast::Id, Vec<String>>,
     // non-exhaustive matches
     nonexhaustive_matches: BTreeMap<ast::Id, Vec<DeconstructedPat>>,
     redundant_matches: BTreeMap<ast::Id, Vec<ast::Id>>,
@@ -1699,7 +1701,25 @@ pub(crate) fn generate_constraints_stmt(
                             false,
                         );
                     } else {
-                        // TODO: emit error interface doesn't have method
+                        inf_ctx
+                            .interface_impl_extra_method
+                            .entry(stmt.id)
+                            .or_default()
+                            .push(statement.id);
+                    }
+                }
+                for interface_method in interface_def.methods {
+                    if !statements.iter().any(|stmt| match &*stmt.stmtkind {
+                        StmtKind::FuncDef(pat, _args, _out, _body) => {
+                            pat.patkind.get_identifier_of_variable() == interface_method.name
+                        }
+                        _ => false,
+                    }) {
+                        inf_ctx
+                            .interface_impl_missing_method
+                            .entry(stmt.id)
+                            .or_default()
+                            .push(interface_method.name.clone());
                     }
                 }
             } else {
@@ -2107,7 +2127,6 @@ pub(crate) fn result_of_constraint_solving(
     // look for error of multiple interface implementations for the same type
     for (ident, impls) in inf_ctx.interface_impls.iter() {
         // map from implementation type to location
-        // TODO: key is mutable. Can TypeKey or TypeMonomorphic be used instead? If not, create a TypeImmutable datatype
         let mut impls_by_type: BTreeMap<SolvedType, Vec<ast::Id>> = BTreeMap::new();
         for imp in impls.iter() {
             if let Some(impl_typ) = imp.typ.clone().solution() {
@@ -2178,6 +2197,8 @@ pub(crate) fn result_of_constraint_solving(
         && inf_ctx.multiple_interface_defs.is_empty()
         && inf_ctx.multiple_interface_impls.is_empty()
         && inf_ctx.interface_impl_for_instantiated_adt.is_empty()
+        && inf_ctx.interface_impl_extra_method.is_empty()
+        && inf_ctx.interface_impl_missing_method.is_empty()
         && !bad_instantiations
     {
         for (node_id, node) in node_map.iter() {
@@ -2246,6 +2267,37 @@ pub(crate) fn result_of_constraint_solving(
                 sources,
                 "Interface implementations for instantiated ADTs are not supported.\n",
             );
+        }
+    }
+
+    if !inf_ctx.interface_impl_extra_method.is_empty() {
+        for (id, impls) in inf_ctx.interface_impl_extra_method.iter() {
+            let span = node_map.get(id).unwrap().span();
+            span.display(
+                &mut err_string,
+                sources,
+                "this interface implementation has methods not defined in the original interface.",
+            );
+            for ast_id in impls {
+                let span = node_map.get(ast_id).unwrap().span();
+                span.display(&mut err_string, sources, "remove this method:");
+            }
+        }
+    }
+
+    if !inf_ctx.interface_impl_missing_method.is_empty() {
+        for (id, method_names) in inf_ctx.interface_impl_missing_method.iter() {
+            let span = node_map.get(id).unwrap().span();
+            span.display(
+                &mut err_string,
+                sources,
+                "this interface implementation is missing methods defined in the original interface.",
+            );
+            // add these methods:
+            err_string.push_str("Add these methods:\n");
+            for method_name in method_names {
+                err_string.push_str(&format!("\t- {method_name};\n"));
+            }
         }
     }
 
