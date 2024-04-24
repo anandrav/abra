@@ -409,9 +409,7 @@ fn monomorphize_overloaded_var(
     node_ty: SolvedType,
 ) -> Option<TypeMonomorphized> {
     if let Some(global_ty) = ty_of_global_ident(gamma.clone(), ident) {
-        println!("ty_of_global_ident was some");
         if global_ty.is_overloaded() {
-            println!("and it's overloaded");
             let substituted_ty = subst_with_monomorphic_env(monomorphenv, node_ty);
 
             let instance_ty = substituted_ty.instance_type().unwrap();

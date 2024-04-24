@@ -75,7 +75,6 @@ impl TypeVarData {
     }
 
     fn merge(first: Self, second: Self) -> Self {
-        println!("merge");
         let mut merged_types = Self { types: first.types };
         for (_key, t) in second.types {
             merged_types.extend(t);
@@ -84,7 +83,6 @@ impl TypeVarData {
     }
 
     fn extend(&mut self, t_other: PotentialType) {
-        println!("extend");
         let key = t_other.key();
 
         // accumulate provenances and constrain children to each other if applicable
@@ -216,10 +214,7 @@ impl SolvedType {
         match self {
             Self::Poly(_, _, interfaces) => !interfaces.is_empty(),
             Self::Unit(_) => false,
-            Self::Int(_) => {
-                println!("is_overloaded hit int");
-                false
-            }
+            Self::Int(_) => false,
             Self::Float(_) => false,
             Self::Bool(_) => false,
             Self::String(_) => false,
@@ -910,13 +905,6 @@ impl InferenceContext {
 }
 
 fn constrain(mut expected: TypeVar, mut actual: TypeVar) {
-    println!("constrain");
-    if expected == actual {
-        return;
-    }
-    if expected.0.equiv(&actual.0) {
-        return;
-    }
     expected.0.union_with(&mut actual.0, TypeVarData::merge);
 }
 
@@ -1720,14 +1708,12 @@ pub(crate) fn generate_constraints_stmt(
                         let mut substitution = BTreeMap::new();
                         substitution.insert("a".to_string(), typ.clone());
 
-                        println!("before subst {}", interface_method.ty);
                         let expected = interface_method.ty.clone().subst(
                             gamma.clone(),
                             inf_ctx,
                             Prov::Node(stmt.id),
                             &substitution,
                         );
-                        println!("after subst {}", expected);
 
                         constrain(expected, TypeVar::from_node(inf_ctx, pat.id));
 
