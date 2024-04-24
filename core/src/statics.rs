@@ -558,7 +558,6 @@ impl TypeVar {
     pub(crate) fn subst(
         self,
         gamma: Rc<RefCell<Gamma>>,
-        inf_ctx: &mut InferenceContext,
         prov: Prov,
         substitution: &BTreeMap<Identifier, TypeVar>,
     ) -> TypeVar {
@@ -584,22 +583,22 @@ impl TypeVar {
                 PotentialType::AdtInstance(provs, ident, params) => {
                     let params = params
                         .into_iter()
-                        .map(|ty| ty.subst(gamma.clone(), inf_ctx, prov.clone(), substitution))
+                        .map(|ty| ty.subst(gamma.clone(), prov.clone(), substitution))
                         .collect();
                     PotentialType::AdtInstance(provs, ident, params)
                 }
                 PotentialType::Function(provs, args, out) => {
                     let args = args
                         .into_iter()
-                        .map(|ty| ty.subst(gamma.clone(), inf_ctx, prov.clone(), substitution))
+                        .map(|ty| ty.subst(gamma.clone(), prov.clone(), substitution))
                         .collect();
-                    let out = out.subst(gamma, inf_ctx, prov, substitution);
+                    let out = out.subst(gamma, prov, substitution);
                     PotentialType::Function(provs, args, out)
                 }
                 PotentialType::Tuple(provs, elems) => {
                     let elems = elems
                         .into_iter()
-                        .map(|ty| ty.subst(gamma.clone(), inf_ctx, prov.clone(), substitution))
+                        .map(|ty| ty.subst(gamma.clone(), prov.clone(), substitution))
                         .collect();
                     PotentialType::Tuple(provs, elems)
                 }
@@ -1385,12 +1384,8 @@ pub(crate) fn generate_constraints_expr(
                     let args = elems
                         .iter()
                         .map(|e| {
-                            e.clone().subst(
-                                gamma.clone(),
-                                inf_ctx,
-                                Prov::Node(expr.id),
-                                &substitution,
-                            )
+                            e.clone()
+                                .subst(gamma.clone(), Prov::Node(expr.id), &substitution)
                         })
                         .collect();
                     constrain(
@@ -1403,7 +1398,6 @@ pub(crate) fn generate_constraints_expr(
                         TypeVar::make_func(
                             vec![the_variant.data.clone().subst(
                                 gamma,
-                                inf_ctx,
                                 Prov::Node(expr.id),
                                 &substitution,
                             )],
@@ -1620,7 +1614,7 @@ fn generate_constraints_func_helper(
     inf_ctx: &mut InferenceContext,
     node_id: ast::Id,
     gamma: Rc<RefCell<Gamma>>,
-    args: &Vec<ast::ArgAnnotated>,
+    args: &[ast::ArgAnnotated],
     out_annot: &Option<Rc<ast::AstType>>,
     body: &Rc<Expr>,
 ) -> TypeVar {
@@ -1700,7 +1694,6 @@ pub(crate) fn generate_constraints_stmt(
 
                         let expected = interface_method.ty.clone().subst(
                             gamma.clone(),
-                            inf_ctx,
                             Prov::Node(stmt.id),
                             &substitution,
                         );
@@ -1854,7 +1847,6 @@ pub(crate) fn generate_constraints_pat(
                     let variant_def = adt_def.variants.iter().find(|v| v.ctor == *tag).unwrap();
                     let variant_data_ty = variant_def.data.clone().subst(
                         gamma.clone(),
-                        inf_ctx,
                         Prov::Node(pat.id),
                         &substitution,
                     );
@@ -2277,8 +2269,7 @@ pub(crate) fn result_of_constraint_solving(
             })
             .collect::<Vec<_>>();
         type_conflicts.sort();
-        for i in 0..type_conflicts.len() {
-            let type_conflict = &type_conflicts[i];
+        for type_conflict in &type_conflicts {
             err_string.push_str("Conflicting types: ");
             fmt_conflicting_types(type_conflict, &mut err_string).unwrap();
             writeln!(err_string).unwrap();
