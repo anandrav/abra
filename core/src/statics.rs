@@ -452,7 +452,7 @@ impl PotentialType {
     }
 
     pub(crate) fn make_func(args: Vec<TypeVar>, out: TypeVar, prov: Prov) -> PotentialType {
-        PotentialType::Function(provs_singleton(prov), args, out.into())
+        PotentialType::Function(provs_singleton(prov), args, out)
     }
 
     pub(crate) fn make_tuple(elems: Vec<TypeVar>, prov: Prov) -> PotentialType {
@@ -549,9 +549,7 @@ impl TypeVar {
         let mut types = BTreeMap::new();
         types.insert(ty.key(), ty);
         let data_instantiated = TypeVarData { types };
-        let tvar = TypeVar {
-            0: UnionFindNode::new(data_instantiated),
-        };
+        let tvar = TypeVar(UnionFindNode::new(data_instantiated));
         inf_ctx.vars.insert(prov, tvar.clone());
         tvar
     }
@@ -930,8 +928,7 @@ pub(crate) fn make_new_gamma() -> Rc<RefCell<Gamma>> {
             ))],
             TypeVar::make_unit(Prov::FuncOut(Box::new(Prov::Builtin(
                 "print_string: string -> void".to_string(),
-            ))))
-            .into(),
+            )))),
             Prov::Builtin("print_string: string -> void".to_string()),
         ),
     );
@@ -950,8 +947,7 @@ pub(crate) fn make_new_gamma() -> Rc<RefCell<Gamma>> {
             ],
             TypeVar::make_bool(Prov::FuncOut(Box::new(Prov::Builtin(
                 "equals_int: (int, int) -> bool".to_string(),
-            ))))
-            .into(),
+            )))),
             Prov::Builtin("equals_int: (int, int) -> bool".to_string()),
         ),
     );
@@ -974,8 +970,7 @@ pub(crate) fn make_new_gamma() -> Rc<RefCell<Gamma>> {
             ],
             TypeVar::make_bool(Prov::FuncOut(Box::new(Prov::Builtin(
                 "equals_string: (string, string) -> bool".to_string(),
-            ))))
-            .into(),
+            )))),
             Prov::Builtin("equals_string: (string, string) -> bool".to_string()),
         ),
     );
@@ -988,8 +983,7 @@ pub(crate) fn make_new_gamma() -> Rc<RefCell<Gamma>> {
             ))],
             TypeVar::make_string(Prov::FuncOut(Box::new(Prov::Builtin(
                 "int_to_string: int -> string".to_string(),
-            ))))
-            .into(),
+            )))),
             Prov::Builtin("int_to_string: int -> string".to_string()),
         ),
     );
@@ -1004,8 +998,7 @@ pub(crate) fn make_new_gamma() -> Rc<RefCell<Gamma>> {
             ))],
             TypeVar::make_string(Prov::FuncOut(Box::new(Prov::Builtin(
                 "float_to_string: float -> string".to_string(),
-            ))))
-            .into(),
+            )))),
             Prov::Builtin("float_to_string: float -> string".to_string()),
         ),
     );
@@ -1018,8 +1011,7 @@ pub(crate) fn make_new_gamma() -> Rc<RefCell<Gamma>> {
             ))],
             TypeVar::make_float(Prov::FuncOut(Box::new(Prov::Builtin(
                 "to_float: int -> float".to_string(),
-            ))))
-            .into(),
+            )))),
             Prov::Builtin("to_float: int -> float".to_string()),
         ),
     );
@@ -1032,8 +1024,7 @@ pub(crate) fn make_new_gamma() -> Rc<RefCell<Gamma>> {
             ))],
             TypeVar::make_int(Prov::FuncOut(Box::new(Prov::Builtin(
                 "round: float -> int".to_string(),
-            ))))
-            .into(),
+            )))),
             Prov::Builtin("round: float -> int".to_string()),
         ),
     );
@@ -1056,8 +1047,7 @@ pub(crate) fn make_new_gamma() -> Rc<RefCell<Gamma>> {
             ],
             TypeVar::make_string(Prov::FuncOut(Box::new(Prov::Builtin(
                 "append_strings: (string, string) -> string".to_string(),
-            ))))
-            .into(),
+            )))),
             Prov::Builtin("append_strings: (string, string) -> string".to_string()),
         ),
     );
@@ -1069,7 +1059,7 @@ pub(crate) fn make_new_gamma() -> Rc<RefCell<Gamma>> {
                 TypeVar::make_int(Prov::FuncArg(prov.clone().into(), 0)),
                 TypeVar::make_int(Prov::FuncArg(prov.clone().into(), 1)),
             ],
-            TypeVar::make_int(Prov::FuncOut(prov.clone().into())).into(),
+            TypeVar::make_int(Prov::FuncOut(prov.clone().into())),
             prov,
         ),
     );
@@ -1081,7 +1071,7 @@ pub(crate) fn make_new_gamma() -> Rc<RefCell<Gamma>> {
                 TypeVar::make_int(Prov::FuncArg(prov.clone().into(), 0)),
                 TypeVar::make_int(Prov::FuncArg(prov.clone().into(), 1)),
             ],
-            TypeVar::make_int(Prov::FuncOut(prov.clone().into())).into(),
+            TypeVar::make_int(Prov::FuncOut(prov.clone().into())),
             prov,
         ),
     );
@@ -1093,7 +1083,7 @@ pub(crate) fn make_new_gamma() -> Rc<RefCell<Gamma>> {
                 TypeVar::make_int(Prov::FuncArg(prov.clone().into(), 0)),
                 TypeVar::make_int(Prov::FuncArg(prov.clone().into(), 1)),
             ],
-            TypeVar::make_int(Prov::FuncOut(prov.clone().into())).into(),
+            TypeVar::make_int(Prov::FuncOut(prov.clone().into())),
             prov,
         ),
     );
@@ -1105,7 +1095,7 @@ pub(crate) fn make_new_gamma() -> Rc<RefCell<Gamma>> {
                 TypeVar::make_int(Prov::FuncArg(prov.clone().into(), 0)),
                 TypeVar::make_int(Prov::FuncArg(prov.clone().into(), 1)),
             ],
-            TypeVar::make_int(Prov::FuncOut(prov.clone().into())).into(),
+            TypeVar::make_int(Prov::FuncOut(prov.clone().into())),
             prov,
         ),
     );
@@ -1117,7 +1107,7 @@ pub(crate) fn make_new_gamma() -> Rc<RefCell<Gamma>> {
                 TypeVar::make_int(Prov::FuncArg(prov.clone().into(), 0)),
                 TypeVar::make_int(Prov::FuncArg(prov.clone().into(), 1)),
             ],
-            TypeVar::make_int(Prov::FuncOut(prov.clone().into())).into(),
+            TypeVar::make_int(Prov::FuncOut(prov.clone().into())),
             prov,
         ),
     );
@@ -1129,7 +1119,7 @@ pub(crate) fn make_new_gamma() -> Rc<RefCell<Gamma>> {
                 TypeVar::make_int(Prov::FuncArg(prov.clone().into(), 0)),
                 TypeVar::make_int(Prov::FuncArg(prov.clone().into(), 1)),
             ],
-            TypeVar::make_bool(Prov::FuncOut(prov.clone().into())).into(),
+            TypeVar::make_bool(Prov::FuncOut(prov.clone().into())),
             prov,
         ),
     );
@@ -1141,7 +1131,7 @@ pub(crate) fn make_new_gamma() -> Rc<RefCell<Gamma>> {
                 TypeVar::make_float(Prov::FuncArg(prov.clone().into(), 0)),
                 TypeVar::make_float(Prov::FuncArg(prov.clone().into(), 1)),
             ],
-            TypeVar::make_float(Prov::FuncOut(prov.clone().into())).into(),
+            TypeVar::make_float(Prov::FuncOut(prov.clone().into())),
             prov,
         ),
     );
@@ -1153,7 +1143,7 @@ pub(crate) fn make_new_gamma() -> Rc<RefCell<Gamma>> {
                 TypeVar::make_float(Prov::FuncArg(prov.clone().into(), 0)),
                 TypeVar::make_float(Prov::FuncArg(prov.clone().into(), 1)),
             ],
-            TypeVar::make_float(Prov::FuncOut(prov.clone().into())).into(),
+            TypeVar::make_float(Prov::FuncOut(prov.clone().into())),
             prov,
         ),
     );
@@ -1165,7 +1155,7 @@ pub(crate) fn make_new_gamma() -> Rc<RefCell<Gamma>> {
                 TypeVar::make_float(Prov::FuncArg(prov.clone().into(), 0)),
                 TypeVar::make_float(Prov::FuncArg(prov.clone().into(), 1)),
             ],
-            TypeVar::make_float(Prov::FuncOut(prov.clone().into())).into(),
+            TypeVar::make_float(Prov::FuncOut(prov.clone().into())),
             prov,
         ),
     );
@@ -1177,7 +1167,7 @@ pub(crate) fn make_new_gamma() -> Rc<RefCell<Gamma>> {
                 TypeVar::make_float(Prov::FuncArg(prov.clone().into(), 0)),
                 TypeVar::make_float(Prov::FuncArg(prov.clone().into(), 1)),
             ],
-            TypeVar::make_float(Prov::FuncOut(prov.clone().into())).into(),
+            TypeVar::make_float(Prov::FuncOut(prov.clone().into())),
             prov,
         ),
     );
@@ -1189,7 +1179,7 @@ pub(crate) fn make_new_gamma() -> Rc<RefCell<Gamma>> {
                 TypeVar::make_float(Prov::FuncArg(prov.clone().into(), 0)),
                 TypeVar::make_float(Prov::FuncArg(prov.clone().into(), 1)),
             ],
-            TypeVar::make_float(Prov::FuncOut(prov.clone().into())).into(),
+            TypeVar::make_float(Prov::FuncOut(prov.clone().into())),
             prov,
         ),
     );
@@ -1198,7 +1188,7 @@ pub(crate) fn make_new_gamma() -> Rc<RefCell<Gamma>> {
         &String::from("sqrt_float"),
         TypeVar::make_func(
             vec![TypeVar::make_float(Prov::FuncArg(prov.clone().into(), 0))],
-            TypeVar::make_float(Prov::FuncOut(prov.clone().into())).into(),
+            TypeVar::make_float(Prov::FuncOut(prov.clone().into())),
             prov,
         ),
     );
@@ -1210,7 +1200,7 @@ pub(crate) fn make_new_gamma() -> Rc<RefCell<Gamma>> {
                 TypeVar::make_float(Prov::FuncArg(prov.clone().into(), 0)),
                 TypeVar::make_float(Prov::FuncArg(prov.clone().into(), 1)),
             ],
-            TypeVar::make_bool(Prov::FuncOut(prov.clone().into())).into(),
+            TypeVar::make_bool(Prov::FuncOut(prov.clone().into())),
             prov,
         ),
     );
@@ -2079,7 +2069,7 @@ pub(crate) fn gather_definitions_toplevel<Effect: crate::side_effects::EffectTra
         }
         let typ = TypeVar::make_func(
             args,
-            monomorphized_ty_to_builtin_ty(eff.type_signature().1, prov.clone()).into(),
+            monomorphized_ty_to_builtin_ty(eff.type_signature().1, prov.clone()),
             prov,
         );
         gamma.borrow_mut().extend(&eff.function_name(), typ)
@@ -3305,7 +3295,7 @@ fn ctors_for_ty(inf_ctx: &InferenceContext, ty: &SolvedType) -> ConstructorSet {
     match ty {
         SolvedType::Bool(_) => ConstructorSet::Bool,
         SolvedType::AdtInstance(_, ident, _) => {
-            let variants = inf_ctx.variants_of_adt(&ident);
+            let variants = inf_ctx.variants_of_adt(ident);
             ConstructorSet::AdtVariants(variants)
         }
         SolvedType::Tuple(..) => ConstructorSet::Product,
