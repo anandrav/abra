@@ -281,11 +281,6 @@ pub(crate) struct InterfaceImplMethod {
     pub(crate) identifier_location: ast::Id,
 }
 
-#[derive(Debug, Clone, PartialEq)]
-pub(crate) struct UnifVarData {
-    pub(crate) types: BTreeMap<TypeKey, PotentialType>,
-}
-
 // If two types don't share the same key, they must be in conflict
 // (If two types share the same key, they may or may not be in conflict)
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]

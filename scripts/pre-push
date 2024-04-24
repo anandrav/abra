@@ -6,5 +6,5 @@ cargo clippy
 
 cargo test
 
-cargo udeps
+cargo +nightly udeps
 cargo deny check
