@@ -216,7 +216,10 @@ impl SolvedType {
         match self {
             Self::Poly(_, _, interfaces) => !interfaces.is_empty(),
             Self::Unit(_) => false,
-            Self::Int(_) => false,
+            Self::Int(_) => {
+                println!("is_overloaded hit int");
+                false
+            }
             Self::Float(_) => false,
             Self::Bool(_) => false,
             Self::String(_) => false,
@@ -550,9 +553,8 @@ impl TypeVar {
         };
         let mut types = BTreeMap::new();
         types.insert(ty.key(), ty);
-        let new_self = TypeVar(UnionFindNode::new(TypeVarData { types }));
-        inf_ctx.vars.insert(prov, new_self.clone());
-        new_self
+        self.0.replace_data(TypeVarData { types });
+        self
     }
 
     // Creates a clone of a Type with polymorphic variabels replaced by subtitutions
@@ -567,7 +569,6 @@ impl TypeVar {
         if data.types.len() == 1 {
             let ty = data.types.into_values().next().unwrap();
 
-            // let ty = ty.subst(gamma, inf_ctx, prov.clone(), substitution);
             let ty = match ty {
                 PotentialType::Unit(_)
                 | PotentialType::Int(_)
@@ -609,8 +610,7 @@ impl TypeVar {
             let mut types = BTreeMap::new();
             types.insert(ty.key(), ty);
             let new_data = TypeVarData { types };
-            self.0.replace_data(new_data);
-            self
+            TypeVar(UnionFindNode::new(new_data))
         } else {
             self // noop
         }
@@ -1716,12 +1716,14 @@ pub(crate) fn generate_constraints_stmt(
                         let mut substitution = BTreeMap::new();
                         substitution.insert("a".to_string(), typ.clone());
 
+                        println!("before subst {}", interface_method.ty);
                         let expected = interface_method.ty.clone().subst(
                             gamma.clone(),
                             inf_ctx,
                             Prov::Node(stmt.id),
                             &substitution,
                         );
+                        println!("after subst {}", expected);
 
                         constrain(expected, TypeVar::from_node(inf_ctx, pat.id));
 

@@ -173,6 +173,19 @@ impl Runtime {
 pub const _PRELUDE: &str = r#"
 func not(b: bool) = if b false else true
 
+interface Num {
+    add: (self, self) -> self
+    minus: (self, self) -> self
+    multiply: (self, self) -> self
+    divide: (self, self) -> self
+}
+
+implement Num for int {
+    func add(a, b) = add_int(a, b)
+    func minus(a, b) = minus_int(a, b)
+    func multiply(a, b) = multiply_int(a, b)
+    func divide(a, b) = divide_int(a, b)
+}
 "#;
 
 // pub const _PRELUDE: &str = r#"
