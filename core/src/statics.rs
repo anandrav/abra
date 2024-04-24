@@ -474,8 +474,7 @@ impl PotentialType {
 }
 
 impl TypeVar {
-    // Creates a clone of a Type with polymorphic variables not in scope replaced with fresh unification variables
-    // Cloning type variables is very subtle...
+    // Creates a clone of a Type with polymorphic variables not in scope with fresh unification variables
     pub(crate) fn instantiate(
         self,
         gamma: Rc<RefCell<Gamma>>,
@@ -484,7 +483,6 @@ impl TypeVar {
     ) -> TypeVar {
         let data = self.0.clone_data();
         if data.types.len() != 1 {
-            // TODO: remove this check? See which gives better feedback.
             return self;
         }
         let ty = data.types.into_values().next().unwrap();
