@@ -499,7 +499,7 @@ impl PotentialType {
         PotentialType::String(provs_singleton(prov))
     }
 
-    pub(crate) fn make_arrow(args: Vec<TypeVar>, out: TypeVar, prov: Prov) -> PotentialType {
+    pub(crate) fn make_func(args: Vec<TypeVar>, out: TypeVar, prov: Prov) -> PotentialType {
         PotentialType::Function(provs_singleton(prov), args, out.into())
     }
 
@@ -703,7 +703,7 @@ impl TypeVar {
     }
 
     pub(crate) fn make_func(args: Vec<TypeVar>, out: TypeVar, prov: Prov) -> TypeVar {
-        Self::orphan(PotentialType::make_arrow(args, out, prov))
+        Self::orphan(PotentialType::make_func(args, out, prov))
     }
 
     pub(crate) fn make_tuple(elems: Vec<TypeVar>, prov: Prov) -> TypeVar {
@@ -953,13 +953,6 @@ impl InferenceContext {
 
 fn constrain(mut expected: TypeVar, mut actual: TypeVar) {
     expected.0.union_with(&mut actual.0, TypeVarData::merge);
-}
-
-// TODO get rid of this and just use TypeVar everywhere you constrain, use the above function
-fn constrain_potential_type(tvar: TypeVar, potential_type: PotentialType) {
-    let mut data = tvar.0.clone_data();
-    data.extend(potential_type);
-    tvar.0.replace_data(data);
 }
 
 pub(crate) struct Gamma {
@@ -1381,25 +1374,25 @@ pub(crate) fn generate_constraints_expr(
     };
     match &*expr.exprkind {
         ExprKind::Unit => {
-            constrain_potential_type(node_ty, PotentialType::make_unit(Prov::Node(expr.id)));
+            constrain(node_ty, TypeVar::make_unit(Prov::Node(expr.id)));
         }
         ExprKind::Int(_) => {
-            constrain_potential_type(node_ty, PotentialType::make_int(Prov::Node(expr.id)));
+            constrain(node_ty, TypeVar::make_int(Prov::Node(expr.id)));
         }
         ExprKind::Float(_) => {
-            constrain_potential_type(node_ty, PotentialType::make_float(Prov::Node(expr.id)));
+            constrain(node_ty, TypeVar::make_float(Prov::Node(expr.id)));
         }
         ExprKind::Bool(_) => {
-            constrain_potential_type(node_ty, PotentialType::make_bool(Prov::Node(expr.id)));
+            constrain(node_ty, TypeVar::make_bool(Prov::Node(expr.id)));
         }
         ExprKind::Str(_) => {
-            constrain_potential_type(node_ty, PotentialType::make_string(Prov::Node(expr.id)));
+            constrain(node_ty, TypeVar::make_string(Prov::Node(expr.id)));
         }
         ExprKind::List(exprs) => {
             let elem_ty = TypeVar::fresh(inf_ctx, Prov::ListElem(Prov::Node(expr.id).into()));
-            constrain_potential_type(
+            constrain(
                 node_ty,
-                PotentialType::make_def_instance(
+                TypeVar::make_def_instance(
                     Prov::Node(expr.id),
                     "list".to_owned(),
                     vec![elem_ty.clone()],
@@ -1457,14 +1450,14 @@ pub(crate) fn generate_constraints_expr(
                             )
                         })
                         .collect();
-                    constrain_potential_type(
+                    constrain(
                         node_ty,
-                        PotentialType::make_arrow(args, def_type, Prov::Node(expr.id)),
+                        TypeVar::make_func(args, def_type, Prov::Node(expr.id)),
                     );
                 } else {
-                    constrain_potential_type(
+                    constrain(
                         node_ty,
-                        PotentialType::make_arrow(
+                        TypeVar::make_func(
                             vec![the_variant.data.clone().subst(
                                 gamma,
                                 inf_ctx,
@@ -1503,7 +1496,7 @@ pub(crate) fn generate_constraints_expr(
         }
         ExprKind::Block(statements) => {
             if statements.is_empty() {
-                constrain_potential_type(node_ty, PotentialType::make_unit(Prov::Node(expr.id)));
+                constrain(node_ty, TypeVar::make_unit(Prov::Node(expr.id)));
                 return;
             }
             let new_gamma = Gamma::new(Some(gamma));
@@ -1532,7 +1525,7 @@ pub(crate) fn generate_constraints_expr(
                     inf_ctx,
                     true,
                 );
-                constrain_potential_type(node_ty, PotentialType::make_unit(Prov::Node(expr.id)))
+                constrain(node_ty, TypeVar::make_unit(Prov::Node(expr.id)))
             }
         }
         ExprKind::If(cond, expr1, expr2) => {
@@ -1630,7 +1623,7 @@ pub(crate) fn generate_constraints_expr(
                 body,
             );
 
-            constrain_potential_type(node_ty, ty_func);
+            constrain(node_ty, ty_func);
         }
         ExprKind::FuncAp(func, args) => {
             // arguments
@@ -1672,7 +1665,7 @@ pub(crate) fn generate_constraints_expr(
                 .iter()
                 .map(|expr| TypeVar::fresh(inf_ctx, Prov::Node(expr.id)))
                 .collect();
-            constrain_potential_type(node_ty, PotentialType::make_tuple(tys, Prov::Node(expr.id)));
+            constrain(node_ty, TypeVar::make_tuple(tys, Prov::Node(expr.id)));
             for expr in exprs {
                 generate_constraints_expr(gamma.clone(), Mode::Syn, expr.clone(), inf_ctx);
             }
@@ -1687,7 +1680,7 @@ fn generate_constraints_func_helper(
     args: &Vec<ast::ArgAnnotated>,
     out_annot: &Option<Rc<ast::AstType>>,
     body: &Rc<Expr>,
-) -> PotentialType {
+) -> TypeVar {
     // arguments
     let ty_args = args
         .iter()
@@ -1735,7 +1728,7 @@ fn generate_constraints_func_helper(
         );
     }
 
-    PotentialType::make_arrow(ty_args, ty_body, Prov::Node(node_id))
+    TypeVar::make_func(ty_args, ty_body, Prov::Node(node_id))
 }
 
 pub(crate) fn generate_constraints_stmt(
@@ -1853,7 +1846,7 @@ pub(crate) fn generate_constraints_stmt(
                 body,
             );
 
-            constrain_potential_type(ty_pat, ty_func);
+            constrain(ty_pat, ty_func);
         }
     }
 }
@@ -1872,19 +1865,19 @@ pub(crate) fn generate_constraints_pat(
     match &*pat.patkind {
         PatKind::Wildcard => (),
         PatKind::Unit => {
-            constrain_potential_type(ty_pat, PotentialType::make_unit(Prov::Node(pat.id)));
+            constrain(ty_pat, TypeVar::make_unit(Prov::Node(pat.id)));
         }
         PatKind::Int(_) => {
-            constrain_potential_type(ty_pat, PotentialType::make_int(Prov::Node(pat.id)));
+            constrain(ty_pat, TypeVar::make_int(Prov::Node(pat.id)));
         }
         PatKind::Float(_) => {
-            constrain_potential_type(ty_pat, PotentialType::make_float(Prov::Node(pat.id)));
+            constrain(ty_pat, TypeVar::make_float(Prov::Node(pat.id)));
         }
         PatKind::Bool(_) => {
-            constrain_potential_type(ty_pat, PotentialType::make_bool(Prov::Node(pat.id)));
+            constrain(ty_pat, TypeVar::make_bool(Prov::Node(pat.id)));
         }
         PatKind::Str(_) => {
-            constrain_potential_type(ty_pat, PotentialType::make_string(Prov::Node(pat.id)));
+            constrain(ty_pat, TypeVar::make_string(Prov::Node(pat.id)));
         }
         PatKind::Var(identifier) => {
             // letrec: extend context with id and type before analyzing against said type
@@ -1909,7 +1902,7 @@ pub(crate) fn generate_constraints_pat(
                         ));
                         substitution.insert(adt_def.params[i].clone(), params[i].clone());
                     }
-                    let def_type = PotentialType::make_def_instance(
+                    let def_type = TypeVar::make_def_instance(
                         Prov::AdtDef(Box::new(Prov::Node(pat.id))),
                         adt_def.name,
                         params,
@@ -1930,7 +1923,7 @@ pub(crate) fn generate_constraints_pat(
                 }
             };
 
-            constrain_potential_type(ty_pat, ty_adt_instance);
+            constrain(ty_pat, ty_adt_instance);
             if let Some(data) = data {
                 generate_constraints_pat(
                     gamma,
@@ -1945,9 +1938,9 @@ pub(crate) fn generate_constraints_pat(
                 .iter()
                 .map(|pat| TypeVar::fresh(inf_ctx, Prov::Node(pat.id)))
                 .collect();
-            constrain_potential_type(
+            constrain(
                 ty_pat,
-                PotentialType::make_tuple(tys_elements, Prov::Node(pat.id)),
+                TypeVar::make_tuple(tys_elements, Prov::Node(pat.id)),
             );
             for pat in pats {
                 generate_constraints_pat(gamma.clone(), Mode::Syn, pat.clone(), inf_ctx)
