@@ -577,7 +577,6 @@ impl TypeVar {
             }
             PotentialType::Poly(_, ref ident, ref interfaces) => {
                 if !gamma.borrow().lookup_poly(ident) {
-                    // instantiation occurs here
                     let ret = TypeVar::fresh(
                         inf_ctx,
                         Prov::InstantiatePoly(Box::new(prov.clone()), ident.clone()),
@@ -591,7 +590,7 @@ impl TypeVar {
                         .entry(ret.clone())
                         .or_default()
                         .extend(extension);
-                    return ret;
+                    return ret; // instantiation occurs here
                 } else {
                     ty // noop
                 }
@@ -632,7 +631,7 @@ impl TypeVar {
         gamma: Rc<RefCell<Gamma>>,
         inf_ctx: &mut InferenceContext,
         prov: Prov,
-        substitution: &BTreeMap<Identifier, PotentialType>,
+        substitution: &BTreeMap<Identifier, TypeVar>,
     ) -> TypeVar {
         let data = self.0.clone_data();
         if data.types.len() == 1 {
@@ -649,7 +648,7 @@ impl TypeVar {
                 }
                 PotentialType::Poly(_, ref ident, ref _interfaces) => {
                     if let Some(ty) = substitution.get(ident) {
-                        ty.clone() // substitution occurs here
+                        return ty.clone(); // substitution occurs here
                     } else {
                         ty // noop
                     }
@@ -964,6 +963,7 @@ fn constrain(mut expected: TypeVar, mut actual: TypeVar) {
     expected.0.union_with(&mut actual.0, TypeVarData::merge);
 }
 
+// TODO get rid of this and just use TypeVar everywhere you constrain, use the above function
 fn constrain_potential_type(mut tvar: TypeVar, potential_type: PotentialType) {
     let mut data = tvar.0.clone_data();
     data.extend(potential_type);
@@ -976,6 +976,7 @@ pub(crate) struct Gamma {
     enclosing: Option<Rc<RefCell<Gamma>>>,
 }
 
+// TODO: make a macro for these builtins
 pub(crate) fn make_new_gamma() -> Rc<RefCell<Gamma>> {
     let gamma = Gamma::empty();
     gamma.borrow_mut().extend(
@@ -1579,12 +1580,12 @@ pub(crate) fn generate_constraints_expr(
                     generate_constraints_expr(
                         gamma,
                         Mode::Ana {
-                            expected: PotentialType::make_unit(Prov::Node(expr.id)),
+                            expected: TypeVar::make_unit(Prov::Node(expr.id)),
                         },
                         expr1.clone(),
                         inf_ctx,
                     );
-                    constrain(node_ty, PotentialType::make_unit(Prov::Node(expr.id)))
+                    constrain(node_ty, TypeVar::make_unit(Prov::Node(expr.id)))
                 }
             }
         }
@@ -1592,16 +1593,16 @@ pub(crate) fn generate_constraints_expr(
             generate_constraints_expr(
                 gamma.clone(),
                 Mode::Ana {
-                    expected: PotentialType::make_bool(Prov::Node(cond.id)),
+                    expected: TypeVar::make_bool(Prov::Node(cond.id)),
                 },
                 cond.clone(),
                 inf_ctx,
             );
             generate_constraints_expr(gamma, Mode::Syn, expr.clone(), inf_ctx);
-            constrain(node_ty, PotentialType::make_unit(Prov::Node(expr.id)))
+            constrain(node_ty, TypeVar::make_unit(Prov::Node(expr.id)))
         }
         ExprKind::Match(scrut, arms) => {
-            let ty_scrutiny = PotentialType::from_node(inf_ctx, scrut.id);
+            let ty_scrutiny = TypeVar::from_node(inf_ctx, scrut.id);
             generate_constraints_expr(
                 gamma.clone(),
                 Mode::Ana {
@@ -1642,15 +1643,15 @@ pub(crate) fn generate_constraints_expr(
                 body,
             );
 
-            constrain(ty_func, node_ty);
+            constrain_potential_type(node_ty, ty_func);
         }
         ExprKind::FuncAp(func, args) => {
             // arguments
-            let tys_args: Vec<PotentialType> = args
+            let tys_args: Vec<TypeVar> = args
                 .iter()
                 .enumerate()
                 .map(|(n, arg)| {
-                    let unknown = PotentialType::fresh_unifvar(
+                    let unknown = TypeVar::fresh(
                         inf_ctx,
                         Prov::FuncArg(Box::new(Prov::Node(func.id)), n as u8),
                     );
@@ -1667,12 +1668,11 @@ pub(crate) fn generate_constraints_expr(
                 .collect();
 
             // body
-            let ty_body =
-                PotentialType::fresh_unifvar(inf_ctx, Prov::FuncOut(Box::new(Prov::Node(func.id))));
+            let ty_body = TypeVar::fresh(inf_ctx, Prov::FuncOut(Box::new(Prov::Node(func.id))));
             constrain(ty_body.clone(), node_ty);
 
             // function type
-            let ty_func = PotentialType::make_arrow(tys_args, ty_body, Prov::Node(expr.id));
+            let ty_func = TypeVar::make_arrow(tys_args, ty_body, Prov::Node(expr.id));
             generate_constraints_expr(
                 gamma,
                 Mode::Ana { expected: ty_func },
@@ -1683,9 +1683,9 @@ pub(crate) fn generate_constraints_expr(
         ExprKind::Tuple(exprs) => {
             let tys = exprs
                 .iter()
-                .map(|expr| PotentialType::fresh_unifvar(inf_ctx, Prov::Node(expr.id)))
+                .map(|expr| TypeVar::fresh(inf_ctx, Prov::Node(expr.id)))
                 .collect();
-            constrain(PotentialType::make_tuple(tys, Prov::Node(expr.id)), node_ty);
+            constrain_potential_type(node_ty, PotentialType::make_tuple(tys, Prov::Node(expr.id)));
             for expr in exprs {
                 generate_constraints_expr(gamma.clone(), Mode::Syn, expr.clone(), inf_ctx);
             }
@@ -1835,7 +1835,7 @@ pub(crate) fn generate_constraints_stmt(
             };
         }
         StmtKind::Set(pat, expr) => {
-            let ty_pat: PotentialType = PotentialType::from_node(inf_ctx, pat.id);
+            let ty_pat = TypeVar::from_node(inf_ctx, pat.id);
             generate_constraints_expr(
                 gamma.clone(),
                 Mode::Ana {
@@ -1845,13 +1845,13 @@ pub(crate) fn generate_constraints_stmt(
                 inf_ctx,
             );
 
-            let ty_expr = PotentialType::from_node(inf_ctx, expr.id);
+            let ty_expr = TypeVar::from_node(inf_ctx, expr.id);
 
             constrain(ty_pat, ty_expr);
         }
         StmtKind::FuncDef(name, args, out_annot, body) => {
             let func_node_id = stmt.id;
-            let ty_pat = PotentialType::from_node(inf_ctx, name.id);
+            let ty_pat = TypeVar::from_node(inf_ctx, name.id);
             if add_to_gamma {
                 gamma
                     .borrow_mut()
@@ -1867,7 +1867,7 @@ pub(crate) fn generate_constraints_stmt(
                 body,
             );
 
-            constrain(ty_pat, ty_func);
+            constrain_potential_type(ty_pat, ty_func);
         }
     }
 }
@@ -1886,19 +1886,19 @@ pub(crate) fn generate_constraints_pat(
     match &*pat.patkind {
         PatKind::Wildcard => (),
         PatKind::Unit => {
-            constrain(ty_pat, PotentialType::make_unit(Prov::Node(pat.id)));
+            constrain_potential_type(ty_pat, PotentialType::make_unit(Prov::Node(pat.id)));
         }
         PatKind::Int(_) => {
-            constrain(ty_pat, PotentialType::make_int(Prov::Node(pat.id)));
+            constrain_potential_type(ty_pat, PotentialType::make_int(Prov::Node(pat.id)));
         }
         PatKind::Float(_) => {
-            constrain(ty_pat, PotentialType::make_float(Prov::Node(pat.id)));
+            constrain_potential_type(ty_pat, PotentialType::make_float(Prov::Node(pat.id)));
         }
         PatKind::Bool(_) => {
-            constrain(ty_pat, PotentialType::make_bool(Prov::Node(pat.id)));
+            constrain_potential_type(ty_pat, PotentialType::make_bool(Prov::Node(pat.id)));
         }
         PatKind::Str(_) => {
-            constrain(ty_pat, PotentialType::make_string(Prov::Node(pat.id)));
+            constrain_potential_type(ty_pat, PotentialType::make_string(Prov::Node(pat.id)));
         }
         PatKind::Var(identifier) => {
             // letrec: extend context with id and type before analyzing against said type
@@ -1906,8 +1906,8 @@ pub(crate) fn generate_constraints_pat(
         }
         PatKind::Variant(tag, data) => {
             let ty_data = match data {
-                Some(data) => PotentialType::from_node(inf_ctx, data.id),
-                None => PotentialType::make_unit(Prov::VariantNoData(Box::new(Prov::Node(pat.id)))),
+                Some(data) => TypeVar::from_node(inf_ctx, data.id),
+                None => TypeVar::make_unit(Prov::VariantNoData(Box::new(Prov::Node(pat.id)))),
             };
             let mut substitution = BTreeMap::new();
             let ty_adt_instance = {
@@ -1917,7 +1917,7 @@ pub(crate) fn generate_constraints_pat(
                     let nparams = adt_def.params.len();
                     let mut params = vec![];
                     for i in 0..nparams {
-                        params.push(PotentialType::fresh_unifvar(
+                        params.push(TypeVar::fresh(
                             inf_ctx,
                             Prov::InstantiateAdtParam(Box::new(Prov::Node(pat.id)), i as u8),
                         ));
@@ -1944,7 +1944,7 @@ pub(crate) fn generate_constraints_pat(
                 }
             };
 
-            constrain(ty_pat, ty_adt_instance);
+            constrain_potential_type(ty_pat, ty_adt_instance);
             if let Some(data) = data {
                 generate_constraints_pat(
                     gamma,
@@ -2182,7 +2182,7 @@ pub(crate) fn result_of_constraint_solving(
     // get list of type conflicts
     let mut type_conflicts = Vec::new();
     for potential_types in inf_ctx.vars.values() {
-        let type_suggestions = potential_types.clone_data().types;
+        let type_suggestions = potential_types.0.clone_data().types; // TODO why not just check if it's solved?
         if type_suggestions.len() > 1 && (!type_conflicts.contains(&type_suggestions)) {
             type_conflicts.push(type_suggestions.clone());
         }
@@ -2191,14 +2191,14 @@ pub(crate) fn result_of_constraint_solving(
     // replace underdetermined types with unit
     if type_conflicts.is_empty() {
         for potential_types in inf_ctx.vars.values() {
-            let mut data = potential_types.clone_data();
+            let mut data = potential_types.0.clone_data();
             let suggestions = &mut data.types;
             if suggestions.is_empty() {
                 suggestions.insert(
                     TypeKey::Unit,
                     PotentialType::make_unit(Prov::UnderdeterminedCoerceToUnit),
                 );
-                potential_types.replace_data(data);
+                potential_types.0.replace_data(data);
             }
         }
     }
@@ -2207,7 +2207,7 @@ pub(crate) fn result_of_constraint_solving(
     for (ident, impls) in inf_ctx.interface_impls.iter() {
         // map from implementation type to location
         // TODO: key is mutable. Can TypeKey or TypeMonomorphic be used instead? If not, create a TypeImmutable datatype
-        let mut impls_by_type: BTreeMap<PotentialType, Vec<ast::Id>> = BTreeMap::new();
+        let mut impls_by_type: BTreeMap<SolvedType, Vec<ast::Id>> = BTreeMap::new();
         for imp in impls.iter() {
             if let Some(impl_typ) = imp.typ.clone().solution() {
                 impls_by_type
@@ -2237,7 +2237,7 @@ pub(crate) fn result_of_constraint_solving(
         for interface in interfaces {
             let mut bad_instantiation: bool = true;
             let (interface, prov) = interface;
-            if let PotentialType::Poly(_, _, interfaces2) = &typ {
+            if let SolvedType::Poly(_, _, interfaces2) = &typ {
                 // if 'a Interface1 is constrained to [Interfaces...], ignore
                 if interfaces2.contains(interface) {
                     bad_instantiation = false;
@@ -2349,23 +2349,24 @@ pub(crate) fn result_of_constraint_solving(
     }
 
     if !type_conflicts.is_empty() {
-        let mut type_conflicts = type_conflicts
+        let mut type_conflicts: Vec<Vec<PotentialType>> = type_conflicts
             .iter()
             .map(|type_suggestions| {
-                let mut types_sorted: Vec<_> = type_suggestions.values().collect();
+                let mut types_sorted: Vec<PotentialType> =
+                    type_suggestions.values().cloned().collect();
                 types_sorted.sort_by_key(|ty| ty.provs().borrow().len());
                 types_sorted
             })
             .collect::<Vec<_>>();
         type_conflicts.sort();
-        for type_conflict in type_conflicts {
+        for i in 0..type_conflicts.len() {
+            let type_conflict = &type_conflicts[i];
             err_string.push_str("Conflicting types: ");
-            fmt_conflicting_types(&type_conflict, &mut err_string).unwrap();
+            fmt_conflicting_types(type_conflict, &mut err_string).unwrap();
             writeln!(err_string).unwrap();
             for ty in type_conflict {
                 err_string.push('\n');
                 match &ty {
-                    PotentialType::UnifVar(_) => err_string.push_str("Sources of unknown:\n"), // idk about this
                     PotentialType::Poly(_, _, _) => {
                         err_string.push_str("Sources of generic type:\n")
                     }
@@ -2642,16 +2643,16 @@ fn check_pattern_exhaustiveness_expr(inf_ctx: &mut InferenceContext, expr: &ast:
 
 pub(crate) fn ty_fits_impl_ty(
     ctx: &InferenceContext,
-    typ: PotentialType,
-    impl_ty: PotentialType,
-) -> Result<(), (PotentialType, PotentialType)> {
+    typ: SolvedType,
+    impl_ty: SolvedType,
+) -> Result<(), (SolvedType, SolvedType)> {
     match (&typ, &impl_ty) {
-        (PotentialType::Int(..), PotentialType::Int(..))
-        | (PotentialType::Bool(..), PotentialType::Bool(..))
-        | (PotentialType::Float(..), PotentialType::Float(..))
-        | (PotentialType::String(..), PotentialType::String(..))
-        | (PotentialType::Unit(..), PotentialType::Unit(..)) => Ok(()),
-        (PotentialType::Tuple(_, tys1), PotentialType::Tuple(_, tys2)) => {
+        (SolvedType::Int(..), SolvedType::Int(..))
+        | (SolvedType::Bool(..), SolvedType::Bool(..))
+        | (SolvedType::Float(..), SolvedType::Float(..))
+        | (SolvedType::String(..), SolvedType::String(..))
+        | (SolvedType::Unit(..), SolvedType::Unit(..)) => Ok(()),
+        (SolvedType::Tuple(_, tys1), SolvedType::Tuple(_, tys2)) => {
             if tys1.len() == tys2.len() {
                 for (ty1, ty2) in tys1.iter().zip(tys2.iter()) {
                     ty_fits_impl_ty(ctx, ty1.clone(), ty2.clone())?;
@@ -2661,7 +2662,7 @@ pub(crate) fn ty_fits_impl_ty(
                 Err((typ, impl_ty))
             }
         }
-        (PotentialType::Function(_, args1, out1), PotentialType::Function(_, args2, out2)) => {
+        (SolvedType::Function(_, args1, out1), SolvedType::Function(_, args2, out2)) => {
             if args1.len() == args2.len() {
                 for (ty1, ty2) in args1.iter().zip(args2.iter()) {
                     ty_fits_impl_ty(ctx, ty1.clone(), ty2.clone())?;
@@ -2671,13 +2672,10 @@ pub(crate) fn ty_fits_impl_ty(
                 Err((typ, impl_ty))
             }
         }
-        (
-            PotentialType::AdtInstance(_, ident1, tys1),
-            PotentialType::AdtInstance(_, ident2, tys2),
-        ) => {
+        (SolvedType::AdtInstance(_, ident1, tys1), SolvedType::AdtInstance(_, ident2, tys2)) => {
             if ident1 == ident2 && tys1.len() == tys2.len() {
                 for (ty1, ty2) in tys1.iter().zip(tys2.iter()) {
-                    let PotentialType::Poly(_, _, interfaces) = ty2.clone() else {
+                    let SolvedType::Poly(_, _, interfaces) = ty2.clone() else {
                         panic!()
                     };
                     if !ty_fits_impl_ty_poly(
@@ -2693,7 +2691,7 @@ pub(crate) fn ty_fits_impl_ty(
                 Err((typ, impl_ty))
             }
         }
-        (_, PotentialType::Poly(_, _, interfaces)) => {
+        (_, SolvedType::Poly(_, _, interfaces)) => {
             if !ty_fits_impl_ty_poly(
                 ctx,
                 typ.clone(),
@@ -2709,11 +2707,11 @@ pub(crate) fn ty_fits_impl_ty(
 
 fn ty_fits_impl_ty_poly(
     inf_ctx: &InferenceContext,
-    typ: PotentialType,
+    typ: SolvedType,
     interfaces: BTreeSet<Identifier>,
 ) -> bool {
     for interface in interfaces {
-        if let PotentialType::Poly(_, _, interfaces2) = &typ {
+        if let SolvedType::Poly(_, _, interfaces2) = &typ {
             // if 'a Interface1 is constrained to [Interfaces...], ignore
             if interfaces2.contains(&interface) {
                 return true;
@@ -3518,7 +3516,7 @@ impl fmt::Display for Variant {
     }
 }
 
-fn fmt_conflicting_types(types: &[&PotentialType], f: &mut dyn Write) -> fmt::Result {
+fn fmt_conflicting_types(types: &[PotentialType], f: &mut dyn Write) -> fmt::Result {
     writeln!(f)?;
     for (i, t) in types.iter().enumerate() {
         if types.len() == 1 {
