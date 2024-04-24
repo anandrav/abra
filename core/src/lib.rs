@@ -357,6 +357,70 @@ func println(x: 'b ToString) {
     print_string(newline)
 }
 
+func range(lo: int, hi: int) {
+    if lo > hi
+        nil
+    else
+        cons(lo, range(lo + 1, hi))
+}
+
+func fold(xs: list<'b>, f: ('a, 'b) -> 'a, acc: 'a) -> 'a {
+    match xs {
+        nil -> acc
+        cons (~head, ~tail) -> fold(tail, f, f(acc, head))
+    }
+}
+
+func sum(xs: list<int>) -> int { fold(xs, (a, b) -> a + b, 0) }
+func sumf(xs: list<float>) -> float { fold(xs, (a, b) -> a + b, 0.0) }
+
+func max(a: float, b: float) -> float { if a > b a else b }
+func min(a: float, b: float) -> float { if a < b a else b }
+func clamp(lo: float, hi: float, x: float) -> float { max(lo, min(hi, x)) }
+func abs(x: float) -> float { if x < 0.0 (0.0 - x) else x }
+func sqrt(x: float) -> float { sqrt_float(x) }
+
+func concat(xs: list<string>, sep: string) -> string {
+    match xs {
+        nil -> ""
+        cons (~head, cons(~last, nil)) -> {
+            head & sep & last
+        }
+        cons (~head, ~tail) -> {
+            head & sep & concat(tail, sep)
+        }
+    }
+}
+
+func map(xs: list<'a>, f: 'a -> 'b) -> list<'b> {
+    match xs {
+        nil -> nil
+        cons (~head, ~tail) -> cons(f(head), map(tail, f))
+    }
+}
+
+func for_each(xs: list<'a>, f: 'a -> 'b) -> void {
+    match xs {
+        nil -> ()
+        cons (~head, ~tail) -> {
+            f(head)
+            for_each(tail, f)
+        }
+    }
+}
+
+func filter(xs: list<'a>, f: 'a -> bool) -> list<'a> {
+    match xs {
+        nil -> nil
+        cons (~head, ~tail) ->
+            if f(head) cons(head, filter(tail, f)) else filter(tail, f)
+    }
+}
+
+func reverse(xs: list<'c>) -> list<'c> {
+    fold(xs, (acc, head) -> cons(head, acc), nil)
+}
+
 "#;
 
 // pub const _PRELUDE: &str = r#"
