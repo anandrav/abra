@@ -37,6 +37,15 @@ impl TypeVar {
     pub(crate) fn solution(&self) -> Option<SolvedType> {
         self.0.clone_data().solution()
     }
+
+    fn single(&self) -> Option<PotentialType> {
+        let types = self.0.clone_data().types;
+        if types.len() == 1 {
+            Some(types.values().next().unwrap().clone())
+        } else {
+            None
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -360,66 +369,6 @@ impl PotentialType {
         }
     }
 
-    // impl PotentialType {
-    //     pub(crate) fn instantiate(
-    //         self,
-    //         gamma: Rc<RefCell<Gamma>>,
-    //         inf_ctx: &mut InferenceContext,
-    //         prov: Prov,
-    //     ) -> PotentialType {
-    //         match self {
-    //             PotentialType::Unit(_)
-    //             | PotentialType::Int(_)
-    //             | PotentialType::Float(_)
-    //             | PotentialType::Bool(_)
-    //             | PotentialType::String(_) => {
-    //                 self // noop
-    //             }
-    //             PotentialType::Poly(_, ref ident, ref interfaces) => {
-    //                 if !gamma.borrow().lookup_poly(ident) {
-    //                     let ret = TypeVar::fresh(
-    //                         inf_ctx,
-    //                         Prov::InstantiatePoly(Box::new(prov.clone()), ident.clone()),
-    //                     );
-    //                     let mut extension = Vec::new();
-    //                     for i in interfaces {
-    //                         extension.push((i.clone(), prov.clone()));
-    //                     }
-    //                     inf_ctx
-    //                         .types_constrained_to_interfaces
-    //                         .entry(ret.clone())
-    //                         .or_default()
-    //                         .extend(extension);
-    //                     ret
-    //                 } else {
-    //                     self // noop
-    //                 }
-    //             }
-    //             PotentialType::AdtInstance(provs, ident, params) => {
-    //                 let params = params
-    //                     .into_iter()
-    //                     .map(|ty| ty.instantiate(gamma.clone(), inf_ctx, prov.clone()))
-    //                     .collect();
-    //                 PotentialType::AdtInstance(provs, ident, params)
-    //             }
-    //             PotentialType::Function(provs, args, out) => {
-    //                 let args = args
-    //                     .into_iter()
-    //                     .map(|ty| ty.instantiate(gamma.clone(), inf_ctx, prov.clone()))
-    //                     .collect();
-    //                 let out = out.instantiate(gamma, inf_ctx, prov);
-    //                 PotentialType::Function(provs, args, out)
-    //             }
-    //             PotentialType::Tuple(provs, elems) => {
-    //                 let elems = elems
-    //                     .into_iter()
-    //                     .map(|ty| ty.instantiate(gamma.clone(), inf_ctx, prov.clone()))
-    //                     .collect();
-    //                 PotentialType::Tuple(provs, elems)
-    //             }
-    //         }
-    //     }
-
     pub(crate) fn solution(&self) -> Option<SolvedType> {
         match self {
             Self::Bool(provs) => Some(SolvedType::Bool(provs.clone())),
@@ -473,53 +422,53 @@ impl PotentialType {
         }
     }
 
-    // Creates a clone of a Type with polymorphic variabels replaced by subtitutions
-    pub(crate) fn subst(
-        self,
-        gamma: Rc<RefCell<Gamma>>,
-        inf_ctx: &mut InferenceContext,
-        prov: Prov,
-        substitution: &BTreeMap<Identifier, PotentialType>,
-    ) -> PotentialType {
-        match self {
-            PotentialType::Unit(_)
-            | PotentialType::Int(_)
-            | PotentialType::Float(_)
-            | PotentialType::Bool(_)
-            | PotentialType::String(_) => {
-                self // noop
-            }
-            PotentialType::Poly(_, ref ident, ref _interfaces) => {
-                if let Some(ty) = substitution.get(ident) {
-                    ty.clone()
-                } else {
-                    self // noop
-                }
-            }
-            PotentialType::AdtInstance(provs, ident, params) => {
-                let params = params
-                    .into_iter()
-                    .map(|ty| ty.subst(gamma.clone(), inf_ctx, prov.clone(), substitution))
-                    .collect();
-                PotentialType::AdtInstance(provs, ident, params)
-            }
-            PotentialType::Function(provs, args, out) => {
-                let args = args
-                    .into_iter()
-                    .map(|ty| ty.subst(gamma.clone(), inf_ctx, prov.clone(), substitution))
-                    .collect();
-                let out = out.subst(gamma, inf_ctx, prov, substitution);
-                PotentialType::Function(provs, args, out)
-            }
-            PotentialType::Tuple(provs, elems) => {
-                let elems = elems
-                    .into_iter()
-                    .map(|ty| ty.subst(gamma.clone(), inf_ctx, prov.clone(), substitution))
-                    .collect();
-                PotentialType::Tuple(provs, elems)
-            }
-        }
-    }
+    // // Creates a clone of a Type with polymorphic variabels replaced by subtitutions
+    // pub(crate) fn subst(
+    //     self,
+    //     gamma: Rc<RefCell<Gamma>>,
+    //     inf_ctx: &mut InferenceContext,
+    //     prov: Prov,
+    //     substitution: &BTreeMap<Identifier, PotentialType>,
+    // ) -> PotentialType {
+    //     match self {
+    //         PotentialType::Unit(_)
+    //         | PotentialType::Int(_)
+    //         | PotentialType::Float(_)
+    //         | PotentialType::Bool(_)
+    //         | PotentialType::String(_) => {
+    //             self // noop
+    //         }
+    //         PotentialType::Poly(_, ref ident, ref _interfaces) => {
+    //             if let Some(ty) = substitution.get(ident) {
+    //                 ty.clone()
+    //             } else {
+    //                 self // noop
+    //             }
+    //         }
+    //         PotentialType::AdtInstance(provs, ident, params) => {
+    //             let params = params
+    //                 .into_iter()
+    //                 .map(|ty| ty.subst(gamma.clone(), inf_ctx, prov.clone(), substitution))
+    //                 .collect();
+    //             PotentialType::AdtInstance(provs, ident, params)
+    //         }
+    //         PotentialType::Function(provs, args, out) => {
+    //             let args = args
+    //                 .into_iter()
+    //                 .map(|ty| ty.subst(gamma.clone(), inf_ctx, prov.clone(), substitution))
+    //                 .collect();
+    //             let out = out.subst(gamma, inf_ctx, prov, substitution);
+    //             PotentialType::Function(provs, args, out)
+    //         }
+    //         PotentialType::Tuple(provs, elems) => {
+    //             let elems = elems
+    //                 .into_iter()
+    //                 .map(|ty| ty.subst(gamma.clone(), inf_ctx, prov.clone(), substitution))
+    //                 .collect();
+    //             PotentialType::Tuple(provs, elems)
+    //         }
+    //     }
+    // }
 
     pub(crate) fn provs(&self) -> &Provs {
         match self {
@@ -562,6 +511,39 @@ impl PotentialType {
     pub(crate) fn make_tuple(elems: Vec<TypeVar>, prov: Prov) -> PotentialType {
         PotentialType::Tuple(provs_singleton(prov), elems)
     }
+
+    pub(crate) fn make_poly(prov: Prov, ident: String, interfaces: Vec<String>) -> PotentialType {
+        PotentialType::Poly(provs_singleton(prov), ident, interfaces)
+    }
+
+    pub(crate) fn make_poly_constrained(
+        prov: Prov,
+        ident: String,
+        interface_ident: String,
+    ) -> PotentialType {
+        PotentialType::Poly(provs_singleton(prov), ident, vec![interface_ident])
+    }
+
+    pub(crate) fn make_def_instance(
+        prov: Prov,
+        ident: String,
+        params: Vec<TypeVar>,
+    ) -> PotentialType {
+        PotentialType::AdtInstance(provs_singleton(prov), ident, params)
+    }
+
+    // return true if the type is an adt with at least one parameter instantiated
+    // this is used to see if an implementation of an interface is for an instantiated adt, which is not allowed
+    // example: implement ToString for list<int> rather than list<'a>
+    pub(crate) fn is_instantiated_adt(&self) -> bool {
+        match self {
+            // return true if an adt with at least one parameter instantiated
+            Self::AdtInstance(_, _, tys) => !tys
+                .iter()
+                .all(|ty| matches!(ty.single(), Some(Self::Poly(..)))),
+            _ => false,
+        }
+    }
 }
 
 impl TypeVar {
@@ -589,6 +571,7 @@ impl TypeVar {
             }
             PotentialType::Poly(_, ref ident, ref interfaces) => {
                 if !gamma.borrow().lookup_poly(ident) {
+                    // instantiation occurs here
                     let ret = TypeVar::fresh(
                         inf_ctx,
                         Prov::InstantiatePoly(Box::new(prov.clone()), ident.clone()),
@@ -649,7 +632,45 @@ impl TypeVar {
         if data.types.len() == 1 {
             let ty = data.types.into_values().next().unwrap();
 
-            let ty = ty.subst(gamma, inf_ctx, prov.clone(), substitution);
+            // let ty = ty.subst(gamma, inf_ctx, prov.clone(), substitution);
+            let ty = match ty {
+                PotentialType::Unit(_)
+                | PotentialType::Int(_)
+                | PotentialType::Float(_)
+                | PotentialType::Bool(_)
+                | PotentialType::String(_) => {
+                    ty // noop
+                }
+                PotentialType::Poly(_, ref ident, ref _interfaces) => {
+                    if let Some(ty) = substitution.get(ident) {
+                        ty.clone() // substitution occurs here
+                    } else {
+                        ty // noop
+                    }
+                }
+                PotentialType::AdtInstance(provs, ident, params) => {
+                    let params = params
+                        .into_iter()
+                        .map(|ty| ty.subst(gamma.clone(), inf_ctx, prov.clone(), substitution))
+                        .collect();
+                    PotentialType::AdtInstance(provs, ident, params)
+                }
+                PotentialType::Function(provs, args, out) => {
+                    let args = args
+                        .into_iter()
+                        .map(|ty| ty.subst(gamma.clone(), inf_ctx, prov.clone(), substitution))
+                        .collect();
+                    let out = out.subst(gamma, inf_ctx, prov, substitution);
+                    PotentialType::Function(provs, args, out)
+                }
+                PotentialType::Tuple(provs, elems) => {
+                    let elems = elems
+                        .into_iter()
+                        .map(|ty| ty.subst(gamma.clone(), inf_ctx, prov.clone(), substitution))
+                        .collect();
+                    PotentialType::Tuple(provs, elems)
+                }
+            };
             let mut types = BTreeMap::new();
             types.insert(ty.key(), ty);
             let new_data = TypeVarData { types };
@@ -674,41 +695,6 @@ impl TypeVar {
                 ty
             }
         }
-    }
-
-    pub(crate) fn make_poly(prov: Prov, ident: String, interfaces: Vec<String>) -> PotentialType {
-        PotentialType::Poly(provs_singleton(prov), ident, interfaces)
-    }
-
-    pub(crate) fn make_poly_constrained(
-        prov: Prov,
-        ident: String,
-        interface_ident: String,
-    ) -> PotentialType {
-        PotentialType::Poly(provs_singleton(prov), ident, vec![interface_ident])
-    }
-
-    pub(crate) fn make_def_instance(
-        prov: Prov,
-        ident: String,
-        params: Vec<PotentialType>,
-    ) -> PotentialType {
-        PotentialType::AdtInstance(provs_singleton(prov), ident, params)
-    }
-
-    // return true if the type is an adt with at least one parameter instantiated
-    // this is used to see if an implementation of an interface is for an instantiated adt, which is not allowed
-    // example: implement ToString for list<int> rather than list<'a>
-    pub(crate) fn is_instantiated_adt(&self) -> bool {
-        match self {
-            // return true if an adt with at least one parameter instantiated
-            Self::AdtInstance(_, _, tys) => !tys.iter().all(|ty| matches!(ty, Self::Poly(..))),
-            _ => false,
-        }
-    }
-
-    pub(crate) fn make_int(prov: Prov) -> TypeVar {
-        PotentialType::Int(provs_singleton(prov))
     }
 }
 
@@ -1288,7 +1274,7 @@ impl Gamma {
         }))
     }
 
-    pub(crate) fn lookup(&self, id: &Identifier) -> Option<PotentialType> {
+    pub(crate) fn lookup(&self, id: &Identifier) -> Option<TypeVar> {
         match self.vars.get(id) {
             Some(typ) => Some(typ.clone()),
             None => match &self.enclosing {
@@ -1298,7 +1284,7 @@ impl Gamma {
         }
     }
 
-    pub(crate) fn extend(&mut self, id: &Identifier, typ: PotentialType) {
+    pub(crate) fn extend(&mut self, id: &Identifier, typ: TypeVar) {
         self.vars.insert(id.clone(), typ);
     }
 
@@ -1309,18 +1295,26 @@ impl Gamma {
             }
             PotentialType::AdtInstance(_, _, params) => {
                 for param in params {
-                    self.add_polys(param);
+                    if let Some(param) = param.single() {
+                        self.add_polys(&param);
+                    }
                 }
             }
             PotentialType::Function(_, args, out) => {
                 for arg in args {
-                    self.add_polys(arg);
+                    if let Some(arg) = arg.single() {
+                        self.add_polys(&arg);
+                    }
                 }
-                self.add_polys(out);
+                if let Some(out) = out.single() {
+                    self.add_polys(&out);
+                }
             }
             PotentialType::Tuple(_, elems) => {
                 for elem in elems {
-                    self.add_polys(elem);
+                    if let Some(elem) = elem.single() {
+                        self.add_polys(&elem);
+                    }
                 }
             }
             _ => {}
@@ -1373,7 +1367,7 @@ pub(crate) fn generate_constraints_expr(
         }
         ExprKind::List(exprs) => {
             let elem_ty = TypeVar::fresh(inf_ctx, Prov::ListElem(Prov::Node(expr.id).into()));
-            constrain(
+            constrain_potential_type(
                 node_ty,
                 PotentialType::make_def_instance(
                     Prov::Node(expr.id),
@@ -1406,7 +1400,7 @@ pub(crate) fn generate_constraints_expr(
                 let mut params = vec![];
                 let mut substitution = BTreeMap::new();
                 for i in 0..nparams {
-                    params.push(PotentialType::fresh_unifvar(
+                    params.push(TypeVar::fresh(
                         inf_ctx,
                         Prov::InstantiateAdtParam(Box::new(Prov::Node(expr.id)), i as u8),
                     ));
@@ -1438,7 +1432,7 @@ pub(crate) fn generate_constraints_expr(
                         PotentialType::make_arrow(args, def_type, Prov::Node(expr.id)),
                     );
                 } else {
-                    constrain(
+                    constrain_potential_type(
                         node_ty,
                         PotentialType::make_arrow(
                             vec![the_variant.data.clone().subst(
@@ -1766,7 +1760,7 @@ pub(crate) fn generate_constraints_stmt(
         }
         StmtKind::TypeDef(typdefkind) => match &**typdefkind {
             TypeDefKind::Alias(ident, ty) => {
-                let left = PotentialType::fresh_unifvar(inf_ctx, Prov::Alias(ident.clone()));
+                let left = TypeVar::fresh(inf_ctx, Prov::Alias(ident.clone()));
                 let right = ast_type_to_statics_type(inf_ctx, ty.clone());
                 constrain(left, right);
             }
@@ -1776,7 +1770,7 @@ pub(crate) fn generate_constraints_stmt(
             generate_constraints_expr(gamma, mode, expr.clone(), inf_ctx);
         }
         StmtKind::Let(_mutable, (pat, ty_ann), expr) => {
-            let ty_pat = PotentialType::from_node(inf_ctx, pat.id);
+            let ty_pat = TypeVar::from_node(inf_ctx, pat.id);
 
             generate_constraints_expr(
                 gamma.clone(),
@@ -2702,15 +2696,11 @@ fn ty_fits_impl_ty_poly(
 #[derive(Debug, Clone)]
 struct Matrix {
     rows: Vec<MatrixRow>,
-    types: Vec<PotentialType>,
+    types: Vec<SolvedType>,
 }
 
 impl Matrix {
-    fn new(
-        inf_ctx: &InferenceContext,
-        scrutinee_ty: PotentialType,
-        arms: &[ast::MatchArm],
-    ) -> Self {
+    fn new(inf_ctx: &InferenceContext, scrutinee_ty: SolvedType, arms: &[ast::MatchArm]) -> Self {
         let types = vec![scrutinee_ty.clone()];
         let mut rows = Vec::new();
         for (dummy, arm) in arms.iter().enumerate() {
@@ -2745,24 +2735,25 @@ impl Matrix {
             | Constructor::Bool(..)
             | Constructor::Wildcard(..) => {}
             Constructor::Product => match &self.types[0] {
-                PotentialType::Tuple(_, tys) => {
+                SolvedType::Tuple(_, tys) => {
                     new_types.extend(tys.clone());
                 }
-                PotentialType::Unit(..) => {}
-                _ => panic!("expected type for product constructor"),
+                SolvedType::Unit(..) => {}
+                _ => panic!("unexpected type for product constructor"),
             },
             Constructor::Variant(ident) => {
                 let adt = inf_ctx.adt_def_of_variant(ident).unwrap();
                 let variant = adt.variants.iter().find(|v| v.ctor == *ident).unwrap();
-                match &variant.data {
-                    PotentialType::Unit(..) => {}
-                    PotentialType::Bool(..)
-                    | PotentialType::Int(..)
-                    | PotentialType::String(..)
-                    | PotentialType::Float(..)
-                    | PotentialType::Function(..)
-                    | PotentialType::Tuple(_, _)
-                    | PotentialType::AdtInstance(..) => new_types.push(variant.data.clone()),
+                let data_ty = variant.data.solution().unwrap();
+                match data_ty {
+                    SolvedType::Unit(..) => {}
+                    SolvedType::Bool(..)
+                    | SolvedType::Int(..)
+                    | SolvedType::String(..)
+                    | SolvedType::Float(..)
+                    | SolvedType::Function(..)
+                    | SolvedType::Tuple(_, _)
+                    | SolvedType::AdtInstance(..) => new_types.push(data_ty),
                     _ => panic!("unexpected type"),
                 }
             }
@@ -2856,12 +2847,12 @@ impl MatrixRow {
 pub(crate) struct DeconstructedPat {
     ctor: Constructor,
     fields: Vec<DeconstructedPat>,
-    ty: PotentialType,
+    ty: SolvedType,
 }
 
 impl DeconstructedPat {
     fn from_ast_pat(inf_ctx: &InferenceContext, pat: Rc<ast::Pat>) -> Self {
-        let ty = PotentialType::solution_of_node(inf_ctx, pat.id).unwrap();
+        let ty = inf_ctx.solution_of_node(pat.id).unwrap();
         let mut fields = vec![];
         let ctor = match &*pat.patkind {
             PatKind::Wildcard => Constructor::Wildcard(WildcardReason::UserCreated),
@@ -2910,22 +2901,22 @@ impl DeconstructedPat {
         }
     }
 
-    fn field_tys(&self, ctor: &Constructor, inf_ctx: &InferenceContext) -> Vec<PotentialType> {
+    fn field_tys(&self, ctor: &Constructor, inf_ctx: &InferenceContext) -> Vec<SolvedType> {
         match &self.ty {
-            PotentialType::Int(..)
-            | PotentialType::Float(..)
-            | PotentialType::String(..)
-            | PotentialType::Bool(..)
-            | PotentialType::Unit(..)
-            | PotentialType::Poly(..)
-            | PotentialType::Function(..) => vec![],
-            PotentialType::Tuple(_, tys) => tys.clone(),
-            PotentialType::AdtInstance(_, _, _) => match ctor {
+            SolvedType::Int(..)
+            | SolvedType::Float(..)
+            | SolvedType::String(..)
+            | SolvedType::Bool(..)
+            | SolvedType::Unit(..)
+            | SolvedType::Poly(..)
+            | SolvedType::Function(..) => vec![],
+            SolvedType::Tuple(_, tys) => tys.clone(),
+            SolvedType::AdtInstance(_, _, _) => match ctor {
                 Constructor::Variant(ident) => {
                     let adt = inf_ctx.adt_def_of_variant(ident).unwrap();
                     let variant = adt.variants.iter().find(|v| v.ctor == *ident).unwrap();
-                    if !matches!(&variant.data, PotentialType::Unit(..)) {
-                        vec![variant.data.clone()]
+                    if !matches!(&variant.data.solution().unwrap(), SolvedType::Unit(..)) {
+                        vec![variant.data.solution().unwrap().clone()]
                     } else {
                         vec![]
                     }
@@ -2935,13 +2926,12 @@ impl DeconstructedPat {
                 }
                 _ => panic!("unexpected constructor"),
             },
-            PotentialType::UnifVar(..) => panic!("unexpected type"),
         }
     }
 
-    fn missing_from_ctor(ctor: &Constructor, ty: PotentialType) -> Self {
+    fn missing_from_ctor(ctor: &Constructor, ty: SolvedType) -> Self {
         let fields = match ty.clone() {
-            PotentialType::Tuple(_, tys) | PotentialType::AdtInstance(_, _, tys) => tys
+            SolvedType::Tuple(_, tys) | SolvedType::AdtInstance(_, _, tys) => tys
                 .iter()
                 .map(|ty| DeconstructedPat {
                     ctor: Constructor::Wildcard(WildcardReason::NonExhaustive),
@@ -3035,7 +3025,7 @@ impl Constructor {
         }
     }
 
-    fn arity(&self, matrix_tys: &[PotentialType], inf_ctx: &InferenceContext) -> usize {
+    fn arity(&self, matrix_tys: &[SolvedType], inf_ctx: &InferenceContext) -> usize {
         match self {
             Constructor::Bool(..)
             | Constructor::Int(..)
@@ -3043,14 +3033,14 @@ impl Constructor {
             | Constructor::Float(..)
             | Constructor::Wildcard(..) => 0,
             Constructor::Product => match &matrix_tys[0] {
-                PotentialType::Tuple(_, tys) => tys.len(),
-                PotentialType::Unit(..) => 0,
+                SolvedType::Tuple(_, tys) => tys.len(),
+                SolvedType::Unit(..) => 0,
                 _ => panic!("unexpected type for product constructor: {}", matrix_tys[0]),
             },
             Constructor::Variant(ident) => {
                 let adt = inf_ctx.adt_def_of_variant(ident).unwrap();
                 let variant = adt.variants.iter().find(|v| v.ctor == *ident).unwrap();
-                if !matches!(&variant.data, PotentialType::Unit(..)) {
+                if !matches!(&variant.data.solution().unwrap(), SolvedType::Unit(..)) {
                     1
                 } else {
                     0
@@ -3096,7 +3086,7 @@ impl WitnessMatrix {
         }
     }
 
-    fn apply_constructor(&mut self, ctor: &Constructor, arity: usize, head_ty: &PotentialType) {
+    fn apply_constructor(&mut self, ctor: &Constructor, arity: usize, head_ty: &SolvedType) {
         for witness in self.rows.iter_mut() {
             let len = witness.len();
             let fields: Vec<DeconstructedPat> = witness.drain((len - arity)..).rev().collect();
@@ -3110,11 +3100,7 @@ impl WitnessMatrix {
         }
     }
 
-    fn apply_missing_constructors(
-        &mut self,
-        missing_ctors: &[Constructor],
-        head_ty: &PotentialType,
-    ) {
+    fn apply_missing_constructors(&mut self, missing_ctors: &[Constructor], head_ty: &SolvedType) {
         if missing_ctors.is_empty() {
             return;
         }
@@ -3244,7 +3230,7 @@ fn match_expr_exhaustive_check(inf_ctx: &mut InferenceContext, expr: &ast::Expr)
         panic!()
     };
 
-    let scrutinee_ty = PotentialType::solution_of_node(inf_ctx, scrutiny.id);
+    let scrutinee_ty = inf_ctx.solution_of_node(scrutiny.id);
     let Some(scrutinee_ty) = scrutinee_ty else {
         return;
     };
@@ -3347,21 +3333,20 @@ fn compute_exhaustiveness_and_usefulness(
     ret_witnesses
 }
 
-fn ctors_for_ty(inf_ctx: &InferenceContext, ty: &PotentialType) -> ConstructorSet {
-    match ty.solution().unwrap() {
-        PotentialType::Bool(_) => ConstructorSet::Bool,
-        PotentialType::AdtInstance(_, ident, _) => {
+fn ctors_for_ty(inf_ctx: &InferenceContext, ty: &SolvedType) -> ConstructorSet {
+    match ty {
+        SolvedType::Bool(_) => ConstructorSet::Bool,
+        SolvedType::AdtInstance(_, ident, _) => {
             let variants = inf_ctx.variants_of_adt(&ident);
             ConstructorSet::AdtVariants(variants)
         }
-        PotentialType::Tuple(..) => ConstructorSet::Product,
-        PotentialType::Unit(_) => ConstructorSet::Product,
-        PotentialType::Int(_)
-        | PotentialType::Float(_)
-        | PotentialType::String(_)
-        | PotentialType::Function(..) => ConstructorSet::Unlistable,
-        PotentialType::Poly(..) => ConstructorSet::Unlistable,
-        PotentialType::UnifVar(..) => panic!("Unexpected type in ctors_for_ty {:#?}", ty),
+        SolvedType::Tuple(..) => ConstructorSet::Product,
+        SolvedType::Unit(_) => ConstructorSet::Product,
+        SolvedType::Int(_)
+        | SolvedType::Float(_)
+        | SolvedType::String(_)
+        | SolvedType::Function(..) => ConstructorSet::Unlistable,
+        SolvedType::Poly(..) => ConstructorSet::Unlistable,
     }
 }
 
@@ -3412,6 +3397,66 @@ impl fmt::Display for PotentialType {
                 write!(f, "{out}")
             }
             PotentialType::Tuple(_, elems) => {
+                write!(f, "(")?;
+                for (i, elem) in elems.iter().enumerate() {
+                    if i > 0 {
+                        write!(f, ", ")?;
+                    }
+                    write!(f, "{}", elem)?;
+                }
+                write!(f, ")")
+            }
+        }
+    }
+}
+
+impl fmt::Display for SolvedType {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            SolvedType::Poly(_, ident, interfaces) => {
+                write!(f, "'{}", ident)?;
+                if !interfaces.is_empty() {
+                    write!(f, " ")?;
+                    for (i, interface) in interfaces.iter().enumerate() {
+                        if i != 0 {
+                            write!(f, " + ")?;
+                        }
+                        write!(f, "{}", interface)?;
+                    }
+                }
+                Ok(())
+            }
+            SolvedType::AdtInstance(_, ident, params) => {
+                if !params.is_empty() {
+                    write!(f, "{}<", ident)?;
+                    for (i, param) in params.iter().enumerate() {
+                        if i != 0 {
+                            write!(f, ", ")?;
+                        }
+                        write!(f, "{}", param)?;
+                    }
+                    write!(f, ">")
+                } else {
+                    write!(f, "{}", ident)
+                }
+            }
+            SolvedType::Unit(_) => write!(f, "void"),
+            SolvedType::Int(_) => write!(f, "int"),
+            SolvedType::Float(_) => write!(f, "float"),
+            SolvedType::Bool(_) => write!(f, "bool"),
+            SolvedType::String(_) => write!(f, "string"),
+            SolvedType::Function(_, args, out) => {
+                write!(f, "fn(")?;
+                for (i, arg) in args.iter().enumerate() {
+                    if i > 0 {
+                        write!(f, ", ")?;
+                    }
+                    write!(f, "{arg}")?;
+                }
+                write!(f, ") -> ")?;
+                write!(f, "{out}")
+            }
+            SolvedType::Tuple(_, elems) => {
                 write!(f, "(")?;
                 for (i, elem) in elems.iter().enumerate() {
                     if i > 0 {
