@@ -9,8 +9,8 @@ use crate::statics;
 use crate::statics::Gamma;
 use crate::statics::InferenceContext;
 use crate::statics::Prov;
+use crate::statics::SolvedType;
 use crate::statics::TypeMonomorphized;
-use crate::statics::UnsolvedType;
 use std::cell::RefCell;
 use std::collections::BTreeMap;
 use std::collections::HashMap;
@@ -24,7 +24,7 @@ type Etp = eval_tree::Pat;
 
 #[derive(PartialEq, Eq, Debug)]
 struct MonomorphEnv {
-    vars: BTreeMap<ast::Identifier, UnsolvedType>,
+    vars: BTreeMap<ast::Identifier, SolvedType>,
     enclosing: Option<Rc<RefCell<MonomorphEnv>>>,
 }
 
@@ -36,7 +36,7 @@ impl MonomorphEnv {
         }
     }
 
-    fn lookup(&self, key: &ast::Identifier) -> Option<UnsolvedType> {
+    fn lookup(&self, key: &ast::Identifier) -> Option<SolvedType> {
         match self.vars.get(key) {
             Some(ty) => Some(ty.clone()),
             None => match &self.enclosing {
@@ -46,7 +46,7 @@ impl MonomorphEnv {
         }
     }
 
-    fn extend(&mut self, key: &ast::Identifier, ty: UnsolvedType) {
+    fn extend(&mut self, key: &ast::Identifier, ty: SolvedType) {
         self.vars.insert(key.clone(), ty);
     }
 }
@@ -96,7 +96,7 @@ fn translate_expr_block(
             env.clone(),
         ),
         ast::StmtKind::FuncDef(pat, func_args, _, body) => {
-            let ty = UnsolvedType::solution_of_node(inf_ctx, pat.id).unwrap();
+            let ty = inf_ctx.solution_of_node(pat.id).unwrap();
             if ty.is_overloaded() {
                 // if function is overloaded, don't translate its body
                 return translate_expr_block(
@@ -277,7 +277,7 @@ fn translate_expr_ap(
     ))
 }
 
-fn ty_of_global_ident(gamma: Rc<RefCell<Gamma>>, ident: &ast::Identifier) -> Option<UnsolvedType> {
+fn ty_of_global_ident(gamma: Rc<RefCell<Gamma>>, ident: &ast::Identifier) -> Option<SolvedType> {
     let gamma = gamma.borrow();
     let ty = gamma.vars.get(ident)?;
     ty.solution()
@@ -285,30 +285,30 @@ fn ty_of_global_ident(gamma: Rc<RefCell<Gamma>>, ident: &ast::Identifier) -> Opt
 
 fn update_monomorphenv(
     monomorphenv: Rc<RefCell<MonomorphEnv>>,
-    overloaded_ty: UnsolvedType,
-    monomorphic_ty: UnsolvedType,
+    overloaded_ty: SolvedType,
+    monomorphic_ty: SolvedType,
 ) {
     match (overloaded_ty, monomorphic_ty.clone()) {
         // recurse
-        (UnsolvedType::Function(_, args, out), UnsolvedType::Function(_, args2, out2)) => {
+        (SolvedType::Function(_, args, out), SolvedType::Function(_, args2, out2)) => {
             for i in 0..args.len() {
                 update_monomorphenv(monomorphenv.clone(), args[i].clone(), args2[i].clone());
             }
             update_monomorphenv(monomorphenv, *out, *out2);
         }
         (
-            UnsolvedType::AdtInstance(_, ident, params),
-            UnsolvedType::AdtInstance(_, ident2, params2),
+            SolvedType::AdtInstance(_, ident, params),
+            SolvedType::AdtInstance(_, ident2, params2),
         ) => {
             assert_eq!(ident, ident2);
             for i in 0..params.len() {
                 update_monomorphenv(monomorphenv.clone(), params[i].clone(), params2[i].clone());
             }
         }
-        (UnsolvedType::Poly(_, ident, _), _) => {
+        (SolvedType::Poly(_, ident, _), _) => {
             monomorphenv.borrow_mut().extend(&ident, monomorphic_ty);
         }
-        (UnsolvedType::Tuple(_, elems1), UnsolvedType::Tuple(_, elems2)) => {
+        (SolvedType::Tuple(_, elems1), SolvedType::Tuple(_, elems2)) => {
             for i in 0..elems1.len() {
                 update_monomorphenv(monomorphenv.clone(), elems1[i].clone(), elems2[i].clone());
             }
@@ -319,37 +319,37 @@ fn update_monomorphenv(
 
 fn subst_with_monomorphic_env(
     monomorphic_env: Rc<RefCell<MonomorphEnv>>,
-    ty: UnsolvedType,
-) -> UnsolvedType {
+    ty: SolvedType,
+) -> SolvedType {
     match ty {
-        UnsolvedType::Function(provs, args, out) => {
+        SolvedType::Function(provs, args, out) => {
             let new_args = args
                 .iter()
                 .map(|arg| subst_with_monomorphic_env(monomorphic_env.clone(), arg.clone()))
                 .collect();
             let new_out = subst_with_monomorphic_env(monomorphic_env, *out);
-            UnsolvedType::Function(provs, new_args, Box::new(new_out))
+            SolvedType::Function(provs, new_args, Box::new(new_out))
         }
-        UnsolvedType::AdtInstance(provs, ident, params) => {
+        SolvedType::AdtInstance(provs, ident, params) => {
             let new_params = params
                 .iter()
                 .map(|param| subst_with_monomorphic_env(monomorphic_env.clone(), param.clone()))
                 .collect();
-            UnsolvedType::AdtInstance(provs, ident, new_params)
+            SolvedType::AdtInstance(provs, ident, new_params)
         }
-        UnsolvedType::Poly(_, ref ident, _) => {
+        SolvedType::Poly(_, ref ident, _) => {
             if let Some(monomorphic_ty) = monomorphic_env.borrow().lookup(ident) {
                 monomorphic_ty
             } else {
                 ty
             }
         }
-        UnsolvedType::Tuple(provs, elems) => {
+        SolvedType::Tuple(provs, elems) => {
             let new_elems = elems
                 .iter()
                 .map(|elem| subst_with_monomorphic_env(monomorphic_env.clone(), elem.clone()))
                 .collect();
-            UnsolvedType::Tuple(provs, new_elems)
+            SolvedType::Tuple(provs, new_elems)
         }
         _ => ty,
     }
@@ -359,7 +359,7 @@ fn get_func_definition_node(
     inf_ctx: &InferenceContext,
     node_map: &NodeMap,
     ident: &ast::Identifier,
-    desired_interface_impl: UnsolvedType,
+    desired_interface_impl: SolvedType,
 ) -> Rc<dyn ast::Node> {
     if let Some(interface_name) = inf_ctx.method_to_interface.get(&ident.clone()) {
         let impl_list = inf_ctx.interface_impls.get(interface_name).unwrap();
@@ -376,7 +376,7 @@ fn get_func_definition_node(
 
                     let func_id = method_identifier_node.id();
                     let unifvar = inf_ctx.vars.get(&Prov::Node(func_id)).unwrap();
-                    let interface_impl_ty = unifvar.clone_data().solution().unwrap();
+                    let interface_impl_ty = unifvar.solution().unwrap();
 
                     if statics::ty_fits_impl_ty(
                         inf_ctx,
@@ -406,7 +406,7 @@ fn monomorphize_overloaded_var(
     node_map: &NodeMap,
     overloaded_func_map: &mut OverloadedFuncMapTemp,
     ident: &ast::Identifier,
-    node_ty: UnsolvedType,
+    node_ty: SolvedType,
 ) -> Option<TypeMonomorphized> {
     if let Some(global_ty) = ty_of_global_ident(gamma.clone(), ident) {
         if global_ty.is_overloaded() {
@@ -418,19 +418,15 @@ fn monomorphize_overloaded_var(
             {
                 return Some(instance_ty);
             }
-            let func_def_node = get_func_definition_node(
-                inf_ctx,
-                node_map,
-                ident,
-                substituted_ty.clone().solution().unwrap(),
-            )
-            .to_stmt()
-            .unwrap();
+            let func_def_node =
+                get_func_definition_node(inf_ctx, node_map, ident, substituted_ty.clone())
+                    .to_stmt()
+                    .unwrap();
             let ast::StmtKind::FuncDef(pat, args, _, body) = &*func_def_node.stmtkind else {
                 panic!()
             };
 
-            let overloaded_func_ty = UnsolvedType::solution_of_node(inf_ctx, pat.id()).unwrap();
+            let overloaded_func_ty = inf_ctx.solution_of_node(pat.id()).unwrap();
             let monomorphenv = Rc::new(RefCell::new(MonomorphEnv::new(None)));
             update_monomorphenv(monomorphenv.clone(), overloaded_func_ty, substituted_ty);
 
@@ -462,7 +458,7 @@ fn translate_expr(
 ) -> Rc<Ete> {
     match &*parse_tree {
         ASTek::Var(ident) => {
-            if let Some(node_ty) = UnsolvedType::solution_of_node(inf_ctx, ast_id) {
+            if let Some(node_ty) = inf_ctx.solution_of_node(ast_id) {
                 if let Some(instance_ty) = monomorphize_overloaded_var(
                     inf_ctx,
                     monomorphenv,
@@ -526,12 +522,15 @@ fn translate_expr(
             | BinOpcode::GreaterThanOrEqual),
             expr2,
         ) => {
-            let ty1 = UnsolvedType::solution_of_node(inf_ctx, expr1.id()).unwrap();
-            let ty2 = UnsolvedType::solution_of_node(inf_ctx, expr2.id()).unwrap();
-            let ty = UnsolvedType::Function(
+            let ty1 = inf_ctx.solution_of_node(expr1.id()).unwrap();
+            let ty2 = inf_ctx.solution_of_node(expr2.id()).unwrap();
+            let ty = SolvedType::Function(
                 statics::provs_singleton(Prov::Node(ast_id)),
                 vec![ty1, ty2],
-                UnsolvedType::make_bool(Prov::FuncOut(Prov::Node(ast_id).into())).into(),
+                SolvedType::Bool(statics::provs_singleton(Prov::FuncOut(
+                    Prov::Node(ast_id).into(),
+                )))
+                .into(),
             );
             let func_name = match opcode {
                 BinOpcode::Equals => "equals",
@@ -587,9 +586,9 @@ fn translate_expr(
             | BinOpcode::Pow),
             expr2,
         ) => {
-            let ty1 = UnsolvedType::solution_of_node(inf_ctx, expr1.id()).unwrap();
-            let ty2 = UnsolvedType::solution_of_node(inf_ctx, expr2.id()).unwrap();
-            let ty = UnsolvedType::Function(
+            let ty1 = inf_ctx.solution_of_node(expr1.id()).unwrap();
+            let ty2 = inf_ctx.solution_of_node(expr2.id()).unwrap();
+            let ty = SolvedType::Function(
                 statics::provs_singleton(Prov::Node(ast_id)),
                 vec![ty1.clone(), ty2],
                 ty1.into(),
