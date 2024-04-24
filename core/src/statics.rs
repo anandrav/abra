@@ -54,10 +54,16 @@ pub(crate) struct TypeVarData {
 }
 
 impl TypeVarData {
-    pub fn new() -> Self {
+    fn new() -> Self {
         Self {
             types: BTreeMap::new(),
         }
+    }
+
+    fn singleton(potential_type: PotentialType) -> Self {
+        let mut types = BTreeMap::new();
+        types.insert(potential_type.key(), potential_type);
+        Self { types }
     }
 
     pub(crate) fn solution(&self) -> Option<SolvedType> {
@@ -696,20 +702,69 @@ impl TypeVar {
             }
         }
     }
+
+    fn orphan(potential_type: PotentialType) -> TypeVar {
+        TypeVar(UnionFindNode::new(TypeVarData::singleton(potential_type)))
+    }
+
+    pub(crate) fn make_unit(prov: Prov) -> TypeVar {
+        Self::orphan(PotentialType::make_unit(prov))
+    }
+
+    pub(crate) fn make_int(prov: Prov) -> TypeVar {
+        Self::orphan(PotentialType::make_int(prov))
+    }
+
+    pub(crate) fn make_float(prov: Prov) -> TypeVar {
+        Self::orphan(PotentialType::make_float(prov))
+    }
+
+    pub(crate) fn make_bool(prov: Prov) -> TypeVar {
+        Self::orphan(PotentialType::make_bool(prov))
+    }
+
+    pub(crate) fn make_string(prov: Prov) -> TypeVar {
+        Self::orphan(PotentialType::make_string(prov))
+    }
+
+    pub(crate) fn make_arrow(args: Vec<TypeVar>, out: TypeVar, prov: Prov) -> TypeVar {
+        Self::orphan(PotentialType::make_arrow(args, out, prov))
+    }
+
+    pub(crate) fn make_tuple(elems: Vec<TypeVar>, prov: Prov) -> TypeVar {
+        Self::orphan(PotentialType::make_tuple(elems, prov))
+    }
+
+    pub(crate) fn make_poly(prov: Prov, ident: String, interfaces: Vec<String>) -> TypeVar {
+        Self::orphan(PotentialType::make_poly(prov, ident, interfaces))
+    }
+
+    pub(crate) fn make_poly_constrained(
+        prov: Prov,
+        ident: String,
+        interface_ident: String,
+    ) -> TypeVar {
+        Self::orphan(PotentialType::make_poly_constrained(
+            prov,
+            ident,
+            interface_ident,
+        ))
+    }
+
+    pub(crate) fn make_def_instance(prov: Prov, ident: String, params: Vec<TypeVar>) -> TypeVar {
+        Self::orphan(PotentialType::make_def_instance(prov, ident, params))
+    }
 }
 
-fn types_of_binop(
-    opcode: &BinOpcode,
-    id: ast::Id,
-) -> (PotentialType, PotentialType, PotentialType) {
+fn types_of_binop(opcode: &BinOpcode, id: ast::Id) -> (TypeVar, TypeVar, TypeVar) {
     let prov_left = Prov::BinopLeft(Prov::Node(id).into());
     let prov_right = Prov::BinopRight(Prov::Node(id).into());
     let prov_out = Prov::Node(id);
     match opcode {
         BinOpcode::And | BinOpcode::Or => (
-            PotentialType::make_bool(prov_left),
-            PotentialType::make_bool(prov_right),
-            PotentialType::make_bool(prov_out),
+            TypeVar::make_bool(prov_left),
+            TypeVar::make_bool(prov_right),
+            TypeVar::make_bool(prov_out),
         ),
         BinOpcode::Add
         | BinOpcode::Subtract
@@ -717,50 +772,43 @@ fn types_of_binop(
         | BinOpcode::Divide
         | BinOpcode::Pow => {
             let ty_left =
-                PotentialType::make_poly_constrained(prov_left, "a".to_owned(), "Num".to_owned());
+                TypeVar::make_poly_constrained(prov_left, "a".to_owned(), "Num".to_owned());
             let ty_right =
-                PotentialType::make_poly_constrained(prov_right, "a".to_owned(), "Num".to_owned());
-            let ty_out =
-                PotentialType::make_poly_constrained(prov_out, "a".to_owned(), "Num".to_owned());
+                TypeVar::make_poly_constrained(prov_right, "a".to_owned(), "Num".to_owned());
+            let ty_out = TypeVar::make_poly_constrained(prov_out, "a".to_owned(), "Num".to_owned());
             constrain(ty_left.clone(), ty_right.clone());
             constrain(ty_left.clone(), ty_out.clone());
             (ty_left, ty_right, ty_out)
         }
         BinOpcode::Mod => (
-            PotentialType::make_int(prov_left),
-            PotentialType::make_int(prov_right),
-            PotentialType::make_int(prov_out),
+            TypeVar::make_int(prov_left),
+            TypeVar::make_int(prov_right),
+            TypeVar::make_int(prov_out),
         ),
         BinOpcode::LessThan
         | BinOpcode::GreaterThan
         | BinOpcode::LessThanOrEqual
         | BinOpcode::GreaterThanOrEqual => {
             let ty_left =
-                PotentialType::make_poly_constrained(prov_left, "a".to_owned(), "Num".to_owned());
+                TypeVar::make_poly_constrained(prov_left, "a".to_owned(), "Num".to_owned());
             let ty_right =
-                PotentialType::make_poly_constrained(prov_right, "a".to_owned(), "Num".to_owned());
+                TypeVar::make_poly_constrained(prov_right, "a".to_owned(), "Num".to_owned());
             constrain(ty_left.clone(), ty_right.clone());
-            let ty_out = PotentialType::make_bool(prov_out);
+            let ty_out = TypeVar::make_bool(prov_out);
             (ty_left, ty_right, ty_out)
         }
         BinOpcode::Concat => (
-            PotentialType::make_string(prov_left),
-            PotentialType::make_string(prov_right),
-            PotentialType::make_string(prov_out),
+            TypeVar::make_string(prov_left),
+            TypeVar::make_string(prov_right),
+            TypeVar::make_string(prov_out),
         ),
         BinOpcode::Equals => {
-            let ty_left = PotentialType::make_poly_constrained(
-                prov_left,
-                "a".to_owned(),
-                "Equals".to_owned(),
-            );
-            let ty_right = PotentialType::make_poly_constrained(
-                prov_right,
-                "a".to_owned(),
-                "Equals".to_owned(),
-            );
+            let ty_left =
+                TypeVar::make_poly_constrained(prov_left, "a".to_owned(), "Equals".to_owned());
+            let ty_right =
+                TypeVar::make_poly_constrained(prov_right, "a".to_owned(), "Equals".to_owned());
             constrain(ty_left.clone(), ty_right.clone());
-            (ty_left, ty_right, PotentialType::make_bool(prov_out))
+            (ty_left, ty_right, TypeVar::make_bool(prov_out))
         }
     }
 }
@@ -769,28 +817,28 @@ fn ast_type_to_statics_type_interface(
     inf_ctx: &mut InferenceContext,
     ast_type: Rc<ast::AstType>,
     interface_ident: Option<&String>,
-) -> PotentialType {
+) -> TypeVar {
     match &*ast_type.typekind {
         ast::TypeKind::Poly(ident, interfaces) => {
-            PotentialType::make_poly(Prov::Node(ast_type.id()), ident.clone(), interfaces.clone())
+            TypeVar::make_poly(Prov::Node(ast_type.id()), ident.clone(), interfaces.clone())
         }
         ast::TypeKind::Alias(ident) => {
             if let Some(interface_ident) = interface_ident {
                 if ident == "self" {
-                    PotentialType::make_poly_constrained(
+                    TypeVar::make_poly_constrained(
                         Prov::Node(ast_type.id()),
                         "a".to_string(),
                         interface_ident.clone(),
                     )
                 } else {
-                    PotentialType::fresh_unifvar(inf_ctx, Prov::Alias(ident.clone()))
+                    TypeVar::fresh(inf_ctx, Prov::Alias(ident.clone()))
                 }
             } else {
-                PotentialType::fresh_unifvar(inf_ctx, Prov::Alias(ident.clone()))
+                TypeVar::fresh(inf_ctx, Prov::Alias(ident.clone()))
             }
         }
-        ast::TypeKind::Ap(ident, params) => PotentialType::AdtInstance(
-            provs_singleton(Prov::Node(ast_type.id())),
+        ast::TypeKind::Ap(ident, params) => TypeVar::make_def_instance(
+            Prov::Node(ast_type.id()),
             ident.clone(),
             params
                 .iter()
@@ -799,12 +847,12 @@ fn ast_type_to_statics_type_interface(
                 })
                 .collect(),
         ),
-        ast::TypeKind::Unit => PotentialType::make_unit(Prov::Node(ast_type.id())),
-        ast::TypeKind::Int => PotentialType::make_int(Prov::Node(ast_type.id())),
-        ast::TypeKind::Float => PotentialType::make_float(Prov::Node(ast_type.id())),
-        ast::TypeKind::Bool => PotentialType::make_bool(Prov::Node(ast_type.id())),
-        ast::TypeKind::Str => PotentialType::make_string(Prov::Node(ast_type.id())),
-        ast::TypeKind::Function(lhs, rhs) => PotentialType::make_arrow(
+        ast::TypeKind::Unit => TypeVar::make_unit(Prov::Node(ast_type.id())),
+        ast::TypeKind::Int => TypeVar::make_int(Prov::Node(ast_type.id())),
+        ast::TypeKind::Float => TypeVar::make_float(Prov::Node(ast_type.id())),
+        ast::TypeKind::Bool => TypeVar::make_bool(Prov::Node(ast_type.id())),
+        ast::TypeKind::Str => TypeVar::make_string(Prov::Node(ast_type.id())),
+        ast::TypeKind::Function(lhs, rhs) => TypeVar::make_arrow(
             lhs.iter()
                 .map(|t| ast_type_to_statics_type_interface(inf_ctx, t.clone(), interface_ident))
                 .collect(),
@@ -820,15 +868,12 @@ fn ast_type_to_statics_type_interface(
                     interface_ident,
                 ));
             }
-            PotentialType::make_tuple(statics_types, Prov::Node(ast_type.id()))
+            TypeVar::make_tuple(statics_types, Prov::Node(ast_type.id()))
         }
     }
 }
 
-fn ast_type_to_statics_type(
-    inf_ctx: &mut InferenceContext,
-    ast_type: Rc<ast::AstType>,
-) -> PotentialType {
+fn ast_type_to_statics_type(inf_ctx: &mut InferenceContext, ast_type: Rc<ast::AstType>) -> TypeVar {
     ast_type_to_statics_type_interface(inf_ctx, ast_type, None)
 }
 
@@ -935,302 +980,299 @@ pub(crate) fn make_new_gamma() -> Rc<RefCell<Gamma>> {
     let gamma = Gamma::empty();
     gamma.borrow_mut().extend(
         &String::from("newline"),
-        PotentialType::String(RefCell::new(BTreeSet::new())),
+        TypeVar::make_string(Prov::Builtin("newline: string".to_string())),
     );
     gamma.borrow_mut().extend(
         &String::from("print_string"),
-        PotentialType::Function(
-            RefCell::new(BTreeSet::new()),
-            vec![PotentialType::make_string(Prov::FuncArg(
+        TypeVar::make_arrow(
+            vec![TypeVar::make_string(Prov::FuncArg(
                 Box::new(Prov::Builtin("print_string: string -> void".to_string())),
                 0,
             ))],
-            PotentialType::make_unit(Prov::FuncOut(Box::new(Prov::Builtin(
+            TypeVar::make_unit(Prov::FuncOut(Box::new(Prov::Builtin(
                 "print_string: string -> void".to_string(),
             ))))
             .into(),
+            Prov::Builtin("print_string: string -> void".to_string()),
         ),
     );
     gamma.borrow_mut().extend(
         &String::from("equals_int"),
-        PotentialType::Function(
-            RefCell::new(BTreeSet::new()),
+        TypeVar::make_arrow(
             vec![
-                PotentialType::make_int(Prov::FuncArg(
+                TypeVar::make_int(Prov::FuncArg(
                     Box::new(Prov::Builtin("equals_int: (int, int) -> bool".to_string())),
                     0,
                 )),
-                PotentialType::make_int(Prov::FuncArg(
+                TypeVar::make_int(Prov::FuncArg(
                     Box::new(Prov::Builtin("equals_int: (int, int) -> bool".to_string())),
                     1,
                 )),
             ],
-            PotentialType::make_bool(Prov::FuncOut(Box::new(Prov::Builtin(
+            TypeVar::make_bool(Prov::FuncOut(Box::new(Prov::Builtin(
                 "equals_int: (int, int) -> bool".to_string(),
             ))))
             .into(),
+            Prov::Builtin("equals_int: (int, int) -> bool".to_string()),
         ),
     );
     gamma.borrow_mut().extend(
         &String::from("equals_string"),
-        PotentialType::Function(
-            RefCell::new(BTreeSet::new()),
+        TypeVar::make_arrow(
             vec![
-                PotentialType::make_string(Prov::FuncArg(
+                TypeVar::make_string(Prov::FuncArg(
                     Box::new(Prov::Builtin(
                         "equals_string: (string, string) -> bool".to_string(),
                     )),
                     0,
                 )),
-                PotentialType::make_string(Prov::FuncArg(
+                TypeVar::make_string(Prov::FuncArg(
                     Box::new(Prov::Builtin(
                         "equals_string: (string, string) -> bool".to_string(),
                     )),
                     1,
                 )),
             ],
-            PotentialType::make_bool(Prov::FuncOut(Box::new(Prov::Builtin(
+            TypeVar::make_bool(Prov::FuncOut(Box::new(Prov::Builtin(
                 "equals_string: (string, string) -> bool".to_string(),
             ))))
             .into(),
+            Prov::Builtin("equals_string: (string, string) -> bool".to_string()),
         ),
     );
     gamma.borrow_mut().extend(
         &String::from("int_to_string"),
-        PotentialType::Function(
-            RefCell::new(BTreeSet::new()),
-            vec![PotentialType::make_int(Prov::FuncArg(
+        TypeVar::make_arrow(
+            vec![TypeVar::make_int(Prov::FuncArg(
                 Box::new(Prov::Builtin("int_to_string: int -> string".to_string())),
                 0,
             ))],
-            PotentialType::make_string(Prov::FuncOut(Box::new(Prov::Builtin(
+            TypeVar::make_string(Prov::FuncOut(Box::new(Prov::Builtin(
                 "int_to_string: int -> string".to_string(),
             ))))
             .into(),
+            Prov::Builtin("int_to_string: int -> string".to_string()),
         ),
     );
     gamma.borrow_mut().extend(
         &String::from("float_to_string"),
-        PotentialType::Function(
-            RefCell::new(BTreeSet::new()),
-            vec![PotentialType::make_float(Prov::FuncArg(
+        TypeVar::make_arrow(
+            vec![TypeVar::make_float(Prov::FuncArg(
                 Box::new(Prov::Builtin(
                     "float_to_string: float -> string".to_string(),
                 )),
                 0,
             ))],
-            PotentialType::make_string(Prov::FuncOut(Box::new(Prov::Builtin(
+            TypeVar::make_string(Prov::FuncOut(Box::new(Prov::Builtin(
                 "float_to_string: float -> string".to_string(),
             ))))
             .into(),
+            Prov::Builtin("float_to_string: float -> string".to_string()),
         ),
     );
     gamma.borrow_mut().extend(
         &String::from("to_float"),
-        PotentialType::Function(
-            RefCell::new(BTreeSet::new()),
-            vec![PotentialType::make_int(Prov::FuncArg(
+        TypeVar::make_arrow(
+            vec![TypeVar::make_int(Prov::FuncArg(
                 Box::new(Prov::Builtin("to_float: int -> float".to_string())),
                 0,
             ))],
-            PotentialType::make_float(Prov::FuncOut(Box::new(Prov::Builtin(
+            TypeVar::make_float(Prov::FuncOut(Box::new(Prov::Builtin(
                 "to_float: int -> float".to_string(),
             ))))
             .into(),
+            Prov::Builtin("to_float: int -> float".to_string()),
         ),
     );
     gamma.borrow_mut().extend(
         &String::from("round"),
-        PotentialType::Function(
-            RefCell::new(BTreeSet::new()),
-            vec![PotentialType::make_float(Prov::FuncArg(
+        TypeVar::make_arrow(
+            vec![TypeVar::make_float(Prov::FuncArg(
                 Box::new(Prov::Builtin("round: float -> int".to_string())),
                 0,
             ))],
-            PotentialType::make_int(Prov::FuncOut(Box::new(Prov::Builtin(
+            TypeVar::make_int(Prov::FuncOut(Box::new(Prov::Builtin(
                 "round: float -> int".to_string(),
             ))))
             .into(),
+            Prov::Builtin("round: float -> int".to_string()),
         ),
     );
     gamma.borrow_mut().extend(
         &String::from("append_strings"),
-        PotentialType::Function(
-            RefCell::new(BTreeSet::new()),
+        TypeVar::make_arrow(
             vec![
-                PotentialType::make_string(Prov::FuncArg(
+                TypeVar::make_string(Prov::FuncArg(
                     Box::new(Prov::Builtin(
                         "append_strings: (string, string) -> string".to_string(),
                     )),
                     0,
                 )),
-                PotentialType::make_string(Prov::FuncArg(
+                TypeVar::make_string(Prov::FuncArg(
                     Box::new(Prov::Builtin(
                         "append_strings: (string, string) -> string".to_string(),
                     )),
                     1,
                 )),
             ],
-            PotentialType::make_string(Prov::FuncOut(Box::new(Prov::Builtin(
+            TypeVar::make_string(Prov::FuncOut(Box::new(Prov::Builtin(
                 "append_strings: (string, string) -> string".to_string(),
             ))))
             .into(),
+            Prov::Builtin("append_strings: (string, string) -> string".to_string()),
         ),
     );
     let prov = Prov::Builtin("add_int: (int, int) -> int".to_string());
     gamma.borrow_mut().extend(
         &String::from("add_int"),
-        PotentialType::Function(
-            RefCell::new(BTreeSet::new()),
+        TypeVar::make_arrow(
             vec![
-                PotentialType::make_int(Prov::FuncArg(prov.clone().into(), 0)),
-                PotentialType::make_int(Prov::FuncArg(prov.clone().into(), 1)),
+                TypeVar::make_int(Prov::FuncArg(prov.clone().into(), 0)),
+                TypeVar::make_int(Prov::FuncArg(prov.clone().into(), 1)),
             ],
-            PotentialType::make_int(Prov::FuncOut(prov.into())).into(),
+            TypeVar::make_int(Prov::FuncOut(prov.into())).into(),
+            prov,
         ),
     );
     let prov = Prov::Builtin("minus_int: (int, int) -> int".to_string());
     gamma.borrow_mut().extend(
         &String::from("minus_int"),
-        PotentialType::Function(
-            RefCell::new(BTreeSet::new()),
+        TypeVar::make_arrow(
             vec![
-                PotentialType::make_int(Prov::FuncArg(prov.clone().into(), 0)),
-                PotentialType::make_int(Prov::FuncArg(prov.clone().into(), 1)),
+                TypeVar::make_int(Prov::FuncArg(prov.clone().into(), 0)),
+                TypeVar::make_int(Prov::FuncArg(prov.clone().into(), 1)),
             ],
-            PotentialType::make_int(Prov::FuncOut(prov.into())).into(),
+            TypeVar::make_int(Prov::FuncOut(prov.into())).into(),
+            prov,
         ),
     );
     let prov = Prov::Builtin("multiply_int: (int, int) -> int".to_string());
     gamma.borrow_mut().extend(
         &String::from("multiply_int"),
-        PotentialType::Function(
-            RefCell::new(BTreeSet::new()),
+        TypeVar::make_arrow(
             vec![
-                PotentialType::make_int(Prov::FuncArg(prov.clone().into(), 0)),
-                PotentialType::make_int(Prov::FuncArg(prov.clone().into(), 1)),
+                TypeVar::make_int(Prov::FuncArg(prov.clone().into(), 0)),
+                TypeVar::make_int(Prov::FuncArg(prov.clone().into(), 1)),
             ],
-            PotentialType::make_int(Prov::FuncOut(prov.into())).into(),
+            TypeVar::make_int(Prov::FuncOut(prov.into())).into(),
+            prov,
         ),
     );
     let prov = Prov::Builtin("divide_int: (int, int) -> int".to_string());
     gamma.borrow_mut().extend(
         &String::from("divide_int"),
-        PotentialType::Function(
-            RefCell::new(BTreeSet::new()),
+        TypeVar::make_arrow(
             vec![
-                PotentialType::make_int(Prov::FuncArg(prov.clone().into(), 0)),
-                PotentialType::make_int(Prov::FuncArg(prov.clone().into(), 1)),
+                TypeVar::make_int(Prov::FuncArg(prov.clone().into(), 0)),
+                TypeVar::make_int(Prov::FuncArg(prov.clone().into(), 1)),
             ],
-            PotentialType::make_int(Prov::FuncOut(prov.into())).into(),
+            TypeVar::make_int(Prov::FuncOut(prov.into())).into(),
+            prov,
         ),
     );
     let prov = Prov::Builtin("pow_int: (int, int) -> int".to_string());
     gamma.borrow_mut().extend(
         &String::from("pow_int"),
-        PotentialType::Function(
-            RefCell::new(BTreeSet::new()),
+        TypeVar::make_arrow(
             vec![
-                PotentialType::make_int(Prov::FuncArg(prov.clone().into(), 0)),
-                PotentialType::make_int(Prov::FuncArg(prov.clone().into(), 1)),
+                TypeVar::make_int(Prov::FuncArg(prov.clone().into(), 0)),
+                TypeVar::make_int(Prov::FuncArg(prov.clone().into(), 1)),
             ],
-            PotentialType::make_int(Prov::FuncOut(prov.into())).into(),
+            TypeVar::make_int(Prov::FuncOut(prov.into())).into(),
+            prov,
         ),
     );
     let prov = Prov::Builtin("less_than_int: (int, int) -> bool".to_string());
     gamma.borrow_mut().extend(
         &String::from("less_than_int"),
-        PotentialType::Function(
-            RefCell::new(BTreeSet::new()),
+        TypeVar::make_arrow(
             vec![
-                PotentialType::make_int(Prov::FuncArg(prov.clone().into(), 0)),
-                PotentialType::make_int(Prov::FuncArg(prov.clone().into(), 1)),
+                TypeVar::make_int(Prov::FuncArg(prov.clone().into(), 0)),
+                TypeVar::make_int(Prov::FuncArg(prov.clone().into(), 1)),
             ],
-            PotentialType::make_bool(Prov::FuncOut(prov.into())).into(),
+            TypeVar::make_bool(Prov::FuncOut(prov.into())).into(),
+            prov,
         ),
     );
     let prov = Prov::Builtin("add_float: (float, float) -> float".to_string());
     gamma.borrow_mut().extend(
         &String::from("add_float"),
-        PotentialType::Function(
-            RefCell::new(BTreeSet::new()),
+        TypeVar::make_arrow(
             vec![
-                PotentialType::make_float(Prov::FuncArg(prov.clone().into(), 0)),
-                PotentialType::make_float(Prov::FuncArg(prov.clone().into(), 1)),
+                TypeVar::make_float(Prov::FuncArg(prov.clone().into(), 0)),
+                TypeVar::make_float(Prov::FuncArg(prov.clone().into(), 1)),
             ],
-            PotentialType::make_float(Prov::FuncOut(prov.into())).into(),
+            TypeVar::make_float(Prov::FuncOut(prov.into())).into(),
+            prov,
         ),
     );
     let prov = Prov::Builtin("minus_float: (float, float) -> float".to_string());
     gamma.borrow_mut().extend(
         &String::from("minus_float"),
-        PotentialType::Function(
-            RefCell::new(BTreeSet::new()),
+        TypeVar::make_arrow(
             vec![
-                PotentialType::make_float(Prov::FuncArg(prov.clone().into(), 0)),
-                PotentialType::make_float(Prov::FuncArg(prov.clone().into(), 1)),
+                TypeVar::make_float(Prov::FuncArg(prov.clone().into(), 0)),
+                TypeVar::make_float(Prov::FuncArg(prov.clone().into(), 1)),
             ],
-            PotentialType::make_float(Prov::FuncOut(prov.into())).into(),
+            TypeVar::make_float(Prov::FuncOut(prov.into())).into(),
+            prov,
         ),
     );
     let prov = Prov::Builtin("multiply_float: (float, float) -> float".to_string());
     gamma.borrow_mut().extend(
         &String::from("multiply_float"),
-        PotentialType::Function(
-            RefCell::new(BTreeSet::new()),
+        TypeVar::make_arrow(
             vec![
-                PotentialType::make_float(Prov::FuncArg(prov.clone().into(), 0)),
-                PotentialType::make_float(Prov::FuncArg(prov.clone().into(), 1)),
+                TypeVar::make_float(Prov::FuncArg(prov.clone().into(), 0)),
+                TypeVar::make_float(Prov::FuncArg(prov.clone().into(), 1)),
             ],
-            PotentialType::make_float(Prov::FuncOut(prov.into())).into(),
+            TypeVar::make_float(Prov::FuncOut(prov.into())).into(),
+            prov,
         ),
     );
     let prov = Prov::Builtin("divide_float: (float, float) -> float".to_string());
     gamma.borrow_mut().extend(
         &String::from("divide_float"),
-        PotentialType::Function(
-            RefCell::new(BTreeSet::new()),
+        TypeVar::make_arrow(
             vec![
-                PotentialType::make_float(Prov::FuncArg(prov.clone().into(), 0)),
-                PotentialType::make_float(Prov::FuncArg(prov.clone().into(), 1)),
+                TypeVar::make_float(Prov::FuncArg(prov.clone().into(), 0)),
+                TypeVar::make_float(Prov::FuncArg(prov.clone().into(), 1)),
             ],
-            PotentialType::make_float(Prov::FuncOut(prov.into())).into(),
+            TypeVar::make_float(Prov::FuncOut(prov.into())).into(),
+            prov,
         ),
     );
     let prov = Prov::Builtin("pow_float: (float, float) -> float".to_string());
     gamma.borrow_mut().extend(
         &String::from("pow_float"),
-        PotentialType::Function(
-            RefCell::new(BTreeSet::new()),
+        TypeVar::make_arrow(
             vec![
-                PotentialType::make_float(Prov::FuncArg(prov.clone().into(), 0)),
-                PotentialType::make_float(Prov::FuncArg(prov.clone().into(), 1)),
+                TypeVar::make_float(Prov::FuncArg(prov.clone().into(), 0)),
+                TypeVar::make_float(Prov::FuncArg(prov.clone().into(), 1)),
             ],
-            PotentialType::make_float(Prov::FuncOut(prov.into())).into(),
+            TypeVar::make_float(Prov::FuncOut(prov.into())).into(),
+            prov,
         ),
     );
     let prov = Prov::Builtin("sqrt_float: (float) -> float".to_string());
     gamma.borrow_mut().extend(
         &String::from("sqrt_float"),
-        PotentialType::Function(
-            RefCell::new(BTreeSet::new()),
-            vec![PotentialType::make_float(Prov::FuncArg(
-                prov.clone().into(),
-                0,
-            ))],
-            PotentialType::make_float(Prov::FuncOut(prov.into())).into(),
+        TypeVar::make_arrow(
+            vec![TypeVar::make_float(Prov::FuncArg(prov.clone().into(), 0))],
+            TypeVar::make_float(Prov::FuncOut(prov.into())).into(),
+            prov,
         ),
     );
     let prov = Prov::Builtin("less_than_float: (float, float) -> bool".to_string());
     gamma.borrow_mut().extend(
         &String::from("less_than_float"),
-        PotentialType::Function(
-            RefCell::new(BTreeSet::new()),
+        TypeVar::make_arrow(
             vec![
-                PotentialType::make_float(Prov::FuncArg(prov.clone().into(), 0)),
-                PotentialType::make_float(Prov::FuncArg(prov.clone().into(), 1)),
+                TypeVar::make_float(Prov::FuncArg(prov.clone().into(), 0)),
+                TypeVar::make_float(Prov::FuncArg(prov.clone().into(), 1)),
             ],
-            PotentialType::make_bool(Prov::FuncOut(prov.into())).into(),
+            TypeVar::make_bool(Prov::FuncOut(prov.into())).into(),
+            prov,
         ),
     );
     gamma
@@ -1473,7 +1515,7 @@ pub(crate) fn generate_constraints_expr(
         }
         ExprKind::Block(statements) => {
             if statements.is_empty() {
-                constrain(node_ty, PotentialType::make_unit(Prov::Node(expr.id)));
+                constrain_potential_type(node_ty, PotentialType::make_unit(Prov::Node(expr.id)));
                 return;
             }
             let new_gamma = Gamma::new(Some(gamma));
@@ -1502,7 +1544,7 @@ pub(crate) fn generate_constraints_expr(
                     inf_ctx,
                     true,
                 );
-                constrain(node_ty, PotentialType::make_unit(Prov::Node(expr.id)))
+                constrain_potential_type(node_ty, PotentialType::make_unit(Prov::Node(expr.id)))
             }
         }
         ExprKind::If(cond, expr1, expr2) => {
@@ -2238,7 +2280,7 @@ pub(crate) fn result_of_constraint_solving(
         && !bad_instantiations
     {
         for (node_id, node) in node_map.iter() {
-            let ty = PotentialType::solution_of_node(inf_ctx, *node_id);
+            let ty = inf_ctx.solution_of_node(*node_id);
             let _span = node.span();
             if let Some(_ty) = ty {}
         }
