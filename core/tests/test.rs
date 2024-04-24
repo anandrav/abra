@@ -3,6 +3,26 @@ use std::{cell::RefCell, rc::Rc};
 use abra_core::*;
 
 #[test]
+fn smoke() {
+    let src = "2";
+    assert!(compile::<side_effects::DefaultEffects>(vec![SourceFile {
+        name: "test.abra".to_owned(),
+        contents: src.to_owned(),
+    },])
+    .is_ok());
+}
+
+#[test]
+fn smoke2() {
+    let src = r#""hello" & "world""#;
+    assert!(compile::<side_effects::DefaultEffects>(vec![SourceFile {
+        name: "test.abra".to_owned(),
+        contents: src.to_owned(),
+    },])
+    .is_ok());
+}
+
+#[test]
 fn addition() {
     let (val, rt) = run("2+2").unwrap();
     assert_eq!(val, rt.make_int(4));

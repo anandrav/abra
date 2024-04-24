@@ -75,6 +75,7 @@ impl TypeVarData {
     }
 
     fn merge(first: Self, second: Self) -> Self {
+        println!("merge");
         let mut merged_types = Self { types: first.types };
         for (_key, t) in second.types {
             merged_types.extend(t);
@@ -83,6 +84,7 @@ impl TypeVarData {
     }
 
     fn extend(&mut self, t_other: PotentialType) {
+        println!("extend");
         let key = t_other.key();
 
         // accumulate provenances and constrain children to each other if applicable
@@ -416,54 +418,6 @@ impl PotentialType {
             }
         }
     }
-
-    // // Creates a clone of a Type with polymorphic variabels replaced by subtitutions
-    // pub(crate) fn subst(
-    //     self,
-    //     gamma: Rc<RefCell<Gamma>>,
-    //     inf_ctx: &mut InferenceContext,
-    //     prov: Prov,
-    //     substitution: &BTreeMap<Identifier, PotentialType>,
-    // ) -> PotentialType {
-    //     match self {
-    //         PotentialType::Unit(_)
-    //         | PotentialType::Int(_)
-    //         | PotentialType::Float(_)
-    //         | PotentialType::Bool(_)
-    //         | PotentialType::String(_) => {
-    //             self // noop
-    //         }
-    //         PotentialType::Poly(_, ref ident, ref _interfaces) => {
-    //             if let Some(ty) = substitution.get(ident) {
-    //                 ty.clone()
-    //             } else {
-    //                 self // noop
-    //             }
-    //         }
-    //         PotentialType::AdtInstance(provs, ident, params) => {
-    //             let params = params
-    //                 .into_iter()
-    //                 .map(|ty| ty.subst(gamma.clone(), inf_ctx, prov.clone(), substitution))
-    //                 .collect();
-    //             PotentialType::AdtInstance(provs, ident, params)
-    //         }
-    //         PotentialType::Function(provs, args, out) => {
-    //             let args = args
-    //                 .into_iter()
-    //                 .map(|ty| ty.subst(gamma.clone(), inf_ctx, prov.clone(), substitution))
-    //                 .collect();
-    //             let out = out.subst(gamma, inf_ctx, prov, substitution);
-    //             PotentialType::Function(provs, args, out)
-    //         }
-    //         PotentialType::Tuple(provs, elems) => {
-    //             let elems = elems
-    //                 .into_iter()
-    //                 .map(|ty| ty.subst(gamma.clone(), inf_ctx, prov.clone(), substitution))
-    //                 .collect();
-    //             PotentialType::Tuple(provs, elems)
-    //         }
-    //     }
-    // }
 
     pub(crate) fn provs(&self) -> &Provs {
         match self {
@@ -952,6 +906,13 @@ impl InferenceContext {
 }
 
 fn constrain(mut expected: TypeVar, mut actual: TypeVar) {
+    println!("constrain");
+    if expected == actual {
+        return;
+    }
+    if expected.0.equiv(&actual.0) {
+        return;
+    }
     expected.0.union_with(&mut actual.0, TypeVarData::merge);
 }
 

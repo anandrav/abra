@@ -173,249 +173,254 @@ impl Runtime {
 pub const _PRELUDE: &str = r#"
 func not(b: bool) = if b false else true
 
-interface Num {
-    add: (self, self) -> self
-    minus: (self, self) -> self
-    multiply: (self, self) -> self
-    divide: (self, self) -> self
-    pow: (self, self) -> self
-    less_than: (self, self) -> bool
-    less_than_or_equal: (self, self) -> bool
-    greater_than: (self, self) -> bool
-    greater_than_or_equal: (self, self) -> bool
-}
-implement Num for int {
-    func add(a, b) = add_int(a, b)
-    func minus(a, b) = minus_int(a, b)
-    func multiply(a, b) = multiply_int(a, b)
-    func divide(a, b) = divide_int(a, b)
-    func pow(a, b) = pow_int(a, b)
-    func less_than(a, b) = less_than_int(a, b)
-    func less_than_or_equal(a, b) = (a < b) or (a = b)
-    func greater_than(a, b) = not(a < b) and not(a = b)
-    func greater_than_or_equal(a, b) = not(a < b)
-}
-implement Num for float {
-    func add(a, b) = add_float(a, b)
-    func minus(a, b) = minus_float(a, b)
-    func multiply(a, b) = multiply_float(a, b)
-    func divide(a, b) = divide_float(a, b)
-    func pow(a, b) = pow_float(a, b)
-    func less_than(a, b) = less_than_float(a, b)
-    func less_than_or_equal(a, b) = a < b
-    func greater_than(a, b) = b < a
-    func greater_than_or_equal(a, b) = b < a
-}
-
-type list<'a> = nil | cons of ('a, list<'a>)
-
-interface Equals {
-    equals: (self, self) -> bool
-}
-implement Equals for void {
-    func equals(a, b) = true
-}
-implement Equals for int {
-    func equals(a, b) = equals_int(a, b)
-}
-implement Equals for float {
-    func equals(a, b) = false
-}
-implement Equals for bool {
-    func equals(a, b) {
-        if a and b {
-            true
-        } else if a or b {
-            false
-        } else {
-            true
-        }
-    }
-}
-implement Equals for string {
-    func equals(a, b) = equals_string(a, b)
-}
-implement Equals for list<'a Equals> {
-    func equals(a, b) {
-        match (a, b) {
-            (nil, nil) -> true
-            (cons (~x, ~xs), cons (~y, ~ys)) -> {
-                equals(x, y) and equals(xs, ys)
-            }
-            _ -> false
-        }
-    }
-}
-
-interface ToString {
-    to_string: self -> string
-}
-implement ToString for string {
-	func to_string(s) = s
-}
-implement ToString for void {
-	func to_string(s) = "()"
-}
-implement ToString for int {
-	func to_string(n) = int_to_string(n)
-}
-implement ToString for bool {
-	func to_string(b) = if b "true" else "false"
-}
-implement ToString for float {
-    func to_string(f) = float_to_string(f)
-}
-implement ToString for ('a ToString, 'b ToString) {
-    func to_string(p) {
-        let (a, b) = p
-        "(" & to_string(a) & ", " & to_string(b) & ")"
-    }
-}
-implement ToString for ('a ToString, 'b ToString, 'c ToString) {
-    func to_string(p) {
-        let (a, b, c) = p
-        "(" & to_string(a) & ", " & to_string(b) & ", " & to_string(c) & ")"
-    }
-}
-implement ToString for ('a ToString, 'b ToString, 'c ToString, 'd ToString) {
-    func to_string(p) {
-        let (a, b, c, d) = p
-        "(" & to_string(a) & ", " & to_string(b) & ", " & to_string(c) & ", " & to_string(d) & ")"
-    }
-}
-implement ToString for ('a ToString, 'b ToString, 'c ToString, 'd ToString, 'e ToString) {
-    func to_string(p) {
-        let (a, b, c, d, e) = p
-        "(" & to_string(a) & ", " & to_string(b) & ", " & to_string(c) & ", " & to_string(d) & ", " & to_string(e) & ")"
-    }
-}
-implement ToString for ('a ToString, 'b ToString, 'c ToString, 'd ToString, 'e ToString, 'f ToString) {
-    func to_string(p) {
-        let (a, b, c, d, e, f) = p
-        "(" & to_string(a) & ", " & to_string(b) & ", " & to_string(c) & ", " & to_string(d) & ", " & to_string(e) & ", " & to_string(f) & ")"
-    }
-}
-implement ToString for ('a ToString, 'b ToString, 'c ToString, 'd ToString, 'e ToString, 'f ToString, 'g ToString) {
-    func to_string(p) {
-        let (a, b, c, d, e, f, g) = p
-        "(" & to_string(a) & ", " & to_string(b) & ", " & to_string(c) & ", " & to_string(d) & ", " & to_string(e) & ", " & to_string(f) & ", " & to_string(g) & ")"
-    }
-}
-implement ToString for ('a ToString, 'b ToString, 'c ToString, 'd ToString, 'e ToString, 'f ToString, 'g ToString, 'h ToString) {
-    func to_string(p) {
-        let (a, b, c, d, e, f, g, h) = p
-        "(" & to_string(a) & ", " & to_string(b) & ", " & to_string(c) & ", " & to_string(d) & ", " & to_string(e) & ", " & to_string(f) & ", " & to_string(g) & ", " & to_string(h) & ")"
-    }
-}
-implement ToString for ('a ToString, 'b ToString, 'c ToString, 'd ToString, 'e ToString, 'f ToString, 'g ToString, 'h ToString, 'i ToString) {
-    func to_string(p) {
-        let (a, b, c, d, e, f, g, h, i) = p
-        "(" & to_string(a) & ", " & to_string(b) & ", " & to_string(c) & ", " & to_string(d) & ", " & to_string(e) & ", " & to_string(f) & ", " & to_string(g) & ", " & to_string(h) & ", " & to_string(i) & ")"
-    }
-}
-implement ToString for ('a ToString, 'b ToString, 'c ToString, 'd ToString, 'e ToString, 'f ToString, 'g ToString, 'h ToString, 'i ToString, 'j ToString) {
-    func to_string(p) {
-        let (a, b, c, d, e, f, g, h, i, j) = p
-        "(" & to_string(a) & ", " & to_string(b) & ", " & to_string(c) & ", " & to_string(d) & ", " & to_string(e) & ", " & to_string(f) & ", " & to_string(g) & ", " & to_string(h) & ", " & to_string(i) & ", " & to_string(j) & ")"
-    }
-}
-implement ToString for ('a ToString, 'b ToString, 'c ToString, 'd ToString, 'e ToString, 'f ToString, 'g ToString, 'h ToString, 'i ToString, 'j ToString, 'k ToString) {
-    func to_string(p) {
-        let (a, b, c, d, e, f, g, h, i, j, k) = p
-        "(" & to_string(a) & ", " & to_string(b) & ", " & to_string(c) & ", " & to_string(d) & ", " & to_string(e) & ", " & to_string(f) & ", " & to_string(g) & ", " & to_string(h) & ", " & to_string(i) & ", " & to_string(j) & ", " & to_string(k) & ")"
-    }
-}
-implement ToString for ('a ToString, 'b ToString, 'c ToString, 'd ToString, 'e ToString, 'f ToString, 'g ToString, 'h ToString, 'i ToString, 'j ToString, 'k ToString, 'l ToString) {
-    func to_string(p) {
-        let (a, b, c, d, e, f, g, h, i, j, k, l) = p
-        "(" & to_string(a) & ", " & to_string(b) & ", " & to_string(c) & ", " & to_string(d) & ", " & to_string(e) & ", " & to_string(f) & ", " & to_string(g) & ", " & to_string(h) & ", " & to_string(i) & ", " & to_string(j) & ", " & to_string(k) & ", " & to_string(l) & ")"
-    }
-}
-
-implement ToString for list<'a ToString> {
-    func to_string(xs) {
-        func helper(xs) {
-            match xs {
-                nil -> ""
-                cons (~x, nil) -> {
-                    to_string(x)
-                }
-                cons (~x, ~xs) -> {
-                    to_string(x) & ", " & helper(xs)
-                }
-            }
-        }
-        "[ " & helper(xs) & " ]"
-    }
-}
-func print(x: 'b ToString) { print_string(to_string(x)) }
-func println(x: 'b ToString) {
-    print_string(to_string(x))
-    print_string(newline)
-}
-
-func range(lo: int, hi: int) {
-    if lo > hi
-        nil
-    else
-        cons(lo, range(lo + 1, hi))
-}
-
-func fold(xs: list<'b>, f: ('a, 'b) -> 'a, acc: 'a) -> 'a {
-    match xs {
-        nil -> acc
-        cons (~head, ~tail) -> fold(tail, f, f(acc, head))
-    }
-}
-
-func sum(xs: list<int>) -> int { fold(xs, (a, b) -> a + b, 0) }
-func sumf(xs: list<float>) -> float { fold(xs, (a, b) -> a + b, 0.0) }
-
-func max(a: float, b: float) -> float { if a > b a else b }
-func min(a: float, b: float) -> float { if a < b a else b }
-func clamp(lo: float, hi: float, x: float) -> float { max(lo, min(hi, x)) }
-func abs(x: float) -> float { if x < 0.0 (0.0 - x) else x }
-func sqrt(x: float) -> float { sqrt_float(x) }
-
-func concat(xs: list<string>, sep: string) -> string {
-    match xs {
-        nil -> ""
-        cons (~head, cons(~last, nil)) -> {
-            head & sep & last
-        }
-        cons (~head, ~tail) -> {
-            head & sep & concat(tail, sep)
-        }
-    }
-}
-
-func map(xs: list<'a>, f: 'a -> 'b) -> list<'b> {
-    match xs {
-        nil -> nil
-        cons (~head, ~tail) -> cons(f(head), map(tail, f))
-    }
-}
-
-func for_each(xs: list<'a>, f: 'a -> 'b) -> void {
-    match xs {
-        nil -> ()
-        cons (~head, ~tail) -> {
-            f(head)
-            for_each(tail, f)
-        }
-    }
-}
-
-func filter(xs: list<'a>, f: 'a -> bool) -> list<'a> {
-    match xs {
-        nil -> nil
-        cons (~head, ~tail) ->
-            if f(head) cons(head, filter(tail, f)) else filter(tail, f)
-    }
-}
-
-func reverse(xs: list<'c>) -> list<'c> {
-    fold(xs, (acc, head) -> cons(head, acc), nil)
-}
-
 "#;
+
+// pub const _PRELUDE: &str = r#"
+// func not(b: bool) = if b false else true
+
+// interface Num {
+//     add: (self, self) -> self
+//     minus: (self, self) -> self
+//     multiply: (self, self) -> self
+//     divide: (self, self) -> self
+//     pow: (self, self) -> self
+//     less_than: (self, self) -> bool
+//     less_than_or_equal: (self, self) -> bool
+//     greater_than: (self, self) -> bool
+//     greater_than_or_equal: (self, self) -> bool
+// }
+// implement Num for int {
+//     func add(a, b) = add_int(a, b)
+//     func minus(a, b) = minus_int(a, b)
+//     func multiply(a, b) = multiply_int(a, b)
+//     func divide(a, b) = divide_int(a, b)
+//     func pow(a, b) = pow_int(a, b)
+//     func less_than(a, b) = less_than_int(a, b)
+//     func less_than_or_equal(a, b) = (a < b) or (a = b)
+//     func greater_than(a, b) = not(a < b) and not(a = b)
+//     func greater_than_or_equal(a, b) = not(a < b)
+// }
+// implement Num for float {
+//     func add(a, b) = add_float(a, b)
+//     func minus(a, b) = minus_float(a, b)
+//     func multiply(a, b) = multiply_float(a, b)
+//     func divide(a, b) = divide_float(a, b)
+//     func pow(a, b) = pow_float(a, b)
+//     func less_than(a, b) = less_than_float(a, b)
+//     func less_than_or_equal(a, b) = a < b
+//     func greater_than(a, b) = b < a
+//     func greater_than_or_equal(a, b) = b < a
+// }
+
+// type list<'a> = nil | cons of ('a, list<'a>)
+
+// interface Equals {
+//     equals: (self, self) -> bool
+// }
+// implement Equals for void {
+//     func equals(a, b) = true
+// }
+// implement Equals for int {
+//     func equals(a, b) = equals_int(a, b)
+// }
+// implement Equals for float {
+//     func equals(a, b) = false
+// }
+// implement Equals for bool {
+//     func equals(a, b) {
+//         if a and b {
+//             true
+//         } else if a or b {
+//             false
+//         } else {
+//             true
+//         }
+//     }
+// }
+// implement Equals for string {
+//     func equals(a, b) = equals_string(a, b)
+// }
+// implement Equals for list<'a Equals> {
+//     func equals(a, b) {
+//         match (a, b) {
+//             (nil, nil) -> true
+//             (cons (~x, ~xs), cons (~y, ~ys)) -> {
+//                 equals(x, y) and equals(xs, ys)
+//             }
+//             _ -> false
+//         }
+//     }
+// }
+
+// interface ToString {
+//     to_string: self -> string
+// }
+// implement ToString for string {
+// 	func to_string(s) = s
+// }
+// implement ToString for void {
+// 	func to_string(s) = "()"
+// }
+// implement ToString for int {
+// 	func to_string(n) = int_to_string(n)
+// }
+// implement ToString for bool {
+// 	func to_string(b) = if b "true" else "false"
+// }
+// implement ToString for float {
+//     func to_string(f) = float_to_string(f)
+// }
+// implement ToString for ('a ToString, 'b ToString) {
+//     func to_string(p) {
+//         let (a, b) = p
+//         "(" & to_string(a) & ", " & to_string(b) & ")"
+//     }
+// }
+// implement ToString for ('a ToString, 'b ToString, 'c ToString) {
+//     func to_string(p) {
+//         let (a, b, c) = p
+//         "(" & to_string(a) & ", " & to_string(b) & ", " & to_string(c) & ")"
+//     }
+// }
+// implement ToString for ('a ToString, 'b ToString, 'c ToString, 'd ToString) {
+//     func to_string(p) {
+//         let (a, b, c, d) = p
+//         "(" & to_string(a) & ", " & to_string(b) & ", " & to_string(c) & ", " & to_string(d) & ")"
+//     }
+// }
+// implement ToString for ('a ToString, 'b ToString, 'c ToString, 'd ToString, 'e ToString) {
+//     func to_string(p) {
+//         let (a, b, c, d, e) = p
+//         "(" & to_string(a) & ", " & to_string(b) & ", " & to_string(c) & ", " & to_string(d) & ", " & to_string(e) & ")"
+//     }
+// }
+// implement ToString for ('a ToString, 'b ToString, 'c ToString, 'd ToString, 'e ToString, 'f ToString) {
+//     func to_string(p) {
+//         let (a, b, c, d, e, f) = p
+//         "(" & to_string(a) & ", " & to_string(b) & ", " & to_string(c) & ", " & to_string(d) & ", " & to_string(e) & ", " & to_string(f) & ")"
+//     }
+// }
+// implement ToString for ('a ToString, 'b ToString, 'c ToString, 'd ToString, 'e ToString, 'f ToString, 'g ToString) {
+//     func to_string(p) {
+//         let (a, b, c, d, e, f, g) = p
+//         "(" & to_string(a) & ", " & to_string(b) & ", " & to_string(c) & ", " & to_string(d) & ", " & to_string(e) & ", " & to_string(f) & ", " & to_string(g) & ")"
+//     }
+// }
+// implement ToString for ('a ToString, 'b ToString, 'c ToString, 'd ToString, 'e ToString, 'f ToString, 'g ToString, 'h ToString) {
+//     func to_string(p) {
+//         let (a, b, c, d, e, f, g, h) = p
+//         "(" & to_string(a) & ", " & to_string(b) & ", " & to_string(c) & ", " & to_string(d) & ", " & to_string(e) & ", " & to_string(f) & ", " & to_string(g) & ", " & to_string(h) & ")"
+//     }
+// }
+// implement ToString for ('a ToString, 'b ToString, 'c ToString, 'd ToString, 'e ToString, 'f ToString, 'g ToString, 'h ToString, 'i ToString) {
+//     func to_string(p) {
+//         let (a, b, c, d, e, f, g, h, i) = p
+//         "(" & to_string(a) & ", " & to_string(b) & ", " & to_string(c) & ", " & to_string(d) & ", " & to_string(e) & ", " & to_string(f) & ", " & to_string(g) & ", " & to_string(h) & ", " & to_string(i) & ")"
+//     }
+// }
+// implement ToString for ('a ToString, 'b ToString, 'c ToString, 'd ToString, 'e ToString, 'f ToString, 'g ToString, 'h ToString, 'i ToString, 'j ToString) {
+//     func to_string(p) {
+//         let (a, b, c, d, e, f, g, h, i, j) = p
+//         "(" & to_string(a) & ", " & to_string(b) & ", " & to_string(c) & ", " & to_string(d) & ", " & to_string(e) & ", " & to_string(f) & ", " & to_string(g) & ", " & to_string(h) & ", " & to_string(i) & ", " & to_string(j) & ")"
+//     }
+// }
+// implement ToString for ('a ToString, 'b ToString, 'c ToString, 'd ToString, 'e ToString, 'f ToString, 'g ToString, 'h ToString, 'i ToString, 'j ToString, 'k ToString) {
+//     func to_string(p) {
+//         let (a, b, c, d, e, f, g, h, i, j, k) = p
+//         "(" & to_string(a) & ", " & to_string(b) & ", " & to_string(c) & ", " & to_string(d) & ", " & to_string(e) & ", " & to_string(f) & ", " & to_string(g) & ", " & to_string(h) & ", " & to_string(i) & ", " & to_string(j) & ", " & to_string(k) & ")"
+//     }
+// }
+// implement ToString for ('a ToString, 'b ToString, 'c ToString, 'd ToString, 'e ToString, 'f ToString, 'g ToString, 'h ToString, 'i ToString, 'j ToString, 'k ToString, 'l ToString) {
+//     func to_string(p) {
+//         let (a, b, c, d, e, f, g, h, i, j, k, l) = p
+//         "(" & to_string(a) & ", " & to_string(b) & ", " & to_string(c) & ", " & to_string(d) & ", " & to_string(e) & ", " & to_string(f) & ", " & to_string(g) & ", " & to_string(h) & ", " & to_string(i) & ", " & to_string(j) & ", " & to_string(k) & ", " & to_string(l) & ")"
+//     }
+// }
+
+// implement ToString for list<'a ToString> {
+//     func to_string(xs) {
+//         func helper(xs) {
+//             match xs {
+//                 nil -> ""
+//                 cons (~x, nil) -> {
+//                     to_string(x)
+//                 }
+//                 cons (~x, ~xs) -> {
+//                     to_string(x) & ", " & helper(xs)
+//                 }
+//             }
+//         }
+//         "[ " & helper(xs) & " ]"
+//     }
+// }
+// func print(x: 'b ToString) { print_string(to_string(x)) }
+// func println(x: 'b ToString) {
+//     print_string(to_string(x))
+//     print_string(newline)
+// }
+
+// func range(lo: int, hi: int) {
+//     if lo > hi
+//         nil
+//     else
+//         cons(lo, range(lo + 1, hi))
+// }
+
+// func fold(xs: list<'b>, f: ('a, 'b) -> 'a, acc: 'a) -> 'a {
+//     match xs {
+//         nil -> acc
+//         cons (~head, ~tail) -> fold(tail, f, f(acc, head))
+//     }
+// }
+
+// func sum(xs: list<int>) -> int { fold(xs, (a, b) -> a + b, 0) }
+// func sumf(xs: list<float>) -> float { fold(xs, (a, b) -> a + b, 0.0) }
+
+// func max(a: float, b: float) -> float { if a > b a else b }
+// func min(a: float, b: float) -> float { if a < b a else b }
+// func clamp(lo: float, hi: float, x: float) -> float { max(lo, min(hi, x)) }
+// func abs(x: float) -> float { if x < 0.0 (0.0 - x) else x }
+// func sqrt(x: float) -> float { sqrt_float(x) }
+
+// func concat(xs: list<string>, sep: string) -> string {
+//     match xs {
+//         nil -> ""
+//         cons (~head, cons(~last, nil)) -> {
+//             head & sep & last
+//         }
+//         cons (~head, ~tail) -> {
+//             head & sep & concat(tail, sep)
+//         }
+//     }
+// }
+
+// func map(xs: list<'a>, f: 'a -> 'b) -> list<'b> {
+//     match xs {
+//         nil -> nil
+//         cons (~head, ~tail) -> cons(f(head), map(tail, f))
+//     }
+// }
+
+// func for_each(xs: list<'a>, f: 'a -> 'b) -> void {
+//     match xs {
+//         nil -> ()
+//         cons (~head, ~tail) -> {
+//             f(head)
+//             for_each(tail, f)
+//         }
+//     }
+// }
+
+// func filter(xs: list<'a>, f: 'a -> bool) -> list<'a> {
+//     match xs {
+//         nil -> nil
+//         cons (~head, ~tail) ->
+//             if f(head) cons(head, filter(tail, f)) else filter(tail, f)
+//     }
+// }
+
+// func reverse(xs: list<'c>) -> list<'c> {
+//     fold(xs, (acc, head) -> cons(head, acc), nil)
+// }
+
+// "#;
