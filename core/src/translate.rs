@@ -290,25 +290,22 @@ fn update_monomorphenv(
 ) {
     match (overloaded_ty, monomorphic_ty.clone()) {
         // recurse
-        (SolvedType::Function(_, args, out), SolvedType::Function(_, args2, out2)) => {
+        (SolvedType::Function(args, out), SolvedType::Function(args2, out2)) => {
             for i in 0..args.len() {
                 update_monomorphenv(monomorphenv.clone(), args[i].clone(), args2[i].clone());
             }
             update_monomorphenv(monomorphenv, *out, *out2);
         }
-        (
-            SolvedType::AdtInstance(_, ident, params),
-            SolvedType::AdtInstance(_, ident2, params2),
-        ) => {
+        (SolvedType::AdtInstance(ident, params), SolvedType::AdtInstance(ident2, params2)) => {
             assert_eq!(ident, ident2);
             for i in 0..params.len() {
                 update_monomorphenv(monomorphenv.clone(), params[i].clone(), params2[i].clone());
             }
         }
-        (SolvedType::Poly(_, ident, _), _) => {
+        (SolvedType::Poly(ident, _), _) => {
             monomorphenv.borrow_mut().extend(&ident, monomorphic_ty);
         }
-        (SolvedType::Tuple(_, elems1), SolvedType::Tuple(_, elems2)) => {
+        (SolvedType::Tuple(elems1), SolvedType::Tuple(elems2)) => {
             for i in 0..elems1.len() {
                 update_monomorphenv(monomorphenv.clone(), elems1[i].clone(), elems2[i].clone());
             }
@@ -322,34 +319,34 @@ fn subst_with_monomorphic_env(
     ty: SolvedType,
 ) -> SolvedType {
     match ty {
-        SolvedType::Function(provs, args, out) => {
+        SolvedType::Function(args, out) => {
             let new_args = args
                 .iter()
                 .map(|arg| subst_with_monomorphic_env(monomorphic_env.clone(), arg.clone()))
                 .collect();
             let new_out = subst_with_monomorphic_env(monomorphic_env, *out);
-            SolvedType::Function(provs, new_args, Box::new(new_out))
+            SolvedType::Function(new_args, Box::new(new_out))
         }
-        SolvedType::AdtInstance(provs, ident, params) => {
+        SolvedType::AdtInstance(ident, params) => {
             let new_params = params
                 .iter()
                 .map(|param| subst_with_monomorphic_env(monomorphic_env.clone(), param.clone()))
                 .collect();
-            SolvedType::AdtInstance(provs, ident, new_params)
+            SolvedType::AdtInstance(ident, new_params)
         }
-        SolvedType::Poly(_, ref ident, _) => {
+        SolvedType::Poly(ref ident, _) => {
             if let Some(monomorphic_ty) = monomorphic_env.borrow().lookup(ident) {
                 monomorphic_ty
             } else {
                 ty
             }
         }
-        SolvedType::Tuple(provs, elems) => {
+        SolvedType::Tuple(elems) => {
             let new_elems = elems
                 .iter()
                 .map(|elem| subst_with_monomorphic_env(monomorphic_env.clone(), elem.clone()))
                 .collect();
-            SolvedType::Tuple(provs, new_elems)
+            SolvedType::Tuple(new_elems)
         }
         _ => ty,
     }
@@ -524,14 +521,7 @@ fn translate_expr(
         ) => {
             let ty1 = inf_ctx.solution_of_node(expr1.id()).unwrap();
             let ty2 = inf_ctx.solution_of_node(expr2.id()).unwrap();
-            let ty = SolvedType::Function(
-                statics::provs_singleton(Prov::Node(ast_id)),
-                vec![ty1, ty2],
-                SolvedType::Bool(statics::provs_singleton(Prov::FuncOut(
-                    Prov::Node(ast_id).into(),
-                )))
-                .into(),
-            );
+            let ty = SolvedType::Function(vec![ty1, ty2], SolvedType::Bool.into());
             let func_name = match opcode {
                 BinOpcode::Equals => "equals",
                 BinOpcode::LessThan => "less_than",
@@ -588,11 +578,7 @@ fn translate_expr(
         ) => {
             let ty1 = inf_ctx.solution_of_node(expr1.id()).unwrap();
             let ty2 = inf_ctx.solution_of_node(expr2.id()).unwrap();
-            let ty = SolvedType::Function(
-                statics::provs_singleton(Prov::Node(ast_id)),
-                vec![ty1.clone(), ty2],
-                ty1.into(),
-            );
+            let ty = SolvedType::Function(vec![ty1.clone(), ty2], ty1.into());
             let func_name = match opcode {
                 BinOpcode::Add => "add",
                 BinOpcode::Subtract => "minus",

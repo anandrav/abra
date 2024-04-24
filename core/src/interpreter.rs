@@ -307,14 +307,14 @@ pub(crate) fn add_builtins_and_variants<Effects: EffectTrait>(
     for (_name, adt_def) in inf_ctx.adt_defs.iter() {
         for variant in adt_def.variants.iter() {
             let ctor = &variant.ctor;
-            if let SolvedType::Unit(_) = variant.data.solution().unwrap() {
+            if let SolvedType::Unit = variant.data.solution().unwrap() {
                 env.borrow_mut().extend(
                     ctor,
                     Rc::new(Expr::TaggedVariant(ctor.clone(), Rc::new(Expr::Unit))),
                 );
             } else {
                 match &variant.data.solution().unwrap() {
-                    SolvedType::Tuple(_, elems) => {
+                    SolvedType::Tuple(elems) => {
                         let mut args = vec![];
                         for (i, _) in elems.iter().enumerate() {
                             args.push(Rc::new(Expr::Var(format!("arg{}", i))));

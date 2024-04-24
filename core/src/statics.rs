@@ -150,30 +150,29 @@ pub(crate) enum PotentialType {
     AdtInstance(Provs, Identifier, Vec<TypeVar>),
 }
 
-// TODO: Does SolvedType need provenances?
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub(crate) enum SolvedType {
-    Poly(Provs, Identifier, Vec<Identifier>), // type name, then list of Interfaces it must match
-    Unit(Provs),
-    Int(Provs),
-    Float(Provs),
-    Bool(Provs),
-    String(Provs),
-    Function(Provs, Vec<SolvedType>, Box<SolvedType>),
-    Tuple(Provs, Vec<SolvedType>),
-    AdtInstance(Provs, Identifier, Vec<SolvedType>),
+    Poly(Identifier, Vec<Identifier>), // type name, then list of Interfaces it must match
+    Unit,
+    Int,
+    Float,
+    Bool,
+    String,
+    Function(Vec<SolvedType>, Box<SolvedType>),
+    Tuple(Vec<SolvedType>),
+    AdtInstance(Identifier, Vec<SolvedType>),
 }
 
 impl SolvedType {
     pub(crate) fn instance_type(&self) -> Option<TypeMonomorphized> {
         match self {
-            Self::Poly(_, _ident, _interfaces) => None,
-            Self::Unit(_) => Some(TypeMonomorphized::Unit),
-            Self::Int(_) => Some(TypeMonomorphized::Int),
-            Self::Float(_) => Some(TypeMonomorphized::Float),
-            Self::Bool(_) => Some(TypeMonomorphized::Bool),
-            Self::String(_) => Some(TypeMonomorphized::String),
-            Self::Function(_, args, out) => {
+            Self::Poly(..) => None,
+            Self::Unit => Some(TypeMonomorphized::Unit),
+            Self::Int => Some(TypeMonomorphized::Int),
+            Self::Float => Some(TypeMonomorphized::Float),
+            Self::Bool => Some(TypeMonomorphized::Bool),
+            Self::String => Some(TypeMonomorphized::String),
+            Self::Function(args, out) => {
                 let mut args2: Vec<TypeMonomorphized> = vec![];
                 for arg in args {
                     if let Some(arg) = arg.instance_type() {
@@ -185,9 +184,9 @@ impl SolvedType {
                 let out = out.instance_type()?;
                 Some(TypeMonomorphized::Function(args2, out.into()))
             }
-            Self::Tuple(_, _elems) => {
+            Self::Tuple(elems) => {
                 let mut elems2 = vec![];
-                for elem in _elems {
+                for elem in elems {
                     if let Some(elem) = elem.instance_type() {
                         elems2.push(elem);
                     } else {
@@ -196,7 +195,7 @@ impl SolvedType {
                 }
                 Some(TypeMonomorphized::Tuple(elems2))
             }
-            Self::AdtInstance(_, ident, params) => {
+            Self::AdtInstance(ident, params) => {
                 let mut params2: Vec<TypeMonomorphized> = vec![];
                 for param in params {
                     if let Some(param) = param.instance_type() {
@@ -212,17 +211,17 @@ impl SolvedType {
 
     pub(crate) fn is_overloaded(&self) -> bool {
         match self {
-            Self::Poly(_, _, interfaces) => !interfaces.is_empty(),
-            Self::Unit(_) => false,
-            Self::Int(_) => false,
-            Self::Float(_) => false,
-            Self::Bool(_) => false,
-            Self::String(_) => false,
-            Self::Function(_, args, out) => {
+            Self::Poly(_, interfaces) => !interfaces.is_empty(),
+            Self::Unit => false,
+            Self::Int => false,
+            Self::Float => false,
+            Self::Bool => false,
+            Self::String => false,
+            Self::Function(args, out) => {
                 args.iter().any(|ty| ty.is_overloaded()) || out.is_overloaded()
             }
-            Self::Tuple(_, tys) => tys.iter().any(|ty| ty.is_overloaded()),
-            Self::AdtInstance(_, _, _tys) => false,
+            Self::Tuple(tys) => tys.iter().any(|ty| ty.is_overloaded()),
+            Self::AdtInstance(_, _tys) => false,
         }
     }
 }
@@ -366,17 +365,15 @@ impl PotentialType {
 
     pub(crate) fn solution(&self) -> Option<SolvedType> {
         match self {
-            Self::Bool(provs) => Some(SolvedType::Bool(provs.clone())),
-            Self::Int(provs) => Some(SolvedType::Int(provs.clone())),
-            Self::Float(provs) => Some(SolvedType::Float(provs.clone())),
-            Self::String(provs) => Some(SolvedType::String(provs.clone())),
-            Self::Unit(provs) => Some(SolvedType::Unit(provs.clone())),
-            Self::Poly(provs, ident, interfaces) => Some(SolvedType::Poly(
-                provs.clone(),
-                ident.clone(),
-                interfaces.clone(),
-            )),
-            Self::Function(provs, args, out) => {
+            Self::Bool(_) => Some(SolvedType::Bool),
+            Self::Int(_) => Some(SolvedType::Int),
+            Self::Float(_) => Some(SolvedType::Float),
+            Self::String(_) => Some(SolvedType::String),
+            Self::Unit(_) => Some(SolvedType::Unit),
+            Self::Poly(_, ident, interfaces) => {
+                Some(SolvedType::Poly(ident.clone(), interfaces.clone()))
+            }
+            Self::Function(_, args, out) => {
                 let mut args2: Vec<SolvedType> = vec![];
                 for arg in args {
                     if let Some(arg) = arg.solution() {
@@ -386,9 +383,9 @@ impl PotentialType {
                     }
                 }
                 let out = out.solution()?;
-                Some(SolvedType::Function(provs.clone(), args2, out.into()))
+                Some(SolvedType::Function(args2, out.into()))
             }
-            Self::Tuple(provs, elems) => {
+            Self::Tuple(_, elems) => {
                 let mut elems2: Vec<SolvedType> = vec![];
                 for elem in elems {
                     if let Some(elem) = elem.solution() {
@@ -397,9 +394,9 @@ impl PotentialType {
                         return None;
                     }
                 }
-                Some(SolvedType::Tuple(provs.clone(), elems2))
+                Some(SolvedType::Tuple(elems2))
             }
-            Self::AdtInstance(provs, ident, params) => {
+            Self::AdtInstance(_, ident, params) => {
                 let mut params2: Vec<SolvedType> = vec![];
                 for param in params {
                     if let Some(param) = param.solution() {
@@ -408,11 +405,7 @@ impl PotentialType {
                         return None;
                     }
                 }
-                Some(SolvedType::AdtInstance(
-                    provs.clone(),
-                    ident.clone(),
-                    params2,
-                ))
+                Some(SolvedType::AdtInstance(ident.clone(), params2))
             }
         }
     }
@@ -2147,7 +2140,7 @@ pub(crate) fn result_of_constraint_solving(
         for interface in interfaces {
             let mut bad_instantiation: bool = true;
             let (interface, prov) = interface;
-            if let SolvedType::Poly(_, _, interfaces2) = &typ {
+            if let SolvedType::Poly(_, interfaces2) = &typ {
                 // if 'a Interface1 is constrained to [Interfaces...], ignore
                 if interfaces2.contains(interface) {
                     bad_instantiation = false;
@@ -2556,12 +2549,12 @@ pub(crate) fn ty_fits_impl_ty(
     impl_ty: SolvedType,
 ) -> Result<(), (SolvedType, SolvedType)> {
     match (&typ, &impl_ty) {
-        (SolvedType::Int(..), SolvedType::Int(..))
-        | (SolvedType::Bool(..), SolvedType::Bool(..))
-        | (SolvedType::Float(..), SolvedType::Float(..))
-        | (SolvedType::String(..), SolvedType::String(..))
-        | (SolvedType::Unit(..), SolvedType::Unit(..)) => Ok(()),
-        (SolvedType::Tuple(_, tys1), SolvedType::Tuple(_, tys2)) => {
+        (SolvedType::Int, SolvedType::Int)
+        | (SolvedType::Bool, SolvedType::Bool)
+        | (SolvedType::Float, SolvedType::Float)
+        | (SolvedType::String, SolvedType::String)
+        | (SolvedType::Unit, SolvedType::Unit) => Ok(()),
+        (SolvedType::Tuple(tys1), SolvedType::Tuple(tys2)) => {
             if tys1.len() == tys2.len() {
                 for (ty1, ty2) in tys1.iter().zip(tys2.iter()) {
                     ty_fits_impl_ty(ctx, ty1.clone(), ty2.clone())?;
@@ -2571,7 +2564,7 @@ pub(crate) fn ty_fits_impl_ty(
                 Err((typ, impl_ty))
             }
         }
-        (SolvedType::Function(_, args1, out1), SolvedType::Function(_, args2, out2)) => {
+        (SolvedType::Function(args1, out1), SolvedType::Function(args2, out2)) => {
             if args1.len() == args2.len() {
                 for (ty1, ty2) in args1.iter().zip(args2.iter()) {
                     ty_fits_impl_ty(ctx, ty1.clone(), ty2.clone())?;
@@ -2581,10 +2574,10 @@ pub(crate) fn ty_fits_impl_ty(
                 Err((typ, impl_ty))
             }
         }
-        (SolvedType::AdtInstance(_, ident1, tys1), SolvedType::AdtInstance(_, ident2, tys2)) => {
+        (SolvedType::AdtInstance(ident1, tys1), SolvedType::AdtInstance(ident2, tys2)) => {
             if ident1 == ident2 && tys1.len() == tys2.len() {
                 for (ty1, ty2) in tys1.iter().zip(tys2.iter()) {
-                    let SolvedType::Poly(_, _, interfaces) = ty2.clone() else {
+                    let SolvedType::Poly(_, interfaces) = ty2.clone() else {
                         panic!()
                     };
                     if !ty_fits_impl_ty_poly(
@@ -2600,7 +2593,7 @@ pub(crate) fn ty_fits_impl_ty(
                 Err((typ, impl_ty))
             }
         }
-        (_, SolvedType::Poly(_, _, interfaces)) => {
+        (_, SolvedType::Poly(_, interfaces)) => {
             if !ty_fits_impl_ty_poly(
                 ctx,
                 typ.clone(),
@@ -2620,7 +2613,7 @@ fn ty_fits_impl_ty_poly(
     interfaces: BTreeSet<Identifier>,
 ) -> bool {
     for interface in interfaces {
-        if let SolvedType::Poly(_, _, interfaces2) = &typ {
+        if let SolvedType::Poly(_, interfaces2) = &typ {
             // if 'a Interface1 is constrained to [Interfaces...], ignore
             if interfaces2.contains(&interface) {
                 return true;
@@ -2684,10 +2677,10 @@ impl Matrix {
             | Constructor::Bool(..)
             | Constructor::Wildcard(..) => {}
             Constructor::Product => match &self.types[0] {
-                SolvedType::Tuple(_, tys) => {
+                SolvedType::Tuple(tys) => {
                     new_types.extend(tys.clone());
                 }
-                SolvedType::Unit(..) => {}
+                SolvedType::Unit => {}
                 _ => panic!("unexpected type for product constructor"),
             },
             Constructor::Variant(ident) => {
@@ -2695,13 +2688,13 @@ impl Matrix {
                 let variant = adt.variants.iter().find(|v| v.ctor == *ident).unwrap();
                 let data_ty = variant.data.solution().unwrap();
                 match data_ty {
-                    SolvedType::Unit(..) => {}
-                    SolvedType::Bool(..)
-                    | SolvedType::Int(..)
-                    | SolvedType::String(..)
-                    | SolvedType::Float(..)
+                    SolvedType::Unit => {}
+                    SolvedType::Bool
+                    | SolvedType::Int
+                    | SolvedType::String
+                    | SolvedType::Float
                     | SolvedType::Function(..)
-                    | SolvedType::Tuple(_, _)
+                    | SolvedType::Tuple(_)
                     | SolvedType::AdtInstance(..) => new_types.push(data_ty),
                     _ => panic!("unexpected type"),
                 }
@@ -2852,19 +2845,19 @@ impl DeconstructedPat {
 
     fn field_tys(&self, ctor: &Constructor, inf_ctx: &InferenceContext) -> Vec<SolvedType> {
         match &self.ty {
-            SolvedType::Int(..)
-            | SolvedType::Float(..)
-            | SolvedType::String(..)
-            | SolvedType::Bool(..)
-            | SolvedType::Unit(..)
+            SolvedType::Int
+            | SolvedType::Float
+            | SolvedType::String
+            | SolvedType::Bool
+            | SolvedType::Unit
             | SolvedType::Poly(..)
             | SolvedType::Function(..) => vec![],
-            SolvedType::Tuple(_, tys) => tys.clone(),
-            SolvedType::AdtInstance(_, _, _) => match ctor {
+            SolvedType::Tuple(tys) => tys.clone(),
+            SolvedType::AdtInstance(_, _) => match ctor {
                 Constructor::Variant(ident) => {
                     let adt = inf_ctx.adt_def_of_variant(ident).unwrap();
                     let variant = adt.variants.iter().find(|v| v.ctor == *ident).unwrap();
-                    if !matches!(&variant.data.solution().unwrap(), SolvedType::Unit(..)) {
+                    if !matches!(&variant.data.solution().unwrap(), SolvedType::Unit) {
                         vec![variant.data.solution().unwrap().clone()]
                     } else {
                         vec![]
@@ -2880,7 +2873,7 @@ impl DeconstructedPat {
 
     fn missing_from_ctor(ctor: &Constructor, ty: SolvedType) -> Self {
         let fields = match ty.clone() {
-            SolvedType::Tuple(_, tys) | SolvedType::AdtInstance(_, _, tys) => tys
+            SolvedType::Tuple(tys) | SolvedType::AdtInstance(_, tys) => tys
                 .iter()
                 .map(|ty| DeconstructedPat {
                     ctor: Constructor::Wildcard(WildcardReason::NonExhaustive),
@@ -2982,14 +2975,14 @@ impl Constructor {
             | Constructor::Float(..)
             | Constructor::Wildcard(..) => 0,
             Constructor::Product => match &matrix_tys[0] {
-                SolvedType::Tuple(_, tys) => tys.len(),
-                SolvedType::Unit(..) => 0,
+                SolvedType::Tuple(tys) => tys.len(),
+                SolvedType::Unit => 0,
                 _ => panic!("unexpected type for product constructor: {}", matrix_tys[0]),
             },
             Constructor::Variant(ident) => {
                 let adt = inf_ctx.adt_def_of_variant(ident).unwrap();
                 let variant = adt.variants.iter().find(|v| v.ctor == *ident).unwrap();
-                if !matches!(&variant.data.solution().unwrap(), SolvedType::Unit(..)) {
+                if !matches!(&variant.data.solution().unwrap(), SolvedType::Unit) {
                     1
                 } else {
                     0
@@ -3284,17 +3277,16 @@ fn compute_exhaustiveness_and_usefulness(
 
 fn ctors_for_ty(inf_ctx: &InferenceContext, ty: &SolvedType) -> ConstructorSet {
     match ty {
-        SolvedType::Bool(_) => ConstructorSet::Bool,
-        SolvedType::AdtInstance(_, ident, _) => {
+        SolvedType::Bool => ConstructorSet::Bool,
+        SolvedType::AdtInstance(ident, _) => {
             let variants = inf_ctx.variants_of_adt(ident);
             ConstructorSet::AdtVariants(variants)
         }
         SolvedType::Tuple(..) => ConstructorSet::Product,
-        SolvedType::Unit(_) => ConstructorSet::Product,
-        SolvedType::Int(_)
-        | SolvedType::Float(_)
-        | SolvedType::String(_)
-        | SolvedType::Function(..) => ConstructorSet::Unlistable,
+        SolvedType::Unit => ConstructorSet::Product,
+        SolvedType::Int | SolvedType::Float | SolvedType::String | SolvedType::Function(..) => {
+            ConstructorSet::Unlistable
+        }
         SolvedType::Poly(..) => ConstructorSet::Unlistable,
     }
 }
@@ -3362,7 +3354,7 @@ impl fmt::Display for PotentialType {
 impl fmt::Display for SolvedType {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            SolvedType::Poly(_, ident, interfaces) => {
+            SolvedType::Poly(ident, interfaces) => {
                 write!(f, "'{}", ident)?;
                 if !interfaces.is_empty() {
                     write!(f, " ")?;
@@ -3375,7 +3367,7 @@ impl fmt::Display for SolvedType {
                 }
                 Ok(())
             }
-            SolvedType::AdtInstance(_, ident, params) => {
+            SolvedType::AdtInstance(ident, params) => {
                 if !params.is_empty() {
                     write!(f, "{}<", ident)?;
                     for (i, param) in params.iter().enumerate() {
@@ -3389,12 +3381,12 @@ impl fmt::Display for SolvedType {
                     write!(f, "{}", ident)
                 }
             }
-            SolvedType::Unit(_) => write!(f, "void"),
-            SolvedType::Int(_) => write!(f, "int"),
-            SolvedType::Float(_) => write!(f, "float"),
-            SolvedType::Bool(_) => write!(f, "bool"),
-            SolvedType::String(_) => write!(f, "string"),
-            SolvedType::Function(_, args, out) => {
+            SolvedType::Unit => write!(f, "void"),
+            SolvedType::Int => write!(f, "int"),
+            SolvedType::Float => write!(f, "float"),
+            SolvedType::Bool => write!(f, "bool"),
+            SolvedType::String => write!(f, "string"),
+            SolvedType::Function(args, out) => {
                 write!(f, "fn(")?;
                 for (i, arg) in args.iter().enumerate() {
                     if i > 0 {
@@ -3405,7 +3397,7 @@ impl fmt::Display for SolvedType {
                 write!(f, ") -> ")?;
                 write!(f, "{out}")
             }
-            SolvedType::Tuple(_, elems) => {
+            SolvedType::Tuple(elems) => {
                 write!(f, "(")?;
                 for (i, elem) in elems.iter().enumerate() {
                     if i > 0 {
