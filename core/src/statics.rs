@@ -1649,6 +1649,7 @@ pub(crate) fn generate_constraints_expr(
         ExprKind::FieldAccess(expr, field) => {
             let ty_expr = TypeVar::fresh(inf_ctx, Prov::Node(expr.id));
             let Some(ty_expr) = ty_expr.single() else {
+                println!("ty_expr is not a single: {ty_expr}");
                 return;
             };
             if let PotentialType::UdtInstance(_, ident, _) = ty_expr {
@@ -1656,8 +1657,12 @@ pub(crate) fn generate_constraints_expr(
                     let ty_struct = TypeVar::from_node(inf_ctx, struct_def.location);
                     let ty_field =
                         TypeVar::fresh(inf_ctx, Prov::StructField(field.clone(), ty_struct));
-                    constrain(node_ty, ty_field);
+                    println!("ty_field: {ty_field}");
+                    constrain(node_ty.clone(), ty_field);
+                    println!("node_ty: {node_ty}");
                     return;
+                } else {
+                    panic!("field access is on an adt not a struct");
                 }
             }
 
@@ -2072,7 +2077,7 @@ pub(crate) fn gather_definitions_stmt(
                 );
             }
             TypeDefKind::Struct(ident, params, fields) => {
-                let ty_struct = TypeVar::fresh(inf_ctx, Prov::Node(stmt.id));
+                let ty_struct = TypeVar::from_node(inf_ctx, stmt.id);
                 if let Some(struct_def) = inf_ctx.struct_defs.get(ident) {
                     let entry = inf_ctx.multiple_udt_defs.entry(ident.clone()).or_default();
                     entry.push(struct_def.location);
@@ -2088,14 +2093,17 @@ pub(crate) fn gather_definitions_stmt(
                 }
                 let mut deffields = vec![];
                 for f in fields {
-                    let ty = ast_type_to_statics_type(inf_ctx, f.ty.clone());
+                    let ty_annot = ast_type_to_statics_type(inf_ctx, f.ty.clone());
+                    println!("ty_annot: {ty_annot}");
                     deffields.push(StructField {
                         name: f.ident.clone(),
-                        ty: ty.clone(),
+                        ty: ty_annot.clone(),
                     });
 
                     let prov = Prov::StructField(f.ident.clone(), ty_struct.clone());
                     let ty_field = TypeVar::fresh(inf_ctx, prov.clone());
+                    constrain(ty_field.clone(), ty_annot.clone());
+                    println!("ty_field: {ty_field}");
                     inf_ctx.vars.insert(prov, ty_field);
                 }
                 inf_ctx.struct_defs.insert(
