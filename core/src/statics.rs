@@ -115,8 +115,8 @@ impl TypeVarData {
                         }
                     }
                 }
-                PotentialType::AdtInstance(other_provs, _, other_tys) => {
-                    if let PotentialType::AdtInstance(_, _, tys) = t {
+                PotentialType::UdtInstance(other_provs, _, other_tys) => {
+                    if let PotentialType::UdtInstance(_, _, tys) = t {
                         if tys.len() == other_tys.len() {
                             for (ty, other_ty) in tys.iter().zip(other_tys.iter()) {
                                 constrain(ty.clone(), other_ty.clone());
@@ -147,7 +147,7 @@ pub(crate) enum PotentialType {
     String(Provs),
     Function(Provs, Vec<TypeVar>, TypeVar),
     Tuple(Provs, Vec<TypeVar>),
-    AdtInstance(Provs, Identifier, Vec<TypeVar>),
+    UdtInstance(Provs, Identifier, Vec<TypeVar>),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
@@ -368,7 +368,7 @@ impl PotentialType {
             PotentialType::String(_) => TypeKey::String,
             PotentialType::Function(_, args, _) => TypeKey::Function(args.len() as u8),
             PotentialType::Tuple(_, elems) => TypeKey::Tuple(elems.len() as u8),
-            PotentialType::AdtInstance(_, ident, params) => {
+            PotentialType::UdtInstance(_, ident, params) => {
                 TypeKey::TyApp(ident.clone(), params.len() as u8)
             }
         }
@@ -407,7 +407,7 @@ impl PotentialType {
                 }
                 Some(SolvedType::Tuple(elems2))
             }
-            Self::AdtInstance(_, ident, params) => {
+            Self::UdtInstance(_, ident, params) => {
                 let mut params2: Vec<SolvedType> = vec![];
                 for param in params {
                     if let Some(param) = param.solution() {
@@ -431,7 +431,7 @@ impl PotentialType {
             | Self::String(provs)
             | Self::Function(provs, _, _)
             | Self::Tuple(provs, _)
-            | Self::AdtInstance(provs, _, _) => provs,
+            | Self::UdtInstance(provs, _, _) => provs,
         }
     }
 
@@ -480,7 +480,7 @@ impl PotentialType {
         ident: String,
         params: Vec<TypeVar>,
     ) -> PotentialType {
-        PotentialType::AdtInstance(provs_singleton(prov), ident, params)
+        PotentialType::UdtInstance(provs_singleton(prov), ident, params)
     }
 }
 
@@ -525,12 +525,12 @@ impl TypeVar {
                     ty // noop
                 }
             }
-            PotentialType::AdtInstance(provs, ident, params) => {
+            PotentialType::UdtInstance(provs, ident, params) => {
                 let params = params
                     .into_iter()
                     .map(|ty| ty.instantiate(gamma.clone(), inf_ctx, prov.clone()))
                     .collect();
-                PotentialType::AdtInstance(provs, ident, params)
+                PotentialType::UdtInstance(provs, ident, params)
             }
             PotentialType::Function(provs, args, out) => {
                 let args = args
@@ -582,12 +582,12 @@ impl TypeVar {
                         ty // noop
                     }
                 }
-                PotentialType::AdtInstance(provs, ident, params) => {
+                PotentialType::UdtInstance(provs, ident, params) => {
                     let params = params
                         .into_iter()
                         .map(|ty| ty.subst(gamma.clone(), prov.clone(), substitution))
                         .collect();
-                    PotentialType::AdtInstance(provs, ident, params)
+                    PotentialType::UdtInstance(provs, ident, params)
                 }
                 PotentialType::Function(provs, args, out) => {
                     let args = args
@@ -691,7 +691,7 @@ impl TypeVar {
         };
         match ty {
             // return true if an adt with at least one parameter instantiated
-            PotentialType::AdtInstance(_, _, tys) => !tys
+            PotentialType::UdtInstance(_, _, tys) => !tys
                 .iter()
                 .all(|ty| matches!(ty.single(), Some(PotentialType::Poly(..)))),
             _ => false,
@@ -1273,7 +1273,7 @@ impl Gamma {
             PotentialType::Poly(_, ident, _interfaces) => {
                 self.poly_type_vars.insert(ident.clone());
             }
-            PotentialType::AdtInstance(_, _, params) => {
+            PotentialType::UdtInstance(_, _, params) => {
                 for param in params {
                     self.add_polys(&param);
                 }
@@ -1648,8 +1648,21 @@ pub(crate) fn generate_constraints_expr(
         }
         ExprKind::FieldAccess(expr, field) => {
             let ty_expr = TypeVar::fresh(inf_ctx, Prov::Node(expr.id));
-            let ty_field = TypeVar::fresh(inf_ctx, Prov::StructField(field.clone(), ty_expr));
-            constrain(node_ty, ty_field);
+            let Some(ty_expr) = ty_expr.single() else {
+                return;
+            };
+            if let PotentialType::UdtInstance(_, ident, _) = ty_expr {
+                if let Some(struct_def) = inf_ctx.struct_defs.get(&ident) {
+                    let ty_struct = TypeVar::from_node(inf_ctx, struct_def.location);
+                    let ty_field =
+                        TypeVar::fresh(inf_ctx, Prov::StructField(field.clone(), ty_struct));
+                    constrain(node_ty, ty_field);
+                    return;
+                }
+            }
+
+            panic!("field access is not on a struct");
+            // TODO report error that the field access is not on a struct
         }
     }
 }
@@ -2059,6 +2072,7 @@ pub(crate) fn gather_definitions_stmt(
                 );
             }
             TypeDefKind::Struct(ident, params, fields) => {
+                let ty_struct = TypeVar::fresh(inf_ctx, Prov::Node(stmt.id));
                 if let Some(struct_def) = inf_ctx.struct_defs.get(ident) {
                     let entry = inf_ctx.multiple_udt_defs.entry(ident.clone()).or_default();
                     entry.push(struct_def.location);
@@ -2080,7 +2094,7 @@ pub(crate) fn gather_definitions_stmt(
                         ty: ty.clone(),
                     });
 
-                    let prov = Prov::StructField(f.ident.clone(), ty);
+                    let prov = Prov::StructField(f.ident.clone(), ty_struct.clone());
                     let ty_field = TypeVar::fresh(inf_ctx, prov.clone());
                     inf_ctx.vars.insert(prov, ty_field);
                 }
@@ -2409,7 +2423,7 @@ pub(crate) fn result_of_constraint_solving(
                     PotentialType::Poly(_, _, _) => {
                         err_string.push_str("Sources of generic type:\n")
                     }
-                    PotentialType::AdtInstance(_, ident, params) => {
+                    PotentialType::UdtInstance(_, ident, params) => {
                         let _ = write!(err_string, "Sources of type {}<", ident);
                         for (i, param) in params.iter().enumerate() {
                             if i != 0 {
@@ -3451,7 +3465,7 @@ impl fmt::Display for PotentialType {
                 }
                 Ok(())
             }
-            PotentialType::AdtInstance(_, ident, params) => {
+            PotentialType::UdtInstance(_, ident, params) => {
                 if !params.is_empty() {
                     write!(f, "{}<", ident)?;
                     for (i, param) in params.iter().enumerate() {

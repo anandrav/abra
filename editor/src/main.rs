@@ -225,7 +225,7 @@ let c = coord(1, 2)
 
 let n = c.x
 
-println(c)
+println(n)
 "#;
 
 const _INTERFACES: &str = r#"
