@@ -82,6 +82,7 @@ pub(crate) struct TypeDef {
 pub(crate) enum TypeDefKind {
     Alias(Identifier, Rc<AstType>),
     Adt(Identifier, Vec<Rc<AstType>>, Vec<Rc<Variant>>),
+    Struct(Identifier, Vec<Rc<AstType>>, Vec<Rc<StructField>>),
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -113,6 +114,32 @@ impl Node for Variant {
     }
 }
 
+#[derive(Debug, Clone, PartialEq)]
+pub(crate) struct StructField {
+    pub(crate) ident: Identifier,
+    pub(crate) ty: Rc<AstType>,
+
+    pub(crate) span: Span,
+    pub(crate) id: Id,
+}
+
+impl Node for StructField {
+    fn span(&self) -> Span {
+        self.span.clone()
+    }
+    fn id(&self) -> Id {
+        self.id
+    }
+
+    fn children(&self) -> Vec<Rc<dyn Node>> {
+        vec![self.ty.clone()]
+    }
+
+    fn to_stmt(&self) -> Option<Stmt> {
+        None
+    }
+}
+
 impl Node for TypeDef {
     fn span(&self) -> Span {
         self.span.clone()
@@ -131,6 +158,16 @@ impl Node for TypeDef {
                 }
                 for variant in variants {
                     children.push(variant.clone());
+                }
+                children
+            }
+            TypeDefKind::Struct(_, tys, fields) => {
+                let mut children: Vec<Rc<dyn Node>> = Vec::new();
+                for ty in tys {
+                    children.push(ty.clone());
+                }
+                for field in fields {
+                    children.push(field.clone());
                 }
                 children
             }
@@ -203,6 +240,7 @@ impl Node for Stmt {
             StmtKind::Expr(expr) => vec![expr.clone()],
             StmtKind::TypeDef(tydefkind) => match &**tydefkind {
                 TypeDefKind::Alias(_, ty) => vec![ty.clone()],
+                // TODO this is redundant, use the Node::children() implementation
                 TypeDefKind::Adt(_, params, variants) => {
                     let mut children: Vec<Rc<dyn Node>> = Vec::new();
                     for param in params {
@@ -210,6 +248,16 @@ impl Node for Stmt {
                     }
                     for variant in variants {
                         children.push(variant.clone() as Rc<dyn Node>);
+                    }
+                    children
+                }
+                TypeDefKind::Struct(_, tys, fields) => {
+                    let mut children: Vec<Rc<dyn Node>> = Vec::new();
+                    for ty in tys {
+                        children.push(ty.clone());
+                    }
+                    for field in fields {
+                        children.push(field.clone() as Rc<dyn Node>);
                     }
                     children
                 }
@@ -340,6 +388,7 @@ impl Node for Expr {
                 }
                 children
             }
+            ExprKind::FieldAccess(expr, _) => vec![expr.clone()],
         }
     }
 
@@ -366,6 +415,7 @@ pub(crate) enum ExprKind {
     BinOp(Rc<Expr>, BinOpcode, Rc<Expr>),
     FuncAp(Rc<Expr>, Vec<Rc<Expr>>),
     Tuple(Vec<Rc<Expr>>),
+    FieldAccess(Rc<Expr>, String),
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -961,6 +1011,28 @@ pub(crate) fn parse_stmt(pair: Pair<Rule>, filename: &str) -> Rc<Stmt> {
                 id: Id::new(),
             })
         }
+        Rule::struct_declaration => {
+            let ident = inner[0].as_str().to_string();
+            let mut n = 1;
+            let mut params = vec![];
+            while let Rule::type_poly = inner[n].as_rule() {
+                params.push(parse_type_term(inner[n].clone(), filename));
+                n += 1;
+            }
+            let mut fields = vec![];
+            while let Some(pair) = inner.get(n) {
+                let field = parse_struct_field(pair.clone(), filename);
+                fields.push(Rc::new(field));
+                n += 1;
+            }
+            Rc::new(Stmt {
+                stmtkind: Rc::new(StmtKind::TypeDef(Rc::new(TypeDefKind::Struct(
+                    ident, params, fields,
+                )))),
+                span,
+                id: Id::new(),
+            })
+        }
         Rule::interface_declaration => {
             let ident = inner[0].as_str().to_string();
             let mut n = 1;
@@ -1033,6 +1105,25 @@ pub(crate) fn parse_variant(pair: Pair<Rule>, filename: &str) -> Rc<Variant> {
                 span,
                 id: Id::new(),
             })
+        }
+        _ => panic!("unreachable rule {:#?}", rule),
+    }
+}
+
+pub(crate) fn parse_struct_field(pair: Pair<Rule>, filename: &str) -> StructField {
+    let span = Span::new(filename, pair.as_span());
+    let rule = pair.as_rule();
+    let inner: Vec<_> = pair.into_inner().collect();
+    match rule {
+        Rule::struct_field => {
+            let ident = inner[0].as_str().to_string();
+            let ty = parse_type_term(inner[1].clone(), filename);
+            StructField {
+                ident,
+                ty,
+                span,
+                id: Id::new(),
+            }
         }
         _ => panic!("unreachable rule {:#?}", rule),
     }
@@ -1144,6 +1235,16 @@ pub(crate) fn parse_expr_term(pair: Pair<Rule>, filename: &str) -> Rc<Expr> {
             }
             Rc::new(Expr {
                 exprkind: Rc::new(ExprKind::FuncAp(f, args)),
+                span,
+                id: Id::new(),
+            })
+        }
+        Rule::access_expr => {
+            let inner: Vec<_> = pair.into_inner().collect();
+            let expr = parse_expr_pratt(Pairs::single(inner[0].clone()), filename);
+            let field = inner[1].as_str().to_string();
+            Rc::new(Expr {
+                exprkind: Rc::new(ExprKind::FieldAccess(expr, field)),
                 span,
                 id: Id::new(),
             })

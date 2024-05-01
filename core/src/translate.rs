@@ -779,6 +779,18 @@ fn translate_expr(
                 translated_arms,
             ))
         }
+        ASTek::FieldAccess(accessed, field) => {
+            let accessed = translate_expr(
+                inf_ctx,
+                monomorphenv.clone(),
+                gamma.clone(),
+                node_map,
+                overloaded_func_map,
+                accessed.exprkind.clone(),
+                accessed.id,
+            );
+            Rc::new(Ete::FieldAccess(accessed, field.clone()))
+        }
     }
 }
 

@@ -5,6 +5,7 @@ use crate::statics::TypeMonomorphized;
 use crate::EffectCode;
 
 use std::cell::RefCell;
+use std::collections::HashMap;
 use std::rc::Rc;
 
 pub(crate) type Identifier = String;
@@ -19,6 +20,8 @@ pub enum Expr {
     Str(String),
     Bool(bool),
     Tuple(Vec<Rc<Expr>>),
+    Struct(String, HashMap<String, Rc<Expr>>),
+    FieldAccess(Rc<Expr>, Identifier),
     TaggedVariant(Identifier, Rc<Expr>),
     BinOp(Rc<Expr>, BinOpcode, Rc<Expr>),
     Let(Rc<Pat>, Rc<Expr>, Rc<Expr>),
@@ -130,6 +133,16 @@ impl std::fmt::Display for Expr {
                 }
                 write!(f, ")")
             }
+            Struct(name, fields) => {
+                write!(f, "{name}{{")?;
+                for (i, (name, value)) in fields.iter().enumerate() {
+                    write!(f, "{}: {}", name, value)?;
+                    if i != fields.len() - 1 {
+                        write!(f, ", ")?;
+                    }
+                }
+                write!(f, "}}")
+            }
             TaggedVariant(tag, data) => write!(f, "variant[{tag}], {data}"),
             Func(param, _body, _) => write!(f, "fn {:?} -> (body)", param),
             EffectAp(_eff, _) => write!(f, "built-in effect"),
@@ -165,6 +178,8 @@ pub(crate) fn is_val(expr: &Rc<Expr>) -> bool {
         Bool(_) => true,
         Func(_, _, _) => true,
         Tuple(elements) => elements.iter().all(is_val),
+        Struct(_, fields) => fields.values().all(is_val),
+        FieldAccess(_, _) => false,
         TaggedVariant(_, data) => is_val(data),
         BinOp(_, _, _) => false,
         Let(_, _, _) => false,

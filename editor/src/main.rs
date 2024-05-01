@@ -117,7 +117,7 @@ println("The first 10 fibonacci numbers are:")
 for_each(range(0, 9), n -> println(fibonacci(n)))
 "#;
 
-const _DEMO: &str = r#"println("Enter your name: ")
+const DEMO: &str = r#"println("Enter your name: ")
 let name = read()
 println("Your name is " & name)
 
@@ -215,144 +215,17 @@ let add: (int, int) -> int = (x, y) -> x + y
 add(1, 2)
 "#;
 
-const _SCRATCH: &str = r#"type list<'a> = nil | cons ('a, list<'a>)
-interface Num {
-    add: (self, self) -> self
-    minus: (self, self) -> self
-    multiply: (self, self) -> self
-    divide: (self, self) -> self
-    pow: (self, self) -> self
-}
-implement Num for int {
-    let add(a, b) = add_int(a, b)
-    let minus(a, b) = minus_int(a, b)
-    let multiply(a, b) = multiply_int(a, b)
-    let divide(a, b) = divide_int(a, b)
-    let pow(a, b) = pow_int(a, b)
-}
-implement Num for float {
-    let add(a, b) = add_float(a, b)
-    let minus(a, b) = minus_float(a, b)
-    let multiply(a, b) = multiply_float(a, b)
-    let divide(a, b) = divide_float(a, b)
-    let pow(a, b) = pow_float(a, b)
+const _SCRATCH: &str = r#"
+type coord = {
+    x: int,
+    y: int
 }
 
-interface Equals {
-    equals: (self, self) -> bool
-}
-implement Equals for void {
-    let equals(a, b) = true
-}
-implement Equals for int {
-    let equals(a, b) = equals_int(a, b)
-}
-implement Equals for bool {
-    let equals(a, b) =
-        if a and b {
-            true
-        } else if a or b {
-            false
-        } else {
-            true
-        }
-}
-implement Equals for string {
-    let equals(a, b) = equals_string(a, b)
-}
-implement Equals for list<'a Equals> {
-    let equals(a, b) = {
-        match (a, b)
-            (nil, nil) -> true
-            (cons (~x, ~xs), cons (~y, ~ys)) -> {
-                equals(x, y) and equals(xs, ys)
-            }
-            _ -> false
-    }
-}
+let c = coord(1, 2)
 
-interface ToString {
-    to_string: self -> string
-}
-implement ToString for string {
-	let to_string(s) = s
-}
-implement ToString for void {
-	let to_string(s) = "()"
-}
-implement ToString for int {
-	let to_string(n) = int_to_string(n)
-}
-implement ToString for bool {
-	let to_string(b) = if b "true" else "false"
-}
+let n = c.x
 
-implement ToString for list<'a ToString> {
-    let to_string(xs) = {
-        let helper(xs) =
-            match xs
-                nil -> ""
-                cons (~x, nil) -> {
-                    to_string(x)
-                }
-                cons (~x, ~xs) -> {
-                    to_string(x) & ", " & helper(xs)
-                }
-        "[ " & helper(xs) & " ]"
-    }
-}
-let print(x: 'b ToString) = print_string(to_string(x))
-let println(x: 'b ToString) = {
-    print_string(to_string(x))
-    print_string(newline)
-}
-
-let range(lo: int, hi: int) =
-    if lo > hi
-        nil
-    else
-        cons(lo, range(lo + 1, hi))
-
-let fold(xs: list<'b>, f: ('a, 'b) -> 'a, acc: 'a) -> 'a =
-    match xs
-        nil -> acc
-        cons (~head, ~tail) -> fold(tail, f, f(acc, head))
-
-let concat(xs: list<string>, sep: string) -> string =
-    match xs
-        nil -> ""
-        cons (~head, cons(~last, nil)) -> {
-            head & sep & last
-        }
-        cons (~head, ~tail) -> {
-            head & sep & concat(tail, sep)
-        }
-
-let map(xs: list<'a>, f: 'a -> 'b) -> list<'b> =
-    match xs
-        nil -> nil
-        cons (~head, ~tail) -> cons(f(head), map(tail, f))
-
-let for_each(xs: list<'a>, f: 'a -> 'b) -> void =
-    match xs
-        nil -> ()
-        cons (~head, ~tail) -> {
-            f(head)
-            for_each(tail, f)
-        }
-
-let filter(xs: list<'a>, f: 'a -> bool) -> list<'a> =
-    match xs
-        nil -> nil
-        cons (~head, ~tail) ->
-            if f(head) cons(head, filter(tail, f)) else filter(tail, f)
-
-let reverse(xs: list<'c>) -> list<'c> =
-    fold(xs, (acc, head) -> cons(head, acc), nil)
-
-let numbers = range(1, 9)
-let numbers = map(numbers, x -> x * x * x)
-println(numbers)
+println(c)
 "#;
 
 const _INTERFACES: &str = r#"
@@ -532,7 +405,7 @@ struct MyApp {
 impl Default for MyApp {
     fn default() -> Self {
         Self {
-            text: String::from(_DEMO),
+            text: String::from(_SCRATCH),
             readline: false,
             input: String::default(),
             output: String::default(),

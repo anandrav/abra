@@ -351,6 +351,21 @@ pub(crate) fn add_builtins_and_variants<Effects: EffectTrait>(
             }
         }
     }
+    for (name, struct_def) in inf_ctx.struct_defs.iter() {
+        let mut struct_val = HashMap::new();
+        for field in struct_def.fields.iter() {
+            struct_val.insert(field.name.clone(), Rc::new(Expr::Var(field.name.clone())));
+        }
+        env.borrow_mut().extend(
+            name,
+            Rc::new(Expr::Func(
+                struct_def.fields.iter().map(|f| f.name.clone()).collect(),
+                Rc::new(Expr::Struct(name.clone(), struct_val)),
+                None,
+            )),
+        );
+    }
+
     env
 }
 
@@ -523,6 +538,7 @@ fn interpret(
                 new_env: env,
             })
         }
+
         TaggedVariant(tag, expr) => {
             let InterpretOk {
                 expr,
@@ -550,6 +566,76 @@ fn interpret(
                 effect: None,
                 new_env: env,
             })
+        }
+        Struct(name, fields) => {
+            let mut new_fields = fields.clone();
+            for (field, expr) in fields.iter() {
+                let InterpretOk {
+                    expr,
+                    steps,
+                    effect,
+                    new_env,
+                } = interpret(
+                    expr.clone(),
+                    env.clone(),
+                    overloaded_func_map,
+                    steps,
+                    &input.clone(),
+                )?;
+                new_fields.insert(field.clone(), expr);
+                if effect.is_some() || steps <= 0 {
+                    return Ok(InterpretOk {
+                        expr: Rc::new(Struct(name.clone(), new_fields)),
+                        steps,
+                        effect,
+                        new_env,
+                    });
+                }
+            }
+            Ok(InterpretOk {
+                expr: Rc::new(Struct(name.clone(), new_fields)),
+                steps,
+                effect: None,
+                new_env: env,
+            })
+        }
+        FieldAccess(accessed, field) => {
+            let InterpretOk {
+                expr: accessed,
+                steps,
+                effect,
+                new_env,
+            } = interpret(
+                accessed.clone(),
+                env.clone(),
+                overloaded_func_map,
+                steps,
+                &input.clone(),
+            )?;
+            if effect.is_some() || steps <= 0 {
+                return Ok(InterpretOk {
+                    expr: Rc::new(FieldAccess(accessed, field.clone())),
+                    steps,
+                    effect,
+                    new_env,
+                });
+            }
+            match &*accessed {
+                Struct(_, fields) => match fields.get(field) {
+                    Some(expr) => Ok(InterpretOk {
+                        expr: expr.clone(),
+                        steps,
+                        effect: None,
+                        new_env,
+                    }),
+                    None => Err(InterpretErr {
+                        message: format!("No field with name: {}", field),
+                    }),
+                },
+                _ => Err(InterpretErr {
+                    message: "Field access on non-struct".to_string(),
+                }),
+            }
         }
         BinOp(expr1, op, expr2) => {
             let InterpretOk {

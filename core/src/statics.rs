@@ -10,7 +10,7 @@ use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 use std::fmt::{self, Write};
 use std::rc::Rc;
 
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub(crate) struct TypeVar(UnionFindNode<TypeVarData>);
 
 impl fmt::Display for TypeVar {
@@ -254,6 +254,20 @@ pub(crate) struct Variant {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+pub(crate) struct StructDef {
+    pub(crate) name: Identifier,
+    pub(crate) params: Vec<Identifier>,
+    pub(crate) fields: Vec<StructField>,
+    pub(crate) location: ast::Id,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+pub(crate) struct StructField {
+    pub(crate) name: Identifier,
+    pub(crate) ty: TypeVar,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub(crate) struct InterfaceDef {
     pub(crate) name: Identifier,
     pub(crate) methods: Vec<InterfaceDefMethod>,
@@ -307,15 +321,16 @@ pub(crate) enum Prov {
     UnderdeterminedCoerceToUnit,
 
     Alias(Identifier), // TODO add Box<Prov>
-    AdtDef(Box<Prov>),
+    UdtDef(Box<Prov>),
 
-    InstantiateAdtParam(Box<Prov>, u8),
+    InstantiateUdtParam(Box<Prov>, u8),
     InstantiatePoly(Box<Prov>, Identifier),
     FuncArg(Box<Prov>, u8), // u8 represents the index of the argument
     FuncOut(Box<Prov>),     // u8 represents how many arguments before this output
     BinopLeft(Box<Prov>),
     BinopRight(Box<Prov>),
     ListElem(Box<Prov>),
+    StructField(Identifier, TypeVar),
     VariantNoData(Box<Prov>), // the type of the data of a variant with no data, always Unit.
 }
 
@@ -328,8 +343,8 @@ impl Prov {
             Prov::Builtin(_) => None,
             Prov::UnderdeterminedCoerceToUnit => None,
             Prov::Alias(_) => None,
-            Prov::AdtDef(inner)
-            | Prov::InstantiateAdtParam(inner, _)
+            Prov::UdtDef(inner)
+            | Prov::InstantiateUdtParam(inner, _)
             | Prov::InstantiatePoly(inner, _)
             | Prov::FuncArg(inner, _)
             | Prov::FuncOut(inner)
@@ -337,6 +352,7 @@ impl Prov {
             | Prov::BinopRight(inner)
             | Prov::ListElem(inner)
             | Prov::VariantNoData(inner) => inner.get_location(),
+            Prov::StructField(_, _) => None,
         }
     }
 }
@@ -817,10 +833,13 @@ pub(crate) struct InferenceContext {
     // unification variables (skolems) which must be solved
     pub(crate) vars: HashMap<Prov, TypeVar>,
 
-    // nominal type definitions (ADTs)
+    // ADT definitions
     pub(crate) adt_defs: HashMap<Identifier, AdtDef>,
     // map from variant names to ADT names
     variants_to_adt: HashMap<Identifier, Identifier>,
+
+    // struct definitions
+    pub(crate) struct_defs: HashMap<Identifier, StructDef>,
 
     // function definition locations
     pub(crate) fun_defs: HashMap<Identifier, Rc<Stmt>>,
@@ -844,7 +863,7 @@ pub(crate) struct InferenceContext {
     unbound_vars: BTreeSet<ast::Id>,
     unbound_interfaces: BTreeSet<ast::Id>,
     // multiple definitions
-    multiple_adt_defs: BTreeMap<Identifier, Vec<ast::Id>>,
+    multiple_udt_defs: BTreeMap<Identifier, Vec<ast::Id>>,
     multiple_interface_defs: BTreeMap<Identifier, Vec<ast::Id>>,
     // interface implementations
     multiple_interface_impls: BTreeMap<Identifier, Vec<ast::Id>>,
@@ -1347,6 +1366,7 @@ pub(crate) fn generate_constraints_expr(
                 constrain(typ, node_ty);
                 return;
             }
+            // TODO: this is incredibly hacky. No respect for scope at all... Should be added at the toplevel with Effects at the least...
             let adt_def = inf_ctx.adt_def_of_variant(id);
             if let Some(adt_def) = adt_def {
                 let nparams = adt_def.params.len();
@@ -1355,12 +1375,12 @@ pub(crate) fn generate_constraints_expr(
                 for i in 0..nparams {
                     params.push(TypeVar::fresh(
                         inf_ctx,
-                        Prov::InstantiateAdtParam(Box::new(Prov::Node(expr.id)), i as u8),
+                        Prov::InstantiateUdtParam(Box::new(Prov::Node(expr.id)), i as u8),
                     ));
                     substitution.insert(adt_def.params[i].clone(), params[i].clone());
                 }
                 let def_type = TypeVar::make_def_instance(
-                    Prov::AdtDef(Box::new(Prov::Node(expr.id))),
+                    Prov::UdtDef(Box::new(Prov::Node(expr.id))),
                     adt_def.name,
                     params,
                 );
@@ -1394,6 +1414,37 @@ pub(crate) fn generate_constraints_expr(
                         ),
                     );
                 }
+                return;
+            }
+            let struct_def = inf_ctx.struct_defs.get(id).cloned();
+            if let Some(struct_def) = struct_def {
+                let nparams = struct_def.params.len();
+                let mut params = vec![];
+                let mut substitution = BTreeMap::new();
+                for i in 0..nparams {
+                    params.push(TypeVar::fresh(
+                        inf_ctx,
+                        Prov::InstantiateUdtParam(Box::new(Prov::Node(expr.id)), i as u8),
+                    ));
+                    substitution.insert(struct_def.params[i].clone(), params[i].clone());
+                }
+                let def_type = TypeVar::make_def_instance(
+                    Prov::UdtDef(Box::new(Prov::Node(expr.id))),
+                    struct_def.name.clone(),
+                    params,
+                );
+                let fields = struct_def
+                    .fields
+                    .iter()
+                    .map(|f| {
+                        f.ty.clone()
+                            .subst(gamma.clone(), Prov::Node(expr.id), &substitution)
+                    })
+                    .collect();
+                constrain(
+                    node_ty,
+                    TypeVar::make_func(fields, def_type, Prov::Node(expr.id)),
+                );
                 return;
             }
             inf_ctx.unbound_vars.insert(expr.id());
@@ -1595,6 +1646,11 @@ pub(crate) fn generate_constraints_expr(
                 generate_constraints_expr(gamma.clone(), Mode::Syn, expr.clone(), inf_ctx);
             }
         }
+        ExprKind::FieldAccess(expr, field) => {
+            let ty_expr = TypeVar::fresh(inf_ctx, Prov::Node(expr.id));
+            let ty_field = TypeVar::fresh(inf_ctx, Prov::StructField(field.clone(), ty_expr));
+            constrain(node_ty, ty_field);
+        }
     }
 }
 
@@ -1727,7 +1783,7 @@ pub(crate) fn generate_constraints_stmt(
                 let right = ast_type_to_statics_type(inf_ctx, ty.clone());
                 constrain(left, right);
             }
-            TypeDefKind::Adt(..) => {}
+            TypeDefKind::Adt(..) | TypeDefKind::Struct(..) => {}
         },
         StmtKind::Expr(expr) => {
             generate_constraints_expr(gamma, mode, expr.clone(), inf_ctx);
@@ -1840,12 +1896,12 @@ pub(crate) fn generate_constraints_pat(
                     for i in 0..nparams {
                         params.push(TypeVar::fresh(
                             inf_ctx,
-                            Prov::InstantiateAdtParam(Box::new(Prov::Node(pat.id)), i as u8),
+                            Prov::InstantiateUdtParam(Box::new(Prov::Node(pat.id)), i as u8),
                         ));
                         substitution.insert(adt_def.params[i].clone(), params[i].clone());
                     }
                     let def_type = TypeVar::make_def_instance(
-                        Prov::AdtDef(Box::new(Prov::Node(pat.id))),
+                        Prov::UdtDef(Box::new(Prov::Node(pat.id))),
                         adt_def.name,
                         params,
                     );
@@ -1963,7 +2019,7 @@ pub(crate) fn gather_definitions_stmt(
             TypeDefKind::Alias(_ident, _ty) => {}
             TypeDefKind::Adt(ident, params, variants) => {
                 if let Some(adt_def) = inf_ctx.adt_defs.get(ident) {
-                    let entry = inf_ctx.multiple_adt_defs.entry(ident.clone()).or_default();
+                    let entry = inf_ctx.multiple_udt_defs.entry(ident.clone()).or_default();
                     entry.push(adt_def.location);
                     entry.push(stmt.id);
                     return;
@@ -1998,6 +2054,42 @@ pub(crate) fn gather_definitions_stmt(
                         name: ident.clone(),
                         params: defparams,
                         variants: defvariants,
+                        location: stmt.id,
+                    },
+                );
+            }
+            TypeDefKind::Struct(ident, params, fields) => {
+                if let Some(struct_def) = inf_ctx.struct_defs.get(ident) {
+                    let entry = inf_ctx.multiple_udt_defs.entry(ident.clone()).or_default();
+                    entry.push(struct_def.location);
+                    entry.push(stmt.id);
+                    return;
+                }
+                let mut defparams = vec![];
+                for p in params {
+                    let ast::TypeKind::Poly(ident, _) = &*p.typekind else {
+                        panic!("expected poly type for ADT def param")
+                    };
+                    defparams.push(ident.clone());
+                }
+                let mut deffields = vec![];
+                for f in fields {
+                    let ty = ast_type_to_statics_type(inf_ctx, f.ty.clone());
+                    deffields.push(StructField {
+                        name: f.ident.clone(),
+                        ty: ty.clone(),
+                    });
+
+                    let prov = Prov::StructField(f.ident.clone(), ty);
+                    let ty_field = TypeVar::fresh(inf_ctx, prov.clone());
+                    inf_ctx.vars.insert(prov, ty_field);
+                }
+                inf_ctx.struct_defs.insert(
+                    ident.clone(),
+                    StructDef {
+                        name: ident.clone(),
+                        params: defparams,
+                        fields: deffields,
                         location: stmt.id,
                     },
                 );
@@ -2188,7 +2280,7 @@ pub(crate) fn result_of_constraint_solving(
     if inf_ctx.unbound_vars.is_empty()
         && inf_ctx.unbound_interfaces.is_empty()
         && type_conflicts.is_empty()
-        && inf_ctx.multiple_adt_defs.is_empty()
+        && inf_ctx.multiple_udt_defs.is_empty()
         && inf_ctx.multiple_interface_defs.is_empty()
         && inf_ctx.multiple_interface_impls.is_empty()
         && inf_ctx.interface_impl_for_instantiated_adt.is_empty()
@@ -2221,8 +2313,8 @@ pub(crate) fn result_of_constraint_solving(
             );
         }
     }
-    if !inf_ctx.multiple_adt_defs.is_empty() {
-        for (ident, adt_ids) in inf_ctx.multiple_adt_defs.iter() {
+    if !inf_ctx.multiple_udt_defs.is_empty() {
+        for (ident, adt_ids) in inf_ctx.multiple_udt_defs.iter() {
             let _ = writeln!(err_string, "Multiple definitions for type {}, ident", ident);
             for ast_id in adt_ids {
                 let span = node_map.get(ast_id).unwrap().span();
@@ -2354,12 +2446,13 @@ pub(crate) fn result_of_constraint_solving(
                     Prov::FuncOut(_) => 4,
                     Prov::Alias(_) => 5,
                     Prov::VariantNoData(_) => 7,
-                    Prov::AdtDef(_) => 8,
-                    Prov::InstantiateAdtParam(_, _) => 9,
+                    Prov::UdtDef(_) => 8,
+                    Prov::InstantiateUdtParam(_, _) => 9,
                     Prov::ListElem(_) => 10,
                     Prov::BinopLeft(_) => 11,
                     Prov::BinopRight(_) => 12,
                     Prov::UnderdeterminedCoerceToUnit => 13,
+                    Prov::StructField(..) => 14,
                 });
                 for cause in provs_vec {
                     match cause {
@@ -2439,14 +2532,17 @@ pub(crate) fn result_of_constraint_solving(
                         Prov::Alias(ident) => {
                             let _ = writeln!(err_string, "The type alias {ident}");
                         }
-                        Prov::AdtDef(_prov) => {
+                        Prov::UdtDef(_prov) => {
                             err_string.push_str("Some ADT definition");
                         }
-                        Prov::InstantiateAdtParam(_, _) => {
+                        Prov::InstantiateUdtParam(_, _) => {
                             err_string.push_str("Some instance of an Adt's variant");
                         }
                         Prov::VariantNoData(_prov) => {
                             err_string.push_str("The data of some ADT variant");
+                        }
+                        Prov::StructField(field, ty) => {
+                            let _ = writeln!(err_string, "The field {field} of the struct {ty}");
                         }
                     }
                 }
@@ -2584,6 +2680,9 @@ fn check_pattern_exhaustiveness_expr(inf_ctx: &mut InferenceContext, expr: &ast:
             for expr in exprs {
                 check_pattern_exhaustiveness_expr(inf_ctx, expr);
             }
+        }
+        ExprKind::FieldAccess(expr, _) => {
+            check_pattern_exhaustiveness_expr(inf_ctx, &expr);
         }
     }
 }
