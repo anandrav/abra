@@ -296,7 +296,7 @@ fn update_monomorphenv(
             }
             update_monomorphenv(monomorphenv, *out, *out2);
         }
-        (SolvedType::AdtInstance(ident, params), SolvedType::AdtInstance(ident2, params2)) => {
+        (SolvedType::UdtInstance(ident, params), SolvedType::UdtInstance(ident2, params2)) => {
             assert_eq!(ident, ident2);
             for i in 0..params.len() {
                 update_monomorphenv(monomorphenv.clone(), params[i].clone(), params2[i].clone());
@@ -327,12 +327,12 @@ fn subst_with_monomorphic_env(
             let new_out = subst_with_monomorphic_env(monomorphic_env, *out);
             SolvedType::Function(new_args, Box::new(new_out))
         }
-        SolvedType::AdtInstance(ident, params) => {
+        SolvedType::UdtInstance(ident, params) => {
             let new_params = params
                 .iter()
                 .map(|param| subst_with_monomorphic_env(monomorphic_env.clone(), param.clone()))
                 .collect();
-            SolvedType::AdtInstance(ident, new_params)
+            SolvedType::UdtInstance(ident, new_params)
         }
         SolvedType::Poly(ref ident, _) => {
             if let Some(monomorphic_ty) = monomorphic_env.borrow().lookup(ident) {

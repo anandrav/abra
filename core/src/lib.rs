@@ -74,6 +74,8 @@ pub fn compile<Effect: EffectTrait>(source_files: Vec<SourceFile>) -> Result<Run
 
     statics::result_of_additional_analysis(&mut inference_ctx, &toplevels, &node_map, &sources)?;
 
+    println!("{}", tyctx.borrow());
+
     let env: Rc<RefCell<Environment>> = Rc::new(RefCell::new(Environment::new(None)));
     let (eval_tree, overloaded_func_map) =
         translate::translate(&inference_ctx, tyctx, &node_map, &toplevels, env.clone());

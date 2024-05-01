@@ -17,8 +17,8 @@ impl fmt::Display for TypeVar {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let types = self.0.clone_data().types;
         match types.len() {
-            0 => write!(f, "?"),
-            1 => write!(f, "{}", types.values().next().unwrap()),
+            0 => write!(f, "?{{}}"),
+            1 => write!(f, "?{{{}}}", types.values().next().unwrap()),
             _ => {
                 write!(f, "!{{")?;
                 for (i, ty) in types.values().enumerate() {
@@ -160,7 +160,7 @@ pub(crate) enum SolvedType {
     String,
     Function(Vec<SolvedType>, Box<SolvedType>),
     Tuple(Vec<SolvedType>),
-    AdtInstance(Identifier, Vec<SolvedType>),
+    UdtInstance(Identifier, Vec<SolvedType>),
 }
 
 impl SolvedType {
@@ -195,7 +195,7 @@ impl SolvedType {
                 }
                 Some(TypeMonomorphized::Tuple(elems2))
             }
-            Self::AdtInstance(ident, params) => {
+            Self::UdtInstance(ident, params) => {
                 let mut params2: Vec<TypeMonomorphized> = vec![];
                 for param in params {
                     if let Some(param) = param.instance_type() {
@@ -221,7 +221,7 @@ impl SolvedType {
                 args.iter().any(|ty| ty.is_overloaded()) || out.is_overloaded()
             }
             Self::Tuple(tys) => tys.iter().any(|ty| ty.is_overloaded()),
-            Self::AdtInstance(_, _tys) => false,
+            Self::UdtInstance(_, _tys) => false,
         }
     }
 }
@@ -416,7 +416,7 @@ impl PotentialType {
                         return None;
                     }
                 }
-                Some(SolvedType::AdtInstance(ident.clone(), params2))
+                Some(SolvedType::UdtInstance(ident.clone(), params2))
             }
         }
     }
@@ -697,6 +697,10 @@ impl TypeVar {
             _ => false,
         }
     }
+
+    pub(crate) fn underdetermined(&self) -> bool {
+        self.0.with_data(|data| data.types.is_empty())
+    }
 }
 
 fn types_of_binop(opcode: &BinOpcode, id: ast::Id) -> (TypeVar, TypeVar, TypeVar) {
@@ -856,6 +860,8 @@ pub(crate) struct InferenceContext {
     // ADDITIONAL CONSTRAINTS
     // map from types to interfaces they have been constrained to
     types_constrained_to_interfaces: BTreeMap<TypeVar, Vec<(Identifier, Prov)>>,
+    // types that must be a struct because there was a field access
+    types_that_must_be_structs: BTreeMap<TypeVar, ast::Id>,
 
     // ERRORS
 
@@ -873,6 +879,8 @@ pub(crate) struct InferenceContext {
     // non-exhaustive matches
     nonexhaustive_matches: BTreeMap<ast::Id, Vec<DeconstructedPat>>,
     redundant_matches: BTreeMap<ast::Id, Vec<ast::Id>>,
+    // annotation needed
+    annotation_needed: BTreeSet<ast::Id>,
 }
 
 impl InferenceContext {
@@ -1647,12 +1655,16 @@ pub(crate) fn generate_constraints_expr(
             }
         }
         ExprKind::FieldAccess(expr, field) => {
+            generate_constraints_expr(gamma.clone(), Mode::Syn, expr.clone(), inf_ctx);
             let ty_expr = TypeVar::fresh(inf_ctx, Prov::Node(expr.id));
-            let Some(ty_expr) = ty_expr.single() else {
-                println!("ty_expr is not a single: {ty_expr}");
+            if ty_expr.underdetermined() {
+                inf_ctx.annotation_needed.insert(expr.id);
+                return;
+            }
+            let Some(inner) = ty_expr.single() else {
                 return;
             };
-            if let PotentialType::UdtInstance(_, ident, _) = ty_expr {
+            if let PotentialType::UdtInstance(_, ident, _) = inner {
                 if let Some(struct_def) = inf_ctx.struct_defs.get(&ident) {
                     let ty_struct = TypeVar::from_node(inf_ctx, struct_def.location);
                     let ty_field =
@@ -1661,13 +1673,10 @@ pub(crate) fn generate_constraints_expr(
                     constrain(node_ty.clone(), ty_field);
                     println!("node_ty: {node_ty}");
                     return;
-                } else {
-                    panic!("field access is on an adt not a struct");
                 }
             }
 
-            panic!("field access is not on a struct");
-            // TODO report error that the field access is not on a struct
+            inf_ctx.types_that_must_be_structs.insert(ty_expr, expr.id);
         }
     }
 }
@@ -2299,6 +2308,25 @@ pub(crate) fn result_of_constraint_solving(
         }
     }
 
+    let mut bad_field_access = false;
+    for (typ, location) in inf_ctx.types_that_must_be_structs.iter() {
+        let typ = typ.solution();
+        let Some(solved) = typ else {
+            continue;
+        };
+        if let SolvedType::UdtInstance(ident, _) = &solved {
+            let struct_def = inf_ctx.struct_defs.get(ident);
+            if struct_def.is_some() {
+                continue;
+            }
+        }
+
+        bad_field_access = true;
+        let _ = writeln!(err_string, "error: type '{}' is not a struct", solved);
+        let span = node_map.get(&location).unwrap().span();
+        span.display(&mut err_string, sources, "");
+    }
+
     if inf_ctx.unbound_vars.is_empty()
         && inf_ctx.unbound_interfaces.is_empty()
         && type_conflicts.is_empty()
@@ -2308,7 +2336,9 @@ pub(crate) fn result_of_constraint_solving(
         && inf_ctx.interface_impl_for_instantiated_adt.is_empty()
         && inf_ctx.interface_impl_extra_method.is_empty()
         && inf_ctx.interface_impl_missing_method.is_empty()
+        && inf_ctx.annotation_needed.is_empty()
         && !bad_instantiations
+        && !bad_field_access
     {
         for (node_id, node) in node_map.iter() {
             let ty = inf_ctx.solution_of_node(*node_id);
@@ -2407,6 +2437,13 @@ pub(crate) fn result_of_constraint_solving(
             for method_name in method_names {
                 err_string.push_str(&format!("\t- {method_name};\n"));
             }
+        }
+    }
+
+    if !inf_ctx.annotation_needed.is_empty() {
+        for id in inf_ctx.annotation_needed.iter() {
+            let span = node_map.get(id).unwrap().span();
+            span.display(&mut err_string, sources, "this needs a type annotation");
         }
     }
 
@@ -2740,7 +2777,7 @@ pub(crate) fn ty_fits_impl_ty(
                 Err((typ, impl_ty))
             }
         }
-        (SolvedType::AdtInstance(ident1, tys1), SolvedType::AdtInstance(ident2, tys2)) => {
+        (SolvedType::UdtInstance(ident1, tys1), SolvedType::UdtInstance(ident2, tys2)) => {
             if ident1 == ident2 && tys1.len() == tys2.len() {
                 for (ty1, ty2) in tys1.iter().zip(tys2.iter()) {
                     let SolvedType::Poly(_, interfaces) = ty2.clone() else {
@@ -2861,7 +2898,7 @@ impl Matrix {
                     | SolvedType::Float
                     | SolvedType::Function(..)
                     | SolvedType::Tuple(_)
-                    | SolvedType::AdtInstance(..) => new_types.push(data_ty),
+                    | SolvedType::UdtInstance(..) => new_types.push(data_ty),
                     _ => panic!("unexpected type"),
                 }
             }
@@ -3019,7 +3056,7 @@ impl DeconstructedPat {
             | SolvedType::Poly(..)
             | SolvedType::Function(..) => vec![],
             SolvedType::Tuple(tys) => tys.clone(),
-            SolvedType::AdtInstance(_, _) => match ctor {
+            SolvedType::UdtInstance(_, _) => match ctor {
                 Constructor::Variant(ident) => {
                     let adt = inf_ctx.adt_def_of_variant(ident).unwrap();
                     let variant = adt.variants.iter().find(|v| v.ctor == *ident).unwrap();
@@ -3039,7 +3076,7 @@ impl DeconstructedPat {
 
     fn missing_from_ctor(ctor: &Constructor, ty: SolvedType) -> Self {
         let fields = match ty.clone() {
-            SolvedType::Tuple(tys) | SolvedType::AdtInstance(_, tys) => tys
+            SolvedType::Tuple(tys) | SolvedType::UdtInstance(_, tys) => tys
                 .iter()
                 .map(|ty| DeconstructedPat {
                     ctor: Constructor::Wildcard(WildcardReason::NonExhaustive),
@@ -3444,7 +3481,7 @@ fn compute_exhaustiveness_and_usefulness(
 fn ctors_for_ty(inf_ctx: &InferenceContext, ty: &SolvedType) -> ConstructorSet {
     match ty {
         SolvedType::Bool => ConstructorSet::Bool,
-        SolvedType::AdtInstance(ident, _) => {
+        SolvedType::UdtInstance(ident, _) => {
             let variants = inf_ctx.variants_of_adt(ident);
             ConstructorSet::AdtVariants(variants)
         }
@@ -3533,7 +3570,7 @@ impl fmt::Display for SolvedType {
                 }
                 Ok(())
             }
-            SolvedType::AdtInstance(ident, params) => {
+            SolvedType::UdtInstance(ident, params) => {
                 if !params.is_empty() {
                     write!(f, "{}<", ident)?;
                     for (i, param) in params.iter().enumerate() {
