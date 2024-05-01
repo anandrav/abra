@@ -34,7 +34,7 @@ let_pattern = _{ let_pattern_tuple | wildcard | identifier }
 wildcard = @{ "_" }
 op_assign = _{ "=" }
 
-set_statement = { set_keyword ~ identifier ~ op_assign ~ expression }
+set_statement = { set_keyword ~ expression ~ op_assign ~ expression }
 set_keyword = _{ "set" }
 
 let_func_statement = { func_keyword ~ identifier ~ func_args ~ func_out_annotation? ~ (block_expression | (op_assign ~ expression)) }
