@@ -18,7 +18,7 @@ impl fmt::Display for TypeVar {
         let types = self.0.clone_data().types;
         match types.len() {
             0 => write!(f, "?{{}}"),
-            1 => write!(f, "?{{{}}}", types.values().next().unwrap()),
+            1 => write!(f, "{}", types.values().next().unwrap()),
             _ => {
                 write!(f, "!{{")?;
                 for (i, ty) in types.values().enumerate() {
