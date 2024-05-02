@@ -117,7 +117,7 @@ println("The first 10 fibonacci numbers are:")
 for_each(range(0, 9), n -> println(fibonacci(n)))
 "#;
 
-const DEMO: &str = r#"println("Enter your name: ")
+const _DEMO: &str = r#"println("Enter your name: ")
 let name = read()
 println("Your name is " & name)
 

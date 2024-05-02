@@ -2323,7 +2323,7 @@ pub(crate) fn result_of_constraint_solving(
 
         bad_field_access = true;
         let _ = writeln!(err_string, "error: type '{}' is not a struct", solved);
-        let span = node_map.get(&location).unwrap().span();
+        let span = node_map.get(location).unwrap().span();
         span.display(&mut err_string, sources, "");
     }
 
@@ -2741,7 +2741,7 @@ fn check_pattern_exhaustiveness_expr(inf_ctx: &mut InferenceContext, expr: &ast:
             }
         }
         ExprKind::FieldAccess(expr, _) => {
-            check_pattern_exhaustiveness_expr(inf_ctx, &expr);
+            check_pattern_exhaustiveness_expr(inf_ctx, expr);
         }
     }
 }
