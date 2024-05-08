@@ -360,7 +360,10 @@ pub(crate) fn add_builtins_and_variants<Effects: EffectTrait>(
             name,
             Rc::new(Expr::Func(
                 struct_def.fields.iter().map(|f| f.name.clone()).collect(),
-                Rc::new(Expr::Struct(name.clone(), struct_val)),
+                Rc::new(Expr::Struct(
+                    name.clone(),
+                    Rc::new(RefCell::new(struct_val)),
+                )),
                 None,
             )),
         );
@@ -568,24 +571,29 @@ fn interpret(
             })
         }
         Struct(name, fields) => {
-            let mut new_fields = fields.clone();
-            for (field, expr) in fields.iter() {
+            let mut fields_copy = fields.borrow().clone();
+            let keys = fields_copy.keys().cloned().collect::<Vec<String>>();
+            for key in keys {
+                let val = fields_copy.get(&key).unwrap();
                 let InterpretOk {
                     expr,
                     steps,
                     effect,
                     new_env,
                 } = interpret(
-                    expr.clone(),
+                    val.clone(),
                     env.clone(),
                     overloaded_func_map,
                     steps,
                     &input.clone(),
                 )?;
-                new_fields.insert(field.clone(), expr);
+                fields_copy.insert(key, expr);
                 if effect.is_some() || steps <= 0 {
                     return Ok(InterpretOk {
-                        expr: Rc::new(Struct(name.clone(), new_fields)),
+                        expr: Rc::new(Struct(
+                            name.clone(),
+                            Rc::new(RefCell::new(fields_copy.clone())),
+                        )),
                         steps,
                         effect,
                         new_env,
@@ -593,7 +601,10 @@ fn interpret(
                 }
             }
             Ok(InterpretOk {
-                expr: Rc::new(Struct(name.clone(), new_fields)),
+                expr: Rc::new(Struct(
+                    name.clone(),
+                    Rc::new(RefCell::new(fields_copy.clone())),
+                )),
                 steps,
                 effect: None,
                 new_env: env,
@@ -621,7 +632,7 @@ fn interpret(
                 });
             }
             match &*accessed {
-                Struct(_, fields) => match fields.get(field) {
+                Struct(_, fields) => match fields.borrow().get(field) {
                     Some(expr) => Ok(InterpretOk {
                         expr: expr.clone(),
                         steps,
@@ -859,7 +870,89 @@ fn interpret(
         },
         Set(assignee, expr1, expr2) => match &*assignee.clone() {
             PlaceExpr::FieldAccess(accessed, field_name) => {
-                todo!("not done yet")
+                let InterpretOk {
+                    expr: accessed,
+                    steps,
+                    effect,
+                    new_env,
+                } = interpret(
+                    accessed.clone(),
+                    env.clone(),
+                    overloaded_func_map,
+                    steps,
+                    &input.clone(),
+                )?;
+                if effect.is_some() || steps <= 0 {
+                    return Ok(InterpretOk {
+                        expr: Rc::new(Set(
+                            Rc::new(PlaceExpr::FieldAccess(accessed, field_name.clone())),
+                            expr1.clone(),
+                            expr2.clone(),
+                        )),
+                        steps,
+                        effect,
+                        new_env,
+                    });
+                }
+                let InterpretOk {
+                    expr: expr1,
+                    steps,
+                    effect,
+                    new_env,
+                } = interpret(
+                    expr1.clone(),
+                    env.clone(),
+                    overloaded_func_map,
+                    steps,
+                    &input.clone(),
+                )?;
+                if effect.is_some() || steps <= 0 {
+                    return Ok(InterpretOk {
+                        expr: Rc::new(Set(
+                            Rc::new(PlaceExpr::FieldAccess(accessed, field_name.clone())),
+                            expr1.clone(),
+                            expr2.clone(),
+                        )),
+                        steps,
+                        effect,
+                        new_env,
+                    });
+                }
+                let Expr::Struct(_, fields) = &*accessed else {
+                    return Err(InterpretErr {
+                        message: "Cannot get field from non-struct".to_string(),
+                    });
+                };
+                fields
+                    .borrow_mut()
+                    .insert(field_name.clone(), expr1.clone());
+
+                let InterpretOk {
+                    expr,
+                    steps,
+                    effect,
+                    new_env,
+                } = interpret(
+                    expr2.clone(),
+                    env.clone(),
+                    overloaded_func_map,
+                    steps,
+                    input,
+                )?;
+                if effect.is_some() || steps <= 0 {
+                    return Ok(InterpretOk {
+                        expr: Rc::new(Expr::Set(assignee.clone(), expr1.clone(), expr)),
+                        steps,
+                        effect,
+                        new_env,
+                    });
+                }
+                Ok(InterpretOk {
+                    expr,
+                    steps,
+                    effect: None,
+                    new_env: env,
+                })
             }
             PlaceExpr::Var(id) => {
                 let InterpretOk {

@@ -1669,9 +1669,7 @@ pub(crate) fn generate_constraints_expr(
                     let ty_struct = TypeVar::from_node(inf_ctx, struct_def.location);
                     let ty_field =
                         TypeVar::fresh(inf_ctx, Prov::StructField(field.clone(), ty_struct));
-                    println!("ty_field: {ty_field}");
                     constrain(node_ty.clone(), ty_field);
-                    println!("node_ty: {node_ty}");
                     return;
                 }
             }
@@ -2103,7 +2101,6 @@ pub(crate) fn gather_definitions_stmt(
                 let mut deffields = vec![];
                 for f in fields {
                     let ty_annot = ast_type_to_statics_type(inf_ctx, f.ty.clone());
-                    println!("ty_annot: {ty_annot}");
                     deffields.push(StructField {
                         name: f.ident.clone(),
                         ty: ty_annot.clone(),
@@ -2112,7 +2109,6 @@ pub(crate) fn gather_definitions_stmt(
                     let prov = Prov::StructField(f.ident.clone(), ty_struct.clone());
                     let ty_field = TypeVar::fresh(inf_ctx, prov.clone());
                     constrain(ty_field.clone(), ty_annot.clone());
-                    println!("ty_field: {ty_field}");
                     inf_ctx.vars.insert(prov, ty_field);
                 }
                 inf_ctx.struct_defs.insert(

@@ -20,7 +20,7 @@ pub enum Expr {
     Str(String),
     Bool(bool),
     Tuple(Vec<Rc<Expr>>),
-    Struct(String, HashMap<String, Rc<Expr>>),
+    Struct(String, Rc<RefCell<HashMap<String, Rc<Expr>>>>),
     FieldAccess(Rc<Expr>, Identifier),
     TaggedVariant(Identifier, Rc<Expr>),
     BinOp(Rc<Expr>, BinOpcode, Rc<Expr>),
@@ -135,9 +135,9 @@ impl std::fmt::Display for Expr {
             }
             Struct(name, fields) => {
                 write!(f, "{name}{{")?;
-                for (i, (name, value)) in fields.iter().enumerate() {
+                for (i, (name, value)) in fields.borrow().iter().enumerate() {
                     write!(f, "{}: {}", name, value)?;
-                    if i != fields.len() - 1 {
+                    if i != fields.borrow().len() - 1 {
                         write!(f, ", ")?;
                     }
                 }
@@ -184,7 +184,7 @@ pub(crate) fn is_val(expr: &Rc<Expr>) -> bool {
         Bool(_) => true,
         Func(_, _, _) => true,
         Tuple(elements) => elements.iter().all(is_val),
-        Struct(_, fields) => fields.values().all(is_val),
+        Struct(_, fields) => fields.borrow().values().all(is_val),
         FieldAccess(_, _) => false,
         TaggedVariant(_, data) => is_val(data),
         BinOp(_, _, _) => false,

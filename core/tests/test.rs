@@ -60,6 +60,23 @@ fn while_loop_mutation() {
 }
 
 #[test]
+fn struct_field_mutation() {
+    let (val, rt) = run("
+        type coord = {
+            x: int,
+            y: int
+        }
+
+        let c = coord(2, 3)
+
+        c.x <- c.x * 5
+        c.x
+        ")
+    .unwrap();
+    assert_eq!(val, rt.make_int(10));
+}
+
+#[test]
 fn transform_list_then_sum() {
     let src = r#"func fibonacci(n) {
         match n {

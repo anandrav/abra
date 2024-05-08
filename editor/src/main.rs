@@ -226,7 +226,7 @@ let c = coord(1, 2)
 let n = c.x
 println(n)
 
-set c.x = 3
+c.x <- 3
 
 let n = c.x
 println(n)
