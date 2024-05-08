@@ -881,6 +881,8 @@ pub(crate) struct InferenceContext {
     redundant_matches: BTreeMap<ast::Id, Vec<ast::Id>>,
     // annotation needed
     annotation_needed: BTreeSet<ast::Id>,
+    // field not an identifier
+    field_not_ident: BTreeSet<ast::Id>,
 }
 
 impl InferenceContext {
@@ -1667,8 +1669,12 @@ pub(crate) fn generate_constraints_expr(
             if let PotentialType::UdtInstance(_, ident, _) = inner {
                 if let Some(struct_def) = inf_ctx.struct_defs.get(&ident) {
                     let ty_struct = TypeVar::from_node(inf_ctx, struct_def.location);
+                    let ExprKind::Var(field_ident) = &*field.exprkind else {
+                        inf_ctx.field_not_ident.insert(field.id);
+                        return;
+                    };
                     let ty_field =
-                        TypeVar::fresh(inf_ctx, Prov::StructField(field.clone(), ty_struct));
+                        TypeVar::fresh(inf_ctx, Prov::StructField(field_ident.clone(), ty_struct));
                     constrain(node_ty.clone(), ty_field);
                     return;
                 }
@@ -2333,6 +2339,7 @@ pub(crate) fn result_of_constraint_solving(
         && inf_ctx.interface_impl_extra_method.is_empty()
         && inf_ctx.interface_impl_missing_method.is_empty()
         && inf_ctx.annotation_needed.is_empty()
+        && inf_ctx.field_not_ident.is_empty()
         && !bad_instantiations
         && !bad_field_access
     {
@@ -2440,6 +2447,17 @@ pub(crate) fn result_of_constraint_solving(
         for id in inf_ctx.annotation_needed.iter() {
             let span = node_map.get(id).unwrap().span();
             span.display(&mut err_string, sources, "this needs a type annotation");
+        }
+    }
+
+    if !inf_ctx.field_not_ident.is_empty() {
+        for id in inf_ctx.field_not_ident.iter() {
+            let span = node_map.get(id).unwrap().span();
+            span.display(
+                &mut err_string,
+                sources,
+                "Need to use an identifier when accessing a field",
+            );
         }
     }
 

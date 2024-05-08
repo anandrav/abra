@@ -223,20 +223,18 @@ add(1, 2)
 "#;
 
 const _SCRATCH: &str = r#"
-type coord = {
-    x: int,
-    y: int
+type person = {
+    name: string,
+    b: blah
 }
 
-let c = coord(1, 2)
+type blah = {
+	kek: int
+}
 
-let n = c.x
-println(n)
+let p = person("jeff", blah(3))
 
-c.x <- 3
-
-let n = c.x
-println(n)
+p.b.kek <- 4
 "#;
 
 const _INTERFACES: &str = r#"

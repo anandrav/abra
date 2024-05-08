@@ -77,6 +77,27 @@ fn struct_field_mutation() {
 }
 
 #[test]
+fn struct_field_nested() {
+    let (val, rt) = run("
+    type coord2d = {
+        x: int,
+        y: int
+    }
+
+    type coord3d = {
+    	xy: coord2d,
+    	z: int
+    }
+
+    let c3 = coord3d(coord2d(4, 2), 3)
+
+    c3.xy.x <- c3.xy.x * 5
+    c3.xy.x")
+    .unwrap();
+    assert_eq!(val, rt.make_int(20));
+}
+
+#[test]
 fn transform_list_then_sum() {
     let src = r#"func fibonacci(n) {
         match n {

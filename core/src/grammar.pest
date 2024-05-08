@@ -43,7 +43,7 @@ let_pattern_tuple = { tuple_start ~ (let_pattern_tuple_element ~ ",")+ ~ let_pat
 let_pattern_tuple_element = _{ let_pattern }
 
 expression = { term ~ (op_binary ~ term)* }
-term = _{ block_expression | func_expression | func_call_expression | parenthesized_expression | if_else_expression | while_loop_expression | match_expression | tuple_expr | access_expr | primary_expression }
+term = _{ block_expression | func_expression | func_call_expression | parenthesized_expression | if_else_expression | while_loop_expression | match_expression | tuple_expr | primary_expression }
 
 if_else_expression = { if_keyword ~ expression ~ expression ~ (else_keyword ~ expression)? }
 if_keyword = _{ "if" }
@@ -123,8 +123,6 @@ type_literal_float = @{ "float" }
 type_literal_bool = @{ "bool" }
 type_literal_string = @{ "string" }
 
-access_expr = { primary_expression ~ "." ~ identifier }
-
 // type_op_binary = _{ type_op_arrow }
 // type_op_arrow = { "->" }
 
@@ -142,7 +140,7 @@ literal_string = @{ "\"" ~ (!"\"" ~ ANY)* ~ "\"" }
 literal_bool = @{ "true" | "false" }
 literal_list = { "[" ~ (expression ~ ",")* ~ expression? ~ "]" }
 
-op_binary = _{op_eq | op_gte | op_lte | op_gt | op_lt | op_addition | op_subtraction | op_multiplication | op_division | op_pow | op_and | op_or | op_mod | op_concat }
+op_binary = _{op_eq | op_gte | op_lte | op_gt | op_lt | op_addition | op_subtraction | op_multiplication | op_division | op_pow | op_and | op_or | op_mod | op_concat | op_access }
 op_eq = { "=" }
 op_gt = { ">" }
 op_lt = { "<" }
@@ -158,6 +156,7 @@ op_concat = { "&" }
 // op_not = { "not" }
 op_and = { "and" }
 op_or = { "or" }
+op_access = { "." }
 // op_range_inclusive = { "..." }
 // op_range_exclusive = { "..<" }
 

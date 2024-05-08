@@ -230,18 +230,23 @@ fn make_place_expr(
 ) -> Rc<Etl> {
     match &*expr.exprkind {
         ast::ExprKind::Var(id) => Rc::new(Etl::Var(id.clone())),
-        ast::ExprKind::FieldAccess(expr, field) => Rc::new(Etl::FieldAccess(
-            translate_expr(
-                inf_ctx,
-                monomorphenv,
-                gamma,
-                node_map,
-                overloaded_func_map,
-                expr.exprkind.clone(),
-                expr.id,
-            ),
-            field.clone(),
-        )),
+        ast::ExprKind::FieldAccess(expr, field) => {
+            let ASTek::Var(field_ident) = &*field.exprkind else {
+                panic!()
+            };
+            Rc::new(Etl::FieldAccess(
+                translate_expr(
+                    inf_ctx,
+                    monomorphenv,
+                    gamma,
+                    node_map,
+                    overloaded_func_map,
+                    expr.exprkind.clone(),
+                    expr.id,
+                ),
+                field_ident.clone(),
+            ))
+        }
         _ => panic!("invalid place expression"),
     }
 }
@@ -820,7 +825,10 @@ fn translate_expr(
                 accessed.exprkind.clone(),
                 accessed.id,
             );
-            Rc::new(Ete::FieldAccess(accessed, field.clone()))
+            let ASTek::Var(field_ident) = &*field.exprkind else {
+                panic!()
+            };
+            Rc::new(Ete::FieldAccess(accessed, field_ident.clone()))
         }
     }
 }

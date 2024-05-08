@@ -415,7 +415,7 @@ pub(crate) enum ExprKind {
     BinOp(Rc<Expr>, BinOpcode, Rc<Expr>),
     FuncAp(Rc<Expr>, Vec<Rc<Expr>>),
     Tuple(Vec<Rc<Expr>>),
-    FieldAccess(Rc<Expr>, String),
+    FieldAccess(Rc<Expr>, Rc<Expr>),
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -1239,16 +1239,6 @@ pub(crate) fn parse_expr_term(pair: Pair<Rule>, filename: &str) -> Rc<Expr> {
                 id: Id::new(),
             })
         }
-        Rule::access_expr => {
-            let inner: Vec<_> = pair.into_inner().collect();
-            let expr = parse_expr_pratt(Pairs::single(inner[0].clone()), filename);
-            let field = inner[1].as_str().to_string();
-            Rc::new(Expr {
-                exprkind: Rc::new(ExprKind::FieldAccess(expr, field)),
-                span,
-                id: Id::new(),
-            })
-        }
         Rule::tuple_expr => {
             let inner: Vec<_> = pair.into_inner().collect();
             let mut exprs = vec![];
@@ -1348,7 +1338,8 @@ pub(crate) fn parse_expr_pratt(pairs: Pairs<Rule>, filename: &str) -> Rc<Expr> {
         .op(Op::infix(Rule::op_multiplication, Assoc::Left)
             | Op::infix(Rule::op_division, Assoc::Left)
             | Op::infix(Rule::op_mod, Assoc::Left))
-        .op(Op::infix(Rule::op_pow, Assoc::Left));
+        .op(Op::infix(Rule::op_pow, Assoc::Left))
+        .op(Op::infix(Rule::op_access, Assoc::Left));
     pratt
         .map_primary(|t| parse_expr_term(t, filename))
         // .map_prefix(|op, rhs| match op.as_rule() {
@@ -1361,27 +1352,34 @@ pub(crate) fn parse_expr_pratt(pairs: Pairs<Rule>, filename: &str) -> Rc<Expr> {
         // })
         .map_infix(|lhs, op, rhs| {
             let opcode = match op.as_rule() {
-                Rule::op_eq => BinOpcode::Equals,
-                Rule::op_gt => BinOpcode::GreaterThan,
-                Rule::op_lt => BinOpcode::LessThan,
-                Rule::op_gte => BinOpcode::GreaterThanOrEqual,
-                Rule::op_lte => BinOpcode::LessThanOrEqual,
-                Rule::op_addition => BinOpcode::Add,
-                Rule::op_subtraction => BinOpcode::Subtract,
-                Rule::op_multiplication => BinOpcode::Multiply,
-                Rule::op_division => BinOpcode::Divide,
-                Rule::op_pow => BinOpcode::Pow,
-                Rule::op_mod => BinOpcode::Mod,
-                Rule::op_and => BinOpcode::And,
-                Rule::op_or => BinOpcode::Or,
-                Rule::op_concat => BinOpcode::Concat,
-                _ => unreachable!(),
+                Rule::op_eq => Some(BinOpcode::Equals),
+                Rule::op_gt => Some(BinOpcode::GreaterThan),
+                Rule::op_lt => Some(BinOpcode::LessThan),
+                Rule::op_gte => Some(BinOpcode::GreaterThanOrEqual),
+                Rule::op_lte => Some(BinOpcode::LessThanOrEqual),
+                Rule::op_addition => Some(BinOpcode::Add),
+                Rule::op_subtraction => Some(BinOpcode::Subtract),
+                Rule::op_multiplication => Some(BinOpcode::Multiply),
+                Rule::op_division => Some(BinOpcode::Divide),
+                Rule::op_pow => Some(BinOpcode::Pow),
+                Rule::op_mod => Some(BinOpcode::Mod),
+                Rule::op_and => Some(BinOpcode::And),
+                Rule::op_or => Some(BinOpcode::Or),
+                Rule::op_concat => Some(BinOpcode::Concat),
+                _ => None,
             };
-            Rc::new(Expr {
-                exprkind: Rc::new(ExprKind::BinOp(lhs, opcode, rhs)),
-                span: Span::new(filename, op.as_span()),
-                id: Id::new(),
-            })
+            match opcode {
+                Some(opcode) => Rc::new(Expr {
+                    exprkind: Rc::new(ExprKind::BinOp(lhs, opcode, rhs)),
+                    span: Span::new(filename, op.as_span()),
+                    id: Id::new(),
+                }),
+                None => Rc::new(Expr {
+                    exprkind: Rc::new(ExprKind::FieldAccess(lhs, rhs)),
+                    span: Span::new(filename, op.as_span()),
+                    id: Id::new(),
+                }),
+            }
         })
         .parse(pairs)
 }
