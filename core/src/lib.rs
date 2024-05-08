@@ -112,7 +112,7 @@ pub fn run_with_handler<Effect: EffectTrait>(
     let mut interpreter = runtime.toplevel_interpreter();
     let mut effect_result = None;
     loop {
-        let status = interpreter.run(10000, effect_result.take());
+        let status = interpreter.run(1, effect_result.take());
         match status {
             interpreter::InterpreterStatus::Error(msg) => {
                 return Err(msg);

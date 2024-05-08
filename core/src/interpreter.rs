@@ -571,7 +571,7 @@ fn interpret(
             })
         }
         Struct(name, fields) => {
-            let mut fields_copy = fields.borrow().clone();
+            let fields_copy = fields.borrow().clone();
             let keys = fields_copy.keys().cloned().collect::<Vec<String>>();
             for key in keys {
                 let val = fields_copy.get(&key).unwrap();
@@ -587,13 +587,10 @@ fn interpret(
                     steps,
                     &input.clone(),
                 )?;
-                fields_copy.insert(key, expr);
+                fields.borrow_mut().insert(key, expr);
                 if effect.is_some() || steps <= 0 {
                     return Ok(InterpretOk {
-                        expr: Rc::new(Struct(
-                            name.clone(),
-                            Rc::new(RefCell::new(fields_copy.clone())),
-                        )),
+                        expr: Rc::new(Struct(name.clone(), fields.clone())),
                         steps,
                         effect,
                         new_env,
@@ -601,10 +598,7 @@ fn interpret(
                 }
             }
             Ok(InterpretOk {
-                expr: Rc::new(Struct(
-                    name.clone(),
-                    Rc::new(RefCell::new(fields_copy.clone())),
-                )),
+                expr: Rc::new(Struct(name.clone(), fields.clone())),
                 steps,
                 effect: None,
                 new_env: env,
@@ -901,7 +895,7 @@ fn interpret(
                     new_env,
                 } = interpret(
                     expr1.clone(),
-                    env.clone(),
+                    new_env.clone(),
                     overloaded_func_map,
                     steps,
                     &input.clone(),
@@ -934,14 +928,14 @@ fn interpret(
                     new_env,
                 } = interpret(
                     expr2.clone(),
-                    env.clone(),
+                    new_env.clone(),
                     overloaded_func_map,
                     steps,
                     input,
                 )?;
                 if effect.is_some() || steps <= 0 {
                     return Ok(InterpretOk {
-                        expr: Rc::new(Expr::Set(assignee.clone(), expr1.clone(), expr)),
+                        expr,
                         steps,
                         effect,
                         new_env,
@@ -1188,8 +1182,7 @@ fn interpret(
                 }),
             }
         }
-        WhileLoop(cond, body, original_body) => {
-            let original_cond = cond;
+        WhileLoop(cond, original_cond, body, original_body) => {
             let InterpretOk {
                 expr: cond,
                 steps,
@@ -1204,7 +1197,12 @@ fn interpret(
             )?;
             if effect.is_some() || steps <= 0 {
                 return Ok(InterpretOk {
-                    expr: Rc::new(WhileLoop(cond, body.clone(), original_body.clone())),
+                    expr: Rc::new(WhileLoop(
+                        cond,
+                        original_cond.clone(),
+                        body.clone(),
+                        original_body.clone(),
+                    )),
                     steps,
                     effect,
                     new_env,
@@ -1234,7 +1232,12 @@ fn interpret(
             )?;
             if effect.is_some() || steps <= 0 {
                 return Ok(InterpretOk {
-                    expr: Rc::new(WhileLoop(cond, new_body.clone(), original_body.clone())),
+                    expr: Rc::new(WhileLoop(
+                        cond,
+                        original_cond.clone(),
+                        new_body.clone(),
+                        original_body.clone(),
+                    )),
                     steps,
                     effect,
                     new_env,
@@ -1243,6 +1246,7 @@ fn interpret(
             let steps = steps - 1;
             interpret(
                 Rc::new(WhileLoop(
+                    original_cond.clone(),
                     original_cond.clone(),
                     original_body.clone(),
                     original_body.clone(),

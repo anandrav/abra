@@ -117,9 +117,16 @@ println("The first 10 fibonacci numbers are:")
 for_each(range(0, 9), n -> println(fibonacci(n)))
 "#;
 
-const _DEMO: &str = r#"println("Enter your name: ")
-let name = read()
-println("Your name is " & name)
+const _DEMO: &str = r#"type person = {
+    name: string,
+    color: string
+}
+let user = person("", "")
+println("Enter your name: ")
+user.name <- read()
+println("Enter you favorite color: ")
+user.color <- read()
+println(user.name & "'s favorite color is " & user.color)
 
 func fibonacci(n) {
     match n {
@@ -409,7 +416,7 @@ struct MyApp {
 impl Default for MyApp {
     fn default() -> Self {
         Self {
-            text: String::from(_SCRATCH),
+            text: String::from(_DEMO),
             readline: false,
             input: String::default(),
             output: String::default(),

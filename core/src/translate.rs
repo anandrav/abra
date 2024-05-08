@@ -770,19 +770,16 @@ fn translate_expr(
                 expr.exprkind.clone(),
                 expr.id,
             );
-            Rc::new(Ete::WhileLoop(
-                translate_expr(
-                    inf_ctx,
-                    monomorphenv.clone(),
-                    gamma.clone(),
-                    node_map,
-                    overloaded_func_map,
-                    cond.exprkind.clone(),
-                    cond.id,
-                ),
-                body.clone(),
-                body,
-            ))
+            let cond = translate_expr(
+                inf_ctx,
+                monomorphenv.clone(),
+                gamma.clone(),
+                node_map,
+                overloaded_func_map,
+                cond.exprkind.clone(),
+                cond.id,
+            );
+            Rc::new(Ete::WhileLoop(cond.clone(), cond, body.clone(), body))
         }
         ASTek::Match(expr, arms) => {
             let mut translated_arms = Vec::new();
