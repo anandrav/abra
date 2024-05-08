@@ -49,6 +49,17 @@ fn fib() {
 }
 
 #[test]
+fn while_loop_mutation() {
+    let (val, rt) = run("let mutable i = 0
+    while i < 10 {
+        i <- i + 1
+    }
+    i")
+    .unwrap();
+    assert_eq!(val, rt.make_int(10));
+}
+
+#[test]
 fn transform_list_then_sum() {
     let src = r#"func fibonacci(n) {
         match n {

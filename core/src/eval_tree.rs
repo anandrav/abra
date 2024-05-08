@@ -25,7 +25,7 @@ pub enum Expr {
     TaggedVariant(Identifier, Rc<Expr>),
     BinOp(Rc<Expr>, BinOpcode, Rc<Expr>),
     Let(Rc<Pat>, Rc<Expr>, Rc<Expr>),
-    Set(Rc<Pat>, Rc<Expr>, Rc<Expr>),
+    Set(Rc<PlaceExpr>, Rc<Expr>, Rc<Expr>),
     Func(Vec<Identifier>, Rc<Expr>, Option<Rc<RefCell<Environment>>>),
     FuncAp(Rc<Expr>, Vec<Rc<Expr>>, Option<Rc<RefCell<Environment>>>),
     If(Rc<Expr>, Rc<Expr>, Rc<Expr>),
@@ -162,6 +162,12 @@ pub enum Pat {
     Var(String),
     TaggedVariant(Identifier, Option<Rc<Pat>>),
     Tuple(Vec<Rc<Pat>>),
+}
+
+#[derive(Debug, PartialEq)]
+pub enum PlaceExpr {
+    Var(String),
+    FieldAccess(Rc<Expr>, String),
 }
 
 impl Eq for Pat {}

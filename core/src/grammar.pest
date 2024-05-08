@@ -34,8 +34,7 @@ let_pattern = _{ let_pattern_tuple | wildcard | identifier }
 wildcard = @{ "_" }
 op_assign = _{ "=" }
 
-set_statement = { set_keyword ~ expression ~ op_assign ~ expression }
-set_keyword = _{ "set" }
+set_statement = { expression ~ "<-" ~ expression }
 
 let_func_statement = { func_keyword ~ identifier ~ func_args ~ func_out_annotation? ~ (block_expression | (op_assign ~ expression)) }
 func_keyword = _{ "func" }
@@ -165,7 +164,7 @@ op_or = { "or" }
 // NOTE: When changing this code, make sure you don't have a subset of a word before
 // another word. For example: { "type" | "typeof" } will never match "typeof"
 keyword = @{
-   "and" | "bool" | "else" | "false" | "func" | "let" | "if" | "int" | "match" | "mod" | "or" | "string" | "type" | "nothing" | "true" | "void"
+   "and" | "bool" | "else" | "false" | "func" | "let" | "if" | "int" | "match" | "mod" | "or" | "set" | "string" | "type" | "nothing" | "true" | "void"
 }
 
 semicolon = _{ ";" }

@@ -288,7 +288,7 @@ impl Node for Stmt {
 pub(crate) enum StmtKind {
     FuncDef(Rc<Pat>, Vec<ArgAnnotated>, Option<Rc<AstType>>, Rc<Expr>),
     Let(bool, PatAnnotated, Rc<Expr>), // bool is whether it's mutable
-    Set(Rc<Pat>, Rc<Expr>),
+    Set(Rc<Expr>, Rc<Expr>),
     Expr(Rc<Expr>),
     TypeDef(Rc<TypeDefKind>),
     InterfaceDef(Identifier, Vec<Rc<InterfaceProperty>>),
@@ -962,10 +962,10 @@ pub(crate) fn parse_stmt(pair: Pair<Rule>, filename: &str) -> Rc<Stmt> {
             })
         }
         Rule::set_statement => {
-            let pat = parse_let_pattern(inner[0].clone(), filename);
-            let expr = parse_expr_pratt(Pairs::single(inner[1].clone()), filename);
+            let expr1 = parse_expr_pratt(Pairs::single(inner[0].clone()), filename);
+            let expr2 = parse_expr_pratt(Pairs::single(inner[1].clone()), filename);
             Rc::new(Stmt {
-                stmtkind: Rc::new(StmtKind::Set(pat, expr)),
+                stmtkind: Rc::new(StmtKind::Set(expr1, expr2)),
                 span,
                 id: Id::new(),
             })

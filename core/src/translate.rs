@@ -18,6 +18,7 @@ use std::rc::Rc;
 
 type ASTek = ast::ExprKind;
 type Ete = eval_tree::Expr;
+type Etl = eval_tree::PlaceExpr;
 
 type ASTpk = ast::PatKind;
 type Etp = eval_tree::Pat;
@@ -158,16 +159,23 @@ fn translate_expr_block(
                 env.clone(),
             ),
         )),
-        ast::StmtKind::Set(pat, expr) => Rc::new(Ete::Set(
-            translate_pat(pat.clone()),
+        ast::StmtKind::Set(expr1, expr2) => Rc::new(Ete::Set(
+            make_place_expr(
+                inf_ctx,
+                monomorphenv.clone(),
+                gamma.clone(),
+                node_map,
+                overloaded_func_map,
+                expr1.clone(),
+            ),
             translate_expr(
                 inf_ctx,
                 monomorphenv.clone(),
                 gamma.clone(),
                 node_map,
                 overloaded_func_map,
-                expr.exprkind.clone(),
-                expr.id,
+                expr2.exprkind.clone(),
+                expr2.id,
             ),
             translate_expr_block(
                 inf_ctx,
@@ -209,6 +217,32 @@ fn translate_expr_block(
                 env.clone(),
             ),
         )),
+    }
+}
+
+fn make_place_expr(
+    inf_ctx: &InferenceContext,
+    monomorphenv: Rc<RefCell<MonomorphEnv>>,
+    gamma: Rc<RefCell<Gamma>>,
+    node_map: &NodeMap,
+    overloaded_func_map: &mut OverloadedFuncMapTemp,
+    expr: Rc<ast::Expr>,
+) -> Rc<Etl> {
+    match &*expr.exprkind {
+        ast::ExprKind::Var(id) => Rc::new(Etl::Var(id.clone())),
+        ast::ExprKind::FieldAccess(expr, field) => Rc::new(Etl::FieldAccess(
+            translate_expr(
+                inf_ctx,
+                monomorphenv,
+                gamma,
+                node_map,
+                overloaded_func_map,
+                expr.exprkind.clone(),
+                expr.id,
+            ),
+            field.clone(),
+        )),
+        _ => panic!("invalid place expression"),
     }
 }
 
