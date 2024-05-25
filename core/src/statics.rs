@@ -1368,6 +1368,27 @@ pub(crate) fn generate_constraints_expr(
                 );
             }
         }
+        ExprKind::Array(exprs) => {
+            let elem_ty = TypeVar::fresh(inf_ctx, Prov::ListElem(Prov::Node(expr.id).into()));
+            constrain(
+                node_ty,
+                TypeVar::make_def_instance(
+                    Prov::Node(expr.id),
+                    "array".to_owned(),
+                    vec![elem_ty.clone()],
+                ),
+            );
+            for expr in exprs {
+                generate_constraints_expr(
+                    gamma.clone(),
+                    Mode::Ana {
+                        expected: elem_ty.clone(),
+                    },
+                    expr.clone(),
+                    inf_ctx,
+                );
+            }
+        }
         ExprKind::Var(id) => {
             let lookup = gamma.borrow_mut().lookup(id);
             if let Some(typ) = lookup {
@@ -2716,6 +2737,11 @@ fn check_pattern_exhaustiveness_expr(inf_ctx: &mut InferenceContext, expr: &ast:
         | ExprKind::Str(_)
         | ExprKind::Var(_) => {}
         ExprKind::List(exprs) => {
+            for expr in exprs {
+                check_pattern_exhaustiveness_expr(inf_ctx, expr);
+            }
+        }
+        ExprKind::Array(exprs) => {
             for expr in exprs {
                 check_pattern_exhaustiveness_expr(inf_ctx, expr);
             }

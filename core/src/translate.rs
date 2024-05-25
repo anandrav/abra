@@ -534,6 +534,9 @@ fn translate_expr(
             }
             result
         }
+        ASTek::Array(exprs) => {
+            todo!();
+        }
         ASTek::Tuple(exprs) => {
             let mut translated_exprs = Vec::new();
             for expr in exprs {

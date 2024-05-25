@@ -342,6 +342,7 @@ impl Node for Expr {
             ExprKind::Bool(_) => vec![],
             ExprKind::Str(_) => vec![],
             ExprKind::List(exprs) => exprs.iter().map(|e| e.clone() as Rc<dyn Node>).collect(),
+            ExprKind::Array(exprs) => exprs.iter().map(|e| e.clone() as Rc<dyn Node>).collect(),
             ExprKind::Func(args, ty_opt, body) => {
                 let mut children: Vec<Rc<dyn Node>> = Vec::new();
                 args.iter().for_each(|(pat, annot)| {
@@ -407,6 +408,7 @@ pub(crate) enum ExprKind {
     Bool(bool),
     Str(String),
     List(Vec<Rc<Expr>>),
+    Array(Vec<Rc<Expr>>),
     Func(Vec<ArgAnnotated>, Option<Rc<AstType>>, Rc<Expr>),
     If(Rc<Expr>, Rc<Expr>, Option<Rc<Expr>>),
     WhileLoop(Rc<Expr>, Rc<Expr>),
@@ -1288,6 +1290,18 @@ pub(crate) fn parse_expr_term(pair: Pair<Rule>, filename: &str) -> Rc<Expr> {
             }
             Rc::new(Expr {
                 exprkind: Rc::new(ExprKind::List(exprs)),
+                span,
+                id: Id::new(),
+            })
+        }
+        Rule::literal_array => {
+            let inner: Vec<_> = pair.into_inner().collect();
+            let mut exprs = vec![];
+            for p in inner {
+                exprs.push(parse_expr_pratt(Pairs::single(p), filename));
+            }
+            Rc::new(Expr {
+                exprkind: Rc::new(ExprKind::Array(exprs)),
                 span,
                 id: Id::new(),
             })
