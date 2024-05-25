@@ -42,8 +42,11 @@ func_keyword = _{ "func" }
 let_pattern_tuple = { tuple_start ~ (let_pattern_tuple_element ~ ",")+ ~ let_pattern_tuple_element ~ tuple_end }
 let_pattern_tuple_element = _{ let_pattern }
 
-expression = { term ~ (op_binary ~ term)* }
+expression = { term ~ postfix? ~ (op_binary ~ term ~ postfix?)* }
 term = _{ block_expression | func_expression | func_call_expression | parenthesized_expression | if_else_expression | while_loop_expression | match_expression | tuple_expr | primary_expression }
+postfix = _{ index_access }
+
+index_access = { "[" ~ expression ~ "]" }
 
 if_else_expression = { if_keyword ~ expression ~ expression ~ (else_keyword ~ expression)? }
 if_keyword = _{ "if" }
@@ -132,13 +135,14 @@ identifier = @{ !(keyword ~ WHITESPACE) ~ ( alpha | "_") ~ (alphanumeric | "_")*
 alpha = _{ 'a'..'z' | 'A'..'Z' }
 alphanumeric = _{ alpha | '0'..'9' }
 
-literal = _{ literal_unit | literal_float | literal_int | literal_bool | literal_string | literal_list }
+literal = _{ literal_unit | literal_float | literal_int | literal_bool | literal_string | literal_list | literal_array }
 literal_unit = @{ "()" }
 literal_int = @{ ("-")? ~ ("0" | ASCII_NONZERO_DIGIT ~ ASCII_DIGIT*) }
 literal_float = @{ ("-")? ~ ("0.0" | "0." | ASCII_NONZERO_DIGIT ~ ASCII_DIGIT* ~ "." ~ ASCII_DIGIT* | "." ~ ASCII_DIGIT+) }
 literal_string = @{ "\"" ~ (!"\"" ~ ANY)* ~ "\"" }
 literal_bool = @{ "true" | "false" }
 literal_list = { "[" ~ (expression ~ ",")* ~ expression? ~ "]" }
+literal_array = { "[|" ~ (expression ~ ",")* ~ expression? ~ "|]" }
 
 op_binary = _{op_eq | op_gte | op_lte | op_gt | op_lt | op_addition | op_subtraction | op_multiplication | op_division | op_pow | op_and | op_or | op_mod | op_concat | op_access }
 op_eq = { "=" }
