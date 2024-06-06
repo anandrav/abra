@@ -534,9 +534,22 @@ fn translate_expr(
             }
             result
         }
-        ASTek::Array(exprs) => {
-            todo!();
-        }
+        ASTek::Array(exprs) => Rc::new(Ete::Array(
+            exprs
+                .iter()
+                .map(|e| {
+                    translate_expr(
+                        inf_ctx,
+                        monomorphenv.clone(),
+                        gamma.clone(),
+                        node_map,
+                        overloaded_func_map,
+                        e.exprkind.clone(),
+                        e.id,
+                    )
+                })
+                .collect(),
+        )),
         ASTek::Tuple(exprs) => {
             let mut translated_exprs = Vec::new();
             for expr in exprs {

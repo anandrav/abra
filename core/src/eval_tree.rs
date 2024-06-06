@@ -23,6 +23,7 @@ pub enum Expr {
     Struct(String, Rc<RefCell<HashMap<String, Rc<Expr>>>>),
     FieldAccess(Rc<Expr>, Identifier),
     TaggedVariant(Identifier, Rc<Expr>),
+    Array(Vec<Rc<Expr>>),
     BinOp(Rc<Expr>, BinOpcode, Rc<Expr>),
     Let(Rc<Pat>, Rc<Expr>, Rc<Expr>),
     Set(Rc<PlaceExpr>, Rc<Expr>, Rc<Expr>),
@@ -144,6 +145,16 @@ impl std::fmt::Display for Expr {
                 write!(f, "}}")
             }
             TaggedVariant(tag, data) => write!(f, "variant[{tag}], {data}"),
+            Array(elements) => {
+                write!(f, "[| ")?;
+                for (i, element) in elements.iter().enumerate() {
+                    write!(f, "{}", element)?;
+                    if i != elements.len() - 1 {
+                        write!(f, ", ")?;
+                    }
+                }
+                write!(f, " |]")
+            }
             Func(param, _body, _) => write!(f, "fn {:?} -> (body)", param),
             EffectAp(_eff, _) => write!(f, "built-in effect"),
             _ => panic!("only implemented for values, {:?}", self),
@@ -187,6 +198,7 @@ pub(crate) fn is_val(expr: &Rc<Expr>) -> bool {
         Struct(_, fields) => fields.borrow().values().all(is_val),
         FieldAccess(_, _) => false,
         TaggedVariant(_, data) => is_val(data),
+        Array(exprs) => exprs.iter().all(is_val),
         BinOp(_, _, _) => false,
         Let(_, _, _) => false,
         Set(_, _, _) => false,

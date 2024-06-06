@@ -494,12 +494,14 @@ fn interpret(
                 }),
             }
         }
-        Unit | Int(_) | Float(_) | Bool(_) | Str(_) | Func(_, _, Some(_)) => Ok(InterpretOk {
-            expr: expr.clone(),
-            steps,
-            effect: None,
-            new_env: env,
-        }),
+        Unit | Int(_) | Float(_) | Bool(_) | Str(_) | Func(_, _, Some(_)) | Array(_) => {
+            Ok(InterpretOk {
+                expr: expr.clone(),
+                steps,
+                effect: None,
+                new_env: env,
+            })
+        }
         Func(id, body, None) => {
             let closure = Rc::new(RefCell::new(Environment::new(Some(env.clone()))));
             Ok(InterpretOk {
