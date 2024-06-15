@@ -24,7 +24,7 @@ pub enum Expr {
     FieldAccess(Rc<Expr>, Identifier),
     IndexAccess(Rc<Expr>, Rc<Expr>),
     TaggedVariant(Identifier, Rc<Expr>),
-    Array(Vec<Rc<Expr>>),
+    Array(Rc<RefCell<Vec<Rc<Expr>>>>),
     BinOp(Rc<Expr>, BinOpcode, Rc<Expr>),
     Let(Rc<Pat>, Rc<Expr>, Rc<Expr>),
     Set(Rc<PlaceExpr>, Rc<Expr>, Rc<Expr>),
@@ -147,6 +147,7 @@ impl std::fmt::Display for Expr {
             }
             TaggedVariant(tag, data) => write!(f, "variant[{tag}], {data}"),
             Array(elements) => {
+                let elements = elements.borrow();
                 write!(f, "[| ")?;
                 for (i, element) in elements.iter().enumerate() {
                     write!(f, "{}", element)?;
@@ -180,6 +181,7 @@ pub enum Pat {
 pub enum PlaceExpr {
     Var(String),
     FieldAccess(Rc<Expr>, String),
+    IndexAccess(Rc<Expr>, Rc<Expr>),
 }
 
 impl Eq for Pat {}
@@ -200,7 +202,7 @@ pub(crate) fn is_val(expr: &Rc<Expr>) -> bool {
         FieldAccess(_, _) => false,
         IndexAccess(_, _) => false,
         TaggedVariant(_, data) => is_val(data),
-        Array(exprs) => exprs.iter().all(is_val),
+        Array(exprs) => exprs.borrow().iter().all(is_val),
         BinOp(_, _, _) => false,
         Let(_, _, _) => false,
         Set(_, _, _) => false,

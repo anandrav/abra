@@ -690,6 +690,7 @@ fn interpret(
                     message: "Tried to index into non-array".to_string(),
                 });
             };
+            let inner = inner.borrow();
             let Expr::Int(n) = &*index else {
                 return Err(InterpretErr {
                     message: "Index into array must be an integer".to_string(),
@@ -985,6 +986,124 @@ fn interpret(
                 fields
                     .borrow_mut()
                     .insert(field_name.clone(), expr1.clone());
+
+                let InterpretOk {
+                    expr,
+                    steps,
+                    effect,
+                    new_env,
+                } = interpret(
+                    expr2.clone(),
+                    new_env.clone(),
+                    overloaded_func_map,
+                    steps,
+                    input,
+                )?;
+                if effect.is_some() || steps <= 0 {
+                    return Ok(InterpretOk {
+                        expr,
+                        steps,
+                        effect,
+                        new_env,
+                    });
+                }
+                Ok(InterpretOk {
+                    expr,
+                    steps,
+                    effect: None,
+                    new_env: env,
+                })
+            }
+            PlaceExpr::IndexAccess(accessed, index) => {
+                let InterpretOk {
+                    expr: accessed,
+                    steps,
+                    effect,
+                    new_env,
+                } = interpret(
+                    accessed.clone(),
+                    env.clone(),
+                    overloaded_func_map,
+                    steps,
+                    &input.clone(),
+                )?;
+                if effect.is_some() || steps <= 0 {
+                    return Ok(InterpretOk {
+                        expr: Rc::new(Set(
+                            Rc::new(PlaceExpr::IndexAccess(accessed, index.clone())),
+                            expr1.clone(),
+                            expr2.clone(),
+                        )),
+                        steps,
+                        effect,
+                        new_env,
+                    });
+                }
+                let InterpretOk {
+                    expr: index,
+                    steps,
+                    effect,
+                    new_env,
+                } = interpret(
+                    index.clone(),
+                    env.clone(),
+                    overloaded_func_map,
+                    steps,
+                    &input.clone(),
+                )?;
+                if effect.is_some() || steps <= 0 {
+                    return Ok(InterpretOk {
+                        expr: Rc::new(Set(
+                            Rc::new(PlaceExpr::IndexAccess(accessed, index.clone())),
+                            expr1.clone(),
+                            expr2.clone(),
+                        )),
+                        steps,
+                        effect,
+                        new_env,
+                    });
+                }
+                let InterpretOk {
+                    expr: expr1,
+                    steps,
+                    effect,
+                    new_env,
+                } = interpret(
+                    expr1.clone(),
+                    new_env.clone(),
+                    overloaded_func_map,
+                    steps,
+                    &input.clone(),
+                )?;
+                if effect.is_some() || steps <= 0 {
+                    return Ok(InterpretOk {
+                        expr: Rc::new(Set(
+                            Rc::new(PlaceExpr::IndexAccess(accessed, index.clone())),
+                            expr1.clone(),
+                            expr2.clone(),
+                        )),
+                        steps,
+                        effect,
+                        new_env,
+                    });
+                }
+                let Expr::Array(inner) = &*accessed else {
+                    return Err(InterpretErr {
+                        message: "Tried to index into non-array".to_string(),
+                    });
+                };
+                let mut inner = inner.borrow_mut();
+                let Expr::Int(n) = &*index else {
+                    return Err(InterpretErr {
+                        message: "Index into array must be an integer".to_string(),
+                    });
+                };
+                if *n < 0 || *n as usize >= inner.len() {
+                    return Err(InterpretErr {
+                        message: format!("Index out of bounds: {}", n),
+                    });
+                }
+                inner[*n as usize] = expr1.clone();
 
                 let InterpretOk {
                     expr,

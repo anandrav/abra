@@ -224,8 +224,7 @@ add(1, 2)
 
 const _SCRATCH: &str = r#"
 let arr = [| 1, 2, 3 |]
-arr[0] = 42
-println(arr)
+arr[0] <- 42
 arr
 "#;
 

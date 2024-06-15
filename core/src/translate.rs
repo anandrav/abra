@@ -247,6 +247,26 @@ fn make_place_expr(
                 field_ident.clone(),
             ))
         }
+        ast::ExprKind::IndexAccess(expr1, expr2) => Rc::new(Etl::IndexAccess(
+            translate_expr(
+                inf_ctx,
+                monomorphenv.clone(),
+                gamma.clone(),
+                node_map,
+                overloaded_func_map,
+                expr1.exprkind.clone(),
+                expr1.id,
+            ),
+            translate_expr(
+                inf_ctx,
+                monomorphenv,
+                gamma,
+                node_map,
+                overloaded_func_map,
+                expr2.exprkind.clone(),
+                expr2.id,
+            ),
+        )),
         _ => panic!("invalid place expression"),
     }
 }
@@ -534,7 +554,7 @@ fn translate_expr(
             }
             result
         }
-        ASTek::Array(exprs) => Rc::new(Ete::Array(
+        ASTek::Array(exprs) => Rc::new(Ete::Array(Rc::new(RefCell::new(
             exprs
                 .iter()
                 .map(|e| {
@@ -549,7 +569,7 @@ fn translate_expr(
                     )
                 })
                 .collect(),
-        )),
+        )))),
         ASTek::Tuple(exprs) => {
             let mut translated_exprs = Vec::new();
             for expr in exprs {
