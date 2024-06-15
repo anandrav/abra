@@ -236,7 +236,7 @@ impl Node for Stmt {
                 children.push(expr.clone());
                 children
             }
-            StmtKind::Set(_, expr) => vec![expr.clone()],
+            StmtKind::Set(lhs, rhs) => vec![lhs.clone(), rhs.clone()],
             StmtKind::Expr(expr) => vec![expr.clone()],
             StmtKind::TypeDef(tydefkind) => match &**tydefkind {
                 TypeDefKind::Alias(_, ty) => vec![ty.clone()],

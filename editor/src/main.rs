@@ -223,11 +223,8 @@ add(1, 2)
 "#;
 
 const _SCRATCH: &str = r#"
-let arr = [|
-	[| 1, 2, 3, 4 |],
-	[| 5, 6, 7, 8 |],
-	|]
-arr[1][1] <- 42
+let arr = [ 1, 2, 3, 4 ]
+arr[0] <- 6
 arr
 "#;
 
@@ -408,7 +405,7 @@ struct MyApp {
 impl Default for MyApp {
     fn default() -> Self {
         Self {
-            text: String::from(_DEMO),
+            text: String::from(_SCRATCH),
             readline: false,
             input: String::default(),
             output: String::default(),

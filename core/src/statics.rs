@@ -331,6 +331,7 @@ pub(crate) enum Prov {
     BinopRight(Box<Prov>),
     ListElem(Box<Prov>),
     StructField(Identifier, TypeVar),
+    IndexAccess,
     VariantNoData(Box<Prov>), // the type of the data of a variant with no data, always Unit.
 }
 
@@ -353,6 +354,7 @@ impl Prov {
             | Prov::ListElem(inner)
             | Prov::VariantNoData(inner) => inner.get_location(),
             Prov::StructField(_, _) => None,
+            Prov::IndexAccess => None,
         }
     }
 }
@@ -1703,8 +1705,29 @@ pub(crate) fn generate_constraints_expr(
 
             inf_ctx.types_that_must_be_structs.insert(ty_expr, expr.id);
         }
-        ExprKind::IndexAccess(expr, index) => {
-            // TODO
+        ExprKind::IndexAccess(accessed, index) => {
+            generate_constraints_expr(gamma.clone(), Mode::Syn, accessed.clone(), inf_ctx);
+
+            let elem_ty = TypeVar::fresh(inf_ctx, Prov::ListElem(Prov::Node(accessed.id).into()));
+            let accessed_ty = TypeVar::from_node(inf_ctx, accessed.id);
+            constrain(
+                accessed_ty,
+                TypeVar::make_def_instance(
+                    Prov::Node(accessed.id),
+                    "array".to_owned(),
+                    vec![elem_ty.clone()],
+                ),
+            );
+            generate_constraints_expr(
+                gamma.clone(),
+                Mode::Ana {
+                    expected: TypeVar::make_int(Prov::IndexAccess),
+                },
+                index.clone(),
+                inf_ctx,
+            );
+
+            constrain(node_ty, elem_ty);
         }
     }
 }
@@ -1866,20 +1889,12 @@ pub(crate) fn generate_constraints_stmt(
                 generate_constraints_pat(gamma, Mode::Syn, pat.clone(), inf_ctx)
             };
         }
-        StmtKind::Set(pat, expr) => {
-            let ty_pat = TypeVar::from_node(inf_ctx, pat.id);
-            generate_constraints_expr(
-                gamma.clone(),
-                Mode::Ana {
-                    expected: ty_pat.clone(),
-                },
-                expr.clone(),
-                inf_ctx,
-            );
-
-            let ty_expr = TypeVar::from_node(inf_ctx, expr.id);
-
-            constrain(ty_pat, ty_expr);
+        StmtKind::Set(lhs, rhs) => {
+            let ty_lhs = TypeVar::from_node(inf_ctx, lhs.id);
+            generate_constraints_expr(gamma.clone(), Mode::Syn, lhs.clone(), inf_ctx);
+            let ty_rhs = TypeVar::from_node(inf_ctx, rhs.id);
+            generate_constraints_expr(gamma.clone(), Mode::Syn, rhs.clone(), inf_ctx);
+            constrain(ty_lhs, ty_rhs);
         }
         StmtKind::FuncDef(name, args, out_annot, body) => {
             let func_node_id = stmt.id;
@@ -2550,6 +2565,7 @@ pub(crate) fn result_of_constraint_solving(
                     Prov::BinopRight(_) => 12,
                     Prov::UnderdeterminedCoerceToUnit => 13,
                     Prov::StructField(..) => 14,
+                    Prov::IndexAccess => 15,
                 });
                 for cause in provs_vec {
                     match cause {
@@ -2640,6 +2656,9 @@ pub(crate) fn result_of_constraint_solving(
                         }
                         Prov::StructField(field, ty) => {
                             let _ = writeln!(err_string, "The field {field} of the struct {ty}");
+                        }
+                        Prov::IndexAccess => {
+                            let _ = writeln!(err_string, "Index for array access");
                         }
                     }
                 }
