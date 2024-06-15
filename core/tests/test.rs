@@ -107,7 +107,7 @@ fn transform_list_then_sum() {
         }
     }
 
-    let list = range(0,9)
+    let list = [| 0, 1, 2, 3, 4, 5, 6, 7, 8, 9 |]
     println("numbers: ")
     println(list)
 
@@ -135,6 +135,48 @@ fn transform_list_then_sum() {
     "#;
     let (val, _) = run(src).unwrap();
     assert!(val.get_float() - 36461.68 < 0.001);
+}
+
+#[test]
+fn array_access() {
+    let src = r#"
+    let arr = [ 1, 2, 3, 4 ]
+    arr[2]
+    "#;
+    let (val, _) = run(src).unwrap();
+    assert_eq!(val.get_int(), 3);
+}
+
+#[test]
+fn array_assign() {
+    let src = r#"
+    let arr = [ 1, 2, 3, 4 ]
+    arr[2] <- 55
+    arr[2]
+    "#;
+    let (val, _) = run(src).unwrap();
+    assert_eq!(val.get_int(), 55);
+}
+
+#[test]
+fn array_append() {
+    let src = r#"
+    let arr = [ 1, 2, 3, 4 ]
+    append(arr, 55)
+    arr[4]
+    "#;
+    let (val, _) = run(src).unwrap();
+    assert_eq!(val.get_int(), 55);
+}
+
+#[test]
+fn array_len() {
+    let src = r#"
+    let arr = [ 1, 2, 3, 4 ]
+    len(arr)
+    "#;
+    let (val, _) = run(src).unwrap();
+    assert_eq!(val.get_int(), 4);
 }
 
 fn handler_inner(
