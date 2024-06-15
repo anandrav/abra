@@ -2,6 +2,7 @@ use crate::environment::Environment;
 use crate::operators::BinOpcode;
 
 use crate::statics::TypeMonomorphized;
+use crate::util::Shared;
 use crate::EffectCode;
 
 use std::cell::RefCell;
@@ -19,22 +20,30 @@ pub enum Expr {
     Float(f64),
     Str(String),
     Bool(bool),
-    Tuple(Vec<Rc<Expr>>),
-    Struct(String, Rc<RefCell<HashMap<String, Rc<Expr>>>>),
-    FieldAccess(Rc<Expr>, Identifier),
-    IndexAccess(Rc<Expr>, Rc<Expr>),
-    TaggedVariant(Identifier, Rc<Expr>),
-    Array(Rc<RefCell<Vec<Rc<Expr>>>>),
-    BinOp(Rc<Expr>, BinOpcode, Rc<Expr>),
-    Let(Rc<Pat>, Rc<Expr>, Rc<Expr>),
-    Set(Rc<PlaceExpr>, Rc<Expr>, Rc<Expr>),
-    Func(Vec<Identifier>, Rc<Expr>, Option<Rc<RefCell<Environment>>>),
-    FuncAp(Rc<Expr>, Vec<Rc<Expr>>, Option<Rc<RefCell<Environment>>>),
-    If(Rc<Expr>, Rc<Expr>, Rc<Expr>),
-    WhileLoop(Rc<Expr>, Rc<Expr>, Rc<Expr>, Rc<Expr>),
-    Match(Rc<Expr>, Vec<MatchArm>),
-    EffectAp(EffectCode, Vec<Rc<Expr>>),
-    BuiltinAp(Builtin, Vec<Rc<Expr>>),
+    Tuple(Vec<Shared<Expr>>),
+    Struct(String, Rc<RefCell<HashMap<String, Shared<Expr>>>>),
+    FieldAccess(Shared<Expr>, Identifier),
+    IndexAccess(Shared<Expr>, Shared<Expr>),
+    TaggedVariant(Identifier, Shared<Expr>),
+    Array(Vec<Shared<Expr>>),
+    BinOp(Shared<Expr>, BinOpcode, Shared<Expr>),
+    Let(Rc<Pat>, Shared<Expr>, Shared<Expr>),
+    Set(Rc<PlaceExpr>, Shared<Expr>, Shared<Expr>),
+    Func(
+        Vec<Identifier>,
+        Shared<Expr>,
+        Option<Rc<RefCell<Environment>>>,
+    ),
+    FuncAp(
+        Shared<Expr>,
+        Vec<Shared<Expr>>,
+        Option<Rc<RefCell<Environment>>>,
+    ),
+    If(Shared<Expr>, Shared<Expr>, Shared<Expr>),
+    WhileLoop(Shared<Expr>, Shared<Expr>, Shared<Expr>, Shared<Expr>),
+    Match(Shared<Expr>, Vec<MatchArm>),
+    EffectAp(EffectCode, Vec<Shared<Expr>>),
+    BuiltinAp(Builtin, Vec<Shared<Expr>>),
     ConsumedEffect,
 }
 
@@ -57,7 +66,7 @@ impl Expr {
             _ => panic!("not a string"),
         }
     }
-    pub fn get_tuple(&self) -> Vec<Rc<Expr>> {
+    pub fn get_tuple(&self) -> Vec<Shared<Expr>> {
         match self {
             Expr::Tuple(elems) => elems.clone(),
             _ => panic!("not a tuple"),
@@ -88,7 +97,7 @@ impl From<&str> for Expr {
 
 impl Eq for Expr {}
 
-pub(crate) type MatchArm = (Rc<Pat>, Rc<Expr>);
+pub(crate) type MatchArm = (Rc<Pat>, Shared<Expr>);
 
 #[derive(Debug, PartialEq, Eq, Copy, Clone)]
 pub enum Builtin {
@@ -128,7 +137,7 @@ impl std::fmt::Display for Expr {
             Tuple(elements) => {
                 write!(f, "(")?;
                 for (i, element) in elements.iter().enumerate() {
-                    write!(f, "{}", element)?;
+                    write!(f, "{}", element.borrow())?;
                     if i != elements.len() - 1 {
                         write!(f, ", ")?;
                     }
@@ -138,19 +147,21 @@ impl std::fmt::Display for Expr {
             Struct(name, fields) => {
                 write!(f, "{name}{{")?;
                 for (i, (name, value)) in fields.borrow().iter().enumerate() {
-                    write!(f, "{}: {}", name, value)?;
+                    write!(f, "{}: {}", name, value.borrow())?;
                     if i != fields.borrow().len() - 1 {
                         write!(f, ", ")?;
                     }
                 }
                 write!(f, "}}")
             }
-            TaggedVariant(tag, data) => write!(f, "variant[{tag}], {data}"),
+            TaggedVariant(tag, data) => {
+                let data = data.borrow();
+                write!(f, "variant[{tag}], {data}")
+            }
             Array(elements) => {
-                let elements = elements.borrow();
                 write!(f, "[| ")?;
                 for (i, element) in elements.iter().enumerate() {
-                    write!(f, "{}", element)?;
+                    write!(f, "{}", element.borrow())?;
                     if i != elements.len() - 1 {
                         write!(f, ", ")?;
                     }
@@ -180,15 +191,15 @@ pub enum Pat {
 #[derive(Debug, PartialEq)]
 pub enum PlaceExpr {
     Var(String),
-    FieldAccess(Rc<Expr>, String),
-    IndexAccess(Rc<Expr>, Rc<Expr>),
+    FieldAccess(Shared<Expr>, String),
+    IndexAccess(Shared<Expr>, Shared<Expr>),
 }
 
 impl Eq for Pat {}
 
-pub(crate) fn is_val(expr: &Rc<Expr>) -> bool {
+pub(crate) fn is_val(expr: &Shared<Expr>) -> bool {
     use self::Expr::*;
-    match expr.as_ref() {
+    match &*expr.borrow() {
         Var(_) => false,
         VarOverloaded(_, _) => false,
         Unit => true,
@@ -201,8 +212,8 @@ pub(crate) fn is_val(expr: &Rc<Expr>) -> bool {
         Struct(_, fields) => fields.borrow().values().all(is_val),
         FieldAccess(_, _) => false,
         IndexAccess(_, _) => false,
-        TaggedVariant(_, data) => is_val(data),
-        Array(exprs) => exprs.borrow().iter().all(is_val),
+        TaggedVariant(_, data) => is_val(&data),
+        Array(exprs) => exprs.iter().all(is_val),
         BinOp(_, _, _) => false,
         Let(_, _, _) => false,
         Set(_, _, _) => false,

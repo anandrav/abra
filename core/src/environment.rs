@@ -1,4 +1,5 @@
 use crate::eval_tree::*;
+use crate::util::Shared;
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::fmt;
@@ -6,7 +7,7 @@ use std::rc::Rc;
 
 #[derive(PartialEq, Eq)]
 pub struct Environment {
-    vars: HashMap<Identifier, Rc<Expr>>,
+    vars: HashMap<Identifier, Shared<Expr>>,
     enclosing: Option<Rc<RefCell<Environment>>>,
 }
 
@@ -14,7 +15,7 @@ impl Environment {
     pub(crate) fn debug_helper(&self) -> Vec<String> {
         let mut current = Vec::new();
         for (key, value) in &self.vars {
-            match &*value.clone() {
+            match &*value.borrow() {
                 Expr::Int(n) => {
                     let mut s = key.clone();
                     s.push('=');
@@ -49,7 +50,7 @@ impl Environment {
         }
     }
 
-    pub(crate) fn lookup(&self, id: &Identifier) -> Option<Rc<Expr>> {
+    pub(crate) fn lookup(&self, id: &Identifier) -> Option<Shared<Expr>> {
         match self.vars.get(id) {
             Some(expr) => Some(expr.clone()),
             None => match &self.enclosing {
@@ -59,11 +60,11 @@ impl Environment {
         }
     }
 
-    pub(crate) fn extend(&mut self, id: &Identifier, expr: Rc<Expr>) {
+    pub(crate) fn extend(&mut self, id: &Identifier, expr: Shared<Expr>) {
         self.vars.insert(id.clone(), expr);
     }
 
-    pub(crate) fn replace(&mut self, id: &Identifier, expr: Rc<Expr>) {
+    pub(crate) fn replace(&mut self, id: &Identifier, expr: Shared<Expr>) {
         match self.vars.get_mut(id) {
             Some(e) => *e = expr,
             None => match &self.enclosing {

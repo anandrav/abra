@@ -1,17 +1,18 @@
-use std::{cell::RefCell, collections::HashMap, rc::Rc};
-
-use environment::Environment;
 pub use side_effects::EffectCode;
 pub use side_effects::EffectTrait;
-
 pub mod ast;
 pub mod environment;
 pub mod eval_tree;
 pub mod interpreter;
-mod operators;
 pub mod side_effects;
 pub mod statics;
 pub mod translate;
+pub mod util;
+
+mod operators;
+use crate::util::{shared, Shared};
+use environment::Environment;
+use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
 use interpreter::{Interpreter, OverloadedFuncMap};
 
@@ -85,7 +86,7 @@ pub fn compile<Effect: EffectTrait>(source_files: Vec<SourceFile>) -> Result<Run
     })
 }
 
-pub fn run(source: &str) -> Result<(Rc<eval_tree::Expr>, Runtime), String> {
+pub fn run(source: &str) -> Result<(Shared<eval_tree::Expr>, Runtime), String> {
     run_with_handler::<side_effects::DefaultEffects>(
         source,
         Box::new(side_effects::default_effect_handler),
@@ -93,12 +94,12 @@ pub fn run(source: &str) -> Result<(Rc<eval_tree::Expr>, Runtime), String> {
 }
 
 pub type EffectHandler<'b> =
-    Box<dyn FnMut(EffectCode, Vec<Rc<eval_tree::Expr>>) -> Rc<eval_tree::Expr> + 'b>;
+    Box<dyn FnMut(EffectCode, Vec<Shared<eval_tree::Expr>>) -> Shared<eval_tree::Expr> + 'b>;
 
 pub fn run_with_handler<Effect: EffectTrait>(
     source: &str,
     mut handler: EffectHandler,
-) -> Result<(Rc<eval_tree::Expr>, Runtime), String> {
+) -> Result<(Shared<eval_tree::Expr>, Runtime), String> {
     let source_file = SourceFile {
         name: "main.abra".to_owned(),
         contents: source.to_owned(),
@@ -129,7 +130,7 @@ pub fn run_with_handler<Effect: EffectTrait>(
 }
 
 pub struct Runtime {
-    toplevel_eval_tree: Rc<eval_tree::Expr>,
+    toplevel_eval_tree: Shared<eval_tree::Expr>,
     toplevel_env: Rc<RefCell<Environment>>,
     overloaded_func_map: OverloadedFuncMap,
 }
@@ -143,7 +144,11 @@ impl Runtime {
         )
     }
 
-    pub fn func_interpreter(&self, func_name: &str, args: Vec<Rc<eval_tree::Expr>>) -> Interpreter {
+    pub fn func_interpreter(
+        &self,
+        func_name: &str,
+        args: Vec<Shared<eval_tree::Expr>>,
+    ) -> Interpreter {
         let func = self
             .toplevel_env
             .borrow()
@@ -152,21 +157,21 @@ impl Runtime {
         let func_ap = eval_tree::Expr::FuncAp(func, args, None);
         Interpreter::new(
             self.overloaded_func_map.clone(),
-            Rc::new(func_ap),
+            shared(func_ap),
             self.toplevel_env.clone(),
         )
     }
 
-    pub fn make_int(&self, i: i64) -> Rc<eval_tree::Expr> {
-        Rc::new(eval_tree::Expr::Int(i))
+    pub fn make_int(&self, i: i64) -> Shared<eval_tree::Expr> {
+        shared(eval_tree::Expr::Int(i))
     }
 
-    pub fn make_bool(&self, b: bool) -> Rc<eval_tree::Expr> {
-        Rc::new(eval_tree::Expr::Bool(b))
+    pub fn make_bool(&self, b: bool) -> Shared<eval_tree::Expr> {
+        shared(eval_tree::Expr::Bool(b))
     }
 
-    pub fn make_tuple(&self, elems: Vec<Rc<eval_tree::Expr>>) -> Rc<eval_tree::Expr> {
-        Rc::new(eval_tree::Expr::Tuple(elems))
+    pub fn make_tuple(&self, elems: Vec<Shared<eval_tree::Expr>>) -> Shared<eval_tree::Expr> {
+        shared(eval_tree::Expr::Tuple(elems))
     }
 }
 

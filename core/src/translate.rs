@@ -11,6 +11,7 @@ use crate::statics::InferenceContext;
 use crate::statics::Prov;
 use crate::statics::SolvedType;
 use crate::statics::TypeMonomorphized;
+use crate::util::{shared, Shared};
 use std::cell::RefCell;
 use std::collections::BTreeMap;
 use std::collections::HashMap;
@@ -79,9 +80,9 @@ fn translate_expr_block(
     overloaded_func_map: &mut OverloadedFuncMapTemp,
     stmts: Vec<Rc<ast::Stmt>>,
     env: Option<Rc<RefCell<Environment>>>,
-) -> Rc<Ete> {
+) -> Shared<Ete> {
     if stmts.is_empty() {
-        return Rc::new(Ete::Unit);
+        return shared(Ete::Unit);
     }
     let statement = &stmts[0];
     match &*statement.stmtkind {
@@ -124,7 +125,7 @@ fn translate_expr_block(
             if let Some(env) = &env {
                 env.borrow_mut().extend(&id, func.clone());
             }
-            Rc::new(Ete::Let(
+            shared(Ete::Let(
                 Rc::new(Etp::Var(id)),
                 func,
                 translate_expr_block(
@@ -138,7 +139,7 @@ fn translate_expr_block(
                 ),
             ))
         }
-        ast::StmtKind::Let(_mutable, (pat, _), expr) => Rc::new(Ete::Let(
+        ast::StmtKind::Let(_mutable, (pat, _), expr) => shared(Ete::Let(
             translate_pat(pat.clone()),
             translate_expr(
                 inf_ctx,
@@ -159,7 +160,7 @@ fn translate_expr_block(
                 env.clone(),
             ),
         )),
-        ast::StmtKind::Set(expr1, expr2) => Rc::new(Ete::Set(
+        ast::StmtKind::Set(expr1, expr2) => shared(Ete::Set(
             make_place_expr(
                 inf_ctx,
                 monomorphenv.clone(),
@@ -196,7 +197,7 @@ fn translate_expr_block(
             e.exprkind.clone(),
             e.id,
         ),
-        ast::StmtKind::Expr(expr) => Rc::new(Ete::Let(
+        ast::StmtKind::Expr(expr) => shared(Ete::Let(
             Rc::new(eval_tree::Pat::Wildcard),
             translate_expr(
                 inf_ctx,
@@ -279,12 +280,12 @@ fn translate_expr_func(
     overloaded_func_map: &mut OverloadedFuncMapTemp,
     func_args: Vec<ast::ArgAnnotated>,
     body: Rc<ast::Expr>,
-) -> Rc<Ete> {
+) -> Shared<Ete> {
     let args = func_args
         .iter()
         .map(|arg| arg.0.patkind.get_identifier_of_variable())
         .collect();
-    Rc::new(Ete::Func(
+    shared(Ete::Func(
         args,
         translate_expr(
             inf_ctx,
@@ -307,8 +308,8 @@ fn translate_expr_ap(
     overloaded_func_map: &mut OverloadedFuncMapTemp,
     expr1: Rc<ast::Expr>,
     exprs: Vec<Rc<ast::Expr>>,
-) -> Rc<Ete> {
-    Rc::new(Ete::FuncAp(
+) -> Shared<Ete> {
+    shared(Ete::FuncAp(
         translate_expr(
             inf_ctx,
             monomorphenv.clone(),
@@ -511,7 +512,7 @@ fn translate_expr(
     overloaded_func_map: &mut OverloadedFuncMapTemp,
     parse_tree: Rc<ASTek>,
     ast_id: ast::Id,
-) -> Rc<Ete> {
+) -> Shared<Ete> {
     match &*parse_tree {
         ASTek::Var(ident) => {
             if let Some(node_ty) = inf_ctx.solution_of_node(ast_id) {
@@ -524,18 +525,18 @@ fn translate_expr(
                     ident,
                     node_ty,
                 ) {
-                    return Rc::new(Ete::VarOverloaded(ident.clone(), instance_ty));
+                    return shared(Ete::VarOverloaded(ident.clone(), instance_ty));
                 }
             }
-            Rc::new(Ete::Var(ident.clone()))
+            shared(Ete::Var(ident.clone()))
         }
-        ASTek::Unit => Rc::new(Ete::Unit),
-        ASTek::Int(i) => Rc::new(Ete::Int(*i)),
-        ASTek::Float(f) => Rc::new(Ete::Float(*f)),
-        ASTek::Bool(b) => Rc::new(Ete::Bool(*b)),
-        ASTek::Str(s) => Rc::new(Ete::Str(s.clone())),
+        ASTek::Unit => shared(Ete::Unit),
+        ASTek::Int(i) => shared(Ete::Int(*i)),
+        ASTek::Float(f) => shared(Ete::Float(*f)),
+        ASTek::Bool(b) => shared(Ete::Bool(*b)),
+        ASTek::Str(s) => shared(Ete::Str(s.clone())),
         ASTek::List(exprs) => {
-            let mut result = Rc::new(Ete::Var("nil".to_owned()));
+            let mut result = shared(Ete::Var("nil".to_owned()));
             for expr in exprs.iter().rev() {
                 let translated_expr = translate_expr(
                     inf_ctx,
@@ -546,15 +547,15 @@ fn translate_expr(
                     expr.exprkind.clone(),
                     expr.id,
                 );
-                result = Rc::new(Ete::FuncAp(
-                    Rc::new(Ete::Var("cons".to_owned())),
+                result = shared(Ete::FuncAp(
+                    shared(Ete::Var("cons".to_owned())),
                     vec![translated_expr, result],
                     None,
                 ));
             }
             result
         }
-        ASTek::Array(exprs) => Rc::new(Ete::Array(Rc::new(RefCell::new(
+        ASTek::Array(exprs) => shared(Ete::Array(
             exprs
                 .iter()
                 .map(|e| {
@@ -569,7 +570,7 @@ fn translate_expr(
                     )
                 })
                 .collect(),
-        )))),
+        )),
         ASTek::Tuple(exprs) => {
             let mut translated_exprs = Vec::new();
             for expr in exprs {
@@ -583,7 +584,7 @@ fn translate_expr(
                     expr.id,
                 ));
             }
-            Rc::new(Ete::Tuple(translated_exprs))
+            shared(Ete::Tuple(translated_exprs))
         }
         ASTek::BinOp(
             expr1,
@@ -617,8 +618,8 @@ fn translate_expr(
             )
             .expect("could not overload equals operator");
 
-            Rc::new(Ete::FuncAp(
-                Rc::new(Ete::VarOverloaded(func_name, ty)),
+            shared(Ete::FuncAp(
+                shared(Ete::VarOverloaded(func_name, ty)),
                 vec![
                     translate_expr(
                         inf_ctx,
@@ -674,8 +675,8 @@ fn translate_expr(
             )
             .unwrap_or_else(|| panic!("could not overload {func_name} operator"));
 
-            Rc::new(Ete::FuncAp(
-                Rc::new(Ete::VarOverloaded(func_name, ty)),
+            shared(Ete::FuncAp(
+                shared(Ete::VarOverloaded(func_name, ty)),
                 vec![
                     translate_expr(
                         inf_ctx,
@@ -699,7 +700,7 @@ fn translate_expr(
                 None,
             ))
         }
-        ASTek::BinOp(expr1, op, expr2) => Rc::new(Ete::BinOp(
+        ASTek::BinOp(expr1, op, expr2) => shared(Ete::BinOp(
             translate_expr(
                 inf_ctx,
                 monomorphenv.clone(),
@@ -749,7 +750,7 @@ fn translate_expr(
         ),
         ASTek::If(expr1, expr2, expr3) => match expr3 {
             // if-else
-            Some(expr3) => Rc::new(Ete::If(
+            Some(expr3) => shared(Ete::If(
                 translate_expr(
                     inf_ctx,
                     monomorphenv.clone(),
@@ -779,7 +780,7 @@ fn translate_expr(
                 ),
             )),
             // just
-            None => Rc::new(Ete::If(
+            None => shared(Ete::If(
                 translate_expr(
                     inf_ctx,
                     monomorphenv.clone(),
@@ -798,7 +799,7 @@ fn translate_expr(
                     expr2.exprkind.clone(),
                     expr2.id,
                 ),
-                Rc::new(Ete::Unit),
+                shared(Ete::Unit),
             )),
         },
         ASTek::WhileLoop(cond, expr) => {
@@ -820,7 +821,7 @@ fn translate_expr(
                 cond.exprkind.clone(),
                 cond.id,
             );
-            Rc::new(Ete::WhileLoop(cond.clone(), cond, body.clone(), body))
+            shared(Ete::WhileLoop(cond.clone(), cond, body.clone(), body))
         }
         ASTek::Match(expr, arms) => {
             let mut translated_arms = Vec::new();
@@ -838,7 +839,7 @@ fn translate_expr(
                     ),
                 ));
             }
-            Rc::new(Ete::Match(
+            shared(Ete::Match(
                 translate_expr(
                     inf_ctx,
                     monomorphenv,
@@ -864,7 +865,7 @@ fn translate_expr(
             let ASTek::Var(field_ident) = &*field.exprkind else {
                 panic!()
             };
-            Rc::new(Ete::FieldAccess(accessed, field_ident.clone()))
+            shared(Ete::FieldAccess(accessed, field_ident.clone()))
         }
         ASTek::IndexAccess(expr, index) => {
             let expr = translate_expr(
@@ -885,12 +886,13 @@ fn translate_expr(
                 index.exprkind.clone(),
                 index.id,
             );
-            Rc::new(Ete::IndexAccess(expr, index))
+            shared(Ete::IndexAccess(expr, index))
         }
     }
 }
 
-type OverloadedFuncMapTemp = HashMap<(eval_tree::Identifier, TypeMonomorphized), Option<Rc<Ete>>>;
+type OverloadedFuncMapTemp =
+    HashMap<(eval_tree::Identifier, TypeMonomorphized), Option<Shared<Ete>>>;
 
 fn strip_temp_overloaded_func_map(
     overloaded_func_map_temp: &OverloadedFuncMapTemp,
@@ -911,7 +913,7 @@ pub(crate) fn translate(
     node_map: &NodeMap,
     toplevels: &Vec<Rc<ast::Toplevel>>,
     env: Rc<RefCell<Environment>>,
-) -> (Rc<Ete>, interpreter::OverloadedFuncMap) {
+) -> (Shared<Ete>, interpreter::OverloadedFuncMap) {
     let mut overloaded_func_map_temp = OverloadedFuncMapTemp::new();
     let monomorphenv = Rc::new(RefCell::new(MonomorphEnv::new(None)));
     let mut statements = Vec::new();

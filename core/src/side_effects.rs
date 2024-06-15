@@ -1,7 +1,7 @@
 use crate::eval_tree;
 use crate::statics;
+use crate::util::{shared, Shared};
 use once_cell::sync::Lazy;
-use std::rc::Rc;
 use strum::IntoEnumIterator;
 use strum_macros::EnumIter;
 
@@ -57,21 +57,21 @@ pub static DEFAULT_EFFECT_LIST: Lazy<Vec<DefaultEffects>> = Lazy::new(DefaultEff
 
 pub fn default_effect_handler(
     effect_code: EffectCode,
-    args: Vec<Rc<eval_tree::Expr>>,
-) -> Rc<eval_tree::Expr> {
+    args: Vec<Shared<eval_tree::Expr>>,
+) -> Shared<eval_tree::Expr> {
     let effect = &DEFAULT_EFFECT_LIST[effect_code as usize];
     match effect {
-        DefaultEffects::PrintString => match &*args[0] {
+        DefaultEffects::PrintString => match &*args[0].borrow() {
             eval_tree::Expr::Str(string) => {
                 print!("{}", string);
-                eval_tree::Expr::from(()).into()
+                shared(eval_tree::Expr::from(()))
             }
             _ => panic!("wrong arguments for {:#?} effect", effect),
         },
         DefaultEffects::Read => {
             let mut input = String::new();
             std::io::stdin().read_line(&mut input).unwrap();
-            eval_tree::Expr::from(input.trim()).into()
+            shared(eval_tree::Expr::from(input.trim()))
         }
     }
 }

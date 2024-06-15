@@ -402,7 +402,7 @@ struct MyApp {
     input: String,
     output: String,
     interpreter: Option<Interpreter>,
-    effect_result: Option<Rc<abra_core::eval_tree::Expr>>,
+    effect_result: Option<abra_core::util::Shared<abra_core::eval_tree::Expr>>,
 }
 
 impl Default for MyApp {
@@ -448,7 +448,7 @@ impl eframe::App for MyApp {
                         InterpreterStatus::Finished => {
                             self.output += &format!(
                                 "\nLast line evaluated to: {}",
-                                interpreter.get_val().unwrap()
+                                interpreter.get_val().unwrap().borrow()
                             );
                             self.interpreter = None;
                         }
@@ -459,11 +459,12 @@ impl eframe::App for MyApp {
                             let effect = &EFFECT_LIST[code as usize];
                             match effect {
                                 abra_core::side_effects::DefaultEffects::PrintString => {
-                                    match &*args[0] {
+                                    match &*args[0].borrow() {
                                         abra_core::eval_tree::Expr::Str(string) => {
                                             self.output.push_str(string);
-                                            self.effect_result =
-                                                Some(abra_core::eval_tree::Expr::Unit.into());
+                                            self.effect_result = Some(abra_core::util::shared(
+                                                abra_core::eval_tree::Expr::Unit,
+                                            ));
                                         }
                                         _ => panic!("wrong arguments for {:#?} effect", effect),
                                     }
@@ -523,8 +524,9 @@ impl eframe::App for MyApp {
                             .clicked()
                             && self.readline
                         {
-                            self.effect_result =
-                                Some(abra_core::eval_tree::Expr::from(self.input.trim()).into());
+                            self.effect_result = Some(abra_core::util::shared(
+                                abra_core::eval_tree::Expr::from(self.input.trim()),
+                            ));
                             self.readline = false;
                             self.input.clear();
                         }
