@@ -389,7 +389,8 @@ impl Node for Expr {
                 }
                 children
             }
-            ExprKind::FieldAccess(expr, _) => vec![expr.clone()],
+            ExprKind::FieldAccess(expr, field) => vec![expr.clone(), field.clone()], // TODO: should field really be an expression? maybe just an identifier?
+            ExprKind::IndexAccess(expr, index) => vec![expr.clone(), index.clone()],
         }
     }
 
@@ -418,6 +419,7 @@ pub(crate) enum ExprKind {
     FuncAp(Rc<Expr>, Vec<Rc<Expr>>),
     Tuple(Vec<Rc<Expr>>),
     FieldAccess(Rc<Expr>, Rc<Expr>),
+    IndexAccess(Rc<Expr>, Rc<Expr>),
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -1353,17 +1355,24 @@ pub(crate) fn parse_expr_pratt(pairs: Pairs<Rule>, filename: &str) -> Rc<Expr> {
             | Op::infix(Rule::op_division, Assoc::Left)
             | Op::infix(Rule::op_mod, Assoc::Left))
         .op(Op::infix(Rule::op_pow, Assoc::Left))
-        .op(Op::infix(Rule::op_access, Assoc::Left));
+        .op(Op::infix(Rule::op_access, Assoc::Left))
+        .op(Op::postfix(Rule::index_access));
     pratt
         .map_primary(|t| parse_expr_term(t, filename))
-        // .map_prefix(|op, rhs| match op.as_rule() {
-        //     Rule::neg  => -rhs,
-        //     _          => unreachable!(),
-        // })
-        // .map_postfix(|lhs, op| match op.as_rule() {
-        //     Rule::fac  => (1..lhs+1).product(),
-        //     _          => unreachable!(),
-        // })
+        .map_prefix(|_op, _rhs| panic!("prefix operator encountered"))
+        .map_postfix(|lhs, op| match op.as_rule() {
+            Rule::index_access => {
+                let span = Span::new(filename, op.as_span());
+                let inner: Vec<_> = op.into_inner().collect();
+                let index = parse_expr_pratt(Pairs::single(inner[0].clone()), filename);
+                Rc::new(Expr {
+                    exprkind: Rc::new(ExprKind::IndexAccess(lhs, index)),
+                    span,
+                    id: Id::new(),
+                })
+            }
+            _ => unreachable!(),
+        })
         .map_infix(|lhs, op, rhs| {
             let opcode = match op.as_rule() {
                 Rule::op_eq => Some(BinOpcode::Equals),

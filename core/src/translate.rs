@@ -846,6 +846,27 @@ fn translate_expr(
             };
             Rc::new(Ete::FieldAccess(accessed, field_ident.clone()))
         }
+        ASTek::IndexAccess(expr, index) => {
+            let expr = translate_expr(
+                inf_ctx,
+                monomorphenv.clone(),
+                gamma.clone(),
+                node_map,
+                overloaded_func_map,
+                expr.exprkind.clone(),
+                expr.id,
+            );
+            let index = translate_expr(
+                inf_ctx,
+                monomorphenv,
+                gamma,
+                node_map,
+                overloaded_func_map,
+                index.exprkind.clone(),
+                index.id,
+            );
+            Rc::new(Ete::IndexAccess(expr, index))
+        }
     }
 }
 

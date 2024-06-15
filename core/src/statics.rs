@@ -1703,6 +1703,9 @@ pub(crate) fn generate_constraints_expr(
 
             inf_ctx.types_that_must_be_structs.insert(ty_expr, expr.id);
         }
+        ExprKind::IndexAccess(expr, index) => {
+            // TODO
+        }
     }
 }
 
@@ -2782,6 +2785,10 @@ fn check_pattern_exhaustiveness_expr(inf_ctx: &mut InferenceContext, expr: &ast:
         }
         ExprKind::FieldAccess(expr, _) => {
             check_pattern_exhaustiveness_expr(inf_ctx, expr);
+        }
+        ExprKind::IndexAccess(expr, index) => {
+            check_pattern_exhaustiveness_expr(inf_ctx, expr);
+            check_pattern_exhaustiveness_expr(inf_ctx, index);
         }
     }
 }

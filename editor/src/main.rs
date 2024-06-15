@@ -223,18 +223,10 @@ add(1, 2)
 "#;
 
 const _SCRATCH: &str = r#"
-type person = {
-    name: string,
-    b: blah
-}
-
-type blah = {
-	kek: int
-}
-
-let p = person("jeff", blah(3))
-
-p.b.kek <- 4
+let arr = [| 1, 2, 3 |]
+arr[0] = 42
+println(arr)
+arr
 "#;
 
 const _INTERFACES: &str = r#"
@@ -414,7 +406,7 @@ struct MyApp {
 impl Default for MyApp {
     fn default() -> Self {
         Self {
-            text: String::from(_DEMO),
+            text: String::from(_SCRATCH),
             readline: false,
             input: String::default(),
             output: String::default(),
