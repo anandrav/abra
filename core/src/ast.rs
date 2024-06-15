@@ -20,28 +20,6 @@ pub(crate) struct Sources {
     pub(crate) filename_to_source: HashMap<String, String>,
 }
 
-#[derive(Debug, Clone, PartialEq)]
-pub(crate) struct InterfaceAnnotation {
-    pub(crate) ident: Identifier,
-    pub(crate) span: Span,
-    pub(crate) id: Id,
-}
-impl Node for InterfaceAnnotation {
-    fn span(&self) -> Span {
-        self.span.clone()
-    }
-    fn id(&self) -> Id {
-        self.id
-    }
-    fn children(&self) -> Vec<Rc<dyn Node>> {
-        vec![]
-    }
-
-    fn to_stmt(&self) -> Option<Stmt> {
-        None
-    }
-}
-
 pub(crate) type PatAnnotated = (Rc<Pat>, Option<Rc<AstType>>);
 
 #[derive(Debug, Clone)]
@@ -69,13 +47,6 @@ impl Node for Toplevel {
     fn to_stmt(&self) -> Option<Stmt> {
         None
     }
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub(crate) struct TypeDef {
-    pub(crate) kind: TypeDefKind,
-    pub(crate) span: Span,
-    pub(crate) id: Id,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -133,45 +104,6 @@ impl Node for StructField {
 
     fn children(&self) -> Vec<Rc<dyn Node>> {
         vec![self.ty.clone()]
-    }
-
-    fn to_stmt(&self) -> Option<Stmt> {
-        None
-    }
-}
-
-impl Node for TypeDef {
-    fn span(&self) -> Span {
-        self.span.clone()
-    }
-    fn id(&self) -> Id {
-        self.id
-    }
-
-    fn children(&self) -> Vec<Rc<dyn Node>> {
-        match &self.kind {
-            TypeDefKind::Alias(_, ty) => vec![ty.clone()],
-            TypeDefKind::Adt(_, tys, variants) => {
-                let mut children: Vec<Rc<dyn Node>> = Vec::new();
-                for ty in tys {
-                    children.push(ty.clone());
-                }
-                for variant in variants {
-                    children.push(variant.clone());
-                }
-                children
-            }
-            TypeDefKind::Struct(_, tys, fields) => {
-                let mut children: Vec<Rc<dyn Node>> = Vec::new();
-                for ty in tys {
-                    children.push(ty.clone());
-                }
-                for field in fields {
-                    children.push(field.clone());
-                }
-                children
-            }
-        }
     }
 
     fn to_stmt(&self) -> Option<Stmt> {
