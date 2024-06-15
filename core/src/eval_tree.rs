@@ -148,14 +148,14 @@ impl std::fmt::Display for Expr {
             TaggedVariant(tag, data) => write!(f, "variant[{tag}], {data}"),
             Array(elements) => {
                 let elements = elements.borrow();
-                write!(f, "[| ")?;
+                write!(f, "[ ")?;
                 for (i, element) in elements.iter().enumerate() {
                     write!(f, "{}", element)?;
                     if i != elements.len() - 1 {
                         write!(f, ", ")?;
                     }
                 }
-                write!(f, " |]")
+                write!(f, " ]")
             }
             Func(param, _body, _) => write!(f, "fn {:?} -> (body)", param),
             EffectAp(_eff, _) => write!(f, "built-in effect"),
