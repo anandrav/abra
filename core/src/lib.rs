@@ -351,6 +351,23 @@ implement ToString for list<'a ToString> {
         "[| " & helper(xs) & " |]"
     }
 }
+
+implement ToString for array<'a ToString> {
+    func to_string(arr) {
+        func helper(arr, idx) {
+            let l = len(arr)
+            if idx = l {
+                ""
+            } else if idx = l - 1 {
+                to_string(arr[idx])
+            } else {
+                to_string(arr[idx]) & ", " & helper(arr, idx + 1)
+            }
+        }
+        "[ " & helper(arr, 0) & " ]"
+    }
+}
+
 func print(x: 'b ToString) { print_string(to_string(x)) }
 func println(x: 'b ToString) {
     print_string(to_string(x))
