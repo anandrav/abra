@@ -644,6 +644,69 @@ fn interpret(
                 }),
             }
         }
+        IndexAccess(accessed, index) => {
+            let InterpretOk {
+                expr: accessed,
+                steps,
+                effect,
+                new_env,
+            } = interpret(
+                accessed.clone(),
+                env.clone(),
+                overloaded_func_map,
+                steps,
+                &input.clone(),
+            )?;
+            if effect.is_some() || steps <= 0 {
+                return Ok(InterpretOk {
+                    expr: Rc::new(IndexAccess(accessed, index.clone())),
+                    steps,
+                    effect,
+                    new_env,
+                });
+            }
+            let InterpretOk {
+                expr: index,
+                steps,
+                effect,
+                new_env,
+            } = interpret(
+                index.clone(),
+                env.clone(),
+                overloaded_func_map,
+                steps,
+                &input.clone(),
+            )?;
+            if effect.is_some() || steps <= 0 {
+                return Ok(InterpretOk {
+                    expr: Rc::new(IndexAccess(accessed, index.clone())),
+                    steps,
+                    effect,
+                    new_env,
+                });
+            }
+            let Expr::Array(inner) = &*accessed else {
+                return Err(InterpretErr {
+                    message: "Tried to index into non-array".to_string(),
+                });
+            };
+            let Expr::Int(n) = &*index else {
+                return Err(InterpretErr {
+                    message: "Index into array must be an integer".to_string(),
+                });
+            };
+            if *n < 0 || *n as usize >= inner.len() {
+                return Err(InterpretErr {
+                    message: format!("Index out of bounds: {}", n),
+                });
+            }
+            Ok(InterpretOk {
+                expr: inner[*n as usize].clone(),
+                steps,
+                effect: None,
+                new_env,
+            })
+        }
         BinOp(expr1, op, expr2) => {
             let InterpretOk {
                 expr: expr1,
