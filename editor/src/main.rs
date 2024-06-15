@@ -405,7 +405,7 @@ struct MyApp {
 impl Default for MyApp {
     fn default() -> Self {
         Self {
-            text: String::from(_SCRATCH),
+            text: String::from(_DEMO),
             readline: false,
             input: String::default(),
             output: String::default(),
