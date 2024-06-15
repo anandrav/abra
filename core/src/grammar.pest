@@ -42,7 +42,7 @@ func_keyword = _{ "func" }
 let_pattern_tuple = { tuple_start ~ (let_pattern_tuple_element ~ ",")+ ~ let_pattern_tuple_element ~ tuple_end }
 let_pattern_tuple_element = _{ let_pattern }
 
-expression = {  term ~ postfix? ~ (op_binary ~ term ~ postfix? )* }
+expression = {  term ~ postfix* ~ (op_binary ~ term ~ postfix* )* }
 term = _{ block_expression | func_expression | func_call_expression | parenthesized_expression | if_else_expression | while_loop_expression | match_expression | tuple_expr | primary_expression }
 postfix = _{ index_access }
 
