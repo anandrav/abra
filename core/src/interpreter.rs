@@ -329,6 +329,17 @@ pub(crate) fn add_builtins_and_variants<Effects: EffectTrait>(
             None,
         )),
     );
+    env.borrow_mut().extend(
+        &String::from("pop"),
+        Rc::new(Expr::Func(
+            vec![String::from("arr")],
+            Rc::new(Expr::BuiltinAp(
+                Builtin::Pop,
+                vec![Rc::new(Expr::Var(String::from("arr")))],
+            )),
+            None,
+        )),
+    );
     for (_name, adt_def) in inf_ctx.adt_defs.iter() {
         for variant in adt_def.variants.iter() {
             let ctor = &variant.ctor;
@@ -1858,6 +1869,18 @@ fn handle_builtin(builtin: Builtin, args: Vec<Rc<Expr>>) -> Result<Rc<Expr>, Int
             let arg = args[0].clone();
             match &*arg {
                 Array(elems) => Ok(Rc::new(Int(elems.borrow().len() as i64))),
+                _ => Err(InterpretErr {
+                    message: "Len expects an array".to_string(),
+                }),
+            }
+        }
+        Builtin::Pop => {
+            let arg = args[0].clone();
+            match &*arg {
+                Array(elems) => {
+                    elems.borrow_mut().pop();
+                    Ok(Rc::new(Unit))
+                }
                 _ => Err(InterpretErr {
                     message: "Len expects an array".to_string(),
                 }),

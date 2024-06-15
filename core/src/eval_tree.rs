@@ -114,6 +114,7 @@ pub enum Builtin {
     LessThanFloat,
     Append,
     Len,
+    Pop,
 }
 
 // only works for values right now:

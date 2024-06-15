@@ -1263,6 +1263,24 @@ pub(crate) fn make_new_gamma() -> Rc<RefCell<Gamma>> {
             prov,
         ),
     );
+    let prov = Prov::Builtin("pop: (array<'a>) -> void".to_string());
+    let ty_arr = TypeVar::make_def_instance(
+        Prov::FuncArg(prov.clone().into(), 0),
+        "array".to_string(),
+        vec![TypeVar::make_poly(
+            Prov::FuncArg(prov.clone().into(), 1),
+            "'a".to_string(),
+            vec![],
+        )],
+    );
+    gamma.borrow_mut().extend(
+        &String::from("pop"),
+        TypeVar::make_func(
+            vec![ty_arr.clone()],
+            TypeVar::make_unit(Prov::FuncOut(prov.clone().into())),
+            prov,
+        ),
+    );
     gamma
 }
 
