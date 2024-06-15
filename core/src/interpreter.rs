@@ -304,6 +304,20 @@ pub(crate) fn add_builtins_and_variants<Effects: EffectTrait>(
             None,
         )),
     );
+    env.borrow_mut().extend(
+        &String::from("append"),
+        Rc::new(Expr::Func(
+            vec![String::from("arr"), String::from("elem")],
+            Rc::new(Expr::BuiltinAp(
+                Builtin::Append,
+                vec![
+                    Rc::new(Expr::Var(String::from("arr"))),
+                    Rc::new(Expr::Var(String::from("elem"))),
+                ],
+            )),
+            None,
+        )),
+    );
     for (_name, adt_def) in inf_ctx.adt_defs.iter() {
         for variant in adt_def.variants.iter() {
             let ctor = &variant.ctor;
@@ -1092,18 +1106,20 @@ fn interpret(
                         message: "Tried to index into non-array".to_string(),
                     });
                 };
-                let mut inner = inner.borrow_mut();
-                let Expr::Int(n) = &*index else {
-                    return Err(InterpretErr {
-                        message: "Index into array must be an integer".to_string(),
-                    });
-                };
-                if *n < 0 || *n as usize >= inner.len() {
-                    return Err(InterpretErr {
-                        message: format!("Index out of bounds: {}", n),
-                    });
+                {
+                    let mut inner = inner.borrow_mut();
+                    let Expr::Int(n) = &*index else {
+                        return Err(InterpretErr {
+                            message: "Index into array must be an integer".to_string(),
+                        });
+                    };
+                    if *n < 0 || *n as usize >= inner.len() {
+                        return Err(InterpretErr {
+                            message: format!("Index out of bounds: {}", n),
+                        });
+                    }
+                    inner[*n as usize] = expr1.clone();
                 }
-                inner[*n as usize] = expr1.clone();
 
                 let InterpretOk {
                     expr,
@@ -1811,6 +1827,19 @@ fn handle_builtin(builtin: Builtin, args: Vec<Rc<Expr>>) -> Result<Rc<Expr>, Int
                 (Float(s1), Float(s2)) => Ok(Rc::new(Bool(s1 < s2))),
                 _ => Err(InterpretErr {
                     message: "LessThanFloat expects two floats".to_string(),
+                }),
+            }
+        }
+        Builtin::Append => {
+            let arg1 = args[0].clone();
+            let arg2 = args[1].clone();
+            match &*arg1 {
+                Array(elems) => {
+                    elems.borrow_mut().push(arg2);
+                    Ok(Rc::new(Unit))
+                }
+                _ => Err(InterpretErr {
+                    message: "Append expects an array".to_string(),
                 }),
             }
         }
