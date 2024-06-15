@@ -113,6 +113,7 @@ pub enum Builtin {
     SqrtFloat,
     LessThanFloat,
     Append,
+    Len,
 }
 
 // only works for values right now:
