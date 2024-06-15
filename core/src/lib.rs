@@ -348,7 +348,7 @@ implement ToString for list<'a ToString> {
                 }
             }
         }
-        "[ " & helper(xs) & " ]"
+        "[| " & helper(xs) & " |]"
     }
 }
 func print(x: 'b ToString) { print_string(to_string(x)) }

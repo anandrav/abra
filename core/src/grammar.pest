@@ -141,8 +141,8 @@ literal_int = @{ ("-")? ~ ("0" | ASCII_NONZERO_DIGIT ~ ASCII_DIGIT*) }
 literal_float = @{ ("-")? ~ ("0.0" | "0." | ASCII_NONZERO_DIGIT ~ ASCII_DIGIT* ~ "." ~ ASCII_DIGIT* | "." ~ ASCII_DIGIT+) }
 literal_string = @{ "\"" ~ (!"\"" ~ ANY)* ~ "\"" }
 literal_bool = @{ "true" | "false" }
-literal_list = { "[" ~ (expression ~ ",")* ~ expression? ~ "]" }
-literal_array = { "[|" ~ (expression ~ ",")* ~ expression? ~ "|]" }
+literal_list = { "[|" ~ (expression ~ ",")* ~ expression? ~ "|]" }
+literal_array = { "[" ~ (expression ~ ",")* ~ expression? ~ "]" }
 
 op_binary = _{op_eq | op_gte | op_lte | op_gt | op_lt | op_addition | op_subtraction | op_multiplication | op_division | op_pow | op_and | op_or | op_mod | op_concat | op_access }
 op_eq = { "=" }
