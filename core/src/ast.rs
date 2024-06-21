@@ -653,7 +653,7 @@ pub(crate) fn parse_let_pattern(pair: Pair<Rule>, filename: &str) -> Rc<Pat> {
             let pair = inner.first().unwrap().clone();
             parse_let_pattern(pair, filename)
         }
-        Rule::identifier => Rc::new(Pat {
+        Rule::unqualified_identifier => Rc::new(Pat {
             patkind: Rc::new(PatKind::Var(pair.as_str().to_owned())),
             span,
             id: Id::new(),
@@ -776,7 +776,7 @@ pub(crate) fn parse_type_term(pair: Pair<Rule>, filename: &str) -> Rc<AstType> {
                 id: Id::new(),
             })
         }
-        Rule::identifier => {
+        Rule::unqualified_identifier => {
             let ident = pair.as_str().to_string();
             Rc::new(AstType {
                 typekind: Rc::new(TypeKind::Alias(ident)),
@@ -1240,7 +1240,7 @@ pub(crate) fn parse_expr_term(pair: Pair<Rule>, filename: &str) -> Rc<Expr> {
                 id: Id::new(),
             })
         }
-        Rule::identifier => Rc::new(Expr {
+        Rule::unqualified_identifier => Rc::new(Expr {
             exprkind: Rc::new(ExprKind::Var(pair.as_str().to_owned())),
             span,
             id: Id::new(),
