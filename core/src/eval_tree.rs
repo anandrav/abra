@@ -1,4 +1,4 @@
-use crate::environment::Environment;
+use crate::environment::EvalEnv;
 use crate::operators::BinOpcode;
 
 use crate::statics::TypeMonomorphized;
@@ -28,8 +28,8 @@ pub enum Expr {
     BinOp(Rc<Expr>, BinOpcode, Rc<Expr>),
     Let(Rc<Pat>, Rc<Expr>, Rc<Expr>),
     Set(Rc<PlaceExpr>, Rc<Expr>, Rc<Expr>),
-    Func(Vec<Identifier>, Rc<Expr>, Option<Rc<RefCell<Environment>>>),
-    FuncAp(Rc<Expr>, Vec<Rc<Expr>>, Option<Rc<RefCell<Environment>>>),
+    Func(Vec<Identifier>, Rc<Expr>, Option<Rc<RefCell<EvalEnv>>>),
+    FuncAp(Rc<Expr>, Vec<Rc<Expr>>, Option<Rc<RefCell<EvalEnv>>>),
     If(Rc<Expr>, Rc<Expr>, Rc<Expr>),
     WhileLoop(Rc<Expr>, Rc<Expr>, Rc<Expr>, Rc<Expr>),
     Match(Rc<Expr>, Vec<MatchArm>),

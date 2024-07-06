@@ -1,7 +1,7 @@
 use crate::ast;
 use crate::ast::Node;
 use crate::ast::NodeMap;
-use crate::environment::Environment;
+use crate::environment::EvalEnv;
 use crate::eval_tree;
 use crate::interpreter;
 use crate::operators::BinOpcode;
@@ -78,7 +78,7 @@ fn translate_expr_block(
     node_map: &NodeMap,
     overloaded_func_map: &mut OverloadedFuncMapTemp,
     stmts: Vec<Rc<ast::Stmt>>,
-    env: Option<Rc<RefCell<Environment>>>,
+    env: Option<Rc<RefCell<EvalEnv>>>,
 ) -> Rc<Ete> {
     if stmts.is_empty() {
         return Rc::new(Ete::Unit);
@@ -910,7 +910,7 @@ pub(crate) fn translate(
     gamma: Rc<RefCell<Gamma>>,
     node_map: &NodeMap,
     toplevels: &Vec<Rc<ast::Toplevel>>,
-    env: Rc<RefCell<Environment>>,
+    env: Rc<RefCell<EvalEnv>>,
 ) -> (Rc<Ete>, interpreter::OverloadedFuncMap) {
     let mut overloaded_func_map_temp = OverloadedFuncMapTemp::new();
     let monomorphenv = Rc::new(RefCell::new(MonomorphEnv::new(None)));

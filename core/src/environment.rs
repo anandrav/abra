@@ -5,12 +5,12 @@ use std::fmt;
 use std::rc::Rc;
 
 #[derive(PartialEq, Eq)]
-pub struct Environment {
+pub struct EvalEnv {
     vars: HashMap<Identifier, Rc<Expr>>,
-    enclosing: Option<Rc<RefCell<Environment>>>,
+    enclosing: Option<Rc<RefCell<EvalEnv>>>,
 }
 
-impl Environment {
+impl EvalEnv {
     pub(crate) fn debug_helper(&self) -> Vec<String> {
         let mut current = Vec::new();
         for (key, value) in &self.vars {
@@ -35,14 +35,14 @@ impl Environment {
     }
 }
 
-impl fmt::Debug for Environment {
+impl fmt::Debug for EvalEnv {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "Environment(\n{:?}\n)", Environment::debug_helper(self))
+        write!(f, "Environment(\n{:?}\n)", EvalEnv::debug_helper(self))
     }
 }
 
-impl Environment {
-    pub(crate) fn new(enclosing: Option<Rc<RefCell<Environment>>>) -> Self {
+impl EvalEnv {
+    pub(crate) fn new(enclosing: Option<Rc<RefCell<EvalEnv>>>) -> Self {
         Self {
             vars: HashMap::new(),
             enclosing,
