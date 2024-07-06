@@ -1,8 +1,38 @@
 use crate::eval_tree::*;
 use std::cell::RefCell;
+use std::cmp::Eq;
 use std::collections::HashMap;
 use std::fmt;
+use std::hash::Hash;
 use std::rc::Rc;
+
+pub struct Environment<Identifier: Eq + Hash, Item> {
+    items: HashMap<Identifier, Item>,
+    enclosing: Option<Box<Environment<Identifier, Item>>>,
+}
+
+impl<Identifier: Eq + Hash, Item> Environment<Identifier, Item> {
+    pub(crate) fn new(enclosing: Option<Box<Environment<Identifier, Item>>>) -> Self {
+        Self {
+            items: HashMap::new(),
+            enclosing,
+        }
+    }
+
+    pub(crate) fn lookup<'a>(&'a self, id: &Identifier) -> Option<&'a Item> {
+        match self.items.get(id) {
+            Some(item) => Some(item),
+            None => match &self.enclosing {
+                Some(env) => env.lookup(id),
+                None => None,
+            },
+        }
+    }
+
+    pub(crate) fn extend(&mut self, id: Identifier, item: Item) {
+        self.items.insert(id, item);
+    }
+}
 
 #[derive(PartialEq, Eq)]
 pub struct EvalEnv {
