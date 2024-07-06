@@ -25,7 +25,7 @@ type Etp = eval_tree::Pat;
 
 #[derive(PartialEq, Eq, Debug)]
 struct MonomorphEnv {
-    vars: BTreeMap<ast::Identifier, SolvedType>,
+    vars: BTreeMap<ast::Symbol, SolvedType>,
     enclosing: Option<Rc<RefCell<MonomorphEnv>>>,
 }
 
@@ -37,7 +37,7 @@ impl MonomorphEnv {
         }
     }
 
-    fn lookup(&self, key: &ast::Identifier) -> Option<SolvedType> {
+    fn lookup(&self, key: &ast::Symbol) -> Option<SolvedType> {
         match self.vars.get(key) {
             Some(ty) => Some(ty.clone()),
             None => match &self.enclosing {
@@ -47,7 +47,7 @@ impl MonomorphEnv {
         }
     }
 
-    fn extend(&mut self, key: &ast::Identifier, ty: SolvedType) {
+    fn extend(&mut self, key: &ast::Symbol, ty: SolvedType) {
         self.vars.insert(key.clone(), ty);
     }
 }
@@ -336,7 +336,7 @@ fn translate_expr_ap(
     ))
 }
 
-fn ty_of_global_ident(gamma: Rc<RefCell<Gamma>>, ident: &ast::Identifier) -> Option<SolvedType> {
+fn ty_of_global_ident(gamma: Rc<RefCell<Gamma>>, ident: &ast::Symbol) -> Option<SolvedType> {
     let gamma = gamma.borrow();
     let ty = gamma.vars.get(ident)?;
     ty.solution()
@@ -414,7 +414,7 @@ fn subst_with_monomorphic_env(
 fn get_func_definition_node(
     inf_ctx: &InferenceContext,
     node_map: &NodeMap,
-    ident: &ast::Identifier,
+    ident: &ast::Symbol,
     desired_interface_impl: SolvedType,
 ) -> Rc<dyn ast::Node> {
     if let Some(interface_name) = inf_ctx.method_to_interface.get(&ident.clone()) {
@@ -461,7 +461,7 @@ fn monomorphize_overloaded_var(
     gamma: Rc<RefCell<Gamma>>,
     node_map: &NodeMap,
     overloaded_func_map: &mut OverloadedFuncMapTemp,
-    ident: &ast::Identifier,
+    ident: &ast::Symbol,
     node_ty: SolvedType,
 ) -> Option<TypeMonomorphized> {
     if let Some(global_ty) = ty_of_global_ident(gamma.clone(), ident) {

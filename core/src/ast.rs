@@ -12,7 +12,7 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 #[grammar = "grammar.pest"]
 struct MyParser;
 
-pub(crate) type Identifier = String;
+pub(crate) type Symbol = String;
 
 pub(crate) type ArgAnnotated = (Rc<Pat>, Option<Rc<AstType>>);
 
@@ -51,14 +51,14 @@ impl Node for Toplevel {
 
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) enum TypeDefKind {
-    Alias(Identifier, Rc<AstType>),
-    Adt(Identifier, Vec<Rc<AstType>>, Vec<Rc<Variant>>),
-    Struct(Identifier, Vec<Rc<AstType>>, Vec<Rc<StructField>>),
+    Alias(Symbol, Rc<AstType>),
+    Adt(Symbol, Vec<Rc<AstType>>, Vec<Rc<Variant>>),
+    Struct(Symbol, Vec<Rc<AstType>>, Vec<Rc<StructField>>),
 }
 
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) struct Variant {
-    pub(crate) ctor: Identifier,
+    pub(crate) ctor: Symbol,
     pub(crate) data: Option<Rc<AstType>>,
 
     pub(crate) span: Span,
@@ -87,7 +87,7 @@ impl Node for Variant {
 
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) struct StructField {
-    pub(crate) ident: Identifier,
+    pub(crate) ident: Symbol,
     pub(crate) ty: Rc<AstType>,
 
     pub(crate) span: Span,
@@ -223,13 +223,13 @@ pub(crate) enum StmtKind {
     Set(Rc<Expr>, Rc<Expr>),
     Expr(Rc<Expr>),
     TypeDef(Rc<TypeDefKind>),
-    InterfaceDef(Identifier, Vec<Rc<InterfaceProperty>>),
-    InterfaceImpl(Identifier, Rc<AstType>, Vec<Rc<Stmt>>),
+    InterfaceDef(Symbol, Vec<Rc<InterfaceProperty>>),
+    InterfaceImpl(Symbol, Rc<AstType>, Vec<Rc<Stmt>>),
 }
 
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) struct InterfaceProperty {
-    pub(crate) ident: Identifier,
+    pub(crate) ident: Symbol,
     pub(crate) ty: Rc<AstType>,
 }
 
@@ -334,7 +334,7 @@ impl Node for Expr {
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) enum ExprKind {
     // EmptyHole,
-    Var(Identifier),
+    Var(Symbol),
     Unit,
     Int(i64),
     Float(f64),
@@ -409,8 +409,8 @@ impl Node for Pat {
 pub(crate) enum PatKind {
     // EmptyHole,
     Wildcard,
-    Var(Identifier),
-    Variant(Identifier, Option<Rc<Pat>>),
+    Var(Symbol),
+    Variant(Symbol, Option<Rc<Pat>>),
     Unit,
     Int(i64),
     Float(f32),
@@ -420,7 +420,7 @@ pub(crate) enum PatKind {
 }
 
 impl PatKind {
-    pub(crate) fn get_identifier_of_variable(&self) -> Identifier {
+    pub(crate) fn get_identifier_of_variable(&self) -> Symbol {
         match self {
             PatKind::Var(id) => id.clone(),
             _ => {
@@ -481,9 +481,9 @@ impl Node for AstType {
 
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) enum TypeKind {
-    Poly(Identifier, Vec<Identifier>),
-    Alias(Identifier),
-    Ap(Identifier, Vec<Rc<AstType>>),
+    Poly(Symbol, Vec<Symbol>),
+    Alias(Symbol),
+    Ap(Symbol, Vec<Rc<AstType>>),
     Unit,
     Int,
     Float,

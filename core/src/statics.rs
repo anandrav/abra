@@ -1,6 +1,4 @@
-use crate::ast::{
-    self, Expr, ExprKind, Identifier, Node, Pat, PatKind, Stmt, StmtKind, TypeDefKind,
-};
+use crate::ast::{self, Expr, ExprKind, Node, Pat, PatKind, Stmt, StmtKind, Symbol, TypeDefKind};
 use crate::operators::BinOpcode;
 use core::panic;
 
@@ -139,7 +137,7 @@ impl TypeVarData {
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub(crate) enum PotentialType {
-    Poly(Provs, Identifier, Vec<Identifier>), // type name, then list of Interfaces it must match
+    Poly(Provs, Symbol, Vec<Symbol>), // type name, then list of Interfaces it must match
     Unit(Provs),
     Int(Provs),
     Float(Provs),
@@ -147,12 +145,12 @@ pub(crate) enum PotentialType {
     String(Provs),
     Function(Provs, Vec<TypeVar>, TypeVar),
     Tuple(Provs, Vec<TypeVar>),
-    UdtInstance(Provs, Identifier, Vec<TypeVar>),
+    UdtInstance(Provs, Symbol, Vec<TypeVar>),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub(crate) enum SolvedType {
-    Poly(Identifier, Vec<Identifier>), // type name, then list of Interfaces it must match
+    Poly(Symbol, Vec<Symbol>), // type name, then list of Interfaces it must match
     Unit,
     Int,
     Float,
@@ -160,7 +158,7 @@ pub(crate) enum SolvedType {
     String,
     Function(Vec<SolvedType>, Box<SolvedType>),
     Tuple(Vec<SolvedType>),
-    UdtInstance(Identifier, Vec<SolvedType>),
+    UdtInstance(Symbol, Vec<SolvedType>),
 }
 
 impl SolvedType {
@@ -236,47 +234,47 @@ pub enum TypeMonomorphized {
     String,
     Function(Vec<TypeMonomorphized>, Box<TypeMonomorphized>),
     Tuple(Vec<TypeMonomorphized>),
-    Adt(Identifier, Vec<TypeMonomorphized>),
+    Adt(Symbol, Vec<TypeMonomorphized>),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub(crate) struct AdtDef {
-    pub(crate) name: Identifier,
-    pub(crate) params: Vec<Identifier>,
+    pub(crate) name: Symbol,
+    pub(crate) params: Vec<Symbol>,
     pub(crate) variants: Vec<Variant>,
     pub(crate) location: ast::Id,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub(crate) struct Variant {
-    pub(crate) ctor: Identifier,
+    pub(crate) ctor: Symbol,
     pub(crate) data: TypeVar,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub(crate) struct StructDef {
-    pub(crate) name: Identifier,
-    pub(crate) params: Vec<Identifier>,
+    pub(crate) name: Symbol,
+    pub(crate) params: Vec<Symbol>,
     pub(crate) fields: Vec<StructField>,
     pub(crate) location: ast::Id,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub(crate) struct StructField {
-    pub(crate) name: Identifier,
+    pub(crate) name: Symbol,
     pub(crate) ty: TypeVar,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub(crate) struct InterfaceDef {
-    pub(crate) name: Identifier,
+    pub(crate) name: Symbol,
     pub(crate) methods: Vec<InterfaceDefMethod>,
     pub(crate) location: ast::Id,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub(crate) struct InterfaceImpl {
-    pub(crate) name: Identifier,
+    pub(crate) name: Symbol,
     pub(crate) typ: TypeVar,
     pub(crate) methods: Vec<InterfaceImplMethod>,
     pub(crate) location: ast::Id,
@@ -284,13 +282,13 @@ pub(crate) struct InterfaceImpl {
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub(crate) struct InterfaceDefMethod {
-    pub(crate) name: Identifier,
+    pub(crate) name: Symbol,
     pub(crate) ty: TypeVar,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub(crate) struct InterfaceImplMethod {
-    pub(crate) name: Identifier,
+    pub(crate) name: Symbol,
     pub(crate) method_location: ast::Id,
     pub(crate) identifier_location: ast::Id,
 }
@@ -299,8 +297,8 @@ pub(crate) struct InterfaceImplMethod {
 // (If two types share the same key, they may or may not be in conflict)
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub(crate) enum TypeKey {
-    Poly,                  // TODO: why isn't the Identifier included here?
-    TyApp(Identifier, u8), // u8 represents the number of type params
+    Poly,              // TODO: why isn't the Identifier included here?
+    TyApp(Symbol, u8), // u8 represents the number of type params
     Unit,
     Int,
     Float,
@@ -320,17 +318,17 @@ pub(crate) enum Prov {
     Builtin(String), // a function or constant, which doesn't exist in the AST
     UnderdeterminedCoerceToUnit,
 
-    Alias(Identifier), // TODO add Box<Prov>
+    Alias(Symbol), // TODO add Box<Prov>
     UdtDef(Box<Prov>),
 
     InstantiateUdtParam(Box<Prov>, u8),
-    InstantiatePoly(Box<Prov>, Identifier),
+    InstantiatePoly(Box<Prov>, Symbol),
     FuncArg(Box<Prov>, u8), // u8 represents the index of the argument
     FuncOut(Box<Prov>),     // u8 represents how many arguments before this output
     BinopLeft(Box<Prov>),
     BinopRight(Box<Prov>),
     ListElem(Box<Prov>),
-    StructField(Identifier, TypeVar),
+    StructField(Symbol, TypeVar),
     IndexAccess,
     VariantNoData(Box<Prov>), // the type of the data of a variant with no data, always Unit.
 }
@@ -563,7 +561,7 @@ impl TypeVar {
         self,
         gamma: Rc<RefCell<Gamma>>,
         prov: Prov,
-        substitution: &BTreeMap<Identifier, TypeVar>,
+        substitution: &BTreeMap<Symbol, TypeVar>,
     ) -> TypeVar {
         let data = self.0.clone_data();
         if data.types.len() == 1 {
@@ -840,28 +838,28 @@ pub(crate) struct InferenceContext {
     pub(crate) vars: HashMap<Prov, TypeVar>,
 
     // ADT definitions
-    pub(crate) adt_defs: HashMap<Identifier, AdtDef>,
+    pub(crate) adt_defs: HashMap<Symbol, AdtDef>,
     // map from variant names to ADT names
-    variants_to_adt: HashMap<Identifier, Identifier>,
+    variants_to_adt: HashMap<Symbol, Symbol>,
 
     // struct definitions
-    pub(crate) struct_defs: HashMap<Identifier, StructDef>,
+    pub(crate) struct_defs: HashMap<Symbol, StructDef>,
 
     // function definition locations
-    pub(crate) fun_defs: HashMap<Identifier, Rc<Stmt>>,
+    pub(crate) fun_defs: HashMap<Symbol, Rc<Stmt>>,
 
     // BOOKKEEPING
 
     // interface definitions
-    interface_defs: HashMap<Identifier, InterfaceDef>,
+    interface_defs: HashMap<Symbol, InterfaceDef>,
     // map from methods to interface names
-    pub(crate) method_to_interface: HashMap<Identifier, Identifier>,
+    pub(crate) method_to_interface: HashMap<Symbol, Symbol>,
     // map from interface name to list of implementations
-    pub(crate) interface_impls: BTreeMap<Identifier, Vec<InterfaceImpl>>,
+    pub(crate) interface_impls: BTreeMap<Symbol, Vec<InterfaceImpl>>,
 
     // ADDITIONAL CONSTRAINTS
     // map from types to interfaces they have been constrained to
-    types_constrained_to_interfaces: BTreeMap<TypeVar, Vec<(Identifier, Prov)>>,
+    types_constrained_to_interfaces: BTreeMap<TypeVar, Vec<(Symbol, Prov)>>,
     // types that must be a struct because there was a field access
     types_that_must_be_structs: BTreeMap<TypeVar, ast::Id>,
 
@@ -871,10 +869,10 @@ pub(crate) struct InferenceContext {
     unbound_vars: BTreeSet<ast::Id>,
     unbound_interfaces: BTreeSet<ast::Id>,
     // multiple definitions
-    multiple_udt_defs: BTreeMap<Identifier, Vec<ast::Id>>,
-    multiple_interface_defs: BTreeMap<Identifier, Vec<ast::Id>>,
+    multiple_udt_defs: BTreeMap<Symbol, Vec<ast::Id>>,
+    multiple_interface_defs: BTreeMap<Symbol, Vec<ast::Id>>,
     // interface implementations
-    multiple_interface_impls: BTreeMap<Identifier, Vec<ast::Id>>,
+    multiple_interface_impls: BTreeMap<Symbol, Vec<ast::Id>>,
     interface_impl_for_instantiated_adt: Vec<ast::Id>,
     interface_impl_extra_method: BTreeMap<ast::Id, Vec<ast::Id>>,
     interface_impl_missing_method: BTreeMap<ast::Id, Vec<String>>,
@@ -892,16 +890,16 @@ impl InferenceContext {
         Self::default()
     }
 
-    pub(crate) fn adt_def_of_variant(&self, variant: &Identifier) -> Option<AdtDef> {
+    pub(crate) fn adt_def_of_variant(&self, variant: &Symbol) -> Option<AdtDef> {
         let adt_name = self.variants_to_adt.get(variant)?;
         self.adt_defs.get(adt_name).cloned()
     }
 
-    pub(crate) fn interface_def_of_ident(&self, ident: &Identifier) -> Option<InterfaceDef> {
+    pub(crate) fn interface_def_of_ident(&self, ident: &Symbol) -> Option<InterfaceDef> {
         self.interface_defs.get(ident).cloned()
     }
 
-    pub(crate) fn variants_of_adt(&self, adt: &Identifier) -> Vec<Identifier> {
+    pub(crate) fn variants_of_adt(&self, adt: &Symbol) -> Vec<Symbol> {
         self.adt_defs
             .get(adt)
             .unwrap()
@@ -925,8 +923,8 @@ fn constrain(mut expected: TypeVar, mut actual: TypeVar) {
 }
 
 pub(crate) struct Gamma {
-    pub(crate) vars: HashMap<Identifier, TypeVar>,
-    poly_type_vars: HashSet<Identifier>,
+    pub(crate) vars: HashMap<Symbol, TypeVar>,
+    poly_type_vars: HashSet<Symbol>,
     enclosing: Option<Rc<RefCell<Gamma>>>,
 }
 
@@ -1322,7 +1320,7 @@ impl Gamma {
         }))
     }
 
-    pub(crate) fn lookup(&self, id: &Identifier) -> Option<TypeVar> {
+    pub(crate) fn lookup(&self, id: &Symbol) -> Option<TypeVar> {
         match self.vars.get(id) {
             Some(typ) => Some(typ.clone()),
             None => match &self.enclosing {
@@ -1332,7 +1330,7 @@ impl Gamma {
         }
     }
 
-    pub(crate) fn extend(&mut self, id: &Identifier, typ: TypeVar) {
+    pub(crate) fn extend(&mut self, id: &Symbol, typ: TypeVar) {
         self.vars.insert(id.clone(), typ);
     }
 
@@ -1364,7 +1362,7 @@ impl Gamma {
         }
     }
 
-    pub(crate) fn lookup_poly(&self, id: &Identifier) -> bool {
+    pub(crate) fn lookup_poly(&self, id: &Symbol) -> bool {
         match self.poly_type_vars.get(id) {
             Some(_) => true,
             None => match &self.enclosing {
@@ -2938,7 +2936,7 @@ pub(crate) fn ty_fits_impl_ty(
 fn ty_fits_impl_ty_poly(
     inf_ctx: &InferenceContext,
     typ: SolvedType,
-    interfaces: BTreeSet<Identifier>,
+    interfaces: BTreeSet<Symbol>,
 ) -> bool {
     for interface in interfaces {
         if let SolvedType::Poly(_, interfaces2) = &typ {
@@ -3262,7 +3260,7 @@ enum Constructor {
     Float(f32),
     String(String),
     Product, // tuples, including unit
-    Variant(Identifier),
+    Variant(Symbol),
 }
 
 impl Constructor {
@@ -3288,7 +3286,7 @@ impl Constructor {
         }
     }
 
-    fn as_variant_identifier(&self) -> Option<Identifier> {
+    fn as_variant_identifier(&self) -> Option<Symbol> {
         match self {
             Constructor::Variant(i) => Some(i.clone()),
             _ => None,
@@ -3414,7 +3412,7 @@ impl fmt::Display for WitnessMatrix {
 #[derive(Debug, Clone)]
 enum ConstructorSet {
     Bool,
-    AdtVariants(Vec<Identifier>),
+    AdtVariants(Vec<Symbol>),
     Product,    // tuples, including unit
     Unlistable, // int, float, string
 }
@@ -3448,7 +3446,7 @@ impl ConstructorSet {
                 }
             }
             ConstructorSet::AdtVariants(adt_variants) => {
-                let mut missing_set: HashSet<Identifier> = adt_variants.iter().cloned().collect();
+                let mut missing_set: HashSet<Symbol> = adt_variants.iter().cloned().collect();
                 for identifier in seen.iter().filter_map(|ctor| ctor.as_variant_identifier()) {
                     if missing_set.remove(&identifier) {
                         present_ctors.push(Constructor::Variant(identifier.clone()));
