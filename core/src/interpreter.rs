@@ -1,4 +1,4 @@
-use crate::environment::Environment;
+use crate::environment::EvalEnv;
 use crate::eval_tree::Expr::*;
 use crate::eval_tree::*;
 use crate::operators::BinOpcode::*;
@@ -14,9 +14,9 @@ use std::rc::Rc;
 
 // TODO why do we have to manually call this?
 pub(crate) fn add_builtins_and_variants<Effects: EffectTrait>(
-    env: Rc<RefCell<Environment>>,
+    env: Rc<RefCell<EvalEnv>>,
     inf_ctx: &InferenceContext,
-) -> Rc<RefCell<Environment>> {
+) -> Rc<RefCell<EvalEnv>> {
     // builtins
     env.borrow_mut().extend(
         &String::from("newline"),
@@ -412,7 +412,7 @@ pub(crate) type OverloadedFuncMap = HashMap<(Identifier, TypeMonomorphized), Rc<
 
 pub struct Interpreter {
     program_expr: Rc<Expr>,
-    env: Rc<RefCell<Environment>>,
+    env: Rc<RefCell<EvalEnv>>,
     overloaded_func_map: OverloadedFuncMap,
     error: Option<InterpretErr>,
 }
@@ -428,7 +428,7 @@ impl Interpreter {
     pub(crate) fn new(
         overloaded_func_map: OverloadedFuncMap,
         program_expr: Rc<Expr>,
-        env: Rc<RefCell<Environment>>,
+        env: Rc<RefCell<EvalEnv>>,
     ) -> Self {
         Interpreter {
             program_expr,
@@ -485,7 +485,7 @@ struct InterpretOk {
     expr: Rc<Expr>,
     steps: i32,
     effect: Option<(EffectCode, Vec<Rc<Expr>>)>,
-    new_env: Rc<RefCell<Environment>>,
+    new_env: Rc<RefCell<EvalEnv>>,
 }
 
 #[derive(Debug)]
@@ -496,7 +496,7 @@ struct InterpretErr {
 
 fn interpret(
     expr: Rc<Expr>,
-    env: Rc<RefCell<Environment>>,
+    env: Rc<RefCell<EvalEnv>>,
     overloaded_func_map: &OverloadedFuncMap,
     steps: i32,
     input: &Option<Rc<Expr>>,
@@ -539,7 +539,7 @@ fn interpret(
             })
         }
         Func(id, body, None) => {
-            let closure = Rc::new(RefCell::new(Environment::new(Some(env.clone()))));
+            let closure = Rc::new(RefCell::new(EvalEnv::new(Some(env.clone()))));
             Ok(InterpretOk {
                 expr: Rc::new(Func(id.clone(), body.clone(), Some(closure))),
                 steps,
@@ -825,7 +825,7 @@ fn interpret(
                     });
                 }
 
-                let new_env = Rc::new(RefCell::new(Environment::new(Some(env.clone()))));
+                let new_env = Rc::new(RefCell::new(EvalEnv::new(Some(env.clone()))));
 
                 let InterpretOk {
                     expr,
@@ -883,7 +883,7 @@ fn interpret(
                     ),
                     // letrec
                     Func(args, body, None) => {
-                        let closure = Rc::new(RefCell::new(Environment::new(Some(env.clone()))));
+                        let closure = Rc::new(RefCell::new(EvalEnv::new(Some(env.clone()))));
                         (
                             Rc::new(Func(args.clone(), body.clone(), Some(closure.clone()))),
                             Some(closure),
@@ -895,7 +895,7 @@ fn interpret(
                     closure.borrow_mut().extend(id, expr1.clone());
                 }
 
-                let new_env = Rc::new(RefCell::new(Environment::new(Some(env.clone()))));
+                let new_env = Rc::new(RefCell::new(EvalEnv::new(Some(env.clone()))));
                 new_env.borrow_mut().extend(id, expr1);
 
                 let InterpretOk {
@@ -940,7 +940,7 @@ fn interpret(
                         new_env,
                     });
                 }
-                let new_env = Rc::new(RefCell::new(Environment::new(Some(env.clone()))));
+                let new_env = Rc::new(RefCell::new(EvalEnv::new(Some(env.clone()))));
                 populate_env(new_env.clone(), pat.clone(), expr1);
                 let InterpretOk {
                     expr,
@@ -1266,7 +1266,7 @@ fn interpret(
                     None => (
                         id,
                         body,
-                        Rc::new(RefCell::new(Environment::new(Some(env.clone())))),
+                        Rc::new(RefCell::new(EvalEnv::new(Some(env.clone())))),
                     ),
                     Some(closure) => (id, body, closure.clone()),
                 },
@@ -1280,8 +1280,7 @@ fn interpret(
             let funcapp_env = match funcapp_env {
                 Some(funcapp_env) => funcapp_env.clone(),
                 None => {
-                    let funcapp_env =
-                        Rc::new(RefCell::new(Environment::new(Some(closure.clone()))));
+                    let funcapp_env = Rc::new(RefCell::new(EvalEnv::new(Some(closure.clone()))));
                     for (i, id) in ids.iter().enumerate() {
                         funcapp_env.borrow_mut().extend(id, new_args[i].clone());
                     }
@@ -1501,7 +1500,7 @@ fn interpret(
                 });
             }
             for (pat, expr) in cases {
-                let new_env = Rc::new(RefCell::new(Environment::new(Some(env.clone()))));
+                let new_env = Rc::new(RefCell::new(EvalEnv::new(Some(env.clone()))));
                 if match_pattern(pat.clone(), expr1.clone(), new_env.clone()) {
                     let InterpretOk {
                         expr,
@@ -1616,7 +1615,7 @@ fn interpret(
     }
 }
 
-fn match_pattern(pat: Rc<Pat>, expr: Rc<Expr>, env: Rc<RefCell<Environment>>) -> bool {
+fn match_pattern(pat: Rc<Pat>, expr: Rc<Expr>, env: Rc<RefCell<EvalEnv>>) -> bool {
     match (&*pat, &*expr) {
         (Pat::Wildcard, _) => true,
         (Pat::Unit, Unit) => true,
@@ -1643,7 +1642,7 @@ fn match_pattern(pat: Rc<Pat>, expr: Rc<Expr>, env: Rc<RefCell<Environment>>) ->
     }
 }
 
-fn populate_env(env: Rc<RefCell<Environment>>, pat: Rc<Pat>, expr: Rc<Expr>) {
+fn populate_env(env: Rc<RefCell<EvalEnv>>, pat: Rc<Pat>, expr: Rc<Expr>) {
     match (&*pat, &*expr) {
         (Pat::Var(id), _) => env.borrow_mut().extend(id, expr.clone()),
         (Pat::Tuple(pats), Tuple(exprs)) if pats.len() == exprs.len() => {

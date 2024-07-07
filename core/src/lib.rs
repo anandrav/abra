@@ -1,6 +1,6 @@
 use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
-use environment::Environment;
+use environment::EvalEnv;
 pub use side_effects::EffectCode;
 pub use side_effects::EffectTrait;
 
@@ -70,11 +70,11 @@ pub fn compile<Effect: EffectTrait>(source_files: Vec<SourceFile>) -> Result<Run
         );
     }
 
-    statics::result_of_constraint_solving(&mut inference_ctx, tyctx.clone(), &node_map, &sources)?;
+    statics::result_of_constraint_solving(&mut inference_ctx, &node_map, &sources)?;
 
     statics::result_of_additional_analysis(&mut inference_ctx, &toplevels, &node_map, &sources)?;
 
-    let env: Rc<RefCell<Environment>> = Rc::new(RefCell::new(Environment::new(None)));
+    let env: Rc<RefCell<EvalEnv>> = Rc::new(RefCell::new(EvalEnv::new(None)));
     let (eval_tree, overloaded_func_map) =
         translate::translate(&inference_ctx, tyctx, &node_map, &toplevels, env.clone());
     interpreter::add_builtins_and_variants::<Effect>(env.clone(), &inference_ctx);
@@ -130,7 +130,7 @@ pub fn run_with_handler<Effect: EffectTrait>(
 
 pub struct Runtime {
     toplevel_eval_tree: Rc<eval_tree::Expr>,
-    toplevel_env: Rc<RefCell<Environment>>,
+    toplevel_env: Rc<RefCell<EvalEnv>>,
     overloaded_func_map: OverloadedFuncMap,
 }
 
