@@ -985,12 +985,6 @@ impl Gamma {
     }
 }
 
-// pub(crate) struct Gamma {
-//     pub(crate) vars: HashMap<Symbol, TypeVar>,
-//     poly_type_vars: HashSet<Symbol>,
-//     enclosing: Option<Gamma>,
-// }
-
 // TODO: make a macro for these builtins
 pub(crate) fn make_new_gamma() -> Gamma {
     let gamma = Gamma::empty();
@@ -1343,97 +1337,6 @@ pub(crate) fn make_new_gamma() -> Gamma {
         ),
     );
     gamma
-}
-
-// impl fmt::Display for Gamma {
-//     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-//         write!(f, "Environment(\n{:#?})\n", Gamma::debug_helper(self))
-//     }
-// }
-
-impl Gamma {
-    // pub(crate) fn debug_helper(&self) -> Vec<String> {
-    //     let mut current = Vec::new();
-    //     for (key, value) in &self.vars {
-    //         current.push(format!("{}: {}", key.clone(), value.clone()))
-    //     }
-    //     match &self.enclosing {
-    //         Some(env) => {
-    //             let mut all = env.borrow_mut().debug_helper();
-    //             all.append(&mut current);
-    //             all
-    //         }
-    //         None => current,
-    //     }
-    // }
-
-    // pub(crate) fn empty() -> Rc<RefCell<Self>> {
-    //     Rc::new(RefCell::new(Self {
-    //         vars: HashMap::new(),
-    //         poly_type_vars: HashSet::new(),
-    //         enclosing: None,
-    //     }))
-    // }
-
-    // pub(crate) fn new(enclosing: Option<Gamma>) -> Rc<RefCell<Self>> {
-    //     Rc::new(RefCell::new(Self {
-    //         vars: HashMap::new(),
-    //         poly_type_vars: HashSet::new(),
-    //         enclosing,
-    //     }))
-    // }
-
-    // pub(crate) fn lookup(&self, id: &Symbol) -> Option<TypeVar> {
-    //     match self.vars.get(id) {
-    //         Some(typ) => Some(typ.clone()),
-    //         None => match &self.enclosing {
-    //             Some(env) => env.borrow_mut().lookup(id),
-    //             None => None,
-    //         },
-    //     }
-    // }
-
-    // pub(crate) fn extend(&mut self, id: &Symbol, typ: TypeVar) {
-    //     self.vars.insert(id.clone(), typ);
-    // }
-
-    // pub(crate) fn add_polys(&mut self, ty: &TypeVar) {
-    //     let Some(ty) = ty.single() else {
-    //         return;
-    //     };
-    //     match ty {
-    //         PotentialType::Poly(_, ident, _interfaces) => {
-    //             self.poly_type_vars.insert(ident.clone());
-    //         }
-    //         PotentialType::UdtInstance(_, _, params) => {
-    //             for param in params {
-    //                 self.add_polys(&param);
-    //             }
-    //         }
-    //         PotentialType::Function(_, args, out) => {
-    //             for arg in args {
-    //                 self.add_polys(&arg);
-    //             }
-    //             self.add_polys(&out);
-    //         }
-    //         PotentialType::Tuple(_, elems) => {
-    //             for elem in elems {
-    //                 self.add_polys(&elem);
-    //             }
-    //         }
-    //         _ => {}
-    //     }
-    // }
-
-    // pub(crate) fn lookup_poly(&self, id: &Symbol) -> bool {
-    //     match self.poly_type_vars.get(id) {
-    //         Some(_) => true,
-    //         None => match &self.enclosing {
-    //             Some(env) => env.borrow_mut().lookup_poly(id),
-    //             None => false,
-    //         },
-    //     }
-    // }
 }
 
 #[derive(Debug, Clone)]
