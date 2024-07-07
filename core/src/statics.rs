@@ -1393,7 +1393,7 @@ pub(crate) fn generate_constraints_expr(
             let lookup = gamma.lookup(id);
             if let Some(typ) = lookup {
                 // replace polymorphic types with unifvars if necessary
-                let typ = typ.instantiate(gamma, inf_ctx, Prov::Node(expr.id));
+                let typ = typ.instantiate(&gamma, inf_ctx, Prov::Node(expr.id));
                 constrain(typ, node_ty);
                 return;
             }
@@ -1422,7 +1422,7 @@ pub(crate) fn generate_constraints_expr(
                 } else if let Some(PotentialType::Tuple(_, elems)) = &the_variant.data.single() {
                     let args = elems
                         .iter()
-                        .map(|e| e.clone().subst(gamma, Prov::Node(expr.id), &substitution))
+                        .map(|e| e.clone().subst(&gamma, Prov::Node(expr.id), &substitution))
                         .collect();
                     constrain(
                         node_ty,
@@ -1433,7 +1433,7 @@ pub(crate) fn generate_constraints_expr(
                         node_ty,
                         TypeVar::make_func(
                             vec![the_variant.data.clone().subst(
-                                gamma,
+                                &gamma,
                                 Prov::Node(expr.id),
                                 &substitution,
                             )],
@@ -1466,7 +1466,7 @@ pub(crate) fn generate_constraints_expr(
                     .iter()
                     .map(|f| {
                         f.ty.clone()
-                            .subst(gamma, Prov::Node(expr.id), &substitution)
+                            .subst(&gamma, Prov::Node(expr.id), &substitution)
                     })
                     .collect();
                 constrain(
@@ -1505,7 +1505,7 @@ pub(crate) fn generate_constraints_expr(
             }
             let new_gamma = gamma.new_scope();
             for statement in statements[..statements.len() - 1].iter() {
-                generate_constraints_stmt(&new_gamma, Mode::Syn, statement.clone(), inf_ctx, true);
+                generate_constraints_stmt(new_gamma, Mode::Syn, statement.clone(), inf_ctx, true);
             }
             // if last statement is an expression, the block will have that expression's type
             if let StmtKind::Expr(terminal_expr) = &*statements.last().unwrap().stmtkind {
@@ -1517,7 +1517,7 @@ pub(crate) fn generate_constraints_expr(
                 )
             } else {
                 generate_constraints_stmt(
-                    &new_gamma,
+                    new_gamma,
                     Mode::Syn,
                     statements.last().unwrap().clone(),
                     inf_ctx,
@@ -1615,7 +1615,7 @@ pub(crate) fn generate_constraints_expr(
             let ty_func = generate_constraints_func_helper(
                 inf_ctx,
                 func_node_id,
-                &mut body_gamma,
+                body_gamma,
                 args,
                 out_annot,
                 body,
@@ -1780,7 +1780,7 @@ fn generate_constraints_func_helper(
 }
 
 pub(crate) fn generate_constraints_stmt(
-    gamma: &Gamma,
+    gamma: Gamma,
     mode: Mode,
     stmt: Rc<Stmt>,
     inf_ctx: &mut InferenceContext,
@@ -1804,7 +1804,7 @@ pub(crate) fn generate_constraints_stmt(
                         substitution.insert("a".to_string(), typ.clone());
 
                         let expected = interface_method.ty.clone().subst(
-                            gamma,
+                            &gamma,
                             Prov::Node(stmt.id),
                             &substitution,
                         );
