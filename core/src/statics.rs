@@ -1,4 +1,5 @@
 use crate::ast::{self, Expr, ExprKind, Node, Pat, PatKind, Stmt, StmtKind, Symbol, TypeDefKind};
+use crate::environment::Environment;
 use crate::operators::BinOpcode;
 use core::panic;
 
@@ -488,7 +489,7 @@ impl TypeVar {
     // Creates a clone of a Type with polymorphic variables not in scope with fresh unification variables
     pub(crate) fn instantiate(
         self,
-        gamma: Rc<RefCell<Gamma>>,
+        gamma: Gamma,
         inf_ctx: &mut InferenceContext,
         prov: Prov,
     ) -> TypeVar {
@@ -506,7 +507,7 @@ impl TypeVar {
                 ty // noop
             }
             PotentialType::Poly(_, ref ident, ref interfaces) => {
-                if !gamma.borrow().lookup_poly(ident) {
+                if !gamma.lookup_poly(ident) {
                     let ret = TypeVar::fresh(
                         inf_ctx,
                         Prov::InstantiatePoly(Box::new(prov.clone()), ident.clone()),
@@ -528,14 +529,14 @@ impl TypeVar {
             PotentialType::UdtInstance(provs, ident, params) => {
                 let params = params
                     .into_iter()
-                    .map(|ty| ty.instantiate(gamma.clone(), inf_ctx, prov.clone()))
+                    .map(|ty| ty.instantiate(gamma, inf_ctx, prov.clone()))
                     .collect();
                 PotentialType::UdtInstance(provs, ident, params)
             }
             PotentialType::Function(provs, args, out) => {
                 let args = args
                     .into_iter()
-                    .map(|ty| ty.instantiate(gamma.clone(), inf_ctx, prov.clone()))
+                    .map(|ty| ty.instantiate(gamma, inf_ctx, prov.clone()))
                     .collect();
                 let out = out.instantiate(gamma, inf_ctx, prov.clone());
                 PotentialType::Function(provs, args, out)
@@ -543,7 +544,7 @@ impl TypeVar {
             PotentialType::Tuple(provs, elems) => {
                 let elems = elems
                     .into_iter()
-                    .map(|ty| ty.instantiate(gamma.clone(), inf_ctx, prov.clone()))
+                    .map(|ty| ty.instantiate(gamma, inf_ctx, prov.clone()))
                     .collect();
                 PotentialType::Tuple(provs, elems)
             }
@@ -559,7 +560,7 @@ impl TypeVar {
     // Creates a *new* Type with polymorphic variabels replaced by subtitutions
     pub(crate) fn subst(
         self,
-        gamma: Rc<RefCell<Gamma>>,
+        gamma: Gamma,
         prov: Prov,
         substitution: &BTreeMap<Symbol, TypeVar>,
     ) -> TypeVar {
@@ -594,7 +595,7 @@ impl TypeVar {
                         .into_iter()
                         .map(|ty| ty.subst(gamma.clone(), prov.clone(), substitution))
                         .collect();
-                    let out = out.subst(gamma, prov, substitution);
+                    let out = out.subst(gamma.clone(), prov, substitution);
                     PotentialType::Function(provs, args, out)
                 }
                 PotentialType::Tuple(provs, elems) => {
@@ -922,21 +923,23 @@ fn constrain(mut expected: TypeVar, mut actual: TypeVar) {
     expected.0.union_with(&mut actual.0, TypeVarData::merge);
 }
 
-pub(crate) struct Gamma {
-    pub(crate) vars: HashMap<Symbol, TypeVar>,
-    poly_type_vars: HashSet<Symbol>,
-    enclosing: Option<Rc<RefCell<Gamma>>>,
-}
+pub(crate) type Gamma = Environment<Symbol, TypeVar>;
+
+// pub(crate) struct Gamma {
+//     pub(crate) vars: HashMap<Symbol, TypeVar>,
+//     poly_type_vars: HashSet<Symbol>,
+//     enclosing: Option<Gamma>,
+// }
 
 // TODO: make a macro for these builtins
-pub(crate) fn make_new_gamma() -> Rc<RefCell<Gamma>> {
+pub(crate) fn make_new_gamma() -> Gamma {
     let gamma = Gamma::empty();
-    gamma.borrow_mut().extend(
-        &String::from("newline"),
+    gamma.extend(
+        String::from("newline"),
         TypeVar::make_string(Prov::Builtin("newline: string".to_string())),
     );
-    gamma.borrow_mut().extend(
-        &String::from("print_string"),
+    gamma.extend(
+        String::from("print_string"),
         TypeVar::make_func(
             vec![TypeVar::make_string(Prov::FuncArg(
                 Box::new(Prov::Builtin("print_string: string -> void".to_string())),
@@ -948,8 +951,8 @@ pub(crate) fn make_new_gamma() -> Rc<RefCell<Gamma>> {
             Prov::Builtin("print_string: string -> void".to_string()),
         ),
     );
-    gamma.borrow_mut().extend(
-        &String::from("equals_int"),
+    gamma.extend(
+        String::from("equals_int"),
         TypeVar::make_func(
             vec![
                 TypeVar::make_int(Prov::FuncArg(
@@ -967,8 +970,8 @@ pub(crate) fn make_new_gamma() -> Rc<RefCell<Gamma>> {
             Prov::Builtin("equals_int: (int, int) -> bool".to_string()),
         ),
     );
-    gamma.borrow_mut().extend(
-        &String::from("equals_string"),
+    gamma.extend(
+        String::from("equals_string"),
         TypeVar::make_func(
             vec![
                 TypeVar::make_string(Prov::FuncArg(
@@ -990,8 +993,8 @@ pub(crate) fn make_new_gamma() -> Rc<RefCell<Gamma>> {
             Prov::Builtin("equals_string: (string, string) -> bool".to_string()),
         ),
     );
-    gamma.borrow_mut().extend(
-        &String::from("int_to_string"),
+    gamma.extend(
+        String::from("int_to_string"),
         TypeVar::make_func(
             vec![TypeVar::make_int(Prov::FuncArg(
                 Box::new(Prov::Builtin("int_to_string: int -> string".to_string())),
@@ -1003,8 +1006,8 @@ pub(crate) fn make_new_gamma() -> Rc<RefCell<Gamma>> {
             Prov::Builtin("int_to_string: int -> string".to_string()),
         ),
     );
-    gamma.borrow_mut().extend(
-        &String::from("float_to_string"),
+    gamma.extend(
+        String::from("float_to_string"),
         TypeVar::make_func(
             vec![TypeVar::make_float(Prov::FuncArg(
                 Box::new(Prov::Builtin(
@@ -1018,8 +1021,8 @@ pub(crate) fn make_new_gamma() -> Rc<RefCell<Gamma>> {
             Prov::Builtin("float_to_string: float -> string".to_string()),
         ),
     );
-    gamma.borrow_mut().extend(
-        &String::from("to_float"),
+    gamma.extend(
+        String::from("to_float"),
         TypeVar::make_func(
             vec![TypeVar::make_int(Prov::FuncArg(
                 Box::new(Prov::Builtin("to_float: int -> float".to_string())),
@@ -1031,8 +1034,8 @@ pub(crate) fn make_new_gamma() -> Rc<RefCell<Gamma>> {
             Prov::Builtin("to_float: int -> float".to_string()),
         ),
     );
-    gamma.borrow_mut().extend(
-        &String::from("round"),
+    gamma.extend(
+        String::from("round"),
         TypeVar::make_func(
             vec![TypeVar::make_float(Prov::FuncArg(
                 Box::new(Prov::Builtin("round: float -> int".to_string())),
@@ -1044,8 +1047,8 @@ pub(crate) fn make_new_gamma() -> Rc<RefCell<Gamma>> {
             Prov::Builtin("round: float -> int".to_string()),
         ),
     );
-    gamma.borrow_mut().extend(
-        &String::from("append_strings"),
+    gamma.extend(
+        String::from("append_strings"),
         TypeVar::make_func(
             vec![
                 TypeVar::make_string(Prov::FuncArg(
@@ -1068,8 +1071,8 @@ pub(crate) fn make_new_gamma() -> Rc<RefCell<Gamma>> {
         ),
     );
     let prov = Prov::Builtin("add_int: (int, int) -> int".to_string());
-    gamma.borrow_mut().extend(
-        &String::from("add_int"),
+    gamma.extend(
+        String::from("add_int"),
         TypeVar::make_func(
             vec![
                 TypeVar::make_int(Prov::FuncArg(prov.clone().into(), 0)),
@@ -1080,8 +1083,8 @@ pub(crate) fn make_new_gamma() -> Rc<RefCell<Gamma>> {
         ),
     );
     let prov = Prov::Builtin("minus_int: (int, int) -> int".to_string());
-    gamma.borrow_mut().extend(
-        &String::from("minus_int"),
+    gamma.extend(
+        String::from("minus_int"),
         TypeVar::make_func(
             vec![
                 TypeVar::make_int(Prov::FuncArg(prov.clone().into(), 0)),
@@ -1092,8 +1095,8 @@ pub(crate) fn make_new_gamma() -> Rc<RefCell<Gamma>> {
         ),
     );
     let prov = Prov::Builtin("multiply_int: (int, int) -> int".to_string());
-    gamma.borrow_mut().extend(
-        &String::from("multiply_int"),
+    gamma.extend(
+        String::from("multiply_int"),
         TypeVar::make_func(
             vec![
                 TypeVar::make_int(Prov::FuncArg(prov.clone().into(), 0)),
@@ -1104,8 +1107,8 @@ pub(crate) fn make_new_gamma() -> Rc<RefCell<Gamma>> {
         ),
     );
     let prov = Prov::Builtin("divide_int: (int, int) -> int".to_string());
-    gamma.borrow_mut().extend(
-        &String::from("divide_int"),
+    gamma.extend(
+        String::from("divide_int"),
         TypeVar::make_func(
             vec![
                 TypeVar::make_int(Prov::FuncArg(prov.clone().into(), 0)),
@@ -1116,8 +1119,8 @@ pub(crate) fn make_new_gamma() -> Rc<RefCell<Gamma>> {
         ),
     );
     let prov = Prov::Builtin("pow_int: (int, int) -> int".to_string());
-    gamma.borrow_mut().extend(
-        &String::from("pow_int"),
+    gamma.extend(
+        String::from("pow_int"),
         TypeVar::make_func(
             vec![
                 TypeVar::make_int(Prov::FuncArg(prov.clone().into(), 0)),
@@ -1128,8 +1131,8 @@ pub(crate) fn make_new_gamma() -> Rc<RefCell<Gamma>> {
         ),
     );
     let prov = Prov::Builtin("less_than_int: (int, int) -> bool".to_string());
-    gamma.borrow_mut().extend(
-        &String::from("less_than_int"),
+    gamma.extend(
+        String::from("less_than_int"),
         TypeVar::make_func(
             vec![
                 TypeVar::make_int(Prov::FuncArg(prov.clone().into(), 0)),
@@ -1140,8 +1143,8 @@ pub(crate) fn make_new_gamma() -> Rc<RefCell<Gamma>> {
         ),
     );
     let prov = Prov::Builtin("add_float: (float, float) -> float".to_string());
-    gamma.borrow_mut().extend(
-        &String::from("add_float"),
+    gamma.extend(
+        String::from("add_float"),
         TypeVar::make_func(
             vec![
                 TypeVar::make_float(Prov::FuncArg(prov.clone().into(), 0)),
@@ -1152,8 +1155,8 @@ pub(crate) fn make_new_gamma() -> Rc<RefCell<Gamma>> {
         ),
     );
     let prov = Prov::Builtin("minus_float: (float, float) -> float".to_string());
-    gamma.borrow_mut().extend(
-        &String::from("minus_float"),
+    gamma.extend(
+        String::from("minus_float"),
         TypeVar::make_func(
             vec![
                 TypeVar::make_float(Prov::FuncArg(prov.clone().into(), 0)),
@@ -1164,8 +1167,8 @@ pub(crate) fn make_new_gamma() -> Rc<RefCell<Gamma>> {
         ),
     );
     let prov = Prov::Builtin("multiply_float: (float, float) -> float".to_string());
-    gamma.borrow_mut().extend(
-        &String::from("multiply_float"),
+    gamma.extend(
+        String::from("multiply_float"),
         TypeVar::make_func(
             vec![
                 TypeVar::make_float(Prov::FuncArg(prov.clone().into(), 0)),
@@ -1176,8 +1179,8 @@ pub(crate) fn make_new_gamma() -> Rc<RefCell<Gamma>> {
         ),
     );
     let prov = Prov::Builtin("divide_float: (float, float) -> float".to_string());
-    gamma.borrow_mut().extend(
-        &String::from("divide_float"),
+    gamma.extend(
+        String::from("divide_float"),
         TypeVar::make_func(
             vec![
                 TypeVar::make_float(Prov::FuncArg(prov.clone().into(), 0)),
@@ -1188,8 +1191,8 @@ pub(crate) fn make_new_gamma() -> Rc<RefCell<Gamma>> {
         ),
     );
     let prov = Prov::Builtin("pow_float: (float, float) -> float".to_string());
-    gamma.borrow_mut().extend(
-        &String::from("pow_float"),
+    gamma.extend(
+        String::from("pow_float"),
         TypeVar::make_func(
             vec![
                 TypeVar::make_float(Prov::FuncArg(prov.clone().into(), 0)),
@@ -1200,8 +1203,8 @@ pub(crate) fn make_new_gamma() -> Rc<RefCell<Gamma>> {
         ),
     );
     let prov = Prov::Builtin("sqrt_float: (float) -> float".to_string());
-    gamma.borrow_mut().extend(
-        &String::from("sqrt_float"),
+    gamma.extend(
+        String::from("sqrt_float"),
         TypeVar::make_func(
             vec![TypeVar::make_float(Prov::FuncArg(prov.clone().into(), 0))],
             TypeVar::make_float(Prov::FuncOut(prov.clone().into())),
@@ -1209,8 +1212,8 @@ pub(crate) fn make_new_gamma() -> Rc<RefCell<Gamma>> {
         ),
     );
     let prov = Prov::Builtin("less_than_float: (float, float) -> bool".to_string());
-    gamma.borrow_mut().extend(
-        &String::from("less_than_float"),
+    gamma.extend(
+        String::from("less_than_float"),
         TypeVar::make_func(
             vec![
                 TypeVar::make_float(Prov::FuncArg(prov.clone().into(), 0)),
@@ -1235,8 +1238,8 @@ pub(crate) fn make_new_gamma() -> Rc<RefCell<Gamma>> {
             vec![],
         )],
     );
-    gamma.borrow_mut().extend(
-        &String::from("append"),
+    gamma.extend(
+        String::from("append"),
         TypeVar::make_func(
             vec![ty_arr.clone(), ty_elem],
             TypeVar::make_unit(Prov::FuncOut(prov.clone().into())),
@@ -1253,8 +1256,8 @@ pub(crate) fn make_new_gamma() -> Rc<RefCell<Gamma>> {
             vec![],
         )],
     );
-    gamma.borrow_mut().extend(
-        &String::from("len"),
+    gamma.extend(
+        String::from("len"),
         TypeVar::make_func(
             vec![ty_arr.clone()],
             TypeVar::make_int(Prov::FuncOut(prov.clone().into())),
@@ -1271,8 +1274,8 @@ pub(crate) fn make_new_gamma() -> Rc<RefCell<Gamma>> {
             vec![],
         )],
     );
-    gamma.borrow_mut().extend(
-        &String::from("pop"),
+    gamma.extend(
+        String::from("pop"),
         TypeVar::make_func(
             vec![ty_arr.clone()],
             TypeVar::make_unit(Prov::FuncOut(prov.clone().into())),
@@ -1282,95 +1285,95 @@ pub(crate) fn make_new_gamma() -> Rc<RefCell<Gamma>> {
     gamma
 }
 
-impl fmt::Display for Gamma {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "Environment(\n{:#?})\n", Gamma::debug_helper(self))
-    }
-}
+// impl fmt::Display for Gamma {
+//     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+//         write!(f, "Environment(\n{:#?})\n", Gamma::debug_helper(self))
+//     }
+// }
 
 impl Gamma {
-    pub(crate) fn debug_helper(&self) -> Vec<String> {
-        let mut current = Vec::new();
-        for (key, value) in &self.vars {
-            current.push(format!("{}: {}", key.clone(), value.clone()))
-        }
-        match &self.enclosing {
-            Some(env) => {
-                let mut all = env.borrow_mut().debug_helper();
-                all.append(&mut current);
-                all
-            }
-            None => current,
-        }
-    }
+    // pub(crate) fn debug_helper(&self) -> Vec<String> {
+    //     let mut current = Vec::new();
+    //     for (key, value) in &self.vars {
+    //         current.push(format!("{}: {}", key.clone(), value.clone()))
+    //     }
+    //     match &self.enclosing {
+    //         Some(env) => {
+    //             let mut all = env.borrow_mut().debug_helper();
+    //             all.append(&mut current);
+    //             all
+    //         }
+    //         None => current,
+    //     }
+    // }
 
-    pub(crate) fn empty() -> Rc<RefCell<Self>> {
-        Rc::new(RefCell::new(Self {
-            vars: HashMap::new(),
-            poly_type_vars: HashSet::new(),
-            enclosing: None,
-        }))
-    }
+    // pub(crate) fn empty() -> Rc<RefCell<Self>> {
+    //     Rc::new(RefCell::new(Self {
+    //         vars: HashMap::new(),
+    //         poly_type_vars: HashSet::new(),
+    //         enclosing: None,
+    //     }))
+    // }
 
-    pub(crate) fn new(enclosing: Option<Rc<RefCell<Gamma>>>) -> Rc<RefCell<Self>> {
-        Rc::new(RefCell::new(Self {
-            vars: HashMap::new(),
-            poly_type_vars: HashSet::new(),
-            enclosing,
-        }))
-    }
+    // pub(crate) fn new(enclosing: Option<Gamma>) -> Rc<RefCell<Self>> {
+    //     Rc::new(RefCell::new(Self {
+    //         vars: HashMap::new(),
+    //         poly_type_vars: HashSet::new(),
+    //         enclosing,
+    //     }))
+    // }
 
-    pub(crate) fn lookup(&self, id: &Symbol) -> Option<TypeVar> {
-        match self.vars.get(id) {
-            Some(typ) => Some(typ.clone()),
-            None => match &self.enclosing {
-                Some(env) => env.borrow_mut().lookup(id),
-                None => None,
-            },
-        }
-    }
+    // pub(crate) fn lookup(&self, id: &Symbol) -> Option<TypeVar> {
+    //     match self.vars.get(id) {
+    //         Some(typ) => Some(typ.clone()),
+    //         None => match &self.enclosing {
+    //             Some(env) => env.borrow_mut().lookup(id),
+    //             None => None,
+    //         },
+    //     }
+    // }
 
-    pub(crate) fn extend(&mut self, id: &Symbol, typ: TypeVar) {
-        self.vars.insert(id.clone(), typ);
-    }
+    // pub(crate) fn extend(&mut self, id: &Symbol, typ: TypeVar) {
+    //     self.vars.insert(id.clone(), typ);
+    // }
 
-    pub(crate) fn add_polys(&mut self, ty: &TypeVar) {
-        let Some(ty) = ty.single() else {
-            return;
-        };
-        match ty {
-            PotentialType::Poly(_, ident, _interfaces) => {
-                self.poly_type_vars.insert(ident.clone());
-            }
-            PotentialType::UdtInstance(_, _, params) => {
-                for param in params {
-                    self.add_polys(&param);
-                }
-            }
-            PotentialType::Function(_, args, out) => {
-                for arg in args {
-                    self.add_polys(&arg);
-                }
-                self.add_polys(&out);
-            }
-            PotentialType::Tuple(_, elems) => {
-                for elem in elems {
-                    self.add_polys(&elem);
-                }
-            }
-            _ => {}
-        }
-    }
+    // pub(crate) fn add_polys(&mut self, ty: &TypeVar) {
+    //     let Some(ty) = ty.single() else {
+    //         return;
+    //     };
+    //     match ty {
+    //         PotentialType::Poly(_, ident, _interfaces) => {
+    //             self.poly_type_vars.insert(ident.clone());
+    //         }
+    //         PotentialType::UdtInstance(_, _, params) => {
+    //             for param in params {
+    //                 self.add_polys(&param);
+    //             }
+    //         }
+    //         PotentialType::Function(_, args, out) => {
+    //             for arg in args {
+    //                 self.add_polys(&arg);
+    //             }
+    //             self.add_polys(&out);
+    //         }
+    //         PotentialType::Tuple(_, elems) => {
+    //             for elem in elems {
+    //                 self.add_polys(&elem);
+    //             }
+    //         }
+    //         _ => {}
+    //     }
+    // }
 
-    pub(crate) fn lookup_poly(&self, id: &Symbol) -> bool {
-        match self.poly_type_vars.get(id) {
-            Some(_) => true,
-            None => match &self.enclosing {
-                Some(env) => env.borrow_mut().lookup_poly(id),
-                None => false,
-            },
-        }
-    }
+    // pub(crate) fn lookup_poly(&self, id: &Symbol) -> bool {
+    //     match self.poly_type_vars.get(id) {
+    //         Some(_) => true,
+    //         None => match &self.enclosing {
+    //             Some(env) => env.borrow_mut().lookup_poly(id),
+    //             None => false,
+    //         },
+    //     }
+    // }
 }
 
 #[derive(Debug, Clone)]
@@ -1380,7 +1383,7 @@ pub(crate) enum Mode {
 }
 
 pub(crate) fn generate_constraints_expr(
-    gamma: Rc<RefCell<Gamma>>,
+    gamma: Gamma,
     mode: Mode,
     expr: Rc<Expr>,
     inf_ctx: &mut InferenceContext,
@@ -1449,7 +1452,7 @@ pub(crate) fn generate_constraints_expr(
             }
         }
         ExprKind::Var(id) => {
-            let lookup = gamma.borrow_mut().lookup(id);
+            let lookup = gamma.lookup(id);
             if let Some(typ) = lookup {
                 // replace polymorphic types with unifvars if necessary
                 let typ = typ.instantiate(gamma, inf_ctx, Prov::Node(expr.id));
@@ -1565,7 +1568,7 @@ pub(crate) fn generate_constraints_expr(
                 constrain(node_ty, TypeVar::make_unit(Prov::Node(expr.id)));
                 return;
             }
-            let new_gamma = Gamma::new(Some(gamma));
+            let new_gamma = gamma.new_scope();
             for statement in statements[..statements.len() - 1].iter() {
                 generate_constraints_stmt(
                     new_gamma.clone(),
@@ -1585,7 +1588,7 @@ pub(crate) fn generate_constraints_expr(
                 )
             } else {
                 generate_constraints_stmt(
-                    new_gamma.clone(),
+                    new_gamma,
                     Mode::Syn,
                     statements.last().unwrap().clone(),
                     inf_ctx,
@@ -1658,7 +1661,7 @@ pub(crate) fn generate_constraints_expr(
                 inf_ctx,
             );
             for arm in arms {
-                let new_gamma = Gamma::new(Some(gamma.clone()));
+                let new_gamma = gamma.new_scope();
                 generate_constraints_pat(
                     new_gamma.clone(),
                     Mode::Ana {
@@ -1679,7 +1682,7 @@ pub(crate) fn generate_constraints_expr(
         }
         ExprKind::Func(args, out_annot, body) => {
             let func_node_id = expr.id;
-            let body_gamma = Gamma::new(Some(gamma));
+            let body_gamma = gamma.new_scope();
             let ty_func = generate_constraints_func_helper(
                 inf_ctx,
                 func_node_id,
@@ -1737,7 +1740,7 @@ pub(crate) fn generate_constraints_expr(
             }
         }
         ExprKind::FieldAccess(expr, field) => {
-            generate_constraints_expr(gamma.clone(), Mode::Syn, expr.clone(), inf_ctx);
+            generate_constraints_expr(gamma, Mode::Syn, expr.clone(), inf_ctx);
             let ty_expr = TypeVar::fresh(inf_ctx, Prov::Node(expr.id));
             if ty_expr.underdetermined() {
                 inf_ctx.annotation_needed.insert(expr.id);
@@ -1776,7 +1779,7 @@ pub(crate) fn generate_constraints_expr(
                 ),
             );
             generate_constraints_expr(
-                gamma.clone(),
+                gamma,
                 Mode::Ana {
                     expected: TypeVar::make_int(Prov::IndexAccess),
                 },
@@ -1792,7 +1795,7 @@ pub(crate) fn generate_constraints_expr(
 fn generate_constraints_func_helper(
     inf_ctx: &mut InferenceContext,
     node_id: ast::Id,
-    gamma: Rc<RefCell<Gamma>>,
+    gamma: Gamma,
     args: &[ast::ArgAnnotated],
     out_annot: &Option<Rc<ast::AstType>>,
     body: &Rc<Expr>,
@@ -1807,15 +1810,15 @@ fn generate_constraints_func_helper(
                     let ty_annot = TypeVar::from_node(inf_ctx, arg_annot.id());
                     let arg_annot = ast_type_to_statics_type(inf_ctx, arg_annot.clone());
                     constrain(ty_annot.clone(), arg_annot.clone());
-                    gamma.borrow_mut().add_polys(&arg_annot);
+                    gamma.add_polys(&arg_annot);
                     generate_constraints_pat(
-                        gamma.clone(), // TODO what are the consequences of analyzing patterns with context containing previous pattern... probs should not do that
+                        gamma, // TODO what are the consequences of analyzing patterns with context containing previous pattern... probs should not do that
                         Mode::Ana { expected: ty_annot },
                         arg.clone(),
                         inf_ctx,
                     )
                 }
-                None => generate_constraints_pat(gamma.clone(), Mode::Syn, arg.clone(), inf_ctx),
+                None => generate_constraints_pat(gamma, Mode::Syn, arg.clone(), inf_ctx),
             }
             ty_pat
         })
@@ -1824,7 +1827,7 @@ fn generate_constraints_func_helper(
     // body
     let ty_body = TypeVar::fresh(inf_ctx, Prov::FuncOut(Box::new(Prov::Node(node_id))));
     generate_constraints_expr(
-        gamma.clone(),
+        gamma,
         Mode::Ana {
             expected: ty_body.clone(),
         },
@@ -1833,7 +1836,7 @@ fn generate_constraints_func_helper(
     );
     if let Some(out_annot) = out_annot {
         let out_annot = ast_type_to_statics_type(inf_ctx, out_annot.clone());
-        gamma.borrow_mut().add_polys(&out_annot);
+        gamma.add_polys(&out_annot);
         generate_constraints_expr(
             gamma,
             Mode::Ana {
@@ -1848,7 +1851,7 @@ fn generate_constraints_func_helper(
 }
 
 pub(crate) fn generate_constraints_stmt(
-    gamma: Rc<RefCell<Gamma>>,
+    gamma: Gamma,
     mode: Mode,
     stmt: Rc<Stmt>,
     inf_ctx: &mut InferenceContext,
@@ -1872,7 +1875,7 @@ pub(crate) fn generate_constraints_stmt(
                         substitution.insert("a".to_string(), typ.clone());
 
                         let expected = interface_method.ty.clone().subst(
-                            gamma.clone(),
+                            gamma,
                             Prov::Node(stmt.id),
                             &substitution,
                         );
@@ -1880,7 +1883,7 @@ pub(crate) fn generate_constraints_stmt(
                         constrain(expected, TypeVar::from_node(inf_ctx, pat.id));
 
                         generate_constraints_stmt(
-                            gamma.clone(),
+                            gamma,
                             Mode::Syn,
                             statement.clone(),
                             inf_ctx,
@@ -1926,16 +1929,11 @@ pub(crate) fn generate_constraints_stmt(
         StmtKind::Let(_mutable, (pat, ty_ann), expr) => {
             let ty_pat = TypeVar::from_node(inf_ctx, pat.id);
 
-            generate_constraints_expr(
-                gamma.clone(),
-                Mode::Ana { expected: ty_pat },
-                expr.clone(),
-                inf_ctx,
-            );
+            generate_constraints_expr(gamma, Mode::Ana { expected: ty_pat }, expr.clone(), inf_ctx);
 
             if let Some(ty_ann) = ty_ann {
                 let ty_ann = ast_type_to_statics_type(inf_ctx, ty_ann.clone());
-                gamma.borrow_mut().add_polys(&ty_ann);
+                gamma.add_polys(&ty_ann);
                 generate_constraints_pat(
                     gamma,
                     Mode::Ana { expected: ty_ann },
@@ -1948,20 +1946,18 @@ pub(crate) fn generate_constraints_stmt(
         }
         StmtKind::Set(lhs, rhs) => {
             let ty_lhs = TypeVar::from_node(inf_ctx, lhs.id);
-            generate_constraints_expr(gamma.clone(), Mode::Syn, lhs.clone(), inf_ctx);
+            generate_constraints_expr(gamma, Mode::Syn, lhs.clone(), inf_ctx);
             let ty_rhs = TypeVar::from_node(inf_ctx, rhs.id);
-            generate_constraints_expr(gamma.clone(), Mode::Syn, rhs.clone(), inf_ctx);
+            generate_constraints_expr(gamma, Mode::Syn, rhs.clone(), inf_ctx);
             constrain(ty_lhs, ty_rhs);
         }
         StmtKind::FuncDef(name, args, out_annot, body) => {
             let func_node_id = stmt.id;
             let ty_pat = TypeVar::from_node(inf_ctx, name.id);
             if add_to_gamma {
-                gamma
-                    .borrow_mut()
-                    .extend(&name.patkind.get_identifier_of_variable(), ty_pat.clone());
+                gamma.extend(name.patkind.get_identifier_of_variable(), ty_pat.clone());
             }
-            let body_gamma = Gamma::new(Some(gamma));
+            let body_gamma = gamma.new_scope();
             let ty_func = generate_constraints_func_helper(
                 inf_ctx,
                 func_node_id,
@@ -1977,7 +1973,7 @@ pub(crate) fn generate_constraints_stmt(
 }
 
 pub(crate) fn generate_constraints_pat(
-    gamma: Rc<RefCell<Gamma>>,
+    gamma: Gamma,
     mode: Mode,
     pat: Rc<Pat>,
     inf_ctx: &mut InferenceContext,
@@ -2006,7 +2002,7 @@ pub(crate) fn generate_constraints_pat(
         }
         PatKind::Var(identifier) => {
             // letrec: extend context with id and type before analyzing against said type
-            gamma.borrow_mut().extend(identifier, ty_pat);
+            gamma.extend(identifier.clone(), ty_pat);
         }
         PatKind::Variant(tag, data) => {
             let ty_data = match data {
@@ -2075,7 +2071,7 @@ pub(crate) fn generate_constraints_pat(
 
 pub(crate) fn gather_definitions_stmt(
     inf_ctx: &mut InferenceContext,
-    gamma: Rc<RefCell<Gamma>>,
+    gamma: Gamma,
     stmt: Rc<ast::Stmt>,
 ) {
     match &*stmt.stmtkind {
@@ -2102,7 +2098,7 @@ pub(crate) fn gather_definitions_stmt(
                 inf_ctx
                     .method_to_interface
                     .insert(p.ident.clone(), ident.clone());
-                gamma.borrow_mut().extend(&p.ident, node_ty);
+                gamma.extend(p.ident.clone(), node_ty);
             }
             inf_ctx.interface_defs.insert(
                 ident.clone(),
@@ -2230,8 +2226,8 @@ pub(crate) fn gather_definitions_stmt(
             inf_ctx
                 .fun_defs
                 .insert(name.patkind.get_identifier_of_variable(), stmt.clone());
-            gamma.borrow_mut().extend(
-                &name.patkind.get_identifier_of_variable(),
+            gamma.extend(
+                name.patkind.get_identifier_of_variable(),
                 TypeVar::from_node(inf_ctx, name.id),
             );
         }
@@ -2273,7 +2269,7 @@ fn monomorphized_ty_to_builtin_ty(ty: TypeMonomorphized, prov_builtin: Prov) -> 
 
 pub(crate) fn gather_definitions_toplevel<Effect: crate::side_effects::EffectTrait>(
     inf_ctx: &mut InferenceContext,
-    gamma: Rc<RefCell<Gamma>>,
+    gamma: Gamma,
     toplevel: Rc<ast::Toplevel>,
 ) {
     for eff in Effect::enumerate().iter() {
@@ -2291,7 +2287,7 @@ pub(crate) fn gather_definitions_toplevel<Effect: crate::side_effects::EffectTra
             monomorphized_ty_to_builtin_ty(eff.type_signature().1, prov.clone()),
             prov,
         );
-        gamma.borrow_mut().extend(&eff.function_name(), typ)
+        gamma.extend(eff.function_name(), typ)
     }
     for statement in toplevel.statements.iter() {
         gather_definitions_stmt(inf_ctx, gamma.clone(), statement.clone());
@@ -2299,20 +2295,19 @@ pub(crate) fn gather_definitions_toplevel<Effect: crate::side_effects::EffectTra
 }
 
 pub(crate) fn generate_constraints_toplevel(
-    gamma: Rc<RefCell<Gamma>>,
+    gamma: Gamma,
     toplevel: Rc<ast::Toplevel>,
     inf_ctx: &mut InferenceContext,
-) -> Rc<RefCell<Gamma>> {
+) {
     for statement in toplevel.statements.iter() {
         generate_constraints_stmt(gamma.clone(), Mode::Syn, statement.clone(), inf_ctx, true);
     }
-    gamma
 }
 
 // errors would be unbound variable, wrong number of arguments, occurs check, etc.
 pub(crate) fn result_of_constraint_solving(
     inf_ctx: &mut InferenceContext,
-    _tyctx: Rc<RefCell<Gamma>>,
+    _tyctx: Gamma,
     node_map: &ast::NodeMap,
     sources: &ast::Sources,
 ) -> Result<(), String> {
