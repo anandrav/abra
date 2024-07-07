@@ -3,19 +3,36 @@ use std::cell::RefCell;
 use std::cmp::Eq;
 use std::collections::HashMap;
 use std::fmt;
+use std::fmt::Display;
 use std::hash::Hash;
 use std::rc::Rc;
 
-pub struct Environment<Identifier: Eq + Hash, Item> {
+pub(crate) type Environment<Identifier, Item> = Rc<RefCell<EnvironmentBase<Identifier, Item>>>;
+
+pub struct EnvironmentBase<Identifier: Eq + Hash, Item> {
     items: HashMap<Identifier, Item>,
-    enclosing: Option<Box<Environment<Identifier, Item>>>,
+    enclosing: Option<Environment<Identifier, Item>>,
 }
 
-impl<Identifier: Eq + Hash, Item> Environment<Identifier, Item> {
-    pub(crate) fn new(enclosing: Option<Box<Environment<Identifier, Item>>>) -> Self {
+impl<Identifier: Eq + Hash, Item> EnvironmentBase<Identifier, Item> {
+    pub(crate) fn empty() -> Self {
         Self {
             items: HashMap::new(),
-            enclosing,
+            enclosing: None,
+        }
+    }
+
+    // pub(crate) fn new(enclosing: Option<Box<Environment<Identifier, Item>>>) -> Self {
+    //     Self {
+    //         items: HashMap::new(),
+    //         enclosing,
+    //     }
+    // }
+
+    pub(crate) fn new_scope(self) -> Self {
+        Self {
+            items: HashMap::new(),
+            enclosing: Some(Rc::new(RefCell::new(self))),
         }
     }
 
@@ -31,6 +48,26 @@ impl<Identifier: Eq + Hash, Item> Environment<Identifier, Item> {
 
     pub(crate) fn extend(&mut self, id: Identifier, item: Item) {
         self.items.insert(id, item);
+    }
+}
+
+impl<Identifier: Eq + Hash + Display, Item: Display> Display for Environment<Identifier, Item> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "Environment {{\n")?;
+        self.display_helper(f)?;
+        write!(f, "}}\n")
+    }
+}
+
+impl<Identifier: Eq + Hash + Display, Item: Display> Environment<Identifier, Item> {
+    fn display_helper(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        for (key, value) in &self.items {
+            write!(f, "{}: {}\n", key, value)?;
+        }
+        match &self.enclosing {
+            Some(env) => env.display_helper(f),
+            None => fmt::Result::Ok(()),
+        }
     }
 }
 
