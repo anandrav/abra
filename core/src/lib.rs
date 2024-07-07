@@ -54,29 +54,25 @@ pub fn compile<Effect: EffectTrait>(source_files: Vec<SourceFile>) -> Result<Run
     }
 
     let mut inference_ctx = statics::InferenceContext::new();
-    let tyctx = statics::make_new_gamma();
+    let mut tyctx = statics::make_new_gamma();
     for parse_tree in &toplevels {
         statics::gather_definitions_toplevel::<Effect>(
             &mut inference_ctx,
-            tyctx.clone(),
+            &mut tyctx,
             parse_tree.clone(),
         );
     }
     for parse_tree in &toplevels {
-        statics::generate_constraints_toplevel(
-            tyctx.clone(),
-            parse_tree.clone(),
-            &mut inference_ctx,
-        );
+        statics::generate_constraints_toplevel(&mut tyctx, parse_tree.clone(), &mut inference_ctx);
     }
 
-    statics::result_of_constraint_solving(&mut inference_ctx, tyctx.clone(), &node_map, &sources)?;
+    statics::result_of_constraint_solving(&mut inference_ctx, &node_map, &sources)?;
 
     statics::result_of_additional_analysis(&mut inference_ctx, &toplevels, &node_map, &sources)?;
 
     let env: Rc<RefCell<EvalEnv>> = Rc::new(RefCell::new(EvalEnv::new(None)));
     let (eval_tree, overloaded_func_map) =
-        translate::translate(&inference_ctx, tyctx, &node_map, &toplevels, env.clone());
+        translate::translate(&inference_ctx, &tyctx, &node_map, &toplevels, env.clone());
     interpreter::add_builtins_and_variants::<Effect>(env.clone(), &inference_ctx);
     Ok(Runtime {
         toplevel_eval_tree: eval_tree,
