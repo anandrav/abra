@@ -74,7 +74,7 @@ fn translate_pat(parse_tree: Rc<ast::Pat>) -> Rc<Etp> {
 fn translate_expr_block(
     inf_ctx: &InferenceContext,
     monomorphenv: Rc<RefCell<MonomorphEnv>>,
-    gamma: Rc<RefCell<Gamma>>,
+    gamma: Gamma,
     node_map: &NodeMap,
     overloaded_func_map: &mut OverloadedFuncMapTemp,
     stmts: Vec<Rc<ast::Stmt>>,
@@ -223,7 +223,7 @@ fn translate_expr_block(
 fn make_place_expr(
     inf_ctx: &InferenceContext,
     monomorphenv: Rc<RefCell<MonomorphEnv>>,
-    gamma: Rc<RefCell<Gamma>>,
+    gamma: Gamma,
     node_map: &NodeMap,
     overloaded_func_map: &mut OverloadedFuncMapTemp,
     expr: Rc<ast::Expr>,
@@ -274,7 +274,7 @@ fn make_place_expr(
 fn translate_expr_func(
     inf_ctx: &InferenceContext,
     monomorphenv: Rc<RefCell<MonomorphEnv>>,
-    gamma: Rc<RefCell<Gamma>>,
+    gamma: Gamma,
     node_map: &NodeMap,
     overloaded_func_map: &mut OverloadedFuncMapTemp,
     func_args: Vec<ast::ArgAnnotated>,
@@ -302,7 +302,7 @@ fn translate_expr_func(
 fn translate_expr_ap(
     inf_ctx: &InferenceContext,
     monomorphenv: Rc<RefCell<MonomorphEnv>>,
-    gamma: Rc<RefCell<Gamma>>,
+    gamma: Gamma,
     node_map: &NodeMap,
     overloaded_func_map: &mut OverloadedFuncMapTemp,
     expr1: Rc<ast::Expr>,
@@ -336,9 +336,8 @@ fn translate_expr_ap(
     ))
 }
 
-fn ty_of_global_ident(gamma: Rc<RefCell<Gamma>>, ident: &ast::Symbol) -> Option<SolvedType> {
-    let gamma = gamma.borrow();
-    let ty = gamma.vars.get(ident)?;
+fn ty_of_global_ident(gamma: Gamma, ident: &ast::Symbol) -> Option<SolvedType> {
+    let ty = gamma.lookup(ident)?;
     ty.solution()
 }
 
@@ -458,7 +457,7 @@ fn get_func_definition_node(
 fn monomorphize_overloaded_var(
     inf_ctx: &InferenceContext,
     monomorphenv: Rc<RefCell<MonomorphEnv>>,
-    gamma: Rc<RefCell<Gamma>>,
+    gamma: Gamma,
     node_map: &NodeMap,
     overloaded_func_map: &mut OverloadedFuncMapTemp,
     ident: &ast::Symbol,
@@ -506,7 +505,7 @@ fn monomorphize_overloaded_var(
 fn translate_expr(
     inf_ctx: &InferenceContext,
     monomorphenv: Rc<RefCell<MonomorphEnv>>,
-    gamma: Rc<RefCell<Gamma>>,
+    gamma: Gamma,
     node_map: &NodeMap,
     overloaded_func_map: &mut OverloadedFuncMapTemp,
     parse_tree: Rc<ASTek>,
@@ -907,7 +906,7 @@ fn strip_temp_overloaded_func_map(
 
 pub(crate) fn translate(
     inf_ctx: &InferenceContext,
-    gamma: Rc<RefCell<Gamma>>,
+    gamma: Gamma,
     node_map: &NodeMap,
     toplevels: &Vec<Rc<ast::Toplevel>>,
     env: Rc<RefCell<EvalEnv>>,

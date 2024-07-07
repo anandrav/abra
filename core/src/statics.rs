@@ -529,22 +529,22 @@ impl TypeVar {
             PotentialType::UdtInstance(provs, ident, params) => {
                 let params = params
                     .into_iter()
-                    .map(|ty| ty.instantiate(gamma, inf_ctx, prov.clone()))
+                    .map(|ty| ty.instantiate(gamma.clone(), inf_ctx, prov.clone()))
                     .collect();
                 PotentialType::UdtInstance(provs, ident, params)
             }
             PotentialType::Function(provs, args, out) => {
                 let args = args
                     .into_iter()
-                    .map(|ty| ty.instantiate(gamma, inf_ctx, prov.clone()))
+                    .map(|ty| ty.instantiate(gamma.clone(), inf_ctx, prov.clone()))
                     .collect();
-                let out = out.instantiate(gamma, inf_ctx, prov.clone());
+                let out = out.instantiate(gamma.clone(), inf_ctx, prov.clone());
                 PotentialType::Function(provs, args, out)
             }
             PotentialType::Tuple(provs, elems) => {
                 let elems = elems
                     .into_iter()
-                    .map(|ty| ty.instantiate(gamma, inf_ctx, prov.clone()))
+                    .map(|ty| ty.instantiate(gamma.clone(), inf_ctx, prov.clone()))
                     .collect();
                 PotentialType::Tuple(provs, elems)
             }
@@ -923,7 +923,67 @@ fn constrain(mut expected: TypeVar, mut actual: TypeVar) {
     expected.0.union_with(&mut actual.0, TypeVarData::merge);
 }
 
-pub(crate) type Gamma = Environment<Symbol, TypeVar>;
+// TODO: rename to TypeEnv
+#[derive(Clone)]
+pub(crate) struct Gamma {
+    ty_vars: Environment<Symbol, TypeVar>,
+    poly_vars: Environment<Symbol, ()>,
+}
+impl Gamma {
+    pub(crate) fn empty() -> Self {
+        Self {
+            ty_vars: Environment::empty(),
+            poly_vars: Environment::empty(),
+        }
+    }
+
+    pub(crate) fn extend(&self, ident: Symbol, ty: TypeVar) {
+        self.ty_vars.extend(ident, ty);
+    }
+
+    pub(crate) fn add_polys(&self, ty: &TypeVar) {
+        let Some(ty) = ty.single() else {
+            return;
+        };
+        match ty {
+            PotentialType::Poly(_, ident, _interfaces) => {
+                self.poly_vars.extend(ident.clone(), ());
+            }
+            PotentialType::UdtInstance(_, _, params) => {
+                for param in params {
+                    self.add_polys(&param);
+                }
+            }
+            PotentialType::Function(_, args, out) => {
+                for arg in args {
+                    self.add_polys(&arg);
+                }
+                self.add_polys(&out);
+            }
+            PotentialType::Tuple(_, elems) => {
+                for elem in elems {
+                    self.add_polys(&elem);
+                }
+            }
+            _ => {}
+        }
+    }
+
+    pub(crate) fn lookup(&self, id: &Symbol) -> Option<TypeVar> {
+        self.ty_vars.lookup(id)
+    }
+
+    pub(crate) fn lookup_poly(&self, id: &Symbol) -> bool {
+        self.poly_vars.lookup(id).is_some()
+    }
+
+    pub(crate) fn new_scope(&self) -> Self {
+        Self {
+            ty_vars: self.ty_vars.new_scope(),
+            poly_vars: self.poly_vars.new_scope(),
+        }
+    }
+}
 
 // pub(crate) struct Gamma {
 //     pub(crate) vars: HashMap<Symbol, TypeVar>,
@@ -1812,13 +1872,13 @@ fn generate_constraints_func_helper(
                     constrain(ty_annot.clone(), arg_annot.clone());
                     gamma.add_polys(&arg_annot);
                     generate_constraints_pat(
-                        gamma, // TODO what are the consequences of analyzing patterns with context containing previous pattern... probs should not do that
+                        gamma.clone(), // TODO what are the consequences of analyzing patterns with context containing previous pattern... probs should not do that
                         Mode::Ana { expected: ty_annot },
                         arg.clone(),
                         inf_ctx,
                     )
                 }
-                None => generate_constraints_pat(gamma, Mode::Syn, arg.clone(), inf_ctx),
+                None => generate_constraints_pat(gamma.clone(), Mode::Syn, arg.clone(), inf_ctx),
             }
             ty_pat
         })
@@ -1827,7 +1887,7 @@ fn generate_constraints_func_helper(
     // body
     let ty_body = TypeVar::fresh(inf_ctx, Prov::FuncOut(Box::new(Prov::Node(node_id))));
     generate_constraints_expr(
-        gamma,
+        gamma.clone(),
         Mode::Ana {
             expected: ty_body.clone(),
         },
@@ -1875,7 +1935,7 @@ pub(crate) fn generate_constraints_stmt(
                         substitution.insert("a".to_string(), typ.clone());
 
                         let expected = interface_method.ty.clone().subst(
-                            gamma,
+                            gamma.clone(),
                             Prov::Node(stmt.id),
                             &substitution,
                         );
@@ -1883,7 +1943,7 @@ pub(crate) fn generate_constraints_stmt(
                         constrain(expected, TypeVar::from_node(inf_ctx, pat.id));
 
                         generate_constraints_stmt(
-                            gamma,
+                            gamma.clone(),
                             Mode::Syn,
                             statement.clone(),
                             inf_ctx,
@@ -1929,7 +1989,12 @@ pub(crate) fn generate_constraints_stmt(
         StmtKind::Let(_mutable, (pat, ty_ann), expr) => {
             let ty_pat = TypeVar::from_node(inf_ctx, pat.id);
 
-            generate_constraints_expr(gamma, Mode::Ana { expected: ty_pat }, expr.clone(), inf_ctx);
+            generate_constraints_expr(
+                gamma.clone(),
+                Mode::Ana { expected: ty_pat },
+                expr.clone(),
+                inf_ctx,
+            );
 
             if let Some(ty_ann) = ty_ann {
                 let ty_ann = ast_type_to_statics_type(inf_ctx, ty_ann.clone());
@@ -1946,7 +2011,7 @@ pub(crate) fn generate_constraints_stmt(
         }
         StmtKind::Set(lhs, rhs) => {
             let ty_lhs = TypeVar::from_node(inf_ctx, lhs.id);
-            generate_constraints_expr(gamma, Mode::Syn, lhs.clone(), inf_ctx);
+            generate_constraints_expr(gamma.clone(), Mode::Syn, lhs.clone(), inf_ctx);
             let ty_rhs = TypeVar::from_node(inf_ctx, rhs.id);
             generate_constraints_expr(gamma, Mode::Syn, rhs.clone(), inf_ctx);
             constrain(ty_lhs, ty_rhs);
@@ -2307,7 +2372,6 @@ pub(crate) fn generate_constraints_toplevel(
 // errors would be unbound variable, wrong number of arguments, occurs check, etc.
 pub(crate) fn result_of_constraint_solving(
     inf_ctx: &mut InferenceContext,
-    _tyctx: Gamma,
     node_map: &ast::NodeMap,
     sources: &ast::Sources,
 ) -> Result<(), String> {
