@@ -509,7 +509,7 @@ fn translate_expr(
     node_map: &NodeMap,
     overloaded_func_map: &mut OverloadedFuncMapTemp,
     parse_tree: Rc<ASTek>,
-    ast_id: ast::Id,
+    ast_id: ast::NodeId,
 ) -> Rc<Ete> {
     match &*parse_tree {
         ASTek::Var(ident) => {

@@ -26,14 +26,14 @@ pub(crate) type PatAnnotated = (Rc<Pat>, Option<Rc<AstType>>);
 pub(crate) struct Toplevel {
     pub(crate) statements: Vec<Rc<Stmt>>,
     pub(crate) span: Span,
-    pub(crate) id: Id,
+    pub(crate) id: NodeId,
 }
 
 impl Node for Toplevel {
     fn span(&self) -> Span {
         self.span.clone()
     }
-    fn id(&self) -> Id {
+    fn id(&self) -> NodeId {
         self.id
     }
 
@@ -62,14 +62,14 @@ pub(crate) struct Variant {
     pub(crate) data: Option<Rc<AstType>>,
 
     pub(crate) span: Span,
-    pub(crate) id: Id,
+    pub(crate) id: NodeId,
 }
 
 impl Node for Variant {
     fn span(&self) -> Span {
         self.span.clone()
     }
-    fn id(&self) -> Id {
+    fn id(&self) -> NodeId {
         self.id
     }
 
@@ -91,14 +91,14 @@ pub(crate) struct StructField {
     pub(crate) ty: Rc<AstType>,
 
     pub(crate) span: Span,
-    pub(crate) id: Id,
+    pub(crate) id: NodeId,
 }
 
 impl Node for StructField {
     fn span(&self) -> Span {
         self.span.clone()
     }
-    fn id(&self) -> Id {
+    fn id(&self) -> NodeId {
         self.id
     }
 
@@ -122,7 +122,7 @@ impl std::fmt::Debug for dyn Node {
 
 pub(crate) trait Node {
     fn span(&self) -> Span;
-    fn id(&self) -> Id;
+    fn id(&self) -> NodeId;
     fn children(&self) -> Vec<Rc<dyn Node>>;
 
     fn to_stmt(&self) -> Option<Stmt>;
@@ -132,14 +132,14 @@ pub(crate) trait Node {
 pub(crate) struct Stmt {
     pub(crate) stmtkind: Rc<StmtKind>,
     pub(crate) span: Span,
-    pub(crate) id: Id,
+    pub(crate) id: NodeId,
 }
 
 impl Node for Stmt {
     fn span(&self) -> Span {
         self.span.clone()
     }
-    fn id(&self) -> Id {
+    fn id(&self) -> NodeId {
         self.id
     }
 
@@ -237,7 +237,7 @@ impl Node for InterfaceProperty {
     fn span(&self) -> Span {
         self.ty.span()
     }
-    fn id(&self) -> Id {
+    fn id(&self) -> NodeId {
         self.ty.id()
     }
 
@@ -254,14 +254,14 @@ impl Node for InterfaceProperty {
 pub(crate) struct Expr {
     pub(crate) exprkind: Rc<ExprKind>,
     pub(crate) span: Span,
-    pub(crate) id: Id,
+    pub(crate) id: NodeId,
 }
 
 impl Node for Expr {
     fn span(&self) -> Span {
         self.span.clone()
     }
-    fn id(&self) -> Id {
+    fn id(&self) -> NodeId {
         self.id
     }
 
@@ -366,14 +366,14 @@ pub(crate) struct MatchArm {
 pub(crate) struct Pat {
     pub(crate) patkind: Rc<PatKind>,
     pub(crate) span: Span,
-    pub(crate) id: Id,
+    pub(crate) id: NodeId,
 }
 
 impl Node for Pat {
     fn span(&self) -> Span {
         self.span.clone()
     }
-    fn id(&self) -> Id {
+    fn id(&self) -> NodeId {
         self.id
     }
 
@@ -434,14 +434,14 @@ impl PatKind {
 pub(crate) struct AstType {
     pub(crate) typekind: Rc<TypeKind>,
     pub(crate) span: Span,
-    pub(crate) id: Id,
+    pub(crate) id: NodeId,
 }
 
 impl Node for AstType {
     fn span(&self) -> Span {
         self.span.clone()
     }
-    fn id(&self) -> Id {
+    fn id(&self) -> NodeId {
         self.id
     }
 
@@ -494,11 +494,11 @@ pub(crate) enum TypeKind {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub(crate) struct Id {
+pub(crate) struct NodeId {
     pub(crate) id: usize,
 }
 
-impl Id {
+impl NodeId {
     pub(crate) fn new() -> Self {
         static ID_COUNTER: std::sync::atomic::AtomicUsize = AtomicUsize::new(1);
         let id = ID_COUNTER.fetch_add(1, Ordering::Relaxed);
@@ -506,15 +506,15 @@ impl Id {
     }
 }
 
-impl std::fmt::Display for Id {
+impl std::fmt::Display for NodeId {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "Id[{}]", self.id)
     }
 }
 
-impl Default for Id {
+impl Default for NodeId {
     fn default() -> Self {
-        Id::new()
+        NodeId::new()
     }
 }
 
@@ -656,12 +656,12 @@ pub(crate) fn parse_let_pattern(pair: Pair<Rule>, filename: &str) -> Rc<Pat> {
         Rule::identifier => Rc::new(Pat {
             patkind: Rc::new(PatKind::Var(pair.as_str().to_owned())),
             span,
-            id: Id::new(),
+            id: NodeId::new(),
         }),
         Rule::wildcard => Rc::new(Pat {
             patkind: Rc::new(PatKind::Wildcard),
             span,
-            id: Id::new(),
+            id: NodeId::new(),
         }),
         Rule::let_pattern_tuple => {
             let inner: Vec<_> = pair.into_inner().collect();
@@ -672,7 +672,7 @@ pub(crate) fn parse_let_pattern(pair: Pair<Rule>, filename: &str) -> Rc<Pat> {
             Rc::new(Pat {
                 patkind: Rc::new(PatKind::Tuple(pats)),
                 span,
-                id: Id::new(),
+                id: NodeId::new(),
             })
         }
         _ => panic!("unreachable rule {:#?}", rule),
@@ -691,7 +691,7 @@ pub(crate) fn parse_match_pattern(pair: Pair<Rule>, filename: &str) -> Rc<Pat> {
         Rule::match_pattern_variable => Rc::new(Pat {
             patkind: Rc::new(PatKind::Var(pair.as_str()[1..].to_owned())),
             span,
-            id: Id::new(),
+            id: NodeId::new(),
         }),
         Rule::match_pattern_tuple => {
             let inner: Vec<_> = pair.into_inner().collect();
@@ -702,7 +702,7 @@ pub(crate) fn parse_match_pattern(pair: Pair<Rule>, filename: &str) -> Rc<Pat> {
             Rc::new(Pat {
                 patkind: Rc::new(PatKind::Tuple(pats)),
                 span,
-                id: Id::new(),
+                id: NodeId::new(),
             })
         }
         Rule::match_pattern_variant => {
@@ -714,33 +714,33 @@ pub(crate) fn parse_match_pattern(pair: Pair<Rule>, filename: &str) -> Rc<Pat> {
             Rc::new(Pat {
                 patkind: Rc::new(PatKind::Variant(name, pat)),
                 span,
-                id: Id::new(),
+                id: NodeId::new(),
             })
         }
         Rule::wildcard => Rc::new(Pat {
             patkind: Rc::new(PatKind::Wildcard),
             span,
-            id: Id::new(),
+            id: NodeId::new(),
         }),
         Rule::literal_unit => Rc::new(Pat {
             patkind: Rc::new(PatKind::Unit),
             span,
-            id: Id::new(),
+            id: NodeId::new(),
         }),
         Rule::literal_int => Rc::new(Pat {
             patkind: Rc::new(PatKind::Int(pair.as_str().parse().unwrap())),
             span,
-            id: Id::new(),
+            id: NodeId::new(),
         }),
         Rule::literal_float => Rc::new(Pat {
             patkind: Rc::new(PatKind::Float(pair.as_str().parse().unwrap())),
             span,
-            id: Id::new(),
+            id: NodeId::new(),
         }),
         Rule::literal_bool => Rc::new(Pat {
             patkind: Rc::new(PatKind::Bool(pair.as_str().parse().unwrap())),
             span,
-            id: Id::new(),
+            id: NodeId::new(),
         }),
         Rule::literal_string => Rc::new(Pat {
             patkind: Rc::new(PatKind::Str({
@@ -749,7 +749,7 @@ pub(crate) fn parse_match_pattern(pair: Pair<Rule>, filename: &str) -> Rc<Pat> {
                 s[1..s.len() - 1].to_owned()
             })),
             span,
-            id: Id::new(),
+            id: NodeId::new(),
         }),
         _ => panic!("unreachable rule {:#?}", rule),
     }
@@ -773,7 +773,7 @@ pub(crate) fn parse_type_term(pair: Pair<Rule>, filename: &str) -> Rc<AstType> {
             Rc::new(AstType {
                 typekind: Rc::new(TypeKind::Poly(name, interfaces)),
                 span,
-                id: Id::new(),
+                id: NodeId::new(),
             })
         }
         Rule::identifier => {
@@ -781,33 +781,33 @@ pub(crate) fn parse_type_term(pair: Pair<Rule>, filename: &str) -> Rc<AstType> {
             Rc::new(AstType {
                 typekind: Rc::new(TypeKind::Alias(ident)),
                 span,
-                id: Id::new(),
+                id: NodeId::new(),
             })
         }
         Rule::type_literal_unit => Rc::new(AstType {
             typekind: Rc::new(TypeKind::Unit),
             span,
-            id: Id::new(),
+            id: NodeId::new(),
         }),
         Rule::type_literal_int => Rc::new(AstType {
             typekind: Rc::new(TypeKind::Int),
             span,
-            id: Id::new(),
+            id: NodeId::new(),
         }),
         Rule::type_literal_float => Rc::new(AstType {
             typekind: Rc::new(TypeKind::Float),
             span,
-            id: Id::new(),
+            id: NodeId::new(),
         }),
         Rule::type_literal_bool => Rc::new(AstType {
             typekind: Rc::new(TypeKind::Bool),
             span,
-            id: Id::new(),
+            id: NodeId::new(),
         }),
         Rule::type_literal_string => Rc::new(AstType {
             typekind: Rc::new(TypeKind::Str),
             span,
-            id: Id::new(),
+            id: NodeId::new(),
         }),
         Rule::tuple_type => {
             let inner: Vec<_> = pair.into_inner().collect();
@@ -818,7 +818,7 @@ pub(crate) fn parse_type_term(pair: Pair<Rule>, filename: &str) -> Rc<AstType> {
             Rc::new(AstType {
                 typekind: Rc::new(TypeKind::Tuple(types)),
                 span,
-                id: Id::new(),
+                id: NodeId::new(),
             })
         }
         Rule::type_ap => {
@@ -832,7 +832,7 @@ pub(crate) fn parse_type_term(pair: Pair<Rule>, filename: &str) -> Rc<AstType> {
             Rc::new(AstType {
                 typekind: Rc::new(TypeKind::Ap(name, types)),
                 span,
-                id: Id::new(),
+                id: NodeId::new(),
             })
         }
         Rule::func_type => {
@@ -848,7 +848,7 @@ pub(crate) fn parse_type_term(pair: Pair<Rule>, filename: &str) -> Rc<AstType> {
             Rc::new(AstType {
                 typekind: Rc::new(TypeKind::Function(args, ret)),
                 span,
-                id: Id::new(),
+                id: NodeId::new(),
             })
         }
         _ => panic!("unreachable rule {:#?}", pair),
@@ -883,7 +883,7 @@ pub(crate) fn parse_stmt(pair: Pair<Rule>, filename: &str) -> Rc<Stmt> {
             Rc::new(Stmt {
                 stmtkind: Rc::new(StmtKind::FuncDef(ident, args, ty_out, body)),
                 span,
-                id: Id::new(),
+                id: NodeId::new(),
             })
         }
         Rule::let_statement => {
@@ -894,7 +894,7 @@ pub(crate) fn parse_stmt(pair: Pair<Rule>, filename: &str) -> Rc<Stmt> {
             Rc::new(Stmt {
                 stmtkind: Rc::new(StmtKind::Let(mutable, pat_annotated, expr)),
                 span,
-                id: Id::new(),
+                id: NodeId::new(),
             })
         }
         Rule::set_statement => {
@@ -903,7 +903,7 @@ pub(crate) fn parse_stmt(pair: Pair<Rule>, filename: &str) -> Rc<Stmt> {
             Rc::new(Stmt {
                 stmtkind: Rc::new(StmtKind::Set(expr1, expr2)),
                 span,
-                id: Id::new(),
+                id: NodeId::new(),
             })
         }
         Rule::expression_statement => {
@@ -911,7 +911,7 @@ pub(crate) fn parse_stmt(pair: Pair<Rule>, filename: &str) -> Rc<Stmt> {
             Rc::new(Stmt {
                 stmtkind: Rc::new(StmtKind::Expr(expr)),
                 span,
-                id: Id::new(),
+                id: NodeId::new(),
             })
         }
         Rule::typealias => {
@@ -922,7 +922,7 @@ pub(crate) fn parse_stmt(pair: Pair<Rule>, filename: &str) -> Rc<Stmt> {
                     ident, definition,
                 )))),
                 span,
-                id: Id::new(),
+                id: NodeId::new(),
             })
         }
         Rule::adt_declaration => {
@@ -944,7 +944,7 @@ pub(crate) fn parse_stmt(pair: Pair<Rule>, filename: &str) -> Rc<Stmt> {
                     ident, params, variants,
                 )))),
                 span,
-                id: Id::new(),
+                id: NodeId::new(),
             })
         }
         Rule::struct_declaration => {
@@ -966,7 +966,7 @@ pub(crate) fn parse_stmt(pair: Pair<Rule>, filename: &str) -> Rc<Stmt> {
                     ident, params, fields,
                 )))),
                 span,
-                id: Id::new(),
+                id: NodeId::new(),
             })
         }
         Rule::interface_declaration => {
@@ -981,7 +981,7 @@ pub(crate) fn parse_stmt(pair: Pair<Rule>, filename: &str) -> Rc<Stmt> {
             Rc::new(Stmt {
                 stmtkind: StmtKind::InterfaceDef(ident, methods).into(),
                 span,
-                id: Id::new(),
+                id: NodeId::new(),
             })
         }
         Rule::interface_implementation => {
@@ -997,7 +997,7 @@ pub(crate) fn parse_stmt(pair: Pair<Rule>, filename: &str) -> Rc<Stmt> {
             Rc::new(Stmt {
                 stmtkind: StmtKind::InterfaceImpl(ident, ty, stmts).into(),
                 span,
-                id: Id::new(),
+                id: NodeId::new(),
             })
         }
         _ => panic!("unreachable rule {:#?}", rule),
@@ -1039,7 +1039,7 @@ pub(crate) fn parse_variant(pair: Pair<Rule>, filename: &str) -> Rc<Variant> {
                 ctor: ident,
                 data,
                 span,
-                id: Id::new(),
+                id: NodeId::new(),
             })
         }
         _ => panic!("unreachable rule {:#?}", rule),
@@ -1058,7 +1058,7 @@ pub(crate) fn parse_struct_field(pair: Pair<Rule>, filename: &str) -> StructFiel
                 ident,
                 ty,
                 span,
-                id: Id::new(),
+                id: NodeId::new(),
             }
         }
         _ => panic!("unreachable rule {:#?}", rule),
@@ -1089,7 +1089,7 @@ pub(crate) fn parse_expr_term(pair: Pair<Rule>, filename: &str) -> Rc<Expr> {
             Rc::new(Expr {
                 exprkind: Rc::new(ExprKind::Block(statements)),
                 span,
-                id: Id::new(),
+                id: NodeId::new(),
             })
         }
         Rule::if_else_expression => {
@@ -1104,7 +1104,7 @@ pub(crate) fn parse_expr_term(pair: Pair<Rule>, filename: &str) -> Rc<Expr> {
             Rc::new(Expr {
                 exprkind: Rc::new(ExprKind::If(cond, e1, e2)),
                 span,
-                id: Id::new(),
+                id: NodeId::new(),
             })
         }
         Rule::while_loop_expression => {
@@ -1114,7 +1114,7 @@ pub(crate) fn parse_expr_term(pair: Pair<Rule>, filename: &str) -> Rc<Expr> {
             Rc::new(Expr {
                 exprkind: Rc::new(ExprKind::WhileLoop(cond, e)),
                 span,
-                id: Id::new(),
+                id: NodeId::new(),
             })
         }
         Rule::match_expression => {
@@ -1133,7 +1133,7 @@ pub(crate) fn parse_expr_term(pair: Pair<Rule>, filename: &str) -> Rc<Expr> {
             Rc::new(Expr {
                 exprkind: Rc::new(ExprKind::Match(expr, arms)),
                 span,
-                id: Id::new(),
+                id: NodeId::new(),
             })
         }
         Rule::func_expression => {
@@ -1158,7 +1158,7 @@ pub(crate) fn parse_expr_term(pair: Pair<Rule>, filename: &str) -> Rc<Expr> {
             Rc::new(Expr {
                 exprkind: Rc::new(ExprKind::Func(args, ty_out, body)),
                 span,
-                id: Id::new(),
+                id: NodeId::new(),
             })
         }
         Rule::func_call_expression => {
@@ -1172,7 +1172,7 @@ pub(crate) fn parse_expr_term(pair: Pair<Rule>, filename: &str) -> Rc<Expr> {
             Rc::new(Expr {
                 exprkind: Rc::new(ExprKind::FuncAp(f, args)),
                 span,
-                id: Id::new(),
+                id: NodeId::new(),
             })
         }
         Rule::tuple_expr => {
@@ -1184,28 +1184,28 @@ pub(crate) fn parse_expr_term(pair: Pair<Rule>, filename: &str) -> Rc<Expr> {
             Rc::new(Expr {
                 exprkind: Rc::new(ExprKind::Tuple(exprs)),
                 span,
-                id: Id::new(),
+                id: NodeId::new(),
             })
         }
         Rule::literal_unit => Rc::new(Expr {
             exprkind: Rc::new(ExprKind::Unit),
             span,
-            id: Id::new(),
+            id: NodeId::new(),
         }),
         Rule::literal_int => Rc::new(Expr {
             exprkind: Rc::new(ExprKind::Int(pair.as_str().parse().unwrap())),
             span,
-            id: Id::new(),
+            id: NodeId::new(),
         }),
         Rule::literal_float => Rc::new(Expr {
             exprkind: Rc::new(ExprKind::Float(pair.as_str().parse().unwrap())),
             span,
-            id: Id::new(),
+            id: NodeId::new(),
         }),
         Rule::literal_bool => Rc::new(Expr {
             exprkind: Rc::new(ExprKind::Bool(pair.as_str().parse().unwrap())),
             span,
-            id: Id::new(),
+            id: NodeId::new(),
         }),
         Rule::literal_string => Rc::new(Expr {
             exprkind: Rc::new(ExprKind::Str({
@@ -1214,7 +1214,7 @@ pub(crate) fn parse_expr_term(pair: Pair<Rule>, filename: &str) -> Rc<Expr> {
                 s[1..s.len() - 1].to_owned()
             })),
             span,
-            id: Id::new(),
+            id: NodeId::new(),
         }),
         Rule::literal_list => {
             let inner: Vec<_> = pair.into_inner().collect();
@@ -1225,7 +1225,7 @@ pub(crate) fn parse_expr_term(pair: Pair<Rule>, filename: &str) -> Rc<Expr> {
             Rc::new(Expr {
                 exprkind: Rc::new(ExprKind::List(exprs)),
                 span,
-                id: Id::new(),
+                id: NodeId::new(),
             })
         }
         Rule::literal_array => {
@@ -1237,13 +1237,13 @@ pub(crate) fn parse_expr_term(pair: Pair<Rule>, filename: &str) -> Rc<Expr> {
             Rc::new(Expr {
                 exprkind: Rc::new(ExprKind::Array(exprs)),
                 span,
-                id: Id::new(),
+                id: NodeId::new(),
             })
         }
         Rule::identifier => Rc::new(Expr {
             exprkind: Rc::new(ExprKind::Var(pair.as_str().to_owned())),
             span,
-            id: Id::new(),
+            id: NodeId::new(),
         }),
         _ => panic!("unreachable rule {:#?}", rule),
     }
@@ -1268,7 +1268,7 @@ pub(crate) fn parse_toplevel(pairs: Pairs<Rule>, filename: &str) -> Rc<Toplevel>
             lo: span1.lo,
             hi: span2.hi,
         },
-        id: Id::new(),
+        id: NodeId::new(),
     })
 }
 
@@ -1300,7 +1300,7 @@ pub(crate) fn parse_expr_pratt(pairs: Pairs<Rule>, filename: &str) -> Rc<Expr> {
                 Rc::new(Expr {
                     exprkind: Rc::new(ExprKind::IndexAccess(lhs, index)),
                     span,
-                    id: Id::new(),
+                    id: NodeId::new(),
                 })
             }
             _ => unreachable!(),
@@ -1327,12 +1327,12 @@ pub(crate) fn parse_expr_pratt(pairs: Pairs<Rule>, filename: &str) -> Rc<Expr> {
                 Some(opcode) => Rc::new(Expr {
                     exprkind: Rc::new(ExprKind::BinOp(lhs, opcode, rhs)),
                     span: Span::new(filename, op.as_span()),
-                    id: Id::new(),
+                    id: NodeId::new(),
                 }),
                 None => Rc::new(Expr {
                     exprkind: Rc::new(ExprKind::FieldAccess(lhs, rhs)),
                     span: Span::new(filename, op.as_span()),
-                    id: Id::new(),
+                    id: NodeId::new(),
                 }),
             }
         })
@@ -1350,7 +1350,7 @@ pub(crate) fn parse_or_err(sources: &Vec<SourceFile>) -> Result<Vec<Rc<Toplevel>
     Ok(toplevels)
 }
 
-pub(crate) type NodeMap = HashMap<Id, Rc<dyn Node>>;
+pub(crate) type NodeMap = HashMap<NodeId, Rc<dyn Node>>;
 
 pub(crate) fn initialize_node_map(node_map: &mut NodeMap, node: &Rc<dyn Node>) {
     node_map.insert(node.id(), node.clone());
