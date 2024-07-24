@@ -243,7 +243,7 @@ pub(crate) struct AdtDef {
     pub(crate) name: Symbol,
     pub(crate) params: Vec<Symbol>,
     pub(crate) variants: Vec<Variant>,
-    pub(crate) location: ast::Id,
+    pub(crate) location: ast::NodeId,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
@@ -257,7 +257,7 @@ pub(crate) struct StructDef {
     pub(crate) name: Symbol,
     pub(crate) params: Vec<Symbol>,
     pub(crate) fields: Vec<StructField>,
-    pub(crate) location: ast::Id,
+    pub(crate) location: ast::NodeId,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
@@ -270,7 +270,7 @@ pub(crate) struct StructField {
 pub(crate) struct InterfaceDef {
     pub(crate) name: Symbol,
     pub(crate) methods: Vec<InterfaceDefMethod>,
-    pub(crate) location: ast::Id,
+    pub(crate) location: ast::NodeId,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
@@ -278,7 +278,7 @@ pub(crate) struct InterfaceImpl {
     pub(crate) name: Symbol,
     pub(crate) typ: TypeVar,
     pub(crate) methods: Vec<InterfaceImplMethod>,
-    pub(crate) location: ast::Id,
+    pub(crate) location: ast::NodeId,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
@@ -290,8 +290,8 @@ pub(crate) struct InterfaceDefMethod {
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub(crate) struct InterfaceImplMethod {
     pub(crate) name: Symbol,
-    pub(crate) method_location: ast::Id,
-    pub(crate) identifier_location: ast::Id,
+    pub(crate) method_location: ast::NodeId,
+    pub(crate) identifier_location: ast::NodeId,
 }
 
 // If two types don't share the same key, they must be in conflict
@@ -315,8 +315,8 @@ pub(crate) enum TypeKey {
 // TODO: Does Prov really need to be that deeply nested? Will there really be FuncArg -> InstantiatedPoly -> BinopLeft -> Node? Or can we simplify here?
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub(crate) enum Prov {
-    Node(ast::Id),   // the type of an expression or statement
-    Builtin(String), // a function or constant, which doesn't exist in the AST
+    Node(ast::NodeId), // the type of an expression or statement
+    Builtin(String),   // a function or constant, which doesn't exist in the AST
     UnderdeterminedCoerceToUnit,
 
     Alias(Symbol), // TODO add Box<Prov>
@@ -337,7 +337,7 @@ pub(crate) enum Prov {
 impl Prov {
     // TODO: Can we make this not Optional? Only reason it would fail is if the last prov in the chain is a builtin
     // TODO: remove Builtin prov for this reason, defeats the purpose. Builtins should be declared in the PRELUDE, and that declaration will be the Prov.
-    pub(crate) fn get_location(&self) -> Option<ast::Id> {
+    pub(crate) fn get_location(&self) -> Option<ast::NodeId> {
         match self {
             Prov::Node(id) => Some(*id),
             Prov::Builtin(_) => None,
@@ -615,7 +615,7 @@ impl TypeVar {
         }
     }
 
-    pub(crate) fn from_node(inf_ctx: &mut InferenceContext, id: ast::Id) -> TypeVar {
+    pub(crate) fn from_node(inf_ctx: &mut InferenceContext, id: ast::NodeId) -> TypeVar {
         let prov = Prov::Node(id);
         Self::fresh(inf_ctx, prov)
     }
@@ -704,7 +704,7 @@ impl TypeVar {
     }
 }
 
-fn types_of_binop(opcode: &BinOpcode, id: ast::Id) -> (TypeVar, TypeVar, TypeVar) {
+fn types_of_binop(opcode: &BinOpcode, id: ast::NodeId) -> (TypeVar, TypeVar, TypeVar) {
     let prov_left = Prov::BinopLeft(Prov::Node(id).into());
     let prov_right = Prov::BinopRight(Prov::Node(id).into());
     let prov_out = Prov::Node(id);
@@ -862,28 +862,28 @@ pub(crate) struct InferenceContext {
     // map from types to interfaces they have been constrained to
     types_constrained_to_interfaces: BTreeMap<TypeVar, Vec<(Symbol, Prov)>>,
     // types that must be a struct because there was a field access
-    types_that_must_be_structs: BTreeMap<TypeVar, ast::Id>,
+    types_that_must_be_structs: BTreeMap<TypeVar, ast::NodeId>,
 
     // ERRORS
 
     // unbound variables
-    unbound_vars: BTreeSet<ast::Id>,
-    unbound_interfaces: BTreeSet<ast::Id>,
+    unbound_vars: BTreeSet<ast::NodeId>,
+    unbound_interfaces: BTreeSet<ast::NodeId>,
     // multiple definitions
-    multiple_udt_defs: BTreeMap<Symbol, Vec<ast::Id>>,
-    multiple_interface_defs: BTreeMap<Symbol, Vec<ast::Id>>,
+    multiple_udt_defs: BTreeMap<Symbol, Vec<ast::NodeId>>,
+    multiple_interface_defs: BTreeMap<Symbol, Vec<ast::NodeId>>,
     // interface implementations
-    multiple_interface_impls: BTreeMap<Symbol, Vec<ast::Id>>,
-    interface_impl_for_instantiated_adt: Vec<ast::Id>,
-    interface_impl_extra_method: BTreeMap<ast::Id, Vec<ast::Id>>,
-    interface_impl_missing_method: BTreeMap<ast::Id, Vec<String>>,
+    multiple_interface_impls: BTreeMap<Symbol, Vec<ast::NodeId>>,
+    interface_impl_for_instantiated_adt: Vec<ast::NodeId>,
+    interface_impl_extra_method: BTreeMap<ast::NodeId, Vec<ast::NodeId>>,
+    interface_impl_missing_method: BTreeMap<ast::NodeId, Vec<String>>,
     // non-exhaustive matches
-    nonexhaustive_matches: BTreeMap<ast::Id, Vec<DeconstructedPat>>,
-    redundant_matches: BTreeMap<ast::Id, Vec<ast::Id>>,
+    nonexhaustive_matches: BTreeMap<ast::NodeId, Vec<DeconstructedPat>>,
+    redundant_matches: BTreeMap<ast::NodeId, Vec<ast::NodeId>>,
     // annotation needed
-    annotation_needed: BTreeSet<ast::Id>,
+    annotation_needed: BTreeSet<ast::NodeId>,
     // field not an identifier
-    field_not_ident: BTreeSet<ast::Id>,
+    field_not_ident: BTreeSet<ast::NodeId>,
 }
 
 impl InferenceContext {
@@ -910,7 +910,7 @@ impl InferenceContext {
             .collect()
     }
 
-    pub(crate) fn solution_of_node(&self, id: ast::Id) -> Option<SolvedType> {
+    pub(crate) fn solution_of_node(&self, id: ast::NodeId) -> Option<SolvedType> {
         let prov = Prov::Node(id);
         match self.vars.get(&prov) {
             Some(unifvar) => unifvar.solution(),
@@ -1757,7 +1757,7 @@ pub(crate) fn generate_constraints_expr(
 
 fn generate_constraints_func_helper(
     inf_ctx: &mut InferenceContext,
-    node_id: ast::Id,
+    node_id: ast::NodeId,
     gamma: Gamma,
     args: &[ast::ArgAnnotated],
     out_annot: &Option<Rc<ast::AstType>>,
@@ -2305,7 +2305,7 @@ pub(crate) fn result_of_constraint_solving(
     // look for error of multiple interface implementations for the same type
     for (ident, impls) in inf_ctx.interface_impls.iter() {
         // map from implementation type to location
-        let mut impls_by_type: BTreeMap<SolvedType, Vec<ast::Id>> = BTreeMap::new();
+        let mut impls_by_type: BTreeMap<SolvedType, Vec<ast::NodeId>> = BTreeMap::new();
         for imp in impls.iter() {
             if let Some(impl_typ) = imp.typ.clone().solution() {
                 impls_by_type
