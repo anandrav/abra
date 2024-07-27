@@ -1650,7 +1650,10 @@ fn populate_env(env: Rc<RefCell<EvalEnv>>, pat: Rc<Pat>, expr: Rc<Expr>) {
                 populate_env(env.clone(), pat.clone(), expr.clone());
             }
         }
-        _ => panic!("pattern and expression do not match"),
+        _ => panic!(
+            "pattern '{:?}' and expression '{:?}' do not match",
+            pat, expr
+        ),
     }
 }
 
