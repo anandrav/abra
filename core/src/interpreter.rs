@@ -893,7 +893,6 @@ fn interpret(
                     closure.extend(id.clone(), expr1.clone());
                 }
 
-                let new_env = env.new_scope();
                 new_env.extend(id.clone(), expr1);
 
                 let InterpretOk {
@@ -938,7 +937,6 @@ fn interpret(
                         new_env,
                     });
                 }
-                let new_env = env.new_scope();
                 populate_env(new_env.clone(), pat.clone(), expr1);
                 let InterpretOk {
                     expr,
@@ -1494,7 +1492,6 @@ fn interpret(
                 });
             }
             for (pat, expr) in cases {
-                let new_env = env.new_scope();
                 if match_pattern(pat.clone(), expr1.clone(), new_env.clone()) {
                     let InterpretOk {
                         expr,
