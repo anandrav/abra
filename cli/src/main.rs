@@ -9,9 +9,9 @@ use once_cell::sync::Lazy;
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
 struct Args {
-    /// Name of the person to greet
-    #[arg(short, long)]
-    files: Vec<String>,
+    /// file to run
+    #[arg()]
+    file: String,
 }
 
 fn main() {
@@ -22,14 +22,16 @@ fn main() {
         name: "prelude.abra".to_string(),
         contents: abra_core::_PRELUDE.to_string(),
     });
-    for file in args.files {
-        let contents = std::fs::read_to_string(&file).unwrap();
-        //.unwrap_or_else(|_| panic!("file '{}' not found", file));
-        source_files.push(SourceFile {
-            name: file,
-            contents,
-        });
-    }
+
+    let Ok(contents) = std::fs::read_to_string(&args.file) else {
+        eprintln!("file '{}' not found", args.file);
+        return;
+    };
+    source_files.push(SourceFile {
+        name: args.file,
+        contents,
+    });
+
     match abra_core::compile::<side_effects::DefaultEffects>(source_files) {
         Ok(runtime) => {
             let mut interpreter = runtime.toplevel_interpreter();
@@ -46,16 +48,14 @@ fn main() {
                     InterpreterStatus::Effect(code, args) => {
                         let effect = &EFFECT_LIST[code as usize];
                         match effect {
-                            abra_core::side_effects::DefaultEffects::PrintString => {
-                                match &*args[0] {
-                                    abra_core::eval_tree::Expr::Str(string) => {
-                                        print!("{}", string);
-                                        effect_result =
-                                            Some(abra_core::eval_tree::Expr::Unit.into());
-                                    }
-                                    _ => panic!("wrong arguments for {:#?} effect", effect),
+                            abra_core::side_effects::DefaultEffects::PrintString => match &*args[0]
+                            {
+                                abra_core::eval_tree::Expr::Str(string) => {
+                                    print!("{}", string);
+                                    effect_result = Some(abra_core::eval_tree::Expr::Unit.into());
                                 }
-                            }
+                                _ => panic!("wrong arguments for {:#?} effect", effect),
+                            },
                             abra_core::side_effects::DefaultEffects::Read => {
                                 let mut input = String::new();
                                 std::io::stdin().read_line(&mut input).unwrap();
@@ -68,7 +68,7 @@ fn main() {
             }
         }
         Err(err) => {
-            println!("{}", err);
+            eprintln!("{}", err);
         }
     }
 }
