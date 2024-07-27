@@ -1,4 +1,4 @@
-use std::{cell::RefCell, collections::HashMap, rc::Rc};
+use std::{collections::HashMap, rc::Rc};
 
 use environment::EvalEnv;
 pub use side_effects::EffectCode;
@@ -74,7 +74,7 @@ pub fn compile<Effect: EffectTrait>(source_files: Vec<SourceFile>) -> Result<Run
 
     statics::result_of_additional_analysis(&mut inference_ctx, &toplevels, &node_map, &sources)?;
 
-    let env: Rc<RefCell<EvalEnv>> = Rc::new(RefCell::new(EvalEnv::new(None)));
+    let env: EvalEnv = EvalEnv::empty();
     let (eval_tree, overloaded_func_map) =
         translate::translate(&inference_ctx, tyctx, &node_map, &toplevels, env.clone());
     interpreter::add_builtins_and_variants::<Effect>(env.clone(), &inference_ctx);
@@ -130,7 +130,7 @@ pub fn run_with_handler<Effect: EffectTrait>(
 
 pub struct Runtime {
     toplevel_eval_tree: Rc<eval_tree::Expr>,
-    toplevel_env: Rc<RefCell<EvalEnv>>,
+    toplevel_env: EvalEnv,
     overloaded_func_map: OverloadedFuncMap,
 }
 
@@ -144,11 +144,7 @@ impl Runtime {
     }
 
     pub fn func_interpreter(&self, func_name: &str, args: Vec<Rc<eval_tree::Expr>>) -> Interpreter {
-        let func = self
-            .toplevel_env
-            .borrow()
-            .lookup(&func_name.to_string())
-            .unwrap();
+        let func = self.toplevel_env.lookup(&func_name.to_string()).unwrap();
         let func_ap = eval_tree::Expr::FuncAp(func, args, None);
         Interpreter::new(
             self.overloaded_func_map.clone(),

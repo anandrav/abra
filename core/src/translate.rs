@@ -78,7 +78,7 @@ fn translate_expr_block(
     node_map: &NodeMap,
     overloaded_func_map: &mut OverloadedFuncMapTemp,
     stmts: Vec<Rc<ast::Stmt>>,
-    env: Option<Rc<RefCell<EvalEnv>>>,
+    env: Option<EvalEnv>,
 ) -> Rc<Ete> {
     if stmts.is_empty() {
         return Rc::new(Ete::Unit);
@@ -122,7 +122,7 @@ fn translate_expr_block(
                 body.clone(),
             );
             if let Some(env) = &env {
-                env.borrow_mut().extend(&id, func.clone());
+                env.extend(id.clone(), func.clone());
             }
             Rc::new(Ete::Let(
                 Rc::new(Etp::Var(id)),
@@ -909,7 +909,7 @@ pub(crate) fn translate(
     gamma: Gamma,
     node_map: &NodeMap,
     toplevels: &Vec<Rc<ast::Toplevel>>,
-    env: Rc<RefCell<EvalEnv>>,
+    env: EvalEnv,
 ) -> (Rc<Ete>, interpreter::OverloadedFuncMap) {
     let mut overloaded_func_map_temp = OverloadedFuncMapTemp::new();
     let monomorphenv = Rc::new(RefCell::new(MonomorphEnv::new(None)));

@@ -14,12 +14,12 @@ use std::rc::Rc;
 
 // TODO why do we have to manually call this?
 pub(crate) fn add_builtins_and_variants<Effects: EffectTrait>(
-    env: Rc<RefCell<EvalEnv>>,
+    env: EvalEnv,
     inf_ctx: &InferenceContext,
-) -> Rc<RefCell<EvalEnv>> {
+) -> EvalEnv {
     // builtins
-    env.borrow_mut().extend(
-        &String::from("newline"),
+    env.extend(
+        String::from("newline"),
         Rc::new(Expr::Str(String::from("\n"))),
     );
     for (idx, eff) in Effects::enumerate().iter().enumerate() {
@@ -37,10 +37,10 @@ pub(crate) fn add_builtins_and_variants<Effects: EffectTrait>(
                 .collect(),
         ));
         let expr = Rc::new(Expr::Func(args, body, None));
-        env.borrow_mut().extend(&eff.function_name(), expr);
+        env.extend(eff.function_name(), expr);
     }
-    env.borrow_mut().extend(
-        &String::from("equals_int"),
+    env.extend(
+        String::from("equals_int"),
         Rc::new(Expr::Func(
             vec![String::from("i1"), String::from("i2")],
             Rc::new(Expr::BuiltinAp(
@@ -53,8 +53,8 @@ pub(crate) fn add_builtins_and_variants<Effects: EffectTrait>(
             None,
         )),
     );
-    env.borrow_mut().extend(
-        &String::from("equals_string"),
+    env.extend(
+        String::from("equals_string"),
         Rc::new(Expr::Func(
             vec![String::from("s1"), String::from("s2")],
             Rc::new(Expr::BuiltinAp(
@@ -67,8 +67,8 @@ pub(crate) fn add_builtins_and_variants<Effects: EffectTrait>(
             None,
         )),
     );
-    env.borrow_mut().extend(
-        &String::from("int_to_string"),
+    env.extend(
+        String::from("int_to_string"),
         Rc::new(Expr::Func(
             vec![String::from("some_int")],
             Rc::new(Expr::BuiltinAp(
@@ -78,8 +78,8 @@ pub(crate) fn add_builtins_and_variants<Effects: EffectTrait>(
             None,
         )),
     );
-    env.borrow_mut().extend(
-        &String::from("float_to_string"),
+    env.extend(
+        String::from("float_to_string"),
         Rc::new(Expr::Func(
             vec![String::from("some_float")],
             Rc::new(Expr::BuiltinAp(
@@ -89,8 +89,8 @@ pub(crate) fn add_builtins_and_variants<Effects: EffectTrait>(
             None,
         )),
     );
-    env.borrow_mut().extend(
-        &String::from("to_float"),
+    env.extend(
+        String::from("to_float"),
         Rc::new(Expr::Func(
             vec![String::from("some_int")],
             Rc::new(Expr::BuiltinAp(
@@ -100,8 +100,8 @@ pub(crate) fn add_builtins_and_variants<Effects: EffectTrait>(
             None,
         )),
     );
-    env.borrow_mut().extend(
-        &String::from("round"),
+    env.extend(
+        String::from("round"),
         Rc::new(Expr::Func(
             vec![String::from("some_float")],
             Rc::new(Expr::BuiltinAp(
@@ -111,8 +111,8 @@ pub(crate) fn add_builtins_and_variants<Effects: EffectTrait>(
             None,
         )),
     );
-    env.borrow_mut().extend(
-        &String::from("append_strings"),
+    env.extend(
+        String::from("append_strings"),
         Rc::new(Expr::Func(
             vec![String::from("s1"), String::from("s2")],
             Rc::new(Expr::BuiltinAp(
@@ -125,8 +125,8 @@ pub(crate) fn add_builtins_and_variants<Effects: EffectTrait>(
             None,
         )),
     );
-    env.borrow_mut().extend(
-        &String::from("add_int"),
+    env.extend(
+        String::from("add_int"),
         Rc::new(Expr::Func(
             vec![String::from("i1"), String::from("i2")],
             Rc::new(Expr::BuiltinAp(
@@ -139,8 +139,8 @@ pub(crate) fn add_builtins_and_variants<Effects: EffectTrait>(
             None,
         )),
     );
-    env.borrow_mut().extend(
-        &String::from("minus_int"),
+    env.extend(
+        String::from("minus_int"),
         Rc::new(Expr::Func(
             vec![String::from("i1"), String::from("i2")],
             Rc::new(Expr::BuiltinAp(
@@ -153,8 +153,8 @@ pub(crate) fn add_builtins_and_variants<Effects: EffectTrait>(
             None,
         )),
     );
-    env.borrow_mut().extend(
-        &String::from("multiply_int"),
+    env.extend(
+        String::from("multiply_int"),
         Rc::new(Expr::Func(
             vec![String::from("i1"), String::from("i2")],
             Rc::new(Expr::BuiltinAp(
@@ -167,8 +167,8 @@ pub(crate) fn add_builtins_and_variants<Effects: EffectTrait>(
             None,
         )),
     );
-    env.borrow_mut().extend(
-        &String::from("divide_int"),
+    env.extend(
+        String::from("divide_int"),
         Rc::new(Expr::Func(
             vec![String::from("i1"), String::from("i2")],
             Rc::new(Expr::BuiltinAp(
@@ -181,8 +181,8 @@ pub(crate) fn add_builtins_and_variants<Effects: EffectTrait>(
             None,
         )),
     );
-    env.borrow_mut().extend(
-        &String::from("pow_int"),
+    env.extend(
+        String::from("pow_int"),
         Rc::new(Expr::Func(
             vec![String::from("i1"), String::from("i2")],
             Rc::new(Expr::BuiltinAp(
@@ -195,8 +195,8 @@ pub(crate) fn add_builtins_and_variants<Effects: EffectTrait>(
             None,
         )),
     );
-    env.borrow_mut().extend(
-        &String::from("less_than_int"),
+    env.extend(
+        String::from("less_than_int"),
         Rc::new(Expr::Func(
             vec![String::from("i1"), String::from("i2")],
             Rc::new(Expr::BuiltinAp(
@@ -209,8 +209,8 @@ pub(crate) fn add_builtins_and_variants<Effects: EffectTrait>(
             None,
         )),
     );
-    env.borrow_mut().extend(
-        &String::from("add_float"),
+    env.extend(
+        String::from("add_float"),
         Rc::new(Expr::Func(
             vec![String::from("i1"), String::from("i2")],
             Rc::new(Expr::BuiltinAp(
@@ -223,8 +223,8 @@ pub(crate) fn add_builtins_and_variants<Effects: EffectTrait>(
             None,
         )),
     );
-    env.borrow_mut().extend(
-        &String::from("minus_float"),
+    env.extend(
+        String::from("minus_float"),
         Rc::new(Expr::Func(
             vec![String::from("i1"), String::from("i2")],
             Rc::new(Expr::BuiltinAp(
@@ -237,8 +237,8 @@ pub(crate) fn add_builtins_and_variants<Effects: EffectTrait>(
             None,
         )),
     );
-    env.borrow_mut().extend(
-        &String::from("multiply_float"),
+    env.extend(
+        String::from("multiply_float"),
         Rc::new(Expr::Func(
             vec![String::from("i1"), String::from("i2")],
             Rc::new(Expr::BuiltinAp(
@@ -251,8 +251,8 @@ pub(crate) fn add_builtins_and_variants<Effects: EffectTrait>(
             None,
         )),
     );
-    env.borrow_mut().extend(
-        &String::from("divide_float"),
+    env.extend(
+        String::from("divide_float"),
         Rc::new(Expr::Func(
             vec![String::from("i1"), String::from("i2")],
             Rc::new(Expr::BuiltinAp(
@@ -265,8 +265,8 @@ pub(crate) fn add_builtins_and_variants<Effects: EffectTrait>(
             None,
         )),
     );
-    env.borrow_mut().extend(
-        &String::from("pow_float"),
+    env.extend(
+        String::from("pow_float"),
         Rc::new(Expr::Func(
             vec![String::from("i1"), String::from("i2")],
             Rc::new(Expr::BuiltinAp(
@@ -279,8 +279,8 @@ pub(crate) fn add_builtins_and_variants<Effects: EffectTrait>(
             None,
         )),
     );
-    env.borrow_mut().extend(
-        &String::from("sqrt_float"),
+    env.extend(
+        String::from("sqrt_float"),
         Rc::new(Expr::Func(
             vec![String::from("f")],
             Rc::new(Expr::BuiltinAp(
@@ -290,8 +290,8 @@ pub(crate) fn add_builtins_and_variants<Effects: EffectTrait>(
             None,
         )),
     );
-    env.borrow_mut().extend(
-        &String::from("less_than_float"),
+    env.extend(
+        String::from("less_than_float"),
         Rc::new(Expr::Func(
             vec![String::from("i1"), String::from("i2")],
             Rc::new(Expr::BuiltinAp(
@@ -304,8 +304,8 @@ pub(crate) fn add_builtins_and_variants<Effects: EffectTrait>(
             None,
         )),
     );
-    env.borrow_mut().extend(
-        &String::from("append"),
+    env.extend(
+        String::from("append"),
         Rc::new(Expr::Func(
             vec![String::from("arr"), String::from("elem")],
             Rc::new(Expr::BuiltinAp(
@@ -318,8 +318,8 @@ pub(crate) fn add_builtins_and_variants<Effects: EffectTrait>(
             None,
         )),
     );
-    env.borrow_mut().extend(
-        &String::from("len"),
+    env.extend(
+        String::from("len"),
         Rc::new(Expr::Func(
             vec![String::from("arr")],
             Rc::new(Expr::BuiltinAp(
@@ -329,8 +329,8 @@ pub(crate) fn add_builtins_and_variants<Effects: EffectTrait>(
             None,
         )),
     );
-    env.borrow_mut().extend(
-        &String::from("pop"),
+    env.extend(
+        String::from("pop"),
         Rc::new(Expr::Func(
             vec![String::from("arr")],
             Rc::new(Expr::BuiltinAp(
@@ -342,10 +342,10 @@ pub(crate) fn add_builtins_and_variants<Effects: EffectTrait>(
     );
     for (_name, adt_def) in inf_ctx.adt_defs.iter() {
         for variant in adt_def.variants.iter() {
-            let ctor = &variant.ctor;
+            let ctor = variant.ctor.clone();
             if let SolvedType::Unit = variant.data.solution().unwrap() {
-                env.borrow_mut().extend(
-                    ctor,
+                env.extend(
+                    ctor.clone(),
                     Rc::new(Expr::TaggedVariant(ctor.clone(), Rc::new(Expr::Unit))),
                 );
             } else {
@@ -368,11 +368,11 @@ pub(crate) fn add_builtins_and_variants<Effects: EffectTrait>(
                             body,
                             None,
                         ));
-                        env.borrow_mut().extend(ctor, expr);
+                        env.extend(ctor, expr);
                     }
                     _ => {
-                        env.borrow_mut().extend(
-                            ctor,
+                        env.extend(
+                            ctor.clone(),
                             Rc::new(Expr::Func(
                                 vec!["data".to_string()],
                                 Rc::new(Expr::TaggedVariant(
@@ -392,8 +392,8 @@ pub(crate) fn add_builtins_and_variants<Effects: EffectTrait>(
         for field in struct_def.fields.iter() {
             struct_val.insert(field.name.clone(), Rc::new(Expr::Var(field.name.clone())));
         }
-        env.borrow_mut().extend(
-            name,
+        env.extend(
+            name.clone(),
             Rc::new(Expr::Func(
                 struct_def.fields.iter().map(|f| f.name.clone()).collect(),
                 Rc::new(Expr::Struct(
@@ -412,7 +412,7 @@ pub(crate) type OverloadedFuncMap = HashMap<(Identifier, TypeMonomorphized), Rc<
 
 pub struct Interpreter {
     program_expr: Rc<Expr>,
-    env: Rc<RefCell<EvalEnv>>,
+    env: EvalEnv,
     overloaded_func_map: OverloadedFuncMap,
     error: Option<InterpretErr>,
 }
@@ -428,7 +428,7 @@ impl Interpreter {
     pub(crate) fn new(
         overloaded_func_map: OverloadedFuncMap,
         program_expr: Rc<Expr>,
-        env: Rc<RefCell<EvalEnv>>,
+        env: EvalEnv,
     ) -> Self {
         Interpreter {
             program_expr,
@@ -485,7 +485,7 @@ struct InterpretOk {
     expr: Rc<Expr>,
     steps: i32,
     effect: Option<(EffectCode, Vec<Rc<Expr>>)>,
-    new_env: Rc<RefCell<EvalEnv>>,
+    new_env: EvalEnv,
 }
 
 #[derive(Debug)]
@@ -496,14 +496,14 @@ struct InterpretErr {
 
 fn interpret(
     expr: Rc<Expr>,
-    env: Rc<RefCell<EvalEnv>>,
+    env: EvalEnv,
     overloaded_func_map: &OverloadedFuncMap,
     steps: i32,
     input: &Option<Rc<Expr>>,
 ) -> Result<InterpretOk, InterpretErr> {
     match &*expr {
         Var(id) => {
-            let result = env.borrow_mut().lookup(id);
+            let result = env.lookup(id);
             match result {
                 None => Err(InterpretErr {
                     message: format!("No value for variable with id: {}", id),
@@ -539,7 +539,7 @@ fn interpret(
             })
         }
         Func(id, body, None) => {
-            let closure = Rc::new(RefCell::new(EvalEnv::new(Some(env.clone()))));
+            let closure = env.new_scope();
             Ok(InterpretOk {
                 expr: Rc::new(Func(id.clone(), body.clone(), Some(closure))),
                 steps,
@@ -825,7 +825,7 @@ fn interpret(
                     });
                 }
 
-                let new_env = Rc::new(RefCell::new(EvalEnv::new(Some(env.clone()))));
+                let new_env = env.new_scope();
 
                 let InterpretOk {
                     expr,
@@ -883,7 +883,7 @@ fn interpret(
                     ),
                     // letrec
                     Func(args, body, None) => {
-                        let closure = Rc::new(RefCell::new(EvalEnv::new(Some(env.clone()))));
+                        let closure = env.new_scope();
                         (
                             Rc::new(Func(args.clone(), body.clone(), Some(closure.clone()))),
                             Some(closure),
@@ -892,11 +892,11 @@ fn interpret(
                     _ => (expr1, None),
                 };
                 if let Some(closure) = closure {
-                    closure.borrow_mut().extend(id, expr1.clone());
+                    closure.extend(id.clone(), expr1.clone());
                 }
 
-                let new_env = Rc::new(RefCell::new(EvalEnv::new(Some(env.clone()))));
-                new_env.borrow_mut().extend(id, expr1);
+                let new_env = env.new_scope();
+                new_env.extend(id.clone(), expr1);
 
                 let InterpretOk {
                     expr,
@@ -940,7 +940,7 @@ fn interpret(
                         new_env,
                     });
                 }
-                let new_env = Rc::new(RefCell::new(EvalEnv::new(Some(env.clone()))));
+                let new_env = env.new_scope();
                 populate_env(new_env.clone(), pat.clone(), expr1);
                 let InterpretOk {
                     expr,
@@ -1192,7 +1192,7 @@ fn interpret(
                     });
                 }
 
-                env.borrow_mut().replace(id, expr1);
+                env.extend(id.clone(), expr1);
 
                 let InterpretOk {
                     expr,
@@ -1263,11 +1263,7 @@ fn interpret(
             }
             let (ids, body, closure) = match &*expr1 {
                 Func(id, body, closure) => match closure {
-                    None => (
-                        id,
-                        body,
-                        Rc::new(RefCell::new(EvalEnv::new(Some(env.clone())))),
-                    ),
+                    None => (id, body, env.new_scope()),
                     Some(closure) => (id, body, closure.clone()),
                 },
                 _ => {
@@ -1280,9 +1276,9 @@ fn interpret(
             let funcapp_env = match funcapp_env {
                 Some(funcapp_env) => funcapp_env.clone(),
                 None => {
-                    let funcapp_env = Rc::new(RefCell::new(EvalEnv::new(Some(closure.clone()))));
+                    let funcapp_env = closure.new_scope();
                     for (i, id) in ids.iter().enumerate() {
-                        funcapp_env.borrow_mut().extend(id, new_args[i].clone());
+                        funcapp_env.extend(id.clone(), new_args[i].clone());
                     }
                     funcapp_env
                 }
@@ -1500,7 +1496,7 @@ fn interpret(
                 });
             }
             for (pat, expr) in cases {
-                let new_env = Rc::new(RefCell::new(EvalEnv::new(Some(env.clone()))));
+                let new_env = env.new_scope();
                 if match_pattern(pat.clone(), expr1.clone(), new_env.clone()) {
                     let InterpretOk {
                         expr,
@@ -1615,7 +1611,7 @@ fn interpret(
     }
 }
 
-fn match_pattern(pat: Rc<Pat>, expr: Rc<Expr>, env: Rc<RefCell<EvalEnv>>) -> bool {
+fn match_pattern(pat: Rc<Pat>, expr: Rc<Expr>, env: EvalEnv) -> bool {
     match (&*pat, &*expr) {
         (Pat::Wildcard, _) => true,
         (Pat::Unit, Unit) => true,
@@ -1627,7 +1623,7 @@ fn match_pattern(pat: Rc<Pat>, expr: Rc<Expr>, env: Rc<RefCell<EvalEnv>>) -> boo
             ptag == etag && match_pattern(pdata, edata.clone(), env)
         }
         (Pat::Var(id), _) => {
-            env.borrow_mut().extend(id, expr.clone());
+            env.extend(id.clone(), expr.clone());
             true
         }
         (Pat::Tuple(pats), Tuple(exprs)) if pats.len() == exprs.len() => {
@@ -1642,9 +1638,9 @@ fn match_pattern(pat: Rc<Pat>, expr: Rc<Expr>, env: Rc<RefCell<EvalEnv>>) -> boo
     }
 }
 
-fn populate_env(env: Rc<RefCell<EvalEnv>>, pat: Rc<Pat>, expr: Rc<Expr>) {
+fn populate_env(env: EvalEnv, pat: Rc<Pat>, expr: Rc<Expr>) {
     match (&*pat, &*expr) {
-        (Pat::Var(id), _) => env.borrow_mut().extend(id, expr.clone()),
+        (Pat::Var(id), _) => env.extend(id.clone(), expr.clone()),
         (Pat::Tuple(pats), Tuple(exprs)) if pats.len() == exprs.len() => {
             for (pat, expr) in pats.iter().zip(exprs.iter()) {
                 populate_env(env.clone(), pat.clone(), expr.clone());
