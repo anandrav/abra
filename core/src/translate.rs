@@ -1,6 +1,7 @@
 use crate::ast;
 use crate::ast::Node;
 use crate::ast::NodeMap;
+use crate::environment::Environment;
 use crate::environment::EvalEnv;
 use crate::eval_tree;
 use crate::interpreter;
@@ -12,7 +13,6 @@ use crate::statics::Prov;
 use crate::statics::SolvedType;
 use crate::statics::TypeMonomorphized;
 use std::cell::RefCell;
-use std::collections::BTreeMap;
 use std::collections::HashMap;
 use std::rc::Rc;
 
@@ -23,34 +23,7 @@ type Etl = eval_tree::PlaceExpr;
 type ASTpk = ast::PatKind;
 type Etp = eval_tree::Pat;
 
-#[derive(PartialEq, Eq, Debug)]
-struct MonomorphEnv {
-    vars: BTreeMap<ast::Symbol, SolvedType>,
-    enclosing: Option<Rc<RefCell<MonomorphEnv>>>,
-}
-
-impl MonomorphEnv {
-    fn new(enclosing: Option<Rc<RefCell<MonomorphEnv>>>) -> Self {
-        Self {
-            vars: BTreeMap::new(),
-            enclosing,
-        }
-    }
-
-    fn lookup(&self, key: &ast::Symbol) -> Option<SolvedType> {
-        match self.vars.get(key) {
-            Some(ty) => Some(ty.clone()),
-            None => match &self.enclosing {
-                Some(env) => env.borrow_mut().lookup(key),
-                None => None,
-            },
-        }
-    }
-
-    fn extend(&mut self, key: &ast::Symbol, ty: SolvedType) {
-        self.vars.insert(key.clone(), ty);
-    }
-}
+type MonomorphEnv = Environment<ast::Symbol, SolvedType>;
 
 fn translate_pat(parse_tree: Rc<ast::Pat>) -> Rc<Etp> {
     match &*parse_tree.patkind {
@@ -73,7 +46,7 @@ fn translate_pat(parse_tree: Rc<ast::Pat>) -> Rc<Etp> {
 
 fn translate_expr_block(
     inf_ctx: &InferenceContext,
-    monomorphenv: Rc<RefCell<MonomorphEnv>>,
+    monomorphenv: MonomorphEnv,
     gamma: Gamma,
     node_map: &NodeMap,
     overloaded_func_map: &mut OverloadedFuncMapTemp,
@@ -222,7 +195,7 @@ fn translate_expr_block(
 
 fn make_place_expr(
     inf_ctx: &InferenceContext,
-    monomorphenv: Rc<RefCell<MonomorphEnv>>,
+    monomorphenv: MonomorphEnv,
     gamma: Gamma,
     node_map: &NodeMap,
     overloaded_func_map: &mut OverloadedFuncMapTemp,
@@ -273,7 +246,7 @@ fn make_place_expr(
 
 fn translate_expr_func(
     inf_ctx: &InferenceContext,
-    monomorphenv: Rc<RefCell<MonomorphEnv>>,
+    monomorphenv: MonomorphEnv,
     gamma: Gamma,
     node_map: &NodeMap,
     overloaded_func_map: &mut OverloadedFuncMapTemp,
@@ -301,7 +274,7 @@ fn translate_expr_func(
 
 fn translate_expr_ap(
     inf_ctx: &InferenceContext,
-    monomorphenv: Rc<RefCell<MonomorphEnv>>,
+    monomorphenv: MonomorphEnv,
     gamma: Gamma,
     node_map: &NodeMap,
     overloaded_func_map: &mut OverloadedFuncMapTemp,
@@ -342,7 +315,7 @@ fn ty_of_global_ident(gamma: Gamma, ident: &ast::Symbol) -> Option<SolvedType> {
 }
 
 fn update_monomorphenv(
-    monomorphenv: Rc<RefCell<MonomorphEnv>>,
+    monomorphenv: MonomorphEnv,
     overloaded_ty: SolvedType,
     monomorphic_ty: SolvedType,
 ) {
@@ -361,7 +334,7 @@ fn update_monomorphenv(
             }
         }
         (SolvedType::Poly(ident, _), _) => {
-            monomorphenv.borrow_mut().extend(&ident, monomorphic_ty);
+            monomorphenv.extend(ident, monomorphic_ty);
         }
         (SolvedType::Tuple(elems1), SolvedType::Tuple(elems2)) => {
             for i in 0..elems1.len() {
@@ -372,10 +345,7 @@ fn update_monomorphenv(
     }
 }
 
-fn subst_with_monomorphic_env(
-    monomorphic_env: Rc<RefCell<MonomorphEnv>>,
-    ty: SolvedType,
-) -> SolvedType {
+fn subst_with_monomorphic_env(monomorphic_env: MonomorphEnv, ty: SolvedType) -> SolvedType {
     match ty {
         SolvedType::Function(args, out) => {
             let new_args = args
@@ -393,7 +363,7 @@ fn subst_with_monomorphic_env(
             SolvedType::UdtInstance(ident, new_params)
         }
         SolvedType::Poly(ref ident, _) => {
-            if let Some(monomorphic_ty) = monomorphic_env.borrow().lookup(ident) {
+            if let Some(monomorphic_ty) = monomorphic_env.lookup(ident) {
                 monomorphic_ty
             } else {
                 ty
@@ -456,7 +426,7 @@ fn get_func_definition_node(
 
 fn monomorphize_overloaded_var(
     inf_ctx: &InferenceContext,
-    monomorphenv: Rc<RefCell<MonomorphEnv>>,
+    monomorphenv: MonomorphEnv,
     gamma: Gamma,
     node_map: &NodeMap,
     overloaded_func_map: &mut OverloadedFuncMapTemp,
@@ -482,7 +452,7 @@ fn monomorphize_overloaded_var(
             };
 
             let overloaded_func_ty = inf_ctx.solution_of_node(pat.id()).unwrap();
-            let monomorphenv = Rc::new(RefCell::new(MonomorphEnv::new(None)));
+            let monomorphenv = MonomorphEnv::empty();
             update_monomorphenv(monomorphenv.clone(), overloaded_func_ty, substituted_ty);
 
             overloaded_func_map.insert((ident.clone(), instance_ty.clone()), None);
@@ -504,7 +474,7 @@ fn monomorphize_overloaded_var(
 
 fn translate_expr(
     inf_ctx: &InferenceContext,
-    monomorphenv: Rc<RefCell<MonomorphEnv>>,
+    monomorphenv: MonomorphEnv,
     gamma: Gamma,
     node_map: &NodeMap,
     overloaded_func_map: &mut OverloadedFuncMapTemp,
@@ -912,7 +882,7 @@ pub(crate) fn translate(
     env: EvalEnv,
 ) -> (Rc<Ete>, interpreter::OverloadedFuncMap) {
     let mut overloaded_func_map_temp = OverloadedFuncMapTemp::new();
-    let monomorphenv = Rc::new(RefCell::new(MonomorphEnv::new(None)));
+    let monomorphenv = MonomorphEnv::empty();
     let mut statements = Vec::new();
     for toplevel in toplevels {
         for s in &toplevel.statements {
