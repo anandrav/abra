@@ -825,8 +825,6 @@ fn interpret(
                     });
                 }
 
-                let new_env = env.new_scope();
-
                 let InterpretOk {
                     expr,
                     steps,
