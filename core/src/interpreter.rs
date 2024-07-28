@@ -1641,6 +1641,7 @@ fn populate_env(env: EvalEnv, pat: Rc<Pat>, expr: Rc<Expr>) {
                 populate_env(env.clone(), pat.clone(), expr.clone());
             }
         }
+        (Pat::Wildcard, _) => (),
         _ => panic!(
             "pattern '{:?}' and expression '{:?}' do not match",
             pat, expr
