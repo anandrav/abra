@@ -1721,7 +1721,13 @@ fn handle_builtin(builtin: Builtin, args: Vec<Rc<Expr>>) -> Result<Rc<Expr>, Int
             let arg1 = args[0].clone();
             let arg2 = args[1].clone();
             match (&*arg1, &*arg2) {
-                (Int(s1), Int(s2)) => Ok(Rc::new(Int(s1 + s2))),
+                (Int(s1), Int(s2)) => {
+                    s1.checked_add(*s2)
+                        .map(|n| Rc::new(Int(n)))
+                        .ok_or(InterpretErr {
+                            message: "Integer overflow during addition".to_owned(),
+                        })
+                }
                 _ => Err(InterpretErr {
                     message: "AddInt expects two ints".to_string(),
                 }),
@@ -1731,7 +1737,13 @@ fn handle_builtin(builtin: Builtin, args: Vec<Rc<Expr>>) -> Result<Rc<Expr>, Int
             let arg1 = args[0].clone();
             let arg2 = args[1].clone();
             match (&*arg1, &*arg2) {
-                (Int(s1), Int(s2)) => Ok(Rc::new(Int(s1 - s2))),
+                (Int(s1), Int(s2)) => {
+                    s1.checked_sub(*s2)
+                        .map(|n| Rc::new(Int(n)))
+                        .ok_or(InterpretErr {
+                            message: "Integer underflow during subtraction".to_owned(),
+                        })
+                }
                 _ => Err(InterpretErr {
                     message: "MinusInt expects two ints".to_string(),
                 }),
@@ -1741,7 +1753,13 @@ fn handle_builtin(builtin: Builtin, args: Vec<Rc<Expr>>) -> Result<Rc<Expr>, Int
             let arg1 = args[0].clone();
             let arg2 = args[1].clone();
             match (&*arg1, &*arg2) {
-                (Int(s1), Int(s2)) => Ok(Rc::new(Int(s1 * s2))),
+                (Int(s1), Int(s2)) => {
+                    s1.checked_mul(*s2)
+                        .map(|n| Rc::new(Int(n)))
+                        .ok_or(InterpretErr {
+                            message: "Integer overflow during multiplication".to_owned(),
+                        })
+                }
                 _ => Err(InterpretErr {
                     message: "MultiplyInt expects two ints".to_string(),
                 }),
@@ -1751,7 +1769,13 @@ fn handle_builtin(builtin: Builtin, args: Vec<Rc<Expr>>) -> Result<Rc<Expr>, Int
             let arg1 = args[0].clone();
             let arg2 = args[1].clone();
             match (&*arg1, &*arg2) {
-                (Int(s1), Int(s2)) => Ok(Rc::new(Int(s1 / s2))),
+                (Int(s1), Int(s2)) => {
+                    s1.checked_div(*s2)
+                        .map(|n| Rc::new(Int(n)))
+                        .ok_or(InterpretErr {
+                            message: "Division by zero or overflow occurred".to_owned(),
+                        })
+                }
                 _ => Err(InterpretErr {
                     message: "DivideInt expects two ints".to_string(),
                 }),
@@ -1761,7 +1785,13 @@ fn handle_builtin(builtin: Builtin, args: Vec<Rc<Expr>>) -> Result<Rc<Expr>, Int
             let arg1 = args[0].clone();
             let arg2 = args[1].clone();
             match (&*arg1, &*arg2) {
-                (Int(s1), Int(s2)) => Ok(Rc::new(Int(s1.pow(i64::try_into(*s2).unwrap())))),
+                (Int(s1), Int(s2)) => {
+                    s1.checked_pow(*s2 as u32)
+                        .map(|n| Rc::new(Int(n)))
+                        .ok_or(InterpretErr {
+                            message: "Integer overflow during pow".to_owned(),
+                        })
+                }
                 _ => Err(InterpretErr {
                     message: "PowInt expects two ints".to_string(),
                 }),
