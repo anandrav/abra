@@ -890,6 +890,7 @@ fn interpret(
                     _ => (expr1, None),
                 };
                 if let Some(closure) = closure {
+                    // TODO: I think this should be a weak
                     closure.extend(id.clone(), expr1.clone());
                 }
 
