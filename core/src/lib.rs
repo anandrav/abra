@@ -12,6 +12,7 @@ mod operators;
 pub mod side_effects;
 pub mod statics;
 pub mod translate;
+mod vm;
 
 use interpreter::{Interpreter, OverloadedFuncMap};
 
