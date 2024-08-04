@@ -99,22 +99,22 @@ impl Vm {
                     Instr::Add => {
                         let a = self.pop_int();
                         let b = self.pop_int();
-                        self.value_stack.push(Value::Int(a + b));
+                        self.push(a + b);
                     }
                     Instr::Sub => {
                         let a = self.pop_int();
                         let b = self.pop_int();
-                        self.value_stack.push(a - b);
+                        self.push(a - b);
                     }
                     Instr::Mul => {
                         let a = self.pop_int();
                         let b = self.pop_int();
-                        self.value_stack.push(Value::Int(a * b));
+                        self.push(a * b);
                     }
                     Instr::Div => {
                         let a = self.pop_int();
                         let b = self.pop_int();
-                        self.value_stack.push(Value::Int(a / b));
+                        self.push(a / b);
                     }
                     Instr::Jump(target) => {
                         self.pc = target;
@@ -132,6 +132,7 @@ impl Vm {
                             pc: self.pc + 1,
                             stack_base: self.value_stack.len(),
                         });
+                        self.pc = target;
                         continue;
                     }
                     Instr::CompareInt => {
@@ -150,15 +151,15 @@ impl Vm {
         }
     }
 
-    pub fn push(&mut self, x: impl Into<Value>) {
+    fn push(&mut self, x: impl Into<Value>) {
         self.value_stack.push(x.into());
     }
 
-    pub fn pop_int(&mut self) -> i64 {
+    fn pop_int(&mut self) -> i64 {
         self.value_stack.pop().expect("stack underflow").get_int()
     }
 
-    pub fn pop_bool(&mut self) -> bool {
+    fn pop_bool(&mut self) -> bool {
         self.value_stack.pop().expect("stack underflow").get_bool()
     }
 }
