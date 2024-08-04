@@ -1,26 +1,88 @@
 type ProgramCounter = usize;
-type Val = isize;
 
 #[derive(Debug)]
 pub struct Vm {
     program: Vec<Instr>,
-    stack: Vec<Val>,
-    pc: usize,
+    pc: ProgramCounter,
+    value_stack: Vec<Value>,
+    call_stack: Vec<CallFrame>,
+    heap: Vec<HeapObject>,
 }
 
 #[derive(Debug, Copy, Clone)]
 enum Instr {
-    Push(Val),
+    Push(Value),
     Pop,
     Add,
     Sub,
     Mul,
     Div,
 
-    Jump(usize),
-    JumpIfNotZero(usize),
+    Jump(ProgramCounter),
+    JumpIfTrue(ProgramCounter),
+    Call(ProgramCounter),
 
-    Compare,
+    CompareInt,
+}
+
+#[derive(Debug, Copy, Clone)]
+enum Value {
+    Bool(bool),
+    Int(i64),
+    ManagedObject(usize),
+}
+
+impl From<bool> for Value {
+    fn from(b: bool) -> Value {
+        Value::Bool(b)
+    }
+}
+
+impl From<i64> for Value {
+    fn from(n: i64) -> Value {
+        Value::Int(n)
+    }
+}
+
+impl Value {
+    fn get_int(&self) -> i64 {
+        match self {
+            Value::Int(n) => *n,
+            _ => panic!("not an int"),
+        }
+    }
+
+    fn get_bool(&self) -> bool {
+        match self {
+            Value::Bool(b) => *b,
+            _ => panic!("not a bool"),
+        }
+    }
+}
+
+#[derive(Debug)]
+struct CallFrame {
+    pc: ProgramCounter,
+    stack_base: usize,
+}
+
+// ReferenceType
+// TODO: garbage collection (mark-and-sweep? copy-collection?)
+#[derive(Debug)]
+struct HeapObject {
+    // mark: bool,
+    kind: HeapObjectKind,
+}
+
+#[derive(Debug)]
+enum HeapObjectKind {
+    Record(Vec<Value>),
+    String(String),
+    DynArray(Vec<Value>),
+    FunctionObject {
+        closure: (), /* TODO */
+        addr: ProgramCounter,
+    },
 }
 
 impl Vm {
@@ -29,51 +91,58 @@ impl Vm {
             while let Some(instr) = self.program.get(self.pc).cloned() {
                 match instr {
                     Instr::Push(value) => {
-                        self.stack.push(value);
+                        self.value_stack.push(value);
                     }
                     Instr::Pop => {
-                        self.stack.pop();
+                        self.value_stack.pop();
                     }
                     Instr::Add => {
-                        let a = self.arg();
-                        let b = self.arg();
-                        self.stack.push(a + b);
+                        let a = self.pop_int();
+                        let b = self.pop_int();
+                        self.value_stack.push(Value::Int(a + b));
                     }
                     Instr::Sub => {
-                        let a = self.arg();
-                        let b = self.arg();
-                        self.stack.push(a - b);
+                        let a = self.pop_int();
+                        let b = self.pop_int();
+                        self.value_stack.push(a - b);
                     }
                     Instr::Mul => {
-                        let a = self.arg();
-                        let b = self.arg();
-                        self.stack.push(a * b);
+                        let a = self.pop_int();
+                        let b = self.pop_int();
+                        self.value_stack.push(Value::Int(a * b));
                     }
                     Instr::Div => {
-                        let a = self.arg();
-                        let b = self.arg();
-                        self.stack.push(a / b);
+                        let a = self.pop_int();
+                        let b = self.pop_int();
+                        self.value_stack.push(Value::Int(a / b));
                     }
                     Instr::Jump(target) => {
                         self.pc = target;
                         continue;
                     }
-                    Instr::JumpIfNotZero(target) => {
-                        let a = self.arg();
-                        if a != 0 {
+                    Instr::JumpIfTrue(target) => {
+                        let v = self.pop_bool();
+                        if v {
                             self.pc = target;
                             continue;
                         }
                     }
-                    Instr::Compare => {
-                        let a = self.arg();
-                        let b = self.arg();
-                        let result = match a.cmp(&b) {
+                    Instr::Call(target) => {
+                        self.call_stack.push(CallFrame {
+                            pc: self.pc + 1,
+                            stack_base: self.value_stack.len(),
+                        });
+                        continue;
+                    }
+                    Instr::CompareInt => {
+                        let a = self.pop_int();
+                        let b = self.pop_int();
+                        let result: i64 = match a.cmp(&b) {
                             std::cmp::Ordering::Greater => 1,
                             std::cmp::Ordering::Less => -1,
                             std::cmp::Ordering::Equal => 0,
                         };
-                        self.stack.push(result);
+                        self.push(result);
                     }
                 }
                 self.pc += 1;
@@ -81,7 +150,15 @@ impl Vm {
         }
     }
 
-    pub fn arg(&mut self) -> isize {
-        self.stack.pop().expect("stack underflow")
+    pub fn push(&mut self, x: impl Into<Value>) {
+        self.value_stack.push(x.into());
+    }
+
+    pub fn pop_int(&mut self) -> i64 {
+        self.value_stack.pop().expect("stack underflow").get_int()
+    }
+
+    pub fn pop_bool(&mut self) -> bool {
+        self.value_stack.pop().expect("stack underflow").get_bool()
     }
 }
