@@ -833,7 +833,7 @@ pub(crate) fn provs_singleton(prov: Prov) -> Provs {
     RefCell::new(set)
 }
 
-#[derive(Default)]
+#[derive(Default, Debug)]
 pub(crate) struct InferenceContext {
     // unification variables (skolems) which must be solved
     pub(crate) vars: HashMap<Prov, TypeVar>,

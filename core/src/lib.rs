@@ -11,13 +11,13 @@ pub mod eval_tree;
 pub mod interpreter;
 mod operators;
 pub mod side_effects;
-mod stack_ir;
 pub mod statics;
+mod translate_bytecode;
 pub mod translate_eval_tree;
-mod translate_stack_ir;
 pub mod vm;
 
 use interpreter::{Interpreter, OverloadedFuncMap};
+use translate_bytecode::Translator;
 
 pub fn abra_hello_world() {
     println!("Hello, world!");
@@ -87,6 +87,49 @@ pub fn compile<Effect: EffectTrait>(source_files: Vec<SourceFile>) -> Result<Run
         toplevel_env: env,
         overloaded_func_map,
     })
+}
+
+pub fn compile_bytecode<Effect: EffectTrait>(
+    source_files: Vec<SourceFile>,
+) -> Result<Vec<u8>, String> {
+    let mut filename_to_source = HashMap::new();
+    let mut filenames = Vec::new();
+    for source_file in &source_files {
+        filenames.push(source_file.name.clone());
+        filename_to_source.insert(source_file.name.clone(), source_file.contents.clone());
+    }
+    let sources = ast::Sources { filename_to_source };
+
+    let toplevels = ast::parse_or_err(&source_files)?;
+
+    let mut node_map = ast::NodeMap::new();
+    for parse_tree in &toplevels {
+        ast::initialize_node_map(&mut node_map, &(parse_tree.clone() as Rc<dyn ast::Node>));
+    }
+
+    let mut inference_ctx = statics::InferenceContext::new();
+    let tyctx = statics::make_new_gamma();
+    for parse_tree in &toplevels {
+        statics::gather_definitions_toplevel::<Effect>(
+            &mut inference_ctx,
+            tyctx.clone(),
+            parse_tree.clone(),
+        );
+    }
+    for parse_tree in &toplevels {
+        statics::generate_constraints_toplevel(
+            tyctx.clone(),
+            parse_tree.clone(),
+            &mut inference_ctx,
+        );
+    }
+
+    statics::result_of_constraint_solving(&mut inference_ctx, &node_map, &sources)?;
+
+    statics::result_of_additional_analysis(&mut inference_ctx, &toplevels, &node_map, &sources)?;
+
+    let mut translator = Translator::new(inference_ctx, node_map, toplevels);
+    Ok(translator.translate())
 }
 
 pub fn run(source: &str) -> Result<(Rc<eval_tree::Expr>, Runtime), String> {

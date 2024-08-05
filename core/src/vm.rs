@@ -15,7 +15,7 @@ pub struct Vm {
 }
 
 impl Vm {
-    pub(crate) fn new(program: Vec<u8>) -> Self {
+    pub fn new(program: Vec<u8>) -> Self {
         Self {
             program,
             pc: 0,
@@ -25,7 +25,7 @@ impl Vm {
         }
     }
 
-    fn top(&self) -> &Value {
+    pub fn top(&self) -> &Value {
         self.value_stack.last().expect("stack underflow")
     }
 }
@@ -196,7 +196,7 @@ impl Into<String> for Instr {
 }
 
 #[derive(Debug, Copy, Clone)]
-enum Value {
+pub enum Value {
     Bool(bool),
     Int(AbraInt),
     ManagedObject(usize),
@@ -215,7 +215,7 @@ impl From<AbraInt> for Value {
 }
 
 impl Value {
-    fn get_int(&self) -> AbraInt {
+    pub fn get_int(&self) -> AbraInt {
         match self {
             Value::Int(n) => *n,
             _ => panic!("not an int"),
@@ -261,9 +261,12 @@ enum ManagedObjectKind {
 
 impl Vm {
     pub fn run(&mut self) {
+        println!("pc is {}, len is {}", self.pc, self.program.len());
         while self.pc < self.program.len() {
             self.step();
+            println!("step done");
         }
+        println!("done running vm");
     }
     pub fn run_n_steps(&mut self, steps: u32) {
         for _ in 0..steps {
@@ -287,6 +290,7 @@ impl Vm {
                     self.value_stack.pop();
                 }
                 Instr::Add => {
+                    println!("adding");
                     let b = self.pop_int();
                     let a = self.pop_int();
                     self.push(a + b);
@@ -372,6 +376,21 @@ sub
         let mut vm = Vm::new(bytecode);
         vm.run();
         assert_eq!(vm.top().get_int(), -1);
+    }
+
+    #[test]
+    fn arithmetic2() {
+        let program_str = r#"
+pushi 2
+pushi 3
+add
+pushi 1
+sub
+"#;
+        let bytecode = assemble(program_str);
+        let mut vm = Vm::new(bytecode);
+        vm.run();
+        assert_eq!(vm.top().get_int(), 4);
     }
 
     #[test]
