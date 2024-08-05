@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 
+use crate::ast::AbraInt;
 use crate::vm::Instr;
 use crate::vm::Opcode;
 
@@ -71,7 +72,7 @@ fn assemble_instr(words: Vec<&str>, label_to_idx: &HashMap<String, usize>, linen
             Instr::PushBool(b)
         }
         "pushi" => {
-            let n = i64::from_str_radix(words[1], radix).unwrap();
+            let n = AbraInt::from_str_radix(words[1], radix).unwrap();
             Instr::PushInt(n)
         }
         "jump" | "jumpif" | "call" => {

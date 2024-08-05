@@ -1,4 +1,4 @@
-use crate::vm::AbraInt;
+use crate::ast::AbraInt;
 
 type Label = String;
 
