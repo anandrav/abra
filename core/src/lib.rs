@@ -4,6 +4,7 @@ use environment::EvalEnv;
 pub use side_effects::EffectCode;
 pub use side_effects::EffectTrait;
 
+mod assembly;
 pub mod ast;
 pub mod environment;
 pub mod eval_tree;
@@ -12,7 +13,7 @@ mod operators;
 pub mod side_effects;
 pub mod statics;
 pub mod translate;
-mod vm;
+pub mod vm;
 
 use interpreter::{Interpreter, OverloadedFuncMap};
 
