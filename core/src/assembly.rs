@@ -1,14 +1,21 @@
+use std::collections::HashMap;
+
 use crate::vm::Instr;
+use crate::vm::Opcode;
 
 pub(crate) fn assemble(s: &str) -> Vec<u8> {
-    let mut instructions: Vec<Instr> = vec![];
     let mut ret: Vec<u8> = vec![];
+    let mut instructions: Vec<Instr> = vec![];
+    let label_to_idx = build_map_label_to_idx(s);
     for (lineno, line) in s.lines().enumerate() {
         let words: Vec<_> = line.split_whitespace().collect();
         if words.is_empty() {
             continue;
         }
-        instructions.push(assemble_instr(words, lineno));
+        if get_label(words[0]).is_some() {
+            continue;
+        }
+        instructions.push(assemble_instr(words, &label_to_idx, lineno));
     }
     for instr in instructions {
         instr.encode(&mut ret);
@@ -16,7 +23,35 @@ pub(crate) fn assemble(s: &str) -> Vec<u8> {
     return ret;
 }
 
-fn assemble_instr(words: Vec<&str>, lineno: usize) -> Instr {
+fn build_map_label_to_idx(s: &str) -> HashMap<String, usize> {
+    let mut ret: HashMap<String, usize> = HashMap::new();
+    let mut offset = 0;
+    for (lineno, line) in s.lines().enumerate() {
+        let words: Vec<_> = line.split_whitespace().collect();
+        if words.is_empty() {
+            continue;
+        }
+        let first = words[0];
+        if let Some(label) = get_label(first) {
+            ret.insert(label, offset);
+        } else if let Some(opcode) = Opcode::from_str(first) {
+            offset += opcode.nbytes();
+        } else {
+            panic!("On line {}, unexpected word: {}", lineno, first);
+        }
+    }
+    ret
+}
+
+fn get_label(s: &str) -> Option<String> {
+    if s.ends_with(":") {
+        Some(s[0..s.len() - 1].to_owned())
+    } else {
+        None
+    }
+}
+
+fn assemble_instr(words: Vec<&str>, label_to_idx: &HashMap<String, usize>, lineno: usize) -> Instr {
     let radix = 10;
     match words[0] {
         "pop" => Instr::Pop,
@@ -40,8 +75,8 @@ fn assemble_instr(words: Vec<&str>, lineno: usize) -> Instr {
             Instr::PushInt(n)
         }
         "jump" | "jumpif" | "call" => {
-            let loc = usize::from_str_radix(words[1], radix).unwrap();
-            match words[1] {
+            let loc = *label_to_idx.get(words[1]).unwrap();
+            match words[0] {
                 "jump" => Instr::Jump(loc),
                 "jumpif" => Instr::JumpIfTrue(loc),
                 "call" => Instr::Call(loc),

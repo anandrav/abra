@@ -1,4 +1,5 @@
 type ProgramCounter = usize;
+type AbraInt = i64;
 use crate::assembly::assemble;
 
 #[derive(Debug)]
@@ -35,26 +36,91 @@ pub(crate) enum Instr {
     Div,
     Return,
     PushBool(bool),
-    PushInt(i64),
+    PushInt(AbraInt),
     Jump(ProgramCounter),
     JumpIfTrue(ProgramCounter),
     Call(ProgramCounter),
 }
 
-impl Instr {
-    pub(crate) fn opcode(&self) -> u8 {
+#[derive(Debug, Copy, Clone)]
+#[repr(u8)]
+pub(crate) enum Opcode {
+    Pop,
+    Add,
+    Sub,
+    Mul,
+    Div,
+    Return,
+    PushBool,
+    PushInt,
+    Jump,
+    JumpIfTrue,
+    Call,
+}
+
+impl Opcode {
+    pub(crate) fn nbytes(&self) -> usize {
         match self {
-            Instr::Pop => 0,
-            Instr::Add => 1,
-            Instr::Sub => 2,
-            Instr::Mul => 3,
-            Instr::Div => 4,
-            Instr::Return => 5,
-            Instr::PushBool(_) => 6,
-            Instr::PushInt(_) => 7,
-            Instr::Jump(_) => 8,
-            Instr::JumpIfTrue(_) => 9,
-            Instr::Call(_) => 10,
+            Opcode::Pop
+            | Opcode::Add
+            | Opcode::Sub
+            | Opcode::Mul
+            | Opcode::Div
+            | Opcode::Return => 1,
+            Opcode::PushBool => 2,
+            Opcode::PushInt => 1 + size_of::<AbraInt>(),
+            Opcode::Jump | Opcode::JumpIfTrue | Opcode::Call => 1 + size_of::<ProgramCounter>(),
+        }
+    }
+
+    pub(crate) fn from_str(s: &str) -> Option<Opcode> {
+        match s {
+            "pop" => Some(Opcode::Pop),
+            "add" => Some(Opcode::Add),
+            "sub" => Some(Opcode::Sub),
+            "mul" => Some(Opcode::Mul),
+            "div" => Some(Opcode::Div),
+            "ret" => Some(Opcode::Return),
+            "pushb" => Some(Opcode::PushBool),
+            "pushi" => Some(Opcode::PushInt),
+            "jump" => Some(Opcode::Jump),
+            "jumpif" => Some(Opcode::JumpIfTrue),
+            "call" => Some(Opcode::Call),
+            _ => None,
+        }
+    }
+
+    pub(crate) fn to_string(&self) -> String {
+        match self {
+            Opcode::Pop => "pop".into(),
+            Opcode::Add => "add".into(),
+            Opcode::Sub => "sub".into(),
+            Opcode::Mul => "mul".into(),
+            Opcode::Div => "div".into(),
+            Opcode::Return => "ret".into(),
+            Opcode::PushBool => "pushb".into(),
+            Opcode::PushInt => "pushi".into(),
+            Opcode::Jump => "jump".into(),
+            Opcode::JumpIfTrue => "jumpif".into(),
+            Opcode::Call => "call".into(),
+        }
+    }
+}
+
+impl Instr {
+    pub(crate) fn opcode(&self) -> Opcode {
+        match self {
+            Instr::Pop => Opcode::Pop,
+            Instr::Add => Opcode::Add,
+            Instr::Sub => Opcode::Sub,
+            Instr::Mul => Opcode::Mul,
+            Instr::Div => Opcode::Div,
+            Instr::Return => Opcode::Return,
+            Instr::PushBool(_) => Opcode::PushBool,
+            Instr::PushInt(_) => Opcode::PushInt,
+            Instr::Jump(_) => Opcode::Jump,
+            Instr::JumpIfTrue(_) => Opcode::JumpIfTrue,
+            Instr::Call(_) => Opcode::Call,
         }
     }
 
@@ -63,14 +129,14 @@ impl Instr {
         match self {
             Instr::Pop | Instr::Add | Instr::Sub | Instr::Mul | Instr::Div | Instr::Return => {}
             Instr::PushBool(_) => n += size_of::<bool>(),
-            Instr::PushInt(_) => n += size_of::<i64>(),
+            Instr::PushInt(_) => n += size_of::<AbraInt>(),
             Instr::Jump(_) | Instr::JumpIfTrue(_) | Instr::Call(_) => n += size_of::<usize>(),
         }
         n
     }
 
     pub(crate) fn encode(&self, buf: &mut Vec<u8>) {
-        buf.push(self.opcode());
+        buf.push(self.opcode() as u8);
         match self {
             Instr::PushBool(b) => {
                 buf.push(*b as u8);
@@ -94,7 +160,7 @@ impl Instr {
             4 => Instr::Div,
             5 => Instr::Return,
             6 => Instr::PushBool(buf[1] != 0),
-            7 => Instr::PushInt(i64::from_le_bytes(buf[1..9].try_into().unwrap())),
+            7 => Instr::PushInt(AbraInt::from_le_bytes(buf[1..9].try_into().unwrap())),
             8 => Instr::Jump(usize::from_le_bytes(buf[1..9].try_into().unwrap())),
             9 => Instr::JumpIfTrue(usize::from_le_bytes(buf[1..9].try_into().unwrap())),
             10 => Instr::Call(usize::from_le_bytes(buf[1..9].try_into().unwrap())),
@@ -124,7 +190,7 @@ impl Into<String> for Instr {
 #[derive(Debug, Copy, Clone)]
 enum Value {
     Bool(bool),
-    Int(i64),
+    Int(AbraInt),
     ManagedObject(usize),
 }
 
@@ -134,14 +200,14 @@ impl From<bool> for Value {
     }
 }
 
-impl From<i64> for Value {
-    fn from(n: i64) -> Value {
+impl From<AbraInt> for Value {
+    fn from(n: AbraInt) -> Value {
         Value::Int(n)
     }
 }
 
 impl Value {
-    fn get_int(&self) -> i64 {
+    fn get_int(&self) -> AbraInt {
         match self {
             Value::Int(n) => *n,
             _ => panic!("not an int"),
@@ -274,7 +340,7 @@ impl Vm {
         self.value_stack.push(x.into());
     }
 
-    fn pop_int(&mut self) -> i64 {
+    fn pop_int(&mut self) -> AbraInt {
         self.value_stack.pop().expect("stack underflow").get_int()
     }
 
@@ -294,9 +360,25 @@ pushi 3
 pushi 4
 sub
 "#;
-        let program_bytes = assemble(program_str);
-        let mut vm = Vm::new(program_bytes);
+        let bytecode = assemble(program_str);
+        let mut vm = Vm::new(bytecode);
         vm.run();
         assert_eq!(vm.top().get_int(), -1);
+    }
+
+    #[test]
+    fn jump_to_label() {
+        let program_str = r#"
+pushi 3
+pushi 4
+jump my_label
+pushi 100
+my_label:
+add
+"#;
+        let bytecode = assemble(program_str);
+        let mut vm = Vm::new(bytecode);
+        vm.run();
+        assert_eq!(vm.top().get_int(), 7);
     }
 }
