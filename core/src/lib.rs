@@ -11,8 +11,10 @@ pub mod eval_tree;
 pub mod interpreter;
 mod operators;
 pub mod side_effects;
+mod stack_ir;
 pub mod statics;
-pub mod translate;
+pub mod translate_eval_tree;
+mod translate_stack_ir;
 pub mod vm;
 
 use interpreter::{Interpreter, OverloadedFuncMap};
@@ -78,7 +80,7 @@ pub fn compile<Effect: EffectTrait>(source_files: Vec<SourceFile>) -> Result<Run
 
     let env: EvalEnv = EvalEnv::empty();
     let (eval_tree, overloaded_func_map) =
-        translate::translate(&inference_ctx, tyctx, &node_map, &toplevels, env.clone());
+        translate_eval_tree::translate(&inference_ctx, tyctx, &node_map, &toplevels, env.clone());
     interpreter::add_builtins_and_variants::<Effect>(env.clone(), &inference_ctx);
     Ok(Runtime {
         toplevel_eval_tree: eval_tree,

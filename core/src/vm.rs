@@ -1,5 +1,8 @@
 type ProgramCounter = usize;
-type AbraInt = i64;
+pub type AbraInt = i64;
+use core::fmt;
+use std::fmt::{Display, Formatter};
+
 use crate::assembly::assemble;
 
 #[derive(Debug)]
@@ -89,9 +92,11 @@ impl Opcode {
             _ => None,
         }
     }
+}
 
-    pub(crate) fn to_string(&self) -> String {
-        match self {
+impl From<Opcode> for String {
+    fn from(opcode: Opcode) -> String {
+        match opcode {
             Opcode::Pop => "pop".into(),
             Opcode::Add => "add".into(),
             Opcode::Sub => "sub".into(),
@@ -104,6 +109,12 @@ impl Opcode {
             Opcode::JumpIfTrue => "jumpif".into(),
             Opcode::Call => "call".into(),
         }
+    }
+}
+
+impl Display for Opcode {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        write!(f, "{}", String::from(*self))
     }
 }
 
@@ -172,17 +183,14 @@ impl Instr {
 impl Into<String> for Instr {
     fn into(self) -> String {
         match self {
-            Instr::Pop => "pop".into(),
-            Instr::Add => "add".into(),
-            Instr::Sub => "sub".into(),
-            Instr::Mul => "mul".into(),
-            Instr::Div => "div".into(),
-            Instr::Return => "ret".into(),
-            Instr::PushBool(b) => format!("pushb {}", b),
-            Instr::PushInt(n) => format!("pushi {}", n),
-            Instr::Jump(loc) => format!("jump {}", loc),
-            Instr::JumpIfTrue(loc) => format!("jumpif {}", loc),
-            Instr::Call(loc) => format!("call {}", loc),
+            Instr::Pop | Instr::Add | Instr::Sub | Instr::Mul | Instr::Div | Instr::Return => {
+                self.opcode().into()
+            }
+            Instr::PushBool(b) => format!("{} {}", self.opcode(), b),
+            Instr::PushInt(n) => format!("{} {}", self.opcode(), n),
+            Instr::Jump(loc) => format!("{} {}", self.opcode(), loc),
+            Instr::JumpIfTrue(loc) => format!("{} {}", self.opcode(), loc),
+            Instr::Call(loc) => format!("{} {}", self.opcode(), loc),
         }
     }
 }
