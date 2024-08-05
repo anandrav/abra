@@ -151,6 +151,8 @@ impl Translator {
                 match op {
                     BinOpcode::Add => instructions.push(InstrOrLabel::Instr(Instr::Add)),
                     BinOpcode::Subtract => instructions.push(InstrOrLabel::Instr(Instr::Sub)),
+                    BinOpcode::Multiply => instructions.push(InstrOrLabel::Instr(Instr::Mul)),
+                    BinOpcode::Divide => instructions.push(InstrOrLabel::Instr(Instr::Div)),
                     _ => unimplemented!(),
                 }
             }
