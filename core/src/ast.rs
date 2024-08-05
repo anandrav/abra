@@ -8,10 +8,6 @@ use pest_derive::Parser;
 use std::collections::HashMap;
 use std::rc::Rc;
 use std::sync::atomic::{AtomicUsize, Ordering};
-
-pub type AbraInt = i32;
-pub type AbraFloat = f32;
-
 #[derive(Parser)]
 #[grammar = "grammar.pest"]
 struct MyParser;

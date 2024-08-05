@@ -1,5 +1,5 @@
 type ProgramCounter = usize;
-use crate::ast::AbraInt;
+pub type AbraInt = i64;
 use core::fmt;
 use std::fmt::{Display, Formatter};
 
@@ -171,9 +171,7 @@ impl Instr {
             4 => Instr::Div,
             5 => Instr::Return,
             6 => Instr::PushBool(buf[1] != 0),
-            7 => Instr::PushInt(AbraInt::from_le_bytes(
-                buf[1..1 + size_of::<AbraInt>()].try_into().unwrap(),
-            )),
+            7 => Instr::PushInt(AbraInt::from_le_bytes(buf[1..9].try_into().unwrap())),
             8 => Instr::Jump(usize::from_le_bytes(buf[1..9].try_into().unwrap())),
             9 => Instr::JumpIfTrue(usize::from_le_bytes(buf[1..9].try_into().unwrap())),
             10 => Instr::Call(usize::from_le_bytes(buf[1..9].try_into().unwrap())),
