@@ -6,11 +6,9 @@ use crate::{
     ast::{Expr, ExprKind, NodeMap, Pat, PatKind, Stmt, StmtKind},
     statics::InferenceContext,
 };
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::f32::consts::E;
 use std::rc::Rc;
-
-type Local = (String, NodeId);
 
 type Label = String;
 
@@ -76,12 +74,12 @@ impl Translator {
     pub(crate) fn translate(&self) -> Vec<u8> {
         let mut instructions: Vec<InstrOrLabel> = vec![];
 
-        let mut locals = vec![];
+        let mut locals = HashMap::new();
 
         for toplevel in self.toplevels.iter() {
             for statement in toplevel.statements.iter() {
                 if let StmtKind::Let(_, pat, _) = &*statement.stmtkind {
-                    self.collect_locals_from_let_pat(pat.0.clone(), &mut locals);
+                    collect_locals_from_let_pat(pat.0.clone(), &mut locals);
                 }
             }
         }
@@ -90,12 +88,12 @@ impl Translator {
             for (i, statement) in toplevel.statements.iter().enumerate() {
                 match &*statement.stmtkind {
                     StmtKind::Let(_, pat, expr) => {
-                        let expr = self.translate_expr(expr.clone(), &mut instructions);
+                        self.translate_expr(expr.clone(), &mut instructions);
                         instructions.push(InstrOrLabel::Instr(Instr::Pop));
                     }
                     StmtKind::Expr(expr) => {
                         let is_last = i == toplevel.statements.len() - 1;
-                        let expr = self.translate_expr(expr.clone(), &mut instructions);
+                        self.translate_expr(expr.clone(), &mut instructions);
                         if !is_last {
                             instructions.push(InstrOrLabel::Instr(Instr::Pop));
                         }
@@ -117,29 +115,6 @@ impl Translator {
         bytecode
     }
 
-    fn collect_locals_from_let_pat(&self, pat: Rc<Pat>, locals: &mut Vec<Local>) {
-        match &*pat.patkind {
-            PatKind::Var(symbol) => {
-                locals.push((symbol.clone(), pat.id));
-            }
-            PatKind::Tuple(pats) => {
-                for pat in pats {
-                    self.collect_locals_from_let_pat(pat.clone(), locals);
-                }
-            }
-            PatKind::Variant(_, Some(inner)) => {
-                self.collect_locals_from_let_pat(inner.clone(), locals);
-            }
-            PatKind::Variant(_, None) => {}
-            PatKind::Unit
-            | PatKind::Bool(..)
-            | PatKind::Int(..)
-            | PatKind::Float(..)
-            | PatKind::Str(..)
-            | PatKind::Wildcard => {}
-        }
-    }
-
     fn translate_expr(&self, expr: Rc<Expr>, instructions: &mut Vec<InstrOrLabel>) {
         match &*expr.exprkind {
             ExprKind::Int(i) => {
@@ -158,6 +133,29 @@ impl Translator {
             }
             _ => unimplemented!(),
         }
+    }
+}
+
+fn collect_locals_from_let_pat(pat: Rc<Pat>, locals: &mut HashMap<String, usize>) {
+    match &*pat.patkind {
+        PatKind::Var(symbol) => {
+            locals.insert(symbol.clone(), locals.len());
+        }
+        PatKind::Tuple(pats) => {
+            for pat in pats {
+                collect_locals_from_let_pat(pat.clone(), locals);
+            }
+        }
+        PatKind::Variant(_, Some(inner)) => {
+            collect_locals_from_let_pat(inner.clone(), locals);
+        }
+        PatKind::Variant(_, None) => {}
+        PatKind::Unit
+        | PatKind::Bool(..)
+        | PatKind::Int(..)
+        | PatKind::Float(..)
+        | PatKind::Str(..)
+        | PatKind::Wildcard => {}
     }
 }
 
