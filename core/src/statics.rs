@@ -1,4 +1,7 @@
-use crate::ast::{self, Expr, ExprKind, Node, Pat, PatKind, Stmt, StmtKind, Symbol, TypeDefKind};
+use crate::ast::{
+    ArgAnnotated, AstType, Expr, ExprKind, MatchArm, Node, NodeId, NodeMap, Pat, PatKind, Sources,
+    Stmt, StmtKind, Symbol, Toplevel, TypeDefKind, TypeKind,
+};
 use crate::environment::Environment;
 use crate::operators::BinOpcode;
 use core::panic;
@@ -243,7 +246,7 @@ pub(crate) struct AdtDef {
     pub(crate) name: Symbol,
     pub(crate) params: Vec<Symbol>,
     pub(crate) variants: Vec<Variant>,
-    pub(crate) location: ast::NodeId,
+    pub(crate) location: NodeId,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
@@ -257,7 +260,7 @@ pub(crate) struct StructDef {
     pub(crate) name: Symbol,
     pub(crate) params: Vec<Symbol>,
     pub(crate) fields: Vec<StructField>,
-    pub(crate) location: ast::NodeId,
+    pub(crate) location: NodeId,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
@@ -270,7 +273,7 @@ pub(crate) struct StructField {
 pub(crate) struct InterfaceDef {
     pub(crate) name: Symbol,
     pub(crate) methods: Vec<InterfaceDefMethod>,
-    pub(crate) location: ast::NodeId,
+    pub(crate) location: NodeId,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
@@ -278,7 +281,7 @@ pub(crate) struct InterfaceImpl {
     pub(crate) name: Symbol,
     pub(crate) typ: TypeVar,
     pub(crate) methods: Vec<InterfaceImplMethod>,
-    pub(crate) location: ast::NodeId,
+    pub(crate) location: NodeId,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
@@ -290,8 +293,8 @@ pub(crate) struct InterfaceDefMethod {
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub(crate) struct InterfaceImplMethod {
     pub(crate) name: Symbol,
-    pub(crate) method_location: ast::NodeId,
-    pub(crate) identifier_location: ast::NodeId,
+    pub(crate) method_location: NodeId,
+    pub(crate) identifier_location: NodeId,
 }
 
 // If two types don't share the same key, they must be in conflict
@@ -315,8 +318,8 @@ pub(crate) enum TypeKey {
 // TODO: Does Prov really need to be that deeply nested? Will there really be FuncArg -> InstantiatedPoly -> BinopLeft -> Node? Or can we simplify here?
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub(crate) enum Prov {
-    Node(ast::NodeId), // the type of an expression or statement
-    Builtin(String),   // a function or constant, which doesn't exist in the AST
+    Node(NodeId),    // the type of an expression or statement
+    Builtin(String), // a function or constant, which doesn't exist in the AST
     UnderdeterminedCoerceToUnit,
 
     Alias(Symbol), // TODO add Box<Prov>
@@ -337,7 +340,7 @@ pub(crate) enum Prov {
 impl Prov {
     // TODO: Can we make this not Optional? Only reason it would fail is if the last prov in the chain is a builtin
     // TODO: remove Builtin prov for this reason, defeats the purpose. Builtins should be declared in the PRELUDE, and that declaration will be the Prov.
-    pub(crate) fn get_location(&self) -> Option<ast::NodeId> {
+    pub(crate) fn get_location(&self) -> Option<NodeId> {
         match self {
             Prov::Node(id) => Some(*id),
             Prov::Builtin(_) => None,
@@ -615,7 +618,7 @@ impl TypeVar {
         }
     }
 
-    pub(crate) fn from_node(inf_ctx: &mut InferenceContext, id: ast::NodeId) -> TypeVar {
+    pub(crate) fn from_node(inf_ctx: &mut InferenceContext, id: NodeId) -> TypeVar {
         let prov = Prov::Node(id);
         Self::fresh(inf_ctx, prov)
     }
@@ -704,7 +707,7 @@ impl TypeVar {
     }
 }
 
-fn types_of_binop(opcode: &BinOpcode, id: ast::NodeId) -> (TypeVar, TypeVar, TypeVar) {
+fn types_of_binop(opcode: &BinOpcode, id: NodeId) -> (TypeVar, TypeVar, TypeVar) {
     let prov_left = Prov::BinopLeft(Prov::Node(id).into());
     let prov_right = Prov::BinopRight(Prov::Node(id).into());
     let prov_out = Prov::Node(id);
@@ -763,14 +766,14 @@ fn types_of_binop(opcode: &BinOpcode, id: ast::NodeId) -> (TypeVar, TypeVar, Typ
 
 fn ast_type_to_statics_type_interface(
     inf_ctx: &mut InferenceContext,
-    ast_type: Rc<ast::AstType>,
+    ast_type: Rc<AstType>,
     interface_ident: Option<&String>,
 ) -> TypeVar {
     match &*ast_type.typekind {
-        ast::TypeKind::Poly(ident, interfaces) => {
+        TypeKind::Poly(ident, interfaces) => {
             TypeVar::make_poly(Prov::Node(ast_type.id()), ident.clone(), interfaces.clone())
         }
-        ast::TypeKind::Alias(ident) => {
+        TypeKind::Alias(ident) => {
             if let Some(interface_ident) = interface_ident {
                 if ident == "self" {
                     TypeVar::make_poly_constrained(
@@ -785,7 +788,7 @@ fn ast_type_to_statics_type_interface(
                 TypeVar::fresh(inf_ctx, Prov::Alias(ident.clone()))
             }
         }
-        ast::TypeKind::Ap(ident, params) => TypeVar::make_def_instance(
+        TypeKind::Ap(ident, params) => TypeVar::make_def_instance(
             Prov::Node(ast_type.id()),
             ident.clone(),
             params
@@ -795,19 +798,19 @@ fn ast_type_to_statics_type_interface(
                 })
                 .collect(),
         ),
-        ast::TypeKind::Unit => TypeVar::make_unit(Prov::Node(ast_type.id())),
-        ast::TypeKind::Int => TypeVar::make_int(Prov::Node(ast_type.id())),
-        ast::TypeKind::Float => TypeVar::make_float(Prov::Node(ast_type.id())),
-        ast::TypeKind::Bool => TypeVar::make_bool(Prov::Node(ast_type.id())),
-        ast::TypeKind::Str => TypeVar::make_string(Prov::Node(ast_type.id())),
-        ast::TypeKind::Function(lhs, rhs) => TypeVar::make_func(
+        TypeKind::Unit => TypeVar::make_unit(Prov::Node(ast_type.id())),
+        TypeKind::Int => TypeVar::make_int(Prov::Node(ast_type.id())),
+        TypeKind::Float => TypeVar::make_float(Prov::Node(ast_type.id())),
+        TypeKind::Bool => TypeVar::make_bool(Prov::Node(ast_type.id())),
+        TypeKind::Str => TypeVar::make_string(Prov::Node(ast_type.id())),
+        TypeKind::Function(lhs, rhs) => TypeVar::make_func(
             lhs.iter()
                 .map(|t| ast_type_to_statics_type_interface(inf_ctx, t.clone(), interface_ident))
                 .collect(),
             ast_type_to_statics_type_interface(inf_ctx, rhs.clone(), interface_ident),
             Prov::Node(ast_type.id()),
         ),
-        ast::TypeKind::Tuple(types) => {
+        TypeKind::Tuple(types) => {
             let mut statics_types = Vec::new();
             for t in types {
                 statics_types.push(ast_type_to_statics_type_interface(
@@ -821,7 +824,7 @@ fn ast_type_to_statics_type_interface(
     }
 }
 
-fn ast_type_to_statics_type(inf_ctx: &mut InferenceContext, ast_type: Rc<ast::AstType>) -> TypeVar {
+fn ast_type_to_statics_type(inf_ctx: &mut InferenceContext, ast_type: Rc<AstType>) -> TypeVar {
     ast_type_to_statics_type_interface(inf_ctx, ast_type, None)
 }
 
@@ -851,6 +854,8 @@ pub(crate) struct InferenceContext {
 
     // BOOKKEEPING
 
+    // name resolutions
+    pub(crate) name_resolutions: HashMap<NodeId, NodeId>,
     // interface definitions
     interface_defs: HashMap<Symbol, InterfaceDef>,
     // map from methods to interface names
@@ -862,28 +867,28 @@ pub(crate) struct InferenceContext {
     // map from types to interfaces they have been constrained to
     types_constrained_to_interfaces: BTreeMap<TypeVar, Vec<(Symbol, Prov)>>,
     // types that must be a struct because there was a field access
-    types_that_must_be_structs: BTreeMap<TypeVar, ast::NodeId>,
+    types_that_must_be_structs: BTreeMap<TypeVar, NodeId>,
 
     // ERRORS
 
     // unbound variables
-    unbound_vars: BTreeSet<ast::NodeId>,
-    unbound_interfaces: BTreeSet<ast::NodeId>,
+    unbound_vars: BTreeSet<NodeId>,
+    unbound_interfaces: BTreeSet<NodeId>,
     // multiple definitions
-    multiple_udt_defs: BTreeMap<Symbol, Vec<ast::NodeId>>,
-    multiple_interface_defs: BTreeMap<Symbol, Vec<ast::NodeId>>,
+    multiple_udt_defs: BTreeMap<Symbol, Vec<NodeId>>,
+    multiple_interface_defs: BTreeMap<Symbol, Vec<NodeId>>,
     // interface implementations
-    multiple_interface_impls: BTreeMap<Symbol, Vec<ast::NodeId>>,
-    interface_impl_for_instantiated_adt: Vec<ast::NodeId>,
-    interface_impl_extra_method: BTreeMap<ast::NodeId, Vec<ast::NodeId>>,
-    interface_impl_missing_method: BTreeMap<ast::NodeId, Vec<String>>,
+    multiple_interface_impls: BTreeMap<Symbol, Vec<NodeId>>,
+    interface_impl_for_instantiated_adt: Vec<NodeId>,
+    interface_impl_extra_method: BTreeMap<NodeId, Vec<NodeId>>,
+    interface_impl_missing_method: BTreeMap<NodeId, Vec<String>>,
     // non-exhaustive matches
-    nonexhaustive_matches: BTreeMap<ast::NodeId, Vec<DeconstructedPat>>,
-    redundant_matches: BTreeMap<ast::NodeId, Vec<ast::NodeId>>,
+    nonexhaustive_matches: BTreeMap<NodeId, Vec<DeconstructedPat>>,
+    redundant_matches: BTreeMap<NodeId, Vec<NodeId>>,
     // annotation needed
-    annotation_needed: BTreeSet<ast::NodeId>,
+    annotation_needed: BTreeSet<NodeId>,
     // field not an identifier
-    field_not_ident: BTreeSet<ast::NodeId>,
+    field_not_ident: BTreeSet<NodeId>,
 }
 
 impl InferenceContext {
@@ -910,7 +915,7 @@ impl InferenceContext {
             .collect()
     }
 
-    pub(crate) fn solution_of_node(&self, id: ast::NodeId) -> Option<SolvedType> {
+    pub(crate) fn solution_of_node(&self, id: NodeId) -> Option<SolvedType> {
         let prov = Prov::Node(id);
         match self.vars.get(&prov) {
             Some(unifvar) => unifvar.solution(),
@@ -926,19 +931,19 @@ fn constrain(mut expected: TypeVar, mut actual: TypeVar) {
 // TODO: rename to TypeEnv
 #[derive(Clone)]
 pub(crate) struct Gamma {
-    ty_vars: Environment<Symbol, TypeVar>,
-    poly_vars: Environment<Symbol, ()>,
+    var_to_type: Environment<Symbol, TypeVar>,
+    ty_vars_in_scope: Environment<Symbol, ()>,
 }
 impl Gamma {
     pub(crate) fn empty() -> Self {
         Self {
-            ty_vars: Environment::empty(),
-            poly_vars: Environment::empty(),
+            var_to_type: Environment::empty(),
+            ty_vars_in_scope: Environment::empty(),
         }
     }
 
     pub(crate) fn extend(&self, ident: Symbol, ty: TypeVar) {
-        self.ty_vars.extend(ident, ty);
+        self.var_to_type.extend(ident.clone(), ty);
     }
 
     pub(crate) fn add_polys(&self, ty: &TypeVar) {
@@ -947,7 +952,7 @@ impl Gamma {
         };
         match ty {
             PotentialType::Poly(_, ident, _interfaces) => {
-                self.poly_vars.extend(ident.clone(), ());
+                self.ty_vars_in_scope.extend(ident.clone(), ());
             }
             PotentialType::UdtInstance(_, _, params) => {
                 for param in params {
@@ -970,17 +975,17 @@ impl Gamma {
     }
 
     pub(crate) fn lookup(&self, id: &Symbol) -> Option<TypeVar> {
-        self.ty_vars.lookup(id)
+        self.var_to_type.lookup(id)
     }
 
     pub(crate) fn lookup_poly(&self, id: &Symbol) -> bool {
-        self.poly_vars.lookup(id).is_some()
+        self.ty_vars_in_scope.lookup(id).is_some()
     }
 
     pub(crate) fn new_scope(&self) -> Self {
         Self {
-            ty_vars: self.ty_vars.new_scope(),
-            poly_vars: self.poly_vars.new_scope(),
+            var_to_type: self.var_to_type.new_scope(),
+            ty_vars_in_scope: self.ty_vars_in_scope.new_scope(),
         }
     }
 }
@@ -1414,8 +1419,8 @@ pub(crate) fn generate_constraints_expr(
                 );
             }
         }
-        ExprKind::Var(id) => {
-            let lookup = gamma.lookup(id);
+        ExprKind::Var(symbol) => {
+            let lookup = gamma.lookup(symbol);
             if let Some(typ) = lookup {
                 // replace polymorphic types with unifvars if necessary
                 let typ = typ.instantiate(gamma, inf_ctx, Prov::Node(expr.id));
@@ -1423,7 +1428,7 @@ pub(crate) fn generate_constraints_expr(
                 return;
             }
             // TODO: this is incredibly hacky. No respect for scope at all... Should be added at the toplevel with Effects at the least...
-            let adt_def = inf_ctx.adt_def_of_variant(id);
+            let adt_def = inf_ctx.adt_def_of_variant(symbol);
             if let Some(adt_def) = adt_def {
                 let nparams = adt_def.params.len();
                 let mut params = vec![];
@@ -1441,7 +1446,7 @@ pub(crate) fn generate_constraints_expr(
                     params,
                 );
 
-                let the_variant = adt_def.variants.iter().find(|v| v.ctor == *id).unwrap();
+                let the_variant = adt_def.variants.iter().find(|v| v.ctor == *symbol).unwrap();
                 if let Some(PotentialType::Unit(_)) = the_variant.data.single() {
                     constrain(node_ty, def_type);
                 } else if let Some(PotentialType::Tuple(_, elems)) = &the_variant.data.single() {
@@ -1472,7 +1477,7 @@ pub(crate) fn generate_constraints_expr(
                 }
                 return;
             }
-            let struct_def = inf_ctx.struct_defs.get(id).cloned();
+            let struct_def = inf_ctx.struct_defs.get(symbol).cloned();
             if let Some(struct_def) = struct_def {
                 let nparams = struct_def.params.len();
                 let mut params = vec![];
@@ -1757,10 +1762,10 @@ pub(crate) fn generate_constraints_expr(
 
 fn generate_constraints_func_helper(
     inf_ctx: &mut InferenceContext,
-    node_id: ast::NodeId,
+    node_id: NodeId,
     gamma: Gamma,
-    args: &[ast::ArgAnnotated],
-    out_annot: &Option<Rc<ast::AstType>>,
+    args: &[ArgAnnotated],
+    out_annot: &Option<Rc<AstType>>,
     body: &Rc<Expr>,
 ) -> TypeVar {
     // arguments
@@ -2040,7 +2045,7 @@ pub(crate) fn generate_constraints_pat(
 pub(crate) fn gather_definitions_stmt(
     inf_ctx: &mut InferenceContext,
     gamma: Gamma,
-    stmt: Rc<ast::Stmt>,
+    stmt: Rc<Stmt>,
 ) {
     match &*stmt.stmtkind {
         StmtKind::InterfaceDef(ident, properties) => {
@@ -2134,7 +2139,7 @@ pub(crate) fn gather_definitions_stmt(
                 }
                 let mut defparams = vec![];
                 for p in params {
-                    let ast::TypeKind::Poly(ident, _) = &*p.typekind else {
+                    let TypeKind::Poly(ident, _) = &*p.typekind else {
                         panic!("expected poly type for ADT def param")
                     };
                     defparams.push(ident.clone());
@@ -2159,7 +2164,7 @@ pub(crate) fn gather_definitions_stmt(
                 }
                 let mut defparams = vec![];
                 for p in params {
-                    let ast::TypeKind::Poly(ident, _) = &*p.typekind else {
+                    let TypeKind::Poly(ident, _) = &*p.typekind else {
                         panic!("expected poly type for ADT def param")
                     };
                     defparams.push(ident.clone());
@@ -2238,7 +2243,7 @@ fn monomorphized_ty_to_builtin_ty(ty: TypeMonomorphized, prov_builtin: Prov) -> 
 pub(crate) fn gather_definitions_toplevel<Effect: crate::side_effects::EffectTrait>(
     inf_ctx: &mut InferenceContext,
     gamma: Gamma,
-    toplevel: Rc<ast::Toplevel>,
+    toplevel: Rc<Toplevel>,
 ) {
     for eff in Effect::enumerate().iter() {
         let prov = Prov::Builtin(format!(
@@ -2264,7 +2269,7 @@ pub(crate) fn gather_definitions_toplevel<Effect: crate::side_effects::EffectTra
 
 pub(crate) fn generate_constraints_toplevel(
     gamma: Gamma,
-    toplevel: Rc<ast::Toplevel>,
+    toplevel: Rc<Toplevel>,
     inf_ctx: &mut InferenceContext,
 ) {
     for statement in toplevel.statements.iter() {
@@ -2275,8 +2280,8 @@ pub(crate) fn generate_constraints_toplevel(
 // errors would be unbound variable, wrong number of arguments, occurs check, etc.
 pub(crate) fn result_of_constraint_solving(
     inf_ctx: &mut InferenceContext,
-    node_map: &ast::NodeMap,
-    sources: &ast::Sources,
+    node_map: &NodeMap,
+    sources: &Sources,
 ) -> Result<(), String> {
     // get list of type conflicts
     let mut type_conflicts = Vec::new();
@@ -2305,7 +2310,7 @@ pub(crate) fn result_of_constraint_solving(
     // look for error of multiple interface implementations for the same type
     for (ident, impls) in inf_ctx.interface_impls.iter() {
         // map from implementation type to location
-        let mut impls_by_type: BTreeMap<SolvedType, Vec<ast::NodeId>> = BTreeMap::new();
+        let mut impls_by_type: BTreeMap<SolvedType, Vec<NodeId>> = BTreeMap::new();
         for imp in impls.iter() {
             if let Some(impl_typ) = imp.typ.clone().solution() {
                 impls_by_type
@@ -2691,9 +2696,9 @@ pub(crate) fn result_of_constraint_solving(
 
 pub(crate) fn result_of_additional_analysis(
     inf_ctx: &mut InferenceContext,
-    toplevels: &[Rc<ast::Toplevel>],
-    node_map: &ast::NodeMap,
-    sources: &ast::Sources,
+    toplevels: &[Rc<Toplevel>],
+    node_map: &NodeMap,
+    sources: &Sources,
 ) -> Result<(), String> {
     for toplevel in toplevels {
         check_pattern_exhaustiveness_toplevel(inf_ctx, toplevel);
@@ -2737,13 +2742,13 @@ pub(crate) fn result_of_additional_analysis(
     Err(err_string)
 }
 
-fn check_pattern_exhaustiveness_toplevel(inf_ctx: &mut InferenceContext, toplevel: &ast::Toplevel) {
+fn check_pattern_exhaustiveness_toplevel(inf_ctx: &mut InferenceContext, toplevel: &Toplevel) {
     for statement in toplevel.statements.iter() {
         check_pattern_exhaustiveness_stmt(inf_ctx, statement);
     }
 }
 
-fn check_pattern_exhaustiveness_stmt(inf_ctx: &mut InferenceContext, stmt: &ast::Stmt) {
+fn check_pattern_exhaustiveness_stmt(inf_ctx: &mut InferenceContext, stmt: &Stmt) {
     match &*stmt.stmtkind {
         StmtKind::InterfaceDef(..) => {}
         StmtKind::TypeDef(..) => {}
@@ -2767,7 +2772,7 @@ fn check_pattern_exhaustiveness_stmt(inf_ctx: &mut InferenceContext, stmt: &ast:
     }
 }
 
-fn check_pattern_exhaustiveness_expr(inf_ctx: &mut InferenceContext, expr: &ast::Expr) {
+fn check_pattern_exhaustiveness_expr(inf_ctx: &mut InferenceContext, expr: &Expr) {
     match &*expr.exprkind {
         ExprKind::Match(..) => match_expr_exhaustive_check(inf_ctx, expr),
 
@@ -2776,7 +2781,7 @@ fn check_pattern_exhaustiveness_expr(inf_ctx: &mut InferenceContext, expr: &ast:
         | ExprKind::Float(_)
         | ExprKind::Bool(_)
         | ExprKind::Str(_)
-        | ExprKind::Var(_) => {}
+        | ExprKind::Var { .. } => {}
         ExprKind::List(exprs) => {
             for expr in exprs {
                 check_pattern_exhaustiveness_expr(inf_ctx, expr);
@@ -2930,7 +2935,7 @@ struct Matrix {
 }
 
 impl Matrix {
-    fn new(inf_ctx: &InferenceContext, scrutinee_ty: SolvedType, arms: &[ast::MatchArm]) -> Self {
+    fn new(inf_ctx: &InferenceContext, scrutinee_ty: SolvedType, arms: &[MatchArm]) -> Self {
         let types = vec![scrutinee_ty.clone()];
         let mut rows = Vec::new();
         for (dummy, arm) in arms.iter().enumerate() {
@@ -3081,7 +3086,7 @@ pub(crate) struct DeconstructedPat {
 }
 
 impl DeconstructedPat {
-    fn from_ast_pat(inf_ctx: &InferenceContext, pat: Rc<ast::Pat>) -> Self {
+    fn from_ast_pat(inf_ctx: &InferenceContext, pat: Rc<Pat>) -> Self {
         let ty = inf_ctx.solution_of_node(pat.id).unwrap();
         let mut fields = vec![];
         let ctor = match &*pat.patkind {
@@ -3455,7 +3460,7 @@ impl ConstructorSet {
 }
 
 // identify missing and extra constructors in patterns
-fn match_expr_exhaustive_check(inf_ctx: &mut InferenceContext, expr: &ast::Expr) {
+fn match_expr_exhaustive_check(inf_ctx: &mut InferenceContext, expr: &Expr) {
     let ExprKind::Match(scrutiny, arms) = &*expr.exprkind else {
         panic!()
     };
