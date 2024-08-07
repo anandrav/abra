@@ -202,9 +202,13 @@ fn make_place_expr(
     expr: Rc<ast::Expr>,
 ) -> Rc<Etl> {
     match &*expr.exprkind {
-        ast::ExprKind::Var(id) => Rc::new(Etl::Var(id.clone())),
+        ast::ExprKind::Var { symbol, .. } => Rc::new(Etl::Var(symbol.clone())),
         ast::ExprKind::FieldAccess(expr, field) => {
-            let ASTek::Var(field_ident) = &*field.exprkind else {
+            let ASTek::Var {
+                symbol: field_ident,
+                ..
+            } = &*field.exprkind
+            else {
                 panic!()
             };
             Rc::new(Etl::FieldAccess(
@@ -482,7 +486,7 @@ fn translate_expr(
     ast_id: ast::NodeId,
 ) -> Rc<Ete> {
     match &*parse_tree {
-        ASTek::Var(ident) => {
+        ASTek::Var { symbol, .. } => {
             if let Some(node_ty) = inf_ctx.solution_of_node(ast_id) {
                 if let Some(instance_ty) = monomorphize_overloaded_var(
                     inf_ctx,
@@ -490,13 +494,13 @@ fn translate_expr(
                     gamma,
                     node_map,
                     overloaded_func_map,
-                    ident,
+                    symbol,
                     node_ty,
                 ) {
-                    return Rc::new(Ete::VarOverloaded(ident.clone(), instance_ty));
+                    return Rc::new(Ete::VarOverloaded(symbol.clone(), instance_ty));
                 }
             }
-            Rc::new(Ete::Var(ident.clone()))
+            Rc::new(Ete::Var(symbol.clone()))
         }
         ASTek::Unit => Rc::new(Ete::Unit),
         ASTek::Int(i) => Rc::new(Ete::Int(*i)),
@@ -830,7 +834,11 @@ fn translate_expr(
                 accessed.exprkind.clone(),
                 accessed.id,
             );
-            let ASTek::Var(field_ident) = &*field.exprkind else {
+            let ASTek::Var {
+                symbol: field_ident,
+                ..
+            } = &*field.exprkind
+            else {
                 panic!()
             };
             Rc::new(Ete::FieldAccess(accessed, field_ident.clone()))

@@ -267,7 +267,7 @@ impl Node for Expr {
 
     fn children(&self) -> Vec<Rc<dyn Node>> {
         match &*self.exprkind {
-            ExprKind::Var(_) => vec![],
+            ExprKind::Var { .. } => vec![],
             ExprKind::Unit => vec![],
             ExprKind::Int(_) => vec![],
             ExprKind::Float(_) => vec![],
@@ -334,7 +334,10 @@ impl Node for Expr {
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) enum ExprKind {
     // EmptyHole,
-    Var(Symbol),
+    Var {
+        symbol: Symbol,
+        referent: Option<NodeId>,
+    },
     Unit,
     Int(i64),
     Float(f64),
@@ -1241,7 +1244,10 @@ pub(crate) fn parse_expr_term(pair: Pair<Rule>, filename: &str) -> Rc<Expr> {
             })
         }
         Rule::identifier => Rc::new(Expr {
-            exprkind: Rc::new(ExprKind::Var(pair.as_str().to_owned())),
+            exprkind: Rc::new(ExprKind::Var {
+                symbol: pair.as_str().to_owned(),
+                referent: None,
+            }),
             span,
             id: NodeId::new(),
         }),
