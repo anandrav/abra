@@ -22,7 +22,7 @@ pub(crate) enum Instr {
     PushBool(bool),
     PushInt(i64),
     Jump(Label),
-    JumpIfTrue(Label),
+    JumpIf(Label),
     Call(Label),
 }
 
@@ -38,7 +38,7 @@ impl Instr {
             Instr::PushBool(_) => Opcode::PushBool,
             Instr::PushInt(_) => Opcode::PushInt,
             Instr::Jump(_) => Opcode::Jump,
-            Instr::JumpIfTrue(_) => Opcode::JumpIfTrue,
+            Instr::JumpIf(_) => Opcode::JumpIfTrue,
             Instr::Call(_) => Opcode::Call,
         }
     }
@@ -100,7 +100,7 @@ fn instr_to_vminstr(instr: Instr, label_to_idx: &HashMap<Label, usize>) -> VmIns
         Instr::PushBool(b) => VmInstr::PushBool(b),
         Instr::PushInt(i) => VmInstr::PushInt(i),
         Instr::Jump(label) => VmInstr::Jump(label_to_idx[&label]),
-        Instr::JumpIfTrue(label) => VmInstr::JumpIfTrue(label_to_idx[&label]),
+        Instr::JumpIf(label) => VmInstr::JumpIfTrue(label_to_idx[&label]),
         Instr::Call(label) => VmInstr::Call(label_to_idx[&label]),
     }
 }
@@ -159,7 +159,7 @@ fn assemble_instr_or_label(
             let loc = words[1].to_owned();
             match words[0] {
                 "jump" => Instr::Jump(loc),
-                "jumpif" => Instr::JumpIfTrue(loc),
+                "jumpif" => Instr::JumpIf(loc),
                 "call" => Instr::Call(loc),
                 _ => unreachable!(),
             }

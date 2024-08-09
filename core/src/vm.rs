@@ -104,35 +104,38 @@ impl Display for Opcode {
     }
 }
 
-impl Instr {
-    pub(crate) fn opcode(&self) -> Opcode {
-        match self {
-            Instr::Pop => Opcode::Pop,
-            Instr::Add => Opcode::Add,
-            Instr::Sub => Opcode::Sub,
-            Instr::Mul => Opcode::Mul,
-            Instr::Div => Opcode::Div,
-            Instr::Return => Opcode::Return,
-            Instr::PushBool(_) => Opcode::PushBool,
-            Instr::PushInt(_) => Opcode::PushInt,
-            Instr::Jump(_) => Opcode::Jump,
-            Instr::JumpIfTrue(_) => Opcode::JumpIfTrue,
-            Instr::Call(_) => Opcode::Call,
-        }
-    }
-}
+// impl Instr {
+//     pub(crate) fn opcode(&self) -> Opcode {
+//         match self {
+//             Instr::Pop => Opcode::Pop,
+//             Instr::Add => Opcode::Add,
+//             Instr::Sub => Opcode::Sub,
+//             Instr::Mul => Opcode::Mul,
+//             Instr::Div => Opcode::Div,
+//             Instr::Return => Opcode::Return,
+//             Instr::PushBool(_) => Opcode::PushBool,
+//             Instr::PushInt(_) => Opcode::PushInt,
+//             Instr::Jump(_) => Opcode::Jump,
+//             Instr::JumpIfTrue(_) => Opcode::JumpIfTrue,
+//             Instr::Call(_) => Opcode::Call,
+//         }
+//     }
+// }
 
 impl Into<String> for &Instr {
     fn into(self) -> String {
         match self {
-            Instr::Pop | Instr::Add | Instr::Sub | Instr::Mul | Instr::Div | Instr::Return => {
-                self.opcode().into()
-            }
-            Instr::PushBool(b) => format!("{} {}", self.opcode(), b),
-            Instr::PushInt(n) => format!("{} {}", self.opcode(), n),
-            Instr::Jump(loc) => format!("{} {}", self.opcode(), loc),
-            Instr::JumpIfTrue(loc) => format!("{} {}", self.opcode(), loc),
-            Instr::Call(loc) => format!("{} {}", self.opcode(), loc),
+            Instr::Pop => "pop".to_owned(),
+            Instr::Add => "add".to_owned(),
+            Instr::Sub => "sub".to_owned(),
+            Instr::Mul => "mul".to_owned(),
+            Instr::Div => "div".to_owned(),
+            Instr::Return => "ret".to_owned(),
+            Instr::PushBool(b) => format!("pushb {}", b),
+            Instr::PushInt(n) => format!("pushi {}", n),
+            Instr::Jump(loc) => format!("jump {}", loc),
+            Instr::JumpIfTrue(loc) => format!("jumpif {}", loc),
+            Instr::Call(loc) => format!("call {}", loc),
         }
     }
 }
