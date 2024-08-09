@@ -1,3 +1,4 @@
+use crate::assembly::{remove_labels, Instr, InstrOrLabel, Label};
 use crate::ast::{NodeId, PatAnnotated, Toplevel};
 use crate::operators::BinOpcode;
 use crate::vm::Instr as VmInstr;
@@ -9,47 +10,6 @@ use crate::{
 use std::collections::{HashMap, HashSet};
 use std::f32::consts::E;
 use std::rc::Rc;
-
-type Label = String;
-
-#[derive(Debug)]
-enum InstrOrLabel {
-    Instr(Instr),
-    Label(Label),
-}
-
-#[derive(Debug)]
-enum Instr {
-    Pop,
-    Add,
-    Sub,
-    Mul,
-    Div,
-    Return,
-    PushBool(bool),
-    PushInt(i64),
-    Jump(Label),
-    JumpIfTrue(Label),
-    Call(Label),
-}
-
-impl Instr {
-    fn opcode(&self) -> Opcode {
-        match self {
-            Instr::Pop => Opcode::Pop,
-            Instr::Add => Opcode::Add,
-            Instr::Sub => Opcode::Sub,
-            Instr::Mul => Opcode::Mul,
-            Instr::Div => Opcode::Div,
-            Instr::Return => Opcode::Return,
-            Instr::PushBool(_) => Opcode::PushBool,
-            Instr::PushInt(_) => Opcode::PushInt,
-            Instr::Jump(_) => Opcode::Jump,
-            Instr::JumpIfTrue(_) => Opcode::JumpIfTrue,
-            Instr::Call(_) => Opcode::Call,
-        }
-    }
-}
 
 #[derive(Debug)]
 pub(crate) struct Translator {
@@ -154,53 +114,5 @@ fn collect_locals_from_let_pat(pat: Rc<Pat>, locals: &mut HashMap<String, usize>
         | PatKind::Float(..)
         | PatKind::Str(..)
         | PatKind::Wildcard => {}
-    }
-}
-
-fn remove_labels(items: Vec<InstrOrLabel>) -> Vec<VmInstr> {
-    let mut ret: Vec<VmInstr> = vec![];
-    let mut offset = 0;
-    let mut label_to_idx: HashMap<Label, usize> = HashMap::new();
-    for item in items.iter() {
-        match item {
-            InstrOrLabel::Instr(instr) => {
-                offset += instr.opcode().nbytes();
-            }
-            InstrOrLabel::Label(label) => {
-                label_to_idx.insert(label.clone(), offset);
-            }
-        }
-    }
-
-    for item in items {
-        if let InstrOrLabel::Instr(instr) = item {
-            ret.push(instr_to_vminstr(instr, &label_to_idx));
-        }
-    }
-
-    ret
-}
-
-fn get_label(s: &str) -> Option<String> {
-    if s.ends_with(":") {
-        Some(s[0..s.len() - 1].to_owned())
-    } else {
-        None
-    }
-}
-
-fn instr_to_vminstr(instr: Instr, label_to_idx: &HashMap<Label, usize>) -> VmInstr {
-    match instr {
-        Instr::Pop => VmInstr::Pop,
-        Instr::Add => VmInstr::Add,
-        Instr::Sub => VmInstr::Sub,
-        Instr::Mul => VmInstr::Mul,
-        Instr::Div => VmInstr::Div,
-        Instr::Return => VmInstr::Return,
-        Instr::PushBool(b) => VmInstr::PushBool(b),
-        Instr::PushInt(i) => VmInstr::PushInt(i),
-        Instr::Jump(label) => VmInstr::Jump(label_to_idx[&label]),
-        Instr::JumpIfTrue(label) => VmInstr::JumpIfTrue(label_to_idx[&label]),
-        Instr::Call(label) => VmInstr::Call(label_to_idx[&label]),
     }
 }

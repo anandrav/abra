@@ -62,20 +62,6 @@ pub(crate) enum Opcode {
 }
 
 impl Opcode {
-    pub(crate) fn nbytes(&self) -> usize {
-        match self {
-            Opcode::Pop
-            | Opcode::Add
-            | Opcode::Sub
-            | Opcode::Mul
-            | Opcode::Div
-            | Opcode::Return => 1,
-            Opcode::PushBool => 2,
-            Opcode::PushInt => 1 + size_of::<AbraInt>(),
-            Opcode::Jump | Opcode::JumpIfTrue | Opcode::Call => 1 + size_of::<ProgramCounter>(),
-        }
-    }
-
     pub(crate) fn from_str(s: &str) -> Option<Opcode> {
         match s {
             "pop" => Some(Opcode::Pop),
@@ -134,50 +120,6 @@ impl Instr {
             Instr::Call(_) => Opcode::Call,
         }
     }
-
-    pub(crate) fn size(&self) -> usize {
-        let mut n = 1;
-        match self {
-            Instr::Pop | Instr::Add | Instr::Sub | Instr::Mul | Instr::Div | Instr::Return => {}
-            Instr::PushBool(_) => n += size_of::<bool>(),
-            Instr::PushInt(_) => n += size_of::<AbraInt>(),
-            Instr::Jump(_) | Instr::JumpIfTrue(_) | Instr::Call(_) => n += size_of::<usize>(),
-        }
-        n
-    }
-
-    // pub(crate) fn encode(&self, buf: &mut Vec<u8>) {
-    //     buf.push(self.opcode() as u8);
-    //     match self {
-    //         Instr::PushBool(b) => {
-    //             buf.push(*b as u8);
-    //         }
-    //         Instr::PushInt(n) => {
-    //             buf.extend(n.to_le_bytes().iter());
-    //         }
-    //         Instr::Jump(target) | Instr::JumpIfTrue(target) | Instr::Call(target) => {
-    //             buf.extend(target.to_le_bytes().iter());
-    //         }
-    //         _ => {}
-    //     }
-    // }
-
-    // pub(crate) fn decode(buf: &[u8]) -> Self {
-    //     match buf[0] {
-    //         0 => Instr::Pop,
-    //         1 => Instr::Add,
-    //         2 => Instr::Sub,
-    //         3 => Instr::Mul,
-    //         4 => Instr::Div,
-    //         5 => Instr::Return,
-    //         6 => Instr::PushBool(buf[1] != 0),
-    //         7 => Instr::PushInt(AbraInt::from_le_bytes(buf[1..9].try_into().unwrap())),
-    //         8 => Instr::Jump(usize::from_le_bytes(buf[1..9].try_into().unwrap())),
-    //         9 => Instr::JumpIfTrue(usize::from_le_bytes(buf[1..9].try_into().unwrap())),
-    //         10 => Instr::Call(usize::from_le_bytes(buf[1..9].try_into().unwrap())),
-    //         _ => panic!("invalid opcode"),
-    //     }
-    // }
 }
 
 impl Into<String> for &Instr {

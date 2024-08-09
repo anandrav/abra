@@ -1,22 +1,108 @@
 use std::collections::HashMap;
 
-use crate::vm::Instr;
+use crate::vm::Instr as VmInstr;
 use crate::vm::Opcode;
 
-pub(crate) fn assemble(s: &str) -> Vec<Instr> {
-    let mut instructions: Vec<Instr> = vec![];
+pub(crate) type Label = String;
+
+#[derive(Debug)]
+pub(crate) enum InstrOrLabel {
+    Instr(Instr),
+    Label(Label),
+}
+
+#[derive(Debug)]
+pub(crate) enum Instr {
+    Pop,
+    Add,
+    Sub,
+    Mul,
+    Div,
+    Return,
+    PushBool(bool),
+    PushInt(i64),
+    Jump(Label),
+    JumpIfTrue(Label),
+    Call(Label),
+}
+
+impl Instr {
+    fn opcode(&self) -> Opcode {
+        match self {
+            Instr::Pop => Opcode::Pop,
+            Instr::Add => Opcode::Add,
+            Instr::Sub => Opcode::Sub,
+            Instr::Mul => Opcode::Mul,
+            Instr::Div => Opcode::Div,
+            Instr::Return => Opcode::Return,
+            Instr::PushBool(_) => Opcode::PushBool,
+            Instr::PushInt(_) => Opcode::PushInt,
+            Instr::Jump(_) => Opcode::Jump,
+            Instr::JumpIfTrue(_) => Opcode::JumpIfTrue,
+            Instr::Call(_) => Opcode::Call,
+        }
+    }
+}
+
+pub(crate) fn assemble(s: &str) -> Vec<VmInstr> {
+    let mut instructions: Vec<InstrOrLabel> = vec![];
     let label_to_idx = build_map_label_to_idx(s);
     for (lineno, line) in s.lines().enumerate() {
         let words: Vec<_> = line.split_whitespace().collect();
         if words.is_empty() {
             continue;
         }
-        if get_label(words[0]).is_some() {
-            continue;
-        }
-        instructions.push(assemble_instr(words, &label_to_idx, lineno));
+        instructions.push(assemble_instr_or_label(words, &label_to_idx, lineno));
     }
-    return instructions;
+    remove_labels(instructions)
+}
+
+pub(crate) fn remove_labels(items: Vec<InstrOrLabel>) -> Vec<VmInstr> {
+    let mut ret: Vec<VmInstr> = vec![];
+    let mut offset = 0;
+    let mut label_to_idx: HashMap<Label, usize> = HashMap::new();
+    for item in items.iter() {
+        match item {
+            InstrOrLabel::Instr(instr) => {
+                offset += 1;
+            }
+            InstrOrLabel::Label(label) => {
+                label_to_idx.insert(label.clone(), offset);
+            }
+        }
+    }
+
+    for item in items {
+        if let InstrOrLabel::Instr(instr) = item {
+            ret.push(instr_to_vminstr(instr, &label_to_idx));
+        }
+    }
+
+    ret
+}
+
+fn get_label(s: &str) -> Option<String> {
+    if s.ends_with(":") {
+        Some(s[0..s.len() - 1].to_owned())
+    } else {
+        None
+    }
+}
+
+fn instr_to_vminstr(instr: Instr, label_to_idx: &HashMap<Label, usize>) -> VmInstr {
+    match instr {
+        Instr::Pop => VmInstr::Pop,
+        Instr::Add => VmInstr::Add,
+        Instr::Sub => VmInstr::Sub,
+        Instr::Mul => VmInstr::Mul,
+        Instr::Div => VmInstr::Div,
+        Instr::Return => VmInstr::Return,
+        Instr::PushBool(b) => VmInstr::PushBool(b),
+        Instr::PushInt(i) => VmInstr::PushInt(i),
+        Instr::Jump(label) => VmInstr::Jump(label_to_idx[&label]),
+        Instr::JumpIfTrue(label) => VmInstr::JumpIfTrue(label_to_idx[&label]),
+        Instr::Call(label) => VmInstr::Call(label_to_idx[&label]),
+    }
 }
 
 fn build_map_label_to_idx(s: &str) -> HashMap<String, usize> {
@@ -32,7 +118,6 @@ fn build_map_label_to_idx(s: &str) -> HashMap<String, usize> {
             ret.insert(label, offset);
         } else if let Some(opcode) = Opcode::from_str(first) {
             offset += 1;
-            // offset += opcode.nbytes();
         } else {
             panic!("On line {}, unexpected word: {}", lineno, first);
         }
@@ -40,17 +125,16 @@ fn build_map_label_to_idx(s: &str) -> HashMap<String, usize> {
     ret
 }
 
-fn get_label(s: &str) -> Option<String> {
-    if s.ends_with(":") {
-        Some(s[0..s.len() - 1].to_owned())
-    } else {
-        None
+fn assemble_instr_or_label(
+    words: Vec<&str>,
+    label_to_idx: &HashMap<String, usize>,
+    lineno: usize,
+) -> InstrOrLabel {
+    if let Some(label) = get_label(words[0]) {
+        return InstrOrLabel::Label(label);
     }
-}
-
-fn assemble_instr(words: Vec<&str>, label_to_idx: &HashMap<String, usize>, lineno: usize) -> Instr {
     let radix = 10;
-    match words[0] {
+    let instr = match words[0] {
         "pop" => Instr::Pop,
         "add" => Instr::Add,
         "sub" => Instr::Sub,
@@ -72,7 +156,7 @@ fn assemble_instr(words: Vec<&str>, label_to_idx: &HashMap<String, usize>, linen
             Instr::PushInt(n)
         }
         "jump" | "jumpif" | "call" => {
-            let loc = *label_to_idx.get(words[1]).unwrap();
+            let loc = words[1].to_owned();
             match words[0] {
                 "jump" => Instr::Jump(loc),
                 "jumpif" => Instr::JumpIfTrue(loc),
@@ -81,21 +165,9 @@ fn assemble_instr(words: Vec<&str>, label_to_idx: &HashMap<String, usize>, linen
             }
         }
         _ => panic!("On line {}, unexpected word: {}", lineno, words[0]),
-    }
+    };
+    InstrOrLabel::Instr(instr)
 }
-
-// pub(crate) fn disassemble(program: &Vec<u8>) -> String {
-//     let mut ret = String::new();
-//     let mut pc = 0;
-//     while pc < program.len() {
-//         let instr = Instr::decode(&program[pc..]);
-//         pc += instr.size();
-//         let s: String = instr.into();
-//         ret.push_str(s.as_str());
-//         ret.push('\n');
-//     }
-//     ret
-// }
 
 #[cfg(test)]
 mod tests {
