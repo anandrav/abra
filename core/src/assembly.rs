@@ -1,7 +1,6 @@
 use std::collections::HashMap;
 
 use crate::vm::Instr as VmInstr;
-use crate::vm::Opcode;
 
 pub(crate) type Label = String;
 
@@ -26,33 +25,14 @@ pub(crate) enum Instr {
     Call(Label),
 }
 
-impl Instr {
-    fn opcode(&self) -> Opcode {
-        match self {
-            Instr::Pop => Opcode::Pop,
-            Instr::Add => Opcode::Add,
-            Instr::Sub => Opcode::Sub,
-            Instr::Mul => Opcode::Mul,
-            Instr::Div => Opcode::Div,
-            Instr::Return => Opcode::Return,
-            Instr::PushBool(_) => Opcode::PushBool,
-            Instr::PushInt(_) => Opcode::PushInt,
-            Instr::Jump(_) => Opcode::Jump,
-            Instr::JumpIf(_) => Opcode::JumpIfTrue,
-            Instr::Call(_) => Opcode::Call,
-        }
-    }
-}
-
 pub(crate) fn assemble(s: &str) -> Vec<VmInstr> {
     let mut instructions: Vec<InstrOrLabel> = vec![];
-    let label_to_idx = build_map_label_to_idx(s);
     for (lineno, line) in s.lines().enumerate() {
         let words: Vec<_> = line.split_whitespace().collect();
         if words.is_empty() {
             continue;
         }
-        instructions.push(assemble_instr_or_label(words, &label_to_idx, lineno));
+        instructions.push(assemble_instr_or_label(words, lineno));
     }
     remove_labels(instructions)
 }
@@ -105,31 +85,7 @@ fn instr_to_vminstr(instr: Instr, label_to_idx: &HashMap<Label, usize>) -> VmIns
     }
 }
 
-fn build_map_label_to_idx(s: &str) -> HashMap<String, usize> {
-    let mut ret: HashMap<String, usize> = HashMap::new();
-    let mut offset = 0;
-    for (lineno, line) in s.lines().enumerate() {
-        let words: Vec<_> = line.split_whitespace().collect();
-        if words.is_empty() {
-            continue;
-        }
-        let first = words[0];
-        if let Some(label) = get_label(first) {
-            ret.insert(label, offset);
-        } else if let Some(opcode) = Opcode::from_str(first) {
-            offset += 1;
-        } else {
-            panic!("On line {}, unexpected word: {}", lineno, first);
-        }
-    }
-    ret
-}
-
-fn assemble_instr_or_label(
-    words: Vec<&str>,
-    label_to_idx: &HashMap<String, usize>,
-    lineno: usize,
-) -> InstrOrLabel {
+fn assemble_instr_or_label(words: Vec<&str>, lineno: usize) -> InstrOrLabel {
     if let Some(label) = get_label(words[0]) {
         return InstrOrLabel::Label(label);
     }

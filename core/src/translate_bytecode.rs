@@ -2,7 +2,6 @@ use crate::assembly::{remove_labels, Instr, InstrOrLabel, Label};
 use crate::ast::{NodeId, PatAnnotated, Toplevel};
 use crate::operators::BinOpcode;
 use crate::vm::Instr as VmInstr;
-use crate::vm::Opcode;
 use crate::{
     ast::{Expr, ExprKind, NodeMap, Pat, PatKind, Stmt, StmtKind},
     statics::InferenceContext,
