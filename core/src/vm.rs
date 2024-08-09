@@ -38,6 +38,7 @@ pub enum Instr {
     Mul,
     Div,
     Return,
+    PushNil,
     PushBool(bool),
     PushInt(AbraInt),
     Jump(ProgramCounter),
@@ -54,8 +55,9 @@ impl Into<String> for &Instr {
             Instr::Mul => "mul".to_owned(),
             Instr::Div => "div".to_owned(),
             Instr::Return => "ret".to_owned(),
-            Instr::PushBool(b) => format!("pushb {}", b),
-            Instr::PushInt(n) => format!("pushi {}", n),
+            Instr::PushNil => "pushnil".to_owned(),
+            Instr::PushBool(b) => format!("pushbool {}", b),
+            Instr::PushInt(n) => format!("pushint {}", n),
             Instr::Jump(loc) => format!("jump {}", loc),
             Instr::JumpIfTrue(loc) => format!("jumpif {}", loc),
             Instr::Call(loc) => format!("call {}", loc),
@@ -72,6 +74,7 @@ impl Display for Instr {
 
 #[derive(Debug, Copy, Clone)]
 pub enum Value {
+    Nil,
     Bool(bool),
     Int(AbraInt),
     ManagedObject(usize),
@@ -154,6 +157,9 @@ impl Vm {
             let instr = self.program[self.pc];
             self.pc += 1;
             match instr {
+                Instr::PushNil => {
+                    self.push(Value::Nil);
+                }
                 Instr::PushInt(n) => {
                     println!("pushing int");
                     self.push(n);
@@ -243,8 +249,8 @@ mod tests {
     #[test]
     fn arithmetic() {
         let program_str = r#"
-pushi 3
-pushi 4
+pushint 3
+pushint 4
 sub
 "#;
         let instructions = assemble(program_str);
@@ -256,10 +262,10 @@ sub
     #[test]
     fn arithmetic2() {
         let program_str = r#"
-pushi 2
-pushi 3
+pushint 2
+pushint 3
 add
-pushi 1
+pushint 1
 sub
 "#;
         let instructions = assemble(program_str);
@@ -271,10 +277,10 @@ sub
     #[test]
     fn jump_to_label() {
         let program_str = r#"
-pushi 3
-pushi 4
+pushint 3
+pushint 4
 jump my_label
-pushi 100
+pushint 100
 my_label:
 add
 "#;

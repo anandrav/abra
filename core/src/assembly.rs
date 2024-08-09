@@ -18,6 +18,7 @@ pub(crate) enum Instr {
     Mul,
     Div,
     Return,
+    PushNil,
     PushBool(bool),
     PushInt(i64),
     Jump(Label),
@@ -77,6 +78,7 @@ fn instr_to_vminstr(instr: Instr, label_to_idx: &HashMap<Label, usize>) -> VmIns
         Instr::Mul => VmInstr::Mul,
         Instr::Div => VmInstr::Div,
         Instr::Return => VmInstr::Return,
+        Instr::PushNil => VmInstr::PushNil,
         Instr::PushBool(b) => VmInstr::PushBool(b),
         Instr::PushInt(i) => VmInstr::PushInt(i),
         Instr::Jump(label) => VmInstr::Jump(label_to_idx[&label]),
@@ -97,7 +99,8 @@ fn assemble_instr_or_label(words: Vec<&str>, lineno: usize) -> InstrOrLabel {
         "mul" => Instr::Mul,
         "div" => Instr::Div,
         "ret" => Instr::Return,
-        "pushb" => {
+        "pushnil" => Instr::PushNil,
+        "pushbool" => {
             let b = if words[1] == "true" {
                 true
             } else if words[1] == "false" {
@@ -107,7 +110,7 @@ fn assemble_instr_or_label(words: Vec<&str>, lineno: usize) -> InstrOrLabel {
             };
             Instr::PushBool(b)
         }
-        "pushi" => {
+        "pushint" => {
             let n = i64::from_str_radix(words[1], radix).unwrap();
             Instr::PushInt(n)
         }
@@ -131,10 +134,10 @@ mod tests {
 
     #[test]
     fn basic() {
-        let program_str = r#"pushi 3
-pushi 4
+        let program_str = r#"pushint 3
+pushint 4
 sub
-pushi 5
+pushint 5
 add
 "#;
         let instructions = assemble(program_str);

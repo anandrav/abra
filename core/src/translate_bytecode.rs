@@ -46,7 +46,7 @@ impl Translator {
         }
 
         for i in 0..locals.len() {
-            instructions.push(InstrOrLabel::Instr(Instr::PushInt(0)));
+            instructions.push(InstrOrLabel::Instr(Instr::PushNil));
         }
         for toplevel in self.toplevels.iter() {
             for (i, statement) in toplevel.statements.iter().enumerate() {
