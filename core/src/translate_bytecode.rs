@@ -1,6 +1,7 @@
 use crate::assembly::{remove_labels, Instr, InstrOrLabel, Label};
 use crate::ast::{NodeId, PatAnnotated, Toplevel};
 use crate::operators::BinOpcode;
+use crate::statics::Resolution;
 use crate::vm::Instr as VmInstr;
 use crate::{
     ast::{Expr, ExprKind, NodeMap, Pat, PatKind, Stmt, StmtKind},
@@ -38,11 +39,7 @@ impl Translator {
         // Handle the main function (toplevels)
         let mut locals = Locals::new();
         for toplevel in self.toplevels.iter() {
-            for statement in toplevel.statements.iter() {
-                if let StmtKind::Let(_, pat, _) = &*statement.stmtkind {
-                    collect_locals_from_let_pat(pat.0.clone(), &mut locals);
-                }
-            }
+            collect_locals_stmt(&toplevel.statements, &mut locals);
         }
         for i in 0..locals.len() {
             instructions.push(InstrOrLabel::Instr(Instr::PushNil));
@@ -62,6 +59,14 @@ impl Translator {
         // Handle all other functions
         for toplevel in self.toplevels.iter() {
             if let StmtKind::FuncDef(name, args, _, body) = &*toplevel.statements[0].stmtkind {
+                if name.patkind.get_identifier_of_variable() != "add" {
+                    continue;
+                }
+                let mut locals = Locals::new();
+                // TODO: args are locals. Need to handle those. Reuse same data structure? Probably.
+                // Need to keep track of count of locals vs args. (stack slots for locals must be allocated at beginning of function, but args are already allocated)
+                collect_locals_expr(body, &mut locals);
+                self.translate_expr(body.clone(), &locals, &mut instructions);
                 // unimplemented!();
             }
         }
@@ -118,8 +123,8 @@ impl Translator {
                 instructions.push(InstrOrLabel::Instr(Instr::PushInt(*i)));
             }
             ExprKind::BinOp(left, op, right) => {
-                self.translate_expr(left.clone(), &locals, instructions);
-                self.translate_expr(right.clone(), &locals, instructions);
+                self.translate_expr(left.clone(), locals, instructions);
+                self.translate_expr(right.clone(), locals, instructions);
                 match op {
                     BinOpcode::Add => instructions.push(InstrOrLabel::Instr(Instr::Add)),
                     BinOpcode::Subtract => instructions.push(InstrOrLabel::Instr(Instr::Sub)),
@@ -128,7 +133,35 @@ impl Translator {
                     _ => unimplemented!(),
                 }
             }
-            _ => unimplemented!(),
+            ExprKind::FuncAp(func, args) => {
+                if let ExprKind::Var(symbol) = &*func.exprkind {
+                    self.translate_expr(args[0].clone(), locals, instructions);
+                    self.translate_expr(args[1].clone(), locals, instructions);
+                    let resolution = self.inf_ctx.name_resolutions.get(&expr.id).unwrap();
+                    match resolution {
+                        Resolution::Node(node_id) => {
+                            let node = self.node_map.get(node_id).unwrap();
+                            let stmt = node.to_stmt().unwrap();
+                            match &*stmt.stmtkind {
+                                StmtKind::FuncDef(name, _, _, _) => {
+                                    instructions.push(InstrOrLabel::Instr(Instr::Call(
+                                        name.patkind.get_identifier_of_variable(),
+                                    )));
+                                    return;
+                                }
+                                _ => {
+                                    unimplemented!();
+                                }
+                            }
+                        }
+                        Resolution::Builtin(_) => {
+                            unimplemented!()
+                        }
+                    }
+                }
+                panic!("unimplemented: {:?}", expr.exprkind);
+            }
+            _ => panic!("unimplemented: {:?}", expr.exprkind),
         }
     }
 
@@ -141,13 +174,35 @@ impl Translator {
     ) {
         match &*stmt.stmtkind {
             StmtKind::Let(_, pat, expr) => {
-                self.handle_binding(pat.0.clone(), expr.clone(), &locals, instructions);
+                self.handle_binding(pat.0.clone(), expr.clone(), locals, instructions);
             }
             StmtKind::Expr(expr) => {
-                self.translate_expr(expr.clone(), &locals, instructions);
+                self.translate_expr(expr.clone(), locals, instructions);
                 if !is_last {
                     instructions.push(InstrOrLabel::Instr(Instr::Pop));
                 }
+            }
+            _ => {}
+        }
+    }
+}
+
+fn collect_locals_expr(expr: &Expr, locals: &mut Locals) {
+    match &*expr.exprkind {
+        ExprKind::Block(statements) => {
+            for statement in statements {
+                collect_locals_stmt(&[statement.clone()], locals);
+            }
+        }
+        _ => {}
+    }
+}
+
+fn collect_locals_stmt(statements: &[Rc<Stmt>], locals: &mut Locals) {
+    for statement in statements {
+        match &*statement.stmtkind {
+            StmtKind::Let(_, pat, _) => {
+                collect_locals_from_let_pat(pat.0.clone(), locals);
             }
             _ => {}
         }

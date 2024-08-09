@@ -5,9 +5,13 @@ use abra_core::vm::Vm;
 
 fn main() {
     let src = r#"
+func add(x, y) {
+  x + y
+}
 let x = 3
 let y = 4
-x + y
+let z = add(x, y)
+z
 "#;
     let sources = source_files_single(src);
     let bytecode = compile_bytecode::<DefaultEffects>(sources).unwrap();
