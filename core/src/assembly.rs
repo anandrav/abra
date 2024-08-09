@@ -13,11 +13,14 @@ pub(crate) enum InstrOrLabel {
 #[derive(Debug)]
 pub(crate) enum Instr {
     Pop,
+    LoadOffset(i32),
+    StoreOffset(i32),
     Add,
     Sub,
     Mul,
     Div,
     Return,
+    Stop,
     PushNil,
     PushBool(bool),
     PushInt(i64),
@@ -73,11 +76,14 @@ fn get_label(s: &str) -> Option<String> {
 fn instr_to_vminstr(instr: Instr, label_to_idx: &HashMap<Label, usize>) -> VmInstr {
     match instr {
         Instr::Pop => VmInstr::Pop,
+        Instr::LoadOffset(i) => VmInstr::LoadOffset(i),
+        Instr::StoreOffset(i) => VmInstr::StoreOffset(i),
         Instr::Add => VmInstr::Add,
         Instr::Sub => VmInstr::Sub,
         Instr::Mul => VmInstr::Mul,
         Instr::Div => VmInstr::Div,
         Instr::Return => VmInstr::Return,
+        Instr::Stop => VmInstr::Stop,
         Instr::PushNil => VmInstr::PushNil,
         Instr::PushBool(b) => VmInstr::PushBool(b),
         Instr::PushInt(i) => VmInstr::PushInt(i),
@@ -98,7 +104,8 @@ fn assemble_instr_or_label(words: Vec<&str>, lineno: usize) -> InstrOrLabel {
         "sub" => Instr::Sub,
         "mul" => Instr::Mul,
         "div" => Instr::Div,
-        "ret" => Instr::Return,
+        "return" => Instr::Return,
+        "stop" => Instr::Stop,
         "pushnil" => Instr::PushNil,
         "pushbool" => {
             let b = if words[1] == "true" {

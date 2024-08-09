@@ -33,11 +33,14 @@ impl Vm {
 #[derive(Debug, Copy, Clone)]
 pub enum Instr {
     Pop,
+    LoadOffset(i32),
+    StoreOffset(i32),
     Add,
     Sub,
     Mul,
     Div,
     Return,
+    Stop,
     PushNil,
     PushBool(bool),
     PushInt(AbraInt),
@@ -50,11 +53,14 @@ impl Into<String> for &Instr {
     fn into(self) -> String {
         match self {
             Instr::Pop => "pop".to_owned(),
+            Instr::LoadOffset(n) => format!("loadoffset {}", n),
+            Instr::StoreOffset(n) => format!("storeoffset {}", n),
             Instr::Add => "add".to_owned(),
             Instr::Sub => "sub".to_owned(),
             Instr::Mul => "mul".to_owned(),
             Instr::Div => "div".to_owned(),
-            Instr::Return => "ret".to_owned(),
+            Instr::Return => "return".to_owned(),
+            Instr::Stop => "stop".to_owned(),
             Instr::PushNil => "pushnil".to_owned(),
             Instr::PushBool(b) => format!("pushbool {}", b),
             Instr::PushInt(n) => format!("pushint {}", n),
@@ -170,6 +176,14 @@ impl Vm {
                 Instr::Pop => {
                     self.value_stack.pop();
                 }
+                Instr::LoadOffset(n) => {
+                    let v = self.value_stack[n as usize];
+                    self.push(v);
+                }
+                Instr::StoreOffset(n) => {
+                    let v = self.value_stack.pop().expect("stack underflow");
+                    self.value_stack[n as usize] = v;
+                }
                 Instr::Add => {
                     println!("adding");
                     let b = self.pop_int();
@@ -215,6 +229,9 @@ impl Vm {
                     let frame = self.call_stack.pop().expect("call stack underflow");
                     self.pc = frame.pc;
                     self.value_stack.truncate(frame.stack_base);
+                }
+                Instr::Stop => {
+                    return;
                 }
             }
         }
