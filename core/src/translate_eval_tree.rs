@@ -310,7 +310,7 @@ fn translate_expr_ap(
 }
 
 fn ty_of_global_ident(gamma: Gamma, ident: &ast::Symbol) -> Option<SolvedType> {
-    let ty = gamma.lookup(ident)?;
+    let ty = gamma.lookup(ident)?; // TODO: This is the only place gamma is used, and InferenceContext could be used instead
     ty.solution()
 }
 

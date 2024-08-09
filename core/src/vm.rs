@@ -254,8 +254,8 @@ enum ManagedObjectKind {
     String(String),
     DynArray(Vec<Value>),
     FunctionObject {
-        closure: Vec<Value>, /* TODO */
-        addr: ProgramCounter,
+        captured_values: Vec<Value>, /* TODO */
+        func_addr: ProgramCounter,
     },
 }
 

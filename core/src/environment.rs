@@ -8,7 +8,7 @@ use std::hash::Hash;
 use std::rc::Rc;
 
 #[derive(Clone, Debug, PartialEq)]
-pub struct Environment<Identifier: Hash + Eq, Item> {
+pub struct Environment<Identifier: Hash + Eq, Item: Clone> {
     base: Rc<RefCell<EnvironmentBase<Identifier, Item>>>,
 }
 
@@ -40,7 +40,9 @@ impl<Identifier: Eq + Hash, Item: Clone> Environment<Identifier, Item> {
     }
 }
 
-impl<Identifier: Eq + Hash + Display, Item: Display> Display for Environment<Identifier, Item> {
+impl<Identifier: Eq + Hash + Display, Item: Clone + Display> Display
+    for Environment<Identifier, Item>
+{
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}", self.base.borrow())
     }
