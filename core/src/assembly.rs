@@ -3,8 +3,7 @@ use std::collections::HashMap;
 use crate::vm::Instr;
 use crate::vm::Opcode;
 
-pub(crate) fn assemble(s: &str) -> Vec<u8> {
-    let mut ret: Vec<u8> = vec![];
+pub(crate) fn assemble(s: &str) -> Vec<Instr> {
     let mut instructions: Vec<Instr> = vec![];
     let label_to_idx = build_map_label_to_idx(s);
     for (lineno, line) in s.lines().enumerate() {
@@ -17,10 +16,7 @@ pub(crate) fn assemble(s: &str) -> Vec<u8> {
         }
         instructions.push(assemble_instr(words, &label_to_idx, lineno));
     }
-    for instr in instructions {
-        instr.encode(&mut ret);
-    }
-    return ret;
+    return instructions;
 }
 
 fn build_map_label_to_idx(s: &str) -> HashMap<String, usize> {
@@ -35,7 +31,8 @@ fn build_map_label_to_idx(s: &str) -> HashMap<String, usize> {
         if let Some(label) = get_label(first) {
             ret.insert(label, offset);
         } else if let Some(opcode) = Opcode::from_str(first) {
-            offset += opcode.nbytes();
+            offset += 1;
+            // offset += opcode.nbytes();
         } else {
             panic!("On line {}, unexpected word: {}", lineno, first);
         }
@@ -87,18 +84,18 @@ fn assemble_instr(words: Vec<&str>, label_to_idx: &HashMap<String, usize>, linen
     }
 }
 
-pub(crate) fn disassemble(program: &Vec<u8>) -> String {
-    let mut ret = String::new();
-    let mut pc = 0;
-    while pc < program.len() {
-        let instr = Instr::decode(&program[pc..]);
-        pc += instr.size();
-        let s: String = instr.into();
-        ret.push_str(s.as_str());
-        ret.push('\n');
-    }
-    ret
-}
+// pub(crate) fn disassemble(program: &Vec<u8>) -> String {
+//     let mut ret = String::new();
+//     let mut pc = 0;
+//     while pc < program.len() {
+//         let instr = Instr::decode(&program[pc..]);
+//         pc += instr.size();
+//         let s: String = instr.into();
+//         ret.push_str(s.as_str());
+//         ret.push('\n');
+//     }
+//     ret
+// }
 
 #[cfg(test)]
 mod tests {
@@ -112,9 +109,11 @@ sub
 pushi 5
 add
 "#;
-        let program_bytes = assemble(program_str);
-        let program_str2 = disassemble(&program_bytes);
-        println!("{}", program_str2);
+        let instructions = assemble(program_str);
+        let mut program_str2 = String::new();
+        for instr in instructions {
+            program_str2.push_str(&format!("{}\n", instr));
+        }
         assert_eq!(program_str, program_str2);
     }
 }

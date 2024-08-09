@@ -71,7 +71,7 @@ impl Translator {
         }
     }
 
-    pub(crate) fn translate(&self) -> Vec<u8> {
+    pub(crate) fn translate(&self) -> Vec<VmInstr> {
         let mut instructions: Vec<InstrOrLabel> = vec![];
 
         // Map from name of local variable to its index in the stack
@@ -109,15 +109,8 @@ impl Translator {
         }
 
         let instructions: Vec<VmInstr> = remove_labels(instructions);
-        dbg!(&instructions);
-        let mut bytecode: Vec<u8> = vec![];
-        for instr in instructions {
-            instr.encode(&mut bytecode);
-        }
 
-        println!("{}", bytecode.len());
-
-        bytecode
+        instructions
     }
 
     fn translate_expr(&self, expr: Rc<Expr>, instructions: &mut Vec<InstrOrLabel>) {

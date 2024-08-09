@@ -7,7 +7,7 @@ use crate::assembly::assemble;
 
 #[derive(Debug)]
 pub struct Vm {
-    program: Vec<u8>,
+    program: Vec<Instr>,
     pc: ProgramCounter,
     value_stack: Vec<Value>,
     call_stack: Vec<CallFrame>,
@@ -15,7 +15,7 @@ pub struct Vm {
 }
 
 impl Vm {
-    pub fn new(program: Vec<u8>) -> Self {
+    pub fn new(program: Vec<Instr>) -> Self {
         Self {
             program,
             pc: 0,
@@ -31,7 +31,7 @@ impl Vm {
 }
 
 #[derive(Debug, Copy, Clone)]
-pub(crate) enum Instr {
+pub enum Instr {
     Pop,
     Add,
     Sub,
@@ -146,41 +146,41 @@ impl Instr {
         n
     }
 
-    pub(crate) fn encode(&self, buf: &mut Vec<u8>) {
-        buf.push(self.opcode() as u8);
-        match self {
-            Instr::PushBool(b) => {
-                buf.push(*b as u8);
-            }
-            Instr::PushInt(n) => {
-                buf.extend(n.to_le_bytes().iter());
-            }
-            Instr::Jump(target) | Instr::JumpIfTrue(target) | Instr::Call(target) => {
-                buf.extend(target.to_le_bytes().iter());
-            }
-            _ => {}
-        }
-    }
+    // pub(crate) fn encode(&self, buf: &mut Vec<u8>) {
+    //     buf.push(self.opcode() as u8);
+    //     match self {
+    //         Instr::PushBool(b) => {
+    //             buf.push(*b as u8);
+    //         }
+    //         Instr::PushInt(n) => {
+    //             buf.extend(n.to_le_bytes().iter());
+    //         }
+    //         Instr::Jump(target) | Instr::JumpIfTrue(target) | Instr::Call(target) => {
+    //             buf.extend(target.to_le_bytes().iter());
+    //         }
+    //         _ => {}
+    //     }
+    // }
 
-    pub(crate) fn decode(buf: &[u8]) -> Self {
-        match buf[0] {
-            0 => Instr::Pop,
-            1 => Instr::Add,
-            2 => Instr::Sub,
-            3 => Instr::Mul,
-            4 => Instr::Div,
-            5 => Instr::Return,
-            6 => Instr::PushBool(buf[1] != 0),
-            7 => Instr::PushInt(AbraInt::from_le_bytes(buf[1..9].try_into().unwrap())),
-            8 => Instr::Jump(usize::from_le_bytes(buf[1..9].try_into().unwrap())),
-            9 => Instr::JumpIfTrue(usize::from_le_bytes(buf[1..9].try_into().unwrap())),
-            10 => Instr::Call(usize::from_le_bytes(buf[1..9].try_into().unwrap())),
-            _ => panic!("invalid opcode"),
-        }
-    }
+    // pub(crate) fn decode(buf: &[u8]) -> Self {
+    //     match buf[0] {
+    //         0 => Instr::Pop,
+    //         1 => Instr::Add,
+    //         2 => Instr::Sub,
+    //         3 => Instr::Mul,
+    //         4 => Instr::Div,
+    //         5 => Instr::Return,
+    //         6 => Instr::PushBool(buf[1] != 0),
+    //         7 => Instr::PushInt(AbraInt::from_le_bytes(buf[1..9].try_into().unwrap())),
+    //         8 => Instr::Jump(usize::from_le_bytes(buf[1..9].try_into().unwrap())),
+    //         9 => Instr::JumpIfTrue(usize::from_le_bytes(buf[1..9].try_into().unwrap())),
+    //         10 => Instr::Call(usize::from_le_bytes(buf[1..9].try_into().unwrap())),
+    //         _ => panic!("invalid opcode"),
+    //     }
+    // }
 }
 
-impl Into<String> for Instr {
+impl Into<String> for &Instr {
     fn into(self) -> String {
         match self {
             Instr::Pop | Instr::Add | Instr::Sub | Instr::Mul | Instr::Div | Instr::Return => {
@@ -192,6 +192,13 @@ impl Into<String> for Instr {
             Instr::JumpIfTrue(loc) => format!("{} {}", self.opcode(), loc),
             Instr::Call(loc) => format!("{} {}", self.opcode(), loc),
         }
+    }
+}
+
+impl Display for Instr {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        let s: String = self.into();
+        write!(f, "{}", s)
     }
 }
 
@@ -276,8 +283,8 @@ impl Vm {
 
     fn step(&mut self) {
         while self.pc < self.program.len() {
-            let instr = Instr::decode(&self.program[self.pc..]);
-            self.pc += instr.size();
+            let instr = self.program[self.pc];
+            self.pc += 1;
             match instr {
                 Instr::PushInt(n) => {
                     println!("pushing int");
@@ -372,8 +379,8 @@ pushi 3
 pushi 4
 sub
 "#;
-        let bytecode = assemble(program_str);
-        let mut vm = Vm::new(bytecode);
+        let instructions = assemble(program_str);
+        let mut vm = Vm::new(instructions);
         vm.run();
         assert_eq!(vm.top().get_int(), -1);
     }
@@ -387,8 +394,8 @@ add
 pushi 1
 sub
 "#;
-        let bytecode = assemble(program_str);
-        let mut vm = Vm::new(bytecode);
+        let instructions = assemble(program_str);
+        let mut vm = Vm::new(instructions);
         vm.run();
         assert_eq!(vm.top().get_int(), 4);
     }
@@ -403,8 +410,8 @@ pushi 100
 my_label:
 add
 "#;
-        let bytecode = assemble(program_str);
-        let mut vm = Vm::new(bytecode);
+        let instructions = assemble(program_str);
+        let mut vm = Vm::new(instructions);
         vm.run();
         assert_eq!(vm.top().get_int(), 7);
     }

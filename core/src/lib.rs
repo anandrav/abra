@@ -18,6 +18,7 @@ pub mod vm;
 
 use interpreter::{Interpreter, OverloadedFuncMap};
 use translate_bytecode::Translator;
+use vm::Instr;
 
 pub fn abra_hello_world() {
     println!("Hello, world!");
@@ -91,7 +92,7 @@ pub fn compile<Effect: EffectTrait>(source_files: Vec<SourceFile>) -> Result<Run
 
 pub fn compile_bytecode<Effect: EffectTrait>(
     source_files: Vec<SourceFile>,
-) -> Result<Vec<u8>, String> {
+) -> Result<Vec<Instr>, String> {
     let mut filename_to_source = HashMap::new();
     let mut filenames = Vec::new();
     for source_file in &source_files {
@@ -128,7 +129,7 @@ pub fn compile_bytecode<Effect: EffectTrait>(
 
     statics::result_of_additional_analysis(&mut inference_ctx, &toplevels, &node_map, &sources)?;
 
-    let mut translator = Translator::new(inference_ctx, node_map, toplevels);
+    let translator = Translator::new(inference_ctx, node_map, toplevels);
     Ok(translator.translate())
 }
 
