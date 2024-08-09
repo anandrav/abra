@@ -74,7 +74,9 @@ impl Translator {
     pub(crate) fn translate(&self) -> Vec<u8> {
         let mut instructions: Vec<InstrOrLabel> = vec![];
 
-        let mut locals = HashMap::new();
+        // Map from name of local variable to its index in the stack
+        // Since different types of values take up the same size, different variables with the same name can share the same slot
+        let mut locals: HashMap<String, usize> = HashMap::new();
 
         for toplevel in self.toplevels.iter() {
             for statement in toplevel.statements.iter() {
@@ -84,6 +86,9 @@ impl Translator {
             }
         }
 
+        for i in 0..locals.len() {
+            instructions.push(InstrOrLabel::Instr(Instr::PushInt(0)));
+        }
         for toplevel in self.toplevels.iter() {
             for (i, statement) in toplevel.statements.iter().enumerate() {
                 match &*statement.stmtkind {

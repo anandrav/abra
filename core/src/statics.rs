@@ -930,10 +930,8 @@ fn constrain(mut expected: TypeVar, mut actual: TypeVar) {
 
 #[derive(Debug, Clone)]
 pub(crate) enum Resolution {
-    Resolved(NodeId),
+    Node(NodeId),
     Builtin(Symbol),
-
-    PLACEHOLDER,
 }
 
 // TODO: rename to TypeEnv
@@ -942,7 +940,7 @@ pub(crate) struct Gamma {
     var_to_type: Environment<Symbol, TypeVar>,
     ty_vars_in_scope: Environment<Symbol, ()>,
 
-    resolutions: Environment<Symbol, Resolution>,
+    var_declarations: Environment<Symbol, Resolution>,
 }
 impl Gamma {
     pub(crate) fn empty() -> Self {
@@ -950,13 +948,20 @@ impl Gamma {
             var_to_type: Environment::empty(),
             ty_vars_in_scope: Environment::empty(),
 
-            resolutions: Environment::empty(),
+            var_declarations: Environment::empty(),
         }
     }
 
-    pub(crate) fn extend(&self, ident: Symbol, ty: TypeVar, resolution: Resolution) {
+    pub(crate) fn extend(&self, ident: Symbol, ty: TypeVar) {
         self.var_to_type.extend(ident.clone(), ty);
-        self.resolutions.extend(ident, resolution);
+    }
+
+    pub(crate) fn extend_declaration(&self, symbol: Symbol, resolution: Resolution) {
+        self.var_declarations.extend(symbol, resolution);
+    }
+
+    pub(crate) fn lookup_declaration(&self, symbol: &Symbol) -> Option<Resolution> {
+        self.var_declarations.lookup(symbol)
     }
 
     pub(crate) fn add_polys(&self, ty: &TypeVar) {
@@ -1000,7 +1005,7 @@ impl Gamma {
             var_to_type: self.var_to_type.new_scope(),
             ty_vars_in_scope: self.ty_vars_in_scope.new_scope(),
 
-            resolutions: self.resolutions.new_scope(),
+            var_declarations: self.var_declarations.new_scope(),
         }
     }
 }
@@ -1012,8 +1017,8 @@ pub(crate) fn make_new_gamma() -> Gamma {
     gamma.extend(
         ident.clone(),
         TypeVar::make_string(Prov::Builtin("newline: string".to_string())),
-        Resolution::Builtin(ident),
     );
+    gamma.extend_declaration(ident.clone(), Resolution::Builtin(ident));
     let ident = "print_string".to_owned();
     gamma.extend(
         ident.clone(),
@@ -1027,8 +1032,8 @@ pub(crate) fn make_new_gamma() -> Gamma {
             )))),
             Prov::Builtin("print_string: string -> void".to_string()),
         ),
-        Resolution::Builtin(ident),
     );
+    gamma.extend_declaration(ident.clone(), Resolution::Builtin(ident));
     let ident = "equals_int".to_owned();
     gamma.extend(
         ident.clone(),
@@ -1048,8 +1053,9 @@ pub(crate) fn make_new_gamma() -> Gamma {
             )))),
             Prov::Builtin("equals_int: (int, int) -> bool".to_string()),
         ),
-        Resolution::Builtin(ident),
     );
+    gamma.extend_declaration(ident.clone(), Resolution::Builtin(ident));
+
     let ident = "equals_string".to_owned();
     gamma.extend(
         ident.clone(),
@@ -1073,8 +1079,9 @@ pub(crate) fn make_new_gamma() -> Gamma {
             )))),
             Prov::Builtin("equals_string: (string, string) -> bool".to_string()),
         ),
-        Resolution::Builtin(ident),
     );
+    gamma.extend_declaration(ident.clone(), Resolution::Builtin(ident));
+
     let ident = "int_to_string".to_owned();
     gamma.extend(
         ident.clone(),
@@ -1088,8 +1095,9 @@ pub(crate) fn make_new_gamma() -> Gamma {
             )))),
             Prov::Builtin("int_to_string: int -> string".to_string()),
         ),
-        Resolution::Builtin(ident),
     );
+    gamma.extend_declaration(ident.clone(), Resolution::Builtin(ident));
+
     let ident = "float_to_string".to_owned();
     gamma.extend(
         ident.clone(),
@@ -1105,8 +1113,9 @@ pub(crate) fn make_new_gamma() -> Gamma {
             )))),
             Prov::Builtin("float_to_string: float -> string".to_string()),
         ),
-        Resolution::Builtin(ident),
     );
+    gamma.extend_declaration(ident.clone(), Resolution::Builtin(ident));
+
     let ident = "to_float".to_owned();
     gamma.extend(
         ident.clone(),
@@ -1120,8 +1129,9 @@ pub(crate) fn make_new_gamma() -> Gamma {
             )))),
             Prov::Builtin("to_float: int -> float".to_string()),
         ),
-        Resolution::Builtin(ident),
     );
+    gamma.extend_declaration(ident.clone(), Resolution::Builtin(ident));
+
     let ident = "round".to_owned();
     gamma.extend(
         ident.clone(),
@@ -1135,8 +1145,9 @@ pub(crate) fn make_new_gamma() -> Gamma {
             )))),
             Prov::Builtin("round: float -> int".to_string()),
         ),
-        Resolution::Builtin(ident),
     );
+    gamma.extend_declaration(ident.clone(), Resolution::Builtin(ident));
+
     let ident = "append_strings".to_owned();
     gamma.extend(
         ident.clone(),
@@ -1160,8 +1171,9 @@ pub(crate) fn make_new_gamma() -> Gamma {
             )))),
             Prov::Builtin("append_strings: (string, string) -> string".to_string()),
         ),
-        Resolution::Builtin(ident),
     );
+    gamma.extend_declaration(ident.clone(), Resolution::Builtin(ident));
+
     let ident = "add_int".to_owned();
     let prov = Prov::Builtin("add_int: (int, int) -> int".to_string());
     gamma.extend(
@@ -1174,8 +1186,9 @@ pub(crate) fn make_new_gamma() -> Gamma {
             TypeVar::make_int(Prov::FuncOut(prov.clone().into())),
             prov,
         ),
-        Resolution::Builtin(ident),
     );
+    gamma.extend_declaration(ident.clone(), Resolution::Builtin(ident));
+
     let ident = "minus_int".to_owned();
     let prov = Prov::Builtin("minus_int: (int, int) -> int".to_string());
     gamma.extend(
@@ -1188,8 +1201,9 @@ pub(crate) fn make_new_gamma() -> Gamma {
             TypeVar::make_int(Prov::FuncOut(prov.clone().into())),
             prov,
         ),
-        Resolution::Builtin(ident),
     );
+    gamma.extend_declaration(ident.clone(), Resolution::Builtin(ident));
+
     let ident = "multiply_int".to_owned();
     let prov = Prov::Builtin("multiply_int: (int, int) -> int".to_string());
     gamma.extend(
@@ -1202,8 +1216,9 @@ pub(crate) fn make_new_gamma() -> Gamma {
             TypeVar::make_int(Prov::FuncOut(prov.clone().into())),
             prov,
         ),
-        Resolution::Builtin(ident),
     );
+    gamma.extend_declaration(ident.clone(), Resolution::Builtin(ident));
+
     let ident = "divide_int".to_owned();
     let prov = Prov::Builtin("divide_int: (int, int) -> int".to_string());
     gamma.extend(
@@ -1216,8 +1231,9 @@ pub(crate) fn make_new_gamma() -> Gamma {
             TypeVar::make_int(Prov::FuncOut(prov.clone().into())),
             prov,
         ),
-        Resolution::Builtin(ident),
     );
+    gamma.extend_declaration(ident.clone(), Resolution::Builtin(ident));
+
     let ident = "pow_int".to_owned();
     let prov = Prov::Builtin("pow_int: (int, int) -> int".to_string());
     gamma.extend(
@@ -1230,8 +1246,9 @@ pub(crate) fn make_new_gamma() -> Gamma {
             TypeVar::make_int(Prov::FuncOut(prov.clone().into())),
             prov,
         ),
-        Resolution::Builtin(ident),
     );
+    gamma.extend_declaration(ident.clone(), Resolution::Builtin(ident));
+
     let ident = "less_than_int".to_owned();
     let prov = Prov::Builtin("less_than_int: (int, int) -> bool".to_string());
     gamma.extend(
@@ -1244,8 +1261,9 @@ pub(crate) fn make_new_gamma() -> Gamma {
             TypeVar::make_bool(Prov::FuncOut(prov.clone().into())),
             prov,
         ),
-        Resolution::Builtin(ident),
     );
+    gamma.extend_declaration(ident.clone(), Resolution::Builtin(ident));
+
     let ident = "add_float".to_owned();
     let prov = Prov::Builtin("add_float: (float, float) -> float".to_string());
     gamma.extend(
@@ -1258,8 +1276,9 @@ pub(crate) fn make_new_gamma() -> Gamma {
             TypeVar::make_float(Prov::FuncOut(prov.clone().into())),
             prov,
         ),
-        Resolution::Builtin(ident),
     );
+    gamma.extend_declaration(ident.clone(), Resolution::Builtin(ident));
+
     let ident = "minus_float".to_owned();
     let prov = Prov::Builtin("minus_float: (float, float) -> float".to_string());
     gamma.extend(
@@ -1272,8 +1291,9 @@ pub(crate) fn make_new_gamma() -> Gamma {
             TypeVar::make_float(Prov::FuncOut(prov.clone().into())),
             prov,
         ),
-        Resolution::Builtin(ident),
     );
+    gamma.extend_declaration(ident.clone(), Resolution::Builtin(ident));
+
     let ident = "multiply_float".to_owned();
     let prov = Prov::Builtin("multiply_float: (float, float) -> float".to_string());
     gamma.extend(
@@ -1286,8 +1306,9 @@ pub(crate) fn make_new_gamma() -> Gamma {
             TypeVar::make_float(Prov::FuncOut(prov.clone().into())),
             prov,
         ),
-        Resolution::Builtin(ident),
     );
+    gamma.extend_declaration(ident.clone(), Resolution::Builtin(ident));
+
     let ident = "divide_float".to_owned();
     let prov = Prov::Builtin("divide_float: (float, float) -> float".to_string());
     gamma.extend(
@@ -1300,8 +1321,9 @@ pub(crate) fn make_new_gamma() -> Gamma {
             TypeVar::make_float(Prov::FuncOut(prov.clone().into())),
             prov,
         ),
-        Resolution::Builtin(ident),
     );
+    gamma.extend_declaration(ident.clone(), Resolution::Builtin(ident));
+
     let ident = "pow_float".to_owned();
     let prov = Prov::Builtin("pow_float: (float, float) -> float".to_string());
     gamma.extend(
@@ -1314,8 +1336,9 @@ pub(crate) fn make_new_gamma() -> Gamma {
             TypeVar::make_float(Prov::FuncOut(prov.clone().into())),
             prov,
         ),
-        Resolution::Builtin(ident),
     );
+    gamma.extend_declaration(ident.clone(), Resolution::Builtin(ident));
+
     let ident = "sqrt_float".to_owned();
     let prov = Prov::Builtin("sqrt_float: (float) -> float".to_string());
     gamma.extend(
@@ -1325,8 +1348,9 @@ pub(crate) fn make_new_gamma() -> Gamma {
             TypeVar::make_float(Prov::FuncOut(prov.clone().into())),
             prov,
         ),
-        Resolution::Builtin(ident),
     );
+    gamma.extend_declaration(ident.clone(), Resolution::Builtin(ident));
+
     let ident = "less_than_float".to_owned();
     let prov = Prov::Builtin("less_than_float: (float, float) -> bool".to_string());
     gamma.extend(
@@ -1339,8 +1363,9 @@ pub(crate) fn make_new_gamma() -> Gamma {
             TypeVar::make_bool(Prov::FuncOut(prov.clone().into())),
             prov,
         ),
-        Resolution::Builtin(ident),
     );
+    gamma.extend_declaration(ident.clone(), Resolution::Builtin(ident));
+
     let ident = "append".to_owned();
     let prov = Prov::Builtin("append: (array<'a>, 'a) -> void".to_string());
     let ty_elem = TypeVar::make_poly(
@@ -1364,8 +1389,8 @@ pub(crate) fn make_new_gamma() -> Gamma {
             TypeVar::make_unit(Prov::FuncOut(prov.clone().into())),
             prov,
         ),
-        Resolution::Builtin(ident),
     );
+    gamma.extend_declaration(ident.clone(), Resolution::Builtin(ident));
 
     let ident = "len".to_owned();
     let prov = Prov::Builtin("len: (array<'a>) -> int".to_string());
@@ -1385,8 +1410,8 @@ pub(crate) fn make_new_gamma() -> Gamma {
             TypeVar::make_int(Prov::FuncOut(prov.clone().into())),
             prov,
         ),
-        Resolution::Builtin(ident),
     );
+    gamma.extend_declaration(ident.clone(), Resolution::Builtin(ident));
 
     let ident = "prov".to_owned();
     let prov = Prov::Builtin("pop: (array<'a>) -> void".to_string());
@@ -1406,8 +1431,9 @@ pub(crate) fn make_new_gamma() -> Gamma {
             TypeVar::make_unit(Prov::FuncOut(prov.clone().into())),
             prov,
         ),
-        Resolution::Builtin(ident),
     );
+    gamma.extend_declaration(ident.clone(), Resolution::Builtin(ident));
+
     gamma
 }
 
@@ -1487,6 +1513,10 @@ pub(crate) fn generate_constraints_expr(
             }
         }
         ExprKind::Var(symbol) => {
+            let lookup = gamma.lookup_declaration(symbol);
+            if let Some(resolution) = lookup {
+                inf_ctx.name_resolutions.insert(expr.id, resolution);
+            }
             let lookup = gamma.lookup(symbol);
             if let Some(typ) = lookup {
                 // replace polymorphic types with unifvars if necessary
@@ -1995,11 +2025,7 @@ pub(crate) fn generate_constraints_stmt(
             let func_node_id = stmt.id;
             let ty_pat = TypeVar::from_node(inf_ctx, name.id);
             if add_to_gamma {
-                gamma.extend(
-                    name.patkind.get_identifier_of_variable(),
-                    ty_pat.clone(),
-                    Resolution::PLACEHOLDER,
-                );
+                gamma.extend(name.patkind.get_identifier_of_variable(), ty_pat.clone());
             }
             let body_gamma = gamma.new_scope();
             let ty_func = generate_constraints_func_helper(
@@ -2046,7 +2072,8 @@ pub(crate) fn generate_constraints_pat(
         }
         PatKind::Var(identifier) => {
             // letrec: extend context with id and type before analyzing against said type
-            gamma.extend(identifier.clone(), ty_pat, Resolution::PLACEHOLDER);
+            gamma.extend(identifier.clone(), ty_pat);
+            gamma.extend_declaration(identifier.clone(), Resolution::Node(pat.id));
         }
         PatKind::Variant(tag, data) => {
             let ty_data = match data {
@@ -2142,7 +2169,7 @@ pub(crate) fn gather_definitions_stmt(
                 inf_ctx
                     .method_to_interface
                     .insert(p.ident.clone(), ident.clone());
-                gamma.extend(p.ident.clone(), node_ty, Resolution::PLACEHOLDER);
+                gamma.extend(p.ident.clone(), node_ty);
             }
             inf_ctx.interface_defs.insert(
                 ident.clone(),
@@ -2273,7 +2300,10 @@ pub(crate) fn gather_definitions_stmt(
             gamma.extend(
                 name.patkind.get_identifier_of_variable(),
                 TypeVar::from_node(inf_ctx, name.id),
-                Resolution::PLACEHOLDER,
+            );
+            gamma.extend_declaration(
+                name.patkind.get_identifier_of_variable(),
+                Resolution::Node(name.id),
             );
         }
         StmtKind::Set(..) => {}
@@ -2332,7 +2362,11 @@ pub(crate) fn gather_definitions_toplevel<Effect: crate::side_effects::EffectTra
             monomorphized_ty_to_builtin_ty(eff.type_signature().1, prov.clone()),
             prov,
         );
-        gamma.extend(eff.function_name(), typ, Resolution::PLACEHOLDER)
+        gamma.extend(eff.function_name(), typ);
+        gamma.extend_declaration(
+            eff.function_name(),
+            Resolution::Builtin(eff.function_name()),
+        );
     }
 
     for statement in toplevel.statements.iter() {
