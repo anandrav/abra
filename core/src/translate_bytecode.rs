@@ -10,6 +10,7 @@ use crate::{
 use std::collections::{HashMap, HashSet};
 use std::f32::consts::E;
 use std::rc::Rc;
+use std::sync::atomic::{AtomicUsize, Ordering};
 
 type Locals = HashMap<String, i32>;
 
@@ -60,7 +61,12 @@ impl Translator {
         for toplevel in self.toplevels.iter() {
             if let StmtKind::FuncDef(name, args, _, body) = &*toplevel.statements[0].stmtkind {
                 let func_name = name.patkind.get_identifier_of_variable();
-                if func_name != "mk_pair" {
+                let func_name_blacklist = [
+                    "not", "print", "println", "range", "fold", "sum", "sumf", "max", "min",
+                    "clamp", "abs", "sqrt", "concat", "map", "for_each", "filter", "reverse",
+                ];
+                // don't generate code for functions in prelude, not ready for that yet.
+                if func_name_blacklist.contains(&func_name.as_str()) {
                     continue;
                 }
                 instructions.push(InstrOrLabel::Label(func_name));
@@ -79,6 +85,9 @@ impl Translator {
             }
         }
 
+        for instr in &instructions {
+            println!("{}", instr);
+        }
         let instructions: Vec<VmInstr> = remove_labels(instructions);
         instructions
     }
@@ -118,6 +127,9 @@ impl Translator {
             ExprKind::Var(symbol) => {
                 let idx = locals.get(symbol).unwrap();
                 instructions.push(InstrOrLabel::Instr(Instr::LoadOffset(*idx)));
+            }
+            ExprKind::Bool(b) => {
+                instructions.push(InstrOrLabel::Instr(Instr::PushBool(*b)));
             }
             ExprKind::Int(i) => {
                 instructions.push(InstrOrLabel::Instr(Instr::PushInt(*i)));
@@ -179,6 +191,17 @@ impl Translator {
                 }
                 instructions.push(InstrOrLabel::Instr(Instr::MakeTuple(exprs.len() as u8)));
             }
+            ExprKind::If(cond, then_block, Some(else_block)) => {
+                self.translate_expr(cond.clone(), locals, instructions);
+                let then_label = make_label("then");
+                let end_label = make_label("endif");
+                instructions.push(InstrOrLabel::Instr(Instr::JumpIf(then_label.clone())));
+                self.translate_expr(else_block.clone(), locals, instructions);
+                instructions.push(InstrOrLabel::Instr(Instr::Jump(end_label.clone())));
+                instructions.push(InstrOrLabel::Label(then_label));
+                self.translate_expr(then_block.clone(), locals, instructions);
+                instructions.push(InstrOrLabel::Label(end_label));
+            }
             _ => panic!("unimplemented: {:?}", expr.exprkind),
         }
     }
@@ -195,13 +218,30 @@ impl Translator {
                 self.translate_expr(expr.clone(), locals, instructions);
                 self.handle_binding(pat.0.clone(), locals, instructions);
             }
+            StmtKind::Set(expr1, expr2) => match &*expr1.exprkind {
+                ExprKind::Var(symbol) => {
+                    let idx = locals.get(symbol).unwrap();
+                    self.translate_expr(expr2.clone(), locals, instructions);
+                    instructions.push(InstrOrLabel::Instr(Instr::StoreOffset(*idx)));
+                }
+                _ => unimplemented!(),
+            },
             StmtKind::Expr(expr) => {
                 self.translate_expr(expr.clone(), locals, instructions);
                 if !is_last {
                     instructions.push(InstrOrLabel::Instr(Instr::Pop));
                 }
             }
-            _ => {}
+            StmtKind::FuncDef(_, _, _, _) => {
+                // handled elsewhere
+            }
+            StmtKind::InterfaceDef(..) | StmtKind::TypeDef(..) => {
+                // noop
+            }
+            StmtKind::InterfaceImpl(..) => {
+                // TODO
+            }
+            _ => panic!("unimplemented: {:?}", stmt.stmtkind),
         }
     }
 }
@@ -249,4 +289,13 @@ fn collect_locals_from_let_pat(pat: Rc<Pat>, locals: &mut Locals) {
         | PatKind::Str(..)
         | PatKind::Wildcard => {}
     }
+}
+
+fn make_label(hint: &str) -> Label {
+    if hint.contains(" ") {
+        panic!("Label hint cannot contain spaces");
+    }
+    static ID_COUNTER: std::sync::atomic::AtomicUsize = AtomicUsize::new(1);
+    let id = ID_COUNTER.fetch_add(1, Ordering::Relaxed);
+    format!("{}_{}", hint, id)
 }

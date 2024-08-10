@@ -46,7 +46,7 @@ pub enum Instr {
     PushBool(bool),
     PushInt(AbraInt),
     Jump(ProgramCounter),
-    JumpIfTrue(ProgramCounter),
+    JumpIf(ProgramCounter),
     Call(ProgramCounter, u8),
     MakeTuple(u8),
     UnpackTuple,
@@ -68,7 +68,7 @@ impl Into<String> for &Instr {
             Instr::PushBool(b) => format!("pushbool {}", b),
             Instr::PushInt(n) => format!("pushint {}", n),
             Instr::Jump(loc) => format!("jump {}", loc),
-            Instr::JumpIfTrue(loc) => format!("jumpif {}", loc),
+            Instr::JumpIf(loc) => format!("jumpif {}", loc),
             Instr::Call(loc, nargs) => format!("call {} {}", loc, nargs),
             Instr::MakeTuple(n) => format!("maketuple {}", n),
             Instr::UnpackTuple => "unpacktuple".to_owned(),
@@ -151,12 +151,6 @@ enum ManagedObjectKind {
 impl Vm {
     pub fn run(&mut self) {
         println!("pc is {}, len is {}", self.pc, self.program.len());
-        println!();
-        println!("Here's the program: ");
-        for instr in &self.program {
-            println!("{:?}", instr);
-        }
-        println!();
         while self.pc < self.program.len() {
             self.step();
             println!("step done");
@@ -225,7 +219,7 @@ impl Vm {
                     self.pc = target;
                     continue;
                 }
-                Instr::JumpIfTrue(target) => {
+                Instr::JumpIf(target) => {
                     let v = self.pop_bool();
                     if v {
                         self.pc = target;

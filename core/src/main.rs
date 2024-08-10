@@ -5,13 +5,9 @@ use abra_core::vm::Vm;
 
 fn main() {
     let src = r#"
-func mk_pair(a) {
-  (a, a)
-}
-let n = 3
-let p = mk_pair(n)
-let (x, y) = p
-x + y
+let mutable x = 3
+x <- x + x
+x
 "#;
     let sources = source_files_single(src);
     let bytecode = compile_bytecode::<DefaultEffects>(sources).unwrap();

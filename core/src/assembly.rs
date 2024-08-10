@@ -1,4 +1,7 @@
-use std::collections::HashMap;
+use std::{
+    collections::HashMap,
+    fmt::{self, Display, Formatter},
+};
 
 use crate::vm::Instr as VmInstr;
 
@@ -8,6 +11,15 @@ pub(crate) type Label = String;
 pub(crate) enum InstrOrLabel {
     Instr(Instr),
     Label(Label),
+}
+
+impl Display for InstrOrLabel {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        match self {
+            InstrOrLabel::Instr(instr) => write!(f, "{}", instr),
+            InstrOrLabel::Label(label) => write!(f, "{}:", label),
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -29,6 +41,37 @@ pub(crate) enum Instr {
     Call(Label, u8),
     MakeTuple(u8),
     UnpackTuple,
+}
+
+impl Into<String> for &Instr {
+    fn into(self) -> String {
+        match self {
+            Instr::Pop => "pop".to_owned(),
+            Instr::LoadOffset(n) => format!("loadoffset {}", n),
+            Instr::StoreOffset(n) => format!("storeoffset {}", n),
+            Instr::Add => "add".to_owned(),
+            Instr::Sub => "sub".to_owned(),
+            Instr::Mul => "mul".to_owned(),
+            Instr::Div => "div".to_owned(),
+            Instr::Return => "return".to_owned(),
+            Instr::Stop => "stop".to_owned(),
+            Instr::PushNil => "pushnil".to_owned(),
+            Instr::PushBool(b) => format!("pushbool {}", b),
+            Instr::PushInt(n) => format!("pushint {}", n),
+            Instr::Jump(loc) => format!("jump {}", loc),
+            Instr::JumpIf(loc) => format!("jumpif {}", loc),
+            Instr::Call(loc, nargs) => format!("call {} {}", loc, nargs),
+            Instr::MakeTuple(n) => format!("maketuple {}", n),
+            Instr::UnpackTuple => "unpacktuple".to_owned(),
+        }
+    }
+}
+
+impl Display for Instr {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        let s: String = self.into();
+        write!(f, "{}", s)
+    }
 }
 
 pub(crate) fn assemble(s: &str) -> Vec<VmInstr> {
@@ -90,7 +133,7 @@ fn instr_to_vminstr(instr: Instr, label_to_idx: &HashMap<Label, usize>) -> VmIns
         Instr::PushBool(b) => VmInstr::PushBool(b),
         Instr::PushInt(i) => VmInstr::PushInt(i),
         Instr::Jump(label) => VmInstr::Jump(label_to_idx[&label]),
-        Instr::JumpIf(label) => VmInstr::JumpIfTrue(label_to_idx[&label]),
+        Instr::JumpIf(label) => VmInstr::JumpIf(label_to_idx[&label]),
         Instr::Call(label, nargs) => VmInstr::Call(label_to_idx[&label], nargs),
         Instr::MakeTuple(n) => VmInstr::MakeTuple(n),
         Instr::UnpackTuple => VmInstr::UnpackTuple,
