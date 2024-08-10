@@ -60,13 +60,11 @@ impl Translator {
         for toplevel in self.toplevels.iter() {
             if let StmtKind::FuncDef(name, args, _, body) = &*toplevel.statements[0].stmtkind {
                 let func_name = name.patkind.get_identifier_of_variable();
-                if func_name != "subtract" {
+                if func_name != "mk_pair" {
                     continue;
                 }
                 instructions.push(InstrOrLabel::Label(func_name));
                 let mut locals = Locals::new();
-                // TODO: args are locals. Need to handle those. Reuse same data structure? Probably.
-                // Need to keep track of count of locals vs args. (stack slots for locals must be allocated at beginning of function, but args are already allocated)
                 collect_locals_expr(body, &mut locals);
                 let locals_count = locals.len();
                 for i in 0..locals_count {
@@ -85,28 +83,20 @@ impl Translator {
         instructions
     }
 
-    fn handle_binding(
-        &self,
-        pat: Rc<Pat>,
-        expr: Rc<Expr>,
-        locals: &Locals,
-        instructions: &mut Vec<InstrOrLabel>,
-    ) {
+    fn handle_binding(&self, pat: Rc<Pat>, locals: &Locals, instructions: &mut Vec<InstrOrLabel>) {
         match &*pat.patkind {
             PatKind::Var(symbol) => {
                 let idx = locals.get(symbol).unwrap();
-                self.translate_expr(expr, locals, instructions);
                 instructions.push(InstrOrLabel::Instr(Instr::StoreOffset(*idx)));
             }
             PatKind::Tuple(pats) => {
-                unimplemented!();
-                // for (i, pat) in pats.iter().enumerate() {
-                //     self.handle_binding(pat.clone(), expr.clone(), locals, instructions);
-                // }
+                instructions.push(InstrOrLabel::Instr(Instr::UnpackTuple));
+                for pat in pats.iter().rev() {
+                    self.handle_binding(pat.clone(), locals, instructions);
+                }
             }
             PatKind::Variant(_, Some(inner)) => {
                 unimplemented!();
-                self.handle_binding(inner.clone(), expr, locals, instructions);
             }
             PatKind::Variant(_, None) => {}
             PatKind::Unit
@@ -145,14 +135,13 @@ impl Translator {
             }
             ExprKind::FuncAp(func, args) => {
                 if let ExprKind::Var(symbol) = &*func.exprkind {
-                    self.translate_expr(args[0].clone(), locals, instructions);
-                    self.translate_expr(args[1].clone(), locals, instructions);
-                    dbg!(func);
+                    for arg in args {
+                        self.translate_expr(arg.clone(), locals, instructions);
+                    }
                     let resolution = self.inf_ctx.name_resolutions.get(&func.id).unwrap();
                     match resolution {
                         Resolution::Node(node_id) => {
                             let node = self.node_map.get(node_id).unwrap();
-                            dbg!(node);
                             let stmt = node.to_stmt().unwrap();
                             match &*stmt.stmtkind {
                                 StmtKind::FuncDef(name, _, _, _) => {
@@ -184,6 +173,12 @@ impl Translator {
                     );
                 }
             }
+            ExprKind::Tuple(exprs) => {
+                for expr in exprs {
+                    self.translate_expr(expr.clone(), locals, instructions);
+                }
+                instructions.push(InstrOrLabel::Instr(Instr::MakeTuple(exprs.len() as u8)));
+            }
             _ => panic!("unimplemented: {:?}", expr.exprkind),
         }
     }
@@ -197,7 +192,8 @@ impl Translator {
     ) {
         match &*stmt.stmtkind {
             StmtKind::Let(_, pat, expr) => {
-                self.handle_binding(pat.0.clone(), expr.clone(), locals, instructions);
+                self.translate_expr(expr.clone(), locals, instructions);
+                self.handle_binding(pat.0.clone(), locals, instructions);
             }
             StmtKind::Expr(expr) => {
                 self.translate_expr(expr.clone(), locals, instructions);

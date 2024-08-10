@@ -1515,7 +1515,6 @@ pub(crate) fn generate_constraints_expr(
         ExprKind::Var(symbol) => {
             let lookup = gamma.lookup_declaration(symbol);
             if let Some(resolution) = lookup {
-                dbg!(symbol, &resolution);
                 inf_ctx.name_resolutions.insert(expr.id, resolution);
             }
             let lookup = gamma.lookup(symbol);

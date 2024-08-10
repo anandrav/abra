@@ -48,6 +48,8 @@ pub enum Instr {
     Jump(ProgramCounter),
     JumpIfTrue(ProgramCounter),
     Call(ProgramCounter, u8),
+    MakeTuple(u8),
+    UnpackTuple,
 }
 
 impl Into<String> for &Instr {
@@ -68,6 +70,8 @@ impl Into<String> for &Instr {
             Instr::Jump(loc) => format!("jump {}", loc),
             Instr::JumpIfTrue(loc) => format!("jumpif {}", loc),
             Instr::Call(loc, nargs) => format!("call {} {}", loc, nargs),
+            Instr::MakeTuple(n) => format!("maketuple {}", n),
+            Instr::UnpackTuple => "unpacktuple".to_owned(),
         }
     }
 }
@@ -248,6 +252,26 @@ impl Vm {
                 Instr::Stop => {
                     self.pc = self.program.len();
                     return;
+                }
+                Instr::MakeTuple(n) => {
+                    let fields = self
+                        .value_stack
+                        .split_off(self.value_stack.len() - n as usize);
+                    self.heap.push(ManagedObject {
+                        kind: ManagedObjectKind::Record(fields),
+                    });
+                    self.value_stack.push(Value::ManagedObject(self.heap.len()));
+                }
+                Instr::UnpackTuple => {
+                    let obj = self.value_stack.pop().expect("stack underflow");
+                    let fields = match &obj {
+                        Value::ManagedObject(idx) => match &self.heap[*idx - 1].kind {
+                            ManagedObjectKind::Record(fields) => fields.clone(),
+                            _ => panic!("not a tuple"),
+                        },
+                        _ => panic!("not a tuple"),
+                    };
+                    self.value_stack.extend(fields);
                 }
             }
         }

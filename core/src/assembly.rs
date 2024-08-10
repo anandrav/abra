@@ -27,6 +27,8 @@ pub(crate) enum Instr {
     Jump(Label),
     JumpIf(Label),
     Call(Label, u8),
+    MakeTuple(u8),
+    UnpackTuple,
 }
 
 pub(crate) fn assemble(s: &str) -> Vec<VmInstr> {
@@ -90,6 +92,8 @@ fn instr_to_vminstr(instr: Instr, label_to_idx: &HashMap<Label, usize>) -> VmIns
         Instr::Jump(label) => VmInstr::Jump(label_to_idx[&label]),
         Instr::JumpIf(label) => VmInstr::JumpIfTrue(label_to_idx[&label]),
         Instr::Call(label, nargs) => VmInstr::Call(label_to_idx[&label], nargs),
+        Instr::MakeTuple(n) => VmInstr::MakeTuple(n),
+        Instr::UnpackTuple => VmInstr::UnpackTuple,
     }
 }
 
@@ -100,6 +104,14 @@ fn assemble_instr_or_label(words: Vec<&str>, lineno: usize) -> InstrOrLabel {
     let radix = 10;
     let instr = match words[0] {
         "pop" => Instr::Pop,
+        "loadoffset" => {
+            let n = i32::from_str_radix(words[1], radix).unwrap();
+            Instr::LoadOffset(n)
+        }
+        "storeoffset" => {
+            let n = i32::from_str_radix(words[1], radix).unwrap();
+            Instr::StoreOffset(n)
+        }
         "add" => Instr::Add,
         "sub" => Instr::Sub,
         "mul" => Instr::Mul,
