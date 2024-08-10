@@ -202,6 +202,17 @@ impl Translator {
                 self.translate_expr(then_block.clone(), locals, instructions);
                 instructions.push(InstrOrLabel::Label(end_label));
             }
+            ExprKind::If(cond, then_block, None) => {
+                self.translate_expr(cond.clone(), locals, instructions);
+                let then_label = make_label("then");
+                let end_label = make_label("endif");
+                instructions.push(InstrOrLabel::Instr(Instr::JumpIf(then_label.clone())));
+                instructions.push(InstrOrLabel::Instr(Instr::Jump(end_label.clone())));
+                instructions.push(InstrOrLabel::Label(then_label));
+                self.translate_expr(then_block.clone(), locals, instructions);
+                instructions.push(InstrOrLabel::Label(end_label));
+                instructions.push(InstrOrLabel::Instr(Instr::PushNil)); // TODO get rid of this
+            }
             _ => panic!("unimplemented: {:?}", expr.exprkind),
         }
     }

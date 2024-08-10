@@ -40,6 +40,7 @@ pub enum Instr {
     Sub,
     Mul,
     Div,
+    Not,
     Return,
     Stop,
     PushNil,
@@ -62,6 +63,7 @@ impl Into<String> for &Instr {
             Instr::Sub => "sub".to_owned(),
             Instr::Mul => "mul".to_owned(),
             Instr::Div => "div".to_owned(),
+            Instr::Not => "not".to_owned(),
             Instr::Return => "return".to_owned(),
             Instr::Stop => "stop".to_owned(),
             Instr::PushNil => "pushnil".to_owned(),
@@ -214,6 +216,10 @@ impl Vm {
                     let b = self.pop_int();
                     let a = self.pop_int();
                     self.push(a / b);
+                }
+                Instr::Not => {
+                    let v = self.pop_bool();
+                    self.push(!v);
                 }
                 Instr::Jump(target) => {
                     self.pc = target;

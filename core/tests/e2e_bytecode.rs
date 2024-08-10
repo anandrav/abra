@@ -64,3 +64,22 @@ if false {
     assert_eq!(top.get_int(), 4);
     println!("result is {}", top.get_int());
 }
+
+#[test]
+fn just_if() {
+    let src = r#"
+let mutable x = 3
+if true {
+    x <- x + x
+}
+x
+"#;
+    let sources = source_files_single(src);
+    let bytecode = compile_bytecode::<DefaultEffects>(sources).unwrap();
+
+    let mut vm = Vm::new(bytecode);
+    vm.run();
+    let top = vm.top();
+    assert_eq!(top.get_int(), 6);
+    println!("result is {}", top.get_int());
+}
