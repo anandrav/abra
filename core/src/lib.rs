@@ -130,7 +130,7 @@ pub fn compile_bytecode<Effect: EffectTrait>(
     statics::result_of_additional_analysis(&mut inference_ctx, &toplevels, &node_map, &sources)?;
 
     let translator = Translator::new(inference_ctx, node_map, toplevels);
-    Ok(translator.translate())
+    Ok(translator.translate::<Effect>())
 }
 
 pub fn run(source: &str) -> Result<(Rc<eval_tree::Expr>, Runtime), String> {

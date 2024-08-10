@@ -37,11 +37,13 @@ pub(crate) enum Instr {
     PushNil,
     PushBool(bool),
     PushInt(i64),
+    PushString(String),
     Jump(Label),
     JumpIf(Label),
     Call(Label, u8),
     MakeTuple(u8),
     UnpackTuple,
+    Effect(u16),
 }
 
 impl Into<String> for &Instr {
@@ -60,11 +62,13 @@ impl Into<String> for &Instr {
             Instr::PushNil => "pushnil".to_owned(),
             Instr::PushBool(b) => format!("pushbool {}", b),
             Instr::PushInt(n) => format!("pushint {}", n),
+            Instr::PushString(s) => format!("pushstring {}", s),
             Instr::Jump(loc) => format!("jump {}", loc),
             Instr::JumpIf(loc) => format!("jumpif {}", loc),
             Instr::Call(loc, nargs) => format!("call {} {}", loc, nargs),
             Instr::MakeTuple(n) => format!("maketuple {}", n),
             Instr::UnpackTuple => "unpacktuple".to_owned(),
+            Instr::Effect(n) => format!("effect {}", n),
         }
     }
 }
@@ -140,6 +144,7 @@ fn instr_to_vminstr(instr: Instr, label_to_idx: &HashMap<Label, usize>) -> VmIns
         Instr::Call(label, nargs) => VmInstr::Call(label_to_idx[&label], nargs),
         Instr::MakeTuple(n) => VmInstr::MakeTuple(n),
         Instr::UnpackTuple => VmInstr::UnpackTuple,
+        Instr::Effect(n) => VmInstr::Effect(n),
     }
 }
 
@@ -188,6 +193,15 @@ fn assemble_instr_or_label(words: Vec<&str>, lineno: usize) -> InstrOrLabel {
                 "call" => Instr::Call(loc, words[2].parse().unwrap()),
                 _ => unreachable!(),
             }
+        }
+        "maketuple" => {
+            let n = u8::from_str_radix(words[1], radix).unwrap();
+            Instr::MakeTuple(n)
+        }
+        "unpacktuple" => Instr::UnpackTuple,
+        "effect" => {
+            let n = u16::from_str_radix(words[1], radix).unwrap();
+            Instr::Effect(n)
         }
         _ => panic!("On line {}, unexpected word: {}", lineno, words[0]),
     };

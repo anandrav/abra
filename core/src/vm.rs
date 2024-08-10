@@ -3,7 +3,7 @@ pub type AbraInt = i64;
 use core::fmt;
 use std::fmt::{Display, Formatter};
 
-use crate::assembly::assemble;
+use crate::{assembly::assemble, EffectTrait};
 
 pub struct Vm {
     program: Vec<Instr>,
@@ -12,6 +12,8 @@ pub struct Vm {
     value_stack: Vec<Value>,
     call_stack: Vec<CallFrame>,
     heap: Vec<ManagedObject>,
+
+    pending_effect: Option<u16>,
 }
 
 impl Vm {
@@ -23,6 +25,7 @@ impl Vm {
             value_stack: Vec::new(),
             call_stack: Vec::new(),
             heap: Vec::new(),
+            pending_effect: None,
         }
     }
 
@@ -46,11 +49,13 @@ pub enum Instr {
     PushNil,
     PushBool(bool),
     PushInt(AbraInt),
+    PushString(u16),
     Jump(ProgramCounter),
     JumpIf(ProgramCounter),
     Call(ProgramCounter, u8),
     MakeTuple(u8),
     UnpackTuple,
+    Effect(u16),
 }
 
 impl Into<String> for &Instr {
@@ -74,6 +79,7 @@ impl Into<String> for &Instr {
             Instr::Call(loc, nargs) => format!("call {} {}", loc, nargs),
             Instr::MakeTuple(n) => format!("maketuple {}", n),
             Instr::UnpackTuple => "unpacktuple".to_owned(),
+            Instr::Effect(n) => format!("effect {}", n),
         }
     }
 }
@@ -152,6 +158,9 @@ enum ManagedObjectKind {
 
 impl Vm {
     pub fn run(&mut self) {
+        if let Some(eff) = self.pending_effect {
+            panic!("must handle pending effect");
+        }
         println!("pc is {}, len is {}", self.pc, self.program.len());
         while self.pc < self.program.len() {
             self.step();
@@ -159,6 +168,7 @@ impl Vm {
         }
         println!("done running vm");
     }
+
     pub fn run_n_steps(&mut self, steps: u32) {
         for _ in 0..steps {
             self.step();
@@ -273,9 +283,16 @@ impl Vm {
                     };
                     self.value_stack.extend(fields);
                 }
+                Instr::Effect(eff) => {
+                    self.pending_effect = Some(eff);
+                }
             }
         }
         dbg!(&self);
+    }
+
+    pub(crate) fn clear_pending_effect(&mut self) {
+        self.pending_effect = None;
     }
 
     pub(crate) fn compact(&mut self) {

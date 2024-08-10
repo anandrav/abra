@@ -3,6 +3,7 @@ use crate::ast::{NodeId, PatAnnotated, Toplevel};
 use crate::operators::BinOpcode;
 use crate::statics::Resolution;
 use crate::vm::Instr as VmInstr;
+use crate::EffectTrait;
 use crate::{
     ast::{Expr, ExprKind, NodeMap, Pat, PatKind, Stmt, StmtKind},
     statics::InferenceContext,
@@ -34,7 +35,7 @@ impl Translator {
         }
     }
 
-    pub(crate) fn translate(&self) -> Vec<VmInstr> {
+    pub(crate) fn translate<Effect: EffectTrait>(&self) -> Vec<VmInstr> {
         let mut instructions: Vec<InstrOrLabel> = vec![];
 
         // Handle the main function (toplevels)
@@ -62,8 +63,8 @@ impl Translator {
             if let StmtKind::FuncDef(name, args, _, body) = &*toplevel.statements[0].stmtkind {
                 let func_name = name.patkind.get_identifier_of_variable();
                 let func_name_blacklist = [
-                    "not", "print", "println", "range", "fold", "sum", "sumf", "max", "min",
-                    "clamp", "abs", "sqrt", "concat", "map", "for_each", "filter", "reverse",
+                    "not", "range", "fold", "sum", "sumf", "max", "min", "clamp", "abs", "sqrt",
+                    "concat", "map", "for_each", "filter", "reverse",
                 ];
                 // don't generate code for functions in prelude, not ready for that yet.
                 if func_name_blacklist.contains(&func_name.as_str()) {
@@ -83,6 +84,14 @@ impl Translator {
                 instructions.push(InstrOrLabel::Instr(Instr::Return));
                 // unimplemented!();
             }
+        }
+
+        // Create functions for effects
+        let effect_list = Effect::enumerate();
+        for (i, effect) in effect_list.iter().enumerate() {
+            instructions.push(InstrOrLabel::Label(effect.function_name()));
+            instructions.push(InstrOrLabel::Instr(Instr::Effect(i as u16)));
+            instructions.push(InstrOrLabel::Instr(Instr::Return));
         }
 
         for instr in &instructions {
@@ -133,6 +142,9 @@ impl Translator {
             }
             ExprKind::Int(i) => {
                 instructions.push(InstrOrLabel::Instr(Instr::PushInt(*i)));
+            }
+            ExprKind::Str(s) => {
+                instructions.push(InstrOrLabel::Instr(Instr::PushStr(idx)));
             }
             ExprKind::BinOp(left, op, right) => {
                 self.translate_expr(left.clone(), locals, instructions);

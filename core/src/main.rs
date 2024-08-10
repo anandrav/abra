@@ -5,11 +5,7 @@ use abra_core::vm::Vm;
 
 fn main() {
     let src = r#"
-let mutable x = 3
-if true {
-    x <- x + x
-}
-x
+println("hello world")
 "#;
     let sources = source_files_single(src);
     let bytecode = compile_bytecode::<DefaultEffects>(sources).unwrap();
