@@ -26,7 +26,7 @@ pub(crate) enum Instr {
     PushInt(i64),
     Jump(Label),
     JumpIf(Label),
-    Call(Label),
+    Call(Label, u8),
 }
 
 pub(crate) fn assemble(s: &str) -> Vec<VmInstr> {
@@ -89,7 +89,7 @@ fn instr_to_vminstr(instr: Instr, label_to_idx: &HashMap<Label, usize>) -> VmIns
         Instr::PushInt(i) => VmInstr::PushInt(i),
         Instr::Jump(label) => VmInstr::Jump(label_to_idx[&label]),
         Instr::JumpIf(label) => VmInstr::JumpIfTrue(label_to_idx[&label]),
-        Instr::Call(label) => VmInstr::Call(label_to_idx[&label]),
+        Instr::Call(label, nargs) => VmInstr::Call(label_to_idx[&label], nargs),
     }
 }
 
@@ -126,7 +126,7 @@ fn assemble_instr_or_label(words: Vec<&str>, lineno: usize) -> InstrOrLabel {
             match words[0] {
                 "jump" => Instr::Jump(loc),
                 "jumpif" => Instr::JumpIf(loc),
-                "call" => Instr::Call(loc),
+                "call" => Instr::Call(loc, words[2].parse().unwrap()),
                 _ => unreachable!(),
             }
         }

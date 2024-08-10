@@ -5,10 +5,10 @@ use std::fmt::{Display, Formatter};
 
 use crate::assembly::assemble;
 
-#[derive(Debug)]
 pub struct Vm {
     program: Vec<Instr>,
     pc: ProgramCounter,
+    stack_base: usize,
     value_stack: Vec<Value>,
     call_stack: Vec<CallFrame>,
     heap: Vec<ManagedObject>,
@@ -19,6 +19,7 @@ impl Vm {
         Self {
             program,
             pc: 0,
+            stack_base: 0,
             value_stack: Vec::new(),
             call_stack: Vec::new(),
             heap: Vec::new(),
@@ -46,7 +47,7 @@ pub enum Instr {
     PushInt(AbraInt),
     Jump(ProgramCounter),
     JumpIfTrue(ProgramCounter),
-    Call(ProgramCounter),
+    Call(ProgramCounter, u8),
 }
 
 impl Into<String> for &Instr {
@@ -66,7 +67,7 @@ impl Into<String> for &Instr {
             Instr::PushInt(n) => format!("pushint {}", n),
             Instr::Jump(loc) => format!("jump {}", loc),
             Instr::JumpIfTrue(loc) => format!("jumpif {}", loc),
-            Instr::Call(loc) => format!("call {}", loc),
+            Instr::Call(loc, nargs) => format!("call {} {}", loc, nargs),
         }
     }
 }
@@ -117,7 +118,7 @@ impl Value {
 #[derive(Debug)]
 struct CallFrame {
     pc: ProgramCounter,
-    stack_base: usize,
+    stack_top: usize,
 }
 
 // ReferenceType
@@ -146,6 +147,12 @@ enum ManagedObjectKind {
 impl Vm {
     pub fn run(&mut self) {
         println!("pc is {}, len is {}", self.pc, self.program.len());
+        println!();
+        println!("Here's the program: ");
+        for instr in &self.program {
+            println!("{:?}", instr);
+        }
+        println!();
         while self.pc < self.program.len() {
             self.step();
             println!("step done");
@@ -160,7 +167,9 @@ impl Vm {
 
     fn step(&mut self) {
         while self.pc < self.program.len() {
+            dbg!(&self);
             let instr = self.program[self.pc];
+            println!("{:?}", instr);
             self.pc += 1;
             match instr {
                 Instr::PushNil => {
@@ -177,12 +186,14 @@ impl Vm {
                     self.value_stack.pop();
                 }
                 Instr::LoadOffset(n) => {
-                    let v = self.value_stack[n as usize];
+                    let idx = self.stack_base.wrapping_add_signed(n as isize);
+                    let v = self.value_stack[idx];
                     self.push(v);
                 }
                 Instr::StoreOffset(n) => {
+                    let idx = self.stack_base.wrapping_add_signed(n as isize);
                     let v = self.value_stack.pop().expect("stack underflow");
-                    self.value_stack[n as usize] = v;
+                    self.value_stack[idx] = v;
                 }
                 Instr::Add => {
                     println!("adding");
@@ -217,24 +228,30 @@ impl Vm {
                         continue;
                     }
                 }
-                Instr::Call(target) => {
+                Instr::Call(target, nargs) => {
                     self.call_stack.push(CallFrame {
-                        pc: self.pc + 1,
-                        stack_base: self.value_stack.len(),
+                        pc: self.pc,
+                        stack_top: self.value_stack.len() - nargs as usize,
                     });
                     self.pc = target;
+                    self.stack_base = self.value_stack.len();
                     continue;
                 }
                 Instr::Return => {
+                    let ret_value = self.value_stack.pop().expect("stack underflow");
                     let frame = self.call_stack.pop().expect("call stack underflow");
                     self.pc = frame.pc;
-                    self.value_stack.truncate(frame.stack_base);
+                    self.stack_base = self.call_stack.last().map(|f| f.stack_top).unwrap_or(0);
+                    self.value_stack.truncate(frame.stack_top);
+                    self.value_stack.push(ret_value);
                 }
                 Instr::Stop => {
+                    self.pc = self.program.len();
                     return;
                 }
             }
         }
+        dbg!(&self);
     }
 
     pub(crate) fn compact(&mut self) {
@@ -256,6 +273,17 @@ impl Vm {
 
     fn pop_bool(&mut self) -> bool {
         self.value_stack.pop().expect("stack underflow").get_bool()
+    }
+}
+
+impl fmt::Debug for Vm {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        f.debug_struct("Vm")
+            .field("pc", &self.pc)
+            .field("stack_base", &self.stack_base)
+            .field("value_stack", &format!("{:?}", self.value_stack))
+            .field("call_stack", &format!("{:?}", self.call_stack))
+            .finish()
     }
 }
 

@@ -5,13 +5,14 @@ use abra_core::vm::Vm;
 
 fn main() {
     let src = r#"
-func add(x, y) {
-  x + y
+func subtract(x, y) {
+  x - y
 }
 let x = 3
 let y = 4
-let z = add(x, y)
-z
+let z = subtract(x, y)
+let h = subtract(z, 1)
+h
 "#;
     let sources = source_files_single(src);
     let bytecode = compile_bytecode::<DefaultEffects>(sources).unwrap();
@@ -19,6 +20,6 @@ z
     let mut vm = Vm::new(bytecode);
     vm.run();
     let top = vm.top();
-    assert_eq!(top.get_int(), 7);
+    assert_eq!(top.get_int(), -2);
     println!("result is {}", top.get_int());
 }

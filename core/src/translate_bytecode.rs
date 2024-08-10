@@ -59,14 +59,24 @@ impl Translator {
         // Handle all other functions
         for toplevel in self.toplevels.iter() {
             if let StmtKind::FuncDef(name, args, _, body) = &*toplevel.statements[0].stmtkind {
-                if name.patkind.get_identifier_of_variable() != "add" {
+                let func_name = name.patkind.get_identifier_of_variable();
+                if func_name != "subtract" {
                     continue;
                 }
+                instructions.push(InstrOrLabel::Label(func_name));
                 let mut locals = Locals::new();
                 // TODO: args are locals. Need to handle those. Reuse same data structure? Probably.
                 // Need to keep track of count of locals vs args. (stack slots for locals must be allocated at beginning of function, but args are already allocated)
                 collect_locals_expr(body, &mut locals);
+                let locals_count = locals.len();
+                for i in 0..locals_count {
+                    instructions.push(InstrOrLabel::Instr(Instr::PushNil));
+                }
+                for (i, arg) in args.iter().rev().enumerate() {
+                    locals.insert(arg.0.patkind.get_identifier_of_variable(), -(i as i32) - 1);
+                }
                 self.translate_expr(body.clone(), &locals, &mut instructions);
+                instructions.push(InstrOrLabel::Instr(Instr::Return));
                 // unimplemented!();
             }
         }
@@ -137,15 +147,18 @@ impl Translator {
                 if let ExprKind::Var(symbol) = &*func.exprkind {
                     self.translate_expr(args[0].clone(), locals, instructions);
                     self.translate_expr(args[1].clone(), locals, instructions);
-                    let resolution = self.inf_ctx.name_resolutions.get(&expr.id).unwrap();
+                    dbg!(func);
+                    let resolution = self.inf_ctx.name_resolutions.get(&func.id).unwrap();
                     match resolution {
                         Resolution::Node(node_id) => {
                             let node = self.node_map.get(node_id).unwrap();
+                            dbg!(node);
                             let stmt = node.to_stmt().unwrap();
                             match &*stmt.stmtkind {
                                 StmtKind::FuncDef(name, _, _, _) => {
                                     instructions.push(InstrOrLabel::Instr(Instr::Call(
                                         name.patkind.get_identifier_of_variable(),
+                                        args.len() as u8,
                                     )));
                                     return;
                                 }
@@ -160,6 +173,16 @@ impl Translator {
                     }
                 }
                 panic!("unimplemented: {:?}", expr.exprkind);
+            }
+            ExprKind::Block(statements) => {
+                for (i, statement) in statements.iter().enumerate() {
+                    self.translate_stmt(
+                        statement.clone(),
+                        i == statements.len() - 1,
+                        locals,
+                        instructions,
+                    );
+                }
             }
             _ => panic!("unimplemented: {:?}", expr.exprkind),
         }

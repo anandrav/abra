@@ -1515,6 +1515,7 @@ pub(crate) fn generate_constraints_expr(
         ExprKind::Var(symbol) => {
             let lookup = gamma.lookup_declaration(symbol);
             if let Some(resolution) = lookup {
+                dbg!(symbol, &resolution);
                 inf_ctx.name_resolutions.insert(expr.id, resolution);
             }
             let lookup = gamma.lookup(symbol);
@@ -2303,7 +2304,7 @@ pub(crate) fn gather_definitions_stmt(
             );
             gamma.extend_declaration(
                 name.patkind.get_identifier_of_variable(),
-                Resolution::Node(name.id),
+                Resolution::Node(stmt.id),
             );
         }
         StmtKind::Set(..) => {}
