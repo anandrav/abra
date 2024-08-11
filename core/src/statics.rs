@@ -862,6 +862,8 @@ pub(crate) struct InferenceContext {
     pub(crate) method_to_interface: HashMap<Symbol, Symbol>,
     // map from interface name to list of implementations
     pub(crate) interface_impls: BTreeMap<Symbol, Vec<InterfaceImpl>>,
+    // string constants
+    pub(crate) string_constants: HashMap<String, usize>,
 
     // ADDITIONAL CONSTRAINTS
     // map from types to interfaces they have been constrained to
@@ -1467,8 +1469,11 @@ pub(crate) fn generate_constraints_expr(
         ExprKind::Bool(_) => {
             constrain(node_ty, TypeVar::make_bool(Prov::Node(expr.id)));
         }
-        ExprKind::Str(_) => {
+        ExprKind::Str(s) => {
             constrain(node_ty, TypeVar::make_string(Prov::Node(expr.id)));
+            inf_ctx
+                .string_constants
+                .insert(s.clone(), inf_ctx.string_constants.len());
         }
         ExprKind::List(exprs) => {
             let elem_ty = TypeVar::fresh(inf_ctx, Prov::ListElem(Prov::Node(expr.id).into()));

@@ -1,5 +1,5 @@
 use std::{
-    collections::HashMap,
+    collections::{HashMap, HashSet},
     fmt::{self, Display, Formatter},
 };
 
@@ -80,19 +80,32 @@ impl Display for Instr {
     }
 }
 
-pub(crate) fn assemble(s: &str) -> Vec<VmInstr> {
+pub(crate) fn assemble(s: &str) -> (Vec<VmInstr>, Vec<String>) {
     let mut instructions: Vec<InstrOrLabel> = vec![];
+    let mut string_constants: HashMap<String, usize> = HashMap::new();
     for (lineno, line) in s.lines().enumerate() {
         let words: Vec<_> = line.split_whitespace().collect();
         if words.is_empty() {
             continue;
         }
-        instructions.push(assemble_instr_or_label(words, lineno));
+        instructions.push(assemble_instr_or_label(
+            words,
+            lineno,
+            &mut string_constants,
+        ));
     }
-    remove_labels(instructions)
+    let instructions = remove_labels(instructions, &string_constants);
+    let mut string_table: Vec<String> = vec!["".to_owned(); string_constants.len()];
+    for (s, idx) in string_constants.iter() {
+        string_table[*idx] = s.clone();
+    }
+    (instructions, string_table)
 }
 
-pub(crate) fn remove_labels(items: Vec<InstrOrLabel>) -> Vec<VmInstr> {
+pub(crate) fn remove_labels(
+    items: Vec<InstrOrLabel>,
+    string_constants: &HashMap<String, usize>,
+) -> Vec<VmInstr> {
     let mut ret: Vec<VmInstr> = vec![];
     let mut offset = 0;
     let mut label_to_idx: HashMap<Label, usize> = HashMap::new();
@@ -109,7 +122,7 @@ pub(crate) fn remove_labels(items: Vec<InstrOrLabel>) -> Vec<VmInstr> {
 
     for item in items {
         if let InstrOrLabel::Instr(instr) = item {
-            ret.push(instr_to_vminstr(instr, &label_to_idx));
+            ret.push(instr_to_vminstr(instr, &label_to_idx, &string_constants));
         }
     }
 
@@ -124,7 +137,11 @@ fn get_label(s: &str) -> Option<String> {
     }
 }
 
-fn instr_to_vminstr(instr: Instr, label_to_idx: &HashMap<Label, usize>) -> VmInstr {
+fn instr_to_vminstr(
+    instr: Instr,
+    label_to_idx: &HashMap<Label, usize>,
+    string_constants: &HashMap<String, usize>,
+) -> VmInstr {
     match instr {
         Instr::Pop => VmInstr::Pop,
         Instr::LoadOffset(i) => VmInstr::LoadOffset(i),
@@ -139,6 +156,7 @@ fn instr_to_vminstr(instr: Instr, label_to_idx: &HashMap<Label, usize>) -> VmIns
         Instr::PushNil => VmInstr::PushNil,
         Instr::PushBool(b) => VmInstr::PushBool(b),
         Instr::PushInt(i) => VmInstr::PushInt(i),
+        Instr::PushString(s) => VmInstr::PushString(string_constants[&s] as u16),
         Instr::Jump(label) => VmInstr::Jump(label_to_idx[&label]),
         Instr::JumpIf(label) => VmInstr::JumpIf(label_to_idx[&label]),
         Instr::Call(label, nargs) => VmInstr::Call(label_to_idx[&label], nargs),
@@ -148,7 +166,11 @@ fn instr_to_vminstr(instr: Instr, label_to_idx: &HashMap<Label, usize>) -> VmIns
     }
 }
 
-fn assemble_instr_or_label(words: Vec<&str>, lineno: usize) -> InstrOrLabel {
+fn assemble_instr_or_label(
+    words: Vec<&str>,
+    lineno: usize,
+    string_constants: &mut HashMap<String, usize>,
+) -> InstrOrLabel {
     if let Some(label) = get_label(words[0]) {
         return InstrOrLabel::Label(label);
     }
@@ -185,6 +207,11 @@ fn assemble_instr_or_label(words: Vec<&str>, lineno: usize) -> InstrOrLabel {
             let n = i64::from_str_radix(words[1], radix).unwrap();
             Instr::PushInt(n)
         }
+        "pushstring" => {
+            let s = words[1].to_owned();
+            string_constants.insert(s.clone(), string_constants.len());
+            Instr::PushString(s)
+        }
         "jump" | "jumpif" | "call" => {
             let loc = words[1].to_owned();
             match words[0] {
@@ -220,7 +247,7 @@ sub
 pushint 5
 add
 "#;
-        let instructions = assemble(program_str);
+        let (instructions, _) = assemble(program_str);
         let mut program_str2 = String::new();
         for instr in instructions {
             program_str2.push_str(&format!("{}\n", instr));

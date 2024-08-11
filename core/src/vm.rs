@@ -13,11 +13,12 @@ pub struct Vm {
     call_stack: Vec<CallFrame>,
     heap: Vec<ManagedObject>,
 
+    string_table: Vec<String>,
     pending_effect: Option<u16>,
 }
 
 impl Vm {
-    pub fn new(program: Vec<Instr>) -> Self {
+    pub fn new(program: Vec<Instr>, string_table: Vec<String>) -> Self {
         Self {
             program,
             pc: 0,
@@ -25,6 +26,8 @@ impl Vm {
             value_stack: Vec::new(),
             call_stack: Vec::new(),
             heap: Vec::new(),
+
+            string_table,
             pending_effect: None,
         }
     }
@@ -74,6 +77,7 @@ impl Into<String> for &Instr {
             Instr::PushNil => "pushnil".to_owned(),
             Instr::PushBool(b) => format!("pushbool {}", b),
             Instr::PushInt(n) => format!("pushint {}", n),
+            Instr::PushString(s) => format!("pushstring {}", s),
             Instr::Jump(loc) => format!("jump {}", loc),
             Instr::JumpIf(loc) => format!("jumpif {}", loc),
             Instr::Call(loc, nargs) => format!("call {} {}", loc, nargs),
@@ -191,6 +195,9 @@ impl Vm {
                 }
                 Instr::PushBool(b) => {
                     self.push(b);
+                }
+                Instr::PushString(idx) => {
+                    unimplemented!();
                 }
                 Instr::Pop => {
                     self.value_stack.pop();
@@ -339,8 +346,8 @@ pushint 3
 pushint 4
 sub
 "#;
-        let instructions = assemble(program_str);
-        let mut vm = Vm::new(instructions);
+        let (instructions, string_table) = assemble(program_str);
+        let mut vm = Vm::new(instructions, string_table);
         vm.run();
         assert_eq!(vm.top().get_int(), -1);
     }
@@ -354,8 +361,8 @@ add
 pushint 1
 sub
 "#;
-        let instructions = assemble(program_str);
-        let mut vm = Vm::new(instructions);
+        let (instructions, string_table) = assemble(program_str);
+        let mut vm = Vm::new(instructions, string_table);
         vm.run();
         assert_eq!(vm.top().get_int(), 4);
     }
@@ -370,8 +377,8 @@ pushint 100
 my_label:
 add
 "#;
-        let instructions = assemble(program_str);
-        let mut vm = Vm::new(instructions);
+        let (instructions, string_table) = assemble(program_str);
+        let mut vm = Vm::new(instructions, string_table);
         vm.run();
         assert_eq!(vm.top().get_int(), 7);
     }

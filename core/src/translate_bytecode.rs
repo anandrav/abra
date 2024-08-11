@@ -35,7 +35,7 @@ impl Translator {
         }
     }
 
-    pub(crate) fn translate<Effect: EffectTrait>(&self) -> Vec<VmInstr> {
+    pub(crate) fn translate<Effect: EffectTrait>(&self) -> (Vec<VmInstr>, Vec<String>) {
         let mut instructions: Vec<InstrOrLabel> = vec![];
 
         // Handle the main function (toplevels)
@@ -97,8 +97,13 @@ impl Translator {
         for instr in &instructions {
             println!("{}", instr);
         }
-        let instructions: Vec<VmInstr> = remove_labels(instructions);
-        instructions
+        let instructions = remove_labels(instructions, &self.inf_ctx.string_constants);
+        let mut string_table: Vec<String> =
+            vec!["".to_owned(); self.inf_ctx.string_constants.len()];
+        for (s, idx) in self.inf_ctx.string_constants.iter() {
+            string_table[*idx] = s.clone();
+        }
+        (instructions, string_table)
     }
 
     fn handle_binding(&self, pat: Rc<Pat>, locals: &Locals, instructions: &mut Vec<InstrOrLabel>) {
@@ -144,7 +149,7 @@ impl Translator {
                 instructions.push(InstrOrLabel::Instr(Instr::PushInt(*i)));
             }
             ExprKind::Str(s) => {
-                instructions.push(InstrOrLabel::Instr(Instr::PushStr(idx)));
+                instructions.push(InstrOrLabel::Instr(Instr::PushString(s.clone())));
             }
             ExprKind::BinOp(left, op, right) => {
                 self.translate_expr(left.clone(), locals, instructions);
