@@ -100,6 +100,7 @@ impl Translator {
         let instructions = remove_labels(instructions, &self.inf_ctx.string_constants);
         let mut string_table: Vec<String> =
             vec!["".to_owned(); self.inf_ctx.string_constants.len()];
+        dbg!(&self.inf_ctx.string_constants);
         for (s, idx) in self.inf_ctx.string_constants.iter() {
             string_table[*idx] = s.clone();
         }

@@ -1471,9 +1471,8 @@ pub(crate) fn generate_constraints_expr(
         }
         ExprKind::Str(s) => {
             constrain(node_ty, TypeVar::make_string(Prov::Node(expr.id)));
-            inf_ctx
-                .string_constants
-                .insert(s.clone(), inf_ctx.string_constants.len());
+            let len = inf_ctx.string_constants.len();
+            inf_ctx.string_constants.entry(s.clone()).or_insert(len);
         }
         ExprKind::List(exprs) => {
             let elem_ty = TypeVar::fresh(inf_ctx, Prov::ListElem(Prov::Node(expr.id).into()));
