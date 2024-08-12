@@ -70,6 +70,7 @@ impl Translator {
                 if func_name_blacklist.contains(&func_name.as_str()) {
                     continue;
                 }
+                println!("Generating code for function: {}", func_name);
                 instructions.push(InstrOrLabel::Label(func_name));
                 let mut locals = Locals::new();
                 collect_locals_expr(body, &mut locals);
@@ -186,12 +187,20 @@ impl Translator {
                                 }
                             }
                         }
-                        Resolution::Builtin(_) => {
-                            unimplemented!()
+                        Resolution::Builtin(s) => {
+                            // TODO use an enum instead of strings
+                            match s.as_str() {
+                                "print_string" => {
+                                    // TODO differentiate between a builtin Effect like print_string() and a user-customized Effect like impulse()
+                                    instructions.push(InstrOrLabel::Instr(Instr::Effect(0)));
+                                }
+                                _ => panic!("unrecognized builtin: {}", s),
+                            }
                         }
                     }
+                } else {
+                    panic!("unimplemented: {:?}", expr.exprkind)
                 }
-                panic!("unimplemented: {:?}", expr.exprkind);
             }
             ExprKind::Block(statements) => {
                 for (i, statement) in statements.iter().enumerate() {

@@ -62,7 +62,7 @@ impl Into<String> for &Instr {
             Instr::PushNil => "pushnil".to_owned(),
             Instr::PushBool(b) => format!("pushbool {}", b),
             Instr::PushInt(n) => format!("pushint {}", n),
-            Instr::PushString(s) => format!("pushstring {}", s),
+            Instr::PushString(s) => format!("pushstring \"{}\"", s),
             Instr::Jump(loc) => format!("jump {}", loc),
             Instr::JumpIf(loc) => format!("jumpif {}", loc),
             Instr::Call(loc, nargs) => format!("call {} {}", loc, nargs),
@@ -159,7 +159,10 @@ fn instr_to_vminstr(
         Instr::PushString(s) => VmInstr::PushString(string_constants[&s] as u16),
         Instr::Jump(label) => VmInstr::Jump(label_to_idx[&label]),
         Instr::JumpIf(label) => VmInstr::JumpIf(label_to_idx[&label]),
-        Instr::Call(label, nargs) => VmInstr::Call(label_to_idx[&label], nargs),
+        Instr::Call(label, nargs) => {
+            dbg!(&label);
+            VmInstr::Call(label_to_idx[&label], nargs)
+        }
         Instr::MakeTuple(n) => VmInstr::MakeTuple(n),
         Instr::UnpackTuple => VmInstr::UnpackTuple,
         Instr::Effect(n) => VmInstr::Effect(n),
@@ -208,8 +211,10 @@ fn assemble_instr_or_label(
             Instr::PushInt(n)
         }
         "pushstring" => {
-            let s = words[1].to_owned();
-            string_constants.insert(s.clone(), string_constants.len());
+            // remove quotes
+            let s = words[1][1..words[1].len() - 1].to_owned();
+            let len = string_constants.len();
+            string_constants.entry(s.clone()).or_insert(len);
             Instr::PushString(s)
         }
         "jump" | "jumpif" | "call" => {
