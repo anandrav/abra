@@ -35,6 +35,29 @@ impl Vm {
     pub fn top(&self) -> &Value {
         self.value_stack.last().expect("stack underflow")
     }
+
+    pub fn pop(&mut self) -> Value {
+        self.value_stack.pop().expect("stack underflow")
+    }
+
+    pub fn push_str(&mut self, s: &str) {
+        self.heap.push(ManagedObject {
+            kind: ManagedObjectKind::String(s.to_owned()),
+        });
+        self.push(Value::ManagedObject(self.heap.len()));
+    }
+
+    pub fn push_nil(&mut self) {
+        self.push(Value::Nil);
+    }
+
+    pub fn get_pending_effect(&self) -> Option<u16> {
+        self.pending_effect
+    }
+
+    pub fn clear_pending_effect(&mut self) {
+        self.pending_effect = None;
+    }
 }
 
 #[derive(Debug, Copy, Clone)]
@@ -305,14 +328,6 @@ impl Vm {
             }
         }
         dbg!(&self);
-    }
-
-    pub(crate) fn get_pending_effect(&self) -> Option<u16> {
-        self.pending_effect
-    }
-
-    pub(crate) fn clear_pending_effect(&mut self) {
-        self.pending_effect = None;
     }
 
     pub(crate) fn compact(&mut self) {

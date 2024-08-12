@@ -14,5 +14,10 @@ print_string("hello world")
     vm.run();
     let top = vm.top();
     assert_eq!(top.get_string(&vm), "hello world");
-    println!("result is {}", top.get_string(&vm));
+    vm.pop();
+    vm.push_nil();
+    vm.clear_pending_effect();
+    vm.run();
+    let top = vm.top();
+    assert_eq!(top.get_int(), 5);
 }
