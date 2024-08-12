@@ -1,9 +1,8 @@
 type ProgramCounter = usize;
 pub type AbraInt = i64;
+use crate::assembly::assemble;
 use core::fmt;
 use std::fmt::{Display, Formatter};
-
-use crate::{assembly::assemble, EffectTrait};
 
 pub struct Vm {
     program: Vec<Instr>,
@@ -84,9 +83,9 @@ pub enum Instr {
     Effect(u16),
 }
 
-impl Into<String> for &Instr {
-    fn into(self) -> String {
-        match self {
+impl From<&Instr> for String {
+    fn from(val: &Instr) -> Self {
+        match val {
             Instr::Pop => "pop".to_owned(),
             Instr::LoadOffset(n) => format!("loadoffset {}", n),
             Instr::StoreOffset(n) => format!("storeoffset {}", n),

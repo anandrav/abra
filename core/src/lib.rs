@@ -18,7 +18,6 @@ pub mod vm;
 
 use interpreter::{Interpreter, OverloadedFuncMap};
 use translate_bytecode::Translator;
-use vm::Instr;
 use vm::Vm;
 
 pub fn abra_hello_world() {

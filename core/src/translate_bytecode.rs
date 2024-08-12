@@ -1,5 +1,5 @@
 use crate::assembly::{remove_labels, Instr, InstrOrLabel, Label};
-use crate::ast::{NodeId, PatAnnotated, Toplevel};
+use crate::ast::Toplevel;
 use crate::operators::BinOpcode;
 use crate::statics::Resolution;
 use crate::vm::Instr as VmInstr;
@@ -8,8 +8,7 @@ use crate::{
     ast::{Expr, ExprKind, NodeMap, Pat, PatKind, Stmt, StmtKind},
     statics::InferenceContext,
 };
-use std::collections::{HashMap, HashSet};
-use std::f32::consts::E;
+use std::collections::HashMap;
 use std::rc::Rc;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
@@ -180,7 +179,6 @@ impl Translator {
                                         name.patkind.get_identifier_of_variable(),
                                         args.len() as u8,
                                     )));
-                                    return;
                                 }
                                 _ => {
                                     unimplemented!();
@@ -285,23 +283,17 @@ impl Translator {
 }
 
 fn collect_locals_expr(expr: &Expr, locals: &mut Locals) {
-    match &*expr.exprkind {
-        ExprKind::Block(statements) => {
-            for statement in statements {
-                collect_locals_stmt(&[statement.clone()], locals);
-            }
+    if let ExprKind::Block(statements) = &*expr.exprkind {
+        for statement in statements {
+            collect_locals_stmt(&[statement.clone()], locals);
         }
-        _ => {}
     }
 }
 
 fn collect_locals_stmt(statements: &[Rc<Stmt>], locals: &mut Locals) {
     for statement in statements {
-        match &*statement.stmtkind {
-            StmtKind::Let(_, pat, _) => {
-                collect_locals_from_let_pat(pat.0.clone(), locals);
-            }
-            _ => {}
+        if let StmtKind::Let(_, pat, _) = &*statement.stmtkind {
+            collect_locals_from_let_pat(pat.0.clone(), locals);
         }
     }
 }

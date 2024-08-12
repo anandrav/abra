@@ -1,5 +1,5 @@
 use std::{
-    collections::{HashMap, HashSet},
+    collections::HashMap,
     fmt::{self, Display, Formatter},
 };
 
@@ -46,9 +46,9 @@ pub(crate) enum Instr {
     Effect(u16),
 }
 
-impl Into<String> for &Instr {
-    fn into(self) -> String {
-        match self {
+impl From<&Instr> for String {
+    fn from(val: &Instr) -> Self {
+        match val {
             Instr::Pop => "pop".to_owned(),
             Instr::LoadOffset(n) => format!("loadoffset {}", n),
             Instr::StoreOffset(n) => format!("storeoffset {}", n),
@@ -122,7 +122,7 @@ pub(crate) fn remove_labels(
 
     for item in items {
         if let InstrOrLabel::Instr(instr) = item {
-            ret.push(instr_to_vminstr(instr, &label_to_idx, &string_constants));
+            ret.push(instr_to_vminstr(instr, &label_to_idx, string_constants));
         }
     }
 
