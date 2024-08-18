@@ -5,8 +5,13 @@ use abra_core::vm::Vm;
 
 fn main() {
     let src = r#"
-print_string("hello world")
-5
+type person = {
+    name: string,
+    age: int,
+}
+let user = person("Alice", 30)
+user.name <- "Bob"
+user.name
 "#;
     let sources = source_files_single(src);
     // TODO this should return a Vm and not leak details about string table etc.
