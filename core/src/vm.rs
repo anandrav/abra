@@ -60,7 +60,7 @@ impl Vm {
 }
 
 #[derive(Debug, Copy, Clone)]
-pub enum Instr {
+pub enum Instr<Location = ProgramCounter, StringConstant = u16> {
     Pop,
     LoadOffset(i32),
     StoreOffset(i32),
@@ -74,10 +74,10 @@ pub enum Instr {
     PushNil,
     PushBool(bool),
     PushInt(AbraInt),
-    PushString(u16),
-    Jump(ProgramCounter),
-    JumpIf(ProgramCounter),
-    Call(ProgramCounter, u8),
+    PushString(StringConstant),
+    Jump(Location),
+    JumpIf(Location),
+    Call(Location, u8),
     Construct(u8),
     Unpack,
     Effect(u16),
@@ -194,7 +194,7 @@ enum ManagedObjectKind {
 
 impl Vm {
     pub fn run(&mut self) {
-        if let Some(eff) = self.pending_effect {
+        if self.pending_effect.is_some() {
             panic!("must handle pending effect");
         }
         println!("pc is {}, len is {}", self.pc, self.program.len());

@@ -22,44 +22,22 @@ impl Display for InstrOrLabel {
     }
 }
 
-#[derive(Debug)]
-pub(crate) enum Instr {
-    Pop,
-    LoadOffset(i32),
-    StoreOffset(i32),
-    Add,
-    Sub,
-    Mul,
-    Div,
-    Not,
-    Return,
-    Stop,
-    PushNil,
-    PushBool(bool),
-    PushInt(i64),
-    PushString(String),
-    Jump(Label),
-    JumpIf(Label),
-    Call(Label, u8),
-    Construct(u8),
-    Unpack,
-    Effect(u16),
-}
+pub type Instr = VmInstr<Label, String>;
 
 impl From<&Instr> for String {
     fn from(val: &Instr) -> Self {
         match val {
-            Instr::Pop => "pop".to_owned(),
+            Instr::Pop => "pop".into(),
             Instr::LoadOffset(n) => format!("loadoffset {}", n),
             Instr::StoreOffset(n) => format!("storeoffset {}", n),
-            Instr::Add => "add".to_owned(),
-            Instr::Sub => "sub".to_owned(),
-            Instr::Mul => "mul".to_owned(),
-            Instr::Div => "div".to_owned(),
-            Instr::Not => "not".to_owned(),
-            Instr::Return => "return".to_owned(),
-            Instr::Stop => "stop".to_owned(),
-            Instr::PushNil => "pushnil".to_owned(),
+            Instr::Add => "add".into(),
+            Instr::Sub => "sub".into(),
+            Instr::Mul => "mul".into(),
+            Instr::Div => "div".into(),
+            Instr::Not => "not".into(),
+            Instr::Return => "return".into(),
+            Instr::Stop => "stop".into(),
+            Instr::PushNil => "pushnil".into(),
             Instr::PushBool(b) => format!("pushbool {}", b),
             Instr::PushInt(n) => format!("pushint {}", n),
             Instr::PushString(s) => format!("pushstring \"{}\"", s),
@@ -67,7 +45,7 @@ impl From<&Instr> for String {
             Instr::JumpIf(loc) => format!("jumpif {}", loc),
             Instr::Call(loc, nargs) => format!("call {} {}", loc, nargs),
             Instr::Construct(n) => format!("construct {}", n),
-            Instr::Unpack => "unpack".to_owned(),
+            Instr::Unpack => "unpack".into(),
             Instr::Effect(n) => format!("effect {}", n),
         }
     }
@@ -95,7 +73,7 @@ pub(crate) fn assemble(s: &str) -> (Vec<VmInstr>, Vec<String>) {
         ));
     }
     let instructions = remove_labels(instructions, &string_constants);
-    let mut string_table: Vec<String> = vec!["".to_owned(); string_constants.len()];
+    let mut string_table: Vec<String> = vec!["".into(); string_constants.len()];
     for (s, idx) in string_constants.iter() {
         string_table[*idx] = s.clone();
     }
@@ -111,7 +89,7 @@ pub(crate) fn remove_labels(
     let mut label_to_idx: HashMap<Label, usize> = HashMap::new();
     for item in items.iter() {
         match item {
-            InstrOrLabel::Instr(instr) => {
+            InstrOrLabel::Instr(_) => {
                 offset += 1;
             }
             InstrOrLabel::Label(label) => {
@@ -131,7 +109,7 @@ pub(crate) fn remove_labels(
 
 fn get_label(s: &str) -> Option<String> {
     if s.ends_with(":") {
-        Some(s[0..s.len() - 1].to_owned())
+        Some(s[0..s.len() - 1].into())
     } else {
         None
     }
@@ -218,7 +196,7 @@ fn assemble_instr_or_label(
             Instr::PushString(s)
         }
         "jump" | "jumpif" | "call" => {
-            let loc = words[1].to_owned();
+            let loc = words[1].into();
             match words[0] {
                 "jump" => Instr::Jump(loc),
                 "jumpif" => Instr::JumpIf(loc),

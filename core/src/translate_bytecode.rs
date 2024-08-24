@@ -107,31 +107,6 @@ impl Translator {
         (instructions, string_table)
     }
 
-    fn handle_binding(&self, pat: Rc<Pat>, locals: &Locals, instructions: &mut Vec<InstrOrLabel>) {
-        match &*pat.patkind {
-            PatKind::Var(symbol) => {
-                let idx = locals.get(symbol).unwrap();
-                instructions.push(InstrOrLabel::Instr(Instr::StoreOffset(*idx)));
-            }
-            PatKind::Tuple(pats) => {
-                instructions.push(InstrOrLabel::Instr(Instr::Unpack));
-                for pat in pats.iter().rev() {
-                    self.handle_binding(pat.clone(), locals, instructions);
-                }
-            }
-            PatKind::Variant(_, Some(inner)) => {
-                unimplemented!();
-            }
-            PatKind::Variant(_, None) => {}
-            PatKind::Unit
-            | PatKind::Bool(..)
-            | PatKind::Int(..)
-            | PatKind::Float(..)
-            | PatKind::Str(..)
-            | PatKind::Wildcard => {}
-        }
-    }
-
     fn translate_expr(
         &self,
         expr: Rc<Expr>,
@@ -258,7 +233,7 @@ impl Translator {
         match &*stmt.stmtkind {
             StmtKind::Let(_, pat, expr) => {
                 self.translate_expr(expr.clone(), locals, instructions);
-                self.handle_binding(pat.0.clone(), locals, instructions);
+                handle_binding(pat.0.clone(), locals, instructions);
             }
             StmtKind::Set(expr1, expr2) => match &*expr1.exprkind {
                 ExprKind::Var(symbol) => {
@@ -266,12 +241,12 @@ impl Translator {
                     self.translate_expr(expr2.clone(), locals, instructions);
                     instructions.push(InstrOrLabel::Instr(Instr::StoreOffset(*idx)));
                 }
-                ExprKind::FieldAccess(accessed, field) => {
+                ExprKind::FieldAccess(_accessed, field) => {
                     // TODO, this downcast shouldn't be necessary
-                    let ExprKind::Var(field_ident) = &*field.exprkind else {
+                    let ExprKind::Var(_field_ident) = &*field.exprkind else {
                         panic!()
                     };
-                    // TODO last here
+                    todo!()
                 }
                 _ => unimplemented!(),
             },
@@ -281,16 +256,15 @@ impl Translator {
                     instructions.push(InstrOrLabel::Instr(Instr::Pop));
                 }
             }
+            StmtKind::InterfaceImpl(..) => {
+                todo!()
+            }
             StmtKind::FuncDef(_, _, _, _) => {
-                // handled elsewhere
+                // noop -- handled elsewhere
             }
             StmtKind::InterfaceDef(..) | StmtKind::TypeDef(..) => {
                 // noop
             }
-            StmtKind::InterfaceImpl(..) => {
-                // TODO
-            }
-            _ => panic!("unimplemented: {:?}", stmt.stmtkind),
         }
     }
 }
@@ -323,6 +297,31 @@ fn collect_locals_from_let_pat(pat: Rc<Pat>, locals: &mut Locals) {
         }
         PatKind::Variant(_, Some(inner)) => {
             collect_locals_from_let_pat(inner.clone(), locals);
+        }
+        PatKind::Variant(_, None) => {}
+        PatKind::Unit
+        | PatKind::Bool(..)
+        | PatKind::Int(..)
+        | PatKind::Float(..)
+        | PatKind::Str(..)
+        | PatKind::Wildcard => {}
+    }
+}
+
+fn handle_binding(pat: Rc<Pat>, locals: &Locals, instructions: &mut Vec<InstrOrLabel>) {
+    match &*pat.patkind {
+        PatKind::Var(symbol) => {
+            let idx = locals.get(symbol).unwrap();
+            instructions.push(InstrOrLabel::Instr(Instr::StoreOffset(*idx)));
+        }
+        PatKind::Tuple(pats) => {
+            instructions.push(InstrOrLabel::Instr(Instr::Unpack));
+            for pat in pats.iter().rev() {
+                handle_binding(pat.clone(), locals, instructions);
+            }
+        }
+        PatKind::Variant(_, Some(inner)) => {
+            unimplemented!();
         }
         PatKind::Variant(_, None) => {}
         PatKind::Unit
