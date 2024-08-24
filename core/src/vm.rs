@@ -61,23 +61,35 @@ impl Vm {
 
 #[derive(Debug, Copy, Clone)]
 pub enum Instr<Location = ProgramCounter, StringConstant = u16> {
+    // Stack manipulation
     Pop,
+    Duplicate,
     LoadOffset(i32),
     StoreOffset(i32),
+
+    // Constants
+    PushNil,
+    PushBool(bool),
+    PushInt(AbraInt),
+    PushString(StringConstant),
+
+    // Arithmetic
     Add,
     Sub,
     Mul,
     Div,
     Not,
-    Return,
-    Stop,
-    PushNil,
-    PushBool(bool),
-    PushInt(AbraInt),
-    PushString(StringConstant),
+
+    // Comparison
+    Equal,
+
+    // Control Flow
     Jump(Location),
     JumpIf(Location),
     Call(Location, u8),
+    Return,
+
+    // Data Structures
     Construct(u16),
     Deconstruct,
     GetField(u16),
@@ -85,6 +97,9 @@ pub enum Instr<Location = ProgramCounter, StringConstant = u16> {
     GetIdx,
     SetIdx,
     ConstructVariant { tag: u16, nargs: u16 },
+
+    // Effects
+    Stop,
     Effect(u16),
 }
 
@@ -92,6 +107,7 @@ impl From<&Instr> for String {
     fn from(val: &Instr) -> Self {
         match val {
             Instr::Pop => "pop".to_owned(),
+            Instr::Duplicate => "duplicate".to_owned(),
             Instr::LoadOffset(n) => format!("loadoffset {}", n),
             Instr::StoreOffset(n) => format!("storeoffset {}", n),
             Instr::Add => "add".to_owned(),
@@ -99,8 +115,7 @@ impl From<&Instr> for String {
             Instr::Mul => "mul".to_owned(),
             Instr::Div => "div".to_owned(),
             Instr::Not => "not".to_owned(),
-            Instr::Return => "return".to_owned(),
-            Instr::Stop => "stop".to_owned(),
+            Instr::Equal => "eq".to_owned(),
             Instr::PushNil => "pushnil".to_owned(),
             Instr::PushBool(b) => format!("pushbool {}", b),
             Instr::PushInt(n) => format!("pushint {}", n),
@@ -108,6 +123,7 @@ impl From<&Instr> for String {
             Instr::Jump(loc) => format!("jump {}", loc),
             Instr::JumpIf(loc) => format!("jumpif {}", loc),
             Instr::Call(loc, nargs) => format!("call {} {}", loc, nargs),
+            Instr::Return => "return".to_owned(),
             Instr::Construct(n) => format!("construct {}", n),
             Instr::Deconstruct => "deconstruct".to_owned(),
             Instr::GetField(n) => format!("getfield {}", n),
@@ -117,6 +133,7 @@ impl From<&Instr> for String {
             Instr::ConstructVariant { tag, nargs } => {
                 format!("construct_variant {} {}", tag, nargs)
             }
+            Instr::Stop => "stop".to_owned(),
             Instr::Effect(n) => format!("effect {}", n),
         }
     }
@@ -129,7 +146,7 @@ impl Display for Instr {
     }
 }
 
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum Value {
     Nil,
     Bool(bool),
@@ -246,6 +263,10 @@ impl Vm {
             Instr::Pop => {
                 self.value_stack.pop();
             }
+            Instr::Duplicate => {
+                let v = self.top().clone();
+                self.push(v);
+            }
             Instr::LoadOffset(n) => {
                 let idx = self.stack_base.wrapping_add_signed(n as isize);
                 let v = self.value_stack[idx];
@@ -279,6 +300,11 @@ impl Vm {
             Instr::Not => {
                 let v = self.pop_bool();
                 self.push(!v);
+            }
+            Instr::Equal => {
+                let b = self.pop();
+                let a = self.pop();
+                self.push(a == b);
             }
             Instr::Jump(target) => {
                 self.pc = target;

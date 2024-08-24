@@ -150,3 +150,39 @@ arr[2]
     let top = vm.top();
     assert_eq!(top.get_int(), 33);
 }
+
+#[test]
+fn match_int() {
+    let src = r#"
+let n = 1
+match n {
+  0 -> 0
+  1 -> 1
+  _ -> 2
+}
+"#;
+    let sources = source_files_single(src);
+    // TODO this should return a Vm and not leak details about string table etc.
+    let mut vm = compile_bytecode::<DefaultEffects>(sources).unwrap();
+    vm.run();
+    let top = vm.top();
+    assert_eq!(top.get_int(), 1);
+}
+
+#[test]
+fn match_int_wild() {
+    let src = r#"
+let n = 42
+match n {
+  0 -> 0
+  1 -> 1
+  _ -> 99
+}
+"#;
+    let sources = source_files_single(src);
+    // TODO this should return a Vm and not leak details about string table etc.
+    let mut vm = compile_bytecode::<DefaultEffects>(sources).unwrap();
+    vm.run();
+    let top = vm.top();
+    assert_eq!(top.get_int(), 99);
+}

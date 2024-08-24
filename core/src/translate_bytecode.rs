@@ -288,7 +288,65 @@ impl Translator {
                 self.translate_expr(array.clone(), locals, instructions);
                 instructions.push(InstrOrLabel::Instr(Instr::GetIdx));
             }
+            ExprKind::Match(expr, arms) => {
+                let ty = self.inf_ctx.solution_of_node(expr.id).unwrap();
+
+                self.translate_expr(expr.clone(), locals, instructions);
+                let end_label = make_label("endmatch");
+                // Check scrutinee against each arm's pattern
+                let arm_labels = arms
+                    .iter()
+                    .enumerate()
+                    .map(|(i, _)| make_label(&format!("arm{}", i)))
+                    .collect::<Vec<_>>();
+                for (i, arm) in arms.iter().enumerate() {
+                    let arm_label = arm_labels[i].clone();
+
+                    self.translate_pat_comparison(
+                        &ty,
+                        arm.pat.clone(),
+                        locals,
+                        arm_label.clone(),
+                        instructions,
+                    );
+                }
+                instructions.push(InstrOrLabel::Instr(Instr::Pop));
+                instructions.push(InstrOrLabel::Instr(Instr::Jump(end_label.clone())));
+                for (i, arm) in arms.iter().enumerate() {
+                    instructions.push(InstrOrLabel::Label(arm_labels[i].clone()));
+                    self.translate_expr(arm.expr.clone(), locals, instructions);
+                    if i != arms.len() - 1 {
+                        instructions.push(InstrOrLabel::Instr(Instr::Jump(end_label.clone())));
+                    }
+                }
+                instructions.push(InstrOrLabel::Label(end_label));
+            }
             _ => panic!("unimplemented: {:?}", expr.exprkind),
+        }
+    }
+
+    fn translate_pat_comparison(
+        &self,
+        scrutinee_ty: &SolvedType,
+        pat: Rc<Pat>,
+        locals: &Locals,
+        label: Label,
+        instructions: &mut Vec<InstrOrLabel>,
+    ) {
+        match scrutinee_ty {
+            SolvedType::Int => match &*pat.patkind {
+                PatKind::Int(i) => {
+                    instructions.push(InstrOrLabel::Instr(Instr::PushInt(*i)));
+                    instructions.push(InstrOrLabel::Instr(Instr::Equal));
+                    instructions.push(InstrOrLabel::Instr(Instr::JumpIf(label)));
+                }
+                PatKind::Wildcard => {
+                    instructions.push(InstrOrLabel::Instr(Instr::Pop));
+                    instructions.push(InstrOrLabel::Instr(Instr::Jump(label)));
+                }
+                _ => unimplemented!(),
+            },
+            _ => unimplemented!(),
         }
     }
 

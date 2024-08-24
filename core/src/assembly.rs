@@ -28,6 +28,7 @@ impl From<&Instr> for String {
     fn from(val: &Instr) -> Self {
         match val {
             Instr::Pop => "pop".into(),
+            Instr::Duplicate => "duplicate".into(),
             Instr::LoadOffset(n) => format!("loadoffset {}", n),
             Instr::StoreOffset(n) => format!("storeoffset {}", n),
             Instr::Add => "add".into(),
@@ -35,8 +36,7 @@ impl From<&Instr> for String {
             Instr::Mul => "mul".into(),
             Instr::Div => "div".into(),
             Instr::Not => "not".into(),
-            Instr::Return => "return".into(),
-            Instr::Stop => "stop".into(),
+            Instr::Equal => "equal".into(),
             Instr::PushNil => "pushnil".into(),
             Instr::PushBool(b) => format!("pushbool {}", b),
             Instr::PushInt(n) => format!("pushint {}", n),
@@ -44,6 +44,7 @@ impl From<&Instr> for String {
             Instr::Jump(loc) => format!("jump {}", loc),
             Instr::JumpIf(loc) => format!("jumpif {}", loc),
             Instr::Call(loc, nargs) => format!("call {} {}", loc, nargs),
+            Instr::Return => "return".into(),
             Instr::Construct(n) => format!("construct {}", n),
             Instr::Deconstruct => "deconstruct".into(),
             Instr::GetField(idx) => format!("getfield {}", idx),
@@ -51,6 +52,7 @@ impl From<&Instr> for String {
             Instr::GetIdx => "getidx".into(),
             Instr::SetIdx => "setidx".into(),
             Instr::ConstructVariant { tag, nargs } => format!("constructvariant {} {}", tag, nargs),
+            Instr::Stop => "stop".into(),
             Instr::Effect(n) => format!("effect {}", n),
         }
     }
@@ -127,6 +129,7 @@ fn instr_to_vminstr(
 ) -> VmInstr {
     match instr {
         Instr::Pop => VmInstr::Pop,
+        Instr::Duplicate => VmInstr::Duplicate,
         Instr::LoadOffset(i) => VmInstr::LoadOffset(i),
         Instr::StoreOffset(i) => VmInstr::StoreOffset(i),
         Instr::Add => VmInstr::Add,
@@ -134,18 +137,15 @@ fn instr_to_vminstr(
         Instr::Mul => VmInstr::Mul,
         Instr::Div => VmInstr::Div,
         Instr::Not => VmInstr::Not,
-        Instr::Return => VmInstr::Return,
-        Instr::Stop => VmInstr::Stop,
+        Instr::Equal => VmInstr::Equal,
         Instr::PushNil => VmInstr::PushNil,
         Instr::PushBool(b) => VmInstr::PushBool(b),
         Instr::PushInt(i) => VmInstr::PushInt(i),
         Instr::PushString(s) => VmInstr::PushString(string_constants[&s] as u16),
         Instr::Jump(label) => VmInstr::Jump(label_to_idx[&label]),
         Instr::JumpIf(label) => VmInstr::JumpIf(label_to_idx[&label]),
-        Instr::Call(label, nargs) => {
-            dbg!(&label);
-            VmInstr::Call(label_to_idx[&label], nargs)
-        }
+        Instr::Call(label, nargs) => VmInstr::Call(label_to_idx[&label], nargs),
+        Instr::Return => VmInstr::Return,
         Instr::Construct(n) => VmInstr::Construct(n),
         Instr::Deconstruct => VmInstr::Deconstruct,
         Instr::GetField(idx) => VmInstr::GetField(idx),
@@ -153,6 +153,7 @@ fn instr_to_vminstr(
         Instr::GetIdx => VmInstr::GetIdx,
         Instr::SetIdx => VmInstr::SetIdx,
         Instr::ConstructVariant { tag, nargs } => VmInstr::ConstructVariant { tag, nargs },
+        Instr::Stop => VmInstr::Stop,
         Instr::Effect(n) => VmInstr::Effect(n),
     }
 }
