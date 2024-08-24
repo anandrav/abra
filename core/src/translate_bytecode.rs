@@ -1,7 +1,7 @@
 use crate::assembly::{remove_labels, Instr, InstrOrLabel, Label};
 use crate::ast::{Toplevel, TypeDefKind};
 use crate::operators::BinOpcode;
-use crate::statics::Resolution;
+use crate::statics::{Resolution, SolvedType};
 use crate::vm::Instr as VmInstr;
 use crate::EffectTrait;
 use crate::{
@@ -219,6 +219,15 @@ impl Translator {
                 instructions.push(InstrOrLabel::Label(end_label));
                 instructions.push(InstrOrLabel::Instr(Instr::PushNil)); // TODO get rid of this
             }
+            ExprKind::FieldAccess(accessed, field) => {
+                // TODO, this downcast shouldn't be necessary
+                let ExprKind::Var(field_name) = &*field.exprkind else {
+                    panic!()
+                };
+                self.translate_expr(accessed.clone(), locals, instructions);
+                let idx = idx_of_field(&self.inf_ctx, accessed.clone(), field_name);
+                instructions.push(InstrOrLabel::Instr(Instr::GetIdx(idx)));
+            }
             _ => panic!("unimplemented: {:?}", expr.exprkind),
         }
     }
@@ -235,18 +244,21 @@ impl Translator {
                 self.translate_expr(expr.clone(), locals, instructions);
                 handle_binding(pat.0.clone(), locals, instructions);
             }
-            StmtKind::Set(expr1, expr2) => match &*expr1.exprkind {
+            StmtKind::Set(expr1, rvalue) => match &*expr1.exprkind {
                 ExprKind::Var(symbol) => {
                     let idx = locals.get(symbol).unwrap();
-                    self.translate_expr(expr2.clone(), locals, instructions);
+                    self.translate_expr(rvalue.clone(), locals, instructions);
                     instructions.push(InstrOrLabel::Instr(Instr::StoreOffset(*idx)));
                 }
-                ExprKind::FieldAccess(_accessed, field) => {
+                ExprKind::FieldAccess(accessed, field) => {
                     // TODO, this downcast shouldn't be necessary
-                    let ExprKind::Var(_field_ident) = &*field.exprkind else {
+                    let ExprKind::Var(field_name) = &*field.exprkind else {
                         panic!()
                     };
-                    todo!()
+                    self.translate_expr(rvalue.clone(), locals, instructions);
+                    self.translate_expr(accessed.clone(), locals, instructions);
+                    let idx = idx_of_field(&self.inf_ctx, accessed.clone(), field_name);
+                    instructions.push(InstrOrLabel::Instr(Instr::SetIdx(idx)));
                 }
                 _ => unimplemented!(),
             },
@@ -340,4 +352,21 @@ fn make_label(hint: &str) -> Label {
     static ID_COUNTER: std::sync::atomic::AtomicUsize = AtomicUsize::new(1);
     let id = ID_COUNTER.fetch_add(1, Ordering::Relaxed);
     format!("{}_{}", hint, id)
+}
+
+fn idx_of_field(inf_ctx: &InferenceContext, accessed: Rc<Expr>, field: &str) -> u32 {
+    let accessed_ty = inf_ctx.solution_of_node(accessed.id).unwrap();
+
+    match accessed_ty {
+        SolvedType::UdtInstance(symbol, _) => {
+            let struct_ty = inf_ctx.struct_defs.get(&symbol).expect("not a struct type");
+            let field_idx = struct_ty
+                .fields
+                .iter()
+                .position(|f: &crate::statics::StructField| f.name == field)
+                .unwrap();
+            field_idx as u32
+        }
+        _ => panic!("not a udt"),
+    }
 }

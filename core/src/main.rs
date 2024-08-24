@@ -8,9 +8,8 @@ type person = {
     name: string,
     age: int
 }
-let user = person("Alice", 30)
-user.name <- "Bob"
-user.name
+let x = person("Alice", 30)
+x
 "#;
     let sources = source_files_single(src);
     // TODO this should return a Vm and not leak details about string table etc.

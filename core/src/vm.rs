@@ -43,7 +43,7 @@ impl Vm {
         self.heap.push(ManagedObject {
             kind: ManagedObjectKind::String(s.to_owned()),
         });
-        self.push(Value::ManagedObject(self.heap.len()));
+        self.push(Value::ManagedObject(self.heap.len() - 1));
     }
 
     pub fn push_nil(&mut self) {
@@ -158,7 +158,7 @@ impl Value {
 
     pub fn get_string(&self, vm: &Vm) -> String {
         match self {
-            Value::ManagedObject(idx) => match &vm.heap[*idx - 1].kind {
+            Value::ManagedObject(idx) => match &vm.heap[*idx].kind {
                 ManagedObjectKind::String(s) => s.clone(),
                 _ => panic!("not a string"),
             },
@@ -201,12 +201,10 @@ impl Vm {
         if self.pending_effect.is_some() {
             panic!("must handle pending effect");
         }
-        println!("pc is {}, len is {}", self.pc, self.program.len());
         while self.pc < self.program.len() && self.pending_effect.is_none() {
             self.step();
-            println!("step done");
         }
-        println!("done running vm");
+        println!("DONE");
     }
 
     pub fn run_n_steps(&mut self, steps: u32) {
@@ -218,14 +216,13 @@ impl Vm {
     fn step(&mut self) {
         dbg!(&self);
         let instr = self.program[self.pc];
-        println!("{:?}", instr);
+        println!("Instruction: {:?}", instr);
         self.pc += 1;
         match instr {
             Instr::PushNil => {
                 self.push(Value::Nil);
             }
             Instr::PushInt(n) => {
-                println!("pushing int");
                 self.push(n);
             }
             Instr::PushBool(b) => {
@@ -236,7 +233,7 @@ impl Vm {
                 self.heap.push(ManagedObject {
                     kind: ManagedObjectKind::String(s.clone()),
                 });
-                self.push(Value::ManagedObject(self.heap.len()));
+                self.push(Value::ManagedObject(self.heap.len() - 1));
             }
             Instr::Pop => {
                 self.value_stack.pop();
@@ -252,13 +249,11 @@ impl Vm {
                 self.value_stack[idx] = v;
             }
             Instr::Add => {
-                println!("adding");
                 let b = self.pop_int();
                 let a = self.pop_int();
                 self.push(a + b);
             }
             Instr::Sub => {
-                println!("subtracting");
                 let b = self.pop_int();
                 let a = self.pop_int();
                 self.push(a - b);
@@ -313,12 +308,13 @@ impl Vm {
                 self.heap.push(ManagedObject {
                     kind: ManagedObjectKind::Record(fields),
                 });
-                self.value_stack.push(Value::ManagedObject(self.heap.len()));
+                self.value_stack
+                    .push(Value::ManagedObject(self.heap.len() - 1));
             }
             Instr::Deconstruct => {
                 let obj = self.value_stack.pop().expect("stack underflow");
                 let fields = match &obj {
-                    Value::ManagedObject(idx) => match &self.heap[*idx - 1].kind {
+                    Value::ManagedObject(idx) => match &self.heap[*idx].kind {
                         ManagedObjectKind::Record(fields) => fields.clone(),
                         _ => panic!("not a tuple"),
                     },
@@ -326,29 +322,29 @@ impl Vm {
                 };
                 self.value_stack.extend(fields);
             }
-            Instr::GetIdx(idx) => {
+            Instr::GetIdx(index) => {
                 let obj = self.value_stack.pop().expect("stack underflow");
                 let field = match &obj {
-                    Value::ManagedObject(idx) => match &self.heap[*idx - 1].kind {
-                        ManagedObjectKind::Record(fields) => fields[*idx as usize].clone(),
+                    Value::ManagedObject(id) => match &self.heap[*id].kind {
+                        ManagedObjectKind::Record(fields) => fields[index as usize],
                         _ => panic!("not a tuple"),
                     },
                     _ => panic!("not a tuple"),
                 };
                 self.push(field);
             }
-            Instr::SetIdx(idx) => {
+            Instr::SetIdx(index) => {
                 let obj = self.value_stack.pop().expect("stack underflow");
-                let field = self.value_stack.pop().expect("stack underflow");
+                let rvalue = self.value_stack.pop().expect("stack underflow");
                 let obj_id = match &obj {
-                    Value::ManagedObject(idx) => *idx,
-                    _ => panic!("not a tuple"),
+                    Value::ManagedObject(id) => *id,
+                    _ => panic!("not a managed object: {:?}", obj),
                 };
                 match &mut self.heap[obj_id].kind {
                     ManagedObjectKind::Record(fields) => {
-                        fields[idx as usize] = field;
+                        fields[index as usize] = rvalue;
                     }
-                    _ => panic!("not a tuple"),
+                    _ => panic!("not a record type: {:?}", self.heap[obj_id]),
                 }
             }
             Instr::Effect(eff) => {
@@ -387,6 +383,7 @@ impl fmt::Debug for Vm {
             .field("stack_base", &self.stack_base)
             .field("value_stack", &format!("{:?}", self.value_stack))
             .field("call_stack", &format!("{:?}", self.call_stack))
+            .field("heap", &format!("{:?}", self.heap))
             .finish()
     }
 }

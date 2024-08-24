@@ -149,7 +149,7 @@ pub(crate) enum PotentialType {
     String(Provs),
     Function(Provs, Vec<TypeVar>, TypeVar),
     Tuple(Provs, Vec<TypeVar>),
-    UdtInstance(Provs, Symbol, Vec<TypeVar>),
+    UdtInstance(Provs, Symbol, Vec<TypeVar>), // TODO: instead of Symbol, use a node_id. Types should be able to share the same name
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
