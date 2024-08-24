@@ -135,7 +135,7 @@ impl Translator {
                     BinOpcode::Subtract => instructions.push(InstrOrLabel::Instr(Instr::Sub)),
                     BinOpcode::Multiply => instructions.push(InstrOrLabel::Instr(Instr::Mul)),
                     BinOpcode::Divide => instructions.push(InstrOrLabel::Instr(Instr::Div)),
-                    _ => unimplemented!(),
+                    _ => panic!("op not implemented: {:?}", op),
                 }
             }
             ExprKind::FuncAp(func, args) => {

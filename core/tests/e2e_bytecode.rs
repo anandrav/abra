@@ -94,3 +94,43 @@ print_string("hello world")
     let top = vm.top();
     assert_eq!(top.get_int(), 5);
 }
+
+#[test]
+fn struct_assign_and_access1() {
+    let src = r#"
+type person = {
+    name: string,
+    age: int
+}
+let x = person("Alice", 30)
+x.name <- "Bob"
+x.age <- 2 * 3 * 6
+x.name
+"#;
+    let sources = source_files_single(src);
+    // TODO this should return a Vm and not leak details about string table etc.
+    let mut vm = compile_bytecode::<DefaultEffects>(sources).unwrap();
+    vm.run();
+    let top = vm.top();
+    assert_eq!(top.get_string(&vm), "Bob");
+}
+
+#[test]
+fn struct_assign_and_access2() {
+    let src = r#"
+type person = {
+    name: string,
+    age: int
+}
+let x = person("Alice", 30)
+x.name <- "Bob"
+x.age <- 2 * 3 * 6
+x.age
+"#;
+    let sources = source_files_single(src);
+    // TODO this should return a Vm and not leak details about string table etc.
+    let mut vm = compile_bytecode::<DefaultEffects>(sources).unwrap();
+    vm.run();
+    let top = vm.top();
+    assert_eq!(top.get_int(), 36);
+}
