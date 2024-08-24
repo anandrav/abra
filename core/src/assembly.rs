@@ -45,7 +45,9 @@ impl From<&Instr> for String {
             Instr::JumpIf(loc) => format!("jumpif {}", loc),
             Instr::Call(loc, nargs) => format!("call {} {}", loc, nargs),
             Instr::Construct(n) => format!("construct {}", n),
-            Instr::Unpack => "unpack".into(),
+            Instr::Deconstruct => "deconstruct".into(),
+            Instr::GetIdx(idx) => format!("getidx {}", idx),
+            Instr::SetIdx(idx) => format!("setidx {}", idx),
             Instr::Effect(n) => format!("effect {}", n),
         }
     }
@@ -142,7 +144,9 @@ fn instr_to_vminstr(
             VmInstr::Call(label_to_idx[&label], nargs)
         }
         Instr::Construct(n) => VmInstr::Construct(n),
-        Instr::Unpack => VmInstr::Unpack,
+        Instr::Deconstruct => VmInstr::Deconstruct,
+        Instr::GetIdx(idx) => VmInstr::GetIdx(idx),
+        Instr::SetIdx(idx) => VmInstr::SetIdx(idx),
         Instr::Effect(n) => VmInstr::Effect(n),
     }
 }
@@ -208,7 +212,7 @@ fn assemble_instr_or_label(
             let n = u8::from_str_radix(words[1], radix).unwrap();
             Instr::Construct(n)
         }
-        "unpack" => Instr::Unpack,
+        "unpack" => Instr::Deconstruct,
         "effect" => {
             let n = u16::from_str_radix(words[1], radix).unwrap();
             Instr::Effect(n)

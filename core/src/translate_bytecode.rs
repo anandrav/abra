@@ -257,7 +257,7 @@ impl Translator {
                 }
             }
             StmtKind::InterfaceImpl(..) => {
-                todo!()
+                // TODO
             }
             StmtKind::FuncDef(_, _, _, _) => {
                 // noop -- handled elsewhere
@@ -315,7 +315,7 @@ fn handle_binding(pat: Rc<Pat>, locals: &Locals, instructions: &mut Vec<InstrOrL
             instructions.push(InstrOrLabel::Instr(Instr::StoreOffset(*idx)));
         }
         PatKind::Tuple(pats) => {
-            instructions.push(InstrOrLabel::Instr(Instr::Unpack));
+            instructions.push(InstrOrLabel::Instr(Instr::Deconstruct));
             for pat in pats.iter().rev() {
                 handle_binding(pat.clone(), locals, instructions);
             }

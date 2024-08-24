@@ -79,7 +79,9 @@ pub enum Instr<Location = ProgramCounter, StringConstant = u16> {
     JumpIf(Location),
     Call(Location, u8),
     Construct(u8),
-    Unpack,
+    Deconstruct,
+    GetIdx(u32),
+    SetIdx(u32),
     Effect(u16),
 }
 
@@ -104,7 +106,9 @@ impl From<&Instr> for String {
             Instr::JumpIf(loc) => format!("jumpif {}", loc),
             Instr::Call(loc, nargs) => format!("call {} {}", loc, nargs),
             Instr::Construct(n) => format!("construct {}", n),
-            Instr::Unpack => "unpack".to_owned(),
+            Instr::Deconstruct => "deconstruct".to_owned(),
+            Instr::GetIdx(n) => format!("getidx {}", n),
+            Instr::SetIdx(n) => format!("setidx {}", n),
             Instr::Effect(n) => format!("effect {}", n),
         }
     }
@@ -311,7 +315,7 @@ impl Vm {
                 });
                 self.value_stack.push(Value::ManagedObject(self.heap.len()));
             }
-            Instr::Unpack => {
+            Instr::Deconstruct => {
                 let obj = self.value_stack.pop().expect("stack underflow");
                 let fields = match &obj {
                     Value::ManagedObject(idx) => match &self.heap[*idx - 1].kind {
@@ -321,6 +325,31 @@ impl Vm {
                     _ => panic!("not a tuple"),
                 };
                 self.value_stack.extend(fields);
+            }
+            Instr::GetIdx(idx) => {
+                let obj = self.value_stack.pop().expect("stack underflow");
+                let field = match &obj {
+                    Value::ManagedObject(idx) => match &self.heap[*idx - 1].kind {
+                        ManagedObjectKind::Record(fields) => fields[*idx as usize].clone(),
+                        _ => panic!("not a tuple"),
+                    },
+                    _ => panic!("not a tuple"),
+                };
+                self.push(field);
+            }
+            Instr::SetIdx(idx) => {
+                let obj = self.value_stack.pop().expect("stack underflow");
+                let field = self.value_stack.pop().expect("stack underflow");
+                let obj_id = match &obj {
+                    Value::ManagedObject(idx) => *idx,
+                    _ => panic!("not a tuple"),
+                };
+                match &mut self.heap[obj_id].kind {
+                    ManagedObjectKind::Record(fields) => {
+                        fields[idx as usize] = field;
+                    }
+                    _ => panic!("not a tuple"),
+                }
             }
             Instr::Effect(eff) => {
                 self.pending_effect = Some(eff);
