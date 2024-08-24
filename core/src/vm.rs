@@ -146,7 +146,7 @@ impl Display for Instr {
     }
 }
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+#[derive(Debug, Copy, Clone)]
 pub enum Value {
     Nil,
     Bool(bool),
@@ -226,8 +226,10 @@ impl Vm {
         if self.pending_effect.is_some() {
             panic!("must handle pending effect");
         }
+        dbg!(&self);
         while self.pc < self.program.len() && self.pending_effect.is_none() {
             self.step();
+            dbg!(&self);
         }
         println!("DONE");
     }
@@ -239,7 +241,6 @@ impl Vm {
     }
 
     fn step(&mut self) {
-        dbg!(&self);
         let instr = self.program[self.pc];
         println!("Instruction: {:?}", instr);
         self.pc += 1;
@@ -304,7 +305,12 @@ impl Vm {
             Instr::Equal => {
                 let b = self.pop();
                 let a = self.pop();
-                self.push(a == b);
+                match (a, b) {
+                    (Value::Int(a), Value::Int(b)) => self.push(a == b),
+                    (Value::Bool(a), Value::Bool(b)) => self.push(a == b),
+                    (Value::Nil, Value::Nil) => self.push(true),
+                    _ => self.push(false),
+                }
             }
             Instr::Jump(target) => {
                 self.pc = target;
@@ -331,10 +337,7 @@ impl Vm {
                 self.value_stack.truncate(frame.stack_top);
                 self.value_stack.push(ret_value);
             }
-            Instr::Stop => {
-                self.pc = self.program.len();
-                return;
-            }
+            Instr::Stop => self.pc = self.program.len(),
             Instr::Construct(n) => {
                 let fields = self
                     .value_stack
@@ -425,7 +428,6 @@ impl Vm {
                 self.pending_effect = Some(eff);
             }
         }
-        dbg!(&self);
     }
 
     pub(crate) fn compact(&mut self) {

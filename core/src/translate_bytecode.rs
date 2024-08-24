@@ -42,6 +42,7 @@ impl Translator {
         for toplevel in self.toplevels.iter() {
             collect_locals_stmt(&toplevel.statements, &mut locals);
         }
+        dbg!(&locals);
         for i in 0..locals.len() {
             instructions.push(InstrOrLabel::Instr(Instr::PushNil));
         }
@@ -78,7 +79,9 @@ impl Translator {
                     instructions.push(InstrOrLabel::Instr(Instr::PushNil));
                 }
                 for (i, arg) in args.iter().rev().enumerate() {
-                    locals.insert(arg.0.patkind.get_identifier_of_variable(), -(i as i32) - 1);
+                    locals
+                        .entry(arg.0.patkind.get_identifier_of_variable())
+                        .or_insert(-(i as i32) - 1);
                 }
                 self.translate_expr(body.clone(), &locals, &mut instructions);
                 instructions.push(InstrOrLabel::Instr(Instr::Return));
@@ -314,6 +317,8 @@ impl Translator {
                 instructions.push(InstrOrLabel::Instr(Instr::Jump(end_label.clone())));
                 for (i, arm) in arms.iter().enumerate() {
                     instructions.push(InstrOrLabel::Label(arm_labels[i].clone()));
+                    // pop the scrutinee
+                    instructions.push(InstrOrLabel::Instr(Instr::Pop));
                     self.translate_expr(arm.expr.clone(), locals, instructions);
                     if i != arms.len() - 1 {
                         instructions.push(InstrOrLabel::Instr(Instr::Jump(end_label.clone())));
@@ -336,12 +341,24 @@ impl Translator {
         match scrutinee_ty {
             SolvedType::Int => match &*pat.patkind {
                 PatKind::Int(i) => {
+                    instructions.push(InstrOrLabel::Instr(Instr::Duplicate));
                     instructions.push(InstrOrLabel::Instr(Instr::PushInt(*i)));
                     instructions.push(InstrOrLabel::Instr(Instr::Equal));
                     instructions.push(InstrOrLabel::Instr(Instr::JumpIf(label)));
                 }
                 PatKind::Wildcard => {
-                    instructions.push(InstrOrLabel::Instr(Instr::Pop));
+                    instructions.push(InstrOrLabel::Instr(Instr::Jump(label)));
+                }
+                _ => unimplemented!(),
+            },
+            SolvedType::Bool => match &*pat.patkind {
+                PatKind::Bool(b) => {
+                    instructions.push(InstrOrLabel::Instr(Instr::Duplicate));
+                    instructions.push(InstrOrLabel::Instr(Instr::PushBool(*b)));
+                    instructions.push(InstrOrLabel::Instr(Instr::Equal));
+                    instructions.push(InstrOrLabel::Instr(Instr::JumpIf(label)));
+                }
+                PatKind::Wildcard => {
                     instructions.push(InstrOrLabel::Instr(Instr::Jump(label)));
                 }
                 _ => unimplemented!(),
@@ -424,7 +441,8 @@ fn collect_locals_stmt(statements: &[Rc<Stmt>], locals: &mut Locals) {
 fn collect_locals_from_let_pat(pat: Rc<Pat>, locals: &mut Locals) {
     match &*pat.patkind {
         PatKind::Var(symbol) => {
-            locals.insert(symbol.clone(), locals.len() as i32);
+            let len = locals.len();
+            locals.entry(symbol.clone()).or_insert(len as i32);
         }
         PatKind::Tuple(pats) => {
             for pat in pats {
