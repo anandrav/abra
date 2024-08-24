@@ -115,8 +115,34 @@ impl Translator {
     ) {
         match &*expr.exprkind {
             ExprKind::Var(symbol) => {
-                let idx = locals.get(symbol).unwrap();
-                instructions.push(InstrOrLabel::Instr(Instr::LoadOffset(*idx)));
+                // adt variant
+                if let Resolution::Variant(node_id, variant_name) =
+                    self.inf_ctx.name_resolutions.get(&expr.id).unwrap()
+                {
+                    let node = self.node_map.get(node_id).unwrap();
+                    let stmt = node.to_stmt().unwrap();
+                    match &*stmt.stmtkind {
+                        StmtKind::TypeDef(kind) => match &**kind {
+                            TypeDefKind::Adt(_, _, variants) => {
+                                let tag = variants
+                                    .iter()
+                                    .position(|v| v.ctor == *variant_name)
+                                    .expect("variant not found")
+                                    as u16;
+                                instructions.push(InstrOrLabel::Instr(Instr::ConstructVariant {
+                                    tag,
+                                    nargs: 0,
+                                }));
+                            }
+                            _ => panic!("unexpected stmt: {:?}", stmt.stmtkind),
+                        },
+                        _ => panic!("unexpected stmt: {:?}", stmt.stmtkind),
+                    }
+                } else {
+                    // normal variable
+                    let idx = locals.get(symbol).unwrap();
+                    instructions.push(InstrOrLabel::Instr(Instr::LoadOffset(*idx)));
+                }
             }
             ExprKind::Bool(b) => {
                 instructions.push(InstrOrLabel::Instr(Instr::PushBool(*b)));
@@ -158,10 +184,33 @@ impl Translator {
                                 StmtKind::TypeDef(kind) => match &**kind {
                                     TypeDefKind::Struct(_, _, fields) => {
                                         instructions.push(InstrOrLabel::Instr(Instr::Construct(
-                                            fields.len() as u32,
+                                            fields.len() as u16,
                                         )));
                                     }
                                     _ => unimplemented!(),
+                                },
+                                _ => panic!("unexpected stmt: {:?}", stmt.stmtkind),
+                            }
+                        }
+                        Resolution::Variant(node_id, variant_name) => {
+                            let node = self.node_map.get(node_id).unwrap();
+                            let stmt = node.to_stmt().unwrap();
+                            match &*stmt.stmtkind {
+                                StmtKind::TypeDef(kind) => match &**kind {
+                                    TypeDefKind::Adt(_, _, variants) => {
+                                        let tag = variants
+                                            .iter()
+                                            .position(|v| v.ctor == *variant_name)
+                                            .expect("variant not found")
+                                            as u16;
+                                        instructions.push(InstrOrLabel::Instr(
+                                            Instr::ConstructVariant {
+                                                tag,
+                                                nargs: args.len() as u16,
+                                            },
+                                        ));
+                                    }
+                                    _ => panic!("unexpected stmt: {:?}", stmt.stmtkind),
                                 },
                                 _ => panic!("unexpected stmt: {:?}", stmt.stmtkind),
                             }
@@ -195,7 +244,7 @@ impl Translator {
                 for expr in exprs {
                     self.translate_expr(expr.clone(), locals, instructions);
                 }
-                instructions.push(InstrOrLabel::Instr(Instr::Construct(exprs.len() as u32)));
+                instructions.push(InstrOrLabel::Instr(Instr::Construct(exprs.len() as u16)));
             }
             ExprKind::If(cond, then_block, Some(else_block)) => {
                 self.translate_expr(cond.clone(), locals, instructions);
@@ -232,7 +281,7 @@ impl Translator {
                 for expr in exprs {
                     self.translate_expr(expr.clone(), locals, instructions);
                 }
-                instructions.push(InstrOrLabel::Instr(Instr::Construct(exprs.len() as u32)));
+                instructions.push(InstrOrLabel::Instr(Instr::Construct(exprs.len() as u16)));
             }
             ExprKind::IndexAccess(array, index) => {
                 self.translate_expr(index.clone(), locals, instructions);
@@ -371,7 +420,7 @@ fn make_label(hint: &str) -> Label {
     format!("{}_{}", hint, id)
 }
 
-fn idx_of_field(inf_ctx: &InferenceContext, accessed: Rc<Expr>, field: &str) -> u32 {
+fn idx_of_field(inf_ctx: &InferenceContext, accessed: Rc<Expr>, field: &str) -> u16 {
     let accessed_ty = inf_ctx.solution_of_node(accessed.id).unwrap();
 
     match accessed_ty {
@@ -382,7 +431,7 @@ fn idx_of_field(inf_ctx: &InferenceContext, accessed: Rc<Expr>, field: &str) -> 
                 .iter()
                 .position(|f: &crate::statics::StructField| f.name == field)
                 .unwrap();
-            field_idx as u32
+            field_idx as u16
         }
         _ => panic!("not a udt"),
     }

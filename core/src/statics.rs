@@ -933,6 +933,7 @@ fn constrain(mut expected: TypeVar, mut actual: TypeVar) {
 #[derive(Debug, Clone)]
 pub(crate) enum Resolution {
     Node(NodeId),
+    Variant(NodeId, Symbol),
     Builtin(Symbol),
 }
 
@@ -2224,6 +2225,11 @@ pub(crate) fn gather_definitions_stmt(
                 }
                 let mut defvariants = vec![];
                 for v in variants {
+                    gamma.extend_declaration(
+                        v.ctor.clone(),
+                        Resolution::Variant(stmt.id, v.ctor.clone()),
+                    );
+
                     let data = {
                         if let Some(data) = &v.data {
                             ast_type_to_statics_type(inf_ctx, data.clone())

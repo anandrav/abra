@@ -78,12 +78,13 @@ pub enum Instr<Location = ProgramCounter, StringConstant = u16> {
     Jump(Location),
     JumpIf(Location),
     Call(Location, u8),
-    Construct(u32),
+    Construct(u16),
     Deconstruct,
-    GetField(u32),
-    SetField(u32),
+    GetField(u16),
+    SetField(u16),
     GetIdx,
     SetIdx,
+    ConstructVariant { tag: u16, nargs: u16 },
     Effect(u16),
 }
 
@@ -113,6 +114,9 @@ impl From<&Instr> for String {
             Instr::SetField(n) => format!("setfield {}", n),
             Instr::GetIdx => "getidx".to_owned(),
             Instr::SetIdx => "setidx".to_owned(),
+            Instr::ConstructVariant { tag, nargs } => {
+                format!("construct_variant {} {}", tag, nargs)
+            }
             Instr::Effect(n) => format!("effect {}", n),
         }
     }
@@ -188,9 +192,10 @@ struct ManagedObject {
 #[derive(Debug)]
 enum ManagedObjectKind {
     Adt {
-        tag: usize,
+        tag: u16,
         fields: Vec<Value>,
     },
+    // DynArray is also used for tuples and structs
     DynArray(Vec<Value>),
     String(String),
     FunctionObject {
@@ -376,6 +381,19 @@ impl Vm {
                     }
                     _ => panic!("not a dynamic array: {:?}", self.heap[obj_id]),
                 }
+            }
+            Instr::ConstructVariant { tag, nargs } => {
+                let fields = self
+                    .value_stack
+                    .split_off(self.value_stack.len() - nargs as usize);
+                self.heap.push(ManagedObject {
+                    kind: ManagedObjectKind::Adt {
+                        tag,
+                        fields: fields.clone(),
+                    },
+                });
+                self.value_stack
+                    .push(Value::ManagedObject(self.heap.len() - 1));
             }
             Instr::Effect(eff) => {
                 self.pending_effect = Some(eff);
