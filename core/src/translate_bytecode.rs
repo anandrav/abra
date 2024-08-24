@@ -313,8 +313,6 @@ impl Translator {
                         instructions,
                     );
                 }
-                instructions.push(InstrOrLabel::Instr(Instr::Pop));
-                instructions.push(InstrOrLabel::Instr(Instr::Jump(end_label.clone())));
                 for (i, arm) in arms.iter().enumerate() {
                     instructions.push(InstrOrLabel::Label(arm_labels[i].clone()));
                     // pop the scrutinee
@@ -338,6 +336,11 @@ impl Translator {
         label: Label,
         instructions: &mut Vec<InstrOrLabel>,
     ) {
+        if let PatKind::Wildcard = &*pat.patkind {
+            instructions.push(InstrOrLabel::Instr(Instr::Jump(label)));
+            return;
+        }
+
         match scrutinee_ty {
             SolvedType::Int => match &*pat.patkind {
                 PatKind::Int(i) => {
@@ -346,10 +349,7 @@ impl Translator {
                     instructions.push(InstrOrLabel::Instr(Instr::Equal));
                     instructions.push(InstrOrLabel::Instr(Instr::JumpIf(label)));
                 }
-                PatKind::Wildcard => {
-                    instructions.push(InstrOrLabel::Instr(Instr::Jump(label)));
-                }
-                _ => unimplemented!(),
+                _ => panic!("unexpected pattern: {:?}", pat.patkind),
             },
             SolvedType::Bool => match &*pat.patkind {
                 PatKind::Bool(b) => {
@@ -358,10 +358,22 @@ impl Translator {
                     instructions.push(InstrOrLabel::Instr(Instr::Equal));
                     instructions.push(InstrOrLabel::Instr(Instr::JumpIf(label)));
                 }
-                PatKind::Wildcard => {
-                    instructions.push(InstrOrLabel::Instr(Instr::Jump(label)));
+                _ => panic!("unexpected pattern: {:?}", pat.patkind),
+            },
+            SolvedType::Tuple(types) => match &*pat.patkind {
+                PatKind::Tuple(pats) => {
+                    for (i, pat) in pats.iter().enumerate() {
+                        let ty = &types[i];
+                        self.translate_pat_comparison(
+                            ty,
+                            pat.clone(),
+                            locals,
+                            label.clone(),
+                            instructions,
+                        );
+                    }
                 }
-                _ => unimplemented!(),
+                _ => panic!("unexpected pattern: {:?}", pat.patkind),
             },
             _ => unimplemented!(),
         }
