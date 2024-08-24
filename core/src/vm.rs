@@ -78,10 +78,12 @@ pub enum Instr<Location = ProgramCounter, StringConstant = u16> {
     Jump(Location),
     JumpIf(Location),
     Call(Location, u8),
-    Construct(u8),
+    Construct(u32),
     Deconstruct,
-    GetIdx(u32),
-    SetIdx(u32),
+    GetField(u32),
+    SetField(u32),
+    GetIdx,
+    SetIdx,
     Effect(u16),
 }
 
@@ -107,8 +109,10 @@ impl From<&Instr> for String {
             Instr::Call(loc, nargs) => format!("call {} {}", loc, nargs),
             Instr::Construct(n) => format!("construct {}", n),
             Instr::Deconstruct => "deconstruct".to_owned(),
-            Instr::GetIdx(n) => format!("getidx {}", n),
-            Instr::SetIdx(n) => format!("setidx {}", n),
+            Instr::GetField(n) => format!("getfield {}", n),
+            Instr::SetField(n) => format!("setfield {}", n),
+            Instr::GetIdx => "getidx".to_owned(),
+            Instr::SetIdx => "setidx".to_owned(),
             Instr::Effect(n) => format!("effect {}", n),
         }
     }
@@ -187,9 +191,8 @@ enum ManagedObjectKind {
         tag: usize,
         fields: Vec<Value>,
     },
-    Record(Vec<Value>),
-    String(String),
     DynArray(Vec<Value>),
+    String(String),
     FunctionObject {
         captured_values: Vec<Value>, /* TODO */
         func_addr: ProgramCounter,
@@ -306,7 +309,7 @@ impl Vm {
                     .value_stack
                     .split_off(self.value_stack.len() - n as usize);
                 self.heap.push(ManagedObject {
-                    kind: ManagedObjectKind::Record(fields),
+                    kind: ManagedObjectKind::DynArray(fields),
                 });
                 self.value_stack
                     .push(Value::ManagedObject(self.heap.len() - 1));
@@ -315,25 +318,25 @@ impl Vm {
                 let obj = self.value_stack.pop().expect("stack underflow");
                 let fields = match &obj {
                     Value::ManagedObject(idx) => match &self.heap[*idx].kind {
-                        ManagedObjectKind::Record(fields) => fields.clone(),
+                        ManagedObjectKind::DynArray(fields) => fields.clone(),
                         _ => panic!("not a tuple"),
                     },
                     _ => panic!("not a tuple"),
                 };
                 self.value_stack.extend(fields);
             }
-            Instr::GetIdx(index) => {
+            Instr::GetField(index) => {
                 let obj = self.value_stack.pop().expect("stack underflow");
                 let field = match &obj {
                     Value::ManagedObject(id) => match &self.heap[*id].kind {
-                        ManagedObjectKind::Record(fields) => fields[index as usize],
+                        ManagedObjectKind::DynArray(fields) => fields[index as usize],
                         _ => panic!("not a tuple"),
                     },
                     _ => panic!("not a tuple"),
                 };
                 self.push(field);
             }
-            Instr::SetIdx(index) => {
+            Instr::SetField(index) => {
                 let obj = self.value_stack.pop().expect("stack underflow");
                 let rvalue = self.value_stack.pop().expect("stack underflow");
                 let obj_id = match &obj {
@@ -341,10 +344,37 @@ impl Vm {
                     _ => panic!("not a managed object: {:?}", obj),
                 };
                 match &mut self.heap[obj_id].kind {
-                    ManagedObjectKind::Record(fields) => {
+                    ManagedObjectKind::DynArray(fields) => {
                         fields[index as usize] = rvalue;
                     }
                     _ => panic!("not a record type: {:?}", self.heap[obj_id]),
+                }
+            }
+            Instr::GetIdx => {
+                let obj = self.value_stack.pop().expect("stack underflow");
+                let idx = self.pop_int();
+                let field = match &obj {
+                    Value::ManagedObject(id) => match &self.heap[*id].kind {
+                        ManagedObjectKind::DynArray(fields) => fields[idx as usize],
+                        _ => panic!("not a dynamic array"),
+                    },
+                    _ => panic!("not a dynamic array"),
+                };
+                self.push(field);
+            }
+            Instr::SetIdx => {
+                let obj = self.value_stack.pop().expect("stack underflow");
+                let idx = self.pop_int();
+                let rvalue = self.value_stack.pop().expect("stack underflow");
+                let obj_id = match &obj {
+                    Value::ManagedObject(id) => *id,
+                    _ => panic!("not a managed object: {:?}", obj),
+                };
+                match &mut self.heap[obj_id].kind {
+                    ManagedObjectKind::DynArray(fields) => {
+                        fields[idx as usize] = rvalue;
+                    }
+                    _ => panic!("not a dynamic array: {:?}", self.heap[obj_id]),
                 }
             }
             Instr::Effect(eff) => {

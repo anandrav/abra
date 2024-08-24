@@ -158,7 +158,7 @@ impl Translator {
                                 StmtKind::TypeDef(kind) => match &**kind {
                                     TypeDefKind::Struct(_, _, fields) => {
                                         instructions.push(InstrOrLabel::Instr(Instr::Construct(
-                                            fields.len() as u8,
+                                            fields.len() as u32,
                                         )));
                                     }
                                     _ => unimplemented!(),
@@ -195,7 +195,7 @@ impl Translator {
                 for expr in exprs {
                     self.translate_expr(expr.clone(), locals, instructions);
                 }
-                instructions.push(InstrOrLabel::Instr(Instr::Construct(exprs.len() as u8)));
+                instructions.push(InstrOrLabel::Instr(Instr::Construct(exprs.len() as u32)));
             }
             ExprKind::If(cond, then_block, Some(else_block)) => {
                 self.translate_expr(cond.clone(), locals, instructions);
@@ -226,7 +226,18 @@ impl Translator {
                 };
                 self.translate_expr(accessed.clone(), locals, instructions);
                 let idx = idx_of_field(&self.inf_ctx, accessed.clone(), field_name);
-                instructions.push(InstrOrLabel::Instr(Instr::GetIdx(idx)));
+                instructions.push(InstrOrLabel::Instr(Instr::GetField(idx)));
+            }
+            ExprKind::Array(exprs) => {
+                for expr in exprs {
+                    self.translate_expr(expr.clone(), locals, instructions);
+                }
+                instructions.push(InstrOrLabel::Instr(Instr::Construct(exprs.len() as u32)));
+            }
+            ExprKind::IndexAccess(array, index) => {
+                self.translate_expr(index.clone(), locals, instructions);
+                self.translate_expr(array.clone(), locals, instructions);
+                instructions.push(InstrOrLabel::Instr(Instr::GetIdx));
             }
             _ => panic!("unimplemented: {:?}", expr.exprkind),
         }
@@ -258,7 +269,13 @@ impl Translator {
                     self.translate_expr(rvalue.clone(), locals, instructions);
                     self.translate_expr(accessed.clone(), locals, instructions);
                     let idx = idx_of_field(&self.inf_ctx, accessed.clone(), field_name);
-                    instructions.push(InstrOrLabel::Instr(Instr::SetIdx(idx)));
+                    instructions.push(InstrOrLabel::Instr(Instr::SetField(idx)));
+                }
+                ExprKind::IndexAccess(array, index) => {
+                    self.translate_expr(rvalue.clone(), locals, instructions);
+                    self.translate_expr(index.clone(), locals, instructions);
+                    self.translate_expr(array.clone(), locals, instructions);
+                    instructions.push(InstrOrLabel::Instr(Instr::SetIdx));
                 }
                 _ => unimplemented!(),
             },
