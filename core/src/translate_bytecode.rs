@@ -1,5 +1,5 @@
 use crate::assembly::{remove_labels, Instr, InstrOrLabel, Label};
-use crate::ast::Toplevel;
+use crate::ast::{Toplevel, TypeDefKind};
 use crate::operators::BinOpcode;
 use crate::statics::Resolution;
 use crate::vm::Instr as VmInstr;
@@ -114,7 +114,7 @@ impl Translator {
                 instructions.push(InstrOrLabel::Instr(Instr::StoreOffset(*idx)));
             }
             PatKind::Tuple(pats) => {
-                instructions.push(InstrOrLabel::Instr(Instr::UnpackTuple));
+                instructions.push(InstrOrLabel::Instr(Instr::Unpack));
                 for pat in pats.iter().rev() {
                     self.handle_binding(pat.clone(), locals, instructions);
                 }
@@ -180,9 +180,15 @@ impl Translator {
                                         args.len() as u8,
                                     )));
                                 }
-                                _ => {
-                                    unimplemented!();
-                                }
+                                StmtKind::TypeDef(kind) => match &**kind {
+                                    TypeDefKind::Struct(_, _, fields) => {
+                                        instructions.push(InstrOrLabel::Instr(Instr::Construct(
+                                            fields.len() as u8,
+                                        )));
+                                    }
+                                    _ => unimplemented!(),
+                                },
+                                _ => panic!("unexpected stmt: {:?}", stmt.stmtkind),
                             }
                         }
                         Resolution::Builtin(s) => {
@@ -214,7 +220,7 @@ impl Translator {
                 for expr in exprs {
                     self.translate_expr(expr.clone(), locals, instructions);
                 }
-                instructions.push(InstrOrLabel::Instr(Instr::MakeTuple(exprs.len() as u8)));
+                instructions.push(InstrOrLabel::Instr(Instr::Construct(exprs.len() as u8)));
             }
             ExprKind::If(cond, then_block, Some(else_block)) => {
                 self.translate_expr(cond.clone(), locals, instructions);
@@ -259,6 +265,13 @@ impl Translator {
                     let idx = locals.get(symbol).unwrap();
                     self.translate_expr(expr2.clone(), locals, instructions);
                     instructions.push(InstrOrLabel::Instr(Instr::StoreOffset(*idx)));
+                }
+                ExprKind::FieldAccess(accessed, field) => {
+                    // TODO, this downcast shouldn't be necessary
+                    let ExprKind::Var(field_ident) = &*field.exprkind else {
+                        panic!()
+                    };
+                    // TODO last here
                 }
                 _ => unimplemented!(),
             },

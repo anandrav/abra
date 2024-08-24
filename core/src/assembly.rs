@@ -41,8 +41,8 @@ pub(crate) enum Instr {
     Jump(Label),
     JumpIf(Label),
     Call(Label, u8),
-    MakeTuple(u8),
-    UnpackTuple,
+    Construct(u8),
+    Unpack,
     Effect(u16),
 }
 
@@ -66,8 +66,8 @@ impl From<&Instr> for String {
             Instr::Jump(loc) => format!("jump {}", loc),
             Instr::JumpIf(loc) => format!("jumpif {}", loc),
             Instr::Call(loc, nargs) => format!("call {} {}", loc, nargs),
-            Instr::MakeTuple(n) => format!("maketuple {}", n),
-            Instr::UnpackTuple => "unpacktuple".to_owned(),
+            Instr::Construct(n) => format!("construct {}", n),
+            Instr::Unpack => "unpack".to_owned(),
             Instr::Effect(n) => format!("effect {}", n),
         }
     }
@@ -163,8 +163,8 @@ fn instr_to_vminstr(
             dbg!(&label);
             VmInstr::Call(label_to_idx[&label], nargs)
         }
-        Instr::MakeTuple(n) => VmInstr::MakeTuple(n),
-        Instr::UnpackTuple => VmInstr::UnpackTuple,
+        Instr::Construct(n) => VmInstr::Construct(n),
+        Instr::Unpack => VmInstr::Unpack,
         Instr::Effect(n) => VmInstr::Effect(n),
     }
 }
@@ -226,11 +226,11 @@ fn assemble_instr_or_label(
                 _ => unreachable!(),
             }
         }
-        "maketuple" => {
+        "construct" => {
             let n = u8::from_str_radix(words[1], radix).unwrap();
-            Instr::MakeTuple(n)
+            Instr::Construct(n)
         }
-        "unpacktuple" => Instr::UnpackTuple,
+        "unpack" => Instr::Unpack,
         "effect" => {
             let n = u16::from_str_radix(words[1], radix).unwrap();
             Instr::Effect(n)

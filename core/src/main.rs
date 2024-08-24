@@ -7,7 +7,7 @@ fn main() {
     let src = r#"
 type person = {
     name: string,
-    age: int,
+    age: int
 }
 let user = person("Alice", 30)
 user.name <- "Bob"

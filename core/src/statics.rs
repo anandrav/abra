@@ -2257,6 +2257,8 @@ pub(crate) fn gather_definitions_stmt(
                 );
             }
             TypeDefKind::Struct(ident, params, fields) => {
+                gamma.extend_declaration(ident.clone(), Resolution::Node(stmt.id));
+
                 let ty_struct = TypeVar::from_node(inf_ctx, stmt.id);
                 if let Some(struct_def) = inf_ctx.struct_defs.get(ident) {
                     let entry = inf_ctx.multiple_udt_defs.entry(ident.clone()).or_default();
@@ -2348,7 +2350,7 @@ fn monomorphized_ty_to_builtin_ty(ty: TypeMonomorphized, prov_builtin: Prov) -> 
 
 pub(crate) fn gather_definitions_toplevel<Effect: crate::side_effects::EffectTrait>(
     inf_ctx: &mut InferenceContext,
-    gamma: Gamma, // TODO: this is dumb, don't thread gamma through, it's only used in one place in translate()
+    gamma: Gamma,
     toplevel: Rc<Toplevel>,
 ) {
     for eff in Effect::enumerate().iter() {
