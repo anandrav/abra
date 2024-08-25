@@ -2,7 +2,7 @@ use crate::assembly::{remove_labels, Instr, InstrOrLabel, Label};
 use crate::ast::{Toplevel, TypeDefKind};
 use crate::operators::BinOpcode;
 use crate::statics::{Resolution, SolvedType};
-use crate::vm::Instr as VmInstr;
+use crate::vm::{AbraInt, Instr as VmInstr};
 use crate::EffectTrait;
 use crate::{
     ast::{Expr, ExprKind, NodeMap, Pat, PatKind, Stmt, StmtKind},
@@ -305,14 +305,8 @@ impl Translator {
                 for (i, arm) in arms.iter().enumerate() {
                     let arm_label = arm_labels[i].clone();
 
-                    self.translate_pat_comparison(
-                        &ty,
-                        arm.pat.clone(),
-                        locals,
-                        arm_label.clone(),
-                        PatComparisonStrategy::OnSuccess,
-                        instructions,
-                    );
+                    self.translate_pat_comparison(&ty, arm.pat.clone(), instructions);
+                    instructions.push(InstrOrLabel::Instr(Instr::JumpIf(arm_label)));
                 }
                 for (i, arm) in arms.iter().enumerate() {
                     instructions.push(InstrOrLabel::Label(arm_labels[i].clone()));
@@ -329,32 +323,17 @@ impl Translator {
         }
     }
 
+    // emit instructions for checking if a pattern matches the TOS, yielding a boolean
     fn translate_pat_comparison(
         &self,
         scrutinee_ty: &SolvedType,
         pat: Rc<Pat>,
-        locals: &Locals,
-        label: Label,
-        strategy: PatComparisonStrategy,
         instructions: &mut Vec<InstrOrLabel>,
     ) {
         if let PatKind::Wildcard = &*pat.patkind {
-            instructions.push(InstrOrLabel::Instr(Instr::Jump(label)));
+            instructions.push(InstrOrLabel::Instr(Instr::PushBool(true)));
             return;
         }
-
-        let perform_strategy =
-            |strategy, label, instructions: &mut Vec<InstrOrLabel>| match strategy {
-                PatComparisonStrategy::OnFail => {
-                    instructions.push(InstrOrLabel::Instr(Instr::Not));
-                    instructions.push(InstrOrLabel::Instr(Instr::JumpIf(label)));
-                }
-                PatComparisonStrategy::OnSuccess => {
-                    instructions.push(InstrOrLabel::Instr(Instr::JumpIf(label)));
-                }
-            };
-
-        let fallthrough_label = make_label("fallthrough");
 
         // duplicate the scrutinee before doing a comparison
         instructions.push(InstrOrLabel::Instr(Instr::Duplicate));
@@ -364,7 +343,6 @@ impl Translator {
                 PatKind::Int(i) => {
                     instructions.push(InstrOrLabel::Instr(Instr::PushInt(*i)));
                     instructions.push(InstrOrLabel::Instr(Instr::Equal));
-                    perform_strategy(strategy, label, instructions);
                 }
                 _ => panic!("unexpected pattern: {:?}", pat.patkind),
             },
@@ -372,46 +350,93 @@ impl Translator {
                 PatKind::Bool(b) => {
                     instructions.push(InstrOrLabel::Instr(Instr::PushBool(*b)));
                     instructions.push(InstrOrLabel::Instr(Instr::Equal));
-                    perform_strategy(strategy, label, instructions);
+                }
+                _ => panic!("unexpected pattern: {:?}", pat.patkind),
+            },
+            SolvedType::UdtInstance(symbol, _) => match &*pat.patkind {
+                PatKind::Variant(ctor, Some(inner)) => {
+                    let adt = self.inf_ctx.adt_defs.get(symbol).unwrap();
+                    let tag_fail_label = make_label("tag_fail");
+                    let end_label = make_label("endvariant");
+
+                    let tag = adt
+                        .variants
+                        .iter()
+                        .position(|v| v.ctor == *ctor)
+                        .expect("variant not found") as u16;
+                    let arity = match adt.variants[tag as usize].data.solution().unwrap() {
+                        SolvedType::Tuple(types) => types.len(),
+                        _ => 1,
+                    };
+                    instructions.push(InstrOrLabel::Instr(Instr::Deconstruct));
+                    instructions.push(InstrOrLabel::Instr(Instr::PushInt(tag as AbraInt)));
+                    instructions.push(InstrOrLabel::Instr(Instr::Equal));
+                    instructions.push(InstrOrLabel::Instr(Instr::Not));
+                    instructions.push(InstrOrLabel::Instr(Instr::JumpIf(tag_fail_label.clone())));
+
+                    let inner_ty = self.inf_ctx.solution_of_node(inner.id).unwrap();
+                    self.translate_pat_comparison(&inner_ty, inner.clone(), instructions);
+                    instructions.push(InstrOrLabel::Instr(Instr::Jump(end_label.clone())));
+
+                    // FAILURE
+                    instructions.push(InstrOrLabel::Label(tag_fail_label));
+                    for _ in 0..arity {
+                        instructions.push(InstrOrLabel::Instr(Instr::Pop));
+                    }
+                    instructions.push(InstrOrLabel::Instr(Instr::PushBool(false)));
+
+                    instructions.push(InstrOrLabel::Label(end_label));
                 }
                 _ => panic!("unexpected pattern: {:?}", pat.patkind),
             },
             SolvedType::Tuple(types) => match &*pat.patkind {
                 PatKind::Tuple(pats) => {
+                    let final_element_success_label = make_label("tuple_success");
+                    let end_label = make_label("endtuple");
                     // spill tuple elements onto stack
                     instructions.push(InstrOrLabel::Instr(Instr::Deconstruct));
                     // for each element of tuple pattern, compare to TOS
                     // if the comparison fails, pop all remaining tuple elements and jump to the next arm
                     // if it makes it through each tuple element, jump to the arm's expression
+                    let failure_labels = (0..pats.len())
+                        .map(|_| make_label("tuple_fail"))
+                        .collect::<Vec<_>>();
                     for (i, pat) in pats.iter().enumerate() {
                         let ty = &types[i];
-                        if i != pats.len() - 1 {
-                            self.translate_pat_comparison(
-                                ty,
-                                pat.clone(),
-                                locals,
-                                fallthrough_label.clone(),
-                                PatComparisonStrategy::OnFail,
-                                instructions,
-                            );
-                        } else {
-                            self.translate_pat_comparison(
-                                ty,
-                                pat.clone(),
-                                locals,
-                                label.clone(),
-                                PatComparisonStrategy::OnSuccess,
-                                instructions,
-                            );
+                        self.translate_pat_comparison(ty, pat.clone(), instructions);
+                        let is_last = i == pats.len() - 1;
+                        instructions.push(InstrOrLabel::Instr(Instr::Not));
+                        instructions.push(InstrOrLabel::Instr(Instr::JumpIf(
+                            failure_labels[i].clone(),
+                        )));
+                        // SUCCESS
+                        // pop the tuple element so we can compare the next one
+                        instructions.push(InstrOrLabel::Instr(Instr::Pop));
+                        if is_last {
+                            instructions.push(InstrOrLabel::Instr(Instr::Jump(
+                                final_element_success_label.clone(),
+                            )));
                         }
                     }
+                    // SUCCESS CASE
+                    instructions.push(InstrOrLabel::Label(final_element_success_label));
+                    instructions.push(InstrOrLabel::Instr(Instr::PushBool(true)));
+                    instructions.push(InstrOrLabel::Instr(Instr::Jump(end_label.clone())));
+
+                    // FAILURE CASE
+                    // clean up the remaining tuple elements before yielding false
+                    for label in failure_labels {
+                        instructions.push(InstrOrLabel::Label(label));
+                        instructions.push(InstrOrLabel::Instr(Instr::Pop));
+                    }
+                    instructions.push(InstrOrLabel::Instr(Instr::PushBool(false)));
+
+                    instructions.push(InstrOrLabel::Label(end_label));
                 }
                 _ => panic!("unexpected pattern: {:?}", pat.patkind),
             },
             _ => unimplemented!(),
         }
-
-        instructions.push(InstrOrLabel::Label(fallthrough_label));
     }
 
     fn translate_stmt(

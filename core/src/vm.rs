@@ -39,6 +39,10 @@ impl Vm {
         self.value_stack.pop().expect("stack underflow")
     }
 
+    pub fn push_int(&mut self, n: AbraInt) {
+        self.push(Value::Int(n));
+    }
+
     pub fn push_str(&mut self, s: &str) {
         self.heap.push(ManagedObject {
             kind: ManagedObjectKind::String(s.to_owned()),
@@ -350,14 +354,19 @@ impl Vm {
             }
             Instr::Deconstruct => {
                 let obj = self.value_stack.pop().expect("stack underflow");
-                let fields = match &obj {
+                match &obj {
                     Value::ManagedObject(idx) => match &self.heap[*idx].kind {
-                        ManagedObjectKind::DynArray(fields) => fields,
+                        ManagedObjectKind::DynArray(fields) => {
+                            self.value_stack.extend(fields.iter().rev());
+                        }
+                        ManagedObjectKind::Adt { tag, fields } => {
+                            self.value_stack.extend(fields.iter().rev());
+                            self.push_int(*tag as AbraInt);
+                        }
                         _ => panic!("not a tuple"),
                     },
                     _ => panic!("not a tuple"),
                 };
-                self.value_stack.extend(fields.iter().rev());
             }
             Instr::GetField(index) => {
                 let obj = self.value_stack.pop().expect("stack underflow");

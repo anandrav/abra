@@ -210,3 +210,108 @@ sum
     let top = vm.top();
     assert_eq!(top.get_int(), 3);
 }
+
+#[test]
+fn match_pair_first_case() {
+    let src = r#"
+let triplet = (1, 1)
+match triplet {
+    (1, 1) -> 100
+    (1, 2) -> 101
+    _ -> 102
+}"#;
+    let sources = source_files_single(src);
+    let mut vm = match compile_bytecode::<DefaultEffects>(sources) {
+        Ok(vm) => vm,
+        Err(e) => {
+            panic!("{}", e);
+        }
+    };
+    vm.run();
+    let top = vm.top();
+    assert_eq!(top.get_int(), 100);
+}
+
+#[test]
+fn match_pair_second_case() {
+    let src = r#"
+let triplet = (1, 2)
+match triplet {
+    (1, 1) -> 100
+    (1, 2) -> 101
+    _ -> 102
+}"#;
+    let sources = source_files_single(src);
+    let mut vm = match compile_bytecode::<DefaultEffects>(sources) {
+        Ok(vm) => vm,
+        Err(e) => {
+            panic!("{}", e);
+        }
+    };
+    vm.run();
+    let top = vm.top();
+    assert_eq!(top.get_int(), 101);
+}
+
+#[test]
+fn match_pair_wild() {
+    let src = r#"
+let triplet = (2, 1)
+match triplet {
+    (1, 1) -> 100
+    (1, 2) -> 101
+    _ -> 102
+}"#;
+    let sources = source_files_single(src);
+    let mut vm = match compile_bytecode::<DefaultEffects>(sources) {
+        Ok(vm) => vm,
+        Err(e) => {
+            panic!("{}", e);
+        }
+    };
+    vm.run();
+    let top = vm.top();
+    assert_eq!(top.get_int(), 102);
+}
+
+#[test]
+fn match_quintuple_booleans() {
+    let src = r#"
+let triplet = (true, false, true, true, false)
+match triplet {
+    (true, false, true, true, true) -> 100
+    (true, false, true, true, false) -> 101
+    _ -> 102
+}"#;
+    let sources = source_files_single(src);
+    let mut vm = match compile_bytecode::<DefaultEffects>(sources) {
+        Ok(vm) => vm,
+        Err(e) => {
+            panic!("{}", e);
+        }
+    };
+    vm.run();
+    let top = vm.top();
+    assert_eq!(top.get_int(), 101);
+}
+
+#[test]
+fn match_nested_tuple() {
+    let src = r#"
+let triplet = (1, (2, 3), 4)
+match triplet {
+    (1, (2, 88), 4) -> 100
+    (1, (2, 3), 4) -> 101
+    _ -> 102
+}"#;
+    let sources = source_files_single(src);
+    let mut vm = match compile_bytecode::<DefaultEffects>(sources) {
+        Ok(vm) => vm,
+        Err(e) => {
+            panic!("{}", e);
+        }
+    };
+    vm.run();
+    let top = vm.top();
+    assert_eq!(top.get_int(), 101);
+}
