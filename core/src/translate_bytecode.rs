@@ -310,6 +310,7 @@ impl Translator {
                         arm.pat.clone(),
                         locals,
                         arm_label.clone(),
+                        PatComparisonStrategy::OnSuccess,
                         instructions,
                     );
                 }
@@ -334,6 +335,7 @@ impl Translator {
         pat: Rc<Pat>,
         locals: &Locals,
         label: Label,
+        strategy: PatComparisonStrategy,
         instructions: &mut Vec<InstrOrLabel>,
     ) {
         if let PatKind::Wildcard = &*pat.patkind {
@@ -341,42 +343,75 @@ impl Translator {
             return;
         }
 
+        let perform_strategy =
+            |strategy, label, instructions: &mut Vec<InstrOrLabel>| match strategy {
+                PatComparisonStrategy::OnFail => {
+                    instructions.push(InstrOrLabel::Instr(Instr::Not));
+                    instructions.push(InstrOrLabel::Instr(Instr::JumpIf(label)));
+                }
+                PatComparisonStrategy::OnSuccess => {
+                    instructions.push(InstrOrLabel::Instr(Instr::JumpIf(label)));
+                }
+            };
+
+        let fallthrough_label = make_label("fallthrough");
+
+        // duplicate the scrutinee before doing a comparison
+        instructions.push(InstrOrLabel::Instr(Instr::Duplicate));
+
         match scrutinee_ty {
             SolvedType::Int => match &*pat.patkind {
                 PatKind::Int(i) => {
-                    instructions.push(InstrOrLabel::Instr(Instr::Duplicate));
                     instructions.push(InstrOrLabel::Instr(Instr::PushInt(*i)));
                     instructions.push(InstrOrLabel::Instr(Instr::Equal));
-                    instructions.push(InstrOrLabel::Instr(Instr::JumpIf(label)));
+                    perform_strategy(strategy, label, instructions);
                 }
                 _ => panic!("unexpected pattern: {:?}", pat.patkind),
             },
             SolvedType::Bool => match &*pat.patkind {
                 PatKind::Bool(b) => {
-                    instructions.push(InstrOrLabel::Instr(Instr::Duplicate));
                     instructions.push(InstrOrLabel::Instr(Instr::PushBool(*b)));
                     instructions.push(InstrOrLabel::Instr(Instr::Equal));
-                    instructions.push(InstrOrLabel::Instr(Instr::JumpIf(label)));
+                    perform_strategy(strategy, label, instructions);
                 }
                 _ => panic!("unexpected pattern: {:?}", pat.patkind),
             },
             SolvedType::Tuple(types) => match &*pat.patkind {
                 PatKind::Tuple(pats) => {
+                    // spill tuple elements onto stack
+                    instructions.push(InstrOrLabel::Instr(Instr::Deconstruct));
+                    // for each element of tuple pattern, compare to TOS
+                    // if the comparison fails, pop all remaining tuple elements and jump to the next arm
+                    // if it makes it through each tuple element, jump to the arm's expression
                     for (i, pat) in pats.iter().enumerate() {
                         let ty = &types[i];
-                        self.translate_pat_comparison(
-                            ty,
-                            pat.clone(),
-                            locals,
-                            label.clone(),
-                            instructions,
-                        );
+                        if i != pats.len() - 1 {
+                            self.translate_pat_comparison(
+                                ty,
+                                pat.clone(),
+                                locals,
+                                fallthrough_label.clone(),
+                                PatComparisonStrategy::OnFail,
+                                instructions,
+                            );
+                        } else {
+                            self.translate_pat_comparison(
+                                ty,
+                                pat.clone(),
+                                locals,
+                                label.clone(),
+                                PatComparisonStrategy::OnSuccess,
+                                instructions,
+                            );
+                        }
                     }
                 }
                 _ => panic!("unexpected pattern: {:?}", pat.patkind),
             },
             _ => unimplemented!(),
         }
+
+        instructions.push(InstrOrLabel::Label(fallthrough_label));
     }
 
     fn translate_stmt(
@@ -434,6 +469,11 @@ impl Translator {
     }
 }
 
+enum PatComparisonStrategy {
+    OnFail,
+    OnSuccess,
+}
+
 fn collect_locals_expr(expr: &Expr, locals: &mut Locals) {
     if let ExprKind::Block(statements) = &*expr.exprkind {
         for statement in statements {
@@ -482,14 +522,11 @@ fn handle_binding(pat: Rc<Pat>, locals: &Locals, instructions: &mut Vec<InstrOrL
         }
         PatKind::Tuple(pats) => {
             instructions.push(InstrOrLabel::Instr(Instr::Deconstruct));
-            for pat in pats.iter().rev() {
+            for pat in pats.iter() {
                 handle_binding(pat.clone(), locals, instructions);
             }
         }
-        PatKind::Variant(_, Some(inner)) => {
-            unimplemented!();
-        }
-        PatKind::Variant(_, None) => {}
+        PatKind::Variant(_, _) => {}
         PatKind::Unit
         | PatKind::Bool(..)
         | PatKind::Int(..)

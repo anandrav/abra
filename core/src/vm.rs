@@ -352,12 +352,12 @@ impl Vm {
                 let obj = self.value_stack.pop().expect("stack underflow");
                 let fields = match &obj {
                     Value::ManagedObject(idx) => match &self.heap[*idx].kind {
-                        ManagedObjectKind::DynArray(fields) => fields.clone(),
+                        ManagedObjectKind::DynArray(fields) => fields,
                         _ => panic!("not a tuple"),
                     },
                     _ => panic!("not a tuple"),
                 };
-                self.value_stack.extend(fields);
+                self.value_stack.extend(fields.iter().rev());
             }
             Instr::GetField(index) => {
                 let obj = self.value_stack.pop().expect("stack underflow");
