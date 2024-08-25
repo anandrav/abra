@@ -1,5 +1,5 @@
 use crate::assembly::{remove_labels, Instr, InstrOrLabel, Label};
-use crate::ast::{Toplevel, TypeDefKind};
+use crate::ast::{NodeId, Sources, Toplevel, TypeDefKind};
 use crate::operators::BinOpcode;
 use crate::statics::{Resolution, SolvedType};
 use crate::vm::{AbraInt, Instr as VmInstr};
@@ -12,12 +12,13 @@ use std::collections::HashMap;
 use std::rc::Rc;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
-type Locals = HashMap<String, i32>;
+type Locals = HashMap<NodeId, i32>;
 
 #[derive(Debug)]
 pub(crate) struct Translator {
     inf_ctx: InferenceContext,
     node_map: NodeMap,
+    sources: Sources,
     toplevels: Vec<Rc<Toplevel>>,
 }
 
@@ -25,11 +26,13 @@ impl Translator {
     pub(crate) fn new(
         inf_ctx: InferenceContext,
         node_map: NodeMap,
+        sources: Sources,
         toplevels: Vec<Rc<Toplevel>>,
     ) -> Self {
         Self {
             inf_ctx,
             node_map,
+            sources,
             toplevels,
         }
     }
@@ -60,32 +63,33 @@ impl Translator {
 
         // Handle all other functions
         for toplevel in self.toplevels.iter() {
-            if let StmtKind::FuncDef(name, args, _, body) = &*toplevel.statements[0].stmtkind {
-                let func_name = name.patkind.get_identifier_of_variable();
-                let func_name_blacklist = [
-                    "not", "range", "fold", "sum", "sumf", "max", "min", "clamp", "abs", "sqrt",
-                    "concat", "map", "for_each", "filter", "reverse",
-                ];
-                // don't generate code for functions in prelude, not ready for that yet.
-                if func_name_blacklist.contains(&func_name.as_str()) {
-                    continue;
+            for statement in &toplevel.statements {
+                if let StmtKind::FuncDef(name, args, _, body) = &*statement.stmtkind {
+                    let func_name = name.patkind.get_identifier_of_variable();
+                    let func_name_blacklist = [
+                        "not", "range", "fold", "sum", "sumf", "max", "min", "clamp", "abs",
+                        "sqrt", "concat", "map", "for_each", "filter", "reverse", "print",
+                        "println",
+                    ];
+                    // don't generate code for functions in prelude, not ready for that yet.
+                    if func_name_blacklist.contains(&func_name.as_str()) {
+                        continue;
+                    }
+                    println!("Generating code for function: {}", func_name);
+                    instructions.push(InstrOrLabel::Label(func_name));
+                    let mut locals = Locals::new();
+                    collect_locals_expr(body, &mut locals);
+                    let locals_count = locals.len();
+                    for i in 0..locals_count {
+                        instructions.push(InstrOrLabel::Instr(Instr::PushNil));
+                    }
+                    for (i, arg) in args.iter().rev().enumerate() {
+                        locals.entry(arg.0.id).or_insert(-(i as i32) - 1);
+                    }
+                    self.translate_expr(body.clone(), &locals, &mut instructions);
+                    instructions.push(InstrOrLabel::Instr(Instr::Return));
+                    // unimplemented!();
                 }
-                println!("Generating code for function: {}", func_name);
-                instructions.push(InstrOrLabel::Label(func_name));
-                let mut locals = Locals::new();
-                collect_locals_expr(body, &mut locals);
-                let locals_count = locals.len();
-                for i in 0..locals_count {
-                    instructions.push(InstrOrLabel::Instr(Instr::PushNil));
-                }
-                for (i, arg) in args.iter().rev().enumerate() {
-                    locals
-                        .entry(arg.0.patkind.get_identifier_of_variable())
-                        .or_insert(-(i as i32) - 1);
-                }
-                self.translate_expr(body.clone(), &locals, &mut instructions);
-                instructions.push(InstrOrLabel::Instr(Instr::Return));
-                // unimplemented!();
             }
         }
 
@@ -119,32 +123,42 @@ impl Translator {
         match &*expr.exprkind {
             ExprKind::Var(symbol) => {
                 // adt variant
-                if let Resolution::Variant(node_id, variant_name) =
-                    self.inf_ctx.name_resolutions.get(&expr.id).unwrap()
-                {
-                    let node = self.node_map.get(node_id).unwrap();
-                    let stmt = node.to_stmt().unwrap();
-                    match &*stmt.stmtkind {
-                        StmtKind::TypeDef(kind) => match &**kind {
-                            TypeDefKind::Adt(_, _, variants) => {
-                                let tag = variants
-                                    .iter()
-                                    .position(|v| v.ctor == *variant_name)
-                                    .expect("variant not found")
-                                    as u16;
-                                instructions.push(InstrOrLabel::Instr(Instr::ConstructVariant {
-                                    tag,
-                                    nargs: 0,
-                                }));
-                            }
+                match self.inf_ctx.name_resolutions.get(&expr.id).unwrap() {
+                    Resolution::Variant(node_id, variant_name) => {
+                        let node = self.node_map.get(node_id).unwrap();
+                        let stmt = node.to_stmt().unwrap();
+                        match &*stmt.stmtkind {
+                            StmtKind::TypeDef(kind) => match &**kind {
+                                TypeDefKind::Adt(_, _, variants) => {
+                                    let tag = variants
+                                        .iter()
+                                        .position(|v| v.ctor == *variant_name)
+                                        .expect("variant not found")
+                                        as u16;
+                                    instructions.push(InstrOrLabel::Instr(
+                                        Instr::ConstructVariant { tag, nargs: 0 },
+                                    ));
+                                }
+                                _ => panic!("unexpected stmt: {:?}", stmt.stmtkind),
+                            },
                             _ => panic!("unexpected stmt: {:?}", stmt.stmtkind),
-                        },
-                        _ => panic!("unexpected stmt: {:?}", stmt.stmtkind),
+                        }
                     }
-                } else {
-                    // normal variable
-                    let idx = locals.get(symbol).unwrap();
-                    instructions.push(InstrOrLabel::Instr(Instr::LoadOffset(*idx)));
+                    Resolution::Node(node_id) => {
+                        let span = self.node_map.get(node_id).unwrap().span();
+                        let mut s = String::new();
+                        span.display(
+                            &mut s,
+                            &self.sources,
+                            &format!("symbol {} resolved to", symbol),
+                        );
+                        println!("{}", s);
+                        let idx = locals.get(node_id).unwrap();
+                        instructions.push(InstrOrLabel::Instr(Instr::LoadOffset(*idx)));
+                    }
+                    Resolution::Builtin(s) => {
+                        unimplemented!()
+                    }
                 }
             }
             ExprKind::Bool(b) => {
@@ -463,11 +477,16 @@ impl Translator {
         match &*stmt.stmtkind {
             StmtKind::Let(_, pat, expr) => {
                 self.translate_expr(expr.clone(), locals, instructions);
-                handle_binding(pat.0.clone(), locals, instructions);
+                self.handle_let_binding(pat.0.clone(), locals, instructions);
             }
             StmtKind::Set(expr1, rvalue) => match &*expr1.exprkind {
-                ExprKind::Var(symbol) => {
-                    let idx = locals.get(symbol).unwrap();
+                ExprKind::Var(_) => {
+                    let Resolution::Node(node_id) =
+                        self.inf_ctx.name_resolutions.get(&expr1.id).unwrap()
+                    else {
+                        panic!("expected variableto be defined in node");
+                    };
+                    let idx = locals.get(node_id).unwrap();
                     self.translate_expr(rvalue.clone(), locals, instructions);
                     instructions.push(InstrOrLabel::Instr(Instr::StoreOffset(*idx)));
                 }
@@ -506,6 +525,33 @@ impl Translator {
             }
         }
     }
+
+    fn handle_let_binding(
+        &self,
+        pat: Rc<Pat>,
+        locals: &Locals,
+        instructions: &mut Vec<InstrOrLabel>,
+    ) {
+        match &*pat.patkind {
+            PatKind::Var(_) => {
+                let idx = locals.get(&pat.id).unwrap();
+                instructions.push(InstrOrLabel::Instr(Instr::StoreOffset(*idx)));
+            }
+            PatKind::Tuple(pats) => {
+                instructions.push(InstrOrLabel::Instr(Instr::Deconstruct));
+                for pat in pats.iter() {
+                    self.handle_let_binding(pat.clone(), locals, instructions);
+                }
+            }
+            PatKind::Variant(_, _) => {}
+            PatKind::Unit
+            | PatKind::Bool(..)
+            | PatKind::Int(..)
+            | PatKind::Float(..)
+            | PatKind::Str(..)
+            | PatKind::Wildcard => {}
+        }
+    }
 }
 
 enum PatComparisonStrategy {
@@ -514,58 +560,46 @@ enum PatComparisonStrategy {
 }
 
 fn collect_locals_expr(expr: &Expr, locals: &mut Locals) {
-    if let ExprKind::Block(statements) = &*expr.exprkind {
-        for statement in statements {
-            collect_locals_stmt(&[statement.clone()], locals);
+    match &*expr.exprkind {
+        ExprKind::Block(statements) => {
+            for statement in statements {
+                collect_locals_stmt(&[statement.clone()], locals);
+            }
         }
+        ExprKind::Match(_, arms) => {
+            for arm in arms {
+                collect_locals_pat(arm.pat.clone(), locals);
+                collect_locals_expr(&arm.expr, locals);
+            }
+        }
+        _ => {}
     }
 }
 
 fn collect_locals_stmt(statements: &[Rc<Stmt>], locals: &mut Locals) {
     for statement in statements {
         if let StmtKind::Let(_, pat, _) = &*statement.stmtkind {
-            collect_locals_from_let_pat(pat.0.clone(), locals);
+            collect_locals_pat(pat.0.clone(), locals);
         }
     }
 }
 
-fn collect_locals_from_let_pat(pat: Rc<Pat>, locals: &mut Locals) {
+fn collect_locals_pat(pat: Rc<Pat>, locals: &mut Locals) {
     match &*pat.patkind {
         PatKind::Var(symbol) => {
             let len = locals.len();
-            locals.entry(symbol.clone()).or_insert(len as i32);
+            println!("adding {} to locals, pat_id = {}", symbol, pat.id);
+            locals.entry(pat.id).or_insert(len as i32);
         }
         PatKind::Tuple(pats) => {
             for pat in pats {
-                collect_locals_from_let_pat(pat.clone(), locals);
+                collect_locals_pat(pat.clone(), locals);
             }
         }
         PatKind::Variant(_, Some(inner)) => {
-            collect_locals_from_let_pat(inner.clone(), locals);
+            collect_locals_pat(inner.clone(), locals);
         }
         PatKind::Variant(_, None) => {}
-        PatKind::Unit
-        | PatKind::Bool(..)
-        | PatKind::Int(..)
-        | PatKind::Float(..)
-        | PatKind::Str(..)
-        | PatKind::Wildcard => {}
-    }
-}
-
-fn handle_binding(pat: Rc<Pat>, locals: &Locals, instructions: &mut Vec<InstrOrLabel>) {
-    match &*pat.patkind {
-        PatKind::Var(symbol) => {
-            let idx = locals.get(symbol).unwrap();
-            instructions.push(InstrOrLabel::Instr(Instr::StoreOffset(*idx)));
-        }
-        PatKind::Tuple(pats) => {
-            instructions.push(InstrOrLabel::Instr(Instr::Deconstruct));
-            for pat in pats.iter() {
-                handle_binding(pat.clone(), locals, instructions);
-            }
-        }
-        PatKind::Variant(_, _) => {}
         PatKind::Unit
         | PatKind::Bool(..)
         | PatKind::Int(..)

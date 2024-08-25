@@ -127,7 +127,7 @@ pub fn compile_bytecode<Effect: EffectTrait>(source_files: Vec<SourceFile>) -> R
 
     statics::result_of_additional_analysis(&mut inference_ctx, &toplevels, &node_map, &sources)?;
 
-    let translator = Translator::new(inference_ctx, node_map, toplevels);
+    let translator = Translator::new(inference_ctx, node_map, sources, toplevels);
     let (instructions, string_table) = translator.translate::<Effect>();
     let vm = Vm::new(instructions, string_table);
     Ok(vm)

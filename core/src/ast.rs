@@ -16,6 +16,7 @@ pub(crate) type Symbol = String;
 
 pub(crate) type ArgAnnotated = (Rc<Pat>, Option<Rc<AstType>>);
 
+#[derive(Debug, Clone)]
 pub(crate) struct Sources {
     pub(crate) filename_to_source: HashMap<String, String>,
 }
