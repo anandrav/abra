@@ -220,6 +220,12 @@ impl Translator {
                                             .position(|v| v.ctor == *variant_name)
                                             .expect("variant not found")
                                             as u16;
+                                        if args.len() > 1 {
+                                            // turn the arguments (associated data) into a tuple
+                                            instructions.push(InstrOrLabel::Instr(
+                                                Instr::Construct(args.len() as u16),
+                                            ));
+                                        }
                                         instructions.push(InstrOrLabel::Instr(
                                             Instr::ConstructVariant { tag },
                                         ));
@@ -316,13 +322,16 @@ impl Translator {
                 for (i, arm) in arms.iter().enumerate() {
                     let arm_label = arm_labels[i].clone();
 
+                    // duplicate the scrutinee before doing a comparison
+                    instructions.push(InstrOrLabel::Instr(Instr::Duplicate));
                     self.translate_pat_comparison(&ty, arm.pat.clone(), instructions);
                     instructions.push(InstrOrLabel::Instr(Instr::JumpIf(arm_label)));
                 }
                 for (i, arm) in arms.iter().enumerate() {
                     instructions.push(InstrOrLabel::Label(arm_labels[i].clone()));
-                    // pop the scrutinee
-                    instructions.push(InstrOrLabel::Instr(Instr::Pop));
+
+                    self.handle_pat_binding(arm.pat.clone(), locals, instructions);
+
                     self.translate_expr(arm.expr.clone(), locals, instructions);
                     if i != arms.len() - 1 {
                         instructions.push(InstrOrLabel::Instr(Instr::Jump(end_label.clone())));
@@ -334,7 +343,7 @@ impl Translator {
         }
     }
 
-    // emit instructions for checking if a pattern matches the TOS, yielding a boolean
+    // emit instructions for checking if a pattern matches the TOS, replacing it with a boolean
     fn translate_pat_comparison(
         &self,
         scrutinee_ty: &SolvedType,
@@ -343,14 +352,12 @@ impl Translator {
     ) {
         match &*pat.patkind {
             PatKind::Wildcard | PatKind::Var(_) | PatKind::Unit => {
+                instructions.push(InstrOrLabel::Instr(Instr::Pop));
                 instructions.push(InstrOrLabel::Instr(Instr::PushBool(true)));
                 return;
             }
             _ => {}
         }
-
-        // duplicate the scrutinee before doing a comparison
-        instructions.push(InstrOrLabel::Instr(Instr::Duplicate));
 
         match scrutinee_ty {
             SolvedType::Int => match &*pat.patkind {
@@ -368,18 +375,7 @@ impl Translator {
                 _ => panic!("unexpected pattern: {:?}", pat.patkind),
             },
             SolvedType::UdtInstance(symbol, _) => match &*pat.patkind {
-                PatKind::Variant(ctor, None) => {
-                    let adt = self.inf_ctx.adt_defs.get(symbol).unwrap();
-                    let tag = adt
-                        .variants
-                        .iter()
-                        .position(|v| v.ctor == *ctor)
-                        .expect("variant not found") as u16;
-                    instructions.push(InstrOrLabel::Instr(Instr::Deconstruct));
-                    instructions.push(InstrOrLabel::Instr(Instr::PushInt(tag as AbraInt)));
-                    instructions.push(InstrOrLabel::Instr(Instr::Equal));
-                }
-                PatKind::Variant(ctor, Some(inner)) => {
+                PatKind::Variant(ctor, inner) => {
                     let adt = self.inf_ctx.adt_defs.get(symbol).unwrap();
                     let tag_fail_label = make_label("tag_fail");
                     let end_label = make_label("endvariant");
@@ -389,25 +385,27 @@ impl Translator {
                         .iter()
                         .position(|v| v.ctor == *ctor)
                         .expect("variant not found") as u16;
-                    let arity = match adt.variants[tag as usize].data.solution().unwrap() {
-                        SolvedType::Tuple(types) => types.len(),
-                        _ => 1,
-                    };
+
                     instructions.push(InstrOrLabel::Instr(Instr::Deconstruct));
                     instructions.push(InstrOrLabel::Instr(Instr::PushInt(tag as AbraInt)));
                     instructions.push(InstrOrLabel::Instr(Instr::Equal));
                     instructions.push(InstrOrLabel::Instr(Instr::Not));
                     instructions.push(InstrOrLabel::Instr(Instr::JumpIf(tag_fail_label.clone())));
 
-                    let inner_ty = self.inf_ctx.solution_of_node(inner.id).unwrap();
-                    self.translate_pat_comparison(&inner_ty, inner.clone(), instructions);
-                    instructions.push(InstrOrLabel::Instr(Instr::Jump(end_label.clone())));
+                    if let Some(inner) = inner {
+                        let inner_ty = self.inf_ctx.solution_of_node(inner.id).unwrap();
+                        self.translate_pat_comparison(&inner_ty, inner.clone(), instructions);
+                        instructions.push(InstrOrLabel::Instr(Instr::Jump(end_label.clone())));
+                    } else {
+                        instructions.push(InstrOrLabel::Instr(Instr::Pop));
+                        instructions.push(InstrOrLabel::Instr(Instr::PushBool(true)));
+                        instructions.push(InstrOrLabel::Instr(Instr::Jump(end_label.clone())));
+                    }
 
                     // FAILURE
                     instructions.push(InstrOrLabel::Label(tag_fail_label));
-                    for _ in 0..arity {
-                        instructions.push(InstrOrLabel::Instr(Instr::Pop));
-                    }
+                    instructions.push(InstrOrLabel::Instr(Instr::Pop));
+
                     instructions.push(InstrOrLabel::Instr(Instr::PushBool(false)));
 
                     instructions.push(InstrOrLabel::Label(end_label));
@@ -435,8 +433,6 @@ impl Translator {
                             failure_labels[i].clone(),
                         )));
                         // SUCCESS
-                        // pop the tuple element so we can compare the next one
-                        instructions.push(InstrOrLabel::Instr(Instr::Pop));
                         if is_last {
                             instructions.push(InstrOrLabel::Instr(Instr::Jump(
                                 final_element_success_label.clone(),
@@ -450,9 +446,10 @@ impl Translator {
 
                     // FAILURE CASE
                     // clean up the remaining tuple elements before yielding false
-                    for label in failure_labels {
-                        instructions.push(InstrOrLabel::Label(label));
+                    instructions.push(InstrOrLabel::Label(failure_labels[0].clone()));
+                    for label in &failure_labels[1..] {
                         instructions.push(InstrOrLabel::Instr(Instr::Pop));
+                        instructions.push(InstrOrLabel::Label(label.clone()));
                     }
                     instructions.push(InstrOrLabel::Instr(Instr::PushBool(false)));
 
@@ -474,7 +471,7 @@ impl Translator {
         match &*stmt.stmtkind {
             StmtKind::Let(_, pat, expr) => {
                 self.translate_expr(expr.clone(), locals, instructions);
-                self.handle_let_binding(pat.0.clone(), locals, instructions);
+                self.handle_pat_binding(pat.0.clone(), locals, instructions);
             }
             StmtKind::Set(expr1, rvalue) => match &*expr1.exprkind {
                 ExprKind::Var(_) => {
@@ -523,7 +520,7 @@ impl Translator {
         }
     }
 
-    fn handle_let_binding(
+    fn handle_pat_binding(
         &self,
         pat: Rc<Pat>,
         locals: &Locals,
@@ -537,16 +534,28 @@ impl Translator {
             PatKind::Tuple(pats) => {
                 instructions.push(InstrOrLabel::Instr(Instr::Deconstruct));
                 for pat in pats.iter() {
-                    self.handle_let_binding(pat.clone(), locals, instructions);
+                    self.handle_pat_binding(pat.clone(), locals, instructions);
                 }
             }
-            PatKind::Variant(_, _) => {}
+            PatKind::Variant(_, inner) => {
+                if let Some(inner) = inner {
+                    // unpack tag and associated data
+                    instructions.push(InstrOrLabel::Instr(Instr::Deconstruct));
+                    // pop tag
+                    instructions.push(InstrOrLabel::Instr(Instr::Pop));
+                    self.handle_pat_binding(inner.clone(), locals, instructions);
+                } else {
+                    instructions.push(InstrOrLabel::Instr(Instr::Pop));
+                }
+            }
             PatKind::Unit
             | PatKind::Bool(..)
             | PatKind::Int(..)
             | PatKind::Float(..)
             | PatKind::Str(..)
-            | PatKind::Wildcard => {}
+            | PatKind::Wildcard => {
+                instructions.push(InstrOrLabel::Instr(Instr::Pop));
+            }
         }
     }
 }

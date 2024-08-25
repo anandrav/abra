@@ -315,3 +315,69 @@ match triplet {
     let top = vm.top();
     assert_eq!(top.get_int(), 101);
 }
+
+#[test]
+fn pattern_tuples_binding() {
+    let src = r#"
+let xs = (1, (2, 3))
+match xs {
+    (~x, (~y, ~z)) -> y
+}"#;
+    //     let src = r#"
+    // let xs = nil
+    // match xs {
+    //     cons(~x, _) -> 9
+    //     nil -> 100
+    // }"#;
+    let sources = source_files_single(src);
+    let mut vm = match compile_bytecode::<DefaultEffects>(sources) {
+        Ok(vm) => vm,
+        Err(e) => {
+            panic!("{}", e);
+        }
+    };
+    vm.run();
+    let top = vm.top();
+    assert_eq!(top.get_int(), 2);
+}
+
+#[test]
+fn match_cons_binding() {
+    let src = r#"
+let xs = cons(23, nil)
+match xs {
+    nil -> 100
+    cons(~x, _) -> x
+}"#;
+    let sources = source_files_single(src);
+    let mut vm = match compile_bytecode::<DefaultEffects>(sources) {
+        Ok(vm) => vm,
+        Err(e) => {
+            panic!("{}", e);
+        }
+    };
+    vm.run();
+    let top = vm.top();
+    assert_eq!(top.get_int(), 23);
+}
+
+#[test]
+fn match_cons_binding_nested() {
+    let src = r#"
+let xs = cons(1, cons(2, nil))
+match xs {
+    nil -> 100
+    cons(_, cons(~x, nil)) -> x
+    _ -> 101
+}"#;
+    let sources = source_files_single(src);
+    let mut vm = match compile_bytecode::<DefaultEffects>(sources) {
+        Ok(vm) => vm,
+        Err(e) => {
+            panic!("{}", e);
+        }
+    };
+    vm.run();
+    let top = vm.top();
+    assert_eq!(top.get_int(), 2);
+}
