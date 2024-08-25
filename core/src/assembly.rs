@@ -51,7 +51,7 @@ impl From<&Instr> for String {
             Instr::SetField(idx) => format!("setfield {}", idx),
             Instr::GetIdx => "getidx".into(),
             Instr::SetIdx => "setidx".into(),
-            Instr::ConstructVariant { tag, nargs } => format!("constructvariant {} {}", tag, nargs),
+            Instr::ConstructVariant { tag } => format!("constructvariant {}", tag,),
             Instr::Stop => "stop".into(),
             Instr::Effect(n) => format!("effect {}", n),
         }
@@ -152,7 +152,7 @@ fn instr_to_vminstr(
         Instr::SetField(idx) => VmInstr::SetField(idx),
         Instr::GetIdx => VmInstr::GetIdx,
         Instr::SetIdx => VmInstr::SetIdx,
-        Instr::ConstructVariant { tag, nargs } => VmInstr::ConstructVariant { tag, nargs },
+        Instr::ConstructVariant { tag } => VmInstr::ConstructVariant { tag },
         Instr::Stop => VmInstr::Stop,
         Instr::Effect(n) => VmInstr::Effect(n),
     }
@@ -232,8 +232,7 @@ fn assemble_instr_or_label(
         "setidx" => Instr::SetIdx,
         "construct_variant" => {
             let tag = u16::from_str_radix(words[1], radix).unwrap();
-            let nargs = u16::from_str_radix(words[2], radix).unwrap();
-            Instr::ConstructVariant { tag, nargs }
+            Instr::ConstructVariant { tag }
         }
         "effect" => {
             let n = u16::from_str_radix(words[1], radix).unwrap();

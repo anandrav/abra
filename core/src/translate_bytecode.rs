@@ -135,9 +135,9 @@ impl Translator {
                                         .position(|v| v.ctor == *variant_name)
                                         .expect("variant not found")
                                         as u16;
-                                    instructions.push(InstrOrLabel::Instr(
-                                        Instr::ConstructVariant { tag, nargs: 0 },
-                                    ));
+                                    instructions.push(InstrOrLabel::Instr(Instr::PushNil));
+                                    instructions
+                                        .push(InstrOrLabel::Instr(Instr::ConstructVariant { tag }));
                                 }
                                 _ => panic!("unexpected stmt: {:?}", stmt.stmtkind),
                             },
@@ -221,10 +221,7 @@ impl Translator {
                                             .expect("variant not found")
                                             as u16;
                                         instructions.push(InstrOrLabel::Instr(
-                                            Instr::ConstructVariant {
-                                                tag,
-                                                nargs: args.len() as u16,
-                                            },
+                                            Instr::ConstructVariant { tag },
                                         ));
                                     }
                                     _ => panic!("unexpected stmt: {:?}", stmt.stmtkind),

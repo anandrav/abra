@@ -235,8 +235,8 @@ match triplet {
 #[test]
 fn match_pair_second_case() {
     let src = r#"
-let triplet = (1, 2)
-match triplet {
+let pair = (1, 2)
+match pair {
     (1, 1) -> 100
     (1, 2) -> 101
     _ -> 102
@@ -256,8 +256,8 @@ match triplet {
 #[test]
 fn match_pair_wild() {
     let src = r#"
-let triplet = (2, 1)
-match triplet {
+let pair = (2, 1)
+match pair {
     (1, 1) -> 100
     (1, 2) -> 101
     _ -> 102
@@ -277,8 +277,8 @@ match triplet {
 #[test]
 fn match_quintuple_booleans() {
     let src = r#"
-let triplet = (true, false, true, true, false)
-match triplet {
+let quintuple = (true, false, true, true, false)
+match quintuple {
     (true, false, true, true, true) -> 100
     (true, false, true, true, false) -> 101
     _ -> 102

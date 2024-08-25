@@ -100,7 +100,7 @@ pub enum Instr<Location = ProgramCounter, StringConstant = u16> {
     SetField(u16),
     GetIdx,
     SetIdx,
-    ConstructVariant { tag: u16, nargs: u16 },
+    ConstructVariant { tag: u16 },
 
     // Effects
     Stop,
@@ -134,8 +134,8 @@ impl From<&Instr> for String {
             Instr::SetField(n) => format!("setfield {}", n),
             Instr::GetIdx => "getidx".to_owned(),
             Instr::SetIdx => "setidx".to_owned(),
-            Instr::ConstructVariant { tag, nargs } => {
-                format!("construct_variant {} {}", tag, nargs)
+            Instr::ConstructVariant { tag } => {
+                format!("construct_variant {}", tag)
             }
             Instr::Stop => "stop".to_owned(),
             Instr::Effect(n) => format!("effect {}", n),
@@ -214,7 +214,7 @@ struct ManagedObject {
 enum ManagedObjectKind {
     Adt {
         tag: u16,
-        fields: Vec<Value>,
+        value: Value,
     },
     // DynArray is also used for tuples and structs
     DynArray(Vec<Value>),
@@ -359,8 +359,8 @@ impl Vm {
                         ManagedObjectKind::DynArray(fields) => {
                             self.value_stack.extend(fields.iter().rev());
                         }
-                        ManagedObjectKind::Adt { tag, fields } => {
-                            self.value_stack.extend(fields.iter().rev());
+                        ManagedObjectKind::Adt { tag, value } => {
+                            self.value_stack.push(value.clone());
                             self.push_int(*tag as AbraInt);
                         }
                         _ => panic!("not a tuple"),
@@ -420,15 +420,10 @@ impl Vm {
                     _ => panic!("not a dynamic array: {:?}", self.heap[obj_id]),
                 }
             }
-            Instr::ConstructVariant { tag, nargs } => {
-                let fields = self
-                    .value_stack
-                    .split_off(self.value_stack.len() - nargs as usize);
+            Instr::ConstructVariant { tag } => {
+                let value = self.pop();
                 self.heap.push(ManagedObject {
-                    kind: ManagedObjectKind::Adt {
-                        tag,
-                        fields: fields.clone(),
-                    },
+                    kind: ManagedObjectKind::Adt { tag, value },
                 });
                 self.value_stack
                     .push(Value::ManagedObject(self.heap.len() - 1));
