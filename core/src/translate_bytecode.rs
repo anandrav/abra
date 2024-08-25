@@ -330,9 +330,12 @@ impl Translator {
         pat: Rc<Pat>,
         instructions: &mut Vec<InstrOrLabel>,
     ) {
-        if let PatKind::Wildcard = &*pat.patkind {
-            instructions.push(InstrOrLabel::Instr(Instr::PushBool(true)));
-            return;
+        match &*pat.patkind {
+            PatKind::Wildcard | PatKind::Var(_) | PatKind::Unit => {
+                instructions.push(InstrOrLabel::Instr(Instr::PushBool(true)));
+                return;
+            }
+            _ => {}
         }
 
         // duplicate the scrutinee before doing a comparison
@@ -354,6 +357,17 @@ impl Translator {
                 _ => panic!("unexpected pattern: {:?}", pat.patkind),
             },
             SolvedType::UdtInstance(symbol, _) => match &*pat.patkind {
+                PatKind::Variant(ctor, None) => {
+                    let adt = self.inf_ctx.adt_defs.get(symbol).unwrap();
+                    let tag = adt
+                        .variants
+                        .iter()
+                        .position(|v| v.ctor == *ctor)
+                        .expect("variant not found") as u16;
+                    instructions.push(InstrOrLabel::Instr(Instr::Deconstruct));
+                    instructions.push(InstrOrLabel::Instr(Instr::PushInt(tag as AbraInt)));
+                    instructions.push(InstrOrLabel::Instr(Instr::Equal));
+                }
                 PatKind::Variant(ctor, Some(inner)) => {
                     let adt = self.inf_ctx.adt_defs.get(symbol).unwrap();
                     let tag_fail_label = make_label("tag_fail");
