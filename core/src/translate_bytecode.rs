@@ -578,8 +578,14 @@ fn collect_locals_expr(expr: &Expr, locals: &mut Locals) {
 
 fn collect_locals_stmt(statements: &[Rc<Stmt>], locals: &mut Locals) {
     for statement in statements {
-        if let StmtKind::Let(_, pat, _) = &*statement.stmtkind {
-            collect_locals_pat(pat.0.clone(), locals);
+        match &*statement.stmtkind {
+            StmtKind::Expr(expr) => {
+                collect_locals_expr(expr, locals);
+            }
+            StmtKind::Let(_, pat, _) => {
+                collect_locals_pat(pat.0.clone(), locals);
+            }
+            _ => {}
         }
     }
 }
