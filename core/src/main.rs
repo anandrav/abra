@@ -4,12 +4,14 @@ use abra_core::source_files_single;
 
 fn main() {
     let src = r#"
-let xs = cons(1, cons(2, nil))
-match xs {
-    nil -> 100
-    cons(_, cons(~x, nil)) -> x
-    _ -> 101
-}"#;
+func r(n) {
+    match n {
+        0 -> 0
+        _ -> 1 + r(n-1) + r(n-1)
+    }
+}
+r(1)
+"#;
     let sources = source_files_single(src);
     let mut vm = match compile_bytecode::<DefaultEffects>(sources) {
         Ok(vm) => vm,
@@ -19,5 +21,5 @@ match xs {
     };
     vm.run();
     let top = vm.top();
-    assert_eq!(top.get_int(), 2);
+    assert_eq!(top.get_int(), 1);
 }

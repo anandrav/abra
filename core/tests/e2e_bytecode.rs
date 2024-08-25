@@ -381,3 +381,26 @@ match xs {
     let top = vm.top();
     assert_eq!(top.get_int(), 2);
 }
+
+#[test]
+fn recursive_identity_function() {
+    let src = r#"
+func r(n) {
+    match n {
+        0 -> 0
+        _ -> 1 + r(n-1)
+    }
+}
+r(2)
+"#;
+    let sources = source_files_single(src);
+    let mut vm = match compile_bytecode::<DefaultEffects>(sources) {
+        Ok(vm) => vm,
+        Err(e) => {
+            panic!("{}", e);
+        }
+    };
+    vm.run();
+    let top = vm.top();
+    assert_eq!(top.get_int(), 2);
+}
