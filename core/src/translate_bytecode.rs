@@ -86,9 +86,18 @@ impl Translator {
                     for (i, arg) in args.iter().rev().enumerate() {
                         locals.entry(arg.0.id).or_insert(-(i as i32) - 1);
                     }
+                    let nargs = args.len();
                     self.translate_expr(body.clone(), &locals, &mut instructions);
+
+                    if locals_count + nargs > 0 {
+                        // pop all locals and arguments except one. The last one is the return value slot.
+                        instructions.push(InstrOrLabel::Instr(Instr::StoreOffset(-(nargs as i32))));
+                        for _ in 0..(locals_count + nargs - 1) {
+                            instructions.push(InstrOrLabel::Instr(Instr::Pop));
+                        }
+                    }
+
                     instructions.push(InstrOrLabel::Instr(Instr::Return));
-                    // unimplemented!();
                 }
             }
         }

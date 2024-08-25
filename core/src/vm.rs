@@ -199,7 +199,7 @@ impl Value {
 #[derive(Debug)]
 struct CallFrame {
     pc: ProgramCounter,
-    stack_top: usize,
+    stack_base: usize,
 }
 
 // ReferenceType
@@ -328,18 +328,15 @@ impl Vm {
             Instr::Call(target, nargs) => {
                 self.call_stack.push(CallFrame {
                     pc: self.pc,
-                    stack_top: self.value_stack.len() - nargs as usize,
+                    stack_base: self.stack_base,
                 });
                 self.pc = target;
                 self.stack_base = self.value_stack.len();
             }
             Instr::Return => {
-                let ret_value = self.value_stack.pop().expect("stack underflow");
                 let frame = self.call_stack.pop().expect("call stack underflow");
                 self.pc = frame.pc;
-                self.stack_base = self.call_stack.last().map(|f| f.stack_top).unwrap_or(0);
-                self.value_stack.truncate(frame.stack_top);
-                self.value_stack.push(ret_value);
+                self.stack_base = frame.stack_base;
             }
             Instr::Stop => self.pc = self.program.len(),
             Instr::Construct(n) => {
