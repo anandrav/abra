@@ -117,13 +117,15 @@ impl Translator {
             let mut locals = Locals::new();
             collect_locals_expr(body, &mut locals);
             let locals_count = locals.len();
+            let nargs = args.len();
+            let mut captures = Locals::new();
+            collect_captures_expr(body, &mut captures);
             for i in 0..locals_count {
                 instructions.push(InstrOrLabel::Instr(Instr::PushNil));
             }
             for (i, arg) in args.iter().rev().enumerate() {
                 locals.entry(arg.0.id).or_insert(-(i as i32) - 1);
             }
-            let nargs = args.len();
             self.translate_expr(body.clone(), &locals, &mut instructions, &mut lambdas); // TODO passing lambdas here is kind of weird and recursive. Should build list of lambdas in statics.rs instead.
 
             if locals_count + nargs > 0 {
@@ -196,6 +198,7 @@ impl Translator {
                             &self.sources,
                             &format!("symbol {} resolved to", symbol),
                         );
+                        println!("{}", s);
                         let idx = locals.get(node_id).unwrap();
                         instructions.push(InstrOrLabel::Instr(Instr::LoadOffset(*idx)));
                     }
@@ -631,6 +634,96 @@ enum PatComparisonStrategy {
     OnSuccess,
 }
 
+fn collect_captures_expr(expr: &Expr, captures: &mut Locals) {
+    match &*expr.exprkind {
+        ExprKind::Unit
+        | ExprKind::Bool(_)
+        | ExprKind::Int(_)
+        | ExprKind::Float(_)
+        | ExprKind::Str(_) => {}
+        ExprKind::Var(symbol) => {
+            todo!()
+        }
+
+        ExprKind::Block(statements) => {
+            for statement in statements {
+                collect_captures_stmt(&[statement.clone()], captures);
+            }
+        }
+        ExprKind::Match(_, arms) => {
+            for arm in arms {
+                collect_captures_expr(&arm.expr, captures);
+            }
+        }
+        ExprKind::Func(_, _, body) => {
+            collect_captures_expr(body, captures);
+        }
+        ExprKind::List(exprs) => {
+            for expr in exprs {
+                collect_captures_expr(expr, captures);
+            }
+        }
+        ExprKind::Array(exprs) => {
+            for expr in exprs {
+                collect_captures_expr(expr, captures);
+            }
+        }
+        ExprKind::Tuple(exprs) => {
+            for expr in exprs {
+                collect_captures_expr(expr, captures);
+            }
+        }
+        ExprKind::BinOp(left, _, right) => {
+            collect_captures_expr(left, captures);
+            collect_captures_expr(right, captures);
+        }
+        ExprKind::FieldAccess(accessed, _) => {
+            collect_captures_expr(accessed, captures);
+        }
+        ExprKind::IndexAccess(array, index) => {
+            collect_captures_expr(array, captures);
+            collect_captures_expr(index, captures);
+        }
+        ExprKind::FuncAp(func, args) => {
+            collect_captures_expr(func, captures);
+            for arg in args {
+                collect_captures_expr(arg, captures);
+            }
+        }
+        ExprKind::If(cond, then_block, else_block) => {
+            collect_captures_expr(cond, captures);
+            collect_captures_expr(then_block, captures);
+            if let Some(else_block) = else_block {
+                collect_captures_expr(else_block, captures);
+            }
+        }
+        ExprKind::WhileLoop(cond, body) => {
+            collect_captures_expr(cond, captures);
+            collect_captures_expr(body, captures);
+        }
+    }
+}
+
+fn collect_captures_stmt(statements: &[Rc<Stmt>], captures: &mut Locals) {
+    for statement in statements {
+        match &*statement.stmtkind {
+            StmtKind::Expr(expr) => {
+                collect_captures_expr(expr, captures);
+            }
+            StmtKind::Let(_, _, expr) => {
+                collect_captures_expr(expr, captures);
+            }
+            StmtKind::Set(_, expr) => {
+                collect_captures_expr(expr, captures);
+            }
+            StmtKind::FuncDef(..) => {}
+            StmtKind::InterfaceImpl(..) => {}
+            StmtKind::InterfaceDef(..) => {}
+            StmtKind::TypeDef(..) => {}
+        }
+    }
+}
+
 fn collect_locals_expr(expr: &Expr, locals: &mut Locals) {
     match &*expr.exprkind {
         ExprKind::Block(statements) => {
@@ -666,7 +759,7 @@ fn collect_locals_pat(pat: Rc<Pat>, locals: &mut Locals) {
     match &*pat.patkind {
         PatKind::Var(symbol) => {
             let len = locals.len();
-            //println!("adding {} to locals, pat_id = {}", symbol, pat.id);
+            println!("adding {} to locals, pat_id = {}", symbol, pat.id);
             locals.entry(pat.id).or_insert(len as i32);
         }
         PatKind::Tuple(pats) => {

@@ -4,8 +4,9 @@ use abra_core::source_files_single;
 
 fn main() {
     let src = r#"
-let add = (x, y) -> x + y
-add(2, 3)
+let one = 1
+let add1 = x -> x + one
+add1(4)
 "#;
     let sources = source_files_single(src);
     let mut vm = match compile_bytecode::<DefaultEffects>(sources) {
