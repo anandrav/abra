@@ -43,7 +43,8 @@ impl From<&Instr> for String {
             Instr::PushString(s) => format!("pushstring \"{}\"", s),
             Instr::Jump(loc) => format!("jump {}", loc),
             Instr::JumpIf(loc) => format!("jumpif {}", loc),
-            Instr::Call(loc, nargs) => format!("call {} {}", loc, nargs),
+            Instr::Call(loc) => format!("call {}", loc),
+            Instr::CallFuncObj => "callfuncobj".into(),
             Instr::Return => "return".into(),
             Instr::Construct(n) => format!("construct {}", n),
             Instr::Deconstruct => "deconstruct".into(),
@@ -52,6 +53,10 @@ impl From<&Instr> for String {
             Instr::GetIdx => "getidx".into(),
             Instr::SetIdx => "setidx".into(),
             Instr::ConstructVariant { tag } => format!("constructvariant {}", tag,),
+            Instr::MakeClosure {
+                n_captured,
+                func_addr,
+            } => format!("makeclosure {} {}", n_captured, func_addr),
             Instr::Stop => "stop".into(),
             Instr::Effect(n) => format!("effect {}", n),
         }
@@ -144,7 +149,8 @@ fn instr_to_vminstr(
         Instr::PushString(s) => VmInstr::PushString(string_constants[&s] as u16),
         Instr::Jump(label) => VmInstr::Jump(label_to_idx[&label]),
         Instr::JumpIf(label) => VmInstr::JumpIf(label_to_idx[&label]),
-        Instr::Call(label, nargs) => VmInstr::Call(label_to_idx[&label], nargs),
+        Instr::Call(label) => VmInstr::Call(label_to_idx[&label]),
+        Instr::CallFuncObj => VmInstr::CallFuncObj,
         Instr::Return => VmInstr::Return,
         Instr::Construct(n) => VmInstr::Construct(n),
         Instr::Deconstruct => VmInstr::Deconstruct,
@@ -153,6 +159,13 @@ fn instr_to_vminstr(
         Instr::GetIdx => VmInstr::GetIdx,
         Instr::SetIdx => VmInstr::SetIdx,
         Instr::ConstructVariant { tag } => VmInstr::ConstructVariant { tag },
+        Instr::MakeClosure {
+            n_captured,
+            func_addr,
+        } => VmInstr::MakeClosure {
+            n_captured,
+            func_addr: label_to_idx[&func_addr],
+        },
         Instr::Stop => VmInstr::Stop,
         Instr::Effect(n) => VmInstr::Effect(n),
     }
@@ -211,7 +224,7 @@ fn assemble_instr_or_label(
             match words[0] {
                 "jump" => Instr::Jump(loc),
                 "jumpif" => Instr::JumpIf(loc),
-                "call" => Instr::Call(loc, words[2].parse().unwrap()),
+                "call" => Instr::Call(loc),
                 _ => unreachable!(),
             }
         }

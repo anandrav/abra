@@ -8,11 +8,12 @@ use crate::{
     ast::{Expr, ExprKind, NodeMap, Pat, PatKind, Stmt, StmtKind},
     statics::InferenceContext,
 };
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::rc::Rc;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
 type Locals = HashMap<NodeId, i32>;
+type Lambdas = HashSet<(Label, NodeId)>;
 
 #[derive(Debug)]
 pub(crate) struct Translator {
@@ -39,13 +40,13 @@ impl Translator {
 
     pub(crate) fn translate<Effect: EffectTrait>(&self) -> (Vec<VmInstr>, Vec<String>) {
         let mut instructions: Vec<InstrOrLabel> = vec![];
+        let mut lambdas: Lambdas = HashSet::new();
 
         // Handle the main function (toplevels)
         let mut locals = Locals::new();
         for toplevel in self.toplevels.iter() {
             collect_locals_stmt(&toplevel.statements, &mut locals);
         }
-        dbg!(&locals);
         for i in 0..locals.len() {
             instructions.push(InstrOrLabel::Instr(Instr::PushNil));
         }
@@ -56,12 +57,13 @@ impl Translator {
                     i == toplevel.statements.len() - 1,
                     &locals,
                     &mut instructions,
+                    &mut lambdas,
                 );
             }
         }
         instructions.push(InstrOrLabel::Instr(Instr::Stop));
 
-        // Handle all other functions
+        // Handle function definitions
         for toplevel in self.toplevels.iter() {
             for statement in &toplevel.statements {
                 if let StmtKind::FuncDef(name, args, _, body) = &*statement.stmtkind {
@@ -75,7 +77,7 @@ impl Translator {
                     if func_name_blacklist.contains(&func_name.as_str()) {
                         continue;
                     }
-                    println!("Generating code for function: {}", func_name);
+                    // println!("Generating code for function: {}", func_name);
                     instructions.push(InstrOrLabel::Label(func_name));
                     let mut locals = Locals::new();
                     collect_locals_expr(body, &mut locals);
@@ -87,7 +89,7 @@ impl Translator {
                         locals.entry(arg.0.id).or_insert(-(i as i32) - 1);
                     }
                     let nargs = args.len();
-                    self.translate_expr(body.clone(), &locals, &mut instructions);
+                    self.translate_expr(body.clone(), &locals, &mut instructions, &mut lambdas);
 
                     if locals_count + nargs > 0 {
                         // pop all locals and arguments except one. The last one is the return value slot.
@@ -102,6 +104,39 @@ impl Translator {
             }
         }
 
+        // Handle lambdas
+        for (label, node_id) in lambdas.clone() {
+            let node = self.node_map.get(&node_id).unwrap();
+            let expr = node.to_expr().unwrap();
+            let ExprKind::Func(args, _, body) = &*expr.exprkind else {
+                panic!()
+            };
+
+            instructions.push(InstrOrLabel::Label(label));
+
+            let mut locals = Locals::new();
+            collect_locals_expr(body, &mut locals);
+            let locals_count = locals.len();
+            for i in 0..locals_count {
+                instructions.push(InstrOrLabel::Instr(Instr::PushNil));
+            }
+            for (i, arg) in args.iter().rev().enumerate() {
+                locals.entry(arg.0.id).or_insert(-(i as i32) - 1);
+            }
+            let nargs = args.len();
+            self.translate_expr(body.clone(), &locals, &mut instructions, &mut lambdas); // TODO passing lambdas here is kind of weird and recursive. Should build list of lambdas in statics.rs instead.
+
+            if locals_count + nargs > 0 {
+                // pop all locals and arguments except one. The last one is the return value slot.
+                instructions.push(InstrOrLabel::Instr(Instr::StoreOffset(-(nargs as i32))));
+                for _ in 0..(locals_count + nargs - 1) {
+                    instructions.push(InstrOrLabel::Instr(Instr::Pop));
+                }
+            }
+
+            instructions.push(InstrOrLabel::Instr(Instr::Return));
+        }
+
         // Create functions for effects
         let effect_list = Effect::enumerate();
         for (i, effect) in effect_list.iter().enumerate() {
@@ -111,12 +146,11 @@ impl Translator {
         }
 
         for instr in &instructions {
-            println!("{}", instr);
+            // println!("{}", instr);
         }
         let instructions = remove_labels(instructions, &self.inf_ctx.string_constants);
         let mut string_table: Vec<String> =
             vec!["".to_owned(); self.inf_ctx.string_constants.len()];
-        dbg!(&self.inf_ctx.string_constants);
         for (s, idx) in self.inf_ctx.string_constants.iter() {
             string_table[*idx] = s.clone();
         }
@@ -128,6 +162,7 @@ impl Translator {
         expr: Rc<Expr>,
         locals: &Locals,
         instructions: &mut Vec<InstrOrLabel>,
+        lambdas: &mut Lambdas,
     ) {
         match &*expr.exprkind {
             ExprKind::Var(symbol) => {
@@ -161,7 +196,6 @@ impl Translator {
                             &self.sources,
                             &format!("symbol {} resolved to", symbol),
                         );
-                        println!("{}", s);
                         let idx = locals.get(node_id).unwrap();
                         instructions.push(InstrOrLabel::Instr(Instr::LoadOffset(*idx)));
                     }
@@ -180,8 +214,8 @@ impl Translator {
                 instructions.push(InstrOrLabel::Instr(Instr::PushString(s.clone())));
             }
             ExprKind::BinOp(left, op, right) => {
-                self.translate_expr(left.clone(), locals, instructions);
-                self.translate_expr(right.clone(), locals, instructions);
+                self.translate_expr(left.clone(), locals, instructions, lambdas);
+                self.translate_expr(right.clone(), locals, instructions, lambdas);
                 match op {
                     BinOpcode::Add => instructions.push(InstrOrLabel::Instr(Instr::Add)),
                     BinOpcode::Subtract => instructions.push(InstrOrLabel::Instr(Instr::Sub)),
@@ -193,29 +227,39 @@ impl Translator {
             ExprKind::FuncAp(func, args) => {
                 if let ExprKind::Var(symbol) = &*func.exprkind {
                     for arg in args {
-                        self.translate_expr(arg.clone(), locals, instructions);
+                        self.translate_expr(arg.clone(), locals, instructions, lambdas);
                     }
                     let resolution = self.inf_ctx.name_resolutions.get(&func.id).unwrap();
                     match resolution {
                         Resolution::Node(node_id) => {
                             let node = self.node_map.get(node_id).unwrap();
-                            let stmt = node.to_stmt().unwrap();
-                            match &*stmt.stmtkind {
-                                StmtKind::FuncDef(name, _, _, _) => {
-                                    instructions.push(InstrOrLabel::Instr(Instr::Call(
-                                        name.patkind.get_identifier_of_variable(),
-                                        args.len() as u8,
-                                    )));
-                                }
-                                StmtKind::TypeDef(kind) => match &**kind {
-                                    TypeDefKind::Struct(_, _, fields) => {
-                                        instructions.push(InstrOrLabel::Instr(Instr::Construct(
-                                            fields.len() as u16,
+                            dbg!(node);
+                            let span = node.span();
+                            let mut s = String::new();
+                            span.display(&mut s, &self.sources, "function call");
+                            println!("{}", s);
+                            if let Some(stmt) = node.to_stmt() {
+                                match &*stmt.stmtkind {
+                                    StmtKind::FuncDef(name, _, _, _) => {
+                                        instructions.push(InstrOrLabel::Instr(Instr::Call(
+                                            name.patkind.get_identifier_of_variable(),
                                         )));
                                     }
-                                    _ => unimplemented!(),
-                                },
-                                _ => panic!("unexpected stmt: {:?}", stmt.stmtkind),
+                                    StmtKind::TypeDef(kind) => match &**kind {
+                                        TypeDefKind::Struct(_, _, fields) => {
+                                            instructions.push(InstrOrLabel::Instr(
+                                                Instr::Construct(fields.len() as u16),
+                                            ));
+                                        }
+                                        _ => unimplemented!(),
+                                    },
+                                    _ => panic!("unexpected stmt: {:?}", stmt.stmtkind),
+                                }
+                            } else {
+                                // assume it's a function object
+                                let idx = locals.get(node_id).unwrap();
+                                instructions.push(InstrOrLabel::Instr(Instr::LoadOffset(*idx)));
+                                instructions.push(InstrOrLabel::Instr(Instr::CallFuncObj));
                             }
                         }
                         Resolution::Variant(node_id, variant_name) => {
@@ -266,34 +310,35 @@ impl Translator {
                         i == statements.len() - 1,
                         locals,
                         instructions,
+                        lambdas,
                     );
                 }
             }
             ExprKind::Tuple(exprs) => {
                 for expr in exprs {
-                    self.translate_expr(expr.clone(), locals, instructions);
+                    self.translate_expr(expr.clone(), locals, instructions, lambdas);
                 }
                 instructions.push(InstrOrLabel::Instr(Instr::Construct(exprs.len() as u16)));
             }
             ExprKind::If(cond, then_block, Some(else_block)) => {
-                self.translate_expr(cond.clone(), locals, instructions);
+                self.translate_expr(cond.clone(), locals, instructions, lambdas);
                 let then_label = make_label("then");
                 let end_label = make_label("endif");
                 instructions.push(InstrOrLabel::Instr(Instr::JumpIf(then_label.clone())));
-                self.translate_expr(else_block.clone(), locals, instructions);
+                self.translate_expr(else_block.clone(), locals, instructions, lambdas);
                 instructions.push(InstrOrLabel::Instr(Instr::Jump(end_label.clone())));
                 instructions.push(InstrOrLabel::Label(then_label));
-                self.translate_expr(then_block.clone(), locals, instructions);
+                self.translate_expr(then_block.clone(), locals, instructions, lambdas);
                 instructions.push(InstrOrLabel::Label(end_label));
             }
             ExprKind::If(cond, then_block, None) => {
-                self.translate_expr(cond.clone(), locals, instructions);
+                self.translate_expr(cond.clone(), locals, instructions, lambdas);
                 let then_label = make_label("then");
                 let end_label = make_label("endif");
                 instructions.push(InstrOrLabel::Instr(Instr::JumpIf(then_label.clone())));
                 instructions.push(InstrOrLabel::Instr(Instr::Jump(end_label.clone())));
                 instructions.push(InstrOrLabel::Label(then_label));
-                self.translate_expr(then_block.clone(), locals, instructions);
+                self.translate_expr(then_block.clone(), locals, instructions, lambdas);
                 instructions.push(InstrOrLabel::Label(end_label));
                 instructions.push(InstrOrLabel::Instr(Instr::PushNil)); // TODO get rid of this
             }
@@ -302,25 +347,25 @@ impl Translator {
                 let ExprKind::Var(field_name) = &*field.exprkind else {
                     panic!()
                 };
-                self.translate_expr(accessed.clone(), locals, instructions);
+                self.translate_expr(accessed.clone(), locals, instructions, lambdas);
                 let idx = idx_of_field(&self.inf_ctx, accessed.clone(), field_name);
                 instructions.push(InstrOrLabel::Instr(Instr::GetField(idx)));
             }
             ExprKind::Array(exprs) => {
                 for expr in exprs {
-                    self.translate_expr(expr.clone(), locals, instructions);
+                    self.translate_expr(expr.clone(), locals, instructions, lambdas);
                 }
                 instructions.push(InstrOrLabel::Instr(Instr::Construct(exprs.len() as u16)));
             }
             ExprKind::IndexAccess(array, index) => {
-                self.translate_expr(index.clone(), locals, instructions);
-                self.translate_expr(array.clone(), locals, instructions);
+                self.translate_expr(index.clone(), locals, instructions, lambdas);
+                self.translate_expr(array.clone(), locals, instructions, lambdas);
                 instructions.push(InstrOrLabel::Instr(Instr::GetIdx));
             }
             ExprKind::Match(expr, arms) => {
                 let ty = self.inf_ctx.solution_of_node(expr.id).unwrap();
 
-                self.translate_expr(expr.clone(), locals, instructions);
+                self.translate_expr(expr.clone(), locals, instructions, lambdas);
                 let end_label = make_label("endmatch");
                 // Check scrutinee against each arm's pattern
                 let arm_labels = arms
@@ -341,12 +386,23 @@ impl Translator {
 
                     self.handle_pat_binding(arm.pat.clone(), locals, instructions);
 
-                    self.translate_expr(arm.expr.clone(), locals, instructions);
+                    self.translate_expr(arm.expr.clone(), locals, instructions, lambdas);
                     if i != arms.len() - 1 {
                         instructions.push(InstrOrLabel::Instr(Instr::Jump(end_label.clone())));
                     }
                 }
                 instructions.push(InstrOrLabel::Label(end_label));
+            }
+            ExprKind::Func(args, _, body) => {
+                let label = make_label("lambda");
+
+                lambdas.insert((label.clone(), expr.id));
+
+                // initialize function object
+                instructions.push(InstrOrLabel::Instr(Instr::MakeClosure {
+                    n_captured: 0,
+                    func_addr: label,
+                }));
             }
             _ => panic!("unimplemented: {:?}", expr.exprkind),
         }
@@ -476,10 +532,11 @@ impl Translator {
         is_last: bool,
         locals: &Locals,
         instructions: &mut Vec<InstrOrLabel>,
+        lambdas: &mut Lambdas,
     ) {
         match &*stmt.stmtkind {
             StmtKind::Let(_, pat, expr) => {
-                self.translate_expr(expr.clone(), locals, instructions);
+                self.translate_expr(expr.clone(), locals, instructions, lambdas);
                 self.handle_pat_binding(pat.0.clone(), locals, instructions);
             }
             StmtKind::Set(expr1, rvalue) => match &*expr1.exprkind {
@@ -490,7 +547,7 @@ impl Translator {
                         panic!("expected variableto be defined in node");
                     };
                     let idx = locals.get(node_id).unwrap();
-                    self.translate_expr(rvalue.clone(), locals, instructions);
+                    self.translate_expr(rvalue.clone(), locals, instructions, lambdas);
                     instructions.push(InstrOrLabel::Instr(Instr::StoreOffset(*idx)));
                 }
                 ExprKind::FieldAccess(accessed, field) => {
@@ -498,21 +555,21 @@ impl Translator {
                     let ExprKind::Var(field_name) = &*field.exprkind else {
                         panic!()
                     };
-                    self.translate_expr(rvalue.clone(), locals, instructions);
-                    self.translate_expr(accessed.clone(), locals, instructions);
+                    self.translate_expr(rvalue.clone(), locals, instructions, lambdas);
+                    self.translate_expr(accessed.clone(), locals, instructions, lambdas);
                     let idx = idx_of_field(&self.inf_ctx, accessed.clone(), field_name);
                     instructions.push(InstrOrLabel::Instr(Instr::SetField(idx)));
                 }
                 ExprKind::IndexAccess(array, index) => {
-                    self.translate_expr(rvalue.clone(), locals, instructions);
-                    self.translate_expr(index.clone(), locals, instructions);
-                    self.translate_expr(array.clone(), locals, instructions);
+                    self.translate_expr(rvalue.clone(), locals, instructions, lambdas);
+                    self.translate_expr(index.clone(), locals, instructions, lambdas);
+                    self.translate_expr(array.clone(), locals, instructions, lambdas);
                     instructions.push(InstrOrLabel::Instr(Instr::SetIdx));
                 }
                 _ => unimplemented!(),
             },
             StmtKind::Expr(expr) => {
-                self.translate_expr(expr.clone(), locals, instructions);
+                self.translate_expr(expr.clone(), locals, instructions, lambdas);
                 if !is_last {
                     instructions.push(InstrOrLabel::Instr(Instr::Pop));
                 }
@@ -609,7 +666,7 @@ fn collect_locals_pat(pat: Rc<Pat>, locals: &mut Locals) {
     match &*pat.patkind {
         PatKind::Var(symbol) => {
             let len = locals.len();
-            println!("adding {} to locals, pat_id = {}", symbol, pat.id);
+            //println!("adding {} to locals, pat_id = {}", symbol, pat.id);
             locals.entry(pat.id).or_insert(len as i32);
         }
         PatKind::Tuple(pats) => {

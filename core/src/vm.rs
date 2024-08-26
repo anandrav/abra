@@ -90,7 +90,8 @@ pub enum Instr<Location = ProgramCounter, StringConstant = u16> {
     // Control Flow
     Jump(Location),
     JumpIf(Location),
-    Call(Location, u8),
+    Call(Location),
+    CallFuncObj,
     Return,
 
     // Data Structures
@@ -100,7 +101,13 @@ pub enum Instr<Location = ProgramCounter, StringConstant = u16> {
     SetField(u16),
     GetIdx,
     SetIdx,
-    ConstructVariant { tag: u16 },
+    ConstructVariant {
+        tag: u16,
+    },
+    MakeClosure {
+        n_captured: u16,
+        func_addr: Location,
+    },
 
     // Effects
     Stop,
@@ -126,7 +133,8 @@ impl From<&Instr> for String {
             Instr::PushString(s) => format!("pushstring \"{}\"", s),
             Instr::Jump(loc) => format!("jump {}", loc),
             Instr::JumpIf(loc) => format!("jumpif {}", loc),
-            Instr::Call(loc, nargs) => format!("call {} {}", loc, nargs),
+            Instr::Call(loc) => format!("call {}", loc),
+            Instr::CallFuncObj => "callfuncobj".to_owned(),
             Instr::Return => "return".to_owned(),
             Instr::Construct(n) => format!("construct {}", n),
             Instr::Deconstruct => "deconstruct".to_owned(),
@@ -136,6 +144,12 @@ impl From<&Instr> for String {
             Instr::SetIdx => "setidx".to_owned(),
             Instr::ConstructVariant { tag } => {
                 format!("construct_variant {}", tag)
+            }
+            Instr::MakeClosure {
+                n_captured,
+                func_addr,
+            } => {
+                format!("make_closure {} {}", n_captured, func_addr)
             }
             Instr::Stop => "stop".to_owned(),
             Instr::Effect(n) => format!("effect {}", n),
@@ -325,13 +339,35 @@ impl Vm {
                     self.pc = target;
                 }
             }
-            Instr::Call(target, nargs) => {
+            Instr::Call(target) => {
                 self.call_stack.push(CallFrame {
                     pc: self.pc,
                     stack_base: self.stack_base,
                 });
                 self.pc = target;
                 self.stack_base = self.value_stack.len();
+            }
+            Instr::CallFuncObj => {
+                let func_obj = self.value_stack.pop().expect("stack underflow");
+                match &func_obj {
+                    Value::ManagedObject(id) => match &self.heap[*id].kind {
+                        ManagedObjectKind::FunctionObject {
+                            captured_values,
+                            func_addr,
+                        } => {
+                            self.call_stack.push(CallFrame {
+                                pc: self.pc,
+                                stack_base: self.stack_base,
+                            });
+                            self.pc = *func_addr;
+                            self.stack_base = self.value_stack.len();
+                            self.value_stack.extend(captured_values.iter().cloned());
+                            // TODO: should captured values be treated as args or locals? Is there a big difference? What order?
+                        }
+                        _ => panic!("not a function object"),
+                    },
+                    _ => panic!("not a function object"),
+                }
             }
             Instr::Return => {
                 let frame = self.call_stack.pop().expect("call stack underflow");
@@ -421,6 +457,22 @@ impl Vm {
                 let value = self.pop();
                 self.heap.push(ManagedObject {
                     kind: ManagedObjectKind::Adt { tag, value },
+                });
+                self.value_stack
+                    .push(Value::ManagedObject(self.heap.len() - 1));
+            }
+            Instr::MakeClosure {
+                n_captured,
+                func_addr,
+            } => {
+                let captured_values = self
+                    .value_stack
+                    .split_off(self.value_stack.len() - n_captured as usize);
+                self.heap.push(ManagedObject {
+                    kind: ManagedObjectKind::FunctionObject {
+                        captured_values,
+                        func_addr,
+                    },
                 });
                 self.value_stack
                     .push(Value::ManagedObject(self.heap.len() - 1));

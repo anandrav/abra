@@ -44,10 +44,6 @@ impl Node for Toplevel {
             .map(|i| i.clone() as Rc<dyn Node>)
             .collect()
     }
-
-    fn to_stmt(&self) -> Option<Stmt> {
-        None
-    }
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -80,10 +76,6 @@ impl Node for Variant {
             None => vec![],
         }
     }
-
-    fn to_stmt(&self) -> Option<Stmt> {
-        None
-    }
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -106,10 +98,6 @@ impl Node for StructField {
     fn children(&self) -> Vec<Rc<dyn Node>> {
         vec![self.ty.clone()]
     }
-
-    fn to_stmt(&self) -> Option<Stmt> {
-        None
-    }
 }
 
 impl std::fmt::Debug for dyn Node {
@@ -126,7 +114,12 @@ pub(crate) trait Node {
     fn id(&self) -> NodeId;
     fn children(&self) -> Vec<Rc<dyn Node>>;
 
-    fn to_stmt(&self) -> Option<Stmt>;
+    fn to_expr(&self) -> Option<Expr> {
+        None
+    }
+    fn to_stmt(&self) -> Option<Stmt> {
+        None
+    }
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -245,10 +238,6 @@ impl Node for InterfaceProperty {
     fn children(&self) -> Vec<Rc<dyn Node>> {
         vec![self.ty.clone()]
     }
-
-    fn to_stmt(&self) -> Option<Stmt> {
-        None
-    }
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -327,8 +316,8 @@ impl Node for Expr {
         }
     }
 
-    fn to_stmt(&self) -> Option<Stmt> {
-        None
+    fn to_expr(&self) -> Option<Expr> {
+        Some(self.clone())
     }
 }
 
@@ -400,10 +389,6 @@ impl Node for Pat {
                 .collect::<Vec<_>>(),
         }
     }
-
-    fn to_stmt(&self) -> Option<Stmt> {
-        None
-    }
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -473,10 +458,6 @@ impl Node for AstType {
                 .map(|t| t.clone() as Rc<dyn Node>)
                 .collect::<Vec<_>>(),
         }
-    }
-
-    fn to_stmt(&self) -> Option<Stmt> {
-        None
     }
 }
 
