@@ -463,3 +463,42 @@ add(2, 3)
     let top = vm.top();
     assert_eq!(top.get_int(), 5);
 }
+
+#[test]
+fn lambda_capture() {
+    let src = r#"
+let one = 1
+let add1 = x -> x + one
+add1(4)
+"#;
+    let sources = source_files_single(src);
+    let mut vm = match compile_bytecode::<DefaultEffects>(sources) {
+        Ok(vm) => vm,
+        Err(e) => {
+            panic!("{}", e);
+        }
+    };
+    vm.run();
+    let top = vm.top();
+    assert_eq!(top.get_int(), 5);
+}
+
+#[test]
+fn lambda_capture2() {
+    let src = r#"
+let one = 1
+let two = 2
+let sub1 = x -> x + one - two
+sub1(4)
+"#;
+    let sources = source_files_single(src);
+    let mut vm = match compile_bytecode::<DefaultEffects>(sources) {
+        Ok(vm) => vm,
+        Err(e) => {
+            panic!("{}", e);
+        }
+    };
+    vm.run();
+    let top = vm.top();
+    assert_eq!(top.get_int(), 3);
+}

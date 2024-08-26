@@ -5,8 +5,9 @@ use abra_core::source_files_single;
 fn main() {
     let src = r#"
 let one = 1
-let add1 = x -> x + one
-add1(4)
+let two = 2
+let sub1 = x -> x + one - two
+sub1(4)
 "#;
     let sources = source_files_single(src);
     let mut vm = match compile_bytecode::<DefaultEffects>(sources) {
@@ -17,5 +18,5 @@ add1(4)
     };
     vm.run();
     let top = vm.top();
-    assert_eq!(top.get_int(), 5);
+    assert_eq!(top.get_int(), 3);
 }

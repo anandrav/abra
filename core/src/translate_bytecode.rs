@@ -13,7 +13,15 @@ use std::rc::Rc;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
 type OffsetTable = HashMap<NodeId, i32>;
-type Lambdas = HashSet<(Label, NodeId)>;
+type Lambdas = HashMap<NodeId, LambdaData>;
+
+#[derive(Debug, Clone)]
+struct LambdaData {
+    label: Label,
+    offset_table: OffsetTable,
+    nlocals: usize,
+    ncaptures: usize,
+}
 
 #[derive(Debug)]
 pub(crate) struct Translator {
@@ -40,7 +48,7 @@ impl Translator {
 
     pub(crate) fn translate<Effect: EffectTrait>(&self) -> (Vec<VmInstr>, Vec<String>) {
         let mut instructions: Vec<InstrOrLabel> = vec![];
-        let mut lambdas: Lambdas = HashSet::new();
+        let mut lambdas: Lambdas = HashMap::new();
 
         // Handle the main function (toplevels)
         {
@@ -120,45 +128,29 @@ impl Translator {
         }
 
         // Handle lambdas
-        for (label, node_id) in lambdas.clone() {
+        for (node_id, data) in lambdas.clone() {
             let node = self.node_map.get(&node_id).unwrap();
             let expr = node.to_expr().unwrap();
             let ExprKind::Func(args, _, body) = &*expr.exprkind else {
                 panic!()
             };
 
-            instructions.push(InstrOrLabel::Label(label));
+            instructions.push(InstrOrLabel::Label(data.label));
 
-            let mut locals = HashSet::new();
-            collect_locals_expr(body, &mut locals);
-            let locals_count = locals.len();
+            self.translate_expr(
+                body.clone(),
+                &data.offset_table,
+                &mut instructions,
+                &mut lambdas,
+            ); // TODO passing lambdas here is kind of weird and recursive. Should build list of lambdas in statics.rs instead.
+
+            let nlocals = data.nlocals;
             let nargs = args.len();
-            let arg_set = args.iter().map(|(pat, _)| pat.id).collect::<HashSet<_>>();
-            let mut captures = HashSet::new();
-            self.collect_captures_expr(body, &locals, &arg_set, &mut captures);
-            let ncaptures = captures.len();
-            for i in 0..locals_count {
-                instructions.push(InstrOrLabel::Instr(Instr::PushNil));
-            }
-
-            let mut offset_table = OffsetTable::new();
-            for (i, arg) in args.iter().rev().enumerate() {
-                offset_table.entry(arg.0.id).or_insert(-(i as i32) - 1);
-            }
-            for (i, capture) in captures.iter().enumerate() {
-                offset_table.entry(*capture).or_insert(i as i32);
-            }
-            for (i, local) in locals.iter().enumerate() {
-                offset_table
-                    .entry(*local)
-                    .or_insert((i + captures.len()) as i32);
-            }
-            self.translate_expr(body.clone(), &offset_table, &mut instructions, &mut lambdas); // TODO passing lambdas here is kind of weird and recursive. Should build list of lambdas in statics.rs instead.
-
-            if locals_count + nargs + ncaptures > 0 {
+            let ncaptures = data.ncaptures;
+            if nlocals + nargs + ncaptures > 0 {
                 // pop all locals and arguments except one. The last one is the return value slot.
                 instructions.push(InstrOrLabel::Instr(Instr::StoreOffset(-(nargs as i32))));
-                for _ in 0..(locals_count + nargs + ncaptures - 1) {
+                for _ in 0..(nlocals + nargs + ncaptures - 1) {
                     instructions.push(InstrOrLabel::Instr(Instr::Pop));
                 }
             }
@@ -189,7 +181,7 @@ impl Translator {
     fn translate_expr(
         &self,
         expr: Rc<Expr>,
-        locals: &OffsetTable,
+        offset_table: &OffsetTable,
         instructions: &mut Vec<InstrOrLabel>,
         lambdas: &mut Lambdas,
     ) {
@@ -226,7 +218,7 @@ impl Translator {
                             &format!("symbol {} resolved to", symbol),
                         );
                         println!("{}", s);
-                        let idx = locals.get(node_id).unwrap();
+                        let idx = offset_table.get(node_id).unwrap();
                         instructions.push(InstrOrLabel::Instr(Instr::LoadOffset(*idx)));
                     }
                     Resolution::Builtin(s) => {
@@ -244,8 +236,8 @@ impl Translator {
                 instructions.push(InstrOrLabel::Instr(Instr::PushString(s.clone())));
             }
             ExprKind::BinOp(left, op, right) => {
-                self.translate_expr(left.clone(), locals, instructions, lambdas);
-                self.translate_expr(right.clone(), locals, instructions, lambdas);
+                self.translate_expr(left.clone(), offset_table, instructions, lambdas);
+                self.translate_expr(right.clone(), offset_table, instructions, lambdas);
                 match op {
                     BinOpcode::Add => instructions.push(InstrOrLabel::Instr(Instr::Add)),
                     BinOpcode::Subtract => instructions.push(InstrOrLabel::Instr(Instr::Sub)),
@@ -257,7 +249,7 @@ impl Translator {
             ExprKind::FuncAp(func, args) => {
                 if let ExprKind::Var(symbol) = &*func.exprkind {
                     for arg in args {
-                        self.translate_expr(arg.clone(), locals, instructions, lambdas);
+                        self.translate_expr(arg.clone(), offset_table, instructions, lambdas);
                     }
                     let resolution = self.inf_ctx.name_resolutions.get(&func.id).unwrap();
                     match resolution {
@@ -287,7 +279,7 @@ impl Translator {
                                 }
                             } else {
                                 // assume it's a function object
-                                let idx = locals.get(node_id).unwrap();
+                                let idx = offset_table.get(node_id).unwrap();
                                 instructions.push(InstrOrLabel::Instr(Instr::LoadOffset(*idx)));
                                 instructions.push(InstrOrLabel::Instr(Instr::CallFuncObj));
                             }
@@ -338,7 +330,7 @@ impl Translator {
                     self.translate_stmt(
                         statement.clone(),
                         i == statements.len() - 1,
-                        locals,
+                        offset_table,
                         instructions,
                         lambdas,
                     );
@@ -346,29 +338,29 @@ impl Translator {
             }
             ExprKind::Tuple(exprs) => {
                 for expr in exprs {
-                    self.translate_expr(expr.clone(), locals, instructions, lambdas);
+                    self.translate_expr(expr.clone(), offset_table, instructions, lambdas);
                 }
                 instructions.push(InstrOrLabel::Instr(Instr::Construct(exprs.len() as u16)));
             }
             ExprKind::If(cond, then_block, Some(else_block)) => {
-                self.translate_expr(cond.clone(), locals, instructions, lambdas);
+                self.translate_expr(cond.clone(), offset_table, instructions, lambdas);
                 let then_label = make_label("then");
                 let end_label = make_label("endif");
                 instructions.push(InstrOrLabel::Instr(Instr::JumpIf(then_label.clone())));
-                self.translate_expr(else_block.clone(), locals, instructions, lambdas);
+                self.translate_expr(else_block.clone(), offset_table, instructions, lambdas);
                 instructions.push(InstrOrLabel::Instr(Instr::Jump(end_label.clone())));
                 instructions.push(InstrOrLabel::Label(then_label));
-                self.translate_expr(then_block.clone(), locals, instructions, lambdas);
+                self.translate_expr(then_block.clone(), offset_table, instructions, lambdas);
                 instructions.push(InstrOrLabel::Label(end_label));
             }
             ExprKind::If(cond, then_block, None) => {
-                self.translate_expr(cond.clone(), locals, instructions, lambdas);
+                self.translate_expr(cond.clone(), offset_table, instructions, lambdas);
                 let then_label = make_label("then");
                 let end_label = make_label("endif");
                 instructions.push(InstrOrLabel::Instr(Instr::JumpIf(then_label.clone())));
                 instructions.push(InstrOrLabel::Instr(Instr::Jump(end_label.clone())));
                 instructions.push(InstrOrLabel::Label(then_label));
-                self.translate_expr(then_block.clone(), locals, instructions, lambdas);
+                self.translate_expr(then_block.clone(), offset_table, instructions, lambdas);
                 instructions.push(InstrOrLabel::Label(end_label));
                 instructions.push(InstrOrLabel::Instr(Instr::PushNil)); // TODO get rid of this
             }
@@ -377,25 +369,25 @@ impl Translator {
                 let ExprKind::Var(field_name) = &*field.exprkind else {
                     panic!()
                 };
-                self.translate_expr(accessed.clone(), locals, instructions, lambdas);
+                self.translate_expr(accessed.clone(), offset_table, instructions, lambdas);
                 let idx = idx_of_field(&self.inf_ctx, accessed.clone(), field_name);
                 instructions.push(InstrOrLabel::Instr(Instr::GetField(idx)));
             }
             ExprKind::Array(exprs) => {
                 for expr in exprs {
-                    self.translate_expr(expr.clone(), locals, instructions, lambdas);
+                    self.translate_expr(expr.clone(), offset_table, instructions, lambdas);
                 }
                 instructions.push(InstrOrLabel::Instr(Instr::Construct(exprs.len() as u16)));
             }
             ExprKind::IndexAccess(array, index) => {
-                self.translate_expr(index.clone(), locals, instructions, lambdas);
-                self.translate_expr(array.clone(), locals, instructions, lambdas);
+                self.translate_expr(index.clone(), offset_table, instructions, lambdas);
+                self.translate_expr(array.clone(), offset_table, instructions, lambdas);
                 instructions.push(InstrOrLabel::Instr(Instr::GetIdx));
             }
             ExprKind::Match(expr, arms) => {
                 let ty = self.inf_ctx.solution_of_node(expr.id).unwrap();
 
-                self.translate_expr(expr.clone(), locals, instructions, lambdas);
+                self.translate_expr(expr.clone(), offset_table, instructions, lambdas);
                 let end_label = make_label("endmatch");
                 // Check scrutinee against each arm's pattern
                 let arm_labels = arms
@@ -414,9 +406,9 @@ impl Translator {
                 for (i, arm) in arms.iter().enumerate() {
                     instructions.push(InstrOrLabel::Label(arm_labels[i].clone()));
 
-                    self.handle_pat_binding(arm.pat.clone(), locals, instructions);
+                    self.handle_pat_binding(arm.pat.clone(), offset_table, instructions);
 
-                    self.translate_expr(arm.expr.clone(), locals, instructions, lambdas);
+                    self.translate_expr(arm.expr.clone(), offset_table, instructions, lambdas);
                     if i != arms.len() - 1 {
                         instructions.push(InstrOrLabel::Instr(Instr::Jump(end_label.clone())));
                     }
@@ -426,10 +418,57 @@ impl Translator {
             ExprKind::Func(args, _, body) => {
                 let label = make_label("lambda");
 
-                lambdas.insert((label.clone(), expr.id));
+                let mut locals = HashSet::new();
+                collect_locals_expr(body, &mut locals);
+                let locals_count = locals.len();
+                let arg_set = args.iter().map(|(pat, _)| pat.id).collect::<HashSet<_>>();
+                let mut captures = HashSet::new();
+                self.collect_captures_expr(body, &locals, &arg_set, &mut captures);
+                for capture in captures.iter() {
+                    let node = self.node_map.get(&capture).unwrap();
+                    let span = node.span();
+                    let mut s = String::new();
+                    span.display(&mut s, &self.sources, "capture");
+                    println!("{}", s);
+                }
+                let ncaptures = captures.len();
+                for i in 0..locals_count {
+                    instructions.push(InstrOrLabel::Instr(Instr::PushNil));
+                }
+
+                let mut lambda_offset_table = OffsetTable::new();
+                for (i, arg) in args.iter().rev().enumerate() {
+                    lambda_offset_table
+                        .entry(arg.0.id)
+                        .or_insert(-(i as i32) - 1);
+                }
+                for (i, capture) in captures.iter().enumerate() {
+                    lambda_offset_table.entry(*capture).or_insert(i as i32);
+                }
+                for (i, local) in locals.iter().enumerate() {
+                    lambda_offset_table
+                        .entry(*local)
+                        .or_insert((i + captures.len()) as i32);
+                }
+
+                for capture in captures {
+                    instructions.push(InstrOrLabel::Instr(Instr::LoadOffset(
+                        *offset_table.get(&capture).unwrap(),
+                    )));
+                }
+
+                lambdas.insert(
+                    expr.id,
+                    LambdaData {
+                        label: label.clone(),
+                        offset_table: lambda_offset_table,
+                        nlocals: locals_count,
+                        ncaptures,
+                    },
+                );
 
                 instructions.push(InstrOrLabel::Instr(Instr::MakeClosure {
-                    n_captured: 0,
+                    n_captured: ncaptures as u16,
                     func_addr: label,
                 }));
             }
