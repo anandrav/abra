@@ -119,7 +119,7 @@ impl Translator {
             let locals_count = locals.len();
             let nargs = args.len();
             let mut captures = Locals::new();
-            collect_captures_expr(body, &mut captures);
+            self.collect_captures_expr(body, &mut captures);
             for i in 0..locals_count {
                 instructions.push(InstrOrLabel::Instr(Instr::PushNil));
             }
