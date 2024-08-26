@@ -362,7 +362,6 @@ impl Vm {
                             self.pc = *func_addr;
                             self.stack_base = self.value_stack.len();
                             self.value_stack.extend(captured_values.iter().cloned());
-                            // TODO: should captured values be treated as args or locals? Is there a big difference? What order?
                         }
                         _ => panic!("not a function object"),
                     },

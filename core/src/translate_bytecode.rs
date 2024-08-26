@@ -136,6 +136,7 @@ impl Translator {
             let arg_set = args.iter().map(|(pat, _)| pat.id).collect::<HashSet<_>>();
             let mut captures = HashSet::new();
             self.collect_captures_expr(body, &locals, &arg_set, &mut captures);
+            let ncaptures = captures.len();
             for i in 0..locals_count {
                 instructions.push(InstrOrLabel::Instr(Instr::PushNil));
             }
@@ -154,10 +155,10 @@ impl Translator {
             }
             self.translate_expr(body.clone(), &offset_table, &mut instructions, &mut lambdas); // TODO passing lambdas here is kind of weird and recursive. Should build list of lambdas in statics.rs instead.
 
-            if locals_count + nargs > 0 {
+            if locals_count + nargs + ncaptures > 0 {
                 // pop all locals and arguments except one. The last one is the return value slot.
                 instructions.push(InstrOrLabel::Instr(Instr::StoreOffset(-(nargs as i32))));
-                for _ in 0..(locals_count + nargs - 1) {
+                for _ in 0..(locals_count + nargs + ncaptures - 1) {
                     instructions.push(InstrOrLabel::Instr(Instr::Pop));
                 }
             }
@@ -427,7 +428,6 @@ impl Translator {
 
                 lambdas.insert((label.clone(), expr.id));
 
-                // initialize function object
                 instructions.push(InstrOrLabel::Instr(Instr::MakeClosure {
                     n_captured: 0,
                     func_addr: label,
