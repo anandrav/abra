@@ -627,99 +627,94 @@ impl Translator {
             }
         }
     }
-}
 
-enum PatComparisonStrategy {
-    OnFail,
-    OnSuccess,
-}
+    fn collect_captures_expr(&self, expr: &Expr, captures: &mut Locals) {
+        match &*expr.exprkind {
+            ExprKind::Unit
+            | ExprKind::Bool(_)
+            | ExprKind::Int(_)
+            | ExprKind::Float(_)
+            | ExprKind::Str(_) => {}
+            ExprKind::Var(_) => {
+                let resolution = self.inf_ctx.name_resolutions.get(&expr.id).unwrap();
+            }
 
-fn collect_captures_expr(expr: &Expr, captures: &mut Locals) {
-    match &*expr.exprkind {
-        ExprKind::Unit
-        | ExprKind::Bool(_)
-        | ExprKind::Int(_)
-        | ExprKind::Float(_)
-        | ExprKind::Str(_) => {}
-        ExprKind::Var(symbol) => {
-            todo!()
-        }
-
-        ExprKind::Block(statements) => {
-            for statement in statements {
-                collect_captures_stmt(&[statement.clone()], captures);
+            ExprKind::Block(statements) => {
+                for statement in statements {
+                    self.collect_captures_stmt(&[statement.clone()], captures);
+                }
             }
-        }
-        ExprKind::Match(_, arms) => {
-            for arm in arms {
-                collect_captures_expr(&arm.expr, captures);
+            ExprKind::Match(_, arms) => {
+                for arm in arms {
+                    self.collect_captures_expr(&arm.expr, captures);
+                }
             }
-        }
-        ExprKind::Func(_, _, body) => {
-            collect_captures_expr(body, captures);
-        }
-        ExprKind::List(exprs) => {
-            for expr in exprs {
-                collect_captures_expr(expr, captures);
+            ExprKind::Func(_, _, body) => {
+                self.collect_captures_expr(body, captures);
             }
-        }
-        ExprKind::Array(exprs) => {
-            for expr in exprs {
-                collect_captures_expr(expr, captures);
+            ExprKind::List(exprs) => {
+                for expr in exprs {
+                    self.collect_captures_expr(expr, captures);
+                }
             }
-        }
-        ExprKind::Tuple(exprs) => {
-            for expr in exprs {
-                collect_captures_expr(expr, captures);
+            ExprKind::Array(exprs) => {
+                for expr in exprs {
+                    self.collect_captures_expr(expr, captures);
+                }
             }
-        }
-        ExprKind::BinOp(left, _, right) => {
-            collect_captures_expr(left, captures);
-            collect_captures_expr(right, captures);
-        }
-        ExprKind::FieldAccess(accessed, _) => {
-            collect_captures_expr(accessed, captures);
-        }
-        ExprKind::IndexAccess(array, index) => {
-            collect_captures_expr(array, captures);
-            collect_captures_expr(index, captures);
-        }
-        ExprKind::FuncAp(func, args) => {
-            collect_captures_expr(func, captures);
-            for arg in args {
-                collect_captures_expr(arg, captures);
+            ExprKind::Tuple(exprs) => {
+                for expr in exprs {
+                    self.collect_captures_expr(expr, captures);
+                }
             }
-        }
-        ExprKind::If(cond, then_block, else_block) => {
-            collect_captures_expr(cond, captures);
-            collect_captures_expr(then_block, captures);
-            if let Some(else_block) = else_block {
-                collect_captures_expr(else_block, captures);
+            ExprKind::BinOp(left, _, right) => {
+                self.collect_captures_expr(left, captures);
+                self.collect_captures_expr(right, captures);
             }
-        }
-        ExprKind::WhileLoop(cond, body) => {
-            collect_captures_expr(cond, captures);
-            collect_captures_expr(body, captures);
+            ExprKind::FieldAccess(accessed, _) => {
+                self.collect_captures_expr(accessed, captures);
+            }
+            ExprKind::IndexAccess(array, index) => {
+                self.collect_captures_expr(array, captures);
+                self.collect_captures_expr(index, captures);
+            }
+            ExprKind::FuncAp(func, args) => {
+                self.collect_captures_expr(func, captures);
+                for arg in args {
+                    self.collect_captures_expr(arg, captures);
+                }
+            }
+            ExprKind::If(cond, then_block, else_block) => {
+                self.collect_captures_expr(cond, captures);
+                self.collect_captures_expr(then_block, captures);
+                if let Some(else_block) = else_block {
+                    self.collect_captures_expr(else_block, captures);
+                }
+            }
+            ExprKind::WhileLoop(cond, body) => {
+                self.collect_captures_expr(cond, captures);
+                self.collect_captures_expr(body, captures);
+            }
         }
     }
-}
 
-fn collect_captures_stmt(statements: &[Rc<Stmt>], captures: &mut Locals) {
-    for statement in statements {
-        match &*statement.stmtkind {
-            StmtKind::Expr(expr) => {
-                collect_captures_expr(expr, captures);
+    fn collect_captures_stmt(&self, statements: &[Rc<Stmt>], captures: &mut Locals) {
+        for statement in statements {
+            match &*statement.stmtkind {
+                StmtKind::Expr(expr) => {
+                    self.collect_captures_expr(expr, captures);
+                }
+                StmtKind::Let(_, _, expr) => {
+                    self.collect_captures_expr(expr, captures);
+                }
+                StmtKind::Set(_, expr) => {
+                    self.collect_captures_expr(expr, captures);
+                }
+                StmtKind::FuncDef(..) => {}
+                StmtKind::InterfaceImpl(..) => {}
+                StmtKind::InterfaceDef(..) => {}
+                StmtKind::TypeDef(..) => {}
             }
-            StmtKind::Let(_, _, expr) => {
-                collect_captures_expr(expr, captures);
-            }
-            StmtKind::Set(_, expr) => {
-                collect_captures_expr(expr, captures);
-            }
-            StmtKind::FuncDef(..) => {}
-            StmtKind::InterfaceImpl(..) => {}
-            StmtKind::InterfaceDef(..) => {}
-            StmtKind::TypeDef(..) => {}
         }
     }
 }
