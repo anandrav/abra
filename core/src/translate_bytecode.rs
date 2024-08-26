@@ -12,7 +12,7 @@ use std::collections::{HashMap, HashSet};
 use std::rc::Rc;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
-type Locals = HashMap<NodeId, i32>;
+type OffsetTable = HashMap<NodeId, i32>;
 type Lambdas = HashSet<(Label, NodeId)>;
 
 #[derive(Debug)]
@@ -43,25 +43,31 @@ impl Translator {
         let mut lambdas: Lambdas = HashSet::new();
 
         // Handle the main function (toplevels)
-        let mut locals = Locals::new();
-        for toplevel in self.toplevels.iter() {
-            collect_locals_stmt(&toplevel.statements, &mut locals);
-        }
-        for i in 0..locals.len() {
-            instructions.push(InstrOrLabel::Instr(Instr::PushNil));
-        }
-        for toplevel in self.toplevels.iter() {
-            for (i, statement) in toplevel.statements.iter().enumerate() {
-                self.translate_stmt(
-                    statement.clone(),
-                    i == toplevel.statements.len() - 1,
-                    &locals,
-                    &mut instructions,
-                    &mut lambdas,
-                );
+        {
+            let mut locals = HashSet::new();
+            for toplevel in self.toplevels.iter() {
+                collect_locals_stmt(&toplevel.statements, &mut locals);
             }
+            for i in 0..locals.len() {
+                instructions.push(InstrOrLabel::Instr(Instr::PushNil));
+            }
+            let mut offset_table = OffsetTable::new();
+            for (i, local) in locals.iter().enumerate() {
+                offset_table.entry(*local).or_insert((i) as i32);
+            }
+            for toplevel in self.toplevels.iter() {
+                for (i, statement) in toplevel.statements.iter().enumerate() {
+                    self.translate_stmt(
+                        statement.clone(),
+                        i == toplevel.statements.len() - 1,
+                        &offset_table,
+                        &mut instructions,
+                        &mut lambdas,
+                    );
+                }
+            }
+            instructions.push(InstrOrLabel::Instr(Instr::Stop));
         }
-        instructions.push(InstrOrLabel::Instr(Instr::Stop));
 
         // Handle function definitions
         for toplevel in self.toplevels.iter() {
@@ -79,17 +85,26 @@ impl Translator {
                     }
                     // println!("Generating code for function: {}", func_name);
                     instructions.push(InstrOrLabel::Label(func_name));
-                    let mut locals = Locals::new();
+                    let mut locals = HashSet::new();
                     collect_locals_expr(body, &mut locals);
                     let locals_count = locals.len();
-                    for i in 0..locals_count {
+                    for _ in 0..locals_count {
                         instructions.push(InstrOrLabel::Instr(Instr::PushNil));
                     }
+                    let mut offset_table = OffsetTable::new();
                     for (i, arg) in args.iter().rev().enumerate() {
-                        locals.entry(arg.0.id).or_insert(-(i as i32) - 1);
+                        offset_table.entry(arg.0.id).or_insert(-(i as i32) - 1);
+                    }
+                    for (i, local) in locals.iter().enumerate() {
+                        offset_table.entry(*local).or_insert((i) as i32);
                     }
                     let nargs = args.len();
-                    self.translate_expr(body.clone(), &locals, &mut instructions, &mut lambdas);
+                    self.translate_expr(
+                        body.clone(),
+                        &offset_table,
+                        &mut instructions,
+                        &mut lambdas,
+                    );
 
                     if locals_count + nargs > 0 {
                         // pop all locals and arguments except one. The last one is the return value slot.
@@ -114,19 +129,30 @@ impl Translator {
 
             instructions.push(InstrOrLabel::Label(label));
 
-            let mut locals = Locals::new();
+            let mut locals = HashSet::new();
             collect_locals_expr(body, &mut locals);
             let locals_count = locals.len();
             let nargs = args.len();
-            let mut captures = Locals::new();
-            self.collect_captures_expr(body, &mut captures);
+            let arg_set = args.iter().map(|(pat, _)| pat.id).collect::<HashSet<_>>();
+            let mut captures = HashSet::new();
+            self.collect_captures_expr(body, &locals, &arg_set, &mut captures);
             for i in 0..locals_count {
                 instructions.push(InstrOrLabel::Instr(Instr::PushNil));
             }
+
+            let mut offset_table = OffsetTable::new();
             for (i, arg) in args.iter().rev().enumerate() {
-                locals.entry(arg.0.id).or_insert(-(i as i32) - 1);
+                offset_table.entry(arg.0.id).or_insert(-(i as i32) - 1);
             }
-            self.translate_expr(body.clone(), &locals, &mut instructions, &mut lambdas); // TODO passing lambdas here is kind of weird and recursive. Should build list of lambdas in statics.rs instead.
+            for (i, capture) in captures.iter().enumerate() {
+                offset_table.entry(*capture).or_insert(i as i32);
+            }
+            for (i, local) in locals.iter().enumerate() {
+                offset_table
+                    .entry(*local)
+                    .or_insert((i + captures.len()) as i32);
+            }
+            self.translate_expr(body.clone(), &offset_table, &mut instructions, &mut lambdas); // TODO passing lambdas here is kind of weird and recursive. Should build list of lambdas in statics.rs instead.
 
             if locals_count + nargs > 0 {
                 // pop all locals and arguments except one. The last one is the return value slot.
@@ -162,7 +188,7 @@ impl Translator {
     fn translate_expr(
         &self,
         expr: Rc<Expr>,
-        locals: &Locals,
+        locals: &OffsetTable,
         instructions: &mut Vec<InstrOrLabel>,
         lambdas: &mut Lambdas,
     ) {
@@ -533,7 +559,7 @@ impl Translator {
         &self,
         stmt: Rc<Stmt>,
         is_last: bool,
-        locals: &Locals,
+        locals: &OffsetTable,
         instructions: &mut Vec<InstrOrLabel>,
         lambdas: &mut Lambdas,
     ) {
@@ -592,7 +618,7 @@ impl Translator {
     fn handle_pat_binding(
         &self,
         pat: Rc<Pat>,
-        locals: &Locals,
+        locals: &OffsetTable,
         instructions: &mut Vec<InstrOrLabel>,
     ) {
         match &*pat.patkind {
@@ -628,7 +654,13 @@ impl Translator {
         }
     }
 
-    fn collect_captures_expr(&self, expr: &Expr, captures: &mut Locals) {
+    fn collect_captures_expr(
+        &self,
+        expr: &Expr,
+        locals: &HashSet<NodeId>,
+        arg_set: &HashSet<NodeId>,
+        captures: &mut HashSet<NodeId>,
+    ) {
         match &*expr.exprkind {
             ExprKind::Unit
             | ExprKind::Bool(_)
@@ -637,78 +669,89 @@ impl Translator {
             | ExprKind::Str(_) => {}
             ExprKind::Var(_) => {
                 let resolution = self.inf_ctx.name_resolutions.get(&expr.id).unwrap();
+                if let Resolution::Node(node_id) = resolution {
+                    if !locals.contains(node_id) && !arg_set.contains(node_id) {
+                        captures.insert(*node_id);
+                    }
+                }
             }
 
             ExprKind::Block(statements) => {
                 for statement in statements {
-                    self.collect_captures_stmt(&[statement.clone()], captures);
+                    self.collect_captures_stmt(&[statement.clone()], locals, arg_set, captures);
                 }
             }
             ExprKind::Match(_, arms) => {
                 for arm in arms {
-                    self.collect_captures_expr(&arm.expr, captures);
+                    self.collect_captures_expr(&arm.expr, locals, arg_set, captures);
                 }
             }
             ExprKind::Func(_, _, body) => {
-                self.collect_captures_expr(body, captures);
+                self.collect_captures_expr(body, locals, arg_set, captures);
             }
             ExprKind::List(exprs) => {
                 for expr in exprs {
-                    self.collect_captures_expr(expr, captures);
+                    self.collect_captures_expr(expr, locals, arg_set, captures);
                 }
             }
             ExprKind::Array(exprs) => {
                 for expr in exprs {
-                    self.collect_captures_expr(expr, captures);
+                    self.collect_captures_expr(expr, locals, arg_set, captures);
                 }
             }
             ExprKind::Tuple(exprs) => {
                 for expr in exprs {
-                    self.collect_captures_expr(expr, captures);
+                    self.collect_captures_expr(expr, locals, arg_set, captures);
                 }
             }
             ExprKind::BinOp(left, _, right) => {
-                self.collect_captures_expr(left, captures);
-                self.collect_captures_expr(right, captures);
+                self.collect_captures_expr(left, locals, arg_set, captures);
+                self.collect_captures_expr(right, locals, arg_set, captures);
             }
             ExprKind::FieldAccess(accessed, _) => {
-                self.collect_captures_expr(accessed, captures);
+                self.collect_captures_expr(accessed, locals, arg_set, captures);
             }
             ExprKind::IndexAccess(array, index) => {
-                self.collect_captures_expr(array, captures);
-                self.collect_captures_expr(index, captures);
+                self.collect_captures_expr(array, locals, arg_set, captures);
+                self.collect_captures_expr(index, locals, arg_set, captures);
             }
             ExprKind::FuncAp(func, args) => {
-                self.collect_captures_expr(func, captures);
+                self.collect_captures_expr(func, locals, arg_set, captures);
                 for arg in args {
-                    self.collect_captures_expr(arg, captures);
+                    self.collect_captures_expr(arg, locals, arg_set, captures);
                 }
             }
             ExprKind::If(cond, then_block, else_block) => {
-                self.collect_captures_expr(cond, captures);
-                self.collect_captures_expr(then_block, captures);
+                self.collect_captures_expr(cond, locals, arg_set, captures);
+                self.collect_captures_expr(then_block, locals, arg_set, captures);
                 if let Some(else_block) = else_block {
-                    self.collect_captures_expr(else_block, captures);
+                    self.collect_captures_expr(else_block, locals, arg_set, captures);
                 }
             }
             ExprKind::WhileLoop(cond, body) => {
-                self.collect_captures_expr(cond, captures);
-                self.collect_captures_expr(body, captures);
+                self.collect_captures_expr(cond, locals, arg_set, captures);
+                self.collect_captures_expr(body, locals, arg_set, captures);
             }
         }
     }
 
-    fn collect_captures_stmt(&self, statements: &[Rc<Stmt>], captures: &mut Locals) {
+    fn collect_captures_stmt(
+        &self,
+        statements: &[Rc<Stmt>],
+        locals: &HashSet<NodeId>,
+        arg_set: &HashSet<NodeId>,
+        captures: &mut HashSet<NodeId>,
+    ) {
         for statement in statements {
             match &*statement.stmtkind {
                 StmtKind::Expr(expr) => {
-                    self.collect_captures_expr(expr, captures);
+                    self.collect_captures_expr(expr, locals, arg_set, captures);
                 }
                 StmtKind::Let(_, _, expr) => {
-                    self.collect_captures_expr(expr, captures);
+                    self.collect_captures_expr(expr, locals, arg_set, captures);
                 }
                 StmtKind::Set(_, expr) => {
-                    self.collect_captures_expr(expr, captures);
+                    self.collect_captures_expr(expr, locals, arg_set, captures);
                 }
                 StmtKind::FuncDef(..) => {}
                 StmtKind::InterfaceImpl(..) => {}
@@ -719,7 +762,7 @@ impl Translator {
     }
 }
 
-fn collect_locals_expr(expr: &Expr, locals: &mut Locals) {
+fn collect_locals_expr(expr: &Expr, locals: &mut HashSet<NodeId>) {
     match &*expr.exprkind {
         ExprKind::Block(statements) => {
             for statement in statements {
@@ -736,7 +779,7 @@ fn collect_locals_expr(expr: &Expr, locals: &mut Locals) {
     }
 }
 
-fn collect_locals_stmt(statements: &[Rc<Stmt>], locals: &mut Locals) {
+fn collect_locals_stmt(statements: &[Rc<Stmt>], locals: &mut HashSet<NodeId>) {
     for statement in statements {
         match &*statement.stmtkind {
             StmtKind::Expr(expr) => {
@@ -750,12 +793,12 @@ fn collect_locals_stmt(statements: &[Rc<Stmt>], locals: &mut Locals) {
     }
 }
 
-fn collect_locals_pat(pat: Rc<Pat>, locals: &mut Locals) {
+fn collect_locals_pat(pat: Rc<Pat>, locals: &mut HashSet<NodeId>) {
     match &*pat.patkind {
         PatKind::Var(symbol) => {
             let len = locals.len();
             println!("adding {} to locals, pat_id = {}", symbol, pat.id);
-            locals.entry(pat.id).or_insert(len as i32);
+            locals.insert(pat.id);
         }
         PatKind::Tuple(pats) => {
             for pat in pats {
