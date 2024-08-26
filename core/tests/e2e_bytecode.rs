@@ -445,3 +445,21 @@ double(5)
     let top = vm.top();
     assert_eq!(top.get_int(), 10);
 }
+
+#[test]
+fn lambda_no_capture_2_args() {
+    let src = r#"
+let add = (x, y) -> x + y
+add(2, 3)
+"#;
+    let sources = source_files_single(src);
+    let mut vm = match compile_bytecode::<DefaultEffects>(sources) {
+        Ok(vm) => vm,
+        Err(e) => {
+            panic!("{}", e);
+        }
+    };
+    vm.run();
+    let top = vm.top();
+    assert_eq!(top.get_int(), 5);
+}
