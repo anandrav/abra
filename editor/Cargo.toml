@@ -13,8 +13,8 @@ path = "src/main.rs"
 abra_core = { path = "../core" }
 debug_print = "1.0.0"
 regex = "1.7.0"
-egui = "0.25.0"
-eframe = { version = "0.25.0", default-features = false, features = [
+egui = "0.28.1"
+eframe = { version = "0.28.1", default-features = false, features = [
     "accesskit",     # Make egui comptaible with screen readers. NOTE: adds a lot of dependencies.
     "default_fonts", # Embed the default egui fonts.
     "glow",          # Use the glow rendering backend. Alternative: "wgpu".

@@ -27,7 +27,7 @@ fn main() {
     eframe::run_native(
         "My egui App",
         options,
-        Box::new(|_cc| Box::<MyApp>::default()),
+        Box::new(|_cc| Ok(Box::<MyApp>::default())),
     )
     .expect("Could not launch egui app");
 }
@@ -47,7 +47,7 @@ fn main() {
             .start(
                 "the_canvas_id", // hardcode it
                 options,
-                Box::new(|_cc| Box::<MyApp>::default()),
+                Box::new(|_cc| Ok(Box::<MyApp>::default())),
             )
             .await
             .expect("failed to start eframe");
@@ -478,7 +478,7 @@ impl eframe::App for MyApp {
             egui::Window::new("Abra Editor")
                 .title_bar(false)
                 .anchor(egui::Align2::CENTER_TOP, egui::vec2(0.0, 0.0))
-                .scroll2([true, true])
+                .scroll([true, true])
                 .default_width(700.0)
                 .default_height(1000.0)
                 .show(ctx, |ui| {
