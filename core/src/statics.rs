@@ -932,13 +932,7 @@ fn constrain(mut expected: TypeVar, mut actual: TypeVar) {
 
 #[derive(Debug, Clone)]
 pub(crate) enum Resolution {
-    Node(NodeId), // TODO make this more granular to avoid unnecessary downcasting / panic statements everywhere
-    /*
-       - function definition
-       - overloaded function definition?
-       - struct definiiton
-       - variant/ADT definition (implemented below already)
-    */
+    Var(NodeId),
     FunctionDefinition(NodeId, Symbol),
     StructDefinition(NodeId, u16),
     Variant(NodeId, u16, u16),
@@ -2086,7 +2080,7 @@ pub(crate) fn generate_constraints_pat(
         PatKind::Var(identifier) => {
             // letrec: extend context with id and type before analyzing against said type
             gamma.extend(identifier.clone(), ty_pat);
-            gamma.extend_declaration(identifier.clone(), Resolution::Node(pat.id));
+            gamma.extend_declaration(identifier.clone(), Resolution::Var(pat.id));
         }
         PatKind::Variant(tag, data) => {
             let ty_data = match data {
@@ -2177,7 +2171,7 @@ pub(crate) fn gather_definitions_stmt(
                 constrain(node_ty.clone(), ty_annot.clone());
                 // TODO last here
                 // perhaps make a note that this is an interface method (overloaded)
-                gamma.extend_declaration(p.ident.clone(), Resolution::Node(p.id()));
+                gamma.extend_declaration(p.ident.clone(), Resolution::Var(p.id()));
                 methods.push(InterfaceDefMethod {
                     name: p.ident.clone(),
                     ty: node_ty.clone(),

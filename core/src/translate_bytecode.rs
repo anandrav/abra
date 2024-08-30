@@ -181,7 +181,7 @@ impl Translator {
                         emit(items, Instr::PushNil);
                         emit(items, Instr::ConstructVariant { tag: *tag });
                     }
-                    Resolution::Node(node_id) => {
+                    Resolution::Var(node_id) => {
                         let span = self.node_map.get(node_id).unwrap().span();
                         let mut s = String::new();
                         span.display(
@@ -194,9 +194,22 @@ impl Translator {
                         emit(items, Instr::LoadOffset(*idx));
                     }
                     Resolution::Builtin(s) => {
+                        // TODO: generate functions for builtins
                         unimplemented!()
                     }
-                    _ => unimplemented!(),
+                    Resolution::StructDefinition(_, _) => {
+                        // TODO: generate functions for structs
+                        unimplemented!()
+                    }
+                    Resolution::FunctionDefinition(_, name) => {
+                        emit(
+                            items,
+                            Instr::MakeClosure {
+                                n_captured: 0,
+                                func_addr: name.clone(),
+                            },
+                        );
+                    }
                 }
             }
             ExprKind::Unit => {
@@ -232,13 +245,13 @@ impl Translator {
                 }
             }
             ExprKind::FuncAp(func, args) => {
-                if let ExprKind::Var(symbol) = &*func.exprkind {
+                if let ExprKind::Var(_) = &*func.exprkind {
                     for arg in args {
                         self.translate_expr(arg.clone(), offset_table, items, lambdas);
                     }
                     let resolution = self.inf_ctx.name_resolutions.get(&func.id).unwrap();
                     match resolution {
-                        Resolution::Node(node_id) => {
+                        Resolution::Var(node_id) => {
                             // assume it's a function object
                             let idx = offset_table.get(node_id).unwrap();
                             emit(items, Instr::LoadOffset(*idx));
@@ -393,7 +406,7 @@ impl Translator {
                 for (i, arm) in arms.iter().enumerate() {
                     emit(items, Item::Label(arm_labels[i].clone()));
 
-                    self.handle_pat_binding(arm.pat.clone(), offset_table, items);
+                    handle_pat_binding(arm.pat.clone(), offset_table, items);
 
                     self.translate_expr(arm.expr.clone(), offset_table, items, lambdas);
                     if i != arms.len() - 1 {
@@ -412,7 +425,7 @@ impl Translator {
                 let mut captures = HashSet::new();
                 self.collect_captures_expr(body, &locals, &arg_set, &mut captures);
                 for capture in captures.iter() {
-                    let node = self.node_map.get(&capture).unwrap();
+                    let node = self.node_map.get(capture).unwrap();
                     let span = node.span();
                     let mut s = String::new();
                     span.display(&mut s, &self.sources, "capture");
@@ -596,11 +609,11 @@ impl Translator {
         match &*stmt.stmtkind {
             StmtKind::Let(_, pat, expr) => {
                 self.translate_expr(expr.clone(), locals, items, lambdas);
-                self.handle_pat_binding(pat.0.clone(), locals, items);
+                handle_pat_binding(pat.0.clone(), locals, items);
             }
             StmtKind::Set(expr1, rvalue) => match &*expr1.exprkind {
                 ExprKind::Var(_) => {
-                    let Resolution::Node(node_id) =
+                    let Resolution::Var(node_id) =
                         self.inf_ctx.name_resolutions.get(&expr1.id).unwrap()
                     else {
                         panic!("expected variableto be defined in node");
@@ -645,40 +658,6 @@ impl Translator {
         }
     }
 
-    fn handle_pat_binding(&self, pat: Rc<Pat>, locals: &OffsetTable, items: &mut Vec<Item>) {
-        match &*pat.patkind {
-            PatKind::Var(_) => {
-                let idx = locals.get(&pat.id).unwrap();
-                emit(items, Instr::StoreOffset(*idx));
-            }
-            PatKind::Tuple(pats) => {
-                emit(items, Instr::Deconstruct);
-                for pat in pats.iter() {
-                    self.handle_pat_binding(pat.clone(), locals, items);
-                }
-            }
-            PatKind::Variant(_, inner) => {
-                if let Some(inner) = inner {
-                    // unpack tag and associated data
-                    emit(items, Instr::Deconstruct);
-                    // pop tag
-                    emit(items, Instr::Pop);
-                    self.handle_pat_binding(inner.clone(), locals, items);
-                } else {
-                    emit(items, Instr::Pop);
-                }
-            }
-            PatKind::Unit
-            | PatKind::Bool(..)
-            | PatKind::Int(..)
-            | PatKind::Float(..)
-            | PatKind::Str(..)
-            | PatKind::Wildcard => {
-                emit(items, Instr::Pop);
-            }
-        }
-    }
-
     fn collect_captures_expr(
         &self,
         expr: &Expr,
@@ -694,7 +673,7 @@ impl Translator {
             | ExprKind::Str(_) => {}
             ExprKind::Var(_) => {
                 let resolution = self.inf_ctx.name_resolutions.get(&expr.id).unwrap();
-                if let Resolution::Node(node_id) = resolution {
+                if let Resolution::Var(node_id) = resolution {
                     if !locals.contains(node_id) && !arg_set.contains(node_id) {
                         captures.insert(*node_id);
                     }
@@ -783,6 +762,40 @@ impl Translator {
                 StmtKind::InterfaceDef(..) => {}
                 StmtKind::TypeDef(..) => {}
             }
+        }
+    }
+}
+
+fn handle_pat_binding(pat: Rc<Pat>, locals: &OffsetTable, items: &mut Vec<Item>) {
+    match &*pat.patkind {
+        PatKind::Var(_) => {
+            let idx = locals.get(&pat.id).unwrap();
+            emit(items, Instr::StoreOffset(*idx));
+        }
+        PatKind::Tuple(pats) => {
+            emit(items, Instr::Deconstruct);
+            for pat in pats.iter() {
+                handle_pat_binding(pat.clone(), locals, items);
+            }
+        }
+        PatKind::Variant(_, inner) => {
+            if let Some(inner) = inner {
+                // unpack tag and associated data
+                emit(items, Instr::Deconstruct);
+                // pop tag
+                emit(items, Instr::Pop);
+                handle_pat_binding(inner.clone(), locals, items);
+            } else {
+                emit(items, Instr::Pop);
+            }
+        }
+        PatKind::Unit
+        | PatKind::Bool(..)
+        | PatKind::Int(..)
+        | PatKind::Float(..)
+        | PatKind::Str(..)
+        | PatKind::Wildcard => {
+            emit(items, Instr::Pop);
         }
     }
 }
