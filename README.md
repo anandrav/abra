@@ -4,10 +4,11 @@
 
 ```ocaml
 func fibonacci(n) = {
-    match n
+    match n {
         0 -> 0
         1 -> 1
         _ -> fibonacci(n-1) + fibonacci(n-2)
+    }
 }
 
 println("The first 10 fibonacci numbers are:")
