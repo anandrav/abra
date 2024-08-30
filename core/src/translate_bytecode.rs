@@ -83,8 +83,8 @@ impl Translator {
                 if let StmtKind::FuncDef(name, args, _, body) = &*statement.stmtkind {
                     let func_name = name.patkind.get_identifier_of_variable();
                     let func_name_blacklist = [
-                        "range", "fold", "sum", "sumf", "clamp", "concat", "map", "for_each",
-                        "filter", "reverse", "print", "println",
+                        "fold", "sum", "sumf", "clamp", "concat", "map", "for_each", "filter",
+                        "reverse", "print", "println",
                     ];
                     // don't generate code for functions in prelude, not ready for that yet.
                     if func_name_blacklist.contains(&func_name.as_str()) {
