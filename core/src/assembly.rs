@@ -29,34 +29,38 @@ impl From<&Instr> for String {
         match val {
             Instr::Pop => "pop".into(),
             Instr::Duplicate => "duplicate".into(),
-            Instr::LoadOffset(n) => format!("loadoffset {}", n),
-            Instr::StoreOffset(n) => format!("storeoffset {}", n),
+            Instr::LoadOffset(n) => format!("load_offset {}", n),
+            Instr::StoreOffset(n) => format!("store_offset {}", n),
             Instr::Add => "add".into(),
-            Instr::Sub => "sub".into(),
-            Instr::Mul => "mul".into(),
-            Instr::Div => "div".into(),
+            Instr::Sub => "subtract".into(),
+            Instr::Mul => "multiply".into(),
+            Instr::Div => "divide".into(),
             Instr::Not => "not".into(),
             Instr::Equal => "equal".into(),
-            Instr::PushNil => "pushnil".into(),
-            Instr::PushBool(b) => format!("pushbool {}", b),
-            Instr::PushInt(n) => format!("pushint {}", n),
-            Instr::PushString(s) => format!("pushstring \"{}\"", s),
+            Instr::LessThan => "less_than".into(),
+            Instr::LessThanOrEqual => "less_than_or_equal".into(),
+            Instr::GreaterThan => "greater_than".into(),
+            Instr::GreaterThanOrEqual => "greater_than_or_equal".into(),
+            Instr::PushNil => "push_nil".into(),
+            Instr::PushBool(b) => format!("push_bool {}", b),
+            Instr::PushInt(n) => format!("push_int {}", n),
+            Instr::PushString(s) => format!("push_string \"{}\"", s),
             Instr::Jump(loc) => format!("jump {}", loc),
-            Instr::JumpIf(loc) => format!("jumpif {}", loc),
+            Instr::JumpIf(loc) => format!("jump_if {}", loc),
             Instr::Call(loc) => format!("call {}", loc),
-            Instr::CallFuncObj => "callfuncobj".into(),
+            Instr::CallFuncObj => "call_func_obj".into(),
             Instr::Return => "return".into(),
             Instr::Construct(n) => format!("construct {}", n),
             Instr::Deconstruct => "deconstruct".into(),
-            Instr::GetField(idx) => format!("getfield {}", idx),
-            Instr::SetField(idx) => format!("setfield {}", idx),
-            Instr::GetIdx => "getidx".into(),
-            Instr::SetIdx => "setidx".into(),
-            Instr::ConstructVariant { tag } => format!("constructvariant {}", tag,),
+            Instr::GetField(idx) => format!("get_field {}", idx),
+            Instr::SetField(idx) => format!("set_field {}", idx),
+            Instr::GetIdx => "get_index".into(),
+            Instr::SetIdx => "set_index".into(),
+            Instr::ConstructVariant { tag } => format!("construct_variant {}", tag,),
             Instr::MakeClosure {
                 n_captured,
                 func_addr,
-            } => format!("makeclosure {} {}", n_captured, func_addr),
+            } => format!("make_closure {} {}", n_captured, func_addr),
             Instr::Stop => "stop".into(),
             Instr::Effect(n) => format!("effect {}", n),
         }
@@ -142,6 +146,10 @@ fn instr_to_vminstr(
         Instr::Mul => VmInstr::Mul,
         Instr::Div => VmInstr::Div,
         Instr::Not => VmInstr::Not,
+        Instr::LessThan => VmInstr::LessThan,
+        Instr::LessThanOrEqual => VmInstr::LessThanOrEqual,
+        Instr::GreaterThan => VmInstr::GreaterThan,
+        Instr::GreaterThanOrEqual => VmInstr::GreaterThanOrEqual,
         Instr::Equal => VmInstr::Equal,
         Instr::PushNil => VmInstr::PushNil,
         Instr::PushBool(b) => VmInstr::PushBool(b),
@@ -191,14 +199,14 @@ fn assemble_instr_or_label(
             Instr::StoreOffset(n)
         }
         "add" => Instr::Add,
-        "sub" => Instr::Sub,
-        "mul" => Instr::Mul,
-        "div" => Instr::Div,
+        "subtract" => Instr::Sub,
+        "multiply" => Instr::Mul,
+        "divide" => Instr::Div,
         "not" => Instr::Not,
         "return" => Instr::Return,
         "stop" => Instr::Stop,
-        "pushnil" => Instr::PushNil,
-        "pushbool" => {
+        "push_nil" => Instr::PushNil,
+        "push_bool" => {
             let b = if words[1] == "true" {
                 true
             } else if words[1] == "false" {
@@ -208,18 +216,18 @@ fn assemble_instr_or_label(
             };
             Instr::PushBool(b)
         }
-        "pushint" => {
+        "push_int" => {
             let n = i64::from_str_radix(words[1], radix).unwrap();
             Instr::PushInt(n)
         }
-        "pushstring" => {
+        "push_string" => {
             // remove quotes
             let s = words[1][1..words[1].len() - 1].to_owned();
             let len = string_constants.len();
             string_constants.entry(s.clone()).or_insert(len);
             Instr::PushString(s)
         }
-        "jump" | "jumpif" | "call" => {
+        "jump" | "jump_if" | "call" => {
             let loc = words[1].into();
             match words[0] {
                 "jump" => Instr::Jump(loc),
@@ -232,17 +240,17 @@ fn assemble_instr_or_label(
             let n = u16::from_str_radix(words[1], radix).unwrap();
             Instr::Construct(n)
         }
-        "unpack" => Instr::Deconstruct,
-        "getfield" => {
+        "deconstruct" => Instr::Deconstruct,
+        "get_field" => {
             let n = u16::from_str_radix(words[1], radix).unwrap();
             Instr::GetField(n)
         }
-        "setfield" => {
+        "set_field" => {
             let n = u16::from_str_radix(words[1], radix).unwrap();
             Instr::SetField(n)
         }
-        "getidx" => Instr::GetIdx,
-        "setidx" => Instr::SetIdx,
+        "get_index" => Instr::GetIdx,
+        "set_index" => Instr::SetIdx,
         "construct_variant" => {
             let tag = u16::from_str_radix(words[1], radix).unwrap();
             Instr::ConstructVariant { tag }
@@ -262,10 +270,10 @@ mod tests {
 
     #[test]
     fn basic() {
-        let program_str = r#"pushint 3
-pushint 4
-sub
-pushint 5
+        let program_str = r#"push_int 3
+push_int 4
+subtract
+push_int 5
 add
 "#;
         let (instructions, _) = assemble(program_str);

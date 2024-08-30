@@ -83,9 +83,8 @@ impl Translator {
                 if let StmtKind::FuncDef(name, args, _, body) = &*statement.stmtkind {
                     let func_name = name.patkind.get_identifier_of_variable();
                     let func_name_blacklist = [
-                        "not", "range", "fold", "sum", "sumf", "max", "min", "clamp", "abs",
-                        "sqrt", "concat", "map", "for_each", "filter", "reverse", "print",
-                        "println",
+                        "range", "fold", "sum", "sumf", "clamp", "concat", "map", "for_each",
+                        "filter", "reverse", "print", "println", "abs", "sqrt", "max", "min",
                     ];
                     // don't generate code for functions in prelude, not ready for that yet.
                     if func_name_blacklist.contains(&func_name.as_str()) {
@@ -243,6 +242,17 @@ impl Translator {
                     BinOpcode::Subtract => instructions.push(InstrOrLabel::Instr(Instr::Sub)),
                     BinOpcode::Multiply => instructions.push(InstrOrLabel::Instr(Instr::Mul)),
                     BinOpcode::Divide => instructions.push(InstrOrLabel::Instr(Instr::Div)),
+                    BinOpcode::GreaterThan => {
+                        instructions.push(InstrOrLabel::Instr(Instr::GreaterThan))
+                    }
+                    BinOpcode::LessThan => instructions.push(InstrOrLabel::Instr(Instr::LessThan)),
+                    BinOpcode::GreaterThanOrEqual => {
+                        instructions.push(InstrOrLabel::Instr(Instr::GreaterThanOrEqual))
+                    }
+                    BinOpcode::LessThanOrEqual => {
+                        instructions.push(InstrOrLabel::Instr(Instr::LessThanOrEqual))
+                    }
+                    BinOpcode::Equals => instructions.push(InstrOrLabel::Instr(Instr::Equal)),
                     _ => panic!("op not implemented: {:?}", op),
                 }
             }

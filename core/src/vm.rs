@@ -85,6 +85,10 @@ pub enum Instr<Location = ProgramCounter, StringConstant = u16> {
     Not,
 
     // Comparison
+    LessThan,
+    LessThanOrEqual,
+    GreaterThan,
+    GreaterThanOrEqual,
     Equal,
 
     // Control Flow
@@ -119,29 +123,33 @@ impl From<&Instr> for String {
         match val {
             Instr::Pop => "pop".to_owned(),
             Instr::Duplicate => "duplicate".to_owned(),
-            Instr::LoadOffset(n) => format!("loadoffset {}", n),
-            Instr::StoreOffset(n) => format!("storeoffset {}", n),
+            Instr::LoadOffset(n) => format!("loadOffset {}", n),
+            Instr::StoreOffset(n) => format!("storeOffset {}", n),
             Instr::Add => "add".to_owned(),
-            Instr::Sub => "sub".to_owned(),
-            Instr::Mul => "mul".to_owned(),
-            Instr::Div => "div".to_owned(),
+            Instr::Sub => "subtract".to_owned(),
+            Instr::Mul => "multiply".to_owned(),
+            Instr::Div => "divide".to_owned(),
             Instr::Not => "not".to_owned(),
-            Instr::Equal => "eq".to_owned(),
-            Instr::PushNil => "pushnil".to_owned(),
-            Instr::PushBool(b) => format!("pushbool {}", b),
-            Instr::PushInt(n) => format!("pushint {}", n),
-            Instr::PushString(s) => format!("pushstring \"{}\"", s),
+            Instr::LessThan => "less_than".to_owned(),
+            Instr::LessThanOrEqual => "less_than_or_equal".to_owned(),
+            Instr::GreaterThan => "greater_than".to_owned(),
+            Instr::GreaterThanOrEqual => "greater_than_or_equal".to_owned(),
+            Instr::Equal => "equal".to_owned(),
+            Instr::PushNil => "push_nil".to_owned(),
+            Instr::PushBool(b) => format!("push_bool {}", b),
+            Instr::PushInt(n) => format!("push_int {}", n),
+            Instr::PushString(s) => format!("push_string \"{}\"", s),
             Instr::Jump(loc) => format!("jump {}", loc),
-            Instr::JumpIf(loc) => format!("jumpif {}", loc),
+            Instr::JumpIf(loc) => format!("jump_if {}", loc),
             Instr::Call(loc) => format!("call {}", loc),
-            Instr::CallFuncObj => "callfuncobj".to_owned(),
+            Instr::CallFuncObj => "call_func_obj".to_owned(),
             Instr::Return => "return".to_owned(),
             Instr::Construct(n) => format!("construct {}", n),
             Instr::Deconstruct => "deconstruct".to_owned(),
-            Instr::GetField(n) => format!("getfield {}", n),
-            Instr::SetField(n) => format!("setfield {}", n),
-            Instr::GetIdx => "getidx".to_owned(),
-            Instr::SetIdx => "setidx".to_owned(),
+            Instr::GetField(n) => format!("get_field {}", n),
+            Instr::SetField(n) => format!("set_field {}", n),
+            Instr::GetIdx => "get_index".to_owned(),
+            Instr::SetIdx => "set_index".to_owned(),
             Instr::ConstructVariant { tag } => {
                 format!("construct_variant {}", tag)
             }
@@ -319,6 +327,26 @@ impl Vm {
             Instr::Not => {
                 let v = self.pop_bool();
                 self.push(!v);
+            }
+            Instr::LessThan => {
+                let b = self.pop_int();
+                let a = self.pop_int();
+                self.push(a < b);
+            }
+            Instr::LessThanOrEqual => {
+                let b = self.pop_int();
+                let a = self.pop_int();
+                self.push(a <= b);
+            }
+            Instr::GreaterThan => {
+                let b = self.pop_int();
+                let a = self.pop_int();
+                self.push(a > b);
+            }
+            Instr::GreaterThanOrEqual => {
+                let b = self.pop_int();
+                let a = self.pop_int();
+                self.push(a >= b);
             }
             Instr::Equal => {
                 let b = self.pop();
@@ -523,9 +551,9 @@ mod tests {
     #[test]
     fn arithmetic() {
         let program_str = r#"
-pushint 3
-pushint 4
-sub
+push_int 3
+push_int 4
+subtract
 "#;
         let (instructions, string_table) = assemble(program_str);
         let mut vm = Vm::new(instructions, string_table);
@@ -536,11 +564,11 @@ sub
     #[test]
     fn arithmetic2() {
         let program_str = r#"
-pushint 2
-pushint 3
+push_int 2
+push_int 3
 add
-pushint 1
-sub
+push_int 1
+subtract
 "#;
         let (instructions, string_table) = assemble(program_str);
         let mut vm = Vm::new(instructions, string_table);
@@ -551,10 +579,10 @@ sub
     #[test]
     fn jump_to_label() {
         let program_str = r#"
-pushint 3
-pushint 4
+push_int 3
+push_int 4
 jump my_label
-pushint 100
+push_int 100
 my_label:
 add
 "#;
