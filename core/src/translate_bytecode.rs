@@ -61,7 +61,7 @@ impl Translator {
             for toplevel in self.toplevels.iter() {
                 collect_locals_stmt(&toplevel.statements, &mut locals);
             }
-            for i in 0..locals.len() {
+            for _ in 0..locals.len() {
                 emit(items, Instr::PushNil);
             }
             let mut offset_table = OffsetTable::new();

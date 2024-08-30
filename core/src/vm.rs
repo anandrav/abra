@@ -475,7 +475,7 @@ impl Vm {
                             self.value_stack.extend(fields.iter().rev());
                         }
                         ManagedObjectKind::Adt { tag, value } => {
-                            self.value_stack.push(value.clone());
+                            self.value_stack.push(*value);
                             self.push_int(*tag as AbraInt);
                         }
                         _ => panic!("not a tuple"),
