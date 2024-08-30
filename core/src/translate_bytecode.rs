@@ -1,7 +1,7 @@
 use crate::assembly::{remove_labels, Instr, Item, Label};
 use crate::ast::{NodeId, Sources, Toplevel, TypeDefKind};
 use crate::operators::BinOpcode;
-use crate::statics::{Resolution, SolvedType};
+use crate::statics::{Resolution, SolvedType, TypeMonomorphized};
 use crate::vm::{AbraInt, Instr as VmInstr};
 use crate::EffectTrait;
 use crate::{
@@ -9,11 +9,13 @@ use crate::{
     statics::InferenceContext,
 };
 use std::collections::{HashMap, HashSet};
+use std::ops::Mul;
 use std::rc::Rc;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
 type OffsetTable = HashMap<NodeId, i32>;
 type Lambdas = HashMap<NodeId, LambdaData>;
+type InterfaceMethodsMap = HashMap<(NodeId, TypeMonomorphized), Label>;
 
 #[derive(Debug, Clone)]
 struct LambdaData {
@@ -31,8 +33,15 @@ pub(crate) struct Translator {
     toplevels: Vec<Rc<Toplevel>>,
 }
 
-fn emit(items: &mut Vec<Item>, i: impl Into<Item>) {
-    items.push(i.into());
+#[derive(Debug, Default)]
+struct TranslatorState {
+    items: Vec<Item>,
+    lambdas: Lambdas,
+    interface_method_map: InterfaceMethodsMap,
+}
+
+fn emit(st: &mut TranslatorState, i: impl Into<Item>) {
+    st.items.push(i.into());
 }
 
 impl Translator {
@@ -51,9 +60,8 @@ impl Translator {
     }
 
     pub(crate) fn translate<Effect: EffectTrait>(&self) -> (Vec<VmInstr>, Vec<String>) {
-        let mut items: Vec<Item> = vec![];
-        let items = &mut items;
-        let mut lambdas: Lambdas = HashMap::new();
+        let mut translator_state = TranslatorState::default();
+        let st = &mut translator_state;
 
         // Handle the main function (toplevels)
         {
@@ -62,7 +70,7 @@ impl Translator {
                 collect_locals_stmt(&toplevel.statements, &mut locals);
             }
             for _ in 0..locals.len() {
-                emit(items, Instr::PushNil);
+                emit(st, Instr::PushNil);
             }
             let mut offset_table = OffsetTable::new();
             for (i, local) in locals.iter().enumerate() {
@@ -74,12 +82,11 @@ impl Translator {
                         statement.clone(),
                         i == toplevel.statements.len() - 1,
                         &offset_table,
-                        items,
-                        &mut lambdas,
+                        st,
                     );
                 }
             }
-            emit(items, Instr::Stop);
+            emit(st, Instr::Stop);
         }
 
         // Handle function definitions
@@ -93,12 +100,12 @@ impl Translator {
                         continue;
                     }
                     // println!("Generating code for function: {}", func_name);
-                    emit(items, Item::Label(func_name));
+                    emit(st, Item::Label(func_name));
                     let mut locals = HashSet::new();
                     collect_locals_expr(body, &mut locals);
                     let locals_count = locals.len();
                     for _ in 0..locals_count {
-                        emit(items, Instr::PushNil);
+                        emit(st, Instr::PushNil);
                     }
                     let mut offset_table = OffsetTable::new();
                     for (i, arg) in args.iter().rev().enumerate() {
@@ -108,56 +115,56 @@ impl Translator {
                         offset_table.entry(*local).or_insert((i) as i32);
                     }
                     let nargs = args.len();
-                    self.translate_expr(body.clone(), &offset_table, items, &mut lambdas);
+                    self.translate_expr(body.clone(), &offset_table, st);
 
                     if locals_count + nargs > 0 {
                         // pop all locals and arguments except one. The last one is the return value slot.
-                        emit(items, Instr::StoreOffset(-(nargs as i32)));
+                        emit(st, Instr::StoreOffset(-(nargs as i32)));
                         for _ in 0..(locals_count + nargs - 1) {
-                            emit(items, Instr::Pop);
+                            emit(st, Instr::Pop);
                         }
                     }
 
-                    emit(items, Instr::Return);
+                    emit(st, Instr::Return);
                 }
             }
         }
 
         // Handle lambdas
-        for (node_id, data) in lambdas.clone() {
+        for (node_id, data) in st.lambdas.clone() {
             let node = self.node_map.get(&node_id).unwrap();
             let expr = node.to_expr().unwrap();
             let ExprKind::Func(args, _, body) = &*expr.exprkind else {
                 panic!()
             };
 
-            emit(items, Item::Label(data.label));
+            emit(st, Item::Label(data.label));
 
-            self.translate_expr(body.clone(), &data.offset_table, items, &mut lambdas); // TODO passing lambdas here is kind of weird and recursive. Should build list of lambdas in statics.rs instead.
+            self.translate_expr(body.clone(), &data.offset_table, st); // TODO passing lambdas here is kind of weird and recursive. Should build list of lambdas in statics.rs instead.
 
             let nlocals = data.nlocals;
             let nargs = args.len();
             let ncaptures = data.ncaptures;
             if nlocals + nargs + ncaptures > 0 {
                 // pop all locals and arguments except one. The last one is the return value slot.
-                emit(items, Instr::StoreOffset(-(nargs as i32)));
+                emit(st, Instr::StoreOffset(-(nargs as i32)));
                 for _ in 0..(nlocals + nargs + ncaptures - 1) {
-                    emit(items, Instr::Pop);
+                    emit(st, Instr::Pop);
                 }
             }
 
-            emit(items, Instr::Return);
+            emit(st, Instr::Return);
         }
 
         // Create functions for effects
         let effect_list = Effect::enumerate();
         for (i, effect) in effect_list.iter().enumerate() {
-            emit(items, Item::Label(effect.function_name()));
-            emit(items, Instr::Effect(i as u16));
-            emit(items, Instr::Return);
+            emit(st, Item::Label(effect.function_name()));
+            emit(st, Instr::Effect(i as u16));
+            emit(st, Instr::Return);
         }
 
-        let items = remove_labels(items, &self.inf_ctx.string_constants);
+        let items = remove_labels(&mut st.items, &self.inf_ctx.string_constants);
         let mut string_table: Vec<String> =
             vec!["".to_owned(); self.inf_ctx.string_constants.len()];
         for (s, idx) in self.inf_ctx.string_constants.iter() {
@@ -166,20 +173,14 @@ impl Translator {
         (items, string_table)
     }
 
-    fn translate_expr(
-        &self,
-        expr: Rc<Expr>,
-        offset_table: &OffsetTable,
-        items: &mut Vec<Item>,
-        lambdas: &mut Lambdas,
-    ) {
+    fn translate_expr(&self, expr: Rc<Expr>, offset_table: &OffsetTable, st: &mut TranslatorState) {
         match &*expr.exprkind {
             ExprKind::Var(symbol) => {
                 // adt variant
                 match self.inf_ctx.name_resolutions.get(&expr.id).unwrap() {
                     Resolution::Variant(_, tag, _) => {
-                        emit(items, Instr::PushNil);
-                        emit(items, Instr::ConstructVariant { tag: *tag });
+                        emit(st, Instr::PushNil);
+                        emit(st, Instr::ConstructVariant { tag: *tag });
                     }
                     Resolution::Var(node_id) => {
                         let span = self.node_map.get(node_id).unwrap().span();
@@ -191,7 +192,7 @@ impl Translator {
                         );
                         println!("{}", s);
                         let idx = offset_table.get(node_id).unwrap();
-                        emit(items, Instr::LoadOffset(*idx));
+                        emit(st, Instr::LoadOffset(*idx));
                     }
                     Resolution::Builtin(s) => {
                         // TODO: generate functions for builtins
@@ -203,7 +204,7 @@ impl Translator {
                     }
                     Resolution::FunctionDefinition(_, name) => {
                         emit(
-                            items,
+                            st,
                             Instr::MakeClosure {
                                 n_captured: 0,
                                 func_addr: name.clone(),
@@ -216,81 +217,83 @@ impl Translator {
                 }
             }
             ExprKind::Unit => {
-                emit(items, Instr::PushNil);
+                emit(st, Instr::PushNil);
             }
             ExprKind::Bool(b) => {
-                emit(items, Instr::PushBool(*b));
+                emit(st, Instr::PushBool(*b));
             }
             ExprKind::Int(i) => {
-                emit(items, Instr::PushInt(*i));
+                emit(st, Instr::PushInt(*i));
             }
             ExprKind::Float(f) => {
-                emit(items, Instr::PushFloat(*f));
+                emit(st, Instr::PushFloat(*f));
             }
             ExprKind::Str(s) => {
-                emit(items, Instr::PushString(s.clone()));
+                emit(st, Instr::PushString(s.clone()));
             }
             ExprKind::BinOp(left, op, right) => {
-                self.translate_expr(left.clone(), offset_table, items, lambdas);
-                self.translate_expr(right.clone(), offset_table, items, lambdas);
+                self.translate_expr(left.clone(), offset_table, st);
+                self.translate_expr(right.clone(), offset_table, st);
                 match op {
-                    BinOpcode::Add => emit(items, Instr::Add),
-                    BinOpcode::Subtract => emit(items, Instr::Subtract),
-                    BinOpcode::Multiply => emit(items, Instr::Multiply),
-                    BinOpcode::Divide => emit(items, Instr::Divide),
-                    BinOpcode::GreaterThan => emit(items, Instr::GreaterThan),
-                    BinOpcode::LessThan => emit(items, Instr::LessThan),
-                    BinOpcode::GreaterThanOrEqual => emit(items, Instr::GreaterThanOrEqual),
-                    BinOpcode::LessThanOrEqual => emit(items, Instr::LessThanOrEqual),
-                    BinOpcode::Equals => emit(items, Instr::Equal),
-                    BinOpcode::Concat => emit(items, Instr::ConcatStrings),
+                    BinOpcode::Add => emit(st, Instr::Add),
+                    BinOpcode::Subtract => emit(st, Instr::Subtract),
+                    BinOpcode::Multiply => emit(st, Instr::Multiply),
+                    BinOpcode::Divide => emit(st, Instr::Divide),
+                    BinOpcode::GreaterThan => emit(st, Instr::GreaterThan),
+                    BinOpcode::LessThan => emit(st, Instr::LessThan),
+                    BinOpcode::GreaterThanOrEqual => emit(st, Instr::GreaterThanOrEqual),
+                    BinOpcode::LessThanOrEqual => emit(st, Instr::LessThanOrEqual),
+                    BinOpcode::Equals => emit(st, Instr::Equal),
+                    BinOpcode::Concat => emit(st, Instr::ConcatStrings),
                     _ => panic!("op not implemented: {:?}", op),
                 }
             }
             ExprKind::FuncAp(func, args) => {
                 if let ExprKind::Var(_) = &*func.exprkind {
                     for arg in args {
-                        self.translate_expr(arg.clone(), offset_table, items, lambdas);
+                        self.translate_expr(arg.clone(), offset_table, st);
                     }
                     let resolution = self.inf_ctx.name_resolutions.get(&func.id).unwrap();
                     match resolution {
                         Resolution::Var(node_id) => {
                             // assume it's a function object
                             let idx = offset_table.get(node_id).unwrap();
-                            emit(items, Instr::LoadOffset(*idx));
-                            emit(items, Instr::CallFuncObj);
+                            emit(st, Instr::LoadOffset(*idx));
+                            emit(st, Instr::CallFuncObj);
                         }
                         Resolution::FunctionDefinition(_, name) => {
-                            emit(items, Instr::Call(name.clone()));
+                            emit(st, Instr::Call(name.clone()));
                         }
                         Resolution::InterfaceMethod(_) => {
+                            // need addr of interface method
+                            // need map from (interface method, type) to concrete implementation
                             unimplemented!()
                         }
                         Resolution::StructDefinition(_, nargs) => {
-                            emit(items, Instr::Construct(*nargs));
+                            emit(st, Instr::Construct(*nargs));
                         }
                         Resolution::Variant(_, tag, nargs) => {
                             if *nargs > 1 {
                                 // turn the arguments (associated data) into a tuple
-                                emit(items, Instr::Construct(*nargs));
+                                emit(st, Instr::Construct(*nargs));
                             }
-                            items.push(Item::Instr(Instr::ConstructVariant { tag: *tag }));
+                            emit(st, Instr::ConstructVariant { tag: *tag });
                         }
                         Resolution::Builtin(s) => {
                             // TODO use an enum instead of strings
                             match s.as_str() {
                                 "print_string" => {
                                     // TODO differentiate between a builtin Effect like print_string() and a user-customized Effect like impulse()
-                                    emit(items, Instr::Effect(0));
+                                    emit(st, Instr::Effect(0));
                                 }
                                 "sqrt_float" => {
-                                    emit(items, Instr::SquareRoot);
+                                    emit(st, Instr::SquareRoot);
                                 }
                                 "append" => {
-                                    emit(items, Instr::ArrayAppend);
+                                    emit(st, Instr::ArrayAppend);
                                 }
                                 "len" => {
-                                    emit(items, Instr::ArrayLen);
+                                    emit(st, Instr::ArrayLen);
                                 }
                                 _ => panic!("unrecognized builtin: {}", s),
                             }
@@ -306,94 +309,92 @@ impl Translator {
                         statement.clone(),
                         i == statements.len() - 1,
                         offset_table,
-                        items,
-                        lambdas,
+                        st,
                     );
                 }
             }
             ExprKind::Tuple(exprs) => {
                 for expr in exprs {
-                    self.translate_expr(expr.clone(), offset_table, items, lambdas);
+                    self.translate_expr(expr.clone(), offset_table, st);
                 }
-                emit(items, Instr::Construct(exprs.len() as u16));
+                emit(st, Instr::Construct(exprs.len() as u16));
             }
             ExprKind::If(cond, then_block, Some(else_block)) => {
-                self.translate_expr(cond.clone(), offset_table, items, lambdas);
+                self.translate_expr(cond.clone(), offset_table, st);
                 let then_label = make_label("then");
                 let end_label = make_label("endif");
-                emit(items, Instr::JumpIf(then_label.clone()));
-                self.translate_expr(else_block.clone(), offset_table, items, lambdas);
-                emit(items, Instr::Jump(end_label.clone()));
-                emit(items, Item::Label(then_label));
-                self.translate_expr(then_block.clone(), offset_table, items, lambdas);
-                emit(items, Item::Label(end_label));
+                emit(st, Instr::JumpIf(then_label.clone()));
+                self.translate_expr(else_block.clone(), offset_table, st);
+                emit(st, Instr::Jump(end_label.clone()));
+                emit(st, Item::Label(then_label));
+                self.translate_expr(then_block.clone(), offset_table, st);
+                emit(st, Item::Label(end_label));
             }
             ExprKind::If(cond, then_block, None) => {
-                self.translate_expr(cond.clone(), offset_table, items, lambdas);
+                self.translate_expr(cond.clone(), offset_table, st);
                 let then_label = make_label("then");
                 let end_label = make_label("endif");
-                emit(items, Instr::JumpIf(then_label.clone()));
-                emit(items, Instr::Jump(end_label.clone()));
-                emit(items, Item::Label(then_label));
-                self.translate_expr(then_block.clone(), offset_table, items, lambdas);
-                emit(items, Item::Label(end_label));
-                emit(items, Instr::PushNil); // TODO get rid of this unnecessary overhead
+                emit(st, Instr::JumpIf(then_label.clone()));
+                emit(st, Instr::Jump(end_label.clone()));
+                emit(st, Item::Label(then_label));
+                self.translate_expr(then_block.clone(), offset_table, st);
+                emit(st, Item::Label(end_label));
+                emit(st, Instr::PushNil); // TODO get rid of this unnecessary overhead
             }
             ExprKind::FieldAccess(accessed, field) => {
                 // TODO, this downcast shouldn't be necessary
                 let ExprKind::Var(field_name) = &*field.exprkind else {
                     panic!()
                 };
-                self.translate_expr(accessed.clone(), offset_table, items, lambdas);
+                self.translate_expr(accessed.clone(), offset_table, st);
                 let idx = idx_of_field(&self.inf_ctx, accessed.clone(), field_name);
-                emit(items, Instr::GetField(idx));
+                emit(st, Instr::GetField(idx));
             }
             ExprKind::Array(exprs) => {
                 for expr in exprs {
-                    self.translate_expr(expr.clone(), offset_table, items, lambdas);
+                    self.translate_expr(expr.clone(), offset_table, st);
                 }
-                emit(items, Instr::Construct(exprs.len() as u16));
+                emit(st, Instr::Construct(exprs.len() as u16));
             }
             ExprKind::List(exprs) => {
                 // // make nil
-                // emit(items, Instr::PushNil);
-                // emit(items, Instr::ConstructVariant { tag: 0 });
+                // emit(st, Instr::PushNil);
+                // emit(st, Instr::ConstructVariant { tag: 0 });
                 // // make cons for each element
                 // for expr in exprs.iter().rev() {
-                //     self.translate_expr(expr.clone(), offset_table, items, lambdas);
-                //     emit(items, Instr::Construct(2)); // (head, tail)
-                //     emit(items, Instr::ConstructVariant { tag: 1 });
+                //     self.translate_expr(expr.clone(), offset_table, st);
+                //     emit(st, Instr::Construct(2)); // (head, tail)
+                //     emit(st, Instr::ConstructVariant { tag: 1 });
                 // }
 
                 fn translate_list(
                     translator: &Translator,
                     exprs: &[Rc<Expr>],
                     offset_table: &OffsetTable,
-                    items: &mut Vec<Item>,
-                    lambdas: &mut Lambdas,
+                    st: &mut TranslatorState,
                 ) {
                     if exprs.is_empty() {
-                        emit(items, Instr::PushNil);
-                        emit(items, Instr::ConstructVariant { tag: 0 });
+                        emit(st, Instr::PushNil);
+                        emit(st, Instr::ConstructVariant { tag: 0 });
                     } else {
-                        translator.translate_expr(exprs[0].clone(), offset_table, items, lambdas);
-                        translate_list(translator, &exprs[1..], offset_table, items, lambdas);
-                        emit(items, Instr::Construct(2)); // (head, tail)
-                        emit(items, Instr::ConstructVariant { tag: 1 });
+                        translator.translate_expr(exprs[0].clone(), offset_table, st);
+                        translate_list(translator, &exprs[1..], offset_table, st);
+                        emit(st, Instr::Construct(2)); // (head, tail)
+                        emit(st, Instr::ConstructVariant { tag: 1 });
                     }
                 }
 
-                translate_list(self, exprs, offset_table, items, lambdas);
+                translate_list(self, exprs, offset_table, st);
             }
             ExprKind::IndexAccess(array, index) => {
-                self.translate_expr(index.clone(), offset_table, items, lambdas);
-                self.translate_expr(array.clone(), offset_table, items, lambdas);
-                emit(items, Instr::GetIdx);
+                self.translate_expr(index.clone(), offset_table, st);
+                self.translate_expr(array.clone(), offset_table, st);
+                emit(st, Instr::GetIdx);
             }
             ExprKind::Match(expr, arms) => {
                 let ty = self.inf_ctx.solution_of_node(expr.id).unwrap();
 
-                self.translate_expr(expr.clone(), offset_table, items, lambdas);
+                self.translate_expr(expr.clone(), offset_table, st);
                 let end_label = make_label("endmatch");
                 // Check scrutinee against each arm's pattern
                 let arm_labels = arms
@@ -405,21 +406,21 @@ impl Translator {
                     let arm_label = arm_labels[i].clone();
 
                     // duplicate the scrutinee before doing a comparison
-                    emit(items, Instr::Duplicate);
-                    self.translate_pat_comparison(&ty, arm.pat.clone(), items);
-                    emit(items, Instr::JumpIf(arm_label));
+                    emit(st, Instr::Duplicate);
+                    self.translate_pat_comparison(&ty, arm.pat.clone(), st);
+                    emit(st, Instr::JumpIf(arm_label));
                 }
                 for (i, arm) in arms.iter().enumerate() {
-                    emit(items, Item::Label(arm_labels[i].clone()));
+                    emit(st, Item::Label(arm_labels[i].clone()));
 
-                    handle_pat_binding(arm.pat.clone(), offset_table, items);
+                    handle_pat_binding(arm.pat.clone(), offset_table, st);
 
-                    self.translate_expr(arm.expr.clone(), offset_table, items, lambdas);
+                    self.translate_expr(arm.expr.clone(), offset_table, st);
                     if i != arms.len() - 1 {
-                        emit(items, Instr::Jump(end_label.clone()));
+                        emit(st, Instr::Jump(end_label.clone()));
                     }
                 }
-                emit(items, Item::Label(end_label));
+                emit(st, Item::Label(end_label));
             }
             ExprKind::Func(args, _, body) => {
                 let label = make_label("lambda");
@@ -439,7 +440,7 @@ impl Translator {
                 }
                 let ncaptures = captures.len();
                 for i in 0..locals_count {
-                    emit(items, Instr::PushNil);
+                    emit(st, Instr::PushNil);
                 }
 
                 let mut lambda_offset_table = OffsetTable::new();
@@ -458,13 +459,10 @@ impl Translator {
                 }
 
                 for capture in captures {
-                    emit(
-                        items,
-                        Instr::LoadOffset(*offset_table.get(&capture).unwrap()),
-                    );
+                    emit(st, Instr::LoadOffset(*offset_table.get(&capture).unwrap()));
                 }
 
-                lambdas.insert(
+                st.lambdas.insert(
                     expr.id,
                     LambdaData {
                         label: label.clone(),
@@ -475,7 +473,7 @@ impl Translator {
                 );
 
                 emit(
-                    items,
+                    st,
                     Instr::MakeClosure {
                         n_captured: ncaptures as u16,
                         func_addr: label,
@@ -485,7 +483,7 @@ impl Translator {
             _ => panic!("unimplemented: {:?}", expr.exprkind),
         }
 
-        for item in items.iter() {
+        for item in st.items.iter() {
             println!("{}", item);
         }
     }
@@ -495,12 +493,12 @@ impl Translator {
         &self,
         scrutinee_ty: &SolvedType,
         pat: Rc<Pat>,
-        items: &mut Vec<Item>,
+        st: &mut TranslatorState,
     ) {
         match &*pat.patkind {
             PatKind::Wildcard | PatKind::Var(_) | PatKind::Unit => {
-                emit(items, Instr::Pop);
-                emit(items, Instr::PushBool(true));
+                emit(st, Instr::Pop);
+                emit(st, Instr::PushBool(true));
                 return;
             }
             _ => {}
@@ -509,15 +507,15 @@ impl Translator {
         match scrutinee_ty {
             SolvedType::Int => match &*pat.patkind {
                 PatKind::Int(i) => {
-                    emit(items, Instr::PushInt(*i));
-                    emit(items, Instr::Equal);
+                    emit(st, Instr::PushInt(*i));
+                    emit(st, Instr::Equal);
                 }
                 _ => panic!("unexpected pattern: {:?}", pat.patkind),
             },
             SolvedType::Bool => match &*pat.patkind {
                 PatKind::Bool(b) => {
-                    emit(items, Instr::PushBool(*b));
-                    emit(items, Instr::Equal);
+                    emit(st, Instr::PushBool(*b));
+                    emit(st, Instr::Equal);
                 }
                 _ => panic!("unexpected pattern: {:?}", pat.patkind),
             },
@@ -533,29 +531,29 @@ impl Translator {
                         .position(|v| v.ctor == *ctor)
                         .expect("variant not found") as u16;
 
-                    emit(items, Instr::Deconstruct);
-                    emit(items, Instr::PushInt(tag as AbraInt));
-                    emit(items, Instr::Equal);
-                    emit(items, Instr::Not);
-                    emit(items, Instr::JumpIf(tag_fail_label.clone()));
+                    emit(st, Instr::Deconstruct);
+                    emit(st, Instr::PushInt(tag as AbraInt));
+                    emit(st, Instr::Equal);
+                    emit(st, Instr::Not);
+                    emit(st, Instr::JumpIf(tag_fail_label.clone()));
 
                     if let Some(inner) = inner {
                         let inner_ty = self.inf_ctx.solution_of_node(inner.id).unwrap();
-                        self.translate_pat_comparison(&inner_ty, inner.clone(), items);
-                        emit(items, Instr::Jump(end_label.clone()));
+                        self.translate_pat_comparison(&inner_ty, inner.clone(), st);
+                        emit(st, Instr::Jump(end_label.clone()));
                     } else {
-                        emit(items, Instr::Pop);
-                        emit(items, Instr::PushBool(true));
-                        emit(items, Instr::Jump(end_label.clone()));
+                        emit(st, Instr::Pop);
+                        emit(st, Instr::PushBool(true));
+                        emit(st, Instr::Jump(end_label.clone()));
                     }
 
                     // FAILURE
-                    emit(items, Item::Label(tag_fail_label));
-                    emit(items, Instr::Pop);
+                    emit(st, Item::Label(tag_fail_label));
+                    emit(st, Instr::Pop);
 
-                    emit(items, Instr::PushBool(false));
+                    emit(st, Instr::PushBool(false));
 
-                    emit(items, Item::Label(end_label));
+                    emit(st, Item::Label(end_label));
                 }
                 _ => panic!("unexpected pattern: {:?}", pat.patkind),
             },
@@ -564,7 +562,7 @@ impl Translator {
                     let final_element_success_label = make_label("tuple_success");
                     let end_label = make_label("endtuple");
                     // spill tuple elements onto stack
-                    emit(items, Instr::Deconstruct);
+                    emit(st, Instr::Deconstruct);
                     // for each element of tuple pattern, compare to TOS
                     // if the comparison fails, pop all remaining tuple elements and jump to the next arm
                     // if it makes it through each tuple element, jump to the arm's expression
@@ -573,30 +571,30 @@ impl Translator {
                         .collect::<Vec<_>>();
                     for (i, pat) in pats.iter().enumerate() {
                         let ty = &types[i];
-                        self.translate_pat_comparison(ty, pat.clone(), items);
+                        self.translate_pat_comparison(ty, pat.clone(), st);
                         let is_last = i == pats.len() - 1;
-                        emit(items, Instr::Not);
-                        emit(items, Instr::JumpIf(failure_labels[i].clone()));
+                        emit(st, Instr::Not);
+                        emit(st, Instr::JumpIf(failure_labels[i].clone()));
                         // SUCCESS
                         if is_last {
-                            emit(items, Instr::Jump(final_element_success_label.clone()));
+                            emit(st, Instr::Jump(final_element_success_label.clone()));
                         }
                     }
                     // SUCCESS CASE
-                    emit(items, Item::Label(final_element_success_label));
-                    emit(items, Instr::PushBool(true));
-                    emit(items, Instr::Jump(end_label.clone()));
+                    emit(st, Item::Label(final_element_success_label));
+                    emit(st, Instr::PushBool(true));
+                    emit(st, Instr::Jump(end_label.clone()));
 
                     // FAILURE CASE
                     // clean up the remaining tuple elements before yielding false
-                    emit(items, Item::Label(failure_labels[0].clone()));
+                    emit(st, Item::Label(failure_labels[0].clone()));
                     for label in &failure_labels[1..] {
-                        emit(items, Instr::Pop);
-                        emit(items, Item::Label(label.clone()));
+                        emit(st, Instr::Pop);
+                        emit(st, Item::Label(label.clone()));
                     }
-                    emit(items, Instr::PushBool(false));
+                    emit(st, Instr::PushBool(false));
 
-                    emit(items, Item::Label(end_label));
+                    emit(st, Item::Label(end_label));
                 }
                 _ => panic!("unexpected pattern: {:?}", pat.patkind),
             },
@@ -609,13 +607,12 @@ impl Translator {
         stmt: Rc<Stmt>,
         is_last: bool,
         locals: &OffsetTable,
-        items: &mut Vec<Item>,
-        lambdas: &mut Lambdas,
+        st: &mut TranslatorState,
     ) {
         match &*stmt.stmtkind {
             StmtKind::Let(_, pat, expr) => {
-                self.translate_expr(expr.clone(), locals, items, lambdas);
-                handle_pat_binding(pat.0.clone(), locals, items);
+                self.translate_expr(expr.clone(), locals, st);
+                handle_pat_binding(pat.0.clone(), locals, st);
             }
             StmtKind::Set(expr1, rvalue) => match &*expr1.exprkind {
                 ExprKind::Var(_) => {
@@ -625,31 +622,31 @@ impl Translator {
                         panic!("expected variableto be defined in node");
                     };
                     let idx = locals.get(node_id).unwrap();
-                    self.translate_expr(rvalue.clone(), locals, items, lambdas);
-                    emit(items, Instr::StoreOffset(*idx));
+                    self.translate_expr(rvalue.clone(), locals, st);
+                    emit(st, Instr::StoreOffset(*idx));
                 }
                 ExprKind::FieldAccess(accessed, field) => {
                     // TODO, this downcast shouldn't be necessary
                     let ExprKind::Var(field_name) = &*field.exprkind else {
                         panic!()
                     };
-                    self.translate_expr(rvalue.clone(), locals, items, lambdas);
-                    self.translate_expr(accessed.clone(), locals, items, lambdas);
+                    self.translate_expr(rvalue.clone(), locals, st);
+                    self.translate_expr(accessed.clone(), locals, st);
                     let idx = idx_of_field(&self.inf_ctx, accessed.clone(), field_name);
-                    emit(items, Instr::SetField(idx));
+                    emit(st, Instr::SetField(idx));
                 }
                 ExprKind::IndexAccess(array, index) => {
-                    self.translate_expr(rvalue.clone(), locals, items, lambdas);
-                    self.translate_expr(index.clone(), locals, items, lambdas);
-                    self.translate_expr(array.clone(), locals, items, lambdas);
-                    emit(items, Instr::SetIdx);
+                    self.translate_expr(rvalue.clone(), locals, st);
+                    self.translate_expr(index.clone(), locals, st);
+                    self.translate_expr(array.clone(), locals, st);
+                    emit(st, Instr::SetIdx);
                 }
                 _ => unimplemented!(),
             },
             StmtKind::Expr(expr) => {
-                self.translate_expr(expr.clone(), locals, items, lambdas);
+                self.translate_expr(expr.clone(), locals, st);
                 if !is_last {
-                    emit(items, Instr::Pop);
+                    emit(st, Instr::Pop);
                 }
             }
             StmtKind::InterfaceImpl(..) => {
@@ -772,27 +769,27 @@ impl Translator {
     }
 }
 
-fn handle_pat_binding(pat: Rc<Pat>, locals: &OffsetTable, items: &mut Vec<Item>) {
+fn handle_pat_binding(pat: Rc<Pat>, locals: &OffsetTable, st: &mut TranslatorState) {
     match &*pat.patkind {
         PatKind::Var(_) => {
             let idx = locals.get(&pat.id).unwrap();
-            emit(items, Instr::StoreOffset(*idx));
+            emit(st, Instr::StoreOffset(*idx));
         }
         PatKind::Tuple(pats) => {
-            emit(items, Instr::Deconstruct);
+            emit(st, Instr::Deconstruct);
             for pat in pats.iter() {
-                handle_pat_binding(pat.clone(), locals, items);
+                handle_pat_binding(pat.clone(), locals, st);
             }
         }
         PatKind::Variant(_, inner) => {
             if let Some(inner) = inner {
                 // unpack tag and associated data
-                emit(items, Instr::Deconstruct);
+                emit(st, Instr::Deconstruct);
                 // pop tag
-                emit(items, Instr::Pop);
-                handle_pat_binding(inner.clone(), locals, items);
+                emit(st, Instr::Pop);
+                handle_pat_binding(inner.clone(), locals, st);
             } else {
-                emit(items, Instr::Pop);
+                emit(st, Instr::Pop);
             }
         }
         PatKind::Unit
@@ -801,7 +798,7 @@ fn handle_pat_binding(pat: Rc<Pat>, locals: &OffsetTable, items: &mut Vec<Item>)
         | PatKind::Float(..)
         | PatKind::Str(..)
         | PatKind::Wildcard => {
-            emit(items, Instr::Pop);
+            emit(st, Instr::Pop);
         }
     }
 }
@@ -868,7 +865,7 @@ fn make_label(hint: &str) -> Label {
     }
     static ID_COUNTER: std::sync::atomic::AtomicUsize = AtomicUsize::new(1);
     let id = ID_COUNTER.fetch_add(1, Ordering::Relaxed);
-    format!("{}_{}", hint, id)
+    format!("{}__#{:X}", hint, id)
 }
 
 fn idx_of_field(inf_ctx: &InferenceContext, accessed: Rc<Expr>, field: &str) -> u16 {
