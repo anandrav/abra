@@ -1,5 +1,5 @@
 use crate::assembly::{remove_labels, Instr, Item, Label};
-use crate::ast::{NodeId, Sources, Toplevel, TypeDefKind};
+use crate::ast::{NodeId, Sources, Toplevel};
 use crate::operators::BinOpcode;
 use crate::statics::{Resolution, SolvedType, TypeMonomorphized};
 use crate::vm::{AbraInt, Instr as VmInstr};
@@ -9,7 +9,6 @@ use crate::{
     statics::InferenceContext,
 };
 use std::collections::{HashMap, HashSet};
-use std::ops::Mul;
 use std::rc::Rc;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
@@ -164,7 +163,7 @@ impl Translator {
             emit(st, Instr::Return);
         }
 
-        let items = remove_labels(&mut st.items, &self.inf_ctx.string_constants);
+        let items = remove_labels(&st.items, &self.inf_ctx.string_constants);
         let mut string_table: Vec<String> =
             vec!["".to_owned(); self.inf_ctx.string_constants.len()];
         for (s, idx) in self.inf_ctx.string_constants.iter() {
@@ -194,7 +193,7 @@ impl Translator {
                         let idx = offset_table.get(node_id).unwrap();
                         emit(st, Instr::LoadOffset(*idx));
                     }
-                    Resolution::Builtin(s) => {
+                    Resolution::Builtin(_) => {
                         // TODO: generate functions for builtins
                         unimplemented!()
                     }
