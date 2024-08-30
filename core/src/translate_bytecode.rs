@@ -1,4 +1,4 @@
-use crate::assembly::{remove_labels, Instr, InstrOrLabel, Label};
+use crate::assembly::{remove_labels, Instr, Item, Label};
 use crate::ast::{NodeId, Sources, Toplevel, TypeDefKind};
 use crate::operators::BinOpcode;
 use crate::statics::{Resolution, SolvedType};
@@ -31,6 +31,10 @@ pub(crate) struct Translator {
     toplevels: Vec<Rc<Toplevel>>,
 }
 
+fn emit(items: &mut Vec<Item>, i: impl Into<Item>) {
+    items.push(i.into());
+}
+
 impl Translator {
     pub(crate) fn new(
         inf_ctx: InferenceContext,
@@ -47,7 +51,8 @@ impl Translator {
     }
 
     pub(crate) fn translate<Effect: EffectTrait>(&self) -> (Vec<VmInstr>, Vec<String>) {
-        let mut instructions: Vec<InstrOrLabel> = vec![];
+        let mut items: Vec<Item> = vec![];
+        let items = &mut items;
         let mut lambdas: Lambdas = HashMap::new();
 
         // Handle the main function (toplevels)
@@ -57,7 +62,7 @@ impl Translator {
                 collect_locals_stmt(&toplevel.statements, &mut locals);
             }
             for i in 0..locals.len() {
-                instructions.push(InstrOrLabel::Instr(Instr::PushNil));
+                emit(items, Instr::PushNil);
             }
             let mut offset_table = OffsetTable::new();
             for (i, local) in locals.iter().enumerate() {
@@ -69,12 +74,12 @@ impl Translator {
                         statement.clone(),
                         i == toplevel.statements.len() - 1,
                         &offset_table,
-                        &mut instructions,
+                        items,
                         &mut lambdas,
                     );
                 }
             }
-            instructions.push(InstrOrLabel::Instr(Instr::Stop));
+            emit(items, Instr::Stop);
         }
 
         // Handle function definitions
@@ -91,12 +96,12 @@ impl Translator {
                         continue;
                     }
                     // println!("Generating code for function: {}", func_name);
-                    instructions.push(InstrOrLabel::Label(func_name));
+                    emit(items, Item::Label(func_name));
                     let mut locals = HashSet::new();
                     collect_locals_expr(body, &mut locals);
                     let locals_count = locals.len();
                     for _ in 0..locals_count {
-                        instructions.push(InstrOrLabel::Instr(Instr::PushNil));
+                        emit(items, Instr::PushNil);
                     }
                     let mut offset_table = OffsetTable::new();
                     for (i, arg) in args.iter().rev().enumerate() {
@@ -106,22 +111,17 @@ impl Translator {
                         offset_table.entry(*local).or_insert((i) as i32);
                     }
                     let nargs = args.len();
-                    self.translate_expr(
-                        body.clone(),
-                        &offset_table,
-                        &mut instructions,
-                        &mut lambdas,
-                    );
+                    self.translate_expr(body.clone(), &offset_table, items, &mut lambdas);
 
                     if locals_count + nargs > 0 {
                         // pop all locals and arguments except one. The last one is the return value slot.
-                        instructions.push(InstrOrLabel::Instr(Instr::StoreOffset(-(nargs as i32))));
+                        emit(items, Instr::StoreOffset(-(nargs as i32)));
                         for _ in 0..(locals_count + nargs - 1) {
-                            instructions.push(InstrOrLabel::Instr(Instr::Pop));
+                            emit(items, Instr::Pop);
                         }
                     }
 
-                    instructions.push(InstrOrLabel::Instr(Instr::Return));
+                    emit(items, Instr::Return);
                 }
             }
         }
@@ -134,54 +134,46 @@ impl Translator {
                 panic!()
             };
 
-            instructions.push(InstrOrLabel::Label(data.label));
+            emit(items, Item::Label(data.label));
 
-            self.translate_expr(
-                body.clone(),
-                &data.offset_table,
-                &mut instructions,
-                &mut lambdas,
-            ); // TODO passing lambdas here is kind of weird and recursive. Should build list of lambdas in statics.rs instead.
+            self.translate_expr(body.clone(), &data.offset_table, items, &mut lambdas); // TODO passing lambdas here is kind of weird and recursive. Should build list of lambdas in statics.rs instead.
 
             let nlocals = data.nlocals;
             let nargs = args.len();
             let ncaptures = data.ncaptures;
             if nlocals + nargs + ncaptures > 0 {
                 // pop all locals and arguments except one. The last one is the return value slot.
-                instructions.push(InstrOrLabel::Instr(Instr::StoreOffset(-(nargs as i32))));
+                emit(items, Instr::StoreOffset(-(nargs as i32)));
                 for _ in 0..(nlocals + nargs + ncaptures - 1) {
-                    instructions.push(InstrOrLabel::Instr(Instr::Pop));
+                    emit(items, Instr::Pop);
                 }
             }
 
-            instructions.push(InstrOrLabel::Instr(Instr::Return));
+            emit(items, Instr::Return);
         }
 
         // Create functions for effects
         let effect_list = Effect::enumerate();
         for (i, effect) in effect_list.iter().enumerate() {
-            instructions.push(InstrOrLabel::Label(effect.function_name()));
-            instructions.push(InstrOrLabel::Instr(Instr::Effect(i as u16)));
-            instructions.push(InstrOrLabel::Instr(Instr::Return));
+            emit(items, Item::Label(effect.function_name()));
+            emit(items, Instr::Effect(i as u16));
+            emit(items, Instr::Return);
         }
 
-        for instr in &instructions {
-            // println!("{}", instr);
-        }
-        let instructions = remove_labels(instructions, &self.inf_ctx.string_constants);
+        let items = remove_labels(items, &self.inf_ctx.string_constants);
         let mut string_table: Vec<String> =
             vec!["".to_owned(); self.inf_ctx.string_constants.len()];
         for (s, idx) in self.inf_ctx.string_constants.iter() {
             string_table[*idx] = s.clone();
         }
-        (instructions, string_table)
+        (items, string_table)
     }
 
     fn translate_expr(
         &self,
         expr: Rc<Expr>,
         offset_table: &OffsetTable,
-        instructions: &mut Vec<InstrOrLabel>,
+        items: &mut Vec<Item>,
         lambdas: &mut Lambdas,
     ) {
         match &*expr.exprkind {
@@ -199,9 +191,8 @@ impl Translator {
                                         .position(|v| v.ctor == *variant_name)
                                         .expect("variant not found")
                                         as u16;
-                                    instructions.push(InstrOrLabel::Instr(Instr::PushNil));
-                                    instructions
-                                        .push(InstrOrLabel::Instr(Instr::ConstructVariant { tag }));
+                                    emit(items, Instr::PushNil);
+                                    emit(items, Instr::ConstructVariant { tag });
                                 }
                                 _ => panic!("unexpected stmt: {:?}", stmt.stmtkind),
                             },
@@ -218,7 +209,7 @@ impl Translator {
                         );
                         println!("{}", s);
                         let idx = offset_table.get(node_id).unwrap();
-                        instructions.push(InstrOrLabel::Instr(Instr::LoadOffset(*idx)));
+                        emit(items, Instr::LoadOffset(*idx));
                     }
                     Resolution::Builtin(s) => {
                         unimplemented!()
@@ -226,43 +217,37 @@ impl Translator {
                 }
             }
             ExprKind::Bool(b) => {
-                instructions.push(InstrOrLabel::Instr(Instr::PushBool(*b)));
+                emit(items, Instr::PushBool(*b));
             }
             ExprKind::Int(i) => {
-                instructions.push(InstrOrLabel::Instr(Instr::PushInt(*i)));
+                emit(items, Instr::PushInt(*i));
             }
             ExprKind::Float(f) => {
-                instructions.push(InstrOrLabel::Instr(Instr::PushFloat(*f)));
+                emit(items, Instr::PushFloat(*f));
             }
             ExprKind::Str(s) => {
-                instructions.push(InstrOrLabel::Instr(Instr::PushString(s.clone())));
+                emit(items, Instr::PushString(s.clone()));
             }
             ExprKind::BinOp(left, op, right) => {
-                self.translate_expr(left.clone(), offset_table, instructions, lambdas);
-                self.translate_expr(right.clone(), offset_table, instructions, lambdas);
+                self.translate_expr(left.clone(), offset_table, items, lambdas);
+                self.translate_expr(right.clone(), offset_table, items, lambdas);
                 match op {
-                    BinOpcode::Add => instructions.push(InstrOrLabel::Instr(Instr::Add)),
-                    BinOpcode::Subtract => instructions.push(InstrOrLabel::Instr(Instr::Subtract)),
-                    BinOpcode::Multiply => instructions.push(InstrOrLabel::Instr(Instr::Multiply)),
-                    BinOpcode::Divide => instructions.push(InstrOrLabel::Instr(Instr::Divide)),
-                    BinOpcode::GreaterThan => {
-                        instructions.push(InstrOrLabel::Instr(Instr::GreaterThan))
-                    }
-                    BinOpcode::LessThan => instructions.push(InstrOrLabel::Instr(Instr::LessThan)),
-                    BinOpcode::GreaterThanOrEqual => {
-                        instructions.push(InstrOrLabel::Instr(Instr::GreaterThanOrEqual))
-                    }
-                    BinOpcode::LessThanOrEqual => {
-                        instructions.push(InstrOrLabel::Instr(Instr::LessThanOrEqual))
-                    }
-                    BinOpcode::Equals => instructions.push(InstrOrLabel::Instr(Instr::Equal)),
+                    BinOpcode::Add => emit(items, Instr::Add),
+                    BinOpcode::Subtract => emit(items, Instr::Subtract),
+                    BinOpcode::Multiply => emit(items, Instr::Multiply),
+                    BinOpcode::Divide => emit(items, Instr::Divide),
+                    BinOpcode::GreaterThan => emit(items, Instr::GreaterThan),
+                    BinOpcode::LessThan => emit(items, Instr::LessThan),
+                    BinOpcode::GreaterThanOrEqual => emit(items, Instr::GreaterThanOrEqual),
+                    BinOpcode::LessThanOrEqual => emit(items, Instr::LessThanOrEqual),
+                    BinOpcode::Equals => emit(items, Instr::Equal),
                     _ => panic!("op not implemented: {:?}", op),
                 }
             }
             ExprKind::FuncAp(func, args) => {
                 if let ExprKind::Var(symbol) = &*func.exprkind {
                     for arg in args {
-                        self.translate_expr(arg.clone(), offset_table, instructions, lambdas);
+                        self.translate_expr(arg.clone(), offset_table, items, lambdas);
                     }
                     let resolution = self.inf_ctx.name_resolutions.get(&func.id).unwrap();
                     match resolution {
@@ -276,15 +261,14 @@ impl Translator {
                             if let Some(stmt) = node.to_stmt() {
                                 match &*stmt.stmtkind {
                                     StmtKind::FuncDef(name, _, _, _) => {
-                                        instructions.push(InstrOrLabel::Instr(Instr::Call(
-                                            name.patkind.get_identifier_of_variable(),
-                                        )));
+                                        emit(
+                                            items,
+                                            Instr::Call(name.patkind.get_identifier_of_variable()),
+                                        );
                                     }
                                     StmtKind::TypeDef(kind) => match &**kind {
                                         TypeDefKind::Struct(_, _, fields) => {
-                                            instructions.push(InstrOrLabel::Instr(
-                                                Instr::Construct(fields.len() as u16),
-                                            ));
+                                            emit(items, Instr::Construct(fields.len() as u16));
                                         }
                                         _ => unimplemented!(),
                                     },
@@ -293,8 +277,8 @@ impl Translator {
                             } else {
                                 // assume it's a function object
                                 let idx = offset_table.get(node_id).unwrap();
-                                instructions.push(InstrOrLabel::Instr(Instr::LoadOffset(*idx)));
-                                instructions.push(InstrOrLabel::Instr(Instr::CallFuncObj));
+                                emit(items, Instr::LoadOffset(*idx));
+                                emit(items, Instr::CallFuncObj);
                             }
                         }
                         Resolution::Variant(node_id, variant_name) => {
@@ -310,13 +294,9 @@ impl Translator {
                                             as u16;
                                         if args.len() > 1 {
                                             // turn the arguments (associated data) into a tuple
-                                            instructions.push(InstrOrLabel::Instr(
-                                                Instr::Construct(args.len() as u16),
-                                            ));
+                                            emit(items, Instr::Construct(args.len() as u16));
                                         }
-                                        instructions.push(InstrOrLabel::Instr(
-                                            Instr::ConstructVariant { tag },
-                                        ));
+                                        items.push(Item::Instr(Instr::ConstructVariant { tag }));
                                     }
                                     _ => panic!("unexpected stmt: {:?}", stmt.stmtkind),
                                 },
@@ -328,10 +308,10 @@ impl Translator {
                             match s.as_str() {
                                 "print_string" => {
                                     // TODO differentiate between a builtin Effect like print_string() and a user-customized Effect like impulse()
-                                    instructions.push(InstrOrLabel::Instr(Instr::Effect(0)));
+                                    emit(items, Instr::Effect(0));
                                 }
                                 "sqrt_float" => {
-                                    instructions.push(InstrOrLabel::Instr(Instr::SquareRoot));
+                                    emit(items, Instr::SquareRoot);
                                 }
                                 _ => panic!("unrecognized builtin: {}", s),
                             }
@@ -347,63 +327,63 @@ impl Translator {
                         statement.clone(),
                         i == statements.len() - 1,
                         offset_table,
-                        instructions,
+                        items,
                         lambdas,
                     );
                 }
             }
             ExprKind::Tuple(exprs) => {
                 for expr in exprs {
-                    self.translate_expr(expr.clone(), offset_table, instructions, lambdas);
+                    self.translate_expr(expr.clone(), offset_table, items, lambdas);
                 }
-                instructions.push(InstrOrLabel::Instr(Instr::Construct(exprs.len() as u16)));
+                emit(items, Instr::Construct(exprs.len() as u16));
             }
             ExprKind::If(cond, then_block, Some(else_block)) => {
-                self.translate_expr(cond.clone(), offset_table, instructions, lambdas);
+                self.translate_expr(cond.clone(), offset_table, items, lambdas);
                 let then_label = make_label("then");
                 let end_label = make_label("endif");
-                instructions.push(InstrOrLabel::Instr(Instr::JumpIf(then_label.clone())));
-                self.translate_expr(else_block.clone(), offset_table, instructions, lambdas);
-                instructions.push(InstrOrLabel::Instr(Instr::Jump(end_label.clone())));
-                instructions.push(InstrOrLabel::Label(then_label));
-                self.translate_expr(then_block.clone(), offset_table, instructions, lambdas);
-                instructions.push(InstrOrLabel::Label(end_label));
+                emit(items, Instr::JumpIf(then_label.clone()));
+                self.translate_expr(else_block.clone(), offset_table, items, lambdas);
+                emit(items, Instr::Jump(end_label.clone()));
+                emit(items, Item::Label(then_label));
+                self.translate_expr(then_block.clone(), offset_table, items, lambdas);
+                emit(items, Item::Label(end_label));
             }
             ExprKind::If(cond, then_block, None) => {
-                self.translate_expr(cond.clone(), offset_table, instructions, lambdas);
+                self.translate_expr(cond.clone(), offset_table, items, lambdas);
                 let then_label = make_label("then");
                 let end_label = make_label("endif");
-                instructions.push(InstrOrLabel::Instr(Instr::JumpIf(then_label.clone())));
-                instructions.push(InstrOrLabel::Instr(Instr::Jump(end_label.clone())));
-                instructions.push(InstrOrLabel::Label(then_label));
-                self.translate_expr(then_block.clone(), offset_table, instructions, lambdas);
-                instructions.push(InstrOrLabel::Label(end_label));
-                instructions.push(InstrOrLabel::Instr(Instr::PushNil)); // TODO get rid of this
+                emit(items, Instr::JumpIf(then_label.clone()));
+                emit(items, Instr::Jump(end_label.clone()));
+                emit(items, Item::Label(then_label));
+                self.translate_expr(then_block.clone(), offset_table, items, lambdas);
+                emit(items, Item::Label(end_label));
+                emit(items, Instr::PushNil); // TODO get rid of this unnecessary overhead
             }
             ExprKind::FieldAccess(accessed, field) => {
                 // TODO, this downcast shouldn't be necessary
                 let ExprKind::Var(field_name) = &*field.exprkind else {
                     panic!()
                 };
-                self.translate_expr(accessed.clone(), offset_table, instructions, lambdas);
+                self.translate_expr(accessed.clone(), offset_table, items, lambdas);
                 let idx = idx_of_field(&self.inf_ctx, accessed.clone(), field_name);
-                instructions.push(InstrOrLabel::Instr(Instr::GetField(idx)));
+                emit(items, Instr::GetField(idx));
             }
             ExprKind::Array(exprs) => {
                 for expr in exprs {
-                    self.translate_expr(expr.clone(), offset_table, instructions, lambdas);
+                    self.translate_expr(expr.clone(), offset_table, items, lambdas);
                 }
-                instructions.push(InstrOrLabel::Instr(Instr::Construct(exprs.len() as u16)));
+                emit(items, Instr::Construct(exprs.len() as u16));
             }
             ExprKind::IndexAccess(array, index) => {
-                self.translate_expr(index.clone(), offset_table, instructions, lambdas);
-                self.translate_expr(array.clone(), offset_table, instructions, lambdas);
-                instructions.push(InstrOrLabel::Instr(Instr::GetIdx));
+                self.translate_expr(index.clone(), offset_table, items, lambdas);
+                self.translate_expr(array.clone(), offset_table, items, lambdas);
+                emit(items, Instr::GetIdx);
             }
             ExprKind::Match(expr, arms) => {
                 let ty = self.inf_ctx.solution_of_node(expr.id).unwrap();
 
-                self.translate_expr(expr.clone(), offset_table, instructions, lambdas);
+                self.translate_expr(expr.clone(), offset_table, items, lambdas);
                 let end_label = make_label("endmatch");
                 // Check scrutinee against each arm's pattern
                 let arm_labels = arms
@@ -415,21 +395,21 @@ impl Translator {
                     let arm_label = arm_labels[i].clone();
 
                     // duplicate the scrutinee before doing a comparison
-                    instructions.push(InstrOrLabel::Instr(Instr::Duplicate));
-                    self.translate_pat_comparison(&ty, arm.pat.clone(), instructions);
-                    instructions.push(InstrOrLabel::Instr(Instr::JumpIf(arm_label)));
+                    emit(items, Instr::Duplicate);
+                    self.translate_pat_comparison(&ty, arm.pat.clone(), items);
+                    emit(items, Instr::JumpIf(arm_label));
                 }
                 for (i, arm) in arms.iter().enumerate() {
-                    instructions.push(InstrOrLabel::Label(arm_labels[i].clone()));
+                    emit(items, Item::Label(arm_labels[i].clone()));
 
-                    self.handle_pat_binding(arm.pat.clone(), offset_table, instructions);
+                    self.handle_pat_binding(arm.pat.clone(), offset_table, items);
 
-                    self.translate_expr(arm.expr.clone(), offset_table, instructions, lambdas);
+                    self.translate_expr(arm.expr.clone(), offset_table, items, lambdas);
                     if i != arms.len() - 1 {
-                        instructions.push(InstrOrLabel::Instr(Instr::Jump(end_label.clone())));
+                        emit(items, Instr::Jump(end_label.clone()));
                     }
                 }
-                instructions.push(InstrOrLabel::Label(end_label));
+                emit(items, Item::Label(end_label));
             }
             ExprKind::Func(args, _, body) => {
                 let label = make_label("lambda");
@@ -449,7 +429,7 @@ impl Translator {
                 }
                 let ncaptures = captures.len();
                 for i in 0..locals_count {
-                    instructions.push(InstrOrLabel::Instr(Instr::PushNil));
+                    emit(items, Instr::PushNil);
                 }
 
                 let mut lambda_offset_table = OffsetTable::new();
@@ -468,9 +448,10 @@ impl Translator {
                 }
 
                 for capture in captures {
-                    instructions.push(InstrOrLabel::Instr(Instr::LoadOffset(
-                        *offset_table.get(&capture).unwrap(),
-                    )));
+                    emit(
+                        items,
+                        Instr::LoadOffset(*offset_table.get(&capture).unwrap()),
+                    );
                 }
 
                 lambdas.insert(
@@ -483,26 +464,29 @@ impl Translator {
                     },
                 );
 
-                instructions.push(InstrOrLabel::Instr(Instr::MakeClosure {
-                    n_captured: ncaptures as u16,
-                    func_addr: label,
-                }));
+                emit(
+                    items,
+                    Instr::MakeClosure {
+                        n_captured: ncaptures as u16,
+                        func_addr: label,
+                    },
+                );
             }
             _ => panic!("unimplemented: {:?}", expr.exprkind),
         }
     }
 
-    // emit instructions for checking if a pattern matches the TOS, replacing it with a boolean
+    // emit items for checking if a pattern matches the TOS, replacing it with a boolean
     fn translate_pat_comparison(
         &self,
         scrutinee_ty: &SolvedType,
         pat: Rc<Pat>,
-        instructions: &mut Vec<InstrOrLabel>,
+        items: &mut Vec<Item>,
     ) {
         match &*pat.patkind {
             PatKind::Wildcard | PatKind::Var(_) | PatKind::Unit => {
-                instructions.push(InstrOrLabel::Instr(Instr::Pop));
-                instructions.push(InstrOrLabel::Instr(Instr::PushBool(true)));
+                emit(items, Instr::Pop);
+                emit(items, Instr::PushBool(true));
                 return;
             }
             _ => {}
@@ -511,15 +495,15 @@ impl Translator {
         match scrutinee_ty {
             SolvedType::Int => match &*pat.patkind {
                 PatKind::Int(i) => {
-                    instructions.push(InstrOrLabel::Instr(Instr::PushInt(*i)));
-                    instructions.push(InstrOrLabel::Instr(Instr::Equal));
+                    emit(items, Instr::PushInt(*i));
+                    emit(items, Instr::Equal);
                 }
                 _ => panic!("unexpected pattern: {:?}", pat.patkind),
             },
             SolvedType::Bool => match &*pat.patkind {
                 PatKind::Bool(b) => {
-                    instructions.push(InstrOrLabel::Instr(Instr::PushBool(*b)));
-                    instructions.push(InstrOrLabel::Instr(Instr::Equal));
+                    emit(items, Instr::PushBool(*b));
+                    emit(items, Instr::Equal);
                 }
                 _ => panic!("unexpected pattern: {:?}", pat.patkind),
             },
@@ -535,29 +519,29 @@ impl Translator {
                         .position(|v| v.ctor == *ctor)
                         .expect("variant not found") as u16;
 
-                    instructions.push(InstrOrLabel::Instr(Instr::Deconstruct));
-                    instructions.push(InstrOrLabel::Instr(Instr::PushInt(tag as AbraInt)));
-                    instructions.push(InstrOrLabel::Instr(Instr::Equal));
-                    instructions.push(InstrOrLabel::Instr(Instr::Not));
-                    instructions.push(InstrOrLabel::Instr(Instr::JumpIf(tag_fail_label.clone())));
+                    emit(items, Instr::Deconstruct);
+                    emit(items, Instr::PushInt(tag as AbraInt));
+                    emit(items, Instr::Equal);
+                    emit(items, Instr::Not);
+                    emit(items, Instr::JumpIf(tag_fail_label.clone()));
 
                     if let Some(inner) = inner {
                         let inner_ty = self.inf_ctx.solution_of_node(inner.id).unwrap();
-                        self.translate_pat_comparison(&inner_ty, inner.clone(), instructions);
-                        instructions.push(InstrOrLabel::Instr(Instr::Jump(end_label.clone())));
+                        self.translate_pat_comparison(&inner_ty, inner.clone(), items);
+                        emit(items, Instr::Jump(end_label.clone()));
                     } else {
-                        instructions.push(InstrOrLabel::Instr(Instr::Pop));
-                        instructions.push(InstrOrLabel::Instr(Instr::PushBool(true)));
-                        instructions.push(InstrOrLabel::Instr(Instr::Jump(end_label.clone())));
+                        emit(items, Instr::Pop);
+                        emit(items, Instr::PushBool(true));
+                        emit(items, Instr::Jump(end_label.clone()));
                     }
 
                     // FAILURE
-                    instructions.push(InstrOrLabel::Label(tag_fail_label));
-                    instructions.push(InstrOrLabel::Instr(Instr::Pop));
+                    emit(items, Item::Label(tag_fail_label));
+                    emit(items, Instr::Pop);
 
-                    instructions.push(InstrOrLabel::Instr(Instr::PushBool(false)));
+                    emit(items, Instr::PushBool(false));
 
-                    instructions.push(InstrOrLabel::Label(end_label));
+                    emit(items, Item::Label(end_label));
                 }
                 _ => panic!("unexpected pattern: {:?}", pat.patkind),
             },
@@ -566,7 +550,7 @@ impl Translator {
                     let final_element_success_label = make_label("tuple_success");
                     let end_label = make_label("endtuple");
                     // spill tuple elements onto stack
-                    instructions.push(InstrOrLabel::Instr(Instr::Deconstruct));
+                    emit(items, Instr::Deconstruct);
                     // for each element of tuple pattern, compare to TOS
                     // if the comparison fails, pop all remaining tuple elements and jump to the next arm
                     // if it makes it through each tuple element, jump to the arm's expression
@@ -575,34 +559,30 @@ impl Translator {
                         .collect::<Vec<_>>();
                     for (i, pat) in pats.iter().enumerate() {
                         let ty = &types[i];
-                        self.translate_pat_comparison(ty, pat.clone(), instructions);
+                        self.translate_pat_comparison(ty, pat.clone(), items);
                         let is_last = i == pats.len() - 1;
-                        instructions.push(InstrOrLabel::Instr(Instr::Not));
-                        instructions.push(InstrOrLabel::Instr(Instr::JumpIf(
-                            failure_labels[i].clone(),
-                        )));
+                        emit(items, Instr::Not);
+                        emit(items, Instr::JumpIf(failure_labels[i].clone()));
                         // SUCCESS
                         if is_last {
-                            instructions.push(InstrOrLabel::Instr(Instr::Jump(
-                                final_element_success_label.clone(),
-                            )));
+                            emit(items, Instr::Jump(final_element_success_label.clone()));
                         }
                     }
                     // SUCCESS CASE
-                    instructions.push(InstrOrLabel::Label(final_element_success_label));
-                    instructions.push(InstrOrLabel::Instr(Instr::PushBool(true)));
-                    instructions.push(InstrOrLabel::Instr(Instr::Jump(end_label.clone())));
+                    emit(items, Item::Label(final_element_success_label));
+                    emit(items, Instr::PushBool(true));
+                    emit(items, Instr::Jump(end_label.clone()));
 
                     // FAILURE CASE
                     // clean up the remaining tuple elements before yielding false
-                    instructions.push(InstrOrLabel::Label(failure_labels[0].clone()));
+                    emit(items, Item::Label(failure_labels[0].clone()));
                     for label in &failure_labels[1..] {
-                        instructions.push(InstrOrLabel::Instr(Instr::Pop));
-                        instructions.push(InstrOrLabel::Label(label.clone()));
+                        emit(items, Instr::Pop);
+                        emit(items, Item::Label(label.clone()));
                     }
-                    instructions.push(InstrOrLabel::Instr(Instr::PushBool(false)));
+                    emit(items, Instr::PushBool(false));
 
-                    instructions.push(InstrOrLabel::Label(end_label));
+                    emit(items, Item::Label(end_label));
                 }
                 _ => panic!("unexpected pattern: {:?}", pat.patkind),
             },
@@ -615,13 +595,13 @@ impl Translator {
         stmt: Rc<Stmt>,
         is_last: bool,
         locals: &OffsetTable,
-        instructions: &mut Vec<InstrOrLabel>,
+        items: &mut Vec<Item>,
         lambdas: &mut Lambdas,
     ) {
         match &*stmt.stmtkind {
             StmtKind::Let(_, pat, expr) => {
-                self.translate_expr(expr.clone(), locals, instructions, lambdas);
-                self.handle_pat_binding(pat.0.clone(), locals, instructions);
+                self.translate_expr(expr.clone(), locals, items, lambdas);
+                self.handle_pat_binding(pat.0.clone(), locals, items);
             }
             StmtKind::Set(expr1, rvalue) => match &*expr1.exprkind {
                 ExprKind::Var(_) => {
@@ -631,31 +611,31 @@ impl Translator {
                         panic!("expected variableto be defined in node");
                     };
                     let idx = locals.get(node_id).unwrap();
-                    self.translate_expr(rvalue.clone(), locals, instructions, lambdas);
-                    instructions.push(InstrOrLabel::Instr(Instr::StoreOffset(*idx)));
+                    self.translate_expr(rvalue.clone(), locals, items, lambdas);
+                    emit(items, Instr::StoreOffset(*idx));
                 }
                 ExprKind::FieldAccess(accessed, field) => {
                     // TODO, this downcast shouldn't be necessary
                     let ExprKind::Var(field_name) = &*field.exprkind else {
                         panic!()
                     };
-                    self.translate_expr(rvalue.clone(), locals, instructions, lambdas);
-                    self.translate_expr(accessed.clone(), locals, instructions, lambdas);
+                    self.translate_expr(rvalue.clone(), locals, items, lambdas);
+                    self.translate_expr(accessed.clone(), locals, items, lambdas);
                     let idx = idx_of_field(&self.inf_ctx, accessed.clone(), field_name);
-                    instructions.push(InstrOrLabel::Instr(Instr::SetField(idx)));
+                    emit(items, Instr::SetField(idx));
                 }
                 ExprKind::IndexAccess(array, index) => {
-                    self.translate_expr(rvalue.clone(), locals, instructions, lambdas);
-                    self.translate_expr(index.clone(), locals, instructions, lambdas);
-                    self.translate_expr(array.clone(), locals, instructions, lambdas);
-                    instructions.push(InstrOrLabel::Instr(Instr::SetIdx));
+                    self.translate_expr(rvalue.clone(), locals, items, lambdas);
+                    self.translate_expr(index.clone(), locals, items, lambdas);
+                    self.translate_expr(array.clone(), locals, items, lambdas);
+                    emit(items, Instr::SetIdx);
                 }
                 _ => unimplemented!(),
             },
             StmtKind::Expr(expr) => {
-                self.translate_expr(expr.clone(), locals, instructions, lambdas);
+                self.translate_expr(expr.clone(), locals, items, lambdas);
                 if !is_last {
-                    instructions.push(InstrOrLabel::Instr(Instr::Pop));
+                    emit(items, Instr::Pop);
                 }
             }
             StmtKind::InterfaceImpl(..) => {
@@ -670,32 +650,27 @@ impl Translator {
         }
     }
 
-    fn handle_pat_binding(
-        &self,
-        pat: Rc<Pat>,
-        locals: &OffsetTable,
-        instructions: &mut Vec<InstrOrLabel>,
-    ) {
+    fn handle_pat_binding(&self, pat: Rc<Pat>, locals: &OffsetTable, items: &mut Vec<Item>) {
         match &*pat.patkind {
             PatKind::Var(_) => {
                 let idx = locals.get(&pat.id).unwrap();
-                instructions.push(InstrOrLabel::Instr(Instr::StoreOffset(*idx)));
+                emit(items, Instr::StoreOffset(*idx));
             }
             PatKind::Tuple(pats) => {
-                instructions.push(InstrOrLabel::Instr(Instr::Deconstruct));
+                emit(items, Instr::Deconstruct);
                 for pat in pats.iter() {
-                    self.handle_pat_binding(pat.clone(), locals, instructions);
+                    self.handle_pat_binding(pat.clone(), locals, items);
                 }
             }
             PatKind::Variant(_, inner) => {
                 if let Some(inner) = inner {
                     // unpack tag and associated data
-                    instructions.push(InstrOrLabel::Instr(Instr::Deconstruct));
+                    emit(items, Instr::Deconstruct);
                     // pop tag
-                    instructions.push(InstrOrLabel::Instr(Instr::Pop));
-                    self.handle_pat_binding(inner.clone(), locals, instructions);
+                    emit(items, Instr::Pop);
+                    self.handle_pat_binding(inner.clone(), locals, items);
                 } else {
-                    instructions.push(InstrOrLabel::Instr(Instr::Pop));
+                    emit(items, Instr::Pop);
                 }
             }
             PatKind::Unit
@@ -704,7 +679,7 @@ impl Translator {
             | PatKind::Float(..)
             | PatKind::Str(..)
             | PatKind::Wildcard => {
-                instructions.push(InstrOrLabel::Instr(Instr::Pop));
+                emit(items, Instr::Pop);
             }
         }
     }

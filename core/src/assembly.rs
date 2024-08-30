@@ -8,16 +8,28 @@ use crate::vm::Instr as VmInstr;
 pub(crate) type Label = String;
 
 #[derive(Debug)]
-pub(crate) enum InstrOrLabel {
+pub(crate) enum Item {
     Instr(Instr),
     Label(Label),
 }
 
-impl Display for InstrOrLabel {
+impl From<Instr> for Item {
+    fn from(instr: Instr) -> Self {
+        Item::Instr(instr)
+    }
+}
+
+impl From<Label> for Item {
+    fn from(label: Label) -> Self {
+        Item::Label(label)
+    }
+}
+
+impl Display for Item {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
-            InstrOrLabel::Instr(instr) => write!(f, "{}", instr),
-            InstrOrLabel::Label(label) => write!(f, "{}:", label),
+            Item::Instr(instr) => write!(f, "{}", instr),
+            Item::Label(label) => write!(f, "{}:", label),
         }
     }
 }
@@ -25,7 +37,7 @@ impl Display for InstrOrLabel {
 pub type Instr = VmInstr<Label, String>;
 
 pub(crate) fn assemble(s: &str) -> (Vec<VmInstr>, Vec<String>) {
-    let mut instructions: Vec<InstrOrLabel> = vec![];
+    let mut instructions: Vec<Item> = vec![];
     let mut string_constants: HashMap<String, usize> = HashMap::new();
     for (lineno, line) in s.lines().enumerate() {
         let words: Vec<_> = line.split_whitespace().collect();
@@ -38,7 +50,7 @@ pub(crate) fn assemble(s: &str) -> (Vec<VmInstr>, Vec<String>) {
             &mut string_constants,
         ));
     }
-    let instructions = remove_labels(instructions, &string_constants);
+    let instructions = remove_labels(&instructions, &string_constants);
     let mut string_table: Vec<String> = vec!["".into(); string_constants.len()];
     for (s, idx) in string_constants.iter() {
         string_table[*idx] = s.clone();
@@ -47,7 +59,7 @@ pub(crate) fn assemble(s: &str) -> (Vec<VmInstr>, Vec<String>) {
 }
 
 pub(crate) fn remove_labels(
-    items: Vec<InstrOrLabel>,
+    items: &Vec<Item>,
     string_constants: &HashMap<String, usize>,
 ) -> Vec<VmInstr> {
     let mut ret: Vec<VmInstr> = vec![];
@@ -55,17 +67,17 @@ pub(crate) fn remove_labels(
     let mut label_to_idx: HashMap<Label, usize> = HashMap::new();
     for item in items.iter() {
         match item {
-            InstrOrLabel::Instr(_) => {
+            Item::Instr(_) => {
                 offset += 1;
             }
-            InstrOrLabel::Label(label) => {
+            Item::Label(label) => {
                 label_to_idx.insert(label.clone(), offset);
             }
         }
     }
 
     for item in items {
-        if let InstrOrLabel::Instr(instr) = item {
+        if let Item::Instr(instr) = item {
             ret.push(instr_to_vminstr(instr, &label_to_idx, string_constants));
         }
     }
@@ -82,15 +94,15 @@ fn get_label(s: &str) -> Option<String> {
 }
 
 fn instr_to_vminstr(
-    instr: Instr,
+    instr: &Instr,
     label_to_idx: &HashMap<Label, usize>,
     string_constants: &HashMap<String, usize>,
 ) -> VmInstr {
     match instr {
         Instr::Pop => VmInstr::Pop,
         Instr::Duplicate => VmInstr::Duplicate,
-        Instr::LoadOffset(i) => VmInstr::LoadOffset(i),
-        Instr::StoreOffset(i) => VmInstr::StoreOffset(i),
+        Instr::LoadOffset(i) => VmInstr::LoadOffset(*i),
+        Instr::StoreOffset(i) => VmInstr::StoreOffset(*i),
         Instr::Add => VmInstr::Add,
         Instr::Subtract => VmInstr::Subtract,
         Instr::Multiply => VmInstr::Multiply,
@@ -103,31 +115,31 @@ fn instr_to_vminstr(
         Instr::GreaterThanOrEqual => VmInstr::GreaterThanOrEqual,
         Instr::Equal => VmInstr::Equal,
         Instr::PushNil => VmInstr::PushNil,
-        Instr::PushBool(b) => VmInstr::PushBool(b),
-        Instr::PushInt(i) => VmInstr::PushInt(i),
-        Instr::PushFloat(f) => VmInstr::PushFloat(f),
-        Instr::PushString(s) => VmInstr::PushString(string_constants[&s] as u16),
-        Instr::Jump(label) => VmInstr::Jump(label_to_idx[&label]),
-        Instr::JumpIf(label) => VmInstr::JumpIf(label_to_idx[&label]),
-        Instr::Call(label) => VmInstr::Call(label_to_idx[&label]),
+        Instr::PushBool(b) => VmInstr::PushBool(*b),
+        Instr::PushInt(i) => VmInstr::PushInt(*i),
+        Instr::PushFloat(f) => VmInstr::PushFloat(*f),
+        Instr::PushString(s) => VmInstr::PushString(string_constants[s] as u16),
+        Instr::Jump(label) => VmInstr::Jump(label_to_idx[label]),
+        Instr::JumpIf(label) => VmInstr::JumpIf(label_to_idx[label]),
+        Instr::Call(label) => VmInstr::Call(label_to_idx[label]),
         Instr::CallFuncObj => VmInstr::CallFuncObj,
         Instr::Return => VmInstr::Return,
-        Instr::Construct(n) => VmInstr::Construct(n),
+        Instr::Construct(n) => VmInstr::Construct(*n),
         Instr::Deconstruct => VmInstr::Deconstruct,
-        Instr::GetField(idx) => VmInstr::GetField(idx),
-        Instr::SetField(idx) => VmInstr::SetField(idx),
+        Instr::GetField(idx) => VmInstr::GetField(*idx),
+        Instr::SetField(idx) => VmInstr::SetField(*idx),
         Instr::GetIdx => VmInstr::GetIdx,
         Instr::SetIdx => VmInstr::SetIdx,
-        Instr::ConstructVariant { tag } => VmInstr::ConstructVariant { tag },
+        Instr::ConstructVariant { tag } => VmInstr::ConstructVariant { tag: *tag },
         Instr::MakeClosure {
             n_captured,
             func_addr,
         } => VmInstr::MakeClosure {
-            n_captured,
-            func_addr: label_to_idx[&func_addr],
+            n_captured: *n_captured,
+            func_addr: label_to_idx[func_addr],
         },
         Instr::Stop => VmInstr::Stop,
-        Instr::Effect(n) => VmInstr::Effect(n),
+        Instr::Effect(n) => VmInstr::Effect(*n),
     }
 }
 
@@ -135,9 +147,9 @@ fn assemble_instr_or_label(
     words: Vec<&str>,
     lineno: usize,
     string_constants: &mut HashMap<String, usize>,
-) -> InstrOrLabel {
+) -> Item {
     if let Some(label) = get_label(words[0]) {
-        return InstrOrLabel::Label(label);
+        return Item::Label(label);
     }
     let radix = 10;
     let instr = match words[0] {
@@ -213,7 +225,7 @@ fn assemble_instr_or_label(
         }
         _ => panic!("On line {}, unexpected word: {}", lineno, words[0]),
     };
-    InstrOrLabel::Instr(instr)
+    Item::Instr(instr)
 }
 
 #[cfg(test)]
