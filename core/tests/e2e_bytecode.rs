@@ -521,3 +521,86 @@ g
     let top = vm.top();
     assert_eq!(top.get_float(), 2.0);
 }
+
+#[test]
+fn array_append() {
+    let src = r#"
+let arr = [1, 2, 3, 4, 5]
+append(arr, 6)
+arr[5]
+"#;
+    let sources = source_files_single(src);
+    let mut vm = match compile_bytecode::<DefaultEffects>(sources) {
+        Ok(vm) => vm,
+        Err(e) => {
+            panic!("{}", e);
+        }
+    };
+    vm.run();
+    let top = vm.top();
+    assert_eq!(top.get_int(), 6);
+}
+
+#[test]
+fn array_len() {
+    let src = r#"
+let arr = [1, 2, 3, 4, 5]
+len(arr)
+"#;
+    let sources = source_files_single(src);
+    let mut vm = match compile_bytecode::<DefaultEffects>(sources) {
+        Ok(vm) => vm,
+        Err(e) => {
+            panic!("{}", e);
+        }
+    };
+    vm.run();
+    let top = vm.top();
+    assert_eq!(top.get_int(), 5);
+}
+
+#[test]
+fn list_literal_head() {
+    let src = r#"
+match [| 1, 2, 3 |] {
+  nil -> 0
+  cons(~x, _) -> x
+}
+"#;
+    let sources = source_files_single(src);
+    let mut vm = match compile_bytecode::<DefaultEffects>(sources) {
+        Ok(vm) => vm,
+        Err(e) => {
+            panic!("{}", e);
+        }
+    };
+    vm.run();
+    let top = vm.top();
+    assert_eq!(top.get_int(), 1);
+}
+
+#[test]
+fn list_literal_total() {
+    let src = r#"
+let xs = [| 1, 2, 3 |]
+
+func total(xs) {
+    match xs {
+      cons(~x, ~xs) -> x + total(xs)
+      nil -> 0
+    }
+}
+
+total(xs)
+"#;
+    let sources = source_files_single(src);
+    let mut vm = match compile_bytecode::<DefaultEffects>(sources) {
+        Ok(vm) => vm,
+        Err(e) => {
+            panic!("{}", e);
+        }
+    };
+    vm.run();
+    let top = vm.top();
+    assert_eq!(top.get_int(), 6);
+}

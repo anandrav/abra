@@ -4,10 +4,16 @@ use abra_core::source_files_single;
 
 fn main() {
     let src = r#"
-let one = 1
-let two = 2
-let sub1 = x -> x + one - two
-sub1(4)
+let xs = [| 1, 2, 3 |]
+
+func total(xs) {
+    match xs {
+      cons(~x, ~xs) -> x + total(xs)
+      nil -> 0
+    }
+}
+
+total(xs)
 "#;
     let sources = source_files_single(src);
     let mut vm = match compile_bytecode::<DefaultEffects>(sources) {
@@ -18,5 +24,5 @@ sub1(4)
     };
     vm.run();
     let top = vm.top();
-    assert_eq!(top.get_int(), 3);
+    assert_eq!(top.get_int(), 6);
 }

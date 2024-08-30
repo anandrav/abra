@@ -138,6 +138,9 @@ fn instr_to_vminstr(
             n_captured: *n_captured,
             func_addr: label_to_idx[func_addr],
         },
+        Instr::ArrayAppend => VmInstr::ArrayAppend,
+        Instr::ArrayLen => VmInstr::ArrayLen,
+        Instr::ArrayPop => VmInstr::ArrayPop,
         Instr::Stop => VmInstr::Stop,
         Instr::Effect(n) => VmInstr::Effect(*n),
     }

@@ -115,6 +115,9 @@ pub enum Instr<Location = ProgramCounter, StringConstant = u16> {
         n_captured: u16,
         func_addr: Location,
     },
+    ArrayAppend,
+    ArrayLen,
+    ArrayPop,
 
     // Effects
     Stop,
@@ -164,6 +167,9 @@ impl<L: Display, S: Display> Display for Instr<L, S> {
             } => {
                 write!(f, "make_closure {} {}", n_captured, func_addr)
             }
+            Instr::ArrayAppend => write!(f, "array_append"),
+            Instr::ArrayLen => write!(f, "array_len"),
+            Instr::ArrayPop => write!(f, "array_pop"),
             Instr::Stop => write!(f, "stop"),
             Instr::Effect(n) => write!(f, "effect {}", n),
         }
@@ -558,6 +564,46 @@ impl Vm {
                 });
                 self.value_stack
                     .push(Value::ManagedObject(self.heap.len() - 1));
+            }
+            Instr::ArrayAppend => {
+                let rvalue = self.pop();
+                let obj = self.value_stack.pop().expect("stack underflow");
+                let obj_id = match &obj {
+                    Value::ManagedObject(id) => *id,
+                    _ => panic!("not a managed object: {:?}", obj),
+                };
+                match &mut self.heap[obj_id].kind {
+                    ManagedObjectKind::DynArray(fields) => {
+                        fields.push(rvalue);
+                    }
+                    _ => panic!("not a dynamic array: {:?}", self.heap[obj_id]),
+                }
+                self.push_nil();
+            }
+            Instr::ArrayLen => {
+                let obj = self.value_stack.pop().expect("stack underflow");
+                let len = match &obj {
+                    Value::ManagedObject(id) => match &self.heap[*id].kind {
+                        ManagedObjectKind::DynArray(fields) => fields.len(),
+                        _ => panic!("not a dynamic array"),
+                    },
+                    _ => panic!("not a dynamic array"),
+                };
+                self.push_int(len as AbraInt);
+            }
+            Instr::ArrayPop => {
+                let obj = self.value_stack.pop().expect("stack underflow");
+                let obj_id = match &obj {
+                    Value::ManagedObject(id) => *id,
+                    _ => panic!("not a managed object: {:?}", obj),
+                };
+                match &mut self.heap[obj_id].kind {
+                    ManagedObjectKind::DynArray(fields) => {
+                        let rvalue = fields.pop().expect("array underflow");
+                        self.push(rvalue);
+                    }
+                    _ => panic!("not a dynamic array: {:?}", self.heap[obj_id]),
+                }
             }
             Instr::Effect(eff) => {
                 self.pending_effect = Some(eff);

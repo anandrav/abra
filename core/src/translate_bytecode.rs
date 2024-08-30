@@ -313,6 +313,12 @@ impl Translator {
                                 "sqrt_float" => {
                                     emit(items, Instr::SquareRoot);
                                 }
+                                "append" => {
+                                    emit(items, Instr::ArrayAppend);
+                                }
+                                "len" => {
+                                    emit(items, Instr::ArrayLen);
+                                }
                                 _ => panic!("unrecognized builtin: {}", s),
                             }
                         }
@@ -374,6 +380,37 @@ impl Translator {
                     self.translate_expr(expr.clone(), offset_table, items, lambdas);
                 }
                 emit(items, Instr::Construct(exprs.len() as u16));
+            }
+            ExprKind::List(exprs) => {
+                // // make nil
+                // emit(items, Instr::PushNil);
+                // emit(items, Instr::ConstructVariant { tag: 0 });
+                // // make cons for each element
+                // for expr in exprs.iter().rev() {
+                //     self.translate_expr(expr.clone(), offset_table, items, lambdas);
+                //     emit(items, Instr::Construct(2)); // (head, tail)
+                //     emit(items, Instr::ConstructVariant { tag: 1 });
+                // }
+
+                fn translate_list(
+                    translator: &Translator,
+                    exprs: &[Rc<Expr>],
+                    offset_table: &OffsetTable,
+                    items: &mut Vec<Item>,
+                    lambdas: &mut Lambdas,
+                ) {
+                    if exprs.is_empty() {
+                        emit(items, Instr::PushNil);
+                        emit(items, Instr::ConstructVariant { tag: 0 });
+                    } else {
+                        translator.translate_expr(exprs[0].clone(), offset_table, items, lambdas);
+                        translate_list(translator, &exprs[1..], offset_table, items, lambdas);
+                        emit(items, Instr::Construct(2)); // (head, tail)
+                        emit(items, Instr::ConstructVariant { tag: 1 });
+                    }
+                }
+
+                translate_list(self, exprs, offset_table, items, lambdas);
             }
             ExprKind::IndexAccess(array, index) => {
                 self.translate_expr(index.clone(), offset_table, items, lambdas);
@@ -473,6 +510,10 @@ impl Translator {
                 );
             }
             _ => panic!("unimplemented: {:?}", expr.exprkind),
+        }
+
+        for item in items.iter() {
+            println!("{}", item);
         }
     }
 
