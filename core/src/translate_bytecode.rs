@@ -210,6 +210,9 @@ impl Translator {
                             },
                         );
                     }
+                    Resolution::InterfaceMethod(..) => {
+                        unimplemented!()
+                    }
                 }
             }
             ExprKind::Unit => {
@@ -259,6 +262,9 @@ impl Translator {
                         }
                         Resolution::FunctionDefinition(_, name) => {
                             emit(items, Instr::Call(name.clone()));
+                        }
+                        Resolution::InterfaceMethod(_) => {
+                            unimplemented!()
                         }
                         Resolution::StructDefinition(_, nargs) => {
                             emit(items, Instr::Construct(*nargs));

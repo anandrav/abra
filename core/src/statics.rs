@@ -934,6 +934,7 @@ fn constrain(mut expected: TypeVar, mut actual: TypeVar) {
 pub(crate) enum Resolution {
     Var(NodeId),
     FunctionDefinition(NodeId, Symbol),
+    InterfaceMethod(NodeId),
     StructDefinition(NodeId, u16),
     Variant(NodeId, u16, u16),
     Builtin(Symbol),
@@ -2171,7 +2172,7 @@ pub(crate) fn gather_definitions_stmt(
                 constrain(node_ty.clone(), ty_annot.clone());
                 // TODO last here
                 // perhaps make a note that this is an interface method (overloaded)
-                gamma.extend_declaration(p.ident.clone(), Resolution::Var(p.id()));
+                gamma.extend_declaration(p.ident.clone(), Resolution::InterfaceMethod(p.id()));
                 methods.push(InterfaceDefMethod {
                     name: p.ident.clone(),
                     ty: node_ty.clone(),
