@@ -939,7 +939,9 @@ pub(crate) enum Resolution {
        - struct definiiton
        - variant/ADT definition (implemented below already)
     */
-    Variant(NodeId, Symbol),
+    FunctionDefinition(NodeId, Symbol),
+    StructDefinition(NodeId, u16),
+    Variant(NodeId, u16, u16),
     Builtin(Symbol),
 }
 
@@ -2233,10 +2235,15 @@ pub(crate) fn gather_definitions_stmt(
                     return;
                 }
                 let mut defvariants = vec![];
-                for v in variants {
+                for (i, v) in variants.iter().enumerate() {
+                    let arity = v.data.as_ref().map_or(0, |d| match &*d.typekind {
+                        TypeKind::Tuple(elems) => elems.len(),
+                        TypeKind::Unit => 0,
+                        _ => 1,
+                    });
                     gamma.extend_declaration(
                         v.ctor.clone(),
-                        Resolution::Variant(stmt.id, v.ctor.clone()),
+                        Resolution::Variant(stmt.id, i as u16, arity as u16),
                     );
 
                     let data = {
@@ -2272,7 +2279,10 @@ pub(crate) fn gather_definitions_stmt(
                 );
             }
             TypeDefKind::Struct(ident, params, fields) => {
-                gamma.extend_declaration(ident.clone(), Resolution::Node(stmt.id));
+                gamma.extend_declaration(
+                    ident.clone(),
+                    Resolution::StructDefinition(stmt.id, fields.len() as u16),
+                );
 
                 let ty_struct = TypeVar::from_node(inf_ctx, stmt.id);
                 if let Some(struct_def) = inf_ctx.struct_defs.get(ident) {
@@ -2315,17 +2325,11 @@ pub(crate) fn gather_definitions_stmt(
         StmtKind::Expr(_) => {}
         StmtKind::Let(..) => {}
         StmtKind::FuncDef(name, _args, _out_annot, _body) => {
-            inf_ctx
-                .fun_defs
-                .insert(name.patkind.get_identifier_of_variable(), stmt.clone());
-            gamma.extend(
-                name.patkind.get_identifier_of_variable(),
-                TypeVar::from_node(inf_ctx, name.id),
-            );
-            gamma.extend_declaration(
-                name.patkind.get_identifier_of_variable(),
-                Resolution::Node(stmt.id),
-            );
+            let name_id = name.id;
+            let name = name.patkind.get_identifier_of_variable();
+            inf_ctx.fun_defs.insert(name.clone(), stmt.clone());
+            gamma.extend(name.clone(), TypeVar::from_node(inf_ctx, name_id));
+            gamma.extend_declaration(name.clone(), Resolution::FunctionDefinition(stmt.id, name));
         }
         StmtKind::Set(..) => {}
     }

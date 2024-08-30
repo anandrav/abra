@@ -177,24 +177,9 @@ impl Translator {
             ExprKind::Var(symbol) => {
                 // adt variant
                 match self.inf_ctx.name_resolutions.get(&expr.id).unwrap() {
-                    Resolution::Variant(node_id, variant_name) => {
-                        let node = self.node_map.get(node_id).unwrap();
-                        let stmt = node.to_stmt().unwrap();
-                        match &*stmt.stmtkind {
-                            StmtKind::TypeDef(kind) => match &**kind {
-                                TypeDefKind::Adt(_, _, variants) => {
-                                    let tag = variants
-                                        .iter()
-                                        .position(|v| v.ctor == *variant_name)
-                                        .expect("variant not found")
-                                        as u16;
-                                    emit(items, Instr::PushNil);
-                                    emit(items, Instr::ConstructVariant { tag });
-                                }
-                                _ => panic!("unexpected stmt: {:?}", stmt.stmtkind),
-                            },
-                            _ => panic!("unexpected stmt: {:?}", stmt.stmtkind),
-                        }
+                    Resolution::Variant(_, tag, _) => {
+                        emit(items, Instr::PushNil);
+                        emit(items, Instr::ConstructVariant { tag: *tag });
                     }
                     Resolution::Node(node_id) => {
                         let span = self.node_map.get(node_id).unwrap().span();
@@ -211,6 +196,7 @@ impl Translator {
                     Resolution::Builtin(s) => {
                         unimplemented!()
                     }
+                    _ => unimplemented!(),
                 }
             }
             ExprKind::Unit => {
@@ -253,56 +239,23 @@ impl Translator {
                     let resolution = self.inf_ctx.name_resolutions.get(&func.id).unwrap();
                     match resolution {
                         Resolution::Node(node_id) => {
-                            let node = self.node_map.get(node_id).unwrap();
-                            dbg!(node);
-                            let span = node.span();
-                            let mut s = String::new();
-                            span.display(&mut s, &self.sources, "function call");
-                            println!("{}", s);
-                            if let Some(stmt) = node.to_stmt() {
-                                match &*stmt.stmtkind {
-                                    StmtKind::FuncDef(name, _, _, _) => {
-                                        emit(
-                                            items,
-                                            Instr::Call(name.patkind.get_identifier_of_variable()),
-                                        );
-                                    }
-                                    StmtKind::TypeDef(kind) => match &**kind {
-                                        TypeDefKind::Struct(_, _, fields) => {
-                                            emit(items, Instr::Construct(fields.len() as u16));
-                                        }
-                                        _ => unimplemented!(),
-                                    },
-                                    _ => panic!("unexpected stmt: {:?}", stmt.stmtkind),
-                                }
-                            } else {
-                                // assume it's a function object
-                                let idx = offset_table.get(node_id).unwrap();
-                                emit(items, Instr::LoadOffset(*idx));
-                                emit(items, Instr::CallFuncObj);
-                            }
+                            // assume it's a function object
+                            let idx = offset_table.get(node_id).unwrap();
+                            emit(items, Instr::LoadOffset(*idx));
+                            emit(items, Instr::CallFuncObj);
                         }
-                        Resolution::Variant(node_id, variant_name) => {
-                            let node = self.node_map.get(node_id).unwrap();
-                            let stmt = node.to_stmt().unwrap();
-                            match &*stmt.stmtkind {
-                                StmtKind::TypeDef(kind) => match &**kind {
-                                    TypeDefKind::Adt(_, _, variants) => {
-                                        let tag = variants
-                                            .iter()
-                                            .position(|v| v.ctor == *variant_name)
-                                            .expect("variant not found")
-                                            as u16;
-                                        if args.len() > 1 {
-                                            // turn the arguments (associated data) into a tuple
-                                            emit(items, Instr::Construct(args.len() as u16));
-                                        }
-                                        items.push(Item::Instr(Instr::ConstructVariant { tag }));
-                                    }
-                                    _ => panic!("unexpected stmt: {:?}", stmt.stmtkind),
-                                },
-                                _ => panic!("unexpected stmt: {:?}", stmt.stmtkind),
+                        Resolution::FunctionDefinition(_, name) => {
+                            emit(items, Instr::Call(name.clone()));
+                        }
+                        Resolution::StructDefinition(_, nargs) => {
+                            emit(items, Instr::Construct(*nargs));
+                        }
+                        Resolution::Variant(_, tag, nargs) => {
+                            if *nargs > 1 {
+                                // turn the arguments (associated data) into a tuple
+                                emit(items, Instr::Construct(*nargs));
                             }
+                            items.push(Item::Instr(Instr::ConstructVariant { tag: *tag }));
                         }
                         Resolution::Builtin(s) => {
                             // TODO use an enum instead of strings
