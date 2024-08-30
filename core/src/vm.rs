@@ -1,5 +1,6 @@
 type ProgramCounter = usize;
 pub type AbraInt = i64;
+pub type AbraFloat = f64;
 use crate::assembly::assemble;
 use core::fmt;
 use std::fmt::{Display, Formatter};
@@ -75,14 +76,14 @@ pub enum Instr<Location = ProgramCounter, StringConstant = u16> {
     PushNil,
     PushBool(bool),
     PushInt(AbraInt),
+    PushFloat(AbraFloat),
     PushString(StringConstant),
 
     // Arithmetic
     Add,
-    Sub,
-    Mul,
-    Div,
-    Not,
+    Subtract,
+    Multiply,
+    Divide,
 
     // Comparison
     LessThan,
@@ -90,6 +91,7 @@ pub enum Instr<Location = ProgramCounter, StringConstant = u16> {
     GreaterThan,
     GreaterThanOrEqual,
     Equal,
+    Not,
 
     // Control Flow
     Jump(Location),
@@ -126,9 +128,9 @@ impl<L: Display, S: Display> Display for Instr<L, S> {
             Instr::LoadOffset(n) => write!(f, "loadOffset {}", n),
             Instr::StoreOffset(n) => write!(f, "storeOffset {}", n),
             Instr::Add => write!(f, "add"),
-            Instr::Sub => write!(f, "subtract"),
-            Instr::Mul => write!(f, "multiply"),
-            Instr::Div => write!(f, "divide"),
+            Instr::Subtract => write!(f, "subtract"),
+            Instr::Multiply => write!(f, "multiply"),
+            Instr::Divide => write!(f, "divide"),
             Instr::Not => write!(f, "not"),
             Instr::LessThan => write!(f, "less_than"),
             Instr::LessThanOrEqual => write!(f, "less_than_or_equal"),
@@ -138,6 +140,7 @@ impl<L: Display, S: Display> Display for Instr<L, S> {
             Instr::PushNil => write!(f, "push_nil"),
             Instr::PushBool(b) => write!(f, "push_bool {}", b),
             Instr::PushInt(n) => write!(f, "push_int {}", n),
+            Instr::PushFloat(n) => write!(f, "push_float {}", n),
             Instr::PushString(s) => write!(f, "push_string \"{}\"", s),
             Instr::Jump(loc) => write!(f, "jump {}", loc),
             Instr::JumpIf(loc) => write!(f, "jump_if {}", loc),
@@ -170,6 +173,7 @@ pub enum Value {
     Nil,
     Bool(bool),
     Int(AbraInt),
+    Float(AbraFloat),
     ManagedObject(usize),
 }
 
@@ -182,6 +186,12 @@ impl From<bool> for Value {
 impl From<AbraInt> for Value {
     fn from(n: AbraInt) -> Value {
         Value::Int(n)
+    }
+}
+
+impl From<AbraFloat> for Value {
+    fn from(n: AbraFloat) -> Value {
+        Value::Float(n)
     }
 }
 
@@ -270,6 +280,9 @@ impl Vm {
             Instr::PushInt(n) => {
                 self.push(n);
             }
+            Instr::PushFloat(f) => {
+                self.push(f);
+            }
             Instr::PushBool(b) => {
                 self.push(b);
             }
@@ -284,8 +297,8 @@ impl Vm {
                 self.value_stack.pop();
             }
             Instr::Duplicate => {
-                let v = self.top().clone();
-                self.push(v);
+                let v = self.top();
+                self.push(*v);
             }
             Instr::LoadOffset(n) => {
                 let idx = self.stack_base.wrapping_add_signed(n as isize);
@@ -298,54 +311,87 @@ impl Vm {
                 self.value_stack[idx] = v;
             }
             Instr::Add => {
-                let b = self.pop_int();
-                let a = self.pop_int();
-                self.push(a + b);
+                let b = self.pop();
+                let a = self.pop();
+                match (a, b) {
+                    (Value::Int(a), Value::Int(b)) => self.push(a + b),
+                    (Value::Float(a), Value::Float(b)) => self.push(a + b),
+                    _ => panic!("not a number"),
+                }
             }
-            Instr::Sub => {
-                let b = self.pop_int();
-                let a = self.pop_int();
-                self.push(a - b);
+            Instr::Subtract => {
+                let b = self.pop();
+                let a = self.pop();
+                match (a, b) {
+                    (Value::Int(a), Value::Int(b)) => self.push(a - b),
+                    (Value::Float(a), Value::Float(b)) => self.push(a - b),
+                    _ => panic!("not a number"),
+                }
             }
-            Instr::Mul => {
-                let b = self.pop_int();
-                let a = self.pop_int();
-                self.push(a * b);
+            Instr::Multiply => {
+                let b = self.pop();
+                let a = self.pop();
+                match (a, b) {
+                    (Value::Int(a), Value::Int(b)) => self.push(a * b),
+                    (Value::Float(a), Value::Float(b)) => self.push(a * b),
+                    _ => panic!("not a number"),
+                }
             }
-            Instr::Div => {
-                let b = self.pop_int();
-                let a = self.pop_int();
-                self.push(a / b);
+            Instr::Divide => {
+                let b = self.pop();
+                let a = self.pop();
+                match (a, b) {
+                    (Value::Int(a), Value::Int(b)) => self.push(a / b),
+                    (Value::Float(a), Value::Float(b)) => self.push(a / b),
+                    _ => panic!("not a number"),
+                }
             }
             Instr::Not => {
                 let v = self.pop_bool();
                 self.push(!v);
             }
             Instr::LessThan => {
-                let b = self.pop_int();
-                let a = self.pop_int();
-                self.push(a < b);
+                let b = self.pop();
+                let a = self.pop();
+                match (a, b) {
+                    (Value::Int(a), Value::Int(b)) => self.push(a < b),
+                    (Value::Float(a), Value::Float(b)) => self.push(a < b),
+                    _ => panic!("not a number"),
+                }
             }
             Instr::LessThanOrEqual => {
-                let b = self.pop_int();
-                let a = self.pop_int();
-                self.push(a <= b);
+                let b = self.pop();
+                let a = self.pop();
+                match (a, b) {
+                    (Value::Int(a), Value::Int(b)) => self.push(a <= b),
+                    (Value::Float(a), Value::Float(b)) => self.push(a <= b),
+                    _ => panic!("not a number"),
+                }
             }
             Instr::GreaterThan => {
-                let b = self.pop_int();
-                let a = self.pop_int();
-                self.push(a > b);
+                let b = self.pop();
+                let a = self.pop();
+                match (a, b) {
+                    (Value::Int(a), Value::Int(b)) => self.push(a > b),
+                    (Value::Float(a), Value::Float(b)) => self.push(a > b),
+                    _ => panic!("not a number"),
+                }
             }
             Instr::GreaterThanOrEqual => {
-                let b = self.pop_int();
-                let a = self.pop_int();
-                self.push(a >= b);
+                let b = self.pop();
+                let a = self.pop();
+                match (a, b) {
+                    (Value::Int(a), Value::Int(b)) => self.push(a >= b),
+                    (Value::Float(a), Value::Float(b)) => self.push(a >= b),
+                    _ => panic!("not a number"),
+                }
             }
             Instr::Equal => {
                 let b = self.pop();
                 let a = self.pop();
                 match (a, b) {
                     (Value::Int(a), Value::Int(b)) => self.push(a == b),
+                    (Value::Float(a), Value::Float(b)) => self.push(a == b),
                     (Value::Bool(a), Value::Bool(b)) => self.push(a == b),
                     (Value::Nil, Value::Nil) => self.push(true),
                     _ => self.push(false),

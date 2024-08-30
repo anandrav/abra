@@ -84,7 +84,7 @@ impl Translator {
                     let func_name = name.patkind.get_identifier_of_variable();
                     let func_name_blacklist = [
                         "range", "fold", "sum", "sumf", "clamp", "concat", "map", "for_each",
-                        "filter", "reverse", "print", "println", "abs", "sqrt", "max", "min",
+                        "filter", "reverse", "print", "println", "sqrt", "max", "min",
                     ];
                     // don't generate code for functions in prelude, not ready for that yet.
                     if func_name_blacklist.contains(&func_name.as_str()) {
@@ -231,6 +231,9 @@ impl Translator {
             ExprKind::Int(i) => {
                 instructions.push(InstrOrLabel::Instr(Instr::PushInt(*i)));
             }
+            ExprKind::Float(f) => {
+                instructions.push(InstrOrLabel::Instr(Instr::PushFloat(*f)));
+            }
             ExprKind::Str(s) => {
                 instructions.push(InstrOrLabel::Instr(Instr::PushString(s.clone())));
             }
@@ -239,9 +242,9 @@ impl Translator {
                 self.translate_expr(right.clone(), offset_table, instructions, lambdas);
                 match op {
                     BinOpcode::Add => instructions.push(InstrOrLabel::Instr(Instr::Add)),
-                    BinOpcode::Subtract => instructions.push(InstrOrLabel::Instr(Instr::Sub)),
-                    BinOpcode::Multiply => instructions.push(InstrOrLabel::Instr(Instr::Mul)),
-                    BinOpcode::Divide => instructions.push(InstrOrLabel::Instr(Instr::Div)),
+                    BinOpcode::Subtract => instructions.push(InstrOrLabel::Instr(Instr::Subtract)),
+                    BinOpcode::Multiply => instructions.push(InstrOrLabel::Instr(Instr::Multiply)),
+                    BinOpcode::Divide => instructions.push(InstrOrLabel::Instr(Instr::Divide)),
                     BinOpcode::GreaterThan => {
                         instructions.push(InstrOrLabel::Instr(Instr::GreaterThan))
                     }
