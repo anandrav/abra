@@ -604,3 +604,30 @@ total(xs)
     let top = vm.top();
     assert_eq!(top.get_int(), 6);
 }
+
+#[test]
+fn parametric_polymorphic_func() {
+    let src = r#"
+let nums = [| 1, 2, 3 |]
+let bools = [| true, false, true, true, false |]
+
+func list_len(xs) {
+    match xs {
+      cons(_, ~xs) -> 1 + list_len(xs)
+      nil -> 0
+    }
+}
+
+list_len(nums) + list_len(bools)
+"#;
+    let sources = source_files_single(src);
+    let mut vm = match compile_bytecode::<DefaultEffects>(sources) {
+        Ok(vm) => vm,
+        Err(e) => {
+            panic!("{}", e);
+        }
+    };
+    vm.run();
+    let top = vm.top();
+    assert_eq!(top.get_int(), 8);
+}

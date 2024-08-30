@@ -4,16 +4,13 @@ use abra_core::source_files_single;
 
 fn main() {
     let src = r#"
-let xs = [| 1, 2, 3 |]
+let nums = [| 1, 2, 3 |]
 
 func total(xs) {
-    match xs {
-      cons(~x, ~xs) -> x + total(xs)
-      nil -> 0
-    }
+    fold(xs, (acc, x) -> acc + x, 0)
 }
 
-total(xs)
+total(nums)
 "#;
     let sources = source_files_single(src);
     let mut vm = match compile_bytecode::<DefaultEffects>(sources) {
