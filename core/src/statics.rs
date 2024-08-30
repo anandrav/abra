@@ -166,47 +166,47 @@ pub(crate) enum SolvedType {
 }
 
 impl SolvedType {
-    pub(crate) fn instance_type(&self) -> Option<TypeMonomorphized> {
+    pub(crate) fn monotype(&self) -> Option<Monotype> {
         match self {
             Self::Poly(..) => None,
-            Self::Unit => Some(TypeMonomorphized::Unit),
-            Self::Int => Some(TypeMonomorphized::Int),
-            Self::Float => Some(TypeMonomorphized::Float),
-            Self::Bool => Some(TypeMonomorphized::Bool),
-            Self::String => Some(TypeMonomorphized::String),
+            Self::Unit => Some(Monotype::Unit),
+            Self::Int => Some(Monotype::Int),
+            Self::Float => Some(Monotype::Float),
+            Self::Bool => Some(Monotype::Bool),
+            Self::String => Some(Monotype::String),
             Self::Function(args, out) => {
-                let mut args2: Vec<TypeMonomorphized> = vec![];
+                let mut args2: Vec<Monotype> = vec![];
                 for arg in args {
-                    if let Some(arg) = arg.instance_type() {
+                    if let Some(arg) = arg.monotype() {
                         args2.push(arg);
                     } else {
                         return None;
                     }
                 }
-                let out = out.instance_type()?;
-                Some(TypeMonomorphized::Function(args2, out.into()))
+                let out = out.monotype()?;
+                Some(Monotype::Function(args2, out.into()))
             }
             Self::Tuple(elems) => {
                 let mut elems2 = vec![];
                 for elem in elems {
-                    if let Some(elem) = elem.instance_type() {
+                    if let Some(elem) = elem.monotype() {
                         elems2.push(elem);
                     } else {
                         return None;
                     }
                 }
-                Some(TypeMonomorphized::Tuple(elems2))
+                Some(Monotype::Tuple(elems2))
             }
             Self::UdtInstance(ident, params) => {
-                let mut params2: Vec<TypeMonomorphized> = vec![];
+                let mut params2: Vec<Monotype> = vec![];
                 for param in params {
-                    if let Some(param) = param.instance_type() {
+                    if let Some(param) = param.monotype() {
                         params2.push(param);
                     } else {
                         return None;
                     }
                 }
-                Some(TypeMonomorphized::Adt(ident.clone(), params2))
+                Some(Monotype::Adt(ident.clone(), params2))
             }
         }
     }
@@ -230,15 +230,15 @@ impl SolvedType {
 
 // This is the fully instantiated AKA monomorphized type of an interface's implementation
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub enum TypeMonomorphized {
+pub enum Monotype {
     Unit,
     Int,
     Float,
     Bool,
     String,
-    Function(Vec<TypeMonomorphized>, Box<TypeMonomorphized>),
-    Tuple(Vec<TypeMonomorphized>),
-    Adt(Symbol, Vec<TypeMonomorphized>),
+    Function(Vec<Monotype>, Box<Monotype>),
+    Tuple(Vec<Monotype>),
+    Adt(Symbol, Vec<Monotype>),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
@@ -934,7 +934,7 @@ fn constrain(mut expected: TypeVar, mut actual: TypeVar) {
 pub(crate) enum Resolution {
     Var(NodeId),
     FunctionDefinition(NodeId, Symbol),
-    InterfaceMethod(NodeId),
+    InterfaceMethod(NodeId, Symbol),
     StructDefinition(NodeId, u16),
     Variant(NodeId, u16, u16),
     Builtin(Symbol),
@@ -2172,7 +2172,10 @@ pub(crate) fn gather_definitions_stmt(
                 constrain(node_ty.clone(), ty_annot.clone());
                 // TODO last here
                 // perhaps make a note that this is an interface method (overloaded)
-                gamma.extend_declaration(p.ident.clone(), Resolution::InterfaceMethod(p.id()));
+                gamma.extend_declaration(
+                    p.ident.clone(),
+                    Resolution::InterfaceMethod(p.id(), p.ident.clone()),
+                );
                 methods.push(InterfaceDefMethod {
                     name: p.ident.clone(),
                     ty: node_ty.clone(),
@@ -2330,21 +2333,21 @@ pub(crate) fn gather_definitions_stmt(
     }
 }
 
-fn monomorphized_ty_to_builtin_ty(ty: TypeMonomorphized, prov_builtin: Prov) -> TypeVar {
+fn monomorphized_ty_to_builtin_ty(ty: Monotype, prov_builtin: Prov) -> TypeVar {
     match ty {
-        TypeMonomorphized::Unit => TypeVar::make_unit(prov_builtin),
-        TypeMonomorphized::Int => TypeVar::make_int(prov_builtin),
-        TypeMonomorphized::Float => TypeVar::make_float(prov_builtin),
-        TypeMonomorphized::Bool => TypeVar::make_bool(prov_builtin),
-        TypeMonomorphized::String => TypeVar::make_string(prov_builtin),
-        TypeMonomorphized::Tuple(elements) => {
+        Monotype::Unit => TypeVar::make_unit(prov_builtin),
+        Monotype::Int => TypeVar::make_int(prov_builtin),
+        Monotype::Float => TypeVar::make_float(prov_builtin),
+        Monotype::Bool => TypeVar::make_bool(prov_builtin),
+        Monotype::String => TypeVar::make_string(prov_builtin),
+        Monotype::Tuple(elements) => {
             let elements = elements
                 .into_iter()
                 .map(|e| monomorphized_ty_to_builtin_ty(e, prov_builtin.clone()))
                 .collect();
             TypeVar::make_tuple(elements, prov_builtin)
         }
-        TypeMonomorphized::Function(args, out) => {
+        Monotype::Function(args, out) => {
             let args = args
                 .into_iter()
                 .map(|a| monomorphized_ty_to_builtin_ty(a, prov_builtin.clone()))
@@ -2352,7 +2355,7 @@ fn monomorphized_ty_to_builtin_ty(ty: TypeMonomorphized, prov_builtin: Prov) -> 
             let out = monomorphized_ty_to_builtin_ty(*out, prov_builtin.clone());
             TypeVar::make_func(args, out, prov_builtin.clone())
         }
-        TypeMonomorphized::Adt(name, params) => {
+        Monotype::Adt(name, params) => {
             let params = params
                 .into_iter()
                 .map(|p| monomorphized_ty_to_builtin_ty(p, prov_builtin.clone()))

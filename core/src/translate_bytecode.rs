@@ -1,7 +1,7 @@
 use crate::assembly::{remove_labels, Instr, Item, Label};
 use crate::ast::{NodeId, Sources, Toplevel};
 use crate::operators::BinOpcode;
-use crate::statics::{Resolution, SolvedType, TypeMonomorphized};
+use crate::statics::{Monotype, Resolution, SolvedType};
 use crate::vm::{AbraInt, Instr as VmInstr};
 use crate::EffectTrait;
 use crate::{
@@ -14,7 +14,7 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 
 type OffsetTable = HashMap<NodeId, i32>;
 type Lambdas = HashMap<NodeId, LambdaData>;
-type InterfaceMethodsMap = HashMap<(NodeId, TypeMonomorphized), Label>;
+type InterfaceMethodsMap = HashMap<(NodeId, Monotype), Label>;
 
 #[derive(Debug, Clone)]
 struct LambdaData {
@@ -263,10 +263,23 @@ impl Translator {
                         Resolution::FunctionDefinition(_, name) => {
                             emit(st, Instr::Call(name.clone()));
                         }
-                        Resolution::InterfaceMethod(_) => {
+                        Resolution::InterfaceMethod(_, name) => {
                             // need addr of interface method
                             // need map from (interface method, type) to concrete implementation
-                            unimplemented!()
+                            let monotype = self
+                                .inf_ctx
+                                .solution_of_node(func.id)
+                                .unwrap()
+                                .monotype()
+                                .unwrap();
+                            let label = st
+                                .interface_method_map
+                                .entry((func.id, monotype))
+                                .or_insert(make_label(
+                                    name, // TODO: add type to label. ex: to_string__int__#B
+                                ))
+                                .clone();
+                            emit(st, Instr::Call(label));
                         }
                         Resolution::StructDefinition(_, nargs) => {
                             emit(st, Instr::Construct(*nargs));

@@ -10,7 +10,7 @@ pub trait EffectTrait {
     where
         Self: Sized;
 
-    fn type_signature(&self) -> (Vec<statics::TypeMonomorphized>, statics::TypeMonomorphized);
+    fn type_signature(&self) -> (Vec<statics::Monotype>, statics::Monotype);
 
     fn function_name(&self) -> String;
 }
@@ -31,15 +31,14 @@ impl EffectTrait for DefaultEffects {
         DefaultEffects::iter().collect()
     }
 
-    fn type_signature(&self) -> (Vec<statics::TypeMonomorphized>, statics::TypeMonomorphized) {
+    fn type_signature(&self) -> (Vec<statics::Monotype>, statics::Monotype) {
         match self {
             // print_string: string -> void
-            DefaultEffects::PrintString => (
-                vec![statics::TypeMonomorphized::String],
-                statics::TypeMonomorphized::Unit,
-            ),
+            DefaultEffects::PrintString => {
+                (vec![statics::Monotype::String], statics::Monotype::Unit)
+            }
             // read: void -> string
-            DefaultEffects::Read => (vec![], statics::TypeMonomorphized::String),
+            DefaultEffects::Read => (vec![], statics::Monotype::String),
         }
     }
 

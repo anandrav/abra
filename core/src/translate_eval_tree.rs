@@ -11,7 +11,7 @@ use crate::statics::Gamma;
 use crate::statics::InferenceContext;
 use crate::statics::Prov;
 use crate::statics::SolvedType;
-use crate::statics::TypeMonomorphized;
+use crate::statics::Monotype;
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
@@ -432,12 +432,12 @@ fn monomorphize_overloaded_var(
     overloaded_func_map: &mut OverloadedFuncMapTemp,
     ident: &ast::Symbol,
     node_ty: SolvedType,
-) -> Option<TypeMonomorphized> {
+) -> Option<Monotype> {
     if let Some(global_ty) = ty_of_global_ident(gamma.clone(), ident) {
         if global_ty.is_overloaded() {
             let substituted_ty = subst_with_monomorphic_env(monomorphenv, node_ty);
 
-            let instance_ty = substituted_ty.instance_type().unwrap();
+            let instance_ty = substituted_ty.monotype().unwrap();
             if let Some(_overloaded_func) =
                 overloaded_func_map.get(&(ident.clone(), instance_ty.clone()))
             {
@@ -859,7 +859,7 @@ fn translate_expr(
     }
 }
 
-type OverloadedFuncMapTemp = HashMap<(eval_tree::Identifier, TypeMonomorphized), Option<Rc<Ete>>>;
+type OverloadedFuncMapTemp = HashMap<(eval_tree::Identifier, Monotype), Option<Rc<Ete>>>;
 
 fn strip_temp_overloaded_func_map(
     overloaded_func_map_temp: &OverloadedFuncMapTemp,

@@ -7,7 +7,7 @@ use crate::operators::*;
 use crate::side_effects::*;
 use crate::statics::InferenceContext;
 use crate::statics::SolvedType;
-use crate::statics::TypeMonomorphized;
+use crate::statics::Monotype;
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
@@ -408,7 +408,7 @@ pub(crate) fn add_builtins_and_variants<Effects: EffectTrait>(
     env
 }
 
-pub(crate) type OverloadedFuncMap = HashMap<(Identifier, TypeMonomorphized), Rc<Expr>>;
+pub(crate) type OverloadedFuncMap = HashMap<(Identifier, Monotype), Rc<Expr>>;
 
 pub struct Interpreter {
     program_expr: Rc<Expr>,
