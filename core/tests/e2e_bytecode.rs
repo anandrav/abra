@@ -631,3 +631,20 @@ list_len(nums) + list_len(bools)
     let top = vm.top();
     assert_eq!(top.get_int(), 8);
 }
+
+#[test]
+fn concat_strings() {
+    let src = r#"
+let s = "hello " & "world"
+"#;
+    let sources = source_files_single(src);
+    let mut vm = match compile_bytecode::<DefaultEffects>(sources) {
+        Ok(vm) => vm,
+        Err(e) => {
+            panic!("{}", e);
+        }
+    };
+    vm.run();
+    let top = vm.top();
+    assert_eq!(top.get_string(&vm), "hello world");
+}

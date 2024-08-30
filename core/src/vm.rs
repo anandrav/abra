@@ -79,6 +79,8 @@ pub enum Instr<Location = ProgramCounter, StringConstant = u16> {
     PushFloat(AbraFloat),
     PushString(StringConstant),
 
+    // TODO: Once monomorphization is implemented, create separate operators for int and float
+
     // Arithmetic
     Add,
     Subtract,
@@ -118,6 +120,7 @@ pub enum Instr<Location = ProgramCounter, StringConstant = u16> {
     ArrayAppend,
     ArrayLen,
     ArrayPop,
+    ConcatStrings,
 
     // Effects
     Stop,
@@ -170,6 +173,7 @@ impl<L: Display, S: Display> Display for Instr<L, S> {
             Instr::ArrayAppend => write!(f, "array_append"),
             Instr::ArrayLen => write!(f, "array_len"),
             Instr::ArrayPop => write!(f, "array_pop"),
+            Instr::ConcatStrings => write!(f, "concat_strings"),
             Instr::Stop => write!(f, "stop"),
             Instr::Effect(n) => write!(f, "effect {}", n),
         }
@@ -604,6 +608,17 @@ impl Vm {
                     }
                     _ => panic!("not a dynamic array: {:?}", self.heap[obj_id]),
                 }
+            }
+            Instr::ConcatStrings => {
+                let b = self.pop();
+                let a = self.pop();
+                let a_str = a.get_string(self);
+                let b_str = b.get_string(self);
+                let result = a_str + &b_str;
+                self.heap.push(ManagedObject {
+                    kind: ManagedObjectKind::String(result),
+                });
+                self.push(Value::ManagedObject(self.heap.len() - 1));
             }
             Instr::Effect(eff) => {
                 self.pending_effect = Some(eff);

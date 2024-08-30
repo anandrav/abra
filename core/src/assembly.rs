@@ -141,6 +141,7 @@ fn instr_to_vminstr(
         Instr::ArrayAppend => VmInstr::ArrayAppend,
         Instr::ArrayLen => VmInstr::ArrayLen,
         Instr::ArrayPop => VmInstr::ArrayPop,
+        Instr::ConcatStrings => VmInstr::ConcatStrings,
         Instr::Stop => VmInstr::Stop,
         Instr::Effect(n) => VmInstr::Effect(*n),
     }

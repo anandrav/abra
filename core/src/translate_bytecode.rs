@@ -241,6 +241,7 @@ impl Translator {
                     BinOpcode::GreaterThanOrEqual => emit(items, Instr::GreaterThanOrEqual),
                     BinOpcode::LessThanOrEqual => emit(items, Instr::LessThanOrEqual),
                     BinOpcode::Equals => emit(items, Instr::Equal),
+                    BinOpcode::Concat => emit(items, Instr::ConcatStrings),
                     _ => panic!("op not implemented: {:?}", op),
                 }
             }

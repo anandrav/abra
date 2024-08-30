@@ -4,13 +4,7 @@ use abra_core::source_files_single;
 
 fn main() {
     let src = r#"
-let nums = [| 1, 2, 3 |]
-
-func total(xs) {
-    fold(xs, (acc, x) -> acc + x, 0)
-}
-
-total(nums)
+let s = "hello " & "world"
 "#;
     let sources = source_files_single(src);
     let mut vm = match compile_bytecode::<DefaultEffects>(sources) {
@@ -21,5 +15,5 @@ total(nums)
     };
     vm.run();
     let top = vm.top();
-    assert_eq!(top.get_int(), 6);
+    assert_eq!(top.get_string(&vm), "hello world");
 }
