@@ -932,7 +932,13 @@ fn constrain(mut expected: TypeVar, mut actual: TypeVar) {
 
 #[derive(Debug, Clone)]
 pub(crate) enum Resolution {
-    Node(NodeId),
+    Node(NodeId), // TODO make this more granular to avoid unnecessary downcasting / panic statements everywhere
+    /*
+       - function definition
+       - overloaded function definition?
+       - struct definiiton
+       - variant/ADT definition (implemented below already)
+    */
     Variant(NodeId, Symbol),
     Builtin(Symbol),
 }
@@ -2167,6 +2173,9 @@ pub(crate) fn gather_definitions_stmt(
                     ast_type_to_statics_type_interface(inf_ctx, p.ty.clone(), Some(ident));
                 let node_ty = TypeVar::from_node(inf_ctx, p.id());
                 constrain(node_ty.clone(), ty_annot.clone());
+                // TODO last here
+                // perhaps make a note that this is an interface method (overloaded)
+                gamma.extend_declaration(p.ident.clone(), Resolution::Node(p.id()));
                 methods.push(InterfaceDefMethod {
                     name: p.ident.clone(),
                     ty: node_ty.clone(),
