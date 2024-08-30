@@ -502,3 +502,22 @@ sub1(4)
     let top = vm.top();
     assert_eq!(top.get_int(), 3);
 }
+
+#[test]
+fn sqrt_float() {
+    let src = r#"
+let f = 4.0
+let g = sqrt(f)
+g
+"#;
+    let sources = source_files_single(src);
+    let mut vm = match compile_bytecode::<DefaultEffects>(sources) {
+        Ok(vm) => vm,
+        Err(e) => {
+            panic!("{}", e);
+        }
+    };
+    vm.run();
+    let top = vm.top();
+    assert_eq!(top.get_float(), 2.0);
+}

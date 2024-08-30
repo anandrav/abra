@@ -84,6 +84,7 @@ pub enum Instr<Location = ProgramCounter, StringConstant = u16> {
     Subtract,
     Multiply,
     Divide,
+    SquareRoot,
 
     // Comparison
     LessThan,
@@ -131,6 +132,7 @@ impl<L: Display, S: Display> Display for Instr<L, S> {
             Instr::Subtract => write!(f, "subtract"),
             Instr::Multiply => write!(f, "multiply"),
             Instr::Divide => write!(f, "divide"),
+            Instr::SquareRoot => write!(f, "square_root"),
             Instr::Not => write!(f, "not"),
             Instr::LessThan => write!(f, "less_than"),
             Instr::LessThanOrEqual => write!(f, "less_than_or_equal"),
@@ -200,6 +202,13 @@ impl Value {
         match self {
             Value::Int(n) => *n,
             _ => panic!("not an int"),
+        }
+    }
+
+    pub fn get_float(&self) -> AbraFloat {
+        match self {
+            Value::Float(f) => *f,
+            _ => panic!("not a float"),
         }
     }
 
@@ -344,6 +353,13 @@ impl Vm {
                     (Value::Int(a), Value::Int(b)) => self.push(a / b),
                     (Value::Float(a), Value::Float(b)) => self.push(a / b),
                     _ => panic!("not a number"),
+                }
+            }
+            Instr::SquareRoot => {
+                let v = self.pop();
+                match v {
+                    Value::Float(f) => self.push(f.sqrt()),
+                    _ => panic!("not a float"),
                 }
             }
             Instr::Not => {

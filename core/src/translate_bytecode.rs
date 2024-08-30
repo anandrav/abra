@@ -84,7 +84,7 @@ impl Translator {
                     let func_name = name.patkind.get_identifier_of_variable();
                     let func_name_blacklist = [
                         "range", "fold", "sum", "sumf", "clamp", "concat", "map", "for_each",
-                        "filter", "reverse", "print", "println", "sqrt", "max", "min",
+                        "filter", "reverse", "print", "println",
                     ];
                     // don't generate code for functions in prelude, not ready for that yet.
                     if func_name_blacklist.contains(&func_name.as_str()) {
@@ -329,6 +329,9 @@ impl Translator {
                                 "print_string" => {
                                     // TODO differentiate between a builtin Effect like print_string() and a user-customized Effect like impulse()
                                     instructions.push(InstrOrLabel::Instr(Instr::Effect(0)));
+                                }
+                                "sqrt_float" => {
+                                    instructions.push(InstrOrLabel::Instr(Instr::SquareRoot));
                                 }
                                 _ => panic!("unrecognized builtin: {}", s),
                             }

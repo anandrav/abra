@@ -95,6 +95,7 @@ fn instr_to_vminstr(
         Instr::Subtract => VmInstr::Subtract,
         Instr::Multiply => VmInstr::Multiply,
         Instr::Divide => VmInstr::Divide,
+        Instr::SquareRoot => VmInstr::SquareRoot,
         Instr::Not => VmInstr::Not,
         Instr::LessThan => VmInstr::LessThan,
         Instr::LessThanOrEqual => VmInstr::LessThanOrEqual,
