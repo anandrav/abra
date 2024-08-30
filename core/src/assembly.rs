@@ -24,56 +24,6 @@ impl Display for InstrOrLabel {
 
 pub type Instr = VmInstr<Label, String>;
 
-impl From<&Instr> for String {
-    fn from(val: &Instr) -> Self {
-        match val {
-            Instr::Pop => "pop".into(),
-            Instr::Duplicate => "duplicate".into(),
-            Instr::LoadOffset(n) => format!("load_offset {}", n),
-            Instr::StoreOffset(n) => format!("store_offset {}", n),
-            Instr::Add => "add".into(),
-            Instr::Sub => "subtract".into(),
-            Instr::Mul => "multiply".into(),
-            Instr::Div => "divide".into(),
-            Instr::Not => "not".into(),
-            Instr::Equal => "equal".into(),
-            Instr::LessThan => "less_than".into(),
-            Instr::LessThanOrEqual => "less_than_or_equal".into(),
-            Instr::GreaterThan => "greater_than".into(),
-            Instr::GreaterThanOrEqual => "greater_than_or_equal".into(),
-            Instr::PushNil => "push_nil".into(),
-            Instr::PushBool(b) => format!("push_bool {}", b),
-            Instr::PushInt(n) => format!("push_int {}", n),
-            Instr::PushString(s) => format!("push_string \"{}\"", s),
-            Instr::Jump(loc) => format!("jump {}", loc),
-            Instr::JumpIf(loc) => format!("jump_if {}", loc),
-            Instr::Call(loc) => format!("call {}", loc),
-            Instr::CallFuncObj => "call_func_obj".into(),
-            Instr::Return => "return".into(),
-            Instr::Construct(n) => format!("construct {}", n),
-            Instr::Deconstruct => "deconstruct".into(),
-            Instr::GetField(idx) => format!("get_field {}", idx),
-            Instr::SetField(idx) => format!("set_field {}", idx),
-            Instr::GetIdx => "get_index".into(),
-            Instr::SetIdx => "set_index".into(),
-            Instr::ConstructVariant { tag } => format!("construct_variant {}", tag,),
-            Instr::MakeClosure {
-                n_captured,
-                func_addr,
-            } => format!("make_closure {} {}", n_captured, func_addr),
-            Instr::Stop => "stop".into(),
-            Instr::Effect(n) => format!("effect {}", n),
-        }
-    }
-}
-
-impl Display for Instr {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        let s: String = self.into();
-        write!(f, "{}", s)
-    }
-}
-
 pub(crate) fn assemble(s: &str) -> (Vec<VmInstr>, Vec<String>) {
     let mut instructions: Vec<InstrOrLabel> = vec![];
     let mut string_constants: HashMap<String, usize> = HashMap::new();

@@ -118,57 +118,50 @@ pub enum Instr<Location = ProgramCounter, StringConstant = u16> {
     Effect(u16),
 }
 
-impl From<&Instr> for String {
-    fn from(val: &Instr) -> Self {
-        match val {
-            Instr::Pop => "pop".to_owned(),
-            Instr::Duplicate => "duplicate".to_owned(),
-            Instr::LoadOffset(n) => format!("loadOffset {}", n),
-            Instr::StoreOffset(n) => format!("storeOffset {}", n),
-            Instr::Add => "add".to_owned(),
-            Instr::Sub => "subtract".to_owned(),
-            Instr::Mul => "multiply".to_owned(),
-            Instr::Div => "divide".to_owned(),
-            Instr::Not => "not".to_owned(),
-            Instr::LessThan => "less_than".to_owned(),
-            Instr::LessThanOrEqual => "less_than_or_equal".to_owned(),
-            Instr::GreaterThan => "greater_than".to_owned(),
-            Instr::GreaterThanOrEqual => "greater_than_or_equal".to_owned(),
-            Instr::Equal => "equal".to_owned(),
-            Instr::PushNil => "push_nil".to_owned(),
-            Instr::PushBool(b) => format!("push_bool {}", b),
-            Instr::PushInt(n) => format!("push_int {}", n),
-            Instr::PushString(s) => format!("push_string \"{}\"", s),
-            Instr::Jump(loc) => format!("jump {}", loc),
-            Instr::JumpIf(loc) => format!("jump_if {}", loc),
-            Instr::Call(loc) => format!("call {}", loc),
-            Instr::CallFuncObj => "call_func_obj".to_owned(),
-            Instr::Return => "return".to_owned(),
-            Instr::Construct(n) => format!("construct {}", n),
-            Instr::Deconstruct => "deconstruct".to_owned(),
-            Instr::GetField(n) => format!("get_field {}", n),
-            Instr::SetField(n) => format!("set_field {}", n),
-            Instr::GetIdx => "get_index".to_owned(),
-            Instr::SetIdx => "set_index".to_owned(),
+impl<L: Display, S: Display> Display for Instr<L, S> {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        match self {
+            Instr::Pop => write!(f, "pop"),
+            Instr::Duplicate => write!(f, "duplicate"),
+            Instr::LoadOffset(n) => write!(f, "loadOffset {}", n),
+            Instr::StoreOffset(n) => write!(f, "storeOffset {}", n),
+            Instr::Add => write!(f, "add"),
+            Instr::Sub => write!(f, "subtract"),
+            Instr::Mul => write!(f, "multiply"),
+            Instr::Div => write!(f, "divide"),
+            Instr::Not => write!(f, "not"),
+            Instr::LessThan => write!(f, "less_than"),
+            Instr::LessThanOrEqual => write!(f, "less_than_or_equal"),
+            Instr::GreaterThan => write!(f, "greater_than"),
+            Instr::GreaterThanOrEqual => write!(f, "greater_than_or_equal"),
+            Instr::Equal => write!(f, "equal"),
+            Instr::PushNil => write!(f, "push_nil"),
+            Instr::PushBool(b) => write!(f, "push_bool {}", b),
+            Instr::PushInt(n) => write!(f, "push_int {}", n),
+            Instr::PushString(s) => write!(f, "push_string \"{}\"", s),
+            Instr::Jump(loc) => write!(f, "jump {}", loc),
+            Instr::JumpIf(loc) => write!(f, "jump_if {}", loc),
+            Instr::Call(loc) => write!(f, "call {}", loc),
+            Instr::CallFuncObj => write!(f, "call_func_obj"),
+            Instr::Return => write!(f, "return"),
+            Instr::Construct(n) => write!(f, "construct {}", n),
+            Instr::Deconstruct => write!(f, "deconstruct"),
+            Instr::GetField(n) => write!(f, "get_field {}", n),
+            Instr::SetField(n) => write!(f, "set_field {}", n),
+            Instr::GetIdx => write!(f, "get_index"),
+            Instr::SetIdx => write!(f, "set_index"),
             Instr::ConstructVariant { tag } => {
-                format!("construct_variant {}", tag)
+                write!(f, "construct_variant {}", tag)
             }
             Instr::MakeClosure {
                 n_captured,
                 func_addr,
             } => {
-                format!("make_closure {} {}", n_captured, func_addr)
+                write!(f, "make_closure {} {}", n_captured, func_addr)
             }
-            Instr::Stop => "stop".to_owned(),
-            Instr::Effect(n) => format!("effect {}", n),
+            Instr::Stop => write!(f, "stop"),
+            Instr::Effect(n) => write!(f, "effect {}", n),
         }
-    }
-}
-
-impl Display for Instr {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        let s: String = self.into();
-        write!(f, "{}", s)
     }
 }
 
