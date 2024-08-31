@@ -90,42 +90,8 @@ impl Translator {
 
         // Handle function definitions
         for toplevel in self.toplevels.iter() {
-            for statement in &toplevel.statements {
-                if let StmtKind::FuncDef(name, args, _, body) = &*statement.stmtkind {
-                    let func_name = name.patkind.get_identifier_of_variable();
-                    let func_name_blacklist = ["concat", "print", "println"];
-                    // don't generate code for functions in prelude, not ready for that yet.
-                    if func_name_blacklist.contains(&func_name.as_str()) {
-                        continue;
-                    }
-                    // println!("Generating code for function: {}", func_name);
-                    emit(st, Item::Label(func_name));
-                    let mut locals = HashSet::new();
-                    collect_locals_expr(body, &mut locals);
-                    let locals_count = locals.len();
-                    for _ in 0..locals_count {
-                        emit(st, Instr::PushNil);
-                    }
-                    let mut offset_table = OffsetTable::new();
-                    for (i, arg) in args.iter().rev().enumerate() {
-                        offset_table.entry(arg.0.id).or_insert(-(i as i32) - 1);
-                    }
-                    for (i, local) in locals.iter().enumerate() {
-                        offset_table.entry(*local).or_insert((i) as i32);
-                    }
-                    let nargs = args.len();
-                    self.translate_expr(body.clone(), &offset_table, st);
-
-                    if locals_count + nargs > 0 {
-                        // pop all locals and arguments except one. The last one is the return value slot.
-                        emit(st, Instr::StoreOffset(-(nargs as i32)));
-                        for _ in 0..(locals_count + nargs - 1) {
-                            emit(st, Instr::Pop);
-                        }
-                    }
-
-                    emit(st, Instr::Return);
-                }
+            for stmt in &toplevel.statements {
+                self.translate_stmt_static(stmt.clone(), st);
             }
         }
 
@@ -369,16 +335,6 @@ impl Translator {
                 emit(st, Instr::Construct(exprs.len() as u16));
             }
             ExprKind::List(exprs) => {
-                // // make nil
-                // emit(st, Instr::PushNil);
-                // emit(st, Instr::ConstructVariant { tag: 0 });
-                // // make cons for each element
-                // for expr in exprs.iter().rev() {
-                //     self.translate_expr(expr.clone(), offset_table, st);
-                //     emit(st, Instr::Construct(2)); // (head, tail)
-                //     emit(st, Instr::ConstructVariant { tag: 1 });
-                // }
-
                 fn translate_list(
                     translator: &Translator,
                     exprs: &[Rc<Expr>],
@@ -614,6 +570,55 @@ impl Translator {
         }
     }
 
+    fn translate_stmt_static(&self, stmt: Rc<Stmt>, st: &mut TranslatorState) {
+        match &*stmt.stmtkind {
+            StmtKind::Let(_, pat, expr) => {}
+            StmtKind::Set(expr1, rvalue) => {}
+            StmtKind::Expr(expr) => {}
+            StmtKind::InterfaceImpl(_, impl_ty, stmts) => {
+                todo!()
+            }
+            StmtKind::FuncDef(name, args, _, body) => {
+                let func_name = name.patkind.get_identifier_of_variable();
+                let func_name_blacklist = ["concat", "print", "println"];
+                // don't generate code for functions in prelude, not ready for that yet.
+                if func_name_blacklist.contains(&func_name.as_str()) {
+                    return {};
+                }
+                // println!("Generating code for function: {}", func_name);
+                emit(st, Item::Label(func_name));
+                let mut locals = HashSet::new();
+                collect_locals_expr(body, &mut locals);
+                let locals_count = locals.len();
+                for _ in 0..locals_count {
+                    emit(st, Instr::PushNil);
+                }
+                let mut offset_table = OffsetTable::new();
+                for (i, arg) in args.iter().rev().enumerate() {
+                    offset_table.entry(arg.0.id).or_insert(-(i as i32) - 1);
+                }
+                for (i, local) in locals.iter().enumerate() {
+                    offset_table.entry(*local).or_insert((i) as i32);
+                }
+                let nargs = args.len();
+                self.translate_expr(body.clone(), &offset_table, st);
+
+                if locals_count + nargs > 0 {
+                    // pop all locals and arguments except one. The last one is the return value slot.
+                    emit(st, Instr::StoreOffset(-(nargs as i32)));
+                    for _ in 0..(locals_count + nargs - 1) {
+                        emit(st, Instr::Pop);
+                    }
+                }
+
+                emit(st, Instr::Return);
+            }
+            StmtKind::InterfaceDef(..) | StmtKind::TypeDef(..) => {
+                // noop
+            }
+        }
+    }
+
     fn translate_stmt(
         &self,
         stmt: Rc<Stmt>,
@@ -661,8 +666,8 @@ impl Translator {
                     emit(st, Instr::Pop);
                 }
             }
-            StmtKind::InterfaceImpl(..) => {
-                // TODO
+            StmtKind::InterfaceImpl(_, impl_ty, stmts) => {
+                // noop -- handled elsewhere
             }
             StmtKind::FuncDef(_, _, _, _) => {
                 // noop -- handled elsewhere
