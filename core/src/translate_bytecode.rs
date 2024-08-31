@@ -9,6 +9,7 @@ use crate::{
     statics::InferenceContext,
 };
 use std::collections::{HashMap, HashSet};
+use std::mem;
 use std::rc::Rc;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
@@ -89,14 +90,14 @@ impl Translator {
             emit(st, Instr::Stop);
         }
 
-        // Handle function definitions
+        // Handle ordinary function (not overloaded, not a closure) definitions
         for toplevel in self.toplevels.iter() {
             for stmt in &toplevel.statements {
                 self.translate_stmt_static(stmt.clone(), st);
             }
         }
 
-        // Handle lambdas
+        // Handle lambdas with captures
         for (node_id, data) in st.lambdas.clone() {
             let node = self.node_map.get(&node_id).unwrap();
             let expr = node.to_expr().unwrap();
@@ -115,6 +116,47 @@ impl Translator {
                 // pop all locals and arguments except one. The last one is the return value slot.
                 emit(st, Instr::StoreOffset(-(nargs as i32)));
                 for _ in 0..(nlocals + nargs + ncaptures - 1) {
+                    emit(st, Instr::Pop);
+                }
+            }
+
+            emit(st, Instr::Return);
+        }
+
+        // Handle interface method implementations
+        let mut iteration = Vec::new();
+        mem::swap(&mut iteration, &mut st.interface_methods_to_generate);
+        for (node_id, monotype) in iteration {
+            continue; //TODO last here
+            let node = self.node_map.get(&node_id).unwrap();
+            let expr = node.to_expr().unwrap();
+            let ExprKind::Func(args, _, body) = &*expr.exprkind else {
+                panic!()
+            };
+
+            let label = st.interface_method_map.get(&(node_id, monotype)).unwrap();
+            emit(st, Item::Label(label.clone()));
+
+            let mut locals = HashSet::new();
+            collect_locals_expr(body, &mut locals);
+            let locals_count = locals.len();
+            for _ in 0..locals_count {
+                emit(st, Instr::PushNil);
+            }
+            let mut offset_table = OffsetTable::new();
+            for (i, arg) in args.iter().rev().enumerate() {
+                offset_table.entry(arg.0.id).or_insert(-(i as i32) - 1);
+            }
+            for (i, local) in locals.iter().enumerate() {
+                offset_table.entry(*local).or_insert((i) as i32);
+            }
+            let nargs = args.len();
+            self.translate_expr(body.clone(), &offset_table, st);
+
+            if locals_count + nargs > 0 {
+                // pop all locals and arguments except one. The last one is the return value slot.
+                emit(st, Instr::StoreOffset(-(nargs as i32)));
+                for _ in 0..(locals_count + nargs - 1) {
                     emit(st, Instr::Pop);
                 }
             }
@@ -960,3 +1002,48 @@ fn idx_of_field(inf_ctx: &InferenceContext, accessed: Rc<Expr>, field: &str) -> 
         _ => panic!("not a udt"),
     }
 }
+
+// TODO last here: re-use this logic
+// fn get_func_definition_node(
+//     inf_ctx: &InferenceContext,
+//     node_map: &NodeMap,
+//     ident: &ast::Symbol,
+//     desired_interface_impl: SolvedType,
+// ) -> Rc<dyn ast::Node> {
+//     if let Some(interface_name) = inf_ctx.method_to_interface.get(&ident.clone()) {
+//         let impl_list = inf_ctx.interface_impls.get(interface_name).unwrap();
+//         // TODO just because the variable is the same name as an overloaded function doesn't mean the overloaded function is actually being used here.
+//         // use the type of the variable to determine if it's the same as the overloaded function?
+
+//         // find an impl that matches
+//         // dbg!(impl_list);
+
+//         for imp in impl_list {
+//             for method in &imp.methods {
+//                 if method.name == *ident {
+//                     let method_identifier_node = node_map.get(&method.identifier_location).unwrap();
+
+//                     let func_id = method_identifier_node.id();
+//                     let unifvar = inf_ctx.vars.get(&Prov::Node(func_id)).unwrap();
+//                     let interface_impl_ty = unifvar.solution().unwrap();
+
+//                     if statics::ty_fits_impl_ty(
+//                         inf_ctx,
+//                         desired_interface_impl.clone(),
+//                         interface_impl_ty,
+//                     )
+//                     .is_ok()
+//                     {
+//                         // if desired_interface_impl.clone() == interface_impl_ty {
+
+//                         let method_node = node_map.get(&method.method_location).unwrap();
+//                         return method_node.clone();
+//                     }
+//                 }
+//             }
+//         }
+//         panic!("couldn't find impl for method");
+//     } else {
+//         return inf_ctx.fun_defs.get(ident).unwrap().clone();
+//     }
+// }
