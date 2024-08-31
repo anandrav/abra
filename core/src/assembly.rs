@@ -36,7 +36,7 @@ impl Display for Item {
 
 pub type Instr = VmInstr<Label, String>;
 
-pub(crate) fn assemble(s: &str) -> (Vec<VmInstr>, Vec<String>) {
+pub(crate) fn _assemble(s: &str) -> (Vec<VmInstr>, Vec<String>) {
     let mut instructions: Vec<Item> = vec![];
     let mut string_constants: HashMap<String, usize> = HashMap::new();
     for (lineno, line) in s.lines().enumerate() {
@@ -44,7 +44,7 @@ pub(crate) fn assemble(s: &str) -> (Vec<VmInstr>, Vec<String>) {
         if words.is_empty() {
             continue;
         }
-        instructions.push(assemble_instr_or_label(
+        instructions.push(_assemble_instr_or_label(
             words,
             lineno,
             &mut string_constants,
@@ -85,7 +85,7 @@ pub(crate) fn remove_labels(
     ret
 }
 
-fn get_label(s: &str) -> Option<String> {
+fn _get_label(s: &str) -> Option<String> {
     if s.ends_with(":") {
         Some(s[0..s.len() - 1].into())
     } else {
@@ -156,12 +156,12 @@ fn instr_to_vminstr(
     }
 }
 
-fn assemble_instr_or_label(
+fn _assemble_instr_or_label(
     words: Vec<&str>,
     lineno: usize,
     string_constants: &mut HashMap<String, usize>,
 ) -> Item {
-    if let Some(label) = get_label(words[0]) {
+    if let Some(label) = _get_label(words[0]) {
         return Item::Label(label);
     }
     let radix = 10;
@@ -253,7 +253,7 @@ subtract
 push_int 5
 add
 "#;
-        let (instructions, _) = assemble(program_str);
+        let (instructions, _) = _assemble(program_str);
         let mut program_str2 = String::new();
         for instr in instructions {
             program_str2.push_str(&format!("{}\n", instr));

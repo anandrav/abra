@@ -140,7 +140,6 @@ impl Translator {
             let mut iteration = Vec::new();
             mem::swap(&mut (iteration), &mut st.overloaded_methods_to_generate);
             for (desc, substituted_ty) in iteration {
-                let method_name = desc.name.clone();
                 let definition_id = desc.definition_node;
 
                 let StmtKind::FuncDef(pat, args, _, body) = &*self
@@ -222,7 +221,7 @@ impl Translator {
             ExprKind::Var(symbol) => {
                 // adt variant
                 match self.inf_ctx.name_resolutions.get(&expr.id).unwrap() {
-                    Resolution::Variant(_, tag, _) => {
+                    Resolution::Variant(tag, _) => {
                         emit(st, Instr::PushNil);
                         emit(st, Instr::ConstructVariant { tag: *tag });
                     }
@@ -249,7 +248,7 @@ impl Translator {
                             }
                         }
                     }
-                    Resolution::StructDefinition(_, _) => {
+                    Resolution::StructDefinition(_) => {
                         // TODO: generate functions for structs
                         unimplemented!()
                     }
@@ -321,7 +320,7 @@ impl Translator {
                         }
                         Resolution::FunctionDefinition(node_id, name) => {
                             println!("emitting Call of function: {}", name);
-                            let StmtKind::FuncDef(pat, args, _, _) = &*self
+                            let StmtKind::FuncDef(pat, _, _, _) = &*self
                                 .node_map
                                 .get(node_id)
                                 .unwrap()
@@ -358,7 +357,7 @@ impl Translator {
                                 );
                             }
                         }
-                        Resolution::InterfaceMethod(_, name) => {
+                        Resolution::InterfaceMethod(name) => {
                             let node = self.node_map.get(&func.id).unwrap();
                             let span = node.span();
                             let mut s = String::new();
@@ -370,13 +369,13 @@ impl Translator {
                                 subst_with_monomorphic_env(monomorph_env.clone(), func_ty);
                             println!("substituted type: {:?}", substituted_ty);
                             let def_id =
-                                self.get_func_definition_node(&name, substituted_ty.clone());
+                                self.get_func_definition_node(name, substituted_ty.clone());
                             self.handle_overloaded_func(st, substituted_ty, name, def_id);
                         }
-                        Resolution::StructDefinition(_, nargs) => {
+                        Resolution::StructDefinition(nargs) => {
                             emit(st, Instr::Construct(*nargs));
                         }
-                        Resolution::Variant(_, tag, nargs) => {
+                        Resolution::Variant(tag, nargs) => {
                             if *nargs > 1 {
                                 // turn the arguments (associated data) into a tuple
                                 emit(st, Instr::Construct(*nargs));
@@ -582,7 +581,7 @@ impl Translator {
                     println!("{}", s);
                 }
                 let ncaptures = captures.len();
-                for i in 0..locals_count {
+                for _ in 0..locals_count {
                     emit(st, Instr::PushNil);
                 }
 
@@ -743,10 +742,10 @@ impl Translator {
 
     fn translate_stmt_static(&self, stmt: Rc<Stmt>, st: &mut TranslatorState, iface_method: bool) {
         match &*stmt.stmtkind {
-            StmtKind::Let(_, pat, expr) => {}
-            StmtKind::Set(expr1, rvalue) => {}
-            StmtKind::Expr(expr) => {}
-            StmtKind::InterfaceImpl(_, impl_ty, stmts) => {
+            StmtKind::Let(..) => {}
+            StmtKind::Set(..) => {}
+            StmtKind::Expr(..) => {}
+            StmtKind::InterfaceImpl(_, _, stmts) => {
                 for stmt in stmts {
                     self.translate_stmt_static(stmt.clone(), st, true);
                 }
@@ -847,10 +846,10 @@ impl Translator {
                     emit(st, Instr::Pop);
                 }
             }
-            StmtKind::InterfaceImpl(_, impl_ty, stmts) => {
+            StmtKind::InterfaceImpl(..) => {
                 // noop -- handled elsewhere
             }
-            StmtKind::FuncDef(_, _, _, _) => {
+            StmtKind::FuncDef(..) => {
                 // noop -- handled elsewhere
             }
             StmtKind::InterfaceDef(..) | StmtKind::TypeDef(..) => {
@@ -1115,7 +1114,6 @@ fn collect_locals_stmt(statements: &[Rc<Stmt>], locals: &mut HashSet<NodeId>) {
 fn collect_locals_pat(pat: Rc<Pat>, locals: &mut HashSet<NodeId>) {
     match &*pat.patkind {
         PatKind::Var(symbol) => {
-            let len = locals.len();
             println!("adding {} to locals, pat_id = {}", symbol, pat.id);
             locals.insert(pat.id);
         }

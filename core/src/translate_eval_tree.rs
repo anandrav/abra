@@ -71,7 +71,7 @@ fn translate_expr_block(
         ),
         ast::StmtKind::FuncDef(pat, func_args, _, body) => {
             let ty = inf_ctx.solution_of_node(pat.id).unwrap();
-            if ty.is_overloaded_MUST_DEPRECATE() {
+            if ty.is_overloaded_must_deprecate() {
                 // if function is overloaded, don't translate its body
                 return translate_expr_block(
                     inf_ctx,
@@ -434,7 +434,7 @@ fn monomorphize_overloaded_var(
     node_ty: SolvedType,
 ) -> Option<Monotype> {
     if let Some(global_ty) = ty_of_global_ident(gamma.clone(), ident) {
-        if global_ty.is_overloaded_MUST_DEPRECATE() {
+        if global_ty.is_overloaded_must_deprecate() {
             let substituted_ty = subst_with_monomorphic_env(monomorphenv, node_ty);
 
             let instance_ty = substituted_ty.monotype().unwrap();

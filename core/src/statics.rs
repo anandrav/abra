@@ -211,7 +211,7 @@ impl SolvedType {
         }
     }
 
-    pub(crate) fn is_overloaded_MUST_DEPRECATE(&self) -> bool {
+    pub(crate) fn is_overloaded_must_deprecate(&self) -> bool {
         match self {
             Self::Poly(_, interfaces) => !interfaces.is_empty(),
             Self::Unit => false,
@@ -220,11 +220,11 @@ impl SolvedType {
             Self::Bool => false,
             Self::String => false,
             Self::Function(args, out) => {
-                args.iter().any(|ty| ty.is_overloaded_MUST_DEPRECATE())
-                    || out.is_overloaded_MUST_DEPRECATE()
+                args.iter().any(|ty| ty.is_overloaded_must_deprecate())
+                    || out.is_overloaded_must_deprecate()
             }
-            Self::Tuple(tys) => tys.iter().any(|ty| ty.is_overloaded_MUST_DEPRECATE()),
-            Self::UdtInstance(_, tys) => false,
+            Self::Tuple(tys) => tys.iter().any(|ty| ty.is_overloaded_must_deprecate()),
+            Self::UdtInstance(_, _) => false,
         }
     }
 
@@ -1002,9 +1002,9 @@ fn constrain(mut expected: TypeVar, mut actual: TypeVar) {
 pub(crate) enum Resolution {
     Var(NodeId),
     FunctionDefinition(NodeId, Symbol),
-    InterfaceMethod(NodeId, Symbol),
-    StructDefinition(NodeId, u16),
-    Variant(NodeId, u16, u16),
+    InterfaceMethod(Symbol),
+    StructDefinition(u16),
+    Variant(u16, u16),
     Builtin(Symbol),
 }
 
@@ -2118,10 +2118,7 @@ pub(crate) fn generate_constraints_stmt(
                     ),
                 );
             } else {
-                gamma.extend_declaration(
-                    func_name.clone(),
-                    Resolution::InterfaceMethod(stmt.id, func_name),
-                );
+                gamma.extend_declaration(func_name.clone(), Resolution::InterfaceMethod(func_name));
             }
 
             let body_gamma = gamma.new_scope();
@@ -2326,7 +2323,7 @@ pub(crate) fn gather_definitions_stmt(
                     });
                     gamma.extend_declaration(
                         v.ctor.clone(),
-                        Resolution::Variant(stmt.id, i as u16, arity as u16),
+                        Resolution::Variant(i as u16, arity as u16),
                     );
 
                     let data = {
@@ -2364,7 +2361,7 @@ pub(crate) fn gather_definitions_stmt(
             TypeDefKind::Struct(ident, params, fields) => {
                 gamma.extend_declaration(
                     ident.clone(),
-                    Resolution::StructDefinition(stmt.id, fields.len() as u16),
+                    Resolution::StructDefinition(fields.len() as u16),
                 );
 
                 let ty_struct = TypeVar::from_node(inf_ctx, stmt.id);
@@ -2405,23 +2402,16 @@ pub(crate) fn gather_definitions_stmt(
                 );
             }
         },
-        StmtKind::Expr(expr) => {
-            // gather_definitions_expr(inf_ctx, gamma, expr.clone());
-        }
-        StmtKind::Let(_, _, expr) => {
-            // gather_definitions_expr(inf_ctx, gamma, expr.clone());
-        }
-        StmtKind::FuncDef(name, _args, _out_annot, body) => {
+        StmtKind::Expr(_) => {}
+        StmtKind::Let(_, _, _) => {}
+        StmtKind::FuncDef(name, _args, _out_annot, _) => {
             let name_id = name.id;
             let name = name.patkind.get_identifier_of_variable();
             inf_ctx.fun_defs.insert(name.clone(), stmt.clone());
             gamma.extend(name.clone(), TypeVar::from_node(inf_ctx, name_id));
             gamma.extend_declaration(name.clone(), Resolution::FunctionDefinition(stmt.id, name));
-            // gather_definitions_expr(inf_ctx, gamma, body.clone());
         }
-        StmtKind::Set(_, expr) => {
-            // gather_definitions_expr(inf_ctx, gamma, expr.clone());
-        }
+        StmtKind::Set(..) => {}
     }
 }
 

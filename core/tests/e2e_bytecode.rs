@@ -429,6 +429,7 @@ fib(10)
     assert_eq!(top.get_int(), 55);
 }
 
+#[test]
 fn lambda_no_capture() {
     let src = r#"
 let double = x -> x + x

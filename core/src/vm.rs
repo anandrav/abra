@@ -1,7 +1,6 @@
 type ProgramCounter = usize;
 pub type AbraInt = i64;
 pub type AbraFloat = f64;
-use crate::assembly::assemble;
 use core::fmt;
 use std::fmt::{Display, Formatter};
 
@@ -674,12 +673,12 @@ impl Vm {
         }
     }
 
-    pub(crate) fn compact(&mut self) {
+    pub(crate) fn _compact(&mut self) {
         self.value_stack.shrink_to_fit();
         self.call_stack.shrink_to_fit();
     }
 
-    pub(crate) fn gc(&mut self) {
+    pub(crate) fn _gc(&mut self) {
         // TODO
     }
 
@@ -711,6 +710,7 @@ impl fmt::Debug for Vm {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::assembly::_assemble;
 
     #[test]
     fn arithmetic() {
@@ -719,7 +719,7 @@ push_int 3
 push_int 4
 subtract
 "#;
-        let (instructions, string_table) = assemble(program_str);
+        let (instructions, string_table) = _assemble(program_str);
         let mut vm = Vm::new(instructions, string_table);
         vm.run();
         assert_eq!(vm.top().get_int(), -1);
@@ -734,7 +734,7 @@ add
 push_int 1
 subtract
 "#;
-        let (instructions, string_table) = assemble(program_str);
+        let (instructions, string_table) = _assemble(program_str);
         let mut vm = Vm::new(instructions, string_table);
         vm.run();
         assert_eq!(vm.top().get_int(), 4);
@@ -750,7 +750,7 @@ push_int 100
 my_label:
 add
 "#;
-        let (instructions, string_table) = assemble(program_str);
+        let (instructions, string_table) = _assemble(program_str);
         let mut vm = Vm::new(instructions, string_table);
         vm.run();
         assert_eq!(vm.top().get_int(), 7);
