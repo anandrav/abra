@@ -87,6 +87,12 @@ pub enum Instr<Location = ProgramCounter, StringConstant = u16> {
     Multiply,
     Divide,
     SquareRoot,
+    Power,
+
+    // Logical
+    Not,
+    And,
+    Or,
 
     // Comparison
     LessThan,
@@ -94,7 +100,6 @@ pub enum Instr<Location = ProgramCounter, StringConstant = u16> {
     GreaterThan,
     GreaterThanOrEqual,
     Equal,
-    Not,
 
     // Control Flow
     Jump(Location),
@@ -117,10 +122,13 @@ pub enum Instr<Location = ProgramCounter, StringConstant = u16> {
         n_captured: u16,
         func_addr: Location,
     },
+
     ArrayAppend,
     ArrayLen,
     ArrayPop,
     ConcatStrings,
+    IntToString,
+    FloatToString,
 
     // Effects
     Stop,
@@ -139,7 +147,10 @@ impl<L: Display, S: Display> Display for Instr<L, S> {
             Instr::Multiply => write!(f, "multiply"),
             Instr::Divide => write!(f, "divide"),
             Instr::SquareRoot => write!(f, "square_root"),
+            Instr::Power => write!(f, "power"),
             Instr::Not => write!(f, "not"),
+            Instr::And => write!(f, "and"),
+            Instr::Or => write!(f, "or"),
             Instr::LessThan => write!(f, "less_than"),
             Instr::LessThanOrEqual => write!(f, "less_than_or_equal"),
             Instr::GreaterThan => write!(f, "greater_than"),
@@ -174,6 +185,8 @@ impl<L: Display, S: Display> Display for Instr<L, S> {
             Instr::ArrayLen => write!(f, "array_len"),
             Instr::ArrayPop => write!(f, "array_pop"),
             Instr::ConcatStrings => write!(f, "concat_strings"),
+            Instr::IntToString => write!(f, "int_to_string"),
+            Instr::FloatToString => write!(f, "float_to_string"),
             Instr::Stop => write!(f, "stop"),
             Instr::Effect(n) => write!(f, "effect {}", n),
         }
@@ -372,9 +385,28 @@ impl Vm {
                     _ => panic!("not a float"),
                 }
             }
+            Instr::Power => {
+                let b = self.pop();
+                let a = self.pop();
+                match (a, b) {
+                    (Value::Int(a), Value::Int(b)) => self.push(a.pow(b as u32)),
+                    (Value::Float(a), Value::Float(b)) => self.push(a.powf(b)),
+                    _ => panic!("not a number"),
+                }
+            }
             Instr::Not => {
                 let v = self.pop_bool();
                 self.push(!v);
+            }
+            Instr::And => {
+                let b = self.pop_bool();
+                let a = self.pop_bool();
+                self.push(a && b);
+            }
+            Instr::Or => {
+                let b = self.pop_bool();
+                let a = self.pop_bool();
+                self.push(a || b);
             }
             Instr::LessThan => {
                 let b = self.pop();
@@ -617,6 +649,22 @@ impl Vm {
                 let result = a_str + &b_str;
                 self.heap.push(ManagedObject {
                     kind: ManagedObjectKind::String(result),
+                });
+                self.push(Value::ManagedObject(self.heap.len() - 1));
+            }
+            Instr::IntToString => {
+                let n = self.pop_int();
+                let s = n.to_string();
+                self.heap.push(ManagedObject {
+                    kind: ManagedObjectKind::String(s),
+                });
+                self.push(Value::ManagedObject(self.heap.len() - 1));
+            }
+            Instr::FloatToString => {
+                let f = self.pop().get_float();
+                let s = f.to_string();
+                self.heap.push(ManagedObject {
+                    kind: ManagedObjectKind::String(s),
                 });
                 self.push(Value::ManagedObject(self.heap.len() - 1));
             }

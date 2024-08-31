@@ -211,6 +211,23 @@ impl SolvedType {
         }
     }
 
+    pub(crate) fn is_overloaded_MUST_DEPRECATE(&self) -> bool {
+        match self {
+            Self::Poly(_, interfaces) => !interfaces.is_empty(),
+            Self::Unit => false,
+            Self::Int => false,
+            Self::Float => false,
+            Self::Bool => false,
+            Self::String => false,
+            Self::Function(args, out) => {
+                args.iter().any(|ty| ty.is_overloaded_MUST_DEPRECATE())
+                    || out.is_overloaded_MUST_DEPRECATE()
+            }
+            Self::Tuple(tys) => tys.iter().any(|ty| ty.is_overloaded_MUST_DEPRECATE()),
+            Self::UdtInstance(_, tys) => false,
+        }
+    }
+
     pub(crate) fn is_overloaded(&self) -> bool {
         match self {
             Self::Poly(_, interfaces) => !interfaces.is_empty(),
@@ -223,7 +240,7 @@ impl SolvedType {
                 args.iter().any(|ty| ty.is_overloaded()) || out.is_overloaded()
             }
             Self::Tuple(tys) => tys.iter().any(|ty| ty.is_overloaded()),
-            Self::UdtInstance(_, _tys) => false,
+            Self::UdtInstance(_, tys) => tys.iter().any(|ty| ty.is_overloaded()),
         }
     }
 }

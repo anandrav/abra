@@ -37,6 +37,7 @@ struct TranslatorState {
     items: Vec<Item>,
     lambdas: Lambdas,
     interface_method_map: InterfaceMethodsMap,
+    interface_methods_to_generate: Vec<(NodeId, Monotype)>,
 }
 
 fn emit(st: &mut TranslatorState, i: impl Into<Item>) {
@@ -129,6 +130,10 @@ impl Translator {
             emit(st, Instr::Return);
         }
 
+        for item in st.items.iter() {
+            println!("{}", item);
+        }
+
         let items = remove_labels(&st.items, &self.inf_ctx.string_constants);
         let mut string_table: Vec<String> =
             vec!["".to_owned(); self.inf_ctx.string_constants.len()];
@@ -210,6 +215,8 @@ impl Translator {
                     BinOpcode::LessThanOrEqual => emit(st, Instr::LessThanOrEqual),
                     BinOpcode::Equals => emit(st, Instr::Equal),
                     BinOpcode::Concat => emit(st, Instr::ConcatStrings),
+                    BinOpcode::Or => emit(st, Instr::Or),
+                    BinOpcode::And => emit(st, Instr::And),
                     _ => panic!("op not implemented: {:?}", op),
                 }
             }
@@ -229,22 +236,28 @@ impl Translator {
                         Resolution::FunctionDefinition(_, name) => {
                             emit(st, Instr::Call(name.clone()));
                         }
-                        Resolution::InterfaceMethod(_, name) => {
+                        Resolution::InterfaceMethod(node_id, name) => {
+                            let node = self.node_map.get(&func.id).unwrap();
+                            let span = node.span();
+                            let mut s = String::new();
+                            span.display(&mut s, &self.sources, " method ap");
+                            println!("{}", s);
+
                             // need addr of interface method
                             // need map from (interface method, type) to concrete implementation
-                            let monotype = self
-                                .inf_ctx
-                                .solution_of_node(func.id)
-                                .unwrap()
-                                .monotype()
-                                .unwrap();
-                            let label = st
-                                .interface_method_map
-                                .entry((func.id, monotype))
-                                .or_insert(make_label(
-                                    name, // TODO: add type to label. ex: to_string__int__#B
-                                ))
-                                .clone();
+                            let solved_type = self.inf_ctx.solution_of_node(func.id).unwrap();
+                            println!("solved type: {:?}", solved_type);
+                            let monotype = solved_type.monotype().unwrap();
+                            let entry = st.interface_method_map.entry((*node_id, monotype.clone()));
+                            let label = match entry {
+                                std::collections::hash_map::Entry::Occupied(o) => o.get().clone(),
+                                std::collections::hash_map::Entry::Vacant(v) => {
+                                    st.interface_methods_to_generate.push((*node_id, monotype));
+                                    let label = make_label(name);
+                                    v.insert(label.clone());
+                                    label
+                                }
+                            };
                             emit(st, Instr::Call(label));
                         }
                         Resolution::StructDefinition(_, nargs) => {
@@ -258,7 +271,7 @@ impl Translator {
                             emit(st, Instr::ConstructVariant { tag: *tag });
                         }
                         Resolution::Builtin(s) => {
-                            // TODO use an enum instead of strings
+                            // TODO use an enum for Builtins instead of hardcoded strings
                             match s.as_str() {
                                 "print_string" => {
                                     // TODO differentiate between a builtin Effect like print_string() and a user-customized Effect like impulse()
@@ -272,6 +285,42 @@ impl Translator {
                                 }
                                 "len" => {
                                     emit(st, Instr::ArrayLen);
+                                }
+                                "add_int" | "add_float" => {
+                                    emit(st, Instr::Add);
+                                }
+                                "minus_int" | "minus_float" => {
+                                    emit(st, Instr::Subtract);
+                                }
+                                "multiply_int" | "multiply_float" => {
+                                    emit(st, Instr::Multiply);
+                                }
+                                "divide_int" | "divide_float" => {
+                                    emit(st, Instr::Divide);
+                                }
+                                "pow_int" | "pow_float" => {
+                                    emit(st, Instr::Power);
+                                }
+                                "less_than_int" | "less_than_float" => {
+                                    emit(st, Instr::LessThan);
+                                }
+                                "greater_than_int" | "greater_than_float" => {
+                                    emit(st, Instr::GreaterThan);
+                                }
+                                "less_than_or_equal_int" | "less_than_or_equal_float" => {
+                                    emit(st, Instr::LessThanOrEqual);
+                                }
+                                "greater_than_or_equal_int" | "greater_than_or_equal_float" => {
+                                    emit(st, Instr::GreaterThanOrEqual);
+                                }
+                                "equals_int" | "equals_float" | "equals_string" => {
+                                    emit(st, Instr::Equal);
+                                }
+                                "int_to_string" => {
+                                    emit(st, Instr::IntToString);
+                                }
+                                "float_to_string" => {
+                                    emit(st, Instr::FloatToString);
                                 }
                                 _ => panic!("unrecognized builtin: {}", s),
                             }
@@ -450,10 +499,6 @@ impl Translator {
             }
             _ => panic!("unimplemented: {:?}", expr.exprkind),
         }
-
-        for item in st.items.iter() {
-            println!("{}", item);
-        }
     }
 
     // emit items for checking if a pattern matches the TOS, replacing it with a boolean
@@ -576,10 +621,25 @@ impl Translator {
             StmtKind::Set(expr1, rvalue) => {}
             StmtKind::Expr(expr) => {}
             StmtKind::InterfaceImpl(_, impl_ty, stmts) => {
-                // noop
+                for stmt in stmts {
+                    self.translate_stmt_static(stmt.clone(), st);
+                }
             }
             StmtKind::FuncDef(name, args, _, body) => {
+                // TODO last here
+                // TODO: check if overloaded. If so, handle differently.
+                // (this could be an overloaded function or an interface method)
+                let func_ty = self.inf_ctx.solution_of_node(name.id).unwrap();
                 let func_name = name.patkind.get_identifier_of_variable();
+
+                if func_ty.is_overloaded() {
+                    println!("overloaded function: {:?}", name);
+                    // handled elsewhere
+                    return;
+                }
+
+                println!("not overloaded: {}: {}", func_name, func_ty);
+
                 let func_name_blacklist = ["concat", "print", "println"];
                 // don't generate code for functions in prelude, not ready for that yet.
                 if func_name_blacklist.contains(&func_name.as_str()) {

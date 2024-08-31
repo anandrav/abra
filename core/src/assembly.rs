@@ -108,7 +108,10 @@ fn instr_to_vminstr(
         Instr::Multiply => VmInstr::Multiply,
         Instr::Divide => VmInstr::Divide,
         Instr::SquareRoot => VmInstr::SquareRoot,
+        Instr::Power => VmInstr::Power,
         Instr::Not => VmInstr::Not,
+        Instr::And => VmInstr::And,
+        Instr::Or => VmInstr::Or,
         Instr::LessThan => VmInstr::LessThan,
         Instr::LessThanOrEqual => VmInstr::LessThanOrEqual,
         Instr::GreaterThan => VmInstr::GreaterThan,
@@ -121,7 +124,11 @@ fn instr_to_vminstr(
         Instr::PushString(s) => VmInstr::PushString(string_constants[s] as u16),
         Instr::Jump(label) => VmInstr::Jump(label_to_idx[label]),
         Instr::JumpIf(label) => VmInstr::JumpIf(label_to_idx[label]),
-        Instr::Call(label) => VmInstr::Call(label_to_idx[label]),
+        Instr::Call(label) => VmInstr::Call(
+            *label_to_idx
+                .get(label)
+                .unwrap_or_else(|| panic!("Could not find label: {}", label)),
+        ),
         Instr::CallFuncObj => VmInstr::CallFuncObj,
         Instr::Return => VmInstr::Return,
         Instr::Construct(n) => VmInstr::Construct(*n),
@@ -142,6 +149,8 @@ fn instr_to_vminstr(
         Instr::ArrayLen => VmInstr::ArrayLen,
         Instr::ArrayPop => VmInstr::ArrayPop,
         Instr::ConcatStrings => VmInstr::ConcatStrings,
+        Instr::IntToString => VmInstr::IntToString,
+        Instr::FloatToString => VmInstr::FloatToString,
         Instr::Stop => VmInstr::Stop,
         Instr::Effect(n) => VmInstr::Effect(*n),
     }

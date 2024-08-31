@@ -9,9 +9,9 @@ use crate::operators::BinOpcode;
 use crate::statics;
 use crate::statics::Gamma;
 use crate::statics::InferenceContext;
+use crate::statics::Monotype;
 use crate::statics::Prov;
 use crate::statics::SolvedType;
-use crate::statics::Monotype;
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
@@ -71,7 +71,7 @@ fn translate_expr_block(
         ),
         ast::StmtKind::FuncDef(pat, func_args, _, body) => {
             let ty = inf_ctx.solution_of_node(pat.id).unwrap();
-            if ty.is_overloaded() {
+            if ty.is_overloaded_MUST_DEPRECATE() {
                 // if function is overloaded, don't translate its body
                 return translate_expr_block(
                     inf_ctx,
@@ -434,7 +434,7 @@ fn monomorphize_overloaded_var(
     node_ty: SolvedType,
 ) -> Option<Monotype> {
     if let Some(global_ty) = ty_of_global_ident(gamma.clone(), ident) {
-        if global_ty.is_overloaded() {
+        if global_ty.is_overloaded_MUST_DEPRECATE() {
             let substituted_ty = subst_with_monomorphic_env(monomorphenv, node_ty);
 
             let instance_ty = substituted_ty.monotype().unwrap();

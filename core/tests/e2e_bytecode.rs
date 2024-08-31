@@ -507,7 +507,7 @@ sub1(4)
 fn sqrt_float() {
     let src = r#"
 let f = 4.0
-let g = sqrt(f)
+let g = sqrt_float(f)
 g
 "#;
     let sources = source_files_single(src);
