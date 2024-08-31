@@ -16,13 +16,14 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 
 type OffsetTable = HashMap<NodeId, i32>;
 type Lambdas = HashMap<NodeId, LambdaData>;
-type InterfaceMethodLabels = BTreeMap<InterfaceMethodDesc, Label>;
+type OverloadedFuncLabels = BTreeMap<OverloadedFuncDesc, Label>;
 type MonomorphEnv = Environment<Symbol, SolvedType>;
 
 #[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq)]
-struct InterfaceMethodDesc {
+struct OverloadedFuncDesc {
     name: Symbol,
     impl_type: Monotype,
+    definition_node: NodeId,
 }
 
 #[derive(Debug, Clone)]
@@ -45,8 +46,8 @@ pub(crate) struct Translator {
 struct TranslatorState {
     items: Vec<Item>,
     lambdas: Lambdas,
-    interface_method_map: InterfaceMethodLabels,
-    interface_methods_to_generate: Vec<(InterfaceMethodDesc, SolvedType)>,
+    overloaded_func_map: OverloadedFuncLabels,
+    overloaded_methods_to_generate: Vec<(OverloadedFuncDesc, SolvedType)>,
 }
 
 fn emit(st: &mut TranslatorState, i: impl Into<Item>) {
@@ -135,14 +136,17 @@ impl Translator {
         }
 
         // Handle interface method implementations
-        while !st.interface_methods_to_generate.is_empty() {
+        while !st.overloaded_methods_to_generate.is_empty() {
             let mut iteration = Vec::new();
-            mem::swap(&mut (iteration), &mut st.interface_methods_to_generate);
+            mem::swap(&mut (iteration), &mut st.overloaded_methods_to_generate);
             for (desc, substituted_ty) in iteration {
                 let method_name = desc.name.clone();
+                let definition_id = desc.definition_node;
 
                 let StmtKind::FuncDef(pat, args, _, body) = &*self
-                    .get_func_definition_node(&method_name, substituted_ty.clone())
+                    .node_map
+                    .get(&definition_id)
+                    .unwrap()
                     .to_stmt()
                     .unwrap()
                     .stmtkind
@@ -154,7 +158,7 @@ impl Translator {
                 let monomorph_env = MonomorphEnv::empty();
                 update_monomorph_env(monomorph_env.clone(), overloaded_func_ty, substituted_ty);
 
-                let label = st.interface_method_map.get(&desc).unwrap();
+                let label = st.overloaded_func_map.get(&desc).unwrap();
                 emit(st, Item::Label(label.clone()));
 
                 let mut locals = HashSet::new();
@@ -307,51 +311,59 @@ impl Translator {
                             emit(st, Instr::LoadOffset(*idx));
                             emit(st, Instr::CallFuncObj);
                         }
-                        Resolution::FunctionDefinition(_, name) => {
+                        Resolution::FunctionDefinition(node_id, name) => {
                             println!("emitting Call of function: {}", name);
-                            emit(st, Instr::Call(name.clone()));
+                            let StmtKind::FuncDef(pat, args, _, _) = &*self
+                                .node_map
+                                .get(node_id)
+                                .unwrap()
+                                .to_stmt()
+                                .unwrap()
+                                .stmtkind
+                            else {
+                                panic!()
+                            };
+
+                            let func_name = &pat.patkind.get_identifier_of_variable();
+                            let func_ty = self.inf_ctx.solution_of_node(pat.id).unwrap();
+                            if !func_ty.is_overloaded() {
+                                emit(st, Instr::Call(name.clone()));
+                            } else {
+                                let node = self.node_map.get(&func.id).unwrap();
+                                let span = node.span();
+                                let mut s = String::new();
+                                span.display(&mut s, &self.sources, " method ap");
+                                println!("{}", s);
+
+                                let specific_func_ty =
+                                    self.inf_ctx.solution_of_node(func.id).unwrap();
+
+                                let substituted_ty =
+                                    subst_with_monomorphic_env(monomorph_env, specific_func_ty);
+                                println!("substituted type: {:?}", substituted_ty);
+
+                                self.handle_overloaded_func(
+                                    st,
+                                    substituted_ty,
+                                    func_name,
+                                    *node_id,
+                                );
+                            }
                         }
-                        Resolution::InterfaceMethod { name } => {
+                        Resolution::InterfaceMethod(_, name) => {
                             let node = self.node_map.get(&func.id).unwrap();
                             let span = node.span();
                             let mut s = String::new();
                             span.display(&mut s, &self.sources, " method ap");
                             println!("{}", s);
 
-                            // need addr of interface method
-                            // need map from (interface method, type) to concrete implementation
-                            let solved_type = self.inf_ctx.solution_of_node(func.id).unwrap();
-                            println!("solved type: {:?}", &solved_type);
+                            let func_ty = self.inf_ctx.solution_of_node(func.id).unwrap();
                             let substituted_ty =
-                                subst_with_monomorphic_env(monomorph_env, solved_type);
+                                subst_with_monomorphic_env(monomorph_env.clone(), func_ty);
                             println!("substituted type: {:?}", substituted_ty);
-
-                            let instance_ty = substituted_ty.monotype().unwrap();
-                            println!("instance type: {:?}", &instance_ty);
-
-                            let entry = st.interface_method_map.entry(InterfaceMethodDesc {
-                                name: name.clone(),
-                                impl_type: instance_ty.clone(),
-                            });
-                            let label = match entry {
-                                std::collections::btree_map::Entry::Occupied(o) => o.get().clone(),
-                                std::collections::btree_map::Entry::Vacant(v) => {
-                                    st.interface_methods_to_generate.push((
-                                        InterfaceMethodDesc {
-                                            name: name.clone(),
-                                            impl_type: instance_ty.clone(),
-                                        },
-                                        substituted_ty,
-                                    ));
-                                    let mut label_hint = format!("{}__{}", name, instance_ty);
-                                    label_hint.retain(|c| !c.is_whitespace());
-                                    let label = make_label(&label_hint);
-                                    v.insert(label.clone());
-                                    label
-                                }
-                            };
-                            println!("emitting Call of function: {}", label);
-                            emit(st, Instr::Call(label));
+                            let def_id =
+                                self.get_func_definition_node(&name, substituted_ty.clone());
+                            self.handle_overloaded_func(st, substituted_ty, name, def_id);
                         }
                         Resolution::StructDefinition(_, nargs) => {
                             emit(st, Instr::Construct(*nargs));
@@ -745,11 +757,6 @@ impl Translator {
                     return;
                 }
 
-                let func_name_blacklist = ["print", "println"];
-                // don't generate code for functions in prelude, not ready for that yet.
-                if func_name_blacklist.contains(&func_name.as_str()) {
-                    return {};
-                }
                 // println!("Generating code for function: {}", func_name);
                 emit(st, Item::Label(func_name));
                 let mut locals = HashSet::new();
@@ -955,7 +962,7 @@ impl Translator {
         &self,
         method_name: &Symbol,
         desired_interface_impl: SolvedType,
-    ) -> Rc<dyn Node> {
+    ) -> NodeId {
         if let Some(interface_name) = self.inf_ctx.method_to_interface.get(method_name) {
             let impl_list = self.inf_ctx.interface_impls.get(interface_name).unwrap();
             // TODO just because the variable is the same name as an overloaded function doesn't mean the overloaded function is actually being used here.
@@ -983,16 +990,52 @@ impl Translator {
                         {
                             // if desired_interface_impl.clone() == interface_impl_ty {
 
-                            let method_node = self.node_map.get(&method.method_location).unwrap();
-                            return method_node.clone();
+                            return method.method_location;
                         }
                     }
                 }
             }
             panic!("couldn't find impl for method");
         } else {
-            panic!("no interface found for method");
+            panic!("no interface found for method: {}", method_name);
         }
+    }
+
+    fn handle_overloaded_func(
+        &self,
+        st: &mut TranslatorState,
+        substituted_ty: SolvedType,
+        func_name: &Symbol,
+        definition_node: NodeId,
+    ) {
+        let instance_ty = substituted_ty.monotype().unwrap();
+        println!("instance type: {:?}", &instance_ty);
+
+        let entry = st.overloaded_func_map.entry(OverloadedFuncDesc {
+            name: func_name.clone(),
+            impl_type: instance_ty.clone(),
+            definition_node,
+        });
+        let label = match entry {
+            std::collections::btree_map::Entry::Occupied(o) => o.get().clone(),
+            std::collections::btree_map::Entry::Vacant(v) => {
+                st.overloaded_methods_to_generate.push((
+                    OverloadedFuncDesc {
+                        name: func_name.clone(),
+                        impl_type: instance_ty.clone(),
+                        definition_node,
+                    },
+                    substituted_ty,
+                ));
+                let mut label_hint = format!("{}__{}", func_name, instance_ty);
+                label_hint.retain(|c| !c.is_whitespace());
+                let label = make_label(&label_hint);
+                v.insert(label.clone());
+                label
+            }
+        };
+        println!("emitting Call of function: {}", label);
+        emit(st, Instr::Call(label));
     }
 }
 

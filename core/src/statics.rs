@@ -998,7 +998,7 @@ fn constrain(mut expected: TypeVar, mut actual: TypeVar) {
 pub(crate) enum Resolution {
     Var(NodeId),
     FunctionDefinition(NodeId, Symbol),
-    InterfaceMethod { name: Symbol },
+    InterfaceMethod(NodeId, Symbol),
     StructDefinition(NodeId, u16),
     Variant(NodeId, u16, u16),
     Builtin(Symbol),
@@ -1861,10 +1861,14 @@ pub(crate) fn generate_constraints_expr(
             let ty_func = TypeVar::make_func(tys_args, ty_body, Prov::Node(expr.id));
             generate_constraints_expr(
                 gamma,
-                Mode::Ana { expected: ty_func },
+                Mode::Ana {
+                    expected: ty_func.clone(),
+                },
                 func.clone(),
                 inf_ctx,
             );
+
+            println!("funcap: {}", ty_func);
         }
         ExprKind::Tuple(exprs) => {
             let tys = exprs
@@ -2098,20 +2102,21 @@ pub(crate) fn generate_constraints_stmt(
             let ty_pat = TypeVar::from_node(inf_ctx, name.id);
 
             let func_name = name.patkind.get_identifier_of_variable();
+
+            // TODO this needs a better explanation
             if add_to_tyvar_gamma {
-                // TODO this needs a better explanation
                 gamma.extend(name.patkind.get_identifier_of_variable(), ty_pat.clone());
                 gamma.extend_declaration(
                     func_name,
                     Resolution::FunctionDefinition(
                         stmt.id,
                         name.patkind.get_identifier_of_variable(),
-                    ), // TODO: this could be an interface method...
+                    ),
                 );
             } else {
                 gamma.extend_declaration(
                     func_name.clone(),
-                    Resolution::InterfaceMethod { name: func_name },
+                    Resolution::InterfaceMethod(stmt.id, func_name),
                 );
             }
 
