@@ -1,21 +1,28 @@
 use crate::assembly::{remove_labels, Instr, Item, Label};
-use crate::ast::{NodeId, Sources, Toplevel};
+use crate::ast::{Node, NodeId, Sources, Symbol, Toplevel};
 use crate::operators::BinOpcode;
-use crate::statics::{Monotype, Resolution, SolvedType};
+use crate::statics::{ty_fits_impl_ty, Monotype, Prov, Resolution, SolvedType};
 use crate::vm::{AbraInt, Instr as VmInstr};
 use crate::EffectTrait;
 use crate::{
     ast::{Expr, ExprKind, NodeMap, Pat, PatKind, Stmt, StmtKind},
     statics::InferenceContext,
 };
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeMap, HashMap, HashSet};
 use std::mem;
 use std::rc::Rc;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
 type OffsetTable = HashMap<NodeId, i32>;
 type Lambdas = HashMap<NodeId, LambdaData>;
-type InterfaceMethodsMap = HashMap<(NodeId, Monotype), Label>;
+type InterfaceMethodLabels = BTreeMap<InterfaceMethodDesc, Label>;
+#[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq)]
+struct InterfaceMethodDesc {
+    iface: NodeId,
+    property: NodeId,
+    name: Symbol,
+    impl_type: SolvedType,
+}
 
 #[derive(Debug, Clone)]
 struct LambdaData {
@@ -37,8 +44,8 @@ pub(crate) struct Translator {
 struct TranslatorState {
     items: Vec<Item>,
     lambdas: Lambdas,
-    interface_method_map: InterfaceMethodsMap,
-    interface_methods_to_generate: Vec<(NodeId, Monotype)>,
+    interface_method_map: InterfaceMethodLabels,
+    interface_methods_to_generate: Vec<InterfaceMethodDesc>,
 }
 
 fn emit(st: &mut TranslatorState, i: impl Into<Item>) {
@@ -126,15 +133,26 @@ impl Translator {
         // Handle interface method implementations
         let mut iteration = Vec::new();
         mem::swap(&mut iteration, &mut st.interface_methods_to_generate);
-        for (node_id, monotype) in iteration {
-            continue; //TODO last here
-            let node = self.node_map.get(&node_id).unwrap();
-            let expr = node.to_expr().unwrap();
-            let ExprKind::Func(args, _, body) = &*expr.exprkind else {
+        for desc in iteration {
+            let iface_id = desc.iface;
+            let method_name = desc.name.clone();
+            let desired_impl_type = desc.impl_type.clone(); // use this to select the correct implementation
+            let iface_node = self.node_map.get(&iface_id).unwrap();
+            let stmt = iface_node.to_stmt().unwrap();
+            let StmtKind::InterfaceDef(iface_name, _) = &*stmt.stmtkind else {
                 panic!()
             };
 
-            let label = st.interface_method_map.get(&(node_id, monotype)).unwrap();
+            let StmtKind::FuncDef(_, args, _, body) = &*self
+                .get_func_definition_node(iface_name, &method_name, desired_impl_type)
+                .to_stmt()
+                .unwrap()
+                .stmtkind
+            else {
+                panic!()
+            };
+
+            let label = st.interface_method_map.get(&desc).unwrap();
             emit(st, Item::Label(label.clone()));
 
             let mut locals = HashSet::new();
@@ -223,7 +241,7 @@ impl Translator {
                             },
                         );
                     }
-                    Resolution::InterfaceMethod(..) => {
+                    Resolution::InterfaceMethod { .. } => {
                         unimplemented!()
                     }
                 }
@@ -278,7 +296,11 @@ impl Translator {
                         Resolution::FunctionDefinition(_, name) => {
                             emit(st, Instr::Call(name.clone()));
                         }
-                        Resolution::InterfaceMethod(node_id, name) => {
+                        Resolution::InterfaceMethod {
+                            iface,
+                            property,
+                            name,
+                        } => {
                             let node = self.node_map.get(&func.id).unwrap();
                             let span = node.span();
                             let mut s = String::new();
@@ -289,14 +311,22 @@ impl Translator {
                             // need map from (interface method, type) to concrete implementation
                             let solved_type = self.inf_ctx.solution_of_node(func.id).unwrap();
                             println!("solved type: {:?}", solved_type);
-                            let monotype = solved_type.monotype().unwrap();
-                            let entry = st.interface_method_map.entry((*node_id, monotype.clone()));
+                            let entry = st.interface_method_map.entry(InterfaceMethodDesc {
+                                iface: *iface,
+                                property: *property,
+                                name: name.clone(),
+                                impl_type: solved_type.clone(),
+                            });
                             let label = match entry {
-                                std::collections::hash_map::Entry::Occupied(o) => o.get().clone(),
-                                std::collections::hash_map::Entry::Vacant(v) => {
-                                    st.interface_methods_to_generate
-                                        .push((*node_id, monotype.clone()));
-                                    let mut label_hint = format!("{}__{}", name, monotype);
+                                std::collections::btree_map::Entry::Occupied(o) => o.get().clone(),
+                                std::collections::btree_map::Entry::Vacant(v) => {
+                                    st.interface_methods_to_generate.push(InterfaceMethodDesc {
+                                        iface: *iface,
+                                        property: *property,
+                                        name: name.clone(),
+                                        impl_type: solved_type.clone(),
+                                    });
+                                    let mut label_hint = format!("{}__{}", name, solved_type);
                                     label_hint.retain(|c| !c.is_whitespace());
                                     let label = make_label(&label_hint);
                                     v.insert(label.clone());
@@ -885,6 +915,47 @@ impl Translator {
             }
         }
     }
+
+    fn get_func_definition_node(
+        &self,
+        interface_name: &Symbol,
+        method_name: &Symbol,
+        desired_interface_impl: SolvedType,
+    ) -> Rc<dyn Node> {
+        let impl_list = self.inf_ctx.interface_impls.get(interface_name).unwrap();
+        // TODO just because the variable is the same name as an overloaded function doesn't mean the overloaded function is actually being used here.
+        // use the type of the variable to determine if it's the same as the overloaded function?
+
+        // find an impl that matches
+        // dbg!(impl_list);
+
+        for imp in impl_list {
+            for method in &imp.methods {
+                if method.name == *method_name {
+                    let method_identifier_node =
+                        self.node_map.get(&method.identifier_location).unwrap();
+
+                    let func_id = method_identifier_node.id();
+                    let unifvar = self.inf_ctx.vars.get(&Prov::Node(func_id)).unwrap();
+                    let interface_impl_ty = unifvar.solution().unwrap();
+
+                    if ty_fits_impl_ty(
+                        &self.inf_ctx,
+                        desired_interface_impl.clone(),
+                        interface_impl_ty,
+                    )
+                    .is_ok()
+                    {
+                        // if desired_interface_impl.clone() == interface_impl_ty {
+
+                        let method_node = self.node_map.get(&method.method_location).unwrap();
+                        return method_node.clone();
+                    }
+                }
+            }
+        }
+        panic!("couldn't find impl for method");
+    }
 }
 
 fn handle_pat_binding(pat: Rc<Pat>, locals: &OffsetTable, st: &mut TranslatorState) {
@@ -1002,48 +1073,3 @@ fn idx_of_field(inf_ctx: &InferenceContext, accessed: Rc<Expr>, field: &str) -> 
         _ => panic!("not a udt"),
     }
 }
-
-// TODO last here: re-use this logic
-// fn get_func_definition_node(
-//     inf_ctx: &InferenceContext,
-//     node_map: &NodeMap,
-//     ident: &ast::Symbol,
-//     desired_interface_impl: SolvedType,
-// ) -> Rc<dyn ast::Node> {
-//     if let Some(interface_name) = inf_ctx.method_to_interface.get(&ident.clone()) {
-//         let impl_list = inf_ctx.interface_impls.get(interface_name).unwrap();
-//         // TODO just because the variable is the same name as an overloaded function doesn't mean the overloaded function is actually being used here.
-//         // use the type of the variable to determine if it's the same as the overloaded function?
-
-//         // find an impl that matches
-//         // dbg!(impl_list);
-
-//         for imp in impl_list {
-//             for method in &imp.methods {
-//                 if method.name == *ident {
-//                     let method_identifier_node = node_map.get(&method.identifier_location).unwrap();
-
-//                     let func_id = method_identifier_node.id();
-//                     let unifvar = inf_ctx.vars.get(&Prov::Node(func_id)).unwrap();
-//                     let interface_impl_ty = unifvar.solution().unwrap();
-
-//                     if statics::ty_fits_impl_ty(
-//                         inf_ctx,
-//                         desired_interface_impl.clone(),
-//                         interface_impl_ty,
-//                     )
-//                     .is_ok()
-//                     {
-//                         // if desired_interface_impl.clone() == interface_impl_ty {
-
-//                         let method_node = node_map.get(&method.method_location).unwrap();
-//                         return method_node.clone();
-//                     }
-//                 }
-//             }
-//         }
-//         panic!("couldn't find impl for method");
-//     } else {
-//         return inf_ctx.fun_defs.get(ident).unwrap().clone();
-//     }
-// }

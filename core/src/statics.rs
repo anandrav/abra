@@ -998,7 +998,11 @@ fn constrain(mut expected: TypeVar, mut actual: TypeVar) {
 pub(crate) enum Resolution {
     Var(NodeId),
     FunctionDefinition(NodeId, Symbol),
-    InterfaceMethod(NodeId, Symbol),
+    InterfaceMethod {
+        iface: NodeId,
+        property: NodeId,
+        name: Symbol,
+    },
     StructDefinition(NodeId, u16),
     Variant(NodeId, u16, u16),
     Builtin(Symbol),
@@ -2238,7 +2242,11 @@ pub(crate) fn gather_definitions_stmt(
                 // perhaps make a note that this is an interface method (overloaded)
                 gamma.extend_declaration(
                     p.ident.clone(),
-                    Resolution::InterfaceMethod(p.id(), p.ident.clone()),
+                    Resolution::InterfaceMethod {
+                        iface: stmt.id,
+                        property: p.id(),
+                        name: p.ident.clone(),
+                    },
                 );
                 methods.push(InterfaceDefMethod {
                     name: p.ident.clone(),
