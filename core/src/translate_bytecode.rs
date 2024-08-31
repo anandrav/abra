@@ -723,11 +723,14 @@ impl Translator {
                 let func_ty = self.inf_ctx.solution_of_node(name.id).unwrap();
                 let func_name = name.patkind.get_identifier_of_variable();
 
-                if func_ty.is_overloaded() || iface_method {
+                if func_ty.is_overloaded() // println: 'a ToString -> ()
+                || iface_method
+                // to_string: 'a ToString -> String
+                {
                     return;
                 }
 
-                let func_name_blacklist = ["concat", "print", "println"];
+                let func_name_blacklist = ["print", "println"];
                 // don't generate code for functions in prelude, not ready for that yet.
                 if func_name_blacklist.contains(&func_name.as_str()) {
                     return {};
