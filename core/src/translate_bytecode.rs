@@ -1,5 +1,6 @@
 use crate::assembly::{remove_labels, Instr, Item, Label};
 use crate::ast::{Node, NodeId, Sources, Symbol, Toplevel};
+use crate::environment::Environment;
 use crate::operators::BinOpcode;
 use crate::statics::{ty_fits_impl_ty, Monotype, Prov, Resolution, SolvedType};
 use crate::vm::{AbraInt, Instr as VmInstr};
@@ -16,6 +17,8 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 type OffsetTable = HashMap<NodeId, i32>;
 type Lambdas = HashMap<NodeId, LambdaData>;
 type InterfaceMethodLabels = BTreeMap<InterfaceMethodDesc, Label>;
+type MonomorphEnv = Environment<Symbol, SolvedType>;
+
 #[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq)]
 struct InterfaceMethodDesc {
     name: Symbol,
@@ -69,6 +72,8 @@ impl Translator {
         let mut translator_state = TranslatorState::default();
         let st = &mut translator_state;
 
+        let monomorph_env = MonomorphEnv::empty();
+
         // Handle the main function (toplevels)
         {
             let mut locals = HashSet::new();
@@ -88,6 +93,7 @@ impl Translator {
                         statement.clone(),
                         i == toplevel.statements.len() - 1,
                         &offset_table,
+                        monomorph_env.clone(),
                         st,
                     );
                 }
@@ -112,7 +118,7 @@ impl Translator {
 
             emit(st, Item::Label(data.label));
 
-            self.translate_expr(body.clone(), &data.offset_table, st); // TODO passing lambdas here is kind of weird and recursive. Should build list of lambdas in statics.rs instead.
+            self.translate_expr(body.clone(), &data.offset_table, monomorph_env.clone(), st); // TODO passing lambdas here is kind of weird and recursive. Should build list of lambdas in statics.rs instead.
 
             let nlocals = data.nlocals;
             let nargs = args.len();
@@ -161,7 +167,7 @@ impl Translator {
                 offset_table.entry(*local).or_insert((i) as i32);
             }
             let nargs = args.len();
-            self.translate_expr(body.clone(), &offset_table, st);
+            self.translate_expr(body.clone(), &offset_table, monomorph_env.clone(), st);
 
             if locals_count + nargs > 0 {
                 // pop all locals and arguments except one. The last one is the return value slot.
@@ -195,7 +201,13 @@ impl Translator {
         (items, string_table)
     }
 
-    fn translate_expr(&self, expr: Rc<Expr>, offset_table: &OffsetTable, st: &mut TranslatorState) {
+    fn translate_expr(
+        &self,
+        expr: Rc<Expr>,
+        offset_table: &OffsetTable,
+        monomorph_env: MonomorphEnv,
+        st: &mut TranslatorState,
+    ) {
         match &*expr.exprkind {
             ExprKind::Var(symbol) => {
                 // adt variant
@@ -254,8 +266,8 @@ impl Translator {
                 emit(st, Instr::PushString(s.clone()));
             }
             ExprKind::BinOp(left, op, right) => {
-                self.translate_expr(left.clone(), offset_table, st);
-                self.translate_expr(right.clone(), offset_table, st);
+                self.translate_expr(left.clone(), offset_table, monomorph_env.clone(), st);
+                self.translate_expr(right.clone(), offset_table, monomorph_env.clone(), st);
                 match op {
                     BinOpcode::Add => emit(st, Instr::Add),
                     BinOpcode::Subtract => emit(st, Instr::Subtract),
@@ -275,7 +287,7 @@ impl Translator {
             ExprKind::FuncAp(func, args) => {
                 if let ExprKind::Var(_) = &*func.exprkind {
                     for arg in args {
-                        self.translate_expr(arg.clone(), offset_table, st);
+                        self.translate_expr(arg.clone(), offset_table, monomorph_env.clone(), st);
                     }
                     let node = self.node_map.get(&func.id).unwrap();
                     let span = node.span();
@@ -402,35 +414,36 @@ impl Translator {
                         statement.clone(),
                         i == statements.len() - 1,
                         offset_table,
+                        monomorph_env.clone(),
                         st,
                     );
                 }
             }
             ExprKind::Tuple(exprs) => {
                 for expr in exprs {
-                    self.translate_expr(expr.clone(), offset_table, st);
+                    self.translate_expr(expr.clone(), offset_table, monomorph_env.clone(), st);
                 }
                 emit(st, Instr::Construct(exprs.len() as u16));
             }
             ExprKind::If(cond, then_block, Some(else_block)) => {
-                self.translate_expr(cond.clone(), offset_table, st);
+                self.translate_expr(cond.clone(), offset_table, monomorph_env.clone(), st);
                 let then_label = make_label("then");
                 let end_label = make_label("endif");
                 emit(st, Instr::JumpIf(then_label.clone()));
-                self.translate_expr(else_block.clone(), offset_table, st);
+                self.translate_expr(else_block.clone(), offset_table, monomorph_env.clone(), st);
                 emit(st, Instr::Jump(end_label.clone()));
                 emit(st, Item::Label(then_label));
-                self.translate_expr(then_block.clone(), offset_table, st);
+                self.translate_expr(then_block.clone(), offset_table, monomorph_env.clone(), st);
                 emit(st, Item::Label(end_label));
             }
             ExprKind::If(cond, then_block, None) => {
-                self.translate_expr(cond.clone(), offset_table, st);
+                self.translate_expr(cond.clone(), offset_table, monomorph_env.clone(), st);
                 let then_label = make_label("then");
                 let end_label = make_label("endif");
                 emit(st, Instr::JumpIf(then_label.clone()));
                 emit(st, Instr::Jump(end_label.clone()));
                 emit(st, Item::Label(then_label));
-                self.translate_expr(then_block.clone(), offset_table, st);
+                self.translate_expr(then_block.clone(), offset_table, monomorph_env.clone(), st);
                 emit(st, Item::Label(end_label));
                 emit(st, Instr::PushNil); // TODO get rid of this unnecessary overhead
             }
@@ -439,13 +452,13 @@ impl Translator {
                 let ExprKind::Var(field_name) = &*field.exprkind else {
                     panic!()
                 };
-                self.translate_expr(accessed.clone(), offset_table, st);
+                self.translate_expr(accessed.clone(), offset_table, monomorph_env.clone(), st);
                 let idx = idx_of_field(&self.inf_ctx, accessed.clone(), field_name);
                 emit(st, Instr::GetField(idx));
             }
             ExprKind::Array(exprs) => {
                 for expr in exprs {
-                    self.translate_expr(expr.clone(), offset_table, st);
+                    self.translate_expr(expr.clone(), offset_table, monomorph_env.clone(), st);
                 }
                 emit(st, Instr::Construct(exprs.len() as u16));
             }
@@ -454,30 +467,42 @@ impl Translator {
                     translator: &Translator,
                     exprs: &[Rc<Expr>],
                     offset_table: &OffsetTable,
+                    monomorph_env: MonomorphEnv,
                     st: &mut TranslatorState,
                 ) {
                     if exprs.is_empty() {
                         emit(st, Instr::PushNil);
                         emit(st, Instr::ConstructVariant { tag: 0 });
                     } else {
-                        translator.translate_expr(exprs[0].clone(), offset_table, st);
-                        translate_list(translator, &exprs[1..], offset_table, st);
+                        translator.translate_expr(
+                            exprs[0].clone(),
+                            offset_table,
+                            monomorph_env.clone(),
+                            st,
+                        );
+                        translate_list(
+                            translator,
+                            &exprs[1..],
+                            offset_table,
+                            monomorph_env.clone(),
+                            st,
+                        );
                         emit(st, Instr::Construct(2)); // (head, tail)
                         emit(st, Instr::ConstructVariant { tag: 1 });
                     }
                 }
 
-                translate_list(self, exprs, offset_table, st);
+                translate_list(self, exprs, offset_table, monomorph_env.clone(), st);
             }
             ExprKind::IndexAccess(array, index) => {
-                self.translate_expr(index.clone(), offset_table, st);
-                self.translate_expr(array.clone(), offset_table, st);
+                self.translate_expr(index.clone(), offset_table, monomorph_env.clone(), st);
+                self.translate_expr(array.clone(), offset_table, monomorph_env.clone(), st);
                 emit(st, Instr::GetIdx);
             }
             ExprKind::Match(expr, arms) => {
                 let ty = self.inf_ctx.solution_of_node(expr.id).unwrap();
 
-                self.translate_expr(expr.clone(), offset_table, st);
+                self.translate_expr(expr.clone(), offset_table, monomorph_env.clone(), st);
                 let end_label = make_label("endmatch");
                 // Check scrutinee against each arm's pattern
                 let arm_labels = arms
@@ -498,7 +523,7 @@ impl Translator {
 
                     handle_pat_binding(arm.pat.clone(), offset_table, st);
 
-                    self.translate_expr(arm.expr.clone(), offset_table, st);
+                    self.translate_expr(arm.expr.clone(), offset_table, monomorph_env.clone(), st);
                     if i != arms.len() - 1 {
                         emit(st, Instr::Jump(end_label.clone()));
                     }
@@ -723,7 +748,7 @@ impl Translator {
                     offset_table.entry(*local).or_insert((i) as i32);
                 }
                 let nargs = args.len();
-                self.translate_expr(body.clone(), &offset_table, st);
+                self.translate_expr(body.clone(), &offset_table, MonomorphEnv::empty(), st);
 
                 if locals_count + nargs > 0 {
                     // pop all locals and arguments except one. The last one is the return value slot.
@@ -746,11 +771,12 @@ impl Translator {
         stmt: Rc<Stmt>,
         is_last: bool,
         locals: &OffsetTable,
+        monomorph_env: MonomorphEnv,
         st: &mut TranslatorState,
     ) {
         match &*stmt.stmtkind {
             StmtKind::Let(_, pat, expr) => {
-                self.translate_expr(expr.clone(), locals, st);
+                self.translate_expr(expr.clone(), locals, monomorph_env.clone(), st);
                 handle_pat_binding(pat.0.clone(), locals, st);
             }
             StmtKind::Set(expr1, rvalue) => match &*expr1.exprkind {
@@ -761,7 +787,7 @@ impl Translator {
                         panic!("expected variableto be defined in node");
                     };
                     let idx = locals.get(node_id).unwrap();
-                    self.translate_expr(rvalue.clone(), locals, st);
+                    self.translate_expr(rvalue.clone(), locals, monomorph_env.clone(), st);
                     emit(st, Instr::StoreOffset(*idx));
                 }
                 ExprKind::FieldAccess(accessed, field) => {
@@ -769,21 +795,21 @@ impl Translator {
                     let ExprKind::Var(field_name) = &*field.exprkind else {
                         panic!()
                     };
-                    self.translate_expr(rvalue.clone(), locals, st);
-                    self.translate_expr(accessed.clone(), locals, st);
+                    self.translate_expr(rvalue.clone(), locals, monomorph_env.clone(), st);
+                    self.translate_expr(accessed.clone(), locals, monomorph_env.clone(), st);
                     let idx = idx_of_field(&self.inf_ctx, accessed.clone(), field_name);
                     emit(st, Instr::SetField(idx));
                 }
                 ExprKind::IndexAccess(array, index) => {
-                    self.translate_expr(rvalue.clone(), locals, st);
-                    self.translate_expr(index.clone(), locals, st);
-                    self.translate_expr(array.clone(), locals, st);
+                    self.translate_expr(rvalue.clone(), locals, monomorph_env.clone(), st);
+                    self.translate_expr(index.clone(), locals, monomorph_env.clone(), st);
+                    self.translate_expr(array.clone(), locals, monomorph_env.clone(), st);
                     emit(st, Instr::SetIdx);
                 }
                 _ => unimplemented!(),
             },
             StmtKind::Expr(expr) => {
-                self.translate_expr(expr.clone(), locals, st);
+                self.translate_expr(expr.clone(), locals, monomorph_env.clone(), st);
                 if !is_last {
                     emit(st, Instr::Pop);
                 }
