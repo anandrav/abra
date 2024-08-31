@@ -252,8 +252,11 @@ impl Translator {
                             let label = match entry {
                                 std::collections::hash_map::Entry::Occupied(o) => o.get().clone(),
                                 std::collections::hash_map::Entry::Vacant(v) => {
-                                    st.interface_methods_to_generate.push((*node_id, monotype));
-                                    let label = make_label(name);
+                                    st.interface_methods_to_generate
+                                        .push((*node_id, monotype.clone()));
+                                    let mut label_hint = format!("{}__{}", name, monotype);
+                                    label_hint.retain(|c| !c.is_whitespace());
+                                    let label = make_label(&label_hint);
                                     v.insert(label.clone());
                                     label
                                 }
@@ -633,12 +636,8 @@ impl Translator {
                 let func_name = name.patkind.get_identifier_of_variable();
 
                 if func_ty.is_overloaded() {
-                    println!("overloaded function: {:?}", name);
-                    // handled elsewhere
                     return;
                 }
-
-                println!("not overloaded: {}: {}", func_name, func_ty);
 
                 let func_name_blacklist = ["concat", "print", "println"];
                 // don't generate code for functions in prelude, not ready for that yet.
