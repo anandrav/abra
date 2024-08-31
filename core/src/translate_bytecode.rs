@@ -622,6 +622,7 @@ impl Translator {
                     },
                 );
             }
+            // TODO implement while loops and other constructs
             _ => panic!("unimplemented: {:?}", expr.exprkind),
         }
     }

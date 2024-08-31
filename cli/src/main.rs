@@ -12,6 +12,10 @@ struct Args {
     /// file to run
     #[arg()]
     file: String,
+
+    // whether to compile to bytecode
+    #[arg(short, long)]
+    bytecode: bool,
 }
 
 fn main() {
@@ -32,43 +36,73 @@ fn main() {
         contents,
     });
 
-    match abra_core::compile::<side_effects::DefaultEffects>(source_files) {
-        Ok(runtime) => {
-            let mut interpreter = runtime.toplevel_interpreter();
-            let steps = i32::MAX;
-            let mut effect_result = None;
-            loop {
-                let status = interpreter.run(steps, effect_result.take());
-                match status {
-                    InterpreterStatus::Error(msg) => {
-                        println!("{}", msg);
+    if args.bytecode {
+        match abra_core::compile_bytecode::<side_effects::DefaultEffects>(source_files) {
+            Ok(mut vm) => loop {
+                vm.run();
+                if let Some(pending_effect) = vm.get_pending_effect() {
+                    let effect = &EFFECT_LIST[pending_effect as usize];
+                    match effect {
+                        abra_core::side_effects::DefaultEffects::PrintString => {
+                            let s = vm.top().get_string(&vm);
+                            print!("{}", s);
+                        }
+                        abra_core::side_effects::DefaultEffects::Read => {
+                            unimplemented!()
+                            // let mut input = String::new();
+                            // std::io::stdin().read_line(&mut input).unwrap();
+                            // vm.set_effect_result(
+                            //     abra_core::eval_tree::Expr::from(input.trim()).into(),
+                            // );
+                        }
                     }
-                    InterpreterStatus::Finished => break,
-                    InterpreterStatus::OutOfSteps => continue,
-                    InterpreterStatus::Effect(code, args) => {
-                        let effect = &EFFECT_LIST[code as usize];
-                        match effect {
-                            abra_core::side_effects::DefaultEffects::PrintString => match &*args[0]
-                            {
-                                abra_core::eval_tree::Expr::Str(string) => {
-                                    print!("{}", string);
-                                    effect_result = Some(abra_core::eval_tree::Expr::Unit.into());
+                }
+            },
+            Err(err) => {
+                eprintln!("{}", err);
+            }
+        }
+    } else {
+        match abra_core::compile::<side_effects::DefaultEffects>(source_files) {
+            Ok(runtime) => {
+                let mut interpreter = runtime.toplevel_interpreter();
+                let steps = i32::MAX;
+                let mut effect_result = None;
+                loop {
+                    let status = interpreter.run(steps, effect_result.take());
+                    match status {
+                        InterpreterStatus::Error(msg) => {
+                            println!("{}", msg);
+                        }
+                        InterpreterStatus::Finished => break,
+                        InterpreterStatus::OutOfSteps => continue,
+                        InterpreterStatus::Effect(code, args) => {
+                            let effect = &EFFECT_LIST[code as usize];
+                            match effect {
+                                abra_core::side_effects::DefaultEffects::PrintString => {
+                                    match &*args[0] {
+                                        abra_core::eval_tree::Expr::Str(string) => {
+                                            print!("{}", string);
+                                            effect_result =
+                                                Some(abra_core::eval_tree::Expr::Unit.into());
+                                        }
+                                        _ => panic!("wrong arguments for {:#?} effect", effect),
+                                    }
                                 }
-                                _ => panic!("wrong arguments for {:#?} effect", effect),
-                            },
-                            abra_core::side_effects::DefaultEffects::Read => {
-                                let mut input = String::new();
-                                std::io::stdin().read_line(&mut input).unwrap();
-                                effect_result =
-                                    Some(abra_core::eval_tree::Expr::from(input.trim()).into());
+                                abra_core::side_effects::DefaultEffects::Read => {
+                                    let mut input = String::new();
+                                    std::io::stdin().read_line(&mut input).unwrap();
+                                    effect_result =
+                                        Some(abra_core::eval_tree::Expr::from(input.trim()).into());
+                                }
                             }
                         }
                     }
                 }
             }
-        }
-        Err(err) => {
-            eprintln!("{}", err);
+            Err(err) => {
+                eprintln!("{}", err);
+            }
         }
     }
 }
