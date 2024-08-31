@@ -648,3 +648,38 @@ let s = "hello " & "world"
     let top = vm.top();
     assert_eq!(top.get_string(&vm), "hello world");
 }
+
+#[test]
+fn monomorphize_to_string_int() {
+    let src = r#"
+to_string(123)
+"#;
+    let sources = source_files_single(src);
+    let mut vm = match compile_bytecode::<DefaultEffects>(sources) {
+        Ok(vm) => vm,
+        Err(e) => {
+            panic!("{}", e);
+        }
+    };
+    vm.run();
+    let top = vm.top();
+    assert_eq!(top.get_string(&vm), "123");
+}
+
+#[test]
+fn monomorphize_to_string_float() {
+    let src = r#"
+to_string(123)
+to_string(123.456)
+"#;
+    let sources = source_files_single(src);
+    let mut vm = match compile_bytecode::<DefaultEffects>(sources) {
+        Ok(vm) => vm,
+        Err(e) => {
+            panic!("{}", e);
+        }
+    };
+    vm.run();
+    let top = vm.top();
+    assert_eq!(top.get_string(&vm), "123.456");
+}

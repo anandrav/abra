@@ -998,11 +998,7 @@ fn constrain(mut expected: TypeVar, mut actual: TypeVar) {
 pub(crate) enum Resolution {
     Var(NodeId),
     FunctionDefinition(NodeId, Symbol),
-    InterfaceMethod {
-        iface: NodeId,
-        property: NodeId,
-        name: Symbol,
-    },
+    InterfaceMethod { name: Symbol },
     StructDefinition(NodeId, u16),
     Variant(NodeId, u16, u16),
     Builtin(Symbol),
@@ -1996,7 +1992,7 @@ pub(crate) fn generate_constraints_stmt(
     mode: Mode,
     stmt: Rc<Stmt>,
     inf_ctx: &mut InferenceContext,
-    add_to_gamma: bool,
+    add_to_tyvar_gamma: bool,
 ) {
     match &*stmt.stmtkind {
         StmtKind::InterfaceDef(..) => {}
@@ -2100,9 +2096,25 @@ pub(crate) fn generate_constraints_stmt(
         StmtKind::FuncDef(name, args, out_annot, body) => {
             let func_node_id = stmt.id;
             let ty_pat = TypeVar::from_node(inf_ctx, name.id);
-            if add_to_gamma {
+
+            let func_name = name.patkind.get_identifier_of_variable();
+            if add_to_tyvar_gamma {
+                // TODO this needs a better explanation
                 gamma.extend(name.patkind.get_identifier_of_variable(), ty_pat.clone());
+                gamma.extend_declaration(
+                    func_name,
+                    Resolution::FunctionDefinition(
+                        stmt.id,
+                        name.patkind.get_identifier_of_variable(),
+                    ), // TODO: this could be an interface method...
+                );
+            } else {
+                gamma.extend_declaration(
+                    func_name.clone(),
+                    Resolution::InterfaceMethod { name: func_name },
+                );
             }
+
             let body_gamma = gamma.new_scope();
             let ty_func = generate_constraints_func_helper(
                 inf_ctx,
@@ -2240,14 +2252,6 @@ pub(crate) fn gather_definitions_stmt(
                 constrain(node_ty.clone(), ty_annot.clone());
                 // TODO last here
                 // perhaps make a note that this is an interface method (overloaded)
-                gamma.extend_declaration(
-                    p.ident.clone(),
-                    Resolution::InterfaceMethod {
-                        iface: stmt.id,
-                        property: p.id(),
-                        name: p.ident.clone(),
-                    },
-                );
                 methods.push(InterfaceDefMethod {
                     name: p.ident.clone(),
                     ty: node_ty.clone(),
@@ -2392,18 +2396,76 @@ pub(crate) fn gather_definitions_stmt(
                 );
             }
         },
-        StmtKind::Expr(_) => {}
-        StmtKind::Let(..) => {}
-        StmtKind::FuncDef(name, _args, _out_annot, _body) => {
+        StmtKind::Expr(expr) => {
+            // gather_definitions_expr(inf_ctx, gamma, expr.clone());
+        }
+        StmtKind::Let(_, _, expr) => {
+            // gather_definitions_expr(inf_ctx, gamma, expr.clone());
+        }
+        StmtKind::FuncDef(name, _args, _out_annot, body) => {
             let name_id = name.id;
             let name = name.patkind.get_identifier_of_variable();
             inf_ctx.fun_defs.insert(name.clone(), stmt.clone());
             gamma.extend(name.clone(), TypeVar::from_node(inf_ctx, name_id));
             gamma.extend_declaration(name.clone(), Resolution::FunctionDefinition(stmt.id, name));
+            // gather_definitions_expr(inf_ctx, gamma, body.clone());
         }
-        StmtKind::Set(..) => {}
+        StmtKind::Set(_, expr) => {
+            // gather_definitions_expr(inf_ctx, gamma, expr.clone());
+        }
     }
 }
+
+// fn gather_definitions_expr(inf_ctx: &mut InferenceContext, gamma: Gamma, expr: Rc<Expr>) {
+//     match &*expr.exprkind {
+//         ExprKind::Unit => {}
+//         ExprKind::Int(_) => {}
+//         ExprKind::Float(_) => {}
+//         ExprKind::Bool(_) => {}
+//         ExprKind::Str(_) => {}
+//         ExprKind::Var(symbol) => {}
+//         ExprKind::List(exprs) => {
+//             for expr in exprs {
+//                 gather_definitions_expr(inf_ctx, gamma.clone(), expr.clone());
+//             }
+//         }
+//         ExprKind::Array(exprs) => {
+//             for expr in exprs {
+//                 gather_definitions_expr(inf_ctx, gamma.clone(), expr.clone());
+//             }
+//         }
+//         ExprKind::BinOp(left, _op, right) => {
+//             gather_definitions_expr(inf_ctx, gamma.clone(), left.clone());
+//             gather_definitions_expr(inf_ctx, gamma, right.clone());
+//         }
+//         ExprKind::Block(statements) => {
+//             for statement in statements {
+//                 gather_definitions_stmt(inf_ctx, new_gamma.clone(), statement.clone());
+//             }
+//         }
+//         ExprKind::If(cond, expr1, expr2) => {
+//             gather_definitions_expr(inf_ctx, gamma.clone(), cond.clone());
+//             gather_definitions_expr(inf_ctx, gamma.clone(), expr1.clone());
+//             if let Some(expr2) = expr2 {
+//                 gather_definitions_expr(inf_ctx, gamma, expr2.clone());
+//             }
+//         }
+//         ExprKind::WhileLoop(cond, expr) => {
+//             gather_definitions_expr(inf_ctx, gamma.clone(), cond.clone());
+//             gather_definitions_expr(inf_ctx, gamma, expr.clone());
+//         }
+//         ExprKind::Match(scrut, arms) => {
+//             gather_definitions_expr(inf_ctx, gamma.clone(), scrut.clone());
+//             for arm in arms {
+//                 let new_gamma = gamma.new_scope();
+//                 gather_definitions_expr(inf_ctx, new_gamma, arm.expr.clone());
+//             }
+//         }
+//         ExprKind::Func(args, _out_annot, body) => {
+//             gather_definitions_expr(inf_ctx, body_gamma, body.clone());
+//         }
+//     }
+// }
 
 fn monomorphized_ty_to_builtin_ty(ty: Monotype, prov_builtin: Prov) -> TypeVar {
     match ty {

@@ -4,7 +4,8 @@ use abra_core::source_files_single;
 
 fn main() {
     let src = r#"
-to_string(123)
+let nums = (1, 2, 3)
+to_string(nums)
 "#;
     let sources = source_files_single(src);
     let mut vm = match compile_bytecode::<DefaultEffects>(sources) {
@@ -15,5 +16,5 @@ to_string(123)
     };
     vm.run();
     let top = vm.top();
-    assert_eq!(top.get_string(&vm), "123");
+    assert_eq!(top.get_string(&vm), "(1, 2, 3)");
 }

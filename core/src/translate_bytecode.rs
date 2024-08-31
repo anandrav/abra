@@ -18,8 +18,6 @@ type Lambdas = HashMap<NodeId, LambdaData>;
 type InterfaceMethodLabels = BTreeMap<InterfaceMethodDesc, Label>;
 #[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq)]
 struct InterfaceMethodDesc {
-    iface: NodeId,
-    property: NodeId,
     name: Symbol,
     impl_type: SolvedType,
 }
@@ -100,7 +98,7 @@ impl Translator {
         // Handle ordinary function (not overloaded, not a closure) definitions
         for toplevel in self.toplevels.iter() {
             for stmt in &toplevel.statements {
-                self.translate_stmt_static(stmt.clone(), st);
+                self.translate_stmt_static(stmt.clone(), st, false);
             }
         }
 
@@ -134,17 +132,11 @@ impl Translator {
         let mut iteration = Vec::new();
         mem::swap(&mut iteration, &mut st.interface_methods_to_generate);
         for desc in iteration {
-            let iface_id = desc.iface;
             let method_name = desc.name.clone();
             let desired_impl_type = desc.impl_type.clone(); // use this to select the correct implementation
-            let iface_node = self.node_map.get(&iface_id).unwrap();
-            let stmt = iface_node.to_stmt().unwrap();
-            let StmtKind::InterfaceDef(iface_name, _) = &*stmt.stmtkind else {
-                panic!()
-            };
 
             let StmtKind::FuncDef(_, args, _, body) = &*self
-                .get_func_definition_node(iface_name, &method_name, desired_impl_type)
+                .get_func_definition_node(&method_name, desired_impl_type)
                 .to_stmt()
                 .unwrap()
                 .stmtkind
@@ -285,6 +277,11 @@ impl Translator {
                     for arg in args {
                         self.translate_expr(arg.clone(), offset_table, st);
                     }
+                    let node = self.node_map.get(&func.id).unwrap();
+                    let span = node.span();
+                    let mut s = String::new();
+                    span.display(&mut s, &self.sources, "function ap");
+                    println!("{}", s);
                     let resolution = self.inf_ctx.name_resolutions.get(&func.id).unwrap();
                     match resolution {
                         Resolution::Var(node_id) => {
@@ -294,13 +291,10 @@ impl Translator {
                             emit(st, Instr::CallFuncObj);
                         }
                         Resolution::FunctionDefinition(_, name) => {
+                            println!("emitting Call of function: {}", name);
                             emit(st, Instr::Call(name.clone()));
                         }
-                        Resolution::InterfaceMethod {
-                            iface,
-                            property,
-                            name,
-                        } => {
+                        Resolution::InterfaceMethod { name } => {
                             let node = self.node_map.get(&func.id).unwrap();
                             let span = node.span();
                             let mut s = String::new();
@@ -312,8 +306,6 @@ impl Translator {
                             let solved_type = self.inf_ctx.solution_of_node(func.id).unwrap();
                             println!("solved type: {:?}", solved_type);
                             let entry = st.interface_method_map.entry(InterfaceMethodDesc {
-                                iface: *iface,
-                                property: *property,
                                 name: name.clone(),
                                 impl_type: solved_type.clone(),
                             });
@@ -321,8 +313,6 @@ impl Translator {
                                 std::collections::btree_map::Entry::Occupied(o) => o.get().clone(),
                                 std::collections::btree_map::Entry::Vacant(v) => {
                                     st.interface_methods_to_generate.push(InterfaceMethodDesc {
-                                        iface: *iface,
-                                        property: *property,
                                         name: name.clone(),
                                         impl_type: solved_type.clone(),
                                     });
@@ -333,6 +323,7 @@ impl Translator {
                                     label
                                 }
                             };
+                            println!("emitting Call of function: {}", label);
                             emit(st, Instr::Call(label));
                         }
                         Resolution::StructDefinition(_, nargs) => {
@@ -690,14 +681,14 @@ impl Translator {
         }
     }
 
-    fn translate_stmt_static(&self, stmt: Rc<Stmt>, st: &mut TranslatorState) {
+    fn translate_stmt_static(&self, stmt: Rc<Stmt>, st: &mut TranslatorState, iface_method: bool) {
         match &*stmt.stmtkind {
             StmtKind::Let(_, pat, expr) => {}
             StmtKind::Set(expr1, rvalue) => {}
             StmtKind::Expr(expr) => {}
             StmtKind::InterfaceImpl(_, impl_ty, stmts) => {
                 for stmt in stmts {
-                    self.translate_stmt_static(stmt.clone(), st);
+                    self.translate_stmt_static(stmt.clone(), st, true);
                 }
             }
             StmtKind::FuncDef(name, args, _, body) => {
@@ -707,7 +698,7 @@ impl Translator {
                 let func_ty = self.inf_ctx.solution_of_node(name.id).unwrap();
                 let func_name = name.patkind.get_identifier_of_variable();
 
-                if func_ty.is_overloaded() {
+                if func_ty.is_overloaded() || iface_method {
                     return;
                 }
 
@@ -918,43 +909,46 @@ impl Translator {
 
     fn get_func_definition_node(
         &self,
-        interface_name: &Symbol,
         method_name: &Symbol,
         desired_interface_impl: SolvedType,
     ) -> Rc<dyn Node> {
-        let impl_list = self.inf_ctx.interface_impls.get(interface_name).unwrap();
-        // TODO just because the variable is the same name as an overloaded function doesn't mean the overloaded function is actually being used here.
-        // use the type of the variable to determine if it's the same as the overloaded function?
+        if let Some(interface_name) = self.inf_ctx.method_to_interface.get(method_name) {
+            let impl_list = self.inf_ctx.interface_impls.get(interface_name).unwrap();
+            // TODO just because the variable is the same name as an overloaded function doesn't mean the overloaded function is actually being used here.
+            // use the type of the variable to determine if it's the same as the overloaded function?
 
-        // find an impl that matches
-        // dbg!(impl_list);
+            // find an impl that matches
+            // dbg!(impl_list);
 
-        for imp in impl_list {
-            for method in &imp.methods {
-                if method.name == *method_name {
-                    let method_identifier_node =
-                        self.node_map.get(&method.identifier_location).unwrap();
+            for imp in impl_list {
+                for method in &imp.methods {
+                    if method.name == *method_name {
+                        let method_identifier_node =
+                            self.node_map.get(&method.identifier_location).unwrap();
 
-                    let func_id = method_identifier_node.id();
-                    let unifvar = self.inf_ctx.vars.get(&Prov::Node(func_id)).unwrap();
-                    let interface_impl_ty = unifvar.solution().unwrap();
+                        let func_id = method_identifier_node.id();
+                        let unifvar = self.inf_ctx.vars.get(&Prov::Node(func_id)).unwrap();
+                        let interface_impl_ty = unifvar.solution().unwrap();
 
-                    if ty_fits_impl_ty(
-                        &self.inf_ctx,
-                        desired_interface_impl.clone(),
-                        interface_impl_ty,
-                    )
-                    .is_ok()
-                    {
-                        // if desired_interface_impl.clone() == interface_impl_ty {
+                        if ty_fits_impl_ty(
+                            &self.inf_ctx,
+                            desired_interface_impl.clone(),
+                            interface_impl_ty,
+                        )
+                        .is_ok()
+                        {
+                            // if desired_interface_impl.clone() == interface_impl_ty {
 
-                        let method_node = self.node_map.get(&method.method_location).unwrap();
-                        return method_node.clone();
+                            let method_node = self.node_map.get(&method.method_location).unwrap();
+                            return method_node.clone();
+                        }
                     }
                 }
             }
+            panic!("couldn't find impl for method");
+        } else {
+            panic!("no interface found for method");
         }
-        panic!("couldn't find impl for method");
     }
 }
 
