@@ -576,7 +576,7 @@ impl Translator {
             StmtKind::Set(expr1, rvalue) => {}
             StmtKind::Expr(expr) => {}
             StmtKind::InterfaceImpl(_, impl_ty, stmts) => {
-                todo!()
+                // noop
             }
             StmtKind::FuncDef(name, args, _, body) => {
                 let func_name = name.patkind.get_identifier_of_variable();
