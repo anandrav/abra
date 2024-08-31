@@ -683,3 +683,21 @@ to_string(123.456)
     let top = vm.top();
     assert_eq!(top.get_string(&vm), "123.456");
 }
+
+#[test]
+fn monomorphize_to_string_tuple_ints() {
+    let src = r#"
+let nums = (1, 2, 3)
+to_string(nums)
+"#;
+    let sources = source_files_single(src);
+    let mut vm = match compile_bytecode::<DefaultEffects>(sources) {
+        Ok(vm) => vm,
+        Err(e) => {
+            panic!("{}", e);
+        }
+    };
+    vm.run();
+    let top = vm.top();
+    assert_eq!(top.get_string(&vm), "(1, 2, 3)");
+}

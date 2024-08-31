@@ -22,7 +22,7 @@ type MonomorphEnv = Environment<Symbol, SolvedType>;
 #[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq)]
 struct InterfaceMethodDesc {
     name: Symbol,
-    impl_type: SolvedType,
+    impl_type: Monotype,
 }
 
 #[derive(Debug, Clone)]
@@ -46,7 +46,7 @@ struct TranslatorState {
     items: Vec<Item>,
     lambdas: Lambdas,
     interface_method_map: InterfaceMethodLabels,
-    interface_methods_to_generate: Vec<InterfaceMethodDesc>,
+    interface_methods_to_generate: Vec<(InterfaceMethodDesc, SolvedType)>,
 }
 
 fn emit(st: &mut TranslatorState, i: impl Into<Item>) {
@@ -135,49 +135,54 @@ impl Translator {
         }
 
         // Handle interface method implementations
-        let mut iteration = Vec::new();
-        mem::swap(&mut iteration, &mut st.interface_methods_to_generate);
-        for desc in iteration {
-            let method_name = desc.name.clone();
-            let desired_impl_type = desc.impl_type.clone(); // use this to select the correct implementation
+        while !st.interface_methods_to_generate.is_empty() {
+            let mut iteration = Vec::new();
+            mem::swap(&mut (iteration), &mut st.interface_methods_to_generate);
+            for (desc, substituted_ty) in iteration {
+                let method_name = desc.name.clone();
 
-            let StmtKind::FuncDef(_, args, _, body) = &*self
-                .get_func_definition_node(&method_name, desired_impl_type)
-                .to_stmt()
-                .unwrap()
-                .stmtkind
-            else {
-                panic!()
-            };
+                let StmtKind::FuncDef(pat, args, _, body) = &*self
+                    .get_func_definition_node(&method_name, substituted_ty.clone())
+                    .to_stmt()
+                    .unwrap()
+                    .stmtkind
+                else {
+                    panic!()
+                };
 
-            let label = st.interface_method_map.get(&desc).unwrap();
-            emit(st, Item::Label(label.clone()));
+                let overloaded_func_ty = self.inf_ctx.solution_of_node(pat.id()).unwrap();
+                let monomorph_env = MonomorphEnv::empty();
+                update_monomorph_env(monomorph_env.clone(), overloaded_func_ty, substituted_ty);
 
-            let mut locals = HashSet::new();
-            collect_locals_expr(body, &mut locals);
-            let locals_count = locals.len();
-            for _ in 0..locals_count {
-                emit(st, Instr::PushNil);
-            }
-            let mut offset_table = OffsetTable::new();
-            for (i, arg) in args.iter().rev().enumerate() {
-                offset_table.entry(arg.0.id).or_insert(-(i as i32) - 1);
-            }
-            for (i, local) in locals.iter().enumerate() {
-                offset_table.entry(*local).or_insert((i) as i32);
-            }
-            let nargs = args.len();
-            self.translate_expr(body.clone(), &offset_table, monomorph_env.clone(), st);
+                let label = st.interface_method_map.get(&desc).unwrap();
+                emit(st, Item::Label(label.clone()));
 
-            if locals_count + nargs > 0 {
-                // pop all locals and arguments except one. The last one is the return value slot.
-                emit(st, Instr::StoreOffset(-(nargs as i32)));
-                for _ in 0..(locals_count + nargs - 1) {
-                    emit(st, Instr::Pop);
+                let mut locals = HashSet::new();
+                collect_locals_expr(body, &mut locals);
+                let locals_count = locals.len();
+                for _ in 0..locals_count {
+                    emit(st, Instr::PushNil);
                 }
-            }
+                let mut offset_table = OffsetTable::new();
+                for (i, arg) in args.iter().rev().enumerate() {
+                    offset_table.entry(arg.0.id).or_insert(-(i as i32) - 1);
+                }
+                for (i, local) in locals.iter().enumerate() {
+                    offset_table.entry(*local).or_insert((i) as i32);
+                }
+                let nargs = args.len();
+                self.translate_expr(body.clone(), &offset_table, monomorph_env.clone(), st);
 
-            emit(st, Instr::Return);
+                if locals_count + nargs > 0 {
+                    // pop all locals and arguments except one. The last one is the return value slot.
+                    emit(st, Instr::StoreOffset(-(nargs as i32)));
+                    for _ in 0..(locals_count + nargs - 1) {
+                        emit(st, Instr::Pop);
+                    }
+                }
+
+                emit(st, Instr::Return);
+            }
         }
 
         // Create functions for effects
@@ -316,19 +321,29 @@ impl Translator {
                             // need addr of interface method
                             // need map from (interface method, type) to concrete implementation
                             let solved_type = self.inf_ctx.solution_of_node(func.id).unwrap();
-                            println!("solved type: {:?}", solved_type);
+                            println!("solved type: {:?}", &solved_type);
+                            let substituted_ty =
+                                subst_with_monomorphic_env(monomorph_env, solved_type);
+                            println!("substituted type: {:?}", substituted_ty);
+
+                            let instance_ty = substituted_ty.monotype().unwrap();
+                            println!("instance type: {:?}", &instance_ty);
+
                             let entry = st.interface_method_map.entry(InterfaceMethodDesc {
                                 name: name.clone(),
-                                impl_type: solved_type.clone(),
+                                impl_type: instance_ty.clone(),
                             });
                             let label = match entry {
                                 std::collections::btree_map::Entry::Occupied(o) => o.get().clone(),
                                 std::collections::btree_map::Entry::Vacant(v) => {
-                                    st.interface_methods_to_generate.push(InterfaceMethodDesc {
-                                        name: name.clone(),
-                                        impl_type: solved_type.clone(),
-                                    });
-                                    let mut label_hint = format!("{}__{}", name, solved_type);
+                                    st.interface_methods_to_generate.push((
+                                        InterfaceMethodDesc {
+                                            name: name.clone(),
+                                            impl_type: instance_ty.clone(),
+                                        },
+                                        substituted_ty,
+                                    ));
+                                    let mut label_hint = format!("{}__{}", name, instance_ty);
                                     label_hint.retain(|c| !c.is_whitespace());
                                     let label = make_label(&label_hint);
                                     v.insert(label.clone());
@@ -1094,5 +1109,71 @@ fn idx_of_field(inf_ctx: &InferenceContext, accessed: Rc<Expr>, field: &str) -> 
             field_idx as u16
         }
         _ => panic!("not a udt"),
+    }
+}
+
+fn update_monomorph_env(
+    monomorph_env: MonomorphEnv,
+    overloaded_ty: SolvedType,
+    monomorphic_ty: SolvedType,
+) {
+    match (overloaded_ty, monomorphic_ty.clone()) {
+        // recurse
+        (SolvedType::Function(args, out), SolvedType::Function(args2, out2)) => {
+            for i in 0..args.len() {
+                update_monomorph_env(monomorph_env.clone(), args[i].clone(), args2[i].clone());
+            }
+            update_monomorph_env(monomorph_env, *out, *out2);
+        }
+        (SolvedType::UdtInstance(ident, params), SolvedType::UdtInstance(ident2, params2)) => {
+            assert_eq!(ident, ident2);
+            for i in 0..params.len() {
+                update_monomorph_env(monomorph_env.clone(), params[i].clone(), params2[i].clone());
+            }
+        }
+        (SolvedType::Poly(ident, _), _) => {
+            monomorph_env.extend(ident, monomorphic_ty);
+        }
+        (SolvedType::Tuple(elems1), SolvedType::Tuple(elems2)) => {
+            for i in 0..elems1.len() {
+                update_monomorph_env(monomorph_env.clone(), elems1[i].clone(), elems2[i].clone());
+            }
+        }
+        _ => {}
+    }
+}
+
+fn subst_with_monomorphic_env(monomorphic_env: MonomorphEnv, ty: SolvedType) -> SolvedType {
+    match ty {
+        SolvedType::Function(args, out) => {
+            let new_args = args
+                .iter()
+                .map(|arg| subst_with_monomorphic_env(monomorphic_env.clone(), arg.clone()))
+                .collect();
+            let new_out = subst_with_monomorphic_env(monomorphic_env, *out);
+            SolvedType::Function(new_args, Box::new(new_out))
+        }
+        SolvedType::UdtInstance(ident, params) => {
+            let new_params = params
+                .iter()
+                .map(|param| subst_with_monomorphic_env(monomorphic_env.clone(), param.clone()))
+                .collect();
+            SolvedType::UdtInstance(ident, new_params)
+        }
+        SolvedType::Poly(ref ident, _) => {
+            if let Some(monomorphic_ty) = monomorphic_env.lookup(ident) {
+                monomorphic_ty
+            } else {
+                ty
+            }
+        }
+        SolvedType::Tuple(elems) => {
+            let new_elems = elems
+                .iter()
+                .map(|elem| subst_with_monomorphic_env(monomorphic_env.clone(), elem.clone()))
+                .collect();
+            SolvedType::Tuple(new_elems)
+        }
+        _ => ty,
     }
 }
