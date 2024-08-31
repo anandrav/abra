@@ -959,7 +959,11 @@ pub(crate) struct InferenceContext {
 
 impl InferenceContext {
     pub(crate) fn new() -> Self {
-        Self::default()
+        // TODO find a better way to do this
+        // builtin newline string constant
+        let mut inf_ctx = Self::default();
+        inf_ctx.string_constants.entry("\n".into()).or_insert(0);
+        inf_ctx
     }
 
     pub(crate) fn adt_def_of_variant(&self, variant: &Symbol) -> Option<AdtDef> {

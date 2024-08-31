@@ -19,5 +19,11 @@ println(123)
     vm.clear_pending_effect();
     vm.run();
     let top = vm.top();
+    assert_eq!(top.get_string(&vm), "\n");
+    vm.pop();
+    vm.push_nil();
+    vm.clear_pending_effect();
+    vm.run();
+    let top = vm.top();
     assert_eq!(top.get_int(), 5);
 }

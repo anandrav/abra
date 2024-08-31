@@ -217,6 +217,7 @@ impl Translator {
         monomorph_env: MonomorphEnv,
         st: &mut TranslatorState,
     ) {
+        println!("translating expr: {:?}", expr.exprkind);
         match &*expr.exprkind {
             ExprKind::Var(symbol) => {
                 // adt variant
@@ -237,9 +238,16 @@ impl Translator {
                         let idx = offset_table.get(node_id).unwrap();
                         emit(st, Instr::LoadOffset(*idx));
                     }
-                    Resolution::Builtin(_) => {
-                        // TODO: generate functions for builtins
-                        unimplemented!()
+                    Resolution::Builtin(symbol) => {
+                        match symbol.as_str() {
+                            "newline" => {
+                                emit(st, Instr::PushString("\n".to_owned()));
+                            }
+                            _ => {
+                                // TODO: generate functions for builtins
+                                unimplemented!()
+                            }
+                        }
                     }
                     Resolution::StructDefinition(_, _) => {
                         // TODO: generate functions for structs
