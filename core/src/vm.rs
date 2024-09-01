@@ -49,7 +49,6 @@ impl Vm {
     pub fn push_str(&mut self, s: &str) {
         self.heap.push(ManagedObject {
             kind: ManagedObjectKind::String(s.to_owned()),
-            forward: None,
         });
         self.push(Value::heap_reference(self.heap.len() - 1));
     }
@@ -292,8 +291,6 @@ struct CallFrame {
 #[derive(Debug)]
 struct ManagedObject {
     kind: ManagedObjectKind,
-
-    forward: Option<usize>,
 }
 
 #[derive(Debug)]
@@ -354,7 +351,6 @@ impl Vm {
                 let s = &self.string_table[idx as usize];
                 self.heap.push(ManagedObject {
                     kind: ManagedObjectKind::String(s.clone()),
-                    forward: None,
                 });
                 self.push(Value::heap_reference(self.heap.len() - 1));
             }
@@ -538,7 +534,6 @@ impl Vm {
                     .split_off(self.value_stack.len() - n as usize);
                 self.heap.push(ManagedObject {
                     kind: ManagedObjectKind::DynArray(fields),
-                    forward: None,
                 });
                 self.value_stack
                     .push(Value::heap_reference(self.heap.len() - 1));
@@ -620,7 +615,6 @@ impl Vm {
                 let value = self.pop();
                 self.heap.push(ManagedObject {
                     kind: ManagedObjectKind::Adt { tag, value },
-                    forward: None,
                 });
                 self.value_stack
                     .push(Value::heap_reference(self.heap.len() - 1));
@@ -637,7 +631,6 @@ impl Vm {
                         captured_values,
                         func_addr,
                     },
-                    forward: None,
                 });
                 self.value_stack
                     .push(Value::heap_reference(self.heap.len() - 1));
@@ -697,7 +690,6 @@ impl Vm {
                 let result = a_str + &b_str;
                 self.heap.push(ManagedObject {
                     kind: ManagedObjectKind::String(result),
-                    forward: None,
                 });
                 self.push(Value::heap_reference(self.heap.len() - 1));
             }
@@ -706,7 +698,6 @@ impl Vm {
                 let s = n.to_string();
                 self.heap.push(ManagedObject {
                     kind: ManagedObjectKind::String(s),
-                    forward: None,
                 });
                 self.push(Value::heap_reference(self.heap.len() - 1));
             }
@@ -715,7 +706,6 @@ impl Vm {
                 let s = f.to_string();
                 self.heap.push(ManagedObject {
                     kind: ManagedObjectKind::String(s),
-                    forward: None,
                 });
                 self.push(Value::heap_reference(self.heap.len() - 1));
             }
@@ -736,6 +726,7 @@ impl Vm {
         let mut q = Vec::<usize>::new();
         for v in self.value_stack.iter() {
             if let Value::HeapReference(id) = v {
+                let r = id.borrow();
                 q.push(id.borrow().get());
             }
         }
