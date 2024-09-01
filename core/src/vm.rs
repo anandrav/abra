@@ -745,6 +745,7 @@ impl Vm {
     }
 
     pub fn gc(&mut self) {
+        // println!("GC");
         let mut new_heap = Vec::<ManagedObject>::new();
         let new_heap_group = match self.heap_group {
             HeapGroup::One => HeapGroup::Two,
@@ -755,17 +756,32 @@ impl Vm {
         for i in 0..self.value_stack.len() {
             let v = &mut self.value_stack[i];
             if let Value::HeapReference(r) = v {
-                r.replace(forward(r.get(), &self.heap, &mut new_heap, new_heap_group));
+                r.replace(forward(
+                    r.get(),
+                    &self.heap,
+                    0,
+                    &mut new_heap,
+                    new_heap_group,
+                ));
             }
         }
 
-        for i in 0..self.heap.len() {
-            let obj = &self.heap[i];
+        let mut i = 0;
+        while i < new_heap.len() {
+            let obj = &new_heap[i];
+            let mut to_add: Vec<ManagedObject> = vec![];
+            let new_heap_len = new_heap.len();
             match &obj.kind {
                 ManagedObjectKind::DynArray(fields) => {
                     for v in fields {
                         if let Value::HeapReference(r) = v {
-                            r.replace(forward(r.get(), &self.heap, &mut new_heap, new_heap_group));
+                            r.replace(forward(
+                                r.get(),
+                                &self.heap,
+                                new_heap_len,
+                                &mut to_add,
+                                new_heap_group,
+                            ));
                         }
                     }
                 }
@@ -775,17 +791,33 @@ impl Vm {
                 } => {
                     for v in captured_values {
                         if let Value::HeapReference(r) = v {
-                            r.replace(forward(r.get(), &self.heap, &mut new_heap, new_heap_group));
+                            r.replace(forward(
+                                r.get(),
+                                &self.heap,
+                                new_heap_len,
+                                &mut to_add,
+                                new_heap_group,
+                            ));
                         }
                     }
                 }
                 ManagedObjectKind::Adt { tag: _, value } => {
                     if let Value::HeapReference(r) = value {
-                        r.replace(forward(r.get(), &self.heap, &mut new_heap, new_heap_group));
+                        r.replace(forward(
+                            r.get(),
+                            &self.heap,
+                            new_heap_len,
+                            &mut to_add,
+                            new_heap_group,
+                        ));
                     }
                 }
                 ManagedObjectKind::String(_) => {}
             }
+
+            new_heap.extend(to_add);
+
+            i += 1;
         }
 
         mem::swap(&mut self.heap, &mut new_heap);
@@ -810,7 +842,8 @@ impl Vm {
 fn forward(
     r: HeapReference,
     old_heap: &[ManagedObject],
-    new_heap: &mut Vec<ManagedObject>,
+    new_heap_len: usize,
+    to_add: &mut Vec<ManagedObject>,
     new_heap_group: HeapGroup,
 ) -> HeapReference {
     if r.group != new_heap_group {
@@ -825,9 +858,13 @@ fn forward(
                 }
             }
             None => {
-                // copy to new heap and install forwarding pointer
-                let new_idx = new_heap.len();
-                new_heap.push(obj.clone());
+                // copy to new heap and install forwarding pointer in old heap object
+                let new_idx = to_add.len() + new_heap_len;
+
+                let new_obj = obj.clone();
+                new_obj.forwarding_pointer.replace(None);
+                to_add.push(new_obj);
+
                 obj.forwarding_pointer.replace(Some(new_idx));
 
                 HeapReference {

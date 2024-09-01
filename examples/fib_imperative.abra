@@ -1,13 +1,13 @@
 func fibonacci(n) = {
     var x = 0
     var y = 1
-    var n = n
     while n > 0 {
         let old_x = x
-        set x = y
-        set y = old_x + y
-        set n = n - 1
+        x <- y
+        y <- old_x + y
+        n <- n - 1
     }
     x
 }
-for_each(range(0, 29), n -> println(fibonacci(n)))
+
+for_each(range(0, 29), x -> println(fibonacci(x)))

@@ -28,6 +28,7 @@ x
     let mut vm = vm.unwrap();
     while !vm.is_done() {
         vm.run_n_steps(1);
+        // dbg!(&vm);
         vm.gc();
         assert!(vm.nbytes() < 10000);
     }
