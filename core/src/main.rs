@@ -9,9 +9,13 @@ fn main() {
 
 fn test() {
     let src = r#"
+var i = 0
 var x = 3
-if true {
-    x <- x + x
+while i < 1000 {
+    let p = (1, 2, 3)
+    let (a, b, c) = p
+    x <- a + b + c
+    i <- i + 1
 }
 x
 "#;
@@ -22,7 +26,10 @@ x
         panic!("{}", e);
     }
     let mut vm = vm.unwrap();
-    vm.run();
+    while !vm.is_done() {
+        vm.run_n_steps(1);
+        vm.gc();
+    }
     let top = vm.top();
     assert_eq!(top.get_int(), 6);
 }

@@ -49,9 +49,8 @@ impl Vm {
     }
 
     pub fn push_str(&mut self, s: &str) {
-        self.heap.push(ManagedObject {
-            kind: ManagedObjectKind::String(s.to_owned()),
-        });
+        self.heap
+            .push(ManagedObject::new(ManagedObjectKind::String(s.to_owned())));
         let r = self.heap_reference(self.heap.len() - 1);
         self.push(r);
     }
@@ -208,7 +207,7 @@ pub enum Value {
     Bool(bool),
     Int(AbraInt),
     Float(AbraFloat),
-    HeapReference(RefCell<HeapReference>),
+    HeapReference(Cell<HeapReference>),
 }
 
 #[derive(Debug, Copy, Clone)]
@@ -223,7 +222,7 @@ impl HeapReference {
     }
 }
 
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
 enum HeapGroup {
     One,
     Two,
@@ -271,7 +270,7 @@ impl Value {
 
     pub fn get_string(&self, vm: &Vm) -> String {
         match self {
-            Value::HeapReference(idx) => match &vm.heap[idx.borrow().get()].kind {
+            Value::HeapReference(r) => match &vm.heap[r.get().get()].kind {
                 ManagedObjectKind::String(s) => s.clone(),
                 _ => panic!("not a string"),
             },
@@ -288,12 +287,23 @@ struct CallFrame {
 
 // ReferenceType
 // TODO: garbage collection (mark-and-sweep? copy-collection?)
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 struct ManagedObject {
     kind: ManagedObjectKind,
+
+    forwarding_pointer: Cell<Option<usize>>,
 }
 
-#[derive(Debug)]
+impl ManagedObject {
+    fn new(kind: ManagedObjectKind) -> Self {
+        Self {
+            kind,
+            forwarding_pointer: Cell::new(None),
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
 enum ManagedObjectKind {
     Adt {
         tag: u16,
@@ -325,8 +335,15 @@ impl Vm {
     }
 
     pub fn run_n_steps(&mut self, steps: u32) {
-        for _ in 0..steps {
+        if self.pending_effect.is_some() {
+            panic!("must handle pending effect");
+        }
+        // dbg!(&self);
+        let mut steps = steps;
+        while steps > 0 && !self.is_done() && self.pending_effect.is_none() {
             self.step();
+            steps -= 1;
+            // dbg!(&self);
         }
     }
 
@@ -349,9 +366,8 @@ impl Vm {
             }
             Instr::PushString(idx) => {
                 let s = &self.string_table[idx as usize];
-                self.heap.push(ManagedObject {
-                    kind: ManagedObjectKind::String(s.clone()),
-                });
+                self.heap
+                    .push(ManagedObject::new(ManagedObjectKind::String(s.clone())));
                 let r = self.heap_reference(self.heap.len() - 1);
                 self.value_stack.push(r);
             }
@@ -505,7 +521,7 @@ impl Vm {
             Instr::CallFuncObj => {
                 let func_obj = self.value_stack.pop().expect("stack underflow");
                 match &func_obj {
-                    Value::HeapReference(id) => match &self.heap[id.borrow().get()].kind {
+                    Value::HeapReference(r) => match &self.heap[r.get().get()].kind {
                         ManagedObjectKind::FunctionObject {
                             captured_values,
                             func_addr,
@@ -533,16 +549,15 @@ impl Vm {
                 let fields = self
                     .value_stack
                     .split_off(self.value_stack.len() - n as usize);
-                self.heap.push(ManagedObject {
-                    kind: ManagedObjectKind::DynArray(fields),
-                });
+                self.heap
+                    .push(ManagedObject::new(ManagedObjectKind::DynArray(fields)));
                 let r = self.heap_reference(self.heap.len() - 1);
                 self.value_stack.push(r);
             }
             Instr::Deconstruct => {
                 let obj = self.value_stack.pop().expect("stack underflow");
                 match &obj {
-                    Value::HeapReference(idx) => match &self.heap[idx.borrow().get()].kind {
+                    Value::HeapReference(r) => match &self.heap[r.get().get()].kind {
                         ManagedObjectKind::DynArray(fields) => {
                             self.value_stack.extend(fields.iter().rev().cloned());
                         }
@@ -558,7 +573,7 @@ impl Vm {
             Instr::GetField(index) => {
                 let obj = self.value_stack.pop().expect("stack underflow");
                 let field = match &obj {
-                    Value::HeapReference(id) => match &self.heap[id.borrow().get()].kind {
+                    Value::HeapReference(r) => match &self.heap[r.get().get()].kind {
                         ManagedObjectKind::DynArray(fields) => fields[index as usize].clone(),
                         _ => panic!("not a tuple"),
                     },
@@ -570,22 +585,21 @@ impl Vm {
                 let obj = self.value_stack.pop().expect("stack underflow");
                 let rvalue = self.value_stack.pop().expect("stack underflow");
                 let obj_id = match obj {
-                    Value::HeapReference(id) => id,
+                    Value::HeapReference(r) => r.get().get(),
                     _ => panic!("not a managed object: {:?}", obj),
                 };
-                let inner = obj_id.borrow();
-                match &mut self.heap[inner.get()].kind {
+                match &mut self.heap[obj_id].kind {
                     ManagedObjectKind::DynArray(fields) => {
                         fields[index as usize] = rvalue;
                     }
-                    _ => panic!("not a record type: {:?}", self.heap[obj_id.borrow().get()]),
+                    _ => panic!("not a record type: {:?}", self.heap[obj_id]),
                 }
             }
             Instr::GetIdx => {
                 let obj = self.value_stack.pop().expect("stack underflow");
                 let idx = self.pop_int();
                 let field = match &obj {
-                    Value::HeapReference(id) => match &self.heap[id.borrow().get()].kind {
+                    Value::HeapReference(r) => match &self.heap[r.get().get()].kind {
                         ManagedObjectKind::DynArray(fields) => fields[idx as usize].clone(),
                         _ => panic!("not a dynamic array"),
                     },
@@ -598,25 +612,20 @@ impl Vm {
                 let idx = self.pop_int();
                 let rvalue = self.value_stack.pop().expect("stack underflow");
                 let obj_id = match obj {
-                    Value::HeapReference(id) => id,
+                    Value::HeapReference(r) => r.get().get(),
                     _ => panic!("not a managed object: {:?}", obj),
                 };
-                let inner = obj_id.borrow();
-                match &mut self.heap[inner.get()].kind {
+                match &mut self.heap[obj_id].kind {
                     ManagedObjectKind::DynArray(fields) => {
                         fields[idx as usize] = rvalue;
                     }
-                    _ => panic!(
-                        "not a dynamic array: {:?}",
-                        self.heap[obj_id.borrow().get()]
-                    ),
+                    _ => panic!("not a dynamic array: {:?}", self.heap[obj_id]),
                 }
             }
             Instr::ConstructVariant { tag } => {
                 let value = self.pop();
-                self.heap.push(ManagedObject {
-                    kind: ManagedObjectKind::Adt { tag, value },
-                });
+                self.heap
+                    .push(ManagedObject::new(ManagedObjectKind::Adt { tag, value }));
                 let r = self.heap_reference(self.heap.len() - 1);
                 self.value_stack.push(r);
             }
@@ -627,12 +636,11 @@ impl Vm {
                 let captured_values = self
                     .value_stack
                     .split_off(self.value_stack.len() - n_captured as usize);
-                self.heap.push(ManagedObject {
-                    kind: ManagedObjectKind::FunctionObject {
+                self.heap
+                    .push(ManagedObject::new(ManagedObjectKind::FunctionObject {
                         captured_values,
                         func_addr,
-                    },
-                });
+                    }));
                 let r = self.heap_reference(self.heap.len() - 1);
                 self.value_stack.push(r);
             }
@@ -640,24 +648,21 @@ impl Vm {
                 let rvalue = self.pop();
                 let obj = self.value_stack.pop().expect("stack underflow");
                 let obj_id = match &obj {
-                    Value::HeapReference(id) => id,
+                    Value::HeapReference(r) => r.get().get(),
                     _ => panic!("not a managed object: {:?}", obj),
                 };
-                match &mut self.heap[obj_id.borrow().get()].kind {
+                match &mut self.heap[obj_id].kind {
                     ManagedObjectKind::DynArray(fields) => {
                         fields.push(rvalue);
                     }
-                    _ => panic!(
-                        "not a dynamic array: {:?}",
-                        self.heap[obj_id.borrow().get()]
-                    ),
+                    _ => panic!("not a dynamic array: {:?}", self.heap[obj_id]),
                 }
                 self.push_nil();
             }
             Instr::ArrayLen => {
                 let obj = self.value_stack.pop().expect("stack underflow");
                 let len = match &obj {
-                    Value::HeapReference(id) => match &self.heap[id.borrow().get()].kind {
+                    Value::HeapReference(r) => match &self.heap[r.get().get()].kind {
                         ManagedObjectKind::DynArray(fields) => fields.len(),
                         _ => panic!("not a dynamic array"),
                     },
@@ -668,19 +673,15 @@ impl Vm {
             Instr::ArrayPop => {
                 let obj = self.value_stack.pop().expect("stack underflow");
                 let obj_id = match obj {
-                    Value::HeapReference(id) => id,
+                    Value::HeapReference(r) => r.get().get(),
                     _ => panic!("not a managed object: {:?}", obj),
                 };
-                let inner = obj_id.borrow();
-                match &mut self.heap[inner.get()].kind {
+                match &mut self.heap[obj_id].kind {
                     ManagedObjectKind::DynArray(fields) => {
                         let rvalue = fields.pop().expect("array underflow");
                         self.push(rvalue);
                     }
-                    _ => panic!(
-                        "not a dynamic array: {:?}",
-                        self.heap[obj_id.borrow().get()]
-                    ),
+                    _ => panic!("not a dynamic array: {:?}", self.heap[obj_id]),
                 }
             }
             Instr::ConcatStrings => {
@@ -689,27 +690,24 @@ impl Vm {
                 let a_str = a.get_string(self);
                 let b_str = b.get_string(self);
                 let result = a_str + &b_str;
-                self.heap.push(ManagedObject {
-                    kind: ManagedObjectKind::String(result),
-                });
+                self.heap
+                    .push(ManagedObject::new(ManagedObjectKind::String(result)));
                 let r = self.heap_reference(self.heap.len() - 1);
                 self.push(r);
             }
             Instr::IntToString => {
                 let n = self.pop_int();
                 let s = n.to_string();
-                self.heap.push(ManagedObject {
-                    kind: ManagedObjectKind::String(s),
-                });
+                self.heap
+                    .push(ManagedObject::new(ManagedObjectKind::String(s)));
                 let r = self.heap_reference(self.heap.len() - 1);
                 self.push(r);
             }
             Instr::FloatToString => {
                 let f = self.pop().get_float();
                 let s = f.to_string();
-                self.heap.push(ManagedObject {
-                    kind: ManagedObjectKind::String(s),
-                });
+                self.heap
+                    .push(ManagedObject::new(ManagedObjectKind::String(s)));
                 let r = self.heap_reference(self.heap.len() - 1);
                 self.push(r);
             }
@@ -720,7 +718,7 @@ impl Vm {
     }
 
     fn heap_reference(&mut self, idx: usize) -> Value {
-        Value::HeapReference(RefCell::new(HeapReference {
+        Value::HeapReference(Cell::new(HeapReference {
             idx,
             group: self.heap_group,
         }))
@@ -731,23 +729,30 @@ impl Vm {
         self.call_stack.shrink_to_fit();
     }
 
-    pub(crate) fn gc(&mut self) {
+    pub fn gc(&mut self) {
         let mut new_heap = Vec::<ManagedObject>::new();
+        let new_heap_group = match self.heap_group {
+            HeapGroup::One => HeapGroup::Two,
+            HeapGroup::Two => HeapGroup::One,
+        };
 
         let mut q = Vec::<usize>::new();
-        for v in self.value_stack.iter() {
-            if let Value::HeapReference(id) = v {
-                let r = id.borrow();
-                q.push(id.borrow().get());
+
+        // roots
+        for i in 0..self.value_stack.len() {
+            let v = &mut self.value_stack[i];
+            if let Value::HeapReference(r) = v {
+                r.replace(forward(r.get(), &self.heap, &mut new_heap, new_heap_group));
             }
         }
 
-        while let Some(id) = q.pop() {
-            match &self.heap[id].kind {
+        for i in 0..self.heap.len() {
+            let obj = &self.heap[i];
+            match &obj.kind {
                 ManagedObjectKind::DynArray(fields) => {
-                    for v in fields.iter() {
-                        if let Value::HeapReference(id) = v {
-                            q.push(id.borrow().get());
+                    for v in fields {
+                        if let Value::HeapReference(r) = v {
+                            r.replace(forward(r.get(), &self.heap, &mut new_heap, new_heap_group));
                         }
                     }
                 }
@@ -755,15 +760,15 @@ impl Vm {
                     captured_values,
                     func_addr: _,
                 } => {
-                    for v in captured_values.iter() {
-                        if let Value::HeapReference(id) = v {
-                            q.push(id.borrow().get());
+                    for v in captured_values {
+                        if let Value::HeapReference(r) = v {
+                            r.replace(forward(r.get(), &self.heap, &mut new_heap, new_heap_group));
                         }
                     }
                 }
                 ManagedObjectKind::Adt { tag: _, value } => {
-                    if let Value::HeapReference(id) = value {
-                        q.push(id.borrow().get());
+                    if let Value::HeapReference(r) = value {
+                        r.replace(forward(r.get(), &self.heap, &mut new_heap, new_heap_group));
                     }
                 }
                 ManagedObjectKind::String(_) => {}
@@ -771,10 +776,6 @@ impl Vm {
         }
 
         self.compact();
-    }
-
-    fn forward(&mut self, id: usize) -> usize {
-        0
     }
 
     fn push(&mut self, x: impl Into<Value>) {
@@ -787,6 +788,42 @@ impl Vm {
 
     fn pop_bool(&mut self) -> bool {
         self.value_stack.pop().expect("stack underflow").get_bool()
+    }
+}
+
+fn forward(
+    r: HeapReference,
+    old_heap: &[ManagedObject],
+    new_heap: &mut Vec<ManagedObject>,
+    new_heap_group: HeapGroup,
+) -> HeapReference {
+    if r.group != new_heap_group {
+        // from space
+        let obj = &old_heap[r.idx];
+        match obj.forwarding_pointer.get() {
+            Some(f) => {
+                // return f
+                HeapReference {
+                    idx: f,
+                    group: new_heap_group,
+                }
+            }
+            None => {
+                // copy to new heap and install forwarding pointer
+                let new_idx = new_heap.len();
+                new_heap.push(obj.clone());
+                obj.forwarding_pointer.replace(Some(new_idx));
+
+                HeapReference {
+                    idx: new_idx,
+                    group: new_heap_group,
+                }
+            }
+        }
+    } else {
+        // to space
+        // this reference already points to the new heap
+        r
     }
 }
 
