@@ -5,6 +5,7 @@ use core::fmt;
 use std::{
     cell::{Cell, RefCell},
     fmt::{Display, Formatter},
+    mem,
 };
 
 pub struct Vm {
@@ -729,6 +730,20 @@ impl Vm {
         self.call_stack.shrink_to_fit();
     }
 
+    pub fn nbytes(&self) -> usize {
+        let mut n = self.program.len() * size_of::<Instr>()
+            + self.value_stack.len() * size_of::<Value>()
+            + self.call_stack.len() * size_of::<CallFrame>()
+            + self.heap.len() * size_of::<ManagedObject>();
+
+        n += self.string_table.iter().map(|s| s.len()).sum::<usize>();
+        n
+    }
+
+    pub fn heap_size(&self) -> usize {
+        self.heap.len() * size_of::<ManagedObject>()
+    }
+
     pub fn gc(&mut self) {
         let mut new_heap = Vec::<ManagedObject>::new();
         let new_heap_group = match self.heap_group {
@@ -774,6 +789,9 @@ impl Vm {
                 ManagedObjectKind::String(_) => {}
             }
         }
+
+        mem::swap(&mut self.heap, &mut new_heap);
+        self.heap_group = new_heap_group;
 
         self.compact();
     }

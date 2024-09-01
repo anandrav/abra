@@ -11,7 +11,7 @@ fn test() {
     let src = r#"
 var i = 0
 var x = 3
-while i < 1000 {
+while i < 10000 {
     let p = (1, 2, 3)
     let (a, b, c) = p
     x <- a + b + c
@@ -29,6 +29,8 @@ x
     while !vm.is_done() {
         vm.run_n_steps(1);
         vm.gc();
+        println!("heap size: {}", vm.heap_size());
+        println!("nbytes size: {}", vm.nbytes());
     }
     let top = vm.top();
     assert_eq!(top.get_int(), 6);
