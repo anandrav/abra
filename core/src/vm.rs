@@ -14,6 +14,7 @@ pub struct Vm {
     value_stack: Vec<Value>,
     call_stack: Vec<CallFrame>,
     heap: Vec<ManagedObject>,
+    heap_group: HeapGroup,
 
     string_table: Vec<String>,
     pending_effect: Option<u16>,
@@ -28,6 +29,7 @@ impl Vm {
             value_stack: Vec::new(),
             call_stack: Vec::new(),
             heap: Vec::new(),
+            heap_group: HeapGroup::One,
 
             string_table,
             pending_effect: None,
@@ -50,7 +52,8 @@ impl Vm {
         self.heap.push(ManagedObject {
             kind: ManagedObjectKind::String(s.to_owned()),
         });
-        self.push(Value::heap_reference(self.heap.len() - 1));
+        let r = self.heap_reference(self.heap.len() - 1);
+        self.push(r);
     }
 
     pub fn push_nil(&mut self) {
@@ -208,25 +211,22 @@ pub enum Value {
     HeapReference(RefCell<HeapReference>),
 }
 
-impl Value {
-    fn heap_reference(idx: usize) -> Self {
-        Value::HeapReference(RefCell::new(HeapReference {
-            idx,
-            is_forwarded: false,
-        }))
-    }
-}
-
 #[derive(Debug, Copy, Clone)]
 struct HeapReference {
     idx: usize,
-    is_forwarded: bool,
+    group: HeapGroup,
 }
 
 impl HeapReference {
     fn get(&self) -> usize {
         self.idx
     }
+}
+
+#[derive(Debug, Copy, Clone)]
+enum HeapGroup {
+    One,
+    Two,
 }
 
 impl From<bool> for Value {
@@ -352,7 +352,8 @@ impl Vm {
                 self.heap.push(ManagedObject {
                     kind: ManagedObjectKind::String(s.clone()),
                 });
-                self.push(Value::heap_reference(self.heap.len() - 1));
+                let r = self.heap_reference(self.heap.len() - 1);
+                self.value_stack.push(r);
             }
             Instr::Pop => {
                 self.value_stack.pop();
@@ -535,8 +536,8 @@ impl Vm {
                 self.heap.push(ManagedObject {
                     kind: ManagedObjectKind::DynArray(fields),
                 });
-                self.value_stack
-                    .push(Value::heap_reference(self.heap.len() - 1));
+                let r = self.heap_reference(self.heap.len() - 1);
+                self.value_stack.push(r);
             }
             Instr::Deconstruct => {
                 let obj = self.value_stack.pop().expect("stack underflow");
@@ -616,8 +617,8 @@ impl Vm {
                 self.heap.push(ManagedObject {
                     kind: ManagedObjectKind::Adt { tag, value },
                 });
-                self.value_stack
-                    .push(Value::heap_reference(self.heap.len() - 1));
+                let r = self.heap_reference(self.heap.len() - 1);
+                self.value_stack.push(r);
             }
             Instr::MakeClosure {
                 n_captured,
@@ -632,8 +633,8 @@ impl Vm {
                         func_addr,
                     },
                 });
-                self.value_stack
-                    .push(Value::heap_reference(self.heap.len() - 1));
+                let r = self.heap_reference(self.heap.len() - 1);
+                self.value_stack.push(r);
             }
             Instr::ArrayAppend => {
                 let rvalue = self.pop();
@@ -691,7 +692,8 @@ impl Vm {
                 self.heap.push(ManagedObject {
                     kind: ManagedObjectKind::String(result),
                 });
-                self.push(Value::heap_reference(self.heap.len() - 1));
+                let r = self.heap_reference(self.heap.len() - 1);
+                self.push(r);
             }
             Instr::IntToString => {
                 let n = self.pop_int();
@@ -699,7 +701,8 @@ impl Vm {
                 self.heap.push(ManagedObject {
                     kind: ManagedObjectKind::String(s),
                 });
-                self.push(Value::heap_reference(self.heap.len() - 1));
+                let r = self.heap_reference(self.heap.len() - 1);
+                self.push(r);
             }
             Instr::FloatToString => {
                 let f = self.pop().get_float();
@@ -707,12 +710,20 @@ impl Vm {
                 self.heap.push(ManagedObject {
                     kind: ManagedObjectKind::String(s),
                 });
-                self.push(Value::heap_reference(self.heap.len() - 1));
+                let r = self.heap_reference(self.heap.len() - 1);
+                self.push(r);
             }
             Instr::Effect(eff) => {
                 self.pending_effect = Some(eff);
             }
         }
+    }
+
+    fn heap_reference(&mut self, idx: usize) -> Value {
+        Value::HeapReference(RefCell::new(HeapReference {
+            idx,
+            group: self.heap_group,
+        }))
     }
 
     pub fn compact(&mut self) {
