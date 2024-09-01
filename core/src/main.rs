@@ -17,7 +17,7 @@ x
 "#;
     let sources = source_files_single(src);
     // TODO this should return a Vm and not leak details about string table etc.
-    let mut vm = compile_bytecode::<DefaultEffects>(sources);
+    let vm = compile_bytecode::<DefaultEffects>(sources);
     if let Err(e) = vm {
         panic!("{}", e);
     }
