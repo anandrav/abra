@@ -24,15 +24,17 @@ packed_data = _{ "of" ~ typ }
 struct_declaration = { "type" ~ identifier ~ type_params? ~ "=" ~ "{" ~ struct_field ~ ("," ~ struct_field)* ~ "}" }
 struct_field = { identifier ~ type_annotation }
 
-statement = _{ let_func_statement | let_statement | set_statement | expression_statement }
+statement = _{ let_func_statement | let_statement | var_statement | set_statement | expression_statement }
 
-let_statement = { let_keyword ~ mutable_keyword? ~ let_pattern_annotated ~ op_assign ~ expression }
+let_statement = { let_keyword ~ let_pattern_annotated ~ op_assign ~ expression }
 let_keyword = _{ "let" }
-mutable_keyword = { "mutable" }
 expression_statement = { expression }
 let_pattern = _{ let_pattern_tuple | wildcard | identifier }
 wildcard = @{ "_" }
 op_assign = _{ "=" }
+
+var_statement = { var_keyword ~ let_pattern_annotated ~ op_assign ~ expression }
+var_keyword = _{ "var" }
 
 set_statement = { expression ~ "<-" ~ expression }
 

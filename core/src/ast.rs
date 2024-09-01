@@ -869,12 +869,21 @@ pub(crate) fn parse_stmt(pair: Pair<Rule>, filename: &str) -> Rc<Stmt> {
             })
         }
         Rule::let_statement => {
-            let mutable = inner[0].as_rule() == Rule::mutable_keyword;
-            let offset = if mutable { 1 } else { 0 };
+            let offset = 0;
             let pat_annotated = parse_annotated_let_pattern(inner[offset].clone(), filename);
             let expr = parse_expr_pratt(Pairs::single(inner[offset + 1].clone()), filename);
             Rc::new(Stmt {
-                stmtkind: Rc::new(StmtKind::Let(mutable, pat_annotated, expr)),
+                stmtkind: Rc::new(StmtKind::Let(false, pat_annotated, expr)),
+                span,
+                id: NodeId::new(),
+            })
+        }
+        Rule::var_statement => {
+            let offset = 0;
+            let pat_annotated = parse_annotated_let_pattern(inner[offset].clone(), filename);
+            let expr = parse_expr_pratt(Pairs::single(inner[offset + 1].clone()), filename);
+            Rc::new(Stmt {
+                stmtkind: Rc::new(StmtKind::Let(true, pat_annotated, expr)),
                 span,
                 id: NodeId::new(),
             })

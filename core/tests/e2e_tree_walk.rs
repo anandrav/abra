@@ -50,7 +50,7 @@ fn fib() {
 
 #[test]
 fn while_loop_mutation() {
-    let (val, rt) = run("let mutable i = 0
+    let (val, rt) = run("var i = 0
     while i < 10 {
         i <- i + 1
     }

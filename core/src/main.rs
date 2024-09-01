@@ -9,17 +9,20 @@ fn main() {
 
 fn test() {
     let src = r#"
-    let mutable x = 5
-    while x > 0 {
-        let tmp = x
-        x <- tmp - 1
-    }
-    5
-    "#;
+var x = 3
+if true {
+    x <- x + x
+}
+x
+"#;
     let sources = source_files_single(src);
     // TODO this should return a Vm and not leak details about string table etc.
-    let mut vm = compile_bytecode::<DefaultEffects>(sources).unwrap();
+    let mut vm = compile_bytecode::<DefaultEffects>(sources);
+    if let Err(e) = vm {
+        panic!("{}", e);
+    }
+    let mut vm = vm.unwrap();
     vm.run();
     let top = vm.top();
-    assert_eq!(top.get_int(), 5);
+    assert_eq!(top.get_int(), 6);
 }

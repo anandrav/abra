@@ -61,7 +61,7 @@ if false {
 #[test]
 fn just_if() {
     let src = r#"
-let mutable x = 3
+var x = 3
 if true {
     x <- x + x
 }
@@ -733,7 +733,7 @@ println(123)
 #[test]
 fn local_in_while_scope() {
     let src = r#"
-    let mutable x = 5
+    var x = 5
     while x > 0 {
         let tmp = x
         x <- tmp - 1
