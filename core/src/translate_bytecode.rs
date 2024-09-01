@@ -196,7 +196,7 @@ impl Translator {
             emit(st, Instr::Return);
         }
 
-        for item in st.items.iter() {
+        for _item in st.items.iter() {
             // println!("{}", item);
         }
 
@@ -635,8 +635,6 @@ impl Translator {
                 emit(st, Item::Label(end_label));
                 emit(st, Instr::PushNil);
             }
-            // TODO implement while loops and other constructs
-            _ => panic!("unimplemented: {:?}", expr.exprkind),
         }
     }
 
@@ -1059,7 +1057,7 @@ impl Translator {
         emit(st, Instr::Call(label));
     }
 
-    fn display_node(&self, node_id: NodeId) {
+    fn _display_node(&self, node_id: NodeId) {
         let node = self.node_map.get(&node_id).unwrap();
         let span = node.span();
         let mut s = String::new();
@@ -1068,9 +1066,11 @@ impl Translator {
     }
 
     fn handle_pat_binding(&self, pat: Rc<Pat>, locals: &OffsetTable, st: &mut TranslatorState) {
+        let _ = self; // avoid warning
+
         match &*pat.patkind {
             PatKind::Var(_) => {
-                self.display_node(pat.id);
+                // self.display_node(pat.id);
                 let idx = locals.get(&pat.id).unwrap();
                 emit(st, Instr::StoreOffset(*idx));
             }
@@ -1116,7 +1116,56 @@ fn collect_locals_expr(expr: &Expr, locals: &mut HashSet<NodeId>) {
                 collect_locals_expr(&arm.expr, locals);
             }
         }
-        _ => {}
+        ExprKind::Array(exprs) => {
+            for expr in exprs {
+                collect_locals_expr(expr, locals);
+            }
+        }
+        ExprKind::List(exprs) => {
+            for expr in exprs {
+                collect_locals_expr(expr, locals);
+            }
+        }
+        ExprKind::Tuple(exprs) => {
+            for expr in exprs {
+                collect_locals_expr(expr, locals);
+            }
+        }
+        ExprKind::If(cond, then_block, else_block) => {
+            collect_locals_expr(cond, locals);
+            collect_locals_expr(then_block, locals);
+            if let Some(else_block) = else_block {
+                collect_locals_expr(else_block, locals);
+            }
+        }
+        ExprKind::WhileLoop(cond, body) => {
+            collect_locals_expr(cond, locals);
+            collect_locals_expr(body, locals);
+        }
+        ExprKind::BinOp(left, _, right) => {
+            collect_locals_expr(left, locals);
+            collect_locals_expr(right, locals);
+        }
+        ExprKind::FieldAccess(accessed, _) => {
+            collect_locals_expr(accessed, locals);
+        }
+        ExprKind::IndexAccess(array, index) => {
+            collect_locals_expr(array, locals);
+            collect_locals_expr(index, locals);
+        }
+        ExprKind::FuncAp(func, args) => {
+            collect_locals_expr(func, locals);
+            for arg in args {
+                collect_locals_expr(arg, locals);
+            }
+        }
+        ExprKind::Func(..) => {}
+        ExprKind::Var(..)
+        | ExprKind::Unit
+        | ExprKind::Int(..)
+        | ExprKind::Float(..)
+        | ExprKind::Bool(..)
+        | ExprKind::Str(..) => {}
     }
 }
 
@@ -1129,15 +1178,16 @@ fn collect_locals_stmt(statements: &[Rc<Stmt>], locals: &mut HashSet<NodeId>) {
             StmtKind::Let(_, pat, _) => {
                 collect_locals_pat(pat.0.clone(), locals);
             }
-            _ => {}
+            StmtKind::Set(..) => {}
+            StmtKind::InterfaceImpl(..) => {}
+            StmtKind::FuncDef(..) | StmtKind::TypeDef(..) | StmtKind::InterfaceDef(..) => {}
         }
     }
 }
 
 fn collect_locals_pat(pat: Rc<Pat>, locals: &mut HashSet<NodeId>) {
     match &*pat.patkind {
-        PatKind::Var(symbol) => {
-            // println!("adding {} to locals, pat_id = {}", symbol, pat.id);
+        PatKind::Var(_) => {
             locals.insert(pat.id);
         }
         PatKind::Tuple(pats) => {
