@@ -85,6 +85,7 @@ fn main() {
                     return;
                 }
                 vm.run();
+                vm.gc();
                 if let Some(pending_effect) = vm.get_pending_effect() {
                     let effect = &EFFECT_LIST[pending_effect as usize];
                     match effect {
@@ -104,8 +105,6 @@ fn main() {
                         }
                     }
                     vm.clear_pending_effect();
-                } else {
-                    return;
                 }
             },
             Err(err) => {
