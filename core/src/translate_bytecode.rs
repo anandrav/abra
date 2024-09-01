@@ -197,7 +197,7 @@ impl Translator {
         }
 
         for item in st.items.iter() {
-            println!("{}", item);
+            // println!("{}", item);
         }
 
         let items = remove_labels(&st.items, &self.inf_ctx.string_constants);
@@ -216,7 +216,7 @@ impl Translator {
         monomorph_env: MonomorphEnv,
         st: &mut TranslatorState,
     ) {
-        println!("translating expr: {:?}", expr.exprkind);
+        // println!("translating expr: {:?}", expr.exprkind);
         match &*expr.exprkind {
             ExprKind::Var(symbol) => {
                 // adt variant
@@ -233,7 +233,7 @@ impl Translator {
                             &self.sources,
                             &format!("symbol {} resolved to", symbol),
                         );
-                        println!("{}", s);
+                        // println!("{}", s);
                         let idx = offset_table.get(node_id).unwrap();
                         emit(st, Instr::LoadOffset(*idx));
                     }
@@ -309,7 +309,7 @@ impl Translator {
                     let span = node.span();
                     let mut s = String::new();
                     span.display(&mut s, &self.sources, "function ap");
-                    println!("{}", s);
+                    // println!("{}", s);
                     let resolution = self.inf_ctx.name_resolutions.get(&func.id).unwrap();
                     match resolution {
                         Resolution::Var(node_id) => {
@@ -319,7 +319,7 @@ impl Translator {
                             emit(st, Instr::CallFuncObj);
                         }
                         Resolution::FunctionDefinition(node_id, name) => {
-                            println!("emitting Call of function: {}", name);
+                            // println!("emitting Call of function: {}", name);
                             let StmtKind::FuncDef(pat, _, _, _) = &*self
                                 .node_map
                                 .get(node_id)
@@ -340,14 +340,14 @@ impl Translator {
                                 let span = node.span();
                                 let mut s = String::new();
                                 span.display(&mut s, &self.sources, " method ap");
-                                println!("{}", s);
+                                // println!("{}", s);
 
                                 let specific_func_ty =
                                     self.inf_ctx.solution_of_node(func.id).unwrap();
 
                                 let substituted_ty =
                                     subst_with_monomorphic_env(monomorph_env, specific_func_ty);
-                                println!("substituted type: {:?}", substituted_ty);
+                                // println!("substituted type: {:?}", substituted_ty);
 
                                 self.handle_overloaded_func(
                                     st,
@@ -362,12 +362,12 @@ impl Translator {
                             let span = node.span();
                             let mut s = String::new();
                             span.display(&mut s, &self.sources, " method ap");
-                            println!("{}", s);
+                            // println!("{}", s);
 
                             let func_ty = self.inf_ctx.solution_of_node(func.id).unwrap();
                             let substituted_ty =
                                 subst_with_monomorphic_env(monomorph_env.clone(), func_ty);
-                            println!("substituted type: {:?}", substituted_ty);
+                            // println!("substituted type: {:?}", substituted_ty);
                             let def_id =
                                 self.get_func_definition_node(name, substituted_ty.clone());
                             self.handle_overloaded_func(st, substituted_ty, name, def_id);
@@ -555,7 +555,7 @@ impl Translator {
                 for (i, arm) in arms.iter().enumerate() {
                     emit(st, Item::Label(arm_labels[i].clone()));
 
-                    handle_pat_binding(arm.pat.clone(), offset_table, st);
+                    self.handle_pat_binding(arm.pat.clone(), offset_table, st);
 
                     self.translate_expr(arm.expr.clone(), offset_table, monomorph_env.clone(), st);
                     if i != arms.len() - 1 {
@@ -578,7 +578,7 @@ impl Translator {
                     let span = node.span();
                     let mut s = String::new();
                     span.display(&mut s, &self.sources, "capture");
-                    println!("{}", s);
+                    // println!("{}", s);
                 }
                 let ncaptures = captures.len();
                 for _ in 0..locals_count {
@@ -621,6 +621,19 @@ impl Translator {
                         func_addr: label,
                     },
                 );
+            }
+            ExprKind::WhileLoop(cond, body) => {
+                let start_label = make_label("while_start");
+                let end_label = make_label("while_end");
+
+                emit(st, Item::Label(start_label.clone()));
+                self.translate_expr(cond.clone(), offset_table, monomorph_env.clone(), st);
+                emit(st, Instr::Not);
+                emit(st, Instr::JumpIf(end_label.clone()));
+                self.translate_expr(body.clone(), offset_table, monomorph_env.clone(), st);
+                emit(st, Instr::Jump(start_label));
+                emit(st, Item::Label(end_label));
+                emit(st, Instr::PushNil);
             }
             // TODO implement while loops and other constructs
             _ => panic!("unimplemented: {:?}", expr.exprkind),
@@ -810,7 +823,7 @@ impl Translator {
         match &*stmt.stmtkind {
             StmtKind::Let(_, pat, expr) => {
                 self.translate_expr(expr.clone(), locals, monomorph_env.clone(), st);
-                handle_pat_binding(pat.0.clone(), locals, st);
+                self.handle_pat_binding(pat.0.clone(), locals, st);
             }
             StmtKind::Set(expr1, rvalue) => match &*expr1.exprkind {
                 ExprKind::Var(_) => {
@@ -1017,7 +1030,7 @@ impl Translator {
         definition_node: NodeId,
     ) {
         let instance_ty = substituted_ty.monotype().unwrap();
-        println!("instance type: {:?}", &instance_ty);
+        // println!("instance type: {:?}", &instance_ty);
 
         let entry = st.overloaded_func_map.entry(OverloadedFuncDesc {
             name: func_name.clone(),
@@ -1042,41 +1055,50 @@ impl Translator {
                 label
             }
         };
-        println!("emitting Call of function: {}", label);
+        // println!("emitting Call of function: {}", label);
         emit(st, Instr::Call(label));
     }
-}
 
-fn handle_pat_binding(pat: Rc<Pat>, locals: &OffsetTable, st: &mut TranslatorState) {
-    match &*pat.patkind {
-        PatKind::Var(_) => {
-            let idx = locals.get(&pat.id).unwrap();
-            emit(st, Instr::StoreOffset(*idx));
-        }
-        PatKind::Tuple(pats) => {
-            emit(st, Instr::Deconstruct);
-            for pat in pats.iter() {
-                handle_pat_binding(pat.clone(), locals, st);
+    fn display_node(&self, node_id: NodeId) {
+        let node = self.node_map.get(&node_id).unwrap();
+        let span = node.span();
+        let mut s = String::new();
+        span.display(&mut s, &self.sources, "");
+        println!("{}", s);
+    }
+
+    fn handle_pat_binding(&self, pat: Rc<Pat>, locals: &OffsetTable, st: &mut TranslatorState) {
+        match &*pat.patkind {
+            PatKind::Var(_) => {
+                self.display_node(pat.id);
+                let idx = locals.get(&pat.id).unwrap();
+                emit(st, Instr::StoreOffset(*idx));
             }
-        }
-        PatKind::Variant(_, inner) => {
-            if let Some(inner) = inner {
-                // unpack tag and associated data
+            PatKind::Tuple(pats) => {
                 emit(st, Instr::Deconstruct);
-                // pop tag
-                emit(st, Instr::Pop);
-                handle_pat_binding(inner.clone(), locals, st);
-            } else {
+                for pat in pats.iter() {
+                    self.handle_pat_binding(pat.clone(), locals, st);
+                }
+            }
+            PatKind::Variant(_, inner) => {
+                if let Some(inner) = inner {
+                    // unpack tag and associated data
+                    emit(st, Instr::Deconstruct);
+                    // pop tag
+                    emit(st, Instr::Pop);
+                    self.handle_pat_binding(inner.clone(), locals, st);
+                } else {
+                    emit(st, Instr::Pop);
+                }
+            }
+            PatKind::Unit
+            | PatKind::Bool(..)
+            | PatKind::Int(..)
+            | PatKind::Float(..)
+            | PatKind::Str(..)
+            | PatKind::Wildcard => {
                 emit(st, Instr::Pop);
             }
-        }
-        PatKind::Unit
-        | PatKind::Bool(..)
-        | PatKind::Int(..)
-        | PatKind::Float(..)
-        | PatKind::Str(..)
-        | PatKind::Wildcard => {
-            emit(st, Instr::Pop);
         }
     }
 }
@@ -1115,7 +1137,7 @@ fn collect_locals_stmt(statements: &[Rc<Stmt>], locals: &mut HashSet<NodeId>) {
 fn collect_locals_pat(pat: Rc<Pat>, locals: &mut HashSet<NodeId>) {
     match &*pat.patkind {
         PatKind::Var(symbol) => {
-            println!("adding {} to locals, pat_id = {}", symbol, pat.id);
+            // println!("adding {} to locals, pat_id = {}", symbol, pat.id);
             locals.insert(pat.id);
         }
         PatKind::Tuple(pats) => {

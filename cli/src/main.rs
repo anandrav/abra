@@ -13,9 +13,9 @@ struct Args {
     #[arg()]
     file: String,
 
-    // whether to compile to bytecode
+    /// whether to compile to bytecode
     #[arg(short, long)]
-    bytecode: bool,
+    old: bool,
 }
 
 fn main() {
@@ -36,33 +36,7 @@ fn main() {
         contents,
     });
 
-    if args.bytecode {
-        match abra_core::compile_bytecode::<side_effects::DefaultEffects>(source_files) {
-            Ok(mut vm) => loop {
-                vm.run();
-                if let Some(pending_effect) = vm.get_pending_effect() {
-                    let effect = &EFFECT_LIST[pending_effect as usize];
-                    match effect {
-                        abra_core::side_effects::DefaultEffects::PrintString => {
-                            let s = vm.top().get_string(&vm);
-                            print!("{}", s);
-                        }
-                        abra_core::side_effects::DefaultEffects::Read => {
-                            unimplemented!()
-                            // let mut input = String::new();
-                            // std::io::stdin().read_line(&mut input).unwrap();
-                            // vm.set_effect_result(
-                            //     abra_core::eval_tree::Expr::from(input.trim()).into(),
-                            // );
-                        }
-                    }
-                }
-            },
-            Err(err) => {
-                eprintln!("{}", err);
-            }
-        }
-    } else {
+    if args.old {
         match abra_core::compile::<side_effects::DefaultEffects>(source_files) {
             Ok(runtime) => {
                 let mut interpreter = runtime.toplevel_interpreter();
@@ -100,6 +74,40 @@ fn main() {
                     }
                 }
             }
+            Err(err) => {
+                eprintln!("{}", err);
+            }
+        }
+    } else {
+        match abra_core::compile_bytecode::<side_effects::DefaultEffects>(source_files) {
+            Ok(mut vm) => loop {
+                if vm.is_done() {
+                    return;
+                }
+                vm.run();
+                if let Some(pending_effect) = vm.get_pending_effect() {
+                    let effect = &EFFECT_LIST[pending_effect as usize];
+                    match effect {
+                        abra_core::side_effects::DefaultEffects::PrintString => {
+                            let s = vm.top().get_string(&vm);
+                            print!("{}", s);
+                            vm.pop();
+                            vm.push_nil();
+                        }
+                        abra_core::side_effects::DefaultEffects::Read => {
+                            unimplemented!()
+                            // let mut input = String::new();
+                            // std::io::stdin().read_line(&mut input).unwrap();
+                            // vm.set_effect_result(
+                            //     abra_core::eval_tree::Expr::from(input.trim()).into(),
+                            // );
+                        }
+                    }
+                    vm.clear_pending_effect();
+                } else {
+                    return;
+                }
+            },
             Err(err) => {
                 eprintln!("{}", err);
             }

@@ -1872,7 +1872,7 @@ pub(crate) fn generate_constraints_expr(
                 inf_ctx,
             );
 
-            println!("funcap: {}", ty_func);
+            // println!("funcap: {}", ty_func);
         }
         ExprKind::Tuple(exprs) => {
             let tys = exprs

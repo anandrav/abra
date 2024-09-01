@@ -61,6 +61,10 @@ impl Vm {
     pub fn clear_pending_effect(&mut self) {
         self.pending_effect = None;
     }
+
+    pub fn is_done(&self) -> bool {
+        self.pc >= self.program.len()
+    }
 }
 
 #[derive(Debug, Copy, Clone)]
@@ -286,12 +290,15 @@ impl Vm {
         if self.pending_effect.is_some() {
             panic!("must handle pending effect");
         }
-        dbg!(&self);
-        while self.pc < self.program.len() && self.pending_effect.is_none() {
+        // dbg!(&self);
+        while !self.is_done() && self.pending_effect.is_none() {
             self.step();
-            dbg!(&self);
+            // dbg!(&self);
         }
-        println!("DONE");
+
+        if self.is_done() {
+            // println!("DONE");
+        }
     }
 
     pub fn run_n_steps(&mut self, steps: u32) {
@@ -302,7 +309,7 @@ impl Vm {
 
     fn step(&mut self) {
         let instr = self.program[self.pc];
-        println!("Instruction: {:?}", instr);
+        // println!("Instruction: {:?}", instr);
         self.pc += 1;
         match instr {
             Instr::PushNil => {
@@ -710,7 +717,7 @@ impl fmt::Debug for Vm {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::assembly::_assemble;
+    use crate::assembly::assemble;
 
     #[test]
     fn arithmetic() {
@@ -719,7 +726,7 @@ push_int 3
 push_int 4
 subtract
 "#;
-        let (instructions, string_table) = _assemble(program_str);
+        let (instructions, string_table) = assemble(program_str);
         let mut vm = Vm::new(instructions, string_table);
         vm.run();
         assert_eq!(vm.top().get_int(), -1);
@@ -734,7 +741,7 @@ add
 push_int 1
 subtract
 "#;
-        let (instructions, string_table) = _assemble(program_str);
+        let (instructions, string_table) = assemble(program_str);
         let mut vm = Vm::new(instructions, string_table);
         vm.run();
         assert_eq!(vm.top().get_int(), 4);
@@ -750,7 +757,7 @@ push_int 100
 my_label:
 add
 "#;
-        let (instructions, string_table) = _assemble(program_str);
+        let (instructions, string_table) = assemble(program_str);
         let mut vm = Vm::new(instructions, string_table);
         vm.run();
         assert_eq!(vm.top().get_int(), 7);
