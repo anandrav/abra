@@ -3,7 +3,7 @@ pub type AbraInt = i64;
 pub type AbraFloat = f64;
 use core::fmt;
 use std::{
-    cell::{Cell, RefCell},
+    cell::Cell,
     fmt::{Display, Formatter},
     mem,
 };
@@ -212,7 +212,7 @@ pub enum Value {
 }
 
 #[derive(Debug, Copy, Clone)]
-struct HeapReference {
+pub struct HeapReference {
     idx: usize,
     group: HeapGroup,
 }
@@ -750,8 +750,6 @@ impl Vm {
             HeapGroup::One => HeapGroup::Two,
             HeapGroup::Two => HeapGroup::One,
         };
-
-        let mut q = Vec::<usize>::new();
 
         // roots
         for i in 0..self.value_stack.len() {
