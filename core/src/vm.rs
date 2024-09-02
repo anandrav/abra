@@ -1,6 +1,7 @@
 type ProgramCounter = usize;
 pub type AbraInt = i64;
 pub type AbraFloat = f64;
+use crate::translate_bytecode::CompiledProgram;
 use core::fmt;
 use std::{
     cell::Cell,
@@ -22,9 +23,9 @@ pub struct Vm {
 }
 
 impl Vm {
-    pub fn new(program: Vec<Instr>, string_table: Vec<String>) -> Self {
+    pub fn new(program: CompiledProgram) -> Self {
         Self {
-            program,
+            program: program.instructions,
             pc: 0,
             stack_base: 0,
             value_stack: Vec::new(),
@@ -32,7 +33,22 @@ impl Vm {
             heap: Vec::new(),
             heap_group: HeapGroup::One,
 
-            string_table,
+            string_table: program.string_table,
+            pending_effect: None,
+        }
+    }
+
+    pub fn with_entry_point(program: CompiledProgram, entry_point: String) -> Self {
+        Self {
+            program: program.instructions,
+            pc: program.label_map[&entry_point],
+            stack_base: 0,
+            value_stack: Vec::new(),
+            call_stack: Vec::new(),
+            heap: Vec::new(),
+            heap_group: HeapGroup::One,
+
+            string_table: program.string_table,
             pending_effect: None,
         }
     }
@@ -903,8 +919,8 @@ push_int 3
 push_int 4
 subtract
 "#;
-        let (instructions, label_map, string_table) = _assemble(program_str);
-        let mut vm = Vm::new(instructions, string_table);
+        let program = _assemble(program_str);
+        let mut vm = Vm::new(program);
         vm.run();
         assert_eq!(vm.top().get_int(), -1);
     }
@@ -918,8 +934,8 @@ add
 push_int 1
 subtract
 "#;
-        let (instructions, label_map, string_table) = _assemble(program_str);
-        let mut vm = Vm::new(instructions, string_table);
+        let program = _assemble(program_str);
+        let mut vm = Vm::new(program);
         vm.run();
         assert_eq!(vm.top().get_int(), 4);
     }
@@ -934,8 +950,8 @@ push_int 100
 my_label:
 add
 "#;
-        let (instructions, label_map, string_table) = _assemble(program_str);
-        let mut vm = Vm::new(instructions, string_table);
+        let program = _assemble(program_str);
+        let mut vm = Vm::new(program);
         vm.run();
         assert_eq!(vm.top().get_int(), 7);
     }

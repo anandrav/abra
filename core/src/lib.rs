@@ -17,7 +17,9 @@ pub mod translate_eval_tree;
 pub mod vm;
 
 use interpreter::{Interpreter, OverloadedFuncMap};
+use translate_bytecode::LabelMap;
 use translate_bytecode::Translator;
+use vm::Instr;
 use vm::Vm;
 
 pub fn abra_hello_world() {
@@ -130,8 +132,8 @@ pub fn compile_bytecode<Effect: EffectTrait>(source_files: Vec<SourceFile>) -> R
     statics::result_of_additional_analysis(&mut inference_ctx, &toplevels, &node_map, &sources)?;
 
     let translator = Translator::new(inference_ctx, node_map, sources, toplevels);
-    let (instructions, label_map, string_table) = translator.translate::<Effect>();
-    let vm = Vm::new(instructions, string_table);
+    let compiled_program = translator.translate::<Effect>();
+    let vm = Vm::new(compiled_program);
     Ok(vm)
 }
 

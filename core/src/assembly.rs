@@ -3,7 +3,7 @@ use std::{
     fmt::{self, Display, Formatter},
 };
 
-use crate::vm::Instr as VmInstr;
+use crate::{translate_bytecode::CompiledProgram, vm::Instr as VmInstr};
 
 pub(crate) type Label = String;
 
@@ -38,7 +38,7 @@ impl Display for Item {
 
 pub type Instr = VmInstr<Label, String>;
 
-pub(crate) fn _assemble(s: &str) -> (Vec<VmInstr>, LabelMap, Vec<String>) {
+pub(crate) fn _assemble(s: &str) -> CompiledProgram {
     let mut instructions: Vec<Item> = vec![];
     let mut string_constants: HashMap<String, usize> = HashMap::new();
     for (lineno, line) in s.lines().enumerate() {
@@ -57,7 +57,11 @@ pub(crate) fn _assemble(s: &str) -> (Vec<VmInstr>, LabelMap, Vec<String>) {
     for (s, idx) in string_constants.iter() {
         string_table[*idx] = s.clone();
     }
-    (instructions, label_map, string_table)
+    CompiledProgram {
+        instructions,
+        label_map,
+        string_table,
+    }
 }
 
 pub(crate) fn remove_labels(
@@ -253,7 +257,8 @@ subtract
 push_int 5
 add
 "#;
-        let (instructions, _, _) = _assemble(program_str);
+        let program = _assemble(program_str);
+        let instructions = program.instructions;
         let mut program_str2 = String::new();
         for instr in instructions {
             program_str2.push_str(&format!("{}\n", instr));

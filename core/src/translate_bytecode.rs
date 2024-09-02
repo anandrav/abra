@@ -55,6 +55,13 @@ fn emit(st: &mut TranslatorState, i: impl Into<Item>) {
     st.items.push(i.into());
 }
 
+#[derive(Debug)]
+pub struct CompiledProgram {
+    pub(crate) instructions: Vec<VmInstr>,
+    pub(crate) label_map: LabelMap,
+    pub(crate) string_table: Vec<String>,
+}
+
 impl Translator {
     pub(crate) fn new(
         inf_ctx: InferenceContext,
@@ -70,7 +77,7 @@ impl Translator {
         }
     }
 
-    pub(crate) fn translate<Effect: EffectTrait>(&self) -> (Vec<VmInstr>, LabelMap, Vec<String>) {
+    pub(crate) fn translate<Effect: EffectTrait>(&self) -> CompiledProgram {
         let mut translator_state = TranslatorState::default();
         let st = &mut translator_state;
 
@@ -207,7 +214,11 @@ impl Translator {
         for (s, idx) in self.inf_ctx.string_constants.iter() {
             string_table[*idx] = s.clone();
         }
-        (instructions, label_map, string_table)
+        CompiledProgram {
+            instructions,
+            label_map,
+            string_table,
+        }
     }
 
     fn translate_expr(
