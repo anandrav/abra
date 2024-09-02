@@ -80,33 +80,36 @@ fn main() {
         }
     } else {
         match abra_core::compile_bytecode::<side_effects::DefaultEffects>(source_files) {
-            Ok(mut vm) => loop {
-                if vm.is_done() {
-                    return;
-                }
-                vm.run();
-                vm.gc();
-                if let Some(pending_effect) = vm.get_pending_effect() {
-                    let effect = &EFFECT_LIST[pending_effect as usize];
-                    match effect {
-                        abra_core::side_effects::DefaultEffects::PrintString => {
-                            let s = vm.top().get_string(&vm);
-                            print!("{}", s);
-                            vm.pop();
-                            vm.push_nil();
-                        }
-                        abra_core::side_effects::DefaultEffects::Read => {
-                            unimplemented!()
-                            // let mut input = String::new();
-                            // std::io::stdin().read_line(&mut input).unwrap();
-                            // vm.set_effect_result(
-                            //     abra_core::eval_tree::Expr::from(input.trim()).into(),
-                            // );
-                        }
+            Ok(program) => {
+                let mut vm = abra_core::vm::Vm::new(program);
+                loop {
+                    if vm.is_done() {
+                        return;
                     }
-                    vm.clear_pending_effect();
+                    vm.run();
+                    vm.gc();
+                    if let Some(pending_effect) = vm.get_pending_effect() {
+                        let effect = &EFFECT_LIST[pending_effect as usize];
+                        match effect {
+                            abra_core::side_effects::DefaultEffects::PrintString => {
+                                let s = vm.top().get_string(&vm);
+                                print!("{}", s);
+                                vm.pop();
+                                vm.push_nil();
+                            }
+                            abra_core::side_effects::DefaultEffects::Read => {
+                                unimplemented!()
+                                // let mut input = String::new();
+                                // std::io::stdin().read_line(&mut input).unwrap();
+                                // vm.set_effect_result(
+                                //     abra_core::eval_tree::Expr::from(input.trim()).into(),
+                                // );
+                            }
+                        }
+                        vm.clear_pending_effect();
+                    }
                 }
-            },
+            }
             Err(err) => {
                 eprintln!("{}", err);
             }

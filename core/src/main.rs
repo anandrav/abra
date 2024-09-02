@@ -1,6 +1,7 @@
 use abra_core::compile_bytecode;
 use abra_core::side_effects::DefaultEffects;
 use abra_core::source_files_single;
+use abra_core::vm::Vm;
 
 fn main() {
     test();
@@ -26,11 +27,11 @@ x
 "#;
     let sources = source_files_single(src);
     // TODO this should return a Vm and not leak details about string table etc.
-    let vm = compile_bytecode::<DefaultEffects>(sources);
-    if let Err(e) = vm {
+    let program = compile_bytecode::<DefaultEffects>(sources);
+    if let Err(e) = program {
         panic!("{}", e);
     }
-    let mut vm = vm.unwrap();
+    let mut vm = Vm::new(program.unwrap());
     while !vm.is_done() {
         vm.run_n_steps(1);
         // dbg!(&vm);

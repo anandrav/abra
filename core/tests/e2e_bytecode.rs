@@ -1,6 +1,7 @@
 use abra_core::compile_bytecode;
 use abra_core::side_effects::DefaultEffects;
 use abra_core::source_files_single;
+use abra_core::vm::Vm;
 
 #[test]
 fn arithmetic() {
@@ -15,7 +16,8 @@ let h = subtract(z, 1)
 h
 "#;
     let sources = source_files_single(src);
-    let mut vm = compile_bytecode::<DefaultEffects>(sources).unwrap();
+    let program = compile_bytecode::<DefaultEffects>(sources).unwrap();
+    let mut vm = Vm::new(program);
     vm.run();
     let top = vm.top();
     assert_eq!(top.get_int(), -2);
@@ -34,7 +36,8 @@ let (x, y) = p
 x + y
 "#;
     let sources = source_files_single(src);
-    let mut vm = compile_bytecode::<DefaultEffects>(sources).unwrap();
+    let program = compile_bytecode::<DefaultEffects>(sources).unwrap();
+    let mut vm = Vm::new(program);
     vm.run();
     let top = vm.top();
     assert_eq!(top.get_int(), 6);
@@ -51,7 +54,8 @@ if false {
 }
 "#;
     let sources = source_files_single(src);
-    let mut vm = compile_bytecode::<DefaultEffects>(sources).unwrap();
+    let program = compile_bytecode::<DefaultEffects>(sources).unwrap();
+    let mut vm = Vm::new(program);
     vm.run();
     let top = vm.top();
     assert_eq!(top.get_int(), 4);
@@ -68,7 +72,8 @@ if true {
 x
 "#;
     let sources = source_files_single(src);
-    let mut vm = compile_bytecode::<DefaultEffects>(sources).unwrap();
+    let program = compile_bytecode::<DefaultEffects>(sources).unwrap();
+    let mut vm = Vm::new(program);
     vm.run();
     let top = vm.top();
     assert_eq!(top.get_int(), 6);
@@ -83,7 +88,8 @@ print_string("hello world")
 "#;
     let sources = source_files_single(src);
     // TODO this should return a Vm and not leak details about string table etc.
-    let mut vm = compile_bytecode::<DefaultEffects>(sources).unwrap();
+    let program = compile_bytecode::<DefaultEffects>(sources).unwrap();
+    let mut vm = Vm::new(program);
     vm.run();
     let top = vm.top();
     assert_eq!(top.get_string(&vm), "hello world");
@@ -109,7 +115,8 @@ x.name
 "#;
     let sources = source_files_single(src);
     // TODO this should return a Vm and not leak details about string table etc.
-    let mut vm = compile_bytecode::<DefaultEffects>(sources).unwrap();
+    let program = compile_bytecode::<DefaultEffects>(sources).unwrap();
+    let mut vm = Vm::new(program);
     vm.run();
     let top = vm.top();
     assert_eq!(top.get_string(&vm), "Bob");
@@ -129,7 +136,8 @@ x.age
 "#;
     let sources = source_files_single(src);
     // TODO this should return a Vm and not leak details about string table etc.
-    let mut vm = compile_bytecode::<DefaultEffects>(sources).unwrap();
+    let program = compile_bytecode::<DefaultEffects>(sources).unwrap();
+    let mut vm = Vm::new(program);
     vm.run();
     let top = vm.top();
     assert_eq!(top.get_int(), 36);
@@ -145,7 +153,8 @@ arr[2]
 "#;
     let sources = source_files_single(src);
     // TODO this should return a Vm and not leak details about string table etc.
-    let mut vm = compile_bytecode::<DefaultEffects>(sources).unwrap();
+    let program = compile_bytecode::<DefaultEffects>(sources).unwrap();
+    let mut vm = Vm::new(program);
     vm.run();
     let top = vm.top();
     assert_eq!(top.get_int(), 33);
@@ -163,7 +172,8 @@ match n {
 "#;
     let sources = source_files_single(src);
     // TODO this should return a Vm and not leak details about string table etc.
-    let mut vm = compile_bytecode::<DefaultEffects>(sources).unwrap();
+    let program = compile_bytecode::<DefaultEffects>(sources).unwrap();
+    let mut vm = Vm::new(program);
     vm.run();
     let top = vm.top();
     assert_eq!(top.get_int(), 1);
@@ -181,7 +191,8 @@ match n {
 "#;
     let sources = source_files_single(src);
     // TODO this should return a Vm and not leak details about string table etc.
-    let mut vm = compile_bytecode::<DefaultEffects>(sources).unwrap();
+    let program = compile_bytecode::<DefaultEffects>(sources).unwrap();
+    let mut vm = Vm::new(program);
     vm.run();
     let top = vm.top();
     assert_eq!(top.get_int(), 99);
@@ -205,7 +216,8 @@ sum
 "#;
     let sources = source_files_single(src);
     // TODO this should return a Vm and not leak details about string table etc.
-    let mut vm = compile_bytecode::<DefaultEffects>(sources).unwrap();
+    let program = compile_bytecode::<DefaultEffects>(sources).unwrap();
+    let mut vm = Vm::new(program);
     vm.run();
     let top = vm.top();
     assert_eq!(top.get_int(), 3);
@@ -221,12 +233,13 @@ match triplet {
     _ -> 102
 }"#;
     let sources = source_files_single(src);
-    let mut vm = match compile_bytecode::<DefaultEffects>(sources) {
+    let program = match compile_bytecode::<DefaultEffects>(sources) {
         Ok(vm) => vm,
         Err(e) => {
             panic!("{}", e);
         }
     };
+    let mut vm = Vm::new(program);
     vm.run();
     let top = vm.top();
     assert_eq!(top.get_int(), 100);
@@ -242,12 +255,13 @@ match pair {
     _ -> 102
 }"#;
     let sources = source_files_single(src);
-    let mut vm = match compile_bytecode::<DefaultEffects>(sources) {
+    let program = match compile_bytecode::<DefaultEffects>(sources) {
         Ok(vm) => vm,
         Err(e) => {
             panic!("{}", e);
         }
     };
+    let mut vm = Vm::new(program);
     vm.run();
     let top = vm.top();
     assert_eq!(top.get_int(), 101);
@@ -263,12 +277,13 @@ match pair {
     _ -> 102
 }"#;
     let sources = source_files_single(src);
-    let mut vm = match compile_bytecode::<DefaultEffects>(sources) {
+    let program = match compile_bytecode::<DefaultEffects>(sources) {
         Ok(vm) => vm,
         Err(e) => {
             panic!("{}", e);
         }
     };
+    let mut vm = Vm::new(program);
     vm.run();
     let top = vm.top();
     assert_eq!(top.get_int(), 102);
@@ -284,12 +299,13 @@ match quintuple {
     _ -> 102
 }"#;
     let sources = source_files_single(src);
-    let mut vm = match compile_bytecode::<DefaultEffects>(sources) {
+    let program = match compile_bytecode::<DefaultEffects>(sources) {
         Ok(vm) => vm,
         Err(e) => {
             panic!("{}", e);
         }
     };
+    let mut vm = Vm::new(program);
     vm.run();
     let top = vm.top();
     assert_eq!(top.get_int(), 101);
@@ -305,12 +321,13 @@ match triplet {
     _ -> 102
 }"#;
     let sources = source_files_single(src);
-    let mut vm = match compile_bytecode::<DefaultEffects>(sources) {
+    let program = match compile_bytecode::<DefaultEffects>(sources) {
         Ok(vm) => vm,
         Err(e) => {
             panic!("{}", e);
         }
     };
+    let mut vm = Vm::new(program);
     vm.run();
     let top = vm.top();
     assert_eq!(top.get_int(), 101);
@@ -330,12 +347,13 @@ match xs {
     //     nil -> 100
     // }"#;
     let sources = source_files_single(src);
-    let mut vm = match compile_bytecode::<DefaultEffects>(sources) {
+    let program = match compile_bytecode::<DefaultEffects>(sources) {
         Ok(vm) => vm,
         Err(e) => {
             panic!("{}", e);
         }
     };
+    let mut vm = Vm::new(program);
     vm.run();
     let top = vm.top();
     assert_eq!(top.get_int(), 2);
@@ -350,12 +368,13 @@ match xs {
     cons(~x, _) -> x
 }"#;
     let sources = source_files_single(src);
-    let mut vm = match compile_bytecode::<DefaultEffects>(sources) {
+    let program = match compile_bytecode::<DefaultEffects>(sources) {
         Ok(vm) => vm,
         Err(e) => {
             panic!("{}", e);
         }
     };
+    let mut vm = Vm::new(program);
     vm.run();
     let top = vm.top();
     assert_eq!(top.get_int(), 23);
@@ -371,12 +390,13 @@ match xs {
     _ -> 101
 }"#;
     let sources = source_files_single(src);
-    let mut vm = match compile_bytecode::<DefaultEffects>(sources) {
+    let program = match compile_bytecode::<DefaultEffects>(sources) {
         Ok(vm) => vm,
         Err(e) => {
             panic!("{}", e);
         }
     };
+    let mut vm = Vm::new(program);
     vm.run();
     let top = vm.top();
     assert_eq!(top.get_int(), 2);
@@ -394,12 +414,13 @@ func r(n) {
 r(2)
 "#;
     let sources = source_files_single(src);
-    let mut vm = match compile_bytecode::<DefaultEffects>(sources) {
+    let program = match compile_bytecode::<DefaultEffects>(sources) {
         Ok(vm) => vm,
         Err(e) => {
             panic!("{}", e);
         }
     };
+    let mut vm = Vm::new(program);
     vm.run();
     let top = vm.top();
     assert_eq!(top.get_int(), 2);
@@ -418,12 +439,13 @@ func fib(n) {
 fib(10)
 "#;
     let sources = source_files_single(src);
-    let mut vm = match compile_bytecode::<DefaultEffects>(sources) {
+    let program = match compile_bytecode::<DefaultEffects>(sources) {
         Ok(vm) => vm,
         Err(e) => {
             panic!("{}", e);
         }
     };
+    let mut vm = Vm::new(program);
     vm.run();
     let top = vm.top();
     assert_eq!(top.get_int(), 55);
@@ -436,12 +458,13 @@ let double = x -> x + x
 double(5)
 "#;
     let sources = source_files_single(src);
-    let mut vm = match compile_bytecode::<DefaultEffects>(sources) {
+    let program = match compile_bytecode::<DefaultEffects>(sources) {
         Ok(vm) => vm,
         Err(e) => {
             panic!("{}", e);
         }
     };
+    let mut vm = Vm::new(program);
     vm.run();
     let top = vm.top();
     assert_eq!(top.get_int(), 10);
@@ -454,12 +477,13 @@ let add = (x, y) -> x + y
 add(2, 3)
 "#;
     let sources = source_files_single(src);
-    let mut vm = match compile_bytecode::<DefaultEffects>(sources) {
+    let program = match compile_bytecode::<DefaultEffects>(sources) {
         Ok(vm) => vm,
         Err(e) => {
             panic!("{}", e);
         }
     };
+    let mut vm = Vm::new(program);
     vm.run();
     let top = vm.top();
     assert_eq!(top.get_int(), 5);
@@ -473,12 +497,13 @@ let add1 = x -> x + one
 add1(4)
 "#;
     let sources = source_files_single(src);
-    let mut vm = match compile_bytecode::<DefaultEffects>(sources) {
+    let program = match compile_bytecode::<DefaultEffects>(sources) {
         Ok(vm) => vm,
         Err(e) => {
             panic!("{}", e);
         }
     };
+    let mut vm = Vm::new(program);
     vm.run();
     let top = vm.top();
     assert_eq!(top.get_int(), 5);
@@ -493,12 +518,13 @@ let sub1 = x -> x + one - two
 sub1(4)
 "#;
     let sources = source_files_single(src);
-    let mut vm = match compile_bytecode::<DefaultEffects>(sources) {
+    let program = match compile_bytecode::<DefaultEffects>(sources) {
         Ok(vm) => vm,
         Err(e) => {
             panic!("{}", e);
         }
     };
+    let mut vm = Vm::new(program);
     vm.run();
     let top = vm.top();
     assert_eq!(top.get_int(), 3);
@@ -512,12 +538,13 @@ let g = sqrt_float(f)
 g
 "#;
     let sources = source_files_single(src);
-    let mut vm = match compile_bytecode::<DefaultEffects>(sources) {
+    let program = match compile_bytecode::<DefaultEffects>(sources) {
         Ok(vm) => vm,
         Err(e) => {
             panic!("{}", e);
         }
     };
+    let mut vm = Vm::new(program);
     vm.run();
     let top = vm.top();
     assert_eq!(top.get_float(), 2.0);
@@ -531,12 +558,13 @@ append(arr, 6)
 arr[5]
 "#;
     let sources = source_files_single(src);
-    let mut vm = match compile_bytecode::<DefaultEffects>(sources) {
+    let program = match compile_bytecode::<DefaultEffects>(sources) {
         Ok(vm) => vm,
         Err(e) => {
             panic!("{}", e);
         }
     };
+    let mut vm = Vm::new(program);
     vm.run();
     let top = vm.top();
     assert_eq!(top.get_int(), 6);
@@ -549,12 +577,13 @@ let arr = [1, 2, 3, 4, 5]
 len(arr)
 "#;
     let sources = source_files_single(src);
-    let mut vm = match compile_bytecode::<DefaultEffects>(sources) {
+    let program = match compile_bytecode::<DefaultEffects>(sources) {
         Ok(vm) => vm,
         Err(e) => {
             panic!("{}", e);
         }
     };
+    let mut vm = Vm::new(program);
     vm.run();
     let top = vm.top();
     assert_eq!(top.get_int(), 5);
@@ -569,12 +598,13 @@ match [| 1, 2, 3 |] {
 }
 "#;
     let sources = source_files_single(src);
-    let mut vm = match compile_bytecode::<DefaultEffects>(sources) {
+    let program = match compile_bytecode::<DefaultEffects>(sources) {
         Ok(vm) => vm,
         Err(e) => {
             panic!("{}", e);
         }
     };
+    let mut vm = Vm::new(program);
     vm.run();
     let top = vm.top();
     assert_eq!(top.get_int(), 1);
@@ -595,12 +625,13 @@ func total(xs) {
 total(xs)
 "#;
     let sources = source_files_single(src);
-    let mut vm = match compile_bytecode::<DefaultEffects>(sources) {
+    let program = match compile_bytecode::<DefaultEffects>(sources) {
         Ok(vm) => vm,
         Err(e) => {
             panic!("{}", e);
         }
     };
+    let mut vm = Vm::new(program);
     vm.run();
     let top = vm.top();
     assert_eq!(top.get_int(), 6);
@@ -622,12 +653,13 @@ func list_len(xs) {
 list_len(nums) + list_len(bools)
 "#;
     let sources = source_files_single(src);
-    let mut vm = match compile_bytecode::<DefaultEffects>(sources) {
+    let program = match compile_bytecode::<DefaultEffects>(sources) {
         Ok(vm) => vm,
         Err(e) => {
             panic!("{}", e);
         }
     };
+    let mut vm = Vm::new(program);
     vm.run();
     let top = vm.top();
     assert_eq!(top.get_int(), 8);
@@ -639,12 +671,13 @@ fn concat_strings() {
 let s = "hello " & "world"
 "#;
     let sources = source_files_single(src);
-    let mut vm = match compile_bytecode::<DefaultEffects>(sources) {
+    let program = match compile_bytecode::<DefaultEffects>(sources) {
         Ok(vm) => vm,
         Err(e) => {
             panic!("{}", e);
         }
     };
+    let mut vm = Vm::new(program);
     vm.run();
     let top = vm.top();
     assert_eq!(top.get_string(&vm), "hello world");
@@ -656,12 +689,13 @@ fn monomorphize_to_string_int() {
 to_string(123)
 "#;
     let sources = source_files_single(src);
-    let mut vm = match compile_bytecode::<DefaultEffects>(sources) {
+    let program = match compile_bytecode::<DefaultEffects>(sources) {
         Ok(vm) => vm,
         Err(e) => {
             panic!("{}", e);
         }
     };
+    let mut vm = Vm::new(program);
     vm.run();
     let top = vm.top();
     assert_eq!(top.get_string(&vm), "123");
@@ -674,12 +708,13 @@ to_string(123)
 to_string(123.456)
 "#;
     let sources = source_files_single(src);
-    let mut vm = match compile_bytecode::<DefaultEffects>(sources) {
+    let program = match compile_bytecode::<DefaultEffects>(sources) {
         Ok(vm) => vm,
         Err(e) => {
             panic!("{}", e);
         }
     };
+    let mut vm = Vm::new(program);
     vm.run();
     let top = vm.top();
     assert_eq!(top.get_string(&vm), "123.456");
@@ -692,12 +727,13 @@ let nums = (1, 2, 3)
 to_string(nums)
 "#;
     let sources = source_files_single(src);
-    let mut vm = match compile_bytecode::<DefaultEffects>(sources) {
+    let program = match compile_bytecode::<DefaultEffects>(sources) {
         Ok(vm) => vm,
         Err(e) => {
             panic!("{}", e);
         }
     };
+    let mut vm = Vm::new(program);
     vm.run();
     let top = vm.top();
     assert_eq!(top.get_string(&vm), "(1, 2, 3)");
@@ -712,7 +748,8 @@ println(123)
 "#;
     let sources = source_files_single(src);
     // TODO this should return a Vm and not leak details about string table etc.
-    let mut vm = compile_bytecode::<DefaultEffects>(sources).unwrap();
+    let program = compile_bytecode::<DefaultEffects>(sources).unwrap();
+    let mut vm = Vm::new(program);
     vm.run();
     let top = vm.top();
     assert_eq!(top.get_string(&vm), "123\n");
@@ -736,7 +773,8 @@ fn local_in_while_scope() {
     "#;
     let sources = source_files_single(src);
     // TODO this should return a Vm and not leak details about string table etc.
-    let mut vm = compile_bytecode::<DefaultEffects>(sources).unwrap();
+    let program = compile_bytecode::<DefaultEffects>(sources).unwrap();
+    let mut vm = Vm::new(program);
     vm.run();
     let top = vm.top();
     assert_eq!(top.get_int(), 5);
@@ -761,7 +799,8 @@ x
     if let Err(e) = vm {
         panic!("{}", e);
     }
-    let mut vm = vm.unwrap();
+    let program = vm.unwrap();
+    let mut vm = Vm::new(program);
     while !vm.is_done() {
         vm.run_n_steps(1);
     }
@@ -790,7 +829,8 @@ x
     if let Err(e) = vm {
         panic!("{}", e);
     }
-    let mut vm = vm.unwrap();
+    let program = vm.unwrap();
+    let mut vm = Vm::new(program);
     while !vm.is_done() {
         vm.run_n_steps(1);
         vm.gc();

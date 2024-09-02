@@ -17,6 +17,7 @@ pub mod translate_eval_tree;
 pub mod vm;
 
 use interpreter::{Interpreter, OverloadedFuncMap};
+use translate_bytecode::CompiledProgram;
 use translate_bytecode::LabelMap;
 use translate_bytecode::Translator;
 use vm::Instr;
@@ -94,7 +95,9 @@ pub fn compile_to_eval_tree<Effect: EffectTrait>(
     })
 }
 
-pub fn compile_bytecode<Effect: EffectTrait>(source_files: Vec<SourceFile>) -> Result<Vm, String> {
+pub fn compile_bytecode<Effect: EffectTrait>(
+    source_files: Vec<SourceFile>,
+) -> Result<CompiledProgram, String> {
     let mut filename_to_source = HashMap::new();
     let mut filenames = Vec::new();
     for source_file in &source_files {
@@ -132,9 +135,7 @@ pub fn compile_bytecode<Effect: EffectTrait>(source_files: Vec<SourceFile>) -> R
     statics::result_of_additional_analysis(&mut inference_ctx, &toplevels, &node_map, &sources)?;
 
     let translator = Translator::new(inference_ctx, node_map, sources, toplevels);
-    let compiled_program = translator.translate::<Effect>();
-    let vm = Vm::new(compiled_program);
-    Ok(vm)
+    Ok(translator.translate::<Effect>())
 }
 
 pub struct Runtime {

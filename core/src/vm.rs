@@ -22,6 +22,13 @@ pub struct Vm {
     pending_effect: Option<u16>,
 }
 
+pub enum VmStatus {
+    Done,
+    PendingEffect(u16),
+    OutOfSteps,
+    Error(String),
+}
+
 impl Vm {
     pub fn new(program: CompiledProgram) -> Self {
         Self {
@@ -50,6 +57,16 @@ impl Vm {
 
             string_table: program.string_table,
             pending_effect: None,
+        }
+    }
+
+    pub fn status(&self) -> VmStatus {
+        if self.pending_effect.is_some() {
+            VmStatus::PendingEffect(self.pending_effect.unwrap())
+        } else if self.is_done() {
+            VmStatus::Done
+        } else {
+            VmStatus::OutOfSteps
         }
     }
 
@@ -288,6 +305,16 @@ impl Value {
                 _ => panic!("not a string"),
             },
             _ => panic!("not a string"),
+        }
+    }
+
+    pub fn get_tuple(&self, vm: &Vm) -> Vec<Value> {
+        match self {
+            Value::HeapReference(r) => match &vm.heap[r.get().get()].kind {
+                ManagedObjectKind::DynArray(fields) => fields.clone(),
+                _ => panic!("not a tuple"),
+            },
+            _ => panic!("not a tuple"),
         }
     }
 }
