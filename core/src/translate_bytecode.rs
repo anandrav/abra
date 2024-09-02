@@ -18,6 +18,7 @@ type OffsetTable = HashMap<NodeId, i32>;
 type Lambdas = HashMap<NodeId, LambdaData>;
 type OverloadedFuncLabels = BTreeMap<OverloadedFuncDesc, Label>;
 type MonomorphEnv = Environment<Symbol, SolvedType>;
+pub(crate) type LabelMap = HashMap<Label, usize>;
 
 #[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq)]
 struct OverloadedFuncDesc {
@@ -69,7 +70,7 @@ impl Translator {
         }
     }
 
-    pub(crate) fn translate<Effect: EffectTrait>(&self) -> (Vec<VmInstr>, Vec<String>) {
+    pub(crate) fn translate<Effect: EffectTrait>(&self) -> (Vec<VmInstr>, LabelMap, Vec<String>) {
         let mut translator_state = TranslatorState::default();
         let st = &mut translator_state;
 
@@ -197,16 +198,16 @@ impl Translator {
         }
 
         for _item in st.items.iter() {
-            // println!("{}", item);
+            // println!("{}", _item);
         }
 
-        let items = remove_labels(&st.items, &self.inf_ctx.string_constants);
+        let (instructions, label_map) = remove_labels(&st.items, &self.inf_ctx.string_constants);
         let mut string_table: Vec<String> =
             vec!["".to_owned(); self.inf_ctx.string_constants.len()];
         for (s, idx) in self.inf_ctx.string_constants.iter() {
             string_table[*idx] = s.clone();
         }
-        (items, string_table)
+        (instructions, label_map, string_table)
     }
 
     fn translate_expr(

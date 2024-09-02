@@ -548,7 +548,7 @@ impl eframe::App for MyApp {
                                 name: "main.abra".to_string(),
                                 contents: self.text.clone(),
                             });
-                            match abra_core::compile::<side_effects::DefaultEffects>(source_files) {
+                            match abra_core::compile_to_eval_tree::<side_effects::DefaultEffects>(source_files) {
                                 Ok(runtime) => {
                                     self.interpreter = Some(runtime.toplevel_interpreter());
                                     // let args = vec![runtime.make_int(10)];

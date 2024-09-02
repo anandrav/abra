@@ -37,7 +37,7 @@ fn main() {
     });
 
     if args.old {
-        match abra_core::compile::<side_effects::DefaultEffects>(source_files) {
+        match abra_core::compile_to_eval_tree::<side_effects::DefaultEffects>(source_files) {
             Ok(runtime) => {
                 let mut interpreter = runtime.toplevel_interpreter();
                 let steps = i32::MAX;

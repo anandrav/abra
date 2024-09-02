@@ -7,6 +7,8 @@ use crate::vm::Instr as VmInstr;
 
 pub(crate) type Label = String;
 
+use crate::translate_bytecode::LabelMap;
+
 #[derive(Debug)]
 pub(crate) enum Item {
     Instr(Instr),
@@ -36,7 +38,7 @@ impl Display for Item {
 
 pub type Instr = VmInstr<Label, String>;
 
-pub(crate) fn _assemble(s: &str) -> (Vec<VmInstr>, Vec<String>) {
+pub(crate) fn _assemble(s: &str) -> (Vec<VmInstr>, LabelMap, Vec<String>) {
     let mut instructions: Vec<Item> = vec![];
     let mut string_constants: HashMap<String, usize> = HashMap::new();
     for (lineno, line) in s.lines().enumerate() {
@@ -50,21 +52,21 @@ pub(crate) fn _assemble(s: &str) -> (Vec<VmInstr>, Vec<String>) {
             &mut string_constants,
         ));
     }
-    let instructions = remove_labels(&instructions, &string_constants);
+    let (instructions, label_map) = remove_labels(&instructions, &string_constants);
     let mut string_table: Vec<String> = vec!["".into(); string_constants.len()];
     for (s, idx) in string_constants.iter() {
         string_table[*idx] = s.clone();
     }
-    (instructions, string_table)
+    (instructions, label_map, string_table)
 }
 
 pub(crate) fn remove_labels(
     items: &Vec<Item>,
     string_constants: &HashMap<String, usize>,
-) -> Vec<VmInstr> {
-    let mut ret: Vec<VmInstr> = vec![];
+) -> (Vec<VmInstr>, LabelMap) {
+    let mut instructions: Vec<VmInstr> = vec![];
     let mut offset = 0;
-    let mut label_to_idx: HashMap<Label, usize> = HashMap::new();
+    let mut label_to_idx: LabelMap = HashMap::new();
     for item in items.iter() {
         match item {
             Item::Instr(_) => {
@@ -78,11 +80,11 @@ pub(crate) fn remove_labels(
 
     for item in items {
         if let Item::Instr(instr) = item {
-            ret.push(instr_to_vminstr(instr, &label_to_idx, string_constants));
+            instructions.push(instr_to_vminstr(instr, &label_to_idx, string_constants));
         }
     }
 
-    ret
+    (instructions, label_to_idx)
 }
 
 fn _get_label(s: &str) -> Option<String> {
@@ -253,7 +255,7 @@ subtract
 push_int 5
 add
 "#;
-        let (instructions, _) = _assemble(program_str);
+        let (instructions, _, _) = _assemble(program_str);
         let mut program_str2 = String::new();
         for instr in instructions {
             program_str2.push_str(&format!("{}\n", instr));

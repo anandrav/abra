@@ -42,7 +42,9 @@ pub fn source_files_single(src: &str) -> Vec<SourceFile> {
     ]
 }
 
-pub fn compile<Effect: EffectTrait>(source_files: Vec<SourceFile>) -> Result<Runtime, String> {
+pub fn compile_to_eval_tree<Effect: EffectTrait>(
+    source_files: Vec<SourceFile>,
+) -> Result<Runtime, String> {
     let mut filename_to_source = HashMap::new();
     let mut filenames = Vec::new();
     for source_file in &source_files {
@@ -128,7 +130,7 @@ pub fn compile_bytecode<Effect: EffectTrait>(source_files: Vec<SourceFile>) -> R
     statics::result_of_additional_analysis(&mut inference_ctx, &toplevels, &node_map, &sources)?;
 
     let translator = Translator::new(inference_ctx, node_map, sources, toplevels);
-    let (instructions, string_table) = translator.translate::<Effect>();
+    let (instructions, label_map, string_table) = translator.translate::<Effect>();
     let vm = Vm::new(instructions, string_table);
     Ok(vm)
 }

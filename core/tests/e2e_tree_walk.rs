@@ -25,7 +25,7 @@ pub fn run_with_handler<Effect: EffectTrait>(
         contents: _PRELUDE.to_string(),
     };
     let source_files = vec![prelude, source_file];
-    let runtime = compile::<Effect>(source_files)?;
+    let runtime = compile_to_eval_tree::<Effect>(source_files)?;
     let mut interpreter = runtime.toplevel_interpreter();
     let mut effect_result = None;
     loop {
@@ -48,7 +48,7 @@ pub fn run_with_handler<Effect: EffectTrait>(
 #[test]
 fn smoke() {
     let src = "2";
-    assert!(compile::<side_effects::DefaultEffects>(vec![SourceFile {
+    assert!(compile_to_eval_tree::<side_effects::DefaultEffects>(vec![SourceFile {
         name: "test.abra".to_owned(),
         contents: src.to_owned(),
     },])
@@ -58,7 +58,7 @@ fn smoke() {
 #[test]
 fn smoke2() {
     let src = r#""hello" & "world""#;
-    assert!(compile::<side_effects::DefaultEffects>(vec![SourceFile {
+    assert!(compile_to_eval_tree::<side_effects::DefaultEffects>(vec![SourceFile {
         name: "test.abra".to_owned(),
         contents: src.to_owned(),
     },])
@@ -274,12 +274,12 @@ println(s)"#;
 #[test]
 fn addition_bad() {
     let src = "2 + true";
-    assert!(compile::<side_effects::DefaultEffects>(source_files_single(src)).is_err());
+    assert!(compile_to_eval_tree::<side_effects::DefaultEffects>(source_files_single(src)).is_err());
 }
 
 #[test]
 fn map_bad() {
     let src = r#"let list = range(0,9)
  map(list, x -> x & "hello")"#;
-    assert!(compile::<side_effects::DefaultEffects>(source_files_single(src)).is_err());
+    assert!(compile_to_eval_tree::<side_effects::DefaultEffects>(source_files_single(src)).is_err());
 }

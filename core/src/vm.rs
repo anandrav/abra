@@ -904,7 +904,7 @@ push_int 3
 push_int 4
 subtract
 "#;
-        let (instructions, string_table) = _assemble(program_str);
+        let (instructions, label_map, string_table) = _assemble(program_str);
         let mut vm = Vm::new(instructions, string_table);
         vm.run();
         assert_eq!(vm.top().get_int(), -1);
@@ -919,7 +919,7 @@ add
 push_int 1
 subtract
 "#;
-        let (instructions, string_table) = _assemble(program_str);
+        let (instructions, label_map, string_table) = _assemble(program_str);
         let mut vm = Vm::new(instructions, string_table);
         vm.run();
         assert_eq!(vm.top().get_int(), 4);
@@ -935,7 +935,7 @@ push_int 100
 my_label:
 add
 "#;
-        let (instructions, string_table) = _assemble(program_str);
+        let (instructions, label_map, string_table) = _assemble(program_str);
         let mut vm = Vm::new(instructions, string_table);
         vm.run();
         assert_eq!(vm.top().get_int(), 7);

@@ -9,6 +9,11 @@ fn main() {
 
 fn test() {
     let src = r#"
+
+func my_api() {
+    1
+}
+
 var i = 0
 var x = 3
 while i < 10000 {
