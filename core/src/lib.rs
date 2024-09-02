@@ -133,49 +133,6 @@ pub fn compile_bytecode<Effect: EffectTrait>(source_files: Vec<SourceFile>) -> R
     Ok(vm)
 }
 
-pub fn run(source: &str) -> Result<(Rc<eval_tree::Expr>, Runtime), String> {
-    run_with_handler::<side_effects::DefaultEffects>(
-        source,
-        Box::new(side_effects::default_effect_handler),
-    )
-}
-
-pub type EffectHandler<'b> =
-    Box<dyn FnMut(EffectCode, Vec<Rc<eval_tree::Expr>>) -> Rc<eval_tree::Expr> + 'b>;
-
-pub fn run_with_handler<Effect: EffectTrait>(
-    source: &str,
-    mut handler: EffectHandler,
-) -> Result<(Rc<eval_tree::Expr>, Runtime), String> {
-    let source_file = SourceFile {
-        name: "main.abra".to_owned(),
-        contents: source.to_owned(),
-    };
-    let prelude = SourceFile {
-        name: "prelude.abra".to_owned(),
-        contents: _PRELUDE.to_string(),
-    };
-    let source_files = vec![prelude, source_file];
-    let runtime = compile::<Effect>(source_files)?;
-    let mut interpreter = runtime.toplevel_interpreter();
-    let mut effect_result = None;
-    loop {
-        let status = interpreter.run(1, effect_result.take());
-        match status {
-            interpreter::InterpreterStatus::Error(msg) => {
-                return Err(msg);
-            }
-            interpreter::InterpreterStatus::Finished => {
-                return Ok((interpreter.get_val().unwrap(), runtime));
-            }
-            interpreter::InterpreterStatus::OutOfSteps => {}
-            interpreter::InterpreterStatus::Effect(code, args) => {
-                effect_result = Some(handler(code, args));
-            }
-        }
-    }
-}
-
 pub struct Runtime {
     toplevel_eval_tree: Rc<eval_tree::Expr>,
     toplevel_env: EvalEnv,

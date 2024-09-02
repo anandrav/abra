@@ -17,14 +17,3 @@ pest = "2.5.2"
 pest_derive = "2.5.2"
 strum = "0.25.0"
 strum_macros = "0.25"
-
-[dev-dependencies]
-criterion = { version = "0.5.1", features = ["html_reports"] }
-
-[[bench]]
-name = "compile"
-harness = false
-
-[[bench]]
-name = "run"
-harness = false
