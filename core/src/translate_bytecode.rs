@@ -100,7 +100,7 @@ impl Translator {
                     );
                 }
             }
-            emit(st, Instr::Stop);
+            emit(st, Instr::Return);
         }
 
         // Handle ordinary function (not overloaded, not a closure) definitions

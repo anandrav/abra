@@ -116,6 +116,7 @@ pub enum Instr<Location = ProgramCounter, StringConstant = u16> {
     Call(Location),
     CallFuncObj,
     Return,
+    Effect(u16),
 
     // Data Structures
     Construct(u16),
@@ -138,10 +139,6 @@ pub enum Instr<Location = ProgramCounter, StringConstant = u16> {
     ConcatStrings,
     IntToString,
     FloatToString,
-
-    // Effects
-    Stop,
-    Effect(u16),
 }
 
 impl<L: Display, S: Display> Display for Instr<L, S> {
@@ -196,7 +193,6 @@ impl<L: Display, S: Display> Display for Instr<L, S> {
             Instr::ConcatStrings => write!(f, "concat_strings"),
             Instr::IntToString => write!(f, "int_to_string"),
             Instr::FloatToString => write!(f, "float_to_string"),
-            Instr::Stop => write!(f, "stop"),
             Instr::Effect(n) => write!(f, "effect {}", n),
         }
     }
@@ -541,11 +537,14 @@ impl Vm {
                 }
             }
             Instr::Return => {
-                let frame = self.call_stack.pop().expect("call stack underflow");
-                self.pc = frame.pc;
-                self.stack_base = frame.stack_base;
+                if self.call_stack.is_empty() {
+                    self.pc = self.program.len();
+                } else {
+                    let frame = self.call_stack.pop().expect("call stack underflow");
+                    self.pc = frame.pc;
+                    self.stack_base = frame.stack_base;
+                }
             }
-            Instr::Stop => self.pc = self.program.len(),
             Instr::Construct(n) => {
                 let fields = self
                     .value_stack
