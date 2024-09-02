@@ -153,7 +153,6 @@ fn instr_to_vminstr(
         Instr::ConcatStrings => VmInstr::ConcatStrings,
         Instr::IntToString => VmInstr::IntToString,
         Instr::FloatToString => VmInstr::FloatToString,
-        Instr::Stop => VmInstr::Stop,
         Instr::Effect(n) => VmInstr::Effect(*n),
     }
 }
@@ -183,7 +182,6 @@ fn _assemble_instr_or_label(
         "divide" => Instr::Divide,
         "not" => Instr::Not,
         "return" => Instr::Return,
-        "stop" => Instr::Stop,
         "push_nil" => Instr::PushNil,
         "push_bool" => {
             let b = if words[1] == "true" {

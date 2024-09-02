@@ -715,13 +715,7 @@ println(123)
     let mut vm = compile_bytecode::<DefaultEffects>(sources).unwrap();
     vm.run();
     let top = vm.top();
-    assert_eq!(top.get_string(&vm), "123");
-    vm.pop();
-    vm.push_nil();
-    vm.clear_pending_effect();
-    vm.run();
-    let top = vm.top();
-    assert_eq!(top.get_string(&vm), "\n");
+    assert_eq!(top.get_string(&vm), "123\n");
     vm.pop();
     vm.push_nil();
     vm.clear_pending_effect();

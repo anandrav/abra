@@ -373,8 +373,7 @@ implement ToString for array<'a ToString> {
 
 func print(x: 'b ToString) { print_string(to_string(x)) }
 func println(x: 'b ToString) {
-    print_string(to_string(x))
-    print_string(newline)
+    print_string(to_string(x) & newline)
 }
 
 func range(lo: int, hi: int) {
