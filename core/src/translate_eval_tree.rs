@@ -1,11 +1,11 @@
 use crate::ast;
+use crate::ast::BinOpcode;
 use crate::ast::Node;
 use crate::ast::NodeMap;
 use crate::environment::Environment;
 use crate::environment::EvalEnv;
 use crate::eval_tree;
 use crate::interpreter;
-use crate::operators::BinOpcode;
 use crate::statics;
 use crate::statics::Gamma;
 use crate::statics::InferenceContext;

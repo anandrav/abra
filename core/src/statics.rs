@@ -1,9 +1,9 @@
+use crate::ast::BinOpcode;
 use crate::ast::{
     ArgAnnotated, AstType, Expr, ExprKind, MatchArm, Node, NodeId, NodeMap, Pat, PatKind, Sources,
     Stmt, StmtKind, Symbol, Toplevel, TypeDefKind, TypeKind,
 };
 use crate::environment::Environment;
-use crate::operators::BinOpcode;
 use core::panic;
 
 use disjoint_sets::UnionFindNode;
@@ -1005,7 +1005,8 @@ pub(crate) enum Resolution {
     InterfaceMethod(Symbol),
     StructDefinition(u16),
     Variant(u16, u16),
-    Builtin(Symbol),
+    Builtin(Symbol), // Builtin(u16),
+                     // Effect(u16),
 }
 
 // TODO: rename to TypeEnv

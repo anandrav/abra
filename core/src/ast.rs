@@ -1,4 +1,3 @@
-use crate::operators::BinOpcode;
 use crate::SourceFile;
 // use pest::error::{Error, ErrorVariant, InputLocation::Pos};
 use pest::iterators::{Pair, Pairs};
@@ -342,6 +341,28 @@ pub(crate) enum ExprKind {
     Tuple(Vec<Rc<Expr>>),
     FieldAccess(Rc<Expr>, Rc<Expr>),
     IndexAccess(Rc<Expr>, Rc<Expr>),
+}
+
+#[derive(Debug, Copy, Clone, Hash, PartialEq, Eq)]
+pub enum BinOpcode {
+    // comparison
+    Equals,
+    LessThan,
+    LessThanOrEqual,
+    GreaterThan,
+    GreaterThanOrEqual,
+    // numeric
+    Add,
+    Subtract,
+    Multiply,
+    Divide,
+    Mod,
+    Pow,
+    // boolean
+    And,
+    Or,
+    // string
+    Concat,
 }
 
 #[derive(Debug, Clone, PartialEq)]

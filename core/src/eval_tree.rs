@@ -1,5 +1,5 @@
 use crate::environment::EvalEnv;
-use crate::operators::BinOpcode;
+use crate::ast::BinOpcode;
 
 use crate::statics::Monotype;
 use crate::EffectCode;

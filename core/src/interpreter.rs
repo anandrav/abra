@@ -1,13 +1,13 @@
+use crate::ast::BinOpcode;
+use crate::ast::BinOpcode::*;
 use crate::environment::EvalEnv;
 use crate::eval_tree::Expr::*;
 use crate::eval_tree::*;
-use crate::operators::BinOpcode::*;
-use crate::operators::*;
 
 use crate::side_effects::*;
 use crate::statics::InferenceContext;
-use crate::statics::SolvedType;
 use crate::statics::Monotype;
+use crate::statics::SolvedType;
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
