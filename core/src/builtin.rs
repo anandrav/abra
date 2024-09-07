@@ -1,7 +1,10 @@
 use crate::statics::{Monotype, SolvedType};
 
+use once_cell::sync::Lazy;
 use strum::IntoEnumIterator;
 use strum_macros::EnumIter;
+
+pub static BUILTINS: Lazy<Vec<Builtin>> = Lazy::new(Builtin::enumerate);
 
 #[derive(Debug, Clone, PartialEq, Eq, EnumIter)]
 pub enum Builtin {
@@ -161,5 +164,9 @@ impl Builtin {
                 Box::new(SolvedType::Unit),
             ),
         }
+    }
+
+    fn enumerate() -> Vec<Self> {
+        Self::iter().collect()
     }
 }
