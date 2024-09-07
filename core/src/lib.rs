@@ -9,7 +9,7 @@ pub mod ast;
 pub mod environment;
 pub mod eval_tree;
 pub mod interpreter;
-mod operators;
+mod builtin;
 pub mod side_effects;
 pub mod statics;
 mod translate_bytecode;
