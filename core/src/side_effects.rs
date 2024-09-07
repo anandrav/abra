@@ -15,11 +15,6 @@ pub trait EffectTrait {
     fn function_name(&self) -> String;
 }
 
-#[derive(Debug, Clone)]
-pub enum Input {
-    Unit,
-}
-
 #[derive(Debug, Clone, PartialEq, Eq, EnumIter)]
 pub enum DefaultEffects {
     PrintString,
