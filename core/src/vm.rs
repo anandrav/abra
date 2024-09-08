@@ -130,6 +130,7 @@ pub enum Instr<Location = ProgramCounter, StringConstant = u16> {
     Divide,
     SquareRoot,
     Power,
+    Modulo,
 
     // Logical
     Not,
@@ -187,6 +188,7 @@ impl<L: Display, S: Display> Display for Instr<L, S> {
             Instr::Divide => write!(f, "divide"),
             Instr::SquareRoot => write!(f, "square_root"),
             Instr::Power => write!(f, "power"),
+            Instr::Modulo => write!(f, "modulo"),
             Instr::Not => write!(f, "not"),
             Instr::And => write!(f, "and"),
             Instr::Or => write!(f, "or"),
@@ -477,6 +479,15 @@ impl Vm {
                 match (a, b) {
                     (Value::Int(a), Value::Int(b)) => self.push(a.pow(b as u32)),
                     (Value::Float(a), Value::Float(b)) => self.push(a.powf(b)),
+                    _ => panic!("not a number"),
+                }
+            }
+            Instr::Modulo => {
+                let b = self.pop();
+                let a = self.pop();
+                match (a, b) {
+                    (Value::Int(a), Value::Int(b)) => self.push(a % b),
+                    (Value::Float(a), Value::Float(b)) => self.push(a % b),
                     _ => panic!("not a number"),
                 }
             }

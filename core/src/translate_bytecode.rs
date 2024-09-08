@@ -316,7 +316,8 @@ impl Translator {
                     BinOpcode::Concat => emit(st, Instr::ConcatStrings),
                     BinOpcode::Or => emit(st, Instr::Or),
                     BinOpcode::And => emit(st, Instr::And),
-                    _ => panic!("op not implemented: {:?}", op),
+                    BinOpcode::Pow => emit(st, Instr::Power),
+                    BinOpcode::Mod => emit(st, Instr::Modulo),
                 }
             }
             ExprKind::FuncAp(func, args) => {
@@ -417,6 +418,9 @@ impl Translator {
                             Builtin::PowerInt => {
                                 emit(st, Instr::Power);
                             }
+                            Builtin::ModuloInt => {
+                                emit(st, Instr::Modulo);
+                            }
                             Builtin::SqrtInt => {
                                 emit(st, Instr::SquareRoot);
                             }
@@ -431,6 +435,9 @@ impl Translator {
                             }
                             Builtin::DivideFloat => {
                                 emit(st, Instr::Divide);
+                            }
+                            Builtin::ModuloFloat => {
+                                emit(st, Instr::Modulo);
                             }
                             Builtin::PowerFloat => {
                                 emit(st, Instr::Power);

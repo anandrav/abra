@@ -115,6 +115,7 @@ fn instr_to_vminstr(
         Instr::Divide => VmInstr::Divide,
         Instr::SquareRoot => VmInstr::SquareRoot,
         Instr::Power => VmInstr::Power,
+        Instr::Modulo => VmInstr::Modulo,
         Instr::Not => VmInstr::Not,
         Instr::And => VmInstr::And,
         Instr::Or => VmInstr::Or,

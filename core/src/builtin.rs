@@ -15,7 +15,7 @@ pub enum Builtin {
     SubtractInt,
     MultiplyInt,
     DivideInt,
-    // ModuloInt,
+    ModuloInt,
     PowerInt,
     SqrtInt,
 
@@ -23,7 +23,7 @@ pub enum Builtin {
     SubtractFloat,
     MultiplyFloat,
     DivideFloat,
-    // ModuloFloat,
+    ModuloFloat,
     PowerFloat,
     SqrtFloat,
 
@@ -64,7 +64,7 @@ impl Builtin {
             Builtin::SubtractInt => "subtract_int".into(),
             Builtin::MultiplyInt => "multiply_int".into(),
             Builtin::DivideInt => "divide_int".into(),
-            // Builtin::ModuloInt => "modulo_int".into(),
+            Builtin::ModuloInt => "modulo_int".into(),
             Builtin::PowerInt => "power_int".into(),
             Builtin::SqrtInt => "sqrt_int".into(),
 
@@ -72,7 +72,7 @@ impl Builtin {
             Builtin::SubtractFloat => "subtract_float".into(),
             Builtin::MultiplyFloat => "multiply_float".into(),
             Builtin::DivideFloat => "divide_float".into(),
-            // Builtin::ModuloFloat => "modulo_float".into(),
+            Builtin::ModuloFloat => "modulo_float".into(),
             Builtin::PowerFloat => "power_float".into(),
             Builtin::SqrtFloat => "sqrt_float".into(),
 
@@ -107,7 +107,7 @@ impl Builtin {
             | Builtin::SubtractInt
             | Builtin::MultiplyInt
             | Builtin::DivideInt
-            // | Builtin::ModuloInt
+            | Builtin::ModuloInt
             | Builtin::PowerInt => SolvedType::Function(
                 vec![SolvedType::Int, SolvedType::Int],
                 Box::new(SolvedType::Int),
@@ -120,7 +120,7 @@ impl Builtin {
             | Builtin::SubtractFloat
             | Builtin::MultiplyFloat
             | Builtin::DivideFloat
-            // | Builtin::ModuloFloat
+            | Builtin::ModuloFloat
             | Builtin::PowerFloat => SolvedType::Function(
                 vec![SolvedType::Float, SolvedType::Float],
                 Box::new(SolvedType::Float),

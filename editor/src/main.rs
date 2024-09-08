@@ -53,69 +53,6 @@ fn main() {
     });
 }
 
-const _LIST: &str = r#"type list<'a> = nil | cons of ('a, list<'a>)
-
-let my_list = cons(1, nil)
-
-match my_list
-    nil -> print("empty list")
-    cons (~head, ~tail) -> print(int_to_string(head))
-
-"#;
-
-const _OPTION: &str = r#"type maybe = none | some of 'a
-
-let n = some(3)
-
-match n
-    none -> print("no int")
-    some ~n -> print(n)
-
-"#;
-
-const _TYPE_FUNCTION: &str = r#"type pair<'a> = ('a, 'a)
-
-let npair: pair<int> = (1, 2)
-
-let bpair: pair<bool> = (true, false)
-
-"#;
-
-const _OLD_FIB: &str = r#"let fibonacci(n) = {
-    match n
-        0 -> 0
-        1 -> 1
-        _ -> fibonacci(n-1) + fibonacci(n-2)
-}
-
-type range = (int, int)
-
-let for_range(r: range, f) = {
-    let (i, n) = r
-    if i < n {
-        f(i)
-        for_range((i+1, n), f)
-    }
-}
-
-let print_fibonacci(n) = println(int_to_string(fibonacci(n)))
-
-println("The first 20 fibonacci numbers are:")
-
-for_range((0, 20), print_fibonacci)
-"#;
-
-const _FIB: &str = r#"let fibonacci(n) = {
-    match n
-        0 -> 0
-        1 -> 1
-        _ -> fibonacci(n-1) + fibonacci(n-2)
-}
-
-println("The first 10 fibonacci numbers are:")
-for_each(range(0, 9), n -> println(fibonacci(n)))
-"#;
-
 const _DEMO: &str = r#"type person = {
     name: string,
     color: string
@@ -127,11 +64,11 @@ println("Enter you favorite color: ")
 user.color <- read()
 println(user.name & "'s favorite color is " & user.color)
 
-func fibonacci(n) {
+func fib(n) {
     match n {
         0 -> 0
         1 -> 1
-        _ -> fibonacci(n-1) + fibonacci(n-2)
+        _ -> fib(n-1) + fib(n-2)
     }
 }
 
@@ -139,7 +76,7 @@ let list = range(0,9)
 println("numbers: ")
 println(list)
 
-let list = map(list, fibonacci)
+let list = map(list, fib)
 println("fibonacci: ")
 println(list)
 
@@ -150,246 +87,6 @@ println(list)
 let list = filter(list, x -> x mod 2 = 1)
 println("only odds: ")
 println(list)
-
-let list = map(list, x -> to_float(x) * 3.14)
-println("times pi: ")
-println(list)
-
-print(newline)
-print("they add up to: ")
-println(sumf(list))
-"#;
-
-const _MORE_LIST: &str = r#"type list<'a> = nil | cons ('a, list<'a>)
-
-let numbers = cons(1,nil)
-let bools = cons(true, cons(true,nil))
-
-let f(x: list<'a>) = {
-	match x
-		nil -> print("nil")
-		cons (false, _) -> print("false")
-		_ -> print("true")
-}
-
-f(bools)
-"#;
-
-const _SQUARED_LIST: &str = r#"type list<'a> = nil | cons ('a, list<'a>)
-
-let print_list(xs: list<int>) =
-	match xs
-		nil -> print("")
-		cons (~x, ~xs) -> {
-			print(int_to_string(x))
-			print_list(xs)
-		}
-
-let squared_list(xs: list<int>) =
-	match xs
-		nil -> nil
-		cons (~x, ~xs) -> cons(x*x, squared_list(xs))
-
-
-let my_list = cons(1, cons(2, cons(3, cons(4, cons(5, nil)))))
-print("some numbers:")
-print_list(my_list)
-print("the same numbers, squared:")
-print_list(squared_list(my_list))
-"#;
-
-const _SWAP: &str = r#"let swap(pair: ('a, 'b)) = {
-    let (first, second) = pair
-    (second, first)
-}
-
-swap((1, true))
-
-swap(("hello", 2))
-"#;
-
-const _MORE_OPS: &str = r#"let x = 2 + 2 = 4
-let y = true
-println(x)
-println(y)
-println(x and y)
-"#;
-
-const _FUNC_ANNOT: &str = r#"
-let add: (int, int) -> int = (x, y) -> x + y
-
-add(1, 2)
-"#;
-
-const _SCRATCH: &str = r#"
-let arr = [ 1, 2, 3, 4 ]
-arr[0] <- 6
-arr
-"#;
-
-const _INTERFACES: &str = r#"
-interface Num {
-    plus: (self, self) -> self
-    minus: (self, self) -> self
-    multiply: (self, self) -> self
-    divide: (self, self) -> self
-    pow: (self, self) -> self
-}
-implement Num for int {
-    let add(a, b) = add_int(a, b)
-    let minus(a, b) = minus_int(a, b)
-    let multiply(a, b) = multiply_int(a, b)
-    let divide(a, b) = divide_int(a, b)
-    let pow(a, b) = pow_int(a, b)
-}
-implement Num for float {
-    let add(a, b) = add_float(a, b)
-    let minus(a, b) = minus_float(a, b)
-    let multiply(a, b) = multiply_float(a, b)
-    let divide(a, b) = divide_float(a, b)
-    let pow(a, b) = pow_float(a, b)
-}
-
-type list<'a> = nil | cons ('a, list<'a>)
-
-interface Equals {
-    equals: (self, self) -> bool
-}
-implement Equals for void {
-    let equals(a, b) = true
-}
-implement Equals for int {
-    let equals(a, b) = equals_int(a, b)
-}
-implement Equals for bool {
-    let equals(a, b) =
-        if a and b {
-            true
-        } else if a or b {
-            false
-        } else {
-            true
-        }
-}
-implement Equals for string {
-    let equals(a, b) = equals_string(a, b)
-}
-implement Equals for list<'a Equals> {
-    let equals(a, b) = {
-        match (a, b)
-            (nil, nil) -> true
-            (cons (~x, ~xs), cons (~y, ~ys)) -> {
-                equals(x, y) and equals(xs, ys)
-            }
-            _ -> false
-    }
-}
-
-interface ToString {
-    to_string: self -> string
-}
-implement ToString for string {
-	let to_string(s) = s
-}
-implement ToString for void {
-	let to_string(s) = "()"
-}
-implement ToString for int {
-	let to_string(n) = int_to_string(n)
-}
-implement ToString for bool {
-	let to_string(b) = if b "true" else "false"
-}
-implement ToString for float {
-    let to_string(f) = float_to_string(f)
-}
-
-implement ToString for list<'a ToString> {
-    let to_string(xs) = {
-        let helper(xs) =
-            match xs
-                nil -> ""
-                cons (~x, nil) -> {
-                    to_string(x)
-                }
-                cons (~x, ~xs) -> {
-                    to_string(x) & ", " & helper(xs)
-                }
-        "[ " & helper(xs) & " ]"
-    }
-}
-let print(x: 'b ToString) = print_string(to_string(x))
-let println(x: 'b ToString) = {
-    print_string(to_string(x))
-    print_string(newline)
-}
-
-let range(lo: int, hi: int) =
-    if lo > hi
-        nil
-    else
-        cons(lo, range(lo + 1, hi))
-
-let fold(xs: list<'b>, f: ('a, 'b) -> 'a, acc: 'a) -> 'a =
-    match xs
-        nil -> acc
-        cons (~head, ~tail) -> fold(tail, f, f(acc, head))
-
-let sum(xs: list<int>) -> int = fold(xs, (a, b) -> a + b, 0)
-
-let concat(xs: list<string>, sep: string) -> string =
-    match xs
-        nil -> ""
-        cons (~head, cons(~last, nil)) -> {
-            head & sep & last
-        }
-        cons (~head, ~tail) -> {
-            head & sep & concat(tail, sep)
-        }
-
-let map(xs: list<'a>, f: 'a -> 'b) -> list<'b> =
-    match xs
-        nil -> nil
-        cons (~head, ~tail) -> cons(f(head), map(tail, f))
-
-let for_each(xs: list<'a>, f: 'a -> 'b) -> void =
-    match xs
-        nil -> ()
-        cons (~head, ~tail) -> {
-            f(head)
-            for_each(tail, f)
-        }
-
-let filter(xs: list<'a>, f: 'a -> bool) -> list<'a> =
-    match xs
-        nil -> nil
-        cons (~head, ~tail) ->
-            if f(head) cons(head, filter(tail, f)) else filter(tail, f)
-
-let reverse(xs: list<'c>) -> list<'c> =
-    fold(xs, (acc, head) -> cons(head, acc), nil)
-
-println("hello world")
-println(123)
-println(true)
-println(false)
-let numbers = cons(1, cons(2, cons(3, cons(4, cons(5, nil)))))
-println(numbers)
-let numbers = map(numbers, x -> x * x)
-println(numbers)
-
-println("2 + 2 = 4?")
-println(equals(2 + 2,4))
-println("true = false?")
-println(equals(true, false))
-println("hello = hello?")
-println(equals("hello", "hello"))
-
-println(add_float(2.1, 3.60001))
-println(minus_float(2.1, 3.60001))
-println(multiply_float(2.1, 3.60001))
-println(divide_float(2.1, 3.60001))
-println(pow_float(2.1, 3.60001))
 "#;
 
 struct MyApp {
@@ -427,7 +124,7 @@ impl eframe::App for MyApp {
             // HACK. this forces update() to be called as much as possible
             // so that the program can run on the UI thread.
             // I did this because web assembly does not support threads currently
-            let steps = if cfg!(debug_assertions) { 1 } else { 1000 };
+            let steps = 1000;
             if !self.readline {
                 if self.vm.is_some() && self.vm.as_ref().unwrap().is_done() {
                     self.vm = None;
@@ -441,7 +138,7 @@ impl eframe::App for MyApp {
                         match effect {
                             abra_core::side_effects::DefaultEffects::PrintString => {
                                 let s = vm.top().get_string(&vm);
-                                print!("{}", s);
+                                self.output.push_str(&s);
                                 vm.pop();
                                 vm.push_nil();
                             }
