@@ -1,4 +1,6 @@
 use abra_core::compile_bytecode;
+use abra_core::side_effects::DefaultEffects;
+use abra_core::side_effects::EffectTrait;
 use abra_core::source_files_single;
 use abra_core::vm::Vm;
 
@@ -15,7 +17,7 @@ let h = subtract(z, 1)
 h
 "#;
     let sources = source_files_single(src);
-    let program = compile_bytecode(sources).unwrap();
+    let program = compile_bytecode(sources, DefaultEffects::enumerate()).unwrap();
     let mut vm = Vm::new(program);
     vm.run();
     let top = vm.top();
@@ -35,7 +37,7 @@ let (x, y) = p
 x + y
 "#;
     let sources = source_files_single(src);
-    let program = compile_bytecode(sources).unwrap();
+    let program = compile_bytecode(sources, DefaultEffects::enumerate()).unwrap();
     let mut vm = Vm::new(program);
     vm.run();
     let top = vm.top();
@@ -53,7 +55,7 @@ if false {
 }
 "#;
     let sources = source_files_single(src);
-    let program = compile_bytecode(sources).unwrap();
+    let program = compile_bytecode(sources, DefaultEffects::enumerate()).unwrap();
     let mut vm = Vm::new(program);
     vm.run();
     let top = vm.top();
@@ -71,7 +73,7 @@ if true {
 x
 "#;
     let sources = source_files_single(src);
-    let program = compile_bytecode(sources).unwrap();
+    let program = compile_bytecode(sources, DefaultEffects::enumerate()).unwrap();
     let mut vm = Vm::new(program);
     vm.run();
     let top = vm.top();
@@ -87,7 +89,7 @@ print_string("hello world")
 "#;
     let sources = source_files_single(src);
     // TODO this should return a Vm and not leak details about string table etc.
-    let program = compile_bytecode(sources).unwrap();
+    let program = compile_bytecode(sources, DefaultEffects::enumerate()).unwrap();
     let mut vm = Vm::new(program);
     vm.run();
     let top = vm.top();
@@ -114,7 +116,7 @@ x.name
 "#;
     let sources = source_files_single(src);
     // TODO this should return a Vm and not leak details about string table etc.
-    let program = compile_bytecode(sources).unwrap();
+    let program = compile_bytecode(sources, DefaultEffects::enumerate()).unwrap();
     let mut vm = Vm::new(program);
     vm.run();
     let top = vm.top();
@@ -135,7 +137,7 @@ x.age
 "#;
     let sources = source_files_single(src);
     // TODO this should return a Vm and not leak details about string table etc.
-    let program = compile_bytecode(sources).unwrap();
+    let program = compile_bytecode(sources, DefaultEffects::enumerate()).unwrap();
     let mut vm = Vm::new(program);
     vm.run();
     let top = vm.top();
@@ -152,7 +154,7 @@ arr[2]
 "#;
     let sources = source_files_single(src);
     // TODO this should return a Vm and not leak details about string table etc.
-    let program = compile_bytecode(sources).unwrap();
+    let program = compile_bytecode(sources, DefaultEffects::enumerate()).unwrap();
     let mut vm = Vm::new(program);
     vm.run();
     let top = vm.top();
@@ -171,7 +173,7 @@ match n {
 "#;
     let sources = source_files_single(src);
     // TODO this should return a Vm and not leak details about string table etc.
-    let program = compile_bytecode(sources).unwrap();
+    let program = compile_bytecode(sources, DefaultEffects::enumerate()).unwrap();
     let mut vm = Vm::new(program);
     vm.run();
     let top = vm.top();
@@ -190,7 +192,7 @@ match n {
 "#;
     let sources = source_files_single(src);
     // TODO this should return a Vm and not leak details about string table etc.
-    let program = compile_bytecode(sources).unwrap();
+    let program = compile_bytecode(sources, DefaultEffects::enumerate()).unwrap();
     let mut vm = Vm::new(program);
     vm.run();
     let top = vm.top();
@@ -215,7 +217,7 @@ sum
 "#;
     let sources = source_files_single(src);
     // TODO this should return a Vm and not leak details about string table etc.
-    let program = compile_bytecode(sources).unwrap();
+    let program = compile_bytecode(sources, DefaultEffects::enumerate()).unwrap();
     let mut vm = Vm::new(program);
     vm.run();
     let top = vm.top();
@@ -232,7 +234,7 @@ match triplet {
     _ -> 102
 }"#;
     let sources = source_files_single(src);
-    let program = match compile_bytecode(sources) {
+    let program = match compile_bytecode(sources, DefaultEffects::enumerate()) {
         Ok(vm) => vm,
         Err(e) => {
             panic!("{}", e);
@@ -254,7 +256,7 @@ match pair {
     _ -> 102
 }"#;
     let sources = source_files_single(src);
-    let program = match compile_bytecode(sources) {
+    let program = match compile_bytecode(sources, DefaultEffects::enumerate()) {
         Ok(vm) => vm,
         Err(e) => {
             panic!("{}", e);
@@ -276,7 +278,7 @@ match pair {
     _ -> 102
 }"#;
     let sources = source_files_single(src);
-    let program = match compile_bytecode(sources) {
+    let program = match compile_bytecode(sources, DefaultEffects::enumerate()) {
         Ok(vm) => vm,
         Err(e) => {
             panic!("{}", e);
@@ -298,7 +300,7 @@ match quintuple {
     _ -> 102
 }"#;
     let sources = source_files_single(src);
-    let program = match compile_bytecode(sources) {
+    let program = match compile_bytecode(sources, DefaultEffects::enumerate()) {
         Ok(vm) => vm,
         Err(e) => {
             panic!("{}", e);
@@ -320,7 +322,7 @@ match triplet {
     _ -> 102
 }"#;
     let sources = source_files_single(src);
-    let program = match compile_bytecode(sources) {
+    let program = match compile_bytecode(sources, DefaultEffects::enumerate()) {
         Ok(vm) => vm,
         Err(e) => {
             panic!("{}", e);
@@ -346,7 +348,7 @@ match xs {
     //     nil -> 100
     // }"#;
     let sources = source_files_single(src);
-    let program = match compile_bytecode(sources) {
+    let program = match compile_bytecode(sources, DefaultEffects::enumerate()) {
         Ok(vm) => vm,
         Err(e) => {
             panic!("{}", e);
@@ -367,7 +369,7 @@ match xs {
     cons(~x, _) -> x
 }"#;
     let sources = source_files_single(src);
-    let program = match compile_bytecode(sources) {
+    let program = match compile_bytecode(sources, DefaultEffects::enumerate()) {
         Ok(vm) => vm,
         Err(e) => {
             panic!("{}", e);
@@ -389,7 +391,7 @@ match xs {
     _ -> 101
 }"#;
     let sources = source_files_single(src);
-    let program = match compile_bytecode(sources) {
+    let program = match compile_bytecode(sources, DefaultEffects::enumerate()) {
         Ok(vm) => vm,
         Err(e) => {
             panic!("{}", e);
@@ -413,7 +415,7 @@ func r(n) {
 r(2)
 "#;
     let sources = source_files_single(src);
-    let program = match compile_bytecode(sources) {
+    let program = match compile_bytecode(sources, DefaultEffects::enumerate()) {
         Ok(vm) => vm,
         Err(e) => {
             panic!("{}", e);
@@ -438,7 +440,7 @@ func fib(n) {
 fib(10)
 "#;
     let sources = source_files_single(src);
-    let program = match compile_bytecode(sources) {
+    let program = match compile_bytecode(sources, DefaultEffects::enumerate()) {
         Ok(vm) => vm,
         Err(e) => {
             panic!("{}", e);
@@ -457,7 +459,7 @@ let double = x -> x + x
 double(5)
 "#;
     let sources = source_files_single(src);
-    let program = match compile_bytecode(sources) {
+    let program = match compile_bytecode(sources, DefaultEffects::enumerate()) {
         Ok(vm) => vm,
         Err(e) => {
             panic!("{}", e);
@@ -476,7 +478,7 @@ let add = (x, y) -> x + y
 add(2, 3)
 "#;
     let sources = source_files_single(src);
-    let program = match compile_bytecode(sources) {
+    let program = match compile_bytecode(sources, DefaultEffects::enumerate()) {
         Ok(vm) => vm,
         Err(e) => {
             panic!("{}", e);
@@ -496,7 +498,7 @@ let add1 = x -> x + one
 add1(4)
 "#;
     let sources = source_files_single(src);
-    let program = match compile_bytecode(sources) {
+    let program = match compile_bytecode(sources, DefaultEffects::enumerate()) {
         Ok(vm) => vm,
         Err(e) => {
             panic!("{}", e);
@@ -517,7 +519,7 @@ let sub1 = x -> x + one - two
 sub1(4)
 "#;
     let sources = source_files_single(src);
-    let program = match compile_bytecode(sources) {
+    let program = match compile_bytecode(sources, DefaultEffects::enumerate()) {
         Ok(vm) => vm,
         Err(e) => {
             panic!("{}", e);
@@ -537,7 +539,7 @@ let g = sqrt_float(f)
 g
 "#;
     let sources = source_files_single(src);
-    let program = match compile_bytecode(sources) {
+    let program = match compile_bytecode(sources, DefaultEffects::enumerate()) {
         Ok(vm) => vm,
         Err(e) => {
             panic!("{}", e);
@@ -557,7 +559,7 @@ append(arr, 6)
 arr[5]
 "#;
     let sources = source_files_single(src);
-    let program = match compile_bytecode(sources) {
+    let program = match compile_bytecode(sources, DefaultEffects::enumerate()) {
         Ok(vm) => vm,
         Err(e) => {
             panic!("{}", e);
@@ -576,7 +578,7 @@ let arr = [1, 2, 3, 4, 5]
 len(arr)
 "#;
     let sources = source_files_single(src);
-    let program = match compile_bytecode(sources) {
+    let program = match compile_bytecode(sources, DefaultEffects::enumerate()) {
         Ok(vm) => vm,
         Err(e) => {
             panic!("{}", e);
@@ -597,7 +599,7 @@ match [| 1, 2, 3 |] {
 }
 "#;
     let sources = source_files_single(src);
-    let program = match compile_bytecode(sources) {
+    let program = match compile_bytecode(sources, DefaultEffects::enumerate()) {
         Ok(vm) => vm,
         Err(e) => {
             panic!("{}", e);
@@ -624,7 +626,7 @@ func total(xs) {
 total(xs)
 "#;
     let sources = source_files_single(src);
-    let program = match compile_bytecode(sources) {
+    let program = match compile_bytecode(sources, DefaultEffects::enumerate()) {
         Ok(vm) => vm,
         Err(e) => {
             panic!("{}", e);
@@ -652,7 +654,7 @@ func list_len(xs) {
 list_len(nums) + list_len(bools)
 "#;
     let sources = source_files_single(src);
-    let program = match compile_bytecode(sources) {
+    let program = match compile_bytecode(sources, DefaultEffects::enumerate()) {
         Ok(vm) => vm,
         Err(e) => {
             panic!("{}", e);
@@ -670,7 +672,7 @@ fn concat_strings() {
 let s = "hello " & "world"
 "#;
     let sources = source_files_single(src);
-    let program = match compile_bytecode(sources) {
+    let program = match compile_bytecode(sources, DefaultEffects::enumerate()) {
         Ok(vm) => vm,
         Err(e) => {
             panic!("{}", e);
@@ -688,7 +690,7 @@ fn monomorphize_to_string_int() {
 to_string(123)
 "#;
     let sources = source_files_single(src);
-    let program = match compile_bytecode(sources) {
+    let program = match compile_bytecode(sources, DefaultEffects::enumerate()) {
         Ok(vm) => vm,
         Err(e) => {
             panic!("{}", e);
@@ -707,7 +709,7 @@ to_string(123)
 to_string(123.456)
 "#;
     let sources = source_files_single(src);
-    let program = match compile_bytecode(sources) {
+    let program = match compile_bytecode(sources, DefaultEffects::enumerate()) {
         Ok(vm) => vm,
         Err(e) => {
             panic!("{}", e);
@@ -726,7 +728,7 @@ let nums = (1, 2, 3)
 to_string(nums)
 "#;
     let sources = source_files_single(src);
-    let program = match compile_bytecode(sources) {
+    let program = match compile_bytecode(sources, DefaultEffects::enumerate()) {
         Ok(vm) => vm,
         Err(e) => {
             panic!("{}", e);
@@ -747,7 +749,7 @@ println(123)
 "#;
     let sources = source_files_single(src);
     // TODO this should return a Vm and not leak details about string table etc.
-    let program = compile_bytecode(sources).unwrap();
+    let program = compile_bytecode(sources, DefaultEffects::enumerate()).unwrap();
     let mut vm = Vm::new(program);
     vm.run();
     let top = vm.top();
@@ -772,7 +774,7 @@ fn local_in_while_scope() {
     "#;
     let sources = source_files_single(src);
     // TODO this should return a Vm and not leak details about string table etc.
-    let program = compile_bytecode(sources).unwrap();
+    let program = compile_bytecode(sources, DefaultEffects::enumerate()).unwrap();
     let mut vm = Vm::new(program);
     vm.run();
     let top = vm.top();
@@ -794,7 +796,7 @@ x
 "#;
     let sources = source_files_single(src);
     // TODO this should return a Vm and not leak details about string table etc.
-    let vm = compile_bytecode(sources);
+    let vm = compile_bytecode(sources, DefaultEffects::enumerate());
     if let Err(e) = vm {
         panic!("{}", e);
     }
@@ -824,7 +826,7 @@ x
 "#;
     let sources = source_files_single(src);
     // TODO this should return a Vm and not leak details about string table etc.
-    let vm = compile_bytecode(sources);
+    let vm = compile_bytecode(sources, DefaultEffects::enumerate());
     if let Err(e) = vm {
         panic!("{}", e);
     }

@@ -283,6 +283,10 @@ func len(arr: array<'a>) -> int {
     array_length(arr)
 }
 
+func append(arr: array<'a>, x: 'a) -> void { 
+    array_append(arr, x)
+}
+
 func print(x: 'b ToString) { print_string(to_string(x)) }
 func println(x: 'b ToString) {
     print_string(to_string(x) & newline)

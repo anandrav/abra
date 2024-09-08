@@ -6,15 +6,14 @@ extern crate syntect;
 
 use std::rc::Rc;
 
-use abra_core::SourceFile;
+use abra_core::{vm::Vm, SourceFile};
 
 use eframe::egui;
 use once_cell::sync::Lazy;
 
 use crate::egui::Color32;
 
-use abra_core::interpreter::{Interpreter, InterpreterStatus};
-use abra_core::side_effects::{self, EffectTrait};
+use abra_core::side_effects::{self, DefaultEffects, EffectTrait};
 
 // When compiling natively:
 #[cfg(not(target_arch = "wasm32"))]
@@ -398,8 +397,7 @@ struct MyApp {
     readline: bool,
     input: String,
     output: String,
-    interpreter: Option<Interpreter>,
-    effect_result: Option<Rc<abra_core::eval_tree::Expr>>,
+    vm: Option<Vm>,
 }
 
 impl Default for MyApp {
@@ -409,14 +407,10 @@ impl Default for MyApp {
             readline: false,
             input: String::default(),
             output: String::default(),
-            interpreter: None,
-            effect_result: None,
+            vm: None,
         }
     }
 }
-
-static EFFECT_LIST: Lazy<Vec<abra_core::side_effects::DefaultEffects>> =
-    Lazy::new(abra_core::side_effects::DefaultEffects::enumerate);
 
 impl eframe::App for MyApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
@@ -435,43 +429,29 @@ impl eframe::App for MyApp {
             // I did this because web assembly does not support threads currently
             let steps = if cfg!(debug_assertions) { 1 } else { 1000 };
             if !self.readline {
-                if let Some(interpreter) = &mut self.interpreter {
-                    let status = interpreter.run(steps, self.effect_result.take());
-                    match status {
-                        InterpreterStatus::Error(msg) => {
-                            self.output += &msg;
-                            self.interpreter = None;
-                        }
-                        InterpreterStatus::Finished => {
-                            self.output += &format!(
-                                "\nLast line evaluated to: {}",
-                                interpreter.get_val().unwrap()
-                            );
-                            self.interpreter = None;
-                        }
-                        InterpreterStatus::OutOfSteps => {
-                            ui.ctx().request_repaint();
-                        }
-                        InterpreterStatus::Effect(code, args) => {
-                            let effect = &EFFECT_LIST[code as usize];
-                            match effect {
-                                abra_core::side_effects::DefaultEffects::PrintString => {
-                                    match &*args[0] {
-                                        abra_core::eval_tree::Expr::Str(string) => {
-                                            self.output.push_str(string);
-                                            self.effect_result =
-                                                Some(abra_core::eval_tree::Expr::Unit.into());
-                                        }
-                                        _ => panic!("wrong arguments for {:#?} effect", effect),
-                                    }
-                                }
-                                abra_core::side_effects::DefaultEffects::Read => {
-                                    self.readline = true;
-                                }
+                if self.vm.is_some() && self.vm.as_ref().unwrap().is_done() {
+                    self.vm = None;
+                }
+                if let Some(vm) = &mut self.vm {
+                    vm.run_n_steps(steps);
+                    vm.gc();
+
+                    if let Some(pending_effect) = vm.get_pending_effect() {
+                        let effect = DefaultEffects::from_repr(pending_effect as usize).unwrap();
+                        match effect {
+                            abra_core::side_effects::DefaultEffects::PrintString => {
+                                let s = vm.top().get_string(&vm);
+                                print!("{}", s);
+                                vm.pop();
+                                vm.push_nil();
                             }
-                            ui.ctx().request_repaint();
+                            abra_core::side_effects::DefaultEffects::Read => {
+                                self.readline = true;
+                            }
                         }
+                        vm.clear_pending_effect();
                     }
+                    ui.ctx().request_repaint();
                 }
             }
 
@@ -520,10 +500,11 @@ impl eframe::App for MyApp {
                             .clicked()
                             && self.readline
                         {
-                            self.effect_result =
-                                Some(abra_core::eval_tree::Expr::from(self.input.trim()).into());
-                            self.readline = false;
-                            self.input.clear();
+                            if let Some(vm) = &mut self.vm {
+                                vm.push_str(self.input.trim().into());
+                                self.readline = false;
+                                self.input.clear();
+                            }
                         }
 
                         ui.visuals_mut().override_text_color = None;
@@ -534,7 +515,7 @@ impl eframe::App for MyApp {
                             .add(egui::Button::new("Run Code").fill(Color32::from_rgb(71, 207, 63)))
                             .clicked()
                         {
-                            self.interpreter = None;
+                            self.vm = None;
                             self.output.clear();
                             self.input.clear();
                             self.readline = false;
@@ -548,12 +529,12 @@ impl eframe::App for MyApp {
                                 name: "main.abra".to_string(),
                                 contents: self.text.clone(),
                             });
-                            match abra_core::compile_to_eval_tree::<side_effects::DefaultEffects>(source_files) {
-                                Ok(runtime) => {
-                                    self.interpreter = Some(runtime.toplevel_interpreter());
-                                    // let args = vec![runtime.make_int(10)];
-                                    // self.interpreter =
-                                    //     Some(runtime.func_interpreter("fibonacci", args));
+                            match abra_core::compile_bytecode(
+                                source_files,
+                                DefaultEffects::enumerate(),
+                            ) {
+                                Ok(program) => {
+                                    self.vm = Some(Vm::new(program));
                                 }
                                 Err(err) => {
                                     self.output = err.to_string();
