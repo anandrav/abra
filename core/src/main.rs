@@ -1,5 +1,5 @@
 use abra_core::compile_bytecode;
-use abra_core::side_effects::DefaultEffects;
+use abra_core::side_effects::{DefaultEffects, EffectTrait};
 use abra_core::source_files_single;
 use abra_core::vm::Vm;
 
@@ -17,7 +17,8 @@ if false {
 }
 "#;
     let sources = source_files_single(src);
-    let program = compile_bytecode(sources);
+    let effects = DefaultEffects::enumerate();
+    let program = compile_bytecode(sources, effects);
     if let Err(e) = program {
         panic!("{}", e);
     }

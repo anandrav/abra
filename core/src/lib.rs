@@ -2,7 +2,7 @@ use std::{collections::HashMap, rc::Rc};
 
 use side_effects::DefaultEffects;
 pub use side_effects::EffectCode;
-pub use side_effects::EffectTrait;
+pub use side_effects::EffectStruct;
 
 mod assembly;
 pub mod ast;
@@ -39,7 +39,10 @@ pub fn source_files_single(src: &str) -> Vec<SourceFile> {
     ]
 }
 
-pub fn compile_bytecode(source_files: Vec<SourceFile>) -> Result<CompiledProgram, String> {
+pub fn compile_bytecode(
+    source_files: Vec<SourceFile>,
+    effects: Vec<EffectStruct>,
+) -> Result<CompiledProgram, String> {
     let mut filename_to_source = HashMap::new();
     let mut filenames = Vec::new();
     for source_file in &source_files {
@@ -55,10 +58,8 @@ pub fn compile_bytecode(source_files: Vec<SourceFile>) -> Result<CompiledProgram
         ast::initialize_node_map(&mut node_map, &(parse_tree.clone() as Rc<dyn ast::Node>));
     }
 
-    // TODO: instead of using DefaultEffects::enumerate(), take them as an argument to compile_bytecode()
-    let effects = DefaultEffects::enumerate();
     let mut inference_ctx = statics::InferenceContext::new(effects.clone());
-    let tyctx = statics::make_new_gamma();
+    let tyctx = statics::Gamma::empty();
     for parse_tree in &toplevels {
         statics::gather_definitions_toplevel(&mut inference_ctx, tyctx.clone(), parse_tree.clone());
     }

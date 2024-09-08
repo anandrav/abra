@@ -167,7 +167,7 @@ pub enum Instr<Location = ProgramCounter, StringConstant = u16> {
     },
 
     ArrayAppend,
-    ArrayLen,
+    ArrayLength,
     ArrayPop,
     ConcatStrings,
     IntToString,
@@ -221,7 +221,7 @@ impl<L: Display, S: Display> Display for Instr<L, S> {
                 write!(f, "make_closure {} {}", n_captured, func_addr)
             }
             Instr::ArrayAppend => write!(f, "array_append"),
-            Instr::ArrayLen => write!(f, "array_len"),
+            Instr::ArrayLength => write!(f, "array_len"),
             Instr::ArrayPop => write!(f, "array_pop"),
             Instr::ConcatStrings => write!(f, "concat_strings"),
             Instr::IntToString => write!(f, "int_to_string"),
@@ -702,7 +702,7 @@ impl Vm {
                 }
                 self.push_nil();
             }
-            Instr::ArrayLen => {
+            Instr::ArrayLength => {
                 let obj = self.value_stack.pop().expect("stack underflow");
                 let len = match &obj {
                     Value::HeapReference(r) => match &self.heap[r.get().get()].kind {

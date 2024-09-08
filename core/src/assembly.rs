@@ -152,7 +152,7 @@ fn instr_to_vminstr(
             func_addr: label_to_idx[func_addr],
         },
         Instr::ArrayAppend => VmInstr::ArrayAppend,
-        Instr::ArrayLen => VmInstr::ArrayLen,
+        Instr::ArrayLength => VmInstr::ArrayLength,
         Instr::ArrayPop => VmInstr::ArrayPop,
         Instr::ConcatStrings => VmInstr::ConcatStrings,
         Instr::IntToString => VmInstr::IntToString,

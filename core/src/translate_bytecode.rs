@@ -1,6 +1,7 @@
 use crate::assembly::{remove_labels, Instr, Item, Label};
 use crate::ast::BinOpcode;
 use crate::ast::{Node, NodeId, Sources, Symbol, Toplevel};
+use crate::builtin::Builtin;
 use crate::environment::Environment;
 use crate::side_effects::EffectStruct;
 use crate::statics::{ty_fits_impl_ty, Monotype, Prov, Resolution, SolvedType};
@@ -251,9 +252,9 @@ impl Translator {
                         let idx = offset_table.get(node_id).unwrap();
                         emit(st, Instr::LoadOffset(*idx));
                     }
-                    Resolution::Builtin(symbol) => {
-                        match symbol.as_str() {
-                            "newline" => {
+                    Resolution::Builtin(b) => {
+                        match b {
+                            Builtin::Newline => {
                                 emit(st, Instr::PushString("\n".to_owned()));
                             }
                             _ => {
@@ -400,61 +401,95 @@ impl Translator {
                             }
                             emit(st, Instr::ConstructVariant { tag: *tag });
                         }
-                        Resolution::Builtin(s) => {
-                            // TODO use an enum for Builtins instead of hardcoded strings
-                            match s.as_str() {
-                                "print_string" => {
-                                    // TODO differentiate between a builtin Effect like print_string() and a user-customized Effect like impulse()
-                                    emit(st, Instr::Effect(0));
-                                }
-                                "sqrt_float" => {
-                                    emit(st, Instr::SquareRoot);
-                                }
-                                "append" => {
-                                    emit(st, Instr::ArrayAppend);
-                                }
-                                "len" => {
-                                    emit(st, Instr::ArrayLen);
-                                }
-                                "add_int" | "add_float" => {
-                                    emit(st, Instr::Add);
-                                }
-                                "minus_int" | "minus_float" => {
-                                    emit(st, Instr::Subtract);
-                                }
-                                "multiply_int" | "multiply_float" => {
-                                    emit(st, Instr::Multiply);
-                                }
-                                "divide_int" | "divide_float" => {
-                                    emit(st, Instr::Divide);
-                                }
-                                "pow_int" | "pow_float" => {
-                                    emit(st, Instr::Power);
-                                }
-                                "less_than_int" | "less_than_float" => {
-                                    emit(st, Instr::LessThan);
-                                }
-                                "greater_than_int" | "greater_than_float" => {
-                                    emit(st, Instr::GreaterThan);
-                                }
-                                "less_than_or_equal_int" | "less_than_or_equal_float" => {
-                                    emit(st, Instr::LessThanOrEqual);
-                                }
-                                "greater_than_or_equal_int" | "greater_than_or_equal_float" => {
-                                    emit(st, Instr::GreaterThanOrEqual);
-                                }
-                                "equals_int" | "equals_float" | "equals_string" => {
-                                    emit(st, Instr::Equal);
-                                }
-                                "int_to_string" => {
-                                    emit(st, Instr::IntToString);
-                                }
-                                "float_to_string" => {
-                                    emit(st, Instr::FloatToString);
-                                }
-                                _ => panic!("unrecognized builtin: {}", s),
+                        Resolution::Builtin(b) => match b {
+                            Builtin::AddInt => {
+                                emit(st, Instr::Add);
                             }
-                        }
+                            Builtin::SubtractInt => {
+                                emit(st, Instr::Subtract);
+                            }
+                            Builtin::MultiplyInt => {
+                                emit(st, Instr::Multiply);
+                            }
+                            Builtin::DivideInt => {
+                                emit(st, Instr::Divide);
+                            }
+                            Builtin::PowerInt => {
+                                emit(st, Instr::Power);
+                            }
+                            Builtin::SqrtInt => {
+                                emit(st, Instr::SquareRoot);
+                            }
+                            Builtin::AddFloat => {
+                                emit(st, Instr::Add);
+                            }
+                            Builtin::SubtractFloat => {
+                                emit(st, Instr::Subtract);
+                            }
+                            Builtin::MultiplyFloat => {
+                                emit(st, Instr::Multiply);
+                            }
+                            Builtin::DivideFloat => {
+                                emit(st, Instr::Divide);
+                            }
+                            Builtin::PowerFloat => {
+                                emit(st, Instr::Power);
+                            }
+                            Builtin::SqrtFloat => {
+                                emit(st, Instr::SquareRoot);
+                            }
+                            Builtin::LessThanInt => {
+                                emit(st, Instr::LessThan);
+                            }
+                            Builtin::LessThanOrEqualInt => {
+                                emit(st, Instr::LessThanOrEqual);
+                            }
+                            Builtin::GreaterThanInt => {
+                                emit(st, Instr::GreaterThan);
+                            }
+                            Builtin::GreaterThanOrEqualInt => {
+                                emit(st, Instr::GreaterThanOrEqual);
+                            }
+                            Builtin::EqualInt => {
+                                emit(st, Instr::Equal);
+                            }
+                            Builtin::LessThanFloat => {
+                                emit(st, Instr::LessThan);
+                            }
+                            Builtin::LessThanOrEqualFloat => {
+                                emit(st, Instr::LessThanOrEqual);
+                            }
+                            Builtin::GreaterThanFloat => {
+                                emit(st, Instr::GreaterThan);
+                            }
+                            Builtin::GreaterThanOrEqualFloat => {
+                                emit(st, Instr::GreaterThanOrEqual);
+                            }
+                            Builtin::EqualFloat => {
+                                emit(st, Instr::Equal);
+                            }
+                            Builtin::EqualString => {
+                                emit(st, Instr::Equal);
+                            }
+                            Builtin::IntToString => {
+                                emit(st, Instr::IntToString);
+                            }
+                            Builtin::FloatToString => {
+                                emit(st, Instr::FloatToString);
+                            }
+                            Builtin::ArrayAppend => {
+                                emit(st, Instr::ArrayAppend);
+                            }
+                            Builtin::ArrayLength => {
+                                emit(st, Instr::ArrayLength);
+                            }
+                            Builtin::ArrayPop => {
+                                emit(st, Instr::ArrayPop);
+                            }
+                            Builtin::Newline => {
+                                panic!("not a function");
+                            }
+                        },
                         Resolution::Effect(e) => {
                             emit(st, Instr::Effect(*e));
                         }
