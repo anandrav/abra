@@ -10,33 +10,20 @@ fn main() {
 
 fn test() {
     let src = r#"
-
-func my_api() {
-    1
+if false {
+  3
+} else {
+  4
 }
-
-var i = 0
-var x = 3
-while i < 10000 {
-    let p = (1, 2, 3)
-    let (a, b, c) = p
-    x <- a + b + c
-    i <- i + 1
-}
-x
 "#;
     let sources = source_files_single(src);
-    // TODO this should return a Vm and not leak details about string table etc.
-    let program = compile_bytecode::<DefaultEffects>(sources);
+    let program = compile_bytecode(sources);
     if let Err(e) = program {
         panic!("{}", e);
     }
     let mut vm = Vm::new(program.unwrap());
-    while !vm.is_done() {
-        vm.run_n_steps(1);
-        vm.gc();
-        assert!(vm.nbytes() < 10000);
-    }
+    vm.run();
     let top = vm.top();
-    assert_eq!(top.get_int(), 6);
+    assert_eq!(top.get_int(), 4);
+    println!("result is {}", top.get_int());
 }

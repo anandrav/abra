@@ -1,4 +1,3 @@
-use crate::eval_tree::*;
 use std::cell::RefCell;
 use std::cmp::Eq;
 use std::collections::HashMap;
@@ -92,5 +91,3 @@ impl<Identifier: Eq + Hash + Display, Item: Display> EnvironmentBase<Identifier,
         }
     }
 }
-
-pub type EvalEnv = Environment<Identifier, Rc<Expr>>;

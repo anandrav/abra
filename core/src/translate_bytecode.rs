@@ -2,9 +2,9 @@ use crate::assembly::{remove_labels, Instr, Item, Label};
 use crate::ast::BinOpcode;
 use crate::ast::{Node, NodeId, Sources, Symbol, Toplevel};
 use crate::environment::Environment;
+use crate::side_effects::EffectStruct;
 use crate::statics::{ty_fits_impl_ty, Monotype, Prov, Resolution, SolvedType};
 use crate::vm::{AbraInt, Instr as VmInstr};
-use crate::EffectTrait;
 use crate::{
     ast::{Expr, ExprKind, NodeMap, Pat, PatKind, Stmt, StmtKind},
     statics::InferenceContext,
@@ -41,6 +41,7 @@ pub(crate) struct Translator {
     node_map: NodeMap,
     sources: Sources,
     toplevels: Vec<Rc<Toplevel>>,
+    effects: Vec<EffectStruct>,
 }
 
 #[derive(Debug, Default)]
@@ -68,16 +69,18 @@ impl Translator {
         node_map: NodeMap,
         sources: Sources,
         toplevels: Vec<Rc<Toplevel>>,
+        effects: Vec<EffectStruct>,
     ) -> Self {
         Self {
             inf_ctx,
             node_map,
             sources,
             toplevels,
+            effects,
         }
     }
 
-    pub(crate) fn translate<Effect: EffectTrait>(&self) -> CompiledProgram {
+    pub(crate) fn translate(&self) -> CompiledProgram {
         let mut translator_state = TranslatorState::default();
         let st = &mut translator_state;
 
@@ -197,9 +200,8 @@ impl Translator {
         }
 
         // Create functions for effects
-        let effect_list = Effect::enumerate();
-        for (i, effect) in effect_list.iter().enumerate() {
-            emit(st, Item::Label(effect.function_name()));
+        for (i, effect) in self.effects.iter().enumerate() {
+            emit(st, Item::Label(effect.name.clone()));
             emit(st, Instr::Effect(i as u16));
             emit(st, Instr::Return);
         }
@@ -260,6 +262,10 @@ impl Translator {
                             }
                         }
                     }
+                    Resolution::Effect(u16) => {
+                        // TODO: generate functions for effects
+                        unimplemented!()
+                    }
                     Resolution::StructDefinition(_) => {
                         // TODO: generate functions for structs
                         unimplemented!()
@@ -305,7 +311,7 @@ impl Translator {
                     BinOpcode::LessThan => emit(st, Instr::LessThan),
                     BinOpcode::GreaterThanOrEqual => emit(st, Instr::GreaterThanOrEqual),
                     BinOpcode::LessThanOrEqual => emit(st, Instr::LessThanOrEqual),
-                    BinOpcode::Equals => emit(st, Instr::Equal),
+                    BinOpcode::Equal => emit(st, Instr::Equal),
                     BinOpcode::Concat => emit(st, Instr::ConcatStrings),
                     BinOpcode::Or => emit(st, Instr::Or),
                     BinOpcode::And => emit(st, Instr::And),
@@ -448,6 +454,9 @@ impl Translator {
                                 }
                                 _ => panic!("unrecognized builtin: {}", s),
                             }
+                        }
+                        Resolution::Effect(e) => {
+                            emit(st, Instr::Effect(*e));
                         }
                     }
                 } else {

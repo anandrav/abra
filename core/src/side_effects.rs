@@ -1,12 +1,37 @@
-use crate::eval_tree;
 use crate::statics;
 use once_cell::sync::Lazy;
 use std::rc::Rc;
+use std::sync::OnceLock;
+use strum::FromRepr;
 use strum::IntoEnumIterator;
+use strum::VariantArray;
 use strum_macros::EnumIter;
 
+#[derive(Debug, Clone)]
+pub struct EffectStruct {
+    pub name: String,
+    pub type_signature: (Vec<statics::Monotype>, statics::Monotype),
+}
+
+// static DEFAULT_EFFECT_LIST2: OnceLock<Vec<EffectStruct>> = OnceLock::new();
+
+// pub fn get_default_effects() -> &'static Vec<EffectStruct> {
+//     DEFAULT_EFFECT_LIST2.get_or_init(|| {
+//         vec![
+//             EffectStruct {
+//                 name: String::from("print_string"),
+//                 type_signature: (vec![statics::Monotype::String], statics::Monotype::Unit),
+//             },
+//             EffectStruct {
+//                 name: String::from("read"),
+//                 type_signature: (vec![], statics::Monotype::String),
+//             },
+//         ]
+//     })
+// }
+
 pub trait EffectTrait {
-    fn enumerate() -> Vec<Self>
+    fn enumerate() -> Vec<EffectStruct>
     where
         Self: Sized;
 
@@ -15,15 +40,24 @@ pub trait EffectTrait {
     fn function_name(&self) -> String;
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, EnumIter)]
+#[derive(Debug, Clone, PartialEq, Eq, EnumIter, VariantArray, FromRepr)]
 pub enum DefaultEffects {
     PrintString,
     Read,
 }
 
 impl EffectTrait for DefaultEffects {
-    fn enumerate() -> Vec<Self> {
-        DefaultEffects::iter().collect()
+    fn enumerate() -> Vec<EffectStruct> {
+        Self::VARIANTS
+            .iter()
+            .map(|effect| {
+                let effect = effect.to_owned();
+                EffectStruct {
+                    name: effect.function_name(),
+                    type_signature: effect.type_signature(),
+                }
+            })
+            .collect()
     }
 
     fn type_signature(&self) -> (Vec<statics::Monotype>, statics::Monotype) {
@@ -47,25 +81,4 @@ impl EffectTrait for DefaultEffects {
 
 pub type EffectCode = u16;
 
-pub static DEFAULT_EFFECT_LIST: Lazy<Vec<DefaultEffects>> = Lazy::new(DefaultEffects::enumerate);
-
-pub fn default_effect_handler(
-    effect_code: EffectCode,
-    args: Vec<Rc<eval_tree::Expr>>,
-) -> Rc<eval_tree::Expr> {
-    let effect = &DEFAULT_EFFECT_LIST[effect_code as usize];
-    match effect {
-        DefaultEffects::PrintString => match &*args[0] {
-            eval_tree::Expr::Str(string) => {
-                print!("{}", string);
-                eval_tree::Expr::from(()).into()
-            }
-            _ => panic!("wrong arguments for {:#?} effect", effect),
-        },
-        DefaultEffects::Read => {
-            let mut input = String::new();
-            std::io::stdin().read_line(&mut input).unwrap();
-            eval_tree::Expr::from(input.trim()).into()
-        }
-    }
-}
+pub static DEFAULT_EFFECT_LIST: Lazy<Vec<EffectStruct>> = Lazy::new(DefaultEffects::enumerate);

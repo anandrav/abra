@@ -1,12 +1,15 @@
-use crate::statics::{Monotype, SolvedType};
+use crate::statics::SolvedType;
 
-use once_cell::sync::Lazy;
 use strum::IntoEnumIterator;
+use strum::VariantArray;
 use strum_macros::EnumIter;
 
-pub static BUILTINS: Lazy<Vec<Builtin>> = Lazy::new(Builtin::enumerate);
+// A Builtin is a function or constant built into the language
+// It should either be something the user can't define themselves, or something that would be too expensive to express in the language
+// For instance, the user cannot implement integer addition themselves (if there were no builtins at all)
+// Another example: The user could implement sqrt(), but it's much faster to have it as a builtin
 
-#[derive(Debug, Clone, PartialEq, Eq, EnumIter)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, EnumIter, VariantArray)]
 pub enum Builtin {
     AddInt,
     SubtractInt,
@@ -36,6 +39,7 @@ pub enum Builtin {
 
     EqualInt,
     EqualFloat,
+    EqualString,
 
     IntToString,
     FloatToString,
@@ -43,10 +47,17 @@ pub enum Builtin {
     ArrayAppend,
     ArrayLength,
     ArrayPop,
+
+    // TODO: add support for "\n" in source
+    Newline,
 }
 
 impl Builtin {
-    fn name(&self) -> String {
+    pub(crate) fn enumerate() -> Vec<Self> {
+        Self::iter().collect()
+    }
+
+    pub(crate) fn name(&self) -> String {
         match self {
             Builtin::AddInt => "add_int".into(),
             Builtin::SubtractInt => "subtract_int".into(),
@@ -76,6 +87,7 @@ impl Builtin {
 
             Builtin::EqualInt => "equal_int".into(),
             Builtin::EqualFloat => "equal_float".into(),
+            Builtin::EqualString => "equal_string".into(),
 
             Builtin::IntToString => "int_to_string".into(),
             Builtin::FloatToString => "float_to_string".into(),
@@ -83,10 +95,12 @@ impl Builtin {
             Builtin::ArrayAppend => "array_append".into(),
             Builtin::ArrayLength => "array_length".into(),
             Builtin::ArrayPop => "array_pop".into(),
+
+            Builtin::Newline => "newline".into(),
         }
     }
 
-    fn type_signature(&self) -> SolvedType {
+    pub(crate) fn type_signature(&self) -> SolvedType {
         match self {
             Builtin::AddInt
             | Builtin::SubtractInt
@@ -132,6 +146,11 @@ impl Builtin {
                 Box::new(SolvedType::Bool),
             ),
 
+            Builtin::EqualString => SolvedType::Function(
+                vec![SolvedType::String, SolvedType::String],
+                Box::new(SolvedType::Bool),
+            ),
+
             Builtin::IntToString => {
                 SolvedType::Function(vec![SolvedType::Int], Box::new(SolvedType::String))
             }
@@ -163,10 +182,8 @@ impl Builtin {
                 )],
                 Box::new(SolvedType::Unit),
             ),
-        }
-    }
 
-    fn enumerate() -> Vec<Self> {
-        Self::iter().collect()
+            Builtin::Newline => SolvedType::String,
+        }
     }
 }

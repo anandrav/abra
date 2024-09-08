@@ -346,7 +346,7 @@ pub(crate) enum ExprKind {
 #[derive(Debug, Copy, Clone, Hash, PartialEq, Eq)]
 pub enum BinOpcode {
     // comparison
-    Equals,
+    Equal,
     LessThan,
     LessThanOrEqual,
     GreaterThan,
@@ -1319,7 +1319,7 @@ pub(crate) fn parse_expr_pratt(pairs: Pairs<Rule>, filename: &str) -> Rc<Expr> {
         })
         .map_infix(|lhs, op, rhs| {
             let opcode = match op.as_rule() {
-                Rule::op_eq => Some(BinOpcode::Equals),
+                Rule::op_eq => Some(BinOpcode::Equal),
                 Rule::op_gt => Some(BinOpcode::GreaterThan),
                 Rule::op_lt => Some(BinOpcode::LessThan),
                 Rule::op_gte => Some(BinOpcode::GreaterThanOrEqual),

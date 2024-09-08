@@ -3,7 +3,9 @@ use crate::ast::{
     ArgAnnotated, AstType, Expr, ExprKind, MatchArm, Node, NodeId, NodeMap, Pat, PatKind, Sources,
     Stmt, StmtKind, Symbol, Toplevel, TypeDefKind, TypeKind,
 };
+use crate::builtin::Builtin;
 use crate::environment::Environment;
+use crate::side_effects::EffectStruct;
 use core::panic;
 
 use disjoint_sets::UnionFindNode;
@@ -382,8 +384,9 @@ pub(crate) enum TypeKey {
 // TODO: Does Prov really need to be that deeply nested? Will there really be FuncArg -> InstantiatedPoly -> BinopLeft -> Node? Or can we simplify here?
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub(crate) enum Prov {
-    Node(NodeId),    // the type of an expression or statement
-    Builtin(String), // a function or constant, which doesn't exist in the AST
+    Node(NodeId),     // the type of an expression or statement
+    Builtin(Builtin), // a builtin function or constant, which doesn't exist in the AST
+    Effect(u16),
     UnderdeterminedCoerceToUnit,
 
     Alias(Symbol), // TODO add Box<Prov>
@@ -408,6 +411,7 @@ impl Prov {
         match self {
             Prov::Node(id) => Some(*id),
             Prov::Builtin(_) => None,
+            Prov::Effect(_) => None,
             Prov::UnderdeterminedCoerceToUnit => None,
             Prov::Alias(_) => None,
             Prov::UdtDef(inner)
@@ -817,11 +821,11 @@ fn types_of_binop(opcode: &BinOpcode, id: NodeId) -> (TypeVar, TypeVar, TypeVar)
             TypeVar::make_string(prov_right),
             TypeVar::make_string(prov_out),
         ),
-        BinOpcode::Equals => {
+        BinOpcode::Equal => {
             let ty_left =
-                TypeVar::make_poly_constrained(prov_left, "a".to_owned(), "Equals".to_owned());
+                TypeVar::make_poly_constrained(prov_left, "a".to_owned(), "Equal".to_owned());
             let ty_right =
-                TypeVar::make_poly_constrained(prov_right, "a".to_owned(), "Equals".to_owned());
+                TypeVar::make_poly_constrained(prov_right, "a".to_owned(), "Equal".to_owned());
             constrain(ty_left.clone(), ty_right.clone());
             (ty_left, ty_right, TypeVar::make_bool(prov_out))
         }
@@ -902,6 +906,9 @@ pub(crate) fn provs_singleton(prov: Prov) -> Provs {
 
 #[derive(Default, Debug)]
 pub(crate) struct InferenceContext {
+    // effects
+    effects: Vec<EffectStruct>,
+
     // unification variables (skolems) which must be solved
     pub(crate) vars: HashMap<Prov, TypeVar>,
 
@@ -958,10 +965,13 @@ pub(crate) struct InferenceContext {
 }
 
 impl InferenceContext {
-    pub(crate) fn new() -> Self {
-        // TODO find a better way to do this
-        // builtin newline string constant
-        let mut inf_ctx = Self::default();
+    pub(crate) fn new(effects: Vec<EffectStruct>) -> Self {
+        let mut inf_ctx = Self {
+            effects,
+            ..Default::default()
+        };
+
+        // TODO this string constant needs to come from builtins, not be hardcoded
         inf_ctx.string_constants.entry("\n".into()).or_insert(0);
         inf_ctx
     }
@@ -1005,8 +1015,8 @@ pub(crate) enum Resolution {
     InterfaceMethod(Symbol),
     StructDefinition(u16),
     Variant(u16, u16),
-    Builtin(Symbol), // Builtin(u16),
-                     // Effect(u16),
+    Builtin(Symbol),
+    Effect(u16),
 }
 
 // TODO: rename to TypeEnv
@@ -1088,426 +1098,426 @@ impl Gamma {
 // TODO: make a macro for these builtins
 pub(crate) fn make_new_gamma() -> Gamma {
     let gamma = Gamma::empty();
-    let ident = "newline".to_owned();
-    gamma.extend(
-        ident.clone(),
-        TypeVar::make_string(Prov::Builtin("newline: string".to_string())),
-    );
-    gamma.extend_declaration(ident.clone(), Resolution::Builtin(ident));
-    let ident = "print_string".to_owned();
-    gamma.extend(
-        ident.clone(),
-        TypeVar::make_func(
-            vec![TypeVar::make_string(Prov::FuncArg(
-                Box::new(Prov::Builtin("print_string: string -> void".to_string())),
-                0,
-            ))],
-            TypeVar::make_unit(Prov::FuncOut(Box::new(Prov::Builtin(
-                "print_string: string -> void".to_string(),
-            )))),
-            Prov::Builtin("print_string: string -> void".to_string()),
-        ),
-    );
-    gamma.extend_declaration(ident.clone(), Resolution::Builtin(ident));
-    let ident = "equals_int".to_owned();
-    gamma.extend(
-        ident.clone(),
-        TypeVar::make_func(
-            vec![
-                TypeVar::make_int(Prov::FuncArg(
-                    Box::new(Prov::Builtin("equals_int: (int, int) -> bool".to_string())),
-                    0,
-                )),
-                TypeVar::make_int(Prov::FuncArg(
-                    Box::new(Prov::Builtin("equals_int: (int, int) -> bool".to_string())),
-                    1,
-                )),
-            ],
-            TypeVar::make_bool(Prov::FuncOut(Box::new(Prov::Builtin(
-                "equals_int: (int, int) -> bool".to_string(),
-            )))),
-            Prov::Builtin("equals_int: (int, int) -> bool".to_string()),
-        ),
-    );
-    gamma.extend_declaration(ident.clone(), Resolution::Builtin(ident));
+    // let ident = "newline".to_owned();
+    // gamma.extend(
+    //     ident.clone(),
+    //     TypeVar::make_string(Prov::Builtin("newline: string".to_string())),
+    // );
+    // gamma.extend_declaration(ident.clone(), Resolution::Builtin(ident));
+    // let ident = "print_string".to_owned();
+    // gamma.extend(
+    //     ident.clone(),
+    //     TypeVar::make_func(
+    //         vec![TypeVar::make_string(Prov::FuncArg(
+    //             Box::new(Prov::Builtin("print_string: string -> void".to_string())),
+    //             0,
+    //         ))],
+    //         TypeVar::make_unit(Prov::FuncOut(Box::new(Prov::Builtin(
+    //             "print_string: string -> void".to_string(),
+    //         )))),
+    //         Prov::Builtin("print_string: string -> void".to_string()),
+    //     ),
+    // );
+    // gamma.extend_declaration(ident.clone(), Resolution::Builtin(ident));
+    // let ident = "equals_int".to_owned();
+    // gamma.extend(
+    //     ident.clone(),
+    //     TypeVar::make_func(
+    //         vec![
+    //             TypeVar::make_int(Prov::FuncArg(
+    //                 Box::new(Prov::Builtin("equals_int: (int, int) -> bool".to_string())),
+    //                 0,
+    //             )),
+    //             TypeVar::make_int(Prov::FuncArg(
+    //                 Box::new(Prov::Builtin("equals_int: (int, int) -> bool".to_string())),
+    //                 1,
+    //             )),
+    //         ],
+    //         TypeVar::make_bool(Prov::FuncOut(Box::new(Prov::Builtin(
+    //             "equals_int: (int, int) -> bool".to_string(),
+    //         )))),
+    //         Prov::Builtin("equals_int: (int, int) -> bool".to_string()),
+    //     ),
+    // );
+    // gamma.extend_declaration(ident.clone(), Resolution::Builtin(ident));
 
-    let ident = "equals_string".to_owned();
-    gamma.extend(
-        ident.clone(),
-        TypeVar::make_func(
-            vec![
-                TypeVar::make_string(Prov::FuncArg(
-                    Box::new(Prov::Builtin(
-                        "equals_string: (string, string) -> bool".to_string(),
-                    )),
-                    0,
-                )),
-                TypeVar::make_string(Prov::FuncArg(
-                    Box::new(Prov::Builtin(
-                        "equals_string: (string, string) -> bool".to_string(),
-                    )),
-                    1,
-                )),
-            ],
-            TypeVar::make_bool(Prov::FuncOut(Box::new(Prov::Builtin(
-                "equals_string: (string, string) -> bool".to_string(),
-            )))),
-            Prov::Builtin("equals_string: (string, string) -> bool".to_string()),
-        ),
-    );
-    gamma.extend_declaration(ident.clone(), Resolution::Builtin(ident));
+    // let ident = "equals_string".to_owned();
+    // gamma.extend(
+    //     ident.clone(),
+    //     TypeVar::make_func(
+    //         vec![
+    //             TypeVar::make_string(Prov::FuncArg(
+    //                 Box::new(Prov::Builtin(
+    //                     "equals_string: (string, string) -> bool".to_string(),
+    //                 )),
+    //                 0,
+    //             )),
+    //             TypeVar::make_string(Prov::FuncArg(
+    //                 Box::new(Prov::Builtin(
+    //                     "equals_string: (string, string) -> bool".to_string(),
+    //                 )),
+    //                 1,
+    //             )),
+    //         ],
+    //         TypeVar::make_bool(Prov::FuncOut(Box::new(Prov::Builtin(
+    //             "equals_string: (string, string) -> bool".to_string(),
+    //         )))),
+    //         Prov::Builtin("equals_string: (string, string) -> bool".to_string()),
+    //     ),
+    // );
+    // gamma.extend_declaration(ident.clone(), Resolution::Builtin(ident));
 
-    let ident = "int_to_string".to_owned();
-    gamma.extend(
-        ident.clone(),
-        TypeVar::make_func(
-            vec![TypeVar::make_int(Prov::FuncArg(
-                Box::new(Prov::Builtin("int_to_string: int -> string".to_string())),
-                0,
-            ))],
-            TypeVar::make_string(Prov::FuncOut(Box::new(Prov::Builtin(
-                "int_to_string: int -> string".to_string(),
-            )))),
-            Prov::Builtin("int_to_string: int -> string".to_string()),
-        ),
-    );
-    gamma.extend_declaration(ident.clone(), Resolution::Builtin(ident));
+    // let ident = "int_to_string".to_owned();
+    // gamma.extend(
+    //     ident.clone(),
+    //     TypeVar::make_func(
+    //         vec![TypeVar::make_int(Prov::FuncArg(
+    //             Box::new(Prov::Builtin("int_to_string: int -> string".to_string())),
+    //             0,
+    //         ))],
+    //         TypeVar::make_string(Prov::FuncOut(Box::new(Prov::Builtin(
+    //             "int_to_string: int -> string".to_string(),
+    //         )))),
+    //         Prov::Builtin("int_to_string: int -> string".to_string()),
+    //     ),
+    // );
+    // gamma.extend_declaration(ident.clone(), Resolution::Builtin(ident));
 
-    let ident = "float_to_string".to_owned();
-    gamma.extend(
-        ident.clone(),
-        TypeVar::make_func(
-            vec![TypeVar::make_float(Prov::FuncArg(
-                Box::new(Prov::Builtin(
-                    "float_to_string: float -> string".to_string(),
-                )),
-                0,
-            ))],
-            TypeVar::make_string(Prov::FuncOut(Box::new(Prov::Builtin(
-                "float_to_string: float -> string".to_string(),
-            )))),
-            Prov::Builtin("float_to_string: float -> string".to_string()),
-        ),
-    );
-    gamma.extend_declaration(ident.clone(), Resolution::Builtin(ident));
+    // let ident = "float_to_string".to_owned();
+    // gamma.extend(
+    //     ident.clone(),
+    //     TypeVar::make_func(
+    //         vec![TypeVar::make_float(Prov::FuncArg(
+    //             Box::new(Prov::Builtin(
+    //                 "float_to_string: float -> string".to_string(),
+    //             )),
+    //             0,
+    //         ))],
+    //         TypeVar::make_string(Prov::FuncOut(Box::new(Prov::Builtin(
+    //             "float_to_string: float -> string".to_string(),
+    //         )))),
+    //         Prov::Builtin("float_to_string: float -> string".to_string()),
+    //     ),
+    // );
+    // gamma.extend_declaration(ident.clone(), Resolution::Builtin(ident));
 
-    let ident = "to_float".to_owned();
-    gamma.extend(
-        ident.clone(),
-        TypeVar::make_func(
-            vec![TypeVar::make_int(Prov::FuncArg(
-                Box::new(Prov::Builtin("to_float: int -> float".to_string())),
-                0,
-            ))],
-            TypeVar::make_float(Prov::FuncOut(Box::new(Prov::Builtin(
-                "to_float: int -> float".to_string(),
-            )))),
-            Prov::Builtin("to_float: int -> float".to_string()),
-        ),
-    );
-    gamma.extend_declaration(ident.clone(), Resolution::Builtin(ident));
+    // let ident = "to_float".to_owned();
+    // gamma.extend(
+    //     ident.clone(),
+    //     TypeVar::make_func(
+    //         vec![TypeVar::make_int(Prov::FuncArg(
+    //             Box::new(Prov::Builtin("to_float: int -> float".to_string())),
+    //             0,
+    //         ))],
+    //         TypeVar::make_float(Prov::FuncOut(Box::new(Prov::Builtin(
+    //             "to_float: int -> float".to_string(),
+    //         )))),
+    //         Prov::Builtin("to_float: int -> float".to_string()),
+    //     ),
+    // );
+    // gamma.extend_declaration(ident.clone(), Resolution::Builtin(ident));
 
-    let ident = "round".to_owned();
-    gamma.extend(
-        ident.clone(),
-        TypeVar::make_func(
-            vec![TypeVar::make_float(Prov::FuncArg(
-                Box::new(Prov::Builtin("round: float -> int".to_string())),
-                0,
-            ))],
-            TypeVar::make_int(Prov::FuncOut(Box::new(Prov::Builtin(
-                "round: float -> int".to_string(),
-            )))),
-            Prov::Builtin("round: float -> int".to_string()),
-        ),
-    );
-    gamma.extend_declaration(ident.clone(), Resolution::Builtin(ident));
+    // let ident = "round".to_owned();
+    // gamma.extend(
+    //     ident.clone(),
+    //     TypeVar::make_func(
+    //         vec![TypeVar::make_float(Prov::FuncArg(
+    //             Box::new(Prov::Builtin("round: float -> int".to_string())),
+    //             0,
+    //         ))],
+    //         TypeVar::make_int(Prov::FuncOut(Box::new(Prov::Builtin(
+    //             "round: float -> int".to_string(),
+    //         )))),
+    //         Prov::Builtin("round: float -> int".to_string()),
+    //     ),
+    // );
+    // gamma.extend_declaration(ident.clone(), Resolution::Builtin(ident));
 
-    let ident = "append_strings".to_owned();
-    gamma.extend(
-        ident.clone(),
-        TypeVar::make_func(
-            vec![
-                TypeVar::make_string(Prov::FuncArg(
-                    Box::new(Prov::Builtin(
-                        "append_strings: (string, string) -> string".to_string(),
-                    )),
-                    0,
-                )),
-                TypeVar::make_string(Prov::FuncArg(
-                    Box::new(Prov::Builtin(
-                        "append_strings: (string, string) -> string".to_string(),
-                    )),
-                    1,
-                )),
-            ],
-            TypeVar::make_string(Prov::FuncOut(Box::new(Prov::Builtin(
-                "append_strings: (string, string) -> string".to_string(),
-            )))),
-            Prov::Builtin("append_strings: (string, string) -> string".to_string()),
-        ),
-    );
-    gamma.extend_declaration(ident.clone(), Resolution::Builtin(ident));
+    // let ident = "append_strings".to_owned();
+    // gamma.extend(
+    //     ident.clone(),
+    //     TypeVar::make_func(
+    //         vec![
+    //             TypeVar::make_string(Prov::FuncArg(
+    //                 Box::new(Prov::Builtin(
+    //                     "append_strings: (string, string) -> string".to_string(),
+    //                 )),
+    //                 0,
+    //             )),
+    //             TypeVar::make_string(Prov::FuncArg(
+    //                 Box::new(Prov::Builtin(
+    //                     "append_strings: (string, string) -> string".to_string(),
+    //                 )),
+    //                 1,
+    //             )),
+    //         ],
+    //         TypeVar::make_string(Prov::FuncOut(Box::new(Prov::Builtin(
+    //             "append_strings: (string, string) -> string".to_string(),
+    //         )))),
+    //         Prov::Builtin("append_strings: (string, string) -> string".to_string()),
+    //     ),
+    // );
+    // gamma.extend_declaration(ident.clone(), Resolution::Builtin(ident));
 
-    let ident = "add_int".to_owned();
-    let prov = Prov::Builtin("add_int: (int, int) -> int".to_string());
-    gamma.extend(
-        ident.clone(),
-        TypeVar::make_func(
-            vec![
-                TypeVar::make_int(Prov::FuncArg(prov.clone().into(), 0)),
-                TypeVar::make_int(Prov::FuncArg(prov.clone().into(), 1)),
-            ],
-            TypeVar::make_int(Prov::FuncOut(prov.clone().into())),
-            prov,
-        ),
-    );
-    gamma.extend_declaration(ident.clone(), Resolution::Builtin(ident));
+    // let ident = "add_int".to_owned();
+    // let prov = Prov::Builtin("add_int: (int, int) -> int".to_string());
+    // gamma.extend(
+    //     ident.clone(),
+    //     TypeVar::make_func(
+    //         vec![
+    //             TypeVar::make_int(Prov::FuncArg(prov.clone().into(), 0)),
+    //             TypeVar::make_int(Prov::FuncArg(prov.clone().into(), 1)),
+    //         ],
+    //         TypeVar::make_int(Prov::FuncOut(prov.clone().into())),
+    //         prov,
+    //     ),
+    // );
+    // gamma.extend_declaration(ident.clone(), Resolution::Builtin(ident));
 
-    let ident = "minus_int".to_owned();
-    let prov = Prov::Builtin("minus_int: (int, int) -> int".to_string());
-    gamma.extend(
-        ident.clone(),
-        TypeVar::make_func(
-            vec![
-                TypeVar::make_int(Prov::FuncArg(prov.clone().into(), 0)),
-                TypeVar::make_int(Prov::FuncArg(prov.clone().into(), 1)),
-            ],
-            TypeVar::make_int(Prov::FuncOut(prov.clone().into())),
-            prov,
-        ),
-    );
-    gamma.extend_declaration(ident.clone(), Resolution::Builtin(ident));
+    // let ident = "minus_int".to_owned();
+    // let prov = Prov::Builtin("minus_int: (int, int) -> int".to_string());
+    // gamma.extend(
+    //     ident.clone(),
+    //     TypeVar::make_func(
+    //         vec![
+    //             TypeVar::make_int(Prov::FuncArg(prov.clone().into(), 0)),
+    //             TypeVar::make_int(Prov::FuncArg(prov.clone().into(), 1)),
+    //         ],
+    //         TypeVar::make_int(Prov::FuncOut(prov.clone().into())),
+    //         prov,
+    //     ),
+    // );
+    // gamma.extend_declaration(ident.clone(), Resolution::Builtin(ident));
 
-    let ident = "multiply_int".to_owned();
-    let prov = Prov::Builtin("multiply_int: (int, int) -> int".to_string());
-    gamma.extend(
-        ident.clone(),
-        TypeVar::make_func(
-            vec![
-                TypeVar::make_int(Prov::FuncArg(prov.clone().into(), 0)),
-                TypeVar::make_int(Prov::FuncArg(prov.clone().into(), 1)),
-            ],
-            TypeVar::make_int(Prov::FuncOut(prov.clone().into())),
-            prov,
-        ),
-    );
-    gamma.extend_declaration(ident.clone(), Resolution::Builtin(ident));
+    // let ident = "multiply_int".to_owned();
+    // let prov = Prov::Builtin("multiply_int: (int, int) -> int".to_string());
+    // gamma.extend(
+    //     ident.clone(),
+    //     TypeVar::make_func(
+    //         vec![
+    //             TypeVar::make_int(Prov::FuncArg(prov.clone().into(), 0)),
+    //             TypeVar::make_int(Prov::FuncArg(prov.clone().into(), 1)),
+    //         ],
+    //         TypeVar::make_int(Prov::FuncOut(prov.clone().into())),
+    //         prov,
+    //     ),
+    // );
+    // gamma.extend_declaration(ident.clone(), Resolution::Builtin(ident));
 
-    let ident = "divide_int".to_owned();
-    let prov = Prov::Builtin("divide_int: (int, int) -> int".to_string());
-    gamma.extend(
-        ident.clone(),
-        TypeVar::make_func(
-            vec![
-                TypeVar::make_int(Prov::FuncArg(prov.clone().into(), 0)),
-                TypeVar::make_int(Prov::FuncArg(prov.clone().into(), 1)),
-            ],
-            TypeVar::make_int(Prov::FuncOut(prov.clone().into())),
-            prov,
-        ),
-    );
-    gamma.extend_declaration(ident.clone(), Resolution::Builtin(ident));
+    // let ident = "divide_int".to_owned();
+    // let prov = Prov::Builtin("divide_int: (int, int) -> int".to_string());
+    // gamma.extend(
+    //     ident.clone(),
+    //     TypeVar::make_func(
+    //         vec![
+    //             TypeVar::make_int(Prov::FuncArg(prov.clone().into(), 0)),
+    //             TypeVar::make_int(Prov::FuncArg(prov.clone().into(), 1)),
+    //         ],
+    //         TypeVar::make_int(Prov::FuncOut(prov.clone().into())),
+    //         prov,
+    //     ),
+    // );
+    // gamma.extend_declaration(ident.clone(), Resolution::Builtin(ident));
 
-    let ident = "pow_int".to_owned();
-    let prov = Prov::Builtin("pow_int: (int, int) -> int".to_string());
-    gamma.extend(
-        ident.clone(),
-        TypeVar::make_func(
-            vec![
-                TypeVar::make_int(Prov::FuncArg(prov.clone().into(), 0)),
-                TypeVar::make_int(Prov::FuncArg(prov.clone().into(), 1)),
-            ],
-            TypeVar::make_int(Prov::FuncOut(prov.clone().into())),
-            prov,
-        ),
-    );
-    gamma.extend_declaration(ident.clone(), Resolution::Builtin(ident));
+    // let ident = "pow_int".to_owned();
+    // let prov = Prov::Builtin("pow_int: (int, int) -> int".to_string());
+    // gamma.extend(
+    //     ident.clone(),
+    //     TypeVar::make_func(
+    //         vec![
+    //             TypeVar::make_int(Prov::FuncArg(prov.clone().into(), 0)),
+    //             TypeVar::make_int(Prov::FuncArg(prov.clone().into(), 1)),
+    //         ],
+    //         TypeVar::make_int(Prov::FuncOut(prov.clone().into())),
+    //         prov,
+    //     ),
+    // );
+    // gamma.extend_declaration(ident.clone(), Resolution::Builtin(ident));
 
-    let ident = "less_than_int".to_owned();
-    let prov = Prov::Builtin("less_than_int: (int, int) -> bool".to_string());
-    gamma.extend(
-        ident.clone(),
-        TypeVar::make_func(
-            vec![
-                TypeVar::make_int(Prov::FuncArg(prov.clone().into(), 0)),
-                TypeVar::make_int(Prov::FuncArg(prov.clone().into(), 1)),
-            ],
-            TypeVar::make_bool(Prov::FuncOut(prov.clone().into())),
-            prov,
-        ),
-    );
-    gamma.extend_declaration(ident.clone(), Resolution::Builtin(ident));
+    // let ident = "less_than_int".to_owned();
+    // let prov = Prov::Builtin("less_than_int: (int, int) -> bool".to_string());
+    // gamma.extend(
+    //     ident.clone(),
+    //     TypeVar::make_func(
+    //         vec![
+    //             TypeVar::make_int(Prov::FuncArg(prov.clone().into(), 0)),
+    //             TypeVar::make_int(Prov::FuncArg(prov.clone().into(), 1)),
+    //         ],
+    //         TypeVar::make_bool(Prov::FuncOut(prov.clone().into())),
+    //         prov,
+    //     ),
+    // );
+    // gamma.extend_declaration(ident.clone(), Resolution::Builtin(ident));
 
-    let ident = "add_float".to_owned();
-    let prov = Prov::Builtin("add_float: (float, float) -> float".to_string());
-    gamma.extend(
-        ident.clone(),
-        TypeVar::make_func(
-            vec![
-                TypeVar::make_float(Prov::FuncArg(prov.clone().into(), 0)),
-                TypeVar::make_float(Prov::FuncArg(prov.clone().into(), 1)),
-            ],
-            TypeVar::make_float(Prov::FuncOut(prov.clone().into())),
-            prov,
-        ),
-    );
-    gamma.extend_declaration(ident.clone(), Resolution::Builtin(ident));
+    // let ident = "add_float".to_owned();
+    // let prov = Prov::Builtin("add_float: (float, float) -> float".to_string());
+    // gamma.extend(
+    //     ident.clone(),
+    //     TypeVar::make_func(
+    //         vec![
+    //             TypeVar::make_float(Prov::FuncArg(prov.clone().into(), 0)),
+    //             TypeVar::make_float(Prov::FuncArg(prov.clone().into(), 1)),
+    //         ],
+    //         TypeVar::make_float(Prov::FuncOut(prov.clone().into())),
+    //         prov,
+    //     ),
+    // );
+    // gamma.extend_declaration(ident.clone(), Resolution::Builtin(ident));
 
-    let ident = "minus_float".to_owned();
-    let prov = Prov::Builtin("minus_float: (float, float) -> float".to_string());
-    gamma.extend(
-        ident.clone(),
-        TypeVar::make_func(
-            vec![
-                TypeVar::make_float(Prov::FuncArg(prov.clone().into(), 0)),
-                TypeVar::make_float(Prov::FuncArg(prov.clone().into(), 1)),
-            ],
-            TypeVar::make_float(Prov::FuncOut(prov.clone().into())),
-            prov,
-        ),
-    );
-    gamma.extend_declaration(ident.clone(), Resolution::Builtin(ident));
+    // let ident = "minus_float".to_owned();
+    // let prov = Prov::Builtin("minus_float: (float, float) -> float".to_string());
+    // gamma.extend(
+    //     ident.clone(),
+    //     TypeVar::make_func(
+    //         vec![
+    //             TypeVar::make_float(Prov::FuncArg(prov.clone().into(), 0)),
+    //             TypeVar::make_float(Prov::FuncArg(prov.clone().into(), 1)),
+    //         ],
+    //         TypeVar::make_float(Prov::FuncOut(prov.clone().into())),
+    //         prov,
+    //     ),
+    // );
+    // gamma.extend_declaration(ident.clone(), Resolution::Builtin(ident));
 
-    let ident = "multiply_float".to_owned();
-    let prov = Prov::Builtin("multiply_float: (float, float) -> float".to_string());
-    gamma.extend(
-        ident.clone(),
-        TypeVar::make_func(
-            vec![
-                TypeVar::make_float(Prov::FuncArg(prov.clone().into(), 0)),
-                TypeVar::make_float(Prov::FuncArg(prov.clone().into(), 1)),
-            ],
-            TypeVar::make_float(Prov::FuncOut(prov.clone().into())),
-            prov,
-        ),
-    );
-    gamma.extend_declaration(ident.clone(), Resolution::Builtin(ident));
+    // let ident = "multiply_float".to_owned();
+    // let prov = Prov::Builtin("multiply_float: (float, float) -> float".to_string());
+    // gamma.extend(
+    //     ident.clone(),
+    //     TypeVar::make_func(
+    //         vec![
+    //             TypeVar::make_float(Prov::FuncArg(prov.clone().into(), 0)),
+    //             TypeVar::make_float(Prov::FuncArg(prov.clone().into(), 1)),
+    //         ],
+    //         TypeVar::make_float(Prov::FuncOut(prov.clone().into())),
+    //         prov,
+    //     ),
+    // );
+    // gamma.extend_declaration(ident.clone(), Resolution::Builtin(ident));
 
-    let ident = "divide_float".to_owned();
-    let prov = Prov::Builtin("divide_float: (float, float) -> float".to_string());
-    gamma.extend(
-        ident.clone(),
-        TypeVar::make_func(
-            vec![
-                TypeVar::make_float(Prov::FuncArg(prov.clone().into(), 0)),
-                TypeVar::make_float(Prov::FuncArg(prov.clone().into(), 1)),
-            ],
-            TypeVar::make_float(Prov::FuncOut(prov.clone().into())),
-            prov,
-        ),
-    );
-    gamma.extend_declaration(ident.clone(), Resolution::Builtin(ident));
+    // let ident = "divide_float".to_owned();
+    // let prov = Prov::Builtin("divide_float: (float, float) -> float".to_string());
+    // gamma.extend(
+    //     ident.clone(),
+    //     TypeVar::make_func(
+    //         vec![
+    //             TypeVar::make_float(Prov::FuncArg(prov.clone().into(), 0)),
+    //             TypeVar::make_float(Prov::FuncArg(prov.clone().into(), 1)),
+    //         ],
+    //         TypeVar::make_float(Prov::FuncOut(prov.clone().into())),
+    //         prov,
+    //     ),
+    // );
+    // gamma.extend_declaration(ident.clone(), Resolution::Builtin(ident));
 
-    let ident = "pow_float".to_owned();
-    let prov = Prov::Builtin("pow_float: (float, float) -> float".to_string());
-    gamma.extend(
-        ident.clone(),
-        TypeVar::make_func(
-            vec![
-                TypeVar::make_float(Prov::FuncArg(prov.clone().into(), 0)),
-                TypeVar::make_float(Prov::FuncArg(prov.clone().into(), 1)),
-            ],
-            TypeVar::make_float(Prov::FuncOut(prov.clone().into())),
-            prov,
-        ),
-    );
-    gamma.extend_declaration(ident.clone(), Resolution::Builtin(ident));
+    // let ident = "pow_float".to_owned();
+    // let prov = Prov::Builtin("pow_float: (float, float) -> float".to_string());
+    // gamma.extend(
+    //     ident.clone(),
+    //     TypeVar::make_func(
+    //         vec![
+    //             TypeVar::make_float(Prov::FuncArg(prov.clone().into(), 0)),
+    //             TypeVar::make_float(Prov::FuncArg(prov.clone().into(), 1)),
+    //         ],
+    //         TypeVar::make_float(Prov::FuncOut(prov.clone().into())),
+    //         prov,
+    //     ),
+    // );
+    // gamma.extend_declaration(ident.clone(), Resolution::Builtin(ident));
 
-    let ident = "sqrt_float".to_owned();
-    let prov = Prov::Builtin("sqrt_float: (float) -> float".to_string());
-    gamma.extend(
-        ident.clone(),
-        TypeVar::make_func(
-            vec![TypeVar::make_float(Prov::FuncArg(prov.clone().into(), 0))],
-            TypeVar::make_float(Prov::FuncOut(prov.clone().into())),
-            prov,
-        ),
-    );
-    gamma.extend_declaration(ident.clone(), Resolution::Builtin(ident));
+    // let ident = "sqrt_float".to_owned();
+    // let prov = Prov::Builtin("sqrt_float: (float) -> float".to_string());
+    // gamma.extend(
+    //     ident.clone(),
+    //     TypeVar::make_func(
+    //         vec![TypeVar::make_float(Prov::FuncArg(prov.clone().into(), 0))],
+    //         TypeVar::make_float(Prov::FuncOut(prov.clone().into())),
+    //         prov,
+    //     ),
+    // );
+    // gamma.extend_declaration(ident.clone(), Resolution::Builtin(ident));
 
-    let ident = "less_than_float".to_owned();
-    let prov = Prov::Builtin("less_than_float: (float, float) -> bool".to_string());
-    gamma.extend(
-        ident.clone(),
-        TypeVar::make_func(
-            vec![
-                TypeVar::make_float(Prov::FuncArg(prov.clone().into(), 0)),
-                TypeVar::make_float(Prov::FuncArg(prov.clone().into(), 1)),
-            ],
-            TypeVar::make_bool(Prov::FuncOut(prov.clone().into())),
-            prov,
-        ),
-    );
-    gamma.extend_declaration(ident.clone(), Resolution::Builtin(ident));
+    // let ident = "less_than_float".to_owned();
+    // let prov = Prov::Builtin("less_than_float: (float, float) -> bool".to_string());
+    // gamma.extend(
+    //     ident.clone(),
+    //     TypeVar::make_func(
+    //         vec![
+    //             TypeVar::make_float(Prov::FuncArg(prov.clone().into(), 0)),
+    //             TypeVar::make_float(Prov::FuncArg(prov.clone().into(), 1)),
+    //         ],
+    //         TypeVar::make_bool(Prov::FuncOut(prov.clone().into())),
+    //         prov,
+    //     ),
+    // );
+    // gamma.extend_declaration(ident.clone(), Resolution::Builtin(ident));
 
-    let ident = "append".to_owned();
-    let prov = Prov::Builtin("append: (array<'a>, 'a) -> void".to_string());
-    let ty_elem = TypeVar::make_poly(
-        Prov::FuncArg(prov.clone().into(), 1),
-        "'a".to_string(),
-        vec![],
-    );
-    let ty_arr = TypeVar::make_def_instance(
-        Prov::FuncArg(prov.clone().into(), 0),
-        "array".to_string(),
-        vec![TypeVar::make_poly(
-            Prov::FuncArg(prov.clone().into(), 1),
-            "'a".to_string(),
-            vec![],
-        )],
-    );
-    gamma.extend(
-        ident.clone(),
-        TypeVar::make_func(
-            vec![ty_arr.clone(), ty_elem],
-            TypeVar::make_unit(Prov::FuncOut(prov.clone().into())),
-            prov,
-        ),
-    );
-    gamma.extend_declaration(ident.clone(), Resolution::Builtin(ident));
+    // let ident = "append".to_owned();
+    // let prov = Prov::Builtin("append: (array<'a>, 'a) -> void".to_string());
+    // let ty_elem = TypeVar::make_poly(
+    //     Prov::FuncArg(prov.clone().into(), 1),
+    //     "'a".to_string(),
+    //     vec![],
+    // );
+    // let ty_arr = TypeVar::make_def_instance(
+    //     Prov::FuncArg(prov.clone().into(), 0),
+    //     "array".to_string(),
+    //     vec![TypeVar::make_poly(
+    //         Prov::FuncArg(prov.clone().into(), 1),
+    //         "'a".to_string(),
+    //         vec![],
+    //     )],
+    // );
+    // gamma.extend(
+    //     ident.clone(),
+    //     TypeVar::make_func(
+    //         vec![ty_arr.clone(), ty_elem],
+    //         TypeVar::make_unit(Prov::FuncOut(prov.clone().into())),
+    //         prov,
+    //     ),
+    // );
+    // gamma.extend_declaration(ident.clone(), Resolution::Builtin(ident));
 
-    let ident = "len".to_owned();
-    let prov = Prov::Builtin("len: (array<'a>) -> int".to_string());
-    let ty_arr = TypeVar::make_def_instance(
-        Prov::FuncArg(prov.clone().into(), 0),
-        "array".to_string(),
-        vec![TypeVar::make_poly(
-            Prov::FuncArg(prov.clone().into(), 1),
-            "'a".to_string(),
-            vec![],
-        )],
-    );
-    gamma.extend(
-        ident.clone(),
-        TypeVar::make_func(
-            vec![ty_arr.clone()],
-            TypeVar::make_int(Prov::FuncOut(prov.clone().into())),
-            prov,
-        ),
-    );
-    gamma.extend_declaration(ident.clone(), Resolution::Builtin(ident));
+    // let ident = "len".to_owned();
+    // let prov = Prov::Builtin("len: (array<'a>) -> int".to_string());
+    // let ty_arr = TypeVar::make_def_instance(
+    //     Prov::FuncArg(prov.clone().into(), 0),
+    //     "array".to_string(),
+    //     vec![TypeVar::make_poly(
+    //         Prov::FuncArg(prov.clone().into(), 1),
+    //         "'a".to_string(),
+    //         vec![],
+    //     )],
+    // );
+    // gamma.extend(
+    //     ident.clone(),
+    //     TypeVar::make_func(
+    //         vec![ty_arr.clone()],
+    //         TypeVar::make_int(Prov::FuncOut(prov.clone().into())),
+    //         prov,
+    //     ),
+    // );
+    // gamma.extend_declaration(ident.clone(), Resolution::Builtin(ident));
 
-    let ident = "prov".to_owned();
-    let prov = Prov::Builtin("pop: (array<'a>) -> void".to_string());
-    let ty_arr = TypeVar::make_def_instance(
-        Prov::FuncArg(prov.clone().into(), 0),
-        "array".to_string(),
-        vec![TypeVar::make_poly(
-            Prov::FuncArg(prov.clone().into(), 1),
-            "'a".to_string(),
-            vec![],
-        )],
-    );
-    gamma.extend(
-        ident.clone(),
-        TypeVar::make_func(
-            vec![ty_arr.clone()],
-            TypeVar::make_unit(Prov::FuncOut(prov.clone().into())),
-            prov,
-        ),
-    );
-    gamma.extend_declaration(ident.clone(), Resolution::Builtin(ident));
+    // let ident = "prov".to_owned();
+    // let prov = Prov::Builtin("pop: (array<'a>) -> void".to_string());
+    // let ty_arr = TypeVar::make_def_instance(
+    //     Prov::FuncArg(prov.clone().into(), 0),
+    //     "array".to_string(),
+    //     vec![TypeVar::make_poly(
+    //         Prov::FuncArg(prov.clone().into(), 1),
+    //         "'a".to_string(),
+    //         vec![],
+    //     )],
+    // );
+    // gamma.extend(
+    //     ident.clone(),
+    //     TypeVar::make_func(
+    //         vec![ty_arr.clone()],
+    //         TypeVar::make_unit(Prov::FuncOut(prov.clone().into())),
+    //         prov,
+    //     ),
+    // );
+    // gamma.extend_declaration(ident.clone(), Resolution::Builtin(ident));
 
     gamma
 }
@@ -2416,116 +2426,96 @@ pub(crate) fn gather_definitions_stmt(
     }
 }
 
-// fn gather_definitions_expr(inf_ctx: &mut InferenceContext, gamma: Gamma, expr: Rc<Expr>) {
-//     match &*expr.exprkind {
-//         ExprKind::Unit => {}
-//         ExprKind::Int(_) => {}
-//         ExprKind::Float(_) => {}
-//         ExprKind::Bool(_) => {}
-//         ExprKind::Str(_) => {}
-//         ExprKind::Var(symbol) => {}
-//         ExprKind::List(exprs) => {
-//             for expr in exprs {
-//                 gather_definitions_expr(inf_ctx, gamma.clone(), expr.clone());
-//             }
-//         }
-//         ExprKind::Array(exprs) => {
-//             for expr in exprs {
-//                 gather_definitions_expr(inf_ctx, gamma.clone(), expr.clone());
-//             }
-//         }
-//         ExprKind::BinOp(left, _op, right) => {
-//             gather_definitions_expr(inf_ctx, gamma.clone(), left.clone());
-//             gather_definitions_expr(inf_ctx, gamma, right.clone());
-//         }
-//         ExprKind::Block(statements) => {
-//             for statement in statements {
-//                 gather_definitions_stmt(inf_ctx, new_gamma.clone(), statement.clone());
-//             }
-//         }
-//         ExprKind::If(cond, expr1, expr2) => {
-//             gather_definitions_expr(inf_ctx, gamma.clone(), cond.clone());
-//             gather_definitions_expr(inf_ctx, gamma.clone(), expr1.clone());
-//             if let Some(expr2) = expr2 {
-//                 gather_definitions_expr(inf_ctx, gamma, expr2.clone());
-//             }
-//         }
-//         ExprKind::WhileLoop(cond, expr) => {
-//             gather_definitions_expr(inf_ctx, gamma.clone(), cond.clone());
-//             gather_definitions_expr(inf_ctx, gamma, expr.clone());
-//         }
-//         ExprKind::Match(scrut, arms) => {
-//             gather_definitions_expr(inf_ctx, gamma.clone(), scrut.clone());
-//             for arm in arms {
-//                 let new_gamma = gamma.new_scope();
-//                 gather_definitions_expr(inf_ctx, new_gamma, arm.expr.clone());
-//             }
-//         }
-//         ExprKind::Func(args, _out_annot, body) => {
-//             gather_definitions_expr(inf_ctx, body_gamma, body.clone());
-//         }
-//     }
-// }
-
-fn monomorphized_ty_to_builtin_ty(ty: Monotype, prov_builtin: Prov) -> TypeVar {
+fn monotype_to_typevar(ty: Monotype, prov: Prov) -> TypeVar {
     match ty {
-        Monotype::Unit => TypeVar::make_unit(prov_builtin),
-        Monotype::Int => TypeVar::make_int(prov_builtin),
-        Monotype::Float => TypeVar::make_float(prov_builtin),
-        Monotype::Bool => TypeVar::make_bool(prov_builtin),
-        Monotype::String => TypeVar::make_string(prov_builtin),
+        Monotype::Unit => TypeVar::make_unit(prov),
+        Monotype::Int => TypeVar::make_int(prov),
+        Monotype::Float => TypeVar::make_float(prov),
+        Monotype::Bool => TypeVar::make_bool(prov),
+        Monotype::String => TypeVar::make_string(prov),
         Monotype::Tuple(elements) => {
             let elements = elements
                 .into_iter()
-                .map(|e| monomorphized_ty_to_builtin_ty(e, prov_builtin.clone()))
+                .map(|e| monotype_to_typevar(e, prov.clone()))
                 .collect();
-            TypeVar::make_tuple(elements, prov_builtin)
+            TypeVar::make_tuple(elements, prov)
         }
         Monotype::Function(args, out) => {
             let args = args
                 .into_iter()
-                .map(|a| monomorphized_ty_to_builtin_ty(a, prov_builtin.clone()))
+                .map(|a| monotype_to_typevar(a, prov.clone()))
                 .collect();
-            let out = monomorphized_ty_to_builtin_ty(*out, prov_builtin.clone());
-            TypeVar::make_func(args, out, prov_builtin.clone())
+            let out = monotype_to_typevar(*out, prov.clone());
+            TypeVar::make_func(args, out, prov.clone())
         }
         Monotype::Adt(name, params) => {
             let params = params
                 .into_iter()
-                .map(|p| monomorphized_ty_to_builtin_ty(p, prov_builtin.clone()))
+                .map(|p| monotype_to_typevar(p, prov.clone()))
                 .collect();
-            TypeVar::make_def_instance(prov_builtin, name, params)
+            TypeVar::make_def_instance(prov, name, params)
         }
     }
 }
 
-pub(crate) fn gather_definitions_toplevel<Effect: crate::side_effects::EffectTrait>(
+fn solved_type_to_typevar(ty: SolvedType, prov: Prov) -> TypeVar {
+    match ty {
+        SolvedType::Unit => TypeVar::make_unit(prov),
+        SolvedType::Int => TypeVar::make_int(prov),
+        SolvedType::Float => TypeVar::make_float(prov),
+        SolvedType::Bool => TypeVar::make_bool(prov),
+        SolvedType::String => TypeVar::make_string(prov),
+        SolvedType::Tuple(elements) => {
+            let elements = elements
+                .into_iter()
+                .map(|e| solved_type_to_typevar(e, prov.clone()))
+                .collect();
+            TypeVar::make_tuple(elements, prov)
+        }
+        SolvedType::Function(args, out) => {
+            let args = args
+                .into_iter()
+                .map(|a| solved_type_to_typevar(a, prov.clone()))
+                .collect();
+            let out = solved_type_to_typevar(*out, prov.clone());
+            TypeVar::make_func(args, out, prov.clone())
+        }
+        SolvedType::UdtInstance(name, params) => {
+            let params = params
+                .into_iter()
+                .map(|p| solved_type_to_typevar(p, prov.clone()))
+                .collect();
+            TypeVar::make_def_instance(prov, name, params)
+        }
+        SolvedType::Poly(ident, interfaces) => TypeVar::make_poly(prov, ident, interfaces),
+    }
+}
+
+pub(crate) fn gather_definitions_toplevel(
     inf_ctx: &mut InferenceContext,
     gamma: Gamma,
     toplevel: Rc<Toplevel>,
 ) {
-    for eff in Effect::enumerate().iter() {
-        let prov = Prov::Builtin(format!(
-            "{}: {:#?}",
-            eff.function_name(),
-            eff.type_signature()
-        ));
+    for (i, eff) in inf_ctx.effects.iter().enumerate() {
+        let prov = Prov::Effect(i as u16);
         let mut args = Vec::new();
-        for arg in eff.type_signature().0 {
-            args.push(monomorphized_ty_to_builtin_ty(arg, prov.clone()));
+        for arg in eff.type_signature.0.iter() {
+            args.push(monotype_to_typevar(arg.clone(), prov.clone()));
         }
         let typ = TypeVar::make_func(
             args,
-            monomorphized_ty_to_builtin_ty(eff.type_signature().1, prov.clone()),
+            monotype_to_typevar(eff.type_signature.1.clone(), prov.clone()),
             prov,
         );
-        gamma.extend(eff.function_name(), typ);
-        gamma.extend_declaration(
-            eff.function_name(),
-            Resolution::Builtin(eff.function_name()),
-        );
+        gamma.extend(eff.name.clone(), typ);
+        gamma.extend_declaration(eff.name.clone(), Resolution::Effect(i as u16));
     }
-
+    for builtin in Builtin::enumerate().iter() {
+        let prov = Prov::Builtin(*builtin);
+        let typ = solved_type_to_typevar(builtin.type_signature(), prov);
+        gamma.extend(builtin.name(), typ);
+        gamma.extend_declaration(builtin.name(), Resolution::Builtin(builtin.name()));
+    }
     for statement in toplevel.statements.iter() {
         gather_definitions_stmt(inf_ctx, gamma.clone(), statement.clone());
     }
@@ -2854,11 +2844,16 @@ pub(crate) fn result_of_constraint_solving(
                     Prov::UnderdeterminedCoerceToUnit => 13,
                     Prov::StructField(..) => 14,
                     Prov::IndexAccess => 15,
+                    Prov::Effect(_) => 16,
                 });
                 for cause in provs_vec {
                     match cause {
-                        Prov::Builtin(s) => {
+                        Prov::Builtin(builtin) => {
+                            let s = builtin.name();
                             let _ = writeln!(err_string, "The builtin function {s}");
+                        }
+                        Prov::Effect(u16) => {
+                            let _ = writeln!(err_string, "The effect {u16}");
                         }
                         Prov::Node(id) => {
                             let span = node_map.get(id).unwrap().span();
@@ -2877,7 +2872,8 @@ pub(crate) fn result_of_constraint_solving(
                         }
                         Prov::FuncArg(prov, n) => {
                             match prov.as_ref() {
-                                Prov::Builtin(s) => {
+                                Prov::Builtin(builtin) => {
+                                    let s = builtin.name();
                                     let n = n + 1; // readability
                                     let _ = writeln!(
                                         err_string,
@@ -2896,7 +2892,8 @@ pub(crate) fn result_of_constraint_solving(
                             }
                         }
                         Prov::FuncOut(prov) => match prov.as_ref() {
-                            Prov::Builtin(s) => {
+                            Prov::Builtin(builtin) => {
+                                let s = builtin.name();
                                 let _ = writeln!(
                                     err_string,
                                     "
