@@ -1,6 +1,5 @@
 use std::{collections::HashMap, rc::Rc};
 
-use side_effects::DefaultEffects;
 pub use side_effects::EffectCode;
 pub use side_effects::EffectStruct;
 

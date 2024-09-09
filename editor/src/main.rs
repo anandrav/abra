@@ -4,16 +4,13 @@ extern crate eframe;
 extern crate regex;
 extern crate syntect;
 
-use std::rc::Rc;
-
 use abra_core::{vm::Vm, SourceFile};
 
 use eframe::egui;
-use once_cell::sync::Lazy;
 
 use crate::egui::Color32;
 
-use abra_core::side_effects::{self, DefaultEffects, EffectTrait};
+use abra_core::side_effects::{DefaultEffects, EffectTrait};
 
 // When compiling natively:
 #[cfg(not(target_arch = "wasm32"))]

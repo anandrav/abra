@@ -12,8 +12,6 @@ path = "src/lib.rs"
 
 [dependencies]
 disjoint-sets = "0.4.2"
-# TODO: remove this, use OnceLock instead
-once_cell = "1.18.0"
 pest = "2.5.2"
 pest_derive = "2.5.2"
 # TODO: remove this, use array of structs instead of enum for effects/builtins

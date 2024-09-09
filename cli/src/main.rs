@@ -3,7 +3,6 @@ extern crate abra_core;
 use abra_core::side_effects::{self, DefaultEffects, EffectTrait};
 use abra_core::SourceFile;
 use clap::Parser;
-use once_cell::sync::Lazy;
 
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]

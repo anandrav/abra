@@ -263,7 +263,7 @@ impl Translator {
                             }
                         }
                     }
-                    Resolution::Effect(u16) => {
+                    Resolution::Effect(_) => {
                         // TODO: generate functions for effects
                         unimplemented!()
                     }

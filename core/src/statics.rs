@@ -213,23 +213,6 @@ impl SolvedType {
         }
     }
 
-    pub(crate) fn is_overloaded_must_deprecate(&self) -> bool {
-        match self {
-            Self::Poly(_, interfaces) => !interfaces.is_empty(),
-            Self::Unit => false,
-            Self::Int => false,
-            Self::Float => false,
-            Self::Bool => false,
-            Self::String => false,
-            Self::Function(args, out) => {
-                args.iter().any(|ty| ty.is_overloaded_must_deprecate())
-                    || out.is_overloaded_must_deprecate()
-            }
-            Self::Tuple(tys) => tys.iter().any(|ty| ty.is_overloaded_must_deprecate()),
-            Self::UdtInstance(_, _) => false,
-        }
-    }
-
     pub(crate) fn is_overloaded(&self) -> bool {
         match self {
             Self::Poly(_, interfaces) => !interfaces.is_empty(),
