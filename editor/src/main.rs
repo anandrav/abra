@@ -56,9 +56,9 @@ const _DEMO: &str = r#"type person = {
 }
 let user = person("", "")
 println("Enter your name: ")
-user.name <- read()
+user.name <- readline()
 println("Enter you favorite color: ")
-user.color <- read()
+user.color <- readline()
 println(user.name & "'s favorite color is " & user.color)
 
 func fib(n) {

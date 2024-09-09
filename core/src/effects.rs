@@ -53,7 +53,7 @@ impl EffectTrait for DefaultEffects {
     fn function_name(&self) -> String {
         match self {
             DefaultEffects::PrintString => String::from("print_string"),
-            DefaultEffects::Read => String::from("read"),
+            DefaultEffects::Read => String::from("readline"),
         }
     }
 }
