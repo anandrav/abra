@@ -10,7 +10,7 @@ use eframe::egui;
 
 use crate::egui::Color32;
 
-use abra_core::side_effects::{DefaultEffects, EffectTrait};
+use abra_core::effects::{DefaultEffects, EffectTrait};
 
 // When compiling natively:
 #[cfg(not(target_arch = "wasm32"))]
@@ -133,13 +133,13 @@ impl eframe::App for MyApp {
                     if let Some(pending_effect) = vm.get_pending_effect() {
                         let effect = DefaultEffects::from_repr(pending_effect as usize).unwrap();
                         match effect {
-                            abra_core::side_effects::DefaultEffects::PrintString => {
+                            abra_core::effects::DefaultEffects::PrintString => {
                                 let s = vm.top().get_string(&vm);
                                 self.output.push_str(&s);
                                 vm.pop();
                                 vm.push_nil();
                             }
-                            abra_core::side_effects::DefaultEffects::Read => {
+                            abra_core::effects::DefaultEffects::Read => {
                                 self.readline = true;
                             }
                         }

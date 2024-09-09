@@ -14,6 +14,5 @@ path = "src/lib.rs"
 disjoint-sets = "0.4.2"
 pest = "2.5.2"
 pest_derive = "2.5.2"
-# TODO: remove this, use array of structs instead of enum for effects/builtins
 strum = { version = "0.26.3", features = ["derive"] }
 strum_macros = "0.26.3"

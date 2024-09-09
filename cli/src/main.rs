@@ -1,6 +1,6 @@
 extern crate abra_core;
 
-use abra_core::side_effects::{self, DefaultEffects, EffectTrait};
+use abra_core::effects::{self, DefaultEffects, EffectTrait};
 use abra_core::SourceFile;
 use clap::Parser;
 
@@ -30,7 +30,7 @@ fn main() {
         contents,
     });
 
-    let effects = side_effects::DefaultEffects::enumerate();
+    let effects = effects::DefaultEffects::enumerate();
     match abra_core::compile_bytecode(source_files, effects) {
         Ok(program) => {
             let mut vm = abra_core::vm::Vm::new(program);
@@ -43,13 +43,13 @@ fn main() {
                 if let Some(pending_effect) = vm.get_pending_effect() {
                     let effect = DefaultEffects::from_repr(pending_effect as usize).unwrap();
                     match effect {
-                        abra_core::side_effects::DefaultEffects::PrintString => {
+                        abra_core::effects::DefaultEffects::PrintString => {
                             let s = vm.top().get_string(&vm);
                             print!("{}", s);
                             vm.pop();
                             vm.push_nil();
                         }
-                        abra_core::side_effects::DefaultEffects::Read => {
+                        abra_core::effects::DefaultEffects::Read => {
                             unimplemented!()
                             // let mut input = String::new();
                             // std::io::stdin().read_line(&mut input).unwrap();

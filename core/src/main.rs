@@ -1,5 +1,5 @@
 use abra_core::compile_bytecode;
-use abra_core::side_effects::{DefaultEffects, EffectTrait};
+use abra_core::effects::{DefaultEffects, EffectTrait};
 use abra_core::source_files_single;
 use abra_core::vm::Vm;
 

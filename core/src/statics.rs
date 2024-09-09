@@ -5,7 +5,7 @@ use crate::ast::{
 };
 use crate::builtin::Builtin;
 use crate::environment::Environment;
-use crate::side_effects::EffectStruct;
+use crate::effects::EffectStruct;
 use core::panic;
 
 use disjoint_sets::UnionFindNode;

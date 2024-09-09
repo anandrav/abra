@@ -1,14 +1,14 @@
 use std::{collections::HashMap, rc::Rc};
 
-pub use side_effects::EffectCode;
-pub use side_effects::EffectStruct;
+pub use effects::EffectCode;
+pub use effects::EffectStruct;
 
 mod assembly;
 pub mod ast;
 mod builtin;
 pub mod environment;
 
-pub mod side_effects;
+pub mod effects;
 pub mod statics;
 mod translate_bytecode;
 pub mod vm;
