@@ -79,7 +79,7 @@ impl Vm {
     }
 
     pub fn push_int(&mut self, n: AbraInt) {
-        self.push(Value::Int(n));
+        self.push(n);
     }
 
     pub fn push_str(&mut self, s: &str) {
@@ -91,6 +91,24 @@ impl Vm {
 
     pub fn push_nil(&mut self) {
         self.push(Value::Nil);
+    }
+
+    pub fn push_bool(&mut self, b: bool) {
+        self.push(b);
+    }
+
+    pub fn push_float(&mut self, f: AbraFloat) {
+        self.push(f);
+    }
+
+    pub fn construct_tuple(&mut self, n: u16) {
+        let fields = self
+            .value_stack
+            .split_off(self.value_stack.len() - n as usize);
+        self.heap
+            .push(ManagedObject::new(ManagedObjectKind::DynArray(fields)));
+        let r = self.heap_reference(self.heap.len() - 1);
+        self.push(r);
     }
 
     pub fn get_pending_effect(&self) -> Option<u16> {

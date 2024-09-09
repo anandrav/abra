@@ -45,7 +45,7 @@ impl EffectTrait for DefaultEffects {
             DefaultEffects::PrintString => {
                 (vec![statics::Monotype::String], statics::Monotype::Unit)
             }
-            // read: void -> string
+            // readline: void -> string
             DefaultEffects::Read => (vec![], statics::Monotype::String),
         }
     }
