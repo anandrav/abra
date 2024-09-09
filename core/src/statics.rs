@@ -4,8 +4,8 @@ use crate::ast::{
     Stmt, StmtKind, Symbol, Toplevel, TypeDefKind, TypeKind,
 };
 use crate::builtin::Builtin;
-use crate::environment::Environment;
 use crate::effects::EffectStruct;
+use crate::environment::Environment;
 use core::panic;
 
 use disjoint_sets::UnionFindNode;

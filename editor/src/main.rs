@@ -134,7 +134,7 @@ impl eframe::App for MyApp {
                         let effect = DefaultEffects::from_repr(pending_effect as usize).unwrap();
                         match effect {
                             abra_core::effects::DefaultEffects::PrintString => {
-                                let s = vm.top().get_string(&vm);
+                                let s = vm.top().get_string(vm);
                                 self.output.push_str(&s);
                                 vm.pop();
                                 vm.push_nil();
@@ -195,7 +195,7 @@ impl eframe::App for MyApp {
                             && self.readline
                         {
                             if let Some(vm) = &mut self.vm {
-                                vm.push_str(self.input.trim().into());
+                                vm.push_str(self.input.trim());
                                 self.readline = false;
                                 self.input.clear();
                             }
