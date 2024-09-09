@@ -1,6 +1,7 @@
 type ProgramCounter = usize;
 pub type AbraInt = i64;
 pub type AbraFloat = f64;
+
 use crate::translate_bytecode::CompiledProgram;
 use core::fmt;
 use std::{
@@ -109,6 +110,10 @@ impl Vm {
             .push(ManagedObject::new(ManagedObjectKind::DynArray(fields)));
         let r = self.heap_reference(self.heap.len() - 1);
         self.push(r);
+    }
+
+    pub fn increment_stack_base(&mut self, n: usize) {
+        self.stack_base += n;
     }
 
     pub fn get_pending_effect(&self) -> Option<u16> {
@@ -409,7 +414,6 @@ impl Vm {
 
     fn step(&mut self) {
         let instr = self.program[self.pc];
-        // println!("Instruction: {:?}", instr);
         self.pc += 1;
         match instr {
             Instr::PushNil => {

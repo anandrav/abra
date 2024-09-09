@@ -88,7 +88,6 @@ print_string("hello world")
 5
 "#;
     let sources = source_files_single(src);
-    // TODO this should return a Vm and not leak details about string table etc.
     let program = compile_bytecode(sources, DefaultEffects::enumerate()).unwrap();
     let mut vm = Vm::new(program);
     vm.run();
@@ -115,7 +114,7 @@ x.age <- 2 * 3 * 6
 x.name
 "#;
     let sources = source_files_single(src);
-    // TODO this should return a Vm and not leak details about string table etc.
+
     let program = compile_bytecode(sources, DefaultEffects::enumerate()).unwrap();
     let mut vm = Vm::new(program);
     vm.run();
@@ -136,7 +135,7 @@ x.age <- 2 * 3 * 6
 x.age
 "#;
     let sources = source_files_single(src);
-    // TODO this should return a Vm and not leak details about string table etc.
+
     let program = compile_bytecode(sources, DefaultEffects::enumerate()).unwrap();
     let mut vm = Vm::new(program);
     vm.run();
@@ -153,7 +152,7 @@ arr[2] <- 33
 arr[2]
 "#;
     let sources = source_files_single(src);
-    // TODO this should return a Vm and not leak details about string table etc.
+
     let program = compile_bytecode(sources, DefaultEffects::enumerate()).unwrap();
     let mut vm = Vm::new(program);
     vm.run();
@@ -172,7 +171,7 @@ match n {
 }
 "#;
     let sources = source_files_single(src);
-    // TODO this should return a Vm and not leak details about string table etc.
+
     let program = compile_bytecode(sources, DefaultEffects::enumerate()).unwrap();
     let mut vm = Vm::new(program);
     vm.run();
@@ -191,7 +190,7 @@ match n {
 }
 "#;
     let sources = source_files_single(src);
-    // TODO this should return a Vm and not leak details about string table etc.
+
     let program = compile_bytecode(sources, DefaultEffects::enumerate()).unwrap();
     let mut vm = Vm::new(program);
     vm.run();
@@ -216,7 +215,7 @@ let sum = one + two
 sum
 "#;
     let sources = source_files_single(src);
-    // TODO this should return a Vm and not leak details about string table etc.
+
     let program = compile_bytecode(sources, DefaultEffects::enumerate()).unwrap();
     let mut vm = Vm::new(program);
     vm.run();
@@ -748,7 +747,7 @@ println(123)
 5
 "#;
     let sources = source_files_single(src);
-    // TODO this should return a Vm and not leak details about string table etc.
+
     let program = compile_bytecode(sources, DefaultEffects::enumerate()).unwrap();
     let mut vm = Vm::new(program);
     vm.run();
@@ -773,7 +772,7 @@ fn local_in_while_scope() {
     5
     "#;
     let sources = source_files_single(src);
-    // TODO this should return a Vm and not leak details about string table etc.
+
     let program = compile_bytecode(sources, DefaultEffects::enumerate()).unwrap();
     let mut vm = Vm::new(program);
     vm.run();
@@ -795,7 +794,7 @@ while i < 10000 {
 x
 "#;
     let sources = source_files_single(src);
-    // TODO this should return a Vm and not leak details about string table etc.
+
     let vm = compile_bytecode(sources, DefaultEffects::enumerate());
     if let Err(e) = vm {
         panic!("{}", e);
@@ -825,7 +824,7 @@ while i < 10000 {
 x
 "#;
     let sources = source_files_single(src);
-    // TODO this should return a Vm and not leak details about string table etc.
+
     let vm = compile_bytecode(sources, DefaultEffects::enumerate());
     if let Err(e) = vm {
         panic!("{}", e);
@@ -839,4 +838,45 @@ x
     }
     let top = vm.top();
     assert_eq!(top.get_int(), 6);
+}
+
+#[test]
+fn entry_point() {
+    let src = r#"
+func main() {
+    print_string("hello world")
+}
+
+5
+"#;
+    let sources = source_files_single(src);
+    let program = compile_bytecode(sources, DefaultEffects::enumerate()).unwrap();
+    let mut vm = Vm::with_entry_point(program, "main".to_owned());
+    vm.run();
+    let top = vm.top();
+    assert_eq!(top.get_string(&vm), "hello world");
+    vm.pop();
+    vm.push_nil();
+    vm.clear_pending_effect();
+    vm.run();
+}
+
+#[test]
+fn entry_point_with_args() {
+    let src = r#"
+func main(x, y) {
+    x + y
+}
+
+main(5, 6)
+"#;
+    let sources = source_files_single(src);
+    let program = compile_bytecode(sources, DefaultEffects::enumerate()).unwrap();
+    let mut vm = Vm::with_entry_point(program, "main".to_owned());
+    vm.push_int(2);
+    vm.push_int(3);
+    vm.increment_stack_base(2);
+    vm.run();
+    let top = vm.top();
+    assert_eq!(top.get_int(), 5);
 }

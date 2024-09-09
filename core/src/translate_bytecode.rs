@@ -2,8 +2,8 @@ use crate::assembly::{remove_labels, Instr, Item, Label};
 use crate::ast::BinOpcode;
 use crate::ast::{Node, NodeId, Sources, Symbol, Toplevel};
 use crate::builtin::Builtin;
-use crate::environment::Environment;
 use crate::effects::EffectStruct;
+use crate::environment::Environment;
 use crate::statics::{ty_fits_impl_ty, Monotype, Prov, Resolution, SolvedType};
 use crate::vm::{AbraInt, Instr as VmInstr};
 use crate::{
