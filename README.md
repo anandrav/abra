@@ -3,7 +3,7 @@
 [![Build Status](https://github.com/anandrav/abra/workflows/CI/badge.svg)](https://github.com/anandrav/abra/actions?workflow=CI)
 
 ```ocaml
-func fib(n) = {
+fn fib(n) = {
     match n {
         0 -> 0
         1 -> 1

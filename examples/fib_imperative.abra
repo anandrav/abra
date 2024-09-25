@@ -1,4 +1,4 @@
-func fibonacci(n) = {
+fn fibonacci(n) = {
     var x = 0
     var y = 1
     while n > 0 {

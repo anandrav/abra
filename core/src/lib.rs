@@ -81,7 +81,7 @@ pub fn compile_bytecode(
 // TODO: prelude should only contain builtin operations like adding ints and conversions to strings, etc.
 // it should not contain standard library functions like map, fold, etc.
 pub const _PRELUDE: &str = r#"
-func not(b: bool) = if b false else true
+fn not(b: bool) = if b false else true
 
 interface Num {
     add: (self, self) -> self
@@ -96,27 +96,27 @@ interface Num {
 }
 
 implement Num for int {
-    func add(a, b) = add_int(a, b)
-    func subtract(a, b) = subtract_int(a, b)
-    func multiply(a, b) = multiply_int(a, b)
-    func divide(a, b) = divide_int(a, b)
-    func power(a, b) = power_int(a, b)
-    func less_than(a, b) = less_than_int(a, b)
-    func less_than_or_equal(a, b) = (a < b) or (a = b)
-    func greater_than(a, b) = not(a < b) and not(a = b)
-    func greater_than_or_equal(a, b) = not(a < b)
+    fn add(a, b) = add_int(a, b)
+    fn subtract(a, b) = subtract_int(a, b)
+    fn multiply(a, b) = multiply_int(a, b)
+    fn divide(a, b) = divide_int(a, b)
+    fn power(a, b) = power_int(a, b)
+    fn less_than(a, b) = less_than_int(a, b)
+    fn less_than_or_equal(a, b) = (a < b) or (a = b)
+    fn greater_than(a, b) = not(a < b) and not(a = b)
+    fn greater_than_or_equal(a, b) = not(a < b)
 }
 
 implement Num for float {
-    func add(a, b) = add_float(a, b)
-    func subtract(a, b) = subtract_float(a, b)
-    func multiply(a, b) = multiply_float(a, b)
-    func divide(a, b) = divide_float(a, b)
-    func power(a, b) = power_float(a, b)
-    func less_than(a, b) = less_than_float(a, b)
-    func less_than_or_equal(a, b) = a < b
-    func greater_than(a, b) = b < a
-    func greater_than_or_equal(a, b) = b < a
+    fn add(a, b) = add_float(a, b)
+    fn subtract(a, b) = subtract_float(a, b)
+    fn multiply(a, b) = multiply_float(a, b)
+    fn divide(a, b) = divide_float(a, b)
+    fn power(a, b) = power_float(a, b)
+    fn less_than(a, b) = less_than_float(a, b)
+    fn less_than_or_equal(a, b) = a < b
+    fn greater_than(a, b) = b < a
+    fn greater_than_or_equal(a, b) = b < a
 }
 
 type list<'a> = nil | cons of ('a, list<'a>)
@@ -125,16 +125,16 @@ interface Equal {
     equal: (self, self) -> bool
 }
 implement Equal for void {
-    func equal(a, b) = true
+    fn equal(a, b) = true
 }
 implement Equal for int {
-    func equal(a, b) = equal_int(a, b)
+    fn equal(a, b) = equal_int(a, b)
 }
 implement Equal for float {
-    func equal(a, b) = false
+    fn equal(a, b) = false
 }
 implement Equal for bool {
-    func equal(a, b) {
+    fn equal(a, b) {
         if a and b {
             true
         } else if a or b {
@@ -145,11 +145,11 @@ implement Equal for bool {
     }
 }
 implement Equal for string {
-    func equal(a, b) = equal_string(a, b)
+    fn equal(a, b) = equal_string(a, b)
 }
 
 implement Equal for list<'a Equal> {
-    func equal(a, b) {
+    fn equal(a, b) {
         match (a, b) {
             (nil, nil) -> true
             (cons (~x, ~xs), cons (~y, ~ys)) -> {
@@ -164,90 +164,90 @@ interface ToString {
     to_string: self -> string
 }
 implement ToString for string {
-	func to_string(s) = s
+	fn to_string(s) = s
 }
 implement ToString for void {
-	func to_string(s) = "()"
+	fn to_string(s) = "()"
 }
 implement ToString for int {
-	func to_string(n) = int_to_string(n)
+	fn to_string(n) = int_to_string(n)
 }
 implement ToString for bool {
-	func to_string(b) = if b "true" else "false"
+	fn to_string(b) = if b "true" else "false"
 }
 implement ToString for float {
-    func to_string(f) = float_to_string(f)
+    fn to_string(f) = float_to_string(f)
 }
 implement ToString for ('a ToString, 'b ToString) {
-    func to_string(p) {
+    fn to_string(p) {
         let (a, b) = p
         "(" & to_string(a) & ", " & to_string(b) & ")"
     }
 }
 implement ToString for ('a ToString, 'b ToString, 'c ToString) {
-    func to_string(p) {
+    fn to_string(p) {
         let (a, b, c) = p
         "(" & to_string(a) & ", " & to_string(b) & ", " & to_string(c) & ")"
     }
 }
 implement ToString for ('a ToString, 'b ToString, 'c ToString, 'd ToString) {
-    func to_string(p) {
+    fn to_string(p) {
         let (a, b, c, d) = p
         "(" & to_string(a) & ", " & to_string(b) & ", " & to_string(c) & ", " & to_string(d) & ")"
     }
 }
 implement ToString for ('a ToString, 'b ToString, 'c ToString, 'd ToString, 'e ToString) {
-    func to_string(p) {
+    fn to_string(p) {
         let (a, b, c, d, e) = p
         "(" & to_string(a) & ", " & to_string(b) & ", " & to_string(c) & ", " & to_string(d) & ", " & to_string(e) & ")"
     }
 }
 implement ToString for ('a ToString, 'b ToString, 'c ToString, 'd ToString, 'e ToString, 'f ToString) {
-    func to_string(p) {
+    fn to_string(p) {
         let (a, b, c, d, e, f) = p
         "(" & to_string(a) & ", " & to_string(b) & ", " & to_string(c) & ", " & to_string(d) & ", " & to_string(e) & ", " & to_string(f) & ")"
     }
 }
 implement ToString for ('a ToString, 'b ToString, 'c ToString, 'd ToString, 'e ToString, 'f ToString, 'g ToString) {
-    func to_string(p) {
+    fn to_string(p) {
         let (a, b, c, d, e, f, g) = p
         "(" & to_string(a) & ", " & to_string(b) & ", " & to_string(c) & ", " & to_string(d) & ", " & to_string(e) & ", " & to_string(f) & ", " & to_string(g) & ")"
     }
 }
 implement ToString for ('a ToString, 'b ToString, 'c ToString, 'd ToString, 'e ToString, 'f ToString, 'g ToString, 'h ToString) {
-    func to_string(p) {
+    fn to_string(p) {
         let (a, b, c, d, e, f, g, h) = p
         "(" & to_string(a) & ", " & to_string(b) & ", " & to_string(c) & ", " & to_string(d) & ", " & to_string(e) & ", " & to_string(f) & ", " & to_string(g) & ", " & to_string(h) & ")"
     }
 }
 implement ToString for ('a ToString, 'b ToString, 'c ToString, 'd ToString, 'e ToString, 'f ToString, 'g ToString, 'h ToString, 'i ToString) {
-    func to_string(p) {
+    fn to_string(p) {
         let (a, b, c, d, e, f, g, h, i) = p
         "(" & to_string(a) & ", " & to_string(b) & ", " & to_string(c) & ", " & to_string(d) & ", " & to_string(e) & ", " & to_string(f) & ", " & to_string(g) & ", " & to_string(h) & ", " & to_string(i) & ")"
     }
 }
 implement ToString for ('a ToString, 'b ToString, 'c ToString, 'd ToString, 'e ToString, 'f ToString, 'g ToString, 'h ToString, 'i ToString, 'j ToString) {
-    func to_string(p) {
+    fn to_string(p) {
         let (a, b, c, d, e, f, g, h, i, j) = p
         "(" & to_string(a) & ", " & to_string(b) & ", " & to_string(c) & ", " & to_string(d) & ", " & to_string(e) & ", " & to_string(f) & ", " & to_string(g) & ", " & to_string(h) & ", " & to_string(i) & ", " & to_string(j) & ")"
     }
 }
 implement ToString for ('a ToString, 'b ToString, 'c ToString, 'd ToString, 'e ToString, 'f ToString, 'g ToString, 'h ToString, 'i ToString, 'j ToString, 'k ToString) {
-    func to_string(p) {
+    fn to_string(p) {
         let (a, b, c, d, e, f, g, h, i, j, k) = p
         "(" & to_string(a) & ", " & to_string(b) & ", " & to_string(c) & ", " & to_string(d) & ", " & to_string(e) & ", " & to_string(f) & ", " & to_string(g) & ", " & to_string(h) & ", " & to_string(i) & ", " & to_string(j) & ", " & to_string(k) & ")"
     }
 }
 implement ToString for ('a ToString, 'b ToString, 'c ToString, 'd ToString, 'e ToString, 'f ToString, 'g ToString, 'h ToString, 'i ToString, 'j ToString, 'k ToString, 'l ToString) {
-    func to_string(p) {
+    fn to_string(p) {
         let (a, b, c, d, e, f, g, h, i, j, k, l) = p
         "(" & to_string(a) & ", " & to_string(b) & ", " & to_string(c) & ", " & to_string(d) & ", " & to_string(e) & ", " & to_string(f) & ", " & to_string(g) & ", " & to_string(h) & ", " & to_string(i) & ", " & to_string(j) & ", " & to_string(k) & ", " & to_string(l) & ")"
     }
 }
 
 implement ToString for list<'a ToString> {
-    func to_string(xs) {
-        func helper(xs) {
+    fn to_string(xs) {
+        fn helper(xs) {
             match xs {
                 nil -> ""
                 cons (~x, nil) -> {
@@ -263,8 +263,8 @@ implement ToString for list<'a ToString> {
 }
 
 implement ToString for array<'a ToString> {
-    func to_string(arr) {
-        func helper(arr, idx) {
+    fn to_string(arr) {
+        fn helper(arr, idx) {
             let l = array_length(arr)
             if idx = l {
                 ""
@@ -278,37 +278,37 @@ implement ToString for array<'a ToString> {
     }
 }
 
-func len(arr: array<'a>) -> int { 
+fn len(arr: array<'a>) -> int { 
     array_length(arr)
 }
 
-func append(arr: array<'a>, x: 'a) -> void { 
+fn append(arr: array<'a>, x: 'a) -> void { 
     array_append(arr, x)
 }
 
-func print(x: 'b ToString) { print_string(to_string(x)) }
-func println(x: 'b ToString) {
+fn print(x: 'b ToString) { print_string(to_string(x)) }
+fn println(x: 'b ToString) {
     print_string(to_string(x) & newline)
 }
 
-func range(lo: int, hi: int) {
+fn range(lo: int, hi: int) {
     if lo > hi
         nil
     else
         cons(lo, range(lo + 1, hi))
 }
 
-func fold(xs: list<'b>, f: ('a, 'b) -> 'a, acc: 'a) -> 'a {
+fn fold(xs: list<'b>, f: ('a, 'b) -> 'a, acc: 'a) -> 'a {
     match xs {
         nil -> acc
         cons (~head, ~tail) -> fold(tail, f, f(acc, head))
     }
 }
 
-func sum(xs: list<int>) -> int { fold(xs, (a, b) -> a + b, 0) }
-func sumf(xs: list<float>) -> float { fold(xs, (a, b) -> a + b, 0.0) }
+fn sum(xs: list<int>) -> int { fold(xs, (a, b) -> a + b, 0) }
+fn sumf(xs: list<float>) -> float { fold(xs, (a, b) -> a + b, 0.0) }
 
-func concat(xs: list<string>, sep: string) -> string {
+fn concat(xs: list<string>, sep: string) -> string {
     match xs {
         nil -> ""
         cons (~head, cons(~last, nil)) -> {
@@ -320,14 +320,14 @@ func concat(xs: list<string>, sep: string) -> string {
     }
 }
 
-func map(xs: list<'a>, f: 'a -> 'b) -> list<'b> {
+fn map(xs: list<'a>, f: 'a -> 'b) -> list<'b> {
     match xs {
         nil -> nil
         cons (~head, ~tail) -> cons(f(head), map(tail, f))
     }
 }
 
-func for_each(xs: list<'a>, f: 'a -> 'b) -> void {
+fn for_each(xs: list<'a>, f: 'a -> 'b) -> void {
     match xs {
         nil -> ()
         cons (~head, ~tail) -> {
@@ -337,7 +337,7 @@ func for_each(xs: list<'a>, f: 'a -> 'b) -> void {
     }
 }
 
-func filter(xs: list<'a>, f: 'a -> bool) -> list<'a> {
+fn filter(xs: list<'a>, f: 'a -> bool) -> list<'a> {
     match xs {
         nil -> nil
         cons (~head, ~tail) ->
@@ -345,7 +345,7 @@ func filter(xs: list<'a>, f: 'a -> bool) -> list<'a> {
     }
 }
 
-func reverse(xs: list<'c>) -> list<'c> {
+fn reverse(xs: list<'c>) -> list<'c> {
     fold(xs, (acc, head) -> cons(head, acc), nil)
 }
 

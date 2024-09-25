@@ -61,7 +61,7 @@ println("Enter you favorite color: ")
 user.color <- readline()
 println(user.name & "'s favorite color is " & user.color)
 
-func fib(n) {
+fn fib(n) {
     match n {
         0 -> 0
         1 -> 1

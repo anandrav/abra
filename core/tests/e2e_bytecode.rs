@@ -7,7 +7,7 @@ use abra_core::vm::Vm;
 #[test]
 fn arithmetic() {
     let src = r#"
-func subtract(x, y) {
+fn subtract(x, y) {
   x - y
 }
 let x = 3
@@ -28,7 +28,7 @@ h
 #[test]
 fn tuples() {
     let src = r#"
-func mk_pair(a) {
+fn mk_pair(a) {
   (a, a)
 }
 let n = 3
@@ -405,7 +405,7 @@ match xs {
 #[test]
 fn recursive_identity_function() {
     let src = r#"
-func r(n) {
+fn r(n) {
     match n {
         0 -> 0
         _ -> 1 + r(n-1)
@@ -429,7 +429,7 @@ r(2)
 #[test]
 fn fib_naive() {
     let src = r#"
-func fib(n) {
+fn fib(n) {
     match n {
         0 -> 0
         1 -> 1
@@ -615,7 +615,7 @@ fn list_literal_total() {
     let src = r#"
 let xs = [| 1, 2, 3 |]
 
-func total(xs) {
+fn total(xs) {
     match xs {
       cons(~x, ~xs) -> x + total(xs)
       nil -> 0
@@ -643,7 +643,7 @@ fn parametric_polymorphic_func() {
 let nums = [| 1, 2, 3 |]
 let bools = [| true, false, true, true, false |]
 
-func list_len(xs) {
+fn list_len(xs) {
     match xs {
       cons(_, ~xs) -> 1 + list_len(xs)
       nil -> 0
@@ -843,7 +843,7 @@ x
 #[test]
 fn entry_point() {
     let src = r#"
-func main() {
+fn main() {
     print_string("hello world")
 }
 
@@ -864,7 +864,7 @@ func main() {
 #[test]
 fn entry_point_with_args() {
     let src = r#"
-func main(x, y) {
+fn main(x, y) {
     x + y
 }
 

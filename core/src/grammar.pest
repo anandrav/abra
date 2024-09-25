@@ -39,7 +39,7 @@ var_keyword = _{ "var" }
 set_statement = { expression ~ "<-" ~ expression }
 
 let_func_statement = { func_keyword ~ identifier ~ func_args ~ func_out_annotation? ~ (block_expression | (op_assign ~ expression)) }
-func_keyword = _{ "func" }
+func_keyword = _{ "fn" }
 
 let_pattern_tuple = { tuple_start ~ (let_pattern_tuple_element ~ ",")+ ~ let_pattern_tuple_element ~ tuple_end }
 let_pattern_tuple_element = _{ let_pattern }
@@ -169,7 +169,7 @@ op_access = { "." }
 // NOTE: When changing this code, make sure you don't have a subset of a word before
 // another word. For example: { "type" | "typeof" } will never match "typeof"
 keyword = @{
-   "and" | "bool" | "else" | "false" | "func" | "let" | "if" | "int" | "match" | "mod" | "or" | "set" | "string" | "type" | "nothing" | "true" | "void"
+   "and" | "bool" | "else" | "false" | "fn" | "let" | "if" | "int" | "match" | "mod" | "or" | "set" | "string" | "type" | "nothing" | "true" | "void"
 }
 
 semicolon = _{ ";" }
