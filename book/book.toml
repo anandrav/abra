@@ -1,0 +1,6 @@
+[book]
+authors = ["Anand Dukkipati"]
+language = "en"
+multilingual = false
+src = "src"
+title = "The Abra Programming Language"
