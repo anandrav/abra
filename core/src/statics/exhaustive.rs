@@ -5,41 +5,41 @@ use std::collections::HashSet;
 use std::fmt::{self};
 use std::rc::Rc;
 
-use super::{InferenceContext, SolvedType};
+use super::{SolvedType, StaticsContext};
 
-pub fn check_pattern_exhaustiveness_toplevel(inf_ctx: &mut InferenceContext, toplevel: &Toplevel) {
+pub fn check_pattern_exhaustiveness_toplevel(statics: &mut StaticsContext, toplevel: &Toplevel) {
     for statement in toplevel.statements.iter() {
-        check_pattern_exhaustiveness_stmt(inf_ctx, statement);
+        check_pattern_exhaustiveness_stmt(statics, statement);
     }
 }
 
-fn check_pattern_exhaustiveness_stmt(inf_ctx: &mut InferenceContext, stmt: &Stmt) {
+fn check_pattern_exhaustiveness_stmt(statics: &mut StaticsContext, stmt: &Stmt) {
     match &*stmt.stmtkind {
         StmtKind::InterfaceDef(..) => {}
         StmtKind::TypeDef(..) => {}
         StmtKind::InterfaceImpl(_, _, stmts) => {
             for stmt in stmts {
-                check_pattern_exhaustiveness_stmt(inf_ctx, stmt);
+                check_pattern_exhaustiveness_stmt(statics, stmt);
             }
         }
         StmtKind::Set(_, expr) => {
-            check_pattern_exhaustiveness_expr(inf_ctx, expr);
+            check_pattern_exhaustiveness_expr(statics, expr);
         }
         StmtKind::Let(_, _, expr) => {
-            check_pattern_exhaustiveness_expr(inf_ctx, expr);
+            check_pattern_exhaustiveness_expr(statics, expr);
         }
         StmtKind::FuncDef(_, _, _, body) => {
-            check_pattern_exhaustiveness_expr(inf_ctx, body);
+            check_pattern_exhaustiveness_expr(statics, body);
         }
         StmtKind::Expr(expr) => {
-            check_pattern_exhaustiveness_expr(inf_ctx, expr);
+            check_pattern_exhaustiveness_expr(statics, expr);
         }
     }
 }
 
-fn check_pattern_exhaustiveness_expr(inf_ctx: &mut InferenceContext, expr: &Expr) {
+fn check_pattern_exhaustiveness_expr(statics: &mut StaticsContext, expr: &Expr) {
     match &*expr.exprkind {
-        ExprKind::Match(..) => match_expr_exhaustive_check(inf_ctx, expr),
+        ExprKind::Match(..) => match_expr_exhaustive_check(statics, expr),
 
         ExprKind::Unit
         | ExprKind::Int(_)
@@ -49,54 +49,54 @@ fn check_pattern_exhaustiveness_expr(inf_ctx: &mut InferenceContext, expr: &Expr
         | ExprKind::Var { .. } => {}
         ExprKind::List(exprs) => {
             for expr in exprs {
-                check_pattern_exhaustiveness_expr(inf_ctx, expr);
+                check_pattern_exhaustiveness_expr(statics, expr);
             }
         }
         ExprKind::Array(exprs) => {
             for expr in exprs {
-                check_pattern_exhaustiveness_expr(inf_ctx, expr);
+                check_pattern_exhaustiveness_expr(statics, expr);
             }
         }
         ExprKind::BinOp(left, _op, right) => {
-            check_pattern_exhaustiveness_expr(inf_ctx, left);
-            check_pattern_exhaustiveness_expr(inf_ctx, right);
+            check_pattern_exhaustiveness_expr(statics, left);
+            check_pattern_exhaustiveness_expr(statics, right);
         }
         ExprKind::Block(statements) => {
             for statement in statements {
-                check_pattern_exhaustiveness_stmt(inf_ctx, statement);
+                check_pattern_exhaustiveness_stmt(statics, statement);
             }
         }
         ExprKind::If(e1, e2, e3) => {
-            check_pattern_exhaustiveness_expr(inf_ctx, e1);
-            check_pattern_exhaustiveness_expr(inf_ctx, e2);
+            check_pattern_exhaustiveness_expr(statics, e1);
+            check_pattern_exhaustiveness_expr(statics, e2);
             if let Some(e3) = e3 {
-                check_pattern_exhaustiveness_expr(inf_ctx, e3);
+                check_pattern_exhaustiveness_expr(statics, e3);
             }
         }
         ExprKind::WhileLoop(cond, expr) => {
-            check_pattern_exhaustiveness_expr(inf_ctx, cond);
-            check_pattern_exhaustiveness_expr(inf_ctx, expr);
+            check_pattern_exhaustiveness_expr(statics, cond);
+            check_pattern_exhaustiveness_expr(statics, expr);
         }
         ExprKind::Func(_args, _out_annot, body) => {
-            check_pattern_exhaustiveness_expr(inf_ctx, body);
+            check_pattern_exhaustiveness_expr(statics, body);
         }
         ExprKind::FuncAp(func, args) => {
-            check_pattern_exhaustiveness_expr(inf_ctx, func);
+            check_pattern_exhaustiveness_expr(statics, func);
             for arg in args {
-                check_pattern_exhaustiveness_expr(inf_ctx, arg);
+                check_pattern_exhaustiveness_expr(statics, arg);
             }
         }
         ExprKind::Tuple(exprs) => {
             for expr in exprs {
-                check_pattern_exhaustiveness_expr(inf_ctx, expr);
+                check_pattern_exhaustiveness_expr(statics, expr);
             }
         }
         ExprKind::FieldAccess(expr, _) => {
-            check_pattern_exhaustiveness_expr(inf_ctx, expr);
+            check_pattern_exhaustiveness_expr(statics, expr);
         }
         ExprKind::IndexAccess(expr, index) => {
-            check_pattern_exhaustiveness_expr(inf_ctx, expr);
-            check_pattern_exhaustiveness_expr(inf_ctx, index);
+            check_pattern_exhaustiveness_expr(statics, expr);
+            check_pattern_exhaustiveness_expr(statics, index);
         }
     }
 }
@@ -110,11 +110,11 @@ struct Matrix {
 }
 
 impl Matrix {
-    fn new(inf_ctx: &InferenceContext, scrutinee_ty: SolvedType, arms: &[MatchArm]) -> Self {
+    fn new(statics: &StaticsContext, scrutinee_ty: SolvedType, arms: &[MatchArm]) -> Self {
         let types = vec![scrutinee_ty.clone()];
         let mut rows = Vec::new();
         for (dummy, arm) in arms.iter().enumerate() {
-            let pats = vec![DeconstructedPat::from_ast_pat(inf_ctx, arm.pat.clone())];
+            let pats = vec![DeconstructedPat::from_ast_pat(statics, arm.pat.clone())];
             rows.push(MatrixRow {
                 pats,
                 parent_row: dummy,
@@ -135,7 +135,7 @@ impl Matrix {
         &self,
         ctor: &Constructor,
         ctor_arity: usize,
-        inf_ctx: &InferenceContext,
+        statics: &StaticsContext,
     ) -> Matrix {
         let mut new_types = Vec::new();
         match ctor {
@@ -152,7 +152,7 @@ impl Matrix {
                 _ => panic!("unexpected type for product constructor"),
             },
             Constructor::Variant(ident) => {
-                let adt = inf_ctx.adt_def_of_variant(ident).unwrap();
+                let adt = statics.adt_def_of_variant(ident).unwrap();
                 let variant = adt.variants.iter().find(|v| v.ctor == *ident).unwrap();
                 let data_ty = variant.data.solution().unwrap();
                 match data_ty {
@@ -180,7 +180,7 @@ impl Matrix {
                 panic!("no pats in row");
             }
             if ctor.is_covered_by(&row.head().ctor) {
-                let new_row = row.pop_head(ctor, ctor_arity, i, inf_ctx);
+                let new_row = row.pop_head(ctor, ctor_arity, i, statics);
                 new_matrix.rows.push(new_row);
             }
         }
@@ -234,7 +234,7 @@ impl MatrixRow {
         other_ctor: &Constructor,
         arity: usize,
         parent_row: usize,
-        inf_ctx: &InferenceContext,
+        statics: &StaticsContext,
     ) -> MatrixRow {
         if self.pats.is_empty() {
             panic!("no pats in row");
@@ -242,7 +242,7 @@ impl MatrixRow {
 
         let head_pat = self.head();
 
-        let mut new_pats = head_pat.specialize(other_ctor, arity, inf_ctx);
+        let mut new_pats = head_pat.specialize(other_ctor, arity, statics);
 
         new_pats.extend_from_slice(&self.pats[1..]);
         MatrixRow {
@@ -261,8 +261,8 @@ pub(crate) struct DeconstructedPat {
 }
 
 impl DeconstructedPat {
-    fn from_ast_pat(inf_ctx: &InferenceContext, pat: Rc<Pat>) -> Self {
-        let ty = inf_ctx.solution_of_node(pat.id).unwrap();
+    fn from_ast_pat(statics: &StaticsContext, pat: Rc<Pat>) -> Self {
+        let ty = statics.solution_of_node(pat.id).unwrap();
         let mut fields = vec![];
         let ctor = match &*pat.patkind {
             PatKind::Wildcard => Constructor::Wildcard(WildcardReason::UserCreated),
@@ -275,14 +275,14 @@ impl DeconstructedPat {
             PatKind::Tuple(pats) => {
                 fields = pats
                     .iter()
-                    .map(|pat| DeconstructedPat::from_ast_pat(inf_ctx, pat.clone()))
+                    .map(|pat| DeconstructedPat::from_ast_pat(statics, pat.clone()))
                     .collect();
                 Constructor::Product
             }
             PatKind::Variant(ident, pats) => {
                 fields = pats
                     .iter()
-                    .map(|pat| DeconstructedPat::from_ast_pat(inf_ctx, pat.clone()))
+                    .map(|pat| DeconstructedPat::from_ast_pat(statics, pat.clone()))
                     .collect();
                 Constructor::Variant(ident.clone())
             }
@@ -294,11 +294,11 @@ impl DeconstructedPat {
         &self,
         other_ctor: &Constructor,
         arity: usize,
-        inf_ctx: &InferenceContext,
+        statics: &StaticsContext,
     ) -> Vec<DeconstructedPat> {
         match &self.ctor {
             Constructor::Wildcard(_) => {
-                let field_tys = self.field_tys(other_ctor, inf_ctx);
+                let field_tys = self.field_tys(other_ctor, statics);
                 (0..arity)
                     .map(|i| DeconstructedPat {
                         ctor: Constructor::Wildcard(WildcardReason::MatrixSpecialization),
@@ -311,7 +311,7 @@ impl DeconstructedPat {
         }
     }
 
-    fn field_tys(&self, ctor: &Constructor, inf_ctx: &InferenceContext) -> Vec<SolvedType> {
+    fn field_tys(&self, ctor: &Constructor, statics: &StaticsContext) -> Vec<SolvedType> {
         match &self.ty {
             SolvedType::Int
             | SolvedType::Float
@@ -323,7 +323,7 @@ impl DeconstructedPat {
             SolvedType::Tuple(tys) => tys.clone(),
             SolvedType::UdtInstance(_, _) => match ctor {
                 Constructor::Variant(ident) => {
-                    let adt = inf_ctx.adt_def_of_variant(ident).unwrap();
+                    let adt = statics.adt_def_of_variant(ident).unwrap();
                     let variant = adt.variants.iter().find(|v| v.ctor == *ident).unwrap();
                     if !matches!(&variant.data.solution().unwrap(), SolvedType::Unit) {
                         vec![variant.data.solution().unwrap().clone()]
@@ -435,7 +435,7 @@ impl Constructor {
         }
     }
 
-    fn arity(&self, matrix_tys: &[SolvedType], inf_ctx: &InferenceContext) -> usize {
+    fn arity(&self, matrix_tys: &[SolvedType], statics: &StaticsContext) -> usize {
         match self {
             Constructor::Bool(..)
             | Constructor::Int(..)
@@ -448,7 +448,7 @@ impl Constructor {
                 _ => panic!("unexpected type for product constructor: {}", matrix_tys[0]),
             },
             Constructor::Variant(ident) => {
-                let adt = inf_ctx.adt_def_of_variant(ident).unwrap();
+                let adt = statics.adt_def_of_variant(ident).unwrap();
                 let variant = adt.variants.iter().find(|v| v.ctor == *ident).unwrap();
                 if !matches!(&variant.data.solution().unwrap(), SolvedType::Unit) {
                     1
@@ -635,23 +635,23 @@ impl ConstructorSet {
 }
 
 // identify missing and extra constructors in patterns
-fn match_expr_exhaustive_check(inf_ctx: &mut InferenceContext, expr: &Expr) {
+fn match_expr_exhaustive_check(statics: &mut StaticsContext, expr: &Expr) {
     let ExprKind::Match(scrutiny, arms) = &*expr.exprkind else {
         panic!()
     };
 
-    let scrutinee_ty = inf_ctx.solution_of_node(scrutiny.id);
+    let scrutinee_ty = statics.solution_of_node(scrutiny.id);
     let Some(scrutinee_ty) = scrutinee_ty else {
         return;
     };
 
-    let mut matrix = Matrix::new(inf_ctx, scrutinee_ty, arms);
+    let mut matrix = Matrix::new(statics, scrutinee_ty, arms);
 
-    let witness_matrix = compute_exhaustiveness_and_usefulness(inf_ctx, &mut matrix);
+    let witness_matrix = compute_exhaustiveness_and_usefulness(statics, &mut matrix);
 
     let witness_patterns = witness_matrix.first_column();
     if !witness_patterns.is_empty() {
-        inf_ctx
+        statics
             .nonexhaustive_matches
             .insert(expr.id, witness_patterns);
     }
@@ -671,13 +671,13 @@ fn match_expr_exhaustive_check(inf_ctx: &mut InferenceContext, expr: &Expr) {
         }
     }));
     if !redundant_arms.is_empty() {
-        inf_ctx.redundant_matches.insert(expr.id, redundant_arms);
+        statics.redundant_matches.insert(expr.id, redundant_arms);
     }
 }
 
 // here's where the actual match usefulness algorithm goes
 fn compute_exhaustiveness_and_usefulness(
-    inf_ctx: &InferenceContext,
+    statics: &StaticsContext,
     matrix: &mut Matrix,
 ) -> WitnessMatrix {
     // base case
@@ -710,7 +710,7 @@ fn compute_exhaustiveness_and_usefulness(
         .map(|pat| pat.ctor)
         .collect();
 
-    let ctors_for_ty = ctors_for_ty(inf_ctx, &head_ty);
+    let ctors_for_ty = ctors_for_ty(statics, &head_ty);
     let SplitConstructorSet {
         mut present_ctors,
         missing_ctors,
@@ -722,11 +722,11 @@ fn compute_exhaustiveness_and_usefulness(
     }
 
     for ctor in present_ctors {
-        let ctor_arity = ctor.arity(&matrix.types, inf_ctx);
+        let ctor_arity = ctor.arity(&matrix.types, statics);
 
-        let mut specialized_matrix = matrix.specialize(&ctor, ctor_arity, inf_ctx);
+        let mut specialized_matrix = matrix.specialize(&ctor, ctor_arity, statics);
 
-        let mut witnesses = compute_exhaustiveness_and_usefulness(inf_ctx, &mut specialized_matrix);
+        let mut witnesses = compute_exhaustiveness_and_usefulness(statics, &mut specialized_matrix);
 
         if ctor.is_wildcard_nonexhaustive() {
             // special constructor representing cases not listed by user
@@ -743,11 +743,11 @@ fn compute_exhaustiveness_and_usefulness(
     ret_witnesses
 }
 
-fn ctors_for_ty(inf_ctx: &InferenceContext, ty: &SolvedType) -> ConstructorSet {
+fn ctors_for_ty(statics: &StaticsContext, ty: &SolvedType) -> ConstructorSet {
     match ty {
         SolvedType::Bool => ConstructorSet::Bool,
         SolvedType::UdtInstance(ident, _) => {
-            let variants = inf_ctx.variants_of_adt(ident);
+            let variants = statics.variants_of_adt(ident);
             ConstructorSet::AdtVariants(variants)
         }
         SolvedType::Tuple(..) => ConstructorSet::Product,

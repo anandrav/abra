@@ -74,7 +74,7 @@ impl TypeVarData {
         Self { types }
     }
 
-    pub(crate) fn solution(&self) -> Option<SolvedType> {
+    fn solution(&self) -> Option<SolvedType> {
         if self.types.len() == 1 {
             self.types.values().next().unwrap().solution()
         } else {
@@ -394,7 +394,7 @@ pub(crate) enum Prov {
 impl Prov {
     // TODO: Can we make this not Optional? Only reason it would fail is if the last prov in the chain is a builtin
     // TODO: remove Builtin prov for this reason, defeats the purpose. Builtins should be declared in the PRELUDE, and that declaration will be the Prov.
-    pub(crate) fn get_location(&self) -> Option<NodeId> {
+    fn get_location(&self) -> Option<NodeId> {
         match self {
             Prov::Node(id) => Some(*id),
             Prov::Builtin(_) => None,
@@ -417,7 +417,7 @@ impl Prov {
 }
 
 impl PotentialType {
-    pub(crate) fn key(&self) -> TypeKey {
+    fn key(&self) -> TypeKey {
         match self {
             PotentialType::Poly(_, _, _) => TypeKey::Poly,
             PotentialType::Unit(_) => TypeKey::Unit,
@@ -433,7 +433,7 @@ impl PotentialType {
         }
     }
 
-    pub(crate) fn solution(&self) -> Option<SolvedType> {
+    fn solution(&self) -> Option<SolvedType> {
         match self {
             Self::Bool(_) => Some(SolvedType::Bool),
             Self::Int(_) => Some(SolvedType::Int),
@@ -480,7 +480,7 @@ impl PotentialType {
         }
     }
 
-    pub(crate) fn provs(&self) -> &Provs {
+    fn provs(&self) -> &Provs {
         match self {
             Self::Poly(provs, _, _)
             | Self::Unit(provs)
@@ -494,63 +494,50 @@ impl PotentialType {
         }
     }
 
-    pub(crate) fn make_unit(prov: Prov) -> PotentialType {
+    fn make_unit(prov: Prov) -> PotentialType {
         PotentialType::Unit(provs_singleton(prov))
     }
 
-    pub(crate) fn make_int(prov: Prov) -> PotentialType {
+    fn make_int(prov: Prov) -> PotentialType {
         PotentialType::Int(provs_singleton(prov))
     }
 
-    pub(crate) fn make_float(prov: Prov) -> PotentialType {
+    fn make_float(prov: Prov) -> PotentialType {
         PotentialType::Float(provs_singleton(prov))
     }
 
-    pub(crate) fn make_bool(prov: Prov) -> PotentialType {
+    fn make_bool(prov: Prov) -> PotentialType {
         PotentialType::Bool(provs_singleton(prov))
     }
 
-    pub(crate) fn make_string(prov: Prov) -> PotentialType {
+    fn make_string(prov: Prov) -> PotentialType {
         PotentialType::String(provs_singleton(prov))
     }
 
-    pub(crate) fn make_func(args: Vec<TypeVar>, out: TypeVar, prov: Prov) -> PotentialType {
+    fn make_func(args: Vec<TypeVar>, out: TypeVar, prov: Prov) -> PotentialType {
         PotentialType::Function(provs_singleton(prov), args, out)
     }
 
-    pub(crate) fn make_tuple(elems: Vec<TypeVar>, prov: Prov) -> PotentialType {
+    fn make_tuple(elems: Vec<TypeVar>, prov: Prov) -> PotentialType {
         PotentialType::Tuple(provs_singleton(prov), elems)
     }
 
-    pub(crate) fn make_poly(prov: Prov, ident: String, interfaces: Vec<String>) -> PotentialType {
+    fn make_poly(prov: Prov, ident: String, interfaces: Vec<String>) -> PotentialType {
         PotentialType::Poly(provs_singleton(prov), ident, interfaces)
     }
 
-    pub(crate) fn make_poly_constrained(
-        prov: Prov,
-        ident: String,
-        interface_ident: String,
-    ) -> PotentialType {
+    fn make_poly_constrained(prov: Prov, ident: String, interface_ident: String) -> PotentialType {
         PotentialType::Poly(provs_singleton(prov), ident, vec![interface_ident])
     }
 
-    pub(crate) fn make_def_instance(
-        prov: Prov,
-        ident: String,
-        params: Vec<TypeVar>,
-    ) -> PotentialType {
+    fn make_def_instance(prov: Prov, ident: String, params: Vec<TypeVar>) -> PotentialType {
         PotentialType::UdtInstance(provs_singleton(prov), ident, params)
     }
 }
 
 impl TypeVar {
     // Creates a clone of a Type with polymorphic variables not in scope with fresh unification variables
-    pub(crate) fn instantiate(
-        self,
-        gamma: Gamma,
-        inf_ctx: &mut InferenceContext,
-        prov: Prov,
-    ) -> TypeVar {
+    fn instantiate(self, gamma: Gamma, statics: &mut StaticsContext, prov: Prov) -> TypeVar {
         let data = self.0.clone_data();
         if data.types.len() != 1 {
             return self;
@@ -567,14 +554,14 @@ impl TypeVar {
             PotentialType::Poly(_, ref ident, ref interfaces) => {
                 if !gamma.lookup_poly(ident) {
                     let ret = TypeVar::fresh(
-                        inf_ctx,
+                        statics,
                         Prov::InstantiatePoly(Box::new(prov.clone()), ident.clone()),
                     );
                     let mut extension = Vec::new();
                     for i in interfaces {
                         extension.push((i.clone(), prov.clone()));
                     }
-                    inf_ctx
+                    statics
                         .types_constrained_to_interfaces
                         .entry(ret.clone())
                         .or_default()
@@ -587,22 +574,22 @@ impl TypeVar {
             PotentialType::UdtInstance(provs, ident, params) => {
                 let params = params
                     .into_iter()
-                    .map(|ty| ty.instantiate(gamma.clone(), inf_ctx, prov.clone()))
+                    .map(|ty| ty.instantiate(gamma.clone(), statics, prov.clone()))
                     .collect();
                 PotentialType::UdtInstance(provs, ident, params)
             }
             PotentialType::Function(provs, args, out) => {
                 let args = args
                     .into_iter()
-                    .map(|ty| ty.instantiate(gamma.clone(), inf_ctx, prov.clone()))
+                    .map(|ty| ty.instantiate(gamma.clone(), statics, prov.clone()))
                     .collect();
-                let out = out.instantiate(gamma.clone(), inf_ctx, prov.clone());
+                let out = out.instantiate(gamma.clone(), statics, prov.clone());
                 PotentialType::Function(provs, args, out)
             }
             PotentialType::Tuple(provs, elems) => {
                 let elems = elems
                     .into_iter()
-                    .map(|ty| ty.instantiate(gamma.clone(), inf_ctx, prov.clone()))
+                    .map(|ty| ty.instantiate(gamma.clone(), statics, prov.clone()))
                     .collect();
                 PotentialType::Tuple(provs, elems)
             }
@@ -611,17 +598,12 @@ impl TypeVar {
         types.insert(ty.key(), ty);
         let data_instantiated = TypeVarData { types };
         let tvar = TypeVar(UnionFindNode::new(data_instantiated));
-        inf_ctx.vars.insert(prov, tvar.clone());
+        statics.vars.insert(prov, tvar.clone());
         tvar
     }
 
     // Creates a *new* Type with polymorphic variabels replaced by subtitutions
-    pub(crate) fn subst(
-        self,
-        gamma: Gamma,
-        prov: Prov,
-        substitution: &BTreeMap<Symbol, TypeVar>,
-    ) -> TypeVar {
+    fn subst(self, gamma: Gamma, prov: Prov, substitution: &BTreeMap<Symbol, TypeVar>) -> TypeVar {
         let data = self.0.clone_data();
         if data.types.len() == 1 {
             let ty = data.types.into_values().next().unwrap();
@@ -673,17 +655,17 @@ impl TypeVar {
         }
     }
 
-    pub(crate) fn from_node(inf_ctx: &mut InferenceContext, id: NodeId) -> TypeVar {
+    fn from_node(statics: &mut StaticsContext, id: NodeId) -> TypeVar {
         let prov = Prov::Node(id);
-        Self::fresh(inf_ctx, prov)
+        Self::fresh(statics, prov)
     }
 
-    pub(crate) fn fresh(inf_ctx: &mut InferenceContext, prov: Prov) -> TypeVar {
-        match inf_ctx.vars.get(&prov) {
+    fn fresh(statics: &mut StaticsContext, prov: Prov) -> TypeVar {
+        match statics.vars.get(&prov) {
             Some(ty) => ty.clone(),
             None => {
                 let ty = TypeVar(UnionFindNode::new(TypeVarData::new()));
-                inf_ctx.vars.insert(prov, ty.clone());
+                statics.vars.insert(prov, ty.clone());
                 ty
             }
         }
@@ -693,43 +675,39 @@ impl TypeVar {
         TypeVar(UnionFindNode::new(TypeVarData::singleton(potential_type)))
     }
 
-    pub(crate) fn make_unit(prov: Prov) -> TypeVar {
+    fn make_unit(prov: Prov) -> TypeVar {
         Self::orphan(PotentialType::make_unit(prov))
     }
 
-    pub(crate) fn make_int(prov: Prov) -> TypeVar {
+    fn make_int(prov: Prov) -> TypeVar {
         Self::orphan(PotentialType::make_int(prov))
     }
 
-    pub(crate) fn make_float(prov: Prov) -> TypeVar {
+    fn make_float(prov: Prov) -> TypeVar {
         Self::orphan(PotentialType::make_float(prov))
     }
 
-    pub(crate) fn make_bool(prov: Prov) -> TypeVar {
+    fn make_bool(prov: Prov) -> TypeVar {
         Self::orphan(PotentialType::make_bool(prov))
     }
 
-    pub(crate) fn make_string(prov: Prov) -> TypeVar {
+    fn make_string(prov: Prov) -> TypeVar {
         Self::orphan(PotentialType::make_string(prov))
     }
 
-    pub(crate) fn make_func(args: Vec<TypeVar>, out: TypeVar, prov: Prov) -> TypeVar {
+    fn make_func(args: Vec<TypeVar>, out: TypeVar, prov: Prov) -> TypeVar {
         Self::orphan(PotentialType::make_func(args, out, prov))
     }
 
-    pub(crate) fn make_tuple(elems: Vec<TypeVar>, prov: Prov) -> TypeVar {
+    fn make_tuple(elems: Vec<TypeVar>, prov: Prov) -> TypeVar {
         Self::orphan(PotentialType::make_tuple(elems, prov))
     }
 
-    pub(crate) fn make_poly(prov: Prov, ident: String, interfaces: Vec<String>) -> TypeVar {
+    fn make_poly(prov: Prov, ident: String, interfaces: Vec<String>) -> TypeVar {
         Self::orphan(PotentialType::make_poly(prov, ident, interfaces))
     }
 
-    pub(crate) fn make_poly_constrained(
-        prov: Prov,
-        ident: String,
-        interface_ident: String,
-    ) -> TypeVar {
+    fn make_poly_constrained(prov: Prov, ident: String, interface_ident: String) -> TypeVar {
         Self::orphan(PotentialType::make_poly_constrained(
             prov,
             ident,
@@ -737,14 +715,14 @@ impl TypeVar {
         ))
     }
 
-    pub(crate) fn make_def_instance(prov: Prov, ident: String, params: Vec<TypeVar>) -> TypeVar {
+    fn make_def_instance(prov: Prov, ident: String, params: Vec<TypeVar>) -> TypeVar {
         Self::orphan(PotentialType::make_def_instance(prov, ident, params))
     }
 
     // return true if the type is an adt with at least one parameter instantiated
     // this is used to see if an implementation of an interface is for an instantiated adt, which is not allowed
     // example: implement ToString for list<int> rather than list<'a>
-    pub(crate) fn is_instantiated_adt(&self) -> bool {
+    fn is_instantiated_adt(&self) -> bool {
         let Some(ty) = self.single() else {
             return false;
         };
@@ -757,7 +735,7 @@ impl TypeVar {
         }
     }
 
-    pub(crate) fn underdetermined(&self) -> bool {
+    fn underdetermined(&self) -> bool {
         self.0.with_data(|data| data.types.is_empty())
     }
 }
@@ -820,7 +798,7 @@ fn types_of_binop(opcode: &BinOpcode, id: NodeId) -> (TypeVar, TypeVar, TypeVar)
 }
 
 fn ast_type_to_statics_type_interface(
-    inf_ctx: &mut InferenceContext,
+    statics: &mut StaticsContext,
     ast_type: Rc<AstType>,
     interface_ident: Option<&String>,
 ) -> TypeVar {
@@ -837,10 +815,10 @@ fn ast_type_to_statics_type_interface(
                         interface_ident.clone(),
                     )
                 } else {
-                    TypeVar::fresh(inf_ctx, Prov::Alias(ident.clone()))
+                    TypeVar::fresh(statics, Prov::Alias(ident.clone()))
                 }
             } else {
-                TypeVar::fresh(inf_ctx, Prov::Alias(ident.clone()))
+                TypeVar::fresh(statics, Prov::Alias(ident.clone()))
             }
         }
         TypeKind::Ap(ident, params) => TypeVar::make_def_instance(
@@ -849,7 +827,7 @@ fn ast_type_to_statics_type_interface(
             params
                 .iter()
                 .map(|param| {
-                    ast_type_to_statics_type_interface(inf_ctx, param.clone(), interface_ident)
+                    ast_type_to_statics_type_interface(statics, param.clone(), interface_ident)
                 })
                 .collect(),
         ),
@@ -860,16 +838,16 @@ fn ast_type_to_statics_type_interface(
         TypeKind::Str => TypeVar::make_string(Prov::Node(ast_type.id())),
         TypeKind::Function(lhs, rhs) => TypeVar::make_func(
             lhs.iter()
-                .map(|t| ast_type_to_statics_type_interface(inf_ctx, t.clone(), interface_ident))
+                .map(|t| ast_type_to_statics_type_interface(statics, t.clone(), interface_ident))
                 .collect(),
-            ast_type_to_statics_type_interface(inf_ctx, rhs.clone(), interface_ident),
+            ast_type_to_statics_type_interface(statics, rhs.clone(), interface_ident),
             Prov::Node(ast_type.id()),
         ),
         TypeKind::Tuple(types) => {
             let mut statics_types = Vec::new();
             for t in types {
                 statics_types.push(ast_type_to_statics_type_interface(
-                    inf_ctx,
+                    statics,
                     t.clone(),
                     interface_ident,
                 ));
@@ -879,20 +857,20 @@ fn ast_type_to_statics_type_interface(
     }
 }
 
-fn ast_type_to_statics_type(inf_ctx: &mut InferenceContext, ast_type: Rc<AstType>) -> TypeVar {
-    ast_type_to_statics_type_interface(inf_ctx, ast_type, None)
+fn ast_type_to_statics_type(statics: &mut StaticsContext, ast_type: Rc<AstType>) -> TypeVar {
+    ast_type_to_statics_type_interface(statics, ast_type, None)
 }
 
 pub(crate) type Provs = RefCell<BTreeSet<Prov>>;
 
-pub(crate) fn provs_singleton(prov: Prov) -> Provs {
+fn provs_singleton(prov: Prov) -> Provs {
     let mut set = BTreeSet::new();
     set.insert(prov);
     RefCell::new(set)
 }
 
 #[derive(Default, Debug)]
-pub(crate) struct InferenceContext {
+pub(crate) struct StaticsContext {
     // effects
     effects: Vec<EffectStruct>,
 
@@ -951,28 +929,28 @@ pub(crate) struct InferenceContext {
     field_not_ident: BTreeSet<NodeId>,
 }
 
-impl InferenceContext {
+impl StaticsContext {
     pub(crate) fn new(effects: Vec<EffectStruct>) -> Self {
-        let mut inf_ctx = Self {
+        let mut statics = Self {
             effects,
             ..Default::default()
         };
 
         // TODO this string constant needs to come from builtins, not be hardcoded
-        inf_ctx.string_constants.entry("\n".into()).or_insert(0);
-        inf_ctx
+        statics.string_constants.entry("\n".into()).or_insert(0);
+        statics
     }
 
-    pub(crate) fn adt_def_of_variant(&self, variant: &Symbol) -> Option<AdtDef> {
+    fn adt_def_of_variant(&self, variant: &Symbol) -> Option<AdtDef> {
         let adt_name = self.variants_to_adt.get(variant)?;
         self.adt_defs.get(adt_name).cloned()
     }
 
-    pub(crate) fn interface_def_of_ident(&self, ident: &Symbol) -> Option<InterfaceDef> {
+    fn interface_def_of_ident(&self, ident: &Symbol) -> Option<InterfaceDef> {
         self.interface_defs.get(ident).cloned()
     }
 
-    pub(crate) fn variants_of_adt(&self, adt: &Symbol) -> Vec<Symbol> {
+    fn variants_of_adt(&self, adt: &Symbol) -> Vec<Symbol> {
         self.adt_defs
             .get(adt)
             .unwrap()
@@ -1024,19 +1002,19 @@ impl Gamma {
         }
     }
 
-    pub(crate) fn extend(&self, ident: Symbol, ty: TypeVar) {
+    fn extend(&self, ident: Symbol, ty: TypeVar) {
         self.var_to_type.extend(ident.clone(), ty);
     }
 
-    pub(crate) fn extend_declaration(&self, symbol: Symbol, resolution: Resolution) {
+    fn extend_declaration(&self, symbol: Symbol, resolution: Resolution) {
         self.var_declarations.extend(symbol, resolution);
     }
 
-    pub(crate) fn lookup_declaration(&self, symbol: &Symbol) -> Option<Resolution> {
+    fn lookup_declaration(&self, symbol: &Symbol) -> Option<Resolution> {
         self.var_declarations.lookup(symbol)
     }
 
-    pub(crate) fn add_polys(&self, ty: &TypeVar) {
+    fn add_polys(&self, ty: &TypeVar) {
         let Some(ty) = ty.single() else {
             return;
         };
@@ -1064,15 +1042,15 @@ impl Gamma {
         }
     }
 
-    pub(crate) fn lookup(&self, id: &Symbol) -> Option<TypeVar> {
+    fn lookup(&self, id: &Symbol) -> Option<TypeVar> {
         self.var_to_type.lookup(id)
     }
 
-    pub(crate) fn lookup_poly(&self, id: &Symbol) -> bool {
+    fn lookup_poly(&self, id: &Symbol) -> bool {
         self.ty_vars_in_scope.lookup(id).is_some()
     }
 
-    pub(crate) fn new_scope(&self) -> Self {
+    fn new_scope(&self) -> Self {
         Self {
             var_to_type: self.var_to_type.new_scope(),
             ty_vars_in_scope: self.ty_vars_in_scope.new_scope(),
@@ -1088,13 +1066,13 @@ pub(crate) enum Mode {
     Ana { expected: TypeVar },
 }
 
-pub(crate) fn generate_constraints_expr(
+fn generate_constraints_expr(
     gamma: Gamma,
     mode: Mode,
     expr: Rc<Expr>,
-    inf_ctx: &mut InferenceContext,
+    statics: &mut StaticsContext,
 ) {
-    let node_ty = TypeVar::from_node(inf_ctx, expr.id);
+    let node_ty = TypeVar::from_node(statics, expr.id);
     match mode {
         Mode::Syn => (),
         Mode::Ana { expected } => constrain(node_ty.clone(), expected),
@@ -1114,11 +1092,11 @@ pub(crate) fn generate_constraints_expr(
         }
         ExprKind::Str(s) => {
             constrain(node_ty, TypeVar::make_string(Prov::Node(expr.id)));
-            let len = inf_ctx.string_constants.len();
-            inf_ctx.string_constants.entry(s.clone()).or_insert(len);
+            let len = statics.string_constants.len();
+            statics.string_constants.entry(s.clone()).or_insert(len);
         }
         ExprKind::List(exprs) => {
-            let elem_ty = TypeVar::fresh(inf_ctx, Prov::ListElem(Prov::Node(expr.id).into()));
+            let elem_ty = TypeVar::fresh(statics, Prov::ListElem(Prov::Node(expr.id).into()));
             constrain(
                 node_ty,
                 TypeVar::make_def_instance(
@@ -1134,12 +1112,12 @@ pub(crate) fn generate_constraints_expr(
                         expected: elem_ty.clone(),
                     },
                     expr.clone(),
-                    inf_ctx,
+                    statics,
                 );
             }
         }
         ExprKind::Array(exprs) => {
-            let elem_ty = TypeVar::fresh(inf_ctx, Prov::ListElem(Prov::Node(expr.id).into()));
+            let elem_ty = TypeVar::fresh(statics, Prov::ListElem(Prov::Node(expr.id).into()));
             constrain(
                 node_ty,
                 TypeVar::make_def_instance(
@@ -1155,31 +1133,31 @@ pub(crate) fn generate_constraints_expr(
                         expected: elem_ty.clone(),
                     },
                     expr.clone(),
-                    inf_ctx,
+                    statics,
                 );
             }
         }
         ExprKind::Var(symbol) => {
             let lookup = gamma.lookup_declaration(symbol);
             if let Some(resolution) = lookup {
-                inf_ctx.name_resolutions.insert(expr.id, resolution);
+                statics.name_resolutions.insert(expr.id, resolution);
             }
             let lookup = gamma.lookup(symbol);
             if let Some(typ) = lookup {
                 // replace polymorphic types with unifvars if necessary
-                let typ = typ.instantiate(gamma, inf_ctx, Prov::Node(expr.id));
+                let typ = typ.instantiate(gamma, statics, Prov::Node(expr.id));
                 constrain(typ, node_ty);
                 return;
             }
             // TODO: this is incredibly hacky. No respect for scope at all... Should be added at the toplevel with Effects at the least...
-            let adt_def = inf_ctx.adt_def_of_variant(symbol);
+            let adt_def = statics.adt_def_of_variant(symbol);
             if let Some(adt_def) = adt_def {
                 let nparams = adt_def.params.len();
                 let mut params = vec![];
                 let mut substitution = BTreeMap::new();
                 for i in 0..nparams {
                     params.push(TypeVar::fresh(
-                        inf_ctx,
+                        statics,
                         Prov::InstantiateUdtParam(Box::new(Prov::Node(expr.id)), i as u8),
                     ));
                     substitution.insert(adt_def.params[i].clone(), params[i].clone());
@@ -1221,14 +1199,14 @@ pub(crate) fn generate_constraints_expr(
                 }
                 return;
             }
-            let struct_def = inf_ctx.struct_defs.get(symbol).cloned();
+            let struct_def = statics.struct_defs.get(symbol).cloned();
             if let Some(struct_def) = struct_def {
                 let nparams = struct_def.params.len();
                 let mut params = vec![];
                 let mut substitution = BTreeMap::new();
                 for i in 0..nparams {
                     params.push(TypeVar::fresh(
-                        inf_ctx,
+                        statics,
                         Prov::InstantiateUdtParam(Box::new(Prov::Node(expr.id)), i as u8),
                     ));
                     substitution.insert(struct_def.params[i].clone(), params[i].clone());
@@ -1252,27 +1230,27 @@ pub(crate) fn generate_constraints_expr(
                 );
                 return;
             }
-            inf_ctx.unbound_vars.insert(expr.id());
+            statics.unbound_vars.insert(expr.id());
         }
         ExprKind::BinOp(left, op, right) => {
             let (ty_left, ty_right, ty_out) = types_of_binop(op, expr.id);
             let (ty_left, ty_right, ty_out) = (
-                ty_left.instantiate(gamma.clone(), inf_ctx, Prov::Node(expr.id)),
-                ty_right.instantiate(gamma.clone(), inf_ctx, Prov::Node(expr.id)),
-                ty_out.instantiate(gamma.clone(), inf_ctx, Prov::Node(expr.id)),
+                ty_left.instantiate(gamma.clone(), statics, Prov::Node(expr.id)),
+                ty_right.instantiate(gamma.clone(), statics, Prov::Node(expr.id)),
+                ty_out.instantiate(gamma.clone(), statics, Prov::Node(expr.id)),
             );
             constrain(ty_out, node_ty);
             generate_constraints_expr(
                 gamma.clone(),
                 Mode::Ana { expected: ty_left },
                 left.clone(),
-                inf_ctx,
+                statics,
             );
             generate_constraints_expr(
                 gamma,
                 Mode::Ana { expected: ty_right },
                 right.clone(),
-                inf_ctx,
+                statics,
             );
         }
         ExprKind::Block(statements) => {
@@ -1286,7 +1264,7 @@ pub(crate) fn generate_constraints_expr(
                     new_gamma.clone(),
                     Mode::Syn,
                     statement.clone(),
-                    inf_ctx,
+                    statics,
                     true,
                 );
             }
@@ -1296,14 +1274,14 @@ pub(crate) fn generate_constraints_expr(
                     new_gamma,
                     Mode::Ana { expected: node_ty },
                     terminal_expr.clone(),
-                    inf_ctx,
+                    statics,
                 )
             } else {
                 generate_constraints_stmt(
                     new_gamma,
                     Mode::Syn,
                     statements.last().unwrap().clone(),
-                    inf_ctx,
+                    statics,
                     true,
                 );
                 constrain(node_ty, TypeVar::make_unit(Prov::Node(expr.id)))
@@ -1316,7 +1294,7 @@ pub(crate) fn generate_constraints_expr(
                     expected: TypeVar::make_bool(Prov::Node(cond.id)),
                 },
                 cond.clone(),
-                inf_ctx,
+                statics,
             );
             match &expr2 {
                 // if-else
@@ -1327,13 +1305,13 @@ pub(crate) fn generate_constraints_expr(
                             expected: node_ty.clone(),
                         },
                         expr1.clone(),
-                        inf_ctx,
+                        statics,
                     );
                     generate_constraints_expr(
                         gamma,
                         Mode::Ana { expected: node_ty },
                         expr2.clone(),
-                        inf_ctx,
+                        statics,
                     );
                 }
                 // just if
@@ -1344,7 +1322,7 @@ pub(crate) fn generate_constraints_expr(
                             expected: TypeVar::make_unit(Prov::Node(expr.id)),
                         },
                         expr1.clone(),
-                        inf_ctx,
+                        statics,
                     );
                     constrain(node_ty, TypeVar::make_unit(Prov::Node(expr.id)))
                 }
@@ -1357,20 +1335,20 @@ pub(crate) fn generate_constraints_expr(
                     expected: TypeVar::make_bool(Prov::Node(cond.id)),
                 },
                 cond.clone(),
-                inf_ctx,
+                statics,
             );
-            generate_constraints_expr(gamma, Mode::Syn, expr.clone(), inf_ctx);
+            generate_constraints_expr(gamma, Mode::Syn, expr.clone(), statics);
             constrain(node_ty, TypeVar::make_unit(Prov::Node(expr.id)))
         }
         ExprKind::Match(scrut, arms) => {
-            let ty_scrutiny = TypeVar::from_node(inf_ctx, scrut.id);
+            let ty_scrutiny = TypeVar::from_node(statics, scrut.id);
             generate_constraints_expr(
                 gamma.clone(),
                 Mode::Ana {
                     expected: ty_scrutiny.clone(),
                 },
                 scrut.clone(),
-                inf_ctx,
+                statics,
             );
             for arm in arms {
                 let new_gamma = gamma.new_scope();
@@ -1380,7 +1358,7 @@ pub(crate) fn generate_constraints_expr(
                         expected: ty_scrutiny.clone(),
                     },
                     arm.pat.clone(),
-                    inf_ctx,
+                    statics,
                 );
                 generate_constraints_expr(
                     new_gamma,
@@ -1388,7 +1366,7 @@ pub(crate) fn generate_constraints_expr(
                         expected: node_ty.clone(),
                     },
                     arm.expr.clone(),
-                    inf_ctx,
+                    statics,
                 );
             }
         }
@@ -1396,7 +1374,7 @@ pub(crate) fn generate_constraints_expr(
             let func_node_id = expr.id;
             let body_gamma = gamma.new_scope();
             let ty_func = generate_constraints_func_helper(
-                inf_ctx,
+                statics,
                 func_node_id,
                 body_gamma,
                 args,
@@ -1413,7 +1391,7 @@ pub(crate) fn generate_constraints_expr(
                 .enumerate()
                 .map(|(n, arg)| {
                     let unknown = TypeVar::fresh(
-                        inf_ctx,
+                        statics,
                         Prov::FuncArg(Box::new(Prov::Node(func.id)), n as u8),
                     );
                     generate_constraints_expr(
@@ -1422,14 +1400,14 @@ pub(crate) fn generate_constraints_expr(
                             expected: unknown.clone(),
                         },
                         arg.clone(),
-                        inf_ctx,
+                        statics,
                     );
                     unknown
                 })
                 .collect();
 
             // body
-            let ty_body = TypeVar::fresh(inf_ctx, Prov::FuncOut(Box::new(Prov::Node(func.id))));
+            let ty_body = TypeVar::fresh(statics, Prov::FuncOut(Box::new(Prov::Node(func.id))));
             constrain(ty_body.clone(), node_ty);
 
             // function type
@@ -1440,7 +1418,7 @@ pub(crate) fn generate_constraints_expr(
                     expected: ty_func.clone(),
                 },
                 func.clone(),
-                inf_ctx,
+                statics,
             );
 
             // println!("funcap: {}", ty_func);
@@ -1448,44 +1426,44 @@ pub(crate) fn generate_constraints_expr(
         ExprKind::Tuple(exprs) => {
             let tys = exprs
                 .iter()
-                .map(|expr| TypeVar::fresh(inf_ctx, Prov::Node(expr.id)))
+                .map(|expr| TypeVar::fresh(statics, Prov::Node(expr.id)))
                 .collect();
             constrain(node_ty, TypeVar::make_tuple(tys, Prov::Node(expr.id)));
             for expr in exprs {
-                generate_constraints_expr(gamma.clone(), Mode::Syn, expr.clone(), inf_ctx);
+                generate_constraints_expr(gamma.clone(), Mode::Syn, expr.clone(), statics);
             }
         }
         ExprKind::FieldAccess(expr, field) => {
-            generate_constraints_expr(gamma, Mode::Syn, expr.clone(), inf_ctx);
-            let ty_expr = TypeVar::fresh(inf_ctx, Prov::Node(expr.id));
+            generate_constraints_expr(gamma, Mode::Syn, expr.clone(), statics);
+            let ty_expr = TypeVar::fresh(statics, Prov::Node(expr.id));
             if ty_expr.underdetermined() {
-                inf_ctx.annotation_needed.insert(expr.id);
+                statics.annotation_needed.insert(expr.id);
                 return;
             }
             let Some(inner) = ty_expr.single() else {
                 return;
             };
             if let PotentialType::UdtInstance(_, ident, _) = inner {
-                if let Some(struct_def) = inf_ctx.struct_defs.get(&ident) {
-                    let ty_struct = TypeVar::from_node(inf_ctx, struct_def.location);
+                if let Some(struct_def) = statics.struct_defs.get(&ident) {
+                    let ty_struct = TypeVar::from_node(statics, struct_def.location);
                     let ExprKind::Var(field_ident) = &*field.exprkind else {
-                        inf_ctx.field_not_ident.insert(field.id);
+                        statics.field_not_ident.insert(field.id);
                         return;
                     };
                     let ty_field =
-                        TypeVar::fresh(inf_ctx, Prov::StructField(field_ident.clone(), ty_struct));
+                        TypeVar::fresh(statics, Prov::StructField(field_ident.clone(), ty_struct));
                     constrain(node_ty.clone(), ty_field);
                     return;
                 }
             }
 
-            inf_ctx.types_that_must_be_structs.insert(ty_expr, expr.id);
+            statics.types_that_must_be_structs.insert(ty_expr, expr.id);
         }
         ExprKind::IndexAccess(accessed, index) => {
-            generate_constraints_expr(gamma.clone(), Mode::Syn, accessed.clone(), inf_ctx);
+            generate_constraints_expr(gamma.clone(), Mode::Syn, accessed.clone(), statics);
 
-            let elem_ty = TypeVar::fresh(inf_ctx, Prov::ListElem(Prov::Node(accessed.id).into()));
-            let accessed_ty = TypeVar::from_node(inf_ctx, accessed.id);
+            let elem_ty = TypeVar::fresh(statics, Prov::ListElem(Prov::Node(accessed.id).into()));
+            let accessed_ty = TypeVar::from_node(statics, accessed.id);
             constrain(
                 accessed_ty,
                 TypeVar::make_def_instance(
@@ -1500,7 +1478,7 @@ pub(crate) fn generate_constraints_expr(
                     expected: TypeVar::make_int(Prov::IndexAccess),
                 },
                 index.clone(),
-                inf_ctx,
+                statics,
             );
 
             constrain(node_ty, elem_ty);
@@ -1509,7 +1487,7 @@ pub(crate) fn generate_constraints_expr(
 }
 
 fn generate_constraints_func_helper(
-    inf_ctx: &mut InferenceContext,
+    statics: &mut StaticsContext,
     node_id: NodeId,
     gamma: Gamma,
     args: &[ArgAnnotated],
@@ -1520,38 +1498,38 @@ fn generate_constraints_func_helper(
     let ty_args = args
         .iter()
         .map(|(arg, arg_annot)| {
-            let ty_pat = TypeVar::from_node(inf_ctx, arg.id);
+            let ty_pat = TypeVar::from_node(statics, arg.id);
             match arg_annot {
                 Some(arg_annot) => {
-                    let ty_annot = TypeVar::from_node(inf_ctx, arg_annot.id());
-                    let arg_annot = ast_type_to_statics_type(inf_ctx, arg_annot.clone());
+                    let ty_annot = TypeVar::from_node(statics, arg_annot.id());
+                    let arg_annot = ast_type_to_statics_type(statics, arg_annot.clone());
                     constrain(ty_annot.clone(), arg_annot.clone());
                     gamma.add_polys(&arg_annot);
                     generate_constraints_pat(
                         gamma.clone(), // TODO what are the consequences of analyzing patterns with context containing previous pattern... probs should not do that
                         Mode::Ana { expected: ty_annot },
                         arg.clone(),
-                        inf_ctx,
+                        statics,
                     )
                 }
-                None => generate_constraints_pat(gamma.clone(), Mode::Syn, arg.clone(), inf_ctx),
+                None => generate_constraints_pat(gamma.clone(), Mode::Syn, arg.clone(), statics),
             }
             ty_pat
         })
         .collect();
 
     // body
-    let ty_body = TypeVar::fresh(inf_ctx, Prov::FuncOut(Box::new(Prov::Node(node_id))));
+    let ty_body = TypeVar::fresh(statics, Prov::FuncOut(Box::new(Prov::Node(node_id))));
     generate_constraints_expr(
         gamma.clone(),
         Mode::Ana {
             expected: ty_body.clone(),
         },
         body.clone(),
-        inf_ctx,
+        statics,
     );
     if let Some(out_annot) = out_annot {
-        let out_annot = ast_type_to_statics_type(inf_ctx, out_annot.clone());
+        let out_annot = ast_type_to_statics_type(statics, out_annot.clone());
         gamma.add_polys(&out_annot);
         generate_constraints_expr(
             gamma,
@@ -1559,26 +1537,26 @@ fn generate_constraints_func_helper(
                 expected: out_annot,
             },
             body.clone(),
-            inf_ctx,
+            statics,
         );
     }
 
     TypeVar::make_func(ty_args, ty_body, Prov::Node(node_id))
 }
 
-pub(crate) fn generate_constraints_stmt(
+fn generate_constraints_stmt(
     gamma: Gamma,
     mode: Mode,
     stmt: Rc<Stmt>,
-    inf_ctx: &mut InferenceContext,
+    statics: &mut StaticsContext,
     add_to_tyvar_gamma: bool,
 ) {
     match &*stmt.stmtkind {
         StmtKind::InterfaceDef(..) => {}
         StmtKind::InterfaceImpl(ident, typ, statements) => {
-            let typ = ast_type_to_statics_type(inf_ctx, typ.clone());
+            let typ = ast_type_to_statics_type(statics, typ.clone());
 
-            if let Some(interface_def) = inf_ctx.interface_def_of_ident(ident) {
+            if let Some(interface_def) = statics.interface_def_of_ident(ident) {
                 for statement in statements {
                     let StmtKind::FuncDef(pat, _args, _out, _body) = &*statement.stmtkind else {
                         continue;
@@ -1596,17 +1574,17 @@ pub(crate) fn generate_constraints_stmt(
                             &substitution,
                         );
 
-                        constrain(expected, TypeVar::from_node(inf_ctx, pat.id));
+                        constrain(expected, TypeVar::from_node(statics, pat.id));
 
                         generate_constraints_stmt(
                             gamma.clone(),
                             Mode::Syn,
                             statement.clone(),
-                            inf_ctx,
+                            statics,
                             false,
                         );
                     } else {
-                        inf_ctx
+                        statics
                             .interface_impl_extra_method
                             .entry(stmt.id)
                             .or_default()
@@ -1620,7 +1598,7 @@ pub(crate) fn generate_constraints_stmt(
                         }
                         _ => false,
                     }) {
-                        inf_ctx
+                        statics
                             .interface_impl_missing_method
                             .entry(stmt.id)
                             .or_default()
@@ -1628,53 +1606,53 @@ pub(crate) fn generate_constraints_stmt(
                     }
                 }
             } else {
-                inf_ctx.unbound_interfaces.insert(stmt.id);
+                statics.unbound_interfaces.insert(stmt.id);
             }
         }
         StmtKind::TypeDef(typdefkind) => match &**typdefkind {
             TypeDefKind::Alias(ident, ty) => {
-                let left = TypeVar::fresh(inf_ctx, Prov::Alias(ident.clone()));
-                let right = ast_type_to_statics_type(inf_ctx, ty.clone());
+                let left = TypeVar::fresh(statics, Prov::Alias(ident.clone()));
+                let right = ast_type_to_statics_type(statics, ty.clone());
                 constrain(left, right);
             }
             TypeDefKind::Adt(..) | TypeDefKind::Struct(..) => {}
         },
         StmtKind::Expr(expr) => {
-            generate_constraints_expr(gamma, mode, expr.clone(), inf_ctx);
+            generate_constraints_expr(gamma, mode, expr.clone(), statics);
         }
         StmtKind::Let(_mutable, (pat, ty_ann), expr) => {
-            let ty_pat = TypeVar::from_node(inf_ctx, pat.id);
+            let ty_pat = TypeVar::from_node(statics, pat.id);
 
             generate_constraints_expr(
                 gamma.clone(),
                 Mode::Ana { expected: ty_pat },
                 expr.clone(),
-                inf_ctx,
+                statics,
             );
 
             if let Some(ty_ann) = ty_ann {
-                let ty_ann = ast_type_to_statics_type(inf_ctx, ty_ann.clone());
+                let ty_ann = ast_type_to_statics_type(statics, ty_ann.clone());
                 gamma.add_polys(&ty_ann);
                 generate_constraints_pat(
                     gamma,
                     Mode::Ana { expected: ty_ann },
                     pat.clone(),
-                    inf_ctx,
+                    statics,
                 )
             } else {
-                generate_constraints_pat(gamma, Mode::Syn, pat.clone(), inf_ctx)
+                generate_constraints_pat(gamma, Mode::Syn, pat.clone(), statics)
             };
         }
         StmtKind::Set(lhs, rhs) => {
-            let ty_lhs = TypeVar::from_node(inf_ctx, lhs.id);
-            generate_constraints_expr(gamma.clone(), Mode::Syn, lhs.clone(), inf_ctx);
-            let ty_rhs = TypeVar::from_node(inf_ctx, rhs.id);
-            generate_constraints_expr(gamma, Mode::Syn, rhs.clone(), inf_ctx);
+            let ty_lhs = TypeVar::from_node(statics, lhs.id);
+            generate_constraints_expr(gamma.clone(), Mode::Syn, lhs.clone(), statics);
+            let ty_rhs = TypeVar::from_node(statics, rhs.id);
+            generate_constraints_expr(gamma, Mode::Syn, rhs.clone(), statics);
             constrain(ty_lhs, ty_rhs);
         }
         StmtKind::FuncDef(name, args, out_annot, body) => {
             let func_node_id = stmt.id;
-            let ty_pat = TypeVar::from_node(inf_ctx, name.id);
+            let ty_pat = TypeVar::from_node(statics, name.id);
 
             let func_name = name.patkind.get_identifier_of_variable();
 
@@ -1694,7 +1672,7 @@ pub(crate) fn generate_constraints_stmt(
 
             let body_gamma = gamma.new_scope();
             let ty_func = generate_constraints_func_helper(
-                inf_ctx,
+                statics,
                 func_node_id,
                 body_gamma,
                 args,
@@ -1707,13 +1685,8 @@ pub(crate) fn generate_constraints_stmt(
     }
 }
 
-pub(crate) fn generate_constraints_pat(
-    gamma: Gamma,
-    mode: Mode,
-    pat: Rc<Pat>,
-    inf_ctx: &mut InferenceContext,
-) {
-    let ty_pat = TypeVar::from_node(inf_ctx, pat.id);
+fn generate_constraints_pat(gamma: Gamma, mode: Mode, pat: Rc<Pat>, statics: &mut StaticsContext) {
+    let ty_pat = TypeVar::from_node(statics, pat.id);
     match mode {
         Mode::Syn => (),
         Mode::Ana { expected } => constrain(expected, ty_pat.clone()),
@@ -1742,19 +1715,19 @@ pub(crate) fn generate_constraints_pat(
         }
         PatKind::Variant(tag, data) => {
             let ty_data = match data {
-                Some(data) => TypeVar::from_node(inf_ctx, data.id),
+                Some(data) => TypeVar::from_node(statics, data.id),
                 None => TypeVar::make_unit(Prov::VariantNoData(Box::new(Prov::Node(pat.id)))),
             };
             let mut substitution = BTreeMap::new();
             let ty_adt_instance = {
-                let adt_def = inf_ctx.adt_def_of_variant(tag);
+                let adt_def = statics.adt_def_of_variant(tag);
 
                 if let Some(adt_def) = adt_def {
                     let nparams = adt_def.params.len();
                     let mut params = vec![];
                     for i in 0..nparams {
                         params.push(TypeVar::fresh(
-                            inf_ctx,
+                            statics,
                             Prov::InstantiateUdtParam(Box::new(Prov::Node(pat.id)), i as u8),
                         ));
                         substitution.insert(adt_def.params[i].clone(), params[i].clone());
@@ -1785,35 +1758,31 @@ pub(crate) fn generate_constraints_pat(
                     gamma,
                     Mode::Ana { expected: ty_data },
                     data.clone(),
-                    inf_ctx,
+                    statics,
                 )
             };
         }
         PatKind::Tuple(pats) => {
             let tys_elements = pats
                 .iter()
-                .map(|pat| TypeVar::fresh(inf_ctx, Prov::Node(pat.id)))
+                .map(|pat| TypeVar::fresh(statics, Prov::Node(pat.id)))
                 .collect();
             constrain(
                 ty_pat,
                 TypeVar::make_tuple(tys_elements, Prov::Node(pat.id)),
             );
             for pat in pats {
-                generate_constraints_pat(gamma.clone(), Mode::Syn, pat.clone(), inf_ctx)
+                generate_constraints_pat(gamma.clone(), Mode::Syn, pat.clone(), statics)
             }
         }
     }
 }
 
-pub(crate) fn gather_definitions_stmt(
-    inf_ctx: &mut InferenceContext,
-    gamma: Gamma,
-    stmt: Rc<Stmt>,
-) {
+fn gather_definitions_stmt(statics: &mut StaticsContext, gamma: Gamma, stmt: Rc<Stmt>) {
     match &*stmt.stmtkind {
         StmtKind::InterfaceDef(ident, properties) => {
-            if let Some(interface_def) = inf_ctx.interface_defs.get(ident) {
-                let entry = inf_ctx
+            if let Some(interface_def) = statics.interface_defs.get(ident) {
+                let entry = statics
                     .multiple_interface_defs
                     .entry(ident.clone())
                     .or_default();
@@ -1824,8 +1793,8 @@ pub(crate) fn gather_definitions_stmt(
             let mut methods = vec![];
             for p in properties {
                 let ty_annot =
-                    ast_type_to_statics_type_interface(inf_ctx, p.ty.clone(), Some(ident));
-                let node_ty = TypeVar::from_node(inf_ctx, p.id());
+                    ast_type_to_statics_type_interface(statics, p.ty.clone(), Some(ident));
+                let node_ty = TypeVar::from_node(statics, p.id());
                 constrain(node_ty.clone(), ty_annot.clone());
                 // TODO last here
                 // perhaps make a note that this is an interface method (overloaded)
@@ -1833,12 +1802,12 @@ pub(crate) fn gather_definitions_stmt(
                     name: p.ident.clone(),
                     ty: node_ty.clone(),
                 });
-                inf_ctx
+                statics
                     .method_to_interface
                     .insert(p.ident.clone(), ident.clone());
                 gamma.extend(p.ident.clone(), node_ty);
             }
-            inf_ctx.interface_defs.insert(
+            statics.interface_defs.insert(
                 ident.clone(),
                 InterfaceDef {
                     name: ident.clone(),
@@ -1848,10 +1817,10 @@ pub(crate) fn gather_definitions_stmt(
             );
         }
         StmtKind::InterfaceImpl(ident, typ, stmts) => {
-            let typ = ast_type_to_statics_type(inf_ctx, typ.clone());
+            let typ = ast_type_to_statics_type(statics, typ.clone());
 
             if typ.is_instantiated_adt() {
-                inf_ctx.interface_impl_for_instantiated_adt.push(stmt.id);
+                statics.interface_impl_for_instantiated_adt.push(stmt.id);
             }
 
             let methods = stmts
@@ -1868,7 +1837,7 @@ pub(crate) fn gather_definitions_stmt(
                     _ => unreachable!(),
                 })
                 .collect();
-            let impl_list = inf_ctx.interface_impls.entry(ident.clone()).or_default();
+            let impl_list = statics.interface_impls.entry(ident.clone()).or_default();
             impl_list.push(InterfaceImpl {
                 name: ident.clone(),
                 typ,
@@ -1879,8 +1848,8 @@ pub(crate) fn gather_definitions_stmt(
         StmtKind::TypeDef(typdefkind) => match &**typdefkind {
             TypeDefKind::Alias(_ident, _ty) => {}
             TypeDefKind::Adt(ident, params, variants) => {
-                if let Some(adt_def) = inf_ctx.adt_defs.get(ident) {
-                    let entry = inf_ctx.multiple_udt_defs.entry(ident.clone()).or_default();
+                if let Some(adt_def) = statics.adt_defs.get(ident) {
+                    let entry = statics.multiple_udt_defs.entry(ident.clone()).or_default();
                     entry.push(adt_def.location);
                     entry.push(stmt.id);
                     return;
@@ -1899,7 +1868,7 @@ pub(crate) fn gather_definitions_stmt(
 
                     let data = {
                         if let Some(data) = &v.data {
-                            ast_type_to_statics_type(inf_ctx, data.clone())
+                            ast_type_to_statics_type(statics, data.clone())
                         } else {
                             TypeVar::make_unit(Prov::VariantNoData(Box::new(Prov::Node(v.id))))
                         }
@@ -1908,7 +1877,7 @@ pub(crate) fn gather_definitions_stmt(
                         ctor: v.ctor.clone(),
                         data,
                     });
-                    inf_ctx
+                    statics
                         .variants_to_adt
                         .insert(v.ctor.clone(), ident.clone());
                 }
@@ -1919,7 +1888,7 @@ pub(crate) fn gather_definitions_stmt(
                     };
                     defparams.push(ident.clone());
                 }
-                inf_ctx.adt_defs.insert(
+                statics.adt_defs.insert(
                     ident.clone(),
                     AdtDef {
                         name: ident.clone(),
@@ -1935,9 +1904,9 @@ pub(crate) fn gather_definitions_stmt(
                     Resolution::StructDefinition(fields.len() as u16),
                 );
 
-                let ty_struct = TypeVar::from_node(inf_ctx, stmt.id);
-                if let Some(struct_def) = inf_ctx.struct_defs.get(ident) {
-                    let entry = inf_ctx.multiple_udt_defs.entry(ident.clone()).or_default();
+                let ty_struct = TypeVar::from_node(statics, stmt.id);
+                if let Some(struct_def) = statics.struct_defs.get(ident) {
+                    let entry = statics.multiple_udt_defs.entry(ident.clone()).or_default();
                     entry.push(struct_def.location);
                     entry.push(stmt.id);
                     return;
@@ -1951,18 +1920,18 @@ pub(crate) fn gather_definitions_stmt(
                 }
                 let mut deffields = vec![];
                 for f in fields {
-                    let ty_annot = ast_type_to_statics_type(inf_ctx, f.ty.clone());
+                    let ty_annot = ast_type_to_statics_type(statics, f.ty.clone());
                     deffields.push(StructField {
                         name: f.ident.clone(),
                         ty: ty_annot.clone(),
                     });
 
                     let prov = Prov::StructField(f.ident.clone(), ty_struct.clone());
-                    let ty_field = TypeVar::fresh(inf_ctx, prov.clone());
+                    let ty_field = TypeVar::fresh(statics, prov.clone());
                     constrain(ty_field.clone(), ty_annot.clone());
-                    inf_ctx.vars.insert(prov, ty_field);
+                    statics.vars.insert(prov, ty_field);
                 }
-                inf_ctx.struct_defs.insert(
+                statics.struct_defs.insert(
                     ident.clone(),
                     StructDef {
                         name: ident.clone(),
@@ -1978,8 +1947,8 @@ pub(crate) fn gather_definitions_stmt(
         StmtKind::FuncDef(name, _args, _out_annot, _) => {
             let name_id = name.id;
             let name = name.patkind.get_identifier_of_variable();
-            inf_ctx.fun_defs.insert(name.clone(), stmt.clone());
-            gamma.extend(name.clone(), TypeVar::from_node(inf_ctx, name_id));
+            statics.fun_defs.insert(name.clone(), stmt.clone());
+            gamma.extend(name.clone(), TypeVar::from_node(statics, name_id));
             gamma.extend_declaration(name.clone(), Resolution::FunctionDefinition(stmt.id, name));
         }
         StmtKind::Set(..) => {}
@@ -2052,11 +2021,11 @@ fn solved_type_to_typevar(ty: SolvedType, prov: Prov) -> TypeVar {
 }
 
 pub(crate) fn gather_definitions_toplevel(
-    inf_ctx: &mut InferenceContext,
+    statics: &mut StaticsContext,
     gamma: Gamma,
     toplevel: Rc<Toplevel>,
 ) {
-    for (i, eff) in inf_ctx.effects.iter().enumerate() {
+    for (i, eff) in statics.effects.iter().enumerate() {
         let prov = Prov::Effect(i as u16);
         let mut args = Vec::new();
         for arg in eff.type_signature.0.iter() {
@@ -2077,29 +2046,29 @@ pub(crate) fn gather_definitions_toplevel(
         gamma.extend_declaration(builtin.name(), Resolution::Builtin(*builtin));
     }
     for statement in toplevel.statements.iter() {
-        gather_definitions_stmt(inf_ctx, gamma.clone(), statement.clone());
+        gather_definitions_stmt(statics, gamma.clone(), statement.clone());
     }
 }
 
 pub(crate) fn generate_constraints_toplevel(
     gamma: Gamma,
     toplevel: Rc<Toplevel>,
-    inf_ctx: &mut InferenceContext,
+    statics: &mut StaticsContext,
 ) {
     for statement in toplevel.statements.iter() {
-        generate_constraints_stmt(gamma.clone(), Mode::Syn, statement.clone(), inf_ctx, true);
+        generate_constraints_stmt(gamma.clone(), Mode::Syn, statement.clone(), statics, true);
     }
 }
 
 // errors would be unbound variable, wrong number of arguments, occurs check, etc.
 pub(crate) fn result_of_constraint_solving(
-    inf_ctx: &mut InferenceContext,
+    statics: &mut StaticsContext,
     node_map: &NodeMap,
     sources: &Sources,
 ) -> Result<(), String> {
     // get list of type conflicts
     let mut type_conflicts = Vec::new();
-    for potential_types in inf_ctx.vars.values() {
+    for potential_types in statics.vars.values() {
         let type_suggestions = potential_types.0.clone_data().types; // TODO why not just check if it's solved?
         if type_suggestions.len() > 1 && (!type_conflicts.contains(&type_suggestions)) {
             type_conflicts.push(type_suggestions.clone());
@@ -2108,7 +2077,7 @@ pub(crate) fn result_of_constraint_solving(
 
     // replace underdetermined types with unit
     if type_conflicts.is_empty() {
-        for potential_types in inf_ctx.vars.values() {
+        for potential_types in statics.vars.values() {
             let mut data = potential_types.0.clone_data();
             let suggestions = &mut data.types;
             if suggestions.is_empty() {
@@ -2122,7 +2091,7 @@ pub(crate) fn result_of_constraint_solving(
     }
 
     // look for error of multiple interface implementations for the same type
-    for (ident, impls) in inf_ctx.interface_impls.iter() {
+    for (ident, impls) in statics.interface_impls.iter() {
         // map from implementation type to location
         let mut impls_by_type: BTreeMap<SolvedType, Vec<NodeId>> = BTreeMap::new();
         for imp in impls.iter() {
@@ -2135,7 +2104,7 @@ pub(crate) fn result_of_constraint_solving(
         }
         for (_impl_typ, impl_locs) in impls_by_type.iter() {
             if impl_locs.len() > 1 {
-                inf_ctx
+                statics
                     .multiple_interface_impls
                     .insert(ident.clone(), impl_locs.clone());
             }
@@ -2146,7 +2115,7 @@ pub(crate) fn result_of_constraint_solving(
 
     let mut bad_instantiations = false;
     // check for bad instantiation of polymorphic types constrained to an Interface
-    for (typ, interfaces) in inf_ctx.types_constrained_to_interfaces.iter() {
+    for (typ, interfaces) in statics.types_constrained_to_interfaces.iter() {
         let Some(typ) = &typ.solution() else {
             continue;
         };
@@ -2159,12 +2128,12 @@ pub(crate) fn result_of_constraint_solving(
                 if interfaces2.contains(interface) {
                     bad_instantiation = false;
                 }
-            } else if let Some(impl_list) = inf_ctx.interface_impls.get(interface) {
+            } else if let Some(impl_list) = statics.interface_impls.get(interface) {
                 // find at least one implementation of interface that matches the type constrained to the interface
                 for impl_ in impl_list {
                     if let Some(impl_ty) = impl_.typ.solution() {
                         if let Err((_err_monoty, _err_impl_ty)) =
-                            ty_fits_impl_ty(inf_ctx, typ.clone(), impl_ty.clone())
+                            ty_fits_impl_ty(statics, typ.clone(), impl_ty.clone())
                         {
                         } else {
                             bad_instantiation = false;
@@ -2188,13 +2157,13 @@ pub(crate) fn result_of_constraint_solving(
     }
 
     let mut bad_field_access = false;
-    for (typ, location) in inf_ctx.types_that_must_be_structs.iter() {
+    for (typ, location) in statics.types_that_must_be_structs.iter() {
         let typ = typ.solution();
         let Some(solved) = typ else {
             continue;
         };
         if let SolvedType::UdtInstance(ident, _) = &solved {
-            let struct_def = inf_ctx.struct_defs.get(ident);
+            let struct_def = statics.struct_defs.get(ident);
             if struct_def.is_some() {
                 continue;
             }
@@ -2206,37 +2175,37 @@ pub(crate) fn result_of_constraint_solving(
         span.display(&mut err_string, sources, "");
     }
 
-    if inf_ctx.unbound_vars.is_empty()
-        && inf_ctx.unbound_interfaces.is_empty()
+    if statics.unbound_vars.is_empty()
+        && statics.unbound_interfaces.is_empty()
         && type_conflicts.is_empty()
-        && inf_ctx.multiple_udt_defs.is_empty()
-        && inf_ctx.multiple_interface_defs.is_empty()
-        && inf_ctx.multiple_interface_impls.is_empty()
-        && inf_ctx.interface_impl_for_instantiated_adt.is_empty()
-        && inf_ctx.interface_impl_extra_method.is_empty()
-        && inf_ctx.interface_impl_missing_method.is_empty()
-        && inf_ctx.annotation_needed.is_empty()
-        && inf_ctx.field_not_ident.is_empty()
+        && statics.multiple_udt_defs.is_empty()
+        && statics.multiple_interface_defs.is_empty()
+        && statics.multiple_interface_impls.is_empty()
+        && statics.interface_impl_for_instantiated_adt.is_empty()
+        && statics.interface_impl_extra_method.is_empty()
+        && statics.interface_impl_missing_method.is_empty()
+        && statics.annotation_needed.is_empty()
+        && statics.field_not_ident.is_empty()
         && !bad_instantiations
         && !bad_field_access
     {
         for (node_id, node) in node_map.iter() {
-            let ty = inf_ctx.solution_of_node(*node_id);
+            let ty = statics.solution_of_node(*node_id);
             let _span = node.span();
             if let Some(_ty) = ty {}
         }
         return Ok(());
     }
 
-    if !inf_ctx.unbound_vars.is_empty() {
+    if !statics.unbound_vars.is_empty() {
         err_string.push_str("You have unbound variables!\n");
-        for ast_id in inf_ctx.unbound_vars.iter() {
+        for ast_id in statics.unbound_vars.iter() {
             let span = node_map.get(ast_id).unwrap().span();
             span.display(&mut err_string, sources, "");
         }
     }
-    if !inf_ctx.unbound_interfaces.is_empty() {
-        for ast_id in inf_ctx.unbound_interfaces.iter() {
+    if !statics.unbound_interfaces.is_empty() {
+        for ast_id in statics.unbound_interfaces.iter() {
             let span = node_map.get(ast_id).unwrap().span();
             span.display(
                 &mut err_string,
@@ -2245,8 +2214,8 @@ pub(crate) fn result_of_constraint_solving(
             );
         }
     }
-    if !inf_ctx.multiple_udt_defs.is_empty() {
-        for (ident, adt_ids) in inf_ctx.multiple_udt_defs.iter() {
+    if !statics.multiple_udt_defs.is_empty() {
+        for (ident, adt_ids) in statics.multiple_udt_defs.iter() {
             let _ = writeln!(err_string, "Multiple definitions for type {}, ident", ident);
             for ast_id in adt_ids {
                 let span = node_map.get(ast_id).unwrap().span();
@@ -2254,8 +2223,8 @@ pub(crate) fn result_of_constraint_solving(
             }
         }
     }
-    if !inf_ctx.multiple_interface_defs.is_empty() {
-        for (ident, interface_ids) in inf_ctx.multiple_interface_defs.iter() {
+    if !statics.multiple_interface_defs.is_empty() {
+        for (ident, interface_ids) in statics.multiple_interface_defs.iter() {
             let _ = writeln!(err_string, "Multiple definitions for interface {}", ident);
             for ast_id in interface_ids {
                 let span = node_map.get(ast_id).unwrap().span();
@@ -2264,8 +2233,8 @@ pub(crate) fn result_of_constraint_solving(
         }
     }
 
-    if !inf_ctx.multiple_interface_impls.is_empty() {
-        for (ident, impl_ids) in inf_ctx.multiple_interface_impls.iter() {
+    if !statics.multiple_interface_impls.is_empty() {
+        for (ident, impl_ids) in statics.multiple_interface_impls.iter() {
             let _ = writeln!(
                 err_string,
                 "Multiple implementations for interface {}",
@@ -2278,8 +2247,8 @@ pub(crate) fn result_of_constraint_solving(
         }
     }
 
-    if !inf_ctx.interface_impl_for_instantiated_adt.is_empty() {
-        for ast_id in inf_ctx.interface_impl_for_instantiated_adt.iter() {
+    if !statics.interface_impl_for_instantiated_adt.is_empty() {
+        for ast_id in statics.interface_impl_for_instantiated_adt.iter() {
             let span = node_map.get(ast_id).unwrap().span();
             span.display(
                 &mut err_string,
@@ -2289,8 +2258,8 @@ pub(crate) fn result_of_constraint_solving(
         }
     }
 
-    if !inf_ctx.interface_impl_extra_method.is_empty() {
-        for (id, impls) in inf_ctx.interface_impl_extra_method.iter() {
+    if !statics.interface_impl_extra_method.is_empty() {
+        for (id, impls) in statics.interface_impl_extra_method.iter() {
             let span = node_map.get(id).unwrap().span();
             span.display(
                 &mut err_string,
@@ -2304,8 +2273,8 @@ pub(crate) fn result_of_constraint_solving(
         }
     }
 
-    if !inf_ctx.interface_impl_missing_method.is_empty() {
-        for (id, method_names) in inf_ctx.interface_impl_missing_method.iter() {
+    if !statics.interface_impl_missing_method.is_empty() {
+        for (id, method_names) in statics.interface_impl_missing_method.iter() {
             let span = node_map.get(id).unwrap().span();
             span.display(
                 &mut err_string,
@@ -2320,15 +2289,15 @@ pub(crate) fn result_of_constraint_solving(
         }
     }
 
-    if !inf_ctx.annotation_needed.is_empty() {
-        for id in inf_ctx.annotation_needed.iter() {
+    if !statics.annotation_needed.is_empty() {
+        for id in statics.annotation_needed.iter() {
             let span = node_map.get(id).unwrap().span();
             span.display(&mut err_string, sources, "this needs a type annotation");
         }
     }
 
-    if !inf_ctx.field_not_ident.is_empty() {
-        for id in inf_ctx.field_not_ident.iter() {
+    if !statics.field_not_ident.is_empty() {
+        for id in statics.field_not_ident.iter() {
             let span = node_map.get(id).unwrap().span();
             span.display(
                 &mut err_string,
@@ -2516,16 +2485,16 @@ pub(crate) fn result_of_constraint_solving(
 }
 
 pub(crate) fn result_of_additional_analysis(
-    inf_ctx: &mut InferenceContext,
+    statics: &mut StaticsContext,
     toplevels: &[Rc<Toplevel>],
     node_map: &NodeMap,
     sources: &Sources,
 ) -> Result<(), String> {
     for toplevel in toplevels {
-        check_pattern_exhaustiveness_toplevel(inf_ctx, toplevel);
+        check_pattern_exhaustiveness_toplevel(statics, toplevel);
     }
 
-    if inf_ctx.nonexhaustive_matches.is_empty() && inf_ctx.redundant_matches.is_empty() {
+    if statics.nonexhaustive_matches.is_empty() && statics.redundant_matches.is_empty() {
         return Ok(());
     }
 
@@ -2533,7 +2502,7 @@ pub(crate) fn result_of_additional_analysis(
 
     err_string.push_str("Pattern matching errors:\n");
 
-    for (pat, missing_pattern_suggestions) in inf_ctx.nonexhaustive_matches.iter() {
+    for (pat, missing_pattern_suggestions) in statics.nonexhaustive_matches.iter() {
         let span = node_map.get(pat).unwrap().span();
         span.display(
             &mut err_string,
@@ -2546,7 +2515,7 @@ pub(crate) fn result_of_additional_analysis(
         }
     }
 
-    for (match_expr, redundant_pattern_suggestions) in inf_ctx.redundant_matches.iter() {
+    for (match_expr, redundant_pattern_suggestions) in statics.redundant_matches.iter() {
         let span = node_map.get(match_expr).unwrap().span();
         span.display(
             &mut err_string,
@@ -2564,7 +2533,7 @@ pub(crate) fn result_of_additional_analysis(
 }
 
 pub(crate) fn ty_fits_impl_ty(
-    ctx: &InferenceContext,
+    ctx: &StaticsContext,
     typ: SolvedType,
     impl_ty: SolvedType,
 ) -> Result<(), (SolvedType, SolvedType)> {
@@ -2628,7 +2597,7 @@ pub(crate) fn ty_fits_impl_ty(
 }
 
 fn ty_fits_impl_ty_poly(
-    inf_ctx: &InferenceContext,
+    statics: &StaticsContext,
     typ: SolvedType,
     interfaces: BTreeSet<Symbol>,
 ) -> bool {
@@ -2639,11 +2608,11 @@ fn ty_fits_impl_ty_poly(
                 return true;
             }
         }
-        if let Some(impl_list) = inf_ctx.interface_impls.get(&interface) {
+        if let Some(impl_list) = statics.interface_impls.get(&interface) {
             // find at least one implementation of interface that matches the type constrained to the interface
             for impl_ in impl_list {
                 if let Some(impl_ty) = impl_.typ.solution() {
-                    if ty_fits_impl_ty(inf_ctx, typ.clone(), impl_ty).is_ok() {
+                    if ty_fits_impl_ty(statics, typ.clone(), impl_ty).is_ok() {
                         return true;
                     }
                 }

@@ -8,7 +8,7 @@ use crate::statics::{ty_fits_impl_ty, Monotype, Prov, Resolution, SolvedType};
 use crate::vm::{AbraInt, Instr as VmInstr};
 use crate::{
     ast::{Expr, ExprKind, NodeMap, Pat, PatKind, Stmt, StmtKind},
-    statics::InferenceContext,
+    statics::StaticsContext,
 };
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::mem;
@@ -38,7 +38,7 @@ struct LambdaData {
 
 #[derive(Debug)]
 pub(crate) struct Translator {
-    inf_ctx: InferenceContext,
+    statics: StaticsContext,
     node_map: NodeMap,
     sources: Sources,
     toplevels: Vec<Rc<Toplevel>>,
@@ -66,14 +66,14 @@ pub struct CompiledProgram {
 
 impl Translator {
     pub(crate) fn new(
-        inf_ctx: InferenceContext,
+        statics: StaticsContext,
         node_map: NodeMap,
         sources: Sources,
         toplevels: Vec<Rc<Toplevel>>,
         effects: Vec<EffectStruct>,
     ) -> Self {
         Self {
-            inf_ctx,
+            statics,
             node_map,
             sources,
             toplevels,
@@ -165,7 +165,7 @@ impl Translator {
                     panic!()
                 };
 
-                let overloaded_func_ty = self.inf_ctx.solution_of_node(pat.id()).unwrap();
+                let overloaded_func_ty = self.statics.solution_of_node(pat.id()).unwrap();
                 let monomorph_env = MonomorphEnv::empty();
                 update_monomorph_env(monomorph_env.clone(), overloaded_func_ty, substituted_ty);
 
@@ -211,10 +211,10 @@ impl Translator {
             // println!("{}", _item);
         }
 
-        let (instructions, label_map) = remove_labels(&st.items, &self.inf_ctx.string_constants);
+        let (instructions, label_map) = remove_labels(&st.items, &self.statics.string_constants);
         let mut string_table: Vec<String> =
-            vec!["".to_owned(); self.inf_ctx.string_constants.len()];
-        for (s, idx) in self.inf_ctx.string_constants.iter() {
+            vec!["".to_owned(); self.statics.string_constants.len()];
+        for (s, idx) in self.statics.string_constants.iter() {
             string_table[*idx] = s.clone();
         }
         CompiledProgram {
@@ -235,7 +235,7 @@ impl Translator {
         match &*expr.exprkind {
             ExprKind::Var(symbol) => {
                 // adt variant
-                match self.inf_ctx.name_resolutions.get(&expr.id).unwrap() {
+                match self.statics.name_resolutions.get(&expr.id).unwrap() {
                     Resolution::Variant(tag, _) => {
                         emit(st, Instr::PushNil);
                         emit(st, Instr::ConstructVariant { tag: *tag });
@@ -330,7 +330,7 @@ impl Translator {
                     let mut s = String::new();
                     span.display(&mut s, &self.sources, "function ap");
                     // println!("{}", s);
-                    let resolution = self.inf_ctx.name_resolutions.get(&func.id).unwrap();
+                    let resolution = self.statics.name_resolutions.get(&func.id).unwrap();
                     match resolution {
                         Resolution::Var(node_id) => {
                             // assume it's a function object
@@ -352,7 +352,7 @@ impl Translator {
                             };
 
                             let func_name = &pat.patkind.get_identifier_of_variable();
-                            let func_ty = self.inf_ctx.solution_of_node(pat.id).unwrap();
+                            let func_ty = self.statics.solution_of_node(pat.id).unwrap();
                             if !func_ty.is_overloaded() {
                                 emit(st, Instr::Call(name.clone()));
                             } else {
@@ -363,7 +363,7 @@ impl Translator {
                                 // println!("{}", s);
 
                                 let specific_func_ty =
-                                    self.inf_ctx.solution_of_node(func.id).unwrap();
+                                    self.statics.solution_of_node(func.id).unwrap();
 
                                 let substituted_ty =
                                     subst_with_monomorphic_env(monomorph_env, specific_func_ty);
@@ -384,7 +384,7 @@ impl Translator {
                             span.display(&mut s, &self.sources, " method ap");
                             // println!("{}", s);
 
-                            let func_ty = self.inf_ctx.solution_of_node(func.id).unwrap();
+                            let func_ty = self.statics.solution_of_node(func.id).unwrap();
                             let substituted_ty =
                                 subst_with_monomorphic_env(monomorph_env.clone(), func_ty);
                             // println!("substituted type: {:?}", substituted_ty);
@@ -550,7 +550,7 @@ impl Translator {
                     panic!()
                 };
                 self.translate_expr(accessed.clone(), offset_table, monomorph_env.clone(), st);
-                let idx = idx_of_field(&self.inf_ctx, accessed.clone(), field_name);
+                let idx = idx_of_field(&self.statics, accessed.clone(), field_name);
                 emit(st, Instr::GetField(idx));
             }
             ExprKind::Array(exprs) => {
@@ -597,7 +597,7 @@ impl Translator {
                 emit(st, Instr::GetIdx);
             }
             ExprKind::Match(expr, arms) => {
-                let ty = self.inf_ctx.solution_of_node(expr.id).unwrap();
+                let ty = self.statics.solution_of_node(expr.id).unwrap();
 
                 self.translate_expr(expr.clone(), offset_table, monomorph_env.clone(), st);
                 let end_label = make_label("endmatch");
@@ -734,7 +734,7 @@ impl Translator {
             },
             SolvedType::UdtInstance(symbol, _) => match &*pat.patkind {
                 PatKind::Variant(ctor, inner) => {
-                    let adt = self.inf_ctx.adt_defs.get(symbol).unwrap();
+                    let adt = self.statics.adt_defs.get(symbol).unwrap();
                     let tag_fail_label = make_label("tag_fail");
                     let end_label = make_label("endvariant");
 
@@ -751,7 +751,7 @@ impl Translator {
                     emit(st, Instr::JumpIf(tag_fail_label.clone()));
 
                     if let Some(inner) = inner {
-                        let inner_ty = self.inf_ctx.solution_of_node(inner.id).unwrap();
+                        let inner_ty = self.statics.solution_of_node(inner.id).unwrap();
                         self.translate_pat_comparison(&inner_ty, inner.clone(), st);
                         emit(st, Instr::Jump(end_label.clone()));
                     } else {
@@ -829,7 +829,7 @@ impl Translator {
                 // TODO last here
                 // TODO: check if overloaded. If so, handle differently.
                 // (this could be an overloaded function or an interface method)
-                let func_ty = self.inf_ctx.solution_of_node(name.id).unwrap();
+                let func_ty = self.statics.solution_of_node(name.id).unwrap();
                 let func_name = name.patkind.get_identifier_of_variable();
 
                 if func_ty.is_overloaded() // println: 'a ToString -> ()
@@ -889,7 +889,7 @@ impl Translator {
             StmtKind::Set(expr1, rvalue) => match &*expr1.exprkind {
                 ExprKind::Var(_) => {
                     let Resolution::Var(node_id) =
-                        self.inf_ctx.name_resolutions.get(&expr1.id).unwrap()
+                        self.statics.name_resolutions.get(&expr1.id).unwrap()
                     else {
                         panic!("expected variableto be defined in node");
                     };
@@ -904,7 +904,7 @@ impl Translator {
                     };
                     self.translate_expr(rvalue.clone(), locals, monomorph_env.clone(), st);
                     self.translate_expr(accessed.clone(), locals, monomorph_env.clone(), st);
-                    let idx = idx_of_field(&self.inf_ctx, accessed.clone(), field_name);
+                    let idx = idx_of_field(&self.statics, accessed.clone(), field_name);
                     emit(st, Instr::SetField(idx));
                 }
                 ExprKind::IndexAccess(array, index) => {
@@ -947,7 +947,7 @@ impl Translator {
             | ExprKind::Float(_)
             | ExprKind::Str(_) => {}
             ExprKind::Var(_) => {
-                let resolution = self.inf_ctx.name_resolutions.get(&expr.id).unwrap();
+                let resolution = self.statics.name_resolutions.get(&expr.id).unwrap();
                 if let Resolution::Var(node_id) = resolution {
                     if !locals.contains(node_id) && !arg_set.contains(node_id) {
                         captures.insert(*node_id);
@@ -1045,8 +1045,8 @@ impl Translator {
         method_name: &Symbol,
         desired_interface_impl: SolvedType,
     ) -> NodeId {
-        if let Some(interface_name) = self.inf_ctx.method_to_interface.get(method_name) {
-            let impl_list = self.inf_ctx.interface_impls.get(interface_name).unwrap();
+        if let Some(interface_name) = self.statics.method_to_interface.get(method_name) {
+            let impl_list = self.statics.interface_impls.get(interface_name).unwrap();
             // TODO just because the variable is the same name as an overloaded function doesn't mean the overloaded function is actually being used here.
             // use the type of the variable to determine if it's the same as the overloaded function?
 
@@ -1060,11 +1060,11 @@ impl Translator {
                             self.node_map.get(&method.identifier_location).unwrap();
 
                         let func_id = method_identifier_node.id();
-                        let unifvar = self.inf_ctx.vars.get(&Prov::Node(func_id)).unwrap();
+                        let unifvar = self.statics.vars.get(&Prov::Node(func_id)).unwrap();
                         let interface_impl_ty = unifvar.solution().unwrap();
 
                         if ty_fits_impl_ty(
-                            &self.inf_ctx,
+                            &self.statics,
                             desired_interface_impl.clone(),
                             interface_impl_ty,
                         )
@@ -1280,12 +1280,12 @@ fn make_label(hint: &str) -> Label {
     format!("{}__#{:X}", hint, id)
 }
 
-fn idx_of_field(inf_ctx: &InferenceContext, accessed: Rc<Expr>, field: &str) -> u16 {
-    let accessed_ty = inf_ctx.solution_of_node(accessed.id).unwrap();
+fn idx_of_field(statics: &StaticsContext, accessed: Rc<Expr>, field: &str) -> u16 {
+    let accessed_ty = statics.solution_of_node(accessed.id).unwrap();
 
     match accessed_ty {
         SolvedType::UdtInstance(symbol, _) => {
-            let struct_ty = inf_ctx.struct_defs.get(&symbol).expect("not a struct type");
+            let struct_ty = statics.struct_defs.get(&symbol).expect("not a struct type");
             let field_idx = struct_ty
                 .fields
                 .iter()
