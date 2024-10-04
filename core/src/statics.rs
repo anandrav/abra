@@ -24,34 +24,35 @@ pub(crate) struct StaticsContext {
     // effects
     effects: Vec<EffectStruct>,
 
-    // unification variables (skolems) which must be solved
-    pub(crate) vars: HashMap<TypeProv, TypeVar>,
+    // DECLARATIONS
 
     // ADT definitions
     pub(crate) adt_defs: HashMap<Symbol, AdtDef>,
     // map from variant names to ADT names
     variants_to_adt: HashMap<Symbol, Symbol>,
-
     // struct definitions
     pub(crate) struct_defs: HashMap<Symbol, StructDef>,
-
     // function definition locations
     pub(crate) fun_defs: HashMap<Symbol, Rc<Stmt>>,
-
-    // BOOKKEEPING
-
-    // name resolutions
-    pub(crate) name_resolutions: HashMap<NodeId, Resolution>,
     // interface definitions
     interface_defs: HashMap<Symbol, InterfaceDef>,
     // map from methods to interface names
     pub(crate) method_to_interface: HashMap<Symbol, Symbol>,
     // map from interface name to list of implementations
     pub(crate) interface_impls: BTreeMap<Symbol, Vec<InterfaceImpl>>,
+
+    // BOOKKEEPING
+
+    // name resolutions
+    pub(crate) name_resolutions: HashMap<NodeId, Resolution>,
+
     // string constants
     pub(crate) string_constants: HashMap<String, usize>,
 
-    // ADDITIONAL CONSTRAINTS
+    // TYPE CHECKING
+
+    // unification variables (skolems) which must be solved
+    pub(crate) vars: HashMap<TypeProv, TypeVar>,
     // map from types to interfaces they have been constrained to
     types_constrained_to_interfaces: BTreeMap<TypeVar, Vec<(Symbol, TypeProv)>>,
     // types that must be a struct because there was a field access
