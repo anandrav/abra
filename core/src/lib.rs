@@ -58,7 +58,7 @@ pub fn compile_bytecode(
         ast::initialize_node_map(&mut node_map, &(parse_tree.clone() as Rc<dyn ast::Node>));
     }
 
-    let inference_ctx = statics::typecheck(&effects, &toplevels, &node_map, &sources)?;
+    let inference_ctx = statics::analyze(&effects, &toplevels, &node_map, &sources)?;
 
     let translator = Translator::new(inference_ctx, node_map, sources, toplevels, effects);
     Ok(translator.translate())
