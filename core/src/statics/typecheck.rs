@@ -155,7 +155,7 @@ pub(crate) enum PotentialType {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
-pub enum SolvedType {
+pub(crate) enum SolvedType {
     Poly(Symbol, Vec<Symbol>), // type name, then list of Interfaces it must match
     Unit,
     Int,
@@ -310,7 +310,7 @@ pub(crate) enum TypeKey {
 // (2) give the *unique* identity of an unknown type variable (UnifVar) in the SolutionMap
 // TODO: Does Prov really need to be that deeply nested? Will there really be FuncArg -> InstantiatedPoly -> BinopLeft -> Node? Or can we simplify here?
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
-pub enum Prov {
+pub(crate) enum Prov {
     Node(NodeId),     // the type of an expression or statement
     Builtin(Builtin), // a builtin function or constant, which doesn't exist in the AST
     Effect(u16),
@@ -2098,7 +2098,7 @@ fn fmt_conflicting_types(types: &[PotentialType], f: &mut dyn Write) -> fmt::Res
 
 // TODO: there should be a file separate from typecheck that just has stuff pertaining to Types that the whole compiler can use
 // type-utils or just types.rs
-pub fn ty_fits_impl_ty(
+pub(crate) fn ty_fits_impl_ty(
     ctx: &StaticsContext,
     typ: SolvedType,
     impl_ty: SolvedType,

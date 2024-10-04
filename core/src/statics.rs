@@ -1,30 +1,19 @@
-use crate::ast::BinOpcode;
-use crate::ast::{
-    ArgAnnotated, AstType, Expr, ExprKind, Node, NodeId, NodeMap, Pat, PatKind, Sources, Stmt,
-    StmtKind, Symbol, Toplevel, TypeDefKind, TypeKind,
-};
+use crate::ast::{NodeId, NodeMap, Sources, Stmt, Symbol, Toplevel};
 use crate::builtin::Builtin;
 use crate::effects::EffectStruct;
-use crate::environment::Environment;
-use core::panic;
 use declarations::{gather_definitions_toplevel, AdtDef, InterfaceDef, InterfaceImpl, StructDef};
-use disjoint_sets::UnionFindNode;
-use std::cell::RefCell;
 use std::collections::{BTreeMap, BTreeSet, HashMap};
-use std::fmt::{self, Write};
 use std::rc::Rc;
-use typecheck::{
-    generate_constraints_toplevel, result_of_constraint_solving, PotentialType, SolvedType, TypeVar,
-};
+use typecheck::{generate_constraints_toplevel, result_of_constraint_solving, SolvedType, TypeVar};
 
 mod declarations;
 mod exhaustiveness;
 mod typecheck;
 
-pub use typecheck::{ty_fits_impl_ty, Monotype};
+pub(crate) use typecheck::{ty_fits_impl_ty, Monotype};
 // TODO: Provs are an implementation detail, they should NOT be exported
-pub use typecheck::Prov as TypeProv;
-pub use typecheck::SolvedType as Type;
+pub(crate) use typecheck::Prov as TypeProv;
+pub(crate) use typecheck::SolvedType as Type;
 
 pub(crate) use declarations::StructField;
 
