@@ -1,4 +1,4 @@
-use crate::statics::SolvedType;
+use crate::statics::Type;
 
 use strum::IntoEnumIterator;
 use strum::VariantArray;
@@ -101,90 +101,70 @@ impl Builtin {
         }
     }
 
-    pub(crate) fn type_signature(&self) -> SolvedType {
+    pub(crate) fn type_signature(&self) -> Type {
         match self {
             Builtin::AddInt
             | Builtin::SubtractInt
             | Builtin::MultiplyInt
             | Builtin::DivideInt
             | Builtin::ModuloInt
-            | Builtin::PowerInt => SolvedType::Function(
-                vec![SolvedType::Int, SolvedType::Int],
-                Box::new(SolvedType::Int),
-            ),
-            Builtin::SqrtInt => {
-                SolvedType::Function(vec![SolvedType::Int], Box::new(SolvedType::Int))
-            }
+            | Builtin::PowerInt => Type::Function(vec![Type::Int, Type::Int], Box::new(Type::Int)),
+            Builtin::SqrtInt => Type::Function(vec![Type::Int], Box::new(Type::Int)),
 
             Builtin::AddFloat
             | Builtin::SubtractFloat
             | Builtin::MultiplyFloat
             | Builtin::DivideFloat
             | Builtin::ModuloFloat
-            | Builtin::PowerFloat => SolvedType::Function(
-                vec![SolvedType::Float, SolvedType::Float],
-                Box::new(SolvedType::Float),
-            ),
-            Builtin::SqrtFloat => {
-                SolvedType::Function(vec![SolvedType::Float], Box::new(SolvedType::Float))
+            | Builtin::PowerFloat => {
+                Type::Function(vec![Type::Float, Type::Float], Box::new(Type::Float))
             }
+            Builtin::SqrtFloat => Type::Function(vec![Type::Float], Box::new(Type::Float)),
 
             Builtin::LessThanInt
             | Builtin::LessThanOrEqualInt
             | Builtin::GreaterThanInt
             | Builtin::GreaterThanOrEqualInt
-            | Builtin::EqualInt => SolvedType::Function(
-                vec![SolvedType::Int, SolvedType::Int],
-                Box::new(SolvedType::Bool),
-            ),
+            | Builtin::EqualInt => Type::Function(vec![Type::Int, Type::Int], Box::new(Type::Bool)),
 
             Builtin::LessThanFloat
             | Builtin::LessThanOrEqualFloat
             | Builtin::GreaterThanFloat
             | Builtin::GreaterThanOrEqualFloat
-            | Builtin::EqualFloat => SolvedType::Function(
-                vec![SolvedType::Float, SolvedType::Float],
-                Box::new(SolvedType::Bool),
-            ),
-
-            Builtin::EqualString => SolvedType::Function(
-                vec![SolvedType::String, SolvedType::String],
-                Box::new(SolvedType::Bool),
-            ),
-
-            Builtin::IntToString => {
-                SolvedType::Function(vec![SolvedType::Int], Box::new(SolvedType::String))
-            }
-            Builtin::FloatToString => {
-                SolvedType::Function(vec![SolvedType::Float], Box::new(SolvedType::String))
+            | Builtin::EqualFloat => {
+                Type::Function(vec![Type::Float, Type::Float], Box::new(Type::Bool))
             }
 
-            Builtin::ArrayAppend => SolvedType::Function(
+            Builtin::EqualString => {
+                Type::Function(vec![Type::String, Type::String], Box::new(Type::Bool))
+            }
+
+            Builtin::IntToString => Type::Function(vec![Type::Int], Box::new(Type::String)),
+            Builtin::FloatToString => Type::Function(vec![Type::Float], Box::new(Type::String)),
+
+            Builtin::ArrayAppend => Type::Function(
                 vec![
-                    SolvedType::UdtInstance(
-                        "array".into(),
-                        vec![SolvedType::Poly("a".to_string(), vec![])],
-                    ),
-                    SolvedType::Poly("a".to_string(), vec![]),
+                    Type::UdtInstance("array".into(), vec![Type::Poly("a".to_string(), vec![])]),
+                    Type::Poly("a".to_string(), vec![]),
                 ],
-                Box::new(SolvedType::Unit),
+                Box::new(Type::Unit),
             ),
-            Builtin::ArrayLength => SolvedType::Function(
-                vec![SolvedType::UdtInstance(
+            Builtin::ArrayLength => Type::Function(
+                vec![Type::UdtInstance(
                     "array".into(),
-                    vec![SolvedType::Poly("a".into(), vec![])],
+                    vec![Type::Poly("a".into(), vec![])],
                 )],
-                Box::new(SolvedType::Int),
+                Box::new(Type::Int),
             ),
-            Builtin::ArrayPop => SolvedType::Function(
-                vec![SolvedType::UdtInstance(
+            Builtin::ArrayPop => Type::Function(
+                vec![Type::UdtInstance(
                     "array".into(),
-                    vec![SolvedType::Poly("a".into(), vec![])],
+                    vec![Type::Poly("a".into(), vec![])],
                 )],
-                Box::new(SolvedType::Unit),
+                Box::new(Type::Unit),
             ),
 
-            Builtin::Newline => SolvedType::String,
+            Builtin::Newline => Type::String,
         }
     }
 }

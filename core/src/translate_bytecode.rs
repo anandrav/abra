@@ -4,7 +4,8 @@ use crate::ast::{Node, NodeId, Sources, Symbol, Toplevel};
 use crate::builtin::Builtin;
 use crate::effects::EffectStruct;
 use crate::environment::Environment;
-use crate::statics::{ty_fits_impl_ty, Monotype, Prov, Resolution, SolvedType};
+use crate::statics::TypeProv;
+use crate::statics::{ty_fits_impl_ty, Monotype, Resolution, Type};
 use crate::vm::{AbraInt, Instr as VmInstr};
 use crate::{
     ast::{Expr, ExprKind, NodeMap, Pat, PatKind, Stmt, StmtKind},
@@ -18,7 +19,7 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 type OffsetTable = HashMap<NodeId, i32>;
 type Lambdas = HashMap<NodeId, LambdaData>;
 type OverloadedFuncLabels = BTreeMap<OverloadedFuncDesc, Label>;
-type MonomorphEnv = Environment<Symbol, SolvedType>;
+type MonomorphEnv = Environment<Symbol, Type>;
 pub(crate) type LabelMap = HashMap<Label, usize>;
 
 #[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq)]
@@ -50,7 +51,7 @@ struct TranslatorState {
     items: Vec<Item>,
     lambdas: Lambdas,
     overloaded_func_map: OverloadedFuncLabels,
-    overloaded_methods_to_generate: Vec<(OverloadedFuncDesc, SolvedType)>,
+    overloaded_methods_to_generate: Vec<(OverloadedFuncDesc, Type)>,
 }
 
 fn emit(st: &mut TranslatorState, i: impl Into<Item>) {
@@ -704,7 +705,7 @@ impl Translator {
     // emit items for checking if a pattern matches the TOS, replacing it with a boolean
     fn translate_pat_comparison(
         &self,
-        scrutinee_ty: &SolvedType,
+        scrutinee_ty: &Type,
         pat: Rc<Pat>,
         st: &mut TranslatorState,
     ) {
@@ -718,21 +719,21 @@ impl Translator {
         }
 
         match scrutinee_ty {
-            SolvedType::Int => match &*pat.patkind {
+            Type::Int => match &*pat.patkind {
                 PatKind::Int(i) => {
                     emit(st, Instr::PushInt(*i));
                     emit(st, Instr::Equal);
                 }
                 _ => panic!("unexpected pattern: {:?}", pat.patkind),
             },
-            SolvedType::Bool => match &*pat.patkind {
+            Type::Bool => match &*pat.patkind {
                 PatKind::Bool(b) => {
                     emit(st, Instr::PushBool(*b));
                     emit(st, Instr::Equal);
                 }
                 _ => panic!("unexpected pattern: {:?}", pat.patkind),
             },
-            SolvedType::UdtInstance(symbol, _) => match &*pat.patkind {
+            Type::UdtInstance(symbol, _) => match &*pat.patkind {
                 PatKind::Variant(ctor, inner) => {
                     let adt = self.statics.adt_defs.get(symbol).unwrap();
                     let tag_fail_label = make_label("tag_fail");
@@ -770,7 +771,7 @@ impl Translator {
                 }
                 _ => panic!("unexpected pattern: {:?}", pat.patkind),
             },
-            SolvedType::Tuple(types) => match &*pat.patkind {
+            Type::Tuple(types) => match &*pat.patkind {
                 PatKind::Tuple(pats) => {
                     let final_element_success_label = make_label("tuple_success");
                     let end_label = make_label("endtuple");
@@ -1043,7 +1044,7 @@ impl Translator {
     fn get_func_definition_node(
         &self,
         method_name: &Symbol,
-        desired_interface_impl: SolvedType,
+        desired_interface_impl: Type,
     ) -> NodeId {
         if let Some(interface_name) = self.statics.method_to_interface.get(method_name) {
             let impl_list = self.statics.interface_impls.get(interface_name).unwrap();
@@ -1060,7 +1061,7 @@ impl Translator {
                             self.node_map.get(&method.identifier_location).unwrap();
 
                         let func_id = method_identifier_node.id();
-                        let unifvar = self.statics.vars.get(&Prov::Node(func_id)).unwrap();
+                        let unifvar = self.statics.vars.get(&TypeProv::Node(func_id)).unwrap();
                         let interface_impl_ty = unifvar.solution().unwrap();
 
                         if ty_fits_impl_ty(
@@ -1086,7 +1087,7 @@ impl Translator {
     fn handle_overloaded_func(
         &self,
         st: &mut TranslatorState,
-        substituted_ty: SolvedType,
+        substituted_ty: Type,
         func_name: &Symbol,
         definition_node: NodeId,
     ) {
@@ -1284,7 +1285,7 @@ fn idx_of_field(statics: &StaticsContext, accessed: Rc<Expr>, field: &str) -> u1
     let accessed_ty = statics.solution_of_node(accessed.id).unwrap();
 
     match accessed_ty {
-        SolvedType::UdtInstance(symbol, _) => {
+        Type::UdtInstance(symbol, _) => {
             let struct_ty = statics.struct_defs.get(&symbol).expect("not a struct type");
             let field_idx = struct_ty
                 .fields
@@ -1297,29 +1298,25 @@ fn idx_of_field(statics: &StaticsContext, accessed: Rc<Expr>, field: &str) -> u1
     }
 }
 
-fn update_monomorph_env(
-    monomorph_env: MonomorphEnv,
-    overloaded_ty: SolvedType,
-    monomorphic_ty: SolvedType,
-) {
+fn update_monomorph_env(monomorph_env: MonomorphEnv, overloaded_ty: Type, monomorphic_ty: Type) {
     match (overloaded_ty, monomorphic_ty.clone()) {
         // recurse
-        (SolvedType::Function(args, out), SolvedType::Function(args2, out2)) => {
+        (Type::Function(args, out), Type::Function(args2, out2)) => {
             for i in 0..args.len() {
                 update_monomorph_env(monomorph_env.clone(), args[i].clone(), args2[i].clone());
             }
             update_monomorph_env(monomorph_env, *out, *out2);
         }
-        (SolvedType::UdtInstance(ident, params), SolvedType::UdtInstance(ident2, params2)) => {
+        (Type::UdtInstance(ident, params), Type::UdtInstance(ident2, params2)) => {
             assert_eq!(ident, ident2);
             for i in 0..params.len() {
                 update_monomorph_env(monomorph_env.clone(), params[i].clone(), params2[i].clone());
             }
         }
-        (SolvedType::Poly(ident, _), _) => {
+        (Type::Poly(ident, _), _) => {
             monomorph_env.extend(ident, monomorphic_ty);
         }
-        (SolvedType::Tuple(elems1), SolvedType::Tuple(elems2)) => {
+        (Type::Tuple(elems1), Type::Tuple(elems2)) => {
             for i in 0..elems1.len() {
                 update_monomorph_env(monomorph_env.clone(), elems1[i].clone(), elems2[i].clone());
             }
@@ -1328,36 +1325,36 @@ fn update_monomorph_env(
     }
 }
 
-fn subst_with_monomorphic_env(monomorphic_env: MonomorphEnv, ty: SolvedType) -> SolvedType {
+fn subst_with_monomorphic_env(monomorphic_env: MonomorphEnv, ty: Type) -> Type {
     match ty {
-        SolvedType::Function(args, out) => {
+        Type::Function(args, out) => {
             let new_args = args
                 .iter()
                 .map(|arg| subst_with_monomorphic_env(monomorphic_env.clone(), arg.clone()))
                 .collect();
             let new_out = subst_with_monomorphic_env(monomorphic_env, *out);
-            SolvedType::Function(new_args, Box::new(new_out))
+            Type::Function(new_args, Box::new(new_out))
         }
-        SolvedType::UdtInstance(ident, params) => {
+        Type::UdtInstance(ident, params) => {
             let new_params = params
                 .iter()
                 .map(|param| subst_with_monomorphic_env(monomorphic_env.clone(), param.clone()))
                 .collect();
-            SolvedType::UdtInstance(ident, new_params)
+            Type::UdtInstance(ident, new_params)
         }
-        SolvedType::Poly(ref ident, _) => {
+        Type::Poly(ref ident, _) => {
             if let Some(monomorphic_ty) = monomorphic_env.lookup(ident) {
                 monomorphic_ty
             } else {
                 ty
             }
         }
-        SolvedType::Tuple(elems) => {
+        Type::Tuple(elems) => {
             let new_elems = elems
                 .iter()
                 .map(|elem| subst_with_monomorphic_env(monomorphic_env.clone(), elem.clone()))
                 .collect();
-            SolvedType::Tuple(new_elems)
+            Type::Tuple(new_elems)
         }
         _ => ty,
     }

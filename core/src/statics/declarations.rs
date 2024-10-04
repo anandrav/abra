@@ -5,9 +5,13 @@ use crate::{
     builtin::Builtin,
 };
 
-use super::{
+use super::{Resolution, StaticsContext, TypeVar};
+
+// TODO: constrain, Gamma, Prov should be implementation details
+// TODO: others should probably be implementation details too
+use super::typecheck::{
     ast_type_to_statics_type, ast_type_to_statics_type_interface, constrain, monotype_to_typevar,
-    solved_type_to_typevar, Gamma, Prov, Resolution, StaticsContext, TypeVar,
+    solved_type_to_typevar, Gamma, Prov,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]

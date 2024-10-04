@@ -1,13 +1,63 @@
-use crate::ast::{Expr, ExprKind, MatchArm, Pat, PatKind, Stmt, StmtKind, Symbol, Toplevel};
+use crate::ast::{
+    Expr, ExprKind, MatchArm, NodeMap, Pat, PatKind, Sources, Stmt, StmtKind, Symbol, Toplevel,
+};
 use core::panic;
 
 use std::collections::HashSet;
-use std::fmt::{self};
+use std::fmt::{self, Write};
 use std::rc::Rc;
 
 use super::{SolvedType, StaticsContext};
 
-pub fn check_pattern_exhaustiveness_toplevel(statics: &mut StaticsContext, toplevel: &Toplevel) {
+pub(crate) fn result_of_additional_analysis(
+    ctx: &mut StaticsContext,
+    toplevels: &[Rc<Toplevel>],
+    node_map: &NodeMap,
+    sources: &Sources,
+) -> Result<(), String> {
+    for toplevel in toplevels {
+        check_pattern_exhaustiveness_toplevel(ctx, toplevel);
+    }
+
+    if ctx.nonexhaustive_matches.is_empty() && ctx.redundant_matches.is_empty() {
+        return Ok(());
+    }
+
+    let mut err_string = String::new();
+
+    err_string.push_str("Pattern matching errors:\n");
+
+    for (pat, missing_pattern_suggestions) in ctx.nonexhaustive_matches.iter() {
+        let span = node_map.get(pat).unwrap().span();
+        span.display(
+            &mut err_string,
+            sources,
+            "This match expression doesn't cover every possibility:\n",
+        );
+        err_string.push_str("\nThe following cases are missing:\n");
+        for pat in missing_pattern_suggestions {
+            let _ = writeln!(err_string, "\t`{pat}`\n");
+        }
+    }
+
+    for (match_expr, redundant_pattern_suggestions) in ctx.redundant_matches.iter() {
+        let span = node_map.get(match_expr).unwrap().span();
+        span.display(
+            &mut err_string,
+            sources,
+            "This match expression has redundant cases:\n",
+        );
+        err_string.push_str("\nTry removing these cases\n");
+        for pat in redundant_pattern_suggestions {
+            let span = node_map.get(pat).unwrap().span();
+            span.display(&mut err_string, sources, "");
+        }
+    }
+
+    Err(err_string)
+}
+
+fn check_pattern_exhaustiveness_toplevel(statics: &mut StaticsContext, toplevel: &Toplevel) {
     for statement in toplevel.statements.iter() {
         check_pattern_exhaustiveness_stmt(statics, statement);
     }
