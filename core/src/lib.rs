@@ -87,8 +87,6 @@ pub fn compile_bytecode(
     Ok(translator.translate())
 }
 
-// TODO: prelude should only contain builtin operations like adding ints and conversions to strings, etc.
-// it should not contain standard library functions like map, fold, etc.
 pub const _PRELUDE: &str = r#"
 fn not(b: bool) = if b false else true
 
@@ -300,6 +298,10 @@ fn println(x: 'b ToString) {
     print_string(to_string(x) & newline)
 }
 
+"#;
+
+// used to be part of prelude, but separated because not all programs need it
+pub const _STDLIB: &str = r#"
 fn range(lo: int, hi: int) {
     if lo > hi
         nil
@@ -357,5 +359,4 @@ fn filter(xs: list<'a>, f: 'a -> bool) -> list<'a> {
 fn reverse(xs: list<'c>) -> list<'c> {
     fold(xs, (acc, head) -> cons(head, acc), nil)
 }
-
 "#;
