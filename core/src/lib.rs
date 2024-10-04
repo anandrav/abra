@@ -58,30 +58,7 @@ pub fn compile_bytecode(
         ast::initialize_node_map(&mut node_map, &(parse_tree.clone() as Rc<dyn ast::Node>));
     }
 
-    // TODO: don't expose StaticsContext::new, just return an inference context after static analysis is performed
-    let mut inference_ctx = statics::StaticsContext::new(effects.clone());
-    // TODO: Gamma should be encapsulated in statics module
-    /* TODO: expose one function instead of
-        - gather_definitions_toplevel
-        - generate_constraints_toplevel
-        - result_of_constraint_solving
-        - result_of_additional_analysis
-    */
-    let tyctx = statics::Gamma::empty();
-    for parse_tree in &toplevels {
-        statics::gather_definitions_toplevel(&mut inference_ctx, tyctx.clone(), parse_tree.clone());
-    }
-    for parse_tree in &toplevels {
-        statics::generate_constraints_toplevel(
-            tyctx.clone(),
-            parse_tree.clone(),
-            &mut inference_ctx,
-        );
-    }
-
-    //
-    statics::result_of_constraint_solving(&mut inference_ctx, &node_map, &sources)?;
-    statics::result_of_additional_analysis(&mut inference_ctx, &toplevels, &node_map, &sources)?;
+    let inference_ctx = statics::typecheck(&effects, &toplevels, &node_map, &sources)?;
 
     let translator = Translator::new(inference_ctx, node_map, sources, toplevels, effects);
     Ok(translator.translate())
