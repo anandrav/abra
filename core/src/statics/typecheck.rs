@@ -1322,6 +1322,26 @@ pub(crate) fn generate_constraints_toplevel(
     toplevel: Rc<Toplevel>,
     ctx: &mut StaticsContext,
 ) {
+    for (i, eff) in ctx.effects.iter().enumerate() {
+        let prov = Prov::Effect(i as u16);
+        let mut args = Vec::new();
+        for arg in eff.type_signature.0.iter() {
+            args.push(monotype_to_typevar(arg.clone(), prov.clone()));
+        }
+        let typ = TypeVar::make_func(
+            args,
+            monotype_to_typevar(eff.type_signature.1.clone(), prov.clone()),
+            prov,
+        );
+        gamma.extend(eff.name.clone(), typ);
+        gamma.extend_declaration(eff.name.clone(), Resolution::Effect(i as u16));
+    }
+    for builtin in Builtin::enumerate().iter() {
+        let prov = Prov::Builtin(*builtin);
+        let typ = solved_type_to_typevar(builtin.type_signature(), prov);
+        gamma.extend(builtin.name(), typ);
+        gamma.extend_declaration(builtin.name(), Resolution::Builtin(*builtin));
+    }
     for statement in toplevel.statements.iter() {
         generate_constraints_stmt(gamma.clone(), Mode::Syn, statement.clone(), ctx, true);
     }
