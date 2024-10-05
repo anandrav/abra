@@ -125,8 +125,8 @@ pub(crate) enum Resolution {
     Var(NodeId),
     FunctionDefinition(NodeId, Symbol),
     InterfaceMethod(Symbol),
-    StructDefinition(u16),
-    Variant(u16, u16),
+    StructCtor(u16),
+    VariantCtor(u16, u16),
     Builtin(Builtin),
     Effect(u16),
 }

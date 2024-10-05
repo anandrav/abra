@@ -237,7 +237,7 @@ impl Translator {
             ExprKind::Var(symbol) => {
                 // adt variant
                 match self.statics.name_resolutions.get(&expr.id).unwrap() {
-                    Resolution::Variant(tag, _) => {
+                    Resolution::VariantCtor(tag, _) => {
                         emit(st, Instr::PushNil);
                         emit(st, Instr::ConstructVariant { tag: *tag });
                     }
@@ -268,7 +268,7 @@ impl Translator {
                         // TODO: generate functions for effects
                         unimplemented!()
                     }
-                    Resolution::StructDefinition(_) => {
+                    Resolution::StructCtor(_) => {
                         // TODO: generate functions for structs
                         unimplemented!()
                     }
@@ -393,10 +393,10 @@ impl Translator {
                                 self.get_func_definition_node(name, substituted_ty.clone());
                             self.handle_overloaded_func(st, substituted_ty, name, def_id);
                         }
-                        Resolution::StructDefinition(nargs) => {
+                        Resolution::StructCtor(nargs) => {
                             emit(st, Instr::Construct(*nargs));
                         }
-                        Resolution::Variant(tag, nargs) => {
+                        Resolution::VariantCtor(tag, nargs) => {
                             if *nargs > 1 {
                                 // turn the arguments (associated data) into a tuple
                                 emit(st, Instr::Construct(*nargs));

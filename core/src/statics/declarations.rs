@@ -164,7 +164,7 @@ fn gather_definitions_stmt(ctx: &mut StaticsContext, gamma: Gamma, stmt: Rc<Stmt
                     });
                     gamma.extend_declaration(
                         v.ctor.clone(),
-                        Resolution::Variant(i as u16, arity as u16),
+                        Resolution::VariantCtor(i as u16, arity as u16),
                     );
 
                     let data = {
@@ -198,10 +198,8 @@ fn gather_definitions_stmt(ctx: &mut StaticsContext, gamma: Gamma, stmt: Rc<Stmt
                 );
             }
             TypeDefKind::Struct(ident, params, fields) => {
-                gamma.extend_declaration(
-                    ident.clone(),
-                    Resolution::StructDefinition(fields.len() as u16),
-                );
+                gamma
+                    .extend_declaration(ident.clone(), Resolution::StructCtor(fields.len() as u16));
 
                 // let ty_struct = TypeVar::from_node(ctx, stmt.id);
                 if let Some(struct_def) = ctx.struct_defs.get(ident) {
