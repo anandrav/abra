@@ -311,12 +311,12 @@ pub(crate) enum TypeKey {
 // TODO: Does Prov really need to be that deeply nested? Will there really be FuncArg -> InstantiatedPoly -> BinopLeft -> Node? Or can we simplify here?
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub(crate) enum Prov {
-    Node(NodeId),     // the type of an expression or statement
+    Node(NodeId),     // the type of an expression or statement located at NodeId
     Builtin(Builtin), // a builtin function or constant, which doesn't exist in the AST
     Effect(u16),
     UnderdeterminedCoerceToUnit,
 
-    Alias(Symbol), // TODO FIXME: Store a NodeId instead of a Symbol
+    Alias(Symbol), // TODO FIXME: Store a NodeId/resolution instead of a Symbol
     UdtDef(Box<Prov>),
 
     InstantiateUdtParam(Box<Prov>, u8),
@@ -326,12 +326,6 @@ pub(crate) enum Prov {
     BinopLeft(Box<Prov>),
     BinopRight(Box<Prov>),
     ListElem(Box<Prov>),
-    // TODO FIXME: There is a fundamental problem here where Prov::StructField contains a TypeVar which is mutable.
-    // However, we need the StructField provenance to express the fact that "this type represents the type of the field of this struct".
-    // Instead of storing a TypeVar, store the NodeId of the struct definition, if it's available.
-    // Since we're doing global type inference, the struct may not be solved for yet.
-    // If that's the case, we can either suggest the user makes a type annotation, or we can defer handling the constraint until the struct is solved for.
-    // The latter involves putting the constraint in a queue to be handled later, but this would complicate the implementation. Save it for another day.
     StructField(Symbol, NodeId),
     IndexAccess,
     VariantNoData(Box<Prov>), // the type of the data of a variant with no data, always Unit.
@@ -751,12 +745,13 @@ pub(crate) fn ast_type_to_statics_type_interface(
         TypeKind::Poly(ident, interfaces) => {
             TypeVar::make_poly(Prov::Node(ast_type.id()), ident.clone(), interfaces.clone())
         }
-        TypeKind::Alias(ident) => {
+        TypeKind::Name(ident) => {
             if let Some(interface_ident) = interface_ident {
+                // TODO: Instead of checking equality with "self", it should get its own TypeKind. TypeKind::Self
                 if ident == "self" {
                     TypeVar::make_poly_constrained(
                         Prov::Node(ast_type.id()),
-                        "a".to_string(),
+                        "a".to_string(), //TODO: why "a"? Maybe use "self" or "Self" instead?
                         interface_ident.clone(),
                     )
                 } else {

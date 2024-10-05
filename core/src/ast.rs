@@ -455,7 +455,7 @@ impl Node for AstType {
     fn children(&self) -> Vec<Rc<dyn Node>> {
         match &*self.typekind {
             TypeKind::Poly(_, _)
-            | TypeKind::Alias(_)
+            | TypeKind::Name(_)
             | TypeKind::Unit
             | TypeKind::Int
             | TypeKind::Float
@@ -485,7 +485,7 @@ impl Node for AstType {
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) enum TypeKind {
     Poly(Symbol, Vec<Symbol>),
-    Alias(Symbol),
+    Name(Symbol),
     Ap(Symbol, Vec<Rc<AstType>>),
     Unit,
     Int,
@@ -782,7 +782,7 @@ pub(crate) fn parse_type_term(pair: Pair<Rule>, filename: &str) -> Rc<AstType> {
         Rule::identifier => {
             let ident = pair.as_str().to_string();
             Rc::new(AstType {
-                typekind: Rc::new(TypeKind::Alias(ident)),
+                typekind: Rc::new(TypeKind::Name(ident)),
                 span,
                 id: NodeId::new(),
             })
