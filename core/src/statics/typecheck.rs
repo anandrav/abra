@@ -332,7 +332,7 @@ pub(crate) enum Prov {
     // Since we're doing global type inference, the struct may not be solved for yet.
     // If that's the case, we can either suggest the user makes a type annotation, or we can defer handling the constraint until the struct is solved for.
     // The latter involves putting the constraint in a queue to be handled later, but this would complicate the implementation. Save it for another day.
-    StructField(Symbol, TypeVar),
+    StructField(Symbol, NodeId),
     IndexAccess,
     VariantNoData(Box<Prov>), // the type of the data of a variant with no data, always Unit.
 }
@@ -1720,13 +1720,14 @@ fn generate_constraints_expr(gamma: Gamma, mode: Mode, expr: Rc<Expr>, ctx: &mut
             };
             if let PotentialType::UdtInstance(_, ident, _) = inner {
                 if let Some(struct_def) = ctx.struct_defs.get(&ident) {
-                    let ty_struct = TypeVar::from_node(ctx, struct_def.location);
                     let ExprKind::Var(field_ident) = &*field.exprkind else {
                         ctx.field_not_ident.insert(field.id);
                         return;
                     };
-                    let ty_field =
-                        TypeVar::fresh(ctx, Prov::StructField(field_ident.clone(), ty_struct));
+                    let ty_field = TypeVar::fresh(
+                        ctx,
+                        Prov::StructField(field_ident.clone(), struct_def.location),
+                    );
                     constrain(node_ty.clone(), ty_field);
                     return;
                 }

@@ -1,17 +1,13 @@
 use std::{fmt, rc::Rc};
 
-use crate::{
-    ast::{Node, NodeId, Stmt, StmtKind, Symbol, Toplevel, TypeDefKind, TypeKind},
-    builtin::Builtin,
-};
+use crate::ast::{Node, NodeId, Stmt, StmtKind, Symbol, Toplevel, TypeDefKind, TypeKind};
 
 use super::{Resolution, StaticsContext, TypeVar};
 
 // TODO: constrain, Gamma, Prov should be implementation details
 // TODO: others should probably be implementation details too
 use super::typecheck::{
-    ast_type_to_statics_type, ast_type_to_statics_type_interface, constrain, monotype_to_typevar,
-    solved_type_to_typevar, Gamma, Prov,
+    ast_type_to_statics_type, ast_type_to_statics_type_interface, constrain, Gamma, Prov,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
@@ -207,7 +203,7 @@ fn gather_definitions_stmt(ctx: &mut StaticsContext, gamma: Gamma, stmt: Rc<Stmt
                     Resolution::StructDefinition(fields.len() as u16),
                 );
 
-                let ty_struct = TypeVar::from_node(ctx, stmt.id);
+                // let ty_struct = TypeVar::from_node(ctx, stmt.id);
                 if let Some(struct_def) = ctx.struct_defs.get(ident) {
                     let entry = ctx.multiple_udt_defs.entry(ident.clone()).or_default();
                     entry.push(struct_def.location);
@@ -229,7 +225,7 @@ fn gather_definitions_stmt(ctx: &mut StaticsContext, gamma: Gamma, stmt: Rc<Stmt
                         ty: ty_annot.clone(),
                     });
 
-                    let prov = Prov::StructField(f.ident.clone(), ty_struct.clone());
+                    let prov = Prov::StructField(f.ident.clone(), stmt.id);
                     let ty_field = TypeVar::fresh(ctx, prov.clone());
                     constrain(ty_field.clone(), ty_annot.clone());
                     ctx.vars.insert(prov, ty_field);
