@@ -4,6 +4,9 @@ use abra_core::effects::EffectTrait;
 use abra_core::source_files_single;
 use abra_core::vm::Vm;
 
+pub mod utils;
+use utils::inner::unwrap_or_panic;
+
 #[test]
 fn arithmetic() {
     let src = r#"
@@ -17,7 +20,7 @@ let h = subtract(z, 1)
 h
 "#;
     let sources = source_files_single(src);
-    let program = compile_bytecode(sources, DefaultEffects::enumerate()).unwrap();
+    let program = unwrap_or_panic(compile_bytecode(sources, DefaultEffects::enumerate()));
     let mut vm = Vm::new(program);
     vm.run();
     let top = vm.top();
@@ -37,7 +40,7 @@ let (x, y) = p
 x + y
 "#;
     let sources = source_files_single(src);
-    let program = compile_bytecode(sources, DefaultEffects::enumerate()).unwrap();
+    let program = unwrap_or_panic(compile_bytecode(sources, DefaultEffects::enumerate()));
     let mut vm = Vm::new(program);
     vm.run();
     let top = vm.top();
@@ -55,7 +58,7 @@ if false {
 }
 "#;
     let sources = source_files_single(src);
-    let program = compile_bytecode(sources, DefaultEffects::enumerate()).unwrap();
+    let program = unwrap_or_panic(compile_bytecode(sources, DefaultEffects::enumerate()));
     let mut vm = Vm::new(program);
     vm.run();
     let top = vm.top();
@@ -73,7 +76,7 @@ if true {
 x
 "#;
     let sources = source_files_single(src);
-    let program = compile_bytecode(sources, DefaultEffects::enumerate()).unwrap();
+    let program = unwrap_or_panic(compile_bytecode(sources, DefaultEffects::enumerate()));
     let mut vm = Vm::new(program);
     vm.run();
     let top = vm.top();
@@ -88,7 +91,7 @@ print_string("hello world")
 5
 "#;
     let sources = source_files_single(src);
-    let program = compile_bytecode(sources, DefaultEffects::enumerate()).unwrap();
+    let program = unwrap_or_panic(compile_bytecode(sources, DefaultEffects::enumerate()));
     let mut vm = Vm::new(program);
     vm.run();
     let top = vm.top();
@@ -115,7 +118,7 @@ x.name
 "#;
     let sources = source_files_single(src);
 
-    let program = compile_bytecode(sources, DefaultEffects::enumerate()).unwrap();
+    let program = unwrap_or_panic(compile_bytecode(sources, DefaultEffects::enumerate()));
     let mut vm = Vm::new(program);
     vm.run();
     let top = vm.top();
@@ -136,34 +139,11 @@ x.age
 "#;
     let sources = source_files_single(src);
 
-    let program = compile_bytecode(sources, DefaultEffects::enumerate()).unwrap();
+    let program = unwrap_or_panic(compile_bytecode(sources, DefaultEffects::enumerate()));
     let mut vm = Vm::new(program);
     vm.run();
     let top = vm.top();
     assert_eq!(top.get_int(), 36);
-}
-
-// TODO: type aliases are not resolved properly
-// In this case, 'person' in get_age argument annotation is not properly recognized as the 'person' type defined on first line
-#[ignore]
-#[test]
-fn struct_access_type_infer() {
-    let src = r#"
-type person = {
-    name: string,
-    age: int
-}
-
-fn get_age(p: person) {
-    p + p
-}
-
-let x = person("Alice", 30)
-get_age(15)
-"#;
-    let sources = source_files_single(src);
-
-    let program = compile_bytecode(sources, DefaultEffects::enumerate()).expect_err("should fail");
 }
 
 #[test]
@@ -176,7 +156,7 @@ arr[2]
 "#;
     let sources = source_files_single(src);
 
-    let program = compile_bytecode(sources, DefaultEffects::enumerate()).unwrap();
+    let program = unwrap_or_panic(compile_bytecode(sources, DefaultEffects::enumerate()));
     let mut vm = Vm::new(program);
     vm.run();
     let top = vm.top();
@@ -195,7 +175,7 @@ match n {
 "#;
     let sources = source_files_single(src);
 
-    let program = compile_bytecode(sources, DefaultEffects::enumerate()).unwrap();
+    let program = unwrap_or_panic(compile_bytecode(sources, DefaultEffects::enumerate()));
     let mut vm = Vm::new(program);
     vm.run();
     let top = vm.top();
@@ -214,7 +194,7 @@ match n {
 "#;
     let sources = source_files_single(src);
 
-    let program = compile_bytecode(sources, DefaultEffects::enumerate()).unwrap();
+    let program = unwrap_or_panic(compile_bytecode(sources, DefaultEffects::enumerate()));
     let mut vm = Vm::new(program);
     vm.run();
     let top = vm.top();
@@ -239,7 +219,7 @@ sum
 "#;
     let sources = source_files_single(src);
 
-    let program = compile_bytecode(sources, DefaultEffects::enumerate()).unwrap();
+    let program = unwrap_or_panic(compile_bytecode(sources, DefaultEffects::enumerate()));
     let mut vm = Vm::new(program);
     vm.run();
     let top = vm.top();
@@ -771,7 +751,7 @@ println(123)
 "#;
     let sources = source_files_single(src);
 
-    let program = compile_bytecode(sources, DefaultEffects::enumerate()).unwrap();
+    let program = unwrap_or_panic(compile_bytecode(sources, DefaultEffects::enumerate()));
     let mut vm = Vm::new(program);
     vm.run();
     let top = vm.top();
@@ -796,7 +776,7 @@ fn local_in_while_scope() {
     "#;
     let sources = source_files_single(src);
 
-    let program = compile_bytecode(sources, DefaultEffects::enumerate()).unwrap();
+    let program = unwrap_or_panic(compile_bytecode(sources, DefaultEffects::enumerate()));
     let mut vm = Vm::new(program);
     vm.run();
     let top = vm.top();
@@ -873,7 +853,7 @@ fn main() {
 5
 "#;
     let sources = source_files_single(src);
-    let program = compile_bytecode(sources, DefaultEffects::enumerate()).unwrap();
+    let program = unwrap_or_panic(compile_bytecode(sources, DefaultEffects::enumerate()));
     let mut vm = Vm::with_entry_point(program, "main".to_owned());
     vm.run();
     let top = vm.top();
@@ -894,7 +874,7 @@ fn main(x, y) {
 main(5, 6)
 "#;
     let sources = source_files_single(src);
-    let program = compile_bytecode(sources, DefaultEffects::enumerate()).unwrap();
+    let program = unwrap_or_panic(compile_bytecode(sources, DefaultEffects::enumerate()));
     let mut vm = Vm::with_entry_point(program, "main".to_owned());
     vm.push_int(2);
     vm.push_int(3);
