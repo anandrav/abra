@@ -49,21 +49,3 @@ jobs:
           cd core
           cargo test --verbose
 
-  trunk:
-    name: trunk
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v2
-      - uses: actions-rs/toolchain@v1
-        with:
-          profile: minimal
-          toolchain: stable
-          target: wasm32-unknown-unknown
-          override: true
-      - name: Download and install Trunk binary
-        run: cargo install trunk
-      - name: Build
-        run: |
-          cd editor
-          trunk build
-
