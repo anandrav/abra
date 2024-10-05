@@ -143,7 +143,8 @@ x.age
     assert_eq!(top.get_int(), 36);
 }
 
-// TODO: type inference is not working for p.age
+// TODO: type aliases are not resolved properly
+// In this case, 'person' in get_age argument annotation is not properly recognized as the 'person' type defined on first line
 #[ignore]
 #[test]
 fn struct_access_type_infer() {
@@ -154,19 +155,15 @@ type person = {
 }
 
 fn get_age(p: person) {
-    p.age
+    p + p
 }
 
 let x = person("Alice", 30)
-get_age(x)
+get_age(15)
 "#;
     let sources = source_files_single(src);
 
-    let program = compile_bytecode(sources, DefaultEffects::enumerate()).unwrap();
-    let mut vm = Vm::new(program);
-    vm.run();
-    let top = vm.top();
-    assert_eq!(top.get_int(), 30);
+    let program = compile_bytecode(sources, DefaultEffects::enumerate()).expect_err("should fail");
 }
 
 #[test]
