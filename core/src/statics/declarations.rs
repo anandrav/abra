@@ -104,8 +104,6 @@ fn gather_definitions_stmt(ctx: &mut StaticsContext, gamma: Gamma, stmt: Rc<Stmt
                 let node_ty = TypeVar::from_node(ctx, p.id());
                 // TODO: it would be nice if there were no calls to constrain() when gathering declarations...
                 constrain(node_ty.clone(), ty_annot.clone());
-                // TODO last here
-                // perhaps make a note that this is an interface method (overloaded)
                 methods.push(InterfaceDefMethod {
                     name: p.ident.clone(),
                     ty: node_ty.clone(),

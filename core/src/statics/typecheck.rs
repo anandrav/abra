@@ -316,7 +316,7 @@ pub(crate) enum Prov {
     Effect(u16),
     UnderdeterminedCoerceToUnit,
 
-    Alias(Symbol), // TODO add Box<Prov>
+    Alias(Symbol), // TODO FIXME: Store a NodeId instead of a Symbol
     UdtDef(Box<Prov>),
 
     InstantiateUdtParam(Box<Prov>, u8),
@@ -326,6 +326,12 @@ pub(crate) enum Prov {
     BinopLeft(Box<Prov>),
     BinopRight(Box<Prov>),
     ListElem(Box<Prov>),
+    // TODO FIXME: There is a fundamental problem here where Prov::StructField contains a TypeVar which is mutable.
+    // However, we need the StructField provenance to express the fact that "this type represents the type of the field of this struct".
+    // Instead of storing a TypeVar, store the NodeId of the struct definition, if it's available.
+    // Since we're doing global type inference, the struct may not be solved for yet.
+    // If that's the case, we can either suggest the user makes a type annotation, or we can defer handling the constraint until the struct is solved for.
+    // The latter involves putting the constraint in a queue to be handled later, but this would complicate the implementation. Save it for another day.
     StructField(Symbol, TypeVar),
     IndexAccess,
     VariantNoData(Box<Prov>), // the type of the data of a variant with no data, always Unit.
