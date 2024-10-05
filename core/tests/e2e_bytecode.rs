@@ -143,6 +143,32 @@ x.age
     assert_eq!(top.get_int(), 36);
 }
 
+// TODO: type inference is not working for p.age
+#[ignore]
+#[test]
+fn struct_access_type_infer() {
+    let src = r#"
+type person = {
+    name: string,
+    age: int
+}
+
+fn get_age(p: person) {
+    p.age
+}
+
+let x = person("Alice", 30)
+get_age(x)
+"#;
+    let sources = source_files_single(src);
+
+    let program = compile_bytecode(sources, DefaultEffects::enumerate()).unwrap();
+    let mut vm = Vm::new(program);
+    vm.run();
+    let top = vm.top();
+    assert_eq!(top.get_int(), 30);
+}
+
 #[test]
 fn array_assign_and_access() {
     let src = r#"
