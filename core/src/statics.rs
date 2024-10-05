@@ -123,7 +123,7 @@ impl StaticsContext {
 #[derive(Debug, Clone)]
 pub(crate) enum Resolution {
     Var(NodeId),
-    FunctionDefinition(NodeId, Symbol),
+    FreeFunction(NodeId, Symbol),
     InterfaceMethod(Symbol),
     StructCtor(u16),
     VariantCtor(u16, u16),

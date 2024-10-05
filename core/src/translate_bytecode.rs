@@ -272,7 +272,7 @@ impl Translator {
                         // TODO: generate functions for structs
                         unimplemented!()
                     }
-                    Resolution::FunctionDefinition(_, name) => {
+                    Resolution::FreeFunction(_, name) => {
                         emit(
                             st,
                             Instr::MakeClosure {
@@ -339,7 +339,7 @@ impl Translator {
                             emit(st, Instr::LoadOffset(*idx));
                             emit(st, Instr::CallFuncObj);
                         }
-                        Resolution::FunctionDefinition(node_id, name) => {
+                        Resolution::FreeFunction(node_id, name) => {
                             // println!("emitting Call of function: {}", name);
                             let StmtKind::FuncDef(pat, _, _, _) = &*self
                                 .node_map

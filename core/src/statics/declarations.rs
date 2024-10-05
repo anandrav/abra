@@ -246,7 +246,7 @@ fn gather_definitions_stmt(ctx: &mut StaticsContext, gamma: Gamma, stmt: Rc<Stmt
             let name = name.patkind.get_identifier_of_variable();
             ctx.fun_defs.insert(name.clone(), stmt.clone());
             gamma.extend(name.clone(), TypeVar::from_node(ctx, name_id));
-            gamma.extend_declaration(name.clone(), Resolution::FunctionDefinition(stmt.id, name));
+            gamma.extend_declaration(name.clone(), Resolution::FreeFunction(stmt.id, name));
         }
         StmtKind::Set(..) => {}
     }

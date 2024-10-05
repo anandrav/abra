@@ -1925,10 +1925,7 @@ fn generate_constraints_stmt(
                 gamma.extend(name.patkind.get_identifier_of_variable(), ty_pat.clone());
                 gamma.extend_declaration(
                     func_name,
-                    Resolution::FunctionDefinition(
-                        stmt.id,
-                        name.patkind.get_identifier_of_variable(),
-                    ),
+                    Resolution::FreeFunction(stmt.id, name.patkind.get_identifier_of_variable()),
                 );
             } else {
                 gamma.extend_declaration(func_name.clone(), Resolution::InterfaceMethod(func_name));
