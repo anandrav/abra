@@ -26,6 +26,8 @@ pub(crate) struct StaticsContext {
 
     // DECLARATIONS
 
+    // new stuff
+    pub(crate) declarations: HashMap<Symbol, Declaration>,
     // enum definitions
     pub(crate) enum_defs: HashMap<Symbol, EnumDef>,
     // map from variant names to enum names
@@ -118,6 +120,25 @@ impl StaticsContext {
             None => None,
         }
     }
+}
+
+// #[derive(Clone, Debug)]
+// pub struct Namespace {
+//     contents: HashMap<String, NamespaceOrDeclaration>,
+// }
+
+// #[derive(Clone, Debug)]
+// pub enum NamespaceOrDeclaration {
+//     Namespace(Namespace),
+//     Declaration(Declaration),
+// }
+
+#[derive(Debug, Clone)]
+pub(crate) enum Declaration {
+    Enum(EnumDef),
+    Struct(StructDef),
+    FreeFunction(Rc<Stmt>),
+    Interface(InterfaceDef),
 }
 
 #[derive(Debug, Clone)]

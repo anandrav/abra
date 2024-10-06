@@ -7,7 +7,6 @@ mod assembly;
 pub mod ast;
 mod builtin;
 pub mod environment;
-mod namespace;
 
 pub mod effects;
 pub mod statics;
