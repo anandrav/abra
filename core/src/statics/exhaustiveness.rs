@@ -202,8 +202,8 @@ impl Matrix {
                 _ => panic!("unexpected type for product constructor"),
             },
             Constructor::Variant(ident) => {
-                let adt = statics.adt_def_of_variant(ident).unwrap();
-                let variant = adt.variants.iter().find(|v| v.ctor == *ident).unwrap();
+                let enumt = statics.enumt_def_of_variant(ident).unwrap();
+                let variant = enumt.variants.iter().find(|v| v.ctor == *ident).unwrap();
                 let data_ty = variant.data.solution().unwrap();
                 match data_ty {
                     SolvedType::Unit => {}
@@ -373,8 +373,8 @@ impl DeconstructedPat {
             SolvedType::Tuple(tys) => tys.clone(),
             SolvedType::UdtInstance(_, _) => match ctor {
                 Constructor::Variant(ident) => {
-                    let adt = statics.adt_def_of_variant(ident).unwrap();
-                    let variant = adt.variants.iter().find(|v| v.ctor == *ident).unwrap();
+                    let enumt = statics.enumt_def_of_variant(ident).unwrap();
+                    let variant = enumt.variants.iter().find(|v| v.ctor == *ident).unwrap();
                     if !matches!(&variant.data.solution().unwrap(), SolvedType::Unit) {
                         vec![variant.data.solution().unwrap().clone()]
                     } else {
@@ -498,8 +498,8 @@ impl Constructor {
                 _ => panic!("unexpected type for product constructor: {}", matrix_tys[0]),
             },
             Constructor::Variant(ident) => {
-                let adt = statics.adt_def_of_variant(ident).unwrap();
-                let variant = adt.variants.iter().find(|v| v.ctor == *ident).unwrap();
+                let enumt = statics.enumt_def_of_variant(ident).unwrap();
+                let variant = enumt.variants.iter().find(|v| v.ctor == *ident).unwrap();
                 if !matches!(&variant.data.solution().unwrap(), SolvedType::Unit) {
                     1
                 } else {
@@ -604,7 +604,7 @@ impl fmt::Display for WitnessMatrix {
 #[derive(Debug, Clone)]
 enum ConstructorSet {
     Bool,
-    AdtVariants(Vec<Symbol>),
+    EnumVariants(Vec<Symbol>),
     Product,    // tuples, including unit
     Unlistable, // int, float, string
 }
@@ -637,8 +637,8 @@ impl ConstructorSet {
                     missing_ctors.push(Constructor::Product);
                 }
             }
-            ConstructorSet::AdtVariants(adt_variants) => {
-                let mut missing_set: HashSet<Symbol> = adt_variants.iter().cloned().collect();
+            ConstructorSet::EnumVariants(enumt_variants) => {
+                let mut missing_set: HashSet<Symbol> = enumt_variants.iter().cloned().collect();
                 for identifier in seen.iter().filter_map(|ctor| ctor.as_variant_identifier()) {
                     if missing_set.remove(&identifier) {
                         present_ctors.push(Constructor::Variant(identifier.clone()));
@@ -797,8 +797,8 @@ fn ctors_for_ty(statics: &StaticsContext, ty: &SolvedType) -> ConstructorSet {
     match ty {
         SolvedType::Bool => ConstructorSet::Bool,
         SolvedType::UdtInstance(ident, _) => {
-            let variants = statics.variants_of_adt(ident);
-            ConstructorSet::AdtVariants(variants)
+            let variants = statics.variants_of_enumt(ident);
+            ConstructorSet::EnumVariants(variants)
         }
         SolvedType::Tuple(..) => ConstructorSet::Product,
         SolvedType::Unit => ConstructorSet::Product,

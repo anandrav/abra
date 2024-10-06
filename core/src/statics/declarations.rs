@@ -11,7 +11,7 @@ use super::typecheck::{
 };
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
-pub(crate) struct AdtDef {
+pub(crate) struct EnumDef {
     pub(crate) name: Symbol,
     pub(crate) params: Vec<Symbol>,
     pub(crate) variants: Vec<Variant>,
@@ -120,8 +120,8 @@ fn gather_definitions_stmt(ctx: &mut StaticsContext, gamma: Gamma, stmt: Rc<Stmt
         StmtKind::InterfaceImpl(ident, typ, stmts) => {
             let typ = ast_type_to_statics_type(ctx, typ.clone());
 
-            if typ.is_instantiated_adt() {
-                ctx.interface_impl_for_instantiated_adt.push(stmt.id);
+            if typ.is_instantiated_enumt() {
+                ctx.interface_impl_for_instantiated_enumt.push(stmt.id);
             }
 
             let methods = stmts
@@ -148,10 +148,10 @@ fn gather_definitions_stmt(ctx: &mut StaticsContext, gamma: Gamma, stmt: Rc<Stmt
         }
         StmtKind::TypeDef(typdefkind) => match &**typdefkind {
             TypeDefKind::Alias(_ident, _ty) => {}
-            TypeDefKind::Adt(ident, params, variants) => {
-                if let Some(adt_def) = ctx.adt_defs.get(ident) {
+            TypeDefKind::Enum(ident, params, variants) => {
+                if let Some(enumt_def) = ctx.enumt_defs.get(ident) {
                     let entry = ctx.multiple_udt_defs.entry(ident.clone()).or_default();
-                    entry.push(adt_def.location);
+                    entry.push(enumt_def.location);
                     entry.push(stmt.id);
                     return;
                 }
@@ -178,7 +178,7 @@ fn gather_definitions_stmt(ctx: &mut StaticsContext, gamma: Gamma, stmt: Rc<Stmt
                         ctor: v.ctor.clone(),
                         data,
                     });
-                    ctx.variants_to_adt.insert(v.ctor.clone(), ident.clone());
+                    ctx.variants_to_enumt.insert(v.ctor.clone(), ident.clone());
                 }
                 let mut defparams = vec![];
                 for p in params {
@@ -187,9 +187,9 @@ fn gather_definitions_stmt(ctx: &mut StaticsContext, gamma: Gamma, stmt: Rc<Stmt
                     };
                     defparams.push(ident.clone());
                 }
-                ctx.adt_defs.insert(
+                ctx.enumt_defs.insert(
                     ident.clone(),
-                    AdtDef {
+                    EnumDef {
                         name: ident.clone(),
                         params: defparams,
                         variants: defvariants,

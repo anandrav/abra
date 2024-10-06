@@ -235,7 +235,7 @@ impl Translator {
         // println!("translating expr: {:?}", expr.exprkind);
         match &*expr.exprkind {
             ExprKind::Var(symbol) => {
-                // adt variant
+                // enumt variant
                 match self.statics.name_resolutions.get(&expr.id).unwrap() {
                     Resolution::VariantCtor(tag, _) => {
                         emit(st, Instr::PushNil);
@@ -735,11 +735,11 @@ impl Translator {
             },
             Type::UdtInstance(symbol, _) => match &*pat.patkind {
                 PatKind::Variant(ctor, inner) => {
-                    let adt = self.statics.adt_defs.get(symbol).unwrap();
+                    let enumt = self.statics.enumt_defs.get(symbol).unwrap();
                     let tag_fail_label = make_label("tag_fail");
                     let end_label = make_label("endvariant");
 
-                    let tag = adt
+                    let tag = enumt
                         .variants
                         .iter()
                         .position(|v| v.ctor == *ctor)

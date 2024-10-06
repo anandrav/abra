@@ -1,7 +1,7 @@
 use crate::ast::{NodeId, NodeMap, Sources, Stmt, Symbol, Toplevel};
 use crate::builtin::Builtin;
 use crate::effects::EffectStruct;
-use declarations::{gather_definitions_toplevel, AdtDef, InterfaceDef, InterfaceImpl, StructDef};
+use declarations::{gather_definitions_toplevel, EnumDef, InterfaceDef, InterfaceImpl, StructDef};
 use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::rc::Rc;
 use typecheck::{generate_constraints_toplevel, result_of_constraint_solving, SolvedType, TypeVar};
@@ -27,9 +27,9 @@ pub(crate) struct StaticsContext {
     // DECLARATIONS
 
     // ADT definitions
-    pub(crate) adt_defs: HashMap<Symbol, AdtDef>,
+    pub(crate) enumt_defs: HashMap<Symbol, EnumDef>,
     // map from variant names to ADT names
-    variants_to_adt: HashMap<Symbol, Symbol>,
+    variants_to_enumt: HashMap<Symbol, Symbol>,
     // struct definitions
     pub(crate) struct_defs: HashMap<Symbol, StructDef>,
     // function definition locations
@@ -68,7 +68,7 @@ pub(crate) struct StaticsContext {
     multiple_interface_defs: BTreeMap<Symbol, Vec<NodeId>>,
     // interface implementations
     multiple_interface_impls: BTreeMap<Symbol, Vec<NodeId>>,
-    interface_impl_for_instantiated_adt: Vec<NodeId>,
+    interface_impl_for_instantiated_enumt: Vec<NodeId>,
     interface_impl_extra_method: BTreeMap<NodeId, Vec<NodeId>>,
     interface_impl_missing_method: BTreeMap<NodeId, Vec<String>>,
     // non-exhaustive matches
@@ -92,18 +92,18 @@ impl StaticsContext {
         ctx
     }
 
-    fn adt_def_of_variant(&self, variant: &Symbol) -> Option<AdtDef> {
-        let adt_name = self.variants_to_adt.get(variant)?;
-        self.adt_defs.get(adt_name).cloned()
+    fn enumt_def_of_variant(&self, variant: &Symbol) -> Option<EnumDef> {
+        let enumt_name = self.variants_to_enumt.get(variant)?;
+        self.enumt_defs.get(enumt_name).cloned()
     }
 
     fn interface_def_of_ident(&self, ident: &Symbol) -> Option<InterfaceDef> {
         self.interface_defs.get(ident).cloned()
     }
 
-    fn variants_of_adt(&self, adt: &Symbol) -> Vec<Symbol> {
-        self.adt_defs
-            .get(adt)
+    fn variants_of_enumt(&self, enumt: &Symbol) -> Vec<Symbol> {
+        self.enumt_defs
+            .get(enumt)
             .unwrap()
             .variants
             .iter()

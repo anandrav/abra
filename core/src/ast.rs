@@ -48,7 +48,7 @@ impl Node for Toplevel {
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) enum TypeDefKind {
     Alias(Symbol, Rc<AstType>),
-    Adt(Symbol, Vec<Rc<AstType>>, Vec<Rc<Variant>>),
+    Enum(Symbol, Vec<Rc<AstType>>, Vec<Rc<Variant>>),
     Struct(Symbol, Vec<Rc<AstType>>, Vec<Rc<StructField>>),
 }
 
@@ -166,7 +166,7 @@ impl Node for Stmt {
             StmtKind::TypeDef(tydefkind) => match &**tydefkind {
                 TypeDefKind::Alias(_, ty) => vec![ty.clone()],
                 // TODO this is redundant, use the Node::children() implementation
-                TypeDefKind::Adt(_, params, variants) => {
+                TypeDefKind::Enum(_, params, variants) => {
                     let mut children: Vec<Rc<dyn Node>> = Vec::new();
                     for param in params {
                         children.push(param.clone());
@@ -937,7 +937,7 @@ pub(crate) fn parse_stmt(pair: Pair<Rule>, filename: &str) -> Rc<Stmt> {
                 id: NodeId::new(),
             })
         }
-        Rule::adt_declaration => {
+        Rule::enumt_declaration => {
             let ident = inner[0].as_str().to_string();
             let mut n = 1;
             let mut params = vec![];
@@ -952,7 +952,7 @@ pub(crate) fn parse_stmt(pair: Pair<Rule>, filename: &str) -> Rc<Stmt> {
                 n += 1;
             }
             Rc::new(Stmt {
-                stmtkind: Rc::new(StmtKind::TypeDef(Rc::new(TypeDefKind::Adt(
+                stmtkind: Rc::new(StmtKind::TypeDef(Rc::new(TypeDefKind::Enum(
                     ident, params, variants,
                 )))),
                 span,

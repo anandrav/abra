@@ -370,7 +370,7 @@ impl ManagedObject {
 
 #[derive(Debug, Clone)]
 enum ManagedObjectKind {
-    Adt {
+    Enum {
         tag: u16,
         value: Value,
     },
@@ -637,7 +637,7 @@ impl Vm {
                         ManagedObjectKind::DynArray(fields) => {
                             self.value_stack.extend(fields.iter().rev().cloned());
                         }
-                        ManagedObjectKind::Adt { tag, value } => {
+                        ManagedObjectKind::Enum { tag, value } => {
                             self.value_stack.push(value.clone());
                             self.push_int(*tag as AbraInt);
                         }
@@ -701,7 +701,7 @@ impl Vm {
             Instr::ConstructVariant { tag } => {
                 let value = self.pop();
                 self.heap
-                    .push(ManagedObject::new(ManagedObjectKind::Adt { tag, value }));
+                    .push(ManagedObject::new(ManagedObjectKind::Enum { tag, value }));
                 let r = self.heap_reference(self.heap.len() - 1);
                 self.value_stack.push(r);
             }
@@ -876,7 +876,7 @@ impl Vm {
                         }
                     }
                 }
-                ManagedObjectKind::Adt { tag: _, value } => {
+                ManagedObjectKind::Enum { tag: _, value } => {
                     if let Value::HeapReference(r) = value {
                         r.replace(forward(
                             r.get(),

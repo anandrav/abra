@@ -208,7 +208,7 @@ impl SolvedType {
                         return None;
                     }
                 }
-                Some(Monotype::Adt(ident.clone(), params2))
+                Some(Monotype::Enum(ident.clone(), params2))
             }
         }
     }
@@ -240,13 +240,13 @@ pub enum Monotype {
     String,
     Function(Vec<Monotype>, Box<Monotype>),
     Tuple(Vec<Monotype>),
-    Adt(Symbol, Vec<Monotype>),
+    Enum(Symbol, Vec<Monotype>),
 }
 
 impl fmt::Display for Monotype {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Monotype::Adt(ident, params) => {
+            Monotype::Enum(ident, params) => {
                 if !params.is_empty() {
                     write!(f, "{}<", ident)?;
                     for (i, param) in params.iter().enumerate() {
@@ -658,15 +658,15 @@ impl TypeVar {
         Self::orphan(PotentialType::make_def_instance(prov, ident, params))
     }
 
-    // return true if the type is an adt with at least one parameter instantiated
-    // this is used to see if an implementation of an interface is for an instantiated adt, which is not allowed
+    // return true if the type is an enumt with at least one parameter instantiated
+    // this is used to see if an implementation of an interface is for an instantiated enumt, which is not allowed
     // example: implement ToString for list<int> rather than list<'a>
-    pub(crate) fn is_instantiated_adt(&self) -> bool {
+    pub(crate) fn is_instantiated_enumt(&self) -> bool {
         let Some(ty) = self.single() else {
             return false;
         };
         match ty {
-            // return true if an adt with at least one parameter instantiated
+            // return true if an enumt with at least one parameter instantiated
             PotentialType::UdtInstance(_, _, tys) => !tys
                 .iter()
                 .all(|ty| matches!(ty.single(), Some(PotentialType::Poly(..)))),
@@ -1015,7 +1015,7 @@ pub(crate) fn result_of_constraint_solving(
         && ctx.multiple_udt_defs.is_empty()
         && ctx.multiple_interface_defs.is_empty()
         && ctx.multiple_interface_impls.is_empty()
-        && ctx.interface_impl_for_instantiated_adt.is_empty()
+        && ctx.interface_impl_for_instantiated_enumt.is_empty()
         && ctx.interface_impl_extra_method.is_empty()
         && ctx.interface_impl_missing_method.is_empty()
         && ctx.annotation_needed.is_empty()
@@ -1049,9 +1049,9 @@ pub(crate) fn result_of_constraint_solving(
         }
     }
     if !ctx.multiple_udt_defs.is_empty() {
-        for (ident, adt_ids) in ctx.multiple_udt_defs.iter() {
+        for (ident, enumt_ids) in ctx.multiple_udt_defs.iter() {
             let _ = writeln!(err_string, "Multiple definitions for type {}, ident", ident);
-            for ast_id in adt_ids {
+            for ast_id in enumt_ids {
                 let span = node_map.get(ast_id).unwrap().span();
                 span.display(&mut err_string, sources, "");
             }
@@ -1081,8 +1081,8 @@ pub(crate) fn result_of_constraint_solving(
         }
     }
 
-    if !ctx.interface_impl_for_instantiated_adt.is_empty() {
-        for ast_id in ctx.interface_impl_for_instantiated_adt.iter() {
+    if !ctx.interface_impl_for_instantiated_enumt.is_empty() {
+        for ast_id in ctx.interface_impl_for_instantiated_enumt.iter() {
             let span = node_map.get(ast_id).unwrap().span();
             span.display(
                 &mut err_string,
@@ -1297,7 +1297,7 @@ pub(crate) fn result_of_constraint_solving(
                             err_string.push_str("Some ADT definition");
                         }
                         Prov::InstantiateUdtParam(_, _) => {
-                            err_string.push_str("Some instance of an Adt's variant");
+                            err_string.push_str("Some instance of an Enum's variant");
                         }
                         Prov::VariantNoData(_prov) => {
                             err_string.push_str("The data of some ADT variant");
@@ -1427,9 +1427,9 @@ fn generate_constraints_expr(gamma: Gamma, mode: Mode, expr: Rc<Expr>, ctx: &mut
                 return;
             }
             // TODO: this is incredibly hacky. No respect for scope at all... Should be added at the toplevel with Effects at the least...
-            let adt_def = ctx.adt_def_of_variant(symbol);
-            if let Some(adt_def) = adt_def {
-                let nparams = adt_def.params.len();
+            let enumt_def = ctx.enumt_def_of_variant(symbol);
+            if let Some(enumt_def) = enumt_def {
+                let nparams = enumt_def.params.len();
                 let mut params = vec![];
                 let mut substitution = BTreeMap::new();
                 for i in 0..nparams {
@@ -1437,15 +1437,19 @@ fn generate_constraints_expr(gamma: Gamma, mode: Mode, expr: Rc<Expr>, ctx: &mut
                         ctx,
                         Prov::InstantiateUdtParam(Box::new(Prov::Node(expr.id)), i as u8),
                     ));
-                    substitution.insert(adt_def.params[i].clone(), params[i].clone());
+                    substitution.insert(enumt_def.params[i].clone(), params[i].clone());
                 }
                 let def_type = TypeVar::make_def_instance(
                     Prov::UdtDef(Box::new(Prov::Node(expr.id))),
-                    adt_def.name,
+                    enumt_def.name,
                     params,
                 );
 
-                let the_variant = adt_def.variants.iter().find(|v| v.ctor == *symbol).unwrap();
+                let the_variant = enumt_def
+                    .variants
+                    .iter()
+                    .find(|v| v.ctor == *symbol)
+                    .unwrap();
                 if let Some(PotentialType::Unit(_)) = the_variant.data.single() {
                     constrain(node_ty, def_type);
                 } else if let Some(PotentialType::Tuple(_, elems)) = &the_variant.data.single() {
@@ -1884,7 +1888,7 @@ fn generate_constraints_stmt(
                 let right = ast_type_to_statics_type(ctx, ty.clone());
                 constrain(left, right);
             }
-            TypeDefKind::Adt(..) | TypeDefKind::Struct(..) => {}
+            TypeDefKind::Enum(..) | TypeDefKind::Struct(..) => {}
         },
         StmtKind::Expr(expr) => {
             generate_constraints_expr(gamma, mode, expr.clone(), ctx);
@@ -1980,26 +1984,26 @@ fn generate_constraints_pat(gamma: Gamma, mode: Mode, pat: Rc<Pat>, ctx: &mut St
                 None => TypeVar::make_unit(Prov::VariantNoData(Box::new(Prov::Node(pat.id)))),
             };
             let mut substitution = BTreeMap::new();
-            let ty_adt_instance = {
-                let adt_def = ctx.adt_def_of_variant(tag);
+            let ty_enumt_instance = {
+                let enumt_def = ctx.enumt_def_of_variant(tag);
 
-                if let Some(adt_def) = adt_def {
-                    let nparams = adt_def.params.len();
+                if let Some(enumt_def) = enumt_def {
+                    let nparams = enumt_def.params.len();
                     let mut params = vec![];
                     for i in 0..nparams {
                         params.push(TypeVar::fresh(
                             ctx,
                             Prov::InstantiateUdtParam(Box::new(Prov::Node(pat.id)), i as u8),
                         ));
-                        substitution.insert(adt_def.params[i].clone(), params[i].clone());
+                        substitution.insert(enumt_def.params[i].clone(), params[i].clone());
                     }
                     let def_type = TypeVar::make_def_instance(
                         Prov::UdtDef(Box::new(Prov::Node(pat.id))),
-                        adt_def.name,
+                        enumt_def.name,
                         params,
                     );
 
-                    let variant_def = adt_def.variants.iter().find(|v| v.ctor == *tag).unwrap();
+                    let variant_def = enumt_def.variants.iter().find(|v| v.ctor == *tag).unwrap();
                     let variant_data_ty = variant_def.data.clone().subst(
                         gamma.clone(),
                         Prov::Node(pat.id),
@@ -2013,7 +2017,7 @@ fn generate_constraints_pat(gamma: Gamma, mode: Mode, pat: Rc<Pat>, ctx: &mut St
                 }
             };
 
-            constrain(ty_pat, ty_adt_instance);
+            constrain(ty_pat, ty_enumt_instance);
             if let Some(data) = data {
                 generate_constraints_pat(gamma, Mode::Ana { expected: ty_data }, data.clone(), ctx)
             };
@@ -2056,7 +2060,7 @@ pub(crate) fn monotype_to_typevar(ty: Monotype, prov: Prov) -> TypeVar {
             let out = monotype_to_typevar(*out, prov.clone());
             TypeVar::make_func(args, out, prov.clone())
         }
-        Monotype::Adt(name, params) => {
+        Monotype::Enum(name, params) => {
             let params = params
                 .into_iter()
                 .map(|p| monotype_to_typevar(p, prov.clone()))
