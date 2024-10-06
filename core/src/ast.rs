@@ -937,7 +937,7 @@ pub(crate) fn parse_stmt(pair: Pair<Rule>, filename: &str) -> Rc<Stmt> {
                 id: NodeId::new(),
             })
         }
-        Rule::enumt_declaration => {
+        Rule::enum_declaration => {
             let ident = inner[0].as_str().to_string();
             let mut n = 1;
             let mut params = vec![];

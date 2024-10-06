@@ -735,7 +735,7 @@ impl Translator {
             },
             Type::UdtInstance(symbol, _) => match &*pat.patkind {
                 PatKind::Variant(ctor, inner) => {
-                    let enumt = self.statics.enumt_defs.get(symbol).unwrap();
+                    let enumt = self.statics.enum_defs.get(symbol).unwrap();
                     let tag_fail_label = make_label("tag_fail");
                     let end_label = make_label("endvariant");
 

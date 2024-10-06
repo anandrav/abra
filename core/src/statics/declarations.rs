@@ -120,8 +120,8 @@ fn gather_definitions_stmt(ctx: &mut StaticsContext, gamma: Gamma, stmt: Rc<Stmt
         StmtKind::InterfaceImpl(ident, typ, stmts) => {
             let typ = ast_type_to_statics_type(ctx, typ.clone());
 
-            if typ.is_instantiated_enumt() {
-                ctx.interface_impl_for_instantiated_enumt.push(stmt.id);
+            if typ.is_instantiated_enum() {
+                ctx.interface_impl_for_instantiated_ty.push(stmt.id);
             }
 
             let methods = stmts
@@ -149,9 +149,9 @@ fn gather_definitions_stmt(ctx: &mut StaticsContext, gamma: Gamma, stmt: Rc<Stmt
         StmtKind::TypeDef(typdefkind) => match &**typdefkind {
             TypeDefKind::Alias(_ident, _ty) => {}
             TypeDefKind::Enum(ident, params, variants) => {
-                if let Some(enumt_def) = ctx.enumt_defs.get(ident) {
+                if let Some(enum_def) = ctx.enum_defs.get(ident) {
                     let entry = ctx.multiple_udt_defs.entry(ident.clone()).or_default();
-                    entry.push(enumt_def.location);
+                    entry.push(enum_def.location);
                     entry.push(stmt.id);
                     return;
                 }
@@ -178,16 +178,16 @@ fn gather_definitions_stmt(ctx: &mut StaticsContext, gamma: Gamma, stmt: Rc<Stmt
                         ctor: v.ctor.clone(),
                         data,
                     });
-                    ctx.variants_to_enumt.insert(v.ctor.clone(), ident.clone());
+                    ctx.variants_to_enum.insert(v.ctor.clone(), ident.clone());
                 }
                 let mut defparams = vec![];
                 for p in params {
                     let TypeKind::Poly(ident, _) = &*p.typekind else {
-                        panic!("expected poly type for ADT def param")
+                        panic!("expected poly type for type definition parameter")
                     };
                     defparams.push(ident.clone());
                 }
-                ctx.enumt_defs.insert(
+                ctx.enum_defs.insert(
                     ident.clone(),
                     EnumDef {
                         name: ident.clone(),
@@ -211,7 +211,7 @@ fn gather_definitions_stmt(ctx: &mut StaticsContext, gamma: Gamma, stmt: Rc<Stmt
                 let mut defparams = vec![];
                 for p in params {
                     let TypeKind::Poly(ident, _) = &*p.typekind else {
-                        panic!("expected poly type for ADT def param")
+                        panic!("expected poly type for type definition parameter")
                     };
                     defparams.push(ident.clone());
                 }
