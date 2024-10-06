@@ -25,6 +25,8 @@ pub(crate) type PatAnnotated = (Rc<Pat>, Option<Rc<AstType>>);
 #[derive(Debug, Clone)]
 pub(crate) struct Toplevel {
     pub(crate) statements: Vec<Rc<Stmt>>,
+    pub(crate) name: String,
+
     pub(crate) span: Span,
     pub(crate) id: NodeId,
 }
@@ -1275,6 +1277,7 @@ pub(crate) fn parse_toplevel(pairs: Pairs<Rule>, filename: &str) -> Rc<Toplevel>
     let span2: Span = Span::new(filename, pairs.last().unwrap().as_span());
     Rc::new(Toplevel {
         statements: items,
+        name: filename.to_string(),
         span: Span {
             filename: filename.to_string(),
             lo: span1.lo,

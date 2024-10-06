@@ -26,8 +26,9 @@ pub(crate) struct StaticsContext {
 
     // DECLARATIONS
 
-    // new stuff
-    pub(crate) declarations: HashMap<Symbol, Declaration>,
+    // new declaration stuff
+    pub(crate) global_namespace: Namespace,
+
     // enum definitions
     pub(crate) enum_defs: HashMap<Symbol, EnumDef>,
     // map from variant names to enum names
@@ -122,16 +123,11 @@ impl StaticsContext {
     }
 }
 
-// #[derive(Clone, Debug)]
-// pub struct Namespace {
-//     contents: HashMap<String, NamespaceOrDeclaration>,
-// }
-
-// #[derive(Clone, Debug)]
-// pub enum NamespaceOrDeclaration {
-//     Namespace(Namespace),
-//     Declaration(Declaration),
-// }
+#[derive(Clone, Debug, Default)]
+pub struct Namespace {
+    namespaces: HashMap<String, Namespace>,
+    declarations: HashMap<String, Declaration>,
+}
 
 #[derive(Debug, Clone)]
 pub(crate) enum Declaration {
