@@ -14,7 +14,7 @@ fn fib(n) {
         _ -> fib(n-1) + fib(n-2)
     }
 }   
-fib(10) 
+fib(20) 
 "#;
     let sources = source_files_single(src);
     let program = compile_bytecode(sources, DefaultEffects::enumerate()).unwrap();

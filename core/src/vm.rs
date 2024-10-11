@@ -10,6 +10,8 @@ use std::{
     mem,
 };
 
+use bincode::{config, Decode, Encode};
+
 pub struct Vm {
     program: Vec<Instr>,
     pc: ProgramCounter,
@@ -129,7 +131,7 @@ impl Vm {
     }
 }
 
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, Decode, Encode)]
 pub enum Instr<Location = ProgramCounter, StringConstant = u16> {
     // Stack manipulation
     Pop,

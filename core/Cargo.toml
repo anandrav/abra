@@ -11,6 +11,7 @@ crate-type = ["lib"]
 path = "src/lib.rs"
 
 [dependencies]
+bincode = "2.0.0-rc"
 disjoint-sets = "0.4.2"
 pest = "2.5.2"
 pest_derive = "2.5.2"
@@ -29,8 +30,4 @@ criterion = { version = "0.5.1", features = ["rayon"] }
 
 [[bench]]
 name = "vm"
-harness = false
-
-[[bench]]
-name = "compile"
 harness = false
