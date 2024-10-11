@@ -60,7 +60,7 @@ fn emit(st: &mut TranslatorState, i: impl Into<Item>) {
 
 #[derive(Debug, Clone)]
 pub struct CompiledProgram {
-    pub(crate) instructions: Vec<VmInstr>,
+    pub(crate) instructions: Vec<u8>,
     pub(crate) label_map: LabelMap,
     pub(crate) string_table: Vec<String>,
 }
@@ -213,6 +213,9 @@ impl Translator {
         }
 
         let (instructions, label_map) = remove_labels(&st.items, &self.statics.string_constants);
+        // use bincode to turn the Vec<Instr> into Vec<u8>
+        let config = bincode::config::standard().with_fixed_int_encoding();
+        let instructions: Vec<u8> = bincode::encode_to_vec(&instructions, config).unwrap();
         let mut string_table: Vec<String> =
             vec!["".to_owned(); self.statics.string_constants.len()];
         for (s, idx) in self.statics.string_constants.iter() {
