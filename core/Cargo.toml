@@ -19,5 +19,9 @@ strum = { version = "0.26.3", features = ["derive"] }
 strum_macros = "0.26.3"
 
 [[bench]]
-name = "my_benchmark"
+name = "vm"
+harness = false
+
+[[bench]]
+name = "compile"
 harness = false

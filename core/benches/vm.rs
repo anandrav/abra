@@ -18,7 +18,7 @@ fib(10)
 "#;
     let sources = source_files_single(src);
     let program = compile_bytecode(sources, DefaultEffects::enumerate()).unwrap();
-    c.bench_function("fib 10", |b| b.iter(|| {
+    c.bench_function("vm", |b| b.iter(|| {
       let mut vm = Vm::new(program.clone());
       vm.run();
       let top = vm.top();
