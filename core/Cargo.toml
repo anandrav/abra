@@ -11,12 +11,21 @@ crate-type = ["lib"]
 path = "src/lib.rs"
 
 [dependencies]
-criterion = "0.5.1"
 disjoint-sets = "0.4.2"
 pest = "2.5.2"
 pest_derive = "2.5.2"
 strum = { version = "0.26.3", features = ["derive"] }
 strum_macros = "0.26.3"
+
+[dev-dependencies]
+criterion = { version = "0.5.1", default-features = false, features = [
+        "html_reports",
+        "plotters",
+        "cargo_bench_support"
+      ]}
+
+[target.'cfg(not(target_arch = "wasm32"))'.dev-dependencies]
+criterion = { version = "0.5.1", features = ["rayon"] }
 
 [[bench]]
 name = "vm"
