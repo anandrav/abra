@@ -9,6 +9,7 @@ use std::rc::Rc;
 
 use super::{SolvedType, StaticsContext};
 
+// TODO: rename to be more descriptive/specific to exhaustiveness/usefulness
 pub(crate) fn result_of_additional_analysis(
     ctx: &mut StaticsContext,
     toplevels: &[Rc<Toplevel>],

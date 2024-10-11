@@ -1,7 +1,7 @@
 use crate::ast::{NodeId, NodeMap, Sources, Stmt, Symbol, Toplevel};
 use crate::builtin::Builtin;
 use crate::effects::EffectStruct;
-use declarations::{gather_definitions_toplevel, EnumDef, InterfaceDef, InterfaceImpl, StructDef};
+use declarations::{gather_declarations_toplevel, EnumDef, InterfaceDef, InterfaceImpl, StructDef};
 use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::rc::Rc;
 use typecheck::{generate_constraints_toplevel, result_of_constraint_solving, SolvedType, TypeVar};
@@ -27,7 +27,7 @@ pub(crate) struct StaticsContext {
     // DECLARATIONS
 
     // new declaration stuff
-    pub(crate) global_namespace: Namespace,
+    pub(crate) global_namespace: NamespaceTree,
 
     // enum definitions
     pub(crate) enum_defs: HashMap<Symbol, EnumDef>,
@@ -124,9 +124,14 @@ impl StaticsContext {
 }
 
 #[derive(Clone, Debug, Default)]
-pub struct Namespace {
-    namespaces: HashMap<String, Namespace>,
-    declarations: HashMap<String, Declaration>,
+pub struct NamespaceTree {
+    entries: HashMap<Symbol, NamespaceEntry>,
+}
+
+#[derive(Clone, Debug, Default)]
+pub struct NamespaceEntry {
+    namespaces: HashMap<Symbol, NamespaceTree>,
+    declarations: Option<Declaration>,
 }
 
 #[derive(Debug, Clone)]
@@ -161,7 +166,9 @@ pub(crate) fn analyze(
     let tyctx = typecheck::Gamma::empty();
     // declarations
     for parse_tree in toplevels {
-        gather_definitions_toplevel(&mut ctx, tyctx.clone(), parse_tree.clone());
+        let (name, namespace_entry) =
+            gather_declarations_toplevel(&mut ctx, tyctx.clone(), parse_tree.clone());
+        ctx.global_namespace.entries.insert(name, namespace_entry);
     }
 
     // typechecking

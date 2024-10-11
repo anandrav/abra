@@ -306,8 +306,8 @@ pub(crate) enum TypeKey {
 }
 
 // Provenances are used to:
-// (1) track the origins (plural!) of a type solution
-// (2) give the *unique* identity of an unknown type variable (UnifVar) in the SolutionMap
+// (1) give the *unique* identity of an unknown type variable (UnifVar) in the SolutionMap
+// (2) track the origins (plural!) of a type's constraints for error reporting
 // TODO: Does Prov really need to be that deeply nested? Will there really be FuncArg -> InstantiatedPoly -> BinopLeft -> Node? Or can we simplify here?
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub(crate) enum Prov {
