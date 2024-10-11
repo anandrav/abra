@@ -58,7 +58,7 @@ fn emit(st: &mut TranslatorState, i: impl Into<Item>) {
     st.items.push(i.into());
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct CompiledProgram {
     pub(crate) instructions: Vec<VmInstr>,
     pub(crate) label_map: LabelMap,
