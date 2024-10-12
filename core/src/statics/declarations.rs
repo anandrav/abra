@@ -2,7 +2,7 @@ use std::{fmt, rc::Rc};
 
 use crate::ast::{Node, NodeId, Stmt, StmtKind, Symbol, Toplevel, TypeDefKind, TypeKind};
 
-use super::{Declaration, NamespaceTree, Resolution, StaticsContext, TypeVar};
+use super::{NamespaceTree, Resolution, StaticsContext, TypeVar};
 
 // TODO: constrain, Gamma, Prov should be implementation details
 // TODO: others should probably be implementation details too
@@ -106,11 +106,12 @@ fn gather_declarations_stmt(
             let entry_name = ident.clone();
             let mut entry = NamespaceTree::default();
 
-            let mut methods = vec![];
             for p in properties {
                 let method_name = p.ident.clone();
-                let mut method_entry = NamespaceTree::default();
-                method_entry.declaration = Some(p.id());
+                let method_entry = NamespaceTree {
+                    declaration: Some(p.id()),
+                    ..NamespaceTree::default()
+                };
 
                 entry.entries.insert(method_name, method_entry);
             }
@@ -118,114 +119,48 @@ fn gather_declarations_stmt(
             entry.declaration = Some(stmt.id);
             Some((entry_name, entry))
         }
-        StmtKind::InterfaceImpl(ident, typ, stmts) => None,
+        StmtKind::InterfaceImpl(..) => None,
         StmtKind::TypeDef(typdefkind) => match &**typdefkind {
-            TypeDefKind::Alias(_ident, _ty) => {}
-            TypeDefKind::Enum(ident, params, variants) => {
-                if let Some(enum_def) = ctx.enum_defs.get(ident) {
-                    let entry = ctx.multiple_udt_defs.entry(ident.clone()).or_default();
-                    entry.push(enum_def.location);
-                    entry.push(stmt.id);
-                    return;
-                }
-                let mut defvariants = vec![];
-                for (i, v) in variants.iter().enumerate() {
-                    let arity = v.data.as_ref().map_or(0, |d| match &*d.typekind {
-                        TypeKind::Tuple(elems) => elems.len(),
-                        TypeKind::Unit => 0,
-                        _ => 1,
-                    });
-                    gamma.extend_declaration(
-                        v.ctor.clone(),
-                        Resolution::VariantCtor(i as u16, arity as u16),
-                    );
-
-                    let data = {
-                        if let Some(data) = &v.data {
-                            ast_type_to_statics_type(ctx, data.clone())
-                        } else {
-                            TypeVar::make_unit(Prov::VariantNoData(Box::new(Prov::Node(v.id))))
-                        }
-                    };
-                    defvariants.push(Variant {
-                        ctor: v.ctor.clone(),
-                        data,
-                    });
-                    ctx.variants_to_enum.insert(v.ctor.clone(), ident.clone());
-                }
-                let mut defparams = vec![];
-                for p in params {
-                    let TypeKind::Poly(ident, _) = &*p.typekind else {
-                        panic!("expected poly type for type definition parameter")
-                    };
-                    defparams.push(ident.clone());
-                }
-                ctx.enum_defs.insert(
-                    ident.clone(),
-                    EnumDef {
-                        name: ident.clone(),
-                        params: defparams,
-                        variants: defvariants,
-                        location: stmt.id,
-                    },
-                );
-
-                unimplemented!()
+            TypeDefKind::Alias(_ident, _ty) => {
+                unimplemented!("alias type definitions")
             }
-            TypeDefKind::Struct(ident, params, fields) => {
-                gamma
-                    .extend_declaration(ident.clone(), Resolution::StructCtor(fields.len() as u16));
+            TypeDefKind::Enum(ident, _, variants) => {
+                let entry_name = ident.clone();
+                let mut entry = NamespaceTree::default();
 
-                // let ty_struct = TypeVar::from_node(ctx, stmt.id);
-                if let Some(struct_def) = ctx.struct_defs.get(ident) {
-                    let entry = ctx.multiple_udt_defs.entry(ident.clone()).or_default();
-                    entry.push(struct_def.location);
-                    entry.push(stmt.id);
-                    return;
-                }
-                let mut defparams = vec![];
-                for p in params {
-                    let TypeKind::Poly(ident, _) = &*p.typekind else {
-                        panic!("expected poly type for type definition parameter")
+                for v in variants.iter() {
+                    let variant_name = v.ctor.clone();
+                    let variant_entry = NamespaceTree {
+                        declaration: Some(v.id()),
+                        ..NamespaceTree::default()
                     };
-                    defparams.push(ident.clone());
-                }
-                let mut deffields = vec![];
-                for f in fields {
-                    let ty_annot = ast_type_to_statics_type(ctx, f.ty.clone());
-                    deffields.push(StructField {
-                        name: f.ident.clone(),
-                        ty: ty_annot.clone(),
-                    });
 
-                    let prov = Prov::StructField(f.ident.clone(), stmt.id);
-                    let ty_field = TypeVar::fresh(ctx, prov.clone());
-                    constrain(ty_field.clone(), ty_annot.clone());
-                    ctx.vars.insert(prov, ty_field);
+                    entry.entries.insert(variant_name, variant_entry);
                 }
-                ctx.struct_defs.insert(
-                    ident.clone(),
-                    StructDef {
-                        name: ident.clone(),
-                        params: defparams,
-                        fields: deffields,
-                        location: stmt.id,
-                    },
-                );
 
-                unimplemented!()
+                entry.declaration = Some(stmt.id);
+                Some((entry_name, entry))
+            }
+            TypeDefKind::Struct(ident, _, _) => {
+                let entry_name = ident.clone();
+                let entry = NamespaceTree {
+                    declaration: Some(stmt.id()),
+                    ..NamespaceTree::default()
+                };
+
+                Some((entry_name, entry))
             }
         },
         StmtKind::Expr(_) => None,
         StmtKind::Let(_, _, _) => None,
         StmtKind::FuncDef(name, _args, _out_annot, _) => {
-            let name_id = name.id;
-            let name = name.patkind.get_identifier_of_variable();
-            ctx.fun_defs.insert(name.clone(), stmt.clone());
-            gamma.extend(name.clone(), TypeVar::from_node(ctx, name_id));
-            gamma.extend_declaration(name.clone(), Resolution::FreeFunction(stmt.id, name));
+            let entry_name = name.patkind.get_identifier_of_variable();
+            let entry = NamespaceTree {
+                declaration: Some(stmt.id()),
+                ..NamespaceTree::default()
+            };
 
-            unimplemented!()
+            Some((entry_name, entry))
         }
         StmtKind::Set(..) => None,
     }

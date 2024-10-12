@@ -129,7 +129,7 @@ pub struct NamespaceTree {
     declaration: Option<Declaration>,
 }
 
-type Declaration = NodeId;
+type Declaration = NodeId; // TODO: Resolution ?
 
 #[derive(Debug, Clone)]
 pub(crate) enum Resolution {
@@ -159,6 +159,8 @@ pub(crate) fn analyze(
             gather_declarations_toplevel(&mut ctx, tyctx.clone(), parse_tree.clone());
         ctx.global_namespace.entries.insert(name, namespace_entry);
     }
+
+    dbg!(ctx.global_namespace.clone());
 
     // typechecking
     for parse_tree in toplevels {
