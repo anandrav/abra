@@ -2,7 +2,7 @@ use std::{fmt, rc::Rc};
 
 use crate::ast::{Node, NodeId, Stmt, StmtKind, Symbol, Toplevel, TypeDefKind, TypeKind};
 
-use super::{NamespaceEntry, Resolution, StaticsContext, TypeVar};
+use super::{Declaration, NamespaceTree, Resolution, StaticsContext, TypeVar};
 
 // TODO: constrain, Gamma, Prov should be implementation details
 // TODO: others should probably be implementation details too
@@ -76,90 +76,49 @@ pub(crate) fn gather_declarations_toplevel(
     ctx: &mut StaticsContext,
     gamma: Gamma,
     toplevel: Rc<Toplevel>,
-) -> (String, NamespaceEntry) {
-    let name = toplevel.name.clone();
-    let mut entry = NamespaceEntry::default();
+) -> (String, NamespaceTree) {
+    let this_name = toplevel.name.clone();
+    let mut this_entry = NamespaceTree::default();
 
     for statement in toplevel.statements.iter() {
         gather_definitions_stmt_DEPRECATE(ctx, gamma.clone(), statement.clone());
     }
 
     for statement in toplevel.statements.iter() {
-        gather_declarations_stmt(ctx, statement.clone(), &mut entry);
+        if let Some((name, entry)) = gather_declarations_stmt(ctx, statement.clone()) {
+            if this_entry.entries.contains_key(&name) {
+                todo!("multiple declarations for the same identifier");
+            }
+            this_entry.entries.insert(name, entry);
+        }
     }
 
-    (name, entry)
+    (this_name, this_entry)
 }
 
 // TODO: populate the namespace entry
 fn gather_declarations_stmt(
     ctx: &mut StaticsContext,
     stmt: Rc<Stmt>,
-    namespace_entry: &mut NamespaceEntry,
-) {
+) -> Option<(String, NamespaceTree)> {
     match &*stmt.stmtkind {
         StmtKind::InterfaceDef(ident, properties) => {
-            if let Some(interface_def) = ctx.interface_defs.get(ident) {
-                let entry = ctx
-                    .multiple_interface_defs
-                    .entry(ident.clone())
-                    .or_default();
-                entry.push(interface_def.location);
-                entry.push(stmt.id);
-                return;
-            }
+            let entry_name = ident.clone();
+            let mut entry = NamespaceTree::default();
+
             let mut methods = vec![];
             for p in properties {
-                let ty_annot = ast_type_to_statics_type_interface(ctx, p.ty.clone(), Some(ident));
-                let node_ty = TypeVar::from_node(ctx, p.id());
-                // TODO: it would be nice if there were no calls to constrain() when gathering declarations...
-                constrain(node_ty.clone(), ty_annot.clone());
-                methods.push(InterfaceDefMethod {
-                    name: p.ident.clone(),
-                    ty: node_ty.clone(),
-                });
-                ctx.method_to_interface
-                    .insert(p.ident.clone(), ident.clone());
-                gamma.extend(p.ident.clone(), node_ty);
-            }
-            ctx.interface_defs.insert(
-                ident.clone(),
-                InterfaceDef {
-                    name: ident.clone(),
-                    methods,
-                    location: stmt.id,
-                },
-            );
-        }
-        StmtKind::InterfaceImpl(ident, typ, stmts) => {
-            let typ = ast_type_to_statics_type(ctx, typ.clone());
+                let method_name = p.ident.clone();
+                let mut method_entry = NamespaceTree::default();
+                method_entry.declaration = Some(p.id());
 
-            if typ.is_instantiated_enum() {
-                ctx.interface_impl_for_instantiated_ty.push(stmt.id);
+                entry.entries.insert(method_name, method_entry);
             }
 
-            let methods = stmts
-                .iter()
-                .map(|stmt| match &*stmt.stmtkind {
-                    StmtKind::FuncDef(pat, _, _, _) => {
-                        let ident = pat.patkind.get_identifier_of_variable();
-                        InterfaceImplMethod {
-                            name: ident,
-                            identifier_location: pat.id(),
-                            method_location: stmt.id(),
-                        }
-                    }
-                    _ => unreachable!(),
-                })
-                .collect();
-            let impl_list = ctx.interface_impls.entry(ident.clone()).or_default();
-            impl_list.push(InterfaceImpl {
-                name: ident.clone(),
-                typ,
-                methods,
-                location: stmt.id,
-            });
+            entry.declaration = Some(stmt.id);
+            Some((entry_name, entry))
         }
+        StmtKind::InterfaceImpl(ident, typ, stmts) => None,
         StmtKind::TypeDef(typdefkind) => match &**typdefkind {
             TypeDefKind::Alias(_ident, _ty) => {}
             TypeDefKind::Enum(ident, params, variants) => {
@@ -210,6 +169,8 @@ fn gather_declarations_stmt(
                         location: stmt.id,
                     },
                 );
+
+                unimplemented!()
             }
             TypeDefKind::Struct(ident, params, fields) => {
                 gamma
@@ -251,18 +212,22 @@ fn gather_declarations_stmt(
                         location: stmt.id,
                     },
                 );
+
+                unimplemented!()
             }
         },
-        StmtKind::Expr(_) => {}
-        StmtKind::Let(_, _, _) => {}
+        StmtKind::Expr(_) => None,
+        StmtKind::Let(_, _, _) => None,
         StmtKind::FuncDef(name, _args, _out_annot, _) => {
             let name_id = name.id;
             let name = name.patkind.get_identifier_of_variable();
             ctx.fun_defs.insert(name.clone(), stmt.clone());
             gamma.extend(name.clone(), TypeVar::from_node(ctx, name_id));
             gamma.extend_declaration(name.clone(), Resolution::FreeFunction(stmt.id, name));
+
+            unimplemented!()
         }
-        StmtKind::Set(..) => {}
+        StmtKind::Set(..) => None,
     }
 }
 

@@ -125,22 +125,11 @@ impl StaticsContext {
 
 #[derive(Clone, Debug, Default)]
 pub struct NamespaceTree {
-    entries: HashMap<Symbol, NamespaceEntry>,
+    entries: HashMap<Symbol, NamespaceTree>,
+    declaration: Option<Declaration>,
 }
 
-#[derive(Clone, Debug, Default)]
-pub struct NamespaceEntry {
-    namespaces: HashMap<Symbol, NamespaceTree>,
-    declarations: Option<Declaration>,
-}
-
-#[derive(Debug, Clone)]
-pub(crate) enum Declaration {
-    Enum(EnumDef),
-    Struct(StructDef),
-    FreeFunction(Rc<Stmt>),
-    Interface(InterfaceDef),
-}
+type Declaration = NodeId;
 
 #[derive(Debug, Clone)]
 pub(crate) enum Resolution {
