@@ -78,6 +78,7 @@ pub(crate) fn gather_declarations_toplevel(
     toplevel: Rc<Toplevel>,
 ) -> (String, NamespaceTree) {
     let this_name = toplevel.name.clone();
+    let this_name = this_name[..this_name.len() - 5].to_string();
     let mut this_entry = NamespaceTree::default();
 
     for statement in toplevel.statements.iter() {

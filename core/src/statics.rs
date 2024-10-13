@@ -3,6 +3,7 @@ use crate::builtin::Builtin;
 use crate::effects::EffectStruct;
 use declarations::{gather_declarations_toplevel, EnumDef, InterfaceDef, InterfaceImpl, StructDef};
 use std::collections::{BTreeMap, BTreeSet, HashMap};
+use std::fmt::{self, Display, Formatter};
 use std::rc::Rc;
 use typecheck::{generate_constraints_toplevel, result_of_constraint_solving, SolvedType, TypeVar};
 
@@ -129,6 +130,20 @@ pub struct NamespaceTree {
     declaration: Option<Declaration>,
 }
 
+impl Display for NamespaceTree {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        // indent for each level
+        fn fmt_tree(tree: &NamespaceTree, f: &mut Formatter, indent: usize) -> fmt::Result {
+            for (name, subtree) in &tree.entries {
+                writeln!(f, "{:indent$}{}", "", name, indent = indent)?;
+                fmt_tree(subtree, f, indent + 2)?;
+            }
+            Ok(())
+        }
+        fmt_tree(self, f, 0)
+    }
+}
+
 type Declaration = NodeId; // TODO: Resolution ?
 
 #[derive(Debug, Clone)]
@@ -160,7 +175,7 @@ pub(crate) fn analyze(
         ctx.global_namespace.entries.insert(name, namespace_entry);
     }
 
-    dbg!(ctx.global_namespace.clone());
+    println!("global namespace:\n{}", ctx.global_namespace);
 
     // typechecking
     for parse_tree in toplevels {
