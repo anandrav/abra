@@ -1,7 +1,7 @@
-use abra_core::compile_bytecode;
 use abra_core::effects::{DefaultEffects, EffectTrait};
-use abra_core::source_files_single;
 use abra_core::vm::Vm;
+use abra_core::{compile_bytecode, _PRELUDE};
+use abra_core::{source_files_single, SourceFile};
 
 fn main() {
     test();
@@ -9,14 +9,28 @@ fn main() {
 }
 
 fn test() {
-    let src = r#"
-if false {
-  3
-} else {
-  4
+    let util = r#"
+fn foo(a, b) {
+  a + b
 }
 "#;
-    let sources = source_files_single(src);
+    let main = r#"
+util.foo(2, 2)
+"#;
+    let sources = vec![
+        SourceFile {
+            name: "prelude.abra".to_owned(),
+            contents: _PRELUDE.to_owned(),
+        },
+        SourceFile {
+            name: "util.abra".to_owned(),
+            contents: util.to_owned(),
+        },
+        SourceFile {
+            name: "main.abra".to_owned(),
+            contents: main.to_owned(),
+        },
+    ];
     let effects = DefaultEffects::enumerate();
     let program = compile_bytecode(sources, effects);
     if let Err(e) = program {
