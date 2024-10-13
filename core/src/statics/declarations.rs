@@ -86,7 +86,7 @@ pub(crate) fn gather_declarations_toplevel(
     }
 
     for statement in toplevel.statements.iter() {
-        if let Some((name, entry)) = gather_declarations_stmt(ctx, statement.clone()) {
+        if let Some((name, entry)) = gather_declarations_stmt(statement.clone()) {
             if this_entry.entries.contains_key(&name) {
                 todo!("multiple declarations for the same identifier");
             }
@@ -98,10 +98,7 @@ pub(crate) fn gather_declarations_toplevel(
 }
 
 // TODO: populate the namespace entry
-fn gather_declarations_stmt(
-    ctx: &mut StaticsContext,
-    stmt: Rc<Stmt>,
-) -> Option<(String, NamespaceTree)> {
+fn gather_declarations_stmt(stmt: Rc<Stmt>) -> Option<(String, NamespaceTree)> {
     match &*stmt.stmtkind {
         StmtKind::InterfaceDef(ident, properties) => {
             let entry_name = ident.clone();
@@ -122,8 +119,14 @@ fn gather_declarations_stmt(
         }
         StmtKind::InterfaceImpl(..) => None,
         StmtKind::TypeDef(typdefkind) => match &**typdefkind {
-            TypeDefKind::Alias(_ident, _ty) => {
-                unimplemented!("alias type definitions")
+            TypeDefKind::Alias(ident, _) => {
+                let entry_name = ident.clone();
+                let entry = NamespaceTree {
+                    declaration: Some(stmt.id()),
+                    ..NamespaceTree::default()
+                };
+
+                Some((entry_name, entry))
             }
             TypeDefKind::Enum(ident, _, variants) => {
                 let entry_name = ident.clone();
