@@ -1,14 +1,14 @@
 use crate::ast::{NodeId, NodeMap, Sources, Stmt, Symbol, Toplevel};
 use crate::builtin::Builtin;
 use crate::effects::EffectStruct;
-use resolution::{gather_declarations_toplevel, EnumDef, InterfaceDef, InterfaceImpl, StructDef};
+use resolution::{gather_declarations, resolve, EnumDef, InterfaceDef, InterfaceImpl, StructDef};
 use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::fmt::{self, Display, Formatter};
 use std::rc::Rc;
 use typecheck::{generate_constraints_toplevel, result_of_constraint_solving, SolvedType, TypeVar};
 
-mod resolution;
 mod exhaustiveness;
+mod resolution;
 mod typecheck;
 
 pub(crate) use typecheck::{ty_fits_impl_ty, Monotype};
@@ -30,6 +30,7 @@ pub(crate) struct StaticsContext {
     // new declaration stuff
     pub(crate) global_namespace: NamespaceTree,
 
+    // TODO this should all be replaced
     // enum definitions
     pub(crate) enum_defs: HashMap<Symbol, EnumDef>,
     // map from variant names to enum names
@@ -45,11 +46,10 @@ pub(crate) struct StaticsContext {
     // map from interface name to list of implementations
     pub(crate) interface_impls: BTreeMap<Symbol, Vec<InterfaceImpl>>,
 
-    // BOOKKEEPING
+    // BOOKKEEPING (for bytecode translation)
 
     // name resolutions
     pub(crate) name_resolutions: HashMap<NodeId, Resolution>,
-
     // string constants
     pub(crate) string_constants: HashMap<String, usize>,
 
@@ -124,7 +124,7 @@ impl StaticsContext {
     }
 }
 
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct NamespaceTree {
     entries: HashMap<Symbol, NamespaceTree>,
     declaration: Option<Declaration>,
@@ -146,7 +146,7 @@ impl Display for NamespaceTree {
 
 type Declaration = NodeId; // TODO: Resolution ?
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub(crate) enum Resolution {
     Var(NodeId),
     FreeFunction(NodeId, Symbol),
@@ -166,14 +166,12 @@ pub(crate) fn analyze(
 ) -> Result<StaticsContext, String> {
     let mut ctx = StaticsContext::new(effects.to_owned()); // TODO: to_owned necessary?
 
-    // TODO: Gamma should be an implementation detail of typechecker
+    // TODO: Get rid of Gamma
     let tyctx = typecheck::Gamma::empty();
     // declarations
-    for parse_tree in toplevels {
-        let (name, namespace_entry) =
-            gather_declarations_toplevel(&mut ctx, tyctx.clone(), parse_tree.clone());
-        ctx.global_namespace.entries.insert(name, namespace_entry);
-    }
+    gather_declarations(&mut ctx, tyctx.clone(), toplevels.clone());
+    // resolve
+    resolve(&mut ctx, toplevels.clone());
 
     println!("global namespace:\n{}", ctx.global_namespace);
 

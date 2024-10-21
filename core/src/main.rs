@@ -15,7 +15,9 @@ fn foo(a: int, b) {
 }
 "#;
     let main = r#"
-util.foo(2, 2)
+use util
+
+foo(2, 2)
 "#;
     let sources = vec![
         SourceFile {

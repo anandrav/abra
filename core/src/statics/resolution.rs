@@ -1,6 +1,7 @@
 use std::{fmt, rc::Rc};
 
 use crate::ast::{Node, NodeId, Stmt, StmtKind, Symbol, Toplevel, TypeDefKind, TypeKind};
+use crate::environment::Environment;
 
 use super::{NamespaceTree, Resolution, StaticsContext, TypeVar};
 
@@ -73,7 +74,19 @@ pub(crate) struct InterfaceImplMethod {
     pub(crate) identifier_location: NodeId,
 }
 
-pub(crate) fn gather_declarations_toplevel(
+pub(crate) fn gather_declarations(
+    ctx: &mut StaticsContext,
+    gamma: Gamma, // TODO get rid of Gamma here
+    toplevels: Vec<Rc<Toplevel>>,
+) {
+    for parse_tree in toplevels {
+        let (name, namespace_entry) =
+            gather_declarations_toplevel(ctx, gamma.clone(), parse_tree.clone());
+        ctx.global_namespace.entries.insert(name, namespace_entry);
+    }
+}
+
+fn gather_declarations_toplevel(
     ctx: &mut StaticsContext,
     gamma: Gamma,
     toplevel: Rc<Toplevel>,
@@ -98,7 +111,6 @@ pub(crate) fn gather_declarations_toplevel(
     (this_name, this_entry)
 }
 
-// TODO: populate the namespace entry
 fn gather_declarations_stmt(stmt: Rc<Stmt>) -> Option<(String, NamespaceTree)> {
     match &*stmt.stmtkind {
         StmtKind::InterfaceDef(ident, properties) => {
@@ -338,5 +350,58 @@ fn gather_definitions_stmt_DEPRECATE(ctx: &mut StaticsContext, gamma: Gamma, stm
             gamma.extend_declaration(name.clone(), Resolution::FreeFunction(stmt.id, name));
         }
         StmtKind::Set(..) => {}
+    }
+}
+
+type Env = Environment<Symbol, EnvEntry>;
+
+// Looking up a symbol can either yield a resolution (function, variable, builtin, etc.) or a namespace
+#[derive(Clone, PartialEq, Eq)]
+enum EnvEntry {
+    Resolution(Resolution),
+    Namespace(NamespaceTree),
+}
+
+pub(crate) fn resolve(ctx: &mut StaticsContext, toplevels: Vec<Rc<Toplevel>>) {
+    for parse_tree in toplevels {
+        resolve_names_toplevel(ctx, parse_tree.clone());
+    }
+}
+
+fn resolve_names_toplevel(ctx: &mut StaticsContext, toplevel: Rc<Toplevel>) {
+    // environment used for looking up and resolving names mentioned in the program
+    let env = Env::empty();
+    // extend the environment with the entries in the global namespace
+    // this allows the programmer to refer to any qualified name in the global namespace
+    let empty = NamespaceTree::default();
+    let toplevel_namespace_tree = ctx
+        .global_namespace
+        .entries
+        .get(&toplevel.name)
+        .unwrap_or(&empty);
+    for (name, entry) in &toplevel_namespace_tree.entries {
+        env.extend(name.clone(), EnvEntry::Namespace(entry.clone()));
+    }
+    // TODO: resolve imports and extend the environment with imported identifiers
+
+    // resolve names using the environment for this file/toplevel
+    for statement in toplevel.statements.iter() {
+        resolve_names_stmt(ctx, env.clone(), statement.clone());
+    }
+}
+
+// don't do typechecking
+// just do name resolution for variables and functions etc.
+fn resolve_names_stmt(ctx: &mut StaticsContext, env: Env, stmt: Rc<Stmt>) {
+    match &*stmt.stmtkind {
+        StmtKind::FuncDef(name, _args, _out_annot, _) => {
+            let name = name.patkind.get_identifier_of_variable();
+            let resolution = env.lookup(&name);
+            // match resolution {
+            //     EnvEntry::Resolution(res) => {}
+            //     EnvEntry::Namespace(_) => {}
+            // }
+        }
+        _ => {}
     }
 }
