@@ -1,13 +1,13 @@
 use crate::ast::{NodeId, NodeMap, Sources, Stmt, Symbol, Toplevel};
 use crate::builtin::Builtin;
 use crate::effects::EffectStruct;
-use declarations::{gather_declarations_toplevel, EnumDef, InterfaceDef, InterfaceImpl, StructDef};
+use resolution::{gather_declarations_toplevel, EnumDef, InterfaceDef, InterfaceImpl, StructDef};
 use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::fmt::{self, Display, Formatter};
 use std::rc::Rc;
 use typecheck::{generate_constraints_toplevel, result_of_constraint_solving, SolvedType, TypeVar};
 
-mod declarations;
+mod resolution;
 mod exhaustiveness;
 mod typecheck;
 
@@ -16,7 +16,7 @@ pub(crate) use typecheck::{ty_fits_impl_ty, Monotype};
 pub(crate) use typecheck::Prov as TypeProv;
 pub(crate) use typecheck::SolvedType as Type;
 
-pub(crate) use declarations::StructField;
+pub(crate) use resolution::StructField;
 
 use exhaustiveness::{result_of_additional_analysis, DeconstructedPat};
 

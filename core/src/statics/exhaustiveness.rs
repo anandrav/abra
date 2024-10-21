@@ -97,7 +97,7 @@ fn check_pattern_exhaustiveness_expr(statics: &mut StaticsContext, expr: &Expr) 
         | ExprKind::Float(_)
         | ExprKind::Bool(_)
         | ExprKind::Str(_)
-        | ExprKind::Var { .. } => {}
+        | ExprKind::Identifier { .. } => {}
         ExprKind::List(exprs) => {
             for expr in exprs {
                 check_pattern_exhaustiveness_expr(statics, expr);
@@ -142,7 +142,7 @@ fn check_pattern_exhaustiveness_expr(statics: &mut StaticsContext, expr: &Expr) 
                 check_pattern_exhaustiveness_expr(statics, expr);
             }
         }
-        ExprKind::FieldAccess(expr, _) => {
+        ExprKind::MemberAccess(expr, _) => {
             check_pattern_exhaustiveness_expr(statics, expr);
         }
         ExprKind::IndexAccess(expr, index) => {

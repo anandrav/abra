@@ -10,7 +10,7 @@ fn main() {
 
 fn test() {
     let util = r#"
-fn foo(a, b) {
+fn foo(a: int, b) {
   a + b
 }
 "#;

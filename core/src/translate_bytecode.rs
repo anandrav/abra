@@ -234,7 +234,7 @@ impl Translator {
     ) {
         // println!("translating expr: {:?}", expr.exprkind);
         match &*expr.exprkind {
-            ExprKind::Var(symbol) => {
+            ExprKind::Identifier(symbol) => {
                 // enumt variant
                 match self.statics.name_resolutions.get(&expr.id).unwrap() {
                     Resolution::VariantCtor(tag, _) => {
@@ -322,7 +322,7 @@ impl Translator {
                 }
             }
             ExprKind::FuncAp(func, args) => {
-                if let ExprKind::Var(_) = &*func.exprkind {
+                if let ExprKind::Identifier(_) = &*func.exprkind {
                     for arg in args {
                         self.translate_expr(arg.clone(), offset_table, monomorph_env.clone(), st);
                     }
@@ -545,9 +545,9 @@ impl Translator {
                 emit(st, Item::Label(end_label));
                 emit(st, Instr::PushNil); // TODO get rid of this unnecessary overhead
             }
-            ExprKind::FieldAccess(accessed, field) => {
+            ExprKind::MemberAccess(accessed, field) => {
                 // TODO, this downcast shouldn't be necessary
-                let ExprKind::Var(field_name) = &*field.exprkind else {
+                let ExprKind::Identifier(field_name) = &*field.exprkind else {
                     panic!()
                 };
                 self.translate_expr(accessed.clone(), offset_table, monomorph_env.clone(), st);
@@ -888,7 +888,7 @@ impl Translator {
                 self.handle_pat_binding(pat.0.clone(), locals, st);
             }
             StmtKind::Set(expr1, rvalue) => match &*expr1.exprkind {
-                ExprKind::Var(_) => {
+                ExprKind::Identifier(_) => {
                     let Resolution::Var(node_id) =
                         self.statics.name_resolutions.get(&expr1.id).unwrap()
                     else {
@@ -898,9 +898,9 @@ impl Translator {
                     self.translate_expr(rvalue.clone(), locals, monomorph_env.clone(), st);
                     emit(st, Instr::StoreOffset(*idx));
                 }
-                ExprKind::FieldAccess(accessed, field) => {
+                ExprKind::MemberAccess(accessed, field) => {
                     // TODO, this downcast shouldn't be necessary
-                    let ExprKind::Var(field_name) = &*field.exprkind else {
+                    let ExprKind::Identifier(field_name) = &*field.exprkind else {
                         panic!()
                     };
                     self.translate_expr(rvalue.clone(), locals, monomorph_env.clone(), st);
@@ -947,7 +947,7 @@ impl Translator {
             | ExprKind::Int(_)
             | ExprKind::Float(_)
             | ExprKind::Str(_) => {}
-            ExprKind::Var(_) => {
+            ExprKind::Identifier(_) => {
                 let resolution = self.statics.name_resolutions.get(&expr.id).unwrap();
                 if let Resolution::Var(node_id) = resolution {
                     if !locals.contains(node_id) && !arg_set.contains(node_id) {
@@ -988,7 +988,7 @@ impl Translator {
                 self.collect_captures_expr(left, locals, arg_set, captures);
                 self.collect_captures_expr(right, locals, arg_set, captures);
             }
-            ExprKind::FieldAccess(accessed, _) => {
+            ExprKind::MemberAccess(accessed, _) => {
                 self.collect_captures_expr(accessed, locals, arg_set, captures);
             }
             ExprKind::IndexAccess(array, index) => {
@@ -1210,7 +1210,7 @@ fn collect_locals_expr(expr: &Expr, locals: &mut HashSet<NodeId>) {
             collect_locals_expr(left, locals);
             collect_locals_expr(right, locals);
         }
-        ExprKind::FieldAccess(accessed, _) => {
+        ExprKind::MemberAccess(accessed, _) => {
             collect_locals_expr(accessed, locals);
         }
         ExprKind::IndexAccess(array, index) => {
@@ -1224,7 +1224,7 @@ fn collect_locals_expr(expr: &Expr, locals: &mut HashSet<NodeId>) {
             }
         }
         ExprKind::Func(..) => {}
-        ExprKind::Var(..)
+        ExprKind::Identifier(..)
         | ExprKind::Unit
         | ExprKind::Int(..)
         | ExprKind::Float(..)

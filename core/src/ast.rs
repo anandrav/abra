@@ -258,7 +258,7 @@ impl Node for Expr {
 
     fn children(&self) -> Vec<Rc<dyn Node>> {
         match &*self.exprkind {
-            ExprKind::Var(_) => vec![],
+            ExprKind::Identifier(_) => vec![],
             ExprKind::Unit => vec![],
             ExprKind::Int(_) => vec![],
             ExprKind::Float(_) => vec![],
@@ -312,7 +312,7 @@ impl Node for Expr {
                 }
                 children
             }
-            ExprKind::FieldAccess(expr, field) => vec![expr.clone(), field.clone()], // TODO: should field really be an expression? maybe just an identifier?
+            ExprKind::MemberAccess(expr, field) => vec![expr.clone(), field.clone()], // TODO: should field really be an expression? maybe just an identifier?
             ExprKind::IndexAccess(expr, index) => vec![expr.clone(), index.clone()],
         }
     }
@@ -325,7 +325,7 @@ impl Node for Expr {
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) enum ExprKind {
     // EmptyHole,
-    Var(Symbol),
+    Identifier(Symbol),
     Unit,
     Int(i64),
     Float(f64),
@@ -341,7 +341,7 @@ pub(crate) enum ExprKind {
     BinOp(Rc<Expr>, BinOpcode, Rc<Expr>),
     FuncAp(Rc<Expr>, Vec<Rc<Expr>>),
     Tuple(Vec<Rc<Expr>>),
-    FieldAccess(Rc<Expr>, Rc<Expr>),
+    MemberAccess(Rc<Expr>, Rc<Expr>),
     IndexAccess(Rc<Expr>, Rc<Expr>),
 }
 
@@ -1255,7 +1255,7 @@ pub(crate) fn parse_expr_term(pair: Pair<Rule>, filename: &str) -> Rc<Expr> {
             })
         }
         Rule::identifier => Rc::new(Expr {
-            exprkind: Rc::new(ExprKind::Var(pair.as_str().to_owned())),
+            exprkind: Rc::new(ExprKind::Identifier(pair.as_str().to_owned())),
             span,
             id: NodeId::new(),
         }),
@@ -1345,7 +1345,7 @@ pub(crate) fn parse_expr_pratt(pairs: Pairs<Rule>, filename: &str) -> Rc<Expr> {
                     id: NodeId::new(),
                 }),
                 None => Rc::new(Expr {
-                    exprkind: Rc::new(ExprKind::FieldAccess(lhs, rhs)),
+                    exprkind: Rc::new(ExprKind::MemberAccess(lhs, rhs)),
                     span: Span::new(filename, op.as_span()),
                     id: NodeId::new(),
                 }),

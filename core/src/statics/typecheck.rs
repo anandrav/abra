@@ -820,12 +820,13 @@ pub(crate) fn constrain(mut expected: TypeVar, mut actual: TypeVar) {
 }
 
 // TODO: rename to TypeEnv
+// TODO: actually, it's not just a typ environment, it also handles resolving variables to their declarations
 #[derive(Clone)]
 pub(crate) struct Gamma {
     var_to_type: Environment<Symbol, TypeVar>,
     ty_vars_in_scope: Environment<Symbol, ()>,
 
-    var_declarations: Environment<Symbol, Resolution>,
+    var_declarations: Environment<Symbol, Resolution>, // this is basically a local namespace
 }
 impl Gamma {
     pub(crate) fn empty() -> Self {
@@ -1414,7 +1415,7 @@ fn generate_constraints_expr(gamma: Gamma, mode: Mode, expr: Rc<Expr>, ctx: &mut
                 );
             }
         }
-        ExprKind::Var(symbol) => {
+        ExprKind::Identifier(symbol) => {
             let lookup = gamma.lookup_declaration(symbol);
             if let Some(resolution) = lookup {
                 ctx.name_resolutions.insert(expr.id, resolution);
@@ -1707,7 +1708,7 @@ fn generate_constraints_expr(gamma: Gamma, mode: Mode, expr: Rc<Expr>, ctx: &mut
                 generate_constraints_expr(gamma.clone(), Mode::Syn, expr.clone(), ctx);
             }
         }
-        ExprKind::FieldAccess(expr, field) => {
+        ExprKind::MemberAccess(expr, field) => {
             generate_constraints_expr(gamma, Mode::Syn, expr.clone(), ctx);
             let ty_expr = TypeVar::fresh(ctx, Prov::Node(expr.id));
             if ty_expr.underdetermined() {
@@ -1719,7 +1720,7 @@ fn generate_constraints_expr(gamma: Gamma, mode: Mode, expr: Rc<Expr>, ctx: &mut
             };
             if let PotentialType::UdtInstance(_, ident, _) = inner {
                 if let Some(struct_def) = ctx.struct_defs.get(&ident) {
-                    let ExprKind::Var(field_ident) = &*field.exprkind else {
+                    let ExprKind::Identifier(field_ident) = &*field.exprkind else {
                         ctx.field_not_ident.insert(field.id);
                         return;
                     };

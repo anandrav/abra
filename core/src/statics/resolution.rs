@@ -30,6 +30,7 @@ impl fmt::Display for Variant {
     }
 }
 
+// TODO: these are all kind of redundant... Just use AST nodes instead of putting the same info in these structs?
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub(crate) struct StructDef {
     pub(crate) name: Symbol,
