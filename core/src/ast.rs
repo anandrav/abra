@@ -11,7 +11,7 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 #[grammar = "grammar.pest"]
 struct MyParser;
 
-pub(crate) type Symbol = String;
+pub(crate) type Identifier = String;
 
 pub(crate) type ArgAnnotated = (Rc<Pat>, Option<Rc<AstType>>);
 
@@ -49,14 +49,14 @@ impl Node for Toplevel {
 
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) enum TypeDefKind {
-    Alias(Symbol, Rc<AstType>),
-    Enum(Symbol, Vec<Rc<AstType>>, Vec<Rc<Variant>>),
-    Struct(Symbol, Vec<Rc<AstType>>, Vec<Rc<StructField>>),
+    Alias(Identifier, Rc<AstType>),
+    Enum(Identifier, Vec<Rc<AstType>>, Vec<Rc<Variant>>),
+    Struct(Identifier, Vec<Rc<AstType>>, Vec<Rc<StructField>>),
 }
 
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) struct Variant {
-    pub(crate) ctor: Symbol,
+    pub(crate) ctor: Identifier,
     pub(crate) data: Option<Rc<AstType>>,
 
     pub(crate) span: Span,
@@ -81,7 +81,7 @@ impl Node for Variant {
 
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) struct StructField {
-    pub(crate) ident: Symbol,
+    pub(crate) ident: Identifier,
     pub(crate) ty: Rc<AstType>,
 
     pub(crate) span: Span,
@@ -125,7 +125,7 @@ pub(crate) trait Node {
 
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) struct Stmt {
-    pub(crate) stmtkind: Rc<StmtKind>,
+    pub(crate) kind: Rc<StmtKind>,
     pub(crate) span: Span,
     pub(crate) id: NodeId,
 }
@@ -139,7 +139,7 @@ impl Node for Stmt {
     }
 
     fn children(&self) -> Vec<Rc<dyn Node>> {
-        match &*self.stmtkind {
+        match &*self.kind {
             StmtKind::FuncDef(id, args, ty, expr) => {
                 let mut children: Vec<Rc<dyn Node>> = vec![id.clone() as Rc<dyn Node>];
                 for (pat, annot) in args {
@@ -203,6 +203,7 @@ impl Node for Stmt {
                 }
                 children
             }
+            StmtKind::Import(_) => vec![],
         }
     }
 
@@ -213,18 +214,20 @@ impl Node for Stmt {
 
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) enum StmtKind {
-    FuncDef(Rc<Pat>, Vec<ArgAnnotated>, Option<Rc<AstType>>, Rc<Expr>),
     Let(bool, PatAnnotated, Rc<Expr>), // bool is whether it's mutable
     Set(Rc<Expr>, Rc<Expr>),
     Expr(Rc<Expr>),
+    // TODO: change these to be "ToplevelItem". ToplevelItem = FuncDef | TypeDef | InterfaceDef | InterfaceImpl | Stmt
+    FuncDef(Rc<Pat>, Vec<ArgAnnotated>, Option<Rc<AstType>>, Rc<Expr>),
     TypeDef(Rc<TypeDefKind>),
-    InterfaceDef(Symbol, Vec<Rc<InterfaceProperty>>),
-    InterfaceImpl(Symbol, Rc<AstType>, Vec<Rc<Stmt>>),
+    InterfaceDef(Identifier, Vec<Rc<InterfaceProperty>>),
+    InterfaceImpl(Identifier, Rc<AstType>, Vec<Rc<Stmt>>),
+    Import(Identifier),
 }
 
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) struct InterfaceProperty {
-    pub(crate) ident: Symbol,
+    pub(crate) ident: Identifier,
     pub(crate) ty: Rc<AstType>,
 }
 
@@ -243,7 +246,7 @@ impl Node for InterfaceProperty {
 
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) struct Expr {
-    pub(crate) exprkind: Rc<ExprKind>,
+    pub(crate) kind: Rc<ExprKind>,
     pub(crate) span: Span,
     pub(crate) id: NodeId,
 }
@@ -257,7 +260,7 @@ impl Node for Expr {
     }
 
     fn children(&self) -> Vec<Rc<dyn Node>> {
-        match &*self.exprkind {
+        match &*self.kind {
             ExprKind::Identifier(_) => vec![],
             ExprKind::Unit => vec![],
             ExprKind::Int(_) => vec![],
@@ -325,7 +328,7 @@ impl Node for Expr {
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) enum ExprKind {
     // EmptyHole,
-    Identifier(Symbol),
+    Identifier(Identifier),
     Unit,
     Int(i64),
     Float(f64),
@@ -377,7 +380,7 @@ pub(crate) struct MatchArm {
 
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) struct Pat {
-    pub(crate) patkind: Rc<PatKind>,
+    pub(crate) kind: Rc<PatKind>,
     pub(crate) span: Span,
     pub(crate) id: NodeId,
 }
@@ -391,7 +394,7 @@ impl Node for Pat {
     }
 
     fn children(&self) -> Vec<Rc<dyn Node>> {
-        match &*self.patkind {
+        match &*self.kind {
             PatKind::Wildcard => vec![],
             PatKind::Var(_) => vec![],
             PatKind::Unit => vec![],
@@ -418,8 +421,8 @@ impl Node for Pat {
 pub(crate) enum PatKind {
     // EmptyHole,
     Wildcard,
-    Var(Symbol),
-    Variant(Symbol, Option<Rc<Pat>>),
+    Var(Identifier),
+    Variant(Identifier, Option<Rc<Pat>>),
     Unit,
     Int(i64),
     Float(f32),
@@ -429,7 +432,7 @@ pub(crate) enum PatKind {
 }
 
 impl PatKind {
-    pub(crate) fn get_identifier_of_variable(&self) -> Symbol {
+    pub(crate) fn get_identifier_of_variable(&self) -> Identifier {
         match self {
             PatKind::Var(id) => id.clone(),
             _ => {
@@ -486,9 +489,9 @@ impl Node for AstType {
 
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) enum TypeKind {
-    Poly(Symbol, Vec<Symbol>),
-    Name(Symbol),
-    Ap(Symbol, Vec<Rc<AstType>>),
+    Poly(Identifier, Vec<Identifier>),
+    Name(Identifier),
+    Ap(Identifier, Vec<Rc<AstType>>),
     Unit,
     Int,
     Float,
@@ -659,12 +662,12 @@ pub(crate) fn parse_let_pattern(pair: Pair<Rule>, filename: &str) -> Rc<Pat> {
             parse_let_pattern(pair, filename)
         }
         Rule::identifier => Rc::new(Pat {
-            patkind: Rc::new(PatKind::Var(pair.as_str().to_owned())),
+            kind: Rc::new(PatKind::Var(pair.as_str().to_owned())),
             span,
             id: NodeId::new(),
         }),
         Rule::wildcard => Rc::new(Pat {
-            patkind: Rc::new(PatKind::Wildcard),
+            kind: Rc::new(PatKind::Wildcard),
             span,
             id: NodeId::new(),
         }),
@@ -675,7 +678,7 @@ pub(crate) fn parse_let_pattern(pair: Pair<Rule>, filename: &str) -> Rc<Pat> {
                 .map(|pair| parse_let_pattern(pair.clone(), filename))
                 .collect();
             Rc::new(Pat {
-                patkind: Rc::new(PatKind::Tuple(pats)),
+                kind: Rc::new(PatKind::Tuple(pats)),
                 span,
                 id: NodeId::new(),
             })
@@ -694,7 +697,7 @@ pub(crate) fn parse_match_pattern(pair: Pair<Rule>, filename: &str) -> Rc<Pat> {
             parse_match_pattern(pair, filename)
         }
         Rule::match_pattern_variable => Rc::new(Pat {
-            patkind: Rc::new(PatKind::Var(pair.as_str()[1..].to_owned())),
+            kind: Rc::new(PatKind::Var(pair.as_str()[1..].to_owned())),
             span,
             id: NodeId::new(),
         }),
@@ -705,7 +708,7 @@ pub(crate) fn parse_match_pattern(pair: Pair<Rule>, filename: &str) -> Rc<Pat> {
                 .map(|pair| parse_match_pattern(pair.clone(), filename))
                 .collect();
             Rc::new(Pat {
-                patkind: Rc::new(PatKind::Tuple(pats)),
+                kind: Rc::new(PatKind::Tuple(pats)),
                 span,
                 id: NodeId::new(),
             })
@@ -717,38 +720,38 @@ pub(crate) fn parse_match_pattern(pair: Pair<Rule>, filename: &str) -> Rc<Pat> {
                 .get(1)
                 .map(|pair| parse_match_pattern(pair.clone(), filename));
             Rc::new(Pat {
-                patkind: Rc::new(PatKind::Variant(name, pat)),
+                kind: Rc::new(PatKind::Variant(name, pat)),
                 span,
                 id: NodeId::new(),
             })
         }
         Rule::wildcard => Rc::new(Pat {
-            patkind: Rc::new(PatKind::Wildcard),
+            kind: Rc::new(PatKind::Wildcard),
             span,
             id: NodeId::new(),
         }),
         Rule::literal_unit => Rc::new(Pat {
-            patkind: Rc::new(PatKind::Unit),
+            kind: Rc::new(PatKind::Unit),
             span,
             id: NodeId::new(),
         }),
         Rule::literal_int => Rc::new(Pat {
-            patkind: Rc::new(PatKind::Int(pair.as_str().parse().unwrap())),
+            kind: Rc::new(PatKind::Int(pair.as_str().parse().unwrap())),
             span,
             id: NodeId::new(),
         }),
         Rule::literal_float => Rc::new(Pat {
-            patkind: Rc::new(PatKind::Float(pair.as_str().parse().unwrap())),
+            kind: Rc::new(PatKind::Float(pair.as_str().parse().unwrap())),
             span,
             id: NodeId::new(),
         }),
         Rule::literal_bool => Rc::new(Pat {
-            patkind: Rc::new(PatKind::Bool(pair.as_str().parse().unwrap())),
+            kind: Rc::new(PatKind::Bool(pair.as_str().parse().unwrap())),
             span,
             id: NodeId::new(),
         }),
         Rule::literal_string => Rc::new(Pat {
-            patkind: Rc::new(PatKind::Str({
+            kind: Rc::new(PatKind::Str({
                 let s = pair.as_str();
                 // remove quotes
                 s[1..s.len() - 1].to_owned()
@@ -886,7 +889,7 @@ pub(crate) fn parse_stmt(pair: Pair<Rule>, filename: &str) -> Rc<Stmt> {
             };
             let body = parse_expr_pratt(Pairs::single(inner.last().unwrap().clone()), filename);
             Rc::new(Stmt {
-                stmtkind: Rc::new(StmtKind::FuncDef(ident, args, ty_out, body)),
+                kind: Rc::new(StmtKind::FuncDef(ident, args, ty_out, body)),
                 span,
                 id: NodeId::new(),
             })
@@ -896,7 +899,7 @@ pub(crate) fn parse_stmt(pair: Pair<Rule>, filename: &str) -> Rc<Stmt> {
             let pat_annotated = parse_annotated_let_pattern(inner[offset].clone(), filename);
             let expr = parse_expr_pratt(Pairs::single(inner[offset + 1].clone()), filename);
             Rc::new(Stmt {
-                stmtkind: Rc::new(StmtKind::Let(false, pat_annotated, expr)),
+                kind: Rc::new(StmtKind::Let(false, pat_annotated, expr)),
                 span,
                 id: NodeId::new(),
             })
@@ -906,7 +909,7 @@ pub(crate) fn parse_stmt(pair: Pair<Rule>, filename: &str) -> Rc<Stmt> {
             let pat_annotated = parse_annotated_let_pattern(inner[offset].clone(), filename);
             let expr = parse_expr_pratt(Pairs::single(inner[offset + 1].clone()), filename);
             Rc::new(Stmt {
-                stmtkind: Rc::new(StmtKind::Let(true, pat_annotated, expr)),
+                kind: Rc::new(StmtKind::Let(true, pat_annotated, expr)),
                 span,
                 id: NodeId::new(),
             })
@@ -915,7 +918,7 @@ pub(crate) fn parse_stmt(pair: Pair<Rule>, filename: &str) -> Rc<Stmt> {
             let expr1 = parse_expr_pratt(Pairs::single(inner[0].clone()), filename);
             let expr2 = parse_expr_pratt(Pairs::single(inner[1].clone()), filename);
             Rc::new(Stmt {
-                stmtkind: Rc::new(StmtKind::Set(expr1, expr2)),
+                kind: Rc::new(StmtKind::Set(expr1, expr2)),
                 span,
                 id: NodeId::new(),
             })
@@ -923,7 +926,7 @@ pub(crate) fn parse_stmt(pair: Pair<Rule>, filename: &str) -> Rc<Stmt> {
         Rule::expression_statement => {
             let expr = parse_expr_pratt(Pairs::single(inner[0].clone()), filename);
             Rc::new(Stmt {
-                stmtkind: Rc::new(StmtKind::Expr(expr)),
+                kind: Rc::new(StmtKind::Expr(expr)),
                 span,
                 id: NodeId::new(),
             })
@@ -932,7 +935,7 @@ pub(crate) fn parse_stmt(pair: Pair<Rule>, filename: &str) -> Rc<Stmt> {
             let ident = inner[0].as_str().to_string();
             let definition = parse_type_term(inner[1].clone(), filename);
             Rc::new(Stmt {
-                stmtkind: Rc::new(StmtKind::TypeDef(Rc::new(TypeDefKind::Alias(
+                kind: Rc::new(StmtKind::TypeDef(Rc::new(TypeDefKind::Alias(
                     ident, definition,
                 )))),
                 span,
@@ -954,7 +957,7 @@ pub(crate) fn parse_stmt(pair: Pair<Rule>, filename: &str) -> Rc<Stmt> {
                 n += 1;
             }
             Rc::new(Stmt {
-                stmtkind: Rc::new(StmtKind::TypeDef(Rc::new(TypeDefKind::Enum(
+                kind: Rc::new(StmtKind::TypeDef(Rc::new(TypeDefKind::Enum(
                     ident, params, variants,
                 )))),
                 span,
@@ -976,7 +979,7 @@ pub(crate) fn parse_stmt(pair: Pair<Rule>, filename: &str) -> Rc<Stmt> {
                 n += 1;
             }
             Rc::new(Stmt {
-                stmtkind: Rc::new(StmtKind::TypeDef(Rc::new(TypeDefKind::Struct(
+                kind: Rc::new(StmtKind::TypeDef(Rc::new(TypeDefKind::Struct(
                     ident, params, fields,
                 )))),
                 span,
@@ -993,7 +996,7 @@ pub(crate) fn parse_stmt(pair: Pair<Rule>, filename: &str) -> Rc<Stmt> {
                 n += 1;
             }
             Rc::new(Stmt {
-                stmtkind: StmtKind::InterfaceDef(ident, methods).into(),
+                kind: StmtKind::InterfaceDef(ident, methods).into(),
                 span,
                 id: NodeId::new(),
             })
@@ -1009,7 +1012,15 @@ pub(crate) fn parse_stmt(pair: Pair<Rule>, filename: &str) -> Rc<Stmt> {
                 n += 1;
             }
             Rc::new(Stmt {
-                stmtkind: StmtKind::InterfaceImpl(ident, ty, stmts).into(),
+                kind: StmtKind::InterfaceImpl(ident, ty, stmts).into(),
+                span,
+                id: NodeId::new(),
+            })
+        }
+        Rule::import => {
+            let ident = inner[0].as_str().to_string();
+            Rc::new(Stmt {
+                kind: StmtKind::Import(ident).into(),
                 span,
                 id: NodeId::new(),
             })
@@ -1101,7 +1112,7 @@ pub(crate) fn parse_expr_term(pair: Pair<Rule>, filename: &str) -> Rc<Expr> {
                 statements.push(parse_stmt(pair, filename));
             }
             Rc::new(Expr {
-                exprkind: Rc::new(ExprKind::Block(statements)),
+                kind: Rc::new(ExprKind::Block(statements)),
                 span,
                 id: NodeId::new(),
             })
@@ -1116,7 +1127,7 @@ pub(crate) fn parse_expr_term(pair: Pair<Rule>, filename: &str) -> Rc<Expr> {
                 None
             };
             Rc::new(Expr {
-                exprkind: Rc::new(ExprKind::If(cond, e1, e2)),
+                kind: Rc::new(ExprKind::If(cond, e1, e2)),
                 span,
                 id: NodeId::new(),
             })
@@ -1126,7 +1137,7 @@ pub(crate) fn parse_expr_term(pair: Pair<Rule>, filename: &str) -> Rc<Expr> {
             let cond = parse_expr_pratt(Pairs::single(inner[0].clone()), filename);
             let e = parse_expr_pratt(Pairs::single(inner[1].clone()), filename);
             Rc::new(Expr {
-                exprkind: Rc::new(ExprKind::WhileLoop(cond, e)),
+                kind: Rc::new(ExprKind::WhileLoop(cond, e)),
                 span,
                 id: NodeId::new(),
             })
@@ -1145,7 +1156,7 @@ pub(crate) fn parse_expr_term(pair: Pair<Rule>, filename: &str) -> Rc<Expr> {
                 arms.push(parse_match_arm(pair, filename));
             }
             Rc::new(Expr {
-                exprkind: Rc::new(ExprKind::Match(expr, arms)),
+                kind: Rc::new(ExprKind::Match(expr, arms)),
                 span,
                 id: NodeId::new(),
             })
@@ -1170,7 +1181,7 @@ pub(crate) fn parse_expr_term(pair: Pair<Rule>, filename: &str) -> Rc<Expr> {
             };
             let body = parse_expr_pratt(Pairs::single(inner.last().unwrap().clone()), filename);
             Rc::new(Expr {
-                exprkind: Rc::new(ExprKind::Func(args, ty_out, body)),
+                kind: Rc::new(ExprKind::Func(args, ty_out, body)),
                 span,
                 id: NodeId::new(),
             })
@@ -1184,7 +1195,7 @@ pub(crate) fn parse_expr_term(pair: Pair<Rule>, filename: &str) -> Rc<Expr> {
                 args.push(parse_expr_pratt(Pairs::single(p.clone()), filename));
             }
             Rc::new(Expr {
-                exprkind: Rc::new(ExprKind::FuncAp(f, args)),
+                kind: Rc::new(ExprKind::FuncAp(f, args)),
                 span,
                 id: NodeId::new(),
             })
@@ -1196,33 +1207,33 @@ pub(crate) fn parse_expr_term(pair: Pair<Rule>, filename: &str) -> Rc<Expr> {
                 exprs.push(parse_expr_pratt(Pairs::single(p), filename));
             }
             Rc::new(Expr {
-                exprkind: Rc::new(ExprKind::Tuple(exprs)),
+                kind: Rc::new(ExprKind::Tuple(exprs)),
                 span,
                 id: NodeId::new(),
             })
         }
         Rule::literal_unit => Rc::new(Expr {
-            exprkind: Rc::new(ExprKind::Unit),
+            kind: Rc::new(ExprKind::Unit),
             span,
             id: NodeId::new(),
         }),
         Rule::literal_int => Rc::new(Expr {
-            exprkind: Rc::new(ExprKind::Int(pair.as_str().parse().unwrap())),
+            kind: Rc::new(ExprKind::Int(pair.as_str().parse().unwrap())),
             span,
             id: NodeId::new(),
         }),
         Rule::literal_float => Rc::new(Expr {
-            exprkind: Rc::new(ExprKind::Float(pair.as_str().parse().unwrap())),
+            kind: Rc::new(ExprKind::Float(pair.as_str().parse().unwrap())),
             span,
             id: NodeId::new(),
         }),
         Rule::literal_bool => Rc::new(Expr {
-            exprkind: Rc::new(ExprKind::Bool(pair.as_str().parse().unwrap())),
+            kind: Rc::new(ExprKind::Bool(pair.as_str().parse().unwrap())),
             span,
             id: NodeId::new(),
         }),
         Rule::literal_string => Rc::new(Expr {
-            exprkind: Rc::new(ExprKind::Str({
+            kind: Rc::new(ExprKind::Str({
                 let s = pair.as_str();
                 // remove quotes
                 s[1..s.len() - 1].to_owned()
@@ -1237,7 +1248,7 @@ pub(crate) fn parse_expr_term(pair: Pair<Rule>, filename: &str) -> Rc<Expr> {
                 exprs.push(parse_expr_pratt(Pairs::single(p), filename));
             }
             Rc::new(Expr {
-                exprkind: Rc::new(ExprKind::List(exprs)),
+                kind: Rc::new(ExprKind::List(exprs)),
                 span,
                 id: NodeId::new(),
             })
@@ -1249,13 +1260,13 @@ pub(crate) fn parse_expr_term(pair: Pair<Rule>, filename: &str) -> Rc<Expr> {
                 exprs.push(parse_expr_pratt(Pairs::single(p), filename));
             }
             Rc::new(Expr {
-                exprkind: Rc::new(ExprKind::Array(exprs)),
+                kind: Rc::new(ExprKind::Array(exprs)),
                 span,
                 id: NodeId::new(),
             })
         }
         Rule::identifier => Rc::new(Expr {
-            exprkind: Rc::new(ExprKind::Identifier(pair.as_str().to_owned())),
+            kind: Rc::new(ExprKind::Identifier(pair.as_str().to_owned())),
             span,
             id: NodeId::new(),
         }),
@@ -1313,7 +1324,7 @@ pub(crate) fn parse_expr_pratt(pairs: Pairs<Rule>, filename: &str) -> Rc<Expr> {
                 let inner: Vec<_> = op.into_inner().collect();
                 let index = parse_expr_pratt(Pairs::single(inner[0].clone()), filename);
                 Rc::new(Expr {
-                    exprkind: Rc::new(ExprKind::IndexAccess(lhs, index)),
+                    kind: Rc::new(ExprKind::IndexAccess(lhs, index)),
                     span,
                     id: NodeId::new(),
                 })
@@ -1340,12 +1351,12 @@ pub(crate) fn parse_expr_pratt(pairs: Pairs<Rule>, filename: &str) -> Rc<Expr> {
             };
             match opcode {
                 Some(opcode) => Rc::new(Expr {
-                    exprkind: Rc::new(ExprKind::BinOp(lhs, opcode, rhs)),
+                    kind: Rc::new(ExprKind::BinOp(lhs, opcode, rhs)),
                     span: Span::new(filename, op.as_span()),
                     id: NodeId::new(),
                 }),
                 None => Rc::new(Expr {
-                    exprkind: Rc::new(ExprKind::MemberAccess(lhs, rhs)),
+                    kind: Rc::new(ExprKind::MemberAccess(lhs, rhs)),
                     span: Span::new(filename, op.as_span()),
                     id: NodeId::new(),
                 }),

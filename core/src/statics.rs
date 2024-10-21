@@ -1,4 +1,4 @@
-use crate::ast::{NodeId, NodeMap, Sources, Stmt, Symbol, Toplevel};
+use crate::ast::{Identifier, NodeId, NodeMap, Sources, Stmt, Toplevel};
 use crate::builtin::Builtin;
 use crate::effects::EffectStruct;
 use resolution::{gather_declarations, resolve, EnumDef, InterfaceDef, InterfaceImpl, StructDef};
@@ -32,19 +32,19 @@ pub(crate) struct StaticsContext {
 
     // TODO this should all be replaced
     // enum definitions
-    pub(crate) enum_defs: HashMap<Symbol, EnumDef>,
+    pub(crate) enum_defs: HashMap<Identifier, EnumDef>,
     // map from variant names to enum names
-    variants_to_enum: HashMap<Symbol, Symbol>,
+    variants_to_enum: HashMap<Identifier, Identifier>,
     // struct definitions
-    pub(crate) struct_defs: HashMap<Symbol, StructDef>,
+    pub(crate) struct_defs: HashMap<Identifier, StructDef>,
     // function definition locations
-    pub(crate) fun_defs: HashMap<Symbol, Rc<Stmt>>,
+    pub(crate) fun_defs: HashMap<Identifier, Rc<Stmt>>,
     // interface definitions
-    interface_defs: HashMap<Symbol, InterfaceDef>,
+    interface_defs: HashMap<Identifier, InterfaceDef>,
     // map from methods to interface names
-    pub(crate) method_to_interface: HashMap<Symbol, Symbol>,
+    pub(crate) method_to_interface: HashMap<Identifier, Identifier>,
     // map from interface name to list of implementations
-    pub(crate) interface_impls: BTreeMap<Symbol, Vec<InterfaceImpl>>,
+    pub(crate) interface_impls: BTreeMap<Identifier, Vec<InterfaceImpl>>,
 
     // BOOKKEEPING (for bytecode translation)
 
@@ -58,7 +58,7 @@ pub(crate) struct StaticsContext {
     // unification variables (skolems) which must be solved
     pub(crate) vars: HashMap<TypeProv, TypeVar>,
     // map from types to interfaces they have been constrained to
-    types_constrained_to_interfaces: BTreeMap<TypeVar, Vec<(Symbol, TypeProv)>>,
+    types_constrained_to_interfaces: BTreeMap<TypeVar, Vec<(Identifier, TypeProv)>>,
     // types that must be a struct because there was a field access
     types_that_must_be_structs: BTreeMap<TypeVar, NodeId>,
 
@@ -68,10 +68,10 @@ pub(crate) struct StaticsContext {
     unbound_vars: BTreeSet<NodeId>,
     unbound_interfaces: BTreeSet<NodeId>,
     // multiple definitions
-    multiple_udt_defs: BTreeMap<Symbol, Vec<NodeId>>,
-    multiple_interface_defs: BTreeMap<Symbol, Vec<NodeId>>,
+    multiple_udt_defs: BTreeMap<Identifier, Vec<NodeId>>,
+    multiple_interface_defs: BTreeMap<Identifier, Vec<NodeId>>,
     // interface implementations
-    multiple_interface_impls: BTreeMap<Symbol, Vec<NodeId>>,
+    multiple_interface_impls: BTreeMap<Identifier, Vec<NodeId>>,
     interface_impl_for_instantiated_ty: Vec<NodeId>,
     interface_impl_extra_method: BTreeMap<NodeId, Vec<NodeId>>,
     interface_impl_missing_method: BTreeMap<NodeId, Vec<String>>,
@@ -96,16 +96,16 @@ impl StaticsContext {
         ctx
     }
 
-    fn enum_def_of_variant(&self, variant: &Symbol) -> Option<EnumDef> {
+    fn enum_def_of_variant(&self, variant: &Identifier) -> Option<EnumDef> {
         let enum_name = self.variants_to_enum.get(variant)?;
         self.enum_defs.get(enum_name).cloned()
     }
 
-    fn interface_def_of_ident(&self, ident: &Symbol) -> Option<InterfaceDef> {
+    fn interface_def_of_ident(&self, ident: &Identifier) -> Option<InterfaceDef> {
         self.interface_defs.get(ident).cloned()
     }
 
-    fn variants_of_enum(&self, enumt: &Symbol) -> Vec<Symbol> {
+    fn variants_of_enum(&self, enumt: &Identifier) -> Vec<Identifier> {
         self.enum_defs
             .get(enumt)
             .unwrap()
@@ -126,7 +126,7 @@ impl StaticsContext {
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct NamespaceTree {
-    entries: HashMap<Symbol, NamespaceTree>,
+    entries: HashMap<Identifier, NamespaceTree>,
     declaration: Option<Declaration>,
 }
 
@@ -149,8 +149,8 @@ type Declaration = NodeId; // TODO: Resolution ?
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub(crate) enum Resolution {
     Var(NodeId),
-    FreeFunction(NodeId, Symbol),
-    InterfaceMethod(Symbol),
+    FreeFunction(NodeId, Identifier),
+    InterfaceMethod(Identifier),
     StructCtor(u16),
     VariantCtor(u16, u16),
     Builtin(Builtin),

@@ -1,7 +1,7 @@
 use crate::ast::BinOpcode;
 use crate::ast::{
-    ArgAnnotated, AstType, Expr, ExprKind, Node, NodeId, NodeMap, Pat, PatKind, Sources, Stmt,
-    StmtKind, Symbol, Toplevel, TypeDefKind, TypeKind,
+    ArgAnnotated, AstType, Expr, ExprKind, Identifier, Node, NodeId, NodeMap, Pat, PatKind,
+    Sources, Stmt, StmtKind, Toplevel, TypeDefKind, TypeKind,
 };
 use crate::builtin::Builtin;
 use crate::environment::Environment;
@@ -143,7 +143,7 @@ impl TypeVarData {
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub(crate) enum PotentialType {
-    Poly(Provs, Symbol, Vec<Symbol>), // type name, then list of Interfaces it must match
+    Poly(Provs, Identifier, Vec<Identifier>), // type name, then list of Interfaces it must match
     Unit(Provs),
     Int(Provs),
     Float(Provs),
@@ -151,12 +151,12 @@ pub(crate) enum PotentialType {
     String(Provs),
     Function(Provs, Vec<TypeVar>, TypeVar),
     Tuple(Provs, Vec<TypeVar>),
-    UdtInstance(Provs, Symbol, Vec<TypeVar>), // TODO: instead of Symbol, use a node_id of the declaration. Types should be able to share the same name
+    UdtInstance(Provs, Identifier, Vec<TypeVar>), // TODO: instead of Symbol, use a node_id of the declaration. Types should be able to share the same name
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub(crate) enum SolvedType {
-    Poly(Symbol, Vec<Symbol>), // type name, then list of Interfaces it must match
+    Poly(Identifier, Vec<Identifier>), // type name, then list of Interfaces it must match
     Unit,
     Int,
     Float,
@@ -164,7 +164,7 @@ pub(crate) enum SolvedType {
     String,
     Function(Vec<SolvedType>, Box<SolvedType>),
     Tuple(Vec<SolvedType>),
-    UdtInstance(Symbol, Vec<SolvedType>),
+    UdtInstance(Identifier, Vec<SolvedType>),
 }
 
 impl SolvedType {
@@ -240,7 +240,7 @@ pub enum Monotype {
     String,
     Function(Vec<Monotype>, Box<Monotype>),
     Tuple(Vec<Monotype>),
-    Enum(Symbol, Vec<Monotype>),
+    Enum(Identifier, Vec<Monotype>),
 }
 
 impl fmt::Display for Monotype {
@@ -294,8 +294,8 @@ impl fmt::Display for Monotype {
 // (If two types share the same key, they may or may not be in conflict)
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub(crate) enum TypeKey {
-    Poly,              // TODO: why isn't the Identifier included here?
-    TyApp(Symbol, u8), // u8 represents the number of type params
+    Poly,                  // TODO: why isn't the Identifier included here?
+    TyApp(Identifier, u8), // u8 represents the number of type params
     Unit,
     Int,
     Float,
@@ -316,17 +316,17 @@ pub(crate) enum Prov {
     Effect(u16),
     UnderdeterminedCoerceToUnit,
 
-    Alias(Symbol), // TODO FIXME: Store a NodeId/resolution instead of a Symbol
+    Alias(Identifier), // TODO FIXME: Store a NodeId/resolution instead of a Symbol
     UdtDef(Box<Prov>),
 
     InstantiateUdtParam(Box<Prov>, u8),
-    InstantiatePoly(Box<Prov>, Symbol),
+    InstantiatePoly(Box<Prov>, Identifier),
     FuncArg(Box<Prov>, u8), // u8 represents the index of the argument
     FuncOut(Box<Prov>),     // u8 represents how many arguments before this output
     BinopLeft(Box<Prov>),
     BinopRight(Box<Prov>),
     ListElem(Box<Prov>),
-    StructField(Symbol, NodeId),
+    StructField(Identifier, NodeId),
     IndexAccess,
     VariantNoData(Box<Prov>), // the type of the data of a variant with no data, always Unit.
 }
@@ -542,7 +542,12 @@ impl TypeVar {
     }
 
     // Creates a *new* Type with polymorphic variabels replaced by subtitutions
-    fn subst(self, gamma: Gamma, prov: Prov, substitution: &BTreeMap<Symbol, TypeVar>) -> TypeVar {
+    fn subst(
+        self,
+        gamma: Gamma,
+        prov: Prov,
+        substitution: &BTreeMap<Identifier, TypeVar>,
+    ) -> TypeVar {
         let data = self.0.clone_data();
         if data.types.len() == 1 {
             let ty = data.types.into_values().next().unwrap();
@@ -823,10 +828,10 @@ pub(crate) fn constrain(mut expected: TypeVar, mut actual: TypeVar) {
 // TODO: actually, it's not just a typ environment, it also handles resolving variables to their declarations
 #[derive(Clone)]
 pub(crate) struct Gamma {
-    var_to_type: Environment<Symbol, TypeVar>,
-    ty_vars_in_scope: Environment<Symbol, ()>,
+    var_to_type: Environment<Identifier, TypeVar>,
+    ty_vars_in_scope: Environment<Identifier, ()>,
 
-    var_declarations: Environment<Symbol, Resolution>, // this is basically a local namespace
+    var_declarations: Environment<Identifier, Resolution>, // this is basically a local namespace
 }
 impl Gamma {
     pub(crate) fn empty() -> Self {
@@ -838,15 +843,15 @@ impl Gamma {
         }
     }
 
-    pub(crate) fn extend(&self, ident: Symbol, ty: TypeVar) {
+    pub(crate) fn extend(&self, ident: Identifier, ty: TypeVar) {
         self.var_to_type.extend(ident.clone(), ty);
     }
 
-    pub(crate) fn extend_declaration(&self, symbol: Symbol, resolution: Resolution) {
+    pub(crate) fn extend_declaration(&self, symbol: Identifier, resolution: Resolution) {
         self.var_declarations.extend(symbol, resolution);
     }
 
-    fn lookup_declaration(&self, symbol: &Symbol) -> Option<Resolution> {
+    fn lookup_declaration(&self, symbol: &Identifier) -> Option<Resolution> {
         self.var_declarations.lookup(symbol)
     }
 
@@ -878,11 +883,11 @@ impl Gamma {
         }
     }
 
-    fn lookup(&self, id: &Symbol) -> Option<TypeVar> {
+    fn lookup(&self, id: &Identifier) -> Option<TypeVar> {
         self.var_to_type.lookup(id)
     }
 
-    fn lookup_poly(&self, id: &Symbol) -> bool {
+    fn lookup_poly(&self, id: &Identifier) -> bool {
         self.ty_vars_in_scope.lookup(id).is_some()
     }
 
@@ -1355,7 +1360,7 @@ fn generate_constraints_expr(gamma: Gamma, mode: Mode, expr: Rc<Expr>, ctx: &mut
         Mode::Syn => (),
         Mode::Ana { expected } => constrain(node_ty.clone(), expected),
     };
-    match &*expr.exprkind {
+    match &*expr.kind {
         ExprKind::Unit => {
             constrain(node_ty, TypeVar::make_unit(Prov::Node(expr.id)));
         }
@@ -1546,7 +1551,7 @@ fn generate_constraints_expr(gamma: Gamma, mode: Mode, expr: Rc<Expr>, ctx: &mut
                 );
             }
             // if last statement is an expression, the block will have that expression's type
-            if let StmtKind::Expr(terminal_expr) = &*statements.last().unwrap().stmtkind {
+            if let StmtKind::Expr(terminal_expr) = &*statements.last().unwrap().kind {
                 generate_constraints_expr(
                     new_gamma,
                     Mode::Ana { expected: node_ty },
@@ -1720,7 +1725,7 @@ fn generate_constraints_expr(gamma: Gamma, mode: Mode, expr: Rc<Expr>, ctx: &mut
             };
             if let PotentialType::UdtInstance(_, ident, _) = inner {
                 if let Some(struct_def) = ctx.struct_defs.get(&ident) {
-                    let ExprKind::Identifier(field_ident) = &*field.exprkind else {
+                    let ExprKind::Identifier(field_ident) = &*field.kind else {
                         ctx.field_not_ident.insert(field.id);
                         return;
                     };
@@ -1827,17 +1832,18 @@ fn generate_constraints_stmt(
     ctx: &mut StaticsContext,
     add_to_tyvar_gamma: bool,
 ) {
-    match &*stmt.stmtkind {
+    match &*stmt.kind {
         StmtKind::InterfaceDef(..) => {}
+        StmtKind::Import(..) => {}
         StmtKind::InterfaceImpl(ident, typ, statements) => {
             let typ = ast_type_to_statics_type(ctx, typ.clone());
 
             if let Some(interface_def) = ctx.interface_def_of_ident(ident) {
                 for statement in statements {
-                    let StmtKind::FuncDef(pat, _args, _out, _body) = &*statement.stmtkind else {
+                    let StmtKind::FuncDef(pat, _args, _out, _body) = &*statement.kind else {
                         continue;
                     };
-                    let method_name = pat.patkind.get_identifier_of_variable();
+                    let method_name = pat.kind.get_identifier_of_variable();
                     if let Some(interface_method) =
                         interface_def.methods.iter().find(|m| m.name == method_name)
                     {
@@ -1867,9 +1873,9 @@ fn generate_constraints_stmt(
                     }
                 }
                 for interface_method in interface_def.methods {
-                    if !statements.iter().any(|stmt| match &*stmt.stmtkind {
+                    if !statements.iter().any(|stmt| match &*stmt.kind {
                         StmtKind::FuncDef(pat, _args, _out, _body) => {
-                            pat.patkind.get_identifier_of_variable() == interface_method.name
+                            pat.kind.get_identifier_of_variable() == interface_method.name
                         }
                         _ => false,
                     }) {
@@ -1923,14 +1929,14 @@ fn generate_constraints_stmt(
             let func_node_id = stmt.id;
             let ty_pat = TypeVar::from_node(ctx, name.id);
 
-            let func_name = name.patkind.get_identifier_of_variable();
+            let func_name = name.kind.get_identifier_of_variable();
 
             // TODO this needs a better explanation
             if add_to_tyvar_gamma {
-                gamma.extend(name.patkind.get_identifier_of_variable(), ty_pat.clone());
+                gamma.extend(name.kind.get_identifier_of_variable(), ty_pat.clone());
                 gamma.extend_declaration(
                     func_name,
-                    Resolution::FreeFunction(stmt.id, name.patkind.get_identifier_of_variable()),
+                    Resolution::FreeFunction(stmt.id, name.kind.get_identifier_of_variable()),
                 );
             } else {
                 gamma.extend_declaration(func_name.clone(), Resolution::InterfaceMethod(func_name));
@@ -1957,7 +1963,7 @@ fn generate_constraints_pat(gamma: Gamma, mode: Mode, pat: Rc<Pat>, ctx: &mut St
         Mode::Syn => (),
         Mode::Ana { expected } => constrain(expected, ty_pat.clone()),
     };
-    match &*pat.patkind {
+    match &*pat.kind {
         PatKind::Wildcard => (),
         PatKind::Unit => {
             constrain(ty_pat, TypeVar::make_unit(Prov::Node(pat.id)));
@@ -2189,7 +2195,7 @@ pub(crate) fn ty_fits_impl_ty(
 fn ty_fits_impl_ty_poly(
     ctx: &StaticsContext,
     typ: SolvedType,
-    interfaces: BTreeSet<Symbol>,
+    interfaces: BTreeSet<Identifier>,
 ) -> bool {
     for interface in interfaces {
         if let SolvedType::Poly(_, interfaces2) = &typ {

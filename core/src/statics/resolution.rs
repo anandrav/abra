@@ -1,6 +1,6 @@
 use std::{fmt, rc::Rc};
 
-use crate::ast::{Node, NodeId, Stmt, StmtKind, Symbol, Toplevel, TypeDefKind, TypeKind};
+use crate::ast::{Identifier, Node, NodeId, Stmt, StmtKind, Toplevel, TypeDefKind, TypeKind};
 use crate::environment::Environment;
 
 use super::{NamespaceTree, Resolution, StaticsContext, TypeVar};
@@ -13,15 +13,15 @@ use super::typecheck::{
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub(crate) struct EnumDef {
-    pub(crate) name: Symbol,
-    pub(crate) params: Vec<Symbol>,
+    pub(crate) name: Identifier,
+    pub(crate) params: Vec<Identifier>,
     pub(crate) variants: Vec<Variant>,
     pub(crate) location: NodeId,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub(crate) struct Variant {
-    pub(crate) ctor: Symbol,
+    pub(crate) ctor: Identifier,
     pub(crate) data: TypeVar,
 }
 
@@ -34,28 +34,28 @@ impl fmt::Display for Variant {
 // TODO: these are all kind of redundant... Just use AST nodes instead of putting the same info in these structs?
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub(crate) struct StructDef {
-    pub(crate) name: Symbol,
-    pub(crate) params: Vec<Symbol>,
+    pub(crate) name: Identifier,
+    pub(crate) params: Vec<Identifier>,
     pub(crate) fields: Vec<StructField>,
     pub(crate) location: NodeId,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub(crate) struct StructField {
-    pub(crate) name: Symbol,
+    pub(crate) name: Identifier,
     pub(crate) ty: TypeVar,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub(crate) struct InterfaceDef {
-    pub(crate) name: Symbol,
+    pub(crate) name: Identifier,
     pub(crate) methods: Vec<InterfaceDefMethod>,
     pub(crate) location: NodeId,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub(crate) struct InterfaceImpl {
-    pub(crate) name: Symbol,
+    pub(crate) name: Identifier,
     pub(crate) typ: TypeVar,
     pub(crate) methods: Vec<InterfaceImplMethod>,
     pub(crate) location: NodeId,
@@ -63,13 +63,13 @@ pub(crate) struct InterfaceImpl {
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub(crate) struct InterfaceDefMethod {
-    pub(crate) name: Symbol,
+    pub(crate) name: Identifier,
     pub(crate) ty: TypeVar,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub(crate) struct InterfaceImplMethod {
-    pub(crate) name: Symbol,
+    pub(crate) name: Identifier,
     pub(crate) method_location: NodeId,
     pub(crate) identifier_location: NodeId,
 }
@@ -112,7 +112,7 @@ fn gather_declarations_toplevel(
 }
 
 fn gather_declarations_stmt(stmt: Rc<Stmt>) -> Option<(String, NamespaceTree)> {
-    match &*stmt.stmtkind {
+    match &*stmt.kind {
         StmtKind::InterfaceDef(ident, properties) => {
             let entry_name = ident.clone();
             let mut entry = NamespaceTree::default();
@@ -171,7 +171,7 @@ fn gather_declarations_stmt(stmt: Rc<Stmt>) -> Option<(String, NamespaceTree)> {
         StmtKind::Expr(_) => None,
         StmtKind::Let(_, _, _) => None,
         StmtKind::FuncDef(name, _args, _out_annot, _) => {
-            let entry_name = name.patkind.get_identifier_of_variable();
+            let entry_name = name.kind.get_identifier_of_variable();
             let entry = NamespaceTree {
                 declaration: Some(stmt.id()),
                 ..NamespaceTree::default()
@@ -180,11 +180,12 @@ fn gather_declarations_stmt(stmt: Rc<Stmt>) -> Option<(String, NamespaceTree)> {
             Some((entry_name, entry))
         }
         StmtKind::Set(..) => None,
+        StmtKind::Import(..) => None,
     }
 }
 
 fn gather_definitions_stmt_DEPRECATE(ctx: &mut StaticsContext, gamma: Gamma, stmt: Rc<Stmt>) {
-    match &*stmt.stmtkind {
+    match &*stmt.kind {
         StmtKind::InterfaceDef(ident, properties) => {
             if let Some(interface_def) = ctx.interface_defs.get(ident) {
                 let entry = ctx
@@ -227,9 +228,9 @@ fn gather_definitions_stmt_DEPRECATE(ctx: &mut StaticsContext, gamma: Gamma, stm
 
             let methods = stmts
                 .iter()
-                .map(|stmt| match &*stmt.stmtkind {
+                .map(|stmt| match &*stmt.kind {
                     StmtKind::FuncDef(pat, _, _, _) => {
-                        let ident = pat.patkind.get_identifier_of_variable();
+                        let ident = pat.kind.get_identifier_of_variable();
                         InterfaceImplMethod {
                             name: ident,
                             identifier_location: pat.id(),
@@ -344,16 +345,17 @@ fn gather_definitions_stmt_DEPRECATE(ctx: &mut StaticsContext, gamma: Gamma, stm
         StmtKind::Let(_, _, _) => {}
         StmtKind::FuncDef(name, _args, _out_annot, _) => {
             let name_id = name.id;
-            let name = name.patkind.get_identifier_of_variable();
+            let name = name.kind.get_identifier_of_variable();
             ctx.fun_defs.insert(name.clone(), stmt.clone());
             gamma.extend(name.clone(), TypeVar::from_node(ctx, name_id));
             gamma.extend_declaration(name.clone(), Resolution::FreeFunction(stmt.id, name));
         }
         StmtKind::Set(..) => {}
+        StmtKind::Import(..) => {}
     }
 }
 
-type Env = Environment<Symbol, EnvEntry>;
+type Env = Environment<Identifier, EnvEntry>;
 
 // Looking up a symbol can either yield a resolution (function, variable, builtin, etc.) or a namespace
 #[derive(Clone, PartialEq, Eq)]
@@ -393,9 +395,9 @@ fn resolve_names_toplevel(ctx: &mut StaticsContext, toplevel: Rc<Toplevel>) {
 // don't do typechecking
 // just do name resolution for variables and functions etc.
 fn resolve_names_stmt(ctx: &mut StaticsContext, env: Env, stmt: Rc<Stmt>) {
-    match &*stmt.stmtkind {
+    match &*stmt.kind {
         StmtKind::FuncDef(name, _args, _out_annot, _) => {
-            let name = name.patkind.get_identifier_of_variable();
+            let name = name.kind.get_identifier_of_variable();
             let resolution = env.lookup(&name);
             // match resolution {
             //     EnvEntry::Resolution(res) => {}

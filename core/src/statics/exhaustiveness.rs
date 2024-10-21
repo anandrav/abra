@@ -1,5 +1,5 @@
 use crate::ast::{
-    Expr, ExprKind, MatchArm, NodeMap, Pat, PatKind, Sources, Stmt, StmtKind, Symbol, Toplevel,
+    Expr, ExprKind, Identifier, MatchArm, NodeMap, Pat, PatKind, Sources, Stmt, StmtKind, Toplevel,
 };
 use core::panic;
 
@@ -65,7 +65,8 @@ fn check_pattern_exhaustiveness_toplevel(statics: &mut StaticsContext, toplevel:
 }
 
 fn check_pattern_exhaustiveness_stmt(statics: &mut StaticsContext, stmt: &Stmt) {
-    match &*stmt.stmtkind {
+    match &*stmt.kind {
+        StmtKind::Import(..) => {}
         StmtKind::InterfaceDef(..) => {}
         StmtKind::TypeDef(..) => {}
         StmtKind::InterfaceImpl(_, _, stmts) => {
@@ -89,7 +90,7 @@ fn check_pattern_exhaustiveness_stmt(statics: &mut StaticsContext, stmt: &Stmt) 
 }
 
 fn check_pattern_exhaustiveness_expr(statics: &mut StaticsContext, expr: &Expr) {
-    match &*expr.exprkind {
+    match &*expr.kind {
         ExprKind::Match(..) => match_expr_exhaustive_check(statics, expr),
 
         ExprKind::Unit
@@ -315,7 +316,7 @@ impl DeconstructedPat {
     fn from_ast_pat(statics: &StaticsContext, pat: Rc<Pat>) -> Self {
         let ty = statics.solution_of_node(pat.id).unwrap();
         let mut fields = vec![];
-        let ctor = match &*pat.patkind {
+        let ctor = match &*pat.kind {
             PatKind::Wildcard => Constructor::Wildcard(WildcardReason::UserCreated),
             PatKind::Var(_ident) => Constructor::Wildcard(WildcardReason::VarPat),
             PatKind::Bool(b) => Constructor::Bool(*b),
@@ -453,7 +454,7 @@ enum Constructor {
     Float(f32),
     String(String),
     Product, // tuples, including unit
-    Variant(Symbol),
+    Variant(Identifier),
 }
 
 impl Constructor {
@@ -479,7 +480,7 @@ impl Constructor {
         }
     }
 
-    fn as_variant_identifier(&self) -> Option<Symbol> {
+    fn as_variant_identifier(&self) -> Option<Identifier> {
         match self {
             Constructor::Variant(i) => Some(i.clone()),
             _ => None,
@@ -605,7 +606,7 @@ impl fmt::Display for WitnessMatrix {
 #[derive(Debug, Clone)]
 enum ConstructorSet {
     Bool,
-    EnumVariants(Vec<Symbol>),
+    EnumVariants(Vec<Identifier>),
     Product,    // tuples, including unit
     Unlistable, // int, float, string
 }
@@ -639,7 +640,7 @@ impl ConstructorSet {
                 }
             }
             ConstructorSet::EnumVariants(enum_variants) => {
-                let mut missing_set: HashSet<Symbol> = enum_variants.iter().cloned().collect();
+                let mut missing_set: HashSet<Identifier> = enum_variants.iter().cloned().collect();
                 for identifier in seen.iter().filter_map(|ctor| ctor.as_variant_identifier()) {
                     if missing_set.remove(&identifier) {
                         present_ctors.push(Constructor::Variant(identifier.clone()));
@@ -687,7 +688,7 @@ impl ConstructorSet {
 
 // identify missing and extra constructors in patterns
 fn match_expr_exhaustive_check(statics: &mut StaticsContext, expr: &Expr) {
-    let ExprKind::Match(scrutiny, arms) = &*expr.exprkind else {
+    let ExprKind::Match(scrutiny, arms) = &*expr.kind else {
         panic!()
     };
 

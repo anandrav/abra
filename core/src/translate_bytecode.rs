@@ -1,6 +1,6 @@
 use crate::assembly::{remove_labels, Instr, Item, Label};
 use crate::ast::BinOpcode;
-use crate::ast::{Node, NodeId, Sources, Symbol, Toplevel};
+use crate::ast::{Identifier, Node, NodeId, Sources, Toplevel};
 use crate::builtin::Builtin;
 use crate::effects::EffectStruct;
 use crate::environment::Environment;
@@ -19,12 +19,12 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 type OffsetTable = HashMap<NodeId, i32>;
 type Lambdas = HashMap<NodeId, LambdaData>;
 type OverloadedFuncLabels = BTreeMap<OverloadedFuncDesc, Label>;
-type MonomorphEnv = Environment<Symbol, Type>;
+type MonomorphEnv = Environment<Identifier, Type>;
 pub(crate) type LabelMap = HashMap<Label, usize>;
 
 #[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq)]
 struct OverloadedFuncDesc {
-    name: Symbol,
+    name: Identifier,
     impl_type: Monotype,
     definition_node: NodeId,
 }
@@ -126,7 +126,7 @@ impl Translator {
         for (node_id, data) in st.lambdas.clone() {
             let node = self.node_map.get(&node_id).unwrap();
             let expr = node.to_expr().unwrap();
-            let ExprKind::Func(args, _, body) = &*expr.exprkind else {
+            let ExprKind::Func(args, _, body) = &*expr.kind else {
                 panic!()
             };
 
@@ -161,7 +161,7 @@ impl Translator {
                     .unwrap()
                     .to_stmt()
                     .unwrap()
-                    .stmtkind
+                    .kind
                 else {
                     panic!()
                 };
@@ -233,7 +233,7 @@ impl Translator {
         st: &mut TranslatorState,
     ) {
         // println!("translating expr: {:?}", expr.exprkind);
-        match &*expr.exprkind {
+        match &*expr.kind {
             ExprKind::Identifier(symbol) => {
                 // enumt variant
                 match self.statics.name_resolutions.get(&expr.id).unwrap() {
@@ -322,7 +322,7 @@ impl Translator {
                 }
             }
             ExprKind::FuncAp(func, args) => {
-                if let ExprKind::Identifier(_) = &*func.exprkind {
+                if let ExprKind::Identifier(_) = &*func.kind {
                     for arg in args {
                         self.translate_expr(arg.clone(), offset_table, monomorph_env.clone(), st);
                     }
@@ -341,18 +341,13 @@ impl Translator {
                         }
                         Resolution::FreeFunction(node_id, name) => {
                             // println!("emitting Call of function: {}", name);
-                            let StmtKind::FuncDef(pat, _, _, _) = &*self
-                                .node_map
-                                .get(node_id)
-                                .unwrap()
-                                .to_stmt()
-                                .unwrap()
-                                .stmtkind
+                            let StmtKind::FuncDef(pat, _, _, _) =
+                                &*self.node_map.get(node_id).unwrap().to_stmt().unwrap().kind
                             else {
                                 panic!()
                             };
 
-                            let func_name = &pat.patkind.get_identifier_of_variable();
+                            let func_name = &pat.kind.get_identifier_of_variable();
                             let func_ty = self.statics.solution_of_node(pat.id).unwrap();
                             if !func_ty.is_overloaded() {
                                 emit(st, Instr::Call(name.clone()));
@@ -503,7 +498,7 @@ impl Translator {
                         }
                     }
                 } else {
-                    panic!("unimplemented: {:?}", expr.exprkind)
+                    panic!("unimplemented: {:?}", expr.kind)
                 }
             }
             ExprKind::Block(statements) => {
@@ -547,7 +542,7 @@ impl Translator {
             }
             ExprKind::MemberAccess(accessed, field) => {
                 // TODO, this downcast shouldn't be necessary
-                let ExprKind::Identifier(field_name) = &*field.exprkind else {
+                let ExprKind::Identifier(field_name) = &*field.kind else {
                     panic!()
                 };
                 self.translate_expr(accessed.clone(), offset_table, monomorph_env.clone(), st);
@@ -709,7 +704,7 @@ impl Translator {
         pat: Rc<Pat>,
         st: &mut TranslatorState,
     ) {
-        match &*pat.patkind {
+        match &*pat.kind {
             PatKind::Wildcard | PatKind::Var(_) | PatKind::Unit => {
                 emit(st, Instr::Pop);
                 emit(st, Instr::PushBool(true));
@@ -719,21 +714,21 @@ impl Translator {
         }
 
         match scrutinee_ty {
-            Type::Int => match &*pat.patkind {
+            Type::Int => match &*pat.kind {
                 PatKind::Int(i) => {
                     emit(st, Instr::PushInt(*i));
                     emit(st, Instr::Equal);
                 }
-                _ => panic!("unexpected pattern: {:?}", pat.patkind),
+                _ => panic!("unexpected pattern: {:?}", pat.kind),
             },
-            Type::Bool => match &*pat.patkind {
+            Type::Bool => match &*pat.kind {
                 PatKind::Bool(b) => {
                     emit(st, Instr::PushBool(*b));
                     emit(st, Instr::Equal);
                 }
-                _ => panic!("unexpected pattern: {:?}", pat.patkind),
+                _ => panic!("unexpected pattern: {:?}", pat.kind),
             },
-            Type::UdtInstance(symbol, _) => match &*pat.patkind {
+            Type::UdtInstance(symbol, _) => match &*pat.kind {
                 PatKind::Variant(ctor, inner) => {
                     let enumt = self.statics.enum_defs.get(symbol).unwrap();
                     let tag_fail_label = make_label("tag_fail");
@@ -769,9 +764,9 @@ impl Translator {
 
                     emit(st, Item::Label(end_label));
                 }
-                _ => panic!("unexpected pattern: {:?}", pat.patkind),
+                _ => panic!("unexpected pattern: {:?}", pat.kind),
             },
-            Type::Tuple(types) => match &*pat.patkind {
+            Type::Tuple(types) => match &*pat.kind {
                 PatKind::Tuple(pats) => {
                     let final_element_success_label = make_label("tuple_success");
                     let end_label = make_label("endtuple");
@@ -810,14 +805,14 @@ impl Translator {
 
                     emit(st, Item::Label(end_label));
                 }
-                _ => panic!("unexpected pattern: {:?}", pat.patkind),
+                _ => panic!("unexpected pattern: {:?}", pat.kind),
             },
             _ => unimplemented!(),
         }
     }
 
     fn translate_stmt_static(&self, stmt: Rc<Stmt>, st: &mut TranslatorState, iface_method: bool) {
-        match &*stmt.stmtkind {
+        match &*stmt.kind {
             StmtKind::Let(..) => {}
             StmtKind::Set(..) => {}
             StmtKind::Expr(..) => {}
@@ -831,7 +826,7 @@ impl Translator {
                 // TODO: check if overloaded. If so, handle differently.
                 // (this could be an overloaded function or an interface method)
                 let func_ty = self.statics.solution_of_node(name.id).unwrap();
-                let func_name = name.patkind.get_identifier_of_variable();
+                let func_name = name.kind.get_identifier_of_variable();
 
                 if func_ty.is_overloaded() // println: 'a ToString -> ()
                 || iface_method
@@ -868,7 +863,7 @@ impl Translator {
 
                 emit(st, Instr::Return);
             }
-            StmtKind::InterfaceDef(..) | StmtKind::TypeDef(..) => {
+            StmtKind::InterfaceDef(..) | StmtKind::TypeDef(..) | StmtKind::Import(..) => {
                 // noop
             }
         }
@@ -882,12 +877,12 @@ impl Translator {
         monomorph_env: MonomorphEnv,
         st: &mut TranslatorState,
     ) {
-        match &*stmt.stmtkind {
+        match &*stmt.kind {
             StmtKind::Let(_, pat, expr) => {
                 self.translate_expr(expr.clone(), locals, monomorph_env.clone(), st);
                 self.handle_pat_binding(pat.0.clone(), locals, st);
             }
-            StmtKind::Set(expr1, rvalue) => match &*expr1.exprkind {
+            StmtKind::Set(expr1, rvalue) => match &*expr1.kind {
                 ExprKind::Identifier(_) => {
                     let Resolution::Var(node_id) =
                         self.statics.name_resolutions.get(&expr1.id).unwrap()
@@ -900,7 +895,7 @@ impl Translator {
                 }
                 ExprKind::MemberAccess(accessed, field) => {
                     // TODO, this downcast shouldn't be necessary
-                    let ExprKind::Identifier(field_name) = &*field.exprkind else {
+                    let ExprKind::Identifier(field_name) = &*field.kind else {
                         panic!()
                     };
                     self.translate_expr(rvalue.clone(), locals, monomorph_env.clone(), st);
@@ -928,7 +923,7 @@ impl Translator {
             StmtKind::FuncDef(..) => {
                 // noop -- handled elsewhere
             }
-            StmtKind::InterfaceDef(..) | StmtKind::TypeDef(..) => {
+            StmtKind::InterfaceDef(..) | StmtKind::TypeDef(..) | StmtKind::Import(..) => {
                 // noop
             }
         }
@@ -941,7 +936,7 @@ impl Translator {
         arg_set: &HashSet<NodeId>,
         captures: &mut HashSet<NodeId>,
     ) {
-        match &*expr.exprkind {
+        match &*expr.kind {
             ExprKind::Unit
             | ExprKind::Bool(_)
             | ExprKind::Int(_)
@@ -1023,7 +1018,7 @@ impl Translator {
         captures: &mut HashSet<NodeId>,
     ) {
         for statement in statements {
-            match &*statement.stmtkind {
+            match &*statement.kind {
                 StmtKind::Expr(expr) => {
                     self.collect_captures_expr(expr, locals, arg_set, captures);
                 }
@@ -1037,13 +1032,14 @@ impl Translator {
                 StmtKind::InterfaceImpl(..) => {}
                 StmtKind::InterfaceDef(..) => {}
                 StmtKind::TypeDef(..) => {}
+                StmtKind::Import(..) => {}
             }
         }
     }
 
     fn get_func_definition_node(
         &self,
-        method_name: &Symbol,
+        method_name: &Identifier,
         desired_interface_impl: Type,
     ) -> NodeId {
         if let Some(interface_name) = self.statics.method_to_interface.get(method_name) {
@@ -1088,7 +1084,7 @@ impl Translator {
         &self,
         st: &mut TranslatorState,
         substituted_ty: Type,
-        func_name: &Symbol,
+        func_name: &Identifier,
         definition_node: NodeId,
     ) {
         let instance_ty = substituted_ty.monotype().unwrap();
@@ -1132,7 +1128,7 @@ impl Translator {
     fn handle_pat_binding(&self, pat: Rc<Pat>, locals: &OffsetTable, st: &mut TranslatorState) {
         let _ = self; // avoid warning
 
-        match &*pat.patkind {
+        match &*pat.kind {
             PatKind::Var(_) => {
                 // self.display_node(pat.id);
                 let idx = locals.get(&pat.id).unwrap();
@@ -1168,7 +1164,7 @@ impl Translator {
 }
 
 fn collect_locals_expr(expr: &Expr, locals: &mut HashSet<NodeId>) {
-    match &*expr.exprkind {
+    match &*expr.kind {
         ExprKind::Block(statements) => {
             for statement in statements {
                 collect_locals_stmt(&[statement.clone()], locals);
@@ -1235,7 +1231,7 @@ fn collect_locals_expr(expr: &Expr, locals: &mut HashSet<NodeId>) {
 
 fn collect_locals_stmt(statements: &[Rc<Stmt>], locals: &mut HashSet<NodeId>) {
     for statement in statements {
-        match &*statement.stmtkind {
+        match &*statement.kind {
             StmtKind::Expr(expr) => {
                 collect_locals_expr(expr, locals);
             }
@@ -1244,13 +1240,16 @@ fn collect_locals_stmt(statements: &[Rc<Stmt>], locals: &mut HashSet<NodeId>) {
             }
             StmtKind::Set(..) => {}
             StmtKind::InterfaceImpl(..) => {}
-            StmtKind::FuncDef(..) | StmtKind::TypeDef(..) | StmtKind::InterfaceDef(..) => {}
+            StmtKind::FuncDef(..)
+            | StmtKind::TypeDef(..)
+            | StmtKind::InterfaceDef(..)
+            | StmtKind::Import(..) => {}
         }
     }
 }
 
 fn collect_locals_pat(pat: Rc<Pat>, locals: &mut HashSet<NodeId>) {
-    match &*pat.patkind {
+    match &*pat.kind {
         PatKind::Var(_) => {
             locals.insert(pat.id);
         }
