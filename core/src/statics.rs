@@ -1,4 +1,4 @@
-use crate::ast::{Identifier, NodeId, NodeMap, Sources, Stmt, Toplevel};
+use crate::ast::{FileAst, Identifier, NodeId, NodeMap, Sources, Stmt};
 use crate::builtin::Builtin;
 use crate::effects::EffectStruct;
 use resolve::{
@@ -7,7 +7,7 @@ use resolve::{
 use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::fmt::{self, Display, Formatter};
 use std::rc::Rc;
-use typecheck::{generate_constraints_toplevel, result_of_constraint_solving, SolvedType, TypeVar};
+use typecheck::{generate_constraints_file, result_of_constraint_solving, SolvedType, TypeVar};
 
 mod pat_exhaustiveness;
 mod resolve;
@@ -178,7 +178,7 @@ pub(crate) enum Resolution {
 // main function that performs typechecking (as well as name resolution beforehand)
 pub(crate) fn analyze(
     effects: &[EffectStruct],
-    toplevels: &Vec<Rc<Toplevel>>,
+    files: &Vec<Rc<FileAst>>,
     node_map: &NodeMap,
     sources: &Sources,
 ) -> Result<StaticsContext, String> {
@@ -188,20 +188,20 @@ pub(crate) fn analyze(
     let tyctx = typecheck::Gamma::empty();
 
     // scan declarations across all files
-    scan_declarations(&mut ctx, tyctx.clone(), toplevels.clone());
+    scan_declarations(&mut ctx, tyctx.clone(), files.clone());
     // resolve imports
-    resolve_all_imports(&mut ctx, toplevels.clone());
+    resolve_all_imports(&mut ctx, files.clone());
 
     println!("global namespace:\n{}", ctx.global_namespace);
 
     // typechecking
-    for parse_tree in toplevels {
-        generate_constraints_toplevel(tyctx.clone(), parse_tree.clone(), &mut ctx);
+    for parse_tree in files {
+        generate_constraints_file(tyctx.clone(), parse_tree.clone(), &mut ctx);
     }
     result_of_constraint_solving(&mut ctx, node_map, sources)?;
 
     // pattern exhaustiveness and usefulness checking
-    result_of_additional_analysis(&mut ctx, toplevels, node_map, sources)?;
+    result_of_additional_analysis(&mut ctx, files, node_map, sources)?;
 
     Ok(ctx)
 }

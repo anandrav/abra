@@ -1,6 +1,6 @@
 use std::{fmt, rc::Rc};
 
-use crate::ast::{Identifier, Node, NodeId, Stmt, StmtKind, Toplevel, TypeDefKind, TypeKind};
+use crate::ast::{Identifier, Node, NodeId, Stmt, StmtKind, FileAst, TypeDefKind, TypeKind};
 use crate::builtin::Builtin;
 use crate::environment::Environment;
 
@@ -78,29 +78,29 @@ pub(crate) struct InterfaceImplMethod {
 pub(crate) fn scan_declarations(
     ctx: &mut StaticsContext,
     gamma: Gamma, // TODO get rid of Gamma here
-    toplevels: Vec<Rc<Toplevel>>,
+    files: Vec<Rc<FileAst>>,
 ) {
-    for toplevel in toplevels {
-        let name = toplevel.name.clone();
-        let namespace = gather_declarations_toplevel(ctx, gamma.clone(), toplevel.clone());
+    for file in files {
+        let name = file.name.clone();
+        let namespace = gather_declarations_file(ctx, gamma.clone(), file.clone());
         ctx.global_namespace.children.insert(name, namespace);
     }
 }
 
-fn gather_declarations_toplevel(
+fn gather_declarations_file(
     ctx: &mut StaticsContext,
     gamma: Gamma,
-    toplevel: Rc<Toplevel>,
+    file: Rc<FileAst>,
 ) -> Namespace {
     let mut namespace = Namespace::default();
 
     // TODO: get rid of this
-    for statement in toplevel.statements.iter() {
+    for statement in file.statements.iter() {
         gather_definitions_stmt_DEPRECATE(ctx, gamma.clone(), statement.clone());
     }
 
-    let qualifiers = vec![toplevel.name.clone()];
-    for statement in toplevel.statements.iter() {
+    let qualifiers = vec![file.name.clone()];
+    for statement in file.statements.iter() {
         gather_declarations_stmt(&mut namespace, &qualifiers, statement.clone());
     }
 
@@ -351,9 +351,9 @@ fn gather_definitions_stmt_DEPRECATE(ctx: &mut StaticsContext, gamma: Gamma, stm
 
 type Env = Environment<Identifier, Declaration>;
 
-pub(crate) fn resolve_all_imports(ctx: &mut StaticsContext, toplevels: Vec<Rc<Toplevel>>) {}
+pub(crate) fn resolve_all_imports(ctx: &mut StaticsContext, files: Vec<Rc<FileAst>>) {}
 
-fn resolve_imports(ctx: &mut StaticsContext, toplevel: Rc<Toplevel>) -> Env {
+fn resolve_imports(ctx: &mut StaticsContext, file: Rc<FileAst>) -> Env {
     // Return an environment with all identifiers available to this file.
     // That includes identifiers from this file and all imports.
     let env = Env::empty();
@@ -361,7 +361,7 @@ fn resolve_imports(ctx: &mut StaticsContext, toplevel: Rc<Toplevel>) -> Env {
     for (name, declaration) in ctx
         .global_namespace
         .children
-        .get(&toplevel.name)
+        .get(&file.name)
         .unwrap()
         .declarations
         .iter()
@@ -369,7 +369,7 @@ fn resolve_imports(ctx: &mut StaticsContext, toplevel: Rc<Toplevel>) -> Env {
         env.extend(name.clone(), declaration.clone());
     }
 
-    for stmt in toplevel.statements.iter() {
+    for stmt in file.statements.iter() {
         if let StmtKind::Import(path) = &*stmt.kind {
             // add declarations from this import to the environment
             for (name, declaration) in ctx
@@ -404,14 +404,14 @@ fn resolve_imports(ctx: &mut StaticsContext, toplevel: Rc<Toplevel>) -> Env {
 //     }
 // }
 
-// pub(crate) fn resolve_names_toplevel(ctx: &mut StaticsContext, env: Env, toplevel: Rc<Toplevel>) {
+// pub(crate) fn resolve_names_file(ctx: &mut StaticsContext, env: Env, file: Rc<FileAst>) {
 //     for (i, eff) in ctx.effects.iter().enumerate() {
 //         env.extend(eff.name.clone(), Declaration::Effect(i as u16));
 //     }
 //     for builtin in Builtin::enumerate().iter() {
 //         env.extend(builtin.name(), Declaration::Builtin(*builtin));
 //     }
-//     for statement in toplevel.statements.iter() {
+//     for statement in file.statements.iter() {
 //         generate_constraints_stmt(env.clone(), Mode::Syn, statement.clone(), ctx, true);
 //     }
 // }
@@ -494,7 +494,7 @@ fn resolve_imports(ctx: &mut StaticsContext, toplevel: Rc<Toplevel>) -> Env {
 //                 constrain(typ, node_ty);
 //                 return;
 //             }
-//             // TODO: this is incredibly hacky. No respect for scope at all... Should be added at the toplevel with Effects at the least...
+//             // TODO: this is incredibly hacky. No respect for scope at all... Should be added at the file with Effects at the least...
 //             let enum_def = ctx.enum_def_of_variant(symbol);
 //             if let Some(enum_def) = enum_def {
 //                 let nparams = enum_def.params.len();

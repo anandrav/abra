@@ -1,6 +1,6 @@
 use crate::assembly::{remove_labels, Instr, Item, Label};
 use crate::ast::BinOpcode;
-use crate::ast::{Identifier, Node, NodeId, Sources, Toplevel};
+use crate::ast::{FileAst, Identifier, Node, NodeId, Sources};
 use crate::builtin::Builtin;
 use crate::effects::EffectStruct;
 use crate::environment::Environment;
@@ -42,7 +42,7 @@ pub(crate) struct Translator {
     statics: StaticsContext,
     node_map: NodeMap,
     sources: Sources,
-    toplevels: Vec<Rc<Toplevel>>,
+    files: Vec<Rc<FileAst>>,
     effects: Vec<EffectStruct>,
 }
 
@@ -70,14 +70,14 @@ impl Translator {
         statics: StaticsContext,
         node_map: NodeMap,
         sources: Sources,
-        toplevels: Vec<Rc<Toplevel>>,
+        files: Vec<Rc<FileAst>>,
         effects: Vec<EffectStruct>,
     ) -> Self {
         Self {
             statics,
             node_map,
             sources,
-            toplevels,
+            files,
             effects,
         }
     }
@@ -88,11 +88,11 @@ impl Translator {
 
         let monomorph_env = MonomorphEnv::empty();
 
-        // Handle the main function (toplevels)
+        // Handle the main function (files)
         {
             let mut locals = HashSet::new();
-            for toplevel in self.toplevels.iter() {
-                collect_locals_stmt(&toplevel.statements, &mut locals);
+            for file in self.files.iter() {
+                collect_locals_stmt(&file.statements, &mut locals);
             }
             for _ in 0..locals.len() {
                 emit(st, Instr::PushNil);
@@ -101,11 +101,11 @@ impl Translator {
             for (i, local) in locals.iter().enumerate() {
                 offset_table.entry(*local).or_insert((i) as i32);
             }
-            for toplevel in self.toplevels.iter() {
-                for (i, statement) in toplevel.statements.iter().enumerate() {
+            for file in self.files.iter() {
+                for (i, statement) in file.statements.iter().enumerate() {
                     self.translate_stmt(
                         statement.clone(),
-                        i == toplevel.statements.len() - 1,
+                        i == file.statements.len() - 1,
                         &offset_table,
                         monomorph_env.clone(),
                         st,
@@ -116,8 +116,8 @@ impl Translator {
         }
 
         // Handle ordinary function (not overloaded, not a closure) definitions
-        for toplevel in self.toplevels.iter() {
-            for stmt in &toplevel.statements {
+        for file in self.files.iter() {
+            for stmt in &file.statements {
                 self.translate_stmt_static(stmt.clone(), st, false);
             }
         }

@@ -50,16 +50,16 @@ pub fn compile_bytecode(
     }
     let sources = ast::Sources { filename_to_source };
 
-    let toplevels = ast::parse_or_err(&source_files)?;
+    let files = ast::parse_or_err(&source_files)?;
 
     let mut node_map = ast::NodeMap::new();
-    for parse_tree in &toplevels {
+    for parse_tree in &files {
         ast::initialize_node_map(&mut node_map, &(parse_tree.clone() as Rc<dyn ast::Node>));
     }
 
-    let inference_ctx = statics::analyze(&effects, &toplevels, &node_map, &sources)?;
+    let inference_ctx = statics::analyze(&effects, &files, &node_map, &sources)?;
 
-    let translator = Translator::new(inference_ctx, node_map, sources, toplevels, effects);
+    let translator = Translator::new(inference_ctx, node_map, sources, files, effects);
     Ok(translator.translate())
 }
 

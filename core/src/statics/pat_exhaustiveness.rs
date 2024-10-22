@@ -1,5 +1,5 @@
 use crate::ast::{
-    Expr, ExprKind, Identifier, MatchArm, NodeMap, Pat, PatKind, Sources, Stmt, StmtKind, Toplevel,
+    Expr, ExprKind, Identifier, MatchArm, NodeMap, Pat, PatKind, Sources, Stmt, StmtKind, FileAst,
 };
 use core::panic;
 
@@ -12,12 +12,12 @@ use super::{SolvedType, StaticsContext};
 // TODO: rename to be more descriptive/specific to exhaustiveness/usefulness
 pub(crate) fn result_of_additional_analysis(
     ctx: &mut StaticsContext,
-    toplevels: &[Rc<Toplevel>],
+    files: &[Rc<FileAst>],
     node_map: &NodeMap,
     sources: &Sources,
 ) -> Result<(), String> {
-    for toplevel in toplevels {
-        check_pattern_exhaustiveness_toplevel(ctx, toplevel);
+    for file in files {
+        check_pattern_exhaustiveness_file(ctx, file);
     }
 
     if ctx.nonexhaustive_matches.is_empty() && ctx.redundant_matches.is_empty() {
@@ -58,8 +58,8 @@ pub(crate) fn result_of_additional_analysis(
     Err(err_string)
 }
 
-fn check_pattern_exhaustiveness_toplevel(statics: &mut StaticsContext, toplevel: &Toplevel) {
-    for statement in toplevel.statements.iter() {
+fn check_pattern_exhaustiveness_file(statics: &mut StaticsContext, file: &FileAst) {
+    for statement in file.statements.iter() {
         check_pattern_exhaustiveness_stmt(statics, statement);
     }
 }

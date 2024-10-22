@@ -3,9 +3,9 @@ space = { " " }
 tab = { "\t" }
 newline = { "\n" }
 
-toplevel = _{ SOI ~ toplevel_item* ~ EOI }
+file = _{ SOI ~ file_item* ~ EOI }
 
-toplevel_item = _{ interface_declaration | interface_implementation | enum_declaration | struct_declaration | typealias | import | statement }
+file_item = _{ interface_declaration | interface_implementation | enum_declaration | struct_declaration | typealias | import | statement }
 
 typealias = { "type" ~ identifier ~ "=" ~ typ}
 

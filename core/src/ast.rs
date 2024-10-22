@@ -22,9 +22,9 @@ pub(crate) struct Sources {
 
 pub(crate) type PatAnnotated = (Rc<Pat>, Option<Rc<AstType>>);
 
-// TODO: Rename Toplevel to FileAst
+// TODO: Rename FileAst to FileAst
 #[derive(Debug, Clone)]
-pub(crate) struct Toplevel {
+pub(crate) struct FileAst {
     pub(crate) statements: Vec<Rc<Stmt>>,
     pub(crate) name: String,
 
@@ -32,7 +32,7 @@ pub(crate) struct Toplevel {
     pub(crate) id: NodeId,
 }
 
-impl Node for Toplevel {
+impl Node for FileAst {
     fn span(&self) -> Span {
         self.span.clone()
     }
@@ -218,7 +218,7 @@ pub(crate) enum StmtKind {
     Let(bool, PatAnnotated, Rc<Expr>), // bool is whether it's mutable
     Set(Rc<Expr>, Rc<Expr>),
     Expr(Rc<Expr>),
-    // TODO: change these to be "ToplevelItem". ToplevelItem = FuncDef | TypeDef | InterfaceDef | InterfaceImpl | Stmt
+    // TODO: change these to be "FileAstItem". FileAstItem = FuncDef | TypeDef | InterfaceDef | InterfaceImpl | Stmt
     FuncDef(Rc<Pat>, Vec<ArgAnnotated>, Option<Rc<AstType>>, Rc<Expr>),
     TypeDef(Rc<TypeDefKind>),
     InterfaceDef(Identifier, Vec<Rc<InterfaceProperty>>),
@@ -606,7 +606,7 @@ impl Span {
 }
 
 pub(crate) fn get_pairs(source: &str) -> Result<Pairs<Rule>, String> {
-    MyParser::parse(Rule::toplevel, source).map_err(|e| e.to_string())
+    MyParser::parse(Rule::file, source).map_err(|e| e.to_string())
 }
 
 pub(crate) fn parse_func_arg_annotation(pair: Pair<Rule>, filename: &str) -> ArgAnnotated {
@@ -1275,7 +1275,7 @@ pub(crate) fn parse_expr_term(pair: Pair<Rule>, filename: &str) -> Rc<Expr> {
     }
 }
 
-pub(crate) fn parse_toplevel(pairs: Pairs<Rule>, filename: &str) -> Rc<Toplevel> {
+pub(crate) fn parse_file(pairs: Pairs<Rule>, filename: &str) -> Rc<FileAst> {
     let mut items = Vec::new();
     let pairs: Vec<_> = pairs.into_iter().collect();
     for pair in &pairs {
@@ -1287,7 +1287,7 @@ pub(crate) fn parse_toplevel(pairs: Pairs<Rule>, filename: &str) -> Rc<Toplevel>
     }
     let span1: Span = Span::new(filename, pairs.first().unwrap().as_span());
     let span2: Span = Span::new(filename, pairs.last().unwrap().as_span());
-    Rc::new(Toplevel {
+    Rc::new(FileAst {
         statements: items,
         // remove the .abra suffix from filename
         name: filename.to_string()[..filename.len() - 5].to_string(),
@@ -1367,15 +1367,15 @@ pub(crate) fn parse_expr_pratt(pairs: Pairs<Rule>, filename: &str) -> Rc<Expr> {
         .parse(pairs)
 }
 
-pub(crate) fn parse_or_err(sources: &Vec<SourceFile>) -> Result<Vec<Rc<Toplevel>>, String> {
-    let mut toplevels = vec![];
+pub(crate) fn parse_or_err(sources: &Vec<SourceFile>) -> Result<Vec<Rc<FileAst>>, String> {
+    let mut files = vec![];
     for sf in sources {
         let pairs = get_pairs(&sf.contents)?;
 
-        let toplevel = parse_toplevel(pairs, &sf.name);
-        toplevels.push(toplevel);
+        let file = parse_file(pairs, &sf.name);
+        files.push(file);
     }
-    Ok(toplevels)
+    Ok(files)
 }
 
 pub(crate) type NodeMap = HashMap<NodeId, Rc<dyn Node>>;

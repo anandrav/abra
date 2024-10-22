@@ -1,7 +1,7 @@
 use crate::ast::BinOpcode;
 use crate::ast::{
-    ArgAnnotated, AstType, Expr, ExprKind, Identifier, Node, NodeId, NodeMap, Pat, PatKind,
-    Sources, Stmt, StmtKind, Toplevel, TypeDefKind, TypeKind,
+    ArgAnnotated, AstType, Expr, ExprKind, FileAst, Identifier, Node, NodeId, NodeMap, Pat,
+    PatKind, Sources, Stmt, StmtKind, TypeDefKind, TypeKind,
 };
 use crate::builtin::Builtin;
 use crate::environment::Environment;
@@ -1325,11 +1325,7 @@ pub(crate) fn result_of_constraint_solving(
     Err(err_string)
 }
 
-pub(crate) fn generate_constraints_toplevel(
-    gamma: Gamma,
-    toplevel: Rc<Toplevel>,
-    ctx: &mut StaticsContext,
-) {
+pub(crate) fn generate_constraints_file(gamma: Gamma, file: Rc<FileAst>, ctx: &mut StaticsContext) {
     for (i, eff) in ctx.effects.iter().enumerate() {
         let prov = Prov::Effect(i as u16);
         let mut args = Vec::new();
@@ -1350,7 +1346,7 @@ pub(crate) fn generate_constraints_toplevel(
         gamma.extend(builtin.name(), typ);
         gamma.extend_declaration(builtin.name(), Resolution::Builtin(*builtin));
     }
-    for statement in toplevel.statements.iter() {
+    for statement in file.statements.iter() {
         generate_constraints_stmt(gamma.clone(), Mode::Syn, statement.clone(), ctx, true);
     }
 }
@@ -1433,7 +1429,7 @@ fn generate_constraints_expr(gamma: Gamma, mode: Mode, expr: Rc<Expr>, ctx: &mut
                 constrain(typ, node_ty);
                 return;
             }
-            // TODO: this is incredibly hacky. No respect for scope at all... Should be added at the toplevel with Effects at the least...
+            // TODO: this is incredibly hacky. No respect for scope at all... Should be added at the file with Effects at the least...
             let enum_def = ctx.enum_def_of_variant(symbol);
             if let Some(enum_def) = enum_def {
                 let nparams = enum_def.params.len();
