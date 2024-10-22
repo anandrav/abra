@@ -826,12 +826,13 @@ pub(crate) fn constrain(mut expected: TypeVar, mut actual: TypeVar) {
 
 // TODO: rename to TypeEnv
 // TODO: actually, it's not just a typ environment, it also handles resolving variables to their declarations
+// This is really just a general Symbol Table
 #[derive(Clone)]
 pub(crate) struct Gamma {
     var_to_type: Environment<Identifier, TypeVar>,
     ty_vars_in_scope: Environment<Identifier, ()>,
 
-    var_declarations: Environment<Identifier, Resolution>, // this is basically a local namespace
+    var_declarations: Environment<Identifier, Resolution>,
 }
 impl Gamma {
     pub(crate) fn empty() -> Self {

@@ -22,6 +22,7 @@ pub(crate) struct Sources {
 
 pub(crate) type PatAnnotated = (Rc<Pat>, Option<Rc<AstType>>);
 
+// TODO: Rename Toplevel to FileAst
 #[derive(Debug, Clone)]
 pub(crate) struct Toplevel {
     pub(crate) statements: Vec<Rc<Stmt>>,

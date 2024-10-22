@@ -1,14 +1,16 @@
 use crate::ast::{Identifier, NodeId, NodeMap, Sources, Stmt, Toplevel};
 use crate::builtin::Builtin;
 use crate::effects::EffectStruct;
-use resolution::{gather_declarations, resolve, EnumDef, InterfaceDef, InterfaceImpl, StructDef};
+use resolve::{
+    resolve_all_imports, scan_declarations, EnumDef, InterfaceDef, InterfaceImpl, StructDef,
+};
 use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::fmt::{self, Display, Formatter};
 use std::rc::Rc;
 use typecheck::{generate_constraints_toplevel, result_of_constraint_solving, SolvedType, TypeVar};
 
-mod exhaustiveness;
-mod resolution;
+mod pat_exhaustiveness;
+mod resolve;
 mod typecheck;
 
 pub(crate) use typecheck::{ty_fits_impl_ty, Monotype};
@@ -16,9 +18,9 @@ pub(crate) use typecheck::{ty_fits_impl_ty, Monotype};
 pub(crate) use typecheck::Prov as TypeProv;
 pub(crate) use typecheck::SolvedType as Type;
 
-pub(crate) use resolution::StructField;
+pub(crate) use resolve::StructField;
 
-use exhaustiveness::{result_of_additional_analysis, DeconstructedPat};
+use pat_exhaustiveness::{result_of_additional_analysis, DeconstructedPat};
 
 #[derive(Default, Debug)]
 pub(crate) struct StaticsContext {
@@ -147,7 +149,20 @@ impl Display for Namespace {
     }
 }
 
-type Declaration = NodeId; // TODO: Resolution ?
+type FullyQualifiedName = Vec<Identifier>;
+
+// TODO: separation of concerns. storing number of arguments, tag, etc. because the bytecode translator needs it is kinda weird, maybe reconsider.
+// Try to store more general information which the bytecode translator can then use to derive specific things it cares about.
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub(crate) enum Declaration {
+    Var(NodeId),
+    FreeFunction(NodeId, FullyQualifiedName),
+    InterfaceMethod(FullyQualifiedName),
+    StructCtor(u16),
+    VariantCtor(u16, u16),
+    Builtin(Builtin),
+    Effect(u16),
+}
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub(crate) enum Resolution {
@@ -171,10 +186,11 @@ pub(crate) fn analyze(
 
     // TODO: Get rid of Gamma
     let tyctx = typecheck::Gamma::empty();
-    // declarations
-    gather_declarations(&mut ctx, tyctx.clone(), toplevels.clone());
-    // resolve
-    resolve(&mut ctx, toplevels.clone());
+
+    // scan declarations across all files
+    scan_declarations(&mut ctx, tyctx.clone(), toplevels.clone());
+    // resolve imports
+    resolve_all_imports(&mut ctx, toplevels.clone());
 
     println!("global namespace:\n{}", ctx.global_namespace);
 
