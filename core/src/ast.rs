@@ -219,6 +219,7 @@ pub(crate) enum StmtKind {
     Set(Rc<Expr>, Rc<Expr>),
     Expr(Rc<Expr>),
     // TODO: change these to be "FileAstItem". FileAstItem = FuncDef | TypeDef | InterfaceDef | InterfaceImpl | Stmt
+    // TODO: don't use FuncDef for interface methods
     FuncDef(Rc<Pat>, Vec<ArgAnnotated>, Option<Rc<AstType>>, Rc<Expr>),
     TypeDef(Rc<TypeDefKind>),
     InterfaceDef(Identifier, Vec<Rc<InterfaceProperty>>),

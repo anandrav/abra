@@ -477,7 +477,12 @@ impl PotentialType {
 
 impl TypeVar {
     // Creates a clone of a Type with polymorphic variables not in scope with fresh unification variables
-    fn instantiate(self, gamma: Gamma, ctx: &mut StaticsContext, prov: Prov) -> TypeVar {
+    fn instantiate(
+        self,
+        symbol_table: SymbolTable,
+        ctx: &mut StaticsContext,
+        prov: Prov,
+    ) -> TypeVar {
         let data = self.0.clone_data();
         if data.types.len() != 1 {
             return self;
@@ -492,7 +497,7 @@ impl TypeVar {
                 ty // noop
             }
             PotentialType::Poly(_, ref ident, ref interfaces) => {
-                if !gamma.lookup_poly(ident) {
+                if !symbol_table.lookup_poly(ident) {
                     let ret = TypeVar::fresh(
                         ctx,
                         Prov::InstantiatePoly(Box::new(prov.clone()), ident.clone()),
@@ -513,22 +518,22 @@ impl TypeVar {
             PotentialType::UdtInstance(provs, ident, params) => {
                 let params = params
                     .into_iter()
-                    .map(|ty| ty.instantiate(gamma.clone(), ctx, prov.clone()))
+                    .map(|ty| ty.instantiate(symbol_table.clone(), ctx, prov.clone()))
                     .collect();
                 PotentialType::UdtInstance(provs, ident, params)
             }
             PotentialType::Function(provs, args, out) => {
                 let args = args
                     .into_iter()
-                    .map(|ty| ty.instantiate(gamma.clone(), ctx, prov.clone()))
+                    .map(|ty| ty.instantiate(symbol_table.clone(), ctx, prov.clone()))
                     .collect();
-                let out = out.instantiate(gamma.clone(), ctx, prov.clone());
+                let out = out.instantiate(symbol_table.clone(), ctx, prov.clone());
                 PotentialType::Function(provs, args, out)
             }
             PotentialType::Tuple(provs, elems) => {
                 let elems = elems
                     .into_iter()
-                    .map(|ty| ty.instantiate(gamma.clone(), ctx, prov.clone()))
+                    .map(|ty| ty.instantiate(symbol_table.clone(), ctx, prov.clone()))
                     .collect();
                 PotentialType::Tuple(provs, elems)
             }
@@ -544,7 +549,7 @@ impl TypeVar {
     // Creates a *new* Type with polymorphic variabels replaced by subtitutions
     fn subst(
         self,
-        gamma: Gamma,
+        symbol_table: SymbolTable,
         prov: Prov,
         substitution: &BTreeMap<Identifier, TypeVar>,
     ) -> TypeVar {
@@ -570,22 +575,22 @@ impl TypeVar {
                 PotentialType::UdtInstance(provs, ident, params) => {
                     let params = params
                         .into_iter()
-                        .map(|ty| ty.subst(gamma.clone(), prov.clone(), substitution))
+                        .map(|ty| ty.subst(symbol_table.clone(), prov.clone(), substitution))
                         .collect();
                     PotentialType::UdtInstance(provs, ident, params)
                 }
                 PotentialType::Function(provs, args, out) => {
                     let args = args
                         .into_iter()
-                        .map(|ty| ty.subst(gamma.clone(), prov.clone(), substitution))
+                        .map(|ty| ty.subst(symbol_table.clone(), prov.clone(), substitution))
                         .collect();
-                    let out = out.subst(gamma.clone(), prov, substitution);
+                    let out = out.subst(symbol_table.clone(), prov, substitution);
                     PotentialType::Function(provs, args, out)
                 }
                 PotentialType::Tuple(provs, elems) => {
                     let elems = elems
                         .into_iter()
-                        .map(|ty| ty.subst(gamma.clone(), prov.clone(), substitution))
+                        .map(|ty| ty.subst(symbol_table.clone(), prov.clone(), substitution))
                         .collect();
                     PotentialType::Tuple(provs, elems)
                 }
@@ -824,28 +829,28 @@ pub(crate) fn constrain(mut expected: TypeVar, mut actual: TypeVar) {
     expected.0.union_with(&mut actual.0, TypeVarData::merge);
 }
 
-// TODO: rename to TypeEnv
-// TODO: actually, it's not just a typ environment, it also handles resolving variables to their declarations
-// This is really just a general Symbol Table
 #[derive(Clone)]
-pub(crate) struct Gamma {
-    var_to_type: Environment<Identifier, TypeVar>,
-    ty_vars_in_scope: Environment<Identifier, ()>,
+pub(crate) struct SymbolTable {
+    // map from identifier to its type
+    tyctx: Environment<Identifier, TypeVar>,
+    // keep track of polymorphic type variables currently in scope (such as 'a)
+    polyvars_in_scope: Environment<Identifier, ()>,
 
+    // map from identifier to where its defined
     var_declarations: Environment<Identifier, Resolution>,
 }
-impl Gamma {
+impl SymbolTable {
     pub(crate) fn empty() -> Self {
         Self {
-            var_to_type: Environment::empty(),
-            ty_vars_in_scope: Environment::empty(),
+            tyctx: Environment::empty(),
+            polyvars_in_scope: Environment::empty(),
 
             var_declarations: Environment::empty(),
         }
     }
 
     pub(crate) fn extend(&self, ident: Identifier, ty: TypeVar) {
-        self.var_to_type.extend(ident.clone(), ty);
+        self.tyctx.extend(ident.clone(), ty);
     }
 
     pub(crate) fn extend_declaration(&self, symbol: Identifier, resolution: Resolution) {
@@ -862,7 +867,7 @@ impl Gamma {
         };
         match ty {
             PotentialType::Poly(_, ident, _interfaces) => {
-                self.ty_vars_in_scope.extend(ident.clone(), ());
+                self.polyvars_in_scope.extend(ident.clone(), ());
             }
             PotentialType::UdtInstance(_, _, params) => {
                 for param in params {
@@ -885,17 +890,17 @@ impl Gamma {
     }
 
     fn lookup(&self, id: &Identifier) -> Option<TypeVar> {
-        self.var_to_type.lookup(id)
+        self.tyctx.lookup(id)
     }
 
     fn lookup_poly(&self, id: &Identifier) -> bool {
-        self.ty_vars_in_scope.lookup(id).is_some()
+        self.polyvars_in_scope.lookup(id).is_some()
     }
 
     fn new_scope(&self) -> Self {
         Self {
-            var_to_type: self.var_to_type.new_scope(),
-            ty_vars_in_scope: self.ty_vars_in_scope.new_scope(),
+            tyctx: self.tyctx.new_scope(),
+            polyvars_in_scope: self.polyvars_in_scope.new_scope(),
 
             var_declarations: self.var_declarations.new_scope(),
         }
@@ -1325,7 +1330,12 @@ pub(crate) fn result_of_constraint_solving(
     Err(err_string)
 }
 
-pub(crate) fn generate_constraints_file(gamma: Gamma, file: Rc<FileAst>, ctx: &mut StaticsContext) {
+pub(crate) fn generate_constraints_file(
+    // TODO don't pass in symbol_table
+    symbol_table: SymbolTable,
+    file: Rc<FileAst>,
+    ctx: &mut StaticsContext,
+) {
     for (i, eff) in ctx.effects.iter().enumerate() {
         let prov = Prov::Effect(i as u16);
         let mut args = Vec::new();
@@ -1337,21 +1347,32 @@ pub(crate) fn generate_constraints_file(gamma: Gamma, file: Rc<FileAst>, ctx: &m
             monotype_to_typevar(eff.type_signature.1.clone(), prov.clone()),
             prov,
         );
-        gamma.extend(eff.name.clone(), typ);
-        gamma.extend_declaration(eff.name.clone(), Resolution::Effect(i as u16));
+        symbol_table.extend(eff.name.clone(), typ);
+        symbol_table.extend_declaration(eff.name.clone(), Resolution::Effect(i as u16));
     }
     for builtin in Builtin::enumerate().iter() {
         let prov = Prov::Builtin(*builtin);
         let typ = solved_type_to_typevar(builtin.type_signature(), prov);
-        gamma.extend(builtin.name(), typ);
-        gamma.extend_declaration(builtin.name(), Resolution::Builtin(*builtin));
+        symbol_table.extend(builtin.name(), typ);
+        symbol_table.extend_declaration(builtin.name(), Resolution::Builtin(*builtin));
     }
     for statement in file.statements.iter() {
-        generate_constraints_stmt(gamma.clone(), Mode::Syn, statement.clone(), ctx, true);
+        generate_constraints_stmt(
+            symbol_table.clone(),
+            Mode::Syn,
+            statement.clone(),
+            ctx,
+            true,
+        );
     }
 }
 
-fn generate_constraints_expr(gamma: Gamma, mode: Mode, expr: Rc<Expr>, ctx: &mut StaticsContext) {
+fn generate_constraints_expr(
+    symbol_table: SymbolTable,
+    mode: Mode,
+    expr: Rc<Expr>,
+    ctx: &mut StaticsContext,
+) {
     let node_ty = TypeVar::from_node(ctx, expr.id);
     match mode {
         Mode::Syn => (),
@@ -1387,7 +1408,7 @@ fn generate_constraints_expr(gamma: Gamma, mode: Mode, expr: Rc<Expr>, ctx: &mut
             );
             for expr in exprs {
                 generate_constraints_expr(
-                    gamma.clone(),
+                    symbol_table.clone(),
                     Mode::Ana {
                         expected: elem_ty.clone(),
                     },
@@ -1408,7 +1429,7 @@ fn generate_constraints_expr(gamma: Gamma, mode: Mode, expr: Rc<Expr>, ctx: &mut
             );
             for expr in exprs {
                 generate_constraints_expr(
-                    gamma.clone(),
+                    symbol_table.clone(),
                     Mode::Ana {
                         expected: elem_ty.clone(),
                     },
@@ -1418,14 +1439,14 @@ fn generate_constraints_expr(gamma: Gamma, mode: Mode, expr: Rc<Expr>, ctx: &mut
             }
         }
         ExprKind::Identifier(symbol) => {
-            let lookup = gamma.lookup_declaration(symbol);
+            let lookup = symbol_table.lookup_declaration(symbol);
             if let Some(resolution) = lookup {
                 ctx.name_resolutions.insert(expr.id, resolution);
             }
-            let lookup = gamma.lookup(symbol);
+            let lookup = symbol_table.lookup(symbol);
             if let Some(typ) = lookup {
                 // replace polymorphic types with unifvars if necessary
-                let typ = typ.instantiate(gamma, ctx, Prov::Node(expr.id));
+                let typ = typ.instantiate(symbol_table, ctx, Prov::Node(expr.id));
                 constrain(typ, node_ty);
                 return;
             }
@@ -1459,8 +1480,11 @@ fn generate_constraints_expr(gamma: Gamma, mode: Mode, expr: Rc<Expr>, ctx: &mut
                     let args = elems
                         .iter()
                         .map(|e| {
-                            e.clone()
-                                .subst(gamma.clone(), Prov::Node(expr.id), &substitution)
+                            e.clone().subst(
+                                symbol_table.clone(),
+                                Prov::Node(expr.id),
+                                &substitution,
+                            )
                         })
                         .collect();
                     constrain(
@@ -1472,7 +1496,7 @@ fn generate_constraints_expr(gamma: Gamma, mode: Mode, expr: Rc<Expr>, ctx: &mut
                         node_ty,
                         TypeVar::make_func(
                             vec![the_variant.data.clone().subst(
-                                gamma,
+                                symbol_table,
                                 Prov::Node(expr.id),
                                 &substitution,
                             )],
@@ -1505,7 +1529,7 @@ fn generate_constraints_expr(gamma: Gamma, mode: Mode, expr: Rc<Expr>, ctx: &mut
                     .iter()
                     .map(|f| {
                         f.ty.clone()
-                            .subst(gamma.clone(), Prov::Node(expr.id), &substitution)
+                            .subst(symbol_table.clone(), Prov::Node(expr.id), &substitution)
                     })
                     .collect();
                 constrain(
@@ -1519,28 +1543,33 @@ fn generate_constraints_expr(gamma: Gamma, mode: Mode, expr: Rc<Expr>, ctx: &mut
         ExprKind::BinOp(left, op, right) => {
             let (ty_left, ty_right, ty_out) = types_of_binop(op, expr.id);
             let (ty_left, ty_right, ty_out) = (
-                ty_left.instantiate(gamma.clone(), ctx, Prov::Node(expr.id)),
-                ty_right.instantiate(gamma.clone(), ctx, Prov::Node(expr.id)),
-                ty_out.instantiate(gamma.clone(), ctx, Prov::Node(expr.id)),
+                ty_left.instantiate(symbol_table.clone(), ctx, Prov::Node(expr.id)),
+                ty_right.instantiate(symbol_table.clone(), ctx, Prov::Node(expr.id)),
+                ty_out.instantiate(symbol_table.clone(), ctx, Prov::Node(expr.id)),
             );
             constrain(ty_out, node_ty);
             generate_constraints_expr(
-                gamma.clone(),
+                symbol_table.clone(),
                 Mode::Ana { expected: ty_left },
                 left.clone(),
                 ctx,
             );
-            generate_constraints_expr(gamma, Mode::Ana { expected: ty_right }, right.clone(), ctx);
+            generate_constraints_expr(
+                symbol_table,
+                Mode::Ana { expected: ty_right },
+                right.clone(),
+                ctx,
+            );
         }
         ExprKind::Block(statements) => {
             if statements.is_empty() {
                 constrain(node_ty, TypeVar::make_unit(Prov::Node(expr.id)));
                 return;
             }
-            let new_gamma = gamma.new_scope();
+            let new_symbol_table = symbol_table.new_scope();
             for statement in statements[..statements.len() - 1].iter() {
                 generate_constraints_stmt(
-                    new_gamma.clone(),
+                    new_symbol_table.clone(),
                     Mode::Syn,
                     statement.clone(),
                     ctx,
@@ -1550,14 +1579,14 @@ fn generate_constraints_expr(gamma: Gamma, mode: Mode, expr: Rc<Expr>, ctx: &mut
             // if last statement is an expression, the block will have that expression's type
             if let StmtKind::Expr(terminal_expr) = &*statements.last().unwrap().kind {
                 generate_constraints_expr(
-                    new_gamma,
+                    new_symbol_table,
                     Mode::Ana { expected: node_ty },
                     terminal_expr.clone(),
                     ctx,
                 )
             } else {
                 generate_constraints_stmt(
-                    new_gamma,
+                    new_symbol_table,
                     Mode::Syn,
                     statements.last().unwrap().clone(),
                     ctx,
@@ -1568,7 +1597,7 @@ fn generate_constraints_expr(gamma: Gamma, mode: Mode, expr: Rc<Expr>, ctx: &mut
         }
         ExprKind::If(cond, expr1, expr2) => {
             generate_constraints_expr(
-                gamma.clone(),
+                symbol_table.clone(),
                 Mode::Ana {
                     expected: TypeVar::make_bool(Prov::Node(cond.id)),
                 },
@@ -1579,7 +1608,7 @@ fn generate_constraints_expr(gamma: Gamma, mode: Mode, expr: Rc<Expr>, ctx: &mut
                 // if-else
                 Some(expr2) => {
                     generate_constraints_expr(
-                        gamma.clone(),
+                        symbol_table.clone(),
                         Mode::Ana {
                             expected: node_ty.clone(),
                         },
@@ -1587,7 +1616,7 @@ fn generate_constraints_expr(gamma: Gamma, mode: Mode, expr: Rc<Expr>, ctx: &mut
                         ctx,
                     );
                     generate_constraints_expr(
-                        gamma,
+                        symbol_table,
                         Mode::Ana { expected: node_ty },
                         expr2.clone(),
                         ctx,
@@ -1596,7 +1625,7 @@ fn generate_constraints_expr(gamma: Gamma, mode: Mode, expr: Rc<Expr>, ctx: &mut
                 // just if
                 None => {
                     generate_constraints_expr(
-                        gamma,
+                        symbol_table,
                         Mode::Ana {
                             expected: TypeVar::make_unit(Prov::Node(expr.id)),
                         },
@@ -1609,20 +1638,20 @@ fn generate_constraints_expr(gamma: Gamma, mode: Mode, expr: Rc<Expr>, ctx: &mut
         }
         ExprKind::WhileLoop(cond, expr) => {
             generate_constraints_expr(
-                gamma.clone(),
+                symbol_table.clone(),
                 Mode::Ana {
                     expected: TypeVar::make_bool(Prov::Node(cond.id)),
                 },
                 cond.clone(),
                 ctx,
             );
-            generate_constraints_expr(gamma, Mode::Syn, expr.clone(), ctx);
+            generate_constraints_expr(symbol_table, Mode::Syn, expr.clone(), ctx);
             constrain(node_ty, TypeVar::make_unit(Prov::Node(expr.id)))
         }
         ExprKind::Match(scrut, arms) => {
             let ty_scrutiny = TypeVar::from_node(ctx, scrut.id);
             generate_constraints_expr(
-                gamma.clone(),
+                symbol_table.clone(),
                 Mode::Ana {
                     expected: ty_scrutiny.clone(),
                 },
@@ -1630,9 +1659,9 @@ fn generate_constraints_expr(gamma: Gamma, mode: Mode, expr: Rc<Expr>, ctx: &mut
                 ctx,
             );
             for arm in arms {
-                let new_gamma = gamma.new_scope();
+                let new_symbol_table = symbol_table.new_scope();
                 generate_constraints_pat(
-                    new_gamma.clone(),
+                    new_symbol_table.clone(),
                     Mode::Ana {
                         expected: ty_scrutiny.clone(),
                     },
@@ -1640,7 +1669,7 @@ fn generate_constraints_expr(gamma: Gamma, mode: Mode, expr: Rc<Expr>, ctx: &mut
                     ctx,
                 );
                 generate_constraints_expr(
-                    new_gamma,
+                    new_symbol_table,
                     Mode::Ana {
                         expected: node_ty.clone(),
                     },
@@ -1651,11 +1680,11 @@ fn generate_constraints_expr(gamma: Gamma, mode: Mode, expr: Rc<Expr>, ctx: &mut
         }
         ExprKind::Func(args, out_annot, body) => {
             let func_node_id = expr.id;
-            let body_gamma = gamma.new_scope();
+            let body_symbol_table = symbol_table.new_scope();
             let ty_func = generate_constraints_func_helper(
                 ctx,
                 func_node_id,
-                body_gamma,
+                body_symbol_table,
                 args,
                 out_annot,
                 body,
@@ -1672,7 +1701,7 @@ fn generate_constraints_expr(gamma: Gamma, mode: Mode, expr: Rc<Expr>, ctx: &mut
                     let unknown =
                         TypeVar::fresh(ctx, Prov::FuncArg(Box::new(Prov::Node(func.id)), n as u8));
                     generate_constraints_expr(
-                        gamma.clone(),
+                        symbol_table.clone(),
                         Mode::Ana {
                             expected: unknown.clone(),
                         },
@@ -1690,7 +1719,7 @@ fn generate_constraints_expr(gamma: Gamma, mode: Mode, expr: Rc<Expr>, ctx: &mut
             // function type
             let ty_func = TypeVar::make_func(tys_args, ty_body, Prov::Node(expr.id));
             generate_constraints_expr(
-                gamma,
+                symbol_table,
                 Mode::Ana {
                     expected: ty_func.clone(),
                 },
@@ -1707,11 +1736,11 @@ fn generate_constraints_expr(gamma: Gamma, mode: Mode, expr: Rc<Expr>, ctx: &mut
                 .collect();
             constrain(node_ty, TypeVar::make_tuple(tys, Prov::Node(expr.id)));
             for expr in exprs {
-                generate_constraints_expr(gamma.clone(), Mode::Syn, expr.clone(), ctx);
+                generate_constraints_expr(symbol_table.clone(), Mode::Syn, expr.clone(), ctx);
             }
         }
         ExprKind::MemberAccess(expr, field) => {
-            generate_constraints_expr(gamma, Mode::Syn, expr.clone(), ctx);
+            generate_constraints_expr(symbol_table, Mode::Syn, expr.clone(), ctx);
             let ty_expr = TypeVar::fresh(ctx, Prov::Node(expr.id));
             if ty_expr.underdetermined() {
                 ctx.annotation_needed.insert(expr.id);
@@ -1738,7 +1767,7 @@ fn generate_constraints_expr(gamma: Gamma, mode: Mode, expr: Rc<Expr>, ctx: &mut
             ctx.types_that_must_be_structs.insert(ty_expr, expr.id);
         }
         ExprKind::IndexAccess(accessed, index) => {
-            generate_constraints_expr(gamma.clone(), Mode::Syn, accessed.clone(), ctx);
+            generate_constraints_expr(symbol_table.clone(), Mode::Syn, accessed.clone(), ctx);
 
             let elem_ty = TypeVar::fresh(ctx, Prov::ListElem(Prov::Node(accessed.id).into()));
             let accessed_ty = TypeVar::from_node(ctx, accessed.id);
@@ -1751,7 +1780,7 @@ fn generate_constraints_expr(gamma: Gamma, mode: Mode, expr: Rc<Expr>, ctx: &mut
                 ),
             );
             generate_constraints_expr(
-                gamma,
+                symbol_table,
                 Mode::Ana {
                     expected: TypeVar::make_int(Prov::IndexAccess),
                 },
@@ -1767,7 +1796,7 @@ fn generate_constraints_expr(gamma: Gamma, mode: Mode, expr: Rc<Expr>, ctx: &mut
 fn generate_constraints_func_helper(
     ctx: &mut StaticsContext,
     node_id: NodeId,
-    gamma: Gamma,
+    symbol_table: SymbolTable,
     args: &[ArgAnnotated],
     out_annot: &Option<Rc<AstType>>,
     body: &Rc<Expr>,
@@ -1782,15 +1811,15 @@ fn generate_constraints_func_helper(
                     let ty_annot = TypeVar::from_node(ctx, arg_annot.id());
                     let arg_annot = ast_type_to_statics_type(ctx, arg_annot.clone());
                     constrain(ty_annot.clone(), arg_annot.clone());
-                    gamma.add_polys(&arg_annot);
+                    symbol_table.add_polys(&arg_annot);
                     generate_constraints_pat(
-                        gamma.clone(), // TODO what are the consequences of analyzing patterns with context containing previous pattern... probs should not do that
+                        symbol_table.clone(), // TODO what are the consequences of analyzing patterns with context containing previous pattern... probs should not do that
                         Mode::Ana { expected: ty_annot },
                         arg.clone(),
                         ctx,
                     )
                 }
-                None => generate_constraints_pat(gamma.clone(), Mode::Syn, arg.clone(), ctx),
+                None => generate_constraints_pat(symbol_table.clone(), Mode::Syn, arg.clone(), ctx),
             }
             ty_pat
         })
@@ -1799,7 +1828,7 @@ fn generate_constraints_func_helper(
     // body
     let ty_body = TypeVar::fresh(ctx, Prov::FuncOut(Box::new(Prov::Node(node_id))));
     generate_constraints_expr(
-        gamma.clone(),
+        symbol_table.clone(),
         Mode::Ana {
             expected: ty_body.clone(),
         },
@@ -1808,9 +1837,9 @@ fn generate_constraints_func_helper(
     );
     if let Some(out_annot) = out_annot {
         let out_annot = ast_type_to_statics_type(ctx, out_annot.clone());
-        gamma.add_polys(&out_annot);
+        symbol_table.add_polys(&out_annot);
         generate_constraints_expr(
-            gamma,
+            symbol_table,
             Mode::Ana {
                 expected: out_annot,
             },
@@ -1823,11 +1852,11 @@ fn generate_constraints_func_helper(
 }
 
 fn generate_constraints_stmt(
-    gamma: Gamma,
+    symbol_table: SymbolTable,
     mode: Mode,
     stmt: Rc<Stmt>,
     ctx: &mut StaticsContext,
-    add_to_tyvar_gamma: bool,
+    add_to_tyvar_symbol_table: bool,
 ) {
     match &*stmt.kind {
         StmtKind::InterfaceDef(..) => {}
@@ -1848,7 +1877,7 @@ fn generate_constraints_stmt(
                         substitution.insert("a".to_string(), typ.clone());
 
                         let expected = interface_method.ty.clone().subst(
-                            gamma.clone(),
+                            symbol_table.clone(),
                             Prov::Node(stmt.id),
                             &substitution,
                         );
@@ -1856,7 +1885,7 @@ fn generate_constraints_stmt(
                         constrain(expected, TypeVar::from_node(ctx, pat.id));
 
                         generate_constraints_stmt(
-                            gamma.clone(),
+                            symbol_table.clone(),
                             Mode::Syn,
                             statement.clone(),
                             ctx,
@@ -1895,13 +1924,13 @@ fn generate_constraints_stmt(
             TypeDefKind::Enum(..) | TypeDefKind::Struct(..) => {}
         },
         StmtKind::Expr(expr) => {
-            generate_constraints_expr(gamma, mode, expr.clone(), ctx);
+            generate_constraints_expr(symbol_table, mode, expr.clone(), ctx);
         }
         StmtKind::Let(_mutable, (pat, ty_ann), expr) => {
             let ty_pat = TypeVar::from_node(ctx, pat.id);
 
             generate_constraints_expr(
-                gamma.clone(),
+                symbol_table.clone(),
                 Mode::Ana { expected: ty_pat },
                 expr.clone(),
                 ctx,
@@ -1909,17 +1938,22 @@ fn generate_constraints_stmt(
 
             if let Some(ty_ann) = ty_ann {
                 let ty_ann = ast_type_to_statics_type(ctx, ty_ann.clone());
-                gamma.add_polys(&ty_ann);
-                generate_constraints_pat(gamma, Mode::Ana { expected: ty_ann }, pat.clone(), ctx)
+                symbol_table.add_polys(&ty_ann);
+                generate_constraints_pat(
+                    symbol_table,
+                    Mode::Ana { expected: ty_ann },
+                    pat.clone(),
+                    ctx,
+                )
             } else {
-                generate_constraints_pat(gamma, Mode::Syn, pat.clone(), ctx)
+                generate_constraints_pat(symbol_table, Mode::Syn, pat.clone(), ctx)
             };
         }
         StmtKind::Set(lhs, rhs) => {
             let ty_lhs = TypeVar::from_node(ctx, lhs.id);
-            generate_constraints_expr(gamma.clone(), Mode::Syn, lhs.clone(), ctx);
+            generate_constraints_expr(symbol_table.clone(), Mode::Syn, lhs.clone(), ctx);
             let ty_rhs = TypeVar::from_node(ctx, rhs.id);
-            generate_constraints_expr(gamma, Mode::Syn, rhs.clone(), ctx);
+            generate_constraints_expr(symbol_table, Mode::Syn, rhs.clone(), ctx);
             constrain(ty_lhs, ty_rhs);
         }
         StmtKind::FuncDef(name, args, out_annot, body) => {
@@ -1929,21 +1963,22 @@ fn generate_constraints_stmt(
             let func_name = name.kind.get_identifier_of_variable();
 
             // TODO this needs a better explanation
-            if add_to_tyvar_gamma {
-                gamma.extend(name.kind.get_identifier_of_variable(), ty_pat.clone());
-                gamma.extend_declaration(
+            if add_to_tyvar_symbol_table {
+                symbol_table.extend(name.kind.get_identifier_of_variable(), ty_pat.clone());
+                symbol_table.extend_declaration(
                     func_name,
                     Resolution::FreeFunction(stmt.id, name.kind.get_identifier_of_variable()),
                 );
             } else {
-                gamma.extend_declaration(func_name.clone(), Resolution::InterfaceMethod(func_name));
+                symbol_table
+                    .extend_declaration(func_name.clone(), Resolution::InterfaceMethod(func_name));
             }
 
-            let body_gamma = gamma.new_scope();
+            let body_symbol_table = symbol_table.new_scope();
             let ty_func = generate_constraints_func_helper(
                 ctx,
                 func_node_id,
-                body_gamma,
+                body_symbol_table,
                 args,
                 out_annot,
                 body,
@@ -1954,7 +1989,12 @@ fn generate_constraints_stmt(
     }
 }
 
-fn generate_constraints_pat(gamma: Gamma, mode: Mode, pat: Rc<Pat>, ctx: &mut StaticsContext) {
+fn generate_constraints_pat(
+    symbol_table: SymbolTable,
+    mode: Mode,
+    pat: Rc<Pat>,
+    ctx: &mut StaticsContext,
+) {
     let ty_pat = TypeVar::from_node(ctx, pat.id);
     match mode {
         Mode::Syn => (),
@@ -1979,8 +2019,8 @@ fn generate_constraints_pat(gamma: Gamma, mode: Mode, pat: Rc<Pat>, ctx: &mut St
         }
         PatKind::Var(identifier) => {
             // letrec: extend context with id and type before analyzing against said type
-            gamma.extend(identifier.clone(), ty_pat);
-            gamma.extend_declaration(identifier.clone(), Resolution::Var(pat.id));
+            symbol_table.extend(identifier.clone(), ty_pat);
+            symbol_table.extend_declaration(identifier.clone(), Resolution::Var(pat.id));
         }
         PatKind::Variant(tag, data) => {
             let ty_data = match data {
@@ -2009,7 +2049,7 @@ fn generate_constraints_pat(gamma: Gamma, mode: Mode, pat: Rc<Pat>, ctx: &mut St
 
                     let variant_def = enum_def.variants.iter().find(|v| v.ctor == *tag).unwrap();
                     let variant_data_ty = variant_def.data.clone().subst(
-                        gamma.clone(),
+                        symbol_table.clone(),
                         Prov::Node(pat.id),
                         &substitution,
                     );
@@ -2023,7 +2063,12 @@ fn generate_constraints_pat(gamma: Gamma, mode: Mode, pat: Rc<Pat>, ctx: &mut St
 
             constrain(ty_pat, ty_enum_instance);
             if let Some(data) = data {
-                generate_constraints_pat(gamma, Mode::Ana { expected: ty_data }, data.clone(), ctx)
+                generate_constraints_pat(
+                    symbol_table,
+                    Mode::Ana { expected: ty_data },
+                    data.clone(),
+                    ctx,
+                )
             };
         }
         PatKind::Tuple(pats) => {
@@ -2036,7 +2081,7 @@ fn generate_constraints_pat(gamma: Gamma, mode: Mode, pat: Rc<Pat>, ctx: &mut St
                 TypeVar::make_tuple(tys_elements, Prov::Node(pat.id)),
             );
             for pat in pats {
-                generate_constraints_pat(gamma.clone(), Mode::Syn, pat.clone(), ctx)
+                generate_constraints_pat(symbol_table.clone(), Mode::Syn, pat.clone(), ctx)
             }
         }
     }

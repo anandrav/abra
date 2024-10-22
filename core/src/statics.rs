@@ -1,9 +1,7 @@
 use crate::ast::{FileAst, Identifier, NodeId, NodeMap, Sources, Stmt};
 use crate::builtin::Builtin;
 use crate::effects::EffectStruct;
-use resolve::{
-    resolve_all_imports, scan_declarations, EnumDef, InterfaceDef, InterfaceImpl, StructDef,
-};
+use resolve::{resolve, scan_declarations, EnumDef, InterfaceDef, InterfaceImpl, StructDef};
 use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::fmt::{self, Display, Formatter};
 use std::rc::Rc;
@@ -33,6 +31,7 @@ pub(crate) struct StaticsContext {
     pub(crate) global_namespace: Namespace,
 
     // TODO this should all be replaced
+    // TODO: just attempt remove them one by one. Use NodeId instead of Identifier
     // enum definitions
     pub(crate) enum_defs: HashMap<Identifier, EnumDef>,
     // map from variant names to enum names
@@ -55,13 +54,16 @@ pub(crate) struct StaticsContext {
     // string constants
     pub(crate) string_constants: HashMap<String, usize>,
 
+    // trying to redo this shit
+    pub(crate) name_resolutions2: HashMap<NodeId, Declaration>,
+
     // TYPE CHECKING
 
     // unification variables (skolems) which must be solved
     pub(crate) vars: HashMap<TypeProv, TypeVar>,
-    // map from types to interfaces they have been constrained to
+    // constraint: map from types to interfaces they must implement
     types_constrained_to_interfaces: BTreeMap<TypeVar, Vec<(Identifier, TypeProv)>>,
-    // types that must be a struct because there was a field access
+    // constraint: map from types which must be structs to location of field access
     types_that_must_be_structs: BTreeMap<TypeVar, NodeId>,
 
     // ERRORS
@@ -184,13 +186,13 @@ pub(crate) fn analyze(
 ) -> Result<StaticsContext, String> {
     let mut ctx = StaticsContext::new(effects.to_owned()); // TODO: to_owned necessary?
 
-    // TODO: Get rid of Gamma
-    let tyctx = typecheck::Gamma::empty();
+    // TODO: don't create symbol_table here
+    let tyctx = typecheck::SymbolTable::empty();
 
     // scan declarations across all files
     scan_declarations(&mut ctx, tyctx.clone(), files.clone());
-    // resolve imports
-    resolve_all_imports(&mut ctx, files.clone());
+    // resolve all imports and names
+    resolve(&mut ctx, files.clone());
 
     println!("global namespace:\n{}", ctx.global_namespace);
 
@@ -198,9 +200,11 @@ pub(crate) fn analyze(
     for parse_tree in files {
         generate_constraints_file(tyctx.clone(), parse_tree.clone(), &mut ctx);
     }
+    // TODO: rename this to solve_constraints()
     result_of_constraint_solving(&mut ctx, node_map, sources)?;
 
     // pattern exhaustiveness and usefulness checking
+    // TODO: rename this function
     result_of_additional_analysis(&mut ctx, files, node_map, sources)?;
 
     Ok(ctx)

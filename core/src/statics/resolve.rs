@@ -1,15 +1,19 @@
+use std::collections::HashMap;
 use std::{fmt, rc::Rc};
 
-use crate::ast::{Identifier, Node, NodeId, Stmt, StmtKind, FileAst, TypeDefKind, TypeKind};
+use crate::ast::{
+    ArgAnnotated, Expr, ExprKind, FileAst, Identifier, Node, NodeId, Pat, PatKind, Stmt, StmtKind,
+    TypeDefKind, TypeKind,
+};
 use crate::builtin::Builtin;
 use crate::environment::Environment;
 
 use super::{Declaration, Namespace, Resolution, StaticsContext, TypeVar};
 
-// TODO: constrain, Gamma, Prov should be implementation details
+// TODO: constrain, Env, Prov should be implementation details
 // TODO: others should probably be implementation details too
 use super::typecheck::{
-    ast_type_to_statics_type, ast_type_to_statics_type_interface, constrain, Gamma, Prov,
+    ast_type_to_statics_type, ast_type_to_statics_type_interface, constrain, Prov, SymbolTable,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
@@ -77,69 +81,73 @@ pub(crate) struct InterfaceImplMethod {
 
 pub(crate) fn scan_declarations(
     ctx: &mut StaticsContext,
-    gamma: Gamma, // TODO get rid of Gamma here
+    symbol_table: SymbolTable, // TODO get rid of Env here
     files: Vec<Rc<FileAst>>,
 ) {
     for file in files {
         let name = file.name.clone();
-        let namespace = gather_declarations_file(ctx, gamma.clone(), file.clone());
+        let namespace = gather_declarations_file(ctx, symbol_table.clone(), file.clone());
         ctx.global_namespace.children.insert(name, namespace);
     }
 }
 
 fn gather_declarations_file(
     ctx: &mut StaticsContext,
-    gamma: Gamma,
+    symbol_table: SymbolTable,
     file: Rc<FileAst>,
 ) -> Namespace {
     let mut namespace = Namespace::default();
 
     // TODO: get rid of this
     for statement in file.statements.iter() {
-        gather_definitions_stmt_DEPRECATE(ctx, gamma.clone(), statement.clone());
+        gather_definitions_stmt_DEPRECATE(ctx, symbol_table.clone(), statement.clone());
     }
 
     let qualifiers = vec![file.name.clone()];
     for statement in file.statements.iter() {
-        gather_declarations_stmt(&mut namespace, &qualifiers, statement.clone());
+        gather_declarations_stmt(&mut namespace, qualifiers.clone(), statement.clone());
     }
 
     namespace
 }
 
-fn gather_declarations_stmt(namespace: &mut Namespace, qualifiers: &Vec<String>, stmt: Rc<Stmt>) {
+fn gather_declarations_stmt(namespace: &mut Namespace, qualifiers: Vec<String>, stmt: Rc<Stmt>) {
     match &*stmt.kind {
-        StmtKind::InterfaceDef(ident, properties) => {
-            let mut ns = Namespace::default();
+        StmtKind::InterfaceDef(_ident, properties) => {
+            // TODO: in the near future, put interface methods in a namespace named after the interface
+            // and call interface methods using the dot operator. my_struct.to_string() etc.
 
-            // TODO: handle properties
+            // let mut ns = Namespace::default();
+
             for p in properties {
                 let method_name = p.ident.clone();
                 let mut fully_qualified_name = qualifiers.clone();
                 fully_qualified_name.push(method_name.clone());
-                ns.declarations.insert(
+                namespace.declarations.insert(
                     method_name,
                     Declaration::InterfaceMethod(fully_qualified_name),
                 );
+                // ns.declarations.insert(
+                //     method_name,
+                //     Declaration::InterfaceMethod(fully_qualified_name),
+                // );
             }
 
-            namespace.children.insert(ident.clone(), ns);
-
-            // namespace.declarations.insert(entry_name, stmt.id);
+            // namespace.children.insert(ident.clone(), ns);
         }
-        StmtKind::InterfaceImpl(..) => {}
+        StmtKind::InterfaceImpl(_, _, _) => {}
         StmtKind::TypeDef(typdefkind) => match &**typdefkind {
-            TypeDefKind::Alias(ident, _) => {
+            TypeDefKind::Alias(_ident, _) => {
                 // TODO: type aliases
                 // At this stage, since we're just gathering declarations,
                 // actually resolving the alias to the final result will have to be done later.
-
-                // let entry_name = ident.clone();
-                // namespace.declarations.insert(entry_name, stmt.id);
             }
-            TypeDefKind::Enum(ident, _, variants) => {
-                let mut ns = Namespace::default();
-                let name = ident.clone();
+            TypeDefKind::Enum(_ident, _, variants) => {
+                // TODO: in the near future, put enum variants in a namespace named after the enum
+                // and refer to them in code by just writing .Variant
+
+                // let mut ns = Namespace::default();
+                // let name = ident.clone();
 
                 for (i, v) in variants.iter().enumerate() {
                     let tag = i as u16;
@@ -150,11 +158,14 @@ fn gather_declarations_stmt(namespace: &mut Namespace, qualifiers: &Vec<String>,
                         _ => 1,
                     }) as u16;
 
-                    ns.declarations
+                    namespace
+                        .declarations
                         .insert(variant_name, Declaration::VariantCtor(tag, arity));
+                    // ns.declarations
+                    //     .insert(variant_name, Declaration::VariantCtor(tag, arity));
                 }
 
-                namespace.children.insert(name, ns);
+                // namespace.children.insert(name, ns);
             }
             TypeDefKind::Struct(ident, _, fields) => {
                 let entry_name = ident.clone();
@@ -178,7 +189,11 @@ fn gather_declarations_stmt(namespace: &mut Namespace, qualifiers: &Vec<String>,
     }
 }
 
-fn gather_definitions_stmt_DEPRECATE(ctx: &mut StaticsContext, gamma: Gamma, stmt: Rc<Stmt>) {
+fn gather_definitions_stmt_DEPRECATE(
+    ctx: &mut StaticsContext,
+    symbol_table: SymbolTable,
+    stmt: Rc<Stmt>,
+) {
     match &*stmt.kind {
         StmtKind::InterfaceDef(ident, properties) => {
             if let Some(interface_def) = ctx.interface_defs.get(ident) {
@@ -202,7 +217,7 @@ fn gather_definitions_stmt_DEPRECATE(ctx: &mut StaticsContext, gamma: Gamma, stm
                 });
                 ctx.method_to_interface
                     .insert(p.ident.clone(), ident.clone());
-                gamma.extend(p.ident.clone(), node_ty);
+                symbol_table.extend(p.ident.clone(), node_ty);
             }
             ctx.interface_defs.insert(
                 ident.clone(),
@@ -258,7 +273,7 @@ fn gather_definitions_stmt_DEPRECATE(ctx: &mut StaticsContext, gamma: Gamma, stm
                         TypeKind::Unit => 0,
                         _ => 1,
                     });
-                    gamma.extend_declaration(
+                    symbol_table.extend_declaration(
                         v.ctor.clone(),
                         Resolution::VariantCtor(i as u16, arity as u16),
                     );
@@ -294,7 +309,7 @@ fn gather_definitions_stmt_DEPRECATE(ctx: &mut StaticsContext, gamma: Gamma, stm
                 );
             }
             TypeDefKind::Struct(ident, params, fields) => {
-                gamma
+                symbol_table
                     .extend_declaration(ident.clone(), Resolution::StructCtor(fields.len() as u16));
 
                 // let ty_struct = TypeVar::from_node(ctx, stmt.id);
@@ -341,8 +356,8 @@ fn gather_definitions_stmt_DEPRECATE(ctx: &mut StaticsContext, gamma: Gamma, stm
             let name_id = name.id;
             let name = name.kind.get_identifier_of_variable();
             ctx.fun_defs.insert(name.clone(), stmt.clone());
-            gamma.extend(name.clone(), TypeVar::from_node(ctx, name_id));
-            gamma.extend_declaration(name.clone(), Resolution::FreeFunction(stmt.id, name));
+            symbol_table.extend(name.clone(), TypeVar::from_node(ctx, name_id));
+            symbol_table.extend_declaration(name.clone(), Resolution::FreeFunction(stmt.id, name));
         }
         StmtKind::Set(..) => {}
         StmtKind::Import(..) => {}
@@ -351,12 +366,20 @@ fn gather_definitions_stmt_DEPRECATE(ctx: &mut StaticsContext, gamma: Gamma, stm
 
 type Env = Environment<Identifier, Declaration>;
 
-pub(crate) fn resolve_all_imports(ctx: &mut StaticsContext, files: Vec<Rc<FileAst>>) {}
+// TODO: make a custom type to detect collisions
+type ToplevelEnv = HashMap<Identifier, Declaration>;
 
-fn resolve_imports(ctx: &mut StaticsContext, file: Rc<FileAst>) -> Env {
+pub(crate) fn resolve(ctx: &mut StaticsContext, files: Vec<Rc<FileAst>>) {
+    for file in files {
+        let env = resolve_imports(ctx, file.clone());
+        // resolve_names_file(ctx, env, file.clone());
+    }
+}
+
+fn resolve_imports(ctx: &mut StaticsContext, file: Rc<FileAst>) -> ToplevelEnv {
     // Return an environment with all identifiers available to this file.
     // That includes identifiers from this file and all imports.
-    let env = Env::empty();
+    let mut env = ToplevelEnv::new();
     // add declarations from this file to the environment
     for (name, declaration) in ctx
         .global_namespace
@@ -366,7 +389,19 @@ fn resolve_imports(ctx: &mut StaticsContext, file: Rc<FileAst>) -> Env {
         .declarations
         .iter()
     {
-        env.extend(name.clone(), declaration.clone());
+        env.insert(name.clone(), declaration.clone());
+    }
+
+    // add declarations from prelude to the environment
+    for (name, declaration) in ctx
+        .global_namespace
+        .children
+        .get("prelude")
+        .unwrap()
+        .declarations
+        .iter()
+    {
+        env.insert(name.clone(), declaration.clone());
     }
 
     for stmt in file.statements.iter() {
@@ -380,29 +415,13 @@ fn resolve_imports(ctx: &mut StaticsContext, file: Rc<FileAst>) -> Env {
                 .declarations
                 .iter()
             {
-                env.extend(name.clone(), declaration.clone());
+                env.insert(name.clone(), declaration.clone());
             }
         }
     }
-    dbg!(&env);
+
     env
 }
-
-// // don't do typechecking
-// // just do name resolution for variables and functions etc.
-// fn resolve_names_stmt(ctx: &mut StaticsContext, env: Env, stmt: Rc<Stmt>) {
-//     match &*stmt.kind {
-//         StmtKind::FuncDef(name, _args, _out_annot, _) => {
-//             let name = name.kind.get_identifier_of_variable();
-//             let resolution = env.lookup(&name);
-//             // match resolution {
-//             //     EnvEntry::Resolution(res) => {}
-//             //     EnvEntry::Namespace(_) => {}
-//             // }
-//         }
-//         _ => {}
-//     }
-// }
 
 // pub(crate) fn resolve_names_file(ctx: &mut StaticsContext, env: Env, file: Rc<FileAst>) {
 //     for (i, eff) in ctx.effects.iter().enumerate() {
@@ -412,544 +431,111 @@ fn resolve_imports(ctx: &mut StaticsContext, file: Rc<FileAst>) -> Env {
 //         env.extend(builtin.name(), Declaration::Builtin(*builtin));
 //     }
 //     for statement in file.statements.iter() {
-//         generate_constraints_stmt(env.clone(), Mode::Syn, statement.clone(), ctx, true);
+//         resolve_names_stmt(ctx, env.clone(), statement.clone());
 //     }
 // }
 
-// fn resolve_names_expr(gamma: Gamma, mode: Mode, expr: Rc<Expr>, ctx: &mut StaticsContext) {
-//     let node_ty = TypeVar::from_node(ctx, expr.id);
-//     match mode {
-//         Mode::Syn => (),
-//         Mode::Ana { expected } => constrain(node_ty.clone(), expected),
-//     };
+// fn resolve_names_expr(ctx: &mut StaticsContext, env: Env, expr: Rc<Expr>) {
 //     match &*expr.kind {
-//         ExprKind::Unit => {
-//             constrain(node_ty, TypeVar::make_unit(Prov::Node(expr.id)));
-//         }
-//         ExprKind::Int(_) => {
-//             constrain(node_ty, TypeVar::make_int(Prov::Node(expr.id)));
-//         }
-//         ExprKind::Float(_) => {
-//             constrain(node_ty, TypeVar::make_float(Prov::Node(expr.id)));
-//         }
-//         ExprKind::Bool(_) => {
-//             constrain(node_ty, TypeVar::make_bool(Prov::Node(expr.id)));
-//         }
-//         ExprKind::Str(s) => {
-//             constrain(node_ty, TypeVar::make_string(Prov::Node(expr.id)));
-//             let len = ctx.string_constants.len();
-//             ctx.string_constants.entry(s.clone()).or_insert(len);
-//         }
+//         ExprKind::Unit
+//         | ExprKind::Int(_)
+//         | ExprKind::Float(_)
+//         | ExprKind::Bool(_)
+//         | ExprKind::Str(_) => {}
 //         ExprKind::List(exprs) => {
-//             let elem_ty = TypeVar::fresh(ctx, Prov::ListElem(Prov::Node(expr.id).into()));
-//             constrain(
-//                 node_ty,
-//                 TypeVar::make_def_instance(
-//                     Prov::Node(expr.id),
-//                     "list".to_owned(),
-//                     vec![elem_ty.clone()],
-//                 ),
-//             );
 //             for expr in exprs {
-//                 generate_constraints_expr(
-//                     gamma.clone(),
-//                     Mode::Ana {
-//                         expected: elem_ty.clone(),
-//                     },
-//                     expr.clone(),
-//                     ctx,
-//                 );
+//                 resolve_names_expr(ctx, env.clone(), expr.clone());
 //             }
 //         }
 //         ExprKind::Array(exprs) => {
-//             let elem_ty = TypeVar::fresh(ctx, Prov::ListElem(Prov::Node(expr.id).into()));
-//             constrain(
-//                 node_ty,
-//                 TypeVar::make_def_instance(
-//                     Prov::Node(expr.id),
-//                     "array".to_owned(),
-//                     vec![elem_ty.clone()],
-//                 ),
-//             );
 //             for expr in exprs {
-//                 generate_constraints_expr(
-//                     gamma.clone(),
-//                     Mode::Ana {
-//                         expected: elem_ty.clone(),
-//                     },
-//                     expr.clone(),
-//                     ctx,
-//                 );
+//                 resolve_names_expr(ctx, env.clone(), expr.clone());
 //             }
 //         }
 //         ExprKind::Identifier(symbol) => {
-//             let lookup = gamma.lookup_declaration(symbol);
+//             let lookup = env.lookup(symbol);
 //             if let Some(resolution) = lookup {
-//                 ctx.name_resolutions.insert(expr.id, resolution);
+//                 ctx.name_resolutions2.insert(expr.id, resolution);
+//             } else {
+//                 ctx.unbound_vars.insert(expr.id());
 //             }
-//             let lookup = gamma.lookup(symbol);
-//             if let Some(typ) = lookup {
-//                 // replace polymorphic types with unifvars if necessary
-//                 let typ = typ.instantiate(gamma, ctx, Prov::Node(expr.id));
-//                 constrain(typ, node_ty);
-//                 return;
-//             }
-//             // TODO: this is incredibly hacky. No respect for scope at all... Should be added at the file with Effects at the least...
-//             let enum_def = ctx.enum_def_of_variant(symbol);
-//             if let Some(enum_def) = enum_def {
-//                 let nparams = enum_def.params.len();
-//                 let mut params = vec![];
-//                 let mut substitution = BTreeMap::new();
-//                 for i in 0..nparams {
-//                     params.push(TypeVar::fresh(
-//                         ctx,
-//                         Prov::InstantiateUdtParam(Box::new(Prov::Node(expr.id)), i as u8),
-//                     ));
-//                     substitution.insert(enum_def.params[i].clone(), params[i].clone());
-//                 }
-//                 let def_type = TypeVar::make_def_instance(
-//                     Prov::UdtDef(Box::new(Prov::Node(expr.id))),
-//                     enum_def.name,
-//                     params,
-//                 );
-
-//                 let the_variant = enum_def
-//                     .variants
-//                     .iter()
-//                     .find(|v| v.ctor == *symbol)
-//                     .unwrap();
-//                 if let Some(PotentialType::Unit(_)) = the_variant.data.single() {
-//                     constrain(node_ty, def_type);
-//                 } else if let Some(PotentialType::Tuple(_, elems)) = &the_variant.data.single() {
-//                     let args = elems
-//                         .iter()
-//                         .map(|e| {
-//                             e.clone()
-//                                 .subst(gamma.clone(), Prov::Node(expr.id), &substitution)
-//                         })
-//                         .collect();
-//                     constrain(
-//                         node_ty,
-//                         TypeVar::make_func(args, def_type, Prov::Node(expr.id)),
-//                     );
-//                 } else {
-//                     constrain(
-//                         node_ty,
-//                         TypeVar::make_func(
-//                             vec![the_variant.data.clone().subst(
-//                                 gamma,
-//                                 Prov::Node(expr.id),
-//                                 &substitution,
-//                             )],
-//                             def_type,
-//                             Prov::Node(expr.id),
-//                         ),
-//                     );
-//                 }
-//                 return;
-//             }
-//             let struct_def = ctx.struct_defs.get(symbol).cloned();
-//             if let Some(struct_def) = struct_def {
-//                 let nparams = struct_def.params.len();
-//                 let mut params = vec![];
-//                 let mut substitution = BTreeMap::new();
-//                 for i in 0..nparams {
-//                     params.push(TypeVar::fresh(
-//                         ctx,
-//                         Prov::InstantiateUdtParam(Box::new(Prov::Node(expr.id)), i as u8),
-//                     ));
-//                     substitution.insert(struct_def.params[i].clone(), params[i].clone());
-//                 }
-//                 let def_type = TypeVar::make_def_instance(
-//                     Prov::UdtDef(Box::new(Prov::Node(expr.id))),
-//                     struct_def.name.clone(),
-//                     params,
-//                 );
-//                 let fields = struct_def
-//                     .fields
-//                     .iter()
-//                     .map(|f| {
-//                         f.ty.clone()
-//                             .subst(gamma.clone(), Prov::Node(expr.id), &substitution)
-//                     })
-//                     .collect();
-//                 constrain(
-//                     node_ty,
-//                     TypeVar::make_func(fields, def_type, Prov::Node(expr.id)),
-//                 );
-//                 return;
-//             }
-//             ctx.unbound_vars.insert(expr.id());
 //         }
-//         ExprKind::BinOp(left, op, right) => {
-//             let (ty_left, ty_right, ty_out) = types_of_binop(op, expr.id);
-//             let (ty_left, ty_right, ty_out) = (
-//                 ty_left.instantiate(gamma.clone(), ctx, Prov::Node(expr.id)),
-//                 ty_right.instantiate(gamma.clone(), ctx, Prov::Node(expr.id)),
-//                 ty_out.instantiate(gamma.clone(), ctx, Prov::Node(expr.id)),
-//             );
-//             constrain(ty_out, node_ty);
-//             generate_constraints_expr(
-//                 gamma.clone(),
-//                 Mode::Ana { expected: ty_left },
-//                 left.clone(),
-//                 ctx,
-//             );
-//             generate_constraints_expr(gamma, Mode::Ana { expected: ty_right }, right.clone(), ctx);
+//         ExprKind::BinOp(left, _, right) => {
+//             resolve_names_expr(ctx, env.clone(), left.clone());
+//             resolve_names_expr(ctx, env, right.clone());
 //         }
 //         ExprKind::Block(statements) => {
-//             if statements.is_empty() {
-//                 constrain(node_ty, TypeVar::make_unit(Prov::Node(expr.id)));
-//                 return;
-//             }
-//             let new_gamma = gamma.new_scope();
-//             for statement in statements[..statements.len() - 1].iter() {
-//                 generate_constraints_stmt(
-//                     new_gamma.clone(),
-//                     Mode::Syn,
-//                     statement.clone(),
-//                     ctx,
-//                     true,
-//                 );
-//             }
-//             // if last statement is an expression, the block will have that expression's type
-//             if let StmtKind::Expr(terminal_expr) = &*statements.last().unwrap().kind {
-//                 generate_constraints_expr(
-//                     new_gamma,
-//                     Mode::Ana { expected: node_ty },
-//                     terminal_expr.clone(),
-//                     ctx,
-//                 )
-//             } else {
-//                 generate_constraints_stmt(
-//                     new_gamma,
-//                     Mode::Syn,
-//                     statements.last().unwrap().clone(),
-//                     ctx,
-//                     true,
-//                 );
-//                 constrain(node_ty, TypeVar::make_unit(Prov::Node(expr.id)))
+//             let env = env.new_scope();
+//             for statement in statements.iter() {
+//                 resolve_names_stmt(ctx, env.clone(), statement.clone());
 //             }
 //         }
 //         ExprKind::If(cond, expr1, expr2) => {
-//             generate_constraints_expr(
-//                 gamma.clone(),
-//                 Mode::Ana {
-//                     expected: TypeVar::make_bool(Prov::Node(cond.id)),
-//                 },
-//                 cond.clone(),
-//                 ctx,
-//             );
-//             match &expr2 {
-//                 // if-else
-//                 Some(expr2) => {
-//                     generate_constraints_expr(
-//                         gamma.clone(),
-//                         Mode::Ana {
-//                             expected: node_ty.clone(),
-//                         },
-//                         expr1.clone(),
-//                         ctx,
-//                     );
-//                     generate_constraints_expr(
-//                         gamma,
-//                         Mode::Ana { expected: node_ty },
-//                         expr2.clone(),
-//                         ctx,
-//                     );
-//                 }
-//                 // just if
-//                 None => {
-//                     generate_constraints_expr(
-//                         gamma,
-//                         Mode::Ana {
-//                             expected: TypeVar::make_unit(Prov::Node(expr.id)),
-//                         },
-//                         expr1.clone(),
-//                         ctx,
-//                     );
-//                     constrain(node_ty, TypeVar::make_unit(Prov::Node(expr.id)))
-//                 }
+//             resolve_names_expr(ctx, env.clone(), cond.clone());
+//             resolve_names_expr(ctx, env.clone(), expr1.clone());
+//             if let Some(expr2) = expr2 {
+//                 resolve_names_expr(ctx, env.clone(), expr2.clone());
 //             }
 //         }
 //         ExprKind::WhileLoop(cond, expr) => {
-//             generate_constraints_expr(
-//                 gamma.clone(),
-//                 Mode::Ana {
-//                     expected: TypeVar::make_bool(Prov::Node(cond.id)),
-//                 },
-//                 cond.clone(),
-//                 ctx,
-//             );
-//             generate_constraints_expr(gamma, Mode::Syn, expr.clone(), ctx);
-//             constrain(node_ty, TypeVar::make_unit(Prov::Node(expr.id)))
+//             resolve_names_expr(ctx, env.clone(), cond.clone());
+//             resolve_names_expr(ctx, env.clone(), expr.clone());
 //         }
 //         ExprKind::Match(scrut, arms) => {
-//             let ty_scrutiny = TypeVar::from_node(ctx, scrut.id);
-//             generate_constraints_expr(
-//                 gamma.clone(),
-//                 Mode::Ana {
-//                     expected: ty_scrutiny.clone(),
-//                 },
-//                 scrut.clone(),
-//                 ctx,
-//             );
+//             resolve_names_expr(ctx, env.clone(), scrut.clone());
 //             for arm in arms {
-//                 let new_gamma = gamma.new_scope();
-//                 generate_constraints_pat(
-//                     new_gamma.clone(),
-//                     Mode::Ana {
-//                         expected: ty_scrutiny.clone(),
-//                     },
-//                     arm.pat.clone(),
-//                     ctx,
-//                 );
-//                 generate_constraints_expr(
-//                     new_gamma,
-//                     Mode::Ana {
-//                         expected: node_ty.clone(),
-//                     },
-//                     arm.expr.clone(),
-//                     ctx,
-//                 );
+//                 let env = env.new_scope();
+//                 resolve_names_pat(ctx, env.clone(), arm.pat.clone());
+//                 resolve_names_expr(ctx, env.clone(), arm.expr.clone());
 //             }
 //         }
-//         ExprKind::Func(args, out_annot, body) => {
-//             let func_node_id = expr.id;
-//             let body_gamma = gamma.new_scope();
-//             let ty_func = generate_constraints_func_helper(
-//                 ctx,
-//                 func_node_id,
-//                 body_gamma,
-//                 args,
-//                 out_annot,
-//                 body,
-//             );
-
-//             constrain(node_ty, ty_func);
+//         ExprKind::Func(args, _, body) => {
+//             let env = env.new_scope();
+//             resolve_names_func_helper(ctx, env, args, body);
 //         }
 //         ExprKind::FuncAp(func, args) => {
-//             // arguments
-//             let tys_args: Vec<TypeVar> = args
-//                 .iter()
-//                 .enumerate()
-//                 .map(|(n, arg)| {
-//                     let unknown =
-//                         TypeVar::fresh(ctx, Prov::FuncArg(Box::new(Prov::Node(func.id)), n as u8));
-//                     generate_constraints_expr(
-//                         gamma.clone(),
-//                         Mode::Ana {
-//                             expected: unknown.clone(),
-//                         },
-//                         arg.clone(),
-//                         ctx,
-//                     );
-//                     unknown
-//                 })
-//                 .collect();
-
-//             // body
-//             let ty_body = TypeVar::fresh(ctx, Prov::FuncOut(Box::new(Prov::Node(func.id))));
-//             constrain(ty_body.clone(), node_ty);
-
-//             // function type
-//             let ty_func = TypeVar::make_func(tys_args, ty_body, Prov::Node(expr.id));
-//             generate_constraints_expr(
-//                 gamma,
-//                 Mode::Ana {
-//                     expected: ty_func.clone(),
-//                 },
-//                 func.clone(),
-//                 ctx,
-//             );
-
-//             // println!("funcap: {}", ty_func);
+//             resolve_names_expr(ctx, env.clone(), func.clone());
+//             for arg in args {
+//                 resolve_names_expr(ctx, env.clone(), arg.clone());
+//             }
 //         }
 //         ExprKind::Tuple(exprs) => {
-//             let tys = exprs
-//                 .iter()
-//                 .map(|expr| TypeVar::fresh(ctx, Prov::Node(expr.id)))
-//                 .collect();
-//             constrain(node_ty, TypeVar::make_tuple(tys, Prov::Node(expr.id)));
 //             for expr in exprs {
-//                 generate_constraints_expr(gamma.clone(), Mode::Syn, expr.clone(), ctx);
+//                 resolve_names_expr(ctx, env.clone(), expr.clone());
 //             }
 //         }
 //         ExprKind::MemberAccess(expr, field) => {
-//             generate_constraints_expr(gamma, Mode::Syn, expr.clone(), ctx);
-//             let ty_expr = TypeVar::fresh(ctx, Prov::Node(expr.id));
-//             if ty_expr.underdetermined() {
-//                 ctx.annotation_needed.insert(expr.id);
-//                 return;
-//             }
-//             let Some(inner) = ty_expr.single() else {
-//                 return;
-//             };
-//             if let PotentialType::UdtInstance(_, ident, _) = inner {
-//                 if let Some(struct_def) = ctx.struct_defs.get(&ident) {
-//                     let ExprKind::Identifier(field_ident) = &*field.kind else {
-//                         ctx.field_not_ident.insert(field.id);
-//                         return;
-//                     };
-//                     let ty_field = TypeVar::fresh(
-//                         ctx,
-//                         Prov::StructField(field_ident.clone(), struct_def.location),
-//                     );
-//                     constrain(node_ty.clone(), ty_field);
-//                     return;
-//                 }
-//             }
-
-//             ctx.types_that_must_be_structs.insert(ty_expr, expr.id);
+//             resolve_names_expr(ctx, env.clone(), expr.clone());
+//             resolve_names_expr(ctx, env.clone(), field.clone());
 //         }
 //         ExprKind::IndexAccess(accessed, index) => {
-//             generate_constraints_expr(gamma.clone(), Mode::Syn, accessed.clone(), ctx);
-
-//             let elem_ty = TypeVar::fresh(ctx, Prov::ListElem(Prov::Node(accessed.id).into()));
-//             let accessed_ty = TypeVar::from_node(ctx, accessed.id);
-//             constrain(
-//                 accessed_ty,
-//                 TypeVar::make_def_instance(
-//                     Prov::Node(accessed.id),
-//                     "array".to_owned(),
-//                     vec![elem_ty.clone()],
-//                 ),
-//             );
-//             generate_constraints_expr(
-//                 gamma,
-//                 Mode::Ana {
-//                     expected: TypeVar::make_int(Prov::IndexAccess),
-//                 },
-//                 index.clone(),
-//                 ctx,
-//             );
-
-//             constrain(node_ty, elem_ty);
+//             resolve_names_expr(ctx, env.clone(), accessed.clone());
+//             resolve_names_expr(ctx, env.clone(), index.clone());
 //         }
 //     }
 // }
 
 // fn resolve_names_func_helper(
 //     ctx: &mut StaticsContext,
-//     node_id: NodeId,
-//     gamma: Gamma,
+//     env: Env,
 //     args: &[ArgAnnotated],
-//     out_annot: &Option<Rc<AstType>>,
 //     body: &Rc<Expr>,
-// ) -> TypeVar {
-//     // arguments
-//     let ty_args = args
-//         .iter()
-//         .map(|(arg, arg_annot)| {
-//             let ty_pat = TypeVar::from_node(ctx, arg.id);
-//             match arg_annot {
-//                 Some(arg_annot) => {
-//                     let ty_annot = TypeVar::from_node(ctx, arg_annot.id());
-//                     let arg_annot = ast_type_to_statics_type(ctx, arg_annot.clone());
-//                     constrain(ty_annot.clone(), arg_annot.clone());
-//                     gamma.add_polys(&arg_annot);
-//                     generate_constraints_pat(
-//                         gamma.clone(), // TODO what are the consequences of analyzing patterns with context containing previous pattern... probs should not do that
-//                         Mode::Ana { expected: ty_annot },
-//                         arg.clone(),
-//                         ctx,
-//                     )
-//                 }
-//                 None => generate_constraints_pat(gamma.clone(), Mode::Syn, arg.clone(), ctx),
-//             }
-//             ty_pat
-//         })
-//         .collect();
-
-//     // body
-//     let ty_body = TypeVar::fresh(ctx, Prov::FuncOut(Box::new(Prov::Node(node_id))));
-//     generate_constraints_expr(
-//         gamma.clone(),
-//         Mode::Ana {
-//             expected: ty_body.clone(),
-//         },
-//         body.clone(),
-//         ctx,
-//     );
-//     if let Some(out_annot) = out_annot {
-//         let out_annot = ast_type_to_statics_type(ctx, out_annot.clone());
-//         gamma.add_polys(&out_annot);
-//         generate_constraints_expr(
-//             gamma,
-//             Mode::Ana {
-//                 expected: out_annot,
-//             },
-//             body.clone(),
-//             ctx,
-//         );
+// ) {
+//     for arg in args {
+//         resolve_names_pat(ctx, env.clone(), arg.0.clone());
 //     }
 
-//     TypeVar::make_func(ty_args, ty_body, Prov::Node(node_id))
+//     resolve_names_expr(ctx, env.clone(), body.clone());
 // }
 
-// fn resolve_names_stmt(
-//     gamma: Gamma,
-//     mode: Mode,
-//     stmt: Rc<Stmt>,
-//     ctx: &mut StaticsContext,
-//     add_to_tyvar_gamma: bool,
-// ) {
+// fn resolve_names_stmt(ctx: &mut StaticsContext, env: Env, stmt: Rc<Stmt>) {
 //     match &*stmt.kind {
 //         StmtKind::InterfaceDef(..) => {}
 //         StmtKind::Import(..) => {}
-//         StmtKind::InterfaceImpl(ident, typ, statements) => {
-//             let typ = ast_type_to_statics_type(ctx, typ.clone());
-
-//             if let Some(interface_def) = ctx.interface_def_of_ident(ident) {
-//                 for statement in statements {
-//                     let StmtKind::FuncDef(pat, _args, _out, _body) = &*statement.kind else {
-//                         continue;
-//                     };
-//                     let method_name = pat.kind.get_identifier_of_variable();
-//                     if let Some(interface_method) =
-//                         interface_def.methods.iter().find(|m| m.name == method_name)
-//                     {
-//                         let mut substitution = BTreeMap::new();
-//                         substitution.insert("a".to_string(), typ.clone());
-
-//                         let expected = interface_method.ty.clone().subst(
-//                             gamma.clone(),
-//                             Prov::Node(stmt.id),
-//                             &substitution,
-//                         );
-
-//                         constrain(expected, TypeVar::from_node(ctx, pat.id));
-
-//                         generate_constraints_stmt(
-//                             gamma.clone(),
-//                             Mode::Syn,
-//                             statement.clone(),
-//                             ctx,
-//                             false,
-//                         );
-//                     } else {
-//                         ctx.interface_impl_extra_method
-//                             .entry(stmt.id)
-//                             .or_default()
-//                             .push(statement.id);
-//                     }
-//                 }
-//                 for interface_method in interface_def.methods {
-//                     if !statements.iter().any(|stmt| match &*stmt.kind {
-//                         StmtKind::FuncDef(pat, _args, _out, _body) => {
-//                             pat.kind.get_identifier_of_variable() == interface_method.name
-//                         }
-//                         _ => false,
-//                     }) {
-//                         ctx.interface_impl_missing_method
-//                             .entry(stmt.id)
-//                             .or_default()
-//                             .push(interface_method.name.clone());
-//                     }
-//                 }
-//             } else {
-//                 ctx.unbound_interfaces.insert(stmt.id);
-//             }
+//         StmtKind::FuncDef(..) => {
+//             // TODO: need this probably
+//         }
+//         StmtKind::InterfaceImpl(..) => { // TODO: need this probably
 //         }
 //         StmtKind::TypeDef(typdefkind) => match &**typdefkind {
 //             TypeDefKind::Alias(ident, ty) => {
@@ -960,148 +546,38 @@ fn resolve_imports(ctx: &mut StaticsContext, file: Rc<FileAst>) -> Env {
 //             TypeDefKind::Enum(..) | TypeDefKind::Struct(..) => {}
 //         },
 //         StmtKind::Expr(expr) => {
-//             generate_constraints_expr(gamma, mode, expr.clone(), ctx);
+//             resolve_names_expr(ctx, env, expr.clone());
 //         }
 //         StmtKind::Let(_mutable, (pat, ty_ann), expr) => {
-//             let ty_pat = TypeVar::from_node(ctx, pat.id);
-
-//             generate_constraints_expr(
-//                 gamma.clone(),
-//                 Mode::Ana { expected: ty_pat },
-//                 expr.clone(),
-//                 ctx,
-//             );
-
-//             if let Some(ty_ann) = ty_ann {
-//                 let ty_ann = ast_type_to_statics_type(ctx, ty_ann.clone());
-//                 gamma.add_polys(&ty_ann);
-//                 generate_constraints_pat(gamma, Mode::Ana { expected: ty_ann }, pat.clone(), ctx)
-//             } else {
-//                 generate_constraints_pat(gamma, Mode::Syn, pat.clone(), ctx)
-//             };
+//             resolve_names_expr(ctx, env.clone(), expr.clone());
+//             resolve_names_pat(ctx, env.clone(), pat.clone());
 //         }
 //         StmtKind::Set(lhs, rhs) => {
-//             let ty_lhs = TypeVar::from_node(ctx, lhs.id);
-//             generate_constraints_expr(gamma.clone(), Mode::Syn, lhs.clone(), ctx);
-//             let ty_rhs = TypeVar::from_node(ctx, rhs.id);
-//             generate_constraints_expr(gamma, Mode::Syn, rhs.clone(), ctx);
-//             constrain(ty_lhs, ty_rhs);
-//         }
-//         StmtKind::FuncDef(name, args, out_annot, body) => {
-//             let func_node_id = stmt.id;
-//             let ty_pat = TypeVar::from_node(ctx, name.id);
-
-//             let func_name = name.kind.get_identifier_of_variable();
-
-//             // TODO this needs a better explanation
-//             if add_to_tyvar_gamma {
-//                 gamma.extend(name.kind.get_identifier_of_variable(), ty_pat.clone());
-//                 gamma.extend_declaration(
-//                     func_name,
-//                     Resolution::FreeFunction(stmt.id, name.kind.get_identifier_of_variable()),
-//                 );
-//             } else {
-//                 gamma.extend_declaration(func_name.clone(), Resolution::InterfaceMethod(func_name));
-//             }
-
-//             let body_gamma = gamma.new_scope();
-//             let ty_func = generate_constraints_func_helper(
-//                 ctx,
-//                 func_node_id,
-//                 body_gamma,
-//                 args,
-//                 out_annot,
-//                 body,
-//             );
-
-//             constrain(ty_pat, ty_func);
+//             resolve_names_expr(ctx, env.clone(), lhs.clone());
+//             resolve_names_expr(ctx, env.clone(), rhs.clone());
 //         }
 //     }
 // }
 
-// fn resolve_names_pat(gamma: Gamma, mode: Mode, pat: Rc<Pat>, ctx: &mut StaticsContext) {
-//     let ty_pat = TypeVar::from_node(ctx, pat.id);
-//     match mode {
-//         Mode::Syn => (),
-//         Mode::Ana { expected } => constrain(expected, ty_pat.clone()),
-//     };
+// fn resolve_names_pat(_ctx: &mut StaticsContext, env: Env, pat: Rc<Pat>) {
 //     match &*pat.kind {
 //         PatKind::Wildcard => (),
-//         PatKind::Unit => {
-//             constrain(ty_pat, TypeVar::make_unit(Prov::Node(pat.id)));
-//         }
-//         PatKind::Int(_) => {
-//             constrain(ty_pat, TypeVar::make_int(Prov::Node(pat.id)));
-//         }
-//         PatKind::Float(_) => {
-//             constrain(ty_pat, TypeVar::make_float(Prov::Node(pat.id)));
-//         }
-//         PatKind::Bool(_) => {
-//             constrain(ty_pat, TypeVar::make_bool(Prov::Node(pat.id)));
-//         }
-//         PatKind::Str(_) => {
-//             constrain(ty_pat, TypeVar::make_string(Prov::Node(pat.id)));
-//         }
+//         PatKind::Unit
+//         | PatKind::Int(_)
+//         | PatKind::Float(_)
+//         | PatKind::Bool(_)
+//         | PatKind::Str(_) => {}
 //         PatKind::Var(identifier) => {
-//             // letrec: extend context with id and type before analyzing against said type
-//             gamma.extend(identifier.clone(), ty_pat);
-//             gamma.extend_declaration(identifier.clone(), Resolution::Var(pat.id));
+//             env.extend(identifier.clone(), Declaration::Var(pat.id));
 //         }
-//         PatKind::Variant(tag, data) => {
-//             let ty_data = match data {
-//                 Some(data) => TypeVar::from_node(ctx, data.id),
-//                 None => TypeVar::make_unit(Prov::VariantNoData(Box::new(Prov::Node(pat.id)))),
-//             };
-//             let mut substitution = BTreeMap::new();
-//             let ty_enum_instance = {
-//                 let enum_def = ctx.enum_def_of_variant(tag);
-
-//                 if let Some(enum_def) = enum_def {
-//                     let nparams = enum_def.params.len();
-//                     let mut params = vec![];
-//                     for i in 0..nparams {
-//                         params.push(TypeVar::fresh(
-//                             ctx,
-//                             Prov::InstantiateUdtParam(Box::new(Prov::Node(pat.id)), i as u8),
-//                         ));
-//                         substitution.insert(enum_def.params[i].clone(), params[i].clone());
-//                     }
-//                     let def_type = TypeVar::make_def_instance(
-//                         Prov::UdtDef(Box::new(Prov::Node(pat.id))),
-//                         enum_def.name,
-//                         params,
-//                     );
-
-//                     let variant_def = enum_def.variants.iter().find(|v| v.ctor == *tag).unwrap();
-//                     let variant_data_ty = variant_def.data.clone().subst(
-//                         gamma.clone(),
-//                         Prov::Node(pat.id),
-//                         &substitution,
-//                     );
-//                     constrain(ty_data.clone(), variant_data_ty);
-
-//                     def_type
-//                 } else {
-//                     panic!("variant not found");
-//                 }
-//             };
-
-//             constrain(ty_pat, ty_enum_instance);
+//         PatKind::Variant(_, data) => {
 //             if let Some(data) = data {
-//                 generate_constraints_pat(gamma, Mode::Ana { expected: ty_data }, data.clone(), ctx)
+//                 resolve_names_pat(_ctx, env, data.clone())
 //             };
 //         }
 //         PatKind::Tuple(pats) => {
-//             let tys_elements = pats
-//                 .iter()
-//                 .map(|pat| TypeVar::fresh(ctx, Prov::Node(pat.id)))
-//                 .collect();
-//             constrain(
-//                 ty_pat,
-//                 TypeVar::make_tuple(tys_elements, Prov::Node(pat.id)),
-//             );
 //             for pat in pats {
-//                 generate_constraints_pat(gamma.clone(), Mode::Syn, pat.clone(), ctx)
+//                 resolve_names_pat(_ctx, env.clone(), pat.clone());
 //             }
 //         }
 //     }
