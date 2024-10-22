@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 use std::{fmt, rc::Rc};
 
 use crate::ast::{
@@ -117,23 +117,18 @@ fn gather_declarations_stmt(namespace: &mut Namespace, qualifiers: Vec<String>, 
             // TODO: in the near future, put interface methods in a namespace named after the interface
             // and call interface methods using the dot operator. my_struct.to_string() etc.
 
-            // let mut ns = Namespace::default();
-
-            for p in properties {
+            for (i, p) in properties.iter().enumerate() {
                 let method_name = p.ident.clone();
                 let mut fully_qualified_name = qualifiers.clone();
                 fully_qualified_name.push(method_name.clone());
                 namespace.declarations.insert(
                     method_name,
-                    Declaration::InterfaceMethod(fully_qualified_name),
+                    Declaration::InterfaceMethod {
+                        parent: stmt.id,
+                        idx: i as u16,
+                    },
                 );
-                // ns.declarations.insert(
-                //     method_name,
-                //     Declaration::InterfaceMethod(fully_qualified_name),
-                // );
             }
-
-            // namespace.children.insert(ident.clone(), ns);
         }
         StmtKind::InterfaceImpl(_, _, _) => {}
         StmtKind::TypeDef(typdefkind) => match &**typdefkind {
@@ -146,9 +141,6 @@ fn gather_declarations_stmt(namespace: &mut Namespace, qualifiers: Vec<String>, 
                 // TODO: in the near future, put enum variants in a namespace named after the enum
                 // and refer to them in code by just writing .Variant
 
-                // let mut ns = Namespace::default();
-                // let name = ident.clone();
-
                 for (i, v) in variants.iter().enumerate() {
                     let tag = i as u16;
                     let variant_name = v.ctor.clone();
@@ -158,20 +150,20 @@ fn gather_declarations_stmt(namespace: &mut Namespace, qualifiers: Vec<String>, 
                         _ => 1,
                     }) as u16;
 
-                    namespace
-                        .declarations
-                        .insert(variant_name, Declaration::VariantCtor(tag, arity));
-                    // ns.declarations
-                    //     .insert(variant_name, Declaration::VariantCtor(tag, arity));
+                    namespace.declarations.insert(
+                        variant_name,
+                        Declaration::Variant {
+                            parent: stmt.id,
+                            idx: i as u16,
+                        },
+                    );
                 }
-
-                // namespace.children.insert(name, ns);
             }
             TypeDefKind::Struct(ident, _, fields) => {
                 let entry_name = ident.clone();
                 namespace
                     .declarations
-                    .insert(entry_name, Declaration::StructCtor(fields.len() as u16));
+                    .insert(entry_name, Declaration::Struct(stmt.id));
             }
         },
         StmtKind::Expr(_) => {}
@@ -180,10 +172,9 @@ fn gather_declarations_stmt(namespace: &mut Namespace, qualifiers: Vec<String>, 
             let entry_name = name.kind.get_identifier_of_variable();
             let mut fully_qualified_name = qualifiers.clone();
             fully_qualified_name.push(entry_name.clone());
-            namespace.declarations.insert(
-                entry_name,
-                Declaration::FreeFunction(stmt.id, fully_qualified_name),
-            );
+            namespace
+                .declarations
+                .insert(entry_name, Declaration::FreeFunction(stmt.id));
         }
         StmtKind::Set(..) | StmtKind::Import(..) => {}
     }
@@ -367,16 +358,20 @@ fn gather_definitions_stmt_DEPRECATE(
 type Env = Environment<Identifier, Declaration>;
 
 // TODO: make a custom type to detect collisions
-type ToplevelEnv = HashMap<Identifier, Declaration>;
+pub type ToplevelEnv = BTreeMap<Identifier, Declaration>;
 
-pub(crate) fn resolve(ctx: &mut StaticsContext, files: Vec<Rc<FileAst>>) {
+pub(crate) fn resolve_imports(
+    ctx: &mut StaticsContext,
+    files: Vec<Rc<FileAst>>,
+) -> BTreeMap<String, ToplevelEnv> {
+    let mut envs = BTreeMap::new();
     for file in files {
-        let env = resolve_imports(ctx, file.clone());
-        // resolve_names_file(ctx, env, file.clone());
+        envs.insert(file.name.clone(), resolve_imports_file(ctx, file.clone()));
     }
+    envs
 }
 
-fn resolve_imports(ctx: &mut StaticsContext, file: Rc<FileAst>) -> ToplevelEnv {
+fn resolve_imports_file(ctx: &mut StaticsContext, file: Rc<FileAst>) -> ToplevelEnv {
     // Return an environment with all identifiers available to this file.
     // That includes identifiers from this file and all imports.
     let mut env = ToplevelEnv::new();

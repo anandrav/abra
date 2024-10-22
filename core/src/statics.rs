@@ -1,7 +1,9 @@
 use crate::ast::{FileAst, Identifier, NodeId, NodeMap, Sources, Stmt};
 use crate::builtin::Builtin;
 use crate::effects::EffectStruct;
-use resolve::{resolve, scan_declarations, EnumDef, InterfaceDef, InterfaceImpl, StructDef};
+use resolve::{
+    resolve_imports, scan_declarations, EnumDef, InterfaceDef, InterfaceImpl, StructDef,
+};
 use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::fmt::{self, Display, Formatter};
 use std::rc::Rc;
@@ -157,13 +159,10 @@ type FullyQualifiedName = Vec<Identifier>;
 // Try to store more general information which the bytecode translator can then use to derive specific things it cares about.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub(crate) enum Declaration {
-    Var(NodeId),
-    FreeFunction(NodeId, FullyQualifiedName),
-    InterfaceMethod(FullyQualifiedName),
-    StructCtor(u16),
-    VariantCtor(u16, u16),
-    Builtin(Builtin),
-    Effect(u16),
+    FreeFunction(NodeId),
+    InterfaceMethod { parent: NodeId, idx: u16 },
+    Variant { parent: NodeId, idx: u16 },
+    Struct(NodeId),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -192,13 +191,15 @@ pub(crate) fn analyze(
     // scan declarations across all files
     scan_declarations(&mut ctx, tyctx.clone(), files.clone());
     // resolve all imports and names
-    resolve(&mut ctx, files.clone());
+    let envs = resolve_imports(&mut ctx, files.clone());
 
     println!("global namespace:\n{}", ctx.global_namespace);
 
     // typechecking
-    for parse_tree in files {
-        generate_constraints_file(tyctx.clone(), parse_tree.clone(), &mut ctx);
+    for file in files {
+        let env = envs.get(&file.name).unwrap();
+        // TODO get rid of tyctx and only pass env
+        generate_constraints_file(tyctx.clone(), env, file.clone(), &mut ctx);
     }
     // TODO: rename this to solve_constraints()
     result_of_constraint_solving(&mut ctx, node_map, sources)?;

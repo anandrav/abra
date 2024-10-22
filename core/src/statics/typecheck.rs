@@ -12,7 +12,8 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::fmt::{self, Write};
 use std::rc::Rc;
 
-use super::{Resolution, StaticsContext};
+use super::resolve::ToplevelEnv;
+use super::{Declaration, Resolution, StaticsContext};
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub(crate) struct TypeVar(UnionFindNode<TypeVarData>);
@@ -1332,10 +1333,22 @@ pub(crate) fn result_of_constraint_solving(
 
 pub(crate) fn generate_constraints_file(
     // TODO don't pass in symbol_table
-    symbol_table: SymbolTable,
+    symbol_table_DEPRECATE: SymbolTable,
+    env: &ToplevelEnv,
     file: Rc<FileAst>,
     ctx: &mut StaticsContext,
 ) {
+    let new_symbol_table = SymbolTable::empty();
+    // initialize new symbol table with stuff from env
+    for (ident, declaration) in env.iter() {
+        match declaration {
+            Declaration::FreeFunction(node_id) => {}
+            Declaration::InterfaceMethod { .. } => {}
+            Declaration::Struct(..) => {}
+            Declaration::Variant { .. } => {}
+        }
+    }
+
     for (i, eff) in ctx.effects.iter().enumerate() {
         let prov = Prov::Effect(i as u16);
         let mut args = Vec::new();
@@ -1347,18 +1360,18 @@ pub(crate) fn generate_constraints_file(
             monotype_to_typevar(eff.type_signature.1.clone(), prov.clone()),
             prov,
         );
-        symbol_table.extend(eff.name.clone(), typ);
-        symbol_table.extend_declaration(eff.name.clone(), Resolution::Effect(i as u16));
+        symbol_table_DEPRECATE.extend(eff.name.clone(), typ);
+        symbol_table_DEPRECATE.extend_declaration(eff.name.clone(), Resolution::Effect(i as u16));
     }
     for builtin in Builtin::enumerate().iter() {
         let prov = Prov::Builtin(*builtin);
         let typ = solved_type_to_typevar(builtin.type_signature(), prov);
-        symbol_table.extend(builtin.name(), typ);
-        symbol_table.extend_declaration(builtin.name(), Resolution::Builtin(*builtin));
+        symbol_table_DEPRECATE.extend(builtin.name(), typ);
+        symbol_table_DEPRECATE.extend_declaration(builtin.name(), Resolution::Builtin(*builtin));
     }
     for statement in file.statements.iter() {
         generate_constraints_stmt(
-            symbol_table.clone(),
+            symbol_table_DEPRECATE.clone(),
             Mode::Syn,
             statement.clone(),
             ctx,
