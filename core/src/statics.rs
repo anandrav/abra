@@ -28,7 +28,7 @@ pub(crate) struct StaticsContext {
     // DECLARATIONS
 
     // new declaration stuff
-    pub(crate) global_namespace: NamespaceTree,
+    pub(crate) global_namespace: Namespace,
 
     // TODO this should all be replaced
     // enum definitions
@@ -125,17 +125,20 @@ impl StaticsContext {
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
-pub struct NamespaceTree {
-    entries: HashMap<Identifier, NamespaceTree>,
-    declaration: Option<Declaration>,
+pub struct Namespace {
+    children: BTreeMap<Identifier, Namespace>,
+    declarations: BTreeMap<Identifier, Declaration>,
 }
 
-impl Display for NamespaceTree {
+impl Display for Namespace {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         // indent for each level
-        fn fmt_tree(tree: &NamespaceTree, f: &mut Formatter, indent: usize) -> fmt::Result {
-            for (name, subtree) in &tree.entries {
-                writeln!(f, "{:indent$}{}", "", name, indent = indent)?;
+        fn fmt_tree(tree: &Namespace, f: &mut Formatter, indent: usize) -> fmt::Result {
+            for name in tree.declarations.keys() {
+                writeln!(f, "{:indent$}{}", "", name)?;
+            }
+            for (name, subtree) in &tree.children {
+                writeln!(f, "{:indent$}{}", "", name)?;
                 fmt_tree(subtree, f, indent + 2)?;
             }
             Ok(())

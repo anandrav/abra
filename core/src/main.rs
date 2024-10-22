@@ -17,6 +17,10 @@ fn foo(a: int, b) {
     let main = r#"
 use util
 
+fn bar(x: 'a) -> 'a {
+  x
+}
+
 foo(2, 2)
 "#;
     let sources = vec![

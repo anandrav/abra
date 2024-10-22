@@ -3,7 +3,7 @@ use std::{fmt, rc::Rc};
 use crate::ast::{Identifier, Node, NodeId, Stmt, StmtKind, Toplevel, TypeDefKind, TypeKind};
 use crate::environment::Environment;
 
-use super::{NamespaceTree, Resolution, StaticsContext, TypeVar};
+use super::{Namespace, Resolution, StaticsContext, TypeVar};
 
 // TODO: constrain, Gamma, Prov should be implementation details
 // TODO: others should probably be implementation details too
@@ -79,10 +79,10 @@ pub(crate) fn gather_declarations(
     gamma: Gamma, // TODO get rid of Gamma here
     toplevels: Vec<Rc<Toplevel>>,
 ) {
-    for parse_tree in toplevels {
-        let (name, namespace_entry) =
-            gather_declarations_toplevel(ctx, gamma.clone(), parse_tree.clone());
-        ctx.global_namespace.entries.insert(name, namespace_entry);
+    for toplevel in toplevels {
+        let name = toplevel.name.clone();
+        let namespace = gather_declarations_toplevel(ctx, gamma.clone(), toplevel.clone());
+        ctx.global_namespace.children.insert(name, namespace);
     }
 }
 
@@ -90,97 +90,76 @@ fn gather_declarations_toplevel(
     ctx: &mut StaticsContext,
     gamma: Gamma,
     toplevel: Rc<Toplevel>,
-) -> (String, NamespaceTree) {
-    let this_name = toplevel.name.clone();
-    let this_name = this_name[..this_name.len() - 5].to_string();
-    let mut this_entry = NamespaceTree::default();
+) -> Namespace {
+    let mut namespace = Namespace::default();
 
+    // TODO: get rid of this
     for statement in toplevel.statements.iter() {
         gather_definitions_stmt_DEPRECATE(ctx, gamma.clone(), statement.clone());
     }
 
     for statement in toplevel.statements.iter() {
-        if let Some((name, entry)) = gather_declarations_stmt(statement.clone()) {
-            if this_entry.entries.contains_key(&name) {
-                todo!("multiple declarations for the same identifier");
-            }
-            this_entry.entries.insert(name, entry);
-        }
+        gather_declarations_stmt(&mut namespace, statement.clone());
     }
 
-    (this_name, this_entry)
+    namespace
 }
 
-fn gather_declarations_stmt(stmt: Rc<Stmt>) -> Option<(String, NamespaceTree)> {
+fn gather_declarations_stmt(namespace: &mut Namespace, stmt: Rc<Stmt>) {
     match &*stmt.kind {
         StmtKind::InterfaceDef(ident, properties) => {
             let entry_name = ident.clone();
-            let mut entry = NamespaceTree::default();
+            let mut entry = Namespace::default();
 
-            for p in properties {
-                let method_name = p.ident.clone();
-                let method_entry = NamespaceTree {
-                    declaration: Some(p.id()),
-                    ..NamespaceTree::default()
-                };
+            // TODO: handle properties
+            // for p in properties {
+            //     let method_name = p.ident.clone();
+            //     let method_entry = Namespace {
+            //         declaration: Some(p.id()),
+            //         ..Namespace::default()
+            //     };
 
-                entry.entries.insert(method_name, method_entry);
-            }
+            //     entry.entries.insert(method_name, method_entry);
+            // }
 
-            entry.declaration = Some(stmt.id);
-            Some((entry_name, entry))
+            namespace.declarations.insert(entry_name, stmt.id);
         }
-        StmtKind::InterfaceImpl(..) => None,
+        StmtKind::InterfaceImpl(..) => {}
         StmtKind::TypeDef(typdefkind) => match &**typdefkind {
             TypeDefKind::Alias(ident, _) => {
                 let entry_name = ident.clone();
-                let entry = NamespaceTree {
-                    declaration: Some(stmt.id()),
-                    ..NamespaceTree::default()
-                };
-
-                Some((entry_name, entry))
+                namespace.declarations.insert(entry_name, stmt.id);
             }
             TypeDefKind::Enum(ident, _, variants) => {
                 let entry_name = ident.clone();
-                let mut entry = NamespaceTree::default();
+                let mut entry = Namespace::default();
 
-                for v in variants.iter() {
-                    let variant_name = v.ctor.clone();
-                    let variant_entry = NamespaceTree {
-                        declaration: Some(v.id()),
-                        ..NamespaceTree::default()
-                    };
+                // TODO: handle variants
+                // for v in variants.iter() {
+                //     let variant_name = v.ctor.clone();
+                //     let variant_entry = Namespace {
+                //         declaration: Some(v.id()),
+                //         ..Namespace::default()
+                //     };
 
-                    entry.entries.insert(variant_name, variant_entry);
-                }
+                //     entry.entries.insert(variant_name, variant_entry);
+                // }
 
-                entry.declaration = Some(stmt.id);
-                Some((entry_name, entry))
+                let entry_name = ident.clone();
+                namespace.declarations.insert(entry_name, stmt.id);
             }
             TypeDefKind::Struct(ident, _, _) => {
                 let entry_name = ident.clone();
-                let entry = NamespaceTree {
-                    declaration: Some(stmt.id()),
-                    ..NamespaceTree::default()
-                };
-
-                Some((entry_name, entry))
+                namespace.declarations.insert(entry_name, stmt.id);
             }
         },
-        StmtKind::Expr(_) => None,
-        StmtKind::Let(_, _, _) => None,
+        StmtKind::Expr(_) => {}
+        StmtKind::Let(_, _, _) => {}
         StmtKind::FuncDef(name, _args, _out_annot, _) => {
             let entry_name = name.kind.get_identifier_of_variable();
-            let entry = NamespaceTree {
-                declaration: Some(stmt.id()),
-                ..NamespaceTree::default()
-            };
-
-            Some((entry_name, entry))
+            namespace.declarations.insert(entry_name, stmt.id);
         }
-        StmtKind::Set(..) => None,
-        StmtKind::Import(..) => None,
+        StmtKind::Set(..) | StmtKind::Import(..) => {}
     }
 }
 
@@ -355,35 +334,33 @@ fn gather_definitions_stmt_DEPRECATE(ctx: &mut StaticsContext, gamma: Gamma, stm
     }
 }
 
-type Env = Environment<Identifier, EnvEntry>;
-
-// Looking up a symbol can either yield a resolution (function, variable, builtin, etc.) or a namespace
-#[derive(Clone, PartialEq, Eq)]
-enum EnvEntry {
-    Resolution(Resolution),
-    Namespace(NamespaceTree),
-}
+type Env = Environment<Identifier, Resolution>;
 
 pub(crate) fn resolve(ctx: &mut StaticsContext, toplevels: Vec<Rc<Toplevel>>) {
     for parse_tree in toplevels {
-        resolve_names_toplevel(ctx, parse_tree.clone());
+        // get the env for this file
+        let env = resolve_imports(ctx, parse_tree.clone());
+        // resolve names within the file
+        resolve_names_toplevel(ctx, env, parse_tree.clone());
     }
 }
 
-fn resolve_names_toplevel(ctx: &mut StaticsContext, toplevel: Rc<Toplevel>) {
+fn resolve_imports(ctx: &mut StaticsContext, toplevel: Rc<Toplevel>) -> Env {
     // environment used for looking up and resolving names mentioned in the program
     let env = Env::empty();
     // extend the environment with the entries in the global namespace
     // this allows the programmer to refer to any qualified name in the global namespace
-    let empty = NamespaceTree::default();
-    let toplevel_namespace_tree = ctx
-        .global_namespace
-        .entries
-        .get(&toplevel.name)
-        .unwrap_or(&empty);
-    for (name, entry) in &toplevel_namespace_tree.entries {
-        env.extend(name.clone(), EnvEntry::Namespace(entry.clone()));
-    }
+    let empty = Namespace::default();
+    println!("{}", toplevel.name.clone());
+    // let toplevel_namespace_tree = ctx.global_namespace.entries.get(&toplevel.name).unwrap();
+    // for (name, entry) in &toplevel_namespace_tree.entries {
+    //     env.extend(name.clone(), EnvEntry::Namespace(entry.clone()));
+    // }
+    dbg!(&env);
+    env
+}
+
+fn resolve_names_toplevel(ctx: &mut StaticsContext, env: Env, toplevel: Rc<Toplevel>) {
     // TODO: resolve imports and extend the environment with imported identifiers
 
     // resolve names using the environment for this file/toplevel
