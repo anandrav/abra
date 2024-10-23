@@ -464,7 +464,7 @@ enum Constructor {
     Wildcard(WildcardReason), // user-created wildcard pattern
     Bool(bool),
     Int(i64),
-    Float(f32),
+    Float(AbraFloat),
     String(String),
     Product, // tuples, including unit
     Variant(Identifier),

@@ -1,6 +1,6 @@
 type ProgramCounter = usize;
 pub type AbraInt = i64;
-pub type AbraFloat = f32;
+pub type AbraFloat = f64;
 
 use crate::translate_bytecode::CompiledProgram;
 use core::fmt;
