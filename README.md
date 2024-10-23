@@ -18,10 +18,8 @@ while i < 10 {
 }
 ```
 
-Try the [online editor](https://abra-editor.replit.app).
-
 ## Installation
-
+(Requires Rust and Cargo: https://www.rust-lang.org/tools/install)
 ```
 git clone https://github.com/anandrav/abra.git
 cd abra
