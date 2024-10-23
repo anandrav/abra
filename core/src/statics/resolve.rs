@@ -115,18 +115,18 @@ fn gather_declarations_file(
 
 fn gather_declarations_stmt(namespace: &mut Namespace, qualifiers: Vec<String>, stmt: Rc<Stmt>) {
     match &*stmt.kind {
-        StmtKind::InterfaceDef(_ident, properties) => {
+        StmtKind::InterfaceDef(iface) => {
             // TODO: in the near future, put interface methods in a namespace named after the interface
             // and call interface methods using the dot operator. my_struct.to_string() etc.
 
-            for (i, p) in properties.iter().enumerate() {
+            for (i, p) in iface.props.iter().enumerate() {
                 let method_name = p.ident.clone();
                 let mut fully_qualified_name = qualifiers.clone();
                 fully_qualified_name.push(method_name.clone());
                 namespace.declarations.insert(
                     method_name,
                     Declaration::InterfaceMethod {
-                        parent: stmt.id,
+                        parent: iface.clone(),
                         idx: i as u16,
                     },
                 );
@@ -175,7 +175,7 @@ fn gather_declarations_stmt(namespace: &mut Namespace, qualifiers: Vec<String>, 
             fully_qualified_name.push(entry_name.clone());
             namespace
                 .declarations
-                .insert(entry_name, Declaration::FreeFunction(stmt.id));
+                .insert(entry_name, Declaration::FreeFunction(f.clone()));
         }
         StmtKind::Set(..) | StmtKind::Import(..) => {}
     }
@@ -187,19 +187,19 @@ fn gather_definitions_stmt_DEPRECATE(
     stmt: Rc<Stmt>,
 ) {
     match &*stmt.kind {
-        StmtKind::InterfaceDef(ident, properties) => {
-            if let Some(interface_def) = ctx.interface_defs.get(ident) {
+        StmtKind::InterfaceDef(i) => {
+            if let Some(interface_def) = ctx.interface_defs.get(&i.name) {
                 let entry = ctx
                     .multiple_interface_defs
-                    .entry(ident.clone())
+                    .entry(i.name.clone())
                     .or_default();
                 entry.push(interface_def.location);
                 entry.push(stmt.id);
                 return;
             }
             let mut methods = vec![];
-            for p in properties {
-                let ty_annot = ast_type_to_statics_type_interface(ctx, p.ty.clone(), Some(ident));
+            for p in i.props.iter() {
+                let ty_annot = ast_type_to_statics_type_interface(ctx, p.ty.clone(), Some(&i.name));
                 let node_ty = TypeVar::from_node(ctx, p.id());
                 // TODO: it would be nice if there were no calls to constrain() when gathering declarations...
                 constrain(node_ty.clone(), ty_annot.clone());
@@ -208,13 +208,13 @@ fn gather_definitions_stmt_DEPRECATE(
                     ty: node_ty.clone(),
                 });
                 ctx.method_to_interface
-                    .insert(p.ident.clone(), ident.clone());
+                    .insert(p.ident.clone(), i.name.clone());
                 symbol_table.extend(p.ident.clone(), node_ty);
             }
             ctx.interface_defs.insert(
-                ident.clone(),
+                i.name.clone(),
                 InterfaceDef_OLD {
-                    name: ident.clone(),
+                    name: i.name.clone(),
                     methods,
                     location: stmt.id,
                 },

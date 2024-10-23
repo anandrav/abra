@@ -1,4 +1,6 @@
-use crate::ast::{EnumDef, FileAst, Identifier, NodeId, NodeMap, Sources, Stmt, StructDef};
+use crate::ast::{
+    EnumDef, FileAst, FuncDef, Identifier, InterfaceDef, NodeId, NodeMap, Sources, Stmt, StructDef,
+};
 use crate::builtin::Builtin;
 use crate::effects::EffectStruct;
 use resolve::{
@@ -205,8 +207,8 @@ impl SymbolTable {
 // Try to store more general information which the bytecode translator can then use to derive specific things it cares about.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub(crate) enum Declaration {
-    FreeFunction(NodeId),
-    InterfaceMethod { parent: NodeId, idx: u16 },
+    FreeFunction(Rc<FuncDef>),
+    InterfaceMethod { parent: Rc<InterfaceDef>, idx: u16 },
     EnumVariant { parent: Rc<EnumDef>, idx: u16 },
     Struct(Rc<StructDef>),
 }

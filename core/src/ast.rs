@@ -204,9 +204,9 @@ impl Node for Stmt {
                     children
                 }
             },
-            StmtKind::InterfaceDef(_, props) => {
+            StmtKind::InterfaceDef(i) => {
                 let mut children: Vec<Rc<dyn Node>> = Vec::new();
-                for prop in props {
+                for prop in i.props.iter() {
                     children.push(prop.clone() as Rc<dyn Node>);
                 }
                 children
@@ -234,9 +234,9 @@ pub(crate) enum StmtKind {
     Expr(Rc<Expr>),
     // TODO: change these to be "FileAstItem". FileAstItem = FuncDef | TypeDef | InterfaceDef | InterfaceImpl | Stmt
     // TODO: don't use FuncDef for interface methods
-    FuncDef(FuncDef),
+    FuncDef(Rc<FuncDef>),
     TypeDef(Rc<TypeDefKind>),
-    InterfaceDef(Identifier, Vec<Rc<InterfaceProperty>>),
+    InterfaceDef(Rc<InterfaceDef>),
     InterfaceImpl(Identifier, Rc<AstType>, Vec<Rc<Stmt>>),
     Import(Identifier),
 }
@@ -247,6 +247,12 @@ pub(crate) struct FuncDef {
     pub(crate) args: Vec<ArgAnnotated>,
     pub(crate) ret_type: Option<Rc<AstType>>,
     pub(crate) body: Rc<Expr>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub(crate) struct InterfaceDef {
+    pub(crate) name: Identifier,
+    pub(crate) props: Vec<Rc<InterfaceProperty>>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -1029,16 +1035,16 @@ pub(crate) fn parse_stmt(pair: Pair<Rule>, filename: &str) -> Rc<Stmt> {
             })
         }
         Rule::interface_declaration => {
-            let ident = inner[0].as_str().to_string();
+            let name = inner[0].as_str().to_string();
             let mut n = 1;
-            let mut methods = vec![];
+            let mut props = vec![];
             while let Some(pair) = inner.get(n) {
                 let method = parse_interface_method(pair.clone(), filename);
-                methods.push(Rc::new(method));
+                props.push(Rc::new(method));
                 n += 1;
             }
             Rc::new(Stmt {
-                kind: StmtKind::InterfaceDef(ident, methods).into(),
+                kind: StmtKind::InterfaceDef(InterfaceDef { name, props }.into()).into(),
                 span,
                 id: NodeId::new(),
             })
