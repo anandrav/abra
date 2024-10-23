@@ -831,7 +831,7 @@ impl Translator {
 
     fn translate_item_static(&self, stmt: Rc<Item>, st: &mut TranslatorState, iface_method: bool) {
         match &*stmt.kind {
-            ItemKind::Stmt(stmt) => {}
+            ItemKind::Stmt(_) => {}
             ItemKind::InterfaceImpl(_, _, stmts) => {
                 for stmt in stmts {
                     self.translate_stmt_static(stmt.clone(), st, true);
@@ -885,16 +885,13 @@ impl Translator {
         }
     }
 
+    // TODO: this is basically only used for Method implementations, so need to distinguish those from regular functions
     fn translate_stmt_static(&self, stmt: Rc<Stmt>, st: &mut TranslatorState, iface_method: bool) {
         match &*stmt.kind {
             StmtKind::Let(..) => {}
             StmtKind::Set(..) => {}
             StmtKind::Expr(..) => {}
-            StmtKind::InterfaceImpl(_, _, stmts) => {
-                for stmt in stmts {
-                    self.translate_stmt_static(stmt.clone(), st, true);
-                }
-            }
+
             StmtKind::FuncDef(f) => {
                 // TODO last here
                 // TODO: check if overloaded. If so, handle differently.
@@ -936,9 +933,6 @@ impl Translator {
                 }
 
                 emit(st, Instr::Return);
-            }
-            StmtKind::InterfaceDef(..) | StmtKind::TypeDef(..) | StmtKind::Import(..) => {
-                // noop
             }
         }
     }
@@ -991,14 +985,8 @@ impl Translator {
                     emit(st, Instr::Pop);
                 }
             }
-            StmtKind::InterfaceImpl(..) => {
-                // noop -- handled elsewhere
-            }
             StmtKind::FuncDef(..) => {
                 // noop -- handled elsewhere
-            }
-            StmtKind::InterfaceDef(..) | StmtKind::TypeDef(..) | StmtKind::Import(..) => {
-                // noop
             }
         }
     }
@@ -1103,10 +1091,6 @@ impl Translator {
                     self.collect_captures_expr(expr, locals, arg_set, captures);
                 }
                 StmtKind::FuncDef(..) => {}
-                StmtKind::InterfaceImpl(..) => {}
-                StmtKind::InterfaceDef(..) => {}
-                StmtKind::TypeDef(..) => {}
-                StmtKind::Import(..) => {}
             }
         }
     }
@@ -1313,11 +1297,7 @@ fn collect_locals_stmt(statements: &[Rc<Stmt>], locals: &mut HashSet<NodeId>) {
                 collect_locals_pat(pat.0.clone(), locals);
             }
             StmtKind::Set(..) => {}
-            StmtKind::InterfaceImpl(..) => {}
-            StmtKind::FuncDef(..)
-            | StmtKind::TypeDef(..)
-            | StmtKind::InterfaceDef(..)
-            | StmtKind::Import(..) => {}
+            StmtKind::FuncDef(..) => {}
         }
     }
 }

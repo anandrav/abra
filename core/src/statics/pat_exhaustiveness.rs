@@ -87,14 +87,6 @@ fn check_pattern_exhaustiveness_item(statics: &mut StaticsContext, stmt: &Item) 
 
 fn check_pattern_exhaustiveness_stmt(statics: &mut StaticsContext, stmt: &Stmt) {
     match &*stmt.kind {
-        StmtKind::Import(..) => {}
-        StmtKind::InterfaceDef(..) => {}
-        StmtKind::TypeDef(..) => {}
-        StmtKind::InterfaceImpl(_, _, stmts) => {
-            for stmt in stmts {
-                check_pattern_exhaustiveness_stmt(statics, stmt);
-            }
-        }
         StmtKind::Set(_, expr) => {
             check_pattern_exhaustiveness_expr(statics, expr);
         }
