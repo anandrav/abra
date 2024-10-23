@@ -159,8 +159,7 @@ type FullyQualifiedName = Vec<Identifier>;
 // Try to store more general information which the bytecode translator can then use to derive specific things it cares about.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub(crate) enum Declaration {
-    FreeFunction(NodeId, String),
-    Interface(NodeId),
+    FreeFunction(NodeId),
     InterfaceMethod { parent: NodeId, idx: u16 },
     Variant { parent: NodeId, idx: u16 },
     Struct(NodeId),
@@ -186,8 +185,11 @@ pub(crate) fn analyze(
 ) -> Result<StaticsContext, String> {
     let mut ctx = StaticsContext::new(effects.to_owned()); // TODO: to_owned necessary?
 
+    // TODO: don't create symbol_table here
+    let tyctx = typecheck::SymbolTable::empty();
+
     // scan declarations across all files
-    scan_declarations(&mut ctx, files.clone());
+    scan_declarations(&mut ctx, tyctx.clone(), files.clone());
     // resolve all imports and names
     let envs = resolve_imports(&mut ctx, files.clone());
 
@@ -197,7 +199,7 @@ pub(crate) fn analyze(
     for file in files {
         let env = envs.get(&file.name).unwrap();
         // TODO get rid of tyctx and only pass env
-        generate_constraints_file(&mut ctx, env, file.clone());
+        generate_constraints_file(tyctx.clone(), env, file.clone(), &mut ctx);
     }
     // TODO: rename this to solve_constraints()
     result_of_constraint_solving(&mut ctx, node_map, sources)?;

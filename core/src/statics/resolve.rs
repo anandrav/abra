@@ -79,16 +79,29 @@ pub(crate) struct InterfaceImplMethod {
     pub(crate) identifier_location: NodeId,
 }
 
-pub(crate) fn scan_declarations(ctx: &mut StaticsContext, files: Vec<Rc<FileAst>>) {
+pub(crate) fn scan_declarations(
+    ctx: &mut StaticsContext,
+    symbol_table: SymbolTable, // TODO get rid of Env here
+    files: Vec<Rc<FileAst>>,
+) {
     for file in files {
         let name = file.name.clone();
-        let namespace = gather_declarations_file(ctx, file.clone());
+        let namespace = gather_declarations_file(ctx, symbol_table.clone(), file.clone());
         ctx.global_namespace.children.insert(name, namespace);
     }
 }
 
-fn gather_declarations_file(ctx: &mut StaticsContext, file: Rc<FileAst>) -> Namespace {
+fn gather_declarations_file(
+    ctx: &mut StaticsContext,
+    symbol_table: SymbolTable,
+    file: Rc<FileAst>,
+) -> Namespace {
     let mut namespace = Namespace::default();
+
+    // TODO: get rid of this
+    for statement in file.statements.iter() {
+        gather_definitions_stmt_DEPRECATE(ctx, symbol_table.clone(), statement.clone());
+    }
 
     let qualifiers = vec![file.name.clone()];
     for statement in file.statements.iter() {
@@ -157,18 +170,16 @@ fn gather_declarations_stmt(namespace: &mut Namespace, qualifiers: Vec<String>, 
         StmtKind::Let(_, _, _) => {}
         StmtKind::FuncDef(name, _args, _out_annot, _) => {
             let entry_name = name.kind.get_identifier_of_variable();
-            // let mut fully_qualified_name = qualifiers.clone();
-            // fully_qualified_name.push(entry_name.clone());
-            namespace.declarations.insert(
-                entry_name.clone(),
-                Declaration::FreeFunction(stmt.id, entry_name),
-            );
+            let mut fully_qualified_name = qualifiers.clone();
+            fully_qualified_name.push(entry_name.clone());
+            namespace
+                .declarations
+                .insert(entry_name, Declaration::FreeFunction(stmt.id));
         }
         StmtKind::Set(..) | StmtKind::Import(..) => {}
     }
 }
 
-// TODO: reimplement this shit but namespaced
 fn gather_definitions_stmt_DEPRECATE(
     ctx: &mut StaticsContext,
     symbol_table: SymbolTable,
