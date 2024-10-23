@@ -33,7 +33,7 @@ pub(crate) struct StaticsContext {
     // new declaration stuff
     pub(crate) global_namespace: Namespace,
 
-    // TODO this should all be replaced
+    // TODO this should all be replaced by Declarations in the SymbolTable
     // TODO: just attempt remove them one by one. Use NodeId instead of Identifier
     // enum definitions
     pub(crate) enum_defs: HashMap<Identifier, EnumDef>,
