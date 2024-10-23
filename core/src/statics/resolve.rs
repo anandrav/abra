@@ -13,7 +13,7 @@ use super::{Declaration, Namespace, Resolution, StaticsContext, TypeVar};
 // TODO: constrain, Env, Prov should be implementation details
 // TODO: others should probably be implementation details too
 use super::typecheck::{
-    ast_type_to_statics_type, ast_type_to_statics_type_interface, constrain, Prov, SymbolTable,
+    ast_type_to_statics_type, ast_type_to_statics_type_interface, constrain, Prov, SymbolTable_OLD,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
@@ -81,19 +81,21 @@ pub(crate) struct InterfaceImplMethod {
 
 pub(crate) fn scan_declarations(
     ctx: &mut StaticsContext,
-    symbol_table: SymbolTable, // TODO get rid of Env here
+    symbol_table: SymbolTable_OLD, // TODO get rid of Env here
     files: Vec<Rc<FileAst>>,
 ) {
     for file in files {
         let name = file.name.clone();
         let namespace = gather_declarations_file(ctx, symbol_table.clone(), file.clone());
-        ctx.global_namespace.children.insert(name, namespace);
+        ctx.global_namespace
+            .namespaces
+            .insert(name, namespace.into());
     }
 }
 
 fn gather_declarations_file(
     ctx: &mut StaticsContext,
-    symbol_table: SymbolTable,
+    symbol_table: SymbolTable_OLD,
     file: Rc<FileAst>,
 ) -> Namespace {
     let mut namespace = Namespace::default();
@@ -182,7 +184,7 @@ fn gather_declarations_stmt(namespace: &mut Namespace, qualifiers: Vec<String>, 
 
 fn gather_definitions_stmt_DEPRECATE(
     ctx: &mut StaticsContext,
-    symbol_table: SymbolTable,
+    symbol_table: SymbolTable_OLD,
     stmt: Rc<Stmt>,
 ) {
     match &*stmt.kind {
@@ -378,7 +380,7 @@ fn resolve_imports_file(ctx: &mut StaticsContext, file: Rc<FileAst>) -> Toplevel
     // add declarations from this file to the environment
     for (name, declaration) in ctx
         .global_namespace
-        .children
+        .namespaces
         .get(&file.name)
         .unwrap()
         .declarations
@@ -390,7 +392,7 @@ fn resolve_imports_file(ctx: &mut StaticsContext, file: Rc<FileAst>) -> Toplevel
     // add declarations from prelude to the environment
     for (name, declaration) in ctx
         .global_namespace
-        .children
+        .namespaces
         .get("prelude")
         .unwrap()
         .declarations
@@ -404,7 +406,7 @@ fn resolve_imports_file(ctx: &mut StaticsContext, file: Rc<FileAst>) -> Toplevel
             // add declarations from this import to the environment
             for (name, declaration) in ctx
                 .global_namespace
-                .children
+                .namespaces
                 .get(path)
                 .unwrap()
                 .declarations

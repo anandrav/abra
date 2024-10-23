@@ -480,7 +480,7 @@ impl TypeVar {
     // Creates a clone of a Type with polymorphic variables not in scope with fresh unification variables
     fn instantiate(
         self,
-        symbol_table: SymbolTable,
+        symbol_table: SymbolTable_OLD,
         ctx: &mut StaticsContext,
         prov: Prov,
     ) -> TypeVar {
@@ -550,7 +550,7 @@ impl TypeVar {
     // Creates a *new* Type with polymorphic variabels replaced by subtitutions
     fn subst(
         self,
-        symbol_table: SymbolTable,
+        symbol_table: SymbolTable_OLD,
         prov: Prov,
         substitution: &BTreeMap<Identifier, TypeVar>,
     ) -> TypeVar {
@@ -831,8 +831,9 @@ pub(crate) fn constrain(mut expected: TypeVar, mut actual: TypeVar) {
 }
 
 #[derive(Clone)]
-pub(crate) struct SymbolTable {
+pub(crate) struct SymbolTable_OLD {
     // map from identifier to its type
+    // TODO: This is actually not needed. var_declarations maps from Identifier to Resolution, which lets you derive the TypeVar
     tyctx: Environment<Identifier, TypeVar>,
     // keep track of polymorphic type variables currently in scope (such as 'a)
     polyvars_in_scope: Environment<Identifier, ()>,
@@ -840,7 +841,7 @@ pub(crate) struct SymbolTable {
     // map from identifier to where its defined
     var_declarations: Environment<Identifier, Resolution>,
 }
-impl SymbolTable {
+impl SymbolTable_OLD {
     pub(crate) fn empty() -> Self {
         Self {
             tyctx: Environment::empty(),
@@ -1333,12 +1334,12 @@ pub(crate) fn result_of_constraint_solving(
 
 pub(crate) fn generate_constraints_file(
     // TODO don't pass in symbol_table
-    symbol_table_DEPRECATE: SymbolTable,
+    symbol_table_DEPRECATE: SymbolTable_OLD,
     env: &ToplevelEnv,
     file: Rc<FileAst>,
     ctx: &mut StaticsContext,
 ) {
-    let new_symbol_table = SymbolTable::empty();
+    let new_symbol_table = SymbolTable_OLD::empty();
     // initialize new symbol table with stuff from env
     for (ident, declaration) in env.iter() {
         match declaration {
@@ -1381,7 +1382,7 @@ pub(crate) fn generate_constraints_file(
 }
 
 fn generate_constraints_expr(
-    symbol_table: SymbolTable,
+    symbol_table: SymbolTable_OLD,
     mode: Mode,
     expr: Rc<Expr>,
     ctx: &mut StaticsContext,
@@ -1809,7 +1810,7 @@ fn generate_constraints_expr(
 fn generate_constraints_func_helper(
     ctx: &mut StaticsContext,
     node_id: NodeId,
-    symbol_table: SymbolTable,
+    symbol_table: SymbolTable_OLD,
     args: &[ArgAnnotated],
     out_annot: &Option<Rc<AstType>>,
     body: &Rc<Expr>,
@@ -1865,7 +1866,7 @@ fn generate_constraints_func_helper(
 }
 
 fn generate_constraints_stmt(
-    symbol_table: SymbolTable,
+    symbol_table: SymbolTable_OLD,
     mode: Mode,
     stmt: Rc<Stmt>,
     ctx: &mut StaticsContext,
@@ -2003,7 +2004,7 @@ fn generate_constraints_stmt(
 }
 
 fn generate_constraints_pat(
-    symbol_table: SymbolTable,
+    symbol_table: SymbolTable_OLD,
     mode: Mode,
     pat: Rc<Pat>,
     ctx: &mut StaticsContext,

@@ -4,6 +4,7 @@ use crate::effects::EffectStruct;
 use resolve::{
     resolve_imports, scan_declarations, EnumDef, InterfaceDef, InterfaceImpl, StructDef,
 };
+use std::cell::RefCell;
 use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::fmt::{self, Display, Formatter};
 use std::rc::Rc;
@@ -55,9 +56,6 @@ pub(crate) struct StaticsContext {
     pub(crate) name_resolutions: HashMap<NodeId, Resolution>,
     // string constants
     pub(crate) string_constants: HashMap<String, usize>,
-
-    // trying to redo this shit
-    pub(crate) name_resolutions2: HashMap<NodeId, Declaration>,
 
     // TYPE CHECKING
 
@@ -131,9 +129,9 @@ impl StaticsContext {
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
-pub struct Namespace {
-    children: BTreeMap<Identifier, Namespace>,
+struct Namespace {
     declarations: BTreeMap<Identifier, Declaration>,
+    namespaces: BTreeMap<Identifier, Rc<Namespace>>,
 }
 
 impl Display for Namespace {
@@ -143,7 +141,7 @@ impl Display for Namespace {
             for name in tree.declarations.keys() {
                 writeln!(f, "{:indent$}{}", "", name)?;
             }
-            for (name, subtree) in &tree.children {
+            for (name, subtree) in &tree.namespaces {
                 writeln!(f, "{:indent$}{}", "", name)?;
                 fmt_tree(subtree, f, indent + 2)?;
             }
@@ -153,7 +151,54 @@ impl Display for Namespace {
     }
 }
 
-type FullyQualifiedName = Vec<Identifier>;
+type Path = Vec<Identifier>;
+
+// Map identifiers to (1) declarations and (2) namespaces
+// and supports nested scopes
+struct SymbolTable {
+    base: Rc<RefCell<SymbolTableBase>>,
+}
+
+#[derive(Default)]
+struct SymbolTableBase {
+    declarations: BTreeMap<Identifier, Declaration>,
+    namespaces: BTreeMap<Identifier, Rc<Namespace>>,
+
+    enclosing: Option<Rc<RefCell<SymbolTableBase>>>,
+}
+
+impl SymbolTable {
+    pub(crate) fn empty() -> Self {
+        Self {
+            base: Rc::new(RefCell::new(SymbolTableBase::default())),
+        }
+    }
+
+    pub(crate) fn new_scope(&self) -> Self {
+        Self {
+            base: Rc::new(RefCell::new(SymbolTableBase {
+                enclosing: Some(self.base.clone()),
+                ..Default::default()
+            })),
+        }
+    }
+
+    pub(crate) fn lookup_declaration(&self, id: &Identifier) -> Option<Declaration> {
+        self.base.borrow().declarations.get(id).cloned()
+    }
+
+    pub(crate) fn lookup_namespace(&self, id: &Identifier) -> Option<Rc<Namespace>> {
+        self.base.borrow().namespaces.get(id).cloned()
+    }
+
+    pub(crate) fn extend_declaration(&self, id: Identifier, decl: Declaration) {
+        self.base.borrow_mut().declarations.insert(id, decl);
+    }
+
+    pub(crate) fn extend_namespace(&self, id: Identifier, ns: Rc<Namespace>) {
+        self.base.borrow_mut().namespaces.insert(id, ns);
+    }
+}
 
 // TODO: separation of concerns. storing number of arguments, tag, etc. because the bytecode translator needs it is kinda weird, maybe reconsider.
 // Try to store more general information which the bytecode translator can then use to derive specific things it cares about.
@@ -186,7 +231,7 @@ pub(crate) fn analyze(
     let mut ctx = StaticsContext::new(effects.to_owned()); // TODO: to_owned necessary?
 
     // TODO: don't create symbol_table here
-    let tyctx = typecheck::SymbolTable::empty();
+    let tyctx = typecheck::SymbolTable_OLD::empty();
 
     // scan declarations across all files
     scan_declarations(&mut ctx, tyctx.clone(), files.clone());
