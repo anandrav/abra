@@ -1,13 +1,11 @@
 use std::cell::RefCell;
-use std::collections::{BTreeMap, HashMap};
+use std::collections::BTreeMap;
 use std::{fmt, rc::Rc};
 
 use crate::ast::{
     ArgAnnotated, Expr, ExprKind, FileAst, Identifier, Item, ItemKind, Node, NodeId, Pat, PatKind,
     Stmt, StmtKind, TypeDefKind, TypeKind,
 };
-use crate::builtin::Builtin;
-use crate::environment::Environment;
 
 use super::{Declaration, Namespace, Resolution_OLD, StaticsContext, TypeVar};
 

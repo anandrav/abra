@@ -1,12 +1,11 @@
 use crate::ast::{
-    EnumDef, FileAst, FuncDef, Identifier, InterfaceDef, NodeId, NodeMap, Sources, Stmt, StructDef,
+    EnumDef, FileAst, FuncDef, Identifier, InterfaceDef, NodeId, NodeMap, Sources, StructDef,
 };
 use crate::builtin::Builtin;
 use crate::effects::EffectStruct;
 use resolve::{
     resolve, scan_declarations, EnumDef_OLD, InterfaceDef_OLD, InterfaceImpl_OLD, StructDef_OLD,
 };
-use std::cell::RefCell;
 use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::fmt::{self, Display, Formatter};
 use std::rc::Rc;
@@ -153,8 +152,6 @@ impl Display for Namespace {
         fmt_tree(self, f, 0)
     }
 }
-
-type Path = Vec<Identifier>;
 
 // TODO: separation of concerns. storing number of arguments, tag, etc. because the bytecode translator needs it is kinda weird, maybe reconsider.
 // Try to store more general information which the bytecode translator can then use to derive specific things it cares about.

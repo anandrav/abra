@@ -163,9 +163,8 @@ impl Node for Item {
                 let mut children: Vec<Rc<dyn Node>> = vec![f.name.clone() as Rc<dyn Node>];
                 for (pat, annot) in f.args.iter() {
                     children.push(pat.clone() as Rc<dyn Node>);
-                    match annot {
-                        Some(ty) => children.push(ty.clone()),
-                        None => {}
+                    if let Some(ty) = annot {
+                        children.push(ty.clone())
                     }
                 }
                 if let Some(ty) = &f.ret_type {
@@ -253,9 +252,8 @@ impl Node for Stmt {
                 let mut children: Vec<Rc<dyn Node>> = vec![f.name.clone() as Rc<dyn Node>];
                 for (pat, annot) in f.args.iter() {
                     children.push(pat.clone() as Rc<dyn Node>);
-                    match annot {
-                        Some(ty) => children.push(ty.clone()),
-                        None => {}
+                    if let Some(ty) = annot {
+                        children.push(ty.clone())
                     }
                 }
                 if let Some(ty) = &f.ret_type {
@@ -352,9 +350,8 @@ impl Node for Expr {
                 let mut children: Vec<Rc<dyn Node>> = Vec::new();
                 args.iter().for_each(|(pat, annot)| {
                     children.push(pat.clone());
-                    match annot {
-                        Some(ty) => children.push(ty.clone()),
-                        None => {}
+                    if let Some(ty) = annot {
+                        children.push(ty.clone())
                     }
                 });
                 if let Some(ty) = ty_opt {

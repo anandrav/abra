@@ -1,7 +1,7 @@
 use abra_core::effects::{DefaultEffects, EffectTrait};
 use abra_core::vm::Vm;
+use abra_core::SourceFile;
 use abra_core::{compile_bytecode, _PRELUDE};
-use abra_core::{source_files_single, SourceFile};
 
 fn main() {
     test();
