@@ -134,11 +134,10 @@ fn gather_declarations_stmt(namespace: &mut Namespace, qualifiers: Vec<String>, 
         }
         StmtKind::InterfaceImpl(_, _, _) => {}
         StmtKind::TypeDef(typdefkind) => match &**typdefkind {
-            TypeDefKind::Alias(_ident, _) => {
-                // TODO: type aliases
-                // At this stage, since we're just gathering declarations,
-                // actually resolving the alias to the final result will have to be done later.
-            }
+            // TypeDefKind::Alias(_ident, _) => {
+            //     // At this stage, since we're just gathering declarations,
+            //     // actually resolving the alias to the final result will have to be done later.
+            // }
             TypeDefKind::Enum(_ident, _, variants) => {
                 // TODO: in the near future, put enum variants in a namespace named after the enum
                 // and refer to them in code by just writing .Variant
@@ -251,7 +250,7 @@ fn gather_definitions_stmt_DEPRECATE(
             });
         }
         StmtKind::TypeDef(typdefkind) => match &**typdefkind {
-            TypeDefKind::Alias(_ident, _ty) => {}
+            // TypeDefKind::Alias(_ident, _ty) => {}
             TypeDefKind::Enum(ident, params, variants) => {
                 if let Some(enum_def) = ctx.enum_defs.get(ident) {
                     let entry = ctx.multiple_udt_defs.entry(ident.clone()).or_default();

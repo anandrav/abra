@@ -22,7 +22,6 @@ pub(crate) struct Sources {
 
 pub(crate) type PatAnnotated = (Rc<Pat>, Option<Rc<AstType>>);
 
-// TODO: Rename FileAst to FileAst
 #[derive(Debug, Clone)]
 pub(crate) struct FileAst {
     pub(crate) statements: Vec<Rc<Stmt>>,
@@ -50,7 +49,7 @@ impl Node for FileAst {
 
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) enum TypeDefKind {
-    Alias(Identifier, Rc<AstType>),
+    // Alias(Identifier, Rc<AstType>),
     Enum(Identifier, Vec<Rc<AstType>>, Vec<Rc<Variant>>),
     Struct(Identifier, Vec<Rc<AstType>>, Vec<Rc<StructField>>),
 }
@@ -167,7 +166,7 @@ impl Node for Stmt {
             StmtKind::Set(lhs, rhs) => vec![lhs.clone(), rhs.clone()],
             StmtKind::Expr(expr) => vec![expr.clone()],
             StmtKind::TypeDef(tydefkind) => match &**tydefkind {
-                TypeDefKind::Alias(_, ty) => vec![ty.clone()],
+                // TypeDefKind::Alias(_, ty) => vec![ty.clone()],
                 // TODO this is redundant, use the Node::children() implementation
                 TypeDefKind::Enum(_, params, variants) => {
                     let mut children: Vec<Rc<dyn Node>> = Vec::new();
@@ -933,17 +932,17 @@ pub(crate) fn parse_stmt(pair: Pair<Rule>, filename: &str) -> Rc<Stmt> {
                 id: NodeId::new(),
             })
         }
-        Rule::typealias => {
-            let ident = inner[0].as_str().to_string();
-            let definition = parse_type_term(inner[1].clone(), filename);
-            Rc::new(Stmt {
-                kind: Rc::new(StmtKind::TypeDef(Rc::new(TypeDefKind::Alias(
-                    ident, definition,
-                )))),
-                span,
-                id: NodeId::new(),
-            })
-        }
+        // Rule::typealias => {
+        //     let ident = inner[0].as_str().to_string();
+        //     let definition = parse_type_term(inner[1].clone(), filename);
+        //     Rc::new(Stmt {
+        //         kind: Rc::new(StmtKind::TypeDef(Rc::new(TypeDefKind::Alias(
+        //             ident, definition,
+        //         )))),
+        //         span,
+        //         id: NodeId::new(),
+        //     })
+        // }
         Rule::enum_declaration => {
             let ident = inner[0].as_str().to_string();
             let mut n = 1;

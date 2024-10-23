@@ -1935,11 +1935,11 @@ fn generate_constraints_stmt(
             }
         }
         StmtKind::TypeDef(typdefkind) => match &**typdefkind {
-            TypeDefKind::Alias(ident, ty) => {
-                let left = TypeVar::fresh(ctx, Prov::Alias(ident.clone()));
-                let right = ast_type_to_statics_type(ctx, ty.clone());
-                constrain(left, right);
-            }
+            // TypeDefKind::Alias(ident, ty) => {
+            //     let left = TypeVar::fresh(ctx, Prov::Alias(ident.clone()));
+            //     let right = ast_type_to_statics_type(ctx, ty.clone());
+            //     constrain(left, right);
+            // }
             TypeDefKind::Enum(..) | TypeDefKind::Struct(..) => {}
         },
         StmtKind::Expr(expr) => {
