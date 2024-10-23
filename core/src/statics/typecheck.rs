@@ -1334,23 +1334,10 @@ pub(crate) fn result_of_constraint_solving(
 
 pub(crate) fn generate_constraints_file(
     // TODO don't pass in symbol_table
-    symbol_table_DEPRECATE: SymbolTable_OLD,
-    env: &ToplevelEnv,
+    symbol_table_OLD: SymbolTable_OLD,
     file: Rc<FileAst>,
     ctx: &mut StaticsContext,
 ) {
-    let new_symbol_table = SymbolTable_OLD::empty();
-    // initialize new symbol table with stuff from env
-    for (ident, declaration) in env.iter() {
-        match declaration {
-            Declaration::FreeFunction(..) => {}
-            Declaration::InterfaceDef { .. } => {}
-            Declaration::InterfaceMethod { .. } => {}
-            Declaration::Struct(..) => {}
-            Declaration::EnumVariant { .. } => {}
-        }
-    }
-
     for (i, eff) in ctx.effects.iter().enumerate() {
         let prov = Prov::Effect(i as u16);
         let mut args = Vec::new();
@@ -1362,20 +1349,18 @@ pub(crate) fn generate_constraints_file(
             monotype_to_typevar(eff.type_signature.1.clone(), prov.clone()),
             prov,
         );
-        symbol_table_DEPRECATE.extend(eff.name.clone(), typ);
-        symbol_table_DEPRECATE
-            .extend_declaration(eff.name.clone(), Resolution_OLD::Effect(i as u16));
+        symbol_table_OLD.extend(eff.name.clone(), typ);
+        symbol_table_OLD.extend_declaration(eff.name.clone(), Resolution_OLD::Effect(i as u16));
     }
     for builtin in Builtin::enumerate().iter() {
         let prov = Prov::Builtin(*builtin);
         let typ = solved_type_to_typevar(builtin.type_signature(), prov);
-        symbol_table_DEPRECATE.extend(builtin.name(), typ);
-        symbol_table_DEPRECATE
-            .extend_declaration(builtin.name(), Resolution_OLD::Builtin(*builtin));
+        symbol_table_OLD.extend(builtin.name(), typ);
+        symbol_table_OLD.extend_declaration(builtin.name(), Resolution_OLD::Builtin(*builtin));
     }
     for items in file.items.iter() {
         generate_constraints_item(
-            symbol_table_DEPRECATE.clone(),
+            symbol_table_OLD.clone(),
             Mode::Syn,
             items.clone(),
             ctx,

@@ -190,16 +190,14 @@ pub(crate) fn analyze(
 
     // scan declarations across all files
     scan_declarations(&mut ctx, tyctx.clone(), files.clone());
-    // resolve all imports and names
-    let envs = resolve(&mut ctx, files.clone());
+    // resolve all imports and identifiers
+    resolve(&mut ctx, files.clone());
 
     println!("global namespace:\n{}", ctx.global_namespace);
 
     // typechecking
     for file in files {
-        let env = envs.get(&file.name).unwrap();
-        // TODO get rid of tyctx and only pass env
-        generate_constraints_file(tyctx.clone(), env, file.clone(), &mut ctx);
+        generate_constraints_file(tyctx.clone(), file.clone(), &mut ctx);
     }
     // TODO: rename this to solve_constraints()
     result_of_constraint_solving(&mut ctx, node_map, sources)?;

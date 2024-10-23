@@ -232,17 +232,11 @@ impl SymbolTable {
 // TODO: make a custom type to detect collisions
 pub type ToplevelEnv = BTreeMap<Identifier, Declaration>;
 
-pub(crate) fn resolve(
-    ctx: &mut StaticsContext,
-    files: Vec<Rc<FileAst>>,
-) -> BTreeMap<String, ToplevelEnv> {
-    let mut envs = BTreeMap::new();
+pub(crate) fn resolve(ctx: &mut StaticsContext, files: Vec<Rc<FileAst>>) {
     for file in files {
         let env = resolve_imports_file(ctx, file.clone());
         resolve_names_file(ctx, env.clone(), file.clone());
-        envs.insert(file.name.clone(), env);
     }
-    envs
 }
 
 fn resolve_imports_file(ctx: &mut StaticsContext, file: Rc<FileAst>) -> ToplevelEnv {
