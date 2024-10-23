@@ -1346,7 +1346,7 @@ pub(crate) fn generate_constraints_file(
             Declaration::FreeFunction(node_id) => {}
             Declaration::InterfaceMethod { .. } => {}
             Declaration::Struct(..) => {}
-            Declaration::Variant { .. } => {}
+            Declaration::EnumVariant { .. } => {}
         }
     }
 

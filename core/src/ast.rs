@@ -50,11 +50,25 @@ impl Node for FileAst {
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) enum TypeDefKind {
     // Alias(Identifier, Rc<AstType>),
-    Enum(Identifier, Vec<Rc<AstType>>, Vec<Rc<Variant>>),
-    Struct(Identifier, Vec<Rc<AstType>>, Vec<Rc<StructField>>),
+    Enum(Rc<EnumDef>),
+    Struct(Rc<StructDef>),
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub(crate) struct EnumDef {
+    pub(crate) name: Identifier,
+    pub(crate) ty_args: Vec<Rc<AstType>>,
+    pub(crate) variants: Vec<Rc<Variant>>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub(crate) struct StructDef {
+    pub(crate) name: Identifier,
+    pub(crate) ty_args: Vec<Rc<AstType>>,
+    pub(crate) fields: Vec<Rc<StructField>>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub(crate) struct Variant {
     pub(crate) ctor: Identifier,
     pub(crate) data: Option<Rc<AstType>>,
@@ -79,7 +93,7 @@ impl Node for Variant {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub(crate) struct StructField {
     pub(crate) ident: Identifier,
     pub(crate) ty: Rc<AstType>,
@@ -168,22 +182,22 @@ impl Node for Stmt {
             StmtKind::TypeDef(tydefkind) => match &**tydefkind {
                 // TypeDefKind::Alias(_, ty) => vec![ty.clone()],
                 // TODO this is redundant, use the Node::children() implementation
-                TypeDefKind::Enum(_, params, variants) => {
+                TypeDefKind::Enum(e) => {
                     let mut children: Vec<Rc<dyn Node>> = Vec::new();
-                    for param in params {
+                    for param in e.ty_args.iter() {
                         children.push(param.clone());
                     }
-                    for variant in variants {
+                    for variant in e.variants.iter() {
                         children.push(variant.clone() as Rc<dyn Node>);
                     }
                     children
                 }
-                TypeDefKind::Struct(_, tys, fields) => {
+                TypeDefKind::Struct(s) => {
                     let mut children: Vec<Rc<dyn Node>> = Vec::new();
-                    for ty in tys {
+                    for ty in s.ty_args.iter() {
                         children.push(ty.clone());
                     }
-                    for field in fields {
+                    for field in s.fields.iter() {
                         children.push(field.clone() as Rc<dyn Node>);
                     }
                     children
@@ -443,7 +457,7 @@ impl PatKind {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub(crate) struct AstType {
     pub(crate) typekind: Rc<TypeKind>,
     pub(crate) span: Span,
@@ -488,7 +502,7 @@ impl Node for AstType {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub(crate) enum TypeKind {
     Poly(Identifier, Vec<Identifier>),
     Name(Identifier),
@@ -527,7 +541,7 @@ impl Default for NodeId {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub(crate) struct Span {
     pub(crate) filename: String,
     pub(crate) lo: usize,
@@ -944,11 +958,11 @@ pub(crate) fn parse_stmt(pair: Pair<Rule>, filename: &str) -> Rc<Stmt> {
         //     })
         // }
         Rule::enum_declaration => {
-            let ident = inner[0].as_str().to_string();
+            let name = inner[0].as_str().to_string();
             let mut n = 1;
-            let mut params = vec![];
+            let mut ty_args = vec![];
             while let Rule::type_poly = inner[n].as_rule() {
-                params.push(parse_type_term(inner[n].clone(), filename));
+                ty_args.push(parse_type_term(inner[n].clone(), filename));
                 n += 1;
             }
             let mut variants = vec![];
@@ -959,18 +973,23 @@ pub(crate) fn parse_stmt(pair: Pair<Rule>, filename: &str) -> Rc<Stmt> {
             }
             Rc::new(Stmt {
                 kind: Rc::new(StmtKind::TypeDef(Rc::new(TypeDefKind::Enum(
-                    ident, params, variants,
+                    EnumDef {
+                        name,
+                        ty_args,
+                        variants,
+                    }
+                    .into(),
                 )))),
                 span,
                 id: NodeId::new(),
             })
         }
         Rule::struct_declaration => {
-            let ident = inner[0].as_str().to_string();
+            let name = inner[0].as_str().to_string();
             let mut n = 1;
-            let mut params = vec![];
+            let mut ty_args = vec![];
             while let Rule::type_poly = inner[n].as_rule() {
-                params.push(parse_type_term(inner[n].clone(), filename));
+                ty_args.push(parse_type_term(inner[n].clone(), filename));
                 n += 1;
             }
             let mut fields = vec![];
@@ -981,7 +1000,12 @@ pub(crate) fn parse_stmt(pair: Pair<Rule>, filename: &str) -> Rc<Stmt> {
             }
             Rc::new(Stmt {
                 kind: Rc::new(StmtKind::TypeDef(Rc::new(TypeDefKind::Struct(
-                    ident, params, fields,
+                    StructDef {
+                        name,
+                        ty_args,
+                        fields,
+                    }
+                    .into(),
                 )))),
                 span,
                 id: NodeId::new(),

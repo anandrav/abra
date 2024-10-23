@@ -1,8 +1,9 @@
-use crate::ast::{FileAst, Identifier, NodeId, NodeMap, Sources, Stmt};
+use crate::ast::{EnumDef, FileAst, Identifier, NodeId, NodeMap, Sources, Stmt, StructDef};
 use crate::builtin::Builtin;
 use crate::effects::EffectStruct;
 use resolve::{
-    resolve_imports, scan_declarations, EnumDef, InterfaceDef, InterfaceImpl, StructDef,
+    resolve_imports, scan_declarations, EnumDef_OLD, InterfaceDef_OLD, InterfaceImpl_OLD,
+    StructDef_OLD,
 };
 use std::cell::RefCell;
 use std::collections::{BTreeMap, BTreeSet, HashMap};
@@ -19,7 +20,7 @@ pub(crate) use typecheck::{ty_fits_impl_ty, Monotype};
 pub(crate) use typecheck::Prov as TypeProv;
 pub(crate) use typecheck::SolvedType as Type;
 
-pub(crate) use resolve::StructField;
+pub(crate) use resolve::StructField_OLD;
 
 use pat_exhaustiveness::{result_of_additional_analysis, DeconstructedPat};
 
@@ -31,24 +32,24 @@ pub(crate) struct StaticsContext {
     // DECLARATIONS
 
     // new declaration stuff
-    pub(crate) global_namespace: Namespace,
+    global_namespace: Namespace,
 
     // TODO this should all be replaced by Declarations in the SymbolTable
     // TODO: just attempt remove them one by one. Use NodeId instead of Identifier
     // enum definitions
-    pub(crate) enum_defs: HashMap<Identifier, EnumDef>,
+    pub(crate) enum_defs: HashMap<Identifier, EnumDef_OLD>,
     // map from variant names to enum names
     variants_to_enum: HashMap<Identifier, Identifier>,
     // struct definitions
-    pub(crate) struct_defs: HashMap<Identifier, StructDef>,
+    pub(crate) struct_defs: HashMap<Identifier, StructDef_OLD>,
     // function definition locations
     pub(crate) fun_defs: HashMap<Identifier, Rc<Stmt>>,
     // interface definitions
-    interface_defs: HashMap<Identifier, InterfaceDef>,
+    interface_defs: HashMap<Identifier, InterfaceDef_OLD>,
     // map from methods to interface names
     pub(crate) method_to_interface: HashMap<Identifier, Identifier>,
     // map from interface name to list of implementations
-    pub(crate) interface_impls: BTreeMap<Identifier, Vec<InterfaceImpl>>,
+    pub(crate) interface_impls: BTreeMap<Identifier, Vec<InterfaceImpl_OLD>>,
 
     // BOOKKEEPING
 
@@ -100,12 +101,12 @@ impl StaticsContext {
         ctx
     }
 
-    fn enum_def_of_variant(&self, variant: &Identifier) -> Option<EnumDef> {
+    fn enum_def_of_variant(&self, variant: &Identifier) -> Option<EnumDef_OLD> {
         let enum_name = self.variants_to_enum.get(variant)?;
         self.enum_defs.get(enum_name).cloned()
     }
 
-    fn interface_def_of_ident(&self, ident: &Identifier) -> Option<InterfaceDef> {
+    fn interface_def_of_ident(&self, ident: &Identifier) -> Option<InterfaceDef_OLD> {
         self.interface_defs.get(ident).cloned()
     }
 
@@ -206,8 +207,8 @@ impl SymbolTable {
 pub(crate) enum Declaration {
     FreeFunction(NodeId),
     InterfaceMethod { parent: NodeId, idx: u16 },
-    Variant { parent: NodeId, idx: u16 },
-    Struct(NodeId),
+    EnumVariant { parent: Rc<EnumDef>, idx: u16 },
+    Struct(Rc<StructDef>),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]

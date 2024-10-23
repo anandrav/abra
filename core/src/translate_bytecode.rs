@@ -1289,7 +1289,7 @@ fn idx_of_field(statics: &StaticsContext, accessed: Rc<Expr>, field: &str) -> u1
             let field_idx = struct_ty
                 .fields
                 .iter()
-                .position(|f: &crate::statics::StructField| f.name == field)
+                .position(|f: &crate::statics::StructField_OLD| f.name == field)
                 .unwrap();
             field_idx as u16
         }

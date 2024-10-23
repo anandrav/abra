@@ -16,21 +16,21 @@ use super::typecheck::{
     ast_type_to_statics_type, ast_type_to_statics_type_interface, constrain, Prov, SymbolTable_OLD,
 };
 
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
-pub(crate) struct EnumDef {
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub(crate) struct EnumDef_OLD {
     pub(crate) name: Identifier,
     pub(crate) params: Vec<Identifier>,
-    pub(crate) variants: Vec<Variant>,
+    pub(crate) variants: Vec<Variant_OLD>,
     pub(crate) location: NodeId,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
-pub(crate) struct Variant {
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub(crate) struct Variant_OLD {
     pub(crate) ctor: Identifier,
     pub(crate) data: TypeVar,
 }
 
-impl fmt::Display for Variant {
+impl fmt::Display for Variant_OLD {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{} {}", self.ctor, self.data)
     }
@@ -38,42 +38,42 @@ impl fmt::Display for Variant {
 
 // TODO: these are all kind of redundant... Just use AST nodes instead of putting the same info in these structs?
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
-pub(crate) struct StructDef {
+pub(crate) struct StructDef_OLD {
     pub(crate) name: Identifier,
     pub(crate) params: Vec<Identifier>,
-    pub(crate) fields: Vec<StructField>,
+    pub(crate) fields: Vec<StructField_OLD>,
     pub(crate) location: NodeId,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
-pub(crate) struct StructField {
+pub(crate) struct StructField_OLD {
     pub(crate) name: Identifier,
     pub(crate) ty: TypeVar,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
-pub(crate) struct InterfaceDef {
+pub(crate) struct InterfaceDef_OLD {
     pub(crate) name: Identifier,
-    pub(crate) methods: Vec<InterfaceDefMethod>,
+    pub(crate) methods: Vec<InterfaceDefMethod_OLD>,
     pub(crate) location: NodeId,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
-pub(crate) struct InterfaceImpl {
+pub(crate) struct InterfaceImpl_OLD {
     pub(crate) name: Identifier,
     pub(crate) typ: TypeVar,
-    pub(crate) methods: Vec<InterfaceImplMethod>,
+    pub(crate) methods: Vec<InterfaceImplMethod_OLD>,
     pub(crate) location: NodeId,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
-pub(crate) struct InterfaceDefMethod {
+pub(crate) struct InterfaceDefMethod_OLD {
     pub(crate) name: Identifier,
     pub(crate) ty: TypeVar,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
-pub(crate) struct InterfaceImplMethod {
+pub(crate) struct InterfaceImplMethod_OLD {
     pub(crate) name: Identifier,
     pub(crate) method_location: NodeId,
     pub(crate) identifier_location: NodeId,
@@ -138,11 +138,11 @@ fn gather_declarations_stmt(namespace: &mut Namespace, qualifiers: Vec<String>, 
             //     // At this stage, since we're just gathering declarations,
             //     // actually resolving the alias to the final result will have to be done later.
             // }
-            TypeDefKind::Enum(_ident, _, variants) => {
+            TypeDefKind::Enum(e) => {
                 // TODO: in the near future, put enum variants in a namespace named after the enum
                 // and refer to them in code by just writing .Variant
 
-                for (i, v) in variants.iter().enumerate() {
+                for (i, v) in e.variants.iter().enumerate() {
                     let tag = i as u16;
                     let variant_name = v.ctor.clone();
                     let arity = v.data.as_ref().map_or(0, |d| match &*d.typekind {
@@ -153,18 +153,18 @@ fn gather_declarations_stmt(namespace: &mut Namespace, qualifiers: Vec<String>, 
 
                     namespace.declarations.insert(
                         variant_name,
-                        Declaration::Variant {
-                            parent: stmt.id,
+                        Declaration::EnumVariant {
+                            parent: e.clone(),
                             idx: i as u16,
                         },
                     );
                 }
             }
-            TypeDefKind::Struct(ident, _, fields) => {
-                let entry_name = ident.clone();
+            TypeDefKind::Struct(s) => {
+                let entry_name = s.name.clone();
                 namespace
                     .declarations
-                    .insert(entry_name, Declaration::Struct(stmt.id));
+                    .insert(entry_name, Declaration::Struct(s.clone()));
             }
         },
         StmtKind::Expr(_) => {}
@@ -203,7 +203,7 @@ fn gather_definitions_stmt_DEPRECATE(
                 let node_ty = TypeVar::from_node(ctx, p.id());
                 // TODO: it would be nice if there were no calls to constrain() when gathering declarations...
                 constrain(node_ty.clone(), ty_annot.clone());
-                methods.push(InterfaceDefMethod {
+                methods.push(InterfaceDefMethod_OLD {
                     name: p.ident.clone(),
                     ty: node_ty.clone(),
                 });
@@ -213,7 +213,7 @@ fn gather_definitions_stmt_DEPRECATE(
             }
             ctx.interface_defs.insert(
                 ident.clone(),
-                InterfaceDef {
+                InterfaceDef_OLD {
                     name: ident.clone(),
                     methods,
                     location: stmt.id,
@@ -232,7 +232,7 @@ fn gather_definitions_stmt_DEPRECATE(
                 .map(|stmt| match &*stmt.kind {
                     StmtKind::FuncDef(pat, _, _, _) => {
                         let ident = pat.kind.get_identifier_of_variable();
-                        InterfaceImplMethod {
+                        InterfaceImplMethod_OLD {
                             name: ident,
                             identifier_location: pat.id(),
                             method_location: stmt.id(),
@@ -242,7 +242,7 @@ fn gather_definitions_stmt_DEPRECATE(
                 })
                 .collect();
             let impl_list = ctx.interface_impls.entry(ident.clone()).or_default();
-            impl_list.push(InterfaceImpl {
+            impl_list.push(InterfaceImpl_OLD {
                 name: ident.clone(),
                 typ,
                 methods,
@@ -251,15 +251,15 @@ fn gather_definitions_stmt_DEPRECATE(
         }
         StmtKind::TypeDef(typdefkind) => match &**typdefkind {
             // TypeDefKind::Alias(_ident, _ty) => {}
-            TypeDefKind::Enum(ident, params, variants) => {
-                if let Some(enum_def) = ctx.enum_defs.get(ident) {
-                    let entry = ctx.multiple_udt_defs.entry(ident.clone()).or_default();
+            TypeDefKind::Enum(e) => {
+                if let Some(enum_def) = ctx.enum_defs.get(&e.name) {
+                    let entry = ctx.multiple_udt_defs.entry(e.name.clone()).or_default();
                     entry.push(enum_def.location);
                     entry.push(stmt.id);
                     return;
                 }
                 let mut defvariants = vec![];
-                for (i, v) in variants.iter().enumerate() {
+                for (i, v) in e.variants.iter().enumerate() {
                     let arity = v.data.as_ref().map_or(0, |d| match &*d.typekind {
                         TypeKind::Tuple(elems) => elems.len(),
                         TypeKind::Unit => 0,
@@ -277,51 +277,53 @@ fn gather_definitions_stmt_DEPRECATE(
                             TypeVar::make_unit(Prov::VariantNoData(Box::new(Prov::Node(v.id))))
                         }
                     };
-                    defvariants.push(Variant {
+                    defvariants.push(Variant_OLD {
                         ctor: v.ctor.clone(),
                         data,
                     });
-                    ctx.variants_to_enum.insert(v.ctor.clone(), ident.clone());
+                    ctx.variants_to_enum.insert(v.ctor.clone(), e.name.clone());
                 }
                 let mut defparams = vec![];
-                for p in params {
+                for p in e.ty_args.iter() {
                     let TypeKind::Poly(ident, _) = &*p.typekind else {
                         panic!("expected poly type for type definition parameter")
                     };
                     defparams.push(ident.clone());
                 }
                 ctx.enum_defs.insert(
-                    ident.clone(),
-                    EnumDef {
-                        name: ident.clone(),
+                    e.name.clone(),
+                    EnumDef_OLD {
+                        name: e.name.clone(),
                         params: defparams,
                         variants: defvariants,
                         location: stmt.id,
                     },
                 );
             }
-            TypeDefKind::Struct(ident, params, fields) => {
-                symbol_table
-                    .extend_declaration(ident.clone(), Resolution::StructCtor(fields.len() as u16));
+            TypeDefKind::Struct(s) => {
+                symbol_table.extend_declaration(
+                    s.name.clone(),
+                    Resolution::StructCtor(s.fields.len() as u16),
+                );
 
                 // let ty_struct = TypeVar::from_node(ctx, stmt.id);
-                if let Some(struct_def) = ctx.struct_defs.get(ident) {
-                    let entry = ctx.multiple_udt_defs.entry(ident.clone()).or_default();
+                if let Some(struct_def) = ctx.struct_defs.get(&s.name) {
+                    let entry = ctx.multiple_udt_defs.entry(s.name.clone()).or_default();
                     entry.push(struct_def.location);
                     entry.push(stmt.id);
                     return;
                 }
                 let mut defparams = vec![];
-                for p in params {
+                for p in s.ty_args.iter() {
                     let TypeKind::Poly(ident, _) = &*p.typekind else {
                         panic!("expected poly type for type definition parameter")
                     };
                     defparams.push(ident.clone());
                 }
                 let mut deffields = vec![];
-                for f in fields {
+                for f in s.fields.iter() {
                     let ty_annot = ast_type_to_statics_type(ctx, f.ty.clone());
-                    deffields.push(StructField {
+                    deffields.push(StructField_OLD {
                         name: f.ident.clone(),
                         ty: ty_annot.clone(),
                     });
@@ -332,9 +334,9 @@ fn gather_definitions_stmt_DEPRECATE(
                     ctx.vars.insert(prov, ty_field);
                 }
                 ctx.struct_defs.insert(
-                    ident.clone(),
-                    StructDef {
-                        name: ident.clone(),
+                    s.name.clone(),
+                    StructDef_OLD {
+                        name: s.name.clone(),
                         params: defparams,
                         fields: deffields,
                         location: stmt.id,
