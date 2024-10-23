@@ -50,11 +50,11 @@ pub(crate) struct StaticsContext {
     // map from interface name to list of implementations
     pub(crate) interface_impls: BTreeMap<Identifier, Vec<InterfaceImpl>>,
 
-    // BOOKKEEPING (for bytecode translation)
+    // BOOKKEEPING
 
     // name resolutions
-    pub(crate) name_resolutions: HashMap<NodeId, Resolution>,
-    // string constants
+    pub(crate) resolution_map: HashMap<NodeId, Resolution>,
+    // string constants (for bytecode translation)
     pub(crate) string_constants: HashMap<String, usize>,
 
     // TYPE CHECKING

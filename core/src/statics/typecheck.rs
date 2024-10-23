@@ -1455,7 +1455,7 @@ fn generate_constraints_expr(
         ExprKind::Identifier(symbol) => {
             let lookup = symbol_table_OLD.lookup_declaration(symbol);
             if let Some(resolution) = lookup {
-                ctx.name_resolutions.insert(expr.id, resolution);
+                ctx.resolution_map.insert(expr.id, resolution);
             }
             let lookup = symbol_table_OLD.lookup(symbol);
             if let Some(typ) = lookup {

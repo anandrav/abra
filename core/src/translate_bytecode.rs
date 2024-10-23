@@ -236,7 +236,7 @@ impl Translator {
         match &*expr.kind {
             ExprKind::Identifier(symbol) => {
                 // enumt variant
-                match self.statics.name_resolutions.get(&expr.id).unwrap() {
+                match self.statics.resolution_map.get(&expr.id).unwrap() {
                     Resolution::VariantCtor(tag, _) => {
                         emit(st, Instr::PushNil);
                         emit(st, Instr::ConstructVariant { tag: *tag });
@@ -331,7 +331,7 @@ impl Translator {
                     let mut s = String::new();
                     span.display(&mut s, &self.sources, "function ap");
                     // println!("{}", s);
-                    let resolution = self.statics.name_resolutions.get(&func.id).unwrap();
+                    let resolution = self.statics.resolution_map.get(&func.id).unwrap();
                     match resolution {
                         Resolution::Var(node_id) => {
                             // assume it's a function object
@@ -885,7 +885,7 @@ impl Translator {
             StmtKind::Set(expr1, rvalue) => match &*expr1.kind {
                 ExprKind::Identifier(_) => {
                     let Resolution::Var(node_id) =
-                        self.statics.name_resolutions.get(&expr1.id).unwrap()
+                        self.statics.resolution_map.get(&expr1.id).unwrap()
                     else {
                         panic!("expected variableto be defined in node");
                     };
@@ -943,7 +943,7 @@ impl Translator {
             | ExprKind::Float(_)
             | ExprKind::Str(_) => {}
             ExprKind::Identifier(_) => {
-                let resolution = self.statics.name_resolutions.get(&expr.id).unwrap();
+                let resolution = self.statics.resolution_map.get(&expr.id).unwrap();
                 if let Resolution::Var(node_id) = resolution {
                     if !locals.contains(node_id) && !arg_set.contains(node_id) {
                         captures.insert(*node_id);
