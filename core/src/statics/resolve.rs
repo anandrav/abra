@@ -1,3 +1,4 @@
+use std::cell::RefCell;
 use std::collections::{BTreeMap, HashMap};
 use std::{fmt, rc::Rc};
 
@@ -8,9 +9,9 @@ use crate::ast::{
 use crate::builtin::Builtin;
 use crate::environment::Environment;
 
-use super::{Declaration, Namespace, Resolution, StaticsContext, TypeVar};
+use super::{Declaration, Namespace, Resolution_OLD, StaticsContext, TypeVar};
 
-// TODO: constrain, Env, Prov should be implementation details
+// TODO: constrain, symbol_table,Prov should be implementation details
 // TODO: others should probably be implementation details too
 use super::typecheck::{
     ast_type_to_statics_type, ast_type_to_statics_type_interface, constrain, Prov, SymbolTable_OLD,
@@ -180,21 +181,289 @@ fn gather_declarations_item(namespace: &mut Namespace, qualifiers: Vec<String>, 
     }
 }
 
-// fn gather_declarations_stmt(namespace: &mut Namespace, qualifiers: Vec<String>, stmt: Rc<Stmt>) {
-//     match &*stmt.kind {
-//         StmtKind::Expr(_) => {}
-//         StmtKind::Let(_, _, _) => {}
-//         StmtKind::FuncDef(f) => {
-//             let entry_name = f.name.kind.get_identifier_of_variable();
-//             let mut fully_qualified_name = qualifiers.clone();
-//             fully_qualified_name.push(entry_name.clone());
-//             namespace
-//                 .declarations
-//                 .insert(entry_name, Declaration::FreeFunction(f.clone()));
-//         }
-//         StmtKind::Set(..) => {}
-//     }
-// }
+// Map identifiers to (1) declarations and (2) namespaces
+// and supports nested scopes
+#[derive(Clone, Debug)]
+struct SymbolTable {
+    base: Rc<RefCell<SymbolTableBase>>,
+}
+
+#[derive(Default, Debug, Clone)]
+struct SymbolTableBase {
+    declarations: BTreeMap<Identifier, Declaration>,
+    namespaces: BTreeMap<Identifier, Rc<Namespace>>,
+
+    enclosing: Option<Rc<RefCell<SymbolTableBase>>>,
+}
+
+impl SymbolTable {
+    pub(crate) fn empty() -> Self {
+        Self {
+            base: Rc::new(RefCell::new(SymbolTableBase::default())),
+        }
+    }
+
+    pub(crate) fn new_scope(&self) -> Self {
+        Self {
+            base: Rc::new(RefCell::new(SymbolTableBase {
+                enclosing: Some(self.base.clone()),
+                ..Default::default()
+            })),
+        }
+    }
+
+    pub(crate) fn lookup_declaration(&self, id: &Identifier) -> Option<Declaration> {
+        self.base.borrow().declarations.get(id).cloned()
+    }
+
+    pub(crate) fn lookup_namespace(&self, id: &Identifier) -> Option<Rc<Namespace>> {
+        self.base.borrow().namespaces.get(id).cloned()
+    }
+
+    pub(crate) fn extend_declaration(&self, id: Identifier, decl: Declaration) {
+        self.base.borrow_mut().declarations.insert(id, decl);
+    }
+
+    pub(crate) fn extend_namespace(&self, id: Identifier, ns: Rc<Namespace>) {
+        self.base.borrow_mut().namespaces.insert(id, ns);
+    }
+}
+
+// type Env = Environment<Identifier, Declaration>;
+
+// TODO: make a custom type to detect collisions
+pub type ToplevelEnv = BTreeMap<Identifier, Declaration>;
+
+pub(crate) fn resolve(
+    ctx: &mut StaticsContext,
+    files: Vec<Rc<FileAst>>,
+) -> BTreeMap<String, ToplevelEnv> {
+    let mut envs = BTreeMap::new();
+    for file in files {
+        let env = resolve_imports_file(ctx, file.clone());
+        resolve_names_file(ctx, env.clone(), file.clone());
+        envs.insert(file.name.clone(), env);
+    }
+    envs
+}
+
+fn resolve_imports_file(ctx: &mut StaticsContext, file: Rc<FileAst>) -> ToplevelEnv {
+    // Return an environment with all identifiers available to this file.
+    // That includes identifiers from this file and all imports.
+    let mut env = ToplevelEnv::new();
+    // add declarations from this file to the environment
+    for (name, declaration) in ctx
+        .global_namespace
+        .namespaces
+        .get(&file.name)
+        .unwrap()
+        .declarations
+        .iter()
+    {
+        env.insert(name.clone(), declaration.clone());
+    }
+
+    // add declarations from prelude to the environment
+    for (name, declaration) in ctx
+        .global_namespace
+        .namespaces
+        .get("prelude")
+        .unwrap()
+        .declarations
+        .iter()
+    {
+        env.insert(name.clone(), declaration.clone());
+    }
+
+    for item in file.items.iter() {
+        if let ItemKind::Import(path) = &*item.kind {
+            // add declarations from this import to the environment
+            for (name, declaration) in ctx
+                .global_namespace
+                .namespaces
+                .get(path)
+                .unwrap()
+                .declarations
+                .iter()
+            {
+                env.insert(name.clone(), declaration.clone());
+            }
+        }
+    }
+
+    env
+}
+
+pub(crate) fn resolve_names_file(ctx: &mut StaticsContext, env: ToplevelEnv, file: Rc<FileAst>) {
+    // TODO: probably need these
+
+    let symbol_table = SymbolTable::empty();
+
+    // for (i, eff) in ctx.effects.iter().enumerate() {
+    //     env.extend(eff.name.clone(), Declaration::Effect(i as u16));
+    // }
+    // for builtin in Builtin::enumerate().iter() {
+    //     env.extend(builtin.name(), Declaration::Builtin(*builtin));
+    // }
+    for item in file.items.iter() {
+        resolve_names_item(ctx, symbol_table.clone(), item.clone());
+    }
+}
+
+fn resolve_names_item(ctx: &mut StaticsContext, symbol_table: SymbolTable, stmt: Rc<Item>) {
+    match &*stmt.kind {
+        ItemKind::FuncDef(f) => {
+            // TODO: need this probably
+        }
+        ItemKind::InterfaceDef(..) => {}
+        ItemKind::InterfaceImpl(..) => {}
+        ItemKind::Import(..) => {}
+        ItemKind::TypeDef(..) => {}
+        ItemKind::Stmt(stmt) => {
+            resolve_names_stmt(ctx, symbol_table, stmt.clone());
+        }
+    }
+}
+
+fn resolve_names_expr(ctx: &mut StaticsContext, symbol_table: SymbolTable, expr: Rc<Expr>) {
+    match &*expr.kind {
+        ExprKind::Unit
+        | ExprKind::Int(_)
+        | ExprKind::Float(_)
+        | ExprKind::Bool(_)
+        | ExprKind::Str(_) => {}
+        ExprKind::List(exprs) => {
+            for expr in exprs {
+                resolve_names_expr(ctx, symbol_table.clone(), expr.clone());
+            }
+        }
+        ExprKind::Array(exprs) => {
+            for expr in exprs {
+                resolve_names_expr(ctx, symbol_table.clone(), expr.clone());
+            }
+        }
+        ExprKind::Identifier(symbol) => {
+            // TODO: This is where we update the resolution map
+            // let lookup = symbol_table.lookup(symbol);
+            // if let Some(decl) = lookup {
+            //     ctx.resolution_map.insert(expr.id, decl);
+            // } else {
+            //     ctx.unbound_vars.insert(expr.id());
+            // }
+        }
+        ExprKind::BinOp(left, _, right) => {
+            resolve_names_expr(ctx, symbol_table.clone(), left.clone());
+            resolve_names_expr(ctx, symbol_table, right.clone());
+        }
+        ExprKind::Block(statements) => {
+            let env = symbol_table.new_scope();
+            for statement in statements.iter() {
+                resolve_names_stmt(ctx, symbol_table.clone(), statement.clone());
+            }
+        }
+        ExprKind::If(cond, expr1, expr2) => {
+            resolve_names_expr(ctx, symbol_table.clone(), cond.clone());
+            resolve_names_expr(ctx, symbol_table.clone(), expr1.clone());
+            if let Some(expr2) = expr2 {
+                resolve_names_expr(ctx, symbol_table.clone(), expr2.clone());
+            }
+        }
+        ExprKind::WhileLoop(cond, expr) => {
+            resolve_names_expr(ctx, symbol_table.clone(), cond.clone());
+            resolve_names_expr(ctx, symbol_table.clone(), expr.clone());
+        }
+        ExprKind::Match(scrut, arms) => {
+            resolve_names_expr(ctx, symbol_table.clone(), scrut.clone());
+            for arm in arms {
+                let env = symbol_table.new_scope();
+                resolve_names_pat(ctx, symbol_table.clone(), arm.pat.clone());
+                resolve_names_expr(ctx, symbol_table.clone(), arm.expr.clone());
+            }
+        }
+        ExprKind::Func(args, _, body) => {
+            let env = symbol_table.new_scope();
+            resolve_names_func_helper(ctx, symbol_table, args, body);
+        }
+        ExprKind::FuncAp(func, args) => {
+            resolve_names_expr(ctx, symbol_table.clone(), func.clone());
+            for arg in args {
+                resolve_names_expr(ctx, symbol_table.clone(), arg.clone());
+            }
+        }
+        ExprKind::Tuple(exprs) => {
+            for expr in exprs {
+                resolve_names_expr(ctx, symbol_table.clone(), expr.clone());
+            }
+        }
+        ExprKind::MemberAccess(expr, field) => {
+            resolve_names_expr(ctx, symbol_table.clone(), expr.clone());
+            resolve_names_expr(ctx, symbol_table.clone(), field.clone());
+        }
+        ExprKind::IndexAccess(accessed, index) => {
+            resolve_names_expr(ctx, symbol_table.clone(), accessed.clone());
+            resolve_names_expr(ctx, symbol_table.clone(), index.clone());
+        }
+    }
+}
+
+fn resolve_names_func_helper(
+    ctx: &mut StaticsContext,
+    symbol_table: SymbolTable,
+    args: &[ArgAnnotated],
+    body: &Rc<Expr>,
+) {
+    for arg in args {
+        resolve_names_pat(ctx, symbol_table.clone(), arg.0.clone());
+    }
+
+    resolve_names_expr(ctx, symbol_table.clone(), body.clone());
+}
+
+fn resolve_names_stmt(ctx: &mut StaticsContext, symbol_table: SymbolTable, stmt: Rc<Stmt>) {
+    match &*stmt.kind {
+        StmtKind::FuncDef(..) => {
+            // TODO: need this probably
+        }
+        StmtKind::Expr(expr) => {
+            resolve_names_expr(ctx, symbol_table, expr.clone());
+        }
+        StmtKind::Let(_mutable, (pat, ty_ann), expr) => {
+            resolve_names_expr(ctx, symbol_table.clone(), expr.clone());
+            resolve_names_pat(ctx, symbol_table.clone(), pat.clone());
+        }
+        StmtKind::Set(lhs, rhs) => {
+            resolve_names_expr(ctx, symbol_table.clone(), lhs.clone());
+            resolve_names_expr(ctx, symbol_table.clone(), rhs.clone());
+        }
+    }
+}
+
+fn resolve_names_pat(_ctx: &mut StaticsContext, symbol_table: SymbolTable, pat: Rc<Pat>) {
+    match &*pat.kind {
+        PatKind::Wildcard => (),
+        PatKind::Unit
+        | PatKind::Int(_)
+        | PatKind::Float(_)
+        | PatKind::Bool(_)
+        | PatKind::Str(_) => {}
+        PatKind::Binding(identifier) => {
+            // TODO: gonna need this
+            // env.extend(identifier.clone(), Declaration::PatBinding(pat.id));
+        }
+        PatKind::Variant(_, data) => {
+            if let Some(data) = data {
+                resolve_names_pat(_ctx, symbol_table, data.clone())
+            };
+        }
+        PatKind::Tuple(pats) => {
+            for pat in pats {
+                resolve_names_pat(_ctx, symbol_table.clone(), pat.clone());
+            }
+        }
+    }
+}
+
+///////// DEPRECATE BELOW
 
 fn gather_definitions_item_DEPRECATE(
     ctx: &mut StaticsContext,
@@ -282,7 +551,7 @@ fn gather_definitions_item_DEPRECATE(
                     });
                     symbol_table.extend_declaration(
                         v.ctor.clone(),
-                        Resolution::VariantCtor(i as u16, arity as u16),
+                        Resolution_OLD::VariantCtor(i as u16, arity as u16),
                     );
 
                     let data = {
@@ -318,7 +587,7 @@ fn gather_definitions_item_DEPRECATE(
             TypeDefKind::Struct(s) => {
                 symbol_table.extend_declaration(
                     s.name.clone(),
-                    Resolution::StructCtor(s.fields.len() as u16),
+                    Resolution_OLD::StructCtor(s.fields.len() as u16),
                 );
 
                 // let ty_struct = TypeVar::from_node(ctx, stmt.id);
@@ -364,7 +633,8 @@ fn gather_definitions_item_DEPRECATE(
             let name = f.name.kind.get_identifier_of_variable();
             ctx.fun_defs.insert(name.clone(), f.clone());
             symbol_table.extend(name.clone(), TypeVar::from_node(ctx, name_id));
-            symbol_table.extend_declaration(name.clone(), Resolution::FreeFunction(stmt.id, name));
+            symbol_table
+                .extend_declaration(name.clone(), Resolution_OLD::FreeFunction(stmt.id, name));
         }
         ItemKind::Import(..) => {}
         ItemKind::Stmt(..) => {}
@@ -384,231 +654,9 @@ fn gather_definitions_stmt_DEPRECATE(
             let name = f.name.kind.get_identifier_of_variable();
             ctx.fun_defs.insert(name.clone(), f.clone());
             symbol_table.extend(name.clone(), TypeVar::from_node(ctx, name_id));
-            symbol_table.extend_declaration(name.clone(), Resolution::FreeFunction(stmt.id, name));
+            symbol_table
+                .extend_declaration(name.clone(), Resolution_OLD::FreeFunction(stmt.id, name));
         }
         StmtKind::Set(..) => {}
     }
 }
-
-type Env = Environment<Identifier, Declaration>;
-
-// TODO: make a custom type to detect collisions
-pub type ToplevelEnv = BTreeMap<Identifier, Declaration>;
-
-pub(crate) fn resolve_imports(
-    ctx: &mut StaticsContext,
-    files: Vec<Rc<FileAst>>,
-) -> BTreeMap<String, ToplevelEnv> {
-    let mut envs = BTreeMap::new();
-    for file in files {
-        envs.insert(file.name.clone(), resolve_imports_file(ctx, file.clone()));
-    }
-    envs
-}
-
-fn resolve_imports_file(ctx: &mut StaticsContext, file: Rc<FileAst>) -> ToplevelEnv {
-    // Return an environment with all identifiers available to this file.
-    // That includes identifiers from this file and all imports.
-    let mut env = ToplevelEnv::new();
-    // add declarations from this file to the environment
-    for (name, declaration) in ctx
-        .global_namespace
-        .namespaces
-        .get(&file.name)
-        .unwrap()
-        .declarations
-        .iter()
-    {
-        env.insert(name.clone(), declaration.clone());
-    }
-
-    // add declarations from prelude to the environment
-    for (name, declaration) in ctx
-        .global_namespace
-        .namespaces
-        .get("prelude")
-        .unwrap()
-        .declarations
-        .iter()
-    {
-        env.insert(name.clone(), declaration.clone());
-    }
-
-    for item in file.items.iter() {
-        if let ItemKind::Import(path) = &*item.kind {
-            // add declarations from this import to the environment
-            for (name, declaration) in ctx
-                .global_namespace
-                .namespaces
-                .get(path)
-                .unwrap()
-                .declarations
-                .iter()
-            {
-                env.insert(name.clone(), declaration.clone());
-            }
-        }
-    }
-
-    env
-}
-
-// pub(crate) fn resolve_names_file(ctx: &mut StaticsContext, env: Env, file: Rc<FileAst>) {
-//     for (i, eff) in ctx.effects.iter().enumerate() {
-//         env.extend(eff.name.clone(), Declaration::Effect(i as u16));
-//     }
-//     for builtin in Builtin::enumerate().iter() {
-//         env.extend(builtin.name(), Declaration::Builtin(*builtin));
-//     }
-//     for statement in file.statements.iter() {
-//         resolve_names_stmt(ctx, env.clone(), statement.clone());
-//     }
-// }
-
-// fn resolve_names_expr(ctx: &mut StaticsContext, env: Env, expr: Rc<Expr>) {
-//     match &*expr.kind {
-//         ExprKind::Unit
-//         | ExprKind::Int(_)
-//         | ExprKind::Float(_)
-//         | ExprKind::Bool(_)
-//         | ExprKind::Str(_) => {}
-//         ExprKind::List(exprs) => {
-//             for expr in exprs {
-//                 resolve_names_expr(ctx, env.clone(), expr.clone());
-//             }
-//         }
-//         ExprKind::Array(exprs) => {
-//             for expr in exprs {
-//                 resolve_names_expr(ctx, env.clone(), expr.clone());
-//             }
-//         }
-//         ExprKind::Identifier(symbol) => {
-//             let lookup = env.lookup(symbol);
-//             if let Some(resolution) = lookup {
-//                 ctx.name_resolutions2.insert(expr.id, resolution);
-//             } else {
-//                 ctx.unbound_vars.insert(expr.id());
-//             }
-//         }
-//         ExprKind::BinOp(left, _, right) => {
-//             resolve_names_expr(ctx, env.clone(), left.clone());
-//             resolve_names_expr(ctx, env, right.clone());
-//         }
-//         ExprKind::Block(statements) => {
-//             let env = env.new_scope();
-//             for statement in statements.iter() {
-//                 resolve_names_stmt(ctx, env.clone(), statement.clone());
-//             }
-//         }
-//         ExprKind::If(cond, expr1, expr2) => {
-//             resolve_names_expr(ctx, env.clone(), cond.clone());
-//             resolve_names_expr(ctx, env.clone(), expr1.clone());
-//             if let Some(expr2) = expr2 {
-//                 resolve_names_expr(ctx, env.clone(), expr2.clone());
-//             }
-//         }
-//         ExprKind::WhileLoop(cond, expr) => {
-//             resolve_names_expr(ctx, env.clone(), cond.clone());
-//             resolve_names_expr(ctx, env.clone(), expr.clone());
-//         }
-//         ExprKind::Match(scrut, arms) => {
-//             resolve_names_expr(ctx, env.clone(), scrut.clone());
-//             for arm in arms {
-//                 let env = env.new_scope();
-//                 resolve_names_pat(ctx, env.clone(), arm.pat.clone());
-//                 resolve_names_expr(ctx, env.clone(), arm.expr.clone());
-//             }
-//         }
-//         ExprKind::Func(args, _, body) => {
-//             let env = env.new_scope();
-//             resolve_names_func_helper(ctx, env, args, body);
-//         }
-//         ExprKind::FuncAp(func, args) => {
-//             resolve_names_expr(ctx, env.clone(), func.clone());
-//             for arg in args {
-//                 resolve_names_expr(ctx, env.clone(), arg.clone());
-//             }
-//         }
-//         ExprKind::Tuple(exprs) => {
-//             for expr in exprs {
-//                 resolve_names_expr(ctx, env.clone(), expr.clone());
-//             }
-//         }
-//         ExprKind::MemberAccess(expr, field) => {
-//             resolve_names_expr(ctx, env.clone(), expr.clone());
-//             resolve_names_expr(ctx, env.clone(), field.clone());
-//         }
-//         ExprKind::IndexAccess(accessed, index) => {
-//             resolve_names_expr(ctx, env.clone(), accessed.clone());
-//             resolve_names_expr(ctx, env.clone(), index.clone());
-//         }
-//     }
-// }
-
-// fn resolve_names_func_helper(
-//     ctx: &mut StaticsContext,
-//     env: Env,
-//     args: &[ArgAnnotated],
-//     body: &Rc<Expr>,
-// ) {
-//     for arg in args {
-//         resolve_names_pat(ctx, env.clone(), arg.0.clone());
-//     }
-
-//     resolve_names_expr(ctx, env.clone(), body.clone());
-// }
-
-// fn resolve_names_stmt(ctx: &mut StaticsContext, env: Env, stmt: Rc<Stmt>) {
-//     match &*stmt.kind {
-//         StmtKind::InterfaceDef(..) => {}
-//         StmtKind::Import(..) => {}
-//         StmtKind::FuncDef(..) => {
-//             // TODO: need this probably
-//         }
-//         StmtKind::InterfaceImpl(..) => { // TODO: need this probably
-//         }
-//         StmtKind::TypeDef(typdefkind) => match &**typdefkind {
-//             TypeDefKind::Alias(ident, ty) => {
-//                 let left = TypeVar::fresh(ctx, Prov::Alias(ident.clone()));
-//                 let right = ast_type_to_statics_type(ctx, ty.clone());
-//                 constrain(left, right);
-//             }
-//             TypeDefKind::Enum(..) | TypeDefKind::Struct(..) => {}
-//         },
-//         StmtKind::Expr(expr) => {
-//             resolve_names_expr(ctx, env, expr.clone());
-//         }
-//         StmtKind::Let(_mutable, (pat, ty_ann), expr) => {
-//             resolve_names_expr(ctx, env.clone(), expr.clone());
-//             resolve_names_pat(ctx, env.clone(), pat.clone());
-//         }
-//         StmtKind::Set(lhs, rhs) => {
-//             resolve_names_expr(ctx, env.clone(), lhs.clone());
-//             resolve_names_expr(ctx, env.clone(), rhs.clone());
-//         }
-//     }
-// }
-
-// fn resolve_names_pat(_ctx: &mut StaticsContext, env: Env, pat: Rc<Pat>) {
-//     match &*pat.kind {
-//         PatKind::Wildcard => (),
-//         PatKind::Unit
-//         | PatKind::Int(_)
-//         | PatKind::Float(_)
-//         | PatKind::Bool(_)
-//         | PatKind::Str(_) => {}
-//         PatKind::Var(identifier) => {
-//             env.extend(identifier.clone(), Declaration::Var(pat.id));
-//         }
-//         PatKind::Variant(_, data) => {
-//             if let Some(data) = data {
-//                 resolve_names_pat(_ctx, env, data.clone())
-//             };
-//         }
-//         PatKind::Tuple(pats) => {
-//             for pat in pats {
-//                 resolve_names_pat(_ctx, env.clone(), pat.clone());
-//             }
-//         }
-//     }
-// }

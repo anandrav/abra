@@ -13,7 +13,7 @@ use std::fmt::{self, Write};
 use std::rc::Rc;
 
 use super::resolve::ToplevelEnv;
-use super::{Declaration, Resolution, StaticsContext};
+use super::{Declaration, Resolution_OLD, StaticsContext};
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub(crate) struct TypeVar(UnionFindNode<TypeVarData>);
@@ -839,7 +839,7 @@ pub(crate) struct SymbolTable_OLD {
     polyvars_in_scope: Environment<Identifier, ()>,
 
     // map from identifier to where its defined
-    var_declarations: Environment<Identifier, Resolution>,
+    var_declarations: Environment<Identifier, Resolution_OLD>,
 }
 impl SymbolTable_OLD {
     pub(crate) fn empty() -> Self {
@@ -855,11 +855,11 @@ impl SymbolTable_OLD {
         self.tyctx.extend(ident.clone(), ty);
     }
 
-    pub(crate) fn extend_declaration(&self, symbol: Identifier, resolution: Resolution) {
+    pub(crate) fn extend_declaration(&self, symbol: Identifier, resolution: Resolution_OLD) {
         self.var_declarations.extend(symbol, resolution);
     }
 
-    fn lookup_declaration(&self, symbol: &Identifier) -> Option<Resolution> {
+    fn lookup_declaration(&self, symbol: &Identifier) -> Option<Resolution_OLD> {
         self.var_declarations.lookup(symbol)
     }
 
@@ -1363,13 +1363,15 @@ pub(crate) fn generate_constraints_file(
             prov,
         );
         symbol_table_DEPRECATE.extend(eff.name.clone(), typ);
-        symbol_table_DEPRECATE.extend_declaration(eff.name.clone(), Resolution::Effect(i as u16));
+        symbol_table_DEPRECATE
+            .extend_declaration(eff.name.clone(), Resolution_OLD::Effect(i as u16));
     }
     for builtin in Builtin::enumerate().iter() {
         let prov = Prov::Builtin(*builtin);
         let typ = solved_type_to_typevar(builtin.type_signature(), prov);
         symbol_table_DEPRECATE.extend(builtin.name(), typ);
-        symbol_table_DEPRECATE.extend_declaration(builtin.name(), Resolution::Builtin(*builtin));
+        symbol_table_DEPRECATE
+            .extend_declaration(builtin.name(), Resolution_OLD::Builtin(*builtin));
     }
     for items in file.items.iter() {
         generate_constraints_item(
@@ -1456,7 +1458,7 @@ fn generate_constraints_expr(
         ExprKind::Identifier(symbol) => {
             let lookup = symbol_table_OLD.lookup_declaration(symbol);
             if let Some(resolution) = lookup {
-                ctx.resolution_map.insert(expr.id, resolution);
+                ctx.resolution_map_OLD.insert(expr.id, resolution);
             }
             let lookup = symbol_table_OLD.lookup(symbol);
             if let Some(typ) = lookup {
@@ -1961,11 +1963,13 @@ fn generate_constraints_item(
                 symbol_table_OLD.extend(f.name.kind.get_identifier_of_variable(), ty_pat.clone());
                 symbol_table_OLD.extend_declaration(
                     func_name,
-                    Resolution::FreeFunction(stmt.id, f.name.kind.get_identifier_of_variable()),
+                    Resolution_OLD::FreeFunction(stmt.id, f.name.kind.get_identifier_of_variable()),
                 );
             } else {
-                symbol_table_OLD
-                    .extend_declaration(func_name.clone(), Resolution::InterfaceMethod(func_name));
+                symbol_table_OLD.extend_declaration(
+                    func_name.clone(),
+                    Resolution_OLD::InterfaceMethod(func_name),
+                );
             }
 
             let body_symbol_table = symbol_table_OLD.new_scope();
@@ -2035,11 +2039,13 @@ fn generate_constraints_stmt(
                 symbol_table_OLD.extend(f.name.kind.get_identifier_of_variable(), ty_pat.clone());
                 symbol_table_OLD.extend_declaration(
                     func_name,
-                    Resolution::FreeFunction(stmt.id, f.name.kind.get_identifier_of_variable()),
+                    Resolution_OLD::FreeFunction(stmt.id, f.name.kind.get_identifier_of_variable()),
                 );
             } else {
-                symbol_table_OLD
-                    .extend_declaration(func_name.clone(), Resolution::InterfaceMethod(func_name));
+                symbol_table_OLD.extend_declaration(
+                    func_name.clone(),
+                    Resolution_OLD::InterfaceMethod(func_name),
+                );
             }
 
             let body_symbol_table = symbol_table_OLD.new_scope();
@@ -2085,10 +2091,10 @@ fn generate_constraints_pat(
         PatKind::Str(_) => {
             constrain(ty_pat, TypeVar::make_string(Prov::Node(pat.id)));
         }
-        PatKind::Var(identifier) => {
+        PatKind::Binding(identifier) => {
             // letrec: extend context with id and type before analyzing against said type
             symbol_table_OLD.extend(identifier.clone(), ty_pat);
-            symbol_table_OLD.extend_declaration(identifier.clone(), Resolution::Var(pat.id));
+            symbol_table_OLD.extend_declaration(identifier.clone(), Resolution_OLD::Var(pat.id));
         }
         PatKind::Variant(tag, data) => {
             let ty_data = match data {

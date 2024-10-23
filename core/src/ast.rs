@@ -423,7 +423,7 @@ pub(crate) enum ExprKind {
     BinOp(Rc<Expr>, BinOpcode, Rc<Expr>),
     FuncAp(Rc<Expr>, Vec<Rc<Expr>>),
     Tuple(Vec<Rc<Expr>>),
-    MemberAccess(Rc<Expr>, Rc<Expr>),
+    MemberAccess(Rc<Expr>, Rc<Expr>), // TODO: field should not be an expression? just an identifier.
     IndexAccess(Rc<Expr>, Rc<Expr>),
 }
 
@@ -475,7 +475,7 @@ impl Node for Pat {
     fn children(&self) -> Vec<Rc<dyn Node>> {
         match &*self.kind {
             PatKind::Wildcard => vec![],
-            PatKind::Var(_) => vec![],
+            PatKind::Binding(_) => vec![],
             PatKind::Unit => vec![],
             PatKind::Int(_) => vec![],
             PatKind::Float(_) => vec![],
@@ -500,7 +500,7 @@ impl Node for Pat {
 pub(crate) enum PatKind {
     // EmptyHole,
     Wildcard,
-    Var(Identifier),
+    Binding(Identifier),
     Variant(Identifier, Option<Rc<Pat>>),
     Unit,
     Int(i64),
@@ -513,7 +513,7 @@ pub(crate) enum PatKind {
 impl PatKind {
     pub(crate) fn get_identifier_of_variable(&self) -> Identifier {
         match self {
-            PatKind::Var(id) => id.clone(),
+            PatKind::Binding(id) => id.clone(),
             _ => {
                 panic!("Pattern is not a variable")
             }
@@ -741,7 +741,7 @@ pub(crate) fn parse_let_pattern(pair: Pair<Rule>, filename: &str) -> Rc<Pat> {
             parse_let_pattern(pair, filename)
         }
         Rule::identifier => Rc::new(Pat {
-            kind: Rc::new(PatKind::Var(pair.as_str().to_owned())),
+            kind: Rc::new(PatKind::Binding(pair.as_str().to_owned())),
             span,
             id: NodeId::new(),
         }),
@@ -776,7 +776,7 @@ pub(crate) fn parse_match_pattern(pair: Pair<Rule>, filename: &str) -> Rc<Pat> {
             parse_match_pattern(pair, filename)
         }
         Rule::match_pattern_variable => Rc::new(Pat {
-            kind: Rc::new(PatKind::Var(pair.as_str()[1..].to_owned())),
+            kind: Rc::new(PatKind::Binding(pair.as_str()[1..].to_owned())),
             span,
             id: NodeId::new(),
         }),

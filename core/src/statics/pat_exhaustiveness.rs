@@ -331,7 +331,7 @@ impl DeconstructedPat {
         let mut fields = vec![];
         let ctor = match &*pat.kind {
             PatKind::Wildcard => Constructor::Wildcard(WildcardReason::UserCreated),
-            PatKind::Var(_ident) => Constructor::Wildcard(WildcardReason::VarPat),
+            PatKind::Binding(_ident) => Constructor::Wildcard(WildcardReason::VarPat),
             PatKind::Bool(b) => Constructor::Bool(*b),
             PatKind::Int(i) => Constructor::Int(*i),
             PatKind::Float(f) => Constructor::Float(f.parse::<AbraFloat>().unwrap()),

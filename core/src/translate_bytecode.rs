@@ -5,7 +5,7 @@ use crate::builtin::Builtin;
 use crate::effects::EffectStruct;
 use crate::environment::Environment;
 use crate::statics::TypeProv;
-use crate::statics::{ty_fits_impl_ty, Monotype, Resolution, Type};
+use crate::statics::{ty_fits_impl_ty, Monotype, Resolution_OLD, Type};
 use crate::vm::{AbraFloat, AbraInt, Instr as VmInstr};
 use crate::{
     ast::{Expr, ExprKind, NodeMap, Pat, PatKind, Stmt, StmtKind},
@@ -253,13 +253,12 @@ impl Translator {
         // println!("translating expr: {:?}", expr.exprkind);
         match &*expr.kind {
             ExprKind::Identifier(symbol) => {
-                // enumt variant
-                match self.statics.resolution_map.get(&expr.id).unwrap() {
-                    Resolution::VariantCtor(tag, _) => {
+                match self.statics.resolution_map_OLD.get(&expr.id).unwrap() {
+                    Resolution_OLD::VariantCtor(tag, _) => {
                         emit(st, Instr::PushNil);
                         emit(st, Instr::ConstructVariant { tag: *tag });
                     }
-                    Resolution::Var(node_id) => {
+                    Resolution_OLD::Var(node_id) => {
                         let span = self.node_map.get(node_id).unwrap().span();
                         let mut s = String::new();
                         span.display(
@@ -271,7 +270,7 @@ impl Translator {
                         let idx = offset_table.get(node_id).unwrap();
                         emit(st, Instr::LoadOffset(*idx));
                     }
-                    Resolution::Builtin(b) => {
+                    Resolution_OLD::Builtin(b) => {
                         match b {
                             Builtin::Newline => {
                                 emit(st, Instr::PushString("\n".to_owned()));
@@ -282,15 +281,15 @@ impl Translator {
                             }
                         }
                     }
-                    Resolution::Effect(_) => {
+                    Resolution_OLD::Effect(_) => {
                         // TODO: generate functions for effects
                         unimplemented!()
                     }
-                    Resolution::StructCtor(_) => {
+                    Resolution_OLD::StructCtor(_) => {
                         // TODO: generate functions for structs
                         unimplemented!()
                     }
-                    Resolution::FreeFunction(_, name) => {
+                    Resolution_OLD::FreeFunction(_, name) => {
                         emit(
                             st,
                             Instr::MakeClosure {
@@ -299,7 +298,7 @@ impl Translator {
                             },
                         );
                     }
-                    Resolution::InterfaceMethod { .. } => {
+                    Resolution_OLD::InterfaceMethod { .. } => {
                         unimplemented!()
                     }
                 }
@@ -349,15 +348,15 @@ impl Translator {
                     let mut s = String::new();
                     span.display(&mut s, &self.sources, "function ap");
                     // println!("{}", s);
-                    let resolution = self.statics.resolution_map.get(&func.id).unwrap();
+                    let resolution = self.statics.resolution_map_OLD.get(&func.id).unwrap();
                     match resolution {
-                        Resolution::Var(node_id) => {
+                        Resolution_OLD::Var(node_id) => {
                             // assume it's a function object
                             let idx = offset_table.get(node_id).unwrap();
                             emit(st, Instr::LoadOffset(*idx));
                             emit(st, Instr::CallFuncObj);
                         }
-                        Resolution::FreeFunction(node_id, name) => {
+                        Resolution_OLD::FreeFunction(node_id, name) => {
                             // println!("emitting Call of function: {}", name);
                             let ItemKind::FuncDef(f) =
                                 &*self.node_map.get(node_id).unwrap().to_item().unwrap().kind
@@ -391,7 +390,7 @@ impl Translator {
                                 );
                             }
                         }
-                        Resolution::InterfaceMethod(name) => {
+                        Resolution_OLD::InterfaceMethod(name) => {
                             let node = self.node_map.get(&func.id).unwrap();
                             let span = node.span();
                             let mut s = String::new();
@@ -406,17 +405,17 @@ impl Translator {
                                 self.get_func_definition_node(name, substituted_ty.clone());
                             self.handle_overloaded_func(st, substituted_ty, name, def_id);
                         }
-                        Resolution::StructCtor(nargs) => {
+                        Resolution_OLD::StructCtor(nargs) => {
                             emit(st, Instr::Construct(*nargs));
                         }
-                        Resolution::VariantCtor(tag, nargs) => {
+                        Resolution_OLD::VariantCtor(tag, nargs) => {
                             if *nargs > 1 {
                                 // turn the arguments (associated data) into a tuple
                                 emit(st, Instr::Construct(*nargs));
                             }
                             emit(st, Instr::ConstructVariant { tag: *tag });
                         }
-                        Resolution::Builtin(b) => match b {
+                        Resolution_OLD::Builtin(b) => match b {
                             Builtin::AddInt => {
                                 emit(st, Instr::Add);
                             }
@@ -511,7 +510,7 @@ impl Translator {
                                 panic!("not a function");
                             }
                         },
-                        Resolution::Effect(e) => {
+                        Resolution_OLD::Effect(e) => {
                             emit(st, Instr::Effect(*e));
                         }
                     }
@@ -723,7 +722,7 @@ impl Translator {
         st: &mut TranslatorState,
     ) {
         match &*pat.kind {
-            PatKind::Wildcard | PatKind::Var(_) | PatKind::Unit => {
+            PatKind::Wildcard | PatKind::Binding(_) | PatKind::Unit => {
                 emit(st, Instr::Pop);
                 emit(st, Instr::PushBool(true));
                 return;
@@ -952,8 +951,8 @@ impl Translator {
             }
             StmtKind::Set(expr1, rvalue) => match &*expr1.kind {
                 ExprKind::Identifier(_) => {
-                    let Resolution::Var(node_id) =
-                        self.statics.resolution_map.get(&expr1.id).unwrap()
+                    let Resolution_OLD::Var(node_id) =
+                        self.statics.resolution_map_OLD.get(&expr1.id).unwrap()
                     else {
                         panic!("expected variableto be defined in node");
                     };
@@ -1005,8 +1004,8 @@ impl Translator {
             | ExprKind::Float(_)
             | ExprKind::Str(_) => {}
             ExprKind::Identifier(_) => {
-                let resolution = self.statics.resolution_map.get(&expr.id).unwrap();
-                if let Resolution::Var(node_id) = resolution {
+                let resolution = self.statics.resolution_map_OLD.get(&expr.id).unwrap();
+                if let Resolution_OLD::Var(node_id) = resolution {
                     if !locals.contains(node_id) && !arg_set.contains(node_id) {
                         captures.insert(*node_id);
                     }
@@ -1187,7 +1186,7 @@ impl Translator {
         let _ = self; // avoid warning
 
         match &*pat.kind {
-            PatKind::Var(_) => {
+            PatKind::Binding(_) => {
                 // self.display_node(pat.id);
                 let idx = locals.get(&pat.id).unwrap();
                 emit(st, Instr::StoreOffset(*idx));
@@ -1304,7 +1303,7 @@ fn collect_locals_stmt(statements: &[Rc<Stmt>], locals: &mut HashSet<NodeId>) {
 
 fn collect_locals_pat(pat: Rc<Pat>, locals: &mut HashSet<NodeId>) {
     match &*pat.kind {
-        PatKind::Var(_) => {
+        PatKind::Binding(_) => {
             locals.insert(pat.id);
         }
         PatKind::Tuple(pats) => {

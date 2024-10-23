@@ -4,8 +4,7 @@ use crate::ast::{
 use crate::builtin::Builtin;
 use crate::effects::EffectStruct;
 use resolve::{
-    resolve_imports, scan_declarations, EnumDef_OLD, InterfaceDef_OLD, InterfaceImpl_OLD,
-    StructDef_OLD,
+    resolve, scan_declarations, EnumDef_OLD, InterfaceDef_OLD, InterfaceImpl_OLD, StructDef_OLD,
 };
 use std::cell::RefCell;
 use std::collections::{BTreeMap, BTreeSet, HashMap};
@@ -55,8 +54,9 @@ pub(crate) struct StaticsContext {
 
     // BOOKKEEPING
 
-    // name resolutions
-    pub(crate) resolution_map: HashMap<NodeId, Resolution>,
+    // This maps any identifier in the entire program to its declaration
+    pub(crate) resolution_map: HashMap<NodeId, Declaration>,
+    pub(crate) resolution_map_OLD: HashMap<NodeId, Resolution_OLD>,
     // string constants (for bytecode translation)
     pub(crate) string_constants: HashMap<String, usize>,
 
@@ -156,53 +156,6 @@ impl Display for Namespace {
 
 type Path = Vec<Identifier>;
 
-// Map identifiers to (1) declarations and (2) namespaces
-// and supports nested scopes
-struct SymbolTable {
-    base: Rc<RefCell<SymbolTableBase>>,
-}
-
-#[derive(Default)]
-struct SymbolTableBase {
-    declarations: BTreeMap<Identifier, Declaration>,
-    namespaces: BTreeMap<Identifier, Rc<Namespace>>,
-
-    enclosing: Option<Rc<RefCell<SymbolTableBase>>>,
-}
-
-impl SymbolTable {
-    pub(crate) fn empty() -> Self {
-        Self {
-            base: Rc::new(RefCell::new(SymbolTableBase::default())),
-        }
-    }
-
-    pub(crate) fn new_scope(&self) -> Self {
-        Self {
-            base: Rc::new(RefCell::new(SymbolTableBase {
-                enclosing: Some(self.base.clone()),
-                ..Default::default()
-            })),
-        }
-    }
-
-    pub(crate) fn lookup_declaration(&self, id: &Identifier) -> Option<Declaration> {
-        self.base.borrow().declarations.get(id).cloned()
-    }
-
-    pub(crate) fn lookup_namespace(&self, id: &Identifier) -> Option<Rc<Namespace>> {
-        self.base.borrow().namespaces.get(id).cloned()
-    }
-
-    pub(crate) fn extend_declaration(&self, id: Identifier, decl: Declaration) {
-        self.base.borrow_mut().declarations.insert(id, decl);
-    }
-
-    pub(crate) fn extend_namespace(&self, id: Identifier, ns: Rc<Namespace>) {
-        self.base.borrow_mut().namespaces.insert(id, ns);
-    }
-}
-
 // TODO: separation of concerns. storing number of arguments, tag, etc. because the bytecode translator needs it is kinda weird, maybe reconsider.
 // Try to store more general information which the bytecode translator can then use to derive specific things it cares about.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -214,8 +167,9 @@ pub(crate) enum Declaration {
     Struct(Rc<StructDef>),
 }
 
+// TODO: move this to translate_bytecode. Make a conversion function from Declaration/Resolution to this thing
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub(crate) enum Resolution {
+pub(crate) enum Resolution_OLD {
     Var(NodeId),
     FreeFunction(NodeId, Identifier),
     InterfaceMethod(Identifier),
@@ -240,7 +194,7 @@ pub(crate) fn analyze(
     // scan declarations across all files
     scan_declarations(&mut ctx, tyctx.clone(), files.clone());
     // resolve all imports and names
-    let envs = resolve_imports(&mut ctx, files.clone());
+    let envs = resolve(&mut ctx, files.clone());
 
     println!("global namespace:\n{}", ctx.global_namespace);
 
