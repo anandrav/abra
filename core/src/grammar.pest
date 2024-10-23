@@ -16,7 +16,7 @@ interface_body = _{ "{" ~ interface_property* ~ "}" }
 interface_property = { identifier ~ type_annotation }
 
 interface_implementation = { "implement" ~ identifier ~ "for" ~ typ ~ interface_implementation_body }
-interface_implementation_body = _{ "{" ~ let_func_statement* ~ "}" }
+interface_implementation_body = _{ "{" ~ func_def* ~ "}" }
 
 enum_declaration = { "type" ~ identifier ~ type_params? ~ "=" ~ variant ~ ("|" ~ variant)* }
 type_params = _{ "<" ~ (type_poly ~ ",")* ~ type_poly? ~ ">" }
@@ -26,7 +26,7 @@ packed_data = _{ "of" ~ typ }
 struct_declaration = { "type" ~ identifier ~ type_params? ~ "=" ~ "{" ~ struct_field ~ ("," ~ struct_field)* ~ "}" }
 struct_field = { identifier ~ type_annotation }
 
-statement = _{ let_func_statement | let_statement | var_statement | set_statement | expression_statement }
+statement = _{ func_def | let_statement | var_statement | set_statement | expression_statement }
 
 let_statement = { let_keyword ~ let_pattern_annotated ~ op_assign ~ expression }
 let_keyword = _{ "let" }
@@ -40,7 +40,7 @@ var_keyword = _{ "var" }
 
 set_statement = { expression ~ "<-" ~ expression }
 
-let_func_statement = { func_keyword ~ identifier ~ func_args ~ func_out_annotation? ~ (block_expression | (op_assign ~ expression)) }
+func_def = { func_keyword ~ identifier ~ func_args ~ func_out_annotation? ~ (block_expression | (op_assign ~ expression)) }
 func_keyword = _{ "fn" }
 
 let_pattern_tuple = { tuple_start ~ (let_pattern_tuple_element ~ ",")+ ~ let_pattern_tuple_element ~ tuple_end }

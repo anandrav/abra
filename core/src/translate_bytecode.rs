@@ -6,7 +6,7 @@ use crate::effects::EffectStruct;
 use crate::environment::Environment;
 use crate::statics::TypeProv;
 use crate::statics::{ty_fits_impl_ty, Monotype, Resolution, Type};
-use crate::vm::{AbraInt, Instr as VmInstr};
+use crate::vm::{AbraFloat, AbraInt, Instr as VmInstr};
 use crate::{
     ast::{Expr, ExprKind, NodeMap, Pat, PatKind, Stmt, StmtKind},
     statics::StaticsContext,
@@ -155,7 +155,7 @@ impl Translator {
             for (desc, substituted_ty) in iteration {
                 let definition_id = desc.definition_node;
 
-                let StmtKind::FuncDef(pat, args, _, body) = &*self
+                let StmtKind::FuncDef(f) = &*self
                     .node_map
                     .get(&definition_id)
                     .unwrap()
@@ -166,7 +166,7 @@ impl Translator {
                     panic!()
                 };
 
-                let overloaded_func_ty = self.statics.solution_of_node(pat.id()).unwrap();
+                let overloaded_func_ty = self.statics.solution_of_node(f.name.id()).unwrap();
                 let monomorph_env = MonomorphEnv::empty();
                 update_monomorph_env(monomorph_env.clone(), overloaded_func_ty, substituted_ty);
 
@@ -174,20 +174,20 @@ impl Translator {
                 emit(st, Item::Label(label.clone()));
 
                 let mut locals = HashSet::new();
-                collect_locals_expr(body, &mut locals);
+                collect_locals_expr(&f.body, &mut locals);
                 let locals_count = locals.len();
                 for _ in 0..locals_count {
                     emit(st, Instr::PushNil);
                 }
                 let mut offset_table = OffsetTable::new();
-                for (i, arg) in args.iter().rev().enumerate() {
+                for (i, arg) in f.args.iter().rev().enumerate() {
                     offset_table.entry(arg.0.id).or_insert(-(i as i32) - 1);
                 }
                 for (i, local) in locals.iter().enumerate() {
                     offset_table.entry(*local).or_insert((i) as i32);
                 }
-                let nargs = args.len();
-                self.translate_expr(body.clone(), &offset_table, monomorph_env.clone(), st);
+                let nargs = f.args.len();
+                self.translate_expr(f.body.clone(), &offset_table, monomorph_env.clone(), st);
 
                 if locals_count + nargs > 0 {
                     // pop all locals and arguments except one. The last one is the return value slot.
@@ -296,7 +296,7 @@ impl Translator {
                 emit(st, Instr::PushInt(*i));
             }
             ExprKind::Float(f) => {
-                emit(st, Instr::PushFloat(*f));
+                emit(st, Instr::PushFloat(f.parse::<AbraFloat>().unwrap()));
             }
             ExprKind::Str(s) => {
                 emit(st, Instr::PushString(s.clone()));
@@ -341,14 +341,14 @@ impl Translator {
                         }
                         Resolution::FreeFunction(node_id, name) => {
                             // println!("emitting Call of function: {}", name);
-                            let StmtKind::FuncDef(pat, _, _, _) =
+                            let StmtKind::FuncDef(f) =
                                 &*self.node_map.get(node_id).unwrap().to_stmt().unwrap().kind
                             else {
                                 panic!()
                             };
 
-                            let func_name = &pat.kind.get_identifier_of_variable();
-                            let func_ty = self.statics.solution_of_node(pat.id).unwrap();
+                            let func_name = &f.name.kind.get_identifier_of_variable();
+                            let func_ty = self.statics.solution_of_node(f.name.id).unwrap();
                             if !func_ty.is_overloaded() {
                                 emit(st, Instr::Call(name.clone()));
                             } else {
@@ -821,12 +821,12 @@ impl Translator {
                     self.translate_stmt_static(stmt.clone(), st, true);
                 }
             }
-            StmtKind::FuncDef(name, args, _, body) => {
+            StmtKind::FuncDef(f) => {
                 // TODO last here
                 // TODO: check if overloaded. If so, handle differently.
                 // (this could be an overloaded function or an interface method)
-                let func_ty = self.statics.solution_of_node(name.id).unwrap();
-                let func_name = name.kind.get_identifier_of_variable();
+                let func_ty = self.statics.solution_of_node(f.name.id).unwrap();
+                let func_name = f.name.kind.get_identifier_of_variable();
 
                 if func_ty.is_overloaded() // println: 'a ToString -> ()
                 || iface_method
@@ -838,20 +838,20 @@ impl Translator {
                 // println!("Generating code for function: {}", func_name);
                 emit(st, Item::Label(func_name));
                 let mut locals = HashSet::new();
-                collect_locals_expr(body, &mut locals);
+                collect_locals_expr(&f.body, &mut locals);
                 let locals_count = locals.len();
                 for _ in 0..locals_count {
                     emit(st, Instr::PushNil);
                 }
                 let mut offset_table = OffsetTable::new();
-                for (i, arg) in args.iter().rev().enumerate() {
+                for (i, arg) in f.args.iter().rev().enumerate() {
                     offset_table.entry(arg.0.id).or_insert(-(i as i32) - 1);
                 }
                 for (i, local) in locals.iter().enumerate() {
                     offset_table.entry(*local).or_insert((i) as i32);
                 }
-                let nargs = args.len();
-                self.translate_expr(body.clone(), &offset_table, MonomorphEnv::empty(), st);
+                let nargs = f.args.len();
+                self.translate_expr(f.body.clone(), &offset_table, MonomorphEnv::empty(), st);
 
                 if locals_count + nargs > 0 {
                     // pop all locals and arguments except one. The last one is the return value slot.

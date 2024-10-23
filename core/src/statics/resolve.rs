@@ -169,8 +169,8 @@ fn gather_declarations_stmt(namespace: &mut Namespace, qualifiers: Vec<String>, 
         },
         StmtKind::Expr(_) => {}
         StmtKind::Let(_, _, _) => {}
-        StmtKind::FuncDef(name, _args, _out_annot, _) => {
-            let entry_name = name.kind.get_identifier_of_variable();
+        StmtKind::FuncDef(f) => {
+            let entry_name = f.name.kind.get_identifier_of_variable();
             let mut fully_qualified_name = qualifiers.clone();
             fully_qualified_name.push(entry_name.clone());
             namespace
@@ -230,11 +230,11 @@ fn gather_definitions_stmt_DEPRECATE(
             let methods = stmts
                 .iter()
                 .map(|stmt| match &*stmt.kind {
-                    StmtKind::FuncDef(pat, _, _, _) => {
-                        let ident = pat.kind.get_identifier_of_variable();
+                    StmtKind::FuncDef(f) => {
+                        let ident = f.name.kind.get_identifier_of_variable();
                         InterfaceImplMethod_OLD {
                             name: ident,
-                            identifier_location: pat.id(),
+                            identifier_location: f.name.id(),
                             method_location: stmt.id(),
                         }
                     }
@@ -346,9 +346,9 @@ fn gather_definitions_stmt_DEPRECATE(
         },
         StmtKind::Expr(_) => {}
         StmtKind::Let(_, _, _) => {}
-        StmtKind::FuncDef(name, _args, _out_annot, _) => {
-            let name_id = name.id;
-            let name = name.kind.get_identifier_of_variable();
+        StmtKind::FuncDef(f) => {
+            let name_id = f.name.id;
+            let name = f.name.kind.get_identifier_of_variable();
             ctx.fun_defs.insert(name.clone(), stmt.clone());
             symbol_table.extend(name.clone(), TypeVar::from_node(ctx, name_id));
             symbol_table.extend_declaration(name.clone(), Resolution::FreeFunction(stmt.id, name));

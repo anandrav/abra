@@ -1,6 +1,7 @@
 use crate::ast::{
-    Expr, ExprKind, Identifier, MatchArm, NodeMap, Pat, PatKind, Sources, Stmt, StmtKind, FileAst,
+    Expr, ExprKind, FileAst, Identifier, MatchArm, NodeMap, Pat, PatKind, Sources, Stmt, StmtKind,
 };
+use crate::vm::AbraFloat;
 use core::panic;
 
 use std::collections::HashSet;
@@ -80,8 +81,8 @@ fn check_pattern_exhaustiveness_stmt(statics: &mut StaticsContext, stmt: &Stmt) 
         StmtKind::Let(_, _, expr) => {
             check_pattern_exhaustiveness_expr(statics, expr);
         }
-        StmtKind::FuncDef(_, _, _, body) => {
-            check_pattern_exhaustiveness_expr(statics, body);
+        StmtKind::FuncDef(f) => {
+            check_pattern_exhaustiveness_expr(statics, &f.body);
         }
         StmtKind::Expr(expr) => {
             check_pattern_exhaustiveness_expr(statics, expr);
@@ -321,7 +322,7 @@ impl DeconstructedPat {
             PatKind::Var(_ident) => Constructor::Wildcard(WildcardReason::VarPat),
             PatKind::Bool(b) => Constructor::Bool(*b),
             PatKind::Int(i) => Constructor::Int(*i),
-            PatKind::Float(f) => Constructor::Float(*f),
+            PatKind::Float(f) => Constructor::Float(f.parse::<AbraFloat>().unwrap()),
             PatKind::Str(s) => Constructor::String(s.clone()),
             PatKind::Unit => Constructor::Product,
             PatKind::Tuple(pats) => {

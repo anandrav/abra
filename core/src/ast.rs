@@ -47,7 +47,7 @@ impl Node for FileAst {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub(crate) enum TypeDefKind {
     // Alias(Identifier, Rc<AstType>),
     Enum(Rc<EnumDef>),
@@ -124,6 +124,7 @@ impl std::fmt::Debug for dyn Node {
     }
 }
 
+// TODO: convert this to an Enum
 pub(crate) trait Node {
     fn span(&self) -> Span;
     fn id(&self) -> NodeId;
@@ -137,7 +138,7 @@ pub(crate) trait Node {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub(crate) struct Stmt {
     pub(crate) kind: Rc<StmtKind>,
     pub(crate) span: Span,
@@ -154,19 +155,19 @@ impl Node for Stmt {
 
     fn children(&self) -> Vec<Rc<dyn Node>> {
         match &*self.kind {
-            StmtKind::FuncDef(id, args, ty, expr) => {
-                let mut children: Vec<Rc<dyn Node>> = vec![id.clone() as Rc<dyn Node>];
-                for (pat, annot) in args {
+            StmtKind::FuncDef(f) => {
+                let mut children: Vec<Rc<dyn Node>> = vec![f.name.clone() as Rc<dyn Node>];
+                for (pat, annot) in f.args.iter() {
                     children.push(pat.clone() as Rc<dyn Node>);
                     match annot {
                         Some(ty) => children.push(ty.clone()),
                         None => {}
                     }
                 }
-                if let Some(ty) = ty {
+                if let Some(ty) = &f.ret_type {
                     children.push(ty.clone());
                 }
-                children.push(expr.clone());
+                children.push(f.body.clone());
                 children
             }
             StmtKind::Let(_mutable, (pat, ty), expr) => {
@@ -226,21 +227,29 @@ impl Node for Stmt {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub(crate) enum StmtKind {
     Let(bool, PatAnnotated, Rc<Expr>), // bool is whether it's mutable
     Set(Rc<Expr>, Rc<Expr>),
     Expr(Rc<Expr>),
     // TODO: change these to be "FileAstItem". FileAstItem = FuncDef | TypeDef | InterfaceDef | InterfaceImpl | Stmt
     // TODO: don't use FuncDef for interface methods
-    FuncDef(Rc<Pat>, Vec<ArgAnnotated>, Option<Rc<AstType>>, Rc<Expr>),
+    FuncDef(FuncDef),
     TypeDef(Rc<TypeDefKind>),
     InterfaceDef(Identifier, Vec<Rc<InterfaceProperty>>),
     InterfaceImpl(Identifier, Rc<AstType>, Vec<Rc<Stmt>>),
     Import(Identifier),
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub(crate) struct FuncDef {
+    pub(crate) name: Rc<Pat>, // TODO: Don't use Rc<Pat> for the name, just use Identifier. If need be, make struct for Identifier with span and id
+    pub(crate) args: Vec<ArgAnnotated>,
+    pub(crate) ret_type: Option<Rc<AstType>>,
+    pub(crate) body: Rc<Expr>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub(crate) struct InterfaceProperty {
     pub(crate) ident: Identifier,
     pub(crate) ty: Rc<AstType>,
@@ -259,7 +268,7 @@ impl Node for InterfaceProperty {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub(crate) struct Expr {
     pub(crate) kind: Rc<ExprKind>,
     pub(crate) span: Span,
@@ -340,13 +349,13 @@ impl Node for Expr {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub(crate) enum ExprKind {
     // EmptyHole,
     Identifier(Identifier),
     Unit,
     Int(i64),
-    Float(f64),
+    Float(String), // represented as String to allow Eq and Hash
     Bool(bool),
     Str(String),
     List(Vec<Rc<Expr>>),
@@ -385,7 +394,7 @@ pub enum BinOpcode {
     Concat,
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub(crate) struct MatchArm {
     pub(crate) pat: Rc<Pat>,
     pub(crate) expr: Rc<Expr>,
@@ -393,7 +402,7 @@ pub(crate) struct MatchArm {
 
 // pub(crate) type MatchArm = (Rc<Pat>, Rc<Expr>);
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub(crate) struct Pat {
     pub(crate) kind: Rc<PatKind>,
     pub(crate) span: Span,
@@ -432,7 +441,7 @@ impl Node for Pat {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub(crate) enum PatKind {
     // EmptyHole,
     Wildcard,
@@ -440,7 +449,7 @@ pub(crate) enum PatKind {
     Variant(Identifier, Option<Rc<Pat>>),
     Unit,
     Int(i64),
-    Float(f32),
+    Float(String), // represented as String to allow Eq and Hash
     Bool(bool),
     Str(String),
     Tuple(Vec<Rc<Pat>>),
@@ -883,10 +892,10 @@ pub(crate) fn parse_stmt(pair: Pair<Rule>, filename: &str) -> Rc<Stmt> {
     let rule = pair.as_rule();
     let inner: Vec<_> = pair.into_inner().collect();
     match rule {
-        Rule::let_func_statement => {
+        Rule::func_def => {
             let mut n = 0;
             let mut args = vec![];
-            let ident = parse_let_pattern(inner[0].clone(), filename);
+            let name = parse_let_pattern(inner[0].clone(), filename);
             n += 1;
             while let Rule::func_arg = inner[n].as_rule() {
                 let pat_annotated = parse_func_arg_annotation(inner[n].clone(), filename);
@@ -895,7 +904,7 @@ pub(crate) fn parse_stmt(pair: Pair<Rule>, filename: &str) -> Rc<Stmt> {
             }
 
             let maybe_func_out = &inner[n];
-            let ty_out = match maybe_func_out.as_rule() {
+            let ret_type = match maybe_func_out.as_rule() {
                 Rule::func_out_annotation => {
                     // n += 1;
                     Some(parse_func_out_annotation(maybe_func_out.clone(), filename))
@@ -904,7 +913,15 @@ pub(crate) fn parse_stmt(pair: Pair<Rule>, filename: &str) -> Rc<Stmt> {
             };
             let body = parse_expr_pratt(Pairs::single(inner.last().unwrap().clone()), filename);
             Rc::new(Stmt {
-                kind: Rc::new(StmtKind::FuncDef(ident, args, ty_out, body)),
+                kind: Rc::new(StmtKind::FuncDef(
+                    FuncDef {
+                        name,
+                        args,
+                        ret_type,
+                        body,
+                    }
+                    .into(),
+                )),
                 span,
                 id: NodeId::new(),
             })

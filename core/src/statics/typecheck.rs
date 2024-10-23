@@ -1885,10 +1885,10 @@ fn generate_constraints_stmt(
 
             if let Some(interface_def) = ctx.interface_def_of_ident(ident) {
                 for statement in statements {
-                    let StmtKind::FuncDef(pat, _args, _out, _body) = &*statement.kind else {
+                    let StmtKind::FuncDef(f) = &*statement.kind else {
                         continue;
                     };
-                    let method_name = pat.kind.get_identifier_of_variable();
+                    let method_name = f.name.kind.get_identifier_of_variable();
                     if let Some(interface_method) =
                         interface_def.methods.iter().find(|m| m.name == method_name)
                     {
@@ -1901,7 +1901,7 @@ fn generate_constraints_stmt(
                             &substitution,
                         );
 
-                        constrain(expected, TypeVar::from_node(ctx, pat.id));
+                        constrain(expected, TypeVar::from_node(ctx, f.name.id));
 
                         generate_constraints_stmt(
                             symbol_table_OLD.clone(),
@@ -1919,8 +1919,8 @@ fn generate_constraints_stmt(
                 }
                 for interface_method in interface_def.methods {
                     if !statements.iter().any(|stmt| match &*stmt.kind {
-                        StmtKind::FuncDef(pat, _args, _out, _body) => {
-                            pat.kind.get_identifier_of_variable() == interface_method.name
+                        StmtKind::FuncDef(f) => {
+                            f.name.kind.get_identifier_of_variable() == interface_method.name
                         }
                         _ => false,
                     }) {
@@ -1975,18 +1975,18 @@ fn generate_constraints_stmt(
             generate_constraints_expr(symbol_table_OLD, Mode::Syn, rhs.clone(), ctx);
             constrain(ty_lhs, ty_rhs);
         }
-        StmtKind::FuncDef(name, args, out_annot, body) => {
+        StmtKind::FuncDef(f) => {
             let func_node_id = stmt.id;
-            let ty_pat = TypeVar::from_node(ctx, name.id);
+            let ty_pat = TypeVar::from_node(ctx, f.name.id);
 
-            let func_name = name.kind.get_identifier_of_variable();
+            let func_name = f.name.kind.get_identifier_of_variable();
 
             // TODO this needs a better explanation
             if add_to_tyvar_symbol_table {
-                symbol_table_OLD.extend(name.kind.get_identifier_of_variable(), ty_pat.clone());
+                symbol_table_OLD.extend(f.name.kind.get_identifier_of_variable(), ty_pat.clone());
                 symbol_table_OLD.extend_declaration(
                     func_name,
-                    Resolution::FreeFunction(stmt.id, name.kind.get_identifier_of_variable()),
+                    Resolution::FreeFunction(stmt.id, f.name.kind.get_identifier_of_variable()),
                 );
             } else {
                 symbol_table_OLD
@@ -1998,9 +1998,9 @@ fn generate_constraints_stmt(
                 ctx,
                 func_node_id,
                 body_symbol_table,
-                args,
-                out_annot,
-                body,
+                &f.args,
+                &f.ret_type,
+                &f.body,
             );
 
             constrain(ty_pat, ty_func);
