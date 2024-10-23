@@ -1343,7 +1343,8 @@ pub(crate) fn generate_constraints_file(
     // initialize new symbol table with stuff from env
     for (ident, declaration) in env.iter() {
         match declaration {
-            Declaration::FreeFunction(node_id) => {}
+            Declaration::FreeFunction(..) => {}
+            Declaration::InterfaceDef { .. } => {}
             Declaration::InterfaceMethod { .. } => {}
             Declaration::Struct(..) => {}
             Declaration::EnumVariant { .. } => {}
@@ -1990,60 +1991,6 @@ fn generate_constraints_stmt(
     add_to_tyvar_symbol_table: bool, // TODO: this is terrible
 ) {
     match &*stmt.kind {
-        // StmtKind::InterfaceImpl(ident, typ, statements) => {
-        //     let typ = ast_type_to_statics_type(ctx, typ.clone());
-
-        //     if let Some(interface_def) = ctx.interface_def_of_ident(ident) {
-        //         for statement in statements {
-        //             let StmtKind::FuncDef(f) = &*statement.kind else {
-        //                 continue;
-        //             };
-        //             let method_name = f.name.kind.get_identifier_of_variable();
-        //             if let Some(interface_method) =
-        //                 interface_def.methods.iter().find(|m| m.name == method_name)
-        //             {
-        //                 let mut substitution = BTreeMap::new();
-        //                 substitution.insert("a".to_string(), typ.clone());
-
-        //                 let expected = interface_method.ty.clone().subst(
-        //                     symbol_table_OLD.clone(),
-        //                     Prov::Node(stmt.id),
-        //                     &substitution,
-        //                 );
-
-        //                 constrain(expected, TypeVar::from_node(ctx, f.name.id));
-
-        //                 generate_constraints_stmt(
-        //                     symbol_table_OLD.clone(),
-        //                     Mode::Syn,
-        //                     statement.clone(),
-        //                     ctx,
-        //                     false,
-        //                 );
-        //             } else {
-        //                 ctx.interface_impl_extra_method
-        //                     .entry(stmt.id)
-        //                     .or_default()
-        //                     .push(statement.id);
-        //             }
-        //         }
-        //         for interface_method in interface_def.methods {
-        //             if !statements.iter().any(|stmt| match &*stmt.kind {
-        //                 StmtKind::FuncDef(f) => {
-        //                     f.name.kind.get_identifier_of_variable() == interface_method.name
-        //                 }
-        //                 _ => false,
-        //             }) {
-        //                 ctx.interface_impl_missing_method
-        //                     .entry(stmt.id)
-        //                     .or_default()
-        //                     .push(interface_method.name.clone());
-        //             }
-        //         }
-        //     } else {
-        //         ctx.unbound_interfaces.insert(stmt.id);
-        //     }
-        // }
         StmtKind::Expr(expr) => {
             generate_constraints_expr(symbol_table_OLD, mode, expr.clone(), ctx);
         }

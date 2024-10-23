@@ -208,6 +208,7 @@ impl SymbolTable {
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub(crate) enum Declaration {
     FreeFunction(Rc<FuncDef>),
+    InterfaceDef(Rc<InterfaceDef>),
     InterfaceMethod { parent: Rc<InterfaceDef>, idx: u16 },
     EnumVariant { parent: Rc<EnumDef>, idx: u16 },
     Struct(Rc<StructDef>),
