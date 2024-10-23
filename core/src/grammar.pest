@@ -5,7 +5,7 @@ newline = { "\n" }
 
 file = _{ SOI ~ file_item* ~ EOI }
 
-file_item = _{ interface_declaration | interface_implementation | enum_declaration | struct_declaration /*| typealias*/ | import | statement }
+file_item = _{ func_def | interface_declaration | interface_implementation | enum_declaration | struct_declaration /*| typealias*/ | import | statement }
 
 // typealias = { "type" ~ identifier ~ "=" ~ typ}
 

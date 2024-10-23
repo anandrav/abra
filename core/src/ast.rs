@@ -24,7 +24,7 @@ pub(crate) type PatAnnotated = (Rc<Pat>, Option<Rc<AstType>>);
 
 #[derive(Debug, Clone)]
 pub(crate) struct FileAst {
-    pub(crate) statements: Vec<Rc<Stmt>>,
+    pub(crate) items: Vec<Rc<Item>>,
     pub(crate) name: String,
 
     pub(crate) span: Span,
@@ -40,7 +40,7 @@ impl Node for FileAst {
     }
 
     fn children(&self) -> Vec<Rc<dyn Node>> {
-        self.statements
+        self.items
             .iter()
             .map(|i| i.clone() as Rc<dyn Node>)
             .collect()
@@ -136,6 +136,100 @@ pub(crate) trait Node {
     fn to_stmt(&self) -> Option<Stmt> {
         None
     }
+
+    fn to_item(&self) -> Option<Item> {
+        None
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub(crate) struct Item {
+    pub(crate) kind: Rc<ItemKind>,
+    pub(crate) span: Span,
+    pub(crate) id: NodeId,
+}
+
+impl Node for Item {
+    fn span(&self) -> Span {
+        self.span.clone()
+    }
+    fn id(&self) -> NodeId {
+        self.id
+    }
+
+    fn children(&self) -> Vec<Rc<dyn Node>> {
+        match &*self.kind {
+            ItemKind::FuncDef(f) => {
+                let mut children: Vec<Rc<dyn Node>> = vec![f.name.clone() as Rc<dyn Node>];
+                for (pat, annot) in f.args.iter() {
+                    children.push(pat.clone() as Rc<dyn Node>);
+                    match annot {
+                        Some(ty) => children.push(ty.clone()),
+                        None => {}
+                    }
+                }
+                if let Some(ty) = &f.ret_type {
+                    children.push(ty.clone());
+                }
+                children.push(f.body.clone());
+                children
+            }
+            ItemKind::TypeDef(tydefkind) => match &**tydefkind {
+                // TypeDefKind::Alias(_, ty) => vec![ty.clone()],
+                // TODO this is redundant, use the Node::children() implementation
+                TypeDefKind::Enum(e) => {
+                    let mut children: Vec<Rc<dyn Node>> = Vec::new();
+                    for param in e.ty_args.iter() {
+                        children.push(param.clone());
+                    }
+                    for variant in e.variants.iter() {
+                        children.push(variant.clone() as Rc<dyn Node>);
+                    }
+                    children
+                }
+                TypeDefKind::Struct(s) => {
+                    let mut children: Vec<Rc<dyn Node>> = Vec::new();
+                    for ty in s.ty_args.iter() {
+                        children.push(ty.clone());
+                    }
+                    for field in s.fields.iter() {
+                        children.push(field.clone() as Rc<dyn Node>);
+                    }
+                    children
+                }
+            },
+            ItemKind::InterfaceDef(i) => {
+                let mut children: Vec<Rc<dyn Node>> = Vec::new();
+                for prop in i.props.iter() {
+                    children.push(prop.clone() as Rc<dyn Node>);
+                }
+                children
+            }
+            ItemKind::InterfaceImpl(_, ty, stmts) => {
+                let mut children: Vec<Rc<dyn Node>> = vec![ty.clone()];
+                for stmt in stmts {
+                    children.push(stmt.clone() as Rc<dyn Node>);
+                }
+                children
+            }
+            ItemKind::Import(_) => vec![],
+            ItemKind::Stmt(stmt) => vec![stmt.clone() as Rc<dyn Node>],
+        }
+    }
+
+    fn to_item(&self) -> Option<Item> {
+        Some(self.clone())
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub(crate) enum ItemKind {
+    FuncDef(Rc<FuncDef>),
+    TypeDef(Rc<TypeDefKind>),
+    InterfaceDef(Rc<InterfaceDef>),
+    InterfaceImpl(Identifier, Rc<AstType>, Vec<Rc<Stmt>>), // TODO: Don't use Vec<Stmt>. Use Vec<MethodDef>
+    Import(Identifier),
+    Stmt(Rc<Stmt>),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -893,6 +987,165 @@ pub(crate) fn parse_type_term(pair: Pair<Rule>, filename: &str) -> Rc<AstType> {
     }
 }
 
+pub(crate) fn parse_item(pair: Pair<Rule>, filename: &str) -> Rc<Item> {
+    let span = Span::new(filename, pair.as_span());
+    let rule = pair.as_rule();
+    let inner: Vec<_> = pair.clone().into_inner().collect();
+    match rule {
+        Rule::func_def => {
+            let mut n = 0;
+            let mut args = vec![];
+            let name = parse_let_pattern(inner[0].clone(), filename);
+            n += 1;
+            while let Rule::func_arg = inner[n].as_rule() {
+                let pat_annotated = parse_func_arg_annotation(inner[n].clone(), filename);
+                args.push(pat_annotated);
+                n += 1;
+            }
+
+            let maybe_func_out = &inner[n];
+            let ret_type = match maybe_func_out.as_rule() {
+                Rule::func_out_annotation => {
+                    // n += 1;
+                    Some(parse_func_out_annotation(maybe_func_out.clone(), filename))
+                }
+                _ => None,
+            };
+            let body = parse_expr_pratt(Pairs::single(inner.last().unwrap().clone()), filename);
+            Rc::new(Item {
+                kind: Rc::new(ItemKind::FuncDef(
+                    FuncDef {
+                        name,
+                        args,
+                        ret_type,
+                        body,
+                    }
+                    .into(),
+                )),
+                span,
+                id: NodeId::new(),
+            })
+        }
+
+        // Rule::typealias => {
+        //     let ident = inner[0].as_str().to_string();
+        //     let definition = parse_type_term(inner[1].clone(), filename);
+        //     Rc::new(Stmt {
+        //         kind: Rc::new(StmtKind::TypeDef(Rc::new(TypeDefKind::Alias(
+        //             ident, definition,
+        //         )))),
+        //         span,
+        //         id: NodeId::new(),
+        //     })
+        // }
+        Rule::enum_declaration => {
+            let name = inner[0].as_str().to_string();
+            let mut n = 1;
+            let mut ty_args = vec![];
+            while let Rule::type_poly = inner[n].as_rule() {
+                ty_args.push(parse_type_term(inner[n].clone(), filename));
+                n += 1;
+            }
+            let mut variants = vec![];
+            while let Some(pair) = inner.get(n) {
+                let variant = parse_variant(pair.clone(), filename);
+                variants.push(variant);
+                n += 1;
+            }
+            Rc::new(Item {
+                kind: Rc::new(ItemKind::TypeDef(Rc::new(TypeDefKind::Enum(
+                    EnumDef {
+                        name,
+                        ty_args,
+                        variants,
+                    }
+                    .into(),
+                )))),
+                span,
+                id: NodeId::new(),
+            })
+        }
+        Rule::struct_declaration => {
+            let name = inner[0].as_str().to_string();
+            let mut n = 1;
+            let mut ty_args = vec![];
+            while let Rule::type_poly = inner[n].as_rule() {
+                ty_args.push(parse_type_term(inner[n].clone(), filename));
+                n += 1;
+            }
+            let mut fields = vec![];
+            while let Some(pair) = inner.get(n) {
+                let field = parse_struct_field(pair.clone(), filename);
+                fields.push(Rc::new(field));
+                n += 1;
+            }
+            Rc::new(Item {
+                kind: Rc::new(ItemKind::TypeDef(Rc::new(TypeDefKind::Struct(
+                    StructDef {
+                        name,
+                        ty_args,
+                        fields,
+                    }
+                    .into(),
+                )))),
+                span,
+                id: NodeId::new(),
+            })
+        }
+        Rule::interface_declaration => {
+            let name = inner[0].as_str().to_string();
+            let mut n = 1;
+            let mut props = vec![];
+            while let Some(pair) = inner.get(n) {
+                let method = parse_interface_method(pair.clone(), filename);
+                props.push(Rc::new(method));
+                n += 1;
+            }
+            Rc::new(Item {
+                kind: ItemKind::InterfaceDef(InterfaceDef { name, props }.into()).into(),
+                span,
+                id: NodeId::new(),
+            })
+        }
+        Rule::interface_implementation => {
+            let ident = inner[0].as_str().to_string();
+            let ty = parse_type_term(inner[1].clone(), filename);
+            let mut n = 2;
+            let mut stmts = vec![];
+            while let Some(pair) = inner.get(n) {
+                let stmt = parse_stmt(pair.clone(), filename);
+                stmts.push(stmt);
+                n += 1;
+            }
+            Rc::new(Item {
+                kind: ItemKind::InterfaceImpl(ident, ty, stmts).into(),
+                span,
+                id: NodeId::new(),
+            })
+        }
+        Rule::import => {
+            let ident = inner[0].as_str().to_string();
+            Rc::new(Item {
+                kind: ItemKind::Import(ident).into(),
+                span,
+                id: NodeId::new(),
+            })
+        }
+        Rule::let_statement
+        | Rule::var_statement
+        | Rule::set_statement
+        | Rule::expression_statement => {
+            let stmt = parse_stmt(pair, filename);
+            Rc::new(Item {
+                kind: ItemKind::Stmt(stmt).into(),
+                span,
+                id: NodeId::new(),
+            })
+        }
+        _ => panic!("unreachable rule {:#?}", rule),
+    }
+}
+
 pub(crate) fn parse_stmt(pair: Pair<Rule>, filename: &str) -> Rc<Stmt> {
     let span = Span::new(filename, pair.as_span());
     let rule = pair.as_rule();
@@ -1329,13 +1582,13 @@ pub(crate) fn parse_file(pairs: Pairs<Rule>, filename: &str) -> Rc<FileAst> {
         if pair.as_rule() == Rule::EOI {
             break;
         }
-        let stmt = parse_stmt(pair.clone(), filename);
+        let stmt = parse_item(pair.clone(), filename);
         items.push(stmt)
     }
     let span1: Span = Span::new(filename, pairs.first().unwrap().as_span());
     let span2: Span = Span::new(filename, pairs.last().unwrap().as_span());
     Rc::new(FileAst {
-        statements: items,
+        items,
         // remove the .abra suffix from filename
         name: filename.to_string()[..filename.len() - 5].to_string(),
         span: Span {

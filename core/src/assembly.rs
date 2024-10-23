@@ -10,28 +10,28 @@ pub(crate) type Label = String;
 use crate::translate_bytecode::LabelMap;
 
 #[derive(Debug)]
-pub(crate) enum Item {
+pub(crate) enum Line {
     Instr(Instr),
     Label(Label),
 }
 
-impl From<Instr> for Item {
+impl From<Instr> for Line {
     fn from(instr: Instr) -> Self {
-        Item::Instr(instr)
+        Line::Instr(instr)
     }
 }
 
-impl From<Label> for Item {
+impl From<Label> for Line {
     fn from(label: Label) -> Self {
-        Item::Label(label)
+        Line::Label(label)
     }
 }
 
-impl Display for Item {
+impl Display for Line {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
-            Item::Instr(instr) => write!(f, "{}", instr),
-            Item::Label(label) => write!(f, "{}:", label),
+            Line::Instr(instr) => write!(f, "{}", instr),
+            Line::Label(label) => write!(f, "{}:", label),
         }
     }
 }
@@ -39,7 +39,7 @@ impl Display for Item {
 pub type Instr = VmInstr<Label, String>;
 
 pub(crate) fn _assemble(s: &str) -> CompiledProgram {
-    let mut instructions: Vec<Item> = vec![];
+    let mut instructions: Vec<Line> = vec![];
     let mut string_constants: HashMap<String, usize> = HashMap::new();
     for (lineno, line) in s.lines().enumerate() {
         let words: Vec<_> = line.split_whitespace().collect();
@@ -65,7 +65,7 @@ pub(crate) fn _assemble(s: &str) -> CompiledProgram {
 }
 
 pub(crate) fn remove_labels(
-    items: &Vec<Item>,
+    items: &Vec<Line>,
     string_constants: &HashMap<String, usize>,
 ) -> (Vec<VmInstr>, LabelMap) {
     let mut instructions: Vec<VmInstr> = vec![];
@@ -73,17 +73,17 @@ pub(crate) fn remove_labels(
     let mut label_to_idx: LabelMap = HashMap::new();
     for item in items.iter() {
         match item {
-            Item::Instr(_) => {
+            Line::Instr(_) => {
                 offset += 1;
             }
-            Item::Label(label) => {
+            Line::Label(label) => {
                 label_to_idx.insert(label.clone(), offset);
             }
         }
     }
 
     for item in items {
-        if let Item::Instr(instr) = item {
+        if let Line::Instr(instr) = item {
             instructions.push(instr_to_vminstr(instr, &label_to_idx, string_constants));
         }
     }
@@ -166,9 +166,9 @@ fn _assemble_instr_or_label(
     words: Vec<&str>,
     lineno: usize,
     string_constants: &mut HashMap<String, usize>,
-) -> Item {
+) -> Line {
     if let Some(label) = _get_label(words[0]) {
-        return Item::Label(label);
+        return Line::Label(label);
     }
     let radix = 10;
     let instr = match words[0] {
@@ -243,7 +243,7 @@ fn _assemble_instr_or_label(
         }
         _ => panic!("On line {}, unexpected word: {}", lineno, words[0]),
     };
-    Item::Instr(instr)
+    Line::Instr(instr)
 }
 
 #[cfg(test)]

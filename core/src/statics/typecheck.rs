@@ -1,8 +1,8 @@
-use crate::ast::BinOpcode;
 use crate::ast::{
-    ArgAnnotated, AstType, Expr, ExprKind, FileAst, Identifier, Node, NodeId, NodeMap, Pat,
-    PatKind, Sources, Stmt, StmtKind, TypeDefKind, TypeKind,
+    ArgAnnotated, AstType, Expr, ExprKind, FileAst, Identifier, ItemKind, Node, NodeId, NodeMap,
+    Pat, PatKind, Sources, Stmt, StmtKind, TypeDefKind, TypeKind,
 };
+use crate::ast::{BinOpcode, Item};
 use crate::builtin::Builtin;
 use crate::environment::Environment;
 use core::panic;
@@ -1370,11 +1370,11 @@ pub(crate) fn generate_constraints_file(
         symbol_table_DEPRECATE.extend(builtin.name(), typ);
         symbol_table_DEPRECATE.extend_declaration(builtin.name(), Resolution::Builtin(*builtin));
     }
-    for statement in file.statements.iter() {
-        generate_constraints_stmt(
+    for items in file.items.iter() {
+        generate_constraints_item(
             symbol_table_DEPRECATE.clone(),
             Mode::Syn,
-            statement.clone(),
+            items.clone(),
             ctx,
             true,
         );
@@ -1868,6 +1868,118 @@ fn generate_constraints_func_helper(
     }
 
     TypeVar::make_func(ty_args, ty_body, Prov::Node(node_id))
+}
+
+fn generate_constraints_item(
+    symbol_table_OLD: SymbolTable_OLD,
+    mode: Mode,
+    stmt: Rc<Item>,
+    ctx: &mut StaticsContext,
+    add_to_tyvar_symbol_table: bool, // TODO: this is terrible
+) {
+    match &*stmt.kind {
+        ItemKind::InterfaceDef(..) => {}
+        ItemKind::Import(..) => {}
+        ItemKind::Stmt(stmt) => generate_constraints_stmt(
+            symbol_table_OLD.clone(),
+            mode,
+            stmt.clone(),
+            ctx,
+            add_to_tyvar_symbol_table,
+        ),
+        ItemKind::InterfaceImpl(ident, typ, statements) => {
+            let typ = ast_type_to_statics_type(ctx, typ.clone());
+
+            if let Some(interface_def) = ctx.interface_def_of_ident(ident) {
+                for statement in statements {
+                    let StmtKind::FuncDef(f) = &*statement.kind else {
+                        continue;
+                    };
+                    let method_name = f.name.kind.get_identifier_of_variable();
+                    if let Some(interface_method) =
+                        interface_def.methods.iter().find(|m| m.name == method_name)
+                    {
+                        let mut substitution = BTreeMap::new();
+                        substitution.insert("a".to_string(), typ.clone());
+
+                        let expected = interface_method.ty.clone().subst(
+                            symbol_table_OLD.clone(),
+                            Prov::Node(stmt.id),
+                            &substitution,
+                        );
+
+                        constrain(expected, TypeVar::from_node(ctx, f.name.id));
+
+                        generate_constraints_stmt(
+                            symbol_table_OLD.clone(),
+                            Mode::Syn,
+                            statement.clone(),
+                            ctx,
+                            false,
+                        );
+                    } else {
+                        ctx.interface_impl_extra_method
+                            .entry(stmt.id)
+                            .or_default()
+                            .push(statement.id);
+                    }
+                }
+                for interface_method in interface_def.methods {
+                    if !statements.iter().any(|stmt| match &*stmt.kind {
+                        StmtKind::FuncDef(f) => {
+                            f.name.kind.get_identifier_of_variable() == interface_method.name
+                        }
+                        _ => false,
+                    }) {
+                        ctx.interface_impl_missing_method
+                            .entry(stmt.id)
+                            .or_default()
+                            .push(interface_method.name.clone());
+                    }
+                }
+            } else {
+                ctx.unbound_interfaces.insert(stmt.id);
+            }
+        }
+        ItemKind::TypeDef(typdefkind) => match &**typdefkind {
+            // TypeDefKind::Alias(ident, ty) => {
+            //     let left = TypeVar::fresh(ctx, Prov::Alias(ident.clone()));
+            //     let right = ast_type_to_statics_type(ctx, ty.clone());
+            //     constrain(left, right);
+            // }
+            TypeDefKind::Enum(..) | TypeDefKind::Struct(..) => {}
+        },
+        ItemKind::FuncDef(f) => {
+            let func_node_id = stmt.id;
+            let ty_pat = TypeVar::from_node(ctx, f.name.id);
+
+            let func_name = f.name.kind.get_identifier_of_variable();
+
+            // TODO this needs a better explanation
+            if add_to_tyvar_symbol_table {
+                symbol_table_OLD.extend(f.name.kind.get_identifier_of_variable(), ty_pat.clone());
+                symbol_table_OLD.extend_declaration(
+                    func_name,
+                    Resolution::FreeFunction(stmt.id, f.name.kind.get_identifier_of_variable()),
+                );
+            } else {
+                symbol_table_OLD
+                    .extend_declaration(func_name.clone(), Resolution::InterfaceMethod(func_name));
+            }
+
+            let body_symbol_table = symbol_table_OLD.new_scope();
+            let ty_func = generate_constraints_func_helper(
+                ctx,
+                func_node_id,
+                body_symbol_table,
+                &f.args,
+                &f.ret_type,
+                &f.body,
+            );
+
+            constrain(ty_pat, ty_func);
+        }
+    }
 }
 
 fn generate_constraints_stmt(

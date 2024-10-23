@@ -1,5 +1,6 @@
 use crate::ast::{
-    Expr, ExprKind, FileAst, Identifier, MatchArm, NodeMap, Pat, PatKind, Sources, Stmt, StmtKind,
+    Expr, ExprKind, FileAst, Identifier, Item, ItemKind, MatchArm, NodeMap, Pat, PatKind, Sources,
+    Stmt, StmtKind,
 };
 use crate::vm::AbraFloat;
 use core::panic;
@@ -60,8 +61,27 @@ pub(crate) fn result_of_additional_analysis(
 }
 
 fn check_pattern_exhaustiveness_file(statics: &mut StaticsContext, file: &FileAst) {
-    for statement in file.statements.iter() {
-        check_pattern_exhaustiveness_stmt(statics, statement);
+    for item in file.items.iter() {
+        check_pattern_exhaustiveness_item(statics, item);
+    }
+}
+
+fn check_pattern_exhaustiveness_item(statics: &mut StaticsContext, stmt: &Item) {
+    match &*stmt.kind {
+        ItemKind::Import(..) => {}
+        ItemKind::InterfaceDef(..) => {}
+        ItemKind::TypeDef(..) => {}
+        ItemKind::InterfaceImpl(_, _, stmts) => {
+            for stmt in stmts {
+                check_pattern_exhaustiveness_stmt(statics, stmt);
+            }
+        }
+        ItemKind::FuncDef(f) => {
+            check_pattern_exhaustiveness_expr(statics, &f.body);
+        }
+        ItemKind::Stmt(stmt) => {
+            check_pattern_exhaustiveness_stmt(statics, stmt);
+        }
     }
 }
 

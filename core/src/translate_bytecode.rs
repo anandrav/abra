@@ -1,5 +1,5 @@
-use crate::assembly::{remove_labels, Instr, Item, Label};
-use crate::ast::BinOpcode;
+use crate::assembly::{remove_labels, Instr, Label, Line};
+use crate::ast::{BinOpcode, FuncDef, Item, ItemKind};
 use crate::ast::{FileAst, Identifier, Node, NodeId, Sources};
 use crate::builtin::Builtin;
 use crate::effects::EffectStruct;
@@ -48,14 +48,14 @@ pub(crate) struct Translator {
 
 #[derive(Debug, Default)]
 struct TranslatorState {
-    items: Vec<Item>,
+    lines: Vec<Line>,
     lambdas: Lambdas,
     overloaded_func_map: OverloadedFuncLabels,
     overloaded_methods_to_generate: Vec<(OverloadedFuncDesc, Type)>,
 }
 
-fn emit(st: &mut TranslatorState, i: impl Into<Item>) {
-    st.items.push(i.into());
+fn emit(st: &mut TranslatorState, i: impl Into<Line>) {
+    st.lines.push(i.into());
 }
 
 #[derive(Debug, Clone)]
@@ -92,7 +92,15 @@ impl Translator {
         {
             let mut locals = HashSet::new();
             for file in self.files.iter() {
-                collect_locals_stmt(&file.statements, &mut locals);
+                let stmts: Vec<_> = file
+                    .items
+                    .iter()
+                    .filter_map(|item| match &*item.kind {
+                        ItemKind::Stmt(stmt) => Some(stmt.clone()),
+                        _ => None,
+                    })
+                    .collect();
+                collect_locals_stmt(&stmts, &mut locals);
             }
             for _ in 0..locals.len() {
                 emit(st, Instr::PushNil);
@@ -102,14 +110,16 @@ impl Translator {
                 offset_table.entry(*local).or_insert((i) as i32);
             }
             for file in self.files.iter() {
-                for (i, statement) in file.statements.iter().enumerate() {
-                    self.translate_stmt(
-                        statement.clone(),
-                        i == file.statements.len() - 1,
-                        &offset_table,
-                        monomorph_env.clone(),
-                        st,
-                    );
+                for (i, item) in file.items.iter().enumerate() {
+                    if let ItemKind::Stmt(stmt) = &*item.kind {
+                        self.translate_stmt(
+                            stmt.clone(),
+                            i == file.items.len() - 1,
+                            &offset_table,
+                            monomorph_env.clone(),
+                            st,
+                        );
+                    }
                 }
             }
             emit(st, Instr::Return);
@@ -117,8 +127,8 @@ impl Translator {
 
         // Handle ordinary function (not overloaded, not a closure) definitions
         for file in self.files.iter() {
-            for stmt in &file.statements {
-                self.translate_stmt_static(stmt.clone(), st, false);
+            for item in &file.items {
+                self.translate_item_static(item.clone(), st, false);
             }
         }
 
@@ -130,7 +140,7 @@ impl Translator {
                 panic!()
             };
 
-            emit(st, Item::Label(data.label));
+            emit(st, Line::Label(data.label));
 
             self.translate_expr(body.clone(), &data.offset_table, monomorph_env.clone(), st); // TODO passing lambdas here is kind of weird and recursive. Should build list of lambdas in statics.rs instead.
 
@@ -155,64 +165,72 @@ impl Translator {
             for (desc, substituted_ty) in iteration {
                 let definition_id = desc.definition_node;
 
-                let StmtKind::FuncDef(f) = &*self
-                    .node_map
-                    .get(&definition_id)
-                    .unwrap()
-                    .to_stmt()
-                    .unwrap()
-                    .kind
-                else {
-                    panic!()
+                let do_stuff = |f: Rc<FuncDef>| {
+                    let overloaded_func_ty = self.statics.solution_of_node(f.name.id()).unwrap();
+                    let monomorph_env = MonomorphEnv::empty();
+                    update_monomorph_env(monomorph_env.clone(), overloaded_func_ty, substituted_ty);
+
+                    let label = st.overloaded_func_map.get(&desc).unwrap();
+                    emit(st, Line::Label(label.clone()));
+
+                    let mut locals = HashSet::new();
+                    collect_locals_expr(&f.body, &mut locals);
+                    let locals_count = locals.len();
+                    for _ in 0..locals_count {
+                        emit(st, Instr::PushNil);
+                    }
+                    let mut offset_table = OffsetTable::new();
+                    for (i, arg) in f.args.iter().rev().enumerate() {
+                        offset_table.entry(arg.0.id).or_insert(-(i as i32) - 1);
+                    }
+                    for (i, local) in locals.iter().enumerate() {
+                        offset_table.entry(*local).or_insert((i) as i32);
+                    }
+                    let nargs = f.args.len();
+                    self.translate_expr(f.body.clone(), &offset_table, monomorph_env.clone(), st);
+
+                    if locals_count + nargs > 0 {
+                        // pop all locals and arguments except one. The last one is the return value slot.
+                        emit(st, Instr::StoreOffset(-(nargs as i32)));
+                        for _ in 0..(locals_count + nargs - 1) {
+                            emit(st, Instr::Pop);
+                        }
+                    }
+
+                    emit(st, Instr::Return);
                 };
 
-                let overloaded_func_ty = self.statics.solution_of_node(f.name.id()).unwrap();
-                let monomorph_env = MonomorphEnv::empty();
-                update_monomorph_env(monomorph_env.clone(), overloaded_func_ty, substituted_ty);
-
-                let label = st.overloaded_func_map.get(&desc).unwrap();
-                emit(st, Item::Label(label.clone()));
-
-                let mut locals = HashSet::new();
-                collect_locals_expr(&f.body, &mut locals);
-                let locals_count = locals.len();
-                for _ in 0..locals_count {
-                    emit(st, Instr::PushNil);
-                }
-                let mut offset_table = OffsetTable::new();
-                for (i, arg) in f.args.iter().rev().enumerate() {
-                    offset_table.entry(arg.0.id).or_insert(-(i as i32) - 1);
-                }
-                for (i, local) in locals.iter().enumerate() {
-                    offset_table.entry(*local).or_insert((i) as i32);
-                }
-                let nargs = f.args.len();
-                self.translate_expr(f.body.clone(), &offset_table, monomorph_env.clone(), st);
-
-                if locals_count + nargs > 0 {
-                    // pop all locals and arguments except one. The last one is the return value slot.
-                    emit(st, Instr::StoreOffset(-(nargs as i32)));
-                    for _ in 0..(locals_count + nargs - 1) {
-                        emit(st, Instr::Pop);
+                // TODO: utter trash
+                let mut handled = false;
+                if let Some(stmt) = &self.node_map.get(&definition_id).unwrap().to_stmt() {
+                    if let StmtKind::FuncDef(f) = &*stmt.kind {
+                        do_stuff(f.clone());
+                        handled = true;
+                    }
+                } else if let Some(item) = &self.node_map.get(&definition_id).unwrap().to_item() {
+                    if let ItemKind::FuncDef(f) = &*item.kind {
+                        do_stuff(f.clone());
+                        handled = true;
                     }
                 }
-
-                emit(st, Instr::Return);
+                if !handled {
+                    panic!("did not handle overloaded function");
+                }
             }
         }
 
         // Create functions for effects
         for (i, effect) in self.effects.iter().enumerate() {
-            emit(st, Item::Label(effect.name.clone()));
+            emit(st, Line::Label(effect.name.clone()));
             emit(st, Instr::Effect(i as u16));
             emit(st, Instr::Return);
         }
 
-        for _item in st.items.iter() {
+        for _item in st.lines.iter() {
             // println!("{}", _item);
         }
 
-        let (instructions, label_map) = remove_labels(&st.items, &self.statics.string_constants);
+        let (instructions, label_map) = remove_labels(&st.lines, &self.statics.string_constants);
         let mut string_table: Vec<String> =
             vec!["".to_owned(); self.statics.string_constants.len()];
         for (s, idx) in self.statics.string_constants.iter() {
@@ -341,8 +359,8 @@ impl Translator {
                         }
                         Resolution::FreeFunction(node_id, name) => {
                             // println!("emitting Call of function: {}", name);
-                            let StmtKind::FuncDef(f) =
-                                &*self.node_map.get(node_id).unwrap().to_stmt().unwrap().kind
+                            let ItemKind::FuncDef(f) =
+                                &*self.node_map.get(node_id).unwrap().to_item().unwrap().kind
                             else {
                                 panic!()
                             };
@@ -525,9 +543,9 @@ impl Translator {
                 emit(st, Instr::JumpIf(then_label.clone()));
                 self.translate_expr(else_block.clone(), offset_table, monomorph_env.clone(), st);
                 emit(st, Instr::Jump(end_label.clone()));
-                emit(st, Item::Label(then_label));
+                emit(st, Line::Label(then_label));
                 self.translate_expr(then_block.clone(), offset_table, monomorph_env.clone(), st);
-                emit(st, Item::Label(end_label));
+                emit(st, Line::Label(end_label));
             }
             ExprKind::If(cond, then_block, None) => {
                 self.translate_expr(cond.clone(), offset_table, monomorph_env.clone(), st);
@@ -535,9 +553,9 @@ impl Translator {
                 let end_label = make_label("endif");
                 emit(st, Instr::JumpIf(then_label.clone()));
                 emit(st, Instr::Jump(end_label.clone()));
-                emit(st, Item::Label(then_label));
+                emit(st, Line::Label(then_label));
                 self.translate_expr(then_block.clone(), offset_table, monomorph_env.clone(), st);
-                emit(st, Item::Label(end_label));
+                emit(st, Line::Label(end_label));
                 emit(st, Instr::PushNil); // TODO get rid of this unnecessary overhead
             }
             ExprKind::MemberAccess(accessed, field) => {
@@ -612,7 +630,7 @@ impl Translator {
                     emit(st, Instr::JumpIf(arm_label));
                 }
                 for (i, arm) in arms.iter().enumerate() {
-                    emit(st, Item::Label(arm_labels[i].clone()));
+                    emit(st, Line::Label(arm_labels[i].clone()));
 
                     self.handle_pat_binding(arm.pat.clone(), offset_table, st);
 
@@ -621,7 +639,7 @@ impl Translator {
                         emit(st, Instr::Jump(end_label.clone()));
                     }
                 }
-                emit(st, Item::Label(end_label));
+                emit(st, Line::Label(end_label));
             }
             ExprKind::Func(args, _, body) => {
                 let label = make_label("lambda");
@@ -685,13 +703,13 @@ impl Translator {
                 let start_label = make_label("while_start");
                 let end_label = make_label("while_end");
 
-                emit(st, Item::Label(start_label.clone()));
+                emit(st, Line::Label(start_label.clone()));
                 self.translate_expr(cond.clone(), offset_table, monomorph_env.clone(), st);
                 emit(st, Instr::Not);
                 emit(st, Instr::JumpIf(end_label.clone()));
                 self.translate_expr(body.clone(), offset_table, monomorph_env.clone(), st);
                 emit(st, Instr::Jump(start_label));
-                emit(st, Item::Label(end_label));
+                emit(st, Line::Label(end_label));
                 emit(st, Instr::PushNil);
             }
         }
@@ -757,12 +775,12 @@ impl Translator {
                     }
 
                     // FAILURE
-                    emit(st, Item::Label(tag_fail_label));
+                    emit(st, Line::Label(tag_fail_label));
                     emit(st, Instr::Pop);
 
                     emit(st, Instr::PushBool(false));
 
-                    emit(st, Item::Label(end_label));
+                    emit(st, Line::Label(end_label));
                 }
                 _ => panic!("unexpected pattern: {:?}", pat.kind),
             },
@@ -790,24 +808,80 @@ impl Translator {
                         }
                     }
                     // SUCCESS CASE
-                    emit(st, Item::Label(final_element_success_label));
+                    emit(st, Line::Label(final_element_success_label));
                     emit(st, Instr::PushBool(true));
                     emit(st, Instr::Jump(end_label.clone()));
 
                     // FAILURE CASE
                     // clean up the remaining tuple elements before yielding false
-                    emit(st, Item::Label(failure_labels[0].clone()));
+                    emit(st, Line::Label(failure_labels[0].clone()));
                     for label in &failure_labels[1..] {
                         emit(st, Instr::Pop);
-                        emit(st, Item::Label(label.clone()));
+                        emit(st, Line::Label(label.clone()));
                     }
                     emit(st, Instr::PushBool(false));
 
-                    emit(st, Item::Label(end_label));
+                    emit(st, Line::Label(end_label));
                 }
                 _ => panic!("unexpected pattern: {:?}", pat.kind),
             },
             _ => unimplemented!(),
+        }
+    }
+
+    fn translate_item_static(&self, stmt: Rc<Item>, st: &mut TranslatorState, iface_method: bool) {
+        match &*stmt.kind {
+            ItemKind::Stmt(stmt) => {}
+            ItemKind::InterfaceImpl(_, _, stmts) => {
+                for stmt in stmts {
+                    self.translate_stmt_static(stmt.clone(), st, true);
+                }
+            }
+            ItemKind::FuncDef(f) => {
+                // TODO last here
+                // TODO: check if overloaded. If so, handle differently.
+                // (this could be an overloaded function or an interface method)
+                let func_ty = self.statics.solution_of_node(f.name.id).unwrap();
+                let func_name = f.name.kind.get_identifier_of_variable();
+
+                if func_ty.is_overloaded() // println: 'a ToString -> ()
+                || iface_method
+                // to_string: 'a ToString -> String
+                {
+                    return;
+                }
+
+                // println!("Generating code for function: {}", func_name);
+                emit(st, Line::Label(func_name));
+                let mut locals = HashSet::new();
+                collect_locals_expr(&f.body, &mut locals);
+                let locals_count = locals.len();
+                for _ in 0..locals_count {
+                    emit(st, Instr::PushNil);
+                }
+                let mut offset_table = OffsetTable::new();
+                for (i, arg) in f.args.iter().rev().enumerate() {
+                    offset_table.entry(arg.0.id).or_insert(-(i as i32) - 1);
+                }
+                for (i, local) in locals.iter().enumerate() {
+                    offset_table.entry(*local).or_insert((i) as i32);
+                }
+                let nargs = f.args.len();
+                self.translate_expr(f.body.clone(), &offset_table, MonomorphEnv::empty(), st);
+
+                if locals_count + nargs > 0 {
+                    // pop all locals and arguments except one. The last one is the return value slot.
+                    emit(st, Instr::StoreOffset(-(nargs as i32)));
+                    for _ in 0..(locals_count + nargs - 1) {
+                        emit(st, Instr::Pop);
+                    }
+                }
+
+                emit(st, Instr::Return);
+            }
+            ItemKind::InterfaceDef(..) | ItemKind::TypeDef(..) | ItemKind::Import(..) => {
+                // noop
+            }
         }
     }
 
@@ -836,7 +910,7 @@ impl Translator {
                 }
 
                 // println!("Generating code for function: {}", func_name);
-                emit(st, Item::Label(func_name));
+                emit(st, Line::Label(func_name));
                 let mut locals = HashSet::new();
                 collect_locals_expr(&f.body, &mut locals);
                 let locals_count = locals.len();
