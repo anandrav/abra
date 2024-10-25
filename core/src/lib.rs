@@ -6,9 +6,9 @@ pub use effects::EffectStruct;
 mod assembly;
 pub mod ast;
 mod builtin;
-pub mod environment;
-
 pub mod effects;
+pub mod environment;
+mod parse;
 pub mod statics;
 mod translate_bytecode;
 pub mod vm;
@@ -50,7 +50,7 @@ pub fn compile_bytecode(
     }
     let sources = ast::Sources { filename_to_source };
 
-    let files = ast::parse_or_err(&source_files)?;
+    let files = parse::parse_or_err(&source_files)?;
 
     let mut node_map = ast::NodeMap::new();
     for parse_tree in &files {

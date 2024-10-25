@@ -306,8 +306,12 @@ pub(crate) enum TypeKey {
     Tuple(u8),    // u8 represents the number of elements
 }
 
+// TODO: Split Prov into two types
+// 1. TypeIdentity
+// 2. ConstraintProvenance/ErrorProvenance or something
+
 // Provenances are used to:
-// (1) give the *unique* identity of an unknown type variable (UnifVar) in the SolutionMap
+// (1) give the *unique* identity of a skolem (type to be solved) (UnifVar) in the SolutionMap
 // (2) track the origins (plural!) of a type's constraints for error reporting
 // TODO: Does Prov really need to be that deeply nested? Will there really be FuncArg -> InstantiatedPoly -> BinopLeft -> Node? Or can we simplify here?
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
