@@ -23,5 +23,5 @@ while i < 10 {
 ```
 git clone https://github.com/anandrav/abra.git
 cd abra
-./scripts/install
+cargo install --bin abra --path cli
 ```
