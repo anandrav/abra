@@ -16,7 +16,7 @@ pub(crate) struct Sources {
 
 pub(crate) type PatAnnotated = (Rc<Pat>, Option<Rc<AstType>>);
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq, Hash)]
 pub(crate) struct FileAst {
     pub(crate) items: Vec<Rc<Item>>,
     pub(crate) name: String,
@@ -41,28 +41,28 @@ impl Node for FileAst {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq, Hash)]
 pub(crate) enum TypeDefKind {
     // Alias(Identifier, Rc<AstType>),
     Enum(Rc<EnumDef>),
     Struct(Rc<StructDef>),
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq, Hash)]
 pub(crate) struct EnumDef {
     pub(crate) name: Identifier,
     pub(crate) ty_args: Vec<Rc<AstType>>,
     pub(crate) variants: Vec<Rc<Variant>>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq, Hash)]
 pub(crate) struct StructDef {
     pub(crate) name: Identifier,
     pub(crate) ty_args: Vec<Rc<AstType>>,
     pub(crate) fields: Vec<Rc<StructField>>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq, Hash)]
 pub(crate) struct Variant {
     pub(crate) ctor: Identifier,
     pub(crate) data: Option<Rc<AstType>>,
@@ -87,7 +87,7 @@ impl Node for Variant {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq, Hash)]
 pub(crate) struct StructField {
     pub(crate) ident: Identifier,
     pub(crate) ty: Rc<AstType>,
@@ -136,7 +136,8 @@ pub(crate) trait Node {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq, Hash)]
+
 pub(crate) struct Item {
     pub(crate) kind: Rc<ItemKind>,
     pub(crate) span: Span,
@@ -215,7 +216,7 @@ impl Node for Item {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq, Hash)]
 pub(crate) enum ItemKind {
     FuncDef(Rc<FuncDef>),
     TypeDef(Rc<TypeDefKind>),
@@ -225,7 +226,7 @@ pub(crate) enum ItemKind {
     Stmt(Rc<Stmt>),
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq, Hash)]
 pub(crate) struct Stmt {
     pub(crate) kind: Rc<StmtKind>,
     pub(crate) span: Span,
@@ -274,7 +275,7 @@ impl Node for Stmt {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq, Hash)]
 pub(crate) enum StmtKind {
     Let(bool, PatAnnotated, Rc<Expr>), // bool is whether it's mutable
     Set(Rc<Expr>, Rc<Expr>),
@@ -282,7 +283,7 @@ pub(crate) enum StmtKind {
     FuncDef(Rc<FuncDef>),
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq, Hash)]
 pub(crate) struct FuncDef {
     pub(crate) name: Rc<Pat>, // TODO: Don't use Rc<Pat> for the name, just use Identifier. If need be, make struct for Identifier with span and id
     pub(crate) args: Vec<ArgAnnotated>,
@@ -290,13 +291,13 @@ pub(crate) struct FuncDef {
     pub(crate) body: Rc<Expr>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq, Hash)]
 pub(crate) struct InterfaceDef {
     pub(crate) name: Identifier,
     pub(crate) props: Vec<Rc<InterfaceProperty>>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq, Hash)]
 pub(crate) struct InterfaceProperty {
     pub(crate) ident: Identifier,
     pub(crate) ty: Rc<AstType>,
@@ -315,7 +316,7 @@ impl Node for InterfaceProperty {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq, Hash)]
 pub(crate) struct Expr {
     pub(crate) kind: Rc<ExprKind>,
     pub(crate) span: Span,
@@ -395,7 +396,7 @@ impl Node for Expr {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq, Hash)]
 pub(crate) enum ExprKind {
     // EmptyHole,
     Identifier(Identifier),
@@ -418,7 +419,7 @@ pub(crate) enum ExprKind {
     IndexAccess(Rc<Expr>, Rc<Expr>),
 }
 
-#[derive(Debug, Copy, Clone, Hash, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq, Hash)]
 pub enum BinOpcode {
     // comparison
     Equal,
@@ -440,7 +441,7 @@ pub enum BinOpcode {
     Concat,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq, Hash)]
 pub(crate) struct MatchArm {
     pub(crate) pat: Rc<Pat>,
     pub(crate) expr: Rc<Expr>,
@@ -448,7 +449,7 @@ pub(crate) struct MatchArm {
 
 // pub(crate) type MatchArm = (Rc<Pat>, Rc<Expr>);
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq, Hash)]
 pub(crate) struct Pat {
     pub(crate) kind: Rc<PatKind>,
     pub(crate) span: Span,
@@ -487,7 +488,7 @@ impl Node for Pat {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq, Hash)]
 pub(crate) enum PatKind {
     // EmptyHole,
     Wildcard,
@@ -512,7 +513,7 @@ impl PatKind {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq, Hash)]
 pub(crate) struct AstType {
     pub(crate) typekind: Rc<TypeKind>,
     pub(crate) span: Span,
@@ -557,7 +558,7 @@ impl Node for AstType {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq, Hash)]
 pub(crate) enum TypeKind {
     Poly(Identifier, Vec<Identifier>),
     Name(Identifier),
@@ -596,7 +597,7 @@ impl Default for NodeId {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq, Hash)]
 pub(crate) struct Span {
     pub(crate) filename: String,
     pub(crate) lo: usize,
