@@ -173,7 +173,7 @@ pub(crate) fn parse_let_pattern(pair: Pair<Rule>, filename: &str) -> Rc<Pat> {
             parse_let_pattern(pair, filename)
         }
         Rule::identifier => Rc::new(Pat {
-            kind: Rc::new(PatKind::Binding(pair.as_str().to_owned())),
+            kind: Rc::new(PatKind::Binding(pair.as_str()[1..].to_owned())),
             span,
             id: NodeId::new(),
         }),
@@ -543,6 +543,7 @@ pub(crate) fn parse_item(pair: Pair<Rule>, filename: &str) -> Rc<Item> {
         }
         Rule::interface_implementation => {
             let name = inner[0].as_str().to_string();
+            let name_span = Span::new(filename, inner[0].as_span());
             let ty = parse_type_term(inner[1].clone(), filename);
             let mut n = 2;
             let mut stmts = vec![];
@@ -555,7 +556,7 @@ pub(crate) fn parse_item(pair: Pair<Rule>, filename: &str) -> Rc<Item> {
                 kind: ItemKind::InterfaceImpl(
                     Identifier {
                         value: name,
-                        span: span.clone(),
+                        span: name_span,
                         id: NodeId::new(),
                     },
                     ty,
