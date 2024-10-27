@@ -43,7 +43,7 @@ pub(crate) struct StaticsContext {
     // struct definitions
     pub(crate) struct_defs: HashMap<Identifier, StructDef_OLD>,
     // function definition locations
-    pub(crate) fun_defs: HashMap<Identifier, Rc<FuncDef>>,
+    // pub(crate) fun_defs: HashMap<Identifier, Rc<FuncDef>>,
     // interface definitions
     interface_defs: HashMap<Identifier, InterfaceDef_OLD>,
     // map from methods to interface names
