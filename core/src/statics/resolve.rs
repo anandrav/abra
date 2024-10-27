@@ -17,15 +17,15 @@ use super::typecheck::{
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub(crate) struct EnumDef_OLD {
-    pub(crate) name: Identifier,
-    pub(crate) params: Vec<Identifier>,
+    pub(crate) name: String,
+    pub(crate) params: Vec<String>,
     pub(crate) variants: Vec<Variant_OLD>,
     pub(crate) location: NodeId,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub(crate) struct Variant_OLD {
-    pub(crate) ctor: Identifier,
+    pub(crate) ctor: String,
     pub(crate) data: TypeVar,
 }
 
@@ -38,28 +38,28 @@ impl fmt::Display for Variant_OLD {
 // TODO: these are all kind of redundant... Just use AST nodes instead of putting the same info in these structs?
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub(crate) struct StructDef_OLD {
-    pub(crate) name: Identifier,
-    pub(crate) params: Vec<Identifier>,
+    pub(crate) name: String,
+    pub(crate) params: Vec<String>,
     pub(crate) fields: Vec<StructField_OLD>,
     pub(crate) location: NodeId,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub(crate) struct StructField_OLD {
-    pub(crate) name: Identifier,
+    pub(crate) name: String,
     pub(crate) ty: TypeVar,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub(crate) struct InterfaceDef_OLD {
-    pub(crate) name: Identifier,
+    pub(crate) name: String,
     pub(crate) methods: Vec<InterfaceDefMethod_OLD>,
     pub(crate) location: NodeId,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub(crate) struct InterfaceImpl_OLD {
-    pub(crate) name: Identifier,
+    pub(crate) name: String,
     pub(crate) typ: TypeVar,
     pub(crate) methods: Vec<InterfaceImplMethod_OLD>,
     pub(crate) location: NodeId,
@@ -67,13 +67,13 @@ pub(crate) struct InterfaceImpl_OLD {
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub(crate) struct InterfaceDefMethod_OLD {
-    pub(crate) name: Identifier,
+    pub(crate) name: String,
     pub(crate) ty: TypeVar,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub(crate) struct InterfaceImplMethod_OLD {
-    pub(crate) name: Identifier,
+    pub(crate) name: String,
     pub(crate) method_location: NodeId,
     pub(crate) identifier_location: NodeId,
 }
@@ -120,7 +120,7 @@ fn gather_declarations_item(namespace: &mut Namespace, qualifiers: Vec<String>, 
             // and call interface methods using the dot operator. my_struct.to_string() etc.
 
             for (i, p) in iface.props.iter().enumerate() {
-                let method_name = p.ident.clone();
+                let method_name = p.name.value.clone();
                 let mut fully_qualified_name = qualifiers.clone();
                 fully_qualified_name.push(method_name.clone());
                 namespace.declarations.insert(
@@ -144,7 +144,7 @@ fn gather_declarations_item(namespace: &mut Namespace, qualifiers: Vec<String>, 
 
                 for (i, v) in e.variants.iter().enumerate() {
                     let tag = i as u16;
-                    let variant_name = v.ctor.clone();
+                    let variant_name = v.ctor.value.clone();
                     let arity = v.data.as_ref().map_or(0, |d| match &*d.typekind {
                         TypeKind::Tuple(elems) => elems.len(),
                         TypeKind::Unit => 0,
@@ -161,7 +161,7 @@ fn gather_declarations_item(namespace: &mut Namespace, qualifiers: Vec<String>, 
                 }
             }
             TypeDefKind::Struct(s) => {
-                let entry_name = s.name.clone();
+                let entry_name = s.name.value.clone();
                 namespace
                     .declarations
                     .insert(entry_name, Declaration::Struct(s.clone()));
@@ -188,8 +188,8 @@ struct SymbolTable {
 
 #[derive(Default, Debug, Clone)]
 struct SymbolTableBase {
-    declarations: BTreeMap<Identifier, Declaration>,
-    namespaces: BTreeMap<Identifier, Rc<Namespace>>,
+    declarations: BTreeMap<String, Declaration>,
+    namespaces: BTreeMap<String, Rc<Namespace>>,
 
     enclosing: Option<Rc<RefCell<SymbolTableBase>>>,
 }
@@ -210,19 +210,19 @@ impl SymbolTable {
         }
     }
 
-    pub(crate) fn lookup_declaration(&self, id: &Identifier) -> Option<Declaration> {
+    pub(crate) fn lookup_declaration(&self, id: &String) -> Option<Declaration> {
         self.base.borrow().declarations.get(id).cloned()
     }
 
-    pub(crate) fn lookup_namespace(&self, id: &Identifier) -> Option<Rc<Namespace>> {
+    pub(crate) fn lookup_namespace(&self, id: &String) -> Option<Rc<Namespace>> {
         self.base.borrow().namespaces.get(id).cloned()
     }
 
-    pub(crate) fn extend_declaration(&self, id: Identifier, decl: Declaration) {
+    pub(crate) fn extend_declaration(&self, id: String, decl: Declaration) {
         self.base.borrow_mut().declarations.insert(id, decl);
     }
 
-    pub(crate) fn extend_namespace(&self, id: Identifier, ns: Rc<Namespace>) {
+    pub(crate) fn extend_namespace(&self, id: String, ns: Rc<Namespace>) {
         self.base.borrow_mut().namespaces.insert(id, ns);
     }
 }
@@ -230,7 +230,7 @@ impl SymbolTable {
 // type Env = Environment<Identifier, Declaration>;
 
 // TODO: make a custom type to detect collisions
-pub type ToplevelEnv = BTreeMap<Identifier, Declaration>;
+pub type ToplevelEnv = BTreeMap<String, Declaration>;
 
 pub(crate) fn resolve(ctx: &mut StaticsContext, files: Vec<Rc<FileAst>>) {
     for file in files {
@@ -273,7 +273,7 @@ fn resolve_imports_file(ctx: &mut StaticsContext, file: Rc<FileAst>) -> Toplevel
             for (name, declaration) in ctx
                 .global_namespace
                 .namespaces
-                .get(path)
+                .get(&path.value)
                 .unwrap()
                 .declarations
                 .iter()
@@ -292,7 +292,7 @@ pub(crate) fn resolve_names_file(ctx: &mut StaticsContext, env: ToplevelEnv, fil
     let symbol_table = SymbolTable::empty();
 
     // for (i, eff) in ctx.effects.iter().enumerate() {
-    //     env.extend(eff.name.clone(), Declaration::Effect(i as u16));
+    //     env.extend(eff.name.value.clone(), Declaration::Effect(i as u16));
     // }
     // for builtin in Builtin::enumerate().iter() {
     //     env.extend(builtin.name(), Declaration::Builtin(*builtin));
@@ -464,10 +464,10 @@ fn gather_definitions_item_DEPRECATE(
 ) {
     match &*stmt.kind {
         ItemKind::InterfaceDef(i) => {
-            if let Some(interface_def) = ctx.interface_defs.get(&i.name) {
+            if let Some(interface_def) = ctx.interface_defs.get(&i.name.value) {
                 let entry = ctx
                     .multiple_interface_defs
-                    .entry(i.name.clone())
+                    .entry(i.name.value.clone())
                     .or_default();
                 entry.push(interface_def.location);
                 entry.push(stmt.id);
@@ -475,28 +475,29 @@ fn gather_definitions_item_DEPRECATE(
             }
             let mut methods = vec![];
             for p in i.props.iter() {
-                let ty_annot = ast_type_to_statics_type_interface(ctx, p.ty.clone(), Some(&i.name));
+                let ty_annot =
+                    ast_type_to_statics_type_interface(ctx, p.ty.clone(), Some(&i.name.value));
                 let node_ty = TypeVar::from_node(ctx, p.id());
                 // TODO: it would be nice if there were no calls to constrain() when gathering declarations...
                 constrain(node_ty.clone(), ty_annot.clone());
                 methods.push(InterfaceDefMethod_OLD {
-                    name: p.ident.clone(),
+                    name: p.name.value.clone(),
                     ty: node_ty.clone(),
                 });
                 ctx.method_to_interface
-                    .insert(p.ident.clone(), i.name.clone());
-                symbol_table.extend(p.ident.clone(), node_ty);
+                    .insert(p.name.value.clone(), i.name.value.clone());
+                symbol_table.extend(p.name.value.clone(), node_ty);
             }
             ctx.interface_defs.insert(
-                i.name.clone(),
+                i.name.value.clone(),
                 InterfaceDef_OLD {
-                    name: i.name.clone(),
+                    name: i.name.value.clone(),
                     methods,
                     location: stmt.id,
                 },
             );
         }
-        ItemKind::InterfaceImpl(ident, typ, stmts) => {
+        ItemKind::InterfaceImpl(name, typ, stmts) => {
             let typ = ast_type_to_statics_type(ctx, typ.clone());
 
             if typ.is_instantiated_enum() {
@@ -517,9 +518,9 @@ fn gather_definitions_item_DEPRECATE(
                     _ => unreachable!(),
                 })
                 .collect();
-            let impl_list = ctx.interface_impls.entry(ident.clone()).or_default();
+            let impl_list = ctx.interface_impls.entry(name.value.clone()).or_default();
             impl_list.push(InterfaceImpl_OLD {
-                name: ident.clone(),
+                name: name.value.clone(),
                 typ,
                 methods,
                 location: stmt.id,
@@ -528,8 +529,11 @@ fn gather_definitions_item_DEPRECATE(
         ItemKind::TypeDef(typdefkind) => match &**typdefkind {
             // TypeDefKind::Alias(_ident, _ty) => {}
             TypeDefKind::Enum(e) => {
-                if let Some(enum_def) = ctx.enum_defs.get(&e.name) {
-                    let entry = ctx.multiple_udt_defs.entry(e.name.clone()).or_default();
+                if let Some(enum_def) = ctx.enum_defs.get(&e.name.value) {
+                    let entry = ctx
+                        .multiple_udt_defs
+                        .entry(e.name.value.clone())
+                        .or_default();
                     entry.push(enum_def.location);
                     entry.push(stmt.id);
                     return;
@@ -542,7 +546,7 @@ fn gather_definitions_item_DEPRECATE(
                         _ => 1,
                     });
                     symbol_table.extend_declaration(
-                        v.ctor.clone(),
+                        v.ctor.value.clone(),
                         Resolution_OLD::VariantCtor(i as u16, arity as u16),
                     );
 
@@ -554,22 +558,23 @@ fn gather_definitions_item_DEPRECATE(
                         }
                     };
                     defvariants.push(Variant_OLD {
-                        ctor: v.ctor.clone(),
+                        ctor: v.ctor.value.clone(),
                         data,
                     });
-                    ctx.variants_to_enum.insert(v.ctor.clone(), e.name.clone());
+                    ctx.variants_to_enum
+                        .insert(v.ctor.value.clone(), e.name.value.clone());
                 }
                 let mut defparams = vec![];
                 for p in e.ty_args.iter() {
                     let TypeKind::Poly(ident, _) = &*p.typekind else {
                         panic!("expected poly type for type definition parameter")
                     };
-                    defparams.push(ident.clone());
+                    defparams.push(ident.value.clone());
                 }
                 ctx.enum_defs.insert(
-                    e.name.clone(),
+                    e.name.value.clone(),
                     EnumDef_OLD {
-                        name: e.name.clone(),
+                        name: e.name.value.clone(),
                         params: defparams,
                         variants: defvariants,
                         location: stmt.id,
@@ -578,13 +583,16 @@ fn gather_definitions_item_DEPRECATE(
             }
             TypeDefKind::Struct(s) => {
                 symbol_table.extend_declaration(
-                    s.name.clone(),
+                    s.name.value.clone(),
                     Resolution_OLD::StructCtor(s.fields.len() as u16),
                 );
 
                 // let ty_struct = TypeVar::from_node(ctx, stmt.id);
-                if let Some(struct_def) = ctx.struct_defs.get(&s.name) {
-                    let entry = ctx.multiple_udt_defs.entry(s.name.clone()).or_default();
+                if let Some(struct_def) = ctx.struct_defs.get(&s.name.value) {
+                    let entry = ctx
+                        .multiple_udt_defs
+                        .entry(s.name.value.clone())
+                        .or_default();
                     entry.push(struct_def.location);
                     entry.push(stmt.id);
                     return;
@@ -594,25 +602,25 @@ fn gather_definitions_item_DEPRECATE(
                     let TypeKind::Poly(ident, _) = &*p.typekind else {
                         panic!("expected poly type for type definition parameter")
                     };
-                    defparams.push(ident.clone());
+                    defparams.push(ident.value.clone());
                 }
                 let mut deffields = vec![];
                 for f in s.fields.iter() {
                     let ty_annot = ast_type_to_statics_type(ctx, f.ty.clone());
                     deffields.push(StructField_OLD {
-                        name: f.ident.clone(),
+                        name: f.name.value.clone(),
                         ty: ty_annot.clone(),
                     });
 
-                    let prov = Prov::StructField(f.ident.clone(), stmt.id);
+                    let prov = Prov::StructField(f.name.value.clone(), stmt.id);
                     let ty_field = TypeVar::fresh(ctx, prov.clone());
                     constrain(ty_field.clone(), ty_annot.clone());
                     ctx.vars.insert(prov, ty_field);
                 }
                 ctx.struct_defs.insert(
-                    s.name.clone(),
+                    s.name.value.clone(),
                     StructDef_OLD {
-                        name: s.name.clone(),
+                        name: s.name.value.clone(),
                         params: defparams,
                         fields: deffields,
                         location: stmt.id,
@@ -623,7 +631,7 @@ fn gather_definitions_item_DEPRECATE(
         ItemKind::FuncDef(f) => {
             let name_id = f.name.id;
             let name = f.name.kind.get_identifier_of_variable();
-            // ctx.fun_defs.insert(name.clone(), f.clone());
+            // ctx.fun_defs.insert(name.value.clone(), f.clone());
             symbol_table.extend(name.clone(), TypeVar::from_node(ctx, name_id));
             symbol_table
                 .extend_declaration(name.clone(), Resolution_OLD::FreeFunction(stmt.id, name));
@@ -644,7 +652,7 @@ fn gather_definitions_stmt_DEPRECATE(
         StmtKind::FuncDef(f) => {
             let name_id = f.name.id;
             let name = f.name.kind.get_identifier_of_variable();
-            // ctx.fun_defs.insert(name.clone(), f.clone());
+            // ctx.fun_defs.insert(name.value.clone(), f.clone());
             symbol_table.extend(name.clone(), TypeVar::from_node(ctx, name_id));
             symbol_table
                 .extend_declaration(name.clone(), Resolution_OLD::FreeFunction(stmt.id, name));

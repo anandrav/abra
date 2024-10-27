@@ -1,6 +1,6 @@
 use crate::ast::{
-    ArgAnnotated, AstType, Expr, ExprKind, FileAst, Identifier, ItemKind, Node, NodeId, NodeMap,
-    Pat, PatKind, Sources, Stmt, StmtKind, TypeDefKind, TypeKind,
+    ArgAnnotated, AstType, Expr, ExprKind, FileAst, ItemKind, Node, NodeId, NodeMap, Pat, PatKind,
+    Sources, Stmt, StmtKind, TypeDefKind, TypeKind,
 };
 use crate::ast::{BinOpcode, Item};
 use crate::builtin::Builtin;
@@ -144,7 +144,7 @@ impl TypeVarData {
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub(crate) enum PotentialType {
-    Poly(Provs, Identifier, Vec<Identifier>), // type name, then list of Interfaces it must match
+    Poly(Provs, String, Vec<String>), // type name, then list of Interfaces it must match
     Unit(Provs),
     Int(Provs),
     Float(Provs),
@@ -152,12 +152,12 @@ pub(crate) enum PotentialType {
     String(Provs),
     Function(Provs, Vec<TypeVar>, TypeVar),
     Tuple(Provs, Vec<TypeVar>),
-    UdtInstance(Provs, Identifier, Vec<TypeVar>), // TODO: instead of Symbol, use a node_id of the declaration. Types should be able to share the same name
+    UdtInstance(Provs, String, Vec<TypeVar>), // TODO: instead of Symbol, use a node_id of the declaration. Types should be able to share the same name
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub(crate) enum SolvedType {
-    Poly(Identifier, Vec<Identifier>), // type name, then list of Interfaces it must match
+    Poly(String, Vec<String>), // type name, then list of Interfaces it must match
     Unit,
     Int,
     Float,
@@ -165,7 +165,7 @@ pub(crate) enum SolvedType {
     String,
     Function(Vec<SolvedType>, Box<SolvedType>),
     Tuple(Vec<SolvedType>),
-    UdtInstance(Identifier, Vec<SolvedType>),
+    UdtInstance(String, Vec<SolvedType>),
 }
 
 impl SolvedType {
@@ -241,7 +241,7 @@ pub enum Monotype {
     String,
     Function(Vec<Monotype>, Box<Monotype>),
     Tuple(Vec<Monotype>),
-    Enum(Identifier, Vec<Monotype>),
+    Enum(String, Vec<Monotype>),
 }
 
 impl fmt::Display for Monotype {
@@ -295,8 +295,8 @@ impl fmt::Display for Monotype {
 // (If two types share the same key, they may or may not be in conflict)
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub(crate) enum TypeKey {
-    Poly,                  // TODO: why isn't the Identifier included here?
-    TyApp(Identifier, u8), // u8 represents the number of type params
+    Poly,              // TODO: why isn't the String included here?
+    TyApp(String, u8), // u8 represents the number of type params
     Unit,
     Int,
     Float,
@@ -321,17 +321,17 @@ pub(crate) enum Prov {
     Effect(u16),
     UnderdeterminedCoerceToUnit,
 
-    Alias(Identifier), // TODO FIXME: Store a NodeId/resolution instead of a Symbol
+    Alias(String), // TODO FIXME: Store a NodeId/resolution instead of a Symbol
     UdtDef(Box<Prov>),
 
     InstantiateUdtParam(Box<Prov>, u8),
-    InstantiatePoly(Box<Prov>, Identifier),
+    InstantiatePoly(Box<Prov>, String),
     FuncArg(Box<Prov>, u8), // u8 represents the index of the argument
     FuncOut(Box<Prov>),     // u8 represents how many arguments before this output
     BinopLeft(Box<Prov>),
     BinopRight(Box<Prov>),
     ListElem(Box<Prov>),
-    StructField(Identifier, NodeId),
+    StructField(String, NodeId),
     IndexAccess,
     VariantNoData(Box<Prov>), // the type of the data of a variant with no data, always Unit.
 }
@@ -556,7 +556,7 @@ impl TypeVar {
         self,
         symbol_table_OLD: SymbolTable_OLD,
         prov: Prov,
-        substitution: &BTreeMap<Identifier, TypeVar>,
+        substitution: &BTreeMap<String, TypeVar>,
     ) -> TypeVar {
         let data = self.0.clone_data();
         if data.types.len() == 1 {
@@ -757,10 +757,12 @@ pub(crate) fn ast_type_to_statics_type_interface(
     interface_ident: Option<&String>,
 ) -> TypeVar {
     match &*ast_type.typekind {
-        TypeKind::Poly(ident, interfaces) => {
-            TypeVar::make_poly(Prov::Node(ast_type.id()), ident.clone(), interfaces.clone())
-        }
-        TypeKind::Name(ident) => {
+        TypeKind::Poly(ident, interfaces) => TypeVar::make_poly(
+            Prov::Node(ast_type.id()),
+            ident.value.clone(),
+            interfaces.iter().map(|i| i.value.clone()).collect(),
+        ),
+        TypeKind::Identifier(ident) => {
             if let Some(interface_ident) = interface_ident {
                 // TODO: Instead of checking equality with "self", it should get its own TypeKind. TypeKind::Self
                 if ident == "self" {
@@ -778,7 +780,7 @@ pub(crate) fn ast_type_to_statics_type_interface(
         }
         TypeKind::Ap(ident, params) => TypeVar::make_def_instance(
             Prov::Node(ast_type.id()),
-            ident.clone(),
+            ident.value.clone(),
             params
                 .iter()
                 .map(|param| {
@@ -836,14 +838,14 @@ pub(crate) fn constrain(mut expected: TypeVar, mut actual: TypeVar) {
 
 #[derive(Clone)]
 pub(crate) struct SymbolTable_OLD {
-    // map from identifier to its type
-    // TODO: This is actually not needed. var_declarations maps from Identifier to Resolution, which lets you derive the TypeVar
-    tyctx: Environment<Identifier, TypeVar>,
+    // map from String to its type
+    // TODO: This is actually not needed. var_declarations maps from String to Resolution, which lets you derive the TypeVar
+    tyctx: Environment<String, TypeVar>,
     // keep track of polymorphic type variables currently in scope (such as 'a)
-    polyvars_in_scope: Environment<Identifier, ()>,
+    polyvars_in_scope: Environment<String, ()>,
 
-    // map from identifier to where its defined
-    var_declarations: Environment<Identifier, Resolution_OLD>,
+    // map from String to where its defined
+    var_declarations: Environment<String, Resolution_OLD>,
 }
 impl SymbolTable_OLD {
     pub(crate) fn empty() -> Self {
@@ -855,15 +857,15 @@ impl SymbolTable_OLD {
         }
     }
 
-    pub(crate) fn extend(&self, ident: Identifier, ty: TypeVar) {
+    pub(crate) fn extend(&self, ident: String, ty: TypeVar) {
         self.tyctx.extend(ident.clone(), ty);
     }
 
-    pub(crate) fn extend_declaration(&self, symbol: Identifier, resolution: Resolution_OLD) {
+    pub(crate) fn extend_declaration(&self, symbol: String, resolution: Resolution_OLD) {
         self.var_declarations.extend(symbol, resolution);
     }
 
-    fn lookup_declaration(&self, symbol: &Identifier) -> Option<Resolution_OLD> {
+    fn lookup_declaration(&self, symbol: &String) -> Option<Resolution_OLD> {
         self.var_declarations.lookup(symbol)
     }
 
@@ -895,11 +897,11 @@ impl SymbolTable_OLD {
         }
     }
 
-    fn lookup(&self, id: &Identifier) -> Option<TypeVar> {
+    fn lookup(&self, id: &String) -> Option<TypeVar> {
         self.tyctx.lookup(id)
     }
 
-    fn lookup_poly(&self, id: &Identifier) -> bool {
+    fn lookup_poly(&self, id: &String) -> bool {
         self.polyvars_in_scope.lookup(id).is_some()
     }
 
@@ -1154,7 +1156,7 @@ pub(crate) fn result_of_constraint_solving(
             span.display(
                 &mut err_string,
                 sources,
-                "Need to use an identifier when accessing a field",
+                "Need to use an String when accessing a field",
             );
         }
     }
@@ -1449,6 +1451,7 @@ fn generate_constraints_expr(
             if let Some(resolution) = lookup {
                 ctx.resolution_map_OLD.insert(expr.id, resolution);
             }
+
             let lookup = symbol_table_OLD.lookup(symbol);
             if let Some(typ) = lookup {
                 // replace polymorphic types with unifvars if necessary
@@ -1882,7 +1885,7 @@ fn generate_constraints_item(
         ItemKind::InterfaceImpl(ident, typ, statements) => {
             let typ = ast_type_to_statics_type(ctx, typ.clone());
 
-            if let Some(interface_def) = ctx.interface_def_of_ident(ident) {
+            if let Some(interface_def) = ctx.interface_def_of_ident(&ident.value) {
                 for statement in statements {
                     let StmtKind::FuncDef(f) = &*statement.kind else {
                         continue;
@@ -2080,10 +2083,10 @@ fn generate_constraints_pat(
         PatKind::Str(_) => {
             constrain(ty_pat, TypeVar::make_string(Prov::Node(pat.id)));
         }
-        PatKind::Binding(identifier) => {
+        PatKind::Binding(String) => {
             // letrec: extend context with id and type before analyzing against said type
-            symbol_table_OLD.extend(identifier.clone(), ty_pat);
-            symbol_table_OLD.extend_declaration(identifier.clone(), Resolution_OLD::Var(pat.id));
+            symbol_table_OLD.extend(String.clone(), ty_pat);
+            symbol_table_OLD.extend_declaration(String.clone(), Resolution_OLD::Var(pat.id));
         }
         PatKind::Variant(tag, data) => {
             let ty_data = match data {
@@ -2092,7 +2095,7 @@ fn generate_constraints_pat(
             };
             let mut substitution = BTreeMap::new();
             let ty_enum_instance = {
-                let enum_def = ctx.enum_def_of_variant(tag);
+                let enum_def = ctx.enum_def_of_variant(&tag.value);
 
                 if let Some(enum_def) = enum_def {
                     let nparams = enum_def.params.len();
@@ -2110,7 +2113,11 @@ fn generate_constraints_pat(
                         params,
                     );
 
-                    let variant_def = enum_def.variants.iter().find(|v| v.ctor == *tag).unwrap();
+                    let variant_def = enum_def
+                        .variants
+                        .iter()
+                        .find(|v| v.ctor == *tag.value)
+                        .unwrap();
                     let variant_data_ty = variant_def.data.clone().subst(
                         symbol_table_OLD.clone(),
                         Prov::Node(pat.id),
@@ -2300,7 +2307,7 @@ pub(crate) fn ty_fits_impl_ty(
 fn ty_fits_impl_ty_poly(
     ctx: &StaticsContext,
     typ: SolvedType,
-    interfaces: BTreeSet<Identifier>,
+    interfaces: BTreeSet<String>,
 ) -> bool {
     for interface in interfaces {
         if let SolvedType::Poly(_, interfaces2) = &typ {

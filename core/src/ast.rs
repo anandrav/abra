@@ -5,7 +5,13 @@ use std::collections::HashMap;
 use std::rc::Rc;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
-pub(crate) type Identifier = String;
+#[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq, Hash)]
+pub(crate) struct Identifier {
+    pub(crate) value: String,
+
+    pub(crate) span: Span,
+    pub(crate) id: NodeId,
+}
 
 pub(crate) type ArgAnnotated = (Rc<Pat>, Option<Rc<AstType>>);
 
@@ -89,7 +95,7 @@ impl Node for Variant {
 
 #[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq, Hash)]
 pub(crate) struct StructField {
-    pub(crate) ident: Identifier,
+    pub(crate) name: Identifier,
     pub(crate) ty: Rc<AstType>,
 
     pub(crate) span: Span,
@@ -299,7 +305,7 @@ pub(crate) struct InterfaceDef {
 
 #[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq, Hash)]
 pub(crate) struct InterfaceProperty {
-    pub(crate) ident: Identifier,
+    pub(crate) name: Identifier,
     pub(crate) ty: Rc<AstType>,
 }
 
@@ -399,7 +405,7 @@ impl Node for Expr {
 #[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq, Hash)]
 pub(crate) enum ExprKind {
     // EmptyHole,
-    Identifier(Identifier),
+    Identifier(String),
     Unit,
     Int(i64),
     Float(String), // represented as String to allow Eq and Hash
@@ -492,7 +498,7 @@ impl Node for Pat {
 pub(crate) enum PatKind {
     // EmptyHole,
     Wildcard,
-    Binding(Identifier),
+    Binding(String),
     Variant(Identifier, Option<Rc<Pat>>),
     Unit,
     Int(i64),
@@ -503,7 +509,8 @@ pub(crate) enum PatKind {
 }
 
 impl PatKind {
-    pub(crate) fn get_identifier_of_variable(&self) -> Identifier {
+    // TODO: get rid of this function completely
+    pub(crate) fn get_identifier_of_variable(&self) -> String {
         match self {
             PatKind::Binding(id) => id.clone(),
             _ => {
@@ -531,7 +538,7 @@ impl Node for AstType {
     fn children(&self) -> Vec<Rc<dyn Node>> {
         match &*self.typekind {
             TypeKind::Poly(_, _)
-            | TypeKind::Name(_)
+            | TypeKind::Identifier(_)
             | TypeKind::Unit
             | TypeKind::Int
             | TypeKind::Float
@@ -561,7 +568,7 @@ impl Node for AstType {
 #[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq, Hash)]
 pub(crate) enum TypeKind {
     Poly(Identifier, Vec<Identifier>),
-    Name(Identifier),
+    Identifier(String),
     Ap(Identifier, Vec<Rc<AstType>>),
     Unit,
     Int,
@@ -599,6 +606,8 @@ impl Default for NodeId {
 
 #[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq, Hash)]
 pub(crate) struct Span {
+    // TODO: this is egregious
+    // storing the filename for every single Span? Every single node in the AST? Lol
     pub(crate) filename: String,
     pub(crate) lo: usize,
     pub(crate) hi: usize,

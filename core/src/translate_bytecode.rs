@@ -19,12 +19,12 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 type OffsetTable = HashMap<NodeId, i32>;
 type Lambdas = HashMap<NodeId, LambdaData>;
 type OverloadedFuncLabels = BTreeMap<OverloadedFuncDesc, Label>;
-type MonomorphEnv = Environment<Identifier, Type>;
+type MonomorphEnv = Environment<String, Type>;
 pub(crate) type LabelMap = HashMap<Label, usize>;
 
 #[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq)]
 struct OverloadedFuncDesc {
-    name: Identifier,
+    name: String,
     impl_type: Monotype,
     definition_node: NodeId,
 }
@@ -754,7 +754,7 @@ impl Translator {
                     let tag = enumt
                         .variants
                         .iter()
-                        .position(|v| v.ctor == *ctor)
+                        .position(|v| v.ctor == *ctor.value)
                         .expect("variant not found") as u16;
 
                     emit(st, Instr::Deconstruct);
@@ -1096,7 +1096,7 @@ impl Translator {
 
     fn get_func_definition_node(
         &self,
-        method_name: &Identifier,
+        method_name: &String,
         desired_interface_impl: Type,
     ) -> NodeId {
         if let Some(interface_name) = self.statics.method_to_interface.get(method_name) {
@@ -1141,7 +1141,7 @@ impl Translator {
         &self,
         st: &mut TranslatorState,
         substituted_ty: Type,
-        func_name: &Identifier,
+        func_name: &String,
         definition_node: NodeId,
     ) {
         let instance_ty = substituted_ty.monotype().unwrap();

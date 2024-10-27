@@ -1,6 +1,4 @@
-use crate::ast::{
-    EnumDef, FileAst, FuncDef, Identifier, InterfaceDef, NodeId, NodeMap, Sources, StructDef,
-};
+use crate::ast::{EnumDef, FileAst, FuncDef, InterfaceDef, NodeId, NodeMap, Sources, StructDef};
 use crate::builtin::Builtin;
 use crate::effects::EffectStruct;
 use resolve::{
@@ -35,25 +33,25 @@ pub(crate) struct StaticsContext {
     global_namespace: Namespace,
 
     // TODO this should all be replaced by Declarations in the SymbolTable
-    // TODO: just attempt remove them one by one. Use NodeId instead of Identifier
+    // TODO: just attempt remove them one by one. Use NodeId instead of String
     // enum definitions
-    pub(crate) enum_defs: HashMap<Identifier, EnumDef_OLD>,
+    pub(crate) enum_defs: HashMap<String, EnumDef_OLD>,
     // map from variant names to enum names
-    variants_to_enum: HashMap<Identifier, Identifier>,
+    variants_to_enum: HashMap<String, String>,
     // struct definitions
-    pub(crate) struct_defs: HashMap<Identifier, StructDef_OLD>,
+    pub(crate) struct_defs: HashMap<String, StructDef_OLD>,
     // function definition locations
-    // pub(crate) fun_defs: HashMap<Identifier, Rc<FuncDef>>,
+    // pub(crate) fun_defs: HashMap<String, Rc<FuncDef>>,
     // interface definitions
-    interface_defs: HashMap<Identifier, InterfaceDef_OLD>,
+    interface_defs: HashMap<String, InterfaceDef_OLD>,
     // map from methods to interface names
-    pub(crate) method_to_interface: HashMap<Identifier, Identifier>,
+    pub(crate) method_to_interface: HashMap<String, String>,
     // map from interface name to list of implementations
-    pub(crate) interface_impls: BTreeMap<Identifier, Vec<InterfaceImpl_OLD>>,
+    pub(crate) interface_impls: BTreeMap<String, Vec<InterfaceImpl_OLD>>,
 
     // BOOKKEEPING
 
-    // This maps any identifier in the entire program to its declaration
+    // This maps any String in the entire program to its declaration
     pub(crate) resolution_map: HashMap<NodeId, Declaration>,
     pub(crate) resolution_map_OLD: HashMap<NodeId, Resolution_OLD>,
     // string constants (for bytecode translation)
@@ -64,7 +62,7 @@ pub(crate) struct StaticsContext {
     // unification variables (skolems) which must be solved
     pub(crate) vars: HashMap<TypeProv, TypeVar>,
     // constraint: map from types to interfaces they must implement
-    types_constrained_to_interfaces: BTreeMap<TypeVar, Vec<(Identifier, TypeProv)>>,
+    types_constrained_to_interfaces: BTreeMap<TypeVar, Vec<(String, TypeProv)>>,
     // constraint: map from types which must be structs to location of field access
     types_that_must_be_structs: BTreeMap<TypeVar, NodeId>,
 
@@ -74,10 +72,10 @@ pub(crate) struct StaticsContext {
     unbound_vars: BTreeSet<NodeId>,
     unbound_interfaces: BTreeSet<NodeId>,
     // multiple definitions
-    multiple_udt_defs: BTreeMap<Identifier, Vec<NodeId>>,
-    multiple_interface_defs: BTreeMap<Identifier, Vec<NodeId>>,
+    multiple_udt_defs: BTreeMap<String, Vec<NodeId>>,
+    multiple_interface_defs: BTreeMap<String, Vec<NodeId>>,
     // interface implementations
-    multiple_interface_impls: BTreeMap<Identifier, Vec<NodeId>>,
+    multiple_interface_impls: BTreeMap<String, Vec<NodeId>>,
     interface_impl_for_instantiated_ty: Vec<NodeId>,
     interface_impl_extra_method: BTreeMap<NodeId, Vec<NodeId>>,
     interface_impl_missing_method: BTreeMap<NodeId, Vec<String>>,
@@ -86,7 +84,7 @@ pub(crate) struct StaticsContext {
     redundant_matches: BTreeMap<NodeId, Vec<NodeId>>,
     // annotation needed
     annotation_needed: BTreeSet<NodeId>,
-    // field not an identifier
+    // field not an String
     field_not_ident: BTreeSet<NodeId>,
 }
 
@@ -102,16 +100,16 @@ impl StaticsContext {
         ctx
     }
 
-    fn enum_def_of_variant(&self, variant: &Identifier) -> Option<EnumDef_OLD> {
+    fn enum_def_of_variant(&self, variant: &String) -> Option<EnumDef_OLD> {
         let enum_name = self.variants_to_enum.get(variant)?;
         self.enum_defs.get(enum_name).cloned()
     }
 
-    fn interface_def_of_ident(&self, ident: &Identifier) -> Option<InterfaceDef_OLD> {
+    fn interface_def_of_ident(&self, ident: &String) -> Option<InterfaceDef_OLD> {
         self.interface_defs.get(ident).cloned()
     }
 
-    fn variants_of_enum(&self, enumt: &Identifier) -> Vec<Identifier> {
+    fn variants_of_enum(&self, enumt: &String) -> Vec<String> {
         self.enum_defs
             .get(enumt)
             .unwrap()
@@ -132,19 +130,19 @@ impl StaticsContext {
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 struct Namespace {
-    declarations: BTreeMap<Identifier, Declaration>,
-    namespaces: BTreeMap<Identifier, Rc<Namespace>>,
+    declarations: BTreeMap<String, Declaration>,
+    namespaces: BTreeMap<String, Rc<Namespace>>,
 }
 
 impl Display for Namespace {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         // indent for each level
         fn fmt_tree(tree: &Namespace, f: &mut Formatter, indent: usize) -> fmt::Result {
-            for name in tree.declarations.keys() {
-                writeln!(f, "{:indent$}{}", "", name)?;
+            for ident in tree.declarations.keys() {
+                writeln!(f, "{:indent$}{}", "", ident)?;
             }
-            for (name, subtree) in &tree.namespaces {
-                writeln!(f, "{:indent$}{}", "", name)?;
+            for (ident, subtree) in &tree.namespaces {
+                writeln!(f, "{:indent$}{}", "", ident)?;
                 fmt_tree(subtree, f, indent + 2)?;
             }
             Ok(())
@@ -168,8 +166,8 @@ pub(crate) enum Declaration {
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub(crate) enum Resolution_OLD {
     Var(NodeId),
-    FreeFunction(NodeId, Identifier),
-    InterfaceMethod(Identifier),
+    FreeFunction(NodeId, String),
+    InterfaceMethod(String),
     StructCtor(u16),
     VariantCtor(u16, u16),
     Builtin(Builtin),
@@ -190,7 +188,7 @@ pub(crate) fn analyze(
 
     // scan declarations across all files
     scan_declarations(&mut ctx, tyctx.clone(), files.clone());
-    // resolve all imports and identifiers
+    // resolve all imports and Strings
     resolve(&mut ctx, files.clone());
 
     println!("global namespace:\n{}", ctx.global_namespace);

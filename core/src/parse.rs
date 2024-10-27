@@ -208,7 +208,7 @@ pub(crate) fn parse_match_pattern(pair: Pair<Rule>, filename: &str) -> Rc<Pat> {
             parse_match_pattern(pair, filename)
         }
         Rule::match_pattern_variable => Rc::new(Pat {
-            kind: Rc::new(PatKind::Binding(pair.as_str()[1..].to_owned())),
+            kind: Rc::new(PatKind::Binding(pair.as_str().to_owned())),
             span,
             id: NodeId::new(),
         }),
@@ -227,11 +227,19 @@ pub(crate) fn parse_match_pattern(pair: Pair<Rule>, filename: &str) -> Rc<Pat> {
         Rule::match_pattern_variant => {
             let inner: Vec<_> = pair.into_inner().collect();
             let name = inner[0].as_str().to_owned();
+            let span_variant_ctor = Span::new(filename, inner[0].as_span());
             let pat = inner
                 .get(1)
                 .map(|pair| parse_match_pattern(pair.clone(), filename));
             Rc::new(Pat {
-                kind: Rc::new(PatKind::Variant(name, pat)),
+                kind: Rc::new(PatKind::Variant(
+                    Identifier {
+                        value: name,
+                        span: span_variant_ctor,
+                        id: NodeId::new(),
+                    },
+                    pat,
+                )),
                 span,
                 id: NodeId::new(),
             })
@@ -280,25 +288,37 @@ pub(crate) fn parse_type_term(pair: Pair<Rule>, filename: &str) -> Rc<AstType> {
     match rule {
         Rule::type_poly => {
             let inner: Vec<_> = pair.into_inner().collect();
-            let name = inner[0].as_str()[1..].to_owned();
+            let ty_name = inner[0].as_str()[1..].to_owned();
+            let ty_span = Span::new(filename, inner[0].as_span());
             let mut interfaces = vec![];
             for (i, pair) in inner.iter().enumerate() {
                 if i == 0 {
                     continue;
                 }
-                let interface = pair.as_str().to_owned();
+                let interface = Identifier {
+                    value: pair.as_str().to_owned(),
+                    span: Span::new(filename, pair.as_span()),
+                    id: NodeId::new(),
+                };
                 interfaces.push(interface);
             }
             Rc::new(AstType {
-                typekind: Rc::new(TypeKind::Poly(name, interfaces)),
+                typekind: Rc::new(TypeKind::Poly(
+                    Identifier {
+                        value: ty_name,
+                        span: ty_span,
+                        id: NodeId::new(),
+                    },
+                    interfaces,
+                )),
                 span,
                 id: NodeId::new(),
             })
         }
         Rule::identifier => {
-            let ident = pair.as_str().to_string();
+            let ident = pair.as_str().to_owned();
             Rc::new(AstType {
-                typekind: Rc::new(TypeKind::Name(ident)),
+                typekind: Rc::new(TypeKind::Identifier(ident)),
                 span,
                 id: NodeId::new(),
             })
@@ -343,13 +363,21 @@ pub(crate) fn parse_type_term(pair: Pair<Rule>, filename: &str) -> Rc<AstType> {
         Rule::type_ap => {
             let inner: Vec<_> = pair.into_inner().collect();
             let name = inner[0].as_str().to_owned();
+            let ident_span = Span::new(filename, inner[0].as_span());
             let types = inner
                 .into_iter()
                 .skip(1)
                 .map(|t| parse_type_term(t, filename))
                 .collect();
             Rc::new(AstType {
-                typekind: Rc::new(TypeKind::Ap(name, types)),
+                typekind: Rc::new(TypeKind::Ap(
+                    Identifier {
+                        value: name,
+                        span: ident_span,
+                        id: NodeId::new(),
+                    },
+                    types,
+                )),
                 span,
                 id: NodeId::new(),
             })
@@ -442,7 +470,11 @@ pub(crate) fn parse_item(pair: Pair<Rule>, filename: &str) -> Rc<Item> {
             Rc::new(Item {
                 kind: Rc::new(ItemKind::TypeDef(Rc::new(TypeDefKind::Enum(
                     EnumDef {
-                        name,
+                        name: Identifier {
+                            value: name,
+                            span: span.clone(),
+                            id: NodeId::new(),
+                        },
                         ty_args,
                         variants,
                     }
@@ -469,7 +501,11 @@ pub(crate) fn parse_item(pair: Pair<Rule>, filename: &str) -> Rc<Item> {
             Rc::new(Item {
                 kind: Rc::new(ItemKind::TypeDef(Rc::new(TypeDefKind::Struct(
                     StructDef {
-                        name,
+                        name: Identifier {
+                            value: name,
+                            span: span.clone(),
+                            id: NodeId::new(),
+                        },
                         ty_args,
                         fields,
                     }
@@ -489,13 +525,24 @@ pub(crate) fn parse_item(pair: Pair<Rule>, filename: &str) -> Rc<Item> {
                 n += 1;
             }
             Rc::new(Item {
-                kind: ItemKind::InterfaceDef(InterfaceDef { name, props }.into()).into(),
+                kind: ItemKind::InterfaceDef(
+                    InterfaceDef {
+                        name: Identifier {
+                            value: name,
+                            span: span.clone(),
+                            id: NodeId::new(),
+                        },
+                        props,
+                    }
+                    .into(),
+                )
+                .into(),
                 span,
                 id: NodeId::new(),
             })
         }
         Rule::interface_implementation => {
-            let ident = inner[0].as_str().to_string();
+            let name = inner[0].as_str().to_string();
             let ty = parse_type_term(inner[1].clone(), filename);
             let mut n = 2;
             let mut stmts = vec![];
@@ -505,15 +552,29 @@ pub(crate) fn parse_item(pair: Pair<Rule>, filename: &str) -> Rc<Item> {
                 n += 1;
             }
             Rc::new(Item {
-                kind: ItemKind::InterfaceImpl(ident, ty, stmts).into(),
+                kind: ItemKind::InterfaceImpl(
+                    Identifier {
+                        value: name,
+                        span: span.clone(),
+                        id: NodeId::new(),
+                    },
+                    ty,
+                    stmts,
+                )
+                .into(),
                 span,
                 id: NodeId::new(),
             })
         }
         Rule::import => {
-            let ident = inner[0].as_str().to_string();
+            let name = inner[0].as_str().to_string();
             Rc::new(Item {
-                kind: ItemKind::Import(ident).into(),
+                kind: ItemKind::Import(Identifier {
+                    value: name,
+                    span: span.clone(),
+                    id: NodeId::new(),
+                })
+                .into(),
                 span,
                 id: NodeId::new(),
             })
@@ -618,9 +679,17 @@ pub(crate) fn parse_interface_method(pair: Pair<Rule>, filename: &str) -> Interf
     let inner: Vec<_> = pair.into_inner().collect();
     match rule {
         Rule::interface_property => {
-            let ident = inner[0].as_str().to_string();
+            let name = inner[0].as_str().to_string();
+            let span = Span::new(filename, inner[0].as_span());
             let ty = parse_type_term(inner[1].clone(), filename);
-            InterfaceProperty { ident, ty }
+            InterfaceProperty {
+                name: Identifier {
+                    value: name,
+                    span,
+                    id: NodeId::new(),
+                },
+                ty,
+            }
         }
         _ => panic!("unreachable rule {:#?}", rule),
     }
@@ -632,7 +701,8 @@ pub(crate) fn parse_variant(pair: Pair<Rule>, filename: &str) -> Rc<Variant> {
     let inner: Vec<_> = pair.into_inner().collect();
     match rule {
         Rule::variant => {
-            let ident = inner[0].as_str().to_string();
+            let name = inner[0].as_str().to_string();
+            let span_ctor = Span::new(filename, inner[0].as_span());
             let n = 1;
             // while let Rule::type_poly = inner[n].as_rule() {
             //     type_params.push(inner[n].as_str().to_string());
@@ -645,7 +715,11 @@ pub(crate) fn parse_variant(pair: Pair<Rule>, filename: &str) -> Rc<Variant> {
                 None
             };
             Rc::new(Variant {
-                ctor: ident,
+                ctor: Identifier {
+                    value: name,
+                    span: span_ctor,
+                    id: NodeId::new(),
+                },
                 data,
                 span,
                 id: NodeId::new(),
@@ -661,10 +735,15 @@ pub(crate) fn parse_struct_field(pair: Pair<Rule>, filename: &str) -> StructFiel
     let inner: Vec<_> = pair.into_inner().collect();
     match rule {
         Rule::struct_field => {
-            let ident = inner[0].as_str().to_string();
+            let name = inner[0].as_str().to_string();
+            let span_field = Span::new(filename, inner[0].as_span());
             let ty = parse_type_term(inner[1].clone(), filename);
             StructField {
-                ident,
+                name: Identifier {
+                    value: name,
+                    span: span_field,
+                    id: NodeId::new(),
+                },
                 ty,
                 span,
                 id: NodeId::new(),
