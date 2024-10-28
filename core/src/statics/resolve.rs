@@ -3,8 +3,8 @@ use std::collections::BTreeMap;
 use std::{fmt, rc::Rc};
 
 use crate::ast::{
-    ArgAnnotated, Expr, ExprKind, FileAst, Identifier, Item, ItemKind, Node, NodeId, Pat, PatKind,
-    Stmt, StmtKind, TypeDefKind, TypeKind,
+    ArgAnnotated, Expr, ExprKind, FileAst, Item, ItemKind, Node, NodeId, Pat, PatKind, Stmt,
+    StmtKind, TypeDefKind, TypeKind,
 };
 
 use super::{Declaration, Namespace, Resolution_OLD, StaticsContext, TypeVar};
@@ -143,13 +143,7 @@ fn gather_declarations_item(namespace: &mut Namespace, qualifiers: Vec<String>, 
                 // and refer to them in code by just writing .Variant
 
                 for (i, v) in e.variants.iter().enumerate() {
-                    let tag = i as u16;
                     let variant_name = v.ctor.value.clone();
-                    let arity = v.data.as_ref().map_or(0, |d| match &*d.typekind {
-                        TypeKind::Tuple(elems) => elems.len(),
-                        TypeKind::Unit => 0,
-                        _ => 1,
-                    }) as u16;
 
                     namespace.declarations.insert(
                         variant_name,
@@ -348,7 +342,7 @@ fn resolve_names_expr(ctx: &mut StaticsContext, symbol_table: SymbolTable, expr:
             resolve_names_expr(ctx, symbol_table, right.clone());
         }
         ExprKind::Block(statements) => {
-            let env = symbol_table.new_scope();
+            let symbol_table = symbol_table.new_scope();
             for statement in statements.iter() {
                 resolve_names_stmt(ctx, symbol_table.clone(), statement.clone());
             }
@@ -367,13 +361,13 @@ fn resolve_names_expr(ctx: &mut StaticsContext, symbol_table: SymbolTable, expr:
         ExprKind::Match(scrut, arms) => {
             resolve_names_expr(ctx, symbol_table.clone(), scrut.clone());
             for arm in arms {
-                let env = symbol_table.new_scope();
+                let symbol_table = symbol_table.new_scope();
                 resolve_names_pat(ctx, symbol_table.clone(), arm.pat.clone());
                 resolve_names_expr(ctx, symbol_table.clone(), arm.expr.clone());
             }
         }
         ExprKind::Func(args, _, body) => {
-            let env = symbol_table.new_scope();
+            let symbol_table = symbol_table.new_scope();
             resolve_names_func_helper(ctx, symbol_table, args, body);
         }
         ExprKind::FuncAp(func, args) => {

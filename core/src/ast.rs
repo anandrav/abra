@@ -1,6 +1,3 @@
-use crate::SourceFile;
-// use pest::error::{Error, ErrorVariant, InputLocation::Pos};
-
 use std::collections::HashMap;
 use std::rc::Rc;
 use std::sync::atomic::{AtomicUsize, Ordering};

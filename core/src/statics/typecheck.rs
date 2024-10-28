@@ -12,8 +12,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::fmt::{self, Write};
 use std::rc::Rc;
 
-use super::resolve::ToplevelEnv;
-use super::{Declaration, Resolution_OLD, StaticsContext};
+use super::{Resolution_OLD, StaticsContext};
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub(crate) struct TypeVar(UnionFindNode<TypeVarData>);
@@ -2081,10 +2080,10 @@ fn generate_constraints_pat(
         PatKind::Str(_) => {
             constrain(ty_pat, TypeVar::make_string(Prov::Node(pat.id)));
         }
-        PatKind::Binding(String) => {
+        PatKind::Binding(name) => {
             // letrec: extend context with id and type before analyzing against said type
-            symbol_table_OLD.extend(String.clone(), ty_pat);
-            symbol_table_OLD.extend_declaration(String.clone(), Resolution_OLD::Var(pat.id));
+            symbol_table_OLD.extend(name.clone(), ty_pat);
+            symbol_table_OLD.extend_declaration(name.clone(), Resolution_OLD::Var(pat.id));
         }
         PatKind::Variant(tag, data) => {
             let ty_data = match data {

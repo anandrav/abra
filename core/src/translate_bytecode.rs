@@ -1,6 +1,6 @@
 use crate::assembly::{remove_labels, Instr, Label, Line};
 use crate::ast::{BinOpcode, FuncDef, Item, ItemKind};
-use crate::ast::{FileAst, Identifier, Node, NodeId, Sources};
+use crate::ast::{FileAst, Node, NodeId, Sources};
 use crate::builtin::Builtin;
 use crate::effects::EffectStruct;
 use crate::environment::Environment;
