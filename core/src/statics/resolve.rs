@@ -168,7 +168,7 @@ fn gather_declarations_item(namespace: &mut Namespace, qualifiers: Vec<String>, 
             }
         },
         ItemKind::FuncDef(f) => {
-            let entry_name = f.name.kind.get_identifier_of_variable();
+            let entry_name = f.name.value.clone();
             let mut fully_qualified_name = qualifiers.clone();
             fully_qualified_name.push(entry_name.clone());
             namespace
@@ -508,9 +508,9 @@ fn gather_definitions_item_DEPRECATE(
                 .iter()
                 .map(|stmt| match &*stmt.kind {
                     StmtKind::FuncDef(f) => {
-                        let ident = f.name.kind.get_identifier_of_variable();
+                        let name = f.name.value.clone();
                         InterfaceImplMethod_OLD {
-                            name: ident,
+                            name,
                             identifier_location: f.name.id(),
                             method_location: stmt.id(),
                         }
@@ -630,11 +630,13 @@ fn gather_definitions_item_DEPRECATE(
         },
         ItemKind::FuncDef(f) => {
             let name_id = f.name.id;
-            let name = f.name.kind.get_identifier_of_variable();
+            let name = &f.name.value;
             // ctx.fun_defs.insert(name.value.clone(), f.clone());
             symbol_table.extend(name.clone(), TypeVar::from_node(ctx, name_id));
-            symbol_table
-                .extend_declaration(name.clone(), Resolution_OLD::FreeFunction(stmt.id, name));
+            symbol_table.extend_declaration(
+                name.clone(),
+                Resolution_OLD::FreeFunction(stmt.id, name.clone()),
+            );
         }
         ItemKind::Import(..) => {}
         ItemKind::Stmt(..) => {}
@@ -651,11 +653,13 @@ fn gather_definitions_stmt_DEPRECATE(
         StmtKind::Let(_, _, _) => {}
         StmtKind::FuncDef(f) => {
             let name_id = f.name.id;
-            let name = f.name.kind.get_identifier_of_variable();
+            let name = &f.name.value;
             // ctx.fun_defs.insert(name.value.clone(), f.clone());
             symbol_table.extend(name.clone(), TypeVar::from_node(ctx, name_id));
-            symbol_table
-                .extend_declaration(name.clone(), Resolution_OLD::FreeFunction(stmt.id, name));
+            symbol_table.extend_declaration(
+                name.clone(),
+                Resolution_OLD::FreeFunction(stmt.id, name.clone()),
+            );
         }
         StmtKind::Set(..) => {}
     }

@@ -410,7 +410,11 @@ pub(crate) fn parse_item(pair: Pair<Rule>, filename: &str) -> Rc<Item> {
         Rule::func_def => {
             let mut n = 0;
             let mut args = vec![];
-            let name = parse_let_pattern(inner[0].clone(), filename);
+            let name = Identifier {
+                value: inner[0].as_str().to_string(),
+                span: Span::new(filename, inner[0].as_span()),
+                id: NodeId::new(),
+            };
             n += 1;
             while let Rule::func_arg = inner[n].as_rule() {
                 let pat_annotated = parse_func_arg_annotation(inner[n].clone(), filename);
@@ -603,7 +607,11 @@ pub(crate) fn parse_stmt(pair: Pair<Rule>, filename: &str) -> Rc<Stmt> {
         Rule::func_def => {
             let mut n = 0;
             let mut args = vec![];
-            let name = parse_let_pattern(inner[0].clone(), filename);
+            let name = Identifier {
+                value: inner[0].as_str().to_string(),
+                span: Span::new(filename, inner[0].as_span()),
+                id: NodeId::new(),
+            };
             n += 1;
             while let Rule::func_arg = inner[n].as_rule() {
                 let pat_annotated = parse_func_arg_annotation(inner[n].clone(), filename);

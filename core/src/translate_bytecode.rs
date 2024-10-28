@@ -364,7 +364,7 @@ impl Translator {
                                 panic!()
                             };
 
-                            let func_name = &f.name.kind.get_identifier_of_variable();
+                            let func_name = &f.name.value.clone();
                             let func_ty = self.statics.solution_of_node(f.name.id).unwrap();
                             if !func_ty.is_overloaded() {
                                 emit(st, Instr::Call(name.clone()));
@@ -841,7 +841,7 @@ impl Translator {
                 // TODO: check if overloaded. If so, handle differently.
                 // (this could be an overloaded function or an interface method)
                 let func_ty = self.statics.solution_of_node(f.name.id).unwrap();
-                let func_name = f.name.kind.get_identifier_of_variable();
+                let func_name = f.name.value.clone();
 
                 if func_ty.is_overloaded() // println: 'a ToString -> ()
                 || iface_method
@@ -896,7 +896,7 @@ impl Translator {
                 // TODO: check if overloaded. If so, handle differently.
                 // (this could be an overloaded function or an interface method)
                 let func_ty = self.statics.solution_of_node(f.name.id).unwrap();
-                let func_name = f.name.kind.get_identifier_of_variable();
+                let func_name = f.name.value.clone();
 
                 if func_ty.is_overloaded() // println: 'a ToString -> ()
                 || iface_method
@@ -1110,11 +1110,11 @@ impl Translator {
             for imp in impl_list {
                 for method in &imp.methods {
                     if method.name == *method_name {
-                        let method_identifier_node =
-                            self.node_map.get(&method.identifier_location).unwrap();
-
-                        let func_id = method_identifier_node.id();
-                        let unifvar = self.statics.vars.get(&TypeProv::Node(func_id)).unwrap();
+                        let unifvar = self
+                            .statics
+                            .vars
+                            .get(&TypeProv::Node(method.identifier_location))
+                            .unwrap();
                         let interface_impl_ty = unifvar.solution().unwrap();
 
                         if ty_fits_impl_ty(

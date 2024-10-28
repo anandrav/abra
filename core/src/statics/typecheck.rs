@@ -1890,7 +1890,7 @@ fn generate_constraints_item(
                     let StmtKind::FuncDef(f) = &*statement.kind else {
                         continue;
                     };
-                    let method_name = f.name.kind.get_identifier_of_variable();
+                    let method_name = f.name.value.clone();
                     if let Some(interface_method) =
                         interface_def.methods.iter().find(|m| m.name == method_name)
                     {
@@ -1921,9 +1921,7 @@ fn generate_constraints_item(
                 }
                 for interface_method in interface_def.methods {
                     if !statements.iter().any(|stmt| match &*stmt.kind {
-                        StmtKind::FuncDef(f) => {
-                            f.name.kind.get_identifier_of_variable() == interface_method.name
-                        }
+                        StmtKind::FuncDef(f) => f.name.value == interface_method.name,
                         _ => false,
                     }) {
                         ctx.interface_impl_missing_method
@@ -1948,14 +1946,14 @@ fn generate_constraints_item(
             let func_node_id = stmt.id;
             let ty_pat = TypeVar::from_node(ctx, f.name.id);
 
-            let func_name = f.name.kind.get_identifier_of_variable();
+            let func_name = f.name.value.clone();
 
             // TODO this needs a better explanation
             if add_to_tyvar_symbol_table {
-                symbol_table_OLD.extend(f.name.kind.get_identifier_of_variable(), ty_pat.clone());
+                symbol_table_OLD.extend(func_name.clone(), ty_pat.clone());
                 symbol_table_OLD.extend_declaration(
-                    func_name,
-                    Resolution_OLD::FreeFunction(stmt.id, f.name.kind.get_identifier_of_variable()),
+                    func_name.clone(),
+                    Resolution_OLD::FreeFunction(stmt.id, func_name),
                 );
             } else {
                 symbol_table_OLD.extend_declaration(
@@ -2024,14 +2022,14 @@ fn generate_constraints_stmt(
             let func_node_id = stmt.id;
             let ty_pat = TypeVar::from_node(ctx, f.name.id);
 
-            let func_name = f.name.kind.get_identifier_of_variable();
+            let func_name = f.name.value.clone();
 
             // TODO this needs a better explanation
             if add_to_tyvar_symbol_table {
-                symbol_table_OLD.extend(f.name.kind.get_identifier_of_variable(), ty_pat.clone());
+                symbol_table_OLD.extend(func_name.clone(), ty_pat.clone());
                 symbol_table_OLD.extend_declaration(
-                    func_name,
-                    Resolution_OLD::FreeFunction(stmt.id, f.name.kind.get_identifier_of_variable()),
+                    func_name.clone(),
+                    Resolution_OLD::FreeFunction(stmt.id, func_name),
                 );
             } else {
                 symbol_table_OLD.extend_declaration(

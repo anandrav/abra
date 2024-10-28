@@ -13,6 +13,19 @@ pub(crate) struct Identifier {
     pub(crate) id: NodeId,
 }
 
+impl Node for Identifier {
+    fn span(&self) -> Span {
+        self.span.clone()
+    }
+    fn id(&self) -> NodeId {
+        self.id
+    }
+
+    fn children(&self) -> Vec<Rc<dyn Node>> {
+        vec![]
+    }
+}
+
 pub(crate) type ArgAnnotated = (Rc<Pat>, Option<Rc<AstType>>);
 
 #[derive(Debug, Clone)]
@@ -161,7 +174,7 @@ impl Node for Item {
     fn children(&self) -> Vec<Rc<dyn Node>> {
         match &*self.kind {
             ItemKind::FuncDef(f) => {
-                let mut children: Vec<Rc<dyn Node>> = vec![f.name.clone() as Rc<dyn Node>];
+                let mut children: Vec<Rc<dyn Node>> = vec![];
                 for (pat, annot) in f.args.iter() {
                     children.push(pat.clone() as Rc<dyn Node>);
                     if let Some(ty) = annot {
@@ -250,7 +263,7 @@ impl Node for Stmt {
     fn children(&self) -> Vec<Rc<dyn Node>> {
         match &*self.kind {
             StmtKind::FuncDef(f) => {
-                let mut children: Vec<Rc<dyn Node>> = vec![f.name.clone() as Rc<dyn Node>];
+                let mut children: Vec<Rc<dyn Node>> = vec![];
                 for (pat, annot) in f.args.iter() {
                     children.push(pat.clone() as Rc<dyn Node>);
                     if let Some(ty) = annot {
@@ -291,7 +304,7 @@ pub(crate) enum StmtKind {
 
 #[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq, Hash)]
 pub(crate) struct FuncDef {
-    pub(crate) name: Rc<Pat>, // TODO: Don't use Rc<Pat> for the name, just use Identifier. If need be, make struct for Identifier with span and id
+    pub(crate) name: Identifier,
     pub(crate) args: Vec<ArgAnnotated>,
     pub(crate) ret_type: Option<Rc<AstType>>,
     pub(crate) body: Rc<Expr>,
@@ -506,18 +519,6 @@ pub(crate) enum PatKind {
     Bool(bool),
     Str(String),
     Tuple(Vec<Rc<Pat>>),
-}
-
-impl PatKind {
-    // TODO: get rid of this function completely
-    pub(crate) fn get_identifier_of_variable(&self) -> String {
-        match self {
-            PatKind::Binding(id) => id.clone(),
-            _ => {
-                panic!("Pattern is not a variable")
-            }
-        }
-    }
 }
 
 #[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq, Hash)]
