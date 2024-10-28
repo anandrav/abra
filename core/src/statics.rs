@@ -51,7 +51,7 @@ pub(crate) struct StaticsContext {
 
     // BOOKKEEPING
 
-    // This maps any String in the entire program to its declaration
+    // This maps any identifier in the program to the declaration it resolves to.
     pub(crate) resolution_map: HashMap<NodeId, Declaration>,
     pub(crate) resolution_map_OLD: HashMap<NodeId, Resolution_OLD>,
     // string constants (for bytecode translation)
