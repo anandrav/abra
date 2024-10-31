@@ -161,11 +161,11 @@ pub(crate) enum Declaration {
     InterfaceDef(Rc<InterfaceDef>),
     InterfaceMethod {
         iface_def: Rc<InterfaceDef>,
-        method: u16,
+        method: u16, // TODO: just use usize for simplicity
     },
     EnumVariant {
         enum_def: Rc<EnumDef>,
-        variant: u16,
+        variant: u16, // TODO: just use usize for simplicity
     },
     Struct(Rc<StructDef>),
     Builtin(Builtin),
@@ -178,12 +178,12 @@ impl Declaration {
         match self {
             Declaration::Var(node_id) => Resolution_OLD::Var(*node_id),
             Declaration::FreeFunction(f) => {
-                Resolution_OLD::FreeFunction(f.clone(), f.name.value.clone())
+                Resolution_OLD::FreeFunction(f.clone(), f.name.v.clone())
             }
             Declaration::InterfaceDef(rc) => todo!(),
             Declaration::InterfaceMethod { iface_def, method } => {
                 let name = &iface_def.props[*method as usize].name;
-                Resolution_OLD::InterfaceMethod(name.value.clone())
+                Resolution_OLD::InterfaceMethod(name.v.clone())
             }
             Declaration::EnumVariant { enum_def, variant } => {
                 let data = &enum_def.variants[*variant as usize].data;
@@ -239,10 +239,10 @@ pub(crate) fn analyze(
 
     // scan declarations across all files
     scan_declarations(&mut ctx, tyctx.clone(), files.clone());
+    println!("global namespace:\n{}", ctx.global_namespace);
+
     // resolve all imports and Strings
     resolve(&mut ctx, files.clone());
-
-    println!("global namespace:\n{}", ctx.global_namespace);
 
     // typechecking
     for file in files {

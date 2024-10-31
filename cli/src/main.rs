@@ -18,7 +18,7 @@ fn main() {
     let mut source_files = Vec::new();
     source_files.push(SourceFile {
         name: "prelude.abra".to_string(),
-        contents: abra_core::_PRELUDE.to_string(),
+        contents: abra_core::prelude::_PRELUDE.to_string(),
     });
 
     let Ok(contents) = std::fs::read_to_string(&args.file) else {

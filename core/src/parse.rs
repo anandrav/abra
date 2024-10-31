@@ -234,7 +234,7 @@ pub(crate) fn parse_match_pattern(pair: Pair<Rule>, filename: &str) -> Rc<Pat> {
             Rc::new(Pat {
                 kind: Rc::new(PatKind::Variant(
                     Identifier {
-                        value: name,
+                        v: name,
                         span: span_variant_ctor,
                         id: NodeId::new(),
                     },
@@ -296,7 +296,7 @@ pub(crate) fn parse_type_term(pair: Pair<Rule>, filename: &str) -> Rc<AstType> {
                     continue;
                 }
                 let interface = Identifier {
-                    value: pair.as_str().to_owned(),
+                    v: pair.as_str().to_owned(),
                     span: Span::new(filename, pair.as_span()),
                     id: NodeId::new(),
                 };
@@ -305,7 +305,7 @@ pub(crate) fn parse_type_term(pair: Pair<Rule>, filename: &str) -> Rc<AstType> {
             Rc::new(AstType {
                 typekind: Rc::new(TypeKind::Poly(
                     Identifier {
-                        value: ty_name,
+                        v: ty_name,
                         span: ty_span,
                         id: NodeId::new(),
                     },
@@ -372,7 +372,7 @@ pub(crate) fn parse_type_term(pair: Pair<Rule>, filename: &str) -> Rc<AstType> {
             Rc::new(AstType {
                 typekind: Rc::new(TypeKind::Ap(
                     Identifier {
-                        value: name,
+                        v: name,
                         span: ident_span,
                         id: NodeId::new(),
                     },
@@ -411,7 +411,7 @@ pub(crate) fn parse_item(pair: Pair<Rule>, filename: &str) -> Rc<Item> {
             let mut n = 0;
             let mut args = vec![];
             let name = Identifier {
-                value: inner[0].as_str().to_string(),
+                v: inner[0].as_str().to_string(),
                 span: Span::new(filename, inner[0].as_span()),
                 id: NodeId::new(),
             };
@@ -475,7 +475,7 @@ pub(crate) fn parse_item(pair: Pair<Rule>, filename: &str) -> Rc<Item> {
                 kind: Rc::new(ItemKind::TypeDef(Rc::new(TypeDefKind::Enum(
                     EnumDef {
                         name: Identifier {
-                            value: name,
+                            v: name,
                             span: span.clone(),
                             id: NodeId::new(),
                         },
@@ -506,7 +506,7 @@ pub(crate) fn parse_item(pair: Pair<Rule>, filename: &str) -> Rc<Item> {
                 kind: Rc::new(ItemKind::TypeDef(Rc::new(TypeDefKind::Struct(
                     StructDef {
                         name: Identifier {
-                            value: name,
+                            v: name,
                             span: span.clone(),
                             id: NodeId::new(),
                         },
@@ -532,7 +532,7 @@ pub(crate) fn parse_item(pair: Pair<Rule>, filename: &str) -> Rc<Item> {
                 kind: ItemKind::InterfaceDef(
                     InterfaceDef {
                         name: Identifier {
-                            value: name,
+                            v: name,
                             span: span.clone(),
                             id: NodeId::new(),
                         },
@@ -559,7 +559,7 @@ pub(crate) fn parse_item(pair: Pair<Rule>, filename: &str) -> Rc<Item> {
             Rc::new(Item {
                 kind: ItemKind::InterfaceImpl(
                     Identifier {
-                        value: name,
+                        v: name,
                         span: name_span,
                         id: NodeId::new(),
                     },
@@ -575,7 +575,7 @@ pub(crate) fn parse_item(pair: Pair<Rule>, filename: &str) -> Rc<Item> {
             let name = inner[0].as_str().to_string();
             Rc::new(Item {
                 kind: ItemKind::Import(Identifier {
-                    value: name,
+                    v: name,
                     span: span.clone(),
                     id: NodeId::new(),
                 })
@@ -608,7 +608,7 @@ pub(crate) fn parse_stmt(pair: Pair<Rule>, filename: &str) -> Rc<Stmt> {
             let mut n = 0;
             let mut args = vec![];
             let name = Identifier {
-                value: inner[0].as_str().to_string(),
+                v: inner[0].as_str().to_string(),
                 span: Span::new(filename, inner[0].as_span()),
                 id: NodeId::new(),
             };
@@ -693,7 +693,7 @@ pub(crate) fn parse_interface_method(pair: Pair<Rule>, filename: &str) -> Interf
             let ty = parse_type_term(inner[1].clone(), filename);
             InterfaceProperty {
                 name: Identifier {
-                    value: name,
+                    v: name,
                     span,
                     id: NodeId::new(),
                 },
@@ -725,7 +725,7 @@ pub(crate) fn parse_variant(pair: Pair<Rule>, filename: &str) -> Rc<Variant> {
             };
             Rc::new(Variant {
                 ctor: Identifier {
-                    value: name,
+                    v: name,
                     span: span_ctor,
                     id: NodeId::new(),
                 },
@@ -749,7 +749,7 @@ pub(crate) fn parse_struct_field(pair: Pair<Rule>, filename: &str) -> StructFiel
             let ty = parse_type_term(inner[1].clone(), filename);
             StructField {
                 name: Identifier {
-                    value: name,
+                    v: name,
                     span: span_field,
                     id: NodeId::new(),
                 },

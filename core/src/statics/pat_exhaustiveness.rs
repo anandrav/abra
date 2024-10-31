@@ -349,7 +349,7 @@ impl DeconstructedPat {
                     .iter()
                     .map(|pat| DeconstructedPat::from_ast_pat(statics, pat.clone()))
                     .collect();
-                Constructor::Variant(ident.value.clone())
+                Constructor::Variant(ident.v.clone())
             }
         };
         Self { ctor, fields, ty }

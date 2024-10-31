@@ -231,7 +231,7 @@ impl Translator {
         monomorph_env: MonomorphEnv,
         st: &mut TranslatorState,
     ) {
-        // println!("translating expr: {:?}", expr.exprkind);
+        println!("translating expr: {:?}", expr.kind);
         match &*expr.kind {
             ExprKind::Identifier(symbol) => {
                 match self.statics.resolution_map_OLD.get(&expr.id).unwrap() {
@@ -338,7 +338,7 @@ impl Translator {
                             emit(st, Instr::CallFuncObj);
                         }
                         Resolution_OLD::FreeFunction(f, name) => {
-                            let func_name = &f.name.value.clone();
+                            let func_name = &f.name.v.clone();
                             let func_ty = self.statics.solution_of_node(f.name.id).unwrap();
                             if !func_ty.is_overloaded() {
                                 emit(st, Instr::Call(name.clone()));
@@ -756,7 +756,7 @@ impl Translator {
                     let tag = enumt
                         .variants
                         .iter()
-                        .position(|v| v.ctor == *ctor.value)
+                        .position(|v| v.ctor == *ctor.v)
                         .expect("variant not found") as u16;
 
                     emit(st, Instr::Deconstruct);
@@ -843,7 +843,7 @@ impl Translator {
                 // TODO: check if overloaded. If so, handle differently.
                 // (this could be an overloaded function or an interface method)
                 let func_ty = self.statics.solution_of_node(f.name.id).unwrap();
-                let func_name = f.name.value.clone();
+                let func_name = f.name.v.clone();
 
                 if func_ty.is_overloaded() // println: 'a ToString -> ()
                 || iface_method
@@ -898,7 +898,7 @@ impl Translator {
                 // TODO: check if overloaded. If so, handle differently.
                 // (this could be an overloaded function or an interface method)
                 let func_ty = self.statics.solution_of_node(f.name.id).unwrap();
-                let func_name = f.name.value.clone();
+                let func_name = f.name.v.clone();
 
                 if func_ty.is_overloaded() // println: 'a ToString -> ()
                 || iface_method

@@ -4,7 +4,7 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 
 #[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq, Hash)]
 pub(crate) struct Identifier {
-    pub(crate) value: String,
+    pub(crate) v: String,
 
     pub(crate) span: Span,
     pub(crate) id: NodeId,

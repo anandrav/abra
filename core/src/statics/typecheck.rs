@@ -758,8 +758,8 @@ pub(crate) fn ast_type_to_statics_type_interface(
     match &*ast_type.typekind {
         TypeKind::Poly(ident, interfaces) => TypeVar::make_poly(
             Prov::Node(ast_type.id()),
-            ident.value.clone(),
-            interfaces.iter().map(|i| i.value.clone()).collect(),
+            ident.v.clone(),
+            interfaces.iter().map(|i| i.v.clone()).collect(),
         ),
         TypeKind::Identifier(ident) => {
             if let Some(interface_ident) = interface_ident {
@@ -779,7 +779,7 @@ pub(crate) fn ast_type_to_statics_type_interface(
         }
         TypeKind::Ap(ident, params) => TypeVar::make_def_instance(
             Prov::Node(ast_type.id()),
-            ident.value.clone(),
+            ident.v.clone(),
             params
                 .iter()
                 .map(|param| {
@@ -862,10 +862,6 @@ impl SymbolTable_OLD {
 
     pub(crate) fn extend_declaration(&self, symbol: String, resolution: Resolution_OLD) {
         self.var_declarations.extend(symbol, resolution);
-    }
-
-    fn lookup_declaration(&self, symbol: &String) -> Option<Resolution_OLD> {
-        self.var_declarations.lookup(symbol)
     }
 
     fn add_polys(&self, ty: &TypeVar) {
@@ -1446,9 +1442,10 @@ fn generate_constraints_expr(
             }
         }
         ExprKind::Identifier(symbol) => {
-            let lookup = symbol_table_OLD.lookup_declaration(symbol);
-            if let Some(resolution) = lookup {
-                ctx.resolution_map_OLD.insert(expr.id, resolution);
+            let lookup = ctx.resolution_map.get(&expr.id);
+            if let Some(res) = lookup {
+                ctx.resolution_map_OLD
+                    .insert(expr.id, res.to_resolution_old());
             }
 
             let lookup = symbol_table_OLD.lookup(symbol);
@@ -1884,12 +1881,12 @@ fn generate_constraints_item(
         ItemKind::InterfaceImpl(ident, typ, statements) => {
             let typ = ast_type_to_statics_type(ctx, typ.clone());
 
-            if let Some(interface_def) = ctx.interface_def_of_ident(&ident.value) {
+            if let Some(interface_def) = ctx.interface_def_of_ident(&ident.v) {
                 for statement in statements {
                     let StmtKind::FuncDef(f) = &*statement.kind else {
                         continue;
                     };
-                    let method_name = f.name.value.clone();
+                    let method_name = f.name.v.clone();
                     if let Some(interface_method) =
                         interface_def.methods.iter().find(|m| m.name == method_name)
                     {
@@ -1920,7 +1917,7 @@ fn generate_constraints_item(
                 }
                 for interface_method in interface_def.methods {
                     if !statements.iter().any(|stmt| match &*stmt.kind {
-                        StmtKind::FuncDef(f) => f.name.value == interface_method.name,
+                        StmtKind::FuncDef(f) => f.name.v == interface_method.name,
                         _ => false,
                     }) {
                         ctx.interface_impl_missing_method
@@ -1945,7 +1942,7 @@ fn generate_constraints_item(
             let func_node_id = stmt.id;
             let ty_pat = TypeVar::from_node(ctx, f.name.id);
 
-            let func_name = f.name.value.clone();
+            let func_name = f.name.v.clone();
 
             // TODO this needs a better explanation
             if add_to_tyvar_symbol_table {
@@ -2021,7 +2018,7 @@ fn generate_constraints_stmt(
             let func_node_id = stmt.id;
             let ty_pat = TypeVar::from_node(ctx, f.name.id);
 
-            let func_name = f.name.value.clone();
+            let func_name = f.name.v.clone();
 
             // TODO this needs a better explanation
             if add_to_tyvar_symbol_table {
@@ -2092,7 +2089,7 @@ fn generate_constraints_pat(
             };
             let mut substitution = BTreeMap::new();
             let ty_enum_instance = {
-                let enum_def = ctx.enum_def_of_variant(&tag.value);
+                let enum_def = ctx.enum_def_of_variant(&tag.v);
 
                 if let Some(enum_def) = enum_def {
                     let nparams = enum_def.params.len();
@@ -2110,11 +2107,7 @@ fn generate_constraints_pat(
                         params,
                     );
 
-                    let variant_def = enum_def
-                        .variants
-                        .iter()
-                        .find(|v| v.ctor == *tag.value)
-                        .unwrap();
+                    let variant_def = enum_def.variants.iter().find(|v| v.ctor == *tag.v).unwrap();
                     let variant_data_ty = variant_def.data.clone().subst(
                         symbol_table_OLD.clone(),
                         Prov::Node(pat.id),
