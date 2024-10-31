@@ -224,7 +224,7 @@ impl SymbolTable {
 // type Env = Environment<Identifier, Declaration>;
 
 // TODO: make a custom type to detect collisions
-pub type ToplevelEnv = BTreeMap<String, Declaration>;
+pub type ToplevelDeclarations = BTreeMap<String, Declaration>;
 
 pub(crate) fn resolve(ctx: &mut StaticsContext, files: Vec<Rc<FileAst>>) {
     for file in files {
@@ -233,10 +233,10 @@ pub(crate) fn resolve(ctx: &mut StaticsContext, files: Vec<Rc<FileAst>>) {
     }
 }
 
-fn resolve_imports_file(ctx: &mut StaticsContext, file: Rc<FileAst>) -> ToplevelEnv {
+fn resolve_imports_file(ctx: &mut StaticsContext, file: Rc<FileAst>) -> ToplevelDeclarations {
     // Return an environment with all identifiers available to this file.
     // That includes identifiers from this file and all imports.
-    let mut env = ToplevelEnv::new();
+    let mut env = ToplevelDeclarations::new();
     // add declarations from this file to the environment
     for (name, declaration) in ctx
         .global_namespace
@@ -280,10 +280,16 @@ fn resolve_imports_file(ctx: &mut StaticsContext, file: Rc<FileAst>) -> Toplevel
     env
 }
 
-pub(crate) fn resolve_names_file(ctx: &mut StaticsContext, env: ToplevelEnv, file: Rc<FileAst>) {
-    // TODO: probably need these
-
+pub(crate) fn resolve_names_file(
+    ctx: &mut StaticsContext,
+    toplevel_declarations: ToplevelDeclarations,
+    file: Rc<FileAst>,
+) {
     let symbol_table = SymbolTable::empty();
+
+    for (name, declaration) in toplevel_declarations {
+        symbol_table.extend_declaration(name, declaration);
+    }
 
     // for (i, eff) in ctx.effects.iter().enumerate() {
     //     env.extend(eff.name.value.clone(), Declaration::Effect(i as u16));
