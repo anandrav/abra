@@ -601,10 +601,6 @@ fn gather_definitions_item_DEPRECATE(
                         TypeKind::Unit => 0,
                         _ => 1,
                     });
-                    symbol_table.extend_declaration(
-                        v.ctor.v.clone(),
-                        Resolution_OLD::VariantCtor(i as u16, arity as u16),
-                    );
 
                     let data = {
                         if let Some(data) = &v.data {
@@ -638,11 +634,6 @@ fn gather_definitions_item_DEPRECATE(
                 );
             }
             TypeDefKind::Struct(s) => {
-                symbol_table.extend_declaration(
-                    s.name.v.clone(),
-                    Resolution_OLD::StructCtor(s.fields.len() as u16),
-                );
-
                 // let ty_struct = TypeVar::from_node(ctx, stmt.id);
                 if let Some(struct_def) = ctx.struct_defs.get(&s.name.v) {
                     let entry = ctx.multiple_udt_defs.entry(s.name.v.clone()).or_default();
@@ -686,10 +677,6 @@ fn gather_definitions_item_DEPRECATE(
             let name = &f.name.v;
             // ctx.fun_defs.insert(name.value.clone(), f.clone());
             symbol_table.extend(name.clone(), TypeVar::from_node(ctx, name_id));
-            symbol_table.extend_declaration(
-                name.clone(),
-                Resolution_OLD::FreeFunction(f.clone(), name.clone()),
-            );
         }
         ItemKind::Import(..) => {}
         ItemKind::Stmt(..) => {}
@@ -709,10 +696,6 @@ fn gather_definitions_stmt_DEPRECATE(
             let name = &f.name.v;
             // ctx.fun_defs.insert(name.value.clone(), f.clone());
             symbol_table.extend(name.clone(), TypeVar::from_node(ctx, name_id));
-            symbol_table.extend_declaration(
-                name.clone(),
-                Resolution_OLD::FreeFunction(f.clone(), name.clone()),
-            );
         }
         StmtKind::Set(..) => {}
     }

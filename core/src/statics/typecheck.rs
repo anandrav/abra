@@ -860,10 +860,6 @@ impl SymbolTable_OLD {
         self.tyctx.extend(ident.clone(), ty);
     }
 
-    pub(crate) fn extend_declaration(&self, symbol: String, resolution: Resolution_OLD) {
-        self.var_declarations.extend(symbol, resolution);
-    }
-
     fn add_polys(&self, ty: &TypeVar) {
         let Some(ty) = ty.single() else {
             return;
@@ -1351,13 +1347,11 @@ pub(crate) fn generate_constraints_file(
             prov,
         );
         symbol_table_OLD.extend(eff.name.clone(), typ);
-        symbol_table_OLD.extend_declaration(eff.name.clone(), Resolution_OLD::Effect(i as u16));
     }
     for builtin in Builtin::enumerate().iter() {
         let prov = Prov::Builtin(*builtin);
         let typ = solved_type_to_typevar(builtin.type_signature(), prov);
         symbol_table_OLD.extend(builtin.name(), typ);
-        symbol_table_OLD.extend_declaration(builtin.name(), Resolution_OLD::Builtin(*builtin));
     }
     for items in file.items.iter() {
         generate_constraints_item(
@@ -1947,15 +1941,6 @@ fn generate_constraints_item(
             // TODO this needs a better explanation
             if add_to_tyvar_symbol_table {
                 symbol_table_OLD.extend(func_name.clone(), ty_pat.clone());
-                symbol_table_OLD.extend_declaration(
-                    func_name.clone(),
-                    Resolution_OLD::FreeFunction(f.clone(), func_name),
-                );
-            } else {
-                symbol_table_OLD.extend_declaration(
-                    func_name.clone(),
-                    Resolution_OLD::InterfaceMethod(func_name),
-                );
             }
 
             let body_symbol_table = symbol_table_OLD.new_scope();
@@ -2023,15 +2008,6 @@ fn generate_constraints_stmt(
             // TODO this needs a better explanation
             if add_to_tyvar_symbol_table {
                 symbol_table_OLD.extend(func_name.clone(), ty_pat.clone());
-                symbol_table_OLD.extend_declaration(
-                    func_name.clone(),
-                    Resolution_OLD::FreeFunction(f.clone(), func_name),
-                );
-            } else {
-                symbol_table_OLD.extend_declaration(
-                    func_name.clone(),
-                    Resolution_OLD::InterfaceMethod(func_name),
-                );
             }
 
             let body_symbol_table = symbol_table_OLD.new_scope();
@@ -2080,7 +2056,6 @@ fn generate_constraints_pat(
         PatKind::Binding(name) => {
             // letrec: extend context with id and type before analyzing against said type
             symbol_table_OLD.extend(name.clone(), ty_pat);
-            symbol_table_OLD.extend_declaration(name.clone(), Resolution_OLD::Var(pat.id));
         }
         PatKind::Variant(tag, data) => {
             let ty_data = match data {
