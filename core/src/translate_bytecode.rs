@@ -839,8 +839,6 @@ impl Translator {
                 }
             }
             ItemKind::FuncDef(f) => {
-                // TODO last here
-                // TODO: check if overloaded. If so, handle differently.
                 // (this could be an overloaded function or an interface method)
                 let func_ty = self.statics.solution_of_node(f.name.id).unwrap();
                 let func_name = f.name.v.clone();
@@ -894,8 +892,6 @@ impl Translator {
             StmtKind::Expr(..) => {}
 
             StmtKind::FuncDef(f) => {
-                // TODO last here
-                // TODO: check if overloaded. If so, handle differently.
                 // (this could be an overloaded function or an interface method)
                 let func_ty = self.statics.solution_of_node(f.name.id).unwrap();
                 let func_name = f.name.v.clone();

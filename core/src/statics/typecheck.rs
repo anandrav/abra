@@ -12,7 +12,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::fmt::{self, Write};
 use std::rc::Rc;
 
-use super::{Resolution_OLD, StaticsContext};
+use super::{Declaration, Resolution_OLD, StaticsContext};
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub(crate) struct TypeVar(UnionFindNode<TypeVarData>);
@@ -690,6 +690,19 @@ impl TypeVar {
 
     fn underdetermined(&self) -> bool {
         self.0.with_data(|data| data.types.is_empty())
+    }
+}
+
+fn tyvar_of_declaration(ctx: &mut StaticsContext, decl: &Declaration) -> Option<TypeVar> {
+    match decl {
+        Declaration::FreeFunction(f) => Some(TypeVar::from_node(ctx, f.name.id)),
+        Declaration::InterfaceDef(rc) => todo!(),
+        Declaration::InterfaceMethod { iface_def, method } => todo!(),
+        Declaration::EnumVariant { enum_def, variant } => todo!(),
+        Declaration::Struct(rc) => todo!(),
+        Declaration::Builtin(builtin) => todo!(),
+        Declaration::Effect(_) => todo!(),
+        Declaration::Var(node_id) => todo!(),
     }
 }
 
@@ -1436,10 +1449,13 @@ fn generate_constraints_expr(
             }
         }
         ExprKind::Identifier(symbol) => {
-            let lookup = ctx.resolution_map.get(&expr.id);
+            let lookup = ctx.resolution_map.get(&expr.id).cloned();
             if let Some(res) = lookup {
                 ctx.resolution_map_OLD
                     .insert(expr.id, res.to_resolution_old());
+
+                // TODO: last here
+                // let typ = tyvar_of_declaration(ctx, &res);
             }
 
             let lookup = symbol_table_OLD.lookup(symbol);
@@ -1568,10 +1584,10 @@ fn generate_constraints_expr(
                 constrain(node_ty, TypeVar::make_unit(Prov::Node(expr.id)));
                 return;
             }
-            let new_symbol_table = symbol_table_OLD.new_scope();
+            let new_symbol_table_OLD = symbol_table_OLD.new_scope();
             for statement in statements[..statements.len() - 1].iter() {
                 generate_constraints_stmt(
-                    new_symbol_table.clone(),
+                    new_symbol_table_OLD.clone(),
                     Mode::Syn,
                     statement.clone(),
                     ctx,
@@ -1581,14 +1597,14 @@ fn generate_constraints_expr(
             // if last statement is an expression, the block will have that expression's type
             if let StmtKind::Expr(terminal_expr) = &*statements.last().unwrap().kind {
                 generate_constraints_expr(
-                    new_symbol_table,
+                    new_symbol_table_OLD,
                     Mode::Ana { expected: node_ty },
                     terminal_expr.clone(),
                     ctx,
                 )
             } else {
                 generate_constraints_stmt(
-                    new_symbol_table,
+                    new_symbol_table_OLD,
                     Mode::Syn,
                     statements.last().unwrap().clone(),
                     ctx,
@@ -1933,7 +1949,7 @@ fn generate_constraints_item(
             TypeDefKind::Enum(..) | TypeDefKind::Struct(..) => {}
         },
         ItemKind::FuncDef(f) => {
-            let func_node_id = stmt.id;
+            let func_node_id = f.name.id;
             let ty_pat = TypeVar::from_node(ctx, f.name.id);
 
             let func_name = f.name.v.clone();
