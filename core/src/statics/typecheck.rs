@@ -1952,7 +1952,7 @@ fn generate_constraints_item(
                 symbol_table_OLD.extend(func_name.clone(), ty_pat.clone());
                 symbol_table_OLD.extend_declaration(
                     func_name.clone(),
-                    Resolution_OLD::FreeFunction(stmt.id, func_name),
+                    Resolution_OLD::FreeFunction(f.clone(), func_name),
                 );
             } else {
                 symbol_table_OLD.extend_declaration(
@@ -2028,7 +2028,7 @@ fn generate_constraints_stmt(
                 symbol_table_OLD.extend(func_name.clone(), ty_pat.clone());
                 symbol_table_OLD.extend_declaration(
                     func_name.clone(),
-                    Resolution_OLD::FreeFunction(stmt.id, func_name),
+                    Resolution_OLD::FreeFunction(f.clone(), func_name),
                 );
             } else {
                 symbol_table_OLD.extend_declaration(

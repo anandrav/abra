@@ -1,4 +1,6 @@
-use crate::ast::{EnumDef, FileAst, FuncDef, InterfaceDef, NodeId, NodeMap, Sources, StructDef};
+use crate::ast::{
+    EnumDef, FileAst, FuncDef, InterfaceDef, NodeId, NodeMap, Sources, StructDef, TypeKind,
+};
 use crate::builtin::Builtin;
 use crate::effects::EffectStruct;
 use resolve::{
@@ -157,20 +159,66 @@ impl Display for Namespace {
 pub(crate) enum Declaration {
     FreeFunction(Rc<FuncDef>),
     InterfaceDef(Rc<InterfaceDef>),
-    InterfaceMethod { parent: Rc<InterfaceDef>, idx: u16 },
-    EnumVariant { parent: Rc<EnumDef>, idx: u16 },
+    InterfaceMethod {
+        iface_def: Rc<InterfaceDef>,
+        method: u16,
+    },
+    EnumVariant {
+        enum_def: Rc<EnumDef>,
+        variant: u16,
+    },
     Struct(Rc<StructDef>),
     Builtin(Builtin),
     Effect(u16),
     Var(NodeId),
 }
 
+impl Declaration {
+    pub fn to_resolution_old(&self) -> Resolution_OLD {
+        match self {
+            Declaration::Var(node_id) => Resolution_OLD::Var(*node_id),
+            Declaration::FreeFunction(f) => {
+                Resolution_OLD::FreeFunction(f.clone(), f.name.value.clone())
+            }
+            Declaration::InterfaceDef(rc) => todo!(),
+            Declaration::InterfaceMethod { iface_def, method } => {
+                let name = &iface_def.props[*method as usize].name;
+                Resolution_OLD::InterfaceMethod(name.value.clone())
+            }
+            Declaration::EnumVariant { enum_def, variant } => {
+                let data = &enum_def.variants[*variant as usize].data;
+                let arity = match data {
+                    None => 0,
+                    Some(ty) => match &*ty.typekind {
+                        TypeKind::Poly(..)
+                        | TypeKind::Identifier(_)
+                        | TypeKind::Ap(..)
+                        | TypeKind::Unit
+                        | TypeKind::Int
+                        | TypeKind::Float
+                        | TypeKind::Bool
+                        | TypeKind::Str
+                        | TypeKind::Function(..) => 1,
+                        TypeKind::Tuple(elems) => elems.len(),
+                    },
+                };
+                Resolution_OLD::VariantCtor(*variant, arity as u16)
+            }
+            Declaration::Struct(struct_def) => {
+                let nargs = struct_def.fields.len();
+                Resolution_OLD::StructCtor(nargs as u16)
+            }
+            Declaration::Builtin(b) => Resolution_OLD::Builtin(*b),
+            Declaration::Effect(e) => Resolution_OLD::Effect(*e),
+        }
+    }
+}
 // TODO: move this to translate_bytecode. Make a conversion function from Declaration/Resolution to this thing
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub(crate) enum Resolution_OLD {
     Var(NodeId),
-    FreeFunction(NodeId, String),
-    InterfaceMethod(String),
+    FreeFunction(Rc<FuncDef>, String), // TODO: String bad unless fully qualified!
+    InterfaceMethod(String),           // TODO: String bad unless fully qualified!
     StructCtor(u16),
     VariantCtor(u16, u16),
     Builtin(Builtin),

@@ -127,8 +127,8 @@ fn gather_declarations_item(namespace: &mut Namespace, qualifiers: Vec<String>, 
                 namespace.declarations.insert(
                     method_name,
                     Declaration::InterfaceMethod {
-                        parent: iface.clone(),
-                        idx: i as u16,
+                        iface_def: iface.clone(),
+                        method: i as u16,
                     },
                 );
             }
@@ -149,8 +149,8 @@ fn gather_declarations_item(namespace: &mut Namespace, qualifiers: Vec<String>, 
                     namespace.declarations.insert(
                         variant_name,
                         Declaration::EnumVariant {
-                            parent: e.clone(),
-                            idx: i as u16,
+                            enum_def: e.clone(),
+                            variant: i as u16,
                         },
                     );
                 }
@@ -662,7 +662,7 @@ fn gather_definitions_item_DEPRECATE(
             symbol_table.extend(name.clone(), TypeVar::from_node(ctx, name_id));
             symbol_table.extend_declaration(
                 name.clone(),
-                Resolution_OLD::FreeFunction(stmt.id, name.clone()),
+                Resolution_OLD::FreeFunction(f.clone(), name.clone()),
             );
         }
         ItemKind::Import(..) => {}
@@ -685,7 +685,7 @@ fn gather_definitions_stmt_DEPRECATE(
             symbol_table.extend(name.clone(), TypeVar::from_node(ctx, name_id));
             symbol_table.extend_declaration(
                 name.clone(),
-                Resolution_OLD::FreeFunction(stmt.id, name.clone()),
+                Resolution_OLD::FreeFunction(f.clone(), name.clone()),
             );
         }
         StmtKind::Set(..) => {}

@@ -26,7 +26,7 @@ pub(crate) type LabelMap = HashMap<Label, usize>;
 struct OverloadedFuncDesc {
     name: String,
     impl_type: Monotype,
-    definition_node: NodeId,
+    func_def: Rc<FuncDef>,
 }
 
 #[derive(Debug, Clone)]
@@ -163,59 +163,40 @@ impl Translator {
             let mut iteration = Vec::new();
             mem::swap(&mut (iteration), &mut st.overloaded_methods_to_generate);
             for (desc, substituted_ty) in iteration {
-                let definition_id = desc.definition_node;
+                let f = desc.func_def.clone();
 
-                let do_stuff = |f: Rc<FuncDef>| {
-                    let overloaded_func_ty = self.statics.solution_of_node(f.name.id()).unwrap();
-                    let monomorph_env = MonomorphEnv::empty();
-                    update_monomorph_env(monomorph_env.clone(), overloaded_func_ty, substituted_ty);
+                let overloaded_func_ty = self.statics.solution_of_node(f.name.id()).unwrap();
+                let monomorph_env = MonomorphEnv::empty();
+                update_monomorph_env(monomorph_env.clone(), overloaded_func_ty, substituted_ty);
 
-                    let label = st.overloaded_func_map.get(&desc).unwrap();
-                    emit(st, Line::Label(label.clone()));
+                let label = st.overloaded_func_map.get(&desc).unwrap();
+                emit(st, Line::Label(label.clone()));
 
-                    let mut locals = HashSet::new();
-                    collect_locals_expr(&f.body, &mut locals);
-                    let locals_count = locals.len();
-                    for _ in 0..locals_count {
-                        emit(st, Instr::PushNil);
-                    }
-                    let mut offset_table = OffsetTable::new();
-                    for (i, arg) in f.args.iter().rev().enumerate() {
-                        offset_table.entry(arg.0.id).or_insert(-(i as i32) - 1);
-                    }
-                    for (i, local) in locals.iter().enumerate() {
-                        offset_table.entry(*local).or_insert((i) as i32);
-                    }
-                    let nargs = f.args.len();
-                    self.translate_expr(f.body.clone(), &offset_table, monomorph_env.clone(), st);
+                let mut locals = HashSet::new();
+                collect_locals_expr(&f.body, &mut locals);
+                let locals_count = locals.len();
+                for _ in 0..locals_count {
+                    emit(st, Instr::PushNil);
+                }
+                let mut offset_table = OffsetTable::new();
+                for (i, arg) in f.args.iter().rev().enumerate() {
+                    offset_table.entry(arg.0.id).or_insert(-(i as i32) - 1);
+                }
+                for (i, local) in locals.iter().enumerate() {
+                    offset_table.entry(*local).or_insert((i) as i32);
+                }
+                let nargs = f.args.len();
+                self.translate_expr(f.body.clone(), &offset_table, monomorph_env.clone(), st);
 
-                    if locals_count + nargs > 0 {
-                        // pop all locals and arguments except one. The last one is the return value slot.
-                        emit(st, Instr::StoreOffset(-(nargs as i32)));
-                        for _ in 0..(locals_count + nargs - 1) {
-                            emit(st, Instr::Pop);
-                        }
-                    }
-
-                    emit(st, Instr::Return);
-                };
-
-                // TODO: utter trash
-                let mut handled = false;
-                if let Some(stmt) = &self.node_map.get(&definition_id).unwrap().to_stmt() {
-                    if let StmtKind::FuncDef(f) = &*stmt.kind {
-                        do_stuff(f.clone());
-                        handled = true;
-                    }
-                } else if let Some(item) = &self.node_map.get(&definition_id).unwrap().to_item() {
-                    if let ItemKind::FuncDef(f) = &*item.kind {
-                        do_stuff(f.clone());
-                        handled = true;
+                if locals_count + nargs > 0 {
+                    // pop all locals and arguments except one. The last one is the return value slot.
+                    emit(st, Instr::StoreOffset(-(nargs as i32)));
+                    for _ in 0..(locals_count + nargs - 1) {
+                        emit(st, Instr::Pop);
                     }
                 }
-                if !handled {
-                    panic!("did not handle overloaded function");
-                }
+
+                emit(st, Instr::Return);
             }
         }
 
@@ -356,14 +337,7 @@ impl Translator {
                             emit(st, Instr::LoadOffset(*idx));
                             emit(st, Instr::CallFuncObj);
                         }
-                        Resolution_OLD::FreeFunction(node_id, name) => {
-                            // println!("emitting Call of function: {}", name);
-                            let ItemKind::FuncDef(f) =
-                                &*self.node_map.get(node_id).unwrap().to_item().unwrap().kind
-                            else {
-                                panic!()
-                            };
-
+                        Resolution_OLD::FreeFunction(f, name) => {
                             let func_name = &f.name.value.clone();
                             let func_ty = self.statics.solution_of_node(f.name.id).unwrap();
                             if !func_ty.is_overloaded() {
@@ -386,7 +360,7 @@ impl Translator {
                                     st,
                                     substituted_ty,
                                     func_name,
-                                    *node_id,
+                                    f.clone(),
                                 );
                             }
                         }
@@ -403,7 +377,35 @@ impl Translator {
                             // println!("substituted type: {:?}", substituted_ty);
                             let def_id =
                                 self.get_func_definition_node(name, substituted_ty.clone());
-                            self.handle_overloaded_func(st, substituted_ty, name, def_id);
+
+                            // TODO: utter trash
+                            let mut handled = false;
+                            if let Some(stmt) = &self.node_map.get(&def_id).unwrap().to_stmt() {
+                                if let StmtKind::FuncDef(f) = &*stmt.kind {
+                                    self.handle_overloaded_func(
+                                        st,
+                                        substituted_ty,
+                                        name,
+                                        f.clone(),
+                                    );
+                                    handled = true;
+                                }
+                            } else if let Some(item) =
+                                &self.node_map.get(&def_id).unwrap().to_item()
+                            {
+                                if let ItemKind::FuncDef(f) = &*item.kind {
+                                    self.handle_overloaded_func(
+                                        st,
+                                        substituted_ty,
+                                        name,
+                                        f.clone(),
+                                    );
+                                    handled = true;
+                                }
+                            }
+                            if !handled {
+                                panic!("did not handle overloaded function");
+                            }
                         }
                         Resolution_OLD::StructCtor(nargs) => {
                             emit(st, Instr::Construct(*nargs));
@@ -1142,7 +1144,7 @@ impl Translator {
         st: &mut TranslatorState,
         substituted_ty: Type,
         func_name: &String,
-        definition_node: NodeId,
+        func_def: Rc<FuncDef>,
     ) {
         let instance_ty = substituted_ty.monotype().unwrap();
         // println!("instance type: {:?}", &instance_ty);
@@ -1150,7 +1152,7 @@ impl Translator {
         let entry = st.overloaded_func_map.entry(OverloadedFuncDesc {
             name: func_name.clone(),
             impl_type: instance_ty.clone(),
-            definition_node,
+            func_def: func_def.clone(),
         });
         let label = match entry {
             std::collections::btree_map::Entry::Occupied(o) => o.get().clone(),
@@ -1159,7 +1161,7 @@ impl Translator {
                     OverloadedFuncDesc {
                         name: func_name.clone(),
                         impl_type: instance_ty.clone(),
-                        definition_node,
+                        func_def: func_def.clone(),
                     },
                     substituted_ty,
                 ));
