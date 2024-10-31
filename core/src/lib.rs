@@ -230,7 +230,7 @@ implement ToString for ('a ToString, 'b ToString, 'c ToString, 'd ToString, 'e T
 
 implement ToString for list<'a ToString> {
     fn to_string(xs) {
-        fn helper(xs) {
+        let helper = xs -> {
             match xs {
                 nil -> ""
                 cons (~x, nil) -> {
@@ -247,7 +247,7 @@ implement ToString for list<'a ToString> {
 
 implement ToString for array<'a ToString> {
     fn to_string(arr) {
-        fn helper(arr, idx) {
+       let helper = (arr, idx) -> {
             let l = array_length(arr)
             if idx = l {
                 ""

@@ -26,7 +26,7 @@ packed_data = _{ "of" ~ typ }
 struct_declaration = { "type" ~ identifier ~ type_params? ~ "=" ~ "{" ~ struct_field ~ ("," ~ struct_field)* ~ "}" }
 struct_field = { identifier ~ type_annotation }
 
-statement = _{ func_def | let_statement | var_statement | set_statement | expression_statement }
+statement = _{ let_statement | var_statement | set_statement | expression_statement }
 
 let_statement = { let_keyword ~ let_pattern_annotated ~ op_assign ~ expression }
 let_keyword = _{ "let" }

@@ -160,6 +160,9 @@ pub(crate) enum Declaration {
     InterfaceMethod { parent: Rc<InterfaceDef>, idx: u16 },
     EnumVariant { parent: Rc<EnumDef>, idx: u16 },
     Struct(Rc<StructDef>),
+    Builtin(Builtin),
+    Effect(u16),
+    Var(NodeId),
 }
 
 // TODO: move this to translate_bytecode. Make a conversion function from Declaration/Resolution to this thing

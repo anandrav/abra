@@ -1990,25 +1990,25 @@ fn generate_constraints_stmt(
         StmtKind::Let(_mutable, (pat, ty_ann), expr) => {
             let ty_pat = TypeVar::from_node(ctx, pat.id);
 
+            if let Some(ty_ann) = ty_ann {
+                let ty_ann = ast_type_to_statics_type(ctx, ty_ann.clone());
+                symbol_table_OLD.add_polys(&ty_ann);
+                generate_constraints_pat(
+                    symbol_table_OLD.clone(),
+                    Mode::Ana { expected: ty_ann },
+                    pat.clone(),
+                    ctx,
+                )
+            } else {
+                generate_constraints_pat(symbol_table_OLD.clone(), Mode::Syn, pat.clone(), ctx)
+            };
+
             generate_constraints_expr(
                 symbol_table_OLD.clone(),
                 Mode::Ana { expected: ty_pat },
                 expr.clone(),
                 ctx,
             );
-
-            if let Some(ty_ann) = ty_ann {
-                let ty_ann = ast_type_to_statics_type(ctx, ty_ann.clone());
-                symbol_table_OLD.add_polys(&ty_ann);
-                generate_constraints_pat(
-                    symbol_table_OLD,
-                    Mode::Ana { expected: ty_ann },
-                    pat.clone(),
-                    ctx,
-                )
-            } else {
-                generate_constraints_pat(symbol_table_OLD, Mode::Syn, pat.clone(), ctx)
-            };
         }
         StmtKind::Set(lhs, rhs) => {
             let ty_lhs = TypeVar::from_node(ctx, lhs.id);

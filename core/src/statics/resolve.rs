@@ -6,6 +6,7 @@ use crate::ast::{
     ArgAnnotated, Expr, ExprKind, FileAst, Item, ItemKind, Node, NodeId, Pat, PatKind, Stmt,
     StmtKind, TypeDefKind, TypeKind,
 };
+use crate::builtin::Builtin;
 
 use super::{Declaration, Namespace, Resolution_OLD, StaticsContext, TypeVar};
 
@@ -188,6 +189,36 @@ struct SymbolTableBase {
     enclosing: Option<Rc<RefCell<SymbolTableBase>>>,
 }
 
+impl SymbolTableBase {
+    fn lookup_declaration(&self, id: &String) -> Option<Declaration> {
+        match self.declarations.get(id) {
+            Some(item) => Some(item.clone()),
+            None => match &self.enclosing {
+                Some(enclosing) => enclosing.borrow().lookup_declaration(id),
+                None => None,
+            },
+        }
+    }
+
+    fn lookup_namespace(&self, id: &String) -> Option<Rc<Namespace>> {
+        match self.namespaces.get(id) {
+            Some(ns) => Some(ns.clone()),
+            None => match &self.enclosing {
+                Some(enclosing) => enclosing.borrow().lookup_namespace(id),
+                None => None,
+            },
+        }
+    }
+
+    fn extend_declaration(&mut self, id: String, decl: Declaration) {
+        self.declarations.insert(id, decl);
+    }
+
+    fn extend_namespace(&mut self, id: String, ns: Rc<Namespace>) {
+        self.namespaces.insert(id, ns);
+    }
+}
+
 impl SymbolTable {
     pub(crate) fn empty() -> Self {
         Self {
@@ -205,22 +236,21 @@ impl SymbolTable {
     }
 
     pub(crate) fn lookup_declaration(&self, id: &String) -> Option<Declaration> {
-        self.base.borrow().declarations.get(id).cloned()
+        self.base.borrow().lookup_declaration(id)
     }
 
     pub(crate) fn lookup_namespace(&self, id: &String) -> Option<Rc<Namespace>> {
-        self.base.borrow().namespaces.get(id).cloned()
+        self.base.borrow().lookup_namespace(id)
     }
 
     pub(crate) fn extend_declaration(&self, id: String, decl: Declaration) {
-        self.base.borrow_mut().declarations.insert(id, decl);
+        self.base.borrow_mut().extend_declaration(id, decl);
     }
 
     pub(crate) fn extend_namespace(&self, id: String, ns: Rc<Namespace>) {
-        self.base.borrow_mut().namespaces.insert(id, ns);
+        self.base.borrow_mut().extend_namespace(id, ns);
     }
 }
-
 // type Env = Environment<Identifier, Declaration>;
 
 // TODO: make a custom type to detect collisions
@@ -291,12 +321,12 @@ pub(crate) fn resolve_names_file(
         symbol_table.extend_declaration(name, declaration);
     }
 
-    // for (i, eff) in ctx.effects.iter().enumerate() {
-    //     env.extend(eff.name.value.clone(), Declaration::Effect(i as u16));
-    // }
-    // for builtin in Builtin::enumerate().iter() {
-    //     env.extend(builtin.name(), Declaration::Builtin(*builtin));
-    // }
+    for (i, eff) in ctx.effects.iter().enumerate() {
+        symbol_table.extend_declaration(eff.name.clone(), Declaration::Effect(i as u16));
+    }
+    for builtin in Builtin::enumerate().iter() {
+        symbol_table.extend_declaration(builtin.name(), Declaration::Builtin(*builtin));
+    }
     for item in file.items.iter() {
         resolve_names_item(ctx, symbol_table.clone(), item.clone());
     }
@@ -313,6 +343,25 @@ fn resolve_names_item(ctx: &mut StaticsContext, symbol_table: SymbolTable, stmt:
         ItemKind::TypeDef(..) => {}
         ItemKind::Stmt(stmt) => {
             resolve_names_stmt(ctx, symbol_table, stmt.clone());
+        }
+    }
+}
+
+fn resolve_names_stmt(ctx: &mut StaticsContext, symbol_table: SymbolTable, stmt: Rc<Stmt>) {
+    match &*stmt.kind {
+        StmtKind::FuncDef(..) => {
+            // TODO: need this probably
+        }
+        StmtKind::Expr(expr) => {
+            resolve_names_expr(ctx, symbol_table, expr.clone());
+        }
+        StmtKind::Let(_mutable, (pat, _), expr) => {
+            resolve_names_pat(ctx, symbol_table.clone(), pat.clone());
+            resolve_names_expr(ctx, symbol_table.clone(), expr.clone());
+        }
+        StmtKind::Set(lhs, rhs) => {
+            resolve_names_expr(ctx, symbol_table.clone(), lhs.clone());
+            resolve_names_expr(ctx, symbol_table.clone(), rhs.clone());
         }
     }
 }
@@ -335,13 +384,12 @@ fn resolve_names_expr(ctx: &mut StaticsContext, symbol_table: SymbolTable, expr:
             }
         }
         ExprKind::Identifier(symbol) => {
-            // TODO: This is where we update the resolution map
-            // let lookup = symbol_table.lookup(symbol);
-            // if let Some(decl) = lookup {
-            //     ctx.resolution_map.insert(expr.id, decl);
-            // } else {
-            //     ctx.unbound_vars.insert(expr.id());
-            // }
+            let lookup = symbol_table.lookup_declaration(symbol);
+            if let Some(decl) = lookup {
+                ctx.resolution_map.insert(expr.id, decl);
+            } else {
+                ctx.unbound_vars.insert(expr.id());
+            }
         }
         ExprKind::BinOp(left, _, right) => {
             resolve_names_expr(ctx, symbol_table.clone(), left.clone());
@@ -389,7 +437,6 @@ fn resolve_names_expr(ctx: &mut StaticsContext, symbol_table: SymbolTable, expr:
         }
         ExprKind::MemberAccess(expr, field) => {
             resolve_names_expr(ctx, symbol_table.clone(), expr.clone());
-            resolve_names_expr(ctx, symbol_table.clone(), field.clone());
         }
         ExprKind::IndexAccess(accessed, index) => {
             resolve_names_expr(ctx, symbol_table.clone(), accessed.clone());
@@ -411,25 +458,6 @@ fn resolve_names_func_helper(
     resolve_names_expr(ctx, symbol_table.clone(), body.clone());
 }
 
-fn resolve_names_stmt(ctx: &mut StaticsContext, symbol_table: SymbolTable, stmt: Rc<Stmt>) {
-    match &*stmt.kind {
-        StmtKind::FuncDef(..) => {
-            // TODO: need this probably
-        }
-        StmtKind::Expr(expr) => {
-            resolve_names_expr(ctx, symbol_table, expr.clone());
-        }
-        StmtKind::Let(_mutable, (pat, ty_ann), expr) => {
-            resolve_names_expr(ctx, symbol_table.clone(), expr.clone());
-            resolve_names_pat(ctx, symbol_table.clone(), pat.clone());
-        }
-        StmtKind::Set(lhs, rhs) => {
-            resolve_names_expr(ctx, symbol_table.clone(), lhs.clone());
-            resolve_names_expr(ctx, symbol_table.clone(), rhs.clone());
-        }
-    }
-}
-
 fn resolve_names_pat(_ctx: &mut StaticsContext, symbol_table: SymbolTable, pat: Rc<Pat>) {
     match &*pat.kind {
         PatKind::Wildcard => (),
@@ -439,8 +467,7 @@ fn resolve_names_pat(_ctx: &mut StaticsContext, symbol_table: SymbolTable, pat: 
         | PatKind::Bool(_)
         | PatKind::Str(_) => {}
         PatKind::Binding(identifier) => {
-            // TODO: gonna need this
-            // env.extend(identifier.clone(), Declaration::PatBinding(pat.id));
+            symbol_table.extend_declaration(identifier.clone(), Declaration::Var(pat.id));
         }
         PatKind::Variant(_, data) => {
             if let Some(data) = data {
