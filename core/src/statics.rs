@@ -55,7 +55,6 @@ pub(crate) struct StaticsContext {
 
     // This maps any identifier in the program to the declaration it resolves to.
     pub(crate) resolution_map: HashMap<NodeId, Declaration>,
-    pub(crate) resolution_map_OLD: HashMap<NodeId, Resolution_OLD>,
     // string constants (for bytecode translation)
     pub(crate) string_constants: HashMap<String, usize>,
 

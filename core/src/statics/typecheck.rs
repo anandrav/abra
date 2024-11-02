@@ -1514,12 +1514,9 @@ fn generate_constraints_expr(
                 );
             }
         }
-        ExprKind::Identifier(symbol) => {
+        ExprKind::Identifier(_) => {
             let lookup = ctx.resolution_map.get(&expr.id).cloned();
             if let Some(res) = lookup {
-                ctx.resolution_map_OLD
-                    .insert(expr.id, res.to_resolution_old());
-
                 if let Some(typ) =
                     tyvar_of_declaration(ctx, &res, expr.id, symbol_table_OLD.clone())
                 {

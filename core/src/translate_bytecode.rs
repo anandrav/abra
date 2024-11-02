@@ -234,13 +234,19 @@ impl Translator {
         println!("translating expr: {:?}", expr.kind);
         match &*expr.kind {
             ExprKind::Identifier(symbol) => {
-                match self.statics.resolution_map_OLD.get(&expr.id).unwrap() {
+                match self
+                    .statics
+                    .resolution_map
+                    .get(&expr.id)
+                    .unwrap()
+                    .to_resolution_old()
+                {
                     Resolution_OLD::VariantCtor(tag, _) => {
                         emit(st, Instr::PushNil);
-                        emit(st, Instr::ConstructVariant { tag: *tag });
+                        emit(st, Instr::ConstructVariant { tag });
                     }
                     Resolution_OLD::Var(node_id) => {
-                        let span = self.node_map.get(node_id).unwrap().span();
+                        let span = self.node_map.get(&node_id).unwrap().span();
                         let mut s = String::new();
                         span.display(
                             &mut s,
@@ -248,7 +254,7 @@ impl Translator {
                             &format!("symbol {} resolved to", symbol),
                         );
                         // println!("{}", s);
-                        let idx = offset_table.get(node_id).unwrap();
+                        let idx = offset_table.get(&node_id).unwrap();
                         emit(st, Instr::LoadOffset(*idx));
                     }
                     Resolution_OLD::Builtin(b) => {
@@ -329,11 +335,16 @@ impl Translator {
                     let mut s = String::new();
                     span.display(&mut s, &self.sources, "function ap");
                     // println!("{}", s);
-                    let resolution = self.statics.resolution_map_OLD.get(&func.id).unwrap();
+                    let resolution = self
+                        .statics
+                        .resolution_map
+                        .get(&func.id)
+                        .unwrap()
+                        .to_resolution_old();
                     match resolution {
                         Resolution_OLD::Var(node_id) => {
                             // assume it's a function object
-                            let idx = offset_table.get(node_id).unwrap();
+                            let idx = offset_table.get(&node_id).unwrap();
                             emit(st, Instr::LoadOffset(*idx));
                             emit(st, Instr::CallFuncObj);
                         }
@@ -376,7 +387,7 @@ impl Translator {
                                 subst_with_monomorphic_env(monomorph_env.clone(), func_ty);
                             // println!("substituted type: {:?}", substituted_ty);
                             let def_id =
-                                self.get_func_definition_node(name, substituted_ty.clone());
+                                self.get_func_definition_node(&name, substituted_ty.clone());
 
                             // TODO: utter trash
                             let mut handled = false;
@@ -385,7 +396,7 @@ impl Translator {
                                     self.handle_overloaded_func(
                                         st,
                                         substituted_ty,
-                                        name,
+                                        &name,
                                         f.clone(),
                                     );
                                     handled = true;
@@ -397,7 +408,7 @@ impl Translator {
                                     self.handle_overloaded_func(
                                         st,
                                         substituted_ty,
-                                        name,
+                                        &name,
                                         f.clone(),
                                     );
                                     handled = true;
@@ -408,14 +419,14 @@ impl Translator {
                             }
                         }
                         Resolution_OLD::StructCtor(nargs) => {
-                            emit(st, Instr::Construct(*nargs));
+                            emit(st, Instr::Construct(nargs));
                         }
                         Resolution_OLD::VariantCtor(tag, nargs) => {
-                            if *nargs > 1 {
+                            if nargs > 1 {
                                 // turn the arguments (associated data) into a tuple
-                                emit(st, Instr::Construct(*nargs));
+                                emit(st, Instr::Construct(nargs));
                             }
-                            emit(st, Instr::ConstructVariant { tag: *tag });
+                            emit(st, Instr::ConstructVariant { tag });
                         }
                         Resolution_OLD::Builtin(b) => match b {
                             Builtin::AddInt => {
@@ -513,7 +524,7 @@ impl Translator {
                             }
                         },
                         Resolution_OLD::Effect(e) => {
-                            emit(st, Instr::Effect(*e));
+                            emit(st, Instr::Effect(e));
                         }
                     }
                 } else {
@@ -949,12 +960,16 @@ impl Translator {
             }
             StmtKind::Set(expr1, rvalue) => match &*expr1.kind {
                 ExprKind::Identifier(_) => {
-                    let Resolution_OLD::Var(node_id) =
-                        self.statics.resolution_map_OLD.get(&expr1.id).unwrap()
+                    let Resolution_OLD::Var(node_id) = self
+                        .statics
+                        .resolution_map
+                        .get(&expr1.id)
+                        .unwrap()
+                        .to_resolution_old()
                     else {
                         panic!("expected variableto be defined in node");
                     };
-                    let idx = locals.get(node_id).unwrap();
+                    let idx = locals.get(&node_id).unwrap();
                     self.translate_expr(rvalue.clone(), locals, monomorph_env.clone(), st);
                     emit(st, Instr::StoreOffset(*idx));
                 }
@@ -1002,10 +1017,15 @@ impl Translator {
             | ExprKind::Float(_)
             | ExprKind::Str(_) => {}
             ExprKind::Identifier(_) => {
-                let resolution = self.statics.resolution_map_OLD.get(&expr.id).unwrap();
+                let resolution = self
+                    .statics
+                    .resolution_map
+                    .get(&expr.id)
+                    .unwrap()
+                    .to_resolution_old();
                 if let Resolution_OLD::Var(node_id) = resolution {
-                    if !locals.contains(node_id) && !arg_set.contains(node_id) {
-                        captures.insert(*node_id);
+                    if !locals.contains(&node_id) && !arg_set.contains(&node_id) {
+                        captures.insert(node_id);
                     }
                 }
             }
