@@ -17,26 +17,6 @@ use super::{Declaration, EnumDef, StaticsContext, StructDef};
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub(crate) struct TypeVar(UnionFindNode<TypeVarData>);
 
-impl fmt::Display for TypeVar {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let types = self.0.clone_data().types;
-        match types.len() {
-            0 => write!(f, "?{{}}"),
-            1 => write!(f, "{}", types.values().next().unwrap()),
-            _ => {
-                write!(f, "!{{")?;
-                for (i, ty) in types.values().enumerate() {
-                    if i > 0 {
-                        write!(f, "/ ")?;
-                    }
-                    write!(f, "{}", ty)?;
-                }
-                write!(f, "}}")
-            }
-        }
-    }
-}
-
 impl TypeVar {
     pub(crate) fn solution(&self) -> Option<SolvedType> {
         self.0.clone_data().solution()
@@ -238,6 +218,7 @@ impl SolvedType {
 }
 
 // This is the fully instantiated AKA monomorphized type of an interface's implementation
+// subset of SolvedType. SolvedType without poly
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum Monotype {
     Unit,
@@ -248,53 +229,6 @@ pub enum Monotype {
     Function(Vec<Monotype>, Box<Monotype>),
     Tuple(Vec<Monotype>),
     Nominal(String, Vec<Monotype>),
-}
-
-impl fmt::Display for Monotype {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Monotype::Nominal(ident, params) => {
-                if !params.is_empty() {
-                    write!(f, "{}<", ident)?;
-                    for (i, param) in params.iter().enumerate() {
-                        if i != 0 {
-                            write!(f, ", ")?;
-                        }
-                        write!(f, "{}", param)?;
-                    }
-                    write!(f, ">")
-                } else {
-                    write!(f, "{}", ident)
-                }
-            }
-            Monotype::Unit => write!(f, "void"),
-            Monotype::Int => write!(f, "int"),
-            Monotype::Float => write!(f, "float"),
-            Monotype::Bool => write!(f, "bool"),
-            Monotype::String => write!(f, "string"),
-            Monotype::Function(args, out) => {
-                write!(f, "fn(")?;
-                for (i, arg) in args.iter().enumerate() {
-                    if i > 0 {
-                        write!(f, ", ")?;
-                    }
-                    write!(f, "{arg}")?;
-                }
-                write!(f, ") -> ")?;
-                write!(f, "{out}")
-            }
-            Monotype::Tuple(elems) => {
-                write!(f, "(")?;
-                for (i, elem) in elems.iter().enumerate() {
-                    if i > 0 {
-                        write!(f, ", ")?;
-                    }
-                    write!(f, "{}", elem)?;
-                }
-                write!(f, ")")
-            }
-        }
-    }
 }
 
 // If two types don't share the same key, they must be in conflict
@@ -2241,6 +2175,26 @@ fn ty_fits_impl_ty_poly(
     false
 }
 
+impl fmt::Display for TypeVar {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let types = self.0.clone_data().types;
+        match types.len() {
+            0 => write!(f, "?{{}}"),
+            1 => write!(f, "{}", types.values().next().unwrap()),
+            _ => {
+                write!(f, "!{{")?;
+                for (i, ty) in types.values().enumerate() {
+                    if i > 0 {
+                        write!(f, "/ ")?;
+                    }
+                    write!(f, "{}", ty)?;
+                }
+                write!(f, "}}")
+            }
+        }
+    }
+}
+
 impl fmt::Display for PotentialType {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
@@ -2348,6 +2302,53 @@ impl fmt::Display for SolvedType {
                 write!(f, "{out}")
             }
             SolvedType::Tuple(elems) => {
+                write!(f, "(")?;
+                for (i, elem) in elems.iter().enumerate() {
+                    if i > 0 {
+                        write!(f, ", ")?;
+                    }
+                    write!(f, "{}", elem)?;
+                }
+                write!(f, ")")
+            }
+        }
+    }
+}
+
+impl fmt::Display for Monotype {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Monotype::Nominal(ident, params) => {
+                if !params.is_empty() {
+                    write!(f, "{}<", ident)?;
+                    for (i, param) in params.iter().enumerate() {
+                        if i != 0 {
+                            write!(f, ", ")?;
+                        }
+                        write!(f, "{}", param)?;
+                    }
+                    write!(f, ">")
+                } else {
+                    write!(f, "{}", ident)
+                }
+            }
+            Monotype::Unit => write!(f, "void"),
+            Monotype::Int => write!(f, "int"),
+            Monotype::Float => write!(f, "float"),
+            Monotype::Bool => write!(f, "bool"),
+            Monotype::String => write!(f, "string"),
+            Monotype::Function(args, out) => {
+                write!(f, "fn(")?;
+                for (i, arg) in args.iter().enumerate() {
+                    if i > 0 {
+                        write!(f, ", ")?;
+                    }
+                    write!(f, "{arg}")?;
+                }
+                write!(f, ") -> ")?;
+                write!(f, "{out}")
+            }
+            Monotype::Tuple(elems) => {
                 write!(f, "(")?;
                 for (i, elem) in elems.iter().enumerate() {
                     if i > 0 {
