@@ -548,7 +548,7 @@ fn gather_definitions_item_DEPRECATE(
                 });
                 ctx.method_to_interface
                     .insert(p.name.v.clone(), i.name.v.clone());
-                symbol_table.extend(p.name.v.clone(), node_ty);
+                // symbol_table.extend(p.name.v.clone(), node_ty);
             }
             ctx.interface_defs.insert(
                 i.name.v.clone(),
@@ -679,7 +679,7 @@ fn gather_definitions_item_DEPRECATE(
             let name_id = f.name.id;
             let name = &f.name.v;
             // ctx.fun_defs.insert(name.value.clone(), f.clone());
-            symbol_table.extend(name.clone(), TypeVar::from_node(ctx, name_id));
+            // symbol_table.extend(name.clone(), TypeVar::from_node(ctx, name_id));
         }
         ItemKind::Import(..) => {}
         ItemKind::Stmt(..) => {}
@@ -698,7 +698,7 @@ fn gather_definitions_stmt_DEPRECATE(
             let name_id = f.name.id;
             let name = &f.name.v;
             // ctx.fun_defs.insert(name.value.clone(), f.clone());
-            symbol_table.extend(name.clone(), TypeVar::from_node(ctx, name_id));
+            // symbol_table.extend(name.clone(), TypeVar::from_node(ctx, name_id));
         }
         StmtKind::Set(..) => {}
     }

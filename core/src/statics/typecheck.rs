@@ -955,27 +955,14 @@ pub(crate) fn constrain(mut expected: TypeVar, mut actual: TypeVar) {
 
 #[derive(Clone)]
 pub(crate) struct SymbolTable_OLD {
-    // map from String to its type
-    // TODO: This is actually not needed. var_declarations maps from String to Resolution, which lets you derive the TypeVar
-    tyctx: Environment<String, TypeVar>,
     // keep track of polymorphic type variables currently in scope (such as 'a)
     polyvars_in_scope: Environment<String, ()>,
-
-    // map from String to where its defined
-    var_declarations: Environment<String, Resolution_OLD>,
 }
 impl SymbolTable_OLD {
     pub(crate) fn empty() -> Self {
         Self {
-            tyctx: Environment::empty(),
             polyvars_in_scope: Environment::empty(),
-
-            var_declarations: Environment::empty(),
         }
-    }
-
-    pub(crate) fn extend(&self, ident: String, ty: TypeVar) {
-        self.tyctx.extend(ident.clone(), ty);
     }
 
     fn add_polys(&self, ty: &TypeVar) {
@@ -1006,20 +993,13 @@ impl SymbolTable_OLD {
         }
     }
 
-    fn lookup(&self, id: &String) -> Option<TypeVar> {
-        self.tyctx.lookup(id)
-    }
-
     fn lookup_poly(&self, id: &String) -> bool {
         self.polyvars_in_scope.lookup(id).is_some()
     }
 
     fn new_scope(&self) -> Self {
         Self {
-            tyctx: self.tyctx.new_scope(),
             polyvars_in_scope: self.polyvars_in_scope.new_scope(),
-
-            var_declarations: self.var_declarations.new_scope(),
         }
     }
 }
@@ -1453,24 +1433,6 @@ pub(crate) fn generate_constraints_file(
     file: Rc<FileAst>,
     ctx: &mut StaticsContext,
 ) {
-    for (i, eff) in ctx.effects.iter().enumerate() {
-        let prov = Prov::Effect(i as u16);
-        let mut args = Vec::new();
-        for arg in eff.type_signature.0.iter() {
-            args.push(monotype_to_typevar(arg.clone(), prov.clone()));
-        }
-        let typ = TypeVar::make_func(
-            args,
-            monotype_to_typevar(eff.type_signature.1.clone(), prov.clone()),
-            prov,
-        );
-        symbol_table_OLD.extend(eff.name.clone(), typ);
-    }
-    for builtin in Builtin::enumerate().iter() {
-        let prov = Prov::Builtin(*builtin);
-        let typ = solved_type_to_typevar(builtin.type_signature(), prov);
-        symbol_table_OLD.extend(builtin.name(), typ);
-    }
     for items in file.items.iter() {
         generate_constraints_item(
             symbol_table_OLD.clone(),
@@ -1963,11 +1925,6 @@ fn generate_constraints_item(
 
             let func_name = f.name.v.clone();
 
-            // TODO this needs a better explanation
-            if add_to_tyvar_symbol_table {
-                symbol_table_OLD.extend(func_name.clone(), ty_pat.clone());
-            }
-
             let body_symbol_table = symbol_table_OLD.new_scope();
             let ty_func = generate_constraints_func_helper(
                 ctx,
@@ -2030,11 +1987,6 @@ fn generate_constraints_stmt(
 
             let func_name = f.name.v.clone();
 
-            // TODO this needs a better explanation
-            if add_to_tyvar_symbol_table {
-                symbol_table_OLD.extend(func_name.clone(), ty_pat.clone());
-            }
-
             let body_symbol_table = symbol_table_OLD.new_scope();
             let ty_func = generate_constraints_func_helper(
                 ctx,
@@ -2078,10 +2030,7 @@ fn generate_constraints_pat(
         PatKind::Str(_) => {
             constrain(ty_pat, TypeVar::make_string(Prov::Node(pat.id)));
         }
-        PatKind::Binding(name) => {
-            // letrec: extend context with id and type before analyzing against said type
-            symbol_table_OLD.extend(name.clone(), ty_pat);
-        }
+        PatKind::Binding(name) => {}
         PatKind::Variant(tag, data) => {
             let ty_data = match data {
                 Some(data) => TypeVar::from_node(ctx, data.id),
