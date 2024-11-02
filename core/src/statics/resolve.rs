@@ -363,7 +363,7 @@ fn resolve_names_item(ctx: &mut StaticsContext, symbol_table: SymbolTable, stmt:
                     }
                 }
             } else {
-                panic!()
+                // TODO: log error: implementation of unknown interface
             }
         }
         ItemKind::Import(..) => {}
@@ -464,6 +464,7 @@ fn resolve_names_expr(ctx: &mut StaticsContext, symbol_table: SymbolTable, expr:
         }
         ExprKind::MemberAccess(expr, field) => {
             resolve_names_expr(ctx, symbol_table.clone(), expr.clone());
+            // TODO: if "expr" ends up being a namespace, resolve the field?
         }
         ExprKind::IndexAccess(accessed, index) => {
             resolve_names_expr(ctx, symbol_table.clone(), accessed.clone());
@@ -536,7 +537,6 @@ fn gather_definitions_item_DEPRECATE(ctx: &mut StaticsContext, stmt: Rc<Item>) {
                 });
                 ctx.method_to_interface
                     .insert(p.name.v.clone(), i.name.v.clone());
-                // symbol_table.extend(p.name.v.clone(), node_ty);
             }
             ctx.interface_defs.insert(
                 i.name.v.clone(),
@@ -577,7 +577,6 @@ fn gather_definitions_item_DEPRECATE(ctx: &mut StaticsContext, stmt: Rc<Item>) {
             });
         }
         ItemKind::TypeDef(typdefkind) => match &**typdefkind {
-            // TypeDefKind::Alias(_ident, _ty) => {}
             TypeDefKind::Enum(e) => {
                 if let Some(enum_def) = ctx.enum_defs.get(&e.name.v) {
                     let entry = ctx.multiple_udt_defs.entry(e.name.v.clone()).or_default();
@@ -586,13 +585,7 @@ fn gather_definitions_item_DEPRECATE(ctx: &mut StaticsContext, stmt: Rc<Item>) {
                     return;
                 }
                 let mut defvariants = vec![];
-                for (i, v) in e.variants.iter().enumerate() {
-                    let arity = v.data.as_ref().map_or(0, |d| match &*d.kind {
-                        TypeKind::Tuple(elems) => elems.len(),
-                        TypeKind::Unit => 0,
-                        _ => 1,
-                    });
-
+                for v in e.variants.iter() {
                     let data = {
                         if let Some(data) = &v.data {
                             ast_type_to_statics_type(ctx, data.clone())
@@ -663,31 +656,8 @@ fn gather_definitions_item_DEPRECATE(ctx: &mut StaticsContext, stmt: Rc<Item>) {
                 );
             }
         },
-        ItemKind::FuncDef(f) => {
-            let name_id = f.name.id;
-            let name = &f.name.v;
-            // ctx.fun_defs.insert(name.value.clone(), f.clone());
-            // symbol_table.extend(name.clone(), TypeVar::from_node(ctx, name_id));
-        }
+        ItemKind::FuncDef(f) => {}
         ItemKind::Import(..) => {}
         ItemKind::Stmt(..) => {}
-    }
-}
-
-fn gather_definitions_stmt_DEPRECATE(
-    ctx: &mut StaticsContext,
-    symbol_table: PolyvarScope,
-    stmt: Rc<Stmt>,
-) {
-    match &*stmt.kind {
-        StmtKind::Expr(_) => {}
-        StmtKind::Let(_, _, _) => {}
-        StmtKind::FuncDef(f) => {
-            let name_id = f.name.id;
-            let name = &f.name.v;
-            // ctx.fun_defs.insert(name.value.clone(), f.clone());
-            // symbol_table.extend(name.clone(), TypeVar::from_node(ctx, name_id));
-        }
-        StmtKind::Set(..) => {}
     }
 }
