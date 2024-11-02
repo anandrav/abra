@@ -8,7 +8,7 @@ use crate::ast::{
 };
 use crate::builtin::Builtin;
 
-use super::{Declaration, Namespace, Resolution_OLD, StaticsContext, TypeVar};
+use super::{Declaration, Namespace, StaticsContext, TypeVar};
 
 // TODO: constrain, symbol_table,Prov should be implementation details
 // TODO: others should probably be implementation details too

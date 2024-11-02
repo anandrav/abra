@@ -5,7 +5,6 @@ use crate::ast::{
 use crate::ast::{BinOpcode, Item};
 use crate::builtin::Builtin;
 use crate::environment::Environment;
-use crate::EffectStruct;
 use core::panic;
 use disjoint_sets::UnionFindNode;
 use std::cell::RefCell;
@@ -13,7 +12,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::fmt::{self, Write};
 use std::rc::Rc;
 
-use super::{Declaration, Resolution_OLD, StaticsContext};
+use super::{Declaration, StaticsContext};
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub(crate) struct TypeVar(UnionFindNode<TypeVarData>);

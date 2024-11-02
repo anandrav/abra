@@ -217,7 +217,7 @@ impl Matrix {
                 _ => panic!("unexpected type for product constructor"),
             },
             Constructor::Variant(ident) => {
-                let enumt = statics.enum_def_of_variant(&ident).unwrap();
+                let enumt = statics.enum_def_of_variant(ident).unwrap();
                 let variant = enumt.variants.iter().find(|v| v.ctor == *ident).unwrap();
                 let data_ty = variant.data.solution().unwrap();
                 match data_ty {
@@ -388,7 +388,7 @@ impl DeconstructedPat {
             SolvedType::Tuple(tys) => tys.clone(),
             SolvedType::UdtInstance(_, _) => match ctor {
                 Constructor::Variant(ident) => {
-                    let enumt = statics.enum_def_of_variant(&ident).unwrap();
+                    let enumt = statics.enum_def_of_variant(ident).unwrap();
                     let variant = enumt.variants.iter().find(|v| v.ctor == *ident).unwrap();
                     if !matches!(&variant.data.solution().unwrap(), SolvedType::Unit) {
                         vec![variant.data.solution().unwrap().clone()]
@@ -513,7 +513,7 @@ impl Constructor {
                 _ => panic!("unexpected type for product constructor: {}", matrix_tys[0]),
             },
             Constructor::Variant(ident) => {
-                let enumt = statics.enum_def_of_variant(&ident).unwrap();
+                let enumt = statics.enum_def_of_variant(ident).unwrap();
                 let variant = enumt.variants.iter().find(|v| v.ctor == *ident).unwrap();
                 if !matches!(&variant.data.solution().unwrap(), SolvedType::Unit) {
                     1
