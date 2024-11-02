@@ -337,11 +337,22 @@ fn resolve_names_item(ctx: &mut StaticsContext, symbol_table: SymbolTable, stmt:
             let symbol_table = symbol_table.new_scope();
             for arg in &f.args {
                 resolve_names_pat(ctx, symbol_table.clone(), arg.0.clone());
+                if let Some(annot) = &arg.1 {
+                    resolve_names_typ(ctx, symbol_table.clone(), annot.clone());
+                }
             }
-            resolve_names_expr(ctx, symbol_table, f.body.clone());
+            resolve_names_expr(ctx, symbol_table.clone(), f.body.clone());
+            if let Some(ret_type) = &f.ret_type {
+                resolve_names_typ(ctx, symbol_table, ret_type.clone());
+            }
         }
-        ItemKind::InterfaceDef(..) => {}
+        ItemKind::InterfaceDef(iface_def) => {
+            for prop in &iface_def.props {
+                resolve_names_typ(ctx, symbol_table.clone(), prop.ty.clone());
+            }
+        }
         ItemKind::InterfaceImpl(iface, target_ty, props) => {
+            resolve_names_typ(ctx, symbol_table.clone(), target_ty.clone());
             if let Some(Declaration::InterfaceDef(iface_def)) =
                 symbol_table.lookup_declaration(&iface.v)
             {
@@ -358,16 +369,43 @@ fn resolve_names_item(ctx: &mut StaticsContext, symbol_table: SymbolTable, stmt:
                         let symbol_table = symbol_table.new_scope();
                         for arg in &f.args {
                             resolve_names_pat(ctx, symbol_table.clone(), arg.0.clone());
+                            if let Some(annot) = &arg.1 {
+                                resolve_names_typ(ctx, symbol_table.clone(), annot.clone());
+                            }
                         }
-                        resolve_names_expr(ctx, symbol_table, f.body.clone());
+                        resolve_names_expr(ctx, symbol_table.clone(), f.body.clone());
+                        if let Some(ret_type) = &f.ret_type {
+                            resolve_names_typ(ctx, symbol_table, ret_type.clone());
+                        }
                     }
                 }
             } else {
-                // TODO: log error: implementation of unknown interface
+                ctx.unbound_vars.insert(stmt.id);
             }
         }
-        ItemKind::Import(..) => {}
-        ItemKind::TypeDef(..) => {}
+        ItemKind::Import(..) => {
+            // TODO: ensure import was actually resolved by looking up in the symbol table
+        }
+        ItemKind::TypeDef(tydef) => match &**tydef {
+            TypeDefKind::Enum(enum_def) => {
+                for ty_arg in &enum_def.ty_args {
+                    resolve_names_typ(ctx, symbol_table.clone(), ty_arg.clone());
+                }
+                for variant in &enum_def.variants {
+                    if let Some(associated_data_ty) = &variant.data {
+                        resolve_names_typ(ctx, symbol_table.clone(), associated_data_ty.clone());
+                    }
+                }
+            }
+            TypeDefKind::Struct(struct_def) => {
+                for ty_arg in &struct_def.ty_args {
+                    resolve_names_typ(ctx, symbol_table.clone(), ty_arg.clone());
+                }
+                for field in &struct_def.fields {
+                    resolve_names_typ(ctx, symbol_table.clone(), field.ty.clone());
+                }
+            }
+        },
         ItemKind::Stmt(stmt) => {
             resolve_names_stmt(ctx, symbol_table, stmt.clone());
         }
@@ -382,8 +420,11 @@ fn resolve_names_stmt(ctx: &mut StaticsContext, symbol_table: SymbolTable, stmt:
         StmtKind::Expr(expr) => {
             resolve_names_expr(ctx, symbol_table, expr.clone());
         }
-        StmtKind::Let(_mutable, (pat, _), expr) => {
+        StmtKind::Let(_mutable, (pat, ty), expr) => {
             resolve_names_pat(ctx, symbol_table.clone(), pat.clone());
+            if let Some(ty_annot) = &ty {
+                resolve_names_typ(ctx, symbol_table.clone(), ty_annot.clone());
+            }
             resolve_names_expr(ctx, symbol_table.clone(), expr.clone());
         }
         StmtKind::Set(lhs, rhs) => {
@@ -447,9 +488,12 @@ fn resolve_names_expr(ctx: &mut StaticsContext, symbol_table: SymbolTable, expr:
                 resolve_names_expr(ctx, symbol_table.clone(), arm.expr.clone());
             }
         }
-        ExprKind::Func(args, _, body) => {
+        ExprKind::Func(args, out_ty, body) => {
             let symbol_table = symbol_table.new_scope();
-            resolve_names_func_helper(ctx, symbol_table, args, body);
+            resolve_names_func_helper(ctx, symbol_table.clone(), args, body);
+            if let Some(ty_annot) = &out_ty {
+                resolve_names_typ(ctx, symbol_table.clone(), ty_annot.clone());
+            }
         }
         ExprKind::FuncAp(func, args) => {
             resolve_names_expr(ctx, symbol_table.clone(), func.clone());
@@ -481,6 +525,9 @@ fn resolve_names_func_helper(
 ) {
     for arg in args {
         resolve_names_pat(ctx, symbol_table.clone(), arg.0.clone());
+        if let Some(ty_annot) = &arg.1 {
+            resolve_names_typ(ctx, symbol_table.clone(), ty_annot.clone());
+        }
     }
 
     resolve_names_expr(ctx, symbol_table.clone(), body.clone());
@@ -513,19 +560,16 @@ fn resolve_names_pat(_ctx: &mut StaticsContext, symbol_table: SymbolTable, pat: 
 fn resolve_names_typ(ctx: &mut StaticsContext, symbol_table: SymbolTable, typ: Rc<Type>) {
     match &*typ.kind {
         TypeKind::Bool | TypeKind::Unit | TypeKind::Int | TypeKind::Float | TypeKind::Str => {}
-        TypeKind::Poly(identifier, vec) => {}
+        TypeKind::Poly(identifier, ifaces) => {} // TODO: Soon, resolve interfaces to their declaration. And resolve polymorphic vars as well
         TypeKind::Identifier(identifier) => {
-            // let lookup = symbol_table.lookup_declaration(identifier);
-            // match lookup {
-            //     Some(Declaration::Struct)
-            // }
-            // if let Some(decl) = lookup {
-            //     ctx.resolution_map.insert(typ.id, decl);
-            // } else {
-            //     ctx.unbound_vars.insert(typ.id);
-            // }
+            resolve_names_typ_identifier(ctx, symbol_table, identifier, typ.id);
         }
-        TypeKind::Ap(identifier, vec) => todo!(),
+        TypeKind::Ap(identifier, args) => {
+            resolve_names_typ_identifier(ctx, symbol_table.clone(), &identifier.v, typ.id);
+            for arg in args {
+                resolve_names_typ(ctx, symbol_table.clone(), arg.clone());
+            }
+        }
         TypeKind::Function(args, out) => {
             for arg in args {
                 resolve_names_typ(ctx, symbol_table.clone(), arg.clone());
@@ -536,6 +580,27 @@ fn resolve_names_typ(ctx: &mut StaticsContext, symbol_table: SymbolTable, typ: R
             for elem in elems {
                 resolve_names_typ(ctx, symbol_table.clone(), elem.clone());
             }
+        }
+    }
+}
+
+fn resolve_names_typ_identifier(
+    ctx: &mut StaticsContext,
+    symbol_table: SymbolTable,
+    identifier: &String,
+    id: NodeId,
+) {
+    let lookup = symbol_table.lookup_declaration(identifier);
+    match lookup {
+        Some(Declaration::Struct(struct_def)) => {
+            symbol_table.extend_declaration(identifier.clone(), Declaration::Struct(struct_def));
+        }
+        Some(Declaration::Enum(enum_def)) => {
+            symbol_table.extend_declaration(identifier.clone(), Declaration::Enum(enum_def));
+        }
+        _ => {
+            // TODO: log error
+            // ctx.unbound_vars.insert(id);
         }
     }
 }
