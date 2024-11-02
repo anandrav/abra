@@ -36,21 +36,6 @@ impl fmt::Display for Variant_OLD {
     }
 }
 
-// TODO: these are all kind of redundant... Just use AST nodes instead of putting the same info in these structs?
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
-pub(crate) struct StructDef_OLD {
-    pub(crate) name: String,
-    pub(crate) params: Vec<String>,
-    pub(crate) fields: Vec<StructField_OLD>,
-    pub(crate) location: NodeId,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
-pub(crate) struct StructField_OLD {
-    pub(crate) name: String,
-    pub(crate) ty: TypeVar,
-}
-
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub(crate) struct InterfaceDef_OLD {
     pub(crate) name: String,
@@ -726,44 +711,7 @@ fn gather_definitions_item_DEPRECATE(ctx: &mut StaticsContext, stmt: Rc<Item>) {
                     },
                 );
             }
-            TypeDefKind::Struct(s) => {
-                // // let ty_struct = TypeVar::from_node(ctx, stmt.id);
-                // if let Some(struct_def) = ctx.struct_defs.get(&s.name.v) {
-                //     let entry = ctx.multiple_udt_defs.entry(s.name.v.clone()).or_default();
-                //     entry.push(struct_def.location);
-                //     entry.push(stmt.id);
-                //     return;
-                // }
-                // let mut defparams = vec![];
-                // for p in s.ty_args.iter() {
-                //     let TypeKind::Poly(ident, _) = &*p.kind else {
-                //         panic!("expected poly type for type definition parameter")
-                //     };
-                //     defparams.push(ident.v.clone());
-                // }
-                // let mut deffields = vec![];
-                // for f in s.fields.iter() {
-                //     let ty_annot = ast_type_to_statics_type(ctx, f.ty.clone());
-                //     deffields.push(StructField_OLD {
-                //         name: f.name.v.clone(),
-                //         ty: ty_annot.clone(),
-                //     });
-
-                //     let prov = Prov::StructField(f.name.v.clone(), stmt.id);
-                //     let ty_field = TypeVar::fresh(ctx, prov.clone());
-                //     constrain(ty_field.clone(), ty_annot.clone());
-                //     ctx.vars.insert(prov, ty_field);
-                // }
-                // ctx.struct_defs.insert(
-                //     s.name.v.clone(),
-                //     StructDef_OLD {
-                //         name: s.name.v.clone(),
-                //         params: defparams,
-                //         fields: deffields,
-                //         location: stmt.id,
-                //     },
-                // );
-            }
+            TypeDefKind::Struct(_) => {}
         },
         ItemKind::FuncDef(_) => {}
         ItemKind::Import(..) => {}

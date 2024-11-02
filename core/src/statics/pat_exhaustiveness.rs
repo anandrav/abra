@@ -1,18 +1,16 @@
 use crate::ast::{
     Expr, ExprKind, FileAst, Item, ItemKind, MatchArm, NodeMap, Pat, PatKind, Sources, Stmt,
-    StmtKind, Type,
+    StmtKind,
 };
-use crate::vm::AbraFloat;
+
 use core::panic;
 
-use std::collections::{BTreeMap, HashSet};
+use std::collections::HashSet;
 use std::fmt::{self, Write};
 use std::rc::Rc;
 
-use super::typecheck::{ast_type_to_statics_type, Nominal, PolyvarScope};
-use super::{
-    Declaration, EnumDef, NodeId, SolvedType, StaticsContext, TypeKind, TypeProv, TypeVar,
-};
+use super::typecheck::{ast_type_to_statics_type, Nominal};
+use super::{Declaration, EnumDef, SolvedType, StaticsContext, TypeKind, TypeProv, TypeVar};
 
 // TODO: rename to be more descriptive/specific to exhaustiveness/usefulness
 pub(crate) fn result_of_additional_analysis(
@@ -528,7 +526,7 @@ impl Constructor {
         }
     }
 
-    fn arity(&self, matrix_tys: &[SolvedType], statics: &StaticsContext) -> usize {
+    fn arity(&self, matrix_tys: &[SolvedType]) -> usize {
         match self {
             Constructor::Bool(..)
             | Constructor::Int(..)
@@ -818,7 +816,7 @@ fn compute_exhaustiveness_and_usefulness(
     }
 
     for ctor in present_ctors {
-        let ctor_arity = ctor.arity(&matrix.types, statics);
+        let ctor_arity = ctor.arity(&matrix.types);
 
         let mut specialized_matrix = matrix.specialize(&ctor, ctor_arity, statics);
 

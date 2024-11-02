@@ -5,7 +5,7 @@ use crate::builtin::Builtin;
 use crate::effects::EffectStruct;
 use resolve::{
     gather_declarations_file_OLD, resolve, scan_declarations, EnumDef_OLD, InterfaceDef_OLD,
-    InterfaceImpl_OLD, StructDef_OLD,
+    InterfaceImpl_OLD,
 };
 use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::fmt::{self, Display, Formatter};
@@ -20,8 +20,6 @@ pub(crate) use typecheck::{ty_fits_impl_ty, Monotype};
 // TODO: Provs are an implementation detail, they should NOT be exported
 pub(crate) use typecheck::Prov as TypeProv;
 pub(crate) use typecheck::SolvedType as Type;
-
-pub(crate) use resolve::StructField_OLD;
 
 use pat_exhaustiveness::{result_of_additional_analysis, DeconstructedPat};
 
@@ -113,16 +111,6 @@ impl StaticsContext {
 
     fn interface_def_of_ident(&self, ident: &String) -> Option<InterfaceDef_OLD> {
         self.interface_defs.get(ident).cloned()
-    }
-
-    fn variants_of_enum(&self, enumt: &String) -> Vec<String> {
-        self.enum_defs
-            .get(enumt)
-            .unwrap()
-            .variants
-            .iter()
-            .map(|v| v.ctor.clone())
-            .collect()
     }
 
     pub(crate) fn solution_of_node(&self, id: NodeId) -> Option<SolvedType> {
