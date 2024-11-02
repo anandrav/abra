@@ -9,6 +9,7 @@ use std::collections::HashSet;
 use std::fmt::{self, Write};
 use std::rc::Rc;
 
+use super::typecheck::Nominal;
 use super::{SolvedType, StaticsContext};
 
 // TODO: rename to be more descriptive/specific to exhaustiveness/usefulness
@@ -775,7 +776,7 @@ fn compute_exhaustiveness_and_usefulness(
         .map(|pat| pat.ctor)
         .collect();
 
-    let ctors_for_ty = ctors_for_ty(statics, &head_ty);
+    let ctors_for_ty = ctors_for_ty(&head_ty);
     let SplitConstructorSet {
         mut present_ctors,
         missing_ctors,
@@ -808,11 +809,14 @@ fn compute_exhaustiveness_and_usefulness(
     ret_witnesses
 }
 
-fn ctors_for_ty(statics: &StaticsContext, ty: &SolvedType) -> ConstructorSet {
+fn ctors_for_ty(ty: &SolvedType) -> ConstructorSet {
     match ty {
         SolvedType::Bool => ConstructorSet::Bool,
         SolvedType::Nominal(nominal, _) => {
-            let variants = statics.variants_of_enum(&nominal.name().to_string()); // TODO: don't use String
+            let Nominal::Enum(enum_def) = nominal else {
+                panic!()
+            };
+            let variants = enum_def.variants.iter().map(|v| v.ctor.v.clone()).collect();
             ConstructorSet::EnumVariants(variants)
         }
         SolvedType::Tuple(..) => ConstructorSet::Product,
