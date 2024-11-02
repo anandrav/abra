@@ -706,8 +706,8 @@ fn gather_definitions_item_DEPRECATE(ctx: &mut StaticsContext, stmt: Rc<Item>) {
                         ctor: v.ctor.v.clone(),
                         data,
                     });
-                    ctx.variants_to_enum
-                        .insert(v.ctor.v.clone(), e.name.v.clone());
+                    // ctx.variants_to_enum
+                    //     .insert(v.ctor.v.clone(), e.name.v.clone());
                 }
                 let mut defparams = vec![];
                 for p in e.ty_args.iter() {

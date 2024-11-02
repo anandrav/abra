@@ -500,7 +500,7 @@ impl TypeVar {
     }
 
     // Creates a *new* Type with polymorphic variabels replaced by subtitutions
-    fn subst(
+    pub(crate) fn subst(
         self,
         polyvar_scope: PolyvarScope,
         prov: Prov,

@@ -1,16 +1,18 @@
 use crate::ast::{
     Expr, ExprKind, FileAst, Item, ItemKind, MatchArm, NodeMap, Pat, PatKind, Sources, Stmt,
-    StmtKind,
+    StmtKind, Type,
 };
 use crate::vm::AbraFloat;
 use core::panic;
 
-use std::collections::HashSet;
+use std::collections::{BTreeMap, HashSet};
 use std::fmt::{self, Write};
 use std::rc::Rc;
 
-use super::typecheck::Nominal;
-use super::{SolvedType, StaticsContext};
+use super::typecheck::{ast_type_to_statics_type, Nominal, PolyvarScope};
+use super::{
+    Declaration, EnumDef, NodeId, SolvedType, StaticsContext, TypeKind, TypeProv, TypeVar,
+};
 
 // TODO: rename to be more descriptive/specific to exhaustiveness/usefulness
 pub(crate) fn result_of_additional_analysis(
@@ -201,7 +203,7 @@ impl Matrix {
         &self,
         ctor: &Constructor,
         ctor_arity: usize,
-        statics: &StaticsContext,
+        statics: &mut StaticsContext,
     ) -> Matrix {
         let mut new_types = Vec::new();
         match ctor {
@@ -217,10 +219,19 @@ impl Matrix {
                 SolvedType::Unit => {}
                 _ => panic!("unexpected type for product constructor"),
             },
-            Constructor::Variant(ident) => {
-                let enumt = statics.enum_def_of_variant(ident).unwrap();
-                let variant = enumt.variants.iter().find(|v| v.ctor == *ident).unwrap();
-                let data_ty = variant.data.solution().unwrap();
+            Constructor::Variant((enum_def, idx)) => {
+                // TODO: shouldn't have to do this logic in pat_exhaustiveness. This needs to be pre-computed elsewhere.
+                let variant = &enum_def.variants[*idx as usize];
+                let variant_data = &variant.data;
+                let data_ty = if let Some(data) = &variant_data {
+                    ast_type_to_statics_type(statics, data.clone())
+                } else {
+                    TypeVar::make_unit(TypeProv::VariantNoData(Box::new(TypeProv::Node(
+                        variant.id,
+                    ))))
+                }
+                .solution()
+                .unwrap();
                 match data_ty {
                     SolvedType::Unit => {}
                     SolvedType::Bool
@@ -300,7 +311,7 @@ impl MatrixRow {
         other_ctor: &Constructor,
         arity: usize,
         parent_row: usize,
-        statics: &StaticsContext,
+        statics: &mut StaticsContext,
     ) -> MatrixRow {
         if self.pats.is_empty() {
             panic!("no pats in row");
@@ -335,22 +346,27 @@ impl DeconstructedPat {
             PatKind::Binding(_ident) => Constructor::Wildcard(WildcardReason::VarPat),
             PatKind::Bool(b) => Constructor::Bool(*b),
             PatKind::Int(i) => Constructor::Int(*i),
-            PatKind::Float(f) => Constructor::Float(f.parse::<AbraFloat>().unwrap()),
+            PatKind::Float(f) => Constructor::Float(f.clone()),
             PatKind::Str(s) => Constructor::String(s.clone()),
             PatKind::Unit => Constructor::Product,
-            PatKind::Tuple(pats) => {
-                fields = pats
+            PatKind::Tuple(elems) => {
+                fields = elems
                     .iter()
                     .map(|pat| DeconstructedPat::from_ast_pat(statics, pat.clone()))
                     .collect();
                 Constructor::Product
             }
-            PatKind::Variant(ident, pats) => {
-                fields = pats
+            PatKind::Variant(ident, data) => {
+                let Some(Declaration::EnumVariant { enum_def, variant }) =
+                    statics.resolution_map.get(&ident.id)
+                else {
+                    panic!()
+                };
+                fields = data
                     .iter()
                     .map(|pat| DeconstructedPat::from_ast_pat(statics, pat.clone()))
                     .collect();
-                Constructor::Variant(ident.v.clone())
+                Constructor::Variant((enum_def.clone(), *variant))
             }
         };
         Self { ctor, fields, ty }
@@ -360,7 +376,7 @@ impl DeconstructedPat {
         &self,
         other_ctor: &Constructor,
         arity: usize,
-        statics: &StaticsContext,
+        statics: &mut StaticsContext,
     ) -> Vec<DeconstructedPat> {
         match &self.ctor {
             Constructor::Wildcard(_) => {
@@ -377,7 +393,7 @@ impl DeconstructedPat {
         }
     }
 
-    fn field_tys(&self, ctor: &Constructor, statics: &StaticsContext) -> Vec<SolvedType> {
+    fn field_tys(&self, ctor: &Constructor, statics: &mut StaticsContext) -> Vec<SolvedType> {
         match &self.ty {
             SolvedType::Int
             | SolvedType::Float
@@ -388,11 +404,21 @@ impl DeconstructedPat {
             | SolvedType::Function(..) => vec![],
             SolvedType::Tuple(tys) => tys.clone(),
             SolvedType::Nominal(_, _) => match ctor {
-                Constructor::Variant(ident) => {
-                    let enumt = statics.enum_def_of_variant(ident).unwrap();
-                    let variant = enumt.variants.iter().find(|v| v.ctor == *ident).unwrap();
-                    if !matches!(&variant.data.solution().unwrap(), SolvedType::Unit) {
-                        vec![variant.data.solution().unwrap().clone()]
+                Constructor::Variant((enum_def, idx)) => {
+                    let variant = &enum_def.variants[*idx as usize];
+                    let variant_data = &variant.data;
+                    let data_ty = if let Some(data) = &variant_data {
+                        ast_type_to_statics_type(statics, data.clone())
+                    } else {
+                        TypeVar::make_unit(TypeProv::VariantNoData(Box::new(TypeProv::Node(
+                            variant.id,
+                        ))))
+                    }
+                    .solution()
+                    .unwrap();
+
+                    if !matches!(data_ty, SolvedType::Unit) {
+                        vec![data_ty.clone()]
                     } else {
                         vec![]
                     }
@@ -443,8 +469,9 @@ impl fmt::Display for DeconstructedPat {
                 }
                 write!(f, ")")
             }
-            Constructor::Variant(ident) => {
-                write!(f, "{}", ident)?;
+            Constructor::Variant((enum_def, idx)) => {
+                let variant_name = &enum_def.variants[*idx as usize].ctor.v;
+                write!(f, "{}", variant_name)?;
                 if !self.fields.is_empty() {
                     write!(f, " of ")?;
                     for (i, field) in self.fields.iter().enumerate() {
@@ -460,15 +487,15 @@ impl fmt::Display for DeconstructedPat {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 enum Constructor {
     Wildcard(WildcardReason), // user-created wildcard pattern
     Bool(bool),
     Int(i64),
-    Float(AbraFloat),
+    Float(String),
     String(String),
-    Product,         // tuples, including unit
-    Variant(String), // TODO: Can't use a string here. Add tests for checking pattern exhaustiveness then change this
+    Product,              // tuples, including unit
+    Variant(EnumVariant), // TODO: this should only need the index of the variant, not the enum definition. Matrix.types[0] should give the SolvedType and therefore Rc<EnumDef>
 }
 
 impl Constructor {
@@ -478,7 +505,7 @@ impl Constructor {
             (Constructor::Wildcard(_), _) => false,
 
             (Constructor::Bool(b1), Constructor::Bool(b2)) => b1 == b2,
-            (Constructor::Variant(v1), Constructor::Variant(v2)) => v1 == v2,
+            (Constructor::Variant(..), Constructor::Variant(..)) => self == other,
             (Constructor::Int(i1), Constructor::Int(i2)) => i1 == i2,
             (Constructor::Float(f1), Constructor::Float(f2)) => f1 == f2,
             (Constructor::String(s1), Constructor::String(s2)) => s1 == s2,
@@ -494,9 +521,9 @@ impl Constructor {
         }
     }
 
-    fn as_variant_identifier(&self) -> Option<String> {
+    fn as_variant(&self) -> Option<EnumVariant> {
         match self {
-            Constructor::Variant(i) => Some(i.clone()),
+            Constructor::Variant(ev) => Some(ev.clone()),
             _ => None,
         }
     }
@@ -513,13 +540,14 @@ impl Constructor {
                 SolvedType::Unit => 0,
                 _ => panic!("unexpected type for product constructor: {}", matrix_tys[0]),
             },
-            Constructor::Variant(ident) => {
-                let enumt = statics.enum_def_of_variant(ident).unwrap();
-                let variant = enumt.variants.iter().find(|v| v.ctor == *ident).unwrap();
-                if !matches!(&variant.data.solution().unwrap(), SolvedType::Unit) {
-                    1
-                } else {
-                    0
+            Constructor::Variant((enum_def, idx)) => {
+                let variant = &enum_def.variants[*idx as usize];
+                match &variant.data {
+                    None => 0,
+                    Some(ty) => match &*ty.kind {
+                        TypeKind::Unit => 0,
+                        _ => 1,
+                    },
                 }
             }
         }
@@ -530,7 +558,7 @@ impl Constructor {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 enum WildcardReason {
     UserCreated,          // a wildcard typed by the user
     VarPat, // a variable pattern created by the user, which similar to wildcard, matches anything
@@ -617,10 +645,12 @@ impl fmt::Display for WitnessMatrix {
     }
 }
 
+type EnumVariant = (Rc<EnumDef>, u16);
+
 #[derive(Debug, Clone)]
 enum ConstructorSet {
     Bool,
-    EnumVariants(Vec<String>),
+    EnumVariants(Vec<EnumVariant>),
     Product,    // tuples, including unit
     Unlistable, // int, float, string
 }
@@ -654,8 +684,8 @@ impl ConstructorSet {
                 }
             }
             ConstructorSet::EnumVariants(enum_variants) => {
-                let mut missing_set: HashSet<String> = enum_variants.iter().cloned().collect();
-                for identifier in seen.iter().filter_map(|ctor| ctor.as_variant_identifier()) {
+                let mut missing_set: HashSet<EnumVariant> = enum_variants.iter().cloned().collect();
+                for identifier in seen.iter().filter_map(|ctor| ctor.as_variant()) {
                     if missing_set.remove(&identifier) {
                         present_ctors.push(Constructor::Variant(identifier.clone()));
                     }
@@ -743,7 +773,7 @@ fn match_expr_exhaustive_check(statics: &mut StaticsContext, expr: &Expr) {
 
 // here's where the actual match usefulness algorithm goes
 fn compute_exhaustiveness_and_usefulness(
-    statics: &StaticsContext,
+    statics: &mut StaticsContext, // TODO: This is only mutable because we're running ast_type_to_statics_type
     matrix: &mut Matrix,
 ) -> WitnessMatrix {
     // base case
@@ -816,7 +846,12 @@ fn ctors_for_ty(ty: &SolvedType) -> ConstructorSet {
             let Nominal::Enum(enum_def) = nominal else {
                 panic!()
             };
-            let variants = enum_def.variants.iter().map(|v| v.ctor.v.clone()).collect();
+            let variants: Vec<_> = enum_def
+                .variants
+                .iter()
+                .enumerate()
+                .map(|(i, _)| (enum_def.clone(), i as u16))
+                .collect();
             ConstructorSet::EnumVariants(variants)
         }
         SolvedType::Tuple(..) => ConstructorSet::Product,

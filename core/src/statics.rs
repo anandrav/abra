@@ -42,7 +42,7 @@ pub(crate) struct StaticsContext {
     // enum definitions
     pub(crate) enum_defs: HashMap<String, EnumDef_OLD>,
     // map from variant names to enum names
-    variants_to_enum: HashMap<String, String>,
+    // variants_to_enum: HashMap<String, String>,
     // struct definitions
     // pub(crate) struct_defs: HashMap<String, StructDef_OLD>,
     // function definition locations
@@ -106,10 +106,10 @@ impl StaticsContext {
         ctx
     }
 
-    fn enum_def_of_variant(&self, variant: &String) -> Option<EnumDef_OLD> {
-        let enum_name = self.variants_to_enum.get(variant)?;
-        self.enum_defs.get(enum_name).cloned()
-    }
+    // fn enum_def_of_variant(&self, variant: &String) -> Option<EnumDef_OLD> {
+    //     let enum_name = self.variants_to_enum.get(variant)?;
+    //     self.enum_defs.get(enum_name).cloned()
+    // }
 
     fn interface_def_of_ident(&self, ident: &String) -> Option<InterfaceDef_OLD> {
         self.interface_defs.get(ident).cloned()
