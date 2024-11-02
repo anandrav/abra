@@ -187,13 +187,13 @@ impl Declaration {
             Declaration::FreeFunction(f) => {
                 Resolution_OLD::FreeFunction(f.clone(), f.name.v.clone())
             }
-            Declaration::InterfaceDef(rc) => todo!(),
+            Declaration::InterfaceDef(_) => panic!(), // TODO: remove panic
             Declaration::InterfaceMethod { iface_def, method } => {
                 let name = &iface_def.props[*method as usize].name;
                 Resolution_OLD::InterfaceMethod(name.v.clone())
             }
             Declaration::Enum(..) => {
-                panic!("") // TODO: remove panic
+                panic!() // TODO: remove panic
             }
             Declaration::EnumVariant { enum_def, variant } => {
                 let data = &enum_def.variants[*variant as usize].data;

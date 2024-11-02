@@ -269,7 +269,6 @@ pub(crate) enum Prov {
     Node(NodeId),     // the type of an expression or statement located at NodeId
     Builtin(Builtin), // a builtin function or constant, which doesn't exist in the AST
     Effect(u16),
-    UnderdeterminedCoerceToUnit,
 
     Alias(String), // TODO FIXME: Store a NodeId/resolution instead of a String
     UdtDef(Box<Prov>),
@@ -294,7 +293,6 @@ impl Prov {
             Prov::Node(id) => Some(*id),
             Prov::Builtin(_) => None,
             Prov::Effect(_) => None,
-            Prov::UnderdeterminedCoerceToUnit => None,
             Prov::Alias(_) => None,
             Prov::UdtDef(inner)
             | Prov::InstantiateUdtParam(inner, _)
@@ -668,7 +666,7 @@ fn tyvar_of_declaration(
                 ));
                 // TODO: don't do this silly downcast.
                 // ty_args should just be a Vec<Identifier> most likely
-                let TypeKind::Poly(ty_arg, ifaces) = &*enum_def.ty_args[i].kind else {
+                let TypeKind::Poly(ty_arg, _) = &*enum_def.ty_args[i].kind else {
                     panic!()
                 };
                 substitution.insert(ty_arg.v.clone(), params[i].clone());
@@ -690,7 +688,7 @@ fn tyvar_of_declaration(
                 ));
                 // TODO: don't do this silly downcast.
                 // ty_args should just be a Vec<Identifier> most likely
-                let TypeKind::Poly(ty_arg, ifaces) = &*enum_def.ty_args[i].kind else {
+                let TypeKind::Poly(ty_arg, _) = &*enum_def.ty_args[i].kind else {
                     panic!()
                 };
                 substitution.insert(ty_arg.v.clone(), params[i].clone());
@@ -744,7 +742,7 @@ fn tyvar_of_declaration(
                 ));
                 // TODO: don't do this silly downcast.
                 // ty_args should just be a Vec<Identifier> most likely
-                let TypeKind::Poly(ty_arg, ifaces) = &*struct_def.ty_args[i].kind else {
+                let TypeKind::Poly(ty_arg, _) = &*struct_def.ty_args[i].kind else {
                     panic!()
                 };
                 substitution.insert(ty_arg.v.clone(), params[i].clone());
@@ -1048,21 +1046,6 @@ pub(crate) fn result_of_constraint_solving(
         }
     }
 
-    // replace underdetermined types with unit
-    // if type_conflicts.is_empty() {
-    //     for potential_types in ctx.vars.values() {
-    //         let mut data = potential_types.0.clone_data();
-    //         let suggestions = &mut data.types;
-    //         if suggestions.is_empty() {
-    //             suggestions.insert(
-    //                 TypeKey::Unit,
-    //                 PotentialType::make_unit(Prov::UnderdeterminedCoerceToUnit),
-    //             );
-    //             potential_types.0.replace_data(data);
-    //         }
-    //     }
-    // }
-
     // look for error of multiple interface implementations for the same type
     for (ident, impls) in ctx.interface_impls.iter() {
         // map from implementation type to location
@@ -1341,7 +1324,6 @@ pub(crate) fn result_of_constraint_solving(
                     Prov::ListElem(_) => 10,
                     Prov::BinopLeft(_) => 11,
                     Prov::BinopRight(_) => 12,
-                    Prov::UnderdeterminedCoerceToUnit => 13,
                     Prov::StructField(..) => 14,
                     Prov::IndexAccess => 15,
                     Prov::Effect(_) => 16,
@@ -1358,11 +1340,6 @@ pub(crate) fn result_of_constraint_solving(
                         Prov::Node(id) => {
                             let span = node_map.get(id).unwrap().span();
                             span.display(&mut err_string, sources, "");
-                        }
-                        Prov::UnderdeterminedCoerceToUnit => {
-                            err_string.push_str(
-                                "The type was underdetermined, so it was coerced to void.",
-                            );
                         }
                         Prov::InstantiatePoly(_, ident) => {
                             let _ = writeln!(
@@ -1758,17 +1735,15 @@ fn generate_constraints_expr(
             let Some(inner) = ty_expr.single() else {
                 return;
             };
-            if let PotentialType::Nominal(_, nominal, _) = inner {
-                if let Nominal::Struct(struct_def) = &nominal {
-                    let ExprKind::Identifier(field_ident) = &*field.kind else {
-                        ctx.field_not_ident.insert(field.id);
-                        return;
-                    };
-                    let ty_field =
-                        TypeVar::fresh(ctx, Prov::StructField(field_ident.clone(), struct_def.id));
-                    constrain(node_ty.clone(), ty_field);
+            if let PotentialType::Nominal(_, Nominal::Struct(struct_def), _) = inner {
+                let ExprKind::Identifier(field_ident) = &*field.kind else {
+                    ctx.field_not_ident.insert(field.id);
                     return;
-                }
+                };
+                let ty_field =
+                    TypeVar::fresh(ctx, Prov::StructField(field_ident.clone(), struct_def.id));
+                constrain(node_ty.clone(), ty_field);
+                return;
             }
 
             ctx.types_that_must_be_structs.insert(ty_expr, expr.id);
@@ -2051,7 +2026,7 @@ fn generate_constraints_pat(
                         ));
                         // TODO: don't do this silly downcast.
                         // ty_args should just be a Vec<Identifier> most likely
-                        let TypeKind::Poly(ty_arg, ifaces) = &*enum_def.ty_args[i].kind else {
+                        let TypeKind::Poly(ty_arg, _) = &*enum_def.ty_args[i].kind else {
                             panic!()
                         };
                         substitution.insert(ty_arg.v.clone(), params[i].clone());

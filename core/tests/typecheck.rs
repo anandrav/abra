@@ -97,7 +97,7 @@ fn bad_comp2() {
     should_fail("true < 2");
 }
 
-// TODO: type aliases are not resolved properly
+// TODO: type names are not resolved properly
 // In this case, 'person' in get_age argument annotation is not properly recognized as the 'person' type defined on first line
 // TODO: consider creating a separate test file just for type checking, especially negative test cases
 #[ignore]

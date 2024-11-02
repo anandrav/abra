@@ -13,7 +13,7 @@ use super::{Declaration, Namespace, StaticsContext, TypeVar};
 // TODO: constrain, symbol_table,Prov should be implementation details
 // TODO: others should probably be implementation details too
 use super::typecheck::{
-    ast_type_to_statics_type, ast_type_to_statics_type_interface, constrain, PolyvarScope, Prov,
+    ast_type_to_statics_type, ast_type_to_statics_type_interface, constrain, Prov,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -765,7 +765,7 @@ fn gather_definitions_item_DEPRECATE(ctx: &mut StaticsContext, stmt: Rc<Item>) {
                 );
             }
         },
-        ItemKind::FuncDef(f) => {}
+        ItemKind::FuncDef(_) => {}
         ItemKind::Import(..) => {}
         ItemKind::Stmt(..) => {}
     }
