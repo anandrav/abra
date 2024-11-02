@@ -760,42 +760,38 @@ fn tyvar_of_declaration(
                     }
                 },
             }
-            // if let Some(PotentialType::Unit(_)) = the_variant.data.single() {
-            //     constrain(node_ty, def_type);
-            // } else if let Some(PotentialType::Tuple(_, elems)) = &the_variant.data.single() {
-            //     let args = elems
-            //         .iter()
-            //         .map(|e| {
-            //             e.clone().subst(
-            //                 symbol_table_OLD.clone(),
-            //                 Prov::Node(expr.id),
-            //                 &substitution,
-            //             )
-            //         })
-            //         .collect();
-            //     constrain(
-            //         node_ty,
-            //         TypeVar::make_func(args, def_type, Prov::Node(expr.id)),
-            //     );
-            // } else {
-            //     constrain(
-            //         node_ty,
-            //         TypeVar::make_func(
-            //             vec![the_variant.data.clone().subst(
-            //                 symbol_table_OLD,
-            //                 Prov::Node(expr.id),
-            //                 &substitution,
-            //             )],
-            //             def_type,
-            //             Prov::Node(expr.id),
-            //         ),
-            //     );
-            // }
-            // None
         }
         Declaration::Struct(struct_def) => {
-            // TODO make function type for struct constructor
-            None
+            let nparams = struct_def.ty_args.len();
+            let mut params = vec![];
+            let mut substitution = BTreeMap::new();
+            for i in 0..nparams {
+                params.push(TypeVar::fresh(
+                    ctx,
+                    Prov::InstantiateUdtParam(Box::new(Prov::Node(id)), i as u8),
+                ));
+                // TODO: don't do this silly downcast.
+                // ty_args should just be a Vec<Identifier> most likely
+                let TypeKind::Poly(ty_arg, ifaces) = &*struct_def.ty_args[i].kind else {
+                    panic!()
+                };
+                substitution.insert(ty_arg.v.clone(), params[i].clone());
+            }
+            let def_type = TypeVar::make_def_instance(
+                Prov::UdtDef(Box::new(Prov::Node(id))),
+                struct_def.name.v.clone(),
+                params,
+            );
+            let fields = struct_def
+                .fields
+                .iter()
+                .map(|f| {
+                    let ty = ast_type_to_statics_type(ctx, f.ty.clone());
+                    ty.clone()
+                        .subst(symbol_table_OLD.clone(), Prov::Node(id), &substitution)
+                })
+                .collect();
+            Some(TypeVar::make_func(fields, def_type, Prov::Node(id)))
         }
         Declaration::Builtin(builtin) => {
             let ty_signature = builtin.type_signature();
@@ -1572,45 +1568,10 @@ fn generate_constraints_expr(
                     println!("instantiated: {}", typ);
                     println!("node_ty: {}", node_ty);
                     constrain(typ, node_ty.clone());
-                    return; // TODO: remove this return after getting rid of enum/struct logic below
                 }
             }
 
-            let struct_def = ctx.struct_defs.get(symbol).cloned();
-            if let Some(struct_def) = struct_def {
-                let nparams = struct_def.params.len();
-                let mut params = vec![];
-                let mut substitution = BTreeMap::new();
-                for i in 0..nparams {
-                    params.push(TypeVar::fresh(
-                        ctx,
-                        Prov::InstantiateUdtParam(Box::new(Prov::Node(expr.id)), i as u8),
-                    ));
-                    substitution.insert(struct_def.params[i].clone(), params[i].clone());
-                }
-                let def_type = TypeVar::make_def_instance(
-                    Prov::UdtDef(Box::new(Prov::Node(expr.id))),
-                    struct_def.name.clone(),
-                    params,
-                );
-                let fields = struct_def
-                    .fields
-                    .iter()
-                    .map(|f| {
-                        f.ty.clone().subst(
-                            symbol_table_OLD.clone(),
-                            Prov::Node(expr.id),
-                            &substitution,
-                        )
-                    })
-                    .collect();
-                constrain(
-                    node_ty,
-                    TypeVar::make_func(fields, def_type, Prov::Node(expr.id)),
-                );
-                return;
-            }
-            ctx.unbound_vars.insert(expr.id());
+            // ctx.unbound_vars.insert(expr.id());
         }
         ExprKind::BinOp(left, op, right) => {
             let (ty_left, ty_right, ty_out) = types_of_binop(op, expr.id);
