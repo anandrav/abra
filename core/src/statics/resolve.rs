@@ -599,7 +599,7 @@ fn gather_definitions_item_DEPRECATE(
                 }
                 let mut defvariants = vec![];
                 for (i, v) in e.variants.iter().enumerate() {
-                    let arity = v.data.as_ref().map_or(0, |d| match &*d.typekind {
+                    let arity = v.data.as_ref().map_or(0, |d| match &*d.kind {
                         TypeKind::Tuple(elems) => elems.len(),
                         TypeKind::Unit => 0,
                         _ => 1,
@@ -621,7 +621,7 @@ fn gather_definitions_item_DEPRECATE(
                 }
                 let mut defparams = vec![];
                 for p in e.ty_args.iter() {
-                    let TypeKind::Poly(ident, _) = &*p.typekind else {
+                    let TypeKind::Poly(ident, _) = &*p.kind else {
                         panic!("expected poly type for type definition parameter")
                     };
                     defparams.push(ident.v.clone());
@@ -646,7 +646,7 @@ fn gather_definitions_item_DEPRECATE(
                 }
                 let mut defparams = vec![];
                 for p in s.ty_args.iter() {
-                    let TypeKind::Poly(ident, _) = &*p.typekind else {
+                    let TypeKind::Poly(ident, _) = &*p.kind else {
                         panic!("expected poly type for type definition parameter")
                     };
                     defparams.push(ident.v.clone());

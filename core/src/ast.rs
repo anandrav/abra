@@ -520,7 +520,7 @@ pub(crate) enum PatKind {
 
 #[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq, Hash)]
 pub(crate) struct Type {
-    pub(crate) typekind: Rc<TypeKind>,
+    pub(crate) kind: Rc<TypeKind>,
     pub(crate) span: Span,
     pub(crate) id: NodeId,
 }
@@ -534,7 +534,7 @@ impl Node for Type {
     }
 
     fn children(&self) -> Vec<Rc<dyn Node>> {
-        match &*self.typekind {
+        match &*self.kind {
             TypeKind::Poly(_, _)
             | TypeKind::Identifier(_)
             | TypeKind::Unit

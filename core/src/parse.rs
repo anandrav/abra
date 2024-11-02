@@ -303,7 +303,7 @@ pub(crate) fn parse_type_term(pair: Pair<Rule>, filename: &str) -> Rc<Type> {
                 interfaces.push(interface);
             }
             Rc::new(Type {
-                typekind: Rc::new(TypeKind::Poly(
+                kind: Rc::new(TypeKind::Poly(
                     Identifier {
                         v: ty_name,
                         span: ty_span,
@@ -318,33 +318,33 @@ pub(crate) fn parse_type_term(pair: Pair<Rule>, filename: &str) -> Rc<Type> {
         Rule::identifier => {
             let ident = pair.as_str().to_owned();
             Rc::new(Type {
-                typekind: Rc::new(TypeKind::Identifier(ident)),
+                kind: Rc::new(TypeKind::Identifier(ident)),
                 span,
                 id: NodeId::new(),
             })
         }
         Rule::type_literal_unit => Rc::new(Type {
-            typekind: Rc::new(TypeKind::Unit),
+            kind: Rc::new(TypeKind::Unit),
             span,
             id: NodeId::new(),
         }),
         Rule::type_literal_int => Rc::new(Type {
-            typekind: Rc::new(TypeKind::Int),
+            kind: Rc::new(TypeKind::Int),
             span,
             id: NodeId::new(),
         }),
         Rule::type_literal_float => Rc::new(Type {
-            typekind: Rc::new(TypeKind::Float),
+            kind: Rc::new(TypeKind::Float),
             span,
             id: NodeId::new(),
         }),
         Rule::type_literal_bool => Rc::new(Type {
-            typekind: Rc::new(TypeKind::Bool),
+            kind: Rc::new(TypeKind::Bool),
             span,
             id: NodeId::new(),
         }),
         Rule::type_literal_string => Rc::new(Type {
-            typekind: Rc::new(TypeKind::Str),
+            kind: Rc::new(TypeKind::Str),
             span,
             id: NodeId::new(),
         }),
@@ -355,7 +355,7 @@ pub(crate) fn parse_type_term(pair: Pair<Rule>, filename: &str) -> Rc<Type> {
                 .map(|t| parse_type_term(t, filename))
                 .collect();
             Rc::new(Type {
-                typekind: Rc::new(TypeKind::Tuple(types)),
+                kind: Rc::new(TypeKind::Tuple(types)),
                 span,
                 id: NodeId::new(),
             })
@@ -370,7 +370,7 @@ pub(crate) fn parse_type_term(pair: Pair<Rule>, filename: &str) -> Rc<Type> {
                 .map(|t| parse_type_term(t, filename))
                 .collect();
             Rc::new(Type {
-                typekind: Rc::new(TypeKind::Ap(
+                kind: Rc::new(TypeKind::Ap(
                     Identifier {
                         v: name,
                         span: ident_span,
@@ -393,7 +393,7 @@ pub(crate) fn parse_type_term(pair: Pair<Rule>, filename: &str) -> Rc<Type> {
                 .collect();
             let ret = parse_type_term(inner.last().unwrap().clone(), filename);
             Rc::new(Type {
-                typekind: Rc::new(TypeKind::Function(args, ret)),
+                kind: Rc::new(TypeKind::Function(args, ret)),
                 span,
                 id: NodeId::new(),
             })

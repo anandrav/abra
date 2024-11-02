@@ -189,7 +189,7 @@ impl Declaration {
                 let data = &enum_def.variants[*variant as usize].data;
                 let arity = match data {
                     None => 0,
-                    Some(ty) => match &*ty.typekind {
+                    Some(ty) => match &*ty.kind {
                         TypeKind::Poly(..)
                         | TypeKind::Identifier(_)
                         | TypeKind::Ap(..)
