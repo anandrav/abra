@@ -698,10 +698,10 @@ fn tyvar_of_declaration(ctx: &mut StaticsContext, decl: &Declaration) -> Option<
     match decl {
         Declaration::FreeFunction(f) => Some(TypeVar::from_node(ctx, f.name.id)),
         Declaration::InterfaceDef(rc) => None,
-        Declaration::InterfaceMethod { iface_def, method } => {
-            let method_def = &iface_def.props[*method as usize];
-            Some(ast_type_to_statics_type(ctx, method_def.ty.clone()))
-        }
+        Declaration::InterfaceMethod { iface_def, method } => Some(TypeVar::from_node(
+            ctx,
+            iface_def.props[*method as usize].id(),
+        )),
         Declaration::EnumVariant { enum_def, variant } => {
             // TODO make the function type for the enum variant constructor
             None
@@ -867,6 +867,7 @@ pub(crate) enum Mode {
 }
 
 pub(crate) fn constrain(mut expected: TypeVar, mut actual: TypeVar) {
+    // println!("constraining {} to {}", expected, actual);
     expected.0.union_with(&mut actual.0, TypeVarData::merge);
 }
 
@@ -1476,17 +1477,24 @@ fn generate_constraints_expr(
                 ctx.resolution_map_OLD
                     .insert(expr.id, res.to_resolution_old());
 
-                // TODO: last here
-                // let typ = tyvar_of_declaration(ctx, &res);
+                if let Some(typ) = tyvar_of_declaration(ctx, &res) {
+                    println!("tyvar of declaration: {symbol}");
+                    // replace polymorphic types with unifvars if necessary
+                    let typ = typ.instantiate(symbol_table_OLD, ctx, Prov::Node(expr.id));
+                    println!("instantiated: {}", typ);
+                    println!("node_ty: {}", node_ty);
+                    constrain(typ, node_ty.clone());
+                    return; // TODO: remove this return after getting rid of enum/struct logic below
+                }
             }
 
-            let lookup = symbol_table_OLD.lookup(symbol);
-            if let Some(typ) = lookup {
-                // replace polymorphic types with unifvars if necessary
-                let typ = typ.instantiate(symbol_table_OLD, ctx, Prov::Node(expr.id));
-                constrain(typ, node_ty);
-                return;
-            }
+            // let lookup = symbol_table_OLD.lookup(symbol);
+            // if let Some(typ) = lookup {
+            //     // replace polymorphic types with unifvars if necessary
+            //     let typ = typ.instantiate(symbol_table_OLD, ctx, Prov::Node(expr.id));
+            //     constrain(typ, node_ty);
+            //     return;
+            // }
             // TODO: this is incredibly hacky. No respect for scope at all... Should be added at the file with Effects at the least...
             let enum_def = ctx.enum_def_of_variant(symbol);
             if let Some(enum_def) = enum_def {
