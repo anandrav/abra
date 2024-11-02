@@ -811,8 +811,8 @@ fn compute_exhaustiveness_and_usefulness(
 fn ctors_for_ty(statics: &StaticsContext, ty: &SolvedType) -> ConstructorSet {
     match ty {
         SolvedType::Bool => ConstructorSet::Bool,
-        SolvedType::Nominal(ident, _) => {
-            let variants = statics.variants_of_enum(ident);
+        SolvedType::Nominal(nominal, _) => {
+            let variants = statics.variants_of_enum(&nominal.name().to_string()); // TODO: don't use String
             ConstructorSet::EnumVariants(variants)
         }
         SolvedType::Tuple(..) => ConstructorSet::Product,

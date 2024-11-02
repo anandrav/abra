@@ -89,13 +89,15 @@ pub(crate) fn scan_declarations(ctx: &mut StaticsContext, files: Vec<Rc<FileAst>
     }
 }
 
-fn gather_declarations_file(ctx: &mut StaticsContext, file: Rc<FileAst>) -> Namespace {
-    let mut namespace = Namespace::default();
-
+pub(crate) fn gather_declarations_file_OLD(ctx: &mut StaticsContext, file: Rc<FileAst>) {
     // TODO: get rid of this
     for item in file.items.iter() {
         gather_definitions_item_DEPRECATE(ctx, item.clone());
     }
+}
+
+fn gather_declarations_file(ctx: &mut StaticsContext, file: Rc<FileAst>) -> Namespace {
+    let mut namespace = Namespace::default();
 
     let qualifiers = vec![file.name.clone()];
     for item in file.items.iter() {
@@ -137,9 +139,12 @@ fn gather_declarations_item(namespace: &mut Namespace, qualifiers: Vec<String>, 
             //     // actually resolving the alias to the final result will have to be done later.
             // }
             TypeDefKind::Enum(e) => {
+                namespace
+                    .declarations
+                    .insert(e.name.v.clone(), Declaration::Enum(e.clone()));
+
                 // TODO: in the near future, put enum variants in a namespace named after the enum
                 // and refer to them in code by just writing .Variant
-
                 for (i, v) in e.variants.iter().enumerate() {
                     let variant_name = v.ctor.v.clone();
                     let variant = i as u16;
@@ -288,6 +293,8 @@ fn resolve_imports_file(ctx: &mut StaticsContext, file: Rc<FileAst>) -> Toplevel
     {
         env.insert(name.clone(), declaration.clone());
     }
+    // builtin array type
+    env.insert("array".to_string(), Declaration::Array);
 
     for item in file.items.iter() {
         if let ItemKind::Import(path) = &*item.kind {
@@ -533,7 +540,7 @@ fn resolve_names_func_helper(
     resolve_names_expr(ctx, symbol_table.clone(), body.clone());
 }
 
-fn resolve_names_pat(_ctx: &mut StaticsContext, symbol_table: SymbolTable, pat: Rc<Pat>) {
+fn resolve_names_pat(ctx: &mut StaticsContext, symbol_table: SymbolTable, pat: Rc<Pat>) {
     match &*pat.kind {
         PatKind::Wildcard => (),
         PatKind::Unit
@@ -544,14 +551,21 @@ fn resolve_names_pat(_ctx: &mut StaticsContext, symbol_table: SymbolTable, pat: 
         PatKind::Binding(identifier) => {
             symbol_table.extend_declaration(identifier.clone(), Declaration::Var(pat.id));
         }
-        PatKind::Variant(_, data) => {
+        PatKind::Variant(tag, data) => {
+            if let Some(decl @ Declaration::EnumVariant { .. }) =
+                &symbol_table.lookup_declaration(&tag.v)
+            {
+                ctx.resolution_map.insert(tag.id, decl.clone());
+            } else {
+                // TODO: log error
+            }
             if let Some(data) = data {
-                resolve_names_pat(_ctx, symbol_table, data.clone())
+                resolve_names_pat(ctx, symbol_table, data.clone())
             };
         }
         PatKind::Tuple(pats) => {
             for pat in pats {
-                resolve_names_pat(_ctx, symbol_table.clone(), pat.clone());
+                resolve_names_pat(ctx, symbol_table.clone(), pat.clone());
             }
         }
     }
@@ -565,7 +579,7 @@ fn resolve_names_typ(ctx: &mut StaticsContext, symbol_table: SymbolTable, typ: R
             resolve_names_typ_identifier(ctx, symbol_table, identifier, typ.id);
         }
         TypeKind::Ap(identifier, args) => {
-            resolve_names_typ_identifier(ctx, symbol_table.clone(), &identifier.v, typ.id);
+            resolve_names_typ_identifier(ctx, symbol_table.clone(), &identifier.v, identifier.id);
             for arg in args {
                 resolve_names_typ(ctx, symbol_table.clone(), arg.clone());
             }
@@ -592,13 +606,13 @@ fn resolve_names_typ_identifier(
 ) {
     let lookup = symbol_table.lookup_declaration(identifier);
     match lookup {
-        Some(Declaration::Struct(struct_def)) => {
-            symbol_table.extend_declaration(identifier.clone(), Declaration::Struct(struct_def));
-        }
-        Some(Declaration::Enum(enum_def)) => {
-            symbol_table.extend_declaration(identifier.clone(), Declaration::Enum(enum_def));
+        Some(decl @ (Declaration::Struct(_) | Declaration::Enum(_) | Declaration::Array)) => {
+            ctx.resolution_map.insert(id, decl);
         }
         _ => {
+            if identifier != "self" {
+                println!("could not resolve type identifier: {}", identifier)
+            }
             // TODO: log error
             // ctx.unbound_vars.insert(id);
         }

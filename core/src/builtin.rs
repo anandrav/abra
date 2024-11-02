@@ -1,3 +1,4 @@
+use crate::statics::typecheck::Nominal;
 use crate::statics::Type;
 
 use strum::IntoEnumIterator;
@@ -144,21 +145,21 @@ impl Builtin {
 
             Builtin::ArrayAppend => Type::Function(
                 vec![
-                    Type::Nominal("array".into(), vec![Type::Poly("a".to_string(), vec![])]),
+                    Type::Nominal(Nominal::Array, vec![Type::Poly("a".to_string(), vec![])]),
                     Type::Poly("a".to_string(), vec![]),
                 ],
                 Box::new(Type::Unit),
             ),
             Builtin::ArrayLength => Type::Function(
                 vec![Type::Nominal(
-                    "array".into(),
+                    Nominal::Array,
                     vec![Type::Poly("a".into(), vec![])],
                 )],
                 Box::new(Type::Int),
             ),
             Builtin::ArrayPop => Type::Function(
                 vec![Type::Nominal(
-                    "array".into(),
+                    Nominal::Array,
                     vec![Type::Poly("a".into(), vec![])],
                 )],
                 Box::new(Type::Unit),

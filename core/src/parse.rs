@@ -502,6 +502,8 @@ pub(crate) fn parse_item(pair: Pair<Rule>, filename: &str) -> Rc<Item> {
                 fields.push(Rc::new(field));
                 n += 1;
             }
+
+            let id = NodeId::new();
             Rc::new(Item {
                 kind: Rc::new(ItemKind::TypeDef(Rc::new(TypeDefKind::Struct(
                     StructDef {
@@ -512,11 +514,12 @@ pub(crate) fn parse_item(pair: Pair<Rule>, filename: &str) -> Rc<Item> {
                         },
                         ty_args,
                         fields,
+                        id,
                     }
                     .into(),
                 )))),
                 span,
-                id: NodeId::new(),
+                id,
             })
         }
         Rule::interface_declaration => {

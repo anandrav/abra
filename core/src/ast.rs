@@ -25,7 +25,7 @@ impl Node for Identifier {
 
 pub(crate) type ArgAnnotated = (Rc<Pat>, Option<Rc<Type>>);
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub(crate) struct Sources {
     pub(crate) filename_to_source: HashMap<String, String>,
 }
@@ -76,6 +76,8 @@ pub(crate) struct StructDef {
     pub(crate) name: Identifier,
     pub(crate) ty_args: Vec<Rc<Type>>,
     pub(crate) fields: Vec<Rc<StructField>>,
+
+    pub(crate) id: NodeId,
 }
 
 #[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq, Hash)]

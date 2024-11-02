@@ -758,9 +758,9 @@ impl Translator {
                 }
                 _ => panic!("unexpected pattern: {:?}", pat.kind),
             },
-            Type::Nominal(symbol, _) => match &*pat.kind {
+            Type::Nominal(nominal, _) => match &*pat.kind {
                 PatKind::Variant(ctor, inner) => {
-                    let enumt = self.statics.enum_defs.get(symbol).unwrap();
+                    let enumt = self.statics.enum_defs.get(nominal.name()).unwrap(); // TODO: don't use String
                     let tag_fail_label = make_label("tag_fail");
                     let end_label = make_label("endvariant");
 
@@ -904,6 +904,7 @@ impl Translator {
 
             StmtKind::FuncDef(f) => {
                 // (this could be an overloaded function or an interface method)
+                self._display_node(stmt.id);
                 let func_ty = self.statics.solution_of_node(f.name.id).unwrap();
                 let func_name = f.name.v.clone();
 
@@ -1135,6 +1136,7 @@ impl Translator {
                             .unwrap();
                         let interface_impl_ty = unifvar.solution().unwrap();
 
+                        println!("get_func_definition_node ty_fits_impl_ty");
                         if ty_fits_impl_ty(
                             &self.statics,
                             desired_interface_impl.clone(),
@@ -1355,8 +1357,11 @@ fn idx_of_field(statics: &StaticsContext, accessed: Rc<Expr>, field: &str) -> u1
     let accessed_ty = statics.solution_of_node(accessed.id).unwrap();
 
     match accessed_ty {
-        Type::Nominal(symbol, _) => {
-            let struct_ty = statics.struct_defs.get(&symbol).expect("not a struct type");
+        Type::Nominal(nominal, _) => {
+            let struct_ty = statics
+                .struct_defs
+                .get(nominal.name()) // TODO: don't use String
+                .expect("not a struct type");
             let field_idx = struct_ty
                 .fields
                 .iter()

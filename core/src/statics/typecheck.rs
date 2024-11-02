@@ -131,14 +131,24 @@ pub(crate) enum PotentialType {
     String(Provs),
     Function(Provs, Vec<TypeVar>, TypeVar),
     Tuple(Provs, Vec<TypeVar>),
-    Nominal(Provs, String, Vec<TypeVar>), // TODO: instead of String, use a reference to the declaration. Types should be able to share the same name
+    Nominal(Provs, Nominal, Vec<TypeVar>), // TODO: instead of String, use a reference to the declaration. Types should be able to share the same name
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub(crate) enum Nominal {
     Struct(Rc<StructDef>),
     Enum(Rc<EnumDef>),
     Array,
+}
+
+impl Nominal {
+    pub(crate) fn name(&self) -> &str {
+        match self {
+            Self::Struct(struct_def) => &struct_def.name.v,
+            Self::Enum(enum_def) => &enum_def.name.v,
+            Self::Array => "array",
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
@@ -151,7 +161,7 @@ pub(crate) enum SolvedType {
     String,
     Function(Vec<SolvedType>, Box<SolvedType>),
     Tuple(Vec<SolvedType>),
-    Nominal(String, Vec<SolvedType>), // TODO: Instead of a String, use a reference to the declaration
+    Nominal(Nominal, Vec<SolvedType>), // TODO: Instead of a String, use a reference to the declaration
 }
 
 impl SolvedType {
@@ -228,15 +238,15 @@ pub enum Monotype {
     String,
     Function(Vec<Monotype>, Box<Monotype>),
     Tuple(Vec<Monotype>),
-    Nominal(String, Vec<Monotype>),
+    Nominal(Nominal, Vec<Monotype>),
 }
 
 // If two types don't share the same key, they must be in conflict
 // (If two types share the same key, they may or may not be in conflict)
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub(crate) enum TypeKey {
-    Poly,              // TODO: why isn't the String included here?
-    TyApp(String, u8), // u8 represents the number of type params // TODO: Don't use String here use reference to declaration
+    Poly,               // TODO: why isn't the String included here?
+    TyApp(Nominal, u8), // u8 represents the number of type params // TODO: Don't use String here use reference to declaration
     Unit,
     Int,
     Float,
@@ -415,8 +425,8 @@ impl PotentialType {
         PotentialType::Poly(provs_singleton(prov), ident, vec![interface_ident])
     }
 
-    fn make_def_instance(prov: Prov, ident: String, params: Vec<TypeVar>) -> PotentialType {
-        PotentialType::Nominal(provs_singleton(prov), ident, params)
+    fn make_nominal(prov: Prov, nominal: Nominal, params: Vec<TypeVar>) -> PotentialType {
+        PotentialType::Nominal(provs_singleton(prov), nominal, params)
     }
 }
 
@@ -609,8 +619,8 @@ impl TypeVar {
         ))
     }
 
-    fn make_nominal(prov: Prov, ident: String, params: Vec<TypeVar>) -> TypeVar {
-        Self::orphan(PotentialType::make_def_instance(prov, ident, params))
+    fn make_nominal(prov: Prov, nominal: Nominal, params: Vec<TypeVar>) -> TypeVar {
+        Self::orphan(PotentialType::make_nominal(prov, nominal, params))
     }
 
     // return true if the type is an enumt with at least one parameter instantiated
@@ -665,7 +675,7 @@ fn tyvar_of_declaration(
             }
             Some(TypeVar::make_nominal(
                 Prov::UdtDef(Box::new(Prov::Node(id))),
-                enum_def.name.v.clone(),
+                Nominal::Enum(enum_def.clone()),
                 params,
             ))
         }
@@ -687,7 +697,7 @@ fn tyvar_of_declaration(
             }
             let def_type = TypeVar::make_nominal(
                 Prov::UdtDef(Box::new(Prov::Node(id))),
-                enum_def.name.v.clone(),
+                Nominal::Enum(enum_def.clone()),
                 params,
             );
 
@@ -741,7 +751,7 @@ fn tyvar_of_declaration(
             }
             let def_type = TypeVar::make_nominal(
                 Prov::UdtDef(Box::new(Prov::Node(id))),
-                struct_def.name.v.clone(),
+                Nominal::Struct(struct_def.clone()),
                 params,
             );
             let fields = struct_def
@@ -754,6 +764,24 @@ fn tyvar_of_declaration(
                 })
                 .collect();
             Some(TypeVar::make_func(fields, def_type, Prov::Node(id)))
+        }
+        Declaration::Array => {
+            let mut params = vec![];
+            let mut substitution = BTreeMap::new();
+            params.push(TypeVar::fresh(
+                ctx,
+                Prov::InstantiateUdtParam(Box::new(Prov::Node(id)), 0),
+            ));
+
+            substitution.insert("a", params[0].clone());
+
+            let def_type = TypeVar::make_nominal(
+                Prov::UdtDef(Box::new(Prov::Node(id))),
+                Nominal::Array,
+                params,
+            );
+
+            Some(TypeVar::make_func(vec![], def_type, Prov::Node(id)))
         }
         Declaration::Builtin(builtin) => {
             let ty_signature = builtin.type_signature();
@@ -857,16 +885,54 @@ pub(crate) fn ast_type_to_statics_type_interface(
                 TypeVar::fresh(ctx, Prov::Alias(ident.clone()))
             }
         }
-        TypeKind::Ap(ident, params) => TypeVar::make_nominal(
-            Prov::Node(ast_type.id()),
-            ident.v.clone(), // TODO: Need to perform name resolution for types, then put the Nominal (reference to struct/enum def or builtin type) here instead of the raw identifier
-            params
-                .iter()
-                .map(|param| {
-                    ast_type_to_statics_type_interface(ctx, param.clone(), interface_ident)
-                })
-                .collect(),
-        ),
+        TypeKind::Ap(ident, params) => {
+            let lookup = ctx.resolution_map.get(&ident.id);
+            match lookup {
+                Some(Declaration::Enum(enum_def)) => TypeVar::make_nominal(
+                    Prov::Node(ast_type.id()),
+                    Nominal::Enum(enum_def.clone()),
+                    params
+                        .iter()
+                        .map(|param| {
+                            ast_type_to_statics_type_interface(ctx, param.clone(), interface_ident)
+                        })
+                        .collect(),
+                ),
+                Some(Declaration::Struct(struct_def)) => TypeVar::make_nominal(
+                    Prov::Node(ast_type.id()),
+                    Nominal::Struct(struct_def.clone()),
+                    params
+                        .iter()
+                        .map(|param| {
+                            ast_type_to_statics_type_interface(ctx, param.clone(), interface_ident)
+                        })
+                        .collect(),
+                ),
+                Some(Declaration::Array) => TypeVar::make_nominal(
+                    Prov::Node(ast_type.id()),
+                    Nominal::Array,
+                    params
+                        .iter()
+                        .map(|param| {
+                            ast_type_to_statics_type_interface(ctx, param.clone(), interface_ident)
+                        })
+                        .collect(),
+                ),
+                _ => {
+                    let node = ctx.node_map.get(&ast_type.id).unwrap();
+                    let span = node.span();
+                    let mut s = String::new();
+                    span.display(&mut s, &ctx.sources, "");
+                    println!("{}", s);
+                    panic!("could not resolve {}", ident.v) // TODO: fix NOW
+                                                            // _ => TypeVar::from_node(ctx, ast_type.id).instantiate(
+                                                            //     PolyvarScope::empty(),
+                                                            //     ctx,
+                                                            //     Prov::Node(ast_type.id),
+                                                            // ),
+                }
+            }
+        }
         TypeKind::Unit => TypeVar::make_unit(Prov::Node(ast_type.id())),
         TypeKind::Int => TypeVar::make_int(Prov::Node(ast_type.id())),
         TypeKind::Float => TypeVar::make_float(Prov::Node(ast_type.id())),
@@ -983,19 +1049,19 @@ pub(crate) fn result_of_constraint_solving(
     }
 
     // replace underdetermined types with unit
-    if type_conflicts.is_empty() {
-        for potential_types in ctx.vars.values() {
-            let mut data = potential_types.0.clone_data();
-            let suggestions = &mut data.types;
-            if suggestions.is_empty() {
-                suggestions.insert(
-                    TypeKey::Unit,
-                    PotentialType::make_unit(Prov::UnderdeterminedCoerceToUnit),
-                );
-                potential_types.0.replace_data(data);
-            }
-        }
-    }
+    // if type_conflicts.is_empty() {
+    //     for potential_types in ctx.vars.values() {
+    //         let mut data = potential_types.0.clone_data();
+    //         let suggestions = &mut data.types;
+    //         if suggestions.is_empty() {
+    //             suggestions.insert(
+    //                 TypeKey::Unit,
+    //                 PotentialType::make_unit(Prov::UnderdeterminedCoerceToUnit),
+    //             );
+    //             potential_types.0.replace_data(data);
+    //         }
+    //     }
+    // }
 
     // look for error of multiple interface implementations for the same type
     for (ident, impls) in ctx.interface_impls.iter() {
@@ -1038,6 +1104,8 @@ pub(crate) fn result_of_constraint_solving(
                 // find at least one implementation of interface that matches the type constrained to the interface
                 for impl_ in impl_list {
                     if let Some(impl_ty) = impl_.typ.solution() {
+                        println!("typecheck ty_fits_impl_ty");
+                        println!("ty1: {}, ty2: {}", typ, impl_ty);
                         if let Err((_err_monoty, _err_impl_ty)) =
                             ty_fits_impl_ty(ctx, typ.clone(), impl_ty.clone())
                         {
@@ -1068,11 +1136,8 @@ pub(crate) fn result_of_constraint_solving(
         let Some(solved) = typ else {
             continue;
         };
-        if let SolvedType::Nominal(ident, _) = &solved {
-            let struct_def = ctx.struct_defs.get(ident);
-            if struct_def.is_some() {
-                continue;
-            }
+        if let SolvedType::Nominal(Nominal::Struct(..), _) = &solved {
+            continue;
         }
 
         bad_field_access = true;
@@ -1234,8 +1299,8 @@ pub(crate) fn result_of_constraint_solving(
                     PotentialType::Poly(_, _, _) => {
                         err_string.push_str("Sources of generic type:\n")
                     }
-                    PotentialType::Nominal(_, ident, params) => {
-                        let _ = write!(err_string, "Sources of type {}<", ident);
+                    PotentialType::Nominal(_, nominal, params) => {
+                        let _ = write!(err_string, "Sources of type {}<", nominal.name());
                         for (i, param) in params.iter().enumerate() {
                             if i != 0 {
                                 err_string.push_str(", ");
@@ -1427,14 +1492,28 @@ fn generate_constraints_expr(
         }
         ExprKind::List(exprs) => {
             let elem_ty = TypeVar::fresh(ctx, Prov::ListElem(Prov::Node(expr.id).into()));
-            constrain(
-                node_ty,
-                TypeVar::make_nominal(
-                    Prov::Node(expr.id),
-                    "list".to_owned(),
-                    vec![elem_ty.clone()],
-                ),
-            );
+
+            let list_decl = ctx
+                .global_namespace
+                .namespaces
+                .get("prelude")
+                .and_then(|p| p.declarations.get("list"));
+            dbg!(&ctx.global_namespace);
+            if let Some(Declaration::Enum(enum_def)) = list_decl {
+                constrain(
+                    node_ty,
+                    TypeVar::make_nominal(
+                        Prov::Node(expr.id),
+                        Nominal::Enum(enum_def.clone()),
+                        vec![elem_ty.clone()],
+                    ),
+                );
+            } else {
+                dbg!(list_decl);
+                todo!();
+                // TODO: log error
+            }
+
             for expr in exprs {
                 generate_constraints_expr(
                     polyvar_scope.clone(),
@@ -1450,11 +1529,7 @@ fn generate_constraints_expr(
             let elem_ty = TypeVar::fresh(ctx, Prov::ListElem(Prov::Node(expr.id).into()));
             constrain(
                 node_ty,
-                TypeVar::make_nominal(
-                    Prov::Node(expr.id),
-                    "array".to_owned(),
-                    vec![elem_ty.clone()],
-                ),
+                TypeVar::make_nominal(Prov::Node(expr.id), Nominal::Array, vec![elem_ty.clone()]),
             );
             for expr in exprs {
                 generate_constraints_expr(
@@ -1683,16 +1758,14 @@ fn generate_constraints_expr(
             let Some(inner) = ty_expr.single() else {
                 return;
             };
-            if let PotentialType::Nominal(_, ident, _) = inner {
-                if let Some(struct_def) = ctx.struct_defs.get(&ident) {
+            if let PotentialType::Nominal(_, nominal, _) = inner {
+                if let Nominal::Struct(struct_def) = &nominal {
                     let ExprKind::Identifier(field_ident) = &*field.kind else {
                         ctx.field_not_ident.insert(field.id);
                         return;
                     };
-                    let ty_field = TypeVar::fresh(
-                        ctx,
-                        Prov::StructField(field_ident.clone(), struct_def.location),
-                    );
+                    let ty_field =
+                        TypeVar::fresh(ctx, Prov::StructField(field_ident.clone(), struct_def.id));
                     constrain(node_ty.clone(), ty_field);
                     return;
                 }
@@ -1709,7 +1782,7 @@ fn generate_constraints_expr(
                 accessed_ty,
                 TypeVar::make_nominal(
                     Prov::Node(accessed.id),
-                    "array".to_owned(),
+                    Nominal::Array,
                     vec![elem_ty.clone()],
                 ),
             );
@@ -1966,26 +2039,37 @@ fn generate_constraints_pat(
             };
             let mut substitution = BTreeMap::new();
             let ty_enum_instance = {
-                let enum_def = ctx.enum_def_of_variant(&tag.v);
-
-                if let Some(enum_def) = enum_def {
-                    let nparams = enum_def.params.len();
+                if let Some(Declaration::EnumVariant { enum_def, variant }) =
+                    ctx.resolution_map.get(&tag.id).cloned()
+                {
+                    let nparams = enum_def.ty_args.len();
                     let mut params = vec![];
                     for i in 0..nparams {
                         params.push(TypeVar::fresh(
                             ctx,
                             Prov::InstantiateUdtParam(Box::new(Prov::Node(pat.id)), i as u8),
                         ));
-                        substitution.insert(enum_def.params[i].clone(), params[i].clone());
+                        // TODO: don't do this silly downcast.
+                        // ty_args should just be a Vec<Identifier> most likely
+                        let TypeKind::Poly(ty_arg, ifaces) = &*enum_def.ty_args[i].kind else {
+                            panic!()
+                        };
+                        substitution.insert(ty_arg.v.clone(), params[i].clone());
                     }
                     let def_type = TypeVar::make_nominal(
                         Prov::UdtDef(Box::new(Prov::Node(pat.id))),
-                        enum_def.name,
+                        Nominal::Enum(enum_def.clone()),
                         params,
                     );
 
-                    let variant_def = enum_def.variants.iter().find(|v| v.ctor == *tag.v).unwrap();
-                    let variant_data_ty = variant_def.data.clone().subst(
+                    let variant_def = &enum_def.variants[variant as usize];
+                    let variant_data_ty = match &variant_def.data {
+                        None => TypeVar::make_unit(Prov::VariantNoData(
+                            Prov::Node(variant_def.id).into(),
+                        )),
+                        Some(ty) => ast_type_to_statics_type(ctx, ty.clone()),
+                    };
+                    let variant_data_ty = variant_data_ty.subst(
                         polyvar_scope.clone(),
                         Prov::Node(pat.id),
                         &substitution,
@@ -2233,9 +2317,9 @@ impl fmt::Display for PotentialType {
                 }
                 Ok(())
             }
-            PotentialType::Nominal(_, ident, params) => {
+            PotentialType::Nominal(_, nominal, params) => {
                 if !params.is_empty() {
-                    write!(f, "{}<", ident)?;
+                    write!(f, "{}<", nominal.name())?;
                     for (i, param) in params.iter().enumerate() {
                         if i != 0 {
                             write!(f, ", ")?;
@@ -2244,7 +2328,7 @@ impl fmt::Display for PotentialType {
                     }
                     write!(f, ">")
                 } else {
-                    write!(f, "{}", ident)
+                    write!(f, "{}", nominal.name())
                 }
             }
             PotentialType::Unit(_) => write!(f, "void"),
@@ -2293,9 +2377,9 @@ impl fmt::Display for SolvedType {
                 }
                 Ok(())
             }
-            SolvedType::Nominal(ident, params) => {
+            SolvedType::Nominal(nominal, params) => {
                 if !params.is_empty() {
-                    write!(f, "{}<", ident)?;
+                    write!(f, "{}<", nominal.name())?;
                     for (i, param) in params.iter().enumerate() {
                         if i != 0 {
                             write!(f, ", ")?;
@@ -2304,7 +2388,7 @@ impl fmt::Display for SolvedType {
                     }
                     write!(f, ">")
                 } else {
-                    write!(f, "{}", ident)
+                    write!(f, "{}", nominal.name())
                 }
             }
             SolvedType::Unit => write!(f, "void"),
@@ -2340,9 +2424,9 @@ impl fmt::Display for SolvedType {
 impl fmt::Display for Monotype {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Monotype::Nominal(ident, params) => {
+            Monotype::Nominal(nominal, params) => {
                 if !params.is_empty() {
-                    write!(f, "{}<", ident)?;
+                    write!(f, "{}<", nominal.name())?;
                     for (i, param) in params.iter().enumerate() {
                         if i != 0 {
                             write!(f, ", ")?;
@@ -2351,7 +2435,7 @@ impl fmt::Display for Monotype {
                     }
                     write!(f, ">")
                 } else {
-                    write!(f, "{}", ident)
+                    write!(f, "{}", nominal.name())
                 }
             }
             Monotype::Unit => write!(f, "void"),

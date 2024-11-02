@@ -4,7 +4,8 @@ use crate::ast::{
 use crate::builtin::Builtin;
 use crate::effects::EffectStruct;
 use resolve::{
-    resolve, scan_declarations, EnumDef_OLD, InterfaceDef_OLD, InterfaceImpl_OLD, StructDef_OLD,
+    gather_declarations_file_OLD, resolve, scan_declarations, EnumDef_OLD, InterfaceDef_OLD,
+    InterfaceImpl_OLD, StructDef_OLD,
 };
 use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::fmt::{self, Display, Formatter};
@@ -13,7 +14,7 @@ use typecheck::{generate_constraints_file, result_of_constraint_solving, SolvedT
 
 mod pat_exhaustiveness;
 mod resolve;
-mod typecheck;
+pub(crate) mod typecheck;
 
 pub(crate) use typecheck::{ty_fits_impl_ty, Monotype};
 // TODO: Provs are an implementation detail, they should NOT be exported
@@ -28,6 +29,8 @@ use pat_exhaustiveness::{result_of_additional_analysis, DeconstructedPat};
 pub(crate) struct StaticsContext {
     // effects
     effects: Vec<EffectStruct>,
+    node_map: NodeMap,
+    sources: Sources,
 
     // DECLARATIONS
 
@@ -90,9 +93,11 @@ pub(crate) struct StaticsContext {
 }
 
 impl StaticsContext {
-    fn new(effects: Vec<EffectStruct>) -> Self {
+    fn new(effects: Vec<EffectStruct>, node_map: NodeMap, sources: Sources) -> Self {
         let mut ctx = Self {
             effects,
+            node_map,
+            sources,
             ..Default::default()
         };
 
@@ -168,6 +173,7 @@ pub(crate) enum Declaration {
         variant: u16,
     },
     Struct(Rc<StructDef>),
+    Array,
     Builtin(Builtin),
     Effect(u16),
     Var(NodeId),
@@ -187,7 +193,7 @@ impl Declaration {
                 Resolution_OLD::InterfaceMethod(name.v.clone())
             }
             Declaration::Enum(..) => {
-                panic!("")
+                panic!("") // TODO: remove panic
             }
             Declaration::EnumVariant { enum_def, variant } => {
                 let data = &enum_def.variants[*variant as usize].data;
@@ -211,6 +217,9 @@ impl Declaration {
             Declaration::Struct(struct_def) => {
                 let nargs = struct_def.fields.len() as u16;
                 Resolution_OLD::StructCtor(nargs)
+            }
+            Declaration::Array => {
+                panic!();
             }
             Declaration::Builtin(b) => Resolution_OLD::Builtin(*b),
             Declaration::Effect(e) => Resolution_OLD::Effect(*e),
@@ -236,14 +245,18 @@ pub(crate) fn analyze(
     node_map: &NodeMap,
     sources: &Sources,
 ) -> Result<StaticsContext, String> {
-    let mut ctx = StaticsContext::new(effects.to_owned()); // TODO: to_owned necessary?
+    let mut ctx = StaticsContext::new(effects.to_owned(), node_map.clone(), sources.clone()); // TODO: to_owned necessary?
 
     // scan declarations across all files
     scan_declarations(&mut ctx, files.clone());
     println!("global namespace:\n{}", ctx.global_namespace);
 
-    // resolve all imports and Strings
+    // resolve all imports and identifiers
     resolve(&mut ctx, files.clone());
+
+    for file in files {
+        gather_declarations_file_OLD(&mut ctx, file.clone());
+    }
 
     // typechecking
     for file in files {
