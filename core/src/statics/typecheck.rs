@@ -694,7 +694,12 @@ impl TypeVar {
     }
 }
 
-fn tyvar_of_declaration(ctx: &mut StaticsContext, decl: &Declaration) -> Option<TypeVar> {
+fn tyvar_of_declaration(
+    ctx: &mut StaticsContext,
+    decl: &Declaration,
+    id: NodeId,
+    symbol_table_OLD: SymbolTable_OLD,
+) -> Option<TypeVar> {
     match decl {
         Declaration::FreeFunction(f) => Some(TypeVar::from_node(ctx, f.name.id)),
         Declaration::InterfaceDef(rc) => None,
@@ -703,8 +708,91 @@ fn tyvar_of_declaration(ctx: &mut StaticsContext, decl: &Declaration) -> Option<
             iface_def.props[*method as usize].id(),
         )),
         Declaration::EnumVariant { enum_def, variant } => {
-            // TODO make the function type for the enum variant constructor
-            None
+            let nparams = enum_def.ty_args.len();
+            let mut params = vec![];
+            let mut substitution = BTreeMap::new();
+            for i in 0..nparams {
+                params.push(TypeVar::fresh(
+                    ctx,
+                    Prov::InstantiateUdtParam(Box::new(Prov::Node(id)), i as u8),
+                ));
+                // TODO: don't do this silly downcast.
+                // ty_args should just be a Vec<Identifier> most likely
+                let TypeKind::Poly(ty_arg, ifaces) = &*enum_def.ty_args[i].typekind else {
+                    panic!()
+                };
+                substitution.insert(ty_arg.v.clone(), params[i].clone());
+            }
+            let def_type = TypeVar::make_def_instance(
+                Prov::UdtDef(Box::new(Prov::Node(id))),
+                enum_def.name.v.clone(),
+                params,
+            );
+
+            let the_variant = &enum_def.variants[*variant as usize];
+            match &the_variant.data {
+                None => Some(def_type),
+                // TODO: rename typekind to just kind
+                Some(ty) => match &*ty.typekind {
+                    TypeKind::Unit => Some(def_type),
+                    TypeKind::Tuple(elems) => {
+                        let args = elems
+                            .iter()
+                            .map(|e| {
+                                let e = ast_type_to_statics_type(ctx, e.clone());
+                                e.clone().subst(
+                                    symbol_table_OLD.clone(),
+                                    Prov::Node(id),
+                                    &substitution,
+                                )
+                            })
+                            .collect();
+                        Some(TypeVar::make_func(args, def_type, Prov::Node(id)))
+                    }
+                    _ => {
+                        let ty = ast_type_to_statics_type(ctx, ty.clone());
+                        Some(TypeVar::make_func(
+                            vec![ty
+                                .clone()
+                                .subst(symbol_table_OLD, Prov::Node(id), &substitution)],
+                            def_type,
+                            Prov::Node(id),
+                        ))
+                    }
+                },
+            }
+            // if let Some(PotentialType::Unit(_)) = the_variant.data.single() {
+            //     constrain(node_ty, def_type);
+            // } else if let Some(PotentialType::Tuple(_, elems)) = &the_variant.data.single() {
+            //     let args = elems
+            //         .iter()
+            //         .map(|e| {
+            //             e.clone().subst(
+            //                 symbol_table_OLD.clone(),
+            //                 Prov::Node(expr.id),
+            //                 &substitution,
+            //             )
+            //         })
+            //         .collect();
+            //     constrain(
+            //         node_ty,
+            //         TypeVar::make_func(args, def_type, Prov::Node(expr.id)),
+            //     );
+            // } else {
+            //     constrain(
+            //         node_ty,
+            //         TypeVar::make_func(
+            //             vec![the_variant.data.clone().subst(
+            //                 symbol_table_OLD,
+            //                 Prov::Node(expr.id),
+            //                 &substitution,
+            //             )],
+            //             def_type,
+            //             Prov::Node(expr.id),
+            //         ),
+            //     );
+            // }
+            // None
         }
         Declaration::Struct(struct_def) => {
             // TODO make function type for struct constructor
@@ -867,7 +955,6 @@ pub(crate) enum Mode {
 }
 
 pub(crate) fn constrain(mut expected: TypeVar, mut actual: TypeVar) {
-    // println!("constraining {} to {}", expected, actual);
     expected.0.union_with(&mut actual.0, TypeVarData::merge);
 }
 
@@ -1477,7 +1564,9 @@ fn generate_constraints_expr(
                 ctx.resolution_map_OLD
                     .insert(expr.id, res.to_resolution_old());
 
-                if let Some(typ) = tyvar_of_declaration(ctx, &res) {
+                if let Some(typ) =
+                    tyvar_of_declaration(ctx, &res, expr.id, symbol_table_OLD.clone())
+                {
                     println!("tyvar of declaration: {symbol}");
                     // replace polymorphic types with unifvars if necessary
                     let typ = typ.instantiate(symbol_table_OLD, ctx, Prov::Node(expr.id));
@@ -1496,62 +1585,62 @@ fn generate_constraints_expr(
             //     return;
             // }
             // TODO: this is incredibly hacky. No respect for scope at all... Should be added at the file with Effects at the least...
-            let enum_def = ctx.enum_def_of_variant(symbol);
-            if let Some(enum_def) = enum_def {
-                let nparams = enum_def.params.len();
-                let mut params = vec![];
-                let mut substitution = BTreeMap::new();
-                for i in 0..nparams {
-                    params.push(TypeVar::fresh(
-                        ctx,
-                        Prov::InstantiateUdtParam(Box::new(Prov::Node(expr.id)), i as u8),
-                    ));
-                    substitution.insert(enum_def.params[i].clone(), params[i].clone());
-                }
-                let def_type = TypeVar::make_def_instance(
-                    Prov::UdtDef(Box::new(Prov::Node(expr.id))),
-                    enum_def.name,
-                    params,
-                );
+            // let enum_def = ctx.enum_def_of_variant(symbol);
+            // if let Some(enum_def) = enum_def {
+            //     let nparams = enum_def.params.len();
+            //     let mut params = vec![];
+            //     let mut substitution = BTreeMap::new();
+            //     for i in 0..nparams {
+            //         params.push(TypeVar::fresh(
+            //             ctx,
+            //             Prov::InstantiateUdtParam(Box::new(Prov::Node(expr.id)), i as u8),
+            //         ));
+            //         substitution.insert(enum_def.params[i].clone(), params[i].clone());
+            //     }
+            //     let def_type = TypeVar::make_def_instance(
+            //         Prov::UdtDef(Box::new(Prov::Node(expr.id))),
+            //         enum_def.name,
+            //         params,
+            //     );
 
-                let the_variant = enum_def
-                    .variants
-                    .iter()
-                    .find(|v| v.ctor == *symbol)
-                    .unwrap();
-                if let Some(PotentialType::Unit(_)) = the_variant.data.single() {
-                    constrain(node_ty, def_type);
-                } else if let Some(PotentialType::Tuple(_, elems)) = &the_variant.data.single() {
-                    let args = elems
-                        .iter()
-                        .map(|e| {
-                            e.clone().subst(
-                                symbol_table_OLD.clone(),
-                                Prov::Node(expr.id),
-                                &substitution,
-                            )
-                        })
-                        .collect();
-                    constrain(
-                        node_ty,
-                        TypeVar::make_func(args, def_type, Prov::Node(expr.id)),
-                    );
-                } else {
-                    constrain(
-                        node_ty,
-                        TypeVar::make_func(
-                            vec![the_variant.data.clone().subst(
-                                symbol_table_OLD,
-                                Prov::Node(expr.id),
-                                &substitution,
-                            )],
-                            def_type,
-                            Prov::Node(expr.id),
-                        ),
-                    );
-                }
-                return;
-            }
+            //     let the_variant = enum_def
+            //         .variants
+            //         .iter()
+            //         .find(|v| v.ctor == *symbol)
+            //         .unwrap();
+            //     if let Some(PotentialType::Unit(_)) = the_variant.data.single() {
+            //         constrain(node_ty, def_type);
+            //     } else if let Some(PotentialType::Tuple(_, elems)) = &the_variant.data.single() {
+            //         let args = elems
+            //             .iter()
+            //             .map(|e| {
+            //                 e.clone().subst(
+            //                     symbol_table_OLD.clone(),
+            //                     Prov::Node(expr.id),
+            //                     &substitution,
+            //                 )
+            //             })
+            //             .collect();
+            //         constrain(
+            //             node_ty,
+            //             TypeVar::make_func(args, def_type, Prov::Node(expr.id)),
+            //         );
+            //     } else {
+            //         constrain(
+            //             node_ty,
+            //             TypeVar::make_func(
+            //                 vec![the_variant.data.clone().subst(
+            //                     symbol_table_OLD,
+            //                     Prov::Node(expr.id),
+            //                     &substitution,
+            //                 )],
+            //                 def_type,
+            //                 Prov::Node(expr.id),
+            //             ),
+            //         );
+            //     }
+            //     return;
+            // }
             let struct_def = ctx.struct_defs.get(symbol).cloned();
             if let Some(struct_def) = struct_def {
                 let nparams = struct_def.params.len();
