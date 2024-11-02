@@ -1,10 +1,11 @@
 use crate::ast::{
-    ArgAnnotated, AstType, Expr, ExprKind, FileAst, ItemKind, Node, NodeId, NodeMap, Pat, PatKind,
-    Sources, Stmt, StmtKind, TypeDefKind, TypeKind,
+    ArgAnnotated, Expr, ExprKind, FileAst, ItemKind, Node, NodeId, NodeMap, Pat, PatKind, Sources,
+    Stmt, StmtKind, Type as AstType, TypeDefKind, TypeKind,
 };
 use crate::ast::{BinOpcode, Item};
 use crate::builtin::Builtin;
 use crate::environment::Environment;
+use crate::EffectStruct;
 use core::panic;
 use disjoint_sets::UnionFindNode;
 use std::cell::RefCell;
@@ -696,13 +697,34 @@ impl TypeVar {
 fn tyvar_of_declaration(ctx: &mut StaticsContext, decl: &Declaration) -> Option<TypeVar> {
     match decl {
         Declaration::FreeFunction(f) => Some(TypeVar::from_node(ctx, f.name.id)),
-        Declaration::InterfaceDef(rc) => todo!(),
-        Declaration::InterfaceMethod { iface_def, method } => todo!(),
-        Declaration::EnumVariant { enum_def, variant } => todo!(),
-        Declaration::Struct(rc) => todo!(),
-        Declaration::Builtin(builtin) => todo!(),
-        Declaration::Effect(_) => todo!(),
-        Declaration::Var(node_id) => todo!(),
+        Declaration::InterfaceDef(rc) => None,
+        Declaration::InterfaceMethod { iface_def, method } => {
+            let method_def = &iface_def.props[*method as usize];
+            Some(ast_type_to_statics_type(ctx, method_def.ty.clone()))
+        }
+        Declaration::EnumVariant { enum_def, variant } => {
+            // TODO make the function type for the enum variant constructor
+            None
+        }
+        Declaration::Struct(struct_def) => {
+            // TODO make function type for struct constructor
+            None
+        }
+        Declaration::Builtin(builtin) => {
+            let ty_signature = builtin.type_signature();
+            Some(solved_type_to_typevar(
+                ty_signature,
+                Prov::Builtin(*builtin),
+            ))
+        }
+        Declaration::Effect(e) => {
+            let effect = &ctx.effects[*e as usize];
+            let ty_signature = &effect.type_signature;
+            let func_type =
+                Monotype::Function(ty_signature.0.clone(), ty_signature.1.clone().into());
+            Some(monotype_to_typevar(func_type, Prov::Effect(*e)))
+        }
+        Declaration::Var(node_id) => Some(TypeVar::from_node(ctx, *node_id)),
     }
 }
 

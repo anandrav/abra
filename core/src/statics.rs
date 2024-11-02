@@ -161,11 +161,11 @@ pub(crate) enum Declaration {
     InterfaceDef(Rc<InterfaceDef>),
     InterfaceMethod {
         iface_def: Rc<InterfaceDef>,
-        method: u16, // TODO: just use usize for simplicity
+        method: u16,
     },
     EnumVariant {
         enum_def: Rc<EnumDef>,
-        variant: u16, // TODO: just use usize for simplicity
+        variant: u16,
     },
     Struct(Rc<StructDef>),
     Builtin(Builtin),
@@ -201,12 +201,12 @@ impl Declaration {
                         | TypeKind::Function(..) => 1,
                         TypeKind::Tuple(elems) => elems.len(),
                     },
-                };
-                Resolution_OLD::VariantCtor(*variant, arity as u16)
+                } as u16;
+                Resolution_OLD::VariantCtor(*variant, arity)
             }
             Declaration::Struct(struct_def) => {
-                let nargs = struct_def.fields.len();
-                Resolution_OLD::StructCtor(nargs as u16)
+                let nargs = struct_def.fields.len() as u16;
+                Resolution_OLD::StructCtor(nargs)
             }
             Declaration::Builtin(b) => Resolution_OLD::Builtin(*b),
             Declaration::Effect(e) => Resolution_OLD::Effect(*e),

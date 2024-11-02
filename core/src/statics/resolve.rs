@@ -126,13 +126,14 @@ fn gather_declarations_item(namespace: &mut Namespace, qualifiers: Vec<String>, 
             // and call interface methods using the dot operator. my_struct.to_string() etc.
             for (i, p) in iface.props.iter().enumerate() {
                 let method_name = p.name.v.clone();
+                let method = i as u16;
                 let mut fully_qualified_name = qualifiers.clone();
                 fully_qualified_name.push(method_name.clone());
                 namespace.declarations.insert(
                     method_name,
                     Declaration::InterfaceMethod {
                         iface_def: iface.clone(),
-                        method: i as u16,
+                        method,
                     },
                 );
             }
@@ -149,12 +150,13 @@ fn gather_declarations_item(namespace: &mut Namespace, qualifiers: Vec<String>, 
 
                 for (i, v) in e.variants.iter().enumerate() {
                     let variant_name = v.ctor.v.clone();
+                    let variant = i as u16;
 
                     namespace.declarations.insert(
                         variant_name,
                         Declaration::EnumVariant {
                             enum_def: e.clone(),
-                            variant: i as u16,
+                            variant,
                         },
                     );
                 }
@@ -353,11 +355,12 @@ fn resolve_names_item(ctx: &mut StaticsContext, symbol_table: SymbolTable, stmt:
             {
                 for (i, prop) in props.iter().enumerate() {
                     if let StmtKind::FuncDef(f) = &*prop.kind {
+                        let method = i as u16;
                         symbol_table.extend_declaration(
                             f.name.v.clone(),
                             Declaration::InterfaceMethod {
                                 iface_def: iface_def.clone(),
-                                method: i as u16,
+                                method,
                             },
                         );
                         let symbol_table = symbol_table.new_scope();

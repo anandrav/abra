@@ -23,14 +23,14 @@ impl Node for Identifier {
     }
 }
 
-pub(crate) type ArgAnnotated = (Rc<Pat>, Option<Rc<AstType>>);
+pub(crate) type ArgAnnotated = (Rc<Pat>, Option<Rc<Type>>);
 
 #[derive(Debug, Clone)]
 pub(crate) struct Sources {
     pub(crate) filename_to_source: HashMap<String, String>,
 }
 
-pub(crate) type PatAnnotated = (Rc<Pat>, Option<Rc<AstType>>);
+pub(crate) type PatAnnotated = (Rc<Pat>, Option<Rc<Type>>);
 
 #[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq, Hash)]
 pub(crate) struct FileAst {
@@ -67,21 +67,21 @@ pub(crate) enum TypeDefKind {
 #[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq, Hash)]
 pub(crate) struct EnumDef {
     pub(crate) name: Identifier,
-    pub(crate) ty_args: Vec<Rc<AstType>>,
+    pub(crate) ty_args: Vec<Rc<Type>>,
     pub(crate) variants: Vec<Rc<Variant>>,
 }
 
 #[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq, Hash)]
 pub(crate) struct StructDef {
     pub(crate) name: Identifier,
-    pub(crate) ty_args: Vec<Rc<AstType>>,
+    pub(crate) ty_args: Vec<Rc<Type>>,
     pub(crate) fields: Vec<Rc<StructField>>,
 }
 
 #[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq, Hash)]
 pub(crate) struct Variant {
     pub(crate) ctor: Identifier,
-    pub(crate) data: Option<Rc<AstType>>,
+    pub(crate) data: Option<Rc<Type>>,
 
     pub(crate) span: Span,
     pub(crate) id: NodeId,
@@ -106,7 +106,7 @@ impl Node for Variant {
 #[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq, Hash)]
 pub(crate) struct StructField {
     pub(crate) name: Identifier,
-    pub(crate) ty: Rc<AstType>,
+    pub(crate) ty: Rc<Type>,
 
     pub(crate) span: Span,
     pub(crate) id: NodeId,
@@ -237,7 +237,7 @@ pub(crate) enum ItemKind {
     FuncDef(Rc<FuncDef>),
     TypeDef(Rc<TypeDefKind>),
     InterfaceDef(Rc<InterfaceDef>),
-    InterfaceImpl(Identifier, Rc<AstType>, Vec<Rc<Stmt>>), // TODO: Don't use Vec<Stmt>. Use Vec<MethodDef>
+    InterfaceImpl(Identifier, Rc<Type>, Vec<Rc<Stmt>>), // TODO: Don't use Vec<Stmt>. Use Vec<MethodDef>
     Import(Identifier),
     Stmt(Rc<Stmt>),
 }
@@ -303,7 +303,7 @@ pub(crate) enum StmtKind {
 pub(crate) struct FuncDef {
     pub(crate) name: Identifier,
     pub(crate) args: Vec<ArgAnnotated>,
-    pub(crate) ret_type: Option<Rc<AstType>>,
+    pub(crate) ret_type: Option<Rc<Type>>,
     pub(crate) body: Rc<Expr>,
 }
 
@@ -316,7 +316,7 @@ pub(crate) struct InterfaceDef {
 #[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq, Hash)]
 pub(crate) struct InterfaceProperty {
     pub(crate) name: Identifier,
-    pub(crate) ty: Rc<AstType>,
+    pub(crate) ty: Rc<Type>,
 }
 
 impl Node for InterfaceProperty {
@@ -423,7 +423,7 @@ pub(crate) enum ExprKind {
     Str(String),
     List(Vec<Rc<Expr>>),
     Array(Vec<Rc<Expr>>),
-    Func(Vec<ArgAnnotated>, Option<Rc<AstType>>, Rc<Expr>),
+    Func(Vec<ArgAnnotated>, Option<Rc<Type>>, Rc<Expr>),
     If(Rc<Expr>, Rc<Expr>, Option<Rc<Expr>>),
     WhileLoop(Rc<Expr>, Rc<Expr>),
     Match(Rc<Expr>, Vec<MatchArm>),
@@ -519,13 +519,13 @@ pub(crate) enum PatKind {
 }
 
 #[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq, Hash)]
-pub(crate) struct AstType {
+pub(crate) struct Type {
     pub(crate) typekind: Rc<TypeKind>,
     pub(crate) span: Span,
     pub(crate) id: NodeId,
 }
 
-impl Node for AstType {
+impl Node for Type {
     fn span(&self) -> Span {
         self.span.clone()
     }
@@ -567,14 +567,14 @@ impl Node for AstType {
 pub(crate) enum TypeKind {
     Poly(Identifier, Vec<Identifier>),
     Identifier(String),
-    Ap(Identifier, Vec<Rc<AstType>>),
+    Ap(Identifier, Vec<Rc<Type>>),
     Unit,
     Int,
     Float,
     Bool,
     Str,
-    Function(Vec<Rc<AstType>>, Rc<AstType>),
-    Tuple(Vec<Rc<AstType>>),
+    Function(Vec<Rc<Type>>, Rc<Type>),
+    Tuple(Vec<Rc<Type>>),
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -605,7 +605,7 @@ impl Default for NodeId {
 #[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq, Hash)]
 pub(crate) struct Span {
     // TODO: this is egregious
-    // storing the filename for every single Span? Every single node in the AST? Lol
+    // storing the filename for every single Span? Every single node in the AST? Lol.
     pub(crate) filename: String,
     pub(crate) lo: usize,
     pub(crate) hi: usize,
