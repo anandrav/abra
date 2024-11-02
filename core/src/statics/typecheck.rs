@@ -151,7 +151,7 @@ pub(crate) enum PotentialType {
     String(Provs),
     Function(Provs, Vec<TypeVar>, TypeVar),
     Tuple(Provs, Vec<TypeVar>),
-    UdtInstance(Provs, String, Vec<TypeVar>), // TODO: instead of Symbol, use a node_id of the declaration. Types should be able to share the same name
+    UdtInstance(Provs, String, Vec<TypeVar>), // TODO: instead of String, use a node_id of the declaration. Types should be able to share the same name
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
@@ -295,7 +295,7 @@ impl fmt::Display for Monotype {
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub(crate) enum TypeKey {
     Poly,              // TODO: why isn't the String included here?
-    TyApp(String, u8), // u8 represents the number of type params
+    TyApp(String, u8), // u8 represents the number of type params // TODO: Don't use String here use reference to declaration
     Unit,
     Int,
     Float,
@@ -320,7 +320,7 @@ pub(crate) enum Prov {
     Effect(u16),
     UnderdeterminedCoerceToUnit,
 
-    Alias(String), // TODO FIXME: Store a NodeId/resolution instead of a Symbol
+    Alias(String), // TODO FIXME: Store a NodeId/resolution instead of a String
     UdtDef(Box<Prov>),
 
     InstantiateUdtParam(Box<Prov>, u8),
@@ -701,7 +701,7 @@ fn tyvar_of_declaration(
 ) -> Option<TypeVar> {
     match decl {
         Declaration::FreeFunction(f) => Some(TypeVar::from_node(ctx, f.name.id)),
-        Declaration::InterfaceDef(rc) => None,
+        Declaration::InterfaceDef(..) => None,
         Declaration::InterfaceMethod { iface_def, method } => Some(TypeVar::from_node(
             ctx,
             iface_def.props[*method as usize].id(),
@@ -1429,7 +1429,7 @@ pub(crate) fn result_of_constraint_solving(
 
 pub(crate) fn generate_constraints_file(file: Rc<FileAst>, ctx: &mut StaticsContext) {
     for items in file.items.iter() {
-        generate_constraints_item(Mode::Syn, items.clone(), ctx, true);
+        generate_constraints_item(Mode::Syn, items.clone(), ctx);
     }
 }
 
@@ -1546,7 +1546,6 @@ fn generate_constraints_expr(
                     Mode::Syn,
                     statement.clone(),
                     ctx,
-                    true,
                 );
             }
             // if last statement is an expression, the block will have that expression's type
@@ -1563,7 +1562,6 @@ fn generate_constraints_expr(
                     Mode::Syn,
                     statements.last().unwrap().clone(),
                     ctx,
-                    true,
                 );
                 constrain(node_ty, TypeVar::make_unit(Prov::Node(expr.id)))
             }
@@ -1786,7 +1784,7 @@ fn generate_constraints_func_helper(
                     constrain(ty_annot.clone(), arg_annot.clone());
                     polyvar_scope.add_polys(&arg_annot);
                     generate_constraints_pat(
-                        polyvar_scope.clone(), // TODO what are the consequences of analyzing patterns with context containing previous pattern... probs should not do that
+                        polyvar_scope.clone(),
                         Mode::Ana { expected: ty_annot },
                         arg.clone(),
                         ctx,
@@ -1826,22 +1824,13 @@ fn generate_constraints_func_helper(
     TypeVar::make_func(ty_args, ty_body, Prov::Node(node_id))
 }
 
-fn generate_constraints_item(
-    mode: Mode,
-    stmt: Rc<Item>,
-    ctx: &mut StaticsContext,
-    add_to_tyvar_symbol_table: bool, // TODO: this is terrible
-) {
+fn generate_constraints_item(mode: Mode, stmt: Rc<Item>, ctx: &mut StaticsContext) {
     match &*stmt.kind {
         ItemKind::InterfaceDef(..) => {}
         ItemKind::Import(..) => {}
-        ItemKind::Stmt(stmt) => generate_constraints_stmt(
-            PolyvarScope::empty(),
-            mode,
-            stmt.clone(),
-            ctx,
-            add_to_tyvar_symbol_table,
-        ),
+        ItemKind::Stmt(stmt) => {
+            generate_constraints_stmt(PolyvarScope::empty(), mode, stmt.clone(), ctx)
+        }
         ItemKind::InterfaceImpl(ident, typ, statements) => {
             let typ = ast_type_to_statics_type(ctx, typ.clone());
 
@@ -1870,7 +1859,6 @@ fn generate_constraints_item(
                             Mode::Syn,
                             statement.clone(),
                             ctx,
-                            false,
                         );
                     } else {
                         ctx.interface_impl_extra_method
@@ -1925,7 +1913,6 @@ fn generate_constraints_stmt(
     mode: Mode,
     stmt: Rc<Stmt>,
     ctx: &mut StaticsContext,
-    add_to_tyvar_symbol_table: bool, // TODO: this is terrible
 ) {
     match &*stmt.kind {
         StmtKind::Expr(expr) => {
