@@ -228,7 +228,7 @@ impl Matrix {
                     | SolvedType::Float
                     | SolvedType::Function(..)
                     | SolvedType::Tuple(_)
-                    | SolvedType::UdtInstance(..) => new_types.push(data_ty),
+                    | SolvedType::Nominal(..) => new_types.push(data_ty),
                     _ => panic!("unexpected type"),
                 }
             }
@@ -386,7 +386,7 @@ impl DeconstructedPat {
             | SolvedType::Poly(..)
             | SolvedType::Function(..) => vec![],
             SolvedType::Tuple(tys) => tys.clone(),
-            SolvedType::UdtInstance(_, _) => match ctor {
+            SolvedType::Nominal(_, _) => match ctor {
                 Constructor::Variant(ident) => {
                     let enumt = statics.enum_def_of_variant(ident).unwrap();
                     let variant = enumt.variants.iter().find(|v| v.ctor == *ident).unwrap();
@@ -406,7 +406,7 @@ impl DeconstructedPat {
 
     fn missing_from_ctor(ctor: &Constructor, ty: SolvedType) -> Self {
         let fields = match ty.clone() {
-            SolvedType::Tuple(tys) | SolvedType::UdtInstance(_, tys) => tys
+            SolvedType::Tuple(tys) | SolvedType::Nominal(_, tys) => tys
                 .iter()
                 .map(|ty| DeconstructedPat {
                     ctor: Constructor::Wildcard(WildcardReason::NonExhaustive),
@@ -466,8 +466,8 @@ enum Constructor {
     Int(i64),
     Float(AbraFloat),
     String(String),
-    Product, // tuples, including unit
-    Variant(String),
+    Product,         // tuples, including unit
+    Variant(String), // TODO: Can't use a string here. Add tests for checking pattern exhaustiveness then change this
 }
 
 impl Constructor {
@@ -811,7 +811,7 @@ fn compute_exhaustiveness_and_usefulness(
 fn ctors_for_ty(statics: &StaticsContext, ty: &SolvedType) -> ConstructorSet {
     match ty {
         SolvedType::Bool => ConstructorSet::Bool,
-        SolvedType::UdtInstance(ident, _) => {
+        SolvedType::Nominal(ident, _) => {
             let variants = statics.variants_of_enum(ident);
             ConstructorSet::EnumVariants(variants)
         }

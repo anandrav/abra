@@ -144,20 +144,20 @@ impl Builtin {
 
             Builtin::ArrayAppend => Type::Function(
                 vec![
-                    Type::UdtInstance("array".into(), vec![Type::Poly("a".to_string(), vec![])]),
+                    Type::Nominal("array".into(), vec![Type::Poly("a".to_string(), vec![])]),
                     Type::Poly("a".to_string(), vec![]),
                 ],
                 Box::new(Type::Unit),
             ),
             Builtin::ArrayLength => Type::Function(
-                vec![Type::UdtInstance(
+                vec![Type::Nominal(
                     "array".into(),
                     vec![Type::Poly("a".into(), vec![])],
                 )],
                 Box::new(Type::Int),
             ),
             Builtin::ArrayPop => Type::Function(
-                vec![Type::UdtInstance(
+                vec![Type::Nominal(
                     "array".into(),
                     vec![Type::Poly("a".into(), vec![])],
                 )],

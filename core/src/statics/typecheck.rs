@@ -12,7 +12,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::fmt::{self, Write};
 use std::rc::Rc;
 
-use super::{Declaration, StaticsContext};
+use super::{Declaration, EnumDef, StaticsContext, StructDef};
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub(crate) struct TypeVar(UnionFindNode<TypeVarData>);
@@ -119,8 +119,8 @@ impl TypeVarData {
                         }
                     }
                 }
-                PotentialType::UdtInstance(other_provs, _, other_tys) => {
-                    if let PotentialType::UdtInstance(_, _, tys) = t {
+                PotentialType::Nominal(other_provs, _, other_tys) => {
+                    if let PotentialType::Nominal(_, _, tys) = t {
                         if tys.len() == other_tys.len() {
                             for (ty, other_ty) in tys.iter().zip(other_tys.iter()) {
                                 constrain(ty.clone(), other_ty.clone());
@@ -151,7 +151,14 @@ pub(crate) enum PotentialType {
     String(Provs),
     Function(Provs, Vec<TypeVar>, TypeVar),
     Tuple(Provs, Vec<TypeVar>),
-    UdtInstance(Provs, String, Vec<TypeVar>), // TODO: instead of String, use a node_id of the declaration. Types should be able to share the same name
+    Nominal(Provs, String, Vec<TypeVar>), // TODO: instead of String, use a reference to the declaration. Types should be able to share the same name
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+pub(crate) enum Nominal {
+    Struct(Rc<StructDef>),
+    Enum(Rc<EnumDef>),
+    Array,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
@@ -164,7 +171,7 @@ pub(crate) enum SolvedType {
     String,
     Function(Vec<SolvedType>, Box<SolvedType>),
     Tuple(Vec<SolvedType>),
-    UdtInstance(String, Vec<SolvedType>),
+    Nominal(String, Vec<SolvedType>), // TODO: Instead of a String, use a reference to the declaration
 }
 
 impl SolvedType {
@@ -199,7 +206,7 @@ impl SolvedType {
                 }
                 Some(Monotype::Tuple(elems2))
             }
-            Self::UdtInstance(ident, params) => {
+            Self::Nominal(ident, params) => {
                 let mut params2: Vec<Monotype> = vec![];
                 for param in params {
                     if let Some(param) = param.monotype() {
@@ -208,7 +215,7 @@ impl SolvedType {
                         return None;
                     }
                 }
-                Some(Monotype::Enum(ident.clone(), params2))
+                Some(Monotype::Nominal(ident.clone(), params2))
             }
         }
     }
@@ -225,7 +232,7 @@ impl SolvedType {
                 args.iter().any(|ty| ty.is_overloaded()) || out.is_overloaded()
             }
             Self::Tuple(tys) => tys.iter().any(|ty| ty.is_overloaded()),
-            Self::UdtInstance(_, tys) => tys.iter().any(|ty| ty.is_overloaded()),
+            Self::Nominal(_, tys) => tys.iter().any(|ty| ty.is_overloaded()),
         }
     }
 }
@@ -240,13 +247,13 @@ pub enum Monotype {
     String,
     Function(Vec<Monotype>, Box<Monotype>),
     Tuple(Vec<Monotype>),
-    Enum(String, Vec<Monotype>),
+    Nominal(String, Vec<Monotype>),
 }
 
 impl fmt::Display for Monotype {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Monotype::Enum(ident, params) => {
+            Monotype::Nominal(ident, params) => {
                 if !params.is_empty() {
                     write!(f, "{}<", ident)?;
                     for (i, param) in params.iter().enumerate() {
@@ -371,7 +378,7 @@ impl PotentialType {
             PotentialType::String(_) => TypeKey::String,
             PotentialType::Function(_, args, _) => TypeKey::Function(args.len() as u8),
             PotentialType::Tuple(_, elems) => TypeKey::Tuple(elems.len() as u8),
-            PotentialType::UdtInstance(_, ident, params) => {
+            PotentialType::Nominal(_, ident, params) => {
                 TypeKey::TyApp(ident.clone(), params.len() as u8)
             }
         }
@@ -410,7 +417,7 @@ impl PotentialType {
                 }
                 Some(SolvedType::Tuple(elems2))
             }
-            Self::UdtInstance(_, ident, params) => {
+            Self::Nominal(_, ident, params) => {
                 let mut params2: Vec<SolvedType> = vec![];
                 for param in params {
                     if let Some(param) = param.solution() {
@@ -419,7 +426,7 @@ impl PotentialType {
                         return None;
                     }
                 }
-                Some(SolvedType::UdtInstance(ident.clone(), params2))
+                Some(SolvedType::Nominal(ident.clone(), params2))
             }
         }
     }
@@ -434,7 +441,7 @@ impl PotentialType {
             | Self::String(provs)
             | Self::Function(provs, _, _)
             | Self::Tuple(provs, _)
-            | Self::UdtInstance(provs, _, _) => provs,
+            | Self::Nominal(provs, _, _) => provs,
         }
     }
 
@@ -475,7 +482,7 @@ impl PotentialType {
     }
 
     fn make_def_instance(prov: Prov, ident: String, params: Vec<TypeVar>) -> PotentialType {
-        PotentialType::UdtInstance(provs_singleton(prov), ident, params)
+        PotentialType::Nominal(provs_singleton(prov), ident, params)
     }
 }
 
@@ -519,12 +526,12 @@ impl TypeVar {
                     ty // noop
                 }
             }
-            PotentialType::UdtInstance(provs, ident, params) => {
+            PotentialType::Nominal(provs, ident, params) => {
                 let params = params
                     .into_iter()
                     .map(|ty| ty.instantiate(polyvar_scope.clone(), ctx, prov.clone()))
                     .collect();
-                PotentialType::UdtInstance(provs, ident, params)
+                PotentialType::Nominal(provs, ident, params)
             }
             PotentialType::Function(provs, args, out) => {
                 let args = args
@@ -576,12 +583,12 @@ impl TypeVar {
                         ty // noop
                     }
                 }
-                PotentialType::UdtInstance(provs, ident, params) => {
+                PotentialType::Nominal(provs, ident, params) => {
                     let params = params
                         .into_iter()
                         .map(|ty| ty.subst(polyvar_scope.clone(), prov.clone(), substitution))
                         .collect();
-                    PotentialType::UdtInstance(provs, ident, params)
+                    PotentialType::Nominal(provs, ident, params)
                 }
                 PotentialType::Function(provs, args, out) => {
                     let args = args
@@ -668,7 +675,7 @@ impl TypeVar {
         ))
     }
 
-    fn make_def_instance(prov: Prov, ident: String, params: Vec<TypeVar>) -> TypeVar {
+    fn make_nominal(prov: Prov, ident: String, params: Vec<TypeVar>) -> TypeVar {
         Self::orphan(PotentialType::make_def_instance(prov, ident, params))
     }
 
@@ -681,7 +688,7 @@ impl TypeVar {
         };
         match ty {
             // return true if an enumt with at least one parameter instantiated
-            PotentialType::UdtInstance(_, _, tys) => !tys
+            PotentialType::Nominal(_, _, tys) => !tys
                 .iter()
                 .all(|ty| matches!(ty.single(), Some(PotentialType::Poly(..)))),
             _ => false,
@@ -722,7 +729,7 @@ fn tyvar_of_declaration(
                 };
                 substitution.insert(ty_arg.v.clone(), params[i].clone());
             }
-            let def_type = TypeVar::make_def_instance(
+            let def_type = TypeVar::make_nominal(
                 Prov::UdtDef(Box::new(Prov::Node(id))),
                 enum_def.name.v.clone(),
                 params,
@@ -776,7 +783,7 @@ fn tyvar_of_declaration(
                 };
                 substitution.insert(ty_arg.v.clone(), params[i].clone());
             }
-            let def_type = TypeVar::make_def_instance(
+            let def_type = TypeVar::make_nominal(
                 Prov::UdtDef(Box::new(Prov::Node(id))),
                 struct_def.name.v.clone(),
                 params,
@@ -894,7 +901,7 @@ pub(crate) fn ast_type_to_statics_type_interface(
                 TypeVar::fresh(ctx, Prov::Alias(ident.clone()))
             }
         }
-        TypeKind::Ap(ident, params) => TypeVar::make_def_instance(
+        TypeKind::Ap(ident, params) => TypeVar::make_nominal(
             Prov::Node(ast_type.id()),
             ident.v.clone(),
             params
@@ -973,7 +980,7 @@ impl PolyvarScope {
             PotentialType::Poly(_, ident, _interfaces) => {
                 self.polyvars_in_scope.extend(ident.clone(), ());
             }
-            PotentialType::UdtInstance(_, _, params) => {
+            PotentialType::Nominal(_, _, params) => {
                 for param in params {
                     self.add_polys(&param);
                 }
@@ -1105,7 +1112,7 @@ pub(crate) fn result_of_constraint_solving(
         let Some(solved) = typ else {
             continue;
         };
-        if let SolvedType::UdtInstance(ident, _) = &solved {
+        if let SolvedType::Nominal(ident, _) = &solved {
             let struct_def = ctx.struct_defs.get(ident);
             if struct_def.is_some() {
                 continue;
@@ -1271,7 +1278,7 @@ pub(crate) fn result_of_constraint_solving(
                     PotentialType::Poly(_, _, _) => {
                         err_string.push_str("Sources of generic type:\n")
                     }
-                    PotentialType::UdtInstance(_, ident, params) => {
+                    PotentialType::Nominal(_, ident, params) => {
                         let _ = write!(err_string, "Sources of type {}<", ident);
                         for (i, param) in params.iter().enumerate() {
                             if i != 0 {
@@ -1466,7 +1473,7 @@ fn generate_constraints_expr(
             let elem_ty = TypeVar::fresh(ctx, Prov::ListElem(Prov::Node(expr.id).into()));
             constrain(
                 node_ty,
-                TypeVar::make_def_instance(
+                TypeVar::make_nominal(
                     Prov::Node(expr.id),
                     "list".to_owned(),
                     vec![elem_ty.clone()],
@@ -1487,7 +1494,7 @@ fn generate_constraints_expr(
             let elem_ty = TypeVar::fresh(ctx, Prov::ListElem(Prov::Node(expr.id).into()));
             constrain(
                 node_ty,
-                TypeVar::make_def_instance(
+                TypeVar::make_nominal(
                     Prov::Node(expr.id),
                     "array".to_owned(),
                     vec![elem_ty.clone()],
@@ -1720,7 +1727,7 @@ fn generate_constraints_expr(
             let Some(inner) = ty_expr.single() else {
                 return;
             };
-            if let PotentialType::UdtInstance(_, ident, _) = inner {
+            if let PotentialType::Nominal(_, ident, _) = inner {
                 if let Some(struct_def) = ctx.struct_defs.get(&ident) {
                     let ExprKind::Identifier(field_ident) = &*field.kind else {
                         ctx.field_not_ident.insert(field.id);
@@ -1744,7 +1751,7 @@ fn generate_constraints_expr(
             let accessed_ty = TypeVar::from_node(ctx, accessed.id);
             constrain(
                 accessed_ty,
-                TypeVar::make_def_instance(
+                TypeVar::make_nominal(
                     Prov::Node(accessed.id),
                     "array".to_owned(),
                     vec![elem_ty.clone()],
@@ -1952,8 +1959,6 @@ fn generate_constraints_stmt(
             let func_node_id = stmt.id;
             let ty_pat = TypeVar::from_node(ctx, f.name.id);
 
-            let func_name = f.name.v.clone();
-
             let body_symbol_table = polyvar_scope.new_scope();
             let ty_func = generate_constraints_func_helper(
                 ctx,
@@ -1997,7 +2002,7 @@ fn generate_constraints_pat(
         PatKind::Str(_) => {
             constrain(ty_pat, TypeVar::make_string(Prov::Node(pat.id)));
         }
-        PatKind::Binding(name) => {}
+        PatKind::Binding(_) => {}
         PatKind::Variant(tag, data) => {
             let ty_data = match data {
                 Some(data) => TypeVar::from_node(ctx, data.id),
@@ -2017,7 +2022,7 @@ fn generate_constraints_pat(
                         ));
                         substitution.insert(enum_def.params[i].clone(), params[i].clone());
                     }
-                    let def_type = TypeVar::make_def_instance(
+                    let def_type = TypeVar::make_nominal(
                         Prov::UdtDef(Box::new(Prov::Node(pat.id))),
                         enum_def.name,
                         params,
@@ -2085,12 +2090,12 @@ pub(crate) fn monotype_to_typevar(ty: Monotype, prov: Prov) -> TypeVar {
             let out = monotype_to_typevar(*out, prov.clone());
             TypeVar::make_func(args, out, prov.clone())
         }
-        Monotype::Enum(name, params) => {
+        Monotype::Nominal(name, params) => {
             let params = params
                 .into_iter()
                 .map(|p| monotype_to_typevar(p, prov.clone()))
                 .collect();
-            TypeVar::make_def_instance(prov, name, params)
+            TypeVar::make_nominal(prov, name, params)
         }
     }
 }
@@ -2117,12 +2122,12 @@ pub(crate) fn solved_type_to_typevar(ty: SolvedType, prov: Prov) -> TypeVar {
             let out = solved_type_to_typevar(*out, prov.clone());
             TypeVar::make_func(args, out, prov.clone())
         }
-        SolvedType::UdtInstance(name, params) => {
+        SolvedType::Nominal(name, params) => {
             let params = params
                 .into_iter()
                 .map(|p| solved_type_to_typevar(p, prov.clone()))
                 .collect();
-            TypeVar::make_def_instance(prov, name, params)
+            TypeVar::make_nominal(prov, name, params)
         }
         SolvedType::Poly(ident, interfaces) => TypeVar::make_poly(prov, ident, interfaces),
     }
@@ -2177,7 +2182,7 @@ pub(crate) fn ty_fits_impl_ty(
                 Err((typ, impl_ty))
             }
         }
-        (SolvedType::UdtInstance(ident1, tys1), SolvedType::UdtInstance(ident2, tys2)) => {
+        (SolvedType::Nominal(ident1, tys1), SolvedType::Nominal(ident2, tys2)) => {
             if ident1 == ident2 && tys1.len() == tys2.len() {
                 for (ty1, ty2) in tys1.iter().zip(tys2.iter()) {
                     let SolvedType::Poly(_, interfaces) = ty2.clone() else {
@@ -2252,7 +2257,7 @@ impl fmt::Display for PotentialType {
                 }
                 Ok(())
             }
-            PotentialType::UdtInstance(_, ident, params) => {
+            PotentialType::Nominal(_, ident, params) => {
                 if !params.is_empty() {
                     write!(f, "{}<", ident)?;
                     for (i, param) in params.iter().enumerate() {
@@ -2312,7 +2317,7 @@ impl fmt::Display for SolvedType {
                 }
                 Ok(())
             }
-            SolvedType::UdtInstance(ident, params) => {
+            SolvedType::Nominal(ident, params) => {
                 if !params.is_empty() {
                     write!(f, "{}<", ident)?;
                     for (i, param) in params.iter().enumerate() {

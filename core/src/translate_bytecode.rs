@@ -758,7 +758,7 @@ impl Translator {
                 }
                 _ => panic!("unexpected pattern: {:?}", pat.kind),
             },
-            Type::UdtInstance(symbol, _) => match &*pat.kind {
+            Type::Nominal(symbol, _) => match &*pat.kind {
                 PatKind::Variant(ctor, inner) => {
                     let enumt = self.statics.enum_defs.get(symbol).unwrap();
                     let tag_fail_label = make_label("tag_fail");
@@ -1355,7 +1355,7 @@ fn idx_of_field(statics: &StaticsContext, accessed: Rc<Expr>, field: &str) -> u1
     let accessed_ty = statics.solution_of_node(accessed.id).unwrap();
 
     match accessed_ty {
-        Type::UdtInstance(symbol, _) => {
+        Type::Nominal(symbol, _) => {
             let struct_ty = statics.struct_defs.get(&symbol).expect("not a struct type");
             let field_idx = struct_ty
                 .fields
@@ -1377,7 +1377,7 @@ fn update_monomorph_env(monomorph_env: MonomorphEnv, overloaded_ty: Type, monomo
             }
             update_monomorph_env(monomorph_env, *out, *out2);
         }
-        (Type::UdtInstance(ident, params), Type::UdtInstance(ident2, params2)) => {
+        (Type::Nominal(ident, params), Type::Nominal(ident2, params2)) => {
             assert_eq!(ident, ident2);
             for i in 0..params.len() {
                 update_monomorph_env(monomorph_env.clone(), params[i].clone(), params2[i].clone());
@@ -1405,12 +1405,12 @@ fn subst_with_monomorphic_env(monomorphic_env: MonomorphEnv, ty: Type) -> Type {
             let new_out = subst_with_monomorphic_env(monomorphic_env, *out);
             Type::Function(new_args, Box::new(new_out))
         }
-        Type::UdtInstance(ident, params) => {
+        Type::Nominal(ident, params) => {
             let new_params = params
                 .iter()
                 .map(|param| subst_with_monomorphic_env(monomorphic_env.clone(), param.clone()))
                 .collect();
-            Type::UdtInstance(ident, new_params)
+            Type::Nominal(ident, new_params)
         }
         Type::Poly(ref ident, _) => {
             if let Some(monomorphic_ty) = monomorphic_env.lookup(ident) {
