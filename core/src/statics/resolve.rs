@@ -13,7 +13,7 @@ use super::{Declaration, Namespace, StaticsContext, TypeVar};
 // TODO: constrain, symbol_table,Prov should be implementation details
 // TODO: others should probably be implementation details too
 use super::typecheck::{
-    ast_type_to_statics_type, ast_type_to_statics_type_interface, constrain, Prov, SymbolTable_OLD,
+    ast_type_to_statics_type, ast_type_to_statics_type_interface, constrain, PolyvarScope, Prov,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -79,30 +79,22 @@ pub(crate) struct InterfaceImplMethod_OLD {
     pub(crate) identifier_location: NodeId,
 }
 
-pub(crate) fn scan_declarations(
-    ctx: &mut StaticsContext,
-    symbol_table: SymbolTable_OLD, // TODO get rid of Env here
-    files: Vec<Rc<FileAst>>,
-) {
+pub(crate) fn scan_declarations(ctx: &mut StaticsContext, files: Vec<Rc<FileAst>>) {
     for file in files {
         let name = file.name.clone();
-        let namespace = gather_declarations_file(ctx, symbol_table.clone(), file.clone());
+        let namespace = gather_declarations_file(ctx, file.clone());
         ctx.global_namespace
             .namespaces
             .insert(name, namespace.into());
     }
 }
 
-fn gather_declarations_file(
-    ctx: &mut StaticsContext,
-    symbol_table: SymbolTable_OLD,
-    file: Rc<FileAst>,
-) -> Namespace {
+fn gather_declarations_file(ctx: &mut StaticsContext, file: Rc<FileAst>) -> Namespace {
     let mut namespace = Namespace::default();
 
     // TODO: get rid of this
     for item in file.items.iter() {
-        gather_definitions_item_DEPRECATE(ctx, symbol_table.clone(), item.clone());
+        gather_definitions_item_DEPRECATE(ctx, item.clone());
     }
 
     let qualifiers = vec![file.name.clone()];
@@ -519,11 +511,7 @@ fn resolve_names_pat(_ctx: &mut StaticsContext, symbol_table: SymbolTable, pat: 
 
 ///////// DEPRECATE BELOW
 
-fn gather_definitions_item_DEPRECATE(
-    ctx: &mut StaticsContext,
-    symbol_table: SymbolTable_OLD,
-    stmt: Rc<Item>,
-) {
+fn gather_definitions_item_DEPRECATE(ctx: &mut StaticsContext, stmt: Rc<Item>) {
     match &*stmt.kind {
         ItemKind::InterfaceDef(i) => {
             if let Some(interface_def) = ctx.interface_defs.get(&i.name.v) {
@@ -688,7 +676,7 @@ fn gather_definitions_item_DEPRECATE(
 
 fn gather_definitions_stmt_DEPRECATE(
     ctx: &mut StaticsContext,
-    symbol_table: SymbolTable_OLD,
+    symbol_table: PolyvarScope,
     stmt: Rc<Stmt>,
 ) {
     match &*stmt.kind {

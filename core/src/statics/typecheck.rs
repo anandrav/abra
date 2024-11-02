@@ -483,7 +483,7 @@ impl TypeVar {
     // Creates a clone of a Type with polymorphic variables not in scope with fresh unification variables
     fn instantiate(
         self,
-        symbol_table_OLD: SymbolTable_OLD,
+        polyvar_scope: PolyvarScope,
         ctx: &mut StaticsContext,
         prov: Prov,
     ) -> TypeVar {
@@ -501,7 +501,7 @@ impl TypeVar {
                 ty // noop
             }
             PotentialType::Poly(_, ref ident, ref interfaces) => {
-                if !symbol_table_OLD.lookup_poly(ident) {
+                if !polyvar_scope.lookup_poly(ident) {
                     let ret = TypeVar::fresh(
                         ctx,
                         Prov::InstantiatePoly(Box::new(prov.clone()), ident.clone()),
@@ -522,22 +522,22 @@ impl TypeVar {
             PotentialType::UdtInstance(provs, ident, params) => {
                 let params = params
                     .into_iter()
-                    .map(|ty| ty.instantiate(symbol_table_OLD.clone(), ctx, prov.clone()))
+                    .map(|ty| ty.instantiate(polyvar_scope.clone(), ctx, prov.clone()))
                     .collect();
                 PotentialType::UdtInstance(provs, ident, params)
             }
             PotentialType::Function(provs, args, out) => {
                 let args = args
                     .into_iter()
-                    .map(|ty| ty.instantiate(symbol_table_OLD.clone(), ctx, prov.clone()))
+                    .map(|ty| ty.instantiate(polyvar_scope.clone(), ctx, prov.clone()))
                     .collect();
-                let out = out.instantiate(symbol_table_OLD.clone(), ctx, prov.clone());
+                let out = out.instantiate(polyvar_scope.clone(), ctx, prov.clone());
                 PotentialType::Function(provs, args, out)
             }
             PotentialType::Tuple(provs, elems) => {
                 let elems = elems
                     .into_iter()
-                    .map(|ty| ty.instantiate(symbol_table_OLD.clone(), ctx, prov.clone()))
+                    .map(|ty| ty.instantiate(polyvar_scope.clone(), ctx, prov.clone()))
                     .collect();
                 PotentialType::Tuple(provs, elems)
             }
@@ -553,7 +553,7 @@ impl TypeVar {
     // Creates a *new* Type with polymorphic variabels replaced by subtitutions
     fn subst(
         self,
-        symbol_table_OLD: SymbolTable_OLD,
+        polyvar_scope: PolyvarScope,
         prov: Prov,
         substitution: &BTreeMap<String, TypeVar>,
     ) -> TypeVar {
@@ -579,22 +579,22 @@ impl TypeVar {
                 PotentialType::UdtInstance(provs, ident, params) => {
                     let params = params
                         .into_iter()
-                        .map(|ty| ty.subst(symbol_table_OLD.clone(), prov.clone(), substitution))
+                        .map(|ty| ty.subst(polyvar_scope.clone(), prov.clone(), substitution))
                         .collect();
                     PotentialType::UdtInstance(provs, ident, params)
                 }
                 PotentialType::Function(provs, args, out) => {
                     let args = args
                         .into_iter()
-                        .map(|ty| ty.subst(symbol_table_OLD.clone(), prov.clone(), substitution))
+                        .map(|ty| ty.subst(polyvar_scope.clone(), prov.clone(), substitution))
                         .collect();
-                    let out = out.subst(symbol_table_OLD.clone(), prov, substitution);
+                    let out = out.subst(polyvar_scope.clone(), prov, substitution);
                     PotentialType::Function(provs, args, out)
                 }
                 PotentialType::Tuple(provs, elems) => {
                     let elems = elems
                         .into_iter()
-                        .map(|ty| ty.subst(symbol_table_OLD.clone(), prov.clone(), substitution))
+                        .map(|ty| ty.subst(polyvar_scope.clone(), prov.clone(), substitution))
                         .collect();
                     PotentialType::Tuple(provs, elems)
                 }
@@ -697,7 +697,7 @@ fn tyvar_of_declaration(
     ctx: &mut StaticsContext,
     decl: &Declaration,
     id: NodeId,
-    symbol_table_OLD: SymbolTable_OLD,
+    polyvar_scope: PolyvarScope,
 ) -> Option<TypeVar> {
     match decl {
         Declaration::FreeFunction(f) => Some(TypeVar::from_node(ctx, f.name.id)),
@@ -739,7 +739,7 @@ fn tyvar_of_declaration(
                             .map(|e| {
                                 let e = ast_type_to_statics_type(ctx, e.clone());
                                 e.clone().subst(
-                                    symbol_table_OLD.clone(),
+                                    polyvar_scope.clone(),
                                     Prov::Node(id),
                                     &substitution,
                                 )
@@ -752,7 +752,7 @@ fn tyvar_of_declaration(
                         Some(TypeVar::make_func(
                             vec![ty
                                 .clone()
-                                .subst(symbol_table_OLD, Prov::Node(id), &substitution)],
+                                .subst(polyvar_scope, Prov::Node(id), &substitution)],
                             def_type,
                             Prov::Node(id),
                         ))
@@ -787,7 +787,7 @@ fn tyvar_of_declaration(
                 .map(|f| {
                     let ty = ast_type_to_statics_type(ctx, f.ty.clone());
                     ty.clone()
-                        .subst(symbol_table_OLD.clone(), Prov::Node(id), &substitution)
+                        .subst(polyvar_scope.clone(), Prov::Node(id), &substitution)
                 })
                 .collect();
             Some(TypeVar::make_func(fields, def_type, Prov::Node(id)))
@@ -952,12 +952,13 @@ pub(crate) fn constrain(mut expected: TypeVar, mut actual: TypeVar) {
     expected.0.union_with(&mut actual.0, TypeVarData::merge);
 }
 
+// TODO: Can this be done in resolve() instead?
 #[derive(Clone)]
-pub(crate) struct SymbolTable_OLD {
+pub(crate) struct PolyvarScope {
     // keep track of polymorphic type variables currently in scope (such as 'a)
     polyvars_in_scope: Environment<String, ()>,
 }
-impl SymbolTable_OLD {
+impl PolyvarScope {
     pub(crate) fn empty() -> Self {
         Self {
             polyvars_in_scope: Environment::empty(),
@@ -1426,25 +1427,14 @@ pub(crate) fn result_of_constraint_solving(
     Err(err_string)
 }
 
-pub(crate) fn generate_constraints_file(
-    // TODO don't pass in symbol_table
-    symbol_table_OLD: SymbolTable_OLD,
-    file: Rc<FileAst>,
-    ctx: &mut StaticsContext,
-) {
+pub(crate) fn generate_constraints_file(file: Rc<FileAst>, ctx: &mut StaticsContext) {
     for items in file.items.iter() {
-        generate_constraints_item(
-            symbol_table_OLD.clone(),
-            Mode::Syn,
-            items.clone(),
-            ctx,
-            true,
-        );
+        generate_constraints_item(Mode::Syn, items.clone(), ctx, true);
     }
 }
 
 fn generate_constraints_expr(
-    symbol_table_OLD: SymbolTable_OLD,
+    polyvar_scope: PolyvarScope,
     mode: Mode,
     expr: Rc<Expr>,
     ctx: &mut StaticsContext,
@@ -1484,7 +1474,7 @@ fn generate_constraints_expr(
             );
             for expr in exprs {
                 generate_constraints_expr(
-                    symbol_table_OLD.clone(),
+                    polyvar_scope.clone(),
                     Mode::Ana {
                         expected: elem_ty.clone(),
                     },
@@ -1505,7 +1495,7 @@ fn generate_constraints_expr(
             );
             for expr in exprs {
                 generate_constraints_expr(
-                    symbol_table_OLD.clone(),
+                    polyvar_scope.clone(),
                     Mode::Ana {
                         expected: elem_ty.clone(),
                     },
@@ -1517,10 +1507,8 @@ fn generate_constraints_expr(
         ExprKind::Identifier(_) => {
             let lookup = ctx.resolution_map.get(&expr.id).cloned();
             if let Some(res) = lookup {
-                if let Some(typ) =
-                    tyvar_of_declaration(ctx, &res, expr.id, symbol_table_OLD.clone())
-                {
-                    let typ = typ.instantiate(symbol_table_OLD, ctx, Prov::Node(expr.id));
+                if let Some(typ) = tyvar_of_declaration(ctx, &res, expr.id, polyvar_scope.clone()) {
+                    let typ = typ.instantiate(polyvar_scope, ctx, Prov::Node(expr.id));
                     constrain(typ, node_ty.clone());
                 }
             }
@@ -1528,19 +1516,19 @@ fn generate_constraints_expr(
         ExprKind::BinOp(left, op, right) => {
             let (ty_left, ty_right, ty_out) = types_of_binop(op, expr.id);
             let (ty_left, ty_right, ty_out) = (
-                ty_left.instantiate(symbol_table_OLD.clone(), ctx, Prov::Node(expr.id)),
-                ty_right.instantiate(symbol_table_OLD.clone(), ctx, Prov::Node(expr.id)),
-                ty_out.instantiate(symbol_table_OLD.clone(), ctx, Prov::Node(expr.id)),
+                ty_left.instantiate(polyvar_scope.clone(), ctx, Prov::Node(expr.id)),
+                ty_right.instantiate(polyvar_scope.clone(), ctx, Prov::Node(expr.id)),
+                ty_out.instantiate(polyvar_scope.clone(), ctx, Prov::Node(expr.id)),
             );
             constrain(ty_out, node_ty);
             generate_constraints_expr(
-                symbol_table_OLD.clone(),
+                polyvar_scope.clone(),
                 Mode::Ana { expected: ty_left },
                 left.clone(),
                 ctx,
             );
             generate_constraints_expr(
-                symbol_table_OLD,
+                polyvar_scope,
                 Mode::Ana { expected: ty_right },
                 right.clone(),
                 ctx,
@@ -1551,10 +1539,10 @@ fn generate_constraints_expr(
                 constrain(node_ty, TypeVar::make_unit(Prov::Node(expr.id)));
                 return;
             }
-            let new_symbol_table_OLD = symbol_table_OLD.new_scope();
+            let new_polyvar_scope = polyvar_scope.new_scope();
             for statement in statements[..statements.len() - 1].iter() {
                 generate_constraints_stmt(
-                    new_symbol_table_OLD.clone(),
+                    new_polyvar_scope.clone(),
                     Mode::Syn,
                     statement.clone(),
                     ctx,
@@ -1564,14 +1552,14 @@ fn generate_constraints_expr(
             // if last statement is an expression, the block will have that expression's type
             if let StmtKind::Expr(terminal_expr) = &*statements.last().unwrap().kind {
                 generate_constraints_expr(
-                    new_symbol_table_OLD,
+                    new_polyvar_scope,
                     Mode::Ana { expected: node_ty },
                     terminal_expr.clone(),
                     ctx,
                 )
             } else {
                 generate_constraints_stmt(
-                    new_symbol_table_OLD,
+                    new_polyvar_scope,
                     Mode::Syn,
                     statements.last().unwrap().clone(),
                     ctx,
@@ -1582,7 +1570,7 @@ fn generate_constraints_expr(
         }
         ExprKind::If(cond, expr1, expr2) => {
             generate_constraints_expr(
-                symbol_table_OLD.clone(),
+                polyvar_scope.clone(),
                 Mode::Ana {
                     expected: TypeVar::make_bool(Prov::Node(cond.id)),
                 },
@@ -1593,7 +1581,7 @@ fn generate_constraints_expr(
                 // if-else
                 Some(expr2) => {
                     generate_constraints_expr(
-                        symbol_table_OLD.clone(),
+                        polyvar_scope.clone(),
                         Mode::Ana {
                             expected: node_ty.clone(),
                         },
@@ -1601,7 +1589,7 @@ fn generate_constraints_expr(
                         ctx,
                     );
                     generate_constraints_expr(
-                        symbol_table_OLD,
+                        polyvar_scope,
                         Mode::Ana { expected: node_ty },
                         expr2.clone(),
                         ctx,
@@ -1610,7 +1598,7 @@ fn generate_constraints_expr(
                 // just if
                 None => {
                     generate_constraints_expr(
-                        symbol_table_OLD,
+                        polyvar_scope,
                         Mode::Ana {
                             expected: TypeVar::make_unit(Prov::Node(expr.id)),
                         },
@@ -1623,20 +1611,20 @@ fn generate_constraints_expr(
         }
         ExprKind::WhileLoop(cond, expr) => {
             generate_constraints_expr(
-                symbol_table_OLD.clone(),
+                polyvar_scope.clone(),
                 Mode::Ana {
                     expected: TypeVar::make_bool(Prov::Node(cond.id)),
                 },
                 cond.clone(),
                 ctx,
             );
-            generate_constraints_expr(symbol_table_OLD, Mode::Syn, expr.clone(), ctx);
+            generate_constraints_expr(polyvar_scope, Mode::Syn, expr.clone(), ctx);
             constrain(node_ty, TypeVar::make_unit(Prov::Node(expr.id)))
         }
         ExprKind::Match(scrut, arms) => {
             let ty_scrutiny = TypeVar::from_node(ctx, scrut.id);
             generate_constraints_expr(
-                symbol_table_OLD.clone(),
+                polyvar_scope.clone(),
                 Mode::Ana {
                     expected: ty_scrutiny.clone(),
                 },
@@ -1644,7 +1632,7 @@ fn generate_constraints_expr(
                 ctx,
             );
             for arm in arms {
-                let new_symbol_table = symbol_table_OLD.new_scope();
+                let new_symbol_table = polyvar_scope.new_scope();
                 generate_constraints_pat(
                     new_symbol_table.clone(),
                     Mode::Ana {
@@ -1665,7 +1653,7 @@ fn generate_constraints_expr(
         }
         ExprKind::Func(args, out_annot, body) => {
             let func_node_id = expr.id;
-            let body_symbol_table = symbol_table_OLD.new_scope();
+            let body_symbol_table = polyvar_scope.new_scope();
             let ty_func = generate_constraints_func_helper(
                 ctx,
                 func_node_id,
@@ -1686,7 +1674,7 @@ fn generate_constraints_expr(
                     let unknown =
                         TypeVar::fresh(ctx, Prov::FuncArg(Box::new(Prov::Node(func.id)), n as u8));
                     generate_constraints_expr(
-                        symbol_table_OLD.clone(),
+                        polyvar_scope.clone(),
                         Mode::Ana {
                             expected: unknown.clone(),
                         },
@@ -1704,7 +1692,7 @@ fn generate_constraints_expr(
             // function type
             let ty_func = TypeVar::make_func(tys_args, ty_body, Prov::Node(expr.id));
             generate_constraints_expr(
-                symbol_table_OLD,
+                polyvar_scope,
                 Mode::Ana {
                     expected: ty_func.clone(),
                 },
@@ -1721,11 +1709,11 @@ fn generate_constraints_expr(
                 .collect();
             constrain(node_ty, TypeVar::make_tuple(tys, Prov::Node(expr.id)));
             for expr in exprs {
-                generate_constraints_expr(symbol_table_OLD.clone(), Mode::Syn, expr.clone(), ctx);
+                generate_constraints_expr(polyvar_scope.clone(), Mode::Syn, expr.clone(), ctx);
             }
         }
         ExprKind::MemberAccess(expr, field) => {
-            generate_constraints_expr(symbol_table_OLD, Mode::Syn, expr.clone(), ctx);
+            generate_constraints_expr(polyvar_scope, Mode::Syn, expr.clone(), ctx);
             let ty_expr = TypeVar::fresh(ctx, Prov::Node(expr.id));
             if ty_expr.underdetermined() {
                 ctx.annotation_needed.insert(expr.id);
@@ -1752,7 +1740,7 @@ fn generate_constraints_expr(
             ctx.types_that_must_be_structs.insert(ty_expr, expr.id);
         }
         ExprKind::IndexAccess(accessed, index) => {
-            generate_constraints_expr(symbol_table_OLD.clone(), Mode::Syn, accessed.clone(), ctx);
+            generate_constraints_expr(polyvar_scope.clone(), Mode::Syn, accessed.clone(), ctx);
 
             let elem_ty = TypeVar::fresh(ctx, Prov::ListElem(Prov::Node(accessed.id).into()));
             let accessed_ty = TypeVar::from_node(ctx, accessed.id);
@@ -1765,7 +1753,7 @@ fn generate_constraints_expr(
                 ),
             );
             generate_constraints_expr(
-                symbol_table_OLD,
+                polyvar_scope,
                 Mode::Ana {
                     expected: TypeVar::make_int(Prov::IndexAccess),
                 },
@@ -1781,7 +1769,7 @@ fn generate_constraints_expr(
 fn generate_constraints_func_helper(
     ctx: &mut StaticsContext,
     node_id: NodeId,
-    symbol_table_OLD: SymbolTable_OLD,
+    polyvar_scope: PolyvarScope,
     args: &[ArgAnnotated],
     out_annot: &Option<Rc<AstType>>,
     body: &Rc<Expr>,
@@ -1796,16 +1784,16 @@ fn generate_constraints_func_helper(
                     let ty_annot = TypeVar::from_node(ctx, arg_annot.id());
                     let arg_annot = ast_type_to_statics_type(ctx, arg_annot.clone());
                     constrain(ty_annot.clone(), arg_annot.clone());
-                    symbol_table_OLD.add_polys(&arg_annot);
+                    polyvar_scope.add_polys(&arg_annot);
                     generate_constraints_pat(
-                        symbol_table_OLD.clone(), // TODO what are the consequences of analyzing patterns with context containing previous pattern... probs should not do that
+                        polyvar_scope.clone(), // TODO what are the consequences of analyzing patterns with context containing previous pattern... probs should not do that
                         Mode::Ana { expected: ty_annot },
                         arg.clone(),
                         ctx,
                     )
                 }
                 None => {
-                    generate_constraints_pat(symbol_table_OLD.clone(), Mode::Syn, arg.clone(), ctx)
+                    generate_constraints_pat(polyvar_scope.clone(), Mode::Syn, arg.clone(), ctx)
                 }
             }
             ty_pat
@@ -1815,7 +1803,7 @@ fn generate_constraints_func_helper(
     // body
     let ty_body = TypeVar::fresh(ctx, Prov::FuncOut(Box::new(Prov::Node(node_id))));
     generate_constraints_expr(
-        symbol_table_OLD.clone(),
+        polyvar_scope.clone(),
         Mode::Ana {
             expected: ty_body.clone(),
         },
@@ -1824,9 +1812,9 @@ fn generate_constraints_func_helper(
     );
     if let Some(out_annot) = out_annot {
         let out_annot = ast_type_to_statics_type(ctx, out_annot.clone());
-        symbol_table_OLD.add_polys(&out_annot);
+        polyvar_scope.add_polys(&out_annot);
         generate_constraints_expr(
-            symbol_table_OLD,
+            polyvar_scope,
             Mode::Ana {
                 expected: out_annot,
             },
@@ -1839,7 +1827,6 @@ fn generate_constraints_func_helper(
 }
 
 fn generate_constraints_item(
-    symbol_table_OLD: SymbolTable_OLD,
     mode: Mode,
     stmt: Rc<Item>,
     ctx: &mut StaticsContext,
@@ -1849,7 +1836,7 @@ fn generate_constraints_item(
         ItemKind::InterfaceDef(..) => {}
         ItemKind::Import(..) => {}
         ItemKind::Stmt(stmt) => generate_constraints_stmt(
-            symbol_table_OLD.clone(),
+            PolyvarScope::empty(),
             mode,
             stmt.clone(),
             ctx,
@@ -1871,7 +1858,7 @@ fn generate_constraints_item(
                         substitution.insert("a".to_string(), typ.clone());
 
                         let expected = interface_method.ty.clone().subst(
-                            symbol_table_OLD.clone(),
+                            PolyvarScope::empty(),
                             Prov::Node(stmt.id),
                             &substitution,
                         );
@@ -1879,7 +1866,7 @@ fn generate_constraints_item(
                         constrain(expected, TypeVar::from_node(ctx, f.name.id));
 
                         generate_constraints_stmt(
-                            symbol_table_OLD.clone(),
+                            PolyvarScope::empty(),
                             Mode::Syn,
                             statement.clone(),
                             ctx,
@@ -1919,13 +1906,10 @@ fn generate_constraints_item(
             let func_node_id = f.name.id;
             let ty_pat = TypeVar::from_node(ctx, f.name.id);
 
-            let func_name = f.name.v.clone();
-
-            let body_symbol_table = symbol_table_OLD.new_scope();
             let ty_func = generate_constraints_func_helper(
                 ctx,
                 func_node_id,
-                body_symbol_table,
+                PolyvarScope::empty(),
                 &f.args,
                 &f.ret_type,
                 &f.body,
@@ -1937,7 +1921,7 @@ fn generate_constraints_item(
 }
 
 fn generate_constraints_stmt(
-    symbol_table_OLD: SymbolTable_OLD,
+    polyvar_scope: PolyvarScope,
     mode: Mode,
     stmt: Rc<Stmt>,
     ctx: &mut StaticsContext,
@@ -1945,26 +1929,26 @@ fn generate_constraints_stmt(
 ) {
     match &*stmt.kind {
         StmtKind::Expr(expr) => {
-            generate_constraints_expr(symbol_table_OLD, mode, expr.clone(), ctx);
+            generate_constraints_expr(polyvar_scope, mode, expr.clone(), ctx);
         }
         StmtKind::Let(_mutable, (pat, ty_ann), expr) => {
             let ty_pat = TypeVar::from_node(ctx, pat.id);
 
             if let Some(ty_ann) = ty_ann {
                 let ty_ann = ast_type_to_statics_type(ctx, ty_ann.clone());
-                symbol_table_OLD.add_polys(&ty_ann);
+                polyvar_scope.add_polys(&ty_ann);
                 generate_constraints_pat(
-                    symbol_table_OLD.clone(),
+                    polyvar_scope.clone(),
                     Mode::Ana { expected: ty_ann },
                     pat.clone(),
                     ctx,
                 )
             } else {
-                generate_constraints_pat(symbol_table_OLD.clone(), Mode::Syn, pat.clone(), ctx)
+                generate_constraints_pat(polyvar_scope.clone(), Mode::Syn, pat.clone(), ctx)
             };
 
             generate_constraints_expr(
-                symbol_table_OLD.clone(),
+                polyvar_scope.clone(),
                 Mode::Ana { expected: ty_pat },
                 expr.clone(),
                 ctx,
@@ -1972,9 +1956,9 @@ fn generate_constraints_stmt(
         }
         StmtKind::Set(lhs, rhs) => {
             let ty_lhs = TypeVar::from_node(ctx, lhs.id);
-            generate_constraints_expr(symbol_table_OLD.clone(), Mode::Syn, lhs.clone(), ctx);
+            generate_constraints_expr(polyvar_scope.clone(), Mode::Syn, lhs.clone(), ctx);
             let ty_rhs = TypeVar::from_node(ctx, rhs.id);
-            generate_constraints_expr(symbol_table_OLD, Mode::Syn, rhs.clone(), ctx);
+            generate_constraints_expr(polyvar_scope, Mode::Syn, rhs.clone(), ctx);
             constrain(ty_lhs, ty_rhs);
         }
         StmtKind::FuncDef(f) => {
@@ -1983,7 +1967,7 @@ fn generate_constraints_stmt(
 
             let func_name = f.name.v.clone();
 
-            let body_symbol_table = symbol_table_OLD.new_scope();
+            let body_symbol_table = polyvar_scope.new_scope();
             let ty_func = generate_constraints_func_helper(
                 ctx,
                 func_node_id,
@@ -1999,7 +1983,7 @@ fn generate_constraints_stmt(
 }
 
 fn generate_constraints_pat(
-    symbol_table_OLD: SymbolTable_OLD,
+    polyvar_scope: PolyvarScope,
     mode: Mode,
     pat: Rc<Pat>,
     ctx: &mut StaticsContext,
@@ -2054,7 +2038,7 @@ fn generate_constraints_pat(
 
                     let variant_def = enum_def.variants.iter().find(|v| v.ctor == *tag.v).unwrap();
                     let variant_data_ty = variant_def.data.clone().subst(
-                        symbol_table_OLD.clone(),
+                        polyvar_scope.clone(),
                         Prov::Node(pat.id),
                         &substitution,
                     );
@@ -2069,7 +2053,7 @@ fn generate_constraints_pat(
             constrain(ty_pat, ty_enum_instance);
             if let Some(data) = data {
                 generate_constraints_pat(
-                    symbol_table_OLD,
+                    polyvar_scope,
                     Mode::Ana { expected: ty_data },
                     data.clone(),
                     ctx,
@@ -2086,7 +2070,7 @@ fn generate_constraints_pat(
                 TypeVar::make_tuple(tys_elements, Prov::Node(pat.id)),
             );
             for pat in pats {
-                generate_constraints_pat(symbol_table_OLD.clone(), Mode::Syn, pat.clone(), ctx)
+                generate_constraints_pat(polyvar_scope.clone(), Mode::Syn, pat.clone(), ctx)
             }
         }
     }

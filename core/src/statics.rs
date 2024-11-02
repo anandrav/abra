@@ -233,11 +233,8 @@ pub(crate) fn analyze(
 ) -> Result<StaticsContext, String> {
     let mut ctx = StaticsContext::new(effects.to_owned()); // TODO: to_owned necessary?
 
-    // TODO: don't create symbol_table here
-    let tyctx = typecheck::SymbolTable_OLD::empty();
-
     // scan declarations across all files
-    scan_declarations(&mut ctx, tyctx.clone(), files.clone());
+    scan_declarations(&mut ctx, files.clone());
     println!("global namespace:\n{}", ctx.global_namespace);
 
     // resolve all imports and Strings
@@ -245,7 +242,7 @@ pub(crate) fn analyze(
 
     // typechecking
     for file in files {
-        generate_constraints_file(tyctx.clone(), file.clone(), &mut ctx);
+        generate_constraints_file(file.clone(), &mut ctx);
     }
     // TODO: rename this to solve_constraints()
     result_of_constraint_solving(&mut ctx, node_map, sources)?;
