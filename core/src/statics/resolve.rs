@@ -4,7 +4,7 @@ use std::{fmt, rc::Rc};
 
 use crate::ast::{
     ArgAnnotated, Expr, ExprKind, FileAst, Item, ItemKind, Node, NodeId, Pat, PatKind, Stmt,
-    StmtKind, TypeDefKind, TypeKind,
+    StmtKind, Type, TypeDefKind, TypeKind,
 };
 use crate::builtin::Builtin;
 
@@ -505,6 +505,36 @@ fn resolve_names_pat(_ctx: &mut StaticsContext, symbol_table: SymbolTable, pat: 
         PatKind::Tuple(pats) => {
             for pat in pats {
                 resolve_names_pat(_ctx, symbol_table.clone(), pat.clone());
+            }
+        }
+    }
+}
+
+fn resolve_names_typ(ctx: &mut StaticsContext, symbol_table: SymbolTable, typ: Rc<Type>) {
+    match &*typ.kind {
+        TypeKind::Bool | TypeKind::Unit | TypeKind::Int | TypeKind::Float | TypeKind::Str => {}
+        TypeKind::Poly(identifier, vec) => {}
+        TypeKind::Identifier(identifier) => {
+            // let lookup = symbol_table.lookup_declaration(identifier);
+            // match lookup {
+            //     Some(Declaration::Struct)
+            // }
+            // if let Some(decl) = lookup {
+            //     ctx.resolution_map.insert(typ.id, decl);
+            // } else {
+            //     ctx.unbound_vars.insert(typ.id);
+            // }
+        }
+        TypeKind::Ap(identifier, vec) => todo!(),
+        TypeKind::Function(args, out) => {
+            for arg in args {
+                resolve_names_typ(ctx, symbol_table.clone(), arg.clone());
+            }
+            resolve_names_typ(ctx, symbol_table.clone(), out.clone());
+        }
+        TypeKind::Tuple(elems) => {
+            for elem in elems {
+                resolve_names_typ(ctx, symbol_table.clone(), elem.clone());
             }
         }
     }

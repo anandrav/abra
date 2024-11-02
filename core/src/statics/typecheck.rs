@@ -647,6 +647,28 @@ fn tyvar_of_declaration(
             ctx,
             iface_def.props[*method as usize].id(),
         )),
+        Declaration::Enum(enum_def) => {
+            let nparams = enum_def.ty_args.len();
+            let mut params = vec![];
+            let mut substitution = BTreeMap::new();
+            for i in 0..nparams {
+                params.push(TypeVar::fresh(
+                    ctx,
+                    Prov::InstantiateUdtParam(Box::new(Prov::Node(id)), i as u8),
+                ));
+                // TODO: don't do this silly downcast.
+                // ty_args should just be a Vec<Identifier> most likely
+                let TypeKind::Poly(ty_arg, ifaces) = &*enum_def.ty_args[i].kind else {
+                    panic!()
+                };
+                substitution.insert(ty_arg.v.clone(), params[i].clone());
+            }
+            Some(TypeVar::make_nominal(
+                Prov::UdtDef(Box::new(Prov::Node(id))),
+                enum_def.name.v.clone(),
+                params,
+            ))
+        }
         Declaration::EnumVariant { enum_def, variant } => {
             let nparams = enum_def.ty_args.len();
             let mut params = vec![];
@@ -837,7 +859,7 @@ pub(crate) fn ast_type_to_statics_type_interface(
         }
         TypeKind::Ap(ident, params) => TypeVar::make_nominal(
             Prov::Node(ast_type.id()),
-            ident.v.clone(),
+            ident.v.clone(), // TODO: Need to perform name resolution for types, then put the Nominal (reference to struct/enum def or builtin type) here instead of the raw identifier
             params
                 .iter()
                 .map(|param| {

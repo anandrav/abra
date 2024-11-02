@@ -162,6 +162,7 @@ pub(crate) enum Declaration {
         iface_def: Rc<InterfaceDef>,
         method: u16,
     },
+    Enum(Rc<EnumDef>),
     EnumVariant {
         enum_def: Rc<EnumDef>,
         variant: u16,
@@ -173,6 +174,7 @@ pub(crate) enum Declaration {
 }
 
 impl Declaration {
+    // TODO: remove this function and Resolution_OLD altogether
     pub fn to_resolution_old(&self) -> Resolution_OLD {
         match self {
             Declaration::Var(node_id) => Resolution_OLD::Var(*node_id),
@@ -183,6 +185,9 @@ impl Declaration {
             Declaration::InterfaceMethod { iface_def, method } => {
                 let name = &iface_def.props[*method as usize].name;
                 Resolution_OLD::InterfaceMethod(name.v.clone())
+            }
+            Declaration::Enum(..) => {
+                panic!("")
             }
             Declaration::EnumVariant { enum_def, variant } => {
                 let data = &enum_def.variants[*variant as usize].data;
