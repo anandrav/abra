@@ -44,7 +44,7 @@ pub(crate) struct StaticsContext {
     // map from variant names to enum names
     variants_to_enum: HashMap<String, String>,
     // struct definitions
-    pub(crate) struct_defs: HashMap<String, StructDef_OLD>,
+    // pub(crate) struct_defs: HashMap<String, StructDef_OLD>,
     // function definition locations
     // pub(crate) fun_defs: HashMap<String, Rc<FuncDef>>,
     // interface definitions

@@ -4,6 +4,7 @@ use crate::ast::{FileAst, Node, NodeId, Sources};
 use crate::builtin::Builtin;
 use crate::effects::EffectStruct;
 use crate::environment::Environment;
+use crate::statics::typecheck::Nominal;
 use crate::statics::TypeProv;
 use crate::statics::{ty_fits_impl_ty, Monotype, Resolution_OLD, Type};
 use crate::vm::{AbraFloat, AbraInt, Instr as VmInstr};
@@ -1357,15 +1358,11 @@ fn idx_of_field(statics: &StaticsContext, accessed: Rc<Expr>, field: &str) -> u1
     let accessed_ty = statics.solution_of_node(accessed.id).unwrap();
 
     match accessed_ty {
-        Type::Nominal(nominal, _) => {
-            let struct_ty = statics
-                .struct_defs
-                .get(nominal.name()) // TODO: don't use String
-                .expect("not a struct type");
-            let field_idx = struct_ty
+        Type::Nominal(Nominal::Struct(struct_def), _) => {
+            let field_idx = struct_def
                 .fields
                 .iter()
-                .position(|f: &crate::statics::StructField_OLD| f.name == field)
+                .position(|f| f.name.v == field)
                 .unwrap();
             field_idx as u16
         }
