@@ -1562,16 +1562,10 @@ fn generate_constraints_expr(
                 if let Some(typ) =
                     tyvar_of_declaration(ctx, &res, expr.id, symbol_table_OLD.clone())
                 {
-                    println!("tyvar of declaration: {symbol}");
-                    // replace polymorphic types with unifvars if necessary
                     let typ = typ.instantiate(symbol_table_OLD, ctx, Prov::Node(expr.id));
-                    println!("instantiated: {}", typ);
-                    println!("node_ty: {}", node_ty);
                     constrain(typ, node_ty.clone());
                 }
             }
-
-            // ctx.unbound_vars.insert(expr.id());
         }
         ExprKind::BinOp(left, op, right) => {
             let (ty_left, ty_right, ty_out) = types_of_binop(op, expr.id);
