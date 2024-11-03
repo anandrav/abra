@@ -761,15 +761,17 @@ impl Translator {
             },
             Type::Nominal(nominal, _) => match &*pat.kind {
                 PatKind::Variant(ctor, inner) => {
-                    let enumt = self.statics.enum_defs.get(nominal.name()).unwrap(); // TODO: don't use String
+                    let Resolution_OLD::VariantCtor(tag, arity) = self
+                        .statics
+                        .resolution_map
+                        .get(&ctor.id)
+                        .unwrap()
+                        .to_resolution_old()
+                    else {
+                        panic!("expected variableto be defined in node");
+                    };
                     let tag_fail_label = make_label("tag_fail");
                     let end_label = make_label("endvariant");
-
-                    let tag = enumt
-                        .variants
-                        .iter()
-                        .position(|v| v.ctor == *ctor.v)
-                        .expect("variant not found") as u16;
 
                     emit(st, Instr::Deconstruct);
                     emit(st, Instr::PushInt(tag as AbraInt));

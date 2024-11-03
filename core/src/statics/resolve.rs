@@ -17,14 +17,6 @@ use super::typecheck::{
 };
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub(crate) struct EnumDef_OLD {
-    pub(crate) name: String,
-    pub(crate) params: Vec<String>,
-    pub(crate) variants: Vec<Variant_OLD>,
-    pub(crate) location: NodeId,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub(crate) struct Variant_OLD {
     pub(crate) ctor: String,
     pub(crate) data: TypeVar,
@@ -671,46 +663,7 @@ fn gather_definitions_item_DEPRECATE(ctx: &mut StaticsContext, stmt: Rc<Item>) {
             });
         }
         ItemKind::TypeDef(typdefkind) => match &**typdefkind {
-            TypeDefKind::Enum(e) => {
-                if let Some(enum_def) = ctx.enum_defs.get(&e.name.v) {
-                    let entry = ctx.multiple_udt_defs.entry(e.name.v.clone()).or_default();
-                    entry.push(enum_def.location);
-                    entry.push(stmt.id);
-                    return;
-                }
-                let mut defvariants = vec![];
-                for v in e.variants.iter() {
-                    let data = {
-                        if let Some(data) = &v.data {
-                            ast_type_to_statics_type(ctx, data.clone())
-                        } else {
-                            TypeVar::make_unit(Prov::VariantNoData(Box::new(Prov::Node(v.id))))
-                        }
-                    };
-                    defvariants.push(Variant_OLD {
-                        ctor: v.ctor.v.clone(),
-                        data,
-                    });
-                    // ctx.variants_to_enum
-                    //     .insert(v.ctor.v.clone(), e.name.v.clone());
-                }
-                let mut defparams = vec![];
-                for p in e.ty_args.iter() {
-                    let TypeKind::Poly(ident, _) = &*p.kind else {
-                        panic!("expected poly type for type definition parameter")
-                    };
-                    defparams.push(ident.v.clone());
-                }
-                ctx.enum_defs.insert(
-                    e.name.v.clone(),
-                    EnumDef_OLD {
-                        name: e.name.v.clone(),
-                        params: defparams,
-                        variants: defvariants,
-                        location: stmt.id,
-                    },
-                );
-            }
+            TypeDefKind::Enum(e) => {}
             TypeDefKind::Struct(_) => {}
         },
         ItemKind::FuncDef(_) => {}

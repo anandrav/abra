@@ -4,8 +4,7 @@ use crate::ast::{
 use crate::builtin::Builtin;
 use crate::effects::EffectStruct;
 use resolve::{
-    gather_declarations_file_OLD, resolve, scan_declarations, EnumDef_OLD, InterfaceDef_OLD,
-    InterfaceImpl_OLD,
+    gather_declarations_file_OLD, resolve, scan_declarations, InterfaceDef_OLD, InterfaceImpl_OLD,
 };
 use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::fmt::{self, Display, Formatter};
@@ -36,16 +35,6 @@ pub(crate) struct StaticsContext {
     global_namespace: Namespace,
 
     // TODO this should all be replaced by Declarations in the SymbolTable
-    // TODO: just attempt remove them one by one. Use NodeId instead of String
-    // enum definitions
-    pub(crate) enum_defs: HashMap<String, EnumDef_OLD>,
-    // map from variant names to enum names
-    // variants_to_enum: HashMap<String, String>,
-    // struct definitions
-    // pub(crate) struct_defs: HashMap<String, StructDef_OLD>,
-    // function definition locations
-    // pub(crate) fun_defs: HashMap<String, Rc<FuncDef>>,
-    // interface definitions
     interface_defs: HashMap<String, InterfaceDef_OLD>,
     // map from methods to interface names
     pub(crate) method_to_interface: HashMap<String, String>,
