@@ -232,7 +232,7 @@ impl Translator {
         monomorph_env: MonomorphEnv,
         st: &mut TranslatorState,
     ) {
-        println!("translating expr: {:?}", expr.kind);
+        // println!("translating expr: {:?}", expr.kind);
         match &*expr.kind {
             ExprKind::Identifier(symbol) => {
                 match self
@@ -1139,7 +1139,7 @@ impl Translator {
                             .unwrap();
                         let interface_impl_ty = unifvar.solution().unwrap();
 
-                        println!("get_func_definition_node ty_fits_impl_ty");
+                        // println!("get_func_definition_node ty_fits_impl_ty");
                         if ty_fits_impl_ty(
                             &self.statics,
                             desired_interface_impl.clone(),

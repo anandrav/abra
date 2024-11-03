@@ -226,7 +226,7 @@ pub(crate) fn analyze(
 
     // scan declarations across all files
     scan_declarations(&mut ctx, files.clone());
-    println!("global namespace:\n{}", ctx.global_namespace);
+    // println!("global namespace:\n{}", ctx.global_namespace);
 
     // resolve all imports and identifiers
     resolve(&mut ctx, files.clone());

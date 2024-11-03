@@ -917,17 +917,7 @@ pub(crate) fn ast_type_to_statics_type_interface(
                         .collect(),
                 ),
                 _ => {
-                    let node = ctx.node_map.get(&ast_type.id).unwrap();
-                    let span = node.span();
-                    let mut s = String::new();
-                    span.display(&mut s, &ctx.sources, "");
-                    println!("{}", s);
-                    panic!("could not resolve {}", ident.v) // TODO: fix NOW
-                                                            // _ => TypeVar::from_node(ctx, ast_type.id).instantiate(
-                                                            //     PolyvarScope::empty(),
-                                                            //     ctx,
-                                                            //     Prov::Node(ast_type.id),
-                                                            // ),
+                    panic!("could not resolve {}", ident.v)
                 }
             }
         }
@@ -1087,8 +1077,8 @@ pub(crate) fn result_of_constraint_solving(
                 // find at least one implementation of interface that matches the type constrained to the interface
                 for impl_ in impl_list {
                     if let Some(impl_ty) = impl_.typ.solution() {
-                        println!("typecheck ty_fits_impl_ty");
-                        println!("ty1: {}, ty2: {}", typ, impl_ty);
+                        // println!("typecheck ty_fits_impl_ty");
+                        // println!("ty1: {}, ty2: {}", typ, impl_ty);
                         if let Err((_err_monoty, _err_impl_ty)) =
                             ty_fits_impl_ty(ctx, typ.clone(), impl_ty.clone())
                         {
@@ -1475,7 +1465,7 @@ fn generate_constraints_expr(
                 .namespaces
                 .get("prelude")
                 .and_then(|p| p.declarations.get("list"));
-            dbg!(&ctx.global_namespace);
+            // dbg!(&ctx.global_namespace);
             if let Some(Declaration::Enum(enum_def)) = list_decl {
                 constrain(
                     node_ty,
