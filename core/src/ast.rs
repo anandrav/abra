@@ -217,9 +217,9 @@ impl Node for Item {
                 }
                 children
             }
-            ItemKind::InterfaceImpl(_, ty, stmts) => {
-                let mut children: Vec<Rc<dyn Node>> = vec![ty.clone()];
-                for stmt in stmts {
+            ItemKind::InterfaceImpl(iface_impl) => {
+                let mut children: Vec<Rc<dyn Node>> = vec![iface_impl.typ.clone()];
+                for stmt in &iface_impl.stmts {
                     children.push(stmt.clone() as Rc<dyn Node>);
                 }
                 children
@@ -239,7 +239,9 @@ pub(crate) enum ItemKind {
     FuncDef(Rc<FuncDef>),
     TypeDef(Rc<TypeDefKind>),
     InterfaceDef(Rc<InterfaceDef>),
-    InterfaceImpl(Identifier, Rc<Type>, Vec<Rc<Stmt>>), // TODO: Don't use Vec<Stmt>. Use Vec<MethodDef>
+    // TODO: Must use Rc<InterfaceImpl> here.
+    // TODO: Don't use Vec<Stmt>. Use Vec<MethodDef>
+    InterfaceImpl(Rc<InterfaceImpl>),
     Import(Identifier),
     Stmt(Rc<Stmt>),
 }
@@ -332,6 +334,13 @@ impl Node for InterfaceProperty {
     fn children(&self) -> Vec<Rc<dyn Node>> {
         vec![self.ty.clone()]
     }
+}
+
+#[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq, Hash)]
+pub(crate) struct InterfaceImpl {
+    pub(crate) iface: Identifier,
+    pub(crate) typ: Rc<Type>,
+    pub(crate) stmts: Vec<Rc<Stmt>>,
 }
 
 #[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq, Hash)]

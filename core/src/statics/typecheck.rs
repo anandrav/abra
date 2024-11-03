@@ -1832,11 +1832,11 @@ fn generate_constraints_item(mode: Mode, stmt: Rc<Item>, ctx: &mut StaticsContex
         ItemKind::Stmt(stmt) => {
             generate_constraints_stmt(PolyvarScope::empty(), mode, stmt.clone(), ctx)
         }
-        ItemKind::InterfaceImpl(ident, typ, statements) => {
-            let typ = ast_type_to_statics_type(ctx, typ.clone());
+        ItemKind::InterfaceImpl(iface_impl) => {
+            let typ = ast_type_to_statics_type(ctx, iface_impl.typ.clone());
 
-            if let Some(interface_def) = ctx.interface_def_of_ident(&ident.v) {
-                for statement in statements {
+            if let Some(interface_def) = ctx.interface_def_of_ident(&iface_impl.iface.v) {
+                for statement in &iface_impl.stmts {
                     let StmtKind::FuncDef(f) = &*statement.kind else {
                         continue;
                     };
@@ -1869,7 +1869,7 @@ fn generate_constraints_item(mode: Mode, stmt: Rc<Item>, ctx: &mut StaticsContex
                     }
                 }
                 for interface_method in interface_def.methods {
-                    if !statements.iter().any(|stmt| match &*stmt.kind {
+                    if !iface_impl.stmts.iter().any(|stmt| match &*stmt.kind {
                         StmtKind::FuncDef(f) => f.name.v == interface_method.name,
                         _ => false,
                     }) {

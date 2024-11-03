@@ -847,8 +847,8 @@ impl Translator {
     fn translate_item_static(&self, stmt: Rc<Item>, st: &mut TranslatorState, iface_method: bool) {
         match &*stmt.kind {
             ItemKind::Stmt(_) => {}
-            ItemKind::InterfaceImpl(_, _, stmts) => {
-                for stmt in stmts {
+            ItemKind::InterfaceImpl(iface_impl) => {
+                for stmt in &iface_impl.stmts {
                     self.translate_stmt_static(stmt.clone(), st, true);
                 }
             }

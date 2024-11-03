@@ -109,7 +109,7 @@ fn gather_declarations_item(namespace: &mut Namespace, qualifiers: Vec<String>, 
                 );
             }
         }
-        ItemKind::InterfaceImpl(_, _, _) => {}
+        ItemKind::InterfaceImpl(_) => {}
         ItemKind::TypeDef(typdefkind) => match &**typdefkind {
             // TypeDefKind::Alias(_ident, _) => {
             //     // At this stage, since we're just gathering declarations,
@@ -335,12 +335,12 @@ fn resolve_names_item(ctx: &mut StaticsContext, symbol_table: SymbolTable, stmt:
                 resolve_names_typ(ctx, symbol_table.clone(), prop.ty.clone());
             }
         }
-        ItemKind::InterfaceImpl(iface, target_ty, props) => {
-            resolve_names_typ(ctx, symbol_table.clone(), target_ty.clone());
+        ItemKind::InterfaceImpl(iface_impl) => {
+            resolve_names_typ(ctx, symbol_table.clone(), iface_impl.typ.clone());
             if let Some(Declaration::InterfaceDef(iface_def)) =
-                symbol_table.lookup_declaration(&iface.v)
+                symbol_table.lookup_declaration(&iface_impl.iface.v)
             {
-                for (i, prop) in props.iter().enumerate() {
+                for (i, prop) in iface_impl.stmts.iter().enumerate() {
                     if let StmtKind::FuncDef(f) = &*prop.kind {
                         let method = i as u16;
                         symbol_table.extend_declaration(
@@ -633,14 +633,15 @@ fn gather_definitions_item_DEPRECATE(ctx: &mut StaticsContext, stmt: Rc<Item>) {
                 },
             );
         }
-        ItemKind::InterfaceImpl(name, typ, stmts) => {
-            let typ = ast_type_to_statics_type(ctx, typ.clone());
+        ItemKind::InterfaceImpl(interface_impl) => {
+            let typ = ast_type_to_statics_type(ctx, interface_impl.typ.clone());
 
             if typ.is_instantiated_enum() {
                 ctx.interface_impl_for_instantiated_ty.push(stmt.id);
             }
 
-            let methods = stmts
+            let methods = interface_impl
+                .stmts
                 .iter()
                 .map(|stmt| match &*stmt.kind {
                     StmtKind::FuncDef(f) => {
@@ -654,9 +655,12 @@ fn gather_definitions_item_DEPRECATE(ctx: &mut StaticsContext, stmt: Rc<Item>) {
                     _ => unreachable!(),
                 })
                 .collect();
-            let impl_list = ctx.interface_impls.entry(name.v.clone()).or_default();
+            let impl_list = ctx
+                .interface_impls
+                .entry(interface_impl.iface.v.clone())
+                .or_default();
             impl_list.push(InterfaceImpl_OLD {
-                name: name.v.clone(),
+                name: interface_impl.iface.v.clone(),
                 typ,
                 methods,
                 location: stmt.id,

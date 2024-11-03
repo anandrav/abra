@@ -551,7 +551,7 @@ pub(crate) fn parse_item(pair: Pair<Rule>, filename: &str) -> Rc<Item> {
         Rule::interface_implementation => {
             let name = inner[0].as_str().to_string();
             let name_span = Span::new(filename, inner[0].as_span());
-            let ty = parse_type_term(inner[1].clone(), filename);
+            let typ = parse_type_term(inner[1].clone(), filename);
             let mut n = 2;
             let mut stmts = vec![];
             while let Some(pair) = inner.get(n) {
@@ -561,13 +561,16 @@ pub(crate) fn parse_item(pair: Pair<Rule>, filename: &str) -> Rc<Item> {
             }
             Rc::new(Item {
                 kind: ItemKind::InterfaceImpl(
-                    Identifier {
-                        v: name,
-                        span: name_span,
-                        id: NodeId::new(),
-                    },
-                    ty,
-                    stmts,
+                    InterfaceImpl {
+                        iface: Identifier {
+                            v: name,
+                            span: name_span,
+                            id: NodeId::new(),
+                        },
+                        typ,
+                        stmts,
+                    }
+                    .into(),
                 )
                 .into(),
                 span,

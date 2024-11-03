@@ -72,8 +72,8 @@ fn check_pattern_exhaustiveness_item(statics: &mut StaticsContext, stmt: &Item) 
         ItemKind::Import(..) => {}
         ItemKind::InterfaceDef(..) => {}
         ItemKind::TypeDef(..) => {}
-        ItemKind::InterfaceImpl(_, _, stmts) => {
-            for stmt in stmts {
+        ItemKind::InterfaceImpl(iface_impl) => {
+            for stmt in &iface_impl.stmts {
                 check_pattern_exhaustiveness_stmt(statics, stmt);
             }
         }
