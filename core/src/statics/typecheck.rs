@@ -2,7 +2,7 @@ use crate::ast::{
     ArgAnnotated, Expr, ExprKind, FileAst, ItemKind, Node, NodeId, NodeMap, Pat, PatKind, Sources,
     Stmt, StmtKind, Type as AstType, TypeDefKind, TypeKind,
 };
-use crate::ast::{BinOpcode, Item};
+use crate::ast::{BinaryOperator, Item};
 use crate::builtin::Builtin;
 use crate::environment::Environment;
 use core::panic;
@@ -799,21 +799,21 @@ fn tyvar_of_declaration(
     }
 }
 
-fn types_of_binop(opcode: &BinOpcode, id: NodeId) -> (TypeVar, TypeVar, TypeVar) {
+fn types_of_binop(opcode: &BinaryOperator, id: NodeId) -> (TypeVar, TypeVar, TypeVar) {
     let prov_left = Prov::BinopLeft(Prov::Node(id).into());
     let prov_right = Prov::BinopRight(Prov::Node(id).into());
     let prov_out = Prov::Node(id);
     match opcode {
-        BinOpcode::And | BinOpcode::Or => (
+        BinaryOperator::And | BinaryOperator::Or => (
             TypeVar::make_bool(prov_left),
             TypeVar::make_bool(prov_right),
             TypeVar::make_bool(prov_out),
         ),
-        BinOpcode::Add
-        | BinOpcode::Subtract
-        | BinOpcode::Multiply
-        | BinOpcode::Divide
-        | BinOpcode::Pow => {
+        BinaryOperator::Add
+        | BinaryOperator::Subtract
+        | BinaryOperator::Multiply
+        | BinaryOperator::Divide
+        | BinaryOperator::Pow => {
             let ty_left =
                 TypeVar::make_poly_constrained(prov_left, "a".to_owned(), "Num".to_owned());
             let ty_right =
@@ -823,15 +823,15 @@ fn types_of_binop(opcode: &BinOpcode, id: NodeId) -> (TypeVar, TypeVar, TypeVar)
             constrain(ty_left.clone(), ty_out.clone());
             (ty_left, ty_right, ty_out)
         }
-        BinOpcode::Mod => (
+        BinaryOperator::Mod => (
             TypeVar::make_int(prov_left),
             TypeVar::make_int(prov_right),
             TypeVar::make_int(prov_out),
         ),
-        BinOpcode::LessThan
-        | BinOpcode::GreaterThan
-        | BinOpcode::LessThanOrEqual
-        | BinOpcode::GreaterThanOrEqual => {
+        BinaryOperator::LessThan
+        | BinaryOperator::GreaterThan
+        | BinaryOperator::LessThanOrEqual
+        | BinaryOperator::GreaterThanOrEqual => {
             let ty_left =
                 TypeVar::make_poly_constrained(prov_left, "a".to_owned(), "Num".to_owned());
             let ty_right =
@@ -840,12 +840,12 @@ fn types_of_binop(opcode: &BinOpcode, id: NodeId) -> (TypeVar, TypeVar, TypeVar)
             let ty_out = TypeVar::make_bool(prov_out);
             (ty_left, ty_right, ty_out)
         }
-        BinOpcode::Concat => (
+        BinaryOperator::Concat => (
             TypeVar::make_string(prov_left),
             TypeVar::make_string(prov_right),
             TypeVar::make_string(prov_out),
         ),
-        BinOpcode::Equal => {
+        BinaryOperator::Equal => {
             let ty_left =
                 TypeVar::make_poly_constrained(prov_left, "a".to_owned(), "Equal".to_owned());
             let ty_right =

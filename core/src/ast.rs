@@ -239,8 +239,6 @@ pub(crate) enum ItemKind {
     FuncDef(Rc<FuncDef>),
     TypeDef(Rc<TypeDefKind>),
     InterfaceDef(Rc<InterfaceDef>),
-    // TODO: Must use Rc<InterfaceImpl> here.
-    // TODO: Don't use Vec<Stmt>. Use Vec<MethodDef>
     InterfaceImpl(Rc<InterfaceImpl>),
     Import(Identifier),
     Stmt(Rc<Stmt>),
@@ -340,7 +338,12 @@ impl Node for InterfaceProperty {
 pub(crate) struct InterfaceImpl {
     pub(crate) iface: Identifier,
     pub(crate) typ: Rc<Type>,
-    pub(crate) stmts: Vec<Rc<Stmt>>,
+    pub(crate) stmts: Vec<Rc<Stmt>>, // TODO: Don't use Vec<Stmt>. Use Vec<MethodDef>
+}
+
+#[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq, Hash)]
+pub(crate) struct MethodDef {
+    f: Rc<FuncDef>,
 }
 
 #[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq, Hash)]
@@ -439,7 +442,7 @@ pub(crate) enum ExprKind {
     WhileLoop(Rc<Expr>, Rc<Expr>),
     Match(Rc<Expr>, Vec<MatchArm>),
     Block(Vec<Rc<Stmt>>),
-    BinOp(Rc<Expr>, BinOpcode, Rc<Expr>),
+    BinOp(Rc<Expr>, BinaryOperator, Rc<Expr>),
     FuncAp(Rc<Expr>, Vec<Rc<Expr>>),
     Tuple(Vec<Rc<Expr>>),
     MemberAccess(Rc<Expr>, Rc<Expr>), // TODO: field should not be an expression? just an identifier.
@@ -447,7 +450,7 @@ pub(crate) enum ExprKind {
 }
 
 #[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq, Hash)]
-pub enum BinOpcode {
+pub enum BinaryOperator {
     // comparison
     Equal,
     LessThan,
@@ -473,8 +476,6 @@ pub(crate) struct MatchArm {
     pub(crate) pat: Rc<Pat>,
     pub(crate) expr: Rc<Expr>,
 }
-
-// pub(crate) type MatchArm = (Rc<Pat>, Rc<Expr>);
 
 #[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq, Hash)]
 pub(crate) struct Pat {
@@ -517,13 +518,12 @@ impl Node for Pat {
 
 #[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq, Hash)]
 pub(crate) enum PatKind {
-    // EmptyHole,
     Wildcard,
     Binding(String),
     Variant(Identifier, Option<Rc<Pat>>),
     Unit,
     Int(i64),
-    Float(String), // represented as String to allow Eq and Hash
+    Float(String),
     Bool(bool),
     Str(String),
     Tuple(Vec<Rc<Pat>>),

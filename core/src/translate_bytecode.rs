@@ -1,5 +1,5 @@
 use crate::assembly::{remove_labels, Instr, Label, Line};
-use crate::ast::{BinOpcode, FuncDef, Item, ItemKind};
+use crate::ast::{BinaryOperator, FuncDef, Item, ItemKind};
 use crate::ast::{FileAst, Node, NodeId, Sources};
 use crate::builtin::Builtin;
 use crate::effects::EffectStruct;
@@ -310,20 +310,20 @@ impl Translator {
                 self.translate_expr(left.clone(), offset_table, monomorph_env.clone(), st);
                 self.translate_expr(right.clone(), offset_table, monomorph_env.clone(), st);
                 match op {
-                    BinOpcode::Add => emit(st, Instr::Add),
-                    BinOpcode::Subtract => emit(st, Instr::Subtract),
-                    BinOpcode::Multiply => emit(st, Instr::Multiply),
-                    BinOpcode::Divide => emit(st, Instr::Divide),
-                    BinOpcode::GreaterThan => emit(st, Instr::GreaterThan),
-                    BinOpcode::LessThan => emit(st, Instr::LessThan),
-                    BinOpcode::GreaterThanOrEqual => emit(st, Instr::GreaterThanOrEqual),
-                    BinOpcode::LessThanOrEqual => emit(st, Instr::LessThanOrEqual),
-                    BinOpcode::Equal => emit(st, Instr::Equal),
-                    BinOpcode::Concat => emit(st, Instr::ConcatStrings),
-                    BinOpcode::Or => emit(st, Instr::Or),
-                    BinOpcode::And => emit(st, Instr::And),
-                    BinOpcode::Pow => emit(st, Instr::Power),
-                    BinOpcode::Mod => emit(st, Instr::Modulo),
+                    BinaryOperator::Add => emit(st, Instr::Add),
+                    BinaryOperator::Subtract => emit(st, Instr::Subtract),
+                    BinaryOperator::Multiply => emit(st, Instr::Multiply),
+                    BinaryOperator::Divide => emit(st, Instr::Divide),
+                    BinaryOperator::GreaterThan => emit(st, Instr::GreaterThan),
+                    BinaryOperator::LessThan => emit(st, Instr::LessThan),
+                    BinaryOperator::GreaterThanOrEqual => emit(st, Instr::GreaterThanOrEqual),
+                    BinaryOperator::LessThanOrEqual => emit(st, Instr::LessThanOrEqual),
+                    BinaryOperator::Equal => emit(st, Instr::Equal),
+                    BinaryOperator::Concat => emit(st, Instr::ConcatStrings),
+                    BinaryOperator::Or => emit(st, Instr::Or),
+                    BinaryOperator::And => emit(st, Instr::And),
+                    BinaryOperator::Pow => emit(st, Instr::Power),
+                    BinaryOperator::Mod => emit(st, Instr::Modulo),
                 }
             }
             ExprKind::FuncAp(func, args) => {
@@ -391,8 +391,10 @@ impl Translator {
                                 self.get_func_definition_node(&name, substituted_ty.clone());
 
                             // TODO: utter trash
+                            // TODO: this should be alleviated by changing Node from a trait to a big enum.
                             let mut handled = false;
                             if let Some(stmt) = &self.node_map.get(&def_id).unwrap().to_stmt() {
+                                // This is an interface method definition
                                 if let StmtKind::FuncDef(f) = &*stmt.kind {
                                     self.handle_overloaded_func(
                                         st,
@@ -405,6 +407,7 @@ impl Translator {
                             } else if let Some(item) =
                                 &self.node_map.get(&def_id).unwrap().to_item()
                             {
+                                // This is a toplevel function definition
                                 if let ItemKind::FuncDef(f) = &*item.kind {
                                     self.handle_overloaded_func(
                                         st,

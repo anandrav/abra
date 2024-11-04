@@ -1,6 +1,6 @@
 use std::cell::RefCell;
 use std::collections::BTreeMap;
-use std::{fmt, rc::Rc};
+use std::rc::Rc;
 
 use crate::ast::{
     ArgAnnotated, Expr, ExprKind, FileAst, Item, ItemKind, Node, NodeId, Pat, PatKind, Stmt,
@@ -12,21 +12,7 @@ use super::{Declaration, Namespace, StaticsContext, TypeVar};
 
 // TODO: constrain, symbol_table,Prov should be implementation details
 // TODO: others should probably be implementation details too
-use super::typecheck::{
-    ast_type_to_statics_type, ast_type_to_statics_type_interface, constrain, Prov,
-};
-
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub(crate) struct Variant_OLD {
-    pub(crate) ctor: String,
-    pub(crate) data: TypeVar,
-}
-
-impl fmt::Display for Variant_OLD {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{} {}", self.ctor, self.data)
-    }
-}
+use super::typecheck::{ast_type_to_statics_type, ast_type_to_statics_type_interface, constrain};
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub(crate) struct InterfaceDef_OLD {
@@ -587,9 +573,6 @@ fn resolve_names_typ_identifier(
             ctx.resolution_map.insert(id, decl);
         }
         _ => {
-            if identifier != "self" {
-                println!("could not resolve type identifier: {}", identifier)
-            }
             // TODO: log error
             // ctx.unbound_vars.insert(id);
         }
