@@ -323,9 +323,10 @@ fn resolve_names_item(ctx: &mut StaticsContext, symbol_table: SymbolTable, stmt:
         }
         ItemKind::InterfaceImpl(iface_impl) => {
             resolve_names_typ(ctx, symbol_table.clone(), iface_impl.typ.clone());
-            if let Some(Declaration::InterfaceDef(iface_def)) =
-                symbol_table.lookup_declaration(&iface_impl.iface.v)
+            if let Some(decl @ Declaration::InterfaceDef(iface_def)) =
+                &symbol_table.lookup_declaration(&iface_impl.iface.v)
             {
+                ctx.resolution_map.insert(iface_impl.iface.id, decl.clone());
                 for (i, prop) in iface_impl.stmts.iter().enumerate() {
                     if let StmtKind::FuncDef(f) = &*prop.kind {
                         let method = i as u16;
@@ -584,15 +585,15 @@ fn resolve_names_typ_identifier(
 fn gather_definitions_item_DEPRECATE(ctx: &mut StaticsContext, stmt: Rc<Item>) {
     match &*stmt.kind {
         ItemKind::InterfaceDef(i) => {
-            if let Some(interface_def) = ctx.interface_defs.get(&i.name.v) {
-                let entry = ctx
-                    .multiple_interface_defs
-                    .entry(i.name.v.clone())
-                    .or_default();
-                entry.push(interface_def.location);
-                entry.push(stmt.id);
-                return;
-            }
+            // if let Some(interface_def) = ctx.interface_defs.get(&i.name.v) {
+            //     let entry = ctx
+            //         .multiple_interface_defs
+            //         .entry(i.name.v.clone())
+            //         .or_default();
+            //     entry.push(interface_def.location);
+            //     entry.push(stmt.id);
+            //     return;
+            // }
             let mut methods = vec![];
             for p in i.props.iter() {
                 let ty_annot =
@@ -607,14 +608,14 @@ fn gather_definitions_item_DEPRECATE(ctx: &mut StaticsContext, stmt: Rc<Item>) {
                 ctx.method_to_interface
                     .insert(p.name.v.clone(), i.name.v.clone());
             }
-            ctx.interface_defs.insert(
-                i.name.v.clone(),
-                InterfaceDef_OLD {
-                    name: i.name.v.clone(),
-                    methods,
-                    location: stmt.id,
-                },
-            );
+            // ctx.interface_defs.insert(
+            //     i.name.v.clone(),
+            //     InterfaceDef_OLD {
+            //         name: i.name.v.clone(),
+            //         methods,
+            //         location: stmt.id,
+            //     },
+            // );
         }
         ItemKind::InterfaceImpl(interface_impl) => {
             let typ = ast_type_to_statics_type(ctx, interface_impl.typ.clone());

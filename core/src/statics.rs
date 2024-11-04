@@ -35,7 +35,7 @@ pub(crate) struct StaticsContext {
     global_namespace: Namespace,
 
     // TODO this should all be replaced by Declarations in the SymbolTable
-    interface_defs: HashMap<String, InterfaceDef_OLD>,
+    // interface_defs: HashMap<String, InterfaceDef_OLD>,
     // map from methods to interface names
     pub(crate) method_to_interface: HashMap<String, String>,
     // map from interface name to list of implementations
@@ -88,19 +88,14 @@ impl StaticsContext {
             ..Default::default()
         };
 
-        // TODO this string constant needs to come from builtins, not be hardcoded
+        // TODO: this string constant needs to come from builtins, not be hardcoded
         ctx.string_constants.entry("\n".into()).or_insert(0);
         ctx
     }
 
-    // fn enum_def_of_variant(&self, variant: &String) -> Option<EnumDef_OLD> {
-    //     let enum_name = self.variants_to_enum.get(variant)?;
-    //     self.enum_defs.get(enum_name).cloned()
+    // fn interface_def_of_ident(&self, ident: &String) -> Option<InterfaceDef_OLD> {
+    //     self.interface_defs.get(ident).cloned()
     // }
-
-    fn interface_def_of_ident(&self, ident: &String) -> Option<InterfaceDef_OLD> {
-        self.interface_defs.get(ident).cloned()
-    }
 
     pub(crate) fn solution_of_node(&self, id: NodeId) -> Option<SolvedType> {
         let prov = TypeProv::Node(id);
