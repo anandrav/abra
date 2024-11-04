@@ -83,7 +83,7 @@ impl Translator {
         }
     }
 
-    pub(crate) fn translate(&self) -> CompiledProgram {
+    pub(crate) fn translate(&mut self) -> CompiledProgram {
         let mut translator_state = TranslatorState::default();
         let st = &mut translator_state;
 
@@ -110,7 +110,8 @@ impl Translator {
             for (i, local) in locals.iter().enumerate() {
                 offset_table.entry(*local).or_insert((i) as i32);
             }
-            for file in self.files.iter() {
+            let files = self.files.clone();
+            for file in files.iter() {
                 for (i, item) in file.items.iter().enumerate() {
                     if let ItemKind::Stmt(stmt) = &*item.kind {
                         self.translate_stmt(
@@ -127,7 +128,8 @@ impl Translator {
         }
 
         // Handle ordinary function (not overloaded, not a closure) definitions
-        for file in self.files.iter() {
+        let files = self.files.clone();
+        for file in files {
             for item in &file.items {
                 self.translate_item_static(item.clone(), st, false);
             }
@@ -226,7 +228,7 @@ impl Translator {
     }
 
     fn translate_expr(
-        &self,
+        &mut self, // TODO: make this immutable, and all other occurrences
         expr: Rc<Expr>,
         offset_table: &OffsetTable,
         monomorph_env: MonomorphEnv,
@@ -591,7 +593,7 @@ impl Translator {
             }
             ExprKind::List(exprs) => {
                 fn translate_list(
-                    translator: &Translator,
+                    translator: &mut Translator,
                     exprs: &[Rc<Expr>],
                     offset_table: &OffsetTable,
                     monomorph_env: MonomorphEnv,
@@ -847,7 +849,12 @@ impl Translator {
         }
     }
 
-    fn translate_item_static(&self, stmt: Rc<Item>, st: &mut TranslatorState, iface_method: bool) {
+    fn translate_item_static(
+        &mut self,
+        stmt: Rc<Item>,
+        st: &mut TranslatorState,
+        iface_method: bool,
+    ) {
         match &*stmt.kind {
             ItemKind::Stmt(_) => {}
             ItemKind::InterfaceImpl(iface_impl) => {
@@ -902,7 +909,12 @@ impl Translator {
     }
 
     // TODO: this is basically only used for Method implementations, so need to distinguish those from regular functions
-    fn translate_stmt_static(&self, stmt: Rc<Stmt>, st: &mut TranslatorState, iface_method: bool) {
+    fn translate_stmt_static(
+        &mut self,
+        stmt: Rc<Stmt>,
+        st: &mut TranslatorState,
+        iface_method: bool,
+    ) {
         match &*stmt.kind {
             StmtKind::Let(..) => {}
             StmtKind::Set(..) => {}
@@ -953,7 +965,7 @@ impl Translator {
     }
 
     fn translate_stmt(
-        &self,
+        &mut self,
         stmt: Rc<Stmt>,
         is_last: bool,
         locals: &OffsetTable,
@@ -1120,12 +1132,17 @@ impl Translator {
     }
 
     fn get_func_definition_node(
-        &self,
+        &mut self,
         method_name: &String,
         desired_interface_impl: Type,
     ) -> NodeId {
         if let Some(interface_name) = self.statics.method_to_interface.get(method_name) {
-            let impl_list = self.statics.interface_impls.get(interface_name).unwrap();
+            let impl_list = self
+                .statics
+                .interface_impls
+                .get(interface_name)
+                .unwrap()
+                .clone();
             // TODO just because the variable is the same name as an overloaded function doesn't mean the overloaded function is actually being used here.
             // use the type of the variable to determine if it's the same as the overloaded function?
 
@@ -1133,18 +1150,17 @@ impl Translator {
             // dbg!(impl_list);
 
             for imp in impl_list {
-                for method in &imp.methods {
-                    if method.name == *method_name {
-                        let unifvar = self
-                            .statics
-                            .vars
-                            .get(&TypeProv::Node(method.identifier_location))
-                            .unwrap();
+                for method in &imp.stmts {
+                    let StmtKind::FuncDef(f) = &*method.kind else {
+                        unreachable!()
+                    };
+                    if f.name.v == *method_name {
+                        let unifvar = self.statics.vars.get(&TypeProv::Node(f.name.id())).unwrap();
                         let interface_impl_ty = unifvar.solution().unwrap();
 
                         // println!("get_func_definition_node ty_fits_impl_ty");
                         if ty_fits_impl_ty(
-                            &self.statics,
+                            &mut self.statics,
                             desired_interface_impl.clone(),
                             interface_impl_ty,
                         )
@@ -1152,7 +1168,7 @@ impl Translator {
                         {
                             // if desired_interface_impl.clone() == interface_impl_ty {
 
-                            return method.method_location;
+                            return method.id();
                         }
                     }
                 }

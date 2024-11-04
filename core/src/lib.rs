@@ -61,7 +61,8 @@ pub fn compile_bytecode(
 
     let inference_ctx = statics::analyze(&effects, &files, &node_map, &sources)?;
 
-    let translator = Translator::new(inference_ctx, node_map, sources, files, effects);
+    // TODO: translator should be immutable
+    let mut translator = Translator::new(inference_ctx, node_map, sources, files, effects);
     Ok(translator.translate())
 }
 

@@ -339,6 +339,8 @@ pub(crate) struct InterfaceImpl {
     pub(crate) iface: Identifier,
     pub(crate) typ: Rc<Type>,
     pub(crate) stmts: Vec<Rc<Stmt>>, // TODO: Don't use Vec<Stmt>. Use Vec<MethodDef>
+
+    pub(crate) id: NodeId,
 }
 
 #[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq, Hash)]

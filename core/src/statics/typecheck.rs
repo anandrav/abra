@@ -621,10 +621,10 @@ impl TypeVar {
         Self::orphan(PotentialType::make_nominal(prov, nominal, params))
     }
 
-    // return true if the type is an enumt with at least one parameter instantiated
-    // this is used to see if an implementation of an interface is for an instantiated enumt, which is not allowed
+    // return true if the type is a nominal type with at least one parameter instantiated
+    // this is used to see if an implementation of an interface is for an instantiated nominal, which is not allowed
     // example: implement ToString for list<int> rather than list<'a>
-    pub(crate) fn is_instantiated_enum(&self) -> bool {
+    pub(crate) fn is_instantiated_nominal(&self) -> bool {
         let Some(ty) = self.single() else {
             return false;
         };
@@ -1037,15 +1037,14 @@ pub(crate) fn result_of_constraint_solving(
     }
 
     // look for error of multiple interface implementations for the same type
-    for (ident, impls) in ctx.interface_impls.iter() {
+    let interface_impls = ctx.interface_impls.clone();
+    for (ident, impls) in interface_impls.iter() {
         // map from implementation type to location
         let mut impls_by_type: BTreeMap<SolvedType, Vec<NodeId>> = BTreeMap::new();
         for imp in impls.iter() {
-            if let Some(impl_typ) = imp.typ.clone().solution() {
-                impls_by_type
-                    .entry(impl_typ)
-                    .or_default()
-                    .push(imp.location);
+            let imp_typ = ast_type_to_statics_type(ctx, imp.typ.clone());
+            if let Some(impl_typ) = imp_typ.clone().solution() {
+                impls_by_type.entry(impl_typ).or_default().push(imp.id);
             }
         }
         for (_impl_typ, impl_locs) in impls_by_type.iter() {
@@ -1060,7 +1059,9 @@ pub(crate) fn result_of_constraint_solving(
 
     let mut bad_instantiations = false;
     // check for bad instantiation of polymorphic types constrained to an Interface
-    for (typ, interfaces) in ctx.types_constrained_to_interfaces.iter() {
+    // TODO: unnecessary clone
+    let types_constrained_to_interfaces = ctx.types_constrained_to_interfaces.clone();
+    for (typ, interfaces) in types_constrained_to_interfaces.iter() {
         let Some(typ) = &typ.solution() else {
             continue;
         };
@@ -1073,10 +1074,12 @@ pub(crate) fn result_of_constraint_solving(
                 if interfaces2.contains(interface) {
                     bad_instantiation = false;
                 }
-            } else if let Some(impl_list) = ctx.interface_impls.get(interface) {
+            } else if let Some(impl_list) = ctx.interface_impls.get(interface).cloned() {
                 // find at least one implementation of interface that matches the type constrained to the interface
                 for impl_ in impl_list {
-                    if let Some(impl_ty) = impl_.typ.solution() {
+                    // TODO: converting implementation's ast type to a typevar then getting the solution is silly
+                    let impl_ty = ast_type_to_statics_type(ctx, impl_.typ.clone());
+                    if let Some(impl_ty) = impl_ty.solution() {
                         // println!("typecheck ty_fits_impl_ty");
                         // println!("ty1: {}, ty2: {}", typ, impl_ty);
                         if let Err((_err_monoty, _err_impl_ty)) =
@@ -1833,6 +1836,8 @@ fn generate_constraints_item(mode: Mode, stmt: Rc<Item>, ctx: &mut StaticsContex
             generate_constraints_stmt(PolyvarScope::empty(), mode, stmt.clone(), ctx)
         }
         ItemKind::InterfaceImpl(iface_impl) => {
+            // TODO: converting implementation's ast type to a typevar then getting the solution is silly
+            // Should just be able to get the Solved type directly from the ast_type
             let impl_ty = ast_type_to_statics_type(ctx, iface_impl.typ.clone());
 
             let lookup = ctx.resolution_map.get(&iface_impl.iface.id).cloned();
@@ -2163,7 +2168,7 @@ fn fmt_conflicting_types(types: &[PotentialType], f: &mut dyn Write) -> fmt::Res
 // TODO: there should be a file separate from typecheck that just has stuff pertaining to Types that the whole compiler can use
 // type-utils or just types.rs
 pub(crate) fn ty_fits_impl_ty(
-    ctx: &StaticsContext,
+    ctx: &mut StaticsContext,
     typ: SolvedType,
     impl_ty: SolvedType,
 ) -> Result<(), (SolvedType, SolvedType)> {
@@ -2227,7 +2232,7 @@ pub(crate) fn ty_fits_impl_ty(
 }
 
 fn ty_fits_impl_ty_poly(
-    ctx: &StaticsContext,
+    ctx: &mut StaticsContext,
     typ: SolvedType,
     interfaces: BTreeSet<String>,
 ) -> bool {
@@ -2238,10 +2243,12 @@ fn ty_fits_impl_ty_poly(
                 return true;
             }
         }
-        if let Some(impl_list) = ctx.interface_impls.get(&interface) {
+        if let Some(impl_list) = ctx.interface_impls.get(&interface).cloned() {
             // find at least one implementation of interface that matches the type constrained to the interface
             for impl_ in impl_list {
-                if let Some(impl_ty) = impl_.typ.solution() {
+                // TODO: converting implementation's ast type to a typevar then getting the solution is silly
+                let impl_ty = ast_type_to_statics_type(ctx, impl_.typ.clone());
+                if let Some(impl_ty) = impl_ty.solution() {
                     if ty_fits_impl_ty(ctx, typ.clone(), impl_ty).is_ok() {
                         return true;
                     }

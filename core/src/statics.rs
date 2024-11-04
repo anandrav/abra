@@ -1,11 +1,10 @@
 use crate::ast::{
-    EnumDef, FileAst, FuncDef, InterfaceDef, NodeId, NodeMap, Sources, StructDef, TypeKind,
+    EnumDef, FileAst, FuncDef, InterfaceDef, InterfaceImpl, NodeId, NodeMap, Sources, StructDef,
+    TypeKind,
 };
 use crate::builtin::Builtin;
 use crate::effects::EffectStruct;
-use resolve::{
-    gather_declarations_file_OLD, resolve, scan_declarations, InterfaceImpl_OLD,
-};
+use resolve::{gather_declarations_file_OLD, resolve, scan_declarations};
 use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::fmt::{self, Display, Formatter};
 use std::rc::Rc;
@@ -38,7 +37,7 @@ pub(crate) struct StaticsContext {
     // map from methods to interface names
     pub(crate) method_to_interface: HashMap<String, String>,
     // map from interface name to list of implementations
-    pub(crate) interface_impls: BTreeMap<String, Vec<InterfaceImpl_OLD>>,
+    pub(crate) interface_impls: BTreeMap<String, Vec<Rc<InterfaceImpl>>>,
     // string constants (for bytecode translation)
     pub(crate) string_constants: HashMap<String, usize>,
 

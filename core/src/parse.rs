@@ -559,6 +559,7 @@ pub(crate) fn parse_item(pair: Pair<Rule>, filename: &str) -> Rc<Item> {
                 stmts.push(stmt);
                 n += 1;
             }
+            let impl_id = NodeId::new();
             Rc::new(Item {
                 kind: ItemKind::InterfaceImpl(
                     InterfaceImpl {
@@ -569,12 +570,14 @@ pub(crate) fn parse_item(pair: Pair<Rule>, filename: &str) -> Rc<Item> {
                         },
                         typ,
                         stmts,
+
+                        id: impl_id,
                     }
                     .into(),
                 )
                 .into(),
                 span,
-                id: NodeId::new(),
+                id: impl_id,
             })
         }
         Rule::import => {

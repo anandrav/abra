@@ -14,34 +14,6 @@ use super::{Declaration, Namespace, StaticsContext, TypeVar};
 // TODO: others should probably be implementation details too
 use super::typecheck::{ast_type_to_statics_type, ast_type_to_statics_type_interface, constrain};
 
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
-pub(crate) struct InterfaceDef_OLD {
-    pub(crate) name: String,
-    pub(crate) methods: Vec<InterfaceDefMethod_OLD>,
-    pub(crate) location: NodeId,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
-pub(crate) struct InterfaceImpl_OLD {
-    pub(crate) name: String,
-    pub(crate) typ: TypeVar,
-    pub(crate) methods: Vec<InterfaceImplMethod_OLD>,
-    pub(crate) location: NodeId,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
-pub(crate) struct InterfaceDefMethod_OLD {
-    pub(crate) name: String,
-    pub(crate) ty: TypeVar,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
-pub(crate) struct InterfaceImplMethod_OLD {
-    pub(crate) name: String,
-    pub(crate) method_location: NodeId,
-    pub(crate) identifier_location: NodeId,
-}
-
 pub(crate) fn scan_declarations(ctx: &mut StaticsContext, files: Vec<Rc<FileAst>>) {
     for file in files {
         let name = file.name.clone();
@@ -585,70 +557,54 @@ fn resolve_names_typ_identifier(
 fn gather_definitions_item_DEPRECATE(ctx: &mut StaticsContext, stmt: Rc<Item>) {
     match &*stmt.kind {
         ItemKind::InterfaceDef(i) => {
-            // if let Some(interface_def) = ctx.interface_defs.get(&i.name.v) {
-            //     let entry = ctx
-            //         .multiple_interface_defs
-            //         .entry(i.name.v.clone())
-            //         .or_default();
-            //     entry.push(interface_def.location);
-            //     entry.push(stmt.id);
-            //     return;
-            // }
-            let mut methods = vec![];
+            // let mut methods = vec![];
             for p in i.props.iter() {
                 let ty_annot =
                     ast_type_to_statics_type_interface(ctx, p.ty.clone(), Some(&i.name.v));
                 let node_ty = TypeVar::from_node(ctx, p.id());
                 // TODO: it would be nice if there were no calls to constrain() when gathering declarations...
                 constrain(node_ty.clone(), ty_annot.clone());
-                methods.push(InterfaceDefMethod_OLD {
-                    name: p.name.v.clone(),
-                    ty: node_ty.clone(),
-                });
+                // methods.push(InterfaceDefMethod_OLD {
+                //     name: p.name.v.clone(),
+                //     ty: node_ty.clone(),
+                // });
                 ctx.method_to_interface
                     .insert(p.name.v.clone(), i.name.v.clone());
             }
-            // ctx.interface_defs.insert(
-            //     i.name.v.clone(),
-            //     InterfaceDef_OLD {
-            //         name: i.name.v.clone(),
-            //         methods,
-            //         location: stmt.id,
-            //     },
-            // );
         }
         ItemKind::InterfaceImpl(interface_impl) => {
             let typ = ast_type_to_statics_type(ctx, interface_impl.typ.clone());
 
-            if typ.is_instantiated_enum() {
+            if typ.is_instantiated_nominal() {
                 ctx.interface_impl_for_instantiated_ty.push(stmt.id);
             }
 
-            let methods = interface_impl
-                .stmts
-                .iter()
-                .map(|stmt| match &*stmt.kind {
-                    StmtKind::FuncDef(f) => {
-                        let name = f.name.v.clone();
-                        InterfaceImplMethod_OLD {
-                            name,
-                            identifier_location: f.name.id(),
-                            method_location: stmt.id(),
-                        }
-                    }
-                    _ => unreachable!(),
-                })
-                .collect();
+            // let methods = interface_impl
+            //     .stmts
+            //     .iter()
+            //     .map(|stmt| match &*stmt.kind {
+            //         StmtKind::FuncDef(f) => {
+            //             let name = f.name.v.clone();
+            //             InterfaceImplMethod_OLD {
+            //                 name,
+            //                 identifier_location: f.name.id(),
+            //                 method_location: stmt.id(),
+            //             }
+            //         }
+            //         _ => unreachable!(),
+            //     })
+            //     .collect();
             let impl_list = ctx
                 .interface_impls
                 .entry(interface_impl.iface.v.clone())
                 .or_default();
-            impl_list.push(InterfaceImpl_OLD {
-                name: interface_impl.iface.v.clone(),
-                typ,
-                methods,
-                location: stmt.id,
-            });
+            // impl_list.push(InterfaceImpl_OLD {
+            //     name: interface_impl.iface.v.clone(),
+            //     typ,
+            //     methods,
+            //     location: stmt.id,
+            // });
+            impl_list.push(interface_impl.clone());
         }
         ItemKind::TypeDef(typdefkind) => match &**typdefkind {
             TypeDefKind::Enum(e) => {}
