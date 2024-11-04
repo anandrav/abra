@@ -1888,54 +1888,6 @@ fn generate_constraints_item(mode: Mode, stmt: Rc<Item>, ctx: &mut StaticsContex
                     }
                 }
             }
-
-            // if let Some(interface_def) = ctx.interface_def_of_ident(&iface_impl.iface.v) {
-            //     for statement in &iface_impl.stmts {
-            //         let StmtKind::FuncDef(f) = &*statement.kind else {
-            //             continue;
-            //         };
-            //         let method_name = f.name.v.clone();
-            //         if let Some(interface_method) =
-            //             interface_def.methods.iter().find(|m| m.name == method_name)
-            //         {
-            //             let mut substitution = BTreeMap::new();
-            //             substitution.insert("a".to_string(), typ.clone());
-
-            //             let expected = interface_method.ty.clone().subst(
-            //                 PolyvarScope::empty(),
-            //                 Prov::Node(stmt.id),
-            //                 &substitution,
-            //             );
-
-            //             constrain(expected, TypeVar::from_node(ctx, f.name.id));
-
-            //             generate_constraints_stmt(
-            //                 PolyvarScope::empty(),
-            //                 Mode::Syn,
-            //                 statement.clone(),
-            //                 ctx,
-            //             );
-            //         } else {
-            //             ctx.interface_impl_extra_method
-            //                 .entry(stmt.id)
-            //                 .or_default()
-            //                 .push(statement.id);
-            //         }
-            //     }
-            //     for interface_method in interface_def.methods {
-            //         if !iface_impl.stmts.iter().any(|stmt| match &*stmt.kind {
-            //             StmtKind::FuncDef(f) => f.name.v == interface_method.name,
-            //             _ => false,
-            //         }) {
-            //             ctx.interface_impl_missing_method
-            //                 .entry(stmt.id)
-            //                 .or_default()
-            //                 .push(interface_method.name.clone());
-            //         }
-            //     }
-            // } else {
-            //     ctx.unbound_interfaces.insert(stmt.id);
-            // }
         }
         ItemKind::TypeDef(typdefkind) => match &**typdefkind {
             // TypeDefKind::Alias(ident, ty) => {

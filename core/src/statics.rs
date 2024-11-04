@@ -29,22 +29,16 @@ pub(crate) struct StaticsContext {
     node_map: NodeMap,
     sources: Sources,
 
-    // DECLARATIONS
-
-    // new declaration stuff
     global_namespace: Namespace,
+    // This maps any identifier in the program to the declaration it resolves to.
+    pub(crate) resolution_map: HashMap<NodeId, Declaration>,
 
-    // TODO this should all be replaced by Declarations in the SymbolTable
-    // interface_defs: HashMap<String, InterfaceDef_OLD>,
+    // BOOKKEEPING
+
     // map from methods to interface names
     pub(crate) method_to_interface: HashMap<String, String>,
     // map from interface name to list of implementations
     pub(crate) interface_impls: BTreeMap<String, Vec<InterfaceImpl_OLD>>,
-
-    // BOOKKEEPING
-
-    // This maps any identifier in the program to the declaration it resolves to.
-    pub(crate) resolution_map: HashMap<NodeId, Declaration>,
     // string constants (for bytecode translation)
     pub(crate) string_constants: HashMap<String, usize>,
 
