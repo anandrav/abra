@@ -4,7 +4,7 @@ use crate::ast::{
 use crate::builtin::Builtin;
 use crate::effects::EffectStruct;
 use resolve::{
-    gather_declarations_file_OLD, resolve, scan_declarations, InterfaceDef_OLD, InterfaceImpl_OLD,
+    gather_declarations_file_OLD, resolve, scan_declarations, InterfaceImpl_OLD,
 };
 use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::fmt::{self, Display, Formatter};
