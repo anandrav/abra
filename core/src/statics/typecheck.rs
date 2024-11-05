@@ -1906,6 +1906,16 @@ fn generate_constraints_item(mode: Mode, stmt: Rc<Item>, ctx: &mut StaticsContex
                             .push(interface_method.name.v.clone());
                     }
                 }
+                if impl_ty.is_instantiated_nominal() {
+                    ctx.interface_impl_for_instantiated_ty.push(stmt.id);
+                }
+
+                let impl_list = ctx
+                    .interface_impls
+                    .entry(iface_impl.iface.v.clone())
+                    .or_default();
+
+                impl_list.push(iface_impl.clone());
             }
         }
         ItemKind::TypeDef(typdefkind) => match &**typdefkind {

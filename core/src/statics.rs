@@ -4,7 +4,7 @@ use crate::ast::{
 };
 use crate::builtin::Builtin;
 use crate::effects::EffectStruct;
-use resolve::{gather_declarations_file_OLD, resolve, scan_declarations};
+use resolve::{resolve, scan_declarations};
 use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::fmt::{self, Display, Formatter};
 use std::rc::Rc;
@@ -218,10 +218,6 @@ pub(crate) fn analyze(
 
     // resolve all imports and identifiers
     resolve(&mut ctx, files.clone());
-
-    for file in files {
-        gather_declarations_file_OLD(&mut ctx, file.clone());
-    }
 
     // typechecking
     for file in files {

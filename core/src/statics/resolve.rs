@@ -24,13 +24,6 @@ pub(crate) fn scan_declarations(ctx: &mut StaticsContext, files: Vec<Rc<FileAst>
     }
 }
 
-pub(crate) fn gather_declarations_file_OLD(ctx: &mut StaticsContext, file: Rc<FileAst>) {
-    // TODO: get rid of this
-    for item in file.items.iter() {
-        gather_definitions_item_DEPRECATE(ctx, item.clone());
-    }
-}
-
 fn gather_declarations_file(ctx: &mut StaticsContext, file: Rc<FileAst>) -> Namespace {
     let mut namespace = Namespace::default();
 
@@ -549,34 +542,5 @@ fn resolve_names_typ_identifier(
             // TODO: log error
             // ctx.unbound_vars.insert(id);
         }
-    }
-}
-
-///////// DEPRECATE BELOW
-
-fn gather_definitions_item_DEPRECATE(ctx: &mut StaticsContext, stmt: Rc<Item>) {
-    match &*stmt.kind {
-        ItemKind::InterfaceDef(i) => {}
-        ItemKind::InterfaceImpl(interface_impl) => {
-            let typ = ast_type_to_statics_type(ctx, interface_impl.typ.clone());
-
-            if typ.is_instantiated_nominal() {
-                ctx.interface_impl_for_instantiated_ty.push(stmt.id);
-            }
-
-            let impl_list = ctx
-                .interface_impls
-                .entry(interface_impl.iface.v.clone())
-                .or_default();
-
-            impl_list.push(interface_impl.clone());
-        }
-        ItemKind::TypeDef(typdefkind) => match &**typdefkind {
-            TypeDefKind::Enum(e) => {}
-            TypeDefKind::Struct(_) => {}
-        },
-        ItemKind::FuncDef(_) => {}
-        ItemKind::Import(..) => {}
-        ItemKind::Stmt(..) => {}
     }
 }
