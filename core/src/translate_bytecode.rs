@@ -228,7 +228,7 @@ impl Translator {
     }
 
     fn translate_expr(
-        &mut self, // TODO: make this immutable, and all other occurrences
+        &mut self, // TODO: make this immutable, and all other occurrences. It's only mutable right now because of ty_fits_impl_ty calls ast_type_to_statics_type...
         expr: Rc<Expr>,
         offset_table: &OffsetTable,
         monomorph_env: MonomorphEnv,

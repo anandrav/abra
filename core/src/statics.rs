@@ -35,9 +35,9 @@ pub(crate) struct StaticsContext {
     // BOOKKEEPING
 
     // map from methods to interface names
-    pub(crate) method_to_interface: HashMap<String, String>,
+    pub(crate) method_to_interface: HashMap<String, String>, // TODO: can't use Strings here
     // map from interface name to list of implementations
-    pub(crate) interface_impls: BTreeMap<String, Vec<Rc<InterfaceImpl>>>,
+    pub(crate) interface_impls: BTreeMap<String, Vec<Rc<InterfaceImpl>>>, // TODO can't use String for key. Use Rc<InterfaceDef>
     // string constants (for bytecode translation)
     pub(crate) string_constants: HashMap<String, usize>,
 
