@@ -1,12 +1,12 @@
 use crate::assembly::{remove_labels, Instr, Label, Line};
-use crate::ast::{BinaryOperator, FuncDef, Item, ItemKind};
+use crate::ast::{BinaryOperator, FuncDef, Item, ItemKind, TypeKind};
 use crate::ast::{FileAst, Node, NodeId, Sources};
 use crate::builtin::Builtin;
 use crate::effects::EffectStruct;
 use crate::environment::Environment;
 use crate::statics::typecheck::Nominal;
-use crate::statics::TypeProv;
-use crate::statics::{ty_fits_impl_ty, BytecodeResolution, Monotype, Type};
+use crate::statics::{ty_fits_impl_ty, Monotype, Type};
+use crate::statics::{Declaration, TypeProv};
 use crate::vm::{AbraFloat, AbraInt, Instr as VmInstr};
 use crate::{
     ast::{Expr, ExprKind, NodeMap, Pat, PatKind, Stmt, StmtKind},
@@ -64,6 +64,64 @@ pub struct CompiledProgram {
     pub(crate) instructions: Vec<VmInstr>,
     pub(crate) label_map: LabelMap,
     pub(crate) string_table: Vec<String>,
+}
+
+impl Declaration {
+    pub fn to_bytecode_resolution(&self) -> BytecodeResolution {
+        match self {
+            Declaration::Var(node_id) => BytecodeResolution::Var(*node_id),
+            Declaration::FreeFunction(f) => {
+                BytecodeResolution::FreeFunction(f.clone(), f.name.v.clone())
+            }
+            Declaration::InterfaceDef(_) => panic!(), // TODO: remove panic
+            Declaration::InterfaceMethod { iface_def, method } => {
+                let name = &iface_def.props[*method as usize].name;
+                BytecodeResolution::InterfaceMethod(name.v.clone())
+            }
+            Declaration::Enum(..) => {
+                panic!() // TODO: remove panic
+            }
+            Declaration::EnumVariant { enum_def, variant } => {
+                let data = &enum_def.variants[*variant as usize].data;
+                let arity = match data {
+                    None => 0,
+                    Some(ty) => match &*ty.kind {
+                        TypeKind::Poly(..)
+                        | TypeKind::Identifier(_)
+                        | TypeKind::Ap(..)
+                        | TypeKind::Unit
+                        | TypeKind::Int
+                        | TypeKind::Float
+                        | TypeKind::Bool
+                        | TypeKind::Str
+                        | TypeKind::Function(..) => 1,
+                        TypeKind::Tuple(elems) => elems.len(),
+                    },
+                } as u16;
+                BytecodeResolution::VariantCtor(*variant, arity)
+            }
+            Declaration::Struct(struct_def) => {
+                let nargs = struct_def.fields.len() as u16;
+                BytecodeResolution::StructCtor(nargs)
+            }
+            Declaration::Array => {
+                panic!();
+            }
+            Declaration::Builtin(b) => BytecodeResolution::Builtin(*b),
+            Declaration::Effect(e) => BytecodeResolution::Effect(*e),
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub(crate) enum BytecodeResolution {
+    Var(NodeId),
+    FreeFunction(Rc<FuncDef>, String), // TODO: String bad unless fully qualified!
+    InterfaceMethod(String),           // TODO: String bad unless fully qualified!
+    StructCtor(u16),
+    VariantCtor(u16, u16),
+    Builtin(Builtin),
+    Effect(u16),
 }
 
 impl Translator {

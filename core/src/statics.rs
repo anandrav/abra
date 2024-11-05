@@ -46,9 +46,9 @@ pub(crate) struct StaticsContext {
     // unification variables (skolems) which must be solved
     pub(crate) vars: HashMap<TypeProv, TypeVar>,
     // constraint: map from types to interfaces they must implement
-    types_constrained_to_interfaces: BTreeMap<TypeVar, Vec<(String, TypeProv)>>,
+    types_constrained_to_interfaces: BTreeMap<TypeVar, Vec<(String, TypeProv)>>, // TODO: can't use TypeVar as key because it's mutable. Use a Prov instead?
     // constraint: map from types which must be structs to location of field access
-    types_that_must_be_structs: BTreeMap<TypeVar, NodeId>,
+    types_that_must_be_structs: BTreeMap<TypeVar, NodeId>, // TODO: can't use TypeVar as key because it's mutable. Use a Prov instead?
 
     // ERRORS
 
@@ -86,10 +86,6 @@ impl StaticsContext {
         ctx
     }
 
-    // fn interface_def_of_ident(&self, ident: &String) -> Option<InterfaceDef_OLD> {
-    //     self.interface_defs.get(ident).cloned()
-    // }
-
     pub(crate) fn solution_of_node(&self, id: NodeId) -> Option<SolvedType> {
         let prov = TypeProv::Node(id);
         match self.vars.get(&prov) {
@@ -122,8 +118,6 @@ impl Display for Namespace {
     }
 }
 
-// TODO: separation of concerns. storing number of arguments, tag, etc. because the bytecode translator needs it is kinda weird, maybe reconsider.
-// Try to store more general information which the bytecode translator can then use to derive specific things it cares about.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub(crate) enum Declaration {
     FreeFunction(Rc<FuncDef>),
@@ -142,64 +136,6 @@ pub(crate) enum Declaration {
     Builtin(Builtin),
     Effect(u16),
     Var(NodeId),
-}
-
-impl Declaration {
-    pub fn to_bytecode_resolution(&self) -> BytecodeResolution {
-        match self {
-            Declaration::Var(node_id) => BytecodeResolution::Var(*node_id),
-            Declaration::FreeFunction(f) => {
-                BytecodeResolution::FreeFunction(f.clone(), f.name.v.clone())
-            }
-            Declaration::InterfaceDef(_) => panic!(), // TODO: remove panic
-            Declaration::InterfaceMethod { iface_def, method } => {
-                let name = &iface_def.props[*method as usize].name;
-                BytecodeResolution::InterfaceMethod(name.v.clone())
-            }
-            Declaration::Enum(..) => {
-                panic!() // TODO: remove panic
-            }
-            Declaration::EnumVariant { enum_def, variant } => {
-                let data = &enum_def.variants[*variant as usize].data;
-                let arity = match data {
-                    None => 0,
-                    Some(ty) => match &*ty.kind {
-                        TypeKind::Poly(..)
-                        | TypeKind::Identifier(_)
-                        | TypeKind::Ap(..)
-                        | TypeKind::Unit
-                        | TypeKind::Int
-                        | TypeKind::Float
-                        | TypeKind::Bool
-                        | TypeKind::Str
-                        | TypeKind::Function(..) => 1,
-                        TypeKind::Tuple(elems) => elems.len(),
-                    },
-                } as u16;
-                BytecodeResolution::VariantCtor(*variant, arity)
-            }
-            Declaration::Struct(struct_def) => {
-                let nargs = struct_def.fields.len() as u16;
-                BytecodeResolution::StructCtor(nargs)
-            }
-            Declaration::Array => {
-                panic!();
-            }
-            Declaration::Builtin(b) => BytecodeResolution::Builtin(*b),
-            Declaration::Effect(e) => BytecodeResolution::Effect(*e),
-        }
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub(crate) enum BytecodeResolution {
-    Var(NodeId),
-    FreeFunction(Rc<FuncDef>, String), // TODO: String bad unless fully qualified!
-    InterfaceMethod(String),           // TODO: String bad unless fully qualified!
-    StructCtor(u16),
-    VariantCtor(u16, u16),
-    Builtin(Builtin),
-    Effect(u16),
 }
 
 // main function that performs typechecking (as well as name resolution beforehand)

@@ -1078,6 +1078,7 @@ pub(crate) fn result_of_constraint_solving(
                 // find at least one implementation of interface that matches the type constrained to the interface
                 for impl_ in impl_list {
                     // TODO: converting implementation's ast type to a typevar then getting the solution is silly
+                    // ALSO it requires a mutable StaticsContext which doesn't make sense at all
                     let impl_ty = ast_type_to_statics_type(ctx, impl_.typ.clone());
                     if let Some(impl_ty) = impl_ty.solution() {
                         // println!("typecheck ty_fits_impl_ty");
