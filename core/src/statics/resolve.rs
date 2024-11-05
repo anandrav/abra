@@ -8,23 +8,19 @@ use crate::ast::{
 };
 use crate::builtin::Builtin;
 
-use super::{Declaration, Namespace, StaticsContext, TypeVar};
-
-// TODO: constrain, symbol_table,Prov should be implementation details
-// TODO: others should probably be implementation details too
-use super::typecheck::{ast_type_to_statics_type, ast_type_to_statics_type_interface, constrain};
+use super::{Declaration, Namespace, StaticsContext};
 
 pub(crate) fn scan_declarations(ctx: &mut StaticsContext, files: Vec<Rc<FileAst>>) {
     for file in files {
         let name = file.name.clone();
-        let namespace = gather_declarations_file(ctx, file.clone());
+        let namespace = gather_declarations_file(file.clone());
         ctx.global_namespace
             .namespaces
             .insert(name, namespace.into());
     }
 }
 
-fn gather_declarations_file(ctx: &mut StaticsContext, file: Rc<FileAst>) -> Namespace {
+fn gather_declarations_file(file: Rc<FileAst>) -> Namespace {
     let mut namespace = Namespace::default();
 
     let qualifiers = vec![file.name.clone()];
@@ -115,8 +111,7 @@ struct SymbolTable {
 #[derive(Default, Debug, Clone)]
 struct SymbolTableBase {
     declarations: BTreeMap<String, Declaration>,
-    namespaces: BTreeMap<String, Rc<Namespace>>,
-
+    //namespaces: BTreeMap<String, Rc<Namespace>>,
     enclosing: Option<Rc<RefCell<SymbolTableBase>>>,
 }
 
@@ -131,23 +126,23 @@ impl SymbolTableBase {
         }
     }
 
-    fn lookup_namespace(&self, id: &String) -> Option<Rc<Namespace>> {
-        match self.namespaces.get(id) {
-            Some(ns) => Some(ns.clone()),
-            None => match &self.enclosing {
-                Some(enclosing) => enclosing.borrow().lookup_namespace(id),
-                None => None,
-            },
-        }
-    }
+    // fn lookup_namespace(&self, id: &String) -> Option<Rc<Namespace>> {
+    //     match self.namespaces.get(id) {
+    //         Some(ns) => Some(ns.clone()),
+    //         None => match &self.enclosing {
+    //             Some(enclosing) => enclosing.borrow().lookup_namespace(id),
+    //             None => None,
+    //         },
+    //     }
+    // }
 
     fn extend_declaration(&mut self, id: String, decl: Declaration) {
         self.declarations.insert(id, decl);
     }
 
-    fn extend_namespace(&mut self, id: String, ns: Rc<Namespace>) {
-        self.namespaces.insert(id, ns);
-    }
+    // fn extend_namespace(&mut self, id: String, ns: Rc<Namespace>) {
+    //     self.namespaces.insert(id, ns);
+    // }
 }
 
 impl SymbolTable {
@@ -170,19 +165,18 @@ impl SymbolTable {
         self.base.borrow().lookup_declaration(id)
     }
 
-    pub(crate) fn lookup_namespace(&self, id: &String) -> Option<Rc<Namespace>> {
-        self.base.borrow().lookup_namespace(id)
-    }
+    // pub(crate) fn lookup_namespace(&self, id: &String) -> Option<Rc<Namespace>> {
+    //     self.base.borrow().lookup_namespace(id)
+    // }
 
     pub(crate) fn extend_declaration(&self, id: String, decl: Declaration) {
         self.base.borrow_mut().extend_declaration(id, decl);
     }
 
-    pub(crate) fn extend_namespace(&self, id: String, ns: Rc<Namespace>) {
-        self.base.borrow_mut().extend_namespace(id, ns);
-    }
+    // pub(crate) fn extend_namespace(&self, id: String, ns: Rc<Namespace>) {
+    //     self.base.borrow_mut().extend_namespace(id, ns);
+    // }
 }
-// type Env = Environment<Identifier, Declaration>;
 
 // TODO: make a custom type to detect collisions
 pub type ToplevelDeclarations = BTreeMap<String, Declaration>;

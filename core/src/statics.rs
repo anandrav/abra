@@ -19,14 +19,14 @@ pub(crate) use typecheck::{ty_fits_impl_ty, Monotype};
 pub(crate) use typecheck::Prov as TypeProv;
 pub(crate) use typecheck::SolvedType as Type;
 
-use pat_exhaustiveness::{result_of_additional_analysis, DeconstructedPat};
+use pat_exhaustiveness::{check_pattern_exhaustiveness_and_usefulness, DeconstructedPat};
 
 #[derive(Default, Debug)]
 pub(crate) struct StaticsContext {
     // effects
     effects: Vec<EffectStruct>,
-    node_map: NodeMap,
-    sources: Sources,
+    _node_map: NodeMap,
+    _sources: Sources,
 
     global_namespace: Namespace,
     // This maps any identifier in the program to the declaration it resolves to.
@@ -76,8 +76,8 @@ impl StaticsContext {
     fn new(effects: Vec<EffectStruct>, node_map: NodeMap, sources: Sources) -> Self {
         let mut ctx = Self {
             effects,
-            node_map,
-            sources,
+            _node_map: node_map,
+            _sources: sources,
             ..Default::default()
         };
 
@@ -145,17 +145,16 @@ pub(crate) enum Declaration {
 }
 
 impl Declaration {
-    // TODO: remove this function and Resolution_OLD altogether
-    pub fn to_resolution_old(&self) -> Resolution_OLD {
+    pub fn to_bytecode_resolution(&self) -> BytecodeResolution {
         match self {
-            Declaration::Var(node_id) => Resolution_OLD::Var(*node_id),
+            Declaration::Var(node_id) => BytecodeResolution::Var(*node_id),
             Declaration::FreeFunction(f) => {
-                Resolution_OLD::FreeFunction(f.clone(), f.name.v.clone())
+                BytecodeResolution::FreeFunction(f.clone(), f.name.v.clone())
             }
             Declaration::InterfaceDef(_) => panic!(), // TODO: remove panic
             Declaration::InterfaceMethod { iface_def, method } => {
                 let name = &iface_def.props[*method as usize].name;
-                Resolution_OLD::InterfaceMethod(name.v.clone())
+                BytecodeResolution::InterfaceMethod(name.v.clone())
             }
             Declaration::Enum(..) => {
                 panic!() // TODO: remove panic
@@ -177,23 +176,23 @@ impl Declaration {
                         TypeKind::Tuple(elems) => elems.len(),
                     },
                 } as u16;
-                Resolution_OLD::VariantCtor(*variant, arity)
+                BytecodeResolution::VariantCtor(*variant, arity)
             }
             Declaration::Struct(struct_def) => {
                 let nargs = struct_def.fields.len() as u16;
-                Resolution_OLD::StructCtor(nargs)
+                BytecodeResolution::StructCtor(nargs)
             }
             Declaration::Array => {
                 panic!();
             }
-            Declaration::Builtin(b) => Resolution_OLD::Builtin(*b),
-            Declaration::Effect(e) => Resolution_OLD::Effect(*e),
+            Declaration::Builtin(b) => BytecodeResolution::Builtin(*b),
+            Declaration::Effect(e) => BytecodeResolution::Effect(*e),
         }
     }
 }
-// TODO: move this to translate_bytecode. Make a conversion function from Declaration/Resolution to this thing
+
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub(crate) enum Resolution_OLD {
+pub(crate) enum BytecodeResolution {
     Var(NodeId),
     FreeFunction(Rc<FuncDef>, String), // TODO: String bad unless fully qualified!
     InterfaceMethod(String),           // TODO: String bad unless fully qualified!
@@ -214,7 +213,6 @@ pub(crate) fn analyze(
 
     // scan declarations across all files
     scan_declarations(&mut ctx, files.clone());
-    // println!("global namespace:\n{}", ctx.global_namespace);
 
     // resolve all imports and identifiers
     resolve(&mut ctx, files.clone());
@@ -227,8 +225,7 @@ pub(crate) fn analyze(
     result_of_constraint_solving(&mut ctx, node_map, sources)?;
 
     // pattern exhaustiveness and usefulness checking
-    // TODO: rename this function
-    result_of_additional_analysis(&mut ctx, files, node_map, sources)?;
+    check_pattern_exhaustiveness_and_usefulness(&mut ctx, files, node_map, sources)?;
 
     Ok(ctx)
 }

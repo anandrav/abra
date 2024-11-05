@@ -13,7 +13,7 @@ use super::typecheck::{ast_type_to_statics_type, Nominal};
 use super::{Declaration, EnumDef, SolvedType, StaticsContext, TypeKind, TypeProv, TypeVar};
 
 // TODO: rename to be more descriptive/specific to exhaustiveness/usefulness
-pub(crate) fn result_of_additional_analysis(
+pub(crate) fn check_pattern_exhaustiveness_and_usefulness(
     ctx: &mut StaticsContext,
     files: &[Rc<FileAst>],
     node_map: &NodeMap,

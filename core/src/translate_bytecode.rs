@@ -6,7 +6,7 @@ use crate::effects::EffectStruct;
 use crate::environment::Environment;
 use crate::statics::typecheck::Nominal;
 use crate::statics::TypeProv;
-use crate::statics::{ty_fits_impl_ty, Monotype, Resolution_OLD, Type};
+use crate::statics::{ty_fits_impl_ty, BytecodeResolution, Monotype, Type};
 use crate::vm::{AbraFloat, AbraInt, Instr as VmInstr};
 use crate::{
     ast::{Expr, ExprKind, NodeMap, Pat, PatKind, Stmt, StmtKind},
@@ -242,13 +242,13 @@ impl Translator {
                     .resolution_map
                     .get(&expr.id)
                     .unwrap()
-                    .to_resolution_old()
+                    .to_bytecode_resolution()
                 {
-                    Resolution_OLD::VariantCtor(tag, _) => {
+                    BytecodeResolution::VariantCtor(tag, _) => {
                         emit(st, Instr::PushNil);
                         emit(st, Instr::ConstructVariant { tag });
                     }
-                    Resolution_OLD::Var(node_id) => {
+                    BytecodeResolution::Var(node_id) => {
                         let span = self.node_map.get(&node_id).unwrap().span();
                         let mut s = String::new();
                         span.display(
@@ -260,7 +260,7 @@ impl Translator {
                         let idx = offset_table.get(&node_id).unwrap();
                         emit(st, Instr::LoadOffset(*idx));
                     }
-                    Resolution_OLD::Builtin(b) => {
+                    BytecodeResolution::Builtin(b) => {
                         match b {
                             Builtin::Newline => {
                                 emit(st, Instr::PushString("\n".to_owned()));
@@ -271,15 +271,15 @@ impl Translator {
                             }
                         }
                     }
-                    Resolution_OLD::Effect(_) => {
+                    BytecodeResolution::Effect(_) => {
                         // TODO: generate functions for effects
                         unimplemented!()
                     }
-                    Resolution_OLD::StructCtor(_) => {
+                    BytecodeResolution::StructCtor(_) => {
                         // TODO: generate functions for structs
                         unimplemented!()
                     }
-                    Resolution_OLD::FreeFunction(_, name) => {
+                    BytecodeResolution::FreeFunction(_, name) => {
                         emit(
                             st,
                             Instr::MakeClosure {
@@ -288,7 +288,7 @@ impl Translator {
                             },
                         );
                     }
-                    Resolution_OLD::InterfaceMethod { .. } => {
+                    BytecodeResolution::InterfaceMethod { .. } => {
                         unimplemented!()
                     }
                 }
@@ -343,15 +343,15 @@ impl Translator {
                         .resolution_map
                         .get(&func.id)
                         .unwrap()
-                        .to_resolution_old();
+                        .to_bytecode_resolution();
                     match resolution {
-                        Resolution_OLD::Var(node_id) => {
+                        BytecodeResolution::Var(node_id) => {
                             // assume it's a function object
                             let idx = offset_table.get(&node_id).unwrap();
                             emit(st, Instr::LoadOffset(*idx));
                             emit(st, Instr::CallFuncObj);
                         }
-                        Resolution_OLD::FreeFunction(f, name) => {
+                        BytecodeResolution::FreeFunction(f, name) => {
                             let func_name = &f.name.v.clone();
                             let func_ty = self.statics.solution_of_node(f.name.id).unwrap();
                             if !func_ty.is_overloaded() {
@@ -378,7 +378,7 @@ impl Translator {
                                 );
                             }
                         }
-                        Resolution_OLD::InterfaceMethod(name) => {
+                        BytecodeResolution::InterfaceMethod(name) => {
                             let node = self.node_map.get(&func.id).unwrap();
                             let span = node.span();
                             let mut s = String::new();
@@ -424,17 +424,17 @@ impl Translator {
                                 panic!("did not handle overloaded function");
                             }
                         }
-                        Resolution_OLD::StructCtor(nargs) => {
+                        BytecodeResolution::StructCtor(nargs) => {
                             emit(st, Instr::Construct(nargs));
                         }
-                        Resolution_OLD::VariantCtor(tag, nargs) => {
+                        BytecodeResolution::VariantCtor(tag, nargs) => {
                             if nargs > 1 {
                                 // turn the arguments (associated data) into a tuple
                                 emit(st, Instr::Construct(nargs));
                             }
                             emit(st, Instr::ConstructVariant { tag });
                         }
-                        Resolution_OLD::Builtin(b) => match b {
+                        BytecodeResolution::Builtin(b) => match b {
                             Builtin::AddInt => {
                                 emit(st, Instr::Add);
                             }
@@ -529,7 +529,7 @@ impl Translator {
                                 panic!("not a function");
                             }
                         },
-                        Resolution_OLD::Effect(e) => {
+                        BytecodeResolution::Effect(e) => {
                             emit(st, Instr::Effect(e));
                         }
                     }
@@ -764,14 +764,14 @@ impl Translator {
                 }
                 _ => panic!("unexpected pattern: {:?}", pat.kind),
             },
-            Type::Nominal(nominal, _) => match &*pat.kind {
+            Type::Nominal(_, _) => match &*pat.kind {
                 PatKind::Variant(ctor, inner) => {
-                    let Resolution_OLD::VariantCtor(tag, arity) = self
+                    let BytecodeResolution::VariantCtor(tag, _) = self
                         .statics
                         .resolution_map
                         .get(&ctor.id)
                         .unwrap()
-                        .to_resolution_old()
+                        .to_bytecode_resolution()
                     else {
                         panic!("expected variableto be defined in node");
                     };
@@ -979,12 +979,12 @@ impl Translator {
             }
             StmtKind::Set(expr1, rvalue) => match &*expr1.kind {
                 ExprKind::Identifier(_) => {
-                    let Resolution_OLD::Var(node_id) = self
+                    let BytecodeResolution::Var(node_id) = self
                         .statics
                         .resolution_map
                         .get(&expr1.id)
                         .unwrap()
-                        .to_resolution_old()
+                        .to_bytecode_resolution()
                     else {
                         panic!("expected variableto be defined in node");
                     };
@@ -1041,8 +1041,8 @@ impl Translator {
                     .resolution_map
                     .get(&expr.id)
                     .unwrap()
-                    .to_resolution_old();
-                if let Resolution_OLD::Var(node_id) = resolution {
+                    .to_bytecode_resolution();
+                if let BytecodeResolution::Var(node_id) = resolution {
                     if !locals.contains(&node_id) && !arg_set.contains(&node_id) {
                         captures.insert(node_id);
                     }
