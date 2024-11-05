@@ -556,16 +556,7 @@ fn resolve_names_typ_identifier(
 
 fn gather_definitions_item_DEPRECATE(ctx: &mut StaticsContext, stmt: Rc<Item>) {
     match &*stmt.kind {
-        ItemKind::InterfaceDef(i) => {
-            for p in i.props.iter() {
-                let ty_annot =
-                    ast_type_to_statics_type_interface(ctx, p.ty.clone(), Some(&i.name.v));
-                let node_ty = TypeVar::from_node(ctx, p.id());
-                constrain(node_ty.clone(), ty_annot.clone());
-                ctx.method_to_interface
-                    .insert(p.name.v.clone(), i.name.v.clone());
-            }
-        }
+        ItemKind::InterfaceDef(i) => {}
         ItemKind::InterfaceImpl(interface_impl) => {
             let typ = ast_type_to_statics_type(ctx, interface_impl.typ.clone());
 

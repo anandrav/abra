@@ -1842,6 +1842,20 @@ fn generate_constraints_item(mode: Mode, stmt: Rc<Item>, ctx: &mut StaticsContex
 
             let lookup = ctx.resolution_map.get(&iface_impl.iface.id).cloned();
             if let Some(Declaration::InterfaceDef(iface_def)) = lookup {
+                // TODO: This logic is performed for the interface definition every time an implementation is found
+                // Do the logic only once, memoize the result.
+                // TODO: Shouldn't use type inference to infer the types of the properties/methods. They are already annotated. They are already solved.
+                for prop in &iface_def.props {
+                    let ty_annot = ast_type_to_statics_type_interface(
+                        ctx,
+                        prop.ty.clone(),
+                        Some(&iface_def.name.v),
+                    );
+                    let node_ty = TypeVar::from_node(ctx, prop.id());
+                    constrain(node_ty.clone(), ty_annot.clone());
+                    ctx.method_to_interface
+                        .insert(prop.name.v.clone(), iface_def.name.v.clone());
+                }
                 for statement in &iface_impl.stmts {
                     let StmtKind::FuncDef(f) = &*statement.kind else {
                         continue;
