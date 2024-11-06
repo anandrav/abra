@@ -450,9 +450,6 @@ impl Translator {
                             let def_id =
                                 self.get_func_definition_node(&name, substituted_ty.clone());
 
-                            // TODO: utter trash
-                            // TODO: this should be alleviated by changing Node from a trait to a big enum.
-                            let mut handled = false;
                             if let Some(stmt) = &self.node_map.get(&def_id).unwrap().to_stmt() {
                                 // This is an interface method definition
                                 if let StmtKind::FuncDef(f) = &*stmt.kind {
@@ -462,23 +459,8 @@ impl Translator {
                                         &name,
                                         f.clone(),
                                     );
-                                    handled = true;
                                 }
-                            } else if let Some(item) =
-                                &self.node_map.get(&def_id).unwrap().to_item()
-                            {
-                                // This is a toplevel function definition
-                                if let ItemKind::FuncDef(f) = &*item.kind {
-                                    self.handle_overloaded_func(
-                                        st,
-                                        substituted_ty,
-                                        &name,
-                                        f.clone(),
-                                    );
-                                    handled = true;
-                                }
-                            }
-                            if !handled {
+                            } else {
                                 panic!("did not handle overloaded function");
                             }
                         }
@@ -1216,7 +1198,6 @@ impl Translator {
                         let unifvar = self.statics.vars.get(&TypeProv::Node(f.name.id())).unwrap();
                         let interface_impl_ty = unifvar.solution().unwrap();
 
-                        // println!("get_func_definition_node ty_fits_impl_ty");
                         if ty_fits_impl_ty(
                             &mut self.statics,
                             desired_interface_impl.clone(),
