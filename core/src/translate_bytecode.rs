@@ -1,5 +1,5 @@
 use crate::assembly::{remove_labels, Instr, Label, Line};
-use crate::ast::{BinaryOperator, FuncDef, Item, ItemKind, TypeKind};
+use crate::ast::{BinaryOperator, FuncDef, InterfaceDef, Item, ItemKind, TypeKind};
 use crate::ast::{FileAst, Node, NodeId, Sources};
 use crate::builtin::Builtin;
 use crate::effects::EffectStruct;
@@ -75,8 +75,10 @@ impl Declaration {
             }
             Declaration::InterfaceDef(_) => panic!(), // TODO: remove panic
             Declaration::InterfaceMethod { iface_def, method } => {
-                let name = &iface_def.props[*method as usize].name;
-                BytecodeResolution::InterfaceMethod(name.v.clone()) // TODO: don't use String here, just use iface_def and u16
+                BytecodeResolution::InterfaceMethod {
+                    iface_def: iface_def.clone(),
+                    method: *method,
+                } // TODO: don't use String here, just use iface_def and u16
             }
             Declaration::Enum(..) => {
                 panic!() // TODO: remove panic
@@ -117,7 +119,10 @@ impl Declaration {
 pub(crate) enum BytecodeResolution {
     Var(NodeId),
     FreeFunction(Rc<FuncDef>, String), // TODO: String bad unless fully qualified!
-    InterfaceMethod(String),           // TODO: String bad unless fully qualified!
+    InterfaceMethod {
+        iface_def: Rc<InterfaceDef>,
+        method: u16,
+    },
     StructCtor(u16),
     VariantCtor(u16, u16),
     Builtin(Builtin),
@@ -436,7 +441,7 @@ impl Translator {
                                 );
                             }
                         }
-                        BytecodeResolution::InterfaceMethod(name) => {
+                        BytecodeResolution::InterfaceMethod { iface_def, method } => {
                             let node = self.node_map.get(&func.id).unwrap();
                             let span = node.span();
                             let mut s = String::new();
@@ -447,21 +452,53 @@ impl Translator {
                             let substituted_ty =
                                 subst_with_monomorphic_env(monomorph_env.clone(), func_ty);
                             // println!("substituted type: {:?}", substituted_ty);
-                            let def_id =
-                                self.get_func_definition_node(&name, substituted_ty.clone());
+                            let method_name = &iface_def.props[method as usize].name.v;
+                            let impl_list = self
+                                .statics
+                                .interface_impls
+                                .get(&iface_def)
+                                .unwrap()
+                                .clone();
 
-                            if let Some(stmt) = &self.node_map.get(&def_id).unwrap().to_stmt() {
-                                // This is an interface method definition
-                                if let StmtKind::FuncDef(f) = &*stmt.kind {
-                                    self.handle_overloaded_func(
-                                        st,
-                                        substituted_ty,
-                                        &name,
-                                        f.clone(),
-                                    );
+                            // TODO: simplify this logic
+                            for imp in impl_list {
+                                for method in &imp.stmts {
+                                    let StmtKind::FuncDef(f) = &*method.kind else {
+                                        unreachable!()
+                                    };
+                                    if f.name.v == *method_name {
+                                        let unifvar = self
+                                            .statics
+                                            .vars
+                                            .get(&TypeProv::Node(f.name.id()))
+                                            .unwrap();
+                                        let interface_impl_ty = unifvar.solution().unwrap();
+
+                                        if ty_fits_impl_ty(
+                                            &mut self.statics,
+                                            substituted_ty.clone(),
+                                            interface_impl_ty,
+                                        )
+                                        .is_ok()
+                                        {
+                                            if let Some(stmt) =
+                                                &self.node_map.get(&method.id).unwrap().to_stmt()
+                                            {
+                                                // This is an interface method definition
+                                                if let StmtKind::FuncDef(f) = &*stmt.kind {
+                                                    self.handle_overloaded_func(
+                                                        st,
+                                                        substituted_ty.clone(),
+                                                        method_name,
+                                                        f.clone(),
+                                                    );
+                                                }
+                                            } else {
+                                                panic!("did not handle overloaded function");
+                                            }
+                                        }
+                                    }
                                 }
-                            } else {
-                                panic!("did not handle overloaded function");
                             }
                         }
                         BytecodeResolution::StructCtor(nargs) => {
@@ -1168,53 +1205,6 @@ impl Translator {
                 }
                 StmtKind::FuncDef(..) => {}
             }
-        }
-    }
-
-    fn get_func_definition_node(
-        &mut self,
-        method_name: &String,
-        desired_interface_impl: Type,
-    ) -> NodeId {
-        if let Some(interface_name) = self.statics.method_to_interface.get(method_name) {
-            let impl_list = self
-                .statics
-                .interface_impls
-                .get(interface_name)
-                .unwrap()
-                .clone();
-            // TODO just because the variable is the same name as an overloaded function doesn't mean the overloaded function is actually being used here.
-            // use the type of the variable to determine if it's the same as the overloaded function?
-
-            // find an impl that matches
-            // dbg!(impl_list);
-
-            for imp in impl_list {
-                for method in &imp.stmts {
-                    let StmtKind::FuncDef(f) = &*method.kind else {
-                        unreachable!()
-                    };
-                    if f.name.v == *method_name {
-                        let unifvar = self.statics.vars.get(&TypeProv::Node(f.name.id())).unwrap();
-                        let interface_impl_ty = unifvar.solution().unwrap();
-
-                        if ty_fits_impl_ty(
-                            &mut self.statics,
-                            desired_interface_impl.clone(),
-                            interface_impl_ty,
-                        )
-                        .is_ok()
-                        {
-                            // if desired_interface_impl.clone() == interface_impl_ty {
-
-                            return method.id();
-                        }
-                    }
-                }
-            }
-            panic!("couldn't find impl for method");
-        } else {
-            panic!("no interface found for method: {}", method_name);
         }
     }
 

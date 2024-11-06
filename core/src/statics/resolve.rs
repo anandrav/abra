@@ -497,7 +497,18 @@ fn resolve_names_pat(ctx: &mut StaticsContext, symbol_table: SymbolTable, pat: R
 fn resolve_names_typ(ctx: &mut StaticsContext, symbol_table: SymbolTable, typ: Rc<Type>) {
     match &*typ.kind {
         TypeKind::Bool | TypeKind::Unit | TypeKind::Int | TypeKind::Float | TypeKind::Str => {}
-        TypeKind::Poly(identifier, ifaces) => {} // TODO: Soon, resolve interfaces to their declaration. And resolve polymorphic vars as well
+        // TODO: resolve polymorphic identifier?
+        TypeKind::Poly(identifier, ifaces) => {
+            for iface in ifaces {
+                if let Some(decl @ Declaration::InterfaceDef { .. }) =
+                    &symbol_table.lookup_declaration(&iface.v)
+                {
+                    ctx.resolution_map.insert(iface.id, decl.clone());
+                } else {
+                    // TODO: log error
+                }
+            }
+        }
         TypeKind::Identifier(identifier) => {
             resolve_names_typ_identifier(ctx, symbol_table, identifier, typ.id);
         }

@@ -37,7 +37,7 @@ pub(crate) struct StaticsContext {
     // map from methods to interface names
     pub(crate) method_to_interface: HashMap<String, String>, // TODO: can't use Strings here. Get rid of this by modifying BytecodeResolution::InterfaceDef to match Declaration::InterfaceMethod
     // map from interface name to list of implementations
-    pub(crate) interface_impls: BTreeMap<String, Vec<Rc<InterfaceImpl>>>, // TODO can't use String for key. Use Rc<InterfaceDef>
+    pub(crate) interface_impls: BTreeMap<Rc<InterfaceDef>, Vec<Rc<InterfaceImpl>>>, // TODO can't use String for key. Use Rc<InterfaceDef>
     // string constants (for bytecode translation)
     pub(crate) string_constants: HashMap<String, usize>,
 
@@ -46,11 +46,13 @@ pub(crate) struct StaticsContext {
     // unification variables (skolems) which must be solved
     pub(crate) vars: HashMap<TypeProv, TypeVar>,
     // constraint: map from types to interfaces they must implement
-    types_constrained_to_interfaces: BTreeMap<TypeVar, Vec<(String, TypeProv)>>, // TODO: can't use TypeVar as key because it's mutable. Use a Prov instead?
+    types_constrained_to_interfaces: BTreeMap<TypeVar, Vec<(Rc<InterfaceDef>, TypeProv)>>, // TODO: can't use TypeVar as key because it's mutable. Use a Prov instead?
     // constraint: map from types which must be structs to location of field access
     types_that_must_be_structs: BTreeMap<TypeVar, NodeId>, // TODO: can't use TypeVar as key because it's mutable. Use a Prov instead?
 
     // ERRORS
+
+    // TODO: A lot of thse refer to things by Strings...
 
     // unbound variables
     unbound_vars: BTreeSet<NodeId>,

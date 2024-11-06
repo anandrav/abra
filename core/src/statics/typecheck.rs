@@ -5,14 +5,14 @@ use crate::ast::{
 use crate::ast::{BinaryOperator, Item};
 use crate::builtin::Builtin;
 use crate::environment::Environment;
-use core::panic;
+use core::{num, panic};
 use disjoint_sets::UnionFindNode;
 use std::cell::RefCell;
 use std::collections::{BTreeMap, BTreeSet};
 use std::fmt::{self, Write};
 use std::rc::Rc;
 
-use super::{Declaration, EnumDef, StaticsContext, StructDef};
+use super::{Declaration, EnumDef, InterfaceDef, StaticsContext, StructDef};
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub(crate) struct TypeVar(UnionFindNode<TypeVarData>);
@@ -123,7 +123,7 @@ impl TypeVarData {
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub(crate) enum PotentialType {
-    Poly(Provs, String, Vec<String>), // type name, then list of Interfaces it must match
+    Poly(Provs, String, Vec<Rc<InterfaceDef>>), // type name, then list of Interfaces it must match
     Unit(Provs),
     Int(Provs),
     Float(Provs),
@@ -153,7 +153,7 @@ impl Nominal {
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub(crate) enum SolvedType {
-    Poly(String, Vec<String>), // type name, then list of Interfaces it must match
+    Poly(String, Vec<Rc<InterfaceDef>>), // type name, then list of Interfaces it must match
     Unit,
     Int,
     Float,
@@ -415,11 +415,16 @@ impl PotentialType {
         PotentialType::Tuple(provs_singleton(prov), elems)
     }
 
-    fn make_poly(prov: Prov, ident: String, interfaces: Vec<String>) -> PotentialType {
+    fn make_poly(prov: Prov, ident: String, interfaces: Vec<Rc<InterfaceDef>>) -> PotentialType {
         PotentialType::Poly(provs_singleton(prov), ident, interfaces)
     }
 
-    fn make_poly_constrained(prov: Prov, ident: String, interface_ident: String) -> PotentialType {
+    // TODO: What is the point of this function when make_poly() exists right above??
+    fn make_poly_constrained(
+        prov: Prov,
+        ident: String,
+        interface_ident: Rc<InterfaceDef>,
+    ) -> PotentialType {
         PotentialType::Poly(provs_singleton(prov), ident, vec![interface_ident])
     }
 
@@ -605,16 +610,12 @@ impl TypeVar {
         Self::orphan(PotentialType::make_tuple(elems, prov))
     }
 
-    fn make_poly(prov: Prov, ident: String, interfaces: Vec<String>) -> TypeVar {
+    fn make_poly(prov: Prov, ident: String, interfaces: Vec<Rc<InterfaceDef>>) -> TypeVar {
         Self::orphan(PotentialType::make_poly(prov, ident, interfaces))
     }
 
-    fn make_poly_constrained(prov: Prov, ident: String, interface_ident: String) -> TypeVar {
-        Self::orphan(PotentialType::make_poly_constrained(
-            prov,
-            ident,
-            interface_ident,
-        ))
+    fn make_poly_constrained(prov: Prov, ident: String, interface: Rc<InterfaceDef>) -> TypeVar {
+        Self::orphan(PotentialType::make_poly_constrained(prov, ident, interface))
     }
 
     fn make_nominal(prov: Prov, nominal: Nominal, params: Vec<TypeVar>) -> TypeVar {
@@ -799,7 +800,31 @@ fn tyvar_of_declaration(
     }
 }
 
-fn types_of_binop(opcode: &BinaryOperator, id: NodeId) -> (TypeVar, TypeVar, TypeVar) {
+fn types_of_binop(
+    ctx: &StaticsContext,
+    opcode: &BinaryOperator,
+    id: NodeId,
+) -> (TypeVar, TypeVar, TypeVar) {
+    let num_iface_decl = ctx
+        .global_namespace
+        .namespaces
+        .get("prelude")
+        .and_then(|p| p.declarations.get("Num"))
+        .unwrap();
+    let Declaration::InterfaceDef(num_iface_def) = num_iface_decl else {
+        panic!()
+    };
+
+    let equal_iface_decl = ctx
+        .global_namespace
+        .namespaces
+        .get("prelude")
+        .and_then(|p| p.declarations.get("Equal"))
+        .unwrap();
+    let Declaration::InterfaceDef(equal_iface_def) = equal_iface_decl else {
+        panic!()
+    };
+
     let prov_left = Prov::BinopLeft(Prov::Node(id).into());
     let prov_right = Prov::BinopRight(Prov::Node(id).into());
     let prov_out = Prov::Node(id);
@@ -815,10 +840,11 @@ fn types_of_binop(opcode: &BinaryOperator, id: NodeId) -> (TypeVar, TypeVar, Typ
         | BinaryOperator::Divide
         | BinaryOperator::Pow => {
             let ty_left =
-                TypeVar::make_poly_constrained(prov_left, "a".to_owned(), "Num".to_owned());
+                TypeVar::make_poly_constrained(prov_left, "a".to_owned(), num_iface_def.clone());
             let ty_right =
-                TypeVar::make_poly_constrained(prov_right, "a".to_owned(), "Num".to_owned());
-            let ty_out = TypeVar::make_poly_constrained(prov_out, "a".to_owned(), "Num".to_owned());
+                TypeVar::make_poly_constrained(prov_right, "a".to_owned(), num_iface_def.clone());
+            let ty_out =
+                TypeVar::make_poly_constrained(prov_out, "a".to_owned(), num_iface_def.clone());
             constrain(ty_left.clone(), ty_right.clone());
             constrain(ty_left.clone(), ty_out.clone());
             (ty_left, ty_right, ty_out)
@@ -833,9 +859,9 @@ fn types_of_binop(opcode: &BinaryOperator, id: NodeId) -> (TypeVar, TypeVar, Typ
         | BinaryOperator::LessThanOrEqual
         | BinaryOperator::GreaterThanOrEqual => {
             let ty_left =
-                TypeVar::make_poly_constrained(prov_left, "a".to_owned(), "Num".to_owned());
+                TypeVar::make_poly_constrained(prov_left, "a".to_owned(), num_iface_def.clone());
             let ty_right =
-                TypeVar::make_poly_constrained(prov_right, "a".to_owned(), "Num".to_owned());
+                TypeVar::make_poly_constrained(prov_right, "a".to_owned(), num_iface_def.clone());
             constrain(ty_left.clone(), ty_right.clone());
             let ty_out = TypeVar::make_bool(prov_out);
             (ty_left, ty_right, ty_out)
@@ -847,9 +873,9 @@ fn types_of_binop(opcode: &BinaryOperator, id: NodeId) -> (TypeVar, TypeVar, Typ
         ),
         BinaryOperator::Equal => {
             let ty_left =
-                TypeVar::make_poly_constrained(prov_left, "a".to_owned(), "Equal".to_owned());
+                TypeVar::make_poly_constrained(prov_left, "a".to_owned(), equal_iface_def.clone());
             let ty_right =
-                TypeVar::make_poly_constrained(prov_right, "a".to_owned(), "Equal".to_owned());
+                TypeVar::make_poly_constrained(prov_right, "a".to_owned(), equal_iface_def.clone());
             constrain(ty_left.clone(), ty_right.clone());
             (ty_left, ty_right, TypeVar::make_bool(prov_out))
         }
@@ -859,14 +885,19 @@ fn types_of_binop(opcode: &BinaryOperator, id: NodeId) -> (TypeVar, TypeVar, Typ
 pub(crate) fn ast_type_to_statics_type_interface(
     ctx: &mut StaticsContext,
     ast_type: Rc<AstType>,
-    interface_ident: Option<&String>,
+    interface_ident: Option<Rc<InterfaceDef>>,
 ) -> TypeVar {
     match &*ast_type.kind {
-        TypeKind::Poly(ident, interfaces) => TypeVar::make_poly(
-            Prov::Node(ast_type.id()),
-            ident.v.clone(),
-            interfaces.iter().map(|i| i.v.clone()).collect(),
-        ),
+        TypeKind::Poly(ident, iface_names) => {
+            let mut interfaces = vec![];
+            for iface_name in iface_names {
+                let lookup = ctx.resolution_map.get(&iface_name.id);
+                if let Some(Declaration::InterfaceDef(iface_def)) = lookup {
+                    interfaces.push(iface_def.clone());
+                }
+            }
+            TypeVar::make_poly(Prov::Node(ast_type.id()), ident.v.clone(), interfaces)
+        }
         TypeKind::Identifier(ident) => {
             if let Some(interface_ident) = interface_ident {
                 // TODO: Instead of checking equality with "self", it should get its own TypeKind. TypeKind::Self
@@ -892,7 +923,11 @@ pub(crate) fn ast_type_to_statics_type_interface(
                     params
                         .iter()
                         .map(|param| {
-                            ast_type_to_statics_type_interface(ctx, param.clone(), interface_ident)
+                            ast_type_to_statics_type_interface(
+                                ctx,
+                                param.clone(),
+                                interface_ident.clone(),
+                            )
                         })
                         .collect(),
                 ),
@@ -902,7 +937,11 @@ pub(crate) fn ast_type_to_statics_type_interface(
                     params
                         .iter()
                         .map(|param| {
-                            ast_type_to_statics_type_interface(ctx, param.clone(), interface_ident)
+                            ast_type_to_statics_type_interface(
+                                ctx,
+                                param.clone(),
+                                interface_ident.clone(),
+                            )
                         })
                         .collect(),
                 ),
@@ -912,7 +951,11 @@ pub(crate) fn ast_type_to_statics_type_interface(
                     params
                         .iter()
                         .map(|param| {
-                            ast_type_to_statics_type_interface(ctx, param.clone(), interface_ident)
+                            ast_type_to_statics_type_interface(
+                                ctx,
+                                param.clone(),
+                                interface_ident.clone(),
+                            )
                         })
                         .collect(),
                 ),
@@ -928,9 +971,11 @@ pub(crate) fn ast_type_to_statics_type_interface(
         TypeKind::Str => TypeVar::make_string(Prov::Node(ast_type.id())),
         TypeKind::Function(lhs, rhs) => TypeVar::make_func(
             lhs.iter()
-                .map(|t| ast_type_to_statics_type_interface(ctx, t.clone(), interface_ident))
+                .map(|t| {
+                    ast_type_to_statics_type_interface(ctx, t.clone(), interface_ident.clone())
+                })
                 .collect(),
-            ast_type_to_statics_type_interface(ctx, rhs.clone(), interface_ident),
+            ast_type_to_statics_type_interface(ctx, rhs.clone(), interface_ident.clone()),
             Prov::Node(ast_type.id()),
         ),
         TypeKind::Tuple(types) => {
@@ -939,7 +984,7 @@ pub(crate) fn ast_type_to_statics_type_interface(
                 statics_types.push(ast_type_to_statics_type_interface(
                     ctx,
                     t.clone(),
-                    interface_ident,
+                    interface_ident.clone(),
                 ));
             }
             TypeVar::make_tuple(statics_types, Prov::Node(ast_type.id()))
@@ -1038,7 +1083,7 @@ pub(crate) fn result_of_constraint_solving(
 
     // look for error of multiple interface implementations for the same type
     let interface_impls = ctx.interface_impls.clone();
-    for (ident, impls) in interface_impls.iter() {
+    for (iface_def, impls) in interface_impls.iter() {
         // map from implementation type to location
         let mut impls_by_type: BTreeMap<SolvedType, Vec<NodeId>> = BTreeMap::new();
         for imp in impls.iter() {
@@ -1050,7 +1095,7 @@ pub(crate) fn result_of_constraint_solving(
         for (_impl_typ, impl_locs) in impls_by_type.iter() {
             if impl_locs.len() > 1 {
                 ctx.multiple_interface_impls
-                    .insert(ident.clone(), impl_locs.clone());
+                    .insert(iface_def.name.v.clone(), impl_locs.clone());
             }
         }
     }
@@ -1097,7 +1142,7 @@ pub(crate) fn result_of_constraint_solving(
                 let _ = writeln!(
                     err_string,
                     "error: the interface '{}' is not implemented for type '{}'",
-                    interface, typ
+                    interface.name.v, typ
                 );
                 if let Some(id) = prov.get_location() {
                     let span = node_map.get(&id).unwrap().span();
@@ -1469,7 +1514,7 @@ fn generate_constraints_expr(
                 .namespaces
                 .get("prelude")
                 .and_then(|p| p.declarations.get("list"));
-            // dbg!(&ctx.global_namespace);
+
             if let Some(Declaration::Enum(enum_def)) = list_decl {
                 constrain(
                     node_ty,
@@ -1523,7 +1568,7 @@ fn generate_constraints_expr(
             }
         }
         ExprKind::BinOp(left, op, right) => {
-            let (ty_left, ty_right, ty_out) = types_of_binop(op, expr.id);
+            let (ty_left, ty_right, ty_out) = types_of_binop(ctx, op, expr.id);
             let (ty_left, ty_right, ty_out) = (
                 ty_left.instantiate(polyvar_scope.clone(), ctx, Prov::Node(expr.id)),
                 ty_right.instantiate(polyvar_scope.clone(), ctx, Prov::Node(expr.id)),
@@ -1850,7 +1895,7 @@ fn generate_constraints_item(mode: Mode, stmt: Rc<Item>, ctx: &mut StaticsContex
                     let ty_annot = ast_type_to_statics_type_interface(
                         ctx,
                         prop.ty.clone(),
-                        Some(&iface_def.name.v),
+                        Some(iface_def.clone()),
                     );
                     let node_ty = TypeVar::from_node(ctx, prop.id());
                     constrain(node_ty.clone(), ty_annot.clone());
@@ -1911,10 +1956,7 @@ fn generate_constraints_item(mode: Mode, stmt: Rc<Item>, ctx: &mut StaticsContex
                     ctx.interface_impl_for_instantiated_ty.push(stmt.id);
                 }
 
-                let impl_list = ctx
-                    .interface_impls
-                    .entry(iface_impl.iface.v.clone())
-                    .or_default();
+                let impl_list = ctx.interface_impls.entry(iface_def.clone()).or_default();
 
                 impl_list.push(iface_impl.clone());
             }
@@ -2259,7 +2301,7 @@ pub(crate) fn ty_fits_impl_ty(
 fn ty_fits_impl_ty_poly(
     ctx: &mut StaticsContext,
     typ: SolvedType,
-    interfaces: BTreeSet<String>,
+    interfaces: BTreeSet<Rc<InterfaceDef>>,
 ) -> bool {
     for interface in interfaces {
         if let SolvedType::Poly(_, interfaces2) = &typ {
@@ -2315,7 +2357,7 @@ impl fmt::Display for PotentialType {
                         if i != 0 {
                             write!(f, " + ")?;
                         }
-                        write!(f, "{}", interface)?;
+                        write!(f, "{}", interface.name.v)?;
                     }
                 }
                 Ok(())
@@ -2375,7 +2417,7 @@ impl fmt::Display for SolvedType {
                         if i != 0 {
                             write!(f, " + ")?;
                         }
-                        write!(f, "{}", interface)?;
+                        write!(f, "{}", interface.name.v)?;
                     }
                 }
                 Ok(())
