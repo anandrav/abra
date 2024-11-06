@@ -76,7 +76,7 @@ impl Declaration {
             Declaration::InterfaceDef(_) => panic!(), // TODO: remove panic
             Declaration::InterfaceMethod { iface_def, method } => {
                 let name = &iface_def.props[*method as usize].name;
-                BytecodeResolution::InterfaceMethod(name.v.clone())
+                BytecodeResolution::InterfaceMethod(name.v.clone()) // TODO: don't use String here, just use iface_def and u16
             }
             Declaration::Enum(..) => {
                 panic!() // TODO: remove panic

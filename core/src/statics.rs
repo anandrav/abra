@@ -35,7 +35,7 @@ pub(crate) struct StaticsContext {
     // BOOKKEEPING
 
     // map from methods to interface names
-    pub(crate) method_to_interface: HashMap<String, String>, // TODO: can't use Strings here
+    pub(crate) method_to_interface: HashMap<String, String>, // TODO: can't use Strings here. Get rid of this by modifying BytecodeResolution::InterfaceDef to match Declaration::InterfaceMethod
     // map from interface name to list of implementations
     pub(crate) interface_impls: BTreeMap<String, Vec<Rc<InterfaceImpl>>>, // TODO can't use String for key. Use Rc<InterfaceDef>
     // string constants (for bytecode translation)
