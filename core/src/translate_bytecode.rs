@@ -25,7 +25,7 @@ pub(crate) type LabelMap = HashMap<Label, usize>;
 
 #[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq)]
 struct OverloadedFuncDesc {
-    name: String,
+    name: String, // TODO: This the unqualified name of the function. Must be fully qualified... resolve.rs should map each Identifier in AST to its fully qualified equivalent
     impl_type: Monotype,
     func_def: Rc<FuncDef>,
 }

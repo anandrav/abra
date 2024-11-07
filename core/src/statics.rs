@@ -31,13 +31,12 @@ pub(crate) struct StaticsContext {
     global_namespace: Namespace,
     // This maps any identifier in the program to the declaration it resolves to.
     pub(crate) resolution_map: HashMap<NodeId, Declaration>,
+    pub(crate) fully_qualified_name_map: HashMap<NodeId, String>,
 
     // BOOKKEEPING
 
-    // map from methods to interface names
-    pub(crate) method_to_interface: HashMap<String, String>, // TODO: can't use Strings here. Get rid of this by modifying BytecodeResolution::InterfaceDef to match Declaration::InterfaceMethod
     // map from interface name to list of implementations
-    pub(crate) interface_impls: BTreeMap<Rc<InterfaceDef>, Vec<Rc<InterfaceImpl>>>, // TODO can't use String for key. Use Rc<InterfaceDef>
+    pub(crate) interface_impls: BTreeMap<Rc<InterfaceDef>, Vec<Rc<InterfaceImpl>>>,
     // string constants (for bytecode translation)
     pub(crate) string_constants: HashMap<String, usize>,
 
@@ -52,19 +51,17 @@ pub(crate) struct StaticsContext {
 
     // ERRORS
 
-    // TODO: A lot of thse refer to things by Strings...
-
     // unbound variables
     unbound_vars: BTreeSet<NodeId>,
     unbound_interfaces: BTreeSet<NodeId>,
     // multiple definitions
-    multiple_udt_defs: BTreeMap<String, Vec<NodeId>>,
-    multiple_interface_defs: BTreeMap<String, Vec<NodeId>>,
+    multiple_udt_defs: BTreeMap<String, Vec<NodeId>>, // TODO: can't refer to Udt by its unqualified name
+    multiple_interface_defs: BTreeMap<String, Vec<NodeId>>, // TODO can't refer to interface by its unqualified name
     // interface implementations
-    multiple_interface_impls: BTreeMap<String, Vec<NodeId>>,
+    multiple_interface_impls: BTreeMap<String, Vec<NodeId>>, // TODO: can't refer to an interface by its unqualified name
     interface_impl_for_instantiated_ty: Vec<NodeId>,
     interface_impl_extra_method: BTreeMap<NodeId, Vec<NodeId>>,
-    interface_impl_missing_method: BTreeMap<NodeId, Vec<String>>,
+    interface_impl_missing_method: BTreeMap<NodeId, Vec<String>>, // TODO: would be better to just map to the method itself. IE Rc<InterfaceDef>, u16 for index. More info
     // non-exhaustive matches
     nonexhaustive_matches: BTreeMap<NodeId, Vec<DeconstructedPat>>,
     redundant_matches: BTreeMap<NodeId, Vec<NodeId>>,

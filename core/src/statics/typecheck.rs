@@ -1899,8 +1899,6 @@ fn generate_constraints_item(mode: Mode, stmt: Rc<Item>, ctx: &mut StaticsContex
                     );
                     let node_ty = TypeVar::from_node(ctx, prop.id());
                     constrain(node_ty.clone(), ty_annot.clone());
-                    ctx.method_to_interface
-                        .insert(prop.name.v.clone(), iface_def.name.v.clone());
                 }
                 for statement in &iface_impl.stmts {
                     let StmtKind::FuncDef(f) = &*statement.kind else {
