@@ -119,11 +119,12 @@ impl Display for Namespace {
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub(crate) enum Declaration {
-    FreeFunction(Rc<FuncDef>),
+    FreeFunction(Rc<FuncDef>, String),
     InterfaceDef(Rc<InterfaceDef>),
     InterfaceMethod {
         iface_def: Rc<InterfaceDef>,
         method: u16,
+        fully_qualified_name: String,
     },
     Enum(Rc<EnumDef>),
     EnumVariant {

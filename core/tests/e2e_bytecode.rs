@@ -10,13 +10,13 @@ use utils::inner::unwrap_or_panic;
 #[test]
 fn arithmetic() {
     let src = r#"
-fn subtract(x, y) {
+fn sub(x, y) {
   x - y
 }
 let x = 3
 let y = 4
-let z = subtract(x, y)
-let h = subtract(z, 1)
+let z = sub(x, y)
+let h = sub(z, 1)
 h
 "#;
     let sources = source_files_single(src);
@@ -854,7 +854,7 @@ fn main() {
 "#;
     let sources = source_files_single(src);
     let program = unwrap_or_panic(compile_bytecode(sources, DefaultEffects::enumerate()));
-    let mut vm = Vm::with_entry_point(program, "main".to_owned());
+    let mut vm = Vm::with_entry_point(program, "test.main".to_owned());
     vm.run();
     let top = vm.top();
     assert_eq!(top.get_string(&vm), "hello world");
@@ -875,7 +875,7 @@ main(5, 6)
 "#;
     let sources = source_files_single(src);
     let program = unwrap_or_panic(compile_bytecode(sources, DefaultEffects::enumerate()));
-    let mut vm = Vm::with_entry_point(program, "main".to_owned());
+    let mut vm = Vm::with_entry_point(program, "test.main".to_owned());
     vm.push_int(2);
     vm.push_int(3);
     vm.increment_stack_base(2);

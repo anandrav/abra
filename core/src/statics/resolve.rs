@@ -31,6 +31,19 @@ fn gather_declarations_file(file: Rc<FileAst>) -> Namespace {
     namespace
 }
 
+fn fullname(qualifiers: &[String], unqualified_name: &str) -> String {
+    if qualifiers.is_empty() {
+        return unqualified_name.to_string();
+    }
+    let mut fullname = String::new();
+    for _ in 0..qualifiers.len() {
+        fullname.push_str(&qualifiers[0]);
+        fullname.push('.');
+    }
+    fullname.push_str(unqualified_name);
+    fullname
+}
+
 fn gather_declarations_item(namespace: &mut Namespace, qualifiers: Vec<String>, stmt: Rc<Item>) {
     match &*stmt.kind {
         ItemKind::Stmt(..) => {}
@@ -45,13 +58,13 @@ fn gather_declarations_item(namespace: &mut Namespace, qualifiers: Vec<String>, 
             for (i, p) in iface.props.iter().enumerate() {
                 let method_name = p.name.v.clone();
                 let method = i as u16;
-                let mut fully_qualified_name = qualifiers.clone();
-                fully_qualified_name.push(method_name.clone());
+                let fully_qualified_name = fullname(&qualifiers, &method_name);
                 namespace.declarations.insert(
                     method_name,
                     Declaration::InterfaceMethod {
                         iface_def: iface.clone(),
                         method,
+                        fully_qualified_name,
                     },
                 );
             }
@@ -83,19 +96,19 @@ fn gather_declarations_item(namespace: &mut Namespace, qualifiers: Vec<String>, 
                 }
             }
             TypeDefKind::Struct(s) => {
-                let entry_name = s.name.v.clone();
+                let struct_name = s.name.v.clone();
                 namespace
                     .declarations
-                    .insert(entry_name, Declaration::Struct(s.clone()));
+                    .insert(struct_name, Declaration::Struct(s.clone()));
             }
         },
         ItemKind::FuncDef(f) => {
-            let entry_name = f.name.v.clone();
-            let mut fully_qualified_name = qualifiers.clone();
-            fully_qualified_name.push(entry_name.clone());
-            namespace
-                .declarations
-                .insert(entry_name, Declaration::FreeFunction(f.clone()));
+            let func_name = f.name.v.clone();
+            let fully_qualified_name = fullname(&qualifiers, &func_name);
+            namespace.declarations.insert(
+                func_name,
+                Declaration::FreeFunction(f.clone(), fully_qualified_name),
+            );
         }
         ItemKind::Import(..) => {}
     }
@@ -262,7 +275,11 @@ pub(crate) fn resolve_names_file(
 fn resolve_names_item(ctx: &mut StaticsContext, symbol_table: SymbolTable, stmt: Rc<Item>) {
     match &*stmt.kind {
         ItemKind::FuncDef(f) => {
-            symbol_table.extend_declaration(f.name.v.clone(), Declaration::FreeFunction(f.clone()));
+            if let Some(decl @ Declaration::FreeFunction(_, _)) =
+                symbol_table.lookup_declaration(&f.name.v)
+            {
+                ctx.resolution_map.insert(f.name.id, decl.clone());
+            }
             let symbol_table = symbol_table.new_scope();
             for arg in &f.args {
                 resolve_names_pat(ctx, symbol_table.clone(), arg.0.clone());
@@ -282,20 +299,17 @@ fn resolve_names_item(ctx: &mut StaticsContext, symbol_table: SymbolTable, stmt:
         }
         ItemKind::InterfaceImpl(iface_impl) => {
             resolve_names_typ(ctx, symbol_table.clone(), iface_impl.typ.clone());
-            if let Some(decl @ Declaration::InterfaceDef(iface_def)) =
+            if let Some(decl @ Declaration::InterfaceDef(_)) =
                 &symbol_table.lookup_declaration(&iface_impl.iface.v)
             {
                 ctx.resolution_map.insert(iface_impl.iface.id, decl.clone());
                 for (i, prop) in iface_impl.stmts.iter().enumerate() {
                     if let StmtKind::FuncDef(f) = &*prop.kind {
-                        let method = i as u16;
-                        symbol_table.extend_declaration(
-                            f.name.v.clone(),
-                            Declaration::InterfaceMethod {
-                                iface_def: iface_def.clone(),
-                                method,
-                            },
-                        );
+                        if let Some(decl @ Declaration::InterfaceMethod { .. }) =
+                            symbol_table.lookup_declaration(&f.name.v)
+                        {
+                            ctx.resolution_map.insert(f.name.id, decl.clone());
+                        }
                         let symbol_table = symbol_table.new_scope();
                         for arg in &f.args {
                             resolve_names_pat(ctx, symbol_table.clone(), arg.0.clone());

@@ -650,9 +650,13 @@ fn tyvar_of_declaration(
     polyvar_scope: PolyvarScope,
 ) -> Option<TypeVar> {
     match decl {
-        Declaration::FreeFunction(f) => Some(TypeVar::from_node(ctx, f.name.id)),
+        Declaration::FreeFunction(f, _) => Some(TypeVar::from_node(ctx, f.name.id)),
         Declaration::InterfaceDef(..) => None,
-        Declaration::InterfaceMethod { iface_def, method } => Some(TypeVar::from_node(
+        Declaration::InterfaceMethod {
+            iface_def,
+            method,
+            fully_qualified_name: _,
+        } => Some(TypeVar::from_node(
             ctx,
             iface_def.props[*method as usize].id(),
         )),

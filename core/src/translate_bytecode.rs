@@ -70,14 +70,19 @@ impl Declaration {
     pub fn to_bytecode_resolution(&self) -> BytecodeResolution {
         match self {
             Declaration::Var(node_id) => BytecodeResolution::Var(*node_id),
-            Declaration::FreeFunction(f) => {
-                BytecodeResolution::FreeFunction(f.clone(), f.name.v.clone())
+            Declaration::FreeFunction(f, qname) => {
+                BytecodeResolution::FreeFunction(f.clone(), qname.clone())
             }
             Declaration::InterfaceDef(_) => panic!(), // TODO: remove panic
-            Declaration::InterfaceMethod { iface_def, method } => {
+            Declaration::InterfaceMethod {
+                iface_def,
+                method,
+                fully_qualified_name,
+            } => {
                 BytecodeResolution::InterfaceMethod {
                     iface_def: iface_def.clone(),
                     method: *method,
+                    fully_qualified_name: fully_qualified_name.clone(),
                 } // TODO: don't use String here, just use iface_def and u16
             }
             Declaration::Enum(..) => {
@@ -122,6 +127,7 @@ pub(crate) enum BytecodeResolution {
     InterfaceMethod {
         iface_def: Rc<InterfaceDef>,
         method: u16,
+        fully_qualified_name: String,
     },
     StructCtor(u16),
     VariantCtor(u16, u16),
@@ -415,7 +421,6 @@ impl Translator {
                             emit(st, Instr::CallFuncObj);
                         }
                         BytecodeResolution::FreeFunction(f, name) => {
-                            let func_name = &f.name.v.clone();
                             let func_ty = self.statics.solution_of_node(f.name.id).unwrap();
                             if !func_ty.is_overloaded() {
                                 emit(st, Instr::Call(name.clone()));
@@ -433,15 +438,14 @@ impl Translator {
                                     subst_with_monomorphic_env(monomorph_env, specific_func_ty);
                                 // println!("substituted type: {:?}", substituted_ty);
 
-                                self.handle_overloaded_func(
-                                    st,
-                                    substituted_ty,
-                                    func_name,
-                                    f.clone(),
-                                );
+                                self.handle_overloaded_func(st, substituted_ty, &name, f.clone());
                             }
                         }
-                        BytecodeResolution::InterfaceMethod { iface_def, method } => {
+                        BytecodeResolution::InterfaceMethod {
+                            iface_def,
+                            method,
+                            fully_qualified_name,
+                        } => {
                             let node = self.node_map.get(&func.id).unwrap();
                             let span = node.span();
                             let mut s = String::new();
@@ -489,7 +493,7 @@ impl Translator {
                                                     self.handle_overloaded_func(
                                                         st,
                                                         substituted_ty.clone(),
-                                                        method_name,
+                                                        &fully_qualified_name,
                                                         f.clone(),
                                                     );
                                                 }
@@ -941,6 +945,8 @@ impl Translator {
             }
             ItemKind::FuncDef(f) => {
                 // (this could be an overloaded function or an interface method)
+                println!("resolving {}", f.name.v);
+                self._display_node(f.body.id);
                 let func_ty = self.statics.solution_of_node(f.name.id).unwrap();
                 let func_name = f.name.v.clone();
 
@@ -951,8 +957,14 @@ impl Translator {
                     return;
                 }
 
+                let Some(Declaration::FreeFunction(_, fully_qualified_name)) =
+                    self.statics.resolution_map.get(&f.name.id)
+                else {
+                    panic!()
+                };
+
                 // println!("Generating code for function: {}", func_name);
-                emit(st, Line::Label(func_name));
+                emit(st, Line::Label(fully_qualified_name.clone()));
                 let mut locals = HashSet::new();
                 collect_locals_expr(&f.body, &mut locals);
                 let locals_count = locals.len();
