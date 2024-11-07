@@ -945,8 +945,8 @@ impl Translator {
             }
             ItemKind::FuncDef(f) => {
                 // (this could be an overloaded function or an interface method)
-                println!("resolving {}", f.name.v);
-                self._display_node(f.body.id);
+                // println!("resolving {}", f.name.v);
+                // self._display_node(f.body.id);
                 let func_ty = self.statics.solution_of_node(f.name.id).unwrap();
 
                 if func_ty.is_overloaded() // println: 'a ToString -> ()

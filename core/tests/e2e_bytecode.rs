@@ -1,10 +1,12 @@
 use abra_core::compile_bytecode;
 use abra_core::effects::DefaultEffects;
 use abra_core::effects::EffectTrait;
+use abra_core::prelude::_PRELUDE;
 use abra_core::source_files_single;
 use abra_core::vm::Vm;
 
 pub mod utils;
+use abra_core::SourceFile;
 use utils::inner::unwrap_or_panic;
 
 #[test]
@@ -882,4 +884,46 @@ main(5, 6)
     vm.run();
     let top = vm.top();
     assert_eq!(top.get_int(), 5);
+}
+
+#[test]
+fn namespaced_files() {
+    let util = r#"
+fn foo(a: int, b) {
+  a + b
+}
+"#;
+    let main = r#"
+use util
+
+fn bar(x: 'a) -> 'a {
+  x
+}
+
+foo(2, 2)
+"#;
+    let sources = vec![
+        SourceFile {
+            name: "prelude.abra".to_owned(),
+            contents: _PRELUDE.to_owned(),
+        },
+        SourceFile {
+            name: "util.abra".to_owned(),
+            contents: util.to_owned(),
+        },
+        SourceFile {
+            name: "main.abra".to_owned(),
+            contents: main.to_owned(),
+        },
+    ];
+    let effects = DefaultEffects::enumerate();
+    let program = compile_bytecode(sources, effects);
+    if let Err(e) = program {
+        panic!("{}", e);
+    }
+    let mut vm = Vm::new(program.unwrap());
+    vm.run();
+    let top = vm.top();
+    assert_eq!(top.get_int(), 4);
+    println!("result is {}", top.get_int());
 }
