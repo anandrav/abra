@@ -31,7 +31,6 @@ pub(crate) struct StaticsContext {
     global_namespace: Namespace,
     // This maps any identifier in the program to the declaration it resolves to.
     pub(crate) resolution_map: HashMap<NodeId, Declaration>,
-    pub(crate) fully_qualified_name_map: HashMap<NodeId, String>,
 
     // BOOKKEEPING
 

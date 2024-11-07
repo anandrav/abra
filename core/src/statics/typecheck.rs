@@ -5,7 +5,7 @@ use crate::ast::{
 use crate::ast::{BinaryOperator, Item};
 use crate::builtin::Builtin;
 use crate::environment::Environment;
-use core::{num, panic};
+use core::panic;
 use disjoint_sets::UnionFindNode;
 use std::cell::RefCell;
 use std::collections::{BTreeMap, BTreeSet};

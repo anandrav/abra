@@ -303,7 +303,7 @@ fn resolve_names_item(ctx: &mut StaticsContext, symbol_table: SymbolTable, stmt:
                 &symbol_table.lookup_declaration(&iface_impl.iface.v)
             {
                 ctx.resolution_map.insert(iface_impl.iface.id, decl.clone());
-                for (i, prop) in iface_impl.stmts.iter().enumerate() {
+                for prop in &iface_impl.stmts {
                     if let StmtKind::FuncDef(f) = &*prop.kind {
                         if let Some(decl @ Declaration::InterfaceMethod { .. }) =
                             symbol_table.lookup_declaration(&f.name.v)
@@ -327,9 +327,7 @@ fn resolve_names_item(ctx: &mut StaticsContext, symbol_table: SymbolTable, stmt:
                 ctx.unbound_vars.insert(stmt.id);
             }
         }
-        ItemKind::Import(..) => {
-            // TODO: ensure import was actually resolved by looking up in the symbol table
-        }
+        ItemKind::Import(..) => {}
         ItemKind::TypeDef(tydef) => match &**tydef {
             TypeDefKind::Enum(enum_def) => {
                 for ty_arg in &enum_def.ty_args {
@@ -450,9 +448,8 @@ fn resolve_names_expr(ctx: &mut StaticsContext, symbol_table: SymbolTable, expr:
                 resolve_names_expr(ctx, symbol_table.clone(), expr.clone());
             }
         }
-        ExprKind::MemberAccess(expr, field) => {
+        ExprKind::MemberAccess(expr, _field) => {
             resolve_names_expr(ctx, symbol_table.clone(), expr.clone());
-            // TODO: if "expr" ends up being a namespace, resolve the field?
         }
         ExprKind::IndexAccess(accessed, index) => {
             resolve_names_expr(ctx, symbol_table.clone(), accessed.clone());
@@ -511,8 +508,7 @@ fn resolve_names_pat(ctx: &mut StaticsContext, symbol_table: SymbolTable, pat: R
 fn resolve_names_typ(ctx: &mut StaticsContext, symbol_table: SymbolTable, typ: Rc<Type>) {
     match &*typ.kind {
         TypeKind::Bool | TypeKind::Unit | TypeKind::Int | TypeKind::Float | TypeKind::Str => {}
-        // TODO: resolve polymorphic identifier?
-        TypeKind::Poly(identifier, ifaces) => {
+        TypeKind::Poly(_, ifaces) => {
             for iface in ifaces {
                 if let Some(decl @ Declaration::InterfaceDef { .. }) =
                     &symbol_table.lookup_declaration(&iface.v)

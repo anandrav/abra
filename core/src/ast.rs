@@ -148,10 +148,6 @@ pub(crate) trait Node {
     fn to_stmt(&self) -> Option<Stmt> {
         None
     }
-
-    fn to_item(&self) -> Option<Item> {
-        None
-    }
 }
 
 #[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq, Hash)]
@@ -227,10 +223,6 @@ impl Node for Item {
             ItemKind::Import(_) => vec![],
             ItemKind::Stmt(stmt) => vec![stmt.clone() as Rc<dyn Node>],
         }
-    }
-
-    fn to_item(&self) -> Option<Item> {
-        Some(self.clone())
     }
 }
 

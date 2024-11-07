@@ -948,7 +948,6 @@ impl Translator {
                 println!("resolving {}", f.name.v);
                 self._display_node(f.body.id);
                 let func_ty = self.statics.solution_of_node(f.name.id).unwrap();
-                let func_name = f.name.v.clone();
 
                 if func_ty.is_overloaded() // println: 'a ToString -> ()
                 || iface_method
