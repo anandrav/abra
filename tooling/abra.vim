@@ -1,4 +1,4 @@
-# Vim syntax highlighting for Abra
+" Vim syntax file for Abra
 
 if exists("b:current_syntax") && b:current_syntax == "abra"
   finish
