@@ -691,7 +691,7 @@ let s = "hello " & "world"
 #[test]
 fn monomorphize_to_string_int() {
     let src = r#"
-to_string(123)
+str(123)
 "#;
     let sources = source_files_single(src);
     let program = match compile_bytecode(sources, DefaultEffects::enumerate()) {
@@ -709,8 +709,8 @@ to_string(123)
 #[test]
 fn monomorphize_to_string_float() {
     let src = r#"
-to_string(123)
-to_string(123.456)
+str(123)
+str(123.456)
 "#;
     let sources = source_files_single(src);
     let program = match compile_bytecode(sources, DefaultEffects::enumerate()) {
@@ -729,7 +729,7 @@ to_string(123.456)
 fn monomorphize_to_string_tuple_ints() {
     let src = r#"
 let nums = (1, 2, 3)
-to_string(nums)
+str(nums)
 "#;
     let sources = source_files_single(src);
     let program = match compile_bytecode(sources, DefaultEffects::enumerate()) {
@@ -747,7 +747,7 @@ to_string(nums)
 #[test]
 fn monomorphize_overloaded_func_println() {
     let src = r#"
-to_string(123)
+str(123)
 println(123)
 5
 "#;

@@ -23,7 +23,7 @@ fn main() {
 
     let Ok(contents) = std::fs::read_to_string(&args.file) else {
         eprintln!("file '{}' not found", args.file);
-        return;
+        std::process::exit(1);
     };
     source_files.push(SourceFile {
         name: args.file,
