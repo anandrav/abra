@@ -10,8 +10,9 @@ TARGET_DIR="$VIM_DIR/syntax"
 SOURCE_FILE="./tooling/abra.vim"
 TARGET_FILE="$TARGET_DIR/abra.vim"
 if [ -d "$VIM_DIR" ]; then
-  mkdir -p "$TARGET_DIR"
-  cp "$SOURCE_FILE" "$TARGET_FILE"
-  echo "Copied $SOURCE_FILE to $TARGET_FILE"
+  mkdir -p $VIM_DIR/syntax
+  mkdir -p $VIM_DIR/ftdetect
+  cp ./tooling/syntax.vim $VIM_DIR/syntax/abra.vim
+  cp ./tooling/ftdetect.vim $VIM_DIR/ftdetect/abra.vim
 fi
 
