@@ -121,6 +121,18 @@ impl TypeVarData {
     }
 }
 
+// *** NOT SURE WHICH ORDER THESE SHOULD BE DONE IN! ***
+// TODO: Replace Provs here with a different type, "Reasons"
+// TODO: PotentialType is just SolvedType but with provenances. Unify these two.
+// TODO: make it so we are either
+/*
+1. constraining to TypeVars to each other, which unifies them
+2. constraining a TypeVar to a PotentialType, which just adds info to the TypeVar's data
+3. constraining two PotentialTypes
+- if we constrain two PotentialTypes and they conflict, then this type conflict must be logged in a Vec somewhere
+
+*/
+
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub(crate) enum PotentialType {
     Poly(Provs, String, Vec<Rc<InterfaceDef>>), // type name, then list of Interfaces it must match
@@ -131,7 +143,20 @@ pub(crate) enum PotentialType {
     String(Provs),
     Function(Provs, Vec<TypeVar>, TypeVar),
     Tuple(Provs, Vec<TypeVar>),
-    Nominal(Provs, Nominal, Vec<TypeVar>), // TODO: instead of String, use a reference to the declaration. Types should be able to share the same name
+    Nominal(Provs, Nominal, Vec<TypeVar>),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+pub(crate) enum SolvedType {
+    Poly(String, Vec<Rc<InterfaceDef>>), // type name, then list of Interfaces it must match
+    Unit,
+    Int,
+    Float,
+    Bool,
+    String,
+    Function(Vec<SolvedType>, Box<SolvedType>),
+    Tuple(Vec<SolvedType>),
+    Nominal(Nominal, Vec<SolvedType>),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -149,19 +174,6 @@ impl Nominal {
             Self::Array => "array",
         }
     }
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
-pub(crate) enum SolvedType {
-    Poly(String, Vec<Rc<InterfaceDef>>), // type name, then list of Interfaces it must match
-    Unit,
-    Int,
-    Float,
-    Bool,
-    String,
-    Function(Vec<SolvedType>, Box<SolvedType>),
-    Tuple(Vec<SolvedType>),
-    Nominal(Nominal, Vec<SolvedType>), // TODO: Instead of a String, use a reference to the declaration
 }
 
 impl SolvedType {
@@ -713,7 +725,7 @@ fn tyvar_of_declaration(
                         let args = elems
                             .iter()
                             .map(|e| {
-                                let e = ast_type_to_statics_type(ctx, e.clone());
+                                let e = ast_type_to_typevar(ctx, e.clone());
                                 e.clone().subst(
                                     polyvar_scope.clone(),
                                     Prov::Node(id),
@@ -724,7 +736,7 @@ fn tyvar_of_declaration(
                         Some(TypeVar::make_func(args, def_type, Prov::Node(id)))
                     }
                     _ => {
-                        let ty = ast_type_to_statics_type(ctx, ty.clone());
+                        let ty = ast_type_to_typevar(ctx, ty.clone());
                         Some(TypeVar::make_func(
                             vec![ty
                                 .clone()
@@ -761,7 +773,7 @@ fn tyvar_of_declaration(
                 .fields
                 .iter()
                 .map(|f| {
-                    let ty = ast_type_to_statics_type(ctx, f.ty.clone());
+                    let ty = ast_type_to_typevar(ctx, f.ty.clone());
                     ty.clone()
                         .subst(polyvar_scope.clone(), Prov::Node(id), &substitution)
                 })
@@ -886,7 +898,22 @@ fn types_of_binop(
     }
 }
 
-pub(crate) fn ast_type_to_statics_type_interface(
+pub(crate) fn ast_type_to_solved_type(ctx: &StaticsContext, ast_type: Rc<AstType>) -> SolvedType {
+    match &*ast_type.kind {
+        TypeKind::Poly(ident, iface_names) => todo!(),
+        TypeKind::Identifier(_) => todo!(),
+        TypeKind::Ap(identifier, vec) => todo!(),
+        TypeKind::Unit => todo!(),
+        TypeKind::Int => todo!(),
+        TypeKind::Float => todo!(),
+        TypeKind::Bool => todo!(),
+        TypeKind::Str => todo!(),
+        TypeKind::Function(vec, rc) => todo!(),
+        TypeKind::Tuple(vec) => todo!(),
+    }
+}
+
+pub(crate) fn ast_type_to_typevar_interface(
     ctx: &mut StaticsContext,
     ast_type: Rc<AstType>,
     interface_ident: Option<Rc<InterfaceDef>>,
@@ -927,7 +954,7 @@ pub(crate) fn ast_type_to_statics_type_interface(
                     params
                         .iter()
                         .map(|param| {
-                            ast_type_to_statics_type_interface(
+                            ast_type_to_typevar_interface(
                                 ctx,
                                 param.clone(),
                                 interface_ident.clone(),
@@ -941,7 +968,7 @@ pub(crate) fn ast_type_to_statics_type_interface(
                     params
                         .iter()
                         .map(|param| {
-                            ast_type_to_statics_type_interface(
+                            ast_type_to_typevar_interface(
                                 ctx,
                                 param.clone(),
                                 interface_ident.clone(),
@@ -955,7 +982,7 @@ pub(crate) fn ast_type_to_statics_type_interface(
                     params
                         .iter()
                         .map(|param| {
-                            ast_type_to_statics_type_interface(
+                            ast_type_to_typevar_interface(
                                 ctx,
                                 param.clone(),
                                 interface_ident.clone(),
@@ -975,17 +1002,15 @@ pub(crate) fn ast_type_to_statics_type_interface(
         TypeKind::Str => TypeVar::make_string(Prov::Node(ast_type.id())),
         TypeKind::Function(lhs, rhs) => TypeVar::make_func(
             lhs.iter()
-                .map(|t| {
-                    ast_type_to_statics_type_interface(ctx, t.clone(), interface_ident.clone())
-                })
+                .map(|t| ast_type_to_typevar_interface(ctx, t.clone(), interface_ident.clone()))
                 .collect(),
-            ast_type_to_statics_type_interface(ctx, rhs.clone(), interface_ident.clone()),
+            ast_type_to_typevar_interface(ctx, rhs.clone(), interface_ident.clone()),
             Prov::Node(ast_type.id()),
         ),
         TypeKind::Tuple(types) => {
             let mut statics_types = Vec::new();
             for t in types {
-                statics_types.push(ast_type_to_statics_type_interface(
+                statics_types.push(ast_type_to_typevar_interface(
                     ctx,
                     t.clone(),
                     interface_ident.clone(),
@@ -996,8 +1021,8 @@ pub(crate) fn ast_type_to_statics_type_interface(
     }
 }
 
-pub(crate) fn ast_type_to_statics_type(ctx: &mut StaticsContext, ast_type: Rc<AstType>) -> TypeVar {
-    ast_type_to_statics_type_interface(ctx, ast_type, None)
+pub(crate) fn ast_type_to_typevar(ctx: &mut StaticsContext, ast_type: Rc<AstType>) -> TypeVar {
+    ast_type_to_typevar_interface(ctx, ast_type, None)
 }
 
 pub(crate) type Provs = RefCell<BTreeSet<Prov>>;
@@ -1091,7 +1116,7 @@ pub(crate) fn result_of_constraint_solving(
         // map from implementation type to location
         let mut impls_by_type: BTreeMap<SolvedType, Vec<NodeId>> = BTreeMap::new();
         for imp in impls.iter() {
-            let imp_typ = ast_type_to_statics_type(ctx, imp.typ.clone());
+            let imp_typ = ast_type_to_typevar(ctx, imp.typ.clone());
             if let Some(impl_typ) = imp_typ.clone().solution() {
                 impls_by_type.entry(impl_typ).or_default().push(imp.id);
             }
@@ -1128,7 +1153,7 @@ pub(crate) fn result_of_constraint_solving(
                 for impl_ in impl_list {
                     // TODO: converting implementation's ast type to a typevar then getting the solution is silly
                     // ALSO it requires a mutable StaticsContext which doesn't make sense at all
-                    let impl_ty = ast_type_to_statics_type(ctx, impl_.typ.clone());
+                    let impl_ty = ast_type_to_typevar(ctx, impl_.typ.clone());
                     if let Some(impl_ty) = impl_ty.solution() {
                         // println!("typecheck ty_fits_impl_ty");
                         // println!("ty1: {}, ty2: {}", typ, impl_ty);
@@ -1834,7 +1859,7 @@ fn generate_constraints_func_helper(
             match arg_annot {
                 Some(arg_annot) => {
                     let ty_annot = TypeVar::from_node(ctx, arg_annot.id());
-                    let arg_annot = ast_type_to_statics_type(ctx, arg_annot.clone());
+                    let arg_annot = ast_type_to_typevar(ctx, arg_annot.clone());
                     constrain(ty_annot.clone(), arg_annot.clone());
                     polyvar_scope.add_polys(&arg_annot);
                     generate_constraints_pat(
@@ -1863,7 +1888,7 @@ fn generate_constraints_func_helper(
         ctx,
     );
     if let Some(out_annot) = out_annot {
-        let out_annot = ast_type_to_statics_type(ctx, out_annot.clone());
+        let out_annot = ast_type_to_typevar(ctx, out_annot.clone());
         polyvar_scope.add_polys(&out_annot);
         generate_constraints_expr(
             polyvar_scope,
@@ -1888,7 +1913,7 @@ fn generate_constraints_item(mode: Mode, stmt: Rc<Item>, ctx: &mut StaticsContex
         ItemKind::InterfaceImpl(iface_impl) => {
             // TODO: converting implementation's ast type to a typevar then getting the solution is silly
             // Should just be able to get the Solved type directly from the ast_type
-            let impl_ty = ast_type_to_statics_type(ctx, iface_impl.typ.clone());
+            let impl_ty = ast_type_to_typevar(ctx, iface_impl.typ.clone());
 
             let lookup = ctx.resolution_map.get(&iface_impl.iface.id).cloned();
             if let Some(Declaration::InterfaceDef(iface_def)) = lookup {
@@ -1896,7 +1921,7 @@ fn generate_constraints_item(mode: Mode, stmt: Rc<Item>, ctx: &mut StaticsContex
                 // Do the logic only once, memoize the result.
                 // TODO: Shouldn't use type inference to infer the types of the properties/methods. They are already annotated. They are already solved.
                 for prop in &iface_def.props {
-                    let ty_annot = ast_type_to_statics_type_interface(
+                    let ty_annot = ast_type_to_typevar_interface(
                         ctx,
                         prop.ty.clone(),
                         Some(iface_def.clone()),
@@ -1916,7 +1941,7 @@ fn generate_constraints_item(mode: Mode, stmt: Rc<Item>, ctx: &mut StaticsContex
                         substitution.insert("a".to_string(), impl_ty.clone());
 
                         let interface_method_ty =
-                            ast_type_to_statics_type(ctx, interface_method.ty.clone());
+                            ast_type_to_typevar(ctx, interface_method.ty.clone());
                         constrain(
                             interface_method_ty.clone(),
                             TypeVar::from_node(ctx, interface_method.id()),
@@ -2003,7 +2028,7 @@ fn generate_constraints_stmt(
             let ty_pat = TypeVar::from_node(ctx, pat.id);
 
             if let Some(ty_ann) = ty_ann {
-                let ty_ann = ast_type_to_statics_type(ctx, ty_ann.clone());
+                let ty_ann = ast_type_to_typevar(ctx, ty_ann.clone());
                 polyvar_scope.add_polys(&ty_ann);
                 generate_constraints_pat(
                     polyvar_scope.clone(),
@@ -2112,7 +2137,7 @@ fn generate_constraints_pat(
                         None => TypeVar::make_unit(Prov::VariantNoData(
                             Prov::Node(variant_def.id).into(),
                         )),
-                        Some(ty) => ast_type_to_statics_type(ctx, ty.clone()),
+                        Some(ty) => ast_type_to_typevar(ctx, ty.clone()),
                     };
                     let variant_data_ty = variant_data_ty.subst(
                         polyvar_scope.clone(),
@@ -2316,7 +2341,7 @@ fn ty_fits_impl_ty_poly(
             // find at least one implementation of interface that matches the type constrained to the interface
             for impl_ in impl_list {
                 // TODO: converting implementation's ast type to a typevar then getting the solution is silly
-                let impl_ty = ast_type_to_statics_type(ctx, impl_.typ.clone());
+                let impl_ty = ast_type_to_typevar(ctx, impl_.typ.clone());
                 if let Some(impl_ty) = impl_ty.solution() {
                     if ty_fits_impl_ty(ctx, typ.clone(), impl_ty).is_ok() {
                         return true;

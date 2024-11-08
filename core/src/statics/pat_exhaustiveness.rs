@@ -9,7 +9,7 @@ use std::collections::HashSet;
 use std::fmt::{self, Write};
 use std::rc::Rc;
 
-use super::typecheck::{ast_type_to_statics_type, Nominal};
+use super::typecheck::{ast_type_to_typevar, Nominal};
 use super::{Declaration, EnumDef, SolvedType, StaticsContext, TypeKind, TypeProv, TypeVar};
 
 // TODO: rename to be more descriptive/specific to exhaustiveness/usefulness
@@ -222,7 +222,7 @@ impl Matrix {
                 let variant = &enum_def.variants[*idx as usize];
                 let variant_data = &variant.data;
                 let data_ty = if let Some(data) = &variant_data {
-                    ast_type_to_statics_type(statics, data.clone())
+                    ast_type_to_typevar(statics, data.clone())
                 } else {
                     TypeVar::make_unit(TypeProv::VariantNoData(Box::new(TypeProv::Node(
                         variant.id,
@@ -406,7 +406,7 @@ impl DeconstructedPat {
                     let variant = &enum_def.variants[*idx as usize];
                     let variant_data = &variant.data;
                     let data_ty = if let Some(data) = &variant_data {
-                        ast_type_to_statics_type(statics, data.clone())
+                        ast_type_to_typevar(statics, data.clone())
                     } else {
                         TypeVar::make_unit(TypeProv::VariantNoData(Box::new(TypeProv::Node(
                             variant.id,

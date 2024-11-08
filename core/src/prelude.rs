@@ -1,5 +1,4 @@
-pub const _PRELUDE: &str = r#"
-fn not(b: bool) = if b false else true
+pub const _PRELUDE: &str = r#"fn not(b: bool) = if b false else true
 
 interface Num {
     add: (self, self) -> self
