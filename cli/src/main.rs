@@ -50,12 +50,9 @@ fn main() {
                             vm.push_nil();
                         }
                         abra_core::effects::DefaultEffects::Read => {
-                            unimplemented!()
-                            // let mut input = String::new();
-                            // std::io::stdin().read_line(&mut input).unwrap();
-                            // vm.set_effect_result(
-                            //     abra_core::eval_tree::Expr::from(input.trim()).into(),
-                            // );
+                            let mut input = String::new();
+                            std::io::stdin().read_line(&mut input).unwrap();
+                            vm.push_str(&input[0..input.len() - 1]);
                         }
                     }
                     vm.clear_pending_effect();
