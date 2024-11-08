@@ -1,0 +1,18 @@
+#!/bin/bash
+set -euo pipefail
+
+# Path to the source file containing the zsh completion content
+src="./tooling/zsh_completion"
+
+# Path to the target zsh completion file
+dest="/usr/local/share/zsh/site-functions/_abra"
+
+# Check if the source file exists
+if [[ ! -f "$src" ]]; then
+  echo "Completion file $source_file does not exist."
+  exit 1
+fi
+
+# Copy completion file to destination. Requires sudo
+sudo cp $src $dest
+

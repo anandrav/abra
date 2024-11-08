@@ -1,0 +1,14 @@
+#compdef abra
+
+_abra() {
+  local -a abra_files
+  abra_files=( *.abra(N) )
+
+  if (( $#abra_files )); then
+    _values "Abra script" $abra_files
+  else
+    _files -g "*.abra"
+  fi
+}
+
+_abra "$@"

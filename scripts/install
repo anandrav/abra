@@ -1,4 +1,17 @@
 #!/bin/sh
-set -euxo pipefail
+set -euo pipefail
 
+# Install Abra cli to Cargo bin
 cargo install --bin abra --path cli
+
+# Install Vim syntax highlighting if ~/.vim exists
+VIM_DIR="$HOME/.vim"
+TARGET_DIR="$VIM_DIR/syntax"
+SOURCE_FILE="./tooling/abra.vim"
+TARGET_FILE="$TARGET_DIR/abra.vim"
+if [ -d "$VIM_DIR" ]; then
+  mkdir -p "$TARGET_DIR"
+  cp "$SOURCE_FILE" "$TARGET_FILE"
+  echo "Copied $SOURCE_FILE to $TARGET_FILE"
+fi
+
