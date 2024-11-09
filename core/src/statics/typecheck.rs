@@ -281,7 +281,6 @@ pub(crate) enum Prov {
     Builtin(Builtin), // a builtin function or constant, which doesn't exist in the AST
     Effect(u16),
 
-    Alias(String), // TODO FIXME: Store a NodeId/resolution instead of a String
     UdtDef(Box<Prov>),
 
     InstantiateUdtParam(Box<Prov>, u8),
@@ -304,7 +303,6 @@ impl Prov {
             Prov::Node(id) => Some(*id),
             Prov::Builtin(_) => None,
             Prov::Effect(_) => None,
-            Prov::Alias(_) => None,
             Prov::UdtDef(inner)
             | Prov::InstantiateUdtParam(inner, _)
             | Prov::InstantiatePoly(inner, _)
@@ -1013,7 +1011,7 @@ pub(crate) fn ast_type_to_typevar(ctx: &mut StaticsContext, ast_type: Rc<AstType
                     panic!("could not resolve {}", ident) // TODO: remove panic
                 }
             }
-        } // TODO: Wtf is Prov::Alias?? It's not namespaced that's for sure
+        }
         TypeKind::Ap(ident, params) => {
             let lookup = ctx.resolution_map.get(&ident.id);
             match lookup {
@@ -1428,7 +1426,6 @@ pub(crate) fn result_of_constraint_solving(
                     Prov::InstantiatePoly(_, _ident) => 2,
                     Prov::FuncArg(_, _) => 3,
                     Prov::FuncOut(_) => 4,
-                    Prov::Alias(_) => 5,
                     Prov::VariantNoData(_) => 7,
                     Prov::UdtDef(_) => 8,
                     Prov::InstantiateUdtParam(_, _) => 9,
@@ -1514,9 +1511,6 @@ pub(crate) fn result_of_constraint_solving(
                         }
                         Prov::ListElem(_) => {
                             err_string.push_str("The element of some list");
-                        }
-                        Prov::Alias(ident) => {
-                            let _ = writeln!(err_string, "The type alias {ident}");
                         }
                         Prov::UdtDef(_prov) => {
                             err_string.push_str("Some type definition");
