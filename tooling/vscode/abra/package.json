@@ -1,0 +1,25 @@
+{
+  "name": "abra",
+  "displayName": "Abra",
+  "description": "syntax highlighting for Abra",
+  "version": "0.0.1",
+  "engines": {
+    "vscode": "^1.95.0"
+  },
+  "categories": [
+    "Programming Languages"
+  ],
+  "contributes": {
+    "languages": [{
+      "id": "abra",
+      "aliases": ["Abra", "abra"],
+      "extensions": [".abra"],
+      "configuration": "./language-configuration.json"
+    }],
+    "grammars": [{
+      "language": "abra",
+      "scopeName": "source.abra",
+      "path": "./syntaxes/abra.tmLanguage.json"
+    }]
+  }
+}
