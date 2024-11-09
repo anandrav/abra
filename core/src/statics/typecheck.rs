@@ -9,7 +9,7 @@ use core::panic;
 use disjoint_sets::UnionFindNode;
 use std::cell::RefCell;
 use std::collections::{BTreeMap, BTreeSet};
-use std::fmt::{self, Write};
+use std::fmt::{self, Display, Write};
 use std::rc::Rc;
 
 use super::{Declaration, EnumDef, InterfaceDef, StaticsContext, StructDef};
@@ -2386,7 +2386,7 @@ fn ty_fits_impl_ty_poly(
     false
 }
 
-impl fmt::Display for TypeVar {
+impl Display for TypeVar {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let types = self.0.clone_data().types;
         match types.len() {
@@ -2406,7 +2406,7 @@ impl fmt::Display for TypeVar {
     }
 }
 
-impl fmt::Display for PotentialType {
+impl Display for PotentialType {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             PotentialType::Poly(_, ident, interfaces) => {
@@ -2466,7 +2466,7 @@ impl fmt::Display for PotentialType {
     }
 }
 
-impl fmt::Display for SolvedType {
+impl Display for SolvedType {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             SolvedType::Poly(ident, interfaces) => {
@@ -2526,7 +2526,7 @@ impl fmt::Display for SolvedType {
     }
 }
 
-impl fmt::Display for Monotype {
+impl Display for Monotype {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Monotype::Nominal(nominal, params) => {

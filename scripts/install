@@ -17,8 +17,10 @@ if [ -d "$VIM_DIR" ]; then
 fi
 
 # Install Vscode highlighting extension
-npm install -g vsce
-pushd ./tooling/vscode/abra
+npm install -g @vscode/vsce
+git clone git@github.com:anandrav/abra-syntax.git
+pushd abra-syntax
 vsce package --allow-missing-repository
 code --install-extension abra-0.0.1.vsix
 popd
+rm -rf abra-syntax

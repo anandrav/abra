@@ -1410,7 +1410,7 @@ fn make_label(hint: &str) -> Label {
     if hint.contains(" ") {
         panic!("Label hint cannot contain spaces");
     }
-    static ID_COUNTER: std::sync::atomic::AtomicUsize = AtomicUsize::new(1);
+    static ID_COUNTER: AtomicUsize = AtomicUsize::new(1);
     let id = ID_COUNTER.fetch_add(1, Ordering::Relaxed);
     format!("{}__#{:X}", hint, id)
 }

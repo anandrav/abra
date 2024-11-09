@@ -6,7 +6,7 @@ use crate::ast::{
 use core::panic;
 
 use std::collections::HashSet;
-use std::fmt::{self, Write};
+use std::fmt::{self, Display, Write};
 use std::rc::Rc;
 
 use super::typecheck::{ast_type_to_typevar, Nominal};
@@ -270,7 +270,7 @@ impl Matrix {
     }
 }
 
-impl fmt::Display for Matrix {
+impl Display for Matrix {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         writeln!(f)?;
         for row in self.rows.iter() {
@@ -449,7 +449,7 @@ impl DeconstructedPat {
     }
 }
 
-impl fmt::Display for DeconstructedPat {
+impl Display for DeconstructedPat {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match &self.ctor {
             Constructor::Wildcard(_) => write!(f, "_"),
@@ -622,7 +622,7 @@ impl WitnessMatrix {
     }
 }
 
-impl fmt::Display for WitnessMatrix {
+impl Display for WitnessMatrix {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         writeln!(f)?;
         for row in self.rows.iter() {

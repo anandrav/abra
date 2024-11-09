@@ -1,9 +1,9 @@
 // functions used for testing
 #[cfg(test)]
 pub mod inner {
-    use std::fmt;
+    use std::fmt::Display;
 
-    pub fn unwrap_or_panic<T, E: fmt::Display>(result: Result<T, E>) -> T {
+    pub fn unwrap_or_panic<T, E: Display>(result: Result<T, E>) -> T {
         match result {
             Ok(value) => value,
             Err(e) => {
