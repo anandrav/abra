@@ -53,14 +53,7 @@ pub(crate) struct StaticsContext {
     // unbound variables
     unbound_vars: BTreeSet<NodeId>,
     unbound_interfaces: BTreeSet<NodeId>,
-    // multiple definitions
-    multiple_udt_defs: BTreeMap<String, Vec<NodeId>>, // TODO: can't refer to Udt by its unqualified name
-    multiple_interface_defs: BTreeMap<String, Vec<NodeId>>, // TODO can't refer to interface by its unqualified name
-    // interface implementations
-    multiple_interface_impls: BTreeMap<String, Vec<NodeId>>, // TODO: can't refer to an interface by its unqualified name
-    interface_impl_for_instantiated_ty: Vec<NodeId>,
-    interface_impl_extra_method: BTreeMap<NodeId, Vec<NodeId>>,
-    interface_impl_missing_method: BTreeMap<NodeId, Vec<String>>, // TODO: would be better to just map to the method itself. IE Rc<InterfaceDef>, u16 for index. More info
+
     // non-exhaustive matches
     nonexhaustive_matches: BTreeMap<NodeId, Vec<DeconstructedPat>>,
     redundant_matches: BTreeMap<NodeId, Vec<NodeId>>,

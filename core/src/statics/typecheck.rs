@@ -1151,25 +1151,6 @@ pub(crate) fn result_of_constraint_solving(
         }
     }
 
-    // look for error of multiple interface implementations for the same type
-    let interface_impls = ctx.interface_impls.clone();
-    for (iface_def, impls) in interface_impls.iter() {
-        // map from implementation type to location
-        let mut impls_by_type: BTreeMap<SolvedType, Vec<NodeId>> = BTreeMap::new();
-        for imp in impls.iter() {
-            let imp_typ = ast_type_to_typevar(ctx, imp.typ.clone());
-            if let Some(impl_typ) = imp_typ.clone().solution() {
-                impls_by_type.entry(impl_typ).or_default().push(imp.id);
-            }
-        }
-        for (_impl_typ, impl_locs) in impls_by_type.iter() {
-            if impl_locs.len() > 1 {
-                ctx.multiple_interface_impls
-                    .insert(iface_def.name.v.clone(), impl_locs.clone());
-            }
-        }
-    }
-
     let mut err_string = String::new();
 
     let mut bad_instantiations = false;
@@ -1241,12 +1222,6 @@ pub(crate) fn result_of_constraint_solving(
     if ctx.unbound_vars.is_empty()
         && ctx.unbound_interfaces.is_empty()
         && type_conflicts.is_empty()
-        && ctx.multiple_udt_defs.is_empty()
-        && ctx.multiple_interface_defs.is_empty()
-        && ctx.multiple_interface_impls.is_empty()
-        && ctx.interface_impl_for_instantiated_ty.is_empty()
-        && ctx.interface_impl_extra_method.is_empty()
-        && ctx.interface_impl_missing_method.is_empty()
         && ctx.annotation_needed.is_empty()
         && ctx.field_not_ident.is_empty()
         && !bad_instantiations
@@ -1275,80 +1250,6 @@ pub(crate) fn result_of_constraint_solving(
                 sources,
                 "Interface being implemented is not defined\n",
             );
-        }
-    }
-    if !ctx.multiple_udt_defs.is_empty() {
-        for (ident, enum_ids) in ctx.multiple_udt_defs.iter() {
-            let _ = writeln!(err_string, "Multiple definitions for type {}, ident", ident);
-            for ast_id in enum_ids {
-                let span = node_map.get(ast_id).unwrap().span();
-                span.display(&mut err_string, sources, "");
-            }
-        }
-    }
-    if !ctx.multiple_interface_defs.is_empty() {
-        for (ident, interface_ids) in ctx.multiple_interface_defs.iter() {
-            let _ = writeln!(err_string, "Multiple definitions for interface {}", ident);
-            for ast_id in interface_ids {
-                let span = node_map.get(ast_id).unwrap().span();
-                span.display(&mut err_string, sources, "");
-            }
-        }
-    }
-
-    if !ctx.multiple_interface_impls.is_empty() {
-        for (ident, impl_ids) in ctx.multiple_interface_impls.iter() {
-            let _ = writeln!(
-                err_string,
-                "Multiple implementations for interface {}",
-                ident
-            );
-            for ast_id in impl_ids {
-                let span = node_map.get(ast_id).unwrap().span();
-                span.display(&mut err_string, sources, "");
-            }
-        }
-    }
-
-    if !ctx.interface_impl_for_instantiated_ty.is_empty() {
-        for ast_id in ctx.interface_impl_for_instantiated_ty.iter() {
-            let span = node_map.get(ast_id).unwrap().span();
-            span.display(
-                &mut err_string,
-                sources,
-                "Interface implementations for instantiated types are not supported.\n",
-            );
-        }
-    }
-
-    if !ctx.interface_impl_extra_method.is_empty() {
-        for (id, impls) in ctx.interface_impl_extra_method.iter() {
-            let span = node_map.get(id).unwrap().span();
-            span.display(
-                &mut err_string,
-                sources,
-                "this interface implementation has methods not defined in the original interface.",
-            );
-            for ast_id in impls {
-                let span = node_map.get(ast_id).unwrap().span();
-                span.display(&mut err_string, sources, "remove this method:");
-            }
-        }
-    }
-
-    if !ctx.interface_impl_missing_method.is_empty() {
-        for (id, method_names) in ctx.interface_impl_missing_method.iter() {
-            let span = node_map.get(id).unwrap().span();
-            span.display(
-                &mut err_string,
-                sources,
-                "this interface implementation is missing methods defined in the original interface.",
-            );
-            // add these methods:
-            err_string.push_str("Add these methods:\n");
-            for method_name in method_names {
-                err_string.push_str(&format!("\t- {method_name};\n"));
-            }
         }
     }
 
@@ -1994,26 +1895,7 @@ fn generate_constraints_item(mode: Mode, stmt: Rc<Item>, ctx: &mut StaticsContex
                             statement.clone(),
                             ctx,
                         );
-                    } else {
-                        ctx.interface_impl_extra_method
-                            .entry(stmt.id)
-                            .or_default()
-                            .push(statement.id);
                     }
-                }
-                for interface_method in &iface_def.props {
-                    if !iface_impl.stmts.iter().any(|stmt| match &*stmt.kind {
-                        StmtKind::FuncDef(f) => f.name.v == interface_method.name.v,
-                        _ => false,
-                    }) {
-                        ctx.interface_impl_missing_method
-                            .entry(stmt.id)
-                            .or_default()
-                            .push(interface_method.name.v.clone());
-                    }
-                }
-                if impl_ty.is_instantiated_nominal() {
-                    ctx.interface_impl_for_instantiated_ty.push(stmt.id);
                 }
 
                 let impl_list = ctx.interface_impls.entry(iface_def.clone()).or_default();
