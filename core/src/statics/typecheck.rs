@@ -993,7 +993,27 @@ pub(crate) fn ast_type_to_typevar(ctx: &mut StaticsContext, ast_type: Rc<AstType
             }
             TypeVar::make_poly(Prov::Node(ast_type.id()), ident.v.clone(), interfaces)
         }
-        TypeKind::Identifier(ident) => TypeVar::fresh(ctx, Prov::Alias(ident.clone())), // TODO: Wtf is Prov::Alias?? It's not namespaced that's for sure
+        TypeKind::Identifier(ident) => {
+            let lookup = ctx.resolution_map.get(&ast_type.id);
+            match lookup {
+                Some(Declaration::Enum(enum_def)) => TypeVar::make_nominal(
+                    Prov::Node(ast_type.id()),
+                    Nominal::Enum(enum_def.clone()),
+                    vec![],
+                ),
+                Some(Declaration::Struct(struct_def)) => TypeVar::make_nominal(
+                    Prov::Node(ast_type.id()),
+                    Nominal::Struct(struct_def.clone()),
+                    vec![],
+                ),
+                Some(Declaration::Array) => {
+                    TypeVar::make_nominal(Prov::Node(ast_type.id()), Nominal::Array, vec![])
+                }
+                _ => {
+                    panic!("could not resolve {}", ident) // TODO: remove panic
+                }
+            }
+        } // TODO: Wtf is Prov::Alias?? It's not namespaced that's for sure
         TypeKind::Ap(ident, params) => {
             let lookup = ctx.resolution_map.get(&ident.id);
             match lookup {
@@ -1022,7 +1042,7 @@ pub(crate) fn ast_type_to_typevar(ctx: &mut StaticsContext, ast_type: Rc<AstType
                         .collect(),
                 ),
                 _ => {
-                    panic!("could not resolve {}", ident.v)
+                    panic!("could not resolve {}", ident.v) // TODO: remove panic
                 }
             }
         }
