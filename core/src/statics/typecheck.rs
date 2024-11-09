@@ -897,28 +897,87 @@ fn types_of_binop(
     }
 }
 
-pub(crate) fn ast_type_to_solved_type(ctx: &StaticsContext, ast_type: Rc<AstType>) -> SolvedType {
+pub(crate) fn ast_type_to_solved_type(
+    ctx: &StaticsContext,
+    ast_type: Rc<AstType>,
+) -> Option<SolvedType> {
     match &*ast_type.kind {
-        TypeKind::Poly(ident, iface_names) => todo!(),
-        TypeKind::Identifier(_) => todo!(),
-        TypeKind::Ap(identifier, vec) => todo!(),
-        TypeKind::Unit => SolvedType::Unit,
-        TypeKind::Int => SolvedType::Int,
-        TypeKind::Float => SolvedType::Float,
-        TypeKind::Bool => SolvedType::Bool,
-        TypeKind::Str => SolvedType::String,
-        TypeKind::Function(args, ret) => SolvedType::Function(
-            args.iter()
-                .map(|e| ast_type_to_solved_type(ctx, e.clone()))
-                .collect(),
-            ast_type_to_solved_type(ctx, ret.clone()).into(),
-        ),
-        TypeKind::Tuple(elems) => SolvedType::Tuple(
-            elems
-                .iter()
-                .map(|e| ast_type_to_solved_type(ctx, e.clone()))
-                .collect(),
-        ),
+        TypeKind::Poly(ident, iface_names) => {
+            let mut ifaces = vec![];
+            for iface_name in iface_names {
+                let lookup = ctx.resolution_map.get(&iface_name.id);
+                if let Some(Declaration::InterfaceDef(iface_def)) = lookup {
+                    ifaces.push(iface_def.clone());
+                }
+            }
+            Some(SolvedType::Poly(ident.v.clone(), ifaces))
+        }
+        TypeKind::Identifier(_) => {
+            let lookup = ctx.resolution_map.get(&ast_type.id)?;
+            match lookup {
+                Declaration::Array => Some(SolvedType::Nominal(Nominal::Array, vec![])),
+                Declaration::Struct(struct_def) => Some(SolvedType::Nominal(
+                    Nominal::Struct(struct_def.clone()),
+                    vec![],
+                )),
+                Declaration::Enum(enum_def) => {
+                    Some(SolvedType::Nominal(Nominal::Enum(enum_def.clone()), vec![]))
+                }
+                Declaration::FreeFunction(_, _)
+                | Declaration::InterfaceDef(_)
+                | Declaration::InterfaceMethod { .. }
+                | Declaration::EnumVariant { .. }
+                | Declaration::Builtin(_)
+                | Declaration::Effect(_)
+                | Declaration::Var(_) => None,
+            }
+        }
+        TypeKind::Ap(identifier, args) => {
+            let mut sargs = vec![];
+            for arg in args {
+                sargs.push(ast_type_to_solved_type(ctx, arg.clone())?);
+            }
+            let lookup = ctx.resolution_map.get(&identifier.id)?;
+            match lookup {
+                Declaration::Array => Some(SolvedType::Nominal(Nominal::Array, sargs)),
+                Declaration::Struct(struct_def) => Some(SolvedType::Nominal(
+                    Nominal::Struct(struct_def.clone()),
+                    vec![],
+                )),
+                Declaration::Enum(enum_def) => {
+                    Some(SolvedType::Nominal(Nominal::Enum(enum_def.clone()), sargs))
+                }
+                Declaration::FreeFunction(_, _)
+                | Declaration::InterfaceDef(_)
+                | Declaration::InterfaceMethod { .. }
+                | Declaration::EnumVariant { .. }
+                | Declaration::Builtin(_)
+                | Declaration::Effect(_)
+                | Declaration::Var(_) => None,
+            }
+        }
+        TypeKind::Unit => Some(SolvedType::Unit),
+        TypeKind::Int => Some(SolvedType::Int),
+        TypeKind::Float => Some(SolvedType::Float),
+        TypeKind::Bool => Some(SolvedType::Bool),
+        TypeKind::Str => Some(SolvedType::String),
+        TypeKind::Function(args, ret) => {
+            let mut sargs = vec![];
+            for arg in args {
+                let sarg = ast_type_to_solved_type(ctx, arg.clone())?;
+                sargs.push(sarg);
+            }
+            let sret = ast_type_to_solved_type(ctx, ret.clone())?;
+            Some(SolvedType::Function(sargs, sret.into()))
+        }
+        TypeKind::Tuple(elems) => {
+            let mut selems = vec![];
+            for elem in elems {
+                let selem = ast_type_to_solved_type(ctx, elem.clone())?;
+                selems.push(selem);
+            }
+            Some(SolvedType::Tuple(selems))
+        }
     }
 }
 
@@ -940,7 +999,7 @@ pub(crate) fn ast_type_to_typevar_interface(
         }
         TypeKind::Identifier(ident) => {
             if let Some(interface_ident) = interface_ident {
-                // TODO: Instead of checking equality with "self", it should get its own TypeKind. TypeKind::Self
+                // TODO: For now, get rid of "self". Can add it back later, but this seems pretty hacky.
                 if ident == "self" {
                     TypeVar::make_poly_constrained(
                         Prov::Node(ast_type.id()),
