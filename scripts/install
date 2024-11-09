@@ -16,11 +16,35 @@ if [ -d "$VIM_DIR" ]; then
   cp ./tooling/vim/ftdetect.vim $VIM_DIR/ftdetect/abra.vim
 fi
 
-# Install Vscode highlighting extension
-npm install -g @vscode/vsce
-git clone git@github.com:anandrav/abra-syntax.git
-pushd abra-syntax
-vsce package --allow-missing-repository
-code --install-extension abra-0.0.1.vsix
-popd
-rm -rf abra-syntax
+#!/bin/bash
+
+install_abra_vscode_extension() {
+    # Check if `code` (VS Code) is installed
+    if ! command -v code &> /dev/null; then
+        echo "VS Code is not installed. Skipping Abra extension installation."
+        return 0
+    fi
+
+    echo "Installing VS Code extension 'undefined_publisher.abra'..."
+
+    # Install the vsce package globally if not already installed
+    if ! command -v vsce &> /dev/null; then
+        npm install -g @vscode/vsce
+    fi
+
+    # Clone the repository and package the extension
+    git clone git@github.com:anandrav/abra-syntax.git
+    pushd abra-syntax
+    vsce package --allow-missing-repository
+
+    # Install the packaged extension
+    code --install-extension abra-0.0.1.vsix
+
+    # Clean up
+    popd
+    rm -rf abra-syntax
+}
+
+# Call the function (you can remove this line if calling from another script)
+install_abra_vscode_extension
+

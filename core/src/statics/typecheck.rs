@@ -1144,8 +1144,8 @@ pub(crate) fn result_of_constraint_solving(
 ) -> Result<(), String> {
     // get list of type conflicts
     let mut type_conflicts = Vec::new();
-    for potential_types in ctx.vars.values() {
-        let type_suggestions = potential_types.0.clone_data().types; // TODO why not just check if it's solved?
+    for tyvar in ctx.vars.values() {
+        let type_suggestions = tyvar.0.clone_data().types; // TODO why not just check if it's solved?
         if type_suggestions.len() > 1 && (!type_conflicts.contains(&type_suggestions)) {
             type_conflicts.push(type_suggestions.clone());
         }
@@ -1220,10 +1220,8 @@ pub(crate) fn result_of_constraint_solving(
     }
 
     if ctx.unbound_vars.is_empty()
-        && ctx.unbound_interfaces.is_empty()
         && type_conflicts.is_empty()
         && ctx.annotation_needed.is_empty()
-        && ctx.field_not_ident.is_empty()
         && !bad_instantiations
         && !bad_field_access
     {
@@ -1242,32 +1240,11 @@ pub(crate) fn result_of_constraint_solving(
             span.display(&mut err_string, sources, "");
         }
     }
-    if !ctx.unbound_interfaces.is_empty() {
-        for ast_id in ctx.unbound_interfaces.iter() {
-            let span = node_map.get(ast_id).unwrap().span();
-            span.display(
-                &mut err_string,
-                sources,
-                "Interface being implemented is not defined\n",
-            );
-        }
-    }
 
     if !ctx.annotation_needed.is_empty() {
         for id in ctx.annotation_needed.iter() {
             let span = node_map.get(id).unwrap().span();
             span.display(&mut err_string, sources, "this needs a type annotation");
-        }
-    }
-
-    if !ctx.field_not_ident.is_empty() {
-        for id in ctx.field_not_ident.iter() {
-            let span = node_map.get(id).unwrap().span();
-            span.display(
-                &mut err_string,
-                sources,
-                "Need to use an String when accessing a field",
-            );
         }
     }
 
@@ -1743,8 +1720,7 @@ fn generate_constraints_expr(
             };
             if let PotentialType::Nominal(_, Nominal::Struct(struct_def), _) = inner {
                 let ExprKind::Identifier(field_ident) = &*field.kind else {
-                    ctx.field_not_ident.insert(field.id);
-                    return;
+                    panic!()
                 };
                 let ty_field =
                     TypeVar::fresh(ctx, Prov::StructField(field_ident.clone(), struct_def.id));

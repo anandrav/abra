@@ -52,15 +52,12 @@ pub(crate) struct StaticsContext {
 
     // unbound variables
     unbound_vars: BTreeSet<NodeId>,
-    unbound_interfaces: BTreeSet<NodeId>,
 
     // non-exhaustive matches
     nonexhaustive_matches: BTreeMap<NodeId, Vec<DeconstructedPat>>,
     redundant_matches: BTreeMap<NodeId, Vec<NodeId>>,
     // annotation needed
     annotation_needed: BTreeSet<NodeId>,
-    // field not an String
-    field_not_ident: BTreeSet<NodeId>,
 }
 
 impl StaticsContext {
