@@ -13,7 +13,7 @@ import = { "use" ~ identifier }
 
 interface_declaration = { "interface" ~ identifier ~ interface_body }
 interface_body = _{ "{" ~ interface_property* ~ "}" }
-interface_property = { identifier ~ type_annotation }
+interface_property = { func_keyword ~ identifier ~ type_annotation }
 
 interface_implementation = { "implement" ~ identifier ~ "for" ~ typ ~ interface_implementation_body }
 interface_implementation_body = _{ "{" ~ func_def* ~ "}" }

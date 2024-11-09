@@ -981,11 +981,7 @@ pub(crate) fn ast_type_to_solved_type(
     }
 }
 
-pub(crate) fn ast_type_to_typevar_interface(
-    ctx: &mut StaticsContext,
-    ast_type: Rc<AstType>,
-    interface_ident: Option<Rc<InterfaceDef>>,
-) -> TypeVar {
+pub(crate) fn ast_type_to_typevar(ctx: &mut StaticsContext, ast_type: Rc<AstType>) -> TypeVar {
     match &*ast_type.kind {
         TypeKind::Poly(ident, iface_names) => {
             let mut interfaces = vec![];
@@ -997,22 +993,7 @@ pub(crate) fn ast_type_to_typevar_interface(
             }
             TypeVar::make_poly(Prov::Node(ast_type.id()), ident.v.clone(), interfaces)
         }
-        TypeKind::Identifier(ident) => {
-            if let Some(interface_ident) = interface_ident {
-                // TODO: For now, get rid of "self". Can add it back later, but this seems pretty hacky.
-                if ident == "self" {
-                    TypeVar::make_poly_constrained(
-                        Prov::Node(ast_type.id()),
-                        "a".to_string(), //TODO: why "a"? Maybe use "self" or "Self" instead?
-                        interface_ident.clone(),
-                    )
-                } else {
-                    TypeVar::fresh(ctx, Prov::Alias(ident.clone()))
-                }
-            } else {
-                TypeVar::fresh(ctx, Prov::Alias(ident.clone()))
-            }
-        }
+        TypeKind::Identifier(ident) => TypeVar::fresh(ctx, Prov::Alias(ident.clone())), // TODO: Wtf is Prov::Alias?? It's not namespaced that's for sure
         TypeKind::Ap(ident, params) => {
             let lookup = ctx.resolution_map.get(&ident.id);
             match lookup {
@@ -1021,13 +1002,7 @@ pub(crate) fn ast_type_to_typevar_interface(
                     Nominal::Enum(enum_def.clone()),
                     params
                         .iter()
-                        .map(|param| {
-                            ast_type_to_typevar_interface(
-                                ctx,
-                                param.clone(),
-                                interface_ident.clone(),
-                            )
-                        })
+                        .map(|param| ast_type_to_typevar(ctx, param.clone()))
                         .collect(),
                 ),
                 Some(Declaration::Struct(struct_def)) => TypeVar::make_nominal(
@@ -1035,13 +1010,7 @@ pub(crate) fn ast_type_to_typevar_interface(
                     Nominal::Struct(struct_def.clone()),
                     params
                         .iter()
-                        .map(|param| {
-                            ast_type_to_typevar_interface(
-                                ctx,
-                                param.clone(),
-                                interface_ident.clone(),
-                            )
-                        })
+                        .map(|param| ast_type_to_typevar(ctx, param.clone()))
                         .collect(),
                 ),
                 Some(Declaration::Array) => TypeVar::make_nominal(
@@ -1049,13 +1018,7 @@ pub(crate) fn ast_type_to_typevar_interface(
                     Nominal::Array,
                     params
                         .iter()
-                        .map(|param| {
-                            ast_type_to_typevar_interface(
-                                ctx,
-                                param.clone(),
-                                interface_ident.clone(),
-                            )
-                        })
+                        .map(|param| ast_type_to_typevar(ctx, param.clone()))
                         .collect(),
                 ),
                 _ => {
@@ -1070,27 +1033,19 @@ pub(crate) fn ast_type_to_typevar_interface(
         TypeKind::Str => TypeVar::make_string(Prov::Node(ast_type.id())),
         TypeKind::Function(lhs, rhs) => TypeVar::make_func(
             lhs.iter()
-                .map(|t| ast_type_to_typevar_interface(ctx, t.clone(), interface_ident.clone()))
+                .map(|t| ast_type_to_typevar(ctx, t.clone()))
                 .collect(),
-            ast_type_to_typevar_interface(ctx, rhs.clone(), interface_ident.clone()),
+            ast_type_to_typevar(ctx, rhs.clone()),
             Prov::Node(ast_type.id()),
         ),
         TypeKind::Tuple(types) => {
             let mut statics_types = Vec::new();
             for t in types {
-                statics_types.push(ast_type_to_typevar_interface(
-                    ctx,
-                    t.clone(),
-                    interface_ident.clone(),
-                ));
+                statics_types.push(ast_type_to_typevar(ctx, t.clone()));
             }
             TypeVar::make_tuple(statics_types, Prov::Node(ast_type.id()))
         }
     }
-}
-
-pub(crate) fn ast_type_to_typevar(ctx: &mut StaticsContext, ast_type: Rc<AstType>) -> TypeVar {
-    ast_type_to_typevar_interface(ctx, ast_type, None)
 }
 
 pub(crate) type Provs = RefCell<BTreeSet<Prov>>;
@@ -1989,11 +1944,7 @@ fn generate_constraints_item(mode: Mode, stmt: Rc<Item>, ctx: &mut StaticsContex
                 // Do the logic only once, memoize the result.
                 // TODO: Shouldn't use type inference to infer the types of the properties/methods. They are already annotated. They are already solved.
                 for prop in &iface_def.props {
-                    let ty_annot = ast_type_to_typevar_interface(
-                        ctx,
-                        prop.ty.clone(),
-                        Some(iface_def.clone()),
-                    );
+                    let ty_annot = ast_type_to_typevar(ctx, prop.ty.clone());
                     let node_ty = TypeVar::from_node(ctx, prop.id());
                     constrain(node_ty.clone(), ty_annot.clone());
                 }

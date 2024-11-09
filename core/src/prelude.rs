@@ -1,15 +1,15 @@
 pub const _PRELUDE: &str = r#"fn not(b: bool) = if b false else true
 
 interface Num {
-    add: (self, self) -> self
-    subtract: (self, self) -> self
-    multiply: (self, self) -> self
-    divide: (self, self) -> self
-    power: (self, self) -> self
-    less_than: (self, self) -> bool
-    less_than_or_equal: (self, self) -> bool
-    greater_than: (self, self) -> bool
-    greater_than_or_equal: (self, self) -> bool
+    fn add: ('a Num, 'a Num) -> 'a Num
+    fn subtract: ('a Num, 'a Num) -> 'a Num
+    fn multiply: ('a Num, 'a Num) -> 'a Num
+    fn divide: ('a Num, 'a Num) -> 'a Num
+    fn power: ('a Num, 'a Num) -> 'a Num
+    fn less_than: ('a Num, 'a Num) -> bool
+    fn less_than_or_equal: ('a Num, 'a Num) -> bool
+    fn greater_than: ('a Num, 'a Num) -> bool
+    fn greater_than_or_equal: ('a Num, 'a Num) -> bool
 }
 
 implement Num for int {
@@ -39,7 +39,7 @@ implement Num for float {
 type list<'a> = nil | cons of ('a, list<'a>)
 
 interface Equal {
-    equal: (self, self) -> bool
+    fn equal: ('a Equal, 'a Equal) -> bool
 }
 implement Equal for void {
     fn equal(a, b) = true
@@ -78,7 +78,7 @@ implement Equal for list<'a Equal> {
 }
 
 interface ToString {
-    str: self -> string
+    fn str: 'a ToString -> string
 }
 implement ToString for string {
 	fn str(s) = s
