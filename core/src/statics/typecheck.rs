@@ -123,13 +123,12 @@ impl TypeVarData {
 
 // *** NOT SURE WHICH ORDER THESE SHOULD BE DONE IN! ***
 // TODO: Replace Provs here with a different type, "Reasons"
-// TODO: PotentialType is just SolvedType but with provenances. Unify these two.
 // TODO: make it so we are either
 /*
 1. constraining to TypeVars to each other, which unifies them
-2. constraining a TypeVar to a PotentialType, which just adds info to the TypeVar's data
-3. constraining two PotentialTypes
-- if we constrain two PotentialTypes and they conflict, then this type conflict must be logged in a Vec somewhere
+2. constraining a TypeVar to a SolvedType, which just adds info to the TypeVar's data
+3. constraining two SolvedType
+- if we constrain two SolvedType and they conflict, then this type conflict must be logged in a Vec somewhere
 
 */
 
@@ -903,13 +902,23 @@ pub(crate) fn ast_type_to_solved_type(ctx: &StaticsContext, ast_type: Rc<AstType
         TypeKind::Poly(ident, iface_names) => todo!(),
         TypeKind::Identifier(_) => todo!(),
         TypeKind::Ap(identifier, vec) => todo!(),
-        TypeKind::Unit => todo!(),
-        TypeKind::Int => todo!(),
-        TypeKind::Float => todo!(),
-        TypeKind::Bool => todo!(),
-        TypeKind::Str => todo!(),
-        TypeKind::Function(vec, rc) => todo!(),
-        TypeKind::Tuple(vec) => todo!(),
+        TypeKind::Unit => SolvedType::Unit,
+        TypeKind::Int => SolvedType::Int,
+        TypeKind::Float => SolvedType::Float,
+        TypeKind::Bool => SolvedType::Bool,
+        TypeKind::Str => SolvedType::String,
+        TypeKind::Function(args, ret) => SolvedType::Function(
+            args.iter()
+                .map(|e| ast_type_to_solved_type(ctx, e.clone()))
+                .collect(),
+            ast_type_to_solved_type(ctx, ret.clone()).into(),
+        ),
+        TypeKind::Tuple(elems) => SolvedType::Tuple(
+            elems
+                .iter()
+                .map(|e| ast_type_to_solved_type(ctx, e.clone()))
+                .collect(),
+        ),
     }
 }
 
