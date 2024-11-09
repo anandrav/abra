@@ -1144,10 +1144,16 @@ pub(crate) fn result_of_constraint_solving(
 ) -> Result<(), String> {
     // get list of type conflicts
     let mut type_conflicts = Vec::new();
-    for tyvar in ctx.vars.values() {
+    let mut underdetermined = Vec::new();
+    for (prov, tyvar) in ctx.vars.iter() {
         let type_suggestions = tyvar.0.clone_data().types; // TODO why not just check if it's solved?
         if type_suggestions.len() > 1 && (!type_conflicts.contains(&type_suggestions)) {
             type_conflicts.push(type_suggestions.clone());
+        }
+        if type_suggestions.is_empty() {
+            if let Prov::Node(id) = prov {
+                underdetermined.push(*id)
+            }
         }
     }
 
@@ -1221,6 +1227,7 @@ pub(crate) fn result_of_constraint_solving(
 
     if ctx.unbound_vars.is_empty()
         && type_conflicts.is_empty()
+        && underdetermined.is_empty()
         && ctx.annotation_needed.is_empty()
         && !bad_instantiations
         && !bad_field_access
@@ -1246,6 +1253,11 @@ pub(crate) fn result_of_constraint_solving(
             let span = node_map.get(id).unwrap().span();
             span.display(&mut err_string, sources, "this needs a type annotation");
         }
+    }
+
+    for id in underdetermined {
+        let span = node_map.get(&id).unwrap().span();
+        span.display(&mut err_string, sources, "can't solve type.");
     }
 
     if !type_conflicts.is_empty() {
