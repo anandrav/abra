@@ -1528,7 +1528,8 @@ fn generate_constraints_expr(
             // TODO: PolyvarScope maybe has a bug?
             // Just because a polyvar is in scope doesn't mean you don't want to instantiate a polyvar with the same name
             // They could be different polyvars
-            // For instance, 'a could be in scope but that doesn't necessarily mean you don't instantiate the 'a in Num.add ? Not sure. Need to think about it more.
+            // For instance, 'a could be in scope but that doesn't necessarily mean you don't instantiate the 'a in Num.add ? Not sure.
+            // Need to think about it more.
             let (ty_left, ty_right, ty_out) = (
                 ty_left.instantiate(polyvar_scope.clone(), ctx, Prov::Node(expr.id)),
                 ty_right.instantiate(polyvar_scope.clone(), ctx, Prov::Node(expr.id)),

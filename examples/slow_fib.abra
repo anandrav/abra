@@ -1,0 +1,11 @@
+fn fib(x) = match x {
+  0 -> 0
+  1 -> 1
+  _ -> fib(x-1) + fib(x-2)
+}
+
+var i = 0
+while i <= 32 {
+  println(str(i) & ": " & str(fib(i)))
+  i <- i + 1
+}
