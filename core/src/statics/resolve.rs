@@ -281,16 +281,7 @@ fn resolve_names_item(ctx: &mut StaticsContext, symbol_table: SymbolTable, stmt:
                 ctx.resolution_map.insert(f.name.id, decl.clone());
             }
             let symbol_table = symbol_table.new_scope();
-            for arg in &f.args {
-                resolve_names_pat(ctx, symbol_table.clone(), arg.0.clone());
-                if let Some(annot) = &arg.1 {
-                    resolve_names_typ(ctx, symbol_table.clone(), annot.clone());
-                }
-            }
-            resolve_names_expr(ctx, symbol_table.clone(), f.body.clone());
-            if let Some(ret_type) = &f.ret_type {
-                resolve_names_typ(ctx, symbol_table, ret_type.clone());
-            }
+            resolve_names_func_helper(ctx, symbol_table.clone(), &f.args, &f.body, &f.ret_type);
         }
         ItemKind::InterfaceDef(iface_def) => {
             for prop in &iface_def.props {
@@ -432,10 +423,7 @@ fn resolve_names_expr(ctx: &mut StaticsContext, symbol_table: SymbolTable, expr:
         }
         ExprKind::Func(args, out_ty, body) => {
             let symbol_table = symbol_table.new_scope();
-            resolve_names_func_helper(ctx, symbol_table.clone(), args, body);
-            if let Some(ty_annot) = &out_ty {
-                resolve_names_typ(ctx, symbol_table.clone(), ty_annot.clone());
-            }
+            resolve_names_func_helper(ctx, symbol_table.clone(), args, body, out_ty);
         }
         ExprKind::FuncAp(func, args) => {
             resolve_names_expr(ctx, symbol_table.clone(), func.clone());
@@ -463,6 +451,7 @@ fn resolve_names_func_helper(
     symbol_table: SymbolTable,
     args: &[ArgAnnotated],
     body: &Rc<Expr>,
+    ret_type: &Option<Rc<Type>>,
 ) {
     for arg in args {
         resolve_names_pat(ctx, symbol_table.clone(), arg.0.clone());
@@ -472,6 +461,10 @@ fn resolve_names_func_helper(
     }
 
     resolve_names_expr(ctx, symbol_table.clone(), body.clone());
+
+    if let Some(ty_annot) = ret_type {
+        resolve_names_typ(ctx, symbol_table.clone(), ty_annot.clone());
+    }
 }
 
 fn resolve_names_pat(ctx: &mut StaticsContext, symbol_table: SymbolTable, pat: Rc<Pat>) {
