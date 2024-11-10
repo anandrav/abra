@@ -393,7 +393,32 @@ impl Translator {
                     BinaryOperator::GreaterThanOrEqual => emit(st, Instr::GreaterThanOrEqual),
                     BinaryOperator::LessThanOrEqual => emit(st, Instr::LessThanOrEqual),
                     BinaryOperator::Equal => emit(st, Instr::Equal),
-                    BinaryOperator::Concat => emit(st, Instr::ConcatStrings),
+                    BinaryOperator::Format => {
+                        // TODO: translate_bytecode shouldn't have to fish around in statics.global_namespace just for prelude.format_append or similar
+                        let format_append_decl = self
+                            .statics
+                            .global_namespace
+                            .namespaces
+                            .get("prelude")
+                            .and_then(|p| p.declarations.get("format_append"))
+                            .unwrap();
+                        let Declaration::FreeFunction(func, func_name) = format_append_decl else {
+                            panic!()
+                        };
+
+                        // TODO: This is way too much work for translate_bytecode to do
+                        let arg1_ty = self.statics.solution_of_node(left.id).unwrap();
+                        let arg2_ty = self.statics.solution_of_node(right.id).unwrap();
+                        let out_ty = self.statics.solution_of_node(expr.id).unwrap();
+                        let specific_func_ty =
+                            Type::Function(vec![arg1_ty, arg2_ty], out_ty.into());
+
+                        let substituted_ty =
+                            subst_with_monomorphic_env(monomorph_env, specific_func_ty);
+                        println!("substituted type: {:?}", substituted_ty);
+
+                        self.handle_overloaded_func(st, substituted_ty, func_name, func.clone());
+                    }
                     BinaryOperator::Or => emit(st, Instr::Or),
                     BinaryOperator::And => emit(st, Instr::And),
                     BinaryOperator::Pow => emit(st, Instr::Power),

@@ -896,7 +896,7 @@ fn types_of_binop(
             let ty_out = TypeVar::make_bool(prov_out);
             (ty_left, ty_right, ty_out)
         }
-        BinaryOperator::Concat => {
+        BinaryOperator::Format => {
             let ty_left = TypeVar::make_poly_constrained(
                 prov_left,
                 "a".to_owned(),

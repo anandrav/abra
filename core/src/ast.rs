@@ -463,7 +463,7 @@ pub enum BinaryOperator {
     And,
     Or,
     // string
-    Concat,
+    Format,
 }
 
 #[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq, Hash)]

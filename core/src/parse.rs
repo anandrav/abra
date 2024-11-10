@@ -96,7 +96,7 @@ pub(crate) fn parse_expr_pratt(pairs: Pairs<Rule>, filename: &str) -> Rc<Expr> {
                 Rule::op_mod => Some(BinaryOperator::Mod),
                 Rule::op_and => Some(BinaryOperator::And),
                 Rule::op_or => Some(BinaryOperator::Or),
-                Rule::op_concat => Some(BinaryOperator::Concat),
+                Rule::op_concat => Some(BinaryOperator::Format),
                 _ => None,
             };
             match opcode {

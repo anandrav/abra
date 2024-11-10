@@ -28,7 +28,7 @@ pub(crate) struct StaticsContext {
     _node_map: NodeMap,
     _sources: Sources,
 
-    global_namespace: Namespace,
+    pub(crate) global_namespace: Namespace,
     // This maps any identifier in the program to the declaration it resolves to.
     pub(crate) resolution_map: HashMap<NodeId, Declaration>,
 
@@ -84,9 +84,9 @@ impl StaticsContext {
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
-struct Namespace {
-    declarations: BTreeMap<String, Declaration>,
-    namespaces: BTreeMap<String, Rc<Namespace>>,
+pub(crate) struct Namespace {
+    pub(crate) declarations: BTreeMap<String, Declaration>,
+    pub(crate) namespaces: BTreeMap<String, Rc<Namespace>>,
 }
 
 impl Display for Namespace {
