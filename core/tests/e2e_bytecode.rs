@@ -963,3 +963,24 @@ fn ampersand() {
     let top = vm.top();
     assert_eq!(top.get_string(&vm), "123truefalse");
 }
+
+#[test]
+fn comments() {
+    let src = r#"
+// single-line comment
+2 + 2 // => 4
+/* multi-line
+comment */
+"#;
+    let sources = source_files_single(src);
+    let program = match compile_bytecode(sources, DefaultEffects::enumerate()) {
+        Ok(vm) => vm,
+        Err(e) => {
+            panic!("{}", e);
+        }
+    };
+    let mut vm = Vm::new(program);
+    vm.run();
+    let top = vm.top();
+    assert_eq!(top.get_int(), 4);
+}

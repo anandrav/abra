@@ -415,7 +415,7 @@ impl Translator {
 
                         let substituted_ty =
                             subst_with_monomorphic_env(monomorph_env, specific_func_ty);
-                        println!("substituted type: {:?}", substituted_ty);
+                        // println!("substituted type: {:?}", substituted_ty);
 
                         self.handle_overloaded_func(st, substituted_ty, func_name, func.clone());
                     }

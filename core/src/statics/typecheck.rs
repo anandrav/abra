@@ -258,8 +258,8 @@ pub enum Monotype {
 // (If two types share the same key, they may or may not be in conflict)
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub(crate) enum TypeKey {
-    Poly,               // TODO: why isn't the String included here?
-    TyApp(Nominal, u8), // u8 represents the number of type params // TODO: Don't use String here use reference to declaration
+    Poly,
+    TyApp(Nominal, u8), // u8 represents the number of type params
     Unit,
     Int,
     Float,
@@ -1549,11 +1549,6 @@ fn generate_constraints_expr(
             let lookup = ctx.resolution_map.get(&expr.id).cloned();
             if let Some(res) = lookup {
                 if let Some(typ) = tyvar_of_declaration(ctx, &res, expr.id, polyvar_scope.clone()) {
-                    // TODO: PolyvarScope maybe has a bug?
-                    // Just because a polyvar is in scope doesn't mean you don't want to instantiate a polyvar with the same name
-                    // They could be different polyvars
-                    // For instance, 'a could be in scope but that doesn't necessarily mean you don't instantiate the 'a in Num.add ? Not sure.
-                    // Need to think about it more.
                     let typ = typ.instantiate(polyvar_scope, ctx, Prov::Node(expr.id));
                     constrain(typ, node_ty.clone());
                 }
@@ -1585,26 +1580,20 @@ fn generate_constraints_expr(
                 constrain(node_ty, TypeVar::make_unit(Prov::Node(expr.id)));
                 return;
             }
-            let new_polyvar_scope = polyvar_scope.new_scope();
             for statement in statements[..statements.len() - 1].iter() {
-                generate_constraints_stmt(
-                    new_polyvar_scope.clone(),
-                    Mode::Syn,
-                    statement.clone(),
-                    ctx,
-                );
+                generate_constraints_stmt(polyvar_scope.clone(), Mode::Syn, statement.clone(), ctx);
             }
             // if last statement is an expression, the block will have that expression's type
             if let StmtKind::Expr(terminal_expr) = &*statements.last().unwrap().kind {
                 generate_constraints_expr(
-                    new_polyvar_scope,
+                    polyvar_scope,
                     Mode::Ana { expected: node_ty },
                     terminal_expr.clone(),
                     ctx,
                 )
             } else {
                 generate_constraints_stmt(
-                    new_polyvar_scope,
+                    polyvar_scope,
                     Mode::Syn,
                     statements.last().unwrap().clone(),
                     ctx,
@@ -1676,9 +1665,8 @@ fn generate_constraints_expr(
                 ctx,
             );
             for arm in arms {
-                let new_symbol_table = polyvar_scope.new_scope();
                 generate_constraints_pat(
-                    new_symbol_table.clone(),
+                    polyvar_scope.clone(),
                     Mode::Ana {
                         expected: ty_scrutiny.clone(),
                     },
@@ -1686,7 +1674,7 @@ fn generate_constraints_expr(
                     ctx,
                 );
                 generate_constraints_expr(
-                    new_symbol_table,
+                    polyvar_scope.clone(),
                     Mode::Ana {
                         expected: node_ty.clone(),
                     },

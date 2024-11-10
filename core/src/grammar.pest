@@ -1,7 +1,11 @@
-WHITESPACE = _{ space | tab | newline }
+WHITESPACE = _{ space | tab | newline | COMMENT }
 space = { " " }
 tab = { "\t" }
 newline = { "\n" }
+
+COMMENT = _{ LINE_COMMENT | MULTI_LINE_COMMENT }
+LINE_COMMENT = _{ "//" ~ (!newline ~ ANY)* ~ newline? }
+MULTI_LINE_COMMENT = _{ "/*" ~ (!"*/" ~ ANY)* ~ "*/" }
 
 file = _{ SOI ~ file_item* ~ EOI }
 
