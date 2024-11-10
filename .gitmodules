@@ -1,0 +1,3 @@
+[submodule "tooling/vscode"]
+	path = tooling/vscode
+	url = https://github.com/anandrav/abra-syntax

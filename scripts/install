@@ -33,8 +33,7 @@ install_abra_vscode_extension() {
     fi
 
     # Clone the repository and package the extension
-    git clone git@github.com:anandrav/abra-syntax.git
-    pushd abra-syntax
+    pushd tooling/vscode
     vsce package --allow-missing-repository
 
     # Install the packaged extension
