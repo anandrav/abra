@@ -134,6 +134,7 @@ impl TypeVarData {
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub(crate) enum PotentialType {
+    // TODO: Poly cannot use String, must resolve to declaration of polymorphic type such as 'a
     Poly(Provs, String, Vec<Rc<InterfaceDef>>), // type name, then list of Interfaces it must match
     Unit(Provs),
     Int(Provs),
@@ -147,6 +148,7 @@ pub(crate) enum PotentialType {
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub(crate) enum SolvedType {
+    // TODO: Poly cannot use String, must resolve to declaration of polymorphic type such as 'a
     Poly(String, Vec<Rc<InterfaceDef>>), // type name, then list of Interfaces it must match
     Unit,
     Int,
@@ -1088,6 +1090,9 @@ pub(crate) fn constrain(mut expected: TypeVar, mut actual: TypeVar) {
 #[derive(Clone)]
 pub(crate) struct PolyvarScope {
     // keep track of polymorphic type variables currently in scope (such as 'a)
+    // TODO: cannot use String, must resolve to declaration of polymorphic type
+    // Just because two types are named 'a doesn't mean they're the same 'a
+    // TODO LAST HERE
     polyvars_in_scope: Environment<String, ()>,
 }
 impl PolyvarScope {
