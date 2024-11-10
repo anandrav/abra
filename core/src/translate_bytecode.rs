@@ -112,7 +112,10 @@ impl Declaration {
                 BytecodeResolution::StructCtor(nargs)
             }
             Declaration::Array => {
-                panic!();
+                panic!(); // TODO: remove panic
+            }
+            Declaration::Polytype(_) => {
+                panic!(); // TODO: remove panic
             }
             Declaration::Builtin(b) => BytecodeResolution::Builtin(*b),
             Declaration::Effect(e) => BytecodeResolution::Effect(*e),

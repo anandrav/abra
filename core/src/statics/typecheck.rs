@@ -654,6 +654,8 @@ impl TypeVar {
     }
 }
 
+// TODO: What exactly does 'tyvar_of_declaration' actually mean?
+// TODO: In a lot of these cases, we shouldn't really give a TypeVar, because the type is fully known.
 fn tyvar_of_declaration(
     ctx: &mut StaticsContext,
     decl: &Declaration,
@@ -797,6 +799,9 @@ fn tyvar_of_declaration(
 
             Some(TypeVar::make_func(vec![], def_type, Prov::Node(id)))
         }
+        Declaration::Polytype(_) => {
+            panic!() // TODO: handle? don't handle?
+        }
         Declaration::Builtin(builtin) => {
             let ty_signature = builtin.type_signature();
             Some(solved_type_to_typevar(
@@ -927,6 +932,7 @@ pub(crate) fn ast_type_to_solved_type(
                 | Declaration::InterfaceDef(_)
                 | Declaration::InterfaceMethod { .. }
                 | Declaration::EnumVariant { .. }
+                | Declaration::Polytype(_)
                 | Declaration::Builtin(_)
                 | Declaration::Effect(_)
                 | Declaration::Var(_) => None,
@@ -951,6 +957,7 @@ pub(crate) fn ast_type_to_solved_type(
                 | Declaration::InterfaceDef(_)
                 | Declaration::InterfaceMethod { .. }
                 | Declaration::EnumVariant { .. }
+                | Declaration::Polytype(_)
                 | Declaration::Builtin(_)
                 | Declaration::Effect(_)
                 | Declaration::Var(_) => None,

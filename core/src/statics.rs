@@ -122,6 +122,7 @@ pub(crate) enum Declaration {
     },
     Struct(Rc<StructDef>),
     Array,
+    Polytype(NodeId),
     Builtin(Builtin),
     Effect(u16),
     Var(NodeId),

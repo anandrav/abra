@@ -296,6 +296,7 @@ fn resolve_names_item(ctx: &mut StaticsContext, symbol_table: SymbolTable, stmt:
                 ctx.resolution_map.insert(iface_impl.iface.id, decl.clone());
                 for prop in &iface_impl.stmts {
                     if let StmtKind::FuncDef(f) = &*prop.kind {
+                        // TODO: Why the if let here? Isn't this guaranteed?
                         if let Some(decl @ Declaration::InterfaceMethod { .. }) =
                             symbol_table.lookup_declaration(&f.name.v)
                         {
@@ -484,7 +485,7 @@ fn resolve_names_pat(ctx: &mut StaticsContext, symbol_table: SymbolTable, pat: R
             {
                 ctx.resolution_map.insert(tag.id, decl.clone());
             } else {
-                // TODO: log error
+                ctx.unbound_vars.insert(tag.id);
             }
             if let Some(data) = data {
                 resolve_names_pat(ctx, symbol_table, data.clone())
@@ -501,14 +502,27 @@ fn resolve_names_pat(ctx: &mut StaticsContext, symbol_table: SymbolTable, pat: R
 fn resolve_names_typ(ctx: &mut StaticsContext, symbol_table: SymbolTable, typ: Rc<Type>) {
     match &*typ.kind {
         TypeKind::Bool | TypeKind::Unit | TypeKind::Int | TypeKind::Float | TypeKind::Str => {}
-        TypeKind::Poly(_, ifaces) => {
+        TypeKind::Poly(ident, ifaces) => {
+            // Try to resolve the polymorphic type
+            if let Some(decl @ Declaration::Polytype(_)) =
+                &symbol_table.lookup_declaration(&ident.v)
+            {
+                ctx.resolution_map.insert(ident.id, decl.clone());
+            }
+            // If it hasn't been declared already, then this is a declaration
+            else {
+                let decl = Declaration::Polytype(ident.id);
+                symbol_table.extend_declaration(ident.v.clone(), decl.clone());
+                ctx.resolution_map.insert(ident.id, decl);
+            }
+
             for iface in ifaces {
                 if let Some(decl @ Declaration::InterfaceDef { .. }) =
                     &symbol_table.lookup_declaration(&iface.v)
                 {
                     ctx.resolution_map.insert(iface.id, decl.clone());
                 } else {
-                    // TODO: log error
+                    ctx.unbound_vars.insert(iface.id);
                 }
             }
         }
@@ -547,8 +561,7 @@ fn resolve_names_typ_identifier(
             ctx.resolution_map.insert(id, decl);
         }
         _ => {
-            // TODO: log error
-            // ctx.unbound_vars.insert(id);
+            ctx.unbound_vars.insert(id);
         }
     }
 }
