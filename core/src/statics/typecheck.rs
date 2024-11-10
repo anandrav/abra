@@ -845,6 +845,16 @@ fn types_of_binop(
         panic!()
     };
 
+    let tostring_iface_decl = ctx
+        .global_namespace
+        .namespaces
+        .get("prelude")
+        .and_then(|p| p.declarations.get("ToString"))
+        .unwrap();
+    let Declaration::InterfaceDef(tostring_iface_def) = tostring_iface_decl else {
+        panic!()
+    };
+
     let prov_left = Prov::BinopLeft(Prov::Node(id).into());
     let prov_right = Prov::BinopRight(Prov::Node(id).into());
     let prov_out = Prov::Node(id);
@@ -886,11 +896,20 @@ fn types_of_binop(
             let ty_out = TypeVar::make_bool(prov_out);
             (ty_left, ty_right, ty_out)
         }
-        BinaryOperator::Concat => (
-            TypeVar::make_string(prov_left),
-            TypeVar::make_string(prov_right),
-            TypeVar::make_string(prov_out),
-        ),
+        BinaryOperator::Concat => {
+            let ty_left = TypeVar::make_poly_constrained(
+                prov_left,
+                "a".to_owned(),
+                tostring_iface_def.clone(),
+            );
+            let ty_right = TypeVar::make_poly_constrained(
+                prov_right,
+                "b".to_owned(),
+                tostring_iface_def.clone(),
+            );
+            let ty_out = TypeVar::make_string(prov_out);
+            (ty_left, ty_right, ty_out)
+        }
         BinaryOperator::Equal => {
             let ty_left =
                 TypeVar::make_poly_constrained(prov_left, "a".to_owned(), equal_iface_def.clone());
@@ -1530,6 +1549,11 @@ fn generate_constraints_expr(
             let lookup = ctx.resolution_map.get(&expr.id).cloned();
             if let Some(res) = lookup {
                 if let Some(typ) = tyvar_of_declaration(ctx, &res, expr.id, polyvar_scope.clone()) {
+                    // TODO: PolyvarScope maybe has a bug?
+                    // Just because a polyvar is in scope doesn't mean you don't want to instantiate a polyvar with the same name
+                    // They could be different polyvars
+                    // For instance, 'a could be in scope but that doesn't necessarily mean you don't instantiate the 'a in Num.add ? Not sure.
+                    // Need to think about it more.
                     let typ = typ.instantiate(polyvar_scope, ctx, Prov::Node(expr.id));
                     constrain(typ, node_ty.clone());
                 }
@@ -1537,15 +1561,10 @@ fn generate_constraints_expr(
         }
         ExprKind::BinOp(left, op, right) => {
             let (ty_left, ty_right, ty_out) = types_of_binop(ctx, op, expr.id);
-            // TODO: PolyvarScope maybe has a bug?
-            // Just because a polyvar is in scope doesn't mean you don't want to instantiate a polyvar with the same name
-            // They could be different polyvars
-            // For instance, 'a could be in scope but that doesn't necessarily mean you don't instantiate the 'a in Num.add ? Not sure.
-            // Need to think about it more.
             let (ty_left, ty_right, ty_out) = (
-                ty_left.instantiate(polyvar_scope.clone(), ctx, Prov::Node(expr.id)),
-                ty_right.instantiate(polyvar_scope.clone(), ctx, Prov::Node(expr.id)),
-                ty_out.instantiate(polyvar_scope.clone(), ctx, Prov::Node(expr.id)),
+                ty_left.instantiate(PolyvarScope::empty(), ctx, Prov::Node(expr.id)),
+                ty_right.instantiate(PolyvarScope::empty(), ctx, Prov::Node(expr.id)),
+                ty_out.instantiate(PolyvarScope::empty(), ctx, Prov::Node(expr.id)),
             );
             constrain(ty_out, node_ty);
             generate_constraints_expr(
