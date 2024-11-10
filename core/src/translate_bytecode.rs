@@ -600,6 +600,9 @@ impl Translator {
                             Builtin::FloatToString => {
                                 emit(st, Instr::FloatToString);
                             }
+                            Builtin::ConcatStrings => {
+                                emit(st, Instr::ConcatStrings);
+                            }
                             Builtin::ArrayAppend => {
                                 emit(st, Instr::ArrayAppend);
                             }

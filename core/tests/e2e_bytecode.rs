@@ -927,3 +927,21 @@ foo(2, 2)
     assert_eq!(top.get_int(), 4);
     println!("result is {}", top.get_int());
 }
+
+#[test]
+fn format_append() {
+    let src = r#"
+format_append(format_append(123, true), false)
+"#;
+    let sources = source_files_single(src);
+    let program = match compile_bytecode(sources, DefaultEffects::enumerate()) {
+        Ok(vm) => vm,
+        Err(e) => {
+            panic!("{}", e);
+        }
+    };
+    let mut vm = Vm::new(program);
+    vm.run();
+    let top = vm.top();
+    assert_eq!(top.get_string(&vm), "123truefalse");
+}

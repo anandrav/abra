@@ -203,9 +203,15 @@ fn append(arr: array<'a>, x: 'a) -> void {
     array_append(arr, x)
 }
 
-fn print(x: 'b ToString) { print_string(str(x)) }
-fn println(x: 'b ToString) {
+fn print(x: 'a ToString) { print_string(str(x)) }
+fn println(x: 'a ToString) {
     print_string(str(x) & newline)
+}
+
+fn format_append(s1: 'a ToString, s2: 'b ToString) {
+    let s3 = str(s1)
+    let s4 = str(s2)
+    concat_strings(s3, s4)
 }
 
 "#;

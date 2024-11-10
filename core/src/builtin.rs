@@ -45,11 +45,13 @@ pub enum Builtin {
     IntToString,
     FloatToString,
 
+    ConcatStrings,
+
     ArrayAppend,
     ArrayLength,
     ArrayPop,
 
-    // TODO: add support for "\n" in source
+    // TODO: add support for "\n" in source, then remove this
     Newline,
 }
 
@@ -94,6 +96,8 @@ impl Builtin {
             Builtin::IntToString => "int_to_string".into(),
             Builtin::FloatToString => "float_to_string".into(),
 
+            Builtin::ConcatStrings => "concat_strings".into(),
+
             Builtin::ArrayAppend => "array_append".into(),
             Builtin::ArrayLength => "array_length".into(),
             Builtin::ArrayPop => "array_pop".into(),
@@ -109,8 +113,8 @@ impl Builtin {
             | Builtin::MultiplyInt
             | Builtin::DivideInt
             | Builtin::ModuloInt
-            | Builtin::PowerInt => Type::Function(vec![Type::Int, Type::Int], Box::new(Type::Int)),
-            Builtin::SqrtInt => Type::Function(vec![Type::Int], Box::new(Type::Int)),
+            | Builtin::PowerInt => Type::Function(vec![Type::Int, Type::Int], Type::Int.into()),
+            Builtin::SqrtInt => Type::Function(vec![Type::Int], Type::Int.into()),
 
             Builtin::AddFloat
             | Builtin::SubtractFloat
@@ -118,51 +122,57 @@ impl Builtin {
             | Builtin::DivideFloat
             | Builtin::ModuloFloat
             | Builtin::PowerFloat => {
-                Type::Function(vec![Type::Float, Type::Float], Box::new(Type::Float))
+                Type::Function(vec![Type::Float, Type::Float], Type::Float.into())
             }
-            Builtin::SqrtFloat => Type::Function(vec![Type::Float], Box::new(Type::Float)),
+            Builtin::SqrtFloat => Type::Function(vec![Type::Float], Type::Float.into()),
 
             Builtin::LessThanInt
             | Builtin::LessThanOrEqualInt
             | Builtin::GreaterThanInt
             | Builtin::GreaterThanOrEqualInt
-            | Builtin::EqualInt => Type::Function(vec![Type::Int, Type::Int], Box::new(Type::Bool)),
+            | Builtin::EqualInt => Type::Function(vec![Type::Int, Type::Int], Type::Bool.into()),
 
             Builtin::LessThanFloat
             | Builtin::LessThanOrEqualFloat
             | Builtin::GreaterThanFloat
             | Builtin::GreaterThanOrEqualFloat
             | Builtin::EqualFloat => {
-                Type::Function(vec![Type::Float, Type::Float], Box::new(Type::Bool))
+                Type::Function(vec![Type::Float, Type::Float], Type::Bool.into())
             }
 
             Builtin::EqualString => {
-                Type::Function(vec![Type::String, Type::String], Box::new(Type::Bool))
+                Type::Function(vec![Type::String, Type::String], Type::Bool.into())
             }
 
-            Builtin::IntToString => Type::Function(vec![Type::Int], Box::new(Type::String)),
-            Builtin::FloatToString => Type::Function(vec![Type::Float], Box::new(Type::String)),
+            Builtin::IntToString => Type::Function(vec![Type::Int], Type::String.into()),
+            Builtin::FloatToString => Type::Function(vec![Type::Float], Type::String.into()),
+
+            Builtin::ConcatStrings => {
+                Type::Function(vec![Type::String, Type::String], Type::String.into())
+            }
 
             Builtin::ArrayAppend => Type::Function(
                 vec![
                     Type::Nominal(Nominal::Array, vec![Type::Poly("a".to_string(), vec![])]),
                     Type::Poly("a".to_string(), vec![]),
                 ],
-                Box::new(Type::Unit),
+                Type::Unit.into(),
             ),
+
             Builtin::ArrayLength => Type::Function(
                 vec![Type::Nominal(
                     Nominal::Array,
                     vec![Type::Poly("a".into(), vec![])],
                 )],
-                Box::new(Type::Int),
+                Type::Int.into(),
             ),
+
             Builtin::ArrayPop => Type::Function(
                 vec![Type::Nominal(
                     Nominal::Array,
                     vec![Type::Poly("a".into(), vec![])],
                 )],
-                Box::new(Type::Unit),
+                Type::Unit.into(),
             ),
 
             Builtin::Newline => Type::String,
