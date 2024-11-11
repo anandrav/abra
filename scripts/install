@@ -1,6 +1,8 @@
 #!/bin/sh
 set -euo pipefail
 
+git submodule update --init --recursive
+
 # Install Abra cli to Cargo bin
 cargo install --bin abra --path cli
 
@@ -21,7 +23,7 @@ fi
 install_abra_vscode_extension() {
     # Check if `code` (VS Code) is installed
     if ! command -v code &> /dev/null; then
-        echo "VS Code is not installed. Skipping Abra extension installation."
+        echo "'code' command not found. Skipping VS Code Abra extension installation."
         return 0
     fi
 
