@@ -1,3 +1,4 @@
+// fast iterative fibonacci function
 fn fib(n) {
   var x = 0
   var y = 1

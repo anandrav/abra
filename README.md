@@ -20,8 +20,9 @@ while i < 10 {
 
 ## Installation
 (Requires Rust and Cargo: https://www.rust-lang.org/tools/install)
+(Requires Node to install VS Code extension)
 ```
 git clone https://github.com/anandrav/abra.git
 cd abra
-cargo install --bin abra --path cli
+./scripts/install
 ```
