@@ -57,6 +57,9 @@ fn main() {
                             std::io::stdin().read_line(&mut input).unwrap();
                             vm.push_str(&input[0..input.len() - 1]);
                         }
+                        CliEffects::LoadLib => {
+                            todo!();
+                        }
                     }
                     vm.clear_pending_effect();
                 }
@@ -72,6 +75,7 @@ fn main() {
 pub enum CliEffects {
     PrintString,
     Read,
+    LoadLib,
 }
 
 impl EffectTrait for CliEffects {
@@ -81,6 +85,8 @@ impl EffectTrait for CliEffects {
             CliEffects::PrintString => (vec![Type::String], Type::Unit),
             // readline: void -> string
             CliEffects::Read => (vec![], Type::String),
+            // loadlib: string -> int
+            CliEffects::LoadLib => (vec![Type::String], Type::Int),
         }
     }
 
@@ -88,6 +94,7 @@ impl EffectTrait for CliEffects {
         match self {
             CliEffects::PrintString => "print_string",
             CliEffects::Read => "readline",
+            CliEffects::LoadLib => "loadlib",
         }
     }
 }
