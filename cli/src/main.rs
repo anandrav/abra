@@ -1,6 +1,9 @@
 extern crate abra_core;
 
-use abra_core::effects::{self, DefaultEffects, EffectTrait};
+use abra_core::effects::FromRepr;
+use abra_core::effects::Type;
+use abra_core::effects::VariantArray;
+use abra_core::effects::{self, EffectTrait};
 use abra_core::SourceFile;
 use clap::Parser;
 
@@ -30,7 +33,7 @@ fn main() {
         contents,
     });
 
-    let effects = effects::DefaultEffects::enumerate();
+    let effects = CliEffects::enumerate();
     match abra_core::compile_bytecode(source_files, effects) {
         Ok(program) => {
             let mut vm = abra_core::vm::Vm::new(program);
@@ -41,15 +44,15 @@ fn main() {
                 vm.run();
                 vm.gc();
                 if let Some(pending_effect) = vm.get_pending_effect() {
-                    let effect = DefaultEffects::from_repr(pending_effect as usize).unwrap();
+                    let effect = CliEffects::from_repr(pending_effect as usize).unwrap();
                     match effect {
-                        abra_core::effects::DefaultEffects::PrintString => {
+                        CliEffects::PrintString => {
                             let s = vm.top().get_string(&vm);
                             print!("{}", s);
                             vm.pop();
                             vm.push_nil();
                         }
-                        abra_core::effects::DefaultEffects::Read => {
+                        CliEffects::Read => {
                             let mut input = String::new();
                             std::io::stdin().read_line(&mut input).unwrap();
                             vm.push_str(&input[0..input.len() - 1]);
@@ -61,6 +64,30 @@ fn main() {
         }
         Err(err) => {
             eprintln!("{}", err);
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, VariantArray, FromRepr)]
+pub enum CliEffects {
+    PrintString,
+    Read,
+}
+
+impl EffectTrait for CliEffects {
+    fn type_signature(&self) -> (Vec<Type>, Type) {
+        match self {
+            // print_string: string -> void
+            CliEffects::PrintString => (vec![Type::String], Type::Unit),
+            // readline: void -> string
+            CliEffects::Read => (vec![], Type::String),
+        }
+    }
+
+    fn function_name(&self) -> &'static str {
+        match self {
+            CliEffects::PrintString => "print_string",
+            CliEffects::Read => "readline",
         }
     }
 }

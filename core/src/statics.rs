@@ -3,7 +3,7 @@ use crate::ast::{
     TypeKind,
 };
 use crate::builtin::Builtin;
-use crate::effects::EffectStruct;
+use crate::effects::EffectDesc;
 use resolve::{resolve, scan_declarations};
 use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::fmt::{self, Display, Formatter};
@@ -14,17 +14,19 @@ mod pat_exhaustiveness;
 mod resolve;
 pub(crate) mod typecheck;
 
-pub(crate) use typecheck::{ty_fits_impl_ty, Monotype};
+pub(crate) use typecheck::ty_fits_impl_ty;
 // TODO: Provs are an implementation detail, they should NOT be exported
 pub(crate) use typecheck::Prov as TypeProv;
 pub(crate) use typecheck::SolvedType as Type;
+
+pub use typecheck::Monotype;
 
 use pat_exhaustiveness::{check_pattern_exhaustiveness_and_usefulness, DeconstructedPat};
 
 #[derive(Default, Debug)]
 pub(crate) struct StaticsContext {
     // effects
-    effects: Vec<EffectStruct>,
+    effects: Vec<EffectDesc>,
     _node_map: NodeMap,
     _sources: Sources,
 
@@ -61,7 +63,7 @@ pub(crate) struct StaticsContext {
 }
 
 impl StaticsContext {
-    fn new(effects: Vec<EffectStruct>, node_map: NodeMap, sources: Sources) -> Self {
+    fn new(effects: Vec<EffectDesc>, node_map: NodeMap, sources: Sources) -> Self {
         let mut ctx = Self {
             effects,
             _node_map: node_map,
@@ -130,7 +132,7 @@ pub(crate) enum Declaration {
 
 // main function that performs typechecking (as well as name resolution beforehand)
 pub(crate) fn analyze(
-    effects: &[EffectStruct],
+    effects: &[EffectDesc],
     files: &Vec<Rc<FileAst>>,
     node_map: &NodeMap,
     sources: &Sources,

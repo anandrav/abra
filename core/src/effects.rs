@@ -1,37 +1,25 @@
 use crate::statics;
-use strum::FromRepr;
-use strum::VariantArray;
-use strum_macros::EnumIter;
+pub use strum::FromRepr;
+pub use strum::VariantArray;
+
+pub use crate::statics::Monotype as Type;
 
 #[derive(Debug, Clone)]
-pub struct EffectStruct {
-    pub name: String,
+pub struct EffectDesc {
+    pub name: &'static str,
     pub type_signature: (Vec<statics::Monotype>, statics::Monotype),
 }
 
-pub trait EffectTrait {
-    fn enumerate() -> Vec<EffectStruct>
+pub trait EffectTrait: VariantArray {
+    fn enumerate() -> Vec<EffectDesc>
     where
-        Self: Sized;
-
-    fn type_signature(&self) -> (Vec<statics::Monotype>, statics::Monotype);
-
-    fn function_name(&self) -> String;
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, EnumIter, VariantArray, FromRepr)]
-pub enum DefaultEffects {
-    PrintString,
-    Read,
-}
-
-impl EffectTrait for DefaultEffects {
-    fn enumerate() -> Vec<EffectStruct> {
+        Self: Sized,
+    {
         Self::VARIANTS
             .iter()
             .map(|effect| {
                 let effect = effect.to_owned();
-                EffectStruct {
+                EffectDesc {
                     name: effect.function_name(),
                     type_signature: effect.type_signature(),
                 }
@@ -39,6 +27,18 @@ impl EffectTrait for DefaultEffects {
             .collect()
     }
 
+    fn type_signature(&self) -> (Vec<statics::Monotype>, statics::Monotype);
+
+    fn function_name(&self) -> &'static str;
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, VariantArray, FromRepr)]
+pub enum DefaultEffects {
+    PrintString,
+    Read,
+}
+
+impl EffectTrait for DefaultEffects {
     fn type_signature(&self) -> (Vec<statics::Monotype>, statics::Monotype) {
         match self {
             // print_string: string -> void
@@ -50,10 +50,10 @@ impl EffectTrait for DefaultEffects {
         }
     }
 
-    fn function_name(&self) -> String {
+    fn function_name(&self) -> &'static str {
         match self {
-            DefaultEffects::PrintString => String::from("print_string"),
-            DefaultEffects::Read => String::from("readline"),
+            DefaultEffects::PrintString => "print_string",
+            DefaultEffects::Read => "readline",
         }
     }
 }

@@ -1,7 +1,7 @@
 use std::{collections::HashMap, rc::Rc};
 
 pub use effects::EffectCode;
-pub use effects::EffectStruct;
+pub use effects::EffectDesc;
 
 mod assembly;
 pub mod ast;
@@ -42,7 +42,7 @@ pub fn source_files_single(src: &str) -> Vec<SourceFile> {
 
 pub fn compile_bytecode(
     source_files: Vec<SourceFile>,
-    effects: Vec<EffectStruct>,
+    effects: Vec<EffectDesc>,
 ) -> Result<CompiledProgram, String> {
     let mut filename_to_source = HashMap::new();
     let mut filenames = Vec::new();
