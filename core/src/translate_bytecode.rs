@@ -2,7 +2,7 @@ use crate::assembly::{remove_labels, Instr, Label, Line};
 use crate::ast::{BinaryOperator, FuncDef, InterfaceDef, Item, ItemKind, TypeKind};
 use crate::ast::{FileAst, Node, NodeId, Sources};
 use crate::builtin::Builtin;
-use crate::effects::EffectStruct;
+use crate::effects::Effect;
 use crate::environment::Environment;
 use crate::statics::typecheck::Nominal;
 use crate::statics::{ty_fits_impl_ty, Monotype, Type};
@@ -44,7 +44,7 @@ pub(crate) struct Translator {
     node_map: NodeMap,
     sources: Sources,
     files: Vec<Rc<FileAst>>,
-    effects: Vec<EffectStruct>,
+    effects: Vec<Effect>,
 }
 
 #[derive(Debug, Default)]
@@ -144,7 +144,7 @@ impl Translator {
         node_map: NodeMap,
         sources: Sources,
         files: Vec<Rc<FileAst>>,
-        effects: Vec<EffectStruct>,
+        effects: Vec<Effect>,
     ) -> Self {
         Self {
             statics,
@@ -277,7 +277,7 @@ impl Translator {
 
         // Create functions for effects
         for (i, effect) in self.effects.iter().enumerate() {
-            emit(st, Line::Label(effect.name.clone()));
+            emit(st, Line::Label(effect.name.to_string()));
             emit(st, Instr::Effect(i as u16));
             emit(st, Instr::Return);
         }

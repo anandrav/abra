@@ -1,8 +1,6 @@
 use abra_core::compile_bytecode;
-use abra_core::effects::DefaultEffects;
-use abra_core::effects::EffectTrait;
+use abra_core::effects::default_effects;
 use abra_core::source_files_single;
-
 mod utils;
 use utils::inner::unwrap_or_panic;
 
@@ -20,7 +18,7 @@ let e = d ^ 2
 let f = e mod 3
 "#;
     let sources = source_files_single(src);
-    unwrap_or_panic(compile_bytecode(sources, DefaultEffects::enumerate()));
+    unwrap_or_panic(compile_bytecode(sources, default_effects()));
 }
 
 #[test]
@@ -33,7 +31,7 @@ let d = c - 1.0
 let e = d ^ 2.0
 "#;
     let sources = source_files_single(src);
-    unwrap_or_panic(compile_bytecode(sources, DefaultEffects::enumerate()));
+    unwrap_or_panic(compile_bytecode(sources, default_effects()));
 }
 
 #[test]
@@ -45,7 +43,7 @@ let z = x and y
 let w = x or y
 "#;
     let sources = source_files_single(src);
-    unwrap_or_panic(compile_bytecode(sources, DefaultEffects::enumerate()));
+    unwrap_or_panic(compile_bytecode(sources, default_effects()));
 }
 
 #[test]
@@ -66,7 +64,7 @@ let j = 2.0 = 3.0
 let k = a and b and c and d and e and f and g and h and i and j
 "#;
     let sources = source_files_single(src);
-    unwrap_or_panic(compile_bytecode(sources, DefaultEffects::enumerate()));
+    unwrap_or_panic(compile_bytecode(sources, default_effects()));
 }
 
 // NEGATIVE TESTS
@@ -74,7 +72,7 @@ let k = a and b and c and d and e and f and g and h and i and j
 
 fn should_fail(src: &str) {
     let sources = source_files_single(src);
-    compile_bytecode(sources, DefaultEffects::enumerate()).unwrap_err();
+    compile_bytecode(sources, default_effects()).unwrap_err();
 }
 
 #[test]

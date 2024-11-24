@@ -262,7 +262,7 @@ pub(crate) fn resolve_names_file(
     }
 
     for (i, eff) in ctx.effects.iter().enumerate() {
-        symbol_table.extend_declaration(eff.name.clone(), Declaration::Effect(i as u16));
+        symbol_table.extend_declaration(eff.name.to_string(), Declaration::Effect(i as u16));
     }
     for builtin in Builtin::enumerate().iter() {
         symbol_table.extend_declaration(builtin.name(), Declaration::Builtin(*builtin));

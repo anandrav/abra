@@ -336,6 +336,7 @@ pub(crate) struct InterfaceImpl {
     pub(crate) id: NodeId,
 }
 
+// TODO: add this to AST
 #[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq, Hash)]
 pub(crate) struct MethodDef {
     f: Rc<FuncDef>,
