@@ -1,6 +1,7 @@
 extern crate abra_core;
 
-use abra_core::{vm::Vm, Effect, SourceFile, Type};
+use abra_core::effects::{self, DefaultEffects, EffectTrait};
+use abra_core::SourceFile;
 use clap::Parser;
 
 #[derive(Parser, Debug)]
@@ -29,29 +30,8 @@ fn main() {
         contents,
     });
 
-    let effects = vec![
-        Effect {
-            name: "print_string",
-            type_signature: (vec![Type::String], Type::Unit),
-            func: |vm: &mut Vm| {
-                let s = vm.top().get_string(vm);
-                print!("{}", s);
-                vm.pop();
-                vm.push_nil();
-            },
-        },
-        Effect {
-            name: "readline",
-            type_signature: (vec![], Type::String),
-            func: |vm: &mut Vm| {
-                let mut input = String::new();
-                std::io::stdin().read_line(&mut input).unwrap();
-                vm.push_str(&input[0..input.len() - 1]);
-            },
-        },
-    ];
-
-    match abra_core::compile_bytecode(source_files, effects.clone()) {
+    let effects = effects::DefaultEffects::enumerate();
+    match abra_core::compile_bytecode(source_files, effects) {
         Ok(program) => {
             let mut vm = abra_core::vm::Vm::new(program);
             loop {
@@ -61,8 +41,20 @@ fn main() {
                 vm.run();
                 vm.gc();
                 if let Some(pending_effect) = vm.get_pending_effect() {
-                    let effect = effects[pending_effect as usize].clone();
-                    (effect.func)(&mut vm);
+                    let effect = DefaultEffects::from_repr(pending_effect as usize).unwrap();
+                    match effect {
+                        abra_core::effects::DefaultEffects::PrintString => {
+                            let s = vm.top().get_string(&vm);
+                            print!("{}", s);
+                            vm.pop();
+                            vm.push_nil();
+                        }
+                        abra_core::effects::DefaultEffects::Read => {
+                            let mut input = String::new();
+                            std::io::stdin().read_line(&mut input).unwrap();
+                            vm.push_str(&input[0..input.len() - 1]);
+                        }
+                    }
                     vm.clear_pending_effect();
                 }
             }

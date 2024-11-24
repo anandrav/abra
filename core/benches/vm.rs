@@ -1,5 +1,6 @@
 use abra_core::compile_bytecode;
-use abra_core::effects::default_effects;
+use abra_core::effects::DefaultEffects;
+use abra_core::effects::EffectTrait;
 use abra_core::source_files_single;
 use abra_core::vm::Vm;
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
@@ -16,7 +17,7 @@ fn fib(n) {
 fib(20) 
 "#;
     let sources = source_files_single(src);
-    let program = compile_bytecode(sources, default_effects()).unwrap();
+    let program = compile_bytecode(sources, DefaultEffects::enumerate()).unwrap();
     c.bench_function("vm", |b| {
         b.iter(|| {
             let mut vm = Vm::new(program.clone());

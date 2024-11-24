@@ -636,7 +636,7 @@ impl TypeVar {
     // return true if the type is a nominal type with at least one parameter instantiated
     // this is used to see if an implementation of an interface is for an instantiated nominal, which is not allowed
     // example: implement ToString for list<int> rather than list<'a>
-    pub(crate) fn _is_instantiated_nominal(&self) -> bool {
+    pub(crate) fn is_instantiated_nominal(&self) -> bool {
         let Some(ty) = self.single() else {
             return false;
         };

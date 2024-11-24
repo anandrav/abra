@@ -3,7 +3,7 @@ use crate::ast::{
     TypeKind,
 };
 use crate::builtin::Builtin;
-use crate::effects::Effect;
+use crate::effects::EffectStruct;
 use resolve::{resolve, scan_declarations};
 use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::fmt::{self, Display, Formatter};
@@ -24,7 +24,7 @@ use pat_exhaustiveness::{check_pattern_exhaustiveness_and_usefulness, Deconstruc
 #[derive(Default, Debug)]
 pub(crate) struct StaticsContext {
     // effects
-    effects: Vec<Effect>,
+    effects: Vec<EffectStruct>,
     _node_map: NodeMap,
     _sources: Sources,
 
@@ -61,7 +61,7 @@ pub(crate) struct StaticsContext {
 }
 
 impl StaticsContext {
-    fn new(effects: Vec<Effect>, node_map: NodeMap, sources: Sources) -> Self {
+    fn new(effects: Vec<EffectStruct>, node_map: NodeMap, sources: Sources) -> Self {
         let mut ctx = Self {
             effects,
             _node_map: node_map,
@@ -130,7 +130,7 @@ pub(crate) enum Declaration {
 
 // main function that performs typechecking (as well as name resolution beforehand)
 pub(crate) fn analyze(
-    effects: &[Effect],
+    effects: &[EffectStruct],
     files: &Vec<Rc<FileAst>>,
     node_map: &NodeMap,
     sources: &Sources,

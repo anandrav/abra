@@ -1,7 +1,7 @@
 use std::{collections::HashMap, rc::Rc};
 
-pub use effects::Effect;
 pub use effects::EffectCode;
+pub use effects::EffectStruct;
 
 mod assembly;
 pub mod ast;
@@ -13,8 +13,6 @@ pub mod prelude;
 pub mod statics;
 mod translate_bytecode;
 pub mod vm;
-
-pub type Type = statics::Monotype;
 
 use prelude::_PRELUDE;
 use translate_bytecode::CompiledProgram;
@@ -44,7 +42,7 @@ pub fn source_files_single(src: &str) -> Vec<SourceFile> {
 
 pub fn compile_bytecode(
     source_files: Vec<SourceFile>,
-    effects: Vec<Effect>,
+    effects: Vec<EffectStruct>,
 ) -> Result<CompiledProgram, String> {
     let mut filename_to_source = HashMap::new();
     let mut filenames = Vec::new();
