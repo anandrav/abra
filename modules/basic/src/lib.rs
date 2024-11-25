@@ -1,29 +1,40 @@
 extern crate abra_core;
 
+use std::ffi::{c_char, CString};
+
 use abra_core::{addons::*, vm::Vm};
 
 #[no_mangle]
 pub extern "C" fn addon_description() -> *const AddonDesc {
     println!("helloooo");
 
-    static DESC: AddonDesc = AddonDesc {
-        name: "basic",
-        funcs: &[FuncDesc {
-            name: "add",
-            arg_types: &[Type::Int, Type::Int],
-            ret_type: Type::Int,
-            func: |vm: &mut Vm| {
-                let n1 = vm.top().get_int();
-                vm.pop();
-                let n2 = vm.top().get_int();
-                vm.pop();
+    const ADD_NAME: &str = "add";
+    const ADDON_NAME: &str = "basic";
 
-                let ret = add(n1, n2);
-                vm.push_int(ret);
-            },
-        }],
+    let desc: AddonDesc = AddonDesc {
+        name: ADDON_NAME,
+        funcs: CArray {
+            ptr: &[FuncDesc {
+                name: ADD_NAME,
+                arg_types: CArray {
+                    ptr: &[Type::Int, Type::Int] as *const Type,
+                    len: 2,
+                },
+                ret_type: Type::Int,
+                func: |vm: &mut Vm| {
+                    let n1 = vm.top().get_int();
+                    vm.pop();
+                    let n2 = vm.top().get_int();
+                    vm.pop();
+
+                    let ret = add(n1, n2);
+                    vm.push_int(ret);
+                },
+            }] as *const FuncDesc,
+            len: 1,
+        },
     };
-    &DESC
+    &desc
 }
 
 fn add(n1: i64, n2: i64) -> i64 {

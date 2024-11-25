@@ -1,6 +1,7 @@
 extern crate abra_core;
 
 use std::collections::HashMap;
+use std::ffi::CStr;
 use std::sync::atomic::AtomicUsize;
 use std::sync::atomic::Ordering;
 
@@ -90,6 +91,8 @@ fn main() {
                                                 Ok(f) => {
                                                     let addon_desc =
                                                         unsafe { f().as_ref().unwrap() };
+                                                    // let name =
+                                                    //     unsafe { CStr::from_ptr(addon_desc.name) };
                                                     println!(
                                                         "the addon is named {}",
                                                         addon_desc.name

@@ -9,9 +9,15 @@ pub enum Type {
     Float,
     Bool,
     String,
-    Function(Vec<Type>, Box<Type>),
-    Tuple(Vec<Type>),
-    Nominal(Nominal, Vec<Type>),
+    Function { args: Array<Type>, ret: *const Type },
+    Tuple(Array<Type>),
+    Nominal(Nominal, Array<Type>),
+}
+
+#[repr(C)]
+pub struct Array<T> {
+    pub ptr: *const T,
+    pub len: usize,
 }
 
 #[repr(C)]
@@ -22,13 +28,13 @@ pub enum Nominal {
 #[repr(C)]
 pub struct AddonDesc {
     pub name: &'static str,
-    pub funcs: &'static [FuncDesc],
+    pub funcs: Array<FuncDesc>,
 }
 
 #[repr(C)]
 pub struct FuncDesc {
     pub name: &'static str,
-    pub arg_types: &'static [Type],
+    pub arg_types: Array<Type>,
     pub ret_type: Type,
     pub func: fn(&mut Vm),
 }
