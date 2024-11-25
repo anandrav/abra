@@ -1,11 +1,17 @@
 extern crate abra_core;
 
+use std::collections::HashMap;
+use std::sync::atomic::AtomicUsize;
+use std::sync::atomic::Ordering;
+
+use abra_core::effects::EffectTrait;
 use abra_core::effects::FromRepr;
 use abra_core::effects::Type;
 use abra_core::effects::VariantArray;
-use abra_core::effects::{self, EffectTrait};
 use abra_core::SourceFile;
 use clap::Parser;
+use libloading::Library;
+use libloading::Symbol;
 
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
@@ -34,6 +40,12 @@ fn main() {
     });
 
     let effects = CliEffects::enumerate();
+
+    // dylib
+    static LIB_IDX_COUNTER: std::sync::atomic::AtomicUsize = AtomicUsize::new(0);
+    let mut libname_to_idx: HashMap<String, usize> = HashMap::new();
+    let mut libs: Vec<Library> = vec![];
+
     match abra_core::compile_bytecode(source_files, effects) {
         Ok(program) => {
             let mut vm = abra_core::vm::Vm::new(program);
@@ -48,8 +60,8 @@ fn main() {
                     match effect {
                         CliEffects::PrintString => {
                             let s = vm.top().get_string(&vm);
-                            print!("{}", s);
                             vm.pop();
+                            print!("{}", s);
                             vm.push_nil();
                         }
                         CliEffects::Read => {
@@ -58,7 +70,44 @@ fn main() {
                             vm.push_str(&input[0..input.len() - 1]);
                         }
                         CliEffects::LoadLib => {
-                            todo!();
+                            let s = vm.top().get_string(&vm);
+                            vm.pop();
+                            let lookup = libname_to_idx.get(&s);
+                            match lookup {
+                                Some(idx) => {
+                                    vm.push_int(*idx as i64);
+                                }
+                                None => {
+                                    let lib = unsafe { Library::new(s.clone()) };
+                                    match lib {
+                                        Ok(lib) => {
+                                            let f: Result<Symbol<unsafe extern "C" fn() -> ()>, _> =
+                                                unsafe { lib.get(b"initialize_module") };
+                                            match f {
+                                                Ok(f) => {
+                                                    unsafe { f() };
+
+                                                    let idx = LIB_IDX_COUNTER
+                                                        .fetch_add(1, Ordering::Relaxed);
+                                                    libname_to_idx.insert(s, idx);
+                                                    libs.push(lib);
+                                                    vm.push_int(idx as i64);
+                                                }
+                                                Err(e) => {
+                                                    eprintln!("Could not load lib {}\n", s);
+                                                    eprintln!("{}", e);
+                                                    std::process::exit(1);
+                                                }
+                                            }
+                                        }
+                                        Err(e) => {
+                                            eprintln!("Could not load lib {}\n", s);
+                                            eprintln!("{}", e);
+                                            std::process::exit(1);
+                                        }
+                                    }
+                                }
+                            }
                         }
                     }
                     vm.clear_pending_effect();
