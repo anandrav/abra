@@ -3,6 +3,7 @@ use std::{collections::HashMap, rc::Rc};
 pub use effects::EffectCode;
 pub use effects::EffectDesc;
 
+pub mod addons;
 mod assembly;
 pub mod ast;
 mod builtin;
@@ -65,64 +66,3 @@ pub fn compile_bytecode(
     let mut translator = Translator::new(inference_ctx, node_map, sources, files, effects);
     Ok(translator.translate())
 }
-
-// used to be part of prelude, but separated because not all programs need it
-pub const _STDLIB: &str = r#"
-fn range(lo: int, hi: int) {
-    if lo > hi
-        nil
-    else
-        cons(lo, range(lo + 1, hi))
-}
-
-fn fold(xs: list<'b>, f: ('a, 'b) -> 'a, acc: 'a) -> 'a {
-    match xs {
-        nil -> acc
-        cons (~head, ~tail) -> fold(tail, f, f(acc, head))
-    }
-}
-
-fn sum(xs: list<int>) -> int { fold(xs, (a, b) -> a + b, 0) }
-fn sumf(xs: list<float>) -> float { fold(xs, (a, b) -> a + b, 0.0) }
-
-fn concat(xs: list<string>, sep: string) -> string {
-    match xs {
-        nil -> ""
-        cons (~head, cons(~last, nil)) -> {
-            head & sep & last
-        }
-        cons (~head, ~tail) -> {
-            head & sep & concat(tail, sep)
-        }
-    }
-}
-
-fn map(xs: list<'a>, f: 'a -> 'b) -> list<'b> {
-    match xs {
-        nil -> nil
-        cons (~head, ~tail) -> cons(f(head), map(tail, f))
-    }
-}
-
-fn for_each(xs: list<'a>, f: 'a -> 'b) -> void {
-    match xs {
-        nil -> ()
-        cons (~head, ~tail) -> {
-            f(head)
-            for_each(tail, f)
-        }
-    }
-}
-
-fn filter(xs: list<'a>, f: 'a -> bool) -> list<'a> {
-    match xs {
-        nil -> nil
-        cons (~head, ~tail) ->
-            if f(head) cons(head, filter(tail, f)) else filter(tail, f)
-    }
-}
-
-fn reverse(xs: list<'c>) -> list<'c> {
-    fold(xs, (acc, head) -> cons(head, acc), nil)
-}
-"#;

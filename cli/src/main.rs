@@ -4,6 +4,7 @@ use std::collections::HashMap;
 use std::sync::atomic::AtomicUsize;
 use std::sync::atomic::Ordering;
 
+use abra_core::addons::AddonDesc;
 use abra_core::effects::EffectTrait;
 use abra_core::effects::FromRepr;
 use abra_core::effects::Type;
@@ -81,11 +82,18 @@ fn main() {
                                     let lib = unsafe { Library::new(s.clone()) };
                                     match lib {
                                         Ok(lib) => {
-                                            let f: Result<Symbol<unsafe extern "C" fn() -> ()>, _> =
-                                                unsafe { lib.get(b"initialize_module") };
+                                            let f: Result<
+                                                Symbol<unsafe extern "C" fn() -> *const AddonDesc>,
+                                                _,
+                                            > = unsafe { lib.get(b"addon_description") };
                                             match f {
                                                 Ok(f) => {
-                                                    unsafe { f() };
+                                                    let addon_desc =
+                                                        unsafe { f().as_ref().unwrap() };
+                                                    println!(
+                                                        "the addon is named {}",
+                                                        addon_desc.name
+                                                    );
 
                                                     let idx = LIB_IDX_COUNTER
                                                         .fetch_add(1, Ordering::Relaxed);
