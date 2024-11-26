@@ -18,9 +18,21 @@ use libloading::Symbol;
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
 struct Args {
-    /// file to run
-    #[arg()]
+    /// File to run
+    #[arg(
+        help = "The main Abra script file to compile and execute",
+        value_name = "FILE"
+    )]
     file: String,
+
+    /// Directory containing Abra modules
+    #[arg(
+        short,
+        long,
+        value_name = "DIRECTORY",
+        help = "Path to the directory containing Abra modules"
+    )]
+    modules_dir: Option<String>,
 }
 
 fn main() {

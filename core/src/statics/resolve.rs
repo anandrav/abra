@@ -233,15 +233,12 @@ fn resolve_imports_file(ctx: &mut StaticsContext, file: Rc<FileAst>) -> Toplevel
 
     for item in file.items.iter() {
         if let ItemKind::Import(path) = &*item.kind {
+            let Some(import_src) = ctx.global_namespace.namespaces.get(&path.v) else {
+                ctx.unbound_vars.insert(item.id);
+                continue;
+            };
             // add declarations from this import to the environment
-            for (name, declaration) in ctx
-                .global_namespace
-                .namespaces
-                .get(&path.v)
-                .unwrap()
-                .declarations
-                .iter()
-            {
+            for (name, declaration) in import_src.declarations.iter() {
                 env.insert(name.clone(), declaration.clone());
             }
         }
