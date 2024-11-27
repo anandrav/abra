@@ -13,10 +13,10 @@ pub extern "C" fn addon_description() -> *const AddonDesc {
 
     let desc: AddonDesc = AddonDesc {
         name: ADDON_NAME,
-        funcs: CArray {
+        funcs: Array {
             ptr: &[FuncDesc {
                 name: ADD_NAME,
-                arg_types: CArray {
+                arg_types: Array {
                     ptr: &[Type::Int, Type::Int] as *const Type,
                     len: 2,
                 },

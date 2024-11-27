@@ -30,9 +30,9 @@ struct Args {
         short,
         long,
         value_name = "DIRECTORY",
-        help = "Path to the directory containing Abra modules"
+        help = "Path to the directory containing Abra dependencies"
     )]
-    modules_dir: Option<String>,
+    include_dir: Option<String>,
 }
 
 fn main() {
@@ -44,14 +44,44 @@ fn main() {
         contents: abra_core::prelude::_PRELUDE.to_string(),
     });
 
-    let Ok(contents) = std::fs::read_to_string(&args.file) else {
-        eprintln!("file '{}' not found", args.file);
-        std::process::exit(1);
-    };
+    let contents = std::fs::read_to_string(&args.file).unwrap();
     source_files.push(SourceFile {
-        name: args.file,
+        name: args.file.clone(),
         contents,
     });
+    let Ok(current_dir) = std::env::current_dir() else {
+        eprintln!("Could not get current directory");
+        std::process::exit(1);
+    };
+    let current_dir_files = std::fs::read_dir(current_dir).unwrap();
+    for file in current_dir_files {
+        let file = file.unwrap();
+        let file_name = file.file_name();
+        let file_name = file_name.to_str().unwrap();
+        if file_name.ends_with(".abra") && file_name != args.file {
+            let contents = std::fs::read_to_string(file.path()).unwrap();
+            source_files.push(SourceFile {
+                name: file_name.to_string(),
+                contents,
+            });
+        }
+    }
+
+    if let Some(include_dir) = args.include_dir {
+        let include_dir_files = std::fs::read_dir(include_dir).unwrap();
+        for file in include_dir_files {
+            let file = file.unwrap();
+            let file_name = file.file_name();
+            let file_name = file_name.to_str().unwrap();
+            if file_name.ends_with(".abra") {
+                let contents = std::fs::read_to_string(file.path()).unwrap();
+                source_files.push(SourceFile {
+                    name: file_name.to_string(),
+                    contents,
+                });
+            }
+        }
+    }
 
     let effects = CliEffects::enumerate();
 
@@ -103,8 +133,6 @@ fn main() {
                                                 Ok(f) => {
                                                     let addon_desc =
                                                         unsafe { f().as_ref().unwrap() };
-                                                    // let name =
-                                                    //     unsafe { CStr::from_ptr(addon_desc.name) };
                                                     println!(
                                                         "the addon is named {}",
                                                         addon_desc.name

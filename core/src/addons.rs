@@ -3,6 +3,20 @@
 use crate::vm::Vm;
 
 #[repr(C)]
+pub struct AddonDesc {
+    pub name: &'static str,
+    pub funcs: Array<FuncDesc>,
+}
+
+#[repr(C)]
+pub struct FuncDesc {
+    pub name: &'static str,
+    pub arg_types: Array<Type>,
+    pub ret_type: Type,
+    pub func: fn(&mut Vm),
+}
+
+#[repr(C)]
 pub enum Type {
     Unit,
     Int,
@@ -23,18 +37,4 @@ pub struct Array<T> {
 #[repr(C)]
 pub enum Nominal {
     Array,
-}
-
-#[repr(C)]
-pub struct AddonDesc {
-    pub name: &'static str,
-    pub funcs: Array<FuncDesc>,
-}
-
-#[repr(C)]
-pub struct FuncDesc {
-    pub name: &'static str,
-    pub arg_types: Array<Type>,
-    pub ret_type: Type,
-    pub func: fn(&mut Vm),
 }
