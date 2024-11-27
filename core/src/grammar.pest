@@ -9,7 +9,7 @@ MULTI_LINE_COMMENT = _{ "/*" ~ (!"*/" ~ ANY)* ~ "*/" }
 
 file = _{ SOI ~ file_item* ~ EOI }
 
-file_item = _{ func_def | interface_declaration | interface_implementation | enum_declaration | struct_declaration /*| typealias*/ | import | statement }
+file_item = _{ func_def | extern_func_decl | interface_declaration | interface_implementation | enum_declaration | struct_declaration /*| typealias*/ | import | statement }
 
 // typealias = { "type" ~ identifier ~ "=" ~ typ}
 
@@ -46,6 +46,8 @@ set_statement = { expression ~ "<-" ~ expression }
 
 func_def = { func_keyword ~ identifier ~ func_args ~ func_out_annotation? ~ (block_expression | (op_assign ~ expression)) }
 func_keyword = _{ "fn" }
+
+extern_func_decl = { "extern" ~ func_keyword ~ identifier ~ func_args ~ func_out_annotation }
 
 let_pattern_tuple = { tuple_start ~ (let_pattern_tuple_element ~ ",")+ ~ let_pattern_tuple_element ~ tuple_end }
 let_pattern_tuple_element = _{ let_pattern }
