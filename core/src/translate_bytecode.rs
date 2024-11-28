@@ -985,7 +985,7 @@ impl Translator {
                 }
             }
             ItemKind::ExternFuncDecl(f) => {
-                todo!()
+                // todo!()
             }
             ItemKind::FuncDef(f) => {
                 // (this could be an overloaded function or an interface method)

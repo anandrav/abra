@@ -1,3 +1,5 @@
+use list_utils
+
 fn sum(xs: list<int>) -> int { 
     fold(xs, (a, b) -> a + b, 0) 
 }

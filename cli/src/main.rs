@@ -142,7 +142,6 @@ fn main() {
 }
 
 fn add_src_files(p: PathBuf, main_file: &str, source_files: &mut Vec<SourceFile>) {
-    println!("trying to read {}", p.display());
     let dir = std::fs::read_dir(&p).unwrap();
     for entry in dir {
         let entry = entry.unwrap();
