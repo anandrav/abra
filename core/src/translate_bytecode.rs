@@ -1,5 +1,5 @@
 use crate::assembly::{remove_labels, Instr, Label, Line};
-use crate::ast::{BinaryOperator, FuncDef, InterfaceDef, Item, ItemKind, TypeKind};
+use crate::ast::{BinaryOperator, ExternFuncDecl, FuncDef, InterfaceDef, Item, ItemKind, TypeKind};
 use crate::ast::{FileAst, Node, NodeId, Sources};
 use crate::builtin::Builtin;
 use crate::effects::EffectDesc;
@@ -73,6 +73,9 @@ impl Declaration {
             Declaration::FreeFunction(f, qname) => {
                 BytecodeResolution::FreeFunction(f.clone(), qname.clone())
             }
+            Declaration::ExternalFunction(f, qname) => {
+                BytecodeResolution::ExternalFunction(f.clone(), qname.clone())
+            }
             Declaration::InterfaceDef(_) => panic!(), // TODO: remove panic
             Declaration::InterfaceMethod {
                 iface_def,
@@ -127,6 +130,7 @@ impl Declaration {
 pub(crate) enum BytecodeResolution {
     Var(NodeId),
     FreeFunction(Rc<FuncDef>, String), // TODO: String bad unless fully qualified!
+    ExternalFunction(Rc<ExternFuncDecl>, String), // TODO: String bad unless fully qualified!
     InterfaceMethod {
         iface_def: Rc<InterfaceDef>,
         method: u16,
@@ -360,6 +364,9 @@ impl Translator {
                             },
                         );
                     }
+                    BytecodeResolution::ExternalFunction(_, name) => {
+                        unimplemented!()
+                    }
                     BytecodeResolution::InterfaceMethod { .. } => {
                         unimplemented!()
                     }
@@ -468,6 +475,9 @@ impl Translator {
 
                                 self.handle_overloaded_func(st, substituted_ty, &name, f.clone());
                             }
+                        }
+                        BytecodeResolution::ExternalFunction(f, name) => {
+                            todo!()
                         }
                         BytecodeResolution::InterfaceMethod {
                             iface_def,
@@ -973,6 +983,9 @@ impl Translator {
                 for stmt in &iface_impl.stmts {
                     self.translate_stmt_static(stmt.clone(), st, true);
                 }
+            }
+            ItemKind::ExternFuncDecl(f) => {
+                todo!()
             }
             ItemKind::FuncDef(f) => {
                 // (this could be an overloaded function or an interface method)

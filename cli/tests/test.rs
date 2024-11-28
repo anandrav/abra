@@ -16,5 +16,5 @@ fn test_cli_output() {
     println!("{}", stdout_str);
     println!("{}", String::from_utf8(output.stderr).unwrap());
     assert!(output.status.success());
-    assert_eq!(stdout_str, "hello world\n");
+    assert_eq!(stdout_str, "hello from test.abra\n");
 }

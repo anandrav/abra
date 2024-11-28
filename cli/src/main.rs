@@ -2,6 +2,7 @@ extern crate abra_core;
 
 use std::collections::HashMap;
 use std::ffi::CStr;
+use std::path::PathBuf;
 use std::sync::atomic::AtomicUsize;
 use std::sync::atomic::Ordering;
 
@@ -32,7 +33,7 @@ struct Args {
         value_name = "DIRECTORY",
         help = "Path to the directory containing Abra dependencies"
     )]
-    include_dir: Option<String>,
+    include_dirs: Vec<String>,
 }
 
 fn main() {
@@ -49,38 +50,9 @@ fn main() {
         name: args.file.clone(),
         contents,
     });
-    let Ok(current_dir) = std::env::current_dir() else {
-        eprintln!("Could not get current directory");
-        std::process::exit(1);
-    };
-    let current_dir_files = std::fs::read_dir(current_dir).unwrap();
-    for file in current_dir_files {
-        let file = file.unwrap();
-        let file_name = file.file_name();
-        let file_name = file_name.to_str().unwrap();
-        if file_name.ends_with(".abra") && file_name != args.file {
-            let contents = std::fs::read_to_string(file.path()).unwrap();
-            source_files.push(SourceFile {
-                name: file_name.to_string(),
-                contents,
-            });
-        }
-    }
 
-    if let Some(include_dir) = args.include_dir {
-        let include_dir_files = std::fs::read_dir(include_dir).unwrap();
-        for file in include_dir_files {
-            let file = file.unwrap();
-            let file_name = file.file_name();
-            let file_name = file_name.to_str().unwrap();
-            if file_name.ends_with(".abra") {
-                let contents = std::fs::read_to_string(file.path()).unwrap();
-                source_files.push(SourceFile {
-                    name: file_name.to_string(),
-                    contents,
-                });
-            }
-        }
+    for include_dir in &args.include_dirs {
+        add_src_files(include_dir.into(), &args.file, &mut source_files);
     }
 
     let effects = CliEffects::enumerate();
@@ -165,6 +137,28 @@ fn main() {
         }
         Err(err) => {
             eprintln!("{}", err);
+        }
+    }
+}
+
+fn add_src_files(p: PathBuf, main_file: &str, source_files: &mut Vec<SourceFile>) {
+    println!("trying to read {}", p.display());
+    let dir = std::fs::read_dir(&p).unwrap();
+    for entry in dir {
+        let entry = entry.unwrap();
+        let metadata = entry.metadata().unwrap();
+        let name = entry.file_name();
+        let name = name.to_str().unwrap();
+        if metadata.is_file() {
+            if name.ends_with(".abra") && name != main_file {
+                let contents = std::fs::read_to_string(entry.path()).unwrap();
+                source_files.push(SourceFile {
+                    name: name.to_string(),
+                    contents,
+                });
+            }
+        } else if metadata.is_dir() {
+            add_src_files(p.join(name), main_file, source_files);
         }
     }
 }

@@ -1,6 +1,6 @@
 use crate::ast::{
-    EnumDef, FileAst, FuncDef, InterfaceDef, InterfaceImpl, NodeId, NodeMap, Sources, StructDef,
-    TypeKind,
+    EnumDef, ExternFuncDecl, FileAst, FuncDef, InterfaceDef, InterfaceImpl, NodeId, NodeMap,
+    Sources, StructDef, TypeKind,
 };
 use crate::builtin::Builtin;
 use crate::effects::EffectDesc;
@@ -110,6 +110,7 @@ impl Display for Namespace {
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub(crate) enum Declaration {
+    ExternalFunction(Rc<ExternFuncDecl>, String),
     FreeFunction(Rc<FuncDef>, String),
     InterfaceDef(Rc<InterfaceDef>),
     InterfaceMethod {

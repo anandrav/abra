@@ -445,7 +445,37 @@ pub(crate) fn parse_item(pair: Pair<Rule>, filename: &str) -> Rc<Item> {
                 id: NodeId::new(),
             })
         }
+        Rule::extern_func_decl => {
+            let mut n = 0;
+            let mut args = vec![];
+            let name = Identifier {
+                v: inner[0].as_str().to_string(),
+                span: Span::new(filename, inner[0].as_span()),
+                id: NodeId::new(),
+            };
+            n += 1;
+            while let Rule::func_arg = inner[n].as_rule() {
+                let pat_annotated = parse_func_arg_annotation(inner[n].clone(), filename);
+                args.push(pat_annotated);
+                n += 1;
+            }
 
+            let maybe_func_out = &inner[n];
+            let ret_type = parse_func_out_annotation(maybe_func_out.clone(), filename);
+
+            Rc::new(Item {
+                kind: Rc::new(ItemKind::ExternFuncDecl(
+                    ExternFuncDecl {
+                        name,
+                        args,
+                        ret_type,
+                    }
+                    .into(),
+                )),
+                span,
+                id: NodeId::new(),
+            })
+        }
         // Rule::typealias => {
         //     let ident = inner[0].as_str().to_string();
         //     let definition = parse_type_term(inner[1].clone(), filename);

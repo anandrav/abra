@@ -110,6 +110,14 @@ fn gather_declarations_item(namespace: &mut Namespace, qualifiers: Vec<String>, 
                 Declaration::FreeFunction(f.clone(), fully_qualified_name),
             );
         }
+        ItemKind::ExternFuncDecl(f) => {
+            let func_name = f.name.v.clone();
+            let fully_qualified_name = fullname(&qualifiers, &func_name);
+            namespace.declarations.insert(
+                func_name,
+                Declaration::ExternalFunction(f.clone(), fully_qualified_name),
+            );
+        }
         ItemKind::Import(..) => {}
     }
 }
@@ -279,6 +287,9 @@ fn resolve_names_item(ctx: &mut StaticsContext, symbol_table: SymbolTable, stmt:
             }
             let symbol_table = symbol_table.new_scope();
             resolve_names_func_helper(ctx, symbol_table.clone(), &f.args, &f.body, &f.ret_type);
+        }
+        ItemKind::ExternFuncDecl(f) => {
+            // todo!();
         }
         ItemKind::InterfaceDef(iface_def) => {
             for prop in &iface_def.props {

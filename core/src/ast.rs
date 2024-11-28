@@ -169,6 +169,17 @@ impl Node for Item {
 
     fn children(&self) -> Vec<Rc<dyn Node>> {
         match &*self.kind {
+            ItemKind::ExternFuncDecl(f) => {
+                let mut children: Vec<Rc<dyn Node>> = vec![];
+                for (pat, annot) in f.args.iter() {
+                    children.push(pat.clone() as Rc<dyn Node>);
+                    if let Some(ty) = annot {
+                        children.push(ty.clone())
+                    }
+                }
+                children.push(f.ret_type.clone());
+                children
+            }
             ItemKind::FuncDef(f) => {
                 let mut children: Vec<Rc<dyn Node>> = vec![];
                 for (pat, annot) in f.args.iter() {
@@ -229,6 +240,7 @@ impl Node for Item {
 
 #[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq, Hash)]
 pub(crate) enum ItemKind {
+    ExternFuncDecl(Rc<ExternFuncDecl>),
     FuncDef(Rc<FuncDef>),
     TypeDef(Rc<TypeDefKind>),
     InterfaceDef(Rc<InterfaceDef>),
@@ -300,6 +312,13 @@ pub(crate) struct FuncDef {
     pub(crate) args: Vec<ArgAnnotated>,
     pub(crate) ret_type: Option<Rc<Type>>,
     pub(crate) body: Rc<Expr>,
+}
+
+#[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq, Hash)]
+pub(crate) struct ExternFuncDecl {
+    pub(crate) name: Identifier,
+    pub(crate) args: Vec<ArgAnnotated>,
+    pub(crate) ret_type: Rc<Type>,
 }
 
 #[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq, Hash)]

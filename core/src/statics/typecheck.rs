@@ -664,6 +664,7 @@ fn tyvar_of_declaration(
 ) -> Option<TypeVar> {
     match decl {
         Declaration::FreeFunction(f, _) => Some(TypeVar::from_node(ctx, f.name.id)),
+        Declaration::ExternalFunction(f, _) => Some(TypeVar::from_node(ctx, f.name.id)),
         Declaration::InterfaceDef(..) => None,
         Declaration::InterfaceMethod {
             iface_def,
@@ -948,6 +949,7 @@ pub(crate) fn ast_type_to_solved_type(
                     Some(SolvedType::Nominal(Nominal::Enum(enum_def.clone()), vec![]))
                 }
                 Declaration::FreeFunction(_, _)
+                | Declaration::ExternalFunction(_, _)
                 | Declaration::InterfaceDef(_)
                 | Declaration::InterfaceMethod { .. }
                 | Declaration::EnumVariant { .. }
@@ -973,6 +975,7 @@ pub(crate) fn ast_type_to_solved_type(
                     Some(SolvedType::Nominal(Nominal::Enum(enum_def.clone()), sargs))
                 }
                 Declaration::FreeFunction(_, _)
+                | Declaration::ExternalFunction(_, _)
                 | Declaration::InterfaceDef(_)
                 | Declaration::InterfaceMethod { .. }
                 | Declaration::EnumVariant { .. }
@@ -1937,6 +1940,9 @@ fn generate_constraints_item(mode: Mode, stmt: Rc<Item>, ctx: &mut StaticsContex
             );
 
             constrain(ty_pat, ty_func);
+        }
+        ItemKind::ExternFuncDecl(f) => {
+            // todo!();
         }
     }
 }
