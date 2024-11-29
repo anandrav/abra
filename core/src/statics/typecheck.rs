@@ -664,7 +664,7 @@ fn tyvar_of_declaration(
 ) -> Option<TypeVar> {
     match decl {
         Declaration::FreeFunction(f, _) => Some(TypeVar::from_node(ctx, f.name.id)),
-        Declaration::ExternalFunction(f, _) => Some(TypeVar::from_node(ctx, f.name.id)),
+        Declaration::ForeignFunction(f, _) => Some(TypeVar::from_node(ctx, f.name.id)),
         Declaration::InterfaceDef(..) => None,
         Declaration::InterfaceMethod {
             iface_def,
@@ -949,7 +949,7 @@ pub(crate) fn ast_type_to_solved_type(
                     Some(SolvedType::Nominal(Nominal::Enum(enum_def.clone()), vec![]))
                 }
                 Declaration::FreeFunction(_, _)
-                | Declaration::ExternalFunction(_, _)
+                | Declaration::ForeignFunction(_, _)
                 | Declaration::InterfaceDef(_)
                 | Declaration::InterfaceMethod { .. }
                 | Declaration::EnumVariant { .. }
@@ -975,7 +975,7 @@ pub(crate) fn ast_type_to_solved_type(
                     Some(SolvedType::Nominal(Nominal::Enum(enum_def.clone()), sargs))
                 }
                 Declaration::FreeFunction(_, _)
-                | Declaration::ExternalFunction(_, _)
+                | Declaration::ForeignFunction(_, _)
                 | Declaration::InterfaceDef(_)
                 | Declaration::InterfaceMethod { .. }
                 | Declaration::EnumVariant { .. }
@@ -1856,6 +1856,50 @@ fn generate_constraints_func_helper(
     TypeVar::make_func(ty_args, ty_body, Prov::Node(node_id))
 }
 
+fn generate_constraints_func_decl(
+    ctx: &mut StaticsContext,
+    node_id: NodeId,
+    polyvar_scope: PolyvarScope,
+    args: &[ArgAnnotated],
+    out_annot: &Rc<AstType>,
+) -> TypeVar {
+    // arguments
+    let ty_args = args
+        .iter()
+        .map(|(arg, arg_annot)| {
+            let ty_pat = TypeVar::from_node(ctx, arg.id);
+            match arg_annot {
+                Some(arg_annot) => {
+                    let ty_annot = TypeVar::from_node(ctx, arg_annot.id());
+                    let arg_annot = ast_type_to_typevar(ctx, arg_annot.clone());
+                    constrain(ty_annot.clone(), arg_annot.clone());
+                    polyvar_scope.add_polys(&arg_annot);
+                    generate_constraints_pat(
+                        polyvar_scope.clone(),
+                        Mode::Ana { expected: ty_annot },
+                        arg.clone(),
+                        ctx,
+                    )
+                }
+                None => {
+                    generate_constraints_pat(polyvar_scope.clone(), Mode::Syn, arg.clone(), ctx)
+                }
+            }
+            ty_pat
+        })
+        .collect();
+
+    // body
+    let ty_body = TypeVar::fresh(ctx, Prov::FuncOut(Box::new(Prov::Node(node_id))));
+
+    let out_annot = ast_type_to_typevar(ctx, out_annot.clone());
+    polyvar_scope.add_polys(&out_annot);
+
+    constrain(ty_body.clone(), out_annot);
+
+    TypeVar::make_func(ty_args, ty_body, Prov::Node(node_id))
+}
+
 fn generate_constraints_item(mode: Mode, stmt: Rc<Item>, ctx: &mut StaticsContext) {
     match &*stmt.kind {
         ItemKind::InterfaceDef(..) => {}
@@ -1942,7 +1986,18 @@ fn generate_constraints_item(mode: Mode, stmt: Rc<Item>, ctx: &mut StaticsContex
             constrain(ty_pat, ty_func);
         }
         ItemKind::ExternFuncDecl(f) => {
-            // todo!();
+            let func_node_id = f.name.id;
+            let ty_pat = TypeVar::from_node(ctx, f.name.id);
+
+            let ty_func = generate_constraints_func_decl(
+                ctx,
+                func_node_id,
+                PolyvarScope::empty(),
+                &f.args,
+                &f.ret_type,
+            );
+
+            constrain(ty_pat, ty_func);
         }
     }
 }

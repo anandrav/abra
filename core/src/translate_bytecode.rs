@@ -1,5 +1,7 @@
 use crate::assembly::{remove_labels, Instr, Label, Line};
-use crate::ast::{BinaryOperator, ExternFuncDecl, FuncDef, InterfaceDef, Item, ItemKind, TypeKind};
+use crate::ast::{
+    BinaryOperator, ForeignFuncDecl, FuncDef, InterfaceDef, Item, ItemKind, TypeKind,
+};
 use crate::ast::{FileAst, Node, NodeId, Sources};
 use crate::builtin::Builtin;
 use crate::effects::EffectDesc;
@@ -25,7 +27,7 @@ pub(crate) type LabelMap = HashMap<Label, usize>;
 
 #[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq)]
 struct OverloadedFuncDesc {
-    name: String, // TODO: This the unqualified name of the function. Must be fully qualified... resolve.rs should map each Identifier in AST to its fully qualified equivalent
+    name: String,
     impl_type: Monotype,
     func_def: Rc<FuncDef>,
 }
@@ -73,7 +75,7 @@ impl Declaration {
             Declaration::FreeFunction(f, qname) => {
                 BytecodeResolution::FreeFunction(f.clone(), qname.clone())
             }
-            Declaration::ExternalFunction(f, qname) => {
+            Declaration::ForeignFunction(f, qname) => {
                 BytecodeResolution::ExternalFunction(f.clone(), qname.clone())
             }
             Declaration::InterfaceDef(_) => panic!(), // TODO: remove panic
@@ -129,8 +131,8 @@ impl Declaration {
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub(crate) enum BytecodeResolution {
     Var(NodeId),
-    FreeFunction(Rc<FuncDef>, String), // TODO: String bad unless fully qualified!
-    ExternalFunction(Rc<ExternFuncDecl>, String), // TODO: String bad unless fully qualified!
+    FreeFunction(Rc<FuncDef>, String),
+    ExternalFunction(Rc<ForeignFuncDecl>, String),
     InterfaceMethod {
         iface_def: Rc<InterfaceDef>,
         method: u16,
@@ -478,6 +480,15 @@ impl Translator {
                         }
                         BytecodeResolution::ExternalFunction(f, name) => {
                             todo!()
+                            // by this point we should know the name of the .so file that this external function should be located in
+
+                            // then, calling an external function just means
+                            // (1) loading the .so file (preferably do this when the VM starts up)
+                            // (2) locate the external function in this .so file by its symbol (preferably do this when VM starts up)
+                            // (3) invoke the function, which should have signature fn(&mut Vm) -> ()
+
+                            // the bytecode for calling the external function doesn't need to contain the .so name or the method name as a string.
+                            // it just needs to contain an idx into an array of foreign functions
                         }
                         BytecodeResolution::InterfaceMethod {
                             iface_def,

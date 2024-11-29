@@ -136,6 +136,7 @@ fn instr_to_vminstr(
                 .get(label)
                 .unwrap_or_else(|| panic!("Could not find label: {}", label)),
         ),
+        Instr::CallExtern => VmInstr::CallExtern,
         Instr::CallFuncObj => VmInstr::CallFuncObj,
         Instr::Return => VmInstr::Return,
         Instr::Construct(n) => VmInstr::Construct(*n),
@@ -159,6 +160,8 @@ fn instr_to_vminstr(
         Instr::IntToString => VmInstr::IntToString,
         Instr::FloatToString => VmInstr::FloatToString,
         Instr::Effect(n) => VmInstr::Effect(*n),
+
+        Instr::LoadLib => VmInstr::LoadLib,
     }
 }
 

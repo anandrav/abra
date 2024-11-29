@@ -465,7 +465,7 @@ pub(crate) fn parse_item(pair: Pair<Rule>, filename: &str) -> Rc<Item> {
 
             Rc::new(Item {
                 kind: Rc::new(ItemKind::ExternFuncDecl(
-                    ExternFuncDecl {
+                    ForeignFuncDecl {
                         name,
                         args,
                         ret_type,

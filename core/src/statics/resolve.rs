@@ -112,11 +112,17 @@ fn gather_declarations_item(namespace: &mut Namespace, qualifiers: Vec<String>, 
         }
         ItemKind::ExternFuncDecl(f) => {
             let func_name = f.name.v.clone();
-            let fully_qualified_name = fullname(&qualifiers, &func_name);
-            namespace.declarations.insert(
-                func_name,
-                Declaration::ExternalFunction(f.clone(), fully_qualified_name),
-            );
+            // TODO: get the lib name using the filesystem, or report error saying why we can't
+            // this function -> its file
+            // some file -> parent directory
+            // parent directory -> child directory with same name as file
+            // child directory -> Cargo.toml
+            // Cargo.toml -> name of .so/dylib/dll file
+
+            let lib_name = "libname_goes_here".to_string();
+            namespace
+                .declarations
+                .insert(func_name, Declaration::ForeignFunction(f.clone(), lib_name));
         }
         ItemKind::Import(..) => {}
     }

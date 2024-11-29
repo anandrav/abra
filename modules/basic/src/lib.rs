@@ -1,5 +1,3 @@
-extern crate abra_core;
-
 use std::ffi::{c_char, CString};
 
 use abra_core::{addons::*, vm::Vm};

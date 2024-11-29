@@ -172,6 +172,7 @@ pub enum Instr<Location = ProgramCounter, StringConstant = u16> {
     JumpIf(Location),
     Call(Location),
     CallFuncObj,
+    CallExtern,
     Return,
     Effect(u16),
 
@@ -196,6 +197,8 @@ pub enum Instr<Location = ProgramCounter, StringConstant = u16> {
     ConcatStrings,
     IntToString,
     FloatToString,
+
+    LoadLib,
 }
 
 impl<L: Display, S: Display> Display for Instr<L, S> {
@@ -228,6 +231,7 @@ impl<L: Display, S: Display> Display for Instr<L, S> {
             Instr::Jump(loc) => write!(f, "jump {}", loc),
             Instr::JumpIf(loc) => write!(f, "jump_if {}", loc),
             Instr::Call(loc) => write!(f, "call {}", loc),
+            Instr::CallExtern => write!(f, "call_extern"),
             Instr::CallFuncObj => write!(f, "call_func_obj"),
             Instr::Return => write!(f, "return"),
             Instr::Construct(n) => write!(f, "construct {}", n),
@@ -252,6 +256,8 @@ impl<L: Display, S: Display> Display for Instr<L, S> {
             Instr::IntToString => write!(f, "int_to_string"),
             Instr::FloatToString => write!(f, "float_to_string"),
             Instr::Effect(n) => write!(f, "effect {}", n),
+
+            Instr::LoadLib => write!(f, "load_lib"),
         }
     }
 }
@@ -591,6 +597,9 @@ impl Vm {
                 self.pc = target;
                 self.stack_base = self.value_stack.len();
             }
+            Instr::CallExtern => {
+                // TODO
+            }
             Instr::CallFuncObj => {
                 let func_obj = self.value_stack.pop().expect("stack underflow");
                 match &func_obj {
@@ -789,6 +798,10 @@ impl Vm {
             }
             Instr::Effect(eff) => {
                 self.pending_effect = Some(eff);
+            }
+            Instr::LoadLib => {
+                todo!()
+                // let lib = unsafe { Library::new(s.clone()) };
             }
         }
     }

@@ -1,5 +1,3 @@
-extern crate abra_core;
-
 use std::collections::HashMap;
 use std::ffi::CStr;
 use std::path::PathBuf;
@@ -52,7 +50,7 @@ fn main() {
     });
 
     for include_dir in &args.include_dirs {
-        add_src_files(include_dir.into(), &args.file, &mut source_files);
+        add_modules_toplevel(include_dir.into(), &args.file, &mut source_files);
     }
 
     let effects = CliEffects::enumerate();
@@ -141,26 +139,48 @@ fn main() {
     }
 }
 
-fn add_src_files(p: PathBuf, main_file: &str, source_files: &mut Vec<SourceFile>) {
-    let dir = std::fs::read_dir(&p).unwrap();
+fn add_modules_toplevel(include_dir: PathBuf, main_file: &str, source_files: &mut Vec<SourceFile>) {
+    let dir = std::fs::read_dir(&include_dir).unwrap();
     for entry in dir {
         let entry = entry.unwrap();
         let metadata = entry.metadata().unwrap();
         let name = entry.file_name();
         let name = name.to_str().unwrap();
-        if metadata.is_file() {
-            if name.ends_with(".abra") && name != main_file {
-                let contents = std::fs::read_to_string(entry.path()).unwrap();
-                source_files.push(SourceFile {
-                    name: name.to_string(),
-                    contents,
-                });
-            }
+        if metadata.is_file() && name.ends_with(".abra") && name != main_file {
+            // get the corresponding directory if it exists
+            let dir_name = &name[0..name.len() - ".abra".len()];
+            let dir_path = include_dir.join(dir_name);
+
+            let contents = std::fs::read_to_string(entry.path()).unwrap();
+            source_files.push(SourceFile {
+                name: name.to_string(),
+                contents,
+            });
         } else if metadata.is_dir() {
-            add_src_files(p.join(name), main_file, source_files);
+            // add_module_dir(include_dir.join(name), source_files);
         }
     }
 }
+
+// fn add_module_dir(include_dir: PathBuf, source_files: &mut Vec<SourceFile>) {
+//     let dir = std::fs::read_dir(&include_dir).unwrap();
+//     for entry in dir {
+//         let entry = entry.unwrap();
+//         let metadata = entry.metadata().unwrap();
+//         if !metadata.is_file() {
+//             continue;
+//         }
+//         let name = entry.file_name();
+//         let name = name.to_str().unwrap();
+//         if name == "Cargo.toml" {
+//             let contents = std::fs::read_to_string(entry.path()).unwrap();
+//             source_files.push(SourceFile {
+//                 name: name.to_string(),
+//                 contents,
+//             });
+//         }
+//     }
+// }
 
 #[derive(Debug, Clone, PartialEq, Eq, VariantArray, FromRepr)]
 pub enum CliEffects {

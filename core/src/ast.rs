@@ -240,7 +240,7 @@ impl Node for Item {
 
 #[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq, Hash)]
 pub(crate) enum ItemKind {
-    ExternFuncDecl(Rc<ExternFuncDecl>),
+    ExternFuncDecl(Rc<ForeignFuncDecl>),
     FuncDef(Rc<FuncDef>),
     TypeDef(Rc<TypeDefKind>),
     InterfaceDef(Rc<InterfaceDef>),
@@ -315,7 +315,7 @@ pub(crate) struct FuncDef {
 }
 
 #[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq, Hash)]
-pub(crate) struct ExternFuncDecl {
+pub(crate) struct ForeignFuncDecl {
     pub(crate) name: Identifier,
     pub(crate) args: Vec<ArgAnnotated>,
     pub(crate) ret_type: Rc<Type>,
