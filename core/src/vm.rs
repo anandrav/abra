@@ -22,9 +22,11 @@ pub struct Vm {
     heap_group: HeapGroup,
 
     string_table: Vec<String>,
-    libs: Vec<Library>,
-    foreign_functions: Vec<libloading::os::unix::Symbol<unsafe extern "C" fn(*mut Vm) -> ()>>,
     pending_effect: Option<u16>,
+
+    // FFI
+    libs: Vec<Library>,
+    foreign_functions: Vec<unsafe extern "C" fn(*mut Vm) -> ()>,
 }
 
 pub enum VmStatus {
@@ -827,7 +829,7 @@ impl Vm {
                 let lib = self.libs.last().unwrap();
                 let symbol: Result<libloading::Symbol<unsafe extern "C" fn(*mut Vm) -> ()>, _> =
                     unsafe { lib.get(symbol_name.as_bytes()) };
-                let symbol = unsafe { symbol.unwrap().into_raw() };
+                let symbol = *symbol.unwrap();
                 self.foreign_functions.push(symbol);
             }
         }
