@@ -2,39 +2,16 @@
 
 use crate::vm::Vm;
 
-// #[repr(C)]
-// pub struct AddonDesc {
-//     pub name: &'static str,
-//     pub funcs: Array<FuncDesc>,
-// }
+#[no_mangle]
+pub unsafe extern "C" fn vm_push_int(vm: *mut Vm, n: i64) {
+    let vm = unsafe { vm.as_mut().unwrap() };
+    vm.push_int(n);
+}
 
-// #[repr(C)]
-// pub struct FuncDesc {
-//     pub name: &'static str,
-//     // pub arg_types: Array<Type>,
-//     // pub ret_type: Type,
-//     pub func: fn(&mut Vm),
-// }
-
-// #[repr(C)]
-// pub enum Type {
-//     Unit,
-//     Int,
-//     Float,
-//     Bool,
-//     String,
-//     Function { args: Array<Type>, ret: *const Type },
-//     Tuple(Array<Type>),
-//     Nominal(Nominal, Array<Type>),
-// }
-
-// #[repr(C)]
-// pub struct Array<T> {
-//     pub ptr: *const T,
-//     pub len: usize,
-// }
-
-// #[repr(C)]
-// pub enum Nominal {
-//     Array,
-// }
+#[no_mangle]
+pub unsafe extern "C" fn vm_pop_int(vm: *mut Vm) -> i64 {
+    let vm = unsafe { vm.as_mut().unwrap() };
+    let top = vm.top().get_int();
+    vm.pop();
+    top
+}

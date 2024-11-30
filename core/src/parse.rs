@@ -17,7 +17,7 @@ pub(crate) fn parse_or_err(sources: &Vec<SourceFile>) -> Result<Vec<Rc<FileAst>>
     for sf in sources {
         let pairs = get_pairs(&sf.contents)?;
 
-        let file = parse_file(pairs, &sf);
+        let file = parse_file(pairs, sf);
         files.push(file);
     }
     Ok(files)

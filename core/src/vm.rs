@@ -23,7 +23,7 @@ pub struct Vm {
 
     string_table: Vec<String>,
     libs: Vec<Library>,
-    foreign_functions: Vec<libloading::os::unix::Symbol<unsafe extern "C" fn(i64, i64) -> ()>>,
+    foreign_functions: Vec<libloading::os::unix::Symbol<unsafe extern "C" fn(*mut Vm) -> ()>>,
     pending_effect: Option<u16>,
 }
 
@@ -609,10 +609,9 @@ impl Vm {
             }
             Instr::CallExtern(func_id) => {
                 unsafe {
-                    self.foreign_functions[func_id](2, 3);
+                    let vm_ptr = self as *mut Vm;
+                    self.foreign_functions[func_id](vm_ptr);
                 };
-                // lookup the function in the foreign function array.
-                // call the foreign function.
             }
             Instr::CallFuncObj => {
                 let func_obj = self.value_stack.pop().expect("stack underflow");
@@ -817,7 +816,6 @@ impl Vm {
                 // pop libname from stack
                 // load the library with a certain name and add it to the Vm's Vec of libs
                 let libname = self.pop_string();
-                println!("libname = {}", libname);
                 let lib = unsafe { Library::new(libname) };
                 let lib = lib.unwrap();
                 self.libs.push(lib);
@@ -827,7 +825,7 @@ impl Vm {
                 // load symbol from the last library loaded
                 let symbol_name = self.pop_string();
                 let lib = self.libs.last().unwrap();
-                let symbol: Result<libloading::Symbol<unsafe extern "C" fn(i64, i64) -> ()>, _> =
+                let symbol: Result<libloading::Symbol<unsafe extern "C" fn(*mut Vm) -> ()>, _> =
                     unsafe { lib.get(symbol_name.as_bytes()) };
                 let symbol = unsafe { symbol.unwrap().into_raw() };
                 self.foreign_functions.push(symbol);

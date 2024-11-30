@@ -1,0 +1,4 @@
+use basic
+
+let n = add(2, 3)
+println(n)

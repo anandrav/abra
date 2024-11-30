@@ -134,7 +134,6 @@ fn gather_declarations_item(
             // Cargo.toml -> name of .so/dylib/dll file
 
             let dirname = &path.to_str().unwrap()[..path.to_str().unwrap().len() - ".abra".len()];
-            println!("trying to open: {}", dirname);
             let dir = std::fs::read_dir(dirname).unwrap(); // TODO: remove unwrap
             let mut libname: Option<PathBuf> = None;
             for entry in dir {
