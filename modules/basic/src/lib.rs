@@ -35,6 +35,7 @@ pub extern "C" fn addon_description() -> () {
     // &desc
 }
 
-fn add(n1: i64, n2: i64) -> i64 {
-    n1 + n2
+#[no_mangle]
+pub extern "C" fn add(n1: i64, n2: i64) -> () {
+    println!("HELLO THIS IS THE ADD FUNCTION");
 }

@@ -162,6 +162,7 @@ fn instr_to_vminstr(
         Instr::Effect(n) => VmInstr::Effect(*n),
 
         Instr::LoadLib => VmInstr::LoadLib,
+        Instr::LoadForeignFunc => VmInstr::LoadForeignFunc,
     }
 }
 

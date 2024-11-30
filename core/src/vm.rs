@@ -2,6 +2,8 @@ type ProgramCounter = usize;
 pub type AbraInt = i64;
 pub type AbraFloat = f64;
 
+use libloading::Library;
+
 use crate::translate_bytecode::CompiledProgram;
 use core::fmt;
 use std::{
@@ -20,7 +22,8 @@ pub struct Vm {
     heap_group: HeapGroup,
 
     string_table: Vec<String>,
-    foreign_functions: Vec<Option<fn(&mut Vm) -> ()>>,
+    libs: Vec<Library>,
+    foreign_functions: Vec<libloading::os::unix::Symbol<unsafe extern "C" fn(i64, i64) -> ()>>,
     pending_effect: Option<u16>,
 }
 
@@ -43,6 +46,7 @@ impl Vm {
             heap_group: HeapGroup::One,
 
             string_table: program.string_table,
+            libs: Vec::new(),
             foreign_functions: Vec::new(),
             pending_effect: None,
         }
@@ -59,6 +63,7 @@ impl Vm {
             heap_group: HeapGroup::One,
 
             string_table: program.string_table,
+            libs: Vec::new(),
             foreign_functions: Vec::new(),
             pending_effect: None,
         }
@@ -202,6 +207,7 @@ pub enum Instr<Location = ProgramCounter, StringConstant = u16> {
     FloatToString,
 
     LoadLib,
+    LoadForeignFunc,
 }
 
 impl<L: Display, S: Display> Display for Instr<L, S> {
@@ -261,6 +267,7 @@ impl<L: Display, S: Display> Display for Instr<L, S> {
             Instr::Effect(n) => write!(f, "effect {}", n),
 
             Instr::LoadLib => write!(f, "load_lib"),
+            Instr::LoadForeignFunc => write!(f, "load_foreign_func"),
         }
     }
 }
@@ -601,7 +608,9 @@ impl Vm {
                 self.stack_base = self.value_stack.len();
             }
             Instr::CallExtern(func_id) => {
-                unimplemented!()
+                unsafe {
+                    self.foreign_functions[func_id](2, 3);
+                };
                 // lookup the function in the foreign function array.
                 // call the foreign function.
             }
@@ -805,8 +814,23 @@ impl Vm {
                 self.pending_effect = Some(eff);
             }
             Instr::LoadLib => {
-                todo!()
-                // let lib = unsafe { Library::new(s.clone()) };
+                // pop libname from stack
+                // load the library with a certain name and add it to the Vm's Vec of libs
+                let libname = self.pop_string();
+                println!("libname = {}", libname);
+                let lib = unsafe { Library::new(libname) };
+                let lib = lib.unwrap();
+                self.libs.push(lib);
+            }
+            Instr::LoadForeignFunc => {
+                // pop foreign func name from stack
+                // load symbol from the last library loaded
+                let symbol_name = self.pop_string();
+                let lib = self.libs.last().unwrap();
+                let symbol: Result<libloading::Symbol<unsafe extern "C" fn(i64, i64) -> ()>, _> =
+                    unsafe { lib.get(symbol_name.as_bytes()) };
+                let symbol = unsafe { symbol.unwrap().into_raw() };
+                self.foreign_functions.push(symbol);
             }
         }
     }
@@ -929,6 +953,13 @@ impl Vm {
 
     fn pop_bool(&mut self) -> bool {
         self.value_stack.pop().expect("stack underflow").get_bool()
+    }
+
+    fn pop_string(&mut self) -> String {
+        self.value_stack
+            .pop()
+            .expect("stack underflow")
+            .get_string(self)
     }
 }
 

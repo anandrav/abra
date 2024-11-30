@@ -76,9 +76,15 @@ impl Declaration {
             Declaration::FreeFunction(f, qname) => {
                 BytecodeResolution::FreeFunction(f.clone(), qname.clone())
             }
-            Declaration::ForeignFunction(f, qname) => {
-                BytecodeResolution::ForeignFunction(f.clone(), qname.clone())
-            }
+            Declaration::ForeignFunction {
+                decl,
+                libname,
+                symbol,
+            } => BytecodeResolution::ForeignFunction {
+                decl: decl.clone(),
+                libname: libname.clone(),
+                symbol: symbol.clone(),
+            },
             Declaration::InterfaceDef(_) => panic!(), // TODO: remove panic
             Declaration::InterfaceMethod {
                 iface_def,
@@ -133,7 +139,11 @@ impl Declaration {
 pub(crate) enum BytecodeResolution {
     Var(NodeId),
     FreeFunction(Rc<FuncDef>, String),
-    ForeignFunction(Rc<ForeignFuncDecl>, usize),
+    ForeignFunction {
+        decl: Rc<ForeignFuncDecl>,
+        libname: PathBuf,
+        symbol: String,
+    },
     InterfaceMethod {
         iface_def: Rc<InterfaceDef>,
         method: u16,
@@ -167,6 +177,16 @@ impl Translator {
         let st = &mut translator_state;
 
         let monomorph_env = MonomorphEnv::empty();
+
+        // Initialization routine before main function (load shared libraries)
+        for (l, symbols) in &self.statics.dylib_to_funcs {
+            emit(st, Instr::PushString(l.to_str().unwrap().to_string()));
+            emit(st, Instr::LoadLib);
+            for s in symbols {
+                emit(st, Instr::PushString(s.to_string()));
+                emit(st, Instr::LoadForeignFunc);
+            }
+        }
 
         // Handle the main function (files)
         {
@@ -367,7 +387,7 @@ impl Translator {
                             },
                         );
                     }
-                    BytecodeResolution::ForeignFunction(_, name) => {
+                    BytecodeResolution::ForeignFunction { .. } => {
                         unimplemented!()
                     }
                     BytecodeResolution::InterfaceMethod { .. } => {
@@ -479,7 +499,26 @@ impl Translator {
                                 self.handle_overloaded_func(st, substituted_ty, &name, f.clone());
                             }
                         }
-                        BytecodeResolution::ForeignFunction(f, func_id) => {
+                        BytecodeResolution::ForeignFunction {
+                            decl,
+                            libname,
+                            symbol,
+                        } => {
+                            // TODO: The ids should really be "baked" ahead of time.
+                            let mut func_id = 0;
+                            let mut found = false;
+                            for (l, symbols) in &self.statics.dylib_to_funcs {
+                                for s in symbols {
+                                    if *l != libname && *s != symbol {
+                                        func_id += 1;
+                                    } else {
+                                        found = true;
+                                        break;
+                                    }
+                                }
+                            }
+
+                            assert!(found);
                             emit(st, Instr::CallExtern(func_id));
                             // by this point we should know the name of the .so file that this external function should be located in
 

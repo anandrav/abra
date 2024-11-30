@@ -5,7 +5,7 @@ use crate::ast::{
 use crate::builtin::Builtin;
 use crate::effects::EffectDesc;
 use resolve::{resolve, scan_declarations};
-use std::collections::{BTreeMap, BTreeSet, HashMap};
+use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 use std::fmt::{self, Display, Formatter};
 use std::path::PathBuf;
 use std::rc::Rc;
@@ -37,14 +37,14 @@ pub(crate) struct StaticsContext {
 
     // BOOKKEEPING
 
-    // map from interface name to list of implementations
+    // map from interface name to list of its implementations
     pub(crate) interface_impls: BTreeMap<Rc<InterfaceDef>, Vec<Rc<InterfaceImpl>>>,
+
     // string constants (for bytecode translation)
     pub(crate) string_constants: HashMap<String, usize>,
     // dylibs (for bytecode translation)
-    pub(crate) dylib_name_to_id: HashMap<PathBuf, usize>,
-    // pub(crate) dylibs: Vec<PathBuf>,
-    pub(crate) dylib_id_and_funcname_to_id: HashMap<(usize, String), usize>,
+    // pub(crate) dylibs: BTreeSet<PathBuf>,
+    pub(crate) dylib_to_funcs: BTreeMap<PathBuf, BTreeSet<String>>,
 
     // TYPE CHECKING
 
@@ -116,7 +116,11 @@ impl Display for Namespace {
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub(crate) enum Declaration {
     FreeFunction(Rc<FuncDef>, String),
-    ForeignFunction(Rc<ForeignFuncDecl>, usize),
+    ForeignFunction {
+        decl: Rc<ForeignFuncDecl>,
+        libname: PathBuf,
+        symbol: String,
+    },
     InterfaceDef(Rc<InterfaceDef>),
     InterfaceMethod {
         iface_def: Rc<InterfaceDef>,

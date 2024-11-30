@@ -150,38 +150,32 @@ fn gather_declarations_item(
                 }
             }
 
+            // add lib to statics ctx
             let libname = libname.unwrap();
-            let lib_id = {
-                let lookup = ctx.dylib_name_to_id.get(&libname);
-                match lookup {
-                    Some(id) => *id,
-                    None => {
-                        let new_id = ctx.dylib_name_to_id.len();
-                        // ctx.dylibs.push(libname.clone());
-                        ctx.dylib_name_to_id.insert(libname, new_id);
-                        new_id
-                    }
-                }
-            };
 
-            let func_id = {
-                let lookup = ctx
-                    .dylib_id_and_funcname_to_id
-                    .get(&(lib_id, f.name.v.clone()));
-                match lookup {
-                    Some(id) => *id,
-                    None => {
-                        let new_id = ctx.dylib_id_and_funcname_to_id.len();
-                        ctx.dylib_id_and_funcname_to_id
-                            .insert((lib_id, f.name.v.clone()), new_id);
-                        new_id
-                    }
-                }
-            };
+            // add libname to string constants
+            let len = ctx.string_constants.len();
+            ctx.string_constants
+                .entry(libname.to_str().unwrap().to_string())
+                .or_insert(len);
 
-            namespace
-                .declarations
-                .insert(func_name, Declaration::ForeignFunction(f.clone(), func_id));
+            let symbol = f.name.v.clone();
+            // add symbol to string constants
+            let len = ctx.string_constants.len();
+            ctx.string_constants.entry(symbol.clone()).or_insert(len);
+
+            // add symbol to statics ctx
+            let funcs = ctx.dylib_to_funcs.entry(libname.clone()).or_default();
+            funcs.insert(symbol.clone());
+
+            namespace.declarations.insert(
+                func_name,
+                Declaration::ForeignFunction {
+                    decl: f.clone(),
+                    libname,
+                    symbol,
+                },
+            );
         }
         ItemKind::Import(..) => {}
     }
