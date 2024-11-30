@@ -2,6 +2,7 @@ type ProgramCounter = usize;
 pub type AbraInt = i64;
 pub type AbraFloat = f64;
 
+#[cfg(feature = "ffi")]
 use libloading::Library;
 
 use crate::translate_bytecode::CompiledProgram;
@@ -25,7 +26,9 @@ pub struct Vm {
     pending_effect: Option<u16>,
 
     // FFI
+    #[cfg(feature = "ffi")]
     libs: Vec<Library>,
+    #[cfg(feature = "ffi")]
     foreign_functions: Vec<unsafe extern "C" fn(*mut Vm) -> ()>,
 }
 
@@ -48,7 +51,9 @@ impl Vm {
             heap_group: HeapGroup::One,
 
             string_table: program.string_table,
+            #[cfg(feature = "ffi")]
             libs: Vec::new(),
+            #[cfg(feature = "ffi")]
             foreign_functions: Vec::new(),
             pending_effect: None,
         }
@@ -65,7 +70,9 @@ impl Vm {
             heap_group: HeapGroup::One,
 
             string_table: program.string_table,
+            #[cfg(feature = "ffi")]
             libs: Vec::new(),
+            #[cfg(feature = "ffi")]
             foreign_functions: Vec::new(),
             pending_effect: None,
         }
@@ -609,12 +616,6 @@ impl Vm {
                 self.pc = target;
                 self.stack_base = self.value_stack.len();
             }
-            Instr::CallExtern(func_id) => {
-                unsafe {
-                    let vm_ptr = self as *mut Vm;
-                    self.foreign_functions[func_id](vm_ptr);
-                };
-            }
             Instr::CallFuncObj => {
                 let func_obj = self.value_stack.pop().expect("stack underflow");
                 match &func_obj {
@@ -815,22 +816,49 @@ impl Vm {
                 self.pending_effect = Some(eff);
             }
             Instr::LoadLib => {
-                // pop libname from stack
-                // load the library with a certain name and add it to the Vm's Vec of libs
-                let libname = self.pop_string();
-                let lib = unsafe { Library::new(libname) };
-                let lib = lib.unwrap();
-                self.libs.push(lib);
+                if cfg!(not(feature = "ffi")) {
+                    panic!("ffi is not enabled.")
+                }
+
+                #[cfg(feature = "ffi")]
+                {
+                    // pop libname from stack
+                    // load the library with a certain name and add it to the Vm's Vec of libs
+                    let libname = self.pop_string();
+                    let lib = unsafe { Library::new(libname) };
+                    let lib = lib.unwrap();
+                    self.libs.push(lib);
+                }
             }
             Instr::LoadForeignFunc => {
-                // pop foreign func name from stack
-                // load symbol from the last library loaded
-                let symbol_name = self.pop_string();
-                let lib = self.libs.last().unwrap();
-                let symbol: Result<libloading::Symbol<unsafe extern "C" fn(*mut Vm) -> ()>, _> =
-                    unsafe { lib.get(symbol_name.as_bytes()) };
-                let symbol = *symbol.unwrap();
-                self.foreign_functions.push(symbol);
+                if cfg!(not(feature = "ffi")) {
+                    panic!("ffi is not enabled.")
+                }
+
+                #[cfg(feature = "ffi")]
+                {
+                    // pop foreign func name from stack
+                    // load symbol from the last library loaded
+                    let symbol_name = self.pop_string();
+                    let lib = self.libs.last().unwrap();
+                    let symbol: Result<libloading::Symbol<unsafe extern "C" fn(*mut Vm) -> ()>, _> =
+                        unsafe { lib.get(symbol_name.as_bytes()) };
+                    let symbol = *symbol.unwrap();
+                    self.foreign_functions.push(symbol);
+                }
+            }
+            Instr::CallExtern(_func_id) => {
+                if cfg!(not(feature = "ffi")) {
+                    panic!("ffi is not enabled.")
+                }
+
+                #[cfg(feature = "ffi")]
+                {
+                    unsafe {
+                        let vm_ptr = self as *mut Vm;
+                        self.foreign_functions[_func_id](vm_ptr);
+                    };
+                }
             }
         }
     }
