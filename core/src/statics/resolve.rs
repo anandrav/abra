@@ -1,5 +1,7 @@
+use serde_derive::Deserialize;
 use std::cell::RefCell;
 use std::collections::BTreeMap;
+use std::path::{Path, PathBuf};
 use std::rc::Rc;
 
 use crate::ast::{
@@ -13,19 +15,25 @@ use super::{Declaration, Namespace, StaticsContext};
 pub(crate) fn scan_declarations(ctx: &mut StaticsContext, files: Vec<Rc<FileAst>>) {
     for file in files {
         let name = file.name.clone();
-        let namespace = gather_declarations_file(file.clone());
+        let namespace = gather_declarations_file(ctx, file.clone());
         ctx.global_namespace
             .namespaces
             .insert(name, namespace.into());
     }
 }
 
-fn gather_declarations_file(file: Rc<FileAst>) -> Namespace {
+fn gather_declarations_file(ctx: &mut StaticsContext, file: Rc<FileAst>) -> Namespace {
     let mut namespace = Namespace::default();
 
     let qualifiers = vec![file.name.clone()];
     for item in file.items.iter() {
-        gather_declarations_item(&mut namespace, qualifiers.clone(), item.clone());
+        gather_declarations_item(
+            ctx,
+            &mut namespace,
+            qualifiers.clone(),
+            &file.path,
+            item.clone(),
+        );
     }
 
     namespace
@@ -44,7 +52,13 @@ fn fullname(qualifiers: &[String], unqualified_name: &str) -> String {
     fullname
 }
 
-fn gather_declarations_item(namespace: &mut Namespace, qualifiers: Vec<String>, stmt: Rc<Item>) {
+fn gather_declarations_item(
+    ctx: &mut StaticsContext,
+    namespace: &mut Namespace,
+    qualifiers: Vec<String>,
+    path: &Path,
+    stmt: Rc<Item>,
+) {
     match &*stmt.kind {
         ItemKind::Stmt(..) => {}
         ItemKind::InterfaceDef(iface) => {
@@ -119,13 +133,81 @@ fn gather_declarations_item(namespace: &mut Namespace, qualifiers: Vec<String>, 
             // child directory -> Cargo.toml
             // Cargo.toml -> name of .so/dylib/dll file
 
-            let lib_name = "libname_goes_here".to_string();
+            let dirname = &path.to_str().unwrap()[..path.to_str().unwrap().len() - ".abra".len()];
+            println!("trying to open: {}", dirname);
+            let dir = std::fs::read_dir(dirname).unwrap(); // TODO: remove unwrap
+            let mut libname: Option<PathBuf> = None;
+            for entry in dir {
+                let entry = entry.unwrap();
+                if entry.file_name() == "Cargo.toml" {
+                    let content = std::fs::read_to_string(entry.path()).unwrap(); // TODO: remove unwrap
+                    let cargo_toml: CargoToml = toml::from_str(&content).unwrap(); // TODO: remove unwrap
+                    let mut filename = "lib".to_string();
+                    filename.push_str(&cargo_toml.package.name);
+                    filename.push_str(".dylib");
+                    libname = Some(Path::new(&dirname).join("target/release/").join(filename));
+                    // dbg!(&libname);
+                }
+            }
+
+            let libname = libname.unwrap();
+            let lib_id = {
+                let lookup = ctx.dylib_name_to_id.get(&libname);
+                match lookup {
+                    Some(id) => *id,
+                    None => {
+                        let new_id = ctx.dylib_name_to_id.len();
+                        // ctx.dylibs.push(libname.clone());
+                        ctx.dylib_name_to_id.insert(libname, new_id);
+                        new_id
+                    }
+                }
+            };
+
+            let func_id = {
+                let lookup = ctx
+                    .dylib_id_and_funcname_to_id
+                    .get(&(lib_id, f.name.v.clone()));
+                match lookup {
+                    Some(id) => *id,
+                    None => {
+                        let new_id = ctx.dylib_id_and_funcname_to_id.len();
+                        ctx.dylib_id_and_funcname_to_id
+                            .insert((lib_id, f.name.v.clone()), new_id);
+                        new_id
+                    }
+                }
+            };
+
             namespace
                 .declarations
-                .insert(func_name, Declaration::ForeignFunction(f.clone(), lib_name));
+                .insert(func_name, Declaration::ForeignFunction(f.clone(), func_id));
         }
         ItemKind::Import(..) => {}
     }
+}
+
+#[derive(serde::Deserialize)]
+struct Package {
+    name: String,
+}
+
+#[derive(serde::Deserialize)]
+struct CargoToml {
+    package: Package,
+}
+
+fn get_name() -> Result<(), Box<dyn std::error::Error>> {
+    // Read the `Cargo.toml` file
+    let content = std::fs::read_to_string("Cargo.toml")?;
+
+    // Parse the file
+    let cargo_toml: CargoToml = toml::from_str(&content)?;
+
+    // Extract the crate name
+    println!("Crate name: {}", cargo_toml.package.name);
+
+    Ok(())
 }
 
 // Map identifiers to (1) declarations and (2) namespaces

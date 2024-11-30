@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 use std::fmt::Display;
+use std::path::PathBuf;
 use std::rc::Rc;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
@@ -37,6 +38,7 @@ pub(crate) type PatAnnotated = (Rc<Pat>, Option<Rc<Type>>);
 pub(crate) struct FileAst {
     pub(crate) items: Vec<Rc<Item>>,
     pub(crate) name: String,
+    pub(crate) path: PathBuf,
 
     pub(crate) span: Span,
     pub(crate) id: NodeId,

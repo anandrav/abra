@@ -16,6 +16,7 @@ use crate::{
 };
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::mem;
+use std::path::PathBuf;
 use std::rc::Rc;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
@@ -76,7 +77,7 @@ impl Declaration {
                 BytecodeResolution::FreeFunction(f.clone(), qname.clone())
             }
             Declaration::ForeignFunction(f, qname) => {
-                BytecodeResolution::ExternalFunction(f.clone(), qname.clone())
+                BytecodeResolution::ForeignFunction(f.clone(), qname.clone())
             }
             Declaration::InterfaceDef(_) => panic!(), // TODO: remove panic
             Declaration::InterfaceMethod {
@@ -132,7 +133,7 @@ impl Declaration {
 pub(crate) enum BytecodeResolution {
     Var(NodeId),
     FreeFunction(Rc<FuncDef>, String),
-    ExternalFunction(Rc<ForeignFuncDecl>, String),
+    ForeignFunction(Rc<ForeignFuncDecl>, usize),
     InterfaceMethod {
         iface_def: Rc<InterfaceDef>,
         method: u16,
@@ -366,7 +367,7 @@ impl Translator {
                             },
                         );
                     }
-                    BytecodeResolution::ExternalFunction(_, name) => {
+                    BytecodeResolution::ForeignFunction(_, name) => {
                         unimplemented!()
                     }
                     BytecodeResolution::InterfaceMethod { .. } => {
@@ -478,8 +479,8 @@ impl Translator {
                                 self.handle_overloaded_func(st, substituted_ty, &name, f.clone());
                             }
                         }
-                        BytecodeResolution::ExternalFunction(f, name) => {
-                            todo!()
+                        BytecodeResolution::ForeignFunction(f, func_id) => {
+                            emit(st, Instr::CallExtern(func_id));
                             // by this point we should know the name of the .so file that this external function should be located in
 
                             // then, calling an external function just means

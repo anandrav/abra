@@ -20,6 +20,7 @@ pub struct Vm {
     heap_group: HeapGroup,
 
     string_table: Vec<String>,
+    foreign_functions: Vec<Option<fn(&mut Vm) -> ()>>,
     pending_effect: Option<u16>,
 }
 
@@ -42,6 +43,7 @@ impl Vm {
             heap_group: HeapGroup::One,
 
             string_table: program.string_table,
+            foreign_functions: Vec::new(),
             pending_effect: None,
         }
     }
@@ -57,6 +59,7 @@ impl Vm {
             heap_group: HeapGroup::One,
 
             string_table: program.string_table,
+            foreign_functions: Vec::new(),
             pending_effect: None,
         }
     }
@@ -172,7 +175,7 @@ pub enum Instr<Location = ProgramCounter, StringConstant = u16> {
     JumpIf(Location),
     Call(Location),
     CallFuncObj,
-    CallExtern,
+    CallExtern(usize),
     Return,
     Effect(u16),
 
@@ -231,7 +234,7 @@ impl<L: Display, S: Display> Display for Instr<L, S> {
             Instr::Jump(loc) => write!(f, "jump {}", loc),
             Instr::JumpIf(loc) => write!(f, "jump_if {}", loc),
             Instr::Call(loc) => write!(f, "call {}", loc),
-            Instr::CallExtern => write!(f, "call_extern"),
+            Instr::CallExtern(func_id) => write!(f, "call_extern {}", func_id),
             Instr::CallFuncObj => write!(f, "call_func_obj"),
             Instr::Return => write!(f, "return"),
             Instr::Construct(n) => write!(f, "construct {}", n),
@@ -597,8 +600,10 @@ impl Vm {
                 self.pc = target;
                 self.stack_base = self.value_stack.len();
             }
-            Instr::CallExtern => {
-                // TODO
+            Instr::CallExtern(func_id) => {
+                unimplemented!()
+                // lookup the function in the foreign function array.
+                // call the foreign function.
             }
             Instr::CallFuncObj => {
                 let func_obj = self.value_stack.pop().expect("stack underflow");

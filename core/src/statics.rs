@@ -7,6 +7,7 @@ use crate::effects::EffectDesc;
 use resolve::{resolve, scan_declarations};
 use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::fmt::{self, Display, Formatter};
+use std::path::PathBuf;
 use std::rc::Rc;
 use typecheck::{generate_constraints_file, result_of_constraint_solving, SolvedType, TypeVar};
 
@@ -40,6 +41,10 @@ pub(crate) struct StaticsContext {
     pub(crate) interface_impls: BTreeMap<Rc<InterfaceDef>, Vec<Rc<InterfaceImpl>>>,
     // string constants (for bytecode translation)
     pub(crate) string_constants: HashMap<String, usize>,
+    // dylibs (for bytecode translation)
+    pub(crate) dylib_name_to_id: HashMap<PathBuf, usize>,
+    // pub(crate) dylibs: Vec<PathBuf>,
+    pub(crate) dylib_id_and_funcname_to_id: HashMap<(usize, String), usize>,
 
     // TYPE CHECKING
 
@@ -111,7 +116,7 @@ impl Display for Namespace {
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub(crate) enum Declaration {
     FreeFunction(Rc<FuncDef>, String),
-    ForeignFunction(Rc<ForeignFuncDecl>, String),
+    ForeignFunction(Rc<ForeignFuncDecl>, usize),
     InterfaceDef(Rc<InterfaceDef>),
     InterfaceMethod {
         iface_def: Rc<InterfaceDef>,

@@ -905,14 +905,17 @@ foo(2, 2)
     let sources = vec![
         SourceFile {
             name: "prelude.abra".to_owned(),
+            path: "prelude.abra".into(),
             contents: _PRELUDE.to_owned(),
         },
         SourceFile {
             name: "util.abra".to_owned(),
+            path: "util.abra".into(),
             contents: util.to_owned(),
         },
         SourceFile {
             name: "main.abra".to_owned(),
+            path: "main.abra".into(),
             contents: main.to_owned(),
         },
     ];

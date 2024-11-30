@@ -40,12 +40,14 @@ fn main() {
     let mut source_files = Vec::new();
     source_files.push(SourceFile {
         name: "prelude.abra".to_string(),
+        path: "prelude.abra".into(), // TODO: does path really make sense in this context? Should path be optional?
         contents: abra_core::prelude::_PRELUDE.to_string(),
     });
 
     let contents = std::fs::read_to_string(&args.file).unwrap();
     source_files.push(SourceFile {
         name: args.file.clone(),
+        path: args.file.clone().into(),
         contents,
     });
 
@@ -154,6 +156,7 @@ fn add_modules_toplevel(include_dir: PathBuf, main_file: &str, source_files: &mu
             let contents = std::fs::read_to_string(entry.path()).unwrap();
             source_files.push(SourceFile {
                 name: name.to_string(),
+                path: include_dir.join(name),
                 contents,
             });
         } else if metadata.is_dir() {

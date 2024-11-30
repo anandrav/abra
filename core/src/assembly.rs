@@ -136,7 +136,7 @@ fn instr_to_vminstr(
                 .get(label)
                 .unwrap_or_else(|| panic!("Could not find label: {}", label)),
         ),
-        Instr::CallExtern => VmInstr::CallExtern,
+        Instr::CallExtern(func_id) => VmInstr::CallExtern(*func_id),
         Instr::CallFuncObj => VmInstr::CallFuncObj,
         Instr::Return => VmInstr::Return,
         Instr::Construct(n) => VmInstr::Construct(*n),

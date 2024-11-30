@@ -17,30 +17,31 @@ pub(crate) fn parse_or_err(sources: &Vec<SourceFile>) -> Result<Vec<Rc<FileAst>>
     for sf in sources {
         let pairs = get_pairs(&sf.contents)?;
 
-        let file = parse_file(pairs, &sf.name);
+        let file = parse_file(pairs, &sf);
         files.push(file);
     }
     Ok(files)
 }
 
-pub(crate) fn parse_file(pairs: Pairs<Rule>, filename: &str) -> Rc<FileAst> {
+pub(crate) fn parse_file(pairs: Pairs<Rule>, sf: &SourceFile) -> Rc<FileAst> {
     let mut items = Vec::new();
     let pairs: Vec<_> = pairs.into_iter().collect();
     for pair in &pairs {
         if pair.as_rule() == Rule::EOI {
             break;
         }
-        let stmt = parse_item(pair.clone(), filename);
+        let stmt = parse_item(pair.clone(), &sf.name);
         items.push(stmt)
     }
-    let span1: Span = Span::new(filename, pairs.first().unwrap().as_span());
-    let span2: Span = Span::new(filename, pairs.last().unwrap().as_span());
+    let span1: Span = Span::new(&sf.name, pairs.first().unwrap().as_span());
+    let span2: Span = Span::new(&sf.name, pairs.last().unwrap().as_span());
     Rc::new(FileAst {
         items,
         // remove the .abra suffix from filename
-        name: filename.to_string()[..filename.len() - 5].to_string(),
+        name: sf.name.to_string()[..&sf.name.len() - 5].to_string(),
+        path: sf.path.clone(),
         span: Span {
-            filename: filename.to_string(),
+            filename: sf.name.to_string(),
             lo: span1.lo,
             hi: span2.hi,
         },

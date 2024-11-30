@@ -1,3 +1,4 @@
+use std::path::PathBuf;
 use std::{collections::HashMap, rc::Rc};
 
 pub use effects::EffectCode;
@@ -25,6 +26,7 @@ pub fn abra_hello_world() {
 
 pub struct SourceFile {
     pub name: String,
+    pub path: PathBuf,
     pub contents: String,
 }
 
@@ -32,10 +34,12 @@ pub fn source_files_single(src: &str) -> Vec<SourceFile> {
     vec![
         SourceFile {
             name: "prelude.abra".to_owned(),
+            path: "prelude.abra".into(),
             contents: _PRELUDE.to_owned(),
         },
         SourceFile {
             name: "test.abra".to_owned(),
+            path: "test.abra".into(),
             contents: src.to_owned(),
         },
     ]
