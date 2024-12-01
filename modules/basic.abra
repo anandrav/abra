@@ -3,6 +3,4 @@ foreign fn add(n1: int, n2: int) -> int
 
 // foreign type file
 
-// foreign fn fopen(path: string) -> file
-
 foreign fn fread(path: string) -> string

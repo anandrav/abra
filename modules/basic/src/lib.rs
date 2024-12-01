@@ -87,6 +87,5 @@ pub unsafe extern "C" fn fread(vm: *mut Vm) {
     f.read_to_string(&mut buf).unwrap();
 
     let string_view = StringView::from_string(&buf);
-
     vm_push_string(vm, string_view);
 }

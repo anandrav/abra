@@ -1,9 +1,5 @@
 use basic
 
-// let n = add(2, 3)
-// println(n)
-
 let path = "README.md"
 let contents = fread(path)
-
 print(contents)

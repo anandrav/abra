@@ -23,7 +23,7 @@ struct Args {
         value_name = "DIRECTORY",
         help = "Path to the directory containing Abra dependencies"
     )]
-    include_dirs: Vec<String>,
+    modules: Option<String>,
 }
 
 fn main() {
@@ -43,9 +43,15 @@ fn main() {
         contents,
     });
 
-    for include_dir in &args.include_dirs {
-        add_modules_toplevel(include_dir.into(), &args.file, &mut source_files);
-    }
+    let modules: PathBuf = match args.modules {
+        Some(modules) => modules.into(),
+        None => {
+            let home_dir = home::home_dir()
+                .expect("Could not determine home directory when looking for ~/.abra/modules");
+            home_dir.join(".abra/modules")
+        }
+    };
+    add_modules_toplevel(modules, &args.file, &mut source_files);
 
     let effects = CliEffects::enumerate();
 

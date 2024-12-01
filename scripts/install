@@ -4,7 +4,23 @@ set -euo pipefail
 git submodule update --init --recursive
 
 # Install Abra cli to Cargo bin
-cargo install --bin abra --path cli
+RUSTFLAGS="-Awarnings"
+RUSTFLAGS="-Awarnings" cargo install --bin abra --path cli
+
+
+# Build native Abra modules
+for dir in modules/*; do
+  if [ -d "$dir" ] && [ -f "$dir/Cargo.toml" ]; then
+    echo "Building Rust project in $dir..."
+    pushd "$dir"
+    RUSTFLAGS="-Awarnings" cargo build --release --quiet
+    popd
+  fi
+done
+# Install Abra modules
+mkdir -p ~/.abra
+rm -rf ~/.abra/modules
+cp -R modules ~/.abra/modules
 
 # Install Vim syntax highlighting if ~/.vim exists
 VIM_DIR="$HOME/.vim"
@@ -17,8 +33,6 @@ if [ -d "$VIM_DIR" ]; then
   cp ./tooling/vim/syntax.vim $VIM_DIR/syntax/abra.vim
   cp ./tooling/vim/ftdetect.vim $VIM_DIR/ftdetect/abra.vim
 fi
-
-#!/bin/bash
 
 install_abra_vscode_extension() {
     # Check if `code` (VS Code) is installed
