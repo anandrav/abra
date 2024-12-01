@@ -147,7 +147,8 @@ fn gather_declarations_item(
                     let cargo_toml: CargoToml = toml::from_str(&content).unwrap(); // TODO: remove unwrap
                     let mut filename = "lib".to_string();
                     filename.push_str(&cargo_toml.package.name);
-                    filename.push_str(".dylib");
+                    filename.push('.');
+                    filename.push_str(std::env::consts::DLL_EXTENSION);
                     libname = Some(Path::new(&dirname).join("target/release/").join(filename));
                     // dbg!(&libname);
                 }
