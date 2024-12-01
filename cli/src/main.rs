@@ -21,7 +21,7 @@ struct Args {
         short,
         long,
         value_name = "DIRECTORY",
-        help = "Path to the directory containing Abra dependencies"
+        help = "Override the default module directory (~/.abra/modules)."
     )]
     modules: Option<String>,
 }
