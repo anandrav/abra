@@ -1,65 +1,103 @@
 #!/bin/sh
 set -euo pipefail
 
+# Set global RUSTFLAGS to suppress warnings
+export RUSTFLAGS="-Awarnings"
+
+printf "Initializing Git submodules... "
 git submodule update --init --recursive
+printf "Done\n"
 
-# Install Abra cli to Cargo bin
-RUSTFLAGS="-Awarnings"
-RUSTFLAGS="-Awarnings" cargo install --bin abra --path cli
+printf "Installing Abra CLI to Cargo bin... "
+cargo install --bin abra --path cli --quiet || {
+  printf "Failed!\n"
+  echo "Failed to install Abra CLI. Please check your Rust installation." >&2
+  exit 1
+}
+printf "Done\n"
 
-
-# Build native Abra modules
+printf "Building native Abra modules...\n"
 for dir in modules/*; do
   if [ -d "$dir" ] && [ -f "$dir/Cargo.toml" ]; then
-    echo "Building Rust project in $dir..."
-    pushd "$dir"
-    RUSTFLAGS="-Awarnings" cargo build --release --quiet
-    popd
+    printf "  - building $dir ... "
+    pushd "$dir" > /dev/null
+    if cargo build --release --quiet; then
+      printf "Done\n"
+    else
+      printf "Failed!\n"
+      echo "Build failed in $dir. Please check the project for errors." >&2
+      exit 1
+    fi
+    popd > /dev/null
   fi
 done
-# Install Abra modules
-mkdir -p ~/.abra
-rm -rf ~/.abra/modules
-cp -R modules ~/.abra/modules
 
-# Install Vim syntax highlighting if ~/.vim exists
+printf "Installing Abra modules... "
+mkdir -p "$HOME/.abra"
+rm -rf "$HOME/.abra/modules"
+cp -R modules "$HOME/.abra/modules"
+printf "Done\n"
+
 VIM_DIR="$HOME/.vim"
-TARGET_DIR="$VIM_DIR/syntax"
-SOURCE_FILE="./tooling/abra.vim"
-TARGET_FILE="$TARGET_DIR/abra.vim"
 if [ -d "$VIM_DIR" ]; then
-  mkdir -p $VIM_DIR/syntax
-  mkdir -p $VIM_DIR/ftdetect
-  cp ./tooling/vim/syntax.vim $VIM_DIR/syntax/abra.vim
-  cp ./tooling/vim/ftdetect.vim $VIM_DIR/ftdetect/abra.vim
+  printf "Installing Vim syntax highlighting... "
+  mkdir -p "$VIM_DIR/syntax"
+  mkdir -p "$VIM_DIR/ftdetect"
+  cp ./tooling/vim/syntax.vim "$VIM_DIR/syntax/abra.vim"
+  cp ./tooling/vim/ftdetect.vim "$VIM_DIR/ftdetect/abra.vim"
+  printf "Done\n"
+else
+  echo "Vim configuration directory not found. Skipping Vim syntax highlighting installation."
 fi
 
 install_abra_vscode_extension() {
-    # Check if `code` (VS Code) is installed
-    if ! command -v code &> /dev/null; then
-        echo "'code' command not found. Skipping VS Code Abra extension installation."
-        return 0
-    fi
+  if ! command -v code &> /dev/null; then
+    echo "VS Code ('code' command) not found. Skipping Abra VS Code extension installation."
+    return
+  fi
 
-    echo "Installing VS Code extension 'undefined_publisher.abra'..."
+  printf "Installing Abra VS Code extension...\n"
 
-    # Install the vsce package globally if not already installed
-    if ! command -v vsce &> /dev/null; then
-        npm install -g @vscode/vsce
-    fi
+  if ! command -v npm &> /dev/null; then
+    echo "'npm' not found. Please install Node.js and npm to proceed." >&2
+    return 1
+  fi
 
-    # Clone the repository and package the extension
-    pushd tooling/vscode
-    vsce package --allow-missing-repository
+  if ! command -v vsce &> /dev/null; then
+    printf "  - Installing 'vsce' tool... "
+    npm install -g @vscode/vsce --quiet || {
+      printf "Failed!\n"
+      echo "Failed to install 'vsce'. Please check your npm setup." >&2
+      return 1
+    }
+    printf "Done\n"
+  fi
 
-    # Install the packaged extension
-    code --install-extension abra-0.0.1.vsix
+  pushd tooling/vscode > /dev/null
+  printf "  - Packaging VS Code extension... "
+  if vsce package --allow-missing-repository > /dev/null 2>&1; then
+    printf "Done\n"
+  else
+    printf "Failed!\n"
+    echo "Failed to package the VS Code extension. Please check the 'vsce' setup." >&2
+    popd > /dev/null
+    return 1
+  fi
 
-    # Clean up
-    popd
-    rm -rf abra-syntax
+  printf "  - Installing extension... "
+  if code --install-extension abra-0.0.1.vsix --force > /dev/null 2>&1; then
+    printf "Done\n"
+  else
+    printf "Failed!\n"
+    echo "Failed to install the Abra VS Code extension. Please check VS Code permissions." >&2
+    popd > /dev/null
+    return 1
+  fi
+
+  popd > /dev/null
 }
 
-# Call the function (you can remove this line if calling from another script)
 install_abra_vscode_extension
+
+echo "\nSetup complete! Abra is ready to use."
 
