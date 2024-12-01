@@ -8,3 +8,5 @@ crate-type = ["cdylib"]
 
 [dependencies]
 abra_core = { path = "../../core" }
+
+[workspace]

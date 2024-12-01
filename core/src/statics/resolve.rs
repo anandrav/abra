@@ -145,10 +145,12 @@ fn gather_declarations_item(
                 if entry.file_name() == "Cargo.toml" {
                     let content = std::fs::read_to_string(entry.path()).unwrap(); // TODO: remove unwrap
                     let cargo_toml: CargoToml = toml::from_str(&content).unwrap(); // TODO: remove unwrap
-                    let mut filename = "lib".to_string();
-                    filename.push_str(&cargo_toml.package.name);
-                    filename.push('.');
-                    filename.push_str(std::env::consts::DLL_EXTENSION);
+                    let filename = format!(
+                        "{}{}{}",
+                        std::env::consts::DLL_PREFIX,
+                        &cargo_toml.package.name,
+                        std::env::consts::DLL_SUFFIX
+                    );
                     libname = Some(Path::new(&dirname).join("target/release/").join(filename));
                     // dbg!(&libname);
                 }
