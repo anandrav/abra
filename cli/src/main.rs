@@ -73,10 +73,17 @@ fn main() {
                             print!("{}", s);
                             vm.push_nil();
                         }
-                        CliEffects::Read => {
+                        CliEffects::ReadLine => {
                             let mut input = String::new();
                             std::io::stdin().read_line(&mut input).unwrap();
-                            vm.push_str(&input[0..input.len() - 1]);
+                            // remove trailing newline
+                            if input.ends_with('\n') {
+                                input.pop();
+                                if input.ends_with('\r') {
+                                    input.pop();
+                                }
+                            }
+                            vm.push_str(&input);
                         }
                     }
                     vm.clear_pending_effect();
@@ -135,7 +142,7 @@ fn add_modules_toplevel(include_dir: PathBuf, main_file: &str, source_files: &mu
 #[derive(Debug, Clone, PartialEq, Eq, VariantArray, FromRepr)]
 pub enum CliEffects {
     PrintString,
-    Read,
+    ReadLine,
 }
 
 impl EffectTrait for CliEffects {
@@ -144,14 +151,14 @@ impl EffectTrait for CliEffects {
             // print_string: string -> void
             CliEffects::PrintString => (vec![Type::String], Type::Unit),
             // readline: void -> string
-            CliEffects::Read => (vec![], Type::String),
+            CliEffects::ReadLine => (vec![], Type::String),
         }
     }
 
     fn function_name(&self) -> &'static str {
         match self {
             CliEffects::PrintString => "print_string",
-            CliEffects::Read => "readline",
+            CliEffects::ReadLine => "readline",
         }
     }
 }
