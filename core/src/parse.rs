@@ -446,7 +446,7 @@ pub(crate) fn parse_item(pair: Pair<Rule>, filename: &str) -> Rc<Item> {
                 id: NodeId::new(),
             })
         }
-        Rule::extern_func_decl => {
+        Rule::foreign_func_decl => {
             let mut n = 0;
             let mut args = vec![];
             let name = Identifier {
@@ -465,7 +465,7 @@ pub(crate) fn parse_item(pair: Pair<Rule>, filename: &str) -> Rc<Item> {
             let ret_type = parse_func_out_annotation(maybe_func_out.clone(), filename);
 
             Rc::new(Item {
-                kind: Rc::new(ItemKind::ExternFuncDecl(
+                kind: Rc::new(ItemKind::ForeignFuncDecl(
                     ForeignFuncDecl {
                         name,
                         args,
@@ -553,8 +553,23 @@ pub(crate) fn parse_item(pair: Pair<Rule>, filename: &str) -> Rc<Item> {
                 id,
             })
         }
+        Rule::foreign_type_decl => {
+            let name: String = inner[0].as_str().to_string();
+            let id = NodeId::new();
+            Rc::new(Item {
+                kind: Rc::new(ItemKind::TypeDef(Rc::new(TypeDefKind::Foreign(
+                    Identifier {
+                        v: name,
+                        span: span.clone(),
+                        id: NodeId::new(),
+                    },
+                )))),
+                span,
+                id,
+            })
+        }
         Rule::interface_declaration => {
-            let name = inner[0].as_str().to_string();
+            let name: String = inner[0].as_str().to_string();
             let mut n = 1;
             let mut props = vec![];
             while let Some(pair) = inner.get(n) {

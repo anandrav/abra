@@ -1,4 +1,3 @@
-use serde_derive::Deserialize;
 use std::cell::RefCell;
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
@@ -115,6 +114,11 @@ fn gather_declarations_item(
                     .declarations
                     .insert(struct_name, Declaration::Struct(s.clone()));
             }
+            TypeDefKind::Foreign(name) => {
+                namespace
+                    .declarations
+                    .insert(name.v.clone(), Declaration::ForeignType(name.clone()));
+            }
         },
         ItemKind::FuncDef(f) => {
             let func_name = f.name.v.clone();
@@ -124,7 +128,7 @@ fn gather_declarations_item(
                 Declaration::FreeFunction(f.clone(), fully_qualified_name),
             );
         }
-        ItemKind::ExternFuncDecl(f) => {
+        ItemKind::ForeignFuncDecl(f) => {
             let func_name = f.name.v.clone();
             // TODO: get the lib name using the filesystem, or report error saying why we can't
             // this function -> its file
@@ -188,19 +192,6 @@ struct Package {
 #[derive(serde::Deserialize)]
 struct CargoToml {
     package: Package,
-}
-
-fn get_name() -> Result<(), Box<dyn std::error::Error>> {
-    // Read the `Cargo.toml` file
-    let content = std::fs::read_to_string("Cargo.toml")?;
-
-    // Parse the file
-    let cargo_toml: CargoToml = toml::from_str(&content)?;
-
-    // Extract the crate name
-    println!("Crate name: {}", cargo_toml.package.name);
-
-    Ok(())
 }
 
 // Map identifiers to (1) declarations and (2) namespaces
@@ -361,6 +352,7 @@ pub(crate) fn resolve_names_file(
 fn resolve_names_item(ctx: &mut StaticsContext, symbol_table: SymbolTable, stmt: Rc<Item>) {
     match &*stmt.kind {
         ItemKind::FuncDef(f) => {
+            // TODO: Is this actually necessary? Looking up and then inserting...
             if let Some(decl @ Declaration::FreeFunction(_, _)) =
                 symbol_table.lookup_declaration(&f.name.v)
             {
@@ -369,8 +361,22 @@ fn resolve_names_item(ctx: &mut StaticsContext, symbol_table: SymbolTable, stmt:
             let symbol_table = symbol_table.new_scope();
             resolve_names_func_helper(ctx, symbol_table.clone(), &f.args, &f.body, &f.ret_type);
         }
-        ItemKind::ExternFuncDecl(f) => {
-            // todo!();
+        ItemKind::ForeignFuncDecl(f) => {
+            // TODO: Is this actually necessary? Looking up and then inserting...
+            if let Some(decl @ Declaration::ForeignFunction { .. }) =
+                symbol_table.lookup_declaration(&f.name.v)
+            {
+                ctx.resolution_map.insert(f.name.id, decl.clone());
+            }
+            let symbol_table = symbol_table.new_scope();
+            for arg in &f.args {
+                resolve_names_pat(ctx, symbol_table.clone(), arg.0.clone());
+                if let Some(ty_annot) = &arg.1 {
+                    resolve_names_typ(ctx, symbol_table.clone(), ty_annot.clone());
+                }
+            }
+
+            resolve_names_typ(ctx, symbol_table.clone(), f.ret_type.clone());
         }
         ItemKind::InterfaceDef(iface_def) => {
             for prop in &iface_def.props {
@@ -428,6 +434,7 @@ fn resolve_names_item(ctx: &mut StaticsContext, symbol_table: SymbolTable, stmt:
                     resolve_names_typ(ctx, symbol_table.clone(), field.ty.clone());
                 }
             }
+            TypeDefKind::Foreign(_) => {}
         },
         ItemKind::Stmt(stmt) => {
             resolve_names_stmt(ctx, symbol_table, stmt.clone());
@@ -646,7 +653,12 @@ fn resolve_names_typ_identifier(
 ) {
     let lookup = symbol_table.lookup_declaration(identifier);
     match lookup {
-        Some(decl @ (Declaration::Struct(_) | Declaration::Enum(_) | Declaration::Array)) => {
+        Some(
+            decl @ (Declaration::Struct(_)
+            | Declaration::Enum(_)
+            | Declaration::Array
+            | Declaration::ForeignType(_)),
+        ) => {
             ctx.resolution_map.insert(id, decl);
         }
         _ => {

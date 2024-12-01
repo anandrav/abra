@@ -9,7 +9,7 @@ MULTI_LINE_COMMENT = _{ "/*" ~ (!"*/" ~ ANY)* ~ "*/" }
 
 file = _{ SOI ~ file_item* ~ EOI }
 
-file_item = _{ func_def | extern_func_decl | interface_declaration | interface_implementation | enum_declaration | struct_declaration /*| typealias*/ | import | statement }
+file_item = _{ func_def | foreign_func_decl | interface_declaration | interface_implementation | enum_declaration | struct_declaration /*| typealias*/ | foreign_type_decl | import | statement }
 
 // typealias = { "type" ~ identifier ~ "=" ~ typ}
 
@@ -30,6 +30,8 @@ packed_data = _{ "of" ~ typ }
 struct_declaration = { "type" ~ identifier ~ type_params? ~ "=" ~ "{" ~ struct_field ~ ("," ~ struct_field)* ~ "}" }
 struct_field = { identifier ~ type_annotation }
 
+foreign_type_decl = { "foreign" ~ "type" ~ identifier }
+
 statement = _{ let_statement | var_statement | set_statement | expression_statement }
 
 let_statement = { let_keyword ~ let_pattern_annotated ~ op_assign ~ expression }
@@ -47,7 +49,7 @@ set_statement = { expression ~ "<-" ~ expression }
 func_def = { func_keyword ~ identifier ~ func_args ~ func_out_annotation? ~ (block_expression | (op_assign ~ expression)) }
 func_keyword = _{ "fn" }
 
-extern_func_decl = { "foreign" ~ func_keyword ~ identifier ~ func_args ~ func_out_annotation }
+foreign_func_decl = { "foreign" ~ func_keyword ~ identifier ~ func_args ~ func_out_annotation }
 
 let_pattern_tuple = { tuple_start ~ (let_pattern_tuple_element ~ ",")+ ~ let_pattern_tuple_element ~ tuple_end }
 let_pattern_tuple_element = _{ let_pattern }

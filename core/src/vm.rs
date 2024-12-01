@@ -100,6 +100,7 @@ impl Vm {
         self.push(n);
     }
 
+    // TODO: since we're calling .to_owned(), just change argument to be an owned String
     pub fn push_str(&mut self, s: &str) {
         self.heap
             .push(ManagedObject::new(ManagedObjectKind::String(s.to_owned())));
@@ -352,6 +353,16 @@ impl Value {
         match self {
             Value::HeapReference(r) => match &vm.heap[r.get().get()].kind {
                 ManagedObjectKind::String(s) => s.clone(),
+                _ => panic!("not a string"),
+            },
+            _ => panic!("not a string"),
+        }
+    }
+
+    pub fn view_string<'a>(&self, vm: &'a Vm) -> &'a String {
+        match self {
+            Value::HeapReference(r) => match &vm.heap[r.get().get()].kind {
+                ManagedObjectKind::String(s) => s,
                 _ => panic!("not a string"),
             },
             _ => panic!("not a string"),

@@ -123,6 +123,9 @@ impl Declaration {
                 let nargs = struct_def.fields.len() as u16;
                 BytecodeResolution::StructCtor(nargs)
             }
+            Declaration::ForeignType(_) => {
+                panic!(); // TODO: remove panic
+            }
             Declaration::Array => {
                 panic!(); // TODO: remove panic
             }
@@ -509,7 +512,7 @@ impl Translator {
                             let mut found = false;
                             for (l, symbols) in &self.statics.dylib_to_funcs {
                                 for s in symbols {
-                                    if *l != libname && *s != symbol {
+                                    if *l != libname || *s != symbol {
                                         func_id += 1;
                                     } else {
                                         found = true;
@@ -1035,9 +1038,7 @@ impl Translator {
                     self.translate_stmt_static(stmt.clone(), st, true);
                 }
             }
-            ItemKind::ExternFuncDecl(f) => {
-                // todo!()
-            }
+
             ItemKind::FuncDef(f) => {
                 // (this could be an overloaded function or an interface method)
                 // println!("resolving {}", f.name.v);
@@ -1085,7 +1086,10 @@ impl Translator {
 
                 emit(st, Instr::Return);
             }
-            ItemKind::InterfaceDef(..) | ItemKind::TypeDef(..) | ItemKind::Import(..) => {
+            ItemKind::InterfaceDef(..)
+            | ItemKind::TypeDef(..)
+            | ItemKind::Import(..)
+            | ItemKind::ForeignFuncDecl(..) => {
                 // noop
             }
         }

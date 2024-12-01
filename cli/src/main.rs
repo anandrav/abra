@@ -1,18 +1,10 @@
-use std::collections::HashMap;
-use std::ffi::CStr;
-use std::path::PathBuf;
-use std::sync::atomic::AtomicUsize;
-use std::sync::atomic::Ordering;
-
-// use abra_core::addons::AddonDesc;
 use abra_core::effects::EffectTrait;
 use abra_core::effects::FromRepr;
 use abra_core::effects::Type;
 use abra_core::effects::VariantArray;
 use abra_core::SourceFile;
 use clap::Parser;
-use libloading::Library;
-use libloading::Symbol;
+use std::path::PathBuf;
 
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
@@ -57,11 +49,6 @@ fn main() {
 
     let effects = CliEffects::enumerate();
 
-    // dylib
-    static LIB_IDX_COUNTER: std::sync::atomic::AtomicUsize = AtomicUsize::new(0);
-    let mut libname_to_idx: HashMap<String, usize> = HashMap::new();
-    let mut libs: Vec<Library> = vec![];
-
     match abra_core::compile_bytecode(source_files, effects) {
         Ok(program) => {
             let mut vm = abra_core::vm::Vm::new(program);
@@ -85,51 +72,6 @@ fn main() {
                             std::io::stdin().read_line(&mut input).unwrap();
                             vm.push_str(&input[0..input.len() - 1]);
                         }
-                        CliEffects::LoadLib => {
-                            let s = vm.top().get_string(&vm);
-                            vm.pop();
-                            let lookup = libname_to_idx.get(&s);
-                            match lookup {
-                                Some(idx) => {
-                                    vm.push_int(*idx as i64);
-                                }
-                                None => {
-                                    let lib = unsafe { Library::new(s.clone()) };
-                                    match lib {
-                                        Ok(lib) => {
-                                            let f: Result<Symbol<unsafe extern "C" fn() -> ()>, _> =
-                                                unsafe { lib.get(b"addon_description") };
-                                            match f {
-                                                Ok(f) => {
-                                                    // let addon_desc =
-                                                    //     unsafe { f().as_ref().unwrap() };
-                                                    // println!(
-                                                    //     "the addon is named {}",
-                                                    //     addon_desc.name
-                                                    // );
-
-                                                    let idx = LIB_IDX_COUNTER
-                                                        .fetch_add(1, Ordering::Relaxed);
-                                                    libname_to_idx.insert(s, idx);
-                                                    libs.push(lib);
-                                                    vm.push_int(idx as i64);
-                                                }
-                                                Err(e) => {
-                                                    eprintln!("Could not load lib {}\n", s);
-                                                    eprintln!("{}", e);
-                                                    std::process::exit(1);
-                                                }
-                                            }
-                                        }
-                                        Err(e) => {
-                                            eprintln!("Could not load lib {}\n", s);
-                                            eprintln!("{}", e);
-                                            std::process::exit(1);
-                                        }
-                                    }
-                                }
-                            }
-                        }
                     }
                     vm.clear_pending_effect();
                 }
@@ -151,7 +93,6 @@ fn add_modules_toplevel(include_dir: PathBuf, main_file: &str, source_files: &mu
         if metadata.is_file() && name.ends_with(".abra") && name != main_file {
             // get the corresponding directory if it exists
             let dir_name = &name[0..name.len() - ".abra".len()];
-            let dir_path = include_dir.join(dir_name);
 
             let contents = std::fs::read_to_string(entry.path()).unwrap();
             source_files.push(SourceFile {
@@ -189,7 +130,6 @@ fn add_modules_toplevel(include_dir: PathBuf, main_file: &str, source_files: &mu
 pub enum CliEffects {
     PrintString,
     Read,
-    LoadLib,
 }
 
 impl EffectTrait for CliEffects {
@@ -199,8 +139,6 @@ impl EffectTrait for CliEffects {
             CliEffects::PrintString => (vec![Type::String], Type::Unit),
             // readline: void -> string
             CliEffects::Read => (vec![], Type::String),
-            // loadlib: string -> int
-            CliEffects::LoadLib => (vec![Type::String], Type::Int),
         }
     }
 
@@ -208,7 +146,6 @@ impl EffectTrait for CliEffects {
         match self {
             CliEffects::PrintString => "print_string",
             CliEffects::Read => "readline",
-            CliEffects::LoadLib => "loadlib",
         }
     }
 }

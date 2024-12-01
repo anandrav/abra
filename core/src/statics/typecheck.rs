@@ -1,6 +1,6 @@
 use crate::ast::{
-    ArgAnnotated, Expr, ExprKind, FileAst, ItemKind, Node, NodeId, NodeMap, Pat, PatKind, Sources,
-    Stmt, StmtKind, Type as AstType, TypeDefKind, TypeKind,
+    ArgAnnotated, Expr, ExprKind, FileAst, Identifier, ItemKind, Node, NodeId, NodeMap, Pat,
+    PatKind, Sources, Stmt, StmtKind, Type as AstType, TypeDefKind, TypeKind,
 };
 use crate::ast::{BinaryOperator, Item};
 use crate::builtin::Builtin;
@@ -164,6 +164,7 @@ pub(crate) enum SolvedType {
 pub(crate) enum Nominal {
     Struct(Rc<StructDef>),
     Enum(Rc<EnumDef>),
+    ForeignType(Identifier),
     Array,
 }
 
@@ -172,6 +173,7 @@ impl Nominal {
         match self {
             Self::Struct(struct_def) => &struct_def.name.v,
             Self::Enum(enum_def) => &enum_def.name.v,
+            Self::ForeignType(name) => &name.v,
             Self::Array => "array",
         }
     }
@@ -656,6 +658,7 @@ impl TypeVar {
 
 // TODO: What exactly does 'tyvar_of_declaration' actually mean?
 // TODO: In a lot of these cases, we shouldn't really give a TypeVar, because the type is fully known.
+// TODO: a lot of code duplication with ast_type_to_statics_type/solved_type
 fn tyvar_of_declaration(
     ctx: &mut StaticsContext,
     decl: &Declaration,
@@ -782,6 +785,11 @@ fn tyvar_of_declaration(
                 .collect();
             Some(TypeVar::make_func(fields, def_type, Prov::Node(id)))
         }
+        Declaration::ForeignType(ident) => Some(TypeVar::make_nominal(
+            Prov::UdtDef(Box::new(Prov::Node(id))),
+            Nominal::ForeignType(ident.clone()),
+            vec![],
+        )),
         Declaration::Array => {
             let mut params = vec![];
             let mut substitution = BTreeMap::new();
@@ -948,6 +956,10 @@ pub(crate) fn ast_type_to_solved_type(
                 Declaration::Enum(enum_def) => {
                     Some(SolvedType::Nominal(Nominal::Enum(enum_def.clone()), vec![]))
                 }
+                Declaration::ForeignType(ident) => Some(SolvedType::Nominal(
+                    Nominal::ForeignType(ident.clone()),
+                    vec![],
+                )),
                 Declaration::FreeFunction(_, _)
                 | Declaration::ForeignFunction { .. }
                 | Declaration::InterfaceDef(_)
@@ -974,6 +986,10 @@ pub(crate) fn ast_type_to_solved_type(
                 Declaration::Enum(enum_def) => {
                     Some(SolvedType::Nominal(Nominal::Enum(enum_def.clone()), sargs))
                 }
+                Declaration::ForeignType(ident) => Some(SolvedType::Nominal(
+                    Nominal::ForeignType(ident.clone()),
+                    vec![],
+                )),
                 Declaration::FreeFunction(_, _)
                 | Declaration::ForeignFunction { .. }
                 | Declaration::InterfaceDef(_)
@@ -1038,6 +1054,11 @@ pub(crate) fn ast_type_to_typevar(ctx: &mut StaticsContext, ast_type: Rc<AstType
                 Some(Declaration::Array) => {
                     TypeVar::make_nominal(Prov::Node(ast_type.id()), Nominal::Array, vec![])
                 }
+                Some(Declaration::ForeignType(ident)) => TypeVar::make_nominal(
+                    Prov::Node(ast_type.id()),
+                    Nominal::ForeignType(ident.clone()),
+                    vec![],
+                ),
                 _ => {
                     panic!("could not resolve {}", ident) // TODO: remove panic
                 }
@@ -1968,7 +1989,7 @@ fn generate_constraints_item(mode: Mode, stmt: Rc<Item>, ctx: &mut StaticsContex
             //     let right = ast_type_to_statics_type(ctx, ty.clone());
             //     constrain(left, right);
             // }
-            TypeDefKind::Enum(..) | TypeDefKind::Struct(..) => {}
+            TypeDefKind::Enum(..) | TypeDefKind::Struct(..) | TypeDefKind::Foreign(..) => {}
         },
         ItemKind::FuncDef(f) => {
             let func_node_id = f.name.id;
@@ -1985,7 +2006,7 @@ fn generate_constraints_item(mode: Mode, stmt: Rc<Item>, ctx: &mut StaticsContex
 
             constrain(ty_pat, ty_func);
         }
-        ItemKind::ExternFuncDecl(f) => {
+        ItemKind::ForeignFuncDecl(f) => {
             let func_node_id = f.name.id;
             let ty_pat = TypeVar::from_node(ctx, f.name.id);
 

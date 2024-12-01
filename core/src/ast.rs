@@ -65,6 +65,7 @@ pub(crate) enum TypeDefKind {
     // Alias(Identifier, Rc<AstType>),
     Enum(Rc<EnumDef>),
     Struct(Rc<StructDef>),
+    Foreign(Identifier),
 }
 
 #[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq, Hash)]
@@ -171,7 +172,7 @@ impl Node for Item {
 
     fn children(&self) -> Vec<Rc<dyn Node>> {
         match &*self.kind {
-            ItemKind::ExternFuncDecl(f) => {
+            ItemKind::ForeignFuncDecl(f) => {
                 let mut children: Vec<Rc<dyn Node>> = vec![];
                 for (pat, annot) in f.args.iter() {
                     children.push(pat.clone() as Rc<dyn Node>);
@@ -219,6 +220,7 @@ impl Node for Item {
                     }
                     children
                 }
+                TypeDefKind::Foreign(_) => vec![],
             },
             ItemKind::InterfaceDef(i) => {
                 let mut children: Vec<Rc<dyn Node>> = Vec::new();
@@ -242,7 +244,7 @@ impl Node for Item {
 
 #[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq, Hash)]
 pub(crate) enum ItemKind {
-    ExternFuncDecl(Rc<ForeignFuncDecl>),
+    ForeignFuncDecl(Rc<ForeignFuncDecl>),
     FuncDef(Rc<FuncDef>),
     TypeDef(Rc<TypeDefKind>),
     InterfaceDef(Rc<InterfaceDef>),
@@ -319,7 +321,7 @@ pub(crate) struct FuncDef {
 #[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq, Hash)]
 pub(crate) struct ForeignFuncDecl {
     pub(crate) name: Identifier,
-    pub(crate) args: Vec<ArgAnnotated>,
+    pub(crate) args: Vec<ArgAnnotated>, // TODO: arg annotations are optional but they should be required.
     pub(crate) ret_type: Rc<Type>,
 }
 

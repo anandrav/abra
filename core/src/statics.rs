@@ -1,11 +1,11 @@
 use crate::ast::{
-    EnumDef, FileAst, ForeignFuncDecl, FuncDef, InterfaceDef, InterfaceImpl, NodeId, NodeMap,
-    Sources, StructDef, TypeKind,
+    EnumDef, FileAst, ForeignFuncDecl, FuncDef, Identifier, InterfaceDef, InterfaceImpl, NodeId,
+    NodeMap, Sources, StructDef, TypeKind,
 };
 use crate::builtin::Builtin;
 use crate::effects::EffectDesc;
 use resolve::{resolve, scan_declarations};
-use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
+use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::fmt::{self, Display, Formatter};
 use std::path::PathBuf;
 use std::rc::Rc;
@@ -133,6 +133,7 @@ pub(crate) enum Declaration {
         variant: u16,
     },
     Struct(Rc<StructDef>),
+    ForeignType(Identifier),
     Array,
     Polytype(NodeId),
     Builtin(Builtin),
