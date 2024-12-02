@@ -170,8 +170,6 @@ pub enum Instr<Location = ProgramCounter, StringConstant = u16> {
     PushFloat(AbraFloat),
     PushString(StringConstant),
 
-    // TODO: Once monomorphization is implemented, create separate operators for int and float
-
     // Arithmetic
     Add,
     Subtract,
@@ -395,7 +393,6 @@ struct CallFrame {
 }
 
 // ReferenceType
-// TODO: garbage collection (mark-and-sweep? copy-collection?)
 #[derive(Debug, Clone)]
 struct ManagedObject {
     kind: ManagedObjectKind,
@@ -432,14 +429,8 @@ impl Vm {
         if self.pending_effect.is_some() {
             panic!("must handle pending effect");
         }
-        // dbg!(&self);
         while !self.is_done() && self.pending_effect.is_none() {
             self.step();
-            // dbg!(&self);
-        }
-
-        if self.is_done() {
-            // println!("DONE");
         }
     }
 
@@ -447,12 +438,10 @@ impl Vm {
         if self.pending_effect.is_some() {
             panic!("must handle pending effect");
         }
-        // dbg!(&self);
         let mut steps = steps;
         while steps > 0 && !self.is_done() && self.pending_effect.is_none() {
             self.step();
             steps -= 1;
-            // dbg!(&self);
         }
     }
 
