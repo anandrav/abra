@@ -7,11 +7,11 @@ use clap::Parser;
 use std::path::PathBuf;
 
 #[derive(Parser, Debug)]
-#[command(author, version, about, long_about = None)]
+#[command(author, version, about, long_about = None, arg_required_else_help = true)]
 struct Args {
     /// File to run
     #[arg(
-        help = "The main Abra script file to compile and execute",
+        help = "The main Abra file to compile and execute",
         value_name = "FILE"
     )]
     file: String,

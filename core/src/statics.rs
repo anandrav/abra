@@ -57,6 +57,14 @@ pub(crate) struct StaticsContext {
 
     // ERRORS
 
+    // TODO: make a Vec<Error>
+    // Error will be an enum. Or maybe a struct with a 'kind' field.
+    // Error should have a show() method, which will require source code string(s)
+    // if errors vec is !empty then we do not proceed with translating to bytecode
+    // For now, just display every single error in a big dump.
+    // Each Error will probably have a Span or multiple Spans
+    // Errors may have some additional information to aid in displaying to the user
+
     // unbound variables
     unbound_vars: BTreeSet<NodeId>,
 
