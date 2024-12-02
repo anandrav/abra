@@ -160,8 +160,9 @@ pub(crate) enum SolvedType {
     Nominal(Nominal, Vec<SolvedType>),
 }
 
+// TODO: Might need to make a public and a non-public version of this.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub(crate) enum Nominal {
+pub enum Nominal {
     Struct(Rc<StructDef>),
     Enum(Rc<EnumDef>),
     ForeignType(Identifier),

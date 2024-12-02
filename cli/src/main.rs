@@ -1,7 +1,7 @@
 use abra_core::effects::EffectTrait;
 use abra_core::effects::FromRepr;
-use abra_core::effects::Type;
 use abra_core::effects::VariantArray;
+use abra_core::effects::{Nominal, Type};
 use abra_core::SourceFile;
 use clap::Parser;
 use std::path::PathBuf;
@@ -24,6 +24,14 @@ struct Args {
         help = "Override the default module directory (~/.abra/modules)."
     )]
     modules: Option<String>,
+
+    /// Additional arguments to pass to the Abra program
+    #[arg(
+        help = "Arguments to pass to the Abra program",
+        value_name = "ARGS",
+        trailing_var_arg = true
+    )]
+    args: Vec<String>,
 }
 
 fn main() {
@@ -85,6 +93,12 @@ fn main() {
                             }
                             vm.push_str(&input);
                         }
+                        CliEffects::GetArgs => {
+                            for arg in &args.args {
+                                vm.push_str(arg);
+                            }
+                            vm.construct_array(args.args.len());
+                        }
                     }
                     vm.clear_pending_effect();
                 }
@@ -143,6 +157,7 @@ fn add_modules_toplevel(include_dir: PathBuf, main_file: &str, source_files: &mu
 pub enum CliEffects {
     PrintString,
     ReadLine,
+    GetArgs,
 }
 
 impl EffectTrait for CliEffects {
@@ -152,6 +167,8 @@ impl EffectTrait for CliEffects {
             CliEffects::PrintString => (vec![Type::String], Type::Unit),
             // readline: void -> string
             CliEffects::ReadLine => (vec![], Type::String),
+            // get_args: void -> array<string>
+            CliEffects::GetArgs => (vec![], Type::Nominal(Nominal::Array, vec![Type::String])),
         }
     }
 
@@ -159,6 +176,7 @@ impl EffectTrait for CliEffects {
         match self {
             CliEffects::PrintString => "print_string",
             CliEffects::ReadLine => "readline",
+            CliEffects::GetArgs => "get_args",
         }
     }
 }

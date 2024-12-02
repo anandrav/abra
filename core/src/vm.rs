@@ -130,6 +130,14 @@ impl Vm {
         self.push(r);
     }
 
+    pub fn construct_array(&mut self, n: usize) {
+        let elems = self.value_stack.split_off(self.value_stack.len() - n);
+        self.heap
+            .push(ManagedObject::new(ManagedObjectKind::DynArray(elems)));
+        let r = self.heap_reference(self.heap.len() - 1);
+        self.push(r);
+    }
+
     pub fn increment_stack_base(&mut self, n: usize) {
         self.stack_base += n;
     }
