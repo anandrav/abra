@@ -91,11 +91,11 @@ fn main() {
                                     input.pop();
                                 }
                             }
-                            vm.push_str(&input);
+                            vm.push_str(input);
                         }
                         CliEffects::GetArgs => {
                             for arg in &args.args {
-                                vm.push_str(arg);
+                                vm.push_str(arg.clone());
                             }
                             vm.construct_array(args.args.len());
                         }

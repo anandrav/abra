@@ -100,10 +100,9 @@ impl Vm {
         self.push(n);
     }
 
-    // TODO: since we're calling .to_owned(), just change argument to be an owned String
-    pub fn push_str(&mut self, s: &str) {
+    pub fn push_str(&mut self, s: String) {
         self.heap
-            .push(ManagedObject::new(ManagedObjectKind::String(s.to_owned())));
+            .push(ManagedObject::new(ManagedObjectKind::String(s)));
         let r = self.heap_reference(self.heap.len() - 1);
         self.push(r);
     }
