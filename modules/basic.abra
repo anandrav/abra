@@ -1,6 +1,5 @@
-
-foreign fn add(n1: int, n2: int) -> int
-
 // foreign type file
 
 foreign fn fread(path: string) -> string
+
+foreign fn fwrite(path: string, contents: string) -> string
