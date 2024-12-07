@@ -138,6 +138,15 @@ pub(crate) enum Declaration {
 
 #[derive(Debug)]
 pub(crate) enum Error {
+    // resolution phase
+    UnboundVariable {
+        node_id: NodeId,
+    },
+    // typechecking phase
+    Unconstrained {
+        node_id: NodeId,
+    },
+    // pattern matching exhaustiveness check
     NonexhaustiveMatch {
         expr_id: NodeId,
         missing: Vec<DeconstructedPat>,
@@ -145,9 +154,6 @@ pub(crate) enum Error {
     RedundantArms {
         expr_id: NodeId,
         redundant_arms: Vec<NodeId>,
-    },
-    UnboundVariable {
-        node_id: NodeId,
     },
 }
 
@@ -203,6 +209,19 @@ impl Error {
     fn show(&self, ctx: &StaticsContext, node_map: &NodeMap, sources: &Sources) -> String {
         let mut err_string = String::new();
         match self {
+            Error::UnboundVariable { node_id: expr_id } => {
+                err_string.push_str("This variable is unbound:\n");
+                let span = node_map.get(expr_id).unwrap().span();
+                span.display(&mut err_string, sources, "");
+            }
+            Error::Unconstrained { node_id } => {
+                let span = node_map.get(node_id).unwrap().span();
+                span.display(
+                    &mut err_string,
+                    sources,
+                    "Can't solve type of this. Try adding a type annotation.",
+                );
+            }
             Error::NonexhaustiveMatch { expr_id, missing } => {
                 let span = node_map.get(expr_id).unwrap().span();
                 span.display(
@@ -230,11 +249,6 @@ impl Error {
                     let span = node_map.get(pat).unwrap().span();
                     span.display(&mut err_string, sources, "");
                 }
-            }
-            Error::UnboundVariable { node_id: expr_id } => {
-                err_string.push_str("This variable is unbound:\n");
-                let span = node_map.get(expr_id).unwrap().span();
-                span.display(&mut err_string, sources, "");
             }
         };
         err_string
