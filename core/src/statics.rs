@@ -6,7 +6,7 @@ use crate::builtin::Builtin;
 use crate::effects::EffectDesc;
 use resolve::{resolve, scan_declarations};
 use std::collections::{BTreeMap, BTreeSet, HashMap};
-use std::fmt::{self, Display, Formatter};
+use std::fmt::{self, Display, Formatter, Write};
 use std::path::PathBuf;
 use std::rc::Rc;
 use typecheck::{generate_constraints_file, result_of_constraint_solving, SolvedType, TypeVar};
@@ -56,21 +56,10 @@ pub(crate) struct StaticsContext {
     types_that_must_be_structs: BTreeMap<TypeVar, NodeId>, // TODO: can't use TypeVar as key because it's mutable. Use a Prov instead?
 
     // ERRORS
-
-    // TODO: make a Vec<Error>
-    // Error will be an enum. Or maybe a struct with a 'kind' field.
-    // Error should have a show() method, which will require source code string(s)
-    // if errors vec is !empty then we do not proceed with translating to bytecode
-    // For now, just display every single error in a big dump.
-    // Each Error will probably have a Span or multiple Spans
-    // Errors may have some additional information to aid in displaying to the user
+    errors: Vec<Error>,
 
     // unbound variables
     unbound_vars: BTreeSet<NodeId>,
-
-    // non-exhaustive matches
-    nonexhaustive_matches: BTreeMap<NodeId, Vec<DeconstructedPat>>,
-    redundant_matches: BTreeMap<NodeId, Vec<NodeId>>,
     // annotation needed
     annotation_needed: BTreeSet<NodeId>,
 }
@@ -149,6 +138,18 @@ pub(crate) enum Declaration {
     Var(NodeId),
 }
 
+#[derive(Debug)]
+pub(crate) enum Error {
+    NonexhaustiveMatch {
+        expr_id: NodeId,
+        missing: Vec<DeconstructedPat>,
+    },
+    RedundantArms {
+        expr_id: NodeId,
+        redundant_arms: Vec<NodeId>,
+    },
+}
+
 // main function that performs typechecking (as well as name resolution beforehand)
 pub(crate) fn analyze(
     effects: &[EffectDesc],
@@ -172,7 +173,64 @@ pub(crate) fn analyze(
     result_of_constraint_solving(&mut ctx, node_map, sources)?;
 
     // pattern exhaustiveness and usefulness checking
-    check_pattern_exhaustiveness_and_usefulness(&mut ctx, files, node_map, sources)?;
+    check_pattern_exhaustiveness_and_usefulness(&mut ctx, files);
+
+    check_errors(&ctx, node_map, sources)?;
 
     Ok(ctx)
+}
+
+pub(crate) fn check_errors(
+    ctx: &StaticsContext,
+    node_map: &NodeMap,
+    sources: &Sources,
+) -> Result<(), String> {
+    if ctx.errors.is_empty() {
+        return Ok(());
+    }
+
+    let mut err_string = String::new();
+
+    for error in &ctx.errors {
+        err_string.push_str(&error.show(ctx, node_map, sources));
+    }
+
+    Err(err_string)
+}
+
+impl Error {
+    fn show(&self, ctx: &StaticsContext, node_map: &NodeMap, sources: &Sources) -> String {
+        let mut err_string = String::new();
+        match self {
+            Error::NonexhaustiveMatch { expr_id, missing } => {
+                let span = node_map.get(expr_id).unwrap().span();
+                span.display(
+                    &mut err_string,
+                    sources,
+                    "This match expression doesn't cover every possibility:\n",
+                );
+                err_string.push_str("\nThe following cases are missing:\n");
+                for pat in missing {
+                    let _ = writeln!(err_string, "\t`{pat}`\n");
+                }
+            }
+            Error::RedundantArms {
+                expr_id,
+                redundant_arms,
+            } => {
+                let span = node_map.get(expr_id).unwrap().span();
+                span.display(
+                    &mut err_string,
+                    sources,
+                    "This match expression has redundant cases:\n",
+                );
+                err_string.push_str("\nTry removing these cases\n");
+                for pat in redundant_arms {
+                    let span = node_map.get(pat).unwrap().span();
+                    span.display(&mut err_string, sources, "");
+                }
+            }
+        };
+        err_string
+    }
 }

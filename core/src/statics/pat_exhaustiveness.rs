@@ -10,55 +10,19 @@ use std::fmt::{self, Display, Write};
 use std::rc::Rc;
 
 use super::typecheck::{ast_type_to_typevar, Nominal};
-use super::{Declaration, EnumDef, SolvedType, StaticsContext, TypeKind, TypeProv, TypeVar};
+use super::{
+    check_errors, Declaration, EnumDef, Error, SolvedType, StaticsContext, TypeKind, TypeProv,
+    TypeVar,
+};
 
 // TODO: rename to be more descriptive/specific to exhaustiveness/usefulness
 pub(crate) fn check_pattern_exhaustiveness_and_usefulness(
     ctx: &mut StaticsContext,
     files: &[Rc<FileAst>],
-    node_map: &NodeMap,
-    sources: &Sources,
-) -> Result<(), String> {
+) {
     for file in files {
         check_pattern_exhaustiveness_file(ctx, file);
     }
-
-    if ctx.nonexhaustive_matches.is_empty() && ctx.redundant_matches.is_empty() {
-        return Ok(());
-    }
-
-    let mut err_string = String::new();
-
-    err_string.push_str("Pattern matching errors:\n");
-
-    for (pat, missing_pattern_suggestions) in ctx.nonexhaustive_matches.iter() {
-        let span = node_map.get(pat).unwrap().span();
-        span.display(
-            &mut err_string,
-            sources,
-            "This match expression doesn't cover every possibility:\n",
-        );
-        err_string.push_str("\nThe following cases are missing:\n");
-        for pat in missing_pattern_suggestions {
-            let _ = writeln!(err_string, "\t`{pat}`\n");
-        }
-    }
-
-    for (match_expr, redundant_pattern_suggestions) in ctx.redundant_matches.iter() {
-        let span = node_map.get(match_expr).unwrap().span();
-        span.display(
-            &mut err_string,
-            sources,
-            "This match expression has redundant cases:\n",
-        );
-        err_string.push_str("\nTry removing these cases\n");
-        for pat in redundant_pattern_suggestions {
-            let span = node_map.get(pat).unwrap().span();
-            span.display(&mut err_string, sources, "");
-        }
-    }
-
-    Err(err_string)
 }
 
 fn check_pattern_exhaustiveness_file(statics: &mut StaticsContext, file: &FileAst) {
@@ -746,9 +710,10 @@ fn match_expr_exhaustive_check(statics: &mut StaticsContext, expr: &Expr) {
 
     let witness_patterns = witness_matrix.first_column();
     if !witness_patterns.is_empty() {
-        statics
-            .nonexhaustive_matches
-            .insert(expr.id, witness_patterns);
+        statics.errors.push(Error::NonexhaustiveMatch {
+            expr_id: expr.id,
+            missing: witness_patterns,
+        });
     }
 
     let mut useless_indices = HashSet::new();
@@ -766,7 +731,10 @@ fn match_expr_exhaustive_check(statics: &mut StaticsContext, expr: &Expr) {
         }
     }));
     if !redundant_arms.is_empty() {
-        statics.redundant_matches.insert(expr.id, redundant_arms);
+        statics.errors.push(Error::RedundantArms {
+            expr_id: expr.id,
+            redundant_arms,
+        })
     }
 }
 
