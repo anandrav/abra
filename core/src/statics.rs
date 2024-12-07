@@ -58,8 +58,6 @@ pub(crate) struct StaticsContext {
     // ERRORS
     errors: Vec<Error>,
 
-    // unbound variables
-    unbound_vars: BTreeSet<NodeId>,
     // annotation needed
     annotation_needed: BTreeSet<NodeId>,
 }
@@ -148,6 +146,9 @@ pub(crate) enum Error {
         expr_id: NodeId,
         redundant_arms: Vec<NodeId>,
     },
+    UnboundVariable {
+        node_id: NodeId,
+    },
 }
 
 // main function that performs typechecking (as well as name resolution beforehand)
@@ -164,6 +165,7 @@ pub(crate) fn analyze(
 
     // resolve all imports and identifiers
     resolve(&mut ctx, files.clone());
+    check_errors(&ctx, node_map, sources)?; // TODO: just check errors once at the end of static analysis (before bytecode generation)
 
     // typechecking
     for file in files {
@@ -174,7 +176,6 @@ pub(crate) fn analyze(
 
     // pattern exhaustiveness and usefulness checking
     check_pattern_exhaustiveness_and_usefulness(&mut ctx, files);
-
     check_errors(&ctx, node_map, sources)?;
 
     Ok(ctx)
@@ -229,6 +230,11 @@ impl Error {
                     let span = node_map.get(pat).unwrap().span();
                     span.display(&mut err_string, sources, "");
                 }
+            }
+            Error::UnboundVariable { node_id: expr_id } => {
+                err_string.push_str("This variable is unbound:\n");
+                let span = node_map.get(expr_id).unwrap().span();
+                span.display(&mut err_string, sources, "");
             }
         };
         err_string

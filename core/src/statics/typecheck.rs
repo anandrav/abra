@@ -1192,6 +1192,7 @@ impl PolyvarScope {
     }
 }
 
+// TODO: instead of returning an Error(String), this should update the StaticsContext::errors vector
 // errors would be unbound variable, wrong number of arguments, occurs check, etc.
 pub(crate) fn result_of_constraint_solving(
     ctx: &mut StaticsContext,
@@ -1281,8 +1282,7 @@ pub(crate) fn result_of_constraint_solving(
         span.display(&mut err_string, sources, "");
     }
 
-    if ctx.unbound_vars.is_empty()
-        && type_conflicts.is_empty()
+    if type_conflicts.is_empty()
         && underdetermined.is_empty()
         && ctx.annotation_needed.is_empty()
         && !bad_instantiations
@@ -1294,14 +1294,6 @@ pub(crate) fn result_of_constraint_solving(
             if let Some(_ty) = ty {}
         }
         return Ok(());
-    }
-
-    if !ctx.unbound_vars.is_empty() {
-        err_string.push_str("You have unbound variables!\n");
-        for ast_id in ctx.unbound_vars.iter() {
-            let span = node_map.get(ast_id).unwrap().span();
-            span.display(&mut err_string, sources, "");
-        }
     }
 
     if !ctx.annotation_needed.is_empty() {

@@ -9,7 +9,7 @@ use crate::ast::{
 };
 use crate::builtin::Builtin;
 
-use super::{Declaration, Namespace, StaticsContext};
+use super::{Declaration, Error, Namespace, StaticsContext};
 
 pub(crate) fn scan_declarations(ctx: &mut StaticsContext, files: Vec<Rc<FileAst>>) {
     for file in files {
@@ -317,7 +317,7 @@ fn resolve_imports_file(ctx: &mut StaticsContext, file: Rc<FileAst>) -> Toplevel
     for item in file.items.iter() {
         if let ItemKind::Import(path) = &*item.kind {
             let Some(import_src) = ctx.global_namespace.namespaces.get(&path.v) else {
-                ctx.unbound_vars.insert(item.id);
+                ctx.errors.push(Error::UnboundVariable { node_id: item.id });
                 continue;
             };
             // add declarations from this import to the environment
@@ -414,7 +414,7 @@ fn resolve_names_item(ctx: &mut StaticsContext, symbol_table: SymbolTable, stmt:
                     }
                 }
             } else {
-                ctx.unbound_vars.insert(stmt.id);
+                ctx.errors.push(Error::UnboundVariable { node_id: stmt.id });
             }
         }
         ItemKind::Import(..) => {}
@@ -489,7 +489,8 @@ fn resolve_names_expr(ctx: &mut StaticsContext, symbol_table: SymbolTable, expr:
             if let Some(decl) = lookup {
                 ctx.resolution_map.insert(expr.id, decl);
             } else {
-                ctx.unbound_vars.insert(expr.id());
+                ctx.errors
+                    .push(Error::UnboundVariable { node_id: expr.id() });
             }
         }
         ExprKind::BinOp(left, _, right) => {
@@ -584,7 +585,7 @@ fn resolve_names_pat(ctx: &mut StaticsContext, symbol_table: SymbolTable, pat: R
             {
                 ctx.resolution_map.insert(tag.id, decl.clone());
             } else {
-                ctx.unbound_vars.insert(tag.id);
+                ctx.errors.push(Error::UnboundVariable { node_id: tag.id });
             }
             if let Some(data) = data {
                 resolve_names_pat(ctx, symbol_table, data.clone())
@@ -621,7 +622,8 @@ fn resolve_names_typ(ctx: &mut StaticsContext, symbol_table: SymbolTable, typ: R
                 {
                     ctx.resolution_map.insert(iface.id, decl.clone());
                 } else {
-                    ctx.unbound_vars.insert(iface.id);
+                    ctx.errors
+                        .push(Error::UnboundVariable { node_id: iface.id });
                 }
             }
         }
@@ -665,7 +667,7 @@ fn resolve_names_typ_identifier(
             ctx.resolution_map.insert(id, decl);
         }
         _ => {
-            ctx.unbound_vars.insert(id);
+            ctx.errors.push(Error::UnboundVariable { node_id: id });
         }
     }
 }
