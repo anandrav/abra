@@ -1281,24 +1281,13 @@ pub(crate) fn result_of_constraint_solving(
         span.display(&mut err_string, sources, "");
     }
 
-    if type_conflicts.is_empty()
-        && ctx.annotation_needed.is_empty()
-        && !bad_instantiations
-        && !bad_field_access
-    {
+    if type_conflicts.is_empty() && !bad_instantiations && !bad_field_access {
         for (node_id, node) in node_map.iter() {
             let ty = ctx.solution_of_node(*node_id);
             let _span = node.span();
             if let Some(_ty) = ty {}
         }
         return Ok(());
-    }
-
-    if !ctx.annotation_needed.is_empty() {
-        for id in ctx.annotation_needed.iter() {
-            let span = node_map.get(id).unwrap().span();
-            span.display(&mut err_string, sources, "this needs a type annotation");
-        }
     }
 
     if !type_conflicts.is_empty() {
@@ -1758,7 +1747,8 @@ fn generate_constraints_expr(
             generate_constraints_expr(polyvar_scope, Mode::Syn, expr.clone(), ctx);
             let ty_expr = TypeVar::fresh(ctx, Prov::Node(expr.id));
             if ty_expr.underdetermined() {
-                ctx.annotation_needed.insert(expr.id);
+                ctx.errors
+                    .push(Error::MemberAccessNeedsAnnotation { node_id: expr.id });
                 return;
             }
             let Some(inner) = ty_expr.single() else {

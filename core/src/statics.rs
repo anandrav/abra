@@ -57,9 +57,6 @@ pub(crate) struct StaticsContext {
 
     // ERRORS
     errors: Vec<Error>,
-
-    // annotation needed
-    annotation_needed: BTreeSet<NodeId>,
 }
 
 impl StaticsContext {
@@ -146,6 +143,9 @@ pub(crate) enum Error {
     Unconstrained {
         node_id: NodeId,
     },
+    MemberAccessNeedsAnnotation {
+        node_id: NodeId,
+    },
     // pattern matching exhaustiveness check
     NonexhaustiveMatch {
         expr_id: NodeId,
@@ -171,7 +171,7 @@ pub(crate) fn analyze(
 
     // resolve all imports and identifiers
     resolve(&mut ctx, files.clone());
-    check_errors(&ctx, node_map, sources)?; // TODO: just check errors once at the end of static analysis (before bytecode generation)
+    // check_errors(&ctx, node_map, sources)?; // TODO: just check errors once at the end of static analysis (before bytecode generation)
 
     // typechecking
     for file in files {
@@ -214,6 +214,7 @@ impl Error {
                 let span = node_map.get(expr_id).unwrap().span();
                 span.display(&mut err_string, sources, "");
             }
+
             Error::Unconstrained { node_id } => {
                 let span = node_map.get(node_id).unwrap().span();
                 span.display(
@@ -222,6 +223,15 @@ impl Error {
                     "Can't solve type of this. Try adding a type annotation.",
                 );
             }
+            Error::MemberAccessNeedsAnnotation { node_id } => {
+                let span = node_map.get(node_id).unwrap().span();
+                span.display(
+                    &mut err_string,
+                    sources,
+                    "Can't perform member access without knowing type. Try adding a type annotation.",
+                );
+            }
+
             Error::NonexhaustiveMatch { expr_id, missing } => {
                 let span = node_map.get(expr_id).unwrap().span();
                 span.display(
