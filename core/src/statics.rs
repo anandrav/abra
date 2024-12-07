@@ -4,12 +4,16 @@ use crate::ast::{
 };
 use crate::builtin::Builtin;
 use crate::effects::EffectDesc;
+use crate::statics::typecheck::Prov;
 use resolve::{resolve, scan_declarations};
 use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::fmt::{self, Display, Formatter, Write};
 use std::path::PathBuf;
 use std::rc::Rc;
-use typecheck::{generate_constraints_file, result_of_constraint_solving, SolvedType, TypeVar};
+use typecheck::{
+    fmt_conflicting_types, generate_constraints_file, result_of_constraint_solving, PotentialType,
+    SolvedType, TypeKey, TypeVar,
+};
 
 mod pat_exhaustiveness;
 mod resolve;
@@ -140,8 +144,11 @@ pub(crate) enum Error {
         node_id: NodeId,
     },
     // typechecking phase
-    Unconstrained {
+    UnconstrainedUnifvar {
         node_id: NodeId,
+    },
+    ConflictingUnifvar {
+        types: BTreeMap<TypeKey, PotentialType>,
     },
     MemberAccessNeedsAnnotation {
         node_id: NodeId,
@@ -175,14 +182,12 @@ pub(crate) fn analyze(
 
     // resolve all imports and identifiers
     resolve(&mut ctx, files.clone());
-    // check_errors(&ctx, node_map, sources)?; // TODO: just check errors once at the end of static analysis (before bytecode generation)
 
     // typechecking
     for file in files {
         generate_constraints_file(file.clone(), &mut ctx);
     }
-    // TODO: rename this to solve_constraints()
-    result_of_constraint_solving(&mut ctx, node_map, sources)?;
+    result_of_constraint_solving(&mut ctx);
 
     // pattern exhaustiveness and usefulness checking
     check_pattern_exhaustiveness_and_usefulness(&mut ctx, files);
@@ -219,13 +224,171 @@ impl Error {
                 span.display(&mut err_string, sources, "");
             }
 
-            Error::Unconstrained { node_id } => {
+            Error::UnconstrainedUnifvar { node_id } => {
                 let span = node_map.get(node_id).unwrap().span();
                 span.display(
                     &mut err_string,
                     sources,
                     "Can't solve type of this. Try adding a type annotation.",
                 );
+            }
+            Error::ConflictingUnifvar { types } => {
+                err_string.push_str("Conflicting types: ");
+                let mut type_conflict: Vec<PotentialType> = types.values().cloned().collect();
+                type_conflict.sort_by_key(|ty| ty.provs().borrow().len());
+
+                fmt_conflicting_types(&type_conflict, &mut err_string).unwrap();
+                writeln!(err_string).unwrap();
+                for ty in type_conflict {
+                    err_string.push('\n');
+                    match &ty {
+                        PotentialType::Poly(_, _, _) => {
+                            err_string.push_str("Sources of generic type:\n")
+                        }
+                        PotentialType::Nominal(_, nominal, params) => {
+                            let _ = write!(err_string, "Sources of type {}<", nominal.name());
+                            for (i, param) in params.iter().enumerate() {
+                                if i != 0 {
+                                    err_string.push_str(", ");
+                                }
+                                let _ = writeln!(err_string, "{param}");
+                            }
+                            err_string.push_str(">\n");
+                        }
+                        PotentialType::Unit(_) => err_string.push_str("Sources of void:\n"),
+                        PotentialType::Int(_) => err_string.push_str("Sources of int:\n"),
+                        PotentialType::Float(_) => err_string.push_str("Sources of float:\n"),
+                        PotentialType::Bool(_) => err_string.push_str("Sources of bool:\n"),
+                        PotentialType::String(_) => err_string.push_str("Sources of string:\n"),
+                        PotentialType::Function(_, args, _) => {
+                            let _ = writeln!(
+                                err_string,
+                                "Sources of function with {} arguments",
+                                args.len()
+                            );
+                        }
+                        PotentialType::Tuple(_, elems) => {
+                            let _ = writeln!(
+                                err_string,
+                                "Sources of tuple with {} elements",
+                                elems.len()
+                            );
+                        }
+                    };
+                    let provs = ty.provs().borrow();
+                    let mut provs_vec = provs.iter().collect::<Vec<_>>();
+                    provs_vec.sort_by_key(|prov| match prov {
+                        Prov::Builtin(_) => 0,
+                        Prov::Node(id) => node_map.get(id).unwrap().span().lo,
+                        Prov::InstantiatePoly(_, _ident) => 2,
+                        Prov::FuncArg(_, _) => 3,
+                        Prov::FuncOut(_) => 4,
+                        Prov::VariantNoData(_) => 7,
+                        Prov::UdtDef(_) => 8,
+                        Prov::InstantiateUdtParam(_, _) => 9,
+                        Prov::ListElem(_) => 10,
+                        Prov::BinopLeft(_) => 11,
+                        Prov::BinopRight(_) => 12,
+                        Prov::StructField(..) => 14,
+                        Prov::IndexAccess => 15,
+                        Prov::Effect(_) => 16,
+                    });
+                    for cause in provs_vec {
+                        match cause {
+                            Prov::Builtin(builtin) => {
+                                let s = builtin.name();
+                                let _ = writeln!(err_string, "The builtin function {s}");
+                            }
+                            Prov::Effect(u16) => {
+                                let _ = writeln!(err_string, "The effect {u16}");
+                            }
+                            Prov::Node(id) => {
+                                let span = node_map.get(id).unwrap().span();
+                                span.display(&mut err_string, sources, "");
+                            }
+                            Prov::InstantiatePoly(_, ident) => {
+                                let _ = writeln!(
+                                    err_string,
+                                    "The instantiation of polymorphic type {ident}"
+                                );
+                            }
+                            Prov::FuncArg(prov, n) => {
+                                match prov.as_ref() {
+                                    Prov::Builtin(builtin) => {
+                                        let s = builtin.name();
+                                        let n = n + 1; // readability
+                                        let _ = writeln!(
+                                            err_string,
+                                            "--> The #{n} argument of function '{s}'"
+                                        );
+                                    }
+                                    Prov::Node(id) => {
+                                        let span = node_map.get(id).unwrap().span();
+                                        span.display(
+                                            &mut err_string,
+                                            sources,
+                                            &format!("The #{n} argument of this function"),
+                                        );
+                                    }
+                                    _ => unreachable!(),
+                                }
+                            }
+                            Prov::FuncOut(prov) => match prov.as_ref() {
+                                Prov::Builtin(builtin) => {
+                                    let s = builtin.name();
+                                    let _ = writeln!(
+                                        err_string,
+                                        "
+                                        --> The output of the builtin function '{s}'"
+                                    );
+                                }
+                                Prov::Node(id) => {
+                                    let span = node_map.get(id).unwrap().span();
+                                    span.display(
+                                        &mut err_string,
+                                        sources,
+                                        "The output of this function",
+                                    );
+                                }
+                                _ => unreachable!(),
+                            },
+                            Prov::BinopLeft(inner) => {
+                                err_string.push_str("The left operand of operator\n");
+                                if let Prov::Node(id) = **inner {
+                                    let span = node_map.get(&id).unwrap().span();
+                                    span.display(&mut err_string, sources, "");
+                                }
+                            }
+                            Prov::BinopRight(inner) => {
+                                err_string.push_str("The left operand of this operator\n");
+                                if let Prov::Node(id) = **inner {
+                                    let span = node_map.get(&id).unwrap().span();
+                                    span.display(&mut err_string, sources, "");
+                                }
+                            }
+                            Prov::ListElem(_) => {
+                                err_string.push_str("The element of some list");
+                            }
+                            Prov::UdtDef(_prov) => {
+                                err_string.push_str("Some type definition");
+                            }
+                            Prov::InstantiateUdtParam(_, _) => {
+                                err_string.push_str("Some instance of an Enum's variant");
+                            }
+                            Prov::VariantNoData(_prov) => {
+                                err_string.push_str("The data of some Enum variant");
+                            }
+                            Prov::StructField(field, ty) => {
+                                let _ =
+                                    writeln!(err_string, "The field {field} of the struct {ty}");
+                            }
+                            Prov::IndexAccess => {
+                                let _ = writeln!(err_string, "Index for array access");
+                            }
+                        }
+                    }
+                }
+                writeln!(err_string).unwrap();
             }
             Error::MemberAccessNeedsAnnotation { node_id } => {
                 let span = node_map.get(node_id).unwrap().span();

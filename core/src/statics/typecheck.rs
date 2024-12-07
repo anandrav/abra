@@ -387,7 +387,7 @@ impl PotentialType {
         }
     }
 
-    fn provs(&self) -> &Provs {
+    pub(crate) fn provs(&self) -> &Provs {
         match self {
             Self::Poly(provs, _, _)
             | Self::Unit(provs)
@@ -1192,28 +1192,25 @@ impl PolyvarScope {
     }
 }
 
-// TODO: instead of returning an Error(String), this should update the StaticsContext::errors vector
 // errors would be unbound variable, wrong number of arguments, occurs check, etc.
-pub(crate) fn result_of_constraint_solving(
-    ctx: &mut StaticsContext,
-    node_map: &NodeMap,
-    sources: &Sources,
-) -> Result<(), String> {
+pub(crate) fn result_of_constraint_solving(ctx: &mut StaticsContext) {
     // get list of type conflicts
     let mut type_conflicts = Vec::new();
     for (prov, tyvar) in ctx.unifvars.iter() {
         let type_suggestions = tyvar.0.clone_data().types; // TODO why not just check if it's solved?
         if type_suggestions.len() > 1 && (!type_conflicts.contains(&type_suggestions)) {
             type_conflicts.push(type_suggestions.clone());
-        }
-        if type_suggestions.is_empty() {
+
+            ctx.errors.push(Error::ConflictingUnifvar {
+                types: type_suggestions,
+            });
+        } else if type_suggestions.is_empty() {
             if let Prov::Node(id) = prov {
-                ctx.errors.push(Error::Unconstrained { node_id: *id });
+                ctx.errors
+                    .push(Error::UnconstrainedUnifvar { node_id: *id });
             }
         }
     }
-
-    let mut err_string = String::new();
 
     for (typ, location) in ctx.types_that_must_be_structs.iter() {
         let typ = typ.solution();
@@ -1229,181 +1226,6 @@ pub(crate) fn result_of_constraint_solving(
             typ: solved,
         });
     }
-
-    if type_conflicts.is_empty() {
-        for (node_id, node) in node_map.iter() {
-            let ty = ctx.solution_of_node(*node_id);
-            let _span = node.span();
-            if let Some(_ty) = ty {}
-        }
-        return Ok(());
-    }
-
-    if !type_conflicts.is_empty() {
-        let mut type_conflicts: Vec<Vec<PotentialType>> = type_conflicts
-            .iter()
-            .map(|type_suggestions| {
-                let mut types_sorted: Vec<PotentialType> =
-                    type_suggestions.values().cloned().collect();
-                types_sorted.sort_by_key(|ty| ty.provs().borrow().len());
-                types_sorted
-            })
-            .collect::<Vec<_>>();
-        type_conflicts.sort();
-        for type_conflict in &type_conflicts {
-            err_string.push_str("Conflicting types: ");
-            fmt_conflicting_types(type_conflict, &mut err_string).unwrap();
-            writeln!(err_string).unwrap();
-            for ty in type_conflict {
-                err_string.push('\n');
-                match &ty {
-                    PotentialType::Poly(_, _, _) => {
-                        err_string.push_str("Sources of generic type:\n")
-                    }
-                    PotentialType::Nominal(_, nominal, params) => {
-                        let _ = write!(err_string, "Sources of type {}<", nominal.name());
-                        for (i, param) in params.iter().enumerate() {
-                            if i != 0 {
-                                err_string.push_str(", ");
-                            }
-                            let _ = writeln!(err_string, "{param}");
-                        }
-                        err_string.push_str(">\n");
-                    }
-                    PotentialType::Unit(_) => err_string.push_str("Sources of void:\n"),
-                    PotentialType::Int(_) => err_string.push_str("Sources of int:\n"),
-                    PotentialType::Float(_) => err_string.push_str("Sources of float:\n"),
-                    PotentialType::Bool(_) => err_string.push_str("Sources of bool:\n"),
-                    PotentialType::String(_) => err_string.push_str("Sources of string:\n"),
-                    PotentialType::Function(_, args, _) => {
-                        let _ = writeln!(
-                            err_string,
-                            "Sources of function with {} arguments",
-                            args.len()
-                        );
-                    }
-                    PotentialType::Tuple(_, elems) => {
-                        let _ =
-                            writeln!(err_string, "Sources of tuple with {} elements", elems.len());
-                    }
-                };
-                let provs = ty.provs().borrow();
-                let mut provs_vec = provs.iter().collect::<Vec<_>>();
-                provs_vec.sort_by_key(|prov| match prov {
-                    Prov::Builtin(_) => 0,
-                    Prov::Node(id) => node_map.get(id).unwrap().span().lo,
-                    Prov::InstantiatePoly(_, _ident) => 2,
-                    Prov::FuncArg(_, _) => 3,
-                    Prov::FuncOut(_) => 4,
-                    Prov::VariantNoData(_) => 7,
-                    Prov::UdtDef(_) => 8,
-                    Prov::InstantiateUdtParam(_, _) => 9,
-                    Prov::ListElem(_) => 10,
-                    Prov::BinopLeft(_) => 11,
-                    Prov::BinopRight(_) => 12,
-                    Prov::StructField(..) => 14,
-                    Prov::IndexAccess => 15,
-                    Prov::Effect(_) => 16,
-                });
-                for cause in provs_vec {
-                    match cause {
-                        Prov::Builtin(builtin) => {
-                            let s = builtin.name();
-                            let _ = writeln!(err_string, "The builtin function {s}");
-                        }
-                        Prov::Effect(u16) => {
-                            let _ = writeln!(err_string, "The effect {u16}");
-                        }
-                        Prov::Node(id) => {
-                            let span = node_map.get(id).unwrap().span();
-                            span.display(&mut err_string, sources, "");
-                        }
-                        Prov::InstantiatePoly(_, ident) => {
-                            let _ = writeln!(
-                                err_string,
-                                "The instantiation of polymorphic type {ident}"
-                            );
-                        }
-                        Prov::FuncArg(prov, n) => {
-                            match prov.as_ref() {
-                                Prov::Builtin(builtin) => {
-                                    let s = builtin.name();
-                                    let n = n + 1; // readability
-                                    let _ = writeln!(
-                                        err_string,
-                                        "--> The #{n} argument of function '{s}'"
-                                    );
-                                }
-                                Prov::Node(id) => {
-                                    let span = node_map.get(id).unwrap().span();
-                                    span.display(
-                                        &mut err_string,
-                                        sources,
-                                        &format!("The #{n} argument of this function"),
-                                    );
-                                }
-                                _ => unreachable!(),
-                            }
-                        }
-                        Prov::FuncOut(prov) => match prov.as_ref() {
-                            Prov::Builtin(builtin) => {
-                                let s = builtin.name();
-                                let _ = writeln!(
-                                    err_string,
-                                    "
-                                    --> The output of the builtin function '{s}'"
-                                );
-                            }
-                            Prov::Node(id) => {
-                                let span = node_map.get(id).unwrap().span();
-                                span.display(
-                                    &mut err_string,
-                                    sources,
-                                    "The output of this function",
-                                );
-                            }
-                            _ => unreachable!(),
-                        },
-                        Prov::BinopLeft(inner) => {
-                            err_string.push_str("The left operand of operator\n");
-                            if let Prov::Node(id) = **inner {
-                                let span = node_map.get(&id).unwrap().span();
-                                span.display(&mut err_string, sources, "");
-                            }
-                        }
-                        Prov::BinopRight(inner) => {
-                            err_string.push_str("The left operand of this operator\n");
-                            if let Prov::Node(id) = **inner {
-                                let span = node_map.get(&id).unwrap().span();
-                                span.display(&mut err_string, sources, "");
-                            }
-                        }
-                        Prov::ListElem(_) => {
-                            err_string.push_str("The element of some list");
-                        }
-                        Prov::UdtDef(_prov) => {
-                            err_string.push_str("Some type definition");
-                        }
-                        Prov::InstantiateUdtParam(_, _) => {
-                            err_string.push_str("Some instance of an Enum's variant");
-                        }
-                        Prov::VariantNoData(_prov) => {
-                            err_string.push_str("The data of some Enum variant");
-                        }
-                        Prov::StructField(field, ty) => {
-                            let _ = writeln!(err_string, "The field {field} of the struct {ty}");
-                        }
-                        Prov::IndexAccess => {
-                            let _ = writeln!(err_string, "Index for array access");
-                        }
-                    }
-                }
-            }
-            writeln!(err_string).unwrap();
-        }
-    }
-
-    Err(err_string)
 }
 
 pub(crate) fn generate_constraints_file(file: Rc<FileAst>, ctx: &mut StaticsContext) {
@@ -2177,7 +1999,7 @@ pub(crate) fn solved_type_to_typevar(ty: SolvedType, prov: Prov) -> TypeVar {
     }
 }
 
-fn fmt_conflicting_types(types: &[PotentialType], f: &mut dyn Write) -> fmt::Result {
+pub(crate) fn fmt_conflicting_types(types: &[PotentialType], f: &mut dyn Write) -> fmt::Result {
     writeln!(f)?;
     for (i, t) in types.iter().enumerate() {
         if types.len() == 1 {
