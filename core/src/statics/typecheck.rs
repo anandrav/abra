@@ -448,7 +448,7 @@ impl PotentialType {
 }
 
 impl TypeVar {
-    // Creates a clone of a Type with polymorphic variables not in scope with fresh unification variables
+    // Creates a clone of a Type with polymorphic variables not in scope replaced with fresh unifvars
     fn instantiate(
         self,
         polyvar_scope: PolyvarScope,
@@ -474,14 +474,14 @@ impl TypeVar {
                         ctx,
                         Prov::InstantiatePoly(Box::new(prov.clone()), ident.clone()),
                     );
-                    let mut extension = Vec::new();
-                    for i in interfaces {
-                        extension.push((i.clone(), prov.clone()));
-                    }
-                    ctx.types_constrained_to_interfaces
-                        .entry(ret.clone())
-                        .or_default()
-                        .extend(extension);
+                    // let mut extension = Vec::new();
+                    // for i in interfaces {
+                    //     extension.push((i.clone(), prov.clone()));
+                    // }
+                    // ctx.types_constrained_to_interfaces
+                    //     .entry(ret.clone())
+                    //     .or_default()
+                    //     .extend(extension);
                     return ret; // instantiation occurs here
                 } else {
                     ty // noop
@@ -514,7 +514,7 @@ impl TypeVar {
         types.insert(ty.key(), ty);
         let data_instantiated = TypeVarData { types };
         let tvar = TypeVar(UnionFindNode::new(data_instantiated));
-        ctx.vars.insert(prov, tvar.clone());
+        ctx.unifvars.insert(prov, tvar.clone());
         tvar
     }
 
@@ -582,11 +582,11 @@ impl TypeVar {
     }
 
     pub(crate) fn fresh(ctx: &mut StaticsContext, prov: Prov) -> TypeVar {
-        match ctx.vars.get(&prov) {
+        match ctx.unifvars.get(&prov) {
             Some(ty) => ty.clone(),
             None => {
                 let ty = TypeVar(UnionFindNode::new(TypeVarData::new()));
-                ctx.vars.insert(prov, ty.clone());
+                ctx.unifvars.insert(prov, ty.clone());
                 ty
             }
         }
@@ -1201,7 +1201,7 @@ pub(crate) fn result_of_constraint_solving(
 ) -> Result<(), String> {
     // get list of type conflicts
     let mut type_conflicts = Vec::new();
-    for (prov, tyvar) in ctx.vars.iter() {
+    for (prov, tyvar) in ctx.unifvars.iter() {
         let type_suggestions = tyvar.0.clone_data().types; // TODO why not just check if it's solved?
         if type_suggestions.len() > 1 && (!type_conflicts.contains(&type_suggestions)) {
             type_conflicts.push(type_suggestions.clone());
@@ -1215,57 +1215,6 @@ pub(crate) fn result_of_constraint_solving(
 
     let mut err_string = String::new();
 
-    let mut bad_instantiations = false;
-    // check for bad instantiation of polymorphic types constrained to an Interface
-    // TODO: unnecessary clone
-    let types_constrained_to_interfaces = ctx.types_constrained_to_interfaces.clone();
-    for (typ, interfaces) in types_constrained_to_interfaces.iter() {
-        let Some(typ) = &typ.solution() else {
-            continue;
-        };
-        // for each interface
-        for interface in interfaces {
-            let mut bad_instantiation: bool = true;
-            let (interface, prov) = interface;
-            if let SolvedType::Poly(_, interfaces2) = &typ {
-                // if 'a Interface1 is constrained to [Interfaces...], ignore
-                if interfaces2.contains(interface) {
-                    bad_instantiation = false;
-                }
-            } else if let Some(impl_list) = ctx.interface_impls.get(interface).cloned() {
-                // find at least one implementation of interface that matches the type constrained to the interface
-                for impl_ in impl_list {
-                    // TODO: converting implementation's ast type to a typevar then getting the solution is silly
-                    // ALSO it requires a mutable StaticsContext which doesn't make sense at all
-                    let impl_ty = ast_type_to_typevar(ctx, impl_.typ.clone());
-                    if let Some(impl_ty) = impl_ty.solution() {
-                        // println!("typecheck ty_fits_impl_ty");
-                        // println!("ty1: {}, ty2: {}", typ, impl_ty);
-                        if let Err((_err_monoty, _err_impl_ty)) =
-                            ty_fits_impl_ty(ctx, typ.clone(), impl_ty.clone())
-                        {
-                        } else {
-                            bad_instantiation = false;
-                        }
-                    }
-                }
-            }
-            if bad_instantiation {
-                bad_instantiations = true;
-                let _ = writeln!(
-                    err_string,
-                    "error: the interface '{}' is not implemented for type '{}'",
-                    interface.name.v, typ
-                );
-                if let Some(id) = prov.get_location() {
-                    let span = node_map.get(&id).unwrap().span();
-                    span.display(&mut err_string, sources, "");
-                }
-            }
-        }
-    }
-
-    let mut bad_field_access = false;
     for (typ, location) in ctx.types_that_must_be_structs.iter() {
         let typ = typ.solution();
         let Some(solved) = typ else {
@@ -1275,13 +1224,13 @@ pub(crate) fn result_of_constraint_solving(
             continue;
         }
 
-        bad_field_access = true;
-        let _ = writeln!(err_string, "error: type '{}' is not a struct", solved);
-        let span = node_map.get(location).unwrap().span();
-        span.display(&mut err_string, sources, "");
+        ctx.errors.push(Error::BadFieldAccess {
+            node_id: *location,
+            typ: solved,
+        });
     }
 
-    if type_conflicts.is_empty() && !bad_instantiations && !bad_field_access {
+    if type_conflicts.is_empty() {
         for (node_id, node) in node_map.iter() {
             let ty = ctx.solution_of_node(*node_id);
             let _span = node.span();

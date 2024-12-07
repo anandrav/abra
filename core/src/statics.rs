@@ -49,9 +49,9 @@ pub(crate) struct StaticsContext {
     // TYPE CHECKING
 
     // unification variables (skolems) which must be solved
-    pub(crate) vars: HashMap<TypeProv, TypeVar>,
+    pub(crate) unifvars: HashMap<TypeProv, TypeVar>,
     // constraint: map from types to interfaces they must implement
-    types_constrained_to_interfaces: BTreeMap<TypeVar, Vec<(Rc<InterfaceDef>, TypeProv)>>, // TODO: can't use TypeVar as key because it's mutable. Use a Prov instead?
+    // types_constrained_to_interfaces: BTreeMap<TypeVar, Vec<(Rc<InterfaceDef>, TypeProv)>>, // TODO: can't use TypeVar as key because it's mutable. Use a Prov instead?
     // constraint: map from types which must be structs to location of field access
     types_that_must_be_structs: BTreeMap<TypeVar, NodeId>, // TODO: can't use TypeVar as key because it's mutable. Use a Prov instead?
 
@@ -75,7 +75,7 @@ impl StaticsContext {
 
     pub(crate) fn solution_of_node(&self, id: NodeId) -> Option<SolvedType> {
         let prov = TypeProv::Node(id);
-        match self.vars.get(&prov) {
+        match self.unifvars.get(&prov) {
             Some(unifvar) => unifvar.solution(),
             None => None,
         }
@@ -145,6 +145,10 @@ pub(crate) enum Error {
     },
     MemberAccessNeedsAnnotation {
         node_id: NodeId,
+    },
+    BadFieldAccess {
+        node_id: NodeId,
+        typ: SolvedType,
     },
     // pattern matching exhaustiveness check
     NonexhaustiveMatch {
@@ -230,6 +234,15 @@ impl Error {
                     sources,
                     "Can't perform member access without knowing type. Try adding a type annotation.",
                 );
+            }
+            Error::BadFieldAccess { node_id, typ } => {
+                let _ = writeln!(
+                    err_string,
+                    "Can't access member variable because type '{}' is not a struct.",
+                    typ
+                );
+                let span = node_map.get(node_id).unwrap().span();
+                span.display(&mut err_string, sources, "");
             }
 
             Error::NonexhaustiveMatch { expr_id, missing } => {

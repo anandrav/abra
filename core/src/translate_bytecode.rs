@@ -565,7 +565,7 @@ impl Translator {
                                     if f.name.v == *method_name {
                                         let unifvar = self
                                             .statics
-                                            .vars
+                                            .unifvars
                                             .get(&TypeProv::Node(f.name.id()))
                                             .unwrap();
                                         let interface_impl_ty = unifvar.solution().unwrap();

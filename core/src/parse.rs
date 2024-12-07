@@ -102,13 +102,17 @@ pub(crate) fn parse_expr_pratt(pairs: Pairs<Rule>, filename: &str) -> Rc<Expr> {
             };
             match opcode {
                 Some(opcode) => Rc::new(Expr {
-                    kind: Rc::new(ExprKind::BinOp(lhs, opcode, rhs)),
+                    kind: Rc::new(ExprKind::BinOp(lhs.clone(), opcode, rhs.clone())),
                     span: Span::new(filename, op.as_span()),
                     id: NodeId::new(),
                 }),
                 None => Rc::new(Expr {
-                    kind: Rc::new(ExprKind::MemberAccess(lhs, rhs)),
-                    span: Span::new(filename, op.as_span()),
+                    kind: Rc::new(ExprKind::MemberAccess(lhs.clone(), rhs.clone())),
+                    span: Span {
+                        filename: filename.to_string(),
+                        lo: lhs.span.lo,
+                        hi: rhs.span.hi,
+                    },
                     id: NodeId::new(),
                 }),
             }
