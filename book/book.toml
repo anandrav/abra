@@ -10,3 +10,5 @@ chapter-numbering = false
 default-theme = "light"
 git-repository-url = "https://github.com/anandrav/abra"
 
+[output.html.search]
+enable = true
