@@ -102,5 +102,5 @@ install_abra_vscode_extension
 echo "\nSetup complete! Abra is ready to use."
 echo "To get started:"
 echo "- Run \`abra --help\` to see available options."
-echo "- Create a new Abra script or open an existing one and execute it with \`abra <filename>.abra\`."
+echo "- Create a new Abra program or open an existing one and execute it with \`abra <filename>.abra\`."
 

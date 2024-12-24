@@ -27,3 +27,6 @@ git clone https://github.com/anandrav/abra.git
 cd abra
 ./scripts/install
 ```
+
+## Documentation
+User guide and language reference: [https://anandrav.github.io/abra/about.html](https://anandrav.github.io/abra/about.html)
