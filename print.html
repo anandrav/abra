@@ -127,6 +127,9 @@
                         <a href="print.html" title="Print this book" aria-label="Print this book">
                             <i id="print-button" class="fa fa-print"></i>
                         </a>
+                        <a href="https://github.com/anandrav/abra" title="Git repository" aria-label="Git repository">
+                            <i id="git-repository-button" class="fa fa-github"></i>
+                        </a>
 
                     </div>
                 </div>
@@ -167,6 +170,154 @@
 <p>Abra is garbage-collected, so programmers don't have to manually manage memory themselves, and they can save brainpower for other aspects of their program instead.</p>
 <h3 id="adhoc-polymorphism"><a class="header" href="#adhoc-polymorphism">Adhoc Polymorphism</a></h3>
 <p>In addition, Abra has a concept of "interfaces" which is very similar to "traits" in Rust or "typeclasses" in Haskell. These enable programmers to use the '+' operator on both integers and floats, or print several kinds of datatypes without having to use separate functions for each (print() as opposed to print_string(), print_int(), print_float() etc.)</p>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="installation"><a class="header" href="#installation">Installation</a></h1>
+<p>To install Abra, download the repository from https://github.com/anandrav/abra.
+Then, run the script located at /scripts/install</p>
+<pre><code>git clone https://github.com/anandrav/abra
+cd abra
+./scripts/install
+</code></pre>
+<h2 id="requirements"><a class="header" href="#requirements">Requirements</a></h2>
+<h3 id="cargo"><a class="header" href="#cargo">Cargo</a></h3>
+<p>Cargo, the Rust package manager, is required to run the install script. The best way to install Cargo is by using <a href="https://www.rust-lang.org/tools/install">rustup</a>.</p>
+<h3 id="node"><a class="header" href="#node">Node</a></h3>
+<p>If you're using Visual Studio Code and want to install the Abra extension, you'll want to <a href="https://nodejs.org/en/download/package-manager">install Node</a> as well before running the install script.</p>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="hello-world"><a class="header" href="#hello-world">Hello World</a></h1>
+<p>To make a simple hello world program, create a file called <code>hello.abra</code>.</p>
+<p>Inside the file, write</p>
+<pre><code>print("hello world")
+</code></pre>
+<p>Then run the file with the command <code>abra hello.abra</code></p>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="primitive-types"><a class="header" href="#primitive-types">Primitive Types</a></h1>
+<h3 id="int"><a class="header" href="#int">int</a></h3>
+<p>A 64-bit signed integer.</p>
+<h3 id="float"><a class="header" href="#float">float</a></h3>
+<p>A 64-bit floating point decimal number.</p>
+<h3 id="boolean"><a class="header" href="#boolean">boolean</a></h3>
+<p>Either <code>true</code> or <code>false</code>.</p>
+<h3 id="string"><a class="header" href="#string">string</a></h3>
+<p>Garbage-collected unicode text data.</p>
+<h3 id="void"><a class="header" href="#void">void</a></h3>
+<p>Represents nothing and only has one value -- void. Similar to the unit type <code>()</code> in Rust.</p>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="functions"><a class="header" href="#functions">Functions</a></h1>
+<p>A function takes 0 or more arguments and returns a single value.</p>
+<pre><code>fn increment_if_true(n: int, condition: boolean) -&gt; int {
+    if condition {
+        n + 1
+    } else {
+        n
+    }
+}
+</code></pre>
+<p>A function always returns the value of its body. If the body of a function is a block of statements, the last statement/expression of the block is the return value of the function. There are no explicit return statements and therefore no early return statements.</p>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="structs"><a class="header" href="#structs">Structs</a></h1>
+<p>Define a <code>struct</code> to group together related pieces of data.</p>
+<pre><code>type Person = {
+    first_name: string,
+    last_name: string,
+    age: int,
+}
+</code></pre>
+<p>Create an instance of a struct by calling the struct as a function.</p>
+<pre><code>let frank = Person("Frank", "Smith", 34)
+</code></pre>
+<p>Access members of a struct and modify them by using dot <code>.</code> syntax.</p>
+<pre><code>let fullname = frank.first_name &amp; " " &amp; frank.last_name
+frank.age = frank.age + 1
+</code></pre>
+<div style="break-before: page; page-break-before: always;"></div><h2 id="enums"><a class="header" href="#enums">Enums</a></h2>
+<p>Define an <code>enum</code> to represent a set of possibilities.</p>
+<pre><code>type Color =
+    Red
+  | Blue
+  | Green
+</code></pre>
+<p>Data can optionally be associated with each variant of an enum type.</p>
+<pre><code>type Shape =
+    | Circle(float)
+    | Rectangle(float, float)
+    | Triangle(float, float)
+</code></pre>
+<p>Given an enum, its value can be inspected by using a match expression.
+The associated data for a variant can be bound to a variable using the <code>~</code> syntax.</p>
+<pre><code>let c = Circle(5.2)
+let area = match c {
+    Circle(~radius) -&gt; radius * radius * pi,
+    Rectangle(~width, ~height) -&gt; width * height,
+    Triangle(~width, ~height) -&gt; width * height * 0.5,
+}
+</code></pre>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="interfaces"><a class="header" href="#interfaces">Interfaces</a></h1>
+<p>An interface is a collection of functions that operate on a type named <code>self</code>.
+An interface can be implemented for multiple types.
+For instance, the <code>Number</code> interface supports the add, subtract, multiply, and divide operations.
+The Number interface is implemented for both <code>int</code> and <code>float</code> type. The Number could be implemented for a user-defined type.</p>
+<p>Example: Implementing the ToString interface for the Person struct</p>
+<pre><code>interface ToString {
+    fn to_string(x: self) -&gt; string
+}
+
+type Person = {
+    first_name: string,
+    last_name: string,
+    age: int,
+}
+
+impl ToString for Person {
+    fn to_string(x: Person) -&gt; string {
+        x.first_name &amp; " " &amp; x.last_name &amp; ", " x.age &amp; " years old."
+    }
+}
+</code></pre>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="namespaces"><a class="header" href="#namespaces">Namespaces</a></h1>
+<p>Each Abra file has its own namespace. In order to use functions from another file, the <code>use</code> keyword must be used to bring them into scope.</p>
+<p>cat.abra</p>
+<pre><code>fn meow() -&gt; string {
+    "nyan nyan nyan"
+}
+</code></pre>
+<p>main.abra</p>
+<pre><code>use cat
+
+meow()
+</code></pre>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="foreign-functions"><a class="header" href="#foreign-functions">Foreign Functions</a></h1>
+<p>Functions defined in Rust can be called from Abra. Foreign functions must be declared ahead of time, so that their types are known. The corresponding Rust function definitions use the Abra VM API to pop arguments from the stack and push a return value to the stack.</p>
+<p>os.abra</p>
+<pre><code>foreign fn fread(path: string) -&gt; string
+
+foreign fn fwrite(path: string, contents: string) -&gt; string
+</code></pre>
+<p>os/src/lib.rs</p>
+<pre><code>use abra_core::vm::Vm;
+use std::fs;
+
+#[no_mangle]
+pub unsafe extern "C" fn fread(vm: *mut Vm) {
+    let string_view = vm_view_string(vm);
+    let path = string_view.to_owned();
+    vm_pop(vm);
+
+    let content = fs::read_to_string(path).expect("Unable to read from file");
+
+    let string_view = StringView::from_string(&amp;content);
+    vm_push_string(vm, string_view);
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn fwrite(vm: *mut Vm) {
+    let string_view = vm_view_string(vm);
+    let content = string_view.to_owned();
+    vm_pop(vm);
+
+    // TODO: make a macro for this called get_string!
+    let string_view = vm_view_string(vm);
+    let path = string_view.to_owned();
+    vm_pop(vm);
+
+    fs::write(path, content).expect("Unable to write to file");
+}
+</code></pre>
 
                     </main>
 
