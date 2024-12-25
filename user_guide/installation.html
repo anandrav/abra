@@ -162,6 +162,20 @@ Then, run the script located at /scripts/install</p>
 cd abra
 ./scripts/install
 </code></pre>
+<p>After, you should be able to run Abra from the command line</p>
+<pre><code>% abra --help
+Usage: abra [OPTIONS] &lt;FILE&gt; [ARGS]...
+
+Arguments:
+  &lt;FILE&gt;     The main Abra file to compile and execute
+  [ARGS]...  Arguments to pass to the Abra program
+
+Options:
+  -m, --modules &lt;DIRECTORY&gt;  Override the default module directory (~/.abra/modules).
+  -h, --help                 Print help
+  -V, --version              Print version
+
+</code></pre>
 <h2 id="requirements"><a class="header" href="#requirements">Requirements</a></h2>
 <h3 id="cargo"><a class="header" href="#cargo">Cargo</a></h3>
 <p>Cargo, the Rust package manager, is required to run the install script. The best way to install Cargo is by using <a href="https://www.rust-lang.org/tools/install">rustup</a>.</p>
