@@ -16,7 +16,7 @@ pub mod statics;
 mod translate_bytecode;
 pub mod vm;
 
-use prelude::_PRELUDE;
+pub use prelude::PRELUDE;
 use translate_bytecode::CompiledProgram;
 use translate_bytecode::Translator;
 
@@ -35,7 +35,7 @@ pub fn source_files_single(src: &str) -> Vec<SourceFile> {
         SourceFile {
             name: "prelude.abra".to_owned(),
             path: "prelude.abra".into(),
-            contents: _PRELUDE.to_owned(),
+            contents: PRELUDE.to_owned(),
         },
         SourceFile {
             name: "test.abra".to_owned(),

@@ -140,8 +140,7 @@ fn gather_declarations_item(
             let dirname = &path.to_str().unwrap()[..path.to_str().unwrap().len() - ".abra".len()];
             let dir = std::fs::read_dir(dirname).unwrap(); // TODO: remove unwrap
             let mut libname: Option<PathBuf> = None;
-            for entry in dir {
-                let entry = entry.unwrap();
+            for entry in dir.flatten() {
                 if entry.file_name() == "Cargo.toml" {
                     let content = std::fs::read_to_string(entry.path()).unwrap(); // TODO: remove unwrap
                     let cargo_toml: CargoToml = toml::from_str(&content).unwrap(); // TODO: remove unwrap

@@ -35,19 +35,24 @@ impl TypeVar {
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) struct TypeVarData {
     pub(crate) types: BTreeMap<TypeKey, PotentialType>,
+    pub(crate) solved: bool,
 }
 
 impl TypeVarData {
     fn new() -> Self {
         Self {
             types: BTreeMap::new(),
+            solved: false,
         }
     }
 
     fn singleton(potential_type: PotentialType) -> Self {
         let mut types = BTreeMap::new();
         types.insert(potential_type.key(), potential_type);
-        Self { types }
+        Self {
+            types,
+            solved: false,
+        }
     }
 
     fn solution(&self) -> Option<SolvedType> {
@@ -59,7 +64,10 @@ impl TypeVarData {
     }
 
     fn merge(first: Self, second: Self) -> Self {
-        let mut merged_types = Self { types: first.types };
+        let mut merged_types = Self {
+            types: first.types,
+            solved: false,
+        };
         for (_key, t) in second.types {
             merged_types.extend(t);
         }
@@ -512,7 +520,10 @@ impl TypeVar {
         };
         let mut types = BTreeMap::new();
         types.insert(ty.key(), ty);
-        let data_instantiated = TypeVarData { types };
+        let data_instantiated = TypeVarData {
+            types,
+            solved: data.solved,
+        };
         let tvar = TypeVar(UnionFindNode::new(data_instantiated));
         ctx.unifvars.insert(prov, tvar.clone());
         tvar
@@ -569,7 +580,10 @@ impl TypeVar {
             };
             let mut types = BTreeMap::new();
             types.insert(ty.key(), ty);
-            let new_data = TypeVarData { types };
+            let new_data = TypeVarData {
+                types,
+                solved: data.solved,
+            };
             TypeVar(UnionFindNode::new(new_data))
         } else {
             self // noop

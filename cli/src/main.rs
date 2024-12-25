@@ -41,7 +41,7 @@ fn main() {
     source_files.push(SourceFile {
         name: "prelude.abra".to_string(),
         path: "prelude.abra".into(), // TODO: does path really make sense in this context? Should path be optional?
-        contents: abra_core::prelude::_PRELUDE.to_string(),
+        contents: abra_core::prelude::PRELUDE.to_string(),
     });
 
     let contents = std::fs::read_to_string(&args.file).unwrap();

@@ -1,7 +1,7 @@
 use abra_core::compile_bytecode;
 use abra_core::effects::DefaultEffects;
 use abra_core::effects::EffectTrait;
-use abra_core::prelude::_PRELUDE;
+use abra_core::prelude::PRELUDE;
 use abra_core::source_files_single;
 use abra_core::vm::Vm;
 
@@ -906,7 +906,7 @@ foo(2, 2)
         SourceFile {
             name: "prelude.abra".to_owned(),
             path: "prelude.abra".into(),
-            contents: _PRELUDE.to_owned(),
+            contents: PRELUDE.to_owned(),
         },
         SourceFile {
             name: "util.abra".to_owned(),

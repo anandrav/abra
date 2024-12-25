@@ -1,6 +1,6 @@
 use abra_core::compile_bytecode;
 use abra_core::effects::{DefaultEffects, EffectTrait};
-use abra_core::prelude::_PRELUDE;
+use abra_core::prelude::PRELUDE;
 use abra_core::vm::Vm;
 use abra_core::SourceFile;
 
@@ -28,7 +28,7 @@ foo(2, 2)
         SourceFile {
             name: "prelude.abra".to_owned(),
             path: "prelude.abra".into(), // TODO: does Path actually make sense in this context?
-            contents: _PRELUDE.to_owned(),
+            contents: PRELUDE.to_owned(),
         },
         SourceFile {
             name: "util.abra".to_owned(),

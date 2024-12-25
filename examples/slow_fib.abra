@@ -5,8 +5,6 @@ fn fib(x) = match x {
   _ -> fib(x-1) + fib(x-2)
 }
 
-fn identity(x) = x
-
 var i = 0
 while i <= 32 {
   println(i & ": " & fib(i))
