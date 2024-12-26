@@ -21,7 +21,7 @@ interface_property = { func_keyword ~ identifier ~ type_annotation }
 interface_implementation = { "implement" ~ identifier ~ "for" ~ typ ~ interface_implementation_body }
 interface_implementation_body = _{ "{" ~ func_def* ~ "}" }
 
-enum_declaration = { "type" ~ identifier ~ type_params? ~ "=" ~ variant ~ ("|" ~ variant)* }
+enum_declaration = { "type" ~ identifier ~ type_params? ~ "=" ~ ("|")? ~ variant ~ ("|" ~ variant)* }
 type_params = _{ "<" ~ (type_poly ~ ",")* ~ type_poly? ~ ">" }
 variant = { identifier ~ packed_data? }
 packed_data = _{ "of" ~ typ }

@@ -1109,7 +1109,8 @@ impl Translator {
 
             StmtKind::FuncDef(f) => {
                 // (this could be an overloaded function or an interface method)
-                // self._display_node(stmt.id);
+                //self._display_node(stmt.id);
+
                 let func_ty = self.statics.solution_of_node(f.name.id).unwrap();
                 let func_name = f.name.v.clone();
 

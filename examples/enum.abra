@@ -1,0 +1,15 @@
+type color = 
+  | Red
+  | Blue
+  | Green
+
+implement ToString for color {
+  fn str(c: color) -> string = match c {
+    Red -> "Red"
+    Blue -> "Blue"
+    Green -> "Green"
+  }
+}
+
+println(Red)
+
