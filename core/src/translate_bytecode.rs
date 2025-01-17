@@ -558,10 +558,7 @@ impl Translator {
 
                             // TODO: simplify this logic
                             for imp in impl_list {
-                                for method in &imp.stmts {
-                                    let StmtKind::FuncDef(f) = &*method.kind else {
-                                        unreachable!()
-                                    };
+                                for f in &imp.methods {
                                     if f.name.v == *method_name {
                                         let unifvar = self
                                             .statics
@@ -577,22 +574,22 @@ impl Translator {
                                         )
                                         .is_ok()
                                         {
-                                            if let Some(stmt) =
-                                                &self.node_map.get(&method.id).unwrap().to_stmt()
-                                            {
-                                                // This is an interface method definition
-                                                if let StmtKind::FuncDef(f) = &*stmt.kind {
-                                                    self.handle_overloaded_func(
-                                                        st,
-                                                        substituted_ty.clone(),
-                                                        &fully_qualified_name,
-                                                        f.clone(),
-                                                    );
-                                                }
-                                            } else {
-                                                panic!("did not handle overloaded function");
-                                            }
+                                            // if let Some(stmt) =
+                                            //     &self.node_map.get(&method.id).unwrap().to_stmt()
+                                            // {
+                                            //     // This is an interface method definition
+                                            //     if let StmtKind::FuncDef(f) = &*stmt.kind {
+                                            self.handle_overloaded_func(
+                                                st,
+                                                substituted_ty.clone(),
+                                                &fully_qualified_name,
+                                                f.clone(),
+                                            );
                                         }
+                                        // } else {
+                                        //     panic!("did not handle overloaded function");
+                                        // }
+                                        // }
                                     }
                                 }
                             }
@@ -1034,8 +1031,8 @@ impl Translator {
         match &*stmt.kind {
             ItemKind::Stmt(_) => {}
             ItemKind::InterfaceImpl(iface_impl) => {
-                for stmt in &iface_impl.stmts {
-                    self.translate_stmt_static(stmt.clone(), st, true);
+                for f in &iface_impl.methods {
+                    self.translate_stmt_static(f, st, true);
                 }
             }
 
@@ -1098,57 +1095,51 @@ impl Translator {
     // TODO: this is basically only used for Method implementations, so need to distinguish those from regular functions
     fn translate_stmt_static(
         &mut self,
-        stmt: Rc<Stmt>,
+        f: &Rc<FuncDef>,
         st: &mut TranslatorState,
         iface_method: bool,
     ) {
-        match &*stmt.kind {
-            StmtKind::Let(..) => {}
-            StmtKind::Set(..) => {}
-            StmtKind::Expr(..) => {}
+        {
+            // (this could be an overloaded function or an interface method)
+            //self._display_node(stmt.id);
 
-            StmtKind::FuncDef(f) => {
-                // (this could be an overloaded function or an interface method)
-                //self._display_node(stmt.id);
+            let func_ty = self.statics.solution_of_node(f.name.id).unwrap();
+            let func_name = f.name.v.clone();
 
-                let func_ty = self.statics.solution_of_node(f.name.id).unwrap();
-                let func_name = f.name.v.clone();
-
-                if func_ty.is_overloaded() // println: 'a ToString -> ()
+            if func_ty.is_overloaded() // println: 'a ToString -> ()
                 || iface_method
-                // to_string: 'a ToString -> String
-                {
-                    return;
-                }
-
-                // println!("Generating code for function: {}", func_name);
-                emit(st, Line::Label(func_name));
-                let mut locals = HashSet::new();
-                collect_locals_expr(&f.body, &mut locals);
-                let locals_count = locals.len();
-                for _ in 0..locals_count {
-                    emit(st, Instr::PushNil);
-                }
-                let mut offset_table = OffsetTable::new();
-                for (i, arg) in f.args.iter().rev().enumerate() {
-                    offset_table.entry(arg.0.id).or_insert(-(i as i32) - 1);
-                }
-                for (i, local) in locals.iter().enumerate() {
-                    offset_table.entry(*local).or_insert((i) as i32);
-                }
-                let nargs = f.args.len();
-                self.translate_expr(f.body.clone(), &offset_table, MonomorphEnv::empty(), st);
-
-                if locals_count + nargs > 0 {
-                    // pop all locals and arguments except one. The last one is the return value slot.
-                    emit(st, Instr::StoreOffset(-(nargs as i32)));
-                    for _ in 0..(locals_count + nargs - 1) {
-                        emit(st, Instr::Pop);
-                    }
-                }
-
-                emit(st, Instr::Return);
+            // to_string: 'a ToString -> String
+            {
+                return;
             }
+
+            // println!("Generating code for function: {}", func_name);
+            emit(st, Line::Label(func_name));
+            let mut locals = HashSet::new();
+            collect_locals_expr(&f.body, &mut locals);
+            let locals_count = locals.len();
+            for _ in 0..locals_count {
+                emit(st, Instr::PushNil);
+            }
+            let mut offset_table = OffsetTable::new();
+            for (i, arg) in f.args.iter().rev().enumerate() {
+                offset_table.entry(arg.0.id).or_insert(-(i as i32) - 1);
+            }
+            for (i, local) in locals.iter().enumerate() {
+                offset_table.entry(*local).or_insert((i) as i32);
+            }
+            let nargs = f.args.len();
+            self.translate_expr(f.body.clone(), &offset_table, MonomorphEnv::empty(), st);
+
+            if locals_count + nargs > 0 {
+                // pop all locals and arguments except one. The last one is the return value slot.
+                emit(st, Instr::StoreOffset(-(nargs as i32)));
+                for _ in 0..(locals_count + nargs - 1) {
+                    emit(st, Instr::Pop);
+                }
+            }
+
+            emit(st, Instr::Return);
         }
     }
 

@@ -391,25 +391,22 @@ fn resolve_names_item(ctx: &mut StaticsContext, symbol_table: SymbolTable, stmt:
                 &symbol_table.lookup_declaration(&iface_impl.iface.v)
             {
                 ctx.resolution_map.insert(iface_impl.iface.id, decl.clone());
-                for prop in &iface_impl.stmts {
-                    if let StmtKind::FuncDef(f) = &*prop.kind {
-                        // TODO: Why the if let here? Isn't this guaranteed?
-                        if let Some(decl @ Declaration::InterfaceMethod { .. }) =
-                            symbol_table.lookup_declaration(&f.name.v)
-                        {
-                            ctx.resolution_map.insert(f.name.id, decl.clone());
+                for f in &iface_impl.methods {
+                    if let Some(decl @ Declaration::InterfaceMethod { .. }) =
+                        symbol_table.lookup_declaration(&f.name.v)
+                    {
+                        ctx.resolution_map.insert(f.name.id, decl.clone());
+                    }
+                    let symbol_table = symbol_table.new_scope();
+                    for arg in &f.args {
+                        resolve_names_pat(ctx, symbol_table.clone(), arg.0.clone());
+                        if let Some(annot) = &arg.1 {
+                            resolve_names_typ(ctx, symbol_table.clone(), annot.clone());
                         }
-                        let symbol_table = symbol_table.new_scope();
-                        for arg in &f.args {
-                            resolve_names_pat(ctx, symbol_table.clone(), arg.0.clone());
-                            if let Some(annot) = &arg.1 {
-                                resolve_names_typ(ctx, symbol_table.clone(), annot.clone());
-                            }
-                        }
-                        resolve_names_expr(ctx, symbol_table.clone(), f.body.clone());
-                        if let Some(ret_type) = &f.ret_type {
-                            resolve_names_typ(ctx, symbol_table, ret_type.clone());
-                        }
+                    }
+                    resolve_names_expr(ctx, symbol_table.clone(), f.body.clone());
+                    if let Some(ret_type) = &f.ret_type {
+                        resolve_names_typ(ctx, symbol_table, ret_type.clone());
                     }
                 }
             } else {

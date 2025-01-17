@@ -12,7 +12,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::fmt::{self, Display, Write};
 use std::rc::Rc;
 
-use super::{Declaration, EnumDef, Error, InterfaceDef, StaticsContext, StructDef};
+use super::{Declaration, EnumDef, Error, FuncDef, InterfaceDef, StaticsContext, StructDef};
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub(crate) struct TypeVar(UnionFindNode<TypeVarData>);
@@ -1704,10 +1704,7 @@ fn generate_constraints_item(mode: Mode, stmt: Rc<Item>, ctx: &mut StaticsContex
                     let node_ty = TypeVar::from_node(ctx, prop.id());
                     constrain(node_ty.clone(), ty_annot.clone());
                 }
-                for statement in &iface_impl.stmts {
-                    let StmtKind::FuncDef(f) = &*statement.kind else {
-                        continue;
-                    };
+                for f in &iface_impl.methods {
                     let method_name = f.name.v.clone();
                     if let Some(interface_method) =
                         iface_def.props.iter().find(|m| m.name.v == method_name)
@@ -1730,12 +1727,7 @@ fn generate_constraints_item(mode: Mode, stmt: Rc<Item>, ctx: &mut StaticsContex
 
                         constrain(expected, TypeVar::from_node(ctx, f.name.id));
 
-                        generate_constraints_stmt(
-                            PolyvarScope::empty(),
-                            Mode::Syn,
-                            statement.clone(),
-                            ctx,
-                        );
+                        generate_constraints_fn_def(ctx, PolyvarScope::empty(), f, f.name.id);
                     }
                 }
 
@@ -1753,19 +1745,22 @@ fn generate_constraints_item(mode: Mode, stmt: Rc<Item>, ctx: &mut StaticsContex
             TypeDefKind::Enum(..) | TypeDefKind::Struct(..) | TypeDefKind::Foreign(..) => {}
         },
         ItemKind::FuncDef(f) => {
-            let func_node_id = f.name.id;
-            let ty_pat = TypeVar::from_node(ctx, f.name.id);
+            // let func_node_id = f.name.id;
+            // let ty_pat = TypeVar::from_node(ctx, f.name.id);
 
-            let ty_func = generate_constraints_func_helper(
-                ctx,
-                func_node_id,
-                PolyvarScope::empty(),
-                &f.args,
-                &f.ret_type,
-                &f.body,
-            );
+            // let ty_func = generate_constraints_func_helper(
+            //     ctx,
+            //     func_node_id,
+            //     PolyvarScope::empty(),
+            //     &f.args,
+            //     &f.ret_type,
+            //     &f.body,
+            // );
 
-            constrain(ty_pat, ty_func);
+            // constrain(ty_pat, ty_func);
+
+            // TODO: why is f.name.id the func_node_id, and yet in another place it's statement.id
+            generate_constraints_fn_def(ctx, PolyvarScope::empty(), f, f.name.id);
         }
         ItemKind::ForeignFuncDecl(f) => {
             let func_node_id = f.name.id;
@@ -1825,22 +1820,31 @@ fn generate_constraints_stmt(
             constrain(ty_lhs, ty_rhs);
         }
         StmtKind::FuncDef(f) => {
-            let func_node_id = stmt.id;
-            let ty_pat = TypeVar::from_node(ctx, f.name.id);
-
-            let body_symbol_table = polyvar_scope.new_scope();
-            let ty_func = generate_constraints_func_helper(
-                ctx,
-                func_node_id,
-                body_symbol_table,
-                &f.args,
-                &f.ret_type,
-                &f.body,
-            );
-
-            constrain(ty_pat, ty_func);
+            generate_constraints_fn_def(ctx, polyvar_scope, f, f.name.id);
         }
     }
+}
+
+fn generate_constraints_fn_def(
+    ctx: &mut StaticsContext,
+    polyvar_scope: PolyvarScope,
+    f: &FuncDef,
+    id: NodeId,
+) {
+    let func_node_id = id;
+    let ty_pat = TypeVar::from_node(ctx, f.name.id);
+
+    let body_symbol_table = polyvar_scope.new_scope();
+    let ty_func = generate_constraints_func_helper(
+        ctx,
+        func_node_id,
+        body_symbol_table,
+        &f.args,
+        &f.ret_type,
+        &f.body,
+    );
+
+    constrain(ty_pat, ty_func);
 }
 
 fn generate_constraints_pat(

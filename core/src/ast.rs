@@ -185,16 +185,7 @@ impl Node for Item {
             }
             ItemKind::FuncDef(f) => {
                 let mut children: Vec<Rc<dyn Node>> = vec![];
-                for (pat, annot) in f.args.iter() {
-                    children.push(pat.clone() as Rc<dyn Node>);
-                    if let Some(ty) = annot {
-                        children.push(ty.clone())
-                    }
-                }
-                if let Some(ty) = &f.ret_type {
-                    children.push(ty.clone());
-                }
-                children.push(f.body.clone());
+                children_func_def(f, &mut children);
                 children
             }
             ItemKind::TypeDef(tydefkind) => match &**tydefkind {
@@ -231,8 +222,8 @@ impl Node for Item {
             }
             ItemKind::InterfaceImpl(iface_impl) => {
                 let mut children: Vec<Rc<dyn Node>> = vec![iface_impl.typ.clone()];
-                for stmt in &iface_impl.stmts {
-                    children.push(stmt.clone() as Rc<dyn Node>);
+                for method in &iface_impl.methods {
+                    children_func_def(method, &mut children);
                 }
                 children
             }
@@ -240,6 +231,19 @@ impl Node for Item {
             ItemKind::Stmt(stmt) => vec![stmt.clone() as Rc<dyn Node>],
         }
     }
+}
+
+fn children_func_def(f: &FuncDef, children: &mut Vec<Rc<dyn Node>>) {
+    for (pat, annot) in f.args.iter() {
+        children.push(pat.clone() as Rc<dyn Node>);
+        if let Some(ty) = annot {
+            children.push(ty.clone())
+        }
+    }
+    if let Some(ty) = &f.ret_type {
+        children.push(ty.clone());
+    }
+    children.push(f.body.clone());
 }
 
 #[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq, Hash)]
@@ -354,14 +358,9 @@ impl Node for InterfaceProperty {
 pub(crate) struct InterfaceImpl {
     pub(crate) iface: Identifier,
     pub(crate) typ: Rc<Type>,
-    pub(crate) stmts: Vec<Rc<Stmt>>, // TODO: Don't use Vec<Stmt>. Use Vec<MethodDef>
+    pub(crate) methods: Vec<Rc<FuncDef>>, // TODO: Don't use Vec<Stmt>. Use Vec<MethodDef>
 
     pub(crate) id: NodeId,
-}
-
-#[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq, Hash)]
-pub(crate) struct MethodDef {
-    f: Rc<FuncDef>,
 }
 
 #[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq, Hash)]

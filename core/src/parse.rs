@@ -413,39 +413,9 @@ pub(crate) fn parse_item(pair: Pair<Rule>, filename: &str) -> Rc<Item> {
     let inner: Vec<_> = pair.clone().into_inner().collect();
     match rule {
         Rule::func_def => {
-            let mut n = 0;
-            let mut args = vec![];
-            let name = Identifier {
-                v: inner[0].as_str().to_string(),
-                span: Span::new(filename, inner[0].as_span()),
-                id: NodeId::new(),
-            };
-            n += 1;
-            while let Rule::func_arg = inner[n].as_rule() {
-                let pat_annotated = parse_func_arg_annotation(inner[n].clone(), filename);
-                args.push(pat_annotated);
-                n += 1;
-            }
-
-            let maybe_func_out = &inner[n];
-            let ret_type = match maybe_func_out.as_rule() {
-                Rule::func_out_annotation => {
-                    // n += 1;
-                    Some(parse_func_out_annotation(maybe_func_out.clone(), filename))
-                }
-                _ => None,
-            };
-            let body = parse_expr_pratt(Pairs::single(inner.last().unwrap().clone()), filename);
+            let func_def = parse_func_def(inner, filename);
             Rc::new(Item {
-                kind: Rc::new(ItemKind::FuncDef(
-                    FuncDef {
-                        name,
-                        args,
-                        ret_type,
-                        body,
-                    }
-                    .into(),
-                )),
+                kind: Rc::new(ItemKind::FuncDef(func_def.into())),
                 span,
                 id: NodeId::new(),
             })
@@ -603,10 +573,11 @@ pub(crate) fn parse_item(pair: Pair<Rule>, filename: &str) -> Rc<Item> {
             let name_span = Span::new(filename, inner[0].as_span());
             let typ = parse_type_term(inner[1].clone(), filename);
             let mut n = 2;
-            let mut stmts = vec![];
+            let mut func_defs = vec![];
             while let Some(pair) = inner.get(n) {
-                let stmt = parse_stmt(pair.clone(), filename);
-                stmts.push(stmt);
+                let inner: Vec<_> = pair.clone().into_inner().collect();
+                let func_def: Rc<FuncDef> = parse_func_def(inner, filename).into();
+                func_defs.push(func_def);
                 n += 1;
             }
             let impl_id = NodeId::new();
@@ -619,7 +590,7 @@ pub(crate) fn parse_item(pair: Pair<Rule>, filename: &str) -> Rc<Item> {
                             id: NodeId::new(),
                         },
                         typ,
-                        stmts,
+                        methods: func_defs,
 
                         id: impl_id,
                     }
@@ -658,45 +629,48 @@ pub(crate) fn parse_item(pair: Pair<Rule>, filename: &str) -> Rc<Item> {
     }
 }
 
+fn parse_func_def(inner: Vec<Pair<'_, Rule>>, filename: &str) -> FuncDef {
+    let mut n = 0;
+    let mut args = vec![];
+    let name = Identifier {
+        v: inner[0].as_str().to_string(),
+        span: Span::new(filename, inner[0].as_span()),
+        id: NodeId::new(),
+    };
+    n += 1;
+    while let Rule::func_arg = inner[n].as_rule() {
+        let pat_annotated = parse_func_arg_annotation(inner[n].clone(), filename);
+        args.push(pat_annotated);
+        n += 1;
+    }
+
+    let maybe_func_out = &inner[n];
+    let ret_type = match maybe_func_out.as_rule() {
+        Rule::func_out_annotation => {
+            // n += 1;
+            Some(parse_func_out_annotation(maybe_func_out.clone(), filename))
+        }
+        _ => None,
+    };
+    let body = parse_expr_pratt(Pairs::single(inner.last().unwrap().clone()), filename);
+
+    FuncDef {
+        name,
+        args,
+        ret_type,
+        body,
+    }
+}
+
 pub(crate) fn parse_stmt(pair: Pair<Rule>, filename: &str) -> Rc<Stmt> {
     let span = Span::new(filename, pair.as_span());
     let rule = pair.as_rule();
     let inner: Vec<_> = pair.into_inner().collect();
     match rule {
         Rule::func_def => {
-            let mut n = 0;
-            let mut args = vec![];
-            let name = Identifier {
-                v: inner[0].as_str().to_string(),
-                span: Span::new(filename, inner[0].as_span()),
-                id: NodeId::new(),
-            };
-            n += 1;
-            while let Rule::func_arg = inner[n].as_rule() {
-                let pat_annotated = parse_func_arg_annotation(inner[n].clone(), filename);
-                args.push(pat_annotated);
-                n += 1;
-            }
-
-            let maybe_func_out = &inner[n];
-            let ret_type = match maybe_func_out.as_rule() {
-                Rule::func_out_annotation => {
-                    // n += 1;
-                    Some(parse_func_out_annotation(maybe_func_out.clone(), filename))
-                }
-                _ => None,
-            };
-            let body = parse_expr_pratt(Pairs::single(inner.last().unwrap().clone()), filename);
+            let func_def = parse_func_def(inner, filename);
             Rc::new(Stmt {
-                kind: Rc::new(StmtKind::FuncDef(
-                    FuncDef {
-                        name,
-                        args,
-                        ret_type,
-                        body,
-                    }
-                    .into(),
-                )),
+                kind: Rc::new(StmtKind::FuncDef(func_def.into())),
                 span,
                 id: NodeId::new(),
             })
