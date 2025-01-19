@@ -574,11 +574,6 @@ impl Translator {
                                         )
                                         .is_ok()
                                         {
-                                            // if let Some(stmt) =
-                                            //     &self.node_map.get(&method.id).unwrap().to_stmt()
-                                            // {
-                                            //     // This is an interface method definition
-                                            //     if let StmtKind::FuncDef(f) = &*stmt.kind {
                                             self.handle_overloaded_func(
                                                 st,
                                                 substituted_ty.clone(),
@@ -586,10 +581,6 @@ impl Translator {
                                                 f.clone(),
                                             );
                                         }
-                                        // } else {
-                                        //     panic!("did not handle overloaded function");
-                                        // }
-                                        // }
                                     }
                                 }
                             }

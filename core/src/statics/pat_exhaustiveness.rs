@@ -1,21 +1,14 @@
-use crate::ast::{
-    Expr, ExprKind, FileAst, Item, ItemKind, MatchArm, NodeMap, Pat, PatKind, Sources, Stmt,
-    StmtKind,
-};
+use crate::ast::{Expr, ExprKind, FileAst, Item, ItemKind, MatchArm, Pat, PatKind, Stmt, StmtKind};
 
 use core::panic;
 
 use std::collections::HashSet;
-use std::fmt::{self, Display, Write};
+use std::fmt::{self, Display};
 use std::rc::Rc;
 
-use super::typecheck::{ast_type_to_typevar, Nominal};
-use super::{
-    check_errors, Declaration, EnumDef, Error, SolvedType, StaticsContext, TypeKind, TypeProv,
-    TypeVar,
-};
+use super::typecheck::{ast_type_to_solved_type, Nominal};
+use super::{Declaration, EnumDef, Error, SolvedType, StaticsContext, TypeKind};
 
-// TODO: rename to be more descriptive/specific to exhaustiveness/usefulness
 pub(crate) fn check_pattern_exhaustiveness_and_usefulness(
     ctx: &mut StaticsContext,
     files: &[Rc<FileAst>],
@@ -183,17 +176,13 @@ impl Matrix {
                 _ => panic!("unexpected type for product constructor"),
             },
             Constructor::Variant((enum_def, idx)) => {
-                // TODO: shouldn't have to do this logic in pat_exhaustiveness. This needs to be pre-computed elsewhere.
                 let variant = &enum_def.variants[*idx as usize];
                 let variant_data = &variant.data;
                 let data_ty = if let Some(data) = &variant_data {
-                    ast_type_to_typevar(statics, data.clone())
+                    ast_type_to_solved_type(statics, data.clone())
                 } else {
-                    TypeVar::make_unit(TypeProv::VariantNoData(Box::new(TypeProv::Node(
-                        variant.id,
-                    ))))
+                    Some(SolvedType::Unit)
                 }
-                .solution()
                 .unwrap();
                 match data_ty {
                     SolvedType::Unit => {}
@@ -371,13 +360,10 @@ impl DeconstructedPat {
                     let variant = &enum_def.variants[*idx as usize];
                     let variant_data = &variant.data;
                     let data_ty = if let Some(data) = &variant_data {
-                        ast_type_to_typevar(statics, data.clone())
+                        ast_type_to_solved_type(statics, data.clone())
                     } else {
-                        TypeVar::make_unit(TypeProv::VariantNoData(Box::new(TypeProv::Node(
-                            variant.id,
-                        ))))
+                        Some(SolvedType::Unit)
                     }
-                    .solution()
                     .unwrap();
 
                     if !matches!(data_ty, SolvedType::Unit) {
@@ -457,8 +443,8 @@ enum Constructor {
     Int(i64),
     Float(String),
     String(String),
-    Product,              // tuples, including unit
-    Variant(EnumVariant), // TODO: this should only need the index of the variant, not the enum definition. Matrix.types[0] should give the SolvedType and therefore Rc<EnumDef>
+    Product, // tuples, including unit
+    Variant(EnumVariant),
 }
 
 impl Constructor {

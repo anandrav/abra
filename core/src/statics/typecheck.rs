@@ -1690,8 +1690,6 @@ fn generate_constraints_item(mode: Mode, stmt: Rc<Item>, ctx: &mut StaticsContex
             generate_constraints_stmt(PolyvarScope::empty(), mode, stmt.clone(), ctx)
         }
         ItemKind::InterfaceImpl(iface_impl) => {
-            // TODO: converting implementation's ast type to a typevar then getting the solution is silly
-            // Should just be able to get the Solved type directly from the ast_type
             let impl_ty = ast_type_to_typevar(ctx, iface_impl.typ.clone());
 
             let lookup = ctx.resolution_map.get(&iface_impl.iface.id).cloned();
@@ -2114,9 +2112,8 @@ fn ty_fits_impl_ty_poly(
         if let Some(impl_list) = ctx.interface_impls.get(&interface).cloned() {
             // find at least one implementation of interface that matches the type constrained to the interface
             for impl_ in impl_list {
-                // TODO: converting implementation's ast type to a typevar then getting the solution is silly
-                let impl_ty = ast_type_to_typevar(ctx, impl_.typ.clone());
-                if let Some(impl_ty) = impl_ty.solution() {
+                let impl_ty = ast_type_to_solved_type(ctx, impl_.typ.clone());
+                if let Some(impl_ty) = impl_ty {
                     if ty_fits_impl_ty(ctx, typ.clone(), impl_ty).is_ok() {
                         return true;
                     }
