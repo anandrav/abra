@@ -1,6 +1,6 @@
 use crate::assembly::{remove_labels, Instr, Label, Line};
 use crate::ast::{
-    BinaryOperator, ForeignFuncDecl, FuncDef, InterfaceDef, Item, ItemKind, TypeKind,
+    BinaryOperator, ForeignFuncDecl, FuncDef, InterfaceDecl, Item, ItemKind, TypeKind,
 };
 use crate::ast::{FileAst, Node, NodeId, Sources};
 use crate::builtin::Builtin;
@@ -148,7 +148,7 @@ pub(crate) enum BytecodeResolution {
         symbol: String,
     },
     InterfaceMethod {
-        iface_def: Rc<InterfaceDef>,
+        iface_def: Rc<InterfaceDecl>,
         method: u16,
         fully_qualified_name: String,
     },
@@ -548,7 +548,7 @@ impl Translator {
                             let substituted_ty =
                                 subst_with_monomorphic_env(monomorph_env.clone(), func_ty);
                             // println!("substituted type: {:?}", substituted_ty);
-                            let method_name = &iface_def.props[method as usize].name.v;
+                            let method_name = &iface_def.methods[method as usize].name.v;
                             let impl_list = self
                                 .statics
                                 .interface_impls

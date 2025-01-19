@@ -1,7 +1,7 @@
 // Rust addon API
 
 use core::str;
-use std::ffi::{c_char, CString};
+use std::ffi::c_char;
 
 use crate::vm::Vm;
 
@@ -39,7 +39,7 @@ impl StringView {
         }
     }
 
-    pub fn from_string(s: &String) -> Self {
+    pub fn from_string(s: &str) -> Self {
         StringView {
             ptr: s.as_ptr() as *const c_char,
             len: s.len(),
@@ -50,7 +50,7 @@ impl StringView {
 #[no_mangle]
 pub unsafe extern "C" fn vm_view_string(vm: *mut Vm) -> StringView {
     let vm = unsafe { vm.as_mut().unwrap() };
-    let top = vm.top().view_string(&vm);
+    let top = vm.top().view_string(vm);
     StringView {
         ptr: top.as_ptr() as *const c_char,
         len: top.len(),

@@ -68,7 +68,7 @@ fn gather_declarations_item(
 
             // TODO: in the near future, put interface methods in a namespace named after the interface
             // and call interface methods using the dot operator. my_struct.to_string() etc.
-            for (i, p) in iface.props.iter().enumerate() {
+            for (i, p) in iface.methods.iter().enumerate() {
                 let method_name = p.name.v.clone();
                 let method = i as u16;
                 let fully_qualified_name = fullname(&qualifiers, &method_name);
@@ -381,7 +381,7 @@ fn resolve_names_item(ctx: &mut StaticsContext, symbol_table: SymbolTable, stmt:
             resolve_names_typ(ctx, symbol_table.clone(), f.ret_type.clone());
         }
         ItemKind::InterfaceDef(iface_def) => {
-            for prop in &iface_def.props {
+            for prop in &iface_def.methods {
                 resolve_names_typ(ctx, symbol_table.clone(), prop.ty.clone());
             }
         }

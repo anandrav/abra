@@ -215,7 +215,7 @@ impl Node for Item {
             },
             ItemKind::InterfaceDef(i) => {
                 let mut children: Vec<Rc<dyn Node>> = Vec::new();
-                for prop in i.props.iter() {
+                for prop in i.methods.iter() {
                     children.push(prop.clone() as Rc<dyn Node>);
                 }
                 children
@@ -251,7 +251,7 @@ pub(crate) enum ItemKind {
     ForeignFuncDecl(Rc<ForeignFuncDecl>),
     FuncDef(Rc<FuncDef>),
     TypeDef(Rc<TypeDefKind>),
-    InterfaceDef(Rc<InterfaceDef>),
+    InterfaceDef(Rc<InterfaceDecl>),
     InterfaceImpl(Rc<InterfaceImpl>),
     Import(Identifier),
     Stmt(Rc<Stmt>),
@@ -330,18 +330,18 @@ pub(crate) struct ForeignFuncDecl {
 }
 
 #[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq, Hash)]
-pub(crate) struct InterfaceDef {
+pub(crate) struct InterfaceDecl {
     pub(crate) name: Identifier,
-    pub(crate) props: Vec<Rc<InterfaceProperty>>,
+    pub(crate) methods: Vec<Rc<InterfaceMethodDecl>>,
 }
 
 #[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq, Hash)]
-pub(crate) struct InterfaceProperty {
+pub(crate) struct InterfaceMethodDecl {
     pub(crate) name: Identifier,
     pub(crate) ty: Rc<Type>,
 }
 
-impl Node for InterfaceProperty {
+impl Node for InterfaceMethodDecl {
     fn span(&self) -> Span {
         self.ty.span()
     }

@@ -553,13 +553,13 @@ pub(crate) fn parse_item(pair: Pair<Rule>, filename: &str) -> Rc<Item> {
             }
             Rc::new(Item {
                 kind: ItemKind::InterfaceDef(
-                    InterfaceDef {
+                    InterfaceDecl {
                         name: Identifier {
                             v: name,
                             span: span.clone(),
                             id: NodeId::new(),
                         },
-                        props,
+                        methods: props,
                     }
                     .into(),
                 )
@@ -716,7 +716,7 @@ pub(crate) fn parse_stmt(pair: Pair<Rule>, filename: &str) -> Rc<Stmt> {
     }
 }
 
-pub(crate) fn parse_interface_method(pair: Pair<Rule>, filename: &str) -> InterfaceProperty {
+pub(crate) fn parse_interface_method(pair: Pair<Rule>, filename: &str) -> InterfaceMethodDecl {
     let rule = pair.as_rule();
     let inner: Vec<_> = pair.into_inner().collect();
     match rule {
@@ -724,7 +724,7 @@ pub(crate) fn parse_interface_method(pair: Pair<Rule>, filename: &str) -> Interf
             let name = inner[0].as_str().to_string();
             let span = Span::new(filename, inner[0].as_span());
             let ty = parse_type_term(inner[1].clone(), filename);
-            InterfaceProperty {
+            InterfaceMethodDecl {
                 name: Identifier {
                     v: name,
                     span,

@@ -1,5 +1,5 @@
 use crate::ast::{
-    EnumDef, FileAst, ForeignFuncDecl, FuncDef, Identifier, InterfaceDef, InterfaceImpl, NodeId,
+    EnumDef, FileAst, ForeignFuncDecl, FuncDef, Identifier, InterfaceDecl, InterfaceImpl, NodeId,
     NodeMap, Sources, StructDef, TypeKind,
 };
 use crate::builtin::Builtin;
@@ -42,7 +42,7 @@ pub(crate) struct StaticsContext {
     // BOOKKEEPING
 
     // map from interface name to list of its implementations
-    pub(crate) interface_impls: BTreeMap<Rc<InterfaceDef>, Vec<Rc<InterfaceImpl>>>,
+    pub(crate) interface_impls: BTreeMap<Rc<InterfaceDecl>, Vec<Rc<InterfaceImpl>>>,
 
     // string constants (for bytecode translation)
     pub(crate) string_constants: HashMap<String, usize>,
@@ -117,9 +117,9 @@ pub(crate) enum Declaration {
         libname: PathBuf,
         symbol: String,
     },
-    InterfaceDef(Rc<InterfaceDef>),
+    InterfaceDef(Rc<InterfaceDecl>),
     InterfaceMethod {
-        iface_def: Rc<InterfaceDef>,
+        iface_def: Rc<InterfaceDecl>,
         method: u16,
         fully_qualified_name: String,
     },

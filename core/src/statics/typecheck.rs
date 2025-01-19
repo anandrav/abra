@@ -1,6 +1,6 @@
 use crate::ast::{
-    ArgAnnotated, Expr, ExprKind, FileAst, Identifier, ItemKind, Node, NodeId, NodeMap, Pat,
-    PatKind, Sources, Stmt, StmtKind, Type as AstType, TypeDefKind, TypeKind,
+    ArgAnnotated, Expr, ExprKind, FileAst, Identifier, ItemKind, Node, NodeId, Pat, PatKind, Stmt,
+    StmtKind, Type as AstType, TypeDefKind, TypeKind,
 };
 use crate::ast::{BinaryOperator, Item};
 use crate::builtin::Builtin;
@@ -12,7 +12,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::fmt::{self, Display, Write};
 use std::rc::Rc;
 
-use super::{Declaration, EnumDef, Error, FuncDef, InterfaceDef, StaticsContext, StructDef};
+use super::{Declaration, EnumDef, Error, FuncDef, InterfaceDecl, StaticsContext, StructDef};
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub(crate) struct TypeVar(UnionFindNode<TypeVarData>);
@@ -143,7 +143,7 @@ impl TypeVarData {
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub(crate) enum PotentialType {
     // TODO: Poly cannot use String, must resolve to declaration of polymorphic type such as 'a
-    Poly(Provs, String, Vec<Rc<InterfaceDef>>), // type name, then list of Interfaces it must match
+    Poly(Provs, String, Vec<Rc<InterfaceDecl>>), // type name, then list of Interfaces it must match
     Unit(Provs),
     Int(Provs),
     Float(Provs),
@@ -157,7 +157,7 @@ pub(crate) enum PotentialType {
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub(crate) enum SolvedType {
     // TODO: Poly cannot use String, must resolve to declaration of polymorphic type such as 'a
-    Poly(String, Vec<Rc<InterfaceDef>>), // type name, then list of Interfaces it must match
+    Poly(String, Vec<Rc<InterfaceDecl>>), // type name, then list of Interfaces it must match
     Unit,
     Int,
     Float,
@@ -437,17 +437,8 @@ impl PotentialType {
         PotentialType::Tuple(provs_singleton(prov), elems)
     }
 
-    fn make_poly(prov: Prov, ident: String, interfaces: Vec<Rc<InterfaceDef>>) -> PotentialType {
+    fn make_poly(prov: Prov, ident: String, interfaces: Vec<Rc<InterfaceDecl>>) -> PotentialType {
         PotentialType::Poly(provs_singleton(prov), ident, interfaces)
-    }
-
-    // TODO: What is the point of this function when make_poly() exists right above??
-    fn make_poly_constrained(
-        prov: Prov,
-        ident: String,
-        interface_ident: Rc<InterfaceDef>,
-    ) -> PotentialType {
-        PotentialType::Poly(provs_singleton(prov), ident, vec![interface_ident])
     }
 
     fn make_nominal(prov: Prov, nominal: Nominal, params: Vec<TypeVar>) -> PotentialType {
@@ -482,6 +473,7 @@ impl TypeVar {
                         ctx,
                         Prov::InstantiatePoly(Box::new(prov.clone()), ident.clone()),
                     );
+                    // TODO: Don't remove below. Need to add interface constraint check back later
                     // let mut extension = Vec::new();
                     // for i in interfaces {
                     //     extension.push((i.clone(), prov.clone()));
@@ -638,12 +630,8 @@ impl TypeVar {
         Self::orphan(PotentialType::make_tuple(elems, prov))
     }
 
-    fn make_poly(prov: Prov, ident: String, interfaces: Vec<Rc<InterfaceDef>>) -> TypeVar {
+    fn make_poly(prov: Prov, ident: String, interfaces: Vec<Rc<InterfaceDecl>>) -> TypeVar {
         Self::orphan(PotentialType::make_poly(prov, ident, interfaces))
-    }
-
-    fn make_poly_constrained(prov: Prov, ident: String, interface: Rc<InterfaceDef>) -> TypeVar {
-        Self::orphan(PotentialType::make_poly_constrained(prov, ident, interface))
     }
 
     fn make_nominal(prov: Prov, nominal: Nominal, params: Vec<TypeVar>) -> TypeVar {
@@ -690,7 +678,7 @@ fn tyvar_of_declaration(
             fully_qualified_name: _,
         } => Some(TypeVar::from_node(
             ctx,
-            iface_def.props[*method as usize].id(),
+            iface_def.methods[*method as usize].id(),
         )),
         Declaration::Enum(enum_def) => {
             let nparams = enum_def.ty_args.len();
@@ -894,11 +882,10 @@ fn types_of_binop(
         | BinaryOperator::Divide
         | BinaryOperator::Pow => {
             let ty_left =
-                TypeVar::make_poly_constrained(prov_left, "a".to_owned(), num_iface_def.clone());
+                TypeVar::make_poly(prov_left, "a".to_owned(), vec![num_iface_def.clone()]);
             let ty_right =
-                TypeVar::make_poly_constrained(prov_right, "a".to_owned(), num_iface_def.clone());
-            let ty_out =
-                TypeVar::make_poly_constrained(prov_out, "a".to_owned(), num_iface_def.clone());
+                TypeVar::make_poly(prov_right, "a".to_owned(), vec![num_iface_def.clone()]);
+            let ty_out = TypeVar::make_poly(prov_out, "a".to_owned(), vec![num_iface_def.clone()]);
             constrain(ty_left.clone(), ty_right.clone());
             constrain(ty_left.clone(), ty_out.clone());
             (ty_left, ty_right, ty_out)
@@ -913,32 +900,26 @@ fn types_of_binop(
         | BinaryOperator::LessThanOrEqual
         | BinaryOperator::GreaterThanOrEqual => {
             let ty_left =
-                TypeVar::make_poly_constrained(prov_left, "a".to_owned(), num_iface_def.clone());
+                TypeVar::make_poly(prov_left, "a".to_owned(), vec![num_iface_def.clone()]);
             let ty_right =
-                TypeVar::make_poly_constrained(prov_right, "a".to_owned(), num_iface_def.clone());
+                TypeVar::make_poly(prov_right, "a".to_owned(), vec![num_iface_def.clone()]);
             constrain(ty_left.clone(), ty_right.clone());
             let ty_out = TypeVar::make_bool(prov_out);
             (ty_left, ty_right, ty_out)
         }
         BinaryOperator::Format => {
-            let ty_left = TypeVar::make_poly_constrained(
-                prov_left,
-                "a".to_owned(),
-                tostring_iface_def.clone(),
-            );
-            let ty_right = TypeVar::make_poly_constrained(
-                prov_right,
-                "b".to_owned(),
-                tostring_iface_def.clone(),
-            );
+            let ty_left =
+                TypeVar::make_poly(prov_left, "a".to_owned(), vec![tostring_iface_def.clone()]);
+            let ty_right =
+                TypeVar::make_poly(prov_right, "b".to_owned(), vec![tostring_iface_def.clone()]);
             let ty_out = TypeVar::make_string(prov_out);
             (ty_left, ty_right, ty_out)
         }
         BinaryOperator::Equal => {
             let ty_left =
-                TypeVar::make_poly_constrained(prov_left, "a".to_owned(), equal_iface_def.clone());
+                TypeVar::make_poly(prov_left, "a".to_owned(), vec![equal_iface_def.clone()]);
             let ty_right =
-                TypeVar::make_poly_constrained(prov_right, "a".to_owned(), equal_iface_def.clone());
+                TypeVar::make_poly(prov_right, "a".to_owned(), vec![equal_iface_def.clone()]);
             constrain(ty_left.clone(), ty_right.clone());
             (ty_left, ty_right, TypeVar::make_bool(prov_out))
         }
@@ -1693,19 +1674,19 @@ fn generate_constraints_item(mode: Mode, stmt: Rc<Item>, ctx: &mut StaticsContex
             let impl_ty = ast_type_to_typevar(ctx, iface_impl.typ.clone());
 
             let lookup = ctx.resolution_map.get(&iface_impl.iface.id).cloned();
-            if let Some(Declaration::InterfaceDef(iface_def)) = lookup {
+            if let Some(Declaration::InterfaceDef(iface_decl)) = lookup {
                 // TODO: This logic is performed for the interface definition every time an implementation is found
                 // Do the logic only once, memoize the result.
                 // TODO: Shouldn't use type inference to infer the types of the properties/methods. They are already annotated. They are already solved.
-                for prop in &iface_def.props {
-                    let ty_annot = ast_type_to_typevar(ctx, prop.ty.clone());
-                    let node_ty = TypeVar::from_node(ctx, prop.id());
+                for method in &iface_decl.methods {
+                    let ty_annot = ast_type_to_typevar(ctx, method.ty.clone());
+                    let node_ty = TypeVar::from_node(ctx, method.id());
                     constrain(node_ty.clone(), ty_annot.clone());
                 }
                 for f in &iface_impl.methods {
                     let method_name = f.name.v.clone();
                     if let Some(interface_method) =
-                        iface_def.props.iter().find(|m| m.name.v == method_name)
+                        iface_decl.methods.iter().find(|m| m.name.v == method_name)
                     {
                         let mut substitution = BTreeMap::new();
                         substitution.insert("a".to_string(), impl_ty.clone());
@@ -1729,7 +1710,7 @@ fn generate_constraints_item(mode: Mode, stmt: Rc<Item>, ctx: &mut StaticsContex
                     }
                 }
 
-                let impl_list = ctx.interface_impls.entry(iface_def.clone()).or_default();
+                let impl_list = ctx.interface_impls.entry(iface_decl.clone()).or_default();
 
                 impl_list.push(iface_impl.clone());
             }
@@ -1743,21 +1724,6 @@ fn generate_constraints_item(mode: Mode, stmt: Rc<Item>, ctx: &mut StaticsContex
             TypeDefKind::Enum(..) | TypeDefKind::Struct(..) | TypeDefKind::Foreign(..) => {}
         },
         ItemKind::FuncDef(f) => {
-            // let func_node_id = f.name.id;
-            // let ty_pat = TypeVar::from_node(ctx, f.name.id);
-
-            // let ty_func = generate_constraints_func_helper(
-            //     ctx,
-            //     func_node_id,
-            //     PolyvarScope::empty(),
-            //     &f.args,
-            //     &f.ret_type,
-            //     &f.body,
-            // );
-
-            // constrain(ty_pat, ty_func);
-
-            // TODO: why is f.name.id the func_node_id, and yet in another place it's statement.id
             generate_constraints_fn_def(ctx, PolyvarScope::empty(), f, f.name.id);
         }
         ItemKind::ForeignFuncDecl(f) => {
@@ -2100,7 +2066,7 @@ pub(crate) fn ty_fits_impl_ty(
 fn ty_fits_impl_ty_poly(
     ctx: &mut StaticsContext,
     typ: SolvedType,
-    interfaces: BTreeSet<Rc<InterfaceDef>>,
+    interfaces: BTreeSet<Rc<InterfaceDecl>>,
 ) -> bool {
     for interface in interfaces {
         if let SolvedType::Poly(_, interfaces2) = &typ {
