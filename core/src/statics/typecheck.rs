@@ -17,21 +17,6 @@ use super::{Declaration, EnumDef, Error, FuncDef, InterfaceDecl, StaticsContext,
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub(crate) struct TypeVar(UnionFindNode<TypeVarData>);
 
-impl TypeVar {
-    pub(crate) fn solution(&self) -> Option<SolvedType> {
-        self.0.clone_data().solution()
-    }
-
-    fn single(&self) -> Option<PotentialType> {
-        let types = self.0.clone_data().types;
-        if types.len() == 1 {
-            Some(types.values().next().unwrap().clone())
-        } else {
-            None
-        }
-    }
-}
-
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) struct TypeVarData {
     pub(crate) types: BTreeMap<TypeKey, PotentialType>,
@@ -46,12 +31,12 @@ impl TypeVarData {
         }
     }
 
-    fn singleton(potential_type: PotentialType) -> Self {
+    fn singleton_solved(potential_type: PotentialType) -> Self {
         let mut types = BTreeMap::new();
         types.insert(potential_type.key(), potential_type);
         Self {
             types,
-            solved: false,
+            solved: true,
         }
     }
 
@@ -64,6 +49,8 @@ impl TypeVarData {
     }
 
     fn merge(first: Self, second: Self) -> Self {
+        // TODO: maybe assert that both are unsolved (or that at least one is unsolved?)
+
         let mut merged_types = Self {
             types: first.types,
             solved: false,
@@ -447,6 +434,24 @@ impl PotentialType {
 }
 
 impl TypeVar {
+    // TODO: does clone_data() really need to be used everywhere? Or can you use with_data(F) in a lot of places?
+    pub(crate) fn solution(&self) -> Option<SolvedType> {
+        self.0.clone_data().solution()
+    }
+
+    fn solved(&self) -> bool {
+        self.0.with_data(|d| d.solved)
+    }
+
+    fn single(&self) -> Option<PotentialType> {
+        let types = self.0.clone_data().types;
+        if types.len() == 1 {
+            Some(types.values().next().unwrap().clone())
+        } else {
+            None
+        }
+    }
+
     // Creates a clone of a Type with polymorphic variables not in scope replaced with fresh unifvars
     fn instantiate(
         self,
@@ -598,44 +603,46 @@ impl TypeVar {
         }
     }
 
-    fn orphan(potential_type: PotentialType) -> TypeVar {
-        TypeVar(UnionFindNode::new(TypeVarData::singleton(potential_type)))
+    fn singleton_solved(potential_type: PotentialType) -> TypeVar {
+        TypeVar(UnionFindNode::new(TypeVarData::singleton_solved(
+            potential_type,
+        )))
     }
 
     pub(crate) fn make_unit(prov: Prov) -> TypeVar {
-        Self::orphan(PotentialType::make_unit(prov))
+        Self::singleton_solved(PotentialType::make_unit(prov))
     }
 
     fn make_int(prov: Prov) -> TypeVar {
-        Self::orphan(PotentialType::make_int(prov))
+        Self::singleton_solved(PotentialType::make_int(prov))
     }
 
     fn make_float(prov: Prov) -> TypeVar {
-        Self::orphan(PotentialType::make_float(prov))
+        Self::singleton_solved(PotentialType::make_float(prov))
     }
 
     fn make_bool(prov: Prov) -> TypeVar {
-        Self::orphan(PotentialType::make_bool(prov))
+        Self::singleton_solved(PotentialType::make_bool(prov))
     }
 
     fn make_string(prov: Prov) -> TypeVar {
-        Self::orphan(PotentialType::make_string(prov))
+        Self::singleton_solved(PotentialType::make_string(prov))
     }
 
     pub(crate) fn make_func(args: Vec<TypeVar>, out: TypeVar, prov: Prov) -> TypeVar {
-        Self::orphan(PotentialType::make_func(args, out, prov))
+        Self::singleton_solved(PotentialType::make_func(args, out, prov))
     }
 
     fn make_tuple(elems: Vec<TypeVar>, prov: Prov) -> TypeVar {
-        Self::orphan(PotentialType::make_tuple(elems, prov))
+        Self::singleton_solved(PotentialType::make_tuple(elems, prov))
     }
 
     fn make_poly(prov: Prov, ident: String, interfaces: Vec<Rc<InterfaceDecl>>) -> TypeVar {
-        Self::orphan(PotentialType::make_poly(prov, ident, interfaces))
+        Self::singleton_solved(PotentialType::make_poly(prov, ident, interfaces))
     }
 
     fn make_nominal(prov: Prov, nominal: Nominal, params: Vec<TypeVar>) -> TypeVar {
-        Self::orphan(PotentialType::make_nominal(prov, nominal, params))
+        Self::singleton_solved(PotentialType::make_nominal(prov, nominal, params))
     }
 
     // return true if the type is a nominal type with at least one parameter instantiated
@@ -1128,8 +1135,29 @@ pub(crate) enum Mode {
     Ana { expected: TypeVar },
 }
 
+// TODO: arguments are named 'expected' and 'actual'. Does order actuall matter or not? Should it?
 pub(crate) fn constrain(mut expected: TypeVar, mut actual: TypeVar) {
-    expected.0.union_with(&mut actual.0, TypeVarData::merge);
+    match (expected.solved(), actual.solved()) {
+        // Since both TypeVars are already solved, an error is logged if their data do not match
+        (true, true) => {
+            // TODO!
+            // TODO: this is just a placeholder before I break things
+            expected.0.union_with(&mut actual.0, TypeVarData::merge);
+        }
+        // Since exactly one of the TypeVars is unsolved, its data will be updated with information from the solved TypeVar
+        (false, true) => {
+            let potential_ty = actual.0.clone_data().types.into_iter().next().unwrap().1;
+            expected.0.with_data(|d| d.extend(potential_ty));
+        }
+        (true, false) => {
+            let potential_ty = expected.0.clone_data().types.into_iter().next().unwrap().1;
+            actual.0.with_data(|d| d.extend(potential_ty));
+        }
+        // Since both TypeVars are unsolved, they are unioned and their data is merged
+        (false, false) => {
+            expected.0.union_with(&mut actual.0, TypeVarData::merge);
+        }
+    }
 }
 
 // TODO: Can this be done in resolve() instead?
@@ -1226,6 +1254,132 @@ pub(crate) fn result_of_constraint_solving(ctx: &mut StaticsContext) {
 pub(crate) fn generate_constraints_file(file: Rc<FileAst>, ctx: &mut StaticsContext) {
     for items in file.items.iter() {
         generate_constraints_item(Mode::Syn, items.clone(), ctx);
+    }
+}
+
+fn generate_constraints_item(mode: Mode, stmt: Rc<Item>, ctx: &mut StaticsContext) {
+    match &*stmt.kind {
+        ItemKind::InterfaceDef(..) => {}
+        ItemKind::Import(..) => {}
+        ItemKind::Stmt(stmt) => {
+            generate_constraints_stmt(PolyvarScope::empty(), mode, stmt.clone(), ctx)
+        }
+        ItemKind::InterfaceImpl(iface_impl) => {
+            let impl_ty = ast_type_to_typevar(ctx, iface_impl.typ.clone());
+
+            let lookup = ctx.resolution_map.get(&iface_impl.iface.id).cloned();
+            if let Some(Declaration::InterfaceDef(iface_decl)) = lookup {
+                // TODO: This logic is performed for the interface definition every time an implementation is found
+                // Do the logic only once, memoize the result.
+                // TODO: Shouldn't use type inference to infer the types of the properties/methods. They are already annotated. They are already solved.
+                for method in &iface_decl.methods {
+                    let ty_annot = ast_type_to_typevar(ctx, method.ty.clone());
+                    let node_ty = TypeVar::from_node(ctx, method.id());
+                    constrain(node_ty.clone(), ty_annot.clone());
+                }
+                for f in &iface_impl.methods {
+                    let method_name = f.name.v.clone();
+                    if let Some(interface_method) =
+                        iface_decl.methods.iter().find(|m| m.name.v == method_name)
+                    {
+                        let mut substitution = BTreeMap::new();
+                        substitution.insert("a".to_string(), impl_ty.clone());
+
+                        let interface_method_ty =
+                            ast_type_to_typevar(ctx, interface_method.ty.clone());
+                        constrain(
+                            interface_method_ty.clone(),
+                            TypeVar::from_node(ctx, interface_method.id()),
+                        );
+
+                        let expected = interface_method_ty.clone().subst(
+                            PolyvarScope::empty(),
+                            Prov::Node(stmt.id),
+                            &substitution,
+                        );
+
+                        constrain(expected, TypeVar::from_node(ctx, f.name.id));
+
+                        generate_constraints_fn_def(ctx, PolyvarScope::empty(), f, f.name.id);
+                    }
+                }
+
+                let impl_list = ctx.interface_impls.entry(iface_decl.clone()).or_default();
+
+                impl_list.push(iface_impl.clone());
+            }
+        }
+        ItemKind::TypeDef(typdefkind) => match &**typdefkind {
+            // TypeDefKind::Alias(ident, ty) => {
+            //     let left = TypeVar::fresh(ctx, Prov::Alias(ident.clone()));
+            //     let right = ast_type_to_statics_type(ctx, ty.clone());
+            //     constrain(left, right);
+            // }
+            TypeDefKind::Enum(..) | TypeDefKind::Struct(..) | TypeDefKind::Foreign(..) => {}
+        },
+        ItemKind::FuncDef(f) => {
+            generate_constraints_fn_def(ctx, PolyvarScope::empty(), f, f.name.id);
+        }
+        ItemKind::ForeignFuncDecl(f) => {
+            let func_node_id = f.name.id;
+            let ty_pat = TypeVar::from_node(ctx, f.name.id);
+
+            let ty_func = generate_constraints_func_decl(
+                ctx,
+                func_node_id,
+                PolyvarScope::empty(),
+                &f.args,
+                &f.ret_type,
+            );
+
+            constrain(ty_pat, ty_func);
+        }
+    }
+}
+
+fn generate_constraints_stmt(
+    polyvar_scope: PolyvarScope,
+    mode: Mode,
+    stmt: Rc<Stmt>,
+    ctx: &mut StaticsContext,
+) {
+    match &*stmt.kind {
+        StmtKind::Expr(expr) => {
+            generate_constraints_expr(polyvar_scope, mode, expr.clone(), ctx);
+        }
+        StmtKind::Let(_mutable, (pat, ty_ann), expr) => {
+            let ty_pat = TypeVar::from_node(ctx, pat.id);
+
+            if let Some(ty_ann) = ty_ann {
+                let ty_ann = ast_type_to_typevar(ctx, ty_ann.clone());
+                polyvar_scope.add_polys(&ty_ann);
+                generate_constraints_pat(
+                    polyvar_scope.clone(),
+                    Mode::Ana { expected: ty_ann },
+                    pat.clone(),
+                    ctx,
+                )
+            } else {
+                generate_constraints_pat(polyvar_scope.clone(), Mode::Syn, pat.clone(), ctx)
+            };
+
+            generate_constraints_expr(
+                polyvar_scope.clone(),
+                Mode::Ana { expected: ty_pat },
+                expr.clone(),
+                ctx,
+            );
+        }
+        StmtKind::Set(lhs, rhs) => {
+            let ty_lhs = TypeVar::from_node(ctx, lhs.id);
+            generate_constraints_expr(polyvar_scope.clone(), Mode::Syn, lhs.clone(), ctx);
+            let ty_rhs = TypeVar::from_node(ctx, rhs.id);
+            generate_constraints_expr(polyvar_scope, Mode::Syn, rhs.clone(), ctx);
+            constrain(ty_lhs, ty_rhs);
+        }
+        StmtKind::FuncDef(f) => {
+            generate_constraints_fn_def(ctx, polyvar_scope, f, f.name.id);
+        }
     }
 }
 
@@ -1559,6 +1713,7 @@ fn generate_constraints_expr(
     }
 }
 
+// TODO: code duplication with generate_constraints_fun_decl
 fn generate_constraints_func_helper(
     ctx: &mut StaticsContext,
     node_id: NodeId,
@@ -1623,7 +1778,7 @@ fn generate_constraints_func_decl(
     ctx: &mut StaticsContext,
     node_id: NodeId,
     polyvar_scope: PolyvarScope,
-    args: &[ArgAnnotated],
+    args: &[ArgAnnotated], // TODO: arguments must be annotated, can't be optional for foreign function decl (or interface function decl)
     out_annot: &Rc<AstType>,
 ) -> TypeVar {
     // arguments
@@ -1663,132 +1818,6 @@ fn generate_constraints_func_decl(
     TypeVar::make_func(ty_args, ty_body, Prov::Node(node_id))
 }
 
-fn generate_constraints_item(mode: Mode, stmt: Rc<Item>, ctx: &mut StaticsContext) {
-    match &*stmt.kind {
-        ItemKind::InterfaceDef(..) => {}
-        ItemKind::Import(..) => {}
-        ItemKind::Stmt(stmt) => {
-            generate_constraints_stmt(PolyvarScope::empty(), mode, stmt.clone(), ctx)
-        }
-        ItemKind::InterfaceImpl(iface_impl) => {
-            let impl_ty = ast_type_to_typevar(ctx, iface_impl.typ.clone());
-
-            let lookup = ctx.resolution_map.get(&iface_impl.iface.id).cloned();
-            if let Some(Declaration::InterfaceDef(iface_decl)) = lookup {
-                // TODO: This logic is performed for the interface definition every time an implementation is found
-                // Do the logic only once, memoize the result.
-                // TODO: Shouldn't use type inference to infer the types of the properties/methods. They are already annotated. They are already solved.
-                for method in &iface_decl.methods {
-                    let ty_annot = ast_type_to_typevar(ctx, method.ty.clone());
-                    let node_ty = TypeVar::from_node(ctx, method.id());
-                    constrain(node_ty.clone(), ty_annot.clone());
-                }
-                for f in &iface_impl.methods {
-                    let method_name = f.name.v.clone();
-                    if let Some(interface_method) =
-                        iface_decl.methods.iter().find(|m| m.name.v == method_name)
-                    {
-                        let mut substitution = BTreeMap::new();
-                        substitution.insert("a".to_string(), impl_ty.clone());
-
-                        let interface_method_ty =
-                            ast_type_to_typevar(ctx, interface_method.ty.clone());
-                        constrain(
-                            interface_method_ty.clone(),
-                            TypeVar::from_node(ctx, interface_method.id()),
-                        );
-
-                        let expected = interface_method_ty.clone().subst(
-                            PolyvarScope::empty(),
-                            Prov::Node(stmt.id),
-                            &substitution,
-                        );
-
-                        constrain(expected, TypeVar::from_node(ctx, f.name.id));
-
-                        generate_constraints_fn_def(ctx, PolyvarScope::empty(), f, f.name.id);
-                    }
-                }
-
-                let impl_list = ctx.interface_impls.entry(iface_decl.clone()).or_default();
-
-                impl_list.push(iface_impl.clone());
-            }
-        }
-        ItemKind::TypeDef(typdefkind) => match &**typdefkind {
-            // TypeDefKind::Alias(ident, ty) => {
-            //     let left = TypeVar::fresh(ctx, Prov::Alias(ident.clone()));
-            //     let right = ast_type_to_statics_type(ctx, ty.clone());
-            //     constrain(left, right);
-            // }
-            TypeDefKind::Enum(..) | TypeDefKind::Struct(..) | TypeDefKind::Foreign(..) => {}
-        },
-        ItemKind::FuncDef(f) => {
-            generate_constraints_fn_def(ctx, PolyvarScope::empty(), f, f.name.id);
-        }
-        ItemKind::ForeignFuncDecl(f) => {
-            let func_node_id = f.name.id;
-            let ty_pat = TypeVar::from_node(ctx, f.name.id);
-
-            let ty_func = generate_constraints_func_decl(
-                ctx,
-                func_node_id,
-                PolyvarScope::empty(),
-                &f.args,
-                &f.ret_type,
-            );
-
-            constrain(ty_pat, ty_func);
-        }
-    }
-}
-
-fn generate_constraints_stmt(
-    polyvar_scope: PolyvarScope,
-    mode: Mode,
-    stmt: Rc<Stmt>,
-    ctx: &mut StaticsContext,
-) {
-    match &*stmt.kind {
-        StmtKind::Expr(expr) => {
-            generate_constraints_expr(polyvar_scope, mode, expr.clone(), ctx);
-        }
-        StmtKind::Let(_mutable, (pat, ty_ann), expr) => {
-            let ty_pat = TypeVar::from_node(ctx, pat.id);
-
-            if let Some(ty_ann) = ty_ann {
-                let ty_ann = ast_type_to_typevar(ctx, ty_ann.clone());
-                polyvar_scope.add_polys(&ty_ann);
-                generate_constraints_pat(
-                    polyvar_scope.clone(),
-                    Mode::Ana { expected: ty_ann },
-                    pat.clone(),
-                    ctx,
-                )
-            } else {
-                generate_constraints_pat(polyvar_scope.clone(), Mode::Syn, pat.clone(), ctx)
-            };
-
-            generate_constraints_expr(
-                polyvar_scope.clone(),
-                Mode::Ana { expected: ty_pat },
-                expr.clone(),
-                ctx,
-            );
-        }
-        StmtKind::Set(lhs, rhs) => {
-            let ty_lhs = TypeVar::from_node(ctx, lhs.id);
-            generate_constraints_expr(polyvar_scope.clone(), Mode::Syn, lhs.clone(), ctx);
-            let ty_rhs = TypeVar::from_node(ctx, rhs.id);
-            generate_constraints_expr(polyvar_scope, Mode::Syn, rhs.clone(), ctx);
-            constrain(ty_lhs, ty_rhs);
-        }
-        StmtKind::FuncDef(f) => {
-            generate_constraints_fn_def(ctx, polyvar_scope, f, f.name.id);
-        }
-    }
-}
-
 fn generate_constraints_fn_def(
     ctx: &mut StaticsContext,
     polyvar_scope: PolyvarScope,
@@ -1796,7 +1825,7 @@ fn generate_constraints_fn_def(
     id: NodeId,
 ) {
     let func_node_id = id;
-    let ty_pat = TypeVar::from_node(ctx, f.name.id);
+    let ty_fun_name = TypeVar::from_node(ctx, f.name.id);
 
     let body_symbol_table = polyvar_scope.new_scope();
     let ty_func = generate_constraints_func_helper(
@@ -1808,7 +1837,7 @@ fn generate_constraints_fn_def(
         &f.body,
     );
 
-    constrain(ty_pat, ty_func);
+    constrain(ty_fun_name, ty_func);
 }
 
 fn generate_constraints_pat(
