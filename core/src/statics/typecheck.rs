@@ -20,14 +20,14 @@ pub(crate) struct TypeVar(UnionFindNode<TypeVarData>);
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) struct TypeVarData {
     pub(crate) types: BTreeMap<TypeKey, PotentialType>,
-    pub(crate) solved: bool,
+    pub(crate) locked: bool,
 }
 
 impl TypeVarData {
     fn new() -> Self {
         Self {
             types: BTreeMap::new(),
-            solved: false,
+            locked: false,
         }
     }
 
@@ -36,7 +36,7 @@ impl TypeVarData {
         types.insert(potential_type.key(), potential_type);
         Self {
             types,
-            solved: true,
+            locked: true,
         }
     }
 
@@ -53,7 +53,7 @@ impl TypeVarData {
 
         let mut merged_types = Self {
             types: first.types,
-            solved: false,
+            locked: false,
         };
         for (_key, t) in second.types {
             merged_types.extend(t);
@@ -440,7 +440,7 @@ impl TypeVar {
     }
 
     fn solved(&self) -> bool {
-        self.0.with_data(|d| d.solved)
+        self.0.with_data(|d| d.locked)
     }
 
     // TODO: arguments are named 'expected' and 'actual'. Does order actuall matter or not? Should it?
@@ -526,7 +526,7 @@ impl TypeVar {
         types.insert(ty.key(), ty);
         let data_instantiated = TypeVarData {
             types,
-            solved: data.solved,
+            locked: data.locked,
         };
         let tvar = TypeVar(UnionFindNode::new(data_instantiated));
         ctx.unifvars.insert(prov, tvar.clone());
@@ -586,7 +586,7 @@ impl TypeVar {
             types.insert(ty.key(), ty);
             let new_data = TypeVarData {
                 types,
-                solved: data.solved,
+                locked: data.locked,
             };
             TypeVar(UnionFindNode::new(new_data))
         } else {
@@ -1164,6 +1164,14 @@ pub(crate) fn constrain(ctx: &mut StaticsContext, mut expected: TypeVar, mut act
         (false, false) => {
             TypeVar::merge(expected, actual);
         }
+    }
+}
+
+fn log_error_if_conflict(ctx: &mut StaticsContext, expected: TypeVar, actual: TypeVar) {
+    let (key1, ty1) = expected.0.clone_data().types.into_iter().next().unwrap();
+    let (key2, ty2) = actual.0.clone_data().types.into_iter().next().unwrap();
+    if key1 != key2 {
+        ctx.errors.push(Error::ConflictingTypes { ty1, ty2 })
     }
 }
 

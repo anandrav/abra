@@ -150,6 +150,10 @@ pub(crate) enum Error {
     ConflictingUnifvar {
         types: BTreeMap<TypeKey, PotentialType>,
     },
+    ConflictingTypes {
+        ty1: PotentialType,
+        ty2: PotentialType,
+    },
     MemberAccessNeedsAnnotation {
         node_id: NodeId,
     },
@@ -389,6 +393,12 @@ impl Error {
                     }
                 }
                 writeln!(err_string).unwrap();
+            }
+            Error::ConflictingTypes { ty1, ty2 } => {
+                err_string.push_str(&format!(
+                    "Type conflict. Got type {} from __ but got type {} from __",
+                    ty1, ty2
+                ));
             }
             Error::MemberAccessNeedsAnnotation { node_id } => {
                 let span = node_map.get(node_id).unwrap().span();
