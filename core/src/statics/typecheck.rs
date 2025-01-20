@@ -48,7 +48,7 @@ impl TypeVarData {
         }
     }
 
-    fn merge(first: Self, second: Self) -> Self {
+    fn merge_data(first: Self, second: Self) -> Self {
         // TODO: maybe assert that both are unsolved (or that at least one is unsolved?)
 
         let mut merged_types = Self {
@@ -61,12 +61,12 @@ impl TypeVarData {
         merged_types
     }
 
-    fn extend(&mut self, t_other: PotentialType) {
+    fn extend(&mut self, mut t_other: PotentialType) {
         let key = t_other.key();
 
         // accumulate provenances and constrain children to each other if applicable
         if let Some(t) = self.types.get_mut(&key) {
-            match &t_other {
+            match &mut t_other {
                 PotentialType::Unit(other_provs)
                 | PotentialType::Int(other_provs)
                 | PotentialType::Float(other_provs)
@@ -81,16 +81,16 @@ impl TypeVarData {
                     t.provs().borrow_mut().extend(other_provs.borrow().clone());
                     if let PotentialType::Function(_, args2, out2) = t {
                         for (arg, arg2) in args1.iter().zip(args2.iter()) {
-                            constrain(arg.clone(), arg2.clone());
+                            TypeVar::merge(arg.clone(), arg2.clone());
                         }
-                        constrain(out1.clone(), out2.clone());
+                        TypeVar::merge(out1.clone(), out2.clone());
                     }
                 }
                 PotentialType::Tuple(other_provs, elems1) => {
                     t.provs().borrow_mut().extend(other_provs.borrow().clone());
                     if let PotentialType::Tuple(_, elems2) = t {
                         for (elem, elem2) in elems1.iter().zip(elems2.iter()) {
-                            constrain(elem.clone(), elem2.clone());
+                            TypeVar::merge(elem.clone(), elem2.clone());
                         }
                     }
                 }
@@ -98,7 +98,7 @@ impl TypeVarData {
                     if let PotentialType::Nominal(_, _, tys) = t {
                         if tys.len() == other_tys.len() {
                             for (ty, other_ty) in tys.iter().zip(other_tys.iter()) {
-                                constrain(ty.clone(), other_ty.clone());
+                                TypeVar::merge(ty.clone(), other_ty.clone());
                             }
                         } else {
                             panic!("should be same length")
@@ -441,6 +441,13 @@ impl TypeVar {
 
     fn solved(&self) -> bool {
         self.0.with_data(|d| d.solved)
+    }
+
+    // TODO: arguments are named 'expected' and 'actual'. Does order actuall matter or not? Should it?
+    fn merge(mut expected: TypeVar, mut actual: TypeVar) {
+        expected
+            .0
+            .union_with(&mut actual.0, TypeVarData::merge_data);
     }
 
     fn single(&self) -> Option<PotentialType> {
@@ -840,7 +847,7 @@ fn tyvar_of_declaration(
 }
 
 fn types_of_binop(
-    ctx: &StaticsContext,
+    ctx: &mut StaticsContext,
     opcode: &BinaryOperator,
     id: NodeId,
 ) -> (TypeVar, TypeVar, TypeVar) {
@@ -893,8 +900,8 @@ fn types_of_binop(
             let ty_right =
                 TypeVar::make_poly(prov_right, "a".to_owned(), vec![num_iface_def.clone()]);
             let ty_out = TypeVar::make_poly(prov_out, "a".to_owned(), vec![num_iface_def.clone()]);
-            constrain(ty_left.clone(), ty_right.clone());
-            constrain(ty_left.clone(), ty_out.clone());
+            constrain(ctx, ty_left.clone(), ty_right.clone());
+            constrain(ctx, ty_left.clone(), ty_out.clone());
             (ty_left, ty_right, ty_out)
         }
         BinaryOperator::Mod => (
@@ -910,7 +917,7 @@ fn types_of_binop(
                 TypeVar::make_poly(prov_left, "a".to_owned(), vec![num_iface_def.clone()]);
             let ty_right =
                 TypeVar::make_poly(prov_right, "a".to_owned(), vec![num_iface_def.clone()]);
-            constrain(ty_left.clone(), ty_right.clone());
+            constrain(ctx, ty_left.clone(), ty_right.clone());
             let ty_out = TypeVar::make_bool(prov_out);
             (ty_left, ty_right, ty_out)
         }
@@ -927,7 +934,7 @@ fn types_of_binop(
                 TypeVar::make_poly(prov_left, "a".to_owned(), vec![equal_iface_def.clone()]);
             let ty_right =
                 TypeVar::make_poly(prov_right, "a".to_owned(), vec![equal_iface_def.clone()]);
-            constrain(ty_left.clone(), ty_right.clone());
+            constrain(ctx, ty_left.clone(), ty_right.clone());
             (ty_left, ty_right, TypeVar::make_bool(prov_out))
         }
     }
@@ -1136,13 +1143,13 @@ pub(crate) enum Mode {
 }
 
 // TODO: arguments are named 'expected' and 'actual'. Does order actuall matter or not? Should it?
-pub(crate) fn constrain(mut expected: TypeVar, mut actual: TypeVar) {
+pub(crate) fn constrain(ctx: &mut StaticsContext, mut expected: TypeVar, mut actual: TypeVar) {
     match (expected.solved(), actual.solved()) {
         // Since both TypeVars are already solved, an error is logged if their data do not match
         (true, true) => {
             // TODO!
             // TODO: this is just a placeholder before I break things
-            expected.0.union_with(&mut actual.0, TypeVarData::merge);
+            TypeVar::merge(expected, actual);
         }
         // Since exactly one of the TypeVars is unsolved, its data will be updated with information from the solved TypeVar
         (false, true) => {
@@ -1155,7 +1162,7 @@ pub(crate) fn constrain(mut expected: TypeVar, mut actual: TypeVar) {
         }
         // Since both TypeVars are unsolved, they are unioned and their data is merged
         (false, false) => {
-            expected.0.union_with(&mut actual.0, TypeVarData::merge);
+            TypeVar::merge(expected, actual);
         }
     }
 }
@@ -1275,7 +1282,7 @@ fn generate_constraints_item(mode: Mode, stmt: Rc<Item>, ctx: &mut StaticsContex
                 for method in &iface_decl.methods {
                     let ty_annot = ast_type_to_typevar(ctx, method.ty.clone());
                     let node_ty = TypeVar::from_node(ctx, method.id());
-                    constrain(node_ty.clone(), ty_annot.clone());
+                    constrain(ctx, node_ty.clone(), ty_annot.clone());
                 }
                 for f in &iface_impl.methods {
                     let method_name = f.name.v.clone();
@@ -1287,10 +1294,8 @@ fn generate_constraints_item(mode: Mode, stmt: Rc<Item>, ctx: &mut StaticsContex
 
                         let interface_method_ty =
                             ast_type_to_typevar(ctx, interface_method.ty.clone());
-                        constrain(
-                            interface_method_ty.clone(),
-                            TypeVar::from_node(ctx, interface_method.id()),
-                        );
+                        let actual = TypeVar::from_node(ctx, interface_method.id());
+                        constrain(ctx, interface_method_ty.clone(), actual);
 
                         let expected = interface_method_ty.clone().subst(
                             PolyvarScope::empty(),
@@ -1298,7 +1303,8 @@ fn generate_constraints_item(mode: Mode, stmt: Rc<Item>, ctx: &mut StaticsContex
                             &substitution,
                         );
 
-                        constrain(expected, TypeVar::from_node(ctx, f.name.id));
+                        let actual = TypeVar::from_node(ctx, f.name.id);
+                        constrain(ctx, expected, actual);
 
                         generate_constraints_fn_def(ctx, PolyvarScope::empty(), f, f.name.id);
                     }
@@ -1313,7 +1319,7 @@ fn generate_constraints_item(mode: Mode, stmt: Rc<Item>, ctx: &mut StaticsContex
             // TypeDefKind::Alias(ident, ty) => {
             //     let left = TypeVar::fresh(ctx, Prov::Alias(ident.clone()));
             //     let right = ast_type_to_statics_type(ctx, ty.clone());
-            //     constrain(left, right);
+            //     constrain(ctx,left, right);
             // }
             TypeDefKind::Enum(..) | TypeDefKind::Struct(..) | TypeDefKind::Foreign(..) => {}
         },
@@ -1332,7 +1338,7 @@ fn generate_constraints_item(mode: Mode, stmt: Rc<Item>, ctx: &mut StaticsContex
                 &f.ret_type,
             );
 
-            constrain(ty_pat, ty_func);
+            constrain(ctx, ty_pat, ty_func);
         }
     }
 }
@@ -1375,7 +1381,7 @@ fn generate_constraints_stmt(
             generate_constraints_expr(polyvar_scope.clone(), Mode::Syn, lhs.clone(), ctx);
             let ty_rhs = TypeVar::from_node(ctx, rhs.id);
             generate_constraints_expr(polyvar_scope, Mode::Syn, rhs.clone(), ctx);
-            constrain(ty_lhs, ty_rhs);
+            constrain(ctx, ty_lhs, ty_rhs);
         }
         StmtKind::FuncDef(f) => {
             generate_constraints_fn_def(ctx, polyvar_scope, f, f.name.id);
@@ -1392,23 +1398,23 @@ fn generate_constraints_expr(
     let node_ty = TypeVar::from_node(ctx, expr.id);
     match mode {
         Mode::Syn => (),
-        Mode::Ana { expected } => constrain(node_ty.clone(), expected),
+        Mode::Ana { expected } => constrain(ctx, node_ty.clone(), expected),
     };
     match &*expr.kind {
         ExprKind::Unit => {
-            constrain(node_ty, TypeVar::make_unit(Prov::Node(expr.id)));
+            constrain(ctx, node_ty, TypeVar::make_unit(Prov::Node(expr.id)));
         }
         ExprKind::Int(_) => {
-            constrain(node_ty, TypeVar::make_int(Prov::Node(expr.id)));
+            constrain(ctx, node_ty, TypeVar::make_int(Prov::Node(expr.id)));
         }
         ExprKind::Float(_) => {
-            constrain(node_ty, TypeVar::make_float(Prov::Node(expr.id)));
+            constrain(ctx, node_ty, TypeVar::make_float(Prov::Node(expr.id)));
         }
         ExprKind::Bool(_) => {
-            constrain(node_ty, TypeVar::make_bool(Prov::Node(expr.id)));
+            constrain(ctx, node_ty, TypeVar::make_bool(Prov::Node(expr.id)));
         }
         ExprKind::Str(s) => {
-            constrain(node_ty, TypeVar::make_string(Prov::Node(expr.id)));
+            constrain(ctx, node_ty, TypeVar::make_string(Prov::Node(expr.id)));
             let len = ctx.string_constants.len();
             ctx.string_constants.entry(s.clone()).or_insert(len);
         }
@@ -1423,6 +1429,7 @@ fn generate_constraints_expr(
 
             if let Some(Declaration::Enum(enum_def)) = list_decl {
                 constrain(
+                    ctx,
                     node_ty,
                     TypeVar::make_nominal(
                         Prov::Node(expr.id),
@@ -1450,6 +1457,7 @@ fn generate_constraints_expr(
         ExprKind::Array(exprs) => {
             let elem_ty = TypeVar::fresh(ctx, Prov::ListElem(Prov::Node(expr.id).into()));
             constrain(
+                ctx,
                 node_ty,
                 TypeVar::make_nominal(Prov::Node(expr.id), Nominal::Array, vec![elem_ty.clone()]),
             );
@@ -1469,7 +1477,7 @@ fn generate_constraints_expr(
             if let Some(res) = lookup {
                 if let Some(typ) = tyvar_of_declaration(ctx, &res, expr.id, polyvar_scope.clone()) {
                     let typ = typ.instantiate(polyvar_scope, ctx, Prov::Node(expr.id));
-                    constrain(typ, node_ty.clone());
+                    constrain(ctx, typ, node_ty.clone());
                 }
             }
         }
@@ -1480,7 +1488,7 @@ fn generate_constraints_expr(
                 ty_right.instantiate(PolyvarScope::empty(), ctx, Prov::Node(expr.id)),
                 ty_out.instantiate(PolyvarScope::empty(), ctx, Prov::Node(expr.id)),
             );
-            constrain(ty_out, node_ty);
+            constrain(ctx, ty_out, node_ty);
             generate_constraints_expr(
                 polyvar_scope.clone(),
                 Mode::Ana { expected: ty_left },
@@ -1496,7 +1504,7 @@ fn generate_constraints_expr(
         }
         ExprKind::Block(statements) => {
             if statements.is_empty() {
-                constrain(node_ty, TypeVar::make_unit(Prov::Node(expr.id)));
+                constrain(ctx, node_ty, TypeVar::make_unit(Prov::Node(expr.id)));
                 return;
             }
             for statement in statements[..statements.len() - 1].iter() {
@@ -1517,7 +1525,7 @@ fn generate_constraints_expr(
                     statements.last().unwrap().clone(),
                     ctx,
                 );
-                constrain(node_ty, TypeVar::make_unit(Prov::Node(expr.id)))
+                constrain(ctx, node_ty, TypeVar::make_unit(Prov::Node(expr.id)))
             }
         }
         ExprKind::If(cond, expr1, expr2) => {
@@ -1557,7 +1565,7 @@ fn generate_constraints_expr(
                         expr1.clone(),
                         ctx,
                     );
-                    constrain(node_ty, TypeVar::make_unit(Prov::Node(expr.id)))
+                    constrain(ctx, node_ty, TypeVar::make_unit(Prov::Node(expr.id)))
                 }
             }
         }
@@ -1571,7 +1579,7 @@ fn generate_constraints_expr(
                 ctx,
             );
             generate_constraints_expr(polyvar_scope, Mode::Syn, expr.clone(), ctx);
-            constrain(node_ty, TypeVar::make_unit(Prov::Node(expr.id)))
+            constrain(ctx, node_ty, TypeVar::make_unit(Prov::Node(expr.id)))
         }
         ExprKind::Match(scrut, arms) => {
             let ty_scrutiny = TypeVar::from_node(ctx, scrut.id);
@@ -1614,7 +1622,7 @@ fn generate_constraints_expr(
                 body,
             );
 
-            constrain(node_ty, ty_func);
+            constrain(ctx, node_ty, ty_func);
         }
         ExprKind::FuncAp(func, args) => {
             // arguments
@@ -1638,7 +1646,7 @@ fn generate_constraints_expr(
 
             // body
             let ty_body = TypeVar::fresh(ctx, Prov::FuncOut(Box::new(Prov::Node(func.id))));
-            constrain(ty_body.clone(), node_ty);
+            constrain(ctx, ty_body.clone(), node_ty);
 
             // function type
             let ty_func = TypeVar::make_func(tys_args, ty_body, Prov::Node(expr.id));
@@ -1658,7 +1666,7 @@ fn generate_constraints_expr(
                 .iter()
                 .map(|expr| TypeVar::fresh(ctx, Prov::Node(expr.id)))
                 .collect();
-            constrain(node_ty, TypeVar::make_tuple(tys, Prov::Node(expr.id)));
+            constrain(ctx, node_ty, TypeVar::make_tuple(tys, Prov::Node(expr.id)));
             for expr in exprs {
                 generate_constraints_expr(polyvar_scope.clone(), Mode::Syn, expr.clone(), ctx);
             }
@@ -1680,7 +1688,7 @@ fn generate_constraints_expr(
                 };
                 let ty_field =
                     TypeVar::fresh(ctx, Prov::StructField(field_ident.clone(), struct_def.id));
-                constrain(node_ty.clone(), ty_field);
+                constrain(ctx, node_ty.clone(), ty_field);
                 return;
             }
 
@@ -1692,6 +1700,7 @@ fn generate_constraints_expr(
             let elem_ty = TypeVar::fresh(ctx, Prov::ListElem(Prov::Node(accessed.id).into()));
             let accessed_ty = TypeVar::from_node(ctx, accessed.id);
             constrain(
+                ctx,
                 accessed_ty,
                 TypeVar::make_nominal(
                     Prov::Node(accessed.id),
@@ -1708,7 +1717,7 @@ fn generate_constraints_expr(
                 ctx,
             );
 
-            constrain(node_ty, elem_ty);
+            constrain(ctx, node_ty, elem_ty);
         }
     }
 }
@@ -1731,7 +1740,7 @@ fn generate_constraints_func_helper(
                 Some(arg_annot) => {
                     let ty_annot = TypeVar::from_node(ctx, arg_annot.id());
                     let arg_annot = ast_type_to_typevar(ctx, arg_annot.clone());
-                    constrain(ty_annot.clone(), arg_annot.clone());
+                    constrain(ctx, ty_annot.clone(), arg_annot.clone());
                     polyvar_scope.add_polys(&arg_annot);
                     generate_constraints_pat(
                         polyvar_scope.clone(),
@@ -1790,7 +1799,7 @@ fn generate_constraints_func_decl(
                 Some(arg_annot) => {
                     let ty_annot = TypeVar::from_node(ctx, arg_annot.id());
                     let arg_annot = ast_type_to_typevar(ctx, arg_annot.clone());
-                    constrain(ty_annot.clone(), arg_annot.clone());
+                    constrain(ctx, ty_annot.clone(), arg_annot.clone());
                     polyvar_scope.add_polys(&arg_annot);
                     generate_constraints_pat(
                         polyvar_scope.clone(),
@@ -1813,7 +1822,7 @@ fn generate_constraints_func_decl(
     let out_annot = ast_type_to_typevar(ctx, out_annot.clone());
     polyvar_scope.add_polys(&out_annot);
 
-    constrain(ty_body.clone(), out_annot);
+    constrain(ctx, ty_body.clone(), out_annot);
 
     TypeVar::make_func(ty_args, ty_body, Prov::Node(node_id))
 }
@@ -1837,7 +1846,7 @@ fn generate_constraints_fn_def(
         &f.body,
     );
 
-    constrain(ty_fun_name, ty_func);
+    constrain(ctx, ty_fun_name, ty_func);
 }
 
 fn generate_constraints_pat(
@@ -1849,24 +1858,24 @@ fn generate_constraints_pat(
     let ty_pat = TypeVar::from_node(ctx, pat.id);
     match mode {
         Mode::Syn => (),
-        Mode::Ana { expected } => constrain(expected, ty_pat.clone()),
+        Mode::Ana { expected } => constrain(ctx, expected, ty_pat.clone()),
     };
     match &*pat.kind {
         PatKind::Wildcard => (),
         PatKind::Unit => {
-            constrain(ty_pat, TypeVar::make_unit(Prov::Node(pat.id)));
+            constrain(ctx, ty_pat, TypeVar::make_unit(Prov::Node(pat.id)));
         }
         PatKind::Int(_) => {
-            constrain(ty_pat, TypeVar::make_int(Prov::Node(pat.id)));
+            constrain(ctx, ty_pat, TypeVar::make_int(Prov::Node(pat.id)));
         }
         PatKind::Float(_) => {
-            constrain(ty_pat, TypeVar::make_float(Prov::Node(pat.id)));
+            constrain(ctx, ty_pat, TypeVar::make_float(Prov::Node(pat.id)));
         }
         PatKind::Bool(_) => {
-            constrain(ty_pat, TypeVar::make_bool(Prov::Node(pat.id)));
+            constrain(ctx, ty_pat, TypeVar::make_bool(Prov::Node(pat.id)));
         }
         PatKind::Str(_) => {
-            constrain(ty_pat, TypeVar::make_string(Prov::Node(pat.id)));
+            constrain(ctx, ty_pat, TypeVar::make_string(Prov::Node(pat.id)));
         }
         PatKind::Binding(_) => {}
         PatKind::Variant(tag, data) => {
@@ -1911,7 +1920,7 @@ fn generate_constraints_pat(
                         Prov::Node(pat.id),
                         &substitution,
                     );
-                    constrain(ty_data.clone(), variant_data_ty);
+                    constrain(ctx, ty_data.clone(), variant_data_ty);
 
                     def_type
                 } else {
@@ -1919,7 +1928,7 @@ fn generate_constraints_pat(
                 }
             };
 
-            constrain(ty_pat, ty_enum_instance);
+            constrain(ctx, ty_pat, ty_enum_instance);
             if let Some(data) = data {
                 generate_constraints_pat(
                     polyvar_scope,
@@ -1935,6 +1944,7 @@ fn generate_constraints_pat(
                 .map(|pat| TypeVar::fresh(ctx, Prov::Node(pat.id)))
                 .collect();
             constrain(
+                ctx,
                 ty_pat,
                 TypeVar::make_tuple(tys_elements, Prov::Node(pat.id)),
             );
