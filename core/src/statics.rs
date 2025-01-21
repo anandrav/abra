@@ -4,7 +4,6 @@ use crate::ast::{
 };
 use crate::builtin::Builtin;
 use crate::effects::EffectDesc;
-use crate::statics::typecheck::Prov;
 use resolve::{resolve, scan_declarations};
 use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::fmt::{self, Display, Formatter, Write};
@@ -276,12 +275,8 @@ impl Error {
                     reasons_vec.sort_by_key(|prov| match prov {
                         Reason::Builtin(_) => 0,
                         Reason::Node(id) => node_map.get(id).unwrap().span().lo,
-                        Reason::InstantiatePoly(_, _ident) => 2,
-                        Reason::FuncArg(_, _) => 3,
-                        Reason::FuncOut(_) => 4,
                         Reason::VariantNoData(_) => 7,
                         Reason::UdtDef(_) => 8,
-                        Reason::InstantiateUdtParam(_, _) => 9,
                         Reason::ListElem(_) => 10,
                         Reason::BinopLeft(_) => 11,
                         Reason::BinopRight(_) => 12,
@@ -366,42 +361,6 @@ fn write_prov_to_err_string(
             let span = node_map.get(id).unwrap().span();
             span.display(err_string, sources, "");
         }
-        Reason::InstantiatePoly(_, ident) => {
-            let _ = writeln!(err_string, "The instantiation of polymorphic type {ident}");
-        }
-        Reason::FuncArg(prov, n) => {
-            match prov.as_ref() {
-                Reason::Builtin(builtin) => {
-                    let s = builtin.name();
-                    let n = n + 1; // readability
-                    let _ = writeln!(err_string, "--> The #{n} argument of function '{s}'");
-                }
-                Reason::Node(id) => {
-                    let span = node_map.get(id).unwrap().span();
-                    span.display(
-                        err_string,
-                        sources,
-                        &format!("The #{n} argument of this function"),
-                    );
-                }
-                _ => unreachable!(),
-            }
-        }
-        Reason::FuncOut(prov) => match prov.as_ref() {
-            Reason::Builtin(builtin) => {
-                let s = builtin.name();
-                let _ = writeln!(
-                    err_string,
-                    "
-                    --> The output of the builtin function '{s}'"
-                );
-            }
-            Reason::Node(id) => {
-                let span = node_map.get(id).unwrap().span();
-                span.display(err_string, sources, "The output of this function");
-            }
-            _ => unreachable!(),
-        },
         Reason::BinopLeft(inner) => {
             err_string.push_str("The left operand of operator\n");
             if let Reason::Node(id) = **inner {
@@ -421,9 +380,6 @@ fn write_prov_to_err_string(
         }
         Reason::UdtDef(_prov) => {
             err_string.push_str("Some type definition");
-        }
-        Reason::InstantiateUdtParam(_, _) => {
-            err_string.push_str("Some instance of an Enum's variant");
         }
         Reason::VariantNoData(_prov) => {
             err_string.push_str("The data of some Enum variant");

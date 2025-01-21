@@ -285,18 +285,11 @@ pub(crate) enum TypeKey {
 // TODO: Does Prov really need to be that deeply nested? Will there really be FuncArg -> InstantiatedPoly -> BinopLeft -> Node? Or can we simplify here?
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub(crate) enum Prov {
-    Node(NodeId),     // the type of an expression or statement located at NodeId
-    Builtin(Builtin), // a builtin function or constant, which doesn't exist in the AST
-    Effect(u16),
-
-    UdtDef(Box<Prov>),
-
+    Node(NodeId), // the type of an expression or statement located at NodeId
     InstantiateUdtParam(Box<Prov>, u8),
     InstantiatePoly(Box<Prov>, String),
     FuncArg(Box<Prov>, u8), // u8 represents the index of the argument
     FuncOut(Box<Prov>),     // u8 represents how many arguments before this output
-    BinopLeft(Box<Prov>),
-    BinopRight(Box<Prov>),
     ListElem(Box<Prov>),
     StructField(String, NodeId),
     IndexAccess,
@@ -309,15 +302,10 @@ impl Prov {
     fn get_location(&self) -> Option<NodeId> {
         match self {
             Prov::Node(id) => Some(*id),
-            Prov::Builtin(_) => None,
-            Prov::Effect(_) => None,
-            Prov::UdtDef(inner)
-            | Prov::InstantiateUdtParam(inner, _)
+            Prov::InstantiateUdtParam(inner, _)
             | Prov::InstantiatePoly(inner, _)
             | Prov::FuncArg(inner, _)
             | Prov::FuncOut(inner)
-            | Prov::BinopLeft(inner)
-            | Prov::BinopRight(inner)
             | Prov::ListElem(inner)
             | Prov::VariantNoData(inner) => inner.get_location(),
             Prov::StructField(_, _) => None,
@@ -328,16 +316,12 @@ impl Prov {
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub(crate) enum Reason {
+    // TODO: NodeId is too vague. Remove
     Node(NodeId),     // the type of an expression or statement located at NodeId
     Builtin(Builtin), // a builtin function or constant, which doesn't exist in the AST
     Effect(u16),
 
-    UdtDef(Box<Reason>),
-
-    InstantiateUdtParam(Box<Reason>, u8),
-    InstantiatePoly(Box<Reason>, String),
-    FuncArg(Box<Reason>, u8), // u8 represents the index of the argument
-    FuncOut(Box<Reason>),     // u8 represents how many arguments before this output
+    UdtDef(Box<Reason>), // TODO: replace this with 'Declaration'
     BinopLeft(Box<Reason>),
     BinopRight(Box<Reason>),
     ListElem(Box<Reason>),
@@ -1728,7 +1712,6 @@ fn generate_constraints_expr(
                 let ty_field =
                     TypeVar::fresh(ctx, Prov::StructField(field_ident.clone(), struct_def.id));
                 constrain(ctx, node_ty.clone(), ty_field);
-                return;
             }
         }
         ExprKind::IndexAccess(accessed, index) => {
