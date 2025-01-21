@@ -49,8 +49,6 @@ impl TypeVarData {
     }
 
     fn merge_data(first: Self, second: Self) -> Self {
-        // assert!(!first.locked && !second.locked);
-
         let mut merged_types = Self {
             types: first.types,
             locked: false,
@@ -415,10 +413,6 @@ impl TypeVar {
         self.0.clone_data().solution()
     }
 
-    fn is_solved(&self) -> bool {
-        self.solution().is_some()
-    }
-
     fn is_underdetermined(&self) -> bool {
         self.0.with_data(|d| d.types.is_empty())
     }
@@ -431,11 +425,12 @@ impl TypeVar {
         self.0.with_data(|d| d.locked)
     }
 
-    // TODO: arguments are named 'expected' and 'actual'. Does order actuall matter or not? Should it?
-    fn merge(mut expected: TypeVar, mut actual: TypeVar) {
-        expected
-            .0
-            .union_with(&mut actual.0, TypeVarData::merge_data);
+    fn clone_types(&self) -> BTreeMap<TypeKey, PotentialType> {
+        self.0.clone_data().types
+    }
+
+    fn merge(mut tyvar1: TypeVar, mut tyvar2: TypeVar) {
+        tyvar1.0.union_with(&mut tyvar2.0, TypeVarData::merge_data);
     }
 
     fn single(&self) -> Option<PotentialType> {
@@ -1232,16 +1227,16 @@ pub(crate) fn result_of_constraint_solving(ctx: &mut StaticsContext) {
     // get list of type conflicts
     let mut type_conflicts = Vec::new();
     for (prov, tyvar) in ctx.unifvars.iter() {
-        // TODO why not just check if the tyvar is solved? IE tyvar.is_solved() which would just be tyvar.solution().is_some()
-        let type_suggestions = tyvar.0.clone_data().types;
-        if type_suggestions.len() > 1 && (!type_conflicts.contains(&type_suggestions)) {
-            type_conflicts.push(type_suggestions.clone());
+        if tyvar.is_conflicted() {
+            let type_suggestions = tyvar.clone_types();
+            if !type_conflicts.contains(&type_suggestions) {
+                type_conflicts.push(type_suggestions.clone());
 
-            ctx.errors.push(Error::ConflictingUnifvar {
-                types: type_suggestions,
-            });
-        // TODO: similarly, could do tyvar.is_underdetermined()
-        } else if type_suggestions.is_empty() {
+                ctx.errors.push(Error::ConflictingUnifvar {
+                    types: type_suggestions,
+                });
+            }
+        } else if tyvar.is_underdetermined() {
             if let Prov::Node(id) = prov {
                 ctx.errors
                     .push(Error::UnconstrainedUnifvar { node_id: *id });
@@ -1716,7 +1711,6 @@ fn generate_constraints_expr(
     }
 }
 
-// TODO: code duplication with generate_constraints_fun_decl
 fn generate_constraints_func_helper(
     ctx: &mut StaticsContext,
     node_id: NodeId,
