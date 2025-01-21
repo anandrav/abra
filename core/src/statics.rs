@@ -312,6 +312,7 @@ impl Error {
                 let provs2 = ty2.provs().borrow();
                 let cause2 = provs2.iter().next().unwrap();
                 write_prov_to_err_string(&mut err_string, cause2, node_map, sources);
+                err_string.push('\n');
             }
             Error::MemberAccessNeedsAnnotation { node_id } => {
                 let span = node_map.get(node_id).unwrap().span();
