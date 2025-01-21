@@ -1023,7 +1023,7 @@ impl Translator {
             ItemKind::Stmt(_) => {}
             ItemKind::InterfaceImpl(iface_impl) => {
                 for f in &iface_impl.methods {
-                    self.translate_stmt_static(f, st, true);
+                    self.translate_iface_method(f, st, true);
                 }
             }
 
@@ -1083,17 +1083,13 @@ impl Translator {
         }
     }
 
-    // TODO: this is basically only used for Method implementations, so need to distinguish those from regular functions
-    fn translate_stmt_static(
+    fn translate_iface_method(
         &mut self,
         f: &Rc<FuncDef>,
         st: &mut TranslatorState,
         iface_method: bool,
     ) {
         {
-            // (this could be an overloaded function or an interface method)
-            //self._display_node(stmt.id);
-
             let func_ty = self.statics.solution_of_node(f.name.id).unwrap();
             let func_name = f.name.v.clone();
 

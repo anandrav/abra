@@ -145,7 +145,7 @@ pub(crate) enum Error {
     ConflictingUnifvar {
         types: BTreeMap<TypeKey, PotentialType>,
     },
-    ConflictingTypes {
+    TypeConflict {
         ty1: PotentialType,
         ty2: PotentialType,
     },
@@ -277,28 +277,26 @@ impl Error {
                         Reason::Node(id) => node_map.get(id).unwrap().span().lo,
                         Reason::VariantNoData(_) => 7,
                         Reason::UdtDef(_) => 8,
-                        Reason::ListElem(_) => 10,
                         Reason::BinopLeft(_) => 11,
                         Reason::BinopRight(_) => 12,
-                        Reason::StructField(..) => 14,
                         Reason::IndexAccess => 15,
                         Reason::Effect(_) => 16,
                     });
                     for cause in reasons_vec {
-                        write_prov_to_err_string(&mut err_string, cause, node_map, sources);
+                        write_reason_to_err_string(&mut err_string, cause, node_map, sources);
                     }
                 }
                 writeln!(err_string).unwrap();
             }
-            Error::ConflictingTypes { ty1, ty2 } => {
+            Error::TypeConflict { ty1, ty2 } => {
                 err_string.push_str(&format!("Type conflict. Got type {}:\n", ty1));
                 let provs1 = ty1.reasons().borrow();
                 let cause1 = provs1.iter().next().unwrap();
-                write_prov_to_err_string(&mut err_string, cause1, node_map, sources);
+                write_reason_to_err_string(&mut err_string, cause1, node_map, sources);
                 err_string.push_str(&format!("But also got type {}:\n", ty2));
                 let provs2 = ty2.reasons().borrow();
                 let cause2 = provs2.iter().next().unwrap();
-                write_prov_to_err_string(&mut err_string, cause2, node_map, sources);
+                write_reason_to_err_string(&mut err_string, cause2, node_map, sources);
                 err_string.push('\n');
             }
             Error::MemberAccessNeedsAnnotation { node_id } => {
@@ -343,7 +341,7 @@ impl Error {
 }
 
 // TODO: This sucks so bad...
-fn write_prov_to_err_string(
+fn write_reason_to_err_string(
     err_string: &mut String,
     cause: &Reason,
     node_map: &NodeMap,
@@ -375,17 +373,11 @@ fn write_prov_to_err_string(
                 span.display(err_string, sources, "");
             }
         }
-        Reason::ListElem(_) => {
-            err_string.push_str("The element of some list");
-        }
         Reason::UdtDef(_prov) => {
             err_string.push_str("Some type definition");
         }
         Reason::VariantNoData(_prov) => {
             err_string.push_str("The data of some Enum variant");
-        }
-        Reason::StructField(field, ty) => {
-            let _ = writeln!(err_string, "The field {field} of the struct {ty}");
         }
         Reason::IndexAccess => {
             let _ = writeln!(err_string, "Index for array access");

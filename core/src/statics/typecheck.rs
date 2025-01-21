@@ -124,17 +124,6 @@ impl TypeVarData {
     }
 }
 
-// *** NOT SURE WHICH ORDER THESE SHOULD BE DONE IN! ***
-// TODO: Replace Provs here with a different type, "Reasons"
-// TODO: make it so we are either
-/*
-1. constraining to TypeVars to each other, which unifies them
-2. constraining a TypeVar to a SolvedType, which just adds info to the TypeVar's data
-3. constraining two SolvedType
-- if we constrain two SolvedType and they conflict, then this type conflict must be logged in a Vec somewhere
-
-*/
-
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub(crate) enum PotentialType {
     // TODO: Poly cannot use String, must resolve to declaration of polymorphic type such as 'a
@@ -275,14 +264,7 @@ pub(crate) enum TypeKey {
     Tuple(u8),    // u8 represents the number of elements
 }
 
-// TODO: Split Prov into two types
-// 1. TypeIdentity
-// 2. ConstraintProvenance/ErrorProvenance or something
-
-// Provenances are used to:
-// (1) give the *unique* identity of a skolem (type to be solved) (UnifVar) in the SolutionMap
-// (2) track the origins (plural!) of a type's constraints for error reporting
-// TODO: Does Prov really need to be that deeply nested? Will there really be FuncArg -> InstantiatedPoly -> BinopLeft -> Node? Or can we simplify here?
+// Provenances are used to give the *unique* identity of a skolem (type to be solved) (UnifVar) in the SolutionMap
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub(crate) enum Prov {
     Node(NodeId), // the type of an expression or statement located at NodeId
@@ -292,40 +274,18 @@ pub(crate) enum Prov {
     FuncOut(Box<Prov>),     // u8 represents how many arguments before this output
     ListElem(Box<Prov>),
     StructField(String, NodeId),
-    IndexAccess,
-    VariantNoData(Box<Prov>), // the type of the data of a variant with no data, always Unit.
 }
 
-impl Prov {
-    // TODO: Can we make this not Optional? Only reason it would fail is if the last prov in the chain is a builtin
-    // TODO: remove Builtin prov for this reason, defeats the purpose. Builtins should be declared in the PRELUDE, and that declaration will be the Prov.
-    fn get_location(&self) -> Option<NodeId> {
-        match self {
-            Prov::Node(id) => Some(*id),
-            Prov::InstantiateUdtParam(inner, _)
-            | Prov::InstantiatePoly(inner, _)
-            | Prov::FuncArg(inner, _)
-            | Prov::FuncOut(inner)
-            | Prov::ListElem(inner)
-            | Prov::VariantNoData(inner) => inner.get_location(),
-            Prov::StructField(_, _) => None,
-            Prov::IndexAccess => None,
-        }
-    }
-}
-
+// TODO: Most likely none of these should contain Box<Reason>. That's unnecessarily complicated
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub(crate) enum Reason {
     // TODO: NodeId is too vague. Remove
     Node(NodeId),     // the type of an expression or statement located at NodeId
     Builtin(Builtin), // a builtin function or constant, which doesn't exist in the AST
     Effect(u16),
-
     UdtDef(Box<Reason>), // TODO: replace this with 'Declaration'
     BinopLeft(Box<Reason>),
     BinopRight(Box<Reason>),
-    ListElem(Box<Reason>),
-    StructField(String, NodeId),
     IndexAccess,
     VariantNoData(Box<Reason>), // the type of the data of a variant with no data, always Unit.
 }
@@ -455,7 +415,19 @@ impl TypeVar {
         self.0.clone_data().solution()
     }
 
-    fn solved(&self) -> bool {
+    fn is_solved(&self) -> bool {
+        self.solution().is_some()
+    }
+
+    fn is_underdetermined(&self) -> bool {
+        self.0.with_data(|d| d.types.is_empty())
+    }
+
+    fn is_conflicted(&self) -> bool {
+        self.0.with_data(|d| d.types.len() > 1)
+    }
+
+    fn locked(&self) -> bool {
         self.0.with_data(|d| d.locked)
     }
 
@@ -689,9 +661,6 @@ impl TypeVar {
     }
 }
 
-// TODO: What exactly does 'tyvar_of_declaration' actually mean?
-// TODO: In a lot of these cases, we shouldn't really give a TypeVar, because the type is fully known.
-// TODO: a lot of code duplication with ast_type_to_statics_type/solved_type
 fn tyvar_of_declaration(
     ctx: &mut StaticsContext,
     decl: &Declaration,
@@ -1158,17 +1127,16 @@ pub(crate) enum Mode {
     Ana { expected: TypeVar },
 }
 
-// TODO: arguments are named 'expected' and 'actual'. Does order actuall matter or not? Should it?
-pub(crate) fn constrain(ctx: &mut StaticsContext, expected: TypeVar, actual: TypeVar) {
-    match (expected.solved(), actual.solved()) {
+pub(crate) fn constrain(ctx: &mut StaticsContext, tyvar1: TypeVar, tyvar2: TypeVar) {
+    match (tyvar1.locked(), tyvar2.locked()) {
         // Since both TypeVars are already solved, an error is logged if their data do not match
         (true, true) => {
-            constrain_solved_typevars(ctx, expected, actual);
+            constrain_solved_typevars(ctx, tyvar1, tyvar2);
         }
         // Since exactly one of the TypeVars is unsolved, its data will be updated with information from the solved TypeVar
         (false, true) => {
-            let potential_ty = actual.0.clone_data().types.into_iter().next().unwrap().1;
-            expected.0.with_data(|d| {
+            let potential_ty = tyvar2.0.clone_data().types.into_iter().next().unwrap().1;
+            tyvar1.0.with_data(|d| {
                 if d.types.is_empty() {
                     d.locked = true
                 }
@@ -1176,8 +1144,8 @@ pub(crate) fn constrain(ctx: &mut StaticsContext, expected: TypeVar, actual: Typ
             });
         }
         (true, false) => {
-            let potential_ty = expected.0.clone_data().types.into_iter().next().unwrap().1;
-            actual.0.with_data(|d| {
+            let potential_ty = tyvar1.0.clone_data().types.into_iter().next().unwrap().1;
+            tyvar2.0.with_data(|d| {
                 if d.types.is_empty() {
                     d.locked = true
                 }
@@ -1186,18 +1154,21 @@ pub(crate) fn constrain(ctx: &mut StaticsContext, expected: TypeVar, actual: Typ
         }
         // Since both TypeVars are unsolved, they are unioned and their data is merged
         (false, false) => {
-            TypeVar::merge(expected, actual);
+            TypeVar::merge(tyvar1, tyvar2);
         }
     }
 }
 
-fn constrain_solved_typevars(ctx: &mut StaticsContext, expected: TypeVar, actual: TypeVar) {
-    let (key1, ty1) = expected.0.clone_data().types.into_iter().next().unwrap();
-    let (key2, ty2) = actual.0.clone_data().types.into_iter().next().unwrap();
+fn constrain_solved_typevars(ctx: &mut StaticsContext, tyvar1: TypeVar, tyvar2: TypeVar) {
+    let (key1, potential_ty1) = tyvar1.0.clone_data().types.into_iter().next().unwrap();
+    let (key2, potential_ty2) = tyvar2.0.clone_data().types.into_iter().next().unwrap();
     if key1 != key2 {
-        ctx.errors.push(Error::ConflictingTypes { ty1, ty2 })
+        ctx.errors.push(Error::TypeConflict {
+            ty1: potential_ty1,
+            ty2: potential_ty2,
+        })
     } else {
-        TypeVar::merge(expected, actual);
+        TypeVar::merge(tyvar1, tyvar2);
     }
 }
 
@@ -1261,13 +1232,15 @@ pub(crate) fn result_of_constraint_solving(ctx: &mut StaticsContext) {
     // get list of type conflicts
     let mut type_conflicts = Vec::new();
     for (prov, tyvar) in ctx.unifvars.iter() {
-        let type_suggestions = tyvar.0.clone_data().types; // TODO why not just check if it's solved?
+        // TODO why not just check if the tyvar is solved? IE tyvar.is_solved() which would just be tyvar.solution().is_some()
+        let type_suggestions = tyvar.0.clone_data().types;
         if type_suggestions.len() > 1 && (!type_conflicts.contains(&type_suggestions)) {
             type_conflicts.push(type_suggestions.clone());
 
             ctx.errors.push(Error::ConflictingUnifvar {
                 types: type_suggestions,
             });
+        // TODO: similarly, could do tyvar.is_underdetermined()
         } else if type_suggestions.is_empty() {
             if let Prov::Node(id) = prov {
                 ctx.errors
@@ -1295,12 +1268,13 @@ fn generate_constraints_item(mode: Mode, stmt: Rc<Item>, ctx: &mut StaticsContex
 
             let lookup = ctx.resolution_map.get(&iface_impl.iface.id).cloned();
             if let Some(Declaration::InterfaceDef(iface_decl)) = lookup {
-                // TODO: This logic is performed for the interface definition every time an implementation is found
-                // Do the logic only once, memoize the result.
-                // TODO: Shouldn't use type inference to infer the types of the properties/methods. They are already annotated. They are already solved.
                 for method in &iface_decl.methods {
-                    let ty_annot = ast_type_to_typevar(ctx, method.ty.clone());
                     let node_ty = TypeVar::from_node(ctx, method.id());
+                    if node_ty.locked() {
+                        // already got the types for this interface declaration's methods
+                        break;
+                    }
+                    let ty_annot = ast_type_to_typevar(ctx, method.ty.clone());
                     constrain(ctx, node_ty.clone(), ty_annot.clone());
                 }
                 for f in &iface_impl.methods {
