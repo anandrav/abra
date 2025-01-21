@@ -298,107 +298,20 @@ impl Error {
                         Prov::Effect(_) => 16,
                     });
                     for cause in provs_vec {
-                        match cause {
-                            Prov::Builtin(builtin) => {
-                                let s = builtin.name();
-                                let _ = writeln!(err_string, "The builtin function {s}");
-                            }
-                            Prov::Effect(u16) => {
-                                let _ = writeln!(err_string, "The effect {u16}");
-                            }
-                            Prov::Node(id) => {
-                                let span = node_map.get(id).unwrap().span();
-                                span.display(&mut err_string, sources, "");
-                            }
-                            Prov::InstantiatePoly(_, ident) => {
-                                let _ = writeln!(
-                                    err_string,
-                                    "The instantiation of polymorphic type {ident}"
-                                );
-                            }
-                            Prov::FuncArg(prov, n) => {
-                                match prov.as_ref() {
-                                    Prov::Builtin(builtin) => {
-                                        let s = builtin.name();
-                                        let n = n + 1; // readability
-                                        let _ = writeln!(
-                                            err_string,
-                                            "--> The #{n} argument of function '{s}'"
-                                        );
-                                    }
-                                    Prov::Node(id) => {
-                                        let span = node_map.get(id).unwrap().span();
-                                        span.display(
-                                            &mut err_string,
-                                            sources,
-                                            &format!("The #{n} argument of this function"),
-                                        );
-                                    }
-                                    _ => unreachable!(),
-                                }
-                            }
-                            Prov::FuncOut(prov) => match prov.as_ref() {
-                                Prov::Builtin(builtin) => {
-                                    let s = builtin.name();
-                                    let _ = writeln!(
-                                        err_string,
-                                        "
-                                        --> The output of the builtin function '{s}'"
-                                    );
-                                }
-                                Prov::Node(id) => {
-                                    let span = node_map.get(id).unwrap().span();
-                                    span.display(
-                                        &mut err_string,
-                                        sources,
-                                        "The output of this function",
-                                    );
-                                }
-                                _ => unreachable!(),
-                            },
-                            Prov::BinopLeft(inner) => {
-                                err_string.push_str("The left operand of operator\n");
-                                if let Prov::Node(id) = **inner {
-                                    let span = node_map.get(&id).unwrap().span();
-                                    span.display(&mut err_string, sources, "");
-                                }
-                            }
-                            Prov::BinopRight(inner) => {
-                                err_string.push_str("The left operand of this operator\n");
-                                if let Prov::Node(id) = **inner {
-                                    let span = node_map.get(&id).unwrap().span();
-                                    span.display(&mut err_string, sources, "");
-                                }
-                            }
-                            Prov::ListElem(_) => {
-                                err_string.push_str("The element of some list");
-                            }
-                            Prov::UdtDef(_prov) => {
-                                err_string.push_str("Some type definition");
-                            }
-                            Prov::InstantiateUdtParam(_, _) => {
-                                err_string.push_str("Some instance of an Enum's variant");
-                            }
-                            Prov::VariantNoData(_prov) => {
-                                err_string.push_str("The data of some Enum variant");
-                            }
-                            Prov::StructField(field, ty) => {
-                                let _ =
-                                    writeln!(err_string, "The field {field} of the struct {ty}");
-                            }
-                            Prov::IndexAccess => {
-                                let _ = writeln!(err_string, "Index for array access");
-                            }
-                        }
+                        write_prov_to_err_string(&mut err_string, cause, node_map, sources);
                     }
                 }
                 writeln!(err_string).unwrap();
             }
             Error::ConflictingTypes { ty1, ty2 } => {
-                err_string.push_str(&format!(
-                    "Type conflict. Got type {} from __ but got type {} from __",
-                    ty1, ty2
-                ));
+                err_string.push_str(&format!("Type conflict. Got type {}:\n", ty1));
+                let provs1 = ty1.provs().borrow();
+                let cause1 = provs1.iter().next().unwrap();
+                write_prov_to_err_string(&mut err_string, cause1, node_map, sources);
+                err_string.push_str(&format!("But also got type {}:\n", ty2));
+                let provs2 = ty2.provs().borrow();
+                let cause2 = provs2.iter().next().unwrap();
+                write_prov_to_err_string(&mut err_string, cause2, node_map, sources);
             }
             Error::MemberAccessNeedsAnnotation { node_id } => {
                 let span = node_map.get(node_id).unwrap().span();
@@ -448,5 +361,95 @@ impl Error {
             }
         };
         err_string
+    }
+}
+
+// TODO: This sucks so bad...
+fn write_prov_to_err_string(
+    err_string: &mut String,
+    cause: &Prov,
+    node_map: &NodeMap,
+    sources: &Sources,
+) {
+    match cause {
+        Prov::Builtin(builtin) => {
+            let s = builtin.name();
+            let _ = writeln!(err_string, "The builtin function {s}");
+        }
+        Prov::Effect(u16) => {
+            let _ = writeln!(err_string, "The effect {u16}");
+        }
+        Prov::Node(id) => {
+            let span = node_map.get(id).unwrap().span();
+            span.display(err_string, sources, "");
+        }
+        Prov::InstantiatePoly(_, ident) => {
+            let _ = writeln!(err_string, "The instantiation of polymorphic type {ident}");
+        }
+        Prov::FuncArg(prov, n) => {
+            match prov.as_ref() {
+                Prov::Builtin(builtin) => {
+                    let s = builtin.name();
+                    let n = n + 1; // readability
+                    let _ = writeln!(err_string, "--> The #{n} argument of function '{s}'");
+                }
+                Prov::Node(id) => {
+                    let span = node_map.get(id).unwrap().span();
+                    span.display(
+                        err_string,
+                        sources,
+                        &format!("The #{n} argument of this function"),
+                    );
+                }
+                _ => unreachable!(),
+            }
+        }
+        Prov::FuncOut(prov) => match prov.as_ref() {
+            Prov::Builtin(builtin) => {
+                let s = builtin.name();
+                let _ = writeln!(
+                    err_string,
+                    "
+                    --> The output of the builtin function '{s}'"
+                );
+            }
+            Prov::Node(id) => {
+                let span = node_map.get(id).unwrap().span();
+                span.display(err_string, sources, "The output of this function");
+            }
+            _ => unreachable!(),
+        },
+        Prov::BinopLeft(inner) => {
+            err_string.push_str("The left operand of operator\n");
+            if let Prov::Node(id) = **inner {
+                let span = node_map.get(&id).unwrap().span();
+                span.display(err_string, sources, "");
+            }
+        }
+        Prov::BinopRight(inner) => {
+            err_string.push_str("The left operand of this operator\n");
+            if let Prov::Node(id) = **inner {
+                let span = node_map.get(&id).unwrap().span();
+                span.display(err_string, sources, "");
+            }
+        }
+        Prov::ListElem(_) => {
+            err_string.push_str("The element of some list");
+        }
+        Prov::UdtDef(_prov) => {
+            err_string.push_str("Some type definition");
+        }
+        Prov::InstantiateUdtParam(_, _) => {
+            err_string.push_str("Some instance of an Enum's variant");
+        }
+        Prov::VariantNoData(_prov) => {
+            err_string.push_str("The data of some Enum variant");
+        }
+        Prov::StructField(field, ty) => {
+            let _ = writeln!(err_string, "The field {field} of the struct {ty}");
+        }
+        Prov::IndexAccess => {
+            let _ = writeln!(err_string, "Index for array access");
+        }
     }
 }
