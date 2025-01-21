@@ -1143,13 +1143,11 @@ pub(crate) enum Mode {
 }
 
 // TODO: arguments are named 'expected' and 'actual'. Does order actuall matter or not? Should it?
-pub(crate) fn constrain(ctx: &mut StaticsContext, mut expected: TypeVar, mut actual: TypeVar) {
+pub(crate) fn constrain(ctx: &mut StaticsContext, expected: TypeVar, actual: TypeVar) {
     match (expected.solved(), actual.solved()) {
         // Since both TypeVars are already solved, an error is logged if their data do not match
         (true, true) => {
-            // TODO!
-            // TODO: this is just a placeholder before I break things
-            TypeVar::merge(expected, actual);
+            log_error_if_conflict(ctx, expected, actual);
         }
         // Since exactly one of the TypeVars is unsolved, its data will be updated with information from the solved TypeVar
         (false, true) => {
