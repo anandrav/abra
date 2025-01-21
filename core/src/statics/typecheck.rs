@@ -1291,21 +1291,6 @@ pub(crate) fn result_of_constraint_solving(ctx: &mut StaticsContext) {
             }
         }
     }
-
-    for (typ, location) in ctx.types_that_must_be_structs.iter() {
-        let typ = typ.solution();
-        let Some(solved) = typ else {
-            continue;
-        };
-        if let SolvedType::Nominal(Nominal::Struct(..), _) = &solved {
-            continue;
-        }
-
-        ctx.errors.push(Error::BadFieldAccess {
-            node_id: *location,
-            typ: solved,
-        });
-    }
 }
 
 pub(crate) fn generate_constraints_file(file: Rc<FileAst>, ctx: &mut StaticsContext) {
@@ -1745,8 +1730,6 @@ fn generate_constraints_expr(
                 constrain(ctx, node_ty.clone(), ty_field);
                 return;
             }
-
-            ctx.types_that_must_be_structs.insert(ty_expr, expr.id);
         }
         ExprKind::IndexAccess(accessed, index) => {
             generate_constraints_expr(polyvar_scope.clone(), Mode::Syn, accessed.clone(), ctx);

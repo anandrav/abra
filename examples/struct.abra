@@ -2,7 +2,7 @@ type person = {
     name: string,
     age: int
 }
-let x = person__("Alice", 30)
-x.name <- "Bob"
+let x = person("Alice", 30)
+x.name_poptart <- "Bob"
 x.age <- 2 * 3 * 6
 println("name of the person is " & x.name)
