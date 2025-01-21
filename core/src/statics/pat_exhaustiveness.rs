@@ -1,4 +1,5 @@
 use crate::ast::{Expr, ExprKind, FileAst, Item, ItemKind, MatchArm, Pat, PatKind, Stmt, StmtKind};
+use crate::statics::Prov;
 
 use core::panic;
 
@@ -291,7 +292,14 @@ pub(crate) struct DeconstructedPat {
 
 impl DeconstructedPat {
     fn from_ast_pat(statics: &StaticsContext, pat: Rc<Pat>) -> Self {
+        let mut s = String::new();
+        pat.span.display(&mut s, &statics._sources, "");
+        // println!("{}", s);
+
+        let unifvar = statics.unifvars.get(&Prov::Node(pat.id)).unwrap();
+        // println!("{}", unifvar);
         let ty = statics.solution_of_node(pat.id).unwrap();
+
         let mut fields = vec![];
         let ctor = match &*pat.kind {
             PatKind::Wildcard => Constructor::Wildcard(WildcardReason::UserCreated),

@@ -49,7 +49,7 @@ impl TypeVarData {
     }
 
     fn merge_data(first: Self, second: Self) -> Self {
-        // TODO: maybe assert that both are unsolved (or that at least one is unsolved?)
+        // assert!(!first.locked && !second.locked);
 
         let mut merged_types = Self {
             types: first.types,
@@ -1147,16 +1147,26 @@ pub(crate) fn constrain(ctx: &mut StaticsContext, expected: TypeVar, actual: Typ
     match (expected.solved(), actual.solved()) {
         // Since both TypeVars are already solved, an error is logged if their data do not match
         (true, true) => {
-            log_error_if_conflict(ctx, expected, actual);
+            constrain_solved_typevars(ctx, expected, actual);
         }
         // Since exactly one of the TypeVars is unsolved, its data will be updated with information from the solved TypeVar
         (false, true) => {
             let potential_ty = actual.0.clone_data().types.into_iter().next().unwrap().1;
-            expected.0.with_data(|d| d.extend(potential_ty));
+            expected.0.with_data(|d| {
+                if d.types.is_empty() {
+                    d.locked = true
+                }
+                d.extend(potential_ty)
+            });
         }
         (true, false) => {
             let potential_ty = expected.0.clone_data().types.into_iter().next().unwrap().1;
-            actual.0.with_data(|d| d.extend(potential_ty));
+            actual.0.with_data(|d| {
+                if d.types.is_empty() {
+                    d.locked = true
+                }
+                d.extend(potential_ty)
+            });
         }
         // Since both TypeVars are unsolved, they are unioned and their data is merged
         (false, false) => {
@@ -1165,11 +1175,13 @@ pub(crate) fn constrain(ctx: &mut StaticsContext, expected: TypeVar, actual: Typ
     }
 }
 
-fn log_error_if_conflict(ctx: &mut StaticsContext, expected: TypeVar, actual: TypeVar) {
+fn constrain_solved_typevars(ctx: &mut StaticsContext, expected: TypeVar, actual: TypeVar) {
     let (key1, ty1) = expected.0.clone_data().types.into_iter().next().unwrap();
     let (key2, ty2) = actual.0.clone_data().types.into_iter().next().unwrap();
     if key1 != key2 {
         ctx.errors.push(Error::ConflictingTypes { ty1, ty2 })
+    } else {
+        TypeVar::merge(expected, actual);
     }
 }
 
