@@ -71,14 +71,18 @@ impl TypeVarData {
                 | PotentialType::Int(other_provs)
                 | PotentialType::Float(other_provs)
                 | PotentialType::Bool(other_provs)
-                | PotentialType::String(other_provs) => {
-                    t.provs().borrow_mut().extend(other_provs.borrow().clone())
-                }
-                PotentialType::Poly(other_provs, _, _interfaces) => {
-                    t.provs().borrow_mut().extend(other_provs.borrow().clone())
-                }
+                | PotentialType::String(other_provs) => t
+                    .reasons()
+                    .borrow_mut()
+                    .extend(other_provs.borrow().clone()),
+                PotentialType::Poly(other_provs, _, _interfaces) => t
+                    .reasons()
+                    .borrow_mut()
+                    .extend(other_provs.borrow().clone()),
                 PotentialType::Function(other_provs, args1, out1) => {
-                    t.provs().borrow_mut().extend(other_provs.borrow().clone());
+                    t.reasons()
+                        .borrow_mut()
+                        .extend(other_provs.borrow().clone());
                     if let PotentialType::Function(_, args2, out2) = t {
                         for (arg, arg2) in args1.iter().zip(args2.iter()) {
                             TypeVar::merge(arg.clone(), arg2.clone());
@@ -87,7 +91,9 @@ impl TypeVarData {
                     }
                 }
                 PotentialType::Tuple(other_provs, elems1) => {
-                    t.provs().borrow_mut().extend(other_provs.borrow().clone());
+                    t.reasons()
+                        .borrow_mut()
+                        .extend(other_provs.borrow().clone());
                     if let PotentialType::Tuple(_, elems2) = t {
                         for (elem, elem2) in elems1.iter().zip(elems2.iter()) {
                             TypeVar::merge(elem.clone(), elem2.clone());
@@ -103,7 +109,9 @@ impl TypeVarData {
                         } else {
                             panic!("should be same length")
                         }
-                        t.provs().borrow_mut().extend(other_provs.borrow().clone());
+                        t.reasons()
+                            .borrow_mut()
+                            .extend(other_provs.borrow().clone());
                     } else {
                         panic!("should be Ap")
                     }
@@ -130,15 +138,15 @@ impl TypeVarData {
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub(crate) enum PotentialType {
     // TODO: Poly cannot use String, must resolve to declaration of polymorphic type such as 'a
-    Poly(Provs, String, Vec<Rc<InterfaceDecl>>), // type name, then list of Interfaces it must match
-    Unit(Provs),
-    Int(Provs),
-    Float(Provs),
-    Bool(Provs),
-    String(Provs),
-    Function(Provs, Vec<TypeVar>, TypeVar),
-    Tuple(Provs, Vec<TypeVar>),
-    Nominal(Provs, Nominal, Vec<TypeVar>),
+    Poly(Reasons, String, Vec<Rc<InterfaceDecl>>), // type name, then list of Interfaces it must match
+    Unit(Reasons),
+    Int(Reasons),
+    Float(Reasons),
+    Bool(Reasons),
+    String(Reasons),
+    Function(Reasons, Vec<TypeVar>, TypeVar),
+    Tuple(Reasons, Vec<TypeVar>),
+    Nominal(Reasons, Nominal, Vec<TypeVar>),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
@@ -318,6 +326,26 @@ impl Prov {
     }
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
+pub(crate) enum Reason {
+    Node(NodeId),     // the type of an expression or statement located at NodeId
+    Builtin(Builtin), // a builtin function or constant, which doesn't exist in the AST
+    Effect(u16),
+
+    UdtDef(Box<Reason>),
+
+    InstantiateUdtParam(Box<Reason>, u8),
+    InstantiatePoly(Box<Reason>, String),
+    FuncArg(Box<Reason>, u8), // u8 represents the index of the argument
+    FuncOut(Box<Reason>),     // u8 represents how many arguments before this output
+    BinopLeft(Box<Reason>),
+    BinopRight(Box<Reason>),
+    ListElem(Box<Reason>),
+    StructField(String, NodeId),
+    IndexAccess,
+    VariantNoData(Box<Reason>), // the type of the data of a variant with no data, always Unit.
+}
+
 impl PotentialType {
     fn key(&self) -> TypeKey {
         match self {
@@ -382,7 +410,7 @@ impl PotentialType {
         }
     }
 
-    pub(crate) fn provs(&self) -> &Provs {
+    pub(crate) fn reasons(&self) -> &Reasons {
         match self {
             Self::Poly(provs, _, _)
             | Self::Unit(provs)
@@ -396,40 +424,44 @@ impl PotentialType {
         }
     }
 
-    fn make_unit(prov: Prov) -> PotentialType {
-        PotentialType::Unit(provs_singleton(prov))
+    fn make_unit(reason: Reason) -> PotentialType {
+        PotentialType::Unit(reasons_singleton(reason))
     }
 
-    fn make_int(prov: Prov) -> PotentialType {
-        PotentialType::Int(provs_singleton(prov))
+    fn make_int(reason: Reason) -> PotentialType {
+        PotentialType::Int(reasons_singleton(reason))
     }
 
-    fn make_float(prov: Prov) -> PotentialType {
-        PotentialType::Float(provs_singleton(prov))
+    fn make_float(reason: Reason) -> PotentialType {
+        PotentialType::Float(reasons_singleton(reason))
     }
 
-    fn make_bool(prov: Prov) -> PotentialType {
-        PotentialType::Bool(provs_singleton(prov))
+    fn make_bool(reason: Reason) -> PotentialType {
+        PotentialType::Bool(reasons_singleton(reason))
     }
 
-    fn make_string(prov: Prov) -> PotentialType {
-        PotentialType::String(provs_singleton(prov))
+    fn make_string(reason: Reason) -> PotentialType {
+        PotentialType::String(reasons_singleton(reason))
     }
 
-    pub(crate) fn make_func(args: Vec<TypeVar>, out: TypeVar, prov: Prov) -> PotentialType {
-        PotentialType::Function(provs_singleton(prov), args, out)
+    pub(crate) fn make_func(args: Vec<TypeVar>, out: TypeVar, reason: Reason) -> PotentialType {
+        PotentialType::Function(reasons_singleton(reason), args, out)
     }
 
-    fn make_tuple(elems: Vec<TypeVar>, prov: Prov) -> PotentialType {
-        PotentialType::Tuple(provs_singleton(prov), elems)
+    fn make_tuple(elems: Vec<TypeVar>, reason: Reason) -> PotentialType {
+        PotentialType::Tuple(reasons_singleton(reason), elems)
     }
 
-    fn make_poly(prov: Prov, ident: String, interfaces: Vec<Rc<InterfaceDecl>>) -> PotentialType {
-        PotentialType::Poly(provs_singleton(prov), ident, interfaces)
+    fn make_poly(
+        reason: Reason,
+        ident: String,
+        interfaces: Vec<Rc<InterfaceDecl>>,
+    ) -> PotentialType {
+        PotentialType::Poly(reasons_singleton(reason), ident, interfaces)
     }
 
-    fn make_nominal(prov: Prov, nominal: Nominal, params: Vec<TypeVar>) -> PotentialType {
-        PotentialType::Nominal(provs_singleton(prov), nominal, params)
+    fn make_nominal(reason: Reason, nominal: Nominal, params: Vec<TypeVar>) -> PotentialType {
+        PotentialType::Nominal(reasons_singleton(reason), nominal, params)
     }
 }
 
@@ -616,40 +648,40 @@ impl TypeVar {
         )))
     }
 
-    pub(crate) fn make_unit(prov: Prov) -> TypeVar {
-        Self::singleton_solved(PotentialType::make_unit(prov))
+    pub(crate) fn make_unit(reason: Reason) -> TypeVar {
+        Self::singleton_solved(PotentialType::make_unit(reason))
     }
 
-    fn make_int(prov: Prov) -> TypeVar {
-        Self::singleton_solved(PotentialType::make_int(prov))
+    fn make_int(reason: Reason) -> TypeVar {
+        Self::singleton_solved(PotentialType::make_int(reason))
     }
 
-    fn make_float(prov: Prov) -> TypeVar {
-        Self::singleton_solved(PotentialType::make_float(prov))
+    fn make_float(reason: Reason) -> TypeVar {
+        Self::singleton_solved(PotentialType::make_float(reason))
     }
 
-    fn make_bool(prov: Prov) -> TypeVar {
-        Self::singleton_solved(PotentialType::make_bool(prov))
+    fn make_bool(reason: Reason) -> TypeVar {
+        Self::singleton_solved(PotentialType::make_bool(reason))
     }
 
-    fn make_string(prov: Prov) -> TypeVar {
-        Self::singleton_solved(PotentialType::make_string(prov))
+    fn make_string(reason: Reason) -> TypeVar {
+        Self::singleton_solved(PotentialType::make_string(reason))
     }
 
-    pub(crate) fn make_func(args: Vec<TypeVar>, out: TypeVar, prov: Prov) -> TypeVar {
-        Self::singleton_solved(PotentialType::make_func(args, out, prov))
+    pub(crate) fn make_func(args: Vec<TypeVar>, out: TypeVar, reason: Reason) -> TypeVar {
+        Self::singleton_solved(PotentialType::make_func(args, out, reason))
     }
 
-    fn make_tuple(elems: Vec<TypeVar>, prov: Prov) -> TypeVar {
-        Self::singleton_solved(PotentialType::make_tuple(elems, prov))
+    fn make_tuple(elems: Vec<TypeVar>, reason: Reason) -> TypeVar {
+        Self::singleton_solved(PotentialType::make_tuple(elems, reason))
     }
 
-    fn make_poly(prov: Prov, ident: String, interfaces: Vec<Rc<InterfaceDecl>>) -> TypeVar {
-        Self::singleton_solved(PotentialType::make_poly(prov, ident, interfaces))
+    fn make_poly(reason: Reason, ident: String, interfaces: Vec<Rc<InterfaceDecl>>) -> TypeVar {
+        Self::singleton_solved(PotentialType::make_poly(reason, ident, interfaces))
     }
 
-    fn make_nominal(prov: Prov, nominal: Nominal, params: Vec<TypeVar>) -> TypeVar {
-        Self::singleton_solved(PotentialType::make_nominal(prov, nominal, params))
+    fn make_nominal(reason: Reason, nominal: Nominal, params: Vec<TypeVar>) -> TypeVar {
+        Self::singleton_solved(PotentialType::make_nominal(reason, nominal, params))
     }
 
     // return true if the type is a nominal type with at least one parameter instantiated
@@ -711,7 +743,7 @@ fn tyvar_of_declaration(
                 substitution.insert(ty_arg.v.clone(), params[i].clone());
             }
             Some(TypeVar::make_nominal(
-                Prov::UdtDef(Box::new(Prov::Node(id))),
+                Reason::UdtDef(Box::new(Reason::Node(id))), // TODO: change to Reason::Declaration
                 Nominal::Enum(enum_def.clone()),
                 params,
             ))
@@ -733,7 +765,7 @@ fn tyvar_of_declaration(
                 substitution.insert(ty_arg.v.clone(), params[i].clone());
             }
             let def_type = TypeVar::make_nominal(
-                Prov::UdtDef(Box::new(Prov::Node(id))),
+                Reason::UdtDef(Box::new(Reason::Node(id))),
                 Nominal::Enum(enum_def.clone()),
                 params,
             );
@@ -755,7 +787,7 @@ fn tyvar_of_declaration(
                                 )
                             })
                             .collect();
-                        Some(TypeVar::make_func(args, def_type, Prov::Node(id)))
+                        Some(TypeVar::make_func(args, def_type, Reason::Node(id)))
                     }
                     _ => {
                         let ty = ast_type_to_typevar(ctx, ty.clone());
@@ -764,7 +796,7 @@ fn tyvar_of_declaration(
                                 .clone()
                                 .subst(polyvar_scope, Prov::Node(id), &substitution)],
                             def_type,
-                            Prov::Node(id),
+                            Reason::Node(id),
                         ))
                     }
                 },
@@ -787,7 +819,7 @@ fn tyvar_of_declaration(
                 substitution.insert(ty_arg.v.clone(), params[i].clone());
             }
             let def_type = TypeVar::make_nominal(
-                Prov::UdtDef(Box::new(Prov::Node(id))),
+                Reason::UdtDef(Box::new(Reason::Node(id))),
                 Nominal::Struct(struct_def.clone()),
                 params,
             );
@@ -800,10 +832,10 @@ fn tyvar_of_declaration(
                         .subst(polyvar_scope.clone(), Prov::Node(id), &substitution)
                 })
                 .collect();
-            Some(TypeVar::make_func(fields, def_type, Prov::Node(id)))
+            Some(TypeVar::make_func(fields, def_type, Reason::Node(id)))
         }
         Declaration::ForeignType(ident) => Some(TypeVar::make_nominal(
-            Prov::UdtDef(Box::new(Prov::Node(id))),
+            Reason::UdtDef(Box::new(Reason::Node(id))),
             Nominal::ForeignType(ident.clone()),
             vec![],
         )),
@@ -818,12 +850,12 @@ fn tyvar_of_declaration(
             substitution.insert("a", params[0].clone());
 
             let def_type = TypeVar::make_nominal(
-                Prov::UdtDef(Box::new(Prov::Node(id))),
+                Reason::UdtDef(Box::new(Reason::Node(id))),
                 Nominal::Array,
                 params,
             );
 
-            Some(TypeVar::make_func(vec![], def_type, Prov::Node(id)))
+            Some(TypeVar::make_func(vec![], def_type, Reason::Node(id)))
         }
         Declaration::Polytype(_) => {
             panic!() // TODO: handle? don't handle?
@@ -832,7 +864,7 @@ fn tyvar_of_declaration(
             let ty_signature = builtin.type_signature();
             Some(solved_type_to_typevar(
                 ty_signature,
-                Prov::Builtin(*builtin),
+                Reason::Builtin(*builtin),
             ))
         }
         Declaration::Effect(e) => {
@@ -840,7 +872,7 @@ fn tyvar_of_declaration(
             let ty_signature = &effect.type_signature;
             let func_type =
                 Monotype::Function(ty_signature.0.clone(), ty_signature.1.clone().into());
-            Some(monotype_to_typevar(func_type, Prov::Effect(*e)))
+            Some(monotype_to_typevar(func_type, Reason::Effect(*e)))
         }
         Declaration::Var(node_id) => Some(TypeVar::from_node(ctx, *node_id)),
     }
@@ -881,9 +913,9 @@ fn types_of_binop(
         panic!()
     };
 
-    let prov_left = Prov::BinopLeft(Prov::Node(id).into());
-    let prov_right = Prov::BinopRight(Prov::Node(id).into());
-    let prov_out = Prov::Node(id);
+    let prov_left = Reason::BinopLeft(Reason::Node(id).into());
+    let prov_right = Reason::BinopRight(Reason::Node(id).into());
+    let prov_out = Reason::Node(id);
     match opcode {
         BinaryOperator::And | BinaryOperator::Or => (
             TypeVar::make_bool(prov_left),
@@ -1046,26 +1078,26 @@ pub(crate) fn ast_type_to_typevar(ctx: &mut StaticsContext, ast_type: Rc<AstType
                     interfaces.push(iface_def.clone());
                 }
             }
-            TypeVar::make_poly(Prov::Node(ast_type.id()), ident.v.clone(), interfaces)
+            TypeVar::make_poly(Reason::Node(ast_type.id()), ident.v.clone(), interfaces)
         }
         TypeKind::Identifier(ident) => {
             let lookup = ctx.resolution_map.get(&ast_type.id);
             match lookup {
                 Some(Declaration::Enum(enum_def)) => TypeVar::make_nominal(
-                    Prov::Node(ast_type.id()),
+                    Reason::Node(ast_type.id()),
                     Nominal::Enum(enum_def.clone()),
                     vec![],
                 ),
                 Some(Declaration::Struct(struct_def)) => TypeVar::make_nominal(
-                    Prov::Node(ast_type.id()),
+                    Reason::Node(ast_type.id()),
                     Nominal::Struct(struct_def.clone()),
                     vec![],
                 ),
                 Some(Declaration::Array) => {
-                    TypeVar::make_nominal(Prov::Node(ast_type.id()), Nominal::Array, vec![])
+                    TypeVar::make_nominal(Reason::Node(ast_type.id()), Nominal::Array, vec![])
                 }
                 Some(Declaration::ForeignType(ident)) => TypeVar::make_nominal(
-                    Prov::Node(ast_type.id()),
+                    Reason::Node(ast_type.id()),
                     Nominal::ForeignType(ident.clone()),
                     vec![],
                 ),
@@ -1078,7 +1110,7 @@ pub(crate) fn ast_type_to_typevar(ctx: &mut StaticsContext, ast_type: Rc<AstType
             let lookup = ctx.resolution_map.get(&ident.id);
             match lookup {
                 Some(Declaration::Enum(enum_def)) => TypeVar::make_nominal(
-                    Prov::Node(ast_type.id()),
+                    Reason::Node(ast_type.id()),
                     Nominal::Enum(enum_def.clone()),
                     params
                         .iter()
@@ -1086,7 +1118,7 @@ pub(crate) fn ast_type_to_typevar(ctx: &mut StaticsContext, ast_type: Rc<AstType
                         .collect(),
                 ),
                 Some(Declaration::Struct(struct_def)) => TypeVar::make_nominal(
-                    Prov::Node(ast_type.id()),
+                    Reason::Node(ast_type.id()),
                     Nominal::Struct(struct_def.clone()),
                     params
                         .iter()
@@ -1094,7 +1126,7 @@ pub(crate) fn ast_type_to_typevar(ctx: &mut StaticsContext, ast_type: Rc<AstType
                         .collect(),
                 ),
                 Some(Declaration::Array) => TypeVar::make_nominal(
-                    Prov::Node(ast_type.id()),
+                    Reason::Node(ast_type.id()),
                     Nominal::Array,
                     params
                         .iter()
@@ -1106,33 +1138,33 @@ pub(crate) fn ast_type_to_typevar(ctx: &mut StaticsContext, ast_type: Rc<AstType
                 }
             }
         }
-        TypeKind::Unit => TypeVar::make_unit(Prov::Node(ast_type.id())),
-        TypeKind::Int => TypeVar::make_int(Prov::Node(ast_type.id())),
-        TypeKind::Float => TypeVar::make_float(Prov::Node(ast_type.id())),
-        TypeKind::Bool => TypeVar::make_bool(Prov::Node(ast_type.id())),
-        TypeKind::Str => TypeVar::make_string(Prov::Node(ast_type.id())),
+        TypeKind::Unit => TypeVar::make_unit(Reason::Node(ast_type.id())),
+        TypeKind::Int => TypeVar::make_int(Reason::Node(ast_type.id())),
+        TypeKind::Float => TypeVar::make_float(Reason::Node(ast_type.id())),
+        TypeKind::Bool => TypeVar::make_bool(Reason::Node(ast_type.id())),
+        TypeKind::Str => TypeVar::make_string(Reason::Node(ast_type.id())),
         TypeKind::Function(lhs, rhs) => TypeVar::make_func(
             lhs.iter()
                 .map(|t| ast_type_to_typevar(ctx, t.clone()))
                 .collect(),
             ast_type_to_typevar(ctx, rhs.clone()),
-            Prov::Node(ast_type.id()),
+            Reason::Node(ast_type.id()),
         ),
         TypeKind::Tuple(types) => {
             let mut statics_types = Vec::new();
             for t in types {
                 statics_types.push(ast_type_to_typevar(ctx, t.clone()));
             }
-            TypeVar::make_tuple(statics_types, Prov::Node(ast_type.id()))
+            TypeVar::make_tuple(statics_types, Reason::Node(ast_type.id()))
         }
     }
 }
 
-pub(crate) type Provs = RefCell<BTreeSet<Prov>>;
+pub(crate) type Reasons = RefCell<BTreeSet<Reason>>;
 
-fn provs_singleton(prov: Prov) -> Provs {
+fn reasons_singleton(reason: Reason) -> Reasons {
     let mut set = BTreeSet::new();
-    set.insert(prov);
+    set.insert(reason);
     RefCell::new(set)
 }
 
@@ -1420,19 +1452,19 @@ fn generate_constraints_expr(
     };
     match &*expr.kind {
         ExprKind::Unit => {
-            constrain(ctx, node_ty, TypeVar::make_unit(Prov::Node(expr.id)));
+            constrain(ctx, node_ty, TypeVar::make_unit(Reason::Node(expr.id)));
         }
         ExprKind::Int(_) => {
-            constrain(ctx, node_ty, TypeVar::make_int(Prov::Node(expr.id)));
+            constrain(ctx, node_ty, TypeVar::make_int(Reason::Node(expr.id)));
         }
         ExprKind::Float(_) => {
-            constrain(ctx, node_ty, TypeVar::make_float(Prov::Node(expr.id)));
+            constrain(ctx, node_ty, TypeVar::make_float(Reason::Node(expr.id)));
         }
         ExprKind::Bool(_) => {
-            constrain(ctx, node_ty, TypeVar::make_bool(Prov::Node(expr.id)));
+            constrain(ctx, node_ty, TypeVar::make_bool(Reason::Node(expr.id)));
         }
         ExprKind::Str(s) => {
-            constrain(ctx, node_ty, TypeVar::make_string(Prov::Node(expr.id)));
+            constrain(ctx, node_ty, TypeVar::make_string(Reason::Node(expr.id)));
             let len = ctx.string_constants.len();
             ctx.string_constants.entry(s.clone()).or_insert(len);
         }
@@ -1450,7 +1482,7 @@ fn generate_constraints_expr(
                     ctx,
                     node_ty,
                     TypeVar::make_nominal(
-                        Prov::Node(expr.id),
+                        Reason::Node(expr.id),
                         Nominal::Enum(enum_def.clone()),
                         vec![elem_ty.clone()],
                     ),
@@ -1477,7 +1509,7 @@ fn generate_constraints_expr(
             constrain(
                 ctx,
                 node_ty,
-                TypeVar::make_nominal(Prov::Node(expr.id), Nominal::Array, vec![elem_ty.clone()]),
+                TypeVar::make_nominal(Reason::Node(expr.id), Nominal::Array, vec![elem_ty.clone()]),
             );
             for expr in exprs {
                 generate_constraints_expr(
@@ -1522,7 +1554,7 @@ fn generate_constraints_expr(
         }
         ExprKind::Block(statements) => {
             if statements.is_empty() {
-                constrain(ctx, node_ty, TypeVar::make_unit(Prov::Node(expr.id)));
+                constrain(ctx, node_ty, TypeVar::make_unit(Reason::Node(expr.id)));
                 return;
             }
             for statement in statements[..statements.len() - 1].iter() {
@@ -1543,14 +1575,14 @@ fn generate_constraints_expr(
                     statements.last().unwrap().clone(),
                     ctx,
                 );
-                constrain(ctx, node_ty, TypeVar::make_unit(Prov::Node(expr.id)))
+                constrain(ctx, node_ty, TypeVar::make_unit(Reason::Node(expr.id)))
             }
         }
         ExprKind::If(cond, expr1, expr2) => {
             generate_constraints_expr(
                 polyvar_scope.clone(),
                 Mode::Ana {
-                    expected: TypeVar::make_bool(Prov::Node(cond.id)),
+                    expected: TypeVar::make_bool(Reason::Node(cond.id)),
                 },
                 cond.clone(),
                 ctx,
@@ -1578,12 +1610,12 @@ fn generate_constraints_expr(
                     generate_constraints_expr(
                         polyvar_scope,
                         Mode::Ana {
-                            expected: TypeVar::make_unit(Prov::Node(expr.id)),
+                            expected: TypeVar::make_unit(Reason::Node(expr.id)),
                         },
                         expr1.clone(),
                         ctx,
                     );
-                    constrain(ctx, node_ty, TypeVar::make_unit(Prov::Node(expr.id)))
+                    constrain(ctx, node_ty, TypeVar::make_unit(Reason::Node(expr.id)))
                 }
             }
         }
@@ -1591,13 +1623,13 @@ fn generate_constraints_expr(
             generate_constraints_expr(
                 polyvar_scope.clone(),
                 Mode::Ana {
-                    expected: TypeVar::make_bool(Prov::Node(cond.id)),
+                    expected: TypeVar::make_bool(Reason::Node(cond.id)),
                 },
                 cond.clone(),
                 ctx,
             );
             generate_constraints_expr(polyvar_scope, Mode::Syn, expr.clone(), ctx);
-            constrain(ctx, node_ty, TypeVar::make_unit(Prov::Node(expr.id)))
+            constrain(ctx, node_ty, TypeVar::make_unit(Reason::Node(expr.id)))
         }
         ExprKind::Match(scrut, arms) => {
             let ty_scrutiny = TypeVar::from_node(ctx, scrut.id);
@@ -1667,7 +1699,7 @@ fn generate_constraints_expr(
             constrain(ctx, ty_body.clone(), node_ty);
 
             // function type
-            let ty_func = TypeVar::make_func(tys_args, ty_body, Prov::Node(expr.id));
+            let ty_func = TypeVar::make_func(tys_args, ty_body, Reason::Node(expr.id));
             generate_constraints_expr(
                 polyvar_scope,
                 Mode::Ana {
@@ -1684,7 +1716,11 @@ fn generate_constraints_expr(
                 .iter()
                 .map(|expr| TypeVar::fresh(ctx, Prov::Node(expr.id)))
                 .collect();
-            constrain(ctx, node_ty, TypeVar::make_tuple(tys, Prov::Node(expr.id)));
+            constrain(
+                ctx,
+                node_ty,
+                TypeVar::make_tuple(tys, Reason::Node(expr.id)),
+            );
             for expr in exprs {
                 generate_constraints_expr(polyvar_scope.clone(), Mode::Syn, expr.clone(), ctx);
             }
@@ -1721,7 +1757,7 @@ fn generate_constraints_expr(
                 ctx,
                 accessed_ty,
                 TypeVar::make_nominal(
-                    Prov::Node(accessed.id),
+                    Reason::Node(accessed.id),
                     Nominal::Array,
                     vec![elem_ty.clone()],
                 ),
@@ -1729,7 +1765,7 @@ fn generate_constraints_expr(
             generate_constraints_expr(
                 polyvar_scope,
                 Mode::Ana {
-                    expected: TypeVar::make_int(Prov::IndexAccess),
+                    expected: TypeVar::make_int(Reason::IndexAccess),
                 },
                 index.clone(),
                 ctx,
@@ -1798,7 +1834,7 @@ fn generate_constraints_func_helper(
         );
     }
 
-    TypeVar::make_func(ty_args, ty_body, Prov::Node(node_id))
+    TypeVar::make_func(ty_args, ty_body, Reason::Node(node_id))
 }
 
 fn generate_constraints_func_decl(
@@ -1842,7 +1878,7 @@ fn generate_constraints_func_decl(
 
     constrain(ctx, ty_body.clone(), out_annot);
 
-    TypeVar::make_func(ty_args, ty_body, Prov::Node(node_id))
+    TypeVar::make_func(ty_args, ty_body, Reason::Node(node_id))
 }
 
 fn generate_constraints_fn_def(
@@ -1881,25 +1917,25 @@ fn generate_constraints_pat(
     match &*pat.kind {
         PatKind::Wildcard => (),
         PatKind::Unit => {
-            constrain(ctx, ty_pat, TypeVar::make_unit(Prov::Node(pat.id)));
+            constrain(ctx, ty_pat, TypeVar::make_unit(Reason::Node(pat.id)));
         }
         PatKind::Int(_) => {
-            constrain(ctx, ty_pat, TypeVar::make_int(Prov::Node(pat.id)));
+            constrain(ctx, ty_pat, TypeVar::make_int(Reason::Node(pat.id)));
         }
         PatKind::Float(_) => {
-            constrain(ctx, ty_pat, TypeVar::make_float(Prov::Node(pat.id)));
+            constrain(ctx, ty_pat, TypeVar::make_float(Reason::Node(pat.id)));
         }
         PatKind::Bool(_) => {
-            constrain(ctx, ty_pat, TypeVar::make_bool(Prov::Node(pat.id)));
+            constrain(ctx, ty_pat, TypeVar::make_bool(Reason::Node(pat.id)));
         }
         PatKind::Str(_) => {
-            constrain(ctx, ty_pat, TypeVar::make_string(Prov::Node(pat.id)));
+            constrain(ctx, ty_pat, TypeVar::make_string(Reason::Node(pat.id)));
         }
         PatKind::Binding(_) => {}
         PatKind::Variant(tag, data) => {
             let ty_data = match data {
                 Some(data) => TypeVar::from_node(ctx, data.id),
-                None => TypeVar::make_unit(Prov::VariantNoData(Box::new(Prov::Node(pat.id)))),
+                None => TypeVar::make_unit(Reason::VariantNoData(Box::new(Reason::Node(pat.id)))),
             };
             let mut substitution = BTreeMap::new();
             let ty_enum_instance = {
@@ -1921,15 +1957,15 @@ fn generate_constraints_pat(
                         substitution.insert(ty_arg.v.clone(), params[i].clone());
                     }
                     let def_type = TypeVar::make_nominal(
-                        Prov::UdtDef(Box::new(Prov::Node(pat.id))),
+                        Reason::UdtDef(Box::new(Reason::Node(pat.id))),
                         Nominal::Enum(enum_def.clone()),
                         params,
                     );
 
                     let variant_def = &enum_def.variants[variant as usize];
                     let variant_data_ty = match &variant_def.data {
-                        None => TypeVar::make_unit(Prov::VariantNoData(
-                            Prov::Node(variant_def.id).into(),
+                        None => TypeVar::make_unit(Reason::VariantNoData(
+                            Reason::Node(variant_def.id).into(),
                         )),
                         Some(ty) => ast_type_to_typevar(ctx, ty.clone()),
                     };
@@ -1964,7 +2000,7 @@ fn generate_constraints_pat(
             constrain(
                 ctx,
                 ty_pat,
-                TypeVar::make_tuple(tys_elements, Prov::Node(pat.id)),
+                TypeVar::make_tuple(tys_elements, Reason::Node(pat.id)),
             );
             for pat in pats {
                 generate_constraints_pat(polyvar_scope.clone(), Mode::Syn, pat.clone(), ctx)
@@ -1973,68 +2009,68 @@ fn generate_constraints_pat(
     }
 }
 
-pub(crate) fn monotype_to_typevar(ty: Monotype, prov: Prov) -> TypeVar {
+pub(crate) fn monotype_to_typevar(ty: Monotype, reason: Reason) -> TypeVar {
     match ty {
-        Monotype::Unit => TypeVar::make_unit(prov),
-        Monotype::Int => TypeVar::make_int(prov),
-        Monotype::Float => TypeVar::make_float(prov),
-        Monotype::Bool => TypeVar::make_bool(prov),
-        Monotype::String => TypeVar::make_string(prov),
+        Monotype::Unit => TypeVar::make_unit(reason),
+        Monotype::Int => TypeVar::make_int(reason),
+        Monotype::Float => TypeVar::make_float(reason),
+        Monotype::Bool => TypeVar::make_bool(reason),
+        Monotype::String => TypeVar::make_string(reason),
         Monotype::Tuple(elements) => {
             let elements = elements
                 .into_iter()
-                .map(|e| monotype_to_typevar(e, prov.clone()))
+                .map(|e| monotype_to_typevar(e, reason.clone()))
                 .collect();
-            TypeVar::make_tuple(elements, prov)
+            TypeVar::make_tuple(elements, reason)
         }
         Monotype::Function(args, out) => {
             let args = args
                 .into_iter()
-                .map(|a| monotype_to_typevar(a, prov.clone()))
+                .map(|a| monotype_to_typevar(a, reason.clone()))
                 .collect();
-            let out = monotype_to_typevar(*out, prov.clone());
-            TypeVar::make_func(args, out, prov.clone())
+            let out = monotype_to_typevar(*out, reason.clone());
+            TypeVar::make_func(args, out, reason.clone())
         }
         Monotype::Nominal(name, params) => {
             let params = params
                 .into_iter()
-                .map(|p| monotype_to_typevar(p, prov.clone()))
+                .map(|p| monotype_to_typevar(p, reason.clone()))
                 .collect();
-            TypeVar::make_nominal(prov, name, params)
+            TypeVar::make_nominal(reason, name, params)
         }
     }
 }
 
-pub(crate) fn solved_type_to_typevar(ty: SolvedType, prov: Prov) -> TypeVar {
+pub(crate) fn solved_type_to_typevar(ty: SolvedType, reason: Reason) -> TypeVar {
     match ty {
-        SolvedType::Unit => TypeVar::make_unit(prov),
-        SolvedType::Int => TypeVar::make_int(prov),
-        SolvedType::Float => TypeVar::make_float(prov),
-        SolvedType::Bool => TypeVar::make_bool(prov),
-        SolvedType::String => TypeVar::make_string(prov),
+        SolvedType::Unit => TypeVar::make_unit(reason),
+        SolvedType::Int => TypeVar::make_int(reason),
+        SolvedType::Float => TypeVar::make_float(reason),
+        SolvedType::Bool => TypeVar::make_bool(reason),
+        SolvedType::String => TypeVar::make_string(reason),
         SolvedType::Tuple(elements) => {
             let elements = elements
                 .into_iter()
-                .map(|e| solved_type_to_typevar(e, prov.clone()))
+                .map(|e| solved_type_to_typevar(e, reason.clone()))
                 .collect();
-            TypeVar::make_tuple(elements, prov)
+            TypeVar::make_tuple(elements, reason)
         }
         SolvedType::Function(args, out) => {
             let args = args
                 .into_iter()
-                .map(|a| solved_type_to_typevar(a, prov.clone()))
+                .map(|a| solved_type_to_typevar(a, reason.clone()))
                 .collect();
-            let out = solved_type_to_typevar(*out, prov.clone());
-            TypeVar::make_func(args, out, prov.clone())
+            let out = solved_type_to_typevar(*out, reason.clone());
+            TypeVar::make_func(args, out, reason.clone())
         }
         SolvedType::Nominal(name, params) => {
             let params = params
                 .into_iter()
-                .map(|p| solved_type_to_typevar(p, prov.clone()))
+                .map(|p| solved_type_to_typevar(p, reason.clone()))
                 .collect();
-            TypeVar::make_nominal(prov, name, params)
+            TypeVar::make_nominal(reason, name, params)
         }
-        SolvedType::Poly(ident, interfaces) => TypeVar::make_poly(prov, ident, interfaces),
+        SolvedType::Poly(ident, interfaces) => TypeVar::make_poly(reason, ident, interfaces),
     }
 }
 

@@ -12,7 +12,7 @@ use std::path::PathBuf;
 use std::rc::Rc;
 use typecheck::{
     fmt_conflicting_types, generate_constraints_file, result_of_constraint_solving, PotentialType,
-    SolvedType, TypeKey, TypeVar,
+    Reason, SolvedType, TypeKey, TypeVar,
 };
 
 mod pat_exhaustiveness;
@@ -239,7 +239,7 @@ impl Error {
             Error::ConflictingUnifvar { types } => {
                 err_string.push_str("Conflicting types: ");
                 let mut type_conflict: Vec<PotentialType> = types.values().cloned().collect();
-                type_conflict.sort_by_key(|ty| ty.provs().borrow().len());
+                type_conflict.sort_by_key(|ty| ty.reasons().borrow().len());
 
                 fmt_conflicting_types(&type_conflict, &mut err_string).unwrap();
                 writeln!(err_string).unwrap();
@@ -279,25 +279,25 @@ impl Error {
                             );
                         }
                     };
-                    let provs = ty.provs().borrow();
-                    let mut provs_vec = provs.iter().collect::<Vec<_>>();
-                    provs_vec.sort_by_key(|prov| match prov {
-                        Prov::Builtin(_) => 0,
-                        Prov::Node(id) => node_map.get(id).unwrap().span().lo,
-                        Prov::InstantiatePoly(_, _ident) => 2,
-                        Prov::FuncArg(_, _) => 3,
-                        Prov::FuncOut(_) => 4,
-                        Prov::VariantNoData(_) => 7,
-                        Prov::UdtDef(_) => 8,
-                        Prov::InstantiateUdtParam(_, _) => 9,
-                        Prov::ListElem(_) => 10,
-                        Prov::BinopLeft(_) => 11,
-                        Prov::BinopRight(_) => 12,
-                        Prov::StructField(..) => 14,
-                        Prov::IndexAccess => 15,
-                        Prov::Effect(_) => 16,
+                    let reasons = ty.reasons().borrow();
+                    let mut reasons_vec = reasons.iter().collect::<Vec<_>>();
+                    reasons_vec.sort_by_key(|prov| match prov {
+                        Reason::Builtin(_) => 0,
+                        Reason::Node(id) => node_map.get(id).unwrap().span().lo,
+                        Reason::InstantiatePoly(_, _ident) => 2,
+                        Reason::FuncArg(_, _) => 3,
+                        Reason::FuncOut(_) => 4,
+                        Reason::VariantNoData(_) => 7,
+                        Reason::UdtDef(_) => 8,
+                        Reason::InstantiateUdtParam(_, _) => 9,
+                        Reason::ListElem(_) => 10,
+                        Reason::BinopLeft(_) => 11,
+                        Reason::BinopRight(_) => 12,
+                        Reason::StructField(..) => 14,
+                        Reason::IndexAccess => 15,
+                        Reason::Effect(_) => 16,
                     });
-                    for cause in provs_vec {
+                    for cause in reasons_vec {
                         write_prov_to_err_string(&mut err_string, cause, node_map, sources);
                     }
                 }
@@ -305,11 +305,11 @@ impl Error {
             }
             Error::ConflictingTypes { ty1, ty2 } => {
                 err_string.push_str(&format!("Type conflict. Got type {}:\n", ty1));
-                let provs1 = ty1.provs().borrow();
+                let provs1 = ty1.reasons().borrow();
                 let cause1 = provs1.iter().next().unwrap();
                 write_prov_to_err_string(&mut err_string, cause1, node_map, sources);
                 err_string.push_str(&format!("But also got type {}:\n", ty2));
-                let provs2 = ty2.provs().borrow();
+                let provs2 = ty2.reasons().borrow();
                 let cause2 = provs2.iter().next().unwrap();
                 write_prov_to_err_string(&mut err_string, cause2, node_map, sources);
                 err_string.push('\n');
@@ -368,33 +368,33 @@ impl Error {
 // TODO: This sucks so bad...
 fn write_prov_to_err_string(
     err_string: &mut String,
-    cause: &Prov,
+    cause: &Reason,
     node_map: &NodeMap,
     sources: &Sources,
 ) {
     match cause {
-        Prov::Builtin(builtin) => {
+        Reason::Builtin(builtin) => {
             let s = builtin.name();
             let _ = writeln!(err_string, "The builtin function {s}");
         }
-        Prov::Effect(u16) => {
+        Reason::Effect(u16) => {
             let _ = writeln!(err_string, "The effect {u16}");
         }
-        Prov::Node(id) => {
+        Reason::Node(id) => {
             let span = node_map.get(id).unwrap().span();
             span.display(err_string, sources, "");
         }
-        Prov::InstantiatePoly(_, ident) => {
+        Reason::InstantiatePoly(_, ident) => {
             let _ = writeln!(err_string, "The instantiation of polymorphic type {ident}");
         }
-        Prov::FuncArg(prov, n) => {
+        Reason::FuncArg(prov, n) => {
             match prov.as_ref() {
-                Prov::Builtin(builtin) => {
+                Reason::Builtin(builtin) => {
                     let s = builtin.name();
                     let n = n + 1; // readability
                     let _ = writeln!(err_string, "--> The #{n} argument of function '{s}'");
                 }
-                Prov::Node(id) => {
+                Reason::Node(id) => {
                     let span = node_map.get(id).unwrap().span();
                     span.display(
                         err_string,
@@ -405,8 +405,8 @@ fn write_prov_to_err_string(
                 _ => unreachable!(),
             }
         }
-        Prov::FuncOut(prov) => match prov.as_ref() {
-            Prov::Builtin(builtin) => {
+        Reason::FuncOut(prov) => match prov.as_ref() {
+            Reason::Builtin(builtin) => {
                 let s = builtin.name();
                 let _ = writeln!(
                     err_string,
@@ -414,42 +414,42 @@ fn write_prov_to_err_string(
                     --> The output of the builtin function '{s}'"
                 );
             }
-            Prov::Node(id) => {
+            Reason::Node(id) => {
                 let span = node_map.get(id).unwrap().span();
                 span.display(err_string, sources, "The output of this function");
             }
             _ => unreachable!(),
         },
-        Prov::BinopLeft(inner) => {
+        Reason::BinopLeft(inner) => {
             err_string.push_str("The left operand of operator\n");
-            if let Prov::Node(id) = **inner {
+            if let Reason::Node(id) = **inner {
                 let span = node_map.get(&id).unwrap().span();
                 span.display(err_string, sources, "");
             }
         }
-        Prov::BinopRight(inner) => {
+        Reason::BinopRight(inner) => {
             err_string.push_str("The left operand of this operator\n");
-            if let Prov::Node(id) = **inner {
+            if let Reason::Node(id) = **inner {
                 let span = node_map.get(&id).unwrap().span();
                 span.display(err_string, sources, "");
             }
         }
-        Prov::ListElem(_) => {
+        Reason::ListElem(_) => {
             err_string.push_str("The element of some list");
         }
-        Prov::UdtDef(_prov) => {
+        Reason::UdtDef(_prov) => {
             err_string.push_str("Some type definition");
         }
-        Prov::InstantiateUdtParam(_, _) => {
+        Reason::InstantiateUdtParam(_, _) => {
             err_string.push_str("Some instance of an Enum's variant");
         }
-        Prov::VariantNoData(_prov) => {
+        Reason::VariantNoData(_prov) => {
             err_string.push_str("The data of some Enum variant");
         }
-        Prov::StructField(field, ty) => {
+        Reason::StructField(field, ty) => {
             let _ = writeln!(err_string, "The field {field} of the struct {ty}");
         }
-        Prov::IndexAccess => {
+        Reason::IndexAccess => {
             let _ = writeln!(err_string, "Index for array access");
         }
     }
