@@ -14,7 +14,7 @@ use crate::{
     ast::{Expr, ExprKind, NodeMap, Pat, PatKind, Stmt, StmtKind},
     statics::StaticsContext,
 };
-use std::collections::{BTreeMap, HashMap, HashSet};
+use std::collections::{HashMap, HashSet};
 use std::mem;
 use std::path::PathBuf;
 use std::rc::Rc;
@@ -22,11 +22,11 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 
 type OffsetTable = HashMap<NodeId, i32>;
 type Lambdas = HashMap<NodeId, LambdaData>;
-type OverloadedFuncLabels = BTreeMap<OverloadedFuncDesc, Label>;
+type OverloadedFuncLabels = HashMap<OverloadedFuncDesc, Label>;
 type MonomorphEnv = Environment<String, Type>;
 pub(crate) type LabelMap = HashMap<Label, usize>;
 
-#[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq, Hash)]
 struct OverloadedFuncDesc {
     name: String,
     impl_type: Monotype,
@@ -1313,8 +1313,8 @@ impl Translator {
             func_def: func_def.clone(),
         });
         let label = match entry {
-            std::collections::btree_map::Entry::Occupied(o) => o.get().clone(),
-            std::collections::btree_map::Entry::Vacant(v) => {
+            std::collections::hash_map::Entry::Occupied(o) => o.get().clone(),
+            std::collections::hash_map::Entry::Vacant(v) => {
                 st.overloaded_methods_to_generate.push((
                     OverloadedFuncDesc {
                         name: func_name.clone(),

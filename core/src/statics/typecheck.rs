@@ -8,7 +8,7 @@ use crate::environment::Environment;
 use core::panic;
 use disjoint_sets::UnionFindNode;
 use std::cell::RefCell;
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::{BTreeSet, HashMap};
 use std::fmt::{self, Display, Write};
 use std::rc::Rc;
 
@@ -19,20 +19,20 @@ pub(crate) struct TypeVar(UnionFindNode<TypeVarData>);
 
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) struct TypeVarData {
-    pub(crate) types: BTreeMap<TypeKey, PotentialType>,
+    pub(crate) types: HashMap<TypeKey, PotentialType>,
     pub(crate) locked: bool,
 }
 
 impl TypeVarData {
     fn new() -> Self {
         Self {
-            types: BTreeMap::new(),
+            types: HashMap::new(),
             locked: false,
         }
     }
 
     fn singleton_solved(potential_type: PotentialType) -> Self {
-        let mut types = BTreeMap::new();
+        let mut types = HashMap::new();
         types.insert(potential_type.key(), potential_type);
         Self {
             types,
@@ -425,7 +425,7 @@ impl TypeVar {
         self.0.with_data(|d| d.locked)
     }
 
-    fn clone_types(&self) -> BTreeMap<TypeKey, PotentialType> {
+    fn clone_types(&self) -> HashMap<TypeKey, PotentialType> {
         self.0.clone_data().types
     }
 
@@ -505,7 +505,7 @@ impl TypeVar {
                 PotentialType::Tuple(provs, elems)
             }
         };
-        let mut types = BTreeMap::new();
+        let mut types = HashMap::new();
         types.insert(ty.key(), ty);
         let data_instantiated = TypeVarData {
             types,
@@ -521,7 +521,7 @@ impl TypeVar {
         self,
         polyvar_scope: PolyvarScope,
         prov: Prov,
-        substitution: &BTreeMap<String, TypeVar>,
+        substitution: &HashMap<String, TypeVar>,
     ) -> TypeVar {
         let data = self.0.clone_data();
         if data.types.len() == 1 {
@@ -565,7 +565,7 @@ impl TypeVar {
                     PotentialType::Tuple(provs, elems)
                 }
             };
-            let mut types = BTreeMap::new();
+            let mut types = HashMap::new();
             types.insert(ty.key(), ty);
             let new_data = TypeVarData {
                 types,
@@ -677,7 +677,7 @@ fn tyvar_of_declaration(
         Declaration::Enum(enum_def) => {
             let nparams = enum_def.ty_args.len();
             let mut params = vec![];
-            let mut substitution = BTreeMap::new();
+            let mut substitution = HashMap::new();
             for i in 0..nparams {
                 params.push(TypeVar::fresh(
                     ctx,
@@ -699,7 +699,7 @@ fn tyvar_of_declaration(
         Declaration::EnumVariant { enum_def, variant } => {
             let nparams = enum_def.ty_args.len();
             let mut params = vec![];
-            let mut substitution = BTreeMap::new();
+            let mut substitution = HashMap::new();
             for i in 0..nparams {
                 params.push(TypeVar::fresh(
                     ctx,
@@ -753,7 +753,7 @@ fn tyvar_of_declaration(
         Declaration::Struct(struct_def) => {
             let nparams = struct_def.ty_args.len();
             let mut params = vec![];
-            let mut substitution = BTreeMap::new();
+            let mut substitution = HashMap::new();
             for i in 0..nparams {
                 params.push(TypeVar::fresh(
                     ctx,
@@ -789,7 +789,7 @@ fn tyvar_of_declaration(
         )),
         Declaration::Array => {
             let mut params = vec![];
-            let mut substitution = BTreeMap::new();
+            let mut substitution = HashMap::new();
             params.push(TypeVar::fresh(
                 ctx,
                 Prov::InstantiateUdtParam(Box::new(Prov::Node(id)), 0),
@@ -1277,7 +1277,7 @@ fn generate_constraints_item(mode: Mode, stmt: Rc<Item>, ctx: &mut StaticsContex
                     if let Some(interface_method) =
                         iface_decl.methods.iter().find(|m| m.name.v == method_name)
                     {
-                        let mut substitution = BTreeMap::new();
+                        let mut substitution = HashMap::new();
                         substitution.insert("a".to_string(), impl_ty.clone());
 
                         let interface_method_ty =
@@ -1871,7 +1871,7 @@ fn generate_constraints_pat(
                 Some(data) => TypeVar::from_node(ctx, data.id),
                 None => TypeVar::make_unit(Reason::VariantNoData(Box::new(Reason::Node(pat.id)))),
             };
-            let mut substitution = BTreeMap::new();
+            let mut substitution = HashMap::new();
             let ty_enum_instance = {
                 if let Some(Declaration::EnumVariant { enum_def, variant }) =
                     ctx.resolution_map.get(&tag.id).cloned()

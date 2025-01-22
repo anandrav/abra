@@ -5,7 +5,7 @@ use crate::ast::{
 use crate::builtin::Builtin;
 use crate::effects::EffectDesc;
 use resolve::{resolve, scan_declarations};
-use std::collections::{BTreeMap, BTreeSet, HashMap};
+use std::collections::{BTreeSet, HashMap};
 use std::fmt::{self, Display, Formatter, Write};
 use std::path::PathBuf;
 use std::rc::Rc;
@@ -41,13 +41,13 @@ pub(crate) struct StaticsContext {
     // BOOKKEEPING
 
     // map from interface name to list of its implementations
-    pub(crate) interface_impls: BTreeMap<Rc<InterfaceDecl>, Vec<Rc<InterfaceImpl>>>,
+    pub(crate) interface_impls: HashMap<Rc<InterfaceDecl>, Vec<Rc<InterfaceImpl>>>,
 
     // string constants (for bytecode translation)
     pub(crate) string_constants: HashMap<String, usize>,
     // dylibs (for bytecode translation)
     // pub(crate) dylibs: BTreeSet<PathBuf>,
-    pub(crate) dylib_to_funcs: BTreeMap<PathBuf, BTreeSet<String>>,
+    pub(crate) dylib_to_funcs: HashMap<PathBuf, BTreeSet<String>>,
 
     // TYPE CHECKING
 
@@ -83,8 +83,8 @@ impl StaticsContext {
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub(crate) struct Namespace {
-    pub(crate) declarations: BTreeMap<String, Declaration>,
-    pub(crate) namespaces: BTreeMap<String, Rc<Namespace>>,
+    pub(crate) declarations: HashMap<String, Declaration>,
+    pub(crate) namespaces: HashMap<String, Rc<Namespace>>,
 }
 
 impl Display for Namespace {
@@ -143,7 +143,7 @@ pub(crate) enum Error {
         node_id: NodeId,
     },
     ConflictingUnifvar {
-        types: BTreeMap<TypeKey, PotentialType>,
+        types: HashMap<TypeKey, PotentialType>,
     },
     TypeConflict {
         ty1: PotentialType,

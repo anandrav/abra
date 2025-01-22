@@ -1,5 +1,5 @@
 use std::cell::RefCell;
-use std::collections::BTreeMap;
+use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
 
@@ -205,7 +205,7 @@ struct SymbolTable {
 
 #[derive(Default, Debug, Clone)]
 struct SymbolTableBase {
-    declarations: BTreeMap<String, Declaration>,
+    declarations: HashMap<String, Declaration>,
     //namespaces: BTreeMap<String, Rc<Namespace>>,
     enclosing: Option<Rc<RefCell<SymbolTableBase>>>,
 }
@@ -274,7 +274,7 @@ impl SymbolTable {
 }
 
 // TODO: make a custom type to detect collisions
-pub type ToplevelDeclarations = BTreeMap<String, Declaration>;
+pub type ToplevelDeclarations = HashMap<String, Declaration>;
 
 pub(crate) fn resolve(ctx: &mut StaticsContext, files: Vec<Rc<FileAst>>) {
     for file in files {
