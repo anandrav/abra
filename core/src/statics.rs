@@ -276,7 +276,6 @@ impl Error {
                         Reason::Builtin(_) => 0,
                         Reason::Node(id) => node_map.get(id).unwrap().span().lo,
                         Reason::VariantNoData(_) => 7,
-                        Reason::UdtDef(_) => 8,
                         Reason::BinopLeft(_) => 11,
                         Reason::BinopRight(_) => 12,
                         Reason::IndexAccess => 15,
@@ -372,9 +371,6 @@ fn write_reason_to_err_string(
                 let span = node_map.get(&id).unwrap().span();
                 span.display(err_string, sources, "");
             }
-        }
-        Reason::UdtDef(_prov) => {
-            err_string.push_str("Some type definition");
         }
         Reason::VariantNoData(_prov) => {
             err_string.push_str("The data of some Enum variant");

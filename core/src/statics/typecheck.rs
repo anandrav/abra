@@ -267,9 +267,9 @@ pub(crate) enum TypeKey {
 pub(crate) enum Prov {
     Node(NodeId), // the type of an expression or statement located at NodeId
     InstantiateUdtParam(Box<Prov>, u8),
-    InstantiatePoly(Box<Prov>, String),
-    FuncArg(Box<Prov>, u8), // u8 represents the index of the argument
-    FuncOut(Box<Prov>),     // u8 represents how many arguments before this output
+    InstantiatePoly(Box<Prov>, String), // TODO don't use String here it isn't unique!
+    FuncArg(Box<Prov>, u8),             // u8 represents the index of the argument
+    FuncOut(Box<Prov>),                 // u8 represents how many arguments before this output
     ListElem(Box<Prov>),
     StructField(String, NodeId),
 }
@@ -281,7 +281,6 @@ pub(crate) enum Reason {
     Node(NodeId),     // the type of an expression or statement located at NodeId
     Builtin(Builtin), // a builtin function or constant, which doesn't exist in the AST
     Effect(u16),
-    UdtDef(Box<Reason>), // TODO: replace this with 'Declaration'
     BinopLeft(Box<Reason>),
     BinopRight(Box<Reason>),
     IndexAccess,
@@ -691,7 +690,7 @@ fn tyvar_of_declaration(
                 substitution.insert(ty_arg.v.clone(), params[i].clone());
             }
             Some(TypeVar::make_nominal(
-                Reason::UdtDef(Box::new(Reason::Node(id))), // TODO: change to Reason::Declaration
+                Reason::Node(id), // TODO: change to Reason::Declaration
                 Nominal::Enum(enum_def.clone()),
                 params,
             ))
@@ -712,11 +711,8 @@ fn tyvar_of_declaration(
                 };
                 substitution.insert(ty_arg.v.clone(), params[i].clone());
             }
-            let def_type = TypeVar::make_nominal(
-                Reason::UdtDef(Box::new(Reason::Node(id))),
-                Nominal::Enum(enum_def.clone()),
-                params,
-            );
+            let def_type =
+                TypeVar::make_nominal(Reason::Node(id), Nominal::Enum(enum_def.clone()), params);
 
             let the_variant = &enum_def.variants[*variant as usize];
             match &the_variant.data {
@@ -767,7 +763,7 @@ fn tyvar_of_declaration(
                 substitution.insert(ty_arg.v.clone(), params[i].clone());
             }
             let def_type = TypeVar::make_nominal(
-                Reason::UdtDef(Box::new(Reason::Node(id))),
+                Reason::Node(id),
                 Nominal::Struct(struct_def.clone()),
                 params,
             );
@@ -783,7 +779,7 @@ fn tyvar_of_declaration(
             Some(TypeVar::make_func(fields, def_type, Reason::Node(id)))
         }
         Declaration::ForeignType(ident) => Some(TypeVar::make_nominal(
-            Reason::UdtDef(Box::new(Reason::Node(id))),
+            Reason::Node(id),
             Nominal::ForeignType(ident.clone()),
             vec![],
         )),
@@ -797,11 +793,7 @@ fn tyvar_of_declaration(
 
             substitution.insert("a", params[0].clone());
 
-            let def_type = TypeVar::make_nominal(
-                Reason::UdtDef(Box::new(Reason::Node(id))),
-                Nominal::Array,
-                params,
-            );
+            let def_type = TypeVar::make_nominal(Reason::Node(id), Nominal::Array, params);
 
             Some(TypeVar::make_func(vec![], def_type, Reason::Node(id)))
         }
@@ -1891,7 +1883,7 @@ fn generate_constraints_pat(
                         substitution.insert(ty_arg.v.clone(), params[i].clone());
                     }
                     let def_type = TypeVar::make_nominal(
-                        Reason::UdtDef(Box::new(Reason::Node(pat.id))),
+                        Reason::Node(pat.id),
                         Nominal::Enum(enum_def.clone()),
                         params,
                     );
