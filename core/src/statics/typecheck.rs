@@ -267,9 +267,9 @@ pub(crate) enum TypeKey {
 pub(crate) enum Prov {
     Node(NodeId), // the type of an expression or statement located at NodeId
     InstantiateUdtParam(NodeId, u8),
-    InstantiatePoly(Box<Prov>, String), // TODO! don't use String here it isn't unique!
-    FuncArg(Box<Prov>, u8),             // u8 represents the index of the argument
-    FuncOut(Box<Prov>),                 // u8 represents how many arguments before this output
+    InstantiatePoly(NodeId, String), // TODO! don't use String here it isn't unique!
+    FuncArg(Box<Prov>, u8),          // u8 represents the index of the argument
+    FuncOut(Box<Prov>),              // u8 represents how many arguments before this output
     ListElem(Box<Prov>),
     StructField(String, NodeId),
 }
@@ -446,7 +446,7 @@ impl TypeVar {
         self,
         polyvar_scope: PolyvarScope,
         ctx: &mut StaticsContext,
-        prov: Prov,
+        id: NodeId,
     ) -> TypeVar {
         let data = self.0.clone_data();
         if data.types.len() != 1 {
@@ -463,10 +463,7 @@ impl TypeVar {
             }
             PotentialType::Poly(_, ref ident, ref interfaces) => {
                 if !polyvar_scope.lookup_poly(ident) {
-                    let ret = TypeVar::fresh(
-                        ctx,
-                        Prov::InstantiatePoly(Box::new(prov.clone()), ident.clone()),
-                    );
+                    let ret = TypeVar::fresh(ctx, Prov::InstantiatePoly(id, ident.clone()));
                     // TODO: Don't remove below. Need to add interface constraint check back later
                     // let mut extension = Vec::new();
                     // for i in interfaces {
@@ -484,22 +481,22 @@ impl TypeVar {
             PotentialType::Nominal(provs, ident, params) => {
                 let params = params
                     .into_iter()
-                    .map(|ty| ty.instantiate(polyvar_scope.clone(), ctx, prov.clone()))
+                    .map(|ty| ty.instantiate(polyvar_scope.clone(), ctx, id))
                     .collect();
                 PotentialType::Nominal(provs, ident, params)
             }
             PotentialType::Function(provs, args, out) => {
                 let args = args
                     .into_iter()
-                    .map(|ty| ty.instantiate(polyvar_scope.clone(), ctx, prov.clone()))
+                    .map(|ty| ty.instantiate(polyvar_scope.clone(), ctx, id))
                     .collect();
-                let out = out.instantiate(polyvar_scope.clone(), ctx, prov.clone());
+                let out = out.instantiate(polyvar_scope.clone(), ctx, id);
                 PotentialType::Function(provs, args, out)
             }
             PotentialType::Tuple(provs, elems) => {
                 let elems = elems
                     .into_iter()
-                    .map(|ty| ty.instantiate(polyvar_scope.clone(), ctx, prov.clone()))
+                    .map(|ty| ty.instantiate(polyvar_scope.clone(), ctx, id))
                     .collect();
                 PotentialType::Tuple(provs, elems)
             }
@@ -511,7 +508,7 @@ impl TypeVar {
             locked: data.locked,
         };
         let tvar = TypeVar(UnionFindNode::new(data_instantiated));
-        ctx.unifvars.insert(prov, tvar.clone());
+        ctx.unifvars.insert(Prov::Node(id), tvar.clone());
         tvar
     }
 
@@ -1444,7 +1441,7 @@ fn generate_constraints_expr(
             let lookup = ctx.resolution_map.get(&expr.id).cloned();
             if let Some(res) = lookup {
                 if let Some(typ) = tyvar_of_declaration(ctx, &res, expr.id, polyvar_scope.clone()) {
-                    let typ = typ.instantiate(polyvar_scope, ctx, Prov::Node(expr.id));
+                    let typ = typ.instantiate(polyvar_scope, ctx, expr.id);
                     constrain(ctx, typ, node_ty.clone());
                 }
             }
@@ -1452,9 +1449,9 @@ fn generate_constraints_expr(
         ExprKind::BinOp(left, op, right) => {
             let (ty_left, ty_right, ty_out) = types_of_binop(ctx, op, expr.id);
             let (ty_left, ty_right, ty_out) = (
-                ty_left.instantiate(PolyvarScope::empty(), ctx, Prov::Node(expr.id)),
-                ty_right.instantiate(PolyvarScope::empty(), ctx, Prov::Node(expr.id)),
-                ty_out.instantiate(PolyvarScope::empty(), ctx, Prov::Node(expr.id)),
+                ty_left.instantiate(PolyvarScope::empty(), ctx, expr.id),
+                ty_right.instantiate(PolyvarScope::empty(), ctx, expr.id),
+                ty_out.instantiate(PolyvarScope::empty(), ctx, expr.id),
             );
             constrain(ctx, ty_out, node_ty);
             generate_constraints_expr(
