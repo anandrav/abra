@@ -270,7 +270,7 @@ pub(crate) enum Prov {
     InstantiatePoly(NodeId, String), // TODO! don't use String here it isn't unique!
     FuncArg(Box<Prov>, u8),          // u8 represents the index of the argument
     FuncOut(Box<Prov>),              // u8 represents how many arguments before this output
-    ListElem(Box<Prov>),
+    ListElem(NodeId),
     StructField(String, NodeId),
 }
 
@@ -1384,7 +1384,7 @@ fn generate_constraints_expr(
             ctx.string_constants.entry(s.clone()).or_insert(len);
         }
         ExprKind::List(exprs) => {
-            let elem_ty = TypeVar::fresh(ctx, Prov::ListElem(Prov::Node(expr.id).into()));
+            let elem_ty = TypeVar::fresh(ctx, Prov::ListElem(expr.id));
 
             let list_decl = ctx
                 .global_namespace
@@ -1420,7 +1420,7 @@ fn generate_constraints_expr(
             }
         }
         ExprKind::Array(exprs) => {
-            let elem_ty = TypeVar::fresh(ctx, Prov::ListElem(Prov::Node(expr.id).into()));
+            let elem_ty = TypeVar::fresh(ctx, Prov::ListElem(expr.id));
             constrain(
                 ctx,
                 node_ty,
@@ -1663,7 +1663,7 @@ fn generate_constraints_expr(
         ExprKind::IndexAccess(accessed, index) => {
             generate_constraints_expr(polyvar_scope.clone(), Mode::Syn, accessed.clone(), ctx);
 
-            let elem_ty = TypeVar::fresh(ctx, Prov::ListElem(Prov::Node(accessed.id).into()));
+            let elem_ty = TypeVar::fresh(ctx, Prov::ListElem(accessed.id));
             let accessed_ty = TypeVar::from_node(ctx, accessed.id);
             constrain(
                 ctx,
