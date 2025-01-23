@@ -271,18 +271,8 @@ impl Error {
                         }
                     };
                     let reasons = ty.reasons().borrow();
-                    let mut reasons_vec = reasons.iter().collect::<Vec<_>>();
-                    reasons_vec.sort_by_key(|prov| match prov {
-                        Reason::Builtin(_) => 0,
-                        Reason::Node(id) => node_map.get(id).unwrap().span().lo,
-                        Reason::VariantNoData(_) => 7,
-                        Reason::BinopLeft(_) => 11,
-                        Reason::BinopRight(_) => 12,
-                        Reason::IndexAccess => 15,
-                        Reason::Effect(_) => 16,
-                    });
-                    for cause in reasons_vec {
-                        write_reason_to_err_string(&mut err_string, cause, node_map, sources);
+                    for cause in reasons.iter() {
+                        write_reason_to_err_string(&mut err_string, &ty, cause, node_map, sources);
                     }
                 }
                 writeln!(err_string).unwrap();
@@ -291,11 +281,11 @@ impl Error {
                 err_string.push_str(&format!("Type conflict. Got type {}:\n", ty1));
                 let provs1 = ty1.reasons().borrow();
                 let cause1 = provs1.iter().next().unwrap();
-                write_reason_to_err_string(&mut err_string, cause1, node_map, sources);
+                write_reason_to_err_string(&mut err_string, &ty1, cause1, node_map, sources);
                 err_string.push_str(&format!("But also got type {}:\n", ty2));
                 let provs2 = ty2.reasons().borrow();
                 let cause2 = provs2.iter().next().unwrap();
-                write_reason_to_err_string(&mut err_string, cause2, node_map, sources);
+                write_reason_to_err_string(&mut err_string, &ty2, cause2, node_map, sources);
                 err_string.push('\n');
             }
             Error::MemberAccessNeedsAnnotation { node_id } => {
@@ -342,6 +332,7 @@ impl Error {
 // TODO: This sucks so bad...
 fn write_reason_to_err_string(
     err_string: &mut String,
+    ty: &PotentialType,
     cause: &Reason,
     node_map: &NodeMap,
     sources: &Sources,
@@ -357,6 +348,19 @@ fn write_reason_to_err_string(
         Reason::Node(id) => {
             let span = node_map.get(id).unwrap().span();
             span.display(err_string, sources, "");
+        }
+        Reason::Annotation(id) => {
+            let span = node_map.get(id).unwrap().span();
+            span.display(err_string, sources, "This type annotation");
+        }
+        Reason::Literal(id) => {
+            let span = node_map.get(id).unwrap().span();
+            let literal_kind = ty.to_string();
+            span.display(
+                err_string,
+                sources,
+                &format!("This {} literal", literal_kind),
+            );
         }
         Reason::BinopLeft(id) => {
             err_string.push_str("The left operand of operator\n");

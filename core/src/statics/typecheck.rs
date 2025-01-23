@@ -278,7 +278,10 @@ pub(crate) enum Prov {
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub(crate) enum Reason {
     // TODO: NodeId is too vague. Remove
-    Node(NodeId),     // the type of an expression or statement located at NodeId
+    // TODO: Add "Annotation" case ASAP
+    Node(NodeId), // the type of an expression or statement located at NodeId
+    Annotation(NodeId),
+    Literal(NodeId),
     Builtin(Builtin), // a builtin function or constant, which doesn't exist in the AST
     Effect(u16),
     BinopLeft(NodeId),
@@ -1003,26 +1006,30 @@ pub(crate) fn ast_type_to_typevar(ctx: &mut StaticsContext, ast_type: Rc<AstType
                     interfaces.push(iface_def.clone());
                 }
             }
-            TypeVar::make_poly(Reason::Node(ast_type.id()), ident.v.clone(), interfaces)
+            TypeVar::make_poly(
+                Reason::Annotation(ast_type.id()),
+                ident.v.clone(),
+                interfaces,
+            )
         }
         TypeKind::Identifier(ident) => {
             let lookup = ctx.resolution_map.get(&ast_type.id);
             match lookup {
                 Some(Declaration::Enum(enum_def)) => TypeVar::make_nominal(
-                    Reason::Node(ast_type.id()),
+                    Reason::Annotation(ast_type.id()),
                     Nominal::Enum(enum_def.clone()),
                     vec![],
                 ),
                 Some(Declaration::Struct(struct_def)) => TypeVar::make_nominal(
-                    Reason::Node(ast_type.id()),
+                    Reason::Annotation(ast_type.id()),
                     Nominal::Struct(struct_def.clone()),
                     vec![],
                 ),
                 Some(Declaration::Array) => {
-                    TypeVar::make_nominal(Reason::Node(ast_type.id()), Nominal::Array, vec![])
+                    TypeVar::make_nominal(Reason::Annotation(ast_type.id()), Nominal::Array, vec![])
                 }
                 Some(Declaration::ForeignType(ident)) => TypeVar::make_nominal(
-                    Reason::Node(ast_type.id()),
+                    Reason::Annotation(ast_type.id()),
                     Nominal::ForeignType(ident.clone()),
                     vec![],
                 ),
@@ -1035,7 +1042,7 @@ pub(crate) fn ast_type_to_typevar(ctx: &mut StaticsContext, ast_type: Rc<AstType
             let lookup = ctx.resolution_map.get(&ident.id);
             match lookup {
                 Some(Declaration::Enum(enum_def)) => TypeVar::make_nominal(
-                    Reason::Node(ast_type.id()),
+                    Reason::Annotation(ast_type.id()),
                     Nominal::Enum(enum_def.clone()),
                     params
                         .iter()
@@ -1043,7 +1050,7 @@ pub(crate) fn ast_type_to_typevar(ctx: &mut StaticsContext, ast_type: Rc<AstType
                         .collect(),
                 ),
                 Some(Declaration::Struct(struct_def)) => TypeVar::make_nominal(
-                    Reason::Node(ast_type.id()),
+                    Reason::Annotation(ast_type.id()),
                     Nominal::Struct(struct_def.clone()),
                     params
                         .iter()
@@ -1051,7 +1058,7 @@ pub(crate) fn ast_type_to_typevar(ctx: &mut StaticsContext, ast_type: Rc<AstType
                         .collect(),
                 ),
                 Some(Declaration::Array) => TypeVar::make_nominal(
-                    Reason::Node(ast_type.id()),
+                    Reason::Annotation(ast_type.id()),
                     Nominal::Array,
                     params
                         .iter()
@@ -1063,24 +1070,24 @@ pub(crate) fn ast_type_to_typevar(ctx: &mut StaticsContext, ast_type: Rc<AstType
                 }
             }
         }
-        TypeKind::Unit => TypeVar::make_unit(Reason::Node(ast_type.id())),
-        TypeKind::Int => TypeVar::make_int(Reason::Node(ast_type.id())),
-        TypeKind::Float => TypeVar::make_float(Reason::Node(ast_type.id())),
-        TypeKind::Bool => TypeVar::make_bool(Reason::Node(ast_type.id())),
-        TypeKind::Str => TypeVar::make_string(Reason::Node(ast_type.id())),
+        TypeKind::Unit => TypeVar::make_unit(Reason::Annotation(ast_type.id())),
+        TypeKind::Int => TypeVar::make_int(Reason::Annotation(ast_type.id())),
+        TypeKind::Float => TypeVar::make_float(Reason::Annotation(ast_type.id())),
+        TypeKind::Bool => TypeVar::make_bool(Reason::Annotation(ast_type.id())),
+        TypeKind::Str => TypeVar::make_string(Reason::Annotation(ast_type.id())),
         TypeKind::Function(lhs, rhs) => TypeVar::make_func(
             lhs.iter()
                 .map(|t| ast_type_to_typevar(ctx, t.clone()))
                 .collect(),
             ast_type_to_typevar(ctx, rhs.clone()),
-            Reason::Node(ast_type.id()),
+            Reason::Annotation(ast_type.id()),
         ),
         TypeKind::Tuple(types) => {
             let mut statics_types = Vec::new();
             for t in types {
                 statics_types.push(ast_type_to_typevar(ctx, t.clone()));
             }
-            TypeVar::make_tuple(statics_types, Reason::Node(ast_type.id()))
+            TypeVar::make_tuple(statics_types, Reason::Annotation(ast_type.id()))
         }
     }
 }
@@ -1247,6 +1254,8 @@ fn generate_constraints_item(mode: Mode, stmt: Rc<Item>, ctx: &mut StaticsContex
                         break;
                     }
                     let ty_annot = ast_type_to_typevar(ctx, method.ty.clone());
+                    // TODO: Instead of creating an empty TypeVar (node_ty) and then immediately constraining it to a
+                    // typevar created from a type annotation (ast_type_to_typevar(ty_annot)), do both in a single atomic step
                     constrain(ctx, node_ty.clone(), ty_annot.clone());
                 }
                 for f in &iface_impl.methods {
@@ -1367,19 +1376,19 @@ fn generate_constraints_expr(
     };
     match &*expr.kind {
         ExprKind::Unit => {
-            constrain(ctx, node_ty, TypeVar::make_unit(Reason::Node(expr.id)));
+            constrain(ctx, node_ty, TypeVar::make_unit(Reason::Literal(expr.id)));
         }
         ExprKind::Int(_) => {
-            constrain(ctx, node_ty, TypeVar::make_int(Reason::Node(expr.id)));
+            constrain(ctx, node_ty, TypeVar::make_int(Reason::Literal(expr.id)));
         }
         ExprKind::Float(_) => {
-            constrain(ctx, node_ty, TypeVar::make_float(Reason::Node(expr.id)));
+            constrain(ctx, node_ty, TypeVar::make_float(Reason::Literal(expr.id)));
         }
         ExprKind::Bool(_) => {
-            constrain(ctx, node_ty, TypeVar::make_bool(Reason::Node(expr.id)));
+            constrain(ctx, node_ty, TypeVar::make_bool(Reason::Literal(expr.id)));
         }
         ExprKind::Str(s) => {
-            constrain(ctx, node_ty, TypeVar::make_string(Reason::Node(expr.id)));
+            constrain(ctx, node_ty, TypeVar::make_string(Reason::Literal(expr.id)));
             let len = ctx.string_constants.len();
             ctx.string_constants.entry(s.clone()).or_insert(len);
         }
