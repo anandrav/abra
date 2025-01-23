@@ -268,8 +268,8 @@ pub(crate) enum Prov {
     Node(NodeId), // the type of an expression or statement located at NodeId
     InstantiateUdtParam(NodeId, u8),
     InstantiatePoly(NodeId, String), // TODO! don't use String here it isn't unique!
-    FuncArg(Box<Prov>, u8),          // u8 represents the index of the argument
-    FuncOut(Box<Prov>),              // u8 represents how many arguments before this output
+    FuncArg(NodeId, u8),             // u8 represents the index of the argument
+    FuncOut(NodeId),                 // u8 represents how many arguments before this output
     ListElem(NodeId),
     StructField(String, NodeId),
 }
@@ -1595,8 +1595,7 @@ fn generate_constraints_expr(
                 .iter()
                 .enumerate()
                 .map(|(n, arg)| {
-                    let unknown =
-                        TypeVar::fresh(ctx, Prov::FuncArg(Box::new(Prov::Node(func.id)), n as u8));
+                    let unknown = TypeVar::fresh(ctx, Prov::FuncArg(func.id, n as u8));
                     generate_constraints_expr(
                         polyvar_scope.clone(),
                         Mode::Ana {
@@ -1610,7 +1609,7 @@ fn generate_constraints_expr(
                 .collect();
 
             // body
-            let ty_body = TypeVar::fresh(ctx, Prov::FuncOut(Box::new(Prov::Node(func.id))));
+            let ty_body = TypeVar::fresh(ctx, Prov::FuncOut(func.id));
             constrain(ctx, ty_body.clone(), node_ty);
 
             // function type
@@ -1723,7 +1722,7 @@ fn generate_constraints_func_helper(
         .collect();
 
     // body
-    let ty_body = TypeVar::fresh(ctx, Prov::FuncOut(Box::new(Prov::Node(node_id))));
+    let ty_body = TypeVar::fresh(ctx, Prov::FuncOut(node_id));
     generate_constraints_expr(
         polyvar_scope.clone(),
         Mode::Ana {
@@ -1782,7 +1781,7 @@ fn generate_constraints_func_decl(
         .collect();
 
     // body
-    let ty_body = TypeVar::fresh(ctx, Prov::FuncOut(Box::new(Prov::Node(node_id))));
+    let ty_body = TypeVar::fresh(ctx, Prov::FuncOut(node_id));
 
     let out_annot = ast_type_to_typevar(ctx, out_annot.clone());
     polyvar_scope.add_polys(&out_annot);
