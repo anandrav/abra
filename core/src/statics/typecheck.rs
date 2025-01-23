@@ -266,8 +266,8 @@ pub(crate) enum TypeKey {
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub(crate) enum Prov {
     Node(NodeId), // the type of an expression or statement located at NodeId
-    InstantiateUdtParam(Box<Prov>, u8),
-    InstantiatePoly(Box<Prov>, String), // TODO don't use String here it isn't unique!
+    InstantiateUdtParam(NodeId, u8),
+    InstantiatePoly(Box<Prov>, String), // TODO! don't use String here it isn't unique!
     FuncArg(Box<Prov>, u8),             // u8 represents the index of the argument
     FuncOut(Box<Prov>),                 // u8 represents how many arguments before this output
     ListElem(Box<Prov>),
@@ -678,10 +678,7 @@ fn tyvar_of_declaration(
             let mut params = vec![];
             let mut substitution = HashMap::new();
             for i in 0..nparams {
-                params.push(TypeVar::fresh(
-                    ctx,
-                    Prov::InstantiateUdtParam(Box::new(Prov::Node(id)), i as u8),
-                ));
+                params.push(TypeVar::fresh(ctx, Prov::InstantiateUdtParam(id, i as u8)));
                 // TODO: don't do this silly downcast.
                 // ty_args should just be a Vec<Identifier> most likely
                 let TypeKind::Poly(ty_arg, _) = &*enum_def.ty_args[i].kind else {
@@ -700,10 +697,7 @@ fn tyvar_of_declaration(
             let mut params = vec![];
             let mut substitution = HashMap::new();
             for i in 0..nparams {
-                params.push(TypeVar::fresh(
-                    ctx,
-                    Prov::InstantiateUdtParam(Box::new(Prov::Node(id)), i as u8),
-                ));
+                params.push(TypeVar::fresh(ctx, Prov::InstantiateUdtParam(id, i as u8)));
                 // TODO: don't do this silly downcast.
                 // ty_args should just be a Vec<Identifier> most likely
                 let TypeKind::Poly(ty_arg, _) = &*enum_def.ty_args[i].kind else {
@@ -751,10 +745,7 @@ fn tyvar_of_declaration(
             let mut params = vec![];
             let mut substitution = HashMap::new();
             for i in 0..nparams {
-                params.push(TypeVar::fresh(
-                    ctx,
-                    Prov::InstantiateUdtParam(Box::new(Prov::Node(id)), i as u8),
-                ));
+                params.push(TypeVar::fresh(ctx, Prov::InstantiateUdtParam(id, i as u8)));
                 // TODO: don't do this silly downcast.
                 // ty_args should just be a Vec<Identifier> most likely
                 let TypeKind::Poly(ty_arg, _) = &*struct_def.ty_args[i].kind else {
@@ -786,10 +777,7 @@ fn tyvar_of_declaration(
         Declaration::Array => {
             let mut params = vec![];
             let mut substitution = HashMap::new();
-            params.push(TypeVar::fresh(
-                ctx,
-                Prov::InstantiateUdtParam(Box::new(Prov::Node(id)), 0),
-            ));
+            params.push(TypeVar::fresh(ctx, Prov::InstantiateUdtParam(id, 0)));
 
             substitution.insert("a", params[0].clone());
 
@@ -1873,7 +1861,7 @@ fn generate_constraints_pat(
                     for i in 0..nparams {
                         params.push(TypeVar::fresh(
                             ctx,
-                            Prov::InstantiateUdtParam(Box::new(Prov::Node(pat.id)), i as u8),
+                            Prov::InstantiateUdtParam(pat.id, i as u8),
                         ));
                         // TODO: don't do this silly downcast.
                         // ty_args should just be a Vec<Identifier> most likely
