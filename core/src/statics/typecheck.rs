@@ -284,7 +284,7 @@ pub(crate) enum Reason {
     BinopLeft(Box<Reason>),
     BinopRight(Box<Reason>),
     IndexAccess,
-    VariantNoData(Box<Reason>), // the type of the data of a variant with no data, always Unit.
+    VariantNoData(NodeId), // the type of the data of a variant with no data, always Unit.
 }
 
 impl PotentialType {
@@ -1861,7 +1861,7 @@ fn generate_constraints_pat(
         PatKind::Variant(tag, data) => {
             let ty_data = match data {
                 Some(data) => TypeVar::from_node(ctx, data.id),
-                None => TypeVar::make_unit(Reason::VariantNoData(Box::new(Reason::Node(pat.id)))),
+                None => TypeVar::make_unit(Reason::VariantNoData(pat.id)),
             };
             let mut substitution = HashMap::new();
             let ty_enum_instance = {
@@ -1890,9 +1890,7 @@ fn generate_constraints_pat(
 
                     let variant_def = &enum_def.variants[variant as usize];
                     let variant_data_ty = match &variant_def.data {
-                        None => TypeVar::make_unit(Reason::VariantNoData(
-                            Reason::Node(variant_def.id).into(),
-                        )),
+                        None => TypeVar::make_unit(Reason::VariantNoData(variant_def.id)),
                         Some(ty) => ast_type_to_typevar(ctx, ty.clone()),
                     };
                     let variant_data_ty = variant_data_ty.subst(
