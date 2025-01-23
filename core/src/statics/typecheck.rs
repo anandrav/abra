@@ -281,8 +281,8 @@ pub(crate) enum Reason {
     Node(NodeId),     // the type of an expression or statement located at NodeId
     Builtin(Builtin), // a builtin function or constant, which doesn't exist in the AST
     Effect(u16),
-    BinopLeft(Box<Reason>),
-    BinopRight(Box<Reason>),
+    BinopLeft(NodeId),
+    BinopRight(NodeId),
     IndexAccess,
     VariantNoData(NodeId), // the type of the data of a variant with no data, always Unit.
 }
@@ -838,8 +838,8 @@ fn types_of_binop(
         panic!()
     };
 
-    let prov_left = Reason::BinopLeft(Reason::Node(id).into());
-    let prov_right = Reason::BinopRight(Reason::Node(id).into());
+    let prov_left = Reason::BinopLeft(id);
+    let prov_right = Reason::BinopRight(id);
     let prov_out = Reason::Node(id);
     match opcode {
         BinaryOperator::And | BinaryOperator::Or => (

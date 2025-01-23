@@ -358,19 +358,15 @@ fn write_reason_to_err_string(
             let span = node_map.get(id).unwrap().span();
             span.display(err_string, sources, "");
         }
-        Reason::BinopLeft(inner) => {
+        Reason::BinopLeft(id) => {
             err_string.push_str("The left operand of operator\n");
-            if let Reason::Node(id) = **inner {
-                let span = node_map.get(&id).unwrap().span();
-                span.display(err_string, sources, "");
-            }
+            let span = node_map.get(id).unwrap().span();
+            span.display(err_string, sources, "");
         }
-        Reason::BinopRight(inner) => {
+        Reason::BinopRight(id) => {
             err_string.push_str("The left operand of this operator\n");
-            if let Reason::Node(id) = **inner {
-                let span = node_map.get(&id).unwrap().span();
-                span.display(err_string, sources, "");
-            }
+            let span = node_map.get(id).unwrap().span();
+            span.display(err_string, sources, "");
         }
         Reason::VariantNoData(_prov) => {
             err_string.push_str("The data of some Enum variant");
