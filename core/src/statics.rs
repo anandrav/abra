@@ -286,11 +286,11 @@ impl Error {
                 err_string.push_str(&format!("Type conflict. Got type {}:\n", ty1));
                 let provs1 = ty1.reasons().borrow();
                 let cause1 = provs1.iter().next().unwrap();
-                write_reason_to_err_string(&mut err_string, &ty1, cause1, node_map, sources);
+                write_reason_to_err_string(&mut err_string, ty1, cause1, node_map, sources);
                 err_string.push_str(&format!("But also got type {}:\n", ty2));
                 let provs2 = ty2.reasons().borrow();
                 let cause2 = provs2.iter().next().unwrap();
-                write_reason_to_err_string(&mut err_string, &ty2, cause2, node_map, sources);
+                write_reason_to_err_string(&mut err_string, ty2, cause2, node_map, sources);
                 err_string.push('\n');
             }
             Error::MemberAccessNeedsAnnotation { node_id } => {

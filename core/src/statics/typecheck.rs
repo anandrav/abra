@@ -293,7 +293,7 @@ pub(crate) enum Reason {
 pub(crate) enum ConstraintReason {
     None, // TODO: get rid of None if possible, but no rush
 
-    BinaryOp,
+    BinaryOpOperands,
     IfElseBodies,
     LetStmtAnnotation,
     LetStmtLhsRhs,
@@ -882,13 +882,13 @@ fn types_of_binop(
                 ctx,
                 ty_left.clone(),
                 ty_right.clone(),
-                ConstraintReason::BinaryOp,
+                ConstraintReason::BinaryOpOperands,
             );
             constrain_because(
                 ctx,
                 ty_left.clone(),
                 ty_out.clone(),
-                ConstraintReason::BinaryOp,
+                ConstraintReason::BinaryOpOperands,
             );
             (ty_left, ty_right, ty_out)
         }
@@ -909,7 +909,7 @@ fn types_of_binop(
                 ctx,
                 ty_left.clone(),
                 ty_right.clone(),
-                ConstraintReason::BinaryOp,
+                ConstraintReason::BinaryOpOperands,
             );
             let ty_out = TypeVar::make_bool(prov_out);
             (ty_left, ty_right, ty_out)
@@ -931,7 +931,7 @@ fn types_of_binop(
                 ctx,
                 ty_left.clone(),
                 ty_right.clone(),
-                ConstraintReason::BinaryOp,
+                ConstraintReason::BinaryOpOperands,
             );
             (ty_left, ty_right, TypeVar::make_bool(prov_out))
         }
