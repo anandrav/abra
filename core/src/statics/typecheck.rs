@@ -277,8 +277,7 @@ pub(crate) enum Prov {
 // TODO: Most likely none of these should contain Box<Reason>. That's unnecessarily complicated
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub(crate) enum Reason {
-    // TODO: NodeId is too vague. Remove
-    // TODO: Add "Annotation" case ASAP
+    // TODO: get rid of Reason::Node if possible, but no rush
     Node(NodeId), // the type of an expression or statement located at NodeId
     Annotation(NodeId),
     Literal(NodeId),
@@ -288,6 +287,25 @@ pub(crate) enum Reason {
     BinopRight(NodeId),
     IndexAccess,
     VariantNoData(NodeId), // the type of the data of a variant with no data, always Unit.
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
+pub(crate) enum ConstraintReason {
+    None, // TODO: get rid of None if possible, but no rush
+
+    BinaryOp,
+    IfElseBodies,
+    LetStmtAnnotation,
+    LetStmtLhsRhs,
+    MatchScrutinyAndPattern,
+    // bool
+    Condition,
+    // void
+    WhileLoopBody,
+    IfWithoutElse,
+    EmptyBlock,
+    // int
+    IndexAccess,
 }
 
 impl PotentialType {
@@ -860,8 +878,18 @@ fn types_of_binop(
             let ty_right =
                 TypeVar::make_poly(prov_right, "a".to_owned(), vec![num_iface_def.clone()]);
             let ty_out = TypeVar::make_poly(prov_out, "a".to_owned(), vec![num_iface_def.clone()]);
-            constrain(ctx, ty_left.clone(), ty_right.clone());
-            constrain(ctx, ty_left.clone(), ty_out.clone());
+            constrain_because(
+                ctx,
+                ty_left.clone(),
+                ty_right.clone(),
+                ConstraintReason::BinaryOp,
+            );
+            constrain_because(
+                ctx,
+                ty_left.clone(),
+                ty_out.clone(),
+                ConstraintReason::BinaryOp,
+            );
             (ty_left, ty_right, ty_out)
         }
         BinaryOperator::Mod => (
@@ -877,7 +905,12 @@ fn types_of_binop(
                 TypeVar::make_poly(prov_left, "a".to_owned(), vec![num_iface_def.clone()]);
             let ty_right =
                 TypeVar::make_poly(prov_right, "a".to_owned(), vec![num_iface_def.clone()]);
-            constrain(ctx, ty_left.clone(), ty_right.clone());
+            constrain_because(
+                ctx,
+                ty_left.clone(),
+                ty_right.clone(),
+                ConstraintReason::BinaryOp,
+            );
             let ty_out = TypeVar::make_bool(prov_out);
             (ty_left, ty_right, ty_out)
         }
@@ -894,7 +927,12 @@ fn types_of_binop(
                 TypeVar::make_poly(prov_left, "a".to_owned(), vec![equal_iface_def.clone()]);
             let ty_right =
                 TypeVar::make_poly(prov_right, "a".to_owned(), vec![equal_iface_def.clone()]);
-            constrain(ctx, ty_left.clone(), ty_right.clone());
+            constrain_because(
+                ctx,
+                ty_left.clone(),
+                ty_right.clone(),
+                ConstraintReason::BinaryOp,
+            );
             (ty_left, ty_right, TypeVar::make_bool(prov_out))
         }
     }
@@ -1103,14 +1141,29 @@ fn reasons_singleton(reason: Reason) -> Reasons {
 #[derive(Debug, Clone)]
 pub(crate) enum Mode {
     Syn,
-    Ana { expected: TypeVar },
+    Ana {
+        expected: TypeVar,
+    },
+    AnaWithReason {
+        expected: TypeVar,
+        constraint_reason: ConstraintReason,
+    },
 }
 
 pub(crate) fn constrain(ctx: &mut StaticsContext, tyvar1: TypeVar, tyvar2: TypeVar) {
+    constrain_because(ctx, tyvar1, tyvar2, ConstraintReason::None)
+}
+
+pub(crate) fn constrain_because(
+    ctx: &mut StaticsContext,
+    tyvar1: TypeVar,
+    tyvar2: TypeVar,
+    constraint_reason: ConstraintReason,
+) {
     match (tyvar1.locked(), tyvar2.locked()) {
         // Since both TypeVars are already solved, an error is logged if their data do not match
         (true, true) => {
-            constrain_solved_typevars(ctx, tyvar1, tyvar2);
+            constrain_solved_typevars(ctx, tyvar1, tyvar2, constraint_reason);
         }
         // Since exactly one of the TypeVars is unsolved, its data will be updated with information from the solved TypeVar
         (false, true) => {
@@ -1138,13 +1191,19 @@ pub(crate) fn constrain(ctx: &mut StaticsContext, tyvar1: TypeVar, tyvar2: TypeV
     }
 }
 
-fn constrain_solved_typevars(ctx: &mut StaticsContext, tyvar1: TypeVar, tyvar2: TypeVar) {
+fn constrain_solved_typevars(
+    ctx: &mut StaticsContext,
+    tyvar1: TypeVar,
+    tyvar2: TypeVar,
+    constraint_reason: ConstraintReason,
+) {
     let (key1, potential_ty1) = tyvar1.0.clone_data().types.into_iter().next().unwrap();
     let (key2, potential_ty2) = tyvar2.0.clone_data().types.into_iter().next().unwrap();
     if key1 != key2 {
         ctx.errors.push(Error::TypeConflict {
             ty1: potential_ty1,
             ty2: potential_ty2,
+            constraint_reason,
         })
     } else {
         TypeVar::merge(tyvar1, tyvar2);
@@ -1335,7 +1394,10 @@ fn generate_constraints_stmt(
                 polyvar_scope.add_polys(&ty_ann);
                 generate_constraints_pat(
                     polyvar_scope.clone(),
-                    Mode::Ana { expected: ty_ann },
+                    Mode::AnaWithReason {
+                        expected: ty_ann,
+                        constraint_reason: ConstraintReason::LetStmtAnnotation,
+                    },
                     pat.clone(),
                     ctx,
                 )
@@ -1345,7 +1407,10 @@ fn generate_constraints_stmt(
 
             generate_constraints_expr(
                 polyvar_scope.clone(),
-                Mode::Ana { expected: ty_pat },
+                Mode::AnaWithReason {
+                    expected: ty_pat,
+                    constraint_reason: ConstraintReason::LetStmtLhsRhs,
+                },
                 expr.clone(),
                 ctx,
             );
@@ -1372,6 +1437,10 @@ fn generate_constraints_expr(
     let node_ty = TypeVar::from_node(ctx, expr.id);
     match mode {
         Mode::Syn => (),
+        Mode::AnaWithReason {
+            expected,
+            constraint_reason,
+        } => constrain_because(ctx, node_ty.clone(), expected, constraint_reason),
         Mode::Ana { expected } => constrain(ctx, node_ty.clone(), expected),
     };
     match &*expr.kind {
@@ -1505,8 +1574,9 @@ fn generate_constraints_expr(
         ExprKind::If(cond, expr1, expr2) => {
             generate_constraints_expr(
                 polyvar_scope.clone(),
-                Mode::Ana {
+                Mode::AnaWithReason {
                     expected: TypeVar::make_bool(Reason::Node(cond.id)),
+                    constraint_reason: ConstraintReason::Condition,
                 },
                 cond.clone(),
                 ctx,
@@ -1516,15 +1586,19 @@ fn generate_constraints_expr(
                 Some(expr2) => {
                     generate_constraints_expr(
                         polyvar_scope.clone(),
-                        Mode::Ana {
+                        Mode::AnaWithReason {
                             expected: node_ty.clone(),
+                            constraint_reason: ConstraintReason::IfElseBodies,
                         },
                         expr1.clone(),
                         ctx,
                     );
                     generate_constraints_expr(
                         polyvar_scope,
-                        Mode::Ana { expected: node_ty },
+                        Mode::AnaWithReason {
+                            expected: node_ty,
+                            constraint_reason: ConstraintReason::IfElseBodies,
+                        },
                         expr2.clone(),
                         ctx,
                     );
@@ -1533,8 +1607,9 @@ fn generate_constraints_expr(
                 None => {
                     generate_constraints_expr(
                         polyvar_scope,
-                        Mode::Ana {
+                        Mode::AnaWithReason {
                             expected: TypeVar::make_unit(Reason::Node(expr.id)),
+                            constraint_reason: ConstraintReason::IfWithoutElse,
                         },
                         expr1.clone(),
                         ctx,
@@ -1546,8 +1621,9 @@ fn generate_constraints_expr(
         ExprKind::WhileLoop(cond, expr) => {
             generate_constraints_expr(
                 polyvar_scope.clone(),
-                Mode::Ana {
+                Mode::AnaWithReason {
                     expected: TypeVar::make_bool(Reason::Node(cond.id)),
+                    constraint_reason: ConstraintReason::Condition,
                 },
                 cond.clone(),
                 ctx,
@@ -1568,8 +1644,9 @@ fn generate_constraints_expr(
             for arm in arms {
                 generate_constraints_pat(
                     polyvar_scope.clone(),
-                    Mode::Ana {
+                    Mode::AnaWithReason {
                         expected: ty_scrutiny.clone(),
+                        constraint_reason: ConstraintReason::MatchScrutinyAndPattern,
                     },
                     arm.pat.clone(),
                     ctx,
@@ -1684,8 +1761,9 @@ fn generate_constraints_expr(
             );
             generate_constraints_expr(
                 polyvar_scope,
-                Mode::Ana {
+                Mode::AnaWithReason {
                     expected: TypeVar::make_int(Reason::IndexAccess),
+                    constraint_reason: ConstraintReason::IndexAccess,
                 },
                 index.clone(),
                 ctx,
@@ -1831,6 +1909,10 @@ fn generate_constraints_pat(
     let ty_pat = TypeVar::from_node(ctx, pat.id);
     match mode {
         Mode::Syn => (),
+        Mode::AnaWithReason {
+            expected,
+            constraint_reason,
+        } => constrain_because(ctx, expected, ty_pat.clone(), constraint_reason),
         Mode::Ana { expected } => constrain(ctx, expected, ty_pat.clone()),
     };
     match &*pat.kind {

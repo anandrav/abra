@@ -10,8 +10,8 @@ use std::fmt::{self, Display, Formatter, Write};
 use std::path::PathBuf;
 use std::rc::Rc;
 use typecheck::{
-    fmt_conflicting_types, generate_constraints_file, result_of_constraint_solving, PotentialType,
-    Reason, SolvedType, TypeKey, TypeVar,
+    fmt_conflicting_types, generate_constraints_file, result_of_constraint_solving,
+    ConstraintReason, PotentialType, Reason, SolvedType, TypeKey, TypeVar,
 };
 
 mod pat_exhaustiveness;
@@ -148,6 +148,7 @@ pub(crate) enum Error {
     TypeConflict {
         ty1: PotentialType,
         ty2: PotentialType,
+        constraint_reason: ConstraintReason,
     },
     MemberAccessNeedsAnnotation {
         node_id: NodeId,
@@ -277,7 +278,11 @@ impl Error {
                 }
                 writeln!(err_string).unwrap();
             }
-            Error::TypeConflict { ty1, ty2 } => {
+            Error::TypeConflict {
+                ty1,
+                ty2,
+                constraint_reason,
+            } => {
                 err_string.push_str(&format!("Type conflict. Got type {}:\n", ty1));
                 let provs1 = ty1.reasons().borrow();
                 let cause1 = provs1.iter().next().unwrap();
