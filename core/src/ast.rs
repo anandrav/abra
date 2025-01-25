@@ -388,7 +388,7 @@ impl Node for Expr {
             ExprKind::Str(_) => vec![],
             ExprKind::List(exprs) => exprs.iter().map(|e| e.clone() as Rc<dyn Node>).collect(),
             ExprKind::Array(exprs) => exprs.iter().map(|e| e.clone() as Rc<dyn Node>).collect(),
-            ExprKind::Func(args, ty_opt, body) => {
+            ExprKind::AnonymousFunction(args, ty_opt, body) => {
                 let mut children: Vec<Rc<dyn Node>> = Vec::new();
                 args.iter().for_each(|(pat, annot)| {
                     children.push(pat.clone());
@@ -454,7 +454,7 @@ pub(crate) enum ExprKind {
     Str(String),
     List(Vec<Rc<Expr>>),
     Array(Vec<Rc<Expr>>),
-    Func(Vec<ArgAnnotated>, Option<Rc<Type>>, Rc<Expr>),
+    AnonymousFunction(Vec<ArgAnnotated>, Option<Rc<Type>>, Rc<Expr>),
     If(Rc<Expr>, Rc<Expr>, Option<Rc<Expr>>),
     WhileLoop(Rc<Expr>, Rc<Expr>),
     Match(Rc<Expr>, Vec<MatchArm>),

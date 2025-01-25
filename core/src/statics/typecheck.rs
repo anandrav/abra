@@ -287,6 +287,8 @@ pub(crate) enum Reason {
     BinopRight(NodeId),
     IndexAccess,
     VariantNoData(NodeId), // the type of the data of a variant with no data, always Unit.
+    WhileLoopBody(NodeId),
+    IfWithoutElse(NodeId),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
@@ -298,11 +300,9 @@ pub(crate) enum ConstraintReason {
     LetStmtAnnotation,
     LetStmtLhsRhs,
     MatchScrutinyAndPattern,
+    FuncCall,
     // bool
     Condition,
-    // void
-    WhileLoopBody,
-    IfWithoutElse,
     EmptyBlock,
     // int
     IndexAccess,
@@ -1161,6 +1161,7 @@ pub(crate) fn constrain_because(
     tyvar2: TypeVar,
     constraint_reason: ConstraintReason,
 ) {
+    // println!("constrain_because");
     match (tyvar1.locked(), tyvar2.locked()) {
         // Since both TypeVars are already solved, an error is logged if their data do not match
         (true, true) => {
@@ -1168,6 +1169,7 @@ pub(crate) fn constrain_because(
         }
         // Since exactly one of the TypeVars is unsolved, its data will be updated with information from the solved TypeVar
         (false, true) => {
+            // println!("false, true");
             let potential_ty = tyvar2.0.clone_data().types.into_iter().next().unwrap().1;
             tyvar1.0.with_data(|d| {
                 if d.types.is_empty() {
@@ -1177,6 +1179,7 @@ pub(crate) fn constrain_because(
             });
         }
         (true, false) => {
+            // println!("true, false");
             let potential_ty = tyvar1.0.clone_data().types.into_iter().next().unwrap().1;
             tyvar2.0.with_data(|d| {
                 if d.types.is_empty() {
@@ -1187,6 +1190,7 @@ pub(crate) fn constrain_because(
         }
         // Since both TypeVars are unsolved, they are unioned and their data is merged
         (false, false) => {
+            // println!("false, false");
             TypeVar::merge(tyvar1, tyvar2);
         }
     }
@@ -1198,6 +1202,7 @@ fn constrain_solved_typevars(
     tyvar2: TypeVar,
     constraint_reason: ConstraintReason,
 ) {
+    // println!("constrain_solved_typevars");
     let (key1, potential_ty1) = tyvar1.0.clone_data().types.into_iter().next().unwrap();
     let (key2, potential_ty2) = tyvar2.0.clone_data().types.into_iter().next().unwrap();
     if key1 != key2 {
@@ -1579,17 +1584,16 @@ fn generate_constraints_expr(
                 Some(expr2) => {
                     generate_constraints_expr(
                         polyvar_scope.clone(),
-                        Mode::AnaWithReason {
+                        Mode::Ana {
                             expected: node_ty.clone(),
-                            constraint_reason: ConstraintReason::IfElseBodies,
                         },
                         expr1.clone(),
                         ctx,
                     );
                     generate_constraints_expr(
-                        polyvar_scope,
+                        polyvar_scope.clone(),
                         Mode::AnaWithReason {
-                            expected: node_ty,
+                            expected: node_ty.clone(),
                             constraint_reason: ConstraintReason::IfElseBodies,
                         },
                         expr2.clone(),
@@ -1600,14 +1604,17 @@ fn generate_constraints_expr(
                 None => {
                     generate_constraints_expr(
                         polyvar_scope,
-                        Mode::AnaWithReason {
-                            expected: TypeVar::make_unit(Reason::Node(expr.id)),
-                            constraint_reason: ConstraintReason::IfWithoutElse,
+                        Mode::Ana {
+                            expected: TypeVar::make_unit(Reason::IfWithoutElse(expr.id)),
                         },
                         expr1.clone(),
                         ctx,
                     );
-                    constrain(ctx, node_ty, TypeVar::make_unit(Reason::Node(expr.id)))
+                    constrain(
+                        ctx,
+                        node_ty,
+                        TypeVar::make_unit(Reason::IfWithoutElse(expr.id)),
+                    )
                 }
             }
         }
@@ -1622,7 +1629,11 @@ fn generate_constraints_expr(
                 ctx,
             );
             generate_constraints_expr(polyvar_scope, Mode::Syn, expr.clone(), ctx);
-            constrain(ctx, node_ty, TypeVar::make_unit(Reason::Node(expr.id)))
+            constrain(
+                ctx,
+                node_ty,
+                TypeVar::make_unit(Reason::WhileLoopBody(expr.id)),
+            )
         }
         ExprKind::Match(scrut, arms) => {
             let ty_scrutiny = TypeVar::from_node(ctx, scrut.id);
@@ -1654,7 +1665,7 @@ fn generate_constraints_expr(
                 );
             }
         }
-        ExprKind::Func(args, out_annot, body) => {
+        ExprKind::AnonymousFunction(args, out_annot, body) => {
             let func_node_id = expr.id;
             let body_symbol_table = polyvar_scope.new_scope();
             let ty_func = generate_constraints_func_helper(
@@ -1669,6 +1680,9 @@ fn generate_constraints_expr(
             constrain(ctx, node_ty, ty_func);
         }
         ExprKind::FuncAp(func, args) => {
+            generate_constraints_expr(polyvar_scope.clone(), Mode::Syn, func.clone(), ctx);
+            let ty_func = TypeVar::from_node(ctx, func.id);
+
             // arguments
             let tys_args: Vec<TypeVar> = args
                 .iter()
@@ -1692,15 +1706,18 @@ fn generate_constraints_expr(
             constrain(ctx, ty_body.clone(), node_ty);
 
             // function type
-            let ty_func = TypeVar::make_func(tys_args, ty_body, Reason::Node(expr.id));
-            generate_constraints_expr(
-                polyvar_scope,
-                Mode::Ana {
-                    expected: ty_func.clone(),
-                },
-                func.clone(),
-                ctx,
-            );
+            let ty_args_and_body = TypeVar::make_func(tys_args, ty_body, Reason::Node(expr.id));
+            // println!("here!");
+            // println!("ty_func: {}", ty_func);
+            constrain_because(ctx, ty_args_and_body, ty_func, ConstraintReason::FuncCall);
+            // generate_constraints_expr(
+            //     polyvar_scope.clone(),
+            //     Mode::Ana {
+            //         expected: ty_func.clone(),
+            //     },
+            //     func.clone(),
+            //     ctx,
+            // );
 
             // println!("funcap: {}", ty_func);
         }

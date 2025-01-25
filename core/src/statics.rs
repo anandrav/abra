@@ -210,6 +210,7 @@ pub(crate) fn check_errors(
     Err(err_string)
 }
 
+// TODO: reduce code duplication for displaying error messages, types
 impl Error {
     fn show(&self, ctx: &StaticsContext, node_map: &NodeMap, sources: &Sources) -> String {
         let mut err_string = String::new();
@@ -219,7 +220,6 @@ impl Error {
                 let span = node_map.get(expr_id).unwrap().span();
                 span.display(&mut err_string, sources, "");
             }
-
             Error::UnconstrainedUnifvar { node_id } => {
                 let span = node_map.get(node_id).unwrap().span();
                 span.display(
@@ -284,46 +284,72 @@ impl Error {
                 constraint_reason,
             } => match constraint_reason {
                 ConstraintReason::None => {
-                    err_string.push_str(&format!("Type conflict. Got type {}:\n", ty1));
-                    let provs1 = ty1.reasons().borrow();
-                    let cause1 = provs1.iter().next().unwrap();
-                    write_reason_to_err_string(&mut err_string, ty1, cause1, node_map, sources);
-                    err_string.push_str(&format!("But also got type {}:\n", ty2));
+                    err_string.push_str(&format!("Type conflict. Got type {}:\n", ty2));
                     let provs2 = ty2.reasons().borrow();
                     let cause2 = provs2.iter().next().unwrap();
                     write_reason_to_err_string(&mut err_string, ty2, cause2, node_map, sources);
+                    err_string.push_str(&format!("but also got type {}:\n", ty1));
+                    let provs1 = ty1.reasons().borrow();
+                    let cause1 = provs1.iter().next().unwrap();
+                    write_reason_to_err_string(&mut err_string, ty1, cause1, node_map, sources);
                     err_string.push('\n');
                 }
                 ConstraintReason::BinaryOpOperands => {
                     err_string.push_str("type conflict due to binary operands\n\n")
                 }
                 ConstraintReason::IfElseBodies => {
-                    err_string.push_str("type conflict due to if else bodies\n\n")
+                    err_string
+                        .push_str("Type conflict: branches of if-else expression do not match\n");
+                    let provs2 = ty2.reasons().borrow();
+                    let cause2 = provs2.iter().next().unwrap();
+                    write_reason_to_err_string(&mut err_string, ty2, cause2, node_map, sources);
+                    let provs1 = ty1.reasons().borrow();
+                    let cause1 = provs1.iter().next().unwrap();
+                    write_reason_to_err_string(&mut err_string, ty1, cause1, node_map, sources);
+                    err_string.push('\n');
                 }
                 ConstraintReason::LetStmtAnnotation => {
-                    err_string.push_str("type conflict due to let stmt annotations\n\n")
+                    err_string.push_str("Type conflict: variables and annotation do not match\n");
+                    let provs2 = ty2.reasons().borrow();
+                    let cause2 = provs2.iter().next().unwrap();
+                    write_reason_to_err_string(&mut err_string, ty2, cause2, node_map, sources);
+                    let provs1 = ty1.reasons().borrow();
+                    let cause1 = provs1.iter().next().unwrap();
+                    write_reason_to_err_string(&mut err_string, ty1, cause1, node_map, sources);
+                    err_string.push('\n');
                 }
                 ConstraintReason::LetStmtLhsRhs => {
-                    err_string.push_str("type conflict due to let stmt lhs rhs\n\n")
+                    err_string.push_str("Type conflict: variable and assignment do not match\n");
+                    let provs2 = ty2.reasons().borrow();
+                    let cause2 = provs2.iter().next().unwrap();
+                    write_reason_to_err_string(&mut err_string, ty2, cause2, node_map, sources);
+                    let provs1 = ty1.reasons().borrow();
+                    let cause1 = provs1.iter().next().unwrap();
+                    write_reason_to_err_string(&mut err_string, ty1, cause1, node_map, sources);
+                    err_string.push('\n');
                 }
                 ConstraintReason::MatchScrutinyAndPattern => {
                     err_string.push_str("type conflict due to match scrutiny and pattern\n\n")
                 }
+                ConstraintReason::FuncCall => {
+                    err_string.push_str("Type conflict: function args don't match or something\n");
+                    let provs2 = ty2.reasons().borrow();
+                    let cause2 = provs2.iter().next().unwrap();
+                    write_reason_to_err_string(&mut err_string, ty2, cause2, node_map, sources);
+                    let provs1 = ty1.reasons().borrow();
+                    let cause1 = provs1.iter().next().unwrap();
+                    write_reason_to_err_string(&mut err_string, ty1, cause1, node_map, sources);
+                    err_string.push('\n');
+                }
                 ConstraintReason::Condition => {
                     err_string.push_str(&format!(
-                        "Type conflict: condition must be a boolean, but got {}:\n",
+                        "Type conflict: condition must be a bool but got {}\n",
                         ty1
                     ));
                     let provs1 = ty1.reasons().borrow();
                     let cause1 = provs1.iter().next().unwrap();
                     write_reason_to_err_string(&mut err_string, ty1, cause1, node_map, sources);
                     err_string.push('\n');
-                }
-                ConstraintReason::WhileLoopBody => {
-                    err_string.push_str("type conflict due to while loop body must be void\n\n")
-                }
-                ConstraintReason::IfWithoutElse => {
-                    err_string.push_str("type conflict due to if no else must be void\n\n")
                 }
                 ConstraintReason::EmptyBlock => {
                     err_string.push_str("type conflict due to empty block is void\n\n")
@@ -373,7 +399,7 @@ impl Error {
     }
 }
 
-// TODO: This sucks so bad...
+// TODO: reduce code duplication for displaying error messages, types
 fn write_reason_to_err_string(
     err_string: &mut String,
     ty: &PotentialType,
@@ -391,7 +417,7 @@ fn write_reason_to_err_string(
         }
         Reason::Node(id) => {
             let span = node_map.get(id).unwrap().span();
-            span.display(err_string, sources, "");
+            span.display(err_string, sources, "the term");
         }
         Reason::Annotation(id) => {
             let span = node_map.get(id).unwrap().span();
@@ -414,6 +440,15 @@ fn write_reason_to_err_string(
         }
         Reason::VariantNoData(_prov) => {
             err_string.push_str("the data of some Enum variant");
+        }
+        Reason::WhileLoopBody(id) => {
+            err_string.push_str("the body of this while loop\n");
+            let span = node_map.get(id).unwrap().span();
+            span.display(err_string, sources, "");
+        }
+        Reason::IfWithoutElse(id) => {
+            let span = node_map.get(id).unwrap().span();
+            span.display(err_string, sources, "this if expression");
         }
         Reason::IndexAccess => {
             let _ = writeln!(err_string, "array index");

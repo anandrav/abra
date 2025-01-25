@@ -886,7 +886,7 @@ pub(crate) fn parse_expr_term(pair: Pair<Rule>, filename: &str) -> Rc<Expr> {
             };
             let body = parse_expr_pratt(Pairs::single(inner.last().unwrap().clone()), filename);
             Rc::new(Expr {
-                kind: Rc::new(ExprKind::Func(args, ty_out, body)),
+                kind: Rc::new(ExprKind::AnonymousFunction(args, ty_out, body)),
                 span,
                 id: NodeId::new(),
             })

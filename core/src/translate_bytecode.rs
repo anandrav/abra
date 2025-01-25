@@ -241,7 +241,7 @@ impl Translator {
         for (node_id, data) in st.lambdas.clone() {
             let node = self.node_map.get(&node_id).unwrap();
             let expr = node.to_expr().unwrap();
-            let ExprKind::Func(args, _, body) = &*expr.kind else {
+            let ExprKind::AnonymousFunction(args, _, body) = &*expr.kind else {
                 panic!()
             };
 
@@ -823,7 +823,7 @@ impl Translator {
                 }
                 emit(st, Line::Label(end_label));
             }
-            ExprKind::Func(args, _, body) => {
+            ExprKind::AnonymousFunction(args, _, body) => {
                 let label = make_label("lambda");
 
                 let mut locals = HashSet::new();
@@ -1225,7 +1225,7 @@ impl Translator {
                     self.collect_captures_expr(&arm.expr, locals, arg_set, captures);
                 }
             }
-            ExprKind::Func(_, _, body) => {
+            ExprKind::AnonymousFunction(_, _, body) => {
                 self.collect_captures_expr(body, locals, arg_set, captures);
             }
             ExprKind::List(exprs) => {
@@ -1436,7 +1436,7 @@ fn collect_locals_expr(expr: &Expr, locals: &mut HashSet<NodeId>) {
                 collect_locals_expr(arg, locals);
             }
         }
-        ExprKind::Func(..) => {}
+        ExprKind::AnonymousFunction(..) => {}
         ExprKind::Identifier(..)
         | ExprKind::Unit
         | ExprKind::Int(..)

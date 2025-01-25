@@ -101,7 +101,7 @@ fn check_pattern_exhaustiveness_expr(statics: &mut StaticsContext, expr: &Expr) 
             check_pattern_exhaustiveness_expr(statics, cond);
             check_pattern_exhaustiveness_expr(statics, expr);
         }
-        ExprKind::Func(_args, _out_annot, body) => {
+        ExprKind::AnonymousFunction(_args, _out_annot, body) => {
             check_pattern_exhaustiveness_expr(statics, body);
         }
         ExprKind::FuncAp(func, args) => {

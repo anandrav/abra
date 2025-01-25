@@ -518,7 +518,7 @@ fn resolve_names_expr(ctx: &mut StaticsContext, symbol_table: SymbolTable, expr:
                 resolve_names_expr(ctx, symbol_table.clone(), arm.expr.clone());
             }
         }
-        ExprKind::Func(args, out_ty, body) => {
+        ExprKind::AnonymousFunction(args, out_ty, body) => {
             let symbol_table = symbol_table.new_scope();
             resolve_names_func_helper(ctx, symbol_table.clone(), args, body, out_ty);
         }
