@@ -1138,6 +1138,7 @@ fn reasons_singleton(reason: Reason) -> Reasons {
     RefCell::new(set)
 }
 
+// TODO: is Mode really necessary?
 #[derive(Debug, Clone)]
 pub(crate) enum Mode {
     Syn,
@@ -1435,14 +1436,6 @@ fn generate_constraints_expr(
     ctx: &mut StaticsContext,
 ) {
     let node_ty = TypeVar::from_node(ctx, expr.id);
-    match mode {
-        Mode::Syn => (),
-        Mode::AnaWithReason {
-            expected,
-            constraint_reason,
-        } => constrain_because(ctx, node_ty.clone(), expected, constraint_reason),
-        Mode::Ana { expected } => constrain(ctx, node_ty.clone(), expected),
-    };
     match &*expr.kind {
         ExprKind::Unit => {
             constrain(ctx, node_ty, TypeVar::make_unit(Reason::Literal(expr.id)));
@@ -1772,6 +1765,15 @@ fn generate_constraints_expr(
             constrain(ctx, node_ty, elem_ty);
         }
     }
+    let node_ty = TypeVar::from_node(ctx, expr.id);
+    match mode {
+        Mode::Syn => (),
+        Mode::AnaWithReason {
+            expected,
+            constraint_reason,
+        } => constrain_because(ctx, node_ty.clone(), expected, constraint_reason),
+        Mode::Ana { expected } => constrain(ctx, node_ty.clone(), expected),
+    };
 }
 
 fn generate_constraints_func_helper(
@@ -1907,14 +1909,6 @@ fn generate_constraints_pat(
     ctx: &mut StaticsContext,
 ) {
     let ty_pat = TypeVar::from_node(ctx, pat.id);
-    match mode {
-        Mode::Syn => (),
-        Mode::AnaWithReason {
-            expected,
-            constraint_reason,
-        } => constrain_because(ctx, expected, ty_pat.clone(), constraint_reason),
-        Mode::Ana { expected } => constrain(ctx, expected, ty_pat.clone()),
-    };
     match &*pat.kind {
         PatKind::Wildcard => (),
         PatKind::Unit => {
@@ -2006,6 +2000,15 @@ fn generate_constraints_pat(
             }
         }
     }
+    let ty_pat = TypeVar::from_node(ctx, pat.id);
+    match mode {
+        Mode::Syn => (),
+        Mode::AnaWithReason {
+            expected,
+            constraint_reason,
+        } => constrain_because(ctx, expected, ty_pat.clone(), constraint_reason),
+        Mode::Ana { expected } => constrain(ctx, expected, ty_pat.clone()),
+    };
 }
 
 pub(crate) fn monotype_to_typevar(ty: Monotype, reason: Reason) -> TypeVar {

@@ -282,17 +282,56 @@ impl Error {
                 ty1,
                 ty2,
                 constraint_reason,
-            } => {
-                err_string.push_str(&format!("Type conflict. Got type {}:\n", ty1));
-                let provs1 = ty1.reasons().borrow();
-                let cause1 = provs1.iter().next().unwrap();
-                write_reason_to_err_string(&mut err_string, ty1, cause1, node_map, sources);
-                err_string.push_str(&format!("But also got type {}:\n", ty2));
-                let provs2 = ty2.reasons().borrow();
-                let cause2 = provs2.iter().next().unwrap();
-                write_reason_to_err_string(&mut err_string, ty2, cause2, node_map, sources);
-                err_string.push('\n');
-            }
+            } => match constraint_reason {
+                ConstraintReason::None => {
+                    err_string.push_str(&format!("Type conflict. Got type {}:\n", ty1));
+                    let provs1 = ty1.reasons().borrow();
+                    let cause1 = provs1.iter().next().unwrap();
+                    write_reason_to_err_string(&mut err_string, ty1, cause1, node_map, sources);
+                    err_string.push_str(&format!("But also got type {}:\n", ty2));
+                    let provs2 = ty2.reasons().borrow();
+                    let cause2 = provs2.iter().next().unwrap();
+                    write_reason_to_err_string(&mut err_string, ty2, cause2, node_map, sources);
+                    err_string.push('\n');
+                }
+                ConstraintReason::BinaryOpOperands => {
+                    err_string.push_str("type conflict due to binary operands\n\n")
+                }
+                ConstraintReason::IfElseBodies => {
+                    err_string.push_str("type conflict due to if else bodies\n\n")
+                }
+                ConstraintReason::LetStmtAnnotation => {
+                    err_string.push_str("type conflict due to let stmt annotations\n\n")
+                }
+                ConstraintReason::LetStmtLhsRhs => {
+                    err_string.push_str("type conflict due to let stmt lhs rhs\n\n")
+                }
+                ConstraintReason::MatchScrutinyAndPattern => {
+                    err_string.push_str("type conflict due to match scrutiny and pattern\n\n")
+                }
+                ConstraintReason::Condition => {
+                    err_string.push_str(&format!(
+                        "Type conflict: condition must be a boolean, but got {}:\n",
+                        ty1
+                    ));
+                    let provs1 = ty1.reasons().borrow();
+                    let cause1 = provs1.iter().next().unwrap();
+                    write_reason_to_err_string(&mut err_string, ty1, cause1, node_map, sources);
+                    err_string.push('\n');
+                }
+                ConstraintReason::WhileLoopBody => {
+                    err_string.push_str("type conflict due to while loop body must be void\n\n")
+                }
+                ConstraintReason::IfWithoutElse => {
+                    err_string.push_str("type conflict due to if no else must be void\n\n")
+                }
+                ConstraintReason::EmptyBlock => {
+                    err_string.push_str("type conflict due to empty block is void\n\n")
+                }
+                ConstraintReason::IndexAccess => {
+                    err_string.push_str("type conflict due to array index is int\n\n")
+                }
+            },
             Error::MemberAccessNeedsAnnotation { node_id } => {
                 let span = node_map.get(node_id).unwrap().span();
                 span.display(
@@ -345,10 +384,10 @@ fn write_reason_to_err_string(
     match cause {
         Reason::Builtin(builtin) => {
             let s = builtin.name();
-            let _ = writeln!(err_string, "The builtin function {s}");
+            let _ = writeln!(err_string, "the builtin function {s}");
         }
         Reason::Effect(u16) => {
-            let _ = writeln!(err_string, "The effect {u16}");
+            let _ = writeln!(err_string, "the effect {u16}");
         }
         Reason::Node(id) => {
             let span = node_map.get(id).unwrap().span();
@@ -356,32 +395,28 @@ fn write_reason_to_err_string(
         }
         Reason::Annotation(id) => {
             let span = node_map.get(id).unwrap().span();
-            span.display(err_string, sources, "This type annotation");
+            span.display(err_string, sources, "this type annotation");
         }
         Reason::Literal(id) => {
             let span = node_map.get(id).unwrap().span();
             let literal_kind = ty.to_string();
-            span.display(
-                err_string,
-                sources,
-                &format!("This {} literal", literal_kind),
-            );
+            span.display(err_string, sources, &format!("{} literal", literal_kind));
         }
         Reason::BinopLeft(id) => {
-            err_string.push_str("The left operand of operator\n");
+            err_string.push_str("the left operand of operator\n");
             let span = node_map.get(id).unwrap().span();
             span.display(err_string, sources, "");
         }
         Reason::BinopRight(id) => {
-            err_string.push_str("The left operand of this operator\n");
+            err_string.push_str("the left operand of this operator\n");
             let span = node_map.get(id).unwrap().span();
             span.display(err_string, sources, "");
         }
         Reason::VariantNoData(_prov) => {
-            err_string.push_str("The data of some Enum variant");
+            err_string.push_str("the data of some Enum variant");
         }
         Reason::IndexAccess => {
-            let _ = writeln!(err_string, "Index for array access");
+            let _ = writeln!(err_string, "array index");
         }
     }
 }
