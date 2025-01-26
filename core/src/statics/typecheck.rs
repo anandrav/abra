@@ -296,7 +296,7 @@ pub(crate) enum Reason {
 pub(crate) enum ConstraintReason {
     None, // TODO: get rid of None if possible, but no rush
 
-    BinaryOperator,
+    BinaryOperandsMustMatch,
     IfElseBodies,
     LetStmtAnnotation,
     LetStmtLhsRhs,
@@ -305,6 +305,7 @@ pub(crate) enum ConstraintReason {
     // bool
     Condition,
     EmptyBlock,
+    BinaryOperandBool,
     // int
     IndexAccess,
 }
@@ -1487,20 +1488,15 @@ fn generate_constraints_expr(
                         ctx,
                         ty_left,
                         TypeVar::make_bool(reason_left),
-                        ConstraintReason::BinaryOperator,
+                        ConstraintReason::BinaryOperandBool,
                     );
                     constrain_because(
                         ctx,
                         ty_right,
                         TypeVar::make_bool(reason_right),
-                        ConstraintReason::BinaryOperator,
+                        ConstraintReason::BinaryOperandBool,
                     );
-                    constrain_because(
-                        ctx,
-                        ty_out,
-                        TypeVar::make_bool(reason_out),
-                        ConstraintReason::BinaryOperator,
-                    );
+                    constrain(ctx, ty_out, TypeVar::make_bool(reason_out));
                 }
                 BinaryOperator::Add
                 | BinaryOperator::Subtract
@@ -1513,29 +1509,24 @@ fn generate_constraints_expr(
                         ctx,
                         ty_left.clone(),
                         ty_right,
-                        ConstraintReason::BinaryOperator,
+                        ConstraintReason::BinaryOperandsMustMatch,
                     );
-                    constrain_because(ctx, ty_left, ty_out, ConstraintReason::BinaryOperator);
+                    constrain(ctx, ty_left, ty_out);
                 }
                 BinaryOperator::Mod => {
                     constrain_because(
                         ctx,
                         ty_left,
                         TypeVar::make_int(reason_left),
-                        ConstraintReason::BinaryOperator,
+                        ConstraintReason::BinaryOperandsMustMatch,
                     );
                     constrain_because(
                         ctx,
                         ty_right,
                         TypeVar::make_int(reason_right),
-                        ConstraintReason::BinaryOperator,
+                        ConstraintReason::BinaryOperandsMustMatch,
                     );
-                    constrain_because(
-                        ctx,
-                        ty_out,
-                        TypeVar::make_int(reason_out),
-                        ConstraintReason::BinaryOperator,
-                    );
+                    constrain(ctx, ty_out, TypeVar::make_int(reason_out));
                 }
                 BinaryOperator::LessThan
                 | BinaryOperator::GreaterThan
@@ -1546,14 +1537,9 @@ fn generate_constraints_expr(
                         ctx,
                         ty_left.clone(),
                         ty_right,
-                        ConstraintReason::BinaryOperator,
+                        ConstraintReason::BinaryOperandsMustMatch,
                     );
-                    constrain_because(
-                        ctx,
-                        ty_out,
-                        TypeVar::make_bool(reason_out),
-                        ConstraintReason::BinaryOperator,
-                    );
+                    constrain(ctx, ty_out, TypeVar::make_bool(reason_out));
                 }
                 BinaryOperator::Format => {
                     // TODO: constrain each arg to ToString interface
@@ -1561,7 +1547,7 @@ fn generate_constraints_expr(
                         ctx,
                         ty_out,
                         TypeVar::make_string(reason_out),
-                        ConstraintReason::BinaryOperator,
+                        ConstraintReason::BinaryOperandsMustMatch,
                     );
                 }
                 BinaryOperator::Equal => {
@@ -1570,14 +1556,9 @@ fn generate_constraints_expr(
                         ctx,
                         ty_left.clone(),
                         ty_right,
-                        ConstraintReason::BinaryOperator,
+                        ConstraintReason::BinaryOperandsMustMatch,
                     );
-                    constrain_because(
-                        ctx,
-                        ty_out,
-                        TypeVar::make_bool(reason_out),
-                        ConstraintReason::BinaryOperator,
-                    );
+                    constrain(ctx, ty_out, TypeVar::make_bool(reason_out));
                 }
             }
         }

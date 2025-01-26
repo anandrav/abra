@@ -294,8 +294,15 @@ impl Error {
                     write_reason_to_err_string(&mut err_string, ty1, cause1, node_map, sources);
                     err_string.push('\n');
                 }
-                ConstraintReason::BinaryOperator => {
-                    err_string.push_str("type conflict due to binary operands\n\n")
+                ConstraintReason::BinaryOperandsMustMatch => {
+                    err_string.push_str("Type conflict: operands must have the same type\n");
+                    let provs2 = ty2.reasons().borrow();
+                    let cause2 = provs2.iter().next().unwrap();
+                    write_reason_to_err_string(&mut err_string, ty2, cause2, node_map, sources);
+                    let provs1 = ty1.reasons().borrow();
+                    let cause1 = provs1.iter().next().unwrap();
+                    write_reason_to_err_string(&mut err_string, ty1, cause1, node_map, sources);
+                    err_string.push('\n');
                 }
                 ConstraintReason::IfElseBodies => {
                     err_string
@@ -344,6 +351,16 @@ impl Error {
                 ConstraintReason::Condition => {
                     err_string.push_str(&format!(
                         "Type conflict: condition must be a bool but got {}\n",
+                        ty1
+                    ));
+                    let provs1 = ty1.reasons().borrow();
+                    let cause1 = provs1.iter().next().unwrap();
+                    write_reason_to_err_string(&mut err_string, ty1, cause1, node_map, sources);
+                    err_string.push('\n');
+                }
+                ConstraintReason::BinaryOperandBool => {
+                    err_string.push_str(&format!(
+                        "Type conflict: operand must be a bool but got {}\n",
                         ty1
                     ));
                     let provs1 = ty1.reasons().borrow();
