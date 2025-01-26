@@ -268,11 +268,17 @@ impl Translator {
             let mut iteration = Vec::new();
             mem::swap(&mut (iteration), &mut st.overloaded_methods_to_generate);
             for (desc, substituted_ty) in iteration {
+                // println!("generating func {}", desc.name);
+                // println!("instance ty = {}", desc.impl_type);
+                // println!("substitued_ty = {}", desc.impl_type);
+                // println!();
                 let f = desc.func_def.clone();
 
                 let overloaded_func_ty = self.statics.solution_of_node(f.name.id()).unwrap();
+                // println!("overloaded_func_ty = {}", desc.impl_type);
                 let monomorph_env = MonomorphEnv::empty();
                 update_monomorph_env(monomorph_env.clone(), overloaded_func_ty, substituted_ty);
+                // println!("monomorph_env: {}", monomorph_env);
 
                 let label = st.overloaded_func_map.get(&desc).unwrap();
                 emit(st, Line::Label(label.clone()));
@@ -545,9 +551,11 @@ impl Translator {
                             // println!("{}", s);
 
                             let func_ty = self.statics.solution_of_node(func.id).unwrap();
+                            // println!("func_ty: {}", func_ty);
+                            // println!("monomorphic_env: {}", monomorph_env);
                             let substituted_ty =
                                 subst_with_monomorphic_env(monomorph_env.clone(), func_ty);
-                            // println!("substituted type: {:?}", substituted_ty);
+                            // println!("substituted type: {}", substituted_ty);
                             let method_name = &iface_def.methods[method as usize].name.v;
                             let impl_list = self
                                 .statics
@@ -555,6 +563,7 @@ impl Translator {
                                 .get(&iface_def)
                                 .unwrap()
                                 .clone();
+                            // println!();
 
                             // TODO: simplify this logic
                             for imp in impl_list {
@@ -1339,7 +1348,7 @@ impl Translator {
         let span = node.span();
         let mut s = String::new();
         span.display(&mut s, &self.sources, "");
-        println!("{}", s);
+        // println!("{}", s);
     }
 
     fn handle_pat_binding(&self, pat: Rc<Pat>, locals: &OffsetTable, st: &mut TranslatorState) {

@@ -648,6 +648,35 @@ fn parametric_polymorphic_func() {
 let nums = [| 1, 2, 3 |]
 let bools = [| true, false, true, true, false |]
 
+fn list_len(xs: list<'a>) {
+    match xs {
+      cons(_, ~xs) -> 1 + list_len(xs)
+      nil -> 0
+    }
+}
+
+list_len(nums) + list_len(bools)
+"#;
+    let sources = source_files_single(src);
+    let program = match compile_bytecode(sources, DefaultEffects::enumerate()) {
+        Ok(vm) => vm,
+        Err(e) => {
+            panic!("{}", e);
+        }
+    };
+    let mut vm = Vm::new(program);
+    vm.run();
+    let top = vm.top();
+    assert_eq!(top.get_int(), 8);
+}
+
+#[ignore]
+#[test]
+fn parametric_polymorphic_func_no_annotation() {
+    let src = r#"
+let nums = [| 1, 2, 3 |]
+let bools = [| true, false, true, true, false |]
+
 fn list_len(xs) {
     match xs {
       cons(_, ~xs) -> 1 + list_len(xs)

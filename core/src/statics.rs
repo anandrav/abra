@@ -332,7 +332,7 @@ impl Error {
                     err_string.push_str("type conflict due to match scrutiny and pattern\n\n")
                 }
                 ConstraintReason::FuncCall => {
-                    err_string.push_str("Type conflict: function args don't match or something\n");
+                    err_string.push_str("Type conflict: wrong argument type\n");
                     let provs2 = ty2.reasons().borrow();
                     let cause2 = provs2.iter().next().unwrap();
                     write_reason_to_err_string(&mut err_string, ty2, cause2, node_map, sources);

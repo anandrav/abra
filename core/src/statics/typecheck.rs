@@ -533,6 +533,7 @@ impl TypeVar {
         tvar
     }
 
+    // TODO! I am not convinced that Polyvars are properly resolved and/or substituted. Will need to deep dive
     // Creates a *new* Type with polymorphic variabels replaced by subtitutions
     pub(crate) fn subst(
         self,
@@ -1161,7 +1162,6 @@ pub(crate) fn constrain_because(
     tyvar2: TypeVar,
     constraint_reason: ConstraintReason,
 ) {
-    // println!("constrain_because");
     match (tyvar1.locked(), tyvar2.locked()) {
         // Since both TypeVars are already solved, an error is logged if their data do not match
         (true, true) => {
@@ -1169,7 +1169,6 @@ pub(crate) fn constrain_because(
         }
         // Since exactly one of the TypeVars is unsolved, its data will be updated with information from the solved TypeVar
         (false, true) => {
-            // println!("false, true");
             let potential_ty = tyvar2.0.clone_data().types.into_iter().next().unwrap().1;
             tyvar1.0.with_data(|d| {
                 if d.types.is_empty() {
@@ -1179,7 +1178,6 @@ pub(crate) fn constrain_because(
             });
         }
         (true, false) => {
-            // println!("true, false");
             let potential_ty = tyvar1.0.clone_data().types.into_iter().next().unwrap().1;
             tyvar2.0.with_data(|d| {
                 if d.types.is_empty() {
@@ -1190,7 +1188,6 @@ pub(crate) fn constrain_because(
         }
         // Since both TypeVars are unsolved, they are unioned and their data is merged
         (false, false) => {
-            // println!("false, false");
             TypeVar::merge(tyvar1, tyvar2);
         }
     }
@@ -1202,7 +1199,6 @@ fn constrain_solved_typevars(
     tyvar2: TypeVar,
     constraint_reason: ConstraintReason,
 ) {
-    // println!("constrain_solved_typevars");
     let (key1, potential_ty1) = tyvar1.0.clone_data().types.into_iter().next().unwrap();
     let (key2, potential_ty2) = tyvar2.0.clone_data().types.into_iter().next().unwrap();
     if key1 != key2 {
@@ -1212,7 +1208,43 @@ fn constrain_solved_typevars(
             constraint_reason,
         })
     } else {
-        TypeVar::merge(tyvar1, tyvar2);
+        // TODO LAST HERE
+        // TODO: instead of using TypeVar::merge, which doesn't have
+        // access to ctx and therefore can't push errors,
+        // make a function that recursively calls constrain() on the
+        // children of the type.
+        // For instance, since the keys match,
+        // if both are tuples, just recursively call constrai
+
+        match (potential_ty1, potential_ty2) {
+            (PotentialType::Function(_, args1, out1), PotentialType::Function(_, args2, out2)) => {
+                for (arg1, arg2) in args1.iter().zip(args2.iter()) {
+                    constrain_because(ctx, arg1.clone(), arg2.clone(), constraint_reason.clone());
+                }
+                constrain_because(ctx, out1, out2, constraint_reason);
+            }
+            (PotentialType::Tuple(_, elems1), PotentialType::Tuple(_, elems2)) => {
+                for (elem1, elem2) in elems1.iter().zip(elems2.iter()) {
+                    constrain_because(ctx, elem1.clone(), elem2.clone(), constraint_reason.clone());
+                }
+            }
+            (PotentialType::Nominal(_, _, tyvars1), PotentialType::Nominal(_, _, tyvars2)) => {
+                for (tyvar1, tyvar2) in tyvars1.iter().zip(tyvars2.iter()) {
+                    constrain_because(
+                        ctx,
+                        tyvar1.clone(),
+                        tyvar2.clone(),
+                        constraint_reason.clone(),
+                    );
+                }
+            }
+            _ => {}
+        }
+
+        // TODO! I am not convinced that Polyvars are properly resolved and/or substituted. Will need to deep dive
+        // TODO! This is a temporary workaround to a problem with polyvar substitution/constraints/resolution
+        // Removing this should not make things fail yet it does
+        // TypeVar::merge(tyvar1, tyvar2);
     }
 }
 
@@ -1513,7 +1545,7 @@ fn generate_constraints_expr(
                 );
             }
         }
-        ExprKind::Identifier(_) => {
+        ExprKind::Identifier(ident) => {
             let lookup = ctx.resolution_map.get(&expr.id).cloned();
             if let Some(res) = lookup {
                 if let Some(typ) = tyvar_of_declaration(ctx, &res, expr.id, polyvar_scope.clone()) {
@@ -1707,19 +1739,16 @@ fn generate_constraints_expr(
 
             // function type
             let ty_args_and_body = TypeVar::make_func(tys_args, ty_body, Reason::Node(expr.id));
-            // println!("here!");
-            // println!("ty_func: {}", ty_func);
-            constrain_because(ctx, ty_args_and_body, ty_func, ConstraintReason::FuncCall);
-            // generate_constraints_expr(
-            //     polyvar_scope.clone(),
-            //     Mode::Ana {
-            //         expected: ty_func.clone(),
-            //     },
-            //     func.clone(),
-            //     ctx,
-            // );
 
-            // println!("funcap: {}", ty_func);
+            if let ExprKind::Identifier(ident) = &*func.kind {
+                // println!("{ident}()");
+            }
+            constrain_because(
+                ctx,
+                ty_args_and_body.clone(),
+                ty_func.clone(),
+                ConstraintReason::FuncCall,
+            );
         }
         ExprKind::Tuple(exprs) => {
             let tys = exprs
@@ -1916,7 +1945,7 @@ fn generate_constraints_fn_def(
         &f.body,
     );
 
-    constrain(ctx, ty_fun_name, ty_func);
+    constrain(ctx, ty_fun_name, ty_func.clone());
 }
 
 fn generate_constraints_pat(
