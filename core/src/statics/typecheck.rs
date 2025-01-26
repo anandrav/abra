@@ -700,10 +700,10 @@ fn tyvar_of_declaration(
                 params.push(TypeVar::fresh(ctx, Prov::InstantiateUdtParam(id, i as u8)));
                 // TODO: don't do this silly downcast.
                 // ty_args should just be a Vec<Identifier> most likely
-                let TypeKind::Poly(ty_arg, _) = &*enum_def.ty_args[i].kind else {
+                let TypeKind::Poly(polyty) = &*enum_def.ty_args[i].kind else {
                     panic!()
                 };
-                substitution.insert(ty_arg.v.clone(), params[i].clone());
+                substitution.insert(polyty.name.v.clone(), params[i].clone());
             }
             Some(TypeVar::make_nominal(
                 Reason::Node(id), // TODO: change to Reason::Declaration
@@ -719,10 +719,10 @@ fn tyvar_of_declaration(
                 params.push(TypeVar::fresh(ctx, Prov::InstantiateUdtParam(id, i as u8)));
                 // TODO: don't do this silly downcast.
                 // ty_args should just be a Vec<Identifier> most likely
-                let TypeKind::Poly(ty_arg, _) = &*enum_def.ty_args[i].kind else {
+                let TypeKind::Poly(polyty) = &*enum_def.ty_args[i].kind else {
                     panic!()
                 };
-                substitution.insert(ty_arg.v.clone(), params[i].clone());
+                substitution.insert(polyty.name.v.clone(), params[i].clone());
             }
             let def_type =
                 TypeVar::make_nominal(Reason::Node(id), Nominal::Enum(enum_def.clone()), params);
@@ -767,10 +767,10 @@ fn tyvar_of_declaration(
                 params.push(TypeVar::fresh(ctx, Prov::InstantiateUdtParam(id, i as u8)));
                 // TODO: don't do this silly downcast.
                 // ty_args should just be a Vec<Identifier> most likely
-                let TypeKind::Poly(ty_arg, _) = &*struct_def.ty_args[i].kind else {
+                let TypeKind::Poly(polyty) = &*struct_def.ty_args[i].kind else {
                     panic!()
                 };
-                substitution.insert(ty_arg.v.clone(), params[i].clone());
+                substitution.insert(polyty.name.v.clone(), params[i].clone());
             }
             let def_type = TypeVar::make_nominal(
                 Reason::Node(id),
@@ -944,15 +944,15 @@ pub(crate) fn ast_type_to_solved_type(
     ast_type: Rc<AstType>,
 ) -> Option<SolvedType> {
     match &*ast_type.kind {
-        TypeKind::Poly(ident, iface_names) => {
+        TypeKind::Poly(polyty) => {
             let mut ifaces = vec![];
-            for iface_name in iface_names {
+            for iface_name in &polyty.iface_names {
                 let lookup = ctx.resolution_map.get(&iface_name.id);
                 if let Some(Declaration::InterfaceDef(iface_def)) = lookup {
                     ifaces.push(iface_def.clone());
                 }
             }
-            Some(SolvedType::Poly(ident.v.clone(), ifaces))
+            Some(SolvedType::Poly(polyty.name.v.clone(), ifaces))
         }
         TypeKind::Identifier(_) => {
             let lookup = ctx.resolution_map.get(&ast_type.id)?;
@@ -1037,9 +1037,9 @@ pub(crate) fn ast_type_to_solved_type(
 
 pub(crate) fn ast_type_to_typevar(ctx: &mut StaticsContext, ast_type: Rc<AstType>) -> TypeVar {
     match &*ast_type.kind {
-        TypeKind::Poly(ident, iface_names) => {
+        TypeKind::Poly(polyty) => {
             let mut interfaces = vec![];
-            for iface_name in iface_names {
+            for iface_name in &polyty.iface_names {
                 let lookup = ctx.resolution_map.get(&iface_name.id);
                 if let Some(Declaration::InterfaceDef(iface_def)) = lookup {
                     interfaces.push(iface_def.clone());
@@ -1047,7 +1047,7 @@ pub(crate) fn ast_type_to_typevar(ctx: &mut StaticsContext, ast_type: Rc<AstType
             }
             TypeVar::make_poly(
                 Reason::Annotation(ast_type.id()),
-                ident.v.clone(),
+                polyty.name.v.clone(),
                 interfaces,
             )
         }
@@ -1992,10 +1992,10 @@ fn generate_constraints_pat(
                         ));
                         // TODO: don't do this silly downcast.
                         // ty_args should just be a Vec<Identifier> most likely
-                        let TypeKind::Poly(ty_arg, _) = &*enum_def.ty_args[i].kind else {
+                        let TypeKind::Poly(polyty) = &*enum_def.ty_args[i].kind else {
                             panic!()
                         };
-                        substitution.insert(ty_arg.v.clone(), params[i].clone());
+                        substitution.insert(polyty.name.v.clone(), params[i].clone());
                     }
                     let def_type = TypeVar::make_nominal(
                         Reason::Node(pat.id),

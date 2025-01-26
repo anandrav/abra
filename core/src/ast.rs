@@ -563,7 +563,7 @@ impl Node for Type {
 
     fn children(&self) -> Vec<Rc<dyn Node>> {
         match &*self.kind {
-            TypeKind::Poly(_, _)
+            TypeKind::Poly(_)
             | TypeKind::Identifier(_)
             | TypeKind::Unit
             | TypeKind::Int
@@ -593,7 +593,7 @@ impl Node for Type {
 
 #[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq, Hash)]
 pub(crate) enum TypeKind {
-    Poly(Identifier, Vec<Identifier>),
+    Poly(Rc<Polytype>),
     Identifier(String),
     Ap(Identifier, Vec<Rc<Type>>),
     Unit,
@@ -603,6 +603,12 @@ pub(crate) enum TypeKind {
     Str,
     Function(Vec<Rc<Type>>, Rc<Type>),
     Tuple(Vec<Rc<Type>>),
+}
+
+#[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq, Hash)]
+pub(crate) struct Polytype {
+    pub(crate) name: Identifier,
+    pub(crate) iface_names: Vec<Identifier>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]

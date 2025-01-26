@@ -598,21 +598,21 @@ fn resolve_names_pat(ctx: &mut StaticsContext, symbol_table: SymbolTable, pat: R
 fn resolve_names_typ(ctx: &mut StaticsContext, symbol_table: SymbolTable, typ: Rc<Type>) {
     match &*typ.kind {
         TypeKind::Bool | TypeKind::Unit | TypeKind::Int | TypeKind::Float | TypeKind::Str => {}
-        TypeKind::Poly(ident, ifaces) => {
+        TypeKind::Poly(polyty) => {
             // Try to resolve the polymorphic type
             if let Some(decl @ Declaration::Polytype(_)) =
-                &symbol_table.lookup_declaration(&ident.v)
+                &symbol_table.lookup_declaration(&polyty.name.v)
             {
-                ctx.resolution_map.insert(ident.id, decl.clone());
+                ctx.resolution_map.insert(polyty.name.id, decl.clone());
             }
             // If it hasn't been declared already, then this is a declaration
             else {
-                let decl = Declaration::Polytype(ident.id);
-                symbol_table.extend_declaration(ident.v.clone(), decl.clone());
-                ctx.resolution_map.insert(ident.id, decl);
+                let decl = Declaration::Polytype(polyty.name.id);
+                symbol_table.extend_declaration(polyty.name.v.clone(), decl.clone());
+                ctx.resolution_map.insert(polyty.name.id, decl);
             }
 
-            for iface in ifaces {
+            for iface in &polyty.iface_names {
                 if let Some(decl @ Declaration::InterfaceDef { .. }) =
                     &symbol_table.lookup_declaration(&iface.v)
                 {

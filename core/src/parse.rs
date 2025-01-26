@@ -309,12 +309,15 @@ pub(crate) fn parse_type_term(pair: Pair<Rule>, filename: &str) -> Rc<Type> {
             }
             Rc::new(Type {
                 kind: Rc::new(TypeKind::Poly(
-                    Identifier {
-                        v: ty_name,
-                        span: ty_span,
-                        id: NodeId::new(),
-                    },
-                    interfaces,
+                    Polytype {
+                        name: Identifier {
+                            v: ty_name,
+                            span: ty_span,
+                            id: NodeId::new(),
+                        },
+                        iface_names: interfaces,
+                    }
+                    .into(),
                 )),
                 span,
                 id: NodeId::new(),
