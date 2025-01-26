@@ -285,6 +285,7 @@ pub(crate) enum Reason {
     Effect(u16),
     BinopLeft(NodeId),
     BinopRight(NodeId),
+    BinopOut(NodeId),
     IndexAccess,
     VariantNoData(NodeId), // the type of the data of a variant with no data, always Unit.
     WhileLoopBody(NodeId),
@@ -295,7 +296,7 @@ pub(crate) enum Reason {
 pub(crate) enum ConstraintReason {
     None, // TODO: get rid of None if possible, but no rush
 
-    BinaryOpOperands,
+    BinaryOperator,
     IfElseBodies,
     LetStmtAnnotation,
     LetStmtLhsRhs,
@@ -822,120 +823,6 @@ fn tyvar_of_declaration(
             Some(monotype_to_typevar(func_type, Reason::Effect(*e)))
         }
         Declaration::Var(node_id) => Some(TypeVar::from_node(ctx, *node_id)),
-    }
-}
-
-fn types_of_binop(
-    ctx: &mut StaticsContext,
-    opcode: &BinaryOperator,
-    id: NodeId,
-) -> (TypeVar, TypeVar, TypeVar) {
-    let num_iface_decl = ctx
-        .global_namespace
-        .namespaces
-        .get("prelude")
-        .and_then(|p| p.declarations.get("Num"))
-        .unwrap();
-    let Declaration::InterfaceDef(num_iface_def) = num_iface_decl else {
-        panic!()
-    };
-
-    let equal_iface_decl = ctx
-        .global_namespace
-        .namespaces
-        .get("prelude")
-        .and_then(|p| p.declarations.get("Equal"))
-        .unwrap();
-    let Declaration::InterfaceDef(equal_iface_def) = equal_iface_decl else {
-        panic!()
-    };
-
-    let tostring_iface_decl = ctx
-        .global_namespace
-        .namespaces
-        .get("prelude")
-        .and_then(|p| p.declarations.get("ToString"))
-        .unwrap();
-    let Declaration::InterfaceDef(tostring_iface_def) = tostring_iface_decl else {
-        panic!()
-    };
-
-    let prov_left = Reason::BinopLeft(id);
-    let prov_right = Reason::BinopRight(id);
-    let prov_out = Reason::Node(id);
-    match opcode {
-        BinaryOperator::And | BinaryOperator::Or => (
-            TypeVar::make_bool(prov_left),
-            TypeVar::make_bool(prov_right),
-            TypeVar::make_bool(prov_out),
-        ),
-        BinaryOperator::Add
-        | BinaryOperator::Subtract
-        | BinaryOperator::Multiply
-        | BinaryOperator::Divide
-        | BinaryOperator::Pow => {
-            let ty_left =
-                TypeVar::make_poly(prov_left, "a".to_owned(), vec![num_iface_def.clone()]);
-            let ty_right =
-                TypeVar::make_poly(prov_right, "a".to_owned(), vec![num_iface_def.clone()]);
-            let ty_out = TypeVar::make_poly(prov_out, "a".to_owned(), vec![num_iface_def.clone()]);
-            constrain_because(
-                ctx,
-                ty_left.clone(),
-                ty_right.clone(),
-                ConstraintReason::BinaryOpOperands,
-            );
-            constrain_because(
-                ctx,
-                ty_left.clone(),
-                ty_out.clone(),
-                ConstraintReason::BinaryOpOperands,
-            );
-            (ty_left, ty_right, ty_out)
-        }
-        BinaryOperator::Mod => (
-            TypeVar::make_int(prov_left),
-            TypeVar::make_int(prov_right),
-            TypeVar::make_int(prov_out),
-        ),
-        BinaryOperator::LessThan
-        | BinaryOperator::GreaterThan
-        | BinaryOperator::LessThanOrEqual
-        | BinaryOperator::GreaterThanOrEqual => {
-            let ty_left =
-                TypeVar::make_poly(prov_left, "a".to_owned(), vec![num_iface_def.clone()]);
-            let ty_right =
-                TypeVar::make_poly(prov_right, "a".to_owned(), vec![num_iface_def.clone()]);
-            constrain_because(
-                ctx,
-                ty_left.clone(),
-                ty_right.clone(),
-                ConstraintReason::BinaryOpOperands,
-            );
-            let ty_out = TypeVar::make_bool(prov_out);
-            (ty_left, ty_right, ty_out)
-        }
-        BinaryOperator::Format => {
-            let ty_left =
-                TypeVar::make_poly(prov_left, "a".to_owned(), vec![tostring_iface_def.clone()]);
-            let ty_right =
-                TypeVar::make_poly(prov_right, "b".to_owned(), vec![tostring_iface_def.clone()]);
-            let ty_out = TypeVar::make_string(prov_out);
-            (ty_left, ty_right, ty_out)
-        }
-        BinaryOperator::Equal => {
-            let ty_left =
-                TypeVar::make_poly(prov_left, "a".to_owned(), vec![equal_iface_def.clone()]);
-            let ty_right =
-                TypeVar::make_poly(prov_right, "a".to_owned(), vec![equal_iface_def.clone()]);
-            constrain_because(
-                ctx,
-                ty_left.clone(),
-                ty_right.clone(),
-                ConstraintReason::BinaryOpOperands,
-            );
-            (ty_left, ty_right, TypeVar::make_bool(prov_out))
-        }
     }
 }
 
@@ -1555,25 +1442,144 @@ fn generate_constraints_expr(
             }
         }
         ExprKind::BinOp(left, op, right) => {
-            let (ty_left, ty_right, ty_out) = types_of_binop(ctx, op, expr.id);
-            let (ty_left, ty_right, ty_out) = (
-                ty_left.instantiate(PolyvarScope::empty(), ctx, expr.id),
-                ty_right.instantiate(PolyvarScope::empty(), ctx, expr.id),
-                ty_out.instantiate(PolyvarScope::empty(), ctx, expr.id),
-            );
-            constrain(ctx, ty_out, node_ty);
-            generate_constraints_expr(
-                polyvar_scope.clone(),
-                Mode::Ana { expected: ty_left },
-                left.clone(),
-                ctx,
-            );
-            generate_constraints_expr(
-                polyvar_scope,
-                Mode::Ana { expected: ty_right },
-                right.clone(),
-                ctx,
-            );
+            let ty_left = TypeVar::from_node(ctx, left.id);
+            let ty_right = TypeVar::from_node(ctx, right.id);
+            generate_constraints_expr(polyvar_scope.clone(), Mode::Syn, left.clone(), ctx);
+            generate_constraints_expr(polyvar_scope.clone(), Mode::Syn, right.clone(), ctx);
+            let ty_out = node_ty;
+
+            let num_iface_decl = ctx
+                .global_namespace
+                .namespaces
+                .get("prelude")
+                .and_then(|p| p.declarations.get("Num"))
+                .unwrap();
+            let Declaration::InterfaceDef(num_iface_def) = num_iface_decl else {
+                panic!()
+            };
+
+            let equal_iface_decl = ctx
+                .global_namespace
+                .namespaces
+                .get("prelude")
+                .and_then(|p| p.declarations.get("Equal"))
+                .unwrap();
+            let Declaration::InterfaceDef(equal_iface_def) = equal_iface_decl else {
+                panic!()
+            };
+
+            let tostring_iface_decl = ctx
+                .global_namespace
+                .namespaces
+                .get("prelude")
+                .and_then(|p| p.declarations.get("ToString"))
+                .unwrap();
+            let Declaration::InterfaceDef(tostring_iface_def) = tostring_iface_decl else {
+                panic!()
+            };
+
+            let reason_left = Reason::BinopLeft(expr.id);
+            let reason_right = Reason::BinopRight(expr.id);
+            let reason_out = Reason::BinopOut(expr.id);
+            match op {
+                BinaryOperator::And | BinaryOperator::Or => {
+                    constrain_because(
+                        ctx,
+                        ty_left,
+                        TypeVar::make_bool(reason_left),
+                        ConstraintReason::BinaryOperator,
+                    );
+                    constrain_because(
+                        ctx,
+                        ty_right,
+                        TypeVar::make_bool(reason_right),
+                        ConstraintReason::BinaryOperator,
+                    );
+                    constrain_because(
+                        ctx,
+                        ty_out,
+                        TypeVar::make_bool(reason_out),
+                        ConstraintReason::BinaryOperator,
+                    );
+                }
+                BinaryOperator::Add
+                | BinaryOperator::Subtract
+                | BinaryOperator::Multiply
+                | BinaryOperator::Divide
+                | BinaryOperator::Pow => {
+                    // TODO: constrain each arg to Num interface
+                    // TODO: constrain output to Num interface
+                    constrain_because(
+                        ctx,
+                        ty_left.clone(),
+                        ty_right,
+                        ConstraintReason::BinaryOperator,
+                    );
+                    constrain_because(ctx, ty_left, ty_out, ConstraintReason::BinaryOperator);
+                }
+                BinaryOperator::Mod => {
+                    constrain_because(
+                        ctx,
+                        ty_left,
+                        TypeVar::make_int(reason_left),
+                        ConstraintReason::BinaryOperator,
+                    );
+                    constrain_because(
+                        ctx,
+                        ty_right,
+                        TypeVar::make_int(reason_right),
+                        ConstraintReason::BinaryOperator,
+                    );
+                    constrain_because(
+                        ctx,
+                        ty_out,
+                        TypeVar::make_int(reason_out),
+                        ConstraintReason::BinaryOperator,
+                    );
+                }
+                BinaryOperator::LessThan
+                | BinaryOperator::GreaterThan
+                | BinaryOperator::LessThanOrEqual
+                | BinaryOperator::GreaterThanOrEqual => {
+                    // TODO: constrain each arg to Num interface
+                    constrain_because(
+                        ctx,
+                        ty_left.clone(),
+                        ty_right,
+                        ConstraintReason::BinaryOperator,
+                    );
+                    constrain_because(
+                        ctx,
+                        ty_out,
+                        TypeVar::make_bool(reason_out),
+                        ConstraintReason::BinaryOperator,
+                    );
+                }
+                BinaryOperator::Format => {
+                    // TODO: constrain each arg to ToString interface
+                    constrain_because(
+                        ctx,
+                        ty_out,
+                        TypeVar::make_string(reason_out),
+                        ConstraintReason::BinaryOperator,
+                    );
+                }
+                BinaryOperator::Equal => {
+                    // TODO: constrain each arg to Eq interface
+                    constrain_because(
+                        ctx,
+                        ty_left.clone(),
+                        ty_right,
+                        ConstraintReason::BinaryOperator,
+                    );
+                    constrain_because(
+                        ctx,
+                        ty_out,
+                        TypeVar::make_bool(reason_out),
+                        ConstraintReason::BinaryOperator,
+                    );
+                }
+            }
         }
         ExprKind::Block(statements) => {
             if statements.is_empty() {

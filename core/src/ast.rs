@@ -466,7 +466,7 @@ pub(crate) enum ExprKind {
     IndexAccess(Rc<Expr>, Rc<Expr>),
 }
 
-#[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq, Hash, Copy)]
 pub enum BinaryOperator {
     // comparison
     Equal,

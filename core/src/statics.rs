@@ -294,7 +294,7 @@ impl Error {
                     write_reason_to_err_string(&mut err_string, ty1, cause1, node_map, sources);
                     err_string.push('\n');
                 }
-                ConstraintReason::BinaryOpOperands => {
+                ConstraintReason::BinaryOperator => {
                     err_string.push_str("type conflict due to binary operands\n\n")
                 }
                 ConstraintReason::IfElseBodies => {
@@ -434,6 +434,11 @@ fn write_reason_to_err_string(
             span.display(err_string, sources, "");
         }
         Reason::BinopRight(id) => {
+            err_string.push_str("the left operand of this operator\n");
+            let span = node_map.get(id).unwrap().span();
+            span.display(err_string, sources, "");
+        }
+        Reason::BinopOut(id) => {
             err_string.push_str("the left operand of this operator\n");
             let span = node_map.get(id).unwrap().span();
             span.display(err_string, sources, "");
