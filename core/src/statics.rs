@@ -1,6 +1,6 @@
 use crate::ast::{
     EnumDef, FileAst, ForeignFuncDecl, FuncDef, Identifier, InterfaceDecl, InterfaceImpl, NodeId,
-    NodeMap, Sources, StructDef, TypeKind,
+    NodeMap, Polytype, Sources, StructDef, TypeKind,
 };
 use crate::builtin::Builtin;
 use crate::effects::EffectDesc;
@@ -126,7 +126,7 @@ pub(crate) enum Declaration {
     Struct(Rc<StructDef>),
     ForeignType(Identifier),
     Array,
-    Polytype(NodeId),
+    Polytype(Rc<Polytype>),
     Builtin(Builtin),
     Effect(u16),
     Var(NodeId),

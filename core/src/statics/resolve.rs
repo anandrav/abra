@@ -607,7 +607,7 @@ fn resolve_names_typ(ctx: &mut StaticsContext, symbol_table: SymbolTable, typ: R
             }
             // If it hasn't been declared already, then this is a declaration
             else {
-                let decl = Declaration::Polytype(polyty.name.id);
+                let decl = Declaration::Polytype(polyty.clone());
                 symbol_table.extend_declaration(polyty.name.v.clone(), decl.clone());
                 ctx.resolution_map.insert(polyty.name.id, decl);
             }
