@@ -640,7 +640,7 @@ impl Default for NodeId {
 pub(crate) struct Span {
     // TODO: this is egregious
     // storing the filename for every single Span? Every single node in the AST? Lol.
-    pub(crate) filename: String,
+    pub(crate) filename: String, // replace with FILE ID
     pub(crate) lo: usize,
     pub(crate) hi: usize,
 }
@@ -656,67 +656,6 @@ impl Span {
 
     pub fn range(&self) -> std::ops::Range<usize> {
         self.lo..self.hi
-    }
-
-    pub(crate) fn lines_and_columns(&self, source: &str) -> ((usize, usize), (usize, usize)) {
-        let lo_line = source[..=self.lo].lines().count() - 1;
-        let num_chars_of_lines_before = source
-            .lines()
-            .enumerate()
-            .filter(|(i, _)| *i < lo_line)
-            .map(|(_, l)| l.len())
-            .sum::<usize>()
-            + lo_line; // account for newlines
-        let lo_col = self.lo - num_chars_of_lines_before;
-
-        let hi_line = source[..self.hi].lines().count() - 1;
-        let num_chars_of_lines_before = source
-            .lines()
-            .enumerate()
-            .filter(|(i, _)| *i < hi_line)
-            .map(|(_, l)| l.len())
-            .sum::<usize>()
-            + hi_line; // account for newlines
-        let hi_col = self.hi - num_chars_of_lines_before - 1;
-        ((lo_line, lo_col), (hi_line, hi_col))
-    }
-
-    pub(crate) fn display(&self, s: &mut String, sources: &Sources, detail: &str) {
-        let source = sources.filename_to_source.get(&self.filename).unwrap();
-        let ((lo_line, lo_col), (hi_line, hi_col)) = self.lines_and_columns(source);
-        if lo_line != hi_line {
-            s.push_str(&format!(
-                "--> On lines {}-{} of {}, {}\n",
-                lo_line + 1,
-                hi_line + 1,
-                self.filename,
-                detail
-            ));
-        } else {
-            s.push_str(&format!(
-                "--> On line {} of {}, {}\n",
-                lo_line + 1,
-                self.filename,
-                detail
-            ));
-        }
-        for line_number in lo_line..=hi_line {
-            let line = source.lines().nth(line_number).unwrap();
-            s.push_str(&format!("{:3} | {}\n", line_number + 1, line));
-
-            let pad_before = if line_number == lo_line { lo_col } else { 0 };
-            let num_tabs = line.chars().take(pad_before).filter(|c| *c == '\t').count();
-            let pad_before_in_spaces = pad_before + num_tabs * 3;
-
-            let underline_length = if line_number == hi_line {
-                hi_col - pad_before + 1
-            } else {
-                line.len() - pad_before
-            };
-            s.push_str(&format!("{:3} | ", "")); // line number placeholder
-            s.push_str(&format!("{:1$}", "", pad_before_in_spaces)); // pad before
-            s.push_str(&format!("{:^<1$}\n", "", underline_length)); // underline
-        }
     }
 }
 

@@ -359,11 +359,11 @@ impl Translator {
                     BytecodeResolution::Var(node_id) => {
                         let span = self.node_map.get(&node_id).unwrap().span();
                         let mut s = String::new();
-                        span.display(
-                            &mut s,
-                            &self.sources,
-                            &format!("symbol {} resolved to", symbol),
-                        );
+                        // span.display(
+                        //     &mut s,
+                        //     &self.sources,
+                        //     &format!("symbol {} resolved to", symbol),
+                        // );
                         // println!("{}", s);
                         let idx = offset_table.get(&node_id).unwrap();
                         emit(st, Instr::LoadOffset(*idx));
@@ -472,7 +472,7 @@ impl Translator {
                     let node = self.node_map.get(&func.id).unwrap();
                     let span = node.span();
                     let mut s = String::new();
-                    span.display(&mut s, &self.sources, "function ap");
+                    // span.display(&mut s, &self.sources, "function ap");
                     // println!("{}", s);
                     let resolution = self
                         .statics
@@ -495,7 +495,7 @@ impl Translator {
                                 let node = self.node_map.get(&func.id).unwrap();
                                 let span = node.span();
                                 let mut s = String::new();
-                                span.display(&mut s, &self.sources, " method ap");
+                                // span.display(&mut s, &self.sources, " method ap");
                                 // println!("{}", s);
 
                                 let specific_func_ty =
@@ -547,7 +547,7 @@ impl Translator {
                             let node = self.node_map.get(&func.id).unwrap();
                             let span = node.span();
                             let mut s = String::new();
-                            span.display(&mut s, &self.sources, " method ap");
+                            // span.display(&mut s, &self.sources, " method ap");
                             // println!("{}", s);
 
                             let func_ty = self.statics.solution_of_node(func.id).unwrap();
@@ -845,7 +845,7 @@ impl Translator {
                     let node = self.node_map.get(capture).unwrap();
                     let span = node.span();
                     let mut s = String::new();
-                    span.display(&mut s, &self.sources, "capture");
+                    // span.display(&mut s, &self.sources, "capture");
                     // println!("{}", s);
                 }
                 let ncaptures = captures.len();
@@ -1346,8 +1346,8 @@ impl Translator {
     fn _display_node(&self, node_id: NodeId) {
         let node = self.node_map.get(&node_id).unwrap();
         let span = node.span();
-        let mut s = String::new();
-        span.display(&mut s, &self.sources, "");
+        let mut s: String = String::new();
+        // span.display(&mut s, &self.sources, "");
         // println!("{}", s);
     }
 
