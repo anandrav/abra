@@ -23,6 +23,7 @@ serde_derive = "1.0.215"                               # Todo: really need this?
 strum = { version = "0.26.3", features = ["derive"] }
 strum_macros = "0.26.3"
 toml = "0.8.19"
+codespan-reporting = "0.11.1"
 
 [dev-dependencies]
 criterion = { version = "0.5.1", default-features = false, features = [

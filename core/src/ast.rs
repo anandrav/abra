@@ -654,6 +654,10 @@ impl Span {
         }
     }
 
+    pub fn range(&self) -> std::ops::Range<usize> {
+        self.lo..self.hi
+    }
+
     pub(crate) fn lines_and_columns(&self, source: &str) -> ((usize, usize), (usize, usize)) {
         let lo_line = source[..=self.lo].lines().count() - 1;
         let num_chars_of_lines_before = source

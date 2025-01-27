@@ -4,6 +4,7 @@ use crate::ast::{
 };
 use crate::builtin::Builtin;
 use crate::effects::EffectDesc;
+use codespan_reporting::term;
 use resolve::{resolve, scan_declarations};
 use std::collections::{BTreeSet, HashMap};
 use std::fmt::{self, Display, Formatter, Write};
@@ -13,19 +14,18 @@ use typecheck::{
     fmt_conflicting_types, generate_constraints_file, result_of_constraint_solving,
     ConstraintReason, PotentialType, Reason, SolvedType, TypeKey, TypeVar,
 };
-
 mod pat_exhaustiveness;
 mod resolve;
 pub(crate) mod typecheck;
-
 pub(crate) use typecheck::ty_fits_impl_ty;
 // TODO: Provs are an implementation detail, they should NOT be exported
+use codespan_reporting::diagnostic::{Diagnostic, Label};
+use codespan_reporting::files::{SimpleFile, SimpleFiles};
+use codespan_reporting::term::termcolor::{ColorChoice, StandardStream};
+use pat_exhaustiveness::{check_pattern_exhaustiveness_and_usefulness, DeconstructedPat};
+pub use typecheck::Monotype;
 pub(crate) use typecheck::Prov as TypeProv;
 pub(crate) use typecheck::SolvedType as Type;
-
-pub use typecheck::Monotype;
-
-use pat_exhaustiveness::{check_pattern_exhaustiveness_and_usefulness, DeconstructedPat};
 
 #[derive(Default, Debug)]
 pub(crate) struct StaticsContext {
@@ -201,32 +201,45 @@ pub(crate) fn check_errors(
         return Ok(());
     }
 
-    let mut err_string = String::new();
-
     for error in &ctx.errors {
-        err_string.push_str(&error.show(ctx, node_map, sources));
+        error.show(ctx, node_map, sources);
     }
 
-    Err(err_string)
+    Err("Failed to compile".to_string())
 }
 
 // TODO: reduce code duplication for displaying error messages, types
 impl Error {
     fn show(&self, ctx: &StaticsContext, node_map: &NodeMap, sources: &Sources) -> String {
+        // TODO: Make your own files database. Make it implement the Files trait from codespan-reporting
+        let mut files = SimpleFiles::new();
+        let mut filename_to_id = HashMap::<String, usize>::new();
+        for (filename, source) in sources.filename_to_source.iter() {
+            let id = files.add(filename, source);
+            filename_to_id.insert(filename.clone(), id);
+        }
+
+        let mut diagnostic = Diagnostic::error();
+        let mut labels = Vec::new();
+        let mut notes = Vec::new();
+
+        // get rid of this after making our own file database
+        let get_file_and_range = |id: &NodeId| {
+            let span = node_map.get(id).unwrap().span();
+            (filename_to_id[&span.filename], span.range())
+        };
+
         let mut err_string = String::new();
         match self {
-            Error::UnboundVariable { node_id: expr_id } => {
-                err_string.push_str("This variable is unbound:\n");
-                let span = node_map.get(expr_id).unwrap().span();
-                span.display(&mut err_string, sources, "");
+            Error::UnboundVariable { node_id } => {
+                let (file, range) = get_file_and_range(node_id);
+                diagnostic = diagnostic.with_message("This variable is unbound");
+                labels.push(Label::primary(file, range))
             }
             Error::UnconstrainedUnifvar { node_id } => {
-                let span = node_map.get(node_id).unwrap().span();
-                span.display(
-                    &mut err_string,
-                    sources,
-                    "Can't solve type of this. Try adding a type annotation.",
-                );
+                let (file, range) = get_file_and_range(node_id);
+                diagnostic = diagnostic.with_message("Can't solve type. Try adding an annotation");
+                labels.push(Label::primary(file, range))
             }
             Error::ConflictingUnifvar { types } => {
                 err_string.push_str("Conflicting types: ");
@@ -272,8 +285,15 @@ impl Error {
                         }
                     };
                     let reasons = ty.reasons().borrow();
-                    for cause in reasons.iter() {
-                        write_reason_to_err_string(&mut err_string, &ty, cause, node_map, sources);
+                    for reason in reasons.iter() {
+                        handle_reason(
+                            &ty,
+                            reason,
+                            node_map,
+                            &filename_to_id,
+                            &mut labels,
+                            &mut notes,
+                        );
                     }
                 }
                 writeln!(err_string).unwrap();
@@ -284,89 +304,182 @@ impl Error {
                 constraint_reason,
             } => match constraint_reason {
                 ConstraintReason::None => {
-                    err_string.push_str(&format!("Type conflict. Got type {}:\n", ty2));
+                    diagnostic = diagnostic
+                        .with_message(format!("Type conflict: got types {} and {}", ty2, ty1));
+
                     let provs2 = ty2.reasons().borrow();
-                    let cause2 = provs2.iter().next().unwrap();
-                    write_reason_to_err_string(&mut err_string, ty2, cause2, node_map, sources);
-                    err_string.push_str(&format!("but also got type {}:\n", ty1));
+                    let reason2 = provs2.iter().next().unwrap();
+                    handle_reason(
+                        ty2,
+                        reason2,
+                        node_map,
+                        &filename_to_id,
+                        &mut labels,
+                        &mut notes,
+                    );
                     let provs1 = ty1.reasons().borrow();
-                    let cause1 = provs1.iter().next().unwrap();
-                    write_reason_to_err_string(&mut err_string, ty1, cause1, node_map, sources);
-                    err_string.push('\n');
+                    let reason1 = provs1.iter().next().unwrap();
+                    handle_reason(
+                        ty1,
+                        reason1,
+                        node_map,
+                        &filename_to_id,
+                        &mut labels,
+                        &mut notes,
+                    );
                 }
                 ConstraintReason::BinaryOperandsMustMatch => {
-                    err_string.push_str("Type conflict: operands must have the same type\n");
+                    diagnostic = diagnostic.with_message("Operands must have the same type");
                     let provs2 = ty2.reasons().borrow();
-                    let cause2 = provs2.iter().next().unwrap();
-                    write_reason_to_err_string(&mut err_string, ty2, cause2, node_map, sources);
+                    let reason2 = provs2.iter().next().unwrap();
+                    handle_reason(
+                        ty2,
+                        reason2,
+                        node_map,
+                        &filename_to_id,
+                        &mut labels,
+                        &mut notes,
+                    );
                     let provs1 = ty1.reasons().borrow();
-                    let cause1 = provs1.iter().next().unwrap();
-                    write_reason_to_err_string(&mut err_string, ty1, cause1, node_map, sources);
-                    err_string.push('\n');
+                    let reason1 = provs1.iter().next().unwrap();
+                    handle_reason(
+                        ty1,
+                        reason1,
+                        node_map,
+                        &filename_to_id,
+                        &mut labels,
+                        &mut notes,
+                    );
                 }
                 ConstraintReason::IfElseBodies => {
-                    err_string
-                        .push_str("Type conflict: branches of if-else expression do not match\n");
+                    diagnostic =
+                        diagnostic.with_message("Branches of if-else expression do not match");
                     let provs2 = ty2.reasons().borrow();
-                    let cause2 = provs2.iter().next().unwrap();
-                    write_reason_to_err_string(&mut err_string, ty2, cause2, node_map, sources);
+                    let reason2 = provs2.iter().next().unwrap();
+                    handle_reason(
+                        ty2,
+                        reason2,
+                        node_map,
+                        &filename_to_id,
+                        &mut labels,
+                        &mut notes,
+                    );
                     let provs1 = ty1.reasons().borrow();
-                    let cause1 = provs1.iter().next().unwrap();
-                    write_reason_to_err_string(&mut err_string, ty1, cause1, node_map, sources);
-                    err_string.push('\n');
+                    let reason1 = provs1.iter().next().unwrap();
+                    handle_reason(
+                        ty1,
+                        reason1,
+                        node_map,
+                        &filename_to_id,
+                        &mut labels,
+                        &mut notes,
+                    );
                 }
                 ConstraintReason::LetStmtAnnotation => {
-                    err_string.push_str("Type conflict: variables and annotation do not match\n");
+                    diagnostic = diagnostic.with_message("Variable and annotation do not match");
                     let provs2 = ty2.reasons().borrow();
-                    let cause2 = provs2.iter().next().unwrap();
-                    write_reason_to_err_string(&mut err_string, ty2, cause2, node_map, sources);
+                    let reason2 = provs2.iter().next().unwrap();
+                    handle_reason(
+                        ty2,
+                        reason2,
+                        node_map,
+                        &filename_to_id,
+                        &mut labels,
+                        &mut notes,
+                    );
                     let provs1 = ty1.reasons().borrow();
-                    let cause1 = provs1.iter().next().unwrap();
-                    write_reason_to_err_string(&mut err_string, ty1, cause1, node_map, sources);
-                    err_string.push('\n');
+                    let reason1 = provs1.iter().next().unwrap();
+                    handle_reason(
+                        ty1,
+                        reason1,
+                        node_map,
+                        &filename_to_id,
+                        &mut labels,
+                        &mut notes,
+                    );
                 }
                 ConstraintReason::LetStmtLhsRhs => {
-                    err_string.push_str("Type conflict: variable and assignment do not match\n");
+                    diagnostic = diagnostic.with_message("Variable and assignment do not match");
                     let provs2 = ty2.reasons().borrow();
-                    let cause2 = provs2.iter().next().unwrap();
-                    write_reason_to_err_string(&mut err_string, ty2, cause2, node_map, sources);
+                    let reason2 = provs2.iter().next().unwrap();
+                    handle_reason(
+                        ty2,
+                        reason2,
+                        node_map,
+                        &filename_to_id,
+                        &mut labels,
+                        &mut notes,
+                    );
                     let provs1 = ty1.reasons().borrow();
-                    let cause1 = provs1.iter().next().unwrap();
-                    write_reason_to_err_string(&mut err_string, ty1, cause1, node_map, sources);
-                    err_string.push('\n');
+                    let reason1 = provs1.iter().next().unwrap();
+                    handle_reason(
+                        ty1,
+                        reason1,
+                        node_map,
+                        &filename_to_id,
+                        &mut labels,
+                        &mut notes,
+                    );
                 }
                 ConstraintReason::MatchScrutinyAndPattern => {
                     err_string.push_str("type conflict due to match scrutiny and pattern\n\n")
                 }
                 ConstraintReason::FuncCall => {
-                    err_string.push_str("Type conflict: wrong argument type\n");
+                    diagnostic = diagnostic.with_message("Wrong argument type");
                     let provs2 = ty2.reasons().borrow();
-                    let cause2 = provs2.iter().next().unwrap();
-                    write_reason_to_err_string(&mut err_string, ty2, cause2, node_map, sources);
+                    let reason2 = provs2.iter().next().unwrap();
+                    handle_reason(
+                        ty2,
+                        reason2,
+                        node_map,
+                        &filename_to_id,
+                        &mut labels,
+                        &mut notes,
+                    );
                     let provs1 = ty1.reasons().borrow();
-                    let cause1 = provs1.iter().next().unwrap();
-                    write_reason_to_err_string(&mut err_string, ty1, cause1, node_map, sources);
-                    err_string.push('\n');
+                    let reason1 = provs1.iter().next().unwrap();
+                    handle_reason(
+                        ty1,
+                        reason1,
+                        node_map,
+                        &filename_to_id,
+                        &mut labels,
+                        &mut notes,
+                    );
                 }
                 ConstraintReason::Condition => {
-                    err_string.push_str(&format!(
+                    diagnostic = diagnostic.with_message(format!(
                         "Type conflict: condition must be a bool but got {}\n",
                         ty1
                     ));
+
                     let provs1 = ty1.reasons().borrow();
-                    let cause1 = provs1.iter().next().unwrap();
-                    write_reason_to_err_string(&mut err_string, ty1, cause1, node_map, sources);
-                    err_string.push('\n');
+                    let reason1 = provs1.iter().next().unwrap();
+                    handle_reason(
+                        ty1,
+                        reason1,
+                        node_map,
+                        &filename_to_id,
+                        &mut labels,
+                        &mut notes,
+                    );
                 }
                 ConstraintReason::BinaryOperandBool => {
-                    err_string.push_str(&format!(
-                        "Type conflict: operand must be a bool but got {}\n",
+                    diagnostic = diagnostic.with_message(format!(
+                        "Type conflict: Operand must be a bool but got {}\n",
                         ty1
                     ));
+
                     let provs1 = ty1.reasons().borrow();
-                    let cause1 = provs1.iter().next().unwrap();
-                    write_reason_to_err_string(&mut err_string, ty1, cause1, node_map, sources);
-                    err_string.push('\n');
+                    let reason1 = provs1.iter().next().unwrap();
+                    handle_reason(
+                        ty1,
+                        reason1,
+                        node_map,
+                        &filename_to_id,
+                        &mut labels,
+                        &mut notes,
+                    );
                 }
                 ConstraintReason::EmptyBlock => {
                     err_string.push_str("type conflict due to empty block is void\n\n")
@@ -412,68 +525,77 @@ impl Error {
                 }
             }
         };
+
+        diagnostic = diagnostic.with_labels(labels);
+
+        let writer = StandardStream::stderr(ColorChoice::Always);
+        let config = codespan_reporting::term::Config::default();
+
+        term::emit(&mut writer.lock(), &config, &files, &diagnostic).unwrap();
+
         err_string
     }
 }
 
-// TODO: reduce code duplication for displaying error messages, types
-fn write_reason_to_err_string(
-    err_string: &mut String,
+fn handle_reason(
     ty: &PotentialType,
-    cause: &Reason,
+    reason: &Reason,
     node_map: &NodeMap,
-    sources: &Sources,
+    filename_to_id: &HashMap<String, usize>,
+    labels: &mut Vec<Label<usize>>,
+    notes: &mut Vec<String>,
 ) {
-    match cause {
+    // get rid of this after making our own file database
+    let get_file_and_range = |id: &NodeId| {
+        let span = node_map.get(id).unwrap().span();
+        (filename_to_id[&span.filename], span.range())
+    };
+    match reason {
         Reason::Builtin(builtin) => {
-            let s = builtin.name();
-            let _ = writeln!(err_string, "the builtin function {s}");
+            notes.push(format!("the builtin function {}", builtin.name()));
         }
-        Reason::Effect(u16) => {
-            let _ = writeln!(err_string, "the effect {u16}");
+        Reason::Effect(id) => {
+            notes.push(format!("the effect {}", id));
         }
         Reason::Node(id) => {
-            let span = node_map.get(id).unwrap().span();
-            span.display(err_string, sources, "the term");
+            let (file, range) = get_file_and_range(id);
+            labels.push(Label::primary(file, range).with_message("the term"));
         }
         Reason::Annotation(id) => {
-            let span = node_map.get(id).unwrap().span();
-            span.display(err_string, sources, "this type annotation");
+            let (file, range) = get_file_and_range(id);
+            labels.push(Label::primary(file, range).with_message("this type annotation"));
         }
         Reason::Literal(id) => {
-            let span = node_map.get(id).unwrap().span();
-            let literal_kind = ty.to_string();
-            span.display(err_string, sources, &format!("{} literal", literal_kind));
+            let (file, range) = get_file_and_range(id);
+            labels.push(
+                Label::primary(file, range).with_message(&format!("{} literal", ty.to_string())),
+            );
         }
         Reason::BinopLeft(id) => {
-            err_string.push_str("the left operand of operator\n");
-            let span = node_map.get(id).unwrap().span();
-            span.display(err_string, sources, "");
+            let (file, range) = get_file_and_range(id);
+            labels.push(Label::primary(file, range).with_message("the left operand of operator"));
         }
         Reason::BinopRight(id) => {
-            err_string.push_str("the left operand of this operator\n");
-            let span = node_map.get(id).unwrap().span();
-            span.display(err_string, sources, "");
+            let (file, range) = get_file_and_range(id);
+            labels.push(Label::primary(file, range).with_message("the right operand of operator"));
         }
         Reason::BinopOut(id) => {
-            err_string.push_str("the left operand of this operator\n");
-            let span = node_map.get(id).unwrap().span();
-            span.display(err_string, sources, "");
+            let (file, range) = get_file_and_range(id);
+            labels.push(Label::primary(file, range).with_message("the output of operator"));
         }
         Reason::VariantNoData(_prov) => {
-            err_string.push_str("the data of some Enum variant");
+            notes.push("the data of some enum variant".to_string());
         }
         Reason::WhileLoopBody(id) => {
-            err_string.push_str("the body of this while loop\n");
-            let span = node_map.get(id).unwrap().span();
-            span.display(err_string, sources, "");
+            let (file, range) = get_file_and_range(id);
+            labels.push(Label::primary(file, range).with_message("the body of this while loop"));
         }
         Reason::IfWithoutElse(id) => {
-            let span = node_map.get(id).unwrap().span();
-            span.display(err_string, sources, "this if expression");
+            let (file, range) = get_file_and_range(id);
+            labels.push(Label::primary(file, range).with_message("this if expression"));
         }
         Reason::IndexAccess => {
-            let _ = writeln!(err_string, "array index");
+            notes.push("array index access".to_string());
         }
     }
 }
