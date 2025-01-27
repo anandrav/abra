@@ -234,12 +234,12 @@ impl Error {
             Error::UnboundVariable { node_id } => {
                 let (file, range) = get_file_and_range(node_id);
                 diagnostic = diagnostic.with_message("This variable is unbound");
-                labels.push(Label::primary(file, range))
+                labels.push(Label::secondary(file, range))
             }
             Error::UnconstrainedUnifvar { node_id } => {
                 let (file, range) = get_file_and_range(node_id);
                 diagnostic = diagnostic.with_message("Can't solve type. Try adding an annotation");
-                labels.push(Label::primary(file, range))
+                labels.push(Label::secondary(file, range))
             }
             Error::ConflictingUnifvar { types } => {
                 err_string.push_str("Conflicting types: ");
@@ -559,40 +559,41 @@ fn handle_reason(
         }
         Reason::Node(id) => {
             let (file, range) = get_file_and_range(id);
-            labels.push(Label::primary(file, range).with_message("the term"));
+            labels.push(Label::secondary(file, range).with_message("the term"));
         }
         Reason::Annotation(id) => {
             let (file, range) = get_file_and_range(id);
-            labels.push(Label::primary(file, range).with_message("this type annotation"));
+            labels.push(Label::secondary(file, range).with_message("this type annotation"));
         }
         Reason::Literal(id) => {
             let (file, range) = get_file_and_range(id);
             labels.push(
-                Label::primary(file, range).with_message(&format!("{} literal", ty.to_string())),
+                Label::secondary(file, range).with_message(&format!("{} literal", ty.to_string())),
             );
         }
         Reason::BinopLeft(id) => {
             let (file, range) = get_file_and_range(id);
-            labels.push(Label::primary(file, range).with_message("the left operand of operator"));
+            labels.push(Label::secondary(file, range).with_message("the left operand of operator"));
         }
         Reason::BinopRight(id) => {
             let (file, range) = get_file_and_range(id);
-            labels.push(Label::primary(file, range).with_message("the right operand of operator"));
+            labels
+                .push(Label::secondary(file, range).with_message("the right operand of operator"));
         }
         Reason::BinopOut(id) => {
             let (file, range) = get_file_and_range(id);
-            labels.push(Label::primary(file, range).with_message("the output of operator"));
+            labels.push(Label::secondary(file, range).with_message("the output of operator"));
         }
         Reason::VariantNoData(_prov) => {
             notes.push("the data of some enum variant".to_string());
         }
         Reason::WhileLoopBody(id) => {
             let (file, range) = get_file_and_range(id);
-            labels.push(Label::primary(file, range).with_message("the body of this while loop"));
+            labels.push(Label::secondary(file, range).with_message("the body of this while loop"));
         }
         Reason::IfWithoutElse(id) => {
             let (file, range) = get_file_and_range(id);
-            labels.push(Label::primary(file, range).with_message("this if expression"));
+            labels.push(Label::secondary(file, range).with_message("this if expression"));
         }
         Reason::IndexAccess => {
             notes.push("array index access".to_string());
