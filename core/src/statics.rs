@@ -4,7 +4,6 @@ use crate::ast::{
 };
 use crate::builtin::Builtin;
 use crate::effects::EffectDesc;
-use codespan_reporting::term;
 use resolve::{resolve, scan_declarations};
 use std::collections::{BTreeSet, HashMap};
 use std::fmt::{self, Display, Formatter};
@@ -21,6 +20,7 @@ pub(crate) use typecheck::ty_fits_impl_ty;
 // TODO: Provs are an implementation detail, they should NOT be exported
 use codespan_reporting::diagnostic::{Diagnostic, Label};
 use codespan_reporting::files::SimpleFiles;
+use codespan_reporting::term;
 use codespan_reporting::term::termcolor::{ColorChoice, StandardStream};
 use pat_exhaustiveness::{check_pattern_exhaustiveness_and_usefulness, DeconstructedPat};
 pub use typecheck::Monotype;
@@ -53,6 +53,8 @@ pub(crate) struct StaticsContext {
 
     // unification variables (skolems) which must be solved
     pub(crate) unifvars: HashMap<TypeProv, TypeVar>,
+    pub(crate) unifvars_constrained_to_interfaces:
+        HashMap<TypeProv, Vec<(Rc<InterfaceDecl>, NodeId)>>,
 
     // ERRORS
     errors: Vec<Error>,
@@ -151,6 +153,11 @@ pub(crate) enum Error {
         constraint_reason: ConstraintReason,
     },
     MemberAccessNeedsAnnotation {
+        node_id: NodeId,
+    },
+    InterfaceNotImplemented {
+        ty: SolvedType,
+        iface: Rc<InterfaceDecl>,
         node_id: NodeId,
     },
     // pattern matching exhaustiveness check
@@ -471,6 +478,14 @@ impl Error {
             },
             Error::MemberAccessNeedsAnnotation { node_id } => {
                 diagnostic = diagnostic.with_message("Can't perform member access without knowing type. Try adding a type annotation.");
+                let (file, range) = get_file_and_range(node_id);
+                labels.push(Label::secondary(file, range));
+            }
+            Error::InterfaceNotImplemented { ty, iface, node_id } => {
+                diagnostic = diagnostic.with_message(format!(
+                    "Interface `{}` is not implemented for type `{}`",
+                    iface.name.v, ty
+                ));
                 let (file, range) = get_file_and_range(node_id);
                 labels.push(Label::secondary(file, range));
             }

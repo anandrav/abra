@@ -442,6 +442,10 @@ impl TypeVar {
         self.0.clone_data().solution()
     }
 
+    pub(crate) fn is_solved(&self) -> bool {
+        self.solution().is_some()
+    }
+
     fn is_underdetermined(&self) -> bool {
         self.0.with_data(|d| d.types.is_empty())
     }
@@ -450,7 +454,7 @@ impl TypeVar {
         self.0.with_data(|d| d.types.len() > 1)
     }
 
-    fn locked(&self) -> bool {
+    fn is_locked(&self) -> bool {
         self.0.with_data(|d| d.locked)
     }
 
@@ -1051,6 +1055,10 @@ pub(crate) enum Mode {
     },
 }
 
+// TODO: There's a lot of calls to constrain() that should use a different function like init_typevar()
+// which will panic if the typevar is not unconstrained. init_typevar() would not take a ConstraintReason
+// because we're not constraining one type to another.
+
 // TODO: Go through each call to constrain() one-by-one to see if it should be replaced with constrain_because
 // TODO: After that, perhaps ConstraintReason::None should be removed altogether.
 pub(crate) fn constrain(ctx: &mut StaticsContext, tyvar1: TypeVar, tyvar2: TypeVar) {
@@ -1063,8 +1071,8 @@ pub(crate) fn constrain_because(
     tyvar2: TypeVar,
     constraint_reason: ConstraintReason,
 ) {
-    match (tyvar1.locked(), tyvar2.locked()) {
-        // Since both TypeVars are already solved, an error is logged if their data do not match
+    match (tyvar1.is_locked(), tyvar2.is_locked()) {
+        // Since both TypeVars are already locked, an error is logged if their data do not match
         (true, true) => {
             constrain_solved_typevars(ctx, tyvar1, tyvar2, constraint_reason);
         }
@@ -1094,6 +1102,29 @@ pub(crate) fn constrain_because(
     }
 }
 
+pub(crate) fn constrain_to_iface(
+    ctx: &mut StaticsContext,
+    tyvar: TypeVar,
+    node_id: NodeId,
+    iface: &Rc<InterfaceDecl>,
+) {
+    if let Some(ty) = tyvar.solution() {
+        if !ty_implements_iface(ctx, ty.clone(), iface) {
+            ctx.errors.push(Error::InterfaceNotImplemented {
+                ty: ty.clone(),
+                iface: iface.clone(),
+                node_id,
+            });
+        }
+    } else {
+        let ifaces = ctx
+            .unifvars_constrained_to_interfaces
+            .entry(Prov::Node(node_id))
+            .or_default();
+        ifaces.push((iface.clone(), node_id));
+    }
+}
+
 fn constrain_solved_typevars(
     ctx: &mut StaticsContext,
     tyvar1: TypeVar,
@@ -1109,14 +1140,6 @@ fn constrain_solved_typevars(
             constraint_reason,
         })
     } else {
-        // TODO LAST HERE
-        // TODO: instead of using TypeVar::merge, which doesn't have
-        // access to ctx and therefore can't push errors,
-        // make a function that recursively calls constrain() on the
-        // children of the type.
-        // For instance, since the keys match,
-        // if both are tuples, just recursively call constrai
-
         match (potential_ty1, potential_ty2) {
             (PotentialType::Function(_, args1, out1), PotentialType::Function(_, args2, out2)) => {
                 for (arg1, arg2) in args1.iter().zip(args2.iter()) {
@@ -1206,8 +1229,8 @@ impl PolyvarScope {
 
 pub(crate) fn check_unifvars(ctx: &mut StaticsContext) {
     if !ctx.errors.is_empty() {
-        // Don't display errors for unconstrained or over-constrained
-        // unifvars unless other errors are fixedto avoid redundant feedback
+        // Don't display errors for global inference unless earlier
+        // errors are fixed to avoid redundant feedback
         return;
     }
     // get list of type conflicts
@@ -1226,6 +1249,21 @@ pub(crate) fn check_unifvars(ctx: &mut StaticsContext) {
             if let Prov::Node(id) = prov {
                 ctx.errors
                     .push(Error::UnconstrainedUnifvar { node_id: *id });
+            }
+        }
+    }
+    // TODO: cloning sucks here
+    for (prov, ifaces) in ctx.unifvars_constrained_to_interfaces.clone() {
+        let ty = ctx.unifvars.get(&prov).unwrap().clone();
+        if let Some(ty) = ty.solution() {
+            for (iface, node_id) in ifaces.iter().cloned() {
+                if !ty_implements_iface(ctx, ty.clone(), &iface) {
+                    ctx.errors.push(Error::InterfaceNotImplemented {
+                        ty: ty.clone(),
+                        iface,
+                        node_id,
+                    });
+                }
             }
         }
     }
@@ -1251,7 +1289,7 @@ fn generate_constraints_item(mode: Mode, stmt: Rc<Item>, ctx: &mut StaticsContex
             if let Some(Declaration::InterfaceDef(iface_decl)) = lookup {
                 for method in &iface_decl.methods {
                     let node_ty = TypeVar::from_node(ctx, method.id());
-                    if node_ty.locked() {
+                    if node_ty.is_locked() {
                         // Interface declaration method types have already been computed.
                         break;
                     }
@@ -1418,7 +1456,7 @@ fn generate_constraints_expr(
             } else {
                 dbg!(list_decl);
                 todo!();
-                // TODO: log error
+                // TODO: log error? Or panic?
             }
 
             for expr in exprs {
@@ -1460,6 +1498,8 @@ fn generate_constraints_expr(
             }
         }
         ExprKind::BinOp(left, op, right) => {
+            // print_node(ctx, expr.id);
+
             let ty_left = TypeVar::from_node(ctx, left.id);
             let ty_right = TypeVar::from_node(ctx, right.id);
             generate_constraints_expr(polyvar_scope.clone(), Mode::Syn, left.clone(), ctx);
@@ -1471,7 +1511,8 @@ fn generate_constraints_expr(
                 .namespaces
                 .get("prelude")
                 .and_then(|p| p.declarations.get("Num"))
-                .unwrap();
+                .unwrap()
+                .clone();
             let Declaration::InterfaceDef(num_iface_def) = num_iface_decl else {
                 panic!()
             };
@@ -1481,7 +1522,8 @@ fn generate_constraints_expr(
                 .namespaces
                 .get("prelude")
                 .and_then(|p| p.declarations.get("Equal"))
-                .unwrap();
+                .unwrap()
+                .clone();
             let Declaration::InterfaceDef(equal_iface_def) = equal_iface_decl else {
                 panic!()
             };
@@ -1491,7 +1533,8 @@ fn generate_constraints_expr(
                 .namespaces
                 .get("prelude")
                 .and_then(|p| p.declarations.get("ToString"))
-                .unwrap();
+                .unwrap()
+                .clone();
             let Declaration::InterfaceDef(tostring_iface_def) = tostring_iface_decl else {
                 panic!()
             };
@@ -1520,8 +1563,8 @@ fn generate_constraints_expr(
                 | BinaryOperator::Multiply
                 | BinaryOperator::Divide
                 | BinaryOperator::Pow => {
-                    // TODO: constrain each arg to Num interface
-                    // TODO: constrain output to Num interface
+                    constrain_to_iface(ctx, ty_left.clone(), left.id, &num_iface_def);
+                    constrain_to_iface(ctx, ty_right.clone(), right.id, &num_iface_def);
                     constrain_because(
                         ctx,
                         ty_left.clone(),
@@ -1549,7 +1592,8 @@ fn generate_constraints_expr(
                 | BinaryOperator::GreaterThan
                 | BinaryOperator::LessThanOrEqual
                 | BinaryOperator::GreaterThanOrEqual => {
-                    // TODO: constrain each arg to Num interface
+                    constrain_to_iface(ctx, ty_left.clone(), left.id, &num_iface_def);
+                    constrain_to_iface(ctx, ty_right.clone(), right.id, &num_iface_def);
                     constrain_because(
                         ctx,
                         ty_left.clone(),
@@ -1559,7 +1603,8 @@ fn generate_constraints_expr(
                     constrain(ctx, ty_out, TypeVar::make_bool(reason_out));
                 }
                 BinaryOperator::Format => {
-                    // TODO: constrain each arg to ToString interface
+                    constrain_to_iface(ctx, ty_left.clone(), left.id, &tostring_iface_def);
+                    constrain_to_iface(ctx, ty_right.clone(), right.id, &tostring_iface_def);
                     constrain_because(
                         ctx,
                         ty_out,
@@ -1568,7 +1613,8 @@ fn generate_constraints_expr(
                     );
                 }
                 BinaryOperator::Equal => {
-                    // TODO: constrain each arg to Eq interface
+                    constrain_to_iface(ctx, ty_left.clone(), left.id, &equal_iface_def);
+                    constrain_to_iface(ctx, ty_right.clone(), right.id, &equal_iface_def);
                     constrain_because(
                         ctx,
                         ty_left.clone(),
@@ -2151,10 +2197,29 @@ pub(crate) fn fmt_conflicting_types(types: &[PotentialType], f: &mut dyn Write) 
     Ok(())
 }
 
+pub(crate) fn ty_implements_iface(
+    ctx: &mut StaticsContext,
+    ty: SolvedType,
+    iface: &Rc<InterfaceDecl>,
+) -> bool {
+    let impl_list = ctx.interface_impls.entry(iface.clone()).or_default();
+    let mut found = false;
+    // TODO: cloning here sucks
+    for imp in impl_list.clone() {
+        let impl_ty = ast_type_to_typevar(ctx, imp.typ.clone());
+        if let Some(impl_ty) = impl_ty.solution() {
+            if ty_fits_impl_ty(ctx, ty.clone(), impl_ty).is_ok() {
+                found = true;
+            }
+        }
+    }
+    found
+}
+
 // TODO: there should be a file separate from typecheck that just has stuff pertaining to Types that the whole compiler can use
 // type-utils or just types.rs
 pub(crate) fn ty_fits_impl_ty(
-    ctx: &mut StaticsContext,
+    ctx: &StaticsContext,
     typ: SolvedType,
     impl_ty: SolvedType,
 ) -> Result<(), (SolvedType, SolvedType)> {
@@ -2218,7 +2283,7 @@ pub(crate) fn ty_fits_impl_ty(
 }
 
 fn ty_fits_impl_ty_poly(
-    ctx: &mut StaticsContext,
+    ctx: &StaticsContext,
     typ: SolvedType,
     interfaces: BTreeSet<Rc<InterfaceDecl>>,
 ) -> bool {
@@ -2429,4 +2494,31 @@ impl Display for Monotype {
             }
         }
     }
+}
+
+use codespan_reporting::diagnostic::{Diagnostic, Label};
+use codespan_reporting::files::SimpleFiles;
+use codespan_reporting::term;
+use codespan_reporting::term::termcolor::{ColorChoice, StandardStream};
+fn print_node(ctx: &StaticsContext, node_id: NodeId) {
+    let mut files = SimpleFiles::new();
+    let mut filename_to_id = HashMap::<String, usize>::new();
+    for (filename, source) in ctx._sources.filename_to_source.iter() {
+        let id = files.add(filename, source);
+        filename_to_id.insert(filename.clone(), id);
+    }
+
+    let get_file_and_range = |id: &NodeId| {
+        let span = ctx._node_map.get(id).unwrap().span();
+        (filename_to_id[&span.filename], span.range())
+    };
+
+    let (file, range) = get_file_and_range(&node_id);
+
+    let diagnostic = Diagnostic::note().with_labels(vec![Label::secondary(file, range)]);
+
+    let writer = StandardStream::stderr(ColorChoice::Always);
+    let config = codespan_reporting::term::Config::default();
+
+    term::emit(&mut writer.lock(), &config, &files, &diagnostic).unwrap();
 }
