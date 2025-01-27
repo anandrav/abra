@@ -497,16 +497,17 @@ impl TypeVar {
             }
             PotentialType::Poly(_, ref ident, ref interfaces) => {
                 if !polyvar_scope.lookup_poly(ident) {
-                    let ret = TypeVar::fresh(ctx, Prov::InstantiatePoly(id, ident.clone()));
+                    let prov = Prov::InstantiatePoly(id, ident.clone());
+                    let ret = TypeVar::fresh(ctx, prov.clone());
                     // TODO: Don't remove below. Need to add interface constraint check back later
-                    // let mut extension = Vec::new();
-                    // for i in interfaces {
-                    //     extension.push((i.clone(), prov.clone()));
-                    // }
-                    // ctx.types_constrained_to_interfaces
-                    //     .entry(ret.clone())
-                    //     .or_default()
-                    //     .extend(extension);
+                    let mut extension = Vec::new();
+                    for i in interfaces {
+                        extension.push((i.clone(), id));
+                    }
+                    ctx.unifvars_constrained_to_interfaces
+                        .entry(prov)
+                        .or_default()
+                        .extend(extension);
                     return ret; // instantiation occurs here
                 } else {
                     ty // noop
@@ -2202,6 +2203,11 @@ pub(crate) fn ty_implements_iface(
     ty: SolvedType,
     iface: &Rc<InterfaceDecl>,
 ) -> bool {
+    if let SolvedType::Poly(_, ifaces) = &ty {
+        if ifaces.contains(iface) {
+            return true;
+        }
+    }
     let impl_list = ctx.interface_impls.entry(iface.clone()).or_default();
     let mut found = false;
     // TODO: cloning here sucks
