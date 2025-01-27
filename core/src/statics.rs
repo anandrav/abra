@@ -238,7 +238,7 @@ impl Error {
                 labels.push(Label::secondary(file, range))
             }
             Error::ConflictingUnifvar { types } => {
-                diagnostic = diagnostic.with_message("Conflicting types");
+                diagnostic = diagnostic.with_message("Conflicting types during inference");
 
                 let mut type_conflict: Vec<PotentialType> = types.values().cloned().collect();
                 type_conflict.sort_by_key(|ty| ty.reasons().borrow().len());
@@ -267,7 +267,7 @@ impl Error {
             } => match constraint_reason {
                 ConstraintReason::None => {
                     diagnostic = diagnostic
-                        .with_message(format!("conflicting types `{}` and `{}`", ty2, ty1));
+                        .with_message(format!("Conflicting types `{}` and `{}`", ty2, ty1));
 
                     let provs2 = ty2.reasons().borrow();
                     let reason2 = provs2.iter().next().unwrap();
@@ -360,7 +360,7 @@ impl Error {
                         &mut notes,
                     );
                 }
-                ConstraintReason::LetStmtLhsRhs => {
+                ConstraintReason::LetSetLhsRhs => {
                     diagnostic = diagnostic.with_message("Variable and assignment do not match");
                     let provs2 = ty2.reasons().borrow();
                     let reason2 = provs2.iter().next().unwrap();

@@ -306,7 +306,7 @@ pub(crate) enum ConstraintReason {
     BinaryOperandsMustMatch,
     IfElseBodies,
     LetStmtAnnotation,
-    LetStmtLhsRhs,
+    LetSetLhsRhs,
     MatchScrutinyAndPattern,
     FuncCall,
     // bool
@@ -1348,7 +1348,7 @@ fn generate_constraints_stmt(
                 polyvar_scope.clone(),
                 Mode::AnaWithReason {
                     expected: ty_pat,
-                    constraint_reason: ConstraintReason::LetStmtLhsRhs,
+                    constraint_reason: ConstraintReason::LetSetLhsRhs,
                 },
                 expr.clone(),
                 ctx,
@@ -1359,7 +1359,7 @@ fn generate_constraints_stmt(
             generate_constraints_expr(polyvar_scope.clone(), Mode::Syn, lhs.clone(), ctx);
             let ty_rhs = TypeVar::from_node(ctx, rhs.id);
             generate_constraints_expr(polyvar_scope, Mode::Syn, rhs.clone(), ctx);
-            constrain(ctx, ty_lhs, ty_rhs);
+            constrain_because(ctx, ty_lhs, ty_rhs, ConstraintReason::LetSetLhsRhs);
         }
         StmtKind::FuncDef(f) => {
             generate_constraints_fn_def(ctx, polyvar_scope, f, f.name.id);
