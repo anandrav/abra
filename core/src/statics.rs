@@ -205,7 +205,7 @@ pub(crate) fn check_errors(
         error.show(ctx, node_map, sources);
     }
 
-    Err("Failed to compile".to_string())
+    Err("Failed to compile.".to_string())
 }
 
 // TODO: reduce code duplication for displaying error messages, types
@@ -269,8 +269,8 @@ impl Error {
                 constraint_reason,
             } => match constraint_reason {
                 ConstraintReason::None => {
-                    diagnostic =
-                        diagnostic.with_message(format!("conflicting types {} and {}", ty2, ty1));
+                    diagnostic = diagnostic
+                        .with_message(format!("conflicting types `{}` and `{}`", ty2, ty1));
 
                     let provs2 = ty2.reasons().borrow();
                     let reason2 = provs2.iter().next().unwrap();
@@ -414,7 +414,7 @@ impl Error {
                 }
                 ConstraintReason::Condition => {
                     diagnostic = diagnostic.with_message(format!(
-                        "Type conflict: condition must be a bool but got {}\n",
+                        "Type conflict: condition must be a `bool` but got `{}`\n",
                         ty1
                     ));
 
@@ -431,7 +431,7 @@ impl Error {
                 }
                 ConstraintReason::BinaryOperandBool => {
                     diagnostic = diagnostic.with_message(format!(
-                        "Type conflict: Operand must be a bool but got {}\n",
+                        "Type conflict: Operand must be `bool` but got `{}`\n",
                         ty1
                     ));
 
@@ -509,10 +509,10 @@ fn handle_reason(
     };
     match reason {
         Reason::Builtin(builtin) => {
-            notes.push(format!("the builtin function {}", builtin.name()));
+            notes.push(format!("the builtin function `{}`", builtin.name()));
         }
         Reason::Effect(id) => {
-            notes.push(format!("the effect {}", id));
+            notes.push(format!("the effect `{}`", id));
         }
         Reason::Node(id) => {
             let (file, range) = get_file_and_range(id);
@@ -525,7 +525,7 @@ fn handle_reason(
         Reason::Literal(id) => {
             let (file, range) = get_file_and_range(id);
             labels.push(
-                Label::secondary(file, range).with_message(&format!("{} literal", ty.to_string())),
+                Label::secondary(file, range).with_message(format!("`{}` literal", ty.to_string())),
             );
         }
         Reason::BinopLeft(id) => {
