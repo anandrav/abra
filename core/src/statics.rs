@@ -11,7 +11,7 @@ use std::fmt::{self, Display, Formatter};
 use std::path::PathBuf;
 use std::rc::Rc;
 use typecheck::{
-    fmt_conflicting_types, generate_constraints_file, result_of_constraint_solving, solve_types,
+    check_unifvars, fmt_conflicting_types, generate_constraints_file, solve_types,
     ConstraintReason, PotentialType, Reason, SolvedType, TypeKey, TypeVar,
 };
 mod pat_exhaustiveness;
@@ -135,7 +135,7 @@ pub(crate) enum Declaration {
 #[derive(Debug)]
 pub(crate) enum Error {
     // resolution phase
-    UnboundVariable {
+    UnresolvedIdentifier {
         node_id: NodeId,
     },
     // typechecking phase
@@ -227,9 +227,9 @@ impl Error {
         };
 
         match self {
-            Error::UnboundVariable { node_id } => {
+            Error::UnresolvedIdentifier { node_id } => {
                 let (file, range) = get_file_and_range(node_id);
-                diagnostic = diagnostic.with_message("This variable is unbound");
+                diagnostic = diagnostic.with_message("Could not resolve identifier");
                 labels.push(Label::secondary(file, range))
             }
             Error::UnconstrainedUnifvar { node_id } => {

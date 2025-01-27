@@ -316,7 +316,8 @@ fn resolve_imports_file(ctx: &mut StaticsContext, file: Rc<FileAst>) -> Toplevel
     for item in file.items.iter() {
         if let ItemKind::Import(path) = &*item.kind {
             let Some(import_src) = ctx.global_namespace.namespaces.get(&path.v) else {
-                ctx.errors.push(Error::UnboundVariable { node_id: item.id });
+                ctx.errors
+                    .push(Error::UnresolvedIdentifier { node_id: item.id });
                 continue;
             };
             // add declarations from this import to the environment
@@ -410,7 +411,8 @@ fn resolve_names_item(ctx: &mut StaticsContext, symbol_table: SymbolTable, stmt:
                     }
                 }
             } else {
-                ctx.errors.push(Error::UnboundVariable { node_id: stmt.id });
+                ctx.errors
+                    .push(Error::UnresolvedIdentifier { node_id: stmt.id });
             }
         }
         ItemKind::Import(..) => {}
@@ -486,7 +488,7 @@ fn resolve_names_expr(ctx: &mut StaticsContext, symbol_table: SymbolTable, expr:
                 ctx.resolution_map.insert(expr.id, decl);
             } else {
                 ctx.errors
-                    .push(Error::UnboundVariable { node_id: expr.id() });
+                    .push(Error::UnresolvedIdentifier { node_id: expr.id() });
             }
         }
         ExprKind::BinOp(left, _, right) => {
@@ -581,7 +583,8 @@ fn resolve_names_pat(ctx: &mut StaticsContext, symbol_table: SymbolTable, pat: R
             {
                 ctx.resolution_map.insert(tag.id, decl.clone());
             } else {
-                ctx.errors.push(Error::UnboundVariable { node_id: tag.id });
+                ctx.errors
+                    .push(Error::UnresolvedIdentifier { node_id: tag.id });
             }
             if let Some(data) = data {
                 resolve_names_pat(ctx, symbol_table, data.clone())
@@ -619,7 +622,7 @@ fn resolve_names_typ(ctx: &mut StaticsContext, symbol_table: SymbolTable, typ: R
                     ctx.resolution_map.insert(iface.id, decl.clone());
                 } else {
                     ctx.errors
-                        .push(Error::UnboundVariable { node_id: iface.id });
+                        .push(Error::UnresolvedIdentifier { node_id: iface.id });
                 }
             }
         }
@@ -663,7 +666,7 @@ fn resolve_names_typ_identifier(
             ctx.resolution_map.insert(id, decl);
         }
         _ => {
-            ctx.errors.push(Error::UnboundVariable { node_id: id });
+            ctx.errors.push(Error::UnresolvedIdentifier { node_id: id });
         }
     }
 }

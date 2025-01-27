@@ -18,7 +18,7 @@ pub(crate) fn solve_types(ctx: &mut StaticsContext, files: &Vec<Rc<FileAst>>) {
     for file in files {
         generate_constraints_file(file.clone(), ctx);
     }
-    result_of_constraint_solving(ctx);
+    check_unifvars(ctx);
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -1204,8 +1204,12 @@ impl PolyvarScope {
     }
 }
 
-// errors would be unbound variable, wrong number of arguments, occurs check, etc.
-pub(crate) fn result_of_constraint_solving(ctx: &mut StaticsContext) {
+pub(crate) fn check_unifvars(ctx: &mut StaticsContext) {
+    if !ctx.errors.is_empty() {
+        // Don't display errors for unconstrained or over-constrained
+        // unifvars unless other errors are fixedto avoid redundant feedback
+        return;
+    }
     // get list of type conflicts
     let mut type_conflicts = Vec::new();
     for (prov, tyvar) in ctx.unifvars.iter() {
@@ -1789,7 +1793,7 @@ fn generate_constraints_expr(
                 }
                 if !resolved {
                     ctx.errors
-                        .push(Error::UnboundVariable { node_id: field.id })
+                        .push(Error::UnresolvedIdentifier { node_id: field.id })
                 }
             }
         }

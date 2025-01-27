@@ -69,6 +69,21 @@ let k = a and b and c and d and e and f and g and h and i and j
     unwrap_or_panic(compile_bytecode(sources, DefaultEffects::enumerate()));
 }
 
+#[test]
+fn struct_fields() {
+    let src = r#"
+type person = {
+    age: int,
+    name: string
+}
+
+let p = person(33, "Anand")
+p.age
+"#;
+    let sources = source_files_single(src);
+    unwrap_or_panic(compile_bytecode(sources, DefaultEffects::enumerate()));
+}
+
 // NEGATIVE TESTS
 // Typechecking should catch an error.
 
@@ -95,6 +110,35 @@ fn bad_comp() {
 #[test]
 fn bad_comp2() {
     should_fail("true < 2");
+}
+
+#[test]
+fn bad_struct_fields() {
+    should_fail(
+        r#"
+type person = {
+    name: string,
+    age: int
+}
+
+let p = person("25", "Anand")
+"#,
+    );
+}
+
+#[test]
+fn bad_struct_fields2() {
+    should_fail(
+        r#"
+type person = {
+    name: string,
+    age: int
+}
+
+let p = person(25, "Anand")
+p.age <- "25"
+"#,
+    );
 }
 
 #[test]
