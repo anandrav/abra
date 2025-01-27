@@ -278,7 +278,6 @@ pub(crate) enum Prov {
     FuncArg(NodeId, u8),             // u8 represents the index of the argument
     FuncOut(NodeId),                 // u8 represents how many arguments before this output
     ListElem(NodeId),
-    StructField(String, NodeId),
 }
 
 // TODO: Most likely none of these should contain Box<Reason>. That's unnecessarily complicated
@@ -311,7 +310,6 @@ pub(crate) enum ConstraintReason {
     FuncCall,
     // bool
     Condition,
-    EmptyBlock,
     BinaryOperandBool,
     // int
     IndexAccess,
@@ -953,7 +951,7 @@ pub(crate) fn ast_type_to_typevar(ctx: &mut StaticsContext, ast_type: Rc<AstType
                 interfaces,
             )
         }
-        TypeKind::Identifier(ident) => {
+        TypeKind::Identifier(_) => {
             let lookup = ctx.resolution_map.get(&ast_type.id);
             match lookup {
                 Some(Declaration::Enum(enum_def)) => TypeVar::make_nominal(
@@ -1791,8 +1789,8 @@ fn generate_constraints_expr(
             // function type
             let ty_args_and_body = TypeVar::make_func(tys_args, ty_body, Reason::Node(expr.id));
 
-            if let ExprKind::Identifier(ident) = &*func.kind {
-                // println!("{ident}()");
+            if let ExprKind::Identifier(_ident) = &*func.kind {
+                // println!("{_ident}()");
             }
             constrain_because(
                 ctx,

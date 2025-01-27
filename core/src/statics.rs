@@ -10,8 +10,8 @@ use std::fmt::{self, Display, Formatter};
 use std::path::PathBuf;
 use std::rc::Rc;
 use typecheck::{
-    check_unifvars, fmt_conflicting_types, generate_constraints_file, solve_types,
-    ConstraintReason, PotentialType, Reason, SolvedType, TypeKey, TypeVar,
+    fmt_conflicting_types, solve_types, ConstraintReason, PotentialType, Reason, SolvedType,
+    TypeKey, TypeVar,
 };
 mod pat_exhaustiveness;
 mod resolve;
@@ -468,9 +468,6 @@ impl Error {
                         &mut labels,
                         &mut notes,
                     );
-                }
-                ConstraintReason::EmptyBlock => {
-                    notes.push("type conflict due to empty block is void".to_string());
                 }
                 ConstraintReason::IndexAccess => {
                     notes.push("type conflict due to array index is int".to_string());

@@ -577,7 +577,7 @@ impl Translator {
                                         let interface_impl_ty = unifvar.solution().unwrap();
 
                                         if ty_fits_impl_ty(
-                                            &mut self.statics,
+                                            &self.statics,
                                             substituted_ty.clone(),
                                             interface_impl_ty,
                                         )
@@ -841,13 +841,13 @@ impl Translator {
                 let arg_set = args.iter().map(|(pat, _)| pat.id).collect::<HashSet<_>>();
                 let mut captures = HashSet::new();
                 self.collect_captures_expr(body, &locals, &arg_set, &mut captures);
-                for capture in captures.iter() {
-                    // let node = self.node_map.get(capture).unwrap();
-                    // let span = node.span();
-                    // let s = String::new();
-                    // span.display(&mut s, &self.sources, "capture");
-                    // println!("{}", s);
-                }
+                // for capture in captures.iter() {
+                // let node = self.node_map.get(capture).unwrap();
+                // let span = node.span();
+                // let s = String::new();
+                // span.display(&mut s, &self.sources, "capture");
+                // println!("{}", s);
+                // }
                 let ncaptures = captures.len();
                 for _ in 0..locals_count {
                     emit(st, Instr::PushNil);
@@ -1343,7 +1343,7 @@ impl Translator {
         emit(st, Instr::Call(label));
     }
 
-    fn _display_node(&self, node_id: NodeId) {
+    fn _display_node(&self, _node_id: NodeId) {
         // let node = self.node_map.get(&node_id).unwrap();
         // let span = node.span();
         // let s: String = String::new();
