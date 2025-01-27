@@ -1533,8 +1533,8 @@ fn update_monomorph_env(monomorph_env: MonomorphEnv, overloaded_ty: Type, monomo
                 update_monomorph_env(monomorph_env.clone(), params[i].clone(), params2[i].clone());
             }
         }
-        (Type::Poly(ident, _), _) => {
-            monomorph_env.extend(ident, monomorphic_ty);
+        (Type::Poly(polyty), _) => {
+            monomorph_env.extend(polyty.name.v.clone(), monomorphic_ty);
         }
         (Type::Tuple(elems1), Type::Tuple(elems2)) => {
             for i in 0..elems1.len() {
@@ -1562,8 +1562,8 @@ fn subst_with_monomorphic_env(monomorphic_env: MonomorphEnv, ty: Type) -> Type {
                 .collect();
             Type::Nominal(ident, new_params)
         }
-        Type::Poly(ref ident, _) => {
-            if let Some(monomorphic_ty) = monomorphic_env.lookup(ident) {
+        Type::Poly(ref polyty) => {
+            if let Some(monomorphic_ty) = monomorphic_env.lookup(&polyty.name.v) {
                 monomorphic_ty
             } else {
                 ty

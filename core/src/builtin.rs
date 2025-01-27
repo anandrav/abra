@@ -1,4 +1,6 @@
 use crate::statics::typecheck::Nominal;
+use crate::statics::typecheck::Reason;
+use crate::statics::typecheck::TypeVar;
 use crate::statics::Type;
 
 use strum::IntoEnumIterator;
@@ -106,76 +108,141 @@ impl Builtin {
         }
     }
 
-    pub(crate) fn type_signature(&self) -> Type {
+    pub(crate) fn type_signature(&self) -> TypeVar {
+        let reason = Reason::Builtin(*self);
         match self {
             Builtin::AddInt
             | Builtin::SubtractInt
             | Builtin::MultiplyInt
             | Builtin::DivideInt
             | Builtin::ModuloInt
-            | Builtin::PowerInt => Type::Function(vec![Type::Int, Type::Int], Type::Int.into()),
-            Builtin::SqrtInt => Type::Function(vec![Type::Int], Type::Int.into()),
+            | Builtin::PowerInt => TypeVar::make_func(
+                vec![
+                    TypeVar::make_int(reason.clone()),
+                    TypeVar::make_int(reason.clone()),
+                ],
+                TypeVar::make_int(reason.clone()),
+                reason.clone(),
+            ),
+            Builtin::SqrtInt => TypeVar::make_func(
+                vec![TypeVar::make_int(reason.clone())],
+                TypeVar::make_int(reason.clone()),
+                reason.clone(),
+            ),
 
             Builtin::AddFloat
             | Builtin::SubtractFloat
             | Builtin::MultiplyFloat
             | Builtin::DivideFloat
             | Builtin::ModuloFloat
-            | Builtin::PowerFloat => {
-                Type::Function(vec![Type::Float, Type::Float], Type::Float.into())
-            }
-            Builtin::SqrtFloat => Type::Function(vec![Type::Float], Type::Float.into()),
+            | Builtin::PowerFloat => TypeVar::make_func(
+                vec![
+                    TypeVar::make_float(reason.clone()),
+                    TypeVar::make_float(reason.clone()),
+                ],
+                TypeVar::make_float(reason.clone()),
+                reason.clone(),
+            ),
+            Builtin::SqrtFloat => TypeVar::make_func(
+                vec![TypeVar::make_float(reason.clone())],
+                TypeVar::make_float(reason.clone()),
+                reason.clone(),
+            ),
 
             Builtin::LessThanInt
             | Builtin::LessThanOrEqualInt
             | Builtin::GreaterThanInt
             | Builtin::GreaterThanOrEqualInt
-            | Builtin::EqualInt => Type::Function(vec![Type::Int, Type::Int], Type::Bool.into()),
+            | Builtin::EqualInt => TypeVar::make_func(
+                vec![
+                    TypeVar::make_int(reason.clone()),
+                    TypeVar::make_int(reason.clone()),
+                ],
+                TypeVar::make_bool(reason.clone()),
+                reason.clone(),
+            ),
 
             Builtin::LessThanFloat
             | Builtin::LessThanOrEqualFloat
             | Builtin::GreaterThanFloat
             | Builtin::GreaterThanOrEqualFloat
-            | Builtin::EqualFloat => {
-                Type::Function(vec![Type::Float, Type::Float], Type::Bool.into())
-            }
-
-            Builtin::EqualString => {
-                Type::Function(vec![Type::String, Type::String], Type::Bool.into())
-            }
-
-            Builtin::IntToString => Type::Function(vec![Type::Int], Type::String.into()),
-            Builtin::FloatToString => Type::Function(vec![Type::Float], Type::String.into()),
-
-            Builtin::ConcatStrings => {
-                Type::Function(vec![Type::String, Type::String], Type::String.into())
-            }
-
-            Builtin::ArrayAppend => Type::Function(
+            | Builtin::EqualFloat => TypeVar::make_func(
                 vec![
-                    Type::Nominal(Nominal::Array, vec![Type::Poly("a".to_string(), vec![])]),
-                    Type::Poly("a".to_string(), vec![]),
+                    TypeVar::make_float(reason.clone()),
+                    TypeVar::make_float(reason.clone()),
                 ],
-                Type::Unit.into(),
+                TypeVar::make_bool(reason.clone()),
+                reason.clone(),
             ),
 
-            Builtin::ArrayLength => Type::Function(
-                vec![Type::Nominal(
-                    Nominal::Array,
-                    vec![Type::Poly("a".into(), vec![])],
-                )],
-                Type::Int.into(),
+            Builtin::EqualString => TypeVar::make_func(
+                vec![
+                    TypeVar::make_string(reason.clone()),
+                    TypeVar::make_string(reason.clone()),
+                ],
+                TypeVar::make_bool(reason.clone()),
+                reason.clone(),
             ),
 
-            Builtin::ArrayPop => Type::Function(
-                vec![Type::Nominal(
-                    Nominal::Array,
-                    vec![Type::Poly("a".into(), vec![])],
-                )],
-                Type::Unit.into(),
+            Builtin::IntToString => TypeVar::make_func(
+                vec![TypeVar::make_int(reason.clone())],
+                TypeVar::make_string(reason.clone()),
+                reason.clone(),
+            ),
+            Builtin::FloatToString => TypeVar::make_func(
+                vec![TypeVar::make_float(reason.clone())],
+                TypeVar::make_string(reason.clone()),
+                reason.clone(),
             ),
 
-            Builtin::Newline => Type::String,
+            Builtin::ConcatStrings => TypeVar::make_func(
+                vec![
+                    TypeVar::make_string(reason.clone()),
+                    TypeVar::make_string(reason.clone()),
+                ],
+                TypeVar::make_string(reason.clone()),
+                reason.clone(),
+            ),
+
+            Builtin::ArrayAppend => {
+                let a = TypeVar::empty();
+                TypeVar::make_func(
+                    vec![
+                        TypeVar::make_nominal(reason.clone(), Nominal::Array, vec![a.clone()]),
+                        a.clone(),
+                    ],
+                    TypeVar::make_unit(reason.clone()),
+                    reason.clone(),
+                )
+            }
+
+            Builtin::ArrayLength => {
+                let a = TypeVar::empty();
+                TypeVar::make_func(
+                    vec![TypeVar::make_nominal(
+                        reason.clone(),
+                        Nominal::Array,
+                        vec![a.clone()],
+                    )],
+                    TypeVar::make_int(reason.clone()),
+                    reason.clone(),
+                )
+            }
+
+            Builtin::ArrayPop => {
+                let a = TypeVar::empty();
+                TypeVar::make_func(
+                    vec![TypeVar::make_nominal(
+                        reason.clone(),
+                        Nominal::Array,
+                        vec![a.clone()],
+                    )],
+                    TypeVar::make_unit(reason.clone()),
+                    reason.clone(),
+                )
+            }
+
+            Builtin::Newline => TypeVar::make_string(reason.clone()),
         }
     }
 }

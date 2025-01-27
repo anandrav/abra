@@ -208,7 +208,7 @@ fn println(x: 'a ToString) {
     print_string(str(x) & newline)
 }
 
-fn format_append(s1: 'g ToString, s2: 'h ToString) {
+fn format_append(s1: 'a ToString, s2: 'b ToString) {
     let s3 = str(s1)
     let s4 = str(s2)
     concat_strings(s3, s4)

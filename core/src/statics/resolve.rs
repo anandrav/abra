@@ -612,6 +612,7 @@ fn resolve_names_typ(ctx: &mut StaticsContext, symbol_table: SymbolTable, typ: R
             else {
                 let decl = Declaration::Polytype(polyty.clone());
                 symbol_table.extend_declaration(polyty.name.v.clone(), decl.clone());
+                // it resolves to itself
                 ctx.resolution_map.insert(polyty.name.id, decl);
             }
 

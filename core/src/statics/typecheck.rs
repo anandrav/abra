@@ -12,7 +12,9 @@ use std::collections::{BTreeSet, HashMap};
 use std::fmt::{self, Display, Write};
 use std::rc::Rc;
 
-use super::{Declaration, EnumDef, Error, FuncDef, InterfaceDecl, StaticsContext, StructDef};
+use super::{
+    Declaration, EnumDef, Error, FuncDef, InterfaceDecl, Polytype, StaticsContext, StructDef,
+};
 
 pub(crate) fn solve_types(ctx: &mut StaticsContext, files: &Vec<Rc<FileAst>>) {
     for file in files {
@@ -80,7 +82,7 @@ impl TypeVarData {
                     .reasons()
                     .borrow_mut()
                     .extend(other_provs.borrow().clone()),
-                PotentialType::Poly(other_provs, _, _interfaces) => t
+                PotentialType::Poly(other_provs, _) => t
                     .reasons()
                     .borrow_mut()
                     .extend(other_provs.borrow().clone()),
@@ -132,7 +134,7 @@ impl TypeVarData {
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub(crate) enum PotentialType {
     // TODO: Poly cannot use String, must resolve to declaration of polymorphic type such as 'a
-    Poly(Reasons, String, Vec<Rc<InterfaceDecl>>), // type name, then list of Interfaces it must match
+    Poly(Reasons, Rc<Polytype>), // type name, then list of Interfaces it must match
     Unit(Reasons),
     Int(Reasons),
     Float(Reasons),
@@ -146,7 +148,7 @@ pub(crate) enum PotentialType {
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub(crate) enum SolvedType {
     // TODO: Poly cannot use String, must resolve to declaration of polymorphic type such as 'a
-    Poly(String, Vec<Rc<InterfaceDecl>>), // type name, then list of Interfaces it must match
+    Poly(Rc<Polytype>), // type name, then list of Interfaces it must match
     Unit,
     Int,
     Float,
@@ -225,7 +227,7 @@ impl SolvedType {
 
     pub(crate) fn is_overloaded(&self) -> bool {
         match self {
-            Self::Poly(_, interfaces) => !interfaces.is_empty(),
+            Self::Poly(polyty) => !polyty.iface_names.is_empty(),
             Self::Unit => false,
             Self::Int => false,
             Self::Float => false,
@@ -258,7 +260,7 @@ pub enum Monotype {
 // (If two types share the same key, they may or may not be in conflict)
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub(crate) enum TypeKey {
-    Poly,
+    Poly(Rc<Polytype>),
     TyApp(Nominal, u8), // u8 represents the number of type params
     Unit,
     Int,
@@ -274,9 +276,9 @@ pub(crate) enum TypeKey {
 pub(crate) enum Prov {
     Node(NodeId), // the type of an expression or statement located at NodeId
     InstantiateUdtParam(NodeId, u8),
-    InstantiatePoly(NodeId, String), // TODO! don't use String here it isn't unique!
-    FuncArg(NodeId, u8),             // u8 represents the index of the argument
-    FuncOut(NodeId),                 // u8 represents how many arguments before this output
+    InstantiatePoly(NodeId, Rc<Polytype>),
+    FuncArg(NodeId, u8), // u8 represents the index of the argument
+    FuncOut(NodeId),     // u8 represents how many arguments before this output
     ListElem(NodeId),
 }
 
@@ -315,10 +317,12 @@ pub(crate) enum ConstraintReason {
     IndexAccess,
 }
 
+type Substitution = HashMap<Declaration, TypeVar>;
+
 impl PotentialType {
     fn key(&self) -> TypeKey {
         match self {
-            PotentialType::Poly(_, _, _) => TypeKey::Poly,
+            PotentialType::Poly(_, polyty) => TypeKey::Poly(polyty.clone()),
             PotentialType::Unit(_) => TypeKey::Unit,
             PotentialType::Int(_) => TypeKey::Int,
             PotentialType::Float(_) => TypeKey::Float,
@@ -339,9 +343,7 @@ impl PotentialType {
             Self::Float(_) => Some(SolvedType::Float),
             Self::String(_) => Some(SolvedType::String),
             Self::Unit(_) => Some(SolvedType::Unit),
-            Self::Poly(_, ident, interfaces) => {
-                Some(SolvedType::Poly(ident.clone(), interfaces.clone()))
-            }
+            Self::Poly(_, polytype) => Some(SolvedType::Poly(polytype.clone())),
             Self::Function(_, args, out) => {
                 let mut args2: Vec<SolvedType> = vec![];
                 for arg in args {
@@ -381,7 +383,7 @@ impl PotentialType {
 
     pub(crate) fn reasons(&self) -> &Reasons {
         match self {
-            Self::Poly(provs, _, _)
+            Self::Poly(provs, _)
             | Self::Unit(provs)
             | Self::Int(provs)
             | Self::Float(provs)
@@ -421,12 +423,8 @@ impl PotentialType {
         PotentialType::Tuple(reasons_singleton(reason), elems)
     }
 
-    fn make_poly(
-        reason: Reason,
-        ident: String,
-        interfaces: Vec<Rc<InterfaceDecl>>,
-    ) -> PotentialType {
-        PotentialType::Poly(reasons_singleton(reason), ident, interfaces)
+    fn make_poly(reason: Reason, polyty: Rc<Polytype>) -> PotentialType {
+        PotentialType::Poly(reasons_singleton(reason), polyty)
     }
 
     fn make_nominal(reason: Reason, nominal: Nominal, params: Vec<TypeVar>) -> PotentialType {
@@ -493,14 +491,17 @@ impl TypeVar {
             | PotentialType::String(_) => {
                 ty // noop
             }
-            PotentialType::Poly(_, ref ident, ref interfaces) => {
-                if !polyvar_scope.lookup_poly(ident) {
-                    let prov = Prov::InstantiatePoly(id, ident.clone());
+            PotentialType::Poly(_, ref polyty) => {
+                if !polyvar_scope.lookup_poly(polyty.clone(), ctx) {
+                    let prov = Prov::InstantiatePoly(id, polyty.clone());
                     let ret = TypeVar::fresh(ctx, prov.clone());
-                    // TODO: Don't remove below. Need to add interface constraint check back later
-                    let mut extension = Vec::new();
-                    for i in interfaces {
-                        extension.push((i.clone(), id));
+                    let mut extension: Vec<(Rc<InterfaceDecl>, NodeId)> = Vec::new();
+                    for i in &polyty.iface_names {
+                        if let Some(Declaration::InterfaceDef(iface)) =
+                            ctx.resolution_map.get(&i.id)
+                        {
+                            extension.push((iface.clone(), id));
+                        }
                     }
                     ctx.unifvars_constrained_to_interfaces
                         .entry(prov)
@@ -551,7 +552,8 @@ impl TypeVar {
         self,
         polyvar_scope: PolyvarScope,
         prov: Prov,
-        substitution: &HashMap<String, TypeVar>,
+        substitution: &HashMap<Declaration, TypeVar>,
+        ctx: &StaticsContext,
     ) -> TypeVar {
         let data = self.0.clone_data();
         if data.types.len() == 1 {
@@ -565,9 +567,15 @@ impl TypeVar {
                 | PotentialType::String(_) => {
                     ty // noop
                 }
-                PotentialType::Poly(_, ref ident, ref _interfaces) => {
-                    if let Some(ty) = substitution.get(ident) {
-                        return ty.clone(); // substitution occurs here
+                PotentialType::Poly(_, ref polyty) => {
+                    if let Some(decl @ Declaration::InterfaceDef(_)) =
+                        ctx.resolution_map.get(&polyty.name.id)
+                    {
+                        if let Some(ty) = substitution.get(decl) {
+                            return ty.clone(); // substitution occurs here
+                        } else {
+                            ty // noop
+                        }
                     } else {
                         ty // noop
                     }
@@ -575,22 +583,22 @@ impl TypeVar {
                 PotentialType::Nominal(provs, ident, params) => {
                     let params = params
                         .into_iter()
-                        .map(|ty| ty.subst(polyvar_scope.clone(), prov.clone(), substitution))
+                        .map(|ty| ty.subst(polyvar_scope.clone(), prov.clone(), substitution, ctx))
                         .collect();
                     PotentialType::Nominal(provs, ident, params)
                 }
                 PotentialType::Function(provs, args, out) => {
                     let args = args
                         .into_iter()
-                        .map(|ty| ty.subst(polyvar_scope.clone(), prov.clone(), substitution))
+                        .map(|ty| ty.subst(polyvar_scope.clone(), prov.clone(), substitution, ctx))
                         .collect();
-                    let out = out.subst(polyvar_scope.clone(), prov, substitution);
+                    let out = out.subst(polyvar_scope.clone(), prov, substitution, ctx);
                     PotentialType::Function(provs, args, out)
                 }
                 PotentialType::Tuple(provs, elems) => {
                     let elems = elems
                         .into_iter()
-                        .map(|ty| ty.subst(polyvar_scope.clone(), prov.clone(), substitution))
+                        .map(|ty| ty.subst(polyvar_scope.clone(), prov.clone(), substitution, ctx))
                         .collect();
                     PotentialType::Tuple(provs, elems)
                 }
@@ -623,7 +631,7 @@ impl TypeVar {
         }
     }
 
-    fn empty() -> TypeVar {
+    pub(crate) fn empty() -> TypeVar {
         TypeVar(UnionFindNode::new(TypeVarData::new()))
     }
 
@@ -637,19 +645,19 @@ impl TypeVar {
         Self::singleton_solved(PotentialType::make_unit(reason))
     }
 
-    fn make_int(reason: Reason) -> TypeVar {
+    pub(crate) fn make_int(reason: Reason) -> TypeVar {
         Self::singleton_solved(PotentialType::make_int(reason))
     }
 
-    fn make_float(reason: Reason) -> TypeVar {
+    pub(crate) fn make_float(reason: Reason) -> TypeVar {
         Self::singleton_solved(PotentialType::make_float(reason))
     }
 
-    fn make_bool(reason: Reason) -> TypeVar {
+    pub(crate) fn make_bool(reason: Reason) -> TypeVar {
         Self::singleton_solved(PotentialType::make_bool(reason))
     }
 
-    fn make_string(reason: Reason) -> TypeVar {
+    pub(crate) fn make_string(reason: Reason) -> TypeVar {
         Self::singleton_solved(PotentialType::make_string(reason))
     }
 
@@ -657,15 +665,15 @@ impl TypeVar {
         Self::singleton_solved(PotentialType::make_func(args, out, reason))
     }
 
-    fn make_tuple(elems: Vec<TypeVar>, reason: Reason) -> TypeVar {
+    pub(crate) fn make_tuple(elems: Vec<TypeVar>, reason: Reason) -> TypeVar {
         Self::singleton_solved(PotentialType::make_tuple(elems, reason))
     }
 
-    fn make_poly(reason: Reason, ident: String, interfaces: Vec<Rc<InterfaceDecl>>) -> TypeVar {
-        Self::singleton_solved(PotentialType::make_poly(reason, ident, interfaces))
+    pub(crate) fn make_poly(reason: Reason, polyty: Rc<Polytype>) -> TypeVar {
+        Self::singleton_solved(PotentialType::make_poly(reason, polyty))
     }
 
-    fn make_nominal(reason: Reason, nominal: Nominal, params: Vec<TypeVar>) -> TypeVar {
+    pub(crate) fn make_nominal(reason: Reason, nominal: Nominal, params: Vec<TypeVar>) -> TypeVar {
         Self::singleton_solved(PotentialType::make_nominal(reason, nominal, params))
     }
 
@@ -711,7 +719,7 @@ fn tyvar_of_declaration(
         Declaration::Enum(enum_def) => {
             let nparams = enum_def.ty_args.len();
             let mut params = vec![];
-            let mut substitution = HashMap::new();
+            let mut substitution: Substitution = HashMap::new();
             for i in 0..nparams {
                 params.push(TypeVar::fresh(ctx, Prov::InstantiateUdtParam(id, i as u8)));
                 // TODO: don't do this silly downcast.
@@ -719,7 +727,12 @@ fn tyvar_of_declaration(
                 let TypeKind::Poly(polyty) = &*enum_def.ty_args[i].kind else {
                     panic!()
                 };
-                substitution.insert(polyty.name.v.clone(), params[i].clone());
+                let decl @ Declaration::Polytype(_) =
+                    ctx.resolution_map.get(&polyty.name.id).unwrap()
+                else {
+                    panic!()
+                };
+                substitution.insert(decl.clone(), params[i].clone());
             }
             Some(TypeVar::make_nominal(
                 Reason::Node(id), // TODO: change to Reason::Declaration
@@ -728,9 +741,10 @@ fn tyvar_of_declaration(
             ))
         }
         Declaration::EnumVariant { enum_def, variant } => {
+            // TODO: The code for making a substitution is duplicated in a lot of places and it looks gross
             let nparams = enum_def.ty_args.len();
             let mut params = vec![];
-            let mut substitution = HashMap::new();
+            let mut substitution: Substitution = HashMap::new();
             for i in 0..nparams {
                 params.push(TypeVar::fresh(ctx, Prov::InstantiateUdtParam(id, i as u8)));
                 // TODO: don't do this silly downcast.
@@ -738,7 +752,12 @@ fn tyvar_of_declaration(
                 let TypeKind::Poly(polyty) = &*enum_def.ty_args[i].kind else {
                     panic!()
                 };
-                substitution.insert(polyty.name.v.clone(), params[i].clone());
+                let decl @ Declaration::Polytype(_) =
+                    ctx.resolution_map.get(&polyty.name.id).unwrap()
+                else {
+                    panic!()
+                };
+                substitution.insert(decl.clone(), params[i].clone());
             }
             let def_type =
                 TypeVar::make_nominal(Reason::Node(id), Nominal::Enum(enum_def.clone()), params);
@@ -757,6 +776,7 @@ fn tyvar_of_declaration(
                                     polyvar_scope.clone(),
                                     Prov::Node(id),
                                     &substitution,
+                                    ctx,
                                 )
                             })
                             .collect();
@@ -765,9 +785,12 @@ fn tyvar_of_declaration(
                     _ => {
                         let ty = ast_type_to_typevar(ctx, ty.clone());
                         Some(TypeVar::make_func(
-                            vec![ty
-                                .clone()
-                                .subst(polyvar_scope, Prov::Node(id), &substitution)],
+                            vec![ty.clone().subst(
+                                polyvar_scope,
+                                Prov::Node(id),
+                                &substitution,
+                                ctx,
+                            )],
                             def_type,
                             Reason::Node(id),
                         ))
@@ -778,7 +801,7 @@ fn tyvar_of_declaration(
         Declaration::Struct(struct_def) => {
             let nparams = struct_def.ty_args.len();
             let mut params = vec![];
-            let mut substitution = HashMap::new();
+            let mut substitution: Substitution = HashMap::new();
             for i in 0..nparams {
                 params.push(TypeVar::fresh(ctx, Prov::InstantiateUdtParam(id, i as u8)));
                 // TODO: don't do this silly downcast.
@@ -786,7 +809,12 @@ fn tyvar_of_declaration(
                 let TypeKind::Poly(polyty) = &*struct_def.ty_args[i].kind else {
                     panic!()
                 };
-                substitution.insert(polyty.name.v.clone(), params[i].clone());
+                let decl @ Declaration::Polytype(_) =
+                    ctx.resolution_map.get(&polyty.name.id).unwrap()
+                else {
+                    panic!()
+                };
+                substitution.insert(decl.clone(), params[i].clone());
             }
             let def_type = TypeVar::make_nominal(
                 Reason::Node(id),
@@ -799,7 +827,7 @@ fn tyvar_of_declaration(
                 .map(|f| {
                     let ty = ast_type_to_typevar(ctx, f.ty.clone());
                     ty.clone()
-                        .subst(polyvar_scope.clone(), Prov::Node(id), &substitution)
+                        .subst(polyvar_scope.clone(), Prov::Node(id), &substitution, ctx)
                 })
                 .collect();
             Some(TypeVar::make_func(fields, def_type, Reason::Node(id)))
@@ -811,10 +839,7 @@ fn tyvar_of_declaration(
         )),
         Declaration::Array => {
             let mut params = vec![];
-            let mut substitution = HashMap::new();
             params.push(TypeVar::fresh(ctx, Prov::InstantiateUdtParam(id, 0)));
-
-            substitution.insert("a", params[0].clone());
 
             let def_type = TypeVar::make_nominal(Reason::Node(id), Nominal::Array, params);
 
@@ -823,10 +848,7 @@ fn tyvar_of_declaration(
         Declaration::Polytype(_) => None,
         Declaration::Builtin(builtin) => {
             let ty_signature = builtin.type_signature();
-            Some(solved_type_to_typevar(
-                ty_signature,
-                Reason::Builtin(*builtin),
-            ))
+            Some(ty_signature)
         }
         Declaration::Effect(e) => {
             let effect = &ctx.effects[*e as usize];
@@ -845,6 +867,7 @@ pub(crate) fn ast_type_to_solved_type(
 ) -> Option<SolvedType> {
     match &*ast_type.kind {
         TypeKind::Poly(polyty) => {
+            // TODO: gross
             let mut ifaces = vec![];
             for iface_name in &polyty.iface_names {
                 let lookup = ctx.resolution_map.get(&iface_name.id);
@@ -852,7 +875,8 @@ pub(crate) fn ast_type_to_solved_type(
                     ifaces.push(iface_def.clone());
                 }
             }
-            Some(SolvedType::Poly(polyty.name.v.clone(), ifaces))
+
+            Some(SolvedType::Poly(polyty.clone()))
         }
         TypeKind::Identifier(_) => {
             let lookup = ctx.resolution_map.get(&ast_type.id)?;
@@ -945,11 +969,7 @@ pub(crate) fn ast_type_to_typevar(ctx: &mut StaticsContext, ast_type: Rc<AstType
                     interfaces.push(iface_def.clone());
                 }
             }
-            TypeVar::make_poly(
-                Reason::Annotation(ast_type.id()),
-                polyty.name.v.clone(),
-                interfaces,
-            )
+            TypeVar::make_poly(Reason::Annotation(ast_type.id()), polyty.clone())
         }
         TypeKind::Identifier(_) => {
             let lookup = ctx.resolution_map.get(&ast_type.id);
@@ -1174,11 +1194,7 @@ fn constrain_solved_typevars(
 // TODO: Can this be done in resolve() instead?
 #[derive(Clone)]
 pub(crate) struct PolyvarScope {
-    // keep track of polymorphic type variables currently in scope (such as 'a)
-    // TODO: cannot use String, must resolve to declaration of polymorphic type
-    // Just because two types are named 'a doesn't mean they're the same 'a
-    // TODO LAST HERE
-    polyvars_in_scope: Environment<String, ()>,
+    polyvars_in_scope: Environment<Declaration, ()>,
 }
 impl PolyvarScope {
     pub(crate) fn empty() -> Self {
@@ -1187,36 +1203,44 @@ impl PolyvarScope {
         }
     }
 
-    fn add_polys(&self, ty: &TypeVar) {
+    fn add_polys(&self, ty: &TypeVar, ctx: &StaticsContext) {
         let Some(ty) = ty.single() else {
             return;
         };
         match ty {
-            PotentialType::Poly(_, ident, _interfaces) => {
-                self.polyvars_in_scope.extend(ident.clone(), ());
+            PotentialType::Poly(_, polyty) => {
+                if let Some(decl @ Declaration::Polytype(_)) =
+                    ctx.resolution_map.get(&polyty.name.id)
+                {
+                    self.polyvars_in_scope.extend(decl.clone(), ());
+                };
             }
             PotentialType::Nominal(_, _, params) => {
                 for param in params {
-                    self.add_polys(&param);
+                    self.add_polys(&param, ctx);
                 }
             }
             PotentialType::Function(_, args, out) => {
                 for arg in args {
-                    self.add_polys(&arg);
+                    self.add_polys(&arg, ctx);
                 }
-                self.add_polys(&out);
+                self.add_polys(&out, ctx);
             }
             PotentialType::Tuple(_, elems) => {
                 for elem in elems {
-                    self.add_polys(&elem);
+                    self.add_polys(&elem, ctx);
                 }
             }
             _ => {}
         }
     }
 
-    fn lookup_poly(&self, id: &String) -> bool {
-        self.polyvars_in_scope.lookup(id).is_some()
+    fn lookup_poly(&self, polyty: Rc<Polytype>, ctx: &StaticsContext) -> bool {
+        if let Some(decl @ Declaration::Polytype(_)) = ctx.resolution_map.get(&polyty.name.id) {
+            self.polyvars_in_scope.lookup(decl).is_some()
+        } else {
+            false
+        }
     }
 
     fn new_scope(&self) -> Self {
@@ -1285,7 +1309,7 @@ fn generate_constraints_item(mode: Mode, stmt: Rc<Item>, ctx: &mut StaticsContex
             let impl_ty = ast_type_to_typevar(ctx, iface_impl.typ.clone());
 
             let lookup = ctx.resolution_map.get(&iface_impl.iface.id).cloned();
-            if let Some(Declaration::InterfaceDef(iface_decl)) = lookup {
+            if let Some(decl @ Declaration::InterfaceDef(iface_decl)) = &lookup {
                 for method in &iface_decl.methods {
                     let node_ty = TypeVar::from_node(ctx, method.id());
                     if node_ty.is_locked() {
@@ -1302,8 +1326,9 @@ fn generate_constraints_item(mode: Mode, stmt: Rc<Item>, ctx: &mut StaticsContex
                     if let Some(interface_method) =
                         iface_decl.methods.iter().find(|m| m.name.v == method_name)
                     {
-                        let mut substitution = HashMap::new();
-                        substitution.insert("a".to_string(), impl_ty.clone());
+                        let mut substitution: Substitution = HashMap::new();
+                        // TODO: identifying 'self by using declaration of Interface itself... use a better solution in future
+                        substitution.insert(decl.clone(), impl_ty.clone());
 
                         let interface_method_ty =
                             ast_type_to_typevar(ctx, interface_method.ty.clone());
@@ -1314,6 +1339,7 @@ fn generate_constraints_item(mode: Mode, stmt: Rc<Item>, ctx: &mut StaticsContex
                             PolyvarScope::empty(),
                             Prov::Node(stmt.id),
                             &substitution,
+                            ctx,
                         );
 
                         let actual = TypeVar::from_node(ctx, f.name.id);
@@ -1371,7 +1397,7 @@ fn generate_constraints_stmt(
 
             if let Some(ty_ann) = ty_ann {
                 let ty_ann = ast_type_to_typevar(ctx, ty_ann.clone());
-                polyvar_scope.add_polys(&ty_ann);
+                // polyvar_scope.add_polys(&ty_ann);
                 generate_constraints_pat(
                     polyvar_scope.clone(),
                     Mode::AnaWithReason {
@@ -1898,7 +1924,7 @@ fn generate_constraints_func_helper(
                     let ty_annot = TypeVar::from_node(ctx, arg_annot.id());
                     let arg_annot = ast_type_to_typevar(ctx, arg_annot.clone());
                     constrain(ctx, ty_annot.clone(), arg_annot.clone());
-                    polyvar_scope.add_polys(&arg_annot);
+                    polyvar_scope.add_polys(&arg_annot, ctx);
                     generate_constraints_pat(
                         polyvar_scope.clone(),
                         Mode::Ana { expected: ty_annot },
@@ -1926,7 +1952,7 @@ fn generate_constraints_func_helper(
     );
     if let Some(out_annot) = out_annot {
         let out_annot = ast_type_to_typevar(ctx, out_annot.clone());
-        polyvar_scope.add_polys(&out_annot);
+        polyvar_scope.add_polys(&out_annot, ctx);
         generate_constraints_expr(
             polyvar_scope,
             Mode::Ana {
@@ -1957,7 +1983,7 @@ fn generate_constraints_func_decl(
                     let ty_annot = TypeVar::from_node(ctx, arg_annot.id());
                     let arg_annot = ast_type_to_typevar(ctx, arg_annot.clone());
                     constrain(ctx, ty_annot.clone(), arg_annot.clone());
-                    polyvar_scope.add_polys(&arg_annot);
+                    polyvar_scope.add_polys(&arg_annot, ctx);
                     generate_constraints_pat(
                         polyvar_scope.clone(),
                         Mode::Ana { expected: ty_annot },
@@ -1977,7 +2003,7 @@ fn generate_constraints_func_decl(
     let ty_body = TypeVar::fresh(ctx, Prov::FuncOut(node_id));
 
     let out_annot = ast_type_to_typevar(ctx, out_annot.clone());
-    polyvar_scope.add_polys(&out_annot);
+    polyvar_scope.add_polys(&out_annot, ctx);
 
     constrain(ctx, ty_body.clone(), out_annot);
 
@@ -2036,7 +2062,7 @@ fn generate_constraints_pat(
                 Some(data) => TypeVar::from_node(ctx, data.id),
                 None => TypeVar::make_unit(Reason::VariantNoData(pat.id)),
             };
-            let mut substitution = HashMap::new();
+            let mut substitution: Substitution = HashMap::new();
             let ty_enum_instance = {
                 if let Some(Declaration::EnumVariant { enum_def, variant }) =
                     ctx.resolution_map.get(&tag.id).cloned()
@@ -2053,7 +2079,12 @@ fn generate_constraints_pat(
                         let TypeKind::Poly(polyty) = &*enum_def.ty_args[i].kind else {
                             panic!()
                         };
-                        substitution.insert(polyty.name.v.clone(), params[i].clone());
+                        let decl @ Declaration::Polytype(_) =
+                            ctx.resolution_map.get(&polyty.name.id).unwrap()
+                        else {
+                            panic!()
+                        };
+                        substitution.insert(decl.clone(), params[i].clone());
                     }
                     let def_type = TypeVar::make_nominal(
                         Reason::Node(pat.id),
@@ -2070,6 +2101,7 @@ fn generate_constraints_pat(
                         polyvar_scope.clone(),
                         Prov::Node(pat.id),
                         &substitution,
+                        ctx,
                     );
                     constrain(ctx, ty_data.clone(), variant_data_ty);
 
@@ -2176,7 +2208,7 @@ pub(crate) fn solved_type_to_typevar(ty: SolvedType, reason: Reason) -> TypeVar 
                 .collect();
             TypeVar::make_nominal(reason, name, params)
         }
-        SolvedType::Poly(ident, interfaces) => TypeVar::make_poly(reason, ident, interfaces),
+        SolvedType::Poly(polyty) => TypeVar::make_poly(reason, polyty),
     }
 }
 
@@ -2201,7 +2233,13 @@ pub(crate) fn ty_implements_iface(
     ty: SolvedType,
     iface: &Rc<InterfaceDecl>,
 ) -> bool {
-    if let SolvedType::Poly(_, ifaces) = &ty {
+    if let SolvedType::Poly(polyty) = &ty {
+        let mut ifaces = vec![];
+        for iface_name in &polyty.iface_names {
+            if let Some(Declaration::InterfaceDef(iface)) = ctx.resolution_map.get(&iface_name.id) {
+                ifaces.push(iface.clone());
+            }
+        }
         if ifaces.contains(iface) {
             return true;
         }
@@ -2256,14 +2294,19 @@ pub(crate) fn ty_fits_impl_ty(
         (SolvedType::Nominal(ident1, tys1), SolvedType::Nominal(ident2, tys2)) => {
             if ident1 == ident2 && tys1.len() == tys2.len() {
                 for (ty1, ty2) in tys1.iter().zip(tys2.iter()) {
-                    let SolvedType::Poly(_, interfaces) = ty2.clone() else {
+                    let SolvedType::Poly(polyty) = ty2.clone() else {
                         panic!()
                     };
-                    if !ty_fits_impl_ty_poly(
-                        ctx,
-                        ty1.clone(),
-                        interfaces.iter().cloned().collect::<BTreeSet<_>>(),
-                    ) {
+                    // TODO: gross
+                    let mut ifaces = BTreeSet::new();
+                    for iface_name in &polyty.iface_names {
+                        if let Some(Declaration::InterfaceDef(iface)) =
+                            ctx.resolution_map.get(&iface_name.id)
+                        {
+                            ifaces.insert(iface.clone());
+                        }
+                    }
+                    if !ty_fits_impl_ty_poly(ctx, ty1.clone(), ifaces) {
                         return Err((typ, impl_ty));
                     }
                 }
@@ -2272,12 +2315,18 @@ pub(crate) fn ty_fits_impl_ty(
                 Err((typ, impl_ty))
             }
         }
-        (_, SolvedType::Poly(_, interfaces)) => {
-            if !ty_fits_impl_ty_poly(
-                ctx,
-                typ.clone(),
-                interfaces.iter().cloned().collect::<BTreeSet<_>>(),
-            ) {
+        (_, SolvedType::Poly(polyty)) => {
+            // TODO: code duplication with Nominal case above^
+            // TODO: gross
+            let mut ifaces = BTreeSet::new();
+            for iface_name in &polyty.iface_names {
+                if let Some(Declaration::InterfaceDef(iface)) =
+                    ctx.resolution_map.get(&iface_name.id)
+                {
+                    ifaces.insert(iface.clone());
+                }
+            }
+            if !ty_fits_impl_ty_poly(ctx, typ.clone(), ifaces) {
                 return Err((typ, impl_ty));
             }
             Ok(())
@@ -2292,9 +2341,20 @@ fn ty_fits_impl_ty_poly(
     interfaces: BTreeSet<Rc<InterfaceDecl>>,
 ) -> bool {
     for interface in interfaces {
-        if let SolvedType::Poly(_, interfaces2) = &typ {
+        if let SolvedType::Poly(polyty) = &typ {
+            // TODO: WTF does the next line mean:
             // if 'a Interface1 is constrained to [Interfaces...], ignore
-            if interfaces2.contains(&interface) {
+
+            // TODO: gross
+            let mut ifaces = Vec::new();
+            for iface_name in &polyty.iface_names {
+                if let Some(Declaration::InterfaceDef(iface)) =
+                    ctx.resolution_map.get(&iface_name.id)
+                {
+                    ifaces.push(iface.clone());
+                }
+            }
+            if ifaces.contains(&interface) {
                 return true;
             }
         }
@@ -2336,15 +2396,15 @@ impl Display for TypeVar {
 impl Display for PotentialType {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            PotentialType::Poly(_, ident, interfaces) => {
-                write!(f, "'{}", ident)?;
-                if !interfaces.is_empty() {
+            PotentialType::Poly(_, polyty) => {
+                write!(f, "'{}", polyty.name.v)?;
+                if !polyty.iface_names.is_empty() {
                     write!(f, " ")?;
-                    for (i, interface) in interfaces.iter().enumerate() {
+                    for (i, interface) in polyty.iface_names.iter().enumerate() {
                         if i != 0 {
                             write!(f, " + ")?;
                         }
-                        write!(f, "{}", interface.name.v)?;
+                        write!(f, "{}", interface.v)?;
                     }
                 }
                 Ok(())
@@ -2396,15 +2456,15 @@ impl Display for PotentialType {
 impl Display for SolvedType {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            SolvedType::Poly(ident, interfaces) => {
-                write!(f, "'{}", ident)?;
-                if !interfaces.is_empty() {
+            SolvedType::Poly(polyty) => {
+                write!(f, "'{}", polyty.name.v)?;
+                if !polyty.iface_names.is_empty() {
                     write!(f, " ")?;
-                    for (i, interface) in interfaces.iter().enumerate() {
+                    for (i, interface) in polyty.iface_names.iter().enumerate() {
                         if i != 0 {
                             write!(f, " + ")?;
                         }
-                        write!(f, "{}", interface.name.v)?;
+                        write!(f, "{}", interface.v)?;
                     }
                 }
                 Ok(())
