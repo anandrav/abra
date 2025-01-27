@@ -11,7 +11,7 @@ use crate::builtin::Builtin;
 
 use super::{Declaration, Error, Namespace, StaticsContext};
 
-pub(crate) fn scan_declarations(ctx: &mut StaticsContext, files: Vec<Rc<FileAst>>) {
+pub(crate) fn scan_declarations(ctx: &mut StaticsContext, files: &Vec<Rc<FileAst>>) {
     for file in files {
         let name = file.name.clone();
         let namespace = gather_declarations_file(ctx, file.clone());
@@ -276,7 +276,7 @@ impl SymbolTable {
 // TODO: make a custom type to detect collisions
 pub type ToplevelDeclarations = HashMap<String, Declaration>;
 
-pub(crate) fn resolve(ctx: &mut StaticsContext, files: Vec<Rc<FileAst>>) {
+pub(crate) fn resolve(ctx: &mut StaticsContext, files: &Vec<Rc<FileAst>>) {
     for file in files {
         let env = resolve_imports_file(ctx, file.clone());
         resolve_names_file(ctx, env.clone(), file.clone());

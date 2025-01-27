@@ -14,6 +14,13 @@ use std::rc::Rc;
 
 use super::{Declaration, EnumDef, Error, FuncDef, InterfaceDecl, StaticsContext, StructDef};
 
+pub(crate) fn solve_types(ctx: &mut StaticsContext, files: &Vec<Rc<FileAst>>) {
+    for file in files {
+        generate_constraints_file(file.clone(), ctx);
+    }
+    result_of_constraint_solving(ctx);
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub(crate) struct TypeVar(UnionFindNode<TypeVarData>);
 
@@ -1044,6 +1051,8 @@ pub(crate) enum Mode {
     },
 }
 
+// TODO: Go through each call to constrain() one-by-one to see if it should be replaced with constrain_because
+// TODO: After that, perhaps ConstraintReason::None should be removed altogether.
 pub(crate) fn constrain(ctx: &mut StaticsContext, tyvar1: TypeVar, tyvar2: TypeVar) {
     constrain_because(ctx, tyvar1, tyvar2, ConstraintReason::None)
 }
@@ -1239,7 +1248,7 @@ fn generate_constraints_item(mode: Mode, stmt: Rc<Item>, ctx: &mut StaticsContex
                 for method in &iface_decl.methods {
                     let node_ty = TypeVar::from_node(ctx, method.id());
                     if node_ty.locked() {
-                        // already got the types for this interface declaration's methods
+                        // Interface declaration method types have already been computed.
                         break;
                     }
                     let ty_annot = ast_type_to_typevar(ctx, method.ty.clone());
@@ -1770,10 +1779,18 @@ fn generate_constraints_expr(
                 let ExprKind::Identifier(field_ident) = &*field.kind else {
                     panic!()
                 };
-                // TODO: last here
-                let ty_field =
-                    TypeVar::fresh(ctx, Prov::StructField(field_ident.clone(), struct_def.id));
-                constrain(ctx, node_ty.clone(), ty_field);
+                let mut resolved = false;
+                for field in &struct_def.fields {
+                    if field.name.v == *field_ident {
+                        let ty_field = ast_type_to_typevar(ctx, field.ty.clone());
+                        constrain(ctx, node_ty.clone(), ty_field);
+                        resolved = true;
+                    }
+                }
+                if !resolved {
+                    ctx.errors
+                        .push(Error::UnboundVariable { node_id: field.id })
+                }
             }
         }
         ExprKind::IndexAccess(accessed, index) => {

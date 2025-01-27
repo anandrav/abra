@@ -11,7 +11,7 @@ use std::fmt::{self, Display, Formatter};
 use std::path::PathBuf;
 use std::rc::Rc;
 use typecheck::{
-    fmt_conflicting_types, generate_constraints_file, result_of_constraint_solving,
+    fmt_conflicting_types, generate_constraints_file, result_of_constraint_solving, solve_types,
     ConstraintReason, PotentialType, Reason, SolvedType, TypeKey, TypeVar,
 };
 mod pat_exhaustiveness;
@@ -174,16 +174,13 @@ pub(crate) fn analyze(
     let mut ctx = StaticsContext::new(effects.to_owned(), node_map.clone(), sources.clone()); // TODO: to_owned necessary?
 
     // scan declarations across all files
-    scan_declarations(&mut ctx, files.clone());
+    scan_declarations(&mut ctx, files);
 
     // resolve all imports and identifiers
-    resolve(&mut ctx, files.clone());
+    resolve(&mut ctx, files);
 
     // typechecking
-    for file in files {
-        generate_constraints_file(file.clone(), &mut ctx);
-    }
-    result_of_constraint_solving(&mut ctx);
+    solve_types(&mut ctx, files);
 
     // pattern exhaustiveness and usefulness checking
     check_pattern_exhaustiveness_and_usefulness(&mut ctx, files);
