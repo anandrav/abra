@@ -387,7 +387,30 @@ impl Error {
                     );
                 }
                 ConstraintReason::MatchScrutinyAndPattern => {
-                    notes.push("type conflict due to empty block is void".to_string());
+                    diagnostic = diagnostic.with_message(format!(
+                        "Match expression input has type `{}`, but case has type `{}`",
+                        ty1, ty2
+                    ));
+                    let provs2 = ty2.reasons().borrow();
+                    let reason2 = provs2.iter().next().unwrap();
+                    handle_reason(
+                        ty2,
+                        reason2,
+                        node_map,
+                        &filename_to_id,
+                        &mut labels,
+                        &mut notes,
+                    );
+                    let provs1 = ty1.reasons().borrow();
+                    let reason1 = provs1.iter().next().unwrap();
+                    handle_reason(
+                        ty1,
+                        reason1,
+                        node_map,
+                        &filename_to_id,
+                        &mut labels,
+                        &mut notes,
+                    );
                 }
                 ConstraintReason::FuncCall => {
                     diagnostic = diagnostic.with_message("Wrong argument type");
@@ -486,6 +509,7 @@ impl Error {
         };
 
         diagnostic = diagnostic.with_labels(labels);
+        diagnostic = diagnostic.with_notes(notes);
 
         let writer = StandardStream::stderr(ColorChoice::Always);
         let config = codespan_reporting::term::Config::default();

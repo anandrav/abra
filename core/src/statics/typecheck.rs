@@ -1945,19 +1945,19 @@ fn generate_constraints_pat(
     match &*pat.kind {
         PatKind::Wildcard => (),
         PatKind::Unit => {
-            constrain(ctx, ty_pat, TypeVar::make_unit(Reason::Node(pat.id)));
+            constrain(ctx, ty_pat, TypeVar::make_unit(Reason::Literal(pat.id)));
         }
         PatKind::Int(_) => {
-            constrain(ctx, ty_pat, TypeVar::make_int(Reason::Node(pat.id)));
+            constrain(ctx, ty_pat, TypeVar::make_int(Reason::Literal(pat.id)));
         }
         PatKind::Float(_) => {
-            constrain(ctx, ty_pat, TypeVar::make_float(Reason::Node(pat.id)));
+            constrain(ctx, ty_pat, TypeVar::make_float(Reason::Literal(pat.id)));
         }
         PatKind::Bool(_) => {
-            constrain(ctx, ty_pat, TypeVar::make_bool(Reason::Node(pat.id)));
+            constrain(ctx, ty_pat, TypeVar::make_bool(Reason::Literal(pat.id)));
         }
         PatKind::Str(_) => {
-            constrain(ctx, ty_pat, TypeVar::make_string(Reason::Node(pat.id)));
+            constrain(ctx, ty_pat, TypeVar::make_string(Reason::Literal(pat.id)));
         }
         PatKind::Binding(_) => {}
         PatKind::Variant(tag, data) => {
