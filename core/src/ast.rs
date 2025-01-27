@@ -149,7 +149,7 @@ pub(crate) trait Node {
     fn to_expr(&self) -> Option<Expr> {
         None
     }
-    fn to_stmt(&self) -> Option<Stmt> {
+    fn _to_stmt(&self) -> Option<Stmt> {
         None
     }
 }
@@ -301,7 +301,7 @@ impl Node for Stmt {
         }
     }
 
-    fn to_stmt(&self) -> Option<Stmt> {
+    fn _to_stmt(&self) -> Option<Stmt> {
         Some(self.clone())
     }
 }

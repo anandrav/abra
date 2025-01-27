@@ -45,7 +45,7 @@ struct LambdaData {
 pub(crate) struct Translator {
     statics: StaticsContext,
     node_map: NodeMap,
-    sources: Sources,
+    _sources: Sources,
     files: Vec<Rc<FileAst>>,
     effects: Vec<EffectDesc>,
 }
@@ -169,7 +169,7 @@ impl Translator {
         Self {
             statics,
             node_map,
-            sources,
+            _sources: sources,
             files,
             effects,
         }
@@ -344,7 +344,7 @@ impl Translator {
     ) {
         // println!("translating expr: {:?}", expr.kind);
         match &*expr.kind {
-            ExprKind::Identifier(symbol) => {
+            ExprKind::Identifier(_) => {
                 match self
                     .statics
                     .resolution_map
@@ -357,8 +357,8 @@ impl Translator {
                         emit(st, Instr::ConstructVariant { tag });
                     }
                     BytecodeResolution::Var(node_id) => {
-                        let span = self.node_map.get(&node_id).unwrap().span();
-                        let mut s = String::new();
+                        // let _span = self.node_map.get(&node_id).unwrap().span();
+                        // let _s = String::new();
                         // span.display(
                         //     &mut s,
                         //     &self.sources,
@@ -469,9 +469,9 @@ impl Translator {
                     for arg in args {
                         self.translate_expr(arg.clone(), offset_table, monomorph_env.clone(), st);
                     }
-                    let node = self.node_map.get(&func.id).unwrap();
-                    let span = node.span();
-                    let mut s = String::new();
+                    // let node = self.node_map.get(&func.id).unwrap();
+                    // let span = node.span();
+                    // let s = String::new();
                     // span.display(&mut s, &self.sources, "function ap");
                     // println!("{}", s);
                     let resolution = self
@@ -492,9 +492,9 @@ impl Translator {
                             if !func_ty.is_overloaded() {
                                 emit(st, Instr::Call(name.clone()));
                             } else {
-                                let node = self.node_map.get(&func.id).unwrap();
-                                let span = node.span();
-                                let mut s = String::new();
+                                // let node = self.node_map.get(&func.id).unwrap();
+                                // let span = node.span();
+                                // let s = String::new();
                                 // span.display(&mut s, &self.sources, " method ap");
                                 // println!("{}", s);
 
@@ -509,7 +509,7 @@ impl Translator {
                             }
                         }
                         BytecodeResolution::ForeignFunction {
-                            decl,
+                            decl: _decl,
                             libname,
                             symbol,
                         } => {
@@ -544,9 +544,9 @@ impl Translator {
                             method,
                             fully_qualified_name,
                         } => {
-                            let node = self.node_map.get(&func.id).unwrap();
-                            let span = node.span();
-                            let mut s = String::new();
+                            // let node = self.node_map.get(&func.id).unwrap();
+                            // let span = node.span();
+                            // let s = String::new();
                             // span.display(&mut s, &self.sources, " method ap");
                             // println!("{}", s);
 
@@ -842,9 +842,9 @@ impl Translator {
                 let mut captures = HashSet::new();
                 self.collect_captures_expr(body, &locals, &arg_set, &mut captures);
                 for capture in captures.iter() {
-                    let node = self.node_map.get(capture).unwrap();
-                    let span = node.span();
-                    let mut s = String::new();
+                    // let node = self.node_map.get(capture).unwrap();
+                    // let span = node.span();
+                    // let s = String::new();
                     // span.display(&mut s, &self.sources, "capture");
                     // println!("{}", s);
                 }
@@ -1344,9 +1344,9 @@ impl Translator {
     }
 
     fn _display_node(&self, node_id: NodeId) {
-        let node = self.node_map.get(&node_id).unwrap();
-        let span = node.span();
-        let mut s: String = String::new();
+        // let node = self.node_map.get(&node_id).unwrap();
+        // let span = node.span();
+        // let s: String = String::new();
         // span.display(&mut s, &self.sources, "");
         // println!("{}", s);
     }

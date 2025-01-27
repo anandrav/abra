@@ -1433,7 +1433,7 @@ fn generate_constraints_expr(
                 );
             }
         }
-        ExprKind::Identifier(ident) => {
+        ExprKind::Identifier(_) => {
             let lookup = ctx.resolution_map.get(&expr.id).cloned();
             if let Some(res) = lookup {
                 if let Some(typ) = tyvar_of_declaration(ctx, &res, expr.id, polyvar_scope.clone()) {

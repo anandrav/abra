@@ -7,7 +7,7 @@ use crate::effects::EffectDesc;
 use codespan_reporting::term;
 use resolve::{resolve, scan_declarations};
 use std::collections::{BTreeSet, HashMap};
-use std::fmt::{self, Display, Formatter, Write};
+use std::fmt::{self, Display, Formatter};
 use std::path::PathBuf;
 use std::rc::Rc;
 use typecheck::{
@@ -20,7 +20,7 @@ pub(crate) mod typecheck;
 pub(crate) use typecheck::ty_fits_impl_ty;
 // TODO: Provs are an implementation detail, they should NOT be exported
 use codespan_reporting::diagnostic::{Diagnostic, Label};
-use codespan_reporting::files::{SimpleFile, SimpleFiles};
+use codespan_reporting::files::SimpleFiles;
 use codespan_reporting::term::termcolor::{ColorChoice, StandardStream};
 use pat_exhaustiveness::{check_pattern_exhaustiveness_and_usefulness, DeconstructedPat};
 pub use typecheck::Monotype;
@@ -210,7 +210,7 @@ pub(crate) fn check_errors(
 
 // TODO: reduce code duplication for displaying error messages, types
 impl Error {
-    fn show(&self, ctx: &StaticsContext, node_map: &NodeMap, sources: &Sources) {
+    fn show(&self, _ctx: &StaticsContext, node_map: &NodeMap, sources: &Sources) {
         // TODO: Make your own files database. Make it implement the Files trait from codespan-reporting
         let mut files = SimpleFiles::new();
         let mut filename_to_id = HashMap::<String, usize>::new();
@@ -524,9 +524,7 @@ fn handle_reason(
         }
         Reason::Literal(id) => {
             let (file, range) = get_file_and_range(id);
-            labels.push(
-                Label::secondary(file, range).with_message(format!("`{}` literal", ty.to_string())),
-            );
+            labels.push(Label::secondary(file, range).with_message(format!("`{}` literal", ty)));
         }
         Reason::BinopLeft(id) => {
             let (file, range) = get_file_and_range(id);
