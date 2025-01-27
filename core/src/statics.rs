@@ -210,7 +210,7 @@ pub(crate) fn check_errors(
 
 // TODO: reduce code duplication for displaying error messages, types
 impl Error {
-    fn show(&self, ctx: &StaticsContext, node_map: &NodeMap, sources: &Sources) -> String {
+    fn show(&self, ctx: &StaticsContext, node_map: &NodeMap, sources: &Sources) {
         // TODO: Make your own files database. Make it implement the Files trait from codespan-reporting
         let mut files = SimpleFiles::new();
         let mut filename_to_id = HashMap::<String, usize>::new();
@@ -229,7 +229,6 @@ impl Error {
             (filename_to_id[&span.filename], span.range())
         };
 
-        let mut err_string = String::new();
         match self {
             Error::UnboundVariable { node_id } => {
                 let (file, range) = get_file_and_range(node_id);
@@ -242,48 +241,15 @@ impl Error {
                 labels.push(Label::secondary(file, range))
             }
             Error::ConflictingUnifvar { types } => {
-                err_string.push_str("Conflicting types: ");
+                diagnostic = diagnostic.with_message("Conflicting types");
+
                 let mut type_conflict: Vec<PotentialType> = types.values().cloned().collect();
                 type_conflict.sort_by_key(|ty| ty.reasons().borrow().len());
 
-                fmt_conflicting_types(&type_conflict, &mut err_string).unwrap();
-                writeln!(err_string).unwrap();
+                let mut conflicting_types_str = String::new();
+                fmt_conflicting_types(&type_conflict, &mut conflicting_types_str).unwrap();
+                notes.push(conflicting_types_str);
                 for ty in type_conflict {
-                    err_string.push('\n');
-                    match &ty {
-                        PotentialType::Poly(_, _, _) => {
-                            err_string.push_str("Sources of generic type:\n")
-                        }
-                        PotentialType::Nominal(_, nominal, params) => {
-                            let _ = write!(err_string, "Sources of type {}<", nominal.name());
-                            for (i, param) in params.iter().enumerate() {
-                                if i != 0 {
-                                    err_string.push_str(", ");
-                                }
-                                let _ = writeln!(err_string, "{param}");
-                            }
-                            err_string.push_str(">\n");
-                        }
-                        PotentialType::Unit(_) => err_string.push_str("Sources of void:\n"),
-                        PotentialType::Int(_) => err_string.push_str("Sources of int:\n"),
-                        PotentialType::Float(_) => err_string.push_str("Sources of float:\n"),
-                        PotentialType::Bool(_) => err_string.push_str("Sources of bool:\n"),
-                        PotentialType::String(_) => err_string.push_str("Sources of string:\n"),
-                        PotentialType::Function(_, args, _) => {
-                            let _ = writeln!(
-                                err_string,
-                                "Sources of function with {} arguments",
-                                args.len()
-                            );
-                        }
-                        PotentialType::Tuple(_, elems) => {
-                            let _ = writeln!(
-                                err_string,
-                                "Sources of tuple with {} elements",
-                                elems.len()
-                            );
-                        }
-                    };
                     let reasons = ty.reasons().borrow();
                     for reason in reasons.iter() {
                         handle_reason(
@@ -296,7 +262,6 @@ impl Error {
                         );
                     }
                 }
-                writeln!(err_string).unwrap();
             }
             Error::TypeConflict {
                 ty1,
@@ -304,8 +269,8 @@ impl Error {
                 constraint_reason,
             } => match constraint_reason {
                 ConstraintReason::None => {
-                    diagnostic = diagnostic
-                        .with_message(format!("Type conflict: got types {} and {}", ty2, ty1));
+                    diagnostic =
+                        diagnostic.with_message(format!("conflicting types {} and {}", ty2, ty1));
 
                     let provs2 = ty2.reasons().borrow();
                     let reason2 = provs2.iter().next().unwrap();
@@ -422,7 +387,7 @@ impl Error {
                     );
                 }
                 ConstraintReason::MatchScrutinyAndPattern => {
-                    err_string.push_str("type conflict due to match scrutiny and pattern\n\n")
+                    notes.push("type conflict due to empty block is void".to_string());
                 }
                 ConstraintReason::FuncCall => {
                     diagnostic = diagnostic.with_message("Wrong argument type");
@@ -482,46 +447,40 @@ impl Error {
                     );
                 }
                 ConstraintReason::EmptyBlock => {
-                    err_string.push_str("type conflict due to empty block is void\n\n")
+                    notes.push("type conflict due to empty block is void".to_string());
                 }
                 ConstraintReason::IndexAccess => {
-                    err_string.push_str("type conflict due to array index is int\n\n")
+                    notes.push("type conflict due to array index is int".to_string());
                 }
             },
             Error::MemberAccessNeedsAnnotation { node_id } => {
-                let span = node_map.get(node_id).unwrap().span();
-                span.display(
-                    &mut err_string,
-                    sources,
-                    "Can't perform member access without knowing type. Try adding a type annotation.",
-                );
+                diagnostic = diagnostic.with_message("Can't perform member access without knowing type. Try adding a type annotation.");
+                let (file, range) = get_file_and_range(node_id);
+                labels.push(Label::secondary(file, range));
             }
             Error::NonexhaustiveMatch { expr_id, missing } => {
-                let span = node_map.get(expr_id).unwrap().span();
-                span.display(
-                    &mut err_string,
-                    sources,
-                    "This match expression doesn't cover every possibility:\n",
-                );
-                err_string.push_str("\nThe following cases are missing:\n");
+                diagnostic =
+                    diagnostic.with_message("This match expression doesn't cover every case");
+                let (file, range) = get_file_and_range(expr_id);
+                labels.push(Label::secondary(file, range));
+
+                notes.push("The following cases are missing:".to_string());
                 for pat in missing {
-                    let _ = writeln!(err_string, "\t`{pat}`\n");
+                    notes.push(format!("\t`{pat}`\n"));
                 }
             }
             Error::RedundantArms {
                 expr_id,
                 redundant_arms,
             } => {
-                let span = node_map.get(expr_id).unwrap().span();
-                span.display(
-                    &mut err_string,
-                    sources,
-                    "This match expression has redundant cases:\n",
-                );
-                err_string.push_str("\nTry removing these cases\n");
-                for pat in redundant_arms {
-                    let span = node_map.get(pat).unwrap().span();
-                    span.display(&mut err_string, sources, "");
+                diagnostic = diagnostic.with_message("This match expression has redundant cases");
+                let (file, range) = get_file_and_range(expr_id);
+                labels.push(Label::secondary(file, range));
+
+                notes.push("Try removing these cases:".to_string());
+                for pat_id in redundant_arms {
+                    let (file, range) = get_file_and_range(pat_id);
+                    labels.push(Label::secondary(file, range));
                 }
             }
         };
@@ -532,8 +491,6 @@ impl Error {
         let config = codespan_reporting::term::Config::default();
 
         term::emit(&mut writer.lock(), &config, &files, &diagnostic).unwrap();
-
-        err_string
     }
 }
 
