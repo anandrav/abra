@@ -436,10 +436,8 @@ impl Error {
                     );
                 }
                 ConstraintReason::Condition => {
-                    diagnostic = diagnostic.with_message(format!(
-                        "Type conflict: condition must be a `bool` but got `{}`\n",
-                        ty1
-                    ));
+                    diagnostic = diagnostic
+                        .with_message(format!("Condition must be a `bool` but got `{}`\n", ty1));
 
                     let provs1 = ty1.reasons().borrow();
                     let reason1 = provs1.iter().next().unwrap();
@@ -453,10 +451,8 @@ impl Error {
                     );
                 }
                 ConstraintReason::BinaryOperandBool => {
-                    diagnostic = diagnostic.with_message(format!(
-                        "Type conflict: Operand must be `bool` but got `{}`\n",
-                        ty1
-                    ));
+                    diagnostic = diagnostic
+                        .with_message(format!("Operand must be `bool` but got `{}`\n", ty1));
 
                     let provs1 = ty1.reasons().borrow();
                     let reason1 = provs1.iter().next().unwrap();

@@ -613,6 +613,10 @@ impl TypeVar {
         }
     }
 
+    fn empty() -> TypeVar {
+        TypeVar(UnionFindNode::new(TypeVarData::new()))
+    }
+
     fn singleton_solved(potential_type: PotentialType) -> TypeVar {
         TypeVar(UnionFindNode::new(TypeVarData::singleton_solved(
             potential_type,
@@ -806,9 +810,7 @@ fn tyvar_of_declaration(
 
             Some(TypeVar::make_func(vec![], def_type, Reason::Node(id)))
         }
-        Declaration::Polytype(_) => {
-            panic!() // TODO: handle? don't handle?
-        }
+        Declaration::Polytype(_) => None,
         Declaration::Builtin(builtin) => {
             let ty_signature = builtin.type_signature();
             Some(solved_type_to_typevar(
@@ -961,7 +963,8 @@ pub(crate) fn ast_type_to_typevar(ctx: &mut StaticsContext, ast_type: Rc<AstType
                     vec![],
                 ),
                 _ => {
-                    panic!("could not resolve {}", ident) // TODO: remove panic
+                    // since resolution failed, unconstrained type
+                    TypeVar::empty()
                 }
             }
         }
@@ -993,7 +996,8 @@ pub(crate) fn ast_type_to_typevar(ctx: &mut StaticsContext, ast_type: Rc<AstType
                         .collect(),
                 ),
                 _ => {
-                    panic!("could not resolve {}", ident.v) // TODO: remove panic
+                    // since resolution failed, unconstrained type
+                    TypeVar::empty()
                 }
             }
         }
@@ -1753,7 +1757,7 @@ fn generate_constraints_expr(
         }
         ExprKind::MemberAccess(expr, field) => {
             generate_constraints_expr(polyvar_scope, Mode::Syn, expr.clone(), ctx);
-            let ty_expr = TypeVar::fresh(ctx, Prov::Node(expr.id));
+            let ty_expr = TypeVar::from_node(ctx, expr.id);
             if ty_expr.underdetermined() {
                 ctx.errors
                     .push(Error::MemberAccessNeedsAnnotation { node_id: expr.id });
@@ -1766,6 +1770,7 @@ fn generate_constraints_expr(
                 let ExprKind::Identifier(field_ident) = &*field.kind else {
                     panic!()
                 };
+                // TODO: last here
                 let ty_field =
                     TypeVar::fresh(ctx, Prov::StructField(field_ident.clone(), struct_def.id));
                 constrain(ctx, node_ty.clone(), ty_field);

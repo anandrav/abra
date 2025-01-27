@@ -572,8 +572,10 @@ impl Node for Type {
             | TypeKind::Str => {
                 vec![]
             }
-            TypeKind::Ap(_ty, params) => {
+            TypeKind::Ap(tyname, params) => {
                 let mut children: Vec<Rc<dyn Node>> = vec![];
+                // TODO: gross.
+                children.push(Rc::new(tyname.clone()) as Rc<dyn Node>);
                 children.extend(params.iter().map(|t| t.clone() as Rc<dyn Node>));
                 children
             }
