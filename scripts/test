@@ -1,0 +1,3 @@
+#!/bin/bash
+
+cargo test --no-fail-fast 2>/dev/null
