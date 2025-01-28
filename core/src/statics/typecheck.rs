@@ -442,10 +442,6 @@ impl TypeVar {
         self.0.clone_data().solution()
     }
 
-    pub(crate) fn is_solved(&self) -> bool {
-        self.solution().is_some()
-    }
-
     fn is_underdetermined(&self) -> bool {
         self.0.with_data(|d| d.types.is_empty())
     }
@@ -496,7 +492,7 @@ impl TypeVar {
                 ty // noop
             }
             PotentialType::Poly(_, ref decl) => {
-                if !polyvar_scope.lookup_poly(decl, ctx) {
+                if !polyvar_scope.lookup_poly(decl) {
                     let Declaration::Polytype(polyty) = decl else {
                         panic!()
                     };
@@ -559,7 +555,7 @@ impl TypeVar {
         tvar
     }
 
-    pub(crate) fn get_first_a(self, ctx: &StaticsContext) -> Option<Declaration> {
+    pub(crate) fn get_first_a(self) -> Option<Declaration> {
         let data = self.0.clone_data();
         if data.types.len() == 1 {
             let ty = data.types.into_values().next().unwrap();
@@ -578,7 +574,7 @@ impl TypeVar {
                 }
                 PotentialType::Nominal(_, _, params) => {
                     for param in &params {
-                        if let Some(decl) = param.clone().get_first_a(ctx) {
+                        if let Some(decl) = param.clone().get_first_a() {
                             return Some(decl);
                         }
                     }
@@ -586,15 +582,15 @@ impl TypeVar {
                 }
                 PotentialType::Function(_, args, out) => {
                     for arg in &args {
-                        if let Some(decl) = arg.clone().get_first_a(ctx) {
+                        if let Some(decl) = arg.clone().get_first_a() {
                             return Some(decl);
                         }
                     }
-                    out.get_first_a(ctx)
+                    out.get_first_a()
                 }
                 PotentialType::Tuple(_, elems) => {
                     for elem in &elems {
-                        if let Some(decl) = elem.clone().get_first_a(ctx) {
+                        if let Some(decl) = elem.clone().get_first_a() {
                             return Some(decl);
                         }
                     }
@@ -750,7 +746,6 @@ fn tyvar_of_declaration(
     ctx: &mut StaticsContext,
     decl: &Declaration,
     id: NodeId,
-    polyvar_scope: PolyvarScope,
 ) -> Option<TypeVar> {
     match decl {
         Declaration::FreeFunction(f, _) => Some(TypeVar::from_node(ctx, f.name.id)),
@@ -1247,7 +1242,7 @@ impl PolyvarScope {
         }
     }
 
-    fn add_polys(&self, ty: &TypeVar, ctx: &StaticsContext) {
+    fn add_polys(&self, ty: &TypeVar) {
         let Some(ty) = ty.single() else {
             return;
         };
@@ -1257,25 +1252,25 @@ impl PolyvarScope {
             }
             PotentialType::Nominal(_, _, params) => {
                 for param in params {
-                    self.add_polys(&param, ctx);
+                    self.add_polys(&param);
                 }
             }
             PotentialType::Function(_, args, out) => {
                 for arg in args {
-                    self.add_polys(&arg, ctx);
+                    self.add_polys(&arg);
                 }
-                self.add_polys(&out, ctx);
+                self.add_polys(&out);
             }
             PotentialType::Tuple(_, elems) => {
                 for elem in elems {
-                    self.add_polys(&elem, ctx);
+                    self.add_polys(&elem);
                 }
             }
             _ => {}
         }
     }
 
-    fn lookup_poly(&self, decl: &Declaration, ctx: &StaticsContext) -> bool {
+    fn lookup_poly(&self, decl: &Declaration) -> bool {
         self.polyvars_in_scope.lookup(decl).is_some()
     }
 
@@ -1369,7 +1364,7 @@ fn generate_constraints_item(mode: Mode, stmt: Rc<Item>, ctx: &mut StaticsContex
 
                         let mut substitution: Substitution = HashMap::new();
                         if let Some(ref decl @ Declaration::Polytype(ref polytype)) =
-                            interface_method_ty.clone().get_first_a(ctx)
+                            interface_method_ty.clone().get_first_a()
                         {
                             // print_node(ctx, polytype.name.id);
                             // println!("impl_ty: {}", impl_ty);
@@ -1556,7 +1551,7 @@ fn generate_constraints_expr(
         ExprKind::Identifier(_) => {
             let lookup = ctx.resolution_map.get(&expr.id).cloned();
             if let Some(res) = lookup {
-                if let Some(typ) = tyvar_of_declaration(ctx, &res, expr.id, polyvar_scope.clone()) {
+                if let Some(typ) = tyvar_of_declaration(ctx, &res, expr.id) {
                     // print_node(ctx, expr.id);
                     // println!("ty before instantiate: {}", typ.clone());
                     let typ = typ.instantiate(polyvar_scope, ctx, expr.id);
@@ -1967,7 +1962,7 @@ fn generate_constraints_func_helper(
                     let ty_annot = TypeVar::from_node(ctx, arg_annot.id());
                     let arg_annot = ast_type_to_typevar(ctx, arg_annot.clone());
                     constrain(ctx, ty_annot.clone(), arg_annot.clone());
-                    polyvar_scope.add_polys(&arg_annot, ctx);
+                    polyvar_scope.add_polys(&arg_annot);
                     generate_constraints_pat(
                         polyvar_scope.clone(),
                         Mode::Ana { expected: ty_annot },
@@ -1995,7 +1990,7 @@ fn generate_constraints_func_helper(
     );
     if let Some(out_annot) = out_annot {
         let out_annot = ast_type_to_typevar(ctx, out_annot.clone());
-        polyvar_scope.add_polys(&out_annot, ctx);
+        polyvar_scope.add_polys(&out_annot);
         generate_constraints_expr(
             polyvar_scope,
             Mode::Ana {
@@ -2026,7 +2021,7 @@ fn generate_constraints_func_decl(
                     let ty_annot = TypeVar::from_node(ctx, arg_annot.id());
                     let arg_annot = ast_type_to_typevar(ctx, arg_annot.clone());
                     constrain(ctx, ty_annot.clone(), arg_annot.clone());
-                    polyvar_scope.add_polys(&arg_annot, ctx);
+                    polyvar_scope.add_polys(&arg_annot);
                     generate_constraints_pat(
                         polyvar_scope.clone(),
                         Mode::Ana { expected: ty_annot },
@@ -2046,7 +2041,7 @@ fn generate_constraints_func_decl(
     let ty_body = TypeVar::fresh(ctx, Prov::FuncOut(node_id));
 
     let out_annot = ast_type_to_typevar(ctx, out_annot.clone());
-    polyvar_scope.add_polys(&out_annot, ctx);
+    polyvar_scope.add_polys(&out_annot);
 
     constrain(ctx, ty_body.clone(), out_annot);
 
@@ -2217,40 +2212,40 @@ pub(crate) fn monotype_to_typevar(ty: Monotype, reason: Reason) -> TypeVar {
     }
 }
 
-pub(crate) fn solved_type_to_typevar(ty: SolvedType, reason: Reason) -> TypeVar {
-    match ty {
-        SolvedType::Unit => TypeVar::make_unit(reason),
-        SolvedType::Int => TypeVar::make_int(reason),
-        SolvedType::Float => TypeVar::make_float(reason),
-        SolvedType::Bool => TypeVar::make_bool(reason),
-        SolvedType::String => TypeVar::make_string(reason),
-        SolvedType::Tuple(elements) => {
-            let elements = elements
-                .into_iter()
-                .map(|e| solved_type_to_typevar(e, reason.clone()))
-                .collect();
-            TypeVar::make_tuple(elements, reason)
-        }
-        SolvedType::Function(args, out) => {
-            let args = args
-                .into_iter()
-                .map(|a| solved_type_to_typevar(a, reason.clone()))
-                .collect();
-            let out = solved_type_to_typevar(*out, reason.clone());
-            TypeVar::make_func(args, out, reason.clone())
-        }
-        SolvedType::Nominal(name, params) => {
-            let params = params
-                .into_iter()
-                .map(|p| solved_type_to_typevar(p, reason.clone()))
-                .collect();
-            TypeVar::make_nominal(reason, name, params)
-        }
-        SolvedType::Poly(polyty) => {
-            TypeVar::make_poly(reason, Declaration::Polytype(polyty.clone()))
-        }
-    }
-}
+// pub(crate) fn solved_type_to_typevar(ty: SolvedType, reason: Reason) -> TypeVar {
+//     match ty {
+//         SolvedType::Unit => TypeVar::make_unit(reason),
+//         SolvedType::Int => TypeVar::make_int(reason),
+//         SolvedType::Float => TypeVar::make_float(reason),
+//         SolvedType::Bool => TypeVar::make_bool(reason),
+//         SolvedType::String => TypeVar::make_string(reason),
+//         SolvedType::Tuple(elements) => {
+//             let elements = elements
+//                 .into_iter()
+//                 .map(|e| solved_type_to_typevar(e, reason.clone()))
+//                 .collect();
+//             TypeVar::make_tuple(elements, reason)
+//         }
+//         SolvedType::Function(args, out) => {
+//             let args = args
+//                 .into_iter()
+//                 .map(|a| solved_type_to_typevar(a, reason.clone()))
+//                 .collect();
+//             let out = solved_type_to_typevar(*out, reason.clone());
+//             TypeVar::make_func(args, out, reason.clone())
+//         }
+//         SolvedType::Nominal(name, params) => {
+//             let params = params
+//                 .into_iter()
+//                 .map(|p| solved_type_to_typevar(p, reason.clone()))
+//                 .collect();
+//             TypeVar::make_nominal(reason, name, params)
+//         }
+//         SolvedType::Poly(polyty) => {
+//             TypeVar::make_poly(reason, Declaration::Polytype(polyty.clone()))
+//         }
+//     }
+// }
 
 pub(crate) fn fmt_conflicting_types(types: &[PotentialType], f: &mut dyn Write) -> fmt::Result {
     writeln!(f)?;
@@ -2607,7 +2602,7 @@ use codespan_reporting::diagnostic::{Diagnostic, Label};
 use codespan_reporting::files::SimpleFiles;
 use codespan_reporting::term;
 use codespan_reporting::term::termcolor::{ColorChoice, StandardStream};
-fn print_node(ctx: &StaticsContext, node_id: NodeId) {
+fn _print_node(ctx: &StaticsContext, node_id: NodeId) {
     let mut files = SimpleFiles::new();
     let mut filename_to_id = HashMap::<String, usize>::new();
     for (filename, source) in ctx._sources.filename_to_source.iter() {
