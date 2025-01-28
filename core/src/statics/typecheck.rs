@@ -303,7 +303,7 @@ pub(crate) enum Reason {
 pub(crate) enum ConstraintReason {
     None, // TODO: get rid of None if possible, but no rush
 
-    BinaryOperandsMustMatch,
+    BinaryOperandsMustMatch(NodeId),
     IfElseBodies,
     LetStmtAnnotation,
     LetSetLhsRhs,
@@ -311,7 +311,7 @@ pub(crate) enum ConstraintReason {
     FuncCall(NodeId),
     // bool
     Condition,
-    BinaryOperandBool,
+    BinaryOperandBool(NodeId),
     // int
     IndexAccess,
 }
@@ -1611,13 +1611,13 @@ fn generate_constraints_expr(
                         ctx,
                         ty_left,
                         TypeVar::make_bool(reason_left),
-                        ConstraintReason::BinaryOperandBool,
+                        ConstraintReason::BinaryOperandBool(expr.id),
                     );
                     constrain_because(
                         ctx,
                         ty_right,
                         TypeVar::make_bool(reason_right),
-                        ConstraintReason::BinaryOperandBool,
+                        ConstraintReason::BinaryOperandBool(expr.id),
                     );
                     constrain(ctx, ty_out, TypeVar::make_bool(reason_out));
                 }
@@ -1626,14 +1626,14 @@ fn generate_constraints_expr(
                 | BinaryOperator::Multiply
                 | BinaryOperator::Divide
                 | BinaryOperator::Pow => {
-                    constrain_to_iface(ctx, ty_left.clone(), left.id, &num_iface_def);
-                    constrain_to_iface(ctx, ty_right.clone(), right.id, &num_iface_def);
                     constrain_because(
                         ctx,
                         ty_left.clone(),
-                        ty_right,
-                        ConstraintReason::BinaryOperandsMustMatch,
+                        ty_right.clone(),
+                        ConstraintReason::BinaryOperandsMustMatch(expr.id),
                     );
+                    constrain_to_iface(ctx, ty_left.clone(), left.id, &num_iface_def);
+                    constrain_to_iface(ctx, ty_right, right.id, &num_iface_def);
                     constrain(ctx, ty_left, ty_out);
                 }
                 BinaryOperator::Mod => {
@@ -1641,13 +1641,13 @@ fn generate_constraints_expr(
                         ctx,
                         ty_left,
                         TypeVar::make_int(reason_left),
-                        ConstraintReason::BinaryOperandsMustMatch,
+                        ConstraintReason::BinaryOperandsMustMatch(expr.id),
                     );
                     constrain_because(
                         ctx,
                         ty_right,
                         TypeVar::make_int(reason_right),
-                        ConstraintReason::BinaryOperandsMustMatch,
+                        ConstraintReason::BinaryOperandsMustMatch(expr.id),
                     );
                     constrain(ctx, ty_out, TypeVar::make_int(reason_out));
                 }
@@ -1655,14 +1655,14 @@ fn generate_constraints_expr(
                 | BinaryOperator::GreaterThan
                 | BinaryOperator::LessThanOrEqual
                 | BinaryOperator::GreaterThanOrEqual => {
-                    constrain_to_iface(ctx, ty_left.clone(), left.id, &num_iface_def);
-                    constrain_to_iface(ctx, ty_right.clone(), right.id, &num_iface_def);
                     constrain_because(
                         ctx,
                         ty_left.clone(),
-                        ty_right,
-                        ConstraintReason::BinaryOperandsMustMatch,
+                        ty_right.clone(),
+                        ConstraintReason::BinaryOperandsMustMatch(expr.id),
                     );
+                    constrain_to_iface(ctx, ty_left, left.id, &num_iface_def);
+                    constrain_to_iface(ctx, ty_right, right.id, &num_iface_def);
                     constrain(ctx, ty_out, TypeVar::make_bool(reason_out));
                 }
                 BinaryOperator::Format => {
@@ -1672,18 +1672,18 @@ fn generate_constraints_expr(
                         ctx,
                         ty_out,
                         TypeVar::make_string(reason_out),
-                        ConstraintReason::BinaryOperandsMustMatch,
+                        ConstraintReason::BinaryOperandsMustMatch(expr.id),
                     );
                 }
                 BinaryOperator::Equal => {
-                    constrain_to_iface(ctx, ty_left.clone(), left.id, &equal_iface_def);
-                    constrain_to_iface(ctx, ty_right.clone(), right.id, &equal_iface_def);
                     constrain_because(
                         ctx,
                         ty_left.clone(),
-                        ty_right,
-                        ConstraintReason::BinaryOperandsMustMatch,
+                        ty_right.clone(),
+                        ConstraintReason::BinaryOperandsMustMatch(expr.id),
                     );
+                    constrain_to_iface(ctx, ty_left.clone(), left.id, &equal_iface_def);
+                    constrain_to_iface(ctx, ty_right.clone(), right.id, &equal_iface_def);
                     constrain(ctx, ty_out, TypeVar::make_bool(reason_out));
                 }
             }

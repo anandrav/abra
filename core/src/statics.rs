@@ -69,7 +69,6 @@ impl StaticsContext {
             ..Default::default()
         };
 
-        // TODO: this string constant needs to come from builtins, not be hardcoded
         ctx.string_constants.entry("\n".into()).or_insert(0);
         ctx
     }
@@ -297,8 +296,11 @@ impl Error {
                         &mut notes,
                     );
                 }
-                ConstraintReason::BinaryOperandsMustMatch => {
+                ConstraintReason::BinaryOperandsMustMatch(node_id) => {
                     diagnostic = diagnostic.with_message("Operands must have the same type");
+                    let (file, range) = get_file_and_range(node_id);
+                    labels.push(Label::secondary(file, range).with_message("operator"));
+
                     let provs2 = ty2.reasons().borrow();
                     let reason2 = provs2.iter().next().unwrap();
                     handle_reason(
@@ -457,9 +459,11 @@ impl Error {
                         &mut notes,
                     );
                 }
-                ConstraintReason::BinaryOperandBool => {
+                ConstraintReason::BinaryOperandBool(node_id) => {
                     diagnostic = diagnostic
                         .with_message(format!("Operand must be `bool` but got `{}`\n", ty1));
+                    let (file, range) = get_file_and_range(node_id);
+                    labels.push(Label::secondary(file, range).with_message("boolean operator"));
 
                     let provs1 = ty1.reasons().borrow();
                     let reason1 = provs1.iter().next().unwrap();
