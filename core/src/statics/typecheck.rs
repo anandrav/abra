@@ -1444,7 +1444,7 @@ fn generate_constraints_stmt(
 
             if let Some(ty_ann) = ty_ann {
                 let ty_ann = ast_type_to_typevar(ctx, ty_ann.clone());
-                // polyvar_scope.add_polys(&ty_ann);
+                // polyvar_scope.add_polys(&ty_ann, ctx);
                 generate_constraints_pat(
                     polyvar_scope.clone(),
                     Mode::AnaWithReason {

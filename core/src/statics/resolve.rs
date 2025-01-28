@@ -388,7 +388,7 @@ fn resolve_names_item(ctx: &mut StaticsContext, symbol_table: SymbolTable, stmt:
             }
         }
         ItemKind::InterfaceImpl(iface_impl) => {
-            let symbol_table = symbol_table.new_scope(); // TODO WARNING: Make sure this doesn't cause a bug
+            let symbol_table = symbol_table.new_scope();
             resolve_names_typ(ctx, symbol_table.clone(), iface_impl.typ.clone(), true);
             if let Some(decl @ Declaration::InterfaceDef(_)) =
                 &symbol_table.lookup_declaration(&iface_impl.iface.v)
@@ -420,7 +420,7 @@ fn resolve_names_item(ctx: &mut StaticsContext, symbol_table: SymbolTable, stmt:
         ItemKind::Import(..) => {}
         ItemKind::TypeDef(tydef) => match &**tydef {
             TypeDefKind::Enum(enum_def) => {
-                let symbol_table = symbol_table.new_scope(); // TODO WARNING: Make sure this doesn't cause a bug
+                let symbol_table = symbol_table.new_scope();
                 for ty_arg in &enum_def.ty_args {
                     resolve_names_typ(ctx, symbol_table.clone(), ty_arg.clone(), true);
                 }
@@ -436,7 +436,7 @@ fn resolve_names_item(ctx: &mut StaticsContext, symbol_table: SymbolTable, stmt:
                 }
             }
             TypeDefKind::Struct(struct_def) => {
-                let symbol_table = symbol_table.new_scope(); // TODO WARNING: Make sure this doesn't cause a bug
+                let symbol_table = symbol_table.new_scope();
                 for ty_arg in &struct_def.ty_args {
                     resolve_names_typ(ctx, symbol_table.clone(), ty_arg.clone(), true);
                 }
