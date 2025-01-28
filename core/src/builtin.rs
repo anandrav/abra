@@ -1,7 +1,6 @@
 use crate::statics::typecheck::Nominal;
 use crate::statics::typecheck::Reason;
 use crate::statics::typecheck::TypeVar;
-use crate::statics::Type;
 
 use strum::IntoEnumIterator;
 use strum::VariantArray;

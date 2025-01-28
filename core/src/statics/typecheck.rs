@@ -608,12 +608,7 @@ impl TypeVar {
 
     // TODO! I am not convinced that Polyvars are properly resolved and/or substituted. Will need to deep dive
     // Creates a *new* Type with polymorphic variabels replaced by subtitutions
-    pub(crate) fn subst(
-        self,
-        prov: Prov,
-        substitution: &HashMap<Declaration, TypeVar>,
-        ctx: &StaticsContext,
-    ) -> TypeVar {
+    pub(crate) fn subst(self, prov: Prov, substitution: &HashMap<Declaration, TypeVar>) -> TypeVar {
         let data = self.0.clone_data();
         if data.types.len() == 1 {
             let ty = data.types.into_values().next().unwrap();
@@ -636,22 +631,22 @@ impl TypeVar {
                 PotentialType::Nominal(provs, ident, params) => {
                     let params = params
                         .into_iter()
-                        .map(|ty| ty.subst(prov.clone(), substitution, ctx))
+                        .map(|ty| ty.subst(prov.clone(), substitution))
                         .collect();
                     PotentialType::Nominal(provs, ident, params)
                 }
                 PotentialType::Function(provs, args, out) => {
                     let args = args
                         .into_iter()
-                        .map(|ty| ty.subst(prov.clone(), substitution, ctx))
+                        .map(|ty| ty.subst(prov.clone(), substitution))
                         .collect();
-                    let out = out.subst(prov, substitution, ctx);
+                    let out = out.subst(prov, substitution);
                     PotentialType::Function(provs, args, out)
                 }
                 PotentialType::Tuple(provs, elems) => {
                     let elems = elems
                         .into_iter()
-                        .map(|ty| ty.subst(prov.clone(), substitution, ctx))
+                        .map(|ty| ty.subst(prov.clone(), substitution))
                         .collect();
                     PotentialType::Tuple(provs, elems)
                 }
@@ -826,7 +821,7 @@ fn tyvar_of_declaration(
                             .iter()
                             .map(|e| {
                                 let e = ast_type_to_typevar(ctx, e.clone());
-                                e.clone().subst(Prov::Node(id), &substitution, ctx)
+                                e.clone().subst(Prov::Node(id), &substitution)
                             })
                             .collect();
                         Some(TypeVar::make_func(args, def_type, Reason::Node(id)))
@@ -834,7 +829,7 @@ fn tyvar_of_declaration(
                     _ => {
                         let ty = ast_type_to_typevar(ctx, ty.clone());
                         Some(TypeVar::make_func(
-                            vec![ty.clone().subst(Prov::Node(id), &substitution, ctx)],
+                            vec![ty.clone().subst(Prov::Node(id), &substitution)],
                             def_type,
                             Reason::Node(id),
                         ))
@@ -870,7 +865,7 @@ fn tyvar_of_declaration(
                 .iter()
                 .map(|f| {
                     let ty = ast_type_to_typevar(ctx, f.ty.clone());
-                    ty.clone().subst(Prov::Node(id), &substitution, ctx)
+                    ty.clone().subst(Prov::Node(id), &substitution)
                 })
                 .collect();
             Some(TypeVar::make_func(fields, def_type, Reason::Node(id)))
@@ -1381,11 +1376,9 @@ fn generate_constraints_item(mode: Mode, stmt: Rc<Item>, ctx: &mut StaticsContex
                             substitution.insert(decl.clone(), impl_ty.clone());
                         }
 
-                        let expected = interface_method_ty.clone().subst(
-                            Prov::Node(stmt.id),
-                            &substitution,
-                            ctx,
-                        );
+                        let expected = interface_method_ty
+                            .clone()
+                            .subst(Prov::Node(stmt.id), &substitution);
 
                         // println!("expected: {}", expected);
 
@@ -2147,8 +2140,7 @@ fn generate_constraints_pat(
                         None => TypeVar::make_unit(Reason::VariantNoData(variant_def.id)),
                         Some(ty) => ast_type_to_typevar(ctx, ty.clone()),
                     };
-                    let variant_data_ty =
-                        variant_data_ty.subst(Prov::Node(pat.id), &substitution, ctx);
+                    let variant_data_ty = variant_data_ty.subst(Prov::Node(pat.id), &substitution);
                     constrain(ctx, ty_data.clone(), variant_data_ty);
 
                     def_type
