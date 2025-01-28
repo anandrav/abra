@@ -500,7 +500,7 @@ impl TypeVar {
                     let Declaration::Polytype(polyty) = decl else {
                         panic!()
                     };
-                    println!("-- time to instantiate");
+                    // println!("-- time to instantiate");
                     let prov = Prov::InstantiatePoly(id, polyty.clone());
                     let ret = TypeVar::fresh(ctx, prov.clone());
                     let mut extension: Vec<(Rc<InterfaceDecl>, NodeId)> = Vec::new();
@@ -517,10 +517,10 @@ impl TypeVar {
                         .extend(extension);
                     return ret; // instantiation occurs here
                 } else {
-                    println!("-- did not instantiate...");
+                    // println!("-- did not instantiate...");
                     if let Declaration::Polytype(polyty) = decl {
-                        println!("because it resolves to this:");
-                        print_node(ctx, polyty.name.id);
+                        // println!("because it resolves to this:");
+                        // print_node(ctx, polyty.name.id);
                     }
                     ty // noop
                 }
@@ -1564,10 +1564,10 @@ fn generate_constraints_expr(
             let lookup = ctx.resolution_map.get(&expr.id).cloned();
             if let Some(res) = lookup {
                 if let Some(typ) = tyvar_of_declaration(ctx, &res, expr.id, polyvar_scope.clone()) {
-                    print_node(ctx, expr.id);
-                    println!("ty before instantiate: {}", typ.clone());
+                    // print_node(ctx, expr.id);
+                    // println!("ty before instantiate: {}", typ.clone());
                     let typ = typ.instantiate(polyvar_scope, ctx, expr.id);
-                    println!("ty after instantiate: {}", typ.clone());
+                    // println!("ty after instantiate: {}", typ.clone());
                     constrain(ctx, typ, node_ty.clone());
                 }
             }
