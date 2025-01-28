@@ -106,7 +106,7 @@ impl Display for Namespace {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub(crate) enum Declaration {
     FreeFunction(Rc<FuncDef>, String),
     ForeignFunction {
@@ -416,8 +416,11 @@ impl Error {
                         &mut notes,
                     );
                 }
-                ConstraintReason::FuncCall => {
+                ConstraintReason::FuncCall(node_id) => {
                     diagnostic = diagnostic.with_message("Wrong argument type");
+                    let (file, range) = get_file_and_range(node_id);
+                    labels.push(Label::secondary(file, range).with_message("function call"));
+
                     let provs2 = ty2.reasons().borrow();
                     let reason2 = provs2.iter().next().unwrap();
                     handle_reason(

@@ -563,8 +563,19 @@ impl Node for Type {
 
     fn children(&self) -> Vec<Rc<dyn Node>> {
         match &*self.kind {
-            TypeKind::Poly(_)
-            | TypeKind::Identifier(_)
+            TypeKind::Poly(polytype) => {
+                let mut children: Vec<Rc<dyn Node>> = vec![];
+                // TODO: gross.
+                children.push(Rc::new(polytype.name.clone()) as Rc<dyn Node>);
+                children.extend(
+                    polytype
+                        .iface_names
+                        .iter()
+                        .map(|t| Rc::new(t.clone()) as Rc<dyn Node>),
+                );
+                children
+            }
+            TypeKind::Identifier(_)
             | TypeKind::Unit
             | TypeKind::Int
             | TypeKind::Float

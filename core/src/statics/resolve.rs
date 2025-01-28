@@ -375,19 +375,21 @@ fn resolve_names_item(ctx: &mut StaticsContext, symbol_table: SymbolTable, stmt:
             for arg in &f.args {
                 resolve_names_pat(ctx, symbol_table.clone(), arg.0.clone());
                 if let Some(ty_annot) = &arg.1 {
-                    resolve_names_typ(ctx, symbol_table.clone(), ty_annot.clone());
+                    resolve_names_typ(ctx, symbol_table.clone(), ty_annot.clone(), true);
                 }
             }
 
-            resolve_names_typ(ctx, symbol_table.clone(), f.ret_type.clone());
+            resolve_names_typ(ctx, symbol_table.clone(), f.ret_type.clone(), true);
         }
         ItemKind::InterfaceDef(iface_def) => {
             for prop in &iface_def.methods {
-                resolve_names_typ(ctx, symbol_table.clone(), prop.ty.clone());
+                let symbol_table = symbol_table.new_scope();
+                resolve_names_typ(ctx, symbol_table.clone(), prop.ty.clone(), true);
             }
         }
         ItemKind::InterfaceImpl(iface_impl) => {
-            resolve_names_typ(ctx, symbol_table.clone(), iface_impl.typ.clone());
+            let symbol_table = symbol_table.new_scope(); // TODO WARNING: Make sure this doesn't cause a bug
+            resolve_names_typ(ctx, symbol_table.clone(), iface_impl.typ.clone(), true);
             if let Some(decl @ Declaration::InterfaceDef(_)) =
                 &symbol_table.lookup_declaration(&iface_impl.iface.v)
             {
@@ -402,12 +404,12 @@ fn resolve_names_item(ctx: &mut StaticsContext, symbol_table: SymbolTable, stmt:
                     for arg in &f.args {
                         resolve_names_pat(ctx, symbol_table.clone(), arg.0.clone());
                         if let Some(annot) = &arg.1 {
-                            resolve_names_typ(ctx, symbol_table.clone(), annot.clone());
+                            resolve_names_typ(ctx, symbol_table.clone(), annot.clone(), true);
                         }
                     }
                     resolve_names_expr(ctx, symbol_table.clone(), f.body.clone());
                     if let Some(ret_type) = &f.ret_type {
-                        resolve_names_typ(ctx, symbol_table, ret_type.clone());
+                        resolve_names_typ(ctx, symbol_table, ret_type.clone(), true);
                     }
                 }
             } else {
@@ -418,21 +420,28 @@ fn resolve_names_item(ctx: &mut StaticsContext, symbol_table: SymbolTable, stmt:
         ItemKind::Import(..) => {}
         ItemKind::TypeDef(tydef) => match &**tydef {
             TypeDefKind::Enum(enum_def) => {
+                let symbol_table = symbol_table.new_scope(); // TODO WARNING: Make sure this doesn't cause a bug
                 for ty_arg in &enum_def.ty_args {
-                    resolve_names_typ(ctx, symbol_table.clone(), ty_arg.clone());
+                    resolve_names_typ(ctx, symbol_table.clone(), ty_arg.clone(), true);
                 }
                 for variant in &enum_def.variants {
                     if let Some(associated_data_ty) = &variant.data {
-                        resolve_names_typ(ctx, symbol_table.clone(), associated_data_ty.clone());
+                        resolve_names_typ(
+                            ctx,
+                            symbol_table.clone(),
+                            associated_data_ty.clone(),
+                            false,
+                        );
                     }
                 }
             }
             TypeDefKind::Struct(struct_def) => {
+                let symbol_table = symbol_table.new_scope(); // TODO WARNING: Make sure this doesn't cause a bug
                 for ty_arg in &struct_def.ty_args {
-                    resolve_names_typ(ctx, symbol_table.clone(), ty_arg.clone());
+                    resolve_names_typ(ctx, symbol_table.clone(), ty_arg.clone(), true);
                 }
                 for field in &struct_def.fields {
-                    resolve_names_typ(ctx, symbol_table.clone(), field.ty.clone());
+                    resolve_names_typ(ctx, symbol_table.clone(), field.ty.clone(), false);
                 }
             }
             TypeDefKind::Foreign(_) => {}
@@ -454,7 +463,7 @@ fn resolve_names_stmt(ctx: &mut StaticsContext, symbol_table: SymbolTable, stmt:
         StmtKind::Let(_mutable, (pat, ty), expr) => {
             resolve_names_pat(ctx, symbol_table.clone(), pat.clone());
             if let Some(ty_annot) = &ty {
-                resolve_names_typ(ctx, symbol_table.clone(), ty_annot.clone());
+                resolve_names_typ(ctx, symbol_table.clone(), ty_annot.clone(), false);
             }
             resolve_names_expr(ctx, symbol_table.clone(), expr.clone());
         }
@@ -555,14 +564,14 @@ fn resolve_names_func_helper(
     for arg in args {
         resolve_names_pat(ctx, symbol_table.clone(), arg.0.clone());
         if let Some(ty_annot) = &arg.1 {
-            resolve_names_typ(ctx, symbol_table.clone(), ty_annot.clone());
+            resolve_names_typ(ctx, symbol_table.clone(), ty_annot.clone(), true);
         }
     }
 
     resolve_names_expr(ctx, symbol_table.clone(), body.clone());
 
     if let Some(ty_annot) = ret_type {
-        resolve_names_typ(ctx, symbol_table.clone(), ty_annot.clone());
+        resolve_names_typ(ctx, symbol_table.clone(), ty_annot.clone(), true);
     }
 }
 
@@ -598,7 +607,12 @@ fn resolve_names_pat(ctx: &mut StaticsContext, symbol_table: SymbolTable, pat: R
     }
 }
 
-fn resolve_names_typ(ctx: &mut StaticsContext, symbol_table: SymbolTable, typ: Rc<Type>) {
+fn resolve_names_typ(
+    ctx: &mut StaticsContext,
+    symbol_table: SymbolTable,
+    typ: Rc<Type>,
+    introduce_poly: bool,
+) {
     match &*typ.kind {
         TypeKind::Bool | TypeKind::Unit | TypeKind::Int | TypeKind::Float | TypeKind::Str => {}
         TypeKind::Poly(polyty) => {
@@ -609,7 +623,7 @@ fn resolve_names_typ(ctx: &mut StaticsContext, symbol_table: SymbolTable, typ: R
                 ctx.resolution_map.insert(polyty.name.id, decl.clone());
             }
             // If it hasn't been declared already, then this is a declaration
-            else {
+            else if introduce_poly {
                 let decl = Declaration::Polytype(polyty.clone());
                 symbol_table.extend_declaration(polyty.name.v.clone(), decl.clone());
                 // it resolves to itself
@@ -633,18 +647,18 @@ fn resolve_names_typ(ctx: &mut StaticsContext, symbol_table: SymbolTable, typ: R
         TypeKind::Ap(identifier, args) => {
             resolve_names_typ_identifier(ctx, symbol_table.clone(), &identifier.v, identifier.id);
             for arg in args {
-                resolve_names_typ(ctx, symbol_table.clone(), arg.clone());
+                resolve_names_typ(ctx, symbol_table.clone(), arg.clone(), introduce_poly);
             }
         }
         TypeKind::Function(args, out) => {
             for arg in args {
-                resolve_names_typ(ctx, symbol_table.clone(), arg.clone());
+                resolve_names_typ(ctx, symbol_table.clone(), arg.clone(), introduce_poly);
             }
-            resolve_names_typ(ctx, symbol_table.clone(), out.clone());
+            resolve_names_typ(ctx, symbol_table.clone(), out.clone(), introduce_poly);
         }
         TypeKind::Tuple(elems) => {
             for elem in elems {
-                resolve_names_typ(ctx, symbol_table.clone(), elem.clone());
+                resolve_names_typ(ctx, symbol_table.clone(), elem.clone(), introduce_poly);
             }
         }
     }
