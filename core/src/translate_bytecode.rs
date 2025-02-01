@@ -1194,6 +1194,12 @@ impl Translator {
             StmtKind::FuncDef(..) => {
                 // noop -- handled elsewhere
             }
+            StmtKind::Break => {
+                unimplemented!();
+            }
+            StmtKind::Continue => {
+                unimplemented!();
+            }
         }
     }
 
@@ -1301,7 +1307,7 @@ impl Translator {
                 StmtKind::Set(_, expr) => {
                     self.collect_captures_expr(expr, locals, arg_set, captures);
                 }
-                StmtKind::FuncDef(..) => {}
+                StmtKind::FuncDef(..) | StmtKind::Break | StmtKind::Continue => {}
             }
         }
     }
@@ -1464,8 +1470,7 @@ fn collect_locals_stmt(statements: &[Rc<Stmt>], locals: &mut HashSet<NodeId>) {
             StmtKind::Let(_, pat, _) => {
                 collect_locals_pat(pat.0.clone(), locals);
             }
-            StmtKind::Set(..) => {}
-            StmtKind::FuncDef(..) => {}
+            StmtKind::Set(..) | StmtKind::FuncDef(..) | StmtKind::Continue | StmtKind::Break => {}
         }
     }
 }

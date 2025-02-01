@@ -298,6 +298,7 @@ impl Node for Stmt {
             }
             StmtKind::Set(lhs, rhs) => vec![lhs.clone(), rhs.clone()],
             StmtKind::Expr(expr) => vec![expr.clone()],
+            StmtKind::Break | StmtKind::Continue => vec![],
         }
     }
 
@@ -312,6 +313,8 @@ pub(crate) enum StmtKind {
     Set(Rc<Expr>, Rc<Expr>),
     Expr(Rc<Expr>),
     FuncDef(Rc<FuncDef>),
+    Continue,
+    Break,
 }
 
 #[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq, Hash)]

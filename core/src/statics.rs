@@ -40,6 +40,9 @@ pub(crate) struct StaticsContext {
 
     // BOOKKEEPING
 
+    // most recent loops while traversing AST
+    pub(crate) loop_stack: Vec<Option<NodeId>>,
+
     // map from interface name to list of its implementations
     pub(crate) interface_impls: HashMap<Rc<InterfaceDecl>, Vec<Rc<InterfaceImpl>>>,
 
@@ -157,6 +160,10 @@ pub(crate) enum Error {
     InterfaceNotImplemented {
         ty: SolvedType,
         iface: Rc<InterfaceDecl>,
+        node_id: NodeId,
+    },
+    // break and continue
+    NotInLoop {
         node_id: NodeId,
     },
     // pattern matching exhaustiveness check
@@ -490,6 +497,11 @@ impl Error {
                     "Interface `{}` is not implemented for type `{}`",
                     iface.name.v, ty
                 ));
+                let (file, range) = get_file_and_range(node_id);
+                labels.push(Label::secondary(file, range));
+            }
+            Error::NotInLoop { node_id } => {
+                diagnostic = diagnostic.with_message("This statement must be in a loop");
                 let (file, range) = get_file_and_range(node_id);
                 labels.push(Label::secondary(file, range));
             }

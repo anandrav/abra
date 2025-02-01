@@ -715,6 +715,11 @@ pub(crate) fn parse_stmt(pair: Pair<Rule>, filename: &str) -> Rc<Stmt> {
                 id: NodeId::new(),
             })
         }
+        Rule::break_statement => Rc::new(Stmt {
+            kind: Rc::new(StmtKind::Break),
+            span,
+            id: NodeId::new(),
+        }),
         _ => panic!("unreachable rule {:#?}", rule),
     }
 }

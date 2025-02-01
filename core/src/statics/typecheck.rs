@@ -1466,6 +1466,15 @@ fn generate_constraints_stmt(
         StmtKind::FuncDef(f) => {
             generate_constraints_fn_def(ctx, polyvar_scope, f, f.name.id);
         }
+        StmtKind::Break | StmtKind::Continue => {
+            let enclosing_loop = ctx.loop_stack.pop();
+            match enclosing_loop {
+                None | Some(None) => {
+                    ctx.errors.push(Error::NotInLoop { node_id: stmt.id });
+                }
+                Some(_node_id) => {}
+            }
+        }
     }
 }
 
@@ -1773,7 +1782,9 @@ fn generate_constraints_expr(
                 cond.clone(),
                 ctx,
             );
+            ctx.loop_stack.push(Some(expr.id));
             generate_constraints_expr(polyvar_scope, Mode::Syn, expr.clone(), ctx);
+            ctx.loop_stack.pop();
             constrain(
                 ctx,
                 node_ty,
