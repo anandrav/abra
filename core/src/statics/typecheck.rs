@@ -1467,12 +1467,12 @@ fn generate_constraints_stmt(
             generate_constraints_fn_def(ctx, polyvar_scope, f, f.name.id);
         }
         StmtKind::Break | StmtKind::Continue => {
-            let enclosing_loop = ctx.loop_stack.pop();
+            let enclosing_loop = ctx.loop_stack.last();
             match enclosing_loop {
                 None | Some(None) => {
                     ctx.errors.push(Error::NotInLoop { node_id: stmt.id });
                 }
-                Some(_node_id) => {}
+                Some(Some(_node_id)) => {}
             }
         }
     }

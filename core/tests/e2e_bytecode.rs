@@ -786,6 +786,28 @@ fn local_in_while_scope() {
 }
 
 #[test]
+fn continue_and_break() {
+    let src = r#"
+    var i = 0
+    while true {
+        if i < 10 {
+            i <- i + 1
+            continue
+        }
+        break
+    }
+    i
+"#;
+    let sources = source_files_single(src);
+
+    let program = unwrap_or_panic(compile_bytecode(sources, DefaultEffects::enumerate()));
+    let mut vm = Vm::new(program);
+    vm.run();
+    let top = vm.top();
+    assert_eq!(top.get_int(), 10);
+}
+
+#[test]
 fn garbage_collection_once() {
     let src = r#"
 var i = 0

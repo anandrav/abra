@@ -56,6 +56,13 @@ struct TranslatorState {
     lambdas: Lambdas,
     overloaded_func_map: OverloadedFuncLabels,
     overloaded_methods_to_generate: Vec<(OverloadedFuncDesc, Type)>,
+    loop_stack: Vec<EnclosingLoop>,
+}
+
+#[derive(Debug, Default)]
+struct EnclosingLoop {
+    start_label: String,
+    end_label: String,
 }
 
 fn emit(st: &mut TranslatorState, i: impl Into<Line>) {
@@ -894,6 +901,11 @@ impl Translator {
                 let start_label = make_label("while_start");
                 let end_label = make_label("while_end");
 
+                st.loop_stack.push(EnclosingLoop {
+                    start_label: start_label.clone(),
+                    end_label: end_label.clone(),
+                });
+
                 emit(st, Line::Label(start_label.clone()));
                 self.translate_expr(cond.clone(), offset_table, monomorph_env.clone(), st);
                 emit(st, Instr::Not);
@@ -1195,10 +1207,12 @@ impl Translator {
                 // noop -- handled elsewhere
             }
             StmtKind::Break => {
-                unimplemented!();
+                let enclosing_loop = st.loop_stack.last().unwrap();
+                emit(st, Instr::Jump(enclosing_loop.end_label.clone()));
             }
             StmtKind::Continue => {
-                unimplemented!();
+                let enclosing_loop = st.loop_stack.last().unwrap();
+                emit(st, Instr::Jump(enclosing_loop.start_label.clone()));
             }
         }
     }

@@ -720,6 +720,11 @@ pub(crate) fn parse_stmt(pair: Pair<Rule>, filename: &str) -> Rc<Stmt> {
             span,
             id: NodeId::new(),
         }),
+        Rule::continue_statement => Rc::new(Stmt {
+            kind: Rc::new(StmtKind::Continue),
+            span,
+            id: NodeId::new(),
+        }),
         _ => panic!("unreachable rule {:#?}", rule),
     }
 }
