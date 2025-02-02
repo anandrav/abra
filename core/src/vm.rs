@@ -23,7 +23,9 @@ pub struct Vm {
     heap_group: HeapGroup,
 
     string_table: Vec<String>,
+
     pending_effect: Option<u16>,
+    error: Option<VmError>,
 
     // FFI
     #[cfg(feature = "ffi")]
@@ -36,7 +38,12 @@ pub enum VmStatus {
     Done,
     PendingEffect(u16),
     OutOfSteps,
-    Error(String),
+    Error(VmError),
+}
+
+#[derive(Clone, Debug)]
+pub enum VmError {
+    ArrayOutOfBounds,
 }
 
 impl Vm {
@@ -51,11 +58,14 @@ impl Vm {
             heap_group: HeapGroup::One,
 
             string_table: program.string_table,
+
+            pending_effect: None,
+            error: None,
+
             #[cfg(feature = "ffi")]
             libs: Vec::new(),
             #[cfg(feature = "ffi")]
             foreign_functions: Vec::new(),
-            pending_effect: None,
         }
     }
 
@@ -70,11 +80,14 @@ impl Vm {
             heap_group: HeapGroup::One,
 
             string_table: program.string_table,
+
+            pending_effect: None,
+            error: None,
+
             #[cfg(feature = "ffi")]
             libs: Vec::new(),
             #[cfg(feature = "ffi")]
             foreign_functions: Vec::new(),
-            pending_effect: None,
         }
     }
 
@@ -83,6 +96,8 @@ impl Vm {
             VmStatus::PendingEffect(self.pending_effect.unwrap())
         } else if self.is_done() {
             VmStatus::Done
+        } else if let Some(err) = &self.error {
+            VmStatus::Error(err.clone())
         } else {
             VmStatus::OutOfSteps
         }
@@ -147,6 +162,10 @@ impl Vm {
 
     pub fn clear_pending_effect(&mut self) {
         self.pending_effect = None;
+    }
+
+    pub fn get_error(&self) -> &Option<VmError> {
+        &self.error
     }
 
     pub fn is_done(&self) -> bool {
@@ -428,7 +447,10 @@ impl Vm {
         if self.pending_effect.is_some() {
             panic!("must handle pending effect");
         }
-        while !self.is_done() && self.pending_effect.is_none() {
+        if self.error.is_some() {
+            panic!("forgot to check error on vm");
+        }
+        while !self.is_done() && self.pending_effect.is_none() && self.error.is_none() {
             self.step();
         }
     }
@@ -437,8 +459,12 @@ impl Vm {
         if self.pending_effect.is_some() {
             panic!("must handle pending effect");
         }
+        if self.error.is_some() {
+            panic!("must handle error");
+        }
         let mut steps = steps;
-        while steps > 0 && !self.is_done() && self.pending_effect.is_none() {
+        while steps > 0 && !self.is_done() && self.pending_effect.is_none() && self.error.is_none()
+        {
             self.step();
             steps -= 1;
         }
@@ -706,14 +732,20 @@ impl Vm {
             Instr::GetIdx => {
                 let obj = self.value_stack.pop().expect("stack underflow");
                 let idx = self.pop_int();
-                let field = match &obj {
+                match &obj {
                     Value::HeapReference(r) => match &self.heap[r.get().get()].kind {
-                        ManagedObjectKind::DynArray(fields) => fields[idx as usize].clone(),
+                        ManagedObjectKind::DynArray(fields) => {
+                            if idx as usize >= fields.len() || idx < 0 {
+                                self.error = Some(VmError::ArrayOutOfBounds);
+                                return;
+                            }
+                            let field = fields[idx as usize].clone();
+                            self.push(field);
+                        }
                         _ => panic!("not a dynamic array"),
                     },
                     _ => panic!("not a dynamic array"),
                 };
-                self.push(field);
             }
             Instr::SetIdx => {
                 let obj = self.value_stack.pop().expect("stack underflow");
@@ -725,6 +757,10 @@ impl Vm {
                 };
                 match &mut self.heap[obj_id].kind {
                     ManagedObjectKind::DynArray(fields) => {
+                        if idx as usize >= fields.len() || idx < 0 {
+                            self.error = Some(VmError::ArrayOutOfBounds);
+                            return;
+                        }
                         fields[idx as usize] = rvalue;
                     }
                     _ => panic!("not a dynamic array: {:?}", self.heap[obj_id]),

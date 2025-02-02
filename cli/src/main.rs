@@ -70,6 +70,10 @@ fn main() {
                 if vm.is_done() {
                     return;
                 }
+                if let Some(error) = vm.get_error() {
+                    eprintln!("{:?}", error);
+                    return;
+                }
                 vm.run();
                 vm.gc();
                 if let Some(pending_effect) = vm.get_pending_effect() {
