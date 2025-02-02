@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 use std::fmt::Display;
+use std::ops::Range;
 use std::path::PathBuf;
 use std::rc::Rc;
 use std::sync::atomic::{AtomicUsize, Ordering};
@@ -8,12 +9,12 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 pub(crate) struct Identifier {
     pub(crate) v: String,
 
-    pub(crate) span: Span,
+    pub(crate) span: Location,
     pub(crate) id: NodeId,
 }
 
 impl Node for Identifier {
-    fn span(&self) -> Span {
+    fn span(&self) -> Location {
         self.span.clone()
     }
     fn id(&self) -> NodeId {
@@ -25,11 +26,125 @@ impl Node for Identifier {
     }
 }
 
-pub(crate) type ArgAnnotated = (Rc<Pat>, Option<Rc<Type>>);
+#[derive(Debug, Clone)]
+pub struct FileData {
+    pub name: String,
+    pub path: PathBuf,
+    pub source: String,
+    /// The starting byte indices in the source code.
+    line_starts: Vec<usize>,
+}
+
+pub fn line_starts(source: &str) -> impl '_ + Iterator<Item = usize> {
+    std::iter::once(0).chain(source.match_indices('\n').map(|(i, _)| i + 1))
+}
+
+impl FileData {
+    pub fn new(name: String, path: PathBuf, source: String) -> FileData {
+        FileData {
+            name,
+            path,
+            line_starts: line_starts(source.as_ref()).collect(),
+            source,
+        }
+    }
+
+    /// Return the starting byte index of the line with the specified line index.
+    /// Convenience method that already generates codespan_reporting::files::Errors if necessary.
+    fn line_start(&self, line_index: usize) -> Result<usize, codespan_reporting::files::Error> {
+        use std::cmp::Ordering;
+
+        match line_index.cmp(&self.line_starts.len()) {
+            Ordering::Less => Ok(self
+                .line_starts
+                .get(line_index)
+                .cloned()
+                .expect("failed despite previous check")),
+            Ordering::Equal => Ok(self.source.len()),
+            Ordering::Greater => Err(codespan_reporting::files::Error::LineTooLarge {
+                given: line_index,
+                max: self.line_starts.len() - 1,
+            }),
+        }
+    }
+}
+
+impl FileData {
+    fn line_index(&self, byte_index: usize) -> Result<usize, codespan_reporting::files::Error> {
+        Ok(self
+            .line_starts
+            .binary_search(&byte_index)
+            .unwrap_or_else(|next_line| next_line - 1))
+    }
+
+    fn line_range(
+        &self,
+        line_index: usize,
+    ) -> Result<Range<usize>, codespan_reporting::files::Error> {
+        let line_start = self.line_start(line_index)?;
+        let next_line_start = self.line_start(line_index + 1)?;
+
+        Ok(line_start..next_line_start)
+    }
+}
 
 #[derive(Debug, Clone, Default)]
-pub(crate) struct Sources {
-    pub(crate) filename_to_source: HashMap<String, String>,
+pub struct FileDatabase {
+    pub files: Vec<FileData>,
+}
+
+impl FileDatabase {
+    /// Create a new files database.
+    pub fn new() -> FileDatabase {
+        FileDatabase { files: Vec::new() }
+    }
+
+    /// Add a file to the database, returning the handle that can be used to
+    /// refer to it again.
+    pub fn add(&mut self, name: String, path: PathBuf, source: String) -> usize {
+        let file_id = self.files.len();
+        self.files.push(FileData::new(name, path, source));
+        file_id
+    }
+
+    /// Get the file corresponding to the given id.
+    pub fn get(&self, file_id: usize) -> Result<&FileData, codespan_reporting::files::Error> {
+        self.files
+            .get(file_id)
+            .ok_or(codespan_reporting::files::Error::FileMissing)
+    }
+}
+
+pub type FileId = usize;
+
+impl<'a> codespan_reporting::files::Files<'a> for FileDatabase {
+    type FileId = FileId;
+    type Name = &'a str;
+    type Source = &'a str;
+
+    fn name(&'a self, file_id: usize) -> Result<Self::Name, codespan_reporting::files::Error> {
+        Ok(&self.get(file_id)?.name)
+    }
+
+    fn source(&'a self, file_id: usize) -> Result<&'a str, codespan_reporting::files::Error> {
+        Ok(&self.get(file_id)?.source)
+    }
+
+    fn line_index(
+        &'a self,
+        file_id: usize,
+        byte_index: usize,
+    ) -> Result<usize, codespan_reporting::files::Error> {
+        self.get(file_id)?.line_index(byte_index)
+    }
+
+    fn line_range(
+        &'a self,
+        file_id: usize,
+        line_index: usize,
+    ) -> Result<Range<usize>, codespan_reporting::files::Error> {
+        self.get(file_id)?.line_range(line_index)
+    }
 }
 
 pub(crate) type PatAnnotated = (Rc<Pat>, Option<Rc<Type>>);
@@ -40,12 +155,12 @@ pub(crate) struct FileAst {
     pub(crate) name: String,
     pub(crate) path: PathBuf,
 
-    pub(crate) span: Span,
+    pub(crate) span: Location,
     pub(crate) id: NodeId,
 }
 
 impl Node for FileAst {
-    fn span(&self) -> Span {
+    fn span(&self) -> Location {
         self.span.clone()
     }
     fn id(&self) -> NodeId {
@@ -89,12 +204,12 @@ pub(crate) struct Variant {
     pub(crate) ctor: Identifier,
     pub(crate) data: Option<Rc<Type>>,
 
-    pub(crate) span: Span,
+    pub(crate) span: Location,
     pub(crate) id: NodeId,
 }
 
 impl Node for Variant {
-    fn span(&self) -> Span {
+    fn span(&self) -> Location {
         self.span.clone()
     }
     fn id(&self) -> NodeId {
@@ -114,12 +229,12 @@ pub(crate) struct StructField {
     pub(crate) name: Identifier,
     pub(crate) ty: Rc<Type>,
 
-    pub(crate) span: Span,
+    pub(crate) span: Location,
     pub(crate) id: NodeId,
 }
 
 impl Node for StructField {
-    fn span(&self) -> Span {
+    fn span(&self) -> Location {
         self.span.clone()
     }
     fn id(&self) -> NodeId {
@@ -142,7 +257,7 @@ impl std::fmt::Debug for dyn Node {
 
 // TODO: convert this to an Enum
 pub(crate) trait Node {
-    fn span(&self) -> Span;
+    fn span(&self) -> Location;
     fn id(&self) -> NodeId;
     fn children(&self) -> Vec<Rc<dyn Node>>;
 
@@ -158,12 +273,12 @@ pub(crate) trait Node {
 
 pub(crate) struct Item {
     pub(crate) kind: Rc<ItemKind>,
-    pub(crate) span: Span,
+    pub(crate) span: Location,
     pub(crate) id: NodeId,
 }
 
 impl Node for Item {
-    fn span(&self) -> Span {
+    fn span(&self) -> Location {
         self.span.clone()
     }
     fn id(&self) -> NodeId {
@@ -260,12 +375,12 @@ pub(crate) enum ItemKind {
 #[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq, Hash)]
 pub(crate) struct Stmt {
     pub(crate) kind: Rc<StmtKind>,
-    pub(crate) span: Span,
+    pub(crate) span: Location,
     pub(crate) id: NodeId,
 }
 
 impl Node for Stmt {
-    fn span(&self) -> Span {
+    fn span(&self) -> Location {
         self.span.clone()
     }
     fn id(&self) -> NodeId {
@@ -317,6 +432,8 @@ pub(crate) enum StmtKind {
     Break,
 }
 
+pub(crate) type ArgAnnotated = (Rc<Pat>, Option<Rc<Type>>);
+
 #[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq, Hash)]
 pub(crate) struct FuncDef {
     pub(crate) name: Identifier,
@@ -345,7 +462,7 @@ pub(crate) struct InterfaceMethodDecl {
 }
 
 impl Node for InterfaceMethodDecl {
-    fn span(&self) -> Span {
+    fn span(&self) -> Location {
         self.ty.span()
     }
     fn id(&self) -> NodeId {
@@ -369,12 +486,12 @@ pub(crate) struct InterfaceImpl {
 #[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq, Hash)]
 pub(crate) struct Expr {
     pub(crate) kind: Rc<ExprKind>,
-    pub(crate) span: Span,
+    pub(crate) span: Location,
     pub(crate) id: NodeId,
 }
 
 impl Node for Expr {
-    fn span(&self) -> Span {
+    fn span(&self) -> Location {
         self.span.clone()
     }
     fn id(&self) -> NodeId {
@@ -500,12 +617,12 @@ pub(crate) struct MatchArm {
 #[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq, Hash)]
 pub(crate) struct Pat {
     pub(crate) kind: Rc<PatKind>,
-    pub(crate) span: Span,
+    pub(crate) span: Location,
     pub(crate) id: NodeId,
 }
 
 impl Node for Pat {
-    fn span(&self) -> Span {
+    fn span(&self) -> Location {
         self.span.clone()
     }
     fn id(&self) -> NodeId {
@@ -552,12 +669,12 @@ pub(crate) enum PatKind {
 #[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq, Hash)]
 pub(crate) struct Type {
     pub(crate) kind: Rc<TypeKind>,
-    pub(crate) span: Span,
+    pub(crate) span: Location,
     pub(crate) id: NodeId,
 }
 
 impl Node for Type {
-    fn span(&self) -> Span {
+    fn span(&self) -> Location {
         self.span.clone()
     }
     fn id(&self) -> NodeId {
@@ -653,18 +770,16 @@ impl Default for NodeId {
 }
 
 #[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq, Hash)]
-pub(crate) struct Span {
-    // TODO: this is egregious
-    // storing the filename for every single Span? Every single node in the AST? Lol.
-    pub(crate) filename: String, // replace with FILE ID
+pub(crate) struct Location {
+    pub(crate) file_id: FileId,
     pub(crate) lo: usize,
     pub(crate) hi: usize,
 }
 
-impl Span {
-    pub fn new(filename: &str, pest_span: pest::Span) -> Self {
-        Span {
-            filename: filename.to_string(),
+impl Location {
+    pub fn new(file_id: FileId, pest_span: pest::Span) -> Self {
+        Location {
+            file_id,
             lo: pest_span.start(),
             hi: pest_span.end(),
         }

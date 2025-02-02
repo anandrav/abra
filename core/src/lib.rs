@@ -1,5 +1,4 @@
-use std::path::PathBuf;
-use std::{collections::HashMap, rc::Rc};
+use std::rc::Rc;
 
 pub use effects::EffectCode;
 pub use effects::EffectDesc;
@@ -16,6 +15,7 @@ pub mod statics;
 mod translate_bytecode;
 pub mod vm;
 
+pub use ast::FileData;
 pub use prelude::PRELUDE;
 use translate_bytecode::CompiledProgram;
 use translate_bytecode::Translator;
@@ -24,40 +24,28 @@ pub fn abra_hello_world() {
     println!("Hello, world!");
 }
 
-pub struct SourceFile {
-    pub name: String,
-    pub path: PathBuf,
-    pub contents: String,
-}
-
-pub fn source_files_single(src: &str) -> Vec<SourceFile> {
+pub fn source_files_single(src: &str) -> Vec<FileData> {
     vec![
-        SourceFile {
-            name: "prelude.abra".to_owned(),
-            path: "prelude.abra".into(),
-            contents: PRELUDE.to_owned(),
-        },
-        SourceFile {
-            name: "test.abra".to_owned(),
-            path: "test.abra".into(),
-            contents: src.to_owned(),
-        },
+        FileData::new(
+            "prelude.abra".to_owned(),
+            "prelude.abra".into(),
+            PRELUDE.to_owned(),
+        ),
+        FileData::new("test.abra".to_owned(), "test.abra".into(), src.to_owned()),
     ]
 }
 
 pub fn compile_bytecode(
-    source_files: Vec<SourceFile>,
+    source_files: Vec<FileData>,
     effects: Vec<EffectDesc>,
 ) -> Result<CompiledProgram, String> {
-    let mut filename_to_source = HashMap::new();
-    let mut filenames = Vec::new();
-    for source_file in &source_files {
-        filenames.push(source_file.name.clone());
-        filename_to_source.insert(source_file.name.clone(), source_file.contents.clone());
+    let mut sources = ast::FileDatabase::new();
+    for source_file in source_files {
+        // TODO: what are we doing here lol
+        sources.add(source_file.name, source_file.path, source_file.source);
     }
-    let sources = ast::Sources { filename_to_source };
 
-    let files = parse::parse_or_err(&source_files)?;
+    let files = parse::parse_or_err(&sources)?;
 
     let mut node_map = ast::NodeMap::new();
     for parse_tree in &files {

@@ -2,7 +2,7 @@ use abra_core::compile_bytecode;
 use abra_core::effects::{DefaultEffects, EffectTrait};
 use abra_core::prelude::PRELUDE;
 use abra_core::vm::Vm;
-use abra_core::SourceFile;
+use abra_core::FileData;
 
 fn main() {
     test();
@@ -25,21 +25,13 @@ fn bar(x: 'a) -> 'a {
 foo(2, 2)
 "#;
     let sources = vec![
-        SourceFile {
-            name: "prelude.abra".to_owned(),
-            path: "prelude.abra".into(), // TODO: does Path actually make sense in this context?
-            contents: PRELUDE.to_owned(),
-        },
-        SourceFile {
-            name: "util.abra".to_owned(),
-            path: "util.abra".into(),
-            contents: util.to_owned(),
-        },
-        SourceFile {
-            name: "main.abra".to_owned(),
-            path: "main.abra".into(),
-            contents: main.to_owned(),
-        },
+        FileData::new(
+            "prelude.abra".to_owned(),
+            "prelude.abra".into(), // TODO: does Path actually make sense in this context?
+            PRELUDE.to_owned(),
+        ),
+        FileData::new("util.abra".to_owned(), "util.abra".into(), util.to_owned()),
+        FileData::new("main.abra".to_owned(), "main.abra".into(), main.to_owned()),
     ];
     let effects = DefaultEffects::enumerate();
     let program = compile_bytecode(sources, effects);

@@ -514,10 +514,10 @@ impl TypeVar {
                     return ret; // instantiation occurs here
                 } else {
                     // println!("-- did not instantiate...");
-                    if let Declaration::Polytype(polyty) = decl {
-                        // println!("because it resolves to this:");
-                        // print_node(ctx, polyty.name.id);
-                    }
+                    // if let Declaration::Polytype(polyty) = decl {
+                    //     // println!("because it resolves to this:");
+                    //     // print_node(ctx, polyty.name.id);
+                    // }
                     ty // noop
                 }
             }
@@ -2610,20 +2610,12 @@ impl Display for Monotype {
 }
 
 use codespan_reporting::diagnostic::{Diagnostic, Label};
-use codespan_reporting::files::SimpleFiles;
 use codespan_reporting::term;
 use codespan_reporting::term::termcolor::{ColorChoice, StandardStream};
 fn _print_node(ctx: &StaticsContext, node_id: NodeId) {
-    let mut files = SimpleFiles::new();
-    let mut filename_to_id = HashMap::<String, usize>::new();
-    for (filename, source) in ctx._sources.filename_to_source.iter() {
-        let id = files.add(filename, source);
-        filename_to_id.insert(filename.clone(), id);
-    }
-
     let get_file_and_range = |id: &NodeId| {
         let span = ctx._node_map.get(id).unwrap().span();
-        (filename_to_id[&span.filename], span.range())
+        (span.file_id, span.range())
     };
 
     let (file, range) = get_file_and_range(&node_id);
@@ -2633,5 +2625,5 @@ fn _print_node(ctx: &StaticsContext, node_id: NodeId) {
     let writer = StandardStream::stderr(ColorChoice::Always);
     let config = codespan_reporting::term::Config::default();
 
-    term::emit(&mut writer.lock(), &config, &files, &diagnostic).unwrap();
+    term::emit(&mut writer.lock(), &config, &ctx._sources, &diagnostic).unwrap();
 }

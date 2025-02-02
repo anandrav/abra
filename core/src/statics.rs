@@ -1,6 +1,6 @@
 use crate::ast::{
-    EnumDef, FileAst, ForeignFuncDecl, FuncDef, Identifier, InterfaceDecl, InterfaceImpl, NodeId,
-    NodeMap, Polytype, Sources, StructDef, TypeKind,
+    EnumDef, FileAst, FileDatabase, ForeignFuncDecl, FuncDef, Identifier, InterfaceDecl,
+    InterfaceImpl, NodeId, NodeMap, Polytype, StructDef, TypeKind,
 };
 use crate::builtin::Builtin;
 use crate::effects::EffectDesc;
@@ -19,7 +19,6 @@ pub(crate) mod typecheck;
 pub(crate) use typecheck::ty_fits_impl_ty;
 // TODO: Provs are an implementation detail, they should NOT be exported
 use codespan_reporting::diagnostic::{Diagnostic, Label};
-use codespan_reporting::files::SimpleFiles;
 use codespan_reporting::term;
 use codespan_reporting::term::termcolor::{ColorChoice, StandardStream};
 use pat_exhaustiveness::{check_pattern_exhaustiveness_and_usefulness, DeconstructedPat};
@@ -32,7 +31,7 @@ pub(crate) struct StaticsContext {
     // effects
     effects: Vec<EffectDesc>,
     _node_map: NodeMap,
-    _sources: Sources,
+    _sources: FileDatabase,
 
     pub(crate) global_namespace: Namespace,
     // This maps any identifier in the program to the declaration it resolves to.
@@ -64,7 +63,7 @@ pub(crate) struct StaticsContext {
 }
 
 impl StaticsContext {
-    fn new(effects: Vec<EffectDesc>, node_map: NodeMap, sources: Sources) -> Self {
+    fn new(effects: Vec<EffectDesc>, node_map: NodeMap, sources: FileDatabase) -> Self {
         let mut ctx = Self {
             effects,
             _node_map: node_map,
@@ -182,7 +181,7 @@ pub(crate) fn analyze(
     effects: &[EffectDesc],
     files: &Vec<Rc<FileAst>>,
     node_map: &NodeMap,
-    sources: &Sources,
+    sources: &FileDatabase,
 ) -> Result<StaticsContext, String> {
     let mut ctx = StaticsContext::new(effects.to_owned(), node_map.clone(), sources.clone()); // TODO: to_owned necessary?
 
@@ -205,7 +204,7 @@ pub(crate) fn analyze(
 pub(crate) fn check_errors(
     ctx: &StaticsContext,
     node_map: &NodeMap,
-    sources: &Sources,
+    sources: &FileDatabase,
 ) -> Result<(), String> {
     if ctx.errors.is_empty() {
         return Ok(());
@@ -220,15 +219,7 @@ pub(crate) fn check_errors(
 
 // TODO: reduce code duplication for displaying error messages, types
 impl Error {
-    fn show(&self, _ctx: &StaticsContext, node_map: &NodeMap, sources: &Sources) {
-        // TODO: Make your own files database. Make it implement the Files trait from codespan-reporting
-        let mut files = SimpleFiles::new();
-        let mut filename_to_id = HashMap::<String, usize>::new();
-        for (filename, source) in sources.filename_to_source.iter() {
-            let id = files.add(filename, source);
-            filename_to_id.insert(filename.clone(), id);
-        }
-
+    fn show(&self, _ctx: &StaticsContext, node_map: &NodeMap, sources: &FileDatabase) {
         let mut diagnostic = Diagnostic::error();
         let mut labels = Vec::new();
         let mut notes = Vec::new();
@@ -236,7 +227,7 @@ impl Error {
         // get rid of this after making our own file database
         let get_file_and_range = |id: &NodeId| {
             let span = node_map.get(id).unwrap().span();
-            (filename_to_id[&span.filename], span.range())
+            (span.file_id, span.range())
         };
 
         match self {
@@ -262,14 +253,7 @@ impl Error {
                 for ty in type_conflict {
                     let reasons = ty.reasons().borrow();
                     for reason in reasons.iter() {
-                        handle_reason(
-                            &ty,
-                            reason,
-                            node_map,
-                            &filename_to_id,
-                            &mut labels,
-                            &mut notes,
-                        );
+                        handle_reason(&ty, reason, node_map, &mut labels, &mut notes);
                     }
                 }
             }
@@ -284,24 +268,10 @@ impl Error {
 
                     let provs2 = ty2.reasons().borrow();
                     let reason2 = provs2.iter().next().unwrap();
-                    handle_reason(
-                        ty2,
-                        reason2,
-                        node_map,
-                        &filename_to_id,
-                        &mut labels,
-                        &mut notes,
-                    );
+                    handle_reason(ty2, reason2, node_map, &mut labels, &mut notes);
                     let provs1 = ty1.reasons().borrow();
                     let reason1 = provs1.iter().next().unwrap();
-                    handle_reason(
-                        ty1,
-                        reason1,
-                        node_map,
-                        &filename_to_id,
-                        &mut labels,
-                        &mut notes,
-                    );
+                    handle_reason(ty1, reason1, node_map, &mut labels, &mut notes);
                 }
                 ConstraintReason::BinaryOperandsMustMatch(node_id) => {
                     diagnostic = diagnostic.with_message("Operands must have the same type");
@@ -310,94 +280,38 @@ impl Error {
 
                     let provs2 = ty2.reasons().borrow();
                     let reason2 = provs2.iter().next().unwrap();
-                    handle_reason(
-                        ty2,
-                        reason2,
-                        node_map,
-                        &filename_to_id,
-                        &mut labels,
-                        &mut notes,
-                    );
+                    handle_reason(ty2, reason2, node_map, &mut labels, &mut notes);
                     let provs1 = ty1.reasons().borrow();
                     let reason1 = provs1.iter().next().unwrap();
-                    handle_reason(
-                        ty1,
-                        reason1,
-                        node_map,
-                        &filename_to_id,
-                        &mut labels,
-                        &mut notes,
-                    );
+                    handle_reason(ty1, reason1, node_map, &mut labels, &mut notes);
                 }
                 ConstraintReason::IfElseBodies => {
                     diagnostic =
                         diagnostic.with_message("Branches of if-else expression do not match");
                     let provs2 = ty2.reasons().borrow();
                     let reason2 = provs2.iter().next().unwrap();
-                    handle_reason(
-                        ty2,
-                        reason2,
-                        node_map,
-                        &filename_to_id,
-                        &mut labels,
-                        &mut notes,
-                    );
+                    handle_reason(ty2, reason2, node_map, &mut labels, &mut notes);
                     let provs1 = ty1.reasons().borrow();
                     let reason1 = provs1.iter().next().unwrap();
-                    handle_reason(
-                        ty1,
-                        reason1,
-                        node_map,
-                        &filename_to_id,
-                        &mut labels,
-                        &mut notes,
-                    );
+                    handle_reason(ty1, reason1, node_map, &mut labels, &mut notes);
                 }
                 ConstraintReason::LetStmtAnnotation => {
                     diagnostic = diagnostic.with_message("Variable and annotation do not match");
                     let provs2 = ty2.reasons().borrow();
                     let reason2 = provs2.iter().next().unwrap();
-                    handle_reason(
-                        ty2,
-                        reason2,
-                        node_map,
-                        &filename_to_id,
-                        &mut labels,
-                        &mut notes,
-                    );
+                    handle_reason(ty2, reason2, node_map, &mut labels, &mut notes);
                     let provs1 = ty1.reasons().borrow();
                     let reason1 = provs1.iter().next().unwrap();
-                    handle_reason(
-                        ty1,
-                        reason1,
-                        node_map,
-                        &filename_to_id,
-                        &mut labels,
-                        &mut notes,
-                    );
+                    handle_reason(ty1, reason1, node_map, &mut labels, &mut notes);
                 }
                 ConstraintReason::LetSetLhsRhs => {
                     diagnostic = diagnostic.with_message("Variable and assignment do not match");
                     let provs2 = ty2.reasons().borrow();
                     let reason2 = provs2.iter().next().unwrap();
-                    handle_reason(
-                        ty2,
-                        reason2,
-                        node_map,
-                        &filename_to_id,
-                        &mut labels,
-                        &mut notes,
-                    );
+                    handle_reason(ty2, reason2, node_map, &mut labels, &mut notes);
                     let provs1 = ty1.reasons().borrow();
                     let reason1 = provs1.iter().next().unwrap();
-                    handle_reason(
-                        ty1,
-                        reason1,
-                        node_map,
-                        &filename_to_id,
-                        &mut labels,
-                        &mut notes,
-                    );
+                    handle_reason(ty1, reason1, node_map, &mut labels, &mut notes);
                 }
                 ConstraintReason::MatchScrutinyAndPattern => {
                     diagnostic = diagnostic.with_message(format!(
@@ -406,24 +320,10 @@ impl Error {
                     ));
                     let provs2 = ty2.reasons().borrow();
                     let reason2 = provs2.iter().next().unwrap();
-                    handle_reason(
-                        ty2,
-                        reason2,
-                        node_map,
-                        &filename_to_id,
-                        &mut labels,
-                        &mut notes,
-                    );
+                    handle_reason(ty2, reason2, node_map, &mut labels, &mut notes);
                     let provs1 = ty1.reasons().borrow();
                     let reason1 = provs1.iter().next().unwrap();
-                    handle_reason(
-                        ty1,
-                        reason1,
-                        node_map,
-                        &filename_to_id,
-                        &mut labels,
-                        &mut notes,
-                    );
+                    handle_reason(ty1, reason1, node_map, &mut labels, &mut notes);
                 }
                 ConstraintReason::FuncCall(node_id) => {
                     diagnostic = diagnostic.with_message("Wrong argument type");
@@ -432,24 +332,10 @@ impl Error {
 
                     let provs2 = ty2.reasons().borrow();
                     let reason2 = provs2.iter().next().unwrap();
-                    handle_reason(
-                        ty2,
-                        reason2,
-                        node_map,
-                        &filename_to_id,
-                        &mut labels,
-                        &mut notes,
-                    );
+                    handle_reason(ty2, reason2, node_map, &mut labels, &mut notes);
                     let provs1 = ty1.reasons().borrow();
                     let reason1 = provs1.iter().next().unwrap();
-                    handle_reason(
-                        ty1,
-                        reason1,
-                        node_map,
-                        &filename_to_id,
-                        &mut labels,
-                        &mut notes,
-                    );
+                    handle_reason(ty1, reason1, node_map, &mut labels, &mut notes);
                 }
                 ConstraintReason::Condition => {
                     diagnostic = diagnostic
@@ -457,14 +343,7 @@ impl Error {
 
                     let provs1 = ty1.reasons().borrow();
                     let reason1 = provs1.iter().next().unwrap();
-                    handle_reason(
-                        ty1,
-                        reason1,
-                        node_map,
-                        &filename_to_id,
-                        &mut labels,
-                        &mut notes,
-                    );
+                    handle_reason(ty1, reason1, node_map, &mut labels, &mut notes);
                 }
                 ConstraintReason::BinaryOperandBool(node_id) => {
                     diagnostic = diagnostic
@@ -474,14 +353,7 @@ impl Error {
 
                     let provs1 = ty1.reasons().borrow();
                     let reason1 = provs1.iter().next().unwrap();
-                    handle_reason(
-                        ty1,
-                        reason1,
-                        node_map,
-                        &filename_to_id,
-                        &mut labels,
-                        &mut notes,
-                    );
+                    handle_reason(ty1, reason1, node_map, &mut labels, &mut notes);
                 }
                 ConstraintReason::IndexAccess => {
                     notes.push("type conflict due to array index is int".to_string());
@@ -538,7 +410,7 @@ impl Error {
         let writer = StandardStream::stderr(ColorChoice::Always);
         let config = codespan_reporting::term::Config::default();
 
-        term::emit(&mut writer.lock(), &config, &files, &diagnostic).unwrap();
+        term::emit(&mut writer.lock(), &config, sources, &diagnostic).unwrap();
     }
 }
 
@@ -546,14 +418,13 @@ fn handle_reason(
     ty: &PotentialType,
     reason: &Reason,
     node_map: &NodeMap,
-    filename_to_id: &HashMap<String, usize>,
     labels: &mut Vec<Label<usize>>,
     notes: &mut Vec<String>,
 ) {
     // get rid of this after making our own file database
     let get_file_and_range = |id: &NodeId| {
         let span = node_map.get(id).unwrap().span();
-        (filename_to_id[&span.filename], span.range())
+        (span.file_id, span.range())
     };
     match reason {
         Reason::Builtin(builtin) => {

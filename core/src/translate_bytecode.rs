@@ -2,7 +2,7 @@ use crate::assembly::{remove_labels, Instr, Label, Line};
 use crate::ast::{
     BinaryOperator, ForeignFuncDecl, FuncDef, InterfaceDecl, Item, ItemKind, TypeKind,
 };
-use crate::ast::{FileAst, Node, NodeId, Sources};
+use crate::ast::{FileAst, FileDatabase, Node, NodeId};
 use crate::builtin::Builtin;
 use crate::effects::EffectDesc;
 use crate::environment::Environment;
@@ -45,7 +45,7 @@ struct LambdaData {
 pub(crate) struct Translator {
     statics: StaticsContext,
     node_map: NodeMap,
-    _sources: Sources,
+    _sources: FileDatabase,
     files: Vec<Rc<FileAst>>,
     effects: Vec<EffectDesc>,
 }
@@ -169,7 +169,7 @@ impl Translator {
     pub(crate) fn new(
         statics: StaticsContext,
         node_map: NodeMap,
-        sources: Sources,
+        sources: FileDatabase,
         files: Vec<Rc<FileAst>>,
         effects: Vec<EffectDesc>,
     ) -> Self {

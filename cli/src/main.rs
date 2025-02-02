@@ -2,7 +2,7 @@ use abra_core::effects::EffectTrait;
 use abra_core::effects::FromRepr;
 use abra_core::effects::VariantArray;
 use abra_core::effects::{Nominal, Type};
-use abra_core::SourceFile;
+use abra_core::FileData;
 use clap::Parser;
 use std::path::PathBuf;
 
@@ -38,18 +38,18 @@ fn main() {
     let args = Args::parse();
 
     let mut source_files = Vec::new();
-    source_files.push(SourceFile {
-        name: "prelude.abra".to_string(),
-        path: "prelude.abra".into(), // TODO: does path really make sense in this context? Should path be optional?
-        contents: abra_core::prelude::PRELUDE.to_string(),
-    });
+    source_files.push(FileData::new(
+        "prelude.abra".to_string(),
+        "prelude.abra".into(), // TODO: does path really make sense in this context? Should path be optional?
+        abra_core::prelude::PRELUDE.to_string(),
+    ));
 
     let contents = std::fs::read_to_string(&args.file).unwrap();
-    source_files.push(SourceFile {
-        name: args.file.clone(),
-        path: args.file.clone().into(),
+    source_files.push(FileData::new(
+        args.file.clone(),
+        args.file.clone().into(),
         contents,
-    });
+    ));
 
     let modules: PathBuf = match args.modules {
         Some(modules) => modules.into(),
@@ -114,7 +114,7 @@ fn main() {
     }
 }
 
-fn add_modules_toplevel(include_dir: PathBuf, main_file: &str, source_files: &mut Vec<SourceFile>) {
+fn add_modules_toplevel(include_dir: PathBuf, main_file: &str, source_files: &mut Vec<FileData>) {
     let dir = std::fs::read_dir(&include_dir).unwrap();
     for entry in dir {
         let entry = entry.unwrap();
@@ -126,11 +126,11 @@ fn add_modules_toplevel(include_dir: PathBuf, main_file: &str, source_files: &mu
             let dir_name = &name[0..name.len() - ".abra".len()];
 
             let contents = std::fs::read_to_string(entry.path()).unwrap();
-            source_files.push(SourceFile {
-                name: name.to_string(),
-                path: include_dir.join(name),
+            source_files.push(FileData::new(
+                name.to_string(),
+                include_dir.join(name),
                 contents,
-            });
+            ));
         } else if metadata.is_dir() {
             // add_module_dir(include_dir.join(name), source_files);
         }
