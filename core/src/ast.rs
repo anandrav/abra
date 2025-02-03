@@ -9,13 +9,13 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 pub(crate) struct Identifier {
     pub(crate) v: String,
 
-    pub(crate) span: Location,
+    pub(crate) loc: Location,
     pub(crate) id: NodeId,
 }
 
 impl Node for Identifier {
     fn span(&self) -> Location {
-        self.span.clone()
+        self.loc.clone()
     }
     fn id(&self) -> NodeId {
         self.id
@@ -155,13 +155,13 @@ pub(crate) struct FileAst {
     pub(crate) name: String,
     pub(crate) path: PathBuf,
 
-    pub(crate) span: Location,
+    pub(crate) loc: Location,
     pub(crate) id: NodeId,
 }
 
 impl Node for FileAst {
     fn span(&self) -> Location {
-        self.span.clone()
+        self.loc.clone()
     }
     fn id(&self) -> NodeId {
         self.id
@@ -204,13 +204,13 @@ pub(crate) struct Variant {
     pub(crate) ctor: Identifier,
     pub(crate) data: Option<Rc<Type>>,
 
-    pub(crate) span: Location,
+    pub(crate) loc: Location,
     pub(crate) id: NodeId,
 }
 
 impl Node for Variant {
     fn span(&self) -> Location {
-        self.span.clone()
+        self.loc.clone()
     }
     fn id(&self) -> NodeId {
         self.id
@@ -229,13 +229,13 @@ pub(crate) struct StructField {
     pub(crate) name: Identifier,
     pub(crate) ty: Rc<Type>,
 
-    pub(crate) span: Location,
+    pub(crate) loc: Location,
     pub(crate) id: NodeId,
 }
 
 impl Node for StructField {
     fn span(&self) -> Location {
-        self.span.clone()
+        self.loc.clone()
     }
     fn id(&self) -> NodeId {
         self.id
@@ -273,13 +273,13 @@ pub(crate) trait Node {
 
 pub(crate) struct Item {
     pub(crate) kind: Rc<ItemKind>,
-    pub(crate) span: Location,
+    pub(crate) loc: Location,
     pub(crate) id: NodeId,
 }
 
 impl Node for Item {
     fn span(&self) -> Location {
-        self.span.clone()
+        self.loc.clone()
     }
     fn id(&self) -> NodeId {
         self.id
@@ -375,13 +375,13 @@ pub(crate) enum ItemKind {
 #[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq, Hash)]
 pub(crate) struct Stmt {
     pub(crate) kind: Rc<StmtKind>,
-    pub(crate) span: Location,
+    pub(crate) loc: Location,
     pub(crate) id: NodeId,
 }
 
 impl Node for Stmt {
     fn span(&self) -> Location {
-        self.span.clone()
+        self.loc.clone()
     }
     fn id(&self) -> NodeId {
         self.id
@@ -486,13 +486,13 @@ pub(crate) struct InterfaceImpl {
 #[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq, Hash)]
 pub(crate) struct Expr {
     pub(crate) kind: Rc<ExprKind>,
-    pub(crate) span: Location,
+    pub(crate) loc: Location,
     pub(crate) id: NodeId,
 }
 
 impl Node for Expr {
     fn span(&self) -> Location {
-        self.span.clone()
+        self.loc.clone()
     }
     fn id(&self) -> NodeId {
         self.id
@@ -617,13 +617,13 @@ pub(crate) struct MatchArm {
 #[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq, Hash)]
 pub(crate) struct Pat {
     pub(crate) kind: Rc<PatKind>,
-    pub(crate) span: Location,
+    pub(crate) loc: Location,
     pub(crate) id: NodeId,
 }
 
 impl Node for Pat {
     fn span(&self) -> Location {
-        self.span.clone()
+        self.loc.clone()
     }
     fn id(&self) -> NodeId {
         self.id
@@ -669,13 +669,13 @@ pub(crate) enum PatKind {
 #[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq, Hash)]
 pub(crate) struct Type {
     pub(crate) kind: Rc<TypeKind>,
-    pub(crate) span: Location,
+    pub(crate) loc: Location,
     pub(crate) id: NodeId,
 }
 
 impl Node for Type {
     fn span(&self) -> Location {
-        self.span.clone()
+        self.loc.clone()
     }
     fn id(&self) -> NodeId {
         self.id
