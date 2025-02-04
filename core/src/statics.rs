@@ -31,7 +31,7 @@ pub(crate) struct StaticsContext {
     // effects
     effects: Vec<EffectDesc>,
     _node_map: NodeMap,
-    _sources: FileDatabase,
+    _files: FileDatabase,
 
     pub(crate) global_namespace: Namespace,
     // This maps any identifier in the program to the declaration it resolves to.
@@ -63,11 +63,11 @@ pub(crate) struct StaticsContext {
 }
 
 impl StaticsContext {
-    fn new(effects: Vec<EffectDesc>, node_map: NodeMap, sources: FileDatabase) -> Self {
+    fn new(effects: Vec<EffectDesc>, node_map: NodeMap, files: FileDatabase) -> Self {
         let mut ctx = Self {
             effects,
             _node_map: node_map,
-            _sources: sources,
+            _files: files,
             ..Default::default()
         };
 
@@ -179,24 +179,24 @@ pub(crate) enum Error {
 // main function that performs typechecking (as well as name resolution beforehand)
 pub(crate) fn analyze(
     effects: &[EffectDesc],
-    files: &Vec<Rc<FileAst>>,
+    file_asts: &Vec<Rc<FileAst>>,
     node_map: &NodeMap,
-    sources: &FileDatabase,
+    files: &FileDatabase,
 ) -> Result<StaticsContext, String> {
-    let mut ctx = StaticsContext::new(effects.to_owned(), node_map.clone(), sources.clone()); // TODO: to_owned necessary?
+    let mut ctx = StaticsContext::new(effects.to_owned(), node_map.clone(), files.clone()); // TODO: to_owned necessary?
 
     // scan declarations across all files
-    scan_declarations(&mut ctx, files);
+    scan_declarations(&mut ctx, file_asts);
 
     // resolve all imports and identifiers
-    resolve(&mut ctx, files);
+    resolve(&mut ctx, file_asts);
 
     // typechecking
-    solve_types(&mut ctx, files);
+    solve_types(&mut ctx, file_asts);
 
     // pattern exhaustiveness and usefulness checking
-    check_pattern_exhaustiveness_and_usefulness(&mut ctx, files);
-    check_errors(&ctx, node_map, sources)?;
+    check_pattern_exhaustiveness_and_usefulness(&mut ctx, file_asts);
+    check_errors(&ctx, node_map, files)?;
 
     Ok(ctx)
 }
@@ -204,14 +204,14 @@ pub(crate) fn analyze(
 pub(crate) fn check_errors(
     ctx: &StaticsContext,
     node_map: &NodeMap,
-    sources: &FileDatabase,
+    files: &FileDatabase,
 ) -> Result<(), String> {
     if ctx.errors.is_empty() {
         return Ok(());
     }
 
     for error in &ctx.errors {
-        error.show(ctx, node_map, sources);
+        error.show(ctx, node_map, files);
     }
 
     Err("Failed to compile.".to_string())
@@ -219,7 +219,7 @@ pub(crate) fn check_errors(
 
 // TODO: reduce code duplication for displaying error messages, types
 impl Error {
-    fn show(&self, _ctx: &StaticsContext, node_map: &NodeMap, sources: &FileDatabase) {
+    fn show(&self, _ctx: &StaticsContext, node_map: &NodeMap, files: &FileDatabase) {
         let mut diagnostic = Diagnostic::error();
         let mut labels = Vec::new();
         let mut notes = Vec::new();
@@ -410,7 +410,7 @@ impl Error {
         let writer = StandardStream::stderr(ColorChoice::Always);
         let config = codespan_reporting::term::Config::default();
 
-        term::emit(&mut writer.lock(), &config, sources, &diagnostic).unwrap();
+        term::emit(&mut writer.lock(), &config, files, &diagnostic).unwrap();
     }
 }
 

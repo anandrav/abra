@@ -36,11 +36,11 @@ pub fn source_files_single(src: &str) -> Vec<FileData> {
 }
 
 pub fn compile_bytecode(
-    source_files: Vec<FileData>,
+    files: Vec<FileData>,
     effects: Vec<EffectDesc>,
 ) -> Result<CompiledProgram, String> {
     let mut sources = ast::FileDatabase::new();
-    for source_file in source_files {
+    for source_file in files {
         // TODO: what are we doing here lol
         sources.add(source_file.name, source_file.path, source_file.source);
     }

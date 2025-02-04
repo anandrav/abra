@@ -10,15 +10,15 @@ use crate::ast::*;
 #[derive(Parser)]
 #[grammar = "grammar.pest"]
 struct MyParser; // TODO: move all parsing-related functions and structs to a file called parse.rs
-pub(crate) fn parse_or_err(sources: &FileDatabase) -> Result<Vec<Rc<FileAst>>, String> {
-    let mut files = vec![];
-    for (file_id, file_data) in sources.files.iter().enumerate() {
+pub(crate) fn parse_or_err(files: &FileDatabase) -> Result<Vec<Rc<FileAst>>, String> {
+    let mut file_asts = vec![];
+    for (file_id, file_data) in files.files.iter().enumerate() {
         let pairs = get_pairs(&file_data.source)?;
 
         let file = parse_file(pairs, file_data, file_id);
-        files.push(file);
+        file_asts.push(file);
     }
-    Ok(files)
+    Ok(file_asts)
 }
 
 pub(crate) fn parse_file(pairs: Pairs<Rule>, file_data: &FileData, file_id: FileId) -> Rc<FileAst> {

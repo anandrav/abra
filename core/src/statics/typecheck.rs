@@ -16,8 +16,8 @@ use super::{
     Declaration, EnumDef, Error, FuncDef, InterfaceDecl, Polytype, StaticsContext, StructDef,
 };
 
-pub(crate) fn solve_types(ctx: &mut StaticsContext, files: &Vec<Rc<FileAst>>) {
-    for file in files {
+pub(crate) fn solve_types(ctx: &mut StaticsContext, file_asts: &Vec<Rc<FileAst>>) {
+    for file in file_asts {
         generate_constraints_file(file.clone(), ctx);
     }
     check_unifvars(ctx);
@@ -2625,5 +2625,5 @@ fn _print_node(ctx: &StaticsContext, node_id: NodeId) {
     let writer = StandardStream::stderr(ColorChoice::Always);
     let config = codespan_reporting::term::Config::default();
 
-    term::emit(&mut writer.lock(), &config, &ctx._sources, &diagnostic).unwrap();
+    term::emit(&mut writer.lock(), &config, &ctx._files, &diagnostic).unwrap();
 }

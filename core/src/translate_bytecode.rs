@@ -45,8 +45,8 @@ struct LambdaData {
 pub(crate) struct Translator {
     statics: StaticsContext,
     node_map: NodeMap,
-    _sources: FileDatabase,
-    files: Vec<Rc<FileAst>>,
+    _files: FileDatabase,
+    file_asts: Vec<Rc<FileAst>>,
     effects: Vec<EffectDesc>,
 }
 
@@ -169,15 +169,15 @@ impl Translator {
     pub(crate) fn new(
         statics: StaticsContext,
         node_map: NodeMap,
-        sources: FileDatabase,
-        files: Vec<Rc<FileAst>>,
+        files: FileDatabase,
+        file_asts: Vec<Rc<FileAst>>,
         effects: Vec<EffectDesc>,
     ) -> Self {
         Self {
             statics,
             node_map,
-            _sources: sources,
-            files,
+            _files: files,
+            file_asts,
             effects,
         }
     }
@@ -201,7 +201,7 @@ impl Translator {
         // Handle the main function (files)
         {
             let mut locals = HashSet::new();
-            for file in self.files.iter() {
+            for file in self.file_asts.iter() {
                 let stmts: Vec<_> = file
                     .items
                     .iter()
@@ -219,7 +219,7 @@ impl Translator {
             for (i, local) in locals.iter().enumerate() {
                 offset_table.entry(*local).or_insert((i) as i32);
             }
-            let files = self.files.clone();
+            let files = self.file_asts.clone();
             for file in files.iter() {
                 for (i, item) in file.items.iter().enumerate() {
                     if let ItemKind::Stmt(stmt) = &*item.kind {
@@ -237,7 +237,7 @@ impl Translator {
         }
 
         // Handle ordinary function (not overloaded, not a closure) definitions
-        let files = self.files.clone();
+        let files = self.file_asts.clone();
         for file in files {
             for item in &file.items {
                 self.translate_item_static(item.clone(), st, false);
