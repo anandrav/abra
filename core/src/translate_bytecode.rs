@@ -198,6 +198,9 @@ impl Translator {
             }
         }
 
+        // TODO: which file is the main file???? Right now it seems like they are all treated as the main file
+        // Need `main_file: FileId;`
+
         // Handle the main function (files)
         {
             let mut locals = HashSet::new();

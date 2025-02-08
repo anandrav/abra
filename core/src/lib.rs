@@ -26,23 +26,24 @@ pub fn abra_hello_world() {
 
 pub fn source_files_single(src: &str) -> Vec<FileData> {
     vec![
+        FileData::new("test.abra".to_owned(), "test.abra".into(), src.to_owned()),
         FileData::new(
             "prelude.abra".to_owned(),
             "prelude.abra".into(),
             PRELUDE.to_owned(),
         ),
-        FileData::new("test.abra".to_owned(), "test.abra".into(), src.to_owned()),
     ]
 }
 
+// the first file is the "main" file
 pub fn compile_bytecode(
     files: Vec<FileData>,
     effects: Vec<EffectDesc>,
 ) -> Result<CompiledProgram, String> {
     let mut sources = ast::FileDatabase::new();
-    for source_file in files {
+    for file_data in files {
         // TODO: what are we doing here lol
-        sources.add(source_file.name, source_file.path, source_file.source);
+        sources.add(file_data);
     }
 
     let files = parse::parse_or_err(&sources)?;

@@ -101,9 +101,9 @@ impl FileDatabase {
 
     /// Add a file to the database, returning the handle that can be used to
     /// refer to it again.
-    pub fn add(&mut self, name: String, path: PathBuf, source: String) -> usize {
+    pub fn add(&mut self, file_data: FileData) -> usize {
         let file_id = self.files.len();
-        self.files.push(FileData::new(name, path, source));
+        self.files.push(file_data);
         file_id
     }
 
