@@ -289,6 +289,7 @@ pub(crate) enum Prov {
 pub(crate) enum Reason {
     // TODO: get rid of Reason::Node if possible, but no rush
     Node(NodeId), // the type of an expression or statement located at NodeId
+
     Annotation(NodeId),
     Literal(NodeId),
     Builtin(Builtin), // a builtin function or constant, which doesn't exist in the AST

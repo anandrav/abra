@@ -42,7 +42,6 @@ pub fn compile_bytecode(
 ) -> Result<CompiledProgram, String> {
     let mut sources = ast::FileDatabase::new();
     for file_data in files {
-        // TODO: what are we doing here lol
         sources.add(file_data);
     }
 

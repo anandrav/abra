@@ -198,13 +198,10 @@ impl Translator {
             }
         }
 
-        // TODO: which file is the main file???? Right now it seems like they are all treated as the main file
-        // Need `main_file: FileId;`
-
         // Handle the main function (files)
         {
             let mut locals = HashSet::new();
-            for file in self.file_asts.iter() {
+            if let Some(file) = self.file_asts.first() {
                 let stmts: Vec<_> = file
                     .items
                     .iter()
