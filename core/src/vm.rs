@@ -5,7 +5,7 @@ pub type AbraFloat = f64;
 #[cfg(feature = "ffi")]
 use libloading::Library;
 
-use crate::translate_bytecode::CompiledProgram;
+use crate::translate_bytecode::{BytecodeIndex, CompiledProgram};
 use core::fmt;
 use std::{
     cell::Cell,
@@ -22,8 +22,11 @@ pub struct Vm {
     heap: Vec<ManagedObject>,
     heap_group: HeapGroup,
 
-    string_table: Vec<String>,
-    filename_table: Vec<String>,
+    static_strings: Vec<String>,
+    filename_arena: Vec<String>,
+
+    filename_table: Vec<(BytecodeIndex, u32)>,
+    lineno_table: Vec<(BytecodeIndex, u32)>,
 
     pending_effect: Option<u16>,
     error: Option<VmError>,
@@ -43,9 +46,17 @@ pub enum VmStatus {
 }
 
 #[derive(Clone, Debug)]
-pub enum VmError {
+pub struct VmError {
+    kind: VmErrorKind,
+    location: ErrorLocation,
+}
+
+#[derive(Clone, Debug)]
+pub enum VmErrorKind {
     ArrayOutOfBounds,
 }
+
+pub type ErrorLocation = (String, u32);
 
 impl Vm {
     pub fn new(program: CompiledProgram) -> Self {
@@ -58,8 +69,11 @@ impl Vm {
             heap: Vec::new(),
             heap_group: HeapGroup::One,
 
-            string_table: program.static_strings,
-            filename_table: program.filename_arena,
+            static_strings: program.static_strings,
+            filename_arena: program.filename_arena,
+
+            filename_table: program.filename_table,
+            lineno_table: program.lineno_table,
 
             pending_effect: None,
             error: None,
@@ -81,8 +95,11 @@ impl Vm {
             heap: Vec::new(),
             heap_group: HeapGroup::One,
 
-            string_table: program.static_strings,
-            filename_table: program.filename_arena,
+            static_strings: program.static_strings,
+            filename_arena: program.filename_arena,
+
+            filename_table: program.filename_table,
+            lineno_table: program.lineno_table,
 
             pending_effect: None,
             error: None,
@@ -490,7 +507,7 @@ impl Vm {
                 self.push(b);
             }
             Instr::PushString(idx) => {
-                let s = &self.string_table[idx as usize];
+                let s = &self.static_strings[idx as usize];
                 self.heap
                     .push(ManagedObject::new(ManagedObjectKind::String(s.clone())));
                 let r = self.heap_reference(self.heap.len() - 1);
@@ -739,7 +756,10 @@ impl Vm {
                     Value::HeapReference(r) => match &self.heap[r.get().get()].kind {
                         ManagedObjectKind::DynArray(fields) => {
                             if idx as usize >= fields.len() || idx < 0 {
-                                self.error = Some(VmError::ArrayOutOfBounds);
+                                self.error = Some(VmError {
+                                    kind: VmErrorKind::ArrayOutOfBounds,
+                                    location: self.filename_and_lineno(),
+                                });
                                 return;
                             }
                             let field = fields[idx as usize].clone();
@@ -761,7 +781,10 @@ impl Vm {
                 match &mut self.heap[obj_id].kind {
                     ManagedObjectKind::DynArray(fields) => {
                         if idx as usize >= fields.len() || idx < 0 {
-                            self.error = Some(VmError::ArrayOutOfBounds);
+                            self.error = Some(VmError {
+                                kind: VmErrorKind::ArrayOutOfBounds,
+                                location: self.filename_and_lineno(),
+                            });
                             return;
                         }
                         fields[idx as usize] = rvalue;
@@ -909,6 +932,28 @@ impl Vm {
         }
     }
 
+    fn filename_and_lineno(&self) -> ErrorLocation {
+        let idx = self.pc;
+
+        let file_id = match self
+            .filename_table
+            .binary_search_by_key(&(idx as u32), |pair| pair.0)
+        {
+            Ok(file_id) | Err(file_id) => self.filename_table[file_id].1,
+        };
+
+        let lineno = match self
+            .lineno_table
+            .binary_search_by_key(&(idx as u32), |pair| pair.0)
+        {
+            Ok(lineno) | Err(lineno) => self.lineno_table[lineno].1,
+        };
+
+        let filename = self.filename_arena[file_id as usize].clone();
+
+        (filename, lineno)
+    }
+
     fn heap_reference(&mut self, idx: usize) -> Value {
         Value::HeapReference(Cell::new(HeapReference {
             idx,
@@ -927,7 +972,7 @@ impl Vm {
             + self.call_stack.len() * size_of::<CallFrame>()
             + self.heap.len() * size_of::<ManagedObject>();
 
-        n += self.string_table.iter().map(|s| s.len()).sum::<usize>();
+        n += self.static_strings.iter().map(|s| s.len()).sum::<usize>();
         n
     }
 
@@ -1087,6 +1132,23 @@ impl fmt::Debug for Vm {
             .field("call_stack", &format!("{:?}", self.call_stack))
             .field("heap", &format!("{:?}", self.heap))
             .finish()
+    }
+}
+
+impl fmt::Display for VmError {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        writeln!(f, "error: {}", self.kind)?;
+        write!(f, "    {}, line {}", self.location.0, self.location.1)
+    }
+}
+
+impl fmt::Display for VmErrorKind {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        match self {
+            VmErrorKind::ArrayOutOfBounds => {
+                write!(f, "indexed past the end of an array")
+            }
+        }
     }
 }
 

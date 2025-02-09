@@ -72,8 +72,8 @@ fn main() {
                     return;
                 }
                 if let Some(error) = vm.get_error() {
-                    eprintln!("{:?}", error);
-                    return;
+                    eprintln!("{}", error);
+                    std::process::exit(1);
                 }
                 vm.run();
                 vm.gc();
@@ -111,6 +111,7 @@ fn main() {
         }
         Err(err) => {
             eprintln!("{}", err);
+            std::process::exit(1);
         }
     }
 }

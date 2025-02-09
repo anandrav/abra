@@ -78,7 +78,7 @@ pub struct CompiledProgram {
     pub(crate) lineno_table: Vec<(BytecodeIndex, u32)>,
 }
 
-type BytecodeIndex = u32;
+pub type BytecodeIndex = u32;
 
 impl Declaration {
     pub fn to_bytecode_resolution(&self) -> BytecodeResolution {
