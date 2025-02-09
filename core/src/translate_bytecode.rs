@@ -53,6 +53,8 @@ pub(crate) struct Translator {
 #[derive(Debug, Default)]
 struct TranslatorState {
     lines: Vec<Line>,
+    filename_table: Vec<(BytecodeIndex, u32)>,
+    lineno_table: Vec<(BytecodeIndex, u32)>,
     lambdas: Lambdas,
     overloaded_func_map: OverloadedFuncLabels,
     overloaded_methods_to_generate: Vec<(OverloadedFuncDesc, Type)>,
@@ -65,16 +67,17 @@ struct EnclosingLoop {
     end_label: String,
 }
 
-fn emit(st: &mut TranslatorState, i: impl Into<Line>) {
-    st.lines.push(i.into());
-}
-
 #[derive(Debug, Clone)]
 pub struct CompiledProgram {
     pub(crate) instructions: Vec<VmInstr>,
     pub(crate) label_map: LabelMap,
-    pub(crate) string_table: Vec<String>,
+    pub(crate) static_strings: Vec<String>,
+    pub(crate) filename_arena: Vec<String>,
+    pub(crate) filename_table: Vec<(BytecodeIndex, u32)>,
+    pub(crate) lineno_table: Vec<(BytecodeIndex, u32)>,
 }
+
+type BytecodeIndex = u32;
 
 impl Declaration {
     pub fn to_bytecode_resolution(&self) -> BytecodeResolution {
@@ -182,153 +185,158 @@ impl Translator {
         }
     }
 
+    fn emit(&self, st: &mut TranslatorState, i: impl Into<Line>) {
+        st.lines.push(i.into());
+    }
+
     pub(crate) fn translate(&mut self) -> CompiledProgram {
-        let mut translator_state = TranslatorState::default();
-        let st = &mut translator_state;
-
-        let monomorph_env = MonomorphEnv::empty();
-
-        // Initialization routine before main function (load shared libraries)
-        for (l, symbols) in &self.statics.dylib_to_funcs {
-            emit(st, Instr::PushString(l.to_str().unwrap().to_string()));
-            emit(st, Instr::LoadLib);
-            for s in symbols {
-                emit(st, Instr::PushString(s.to_string()));
-                emit(st, Instr::LoadForeignFunc);
-            }
-        }
-
-        // Handle the main function (files)
+        let mut st = TranslatorState::default();
         {
-            let mut locals = HashSet::new();
-            if let Some(file) = self.file_asts.first() {
-                let stmts: Vec<_> = file
-                    .items
-                    .iter()
-                    .filter_map(|item| match &*item.kind {
-                        ItemKind::Stmt(stmt) => Some(stmt.clone()),
-                        _ => None,
-                    })
-                    .collect();
-                collect_locals_stmt(&stmts, &mut locals);
-            }
-            for _ in 0..locals.len() {
-                emit(st, Instr::PushNil);
-            }
-            let mut offset_table = OffsetTable::new();
-            for (i, local) in locals.iter().enumerate() {
-                offset_table.entry(*local).or_insert((i) as i32);
-            }
-            let files = self.file_asts.clone();
-            for file in files.iter() {
-                for (i, item) in file.items.iter().enumerate() {
-                    if let ItemKind::Stmt(stmt) = &*item.kind {
-                        self.translate_stmt(
-                            stmt.clone(),
-                            i == file.items.len() - 1,
-                            &offset_table,
-                            monomorph_env.clone(),
-                            st,
-                        );
-                    }
-                }
-            }
-            emit(st, Instr::Return);
-        }
+            let st = &mut st;
 
-        // Handle ordinary function (not overloaded, not a closure) definitions
-        let files = self.file_asts.clone();
-        for file in files {
-            for item in &file.items {
-                self.translate_item_static(item.clone(), st, false);
-            }
-        }
+            let monomorph_env = MonomorphEnv::empty();
 
-        // Handle lambdas with captures
-        for (node_id, data) in st.lambdas.clone() {
-            let node = self.node_map.get(&node_id).unwrap();
-            let expr = node.to_expr().unwrap();
-            let ExprKind::AnonymousFunction(args, _, body) = &*expr.kind else {
-                panic!()
-            };
-
-            emit(st, Line::Label(data.label));
-
-            self.translate_expr(body.clone(), &data.offset_table, monomorph_env.clone(), st); // TODO passing lambdas here is kind of weird and recursive. Should build list of lambdas in statics.rs instead.
-
-            let nlocals = data.nlocals;
-            let nargs = args.len();
-            let ncaptures = data.ncaptures;
-            if nlocals + nargs + ncaptures > 0 {
-                // pop all locals and arguments except one. The last one is the return value slot.
-                emit(st, Instr::StoreOffset(-(nargs as i32)));
-                for _ in 0..(nlocals + nargs + ncaptures - 1) {
-                    emit(st, Instr::Pop);
+            // Initialization routine before main function (load shared libraries)
+            for (l, symbols) in &self.statics.dylib_to_funcs {
+                self.emit(st, Instr::PushString(l.to_str().unwrap().to_string()));
+                self.emit(st, Instr::LoadLib);
+                for s in symbols {
+                    self.emit(st, Instr::PushString(s.to_string()));
+                    self.emit(st, Instr::LoadForeignFunc);
                 }
             }
 
-            emit(st, Instr::Return);
-        }
-
-        // Handle interface method implementations
-        while !st.overloaded_methods_to_generate.is_empty() {
-            let mut iteration = Vec::new();
-            mem::swap(&mut (iteration), &mut st.overloaded_methods_to_generate);
-            for (desc, substituted_ty) in iteration {
-                // println!("generating func {}", desc.name);
-                // println!("instance ty = {}", desc.impl_type);
-                // println!("substitued_ty = {}", desc.impl_type);
-                // println!();
-                let f = desc.func_def.clone();
-
-                let overloaded_func_ty = self.statics.solution_of_node(f.name.id()).unwrap();
-                // println!("overloaded_func_ty = {}", desc.impl_type);
-                let monomorph_env = MonomorphEnv::empty();
-                update_monomorph_env(monomorph_env.clone(), overloaded_func_ty, substituted_ty);
-                // println!("monomorph_env: {}", monomorph_env);
-
-                let label = st.overloaded_func_map.get(&desc).unwrap();
-                emit(st, Line::Label(label.clone()));
-
+            // Handle the main function (files)
+            {
                 let mut locals = HashSet::new();
-                collect_locals_expr(&f.body, &mut locals);
-                let locals_count = locals.len();
-                for _ in 0..locals_count {
-                    emit(st, Instr::PushNil);
+                if let Some(file) = self.file_asts.first() {
+                    let stmts: Vec<_> = file
+                        .items
+                        .iter()
+                        .filter_map(|item| match &*item.kind {
+                            ItemKind::Stmt(stmt) => Some(stmt.clone()),
+                            _ => None,
+                        })
+                        .collect();
+                    collect_locals_stmt(&stmts, &mut locals);
+                }
+                for _ in 0..locals.len() {
+                    self.emit(st, Instr::PushNil);
                 }
                 let mut offset_table = OffsetTable::new();
-                for (i, arg) in f.args.iter().rev().enumerate() {
-                    offset_table.entry(arg.0.id).or_insert(-(i as i32) - 1);
-                }
                 for (i, local) in locals.iter().enumerate() {
                     offset_table.entry(*local).or_insert((i) as i32);
                 }
-                let nargs = f.args.len();
-                self.translate_expr(f.body.clone(), &offset_table, monomorph_env.clone(), st);
+                let files = self.file_asts.clone();
+                for file in files.iter() {
+                    for (i, item) in file.items.iter().enumerate() {
+                        if let ItemKind::Stmt(stmt) = &*item.kind {
+                            self.translate_stmt(
+                                stmt.clone(),
+                                i == file.items.len() - 1,
+                                &offset_table,
+                                monomorph_env.clone(),
+                                st,
+                            );
+                        }
+                    }
+                }
+                self.emit(st, Instr::Return);
+            }
 
-                if locals_count + nargs > 0 {
+            // Handle ordinary function (not overloaded, not a closure) definitions
+            let files = self.file_asts.clone();
+            for file in files {
+                for item in &file.items {
+                    self.translate_item_static(item.clone(), st, false);
+                }
+            }
+
+            // Handle lambdas with captures
+            for (node_id, data) in st.lambdas.clone() {
+                let node = self.node_map.get(&node_id).unwrap();
+                let expr = node.to_expr().unwrap();
+                let ExprKind::AnonymousFunction(args, _, body) = &*expr.kind else {
+                    panic!()
+                };
+
+                self.emit(st, Line::Label(data.label));
+
+                self.translate_expr(body.clone(), &data.offset_table, monomorph_env.clone(), st); // TODO passing lambdas here is kind of weird and recursive. Should build list of lambdas in statics.rs instead.
+
+                let nlocals = data.nlocals;
+                let nargs = args.len();
+                let ncaptures = data.ncaptures;
+                if nlocals + nargs + ncaptures > 0 {
                     // pop all locals and arguments except one. The last one is the return value slot.
-                    emit(st, Instr::StoreOffset(-(nargs as i32)));
-                    for _ in 0..(locals_count + nargs - 1) {
-                        emit(st, Instr::Pop);
+                    self.emit(st, Instr::StoreOffset(-(nargs as i32)));
+                    for _ in 0..(nlocals + nargs + ncaptures - 1) {
+                        self.emit(st, Instr::Pop);
                     }
                 }
 
-                emit(st, Instr::Return);
+                self.emit(st, Instr::Return);
+            }
+
+            // Handle interface method implementations
+            while !st.overloaded_methods_to_generate.is_empty() {
+                let mut iteration = Vec::new();
+                mem::swap(&mut (iteration), &mut st.overloaded_methods_to_generate);
+                for (desc, substituted_ty) in iteration {
+                    // println!("generating func {}", desc.name);
+                    // println!("instance ty = {}", desc.impl_type);
+                    // println!("substitued_ty = {}", desc.impl_type);
+                    // println!();
+                    let f = desc.func_def.clone();
+
+                    let overloaded_func_ty = self.statics.solution_of_node(f.name.id()).unwrap();
+                    // println!("overloaded_func_ty = {}", desc.impl_type);
+                    let monomorph_env = MonomorphEnv::empty();
+                    update_monomorph_env(monomorph_env.clone(), overloaded_func_ty, substituted_ty);
+                    // println!("monomorph_env: {}", monomorph_env);
+
+                    let label = st.overloaded_func_map.get(&desc).unwrap();
+                    self.emit(st, Line::Label(label.clone()));
+
+                    let mut locals = HashSet::new();
+                    collect_locals_expr(&f.body, &mut locals);
+                    let locals_count = locals.len();
+                    for _ in 0..locals_count {
+                        self.emit(st, Instr::PushNil);
+                    }
+                    let mut offset_table = OffsetTable::new();
+                    for (i, arg) in f.args.iter().rev().enumerate() {
+                        offset_table.entry(arg.0.id).or_insert(-(i as i32) - 1);
+                    }
+                    for (i, local) in locals.iter().enumerate() {
+                        offset_table.entry(*local).or_insert((i) as i32);
+                    }
+                    let nargs = f.args.len();
+                    self.translate_expr(f.body.clone(), &offset_table, monomorph_env.clone(), st);
+
+                    if locals_count + nargs > 0 {
+                        // pop all locals and arguments except one. The last one is the return value slot.
+                        self.emit(st, Instr::StoreOffset(-(nargs as i32)));
+                        for _ in 0..(locals_count + nargs - 1) {
+                            self.emit(st, Instr::Pop);
+                        }
+                    }
+
+                    self.emit(st, Instr::Return);
+                }
+            }
+
+            // Create functions for effects
+            for (i, effect) in self.effects.iter().enumerate() {
+                self.emit(st, Line::Label(effect.name.into()));
+                self.emit(st, Instr::Effect(i as u16));
+                self.emit(st, Instr::Return);
+            }
+
+            for _item in st.lines.iter() {
+                // println!("{}", _item);
             }
         }
-
-        // Create functions for effects
-        for (i, effect) in self.effects.iter().enumerate() {
-            emit(st, Line::Label(effect.name.into()));
-            emit(st, Instr::Effect(i as u16));
-            emit(st, Instr::Return);
-        }
-
-        for _item in st.lines.iter() {
-            // println!("{}", _item);
-        }
-
         let (instructions, label_map) = remove_labels(&st.lines, &self.statics.string_constants);
         let mut string_table: Vec<String> =
             vec!["".to_owned(); self.statics.string_constants.len()];
@@ -338,7 +346,10 @@ impl Translator {
         CompiledProgram {
             instructions,
             label_map,
-            string_table,
+            static_strings: string_table,
+            filename_arena: vec![], // TODO
+            filename_table: st.filename_table,
+            lineno_table: st.lineno_table,
         }
     }
 
@@ -360,8 +371,8 @@ impl Translator {
                     .to_bytecode_resolution()
                 {
                     BytecodeResolution::VariantCtor(tag, _) => {
-                        emit(st, Instr::PushNil);
-                        emit(st, Instr::ConstructVariant { tag });
+                        self.emit(st, Instr::PushNil);
+                        self.emit(st, Instr::ConstructVariant { tag });
                     }
                     BytecodeResolution::Var(node_id) => {
                         // let _span = self.node_map.get(&node_id).unwrap().span();
@@ -373,12 +384,12 @@ impl Translator {
                         // );
                         // println!("{}", s);
                         let idx = offset_table.get(&node_id).unwrap();
-                        emit(st, Instr::LoadOffset(*idx));
+                        self.emit(st, Instr::LoadOffset(*idx));
                     }
                     BytecodeResolution::Builtin(b) => {
                         match b {
                             Builtin::Newline => {
-                                emit(st, Instr::PushString("\n".to_owned()));
+                                self.emit(st, Instr::PushString("\n".to_owned()));
                             }
                             _ => {
                                 // TODO: generate functions for builtins
@@ -395,7 +406,7 @@ impl Translator {
                         unimplemented!()
                     }
                     BytecodeResolution::FreeFunction(_, name) => {
-                        emit(
+                        self.emit(
                             st,
                             Instr::MakeClosure {
                                 n_captured: 0,
@@ -412,33 +423,33 @@ impl Translator {
                 }
             }
             ExprKind::Unit => {
-                emit(st, Instr::PushNil);
+                self.emit(st, Instr::PushNil);
             }
             ExprKind::Bool(b) => {
-                emit(st, Instr::PushBool(*b));
+                self.emit(st, Instr::PushBool(*b));
             }
             ExprKind::Int(i) => {
-                emit(st, Instr::PushInt(*i));
+                self.emit(st, Instr::PushInt(*i));
             }
             ExprKind::Float(f) => {
-                emit(st, Instr::PushFloat(f.parse::<AbraFloat>().unwrap()));
+                self.emit(st, Instr::PushFloat(f.parse::<AbraFloat>().unwrap()));
             }
             ExprKind::Str(s) => {
-                emit(st, Instr::PushString(s.clone()));
+                self.emit(st, Instr::PushString(s.clone()));
             }
             ExprKind::BinOp(left, op, right) => {
                 self.translate_expr(left.clone(), offset_table, monomorph_env.clone(), st);
                 self.translate_expr(right.clone(), offset_table, monomorph_env.clone(), st);
                 match op {
-                    BinaryOperator::Add => emit(st, Instr::Add),
-                    BinaryOperator::Subtract => emit(st, Instr::Subtract),
-                    BinaryOperator::Multiply => emit(st, Instr::Multiply),
-                    BinaryOperator::Divide => emit(st, Instr::Divide),
-                    BinaryOperator::GreaterThan => emit(st, Instr::GreaterThan),
-                    BinaryOperator::LessThan => emit(st, Instr::LessThan),
-                    BinaryOperator::GreaterThanOrEqual => emit(st, Instr::GreaterThanOrEqual),
-                    BinaryOperator::LessThanOrEqual => emit(st, Instr::LessThanOrEqual),
-                    BinaryOperator::Equal => emit(st, Instr::Equal),
+                    BinaryOperator::Add => self.emit(st, Instr::Add),
+                    BinaryOperator::Subtract => self.emit(st, Instr::Subtract),
+                    BinaryOperator::Multiply => self.emit(st, Instr::Multiply),
+                    BinaryOperator::Divide => self.emit(st, Instr::Divide),
+                    BinaryOperator::GreaterThan => self.emit(st, Instr::GreaterThan),
+                    BinaryOperator::LessThan => self.emit(st, Instr::LessThan),
+                    BinaryOperator::GreaterThanOrEqual => self.emit(st, Instr::GreaterThanOrEqual),
+                    BinaryOperator::LessThanOrEqual => self.emit(st, Instr::LessThanOrEqual),
+                    BinaryOperator::Equal => self.emit(st, Instr::Equal),
                     BinaryOperator::Format => {
                         // TODO: translate_bytecode shouldn't have to fish around in statics.global_namespace just for prelude.format_append or similar
                         let format_append_decl = self
@@ -465,10 +476,10 @@ impl Translator {
 
                         self.handle_overloaded_func(st, substituted_ty, func_name, func.clone());
                     }
-                    BinaryOperator::Or => emit(st, Instr::Or),
-                    BinaryOperator::And => emit(st, Instr::And),
-                    BinaryOperator::Pow => emit(st, Instr::Power),
-                    BinaryOperator::Mod => emit(st, Instr::Modulo),
+                    BinaryOperator::Or => self.emit(st, Instr::Or),
+                    BinaryOperator::And => self.emit(st, Instr::And),
+                    BinaryOperator::Pow => self.emit(st, Instr::Power),
+                    BinaryOperator::Mod => self.emit(st, Instr::Modulo),
                 }
             }
             ExprKind::FuncAp(func, args) => {
@@ -491,13 +502,13 @@ impl Translator {
                         BytecodeResolution::Var(node_id) => {
                             // assume it's a function object
                             let idx = offset_table.get(&node_id).unwrap();
-                            emit(st, Instr::LoadOffset(*idx));
-                            emit(st, Instr::CallFuncObj);
+                            self.emit(st, Instr::LoadOffset(*idx));
+                            self.emit(st, Instr::CallFuncObj);
                         }
                         BytecodeResolution::FreeFunction(f, name) => {
                             let func_ty = self.statics.solution_of_node(f.name.id).unwrap();
                             if !func_ty.is_overloaded() {
-                                emit(st, Instr::Call(name.clone()));
+                                self.emit(st, Instr::Call(name.clone()));
                             } else {
                                 // let node = self.node_map.get(&func.id).unwrap();
                                 // let span = node.span();
@@ -535,7 +546,7 @@ impl Translator {
                             }
 
                             assert!(found);
-                            emit(st, Instr::CallExtern(func_id));
+                            self.emit(st, Instr::CallExtern(func_id));
                             // by this point we should know the name of the .so file that this external function should be located in
 
                             // then, calling an external function just means
@@ -602,115 +613,115 @@ impl Translator {
                             }
                         }
                         BytecodeResolution::StructCtor(nargs) => {
-                            emit(st, Instr::Construct(nargs));
+                            self.emit(st, Instr::Construct(nargs));
                         }
                         BytecodeResolution::VariantCtor(tag, nargs) => {
                             if nargs > 1 {
                                 // turn the arguments (associated data) into a tuple
-                                emit(st, Instr::Construct(nargs));
+                                self.emit(st, Instr::Construct(nargs));
                             }
-                            emit(st, Instr::ConstructVariant { tag });
+                            self.emit(st, Instr::ConstructVariant { tag });
                         }
                         BytecodeResolution::Builtin(b) => match b {
                             Builtin::AddInt => {
-                                emit(st, Instr::Add);
+                                self.emit(st, Instr::Add);
                             }
                             Builtin::SubtractInt => {
-                                emit(st, Instr::Subtract);
+                                self.emit(st, Instr::Subtract);
                             }
                             Builtin::MultiplyInt => {
-                                emit(st, Instr::Multiply);
+                                self.emit(st, Instr::Multiply);
                             }
                             Builtin::DivideInt => {
-                                emit(st, Instr::Divide);
+                                self.emit(st, Instr::Divide);
                             }
                             Builtin::PowerInt => {
-                                emit(st, Instr::Power);
+                                self.emit(st, Instr::Power);
                             }
                             Builtin::ModuloInt => {
-                                emit(st, Instr::Modulo);
+                                self.emit(st, Instr::Modulo);
                             }
                             Builtin::SqrtInt => {
-                                emit(st, Instr::SquareRoot);
+                                self.emit(st, Instr::SquareRoot);
                             }
                             Builtin::AddFloat => {
-                                emit(st, Instr::Add);
+                                self.emit(st, Instr::Add);
                             }
                             Builtin::SubtractFloat => {
-                                emit(st, Instr::Subtract);
+                                self.emit(st, Instr::Subtract);
                             }
                             Builtin::MultiplyFloat => {
-                                emit(st, Instr::Multiply);
+                                self.emit(st, Instr::Multiply);
                             }
                             Builtin::DivideFloat => {
-                                emit(st, Instr::Divide);
+                                self.emit(st, Instr::Divide);
                             }
                             Builtin::ModuloFloat => {
-                                emit(st, Instr::Modulo);
+                                self.emit(st, Instr::Modulo);
                             }
                             Builtin::PowerFloat => {
-                                emit(st, Instr::Power);
+                                self.emit(st, Instr::Power);
                             }
                             Builtin::SqrtFloat => {
-                                emit(st, Instr::SquareRoot);
+                                self.emit(st, Instr::SquareRoot);
                             }
                             Builtin::LessThanInt => {
-                                emit(st, Instr::LessThan);
+                                self.emit(st, Instr::LessThan);
                             }
                             Builtin::LessThanOrEqualInt => {
-                                emit(st, Instr::LessThanOrEqual);
+                                self.emit(st, Instr::LessThanOrEqual);
                             }
                             Builtin::GreaterThanInt => {
-                                emit(st, Instr::GreaterThan);
+                                self.emit(st, Instr::GreaterThan);
                             }
                             Builtin::GreaterThanOrEqualInt => {
-                                emit(st, Instr::GreaterThanOrEqual);
+                                self.emit(st, Instr::GreaterThanOrEqual);
                             }
                             Builtin::EqualInt => {
-                                emit(st, Instr::Equal);
+                                self.emit(st, Instr::Equal);
                             }
                             Builtin::LessThanFloat => {
-                                emit(st, Instr::LessThan);
+                                self.emit(st, Instr::LessThan);
                             }
                             Builtin::LessThanOrEqualFloat => {
-                                emit(st, Instr::LessThanOrEqual);
+                                self.emit(st, Instr::LessThanOrEqual);
                             }
                             Builtin::GreaterThanFloat => {
-                                emit(st, Instr::GreaterThan);
+                                self.emit(st, Instr::GreaterThan);
                             }
                             Builtin::GreaterThanOrEqualFloat => {
-                                emit(st, Instr::GreaterThanOrEqual);
+                                self.emit(st, Instr::GreaterThanOrEqual);
                             }
                             Builtin::EqualFloat => {
-                                emit(st, Instr::Equal);
+                                self.emit(st, Instr::Equal);
                             }
                             Builtin::EqualString => {
-                                emit(st, Instr::Equal);
+                                self.emit(st, Instr::Equal);
                             }
                             Builtin::IntToString => {
-                                emit(st, Instr::IntToString);
+                                self.emit(st, Instr::IntToString);
                             }
                             Builtin::FloatToString => {
-                                emit(st, Instr::FloatToString);
+                                self.emit(st, Instr::FloatToString);
                             }
                             Builtin::ConcatStrings => {
-                                emit(st, Instr::ConcatStrings);
+                                self.emit(st, Instr::ConcatStrings);
                             }
                             Builtin::ArrayAppend => {
-                                emit(st, Instr::ArrayAppend);
+                                self.emit(st, Instr::ArrayAppend);
                             }
                             Builtin::ArrayLength => {
-                                emit(st, Instr::ArrayLength);
+                                self.emit(st, Instr::ArrayLength);
                             }
                             Builtin::ArrayPop => {
-                                emit(st, Instr::ArrayPop);
+                                self.emit(st, Instr::ArrayPop);
                             }
                             Builtin::Newline => {
                                 panic!("not a function");
                             }
                         },
                         BytecodeResolution::Effect(e) => {
-                            emit(st, Instr::Effect(e));
+                            self.emit(st, Instr::Effect(e));
                         }
                     }
                 } else {
@@ -732,29 +743,29 @@ impl Translator {
                 for expr in exprs {
                     self.translate_expr(expr.clone(), offset_table, monomorph_env.clone(), st);
                 }
-                emit(st, Instr::Construct(exprs.len() as u16));
+                self.emit(st, Instr::Construct(exprs.len() as u16));
             }
             ExprKind::If(cond, then_block, Some(else_block)) => {
                 self.translate_expr(cond.clone(), offset_table, monomorph_env.clone(), st);
                 let then_label = make_label("then");
                 let end_label = make_label("endif");
-                emit(st, Instr::JumpIf(then_label.clone()));
+                self.emit(st, Instr::JumpIf(then_label.clone()));
                 self.translate_expr(else_block.clone(), offset_table, monomorph_env.clone(), st);
-                emit(st, Instr::Jump(end_label.clone()));
-                emit(st, Line::Label(then_label));
+                self.emit(st, Instr::Jump(end_label.clone()));
+                self.emit(st, Line::Label(then_label));
                 self.translate_expr(then_block.clone(), offset_table, monomorph_env.clone(), st);
-                emit(st, Line::Label(end_label));
+                self.emit(st, Line::Label(end_label));
             }
             ExprKind::If(cond, then_block, None) => {
                 self.translate_expr(cond.clone(), offset_table, monomorph_env.clone(), st);
                 let then_label = make_label("then");
                 let end_label = make_label("endif");
-                emit(st, Instr::JumpIf(then_label.clone()));
-                emit(st, Instr::Jump(end_label.clone()));
-                emit(st, Line::Label(then_label));
+                self.emit(st, Instr::JumpIf(then_label.clone()));
+                self.emit(st, Instr::Jump(end_label.clone()));
+                self.emit(st, Line::Label(then_label));
                 self.translate_expr(then_block.clone(), offset_table, monomorph_env.clone(), st);
-                emit(st, Line::Label(end_label));
-                emit(st, Instr::PushNil); // TODO get rid of this unnecessary overhead
+                self.emit(st, Line::Label(end_label));
+                self.emit(st, Instr::PushNil); // TODO get rid of this unnecessary overhead
             }
             ExprKind::MemberAccess(accessed, field) => {
                 // TODO, this downcast shouldn't be necessary
@@ -763,13 +774,13 @@ impl Translator {
                 };
                 self.translate_expr(accessed.clone(), offset_table, monomorph_env.clone(), st);
                 let idx = idx_of_field(&self.statics, accessed.clone(), field_name);
-                emit(st, Instr::GetField(idx));
+                self.emit(st, Instr::GetField(idx));
             }
             ExprKind::Array(exprs) => {
                 for expr in exprs {
                     self.translate_expr(expr.clone(), offset_table, monomorph_env.clone(), st);
                 }
-                emit(st, Instr::Construct(exprs.len() as u16));
+                self.emit(st, Instr::Construct(exprs.len() as u16));
             }
             ExprKind::List(exprs) => {
                 fn translate_list(
@@ -780,8 +791,8 @@ impl Translator {
                     st: &mut TranslatorState,
                 ) {
                     if exprs.is_empty() {
-                        emit(st, Instr::PushNil);
-                        emit(st, Instr::ConstructVariant { tag: 0 });
+                        translator.emit(st, Instr::PushNil);
+                        translator.emit(st, Instr::ConstructVariant { tag: 0 });
                     } else {
                         translator.translate_expr(
                             exprs[0].clone(),
@@ -796,8 +807,8 @@ impl Translator {
                             monomorph_env.clone(),
                             st,
                         );
-                        emit(st, Instr::Construct(2)); // (head, tail)
-                        emit(st, Instr::ConstructVariant { tag: 1 });
+                        translator.emit(st, Instr::Construct(2)); // (head, tail)
+                        translator.emit(st, Instr::ConstructVariant { tag: 1 });
                     }
                 }
 
@@ -806,7 +817,7 @@ impl Translator {
             ExprKind::IndexAccess(array, index) => {
                 self.translate_expr(index.clone(), offset_table, monomorph_env.clone(), st);
                 self.translate_expr(array.clone(), offset_table, monomorph_env.clone(), st);
-                emit(st, Instr::GetIdx);
+                self.emit(st, Instr::GetIdx);
             }
             ExprKind::Match(expr, arms) => {
                 let ty = self.statics.solution_of_node(expr.id).unwrap();
@@ -823,21 +834,21 @@ impl Translator {
                     let arm_label = arm_labels[i].clone();
 
                     // duplicate the scrutinee before doing a comparison
-                    emit(st, Instr::Duplicate);
+                    self.emit(st, Instr::Duplicate);
                     self.translate_pat_comparison(&ty, arm.pat.clone(), st);
-                    emit(st, Instr::JumpIf(arm_label));
+                    self.emit(st, Instr::JumpIf(arm_label));
                 }
                 for (i, arm) in arms.iter().enumerate() {
-                    emit(st, Line::Label(arm_labels[i].clone()));
+                    self.emit(st, Line::Label(arm_labels[i].clone()));
 
                     self.handle_pat_binding(arm.pat.clone(), offset_table, st);
 
                     self.translate_expr(arm.expr.clone(), offset_table, monomorph_env.clone(), st);
                     if i != arms.len() - 1 {
-                        emit(st, Instr::Jump(end_label.clone()));
+                        self.emit(st, Instr::Jump(end_label.clone()));
                     }
                 }
-                emit(st, Line::Label(end_label));
+                self.emit(st, Line::Label(end_label));
             }
             ExprKind::AnonymousFunction(args, _, body) => {
                 let label = make_label("lambda");
@@ -857,7 +868,7 @@ impl Translator {
                 // }
                 let ncaptures = captures.len();
                 for _ in 0..locals_count {
-                    emit(st, Instr::PushNil);
+                    self.emit(st, Instr::PushNil);
                 }
 
                 let mut lambda_offset_table = OffsetTable::new();
@@ -876,7 +887,7 @@ impl Translator {
                 }
 
                 for capture in captures {
-                    emit(st, Instr::LoadOffset(*offset_table.get(&capture).unwrap()));
+                    self.emit(st, Instr::LoadOffset(*offset_table.get(&capture).unwrap()));
                 }
 
                 st.lambdas.insert(
@@ -889,7 +900,7 @@ impl Translator {
                     },
                 );
 
-                emit(
+                self.emit(
                     st,
                     Instr::MakeClosure {
                         n_captured: ncaptures as u16,
@@ -906,14 +917,14 @@ impl Translator {
                     end_label: end_label.clone(),
                 });
 
-                emit(st, Line::Label(start_label.clone()));
+                self.emit(st, Line::Label(start_label.clone()));
                 self.translate_expr(cond.clone(), offset_table, monomorph_env.clone(), st);
-                emit(st, Instr::Not);
-                emit(st, Instr::JumpIf(end_label.clone()));
+                self.emit(st, Instr::Not);
+                self.emit(st, Instr::JumpIf(end_label.clone()));
                 self.translate_expr(body.clone(), offset_table, monomorph_env.clone(), st);
-                emit(st, Instr::Jump(start_label));
-                emit(st, Line::Label(end_label));
-                emit(st, Instr::PushNil);
+                self.emit(st, Instr::Jump(start_label));
+                self.emit(st, Line::Label(end_label));
+                self.emit(st, Instr::PushNil);
             }
         }
     }
@@ -927,8 +938,8 @@ impl Translator {
     ) {
         match &*pat.kind {
             PatKind::Wildcard | PatKind::Binding(_) | PatKind::Unit => {
-                emit(st, Instr::Pop);
-                emit(st, Instr::PushBool(true));
+                self.emit(st, Instr::Pop);
+                self.emit(st, Instr::PushBool(true));
                 return;
             }
             _ => {}
@@ -937,15 +948,15 @@ impl Translator {
         match scrutinee_ty {
             Type::Int => match &*pat.kind {
                 PatKind::Int(i) => {
-                    emit(st, Instr::PushInt(*i));
-                    emit(st, Instr::Equal);
+                    self.emit(st, Instr::PushInt(*i));
+                    self.emit(st, Instr::Equal);
                 }
                 _ => panic!("unexpected pattern: {:?}", pat.kind),
             },
             Type::Bool => match &*pat.kind {
                 PatKind::Bool(b) => {
-                    emit(st, Instr::PushBool(*b));
-                    emit(st, Instr::Equal);
+                    self.emit(st, Instr::PushBool(*b));
+                    self.emit(st, Instr::Equal);
                 }
                 _ => panic!("unexpected pattern: {:?}", pat.kind),
             },
@@ -963,29 +974,29 @@ impl Translator {
                     let tag_fail_label = make_label("tag_fail");
                     let end_label = make_label("endvariant");
 
-                    emit(st, Instr::Deconstruct);
-                    emit(st, Instr::PushInt(tag as AbraInt));
-                    emit(st, Instr::Equal);
-                    emit(st, Instr::Not);
-                    emit(st, Instr::JumpIf(tag_fail_label.clone()));
+                    self.emit(st, Instr::Deconstruct);
+                    self.emit(st, Instr::PushInt(tag as AbraInt));
+                    self.emit(st, Instr::Equal);
+                    self.emit(st, Instr::Not);
+                    self.emit(st, Instr::JumpIf(tag_fail_label.clone()));
 
                     if let Some(inner) = inner {
                         let inner_ty = self.statics.solution_of_node(inner.id).unwrap();
                         self.translate_pat_comparison(&inner_ty, inner.clone(), st);
-                        emit(st, Instr::Jump(end_label.clone()));
+                        self.emit(st, Instr::Jump(end_label.clone()));
                     } else {
-                        emit(st, Instr::Pop);
-                        emit(st, Instr::PushBool(true));
-                        emit(st, Instr::Jump(end_label.clone()));
+                        self.emit(st, Instr::Pop);
+                        self.emit(st, Instr::PushBool(true));
+                        self.emit(st, Instr::Jump(end_label.clone()));
                     }
 
                     // FAILURE
-                    emit(st, Line::Label(tag_fail_label));
-                    emit(st, Instr::Pop);
+                    self.emit(st, Line::Label(tag_fail_label));
+                    self.emit(st, Instr::Pop);
 
-                    emit(st, Instr::PushBool(false));
+                    self.emit(st, Instr::PushBool(false));
 
-                    emit(st, Line::Label(end_label));
+                    self.emit(st, Line::Label(end_label));
                 }
                 _ => panic!("unexpected pattern: {:?}", pat.kind),
             },
@@ -994,7 +1005,7 @@ impl Translator {
                     let final_element_success_label = make_label("tuple_success");
                     let end_label = make_label("endtuple");
                     // spill tuple elements onto stack
-                    emit(st, Instr::Deconstruct);
+                    self.emit(st, Instr::Deconstruct);
                     // for each element of tuple pattern, compare to TOS
                     // if the comparison fails, pop all remaining tuple elements and jump to the next arm
                     // if it makes it through each tuple element, jump to the arm's expression
@@ -1005,28 +1016,28 @@ impl Translator {
                         let ty = &types[i];
                         self.translate_pat_comparison(ty, pat.clone(), st);
                         let is_last = i == pats.len() - 1;
-                        emit(st, Instr::Not);
-                        emit(st, Instr::JumpIf(failure_labels[i].clone()));
+                        self.emit(st, Instr::Not);
+                        self.emit(st, Instr::JumpIf(failure_labels[i].clone()));
                         // SUCCESS
                         if is_last {
-                            emit(st, Instr::Jump(final_element_success_label.clone()));
+                            self.emit(st, Instr::Jump(final_element_success_label.clone()));
                         }
                     }
                     // SUCCESS CASE
-                    emit(st, Line::Label(final_element_success_label));
-                    emit(st, Instr::PushBool(true));
-                    emit(st, Instr::Jump(end_label.clone()));
+                    self.emit(st, Line::Label(final_element_success_label));
+                    self.emit(st, Instr::PushBool(true));
+                    self.emit(st, Instr::Jump(end_label.clone()));
 
                     // FAILURE CASE
                     // clean up the remaining tuple elements before yielding false
-                    emit(st, Line::Label(failure_labels[0].clone()));
+                    self.emit(st, Line::Label(failure_labels[0].clone()));
                     for label in &failure_labels[1..] {
-                        emit(st, Instr::Pop);
-                        emit(st, Line::Label(label.clone()));
+                        self.emit(st, Instr::Pop);
+                        self.emit(st, Line::Label(label.clone()));
                     }
-                    emit(st, Instr::PushBool(false));
+                    self.emit(st, Instr::PushBool(false));
 
-                    emit(st, Line::Label(end_label));
+                    self.emit(st, Line::Label(end_label));
                 }
                 _ => panic!("unexpected pattern: {:?}", pat.kind),
             },
@@ -1068,12 +1079,12 @@ impl Translator {
                 };
 
                 // println!("Generating code for function: {}", func_name);
-                emit(st, Line::Label(fully_qualified_name.clone()));
+                self.emit(st, Line::Label(fully_qualified_name.clone()));
                 let mut locals = HashSet::new();
                 collect_locals_expr(&f.body, &mut locals);
                 let locals_count = locals.len();
                 for _ in 0..locals_count {
-                    emit(st, Instr::PushNil);
+                    self.emit(st, Instr::PushNil);
                 }
                 let mut offset_table = OffsetTable::new();
                 for (i, arg) in f.args.iter().rev().enumerate() {
@@ -1087,13 +1098,13 @@ impl Translator {
 
                 if locals_count + nargs > 0 {
                     // pop all locals and arguments except one. The last one is the return value slot.
-                    emit(st, Instr::StoreOffset(-(nargs as i32)));
+                    self.emit(st, Instr::StoreOffset(-(nargs as i32)));
                     for _ in 0..(locals_count + nargs - 1) {
-                        emit(st, Instr::Pop);
+                        self.emit(st, Instr::Pop);
                     }
                 }
 
-                emit(st, Instr::Return);
+                self.emit(st, Instr::Return);
             }
             ItemKind::InterfaceDef(..)
             | ItemKind::TypeDef(..)
@@ -1122,12 +1133,12 @@ impl Translator {
             }
 
             // println!("Generating code for function: {}", func_name);
-            emit(st, Line::Label(func_name));
+            self.emit(st, Line::Label(func_name));
             let mut locals = HashSet::new();
             collect_locals_expr(&f.body, &mut locals);
             let locals_count = locals.len();
             for _ in 0..locals_count {
-                emit(st, Instr::PushNil);
+                self.emit(st, Instr::PushNil);
             }
             let mut offset_table = OffsetTable::new();
             for (i, arg) in f.args.iter().rev().enumerate() {
@@ -1141,13 +1152,13 @@ impl Translator {
 
             if locals_count + nargs > 0 {
                 // pop all locals and arguments except one. The last one is the return value slot.
-                emit(st, Instr::StoreOffset(-(nargs as i32)));
+                self.emit(st, Instr::StoreOffset(-(nargs as i32)));
                 for _ in 0..(locals_count + nargs - 1) {
-                    emit(st, Instr::Pop);
+                    self.emit(st, Instr::Pop);
                 }
             }
 
-            emit(st, Instr::Return);
+            self.emit(st, Instr::Return);
         }
     }
 
@@ -1177,7 +1188,7 @@ impl Translator {
                     };
                     let idx = locals.get(&node_id).unwrap();
                     self.translate_expr(rvalue.clone(), locals, monomorph_env.clone(), st);
-                    emit(st, Instr::StoreOffset(*idx));
+                    self.emit(st, Instr::StoreOffset(*idx));
                 }
                 ExprKind::MemberAccess(accessed, field) => {
                     // TODO, this downcast shouldn't be necessary
@@ -1187,20 +1198,20 @@ impl Translator {
                     self.translate_expr(rvalue.clone(), locals, monomorph_env.clone(), st);
                     self.translate_expr(accessed.clone(), locals, monomorph_env.clone(), st);
                     let idx = idx_of_field(&self.statics, accessed.clone(), field_name);
-                    emit(st, Instr::SetField(idx));
+                    self.emit(st, Instr::SetField(idx));
                 }
                 ExprKind::IndexAccess(array, index) => {
                     self.translate_expr(rvalue.clone(), locals, monomorph_env.clone(), st);
                     self.translate_expr(index.clone(), locals, monomorph_env.clone(), st);
                     self.translate_expr(array.clone(), locals, monomorph_env.clone(), st);
-                    emit(st, Instr::SetIdx);
+                    self.emit(st, Instr::SetIdx);
                 }
                 _ => unimplemented!(),
             },
             StmtKind::Expr(expr) => {
                 self.translate_expr(expr.clone(), locals, monomorph_env.clone(), st);
                 if !is_last {
-                    emit(st, Instr::Pop);
+                    self.emit(st, Instr::Pop);
                 }
             }
             StmtKind::FuncDef(..) => {
@@ -1208,11 +1219,11 @@ impl Translator {
             }
             StmtKind::Break => {
                 let enclosing_loop = st.loop_stack.last().unwrap();
-                emit(st, Instr::Jump(enclosing_loop.end_label.clone()));
+                self.emit(st, Instr::Jump(enclosing_loop.end_label.clone()));
             }
             StmtKind::Continue => {
                 let enclosing_loop = st.loop_stack.last().unwrap();
-                emit(st, Instr::Jump(enclosing_loop.start_label.clone()));
+                self.emit(st, Instr::Jump(enclosing_loop.start_label.clone()));
             }
         }
     }
@@ -1360,7 +1371,7 @@ impl Translator {
             }
         };
         // println!("emitting Call of function: {}", label);
-        emit(st, Instr::Call(label));
+        self.emit(st, Instr::Call(label));
     }
 
     fn _display_node(&self, _node_id: NodeId) {
@@ -1378,10 +1389,10 @@ impl Translator {
             PatKind::Binding(_) => {
                 // self.display_node(pat.id);
                 let idx = locals.get(&pat.id).unwrap();
-                emit(st, Instr::StoreOffset(*idx));
+                self.emit(st, Instr::StoreOffset(*idx));
             }
             PatKind::Tuple(pats) => {
-                emit(st, Instr::Deconstruct);
+                self.emit(st, Instr::Deconstruct);
                 for pat in pats.iter() {
                     self.handle_pat_binding(pat.clone(), locals, st);
                 }
@@ -1389,12 +1400,12 @@ impl Translator {
             PatKind::Variant(_, inner) => {
                 if let Some(inner) = inner {
                     // unpack tag and associated data
-                    emit(st, Instr::Deconstruct);
+                    self.emit(st, Instr::Deconstruct);
                     // pop tag
-                    emit(st, Instr::Pop);
+                    self.emit(st, Instr::Pop);
                     self.handle_pat_binding(inner.clone(), locals, st);
                 } else {
-                    emit(st, Instr::Pop);
+                    self.emit(st, Instr::Pop);
                 }
             }
             PatKind::Unit
@@ -1403,7 +1414,7 @@ impl Translator {
             | PatKind::Float(..)
             | PatKind::Str(..)
             | PatKind::Wildcard => {
-                emit(st, Instr::Pop);
+                self.emit(st, Instr::Pop);
             }
         }
     }
