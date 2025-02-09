@@ -38,17 +38,18 @@ fn main() {
     let args = Args::parse();
 
     let mut source_files = Vec::new();
-    source_files.push(FileData::new(
-        "prelude.abra".to_string(),
-        "prelude.abra".into(), // TODO: does path really make sense in this context? Should path be optional?
-        abra_core::prelude::PRELUDE.to_string(),
-    ));
 
     let contents = std::fs::read_to_string(&args.file).unwrap();
     source_files.push(FileData::new(
         args.file.clone(),
         args.file.clone().into(),
         contents,
+    ));
+
+    source_files.push(FileData::new(
+        "prelude.abra".to_string(),
+        "prelude.abra".into(), // TODO: does path really make sense in this context? Should path be optional?
+        abra_core::prelude::PRELUDE.to_string(),
     ));
 
     let modules: PathBuf = match args.modules {
