@@ -14,7 +14,7 @@ pub(crate) struct Identifier {
 }
 
 impl Node for Identifier {
-    fn span(&self) -> Location {
+    fn location(&self) -> Location {
         self.loc.clone()
     }
     fn id(&self) -> NodeId {
@@ -65,6 +65,13 @@ impl FileData {
                 given: line_index,
                 max: self.line_starts.len() - 1,
             }),
+        }
+    }
+
+    /// returns the 0-indexed line number in which the target index lies.
+    pub fn line_number_for_index(&self, index: usize) -> usize {
+        match self.line_starts.binary_search(&index) {
+            Ok(line) | Err(line) => line,
         }
     }
 }
@@ -160,7 +167,7 @@ pub(crate) struct FileAst {
 }
 
 impl Node for FileAst {
-    fn span(&self) -> Location {
+    fn location(&self) -> Location {
         self.loc.clone()
     }
     fn id(&self) -> NodeId {
@@ -209,7 +216,7 @@ pub(crate) struct Variant {
 }
 
 impl Node for Variant {
-    fn span(&self) -> Location {
+    fn location(&self) -> Location {
         self.loc.clone()
     }
     fn id(&self) -> NodeId {
@@ -234,7 +241,7 @@ pub(crate) struct StructField {
 }
 
 impl Node for StructField {
-    fn span(&self) -> Location {
+    fn location(&self) -> Location {
         self.loc.clone()
     }
     fn id(&self) -> NodeId {
@@ -249,7 +256,7 @@ impl Node for StructField {
 impl std::fmt::Debug for dyn Node {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("Node")
-            .field("span", &self.span())
+            .field("span", &self.location())
             .field("id", &self.id())
             .finish()
     }
@@ -257,7 +264,7 @@ impl std::fmt::Debug for dyn Node {
 
 // TODO: convert this to an Enum
 pub(crate) trait Node {
-    fn span(&self) -> Location;
+    fn location(&self) -> Location;
     fn id(&self) -> NodeId;
     fn children(&self) -> Vec<Rc<dyn Node>>;
 
@@ -278,7 +285,7 @@ pub(crate) struct Item {
 }
 
 impl Node for Item {
-    fn span(&self) -> Location {
+    fn location(&self) -> Location {
         self.loc.clone()
     }
     fn id(&self) -> NodeId {
@@ -380,7 +387,7 @@ pub(crate) struct Stmt {
 }
 
 impl Node for Stmt {
-    fn span(&self) -> Location {
+    fn location(&self) -> Location {
         self.loc.clone()
     }
     fn id(&self) -> NodeId {
@@ -462,8 +469,8 @@ pub(crate) struct InterfaceMethodDecl {
 }
 
 impl Node for InterfaceMethodDecl {
-    fn span(&self) -> Location {
-        self.ty.span()
+    fn location(&self) -> Location {
+        self.ty.location()
     }
     fn id(&self) -> NodeId {
         self.ty.id()
@@ -491,7 +498,7 @@ pub(crate) struct Expr {
 }
 
 impl Node for Expr {
-    fn span(&self) -> Location {
+    fn location(&self) -> Location {
         self.loc.clone()
     }
     fn id(&self) -> NodeId {
@@ -622,7 +629,7 @@ pub(crate) struct Pat {
 }
 
 impl Node for Pat {
-    fn span(&self) -> Location {
+    fn location(&self) -> Location {
         self.loc.clone()
     }
     fn id(&self) -> NodeId {
@@ -674,7 +681,7 @@ pub(crate) struct Type {
 }
 
 impl Node for Type {
-    fn span(&self) -> Location {
+    fn location(&self) -> Location {
         self.loc.clone()
     }
     fn id(&self) -> NodeId {

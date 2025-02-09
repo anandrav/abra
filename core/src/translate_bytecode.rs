@@ -55,6 +55,7 @@ struct TranslatorState {
     lines: Vec<Line>,
     filename_table: Vec<(BytecodeIndex, u32)>,
     lineno_table: Vec<(BytecodeIndex, u32)>,
+    instr_count: usize,
     lambdas: Lambdas,
     overloaded_func_map: OverloadedFuncLabels,
     overloaded_methods_to_generate: Vec<(OverloadedFuncDesc, Type)>,
@@ -186,7 +187,27 @@ impl Translator {
     }
 
     fn emit(&self, st: &mut TranslatorState, i: impl Into<Line>) {
-        st.lines.push(i.into());
+        let l: Line = i.into();
+
+        if let Line::Instr(_) = &l {
+            st.instr_count += 1;
+        }
+
+        st.lines.push(l);
+    }
+
+    fn update_filename_lineno_tables(&self, st: &mut TranslatorState, node_id: NodeId) {
+        let location = self.node_map[&node_id].location();
+        let file_id = location.file_id;
+
+        let file = self._files.get(file_id).unwrap();
+        let line_no = file.line_number_for_index(location.lo);
+
+        let bytecode_index = st.instr_count;
+        st.filename_table
+            .push((bytecode_index as u32, file_id as u32));
+        st.lineno_table
+            .push((bytecode_index as u32, line_no as u32));
     }
 
     pub(crate) fn translate(&mut self) -> CompiledProgram {
@@ -338,16 +359,21 @@ impl Translator {
             }
         }
         let (instructions, label_map) = remove_labels(&st.lines, &self.statics.string_constants);
+        // TODO: why not just push instead of instantiating with empty strings and overwriting them
         let mut string_table: Vec<String> =
             vec!["".to_owned(); self.statics.string_constants.len()];
         for (s, idx) in self.statics.string_constants.iter() {
             string_table[*idx] = s.clone();
         }
+        let mut filename_arena = vec![];
+        for file_data in self._files.files.iter() {
+            filename_arena.push(file_data.name.clone());
+        }
         CompiledProgram {
             instructions,
             label_map,
             static_strings: string_table,
-            filename_arena: vec![], // TODO
+            filename_arena,
             filename_table: st.filename_table,
             lineno_table: st.lineno_table,
         }
@@ -360,6 +386,7 @@ impl Translator {
         monomorph_env: MonomorphEnv,
         st: &mut TranslatorState,
     ) {
+        self.update_filename_lineno_tables(st, expr.id);
         // println!("translating expr: {:?}", expr.kind);
         match &*expr.kind {
             ExprKind::Identifier(_) => {
@@ -1170,6 +1197,7 @@ impl Translator {
         monomorph_env: MonomorphEnv,
         st: &mut TranslatorState,
     ) {
+        self.update_filename_lineno_tables(st, stmt.id);
         match &*stmt.kind {
             StmtKind::Let(_, pat, expr) => {
                 self.translate_expr(expr.clone(), locals, monomorph_env.clone(), st);

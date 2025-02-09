@@ -226,7 +226,7 @@ impl Error {
 
         // get rid of this after making our own file database
         let get_file_and_range = |id: &NodeId| {
-            let span = node_map.get(id).unwrap().span();
+            let span = node_map.get(id).unwrap().location();
             (span.file_id, span.range())
         };
 
@@ -423,7 +423,7 @@ fn handle_reason(
 ) {
     // get rid of this after making our own file database
     let get_file_and_range = |id: &NodeId| {
-        let span = node_map.get(id).unwrap().span();
+        let span = node_map.get(id).unwrap().location();
         (span.file_id, span.range())
     };
     match reason {

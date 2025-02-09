@@ -2620,7 +2620,7 @@ use codespan_reporting::term;
 use codespan_reporting::term::termcolor::{ColorChoice, StandardStream};
 fn _print_node(ctx: &StaticsContext, node_id: NodeId) {
     let get_file_and_range = |id: &NodeId| {
-        let span = ctx._node_map.get(id).unwrap().span();
+        let span = ctx._node_map.get(id).unwrap().location();
         (span.file_id, span.range())
     };
 
