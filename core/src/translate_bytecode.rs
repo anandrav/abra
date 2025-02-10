@@ -55,6 +55,9 @@ struct TranslatorState {
     lines: Vec<Line>,
     filename_table: Vec<(BytecodeIndex, u32)>,
     lineno_table: Vec<(BytecodeIndex, u32)>,
+    function_name_table: Vec<(BytecodeIndex, u32)>,
+    function_name_arena: Vec<String>,
+    function_name_to_arena_idx: HashMap<String, usize>,
     instr_count: usize,
     lambdas: Lambdas,
     overloaded_func_map: OverloadedFuncLabels,
@@ -73,9 +76,12 @@ pub struct CompiledProgram {
     pub(crate) instructions: Vec<VmInstr>,
     pub(crate) label_map: LabelMap,
     pub(crate) static_strings: Vec<String>,
+    // debug data
     pub(crate) filename_arena: Vec<String>,
+    pub(crate) function_name_arena: Vec<String>,
     pub(crate) filename_table: Vec<(BytecodeIndex, u32)>,
     pub(crate) lineno_table: Vec<(BytecodeIndex, u32)>,
+    pub(crate) function_name_table: Vec<(BytecodeIndex, u32)>,
 }
 
 pub type BytecodeIndex = u32;
@@ -204,10 +210,54 @@ impl Translator {
         let line_no = file.line_number_for_index(location.lo);
 
         let bytecode_index = st.instr_count;
-        st.filename_table
-            .push((bytecode_index as u32, file_id as u32));
-        st.lineno_table
-            .push((bytecode_index as u32, line_no as u32));
+        {
+            let mut redundant = false;
+            if let Some(last) = st.filename_table.last() {
+                if last.1 == file_id as u32 {
+                    redundant = true;
+                }
+            }
+            if !redundant {
+                st.filename_table
+                    .push((bytecode_index as u32, file_id as u32));
+            }
+        }
+
+        {
+            let mut redundant = false;
+            if let Some(last) = st.lineno_table.last() {
+                if last.1 == line_no as u32 {
+                    redundant = true;
+                }
+            }
+            if !redundant {
+                st.lineno_table
+                    .push((bytecode_index as u32, line_no as u32));
+            }
+        }
+    }
+
+    fn update_function_name_table(&self, st: &mut TranslatorState, name: &str) {
+        let bytecode_index = st.instr_count;
+
+        let function_name_id = *st
+            .function_name_to_arena_idx
+            .entry(name.into())
+            .or_insert(st.function_name_arena.len());
+        if function_name_id == st.function_name_arena.len() {
+            st.function_name_arena.push(name.into());
+        }
+
+        let mut redundant = false;
+        if let Some(last) = st.function_name_table.last() {
+            if last.1 == function_name_id as u32 {
+                redundant = true;
+            }
+        }
+        if !redundant {
+            st.function_name_table
+                .push((bytecode_index as u32, function_name_id as u32));
+        }
     }
 
     pub(crate) fn translate(&mut self) -> CompiledProgram {
@@ -228,19 +278,23 @@ impl Translator {
             }
 
             // Handle the main function (files)
-            {
+            if let Some(file) = self.file_asts.first() {
+                let file = file.clone();
                 let mut locals = HashSet::new();
-                if let Some(file) = self.file_asts.first() {
-                    let stmts: Vec<_> = file
-                        .items
-                        .iter()
-                        .filter_map(|item| match &*item.kind {
-                            ItemKind::Stmt(stmt) => Some(stmt.clone()),
-                            _ => None,
-                        })
-                        .collect();
-                    collect_locals_stmt(&stmts, &mut locals);
-                }
+
+                // use filename as name of function in this case
+                self.update_function_name_table(st, &file.name);
+
+                let stmts: Vec<_> = file
+                    .items
+                    .iter()
+                    .filter_map(|item| match &*item.kind {
+                        ItemKind::Stmt(stmt) => Some(stmt.clone()),
+                        _ => None,
+                    })
+                    .collect();
+                collect_locals_stmt(&stmts, &mut locals);
+
                 for _ in 0..locals.len() {
                     self.emit(st, Instr::PushNil);
                 }
@@ -248,18 +302,15 @@ impl Translator {
                 for (i, local) in locals.iter().enumerate() {
                     offset_table.entry(*local).or_insert((i) as i32);
                 }
-                let files = self.file_asts.clone();
-                for file in files.iter() {
-                    for (i, item) in file.items.iter().enumerate() {
-                        if let ItemKind::Stmt(stmt) = &*item.kind {
-                            self.translate_stmt(
-                                stmt.clone(),
-                                i == file.items.len() - 1,
-                                &offset_table,
-                                monomorph_env.clone(),
-                                st,
-                            );
-                        }
+                for (i, item) in file.items.iter().enumerate() {
+                    if let ItemKind::Stmt(stmt) = &*item.kind {
+                        self.translate_stmt(
+                            stmt.clone(),
+                            i == file.items.len() - 1,
+                            &offset_table,
+                            monomorph_env.clone(),
+                            st,
+                        );
                     }
                 }
                 self.emit(st, Instr::Return);
@@ -280,6 +331,8 @@ impl Translator {
                 let ExprKind::AnonymousFunction(args, _, body) = &*expr.kind else {
                     panic!()
                 };
+
+                self.update_function_name_table(st, "(anonymous)");
 
                 self.emit(st, Line::Label(data.label));
 
@@ -309,6 +362,8 @@ impl Translator {
                     // println!("substitued_ty = {}", desc.impl_type);
                     // println!();
                     let f = desc.func_def.clone();
+
+                    self.update_function_name_table(st, &f.name.v);
 
                     let overloaded_func_ty = self.statics.solution_of_node(f.name.id()).unwrap();
                     // println!("overloaded_func_ty = {}", desc.impl_type);
@@ -349,6 +404,8 @@ impl Translator {
 
             // Create functions for effects
             for (i, effect) in self.effects.iter().enumerate() {
+                self.update_function_name_table(st, effect.name);
+
                 self.emit(st, Line::Label(effect.name.into()));
                 self.emit(st, Instr::Effect(i as u16));
                 self.emit(st, Instr::Return);
@@ -359,7 +416,6 @@ impl Translator {
             }
         }
         let (instructions, label_map) = remove_labels(&st.lines, &self.statics.string_constants);
-        // TODO: why not just push instead of instantiating with empty strings and overwriting them
         let mut string_table: Vec<String> =
             vec!["".to_owned(); self.statics.string_constants.len()];
         for (s, idx) in self.statics.string_constants.iter() {
@@ -374,8 +430,10 @@ impl Translator {
             label_map,
             static_strings: string_table,
             filename_arena,
+            function_name_arena: st.function_name_arena,
             filename_table: st.filename_table,
             lineno_table: st.lineno_table,
+            function_name_table: st.function_name_table,
         }
     }
 
@@ -1105,6 +1163,8 @@ impl Translator {
                     panic!()
                 };
 
+                self.update_function_name_table(st, fully_qualified_name);
+
                 // println!("Generating code for function: {}", func_name);
                 self.emit(st, Line::Label(fully_qualified_name.clone()));
                 let mut locals = HashSet::new();
@@ -1158,6 +1218,8 @@ impl Translator {
             {
                 return;
             }
+
+            self.update_function_name_table(st, &func_name);
 
             // println!("Generating code for function: {}", func_name);
             self.emit(st, Line::Label(func_name));

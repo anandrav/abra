@@ -7,6 +7,7 @@ use libloading::Library;
 
 use crate::translate_bytecode::{BytecodeIndex, CompiledProgram};
 use core::fmt;
+use std::fmt::Debug;
 use std::{
     cell::Cell,
     fmt::{Display, Formatter},
@@ -24,9 +25,11 @@ pub struct Vm {
 
     static_strings: Vec<String>,
     filename_arena: Vec<String>,
+    function_name_arena: Vec<String>,
 
     filename_table: Vec<(BytecodeIndex, u32)>,
     lineno_table: Vec<(BytecodeIndex, u32)>,
+    function_name_table: Vec<(BytecodeIndex, u32)>,
 
     pending_effect: Option<u16>,
     error: Option<VmError>,
@@ -48,7 +51,15 @@ pub enum VmStatus {
 #[derive(Clone, Debug)]
 pub struct VmError {
     kind: VmErrorKind,
-    location: ErrorLocation,
+    location: VmErrorLocation,
+    trace: Vec<VmErrorLocation>,
+}
+
+#[derive(Clone, Debug)]
+pub struct VmErrorLocation {
+    filename: String,
+    lineno: u32,
+    function_name: String,
 }
 
 #[derive(Clone, Debug)]
@@ -71,9 +82,11 @@ impl Vm {
 
             static_strings: program.static_strings,
             filename_arena: program.filename_arena,
+            function_name_arena: program.function_name_arena,
 
             filename_table: program.filename_table,
             lineno_table: program.lineno_table,
+            function_name_table: program.function_name_table,
 
             pending_effect: None,
             error: None,
@@ -97,9 +110,11 @@ impl Vm {
 
             static_strings: program.static_strings,
             filename_arena: program.filename_arena,
+            function_name_arena: program.function_name_arena,
 
             filename_table: program.filename_table,
             lineno_table: program.lineno_table,
+            function_name_table: program.function_name_table,
 
             pending_effect: None,
             error: None,
@@ -464,6 +479,20 @@ enum ManagedObjectKind {
 
 impl Vm {
     pub fn run(&mut self) {
+        // for pair in &self.function_name_table {
+        //     let function_name = &self.function_name_arena[pair.1 as usize];
+        //     println!("bytecode[{}]\tfn {}()", pair.0, function_name);
+        // }
+        // println!("------------------------------------------------------");
+        // for pair in &self.lineno_table {
+        //     println!("bytecode[{}]\tline={}", pair.0, pair.1);
+        // }
+        // println!("------------------------------------------------------");
+        // for pair in &self.filename_table {
+        //     let filename = &self.filename_arena[pair.1 as usize];
+        //     println!("bytecode[{}]\tfile '{}'", pair.0, filename);
+        // }
+
         if self.pending_effect.is_some() {
             panic!("must handle pending effect");
         }
@@ -758,7 +787,8 @@ impl Vm {
                             if idx as usize >= fields.len() || idx < 0 {
                                 self.error = Some(VmError {
                                     kind: VmErrorKind::ArrayOutOfBounds,
-                                    location: self.filename_and_lineno(),
+                                    location: self.pc_to_error_location(self.pc),
+                                    trace: self.make_trace(),
                                 });
                                 return;
                             }
@@ -783,7 +813,8 @@ impl Vm {
                         if idx as usize >= fields.len() || idx < 0 {
                             self.error = Some(VmError {
                                 kind: VmErrorKind::ArrayOutOfBounds,
-                                location: self.filename_and_lineno(),
+                                location: self.pc_to_error_location(self.pc),
+                                trace: self.make_trace(),
                             });
                             return;
                         }
@@ -932,26 +963,53 @@ impl Vm {
         }
     }
 
-    fn filename_and_lineno(&self) -> ErrorLocation {
-        let idx = self.pc;
-
+    fn pc_to_error_location(&self, pc: usize) -> VmErrorLocation {
         let file_id = match self
             .filename_table
-            .binary_search_by_key(&(idx as u32), |pair| pair.0)
+            .binary_search_by_key(&(pc as u32), |pair| pair.0)
         {
-            Ok(file_id) | Err(file_id) => self.filename_table[file_id].1,
+            Ok(idx) | Err(idx) => {
+                let idx = if idx >= 1 { idx - 1 } else { idx };
+                self.filename_table[idx].1
+            }
         };
 
         let lineno = match self
             .lineno_table
-            .binary_search_by_key(&(idx as u32), |pair| pair.0)
+            .binary_search_by_key(&(pc as u32), |pair| pair.0)
         {
-            Ok(lineno) | Err(lineno) => self.lineno_table[lineno].1,
+            Ok(idx) | Err(idx) => {
+                let idx = if idx >= 1 { idx - 1 } else { idx };
+                self.lineno_table[idx].1
+            }
+        };
+
+        let function_name_id = match self
+            .function_name_table
+            .binary_search_by_key(&(pc as u32), |pair| pair.0)
+        {
+            Ok(idx) | Err(idx) => {
+                let idx = if idx >= 1 { idx - 1 } else { idx };
+                self.function_name_table[idx].1
+            }
         };
 
         let filename = self.filename_arena[file_id as usize].clone();
+        let function_name = self.function_name_arena[function_name_id as usize].clone();
 
-        (filename, lineno)
+        VmErrorLocation {
+            filename,
+            lineno,
+            function_name,
+        }
+    }
+
+    fn make_trace(&self) -> Vec<VmErrorLocation> {
+        let mut ret = vec![];
+        for frame in &self.call_stack {
+            ret.push(self.pc_to_error_location(frame.pc));
+        }
+        ret
     }
 
     fn heap_reference(&mut self, idx: usize) -> Value {
@@ -1123,7 +1181,7 @@ fn forward(
     }
 }
 
-impl fmt::Debug for Vm {
+impl Debug for Vm {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         f.debug_struct("Vm")
             .field("pc", &self.pc)
@@ -1135,20 +1193,35 @@ impl fmt::Debug for Vm {
     }
 }
 
-impl fmt::Display for VmError {
+impl Display for VmError {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         writeln!(f, "error: {}", self.kind)?;
-        write!(f, "    {}, line {}", self.location.0, self.location.1)
+        writeln!(f, "    from {}", self.location)?;
+        for location in self.trace.iter().rev() {
+            writeln!(f, "    from {}", location)?;
+        }
+        Ok(())
     }
 }
 
-impl fmt::Display for VmErrorKind {
+impl Display for VmErrorKind {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self {
             VmErrorKind::ArrayOutOfBounds => {
                 write!(f, "indexed past the end of an array")
             }
         }
+    }
+}
+
+impl Display for VmErrorLocation {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        let func_call = format!("{}()", self.function_name);
+        write!(
+            f,
+            "{:<40}@ {} line {}",
+            func_call, self.filename, self.lineno
+        )
     }
 }
 

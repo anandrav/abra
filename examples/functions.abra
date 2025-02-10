@@ -1,0 +1,17 @@
+fn one() {
+  println(1)
+  two()
+}
+
+fn two() {
+  println(2)
+  three()
+}
+
+fn three() {
+  println(3)
+  [1,2,3][4]
+}
+
+one()
+
