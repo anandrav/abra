@@ -161,7 +161,9 @@ pub(crate) enum SolvedType {
     Nominal(Nominal, Vec<SolvedType>),
 }
 
-// TODO: Might need to make a public and a non-public version of this.
+// TODO: Instead of making this public, just use source files for Effect type declarations similar to foreign func declarations
+// Maybe have a special version of foreign functions that doesn't load a dylib at all
+// that way this doesn't have to be exposed publically
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum Nominal {
     Struct(Rc<StructDef>),
