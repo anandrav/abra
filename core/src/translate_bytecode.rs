@@ -283,7 +283,7 @@ impl Translator {
                 let mut locals = HashSet::new();
 
                 // use filename as name of function in this case
-                self.update_function_name_table(st, &file.name);
+                self.update_function_name_table(st, "(main file)");
 
                 let stmts: Vec<_> = file
                     .items
@@ -1163,7 +1163,7 @@ impl Translator {
                     panic!()
                 };
 
-                self.update_function_name_table(st, fully_qualified_name);
+                self.update_function_name_table(st, &f.name.v);
 
                 // println!("Generating code for function: {}", func_name);
                 self.emit(st, Line::Label(fully_qualified_name.clone()));

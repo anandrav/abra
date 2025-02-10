@@ -68,10 +68,11 @@ impl FileData {
         }
     }
 
-    /// returns the 0-indexed line number in which the target index lies.
+    /// returns the 1-indexed line number in which the target index lies.
     pub fn line_number_for_index(&self, index: usize) -> usize {
         match self.line_starts.binary_search(&index) {
-            Ok(line) | Err(line) => line,
+            Ok(line) => line + 1, // found the line
+            Err(line) => line,    // it must be the previous index
         }
     }
 }

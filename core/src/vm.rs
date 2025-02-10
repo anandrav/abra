@@ -1196,9 +1196,22 @@ impl Debug for Vm {
 impl Display for VmError {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         writeln!(f, "error: {}", self.kind)?;
-        writeln!(f, "    from {}", self.location)?;
+        let max_width = std::iter::once(&self.location)
+            .chain(self.trace.iter())
+            .map(|loc| loc.function_name.len())
+            .max()
+            .unwrap_or(10);
+        writeln!(
+            f,
+            "    from {:<max_width$} @ {} line {}",
+            self.location.function_name, self.location.filename, self.location.lineno
+        )?;
         for location in self.trace.iter().rev() {
-            writeln!(f, "    from {}", location)?;
+            writeln!(
+                f,
+                "    from {:<max_width$} @ {} line {}",
+                location.function_name, location.filename, location.lineno
+            )?
         }
         Ok(())
     }
@@ -1211,17 +1224,6 @@ impl Display for VmErrorKind {
                 write!(f, "indexed past the end of an array")
             }
         }
-    }
-}
-
-impl Display for VmErrorLocation {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        let func_call = format!("{}()", self.function_name);
-        write!(
-            f,
-            "{:<40}@ {} line {}",
-            func_call, self.filename, self.lineno
-        )
     }
 }
 

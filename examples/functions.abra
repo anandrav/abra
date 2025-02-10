@@ -10,7 +10,8 @@ fn two() {
 
 fn three() {
   println(3)
-  [1,2,3][4]
+  let arr = [1, 2, 3]
+  arr[100]
 }
 
 one()
