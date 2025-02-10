@@ -3,7 +3,7 @@ use std::{
     fmt::{self, Display, Formatter},
 };
 
-use crate::{translate_bytecode::CompiledProgram, vm::Instr as VmInstr};
+use crate::vm::Instr as VmInstr;
 
 pub(crate) type Label = String;
 

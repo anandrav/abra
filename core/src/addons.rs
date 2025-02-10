@@ -5,12 +5,16 @@ use std::ffi::c_char;
 
 use crate::vm::Vm;
 
+/// # Safety
+/// vm: *mut Vm must be valid and non-null
 #[no_mangle]
 pub unsafe extern "C" fn vm_push_int(vm: *mut Vm, n: i64) {
     let vm = unsafe { vm.as_mut().unwrap() };
     vm.push_int(n);
 }
 
+/// # Safety
+/// vm: *mut Vm must be valid and non-null
 #[no_mangle]
 pub unsafe extern "C" fn vm_pop_int(vm: *mut Vm) -> i64 {
     let vm = unsafe { vm.as_mut().unwrap() };
@@ -19,6 +23,8 @@ pub unsafe extern "C" fn vm_pop_int(vm: *mut Vm) -> i64 {
     top
 }
 
+/// # Safety
+/// vm: *mut Vm must be valid and non-null
 #[no_mangle]
 pub unsafe extern "C" fn vm_pop(vm: *mut Vm) {
     let vm = unsafe { vm.as_mut().unwrap() };
@@ -47,6 +53,8 @@ impl StringView {
     }
 }
 
+/// # Safety
+/// vm: *mut Vm must be valid and non-null
 #[no_mangle]
 pub unsafe extern "C" fn vm_view_string(vm: *mut Vm) -> StringView {
     let vm = unsafe { vm.as_mut().unwrap() };
@@ -57,6 +65,8 @@ pub unsafe extern "C" fn vm_view_string(vm: *mut Vm) -> StringView {
     }
 }
 
+/// # Safety
+/// vm: *mut Vm must be valid and non-null
 #[no_mangle]
 pub unsafe extern "C" fn vm_push_string(vm: *mut Vm, string_view: StringView) {
     let vm = unsafe { vm.as_mut().unwrap() };
