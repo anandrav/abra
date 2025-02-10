@@ -1198,19 +1198,15 @@ impl Display for VmError {
         writeln!(f, "error: {}", self.kind)?;
         let max_width = std::iter::once(&self.location)
             .chain(self.trace.iter())
-            .map(|loc| loc.function_name.len())
+            .map(|loc| loc.function_name.len() + "()".len())
             .max()
             .unwrap_or(10);
-        writeln!(
-            f,
-            "    from {:<max_width$} @ {} line {}",
-            self.location.function_name, self.location.filename, self.location.lineno
-        )?;
-        for location in self.trace.iter().rev() {
+        for location in std::iter::once(&self.location).chain(self.trace.iter().rev()) {
+            let func_call = format!("{}()", location.function_name);
             writeln!(
                 f,
-                "    from {:<max_width$} @ {} line {}",
-                location.function_name, location.filename, location.lineno
+                "    from {:<max_width$} at {}, line {}",
+                func_call, location.filename, location.lineno
             )?
         }
         Ok(())

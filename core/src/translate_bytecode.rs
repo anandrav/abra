@@ -283,7 +283,7 @@ impl Translator {
                 let mut locals = HashSet::new();
 
                 // use filename as name of function in this case
-                self.update_function_name_table(st, "(main file)");
+                self.update_function_name_table(st, "<main>");
 
                 let stmts: Vec<_> = file
                     .items
@@ -332,7 +332,7 @@ impl Translator {
                     panic!()
                 };
 
-                self.update_function_name_table(st, "(anonymous)");
+                self.update_function_name_table(st, "<anonymous fn>");
 
                 self.emit(st, Line::Label(data.label));
 
