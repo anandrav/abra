@@ -422,6 +422,7 @@ impl Node for Stmt {
             StmtKind::Set(lhs, rhs) => vec![lhs.clone(), rhs.clone()],
             StmtKind::Expr(expr) => vec![expr.clone()],
             StmtKind::Break | StmtKind::Continue => vec![],
+            StmtKind::Return(expr) => vec![expr.clone()],
         }
     }
 
@@ -438,6 +439,7 @@ pub(crate) enum StmtKind {
     FuncDef(Rc<FuncDef>),
     Continue,
     Break,
+    Return(Rc<Expr>),
 }
 
 pub(crate) type ArgAnnotated = (Rc<Pat>, Option<Rc<Type>>);

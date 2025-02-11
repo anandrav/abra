@@ -31,13 +31,15 @@ struct_field = { identifier ~ type_annotation }
 
 foreign_type_decl = { "foreign" ~ "type" ~ identifier }
 
-statement = _{ let_statement | var_statement | set_statement | break_statement | continue_statement | expression_statement }
+statement = _{ let_statement | var_statement | set_statement | break_statement | continue_statement | return_statement | expression_statement }
 
 let_statement = { let_keyword ~ let_pattern_annotated ~ op_assign ~ expression }
 let_keyword = _{ "let" }
 let_pattern = _{ let_pattern_tuple | wildcard | identifier }
 wildcard = @{ "_" }
 op_assign = _{ "=" }
+
+return_statement = { "return" ~ expression }
 
 expression_statement = { expression }
 
@@ -182,7 +184,7 @@ op_access = { "." }
 // NOTE: When changing this code, make sure you don't have a subset of a word before
 // another word. For example: { "type" | "typeof" } will never match "typeof"
 keyword = @{
-   "and" | "bool" | "break" | "continue" | "else" | "false" | "fn" | "let" | "if" | "int" | "match" | "mod" | "or" | "set" | "string" | "type" | "nothing" | "true" | "void"
+   "and" | "bool" | "break" | "continue" | "else" | "false" | "fn" | "let" | "if" | "int" | "match" | "mod" | "or" | "return" | "set" | "string" | "type" | "nothing" | "true" | "void"
 }
 
 semicolon = _{ ";" }

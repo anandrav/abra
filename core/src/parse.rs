@@ -723,6 +723,14 @@ pub(crate) fn parse_stmt(pair: Pair<Rule>, file_id: FileId) -> Rc<Stmt> {
             loc: span,
             id: NodeId::new(),
         }),
+        Rule::return_statement => {
+            let expr = parse_expr_pratt(Pairs::single(inner[0].clone()), file_id);
+            Rc::new(Stmt {
+                kind: Rc::new(StmtKind::Return(expr)),
+                loc: span,
+                id: NodeId::new(),
+            })
+        }
         _ => panic!("unreachable rule {:#?}", rule),
     }
 }

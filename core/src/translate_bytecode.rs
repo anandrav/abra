@@ -1315,6 +1315,9 @@ impl Translator {
                 let enclosing_loop = st.loop_stack.last().unwrap();
                 self.emit(st, Instr::Jump(enclosing_loop.start_label.clone()));
             }
+            StmtKind::Return(..) => {
+                unimplemented!()
+            }
         }
     }
 
@@ -1423,6 +1426,9 @@ impl Translator {
                     self.collect_captures_expr(expr, locals, arg_set, captures);
                 }
                 StmtKind::FuncDef(..) | StmtKind::Break | StmtKind::Continue => {}
+                StmtKind::Return(..) => {
+                    unimplemented!()
+                }
             }
         }
     }
@@ -1586,6 +1592,9 @@ fn collect_locals_stmt(statements: &[Rc<Stmt>], locals: &mut HashSet<NodeId>) {
                 collect_locals_pat(pat.0.clone(), locals);
             }
             StmtKind::Set(..) | StmtKind::FuncDef(..) | StmtKind::Continue | StmtKind::Break => {}
+            StmtKind::Return(..) => {
+                unimplemented!()
+            }
         }
     }
 }

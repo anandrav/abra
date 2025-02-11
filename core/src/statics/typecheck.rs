@@ -1492,6 +1492,9 @@ fn generate_constraints_stmt(
                 Some(Some(_node_id)) => {}
             }
         }
+        StmtKind::Return(..) => {
+            unimplemented!()
+        }
     }
 }
 
