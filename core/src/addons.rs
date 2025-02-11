@@ -16,6 +16,14 @@ pub unsafe extern "C" fn vm_push_int(vm: *mut Vm, n: i64) {
 /// # Safety
 /// vm: *mut Vm must be valid and non-null
 #[no_mangle]
+pub unsafe extern "C" fn vm_push_nil(vm: *mut Vm) {
+    let vm = unsafe { vm.as_mut().unwrap() };
+    vm.push_nil();
+}
+
+/// # Safety
+/// vm: *mut Vm must be valid and non-null
+#[no_mangle]
 pub unsafe extern "C" fn vm_pop_int(vm: *mut Vm) -> i64 {
     let vm = unsafe { vm.as_mut().unwrap() };
     let top = vm.top().get_int();

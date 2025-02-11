@@ -27,4 +27,5 @@ pub unsafe extern "C" fn fwrite(vm: *mut Vm) {
     vm_pop(vm);
 
     fs::write(path, content).expect("Unable to write to file");
+    vm_push_nil(vm);
 }
