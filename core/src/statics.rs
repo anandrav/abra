@@ -41,6 +41,8 @@ pub(crate) struct StaticsContext {
 
     // most recent loops while traversing AST
     pub(crate) loop_stack: Vec<Option<NodeId>>,
+    // most recent function return type while traversing AST
+    pub(crate) func_ret_stack: Vec<TypeProv>,
 
     // map from interface name to list of its implementations
     pub(crate) interface_impls: HashMap<Rc<InterfaceDecl>, Vec<Rc<InterfaceImpl>>>,
@@ -329,6 +331,16 @@ impl Error {
                     diagnostic = diagnostic.with_message("Wrong argument type");
                     let (file, range) = get_file_and_range(node_id);
                     labels.push(Label::secondary(file, range).with_message("function call"));
+
+                    let provs2 = ty2.reasons().borrow();
+                    let reason2 = provs2.iter().next().unwrap();
+                    handle_reason(ty2, reason2, node_map, &mut labels, &mut notes);
+                    let provs1 = ty1.reasons().borrow();
+                    let reason1 = provs1.iter().next().unwrap();
+                    handle_reason(ty1, reason1, node_map, &mut labels, &mut notes);
+                }
+                ConstraintReason::ReturnValue => {
+                    diagnostic = diagnostic.with_message("Return value has wrong type");
 
                     let provs2 = ty2.reasons().borrow();
                     let reason2 = provs2.iter().next().unwrap();

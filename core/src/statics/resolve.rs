@@ -472,8 +472,8 @@ fn resolve_names_stmt(ctx: &mut StaticsContext, symbol_table: SymbolTable, stmt:
             resolve_names_expr(ctx, symbol_table.clone(), rhs.clone());
         }
         StmtKind::Continue | StmtKind::Break => {}
-        StmtKind::Return(..) => {
-            unimplemented!()
+        StmtKind::Return(expr) => {
+            resolve_names_expr(ctx, symbol_table.clone(), expr.clone());
         }
     }
 }

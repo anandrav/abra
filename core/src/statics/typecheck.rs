@@ -315,6 +315,7 @@ pub(crate) enum ConstraintReason {
     LetSetLhsRhs,
     MatchScrutinyAndPattern,
     FuncCall(NodeId),
+    ReturnValue,
     // bool
     Condition,
     BinaryOperandBool(NodeId),
@@ -1492,8 +1493,19 @@ fn generate_constraints_stmt(
                 Some(Some(_node_id)) => {}
             }
         }
-        StmtKind::Return(..) => {
-            unimplemented!()
+        StmtKind::Return(expr) => {
+            let expr_ty = TypeVar::from_node(ctx, expr.id);
+            generate_constraints_expr(polyvar_scope, Mode::Syn, expr.clone(), ctx);
+            let enclosing_func_ret = ctx.func_ret_stack.last();
+            match enclosing_func_ret {
+                Some(prov) => {
+                    let ret_ty = TypeVar::fresh(ctx, prov.clone());
+                    constrain_because(ctx, expr_ty, ret_ty, ConstraintReason::ReturnValue);
+                }
+                None => {
+                    todo!()
+                }
+            }
         }
     }
 }
@@ -2007,6 +2019,7 @@ fn generate_constraints_func_helper(
         .collect();
 
     // body
+    ctx.func_ret_stack.push(Prov::FuncOut(node_id));
     let ty_body = TypeVar::fresh(ctx, Prov::FuncOut(node_id));
     generate_constraints_expr(
         polyvar_scope.clone(),
@@ -2028,6 +2041,7 @@ fn generate_constraints_func_helper(
             ctx,
         );
     }
+    ctx.func_ret_stack.pop();
 
     TypeVar::make_func(ty_args, ty_body, Reason::Node(node_id))
 }
