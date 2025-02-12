@@ -1740,6 +1740,13 @@ fn generate_constraints_expr(
                     terminal_expr.clone(),
                     ctx,
                 )
+            } else if let StmtKind::Return(_) = &*statements.last().unwrap().kind {
+                generate_constraints_stmt(
+                    polyvar_scope.clone(),
+                    Mode::Syn,
+                    statements.last().unwrap().clone(),
+                    ctx,
+                );
             } else {
                 generate_constraints_stmt(
                     polyvar_scope,
