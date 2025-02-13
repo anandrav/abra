@@ -808,6 +808,27 @@ fn continue_and_break() {
 }
 
 #[test]
+fn early_return() {
+    let src = r#"
+fn fib(n) {
+    if n < 2 {
+      return n
+    }
+    return fib(n - 2) + fib(n - 1)
+  }
+  
+fib(10)
+"#;
+    let sources = source_files_single(src);
+
+    let program = unwrap_or_panic(compile_bytecode(sources, DefaultEffects::enumerate()));
+    let mut vm = Vm::new(program);
+    vm.run();
+    let top = vm.top();
+    assert_eq!(top.get_int(), 55);
+}
+
+#[test]
 fn garbage_collection_once() {
     let src = r#"
 var i = 0

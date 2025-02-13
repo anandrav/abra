@@ -5,5 +5,5 @@ fn fib(n) {
   return fib(n - 2) + fib(n - 1)
 }
 
-fib(10)
+println(fib(10))
 

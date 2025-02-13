@@ -63,6 +63,7 @@ struct TranslatorState {
     overloaded_func_map: OverloadedFuncLabels,
     overloaded_methods_to_generate: Vec<(OverloadedFuncDesc, Type)>,
     loop_stack: Vec<EnclosingLoop>,
+    return_stack: Vec<String>,
 }
 
 #[derive(Debug, Default)]
@@ -1165,6 +1166,8 @@ impl Translator {
 
                 self.update_function_name_table(st, &f.name.v);
 
+                let return_label = make_label("return");
+
                 // println!("Generating code for function: {}", func_name);
                 self.emit(st, Line::Label(fully_qualified_name.clone()));
                 let mut locals = HashSet::new();
@@ -1181,7 +1184,12 @@ impl Translator {
                     offset_table.entry(*local).or_insert((i) as i32);
                 }
                 let nargs = f.args.len();
+
+                st.return_stack.push(return_label.clone());
                 self.translate_expr(f.body.clone(), &offset_table, MonomorphEnv::empty(), st);
+                st.return_stack.pop();
+
+                self.emit(st, return_label);
 
                 if locals_count + nargs > 0 {
                     // pop all locals and arguments except one. The last one is the return value slot.
@@ -1315,8 +1323,10 @@ impl Translator {
                 let enclosing_loop = st.loop_stack.last().unwrap();
                 self.emit(st, Instr::Jump(enclosing_loop.start_label.clone()));
             }
-            StmtKind::Return(..) => {
-                unimplemented!()
+            StmtKind::Return(expr) => {
+                self.translate_expr(expr.clone(), locals, monomorph_env.clone(), st);
+                let return_label = st.return_stack.last().unwrap();
+                self.emit(st, Instr::Jump(return_label.clone()));
             }
         }
     }
