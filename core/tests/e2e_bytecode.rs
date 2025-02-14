@@ -7,6 +7,7 @@ use abra_core::vm::Vm;
 
 pub mod utils;
 use abra_core::FileData;
+use abra_core::FileProviderDefault;
 use utils::inner::unwrap_or_panic;
 
 #[test]
@@ -22,7 +23,11 @@ let h = sub(z, 1)
 h
 "#;
     let sources = source_files_single(src);
-    let program = unwrap_or_panic(compile_bytecode(sources, DefaultEffects::enumerate()));
+    let program = unwrap_or_panic(compile_bytecode(
+        sources,
+        DefaultEffects::enumerate(),
+        FileProviderDefault::new(),
+    ));
     let mut vm = Vm::new(program);
     vm.run();
     let top = vm.top();
@@ -42,7 +47,11 @@ let (x, y) = p
 x + y
 "#;
     let sources = source_files_single(src);
-    let program = unwrap_or_panic(compile_bytecode(sources, DefaultEffects::enumerate()));
+    let program = unwrap_or_panic(compile_bytecode(
+        sources,
+        DefaultEffects::enumerate(),
+        FileProviderDefault::new(),
+    ));
     let mut vm = Vm::new(program);
     vm.run();
     let top = vm.top();
@@ -60,7 +69,11 @@ if false {
 }
 "#;
     let sources = source_files_single(src);
-    let program = unwrap_or_panic(compile_bytecode(sources, DefaultEffects::enumerate()));
+    let program = unwrap_or_panic(compile_bytecode(
+        sources,
+        DefaultEffects::enumerate(),
+        FileProviderDefault::new(),
+    ));
     let mut vm = Vm::new(program);
     vm.run();
     let top = vm.top();
@@ -78,7 +91,11 @@ if true {
 x
 "#;
     let sources = source_files_single(src);
-    let program = unwrap_or_panic(compile_bytecode(sources, DefaultEffects::enumerate()));
+    let program = unwrap_or_panic(compile_bytecode(
+        sources,
+        DefaultEffects::enumerate(),
+        FileProviderDefault::new(),
+    ));
     let mut vm = Vm::new(program);
     vm.run();
     let top = vm.top();
@@ -93,7 +110,11 @@ print_string("hello world")
 5
 "#;
     let sources = source_files_single(src);
-    let program = unwrap_or_panic(compile_bytecode(sources, DefaultEffects::enumerate()));
+    let program = unwrap_or_panic(compile_bytecode(
+        sources,
+        DefaultEffects::enumerate(),
+        FileProviderDefault::new(),
+    ));
     let mut vm = Vm::new(program);
     vm.run();
     let top = vm.top();
@@ -120,7 +141,11 @@ x.name
 "#;
     let sources = source_files_single(src);
 
-    let program = unwrap_or_panic(compile_bytecode(sources, DefaultEffects::enumerate()));
+    let program = unwrap_or_panic(compile_bytecode(
+        sources,
+        DefaultEffects::enumerate(),
+        FileProviderDefault::new(),
+    ));
     let mut vm = Vm::new(program);
     vm.run();
     let top = vm.top();
@@ -141,7 +166,11 @@ x.age
 "#;
     let sources = source_files_single(src);
 
-    let program = unwrap_or_panic(compile_bytecode(sources, DefaultEffects::enumerate()));
+    let program = unwrap_or_panic(compile_bytecode(
+        sources,
+        DefaultEffects::enumerate(),
+        FileProviderDefault::new(),
+    ));
     let mut vm = Vm::new(program);
     vm.run();
     let top = vm.top();
@@ -158,7 +187,11 @@ arr[2]
 "#;
     let sources = source_files_single(src);
 
-    let program = unwrap_or_panic(compile_bytecode(sources, DefaultEffects::enumerate()));
+    let program = unwrap_or_panic(compile_bytecode(
+        sources,
+        DefaultEffects::enumerate(),
+        FileProviderDefault::new(),
+    ));
     let mut vm = Vm::new(program);
     vm.run();
     let top = vm.top();
@@ -177,7 +210,11 @@ match n {
 "#;
     let sources = source_files_single(src);
 
-    let program = unwrap_or_panic(compile_bytecode(sources, DefaultEffects::enumerate()));
+    let program = unwrap_or_panic(compile_bytecode(
+        sources,
+        DefaultEffects::enumerate(),
+        FileProviderDefault::new(),
+    ));
     let mut vm = Vm::new(program);
     vm.run();
     let top = vm.top();
@@ -196,7 +233,11 @@ match n {
 "#;
     let sources = source_files_single(src);
 
-    let program = unwrap_or_panic(compile_bytecode(sources, DefaultEffects::enumerate()));
+    let program = unwrap_or_panic(compile_bytecode(
+        sources,
+        DefaultEffects::enumerate(),
+        FileProviderDefault::new(),
+    ));
     let mut vm = Vm::new(program);
     vm.run();
     let top = vm.top();
@@ -221,7 +262,11 @@ sum
 "#;
     let sources = source_files_single(src);
 
-    let program = unwrap_or_panic(compile_bytecode(sources, DefaultEffects::enumerate()));
+    let program = unwrap_or_panic(compile_bytecode(
+        sources,
+        DefaultEffects::enumerate(),
+        FileProviderDefault::new(),
+    ));
     let mut vm = Vm::new(program);
     vm.run();
     let top = vm.top();
@@ -238,7 +283,11 @@ match triplet {
     _ -> 102
 }"#;
     let sources = source_files_single(src);
-    let program = match compile_bytecode(sources, DefaultEffects::enumerate()) {
+    let program = match compile_bytecode(
+        sources,
+        DefaultEffects::enumerate(),
+        FileProviderDefault::new(),
+    ) {
         Ok(vm) => vm,
         Err(e) => {
             panic!("{}", e);
@@ -260,7 +309,11 @@ match pair {
     _ -> 102
 }"#;
     let sources = source_files_single(src);
-    let program = match compile_bytecode(sources, DefaultEffects::enumerate()) {
+    let program = match compile_bytecode(
+        sources,
+        DefaultEffects::enumerate(),
+        FileProviderDefault::new(),
+    ) {
         Ok(vm) => vm,
         Err(e) => {
             panic!("{}", e);
@@ -282,7 +335,11 @@ match pair {
     _ -> 102
 }"#;
     let sources = source_files_single(src);
-    let program = match compile_bytecode(sources, DefaultEffects::enumerate()) {
+    let program = match compile_bytecode(
+        sources,
+        DefaultEffects::enumerate(),
+        FileProviderDefault::new(),
+    ) {
         Ok(vm) => vm,
         Err(e) => {
             panic!("{}", e);
@@ -304,7 +361,11 @@ match quintuple {
     _ -> 102
 }"#;
     let sources = source_files_single(src);
-    let program = match compile_bytecode(sources, DefaultEffects::enumerate()) {
+    let program = match compile_bytecode(
+        sources,
+        DefaultEffects::enumerate(),
+        FileProviderDefault::new(),
+    ) {
         Ok(vm) => vm,
         Err(e) => {
             panic!("{}", e);
@@ -326,7 +387,11 @@ match triplet {
     _ -> 102
 }"#;
     let sources = source_files_single(src);
-    let program = match compile_bytecode(sources, DefaultEffects::enumerate()) {
+    let program = match compile_bytecode(
+        sources,
+        DefaultEffects::enumerate(),
+        FileProviderDefault::new(),
+    ) {
         Ok(vm) => vm,
         Err(e) => {
             panic!("{}", e);
@@ -352,7 +417,11 @@ match xs {
     //     nil -> 100
     // }"#;
     let sources = source_files_single(src);
-    let program = match compile_bytecode(sources, DefaultEffects::enumerate()) {
+    let program = match compile_bytecode(
+        sources,
+        DefaultEffects::enumerate(),
+        FileProviderDefault::new(),
+    ) {
         Ok(vm) => vm,
         Err(e) => {
             panic!("{}", e);
@@ -373,7 +442,11 @@ match xs {
     cons(~x, _) -> x
 }"#;
     let sources = source_files_single(src);
-    let program = match compile_bytecode(sources, DefaultEffects::enumerate()) {
+    let program = match compile_bytecode(
+        sources,
+        DefaultEffects::enumerate(),
+        FileProviderDefault::new(),
+    ) {
         Ok(vm) => vm,
         Err(e) => {
             panic!("{}", e);
@@ -395,7 +468,11 @@ match xs {
     _ -> 101
 }"#;
     let sources = source_files_single(src);
-    let program = match compile_bytecode(sources, DefaultEffects::enumerate()) {
+    let program = match compile_bytecode(
+        sources,
+        DefaultEffects::enumerate(),
+        FileProviderDefault::new(),
+    ) {
         Ok(vm) => vm,
         Err(e) => {
             panic!("{}", e);
@@ -419,7 +496,11 @@ fn r(n) {
 r(2)
 "#;
     let sources = source_files_single(src);
-    let program = match compile_bytecode(sources, DefaultEffects::enumerate()) {
+    let program = match compile_bytecode(
+        sources,
+        DefaultEffects::enumerate(),
+        FileProviderDefault::new(),
+    ) {
         Ok(vm) => vm,
         Err(e) => {
             panic!("{}", e);
@@ -444,7 +525,11 @@ fn fib(n) {
 fib(10)
 "#;
     let sources = source_files_single(src);
-    let program = match compile_bytecode(sources, DefaultEffects::enumerate()) {
+    let program = match compile_bytecode(
+        sources,
+        DefaultEffects::enumerate(),
+        FileProviderDefault::new(),
+    ) {
         Ok(vm) => vm,
         Err(e) => {
             panic!("{}", e);
@@ -463,7 +548,11 @@ let double = x -> x + x
 double(5)
 "#;
     let sources = source_files_single(src);
-    let program = match compile_bytecode(sources, DefaultEffects::enumerate()) {
+    let program = match compile_bytecode(
+        sources,
+        DefaultEffects::enumerate(),
+        FileProviderDefault::new(),
+    ) {
         Ok(vm) => vm,
         Err(e) => {
             panic!("{}", e);
@@ -482,7 +571,11 @@ let add = (x, y) -> x + y
 add(2, 3)
 "#;
     let sources = source_files_single(src);
-    let program = match compile_bytecode(sources, DefaultEffects::enumerate()) {
+    let program = match compile_bytecode(
+        sources,
+        DefaultEffects::enumerate(),
+        FileProviderDefault::new(),
+    ) {
         Ok(vm) => vm,
         Err(e) => {
             panic!("{}", e);
@@ -502,7 +595,11 @@ let add1 = x -> x + one
 add1(4)
 "#;
     let sources = source_files_single(src);
-    let program = match compile_bytecode(sources, DefaultEffects::enumerate()) {
+    let program = match compile_bytecode(
+        sources,
+        DefaultEffects::enumerate(),
+        FileProviderDefault::new(),
+    ) {
         Ok(vm) => vm,
         Err(e) => {
             panic!("{}", e);
@@ -523,7 +620,11 @@ let sub1 = x -> x + one - two
 sub1(4)
 "#;
     let sources = source_files_single(src);
-    let program = match compile_bytecode(sources, DefaultEffects::enumerate()) {
+    let program = match compile_bytecode(
+        sources,
+        DefaultEffects::enumerate(),
+        FileProviderDefault::new(),
+    ) {
         Ok(vm) => vm,
         Err(e) => {
             panic!("{}", e);
@@ -543,7 +644,11 @@ let g = sqrt_float(f)
 g
 "#;
     let sources = source_files_single(src);
-    let program = match compile_bytecode(sources, DefaultEffects::enumerate()) {
+    let program = match compile_bytecode(
+        sources,
+        DefaultEffects::enumerate(),
+        FileProviderDefault::new(),
+    ) {
         Ok(vm) => vm,
         Err(e) => {
             panic!("{}", e);
@@ -563,7 +668,11 @@ append(arr, 6)
 arr[5]
 "#;
     let sources = source_files_single(src);
-    let program = match compile_bytecode(sources, DefaultEffects::enumerate()) {
+    let program = match compile_bytecode(
+        sources,
+        DefaultEffects::enumerate(),
+        FileProviderDefault::new(),
+    ) {
         Ok(vm) => vm,
         Err(e) => {
             panic!("{}", e);
@@ -582,7 +691,11 @@ let arr = [1, 2, 3, 4, 5]
 len(arr)
 "#;
     let sources = source_files_single(src);
-    let program = match compile_bytecode(sources, DefaultEffects::enumerate()) {
+    let program = match compile_bytecode(
+        sources,
+        DefaultEffects::enumerate(),
+        FileProviderDefault::new(),
+    ) {
         Ok(vm) => vm,
         Err(e) => {
             panic!("{}", e);
@@ -603,7 +716,11 @@ match [| 1, 2, 3 |] {
 }
 "#;
     let sources = source_files_single(src);
-    let program = match compile_bytecode(sources, DefaultEffects::enumerate()) {
+    let program = match compile_bytecode(
+        sources,
+        DefaultEffects::enumerate(),
+        FileProviderDefault::new(),
+    ) {
         Ok(vm) => vm,
         Err(e) => {
             panic!("{}", e);
@@ -630,7 +747,11 @@ fn total(xs) {
 total(xs)
 "#;
     let sources = source_files_single(src);
-    let program = match compile_bytecode(sources, DefaultEffects::enumerate()) {
+    let program = match compile_bytecode(
+        sources,
+        DefaultEffects::enumerate(),
+        FileProviderDefault::new(),
+    ) {
         Ok(vm) => vm,
         Err(e) => {
             panic!("{}", e);
@@ -658,7 +779,11 @@ fn list_len(xs: list<'a>) {
 list_len(nums) + list_len(bools)
 "#;
     let sources = source_files_single(src);
-    let program = match compile_bytecode(sources, DefaultEffects::enumerate()) {
+    let program = match compile_bytecode(
+        sources,
+        DefaultEffects::enumerate(),
+        FileProviderDefault::new(),
+    ) {
         Ok(vm) => vm,
         Err(e) => {
             panic!("{}", e);
@@ -676,7 +801,11 @@ fn concat_strings() {
 let s = "hello " & "world"
 "#;
     let sources = source_files_single(src);
-    let program = match compile_bytecode(sources, DefaultEffects::enumerate()) {
+    let program = match compile_bytecode(
+        sources,
+        DefaultEffects::enumerate(),
+        FileProviderDefault::new(),
+    ) {
         Ok(vm) => vm,
         Err(e) => {
             panic!("{}", e);
@@ -694,7 +823,11 @@ fn monomorphize_to_string_int() {
 str(123)
 "#;
     let sources = source_files_single(src);
-    let program = match compile_bytecode(sources, DefaultEffects::enumerate()) {
+    let program = match compile_bytecode(
+        sources,
+        DefaultEffects::enumerate(),
+        FileProviderDefault::new(),
+    ) {
         Ok(vm) => vm,
         Err(e) => {
             panic!("{}", e);
@@ -713,7 +846,11 @@ str(123)
 str(123.456)
 "#;
     let sources = source_files_single(src);
-    let program = match compile_bytecode(sources, DefaultEffects::enumerate()) {
+    let program = match compile_bytecode(
+        sources,
+        DefaultEffects::enumerate(),
+        FileProviderDefault::new(),
+    ) {
         Ok(vm) => vm,
         Err(e) => {
             panic!("{}", e);
@@ -732,7 +869,11 @@ let nums = (1, 2, 3)
 str(nums)
 "#;
     let sources = source_files_single(src);
-    let program = match compile_bytecode(sources, DefaultEffects::enumerate()) {
+    let program = match compile_bytecode(
+        sources,
+        DefaultEffects::enumerate(),
+        FileProviderDefault::new(),
+    ) {
         Ok(vm) => vm,
         Err(e) => {
             panic!("{}", e);
@@ -753,7 +894,11 @@ println(123)
 "#;
     let sources = source_files_single(src);
 
-    let program = unwrap_or_panic(compile_bytecode(sources, DefaultEffects::enumerate()));
+    let program = unwrap_or_panic(compile_bytecode(
+        sources,
+        DefaultEffects::enumerate(),
+        FileProviderDefault::new(),
+    ));
     let mut vm = Vm::new(program);
     vm.run();
     let top = vm.top();
@@ -778,7 +923,11 @@ fn local_in_while_scope() {
     "#;
     let sources = source_files_single(src);
 
-    let program = unwrap_or_panic(compile_bytecode(sources, DefaultEffects::enumerate()));
+    let program = unwrap_or_panic(compile_bytecode(
+        sources,
+        DefaultEffects::enumerate(),
+        FileProviderDefault::new(),
+    ));
     let mut vm = Vm::new(program);
     vm.run();
     let top = vm.top();
@@ -800,7 +949,11 @@ fn continue_and_break() {
 "#;
     let sources = source_files_single(src);
 
-    let program = unwrap_or_panic(compile_bytecode(sources, DefaultEffects::enumerate()));
+    let program = unwrap_or_panic(compile_bytecode(
+        sources,
+        DefaultEffects::enumerate(),
+        FileProviderDefault::new(),
+    ));
     let mut vm = Vm::new(program);
     vm.run();
     let top = vm.top();
@@ -821,7 +974,11 @@ fib(10)
 "#;
     let sources = source_files_single(src);
 
-    let program = unwrap_or_panic(compile_bytecode(sources, DefaultEffects::enumerate()));
+    let program = unwrap_or_panic(compile_bytecode(
+        sources,
+        DefaultEffects::enumerate(),
+        FileProviderDefault::new(),
+    ));
     let mut vm = Vm::new(program);
     vm.run();
     let top = vm.top();
@@ -843,7 +1000,11 @@ x
 "#;
     let sources = source_files_single(src);
 
-    let vm = compile_bytecode(sources, DefaultEffects::enumerate());
+    let vm = compile_bytecode(
+        sources,
+        DefaultEffects::enumerate(),
+        FileProviderDefault::new(),
+    );
     if let Err(e) = vm {
         panic!("{}", e);
     }
@@ -873,7 +1034,11 @@ x
 "#;
     let sources = source_files_single(src);
 
-    let vm = compile_bytecode(sources, DefaultEffects::enumerate());
+    let vm = compile_bytecode(
+        sources,
+        DefaultEffects::enumerate(),
+        FileProviderDefault::new(),
+    );
     if let Err(e) = vm {
         panic!("{}", e);
     }
@@ -898,7 +1063,11 @@ fn main() {
 5
 "#;
     let sources = source_files_single(src);
-    let program = unwrap_or_panic(compile_bytecode(sources, DefaultEffects::enumerate()));
+    let program = unwrap_or_panic(compile_bytecode(
+        sources,
+        DefaultEffects::enumerate(),
+        FileProviderDefault::new(),
+    ));
     let mut vm = Vm::with_entry_point(program, "test.main".to_owned());
     vm.run();
     let top = vm.top();
@@ -919,7 +1088,11 @@ fn main(x, y) {
 main(5, 6)
 "#;
     let sources = source_files_single(src);
-    let program = unwrap_or_panic(compile_bytecode(sources, DefaultEffects::enumerate()));
+    let program = unwrap_or_panic(compile_bytecode(
+        sources,
+        DefaultEffects::enumerate(),
+        FileProviderDefault::new(),
+    ));
     let mut vm = Vm::with_entry_point(program, "test.main".to_owned());
     vm.push_int(2);
     vm.push_int(3);
@@ -955,7 +1128,7 @@ foo(2, 2)
         ),
     ];
     let effects = DefaultEffects::enumerate();
-    let program = compile_bytecode(sources, effects);
+    let program = compile_bytecode(sources, effects, FileProviderDefault::new());
     if let Err(e) = program {
         panic!("{}", e);
     }
@@ -972,7 +1145,11 @@ fn format_append() {
 format_append(format_append(123, true), false)
 "#;
     let sources = source_files_single(src);
-    let program = match compile_bytecode(sources, DefaultEffects::enumerate()) {
+    let program = match compile_bytecode(
+        sources,
+        DefaultEffects::enumerate(),
+        FileProviderDefault::new(),
+    ) {
         Ok(vm) => vm,
         Err(e) => {
             panic!("{}", e);
@@ -990,7 +1167,11 @@ fn ampersand() {
 123 & true & false
 "#;
     let sources = source_files_single(src);
-    let program = match compile_bytecode(sources, DefaultEffects::enumerate()) {
+    let program = match compile_bytecode(
+        sources,
+        DefaultEffects::enumerate(),
+        FileProviderDefault::new(),
+    ) {
         Ok(vm) => vm,
         Err(e) => {
             panic!("{}", e);
@@ -1011,7 +1192,11 @@ fn comments() {
 comment */
 "#;
     let sources = source_files_single(src);
-    let program = match compile_bytecode(sources, DefaultEffects::enumerate()) {
+    let program = match compile_bytecode(
+        sources,
+        DefaultEffects::enumerate(),
+        FileProviderDefault::new(),
+    ) {
         Ok(vm) => vm,
         Err(e) => {
             panic!("{}", e);

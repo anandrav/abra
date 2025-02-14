@@ -4,6 +4,7 @@ use abra_core::effects::EffectTrait;
 use abra_core::source_files_single;
 
 mod utils;
+use abra_core::FileProviderDefault;
 use utils::inner::unwrap_or_panic;
 
 // POSITIVE TESTS
@@ -20,7 +21,11 @@ let e = d ^ 2
 let f = e mod 3
 "#;
     let sources = source_files_single(src);
-    unwrap_or_panic(compile_bytecode(sources, DefaultEffects::enumerate()));
+    unwrap_or_panic(compile_bytecode(
+        sources,
+        DefaultEffects::enumerate(),
+        FileProviderDefault::new(),
+    ));
 }
 
 #[test]
@@ -33,7 +38,11 @@ let d = c - 1.0
 let e = d ^ 2.0
 "#;
     let sources = source_files_single(src);
-    unwrap_or_panic(compile_bytecode(sources, DefaultEffects::enumerate()));
+    unwrap_or_panic(compile_bytecode(
+        sources,
+        DefaultEffects::enumerate(),
+        FileProviderDefault::new(),
+    ));
 }
 
 #[test]
@@ -45,7 +54,11 @@ let z = x and y
 let w = x or y
 "#;
     let sources = source_files_single(src);
-    unwrap_or_panic(compile_bytecode(sources, DefaultEffects::enumerate()));
+    unwrap_or_panic(compile_bytecode(
+        sources,
+        DefaultEffects::enumerate(),
+        FileProviderDefault::new(),
+    ));
 }
 
 #[test]
@@ -66,7 +79,11 @@ let j = 2.0 = 3.0
 let k = a and b and c and d and e and f and g and h and i and j
 "#;
     let sources = source_files_single(src);
-    unwrap_or_panic(compile_bytecode(sources, DefaultEffects::enumerate()));
+    unwrap_or_panic(compile_bytecode(
+        sources,
+        DefaultEffects::enumerate(),
+        FileProviderDefault::new(),
+    ));
 }
 
 #[test]
@@ -81,7 +98,11 @@ let p = person(33, "Anand")
 p.age
 "#;
     let sources = source_files_single(src);
-    unwrap_or_panic(compile_bytecode(sources, DefaultEffects::enumerate()));
+    unwrap_or_panic(compile_bytecode(
+        sources,
+        DefaultEffects::enumerate(),
+        FileProviderDefault::new(),
+    ));
 }
 
 // NEGATIVE TESTS
@@ -89,7 +110,12 @@ p.age
 
 fn should_fail(src: &str) {
     let sources = source_files_single(src);
-    compile_bytecode(sources, DefaultEffects::enumerate()).unwrap_err();
+    compile_bytecode(
+        sources,
+        DefaultEffects::enumerate(),
+        FileProviderDefault::new(),
+    )
+    .unwrap_err();
 }
 
 #[test]

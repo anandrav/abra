@@ -1,8 +1,8 @@
-use abra_core::compile_bytecode;
 use abra_core::effects::{DefaultEffects, EffectTrait};
 use abra_core::prelude::PRELUDE;
 use abra_core::vm::Vm;
 use abra_core::FileData;
+use abra_core::{compile_bytecode, FileProviderDefault};
 
 fn main() {
     test();
@@ -34,7 +34,7 @@ foo(2, 2)
         FileData::new("main.abra".to_owned(), "main.abra".into(), main.to_owned()),
     ];
     let effects = DefaultEffects::enumerate();
-    let program = compile_bytecode(sources, effects);
+    let program = compile_bytecode(sources, effects, FileProviderDefault::new());
     if let Err(e) = program {
         panic!("{}", e);
     }

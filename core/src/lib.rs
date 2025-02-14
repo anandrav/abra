@@ -1,3 +1,7 @@
+use std::error::Error;
+// use std::error::Error;
+use std::path::Path;
+use std::path::PathBuf;
 use std::rc::Rc;
 
 pub use effects::EffectCode;
@@ -39,6 +43,7 @@ pub fn source_files_single(src: &str) -> Vec<FileData> {
 pub fn compile_bytecode(
     files: Vec<FileData>,
     effects: Vec<EffectDesc>,
+    file_provider: impl FileProvider,
 ) -> Result<CompiledProgram, String> {
     let mut sources = ast::FileDatabase::new();
     for file_data in files {
@@ -58,4 +63,27 @@ pub fn compile_bytecode(
     // NOTE: It's only mutable right now because of ty_fits_impl_ty calls ast_type_to_statics_type...
     let mut translator = Translator::new(inference_ctx, node_map, sources, files, effects);
     Ok(translator.translate())
+}
+
+pub trait FileProvider {
+    /// Given a path, return the contents of the file as a String,
+    /// or an error if the file cannot be found.
+    fn search_for_file(&self, path: &Path) -> Result<String, Box<dyn Error>>;
+}
+
+#[derive(Default)]
+pub struct FileProviderDefault {
+    // todo
+}
+
+impl FileProviderDefault {
+    pub fn new() -> Self {
+        Self::default()
+    }
+}
+
+impl FileProvider for FileProviderDefault {
+    fn search_for_file(&self, _path: &Path) -> Result<String, Box<dyn Error>> {
+        Err("failed".into())
+    }
 }

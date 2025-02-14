@@ -3,6 +3,7 @@ use abra_core::effects::FromRepr;
 use abra_core::effects::VariantArray;
 use abra_core::effects::{Nominal, Type};
 use abra_core::FileData;
+use abra_core::FileProviderDefault;
 use clap::Parser;
 use std::path::PathBuf;
 
@@ -64,7 +65,7 @@ fn main() {
 
     let effects = CliEffects::enumerate();
 
-    match abra_core::compile_bytecode(source_files, effects) {
+    match abra_core::compile_bytecode(source_files, effects, FileProviderDefault::new()) {
         Ok(program) => {
             let mut vm = abra_core::vm::Vm::new(program);
             loop {
