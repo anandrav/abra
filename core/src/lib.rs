@@ -35,12 +35,8 @@ pub fn abra_hello_world() {
 
 pub fn source_files_single(src: &str) -> Vec<FileData> {
     vec![
-        FileData::new("test.abra".to_owned(), "test.abra".into(), src.to_owned()),
-        FileData::new(
-            "prelude.abra".to_owned(),
-            "prelude.abra".into(),
-            PRELUDE.to_owned(),
-        ),
+        FileData::new("test.abra".into(), src.to_owned()),
+        FileData::new("prelude.abra".into(), PRELUDE.to_owned()),
     ]
 }
 
@@ -71,14 +67,14 @@ pub fn compile_bytecode(
 
         file_asts.push(file_ast.clone());
 
-        // add_imports(
-        //     file_ast,
-        //     &mut file_db,
-        //     &file_provider,
-        //     &mut stack,
-        //     &mut visited,
-        //     &mut errors,
-        // );
+        add_imports(
+            file_ast,
+            &mut file_db,
+            &file_provider,
+            &mut stack,
+            &mut visited,
+            &mut errors,
+        );
     }
 
     for file_ast in file_asts.iter() {
@@ -133,8 +129,7 @@ fn add_imports(
                 let source = file_provider.search_for_file(&path);
                 match source {
                     Ok(source) => {
-                        let name = path.file_name().unwrap().to_string_lossy();
-                        let file_data = FileData::new(name.to_string(), path, source);
+                        let file_data = FileData::new(path, source);
                         let file_id = file_db.add(file_data);
                         stack.push_back(file_id);
                     }

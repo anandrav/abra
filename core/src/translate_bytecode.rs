@@ -424,7 +424,7 @@ impl Translator {
         }
         let mut filename_arena = vec![];
         for file_data in self._files.files.iter() {
-            filename_arena.push(file_data.name.clone());
+            filename_arena.push(file_data.name().to_string());
         }
         CompiledProgram {
             instructions,

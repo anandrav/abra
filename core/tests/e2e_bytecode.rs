@@ -1119,13 +1119,9 @@ fn bar(x: 'a) -> 'a {
 foo(2, 2)
 "#;
     let sources = vec![
-        FileData::new("main.abra".to_owned(), "main.abra".into(), main.to_owned()),
-        FileData::new("util.abra".to_owned(), "util.abra".into(), util.to_owned()),
-        FileData::new(
-            "prelude.abra".to_owned(),
-            "prelude.abra".into(),
-            PRELUDE.to_owned(),
-        ),
+        FileData::new("main.abra".into(), main.to_owned()),
+        FileData::new("util.abra".into(), util.to_owned()),
+        FileData::new("prelude.abra".into(), PRELUDE.to_owned()),
     ];
     let effects = DefaultEffects::enumerate();
     let program = compile_bytecode(sources, effects, FileProviderDefault::new());

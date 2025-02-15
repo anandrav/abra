@@ -28,7 +28,6 @@ impl Node for Identifier {
 
 #[derive(Debug, Clone)]
 pub struct FileData {
-    pub name: String, // TODO: just get name from the PathBuf. Add a name() function that returns &str
     pub path: PathBuf,
     pub source: String,
     /// The starting byte indices in the source code.
@@ -40,13 +39,16 @@ pub fn line_starts(source: &str) -> impl '_ + Iterator<Item = usize> {
 }
 
 impl FileData {
-    pub fn new(name: String, path: PathBuf, source: String) -> FileData {
+    pub fn new(path: PathBuf, source: String) -> FileData {
         FileData {
-            name,
             path,
             line_starts: line_starts(source.as_ref()).collect(),
             source,
         }
+    }
+
+    pub fn name(&self) -> &str {
+        self.path.file_name().unwrap().to_str().unwrap()
     }
 
     /// Return the starting byte index of the line with the specified line index.
@@ -131,7 +133,7 @@ impl<'a> codespan_reporting::files::Files<'a> for FileDatabase {
     type Source = &'a str;
 
     fn name(&'a self, file_id: usize) -> Result<Self::Name, codespan_reporting::files::Error> {
-        Ok(&self.get(file_id)?.name)
+        Ok(self.get(file_id)?.name())
     }
 
     fn source(&'a self, file_id: usize) -> Result<&'a str, codespan_reporting::files::Error> {
