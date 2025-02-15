@@ -9,7 +9,9 @@ use crate::ast::*;
 
 #[derive(Parser)]
 #[grammar = "grammar.pest"]
-struct MyParser; // TODO: move all parsing-related functions and structs to a file called parse.rs
+struct MyParser;
+
+// TODO: modify this to just take a single file
 pub(crate) fn parse_or_err(files: &FileDatabase) -> Result<Vec<Rc<FileAst>>, String> {
     let mut file_asts = vec![];
     for (file_id, file_data) in files.files.iter().enumerate() {

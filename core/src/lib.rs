@@ -1,4 +1,4 @@
-use std::error::Error;
+use std::collections::VecDeque;
 // use std::error::Error;
 use std::path::Path;
 use std::path::PathBuf;
@@ -21,6 +21,7 @@ pub mod vm;
 
 pub use ast::FileData;
 pub use prelude::PRELUDE;
+use statics::Error;
 use translate_bytecode::CompiledProgram;
 use translate_bytecode::Translator;
 
@@ -41,17 +42,29 @@ pub fn source_files_single(src: &str) -> Vec<FileData> {
 
 // the first file is the "main" file
 pub fn compile_bytecode(
-    files: Vec<FileData>,
+    files: Vec<FileData>, // TODO: just pass the main file in the future
     effects: Vec<EffectDesc>,
     file_provider: impl FileProvider,
 ) -> Result<CompiledProgram, String> {
+    // let errors: Vec<Error> = vec![];
+
     let mut sources = ast::FileDatabase::new();
     for file_data in files {
         sources.add(file_data);
     }
 
+    // let mut queue = VecDeque::new();
+    // for file_data in files {
+    //     queue.push_back(file_data.clone());
+    // }
+    // while let Some(file_data) = queue.pop_front() {
+    //     let files = parse::parse_or_err(&)
+    //     sources.add(file_data);
+    // }
+    // for file_data in queue {
+    //     sources.add(file_data);
+    // }
     let files = parse::parse_or_err(&sources)?;
-
     let mut node_map = ast::NodeMap::new();
     for parse_tree in &files {
         ast::initialize_node_map(&mut node_map, &(parse_tree.clone() as Rc<dyn ast::Node>));
@@ -68,7 +81,7 @@ pub fn compile_bytecode(
 pub trait FileProvider {
     /// Given a path, return the contents of the file as a String,
     /// or an error if the file cannot be found.
-    fn search_for_file(&self, path: &Path) -> Result<String, Box<dyn Error>>;
+    fn search_for_file(&self, path: &Path) -> Result<String, Box<dyn std::error::Error>>;
 }
 
 #[derive(Default)]
@@ -83,7 +96,7 @@ impl FileProviderDefault {
 }
 
 impl FileProvider for FileProviderDefault {
-    fn search_for_file(&self, _path: &Path) -> Result<String, Box<dyn Error>> {
+    fn search_for_file(&self, _path: &Path) -> Result<String, Box<dyn std::error::Error>> {
         Err("failed".into())
     }
 }
