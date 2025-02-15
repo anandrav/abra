@@ -28,7 +28,7 @@ impl Node for Identifier {
 
 #[derive(Debug, Clone)]
 pub struct FileData {
-    pub name: String,
+    pub name: String, // TODO: just get name from the PathBuf. Add a name() function that returns &str
     pub path: PathBuf,
     pub source: String,
     /// The starting byte indices in the source code.

@@ -12,15 +12,11 @@ use crate::ast::*;
 struct MyParser;
 
 // TODO: modify this to just take a single file
-pub(crate) fn parse_or_err(files: &FileDatabase) -> Result<Vec<Rc<FileAst>>, String> {
-    let mut file_asts = vec![];
-    for (file_id, file_data) in files.files.iter().enumerate() {
-        let pairs = get_pairs(&file_data.source)?;
+pub(crate) fn parse_or_err(file_id: FileId, file_data: &FileData) -> Result<Rc<FileAst>, String> {
+    let pairs = get_pairs(&file_data.source)?;
 
-        let file = parse_file(pairs, file_data, file_id);
-        file_asts.push(file);
-    }
-    Ok(file_asts)
+    let file_ast = parse_file(pairs, file_data, file_id);
+    Ok(file_ast)
 }
 
 pub(crate) fn parse_file(pairs: Pairs<Rule>, file_data: &FileData, file_id: FileId) -> Rc<FileAst> {

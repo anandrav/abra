@@ -1,9 +1,13 @@
+use std::collections::HashSet;
 use std::collections::VecDeque;
 // use std::error::Error;
 use std::path::Path;
 use std::path::PathBuf;
 use std::rc::Rc;
 
+use ast::FileAst;
+use ast::FileId;
+use ast::ItemKind;
 pub use effects::EffectCode;
 pub use effects::EffectDesc;
 
@@ -46,35 +50,46 @@ pub fn compile_bytecode(
     effects: Vec<EffectDesc>,
     file_provider: impl FileProvider,
 ) -> Result<CompiledProgram, String> {
-    // let errors: Vec<Error> = vec![];
+    let mut errors: Vec<Error> = vec![];
 
-    let mut sources = ast::FileDatabase::new();
-    for file_data in files {
-        sources.add(file_data);
-    }
-
-    // let mut queue = VecDeque::new();
-    // for file_data in files {
-    //     queue.push_back(file_data.clone());
-    // }
-    // while let Some(file_data) = queue.pop_front() {
-    //     let files = parse::parse_or_err(&)
-    //     sources.add(file_data);
-    // }
-    // for file_data in queue {
-    //     sources.add(file_data);
-    // }
-    let files = parse::parse_or_err(&sources)?;
+    // this is what's passed to Statics
+    let mut file_db = ast::FileDatabase::new();
     let mut node_map = ast::NodeMap::new();
-    for parse_tree in &files {
-        ast::initialize_node_map(&mut node_map, &(parse_tree.clone() as Rc<dyn ast::Node>));
+    let mut file_asts: Vec<Rc<FileAst>> = vec![];
+
+    let mut stack: VecDeque<FileId> = VecDeque::new();
+    let mut visited = HashSet::<PathBuf>::new();
+    for file_data in files {
+        visited.insert(file_data.path.clone());
+        let id = file_db.add(file_data);
+        stack.push_back(id);
     }
 
-    let inference_ctx = statics::analyze(&effects, &files, &node_map, &sources)?;
+    while let Some(file_id) = stack.pop_front() {
+        let file_data = file_db.get(file_id).unwrap();
+        let file_ast = parse::parse_or_err(file_id, file_data)?;
+
+        file_asts.push(file_ast.clone());
+
+        // add_imports(
+        //     file_ast,
+        //     &mut file_db,
+        //     &file_provider,
+        //     &mut stack,
+        //     &mut visited,
+        //     &mut errors,
+        // );
+    }
+
+    for file_ast in file_asts.iter() {
+        ast::initialize_node_map(&mut node_map, &(file_ast.clone() as Rc<dyn ast::Node>));
+    }
+
+    let inference_ctx = statics::analyze(&effects, &file_asts, &node_map, &file_db)?;
 
     // TODO: translator should be immutable
     // NOTE: It's only mutable right now because of ty_fits_impl_ty calls ast_type_to_statics_type...
-    let mut translator = Translator::new(inference_ctx, node_map, sources, files, effects);
+    let mut translator = Translator::new(inference_ctx, node_map, file_db, file_asts, effects);
     Ok(translator.translate())
 }
 
@@ -98,5 +113,34 @@ impl FileProviderDefault {
 impl FileProvider for FileProviderDefault {
     fn search_for_file(&self, _path: &Path) -> Result<String, Box<dyn std::error::Error>> {
         Err("failed".into())
+    }
+}
+
+fn add_imports(
+    file_ast: Rc<FileAst>,
+    file_db: &mut ast::FileDatabase,
+    file_provider: &impl FileProvider,
+    stack: &mut VecDeque<FileId>,
+    visited: &mut HashSet<PathBuf>,
+    errors: &mut Vec<Error>,
+) {
+    for item in file_ast.items.iter() {
+        if let ItemKind::Import(ident) = &*item.kind {
+            let path = PathBuf::from(ident.v.clone());
+            if !visited.contains(&path) {
+                visited.insert(path.clone());
+
+                let source = file_provider.search_for_file(&path);
+                match source {
+                    Ok(source) => {
+                        let name = path.file_name().unwrap().to_string_lossy();
+                        let file_data = FileData::new(name.to_string(), path, source);
+                        let file_id = file_db.add(file_data);
+                        stack.push_back(file_id);
+                    }
+                    Err(_) => errors.push(Error::UnresolvedIdentifier { node_id: item.id }),
+                }
+            }
+        }
     }
 }
