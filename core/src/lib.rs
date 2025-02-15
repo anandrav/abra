@@ -1,3 +1,4 @@
+use core::fmt;
 use std::collections::HashSet;
 use std::collections::VecDeque;
 // use std::error::Error;
@@ -92,7 +93,7 @@ pub fn compile_bytecode(
 pub trait FileProvider {
     /// Given a path, return the contents of the file as a String,
     /// or an error if the file cannot be found.
-    fn search_for_file(&self, path: &Path) -> Result<String, Box<dyn std::error::Error>>;
+    fn search_for_file(&self, path: &Path) -> Result<FileData, Box<dyn std::error::Error>>;
 }
 
 #[derive(Default)]
@@ -107,10 +108,34 @@ impl FileProviderDefault {
 }
 
 impl FileProvider for FileProviderDefault {
-    fn search_for_file(&self, _path: &Path) -> Result<String, Box<dyn std::error::Error>> {
-        Err("failed".into())
+    fn search_for_file(&self, path: &Path) -> Result<FileData, Box<dyn std::error::Error>> {
+        let home_dir = home::home_dir()
+            .expect("Could not determine home directory when looking for ~/.abra/modules");
+        let modules_dir = home_dir.join(".abra/modules");
+
+        let desired = modules_dir.join(path);
+        // println!("desired: {}", desired.display());
+        if let Ok(contents) = std::fs::read_to_string(&desired) {
+            return Ok(FileData::new(desired.clone(), contents));
+        }
+
+        Err(Box::new(MyError(
+            "TODO add a better error message here".to_string(),
+        )))
     }
 }
+
+#[derive(Debug)]
+struct MyError(String);
+
+impl fmt::Display for MyError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        // Display the inner string
+        write!(f, "{}", self.0)
+    }
+}
+
+impl std::error::Error for MyError {}
 
 fn add_imports(
     file_ast: Rc<FileAst>,
@@ -122,14 +147,13 @@ fn add_imports(
 ) {
     for item in file_ast.items.iter() {
         if let ItemKind::Import(ident) = &*item.kind {
-            let path = PathBuf::from(ident.v.clone());
+            let path = PathBuf::from(format!("{}.abra", ident.v));
             if !visited.contains(&path) {
                 visited.insert(path.clone());
 
-                let source = file_provider.search_for_file(&path);
-                match source {
-                    Ok(source) => {
-                        let file_data = FileData::new(path, source);
+                let file_data = file_provider.search_for_file(&path);
+                match file_data {
+                    Ok(file_data) => {
                         let file_id = file_db.add(file_data);
                         stack.push_back(file_id);
                     }

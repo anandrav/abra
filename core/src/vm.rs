@@ -305,7 +305,7 @@ impl<L: Display, S: Display> Display for Instr<L, S> {
             Instr::PushBool(b) => write!(f, "push_bool {}", b),
             Instr::PushInt(n) => write!(f, "push_int {}", n),
             Instr::PushFloat(n) => write!(f, "push_float {}", n),
-            Instr::PushString(s) => write!(f, "push_string \"{}\"", s),
+            Instr::PushString(s) => write!(f, "push_string {}", s),
             Instr::Jump(loc) => write!(f, "jump {}", loc),
             Instr::JumpIf(loc) => write!(f, "jump_if {}", loc),
             Instr::Call(loc) => write!(f, "call {}", loc),
@@ -491,6 +491,10 @@ impl Vm {
         // for pair in &self.filename_table {
         //     let filename = &self.filename_arena[pair.1 as usize];
         //     println!("bytecode[{}]\tfile '{}'", pair.0, filename);
+        // }
+
+        // for instr in &self.program {
+        //     println!("{}", instr);
         // }
 
         if self.pending_effect.is_some() {
