@@ -1,3 +1,5 @@
+pub mod exec;
+
 use std::fs;
 
 pub fn fread(path: String) -> String {
