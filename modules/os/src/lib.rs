@@ -9,9 +9,9 @@ pub unsafe extern "C" fn fread(vm: *mut Vm) {
     let path = string_view.to_owned();
     abra_vm_pop(vm);
 
-    let content = os::fread(path);
+    let ret = os::fread(path);
 
-    let string_view = StringView::from_string(&content);
+    let string_view = StringView::from_string(&ret);
     abra_vm_push_string(vm, string_view);
 }
 
