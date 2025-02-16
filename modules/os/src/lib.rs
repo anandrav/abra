@@ -2,6 +2,8 @@ use abra_core::addons::*;
 use abra_core::vm::Vm;
 use std::fs;
 
+mod exec;
+
 #[no_mangle]
 pub unsafe extern "C" fn fread(vm: *mut Vm) {
     // TODO: make a macro for this called get_string!

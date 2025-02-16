@@ -1,4 +1,4 @@
-use basic
+use os
 
 let path = "HELLO_FROM_ABRA.txt"
 let contents = "hello from abra"

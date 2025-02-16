@@ -1,10 +1,6 @@
-use basic
-use basic/helper
+use os
 
-foo()
+let path = "README.md"
+let contents = fread(path)
+print(contents)
 
-let p = "README.md"
-let c = fread(p)
-// print(contents)
-
-println("foo")

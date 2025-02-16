@@ -30,7 +30,7 @@ fn gather_declarations_file(ctx: &mut StaticsContext, file: Rc<FileAst>) -> Name
             ctx,
             &mut namespace,
             qualifiers.clone(),
-            &file.path,
+            file.clone(),
             item.clone(),
         );
     }
@@ -55,7 +55,7 @@ fn gather_declarations_item(
     ctx: &mut StaticsContext,
     namespace: &mut Namespace,
     qualifiers: Vec<String>,
-    path: &Path,
+    file: Rc<FileAst>,
     stmt: Rc<Item>,
 ) {
     match &*stmt.kind {
@@ -137,9 +137,20 @@ fn gather_declarations_item(
             // child directory -> Cargo.toml
             // Cargo.toml -> name of .so/dylib/dll file
 
-            let dirname = &path.to_str().unwrap()[..path.to_str().unwrap().len() - ".abra".len()];
+            let mut path = file.path.clone();
+            // println!("{}", path.display());
+            let elems: Vec<_> = file.name.split(std::path::MAIN_SEPARATOR_STR).collect();
+            // dbg!(&elems);
+            for _ in 0..elems.len() - 1 {
+                path = path.parent().unwrap().to_owned();
+            }
+            // println!("{}", path.display());
+            let mut dirname = path.to_str().unwrap().to_string();
+            if dirname.ends_with(".abra") {
+                dirname = dirname[..dirname.len() - ".abra".len()].to_string();
+            }
             // println!("{}", dirname);
-            let dir = std::fs::read_dir(dirname).unwrap(); // TODO: remove unwrap
+            let dir = std::fs::read_dir(&dirname).unwrap(); // TODO: remove unwrap
             let mut libname: Option<PathBuf> = None;
             for entry in dir.flatten() {
                 if entry.file_name() == "Cargo.toml" {

@@ -1,0 +1,3 @@
+use os/exec
+
+command("/bin/echo hello")
