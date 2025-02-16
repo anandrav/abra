@@ -8,7 +8,7 @@ use crate::vm::Vm;
 /// # Safety
 /// vm: *mut Vm must be valid and non-null
 #[no_mangle]
-pub unsafe extern "C" fn vm_push_int(vm: *mut Vm, n: i64) {
+pub unsafe extern "C" fn abra_vm_push_int(vm: *mut Vm, n: i64) {
     let vm = unsafe { vm.as_mut().unwrap() };
     vm.push_int(n);
 }
@@ -16,7 +16,7 @@ pub unsafe extern "C" fn vm_push_int(vm: *mut Vm, n: i64) {
 /// # Safety
 /// vm: *mut Vm must be valid and non-null
 #[no_mangle]
-pub unsafe extern "C" fn vm_push_nil(vm: *mut Vm) {
+pub unsafe extern "C" fn abra_vm_push_nil(vm: *mut Vm) {
     let vm = unsafe { vm.as_mut().unwrap() };
     vm.push_nil();
 }
@@ -24,7 +24,7 @@ pub unsafe extern "C" fn vm_push_nil(vm: *mut Vm) {
 /// # Safety
 /// vm: *mut Vm must be valid and non-null
 #[no_mangle]
-pub unsafe extern "C" fn vm_pop_int(vm: *mut Vm) -> i64 {
+pub unsafe extern "C" fn abra_vm_pop_int(vm: *mut Vm) -> i64 {
     let vm = unsafe { vm.as_mut().unwrap() };
     let top = vm.top().get_int();
     vm.pop();
@@ -34,7 +34,7 @@ pub unsafe extern "C" fn vm_pop_int(vm: *mut Vm) -> i64 {
 /// # Safety
 /// vm: *mut Vm must be valid and non-null
 #[no_mangle]
-pub unsafe extern "C" fn vm_pop(vm: *mut Vm) {
+pub unsafe extern "C" fn abra_vm_pop(vm: *mut Vm) {
     let vm = unsafe { vm.as_mut().unwrap() };
     vm.pop();
 }
@@ -64,7 +64,7 @@ impl StringView {
 /// # Safety
 /// vm: *mut Vm must be valid and non-null
 #[no_mangle]
-pub unsafe extern "C" fn vm_view_string(vm: *mut Vm) -> StringView {
+pub unsafe extern "C" fn abra_vm_view_string(vm: *mut Vm) -> StringView {
     let vm = unsafe { vm.as_mut().unwrap() };
     let top = vm.top().view_string(vm);
     StringView {
@@ -76,7 +76,7 @@ pub unsafe extern "C" fn vm_view_string(vm: *mut Vm) -> StringView {
 /// # Safety
 /// vm: *mut Vm must be valid and non-null
 #[no_mangle]
-pub unsafe extern "C" fn vm_push_string(vm: *mut Vm, string_view: StringView) {
+pub unsafe extern "C" fn abra_vm_push_string(vm: *mut Vm, string_view: StringView) {
     let vm = unsafe { vm.as_mut().unwrap() };
     let s = string_view.to_owned();
     vm.push_str(s);

@@ -5,9 +5,9 @@ use abra_core::vm::Vm;
 
 #[no_mangle]
 pub unsafe extern "C" fn command(vm: *mut Vm) {
-    let string_view = vm_view_string(vm);
+    let string_view = abra_vm_view_string(vm);
     let content = string_view.to_owned();
-    vm_pop(vm);
+    abra_vm_pop(vm);
 
     let content_elems: Vec<_> = content.split(' ').collect();
 
@@ -25,5 +25,5 @@ pub unsafe extern "C" fn command(vm: *mut Vm) {
         }
         Err(err) => err.raw_os_error().unwrap() as i64,
     };
-    vm_push_int(vm, 0);
+    abra_vm_push_int(vm, 0);
 }
