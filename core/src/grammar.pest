@@ -12,7 +12,8 @@ file_item = _{ func_def | foreign_func_decl | interface_declaration | interface_
 
 // typealias = { "type" ~ identifier ~ "=" ~ typ}
 
-import = { "use" ~ identifier }
+import = { "use" ~ path }
+path = @{ identifier ~ ("/" ~ identifier)* }
 
 interface_declaration = { "interface" ~ identifier ~ interface_body }
 interface_body = _{ "{" ~ interface_property* ~ "}" }

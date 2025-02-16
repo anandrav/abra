@@ -28,7 +28,8 @@ impl Node for Identifier {
 
 #[derive(Debug, Clone)]
 pub struct FileData {
-    pub path: PathBuf,
+    pub nominal_path: PathBuf,
+    pub full_path: PathBuf,
     pub source: String,
     /// The starting byte indices in the source code.
     line_starts: Vec<usize>,
@@ -39,16 +40,17 @@ pub fn line_starts(source: &str) -> impl '_ + Iterator<Item = usize> {
 }
 
 impl FileData {
-    pub fn new(path: PathBuf, source: String) -> FileData {
+    pub fn new(nominal_path: PathBuf, full_path: PathBuf, source: String) -> FileData {
         FileData {
-            path,
+            nominal_path,
+            full_path,
             line_starts: line_starts(source.as_ref()).collect(),
             source,
         }
     }
 
     pub fn name(&self) -> &str {
-        self.path.file_name().unwrap().to_str().unwrap()
+        self.full_path.file_name().unwrap().to_str().unwrap()
     }
 
     /// Return the starting byte index of the line with the specified line index.

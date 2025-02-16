@@ -1,3 +1,6 @@
-fn helper_function(x) {
-  x + 1
+
+use helper2
+
+fn foo(x) {
+  bar(x)
 }

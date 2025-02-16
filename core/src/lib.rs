@@ -36,8 +36,12 @@ pub fn abra_hello_world() {
 
 pub fn source_files_single(src: &str) -> Vec<FileData> {
     vec![
-        FileData::new("test.abra".into(), src.to_owned()),
-        FileData::new("prelude.abra".into(), PRELUDE.to_owned()),
+        FileData::new("test.abra".into(), "test.abra".into(), src.to_owned()),
+        FileData::new(
+            "prelude.abra".into(),
+            "prelude.abra".into(),
+            PRELUDE.to_owned(),
+        ),
     ]
 }
 
@@ -57,7 +61,7 @@ pub fn compile_bytecode(
     let mut stack: VecDeque<FileId> = VecDeque::new();
     let mut visited = HashSet::<PathBuf>::new();
     for file_data in files {
-        visited.insert(file_data.path.clone());
+        visited.insert(file_data.full_path.clone());
         let id = file_db.add(file_data);
         stack.push_back(id);
     }
@@ -90,7 +94,7 @@ pub fn compile_bytecode(
 pub trait FileProvider {
     /// Given a path, return the contents of the file as a String,
     /// or an error if the file cannot be found.
-    fn search_for_file(&self, path: &Path) -> Result<FileData, Box<dyn std::error::Error>>;
+    fn search_for_file(&self, path: &PathBuf) -> Result<FileData, Box<dyn std::error::Error>>;
 }
 
 #[derive(Default)]
@@ -116,21 +120,23 @@ impl FileProviderDefault {
 }
 
 impl FileProvider for FileProviderDefault {
-    fn search_for_file(&self, path: &Path) -> Result<FileData, Box<dyn std::error::Error>> {
+    fn search_for_file(&self, path: &PathBuf) -> Result<FileData, Box<dyn std::error::Error>> {
         // look in modules first
         {
             let desired = self.modules.join(path);
             if let Ok(contents) = std::fs::read_to_string(&desired) {
-                return Ok(FileData::new(desired.clone(), contents));
+                return Ok(FileData::new(path.clone(), desired.clone(), contents));
             }
         }
 
         // then look in dir of main file
         {
             let desired = self.main_file_dir.join(path);
+            // println!("searching for {}", desired.display());
             if let Ok(contents) = std::fs::read_to_string(&desired) {
-                return Ok(FileData::new(desired.clone(), contents));
+                return Ok(FileData::new(path.clone(), desired.clone(), contents));
             }
+            // println!("did not find it...");
         }
 
         Err(Box::new(MyError(

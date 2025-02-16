@@ -1,5 +1,8 @@
 use helper
+use helperdir/helper3
 
-let x = helper_function(2)
-println("helper_function(2) = " & x)
+let x = foo(2)
+println("foo(2) = " & x)
+
+bleep()
 

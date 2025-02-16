@@ -316,6 +316,7 @@ fn resolve_imports_file(ctx: &mut StaticsContext, file: Rc<FileAst>) -> Toplevel
 
     for item in file.items.iter() {
         if let ItemKind::Import(path) = &*item.kind {
+            // dbg!(&ctx.global_namespace.namespaces);
             let Some(import_src) = ctx.global_namespace.namespaces.get(&path.v) else {
                 ctx.errors
                     .push(Error::UnresolvedIdentifier { node_id: item.id });

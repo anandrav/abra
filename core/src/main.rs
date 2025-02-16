@@ -26,11 +26,12 @@ foo(2, 2)
 "#;
     let sources = vec![
         FileData::new(
+            "prelude.abra".into(),
             "prelude.abra".into(), // TODO: does Path actually make sense in this context?
             PRELUDE.to_owned(),
         ),
-        FileData::new("util.abra".into(), util.to_owned()),
-        FileData::new("main.abra".into(), main.to_owned()),
+        FileData::new("util.abra".into(), "util.abra".into(), util.to_owned()),
+        FileData::new("main.abra".into(), "main.abra".into(), main.to_owned()),
     ];
     let effects = DefaultEffects::enumerate();
     let program = compile_bytecode(

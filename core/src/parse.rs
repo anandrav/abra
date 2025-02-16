@@ -34,8 +34,10 @@ pub(crate) fn parse_file(pairs: Pairs<Rule>, file_data: &FileData, file_id: File
     Rc::new(FileAst {
         items,
         // remove the .abra suffix from filename
-        name: file_data.name().to_string()[..&file_data.name().len() - 5].to_string(),
-        path: file_data.path.clone(),
+        name: file_data.nominal_path.to_str().unwrap()
+            [..file_data.nominal_path.to_str().unwrap().len() - 5]
+            .to_string(),
+        path: file_data.full_path.clone(),
         loc: Location {
             file_id,
             lo: span1.lo,
