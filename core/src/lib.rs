@@ -67,6 +67,7 @@ pub fn compile_bytecode(
         let file_ast = parse::parse_or_err(file_id, file_data)?;
 
         file_asts.push(file_ast.clone());
+        ast::initialize_node_map(&mut node_map, &(file_ast.clone() as Rc<dyn ast::Node>));
 
         add_imports(
             file_ast,
@@ -76,10 +77,6 @@ pub fn compile_bytecode(
             &mut visited,
             &mut errors,
         );
-    }
-
-    for file_ast in file_asts.iter() {
-        ast::initialize_node_map(&mut node_map, &(file_ast.clone() as Rc<dyn ast::Node>));
     }
 
     let inference_ctx = statics::analyze(&effects, &file_asts, &node_map, &file_db)?;
@@ -98,22 +95,24 @@ pub trait FileProvider {
 
 #[derive(Default)]
 pub struct FileProviderDefault {
-    // todo
+    modules: PathBuf,
 }
 
 impl FileProviderDefault {
     pub fn new() -> Self {
-        Self::default()
+        Self {
+            modules: PathBuf::new(),
+        }
+    }
+
+    pub fn new_modules(modules: PathBuf) -> Self {
+        Self { modules }
     }
 }
 
 impl FileProvider for FileProviderDefault {
     fn search_for_file(&self, path: &Path) -> Result<FileData, Box<dyn std::error::Error>> {
-        let home_dir = home::home_dir()
-            .expect("Could not determine home directory when looking for ~/.abra/modules");
-        let modules_dir = home_dir.join(".abra/modules");
-
-        let desired = modules_dir.join(path);
+        let desired = self.modules.join(path);
         // println!("desired: {}", desired.display());
         if let Ok(contents) = std::fs::read_to_string(&desired) {
             return Ok(FileData::new(desired.clone(), contents));

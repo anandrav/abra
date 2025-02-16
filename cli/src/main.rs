@@ -48,19 +48,22 @@ fn main() {
         abra_core::prelude::PRELUDE.to_string(),
     ));
 
-    // let modules: PathBuf = match args.modules {
-    //     Some(modules) => modules.into(),
-    //     None => {
-    //         let home_dir = home::home_dir()
-    //             .expect("Could not determine home directory when looking for ~/.abra/modules");
-    //         home_dir.join(".abra/modules")
-    //     }
-    // };
+    let modules: PathBuf = match args.modules {
+        Some(modules) => {
+            let current_dir = std::env::current_dir().unwrap();
+            current_dir.join(modules)
+        }
+        None => {
+            let home_dir = home::home_dir()
+                .expect("Could not determine home directory when looking for ~/.abra/modules");
+            home_dir.join(".abra/modules")
+        }
+    };
     // add_modules_toplevel(modules, &args.file, &mut source_files);
 
     let effects = CliEffects::enumerate();
 
-    let file_provider = FileProviderDefault::new();
+    let file_provider = FileProviderDefault::new_modules(modules);
 
     match abra_core::compile_bytecode(source_files, effects, file_provider) {
         Ok(program) => {
