@@ -4,7 +4,7 @@ use std::fs;
 
 mod exec;
 
-#[no_mangle]
+#[export_name = "abra_ffi$os$fread"]
 pub unsafe extern "C" fn fread(vm: *mut Vm) {
     // TODO: make a macro for this called get_string!
     let string_view = abra_vm_view_string(vm);
@@ -17,7 +17,7 @@ pub unsafe extern "C" fn fread(vm: *mut Vm) {
     abra_vm_push_string(vm, string_view);
 }
 
-#[no_mangle]
+#[export_name = "abra_ffi$os$fwrite"]
 pub unsafe extern "C" fn fwrite(vm: *mut Vm) {
     let string_view = abra_vm_view_string(vm);
     let content = string_view.to_owned();

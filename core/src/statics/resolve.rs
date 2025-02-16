@@ -185,7 +185,14 @@ fn gather_declarations_item(
                 .entry(libname.to_str().unwrap().to_string())
                 .or_insert(len);
 
-            let symbol = f.name.v.clone();
+            let mut symbol = "abra_ffi".to_string();
+            for elem in elems {
+                symbol.push('$');
+                symbol.push_str(elem);
+            }
+            symbol.push('$');
+            symbol.push_str(&f.name.v);
+
             // add symbol to string constants
             let len = ctx.string_constants.len();
             ctx.string_constants.entry(symbol.clone()).or_insert(len);

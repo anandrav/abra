@@ -3,7 +3,7 @@ use std::process::Command;
 use abra_core::addons::*;
 use abra_core::vm::Vm;
 
-#[no_mangle]
+#[export_name = "abra_ffi$os$exec$command"]
 pub unsafe extern "C" fn command(vm: *mut Vm) {
     let string_view = abra_vm_view_string(vm);
     let content = string_view.to_owned();
