@@ -151,7 +151,16 @@ fn gather_declarations_item(
                         &cargo_toml.package.name,
                         std::env::consts::DLL_SUFFIX
                     );
-                    libname = Some(Path::new(&dirname).join("target/release/").join(filename));
+                    let version = if cfg!(debug_assertions) {
+                        "debug".to_string()
+                    } else {
+                        "release".to_string()
+                    };
+                    libname = Some(
+                        Path::new(&dirname)
+                            .join(format!("target/{}/", version))
+                            .join(filename),
+                    );
                     // dbg!(&libname);
                 }
             }

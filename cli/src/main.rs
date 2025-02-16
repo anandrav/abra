@@ -90,7 +90,7 @@ fn main() {
                     std::process::exit(1);
                 }
                 vm.run();
-                vm.gc();
+                // vm.gc();
                 if let Some(pending_effect) = vm.get_pending_effect() {
                     let effect = CliEffects::from_repr(pending_effect as usize).unwrap();
                     match effect {

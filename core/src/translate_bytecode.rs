@@ -269,6 +269,7 @@ impl Translator {
             let monomorph_env = MonomorphEnv::empty();
 
             // Initialization routine before main function (load shared libraries)
+            // dbg!(&self.statics.dylib_to_funcs);
             for (l, symbols) in &self.statics.dylib_to_funcs {
                 self.emit(st, Instr::PushString(l.to_str().unwrap().to_string()));
                 self.emit(st, Instr::LoadLib);
@@ -405,11 +406,11 @@ impl Translator {
 
             // Create functions for effects
             for (i, effect) in self.effects.iter().enumerate() {
-                self.update_function_name_table(st, effect.name);
+                // self.update_function_name_table(st, effect.name);
 
-                self.emit(st, Line::Label(effect.name.into()));
-                self.emit(st, Instr::Effect(i as u16));
-                self.emit(st, Instr::Return);
+                // self.emit(st, Line::Label(effect.name.into()));
+                // self.emit(st, Instr::Effect(i as u16));
+                // self.emit(st, Instr::Return);
             }
 
             for _item in st.lines.iter() {

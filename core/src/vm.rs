@@ -493,8 +493,11 @@ impl Vm {
         //     println!("bytecode[{}]\tfile '{}'", pair.0, filename);
         // }
 
-        // for instr in &self.program {
-        //     println!("{}", instr);
+        // if self.pc == 0 {
+        //     for (i, instr) in self.program.iter().enumerate() {
+        //         println!("{}", instr);
+        //     }
+        //     println!("----------------------------------------");
         // }
 
         if self.pending_effect.is_some() {
@@ -525,6 +528,7 @@ impl Vm {
 
     fn step(&mut self) {
         let instr = self.program[self.pc];
+        // println!("{}: {}", self.pc, instr);
         self.pc += 1;
         match instr {
             Instr::PushNil => {
@@ -890,6 +894,8 @@ impl Vm {
                 }
             }
             Instr::ConcatStrings => {
+                // println!("Instr::ConcatStrings");
+
                 let b = self.pop();
                 let a = self.pop();
                 let a_str = a.get_string(self);
@@ -920,6 +926,8 @@ impl Vm {
                 self.pending_effect = Some(eff);
             }
             Instr::LoadLib => {
+                // println!("Instr::LoadLib");
+
                 if cfg!(not(feature = "ffi")) {
                     panic!("ffi is not enabled.")
                 }
@@ -1137,6 +1145,7 @@ impl Vm {
     }
 
     fn pop_string(&mut self) -> String {
+        // println!("pop_string()");
         self.value_stack
             .pop()
             .expect("stack underflow")

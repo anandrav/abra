@@ -1,3 +1,12 @@
 #!/bin/bash
 
-cargo run --release --bin  abra -- -m modules "$@"
+for dir in modules/*; do
+  if [ -d "$dir" ] && [ -f "$dir/Cargo.toml" ]; then
+    printf "  - building $dir ... "
+    pushd "$dir" > /dev/null
+    cargo build
+    popd > /dev/null
+  fi
+done
+
+cargo run --bin  abra -- -m modules "$@"
