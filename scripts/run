@@ -1,5 +1,11 @@
 #!/bin/bash
 
+set -euo pipefail
+
+pushd core
+cargo build
+popd
+
 for dir in modules/*; do
   if [ -d "$dir" ] && [ -f "$dir/Cargo.toml" ]; then
     printf "  - building $dir ... "

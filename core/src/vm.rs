@@ -14,6 +14,7 @@ use std::{
     mem,
 };
 
+#[repr(C)]
 pub struct Vm {
     program: Vec<Instr>,
     pc: ProgramCounter,
@@ -151,6 +152,7 @@ impl Vm {
     }
 
     pub fn push_str(&mut self, s: String) {
+        println!("push_str() heapgroup={:?}", self.heap_group);
         self.heap
             .push(ManagedObject::new(ManagedObjectKind::String(s)));
         let r = self.heap_reference(self.heap.len() - 1);
@@ -410,10 +412,13 @@ impl Value {
 
     pub fn get_string(&self, vm: &Vm) -> String {
         match self {
-            Value::HeapReference(r) => match &vm.heap[r.get().get()].kind {
-                ManagedObjectKind::String(s) => s.clone(),
-                _ => panic!("not a string"),
-            },
+            Value::HeapReference(r) => {
+                assert_eq!(r.get().group, vm.heap_group);
+                match &vm.heap[r.get().get()].kind {
+                    ManagedObjectKind::String(s) => s.clone(),
+                    _ => panic!("not a string"),
+                }
+            }
             _ => panic!("not a string"),
         }
     }
@@ -507,7 +512,22 @@ impl Vm {
             panic!("forgot to check error on vm");
         }
         while !self.is_done() && self.pending_effect.is_none() && self.error.is_none() {
+            println!("heapgroup={:?}", self.heap_group);
+            println!("STACK: {:#?}", self.value_stack);
+            println!("HEAP: {:#?}", self.heap);
+            self.gc();
+            println!("heapgroup={:?}", self.heap_group);
+            println!("STACK: {:#?}", self.value_stack);
+            println!("HEAP: {:#?}", self.heap);
+            println!("again, heapgroup={:?}", self.heap_group);
             self.step();
+            println!("heapgroup={:?}", self.heap_group);
+            println!("STACK: {:#?}", self.value_stack);
+            println!("HEAP: {:#?}", self.heap);
+            self.gc();
+            println!("heapgroup={:?}", self.heap_group);
+            println!("STACK: {:#?}", self.value_stack);
+            println!("HEAP: {:#?}", self.heap);
         }
     }
 
@@ -527,8 +547,9 @@ impl Vm {
     }
 
     fn step(&mut self) {
+        println!("---step------------");
         let instr = self.program[self.pc];
-        // println!("{}: {}", self.pc, instr);
+        println!("{}: {}", self.pc, instr);
         self.pc += 1;
         match instr {
             Instr::PushNil => {
@@ -964,13 +985,16 @@ impl Vm {
                     panic!("ffi is not enabled.")
                 }
 
+                println!("before ffi, heapgroup={:?}", self.heap_group);
                 #[cfg(feature = "ffi")]
                 {
                     unsafe {
                         let vm_ptr = self as *mut Vm;
+                        println!("BTW, heapgroup={:?}", self.heap_group);
                         self.foreign_functions[_func_id](vm_ptr);
                     };
                 }
+                println!("done with ffi, heapgroup={:?}", self.heap_group);
             }
         }
     }
@@ -1025,6 +1049,10 @@ impl Vm {
     }
 
     fn heap_reference(&mut self, idx: usize) -> Value {
+        println!(
+            "creating reference at idx={}, heapgroup={:?}",
+            idx, self.heap_group
+        );
         Value::HeapReference(Cell::new(HeapReference {
             idx,
             group: self.heap_group,
@@ -1051,7 +1079,7 @@ impl Vm {
     }
 
     pub fn gc(&mut self) {
-        // println!("GC");
+        println!("---GC------------");
         let mut new_heap = Vec::<ManagedObject>::new();
         let new_heap_group = match self.heap_group {
             HeapGroup::One => HeapGroup::Two,
@@ -1129,7 +1157,7 @@ impl Vm {
         mem::swap(&mut self.heap, &mut new_heap);
         self.heap_group = new_heap_group;
 
-        self.compact();
+        // self.compact();
     }
 
     fn push(&mut self, x: impl Into<Value>) {
@@ -1162,9 +1190,10 @@ fn forward(
 ) -> HeapReference {
     if r.group != new_heap_group {
         // from space
-        let obj = &old_heap[r.idx];
-        match obj.forwarding_pointer.get() {
+        let old_obj = &old_heap[r.idx];
+        match old_obj.forwarding_pointer.get() {
             Some(f) => {
+                println!("forwarded to idx: {}", f);
                 // return f
                 HeapReference {
                     idx: f,
@@ -1175,11 +1204,11 @@ fn forward(
                 // copy to new heap and install forwarding pointer in old heap object
                 let new_idx = to_add.len() + new_heap_len;
 
-                let new_obj = obj.clone();
+                let new_obj = old_obj.clone();
                 new_obj.forwarding_pointer.replace(None);
                 to_add.push(new_obj);
 
-                obj.forwarding_pointer.replace(Some(new_idx));
+                old_obj.forwarding_pointer.replace(Some(new_idx));
 
                 HeapReference {
                     idx: new_idx,

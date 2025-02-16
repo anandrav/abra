@@ -121,6 +121,7 @@ fn main() {
                     }
                     vm.clear_pending_effect();
                 }
+                // vm.gc();
             }
         }
         Err(err) => {
