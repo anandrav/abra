@@ -152,27 +152,39 @@ fn gather_declarations_item(
             // println!("{}", dirname);
             let dir = std::fs::read_dir(&dirname).unwrap(); // TODO: remove unwrap
             let mut libname: Option<PathBuf> = None;
-            for entry in dir.flatten() {
-                if entry.file_name() == "Cargo.toml" {
-                    let content = std::fs::read_to_string(entry.path()).unwrap(); // TODO: remove unwrap
-                    let cargo_toml: CargoToml = toml::from_str(&content).unwrap(); // TODO: remove unwrap
-                    let filename = format!(
-                        "{}{}{}",
-                        std::env::consts::DLL_PREFIX,
-                        &cargo_toml.package.name,
-                        std::env::consts::DLL_SUFFIX
-                    );
-                    let version = if cfg!(debug_assertions) {
-                        "debug".to_string()
-                    } else {
-                        "release".to_string()
-                    };
-                    libname = Some(
-                        Path::new(&dirname)
-                            .join(format!("target/{}/", version))
-                            .join(filename),
-                    );
-                    // dbg!(&libname);
+
+            for entry in dir {
+                let entry = entry.unwrap();
+                let file_type = entry.file_type().unwrap();
+
+                println!("{}", entry.file_name().to_str().unwrap());
+                if file_type.is_dir() && entry.file_name() == "rust_project" {
+                    let rust_project_path = entry.path();
+
+                    for entry in std::fs::read_dir(rust_project_path).unwrap() {
+                        let entry = entry.unwrap();
+                        if entry.file_name() == "Cargo.toml" {
+                            let content = std::fs::read_to_string(entry.path()).unwrap(); // TODO: remove unwrap
+                            let cargo_toml: CargoToml = toml::from_str(&content).unwrap(); // TODO: remove unwrap
+                            let filename = format!(
+                                "{}{}{}",
+                                std::env::consts::DLL_PREFIX,
+                                &cargo_toml.package.name,
+                                std::env::consts::DLL_SUFFIX
+                            );
+                            let version = if cfg!(debug_assertions) {
+                                "debug".to_string()
+                            } else {
+                                "release".to_string()
+                            };
+                            libname = Some(
+                                Path::new(&dirname)
+                                    .join(format!("rust_project/target/{}/", version))
+                                    .join(filename),
+                            );
+                            // dbg!(&libname);
+                        }
+                    }
                 }
             }
 
