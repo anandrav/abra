@@ -94,7 +94,7 @@ pub fn compile_bytecode(
 pub trait FileProvider {
     /// Given a path, return the contents of the file as a String,
     /// or an error if the file cannot be found.
-    fn search_for_file(&self, path: &PathBuf) -> Result<FileData, Box<dyn std::error::Error>>;
+    fn search_for_file(&self, path: &Path) -> Result<FileData, Box<dyn std::error::Error>>;
 }
 
 #[derive(Default)]
@@ -120,23 +120,21 @@ impl FileProviderDefault {
 }
 
 impl FileProvider for FileProviderDefault {
-    fn search_for_file(&self, path: &PathBuf) -> Result<FileData, Box<dyn std::error::Error>> {
+    fn search_for_file(&self, path: &Path) -> Result<FileData, Box<dyn std::error::Error>> {
         // look in modules first
         {
             let desired = self.modules.join(path);
             if let Ok(contents) = std::fs::read_to_string(&desired) {
-                return Ok(FileData::new(path.clone(), desired.clone(), contents));
+                return Ok(FileData::new(path.to_owned(), desired.clone(), contents));
             }
         }
 
         // then look in dir of main file
         {
             let desired = self.main_file_dir.join(path);
-            // println!("searching for {}", desired.display());
             if let Ok(contents) = std::fs::read_to_string(&desired) {
-                return Ok(FileData::new(path.clone(), desired.clone(), contents));
+                return Ok(FileData::new(path.to_owned(), desired.clone(), contents));
             }
-            // println!("did not find it...");
         }
 
         Err(Box::new(MyError(

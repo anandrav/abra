@@ -1,4 +1,7 @@
 use basic
+use basic/helper
+
+foo()
 
 let path = "README.md"
 let contents = fread(path)

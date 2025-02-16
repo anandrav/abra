@@ -1,0 +1,4 @@
+
+fn foo() {
+    println("I am foo()")
+}
