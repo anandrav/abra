@@ -1,6 +1,9 @@
 use os
+use os/exec
 
 let path = "README.md"
 let contents = fread(path)
 print(contents)
+
+command("/bin/echo echooooo")
 
