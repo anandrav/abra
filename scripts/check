@@ -6,5 +6,9 @@ cargo clippy
 
 cargo test
 
+pushd core
+cargo check --lib --target wasm32-unknown-unknown
+popd
+
 cargo +nightly udeps
 cargo deny check
