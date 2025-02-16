@@ -152,7 +152,6 @@ impl Vm {
     }
 
     pub fn push_str(&mut self, s: String) {
-        println!("push_str() heapgroup={:?}", self.heap_group);
         self.heap
             .push(ManagedObject::new(ManagedObjectKind::String(s)));
         let r = self.heap_reference(self.heap.len() - 1);
@@ -512,22 +511,7 @@ impl Vm {
             panic!("forgot to check error on vm");
         }
         while !self.is_done() && self.pending_effect.is_none() && self.error.is_none() {
-            println!("heapgroup={:?}", self.heap_group);
-            println!("STACK: {:#?}", self.value_stack);
-            println!("HEAP: {:#?}", self.heap);
-            self.gc();
-            println!("heapgroup={:?}", self.heap_group);
-            println!("STACK: {:#?}", self.value_stack);
-            println!("HEAP: {:#?}", self.heap);
-            println!("again, heapgroup={:?}", self.heap_group);
             self.step();
-            println!("heapgroup={:?}", self.heap_group);
-            println!("STACK: {:#?}", self.value_stack);
-            println!("HEAP: {:#?}", self.heap);
-            self.gc();
-            println!("heapgroup={:?}", self.heap_group);
-            println!("STACK: {:#?}", self.value_stack);
-            println!("HEAP: {:#?}", self.heap);
         }
     }
 
@@ -547,9 +531,7 @@ impl Vm {
     }
 
     fn step(&mut self) {
-        println!("---step------------");
         let instr = self.program[self.pc];
-        println!("{}: {}", self.pc, instr);
         self.pc += 1;
         match instr {
             Instr::PushNil => {
@@ -915,8 +897,6 @@ impl Vm {
                 }
             }
             Instr::ConcatStrings => {
-                // println!("Instr::ConcatStrings");
-
                 let b = self.pop();
                 let a = self.pop();
                 let a_str = a.get_string(self);
@@ -947,8 +927,6 @@ impl Vm {
                 self.pending_effect = Some(eff);
             }
             Instr::LoadLib => {
-                // println!("Instr::LoadLib");
-
                 if cfg!(not(feature = "ffi")) {
                     panic!("ffi is not enabled.")
                 }
@@ -985,16 +963,13 @@ impl Vm {
                     panic!("ffi is not enabled.")
                 }
 
-                println!("before ffi, heapgroup={:?}", self.heap_group);
                 #[cfg(feature = "ffi")]
                 {
                     unsafe {
                         let vm_ptr = self as *mut Vm;
-                        println!("BTW, heapgroup={:?}", self.heap_group);
                         self.foreign_functions[_func_id](vm_ptr);
                     };
                 }
-                println!("done with ffi, heapgroup={:?}", self.heap_group);
             }
         }
     }
@@ -1049,10 +1024,6 @@ impl Vm {
     }
 
     fn heap_reference(&mut self, idx: usize) -> Value {
-        println!(
-            "creating reference at idx={}, heapgroup={:?}",
-            idx, self.heap_group
-        );
         Value::HeapReference(Cell::new(HeapReference {
             idx,
             group: self.heap_group,
@@ -1079,7 +1050,6 @@ impl Vm {
     }
 
     pub fn gc(&mut self) {
-        println!("---GC------------");
         let mut new_heap = Vec::<ManagedObject>::new();
         let new_heap_group = match self.heap_group {
             HeapGroup::One => HeapGroup::Two,
@@ -1173,7 +1143,6 @@ impl Vm {
     }
 
     fn pop_string(&mut self) -> String {
-        // println!("pop_string()");
         self.value_stack
             .pop()
             .expect("stack underflow")
@@ -1193,7 +1162,6 @@ fn forward(
         let old_obj = &old_heap[r.idx];
         match old_obj.forwarding_pointer.get() {
             Some(f) => {
-                println!("forwarded to idx: {}", f);
                 // return f
                 HeapReference {
                     idx: f,
