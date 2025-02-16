@@ -33,7 +33,11 @@ foo(2, 2)
         FileData::new("main.abra".into(), main.to_owned()),
     ];
     let effects = DefaultEffects::enumerate();
-    let program = compile_bytecode(sources, effects, FileProviderDefault::new());
+    let program = compile_bytecode(
+        sources,
+        effects,
+        FileProviderDefault::todo_get_rid_of_this(),
+    );
     if let Err(e) = program {
         panic!("{}", e);
     }

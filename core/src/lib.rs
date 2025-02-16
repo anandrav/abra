@@ -95,27 +95,42 @@ pub trait FileProvider {
 
 #[derive(Default)]
 pub struct FileProviderDefault {
+    main_file_dir: PathBuf,
     modules: PathBuf,
 }
 
 impl FileProviderDefault {
-    pub fn new() -> Self {
+    pub fn todo_get_rid_of_this() -> Self {
         Self {
+            main_file_dir: PathBuf::new(),
             modules: PathBuf::new(),
         }
     }
 
-    pub fn new_modules(modules: PathBuf) -> Self {
-        Self { modules }
+    pub fn new(main_file_dir: PathBuf, modules: PathBuf) -> Self {
+        Self {
+            main_file_dir,
+            modules,
+        }
     }
 }
 
 impl FileProvider for FileProviderDefault {
     fn search_for_file(&self, path: &Path) -> Result<FileData, Box<dyn std::error::Error>> {
-        let desired = self.modules.join(path);
-        // println!("desired: {}", desired.display());
-        if let Ok(contents) = std::fs::read_to_string(&desired) {
-            return Ok(FileData::new(desired.clone(), contents));
+        // look in modules first
+        {
+            let desired = self.modules.join(path);
+            if let Ok(contents) = std::fs::read_to_string(&desired) {
+                return Ok(FileData::new(desired.clone(), contents));
+            }
+        }
+
+        // then look in dir of main file
+        {
+            let desired = self.main_file_dir.join(path);
+            if let Ok(contents) = std::fs::read_to_string(&desired) {
+                return Ok(FileData::new(desired.clone(), contents));
+            }
         }
 
         Err(Box::new(MyError(

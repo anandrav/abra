@@ -21,7 +21,7 @@ fib(20)
     let program = compile_bytecode(
         sources,
         DefaultEffects::enumerate(),
-        FileProviderDefault::new(),
+        FileProviderDefault::todo_get_rid_of_this(),
     )
     .unwrap();
     c.bench_function("vm", |b| {

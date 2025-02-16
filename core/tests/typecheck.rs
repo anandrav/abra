@@ -24,7 +24,7 @@ let f = e mod 3
     unwrap_or_panic(compile_bytecode(
         sources,
         DefaultEffects::enumerate(),
-        FileProviderDefault::new(),
+        FileProviderDefault::todo_get_rid_of_this(),
     ));
 }
 
@@ -41,7 +41,7 @@ let e = d ^ 2.0
     unwrap_or_panic(compile_bytecode(
         sources,
         DefaultEffects::enumerate(),
-        FileProviderDefault::new(),
+        FileProviderDefault::todo_get_rid_of_this(),
     ));
 }
 
@@ -57,7 +57,7 @@ let w = x or y
     unwrap_or_panic(compile_bytecode(
         sources,
         DefaultEffects::enumerate(),
-        FileProviderDefault::new(),
+        FileProviderDefault::todo_get_rid_of_this(),
     ));
 }
 
@@ -82,7 +82,7 @@ let k = a and b and c and d and e and f and g and h and i and j
     unwrap_or_panic(compile_bytecode(
         sources,
         DefaultEffects::enumerate(),
-        FileProviderDefault::new(),
+        FileProviderDefault::todo_get_rid_of_this(),
     ));
 }
 
@@ -101,7 +101,7 @@ p.age
     unwrap_or_panic(compile_bytecode(
         sources,
         DefaultEffects::enumerate(),
-        FileProviderDefault::new(),
+        FileProviderDefault::todo_get_rid_of_this(),
     ));
 }
 
@@ -113,7 +113,7 @@ fn should_fail(src: &str) {
     compile_bytecode(
         sources,
         DefaultEffects::enumerate(),
-        FileProviderDefault::new(),
+        FileProviderDefault::todo_get_rid_of_this(),
     )
     .unwrap_err();
 }

@@ -26,7 +26,7 @@ h
     let program = unwrap_or_panic(compile_bytecode(
         sources,
         DefaultEffects::enumerate(),
-        FileProviderDefault::new(),
+        FileProviderDefault::todo_get_rid_of_this(),
     ));
     let mut vm = Vm::new(program);
     vm.run();
@@ -50,7 +50,7 @@ x + y
     let program = unwrap_or_panic(compile_bytecode(
         sources,
         DefaultEffects::enumerate(),
-        FileProviderDefault::new(),
+        FileProviderDefault::todo_get_rid_of_this(),
     ));
     let mut vm = Vm::new(program);
     vm.run();
@@ -72,7 +72,7 @@ if false {
     let program = unwrap_or_panic(compile_bytecode(
         sources,
         DefaultEffects::enumerate(),
-        FileProviderDefault::new(),
+        FileProviderDefault::todo_get_rid_of_this(),
     ));
     let mut vm = Vm::new(program);
     vm.run();
@@ -94,7 +94,7 @@ x
     let program = unwrap_or_panic(compile_bytecode(
         sources,
         DefaultEffects::enumerate(),
-        FileProviderDefault::new(),
+        FileProviderDefault::todo_get_rid_of_this(),
     ));
     let mut vm = Vm::new(program);
     vm.run();
@@ -113,7 +113,7 @@ print_string("hello world")
     let program = unwrap_or_panic(compile_bytecode(
         sources,
         DefaultEffects::enumerate(),
-        FileProviderDefault::new(),
+        FileProviderDefault::todo_get_rid_of_this(),
     ));
     let mut vm = Vm::new(program);
     vm.run();
@@ -144,7 +144,7 @@ x.name
     let program = unwrap_or_panic(compile_bytecode(
         sources,
         DefaultEffects::enumerate(),
-        FileProviderDefault::new(),
+        FileProviderDefault::todo_get_rid_of_this(),
     ));
     let mut vm = Vm::new(program);
     vm.run();
@@ -169,7 +169,7 @@ x.age
     let program = unwrap_or_panic(compile_bytecode(
         sources,
         DefaultEffects::enumerate(),
-        FileProviderDefault::new(),
+        FileProviderDefault::todo_get_rid_of_this(),
     ));
     let mut vm = Vm::new(program);
     vm.run();
@@ -190,7 +190,7 @@ arr[2]
     let program = unwrap_or_panic(compile_bytecode(
         sources,
         DefaultEffects::enumerate(),
-        FileProviderDefault::new(),
+        FileProviderDefault::todo_get_rid_of_this(),
     ));
     let mut vm = Vm::new(program);
     vm.run();
@@ -213,7 +213,7 @@ match n {
     let program = unwrap_or_panic(compile_bytecode(
         sources,
         DefaultEffects::enumerate(),
-        FileProviderDefault::new(),
+        FileProviderDefault::todo_get_rid_of_this(),
     ));
     let mut vm = Vm::new(program);
     vm.run();
@@ -236,7 +236,7 @@ match n {
     let program = unwrap_or_panic(compile_bytecode(
         sources,
         DefaultEffects::enumerate(),
-        FileProviderDefault::new(),
+        FileProviderDefault::todo_get_rid_of_this(),
     ));
     let mut vm = Vm::new(program);
     vm.run();
@@ -265,7 +265,7 @@ sum
     let program = unwrap_or_panic(compile_bytecode(
         sources,
         DefaultEffects::enumerate(),
-        FileProviderDefault::new(),
+        FileProviderDefault::todo_get_rid_of_this(),
     ));
     let mut vm = Vm::new(program);
     vm.run();
@@ -286,7 +286,7 @@ match triplet {
     let program = match compile_bytecode(
         sources,
         DefaultEffects::enumerate(),
-        FileProviderDefault::new(),
+        FileProviderDefault::todo_get_rid_of_this(),
     ) {
         Ok(vm) => vm,
         Err(e) => {
@@ -312,7 +312,7 @@ match pair {
     let program = match compile_bytecode(
         sources,
         DefaultEffects::enumerate(),
-        FileProviderDefault::new(),
+        FileProviderDefault::todo_get_rid_of_this(),
     ) {
         Ok(vm) => vm,
         Err(e) => {
@@ -338,7 +338,7 @@ match pair {
     let program = match compile_bytecode(
         sources,
         DefaultEffects::enumerate(),
-        FileProviderDefault::new(),
+        FileProviderDefault::todo_get_rid_of_this(),
     ) {
         Ok(vm) => vm,
         Err(e) => {
@@ -364,7 +364,7 @@ match quintuple {
     let program = match compile_bytecode(
         sources,
         DefaultEffects::enumerate(),
-        FileProviderDefault::new(),
+        FileProviderDefault::todo_get_rid_of_this(),
     ) {
         Ok(vm) => vm,
         Err(e) => {
@@ -390,7 +390,7 @@ match triplet {
     let program = match compile_bytecode(
         sources,
         DefaultEffects::enumerate(),
-        FileProviderDefault::new(),
+        FileProviderDefault::todo_get_rid_of_this(),
     ) {
         Ok(vm) => vm,
         Err(e) => {
@@ -420,7 +420,7 @@ match xs {
     let program = match compile_bytecode(
         sources,
         DefaultEffects::enumerate(),
-        FileProviderDefault::new(),
+        FileProviderDefault::todo_get_rid_of_this(),
     ) {
         Ok(vm) => vm,
         Err(e) => {
@@ -445,7 +445,7 @@ match xs {
     let program = match compile_bytecode(
         sources,
         DefaultEffects::enumerate(),
-        FileProviderDefault::new(),
+        FileProviderDefault::todo_get_rid_of_this(),
     ) {
         Ok(vm) => vm,
         Err(e) => {
@@ -471,7 +471,7 @@ match xs {
     let program = match compile_bytecode(
         sources,
         DefaultEffects::enumerate(),
-        FileProviderDefault::new(),
+        FileProviderDefault::todo_get_rid_of_this(),
     ) {
         Ok(vm) => vm,
         Err(e) => {
@@ -499,7 +499,7 @@ r(2)
     let program = match compile_bytecode(
         sources,
         DefaultEffects::enumerate(),
-        FileProviderDefault::new(),
+        FileProviderDefault::todo_get_rid_of_this(),
     ) {
         Ok(vm) => vm,
         Err(e) => {
@@ -528,7 +528,7 @@ fib(10)
     let program = match compile_bytecode(
         sources,
         DefaultEffects::enumerate(),
-        FileProviderDefault::new(),
+        FileProviderDefault::todo_get_rid_of_this(),
     ) {
         Ok(vm) => vm,
         Err(e) => {
@@ -551,7 +551,7 @@ double(5)
     let program = match compile_bytecode(
         sources,
         DefaultEffects::enumerate(),
-        FileProviderDefault::new(),
+        FileProviderDefault::todo_get_rid_of_this(),
     ) {
         Ok(vm) => vm,
         Err(e) => {
@@ -574,7 +574,7 @@ add(2, 3)
     let program = match compile_bytecode(
         sources,
         DefaultEffects::enumerate(),
-        FileProviderDefault::new(),
+        FileProviderDefault::todo_get_rid_of_this(),
     ) {
         Ok(vm) => vm,
         Err(e) => {
@@ -598,7 +598,7 @@ add1(4)
     let program = match compile_bytecode(
         sources,
         DefaultEffects::enumerate(),
-        FileProviderDefault::new(),
+        FileProviderDefault::todo_get_rid_of_this(),
     ) {
         Ok(vm) => vm,
         Err(e) => {
@@ -623,7 +623,7 @@ sub1(4)
     let program = match compile_bytecode(
         sources,
         DefaultEffects::enumerate(),
-        FileProviderDefault::new(),
+        FileProviderDefault::todo_get_rid_of_this(),
     ) {
         Ok(vm) => vm,
         Err(e) => {
@@ -647,7 +647,7 @@ g
     let program = match compile_bytecode(
         sources,
         DefaultEffects::enumerate(),
-        FileProviderDefault::new(),
+        FileProviderDefault::todo_get_rid_of_this(),
     ) {
         Ok(vm) => vm,
         Err(e) => {
@@ -671,7 +671,7 @@ arr[5]
     let program = match compile_bytecode(
         sources,
         DefaultEffects::enumerate(),
-        FileProviderDefault::new(),
+        FileProviderDefault::todo_get_rid_of_this(),
     ) {
         Ok(vm) => vm,
         Err(e) => {
@@ -694,7 +694,7 @@ len(arr)
     let program = match compile_bytecode(
         sources,
         DefaultEffects::enumerate(),
-        FileProviderDefault::new(),
+        FileProviderDefault::todo_get_rid_of_this(),
     ) {
         Ok(vm) => vm,
         Err(e) => {
@@ -719,7 +719,7 @@ match [| 1, 2, 3 |] {
     let program = match compile_bytecode(
         sources,
         DefaultEffects::enumerate(),
-        FileProviderDefault::new(),
+        FileProviderDefault::todo_get_rid_of_this(),
     ) {
         Ok(vm) => vm,
         Err(e) => {
@@ -750,7 +750,7 @@ total(xs)
     let program = match compile_bytecode(
         sources,
         DefaultEffects::enumerate(),
-        FileProviderDefault::new(),
+        FileProviderDefault::todo_get_rid_of_this(),
     ) {
         Ok(vm) => vm,
         Err(e) => {
@@ -782,7 +782,7 @@ list_len(nums) + list_len(bools)
     let program = match compile_bytecode(
         sources,
         DefaultEffects::enumerate(),
-        FileProviderDefault::new(),
+        FileProviderDefault::todo_get_rid_of_this(),
     ) {
         Ok(vm) => vm,
         Err(e) => {
@@ -804,7 +804,7 @@ let s = "hello " & "world"
     let program = match compile_bytecode(
         sources,
         DefaultEffects::enumerate(),
-        FileProviderDefault::new(),
+        FileProviderDefault::todo_get_rid_of_this(),
     ) {
         Ok(vm) => vm,
         Err(e) => {
@@ -826,7 +826,7 @@ str(123)
     let program = match compile_bytecode(
         sources,
         DefaultEffects::enumerate(),
-        FileProviderDefault::new(),
+        FileProviderDefault::todo_get_rid_of_this(),
     ) {
         Ok(vm) => vm,
         Err(e) => {
@@ -849,7 +849,7 @@ str(123.456)
     let program = match compile_bytecode(
         sources,
         DefaultEffects::enumerate(),
-        FileProviderDefault::new(),
+        FileProviderDefault::todo_get_rid_of_this(),
     ) {
         Ok(vm) => vm,
         Err(e) => {
@@ -872,7 +872,7 @@ str(nums)
     let program = match compile_bytecode(
         sources,
         DefaultEffects::enumerate(),
-        FileProviderDefault::new(),
+        FileProviderDefault::todo_get_rid_of_this(),
     ) {
         Ok(vm) => vm,
         Err(e) => {
@@ -897,7 +897,7 @@ println(123)
     let program = unwrap_or_panic(compile_bytecode(
         sources,
         DefaultEffects::enumerate(),
-        FileProviderDefault::new(),
+        FileProviderDefault::todo_get_rid_of_this(),
     ));
     let mut vm = Vm::new(program);
     vm.run();
@@ -926,7 +926,7 @@ fn local_in_while_scope() {
     let program = unwrap_or_panic(compile_bytecode(
         sources,
         DefaultEffects::enumerate(),
-        FileProviderDefault::new(),
+        FileProviderDefault::todo_get_rid_of_this(),
     ));
     let mut vm = Vm::new(program);
     vm.run();
@@ -952,7 +952,7 @@ fn continue_and_break() {
     let program = unwrap_or_panic(compile_bytecode(
         sources,
         DefaultEffects::enumerate(),
-        FileProviderDefault::new(),
+        FileProviderDefault::todo_get_rid_of_this(),
     ));
     let mut vm = Vm::new(program);
     vm.run();
@@ -977,7 +977,7 @@ fib(10)
     let program = unwrap_or_panic(compile_bytecode(
         sources,
         DefaultEffects::enumerate(),
-        FileProviderDefault::new(),
+        FileProviderDefault::todo_get_rid_of_this(),
     ));
     let mut vm = Vm::new(program);
     vm.run();
@@ -1003,7 +1003,7 @@ x
     let vm = compile_bytecode(
         sources,
         DefaultEffects::enumerate(),
-        FileProviderDefault::new(),
+        FileProviderDefault::todo_get_rid_of_this(),
     );
     if let Err(e) = vm {
         panic!("{}", e);
@@ -1037,7 +1037,7 @@ x
     let vm = compile_bytecode(
         sources,
         DefaultEffects::enumerate(),
-        FileProviderDefault::new(),
+        FileProviderDefault::todo_get_rid_of_this(),
     );
     if let Err(e) = vm {
         panic!("{}", e);
@@ -1066,7 +1066,7 @@ fn main() {
     let program = unwrap_or_panic(compile_bytecode(
         sources,
         DefaultEffects::enumerate(),
-        FileProviderDefault::new(),
+        FileProviderDefault::todo_get_rid_of_this(),
     ));
     let mut vm = Vm::with_entry_point(program, "test.main".to_owned());
     vm.run();
@@ -1091,7 +1091,7 @@ main(5, 6)
     let program = unwrap_or_panic(compile_bytecode(
         sources,
         DefaultEffects::enumerate(),
-        FileProviderDefault::new(),
+        FileProviderDefault::todo_get_rid_of_this(),
     ));
     let mut vm = Vm::with_entry_point(program, "test.main".to_owned());
     vm.push_int(2);
@@ -1124,7 +1124,11 @@ foo(2, 2)
         FileData::new("prelude.abra".into(), PRELUDE.to_owned()),
     ];
     let effects = DefaultEffects::enumerate();
-    let program = compile_bytecode(sources, effects, FileProviderDefault::new());
+    let program = compile_bytecode(
+        sources,
+        effects,
+        FileProviderDefault::todo_get_rid_of_this(),
+    );
     if let Err(e) = program {
         panic!("{}", e);
     }
@@ -1144,7 +1148,7 @@ format_append(format_append(123, true), false)
     let program = match compile_bytecode(
         sources,
         DefaultEffects::enumerate(),
-        FileProviderDefault::new(),
+        FileProviderDefault::todo_get_rid_of_this(),
     ) {
         Ok(vm) => vm,
         Err(e) => {
@@ -1166,7 +1170,7 @@ fn ampersand() {
     let program = match compile_bytecode(
         sources,
         DefaultEffects::enumerate(),
-        FileProviderDefault::new(),
+        FileProviderDefault::todo_get_rid_of_this(),
     ) {
         Ok(vm) => vm,
         Err(e) => {
@@ -1191,7 +1195,7 @@ comment */
     let program = match compile_bytecode(
         sources,
         DefaultEffects::enumerate(),
-        FileProviderDefault::new(),
+        FileProviderDefault::todo_get_rid_of_this(),
     ) {
         Ok(vm) => vm,
         Err(e) => {

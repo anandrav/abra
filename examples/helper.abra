@@ -1,0 +1,3 @@
+fn helper_function(x) {
+  x + 1
+}

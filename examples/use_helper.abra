@@ -1,0 +1,5 @@
+use helper
+
+let x = helper_function(2)
+println("helper_function(2) = " & x)
+

@@ -41,7 +41,8 @@ fn main() {
     let mut source_files = Vec::new();
 
     let contents = std::fs::read_to_string(&args.file).unwrap();
-    source_files.push(FileData::new(args.file.clone().into(), contents));
+    let main_file_path: PathBuf = args.file.clone().into();
+    source_files.push(FileData::new(main_file_path.clone(), contents));
 
     source_files.push(FileData::new(
         "prelude.abra".into(), // TODO: does path really make sense in this context? Should path be optional?
@@ -63,7 +64,14 @@ fn main() {
 
     let effects = CliEffects::enumerate();
 
-    let file_provider = FileProviderDefault::new_modules(modules);
+    let main_file_dir = if main_file_path.is_absolute() {
+        main_file_path.parent().unwrap()
+    } else {
+        &std::env::current_dir()
+            .unwrap()
+            .join(main_file_path.parent().unwrap())
+    };
+    let file_provider = FileProviderDefault::new(main_file_dir.into(), modules);
 
     match abra_core::compile_bytecode(source_files, effects, file_provider) {
         Ok(program) => {
