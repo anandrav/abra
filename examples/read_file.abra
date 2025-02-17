@@ -2,12 +2,7 @@ use os
 use os/exec
 use os/time
 
-let path = "README.md"
+let path = "examples/read_file.abra"
 let contents = fread(path)
 print(contents)
-
-command("/bin/echo echooooo")
-
-let time = get_time()
-println("seconds: " & time.seconds)
 
