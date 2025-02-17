@@ -38,7 +38,7 @@ implement Num for float {
 
 type list<'a> = nil | cons of ('a, list<'a>)
 
-type option<'a> = none | some of 'a
+type option<'a> = none | some of ('a)
 
 type result<'t,'e> = ok of ('t) | err of ('e)
 

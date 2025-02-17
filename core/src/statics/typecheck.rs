@@ -1835,6 +1835,7 @@ fn generate_constraints_expr(
                 scrut.clone(),
                 ctx,
             );
+            // println!("ty_scrutiny={}", ty_scrutiny);
             for arm in arms {
                 generate_constraints_pat(
                     polyvar_scope.clone(),
@@ -1845,6 +1846,8 @@ fn generate_constraints_expr(
                     arm.pat.clone(),
                     ctx,
                 );
+                let pat_ty = TypeVar::from_node(ctx, arm.pat.id);
+                // println!("arm.pat ty = {}", pat_ty);
                 generate_constraints_expr(
                     polyvar_scope.clone(),
                     Mode::Ana {
@@ -2119,6 +2122,7 @@ fn generate_constraints_pat(
     pat: Rc<Pat>,
     ctx: &mut StaticsContext,
 ) {
+    // _print_node(ctx, pat.id);
     let ty_pat = TypeVar::from_node(ctx, pat.id);
     match &*pat.kind {
         PatKind::Wildcard => (),
@@ -2179,7 +2183,9 @@ fn generate_constraints_pat(
                         Some(ty) => ast_type_to_typevar(ctx, ty.clone()),
                     };
                     let variant_data_ty = variant_data_ty.subst(Prov::Node(pat.id), &substitution);
+                    // println!("variant_data_ty={}", variant_data_ty);
                     constrain(ctx, ty_data.clone(), variant_data_ty);
+                    // println!("ty_data={}", ty_data);
 
                     def_type
                 } else {
@@ -2188,6 +2194,7 @@ fn generate_constraints_pat(
             };
 
             constrain(ctx, ty_pat, ty_enum_instance);
+
             if let Some(data) = data {
                 generate_constraints_pat(
                     polyvar_scope,
@@ -2218,8 +2225,16 @@ fn generate_constraints_pat(
         Mode::AnaWithReason {
             expected,
             constraint_reason,
-        } => constrain_because(ctx, expected, ty_pat.clone(), constraint_reason),
-        Mode::Ana { expected } => constrain(ctx, expected, ty_pat.clone()),
+        } => {
+            // println!("expected = {}", expected);
+            constrain_because(ctx, expected, ty_pat.clone(), constraint_reason);
+            // println!("ty_pat = {}", ty_pat);
+        }
+        Mode::Ana { expected } => {
+            // println!("expected = {}", expected);
+            constrain(ctx, expected, ty_pat.clone());
+            // println!("ty_pat = {}", ty_pat);
+        }
     };
 }
 
