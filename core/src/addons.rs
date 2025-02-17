@@ -81,3 +81,20 @@ pub unsafe extern "C" fn abra_vm_push_string(vm: *mut Vm, string_view: StringVie
     let s = string_view.to_owned();
     vm.push_str(s);
 }
+
+/// # Safety
+/// vm: *mut Vm must be valid and non-null
+#[no_mangle]
+pub unsafe extern "C" fn abra_vm_construct(vm: *mut Vm, arity: u16) {
+    let vm = unsafe { vm.as_mut().unwrap() };
+    vm.construct_struct(arity);
+}
+
+/// # Safety
+/// vm: *mut Vm must be valid and non-null
+#[no_mangle]
+pub unsafe extern "C" fn abra_vm_deconstruct(vm: *mut Vm) {
+    let vm = unsafe { vm.as_mut().unwrap() };
+    vm.deconstruct();
+}
+

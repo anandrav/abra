@@ -180,12 +180,39 @@ impl Vm {
         self.push(r);
     }
 
+    pub fn construct_struct(&mut self, n: u16) {
+        let fields = self
+            .value_stack
+            .split_off(self.value_stack.len() - n as usize);
+        self.heap
+            .push(ManagedObject::new(ManagedObjectKind::DynArray(fields)));
+        let r = self.heap_reference(self.heap.len() - 1);
+        self.push(r);
+    }
+
     pub fn construct_array(&mut self, n: usize) {
         let elems = self.value_stack.split_off(self.value_stack.len() - n);
         self.heap
             .push(ManagedObject::new(ManagedObjectKind::DynArray(elems)));
         let r = self.heap_reference(self.heap.len() - 1);
         self.push(r);
+    }
+
+    pub fn deconstruct(&mut self) {
+        let obj = self.value_stack.pop().expect("stack underflow");
+        match &obj {
+            Value::HeapReference(r) => match &self.heap[r.get().get()].kind {
+                ManagedObjectKind::DynArray(fields) => {
+                    self.value_stack.extend(fields.iter().rev().cloned());
+                }
+                ManagedObjectKind::Enum { tag, value } => {
+                    self.value_stack.push(value.clone());
+                    self.push_int(*tag as AbraInt);
+                }
+                _ => panic!("not a tuple"),
+            },
+            _ => panic!("not a tuple"),
+        };
     }
 
     pub fn increment_stack_base(&mut self, n: usize) {
@@ -749,20 +776,7 @@ impl Vm {
                 self.value_stack.push(r);
             }
             Instr::Deconstruct => {
-                let obj = self.value_stack.pop().expect("stack underflow");
-                match &obj {
-                    Value::HeapReference(r) => match &self.heap[r.get().get()].kind {
-                        ManagedObjectKind::DynArray(fields) => {
-                            self.value_stack.extend(fields.iter().rev().cloned());
-                        }
-                        ManagedObjectKind::Enum { tag, value } => {
-                            self.value_stack.push(value.clone());
-                            self.push_int(*tag as AbraInt);
-                        }
-                        _ => panic!("not a tuple"),
-                    },
-                    _ => panic!("not a tuple"),
-                };
+                self.deconstruct();
             }
             Instr::GetField(index) => {
                 let obj = self.value_stack.pop().expect("stack underflow");

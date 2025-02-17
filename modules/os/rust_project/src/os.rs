@@ -1,4 +1,5 @@
 pub mod exec;
+pub mod time;
 
 use std::fs;
 

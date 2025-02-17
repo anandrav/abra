@@ -1,5 +1,5 @@
-// foreign type file
-
 foreign fn fread(path: string) -> string
 
 foreign fn fwrite(path: string, contents: string) -> string
+
+// TODO: foreign type file
