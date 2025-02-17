@@ -10,7 +10,7 @@ use std::{
 
 pub use crate::vm::Vm;
 use crate::{
-    ast::{FileDatabase, ForeignFuncDecl, NodeMap, PatKind, Type, TypeDefKind, TypeKind},
+    ast::{FileDatabase, PatKind, Type, TypeDefKind, TypeKind},
     parse::parse_or_err,
     FileAst, FileData, ItemKind,
 };
@@ -334,7 +334,12 @@ fn add_items_from_ast(ast: Rc<FileAst>, output: &mut String) {
                     output.push_str(&format!("let {} = {}::from_vm(vm);", ident, tyname));
                 }
                 // call the user's implementation
-                output.push_str(&format!("let ret = {}::{}(", package_name, f.name.v));
+                let out_ty = &f.ret_type;
+                let out_ty_name = name_of_ty(out_ty.clone());
+                output.push_str(&format!(
+                    "let ret: {} = {}::{}(",
+                    out_ty_name, package_name, f.name.v
+                ));
                 for (name, _) in f.args.iter() {
                     // TODO: why the fuck is name a Pat still.
                     let PatKind::Binding(ident) = &*name.kind else {
