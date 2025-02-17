@@ -38,9 +38,14 @@ implement Num for float {
 
 type list<'a> = nil | cons of ('a, list<'a>)
 
-type option<'a> = none | some of ('a)
+type maybe<'y,'n> = yes of ('y) | no of ('n)
 
-type result<'t,'e> = ok of ('t) | err of ('e)
+// fn unwrap(m: maybe<'y,'n>) -> 'y {
+//     match m {
+//         yes(~y) -> y
+//         no(_) -> panic("could not unwrap")
+//     }
+// }
 
 interface Equal {
     fn equal: ('a Equal, 'a Equal) -> bool

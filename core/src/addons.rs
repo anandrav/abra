@@ -385,10 +385,8 @@ fn name_of_ty(ty: Rc<Type>) -> String {
         TypeKind::Ap(ident, params) => {
             // special-case
             let mut s = ident.v.clone();
-            if s == "result" {
+            if s == "maybe" {
                 s = "Result".into();
-            } else if s == "option" {
-                s = "Option".into();
             }
             s.push('<');
             for param in params {

@@ -6,9 +6,11 @@ use os/env
 let path = "examples/use_os.abra"
 let contents = fread(path)
 match contents {
-    ok(~contents) -> print(contents)
-    err(_) -> {}
+  yes(~c) -> print(c)
+  no(_) -> {}
 }
+//let contents = unwrap(contents)
+
 command("/bin/echo echooooo")
 
 let time = get_time()

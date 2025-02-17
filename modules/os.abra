@@ -1,4 +1,4 @@
-foreign fn fread(path: string) -> result<string, string>
+foreign fn fread(path: string) -> maybe<string, string>
 
 foreign fn fwrite(path: string, contents: string) -> void
 
