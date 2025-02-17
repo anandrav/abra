@@ -26,6 +26,14 @@ pub unsafe extern "C" fn abra_vm_push_int(vm: *mut Vm, n: i64) {
 /// # Safety
 /// vm: *mut Vm must be valid and non-null
 #[no_mangle]
+pub unsafe extern "C" fn abra_vm_push_bool(vm: *mut Vm, b: bool) {
+    let vm = unsafe { vm.as_mut().unwrap() };
+    vm.push_bool(b);
+}
+
+/// # Safety
+/// vm: *mut Vm must be valid and non-null
+#[no_mangle]
 pub unsafe extern "C" fn abra_vm_push_nil(vm: *mut Vm) {
     let vm = unsafe { vm.as_mut().unwrap() };
     vm.push_nil();
@@ -37,6 +45,16 @@ pub unsafe extern "C" fn abra_vm_push_nil(vm: *mut Vm) {
 pub unsafe extern "C" fn abra_vm_pop_int(vm: *mut Vm) -> i64 {
     let vm = unsafe { vm.as_mut().unwrap() };
     let top = vm.top().get_int();
+    vm.pop();
+    top
+}
+
+/// # Safety
+/// vm: *mut Vm must be valid and non-null
+#[no_mangle]
+pub unsafe extern "C" fn abra_vm_pop_bool(vm: *mut Vm) -> bool {
+    let vm = unsafe { vm.as_mut().unwrap() };
+    let top = vm.top().get_bool();
     vm.pop();
     top
 }
@@ -184,7 +202,9 @@ pub fn generate() {
 
 fn write_header(output: &mut String, package_name: &str) {
     output.push_str(&format!(
-        r#"mod {};
+        r#"// This is an auto-generated file.
+        
+        mod {};
         pub mod ffi {{
             pub mod {} {{
             use crate::{};
@@ -275,4 +295,64 @@ fn find_abra_files(dir: &Path, output: &mut String) -> std::io::Result<()> {
         }
     }
     Ok(())
+}
+
+pub trait VmType {
+    unsafe fn from_vm(vm: *mut Vm) -> Self;
+
+    unsafe fn to_vm(self, vm: *mut Vm);
+}
+
+impl VmType for i64 {
+    unsafe fn from_vm(vm: *mut Vm) -> Self {
+        unsafe { abra_vm_pop_int(vm) }
+    }
+
+    unsafe fn to_vm(self, vm: *mut Vm) {
+        unsafe {
+            abra_vm_push_int(vm, self);
+        }
+    }
+}
+
+impl VmType for () {
+    unsafe fn from_vm(vm: *mut Vm) -> Self {
+        unsafe { abra_vm_pop(vm) }
+    }
+
+    unsafe fn to_vm(self, vm: *mut Vm) {
+        unsafe {
+            abra_vm_push_nil(vm);
+        }
+    }
+}
+
+impl VmType for bool {
+    unsafe fn from_vm(vm: *mut Vm) -> Self {
+        unsafe { abra_vm_pop_bool(vm) }
+    }
+
+    unsafe fn to_vm(self, vm: *mut Vm) {
+        unsafe {
+            abra_vm_push_bool(vm, self);
+        }
+    }
+}
+
+impl VmType for String {
+    unsafe fn from_vm(vm: *mut Vm) -> Self {
+        unsafe {
+            let string_view = abra_vm_view_string(vm);
+            let content = string_view.to_owned();
+            abra_vm_pop(vm);
+            content
+        }
+    }
+
+    unsafe fn to_vm(self, vm: *mut Vm) {
+        unsafe {
+            let string_view = StringView::from_string(&self);
+            abra_vm_push_string(vm, string_view);
+        }
+    }
 }

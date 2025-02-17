@@ -57,8 +57,8 @@ pub mod ffi {
                 pub nanoseconds: i64,
             }
 
-            impl Time {
-                fn from_vm(vm: *mut Vm) -> Self {
+            impl VmType for Time {
+                unsafe fn from_vm(vm: *mut Vm) -> Self {
                     unsafe {
                         abra_vm_deconstruct(vm);
                         let nanoseconds = abra_vm_pop_int(vm);
@@ -70,7 +70,7 @@ pub mod ffi {
                     }
                 }
 
-                fn to_vm(self, vm: *mut Vm) {
+                unsafe fn to_vm(self, vm: *mut Vm) {
                     unsafe {
                         abra_vm_push_int(vm, self.seconds);
                         abra_vm_push_int(vm, self.nanoseconds);
