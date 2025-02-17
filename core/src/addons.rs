@@ -181,6 +181,9 @@ pub fn generate() {
         );
     }
 
+    let out_dir: PathBuf = PathBuf::from(std::env::var("OUT_DIR").unwrap());
+    let proper_output_path = out_dir.join("gen.rs");
+
     let output_path = current_dir.join("src").join("lib.rs");
 
     std::fs::write(&output_path, output).unwrap();
@@ -192,10 +195,6 @@ pub fn generate() {
 
     if !status.success() {
         panic!("rustfmt failed on {:?}", output_path);
-    }
-
-    if !status.success() {
-        panic!("cargo fmt failed");
     }
 
     // panic!("current_dir={}", current_dir.to_str().unwrap());
@@ -342,7 +341,19 @@ fn name_of_ty(ty: Rc<Type>) -> String {
         TypeKind::Int => "i64".to_string(),
         TypeKind::Str => "String".to_string(),
         TypeKind::Identifier(s) => s.clone(),
-        _ => unimplemented!("{:#?}", ty.kind),
+        TypeKind::Unit => "()".to_string(),
+        TypeKind::Tuple(elems) => {
+            let mut s = "(".to_string();
+            for elem in elems {
+                s.push_str(&name_of_ty(elem.clone()));
+                s.push(',');
+            }
+            s.push(')');
+            s
+        }
+        TypeKind::Ap(..) | TypeKind::Function(..) | TypeKind::Poly(..) => {
+            format!("<{:?} not supported>", ty.kind)
+        }
     }
 }
 
