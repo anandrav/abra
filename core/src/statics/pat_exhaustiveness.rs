@@ -197,7 +197,7 @@ impl Matrix {
                     | SolvedType::Function(..)
                     | SolvedType::Tuple(_)
                     | SolvedType::Nominal(..) => new_types.push(data_ty),
-                    _ => panic!("unexpected type"),
+                    _ => panic!("unexpected type: {}", data_ty),
                 }
             }
         }

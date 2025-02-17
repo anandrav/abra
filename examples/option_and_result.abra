@@ -1,0 +1,14 @@
+
+fn checked_division(a: float, b: float) -> option<float> {
+  if b = 0 {
+    none
+  } else {
+    some(a / b)
+  }
+}
+
+let x = checked_division(1, 2)
+match x {
+  none -> println("could not divide")
+  some (~x) -> println("result = " & x)
+}
