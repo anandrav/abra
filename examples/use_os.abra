@@ -5,8 +5,10 @@ use os/env
 
 let path = "examples/use_os.abra"
 let contents = fread(path)
-print(contents)
-
+match contents {
+    ok(~contents) -> print(contents)
+    _ => {}
+}
 command("/bin/echo echooooo")
 
 let time = get_time()

@@ -8,7 +8,7 @@ pub mod ffi {
         #[export_name = "abra_ffi$os$fread"]
         pub unsafe extern "C" fn fread(vm: *mut Vm) {
             let path = String::from_vm(vm);
-            let ret: String = os::fread(path);
+            let ret: Result<String, String> = os::fread(path);
             ret.to_vm(vm);
         }
         #[export_name = "abra_ffi$os$fwrite"]

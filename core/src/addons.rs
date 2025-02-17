@@ -382,7 +382,23 @@ fn name_of_ty(ty: Rc<Type>) -> String {
             s.push(')');
             s
         }
-        TypeKind::Ap(..) | TypeKind::Function(..) | TypeKind::Poly(..) => {
+        TypeKind::Ap(ident, params) => {
+            // special-case
+            let mut s = ident.v.clone();
+            if s == "result" {
+                s = "Result".into();
+            } else if s == "option" {
+                s = "Option".into();
+            }
+            s.push('<');
+            for param in params {
+                s.push_str(&name_of_ty(param.clone()));
+                s.push(',');
+            }
+            s.push('>');
+            s
+        }
+        TypeKind::Function(..) | TypeKind::Poly(..) => {
             format!("<{:?} not supported>", ty.kind)
         }
     }
