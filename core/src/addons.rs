@@ -26,6 +26,14 @@ pub unsafe extern "C" fn abra_vm_push_int(vm: *mut Vm, n: i64) {
 /// # Safety
 /// vm: *mut Vm must be valid and non-null
 #[no_mangle]
+pub unsafe extern "C" fn abra_vm_push_float(vm: *mut Vm, f: f64) {
+    let vm = unsafe { vm.as_mut().unwrap() };
+    vm.push_float(f);
+}
+
+/// # Safety
+/// vm: *mut Vm must be valid and non-null
+#[no_mangle]
 pub unsafe extern "C" fn abra_vm_push_bool(vm: *mut Vm, b: bool) {
     let vm = unsafe { vm.as_mut().unwrap() };
     vm.push_bool(b);
@@ -45,6 +53,16 @@ pub unsafe extern "C" fn abra_vm_push_nil(vm: *mut Vm) {
 pub unsafe extern "C" fn abra_vm_pop_int(vm: *mut Vm) -> i64 {
     let vm = unsafe { vm.as_mut().unwrap() };
     let top = vm.top().get_int();
+    vm.pop();
+    top
+}
+
+/// # Safety
+/// vm: *mut Vm must be valid and non-null
+#[no_mangle]
+pub unsafe extern "C" fn abra_vm_pop_float(vm: *mut Vm) -> f64 {
+    let vm = unsafe { vm.as_mut().unwrap() };
+    let top = vm.top().get_float();
     vm.pop();
     top
 }
@@ -426,6 +444,18 @@ impl VmType for i64 {
     unsafe fn to_vm(self, vm: *mut Vm) {
         unsafe {
             abra_vm_push_int(vm, self);
+        }
+    }
+}
+
+impl VmType for f64 {
+    unsafe fn from_vm(vm: *mut Vm) -> Self {
+        unsafe { abra_vm_pop_float(vm) }
+    }
+
+    unsafe fn to_vm(self, vm: *mut Vm) {
+        unsafe {
+            abra_vm_push_float(vm, self);
         }
     }
 }
