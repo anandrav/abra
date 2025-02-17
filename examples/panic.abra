@@ -1,0 +1,11 @@
+
+fn do_stuff() {
+  let x = 3
+  let y = 4
+  print(x + y)
+  panic("unrecoverable error")
+}
+
+do_stuff()
+
+
