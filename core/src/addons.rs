@@ -1,7 +1,11 @@
 // Rust addon API
 
 use core::str;
-use std::ffi::c_char;
+use std::{
+    ffi::c_char,
+    fs,
+    path::{Path, PathBuf},
+};
 
 use crate::vm::Vm;
 
@@ -98,3 +102,49 @@ pub unsafe extern "C" fn abra_vm_deconstruct(vm: *mut Vm) {
     vm.deconstruct();
 }
 
+use std::env::current_dir;
+
+pub fn generate() {
+    let current_dir = current_dir().unwrap();
+    let mut package_dir = current_dir.clone();
+    package_dir.pop();
+    let package_name = package_dir
+        .file_name()
+        .unwrap()
+        .to_str()
+        .unwrap()
+        .to_string();
+    let mut toplevel_abra_file = package_dir.clone();
+    toplevel_abra_file.pop();
+    toplevel_abra_file = toplevel_abra_file.join(format!("{}.abra", package_name));
+
+    let mut files = vec![toplevel_abra_file.clone()];
+
+    find_abra_files(&package_dir, &mut files).unwrap();
+
+    let mut output = String::new();
+    output.push_str(
+        r#"use abra_core::addons::*;
+use abra_core::vm::Vm;"#,
+    );
+    output.push_str(&format!("mod {}", package_name));
+
+    // panic!("toplevel abra file = {}", toplevel_abra_file.display());
+}
+
+fn find_abra_files(dir: &Path, files: &mut Vec<PathBuf>) -> std::io::Result<()> {
+    for entry in fs::read_dir(dir)? {
+        let entry = entry?;
+        let path = entry.path();
+        if path.is_dir() {
+            // Recursively search this directory.
+            find_abra_files(&path, files)?;
+        } else if let Some(ext) = path.extension() {
+            // Check if the extension is "abra".
+            if ext == "abra" {
+                files.push(path);
+            }
+        }
+    }
+    Ok(())
+}

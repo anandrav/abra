@@ -157,7 +157,7 @@ fn gather_declarations_item(
                 let entry = entry.unwrap();
                 let file_type = entry.file_type().unwrap();
 
-                println!("{}", entry.file_name().to_str().unwrap());
+                // println!("{}", entry.file_name().to_str().unwrap());
                 if file_type.is_dir() && entry.file_name() == "rust_project" {
                     let rust_project_path = entry.path();
 
@@ -165,6 +165,8 @@ fn gather_declarations_item(
                         let entry = entry.unwrap();
                         if entry.file_name() == "Cargo.toml" {
                             let content = std::fs::read_to_string(entry.path()).unwrap(); // TODO: remove unwrap
+
+                            // TODO: YOU DON'T NEED TO PARSE THE CARGO TOML TO GET THE PACKAGE NAME. IT'S LITERALLY THE NAME OF THE PARENT DIRECTORY
                             let cargo_toml: CargoToml = toml::from_str(&content).unwrap(); // TODO: remove unwrap
                             let filename = format!(
                                 "{}{}{}",
