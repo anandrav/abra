@@ -1,6 +1,7 @@
 use os
 use os/exec
 use os/time
+use os/env
 
 let path = "examples/use_os.abra"
 let contents = fread(path)
@@ -10,4 +11,7 @@ command("/bin/echo echooooo")
 
 let time = get_time()
 println("seconds: " & time.seconds)
+
+let home = get_var("HOME")
+println("home dir is: " & home)
 

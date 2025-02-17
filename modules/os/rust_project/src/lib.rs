@@ -61,5 +61,15 @@ pub mod ffi {
                 ret.to_vm(vm);
             }
         }
+        pub mod env {
+            use crate::os::env;
+            use abra_core::addons::*;
+            #[export_name = "abra_ffi$os$env$get_var"]
+            pub unsafe extern "C" fn get_var(vm: *mut Vm) {
+                let key = String::from_vm(vm);
+                let ret = env::get_var(key);
+                ret.to_vm(vm);
+            }
+        }
     }
 }

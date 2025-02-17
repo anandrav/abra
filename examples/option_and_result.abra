@@ -7,7 +7,7 @@ fn checked_division(a: float, b: float) -> option<float> {
   }
 }
 
-let x = checked_division(1, 2)
+let x: option<float> = checked_division(1, 2)
 match x {
   none -> println("could not divide")
   some (~x) -> println("result = " & x)
