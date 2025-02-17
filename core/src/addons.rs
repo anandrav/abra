@@ -10,7 +10,7 @@ use std::{
 
 pub use crate::vm::Vm;
 use crate::{
-    ast::{FileDatabase, ForeignFuncDecl, NodeMap, TypeDefKind},
+    ast::{FileDatabase, ForeignFuncDecl, NodeMap, PatKind, Type, TypeDefKind, TypeKind},
     parse::parse_or_err,
     FileAst, FileData, ItemKind,
 };
@@ -168,7 +168,8 @@ pub fn generate() {
     }
 
     // handle all other .abra files
-    find_abra_files(&package_dir, &mut output).unwrap();
+    let mut prefixes = vec![package_name.clone()];
+    find_abra_files(&package_dir, &mut prefixes, &mut file_db, &mut output).unwrap();
 
     // write_footer
     {
@@ -180,7 +181,7 @@ pub fn generate() {
         );
     }
 
-    let output_path = current_dir.join("src").join("gen.rs");
+    let output_path = current_dir.join("src").join("lib.rs");
 
     std::fs::write(&output_path, output).unwrap();
 
@@ -223,9 +224,8 @@ fn add_items_from_ast(ast: Rc<FileAst>, output: &mut String) {
                     "#,
                         s.name.v
                     ));
-                    // TODO: impl for all types
-                    let tyname = "int";
                     for field in &s.fields {
+                        let tyname = name_of_ty(field.ty.clone());
                         output.push_str(&format!(
                             r#"pub {}: {},
                         "#,
@@ -235,19 +235,55 @@ fn add_items_from_ast(ast: Rc<FileAst>, output: &mut String) {
                     output.push_str("}");
 
                     output.push_str(&format!(
-                        r#"pub struct {} {{
+                        r#"impl VmType for {} {{
                     "#,
                         s.name.v
                     ));
-                    // TODO: impl for all types
-                    let tyname = "int";
-                    for field in &s.fields {
+                    output.push_str(
+                        r#"unsafe fn from_vm(vm: *mut Vm) -> Self {
+                        "#,
+                    );
+                    output.push_str("unsafe {");
+                    output.push_str("abra_vm_deconstruct(vm);");
+                    for field in s.fields.iter().rev() {
+                        let tyname = name_of_ty(field.ty.clone());
                         output.push_str(&format!(
-                            r#"pub {}: {},
+                            r#"let {} = {}::from_vm(vm);
                         "#,
                             field.name.v, tyname
                         ));
                     }
+                    output.push_str(
+                        r#"Self {
+                    "#,
+                    );
+                    for field in &s.fields {
+                        output.push_str(&format!("{},", field.name.v));
+                    }
+                    output.push('}');
+                    output.push('}');
+
+                    output.push('}');
+
+                    output.push_str(
+                        r#"unsafe fn to_vm(self, vm: *mut Vm) {
+                        "#,
+                    );
+                    output.push_str("unsafe {");
+                    // TODO: impl for all types
+                    for field in s.fields.iter() {
+                        output.push_str(&format!(
+                            r#"self.{}.to_vm(vm);
+                        "#,
+                            field.name.v
+                        ));
+                    }
+
+                    output.push_str(&format!("abra_vm_construct(vm, {});", s.fields.len()));
+
+                    output.push('}');
+
+                    output.push('}');
                     output.push('}');
                 }
                 _ => unimplemented!(),
@@ -255,6 +291,7 @@ fn add_items_from_ast(ast: Rc<FileAst>, output: &mut String) {
             ItemKind::ForeignFuncDecl(f) => {
                 // TODO: duplicated with code in resolve.rs
                 let elems: Vec<_> = ast.name.split(std::path::MAIN_SEPARATOR_STR).collect();
+                let package_name = elems.last().unwrap().to_string();
                 let mut symbol = "abra_ffi".to_string();
                 for elem in elems {
                     symbol.push('$');
@@ -268,7 +305,29 @@ fn add_items_from_ast(ast: Rc<FileAst>, output: &mut String) {
                     "pub unsafe extern \"C\" fn {}(vm: *mut Vm) {{",
                     f.name.v,
                 ));
-
+                // get args in reverse order
+                for (name, ty) in f.args.iter().rev() {
+                    // TODO: why the fuck is name a Pat still.
+                    let PatKind::Binding(ident) = &*name.kind else {
+                        panic!()
+                    };
+                    // TODO: ty shouldn't be optional for foreign fn
+                    let ty = ty.clone().unwrap();
+                    let tyname = name_of_ty(ty);
+                    output.push_str(&format!("let {} = {}::from_vm(vm);", ident, tyname));
+                }
+                // call the user's implementation
+                output.push_str(&format!("let ret = {}::{}(", package_name, f.name.v));
+                for (name, _) in f.args.iter() {
+                    // TODO: why the fuck is name a Pat still.
+                    let PatKind::Binding(ident) = &*name.kind else {
+                        panic!()
+                    };
+                    output.push_str(&format!("{},", ident));
+                }
+                output.push_str(");");
+                // push return value
+                output.push_str("ret.to_vm(vm);");
                 output.push('}');
             }
             _ => {}
@@ -276,13 +335,31 @@ fn add_items_from_ast(ast: Rc<FileAst>, output: &mut String) {
     }
 }
 
-fn find_abra_files(dir: &Path, output: &mut String) -> std::io::Result<()> {
-    for entry in fs::read_dir(dir)? {
+fn name_of_ty(ty: Rc<Type>) -> String {
+    match &*ty.kind {
+        TypeKind::Bool => "bool".to_string(),
+        TypeKind::Float => "float".to_string(),
+        TypeKind::Int => "i64".to_string(),
+        TypeKind::Str => "String".to_string(),
+        TypeKind::Identifier(s) => s.clone(),
+        _ => unimplemented!("{:#?}", ty.kind),
+    }
+}
+
+fn find_abra_files(
+    search_dir: &Path,
+    prefixes: &mut Vec<String>,
+    file_db: &mut FileDatabase,
+    output: &mut String,
+) -> std::io::Result<()> {
+    for entry in fs::read_dir(search_dir)? {
         let entry = entry?;
         let path = entry.path();
         if path.is_dir() {
             // Recursively search this directory.
-            find_abra_files(&path, output)?;
+            prefixes.push(path.file_name().unwrap().to_str().unwrap().to_string());
+            find_abra_files(&path, prefixes, file_db, output)?;
+            prefixes.pop();
         } else if let Some(ext) = path.extension() {
             // Check if the extension is "abra".
             if ext == "abra" {
@@ -290,7 +367,34 @@ fn find_abra_files(dir: &Path, output: &mut String) -> std::io::Result<()> {
 
                 let no_extension = &file_name[0..(file_name.len() - ".abra".len())];
 
-                // panic!("no_extension={}", no_extension);
+                let mut crate_import = String::new();
+                for prefix in prefixes.iter() {
+                    crate_import.push_str(prefix);
+                    crate_import.push_str("::");
+                }
+                crate_import.push_str(no_extension);
+
+                output.push_str(&format!(
+                    r#" pub mod {} {{
+                        use crate::{};
+                        use abra_core::addons::*;"#,
+                    no_extension, crate_import
+                ));
+
+                let source = read_to_string(&path).unwrap();
+                let mut nominal_path = PathBuf::new();
+                for prefix in prefixes.iter() {
+                    nominal_path = nominal_path.join(prefix);
+                }
+                nominal_path = nominal_path.join(format!("{}.abra", no_extension));
+                let file_data = FileData::new(nominal_path, path.clone(), source);
+                let file_id = file_db.add(file_data);
+                let file_data = file_db.get(file_id).unwrap();
+                let ast = parse_or_err(file_id, file_data).unwrap();
+
+                add_items_from_ast(ast, output);
+
+                output.push('}');
             }
         }
     }
