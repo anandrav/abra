@@ -139,6 +139,14 @@ pub unsafe extern "C" fn abra_vm_construct(vm: *mut Vm, arity: u16) {
 /// # Safety
 /// vm: *mut Vm must be valid and non-null
 #[no_mangle]
+pub unsafe extern "C" fn abra_vm_construct_variant(vm: *mut Vm, tag: u16) {
+    let vm = unsafe { vm.as_mut().unwrap() };
+    vm.construct_variant(tag);
+}
+
+/// # Safety
+/// vm: *mut Vm must be valid and non-null
+#[no_mangle]
 pub unsafe extern "C" fn abra_vm_deconstruct(vm: *mut Vm) {
     let vm = unsafe { vm.as_mut().unwrap() };
     vm.deconstruct();
@@ -503,6 +511,45 @@ impl VmType for String {
         unsafe {
             let string_view = StringView::from_string(&self);
             abra_vm_push_string(vm, string_view);
+        }
+    }
+}
+
+impl<T, E> VmType for Result<T, E>
+where
+    T: VmType,
+    E: VmType,
+{
+    unsafe fn from_vm(vm: *mut Vm) -> Self {
+        unsafe {
+            abra_vm_deconstruct(vm);
+            let tag = abra_vm_pop_int(vm);
+            match tag {
+                0 => {
+                    let t = T::from_vm(vm);
+                    Ok(t)
+                }
+                1 => {
+                    let e = E::from_vm(vm);
+                    Err(e)
+                }
+                _ => panic!("unexpected tag for Result type {}", tag),
+            }
+        }
+    }
+
+    unsafe fn to_vm(self, vm: *mut Vm) {
+        unsafe {
+            match self {
+                Ok(t) => {
+                    t.to_vm(vm);
+                    abra_vm_construct_variant(vm, 0);
+                }
+                Err(e) => {
+                    e.to_vm(vm);
+                    abra_vm_construct_variant(vm, 1);
+                }
+            }
         }
     }
 }

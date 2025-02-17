@@ -180,6 +180,14 @@ impl Vm {
         self.push(r);
     }
 
+    pub fn construct_variant(&mut self, tag: u16) {
+        let value = self.pop();
+        self.heap
+            .push(ManagedObject::new(ManagedObjectKind::Enum { tag, value }));
+        let r = self.heap_reference(self.heap.len() - 1);
+        self.value_stack.push(r);
+    }
+
     pub fn construct_struct(&mut self, n: u16) {
         let fields = self
             .value_stack
@@ -849,11 +857,7 @@ impl Vm {
                 }
             }
             Instr::ConstructVariant { tag } => {
-                let value = self.pop();
-                self.heap
-                    .push(ManagedObject::new(ManagedObjectKind::Enum { tag, value }));
-                let r = self.heap_reference(self.heap.len() - 1);
-                self.value_stack.push(r);
+                self.construct_variant(tag);
             }
             Instr::MakeClosure {
                 n_captured,
