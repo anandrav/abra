@@ -51,6 +51,7 @@ pub fn compile_bytecode(
     effects: Vec<EffectDesc>,
     file_provider: impl FileProvider,
 ) -> Result<CompiledProgram, String> {
+    // TODO: these errors aren't actually being used
     let mut errors: Vec<Error> = vec![];
 
     // this is what's passed to Statics

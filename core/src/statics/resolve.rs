@@ -199,6 +199,7 @@ fn gather_declarations_item(
                 .entry(libname.to_str().unwrap().to_string())
                 .or_insert(len);
 
+            // TODO: duplicated with code in addon.rs
             let mut symbol = "abra_ffi".to_string();
             for elem in elems {
                 symbol.push('$');
