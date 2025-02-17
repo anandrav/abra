@@ -7,7 +7,7 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use crate::vm::Vm;
+pub use crate::vm::Vm;
 
 /// # Safety
 /// vm: *mut Vm must be valid and non-null
