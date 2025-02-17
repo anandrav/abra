@@ -66,6 +66,7 @@ pub struct VmErrorLocation {
 #[derive(Clone, Debug)]
 pub enum VmErrorKind {
     ArrayOutOfBounds,
+    Panic(String),
 }
 
 pub type ErrorLocation = (String, u32);
@@ -288,6 +289,7 @@ pub enum Instr<Location = ProgramCounter, StringConstant = u16> {
     CallExtern(usize),
     Return,
     Effect(u16),
+    Panic,
 
     // Data Structures
     Construct(u16),
@@ -348,6 +350,7 @@ impl<L: Display, S: Display> Display for Instr<L, S> {
             Instr::CallExtern(func_id) => write!(f, "call_extern {}", func_id),
             Instr::CallFuncObj => write!(f, "call_func_obj"),
             Instr::Return => write!(f, "return"),
+            Instr::Panic => write!(f, "panic"),
             Instr::Construct(n) => write!(f, "construct {}", n),
             Instr::Deconstruct => write!(f, "deconstruct"),
             Instr::GetField(n) => write!(f, "get_field {}", n),
@@ -773,6 +776,15 @@ impl Vm {
                     self.pc = frame.pc;
                     self.stack_base = frame.stack_base;
                 }
+            }
+            Instr::Panic => {
+                let msg = self.pop_string();
+                self.error = Some(VmError {
+                    kind: VmErrorKind::Panic(msg),
+                    location: self.pc_to_error_location(self.pc),
+                    trace: self.make_trace(),
+                });
+                return;
             }
             Instr::Construct(n) => {
                 let fields = self
@@ -1246,6 +1258,9 @@ impl Display for VmErrorKind {
         match self {
             VmErrorKind::ArrayOutOfBounds => {
                 write!(f, "indexed past the end of an array")
+            }
+            VmErrorKind::Panic(msg) => {
+                write!(f, "panic: {}", msg)
             }
         }
     }

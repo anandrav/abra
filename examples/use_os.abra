@@ -7,7 +7,7 @@ let path = "examples/use_os.abra"
 let contents = fread(path)
 match contents {
     ok(~contents) -> print(contents)
-    _ => {}
+    err(_) => {}
 }
 command("/bin/echo echooooo")
 

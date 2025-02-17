@@ -803,6 +803,9 @@ impl Translator {
                             Builtin::ArrayPop => {
                                 self.emit(st, Instr::ArrayPop);
                             }
+                            Builtin::Panic => {
+                                self.emit(st, Instr::Panic);
+                            }
                             Builtin::Newline => {
                                 panic!("not a function");
                             }

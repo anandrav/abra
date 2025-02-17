@@ -52,6 +52,8 @@ pub enum Builtin {
     ArrayLength,
     ArrayPop,
 
+    Panic,
+
     // TODO: add support for "\n" in source, then remove this
     Newline,
 }
@@ -102,6 +104,8 @@ impl Builtin {
             Builtin::ArrayAppend => "array_append".into(),
             Builtin::ArrayLength => "array_length".into(),
             Builtin::ArrayPop => "array_pop".into(),
+
+            Builtin::Panic => "panic".into(),
 
             Builtin::Newline => "newline".into(),
         }
@@ -240,6 +244,12 @@ impl Builtin {
                     reason.clone(),
                 )
             }
+
+            Builtin::Panic => TypeVar::make_func(
+                vec![TypeVar::make_string(reason.clone())],
+                TypeVar::make_unit(reason.clone()),
+                reason.clone(),
+            ),
 
             Builtin::Newline => TypeVar::make_string(reason.clone()),
         }
