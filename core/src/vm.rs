@@ -461,6 +461,8 @@ impl Value {
     }
 
     pub fn view_string<'a>(&self, vm: &'a Vm) -> &'a String {
+        // println!("DURING FFI VM: {:#?}", vm);
+
         match self {
             Value::HeapReference(r) => match &vm.heap[r.get().get()].kind {
                 ManagedObjectKind::String(s) => s,
@@ -986,6 +988,11 @@ impl Vm {
                         unsafe { lib.get(symbol_name.as_bytes()) };
                     let symbol = *symbol.unwrap();
                     self.foreign_functions.push(symbol);
+                    // println!(
+                    //     "foreign_functions[{}]={}",
+                    //     self.foreign_functions.len() - 1,
+                    //     symbol_name
+                    // );
                 }
             }
             Instr::CallExtern(_func_id) => {
@@ -993,6 +1000,9 @@ impl Vm {
                     panic!("ffi is not enabled.")
                 }
 
+                // println!("BEFORE FFI VM: {:#?}", &self);
+
+                // println!(">>time to invoke func_id={}", _func_id);
                 #[cfg(feature = "ffi")]
                 {
                     unsafe {
@@ -1000,6 +1010,8 @@ impl Vm {
                         self.foreign_functions[_func_id](vm_ptr);
                     };
                 }
+
+                // println!("AFTER FFI VM: {:#?}", &self);
             }
         }
     }
@@ -1229,6 +1241,7 @@ impl Debug for Vm {
             .field("value_stack", &format!("{:?}", self.value_stack))
             .field("call_stack", &format!("{:?}", self.call_stack))
             .field("heap", &format!("{:?}", self.heap))
+            .field("program", &format!("{:?}", self.program))
             .finish()
     }
 }

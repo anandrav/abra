@@ -5,7 +5,7 @@ use crate::ast::{
 use crate::builtin::Builtin;
 use crate::effects::EffectDesc;
 use resolve::{resolve, scan_declarations};
-use std::collections::{BTreeSet, HashMap};
+use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::fmt::{self, Display, Formatter};
 use std::path::PathBuf;
 use std::rc::Rc;
@@ -51,7 +51,7 @@ pub(crate) struct StaticsContext {
     pub(crate) string_constants: HashMap<String, usize>,
     // dylibs (for bytecode translation)
     // pub(crate) dylibs: BTreeSet<PathBuf>,
-    pub(crate) dylib_to_funcs: HashMap<PathBuf, BTreeSet<String>>,
+    pub(crate) dylib_to_funcs: BTreeMap<PathBuf, BTreeSet<String>>,
 
     // TYPE CHECKING
 

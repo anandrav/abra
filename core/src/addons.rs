@@ -125,6 +125,7 @@ pub unsafe extern "C" fn abra_vm_view_string(vm: *mut Vm) -> StringView {
 pub unsafe extern "C" fn abra_vm_push_string(vm: *mut Vm, string_view: StringView) {
     let vm = unsafe { vm.as_mut().unwrap() };
     let s = string_view.to_owned();
+    // println!("pushing string to stack: {}", s);
     vm.push_str(s);
 }
 
