@@ -1,6 +1,3 @@
-pub mod env;
-pub mod exec;
-
 use std::fs::{self, OpenOptions};
 use std::io::Write;
 

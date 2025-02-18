@@ -51,39 +51,6 @@ pub mod ffi {
             let ret: () = os::fappend(path, contents);
             ret.to_vm(vm);
         }
-        pub mod time {
-            use crate::os::time;
-            use abra_core::addons::*;
-            pub struct Time {
-                pub seconds: i64,
-                pub nanoseconds: i64,
-            }
-            impl VmType for Time {
-                unsafe fn from_vm(vm: *mut Vm) -> Self {
-                    unsafe {
-                        abra_vm_deconstruct(vm);
-                        let nanoseconds = i64::from_vm(vm);
-                        let seconds = i64::from_vm(vm);
-                        Self {
-                            seconds,
-                            nanoseconds,
-                        }
-                    }
-                }
-                unsafe fn to_vm(self, vm: *mut Vm) {
-                    unsafe {
-                        self.seconds.to_vm(vm);
-                        self.nanoseconds.to_vm(vm);
-                        abra_vm_construct(vm, 2);
-                    }
-                }
-            }
-            #[export_name = "abra_ffi$os$time$get_time"]
-            pub unsafe extern "C" fn get_time(vm: *mut Vm) {
-                let ret: Time = time::get_time();
-                ret.to_vm(vm);
-            }
-        }
         pub mod exec {
             use crate::os::exec;
             use abra_core::addons::*;

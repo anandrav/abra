@@ -1,8 +1,0 @@
-
-fn repeat(s: string, n: int) {
-    if n <= 1 {
-        s
-    } else {
-        s & repeat(s, n-1)
-    }
-}

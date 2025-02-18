@@ -1,9 +1,0 @@
-use list_utils
-
-fn sum(xs: list<int>) -> int { 
-    fold(xs, (a, b) -> a + b, 0) 
-}
-
-fn sumf(xs: list<float>) -> float { 
-    fold(xs, (a, b) -> a + b, 0.0) 
-}

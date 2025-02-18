@@ -1,6 +1,6 @@
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use crate::ffi::os::time::Time;
+use crate::ffi::time::Time;
 
 pub fn get_time() -> Time {
     let now = SystemTime::now();

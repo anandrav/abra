@@ -40,3 +40,4 @@ fn filter(xs: list<'a>, f: 'a -> bool) -> list<'a> {
 fn reverse(xs: list<'c>) -> list<'c> {
     fold(xs, (acc, head) -> cons(head, acc), nil)
 }
+
