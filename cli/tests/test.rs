@@ -8,7 +8,7 @@ fn test_cli_output() {
         .arg("--bin")
         .arg("abra")
         .arg("--") // The '--' tells Cargo that subsequent arguments are for the program, not Cargo
-        .arg("tests/test.abra") // Replace with actual CLI arguments
+        .arg("tests/hello_world.abra") // Replace with actual CLI arguments
         .output()
         .expect("Failed to execute command");
 
@@ -16,5 +16,5 @@ fn test_cli_output() {
     println!("{}", stdout_str);
     println!("{}", String::from_utf8(output.stderr).unwrap());
     assert!(output.status.success());
-    assert_eq!(stdout_str, "hello from test.abra\n");
+    assert_eq!(stdout_str, "hello world\n");
 }
