@@ -992,7 +992,8 @@ impl Vm {
                     // load the library with a certain name and add it to the Vm's Vec of libs
                     let libname = self.pop_string()?;
                     let lib = unsafe { Library::new(&libname) };
-                    let lib = lib.unwrap_or_else(|_| panic!("Could not load library {}", libname));
+                    let lib =
+                        lib.unwrap_or_else(|e| panic!("Could not load library {}: {}", libname, e));
                     self.libs.push(lib);
                 }
             }
@@ -1009,10 +1010,9 @@ impl Vm {
                     let lib = self.libs.last().expect("no libraries have been loaded");
                     let symbol /*: Result<libloading::Symbol<unsafe extern "C" fn(*mut Vm) -> ()>, _>*/ =
                         unsafe { lib.get(symbol_name.as_bytes()) };
-                    let symbol = *symbol.expect(&format!(
-                        "could not get symbol {} from library",
-                        symbol_name
-                    ));
+                    let symbol = *symbol.unwrap_or_else(|e| {
+                        panic!("could not get symbol {} from library: {}", symbol_name, e)
+                    });
                     self.foreign_functions.push(symbol);
                     // println!(
                     //     "foreign_functions[{}]={}",
