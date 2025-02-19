@@ -3,55 +3,51 @@ use std::time::Duration;
 use crate::ffi::term::KeyCode;
 use crossterm::{
     event::{
-        poll, read, DisableBracketedPaste, DisableFocusChange, EnableBracketedPaste,
-        EnableFocusChange, Event, KeyCode as CtKeyCode, KeyEvent as CtKeyEvent,
+        poll, read, DisableBracketedPaste, DisableFocusChange, DisableMouseCapture,
+        EnableBracketedPaste, EnableFocusChange, EnableMouseCapture, Event, KeyCode as CtKeyCode,
+        KeyEvent as CtKeyEvent,
     },
     execute,
+    terminal::{disable_raw_mode, enable_raw_mode},
 };
 
 pub fn poll_key_event() -> bool {
-    println!("poll_key_event()");
+    enable_raw_mode().unwrap();
+    execute!(std::io::stdout(), EnableMouseCapture).unwrap();
     let mut ret = false;
-    execute!(std::io::stdout(), EnableBracketedPaste, EnableFocusChange,).unwrap();
+    // execute!(std::io::stdout(), EnableBracketedPaste, EnableFocusChange).unwrap();
     if poll(Duration::from_millis(16)).unwrap() {
-        println!("poll() returns true!");
         ret = true;
     }
-    execute!(std::io::stdout(), DisableBracketedPaste, DisableFocusChange,).unwrap();
-    println!("poll() returns false!");
+    // execute!(std::io::stdout(), DisableBracketedPaste, DisableFocusChange).unwrap();
+    execute!(std::io::stdout(), DisableMouseCapture).unwrap();
+    disable_raw_mode().unwrap();
     ret
 }
 
 pub fn get_key_event() -> KeyCode {
-    println!("get_key_event()");
-    execute!(std::io::stdout(), EnableBracketedPaste, EnableFocusChange,).unwrap();
+    enable_raw_mode().unwrap();
+    execute!(std::io::stdout(), EnableMouseCapture).unwrap();
     let ev = loop {
-        match read() {
-            Ok(Event::Key(CtKeyEvent {
-                code,
-                modifiers: _,
-                kind: _,
-                state: _,
-            })) => {
-                println!("actually got an event");
-                match code {
-                    CtKeyCode::Left => break KeyCode::Left,
-                    CtKeyCode::Right => break KeyCode::Right,
-                    CtKeyCode::Up => break KeyCode::Up,
-                    CtKeyCode::Down => break KeyCode::Down,
-                    CtKeyCode::Char(c) => break KeyCode::Char(c.into()),
-                    CtKeyCode::Esc => break KeyCode::Esc,
-                    _ => continue,
-                }
-            }
-            Ok(_) => {
-                println!("ok something else");
-            }
-            Err(_) => {
-                println!("err");
+        if let Ok(Event::Key(CtKeyEvent {
+            code,
+            modifiers: _,
+            kind: _,
+            state: _,
+        })) = read()
+        {
+            match code {
+                CtKeyCode::Left => break KeyCode::Left,
+                CtKeyCode::Right => break KeyCode::Right,
+                CtKeyCode::Up => break KeyCode::Up,
+                CtKeyCode::Down => break KeyCode::Down,
+                CtKeyCode::Char(c) => break KeyCode::Char(c.into()),
+                CtKeyCode::Esc => break KeyCode::Esc,
+                _ => {}
             }
         };
     };
-    execute!(std::io::stdout(), DisableBracketedPaste, DisableFocusChange,).unwrap();
+    execute!(std::io::stdout(), DisableMouseCapture).unwrap();
+    disable_raw_mode().unwrap();
     ev
 }

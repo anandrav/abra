@@ -728,6 +728,16 @@ impl Vm {
                     (Value::Int(a), Value::Int(b)) => self.push(a == b),
                     (Value::Float(a), Value::Float(b)) => self.push(a == b),
                     (Value::Bool(a), Value::Bool(b)) => self.push(a == b),
+                    (Value::HeapReference(a), Value::HeapReference(b)) => {
+                        let a_idx = a.get().get();
+                        let b_idx = b.get().get();
+                        match (&self.heap[a_idx].kind, &self.heap[b_idx].kind) {
+                            (ManagedObjectKind::String(a), ManagedObjectKind::String(b)) => {
+                                self.push(a == b)
+                            }
+                            _ => self.push(false),
+                        }
+                    }
                     (Value::Nil, Value::Nil) => self.push(true),
                     _ => self.push(false),
                 }

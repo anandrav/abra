@@ -2138,8 +2138,10 @@ fn generate_constraints_pat(
         PatKind::Bool(_) => {
             constrain(ctx, ty_pat, TypeVar::make_bool(Reason::Literal(pat.id)));
         }
-        PatKind::Str(_) => {
+        PatKind::Str(s) => {
             constrain(ctx, ty_pat, TypeVar::make_string(Reason::Literal(pat.id)));
+            let len = ctx.string_constants.len();
+            ctx.string_constants.entry(s.clone()).or_insert(len);
         }
         PatKind::Binding(_) => {}
         PatKind::Variant(tag, data) => {

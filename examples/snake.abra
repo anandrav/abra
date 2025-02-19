@@ -9,8 +9,9 @@ while true {
       Right -> println("right")
       Up -> println("up")
       Down -> println("down")
+      Char("q") -> { break }
       Char(~c) -> println(c)
-      Esc -> println("esc")
+      Esc -> { break }
     }
   }
 }

@@ -396,7 +396,7 @@ fn add_items_from_ast(ast: Rc<FileAst>, output: &mut String) {
                         } else {
                             output.push_str(&format!("{}::{} => {{", e.name.v, variant.ctor.v));
                             output.push_str("abra_vm_push_nil(vm);");
-                            output.push_str("abra_vm_construct_variant(vm, 0);");
+                            output.push_str(&format!("abra_vm_construct_variant(vm, {});", i));
                         }
                         output.push('}');
                     }

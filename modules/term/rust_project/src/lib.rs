@@ -56,15 +56,15 @@ pub mod ffi {
                         }
                         KeyCode::Right => {
                             abra_vm_push_nil(vm);
-                            abra_vm_construct_variant(vm, 0);
+                            abra_vm_construct_variant(vm, 1);
                         }
                         KeyCode::Up => {
                             abra_vm_push_nil(vm);
-                            abra_vm_construct_variant(vm, 0);
+                            abra_vm_construct_variant(vm, 2);
                         }
                         KeyCode::Down => {
                             abra_vm_push_nil(vm);
-                            abra_vm_construct_variant(vm, 0);
+                            abra_vm_construct_variant(vm, 3);
                         }
                         KeyCode::Char(value) => {
                             value.to_vm(vm);
@@ -72,7 +72,7 @@ pub mod ffi {
                         }
                         KeyCode::Esc => {
                             abra_vm_push_nil(vm);
-                            abra_vm_construct_variant(vm, 0);
+                            abra_vm_construct_variant(vm, 5);
                         }
                     }
                 }

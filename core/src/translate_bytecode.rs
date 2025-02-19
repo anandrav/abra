@@ -1048,6 +1048,13 @@ impl Translator {
                 }
                 _ => panic!("unexpected pattern: {:?}", pat.kind),
             },
+            Type::String => match &*pat.kind {
+                PatKind::Str(s) => {
+                    self.emit(st, Instr::PushString(s.clone()));
+                    self.emit(st, Instr::Equal);
+                }
+                _ => panic!("unexpected pattern: {:?}", pat.kind),
+            },
             Type::Nominal(_, _) => match &*pat.kind {
                 PatKind::Variant(ctor, inner) => {
                     let BytecodeResolution::VariantCtor(tag, _) = self
