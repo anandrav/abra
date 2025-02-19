@@ -10,6 +10,7 @@ type Point = {
   y: int
 }
 
+// TODO: need to make enums properly namespaced
 type Direction = 
   | DirUp
   | DirDown
@@ -23,9 +24,13 @@ type Snake = {
 
 // game logic
 
-let snake = Snake([Point(10, 10)], DirRight)
+// TODO: this causes a crash
+// let snake = Snake([Point(10, 10)], DirRight)
 
+// game loop
+enable_raw_mode()
 while true {
+  let snake = Snake([Point(10, 10)], DirRight)
   var quit = false
 
   if poll_key_event() {
@@ -46,5 +51,48 @@ while true {
 
   if quit {
     break
-  } 
+  }
+
+  clear()
+
+  display_snake(snake)
+
+  let body = snake.body
+  let segment: Point = body[0]
+  print("snake x is " & segment.x)
+
+  update_snake(snake)
+  
+  flush()
 }
+
+// cleanup
+clear()
+disable_raw_mode()
+flush()
+
+// helper functions
+fn display_snake(snake: Snake) {
+  var i = 0
+  while i < len(snake.body) {
+    // TODO: this doesn't typecheck and/or parse
+    //let x = snake.body[i].x
+    //let y = snake.body[i].y
+    let body: array<Point> = snake.body
+    let segment: Point = body[i]
+    let x = segment.x
+    let y = segment.y
+
+    mark("O", x, y)
+
+    i <- i + 1
+  }
+}
+
+fn update_snake(snake: Snake) {
+  let body = snake.body
+  let segment: Point = body[0]
+  segment.x <- segment.x + 1
+  snake.body <- [Point(segment.x + 1, segment.y)]
+}
+

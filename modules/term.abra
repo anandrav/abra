@@ -7,6 +7,16 @@ type KeyCode =
     | Esc
     | Other
 
+foreign fn enable_raw_mode() -> void
+
+foreign fn disable_raw_mode() -> void
+
 foreign fn poll_key_event() -> bool
 
 foreign fn get_key_event() -> KeyCode
+
+foreign fn clear() -> void
+
+foreign fn mark(s: string, x: int, y: int) -> void
+
+foreign fn flush() -> void

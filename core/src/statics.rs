@@ -486,3 +486,20 @@ fn handle_reason(
         }
     }
 }
+
+use codespan_reporting::diagnostic::Label as CsLabel;
+pub fn _print_node(ctx: &StaticsContext, node_id: NodeId) {
+    let get_file_and_range = |id: &NodeId| {
+        let span = ctx._node_map.get(id).unwrap().location();
+        (span.file_id, span.range())
+    };
+
+    let (file, range) = get_file_and_range(&node_id);
+
+    let diagnostic = Diagnostic::note().with_labels(vec![CsLabel::secondary(file, range)]);
+
+    let writer = StandardStream::stderr(ColorChoice::Always);
+    let config = codespan_reporting::term::Config::default();
+
+    term::emit(&mut writer.lock(), &config, &ctx._files, &diagnostic).unwrap();
+}

@@ -1,34 +1,46 @@
-use std::time::Duration;
+use std::{
+    io::{stdout, Write},
+    time::Duration,
+};
 
 use crate::ffi::term::KeyCode;
 use crossterm::{
+    cursor,
     event::{
         poll, read, DisableBracketedPaste, DisableFocusChange, DisableMouseCapture,
         EnableBracketedPaste, EnableFocusChange, EnableMouseCapture, Event, KeyCode as CtKeyCode,
         KeyEvent as CtKeyEvent,
     },
-    execute,
-    terminal::{disable_raw_mode, enable_raw_mode},
+    execute, queue,
+    style::{self, Color},
+    terminal::{self, Clear, ClearType},
 };
 
+pub fn enable_raw_mode() {
+    terminal::enable_raw_mode().unwrap();
+}
+
+pub fn disable_raw_mode() {
+    terminal::disable_raw_mode().unwrap();
+}
+
 pub fn poll_key_event() -> bool {
-    enable_raw_mode().unwrap();
-    execute!(std::io::stdout(), EnableMouseCapture).unwrap();
+    // execute!(std::io::stdout(), EnableMouseCapture).unwrap();
     let mut ret = false;
     // execute!(std::io::stdout(), EnableBracketedPaste, EnableFocusChange).unwrap();
     if poll(Duration::from_millis(1)).unwrap() {
         ret = true;
     }
     // execute!(std::io::stdout(), DisableBracketedPaste, DisableFocusChange).unwrap();
-    execute!(std::io::stdout(), DisableMouseCapture).unwrap();
-    disable_raw_mode().unwrap();
+    // execute!(std::io::stdout(), DisableMouseCapture).unwrap();
     ret
 }
 
 pub fn get_key_event() -> KeyCode {
-    enable_raw_mode().unwrap();
-    execute!(std::io::stdout(), EnableMouseCapture).unwrap();
-    let ev = loop {
+    // execute!(std::io::stdout(), EnableMouseCapture).unwrap();
+
+    // execute!(std::io::stdout(), DisableMouseCapture).unwrap();
+    loop {
         if let Ok(Event::Key(CtKeyEvent {
             code,
             modifiers: _,
@@ -46,8 +58,26 @@ pub fn get_key_event() -> KeyCode {
                 _ => break KeyCode::Other,
             }
         };
-    };
-    execute!(std::io::stdout(), DisableMouseCapture).unwrap();
-    disable_raw_mode().unwrap();
-    ev
+        println!("didn't get a key event");
+    }
+}
+
+pub fn clear() {
+    let mut stdout = stdout();
+    queue!(stdout, Clear(ClearType::All)).unwrap();
+}
+
+pub fn mark(s: String, x: i64, y: i64) {
+    let mut stdout = stdout();
+    queue!(
+        stdout,
+        cursor::MoveToColumn(x as u16),
+        cursor::MoveToRow(y as u16),
+        style::Print(s)
+    )
+    .unwrap();
+}
+
+pub fn flush() {
+    stdout().flush().unwrap();
 }

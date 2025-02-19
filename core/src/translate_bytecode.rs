@@ -7,7 +7,7 @@ use crate::builtin::Builtin;
 use crate::effects::EffectDesc;
 use crate::environment::Environment;
 use crate::statics::typecheck::Nominal;
-use crate::statics::{ty_fits_impl_ty, Monotype, Type};
+use crate::statics::{ty_fits_impl_ty, Monotype, Type, _print_node};
 use crate::statics::{Declaration, TypeProv};
 use crate::vm::{AbraFloat, AbraInt, Instr as VmInstr};
 use crate::{
@@ -462,14 +462,7 @@ impl Translator {
                         self.emit(st, Instr::ConstructVariant { tag });
                     }
                     BytecodeResolution::Var(node_id) => {
-                        // let _span = self.node_map.get(&node_id).unwrap().span();
-                        // let _s = String::new();
-                        // span.display(
-                        //     &mut s,
-                        //     &self.sources,
-                        //     &format!("symbol {} resolved to", symbol),
-                        // );
-                        // println!("{}", s);
+                        _print_node(&self.statics, node_id);
                         let idx = offset_table.get(&node_id).unwrap();
                         self.emit(st, Instr::LoadOffset(*idx));
                     }
