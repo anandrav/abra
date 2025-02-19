@@ -1,7 +1,7 @@
 use term
 use time
 
-println("hello from snake")
+//println("hello from snake")
 
 // types
 
@@ -56,11 +56,8 @@ fn main() {
 
     clear()
 
+    let x = 0
     display_snake(snake)
-
-    // let body = snake.body
-    // let segment: Point = body[0]
-
     update_snake(snake)
     
     flush()
@@ -81,10 +78,8 @@ fn display_snake(snake: Snake) {
     // TODO: this doesn't typecheck and/or parse
     //let x = snake.body[i].x
     //let y = snake.body[i].y
-    let body: array<Point> = snake.body
-    let segment: Point = body[i]
-    let x = segment.x
-    let y = segment.y
+    let x = (snake.body)[i].x
+    let y = (snake.body)[i].y
 
     mark("O", x, y)
 

@@ -380,6 +380,7 @@ impl<L: Display, S: Display> Display for Instr<L, S> {
     }
 }
 
+#[repr(C)]
 #[derive(Debug, Clone)]
 pub enum Value {
     Nil,
@@ -389,6 +390,7 @@ pub enum Value {
     HeapReference(Cell<HeapReference>),
 }
 
+#[repr(C)]
 #[derive(Debug, Copy, Clone)]
 pub struct HeapReference {
     idx: usize,
@@ -401,6 +403,7 @@ impl HeapReference {
     }
 }
 
+#[repr(C)]
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 enum HeapGroup {
     One,
@@ -490,6 +493,7 @@ struct CallFrame {
 }
 
 // ReferenceType
+#[repr(C)]
 #[derive(Debug, Clone)]
 struct ManagedObject {
     kind: ManagedObjectKind,
@@ -506,6 +510,7 @@ impl ManagedObject {
     }
 }
 
+#[repr(C)]
 #[derive(Debug, Clone)]
 enum ManagedObjectKind {
     Enum {
