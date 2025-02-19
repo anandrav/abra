@@ -27,49 +27,52 @@ type Snake = {
 // TODO: this causes a crash
 // let snake = Snake([Point(10, 10)], DirRight)
 
-// game loop
-enable_raw_mode()
-while true {
+fn main() {
   let snake = Snake([Point(10, 10)], DirRight)
-  var quit = false
+  let quit = false
 
-  if poll_key_event() {
-    match get_key_event() {
-      Left -> { snake.direction <- DirLeft }
-      Char("a") -> { snake.direction <- DirLeft }
-      Right -> { snake.direction <- DirRight }
-      Char("d") -> { snake.direction <- DirRight }
-      Up -> { snake.direction <- DirUp }
-      Char("w") -> { snake.direction <- DirUp }
-      Down -> { snake.direction <- DirDown }
-      Char("s") -> { snake.direction <- DirDown }
-      Char("q") -> { quit <- true }
-      Esc -> { quit <- true }
-      _ -> {}      
+  // game loop
+  enable_raw_mode()
+  while true {
+    if poll_key_event() {
+      match get_key_event() {
+        Left -> { snake.direction <- DirLeft }
+        Char("a") -> { snake.direction <- DirLeft }
+        Right -> { snake.direction <- DirRight }
+        Char("d") -> { snake.direction <- DirRight }
+        Up -> { snake.direction <- DirUp }
+        Char("w") -> { snake.direction <- DirUp }
+        Down -> { snake.direction <- DirDown }
+        Char("s") -> { snake.direction <- DirDown }
+        Char("q") -> { quit <- true }
+        Esc -> { quit <- true }
+        _ -> {}      
+      }
     }
+
+    if quit {
+      break
+    }
+
+    clear()
+
+    display_snake(snake)
+
+    // let body = snake.body
+    // let segment: Point = body[0]
+
+    update_snake(snake)
+    
+    flush()
   }
 
-  if quit {
-    break
-  }
-
+  // cleanup
   clear()
-
-  display_snake(snake)
-
-  let body = snake.body
-  let segment: Point = body[0]
-  print("snake x is " & segment.x)
-
-  update_snake(snake)
-  
+  disable_raw_mode()
   flush()
 }
 
-// cleanup
-clear()
-disable_raw_mode()
-flush()
+main()
 
 // helper functions
 fn display_snake(snake: Snake) {
@@ -93,6 +96,5 @@ fn update_snake(snake: Snake) {
   let body = snake.body
   let segment: Point = body[0]
   segment.x <- segment.x + 1
-  snake.body <- [Point(segment.x + 1, segment.y)]
 }
 

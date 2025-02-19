@@ -199,6 +199,68 @@ arr[2]
 }
 
 #[test]
+fn nested_struct_and_array_assignment() {
+    let src = r#"
+type Snake = {
+    body: array<Point>
+    direction: int
+}
+type Point = {
+    x: int
+    y: int
+}
+
+let snake = Snake([Point(10,10)], 0)
+let body = snake.body
+let first = body[0]
+first.x <- 20
+let body = snake.body
+let first = body[0]
+first.x
+"#;
+    let sources = source_files_single(src);
+
+    let program = unwrap_or_panic(compile_bytecode(
+        sources,
+        DefaultEffects::enumerate(),
+        FileProviderDefault::todo_get_rid_of_this(),
+    ));
+    let mut vm = Vm::new(program);
+    vm.run();
+    let top = vm.top();
+    assert_eq!(top.get_int(), 20);
+}
+
+#[test]
+fn nested_struct_and_array_assignment2() {
+    let src = r#"
+type Snake = {
+    body: array<Point>
+    direction: int
+}
+type Point = {
+    x: int
+    y: int
+}
+
+let snake = Snake([Point(10,10)], 0)
+(snake.body)[0].x <- 20
+(snake.body)[0].x
+"#;
+    let sources = source_files_single(src);
+
+    let program = unwrap_or_panic(compile_bytecode(
+        sources,
+        DefaultEffects::enumerate(),
+        FileProviderDefault::todo_get_rid_of_this(),
+    ));
+    let mut vm = Vm::new(program);
+    vm.run();
+    let top = vm.top();
+    assert_eq!(top.get_int(), 20);
+}
+
+#[test]
 fn match_int() {
     let src = r#"
 let n = 1

@@ -462,7 +462,7 @@ impl Translator {
                         self.emit(st, Instr::ConstructVariant { tag });
                     }
                     BytecodeResolution::Var(node_id) => {
-                        _print_node(&self.statics, node_id);
+                        // _print_node(&self.statics, node_id);
                         let idx = offset_table.get(&node_id).unwrap();
                         self.emit(st, Instr::LoadOffset(*idx));
                     }
