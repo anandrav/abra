@@ -45,6 +45,6 @@ foo(2, 2)
     let mut vm = Vm::new(program.unwrap());
     vm.run();
     let top = vm.top();
-    assert_eq!(top.get_int(&vm), 4);
-    println!("result is {}", top.get_int(&vm));
+    assert_eq!(top.get_int(&vm).unwrap(), 4);
+    println!("result is {}", top.get_int(&vm).unwrap());
 }

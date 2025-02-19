@@ -60,7 +60,7 @@ pub unsafe extern "C" fn abra_vm_pop_nil(vm: *mut Vm) {
 #[no_mangle]
 pub unsafe extern "C" fn abra_vm_pop_int(vm: *mut Vm) -> i64 {
     let vm = unsafe { vm.as_mut().unwrap() };
-    let top = vm.top().get_int(vm);
+    let top = vm.top().get_int(vm).unwrap();
     vm.pop().unwrap();
     top
 }
@@ -70,7 +70,7 @@ pub unsafe extern "C" fn abra_vm_pop_int(vm: *mut Vm) -> i64 {
 #[no_mangle]
 pub unsafe extern "C" fn abra_vm_pop_float(vm: *mut Vm) -> f64 {
     let vm = unsafe { vm.as_mut().unwrap() };
-    let top = vm.top().get_float(vm);
+    let top = vm.top().get_float(vm).unwrap();
     vm.pop().unwrap();
     top
 }

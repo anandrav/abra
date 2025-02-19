@@ -134,8 +134,8 @@ impl Vm {
     }
 
     pub fn status(&self) -> VmStatus {
-        if self.pending_effect.is_some() {
-            VmStatus::PendingEffect(self.pending_effect.unwrap())
+        if let Some(eff) = self.pending_effect {
+            VmStatus::PendingEffect(eff)
         } else if self.is_done() {
             VmStatus::Done
         } else if let Some(err) = &self.error {
@@ -217,7 +217,7 @@ impl Vm {
     }
 
     pub fn deconstruct(&mut self) {
-        let obj = self.value_stack.pop().expect("stack underflow");
+        let obj = self.pop().expect("stack underflow");
         match &obj {
             Value::HeapReference(r) => match &self.heap[r.get().get()].kind {
                 ManagedObjectKind::DynArray(fields) => {
@@ -446,17 +446,17 @@ impl From<AbraFloat> for Value {
 }
 
 impl Value {
-    pub fn get_int(&self, vm: &Vm) -> AbraInt {
+    pub fn get_int(&self, vm: &Vm) -> Result<AbraInt> {
         match self {
-            Value::Int(n) => *n,
-            _ => panic!("not an int"),
+            Value::Int(i) => Ok(*i),
+            _ => Err(vm.make_error(VmErrorKind::WrongType)),
         }
     }
 
-    pub fn get_float(&self, vm: &Vm) -> AbraFloat {
+    pub fn get_float(&self, vm: &Vm) -> Result<AbraFloat> {
         match self {
-            Value::Float(f) => *f,
-            _ => panic!("not a float"),
+            Value::Float(f) => Ok(*f),
+            _ => Err(vm.make_error(VmErrorKind::WrongType)),
         }
     }
 
@@ -467,16 +467,16 @@ impl Value {
         }
     }
 
-    pub fn get_string(&self, vm: &Vm) -> String {
+    pub fn get_string(&self, vm: &Vm) -> Result<String> {
         match self {
             Value::HeapReference(r) => {
                 assert_eq!(r.get().group, vm.heap_group);
                 match &vm.heap[r.get().get()].kind {
-                    ManagedObjectKind::String(s) => s.clone(),
-                    _ => panic!("not a string"),
+                    ManagedObjectKind::String(s) => Ok(s.clone()),
+                    _ => Err(vm.make_error(VmErrorKind::WrongType)),
                 }
             }
-            _ => panic!("not a string"),
+            _ => Err(vm.make_error(VmErrorKind::WrongType)),
         }
     }
 
@@ -635,7 +635,7 @@ impl Vm {
             }
             Instr::StoreOffset(n) => {
                 let idx = self.stack_base.wrapping_add_signed(n as isize);
-                let v = self.value_stack.pop().expect("stack underflow");
+                let v = self.pop()?;
                 self.value_stack[idx] = v;
             }
             Instr::Add => {
@@ -788,7 +788,7 @@ impl Vm {
                 self.stack_base = self.value_stack.len();
             }
             Instr::CallFuncObj => {
-                let func_obj = self.value_stack.pop().expect("stack underflow");
+                let func_obj = self.pop()?;
                 match &func_obj {
                     Value::HeapReference(r) => match &self.heap[r.get().get()].kind {
                         ManagedObjectKind::FunctionObject {
@@ -818,7 +818,7 @@ impl Vm {
                 }
             }
             Instr::Panic => {
-                let msg = self.pop_string();
+                let msg = self.pop_string()?;
                 return Err(self.make_error(VmErrorKind::Panic(msg)));
             }
             Instr::Construct(n) => {
@@ -834,33 +834,33 @@ impl Vm {
                 self.deconstruct();
             }
             Instr::GetField(index) => {
-                let obj = self.value_stack.pop().expect("stack underflow");
+                let obj = self.pop()?;
                 let field = match &obj {
                     Value::HeapReference(r) => match &self.heap[r.get().get()].kind {
                         ManagedObjectKind::DynArray(fields) => fields[index as usize].clone(),
-                        _ => panic!("not a tuple"),
+                        _ => return Err(self.make_error(VmErrorKind::WrongType)),
                     },
-                    _ => panic!("not a tuple"),
+                    _ => return Err(self.make_error(VmErrorKind::WrongType)),
                 };
                 self.push(field);
             }
             Instr::SetField(index) => {
-                let obj = self.value_stack.pop().expect("stack underflow");
-                let rvalue = self.value_stack.pop().expect("stack underflow");
+                let obj = self.pop()?;
+                let rvalue = self.pop()?;
                 let obj_id = match obj {
                     Value::HeapReference(r) => r.get().get(),
-                    _ => panic!("not a managed object: {:?}", obj),
+                    _ => return Err(self.make_error(VmErrorKind::WrongType)),
                 };
                 match &mut self.heap[obj_id].kind {
                     ManagedObjectKind::DynArray(fields) => {
                         fields[index as usize] = rvalue;
                     }
-                    _ => panic!("not a record type: {:?}", self.heap[obj_id]),
+                    _ => return Err(self.make_error(VmErrorKind::WrongType)),
                 }
             }
             Instr::GetIdx => {
-                let obj = self.value_stack.pop().expect("stack underflow");
-                let idx = self.pop_int();
+                let obj = self.pop()?;
+                let idx = self.pop_int()?;
                 match &obj {
                     Value::HeapReference(r) => match &self.heap[r.get().get()].kind {
                         ManagedObjectKind::DynArray(fields) => {
@@ -876,9 +876,9 @@ impl Vm {
                 };
             }
             Instr::SetIdx => {
-                let obj = self.value_stack.pop().expect("stack underflow");
-                let idx = self.pop_int();
-                let rvalue = self.value_stack.pop().expect("stack underflow");
+                let obj = self.pop()?;
+                let idx = self.pop_int()?;
+                let rvalue = self.pop()?;
                 let obj_id = match obj {
                     Value::HeapReference(r) => r.get().get(),
                     _ => panic!("not a managed object: {:?}", obj),
@@ -913,7 +913,7 @@ impl Vm {
             }
             Instr::ArrayAppend => {
                 let rvalue = self.pop()?;
-                let obj = self.value_stack.pop().expect("stack underflow");
+                let obj = self.pop()?;
                 let obj_id = match &obj {
                     Value::HeapReference(r) => r.get().get(),
                     _ => panic!("not a managed object: {:?}", obj),
@@ -927,7 +927,7 @@ impl Vm {
                 self.push_nil();
             }
             Instr::ArrayLength => {
-                let obj = self.value_stack.pop().expect("stack underflow");
+                let obj = self.pop()?;
                 let len = match &obj {
                     Value::HeapReference(r) => match &self.heap[r.get().get()].kind {
                         ManagedObjectKind::DynArray(fields) => fields.len(),
@@ -938,7 +938,7 @@ impl Vm {
                 self.push_int(len as AbraInt);
             }
             Instr::ArrayPop => {
-                let obj = self.value_stack.pop().expect("stack underflow");
+                let obj = self.pop()?;
                 let obj_id = match obj {
                     Value::HeapReference(r) => r.get().get(),
                     _ => panic!("not a managed object: {:?}", obj),
@@ -954,8 +954,8 @@ impl Vm {
             Instr::ConcatStrings => {
                 let b = self.pop()?;
                 let a = self.pop()?;
-                let a_str = a.get_string(self);
-                let b_str = b.get_string(self);
+                let a_str = a.get_string(self)?;
+                let b_str = b.get_string(self)?;
                 let result = a_str + &b_str;
                 self.heap
                     .push(ManagedObject::new(ManagedObjectKind::String(result)));
@@ -963,7 +963,7 @@ impl Vm {
                 self.push(r);
             }
             Instr::IntToString => {
-                let n = self.pop_int();
+                let n = self.pop_int()?;
                 let s = n.to_string();
                 self.heap
                     .push(ManagedObject::new(ManagedObjectKind::String(s)));
@@ -971,7 +971,7 @@ impl Vm {
                 self.push(r);
             }
             Instr::FloatToString => {
-                let f = self.pop()?.get_float(self);
+                let f = self.pop()?.get_float(self)?;
                 let s = f.to_string();
                 self.heap
                     .push(ManagedObject::new(ManagedObjectKind::String(s)));
@@ -990,9 +990,9 @@ impl Vm {
                 {
                     // pop libname from stack
                     // load the library with a certain name and add it to the Vm's Vec of libs
-                    let libname = self.pop_string();
-                    let lib = unsafe { Library::new(libname) };
-                    let lib = lib.unwrap();
+                    let libname = self.pop_string()?;
+                    let lib = unsafe { Library::new(&libname) };
+                    let lib = lib.unwrap_or_else(|_| panic!("Could not load library {}", libname));
                     self.libs.push(lib);
                 }
             }
@@ -1005,11 +1005,14 @@ impl Vm {
                 {
                     // pop foreign func name from stack
                     // load symbol from the last library loaded
-                    let symbol_name = self.pop_string();
-                    let lib = self.libs.last().unwrap();
+                    let symbol_name = self.pop_string()?;
+                    let lib = self.libs.last().expect("no libraries have been loaded");
                     let symbol /*: Result<libloading::Symbol<unsafe extern "C" fn(*mut Vm) -> ()>, _>*/ =
                         unsafe { lib.get(symbol_name.as_bytes()) };
-                    let symbol = *symbol.unwrap();
+                    let symbol = *symbol.expect(&format!(
+                        "could not get symbol {} from library",
+                        symbol_name
+                    ));
                     self.foreign_functions.push(symbol);
                     // println!(
                     //     "foreign_functions[{}]={}",
@@ -1200,22 +1203,16 @@ impl Vm {
         self.value_stack.push(x.into());
     }
 
-    fn pop_int(&mut self) -> AbraInt {
-        self.value_stack
-            .pop()
-            .expect("stack underflow")
-            .get_int(self)
+    fn pop_int(&mut self) -> Result<AbraInt> {
+        self.pop()?.get_int(self)
     }
 
     fn pop_bool(&mut self) -> Result<bool> {
         self.pop()?.get_bool(self)
     }
 
-    fn pop_string(&mut self) -> String {
-        self.value_stack
-            .pop()
-            .expect("stack underflow")
-            .get_string(self)
+    fn pop_string(&mut self) -> Result<String> {
+        self.pop()?.get_string(self)
     }
 }
 

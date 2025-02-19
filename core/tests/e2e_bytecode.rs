@@ -31,8 +31,8 @@ h
     let mut vm = Vm::new(program);
     vm.run();
     let top = vm.top();
-    assert_eq!(top.get_int(&vm), -2);
-    println!("result is {}", top.get_int(&vm));
+    assert_eq!(top.get_int(&vm).unwrap(), -2);
+    println!("result is {}", top.get_int(&vm).unwrap());
 }
 
 #[test]
@@ -55,8 +55,8 @@ x + y
     let mut vm = Vm::new(program);
     vm.run();
     let top = vm.top();
-    assert_eq!(top.get_int(&vm), 6);
-    println!("result is {}", top.get_int(&vm));
+    assert_eq!(top.get_int(&vm).unwrap(), 6);
+    println!("result is {}", top.get_int(&vm).unwrap());
 }
 
 #[test]
@@ -77,8 +77,8 @@ if false {
     let mut vm = Vm::new(program);
     vm.run();
     let top = vm.top();
-    assert_eq!(top.get_int(&vm), 4);
-    println!("result is {}", top.get_int(&vm));
+    assert_eq!(top.get_int(&vm).unwrap(), 4);
+    println!("result is {}", top.get_int(&vm).unwrap());
 }
 
 #[test]
@@ -99,8 +99,8 @@ x
     let mut vm = Vm::new(program);
     vm.run();
     let top = vm.top();
-    assert_eq!(top.get_int(&vm), 6);
-    println!("result is {}", top.get_int(&vm));
+    assert_eq!(top.get_int(&vm).unwrap(), 6);
+    println!("result is {}", top.get_int(&vm).unwrap());
 }
 
 #[test]
@@ -118,13 +118,13 @@ print_string("hello world")
     let mut vm = Vm::new(program);
     vm.run();
     let top = vm.top();
-    assert_eq!(top.get_string(&vm), "hello world");
-    vm.pop();
+    assert_eq!(top.get_string(&vm).unwrap(), "hello world");
+    vm.pop().unwrap();
     vm.push_nil();
     vm.clear_pending_effect();
     vm.run();
     let top = vm.top();
-    assert_eq!(top.get_int(&vm), 5);
+    assert_eq!(top.get_int(&vm).unwrap(), 5);
 }
 
 #[test]
@@ -149,7 +149,7 @@ x.name
     let mut vm = Vm::new(program);
     vm.run();
     let top = vm.top();
-    assert_eq!(top.get_string(&vm), "Bob");
+    assert_eq!(top.get_string(&vm).unwrap(), "Bob");
 }
 
 #[test]
@@ -174,7 +174,7 @@ x.age
     let mut vm = Vm::new(program);
     vm.run();
     let top = vm.top();
-    assert_eq!(top.get_int(&vm), 36);
+    assert_eq!(top.get_int(&vm).unwrap(), 36);
 }
 
 #[test]
@@ -195,7 +195,7 @@ arr[2]
     let mut vm = Vm::new(program);
     vm.run();
     let top = vm.top();
-    assert_eq!(top.get_int(&vm), 33);
+    assert_eq!(top.get_int(&vm).unwrap(), 33);
 }
 
 #[test]
@@ -228,7 +228,7 @@ first.x
     let mut vm = Vm::new(program);
     vm.run();
     let top = vm.top();
-    assert_eq!(top.get_int(&vm), 20);
+    assert_eq!(top.get_int(&vm).unwrap(), 20);
 }
 
 #[test]
@@ -257,7 +257,7 @@ let snake = Snake([Point(10,10)], 0)
     let mut vm = Vm::new(program);
     vm.run();
     let top = vm.top();
-    assert_eq!(top.get_int(&vm), 20);
+    assert_eq!(top.get_int(&vm).unwrap(), 20);
 }
 
 #[test]
@@ -280,7 +280,7 @@ match n {
     let mut vm = Vm::new(program);
     vm.run();
     let top = vm.top();
-    assert_eq!(top.get_int(&vm), 1);
+    assert_eq!(top.get_int(&vm).unwrap(), 1);
 }
 
 #[test]
@@ -303,7 +303,7 @@ match n {
     let mut vm = Vm::new(program);
     vm.run();
     let top = vm.top();
-    assert_eq!(top.get_int(&vm), 99);
+    assert_eq!(top.get_int(&vm).unwrap(), 99);
 }
 
 #[test]
@@ -332,7 +332,7 @@ sum
     let mut vm = Vm::new(program);
     vm.run();
     let top = vm.top();
-    assert_eq!(top.get_int(&vm), 3);
+    assert_eq!(top.get_int(&vm).unwrap(), 3);
 }
 
 #[test]
@@ -358,7 +358,7 @@ match triplet {
     let mut vm = Vm::new(program);
     vm.run();
     let top = vm.top();
-    assert_eq!(top.get_int(&vm), 100);
+    assert_eq!(top.get_int(&vm).unwrap(), 100);
 }
 
 #[test]
@@ -384,7 +384,7 @@ match pair {
     let mut vm = Vm::new(program);
     vm.run();
     let top = vm.top();
-    assert_eq!(top.get_int(&vm), 101);
+    assert_eq!(top.get_int(&vm).unwrap(), 101);
 }
 
 #[test]
@@ -410,7 +410,7 @@ match pair {
     let mut vm = Vm::new(program);
     vm.run();
     let top = vm.top();
-    assert_eq!(top.get_int(&vm), 102);
+    assert_eq!(top.get_int(&vm).unwrap(), 102);
 }
 
 #[test]
@@ -436,7 +436,7 @@ match quintuple {
     let mut vm = Vm::new(program);
     vm.run();
     let top = vm.top();
-    assert_eq!(top.get_int(&vm), 101);
+    assert_eq!(top.get_int(&vm).unwrap(), 101);
 }
 
 #[test]
@@ -462,7 +462,7 @@ match triplet {
     let mut vm = Vm::new(program);
     vm.run();
     let top = vm.top();
-    assert_eq!(top.get_int(&vm), 101);
+    assert_eq!(top.get_int(&vm).unwrap(), 101);
 }
 
 #[test]
@@ -492,7 +492,7 @@ match xs {
     let mut vm = Vm::new(program);
     vm.run();
     let top = vm.top();
-    assert_eq!(top.get_int(&vm), 2);
+    assert_eq!(top.get_int(&vm).unwrap(), 2);
 }
 
 #[test]
@@ -517,7 +517,7 @@ match xs {
     let mut vm = Vm::new(program);
     vm.run();
     let top = vm.top();
-    assert_eq!(top.get_int(&vm), 23);
+    assert_eq!(top.get_int(&vm).unwrap(), 23);
 }
 
 #[test]
@@ -543,7 +543,7 @@ match xs {
     let mut vm = Vm::new(program);
     vm.run();
     let top = vm.top();
-    assert_eq!(top.get_int(&vm), 2);
+    assert_eq!(top.get_int(&vm).unwrap(), 2);
 }
 
 #[test]
@@ -571,7 +571,7 @@ r(2)
     let mut vm = Vm::new(program);
     vm.run();
     let top = vm.top();
-    assert_eq!(top.get_int(&vm), 2);
+    assert_eq!(top.get_int(&vm).unwrap(), 2);
 }
 
 #[test]
@@ -600,7 +600,7 @@ fib(10)
     let mut vm = Vm::new(program);
     vm.run();
     let top = vm.top();
-    assert_eq!(top.get_int(&vm), 55);
+    assert_eq!(top.get_int(&vm).unwrap(), 55);
 }
 
 #[test]
@@ -623,7 +623,7 @@ double(5)
     let mut vm = Vm::new(program);
     vm.run();
     let top = vm.top();
-    assert_eq!(top.get_int(&vm), 10);
+    assert_eq!(top.get_int(&vm).unwrap(), 10);
 }
 
 #[test]
@@ -646,7 +646,7 @@ add(2, 3)
     let mut vm = Vm::new(program);
     vm.run();
     let top = vm.top();
-    assert_eq!(top.get_int(&vm), 5);
+    assert_eq!(top.get_int(&vm).unwrap(), 5);
 }
 
 #[test]
@@ -670,7 +670,7 @@ add1(4)
     let mut vm = Vm::new(program);
     vm.run();
     let top = vm.top();
-    assert_eq!(top.get_int(&vm), 5);
+    assert_eq!(top.get_int(&vm).unwrap(), 5);
 }
 
 #[test]
@@ -695,7 +695,7 @@ sub1(4)
     let mut vm = Vm::new(program);
     vm.run();
     let top = vm.top();
-    assert_eq!(top.get_int(&vm), 3);
+    assert_eq!(top.get_int(&vm).unwrap(), 3);
 }
 
 #[test]
@@ -719,7 +719,7 @@ g
     let mut vm = Vm::new(program);
     vm.run();
     let top = vm.top();
-    assert_eq!(top.get_float(&vm), 2.0);
+    assert_eq!(top.get_float(&vm).unwrap(), 2.0);
 }
 
 #[test]
@@ -743,7 +743,7 @@ arr[5]
     let mut vm = Vm::new(program);
     vm.run();
     let top = vm.top();
-    assert_eq!(top.get_int(&vm), 6);
+    assert_eq!(top.get_int(&vm).unwrap(), 6);
 }
 
 #[test]
@@ -766,7 +766,7 @@ len(arr)
     let mut vm = Vm::new(program);
     vm.run();
     let top = vm.top();
-    assert_eq!(top.get_int(&vm), 5);
+    assert_eq!(top.get_int(&vm).unwrap(), 5);
 }
 
 #[test]
@@ -791,7 +791,7 @@ match [| 1, 2, 3 |] {
     let mut vm = Vm::new(program);
     vm.run();
     let top = vm.top();
-    assert_eq!(top.get_int(&vm), 1);
+    assert_eq!(top.get_int(&vm).unwrap(), 1);
 }
 
 #[test]
@@ -822,7 +822,7 @@ total(xs)
     let mut vm = Vm::new(program);
     vm.run();
     let top = vm.top();
-    assert_eq!(top.get_int(&vm), 6);
+    assert_eq!(top.get_int(&vm).unwrap(), 6);
 }
 
 #[test]
@@ -854,7 +854,7 @@ list_len(nums) + list_len(bools)
     let mut vm = Vm::new(program);
     vm.run();
     let top = vm.top();
-    assert_eq!(top.get_int(&vm), 8);
+    assert_eq!(top.get_int(&vm).unwrap(), 8);
 }
 
 #[test]
@@ -876,7 +876,7 @@ let s = "hello " & "world"
     let mut vm = Vm::new(program);
     vm.run();
     let top = vm.top();
-    assert_eq!(top.get_string(&vm), "hello world");
+    assert_eq!(top.get_string(&vm).unwrap(), "hello world");
 }
 
 #[test]
@@ -898,7 +898,7 @@ str(123)
     let mut vm = Vm::new(program);
     vm.run();
     let top = vm.top();
-    assert_eq!(top.get_string(&vm), "123");
+    assert_eq!(top.get_string(&vm).unwrap(), "123");
 }
 
 #[test]
@@ -921,7 +921,7 @@ str(123.456)
     let mut vm = Vm::new(program);
     vm.run();
     let top = vm.top();
-    assert_eq!(top.get_string(&vm), "123.456");
+    assert_eq!(top.get_string(&vm).unwrap(), "123.456");
 }
 
 #[test]
@@ -944,7 +944,7 @@ str(nums)
     let mut vm = Vm::new(program);
     vm.run();
     let top = vm.top();
-    assert_eq!(top.get_string(&vm), "(1, 2, 3)");
+    assert_eq!(top.get_string(&vm).unwrap(), "(1, 2, 3)");
 }
 
 #[test]
@@ -964,13 +964,13 @@ println(123)
     let mut vm = Vm::new(program);
     vm.run();
     let top = vm.top();
-    assert_eq!(top.get_string(&vm), "123\n");
-    vm.pop();
+    assert_eq!(top.get_string(&vm).unwrap(), "123\n");
+    vm.pop().unwrap();
     vm.push_nil();
     vm.clear_pending_effect();
     vm.run();
     let top = vm.top();
-    assert_eq!(top.get_int(&vm), 5);
+    assert_eq!(top.get_int(&vm).unwrap(), 5);
 }
 
 #[test]
@@ -993,7 +993,7 @@ fn local_in_while_scope() {
     let mut vm = Vm::new(program);
     vm.run();
     let top = vm.top();
-    assert_eq!(top.get_int(&vm), 5);
+    assert_eq!(top.get_int(&vm).unwrap(), 5);
 }
 
 #[test]
@@ -1019,7 +1019,7 @@ fn continue_and_break() {
     let mut vm = Vm::new(program);
     vm.run();
     let top = vm.top();
-    assert_eq!(top.get_int(&vm), 10);
+    assert_eq!(top.get_int(&vm).unwrap(), 10);
 }
 
 #[test]
@@ -1044,7 +1044,7 @@ fib(10)
     let mut vm = Vm::new(program);
     vm.run();
     let top = vm.top();
-    assert_eq!(top.get_int(&vm), 55);
+    assert_eq!(top.get_int(&vm).unwrap(), 55);
 }
 
 #[test]
@@ -1078,7 +1078,7 @@ x
     vm.gc();
     assert!(vm.nbytes() < 10000);
     let top = vm.top();
-    assert_eq!(top.get_int(&vm), 6);
+    assert_eq!(top.get_int(&vm).unwrap(), 6);
 }
 
 #[test]
@@ -1112,7 +1112,7 @@ x
         assert!(vm.nbytes() < 10000);
     }
     let top = vm.top();
-    assert_eq!(top.get_int(&vm), 6);
+    assert_eq!(top.get_int(&vm).unwrap(), 6);
 }
 
 #[test]
@@ -1133,8 +1133,8 @@ fn main() {
     let mut vm = Vm::with_entry_point(program, "test.main".to_owned());
     vm.run();
     let top = vm.top();
-    assert_eq!(top.get_string(&vm), "hello world");
-    vm.pop();
+    assert_eq!(top.get_string(&vm).unwrap(), "hello world");
+    vm.pop().unwrap();
     vm.push_nil();
     vm.clear_pending_effect();
     vm.run();
@@ -1161,7 +1161,7 @@ main(5, 6)
     vm.increment_stack_base(2);
     vm.run();
     let top = vm.top();
-    assert_eq!(top.get_int(&vm), 5);
+    assert_eq!(top.get_int(&vm).unwrap(), 5);
 }
 
 #[test]
@@ -1201,8 +1201,8 @@ foo(2, 2)
     let mut vm = Vm::new(program.unwrap());
     vm.run();
     let top = vm.top();
-    assert_eq!(top.get_int(&vm), 4);
-    println!("result is {}", top.get_int(&vm));
+    assert_eq!(top.get_int(&vm).unwrap(), 4);
+    println!("result is {}", top.get_int(&vm).unwrap());
 }
 
 #[test]
@@ -1224,7 +1224,7 @@ format_append(format_append(123, true), false)
     let mut vm = Vm::new(program);
     vm.run();
     let top = vm.top();
-    assert_eq!(top.get_string(&vm), "123truefalse");
+    assert_eq!(top.get_string(&vm).unwrap(), "123truefalse");
 }
 
 #[test]
@@ -1246,7 +1246,7 @@ fn ampersand() {
     let mut vm = Vm::new(program);
     vm.run();
     let top = vm.top();
-    assert_eq!(top.get_string(&vm), "123truefalse");
+    assert_eq!(top.get_string(&vm).unwrap(), "123truefalse");
 }
 
 #[test]
@@ -1271,5 +1271,5 @@ comment */
     let mut vm = Vm::new(program);
     vm.run();
     let top = vm.top();
-    assert_eq!(top.get_int(&vm), 4);
+    assert_eq!(top.get_int(&vm).unwrap(), 4);
 }

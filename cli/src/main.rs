@@ -101,7 +101,7 @@ fn main() -> anyhow::Result<()> {
                     let effect = CliEffects::from_repr(pending_effect as usize).unwrap();
                     match effect {
                         CliEffects::PrintString => {
-                            let s = vm.top().get_string(&vm);
+                            let s = vm.top().get_string(&vm)?;
                             vm.pop()?;
                             print!("{}", s);
                             vm.push_nil();
