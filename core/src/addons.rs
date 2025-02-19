@@ -217,7 +217,7 @@ pub fn generate() {
     }
 
     let out_dir: PathBuf = PathBuf::from(std::env::var("OUT_DIR").unwrap());
-    let proper_output_path = out_dir.join("gen.rs");
+    // let proper_output_path = out_dir.join("gen.rs");
 
     let output_path = current_dir.join("src").join("lib.rs");
 
@@ -386,7 +386,7 @@ fn add_items_from_ast(ast: Rc<FileAst>, output: &mut String) {
 
                     output.push_str("match self {");
                     for (i, variant) in e.variants.iter().enumerate() {
-                        if let Some(ty) = &variant.data {
+                        if variant.data.is_some() {
                             output.push_str(&format!(
                                 "{}::{}(value) => {{",
                                 e.name.v, variant.ctor.v
@@ -664,49 +664,6 @@ where
     }
 }
 
-// // A helper macro to replace a token with an expression (for counting)
-// macro_rules! replace_expr {
-//     ($t:tt, $e:expr) => {
-//         $e
-//     };
-// }
-
-// // Our main macro: for a list of identifiers, implement VmType for the corresponding tuple.
-// macro_rules! tuple_impls {
-//     ( $( $name:ident )+ ) => {
-//          impl< $($name: VmType),+ > VmType for ( $($name,)+ ) {
-//             unsafe fn from_vm(vm: *mut Vm) -> Self {
-//                 // Deconstruct the tuple on the VM.
-//                 abra_vm_deconstruct(vm);
-//                 // Pop values in reverse order.
-//                 tuple_impls!(@reverse vm, $($name)+);
-//                 // Now rebuild the tuple (using the identifiers in the original order).
-//                 ($($name,)+)
-//             }
-//             unsafe fn to_vm(self, vm: *mut Vm) {
-//                 // Destructure the tuple.
-//                 let ($($name,)+) = self;
-//                 // Push each element onto the VM in order.
-//                 $( $name.to_vm(vm); )+
-//                 // Count the number of elements in the tuple.
-//                 let count: usize = [$( replace_expr!($name, 1) ),+].len();
-//                 // Reconstruct the tuple on the VM.
-//                 abra_vm_construct(vm, count as u16);
-//             }
-//         }
-//     };
-//     // Helper rule to generate from_vm calls in reverse order.
-//     (@reverse $vm:expr, $x:ident) => {
-//         let $x = $x::from_vm($vm);
-//     };
-//     (@reverse $vm:expr, $x:ident $($rest:ident)+) => {
-//         tuple_impls!(@reverse $vm, $($rest)+);
-//         let $x = $x::from_vm($vm);
-//     };
-// }
-
-// tuple_impls! { A B }
-
 // A helper macro to replace a token with an expression (for counting)
 macro_rules! replace_expr {
     ($t:tt, $e:expr) => {
@@ -728,6 +685,7 @@ macro_rules! tuple_impls {
             }
             unsafe fn to_vm(self, vm: *mut Vm) {
                 // Destructure the tuple.
+                #[allow(non_snake_case)]
                 let ($($name,)+) = self;
                 // Push each element onto the VM in order.
                 $( $name.to_vm(vm); )+
@@ -741,10 +699,12 @@ macro_rules! tuple_impls {
 
     // Helper rule to generate from_vm calls in reverse order.
     (@reverse $vm:expr, $x:ident) => {
+        #[allow(non_snake_case)]
         let $x = $x::from_vm($vm);
     };
     (@reverse $vm:expr, $x:ident, $($rest:ident),+) => {
         tuple_impls!(@reverse $vm, $($rest),+);
+        #[allow(non_snake_case)]
         let $x = $x::from_vm($vm);
     };
 }

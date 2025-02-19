@@ -47,7 +47,7 @@ pub(crate) struct Translator {
     node_map: NodeMap,
     _files: FileDatabase,
     file_asts: Vec<Rc<FileAst>>,
-    effects: Vec<EffectDesc>,
+    // effects: Vec<EffectDesc>,
 }
 
 #[derive(Debug, Default)]
@@ -182,14 +182,14 @@ impl Translator {
         node_map: NodeMap,
         files: FileDatabase,
         file_asts: Vec<Rc<FileAst>>,
-        effects: Vec<EffectDesc>,
+        // effects: Vec<EffectDesc>,
     ) -> Self {
         Self {
             statics,
             node_map,
             _files: files,
             file_asts,
-            effects,
+            // effects,
         }
     }
 
@@ -405,13 +405,13 @@ impl Translator {
             }
 
             // Create functions for effects
-            for (i, effect) in self.effects.iter().enumerate() {
-                // self.update_function_name_table(st, effect.name);
+            // for (i, effect) in self.effects.iter().enumerate() {
+            // self.update_function_name_table(st, effect.name);
 
-                // self.emit(st, Line::Label(effect.name.into()));
-                // self.emit(st, Instr::Effect(i as u16));
-                // self.emit(st, Instr::Return);
-            }
+            // self.emit(st, Line::Label(effect.name.into()));
+            // self.emit(st, Instr::Effect(i as u16));
+            // self.emit(st, Instr::Return);
+            // }
 
             for _item in st.lines.iter() {
                 // println!("{}", _item);

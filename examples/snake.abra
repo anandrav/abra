@@ -3,6 +3,8 @@ use time
 
 println("hello from snake")
 
+// types
+
 type Point = {
   x: int
   y: int
@@ -19,3 +21,30 @@ type Snake = {
   direction: Direction
 }
 
+// game logic
+
+let snake = Snake([Point(10, 10)], DirRight)
+
+while true {
+  var quit = false
+
+  if poll_key_event() {
+    match get_key_event() {
+      Left -> { snake.direction <- DirLeft }
+      Char("a") -> { snake.direction <- DirLeft }
+      Right -> { snake.direction <- DirRight }
+      Char("d") -> { snake.direction <- DirRight }
+      Up -> { snake.direction <- DirUp }
+      Char("w") -> { snake.direction <- DirUp }
+      Down -> { snake.direction <- DirDown }
+      Char("s") -> { snake.direction <- DirDown }
+      Char("q") -> { quit <- true }
+      Esc -> { quit <- true }
+      _ -> {}      
+    }
+  }
+
+  if quit {
+    break
+  } 
+}

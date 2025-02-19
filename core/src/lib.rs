@@ -88,7 +88,7 @@ pub fn compile_bytecode(
 
     // TODO: translator should be immutable
     // NOTE: It's only mutable right now because of ty_fits_impl_ty calls ast_type_to_statics_type...
-    let mut translator = Translator::new(inference_ctx, node_map, file_db, file_asts, effects);
+    let mut translator = Translator::new(inference_ctx, node_map, file_db, file_asts);
     Ok(translator.translate())
 }
 
