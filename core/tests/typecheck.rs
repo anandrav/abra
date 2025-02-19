@@ -90,7 +90,7 @@ let k = a and b and c and d and e and f and g and h and i and j
 fn struct_fields() {
     let src = r#"
 type person = {
-    age: int,
+    age: int
     name: string
 }
 
@@ -143,7 +143,7 @@ fn bad_struct_fields() {
     should_fail(
         r#"
 type person = {
-    name: string,
+    name: string
     age: int
 }
 
@@ -157,7 +157,7 @@ fn bad_struct_fields2() {
     should_fail(
         r#"
 type person = {
-    name: string,
+    name: string
     age: int
 }
 
@@ -172,7 +172,7 @@ fn struct_access_type_infer() {
     should_fail(
         r#"
 type person = {
-    name: string,
+    name: string
     age: int
 }
 

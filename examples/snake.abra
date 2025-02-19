@@ -1,0 +1,21 @@
+use term
+use time
+
+println("hello from snake")
+
+type Point = {
+  x: int
+  y: int
+}
+
+type Direction = 
+  | DirUp
+  | DirDown
+  | DirLeft
+  | DirRight
+
+type Snake = {
+  body: array<Point>
+  direction: Direction
+}
+

@@ -6,6 +6,7 @@ use abra_core::FileData;
 use abra_core::FileProviderDefault;
 use clap::Parser;
 use std::path::PathBuf;
+use std::process::exit;
 
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None, arg_required_else_help = true)]
@@ -40,7 +41,13 @@ fn main() {
 
     let mut source_files = Vec::new();
 
-    let contents = std::fs::read_to_string(&args.file).unwrap();
+    let contents = match std::fs::read_to_string(&args.file) {
+        Ok(c) => c,
+        Err(err) => {
+            eprintln!("Could not open file '{}': {}", args.file, err);
+            exit(1);
+        }
+    };
     let main_file_path: PathBuf = args.file.clone().into();
     source_files.push(FileData::new(
         main_file_path.clone(),
@@ -56,12 +63,11 @@ fn main() {
 
     let modules: PathBuf = match args.modules {
         Some(modules) => {
-            let current_dir = std::env::current_dir().unwrap();
+            let current_dir = std::env::current_dir().expect("Can't get current directory.");
             current_dir.join(modules)
         }
         None => {
-            let home_dir = home::home_dir()
-                .expect("Could not determine home directory when looking for ~/.abra/modules");
+            let home_dir = home::home_dir().expect("Can't get home directory.");
             home_dir.join(".abra/modules")
         }
     };

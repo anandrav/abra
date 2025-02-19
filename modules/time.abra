@@ -1,6 +1,6 @@
 
 type Time = {
-    seconds: int,
+    seconds: int
     nanoseconds: int
 }
 

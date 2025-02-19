@@ -131,7 +131,7 @@ print_string("hello world")
 fn struct_assign_and_access1() {
     let src = r#"
 type person = {
-    name: string,
+    name: string
     age: int
 }
 let x = person("Alice", 30)
@@ -156,7 +156,7 @@ x.name
 fn struct_assign_and_access2() {
     let src = r#"
 type person = {
-    name: string,
+    name: string
     age: int
 }
 let x = person("Alice", 30)

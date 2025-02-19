@@ -27,7 +27,7 @@ type_params = _{ "<" ~ (type_poly ~ ",")* ~ type_poly? ~ ">" }
 variant = { identifier ~ packed_data? }
 packed_data = _{ "of" ~ typ }
 
-struct_declaration = { "type" ~ identifier ~ type_params? ~ "=" ~ "{" ~ struct_field ~ ("," ~ struct_field)* ~ "}" }
+struct_declaration = { "type" ~ identifier ~ type_params? ~ "=" ~ "{" ~ struct_field ~ (struct_field)* ~ "}" }
 struct_field = { identifier ~ type_annotation }
 
 foreign_type_decl = { "foreign" ~ "type" ~ identifier }

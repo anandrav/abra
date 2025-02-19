@@ -1,5 +1,7 @@
 use term
 
+println("Listening for input events...")
+
 while true {
   if poll_key_event() {
     let key = get_key_event()
@@ -8,9 +10,15 @@ while true {
       Right -> println("right")
       Up -> println("up")
       Down -> println("down")
-      Char("q") -> { break }
+      Char("q") -> {
+        println("q")
+        break
+      }
       Char(~c) -> println(c)
-      Esc -> { break }
+      Esc -> {
+        println("esc")
+        break
+      }
       Other -> println("<other>")
     }
   }
