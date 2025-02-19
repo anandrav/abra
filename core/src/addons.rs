@@ -50,6 +50,14 @@ pub unsafe extern "C" fn abra_vm_push_nil(vm: *mut Vm) {
 /// # Safety
 /// vm: *mut Vm must be valid and non-null
 #[no_mangle]
+pub unsafe extern "C" fn abra_vm_pop_nil(vm: *mut Vm) {
+    let vm = unsafe { vm.as_mut().unwrap() };
+    vm.pop();
+}
+
+/// # Safety
+/// vm: *mut Vm must be valid and non-null
+#[no_mangle]
 pub unsafe extern "C" fn abra_vm_pop_int(vm: *mut Vm) -> i64 {
     let vm = unsafe { vm.as_mut().unwrap() };
     let top = vm.top().get_int();
@@ -312,6 +320,93 @@ fn add_items_from_ast(ast: Rc<FileAst>, output: &mut String) {
                     output.push('}');
                     output.push('}');
                 }
+                TypeDefKind::Enum(e) => {
+                    output.push_str(&format!(
+                        r#"pub enum {} {{
+                    "#,
+                        e.name.v
+                    ));
+                    for variant in &e.variants {
+                        output.push_str(&format!(
+                            r#"{}
+                        "#,
+                            variant.ctor.v
+                        ));
+                        if let Some(ty) = &variant.data {
+                            output.push('(');
+                            output.push_str(&name_of_ty(ty.clone()));
+                            output.push(')');
+                        }
+                        output.push(',');
+                    }
+                    output.push('}');
+
+                    output.push_str(&format!(
+                        r#"impl VmType for {} {{
+                    "#,
+                        e.name.v
+                    ));
+                    output.push_str(
+                        r#"unsafe fn from_vm(vm: *mut Vm) -> Self {
+                        "#,
+                    );
+
+                    output.push_str("unsafe {");
+                    output.push_str("abra_vm_deconstruct(vm);");
+                    output.push_str("let tag = abra_vm_pop_int(vm);");
+                    output.push_str("match tag {");
+                    for (i, variant) in e.variants.iter().enumerate() {
+                        output.push_str(&format!("{} => {{", i));
+                        if let Some(ty) = &variant.data {
+                            let tyname = name_of_ty(ty.clone());
+                            output.push_str(&format!(
+                                r#"let value: {} = <{}>::from_vm(vm);
+                            "#,
+                                tyname, tyname
+                            ));
+                            output.push_str(&format!("{}::{}(value)", e.name.v, variant.ctor.v));
+                        } else {
+                            output.push_str("abra_vm_pop_nil(vm);");
+                            output.push_str(&format!("{}::{}", e.name.v, variant.ctor.v));
+                        }
+                        output.push('}');
+                    }
+                    output.push_str(r#"_ => panic!("unexpected tag encountered: {}", tag)"#);
+
+                    output.push('}');
+                    output.push('}');
+
+                    output.push('}');
+
+                    output.push_str(
+                        r#"unsafe fn to_vm(self, vm: *mut Vm) {
+                        "#,
+                    );
+                    output.push_str("unsafe {");
+
+                    output.push_str("match self {");
+                    for (i, variant) in e.variants.iter().enumerate() {
+                        if let Some(ty) = &variant.data {
+                            output.push_str(&format!(
+                                "{}::{}(value) => {{",
+                                e.name.v, variant.ctor.v
+                            ));
+                            output.push_str("value.to_vm(vm);");
+                            output.push_str(&format!("abra_vm_construct_variant(vm, {});", i));
+                        } else {
+                            output.push_str(&format!("{}::{} => {{", e.name.v, variant.ctor.v));
+                            output.push_str("abra_vm_push_nil(vm);");
+                            output.push_str("abra_vm_construct_variant(vm, 0);");
+                        }
+                        output.push('}');
+                    }
+                    output.push('}');
+
+                    output.push('}');
+
+                    output.push('}');
+                    output.push('}');
+                }
                 _ => unimplemented!(),
             },
             ItemKind::ForeignFuncDecl(f) => {
@@ -568,3 +663,101 @@ where
         }
     }
 }
+
+// // A helper macro to replace a token with an expression (for counting)
+// macro_rules! replace_expr {
+//     ($t:tt, $e:expr) => {
+//         $e
+//     };
+// }
+
+// // Our main macro: for a list of identifiers, implement VmType for the corresponding tuple.
+// macro_rules! tuple_impls {
+//     ( $( $name:ident )+ ) => {
+//          impl< $($name: VmType),+ > VmType for ( $($name,)+ ) {
+//             unsafe fn from_vm(vm: *mut Vm) -> Self {
+//                 // Deconstruct the tuple on the VM.
+//                 abra_vm_deconstruct(vm);
+//                 // Pop values in reverse order.
+//                 tuple_impls!(@reverse vm, $($name)+);
+//                 // Now rebuild the tuple (using the identifiers in the original order).
+//                 ($($name,)+)
+//             }
+//             unsafe fn to_vm(self, vm: *mut Vm) {
+//                 // Destructure the tuple.
+//                 let ($($name,)+) = self;
+//                 // Push each element onto the VM in order.
+//                 $( $name.to_vm(vm); )+
+//                 // Count the number of elements in the tuple.
+//                 let count: usize = [$( replace_expr!($name, 1) ),+].len();
+//                 // Reconstruct the tuple on the VM.
+//                 abra_vm_construct(vm, count as u16);
+//             }
+//         }
+//     };
+//     // Helper rule to generate from_vm calls in reverse order.
+//     (@reverse $vm:expr, $x:ident) => {
+//         let $x = $x::from_vm($vm);
+//     };
+//     (@reverse $vm:expr, $x:ident $($rest:ident)+) => {
+//         tuple_impls!(@reverse $vm, $($rest)+);
+//         let $x = $x::from_vm($vm);
+//     };
+// }
+
+// tuple_impls! { A B }
+
+// A helper macro to replace a token with an expression (for counting)
+macro_rules! replace_expr {
+    ($t:tt, $e:expr) => {
+        $e
+    };
+}
+
+// Our main macro: for a list of identifiers, implement VmType for the corresponding tuple.
+macro_rules! tuple_impls {
+    ( $( $name:ident ),+ $(,)? ) => {
+        impl< $($name: VmType),+ > VmType for ( $($name,)+ ) {
+            unsafe fn from_vm(vm: *mut Vm) -> Self {
+                // Deconstruct the tuple on the VM.
+                abra_vm_deconstruct(vm);
+                // Pop values in reverse order.
+                tuple_impls!(@reverse vm, $($name),+);
+                // Now rebuild the tuple (using the identifiers in the original order).
+                ($($name,)+)
+            }
+            unsafe fn to_vm(self, vm: *mut Vm) {
+                // Destructure the tuple.
+                let ($($name,)+) = self;
+                // Push each element onto the VM in order.
+                $( $name.to_vm(vm); )+
+                // Count the number of elements in the tuple.
+                let count: usize = [$( replace_expr!($name, 1) ),+].len();
+                // Reconstruct the tuple on the VM.
+                abra_vm_construct(vm, count as u16);
+            }
+        }
+    };
+
+    // Helper rule to generate from_vm calls in reverse order.
+    (@reverse $vm:expr, $x:ident) => {
+        let $x = $x::from_vm($vm);
+    };
+    (@reverse $vm:expr, $x:ident, $($rest:ident),+) => {
+        tuple_impls!(@reverse $vm, $($rest),+);
+        let $x = $x::from_vm($vm);
+    };
+}
+
+tuple_impls!(A);
+tuple_impls!(A, B);
+tuple_impls!(A, B, C);
+tuple_impls!(A, B, C, D);
+tuple_impls!(A, B, C, D, E);
+tuple_impls!(A, B, C, D, E, F);
+tuple_impls!(A, B, C, D, E, F, G);
+tuple_impls!(A, B, C, D, E, F, G, H);
+tuple_impls!(A, B, C, D, E, F, G, H, I);
+tuple_impls!(A, B, C, D, E, F, G, H, I, J);
+tuple_impls!(A, B, C, D, E, F, G, H, I, J, K);
+tuple_impls!(A, B, C, D, E, F, G, H, I, J, K, L);

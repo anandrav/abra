@@ -1,15 +1,11 @@
-foreign fn fread(path: string) -> maybe<string, string>
+type KeyCode = 
+    | Left
+    | Right
+    | Up
+    | Down
+    | Char of string
+    | Esc
 
-foreign fn fwrite(path: string, contents: string) -> void
+foreign fn poll_key_event() -> bool
 
-foreign fn fexists(path: string) -> bool
-
-foreign fn fremove(path: string) -> void
-
-foreign fn frename(old_path: string, new_path: string) -> void
-
-foreign fn fcopy(src: string, dest: string) -> void
-
-foreign fn fappend(path: string, contents: string) -> void
-
-// TODO: foreign type file
+foreign fn get_key_event() -> KeyCode

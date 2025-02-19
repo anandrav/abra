@@ -1,37 +1,57 @@
-use std::fs::{self, OpenOptions};
-use std::io::Write;
+use std::time::Duration;
 
-pub fn fread(path: String) -> Result<String, String> {
-    fs::read_to_string(path).map_err(|e| e.to_string())
+use crate::ffi::term::KeyCode;
+use crossterm::{
+    event::{
+        poll, read, DisableBracketedPaste, DisableFocusChange, EnableBracketedPaste,
+        EnableFocusChange, Event, KeyCode as CtKeyCode, KeyEvent as CtKeyEvent,
+    },
+    execute,
+};
+
+pub fn poll_key_event() -> bool {
+    println!("poll_key_event()");
+    let mut ret = false;
+    execute!(std::io::stdout(), EnableBracketedPaste, EnableFocusChange,).unwrap();
+    if poll(Duration::from_millis(16)).unwrap() {
+        println!("poll() returns true!");
+        ret = true;
+    }
+    execute!(std::io::stdout(), DisableBracketedPaste, DisableFocusChange,).unwrap();
+    println!("poll() returns false!");
+    ret
 }
 
-pub fn fwrite(path: String, content: String) {
-    fs::write(path, content).expect("Unable to write to file");
-}
-
-pub fn fexists(path: String) -> bool {
-    fs::exists(path).unwrap()
-}
-
-pub fn fremove(path: String) {
-    fs::remove_file(path).unwrap()
-}
-
-pub fn frename(old_path: String, new_path: String) {
-    fs::rename(old_path, new_path).unwrap();
-}
-
-pub fn fcopy(src: String, dest: String) {
-    fs::copy(src, dest).unwrap();
-}
-
-pub fn fappend(path: String, content: String) {
-    let mut file = OpenOptions::new()
-        .create(true)
-        .append(true)
-        .open(path)
-        .unwrap();
-
-    // Write the text followed by a newline.
-    writeln!(file, "{}", content).unwrap();
+pub fn get_key_event() -> KeyCode {
+    println!("get_key_event()");
+    execute!(std::io::stdout(), EnableBracketedPaste, EnableFocusChange,).unwrap();
+    let ev = loop {
+        match read() {
+            Ok(Event::Key(CtKeyEvent {
+                code,
+                modifiers: _,
+                kind: _,
+                state: _,
+            })) => {
+                println!("actually got an event");
+                match code {
+                    CtKeyCode::Left => break KeyCode::Left,
+                    CtKeyCode::Right => break KeyCode::Right,
+                    CtKeyCode::Up => break KeyCode::Up,
+                    CtKeyCode::Down => break KeyCode::Down,
+                    CtKeyCode::Char(c) => break KeyCode::Char(c.into()),
+                    CtKeyCode::Esc => break KeyCode::Esc,
+                    _ => continue,
+                }
+            }
+            Ok(_) => {
+                println!("ok something else");
+            }
+            Err(_) => {
+                println!("err");
+            }
+        };
+    };
+    execute!(std::io::stdout(), DisableBracketedPaste, DisableFocusChange,).unwrap();
+    ev
 }

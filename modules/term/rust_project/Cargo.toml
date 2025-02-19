@@ -8,6 +8,7 @@ crate-type = ["cdylib"]
 
 [dependencies]
 abra_core = { path = "../../../core" }
+crossterm = "0.28.1"
 
 [build-dependencies]
 abra_core = { path = "../../../core" }

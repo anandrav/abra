@@ -1,0 +1,16 @@
+use term
+
+while true {
+  if poll_key_event() {
+    let key = get_key_event()
+    println("GOT A KEY EVENT")
+    match key {
+      Left -> println("left")
+      Right -> println("right")
+      Up -> println("up")
+      Down -> println("down")
+      Char(~c) -> println(c)
+      Esc -> println("esc")
+    }
+  }
+}
