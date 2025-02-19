@@ -7,12 +7,15 @@ use libloading::Library;
 
 use crate::translate_bytecode::{BytecodeIndex, CompiledProgram};
 use core::fmt;
+use std::error::Error;
 use std::fmt::Debug;
 use std::{
     cell::Cell,
     fmt::{Display, Formatter},
     mem,
 };
+
+type Result<T> = std::result::Result<T, VmError>;
 
 #[repr(C)]
 pub struct Vm {
@@ -67,6 +70,8 @@ pub struct VmErrorLocation {
 pub enum VmErrorKind {
     ArrayOutOfBounds,
     Panic(String),
+    Underflow,
+    WrongType,
 }
 
 pub type ErrorLocation = (String, u32);
@@ -144,8 +149,11 @@ impl Vm {
         self.value_stack.last().expect("stack underflow")
     }
 
-    pub fn pop(&mut self) -> Value {
-        self.value_stack.pop().expect("stack underflow")
+    pub fn pop(&mut self) -> Result<Value> {
+        match self.value_stack.pop() {
+            Some(v) => Ok(v),
+            None => Err(self.make_error(VmErrorKind::Underflow)),
+        }
     }
 
     pub fn push_int(&mut self, n: AbraInt) {
@@ -181,12 +189,13 @@ impl Vm {
         self.push(r);
     }
 
-    pub fn construct_variant(&mut self, tag: u16) {
-        let value = self.pop();
+    pub fn construct_variant(&mut self, tag: u16) -> Result<()> {
+        let value = self.pop()?;
         self.heap
             .push(ManagedObject::new(ManagedObjectKind::Enum { tag, value }));
         let r = self.heap_reference(self.heap.len() - 1);
         self.value_stack.push(r);
+        Ok(())
     }
 
     pub fn construct_struct(&mut self, n: u16) {
@@ -238,6 +247,14 @@ impl Vm {
 
     pub fn get_error(&self) -> &Option<VmError> {
         &self.error
+    }
+
+    fn make_error(&self, kind: VmErrorKind) -> VmError {
+        VmError {
+            kind,
+            location: self.pc_to_error_location(self.pc),
+            trace: self.make_trace(),
+        }
     }
 
     pub fn is_done(&self) -> bool {
@@ -429,24 +446,24 @@ impl From<AbraFloat> for Value {
 }
 
 impl Value {
-    pub fn get_int(&self) -> AbraInt {
+    pub fn get_int(&self, vm: &Vm) -> AbraInt {
         match self {
             Value::Int(n) => *n,
             _ => panic!("not an int"),
         }
     }
 
-    pub fn get_float(&self) -> AbraFloat {
+    pub fn get_float(&self, vm: &Vm) -> AbraFloat {
         match self {
             Value::Float(f) => *f,
             _ => panic!("not a float"),
         }
     }
 
-    pub fn get_bool(&self) -> bool {
+    pub fn get_bool(&self, vm: &Vm) -> Result<bool> {
         match self {
-            Value::Bool(b) => *b,
-            _ => panic!("not a bool"),
+            Value::Bool(b) => Ok(*b),
+            _ => Err(vm.make_error(VmErrorKind::WrongType)),
         }
     }
 
@@ -556,7 +573,10 @@ impl Vm {
             panic!("forgot to check error on vm");
         }
         while !self.is_done() && self.pending_effect.is_none() && self.error.is_none() {
-            self.step();
+            match self.step() {
+                Ok(()) => {}
+                Err(err) => self.error = Some(err),
+            }
         }
     }
 
@@ -570,12 +590,15 @@ impl Vm {
         let mut steps = steps;
         while steps > 0 && !self.is_done() && self.pending_effect.is_none() && self.error.is_none()
         {
-            self.step();
+            match self.step() {
+                Ok(()) => {}
+                Err(err) => self.error = Some(err),
+            }
             steps -= 1;
         }
     }
 
-    fn step(&mut self) {
+    fn step(&mut self) -> Result<()> {
         let instr = self.program[self.pc];
         self.pc += 1;
         match instr {
@@ -599,7 +622,7 @@ impl Vm {
                 self.value_stack.push(r);
             }
             Instr::Pop => {
-                self.value_stack.pop();
+                self.pop()?;
             }
             Instr::Duplicate => {
                 let v = self.top();
@@ -616,8 +639,8 @@ impl Vm {
                 self.value_stack[idx] = v;
             }
             Instr::Add => {
-                let b = self.pop();
-                let a = self.pop();
+                let b = self.pop()?;
+                let a = self.pop()?;
                 match (a, b) {
                     (Value::Int(a), Value::Int(b)) => self.push(a + b),
                     (Value::Float(a), Value::Float(b)) => self.push(a + b),
@@ -625,8 +648,8 @@ impl Vm {
                 }
             }
             Instr::Subtract => {
-                let b = self.pop();
-                let a = self.pop();
+                let b = self.pop()?;
+                let a = self.pop()?;
                 match (a, b) {
                     (Value::Int(a), Value::Int(b)) => self.push(a - b),
                     (Value::Float(a), Value::Float(b)) => self.push(a - b),
@@ -634,8 +657,8 @@ impl Vm {
                 }
             }
             Instr::Multiply => {
-                let b = self.pop();
-                let a = self.pop();
+                let b = self.pop()?;
+                let a = self.pop()?;
                 match (a, b) {
                     (Value::Int(a), Value::Int(b)) => self.push(a * b),
                     (Value::Float(a), Value::Float(b)) => self.push(a * b),
@@ -643,8 +666,8 @@ impl Vm {
                 }
             }
             Instr::Divide => {
-                let b = self.pop();
-                let a = self.pop();
+                let b = self.pop()?;
+                let a = self.pop()?;
                 match (a, b) {
                     (Value::Int(a), Value::Int(b)) => self.push(a / b),
                     (Value::Float(a), Value::Float(b)) => self.push(a / b),
@@ -652,15 +675,15 @@ impl Vm {
                 }
             }
             Instr::SquareRoot => {
-                let v = self.pop();
+                let v = self.pop()?;
                 match v {
                     Value::Float(f) => self.push(f.sqrt()),
                     _ => panic!("not a float"),
                 }
             }
             Instr::Power => {
-                let b = self.pop();
-                let a = self.pop();
+                let b = self.pop()?;
+                let a = self.pop()?;
                 match (a, b) {
                     (Value::Int(a), Value::Int(b)) => self.push(a.pow(b as u32)),
                     (Value::Float(a), Value::Float(b)) => self.push(a.powf(b)),
@@ -668,8 +691,8 @@ impl Vm {
                 }
             }
             Instr::Modulo => {
-                let b = self.pop();
-                let a = self.pop();
+                let b = self.pop()?;
+                let a = self.pop()?;
                 match (a, b) {
                     (Value::Int(a), Value::Int(b)) => self.push(a % b),
                     (Value::Float(a), Value::Float(b)) => self.push(a % b),
@@ -677,22 +700,22 @@ impl Vm {
                 }
             }
             Instr::Not => {
-                let v = self.pop_bool();
+                let v = self.pop_bool()?;
                 self.push(!v);
             }
             Instr::And => {
-                let b = self.pop_bool();
-                let a = self.pop_bool();
+                let b = self.pop_bool()?;
+                let a = self.pop_bool()?;
                 self.push(a && b);
             }
             Instr::Or => {
-                let b = self.pop_bool();
-                let a = self.pop_bool();
+                let b = self.pop_bool()?;
+                let a = self.pop_bool()?;
                 self.push(a || b);
             }
             Instr::LessThan => {
-                let b = self.pop();
-                let a = self.pop();
+                let b = self.pop()?;
+                let a = self.pop()?;
                 match (a, b) {
                     (Value::Int(a), Value::Int(b)) => self.push(a < b),
                     (Value::Float(a), Value::Float(b)) => self.push(a < b),
@@ -700,8 +723,8 @@ impl Vm {
                 }
             }
             Instr::LessThanOrEqual => {
-                let b = self.pop();
-                let a = self.pop();
+                let b = self.pop()?;
+                let a = self.pop()?;
                 match (a, b) {
                     (Value::Int(a), Value::Int(b)) => self.push(a <= b),
                     (Value::Float(a), Value::Float(b)) => self.push(a <= b),
@@ -709,8 +732,8 @@ impl Vm {
                 }
             }
             Instr::GreaterThan => {
-                let b = self.pop();
-                let a = self.pop();
+                let b = self.pop()?;
+                let a = self.pop()?;
                 match (a, b) {
                     (Value::Int(a), Value::Int(b)) => self.push(a > b),
                     (Value::Float(a), Value::Float(b)) => self.push(a > b),
@@ -718,8 +741,8 @@ impl Vm {
                 }
             }
             Instr::GreaterThanOrEqual => {
-                let b = self.pop();
-                let a = self.pop();
+                let b = self.pop()?;
+                let a = self.pop()?;
                 match (a, b) {
                     (Value::Int(a), Value::Int(b)) => self.push(a >= b),
                     (Value::Float(a), Value::Float(b)) => self.push(a >= b),
@@ -727,8 +750,8 @@ impl Vm {
                 }
             }
             Instr::Equal => {
-                let b = self.pop();
-                let a = self.pop();
+                let b = self.pop()?;
+                let a = self.pop()?;
                 match (a, b) {
                     (Value::Int(a), Value::Int(b)) => self.push(a == b),
                     (Value::Float(a), Value::Float(b)) => self.push(a == b),
@@ -751,7 +774,7 @@ impl Vm {
                 self.pc = target;
             }
             Instr::JumpIf(target) => {
-                let v = self.pop_bool();
+                let v = self.pop_bool()?;
                 if v {
                     self.pc = target;
                 }
@@ -796,12 +819,7 @@ impl Vm {
             }
             Instr::Panic => {
                 let msg = self.pop_string();
-                self.error = Some(VmError {
-                    kind: VmErrorKind::Panic(msg),
-                    location: self.pc_to_error_location(self.pc),
-                    trace: self.make_trace(),
-                });
-                return;
+                return Err(self.make_error(VmErrorKind::Panic(msg)));
             }
             Instr::Construct(n) => {
                 let fields = self
@@ -847,12 +865,7 @@ impl Vm {
                     Value::HeapReference(r) => match &self.heap[r.get().get()].kind {
                         ManagedObjectKind::DynArray(fields) => {
                             if idx as usize >= fields.len() || idx < 0 {
-                                self.error = Some(VmError {
-                                    kind: VmErrorKind::ArrayOutOfBounds,
-                                    location: self.pc_to_error_location(self.pc),
-                                    trace: self.make_trace(),
-                                });
-                                return;
+                                return Err(self.make_error(VmErrorKind::ArrayOutOfBounds));
                             }
                             let field = fields[idx as usize].clone();
                             self.push(field);
@@ -873,12 +886,7 @@ impl Vm {
                 match &mut self.heap[obj_id].kind {
                     ManagedObjectKind::DynArray(fields) => {
                         if idx as usize >= fields.len() || idx < 0 {
-                            self.error = Some(VmError {
-                                kind: VmErrorKind::ArrayOutOfBounds,
-                                location: self.pc_to_error_location(self.pc),
-                                trace: self.make_trace(),
-                            });
-                            return;
+                            return Err(self.make_error(VmErrorKind::ArrayOutOfBounds));
                         }
                         fields[idx as usize] = rvalue;
                     }
@@ -886,7 +894,7 @@ impl Vm {
                 }
             }
             Instr::ConstructVariant { tag } => {
-                self.construct_variant(tag);
+                self.construct_variant(tag)?;
             }
             Instr::MakeClosure {
                 n_captured,
@@ -904,7 +912,7 @@ impl Vm {
                 self.value_stack.push(r);
             }
             Instr::ArrayAppend => {
-                let rvalue = self.pop();
+                let rvalue = self.pop()?;
                 let obj = self.value_stack.pop().expect("stack underflow");
                 let obj_id = match &obj {
                     Value::HeapReference(r) => r.get().get(),
@@ -944,8 +952,8 @@ impl Vm {
                 }
             }
             Instr::ConcatStrings => {
-                let b = self.pop();
-                let a = self.pop();
+                let b = self.pop()?;
+                let a = self.pop()?;
                 let a_str = a.get_string(self);
                 let b_str = b.get_string(self);
                 let result = a_str + &b_str;
@@ -963,7 +971,7 @@ impl Vm {
                 self.push(r);
             }
             Instr::FloatToString => {
-                let f = self.pop().get_float();
+                let f = self.pop()?.get_float(self);
                 let s = f.to_string();
                 self.heap
                     .push(ManagedObject::new(ManagedObjectKind::String(s)));
@@ -999,7 +1007,7 @@ impl Vm {
                     // load symbol from the last library loaded
                     let symbol_name = self.pop_string();
                     let lib = self.libs.last().unwrap();
-                    let symbol: Result<libloading::Symbol<unsafe extern "C" fn(*mut Vm) -> ()>, _> =
+                    let symbol /*: Result<libloading::Symbol<unsafe extern "C" fn(*mut Vm) -> ()>, _>*/ =
                         unsafe { lib.get(symbol_name.as_bytes()) };
                     let symbol = *symbol.unwrap();
                     self.foreign_functions.push(symbol);
@@ -1029,6 +1037,7 @@ impl Vm {
                 // println!("AFTER FFI VM: {:#?}", &self);
             }
         }
+        Ok(())
     }
 
     fn pc_to_error_location(&self, pc: usize) -> VmErrorLocation {
@@ -1192,11 +1201,14 @@ impl Vm {
     }
 
     fn pop_int(&mut self) -> AbraInt {
-        self.value_stack.pop().expect("stack underflow").get_int()
+        self.value_stack
+            .pop()
+            .expect("stack underflow")
+            .get_int(self)
     }
 
-    fn pop_bool(&mut self) -> bool {
-        self.value_stack.pop().expect("stack underflow").get_bool()
+    fn pop_bool(&mut self) -> Result<bool> {
+        self.pop()?.get_bool(self)
     }
 
     fn pop_string(&mut self) -> String {
@@ -1261,6 +1273,8 @@ impl Debug for Vm {
     }
 }
 
+impl Error for VmError {}
+
 impl Display for VmError {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         writeln!(f, "error: {}", self.kind)?;
@@ -1289,6 +1303,12 @@ impl Display for VmErrorKind {
             }
             VmErrorKind::Panic(msg) => {
                 write!(f, "panic: {}", msg)
+            }
+            VmErrorKind::Underflow => {
+                write!(f, "stack underflow")
+            }
+            VmErrorKind::WrongType => {
+                write!(f, "wrong type on top of stack")
             }
         }
     }

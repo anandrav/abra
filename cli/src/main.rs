@@ -36,7 +36,7 @@ struct Args {
     args: Vec<String>,
 }
 
-fn main() {
+fn main() -> anyhow::Result<()> {
     let args = Args::parse();
 
     let mut source_files = Vec::new();
@@ -89,7 +89,7 @@ fn main() {
             let mut vm = abra_core::vm::Vm::new(program);
             loop {
                 if vm.is_done() {
-                    return;
+                    return Ok(());
                 }
                 if let Some(error) = vm.get_error() {
                     eprintln!("{}", error);
@@ -102,7 +102,7 @@ fn main() {
                     match effect {
                         CliEffects::PrintString => {
                             let s = vm.top().get_string(&vm);
-                            vm.pop();
+                            vm.pop()?;
                             print!("{}", s);
                             vm.push_nil();
                         }

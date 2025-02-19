@@ -52,7 +52,7 @@ pub unsafe extern "C" fn abra_vm_push_nil(vm: *mut Vm) {
 #[no_mangle]
 pub unsafe extern "C" fn abra_vm_pop_nil(vm: *mut Vm) {
     let vm = unsafe { vm.as_mut().unwrap() };
-    vm.pop();
+    vm.pop().unwrap();
 }
 
 /// # Safety
@@ -60,8 +60,8 @@ pub unsafe extern "C" fn abra_vm_pop_nil(vm: *mut Vm) {
 #[no_mangle]
 pub unsafe extern "C" fn abra_vm_pop_int(vm: *mut Vm) -> i64 {
     let vm = unsafe { vm.as_mut().unwrap() };
-    let top = vm.top().get_int();
-    vm.pop();
+    let top = vm.top().get_int(vm);
+    vm.pop().unwrap();
     top
 }
 
@@ -70,8 +70,8 @@ pub unsafe extern "C" fn abra_vm_pop_int(vm: *mut Vm) -> i64 {
 #[no_mangle]
 pub unsafe extern "C" fn abra_vm_pop_float(vm: *mut Vm) -> f64 {
     let vm = unsafe { vm.as_mut().unwrap() };
-    let top = vm.top().get_float();
-    vm.pop();
+    let top = vm.top().get_float(vm);
+    vm.pop().unwrap();
     top
 }
 
@@ -80,8 +80,8 @@ pub unsafe extern "C" fn abra_vm_pop_float(vm: *mut Vm) -> f64 {
 #[no_mangle]
 pub unsafe extern "C" fn abra_vm_pop_bool(vm: *mut Vm) -> bool {
     let vm = unsafe { vm.as_mut().unwrap() };
-    let top = vm.top().get_bool();
-    vm.pop();
+    let top = vm.top().get_bool(vm).unwrap();
+    vm.pop().unwrap();
     top
 }
 
@@ -90,7 +90,7 @@ pub unsafe extern "C" fn abra_vm_pop_bool(vm: *mut Vm) -> bool {
 #[no_mangle]
 pub unsafe extern "C" fn abra_vm_pop(vm: *mut Vm) {
     let vm = unsafe { vm.as_mut().unwrap() };
-    vm.pop();
+    vm.pop().unwrap();
 }
 
 #[repr(C)]
@@ -150,7 +150,7 @@ pub unsafe extern "C" fn abra_vm_construct(vm: *mut Vm, arity: u16) {
 #[no_mangle]
 pub unsafe extern "C" fn abra_vm_construct_variant(vm: *mut Vm, tag: u16) {
     let vm = unsafe { vm.as_mut().unwrap() };
-    vm.construct_variant(tag);
+    vm.construct_variant(tag).unwrap();
 }
 
 /// # Safety
