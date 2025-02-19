@@ -3,7 +3,6 @@ use term
 while true {
   if poll_key_event() {
     let key = get_key_event()
-    println("GOT A KEY EVENT")
     match key {
       Left -> println("left")
       Right -> println("right")
@@ -12,6 +11,7 @@ while true {
       Char("q") -> { break }
       Char(~c) -> println(c)
       Esc -> { break }
+      Other -> println("<other>")
     }
   }
 }

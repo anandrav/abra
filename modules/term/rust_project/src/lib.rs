@@ -12,6 +12,7 @@ pub mod ffi {
             Down,
             Char(String),
             Esc,
+            Other,
         }
         impl VmType for KeyCode {
             unsafe fn from_vm(vm: *mut Vm) -> Self {
@@ -43,6 +44,10 @@ pub mod ffi {
                             abra_vm_pop_nil(vm);
                             KeyCode::Esc
                         }
+                        6 => {
+                            abra_vm_pop_nil(vm);
+                            KeyCode::Other
+                        }
                         _ => panic!("unexpected tag encountered: {}", tag),
                     }
                 }
@@ -73,6 +78,10 @@ pub mod ffi {
                         KeyCode::Esc => {
                             abra_vm_push_nil(vm);
                             abra_vm_construct_variant(vm, 5);
+                        }
+                        KeyCode::Other => {
+                            abra_vm_push_nil(vm);
+                            abra_vm_construct_variant(vm, 6);
                         }
                     }
                 }

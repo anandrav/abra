@@ -5,6 +5,7 @@ type KeyCode =
     | Down
     | Char of string
     | Esc
+    | Other
 
 foreign fn poll_key_event() -> bool
 

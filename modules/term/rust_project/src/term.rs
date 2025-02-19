@@ -16,7 +16,7 @@ pub fn poll_key_event() -> bool {
     execute!(std::io::stdout(), EnableMouseCapture).unwrap();
     let mut ret = false;
     // execute!(std::io::stdout(), EnableBracketedPaste, EnableFocusChange).unwrap();
-    if poll(Duration::from_millis(16)).unwrap() {
+    if poll(Duration::from_millis(1)).unwrap() {
         ret = true;
     }
     // execute!(std::io::stdout(), DisableBracketedPaste, DisableFocusChange).unwrap();
@@ -43,7 +43,7 @@ pub fn get_key_event() -> KeyCode {
                 CtKeyCode::Down => break KeyCode::Down,
                 CtKeyCode::Char(c) => break KeyCode::Char(c.into()),
                 CtKeyCode::Esc => break KeyCode::Esc,
-                _ => {}
+                _ => break KeyCode::Other,
             }
         };
     };
