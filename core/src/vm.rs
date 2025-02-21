@@ -81,6 +81,9 @@ pub enum VmErrorKind {
     Panic(RString),
     Underflow,
     WrongType { expected: ValueKind },
+    FfiNotEnabled,
+    LibLoadFailure(RString),
+    SymbolLoadFailure(RString),
 }
 
 #[repr(C)]
@@ -95,6 +98,7 @@ pub enum ValueKind {
     Array,
     Enum,
     Struct,
+    Object, // TODO: make array, enum, struct specific instructions then remove this
     FunctionObject,
 }
 
@@ -262,7 +266,7 @@ impl Vm {
     pub fn construct_array(&mut self, n: usize) {
         let fields: Vec<_> = self
             .value_stack
-            .drain(self.value_stack.len() - n as usize..)
+            .drain(self.value_stack.len() - n..)
             .collect();
         self.heap
             .push(ManagedObject::new(ManagedObjectKind::DynArray(fields)));
@@ -270,8 +274,8 @@ impl Vm {
         self.push(r);
     }
 
-    pub fn deconstruct(&mut self) {
-        let obj = self.pop().expect("stack underflow");
+    pub fn deconstruct(&mut self) -> Result<()> {
+        let obj = self.pop()?;
         match &obj {
             Value::HeapReference(r) => match &self.heap[r.get().get()].kind {
                 ManagedObjectKind::DynArray(fields) => {
@@ -281,10 +285,11 @@ impl Vm {
                     self.value_stack.push(value.clone());
                     self.push_int(*tag as AbraInt);
                 }
-                _ => panic!("not a tuple"),
+                _ => return self.wrong_type(ValueKind::Object),
             },
-            _ => panic!("not a tuple"),
+            _ => return self.wrong_type(ValueKind::Object),
         };
+        Ok(())
     }
 
     pub fn increment_stack_base(&mut self, n: usize) {
@@ -554,16 +559,6 @@ impl Value {
                 _ => panic!("not a string"),
             },
             _ => panic!("not a string"),
-        }
-    }
-
-    pub fn get_tuple(&self, vm: &Vm) -> Vec<Value> {
-        match self {
-            Value::HeapReference(r) => match &vm.heap[r.get().get()].kind {
-                ManagedObjectKind::DynArray(fields) => fields.clone(),
-                _ => panic!("not a tuple"),
-            },
-            _ => panic!("not a tuple"),
         }
     }
 }
@@ -918,7 +913,7 @@ impl Vm {
                 self.push(r);
             }
             Instr::Deconstruct => {
-                self.deconstruct();
+                self.deconstruct()?;
             }
             Instr::GetField(index) => {
                 let obj = self.pop()?;
@@ -1071,7 +1066,7 @@ impl Vm {
             }
             Instr::LoadLib => {
                 if cfg!(not(feature = "ffi")) {
-                    panic!("ffi is not enabled.")
+                    return self.make_error(VmErrorKind::FfiNotEnabled);
                 }
 
                 #[cfg(feature = "ffi")]
@@ -1080,14 +1075,15 @@ impl Vm {
                     // load the library with a certain name and add it to the Vm's Vec of libs
                     let libname: String = self.pop_string()?.into();
                     let lib = unsafe { Library::new(&libname) };
-                    let lib =
-                        lib.unwrap_or_else(|e| panic!("Could not load library {}: {}", libname, e));
+                    let Ok(lib) = lib else {
+                        return self.make_error(VmErrorKind::LibLoadFailure(libname.into()));
+                    };
                     self.libs.push(lib);
                 }
             }
             Instr::LoadForeignFunc => {
                 if cfg!(not(feature = "ffi")) {
-                    panic!("ffi is not enabled.")
+                    return self.make_error(VmErrorKind::FfiNotEnabled);
                 }
 
                 #[cfg(feature = "ffi")]
@@ -1098,10 +1094,10 @@ impl Vm {
                     let lib = self.libs.last().expect("no libraries have been loaded");
                     let symbol /*: Result<libloading::Symbol<unsafe extern "C" fn(*mut Vm) -> ()>, _>*/ =
                         unsafe { lib.get(symbol_name.as_bytes()) };
-                    let symbol = *symbol.unwrap_or_else(|e| {
-                        panic!("could not get symbol {} from library: {}", symbol_name, e)
-                    });
-                    self.foreign_functions.push(symbol);
+                    let Ok(symbol) = symbol else {
+                        return self.make_error(VmErrorKind::SymbolLoadFailure(symbol_name));
+                    };
+                    self.foreign_functions.push(*symbol);
                     // println!(
                     //     "foreign_functions[{}]={}",
                     //     self.foreign_functions.len() - 1,
@@ -1111,7 +1107,7 @@ impl Vm {
             }
             Instr::CallExtern(_func_id) => {
                 if cfg!(not(feature = "ffi")) {
-                    panic!("ffi is not enabled.")
+                    return self.make_error(VmErrorKind::FfiNotEnabled);
                 }
 
                 // println!(">>time to invoke func_id={}", _func_id);
@@ -1396,6 +1392,15 @@ impl Display for VmErrorKind {
             }
             VmErrorKind::WrongType { expected } => {
                 write!(f, "wrong type on top of stack, expected: {:?}", expected)
+            }
+            VmErrorKind::FfiNotEnabled => {
+                write!(f, "ffi is not enabled")
+            }
+            VmErrorKind::LibLoadFailure(s) => {
+                write!(f, "failed to load shared library: {}", s)
+            }
+            VmErrorKind::SymbolLoadFailure(s) => {
+                write!(f, "failed to load symbol: {}", s)
             }
         }
     }

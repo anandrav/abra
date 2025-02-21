@@ -159,7 +159,7 @@ pub unsafe extern "C" fn abra_vm_construct_variant(vm: *mut Vm, tag: u16) {
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn abra_vm_deconstruct(vm: *mut Vm) {
     let vm = unsafe { vm.as_mut().unwrap() };
-    vm.deconstruct();
+    vm.deconstruct().unwrap();
 }
 
 use std::env::current_dir;
