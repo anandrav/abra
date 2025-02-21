@@ -10,9 +10,9 @@ use std::{
 
 pub use crate::vm::Vm;
 use crate::{
+    FileAst, FileData, ItemKind,
     ast::{FileDatabase, PatKind, Type, TypeDefKind, TypeKind},
     parse::parse_or_err,
-    FileAst, FileData, ItemKind,
 };
 
 /// # Safety
@@ -465,7 +465,7 @@ fn add_items_from_ast(ast: Rc<FileAst>, output: &mut String) {
 fn name_of_ty(ty: Rc<Type>) -> String {
     match &*ty.kind {
         TypeKind::Bool => "bool".to_string(),
-        TypeKind::Float => "float".to_string(),
+        TypeKind::Float => "f64".to_string(),
         TypeKind::Int => "i64".to_string(),
         TypeKind::Str => "String".to_string(),
         TypeKind::Identifier(s) => s.clone(),

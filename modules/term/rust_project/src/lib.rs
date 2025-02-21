@@ -112,6 +112,16 @@ pub mod ffi {
             let ret: () = term::clear();
             ret.to_vm(vm);
         }
+        #[export_name = "abra_ffi$term$hide_cursor"]
+        pub unsafe extern "C" fn hide_cursor(vm: *mut Vm) {
+            let ret: () = term::hide_cursor();
+            ret.to_vm(vm);
+        }
+        #[export_name = "abra_ffi$term$show_cursor"]
+        pub unsafe extern "C" fn show_cursor(vm: *mut Vm) {
+            let ret: () = term::show_cursor();
+            ret.to_vm(vm);
+        }
         #[export_name = "abra_ffi$term$mark"]
         pub unsafe extern "C" fn mark(vm: *mut Vm) {
             let y = i64::from_vm(vm);

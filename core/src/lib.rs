@@ -84,11 +84,14 @@ pub fn compile_bytecode(
         );
     }
 
+    // println!("time to analyze");
     let inference_ctx = statics::analyze(&effects, &file_asts, &node_map, &file_db)?;
 
     // TODO: translator should be immutable
     // NOTE: It's only mutable right now because of ty_fits_impl_ty calls ast_type_to_statics_type...
+    // println!("time to translate");
     let mut translator = Translator::new(inference_ctx, node_map, file_db, file_asts);
+    // println!("successfully translated");
     Ok(translator.translate())
 }
 

@@ -27,13 +27,19 @@ type Snake = {
 // let snake = Snake([Point(10, 10)], DirRight)
 
 fn main() {
-  let snake = Snake([Point(10, 10)], DirRight)
-  let quit = false
+  // println("main")
+  let snake = Snake([Point(12, 10), Point(11, 10), Point(10, 10), Point(9, 10), Point(8, 10)], DirRight)
+  var quit = false
 
   // game loop
   enable_raw_mode()
+  hide_cursor()
   while true {
-    if poll_key_event() {
+    // println("game loop")
+    let start_time = get_time()
+
+    while poll_key_event() {
+      // println("got event")
       match get_key_event() {
         Left -> { snake.direction <- DirLeft }
         Char("a") -> { snake.direction <- DirLeft }
@@ -53,17 +59,24 @@ fn main() {
       break
     }
 
-    clear()
-
-    display_snake(snake)
     update_snake(snake)
-    
+
+    let now = get_time()
+    let end_time = start_time + 200.0 / 1000.0
+    let diff = end_time - now
+    if diff > 0.0 {
+      sleep(diff)
+    }
+
+    clear()
+    // TODO: passing no arguments to this results in crash
+    display_snake(snake)
     flush()
   }
-
   // cleanup
   clear()
   disable_raw_mode()
+  show_cursor()
   flush()
 }
 
@@ -87,7 +100,22 @@ fn display_snake(snake: Snake) {
 
 fn update_snake(snake: Snake) {
   let body = snake.body
-  let segment: Point = body[0]
-  segment.x <- segment.x + 1
+  // TODO: if l is named len instead, stack overflow (need occurs check)
+  let l = len(body)
+  
+  // TODO: if this i is commented out, it's not caught
+  var i = l - 2
+  while i >= 0 {
+    body[i+1] <- body[i]
+    i <- i - 1
+  }
+  
+  body[0] <- Point(body[1].x, body[1].y)
+  match snake.direction {
+    DirUp -> { body[0].y <- body[0].y - 1 }
+    DirDown -> { body[0].y <- body[0].y + 1 }
+    DirLeft -> { body[0].x <- body[0].x - 1 }
+    DirRight -> { body[0].x <- body[0].x + 1 }
+  } 
 }
 

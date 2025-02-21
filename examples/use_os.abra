@@ -15,8 +15,13 @@ use os/env
 // command("/bin/echo echooooo")
 
 let time = get_time()
-println("seconds: " & time.seconds)
+println("seconds: " & time)
 
 let home = get_var("HOME")
 println("home dir is: " & home)
 
+println("time to take a 1 second nap")
+
+sleep(1.0)
+
+println("ok done!")

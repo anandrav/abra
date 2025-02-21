@@ -1,17 +1,13 @@
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::thread;
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
-use crate::ffi::time::Time;
-
-pub fn get_time() -> Time {
+pub fn get_time() -> f64 {
     let now = SystemTime::now();
-
     let duration_since_epoch = now.duration_since(UNIX_EPOCH).expect("Time went backwards");
+    duration_since_epoch.as_secs_f64()
+}
 
-    let seconds = duration_since_epoch.as_secs();
-    let nanoseconds = duration_since_epoch.subsec_nanos();
-
-    Time {
-        seconds: seconds as i64,
-        nanoseconds: nanoseconds as i64,
-    }
+pub fn sleep(seconds: f64) {
+    let duration = Duration::from_secs_f64(seconds);
+    thread::sleep(duration);
 }

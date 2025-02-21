@@ -1,4 +1,4 @@
-use crate::assembly::{remove_labels, Instr, Label, Line};
+use crate::assembly::{Instr, Label, Line, remove_labels};
 use crate::ast::{
     BinaryOperator, ForeignFuncDecl, FuncDef, InterfaceDecl, Item, ItemKind, TypeKind,
 };
@@ -7,7 +7,7 @@ use crate::builtin::Builtin;
 use crate::effects::EffectDesc;
 use crate::environment::Environment;
 use crate::statics::typecheck::Nominal;
-use crate::statics::{ty_fits_impl_ty, Monotype, Type, _print_node};
+use crate::statics::{_print_node, Monotype, Type, ty_fits_impl_ty};
 use crate::statics::{Declaration, TypeProv};
 use crate::vm::{AbraFloat, AbraInt, Instr as VmInstr};
 use crate::{
@@ -486,13 +486,10 @@ impl Translator {
                         unimplemented!()
                     }
                     BytecodeResolution::FreeFunction(_, name) => {
-                        self.emit(
-                            st,
-                            Instr::MakeClosure {
-                                n_captured: 0,
-                                func_addr: name.clone(),
-                            },
-                        );
+                        self.emit(st, Instr::MakeClosure {
+                            n_captured: 0,
+                            func_addr: name.clone(),
+                        });
                     }
                     BytecodeResolution::ForeignFunction { .. } => {
                         unimplemented!()
@@ -619,12 +616,15 @@ impl Translator {
                                 .flat_map(|(l, symbols)| symbols.iter().map(move |s| (l, s)))
                                 .enumerate()
                                 .find(|(_, (l, s))| **l == libname && **s == symbol)
-                            { Some((func_id, _)) => {
-                                // println!("The func id of {} is {}", symbol, func_id);
-                                self.emit(st, Instr::CallExtern(func_id));
-                            } _ => {
-                                panic!("Symbol not found");
-                            }}
+                            {
+                                Some((func_id, _)) => {
+                                    // println!("The func id of {} is {}", symbol, func_id);
+                                    self.emit(st, Instr::CallExtern(func_id));
+                                }
+                                _ => {
+                                    panic!("Symbol not found");
+                                }
+                            }
                             // by this point we should know the name of the .so file that this external function should be located in
 
                             // then, calling an external function just means
@@ -971,38 +971,32 @@ impl Translator {
                     self.emit(st, Instr::LoadOffset(*offset_table.get(&capture).unwrap()));
                 }
 
-                st.lambdas.insert(
-                    expr.id,
-                    LambdaData {
-                        label: label.clone(),
-                        offset_table: lambda_offset_table,
-                        nlocals: locals_count,
-                        ncaptures,
-                    },
-                );
+                st.lambdas.insert(expr.id, LambdaData {
+                    label: label.clone(),
+                    offset_table: lambda_offset_table,
+                    nlocals: locals_count,
+                    ncaptures,
+                });
 
-                self.emit(
-                    st,
-                    Instr::MakeClosure {
-                        n_captured: ncaptures as u16,
-                        func_addr: label,
-                    },
-                );
+                self.emit(st, Instr::MakeClosure {
+                    n_captured: ncaptures as u16,
+                    func_addr: label,
+                });
             }
             ExprKind::WhileLoop(cond, body) => {
                 let start_label = make_label("while_start");
                 let end_label = make_label("while_end");
 
-                st.loop_stack.push(EnclosingLoop {
-                    start_label: start_label.clone(),
-                    end_label: end_label.clone(),
-                });
-
                 self.emit(st, Line::Label(start_label.clone()));
                 self.translate_expr(cond.clone(), offset_table, monomorph_env.clone(), st);
                 self.emit(st, Instr::Not);
                 self.emit(st, Instr::JumpIf(end_label.clone()));
+                st.loop_stack.push(EnclosingLoop {
+                    start_label: start_label.clone(),
+                    end_label: end_label.clone(),
+                });
                 self.translate_expr(body.clone(), offset_table, monomorph_env.clone(), st);
+                st.loop_stack.pop();
                 self.emit(st, Instr::Pop);
                 self.emit(st, Instr::Jump(start_label));
                 self.emit(st, Line::Label(end_label));

@@ -1,7 +1,4 @@
+// return the time in seconds
+foreign fn get_time() -> float
 
-type Time = {
-    seconds: int
-    nanoseconds: int
-}
-
-foreign fn get_time() -> Time
+foreign fn sleep(seconds: float) -> void

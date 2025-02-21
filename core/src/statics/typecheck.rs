@@ -5,6 +5,7 @@ use crate::ast::{
 use crate::ast::{BinaryOperator, Item};
 use crate::builtin::Builtin;
 use crate::environment::Environment;
+use crate::statics::_print_node;
 use core::panic;
 use disjoint_sets::UnionFindNode;
 use std::cell::RefCell;
@@ -17,12 +18,15 @@ use super::{
 };
 
 pub(crate) fn solve_types(ctx: &mut StaticsContext, file_asts: &Vec<Rc<FileAst>>) {
+    // println!("gen_constraints_file_decls");
     for file in file_asts {
         generate_constraints_file_decls(file.clone(), ctx);
     }
+    // println!("gen_constraints_file_stmts");
     for file in file_asts {
         generate_constraints_file_stmts(file.clone(), ctx);
     }
+    // println!("check_unifvars");
     check_unifvars(ctx);
 }
 
@@ -61,6 +65,7 @@ impl TypeVarData {
     }
 
     fn merge_data(first: Self, second: Self) -> Self {
+        // println!("merge_data");
         let mut merged_types = Self {
             types: first.types,
             locked: false,
@@ -1388,6 +1393,7 @@ pub(crate) fn generate_constraints_file_stmts(file: Rc<FileAst>, ctx: &mut Stati
 }
 
 fn generate_constraints_item_stmts(mode: Mode, stmt: Rc<Item>, ctx: &mut StaticsContext) {
+    // println!("generate_constraints_item_stmts");
     match &*stmt.kind {
         ItemKind::InterfaceDef(..) => {}
         ItemKind::Import(..) => {}
@@ -1961,11 +1967,9 @@ fn generate_constraints_expr(
             constrain(
                 ctx,
                 accessed_ty,
-                TypeVar::make_nominal(
-                    Reason::Node(accessed.id),
-                    Nominal::Array,
-                    vec![elem_ty.clone()],
-                ),
+                TypeVar::make_nominal(Reason::Node(accessed.id), Nominal::Array, vec![
+                    elem_ty.clone(),
+                ]),
             );
             generate_constraints_expr(
                 polyvar_scope,
@@ -2122,6 +2126,7 @@ fn generate_constraints_pat(
     pat: Rc<Pat>,
     ctx: &mut StaticsContext,
 ) {
+    // println!("generate_constraints_pat");
     // _print_node(ctx, pat.id);
     let ty_pat = TypeVar::from_node(ctx, pat.id);
     match &*pat.kind {

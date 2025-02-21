@@ -181,11 +181,12 @@ impl Vm {
             VmStatus::PendingEffect(eff)
         } else if self.is_done() {
             VmStatus::Done
-        } else { match &self.error { RSome(err) => {
-            VmStatus::Error(err.clone())
-        } _ => {
-            VmStatus::OutOfSteps
-        }}}
+        } else {
+            match &self.error {
+                RSome(err) => VmStatus::Error(err.clone()),
+                _ => VmStatus::OutOfSteps,
+            }
+        }
     }
 
     pub fn top(&self) -> &Value {
@@ -660,6 +661,14 @@ impl Vm {
 
     fn step(&mut self) -> Result<()> {
         let instr = self.program[self.pc];
+        // println!("instr: {}", instr);
+        // let location = self.pc_to_error_location(self.pc);
+        // let func_call = format!("{}()", location.function_name);
+        // let max_width = 30;
+        // println!(
+        //     "    from {:<max_width$} at {}, line {}",
+        //     func_call, location.filename, location.lineno
+        // );
         self.pc += 1;
         match instr {
             Instr::PushNil => {
@@ -903,13 +912,13 @@ impl Vm {
                         _ => {
                             return Err(self.make_error(VmErrorKind::WrongType {
                                 expected: ValueKind::Object,
-                            }))
+                            }));
                         }
                     },
                     _ => {
                         return Err(self.make_error(VmErrorKind::WrongType {
                             expected: ValueKind::Object,
-                        }))
+                        }));
                     }
                 };
                 self.push(field);
@@ -922,7 +931,7 @@ impl Vm {
                     _ => {
                         return Err(self.make_error(VmErrorKind::WrongType {
                             expected: ValueKind::Object,
-                        }))
+                        }));
                     }
                 };
                 match &mut self.heap[obj_id].kind {
@@ -932,7 +941,7 @@ impl Vm {
                     _ => {
                         return Err(self.make_error(VmErrorKind::WrongType {
                             expected: ValueKind::Object,
-                        }))
+                        }));
                     }
                 }
             }
@@ -1119,6 +1128,7 @@ impl Vm {
                 // println!("AFTER FFI VM: {:#?}", &self);
             }
         }
+        // println!("{:#?}", self);
         Ok(())
     }
 

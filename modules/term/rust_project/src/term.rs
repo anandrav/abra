@@ -67,12 +67,28 @@ pub fn clear() {
     queue!(stdout, Clear(ClearType::All)).unwrap();
 }
 
+pub fn hide_cursor() {
+    let mut stdout = stdout();
+    queue!(stdout, cursor::Hide).unwrap();
+}
+
+pub fn show_cursor() {
+    let mut stdout = stdout();
+    queue!(stdout, cursor::Show).unwrap();
+}
+
 pub fn mark(s: String, x: i64, y: i64) {
+    let Ok(x) = u16::try_from(x) else {
+        return;
+    };
+    let Ok(y) = u16::try_from(y) else {
+        return;
+    };
     let mut stdout = stdout();
     queue!(
         stdout,
-        cursor::MoveToColumn(x as u16),
-        cursor::MoveToRow(y as u16),
+        cursor::MoveToColumn(x),
+        cursor::MoveToRow(y),
         style::Print(s)
     )
     .unwrap();

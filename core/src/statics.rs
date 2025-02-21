@@ -10,8 +10,8 @@ use std::fmt::{self, Display, Formatter};
 use std::path::PathBuf;
 use std::rc::Rc;
 use typecheck::{
-    fmt_conflicting_types, solve_types, ConstraintReason, PotentialType, Reason, SolvedType,
-    TypeKey, TypeVar,
+    ConstraintReason, PotentialType, Reason, SolvedType, TypeKey, TypeVar, fmt_conflicting_types,
+    solve_types,
 };
 mod pat_exhaustiveness;
 mod resolve;
@@ -21,7 +21,7 @@ pub(crate) use typecheck::ty_fits_impl_ty;
 use codespan_reporting::diagnostic::{Diagnostic, Label};
 use codespan_reporting::term;
 use codespan_reporting::term::termcolor::{ColorChoice, StandardStream};
-use pat_exhaustiveness::{check_pattern_exhaustiveness_and_usefulness, DeconstructedPat};
+use pat_exhaustiveness::{DeconstructedPat, check_pattern_exhaustiveness_and_usefulness};
 pub use typecheck::Monotype;
 pub(crate) use typecheck::Prov as TypeProv;
 pub(crate) use typecheck::SolvedType as Type;
