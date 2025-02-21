@@ -89,11 +89,13 @@ pub enum ValueKind {
     Nil,
     Int,
     Float,
+    Number, // TODO: make int and float specific instructions then remove this
     Bool,
     String,
     Array,
     Enum,
     Struct,
+    FunctionObject,
 }
 
 pub type ErrorLocation = (RString, u32);
@@ -309,6 +311,14 @@ impl Vm {
         }))
     }
 
+    fn wrong_type<T>(&self, expected: ValueKind) -> Result<T> {
+        Err(Box::new(VmError {
+            kind: VmErrorKind::WrongType { expected },
+            location: self.pc_to_error_location(self.pc),
+            trace: self.make_trace(),
+        }))
+    }
+
     pub fn is_done(&self) -> bool {
         self.pc >= self.program.len()
     }
@@ -502,27 +512,21 @@ impl Value {
     pub fn get_int(&self, vm: &Vm) -> Result<AbraInt> {
         match self {
             Value::Int(i) => Ok(*i),
-            _ => vm.make_error(VmErrorKind::WrongType {
-                expected: ValueKind::Int,
-            }),
+            _ => vm.wrong_type(ValueKind::Int),
         }
     }
 
     pub fn get_float(&self, vm: &Vm) -> Result<AbraFloat> {
         match self {
             Value::Float(f) => Ok(*f),
-            _ => vm.make_error(VmErrorKind::WrongType {
-                expected: ValueKind::Float,
-            }),
+            _ => vm.wrong_type(ValueKind::Int),
         }
     }
 
     pub fn get_bool(&self, vm: &Vm) -> Result<bool> {
         match self {
             Value::Bool(b) => Ok(*b),
-            _ => vm.make_error(VmErrorKind::WrongType {
-                expected: ValueKind::Bool,
-            }),
+            _ => vm.wrong_type(ValueKind::Bool),
         }
     }
 
@@ -537,9 +541,7 @@ impl Value {
                     }),
                 }
             }
-            _ => vm.make_error(VmErrorKind::WrongType {
-                expected: ValueKind::String,
-            }),
+            _ => vm.wrong_type(ValueKind::String),
         }
     }
 
@@ -716,7 +718,7 @@ impl Vm {
                 match (a, b) {
                     (Value::Int(a), Value::Int(b)) => self.push(a + b),
                     (Value::Float(a), Value::Float(b)) => self.push(a + b),
-                    _ => panic!("not a number"),
+                    _ => return self.wrong_type(ValueKind::Number),
                 }
             }
             Instr::Subtract => {
@@ -725,7 +727,7 @@ impl Vm {
                 match (a, b) {
                     (Value::Int(a), Value::Int(b)) => self.push(a - b),
                     (Value::Float(a), Value::Float(b)) => self.push(a - b),
-                    _ => panic!("not a number"),
+                    _ => return self.wrong_type(ValueKind::Number),
                 }
             }
             Instr::Multiply => {
@@ -734,7 +736,7 @@ impl Vm {
                 match (a, b) {
                     (Value::Int(a), Value::Int(b)) => self.push(a * b),
                     (Value::Float(a), Value::Float(b)) => self.push(a * b),
-                    _ => panic!("not a number"),
+                    _ => return self.wrong_type(ValueKind::Number),
                 }
             }
             Instr::Divide => {
@@ -743,14 +745,14 @@ impl Vm {
                 match (a, b) {
                     (Value::Int(a), Value::Int(b)) => self.push(a / b),
                     (Value::Float(a), Value::Float(b)) => self.push(a / b),
-                    _ => panic!("not a number"),
+                    _ => return self.wrong_type(ValueKind::Number),
                 }
             }
             Instr::SquareRoot => {
                 let v = self.pop()?;
                 match v {
                     Value::Float(f) => self.push(f.sqrt()),
-                    _ => panic!("not a float"),
+                    _ => return self.wrong_type(ValueKind::Float),
                 }
             }
             Instr::Power => {
@@ -759,7 +761,7 @@ impl Vm {
                 match (a, b) {
                     (Value::Int(a), Value::Int(b)) => self.push(a.pow(b as u32)),
                     (Value::Float(a), Value::Float(b)) => self.push(a.powf(b)),
-                    _ => panic!("not a number"),
+                    _ => return self.wrong_type(ValueKind::Number),
                 }
             }
             Instr::Modulo => {
@@ -768,7 +770,7 @@ impl Vm {
                 match (a, b) {
                     (Value::Int(a), Value::Int(b)) => self.push(a % b),
                     (Value::Float(a), Value::Float(b)) => self.push(a % b),
-                    _ => panic!("not a number"),
+                    _ => return self.wrong_type(ValueKind::Number),
                 }
             }
             Instr::Not => {
@@ -791,7 +793,9 @@ impl Vm {
                 match (a, b) {
                     (Value::Int(a), Value::Int(b)) => self.push(a < b),
                     (Value::Float(a), Value::Float(b)) => self.push(a < b),
-                    _ => panic!("not a number"),
+                    _ => {
+                        return self.wrong_type(ValueKind::String);
+                    }
                 }
             }
             Instr::LessThanOrEqual => {
@@ -800,7 +804,9 @@ impl Vm {
                 match (a, b) {
                     (Value::Int(a), Value::Int(b)) => self.push(a <= b),
                     (Value::Float(a), Value::Float(b)) => self.push(a <= b),
-                    _ => panic!("not a number"),
+                    _ => {
+                        return self.wrong_type(ValueKind::Number);
+                    }
                 }
             }
             Instr::GreaterThan => {
@@ -809,7 +815,9 @@ impl Vm {
                 match (a, b) {
                     (Value::Int(a), Value::Int(b)) => self.push(a > b),
                     (Value::Float(a), Value::Float(b)) => self.push(a > b),
-                    _ => panic!("not a number"),
+                    _ => {
+                        return self.wrong_type(ValueKind::Number);
+                    }
                 }
             }
             Instr::GreaterThanOrEqual => {
@@ -818,7 +826,9 @@ impl Vm {
                 match (a, b) {
                     (Value::Int(a), Value::Int(b)) => self.push(a >= b),
                     (Value::Float(a), Value::Float(b)) => self.push(a >= b),
-                    _ => panic!("not a number"),
+                    _ => {
+                        return self.wrong_type(ValueKind::Number);
+                    }
                 }
             }
             Instr::Equal => {
@@ -839,7 +849,7 @@ impl Vm {
                         }
                     }
                     (Value::Nil, Value::Nil) => self.push(true),
-                    _ => self.push(false),
+                    _ => panic!("cannot compare equal"),
                 }
             }
             Instr::Jump(target) => {
@@ -875,16 +885,19 @@ impl Vm {
                             self.stack_base = self.value_stack.len();
                             self.value_stack.extend(captured_values.iter().cloned());
                         }
-                        _ => panic!("not a function object"),
+                        _ => return self.wrong_type(ValueKind::FunctionObject),
                     },
-                    _ => panic!("not a function object"),
+                    _ => return self.wrong_type(ValueKind::FunctionObject),
                 }
             }
             Instr::Return => {
                 if self.call_stack.is_empty() {
                     self.pc = self.program.len();
                 } else {
-                    let frame = self.call_stack.pop().expect("call stack underflow");
+                    let frame = self.call_stack.pop();
+                    let Some(frame) = frame else {
+                        return self.make_error(VmErrorKind::Underflow);
+                    };
                     self.pc = frame.pc;
                     self.stack_base = frame.stack_base;
                 }
@@ -912,17 +925,9 @@ impl Vm {
                 let field = match &obj {
                     Value::HeapReference(r) => match &self.heap[r.get().get()].kind {
                         ManagedObjectKind::DynArray(fields) => fields[index as usize].clone(),
-                        _ => {
-                            return self.make_error(VmErrorKind::WrongType {
-                                expected: ValueKind::Struct,
-                            });
-                        }
+                        _ => return self.wrong_type(ValueKind::Struct),
                     },
-                    _ => {
-                        return self.make_error(VmErrorKind::WrongType {
-                            expected: ValueKind::Struct,
-                        });
-                    }
+                    _ => return self.wrong_type(ValueKind::Struct),
                 };
                 self.push(field);
             }
@@ -931,21 +936,13 @@ impl Vm {
                 let rvalue = self.pop()?;
                 let obj_id = match obj {
                     Value::HeapReference(r) => r.get().get(),
-                    _ => {
-                        return self.make_error(VmErrorKind::WrongType {
-                            expected: ValueKind::Struct,
-                        });
-                    }
+                    _ => return self.wrong_type(ValueKind::Struct),
                 };
                 match &mut self.heap[obj_id].kind {
                     ManagedObjectKind::DynArray(fields) => {
                         fields[index as usize] = rvalue;
                     }
-                    _ => {
-                        return self.make_error(VmErrorKind::WrongType {
-                            expected: ValueKind::Struct,
-                        });
-                    }
+                    _ => return self.wrong_type(ValueKind::Struct),
                 }
             }
             Instr::GetIdx => {
@@ -960,9 +957,9 @@ impl Vm {
                             let field = fields[idx as usize].clone();
                             self.push(field);
                         }
-                        _ => panic!("not a dynamic array"),
+                        _ => return self.wrong_type(ValueKind::Array),
                     },
-                    _ => panic!("not a dynamic array"),
+                    _ => return self.wrong_type(ValueKind::Array),
                 };
             }
             Instr::SetIdx => {
@@ -971,7 +968,7 @@ impl Vm {
                 let rvalue = self.pop()?;
                 let obj_id = match obj {
                     Value::HeapReference(r) => r.get().get(),
-                    _ => panic!("not a managed object: {:?}", obj),
+                    _ => return self.wrong_type(ValueKind::Array),
                 };
                 match &mut self.heap[obj_id].kind {
                     ManagedObjectKind::DynArray(fields) => {
@@ -980,7 +977,7 @@ impl Vm {
                         }
                         fields[idx as usize] = rvalue;
                     }
-                    _ => panic!("not a dynamic array: {:?}", self.heap[obj_id]),
+                    _ => return self.wrong_type(ValueKind::Array),
                 }
             }
             Instr::ConstructVariant { tag } => {
@@ -1007,13 +1004,13 @@ impl Vm {
                 let obj = self.pop()?;
                 let obj_id = match &obj {
                     Value::HeapReference(r) => r.get().get(),
-                    _ => panic!("not a managed object: {:?}", obj),
+                    _ => return self.wrong_type(ValueKind::Array),
                 };
                 match &mut self.heap[obj_id].kind {
                     ManagedObjectKind::DynArray(fields) => {
                         fields.push(rvalue);
                     }
-                    _ => panic!("not a dynamic array: {:?}", self.heap[obj_id]),
+                    _ => return self.wrong_type(ValueKind::Array),
                 }
                 self.push_nil();
             }
@@ -1022,9 +1019,9 @@ impl Vm {
                 let len = match &obj {
                     Value::HeapReference(r) => match &self.heap[r.get().get()].kind {
                         ManagedObjectKind::DynArray(fields) => fields.len(),
-                        _ => panic!("not a dynamic array"),
+                        _ => return self.wrong_type(ValueKind::Array),
                     },
-                    _ => panic!("not a dynamic array"),
+                    _ => return self.wrong_type(ValueKind::Array),
                 };
                 self.push_int(len as AbraInt);
             }
@@ -1032,14 +1029,14 @@ impl Vm {
                 let obj = self.pop()?;
                 let obj_id = match obj {
                     Value::HeapReference(r) => r.get().get(),
-                    _ => panic!("not a managed object: {:?}", obj),
+                    _ => return self.wrong_type(ValueKind::Array),
                 };
                 match &mut self.heap[obj_id].kind {
                     ManagedObjectKind::DynArray(fields) => {
                         let rvalue = fields.pop().expect("array underflow");
                         self.push(rvalue);
                     }
-                    _ => panic!("not a dynamic array: {:?}", self.heap[obj_id]),
+                    _ => return self.wrong_type(ValueKind::Array),
                 }
             }
             Instr::ConcatStrings => {
