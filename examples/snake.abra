@@ -4,7 +4,6 @@ use time
 //println("hello from snake")
 
 // types
-
 type Point = {
   x: int
   y: int
@@ -56,7 +55,6 @@ fn main() {
 
     clear()
 
-    let x = 0
     display_snake(snake)
     update_snake(snake)
     

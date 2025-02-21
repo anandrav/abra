@@ -861,6 +861,7 @@ list_len(nums) + list_len(bools)
 fn concat_strings() {
     let src = r#"
 let s = "hello " & "world"
+s
 "#;
     let sources = source_files_single(src);
     let program = match compile_bytecode(

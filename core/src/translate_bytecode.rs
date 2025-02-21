@@ -1003,6 +1003,7 @@ impl Translator {
                 self.emit(st, Instr::Not);
                 self.emit(st, Instr::JumpIf(end_label.clone()));
                 self.translate_expr(body.clone(), offset_table, monomorph_env.clone(), st);
+                self.emit(st, Instr::Pop);
                 self.emit(st, Instr::Jump(start_label));
                 self.emit(st, Line::Label(end_label));
                 self.emit(st, Instr::PushNil);
@@ -1274,40 +1275,51 @@ impl Translator {
             StmtKind::Let(_, pat, expr) => {
                 self.translate_expr(expr.clone(), locals, monomorph_env.clone(), st);
                 self.handle_pat_binding(pat.0.clone(), locals, st);
+
+                // TODO: again, unnecessary overhead, and bug prone
+                if is_last {
+                    self.emit(st, Instr::PushNil);
+                }
             }
-            StmtKind::Set(expr1, rvalue) => match &*expr1.kind {
-                ExprKind::Identifier(_) => {
-                    let BytecodeResolution::Var(node_id) = self
-                        .statics
-                        .resolution_map
-                        .get(&expr1.id)
-                        .unwrap()
-                        .to_bytecode_resolution()
-                    else {
-                        panic!("expected variableto be defined in node");
-                    };
-                    let idx = locals.get(&node_id).unwrap();
-                    self.translate_expr(rvalue.clone(), locals, monomorph_env.clone(), st);
-                    self.emit(st, Instr::StoreOffset(*idx));
+            StmtKind::Set(expr1, rvalue) => {
+                match &*expr1.kind {
+                    ExprKind::Identifier(_) => {
+                        let BytecodeResolution::Var(node_id) = self
+                            .statics
+                            .resolution_map
+                            .get(&expr1.id)
+                            .unwrap()
+                            .to_bytecode_resolution()
+                        else {
+                            panic!("expected variableto be defined in node");
+                        };
+                        let idx = locals.get(&node_id).unwrap();
+                        self.translate_expr(rvalue.clone(), locals, monomorph_env.clone(), st);
+                        self.emit(st, Instr::StoreOffset(*idx));
+                    }
+                    ExprKind::MemberAccess(accessed, field) => {
+                        // TODO, this downcast shouldn't be necessary
+                        let ExprKind::Identifier(field_name) = &*field.kind else {
+                            panic!()
+                        };
+                        self.translate_expr(rvalue.clone(), locals, monomorph_env.clone(), st);
+                        self.translate_expr(accessed.clone(), locals, monomorph_env.clone(), st);
+                        let idx = idx_of_field(&self.statics, accessed.clone(), field_name);
+                        self.emit(st, Instr::SetField(idx));
+                    }
+                    ExprKind::IndexAccess(array, index) => {
+                        self.translate_expr(rvalue.clone(), locals, monomorph_env.clone(), st);
+                        self.translate_expr(index.clone(), locals, monomorph_env.clone(), st);
+                        self.translate_expr(array.clone(), locals, monomorph_env.clone(), st);
+                        self.emit(st, Instr::SetIdx);
+                    }
+                    _ => unimplemented!(),
                 }
-                ExprKind::MemberAccess(accessed, field) => {
-                    // TODO, this downcast shouldn't be necessary
-                    let ExprKind::Identifier(field_name) = &*field.kind else {
-                        panic!()
-                    };
-                    self.translate_expr(rvalue.clone(), locals, monomorph_env.clone(), st);
-                    self.translate_expr(accessed.clone(), locals, monomorph_env.clone(), st);
-                    let idx = idx_of_field(&self.statics, accessed.clone(), field_name);
-                    self.emit(st, Instr::SetField(idx));
+                // TODO: again, unnecessary overhead, and bug prone
+                if is_last {
+                    self.emit(st, Instr::PushNil);
                 }
-                ExprKind::IndexAccess(array, index) => {
-                    self.translate_expr(rvalue.clone(), locals, monomorph_env.clone(), st);
-                    self.translate_expr(index.clone(), locals, monomorph_env.clone(), st);
-                    self.translate_expr(array.clone(), locals, monomorph_env.clone(), st);
-                    self.emit(st, Instr::SetIdx);
-                }
-                _ => unimplemented!(),
-            },
+            }
             StmtKind::Expr(expr) => {
                 self.translate_expr(expr.clone(), locals, monomorph_env.clone(), st);
                 if !is_last {
@@ -1317,13 +1329,24 @@ impl Translator {
             StmtKind::FuncDef(..) => {
                 // noop -- handled elsewhere
             }
+            // TODO: should continue and break leave a Nil on the stack? Add tests for this!
             StmtKind::Break => {
                 let enclosing_loop = st.loop_stack.last().unwrap();
                 self.emit(st, Instr::Jump(enclosing_loop.end_label.clone()));
+
+                // TODO: again, unnecessary overhead, and bug prone
+                if is_last {
+                    self.emit(st, Instr::PushNil);
+                }
             }
             StmtKind::Continue => {
                 let enclosing_loop = st.loop_stack.last().unwrap();
                 self.emit(st, Instr::Jump(enclosing_loop.start_label.clone()));
+
+                // TODO: again, unnecessary overhead, and bug prone
+                if is_last {
+                    self.emit(st, Instr::PushNil);
+                }
             }
             StmtKind::Return(expr) => {
                 self.translate_expr(expr.clone(), locals, monomorph_env.clone(), st);

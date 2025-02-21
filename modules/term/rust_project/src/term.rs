@@ -28,7 +28,7 @@ pub fn poll_key_event() -> bool {
     // execute!(std::io::stdout(), EnableMouseCapture).unwrap();
     let mut ret = false;
     // execute!(std::io::stdout(), EnableBracketedPaste, EnableFocusChange).unwrap();
-    if poll(Duration::from_millis(1)).unwrap() {
+    if poll(Duration::from_millis(0)).unwrap() {
         ret = true;
     }
     // execute!(std::io::stdout(), DisableBracketedPaste, DisableFocusChange).unwrap();

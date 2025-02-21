@@ -12,4 +12,10 @@ abra_core = { path = "../../../core" }
 [build-dependencies]
 abra_core = { path = "../../../core" }
 
+[profile.dev]
+panic = "abort"
+
+[profile.release]
+panic = "abort"
+
 [workspace]

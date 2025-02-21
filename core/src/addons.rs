@@ -37,6 +37,7 @@ pub unsafe extern "C" fn abra_vm_push_float(vm: *mut Vm, f: f64) {
 pub unsafe extern "C" fn abra_vm_push_bool(vm: *mut Vm, b: bool) {
     let vm = unsafe { vm.as_mut().unwrap() };
     vm.push_bool(b);
+    // println!("pushing bool {}", b);
 }
 
 /// # Safety
