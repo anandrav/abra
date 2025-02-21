@@ -181,11 +181,11 @@ impl Vm {
             VmStatus::PendingEffect(eff)
         } else if self.is_done() {
             VmStatus::Done
-        } else if let RSome(err) = &self.error {
+        } else { match &self.error { RSome(err) => {
             VmStatus::Error(err.clone())
-        } else {
+        } _ => {
             VmStatus::OutOfSteps
-        }
+        }}}
     }
 
     pub fn top(&self) -> &Value {

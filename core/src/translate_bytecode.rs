@@ -612,19 +612,19 @@ impl Translator {
                             symbol,
                         } => {
                             // TODO: The ids should really be "baked" ahead of time.
-                            if let Some((func_id, _)) = self
+                            match self
                                 .statics
                                 .dylib_to_funcs
                                 .iter()
                                 .flat_map(|(l, symbols)| symbols.iter().map(move |s| (l, s)))
                                 .enumerate()
                                 .find(|(_, (l, s))| **l == libname && **s == symbol)
-                            {
+                            { Some((func_id, _)) => {
                                 // println!("The func id of {} is {}", symbol, func_id);
                                 self.emit(st, Instr::CallExtern(func_id));
-                            } else {
+                            } _ => {
                                 panic!("Symbol not found");
-                            }
+                            }}
                             // by this point we should know the name of the .so file that this external function should be located in
 
                             // then, calling an external function just means

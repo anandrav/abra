@@ -17,7 +17,7 @@ use crate::{
 
 /// # Safety
 /// vm: *mut Vm must be valid and non-null
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn abra_vm_push_int(vm: *mut Vm, n: i64) {
     let vm = unsafe { vm.as_mut().unwrap() };
     vm.push_int(n);
@@ -25,7 +25,7 @@ pub unsafe extern "C" fn abra_vm_push_int(vm: *mut Vm, n: i64) {
 
 /// # Safety
 /// vm: *mut Vm must be valid and non-null
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn abra_vm_push_float(vm: *mut Vm, f: f64) {
     let vm = unsafe { vm.as_mut().unwrap() };
     vm.push_float(f);
@@ -33,7 +33,7 @@ pub unsafe extern "C" fn abra_vm_push_float(vm: *mut Vm, f: f64) {
 
 /// # Safety
 /// vm: *mut Vm must be valid and non-null
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn abra_vm_push_bool(vm: *mut Vm, b: bool) {
     let vm = unsafe { vm.as_mut().unwrap() };
     vm.push_bool(b);
@@ -42,7 +42,7 @@ pub unsafe extern "C" fn abra_vm_push_bool(vm: *mut Vm, b: bool) {
 
 /// # Safety
 /// vm: *mut Vm must be valid and non-null
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn abra_vm_push_nil(vm: *mut Vm) {
     let vm = unsafe { vm.as_mut().unwrap() };
     vm.push_nil();
@@ -50,7 +50,7 @@ pub unsafe extern "C" fn abra_vm_push_nil(vm: *mut Vm) {
 
 /// # Safety
 /// vm: *mut Vm must be valid and non-null
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn abra_vm_pop_nil(vm: *mut Vm) {
     let vm = unsafe { vm.as_mut().unwrap() };
     vm.pop().unwrap();
@@ -58,7 +58,7 @@ pub unsafe extern "C" fn abra_vm_pop_nil(vm: *mut Vm) {
 
 /// # Safety
 /// vm: *mut Vm must be valid and non-null
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn abra_vm_pop_int(vm: *mut Vm) -> i64 {
     let vm = unsafe { vm.as_mut().unwrap() };
     let top = vm.top().get_int(vm).unwrap();
@@ -68,7 +68,7 @@ pub unsafe extern "C" fn abra_vm_pop_int(vm: *mut Vm) -> i64 {
 
 /// # Safety
 /// vm: *mut Vm must be valid and non-null
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn abra_vm_pop_float(vm: *mut Vm) -> f64 {
     let vm = unsafe { vm.as_mut().unwrap() };
     let top = vm.top().get_float(vm).unwrap();
@@ -78,7 +78,7 @@ pub unsafe extern "C" fn abra_vm_pop_float(vm: *mut Vm) -> f64 {
 
 /// # Safety
 /// vm: *mut Vm must be valid and non-null
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn abra_vm_pop_bool(vm: *mut Vm) -> bool {
     let vm = unsafe { vm.as_mut().unwrap() };
     let top = vm.top().get_bool(vm).unwrap();
@@ -88,7 +88,7 @@ pub unsafe extern "C" fn abra_vm_pop_bool(vm: *mut Vm) -> bool {
 
 /// # Safety
 /// vm: *mut Vm must be valid and non-null
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn abra_vm_pop(vm: *mut Vm) {
     let vm = unsafe { vm.as_mut().unwrap() };
     vm.pop().unwrap();
@@ -118,7 +118,7 @@ impl StringView {
 
 /// # Safety
 /// vm: *mut Vm must be valid and non-null
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn abra_vm_view_string(vm: *mut Vm) -> StringView {
     let vm = unsafe { vm.as_mut().unwrap() };
     let top = vm.top().view_string(vm);
@@ -130,7 +130,7 @@ pub unsafe extern "C" fn abra_vm_view_string(vm: *mut Vm) -> StringView {
 
 /// # Safety
 /// vm: *mut Vm must be valid and non-null
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn abra_vm_push_string(vm: *mut Vm, string_view: StringView) {
     let vm = unsafe { vm.as_mut().unwrap() };
     let s = string_view.to_owned();
@@ -140,7 +140,7 @@ pub unsafe extern "C" fn abra_vm_push_string(vm: *mut Vm, string_view: StringVie
 
 /// # Safety
 /// vm: *mut Vm must be valid and non-null
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn abra_vm_construct(vm: *mut Vm, arity: u16) {
     let vm = unsafe { vm.as_mut().unwrap() };
     vm.construct_struct(arity);
@@ -148,7 +148,7 @@ pub unsafe extern "C" fn abra_vm_construct(vm: *mut Vm, arity: u16) {
 
 /// # Safety
 /// vm: *mut Vm must be valid and non-null
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn abra_vm_construct_variant(vm: *mut Vm, tag: u16) {
     let vm = unsafe { vm.as_mut().unwrap() };
     vm.construct_variant(tag).unwrap();
@@ -156,7 +156,7 @@ pub unsafe extern "C" fn abra_vm_construct_variant(vm: *mut Vm, tag: u16) {
 
 /// # Safety
 /// vm: *mut Vm must be valid and non-null
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn abra_vm_deconstruct(vm: *mut Vm) {
     let vm = unsafe { vm.as_mut().unwrap() };
     vm.deconstruct();
@@ -667,7 +667,7 @@ where
 
 // A helper macro to replace a token with an expression (for counting)
 macro_rules! replace_expr {
-    ($t:tt, $e:expr) => {
+    ($t:tt, $e:expr_2021) => {
         $e
     };
 }
@@ -676,15 +676,15 @@ macro_rules! replace_expr {
 macro_rules! tuple_impls {
     ( $( $name:ident ),+ $(,)? ) => {
         impl< $($name: VmType),+ > VmType for ( $($name,)+ ) {
-            unsafe fn from_vm(vm: *mut Vm) -> Self {
+            unsafe fn from_vm(vm: *mut Vm) -> Self { unsafe {
                 // Deconstruct the tuple on the VM.
                 abra_vm_deconstruct(vm);
                 // Pop values in reverse order.
                 tuple_impls!(@reverse vm, $($name),+);
                 // Now rebuild the tuple (using the identifiers in the original order).
                 ($($name,)+)
-            }
-            unsafe fn to_vm(self, vm: *mut Vm) {
+            }}
+            unsafe fn to_vm(self, vm: *mut Vm) { unsafe {
                 // Destructure the tuple.
                 #[allow(non_snake_case)]
                 let ($($name,)+) = self;
@@ -694,16 +694,16 @@ macro_rules! tuple_impls {
                 let count: usize = [$( replace_expr!($name, 1) ),+].len();
                 // Reconstruct the tuple on the VM.
                 abra_vm_construct(vm, count as u16);
-            }
+            }}
         }
     };
 
     // Helper rule to generate from_vm calls in reverse order.
-    (@reverse $vm:expr, $x:ident) => {
+    (@reverse $vm:expr_2021, $x:ident) => {
         #[allow(non_snake_case)]
         let $x = $x::from_vm($vm);
     };
-    (@reverse $vm:expr, $x:ident, $($rest:ident),+) => {
+    (@reverse $vm:expr_2021, $x:ident, $($rest:ident),+) => {
         tuple_impls!(@reverse $vm, $($rest),+);
         #[allow(non_snake_case)]
         let $x = $x::from_vm($vm);
