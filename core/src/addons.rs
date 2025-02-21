@@ -422,7 +422,7 @@ fn add_items_from_ast(ast: Rc<FileAst>, output: &mut String) {
                 symbol.push('$');
                 symbol.push_str(&f.name.v);
 
-                output.push_str(&format!("#[export_name = \"{}\"]", symbol));
+                output.push_str(&format!("#[unsafe(export_name = \"{}\")]", symbol));
                 output.push_str(&format!(
                     "pub unsafe extern \"C\" fn {}(vm: *mut Vm) {{",
                     f.name.v,

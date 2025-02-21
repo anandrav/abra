@@ -87,42 +87,42 @@ pub mod ffi {
                 }
             }
         }
-        #[export_name = "abra_ffi$term$enable_raw_mode"]
+        #[unsafe(export_name = "abra_ffi$term$enable_raw_mode")]
         pub unsafe extern "C" fn enable_raw_mode(vm: *mut Vm) {
             let ret: () = term::enable_raw_mode();
             ret.to_vm(vm);
         }
-        #[export_name = "abra_ffi$term$disable_raw_mode"]
+        #[unsafe(export_name = "abra_ffi$term$disable_raw_mode")]
         pub unsafe extern "C" fn disable_raw_mode(vm: *mut Vm) {
             let ret: () = term::disable_raw_mode();
             ret.to_vm(vm);
         }
-        #[export_name = "abra_ffi$term$poll_key_event"]
+        #[unsafe(export_name = "abra_ffi$term$poll_key_event")]
         pub unsafe extern "C" fn poll_key_event(vm: *mut Vm) {
             let ret: bool = term::poll_key_event();
             ret.to_vm(vm);
         }
-        #[export_name = "abra_ffi$term$get_key_event"]
+        #[unsafe(export_name = "abra_ffi$term$get_key_event")]
         pub unsafe extern "C" fn get_key_event(vm: *mut Vm) {
             let ret: KeyCode = term::get_key_event();
             ret.to_vm(vm);
         }
-        #[export_name = "abra_ffi$term$clear"]
+        #[unsafe(export_name = "abra_ffi$term$clear")]
         pub unsafe extern "C" fn clear(vm: *mut Vm) {
             let ret: () = term::clear();
             ret.to_vm(vm);
         }
-        #[export_name = "abra_ffi$term$hide_cursor"]
+        #[unsafe(export_name = "abra_ffi$term$hide_cursor")]
         pub unsafe extern "C" fn hide_cursor(vm: *mut Vm) {
             let ret: () = term::hide_cursor();
             ret.to_vm(vm);
         }
-        #[export_name = "abra_ffi$term$show_cursor"]
+        #[unsafe(export_name = "abra_ffi$term$show_cursor")]
         pub unsafe extern "C" fn show_cursor(vm: *mut Vm) {
             let ret: () = term::show_cursor();
             ret.to_vm(vm);
         }
-        #[export_name = "abra_ffi$term$mark"]
+        #[unsafe(export_name = "abra_ffi$term$mark")]
         pub unsafe extern "C" fn mark(vm: *mut Vm) {
             let y = i64::from_vm(vm);
             let x = i64::from_vm(vm);
@@ -130,7 +130,7 @@ pub mod ffi {
             let ret: () = term::mark(s, x, y);
             ret.to_vm(vm);
         }
-        #[export_name = "abra_ffi$term$flush"]
+        #[unsafe(export_name = "abra_ffi$term$flush")]
         pub unsafe extern "C" fn flush(vm: *mut Vm) {
             let ret: () = term::flush();
             ret.to_vm(vm);
