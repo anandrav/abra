@@ -1,0 +1,22 @@
+[package]
+name = "random"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+abra_core = { path = "../../../core" }
+rand = "0.9.0"
+
+[build-dependencies]
+abra_core = { path = "../../../core" }
+
+[profile.dev]
+panic = "abort"
+
+[profile.release]
+panic = "abort"
+
+[workspace]

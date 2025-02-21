@@ -1,0 +1,3 @@
+foreign fn random_float(min: float, max: float) -> float
+
+foreign fn random_int(min: int, max: int) -> int
