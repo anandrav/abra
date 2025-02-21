@@ -29,10 +29,10 @@ pub mod ffi {
                 }
             }
         }
-        #[unsafe(export_name = "abra_ffi$time$get_time")]
-        pub unsafe extern "C" fn get_time(vm: *mut Vm) { unsafe {
+        #[export_name = "abra_ffi$time$get_time"]
+        pub unsafe extern "C" fn get_time(vm: *mut Vm) {
             let ret: Time = time::get_time();
             ret.to_vm(vm);
-        }}
+        }
     }
 }
