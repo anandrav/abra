@@ -19,7 +19,8 @@ use std::{
     mem,
 };
 
-type Result<T> = std::result::Result<T, Box<VmError>>;
+pub type VmResult<T> = std::result::Result<T, Box<VmError>>;
+type Result<T> = VmResult<T>;
 
 #[repr(C)]
 pub struct Vm {
@@ -90,7 +91,9 @@ pub enum ValueKind {
     Float,
     Bool,
     String,
-    Object,
+    Array,
+    Enum,
+    Struct,
 }
 
 pub type ErrorLocation = (RString, u32);
@@ -196,7 +199,7 @@ impl Vm {
     pub fn pop(&mut self) -> Result<Value> {
         match self.value_stack.pop() {
             Some(v) => Ok(v),
-            None => Err(self.make_error(VmErrorKind::Underflow)),
+            None => self.make_error(VmErrorKind::Underflow),
         }
     }
 
@@ -298,12 +301,12 @@ impl Vm {
         self.error.clone().into()
     }
 
-    fn make_error(&self, kind: VmErrorKind) -> Box<VmError> {
-        Box::new(VmError {
+    fn make_error<T>(&self, kind: VmErrorKind) -> Result<T> {
+        Err(Box::new(VmError {
             kind,
             location: self.pc_to_error_location(self.pc),
             trace: self.make_trace(),
-        })
+        }))
     }
 
     pub fn is_done(&self) -> bool {
@@ -499,27 +502,27 @@ impl Value {
     pub fn get_int(&self, vm: &Vm) -> Result<AbraInt> {
         match self {
             Value::Int(i) => Ok(*i),
-            _ => Err(vm.make_error(VmErrorKind::WrongType {
+            _ => vm.make_error(VmErrorKind::WrongType {
                 expected: ValueKind::Int,
-            })),
+            }),
         }
     }
 
     pub fn get_float(&self, vm: &Vm) -> Result<AbraFloat> {
         match self {
             Value::Float(f) => Ok(*f),
-            _ => Err(vm.make_error(VmErrorKind::WrongType {
+            _ => vm.make_error(VmErrorKind::WrongType {
                 expected: ValueKind::Float,
-            })),
+            }),
         }
     }
 
     pub fn get_bool(&self, vm: &Vm) -> Result<bool> {
         match self {
             Value::Bool(b) => Ok(*b),
-            _ => Err(vm.make_error(VmErrorKind::WrongType {
+            _ => vm.make_error(VmErrorKind::WrongType {
                 expected: ValueKind::Bool,
-            })),
+            }),
         }
     }
 
@@ -529,14 +532,14 @@ impl Value {
                 assert_eq!(r.get().group, vm.heap_group);
                 match &vm.heap[r.get().get()].kind {
                     ManagedObjectKind::RString(s) => Ok(s.clone()),
-                    _ => Err(vm.make_error(VmErrorKind::WrongType {
+                    _ => vm.make_error(VmErrorKind::WrongType {
                         expected: ValueKind::String,
-                    })),
+                    }),
                 }
             }
-            _ => Err(vm.make_error(VmErrorKind::WrongType {
-                expected: ValueKind::Object,
-            })),
+            _ => vm.make_error(VmErrorKind::WrongType {
+                expected: ValueKind::String,
+            }),
         }
     }
 
@@ -888,7 +891,7 @@ impl Vm {
             }
             Instr::Panic => {
                 let msg = self.pop_string()?;
-                return Err(self.make_error(VmErrorKind::Panic(msg)));
+                return self.make_error(VmErrorKind::Panic(msg));
             }
             Instr::Construct(n) => {
                 // TODO this is duplicated in 3 other places
@@ -910,15 +913,15 @@ impl Vm {
                     Value::HeapReference(r) => match &self.heap[r.get().get()].kind {
                         ManagedObjectKind::DynArray(fields) => fields[index as usize].clone(),
                         _ => {
-                            return Err(self.make_error(VmErrorKind::WrongType {
-                                expected: ValueKind::Object,
-                            }));
+                            return self.make_error(VmErrorKind::WrongType {
+                                expected: ValueKind::Struct,
+                            });
                         }
                     },
                     _ => {
-                        return Err(self.make_error(VmErrorKind::WrongType {
-                            expected: ValueKind::Object,
-                        }));
+                        return self.make_error(VmErrorKind::WrongType {
+                            expected: ValueKind::Struct,
+                        });
                     }
                 };
                 self.push(field);
@@ -929,9 +932,9 @@ impl Vm {
                 let obj_id = match obj {
                     Value::HeapReference(r) => r.get().get(),
                     _ => {
-                        return Err(self.make_error(VmErrorKind::WrongType {
-                            expected: ValueKind::Object,
-                        }));
+                        return self.make_error(VmErrorKind::WrongType {
+                            expected: ValueKind::Struct,
+                        });
                     }
                 };
                 match &mut self.heap[obj_id].kind {
@@ -939,9 +942,9 @@ impl Vm {
                         fields[index as usize] = rvalue;
                     }
                     _ => {
-                        return Err(self.make_error(VmErrorKind::WrongType {
-                            expected: ValueKind::Object,
-                        }));
+                        return self.make_error(VmErrorKind::WrongType {
+                            expected: ValueKind::Struct,
+                        });
                     }
                 }
             }
@@ -952,7 +955,7 @@ impl Vm {
                     Value::HeapReference(r) => match &self.heap[r.get().get()].kind {
                         ManagedObjectKind::DynArray(fields) => {
                             if idx as usize >= fields.len() || idx < 0 {
-                                return Err(self.make_error(VmErrorKind::ArrayOutOfBounds));
+                                return self.make_error(VmErrorKind::ArrayOutOfBounds);
                             }
                             let field = fields[idx as usize].clone();
                             self.push(field);
@@ -973,7 +976,7 @@ impl Vm {
                 match &mut self.heap[obj_id].kind {
                     ManagedObjectKind::DynArray(fields) => {
                         if idx as usize >= fields.len() || idx < 0 {
-                            return Err(self.make_error(VmErrorKind::ArrayOutOfBounds));
+                            return self.make_error(VmErrorKind::ArrayOutOfBounds);
                         }
                         fields[idx as usize] = rvalue;
                     }

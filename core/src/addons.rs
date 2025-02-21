@@ -1,18 +1,18 @@
 // Rust addon API
 
+pub use crate::vm::Vm;
+use crate::vm::{VmError, VmResult};
+use crate::{
+    FileAst, FileData, ItemKind,
+    ast::{FileDatabase, PatKind, Type, TypeDefKind, TypeKind},
+    parse::parse_or_err,
+};
 use core::str;
 use std::{
     ffi::c_char,
     fs::{self, read_to_string},
     path::{Path, PathBuf},
     rc::Rc,
-};
-
-pub use crate::vm::Vm;
-use crate::{
-    FileAst, FileData, ItemKind,
-    ast::{FileDatabase, PatKind, Type, TypeDefKind, TypeKind},
-    parse::parse_or_err,
 };
 
 /// # Safety
