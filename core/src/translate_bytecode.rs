@@ -4,11 +4,10 @@ use crate::ast::{
 };
 use crate::ast::{FileAst, FileDatabase, Node, NodeId};
 use crate::builtin::Builtin;
-use crate::effects::EffectDesc;
 use crate::environment::Environment;
 use crate::statics::typecheck::Nominal;
-use crate::statics::{_print_node, Monotype, Type, ty_fits_impl_ty};
 use crate::statics::{Declaration, TypeProv};
+use crate::statics::{Monotype, Type, ty_fits_impl_ty};
 use crate::vm::{AbraFloat, AbraInt, Instr as VmInstr};
 use crate::{
     ast::{Expr, ExprKind, NodeMap, Pat, PatKind, Stmt, StmtKind},

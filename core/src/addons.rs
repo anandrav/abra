@@ -1,7 +1,6 @@
 // Rust addon API
 
 pub use crate::vm::Vm;
-use crate::vm::{VmError, VmResult};
 use crate::{
     FileAst, FileData, ItemKind,
     ast::{FileDatabase, PatKind, Type, TypeDefKind, TypeKind},
@@ -411,6 +410,7 @@ fn add_items_from_ast(ast: Rc<FileAst>, output: &mut String) {
                 _ => unimplemented!(),
             },
             ItemKind::ForeignFuncDecl(f) => {
+                output.push_str("/// # Safety: `vm` must be non-null and valid.\n");
                 // TODO: duplicated with code in resolve.rs
                 let elems: Vec<_> = ast.name.split(std::path::MAIN_SEPARATOR_STR).collect();
                 let package_name = elems.last().unwrap().to_string();
@@ -427,6 +427,7 @@ fn add_items_from_ast(ast: Rc<FileAst>, output: &mut String) {
                     "pub unsafe extern \"C\" fn {}(vm: *mut Vm) {{",
                     f.name.v,
                 ));
+                output.push_str("unsafe {");
                 // get args in reverse order
                 for (name, ty) in f.args.iter().rev() {
                     // TODO: why the fuck is name a Pat still.
@@ -455,6 +456,7 @@ fn add_items_from_ast(ast: Rc<FileAst>, output: &mut String) {
                 output.push_str(");");
                 // push return value
                 output.push_str("ret.to_vm(vm);");
+                output.push('}');
                 output.push('}');
             }
             _ => {}

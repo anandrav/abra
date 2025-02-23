@@ -6,13 +6,9 @@ use std::{
 use crate::ffi::term::KeyCode;
 use crossterm::{
     cursor,
-    event::{
-        poll, read, DisableBracketedPaste, DisableFocusChange, DisableMouseCapture,
-        EnableBracketedPaste, EnableFocusChange, EnableMouseCapture, Event, KeyCode as CtKeyCode,
-        KeyEvent as CtKeyEvent,
-    },
-    execute, queue,
-    style::{self, Color},
+    event::{poll, read, Event, KeyCode as CtKeyCode, KeyEvent as CtKeyEvent},
+    queue,
+    style::{self},
     terminal::{self, Clear, ClearType},
 };
 
@@ -25,21 +21,15 @@ pub fn disable_raw_mode() {
 }
 
 pub fn poll_key_event() -> bool {
-    // execute!(std::io::stdout(), EnableMouseCapture).unwrap();
     let mut ret = false;
-    // execute!(std::io::stdout(), EnableBracketedPaste, EnableFocusChange).unwrap();
     if poll(Duration::from_millis(0)).unwrap() {
         ret = true;
     }
-    // execute!(std::io::stdout(), DisableBracketedPaste, DisableFocusChange).unwrap();
-    // execute!(std::io::stdout(), DisableMouseCapture).unwrap();
+
     ret
 }
 
 pub fn get_key_event() -> KeyCode {
-    // execute!(std::io::stdout(), EnableMouseCapture).unwrap();
-
-    // execute!(std::io::stdout(), DisableMouseCapture).unwrap();
     loop {
         if let Ok(Event::Key(CtKeyEvent {
             code,

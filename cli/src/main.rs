@@ -1,9 +1,9 @@
+use abra_core::FileData;
+use abra_core::FileProviderDefault;
 use abra_core::effects::EffectTrait;
 use abra_core::effects::FromRepr;
 use abra_core::effects::VariantArray;
 use abra_core::effects::{Nominal, Type};
-use abra_core::FileData;
-use abra_core::FileProviderDefault;
 use clap::Parser;
 use std::path::PathBuf;
 use std::process::exit;
@@ -137,7 +137,7 @@ fn main() -> anyhow::Result<()> {
     }
 }
 
-fn add_modules_toplevel(include_dir: PathBuf, main_file: &str, source_files: &mut Vec<FileData>) {
+fn _add_modules_toplevel(include_dir: PathBuf, main_file: &str, source_files: &mut Vec<FileData>) {
     let dir = std::fs::read_dir(&include_dir).unwrap();
     for entry in dir {
         let entry = entry.unwrap();
@@ -146,7 +146,7 @@ fn add_modules_toplevel(include_dir: PathBuf, main_file: &str, source_files: &mu
         let name = name.to_str().unwrap();
         if metadata.is_file() && name.ends_with(".abra") && name != main_file {
             // get the corresponding directory if it exists
-            let dir_name = &name[0..name.len() - ".abra".len()];
+            let _dir_name = &name[0..name.len() - ".abra".len()];
 
             let contents = std::fs::read_to_string(entry.path()).unwrap();
             source_files.push(FileData::new(name.into(), include_dir.join(name), contents));

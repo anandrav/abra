@@ -488,7 +488,7 @@ fn handle_reason(
 }
 
 use codespan_reporting::diagnostic::Label as CsLabel;
-pub fn _print_node(ctx: &StaticsContext, node_id: NodeId) {
+pub(crate) fn _print_node(ctx: &StaticsContext, node_id: NodeId) {
     let get_file_and_range = |id: &NodeId| {
         let span = ctx._node_map.get(id).unwrap().location();
         (span.file_id, span.range())

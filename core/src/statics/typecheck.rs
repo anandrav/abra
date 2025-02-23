@@ -5,7 +5,6 @@ use crate::ast::{
 use crate::ast::{BinaryOperator, Item};
 use crate::builtin::Builtin;
 use crate::environment::Environment;
-use crate::statics::_print_node;
 use core::panic;
 use disjoint_sets::UnionFindNode;
 use std::cell::RefCell;
