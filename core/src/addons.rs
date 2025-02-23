@@ -8,23 +8,31 @@ use crate::{
 };
 use core::str;
 use std::{
-    ffi::c_char,
+    ffi::{c_char, c_void},
     fs::{self, read_to_string},
     path::{Path, PathBuf},
     rc::Rc,
 };
 
+//
+// C-compatible table of function pointers
+//
 #[repr(C)]
 pub struct AbraVmFunctions {
-    pub push_int: unsafe extern "C" fn(vm: *mut Vm, n: i64),
-    pub push_float: unsafe extern "C" fn(vm: *mut Vm, f: f64),
-    pub push_bool: unsafe extern "C" fn(vm: *mut Vm, b: bool),
-    pub push_nil: unsafe extern "C" fn(vm: *mut Vm),
-    pub pop_nil: unsafe extern "C" fn(vm: *mut Vm),
-    pub pop_int: unsafe extern "C" fn(vm: *mut Vm) -> i64,
-    pub pop_float: unsafe extern "C" fn(vm: *mut Vm) -> f64,
-    pub pop_bool: unsafe extern "C" fn(vm: *mut Vm) -> bool,
-    pub pop: unsafe extern "C" fn(vm: *mut Vm),
+    pub push_int: unsafe extern "C" fn(vm: *mut c_void, n: i64),
+    pub push_float: unsafe extern "C" fn(vm: *mut c_void, f: f64),
+    pub push_bool: unsafe extern "C" fn(vm: *mut c_void, b: bool),
+    pub push_nil: unsafe extern "C" fn(vm: *mut c_void),
+    pub pop_nil: unsafe extern "C" fn(vm: *mut c_void),
+    pub pop_int: unsafe extern "C" fn(vm: *mut c_void) -> i64,
+    pub pop_float: unsafe extern "C" fn(vm: *mut c_void) -> f64,
+    pub pop_bool: unsafe extern "C" fn(vm: *mut c_void) -> bool,
+    pub pop: unsafe extern "C" fn(vm: *mut c_void),
+    pub view_string: unsafe extern "C" fn(vm: *mut c_void) -> StringView,
+    pub push_string: unsafe extern "C" fn(vm: *mut c_void, string_view: StringView),
+    pub construct: unsafe extern "C" fn(vm: *mut c_void, arity: u16),
+    pub construct_variant: unsafe extern "C" fn(vm: *mut c_void, tag: u16),
+    pub deconstruct: unsafe extern "C" fn(vm: *mut c_void),
 }
 
 impl AbraVmFunctions {
@@ -39,6 +47,11 @@ impl AbraVmFunctions {
             pop_float: abra_vm_pop_float,
             pop_bool: abra_vm_pop_bool,
             pop: abra_vm_pop,
+            view_string: abra_vm_view_string,
+            push_string: abra_vm_push_string,
+            construct: abra_vm_construct,
+            construct_variant: abra_vm_construct_variant,
+            deconstruct: abra_vm_deconstruct,
         }
     }
 }
@@ -50,81 +63,81 @@ impl Default for AbraVmFunctions {
 }
 
 /// # Safety
-/// vm: *mut Vm must be valid and non-null
+/// vm: *mut c_void must be valid and non-null
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn abra_vm_push_int(vm: *mut Vm, n: i64) {
-    let vm = unsafe { vm.as_mut().unwrap() };
+unsafe extern "C" fn abra_vm_push_int(vm: *mut c_void, n: i64) {
+    let vm = unsafe { (vm as *mut Vm).as_mut().unwrap() };
     vm.push_int(n);
 }
 
 /// # Safety
-/// vm: *mut Vm must be valid and non-null
+/// vm: *mut c_void must be valid and non-null
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn abra_vm_push_float(vm: *mut Vm, f: f64) {
-    let vm = unsafe { vm.as_mut().unwrap() };
+unsafe extern "C" fn abra_vm_push_float(vm: *mut c_void, f: f64) {
+    let vm = unsafe { (vm as *mut Vm).as_mut().unwrap() };
     vm.push_float(f);
 }
 
 /// # Safety
-/// vm: *mut Vm must be valid and non-null
+/// vm: *mut c_void must be valid and non-null
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn abra_vm_push_bool(vm: *mut Vm, b: bool) {
-    let vm = unsafe { vm.as_mut().unwrap() };
+unsafe extern "C" fn abra_vm_push_bool(vm: *mut c_void, b: bool) {
+    let vm = unsafe { (vm as *mut Vm).as_mut().unwrap() };
     vm.push_bool(b);
     // println!("pushing bool {}", b);
 }
 
 /// # Safety
-/// vm: *mut Vm must be valid and non-null
+/// vm: *mut c_void must be valid and non-null
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn abra_vm_push_nil(vm: *mut Vm) {
-    let vm = unsafe { vm.as_mut().unwrap() };
+unsafe extern "C" fn abra_vm_push_nil(vm: *mut c_void) {
+    let vm = unsafe { (vm as *mut Vm).as_mut().unwrap() };
     vm.push_nil();
 }
 
 /// # Safety
-/// vm: *mut Vm must be valid and non-null
+/// vm: *mut c_void must be valid and non-null
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn abra_vm_pop_nil(vm: *mut Vm) {
-    let vm = unsafe { vm.as_mut().unwrap() };
+unsafe extern "C" fn abra_vm_pop_nil(vm: *mut c_void) {
+    let vm = unsafe { (vm as *mut Vm).as_mut().unwrap() };
     vm.pop().unwrap();
 }
 
 /// # Safety
-/// vm: *mut Vm must be valid and non-null
+/// vm: *mut c_void must be valid and non-null
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn abra_vm_pop_int(vm: *mut Vm) -> i64 {
-    let vm = unsafe { vm.as_mut().unwrap() };
+unsafe extern "C" fn abra_vm_pop_int(vm: *mut c_void) -> i64 {
+    let vm = unsafe { (vm as *mut Vm).as_mut().unwrap() };
     let top = vm.top().get_int(vm).unwrap();
     vm.pop().unwrap();
     top
 }
 
 /// # Safety
-/// vm: *mut Vm must be valid and non-null
+/// vm: *mut c_void must be valid and non-null
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn abra_vm_pop_float(vm: *mut Vm) -> f64 {
-    let vm = unsafe { vm.as_mut().unwrap() };
+unsafe extern "C" fn abra_vm_pop_float(vm: *mut c_void) -> f64 {
+    let vm = unsafe { (vm as *mut Vm).as_mut().unwrap() };
     let top = vm.top().get_float(vm).unwrap();
     vm.pop().unwrap();
     top
 }
 
 /// # Safety
-/// vm: *mut Vm must be valid and non-null
+/// vm: *mut c_void must be valid and non-null
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn abra_vm_pop_bool(vm: *mut Vm) -> bool {
-    let vm = unsafe { vm.as_mut().unwrap() };
+unsafe extern "C" fn abra_vm_pop_bool(vm: *mut c_void) -> bool {
+    let vm = unsafe { (vm as *mut Vm).as_mut().unwrap() };
     let top = vm.top().get_bool(vm).unwrap();
     vm.pop().unwrap();
     top
 }
 
 /// # Safety
-/// vm: *mut Vm must be valid and non-null
+/// vm: *mut c_void must be valid and non-null
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn abra_vm_pop(vm: *mut Vm) {
-    let vm = unsafe { vm.as_mut().unwrap() };
+unsafe extern "C" fn abra_vm_pop(vm: *mut c_void) {
+    let vm = unsafe { (vm as *mut Vm).as_mut().unwrap() };
     vm.pop().unwrap();
 }
 
@@ -151,10 +164,10 @@ impl StringView {
 }
 
 /// # Safety
-/// vm: *mut Vm must be valid and non-null
+/// vm: *mut c_void must be valid and non-null
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn abra_vm_view_string(vm: *mut Vm) -> StringView {
-    let vm = unsafe { vm.as_mut().unwrap() };
+unsafe extern "C" fn abra_vm_view_string(vm: *mut c_void) -> StringView {
+    let vm = unsafe { (vm as *mut Vm).as_mut().unwrap() };
     let top = vm.top().view_string(vm);
     StringView {
         ptr: top.as_ptr() as *const c_char,
@@ -163,36 +176,36 @@ pub unsafe extern "C" fn abra_vm_view_string(vm: *mut Vm) -> StringView {
 }
 
 /// # Safety
-/// vm: *mut Vm must be valid and non-null
+/// vm: *mut c_void must be valid and non-null
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn abra_vm_push_string(vm: *mut Vm, string_view: StringView) {
-    let vm = unsafe { vm.as_mut().unwrap() };
+unsafe extern "C" fn abra_vm_push_string(vm: *mut c_void, string_view: StringView) {
+    let vm = unsafe { (vm as *mut Vm).as_mut().unwrap() };
     let s = string_view.to_owned();
     // println!("pushing string to stack: {}", s);
     vm.push_str(s);
 }
 
 /// # Safety
-/// vm: *mut Vm must be valid and non-null
+/// vm: *mut c_void must be valid and non-null
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn abra_vm_construct(vm: *mut Vm, arity: u16) {
-    let vm = unsafe { vm.as_mut().unwrap() };
+unsafe extern "C" fn abra_vm_construct(vm: *mut c_void, arity: u16) {
+    let vm = unsafe { (vm as *mut Vm).as_mut().unwrap() };
     vm.construct_struct(arity);
 }
 
 /// # Safety
-/// vm: *mut Vm must be valid and non-null
+/// vm: *mut c_void must be valid and non-null
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn abra_vm_construct_variant(vm: *mut Vm, tag: u16) {
-    let vm = unsafe { vm.as_mut().unwrap() };
+unsafe extern "C" fn abra_vm_construct_variant(vm: *mut c_void, tag: u16) {
+    let vm = unsafe { (vm as *mut Vm).as_mut().unwrap() };
     vm.construct_variant(tag).unwrap();
 }
 
 /// # Safety
-/// vm: *mut Vm must be valid and non-null
+/// vm: *mut c_void must be valid and non-null
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn abra_vm_deconstruct(vm: *mut Vm) {
-    let vm = unsafe { vm.as_mut().unwrap() };
+unsafe extern "C" fn abra_vm_deconstruct(vm: *mut c_void) {
+    let vm = unsafe { (vm as *mut Vm).as_mut().unwrap() };
     vm.deconstruct().unwrap();
 }
 
@@ -278,7 +291,9 @@ fn write_header(output: &mut String, package_name: &str) {
         pub mod ffi {{
             pub mod {} {{
             use crate::{};
-            use abra_core::addons::*;"#,
+            use abra_core::addons::*;
+            use std::ffi::c_void;
+            "#,
         package_name, package_name, package_name
     ));
 }
@@ -309,11 +324,11 @@ fn add_items_from_ast(ast: Rc<FileAst>, output: &mut String) {
                         s.name.v
                     ));
                     output.push_str(
-                        r#"unsafe fn from_vm(vm: *mut Vm) -> Self {
+                        r#"unsafe fn from_vm(vm: *mut c_void) -> Self {
                         "#,
                     );
                     output.push_str("unsafe {");
-                    output.push_str("abra_vm_deconstruct(vm);");
+                    output.push_str("(vm_funcs.deconstruct)(vm);");
                     for field in s.fields.iter().rev() {
                         let tyname = name_of_ty(field.ty.clone());
                         output.push_str(&format!(
@@ -335,7 +350,7 @@ fn add_items_from_ast(ast: Rc<FileAst>, output: &mut String) {
                     output.push('}');
 
                     output.push_str(
-                        r#"unsafe fn to_vm(self, vm: *mut Vm) {
+                        r#"unsafe fn to_vm(self, vm: *mut c_void) {
                         "#,
                     );
                     output.push_str("unsafe {");
@@ -348,7 +363,7 @@ fn add_items_from_ast(ast: Rc<FileAst>, output: &mut String) {
                         ));
                     }
 
-                    output.push_str(&format!("abra_vm_construct(vm, {});", s.fields.len()));
+                    output.push_str(&format!("(vm_funcs.construct)(vm, {});", s.fields.len()));
 
                     output.push('}');
 
@@ -382,26 +397,26 @@ fn add_items_from_ast(ast: Rc<FileAst>, output: &mut String) {
                         e.name.v
                     ));
                     output.push_str(
-                        r#"unsafe fn from_vm(vm: *mut Vm) -> Self {
+                        r#"unsafe fn from_vm(vm: *mut c_void, vm_funcs: &AbraVmFunctions) -> Self {
                         "#,
                     );
 
                     output.push_str("unsafe {");
-                    output.push_str("abra_vm_deconstruct(vm);");
-                    output.push_str("let tag = abra_vm_pop_int(vm);");
+                    output.push_str("(vm_funcs.deconstruct)(vm);");
+                    output.push_str("let tag = (vm_funcs.pop_int)(vm);");
                     output.push_str("match tag {");
                     for (i, variant) in e.variants.iter().enumerate() {
                         output.push_str(&format!("{} => {{", i));
                         if let Some(ty) = &variant.data {
                             let tyname = name_of_ty(ty.clone());
                             output.push_str(&format!(
-                                r#"let value: {} = <{}>::from_vm(vm);
+                                r#"let value: {} = <{}>::from_vm(vm, vm_funcs);
                             "#,
                                 tyname, tyname
                             ));
                             output.push_str(&format!("{}::{}(value)", e.name.v, variant.ctor.v));
                         } else {
-                            output.push_str("abra_vm_pop_nil(vm);");
+                            output.push_str("(vm_funcs.pop_nil)(vm);");
                             output.push_str(&format!("{}::{}", e.name.v, variant.ctor.v));
                         }
                         output.push('}');
@@ -414,7 +429,7 @@ fn add_items_from_ast(ast: Rc<FileAst>, output: &mut String) {
                     output.push('}');
 
                     output.push_str(
-                        r#"unsafe fn to_vm(self, vm: *mut Vm) {
+                        r#"unsafe fn to_vm(self, vm: *mut c_void, vm_funcs: &AbraVmFunctions) {
                         "#,
                     );
                     output.push_str("unsafe {");
@@ -426,12 +441,12 @@ fn add_items_from_ast(ast: Rc<FileAst>, output: &mut String) {
                                 "{}::{}(value) => {{",
                                 e.name.v, variant.ctor.v
                             ));
-                            output.push_str("value.to_vm(vm);");
-                            output.push_str(&format!("abra_vm_construct_variant(vm, {});", i));
+                            output.push_str("value.to_vm(vm, vm_funcs);");
+                            output.push_str(&format!("(vm_funcs.construct_variant)(vm, {});", i));
                         } else {
                             output.push_str(&format!("{}::{} => {{", e.name.v, variant.ctor.v));
-                            output.push_str("abra_vm_push_nil(vm);");
-                            output.push_str(&format!("abra_vm_construct_variant(vm, {});", i));
+                            output.push_str("(vm_funcs.push_nil)(vm);");
+                            output.push_str(&format!("(vm_funcs.construct_variant)(vm, {});", i));
                         }
                         output.push('}');
                     }
@@ -459,10 +474,11 @@ fn add_items_from_ast(ast: Rc<FileAst>, output: &mut String) {
 
                 output.push_str(&format!("#[unsafe(export_name = \"{}\")]", symbol));
                 output.push_str(&format!(
-                    "pub unsafe extern \"C\" fn {}(vm: *mut Vm, abra_vm_functions: *const AbraVmFunctions) {{",
+                    "pub unsafe extern \"C\" fn {}(vm: *mut c_void, vm_funcs: *const AbraVmFunctions) {{",
                     f.name.v,
                 ));
                 output.push_str("unsafe {");
+                output.push_str("let vm_funcs: &AbraVmFunctions = &*vm_funcs;");
                 // get args in reverse order
                 for (name, ty) in f.args.iter().rev() {
                     // TODO: why the fuck is name a Pat still.
@@ -472,7 +488,10 @@ fn add_items_from_ast(ast: Rc<FileAst>, output: &mut String) {
                     // TODO: ty shouldn't be optional for foreign fn
                     let ty = ty.clone().unwrap();
                     let tyname = name_of_ty(ty);
-                    output.push_str(&format!("let {} = {}::from_vm(vm);", ident, tyname));
+                    output.push_str(&format!(
+                        "let {} = {}::from_vm(vm, vm_funcs);",
+                        ident, tyname
+                    ));
                 }
                 // call the user's implementation
                 let out_ty = &f.ret_type;
@@ -490,7 +509,7 @@ fn add_items_from_ast(ast: Rc<FileAst>, output: &mut String) {
                 }
                 output.push_str(");");
                 // push return value
-                output.push_str("ret.to_vm(vm);");
+                output.push_str("ret.to_vm(vm, vm_funcs);");
                 output.push('}');
                 output.push('}');
             }
@@ -567,7 +586,9 @@ fn find_abra_files(
                 output.push_str(&format!(
                     r#" pub mod {} {{
                         use crate::{};
-                        use abra_core::addons::*;"#,
+                        use abra_core::addons::*;
+                        use std::ffi::c_void;
+                        "#,
                     no_extension, crate_import
                 ));
 
@@ -592,73 +613,73 @@ fn find_abra_files(
 }
 
 pub trait VmType {
-    unsafe fn from_vm(vm: *mut Vm) -> Self;
+    unsafe fn from_vm(vm: *mut c_void, vm_funcs: &AbraVmFunctions) -> Self;
 
-    unsafe fn to_vm(self, vm: *mut Vm);
+    unsafe fn to_vm(self, vm: *mut c_void, vm_funcs: &AbraVmFunctions);
 }
 
 impl VmType for i64 {
-    unsafe fn from_vm(vm: *mut Vm) -> Self {
-        unsafe { abra_vm_pop_int(vm) }
+    unsafe fn from_vm(vm: *mut c_void, vm_funcs: &AbraVmFunctions) -> Self {
+        unsafe { (vm_funcs.pop_int)(vm) }
     }
 
-    unsafe fn to_vm(self, vm: *mut Vm) {
+    unsafe fn to_vm(self, vm: *mut c_void, vm_funcs: &AbraVmFunctions) {
         unsafe {
-            abra_vm_push_int(vm, self);
+            (vm_funcs.push_int)(vm, self);
         }
     }
 }
 
 impl VmType for f64 {
-    unsafe fn from_vm(vm: *mut Vm) -> Self {
-        unsafe { abra_vm_pop_float(vm) }
+    unsafe fn from_vm(vm: *mut c_void, vm_funcs: &AbraVmFunctions) -> Self {
+        unsafe { (vm_funcs.pop_float)(vm) }
     }
 
-    unsafe fn to_vm(self, vm: *mut Vm) {
+    unsafe fn to_vm(self, vm: *mut c_void, vm_funcs: &AbraVmFunctions) {
         unsafe {
-            abra_vm_push_float(vm, self);
+            (vm_funcs.push_float)(vm, self);
         }
     }
 }
 
 impl VmType for () {
-    unsafe fn from_vm(vm: *mut Vm) -> Self {
-        unsafe { abra_vm_pop(vm) }
+    unsafe fn from_vm(vm: *mut c_void, vm_funcs: &AbraVmFunctions) -> Self {
+        unsafe { (vm_funcs.pop)(vm) }
     }
 
-    unsafe fn to_vm(self, vm: *mut Vm) {
+    unsafe fn to_vm(self, vm: *mut c_void, vm_funcs: &AbraVmFunctions) {
         unsafe {
-            abra_vm_push_nil(vm);
+            (vm_funcs.push_nil)(vm);
         }
     }
 }
 
 impl VmType for bool {
-    unsafe fn from_vm(vm: *mut Vm) -> Self {
-        unsafe { abra_vm_pop_bool(vm) }
+    unsafe fn from_vm(vm: *mut c_void, vm_funcs: &AbraVmFunctions) -> Self {
+        unsafe { (vm_funcs.pop_bool)(vm) }
     }
 
-    unsafe fn to_vm(self, vm: *mut Vm) {
+    unsafe fn to_vm(self, vm: *mut c_void, vm_funcs: &AbraVmFunctions) {
         unsafe {
-            abra_vm_push_bool(vm, self);
+            (vm_funcs.push_bool)(vm, self);
         }
     }
 }
 
 impl VmType for String {
-    unsafe fn from_vm(vm: *mut Vm) -> Self {
+    unsafe fn from_vm(vm: *mut c_void, vm_funcs: &AbraVmFunctions) -> Self {
         unsafe {
-            let string_view = abra_vm_view_string(vm);
+            let string_view = (vm_funcs.view_string)(vm);
             let content = string_view.to_owned();
-            abra_vm_pop(vm);
+            (vm_funcs.pop)(vm);
             content
         }
     }
 
-    unsafe fn to_vm(self, vm: *mut Vm) {
+    unsafe fn to_vm(self, vm: *mut c_void, vm_funcs: &AbraVmFunctions) {
         unsafe {
             let string_view = StringView::from_string(&self);
-            abra_vm_push_string(vm, string_view);
+            (vm_funcs.push_string)(vm, string_view);
         }
     }
 }
@@ -668,17 +689,17 @@ where
     T: VmType,
     E: VmType,
 {
-    unsafe fn from_vm(vm: *mut Vm) -> Self {
+    unsafe fn from_vm(vm: *mut c_void, vm_funcs: &AbraVmFunctions) -> Self {
         unsafe {
-            abra_vm_deconstruct(vm);
-            let tag = abra_vm_pop_int(vm);
+            (vm_funcs.deconstruct)(vm);
+            let tag = (vm_funcs.pop_int)(vm);
             match tag {
                 0 => {
-                    let t = T::from_vm(vm);
+                    let t = T::from_vm(vm, vm_funcs);
                     Ok(t)
                 }
                 1 => {
-                    let e = E::from_vm(vm);
+                    let e = E::from_vm(vm, vm_funcs);
                     Err(e)
                 }
                 _ => panic!("unexpected tag for Result type {}", tag),
@@ -686,16 +707,16 @@ where
         }
     }
 
-    unsafe fn to_vm(self, vm: *mut Vm) {
+    unsafe fn to_vm(self, vm: *mut c_void, vm_funcs: &AbraVmFunctions) {
         unsafe {
             match self {
                 Ok(t) => {
-                    t.to_vm(vm);
-                    abra_vm_construct_variant(vm, 0);
+                    t.to_vm(vm, vm_funcs);
+                    (vm_funcs.construct_variant)(vm, 0);
                 }
                 Err(e) => {
-                    e.to_vm(vm);
-                    abra_vm_construct_variant(vm, 1);
+                    e.to_vm(vm, vm_funcs);
+                    (vm_funcs.construct_variant)(vm, 1);
                 }
             }
         }
@@ -713,37 +734,37 @@ macro_rules! replace_expr {
 macro_rules! tuple_impls {
     ( $( $name:ident ),+ $(,)? ) => {
         impl< $($name: VmType),+ > VmType for ( $($name,)+ ) {
-            unsafe fn from_vm(vm: *mut Vm) -> Self { unsafe {
+            unsafe fn from_vm(vm: *mut c_void, vm_funcs: &AbraVmFunctions) -> Self { unsafe {
                 // Deconstruct the tuple on the VM.
-                abra_vm_deconstruct(vm);
+                (vm_funcs.deconstruct)(vm);
                 // Pop values in reverse order.
-                tuple_impls!(@reverse vm, $($name),+);
+                tuple_impls!(@reverse vm, vm_funcs, $($name),+);
                 // Now rebuild the tuple (using the identifiers in the original order).
                 ($($name,)+)
             }}
-            unsafe fn to_vm(self, vm: *mut Vm) { unsafe {
+            unsafe fn to_vm(self, vm: *mut c_void, vm_funcs: &AbraVmFunctions) { unsafe {
                 // Destructure the tuple.
                 #[allow(non_snake_case)]
                 let ($($name,)+) = self;
                 // Push each element onto the VM in order.
-                $( $name.to_vm(vm); )+
+                $( $name.to_vm(vm, vm_funcs); )+
                 // Count the number of elements in the tuple.
                 let count: usize = [$( replace_expr!($name, 1) ),+].len();
                 // Reconstruct the tuple on the VM.
-                abra_vm_construct(vm, count as u16);
+                (vm_funcs.construct)(vm, count as u16);
             }}
         }
     };
 
     // Helper rule to generate from_vm calls in reverse order.
-    (@reverse $vm:expr_2021, $x:ident) => {
+    (@reverse $vm:expr_2021, $vm_funcs:expr_2021, $x:ident) => {
         #[allow(non_snake_case)]
-        let $x = $x::from_vm($vm);
+        let $x = $x::from_vm($vm, $vm_funcs);
     };
-    (@reverse $vm:expr_2021, $x:ident, $($rest:ident),+) => {
-        tuple_impls!(@reverse $vm, $($rest),+);
+    (@reverse $vm:expr_2021, $vm_funcs:expr_2021, $x:ident, $($rest:ident),+) => {
+        tuple_impls!(@reverse $vm, $vm_funcs, $($rest),+);
         #[allow(non_snake_case)]
-        let $x = $x::from_vm($vm);
+        let $x = $x::from_vm($vm, $vm_funcs);
     };
 }
 

@@ -1120,8 +1120,7 @@ impl Vm {
                     unsafe {
                         let vm_ptr = self as *mut Vm;
                         let abra_vm_functions = AbraVmFunctions::new(); // TODO: don't create this every time, cache it.
-                        let abra_vm_functions_ptr =
-                            &mut abra_vm_functions as *const AbraVmFunctions;
+                        let abra_vm_functions_ptr = &abra_vm_functions as *const AbraVmFunctions;
                         self.foreign_functions[_func_id](vm_ptr, abra_vm_functions_ptr);
                     };
                 }
