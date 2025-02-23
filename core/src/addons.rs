@@ -14,6 +14,7 @@ use std::{
     rc::Rc,
 };
 
+// TODO: Move this to a separate crate entirely
 //
 // C-compatible table of function pointers
 //
@@ -460,7 +461,11 @@ fn add_items_from_ast(ast: Rc<FileAst>, output: &mut String) {
                 _ => unimplemented!(),
             },
             ItemKind::ForeignFuncDecl(f) => {
-                output.push_str("/// # Safety: `vm` must be non-null and valid.\n");
+                output.push_str(
+                    r#"/// # Safety
+                              /// `vm` must be non-null and valid.
+                              "#,
+                );
                 // TODO: duplicated with code in resolve.rs
                 let elems: Vec<_> = ast.name.split(std::path::MAIN_SEPARATOR_STR).collect();
                 let package_name = elems.last().unwrap().to_string();

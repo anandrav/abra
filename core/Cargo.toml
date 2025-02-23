@@ -25,7 +25,6 @@ strum = { version = "0.26.3", features = ["derive"] }
 strum_macros = "0.26.3"
 toml = "0.8.19"
 codespan-reporting = "0.11.1"
-abi_stable = "0.11.3"
 
 [dev-dependencies]
 criterion = { version = "0.5.1", default-features = false, features = [

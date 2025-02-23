@@ -6,7 +6,8 @@ pub mod ffi {
         use crate::os;
         use abra_core::addons::*;
         use std::ffi::c_void;
-        /// # Safety: `vm` must be non-null and valid.
+        /// # Safety
+        /// `vm` must be non-null and valid.
         #[unsafe(export_name = "abra_ffi$os$fread")]
         pub unsafe extern "C" fn fread(vm: *mut c_void, vm_funcs: *const AbraVmFunctions) {
             unsafe {
@@ -16,7 +17,8 @@ pub mod ffi {
                 ret.to_vm(vm, vm_funcs);
             }
         }
-        /// # Safety: `vm` must be non-null and valid.
+        /// # Safety
+        /// `vm` must be non-null and valid.
         #[unsafe(export_name = "abra_ffi$os$fwrite")]
         pub unsafe extern "C" fn fwrite(vm: *mut c_void, vm_funcs: *const AbraVmFunctions) {
             unsafe {
@@ -27,7 +29,8 @@ pub mod ffi {
                 ret.to_vm(vm, vm_funcs);
             }
         }
-        /// # Safety: `vm` must be non-null and valid.
+        /// # Safety
+        /// `vm` must be non-null and valid.
         #[unsafe(export_name = "abra_ffi$os$fexists")]
         pub unsafe extern "C" fn fexists(vm: *mut c_void, vm_funcs: *const AbraVmFunctions) {
             unsafe {
@@ -37,7 +40,8 @@ pub mod ffi {
                 ret.to_vm(vm, vm_funcs);
             }
         }
-        /// # Safety: `vm` must be non-null and valid.
+        /// # Safety
+        /// `vm` must be non-null and valid.
         #[unsafe(export_name = "abra_ffi$os$fremove")]
         pub unsafe extern "C" fn fremove(vm: *mut c_void, vm_funcs: *const AbraVmFunctions) {
             unsafe {
@@ -47,7 +51,8 @@ pub mod ffi {
                 ret.to_vm(vm, vm_funcs);
             }
         }
-        /// # Safety: `vm` must be non-null and valid.
+        /// # Safety
+        /// `vm` must be non-null and valid.
         #[unsafe(export_name = "abra_ffi$os$frename")]
         pub unsafe extern "C" fn frename(vm: *mut c_void, vm_funcs: *const AbraVmFunctions) {
             unsafe {
@@ -58,7 +63,8 @@ pub mod ffi {
                 ret.to_vm(vm, vm_funcs);
             }
         }
-        /// # Safety: `vm` must be non-null and valid.
+        /// # Safety
+        /// `vm` must be non-null and valid.
         #[unsafe(export_name = "abra_ffi$os$fcopy")]
         pub unsafe extern "C" fn fcopy(vm: *mut c_void, vm_funcs: *const AbraVmFunctions) {
             unsafe {
@@ -69,7 +75,8 @@ pub mod ffi {
                 ret.to_vm(vm, vm_funcs);
             }
         }
-        /// # Safety: `vm` must be non-null and valid.
+        /// # Safety
+        /// `vm` must be non-null and valid.
         #[unsafe(export_name = "abra_ffi$os$fappend")]
         pub unsafe extern "C" fn fappend(vm: *mut c_void, vm_funcs: *const AbraVmFunctions) {
             unsafe {
@@ -84,7 +91,8 @@ pub mod ffi {
             use crate::os::exec;
             use abra_core::addons::*;
             use std::ffi::c_void;
-            /// # Safety: `vm` must be non-null and valid.
+            /// # Safety
+            /// `vm` must be non-null and valid.
             #[unsafe(export_name = "abra_ffi$os$exec$command")]
             pub unsafe extern "C" fn command(vm: *mut c_void, vm_funcs: *const AbraVmFunctions) {
                 unsafe {
@@ -99,7 +107,8 @@ pub mod ffi {
             use crate::os::env;
             use abra_core::addons::*;
             use std::ffi::c_void;
-            /// # Safety: `vm` must be non-null and valid.
+            /// # Safety
+            /// `vm` must be non-null and valid.
             #[unsafe(export_name = "abra_ffi$os$env$get_var")]
             pub unsafe extern "C" fn get_var(vm: *mut c_void, vm_funcs: *const AbraVmFunctions) {
                 unsafe {

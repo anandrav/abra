@@ -88,7 +88,8 @@ pub mod ffi {
                 }
             }
         }
-        /// # Safety: `vm` must be non-null and valid.
+        /// # Safety
+        /// `vm` must be non-null and valid.
         #[unsafe(export_name = "abra_ffi$term$enable_raw_mode")]
         pub unsafe extern "C" fn enable_raw_mode(
             vm: *mut c_void,
@@ -100,7 +101,8 @@ pub mod ffi {
                 ret.to_vm(vm, vm_funcs);
             }
         }
-        /// # Safety: `vm` must be non-null and valid.
+        /// # Safety
+        /// `vm` must be non-null and valid.
         #[unsafe(export_name = "abra_ffi$term$disable_raw_mode")]
         pub unsafe extern "C" fn disable_raw_mode(
             vm: *mut c_void,
@@ -112,7 +114,8 @@ pub mod ffi {
                 ret.to_vm(vm, vm_funcs);
             }
         }
-        /// # Safety: `vm` must be non-null and valid.
+        /// # Safety
+        /// `vm` must be non-null and valid.
         #[unsafe(export_name = "abra_ffi$term$poll_key_event")]
         pub unsafe extern "C" fn poll_key_event(vm: *mut c_void, vm_funcs: *const AbraVmFunctions) {
             unsafe {
@@ -121,7 +124,8 @@ pub mod ffi {
                 ret.to_vm(vm, vm_funcs);
             }
         }
-        /// # Safety: `vm` must be non-null and valid.
+        /// # Safety
+        /// `vm` must be non-null and valid.
         #[unsafe(export_name = "abra_ffi$term$get_key_event")]
         pub unsafe extern "C" fn get_key_event(vm: *mut c_void, vm_funcs: *const AbraVmFunctions) {
             unsafe {
@@ -130,7 +134,8 @@ pub mod ffi {
                 ret.to_vm(vm, vm_funcs);
             }
         }
-        /// # Safety: `vm` must be non-null and valid.
+        /// # Safety
+        /// `vm` must be non-null and valid.
         #[unsafe(export_name = "abra_ffi$term$clear")]
         pub unsafe extern "C" fn clear(vm: *mut c_void, vm_funcs: *const AbraVmFunctions) {
             unsafe {
@@ -139,7 +144,8 @@ pub mod ffi {
                 ret.to_vm(vm, vm_funcs);
             }
         }
-        /// # Safety: `vm` must be non-null and valid.
+        /// # Safety
+        /// `vm` must be non-null and valid.
         #[unsafe(export_name = "abra_ffi$term$hide_cursor")]
         pub unsafe extern "C" fn hide_cursor(vm: *mut c_void, vm_funcs: *const AbraVmFunctions) {
             unsafe {
@@ -148,7 +154,8 @@ pub mod ffi {
                 ret.to_vm(vm, vm_funcs);
             }
         }
-        /// # Safety: `vm` must be non-null and valid.
+        /// # Safety
+        /// `vm` must be non-null and valid.
         #[unsafe(export_name = "abra_ffi$term$show_cursor")]
         pub unsafe extern "C" fn show_cursor(vm: *mut c_void, vm_funcs: *const AbraVmFunctions) {
             unsafe {
@@ -157,7 +164,8 @@ pub mod ffi {
                 ret.to_vm(vm, vm_funcs);
             }
         }
-        /// # Safety: `vm` must be non-null and valid.
+        /// # Safety
+        /// `vm` must be non-null and valid.
         #[unsafe(export_name = "abra_ffi$term$mark")]
         pub unsafe extern "C" fn mark(vm: *mut c_void, vm_funcs: *const AbraVmFunctions) {
             unsafe {
@@ -169,7 +177,8 @@ pub mod ffi {
                 ret.to_vm(vm, vm_funcs);
             }
         }
-        /// # Safety: `vm` must be non-null and valid.
+        /// # Safety
+        /// `vm` must be non-null and valid.
         #[unsafe(export_name = "abra_ffi$term$flush")]
         pub unsafe extern "C" fn flush(vm: *mut c_void, vm_funcs: *const AbraVmFunctions) {
             unsafe {

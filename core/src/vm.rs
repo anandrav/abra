@@ -2,17 +2,12 @@ type ProgramCounter = usize;
 pub type AbraInt = i64;
 pub type AbraFloat = f64;
 
-use abi_stable::reexports::SelfOps;
-use abi_stable::rvec;
-use abi_stable::std_types::ROption::{RNone, RSome};
 #[cfg(feature = "ffi")]
-use libloading::Library;
-
 use crate::addons::AbraVmFunctions;
 use crate::translate_bytecode::{BytecodeIndex, CompiledProgram};
-// TODO: don't use abi_stable dependency just for some std_types
-use abi_stable::std_types::{ROption, RString, RVec};
 use core::fmt;
+#[cfg(feature = "ffi")]
+use libloading::Library;
 use std::error::Error;
 use std::fmt::Debug;
 use std::{
@@ -26,30 +21,30 @@ type Result<T> = VmResult<T>;
 
 #[repr(C)]
 pub struct Vm {
-    program: RVec<Instr>,
+    program: Vec<Instr>,
     pc: ProgramCounter,
     stack_base: usize,
-    value_stack: RVec<Value>,
-    call_stack: RVec<CallFrame>,
-    heap: RVec<ManagedObject>,
+    value_stack: Vec<Value>,
+    call_stack: Vec<CallFrame>,
+    heap: Vec<ManagedObject>,
     heap_group: HeapGroup,
 
-    static_strings: RVec<RString>,
-    filename_arena: RVec<RString>,
-    function_name_arena: RVec<RString>,
+    static_strings: Vec<String>,
+    filename_arena: Vec<String>,
+    function_name_arena: Vec<String>,
 
-    filename_table: RVec<(BytecodeIndex, u32)>,
-    lineno_table: RVec<(BytecodeIndex, u32)>,
-    function_name_table: RVec<(BytecodeIndex, u32)>,
+    filename_table: Vec<(BytecodeIndex, u32)>,
+    lineno_table: Vec<(BytecodeIndex, u32)>,
+    function_name_table: Vec<(BytecodeIndex, u32)>,
 
-    pending_effect: ROption<u16>,
-    error: ROption<Box<VmError>>,
+    pending_effect: Option<u16>,
+    error: Option<Box<VmError>>,
 
     // FFI
     #[cfg(feature = "ffi")]
-    libs: RVec<Library>,
+    libs: Vec<Library>,
     #[cfg(feature = "ffi")]
-    foreign_functions: RVec<unsafe extern "C" fn(*mut Vm, *const AbraVmFunctions) -> ()>,
+    foreign_functions: Vec<unsafe extern "C" fn(*mut Vm, *const AbraVmFunctions) -> ()>,
 }
 
 #[repr(C)]
@@ -65,27 +60,27 @@ pub enum VmStatus {
 pub struct VmError {
     kind: VmErrorKind,
     location: VmErrorLocation,
-    trace: RVec<VmErrorLocation>,
+    trace: Vec<VmErrorLocation>,
 }
 
 #[repr(C)]
 #[derive(Clone, Debug)]
 pub struct VmErrorLocation {
-    filename: RString,
+    filename: String,
     lineno: u32,
-    function_name: RString,
+    function_name: String,
 }
 
 #[repr(C)]
 #[derive(Clone, Debug)]
 pub enum VmErrorKind {
     ArrayOutOfBounds,
-    Panic(RString),
+    Panic(String),
     Underflow,
     WrongType { expected: ValueKind },
     FfiNotEnabled,
-    LibLoadFailure(RString),
-    SymbolLoadFailure(RString),
+    LibLoadFailure(String),
+    SymbolLoadFailure(String),
 }
 
 #[repr(C)]
@@ -104,7 +99,7 @@ pub enum ValueKind {
     FunctionObject,
 }
 
-pub type ErrorLocation = (RString, u32);
+pub type ErrorLocation = (String, u32);
 
 impl Vm {
     pub fn new(program: CompiledProgram) -> Self {
@@ -112,38 +107,38 @@ impl Vm {
             program: program.instructions.into(),
             pc: 0,
             stack_base: 0,
-            value_stack: RVec::new(),
-            call_stack: RVec::new(),
-            heap: RVec::new(),
+            value_stack: Vec::new(),
+            call_stack: Vec::new(),
+            heap: Vec::new(),
             heap_group: HeapGroup::One,
 
             static_strings: program
                 .static_strings
                 .into_iter()
-                .map(RString::from)
+                .map(String::from)
                 .collect(),
             filename_arena: program
                 .filename_arena
                 .into_iter()
-                .map(RString::from)
+                .map(String::from)
                 .collect(),
             function_name_arena: program
                 .function_name_arena
                 .into_iter()
-                .map(RString::from)
+                .map(String::from)
                 .collect(),
 
             filename_table: program.filename_table.into(),
             lineno_table: program.lineno_table.into(),
             function_name_table: program.function_name_table.into(),
 
-            pending_effect: RNone,
-            error: RNone,
+            pending_effect: None,
+            error: None,
 
             #[cfg(feature = "ffi")]
-            libs: RVec::new(),
+            libs: Vec::new(),
             #[cfg(feature = "ffi")]
-            foreign_functions: RVec::new(),
+            foreign_functions: Vec::new(),
         }
     }
 
@@ -152,49 +147,49 @@ impl Vm {
             program: program.instructions.into(),
             pc: program.label_map[&entry_point],
             stack_base: 0,
-            value_stack: RVec::new(),
-            call_stack: RVec::new(),
-            heap: RVec::new(),
+            value_stack: Vec::new(),
+            call_stack: Vec::new(),
+            heap: Vec::new(),
             heap_group: HeapGroup::One,
 
             static_strings: program
                 .static_strings
                 .into_iter()
-                .map(RString::from)
+                .map(String::from)
                 .collect(),
             filename_arena: program
                 .filename_arena
                 .into_iter()
-                .map(RString::from)
+                .map(String::from)
                 .collect(),
             function_name_arena: program
                 .function_name_arena
                 .into_iter()
-                .map(RString::from)
+                .map(String::from)
                 .collect(),
 
             filename_table: program.filename_table.into(),
             lineno_table: program.lineno_table.into(),
             function_name_table: program.function_name_table.into(),
 
-            pending_effect: RNone,
-            error: RNone,
+            pending_effect: None,
+            error: None,
 
             #[cfg(feature = "ffi")]
-            libs: RVec::new(),
+            libs: Vec::new(),
             #[cfg(feature = "ffi")]
-            foreign_functions: RVec::new(),
+            foreign_functions: Vec::new(),
         }
     }
 
     pub fn status(&self) -> VmStatus {
-        if let RSome(eff) = self.pending_effect {
+        if let Some(eff) = self.pending_effect {
             VmStatus::PendingEffect(eff)
         } else if self.is_done() {
             VmStatus::Done
         } else {
             match &self.error {
-                RSome(err) => VmStatus::Error(err.clone()),
+                Some(err) => VmStatus::Error(err.clone()),
                 _ => VmStatus::OutOfSteps,
             }
         }
@@ -217,7 +212,7 @@ impl Vm {
 
     pub fn push_str(&mut self, s: String) {
         self.heap
-            .push(ManagedObject::new(ManagedObjectKind::RString(s.into())));
+            .push(ManagedObject::new(ManagedObjectKind::String(s.into())));
         let r = self.heap_reference(self.heap.len() - 1);
         self.push(r);
     }
@@ -303,7 +298,7 @@ impl Vm {
     }
 
     pub fn clear_pending_effect(&mut self) {
-        self.pending_effect = RNone;
+        self.pending_effect = None;
     }
 
     pub fn get_error(&self) -> Option<Box<VmError>> {
@@ -333,7 +328,7 @@ impl Vm {
 
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
-pub enum Instr<Location = ProgramCounter, RStringConstant = u16> {
+pub enum Instr<Location = ProgramCounter, StringConstant = u16> {
     // Stack manipulation
     Pop,
     Duplicate,
@@ -345,7 +340,7 @@ pub enum Instr<Location = ProgramCounter, RStringConstant = u16> {
     PushBool(bool),
     PushInt(AbraInt),
     PushFloat(AbraFloat),
-    PushString(RStringConstant),
+    PushString(StringConstant),
 
     // Arithmetic
     Add,
@@ -537,12 +532,12 @@ impl Value {
         }
     }
 
-    pub fn get_string(&self, vm: &Vm) -> Result<RString> {
+    pub fn get_string(&self, vm: &Vm) -> Result<String> {
         match self {
             Value::HeapReference(r) => {
                 assert_eq!(r.get().group, vm.heap_group);
                 match &vm.heap[r.get().get()].kind {
-                    ManagedObjectKind::RString(s) => Ok(s.clone()),
+                    ManagedObjectKind::String(s) => Ok(s.clone()),
                     _ => vm.make_error(VmErrorKind::WrongType {
                         expected: ValueKind::String,
                     }),
@@ -552,12 +547,12 @@ impl Value {
         }
     }
 
-    pub fn view_string<'a>(&self, vm: &'a Vm) -> &'a RString {
+    pub fn view_string<'a>(&self, vm: &'a Vm) -> &'a String {
         // println!("DURING FFI VM: {:#?}", vm);
 
         match self {
             Value::HeapReference(r) => match &vm.heap[r.get().get()].kind {
-                ManagedObjectKind::RString(s) => s,
+                ManagedObjectKind::String(s) => s,
                 _ => panic!("not a string"),
             },
             _ => panic!("not a string"),
@@ -599,7 +594,7 @@ enum ManagedObjectKind {
     },
     // DynArray is also used for tuples and structs
     DynArray(Vec<Value>),
-    RString(RString),
+    String(String),
     FunctionObject {
         captured_values: Vec<Value>,
         func_addr: ProgramCounter,
@@ -638,7 +633,7 @@ impl Vm {
         while !self.is_done() && self.pending_effect.is_none() && self.error.is_none() {
             match self.step() {
                 Ok(()) => {}
-                Err(err) => self.error = RSome(err),
+                Err(err) => self.error = Some(err),
             }
         }
     }
@@ -655,7 +650,7 @@ impl Vm {
         {
             match self.step() {
                 Ok(()) => {}
-                Err(err) => self.error = RSome(err),
+                Err(err) => self.error = Some(err),
             }
             steps -= 1;
         }
@@ -688,7 +683,7 @@ impl Vm {
             Instr::PushString(idx) => {
                 let s = &self.static_strings[idx as usize];
                 self.heap
-                    .push(ManagedObject::new(ManagedObjectKind::RString(s.clone())));
+                    .push(ManagedObject::new(ManagedObjectKind::String(s.clone())));
                 let r = self.heap_reference(self.heap.len() - 1);
                 self.value_stack.push(r);
             }
@@ -839,7 +834,7 @@ impl Vm {
                         let a_idx = a.get().get();
                         let b_idx = b.get().get();
                         match (&self.heap[a_idx].kind, &self.heap[b_idx].kind) {
-                            (ManagedObjectKind::RString(a), ManagedObjectKind::RString(b)) => {
+                            (ManagedObjectKind::String(a), ManagedObjectKind::String(b)) => {
                                 self.push(a == b)
                             }
                             _ => self.push(false),
@@ -1043,7 +1038,7 @@ impl Vm {
                 let b_str = b.get_string(self)?;
                 a_str.push_str(&b_str);
                 self.heap
-                    .push(ManagedObject::new(ManagedObjectKind::RString(a_str)));
+                    .push(ManagedObject::new(ManagedObjectKind::String(a_str)));
                 let r = self.heap_reference(self.heap.len() - 1);
                 self.push(r);
             }
@@ -1051,7 +1046,7 @@ impl Vm {
                 let n = self.pop_int()?;
                 let s = n.to_string().into();
                 self.heap
-                    .push(ManagedObject::new(ManagedObjectKind::RString(s)));
+                    .push(ManagedObject::new(ManagedObjectKind::String(s)));
                 let r = self.heap_reference(self.heap.len() - 1);
                 self.push(r);
             }
@@ -1059,12 +1054,12 @@ impl Vm {
                 let f = self.pop()?.get_float(self)?;
                 let s = f.to_string().into();
                 self.heap
-                    .push(ManagedObject::new(ManagedObjectKind::RString(s)));
+                    .push(ManagedObject::new(ManagedObjectKind::String(s)));
                 let r = self.heap_reference(self.heap.len() - 1);
                 self.push(r);
             }
             Instr::Effect(eff) => {
-                self.pending_effect = RSome(eff);
+                self.pending_effect = Some(eff);
             }
             Instr::LoadLib => {
                 if cfg!(not(feature = "ffi")) {
@@ -1174,8 +1169,8 @@ impl Vm {
         }
     }
 
-    fn make_trace(&self) -> RVec<VmErrorLocation> {
-        let mut ret = rvec![];
+    fn make_trace(&self) -> Vec<VmErrorLocation> {
+        let mut ret = vec![];
         for frame in &self.call_stack {
             ret.push(self.pc_to_error_location(frame.pc));
         }
@@ -1209,7 +1204,7 @@ impl Vm {
     }
 
     pub fn gc(&mut self) {
-        let mut new_heap = RVec::<ManagedObject>::new();
+        let mut new_heap = Vec::<ManagedObject>::new();
         let new_heap_group = match self.heap_group {
             HeapGroup::One => HeapGroup::Two,
             HeapGroup::Two => HeapGroup::One,
@@ -1232,7 +1227,7 @@ impl Vm {
         let mut i = 0;
         while i < new_heap.len() {
             let obj = &new_heap[i];
-            let mut to_add: RVec<ManagedObject> = rvec![];
+            let mut to_add: Vec<ManagedObject> = vec![];
             let new_heap_len = new_heap.len();
             match &obj.kind {
                 ManagedObjectKind::DynArray(fields) => {
@@ -1275,7 +1270,7 @@ impl Vm {
                         ));
                     }
                 }
-                ManagedObjectKind::RString(_) => {}
+                ManagedObjectKind::String(_) => {}
             }
 
             new_heap.extend(to_add);
@@ -1301,7 +1296,7 @@ impl Vm {
         self.pop()?.get_bool(self)
     }
 
-    fn pop_string(&mut self) -> Result<RString> {
+    fn pop_string(&mut self) -> Result<String> {
         self.pop()?.get_string(self)
     }
 }
@@ -1310,7 +1305,7 @@ fn forward(
     r: HeapReference,
     old_heap: &[ManagedObject],
     new_heap_len: usize,
-    to_add: &mut RVec<ManagedObject>,
+    to_add: &mut Vec<ManagedObject>,
     new_heap_group: HeapGroup,
 ) -> HeapReference {
     if r.group != new_heap_group {

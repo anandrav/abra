@@ -6,7 +6,8 @@ pub mod ffi {
         use crate::time;
         use abra_core::addons::*;
         use std::ffi::c_void;
-        /// # Safety: `vm` must be non-null and valid.
+        /// # Safety
+        /// `vm` must be non-null and valid.
         #[unsafe(export_name = "abra_ffi$time$get_time")]
         pub unsafe extern "C" fn get_time(vm: *mut c_void, vm_funcs: *const AbraVmFunctions) {
             unsafe {
@@ -15,7 +16,8 @@ pub mod ffi {
                 ret.to_vm(vm, vm_funcs);
             }
         }
-        /// # Safety: `vm` must be non-null and valid.
+        /// # Safety
+        /// `vm` must be non-null and valid.
         #[unsafe(export_name = "abra_ffi$time$sleep")]
         pub unsafe extern "C" fn sleep(vm: *mut c_void, vm_funcs: *const AbraVmFunctions) {
             unsafe {
