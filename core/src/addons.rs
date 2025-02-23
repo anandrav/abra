@@ -14,6 +14,41 @@ use std::{
     rc::Rc,
 };
 
+#[repr(C)]
+pub struct AbraVmFunctions {
+    pub push_int: unsafe extern "C" fn(vm: *mut Vm, n: i64),
+    pub push_float: unsafe extern "C" fn(vm: *mut Vm, f: f64),
+    pub push_bool: unsafe extern "C" fn(vm: *mut Vm, b: bool),
+    pub push_nil: unsafe extern "C" fn(vm: *mut Vm),
+    pub pop_nil: unsafe extern "C" fn(vm: *mut Vm),
+    pub pop_int: unsafe extern "C" fn(vm: *mut Vm) -> i64,
+    pub pop_float: unsafe extern "C" fn(vm: *mut Vm) -> f64,
+    pub pop_bool: unsafe extern "C" fn(vm: *mut Vm) -> bool,
+    pub pop: unsafe extern "C" fn(vm: *mut Vm),
+}
+
+impl AbraVmFunctions {
+    pub fn new() -> Self {
+        AbraVmFunctions {
+            push_int: abra_vm_push_int,
+            push_float: abra_vm_push_float,
+            push_bool: abra_vm_push_bool,
+            push_nil: abra_vm_push_nil,
+            pop_nil: abra_vm_pop_nil,
+            pop_int: abra_vm_pop_int,
+            pop_float: abra_vm_pop_float,
+            pop_bool: abra_vm_pop_bool,
+            pop: abra_vm_pop,
+        }
+    }
+}
+
+impl Default for AbraVmFunctions {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 /// # Safety
 /// vm: *mut Vm must be valid and non-null
 #[unsafe(no_mangle)]
@@ -424,7 +459,7 @@ fn add_items_from_ast(ast: Rc<FileAst>, output: &mut String) {
 
                 output.push_str(&format!("#[unsafe(export_name = \"{}\")]", symbol));
                 output.push_str(&format!(
-                    "pub unsafe extern \"C\" fn {}(vm: *mut Vm) {{",
+                    "pub unsafe extern \"C\" fn {}(vm: *mut Vm, abra_vm_functions: *const AbraVmFunctions) {{",
                     f.name.v,
                 ));
                 output.push_str("unsafe {");

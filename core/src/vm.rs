@@ -2,11 +2,13 @@ type ProgramCounter = usize;
 pub type AbraInt = i64;
 pub type AbraFloat = f64;
 
+use abi_stable::reexports::SelfOps;
 use abi_stable::rvec;
 use abi_stable::std_types::ROption::{RNone, RSome};
 #[cfg(feature = "ffi")]
 use libloading::Library;
 
+use crate::addons::AbraVmFunctions;
 use crate::translate_bytecode::{BytecodeIndex, CompiledProgram};
 // TODO: don't use abi_stable dependency just for some std_types
 use abi_stable::std_types::{ROption, RString, RVec};
@@ -47,7 +49,7 @@ pub struct Vm {
     #[cfg(feature = "ffi")]
     libs: RVec<Library>,
     #[cfg(feature = "ffi")]
-    foreign_functions: RVec<unsafe extern "C" fn(*mut Vm) -> ()>,
+    foreign_functions: RVec<unsafe extern "C" fn(*mut Vm, *const AbraVmFunctions) -> ()>,
 }
 
 #[repr(C)]
@@ -1117,7 +1119,10 @@ impl Vm {
                 {
                     unsafe {
                         let vm_ptr = self as *mut Vm;
-                        self.foreign_functions[_func_id](vm_ptr);
+                        let abra_vm_functions = AbraVmFunctions::new(); // TODO: don't create this every time, cache it.
+                        let abra_vm_functions_ptr =
+                            &mut abra_vm_functions as *const AbraVmFunctions;
+                        self.foreign_functions[_func_id](vm_ptr, abra_vm_functions_ptr);
                     };
                 }
 

@@ -89,7 +89,10 @@ pub mod ffi {
         }
         /// # Safety: `vm` must be non-null and valid.
         #[unsafe(export_name = "abra_ffi$term$enable_raw_mode")]
-        pub unsafe extern "C" fn enable_raw_mode(vm: *mut Vm) {
+        pub unsafe extern "C" fn enable_raw_mode(
+            vm: *mut Vm,
+            abra_vm_functions: *const AbraVmFunctions,
+        ) {
             unsafe {
                 let ret: () = term::enable_raw_mode();
                 ret.to_vm(vm);
@@ -97,7 +100,10 @@ pub mod ffi {
         }
         /// # Safety: `vm` must be non-null and valid.
         #[unsafe(export_name = "abra_ffi$term$disable_raw_mode")]
-        pub unsafe extern "C" fn disable_raw_mode(vm: *mut Vm) {
+        pub unsafe extern "C" fn disable_raw_mode(
+            vm: *mut Vm,
+            abra_vm_functions: *const AbraVmFunctions,
+        ) {
             unsafe {
                 let ret: () = term::disable_raw_mode();
                 ret.to_vm(vm);
@@ -105,7 +111,10 @@ pub mod ffi {
         }
         /// # Safety: `vm` must be non-null and valid.
         #[unsafe(export_name = "abra_ffi$term$poll_key_event")]
-        pub unsafe extern "C" fn poll_key_event(vm: *mut Vm) {
+        pub unsafe extern "C" fn poll_key_event(
+            vm: *mut Vm,
+            abra_vm_functions: *const AbraVmFunctions,
+        ) {
             unsafe {
                 let ret: bool = term::poll_key_event();
                 ret.to_vm(vm);
@@ -113,7 +122,10 @@ pub mod ffi {
         }
         /// # Safety: `vm` must be non-null and valid.
         #[unsafe(export_name = "abra_ffi$term$get_key_event")]
-        pub unsafe extern "C" fn get_key_event(vm: *mut Vm) {
+        pub unsafe extern "C" fn get_key_event(
+            vm: *mut Vm,
+            abra_vm_functions: *const AbraVmFunctions,
+        ) {
             unsafe {
                 let ret: KeyCode = term::get_key_event();
                 ret.to_vm(vm);
@@ -121,7 +133,7 @@ pub mod ffi {
         }
         /// # Safety: `vm` must be non-null and valid.
         #[unsafe(export_name = "abra_ffi$term$clear")]
-        pub unsafe extern "C" fn clear(vm: *mut Vm) {
+        pub unsafe extern "C" fn clear(vm: *mut Vm, abra_vm_functions: *const AbraVmFunctions) {
             unsafe {
                 let ret: () = term::clear();
                 ret.to_vm(vm);
@@ -129,7 +141,10 @@ pub mod ffi {
         }
         /// # Safety: `vm` must be non-null and valid.
         #[unsafe(export_name = "abra_ffi$term$hide_cursor")]
-        pub unsafe extern "C" fn hide_cursor(vm: *mut Vm) {
+        pub unsafe extern "C" fn hide_cursor(
+            vm: *mut Vm,
+            abra_vm_functions: *const AbraVmFunctions,
+        ) {
             unsafe {
                 let ret: () = term::hide_cursor();
                 ret.to_vm(vm);
@@ -137,7 +152,10 @@ pub mod ffi {
         }
         /// # Safety: `vm` must be non-null and valid.
         #[unsafe(export_name = "abra_ffi$term$show_cursor")]
-        pub unsafe extern "C" fn show_cursor(vm: *mut Vm) {
+        pub unsafe extern "C" fn show_cursor(
+            vm: *mut Vm,
+            abra_vm_functions: *const AbraVmFunctions,
+        ) {
             unsafe {
                 let ret: () = term::show_cursor();
                 ret.to_vm(vm);
@@ -145,7 +163,7 @@ pub mod ffi {
         }
         /// # Safety: `vm` must be non-null and valid.
         #[unsafe(export_name = "abra_ffi$term$mark")]
-        pub unsafe extern "C" fn mark(vm: *mut Vm) {
+        pub unsafe extern "C" fn mark(vm: *mut Vm, abra_vm_functions: *const AbraVmFunctions) {
             unsafe {
                 let y = i64::from_vm(vm);
                 let x = i64::from_vm(vm);
@@ -156,7 +174,7 @@ pub mod ffi {
         }
         /// # Safety: `vm` must be non-null and valid.
         #[unsafe(export_name = "abra_ffi$term$flush")]
-        pub unsafe extern "C" fn flush(vm: *mut Vm) {
+        pub unsafe extern "C" fn flush(vm: *mut Vm, abra_vm_functions: *const AbraVmFunctions) {
             unsafe {
                 let ret: () = term::flush();
                 ret.to_vm(vm);
