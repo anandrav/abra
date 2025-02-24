@@ -145,42 +145,25 @@ fn gather_declarations_item(
                     path = path.parent().unwrap().to_owned();
                 }
                 // println!("{}", path.display());
+                let mut package_name = path.iter().last().unwrap().to_str().unwrap().to_string();
+                if package_name.ends_with(".abra") {
+                    package_name = package_name[..package_name.len() - ".abra".len()].to_string();
+                }
                 let mut libname = path.to_str().unwrap().to_string();
                 if libname.ends_with(".abra") {
                     libname = libname[..libname.len() - ".abra".len()].to_string();
                 }
-                // println!("{}", dirname);
-                let dir = std::fs::read_dir(&libname).unwrap(); // TODO: remove unwrap
+                // println!("libname={}", libname);
                 let mut lib_path: Option<PathBuf> = None;
 
-                for entry in dir {
-                    let entry = entry.unwrap();
-                    let file_type = entry.file_type().unwrap();
-
-                    // println!("{}", entry.file_name().to_str().unwrap());
-                    if file_type.is_dir() && entry.file_name() == "rust_project" {
-                        let rust_project_path = entry.path();
-
-                        for entry in std::fs::read_dir(rust_project_path).unwrap() {
-                            let entry = entry.unwrap();
-                            if entry.file_name() == "Cargo.toml" {
-                                let content = std::fs::read_to_string(entry.path()).unwrap(); // TODO: remove unwrap
-
-                                // TODO: YOU DON'T NEED TO PARSE THE CARGO TOML TO GET THE PACKAGE NAME. IT'S LITERALLY THE NAME OF THE PARENT DIRECTORY
-                                let cargo_toml: CargoToml = toml::from_str(&content).unwrap(); // TODO: remove unwrap
-                                let filename = format!(
-                                    "{}{}{}",
-                                    std::env::consts::DLL_PREFIX,
-                                    &cargo_toml.package.name,
-                                    std::env::consts::DLL_SUFFIX
-                                );
-                                lib_path =
-                                    Some(ctx.file_provider.shared_objects_dir().join(filename));
-                                // dbg!(&libname);
-                            }
-                        }
-                    }
-                }
+                let filename = format!(
+                    "{}{}{}",
+                    std::env::consts::DLL_PREFIX,
+                    package_name,
+                    std::env::consts::DLL_SUFFIX
+                );
+                lib_path = Some(ctx.file_provider.shared_objects_dir().join(filename));
+                // dbg!(&libname);
 
                 // add lib to statics ctx
                 let libname = lib_path.unwrap();
