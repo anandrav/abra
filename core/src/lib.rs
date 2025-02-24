@@ -122,7 +122,11 @@ impl FileProviderDefault {
         })
     }
 
-    pub fn new(main_file_dir: PathBuf, modules: PathBuf, shared_objects_dir: PathBuf) -> Box<Self> {
+    pub fn new(
+        main_file_dir: PathBuf,
+        modules: PathBuf,
+        #[cfg(feature = "ffi")] shared_objects_dir: PathBuf,
+    ) -> Box<Self> {
         Box::new(Self {
             main_file_dir,
             modules,
