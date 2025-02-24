@@ -32,7 +32,7 @@ struct Args {
         short,
         long,
         value_name = "DIRECTORY",
-        help = "Override the default module directory (~/.abra/shared_objects)."
+        help = "Override the default shared objects directory (~/.abra/shared_objects)."
     )]
     shared_objects: Option<String>,
 
