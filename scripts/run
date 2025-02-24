@@ -15,4 +15,4 @@ for dir in modules/*; do
   fi
 done
 
-cargo run --bin  abra -- -m modules "$@"
+cargo run --bin  abra -- -m modules -s target/debug "$@"

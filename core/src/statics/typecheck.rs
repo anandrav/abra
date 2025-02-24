@@ -2195,7 +2195,8 @@ fn generate_constraints_pat(
 
                     def_type
                 } else {
-                    panic!("variant not found");
+                    // TODO: do not panic here!
+                    todo!("variant not found");
                 }
             };
 

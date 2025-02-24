@@ -9,6 +9,7 @@ git submodule update --init --recursive
 printf "Done\n"
 
 printf "Installing Abra CLI to Cargo bin... "
+cargo build --release --quiet
 cargo install --bin abra --path cli --quiet || {
   printf "Failed!\n"
   echo "Failed to install Abra CLI. Please check your Rust installation." >&2
@@ -16,26 +17,12 @@ cargo install --bin abra --path cli --quiet || {
 }
 printf "Done\n"
 
-printf "Building native Abra modules...\n"
-for dir in modules/*; do
-  if [ -d "$dir" ] && [ -f "$dir/rust_project/Cargo.toml" ]; then
-    printf "  - building $dir ... "
-    pushd "$dir/rust_project" > /dev/null
-    if cargo build --release --quiet; then
-      printf "Done\n"
-    else
-      printf "Failed!\n"
-      echo "Build failed in $dir. Please check the project for errors." >&2
-      exit 1
-    fi
-    popd > /dev/null
-  fi
-done
-
 printf "Installing Abra modules... "
-mkdir -p "$HOME/.abra"
 rm -rf "$HOME/.abra/modules"
+mkdir -p "$HOME/.abra"
 cp -R modules "$HOME/.abra/modules"
+mkdir -p "$HOME/.abra/shared_objects"
+find target/release -maxdepth 1 -type f \( -name "*.so" -o -name "*.dylib" -o -name "*.dll" \) -exec cp {} "$HOME/.abra/shared_objects" \;
 printf "Done\n"
 
 VIM_DIR="$HOME/.vim"

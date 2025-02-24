@@ -135,92 +135,89 @@ fn gather_declarations_item(
             // child directory -> Cargo.toml
             // Cargo.toml -> name of .so/dylib/dll file
 
-            let mut path = file.path.clone();
-            // println!("{}", path.display());
-            let elems: Vec<_> = file.name.split(std::path::MAIN_SEPARATOR_STR).collect();
-            // dbg!(&elems);
-            for _ in 0..elems.len() - 1 {
-                path = path.parent().unwrap().to_owned();
-            }
-            // println!("{}", path.display());
-            let mut libname = path.to_str().unwrap().to_string();
-            if libname.ends_with(".abra") {
-                libname = libname[..libname.len() - ".abra".len()].to_string();
-            }
-            // println!("{}", dirname);
-            let dir = std::fs::read_dir(&libname).unwrap(); // TODO: remove unwrap
-            let mut lib_path: Option<PathBuf> = None;
+            #[cfg(feature = "ffi")]
+            {
+                let mut path = file.path.clone();
+                // println!("{}", path.display());
+                let elems: Vec<_> = file.name.split(std::path::MAIN_SEPARATOR_STR).collect();
+                // dbg!(&elems);
+                for _ in 0..elems.len() - 1 {
+                    path = path.parent().unwrap().to_owned();
+                }
+                // println!("{}", path.display());
+                let mut libname = path.to_str().unwrap().to_string();
+                if libname.ends_with(".abra") {
+                    libname = libname[..libname.len() - ".abra".len()].to_string();
+                }
+                // println!("{}", dirname);
+                let dir = std::fs::read_dir(&libname).unwrap(); // TODO: remove unwrap
+                let mut lib_path: Option<PathBuf> = None;
 
-            for entry in dir {
-                let entry = entry.unwrap();
-                let file_type = entry.file_type().unwrap();
+                for entry in dir {
+                    let entry = entry.unwrap();
+                    let file_type = entry.file_type().unwrap();
 
-                // println!("{}", entry.file_name().to_str().unwrap());
-                if file_type.is_dir() && entry.file_name() == "rust_project" {
-                    let rust_project_path = entry.path();
+                    // println!("{}", entry.file_name().to_str().unwrap());
+                    if file_type.is_dir() && entry.file_name() == "rust_project" {
+                        let rust_project_path = entry.path();
 
-                    for entry in std::fs::read_dir(rust_project_path).unwrap() {
-                        let entry = entry.unwrap();
-                        if entry.file_name() == "Cargo.toml" {
-                            let content = std::fs::read_to_string(entry.path()).unwrap(); // TODO: remove unwrap
+                        for entry in std::fs::read_dir(rust_project_path).unwrap() {
+                            let entry = entry.unwrap();
+                            if entry.file_name() == "Cargo.toml" {
+                                let content = std::fs::read_to_string(entry.path()).unwrap(); // TODO: remove unwrap
 
-                            // TODO: YOU DON'T NEED TO PARSE THE CARGO TOML TO GET THE PACKAGE NAME. IT'S LITERALLY THE NAME OF THE PARENT DIRECTORY
-                            let cargo_toml: CargoToml = toml::from_str(&content).unwrap(); // TODO: remove unwrap
-                            let filename = format!(
-                                "{}{}{}",
-                                std::env::consts::DLL_PREFIX,
-                                &cargo_toml.package.name,
-                                std::env::consts::DLL_SUFFIX
-                            );
-                            let version = if cfg!(debug_assertions) {
-                                "debug".to_string()
-                            } else {
-                                "release".to_string()
-                            };
-                            lib_path = Some(
-                                Path::new(&libname)
-                                    .join(format!("rust_project/target/{}/", version))
-                                    .join(filename),
-                            );
-                            // dbg!(&libname);
+                                // TODO: YOU DON'T NEED TO PARSE THE CARGO TOML TO GET THE PACKAGE NAME. IT'S LITERALLY THE NAME OF THE PARENT DIRECTORY
+                                let cargo_toml: CargoToml = toml::from_str(&content).unwrap(); // TODO: remove unwrap
+                                let filename = format!(
+                                    "{}{}{}",
+                                    std::env::consts::DLL_PREFIX,
+                                    &cargo_toml.package.name,
+                                    std::env::consts::DLL_SUFFIX
+                                );
+                                lib_path =
+                                    Some(ctx.file_provider.shared_objects_dir().join(filename));
+                                // dbg!(&libname);
+                            }
                         }
                     }
                 }
-            }
 
-            // add lib to statics ctx
-            let libname = lib_path.unwrap();
+                // add lib to statics ctx
+                let libname = lib_path.unwrap();
 
-            // add libname to string constants
-            let len = ctx.string_constants.len();
-            ctx.string_constants
-                .entry(libname.to_str().unwrap().to_string())
-                .or_insert(len);
+                // add libname to string constants
+                let len = ctx.string_constants.len();
+                ctx.string_constants
+                    .entry(libname.to_str().unwrap().to_string())
+                    .or_insert(len);
 
-            // TODO: duplicated with code in addon.rs
-            let mut symbol = "abra_ffi".to_string();
-            for elem in elems {
+                // TODO: duplicated with code in addon.rs
+                let mut symbol = "abra_ffi".to_string();
+                for elem in elems {
+                    symbol.push('$');
+                    symbol.push_str(elem);
+                }
                 symbol.push('$');
-                symbol.push_str(elem);
+                symbol.push_str(&f.name.v);
+
+                // add symbol to string constants
+                let len = ctx.string_constants.len();
+                ctx.string_constants.entry(symbol.clone()).or_insert(len);
+
+                // add symbol to statics ctx
+                let funcs = ctx.dylib_to_funcs.entry(libname.clone()).or_default();
+                funcs.insert(symbol.clone());
+
+                namespace
+                    .declarations
+                    .insert(func_name, Declaration::ForeignFunction {
+                        decl: f.clone(),
+                        libname,
+                        symbol,
+                    });
             }
-            symbol.push('$');
-            symbol.push_str(&f.name.v);
 
-            // add symbol to string constants
-            let len = ctx.string_constants.len();
-            ctx.string_constants.entry(symbol.clone()).or_insert(len);
-
-            // add symbol to statics ctx
-            let funcs = ctx.dylib_to_funcs.entry(libname.clone()).or_default();
-            funcs.insert(symbol.clone());
-
-            namespace
-                .declarations
-                .insert(func_name, Declaration::ForeignFunction {
-                    decl: f.clone(),
-                    libname,
-                    symbol,
-                });
+            // TODO: error message if foreign function found with no ffi enabled
         }
         ItemKind::Import(..) => {}
     }
