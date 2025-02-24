@@ -206,16 +206,6 @@ fn gather_declarations_item(
     }
 }
 
-#[derive(serde::Deserialize)]
-struct Package {
-    name: String,
-}
-
-#[derive(serde::Deserialize)]
-struct CargoToml {
-    package: Package,
-}
-
 // Map identifiers to (1) declarations and (2) namespaces
 // and supports nested scopes
 #[derive(Clone, Debug)]

@@ -15,15 +15,12 @@ path = "src/lib.rs"
 ffi = []
 
 [dependencies]
-serde = { version = "1.0.215", features = ["derive"] } # get rid of this, see serde_derive comment below
 disjoint-sets = "0.4.2"
 libloading = "0.8.5"
 pest = "2.5.2"
 pest_derive = "2.5.2"
-serde_derive = "1.0.215"                               # Todo: really need this? Just to read a toml file for the package name?
-strum = { version = "0.26.3", features = ["derive"] }
-strum_macros = "0.26.3"
-toml = "0.8.19"
+strum = { version = "0.26.3", features = ["derive"] } # TODO: try and get rid of this dependency
+strum_macros = "0.26.3" # TODO: try and get rid of this
 codespan-reporting = "0.11.1"
 
 [dev-dependencies]
