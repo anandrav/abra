@@ -1,3 +1,4 @@
+use crate::FileProvider;
 use crate::ast::{
     EnumDef, FileAst, FileDatabase, ForeignFuncDecl, FuncDef, Identifier, InterfaceDecl,
     InterfaceImpl, NodeId, NodeMap, Polytype, StructDef, TypeKind,
@@ -26,12 +27,12 @@ pub use typecheck::Monotype;
 pub(crate) use typecheck::Prov as TypeProv;
 pub(crate) use typecheck::SolvedType as Type;
 
-#[derive(Default, Debug)]
 pub(crate) struct StaticsContext {
     // effects
     effects: Vec<EffectDesc>,
     _node_map: NodeMap,
     _files: FileDatabase,
+    file_provider: Box<dyn FileProvider>,
 
     pub(crate) global_namespace: Namespace,
     // This maps any identifier in the program to the declaration it resolves to.
@@ -65,12 +66,27 @@ pub(crate) struct StaticsContext {
 }
 
 impl StaticsContext {
-    fn new(effects: Vec<EffectDesc>, node_map: NodeMap, files: FileDatabase) -> Self {
+    fn new(
+        effects: Vec<EffectDesc>,
+        node_map: NodeMap,
+        files: FileDatabase,
+        file_provider: Box<dyn FileProvider>,
+    ) -> Self {
         let mut ctx = Self {
             effects,
             _node_map: node_map,
             _files: files,
-            ..Default::default()
+            file_provider,
+            global_namespace: Default::default(),
+            resolution_map: Default::default(),
+            loop_stack: Default::default(),
+            func_ret_stack: Default::default(),
+            interface_impls: Default::default(),
+            string_constants: Default::default(),
+            dylib_to_funcs: Default::default(),
+            unifvars: Default::default(),
+            unifvars_constrained_to_interfaces: Default::default(),
+            errors: Default::default(),
         };
 
         ctx.string_constants.entry("\n".into()).or_insert(0);
@@ -184,8 +200,14 @@ pub(crate) fn analyze(
     file_asts: &Vec<Rc<FileAst>>,
     node_map: &NodeMap,
     files: &FileDatabase,
+    file_provider: Box<dyn FileProvider>,
 ) -> Result<StaticsContext, String> {
-    let mut ctx = StaticsContext::new(effects.to_owned(), node_map.clone(), files.clone()); // TODO: to_owned necessary?
+    let mut ctx = StaticsContext::new(
+        effects.to_owned(),
+        node_map.clone(),
+        files.clone(),
+        file_provider,
+    ); // TODO: to_owned necessary?
 
     // scan declarations across all files
     scan_declarations(&mut ctx, file_asts);

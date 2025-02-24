@@ -49,7 +49,7 @@ pub fn source_files_single(src: &str) -> Vec<FileData> {
 pub fn compile_bytecode(
     files: Vec<FileData>, // TODO: just pass the main file in the future
     effects: Vec<EffectDesc>,
-    file_provider: impl FileProvider,
+    file_provider: Box<dyn FileProvider>,
 ) -> Result<CompiledProgram, String> {
     // TODO: these errors aren't actually being used
     let mut errors: Vec<Error> = vec![];
@@ -85,7 +85,7 @@ pub fn compile_bytecode(
     }
 
     // println!("time to analyze");
-    let inference_ctx = statics::analyze(&effects, &file_asts, &node_map, &file_db)?;
+    let inference_ctx = statics::analyze(&effects, &file_asts, &node_map, &file_db, file_provider)?;
 
     // TODO: translator should be immutable
     // NOTE: It's only mutable right now because of ty_fits_impl_ty calls ast_type_to_statics_type...
@@ -99,27 +99,36 @@ pub trait FileProvider {
     /// Given a path, return the contents of the file as a String,
     /// or an error if the file cannot be found.
     fn search_for_file(&self, path: &Path) -> Result<FileData, Box<dyn std::error::Error>>;
+
+    #[cfg(feature = "ffi")]
+    fn shared_objects_dir(&self) -> &PathBuf;
 }
 
-#[derive(Default)]
+#[derive(Default, Debug)]
 pub struct FileProviderDefault {
     main_file_dir: PathBuf,
     modules: PathBuf,
+    #[cfg(feature = "ffi")]
+    shared_objects_dir: PathBuf,
 }
 
 impl FileProviderDefault {
-    pub fn todo_get_rid_of_this() -> Self {
-        Self {
+    pub fn todo_get_rid_of_this() -> Box<Self> {
+        Box::new(Self {
             main_file_dir: PathBuf::new(),
             modules: PathBuf::new(),
-        }
+            #[cfg(feature = "ffi")]
+            shared_objects_dir: PathBuf::new(),
+        })
     }
 
-    pub fn new(main_file_dir: PathBuf, modules: PathBuf) -> Self {
-        Self {
+    pub fn new(main_file_dir: PathBuf, modules: PathBuf, shared_objects_dir: PathBuf) -> Box<Self> {
+        Box::new(Self {
             main_file_dir,
             modules,
-        }
+            #[cfg(feature = "ffi")]
+            shared_objects_dir,
+        })
     }
 }
 
@@ -145,6 +154,11 @@ impl FileProvider for FileProviderDefault {
             "TODO add a better error message here".to_string(),
         )))
     }
+
+    #[cfg(feature = "ffi")]
+    fn shared_objects_dir(&self) -> &PathBuf {
+        &self.shared_objects_dir
+    }
 }
 
 #[derive(Debug)]
@@ -162,7 +176,7 @@ impl std::error::Error for MyError {}
 fn add_imports(
     file_ast: Rc<FileAst>,
     file_db: &mut ast::FileDatabase,
-    file_provider: &impl FileProvider,
+    file_provider: &Box<dyn FileProvider>,
     stack: &mut VecDeque<FileId>,
     visited: &mut HashSet<PathBuf>,
     errors: &mut Vec<Error>,

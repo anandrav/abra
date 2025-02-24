@@ -40,7 +40,6 @@ struct LambdaData {
     ncaptures: usize,
 }
 
-#[derive(Debug)]
 pub(crate) struct Translator {
     statics: StaticsContext,
     node_map: NodeMap,

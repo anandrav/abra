@@ -12,4 +12,3 @@ abra_core = { path = "../../../core" }
 [build-dependencies]
 abra_core = { path = "../../../core" }
 
-[workspace]

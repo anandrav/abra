@@ -72,14 +72,13 @@ fn gather_declarations_item(
                 let method_name = p.name.v.clone();
                 let method = i as u16;
                 let fully_qualified_name = fullname(&qualifiers, &method_name);
-                namespace.declarations.insert(
-                    method_name,
-                    Declaration::InterfaceMethod {
+                namespace
+                    .declarations
+                    .insert(method_name, Declaration::InterfaceMethod {
                         iface_def: iface.clone(),
                         method,
                         fully_qualified_name,
-                    },
-                );
+                    });
             }
         }
         ItemKind::InterfaceImpl(_) => {}
@@ -99,13 +98,12 @@ fn gather_declarations_item(
                     let variant_name = v.ctor.v.clone();
                     let variant = i as u16;
 
-                    namespace.declarations.insert(
-                        variant_name,
-                        Declaration::EnumVariant {
+                    namespace
+                        .declarations
+                        .insert(variant_name, Declaration::EnumVariant {
                             enum_def: e.clone(),
                             variant,
-                        },
-                    );
+                        });
                 }
             }
             TypeDefKind::Struct(s) => {
@@ -145,13 +143,13 @@ fn gather_declarations_item(
                 path = path.parent().unwrap().to_owned();
             }
             // println!("{}", path.display());
-            let mut dirname = path.to_str().unwrap().to_string();
-            if dirname.ends_with(".abra") {
-                dirname = dirname[..dirname.len() - ".abra".len()].to_string();
+            let mut libname = path.to_str().unwrap().to_string();
+            if libname.ends_with(".abra") {
+                libname = libname[..libname.len() - ".abra".len()].to_string();
             }
             // println!("{}", dirname);
-            let dir = std::fs::read_dir(&dirname).unwrap(); // TODO: remove unwrap
-            let mut libname: Option<PathBuf> = None;
+            let dir = std::fs::read_dir(&libname).unwrap(); // TODO: remove unwrap
+            let mut lib_path: Option<PathBuf> = None;
 
             for entry in dir {
                 let entry = entry.unwrap();
@@ -179,8 +177,8 @@ fn gather_declarations_item(
                             } else {
                                 "release".to_string()
                             };
-                            libname = Some(
-                                Path::new(&dirname)
+                            lib_path = Some(
+                                Path::new(&libname)
                                     .join(format!("rust_project/target/{}/", version))
                                     .join(filename),
                             );
@@ -191,7 +189,7 @@ fn gather_declarations_item(
             }
 
             // add lib to statics ctx
-            let libname = libname.unwrap();
+            let libname = lib_path.unwrap();
 
             // add libname to string constants
             let len = ctx.string_constants.len();
@@ -216,14 +214,13 @@ fn gather_declarations_item(
             let funcs = ctx.dylib_to_funcs.entry(libname.clone()).or_default();
             funcs.insert(symbol.clone());
 
-            namespace.declarations.insert(
-                func_name,
-                Declaration::ForeignFunction {
+            namespace
+                .declarations
+                .insert(func_name, Declaration::ForeignFunction {
                     decl: f.clone(),
                     libname,
                     symbol,
-                },
-            );
+                });
         }
         ItemKind::Import(..) => {}
     }

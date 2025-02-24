@@ -15,7 +15,7 @@ path = "src/lib.rs"
 ffi = []
 
 [dependencies]
-serde = { version = "1.0.215", features = ["derive"] }
+serde = { version = "1.0.215", features = ["derive"] } # get rid of this, see serde_derive comment below
 disjoint-sets = "0.4.2"
 libloading = "0.8.5"
 pest = "2.5.2"

@@ -27,6 +27,15 @@ struct Args {
     )]
     modules: Option<String>,
 
+    /// Directory containing compiled shared objects from Abra modules
+    #[arg(
+        short,
+        long,
+        value_name = "DIRECTORY",
+        help = "Override the default module directory (~/.abra/shared_objects)."
+    )]
+    shared_objects: Option<String>,
+
     /// Additional arguments to pass to the Abra program
     #[arg(
         help = "Arguments to pass to the Abra program",
@@ -61,7 +70,7 @@ fn main() -> anyhow::Result<()> {
         abra_core::prelude::PRELUDE.to_string(),
     ));
 
-    let modules: PathBuf = match args.modules {
+    let modules_dir: PathBuf = match args.modules {
         Some(modules) => {
             let current_dir = std::env::current_dir().expect("Can't get current directory.");
             current_dir.join(modules)
@@ -69,6 +78,16 @@ fn main() -> anyhow::Result<()> {
         None => {
             let home_dir = home::home_dir().expect("Can't get home directory.");
             home_dir.join(".abra/modules")
+        }
+    };
+    let shared_objects_dir: PathBuf = match args.shared_objects {
+        Some(shared_objects_dir) => {
+            let current_dir = std::env::current_dir().expect("Can't get current directory.");
+            current_dir.join(shared_objects_dir)
+        }
+        None => {
+            let home_dir = home::home_dir().expect("Can't get home directory.");
+            home_dir.join(".abra/shared_objects")
         }
     };
     // add_modules_toplevel(modules, &args.file, &mut source_files);
@@ -82,7 +101,8 @@ fn main() -> anyhow::Result<()> {
             .unwrap()
             .join(main_file_path.parent().unwrap())
     };
-    let file_provider = FileProviderDefault::new(main_file_dir.into(), modules);
+    let file_provider =
+        FileProviderDefault::new(main_file_dir.into(), modules_dir, shared_objects_dir);
 
     match abra_core::compile_bytecode(source_files, effects, file_provider) {
         Ok(program) => {
