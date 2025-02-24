@@ -77,7 +77,7 @@ pub fn compile_bytecode(
         add_imports(
             file_ast,
             &mut file_db,
-            &file_provider,
+            file_provider.as_ref(),
             &mut stack,
             &mut visited,
             &mut errors,
@@ -176,7 +176,7 @@ impl std::error::Error for MyError {}
 fn add_imports(
     file_ast: Rc<FileAst>,
     file_db: &mut ast::FileDatabase,
-    file_provider: &Box<dyn FileProvider>,
+    file_provider: &dyn FileProvider,
     stack: &mut VecDeque<FileId>,
     visited: &mut HashSet<PathBuf>,
     errors: &mut Vec<Error>,

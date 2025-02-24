@@ -11,13 +11,12 @@ pub fn command(content: String) -> i64 {
     }
 
     let output = cmd.output();
-    let ret = match output {
+    match output {
         Ok(output) => {
             print!("{}", String::from_utf8_lossy(&output.stdout));
             eprint!("{}", String::from_utf8_lossy(&output.stderr));
             0
         }
         Err(err) => err.raw_os_error().unwrap() as i64,
-    };
-    ret
+    }
 }

@@ -9,6 +9,7 @@ use core::fmt;
 #[cfg(feature = "ffi")]
 use libloading::Library;
 use std::error::Error;
+#[cfg(feature = "ffi")]
 use std::ffi::c_void;
 use std::fmt::Debug;
 use std::{
@@ -105,7 +106,7 @@ pub type ErrorLocation = (String, u32);
 impl Vm {
     pub fn new(program: CompiledProgram) -> Self {
         Self {
-            program: program.instructions.into(),
+            program: program.instructions,
             pc: 0,
             stack_base: 0,
             value_stack: Vec::new(),
@@ -113,25 +114,13 @@ impl Vm {
             heap: Vec::new(),
             heap_group: HeapGroup::One,
 
-            static_strings: program
-                .static_strings
-                .into_iter()
-                .map(String::from)
-                .collect(),
-            filename_arena: program
-                .filename_arena
-                .into_iter()
-                .map(String::from)
-                .collect(),
-            function_name_arena: program
-                .function_name_arena
-                .into_iter()
-                .map(String::from)
-                .collect(),
+            static_strings: program.static_strings.into_iter().collect(),
+            filename_arena: program.filename_arena.into_iter().collect(),
+            function_name_arena: program.function_name_arena.into_iter().collect(),
 
-            filename_table: program.filename_table.into(),
-            lineno_table: program.lineno_table.into(),
-            function_name_table: program.function_name_table.into(),
+            filename_table: program.filename_table,
+            lineno_table: program.lineno_table,
+            function_name_table: program.function_name_table,
 
             pending_effect: None,
             error: None,
@@ -145,7 +134,7 @@ impl Vm {
 
     pub fn with_entry_point(program: CompiledProgram, entry_point: String) -> Self {
         Self {
-            program: program.instructions.into(),
+            program: program.instructions,
             pc: program.label_map[&entry_point],
             stack_base: 0,
             value_stack: Vec::new(),
@@ -153,25 +142,13 @@ impl Vm {
             heap: Vec::new(),
             heap_group: HeapGroup::One,
 
-            static_strings: program
-                .static_strings
-                .into_iter()
-                .map(String::from)
-                .collect(),
-            filename_arena: program
-                .filename_arena
-                .into_iter()
-                .map(String::from)
-                .collect(),
-            function_name_arena: program
-                .function_name_arena
-                .into_iter()
-                .map(String::from)
-                .collect(),
+            static_strings: program.static_strings.into_iter().collect(),
+            filename_arena: program.filename_arena.into_iter().collect(),
+            function_name_arena: program.function_name_arena.into_iter().collect(),
 
-            filename_table: program.filename_table.into(),
-            lineno_table: program.lineno_table.into(),
-            function_name_table: program.function_name_table.into(),
+            filename_table: program.filename_table,
+            lineno_table: program.lineno_table,
+            function_name_table: program.function_name_table,
 
             pending_effect: None,
             error: None,
@@ -213,7 +190,7 @@ impl Vm {
 
     pub fn push_str(&mut self, s: String) {
         self.heap
-            .push(ManagedObject::new(ManagedObjectKind::String(s.into())));
+            .push(ManagedObject::new(ManagedObjectKind::String(s)));
         let r = self.heap_reference(self.heap.len() - 1);
         self.push(r);
     }
@@ -295,7 +272,7 @@ impl Vm {
     }
 
     pub fn get_pending_effect(&self) -> Option<u16> {
-        self.pending_effect.into()
+        self.pending_effect
     }
 
     pub fn clear_pending_effect(&mut self) {
@@ -303,7 +280,7 @@ impl Vm {
     }
 
     pub fn get_error(&self) -> Option<Box<VmError>> {
-        self.error.clone().into()
+        self.error.clone()
     }
 
     fn make_error<T>(&self, kind: VmErrorKind) -> Result<T> {
@@ -1045,7 +1022,7 @@ impl Vm {
             }
             Instr::IntToString => {
                 let n = self.pop_int()?;
-                let s = n.to_string().into();
+                let s = n.to_string();
                 self.heap
                     .push(ManagedObject::new(ManagedObjectKind::String(s)));
                 let r = self.heap_reference(self.heap.len() - 1);
@@ -1053,7 +1030,7 @@ impl Vm {
             }
             Instr::FloatToString => {
                 let f = self.pop()?.get_float(self)?;
-                let s = f.to_string().into();
+                let s = f.to_string();
                 self.heap
                     .push(ManagedObject::new(ManagedObjectKind::String(s)));
                 let r = self.heap_reference(self.heap.len() - 1);
@@ -1071,10 +1048,10 @@ impl Vm {
                 {
                     // pop libname from stack
                     // load the library with a certain name and add it to the Vm's Vec of libs
-                    let libname: String = self.pop_string()?.into();
+                    let libname: String = self.pop_string()?;
                     let lib = unsafe { Library::new(&libname) };
                     let Ok(lib) = lib else {
-                        return self.make_error(VmErrorKind::LibLoadFailure(libname.into()));
+                        return self.make_error(VmErrorKind::LibLoadFailure(libname));
                     };
                     self.libs.push(lib);
                 }

@@ -622,8 +622,12 @@ fn find_abra_files(
 }
 
 pub trait VmType {
+    /// # Safety
+    /// vm is non-null and valid
     unsafe fn from_vm(vm: *mut c_void, vm_funcs: &AbraVmFunctions) -> Self;
 
+    /// # Safety
+    /// vm is non-null and valid
     unsafe fn to_vm(self, vm: *mut c_void, vm_funcs: &AbraVmFunctions);
 }
 

@@ -1,6 +1,5 @@
 use std::cell::RefCell;
 use std::collections::HashMap;
-use std::path::{Path, PathBuf};
 use std::rc::Rc;
 
 use crate::ast::{
@@ -52,10 +51,10 @@ fn fullname(qualifiers: &[String], unqualified_name: &str) -> String {
 }
 
 fn gather_declarations_item(
-    ctx: &mut StaticsContext,
+    _ctx: &mut StaticsContext,
     namespace: &mut Namespace,
     qualifiers: Vec<String>,
-    file: Rc<FileAst>,
+    _file: Rc<FileAst>,
     stmt: Rc<Item>,
 ) {
     match &*stmt.kind {
@@ -127,7 +126,6 @@ fn gather_declarations_item(
             );
         }
         ItemKind::ForeignFuncDecl(f) => {
-            let func_name = f.name.v.clone();
             // TODO: get the lib name using the filesystem, or report error saying why we can't
             // this function -> its file
             // some file -> parent directory
@@ -137,9 +135,11 @@ fn gather_declarations_item(
 
             #[cfg(feature = "ffi")]
             {
-                let mut path = file.path.clone();
+                let func_name = f.name.v.clone();
+
+                let mut path = _file.path.clone();
                 // println!("{}", path.display());
-                let elems: Vec<_> = file.name.split(std::path::MAIN_SEPARATOR_STR).collect();
+                let elems: Vec<_> = _file.name.split(std::path::MAIN_SEPARATOR_STR).collect();
                 // dbg!(&elems);
                 for _ in 0..elems.len() - 1 {
                     path = path.parent().unwrap().to_owned();
@@ -149,12 +149,7 @@ fn gather_declarations_item(
                 if package_name.ends_with(".abra") {
                     package_name = package_name[..package_name.len() - ".abra".len()].to_string();
                 }
-                let mut libname = path.to_str().unwrap().to_string();
-                if libname.ends_with(".abra") {
-                    libname = libname[..libname.len() - ".abra".len()].to_string();
-                }
                 // println!("libname={}", libname);
-                let mut lib_path: Option<PathBuf> = None;
 
                 let filename = format!(
                     "{}{}{}",
@@ -162,15 +157,11 @@ fn gather_declarations_item(
                     package_name,
                     std::env::consts::DLL_SUFFIX
                 );
-                lib_path = Some(ctx.file_provider.shared_objects_dir().join(filename));
-                // dbg!(&libname);
-
-                // add lib to statics ctx
-                let libname = lib_path.unwrap();
+                let libname = _ctx.file_provider.shared_objects_dir().join(filename);
 
                 // add libname to string constants
-                let len = ctx.string_constants.len();
-                ctx.string_constants
+                let len = _ctx.string_constants.len();
+                _ctx.string_constants
                     .entry(libname.to_str().unwrap().to_string())
                     .or_insert(len);
 
@@ -184,11 +175,11 @@ fn gather_declarations_item(
                 symbol.push_str(&f.name.v);
 
                 // add symbol to string constants
-                let len = ctx.string_constants.len();
-                ctx.string_constants.entry(symbol.clone()).or_insert(len);
+                let len = _ctx.string_constants.len();
+                _ctx.string_constants.entry(symbol.clone()).or_insert(len);
 
                 // add symbol to statics ctx
-                let funcs = ctx.dylib_to_funcs.entry(libname.clone()).or_default();
+                let funcs = _ctx.dylib_to_funcs.entry(libname.clone()).or_default();
                 funcs.insert(symbol.clone());
 
                 namespace
@@ -199,8 +190,11 @@ fn gather_declarations_item(
                         symbol,
                     });
             }
-
-            // TODO: error message if foreign function found with no ffi enabled
+            #[cfg(not(feature = "ffi"))]
+            {
+                // TODO: error message if foreign function found with no ffi enabled
+                todo!("ffi not enabled, can't use foreign funcs");
+            }
         }
         ItemKind::Import(..) => {}
     }
