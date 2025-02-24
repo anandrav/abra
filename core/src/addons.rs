@@ -1,6 +1,6 @@
 // Rust addon API
 
-pub use crate::vm::Vm;
+use crate::vm::Vm;
 use crate::{
     FileAst, FileData, ItemKind,
     ast::{FileDatabase, PatKind, Type, TypeDefKind, TypeKind},
@@ -483,6 +483,10 @@ fn add_items_from_ast(ast: Rc<FileAst>, output: &mut String) {
                     f.name.v,
                 ));
                 output.push_str("unsafe {");
+                // output.push_str(&format!(
+                //     r#"println!("{}()"); panic!("ruh roh");"#,
+                //     f.name.v
+                // ));
                 output.push_str("let vm_funcs: &AbraVmFunctions = &*vm_funcs;");
                 // get args in reverse order
                 for (name, ty) in f.args.iter().rev() {

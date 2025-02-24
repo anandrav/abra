@@ -12,3 +12,6 @@ crossterm = "0.28.1"
 
 [build-dependencies]
 abra_core = { path = "../../../core" }
+
+[workspace]
+

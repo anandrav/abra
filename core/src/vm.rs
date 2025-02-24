@@ -9,6 +9,7 @@ use core::fmt;
 #[cfg(feature = "ffi")]
 use libloading::Library;
 use std::error::Error;
+use std::ffi::c_void;
 use std::fmt::Debug;
 use std::{
     cell::Cell,
@@ -44,7 +45,7 @@ pub struct Vm {
     #[cfg(feature = "ffi")]
     libs: Vec<Library>,
     #[cfg(feature = "ffi")]
-    foreign_functions: Vec<unsafe extern "C" fn(*mut Vm, *const AbraVmFunctions) -> ()>,
+    foreign_functions: Vec<unsafe extern "C" fn(*mut c_void, *const AbraVmFunctions) -> ()>,
 }
 
 #[repr(C)]
@@ -1113,7 +1114,7 @@ impl Vm {
                 #[cfg(feature = "ffi")]
                 {
                     unsafe {
-                        let vm_ptr = self as *mut Vm;
+                        let vm_ptr = self as *mut Vm as *mut c_void;
                         let abra_vm_functions = AbraVmFunctions::new(); // TODO: don't create this every time, cache it.
                         let abra_vm_functions_ptr = &abra_vm_functions as *const AbraVmFunctions;
                         self.foreign_functions[_func_id](vm_ptr, abra_vm_functions_ptr);

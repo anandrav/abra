@@ -2,7 +2,6 @@ use time
 use os
 use os/exec
 use os/env
-//use time
 
 // let path = "examples/use_os.abra"
 //let contents = fread(path)
@@ -25,3 +24,4 @@ println("time to take a 1 second nap")
 sleep(1.0)
 
 println("ok done!")
+
