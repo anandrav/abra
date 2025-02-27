@@ -21,7 +21,6 @@ use std::{
 pub type VmResult<T> = std::result::Result<T, Box<VmError>>;
 type Result<T> = VmResult<T>;
 
-#[repr(C)]
 pub struct Vm {
     program: Vec<Instr>,
     pc: ProgramCounter,
@@ -49,7 +48,6 @@ pub struct Vm {
     foreign_functions: Vec<unsafe extern "C" fn(*mut c_void, *const AbraVmFunctions) -> ()>,
 }
 
-#[repr(C)]
 pub enum VmStatus {
     Done,
     PendingEffect(u16),
@@ -57,7 +55,6 @@ pub enum VmStatus {
     Error(Box<VmError>),
 }
 
-#[repr(C)]
 #[derive(Clone, Debug)]
 pub struct VmError {
     kind: VmErrorKind,
@@ -65,7 +62,6 @@ pub struct VmError {
     trace: Vec<VmErrorLocation>,
 }
 
-#[repr(C)]
 #[derive(Clone, Debug)]
 pub struct VmErrorLocation {
     filename: String,
@@ -73,7 +69,6 @@ pub struct VmErrorLocation {
     function_name: String,
 }
 
-#[repr(C)]
 #[derive(Clone, Debug)]
 pub enum VmErrorKind {
     ArrayOutOfBounds,
@@ -85,7 +80,6 @@ pub enum VmErrorKind {
     SymbolLoadFailure(String),
 }
 
-#[repr(C)]
 #[derive(Clone, Debug)]
 pub enum ValueKind {
     Nil,
@@ -304,7 +298,6 @@ impl Vm {
     }
 }
 
-#[repr(C)]
 #[derive(Debug, Copy, Clone)]
 pub enum Instr<Location = ProgramCounter, StringConstant = u16> {
     // Stack manipulation
@@ -440,7 +433,6 @@ impl<L: Display, S: Display> Display for Instr<L, S> {
     }
 }
 
-#[repr(C)]
 #[derive(Debug, Clone)]
 pub enum Value {
     Nil,
@@ -450,20 +442,18 @@ pub enum Value {
     HeapReference(Cell<HeapReference>),
 }
 
-#[repr(C)]
 #[derive(Debug, Copy, Clone)]
 pub struct HeapReference {
-    idx: usize,
+    idx: u32,
     group: HeapGroup,
 }
 
 impl HeapReference {
     fn get(&self) -> usize {
-        self.idx
+        self.idx as usize
     }
 }
 
-#[repr(C)]
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 enum HeapGroup {
     One,
@@ -538,7 +528,6 @@ impl Value {
     }
 }
 
-#[repr(C)]
 #[derive(Debug)]
 struct CallFrame {
     pc: ProgramCounter,
@@ -546,7 +535,7 @@ struct CallFrame {
 }
 
 // ReferenceType
-#[repr(C)]
+
 #[derive(Debug, Clone)]
 struct ManagedObject {
     kind: ManagedObjectKind,
@@ -563,7 +552,6 @@ impl ManagedObject {
     }
 }
 
-#[repr(C)]
 #[derive(Debug, Clone)]
 enum ManagedObjectKind {
     Enum {
@@ -1157,7 +1145,7 @@ impl Vm {
 
     fn heap_reference(&mut self, idx: usize) -> Value {
         Value::HeapReference(Cell::new(HeapReference {
-            idx,
+            idx: idx as u32,
             group: self.heap_group,
         }))
     }
@@ -1288,12 +1276,12 @@ fn forward(
 ) -> HeapReference {
     if r.group != new_heap_group {
         // from space
-        let old_obj = &old_heap[r.idx];
+        let old_obj = &old_heap[r.get()];
         match old_obj.forwarding_pointer.get() {
             Some(f) => {
                 // return f
                 HeapReference {
-                    idx: f,
+                    idx: f as u32,
                     group: new_heap_group,
                 }
             }
@@ -1308,7 +1296,7 @@ fn forward(
                 old_obj.forwarding_pointer.replace(Some(new_idx));
 
                 HeapReference {
-                    idx: new_idx,
+                    idx: new_idx as u32,
                     group: new_heap_group,
                 }
             }
