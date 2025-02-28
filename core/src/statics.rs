@@ -244,6 +244,7 @@ pub(crate) fn check_errors(
 // TODO: reduce code duplication for displaying error messages, types
 impl Error {
     fn show(&self, _ctx: &StaticsContext, node_map: &NodeMap, files: &FileDatabase) {
+        // dbg!(self);
         let mut diagnostic = Diagnostic::error();
         let mut labels = Vec::new();
         let mut notes = Vec::new();
@@ -457,6 +458,7 @@ fn handle_reason(
 ) {
     // get rid of this after making our own file database
     let get_file_and_range = |id: &NodeId| {
+        // dbg!(id);
         let span = node_map.get(id).unwrap().location();
         (span.file_id, span.range())
     };

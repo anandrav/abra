@@ -338,7 +338,7 @@ impl Node for Item {
                     }
                     children
                 }
-                TypeDefKind::Foreign(_) => vec![],
+                TypeDefKind::Foreign(ident) => vec![Rc::new(ident.clone())],
             },
             ItemKind::InterfaceDef(i) => {
                 let mut children: Vec<Rc<dyn Node>> = Vec::new();
@@ -354,13 +354,14 @@ impl Node for Item {
                 }
                 children
             }
-            ItemKind::Import(_) => vec![],
+            ItemKind::Import(ident) => vec![Rc::new(ident.clone())],
             ItemKind::Stmt(stmt) => vec![stmt.clone() as Rc<dyn Node>],
         }
     }
 }
 
 fn children_func_def(f: &FuncDef, children: &mut Vec<Rc<dyn Node>>) {
+    children.push(Rc::new(f.name.clone()));
     for (pat, annot) in f.args.iter() {
         children.push(pat.clone() as Rc<dyn Node>);
         if let Some(ty) = annot {
@@ -652,12 +653,12 @@ impl Node for Pat {
             PatKind::Float(_) => vec![],
             PatKind::Bool(_) => vec![],
             PatKind::Str(_) => vec![],
-            PatKind::Variant(_, pat_opt) => {
+            PatKind::Variant(ident, pat_opt) => {
+                let mut children = vec![Rc::new(ident.clone()) as Rc<dyn Node>];
                 if let Some(pat) = pat_opt {
-                    vec![pat.clone()]
-                } else {
-                    vec![]
+                    children.push(pat.clone());
                 }
+                children
             }
             PatKind::Tuple(pats) => pats
                 .iter()

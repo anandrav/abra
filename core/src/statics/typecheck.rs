@@ -1331,8 +1331,8 @@ pub(crate) fn generate_constraints_file_decls(file: Rc<FileAst>, ctx: &mut Stati
     }
 }
 
-fn generate_constraints_item_decls(stmt: Rc<Item>, ctx: &mut StaticsContext) {
-    match &*stmt.kind {
+fn generate_constraints_item_decls(item: Rc<Item>, ctx: &mut StaticsContext) {
+    match &*item.kind {
         ItemKind::InterfaceDef(..) => {}
         ItemKind::Import(..) => {}
         ItemKind::Stmt(_) => {}

@@ -1,3 +1,5 @@
+use std::time::Duration;
+
 use abra_core::FileProviderDefault;
 use abra_core::compile_bytecode;
 use abra_core::effects::DefaultEffects;
@@ -38,7 +40,7 @@ fn fib(n) {
         _ -> fib(n-1) + fib(n-2)
     }
 }   
-fib(20)
+fib(17)
 "#;
     run_benchmark(c, "fibonacci_recursive", src);
 }
@@ -48,7 +50,7 @@ pub fn sum_benchmark(c: &mut Criterion) {
     let src = r#"
 let sum = 0
 var i = 0
-while i < 100000 {
+while i < 10000 {
     sum <- sum + i
     i <- i + 1
 }
@@ -65,44 +67,53 @@ fn ack(m, n) {
     else if n = 0 { ack(m - 1, 1) }
     else  { ack(m - 1, ack(m, n - 1)) }
 }
-ack(3, 6)
+ack(3, 4)
 "#;
     run_benchmark(c, "ackermann", src);
 }
 
-// pub fn random_benchmark(c: &mut Criterion) {
-//     let src = r#"
-// let seed = 12345
-// let a = 1664525
-// let c = 1013904223
-// let m = 2^32
-// fn rng(n) {
-//     if n = 0 {
-//         seed
-//     } else {
-//         (a * rng(n - 1) + c) % m
-// }
-// }
-// rng(100000)
-// "#;
-//     run_benchmark(c, "random_lcg", src);
-// }
+pub fn random_benchmark(c: &mut Criterion) {
+    let src = r#"
+let seed = 12345
+let a = 1664525
+let c = 1013904223
+let m = 2^32
+fn rng(seed, a, c, m, n) {
+    if n = 0 {
+        seed
+    } else {
+        (a * rng(seed, a, c, m, n - 1) + c) mod m
+    }
+}
+rng(seed, a, c, m, 10000)
+"#;
+    run_benchmark(c, "random_lcg", src);
+}
 
 // // Sieve of Eratosthenes
-// pub fn sieve_benchmark(c: &mut Criterion) {
-//     let src = r#"
-// let limit = 10000
-// let primes = [true for _ in 0..=limit]
-// for p in 2..=limit {
-//     if primes[p] {
-//         for i in (p * p)..=limit by p {
-//             primes[i] := false
-//         }
-//     }
-// }
-// "#;
-//     run_benchmark(c, "sieve_of_eratosthenes", src);
-// }
+pub fn sieve_benchmark(c: &mut Criterion) {
+    let src = r#"
+let limit = 1000
+let primes = []
+var i = 0
+while i < limit {
+  append(primes, true)
+  i <- i + 1
+}
+var p = 2
+while p * p < limit {
+    if primes[p] {
+        i <- p * p
+        while i < limit {
+            primes[i] <- false
+            i <- i + p
+        }
+    }
+    p <- p + 1
+}
+"#;
+    run_benchmark(c, "sieve_of_eratosthenes", src);
+}
 
 // Heap sort
 // pub fn heapsort_benchmark(c: &mut Criterion) {
@@ -163,14 +174,15 @@ ack(3, 6)
 // }
 
 // Register all benchmarks
-criterion_group!(
-    benches,
-    fib_benchmark,
+criterion_group! {
+    name = benches;
+    config = Criterion::default().significance_level(0.01).sample_size(10000).measurement_time(Duration::new(10, 0));
+    targets = fib_benchmark,
     sum_benchmark,
     ack_benchmark,
-    // random_benchmark,
-    // sieve_benchmark,
+    random_benchmark,
+    sieve_benchmark,
     // heapsort_benchmark,
     // matrix_benchmark
-);
+}
 criterion_main!(benches);

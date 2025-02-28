@@ -283,7 +283,8 @@ pub type ToplevelDeclarations = HashMap<String, Declaration>;
 pub(crate) fn resolve(ctx: &mut StaticsContext, file_asts: &Vec<Rc<FileAst>>) {
     for file in file_asts {
         let env = resolve_imports_file(ctx, file.clone());
-        resolve_names_file(ctx, env.clone(), file.clone());
+        resolve_names_file_decls(ctx, env.clone(), file.clone());
+        resolve_names_file_stmts(ctx, env.clone(), file.clone());
     }
 }
 
@@ -335,7 +336,7 @@ fn resolve_imports_file(ctx: &mut StaticsContext, file: Rc<FileAst>) -> Toplevel
     env
 }
 
-pub(crate) fn resolve_names_file(
+pub(crate) fn resolve_names_file_decls(
     ctx: &mut StaticsContext,
     toplevel_declarations: ToplevelDeclarations,
     file: Rc<FileAst>,
@@ -353,11 +354,11 @@ pub(crate) fn resolve_names_file(
         symbol_table.extend_declaration(builtin.name(), Declaration::Builtin(*builtin));
     }
     for item in file.items.iter() {
-        resolve_names_item(ctx, symbol_table.clone(), item.clone());
+        resolve_names_item_decl(ctx, symbol_table.clone(), item.clone());
     }
 }
 
-fn resolve_names_item(ctx: &mut StaticsContext, symbol_table: SymbolTable, stmt: Rc<Item>) {
+fn resolve_names_item_decl(ctx: &mut StaticsContext, symbol_table: SymbolTable, stmt: Rc<Item>) {
     match &*stmt.kind {
         ItemKind::FuncDef(f) => {
             // TODO: Is this actually necessary? Looking up and then inserting...
@@ -451,6 +452,40 @@ fn resolve_names_item(ctx: &mut StaticsContext, symbol_table: SymbolTable, stmt:
             }
             TypeDefKind::Foreign(_) => {}
         },
+        ItemKind::Stmt(..) => {}
+    }
+}
+
+pub(crate) fn resolve_names_file_stmts(
+    ctx: &mut StaticsContext,
+    toplevel_declarations: ToplevelDeclarations,
+    file: Rc<FileAst>,
+) {
+    let symbol_table = SymbolTable::empty();
+
+    for (name, declaration) in toplevel_declarations {
+        symbol_table.extend_declaration(name, declaration);
+    }
+
+    for (i, eff) in ctx.effects.iter().enumerate() {
+        symbol_table.extend_declaration(eff.name.into(), Declaration::Effect(i as u16));
+    }
+    for builtin in Builtin::enumerate().iter() {
+        symbol_table.extend_declaration(builtin.name(), Declaration::Builtin(*builtin));
+    }
+    for item in file.items.iter() {
+        resolve_names_item_stmt(ctx, symbol_table.clone(), item.clone());
+    }
+}
+
+fn resolve_names_item_stmt(ctx: &mut StaticsContext, symbol_table: SymbolTable, stmt: Rc<Item>) {
+    match &*stmt.kind {
+        ItemKind::FuncDef(..)
+        | ItemKind::ForeignFuncDecl(..)
+        | ItemKind::InterfaceDef(..)
+        | ItemKind::InterfaceImpl(..)
+        | ItemKind::Import(..)
+        | ItemKind::TypeDef(..) => {}
         ItemKind::Stmt(stmt) => {
             resolve_names_stmt(ctx, symbol_table, stmt.clone());
         }
