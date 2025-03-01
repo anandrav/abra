@@ -325,7 +325,7 @@ fn add_items_from_ast(ast: Rc<FileAst>, output: &mut String) {
                         s.name.v
                     ));
                     output.push_str(
-                        r#"unsafe fn from_vm(vm: *mut c_void) -> Self {
+                        r#"unsafe fn from_vm(vm: *mut c_void, vm_funcs: &AbraVmFunctions) -> Self {
                         "#,
                     );
                     output.push_str("unsafe {");
@@ -333,7 +333,7 @@ fn add_items_from_ast(ast: Rc<FileAst>, output: &mut String) {
                     for field in s.fields.iter().rev() {
                         let tyname = name_of_ty(field.ty.clone());
                         output.push_str(&format!(
-                            r#"let {} = {}::from_vm(vm);
+                            r#"let {} = <{}>::from_vm(vm, vm_funcs);
                         "#,
                             field.name.v, tyname
                         ));
@@ -351,14 +351,14 @@ fn add_items_from_ast(ast: Rc<FileAst>, output: &mut String) {
                     output.push('}');
 
                     output.push_str(
-                        r#"unsafe fn to_vm(self, vm: *mut c_void) {
+                        r#"unsafe fn to_vm(self, vm: *mut c_void, vm_funcs: &AbraVmFunctions) {
                         "#,
                     );
                     output.push_str("unsafe {");
                     // TODO: impl for all types
                     for field in s.fields.iter() {
                         output.push_str(&format!(
-                            r#"self.{}.to_vm(vm);
+                            r#"self.{}.to_vm(vm, vm_funcs);
                         "#,
                             field.name.v
                         ));
@@ -498,7 +498,7 @@ fn add_items_from_ast(ast: Rc<FileAst>, output: &mut String) {
                     let ty = ty.clone().unwrap();
                     let tyname = name_of_ty(ty);
                     output.push_str(&format!(
-                        "let {} = {}::from_vm(vm, vm_funcs);",
+                        "let {} = <{}>::from_vm(vm, vm_funcs);",
                         ident, tyname
                     ));
                 }

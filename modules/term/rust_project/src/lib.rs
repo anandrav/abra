@@ -170,9 +170,9 @@ pub mod ffi {
         pub unsafe extern "C" fn mark(vm: *mut c_void, vm_funcs: *const AbraVmFunctions) {
             unsafe {
                 let vm_funcs: &AbraVmFunctions = &*vm_funcs;
-                let y = i64::from_vm(vm, vm_funcs);
-                let x = i64::from_vm(vm, vm_funcs);
-                let s = String::from_vm(vm, vm_funcs);
+                let y = <i64>::from_vm(vm, vm_funcs);
+                let x = <i64>::from_vm(vm, vm_funcs);
+                let s = <String>::from_vm(vm, vm_funcs);
                 let ret: () = term::mark(s, x, y);
                 ret.to_vm(vm, vm_funcs);
             }
