@@ -1,0 +1,23 @@
+foreign fn pass_int(i: int) -> int
+
+foreign fn pass_bool(i: bool) -> bool
+
+foreign fn pass_void(v: void) -> void
+
+foreign fn pass_string(s: string) -> string
+
+type MyStruct = {
+    i: int
+    b: bool
+    v: void
+    s: string
+}
+
+type MyEnum =
+    | Int of int
+    | Bool of bool
+    | Void
+    | String of string
+
+
+// TODO: foreign type file

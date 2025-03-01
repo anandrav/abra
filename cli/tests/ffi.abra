@@ -1,0 +1,6 @@
+use test_ffi
+
+println(pass_int(35))
+println(pass_bool(false))
+println(pass_void(()))
+println(pass_string("mystring"))

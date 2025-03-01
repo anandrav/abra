@@ -1,89 +1,52 @@
 // This is an auto-generated file.
 
-mod test;
+mod test_ffi;
 pub mod ffi {
-    pub mod test {
-        use crate::test;
+    pub mod test_ffi {
+        use crate::test_ffi;
         use abra_core::addons::*;
         use std::ffi::c_void;
         /// # Safety
         /// `vm` must be non-null and valid.
-        #[unsafe(export_name = "abra_ffi$test$fread")]
-        pub unsafe extern "C" fn fread(vm: *mut c_void, vm_funcs: *const AbraVmFunctions) {
+        #[unsafe(export_name = "abra_ffi$test_ffi$pass_int")]
+        pub unsafe extern "C" fn pass_int(vm: *mut c_void, vm_funcs: *const AbraVmFunctions) {
             unsafe {
                 let vm_funcs: &AbraVmFunctions = &*vm_funcs;
-                let path = <String>::from_vm(vm, vm_funcs);
-                let ret: Result<String, String> = test::fread(path);
+                let i = <i64>::from_vm(vm, vm_funcs);
+                let ret: i64 = test_ffi::pass_int(i);
                 ret.to_vm(vm, vm_funcs);
             }
         }
         /// # Safety
         /// `vm` must be non-null and valid.
-        #[unsafe(export_name = "abra_ffi$test$fwrite")]
-        pub unsafe extern "C" fn fwrite(vm: *mut c_void, vm_funcs: *const AbraVmFunctions) {
+        #[unsafe(export_name = "abra_ffi$test_ffi$pass_bool")]
+        pub unsafe extern "C" fn pass_bool(vm: *mut c_void, vm_funcs: *const AbraVmFunctions) {
             unsafe {
                 let vm_funcs: &AbraVmFunctions = &*vm_funcs;
-                let contents = <String>::from_vm(vm, vm_funcs);
-                let path = <String>::from_vm(vm, vm_funcs);
-                let ret: () = test::fwrite(path, contents);
+                let i = <bool>::from_vm(vm, vm_funcs);
+                let ret: bool = test_ffi::pass_bool(i);
                 ret.to_vm(vm, vm_funcs);
             }
         }
         /// # Safety
         /// `vm` must be non-null and valid.
-        #[unsafe(export_name = "abra_ffi$test$fexists")]
-        pub unsafe extern "C" fn fexists(vm: *mut c_void, vm_funcs: *const AbraVmFunctions) {
+        #[unsafe(export_name = "abra_ffi$test_ffi$pass_void")]
+        pub unsafe extern "C" fn pass_void(vm: *mut c_void, vm_funcs: *const AbraVmFunctions) {
             unsafe {
                 let vm_funcs: &AbraVmFunctions = &*vm_funcs;
-                let path = <String>::from_vm(vm, vm_funcs);
-                let ret: bool = test::fexists(path);
+                let v = <()>::from_vm(vm, vm_funcs);
+                let ret: () = test_ffi::pass_void(v);
                 ret.to_vm(vm, vm_funcs);
             }
         }
         /// # Safety
         /// `vm` must be non-null and valid.
-        #[unsafe(export_name = "abra_ffi$test$fremove")]
-        pub unsafe extern "C" fn fremove(vm: *mut c_void, vm_funcs: *const AbraVmFunctions) {
+        #[unsafe(export_name = "abra_ffi$test_ffi$pass_string")]
+        pub unsafe extern "C" fn pass_string(vm: *mut c_void, vm_funcs: *const AbraVmFunctions) {
             unsafe {
                 let vm_funcs: &AbraVmFunctions = &*vm_funcs;
-                let path = <String>::from_vm(vm, vm_funcs);
-                let ret: () = test::fremove(path);
-                ret.to_vm(vm, vm_funcs);
-            }
-        }
-        /// # Safety
-        /// `vm` must be non-null and valid.
-        #[unsafe(export_name = "abra_ffi$test$frename")]
-        pub unsafe extern "C" fn frename(vm: *mut c_void, vm_funcs: *const AbraVmFunctions) {
-            unsafe {
-                let vm_funcs: &AbraVmFunctions = &*vm_funcs;
-                let new_path = <String>::from_vm(vm, vm_funcs);
-                let old_path = <String>::from_vm(vm, vm_funcs);
-                let ret: () = test::frename(old_path, new_path);
-                ret.to_vm(vm, vm_funcs);
-            }
-        }
-        /// # Safety
-        /// `vm` must be non-null and valid.
-        #[unsafe(export_name = "abra_ffi$test$fcopy")]
-        pub unsafe extern "C" fn fcopy(vm: *mut c_void, vm_funcs: *const AbraVmFunctions) {
-            unsafe {
-                let vm_funcs: &AbraVmFunctions = &*vm_funcs;
-                let dest = <String>::from_vm(vm, vm_funcs);
-                let src = <String>::from_vm(vm, vm_funcs);
-                let ret: () = test::fcopy(src, dest);
-                ret.to_vm(vm, vm_funcs);
-            }
-        }
-        /// # Safety
-        /// `vm` must be non-null and valid.
-        #[unsafe(export_name = "abra_ffi$test$fappend")]
-        pub unsafe extern "C" fn fappend(vm: *mut c_void, vm_funcs: *const AbraVmFunctions) {
-            unsafe {
-                let vm_funcs: &AbraVmFunctions = &*vm_funcs;
-                let contents = <String>::from_vm(vm, vm_funcs);
-                let path = <String>::from_vm(vm, vm_funcs);
-                let ret: () = test::fappend(path, contents);
+                let s = <String>::from_vm(vm, vm_funcs);
+                let ret: String = test_ffi::pass_string(s);
                 ret.to_vm(vm, vm_funcs);
             }
         }
