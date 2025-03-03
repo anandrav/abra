@@ -50,6 +50,39 @@ pub mod ffi {
                 ret.to_vm(vm, vm_funcs);
             }
         }
+        /// # Safety
+        /// `vm` must be non-null and valid.
+        #[unsafe(export_name = "abra_ffi$test_ffi$pass_struct")]
+        pub unsafe extern "C" fn pass_struct(vm: *mut c_void, vm_funcs: *const AbraVmFunctions) {
+            unsafe {
+                let vm_funcs: &AbraVmFunctions = &*vm_funcs;
+                let s = <MyStruct>::from_vm(vm, vm_funcs);
+                let ret: MyStruct = test_ffi::pass_struct(s);
+                ret.to_vm(vm, vm_funcs);
+            }
+        }
+        /// # Safety
+        /// `vm` must be non-null and valid.
+        #[unsafe(export_name = "abra_ffi$test_ffi$pass_enum")]
+        pub unsafe extern "C" fn pass_enum(vm: *mut c_void, vm_funcs: *const AbraVmFunctions) {
+            unsafe {
+                let vm_funcs: &AbraVmFunctions = &*vm_funcs;
+                let e = <MyEnum>::from_vm(vm, vm_funcs);
+                let ret: MyEnum = test_ffi::pass_enum(e);
+                ret.to_vm(vm, vm_funcs);
+            }
+        }
+        /// # Safety
+        /// `vm` must be non-null and valid.
+        #[unsafe(export_name = "abra_ffi$test_ffi$pass_tuple")]
+        pub unsafe extern "C" fn pass_tuple(vm: *mut c_void, vm_funcs: *const AbraVmFunctions) {
+            unsafe {
+                let vm_funcs: &AbraVmFunctions = &*vm_funcs;
+                let e = <(bool, i64, String)>::from_vm(vm, vm_funcs);
+                let ret: (bool, i64, String) = test_ffi::pass_tuple(e);
+                ret.to_vm(vm, vm_funcs);
+            }
+        }
         pub struct MyStruct {
             pub i: i64,
             pub b: bool,
@@ -60,10 +93,10 @@ pub mod ffi {
             unsafe fn from_vm(vm: *mut c_void, vm_funcs: &AbraVmFunctions) -> Self {
                 unsafe {
                     (vm_funcs.deconstruct)(vm);
-                    let s = <String>::from_vm(vm, vm_funcs);
-                    let v = <()>::from_vm(vm, vm_funcs);
-                    let b = <bool>::from_vm(vm, vm_funcs);
                     let i = <i64>::from_vm(vm, vm_funcs);
+                    let b = <bool>::from_vm(vm, vm_funcs);
+                    let v = <()>::from_vm(vm, vm_funcs);
+                    let s = <String>::from_vm(vm, vm_funcs);
                     Self { i, b, v, s }
                 }
             }

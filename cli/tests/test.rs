@@ -44,6 +44,12 @@ fn test_ffi() {
 false
 ()
 mystring
+23
+true
+()
+another
+yet another
+(true, 2, 3)
 "#
     );
 }

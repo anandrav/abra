@@ -330,7 +330,7 @@ fn add_items_from_ast(ast: Rc<FileAst>, output: &mut String) {
                     );
                     output.push_str("unsafe {");
                     output.push_str("(vm_funcs.deconstruct)(vm);");
-                    for field in s.fields.iter().rev() {
+                    for field in s.fields.iter() {
                         let tyname = name_of_ty(field.ty.clone());
                         output.push_str(&format!(
                             r#"let {} = <{}>::from_vm(vm, vm_funcs);
@@ -750,9 +750,9 @@ macro_rules! tuple_impls {
             unsafe fn from_vm(vm: *mut c_void, vm_funcs: &AbraVmFunctions) -> Self { unsafe {
                 // Deconstruct the tuple on the VM.
                 (vm_funcs.deconstruct)(vm);
-                // Pop values in reverse order.
-                tuple_impls!(@reverse vm, vm_funcs, $($name),+);
-                // Now rebuild the tuple (using the identifiers in the original order).
+                // Pop values in normal order.
+                #[allow(non_snake_case)]
+                let ($($name,)+) = ($( $name::from_vm(vm, vm_funcs), )+);
                 ($($name,)+)
             }}
             unsafe fn to_vm(self, vm: *mut c_void, vm_funcs: &AbraVmFunctions) { unsafe {
@@ -767,17 +767,6 @@ macro_rules! tuple_impls {
                 (vm_funcs.construct)(vm, count as u16);
             }}
         }
-    };
-
-    // Helper rule to generate from_vm calls in reverse order.
-    (@reverse $vm:expr_2021, $vm_funcs:expr_2021, $x:ident) => {
-        #[allow(non_snake_case)]
-        let $x = $x::from_vm($vm, $vm_funcs);
-    };
-    (@reverse $vm:expr_2021, $vm_funcs:expr_2021, $x:ident, $($rest:ident),+) => {
-        tuple_impls!(@reverse $vm, $vm_funcs, $($rest),+);
-        #[allow(non_snake_case)]
-        let $x = $x::from_vm($vm, $vm_funcs);
     };
 }
 

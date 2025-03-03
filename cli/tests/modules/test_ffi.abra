@@ -6,6 +6,12 @@ foreign fn pass_void(v: void) -> void
 
 foreign fn pass_string(s: string) -> string
 
+foreign fn pass_struct(s: MyStruct) -> MyStruct
+
+foreign fn pass_enum(e: MyEnum) -> MyEnum
+
+foreign fn pass_tuple(e: (bool, int, string)) -> (bool, int, string)
+
 type MyStruct = {
     i: int
     b: bool
