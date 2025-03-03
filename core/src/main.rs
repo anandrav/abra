@@ -1,8 +1,8 @@
+use abra_core::FileData;
 use abra_core::effects::{DefaultEffects, EffectTrait};
 use abra_core::prelude::PRELUDE;
 use abra_core::vm::Vm;
-use abra_core::FileData;
-use abra_core::{compile_bytecode, FileProviderDefault};
+use abra_core::{FileProviderDefault, compile_bytecode};
 
 fn main() {
     test();
@@ -44,7 +44,7 @@ foo(2, 2)
     }
     let mut vm = Vm::new(program.unwrap());
     vm.run();
-    let top = vm.top();
+    let top = vm.top().unwrap();
     assert_eq!(top.get_int(&vm).unwrap(), 4);
     println!("result is {}", top.get_int(&vm).unwrap());
 }

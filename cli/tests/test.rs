@@ -58,6 +58,7 @@ another
 yet another
 (true, 2, 3)
 yes
+[ 1, 2, 3, 4, 5, 6 ]
 "#
     );
 }

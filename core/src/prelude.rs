@@ -190,17 +190,18 @@ implement ToString for list<'a ToString> {
 
 implement ToString for array<'a ToString> {
     fn str(arr) {
-       let helper = (arr, idx) -> {
-            let l = array_length(arr)
-            if idx = l {
-                ""
-            } else if idx = l - 1 {
-                str(arr[idx])
-            } else {
-                str(arr[idx]) & ", " & helper(arr, idx + 1)
-            }
-        }
-        "[ " & helper(arr, 0) & " ]"
+        "[ " & array_to_string_helper(arr, 0) & " ]"
+    }
+}
+
+fn array_to_string_helper(arr: array<'a ToString>, idx: int) {
+    let l = array_length(arr)
+    if idx = l {
+        ""
+    } else if idx = l - 1 {
+        str(arr[idx])
+    } else {
+        str(arr[idx]) & ", " & array_to_string_helper(arr, idx + 1)
     }
 }
 

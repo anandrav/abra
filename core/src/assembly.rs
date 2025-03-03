@@ -82,6 +82,7 @@ pub(crate) fn remove_labels(
             }
         }
     }
+    dbg!(&label_to_idx);
 
     for item in items {
         if let Line::Instr(instr) = item {
@@ -151,10 +152,13 @@ fn instr_to_vminstr(
         Instr::MakeClosure {
             n_captured,
             func_addr,
-        } => VmInstr::MakeClosure {
-            n_captured: *n_captured,
-            func_addr: label_to_idx[func_addr],
-        },
+        } => {
+            // dbg!(func_addr);
+            VmInstr::MakeClosure {
+                n_captured: *n_captured,
+                func_addr: label_to_idx[func_addr],
+            }
+        }
         Instr::ArrayAppend => VmInstr::ArrayAppend,
         Instr::ArrayLength => VmInstr::ArrayLength,
         Instr::ArrayPop => VmInstr::ArrayPop,

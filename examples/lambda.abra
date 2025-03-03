@@ -1,0 +1,5 @@
+
+let ident = (x) -> x
+
+let y = ident(3)
+println(y)

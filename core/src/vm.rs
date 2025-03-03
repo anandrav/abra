@@ -78,6 +78,7 @@ pub enum VmErrorKind {
     FfiNotEnabled,
     LibLoadFailure(String),
     SymbolLoadFailure(String),
+    InternalError(String),
 }
 
 #[derive(Clone, Debug)]
@@ -167,8 +168,11 @@ impl Vm {
         }
     }
 
-    pub fn top(&self) -> &Value {
-        self.value_stack.last().expect("stack underflow")
+    pub fn top(&self) -> Result<&Value> {
+        match self.value_stack.last() {
+            Some(v) => Ok(v),
+            None => self.make_error(VmErrorKind::Underflow),
+        }
     }
 
     pub fn pop(&mut self) -> Result<Value> {
@@ -259,6 +263,18 @@ impl Vm {
             _ => return self.wrong_type(ValueKind::Object),
         };
         Ok(())
+    }
+
+    pub fn array_len(&mut self) -> Result<usize> {
+        let obj = self.top()?;
+        let len = match &obj {
+            Value::HeapReference(r) => match &self.heap[r.get().get()].kind {
+                ManagedObjectKind::DynArray(fields) => fields.len(),
+                _ => return self.wrong_type(ValueKind::Array),
+            },
+            _ => return self.wrong_type(ValueKind::Array),
+        };
+        Ok(len)
     }
 
     pub fn increment_stack_base(&mut self, n: usize) {
@@ -657,7 +673,7 @@ impl Vm {
                 self.pop()?;
             }
             Instr::Duplicate => {
-                let v = self.top();
+                let v = self.top()?;
                 self.push(v.clone());
             }
             Instr::LoadOffset(n) => {
@@ -668,7 +684,16 @@ impl Vm {
             Instr::StoreOffset(n) => {
                 let idx = self.stack_base.wrapping_add_signed(n as isize);
                 let v = self.pop()?;
-                self.value_stack[idx] = v;
+                if idx < self.value_stack.len() {
+                    self.value_stack[idx] = v;
+                } else {
+                    return self.make_error(VmErrorKind::InternalError(format!(
+                        "StoreOffset({}) out of bounds. idx={}, len={}",
+                        n,
+                        idx,
+                        self.value_stack.len()
+                    )));
+                }
             }
             Instr::Add => {
                 let b = self.pop()?;
@@ -1366,6 +1391,9 @@ impl Display for VmErrorKind {
             }
             VmErrorKind::SymbolLoadFailure(s) => {
                 write!(f, "failed to load symbol: {}", s)
+            }
+            VmErrorKind::InternalError(s) => {
+                write!(f, "internal error: {s}")
             }
         }
     }

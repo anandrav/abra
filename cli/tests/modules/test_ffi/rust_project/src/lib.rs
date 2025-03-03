@@ -94,6 +94,17 @@ pub mod ffi {
                 ret.to_vm(vm, vm_funcs);
             }
         }
+        /// # Safety
+        /// `vm` must be non-null and valid.
+        #[unsafe(export_name = "abra_ffi$test_ffi$pass_array")]
+        pub unsafe extern "C" fn pass_array(vm: *mut c_void, vm_funcs: *const AbraVmFunctions) {
+            unsafe {
+                let vm_funcs: &AbraVmFunctions = &*vm_funcs;
+                let a = <Vec<i64>>::from_vm(vm, vm_funcs);
+                let ret: Vec<i64> = test_ffi::pass_array(a);
+                ret.to_vm(vm, vm_funcs);
+            }
+        }
         pub struct MyStruct {
             pub i: i64,
             pub b: bool,
@@ -117,7 +128,7 @@ pub mod ffi {
                     self.b.to_vm(vm, vm_funcs);
                     self.v.to_vm(vm, vm_funcs);
                     self.s.to_vm(vm, vm_funcs);
-                    (vm_funcs.construct)(vm, 4);
+                    (vm_funcs.construct_struct)(vm, 4);
                 }
             }
         }

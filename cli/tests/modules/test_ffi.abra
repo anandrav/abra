@@ -14,6 +14,8 @@ foreign fn pass_tuple(e: (bool, int, string)) -> (bool, int, string)
 
 foreign fn pass_maybe(m: maybe<string, int>) -> maybe<string, int>
 
+foreign fn pass_array(a: array<int>) -> array<int>
+
 type MyStruct = {
     i: int
     b: bool

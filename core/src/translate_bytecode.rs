@@ -324,36 +324,47 @@ impl Translator {
                 }
             }
 
-            // Handle lambdas with captures
-            for (node_id, data) in st.lambdas.clone() {
-                let node = self.node_map.get(&node_id).unwrap();
-                let expr = node.to_expr().unwrap();
-                let ExprKind::AnonymousFunction(args, _, body) = &*expr.kind else {
-                    panic!()
-                };
+            while !st.lambdas.is_empty() || !st.overloaded_methods_to_generate.is_empty() {
+                // Handle lambdas with captures
+                let mut iteration = HashMap::new();
+                mem::swap(&mut (iteration), &mut st.lambdas);
+                for (node_id, data) in iteration {
+                    let node = self.node_map.get(&node_id).unwrap();
+                    let expr = node.to_expr().unwrap();
+                    let ExprKind::AnonymousFunction(args, _, body) = &*expr.kind else {
+                        panic!() // TODO: get rid of this panic
+                    };
 
-                self.update_function_name_table(st, "<anonymous fn>");
+                    self.update_function_name_table(st, "<anonymous fn>");
 
-                self.emit(st, Line::Label(data.label));
+                    self.emit(st, Line::Label(data.label));
 
-                self.translate_expr(body.clone(), &data.offset_table, monomorph_env.clone(), st); // TODO passing lambdas here is kind of weird and recursive. Should build list of lambdas in statics.rs instead.
-
-                let nlocals = data.nlocals;
-                let nargs = args.len();
-                let ncaptures = data.ncaptures;
-                if nlocals + nargs + ncaptures > 0 {
-                    // pop all locals and arguments except one. The last one is the return value slot.
-                    self.emit(st, Instr::StoreOffset(-(nargs as i32)));
-                    for _ in 0..(nlocals + nargs + ncaptures - 1) {
-                        self.emit(st, Instr::Pop);
+                    for _ in 0..data.nlocals {
+                        self.emit(st, Instr::PushNil);
                     }
+
+                    self.translate_expr(
+                        body.clone(),
+                        &data.offset_table,
+                        monomorph_env.clone(),
+                        st,
+                    ); // TODO passing lambdas here is kind of weird and recursive. Should build list of lambdas in statics.rs instead.
+
+                    let nlocals = data.nlocals;
+                    let nargs = args.len();
+                    let ncaptures = data.ncaptures;
+                    if nlocals + nargs + ncaptures > 0 {
+                        // pop all locals and arguments except one. The last one is the return value slot.
+                        self.emit(st, Instr::StoreOffset(-(nargs as i32)));
+                        for _ in 0..(nlocals + nargs + ncaptures - 1) {
+                            self.emit(st, Instr::Pop);
+                        }
+                    }
+
+                    self.emit(st, Instr::Return);
                 }
 
-                self.emit(st, Instr::Return);
-            }
-
-            // Handle interface method implementations
-            while !st.overloaded_methods_to_generate.is_empty() {
+                // Handle interface method implementations
                 let mut iteration = Vec::new();
                 mem::swap(&mut (iteration), &mut st.overloaded_methods_to_generate);
                 for (desc, substituted_ty) in iteration {
@@ -946,9 +957,9 @@ impl Translator {
                 // println!("{}", s);
                 // }
                 let ncaptures = captures.len();
-                for _ in 0..locals_count {
-                    self.emit(st, Instr::PushNil);
-                }
+                // for _ in 0..locals_count {
+                //     self.emit(st, Instr::PushNil);
+                // }
 
                 let mut lambda_offset_table = OffsetTable::new();
                 for (i, arg) in args.iter().rev().enumerate() {

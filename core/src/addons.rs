@@ -31,9 +31,11 @@ pub struct AbraVmFunctions {
     pub pop: unsafe extern "C" fn(vm: *mut c_void),
     pub view_string: unsafe extern "C" fn(vm: *mut c_void) -> StringView,
     pub push_string: unsafe extern "C" fn(vm: *mut c_void, string_view: StringView),
-    pub construct: unsafe extern "C" fn(vm: *mut c_void, arity: u16),
+    pub construct_struct: unsafe extern "C" fn(vm: *mut c_void, arity: u16),
+    pub construct_array: unsafe extern "C" fn(vm: *mut c_void, len: usize),
     pub construct_variant: unsafe extern "C" fn(vm: *mut c_void, tag: u16),
     pub deconstruct: unsafe extern "C" fn(vm: *mut c_void),
+    pub array_len: unsafe extern "C" fn(vm: *mut c_void) -> usize,
 }
 
 impl AbraVmFunctions {
@@ -50,9 +52,11 @@ impl AbraVmFunctions {
             pop: abra_vm_pop,
             view_string: abra_vm_view_string,
             push_string: abra_vm_push_string,
-            construct: abra_vm_construct,
+            construct_struct: abra_vm_construct_struct,
+            construct_array: abra_vm_construct_array,
             construct_variant: abra_vm_construct_variant,
             deconstruct: abra_vm_deconstruct,
+            array_len: abra_vm_array_len,
         }
     }
 }
@@ -109,7 +113,7 @@ unsafe extern "C" fn abra_vm_pop_nil(vm: *mut c_void) {
 #[unsafe(no_mangle)]
 unsafe extern "C" fn abra_vm_pop_int(vm: *mut c_void) -> i64 {
     let vm = unsafe { (vm as *mut Vm).as_mut().unwrap() };
-    let top = vm.top().get_int(vm).unwrap();
+    let top = vm.top().unwrap().get_int(vm).unwrap();
     vm.pop().unwrap();
     top
 }
@@ -119,7 +123,7 @@ unsafe extern "C" fn abra_vm_pop_int(vm: *mut c_void) -> i64 {
 #[unsafe(no_mangle)]
 unsafe extern "C" fn abra_vm_pop_float(vm: *mut c_void) -> f64 {
     let vm = unsafe { (vm as *mut Vm).as_mut().unwrap() };
-    let top = vm.top().get_float(vm).unwrap();
+    let top = vm.top().unwrap().get_float(vm).unwrap();
     vm.pop().unwrap();
     top
 }
@@ -129,7 +133,7 @@ unsafe extern "C" fn abra_vm_pop_float(vm: *mut c_void) -> f64 {
 #[unsafe(no_mangle)]
 unsafe extern "C" fn abra_vm_pop_bool(vm: *mut c_void) -> bool {
     let vm = unsafe { (vm as *mut Vm).as_mut().unwrap() };
-    let top = vm.top().get_bool(vm).unwrap();
+    let top = vm.top().unwrap().get_bool(vm).unwrap();
     vm.pop().unwrap();
     top
 }
@@ -169,7 +173,7 @@ impl StringView {
 #[unsafe(no_mangle)]
 unsafe extern "C" fn abra_vm_view_string(vm: *mut c_void) -> StringView {
     let vm = unsafe { (vm as *mut Vm).as_mut().unwrap() };
-    let top = vm.top().view_string(vm);
+    let top = vm.top().unwrap().view_string(vm);
     StringView {
         ptr: top.as_ptr() as *const c_char,
         len: top.len(),
@@ -189,9 +193,17 @@ unsafe extern "C" fn abra_vm_push_string(vm: *mut c_void, string_view: StringVie
 /// # Safety
 /// vm: *mut c_void must be valid and non-null
 #[unsafe(no_mangle)]
-unsafe extern "C" fn abra_vm_construct(vm: *mut c_void, arity: u16) {
+unsafe extern "C" fn abra_vm_construct_struct(vm: *mut c_void, arity: u16) {
     let vm = unsafe { (vm as *mut Vm).as_mut().unwrap() };
     vm.construct_struct(arity);
+}
+
+/// # Safety
+/// vm: *mut c_void must be valid and non-null
+#[unsafe(no_mangle)]
+unsafe extern "C" fn abra_vm_construct_array(vm: *mut c_void, len: usize) {
+    let vm = unsafe { (vm as *mut Vm).as_mut().unwrap() };
+    vm.construct_array(len);
 }
 
 /// # Safety
@@ -208,6 +220,14 @@ unsafe extern "C" fn abra_vm_construct_variant(vm: *mut c_void, tag: u16) {
 unsafe extern "C" fn abra_vm_deconstruct(vm: *mut c_void) {
     let vm = unsafe { (vm as *mut Vm).as_mut().unwrap() };
     vm.deconstruct().unwrap();
+}
+
+/// # Safety
+/// vm: *mut c_void must be valid and non-null
+#[unsafe(no_mangle)]
+unsafe extern "C" fn abra_vm_array_len(vm: *mut c_void) -> usize {
+    let vm = unsafe { (vm as *mut Vm).as_mut().unwrap() };
+    vm.array_len().unwrap()
 }
 
 use std::env::current_dir;
@@ -364,7 +384,10 @@ fn add_items_from_ast(ast: Rc<FileAst>, output: &mut String) {
                         ));
                     }
 
-                    output.push_str(&format!("(vm_funcs.construct)(vm, {});", s.fields.len()));
+                    output.push_str(&format!(
+                        "(vm_funcs.construct_struct)(vm, {});",
+                        s.fields.len()
+                    ));
 
                     output.push('}');
 
@@ -549,6 +572,8 @@ fn name_of_ty(ty: Rc<Type>) -> String {
             let mut s = ident.v.clone();
             if s == "maybe" {
                 s = "Result".into();
+            } else if s == "array" {
+                s = "Vec".into();
             }
             s.push('<');
             for param in params {
@@ -736,6 +761,33 @@ where
     }
 }
 
+impl<T> VmType for Vec<T>
+where
+    T: VmType,
+{
+    unsafe fn from_vm(vm: *mut c_void, vm_funcs: &AbraVmFunctions) -> Self {
+        unsafe {
+            let len = (vm_funcs.array_len)(vm);
+            (vm_funcs.deconstruct)(vm);
+            let mut ret = vec![];
+            for _ in 0..len {
+                let val = <T>::from_vm(vm, vm_funcs);
+                ret.push(val);
+            }
+            ret
+        }
+    }
+    unsafe fn to_vm(self, vm: *mut c_void, vm_funcs: &AbraVmFunctions) {
+        unsafe {
+            let len = self.len();
+            for elem in self.into_iter() {
+                elem.to_vm(vm, vm_funcs);
+            }
+            (vm_funcs.construct_array)(vm, len);
+        }
+    }
+}
+
 // A helper macro to replace a token with an expression (for counting)
 macro_rules! replace_expr {
     ($t:tt, $e:expr_2021) => {
@@ -764,7 +816,7 @@ macro_rules! tuple_impls {
                 // Count the number of elements in the tuple.
                 let count: usize = [$( replace_expr!($name, 1) ),+].len();
                 // Reconstruct the tuple on the VM.
-                (vm_funcs.construct)(vm, count as u16);
+                (vm_funcs.construct_struct)(vm, count as u16);
             }}
         }
     };
