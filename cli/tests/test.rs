@@ -7,8 +7,8 @@ fn test_cli_output() {
         .arg("run")
         .arg("--bin")
         .arg("abra")
-        .arg("--") // The '--' tells Cargo that subsequent arguments are for the program, not Cargo
-        .arg("tests/hello_world.abra") // Replace with actual CLI arguments
+        .arg("--")
+        .arg("tests/hello_world.abra")
         .output()
         .expect("Failed to execute command");
 
@@ -21,16 +21,23 @@ fn test_cli_output() {
 
 #[test]
 fn test_ffi() {
+    Command::new("cargo")
+        .arg("build")
+        .arg("--package")
+        .arg("test_ffi")
+        .output()
+        .expect("Failed to execute command");
+
     let output = Command::new("cargo")
         .arg("run")
         .arg("--bin")
         .arg("abra")
-        .arg("--") // The '--' tells Cargo that subsequent arguments are for the program, not Cargo
+        .arg("--")
         .arg("--modules")
         .arg("tests/modules")
         .arg("--shared-objects")
         .arg("../target/debug")
-        .arg("tests/ffi.abra") // Replace with actual CLI arguments
+        .arg("tests/ffi.abra")
         .output()
         .expect("Failed to execute command");
 
