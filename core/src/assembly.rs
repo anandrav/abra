@@ -82,7 +82,7 @@ pub(crate) fn remove_labels(
             }
         }
     }
-    dbg!(&label_to_idx);
+    // dbg!(&label_to_idx);
 
     for item in items {
         if let Line::Instr(instr) = item {
