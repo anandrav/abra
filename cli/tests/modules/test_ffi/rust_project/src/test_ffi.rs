@@ -27,3 +27,7 @@ pub fn pass_enum(s: MyEnum) -> MyEnum {
 pub fn pass_tuple(t: (bool, i64, String)) -> (bool, i64, String) {
     t
 }
+
+pub fn pass_maybe(s: Result<String, i64>) -> Result<String, i64> {
+    s
+}

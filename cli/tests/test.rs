@@ -50,6 +50,7 @@ true
 another
 yet another
 (true, 2, 3)
+yes
 "#
     );
 }

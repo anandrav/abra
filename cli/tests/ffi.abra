@@ -16,3 +16,8 @@ match e {
 }
 let t = pass_tuple((true, 2, "3"))
 println(t)
+let m = pass_maybe(yes("yes"))
+match m {
+    yes(~s) -> println(s)
+    _ -> println("wrong variant")
+}

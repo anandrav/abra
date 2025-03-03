@@ -12,6 +12,8 @@ foreign fn pass_enum(e: MyEnum) -> MyEnum
 
 foreign fn pass_tuple(e: (bool, int, string)) -> (bool, int, string)
 
+foreign fn pass_maybe(m: maybe<string, int>) -> maybe<string, int>
+
 type MyStruct = {
     i: int
     b: bool

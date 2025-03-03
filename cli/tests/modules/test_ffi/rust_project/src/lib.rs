@@ -83,6 +83,17 @@ pub mod ffi {
                 ret.to_vm(vm, vm_funcs);
             }
         }
+        /// # Safety
+        /// `vm` must be non-null and valid.
+        #[unsafe(export_name = "abra_ffi$test_ffi$pass_maybe")]
+        pub unsafe extern "C" fn pass_maybe(vm: *mut c_void, vm_funcs: *const AbraVmFunctions) {
+            unsafe {
+                let vm_funcs: &AbraVmFunctions = &*vm_funcs;
+                let m = <Result<String, i64>>::from_vm(vm, vm_funcs);
+                let ret: Result<String, i64> = test_ffi::pass_maybe(m);
+                ret.to_vm(vm, vm_funcs);
+            }
+        }
         pub struct MyStruct {
             pub i: i64,
             pub b: bool,
