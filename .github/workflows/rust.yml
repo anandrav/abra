@@ -8,18 +8,14 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
-      - uses: actions-rs/toolchain@v1
-        with:
-          profile: minimal
-          toolchain: stable
-          override: true
+      - run: rustup toolchain install stable --profile minimal
+      - run: rustup toolchain install nightly-x86_64-unknown-linux-gnu
+      - uses: Swatinem/rust-cache@v2 
       - name: Run tests
         run: |
+          cargo install --locked cargo-udeps || true
+          cargo install --locked cargo-deny || true
           rustup target add wasm32-unknown-unknown
-          rustup toolchain install nightly-x86_64-unknown-linux-gnu
-          cargo install cargo-udeps
-          cargo install cargo-deny
-          rustup component add --toolchain nightly-x86_64-unknown-linux-gnu rustfmt 
+          rustup component add --toolchain nightly-x86_64-unknown-linux-gnu rustfmt # TODO: Is this necessary?
           ./scripts/test
-
-
+ 
