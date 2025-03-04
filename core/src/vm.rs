@@ -71,8 +71,13 @@ pub struct VmErrorLocation {
 
 #[derive(Clone, Debug)]
 pub enum VmErrorKind {
+    // user errors
     ArrayOutOfBounds,
     Panic(String),
+    IntegerOverflowUnderflow,
+    DivisionByZero,
+
+    // internal errors AKA bugs
     Underflow,
     WrongType { expected: ValueKind },
     FfiNotEnabled,
@@ -718,7 +723,10 @@ impl Vm {
                 let b = self.pop()?;
                 let a = self.pop()?;
                 match (a, b) {
-                    (Value::Int(a), Value::Int(b)) => self.push(a + b),
+                    (Value::Int(a), Value::Int(b)) => match a.checked_add(b) {
+                        Some(n) => self.push(n),
+                        None => return self.make_error(VmErrorKind::IntegerOverflowUnderflow),
+                    },
                     (Value::Float(a), Value::Float(b)) => self.push(a + b),
                     _ => return self.wrong_type(ValueKind::Number),
                 }
@@ -727,7 +735,10 @@ impl Vm {
                 let b = self.pop()?;
                 let a = self.pop()?;
                 match (a, b) {
-                    (Value::Int(a), Value::Int(b)) => self.push(a - b),
+                    (Value::Int(a), Value::Int(b)) => match a.checked_sub(b) {
+                        Some(n) => self.push(n),
+                        None => return self.make_error(VmErrorKind::IntegerOverflowUnderflow),
+                    },
                     (Value::Float(a), Value::Float(b)) => self.push(a - b),
                     _ => return self.wrong_type(ValueKind::Number),
                 }
@@ -736,7 +747,10 @@ impl Vm {
                 let b = self.pop()?;
                 let a = self.pop()?;
                 match (a, b) {
-                    (Value::Int(a), Value::Int(b)) => self.push(a * b),
+                    (Value::Int(a), Value::Int(b)) => match a.checked_mul(b) {
+                        Some(n) => self.push(n),
+                        None => return self.make_error(VmErrorKind::IntegerOverflowUnderflow),
+                    },
                     (Value::Float(a), Value::Float(b)) => self.push(a * b),
                     _ => return self.wrong_type(ValueKind::Number),
                 }
@@ -745,8 +759,21 @@ impl Vm {
                 let b = self.pop()?;
                 let a = self.pop()?;
                 match (a, b) {
-                    (Value::Int(a), Value::Int(b)) => self.push(a / b),
-                    (Value::Float(a), Value::Float(b)) => self.push(a / b),
+                    (Value::Int(a), Value::Int(b)) => {
+                        if b == 0 {
+                            return self.make_error(VmErrorKind::DivisionByZero);
+                        }
+                        match a.checked_div(b) {
+                            Some(n) => self.push(n),
+                            None => return self.make_error(VmErrorKind::IntegerOverflowUnderflow),
+                        }
+                    }
+                    (Value::Float(a), Value::Float(b)) => {
+                        if b == 0.0 {
+                            return self.make_error(VmErrorKind::DivisionByZero);
+                        }
+                        self.push(a / b)
+                    }
                     _ => return self.wrong_type(ValueKind::Number),
                 }
             }
@@ -1374,6 +1401,13 @@ impl Display for VmErrorKind {
             VmErrorKind::Panic(msg) => {
                 write!(f, "panic: {}", msg)
             }
+            VmErrorKind::IntegerOverflowUnderflow => {
+                write!(f, "integer overflow/underflow")
+            }
+            VmErrorKind::DivisionByZero => {
+                write!(f, "division by zero")
+            }
+
             VmErrorKind::Underflow => {
                 write!(f, "stack underflow")
             }
