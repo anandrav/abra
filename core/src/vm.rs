@@ -671,18 +671,43 @@ impl Vm {
                 self.push(v.clone());
             }
             Instr::LoadOffset(n) => {
-                let idx = self.stack_base.wrapping_add_signed(n as isize);
-                let v = self.value_stack[idx].clone();
+                let idx = match self.stack_base.checked_add_signed(n as isize) {
+                    Some(idx) => idx,
+                    None => {
+                        return self.make_error(VmErrorKind::InternalError(format!(
+                            "overflow when calculating load offset ({})",
+                            n
+                        )));
+                    }
+                };
+                let v = if idx < self.value_stack.len() {
+                    self.value_stack[idx].clone()
+                } else {
+                    return self.make_error(VmErrorKind::InternalError(format!(
+                        "load offset ({}) out of bounds. idx={}, len={}",
+                        n,
+                        idx,
+                        self.value_stack.len()
+                    )));
+                };
                 self.push(v);
             }
             Instr::StoreOffset(n) => {
-                let idx = self.stack_base.wrapping_add_signed(n as isize);
+                let idx = match self.stack_base.checked_add_signed(n as isize) {
+                    Some(idx) => idx,
+                    None => {
+                        return self.make_error(VmErrorKind::InternalError(format!(
+                            "overflow when calculating store offset ({})",
+                            n
+                        )));
+                    }
+                };
                 let v = self.pop()?;
                 if idx < self.value_stack.len() {
                     self.value_stack[idx] = v;
                 } else {
                     return self.make_error(VmErrorKind::InternalError(format!(
-                        "StoreOffset({}) out of bounds. idx={}, len={}",
+                        "store offset ({}) out of bounds. idx={}, len={}",
                         n,
                         idx,
                         self.value_stack.len()
