@@ -302,6 +302,7 @@ impl Vm {
     }
 
     fn wrong_type<T>(&self, expected: ValueKind) -> Result<T> {
+        dbg!(self);
         Err(Box::new(VmError {
             kind: VmErrorKind::WrongType { expected },
             location: self.pc_to_error_location(self.pc),
@@ -367,13 +368,8 @@ pub enum Instr<Location = ProgramCounter, StringConstant = u16> {
     SetField(u16),
     GetIdx,
     SetIdx,
-    ConstructVariant {
-        tag: u16,
-    },
-    MakeClosure {
-        n_captured: u16,
-        func_addr: Location,
-    },
+    ConstructVariant { tag: u16 },
+    MakeClosure { func_addr: Location },
 
     ArrayAppend,
     ArrayLength,
@@ -429,11 +425,8 @@ impl<L: Display, S: Display> Display for Instr<L, S> {
             Instr::ConstructVariant { tag } => {
                 write!(f, "construct_variant {}", tag)
             }
-            Instr::MakeClosure {
-                n_captured,
-                func_addr,
-            } => {
-                write!(f, "make_closure {} {}", n_captured, func_addr)
+            Instr::MakeClosure { func_addr } => {
+                write!(f, "make_closure {}", func_addr)
             }
             Instr::ArrayAppend => write!(f, "array_append"),
             Instr::ArrayLength => write!(f, "array_len"),
@@ -455,6 +448,7 @@ pub enum Value {
     Bool(bool),
     Int(AbraInt),
     Float(AbraFloat),
+    FuncAddr(usize),
     HeapReference(Cell<HeapReference>),
 }
 
@@ -570,17 +564,10 @@ impl ManagedObject {
 
 #[derive(Debug, Clone)]
 enum ManagedObjectKind {
-    Enum {
-        tag: u16,
-        value: Value,
-    },
+    Enum { tag: u16, value: Value },
     // DynArray is also used for tuples and structs
     DynArray(Vec<Value>),
     String(String),
-    FunctionObject {
-        captured_values: Vec<Value>,
-        func_addr: ProgramCounter,
-    },
 }
 
 impl Vm {
@@ -854,24 +841,15 @@ impl Vm {
             }
             Instr::CallFuncObj => {
                 let func_obj = self.pop()?;
-                match &func_obj {
-                    Value::HeapReference(r) => match &self.heap[r.get().get()].kind {
-                        ManagedObjectKind::FunctionObject {
-                            captured_values,
-                            func_addr,
-                        } => {
-                            self.call_stack.push(CallFrame {
-                                pc: self.pc,
-                                stack_base: self.stack_base,
-                            });
-                            self.pc = *func_addr;
-                            self.stack_base = self.value_stack.len();
-                            self.value_stack.extend(captured_values.iter().cloned());
-                        }
-                        _ => return self.wrong_type(ValueKind::FunctionObject),
-                    },
-                    _ => return self.wrong_type(ValueKind::FunctionObject),
-                }
+                let Value::FuncAddr(addr) = func_obj else {
+                    panic!()
+                }; // TODO: don't panic here
+                self.call_stack.push(CallFrame {
+                    pc: self.pc,
+                    stack_base: self.stack_base,
+                });
+                self.pc = addr;
+                self.stack_base = self.value_stack.len();
             }
             Instr::Return => {
                 if self.call_stack.is_empty() {
@@ -966,21 +944,8 @@ impl Vm {
             Instr::ConstructVariant { tag } => {
                 self.construct_variant(tag)?;
             }
-            Instr::MakeClosure {
-                n_captured,
-                func_addr,
-            } => {
-                let captured_values: Vec<_> = self
-                    .value_stack
-                    .drain(self.value_stack.len() - n_captured as usize..)
-                    .collect();
-                self.heap
-                    .push(ManagedObject::new(ManagedObjectKind::FunctionObject {
-                        captured_values,
-                        func_addr,
-                    }));
-                let r = self.heap_reference(self.heap.len() - 1);
-                self.value_stack.push(r);
+            Instr::MakeClosure { func_addr } => {
+                self.value_stack.push(Value::FuncAddr(func_addr));
             }
             Instr::ArrayAppend => {
                 let rvalue = self.pop()?;
@@ -1119,7 +1084,6 @@ impl Vm {
     }
 
     fn pc_to_error_location(&self, pc: usize) -> VmErrorLocation {
-        println!("PC={}", pc);
         let file_id = match self
             .filename_table
             .binary_search_by_key(&(pc as u32), |pair| pair.0)
@@ -1234,22 +1198,22 @@ impl Vm {
                         }
                     }
                 }
-                ManagedObjectKind::FunctionObject {
-                    captured_values,
-                    func_addr: _,
-                } => {
-                    for v in captured_values {
-                        if let Value::HeapReference(r) = v {
-                            r.replace(forward(
-                                r.get(),
-                                &self.heap,
-                                new_heap_len,
-                                &mut to_add,
-                                new_heap_group,
-                            ));
-                        }
-                    }
-                }
+                // ManagedObjectKind::FunctionObject {
+                //     captured_values,
+                //     func_addr: _,
+                // } => {
+                //     for v in captured_values {
+                //         if let Value::HeapReference(r) = v {
+                //             r.replace(forward(
+                //                 r.get(),
+                //                 &self.heap,
+                //                 new_heap_len,
+                //                 &mut to_add,
+                //                 new_heap_group,
+                //             ));
+                //         }
+                //     }
+                // }
                 ManagedObjectKind::Enum { tag: _, value } => {
                     if let Value::HeapReference(r) = value {
                         r.replace(forward(

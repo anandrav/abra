@@ -604,7 +604,7 @@ fib(10)
 }
 
 #[test]
-fn lambda_no_capture() {
+fn lambda1() {
     let src = r#"
 let double = x -> x + x
 double(5)
@@ -627,7 +627,7 @@ double(5)
 }
 
 #[test]
-fn lambda_no_capture_2_args() {
+fn lambda2() {
     let src = r#"
 let add = (x, y) -> x + y
 add(2, 3)
@@ -647,55 +647,6 @@ add(2, 3)
     vm.run();
     let top = vm.top().unwrap();
     assert_eq!(top.get_int(&vm).unwrap(), 5);
-}
-
-#[test]
-fn lambda_capture() {
-    let src = r#"
-let one = 1
-let add1 = x -> x + one
-add1(4)
-"#;
-    let sources = source_files_single(src);
-    let program = match compile_bytecode(
-        sources,
-        DefaultEffects::enumerate(),
-        FileProviderDefault::todo_get_rid_of_this(),
-    ) {
-        Ok(vm) => vm,
-        Err(e) => {
-            panic!("{}", e);
-        }
-    };
-    let mut vm = Vm::new(program);
-    vm.run();
-    let top = vm.top().unwrap();
-    assert_eq!(top.get_int(&vm).unwrap(), 5);
-}
-
-#[test]
-fn lambda_capture2() {
-    let src = r#"
-let one = 1
-let two = 2
-let sub1 = x -> x + one - two
-sub1(4)
-"#;
-    let sources = source_files_single(src);
-    let program = match compile_bytecode(
-        sources,
-        DefaultEffects::enumerate(),
-        FileProviderDefault::todo_get_rid_of_this(),
-    ) {
-        Ok(vm) => vm,
-        Err(e) => {
-            panic!("{}", e);
-        }
-    };
-    let mut vm = Vm::new(program);
-    vm.run();
-    let top = vm.top().unwrap();
-    assert_eq!(top.get_int(&vm).unwrap(), 3);
 }
 
 #[test]

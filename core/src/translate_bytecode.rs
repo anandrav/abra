@@ -6,7 +6,7 @@ use crate::ast::{FileAst, FileDatabase, Node, NodeId};
 use crate::builtin::Builtin;
 use crate::environment::Environment;
 use crate::statics::typecheck::Nominal;
-use crate::statics::{Declaration, TypeProv};
+use crate::statics::{_print_node, Declaration, TypeProv};
 use crate::statics::{Monotype, Type, ty_fits_impl_ty};
 use crate::vm::{AbraFloat, AbraInt, Instr as VmInstr};
 use crate::{
@@ -37,7 +37,6 @@ struct LambdaData {
     label: Label,
     offset_table: OffsetTable,
     nlocals: usize,
-    ncaptures: usize,
 }
 
 pub(crate) struct Translator {
@@ -348,15 +347,14 @@ impl Translator {
                         &data.offset_table,
                         monomorph_env.clone(),
                         st,
-                    ); // TODO passing lambdas here is kind of weird and recursive. Should build list of lambdas in statics.rs instead.
+                    );
 
                     let nlocals = data.nlocals;
                     let nargs = args.len();
-                    let ncaptures = data.ncaptures;
-                    if nlocals + nargs + ncaptures > 0 {
+                    if nlocals + nargs > 0 {
                         // pop all locals and arguments except one. The last one is the return value slot.
                         self.emit(st, Instr::StoreOffset(-(nargs as i32)));
-                        for _ in 0..(nlocals + nargs + ncaptures - 1) {
+                        for _ in 0..(nlocals + nargs - 1) {
                             self.emit(st, Instr::Pop);
                         }
                     }
@@ -496,7 +494,6 @@ impl Translator {
                     }
                     BytecodeResolution::FreeFunction(_, name) => {
                         self.emit(st, Instr::MakeClosure {
-                            n_captured: 0,
                             func_addr: name.clone(),
                         });
                     }
@@ -947,19 +944,6 @@ impl Translator {
                 collect_locals_expr(body, &mut locals);
                 let locals_count = locals.len();
                 let arg_set = args.iter().map(|(pat, _)| pat.id).collect::<HashSet<_>>();
-                let mut captures = HashSet::new();
-                self.collect_captures_expr(body, &locals, &arg_set, &mut captures);
-                // for capture in captures.iter() {
-                // let node = self.node_map.get(capture).unwrap();
-                // let span = node.span();
-                // let s = String::new();
-                // span.display(&mut s, &self.sources, "capture");
-                // println!("{}", s);
-                // }
-                let ncaptures = captures.len();
-                // for _ in 0..locals_count {
-                //     self.emit(st, Instr::PushNil);
-                // }
 
                 let mut lambda_offset_table = OffsetTable::new();
                 for (i, arg) in args.iter().rev().enumerate() {
@@ -967,30 +951,14 @@ impl Translator {
                         .entry(arg.0.id)
                         .or_insert(-(i as i32) - 1);
                 }
-                for (i, capture) in captures.iter().enumerate() {
-                    lambda_offset_table.entry(*capture).or_insert(i as i32);
-                }
-                for (i, local) in locals.iter().enumerate() {
-                    lambda_offset_table
-                        .entry(*local)
-                        .or_insert((i + captures.len()) as i32);
-                }
-
-                for capture in captures {
-                    self.emit(st, Instr::LoadOffset(*offset_table.get(&capture).unwrap()));
-                }
 
                 st.lambdas.insert(expr.id, LambdaData {
                     label: label.clone(),
                     offset_table: lambda_offset_table,
                     nlocals: locals_count,
-                    ncaptures,
                 });
 
-                self.emit(st, Instr::MakeClosure {
-                    n_captured: ncaptures as u16,
-                    func_addr: label,
-                });
+                self.emit(st, Instr::MakeClosure { func_addr: label });
             }
             ExprKind::WhileLoop(cond, body) => {
                 let start_label = make_label("while_start");
@@ -1506,14 +1474,6 @@ impl Translator {
         };
         // println!("emitting Call of function: {}", label);
         self.emit(st, Instr::Call(label));
-    }
-
-    fn _display_node(&self, _node_id: NodeId) {
-        // let node = self.node_map.get(&node_id).unwrap();
-        // let span = node.span();
-        // let s: String = String::new();
-        // span.display(&mut s, &self.sources, "");
-        // println!("{}", s);
     }
 
     fn handle_pat_binding(&self, pat: Rc<Pat>, locals: &OffsetTable, st: &mut TranslatorState) {

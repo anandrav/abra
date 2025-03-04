@@ -149,13 +149,9 @@ fn instr_to_vminstr(
         Instr::GetIdx => VmInstr::GetIdx,
         Instr::SetIdx => VmInstr::SetIdx,
         Instr::ConstructVariant { tag } => VmInstr::ConstructVariant { tag: *tag },
-        Instr::MakeClosure {
-            n_captured,
-            func_addr,
-        } => {
+        Instr::MakeClosure { func_addr } => {
             // dbg!(func_addr);
             VmInstr::MakeClosure {
-                n_captured: *n_captured,
                 func_addr: label_to_idx[func_addr],
             }
         }
