@@ -8,7 +8,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
-      - run: rustup toolchain install stable
+      - run: rustup toolchain install stable --profile minimal
       - run: rustup toolchain install nightly-x86_64-unknown-linux-gnu
       - uses: Swatinem/rust-cache@v2
       - name: Run tests
