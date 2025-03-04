@@ -8,7 +8,7 @@ use std::collections::HashSet;
 use std::fmt::{self, Display};
 use std::rc::Rc;
 
-use super::typecheck::{ast_type_to_solved_type, Nominal};
+use super::typecheck::{Nominal, ast_type_to_solved_type};
 use super::{Declaration, EnumDef, Error, SolvedType, StaticsContext, TypeKind};
 
 pub(crate) fn check_pattern_exhaustiveness_and_usefulness(

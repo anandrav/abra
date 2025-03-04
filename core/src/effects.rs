@@ -2,8 +2,8 @@ use crate::statics;
 pub use strum::FromRepr;
 pub use strum::VariantArray;
 
-pub use crate::statics::typecheck::Nominal;
 pub use crate::statics::Monotype as Type;
+pub use crate::statics::typecheck::Nominal;
 
 #[derive(Debug, Clone)]
 pub struct EffectDesc {

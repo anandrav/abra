@@ -2,6 +2,7 @@
 name = "term"
 version = "0.1.0"
 edition = "2024"
+license = "MPL-2.0"
 
 [lib]
 crate-type = ["cdylib"]
@@ -12,4 +13,3 @@ crossterm = "0.28.1"
 
 [build-dependencies]
 abra_core = { path = "../../../core" }
-

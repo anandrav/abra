@@ -493,9 +493,12 @@ impl Translator {
                         unimplemented!()
                     }
                     BytecodeResolution::FreeFunction(_, name) => {
-                        self.emit(st, Instr::MakeClosure {
-                            func_addr: name.clone(),
-                        });
+                        self.emit(
+                            st,
+                            Instr::MakeClosure {
+                                func_addr: name.clone(),
+                            },
+                        );
                     }
                     BytecodeResolution::ForeignFunction { .. } => {
                         unimplemented!()
@@ -952,11 +955,14 @@ impl Translator {
                         .or_insert(-(i as i32) - 1);
                 }
 
-                st.lambdas.insert(expr.id, LambdaData {
-                    label: label.clone(),
-                    offset_table: lambda_offset_table,
-                    nlocals: locals_count,
-                });
+                st.lambdas.insert(
+                    expr.id,
+                    LambdaData {
+                        label: label.clone(),
+                        offset_table: lambda_offset_table,
+                        nlocals: locals_count,
+                    },
+                );
 
                 self.emit(st, Instr::MakeClosure { func_addr: label });
             }

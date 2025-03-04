@@ -1,8 +1,8 @@
 use std::rc::Rc;
 
+use pest::Parser;
 use pest::iterators::{Pair, Pairs};
 use pest::pratt_parser::{Assoc, Op, PrattParser};
-use pest::Parser;
 use pest_derive::Parser;
 
 use crate::ast::*;

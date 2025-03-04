@@ -2,6 +2,7 @@
 name = "random"
 version = "0.1.0"
 edition = "2024"
+license = "MPL-2.0"
 
 [lib]
 crate-type = ["cdylib"]
@@ -12,4 +13,3 @@ rand = "0.9.0"
 
 [build-dependencies]
 abra_core = { path = "../../../core" }
-
