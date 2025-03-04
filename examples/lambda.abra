@@ -1,5 +1,6 @@
 
-let ident = (x) -> x
+let one = 1
+let inc = (x) -> x + one
 
-let y = ident(3)
+let y = inc(3)
 println(y)

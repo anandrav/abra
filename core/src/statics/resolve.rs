@@ -71,14 +71,13 @@ fn gather_declarations_item(
                 let method_name = p.name.v.clone();
                 let method = i as u16;
                 let fully_qualified_name = fullname(&qualifiers, &method_name);
-                namespace.declarations.insert(
-                    method_name,
-                    Declaration::InterfaceMethod {
+                namespace
+                    .declarations
+                    .insert(method_name, Declaration::InterfaceMethod {
                         iface_def: iface.clone(),
                         method,
                         fully_qualified_name,
-                    },
-                );
+                    });
             }
         }
         ItemKind::InterfaceImpl(_) => {}
@@ -98,13 +97,12 @@ fn gather_declarations_item(
                     let variant_name = v.ctor.v.clone();
                     let variant = i as u16;
 
-                    namespace.declarations.insert(
-                        variant_name,
-                        Declaration::EnumVariant {
+                    namespace
+                        .declarations
+                        .insert(variant_name, Declaration::EnumVariant {
                             enum_def: e.clone(),
                             variant,
-                        },
-                    );
+                        });
                 }
             }
             TypeDefKind::Struct(s) => {
@@ -184,14 +182,13 @@ fn gather_declarations_item(
                 let funcs = _ctx.dylib_to_funcs.entry(libname.clone()).or_default();
                 funcs.insert(symbol.clone());
 
-                namespace.declarations.insert(
-                    func_name,
-                    Declaration::ForeignFunction {
+                namespace
+                    .declarations
+                    .insert(func_name, Declaration::ForeignFunction {
                         decl: f.clone(),
                         libname,
                         symbol,
-                    },
-                );
+                    });
             }
             #[cfg(not(feature = "ffi"))]
             {
@@ -504,11 +501,12 @@ fn resolve_names_stmt(ctx: &mut StaticsContext, symbol_table: SymbolTable, stmt:
             resolve_names_expr(ctx, symbol_table, expr.clone());
         }
         StmtKind::Let(_mutable, (pat, ty), expr) => {
+            resolve_names_expr(ctx, symbol_table.clone(), expr.clone());
+
             resolve_names_pat(ctx, symbol_table.clone(), pat.clone());
             if let Some(ty_annot) = &ty {
                 resolve_names_typ(ctx, symbol_table.clone(), ty_annot.clone(), false);
             }
-            resolve_names_expr(ctx, symbol_table.clone(), expr.clone());
         }
         StmtKind::Set(lhs, rhs) => {
             resolve_names_expr(ctx, symbol_table.clone(), lhs.clone());
@@ -577,7 +575,7 @@ fn resolve_names_expr(ctx: &mut StaticsContext, symbol_table: SymbolTable, expr:
             }
         }
         ExprKind::AnonymousFunction(args, out_ty, body) => {
-            let symbol_table = symbol_table.new_scope();
+            let symbol_table = SymbolTable::empty();
             resolve_names_func_helper(ctx, symbol_table.clone(), args, body, out_ty);
         }
         ExprKind::FuncAp(func, args) => {

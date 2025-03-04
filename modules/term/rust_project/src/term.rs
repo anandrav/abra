@@ -1,12 +1,12 @@
 use std::{
-    io::{Write, stdout},
+    io::{stdout, Write},
     time::Duration,
 };
 
 use crate::ffi::term::KeyCode;
 use crossterm::{
     cursor,
-    event::{Event, KeyCode as CtKeyCode, KeyEvent as CtKeyEvent, poll, read},
+    event::{poll, read, Event, KeyCode as CtKeyCode, KeyEvent as CtKeyEvent},
     queue,
     style::{self},
     terminal::{self, Clear, ClearType},

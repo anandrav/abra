@@ -173,18 +173,19 @@ implement ToString for ('a ToString, 'b ToString, 'c ToString, 'd ToString, 'e T
 
 implement ToString for list<'a ToString> {
     fn str(xs) {
-        let helper = xs -> {
-            match xs {
-                nil -> ""
-                cons (~x, nil) -> {
-                    str(x)
-                }
-                cons (~x, ~xs) -> {
-                    str(x) & ", " & helper(xs)
-                }
-            }
+        "[| " & list_to_string_helper(xs) & " |]"
+    }
+}
+
+fn list_to_string_helper(xs: list<'a ToString>) -> string {
+    match xs {
+        nil -> ""
+        cons (~x, nil) -> {
+            str(x)
         }
-        "[| " & helper(xs) & " |]"
+        cons (~x, ~xs) -> {
+            str(x) & ", " & list_to_string_helper(xs)
+        }
     }
 }
 

@@ -1966,11 +1966,9 @@ fn generate_constraints_expr(
             constrain(
                 ctx,
                 accessed_ty,
-                TypeVar::make_nominal(
-                    Reason::Node(accessed.id),
-                    Nominal::Array,
-                    vec![elem_ty.clone()],
-                ),
+                TypeVar::make_nominal(Reason::Node(accessed.id), Nominal::Array, vec![
+                    elem_ty.clone(),
+                ]),
             );
             generate_constraints_expr(
                 polyvar_scope,
