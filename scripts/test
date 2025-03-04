@@ -1,7 +1,7 @@
 #!/bin/bash
 set -eou pipefail
 
-cargo fmt
+cargo +stable fmt
 cargo clippy
 
 cargo test
