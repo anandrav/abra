@@ -10,11 +10,12 @@ jobs:
       - uses: actions/checkout@v2
       - run: rustup toolchain install stable --profile minimal
       - run: rustup toolchain install nightly-x86_64-unknown-linux-gnu
-      - uses: Swatinem/rust-cache@v2
+      - uses: Swatinem/rust-cache@v2  # TODO: this actually doing anything?
       - name: Run tests
         run: |
           cargo install --locked cargo-udeps || true
           cargo install --locked cargo-deny || true
           rustup target add wasm32-unknown-unknown
+          rustup component add --toolchain nightly-x86_64-unknown-linux-gnu rustfmt # TODO: Is this necessary?
           ./scripts/test
  
