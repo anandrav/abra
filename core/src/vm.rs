@@ -536,6 +536,13 @@ impl Value {
             _ => panic!("not a string"),
         }
     }
+
+    pub fn get_addr(&self, vm: &Vm) -> Result<usize> {
+        match self {
+            Value::FuncAddr(addr) => Ok(*addr),
+            _ => vm.wrong_type(ValueKind::Int),
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -840,10 +847,7 @@ impl Vm {
                 self.stack_base = self.value_stack.len();
             }
             Instr::CallFuncObj => {
-                let func_obj = self.pop()?;
-                let Value::FuncAddr(addr) = func_obj else {
-                    panic!()
-                }; // TODO: don't panic here
+                let addr = self.pop_addr()?;
                 self.call_stack.push(CallFrame {
                     pc: self.pc,
                     stack_base: self.stack_base,
@@ -1245,6 +1249,10 @@ impl Vm {
 
     fn pop_int(&mut self) -> Result<AbraInt> {
         self.pop()?.get_int(self)
+    }
+
+    fn pop_addr(&mut self) -> Result<usize> {
+        self.pop()?.get_addr(self)
     }
 
     fn pop_bool(&mut self) -> Result<bool> {

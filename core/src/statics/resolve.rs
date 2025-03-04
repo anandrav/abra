@@ -71,13 +71,14 @@ fn gather_declarations_item(
                 let method_name = p.name.v.clone();
                 let method = i as u16;
                 let fully_qualified_name = fullname(&qualifiers, &method_name);
-                namespace
-                    .declarations
-                    .insert(method_name, Declaration::InterfaceMethod {
+                namespace.declarations.insert(
+                    method_name,
+                    Declaration::InterfaceMethod {
                         iface_def: iface.clone(),
                         method,
                         fully_qualified_name,
-                    });
+                    },
+                );
             }
         }
         ItemKind::InterfaceImpl(_) => {}
@@ -97,12 +98,13 @@ fn gather_declarations_item(
                     let variant_name = v.ctor.v.clone();
                     let variant = i as u16;
 
-                    namespace
-                        .declarations
-                        .insert(variant_name, Declaration::EnumVariant {
+                    namespace.declarations.insert(
+                        variant_name,
+                        Declaration::EnumVariant {
                             enum_def: e.clone(),
                             variant,
-                        });
+                        },
+                    );
                 }
             }
             TypeDefKind::Struct(s) => {
@@ -182,13 +184,14 @@ fn gather_declarations_item(
                 let funcs = _ctx.dylib_to_funcs.entry(libname.clone()).or_default();
                 funcs.insert(symbol.clone());
 
-                namespace
-                    .declarations
-                    .insert(func_name, Declaration::ForeignFunction {
+                namespace.declarations.insert(
+                    func_name,
+                    Declaration::ForeignFunction {
                         decl: f.clone(),
                         libname,
                         symbol,
-                    });
+                    },
+                );
             }
             #[cfg(not(feature = "ffi"))]
             {
