@@ -46,6 +46,6 @@ jobs:
           override: true
       - name: Run tests
         run: |
-          cd core
-          cargo test --verbose
+          ./scripts/check
+
 
