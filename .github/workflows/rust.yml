@@ -3,22 +3,6 @@ on: [push, pull_request]
 name: CI
 
 jobs:
-  check_wasm:
-    name: Check wasm32
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v2
-      - uses: actions-rs/toolchain@v1
-        with:
-          profile: minimal
-          toolchain: stable
-          target: wasm32-unknown-unknown
-          override: true
-      - name: Run cargo check
-        run: |
-          cd core
-          cargo check --lib --target wasm32-unknown-unknown
-
   test:
     name: Test Suite
     runs-on: ubuntu-latest
@@ -32,6 +16,7 @@ jobs:
       - name: Run tests
         run: |
           rustup target add wasm32-unknown-unknown
-          ./scripts/check
+          rustup toolchain install nightly-x86_64-unknown-linux-gnu
+          ./scripts/test
 
 
