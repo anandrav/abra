@@ -18,6 +18,7 @@ jobs:
           rustup target add wasm32-unknown-unknown
           rustup toolchain install nightly-x86_64-unknown-linux-gnu
           cargo install cargo-udeps
+          cargo install cargo-deny
           rustup component add --toolchain nightly-x86_64-unknown-linux-gnu rustfmt 
           ./scripts/test
 
