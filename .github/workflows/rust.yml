@@ -18,4 +18,5 @@ jobs:
           cargo install --locked cargo-deny || true
           rustup target add wasm32-unknown-unknown
           ./scripts/test
+
  
