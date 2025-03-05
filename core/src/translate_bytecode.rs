@@ -6,7 +6,7 @@ use crate::ast::{FileAst, FileDatabase, Node, NodeId};
 use crate::builtin::Builtin;
 use crate::environment::Environment;
 use crate::statics::typecheck::Nominal;
-use crate::statics::{_print_node, Declaration, TypeProv};
+use crate::statics::{Declaration, TypeProv};
 use crate::statics::{Monotype, Type, ty_fits_impl_ty};
 use crate::vm::{AbraFloat, AbraInt, Instr as VmInstr};
 use crate::{
@@ -946,7 +946,6 @@ impl Translator {
                 let mut locals = HashSet::new();
                 collect_locals_expr(body, &mut locals);
                 let locals_count = locals.len();
-                let arg_set = args.iter().map(|(pat, _)| pat.id).collect::<HashSet<_>>();
 
                 let mut lambda_offset_table = OffsetTable::new();
                 for (i, arg) in args.iter().rev().enumerate() {
@@ -1329,118 +1328,6 @@ impl Translator {
                 self.translate_expr(expr.clone(), locals, monomorph_env.clone(), st);
                 let return_label = st.return_stack.last().unwrap();
                 self.emit(st, Instr::Jump(return_label.clone()));
-            }
-        }
-    }
-
-    fn collect_captures_expr(
-        &self,
-        expr: &Expr,
-        locals: &HashSet<NodeId>,
-        arg_set: &HashSet<NodeId>,
-        captures: &mut HashSet<NodeId>,
-    ) {
-        match &*expr.kind {
-            ExprKind::Unit
-            | ExprKind::Bool(_)
-            | ExprKind::Int(_)
-            | ExprKind::Float(_)
-            | ExprKind::Str(_) => {}
-            ExprKind::Identifier(_) => {
-                let resolution = self
-                    .statics
-                    .resolution_map
-                    .get(&expr.id)
-                    .unwrap()
-                    .to_bytecode_resolution();
-                if let BytecodeResolution::Var(node_id) = resolution {
-                    if !locals.contains(&node_id) && !arg_set.contains(&node_id) {
-                        captures.insert(node_id);
-                    }
-                }
-            }
-
-            ExprKind::Block(statements) => {
-                for statement in statements {
-                    self.collect_captures_stmt(&[statement.clone()], locals, arg_set, captures);
-                }
-            }
-            ExprKind::Match(_, arms) => {
-                for arm in arms {
-                    self.collect_captures_expr(&arm.expr, locals, arg_set, captures);
-                }
-            }
-            ExprKind::AnonymousFunction(_, _, body) => {
-                self.collect_captures_expr(body, locals, arg_set, captures);
-            }
-            ExprKind::List(exprs) => {
-                for expr in exprs {
-                    self.collect_captures_expr(expr, locals, arg_set, captures);
-                }
-            }
-            ExprKind::Array(exprs) => {
-                for expr in exprs {
-                    self.collect_captures_expr(expr, locals, arg_set, captures);
-                }
-            }
-            ExprKind::Tuple(exprs) => {
-                for expr in exprs {
-                    self.collect_captures_expr(expr, locals, arg_set, captures);
-                }
-            }
-            ExprKind::BinOp(left, _, right) => {
-                self.collect_captures_expr(left, locals, arg_set, captures);
-                self.collect_captures_expr(right, locals, arg_set, captures);
-            }
-            ExprKind::MemberAccess(accessed, _) => {
-                self.collect_captures_expr(accessed, locals, arg_set, captures);
-            }
-            ExprKind::IndexAccess(array, index) => {
-                self.collect_captures_expr(array, locals, arg_set, captures);
-                self.collect_captures_expr(index, locals, arg_set, captures);
-            }
-            ExprKind::FuncAp(func, args) => {
-                self.collect_captures_expr(func, locals, arg_set, captures);
-                for arg in args {
-                    self.collect_captures_expr(arg, locals, arg_set, captures);
-                }
-            }
-            ExprKind::If(cond, then_block, else_block) => {
-                self.collect_captures_expr(cond, locals, arg_set, captures);
-                self.collect_captures_expr(then_block, locals, arg_set, captures);
-                if let Some(else_block) = else_block {
-                    self.collect_captures_expr(else_block, locals, arg_set, captures);
-                }
-            }
-            ExprKind::WhileLoop(cond, body) => {
-                self.collect_captures_expr(cond, locals, arg_set, captures);
-                self.collect_captures_expr(body, locals, arg_set, captures);
-            }
-        }
-    }
-
-    fn collect_captures_stmt(
-        &self,
-        statements: &[Rc<Stmt>],
-        locals: &HashSet<NodeId>,
-        arg_set: &HashSet<NodeId>,
-        captures: &mut HashSet<NodeId>,
-    ) {
-        for statement in statements {
-            match &*statement.kind {
-                StmtKind::Expr(expr) => {
-                    self.collect_captures_expr(expr, locals, arg_set, captures);
-                }
-                StmtKind::Let(_, _, expr) => {
-                    self.collect_captures_expr(expr, locals, arg_set, captures);
-                }
-                StmtKind::Set(_, expr) => {
-                    self.collect_captures_expr(expr, locals, arg_set, captures);
-                }
-                StmtKind::FuncDef(..) | StmtKind::Break | StmtKind::Continue => {}
-                StmtKind::Return(..) => {
-                    unimplemented!()
-                }
             }
         }
     }

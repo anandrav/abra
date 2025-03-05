@@ -251,8 +251,6 @@ pub fn generate() {
     write_header(&mut output, &package_name);
 
     let mut file_db = FileDatabase::new();
-    // let mut node_map = NodeMap::new();
-    // let mut file_asts: Vec<Rc<FileAst>> = vec![];
 
     // handle toplevel .abra file
     {
@@ -267,8 +265,6 @@ pub fn generate() {
         let ast = parse_or_err(file_id, file_data).unwrap();
 
         add_items_from_ast(ast, &mut output);
-
-        // ast::initialize_node_map(&mut node_map, &(file_ast.clone() as Rc<dyn ast::Node>));
     }
 
     // handle all other .abra files
@@ -285,9 +281,6 @@ pub fn generate() {
         );
     }
 
-    let out_dir: PathBuf = PathBuf::from(std::env::var("OUT_DIR").unwrap());
-    // let proper_output_path = out_dir.join("gen.rs");
-
     let output_path = current_dir.join("src").join("lib.rs");
 
     std::fs::write(&output_path, output).unwrap();
@@ -300,8 +293,6 @@ pub fn generate() {
     if !status.success() {
         panic!("rustfmt failed on {:?}", output_path);
     }
-
-    // panic!("current_dir={}", current_dir.to_str().unwrap());
 }
 
 fn write_header(output: &mut String, package_name: &str) {
@@ -337,7 +328,7 @@ fn add_items_from_ast(ast: Rc<FileAst>, output: &mut String) {
                             field.name.v, tyname
                         ));
                     }
-                    output.push_str("}");
+                    output.push('}');
 
                     output.push_str(&format!(
                         r#"impl VmType for {} {{
@@ -351,19 +342,30 @@ fn add_items_from_ast(ast: Rc<FileAst>, output: &mut String) {
                     output.push_str("unsafe {");
                     output.push_str("(vm_funcs.deconstruct)(vm);");
                     for field in s.fields.iter() {
-                        let tyname = name_of_ty(field.ty.clone());
-                        output.push_str(&format!(
-                            r#"let {} = <{}>::from_vm(vm, vm_funcs);
-                        "#,
-                            field.name.v, tyname
-                        ));
+                        if matches!(&*field.ty.kind, TypeKind::Unit) {
+                            output.push_str(
+                                r#"(vm_funcs.pop_nil)(vm);
+                            "#,
+                            );
+                        } else {
+                            let tyname = name_of_ty(field.ty.clone());
+                            output.push_str(&format!(
+                                r#"let {} = <{}>::from_vm(vm, vm_funcs);
+                            "#,
+                                field.name.v, tyname
+                            ));
+                        }
                     }
                     output.push_str(
                         r#"Self {
                     "#,
                     );
                     for field in &s.fields {
-                        output.push_str(&format!("{},", field.name.v));
+                        if matches!(&*field.ty.kind, TypeKind::Unit) {
+                            output.push_str(&format!("{}: (),", field.name.v));
+                        } else {
+                            output.push_str(&format!("{},", field.name.v));
+                        }
                     }
                     output.push('}');
                     output.push('}');
@@ -377,11 +379,15 @@ fn add_items_from_ast(ast: Rc<FileAst>, output: &mut String) {
                     output.push_str("unsafe {");
                     // TODO: impl for all types
                     for field in s.fields.iter() {
-                        output.push_str(&format!(
-                            r#"self.{}.to_vm(vm, vm_funcs);
-                        "#,
-                            field.name.v
-                        ));
+                        if matches!(&*field.ty.kind, TypeKind::Unit) {
+                            output.push_str("(vm_funcs.push_nil)(vm);");
+                        } else {
+                            output.push_str(&format!(
+                                r#"self.{}.to_vm(vm, vm_funcs);
+                            "#,
+                                field.name.v
+                            ));
+                        }
                     }
 
                     output.push_str(&format!(
@@ -506,10 +512,7 @@ fn add_items_from_ast(ast: Rc<FileAst>, output: &mut String) {
                     f.name.v,
                 ));
                 output.push_str("unsafe {");
-                // output.push_str(&format!(
-                //     r#"println!("{}()"); panic!("ruh roh");"#,
-                //     f.name.v
-                // ));
+
                 output.push_str("let vm_funcs: &AbraVmFunctions = &*vm_funcs;");
                 // get args in reverse order
                 for (name, ty) in f.args.iter().rev() {
@@ -519,11 +522,19 @@ fn add_items_from_ast(ast: Rc<FileAst>, output: &mut String) {
                     };
                     // TODO: ty shouldn't be optional for foreign fn
                     let ty = ty.clone().unwrap();
-                    let tyname = name_of_ty(ty);
-                    output.push_str(&format!(
-                        "let {} = <{}>::from_vm(vm, vm_funcs);",
-                        ident, tyname
-                    ));
+                    if matches!(&*ty.kind, TypeKind::Unit) {
+                        output.push_str(
+                            r#"(vm_funcs.pop_nil)(vm);
+                        "#,
+                        );
+                    } else {
+                        let tyname = name_of_ty(ty.clone());
+                        output.push_str(&format!(
+                            r#"let {} = <{}>::from_vm(vm, vm_funcs);
+                        "#,
+                            ident, tyname
+                        ));
+                    }
                 }
                 // call the user's implementation
                 let out_ty = &f.ret_type;
@@ -532,12 +543,18 @@ fn add_items_from_ast(ast: Rc<FileAst>, output: &mut String) {
                     "let ret: {} = {}::{}(",
                     out_ty_name, package_name, f.name.v
                 ));
-                for (name, _) in f.args.iter() {
+                for (name, typ) in f.args.iter() {
                     // TODO: why the fuck is name a Pat still.
                     let PatKind::Binding(ident) = &*name.kind else {
                         panic!()
                     };
-                    output.push_str(&format!("{},", ident));
+                    // TODO: why is this optional still?
+                    let Some(typ) = typ else { panic!() };
+                    if matches!(&*typ.kind, TypeKind::Unit) {
+                        output.push_str("(),");
+                    } else {
+                        output.push_str(&format!("{},", ident));
+                    }
                 }
                 output.push_str(");");
                 // push return value

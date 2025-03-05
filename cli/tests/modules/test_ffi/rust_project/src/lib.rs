@@ -34,8 +34,8 @@ pub mod ffi {
         pub unsafe extern "C" fn pass_void(vm: *mut c_void, vm_funcs: *const AbraVmFunctions) {
             unsafe {
                 let vm_funcs: &AbraVmFunctions = &*vm_funcs;
-                let v = <()>::from_vm(vm, vm_funcs);
-                let ret: () = test_ffi::pass_void(v);
+                (vm_funcs.pop_nil)(vm);
+                let ret: () = test_ffi::pass_void(());
                 ret.to_vm(vm, vm_funcs);
             }
         }
@@ -117,16 +117,16 @@ pub mod ffi {
                     (vm_funcs.deconstruct)(vm);
                     let i = <i64>::from_vm(vm, vm_funcs);
                     let b = <bool>::from_vm(vm, vm_funcs);
-                    let v = <()>::from_vm(vm, vm_funcs);
+                    (vm_funcs.pop_nil)(vm);
                     let s = <String>::from_vm(vm, vm_funcs);
-                    Self { i, b, v, s }
+                    Self { i, b, v: (), s }
                 }
             }
             unsafe fn to_vm(self, vm: *mut c_void, vm_funcs: &AbraVmFunctions) {
                 unsafe {
                     self.i.to_vm(vm, vm_funcs);
                     self.b.to_vm(vm, vm_funcs);
-                    self.v.to_vm(vm, vm_funcs);
+                    (vm_funcs.push_nil)(vm);
                     self.s.to_vm(vm, vm_funcs);
                     (vm_funcs.construct_struct)(vm, 4);
                 }

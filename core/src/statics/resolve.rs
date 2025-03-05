@@ -127,7 +127,7 @@ fn gather_declarations_item(
                 Declaration::FreeFunction(f.clone(), fully_qualified_name),
             );
         }
-        ItemKind::ForeignFuncDecl(f) => {
+        ItemKind::ForeignFuncDecl(_func_decl) => {
             // TODO: get the lib name using the filesystem, or report error saying why we can't
             // this function -> its file
             // some file -> parent directory
@@ -137,7 +137,7 @@ fn gather_declarations_item(
 
             #[cfg(feature = "ffi")]
             {
-                let func_name = f.name.v.clone();
+                let func_name = _func_decl.name.v.clone();
 
                 let mut path = _file.path.clone();
                 // println!("{}", path.display());
@@ -159,7 +159,7 @@ fn gather_declarations_item(
                     package_name,
                     std::env::consts::DLL_SUFFIX
                 );
-                let libname = _ctx.file_provider.shared_objects_dir().join(filename);
+                let libname = _ctx._file_provider.shared_objects_dir().join(filename);
 
                 // add libname to string constants
                 let len = _ctx.string_constants.len();
@@ -174,7 +174,7 @@ fn gather_declarations_item(
                     symbol.push_str(elem);
                 }
                 symbol.push('$');
-                symbol.push_str(&f.name.v);
+                symbol.push_str(&_func_decl.name.v);
 
                 // add symbol to string constants
                 let len = _ctx.string_constants.len();
@@ -187,7 +187,7 @@ fn gather_declarations_item(
                 namespace.declarations.insert(
                     func_name,
                     Declaration::ForeignFunction {
-                        decl: f.clone(),
+                        decl: _func_decl.clone(),
                         libname,
                         symbol,
                     },

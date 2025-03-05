@@ -32,7 +32,7 @@ pub(crate) struct StaticsContext {
     effects: Vec<EffectDesc>,
     _node_map: NodeMap,
     _files: FileDatabase,
-    file_provider: Box<dyn FileProvider>,
+    _file_provider: Box<dyn FileProvider>,
 
     pub(crate) global_namespace: Namespace,
     // This maps any identifier in the program to the declaration it resolves to.
@@ -76,7 +76,7 @@ impl StaticsContext {
             effects,
             _node_map: node_map,
             _files: files,
-            file_provider,
+            _file_provider: file_provider,
             global_namespace: Default::default(),
             resolution_map: Default::default(),
             loop_stack: Default::default(),

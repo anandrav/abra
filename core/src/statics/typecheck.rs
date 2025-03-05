@@ -17,15 +17,12 @@ use super::{
 };
 
 pub(crate) fn solve_types(ctx: &mut StaticsContext, file_asts: &Vec<Rc<FileAst>>) {
-    // println!("gen_constraints_file_decls");
     for file in file_asts {
         generate_constraints_file_decls(file.clone(), ctx);
     }
-    // println!("gen_constraints_file_stmts");
     for file in file_asts {
         generate_constraints_file_stmts(file.clone(), ctx);
     }
-    // println!("check_unifvars");
     check_unifvars(ctx);
 }
 
@@ -64,7 +61,6 @@ impl TypeVarData {
     }
 
     fn merge_data(first: Self, second: Self) -> Self {
-        // println!("merge_data");
         let mut merged_types = Self {
             types: first.types,
             locked: false,
@@ -560,6 +556,7 @@ impl TypeVar {
         tvar
     }
 
+    // TODO: This needs a better name and a descriptive comment ASAP
     pub(crate) fn get_first_a(self) -> Option<Declaration> {
         let data = self.0.clone_data();
         if data.types.len() == 1 {
@@ -607,8 +604,6 @@ impl TypeVar {
         }
     }
 
-    // TODO! I am not convinced that Polyvars are properly resolved and/or substituted. Will need to deep dive
-    // Creates a *new* Type with polymorphic variabels replaced by subtitutions
     pub(crate) fn subst(self, prov: Prov, substitution: &HashMap<Declaration, TypeVar>) -> TypeVar {
         let data = self.0.clone_data();
         if data.types.len() == 1 {
@@ -1224,15 +1219,11 @@ fn constrain_solved_typevars(
             }
             _ => {}
         }
-
-        // TODO! I am not convinced that Polyvars are properly resolved and/or substituted. Will need to deep dive
-        // TODO! This is a temporary workaround to a problem with polyvar substitution/constraints/resolution
-        // Removing this should not make things fail yet it does
-        // TypeVar::merge(tyvar1, tyvar2);
     }
 }
 
 // TODO: Can this be done in resolve() instead?
+// TODO: Don't store Declaration, because it's always Declaration::Polytype. Just store what's within Declaration::Polytype, or create a newtype if you're paranoid about mixing them up
 #[derive(Clone)]
 pub(crate) struct PolyvarScope {
     polyvars_in_scope: Environment<Declaration, ()>,
@@ -1392,7 +1383,6 @@ pub(crate) fn generate_constraints_file_stmts(file: Rc<FileAst>, ctx: &mut Stati
 }
 
 fn generate_constraints_item_stmts(mode: Mode, stmt: Rc<Item>, ctx: &mut StaticsContext) {
-    // println!("generate_constraints_item_stmts");
     match &*stmt.kind {
         ItemKind::InterfaceDef(..) => {}
         ItemKind::Import(..) => {}
@@ -1840,7 +1830,6 @@ fn generate_constraints_expr(
                 scrut.clone(),
                 ctx,
             );
-            // println!("ty_scrutiny={}", ty_scrutiny);
             for arm in arms {
                 generate_constraints_pat(
                     polyvar_scope.clone(),
@@ -1851,8 +1840,6 @@ fn generate_constraints_expr(
                     arm.pat.clone(),
                     ctx,
                 );
-                let pat_ty = TypeVar::from_node(ctx, arm.pat.id);
-                // println!("arm.pat ty = {}", pat_ty);
                 generate_constraints_expr(
                     polyvar_scope.clone(),
                     Mode::Ana {
@@ -1905,9 +1892,6 @@ fn generate_constraints_expr(
             // function type
             let ty_args_and_body = TypeVar::make_func(tys_args, ty_body, Reason::Node(expr.id));
 
-            if let ExprKind::Identifier(_ident) = &*func.kind {
-                // println!("{_ident}()");
-            }
             constrain_because(
                 ctx,
                 ty_args_and_body.clone(),
@@ -2127,8 +2111,6 @@ fn generate_constraints_pat(
     pat: Rc<Pat>,
     ctx: &mut StaticsContext,
 ) {
-    // println!("generate_constraints_pat");
-    // _print_node(ctx, pat.id);
     let ty_pat = TypeVar::from_node(ctx, pat.id);
     match &*pat.kind {
         PatKind::Wildcard => (),
@@ -2191,9 +2173,7 @@ fn generate_constraints_pat(
                         Some(ty) => ast_type_to_typevar(ctx, ty.clone()),
                     };
                     let variant_data_ty = variant_data_ty.subst(Prov::Node(pat.id), &substitution);
-                    // println!("variant_data_ty={}", variant_data_ty);
                     constrain(ctx, ty_data.clone(), variant_data_ty);
-                    // println!("ty_data={}", ty_data);
 
                     def_type
                 } else {
@@ -2235,14 +2215,10 @@ fn generate_constraints_pat(
             expected,
             constraint_reason,
         } => {
-            // println!("expected = {}", expected);
             constrain_because(ctx, expected, ty_pat.clone(), constraint_reason);
-            // println!("ty_pat = {}", ty_pat);
         }
         Mode::Ana { expected } => {
-            // println!("expected = {}", expected);
             constrain(ctx, expected, ty_pat.clone());
-            // println!("ty_pat = {}", ty_pat);
         }
     };
 }
@@ -2278,41 +2254,6 @@ pub(crate) fn monotype_to_typevar(ty: Monotype, reason: Reason) -> TypeVar {
         }
     }
 }
-
-// pub(crate) fn solved_type_to_typevar(ty: SolvedType, reason: Reason) -> TypeVar {
-//     match ty {
-//         SolvedType::Unit => TypeVar::make_unit(reason),
-//         SolvedType::Int => TypeVar::make_int(reason),
-//         SolvedType::Float => TypeVar::make_float(reason),
-//         SolvedType::Bool => TypeVar::make_bool(reason),
-//         SolvedType::String => TypeVar::make_string(reason),
-//         SolvedType::Tuple(elements) => {
-//             let elements = elements
-//                 .into_iter()
-//                 .map(|e| solved_type_to_typevar(e, reason.clone()))
-//                 .collect();
-//             TypeVar::make_tuple(elements, reason)
-//         }
-//         SolvedType::Function(args, out) => {
-//             let args = args
-//                 .into_iter()
-//                 .map(|a| solved_type_to_typevar(a, reason.clone()))
-//                 .collect();
-//             let out = solved_type_to_typevar(*out, reason.clone());
-//             TypeVar::make_func(args, out, reason.clone())
-//         }
-//         SolvedType::Nominal(name, params) => {
-//             let params = params
-//                 .into_iter()
-//                 .map(|p| solved_type_to_typevar(p, reason.clone()))
-//                 .collect();
-//             TypeVar::make_nominal(reason, name, params)
-//         }
-//         SolvedType::Poly(polyty) => {
-//             TypeVar::make_poly(reason, Declaration::Polytype(polyty.clone()))
-//         }
-//     }
-// }
 
 pub(crate) fn fmt_conflicting_types(types: &[PotentialType], f: &mut dyn Write) -> fmt::Result {
     writeln!(f)?;
