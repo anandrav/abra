@@ -1,4 +1,13 @@
 
-let arr = [1, 2, 3, 4, 5, 6]
-println(arr)
+type Person = {
+  name: string
+  age: int
+  hobbies: array<string>
+}
+
+let hobbies = ["fishing", "camping", "woodworking"]
+let p = Person("Alan", 38, hobbies)
+
+p.hobbies[0] <- "FISHING"
+println(p.hobbies)
 

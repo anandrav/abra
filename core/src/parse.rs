@@ -62,8 +62,7 @@ pub(crate) fn parse_expr_pratt(pairs: Pairs<Rule>, file_id: FileId) -> Rc<Expr> 
             | Op::infix(Rule::op_division, Assoc::Left)
             | Op::infix(Rule::op_mod, Assoc::Left))
         .op(Op::infix(Rule::op_pow, Assoc::Left))
-        .op(Op::infix(Rule::op_access, Assoc::Left))
-        .op(Op::postfix(Rule::index_access));
+        .op(Op::postfix(Rule::member_access) | Op::postfix(Rule::index_access));
     pratt
         .map_primary(|t| parse_expr_term(t, file_id))
         .map_prefix(|_op, _rhs| panic!("prefix operator encountered"))
@@ -75,6 +74,17 @@ pub(crate) fn parse_expr_pratt(pairs: Pairs<Rule>, file_id: FileId) -> Rc<Expr> 
                 Rc::new(Expr {
                     kind: Rc::new(ExprKind::IndexAccess(lhs, index)),
                     loc: span,
+                    id: NodeId::new(),
+                })
+            }
+            Rule::member_access => {
+                let loc = Location::new(file_id, op.as_span());
+                let inner: Vec<_> = op.into_inner().collect();
+                let property = parse_expr_pratt(Pairs::single(inner[0].clone()), file_id);
+
+                Rc::new(Expr {
+                    kind: Rc::new(ExprKind::MemberAccess(lhs.clone(), property.clone())),
+                    loc,
                     id: NodeId::new(),
                 })
             }
@@ -104,15 +114,7 @@ pub(crate) fn parse_expr_pratt(pairs: Pairs<Rule>, file_id: FileId) -> Rc<Expr> 
                     loc: Location::new(file_id, op.as_span()),
                     id: NodeId::new(),
                 }),
-                None => Rc::new(Expr {
-                    kind: Rc::new(ExprKind::MemberAccess(lhs.clone(), rhs.clone())),
-                    loc: Location {
-                        file_id,
-                        lo: lhs.loc.lo,
-                        hi: rhs.loc.hi,
-                    },
-                    id: NodeId::new(),
-                }),
+                None => panic!(),
             }
         })
         .parse(pairs)

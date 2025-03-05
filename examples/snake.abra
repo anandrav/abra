@@ -86,11 +86,8 @@ main()
 fn display_snake(snake: Snake) {
   var i = 0
   while i < len(snake.body) {
-    // TODO: this doesn't typecheck and/or parse
-    //let x = snake.body[i].x
-    //let y = snake.body[i].y
-    let x = (snake.body)[i].x
-    let y = (snake.body)[i].y
+    let x = snake.body[i].x
+    let y = snake.body[i].y
 
     mark("O", x, y)
 
@@ -103,7 +100,7 @@ fn update_snake(snake: Snake) {
   // TODO: if l is named len instead, stack overflow (need occurs check)
   let l = len(body)
   
-  // TODO: if this i is commented out, it's not caught
+  // TODO: if this i is commented out, error is not detected in static analysis
   var i = l - 2
   while i >= 0 {
     body[i+1] <- body[i]
