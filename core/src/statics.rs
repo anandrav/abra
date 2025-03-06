@@ -1,6 +1,6 @@
 use crate::FileProvider;
 use crate::ast::{
-    EnumDef, FileAst, FileDatabase, ForeignFuncDecl, FuncDef, Identifier, InterfaceDecl,
+    EnumDef, FileAst, FileDatabase, FileId, ForeignFuncDecl, FuncDef, Identifier, InterfaceDecl,
     InterfaceImpl, NodeId, NodeMap, Polytype, StructDef, TypeKind,
 };
 use crate::builtin::Builtin;
@@ -453,7 +453,7 @@ fn handle_reason(
     ty: &PotentialType,
     reason: &Reason,
     node_map: &NodeMap,
-    labels: &mut Vec<Label<usize>>,
+    labels: &mut Vec<Label<FileId>>,
     notes: &mut Vec<String>,
 ) {
     // get rid of this after making our own file database

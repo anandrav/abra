@@ -3,7 +3,7 @@ use std::fmt::Display;
 use std::ops::Range;
 use std::path::PathBuf;
 use std::rc::Rc;
-use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::atomic::{AtomicU32, Ordering};
 
 #[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq, Hash)]
 pub(crate) struct Identifier {
@@ -113,38 +113,38 @@ impl FileDatabase {
 
     /// Add a file to the database, returning the handle that can be used to
     /// refer to it again.
-    pub fn add(&mut self, file_data: FileData) -> usize {
-        let file_id = self.files.len();
+    pub fn add(&mut self, file_data: FileData) -> FileId {
+        let file_id = self.files.len() as FileId;
         self.files.push(file_data);
         file_id
     }
 
     /// Get the file corresponding to the given id.
-    pub fn get(&self, file_id: usize) -> Result<&FileData, codespan_reporting::files::Error> {
+    pub fn get(&self, file_id: FileId) -> Result<&FileData, codespan_reporting::files::Error> {
         self.files
-            .get(file_id)
+            .get(file_id as usize)
             .ok_or(codespan_reporting::files::Error::FileMissing)
     }
 }
 
-pub type FileId = usize;
+pub type FileId = u32;
 
 impl<'a> codespan_reporting::files::Files<'a> for FileDatabase {
     type FileId = FileId;
     type Name = &'a str;
     type Source = &'a str;
 
-    fn name(&'a self, file_id: usize) -> Result<Self::Name, codespan_reporting::files::Error> {
+    fn name(&'a self, file_id: FileId) -> Result<Self::Name, codespan_reporting::files::Error> {
         Ok(self.get(file_id)?.name())
     }
 
-    fn source(&'a self, file_id: usize) -> Result<&'a str, codespan_reporting::files::Error> {
+    fn source(&'a self, file_id: FileId) -> Result<&'a str, codespan_reporting::files::Error> {
         Ok(&self.get(file_id)?.source)
     }
 
     fn line_index(
         &'a self,
-        file_id: usize,
+        file_id: FileId,
         byte_index: usize,
     ) -> Result<usize, codespan_reporting::files::Error> {
         self.get(file_id)?.line_index(byte_index)
@@ -152,7 +152,7 @@ impl<'a> codespan_reporting::files::Files<'a> for FileDatabase {
 
     fn line_range(
         &'a self,
-        file_id: usize,
+        file_id: FileId,
         line_index: usize,
     ) -> Result<Range<usize>, codespan_reporting::files::Error> {
         self.get(file_id)?.line_range(line_index)
@@ -761,12 +761,12 @@ pub(crate) struct Polytype {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub(crate) struct NodeId {
-    pub(crate) id: usize,
+    pub(crate) id: u32,
 }
 
 impl NodeId {
     pub(crate) fn new() -> Self {
-        static ID_COUNTER: std::sync::atomic::AtomicUsize = AtomicUsize::new(1);
+        static ID_COUNTER: std::sync::atomic::AtomicU32 = AtomicU32::new(1);
         let id = ID_COUNTER.fetch_add(1, Ordering::Relaxed);
         Self { id }
     }
@@ -787,21 +787,21 @@ impl Default for NodeId {
 #[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq, Hash)]
 pub(crate) struct Location {
     pub(crate) file_id: FileId,
-    pub(crate) lo: usize,
-    pub(crate) hi: usize,
+    pub(crate) lo: u32,
+    pub(crate) hi: u32,
 }
 
 impl Location {
     pub fn new(file_id: FileId, pest_span: pest::Span) -> Self {
         Location {
             file_id,
-            lo: pest_span.start(),
-            hi: pest_span.end(),
+            lo: pest_span.start() as u32,
+            hi: pest_span.end() as u32,
         }
     }
 
     pub fn range(&self) -> std::ops::Range<usize> {
-        self.lo..self.hi
+        self.lo as usize..self.hi as usize
     }
 }
 

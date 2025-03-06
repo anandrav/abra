@@ -36,7 +36,7 @@ struct OverloadedFuncDesc {
 struct LambdaData {
     label: Label,
     offset_table: OffsetTable,
-    nlocals: usize,
+    nlocals: u16,
 }
 
 pub(crate) struct Translator {
@@ -205,19 +205,18 @@ impl Translator {
         let file_id = location.file_id;
 
         let file = self._files.get(file_id).unwrap();
-        let line_no = file.line_number_for_index(location.lo);
+        let line_no = file.line_number_for_index(location.lo as usize);
 
         let bytecode_index = st.instr_count;
         {
             let mut redundant = false;
             if let Some(last) = st.filename_table.last() {
-                if last.1 == file_id as u32 {
+                if last.1 == file_id {
                     redundant = true;
                 }
             }
             if !redundant {
-                st.filename_table
-                    .push((bytecode_index as u32, file_id as u32));
+                st.filename_table.push((bytecode_index as u32, file_id));
             }
         }
 
@@ -350,7 +349,7 @@ impl Translator {
                     );
 
                     let nlocals = data.nlocals;
-                    let nargs = args.len();
+                    let nargs = args.len() as u16;
                     if nlocals + nargs > 0 {
                         // pop all locals and arguments except one. The last one is the return value slot.
                         self.emit(st, Instr::StoreOffset(-(nargs as i32)));
@@ -941,7 +940,7 @@ impl Translator {
 
                 let mut locals = HashSet::new();
                 collect_locals_expr(body, &mut locals);
-                let locals_count = locals.len();
+                let locals_count = locals.len() as u16;
 
                 let mut lambda_offset_table = OffsetTable::new();
                 for (i, arg) in args.iter().rev().enumerate() {
