@@ -80,10 +80,14 @@ pub(crate) fn parse_expr_pratt(pairs: Pairs<Rule>, file_id: FileId) -> Rc<Expr> 
             Rule::member_access => {
                 let loc = Location::new(file_id, op.as_span());
                 let inner: Vec<_> = op.into_inner().collect();
-                let property = parse_expr_pratt(Pairs::single(inner[0].clone()), file_id);
+                let ident = Identifier {
+                    v: inner[0].as_str().to_string(),
+                    loc: Location::new(file_id, inner[0].as_span()),
+                    id: NodeId::new(),
+                };
 
                 Rc::new(Expr {
-                    kind: Rc::new(ExprKind::MemberAccess(lhs.clone(), property.clone())),
+                    kind: Rc::new(ExprKind::MemberAccess(lhs.clone(), ident)),
                     loc,
                     id: NodeId::new(),
                 })

@@ -857,13 +857,9 @@ impl Translator {
                 self.emit(st, Line::Label(end_label));
                 self.emit(st, Instr::PushNil); // TODO get rid of this unnecessary overhead
             }
-            ExprKind::MemberAccess(accessed, field) => {
-                // TODO, this downcast shouldn't be necessary
-                let ExprKind::Identifier(field_name) = &*field.kind else {
-                    panic!()
-                };
+            ExprKind::MemberAccess(accessed, field_name) => {
                 self.translate_expr(accessed.clone(), offset_table, monomorph_env.clone(), st);
-                let idx = idx_of_field(&self.statics, accessed.clone(), field_name);
+                let idx = idx_of_field(&self.statics, accessed.clone(), &field_name.v);
                 self.emit(st, Instr::GetField(idx));
             }
             ExprKind::Array(exprs) => {
@@ -1273,14 +1269,10 @@ impl Translator {
                         self.translate_expr(rvalue.clone(), locals, monomorph_env.clone(), st);
                         self.emit(st, Instr::StoreOffset(*idx));
                     }
-                    ExprKind::MemberAccess(accessed, field) => {
-                        // TODO, this downcast shouldn't be necessary
-                        let ExprKind::Identifier(field_name) = &*field.kind else {
-                            panic!()
-                        };
+                    ExprKind::MemberAccess(accessed, field_name) => {
                         self.translate_expr(rvalue.clone(), locals, monomorph_env.clone(), st);
                         self.translate_expr(accessed.clone(), locals, monomorph_env.clone(), st);
-                        let idx = idx_of_field(&self.statics, accessed.clone(), field_name);
+                        let idx = idx_of_field(&self.statics, accessed.clone(), &field_name.v);
                         self.emit(st, Instr::SetField(idx));
                     }
                     ExprKind::IndexAccess(array, index) => {

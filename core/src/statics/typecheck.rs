@@ -1913,7 +1913,7 @@ fn generate_constraints_expr(
                 generate_constraints_expr(polyvar_scope.clone(), Mode::Syn, expr.clone(), ctx);
             }
         }
-        ExprKind::MemberAccess(expr, field) => {
+        ExprKind::MemberAccess(expr, member_ident) => {
             generate_constraints_expr(polyvar_scope, Mode::Syn, expr.clone(), ctx);
             let ty_expr = TypeVar::from_node(ctx, expr.id);
             if ty_expr.underdetermined() {
@@ -1925,20 +1925,18 @@ fn generate_constraints_expr(
                 return;
             };
             if let PotentialType::Nominal(_, Nominal::Struct(struct_def), _) = inner {
-                let ExprKind::Identifier(field_ident) = &*field.kind else {
-                    panic!()
-                };
                 let mut resolved = false;
                 for field in &struct_def.fields {
-                    if field.name.v == *field_ident {
+                    if field.name.v == *member_ident.v {
                         let ty_field = ast_type_to_typevar(ctx, field.ty.clone());
                         constrain(ctx, node_ty.clone(), ty_field);
                         resolved = true;
                     }
                 }
                 if !resolved {
-                    ctx.errors
-                        .push(Error::UnresolvedIdentifier { node_id: field.id })
+                    ctx.errors.push(Error::UnresolvedIdentifier {
+                        node_id: member_ident.id,
+                    })
                 }
             }
         }

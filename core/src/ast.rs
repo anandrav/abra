@@ -568,7 +568,7 @@ impl Node for Expr {
                 }
                 children
             }
-            ExprKind::MemberAccess(expr, field) => vec![expr.clone(), field.clone()], // TODO: should field really be an expression? maybe just an identifier?
+            ExprKind::MemberAccess(expr, field) => vec![expr.clone(), Rc::new(field.clone())], // TODO: should field really be an expression? maybe just an identifier?
             ExprKind::IndexAccess(expr, index) => vec![expr.clone(), index.clone()],
         }
     }
@@ -597,7 +597,7 @@ pub(crate) enum ExprKind {
     BinOp(Rc<Expr>, BinaryOperator, Rc<Expr>),
     FuncAp(Rc<Expr>, Vec<Rc<Expr>>),
     Tuple(Vec<Rc<Expr>>),
-    MemberAccess(Rc<Expr>, Rc<Expr>), // TODO: field should not be an expression? just an identifier.
+    MemberAccess(Rc<Expr>, Identifier),
     IndexAccess(Rc<Expr>, Rc<Expr>),
 }
 
