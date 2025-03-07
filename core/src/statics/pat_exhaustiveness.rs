@@ -1,7 +1,4 @@
-use crate::ast::{
-    AstNode, Expr, ExprKind, FileAst, Item, ItemKind, MatchArm, NodeId, Pat, PatKind, Stmt,
-    StmtKind,
-};
+use crate::ast::{Expr, ExprKind, FileAst, Item, ItemKind, MatchArm, Pat, PatKind, Stmt, StmtKind};
 
 use core::panic;
 
@@ -693,8 +690,6 @@ fn match_expr_exhaustive_check(statics: &mut StaticsContext, expr: &Rc<Expr>) {
         panic!()
     };
 
-    // _print_node(statics, expr.id);
-
     let scrutinee_ty = statics.solution_of_node(scrutiny.into());
     let Some(scrutinee_ty) = scrutinee_ty else {
         return;
@@ -826,24 +821,4 @@ fn ctors_for_ty(ty: &SolvedType) -> ConstructorSet {
         }
         SolvedType::Poly(..) => ConstructorSet::Unlistable,
     }
-}
-
-// TODO: de-duplicate
-use codespan_reporting::diagnostic::{Diagnostic, Label};
-use codespan_reporting::term;
-use codespan_reporting::term::termcolor::{ColorChoice, StandardStream};
-fn _print_node(ctx: &StaticsContext, node_id: AstNode) {
-    let get_file_and_range = |id: &AstNode| {
-        let span = id.location();
-        (span.file_id, span.range())
-    };
-
-    let (file, range) = get_file_and_range(&node_id);
-
-    let diagnostic = Diagnostic::note().with_labels(vec![Label::secondary(file, range)]);
-
-    let writer = StandardStream::stderr(ColorChoice::Always);
-    let config = codespan_reporting::term::Config::default();
-
-    term::emit(&mut writer.lock(), &config, &ctx._files, &diagnostic).unwrap();
 }

@@ -3,8 +3,8 @@ use std::collections::HashMap;
 use std::rc::Rc;
 
 use crate::ast::{
-    ArgMaybeAnnotated, AstNode, Expr, ExprKind, FileAst, Identifier, Item, ItemKind, Pat,
-    PatKind, Stmt, StmtKind, Type, TypeDefKind, TypeKind,
+    ArgMaybeAnnotated, AstNode, Expr, ExprKind, FileAst, Identifier, Item, ItemKind, Pat, PatKind,
+    Stmt, StmtKind, Type, TypeDefKind, TypeKind,
 };
 use crate::builtin::Builtin;
 
@@ -383,7 +383,7 @@ fn resolve_names_item_decl(ctx: &mut StaticsContext, symbol_table: SymbolTable, 
             }
             let symbol_table = symbol_table.new_scope();
             for arg in &f.args {
-                resolve_names_fn_arg(ctx, symbol_table.clone(), &arg.0);
+                resolve_names_fn_arg(symbol_table.clone(), &arg.0);
                 // if let Some(ty_annot) = &arg.1 {
                 resolve_names_typ(ctx, symbol_table.clone(), arg.1.clone(), true);
                 // }
@@ -412,7 +412,7 @@ fn resolve_names_item_decl(ctx: &mut StaticsContext, symbol_table: SymbolTable, 
                     }
                     let symbol_table = symbol_table.new_scope();
                     for arg in &f.args {
-                        resolve_names_fn_arg(ctx, symbol_table.clone(), &arg.0);
+                        resolve_names_fn_arg(symbol_table.clone(), &arg.0);
                         if let Some(annot) = &arg.1 {
                             resolve_names_typ(ctx, symbol_table.clone(), annot.clone(), true);
                         }
@@ -613,7 +613,7 @@ fn resolve_names_func_helper(
     ret_type: &Option<Rc<Type>>,
 ) {
     for arg in args {
-        resolve_names_fn_arg(ctx, symbol_table.clone(), &arg.0);
+        resolve_names_fn_arg(symbol_table.clone(), &arg.0);
         if let Some(ty_annot) = &arg.1 {
             resolve_names_typ(ctx, symbol_table.clone(), ty_annot.clone(), true);
         }
@@ -626,7 +626,7 @@ fn resolve_names_func_helper(
     }
 }
 
-fn resolve_names_fn_arg(ctx: &mut StaticsContext, symbol_table: SymbolTable, arg: &Rc<Identifier>) {
+fn resolve_names_fn_arg(symbol_table: SymbolTable, arg: &Rc<Identifier>) {
     symbol_table.extend_declaration(arg.v.clone(), Declaration::Var(arg.into()));
 }
 

@@ -1,4 +1,3 @@
-use std::collections::HashMap;
 use std::fmt::Display;
 use std::hash::Hasher;
 use std::ops::Range;
@@ -513,8 +512,7 @@ pub(crate) enum ExprKind {
     Variable(String),
     Unit,
     Int(i64),
-    // Float is represented as String to allow Eq and Hash
-    Float(String),
+    Float(String), // Float is represented as String to allow Eq and Hash
     Bool(bool),
     Str(String),
     List(Vec<Rc<Expr>>),

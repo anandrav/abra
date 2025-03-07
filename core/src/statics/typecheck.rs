@@ -1,6 +1,6 @@
 use crate::ast::{
-    ArgAnnotated, ArgMaybeAnnotated, AstNode, Expr, ExprKind, FileAst, Identifier, ItemKind,
-    NodeId, Pat, PatKind, Stmt, StmtKind, Type as AstType, TypeDefKind, TypeKind,
+    ArgAnnotated, ArgMaybeAnnotated, AstNode, Expr, ExprKind, FileAst, Identifier, ItemKind, Pat,
+    PatKind, Stmt, StmtKind, Type as AstType, TypeDefKind, TypeKind,
 };
 use crate::ast::{BinaryOperator, Item};
 use crate::builtin::Builtin;
@@ -904,7 +904,7 @@ fn tyvar_of_declaration(
                 Monotype::Function(ty_signature.0.clone(), ty_signature.1.clone().into());
             Some(monotype_to_typevar(func_type, Reason::Effect(*e)))
         }
-        Declaration::Var(node_id) => Some(TypeVar::from_node(ctx, node_id.clone().into())),
+        Declaration::Var(node_id) => Some(TypeVar::from_node(ctx, node_id.clone())),
     }
 }
 
