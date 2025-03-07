@@ -1935,7 +1935,7 @@ fn generate_constraints_expr(
                 }
                 if !resolved {
                     ctx.errors.push(Error::UnresolvedIdentifier {
-                        node_id: member_ident.id,
+                        node_id: member_ident.into(),
                     })
                 }
             }

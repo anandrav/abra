@@ -3,8 +3,8 @@ use std::collections::HashMap;
 use std::rc::Rc;
 
 use crate::ast::{
-    ArgMaybeAnnotated, Expr, ExprKind, FileAst, Identifier, Item, ItemKind, Node, NodeId, Pat,
-    PatKind, Stmt, StmtKind, Type, TypeDefKind, TypeKind,
+    ArgMaybeAnnotated, AstNode, Expr, ExprKind, FileAst, Identifier, Item, ItemKind, Node, NodeId,
+    Pat, PatKind, Stmt, StmtKind, Type, TypeDefKind, TypeKind,
 };
 use crate::builtin::Builtin;
 
@@ -325,8 +325,9 @@ fn resolve_imports_file(ctx: &mut StaticsContext, file: Rc<FileAst>) -> Toplevel
         if let ItemKind::Import(path) = &*item.kind {
             // dbg!(&ctx.global_namespace.namespaces);
             let Some(import_src) = ctx.global_namespace.namespaces.get(&path.v) else {
-                ctx.errors
-                    .push(Error::UnresolvedIdentifier { node_id: item.id });
+                ctx.errors.push(Error::UnresolvedIdentifier {
+                    node_id: item.into(),
+                });
                 continue;
             };
             // add declarations from this import to the environment
@@ -422,8 +423,9 @@ fn resolve_names_item_decl(ctx: &mut StaticsContext, symbol_table: SymbolTable, 
                     }
                 }
             } else {
-                ctx.errors
-                    .push(Error::UnresolvedIdentifier { node_id: stmt.id });
+                ctx.errors.push(Error::UnresolvedIdentifier {
+                    node_id: stmt.into(),
+                });
             }
         }
         ItemKind::Import(..) => {}
@@ -544,8 +546,9 @@ fn resolve_names_expr(ctx: &mut StaticsContext, symbol_table: SymbolTable, expr:
             if let Some(decl) = lookup {
                 ctx.resolution_map.insert(expr.id, decl);
             } else {
-                ctx.errors
-                    .push(Error::UnresolvedIdentifier { node_id: expr.id() });
+                ctx.errors.push(Error::UnresolvedIdentifier {
+                    node_id: expr.into(),
+                });
             }
         }
         ExprKind::BinOp(left, _, right) => {
@@ -644,8 +647,9 @@ fn resolve_names_pat(ctx: &mut StaticsContext, symbol_table: SymbolTable, pat: R
             {
                 ctx.resolution_map.insert(tag.id, decl.clone());
             } else {
-                ctx.errors
-                    .push(Error::UnresolvedIdentifier { node_id: tag.id });
+                ctx.errors.push(Error::UnresolvedIdentifier {
+                    node_id: tag.into(),
+                });
             }
             if let Some(data) = data {
                 resolve_names_pat(ctx, symbol_table, data.clone())
@@ -688,16 +692,22 @@ fn resolve_names_typ(
                 {
                     ctx.resolution_map.insert(iface.id, decl.clone());
                 } else {
-                    ctx.errors
-                        .push(Error::UnresolvedIdentifier { node_id: iface.id });
+                    ctx.errors.push(Error::UnresolvedIdentifier {
+                        node_id: iface.into(),
+                    });
                 }
             }
         }
         TypeKind::Named(identifier) => {
-            resolve_names_typ_identifier(ctx, symbol_table, identifier, typ.id);
+            resolve_names_typ_identifier(ctx, symbol_table, identifier, typ.clone().into());
         }
         TypeKind::NamedWithParams(identifier, args) => {
-            resolve_names_typ_identifier(ctx, symbol_table.clone(), &identifier.v, identifier.id);
+            resolve_names_typ_identifier(
+                ctx,
+                symbol_table.clone(),
+                &identifier.v,
+                identifier.into(),
+            );
             for arg in args {
                 resolve_names_typ(ctx, symbol_table.clone(), arg.clone(), introduce_poly);
             }
@@ -720,7 +730,7 @@ fn resolve_names_typ_identifier(
     ctx: &mut StaticsContext,
     symbol_table: SymbolTable,
     identifier: &String,
-    id: NodeId,
+    id: AstNode,
 ) {
     let lookup = symbol_table.lookup_declaration(identifier);
     match lookup {
@@ -730,7 +740,7 @@ fn resolve_names_typ_identifier(
             | Declaration::Array
             | Declaration::ForeignType(_)),
         ) => {
-            ctx.resolution_map.insert(id, decl);
+            ctx.resolution_map.insert(id.id(), decl);
         }
         _ => {
             ctx.errors.push(Error::UnresolvedIdentifier { node_id: id });

@@ -1,7 +1,7 @@
 use crate::FileProvider;
 use crate::ast::{
-    EnumDef, FileAst, FileDatabase, FileId, ForeignFuncDecl, FuncDef, Identifier, InterfaceDecl,
-    InterfaceImpl, NodeId, NodeMap, Polytype, StructDef, TypeKind,
+    AstNode, EnumDef, FileAst, FileDatabase, FileId, ForeignFuncDecl, FuncDef, Identifier,
+    InterfaceDecl, InterfaceImpl, NodeId, NodeMap, Polytype, StructDef, TypeKind,
 };
 use crate::builtin::Builtin;
 use crate::effects::EffectDesc;
@@ -157,7 +157,7 @@ pub(crate) enum Declaration {
 pub(crate) enum Error {
     // resolution phase
     UnresolvedIdentifier {
-        node_id: NodeId,
+        node_id: AstNode,
     },
     // typechecking phase
     UnconstrainedUnifvar {
@@ -257,7 +257,7 @@ impl Error {
 
         match self {
             Error::UnresolvedIdentifier { node_id } => {
-                let (file, range) = get_file_and_range(node_id);
+                let (file, range) = get_file_and_range(&node_id.id());
                 diagnostic = diagnostic.with_message("Could not resolve identifier");
                 labels.push(Label::secondary(file, range))
             }

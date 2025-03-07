@@ -281,68 +281,8 @@ pub(crate) enum AstNode {
     StructField(Rc<StructField>),
 }
 
-impl From<Rc<FileAst>> for AstNode {
-    fn from(file_ast: Rc<FileAst>) -> Self {
-        AstNode::FileAst(file_ast)
-    }
-}
-
-impl From<Rc<Item>> for AstNode {
-    fn from(item: Rc<Item>) -> Self {
-        AstNode::Item(item)
-    }
-}
-
-impl From<Rc<Stmt>> for AstNode {
-    fn from(stmt: Rc<Stmt>) -> Self {
-        AstNode::Stmt(stmt)
-    }
-}
-
-impl From<Rc<Expr>> for AstNode {
-    fn from(expr: Rc<Expr>) -> Self {
-        AstNode::Expr(expr)
-    }
-}
-
-impl From<Rc<Pat>> for AstNode {
-    fn from(pat: Rc<Pat>) -> Self {
-        AstNode::Pat(pat)
-    }
-}
-
-impl From<Rc<Type>> for AstNode {
-    fn from(typ: Rc<Type>) -> Self {
-        AstNode::Type(typ)
-    }
-}
-
-impl From<Rc<Identifier>> for AstNode {
-    fn from(identifier: Rc<Identifier>) -> Self {
-        AstNode::Identifier(identifier)
-    }
-}
-
-impl From<Rc<InterfaceMethodDecl>> for AstNode {
-    fn from(interface_method_decl: Rc<InterfaceMethodDecl>) -> Self {
-        AstNode::InterfaceMethodDecl(interface_method_decl)
-    }
-}
-
-impl From<Rc<Variant>> for AstNode {
-    fn from(variant: Rc<Variant>) -> Self {
-        AstNode::Variant(variant)
-    }
-}
-
-impl From<Rc<StructField>> for AstNode {
-    fn from(struct_field: Rc<StructField>) -> Self {
-        AstNode::StructField(struct_field)
-    }
-}
-
 impl AstNode {
-    fn location(&self) -> &Location {
+    pub fn location(&self) -> &Location {
         match self {
             AstNode::FileAst(file_ast) => &file_ast.loc,
             AstNode::Item(item) => &item.loc,
@@ -357,7 +297,7 @@ impl AstNode {
         }
     }
 
-    fn id(&self) -> NodeId {
+    pub fn id(&self) -> NodeId {
         match self {
             AstNode::FileAst(file_ast) => file_ast.id,
             AstNode::Item(item) => item.id,
@@ -370,6 +310,116 @@ impl AstNode {
             AstNode::Variant(variant) => variant.id,
             AstNode::StructField(struct_field) => struct_field.id,
         }
+    }
+}
+
+impl From<Rc<FileAst>> for AstNode {
+    fn from(file_ast: Rc<FileAst>) -> Self {
+        AstNode::FileAst(file_ast)
+    }
+}
+impl From<&Rc<FileAst>> for AstNode {
+    fn from(file_ast: &Rc<FileAst>) -> Self {
+        AstNode::FileAst(Rc::clone(file_ast))
+    }
+}
+
+impl From<Rc<Item>> for AstNode {
+    fn from(item: Rc<Item>) -> Self {
+        AstNode::Item(item)
+    }
+}
+impl From<&Rc<Item>> for AstNode {
+    fn from(item: &Rc<Item>) -> Self {
+        AstNode::Item(Rc::clone(item))
+    }
+}
+
+impl From<Rc<Stmt>> for AstNode {
+    fn from(stmt: Rc<Stmt>) -> Self {
+        AstNode::Stmt(stmt)
+    }
+}
+impl From<&Rc<Stmt>> for AstNode {
+    fn from(stmt: &Rc<Stmt>) -> Self {
+        AstNode::Stmt(Rc::clone(stmt))
+    }
+}
+
+impl From<Rc<Expr>> for AstNode {
+    fn from(expr: Rc<Expr>) -> Self {
+        AstNode::Expr(expr)
+    }
+}
+impl From<&Rc<Expr>> for AstNode {
+    fn from(expr: &Rc<Expr>) -> Self {
+        AstNode::Expr(Rc::clone(expr))
+    }
+}
+
+impl From<Rc<Pat>> for AstNode {
+    fn from(pat: Rc<Pat>) -> Self {
+        AstNode::Pat(pat)
+    }
+}
+impl From<&Rc<Pat>> for AstNode {
+    fn from(pat: &Rc<Pat>) -> Self {
+        AstNode::Pat(Rc::clone(pat))
+    }
+}
+
+impl From<Rc<Type>> for AstNode {
+    fn from(typ: Rc<Type>) -> Self {
+        AstNode::Type(typ)
+    }
+}
+impl From<&Rc<Type>> for AstNode {
+    fn from(typ: &Rc<Type>) -> Self {
+        AstNode::Type(Rc::clone(typ))
+    }
+}
+
+impl From<Rc<Identifier>> for AstNode {
+    fn from(identifier: Rc<Identifier>) -> Self {
+        AstNode::Identifier(identifier)
+    }
+}
+impl From<&Rc<Identifier>> for AstNode {
+    fn from(identifier: &Rc<Identifier>) -> Self {
+        AstNode::Identifier(Rc::clone(identifier))
+    }
+}
+
+impl From<Rc<InterfaceMethodDecl>> for AstNode {
+    fn from(interface_method_decl: Rc<InterfaceMethodDecl>) -> Self {
+        AstNode::InterfaceMethodDecl(interface_method_decl)
+    }
+}
+impl From<&Rc<InterfaceMethodDecl>> for AstNode {
+    fn from(interface_method_decl: &Rc<InterfaceMethodDecl>) -> Self {
+        AstNode::InterfaceMethodDecl(Rc::clone(interface_method_decl))
+    }
+}
+
+impl From<Rc<Variant>> for AstNode {
+    fn from(variant: Rc<Variant>) -> Self {
+        AstNode::Variant(variant)
+    }
+}
+impl From<&Rc<Variant>> for AstNode {
+    fn from(variant: &Rc<Variant>) -> Self {
+        AstNode::Variant(Rc::clone(variant))
+    }
+}
+
+impl From<Rc<StructField>> for AstNode {
+    fn from(struct_field: Rc<StructField>) -> Self {
+        AstNode::StructField(struct_field)
+    }
+}
+impl From<&Rc<StructField>> for AstNode {
+    fn from(struct_field: &Rc<StructField>) -> Self {
+        AstNode::StructField(Rc::clone(struct_field))
     }
 }
 
