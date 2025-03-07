@@ -1,5 +1,6 @@
 use helper
 use helperdir/helper3
+use helperdir/helper4
 
 let x = foo(2)
 println("foo(2) = " & x)

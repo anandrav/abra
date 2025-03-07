@@ -447,7 +447,7 @@ pub(crate) enum StmtKind {
     Return(Rc<Expr>),
 }
 
-pub(crate) type ArgAnnotated = (Identifier, Option<Rc<Type>>);
+pub(crate) type ArgAnnotated = (Identifier, Option<Rc<Type>>); // TODO: type annotation should not be optional. Create a second type called ArgMaybeAnnotated
 
 #[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq, Hash)]
 pub(crate) struct FuncDef {
@@ -568,7 +568,7 @@ impl Node for Expr {
                 }
                 children
             }
-            ExprKind::MemberAccess(expr, field) => vec![expr.clone(), Rc::new(field.clone())], // TODO: should field really be an expression? maybe just an identifier?
+            ExprKind::MemberAccess(expr, field) => vec![expr.clone(), Rc::new(field.clone())],
             ExprKind::IndexAccess(expr, index) => vec![expr.clone(), index.clone()],
         }
     }
