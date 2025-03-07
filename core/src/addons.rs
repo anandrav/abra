@@ -516,10 +516,6 @@ fn add_items_from_ast(ast: Rc<FileAst>, output: &mut String) {
                 output.push_str("let vm_funcs: &AbraVmFunctions = &*vm_funcs;");
                 // get args in reverse order
                 for (name, ty) in f.args.iter().rev() {
-                    // TODO: why the fuck is name a Pat still.
-                    let PatKind::Binding(ident) = &*name.kind else {
-                        panic!()
-                    };
                     // TODO: ty shouldn't be optional for foreign fn
                     let ty = ty.clone().unwrap();
                     if matches!(&*ty.kind, TypeKind::Unit) {
@@ -532,7 +528,7 @@ fn add_items_from_ast(ast: Rc<FileAst>, output: &mut String) {
                         output.push_str(&format!(
                             r#"let {} = <{}>::from_vm(vm, vm_funcs);
                         "#,
-                            ident, tyname
+                            name.v, tyname
                         ));
                     }
                 }
@@ -544,16 +540,12 @@ fn add_items_from_ast(ast: Rc<FileAst>, output: &mut String) {
                     out_ty_name, package_name, f.name.v
                 ));
                 for (name, typ) in f.args.iter() {
-                    // TODO: why the fuck is name a Pat still.
-                    let PatKind::Binding(ident) = &*name.kind else {
-                        panic!()
-                    };
                     // TODO: why is this optional still?
                     let Some(typ) = typ else { panic!() };
                     if matches!(&*typ.kind, TypeKind::Unit) {
                         output.push_str("(),");
                     } else {
-                        output.push_str(&format!("{},", ident));
+                        output.push_str(&format!("{},", name.v));
                     }
                 }
                 output.push_str(");");

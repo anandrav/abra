@@ -301,8 +301,8 @@ impl Node for Item {
         match &*self.kind {
             ItemKind::ForeignFuncDecl(f) => {
                 let mut children: Vec<Rc<dyn Node>> = vec![];
-                for (pat, annot) in f.args.iter() {
-                    children.push(pat.clone() as Rc<dyn Node>);
+                for (name, annot) in f.args.iter() {
+                    children.push(Rc::new(name.clone()) as Rc<dyn Node>);
                     if let Some(ty) = annot {
                         children.push(ty.clone())
                     }
@@ -362,8 +362,8 @@ impl Node for Item {
 
 fn children_func_def(f: &FuncDef, children: &mut Vec<Rc<dyn Node>>) {
     children.push(Rc::new(f.name.clone()));
-    for (pat, annot) in f.args.iter() {
-        children.push(pat.clone() as Rc<dyn Node>);
+    for (name, annot) in f.args.iter() {
+        children.push(Rc::new(name.clone()) as Rc<dyn Node>);
         if let Some(ty) = annot {
             children.push(ty.clone())
         }
@@ -404,8 +404,8 @@ impl Node for Stmt {
         match &*self.kind {
             StmtKind::FuncDef(f) => {
                 let mut children: Vec<Rc<dyn Node>> = vec![];
-                for (pat, annot) in f.args.iter() {
-                    children.push(pat.clone() as Rc<dyn Node>);
+                for (name, annot) in f.args.iter() {
+                    children.push(Rc::new(name.clone()) as Rc<dyn Node>);
                     if let Some(ty) = annot {
                         children.push(ty.clone())
                     }
@@ -447,7 +447,7 @@ pub(crate) enum StmtKind {
     Return(Rc<Expr>),
 }
 
-pub(crate) type ArgAnnotated = (Rc<Pat>, Option<Rc<Type>>);
+pub(crate) type ArgAnnotated = (Identifier, Option<Rc<Type>>);
 
 #[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq, Hash)]
 pub(crate) struct FuncDef {
@@ -525,8 +525,8 @@ impl Node for Expr {
             ExprKind::Array(exprs) => exprs.iter().map(|e| e.clone() as Rc<dyn Node>).collect(),
             ExprKind::AnonymousFunction(args, ty_opt, body) => {
                 let mut children: Vec<Rc<dyn Node>> = Vec::new();
-                args.iter().for_each(|(pat, annot)| {
-                    children.push(pat.clone());
+                args.iter().for_each(|(name, annot)| {
+                    children.push(Rc::new(name.clone()) as Rc<dyn Node>);
                     if let Some(ty) = annot {
                         children.push(ty.clone())
                     }

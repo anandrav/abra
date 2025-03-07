@@ -133,12 +133,16 @@ pub(crate) fn parse_func_arg_annotation(pair: Pair<Rule>, file_id: FileId) -> Ar
     match rule {
         Rule::func_arg => {
             let inner: Vec<_> = pair.into_inner().collect();
-            let pat_pair = inner[0].clone();
-            let pat = parse_let_pattern(pat_pair, file_id);
+            let name: Pair<'_, Rule> = inner[0].clone();
+            let ident = Identifier {
+                v: name.as_str().to_string(),
+                loc: Location::new(file_id, name.as_span()),
+                id: NodeId::new(),
+            };
             let annot = inner
                 .get(1)
                 .map(|type_pair| parse_type_term(type_pair.clone(), file_id));
-            (pat, annot)
+            (ident, annot)
         }
         _ => panic!("unreachable rule {:#?}", rule),
     }

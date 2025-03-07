@@ -2000,16 +2000,9 @@ fn generate_constraints_func_helper(
                     let arg_annot = ast_type_to_typevar(ctx, arg_annot.clone());
                     constrain(ctx, ty_annot.clone(), arg_annot.clone());
                     polyvar_scope.add_polys(&arg_annot);
-                    generate_constraints_pat(
-                        polyvar_scope.clone(),
-                        Mode::Ana { expected: ty_annot },
-                        arg.clone(),
-                        ctx,
-                    )
+                    generate_constraints_fn_arg(Mode::Ana { expected: ty_annot }, arg.clone(), ctx)
                 }
-                None => {
-                    generate_constraints_pat(polyvar_scope.clone(), Mode::Syn, arg.clone(), ctx)
-                }
+                None => generate_constraints_fn_arg(Mode::Syn, arg.clone(), ctx),
             }
             ty_pat
         })
@@ -2061,16 +2054,9 @@ fn generate_constraints_func_decl(
                     let arg_annot = ast_type_to_typevar(ctx, arg_annot.clone());
                     constrain(ctx, ty_annot.clone(), arg_annot.clone());
                     polyvar_scope.add_polys(&arg_annot);
-                    generate_constraints_pat(
-                        polyvar_scope.clone(),
-                        Mode::Ana { expected: ty_annot },
-                        arg.clone(),
-                        ctx,
-                    )
+                    generate_constraints_fn_arg(Mode::Ana { expected: ty_annot }, arg.clone(), ctx)
                 }
-                None => {
-                    generate_constraints_pat(polyvar_scope.clone(), Mode::Syn, arg.clone(), ctx)
-                }
+                None => generate_constraints_fn_arg(Mode::Syn, arg.clone(), ctx),
             }
             ty_pat
         })
@@ -2101,6 +2087,22 @@ fn generate_constraints_fn_def(
 
     let ty_node = TypeVar::from_node(ctx, id);
     constrain(ctx, ty_node, ty_func.clone());
+}
+
+fn generate_constraints_fn_arg(mode: Mode, arg: Identifier, ctx: &mut StaticsContext) {
+    let ty_arg = TypeVar::from_node(ctx, arg.id);
+    match mode {
+        Mode::Syn => (),
+        Mode::AnaWithReason {
+            expected,
+            constraint_reason,
+        } => {
+            constrain_because(ctx, expected, ty_arg.clone(), constraint_reason);
+        }
+        Mode::Ana { expected } => {
+            constrain(ctx, expected, ty_arg.clone());
+        }
+    };
 }
 
 fn generate_constraints_pat(

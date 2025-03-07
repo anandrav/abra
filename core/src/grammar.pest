@@ -110,7 +110,7 @@ func_args_start = _{ "(" }
 func_args_end = _{ ")" }
 func_expression_args = _{ func_args | func_arg }
 func_args = _{ func_args_start ~ (func_arg ~ ",")* ~ func_arg? ~ func_args_end }
-func_arg = { let_pattern ~ (interface_annotation | type_annotation )?}
+func_arg = { identifier ~ (interface_annotation | type_annotation )?}
 
 interface_annotation = { ":" ~ "impl" ~ identifier }
 
