@@ -20,19 +20,6 @@ impl std::hash::Hash for Identifier {
     }
 }
 
-impl Node for Identifier {
-    fn location(&self) -> Location {
-        self.loc.clone()
-    }
-    fn id(&self) -> NodeId {
-        self.id
-    }
-
-    fn children(&self) -> Vec<Rc<dyn Node>> {
-        vec![]
-    }
-}
-
 #[derive(Debug, Clone)]
 pub struct FileData {
     pub nominal_path: PathBuf,
@@ -184,22 +171,6 @@ impl std::hash::Hash for FileAst {
     }
 }
 
-impl Node for FileAst {
-    fn location(&self) -> Location {
-        self.loc.clone()
-    }
-    fn id(&self) -> NodeId {
-        self.id
-    }
-
-    fn children(&self) -> Vec<Rc<dyn Node>> {
-        self.items
-            .iter()
-            .map(|i| i.clone() as Rc<dyn Node>)
-            .collect()
-    }
-}
-
 #[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq, Hash)]
 pub(crate) enum TypeDefKind {
     // Alias(Rc<Identifier>, Rc<AstType>),
@@ -245,22 +216,6 @@ impl std::hash::Hash for Variant {
     }
 }
 
-impl Node for Variant {
-    fn location(&self) -> Location {
-        self.loc.clone()
-    }
-    fn id(&self) -> NodeId {
-        self.id
-    }
-
-    fn children(&self) -> Vec<Rc<dyn Node>> {
-        match &self.data {
-            Some(ty) => vec![ty.clone()],
-            None => vec![],
-        }
-    }
-}
-
 #[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq)]
 pub(crate) struct StructField {
     pub(crate) name: Rc<Identifier>,
@@ -276,29 +231,7 @@ impl std::hash::Hash for StructField {
     }
 }
 
-impl Node for StructField {
-    fn location(&self) -> Location {
-        self.loc.clone()
-    }
-    fn id(&self) -> NodeId {
-        self.id
-    }
-
-    fn children(&self) -> Vec<Rc<dyn Node>> {
-        vec![self.ty.clone()]
-    }
-}
-
-impl std::fmt::Debug for dyn Node {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("Node")
-            .field("span", &self.location())
-            .field("id", &self.id())
-            .finish()
-    }
-}
-
-#[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq)]
 pub(crate) enum AstNode {
     FileAst(Rc<FileAst>),
     Item(Rc<Item>),
@@ -310,6 +243,12 @@ pub(crate) enum AstNode {
     InterfaceMethodDecl(Rc<InterfaceMethodDecl>),
     Variant(Rc<Variant>),
     StructField(Rc<StructField>),
+}
+
+impl std::hash::Hash for AstNode {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.id().hash(state);
+    }
 }
 
 impl AstNode {
@@ -454,20 +393,6 @@ impl From<&Rc<StructField>> for AstNode {
     }
 }
 
-// TODO: convert this to an Enum
-pub(crate) trait Node {
-    fn location(&self) -> Location;
-    fn id(&self) -> NodeId;
-    fn children(&self) -> Vec<Rc<dyn Node>>;
-
-    fn to_expr(&self) -> Option<Expr> {
-        None
-    }
-    fn _to_stmt(&self) -> Option<Stmt> {
-        None
-    }
-}
-
 #[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq)]
 
 pub(crate) struct Item {
@@ -480,89 +405,6 @@ impl std::hash::Hash for Item {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.id.hash(state);
     }
-}
-
-impl Node for Item {
-    fn location(&self) -> Location {
-        self.loc.clone()
-    }
-    fn id(&self) -> NodeId {
-        self.id
-    }
-
-    fn children(&self) -> Vec<Rc<dyn Node>> {
-        match &*self.kind {
-            ItemKind::ForeignFuncDecl(f) => {
-                let mut children: Vec<Rc<dyn Node>> = vec![];
-                for (name, annot) in f.args.iter() {
-                    children.push(name.clone());
-                    children.push(annot.clone())
-                }
-                children.push(f.ret_type.clone());
-                children
-            }
-            ItemKind::FuncDef(f) => {
-                let mut children: Vec<Rc<dyn Node>> = vec![];
-                children_func_def(f, &mut children);
-                children
-            }
-            ItemKind::TypeDef(tydefkind) => match &**tydefkind {
-                // TypeDefKind::Alias(_, ty) => vec![ty.clone()],
-                // TODO this is redundant, use the Node::children() implementation
-                TypeDefKind::Enum(e) => {
-                    let mut children: Vec<Rc<dyn Node>> = Vec::new();
-                    for param in e.ty_args.iter() {
-                        children.push(param.clone());
-                    }
-                    for variant in e.variants.iter() {
-                        children.push(variant.clone());
-                    }
-                    children
-                }
-                TypeDefKind::Struct(s) => {
-                    let mut children: Vec<Rc<dyn Node>> = Vec::new();
-                    for ty in s.ty_args.iter() {
-                        children.push(ty.clone());
-                    }
-                    for field in s.fields.iter() {
-                        children.push(field.clone());
-                    }
-                    children
-                }
-                TypeDefKind::Foreign(ident) => vec![ident.clone()],
-            },
-            ItemKind::InterfaceDef(i) => {
-                let mut children: Vec<Rc<dyn Node>> = Vec::new();
-                for prop in i.methods.iter() {
-                    children.push(prop.clone());
-                }
-                children
-            }
-            ItemKind::InterfaceImpl(iface_impl) => {
-                let mut children: Vec<Rc<dyn Node>> = vec![iface_impl.typ.clone()];
-                for method in &iface_impl.methods {
-                    children_func_def(method, &mut children);
-                }
-                children
-            }
-            ItemKind::Import(ident) => vec![ident.clone()],
-            ItemKind::Stmt(stmt) => vec![stmt.clone()],
-        }
-    }
-}
-
-fn children_func_def(f: &FuncDef, children: &mut Vec<Rc<dyn Node>>) {
-    children.push(f.name.clone());
-    for (name, annot) in f.args.iter() {
-        children.push(name.clone());
-        if let Some(ty) = annot {
-            children.push(ty.clone())
-        }
-    }
-    if let Some(ty) = &f.ret_type {
-        children.push(ty.clone());
-    }
-    children.push(f.body.clone());
 }
 
 #[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq, Hash)]
@@ -586,50 +428,6 @@ pub(crate) struct Stmt {
 impl std::hash::Hash for Stmt {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.id.hash(state);
-    }
-}
-
-impl Node for Stmt {
-    fn location(&self) -> Location {
-        self.loc.clone()
-    }
-    fn id(&self) -> NodeId {
-        self.id
-    }
-
-    fn children(&self) -> Vec<Rc<dyn Node>> {
-        match &*self.kind {
-            StmtKind::FuncDef(f) => {
-                let mut children: Vec<Rc<dyn Node>> = vec![];
-                for (name, annot) in f.args.iter() {
-                    children.push(name.clone());
-                    if let Some(ty) = annot {
-                        children.push(ty.clone())
-                    }
-                }
-                if let Some(ty) = &f.ret_type {
-                    children.push(ty.clone());
-                }
-                children.push(f.body.clone());
-                children
-            }
-            StmtKind::Let(_mutable, (pat, ty), expr) => {
-                let mut children: Vec<Rc<dyn Node>> = vec![pat.clone()];
-                if let Some(ty) = ty {
-                    children.push(ty.clone());
-                }
-                children.push(expr.clone());
-                children
-            }
-            StmtKind::Set(lhs, rhs) => vec![lhs.clone(), rhs.clone()],
-            StmtKind::Expr(expr) => vec![expr.clone()],
-            StmtKind::Break | StmtKind::Continue => vec![],
-            StmtKind::Return(expr) => vec![expr.clone()],
-        }
-    }
-
-    fn _to_stmt(&self) -> Option<Stmt> {
-        Some(self.clone())
     }
 }
 
@@ -682,19 +480,6 @@ impl std::hash::Hash for InterfaceMethodDecl {
     }
 }
 
-impl Node for InterfaceMethodDecl {
-    fn location(&self) -> Location {
-        self.ty.location()
-    }
-    fn id(&self) -> NodeId {
-        self.ty.id()
-    }
-
-    fn children(&self) -> Vec<Rc<dyn Node>> {
-        vec![self.ty.clone()]
-    }
-}
-
 #[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq)]
 pub(crate) struct InterfaceImpl {
     pub(crate) iface: Rc<Identifier>,
@@ -720,79 +505,6 @@ pub(crate) struct Expr {
 impl std::hash::Hash for Expr {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.id.hash(state);
-    }
-}
-
-impl Node for Expr {
-    fn location(&self) -> Location {
-        self.loc.clone()
-    }
-    fn id(&self) -> NodeId {
-        self.id
-    }
-
-    fn children(&self) -> Vec<Rc<dyn Node>> {
-        match &*self.kind {
-            ExprKind::Variable(_) => vec![],
-            ExprKind::Unit => vec![],
-            ExprKind::Int(_) => vec![],
-            ExprKind::Float(_) => vec![],
-            ExprKind::Bool(_) => vec![],
-            ExprKind::Str(_) => vec![],
-            ExprKind::List(exprs) => exprs.iter().map(|e| e.clone() as Rc<dyn Node>).collect(),
-            ExprKind::Array(exprs) => exprs.iter().map(|e| e.clone() as Rc<dyn Node>).collect(),
-            ExprKind::AnonymousFunction(args, ty_opt, body) => {
-                let mut children: Vec<Rc<dyn Node>> = Vec::new();
-                args.iter().for_each(|(name, annot)| {
-                    children.push(name.clone());
-                    if let Some(ty) = annot {
-                        children.push(ty.clone())
-                    }
-                });
-                if let Some(ty) = ty_opt {
-                    children.push(ty.clone())
-                }
-                children.push(body.clone());
-                children
-            }
-            ExprKind::If(cond, then, els) => {
-                let mut children: Vec<Rc<dyn Node>> = vec![cond.clone()];
-                children.push(then.clone());
-                if let Some(els) = els {
-                    children.push(els.clone());
-                }
-                children
-            }
-            ExprKind::WhileLoop(cond, body) => vec![cond.clone(), body.clone()],
-            ExprKind::Block(stmts) => stmts
-                .iter()
-                .map(|s| s.clone() as Rc<dyn Node>)
-                .collect::<Vec<_>>(),
-            ExprKind::BinOp(lhs, _, rhs) => vec![lhs.clone(), rhs.clone()],
-            ExprKind::FuncAp(func, args) => {
-                let mut children: Vec<Rc<dyn Node>> = vec![func.clone()];
-                children.extend(args.iter().map(|a| a.clone() as Rc<dyn Node>));
-                children
-            }
-            ExprKind::Tuple(exprs) => exprs
-                .iter()
-                .map(|e| e.clone() as Rc<dyn Node>)
-                .collect::<Vec<_>>(),
-            ExprKind::Match(expr, arms) => {
-                let mut children: Vec<Rc<dyn Node>> = vec![expr.clone()];
-                for arm in arms {
-                    children.push(arm.pat.clone());
-                    children.push(arm.expr.clone());
-                }
-                children
-            }
-            ExprKind::MemberAccess(expr, field) => vec![expr.clone(), field.clone()],
-            ExprKind::IndexAccess(expr, index) => vec![expr.clone(), index.clone()],
-        }
-    }
-
-    fn to_expr(&self) -> Option<Expr> {
-        Some(self.clone())
     }
 }
 
@@ -860,38 +572,6 @@ impl std::hash::Hash for Pat {
     }
 }
 
-impl Node for Pat {
-    fn location(&self) -> Location {
-        self.loc.clone()
-    }
-    fn id(&self) -> NodeId {
-        self.id
-    }
-
-    fn children(&self) -> Vec<Rc<dyn Node>> {
-        match &*self.kind {
-            PatKind::Wildcard => vec![],
-            PatKind::Binding(_) => vec![],
-            PatKind::Unit => vec![],
-            PatKind::Int(_) => vec![],
-            PatKind::Float(_) => vec![],
-            PatKind::Bool(_) => vec![],
-            PatKind::Str(_) => vec![],
-            PatKind::Variant(ident, pat_opt) => {
-                let mut children: Vec<Rc<dyn Node>> = vec![ident.clone()];
-                if let Some(pat) = pat_opt {
-                    children.push(pat.clone());
-                }
-                children
-            }
-            PatKind::Tuple(pats) => pats
-                .iter()
-                .map(|p| p.clone() as Rc<dyn Node>)
-                .collect::<Vec<_>>(),
-        }
-    }
-}
-
 #[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq, Hash)]
 pub(crate) enum PatKind {
     Wildcard,
@@ -915,56 +595,6 @@ pub(crate) struct Type {
 impl std::hash::Hash for Type {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.id.hash(state);
-    }
-}
-
-impl Node for Type {
-    fn location(&self) -> Location {
-        self.loc.clone()
-    }
-    fn id(&self) -> NodeId {
-        self.id
-    }
-
-    fn children(&self) -> Vec<Rc<dyn Node>> {
-        match &*self.kind {
-            TypeKind::Poly(polytype) => {
-                let mut children: Vec<Rc<dyn Node>> = vec![];
-                // TODO: gross.
-                children.push(polytype.name.clone());
-                children.extend(
-                    polytype
-                        .iface_names
-                        .iter()
-                        .map(|t| t.clone() as Rc<dyn Node>),
-                );
-                children
-            }
-            TypeKind::Named(_)
-            | TypeKind::Unit
-            | TypeKind::Int
-            | TypeKind::Float
-            | TypeKind::Bool
-            | TypeKind::Str => {
-                vec![]
-            }
-            TypeKind::NamedWithParams(tyname, params) => {
-                let mut children: Vec<Rc<dyn Node>> = vec![];
-                children.push(tyname.clone());
-                children.extend(params.iter().map(|t| t.clone() as Rc<dyn Node>));
-                children
-            }
-            TypeKind::Function(lhs, rhs) => {
-                let mut children: Vec<Rc<dyn Node>> = vec![];
-                children.extend(lhs.iter().map(|t| t.clone() as Rc<dyn Node>));
-                children.push(rhs.clone());
-                children
-            }
-            TypeKind::Tuple(types) => types
-                .iter()
-                .map(|t| t.clone() as Rc<dyn Node>)
-                .collect::<Vec<_>>(),
-        }
     }
 }
 
@@ -1031,14 +661,5 @@ impl Location {
 
     pub fn range(&self) -> std::ops::Range<usize> {
         self.lo as usize..self.hi as usize
-    }
-}
-
-pub(crate) type NodeMap = HashMap<NodeId, Rc<dyn Node>>;
-
-pub(crate) fn initialize_node_map(node_map: &mut NodeMap, node: &Rc<dyn Node>) {
-    node_map.insert(node.id(), node.clone());
-    for child in node.children() {
-        initialize_node_map(node_map, &child);
     }
 }

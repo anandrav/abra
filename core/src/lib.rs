@@ -56,7 +56,6 @@ pub fn compile_bytecode(
 
     // this is what's passed to Statics
     let mut file_db = ast::FileDatabase::new();
-    let mut node_map = ast::NodeMap::new();
     let mut file_asts: Vec<Rc<FileAst>> = vec![];
 
     let mut stack: VecDeque<FileId> = VecDeque::new();
@@ -72,7 +71,6 @@ pub fn compile_bytecode(
         let file_ast = parse::parse_or_err(file_id, file_data)?;
 
         file_asts.push(file_ast.clone());
-        ast::initialize_node_map(&mut node_map, &(file_ast.clone() as Rc<dyn ast::Node>));
 
         add_imports(
             file_ast,
@@ -85,12 +83,12 @@ pub fn compile_bytecode(
     }
 
     // println!("time to analyze");
-    let inference_ctx = statics::analyze(&effects, &file_asts, &node_map, &file_db, file_provider)?;
+    let inference_ctx = statics::analyze(&effects, &file_asts, &file_db, file_provider)?;
 
     // TODO: translator should be immutable
     // NOTE: It's only mutable right now because of ty_fits_impl_ty calls ast_type_to_statics_type...
     // println!("time to translate");
-    let mut translator = Translator::new(inference_ctx, node_map, file_db, file_asts);
+    let mut translator = Translator::new(inference_ctx, file_db, file_asts);
     // println!("successfully translated");
     Ok(translator.translate())
 }

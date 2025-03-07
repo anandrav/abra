@@ -1,5 +1,5 @@
 use crate::ast::{
-    ArgAnnotated, ArgMaybeAnnotated, AstNode, Expr, ExprKind, FileAst, Identifier, ItemKind, Node,
+    ArgAnnotated, ArgMaybeAnnotated, AstNode, Expr, ExprKind, FileAst, Identifier, ItemKind,
     NodeId, Pat, PatKind, Stmt, StmtKind, Type as AstType, TypeDefKind, TypeKind,
 };
 use crate::ast::{BinaryOperator, Item};

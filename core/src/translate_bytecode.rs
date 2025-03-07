@@ -2,7 +2,7 @@ use crate::assembly::{Instr, Label, Line, remove_labels};
 use crate::ast::{
     AstNode, BinaryOperator, ForeignFuncDecl, FuncDef, InterfaceDecl, Item, ItemKind, TypeKind,
 };
-use crate::ast::{FileAst, FileDatabase, Node, NodeId};
+use crate::ast::{FileAst, FileDatabase, NodeId};
 use crate::builtin::Builtin;
 use crate::environment::Environment;
 use crate::statics::typecheck::Nominal;
@@ -10,7 +10,7 @@ use crate::statics::{Declaration, TypeProv};
 use crate::statics::{Monotype, Type, ty_fits_impl_ty};
 use crate::vm::{AbraFloat, AbraInt, Instr as VmInstr};
 use crate::{
-    ast::{Expr, ExprKind, NodeMap, Pat, PatKind, Stmt, StmtKind},
+    ast::{Expr, ExprKind, Pat, PatKind, Stmt, StmtKind},
     statics::StaticsContext,
 };
 use std::collections::{HashMap, HashSet};
@@ -175,7 +175,6 @@ pub(crate) enum BytecodeResolution {
 impl Translator {
     pub(crate) fn new(
         statics: StaticsContext,
-        node_map: NodeMap,
         files: FileDatabase,
         file_asts: Vec<Rc<FileAst>>,
         // effects: Vec<EffectDesc>,
@@ -596,12 +595,6 @@ impl Translator {
                             if !func_ty.is_overloaded() {
                                 self.emit(st, Instr::Call(name.clone()));
                             } else {
-                                // let node = self.node_map.get(&func.id).unwrap();
-                                // let span = node.span();
-                                // let s = String::new();
-                                // span.display(&mut s, &self.sources, " method ap");
-                                // println!("{}", s);
-
                                 let specific_func_ty =
                                     self.statics.solution_of_node(func.into()).unwrap();
 
@@ -649,12 +642,6 @@ impl Translator {
                             method,
                             fully_qualified_name,
                         } => {
-                            // let node = self.node_map.get(&func.id).unwrap();
-                            // let span = node.span();
-                            // let s = String::new();
-                            // span.display(&mut s, &self.sources, " method ap");
-                            // println!("{}", s);
-
                             let func_ty = self.statics.solution_of_node(func.into()).unwrap();
                             // println!("func_ty: {}", func_ty);
                             // println!("monomorphic_env: {}", monomorph_env);
