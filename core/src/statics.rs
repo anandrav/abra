@@ -30,7 +30,6 @@ pub(crate) use typecheck::SolvedType as Type;
 pub(crate) struct StaticsContext {
     // effects
     effects: Vec<EffectDesc>,
-    _node_map: NodeMap,
     _files: FileDatabase,
     _file_provider: Box<dyn FileProvider>,
 
@@ -68,13 +67,11 @@ pub(crate) struct StaticsContext {
 impl StaticsContext {
     fn new(
         effects: Vec<EffectDesc>,
-        node_map: NodeMap,
         files: FileDatabase,
         file_provider: Box<dyn FileProvider>,
     ) -> Self {
         let mut ctx = Self {
             effects,
-            _node_map: node_map,
             _files: files,
             _file_provider: file_provider,
             global_namespace: Default::default(),
@@ -202,12 +199,7 @@ pub(crate) fn analyze(
     files: &FileDatabase,
     file_provider: Box<dyn FileProvider>,
 ) -> Result<StaticsContext, String> {
-    let mut ctx = StaticsContext::new(
-        effects.to_owned(),
-        node_map.clone(),
-        files.clone(),
-        file_provider,
-    ); // TODO: to_owned necessary?
+    let mut ctx = StaticsContext::new(effects.to_owned(), files.clone(), file_provider); // TODO: to_owned necessary?
 
     // scan declarations across all files
     scan_declarations(&mut ctx, file_asts);
@@ -251,8 +243,7 @@ impl Error {
 
         // get rid of this after making our own file database
         let get_file_and_range = |id: &AstNode| {
-            let id = id.id();
-            let span = node_map.get(&id).unwrap().location();
+            let span = id.location();
             (span.file_id, span.range())
         };
 
@@ -460,8 +451,7 @@ fn handle_reason(
     // TODO: this is duplicated
     let get_file_and_range = |id: &AstNode| {
         // dbg!(id);
-        let id = id.id();
-        let span = node_map.get(&id).unwrap().location();
+        let span = id.location();
         (span.file_id, span.range())
     };
     match reason {
@@ -514,9 +504,10 @@ fn handle_reason(
 }
 
 use codespan_reporting::diagnostic::Label as CsLabel;
-pub(crate) fn _print_node(ctx: &StaticsContext, node_id: NodeId) {
-    let get_file_and_range = |id: &NodeId| {
-        let span = ctx._node_map.get(id).unwrap().location();
+// TODO: This is duplicated
+pub(crate) fn _print_node(ctx: &StaticsContext, node_id: AstNode) {
+    let get_file_and_range = |id: &AstNode| {
+        let span = id.location();
         (span.file_id, span.range())
     };
 

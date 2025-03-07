@@ -20,7 +20,7 @@ use std::rc::Rc;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
 type OffsetTable = HashMap<NodeId, i32>;
-type Lambdas = HashMap<NodeId, LambdaData>;
+type Lambdas = HashMap<AstNode, LambdaData>;
 type OverloadedFuncLabels = HashMap<OverloadedFuncDesc, Label>;
 type MonomorphEnv = Environment<String, Type>;
 pub(crate) type LabelMap = HashMap<Label, usize>;
@@ -41,7 +41,6 @@ struct LambdaData {
 
 pub(crate) struct Translator {
     statics: StaticsContext,
-    node_map: NodeMap,
     _files: FileDatabase,
     file_asts: Vec<Rc<FileAst>>,
     // effects: Vec<EffectDesc>,
@@ -183,7 +182,6 @@ impl Translator {
     ) -> Self {
         Self {
             statics,
-            node_map,
             _files: files,
             file_asts,
             // effects,
@@ -200,8 +198,8 @@ impl Translator {
         st.lines.push(l);
     }
 
-    fn update_filename_lineno_tables(&self, st: &mut TranslatorState, node_id: NodeId) {
-        let location = self.node_map[&node_id].location();
+    fn update_filename_lineno_tables(&self, st: &mut TranslatorState, node_id: AstNode) {
+        let location = node_id.location();
         let file_id = location.file_id;
 
         let file = self._files.get(file_id).unwrap();
@@ -327,8 +325,9 @@ impl Translator {
                 let mut iteration = HashMap::new();
                 mem::swap(&mut (iteration), &mut st.lambdas);
                 for (node_id, data) in iteration {
-                    let node = self.node_map.get(&node_id).unwrap();
-                    let expr = node.to_expr().unwrap();
+                    let AstNode::Expr(expr) = node_id else {
+                        panic!()
+                    };
                     let ExprKind::AnonymousFunction(args, _, body) = &*expr.kind else {
                         panic!() // TODO: get rid of this panic
                     };
@@ -455,7 +454,7 @@ impl Translator {
         monomorph_env: MonomorphEnv,
         st: &mut TranslatorState,
     ) {
-        self.update_filename_lineno_tables(st, expr.id);
+        self.update_filename_lineno_tables(st, expr.clone().into());
         // println!("translating expr: {:?}", expr.kind);
         match &*expr.kind {
             ExprKind::Variable(_) => {
@@ -575,11 +574,7 @@ impl Translator {
                     for arg in args {
                         self.translate_expr(arg.clone(), offset_table, monomorph_env.clone(), st);
                     }
-                    // let node = self.node_map.get(&func.id).unwrap();
-                    // let span = node.span();
-                    // let s = String::new();
-                    // span.display(&mut s, &self.sources, "function ap");
-                    // println!("{}", s);
+
                     let resolution = self
                         .statics
                         .resolution_map
@@ -956,7 +951,7 @@ impl Translator {
                 }
 
                 st.lambdas.insert(
-                    expr.id,
+                    expr.into(),
                     LambdaData {
                         label: label.clone(),
                         offset_table: lambda_offset_table,
@@ -1253,7 +1248,7 @@ impl Translator {
         monomorph_env: MonomorphEnv,
         st: &mut TranslatorState,
     ) {
-        self.update_filename_lineno_tables(st, stmt.id);
+        self.update_filename_lineno_tables(st, stmt.clone().into());
         match &*stmt.kind {
             StmtKind::Let(_, pat, expr) => {
                 self.translate_expr(expr.clone(), locals, monomorph_env.clone(), st);

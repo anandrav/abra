@@ -1,5 +1,6 @@
 use crate::ast::{
-    Expr, ExprKind, FileAst, Item, ItemKind, MatchArm, NodeId, Pat, PatKind, Stmt, StmtKind,
+    AstNode, Expr, ExprKind, FileAst, Item, ItemKind, MatchArm, NodeId, Pat, PatKind, Stmt,
+    StmtKind,
 };
 
 use core::panic;
@@ -831,9 +832,9 @@ fn ctors_for_ty(ty: &SolvedType) -> ConstructorSet {
 use codespan_reporting::diagnostic::{Diagnostic, Label};
 use codespan_reporting::term;
 use codespan_reporting::term::termcolor::{ColorChoice, StandardStream};
-fn _print_node(ctx: &StaticsContext, node_id: NodeId) {
-    let get_file_and_range = |id: &NodeId| {
-        let span = ctx._node_map.get(id).unwrap().location();
+fn _print_node(ctx: &StaticsContext, node_id: AstNode) {
+    let get_file_and_range = |id: &AstNode| {
+        let span = id.location();
         (span.file_id, span.range())
     };
 
