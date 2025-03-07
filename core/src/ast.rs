@@ -322,7 +322,7 @@ impl Node for Item {
                         children.push(param.clone());
                     }
                     for variant in e.variants.iter() {
-                        children.push(variant.clone() as Rc<dyn Node>);
+                        children.push(variant.clone());
                     }
                     children
                 }
@@ -332,7 +332,7 @@ impl Node for Item {
                         children.push(ty.clone());
                     }
                     for field in s.fields.iter() {
-                        children.push(field.clone() as Rc<dyn Node>);
+                        children.push(field.clone());
                     }
                     children
                 }
@@ -341,7 +341,7 @@ impl Node for Item {
             ItemKind::InterfaceDef(i) => {
                 let mut children: Vec<Rc<dyn Node>> = Vec::new();
                 for prop in i.methods.iter() {
-                    children.push(prop.clone() as Rc<dyn Node>);
+                    children.push(prop.clone());
                 }
                 children
             }
@@ -353,7 +353,7 @@ impl Node for Item {
                 children
             }
             ItemKind::Import(ident) => vec![ident.clone()],
-            ItemKind::Stmt(stmt) => vec![stmt.clone() as Rc<dyn Node>],
+            ItemKind::Stmt(stmt) => vec![stmt.clone()],
         }
     }
 }
@@ -551,7 +551,7 @@ impl Node for Expr {
                 .collect::<Vec<_>>(),
             ExprKind::BinOp(lhs, _, rhs) => vec![lhs.clone(), rhs.clone()],
             ExprKind::FuncAp(func, args) => {
-                let mut children: Vec<Rc<dyn Node>> = vec![func.clone() as Rc<dyn Node>];
+                let mut children: Vec<Rc<dyn Node>> = vec![func.clone()];
                 children.extend(args.iter().map(|a| a.clone() as Rc<dyn Node>));
                 children
             }
@@ -562,8 +562,8 @@ impl Node for Expr {
             ExprKind::Match(expr, arms) => {
                 let mut children: Vec<Rc<dyn Node>> = vec![expr.clone()];
                 for arm in arms {
-                    children.push(arm.pat.clone() as Rc<dyn Node>);
-                    children.push(arm.expr.clone() as Rc<dyn Node>);
+                    children.push(arm.pat.clone());
+                    children.push(arm.expr.clone());
                 }
                 children
             }
@@ -653,7 +653,7 @@ impl Node for Pat {
             PatKind::Bool(_) => vec![],
             PatKind::Str(_) => vec![],
             PatKind::Variant(ident, pat_opt) => {
-                let mut children = vec![ident.clone() as Rc<dyn Node>];
+                let mut children: Vec<Rc<dyn Node>> = vec![ident.clone()];
                 if let Some(pat) = pat_opt {
                     children.push(pat.clone());
                 }
@@ -700,7 +700,7 @@ impl Node for Type {
             TypeKind::Poly(polytype) => {
                 let mut children: Vec<Rc<dyn Node>> = vec![];
                 // TODO: gross.
-                children.push(polytype.name.clone() as Rc<dyn Node>);
+                children.push(polytype.name.clone());
                 children.extend(
                     polytype
                         .iface_names
@@ -719,15 +719,14 @@ impl Node for Type {
             }
             TypeKind::NamedWithParams(tyname, params) => {
                 let mut children: Vec<Rc<dyn Node>> = vec![];
-                // TODO: get rid of `as Rc<dyn Node>` where unnecessary
-                children.push(tyname.clone() as Rc<dyn Node>);
+                children.push(tyname.clone());
                 children.extend(params.iter().map(|t| t.clone() as Rc<dyn Node>));
                 children
             }
             TypeKind::Function(lhs, rhs) => {
                 let mut children: Vec<Rc<dyn Node>> = vec![];
                 children.extend(lhs.iter().map(|t| t.clone() as Rc<dyn Node>));
-                children.push(rhs.clone() as Rc<dyn Node>);
+                children.push(rhs.clone());
                 children
             }
             TypeKind::Tuple(types) => types
