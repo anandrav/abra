@@ -76,7 +76,7 @@ fn check_pattern_exhaustiveness_expr(statics: &mut StaticsContext, expr: &Expr) 
         | ExprKind::Float(_)
         | ExprKind::Bool(_)
         | ExprKind::Str(_)
-        | ExprKind::Identifier { .. } => {}
+        | ExprKind::Variable { .. } => {}
         ExprKind::List(exprs) => {
             for expr in exprs {
                 check_pattern_exhaustiveness_expr(statics, expr);

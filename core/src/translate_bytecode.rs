@@ -455,7 +455,7 @@ impl Translator {
         self.update_filename_lineno_tables(st, expr.id);
         // println!("translating expr: {:?}", expr.kind);
         match &*expr.kind {
-            ExprKind::Identifier(_) => {
+            ExprKind::Variable(_) => {
                 match self
                     .statics
                     .resolution_map
@@ -568,7 +568,7 @@ impl Translator {
                 }
             }
             ExprKind::FuncAp(func, args) => {
-                if let ExprKind::Identifier(_) = &*func.kind {
+                if let ExprKind::Variable(_) = &*func.kind {
                     for arg in args {
                         self.translate_expr(arg.clone(), offset_table, monomorph_env.clone(), st);
                     }
@@ -1254,7 +1254,7 @@ impl Translator {
             }
             StmtKind::Set(expr1, rvalue) => {
                 match &*expr1.kind {
-                    ExprKind::Identifier(_) => {
+                    ExprKind::Variable(_) => {
                         let BytecodeResolution::Var(node_id) = self
                             .statics
                             .resolution_map
@@ -1455,7 +1455,7 @@ fn collect_locals_expr(expr: &Expr, locals: &mut HashSet<NodeId>) {
             }
         }
         ExprKind::AnonymousFunction(..) => {}
-        ExprKind::Identifier(..)
+        ExprKind::Variable(..)
         | ExprKind::Unit
         | ExprKind::Int(..)
         | ExprKind::Float(..)

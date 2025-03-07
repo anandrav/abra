@@ -514,7 +514,7 @@ impl Node for Expr {
 
     fn children(&self) -> Vec<Rc<dyn Node>> {
         match &*self.kind {
-            ExprKind::Identifier(_) => vec![],
+            ExprKind::Variable(_) => vec![],
             ExprKind::Unit => vec![],
             ExprKind::Int(_) => vec![],
             ExprKind::Float(_) => vec![],
@@ -580,7 +580,7 @@ impl Node for Expr {
 #[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq, Hash)]
 pub(crate) enum ExprKind {
     // EmptyHole,
-    Identifier(String),
+    Variable(String),
     Unit,
     Int(i64),
     Float(String), // represented as String to allow Eq and Hash

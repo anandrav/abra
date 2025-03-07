@@ -1022,7 +1022,7 @@ pub(crate) fn parse_expr_term(pair: Pair<Rule>, file_id: FileId) -> Rc<Expr> {
             })
         }
         Rule::identifier => Rc::new(Expr {
-            kind: Rc::new(ExprKind::Identifier(pair.as_str().to_owned())),
+            kind: Rc::new(ExprKind::Variable(pair.as_str().to_owned())),
             loc: span,
             id: NodeId::new(),
         }),

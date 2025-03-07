@@ -539,7 +539,7 @@ fn resolve_names_expr(ctx: &mut StaticsContext, symbol_table: SymbolTable, expr:
                 resolve_names_expr(ctx, symbol_table.clone(), expr.clone());
             }
         }
-        ExprKind::Identifier(symbol) => {
+        ExprKind::Variable(symbol) => {
             let lookup = symbol_table.lookup_declaration(symbol);
             if let Some(decl) = lookup {
                 ctx.resolution_map.insert(expr.id, decl);
