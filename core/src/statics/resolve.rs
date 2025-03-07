@@ -693,10 +693,10 @@ fn resolve_names_typ(
                 }
             }
         }
-        TypeKind::Identifier(identifier) => {
+        TypeKind::Named(identifier) => {
             resolve_names_typ_identifier(ctx, symbol_table, identifier, typ.id);
         }
-        TypeKind::Ap(identifier, args) => {
+        TypeKind::NamedWithParams(identifier, args) => {
             resolve_names_typ_identifier(ctx, symbol_table.clone(), &identifier.v, identifier.id);
             for arg in args {
                 resolve_names_typ(ctx, symbol_table.clone(), arg.clone(), introduce_poly);

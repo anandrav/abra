@@ -565,7 +565,7 @@ fn name_of_ty(ty: Rc<Type>) -> String {
         TypeKind::Float => "f64".to_string(),
         TypeKind::Int => "i64".to_string(),
         TypeKind::Str => "String".to_string(),
-        TypeKind::Identifier(s) => s.clone(),
+        TypeKind::Named(s) => s.clone(),
         TypeKind::Unit => "()".to_string(),
         TypeKind::Tuple(elems) => {
             let mut s = "(".to_string();
@@ -576,7 +576,7 @@ fn name_of_ty(ty: Rc<Type>) -> String {
             s.push(')');
             s
         }
-        TypeKind::Ap(ident, params) => {
+        TypeKind::NamedWithParams(ident, params) => {
             // special-case
             let mut s = ident.v.clone();
             if s == "maybe" {

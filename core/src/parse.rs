@@ -356,7 +356,7 @@ pub(crate) fn parse_type_term(pair: Pair<Rule>, file_id: FileId) -> Rc<Type> {
         Rule::identifier => {
             let ident = pair.as_str().to_owned();
             Rc::new(Type {
-                kind: Rc::new(TypeKind::Identifier(ident)),
+                kind: Rc::new(TypeKind::Named(ident)),
                 loc: span,
                 id: NodeId::new(),
             })
@@ -408,7 +408,7 @@ pub(crate) fn parse_type_term(pair: Pair<Rule>, file_id: FileId) -> Rc<Type> {
                 .map(|t| parse_type_term(t, file_id))
                 .collect();
             Rc::new(Type {
-                kind: Rc::new(TypeKind::Ap(
+                kind: Rc::new(TypeKind::NamedWithParams(
                     Identifier {
                         v: name,
                         loc: ident_span,

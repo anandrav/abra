@@ -709,7 +709,7 @@ impl Node for Type {
                 );
                 children
             }
-            TypeKind::Identifier(_)
+            TypeKind::Named(_)
             | TypeKind::Unit
             | TypeKind::Int
             | TypeKind::Float
@@ -717,7 +717,7 @@ impl Node for Type {
             | TypeKind::Str => {
                 vec![]
             }
-            TypeKind::Ap(tyname, params) => {
+            TypeKind::NamedWithParams(tyname, params) => {
                 let mut children: Vec<Rc<dyn Node>> = vec![];
                 // TODO: gross.
                 children.push(Rc::new(tyname.clone()) as Rc<dyn Node>);
@@ -741,8 +741,8 @@ impl Node for Type {
 #[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq, Hash)]
 pub(crate) enum TypeKind {
     Poly(Rc<Polytype>),
-    Identifier(String),
-    Ap(Identifier, Vec<Rc<Type>>),
+    Named(String),
+    NamedWithParams(Identifier, Vec<Rc<Type>>),
     Unit,
     Int,
     Float,

@@ -121,8 +121,8 @@ impl Declaration {
                     None => 0,
                     Some(ty) => match &*ty.kind {
                         TypeKind::Poly(..)
-                        | TypeKind::Identifier(_)
-                        | TypeKind::Ap(..)
+                        | TypeKind::Named(_)
+                        | TypeKind::NamedWithParams(..)
                         | TypeKind::Unit
                         | TypeKind::Int
                         | TypeKind::Float

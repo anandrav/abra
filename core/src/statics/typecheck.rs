@@ -908,7 +908,7 @@ pub(crate) fn ast_type_to_solved_type(
 
             Some(SolvedType::Poly(polyty.clone()))
         }
-        TypeKind::Identifier(_) => {
+        TypeKind::Named(_) => {
             let lookup = ctx.resolution_map.get(&ast_type.id)?;
             match lookup {
                 Declaration::Array => Some(SolvedType::Nominal(Nominal::Array, vec![])),
@@ -934,7 +934,7 @@ pub(crate) fn ast_type_to_solved_type(
                 | Declaration::Var(_) => None,
             }
         }
-        TypeKind::Ap(identifier, args) => {
+        TypeKind::NamedWithParams(identifier, args) => {
             let mut sargs = vec![];
             for arg in args {
                 sargs.push(ast_type_to_solved_type(ctx, arg.clone())?);
@@ -1007,7 +1007,7 @@ pub(crate) fn ast_type_to_typevar(ctx: &mut StaticsContext, ast_type: Rc<AstType
                 TypeVar::empty()
             }
         }
-        TypeKind::Identifier(_) => {
+        TypeKind::Named(_) => {
             let lookup = ctx.resolution_map.get(&ast_type.id);
             match lookup {
                 Some(Declaration::Enum(enum_def)) => TypeVar::make_nominal(
@@ -1034,7 +1034,7 @@ pub(crate) fn ast_type_to_typevar(ctx: &mut StaticsContext, ast_type: Rc<AstType
                 }
             }
         }
-        TypeKind::Ap(ident, params) => {
+        TypeKind::NamedWithParams(ident, params) => {
             let lookup = ctx.resolution_map.get(&ident.id);
             match lookup {
                 Some(Declaration::Enum(enum_def)) => TypeVar::make_nominal(
