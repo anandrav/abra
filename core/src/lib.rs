@@ -195,9 +195,7 @@ fn add_imports(
                         let file_id = file_db.add(file_data);
                         stack.push_back(file_id);
                     }
-                    Err(_) => errors.push(Error::UnresolvedIdentifier {
-                        node_id: item.into(),
-                    }),
+                    Err(_) => errors.push(Error::UnresolvedIdentifier { node: item.into() }),
                 }
             }
         }

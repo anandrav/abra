@@ -904,7 +904,7 @@ fn tyvar_of_declaration(
                 Monotype::Function(ty_signature.0.clone(), ty_signature.1.clone().into());
             Some(monotype_to_typevar(func_type, Reason::Effect(*e)))
         }
-        Declaration::Var(node_id) => Some(TypeVar::from_node(ctx, node_id.clone())),
+        Declaration::Var(node) => Some(TypeVar::from_node(ctx, node.clone())),
     }
 }
 
@@ -1179,7 +1179,7 @@ pub(crate) fn constrain_because(
 pub(crate) fn constrain_to_iface(
     ctx: &mut StaticsContext,
     tyvar: TypeVar,
-    node_id: AstNode,
+    node: AstNode,
     iface: &Rc<InterfaceDecl>,
 ) {
     if let Some(ty) = tyvar.solution() {
@@ -1187,15 +1187,15 @@ pub(crate) fn constrain_to_iface(
             ctx.errors.push(Error::InterfaceNotImplemented {
                 ty: ty.clone(),
                 iface: iface.clone(),
-                node_id,
+                node,
             });
         }
     } else {
         let ifaces = ctx
             .unifvars_constrained_to_interfaces
-            .entry(Prov::Node(node_id.clone()))
+            .entry(Prov::Node(node.clone()))
             .or_default();
-        ifaces.push((iface.clone(), node_id));
+        ifaces.push((iface.clone(), node));
     }
 }
 
@@ -1313,9 +1313,8 @@ pub(crate) fn check_unifvars(ctx: &mut StaticsContext) {
             }
         } else if tyvar.is_underdetermined() {
             if let Prov::Node(id) = prov {
-                ctx.errors.push(Error::UnconstrainedUnifvar {
-                    node_id: id.clone(),
-                });
+                ctx.errors
+                    .push(Error::UnconstrainedUnifvar { node: id.clone() });
             }
         }
     }
@@ -1323,12 +1322,12 @@ pub(crate) fn check_unifvars(ctx: &mut StaticsContext) {
     for (prov, ifaces) in ctx.unifvars_constrained_to_interfaces.clone() {
         let ty = ctx.unifvars.get(&prov).unwrap().clone();
         if let Some(ty) = ty.solution() {
-            for (iface, node_id) in ifaces.iter().cloned() {
+            for (iface, node) in ifaces.iter().cloned() {
                 if !ty_implements_iface(ctx, ty.clone(), &iface) {
                     ctx.errors.push(Error::InterfaceNotImplemented {
                         ty: ty.clone(),
                         iface,
-                        node_id,
+                        node,
                     });
                 }
             }
@@ -1508,11 +1507,9 @@ fn generate_constraints_stmt(
             let enclosing_loop = ctx.loop_stack.last();
             match enclosing_loop {
                 None | Some(None) => {
-                    ctx.errors.push(Error::NotInLoop {
-                        node_id: stmt.into(),
-                    });
+                    ctx.errors.push(Error::NotInLoop { node: stmt.into() });
                 }
-                Some(Some(_node_id)) => {}
+                Some(Some(_node)) => {}
             }
         }
         StmtKind::Return(expr) => {
@@ -1912,10 +1909,10 @@ fn generate_constraints_expr(
             }
         }
         ExprKind::AnonymousFunction(args, out_annot, body) => {
-            let func_node_id = expr.clone().into();
+            let func_node = expr.clone().into();
             let ty_func = generate_constraints_func_helper(
                 ctx,
-                func_node_id,
+                func_node,
                 polyvar_scope,
                 args,
                 out_annot,
@@ -1980,7 +1977,7 @@ fn generate_constraints_expr(
             let ty_expr = TypeVar::from_node(ctx, expr.clone().into());
             if ty_expr.underdetermined() {
                 ctx.errors.push(Error::MemberAccessNeedsAnnotation {
-                    node_id: expr.clone().into(),
+                    node: expr.clone().into(),
                 });
                 return;
             }
@@ -1998,7 +1995,7 @@ fn generate_constraints_expr(
                 }
                 if !resolved {
                     ctx.errors.push(Error::UnresolvedIdentifier {
-                        node_id: member_ident.into(),
+                        node: member_ident.into(),
                     })
                 }
             }
@@ -2043,7 +2040,7 @@ fn generate_constraints_expr(
 
 fn generate_constraints_func_helper(
     ctx: &mut StaticsContext,
-    node_id: AstNode,
+    node: AstNode,
     polyvar_scope: PolyvarScope,
     args: &[ArgMaybeAnnotated],
     out_annot: &Option<Rc<AstType>>,
@@ -2072,8 +2069,8 @@ fn generate_constraints_func_helper(
         .collect();
 
     // body
-    ctx.func_ret_stack.push(Prov::FuncOut(node_id.clone()));
-    let ty_body = TypeVar::fresh(ctx, Prov::FuncOut(node_id.clone()));
+    ctx.func_ret_stack.push(Prov::FuncOut(node.clone()));
+    let ty_body = TypeVar::fresh(ctx, Prov::FuncOut(node.clone()));
     generate_constraints_expr(
         polyvar_scope.clone(),
         Mode::Ana {
@@ -2096,12 +2093,12 @@ fn generate_constraints_func_helper(
     }
     ctx.func_ret_stack.pop();
 
-    TypeVar::make_func(ty_args, ty_body, Reason::Node(node_id.clone()))
+    TypeVar::make_func(ty_args, ty_body, Reason::Node(node.clone()))
 }
 
 fn generate_constraints_func_decl(
     ctx: &mut StaticsContext,
-    node_id: AstNode,
+    node: AstNode,
     polyvar_scope: PolyvarScope,
     args: &[ArgMaybeAnnotated],
     out_annot: &Option<Rc<AstType>>,
@@ -2126,7 +2123,7 @@ fn generate_constraints_func_decl(
         .collect();
 
     // body
-    let ty_body = TypeVar::fresh(ctx, Prov::FuncOut(node_id.clone()));
+    let ty_body = TypeVar::fresh(ctx, Prov::FuncOut(node.clone()));
 
     if let Some(out_annot) = out_annot {
         let out_annot = ast_type_to_typevar(ctx, out_annot.clone());
@@ -2134,14 +2131,14 @@ fn generate_constraints_func_decl(
         constrain(ctx, ty_body.clone(), out_annot);
     }
 
-    let ty_func = TypeVar::make_func(ty_args, ty_body, Reason::Node(node_id.clone()));
-    let ty_node = TypeVar::from_node(ctx, node_id);
+    let ty_func = TypeVar::make_func(ty_args, ty_body, Reason::Node(node.clone()));
+    let ty_node = TypeVar::from_node(ctx, node);
     constrain(ctx, ty_node, ty_func);
 }
 
 fn generate_constraints_func_decl_annotated(
     ctx: &mut StaticsContext,
-    node_id: AstNode,
+    node: AstNode,
     polyvar_scope: PolyvarScope,
     args: &[ArgAnnotated],
     out_annot: &Option<Rc<AstType>>,
@@ -2161,7 +2158,7 @@ fn generate_constraints_func_decl_annotated(
         .collect();
 
     // body
-    let ty_body = TypeVar::fresh(ctx, Prov::FuncOut(node_id.clone()));
+    let ty_body = TypeVar::fresh(ctx, Prov::FuncOut(node.clone()));
 
     if let Some(out_annot) = out_annot {
         let out_annot = ast_type_to_typevar(ctx, out_annot.clone());
@@ -2169,8 +2166,8 @@ fn generate_constraints_func_decl_annotated(
         constrain(ctx, ty_body.clone(), out_annot);
     }
 
-    let ty_func = TypeVar::make_func(ty_args, ty_body, Reason::Node(node_id.clone()));
-    let ty_node = TypeVar::from_node(ctx, node_id);
+    let ty_func = TypeVar::make_func(ty_args, ty_body, Reason::Node(node.clone()));
+    let ty_node = TypeVar::from_node(ctx, node);
     constrain(ctx, ty_node, ty_func);
 }
 

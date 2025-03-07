@@ -153,11 +153,11 @@ pub(crate) enum Declaration {
 pub(crate) enum Error {
     // resolution phase
     UnresolvedIdentifier {
-        node_id: AstNode,
+        node: AstNode,
     },
     // typechecking phase
     UnconstrainedUnifvar {
-        node_id: AstNode,
+        node: AstNode,
     },
     ConflictingUnifvar {
         types: HashMap<TypeKey, PotentialType>,
@@ -168,16 +168,16 @@ pub(crate) enum Error {
         constraint_reason: ConstraintReason,
     },
     MemberAccessNeedsAnnotation {
-        node_id: AstNode,
+        node: AstNode,
     },
     InterfaceNotImplemented {
         ty: SolvedType,
         iface: Rc<InterfaceDecl>,
-        node_id: AstNode,
+        node: AstNode,
     },
     // break and continue
     NotInLoop {
-        node_id: AstNode,
+        node: AstNode,
     },
     // pattern matching exhaustiveness check
     NonexhaustiveMatch {
@@ -242,13 +242,13 @@ impl Error {
         };
 
         match self {
-            Error::UnresolvedIdentifier { node_id } => {
-                let (file, range) = get_file_and_range(node_id);
+            Error::UnresolvedIdentifier { node } => {
+                let (file, range) = get_file_and_range(node);
                 diagnostic = diagnostic.with_message("Could not resolve identifier");
                 labels.push(Label::secondary(file, range))
             }
-            Error::UnconstrainedUnifvar { node_id } => {
-                let (file, range) = get_file_and_range(node_id);
+            Error::UnconstrainedUnifvar { node } => {
+                let (file, range) = get_file_and_range(node);
                 diagnostic = diagnostic.with_message("Can't solve type. Try adding an annotation");
                 labels.push(Label::secondary(file, range))
             }
@@ -284,9 +284,9 @@ impl Error {
                     let reason1 = provs1.iter().next().unwrap();
                     handle_reason(ty1, reason1, &mut labels, &mut notes);
                 }
-                ConstraintReason::BinaryOperandsMustMatch(node_id) => {
+                ConstraintReason::BinaryOperandsMustMatch(node) => {
                     diagnostic = diagnostic.with_message("Operands must have the same type");
-                    let (file, range) = get_file_and_range(node_id);
+                    let (file, range) = get_file_and_range(node);
                     labels.push(Label::secondary(file, range).with_message("operator"));
 
                     let provs2 = ty2.reasons().borrow();
@@ -336,9 +336,9 @@ impl Error {
                     let reason1 = provs1.iter().next().unwrap();
                     handle_reason(ty1, reason1, &mut labels, &mut notes);
                 }
-                ConstraintReason::FuncCall(node_id) => {
+                ConstraintReason::FuncCall(node) => {
                     diagnostic = diagnostic.with_message("Wrong argument type");
-                    let (file, range) = get_file_and_range(node_id);
+                    let (file, range) = get_file_and_range(node);
                     labels.push(Label::secondary(file, range).with_message("function call"));
 
                     let provs2 = ty2.reasons().borrow();
@@ -366,10 +366,10 @@ impl Error {
                     let reason1 = provs1.iter().next().unwrap();
                     handle_reason(ty1, reason1, &mut labels, &mut notes);
                 }
-                ConstraintReason::BinaryOperandBool(node_id) => {
+                ConstraintReason::BinaryOperandBool(node) => {
                     diagnostic = diagnostic
                         .with_message(format!("Operand must be `bool` but got `{}`\n", ty1));
-                    let (file, range) = get_file_and_range(node_id);
+                    let (file, range) = get_file_and_range(node);
                     labels.push(Label::secondary(file, range).with_message("boolean operator"));
 
                     let provs1 = ty1.reasons().borrow();
@@ -380,22 +380,22 @@ impl Error {
                     notes.push("type conflict due to array index is int".to_string());
                 }
             },
-            Error::MemberAccessNeedsAnnotation { node_id } => {
+            Error::MemberAccessNeedsAnnotation { node } => {
                 diagnostic = diagnostic.with_message("Can't perform member access without knowing type. Try adding a type annotation.");
-                let (file, range) = get_file_and_range(node_id);
+                let (file, range) = get_file_and_range(node);
                 labels.push(Label::secondary(file, range));
             }
-            Error::InterfaceNotImplemented { ty, iface, node_id } => {
+            Error::InterfaceNotImplemented { ty, iface, node } => {
                 diagnostic = diagnostic.with_message(format!(
                     "Interface `{}` is not implemented for type `{}`",
                     iface.name.v, ty
                 ));
-                let (file, range) = get_file_and_range(node_id);
+                let (file, range) = get_file_and_range(node);
                 labels.push(Label::secondary(file, range));
             }
-            Error::NotInLoop { node_id } => {
+            Error::NotInLoop { node } => {
                 diagnostic = diagnostic.with_message("This statement must be in a loop");
-                let (file, range) = get_file_and_range(node_id);
+                let (file, range) = get_file_and_range(node);
                 labels.push(Label::secondary(file, range));
             }
             Error::NonexhaustiveMatch { expr_id, missing } => {
@@ -498,13 +498,13 @@ fn handle_reason(
 
 use codespan_reporting::diagnostic::Label as CsLabel;
 // TODO: This is duplicated
-pub(crate) fn _print_node(ctx: &StaticsContext, node_id: AstNode) {
+pub(crate) fn _print_node(ctx: &StaticsContext, node: AstNode) {
     let get_file_and_range = |id: &AstNode| {
         let span = id.location();
         (span.file_id, span.range())
     };
 
-    let (file, range) = get_file_and_range(&node_id);
+    let (file, range) = get_file_and_range(&node);
 
     let diagnostic = Diagnostic::note().with_labels(vec![CsLabel::secondary(file, range)]);
 

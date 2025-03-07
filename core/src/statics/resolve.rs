@@ -325,9 +325,8 @@ fn resolve_imports_file(ctx: &mut StaticsContext, file: Rc<FileAst>) -> Toplevel
         if let ItemKind::Import(path) = &*item.kind {
             // dbg!(&ctx.global_namespace.namespaces);
             let Some(import_src) = ctx.global_namespace.namespaces.get(&path.v) else {
-                ctx.errors.push(Error::UnresolvedIdentifier {
-                    node_id: item.into(),
-                });
+                ctx.errors
+                    .push(Error::UnresolvedIdentifier { node: item.into() });
                 continue;
             };
             // add declarations from this import to the environment
@@ -423,9 +422,8 @@ fn resolve_names_item_decl(ctx: &mut StaticsContext, symbol_table: SymbolTable, 
                     }
                 }
             } else {
-                ctx.errors.push(Error::UnresolvedIdentifier {
-                    node_id: stmt.into(),
-                });
+                ctx.errors
+                    .push(Error::UnresolvedIdentifier { node: stmt.into() });
             }
         }
         ItemKind::Import(..) => {}
@@ -546,9 +544,8 @@ fn resolve_names_expr(ctx: &mut StaticsContext, symbol_table: SymbolTable, expr:
             if let Some(decl) = lookup {
                 ctx.resolution_map.insert(expr.id, decl);
             } else {
-                ctx.errors.push(Error::UnresolvedIdentifier {
-                    node_id: expr.into(),
-                });
+                ctx.errors
+                    .push(Error::UnresolvedIdentifier { node: expr.into() });
             }
         }
         ExprKind::BinOp(left, _, right) => {
@@ -647,9 +644,8 @@ fn resolve_names_pat(ctx: &mut StaticsContext, symbol_table: SymbolTable, pat: R
             {
                 ctx.resolution_map.insert(tag.id, decl.clone());
             } else {
-                ctx.errors.push(Error::UnresolvedIdentifier {
-                    node_id: tag.into(),
-                });
+                ctx.errors
+                    .push(Error::UnresolvedIdentifier { node: tag.into() });
             }
             if let Some(data) = data {
                 resolve_names_pat(ctx, symbol_table, data.clone())
@@ -692,9 +688,8 @@ fn resolve_names_typ(
                 {
                     ctx.resolution_map.insert(iface.id, decl.clone());
                 } else {
-                    ctx.errors.push(Error::UnresolvedIdentifier {
-                        node_id: iface.into(),
-                    });
+                    ctx.errors
+                        .push(Error::UnresolvedIdentifier { node: iface.into() });
                 }
             }
         }
@@ -743,7 +738,7 @@ fn resolve_names_typ_identifier(
             ctx.resolution_map.insert(id.id(), decl);
         }
         _ => {
-            ctx.errors.push(Error::UnresolvedIdentifier { node_id: id });
+            ctx.errors.push(Error::UnresolvedIdentifier { node: id });
         }
     }
 }

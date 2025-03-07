@@ -86,7 +86,7 @@ pub type BytecodeIndex = u32;
 impl Declaration {
     pub fn to_bytecode_resolution(&self) -> BytecodeResolution {
         match self {
-            Declaration::Var(node_id) => BytecodeResolution::Var(node_id.clone()),
+            Declaration::Var(node) => BytecodeResolution::Var(node.clone()),
             Declaration::FreeFunction(f, qname) => {
                 BytecodeResolution::FreeFunction(f.clone(), qname.clone())
             }
@@ -197,8 +197,8 @@ impl Translator {
         st.lines.push(l);
     }
 
-    fn update_filename_lineno_tables(&self, st: &mut TranslatorState, node_id: AstNode) {
-        let location = node_id.location();
+    fn update_filename_lineno_tables(&self, st: &mut TranslatorState, node: AstNode) {
+        let location = node.location();
         let file_id = location.file_id;
 
         let file = self._files.get(file_id).unwrap();
@@ -323,10 +323,8 @@ impl Translator {
                 // Handle lambdas with captures
                 let mut iteration = HashMap::new();
                 mem::swap(&mut (iteration), &mut st.lambdas);
-                for (node_id, data) in iteration {
-                    let AstNode::Expr(expr) = node_id else {
-                        panic!()
-                    };
+                for (node, data) in iteration {
+                    let AstNode::Expr(expr) = node else { panic!() };
                     let ExprKind::AnonymousFunction(args, _, body) = &*expr.kind else {
                         panic!() // TODO: get rid of this panic
                     };
@@ -468,8 +466,8 @@ impl Translator {
                         self.emit(st, Instr::PushNil);
                         self.emit(st, Instr::ConstructVariant { tag });
                     }
-                    BytecodeResolution::Var(node_id) => {
-                        let idx = offset_table.get(&node_id.id()).unwrap();
+                    BytecodeResolution::Var(node) => {
+                        let idx = offset_table.get(&node.id()).unwrap();
                         self.emit(st, Instr::LoadOffset(*idx));
                     }
                     BytecodeResolution::Builtin(b) => {
@@ -580,9 +578,9 @@ impl Translator {
                         .unwrap()
                         .to_bytecode_resolution();
                     match resolution {
-                        BytecodeResolution::Var(node_id) => {
+                        BytecodeResolution::Var(node) => {
                             // assume it's a function object
-                            let idx = offset_table.get(&node_id.id()).unwrap();
+                            let idx = offset_table.get(&node.id()).unwrap();
                             self.emit(st, Instr::LoadOffset(*idx));
                             self.emit(st, Instr::CallFuncObj);
                         }
@@ -1248,7 +1246,7 @@ impl Translator {
             StmtKind::Set(expr1, rvalue) => {
                 match &*expr1.kind {
                     ExprKind::Variable(_) => {
-                        let BytecodeResolution::Var(node_id) = self
+                        let BytecodeResolution::Var(node) = self
                             .statics
                             .resolution_map
                             .get(&expr1.id)
@@ -1257,7 +1255,7 @@ impl Translator {
                         else {
                             panic!("expected variableto be defined in node");
                         };
-                        let idx = locals.get(&node_id.id()).unwrap();
+                        let idx = locals.get(&node.id()).unwrap();
                         self.translate_expr(rvalue.clone(), locals, monomorph_env.clone(), st);
                         self.emit(st, Instr::StoreOffset(*idx));
                     }
