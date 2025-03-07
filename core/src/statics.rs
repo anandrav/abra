@@ -89,8 +89,8 @@ impl StaticsContext {
         ctx
     }
 
-    pub(crate) fn solution_of_node(&self, id: AstNode) -> Option<SolvedType> {
-        let prov = TypeProv::Node(id);
+    pub(crate) fn solution_of_node(&self, node: AstNode) -> Option<SolvedType> {
+        let prov = TypeProv::Node(node);
         match self.unifvars.get(&prov) {
             Some(unifvar) => unifvar.solution(),
             None => None,
@@ -181,11 +181,11 @@ pub(crate) enum Error {
     },
     // pattern matching exhaustiveness check
     NonexhaustiveMatch {
-        expr_id: AstNode,
+        node: AstNode,
         missing: Vec<DeconstructedPat>,
     },
     RedundantArms {
-        expr_id: AstNode,
+        node: AstNode,
         redundant_arms: Vec<AstNode>,
     },
 }
@@ -236,8 +236,8 @@ impl Error {
         let mut notes = Vec::new();
 
         // get rid of this after making our own file database
-        let get_file_and_range = |id: &AstNode| {
-            let span = id.location();
+        let get_file_and_range = |node: &AstNode| {
+            let span = node.location();
             (span.file_id, span.range())
         };
 
@@ -398,10 +398,10 @@ impl Error {
                 let (file, range) = get_file_and_range(node);
                 labels.push(Label::secondary(file, range));
             }
-            Error::NonexhaustiveMatch { expr_id, missing } => {
+            Error::NonexhaustiveMatch { node, missing } => {
                 diagnostic =
                     diagnostic.with_message("This match expression doesn't cover every case");
-                let (file, range) = get_file_and_range(expr_id);
+                let (file, range) = get_file_and_range(node);
                 labels.push(Label::secondary(file, range));
 
                 notes.push("The following cases are missing:".to_string());
@@ -410,11 +410,11 @@ impl Error {
                 }
             }
             Error::RedundantArms {
-                expr_id,
+                node,
                 redundant_arms,
             } => {
                 diagnostic = diagnostic.with_message("This match expression has redundant cases");
-                let (file, range) = get_file_and_range(expr_id);
+                let (file, range) = get_file_and_range(node);
                 labels.push(Label::secondary(file, range));
 
                 notes.push("Try removing these cases:".to_string());
@@ -442,9 +442,9 @@ fn handle_reason(
     notes: &mut Vec<String>,
 ) {
     // TODO: this is duplicated
-    let get_file_and_range = |id: &AstNode| {
+    let get_file_and_range = |node: &AstNode| {
         // dbg!(id);
-        let span = id.location();
+        let span = node.location();
         (span.file_id, span.range())
     };
     match reason {
@@ -499,8 +499,8 @@ fn handle_reason(
 use codespan_reporting::diagnostic::Label as CsLabel;
 // TODO: This is duplicated
 pub(crate) fn _print_node(ctx: &StaticsContext, node: AstNode) {
-    let get_file_and_range = |id: &AstNode| {
-        let span = id.location();
+    let get_file_and_range = |node: &AstNode| {
+        let span = node.location();
         (span.file_id, span.range())
     };
 

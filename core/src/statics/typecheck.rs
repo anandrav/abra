@@ -483,7 +483,7 @@ impl TypeVar {
         self,
         polyvar_scope: PolyvarScope,
         ctx: &mut StaticsContext,
-        id: AstNode,
+        node: AstNode,
     ) -> TypeVar {
         let data = self.0.clone_data();
         if data.types.len() != 1 {
@@ -503,14 +503,14 @@ impl TypeVar {
                     let Declaration::Polytype(polyty) = decl else {
                         panic!()
                     };
-                    let prov = Prov::InstantiatePoly(id.clone(), polyty.clone());
+                    let prov = Prov::InstantiatePoly(node.clone(), polyty.clone());
                     let ret = TypeVar::fresh(ctx, prov.clone());
                     let mut extension: Vec<(Rc<InterfaceDecl>, AstNode)> = Vec::new();
                     for i in &polyty.iface_names {
                         if let Some(Declaration::InterfaceDef(iface)) =
                             ctx.resolution_map.get(&i.id)
                         {
-                            extension.push((iface.clone(), id.clone()));
+                            extension.push((iface.clone(), node.clone()));
                         }
                     }
                     ctx.unifvars_constrained_to_interfaces
@@ -525,22 +525,22 @@ impl TypeVar {
             PotentialType::Nominal(provs, ident, params) => {
                 let params = params
                     .into_iter()
-                    .map(|ty| ty.instantiate(polyvar_scope.clone(), ctx, id.clone()))
+                    .map(|ty| ty.instantiate(polyvar_scope.clone(), ctx, node.clone()))
                     .collect();
                 PotentialType::Nominal(provs, ident, params)
             }
             PotentialType::Function(provs, args, out) => {
                 let args = args
                     .into_iter()
-                    .map(|ty| ty.instantiate(polyvar_scope.clone(), ctx, id.clone()))
+                    .map(|ty| ty.instantiate(polyvar_scope.clone(), ctx, node.clone()))
                     .collect();
-                let out = out.instantiate(polyvar_scope.clone(), ctx, id.clone());
+                let out = out.instantiate(polyvar_scope.clone(), ctx, node.clone());
                 PotentialType::Function(provs, args, out)
             }
             PotentialType::Tuple(provs, elems) => {
                 let elems = elems
                     .into_iter()
-                    .map(|ty| ty.instantiate(polyvar_scope.clone(), ctx, id.clone()))
+                    .map(|ty| ty.instantiate(polyvar_scope.clone(), ctx, node.clone()))
                     .collect();
                 PotentialType::Tuple(provs, elems)
             }
@@ -552,7 +552,7 @@ impl TypeVar {
             locked: data.locked,
         };
         let tvar = TypeVar(UnionFindNode::new(data_instantiated));
-        ctx.unifvars.insert(Prov::Node(id), tvar.clone());
+        ctx.unifvars.insert(Prov::Node(node), tvar.clone());
         tvar
     }
 
@@ -659,8 +659,8 @@ impl TypeVar {
         }
     }
 
-    pub(crate) fn from_node(ctx: &mut StaticsContext, id: AstNode) -> TypeVar {
-        let prov = Prov::Node(id);
+    pub(crate) fn from_node(ctx: &mut StaticsContext, node: AstNode) -> TypeVar {
+        let prov = Prov::Node(node);
         Self::fresh(ctx, prov)
     }
 
@@ -745,7 +745,7 @@ impl TypeVar {
 fn tyvar_of_declaration(
     ctx: &mut StaticsContext,
     decl: &Declaration,
-    id: AstNode,
+    node: AstNode,
 ) -> Option<TypeVar> {
     match decl {
         Declaration::FreeFunction(f, _) => Some(TypeVar::from_node(ctx, f.name.clone().into())),
@@ -768,7 +768,7 @@ fn tyvar_of_declaration(
             for i in 0..nparams {
                 params.push(TypeVar::fresh(
                     ctx,
-                    Prov::InstantiateUdtParam(id.clone(), i as u8),
+                    Prov::InstantiateUdtParam(node.clone(), i as u8),
                 ));
                 // TODO: don't do this silly downcast.
                 // ty_args should just be a Vec<Identifier> most likely
@@ -783,7 +783,7 @@ fn tyvar_of_declaration(
                 substitution.insert(decl.clone(), params[i].clone());
             }
             Some(TypeVar::make_nominal(
-                Reason::Node(id), // TODO: change to Reason::Declaration
+                Reason::Node(node), // TODO: change to Reason::Declaration
                 Nominal::Enum(enum_def.clone()),
                 params,
             ))
@@ -797,7 +797,7 @@ fn tyvar_of_declaration(
             for i in 0..nparams {
                 params.push(TypeVar::fresh(
                     ctx,
-                    Prov::InstantiateUdtParam(id.clone(), i as u8),
+                    Prov::InstantiateUdtParam(node.clone(), i as u8),
                 ));
                 // TODO: don't do this silly downcast.
                 // ty_args should just be a Vec<Identifier> most likely
@@ -812,7 +812,7 @@ fn tyvar_of_declaration(
                 substitution.insert(decl.clone(), params[i].clone());
             }
             let def_type = TypeVar::make_nominal(
-                Reason::Node(id.clone()),
+                Reason::Node(node.clone()),
                 Nominal::Enum(enum_def.clone()),
                 params,
             );
@@ -827,17 +827,17 @@ fn tyvar_of_declaration(
                             .iter()
                             .map(|e| {
                                 let e = ast_type_to_typevar(ctx, e.clone());
-                                e.clone().subst(Prov::Node(id.clone()), &substitution)
+                                e.clone().subst(Prov::Node(node.clone()), &substitution)
                             })
                             .collect();
-                        Some(TypeVar::make_func(args, def_type, Reason::Node(id)))
+                        Some(TypeVar::make_func(args, def_type, Reason::Node(node)))
                     }
                     _ => {
                         let ty = ast_type_to_typevar(ctx, ty.clone());
                         Some(TypeVar::make_func(
-                            vec![ty.clone().subst(Prov::Node(id.clone()), &substitution)],
+                            vec![ty.clone().subst(Prov::Node(node.clone()), &substitution)],
                             def_type,
-                            Reason::Node(id.clone()),
+                            Reason::Node(node.clone()),
                         ))
                     }
                 },
@@ -850,7 +850,7 @@ fn tyvar_of_declaration(
             for i in 0..nparams {
                 params.push(TypeVar::fresh(
                     ctx,
-                    Prov::InstantiateUdtParam(id.clone(), i as u8),
+                    Prov::InstantiateUdtParam(node.clone(), i as u8),
                 ));
                 // TODO: don't do this silly downcast.
                 // ty_args should just be a Vec<Identifier> most likely
@@ -865,7 +865,7 @@ fn tyvar_of_declaration(
                 substitution.insert(decl.clone(), params[i].clone());
             }
             let def_type = TypeVar::make_nominal(
-                Reason::Node(id.clone()),
+                Reason::Node(node.clone()),
                 Nominal::Struct(struct_def.clone()),
                 params,
             );
@@ -874,23 +874,24 @@ fn tyvar_of_declaration(
                 .iter()
                 .map(|f| {
                     let ty = ast_type_to_typevar(ctx, f.ty.clone());
-                    ty.clone().subst(Prov::Node(id.clone()), &substitution)
+                    ty.clone().subst(Prov::Node(node.clone()), &substitution)
                 })
                 .collect();
-            Some(TypeVar::make_func(fields, def_type, Reason::Node(id)))
+            Some(TypeVar::make_func(fields, def_type, Reason::Node(node)))
         }
         Declaration::ForeignType(ident) => Some(TypeVar::make_nominal(
-            Reason::Node(id),
+            Reason::Node(node),
             Nominal::ForeignType(ident.clone()),
             vec![],
         )),
         Declaration::Array => {
             let params = vec![TypeVar::fresh(
                 ctx,
-                Prov::InstantiateUdtParam(id.clone(), 0),
+                Prov::InstantiateUdtParam(node.clone(), 0),
             )];
-            let def_type = TypeVar::make_nominal(Reason::Node(id.clone()), Nominal::Array, params);
-            Some(TypeVar::make_func(vec![], def_type, Reason::Node(id)))
+            let def_type =
+                TypeVar::make_nominal(Reason::Node(node.clone()), Nominal::Array, params);
+            Some(TypeVar::make_func(vec![], def_type, Reason::Node(node)))
         }
         Declaration::Polytype(_) => None,
         Declaration::Builtin(builtin) => {
@@ -2175,18 +2176,18 @@ fn generate_constraints_fn_def(
     ctx: &mut StaticsContext,
     polyvar_scope: PolyvarScope,
     f: &FuncDef,
-    id: AstNode,
+    node: AstNode,
 ) {
     let ty_func = generate_constraints_func_helper(
         ctx,
-        id.clone(),
+        node.clone(),
         polyvar_scope,
         &f.args,
         &f.ret_type,
         &f.body,
     );
 
-    let ty_node = TypeVar::from_node(ctx, id.clone());
+    let ty_node = TypeVar::from_node(ctx, node.clone());
     constrain(ctx, ty_node, ty_func.clone());
 }
 

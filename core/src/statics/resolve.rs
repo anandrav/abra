@@ -725,7 +725,7 @@ fn resolve_names_typ_identifier(
     ctx: &mut StaticsContext,
     symbol_table: SymbolTable,
     identifier: &String,
-    id: AstNode,
+    node: AstNode,
 ) {
     let lookup = symbol_table.lookup_declaration(identifier);
     match lookup {
@@ -735,10 +735,10 @@ fn resolve_names_typ_identifier(
             | Declaration::Array
             | Declaration::ForeignType(_)),
         ) => {
-            ctx.resolution_map.insert(id.id(), decl);
+            ctx.resolution_map.insert(node.id(), decl);
         }
         _ => {
-            ctx.errors.push(Error::UnresolvedIdentifier { node: id });
+            ctx.errors.push(Error::UnresolvedIdentifier { node });
         }
     }
 }

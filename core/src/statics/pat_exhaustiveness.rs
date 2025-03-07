@@ -704,7 +704,7 @@ fn match_expr_exhaustive_check(statics: &mut StaticsContext, expr: &Rc<Expr>) {
     let witness_patterns = witness_matrix.first_column();
     if !witness_patterns.is_empty() {
         statics.errors.push(Error::NonexhaustiveMatch {
-            expr_id: expr.clone().into(),
+            node: expr.clone().into(),
             missing: witness_patterns,
         });
     }
@@ -725,7 +725,7 @@ fn match_expr_exhaustive_check(statics: &mut StaticsContext, expr: &Rc<Expr>) {
     }));
     if !redundant_arms.is_empty() {
         statics.errors.push(Error::RedundantArms {
-            expr_id: expr.into(),
+            node: expr.into(),
             redundant_arms,
         })
     }
