@@ -267,6 +267,52 @@ impl std::fmt::Debug for dyn Node {
     }
 }
 
+#[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq, Hash)]
+pub(crate) enum AstNode {
+    FileAst(Rc<FileAst>),
+    Item(Rc<Item>),
+    Stmt(Rc<Stmt>),
+    Expr(Rc<Expr>),
+    Pat(Rc<Pat>),
+    Type(Rc<Type>),
+    Identifier(Rc<Identifier>),
+    InterfaceMethodDecl(Rc<InterfaceMethodDecl>),
+    Variant(Rc<Variant>),
+    StructField(Rc<StructField>),
+}
+
+impl AstNode {
+    fn location(&self) -> &Location {
+        match self {
+            AstNode::FileAst(file_ast) => &file_ast.loc,
+            AstNode::Item(item) => &item.loc,
+            AstNode::Stmt(stmt) => &stmt.loc,
+            AstNode::Expr(expr) => &expr.loc,
+            AstNode::Pat(pat) => &pat.loc,
+            AstNode::Type(typ) => &typ.loc,
+            AstNode::Identifier(identifier) => &identifier.loc,
+            AstNode::InterfaceMethodDecl(interface_method_decl) => &interface_method_decl.ty.loc, // TODO: why return ty's location?
+            AstNode::Variant(variant) => &variant.loc,
+            AstNode::StructField(struct_field) => &struct_field.loc,
+        }
+    }
+
+    fn id(&self) -> NodeId {
+        match self {
+            AstNode::FileAst(file_ast) => file_ast.id,
+            AstNode::Item(item) => item.id,
+            AstNode::Stmt(stmt) => stmt.id,
+            AstNode::Expr(expr) => expr.id,
+            AstNode::Pat(pat) => pat.id,
+            AstNode::Type(typ) => typ.id,
+            AstNode::Identifier(identifier) => identifier.id,
+            AstNode::InterfaceMethodDecl(interface_method_decl) => interface_method_decl.ty.id,
+            AstNode::Variant(variant) => variant.id,
+            AstNode::StructField(struct_field) => struct_field.id,
+        }
+    }
+}
+
 // TODO: convert this to an Enum
 pub(crate) trait Node {
     fn location(&self) -> Location;
@@ -579,11 +625,11 @@ impl Node for Expr {
 
 #[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq, Hash)]
 pub(crate) enum ExprKind {
-    // EmptyHole,
     Variable(String),
     Unit,
     Int(i64),
-    Float(String), // represented as String to allow Eq and Hash
+    // Float is represented as String to allow Eq and Hash
+    Float(String),
     Bool(bool),
     Str(String),
     List(Vec<Rc<Expr>>),
