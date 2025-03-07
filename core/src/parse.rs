@@ -84,7 +84,8 @@ pub(crate) fn parse_expr_pratt(pairs: Pairs<Rule>, file_id: FileId) -> Rc<Expr> 
                     v: inner[0].as_str().to_string(),
                     loc: Location::new(file_id, inner[0].as_span()),
                     id: NodeId::new(),
-                };
+                }
+                .into();
 
                 Rc::new(Expr {
                     kind: Rc::new(ExprKind::MemberAccess(lhs.clone(), ident)),
@@ -138,7 +139,8 @@ pub(crate) fn parse_func_arg_annotation(pair: Pair<Rule>, file_id: FileId) -> Ar
                 v: name.as_str().to_string(),
                 loc: Location::new(file_id, name.as_span()),
                 id: NodeId::new(),
-            };
+            }
+            .into();
             let annot = inner
                 .get(1)
                 .map(|type_pair| parse_type_term(type_pair.clone(), file_id));
@@ -162,7 +164,8 @@ pub(crate) fn parse_func_arg_annotation_mandatory(
                 v: name.as_str().to_string(),
                 loc: Location::new(file_id, name.as_span()),
                 id: NodeId::new(),
-            };
+            }
+            .into();
             let annot = parse_type_term(inner[1].clone(), file_id);
             (ident, annot)
         }
@@ -272,7 +275,8 @@ pub(crate) fn parse_match_pattern(pair: Pair<Rule>, file_id: FileId) -> Rc<Pat> 
                         v: name,
                         loc: span_variant_ctor,
                         id: NodeId::new(),
-                    },
+                    }
+                    .into(),
                     pat,
                 )),
                 loc: span,
@@ -325,7 +329,7 @@ pub(crate) fn parse_type_term(pair: Pair<Rule>, file_id: FileId) -> Rc<Type> {
             let inner: Vec<_> = pair.into_inner().collect();
             let ty_name = inner[0].as_str()[1..].to_owned();
             let ty_span = Location::new(file_id, inner[0].as_span());
-            let mut interfaces = vec![];
+            let mut interfaces: Vec<Rc<Identifier>> = vec![];
             for (i, pair) in inner.iter().enumerate() {
                 if i == 0 {
                     continue;
@@ -334,7 +338,8 @@ pub(crate) fn parse_type_term(pair: Pair<Rule>, file_id: FileId) -> Rc<Type> {
                     v: pair.as_str().to_owned(),
                     loc: Location::new(file_id, pair.as_span()),
                     id: NodeId::new(),
-                };
+                }
+                .into();
                 interfaces.push(interface);
             }
             Rc::new(Type {
@@ -344,7 +349,8 @@ pub(crate) fn parse_type_term(pair: Pair<Rule>, file_id: FileId) -> Rc<Type> {
                             v: ty_name,
                             loc: ty_span,
                             id: NodeId::new(),
-                        },
+                        }
+                        .into(),
                         iface_names: interfaces,
                     }
                     .into(),
@@ -413,7 +419,8 @@ pub(crate) fn parse_type_term(pair: Pair<Rule>, file_id: FileId) -> Rc<Type> {
                         v: name,
                         loc: ident_span,
                         id: NodeId::new(),
-                    },
+                    }
+                    .into(),
                     types,
                 )),
                 loc: span,
@@ -460,7 +467,8 @@ pub(crate) fn parse_item(pair: Pair<Rule>, file_id: FileId) -> Rc<Item> {
                 v: inner[0].as_str().to_string(),
                 loc: Location::new(file_id, inner[0].as_span()),
                 id: NodeId::new(),
-            };
+            }
+            .into();
             n += 1;
             while let Rule::func_arg_annotated = inner[n].as_rule() {
                 let pat_annotated = parse_func_arg_annotation_mandatory(inner[n].clone(), file_id);
@@ -516,7 +524,8 @@ pub(crate) fn parse_item(pair: Pair<Rule>, file_id: FileId) -> Rc<Item> {
                             v: name,
                             loc: span.clone(),
                             id: NodeId::new(),
-                        },
+                        }
+                        .into(),
                         ty_args,
                         variants,
                     }
@@ -549,7 +558,8 @@ pub(crate) fn parse_item(pair: Pair<Rule>, file_id: FileId) -> Rc<Item> {
                             v: name,
                             loc: span.clone(),
                             id: NodeId::new(),
-                        },
+                        }
+                        .into(),
                         ty_args,
                         fields,
                         id,
@@ -569,7 +579,8 @@ pub(crate) fn parse_item(pair: Pair<Rule>, file_id: FileId) -> Rc<Item> {
                         v: name,
                         loc: span.clone(),
                         id: NodeId::new(),
-                    },
+                    }
+                    .into(),
                 )))),
                 loc: span,
                 id,
@@ -591,7 +602,8 @@ pub(crate) fn parse_item(pair: Pair<Rule>, file_id: FileId) -> Rc<Item> {
                             v: name,
                             loc: span.clone(),
                             id: NodeId::new(),
-                        },
+                        }
+                        .into(),
                         methods: props,
                     }
                     .into(),
@@ -621,7 +633,8 @@ pub(crate) fn parse_item(pair: Pair<Rule>, file_id: FileId) -> Rc<Item> {
                             v: name,
                             loc: name_span,
                             id: NodeId::new(),
-                        },
+                        }
+                        .into(),
                         typ,
                         methods: func_defs,
 
@@ -637,11 +650,14 @@ pub(crate) fn parse_item(pair: Pair<Rule>, file_id: FileId) -> Rc<Item> {
         Rule::import => {
             let name = inner[0].as_str().to_string();
             Rc::new(Item {
-                kind: ItemKind::Import(Identifier {
-                    v: name,
-                    loc: span.clone(),
-                    id: NodeId::new(),
-                })
+                kind: ItemKind::Import(
+                    Identifier {
+                        v: name,
+                        loc: span.clone(),
+                        id: NodeId::new(),
+                    }
+                    .into(),
+                )
                 .into(),
                 loc: span,
                 id: NodeId::new(),
@@ -669,7 +685,8 @@ fn parse_func_def(inner: Vec<Pair<'_, Rule>>, file_id: FileId) -> FuncDef {
         v: inner[0].as_str().to_string(),
         loc: Location::new(file_id, inner[0].as_span()),
         id: NodeId::new(),
-    };
+    }
+    .into();
     n += 1;
     while let Rule::func_arg = inner[n].as_rule() {
         let pat_annotated = parse_func_arg_annotation(inner[n].clone(), file_id);
@@ -780,7 +797,8 @@ pub(crate) fn parse_interface_method(pair: Pair<Rule>, file_id: FileId) -> Inter
                     v: name,
                     loc: span,
                     id: NodeId::new(),
-                },
+                }
+                .into(),
                 ty,
             }
         }
@@ -812,7 +830,8 @@ pub(crate) fn parse_variant(pair: Pair<Rule>, file_id: FileId) -> Rc<Variant> {
                     v: name,
                     loc: span_ctor,
                     id: NodeId::new(),
-                },
+                }
+                .into(),
                 data,
                 loc: span,
                 id: NodeId::new(),
@@ -836,7 +855,8 @@ pub(crate) fn parse_struct_field(pair: Pair<Rule>, file_id: FileId) -> StructFie
                     v: name,
                     loc: span_field,
                     id: NodeId::new(),
-                },
+                }
+                .into(),
                 ty,
                 loc: span,
                 id: NodeId::new(),

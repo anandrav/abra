@@ -189,22 +189,22 @@ impl Node for FileAst {
 
 #[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq, Hash)]
 pub(crate) enum TypeDefKind {
-    // Alias(Identifier, Rc<AstType>),
+    // Alias(Rc<Identifier>, Rc<AstType>),
     Enum(Rc<EnumDef>),
     Struct(Rc<StructDef>),
-    Foreign(Identifier),
+    Foreign(Rc<Identifier>),
 }
 
 #[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq, Hash)]
 pub(crate) struct EnumDef {
-    pub(crate) name: Identifier,
+    pub(crate) name: Rc<Identifier>,
     pub(crate) ty_args: Vec<Rc<Type>>,
     pub(crate) variants: Vec<Rc<Variant>>,
 }
 
 #[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq, Hash)]
 pub(crate) struct StructDef {
-    pub(crate) name: Identifier,
+    pub(crate) name: Rc<Identifier>,
     pub(crate) ty_args: Vec<Rc<Type>>,
     pub(crate) fields: Vec<Rc<StructField>>,
 
@@ -213,7 +213,7 @@ pub(crate) struct StructDef {
 
 #[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq, Hash)]
 pub(crate) struct Variant {
-    pub(crate) ctor: Identifier,
+    pub(crate) ctor: Rc<Identifier>,
     pub(crate) data: Option<Rc<Type>>,
 
     pub(crate) loc: Location,
@@ -238,7 +238,7 @@ impl Node for Variant {
 
 #[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq, Hash)]
 pub(crate) struct StructField {
-    pub(crate) name: Identifier,
+    pub(crate) name: Rc<Identifier>,
     pub(crate) ty: Rc<Type>,
 
     pub(crate) loc: Location,
@@ -302,7 +302,7 @@ impl Node for Item {
             ItemKind::ForeignFuncDecl(f) => {
                 let mut children: Vec<Rc<dyn Node>> = vec![];
                 for (name, annot) in f.args.iter() {
-                    children.push(Rc::new(name.clone()) as Rc<dyn Node>);
+                    children.push(name.clone());
                     children.push(annot.clone())
                 }
                 children.push(f.ret_type.clone());
@@ -336,7 +336,7 @@ impl Node for Item {
                     }
                     children
                 }
-                TypeDefKind::Foreign(ident) => vec![Rc::new(ident.clone())],
+                TypeDefKind::Foreign(ident) => vec![ident.clone()],
             },
             ItemKind::InterfaceDef(i) => {
                 let mut children: Vec<Rc<dyn Node>> = Vec::new();
@@ -352,16 +352,16 @@ impl Node for Item {
                 }
                 children
             }
-            ItemKind::Import(ident) => vec![Rc::new(ident.clone())],
+            ItemKind::Import(ident) => vec![ident.clone()],
             ItemKind::Stmt(stmt) => vec![stmt.clone() as Rc<dyn Node>],
         }
     }
 }
 
 fn children_func_def(f: &FuncDef, children: &mut Vec<Rc<dyn Node>>) {
-    children.push(Rc::new(f.name.clone()));
+    children.push(f.name.clone());
     for (name, annot) in f.args.iter() {
-        children.push(Rc::new(name.clone()) as Rc<dyn Node>);
+        children.push(name.clone());
         if let Some(ty) = annot {
             children.push(ty.clone())
         }
@@ -379,7 +379,7 @@ pub(crate) enum ItemKind {
     TypeDef(Rc<TypeDefKind>),
     InterfaceDef(Rc<InterfaceDecl>),
     InterfaceImpl(Rc<InterfaceImpl>),
-    Import(Identifier),
+    Import(Rc<Identifier>),
     Stmt(Rc<Stmt>),
 }
 
@@ -403,7 +403,7 @@ impl Node for Stmt {
             StmtKind::FuncDef(f) => {
                 let mut children: Vec<Rc<dyn Node>> = vec![];
                 for (name, annot) in f.args.iter() {
-                    children.push(Rc::new(name.clone()) as Rc<dyn Node>);
+                    children.push(name.clone());
                     if let Some(ty) = annot {
                         children.push(ty.clone())
                     }
@@ -415,7 +415,7 @@ impl Node for Stmt {
                 children
             }
             StmtKind::Let(_mutable, (pat, ty), expr) => {
-                let mut children: Vec<Rc<dyn Node>> = vec![pat.clone() as Rc<dyn Node>];
+                let mut children: Vec<Rc<dyn Node>> = vec![pat.clone()];
                 if let Some(ty) = ty {
                     children.push(ty.clone());
                 }
@@ -445,12 +445,12 @@ pub(crate) enum StmtKind {
     Return(Rc<Expr>),
 }
 
-pub(crate) type ArgMaybeAnnotated = (Identifier, Option<Rc<Type>>);
-pub(crate) type ArgAnnotated = (Identifier, Rc<Type>);
+pub(crate) type ArgMaybeAnnotated = (Rc<Identifier>, Option<Rc<Type>>);
+pub(crate) type ArgAnnotated = (Rc<Identifier>, Rc<Type>);
 
 #[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq, Hash)]
 pub(crate) struct FuncDef {
-    pub(crate) name: Identifier,
+    pub(crate) name: Rc<Identifier>,
     pub(crate) args: Vec<ArgMaybeAnnotated>,
     pub(crate) ret_type: Option<Rc<Type>>,
     pub(crate) body: Rc<Expr>,
@@ -458,20 +458,20 @@ pub(crate) struct FuncDef {
 
 #[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq, Hash)]
 pub(crate) struct ForeignFuncDecl {
-    pub(crate) name: Identifier,
+    pub(crate) name: Rc<Identifier>,
     pub(crate) args: Vec<ArgAnnotated>,
     pub(crate) ret_type: Rc<Type>,
 }
 
 #[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq, Hash)]
 pub(crate) struct InterfaceDecl {
-    pub(crate) name: Identifier,
+    pub(crate) name: Rc<Identifier>,
     pub(crate) methods: Vec<Rc<InterfaceMethodDecl>>,
 }
 
 #[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq, Hash)]
 pub(crate) struct InterfaceMethodDecl {
-    pub(crate) name: Identifier,
+    pub(crate) name: Rc<Identifier>,
     pub(crate) ty: Rc<Type>,
 }
 
@@ -490,7 +490,7 @@ impl Node for InterfaceMethodDecl {
 
 #[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq, Hash)]
 pub(crate) struct InterfaceImpl {
-    pub(crate) iface: Identifier,
+    pub(crate) iface: Rc<Identifier>,
     pub(crate) typ: Rc<Type>,
     pub(crate) methods: Vec<Rc<FuncDef>>, // TODO: Don't use Vec<Stmt>. Use Vec<MethodDef>
 
@@ -525,7 +525,7 @@ impl Node for Expr {
             ExprKind::AnonymousFunction(args, ty_opt, body) => {
                 let mut children: Vec<Rc<dyn Node>> = Vec::new();
                 args.iter().for_each(|(name, annot)| {
-                    children.push(Rc::new(name.clone()) as Rc<dyn Node>);
+                    children.push(name.clone());
                     if let Some(ty) = annot {
                         children.push(ty.clone())
                     }
@@ -567,7 +567,7 @@ impl Node for Expr {
                 }
                 children
             }
-            ExprKind::MemberAccess(expr, field) => vec![expr.clone(), Rc::new(field.clone())],
+            ExprKind::MemberAccess(expr, field) => vec![expr.clone(), field.clone()],
             ExprKind::IndexAccess(expr, index) => vec![expr.clone(), index.clone()],
         }
     }
@@ -596,7 +596,7 @@ pub(crate) enum ExprKind {
     BinOp(Rc<Expr>, BinaryOperator, Rc<Expr>),
     FuncAp(Rc<Expr>, Vec<Rc<Expr>>),
     Tuple(Vec<Rc<Expr>>),
-    MemberAccess(Rc<Expr>, Identifier),
+    MemberAccess(Rc<Expr>, Rc<Identifier>),
     IndexAccess(Rc<Expr>, Rc<Expr>),
 }
 
@@ -653,7 +653,7 @@ impl Node for Pat {
             PatKind::Bool(_) => vec![],
             PatKind::Str(_) => vec![],
             PatKind::Variant(ident, pat_opt) => {
-                let mut children = vec![Rc::new(ident.clone()) as Rc<dyn Node>];
+                let mut children = vec![ident.clone() as Rc<dyn Node>];
                 if let Some(pat) = pat_opt {
                     children.push(pat.clone());
                 }
@@ -671,7 +671,7 @@ impl Node for Pat {
 pub(crate) enum PatKind {
     Wildcard,
     Binding(String),
-    Variant(Identifier, Option<Rc<Pat>>),
+    Variant(Rc<Identifier>, Option<Rc<Pat>>),
     Unit,
     Int(i64),
     Float(String),
@@ -700,12 +700,12 @@ impl Node for Type {
             TypeKind::Poly(polytype) => {
                 let mut children: Vec<Rc<dyn Node>> = vec![];
                 // TODO: gross.
-                children.push(Rc::new(polytype.name.clone()) as Rc<dyn Node>);
+                children.push(polytype.name.clone() as Rc<dyn Node>);
                 children.extend(
                     polytype
                         .iface_names
                         .iter()
-                        .map(|t| Rc::new(t.clone()) as Rc<dyn Node>),
+                        .map(|t| t.clone() as Rc<dyn Node>),
                 );
                 children
             }
@@ -719,8 +719,8 @@ impl Node for Type {
             }
             TypeKind::NamedWithParams(tyname, params) => {
                 let mut children: Vec<Rc<dyn Node>> = vec![];
-                // TODO: gross.
-                children.push(Rc::new(tyname.clone()) as Rc<dyn Node>);
+                // TODO: get rid of `as Rc<dyn Node>` where unnecessary
+                children.push(tyname.clone() as Rc<dyn Node>);
                 children.extend(params.iter().map(|t| t.clone() as Rc<dyn Node>));
                 children
             }
@@ -742,7 +742,7 @@ impl Node for Type {
 pub(crate) enum TypeKind {
     Poly(Rc<Polytype>),
     Named(String),
-    NamedWithParams(Identifier, Vec<Rc<Type>>),
+    NamedWithParams(Rc<Identifier>, Vec<Rc<Type>>),
     Unit,
     Int,
     Float,
@@ -754,8 +754,8 @@ pub(crate) enum TypeKind {
 
 #[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq, Hash)]
 pub(crate) struct Polytype {
-    pub(crate) name: Identifier,
-    pub(crate) iface_names: Vec<Identifier>,
+    pub(crate) name: Rc<Identifier>,
+    pub(crate) iface_names: Vec<Rc<Identifier>>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]

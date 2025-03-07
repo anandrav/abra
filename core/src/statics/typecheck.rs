@@ -168,7 +168,7 @@ pub(crate) enum SolvedType {
 pub enum Nominal {
     Struct(Rc<StructDef>),
     Enum(Rc<EnumDef>),
-    ForeignType(Identifier),
+    ForeignType(Rc<Identifier>),
     Array,
 }
 
@@ -2124,7 +2124,7 @@ fn generate_constraints_fn_def(
     constrain(ctx, ty_node, ty_func.clone());
 }
 
-fn generate_constraints_fn_arg(mode: Mode, arg: Identifier, ctx: &mut StaticsContext) {
+fn generate_constraints_fn_arg(mode: Mode, arg: Rc<Identifier>, ctx: &mut StaticsContext) {
     let ty_arg = TypeVar::from_node(ctx, arg.id);
     match mode {
         Mode::Syn => (),

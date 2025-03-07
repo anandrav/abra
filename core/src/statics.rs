@@ -145,7 +145,7 @@ pub(crate) enum Declaration {
         variant: u16,
     },
     Struct(Rc<StructDef>),
-    ForeignType(Identifier),
+    ForeignType(Rc<Identifier>),
     Array,
     Polytype(Rc<Polytype>),
     Builtin(Builtin),
