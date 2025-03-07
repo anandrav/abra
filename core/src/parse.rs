@@ -419,7 +419,6 @@ pub(crate) fn parse_type_term(pair: Pair<Rule>, file_id: FileId) -> Rc<Type> {
 }
 
 pub(crate) fn parse_type_poly(pair: Pair<Rule>, file_id: FileId) -> Rc<Polytype> {
-    let span = Location::new(file_id, pair.as_span());
     let rule = pair.as_rule();
     match rule {
         Rule::type_poly => {
