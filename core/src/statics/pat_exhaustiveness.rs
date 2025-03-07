@@ -67,7 +67,7 @@ fn check_pattern_exhaustiveness_stmt(statics: &mut StaticsContext, stmt: &Stmt) 
     }
 }
 
-fn check_pattern_exhaustiveness_expr(statics: &mut StaticsContext, expr: &Expr) {
+fn check_pattern_exhaustiveness_expr(statics: &mut StaticsContext, expr: &Rc<Expr>) {
     match &*expr.kind {
         ExprKind::Match(..) => match_expr_exhaustive_check(statics, expr),
 
@@ -297,7 +297,7 @@ pub(crate) struct DeconstructedPat {
 
 impl DeconstructedPat {
     fn from_ast_pat(statics: &StaticsContext, pat: Rc<Pat>) -> Self {
-        let ty = statics.solution_of_node(pat.id).unwrap();
+        let ty = statics.solution_of_node(pat.clone().into()).unwrap();
 
         let mut fields = vec![];
         let ctor = match &*pat.kind {
@@ -687,14 +687,14 @@ impl ConstructorSet {
 }
 
 // identify missing and extra constructors in patterns
-fn match_expr_exhaustive_check(statics: &mut StaticsContext, expr: &Expr) {
+fn match_expr_exhaustive_check(statics: &mut StaticsContext, expr: &Rc<Expr>) {
     let ExprKind::Match(scrutiny, arms) = &*expr.kind else {
         panic!()
     };
 
     // _print_node(statics, expr.id);
 
-    let scrutinee_ty = statics.solution_of_node(scrutiny.id);
+    let scrutinee_ty = statics.solution_of_node(scrutiny.into());
     let Some(scrutinee_ty) = scrutinee_ty else {
         return;
     };
@@ -708,7 +708,7 @@ fn match_expr_exhaustive_check(statics: &mut StaticsContext, expr: &Expr) {
     let witness_patterns = witness_matrix.first_column();
     if !witness_patterns.is_empty() {
         statics.errors.push(Error::NonexhaustiveMatch {
-            expr_id: expr.id,
+            expr_id: expr.clone().into(),
             missing: witness_patterns,
         });
     }
@@ -722,14 +722,14 @@ fn match_expr_exhaustive_check(statics: &mut StaticsContext, expr: &Expr) {
     let mut redundant_arms = Vec::new();
     redundant_arms.extend(arms.iter().enumerate().filter_map(|(i, arm)| {
         if useless_indices.contains(&i) {
-            Some(arm.pat.id)
+            Some(arm.pat.clone().into())
         } else {
             None
         }
     }));
     if !redundant_arms.is_empty() {
         statics.errors.push(Error::RedundantArms {
-            expr_id: expr.id,
+            expr_id: expr.into(),
             redundant_arms,
         })
     }

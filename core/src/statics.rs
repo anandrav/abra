@@ -59,7 +59,7 @@ pub(crate) struct StaticsContext {
     // unification variables (skolems) which must be solved
     pub(crate) unifvars: HashMap<TypeProv, TypeVar>,
     pub(crate) unifvars_constrained_to_interfaces:
-        HashMap<TypeProv, Vec<(Rc<InterfaceDecl>, NodeId)>>,
+        HashMap<TypeProv, Vec<(Rc<InterfaceDecl>, AstNode)>>,
 
     // ERRORS
     errors: Vec<Error>,
@@ -93,7 +93,7 @@ impl StaticsContext {
         ctx
     }
 
-    pub(crate) fn solution_of_node(&self, id: NodeId) -> Option<SolvedType> {
+    pub(crate) fn solution_of_node(&self, id: AstNode) -> Option<SolvedType> {
         let prov = TypeProv::Node(id);
         match self.unifvars.get(&prov) {
             Some(unifvar) => unifvar.solution(),
@@ -150,7 +150,7 @@ pub(crate) enum Declaration {
     Polytype(Rc<Polytype>),
     Builtin(Builtin),
     Effect(u16),
-    Var(NodeId),
+    Var(AstNode),
 }
 
 #[derive(Debug)]
@@ -161,7 +161,7 @@ pub(crate) enum Error {
     },
     // typechecking phase
     UnconstrainedUnifvar {
-        node_id: NodeId,
+        node_id: AstNode,
     },
     ConflictingUnifvar {
         types: HashMap<TypeKey, PotentialType>,
@@ -172,25 +172,25 @@ pub(crate) enum Error {
         constraint_reason: ConstraintReason,
     },
     MemberAccessNeedsAnnotation {
-        node_id: NodeId,
+        node_id: AstNode,
     },
     InterfaceNotImplemented {
         ty: SolvedType,
         iface: Rc<InterfaceDecl>,
-        node_id: NodeId,
+        node_id: AstNode,
     },
     // break and continue
     NotInLoop {
-        node_id: NodeId,
+        node_id: AstNode,
     },
     // pattern matching exhaustiveness check
     NonexhaustiveMatch {
-        expr_id: NodeId,
+        expr_id: AstNode,
         missing: Vec<DeconstructedPat>,
     },
     RedundantArms {
-        expr_id: NodeId,
-        redundant_arms: Vec<NodeId>,
+        expr_id: AstNode,
+        redundant_arms: Vec<AstNode>,
     },
 }
 
@@ -250,14 +250,15 @@ impl Error {
         let mut notes = Vec::new();
 
         // get rid of this after making our own file database
-        let get_file_and_range = |id: &NodeId| {
-            let span = node_map.get(id).unwrap().location();
+        let get_file_and_range = |id: &AstNode| {
+            let id = id.id();
+            let span = node_map.get(&id).unwrap().location();
             (span.file_id, span.range())
         };
 
         match self {
             Error::UnresolvedIdentifier { node_id } => {
-                let (file, range) = get_file_and_range(&node_id.id());
+                let (file, range) = get_file_and_range(node_id);
                 diagnostic = diagnostic.with_message("Could not resolve identifier");
                 labels.push(Label::secondary(file, range))
             }
@@ -456,10 +457,11 @@ fn handle_reason(
     labels: &mut Vec<Label<FileId>>,
     notes: &mut Vec<String>,
 ) {
-    // get rid of this after making our own file database
-    let get_file_and_range = |id: &NodeId| {
+    // TODO: this is duplicated
+    let get_file_and_range = |id: &AstNode| {
         // dbg!(id);
-        let span = node_map.get(id).unwrap().location();
+        let id = id.id();
+        let span = node_map.get(&id).unwrap().location();
         (span.file_id, span.range())
     };
     match reason {

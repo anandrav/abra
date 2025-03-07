@@ -626,8 +626,8 @@ fn resolve_names_func_helper(
     }
 }
 
-fn resolve_names_fn_arg(ctx: &mut StaticsContext, symbol_table: SymbolTable, arg: &Identifier) {
-    symbol_table.extend_declaration(arg.v.clone(), Declaration::Var(arg.id));
+fn resolve_names_fn_arg(ctx: &mut StaticsContext, symbol_table: SymbolTable, arg: &Rc<Identifier>) {
+    symbol_table.extend_declaration(arg.v.clone(), Declaration::Var(arg.into()));
 }
 
 fn resolve_names_pat(ctx: &mut StaticsContext, symbol_table: SymbolTable, pat: Rc<Pat>) {
@@ -639,7 +639,7 @@ fn resolve_names_pat(ctx: &mut StaticsContext, symbol_table: SymbolTable, pat: R
         | PatKind::Bool(_)
         | PatKind::Str(_) => {}
         PatKind::Binding(identifier) => {
-            symbol_table.extend_declaration(identifier.clone(), Declaration::Var(pat.id));
+            symbol_table.extend_declaration(identifier.clone(), Declaration::Var(pat.into()));
         }
         PatKind::Variant(tag, data) => {
             if let Some(decl @ Declaration::EnumVariant { .. }) =
