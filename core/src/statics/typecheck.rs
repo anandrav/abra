@@ -754,7 +754,7 @@ fn tyvar_of_declaration(
 ) -> Option<TypeVar> {
     match decl {
         Declaration::FreeFunction(f, _) => Some(TypeVar::from_node(ctx, f.name.clone().into())),
-        Declaration::ForeignFunction { decl, .. } => {
+        Declaration::_ForeignFunction { decl, .. } => {
             Some(TypeVar::from_node(ctx, decl.name.clone().into()))
         }
         Declaration::InterfaceDef(..) => None,
@@ -934,8 +934,8 @@ pub(crate) fn ast_type_to_solved_type(
                     Nominal::ForeignType(ident.clone()),
                     vec![],
                 )),
+                Declaration::_ForeignFunction { .. } => None,
                 Declaration::FreeFunction(_, _)
-                | Declaration::ForeignFunction { .. }
                 | Declaration::InterfaceDef(_)
                 | Declaration::InterfaceMethod { .. }
                 | Declaration::EnumVariant { .. }
@@ -964,8 +964,8 @@ pub(crate) fn ast_type_to_solved_type(
                     Nominal::ForeignType(ident.clone()),
                     vec![],
                 )),
+                Declaration::_ForeignFunction { .. } => None,
                 Declaration::FreeFunction(_, _)
-                | Declaration::ForeignFunction { .. }
                 | Declaration::InterfaceDef(_)
                 | Declaration::InterfaceMethod { .. }
                 | Declaration::EnumVariant { .. }

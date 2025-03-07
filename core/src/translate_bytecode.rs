@@ -90,7 +90,7 @@ impl Declaration {
             Declaration::FreeFunction(f, qname) => {
                 BytecodeResolution::FreeFunction(f.clone(), qname.clone())
             }
-            Declaration::ForeignFunction {
+            Declaration::_ForeignFunction {
                 decl,
                 libname,
                 symbol,

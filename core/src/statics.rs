@@ -124,7 +124,7 @@ impl Display for Namespace {
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub(crate) enum Declaration {
     FreeFunction(Rc<FuncDef>, String),
-    ForeignFunction {
+    _ForeignFunction {
         decl: Rc<ForeignFuncDecl>,
         libname: PathBuf,
         symbol: String,

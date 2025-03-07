@@ -377,7 +377,6 @@ fn add_items_from_ast(ast: Rc<FileAst>, output: &mut String) {
                         "#,
                     );
                     output.push_str("unsafe {");
-                    // TODO: impl for all types
                     for field in s.fields.iter() {
                         if matches!(&*field.ty.kind, TypeKind::Unit) {
                             output.push_str("(vm_funcs.push_nil)(vm);");
@@ -495,7 +494,7 @@ fn add_items_from_ast(ast: Rc<FileAst>, output: &mut String) {
                               /// `vm` must be non-null and valid.
                               "#,
                 );
-                // TODO: duplicated with code in resolve.rs
+                // TODO: this code for creating the name delimited by $ is duplicated with code in resolve.rs
                 let elems: Vec<_> = ast.name.split(std::path::MAIN_SEPARATOR_STR).collect();
                 let package_name = elems.last().unwrap().to_string();
                 let mut symbol = "abra_ffi".to_string();
@@ -516,8 +515,6 @@ fn add_items_from_ast(ast: Rc<FileAst>, output: &mut String) {
                 output.push_str("let vm_funcs: &AbraVmFunctions = &*vm_funcs;");
                 // get args in reverse order
                 for (name, ty) in f.args.iter().rev() {
-                    // TODO: ty shouldn't be optional for foreign fn
-                    // let ty = ty.clone().unwrap();
                     if matches!(&*ty.kind, TypeKind::Unit) {
                         output.push_str(
                             r#"(vm_funcs.pop_nil)(vm);
@@ -540,8 +537,6 @@ fn add_items_from_ast(ast: Rc<FileAst>, output: &mut String) {
                     out_ty_name, package_name, f.name.v
                 ));
                 for (name, typ) in f.args.iter() {
-                    // TODO: why is this optional still?
-                    // let Some(typ) = typ else { panic!() };
                     if matches!(&*typ.kind, TypeKind::Unit) {
                         output.push_str("(),");
                     } else {

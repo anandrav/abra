@@ -186,7 +186,7 @@ fn gather_declarations_item(
 
                 namespace.declarations.insert(
                     func_name,
-                    Declaration::ForeignFunction {
+                    Declaration::_ForeignFunction {
                         decl: _func_decl.clone(),
                         libname,
                         symbol,
@@ -375,7 +375,7 @@ fn resolve_names_item_decl(ctx: &mut StaticsContext, symbol_table: SymbolTable, 
         }
         ItemKind::ForeignFuncDecl(f) => {
             // TODO: Is this actually necessary? Looking up and then inserting...
-            if let Some(decl @ Declaration::ForeignFunction { .. }) =
+            if let Some(decl @ Declaration::_ForeignFunction { .. }) =
                 symbol_table.lookup_declaration(&f.name.v)
             {
                 ctx.resolution_map.insert(f.name.id, decl.clone());
