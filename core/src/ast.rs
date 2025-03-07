@@ -181,14 +181,14 @@ pub(crate) enum TypeDefKind {
 #[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq, Hash)]
 pub(crate) struct EnumDef {
     pub(crate) name: Rc<Identifier>,
-    pub(crate) ty_args: Vec<Rc<Type>>,
+    pub(crate) ty_args: Vec<Rc<Polytype>>,
     pub(crate) variants: Vec<Rc<Variant>>,
 }
 
 #[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq)]
 pub(crate) struct StructDef {
     pub(crate) name: Rc<Identifier>,
-    pub(crate) ty_args: Vec<Rc<Type>>,
+    pub(crate) ty_args: Vec<Rc<Polytype>>,
     pub(crate) fields: Vec<Rc<StructField>>,
 
     pub(crate) id: NodeId,

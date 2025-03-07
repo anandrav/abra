@@ -325,40 +325,11 @@ pub(crate) fn parse_type_term(pair: Pair<Rule>, file_id: FileId) -> Rc<Type> {
     let span = Location::new(file_id, pair.as_span());
     let rule = pair.as_rule();
     match rule {
-        Rule::type_poly => {
-            let inner: Vec<_> = pair.into_inner().collect();
-            let ty_name = inner[0].as_str()[1..].to_owned();
-            let ty_span = Location::new(file_id, inner[0].as_span());
-            let mut interfaces: Vec<Rc<Identifier>> = vec![];
-            for (i, pair) in inner.iter().enumerate() {
-                if i == 0 {
-                    continue;
-                }
-                let interface = Identifier {
-                    v: pair.as_str().to_owned(),
-                    loc: Location::new(file_id, pair.as_span()),
-                    id: NodeId::new(),
-                }
-                .into();
-                interfaces.push(interface);
-            }
-            Rc::new(Type {
-                kind: Rc::new(TypeKind::Poly(
-                    Polytype {
-                        name: Identifier {
-                            v: ty_name,
-                            loc: ty_span,
-                            id: NodeId::new(),
-                        }
-                        .into(),
-                        iface_names: interfaces,
-                    }
-                    .into(),
-                )),
-                loc: span,
-                id: NodeId::new(),
-            })
-        }
+        Rule::type_poly => Rc::new(Type {
+            kind: TypeKind::Poly(parse_type_poly(pair, file_id)).into(),
+            loc: span,
+            id: NodeId::new(),
+        }),
         Rule::identifier => {
             let ident = pair.as_str().to_owned();
             Rc::new(Type {
@@ -447,6 +418,43 @@ pub(crate) fn parse_type_term(pair: Pair<Rule>, file_id: FileId) -> Rc<Type> {
     }
 }
 
+pub(crate) fn parse_type_poly(pair: Pair<Rule>, file_id: FileId) -> Rc<Polytype> {
+    let span = Location::new(file_id, pair.as_span());
+    let rule = pair.as_rule();
+    match rule {
+        Rule::type_poly => {
+            let inner: Vec<_> = pair.into_inner().collect();
+            let ty_name = inner[0].as_str()[1..].to_owned();
+            let ty_span = Location::new(file_id, inner[0].as_span());
+            let mut interfaces: Vec<Rc<Identifier>> = vec![];
+            for (i, pair) in inner.iter().enumerate() {
+                if i == 0 {
+                    continue;
+                }
+                let interface = Identifier {
+                    v: pair.as_str().to_owned(),
+                    loc: Location::new(file_id, pair.as_span()),
+                    id: NodeId::new(),
+                }
+                .into();
+                interfaces.push(interface);
+            }
+
+            Polytype {
+                name: Identifier {
+                    v: ty_name,
+                    loc: ty_span,
+                    id: NodeId::new(),
+                }
+                .into(),
+                iface_names: interfaces,
+            }
+            .into()
+        }
+        _ => panic!("unreachable rule {:#?}", pair),
+    }
+}
+
 pub(crate) fn parse_item(pair: Pair<Rule>, file_id: FileId) -> Rc<Item> {
     let span = Location::new(file_id, pair.as_span());
     let rule = pair.as_rule();
@@ -508,7 +516,7 @@ pub(crate) fn parse_item(pair: Pair<Rule>, file_id: FileId) -> Rc<Item> {
             let mut n = 1;
             let mut ty_args = vec![];
             while let Rule::type_poly = inner[n].as_rule() {
-                ty_args.push(parse_type_term(inner[n].clone(), file_id));
+                ty_args.push(parse_type_poly(inner[n].clone(), file_id));
                 n += 1;
             }
             let mut variants = vec![];
@@ -540,7 +548,7 @@ pub(crate) fn parse_item(pair: Pair<Rule>, file_id: FileId) -> Rc<Item> {
             let mut n = 1;
             let mut ty_args = vec![];
             while let Rule::type_poly = inner[n].as_rule() {
-                ty_args.push(parse_type_term(inner[n].clone(), file_id));
+                ty_args.push(parse_type_poly(inner[n].clone(), file_id));
                 n += 1;
             }
             let mut fields = vec![];

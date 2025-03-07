@@ -4,7 +4,7 @@ use std::rc::Rc;
 
 use crate::ast::{
     ArgMaybeAnnotated, AstNode, Expr, ExprKind, FileAst, Identifier, Item, ItemKind, Pat, PatKind,
-    Stmt, StmtKind, Type, TypeDefKind, TypeKind,
+    Polytype, Stmt, StmtKind, Type, TypeDefKind, TypeKind,
 };
 use crate::builtin::Builtin;
 
@@ -431,7 +431,7 @@ fn resolve_names_item_decl(ctx: &mut StaticsContext, symbol_table: SymbolTable, 
             TypeDefKind::Enum(enum_def) => {
                 let symbol_table = symbol_table.new_scope();
                 for ty_arg in &enum_def.ty_args {
-                    resolve_names_typ(ctx, symbol_table.clone(), ty_arg.clone(), true);
+                    resolve_names_polytyp(ctx, symbol_table.clone(), ty_arg.clone(), true);
                 }
                 for variant in &enum_def.variants {
                     if let Some(associated_data_ty) = &variant.data {
@@ -447,7 +447,7 @@ fn resolve_names_item_decl(ctx: &mut StaticsContext, symbol_table: SymbolTable, 
             TypeDefKind::Struct(struct_def) => {
                 let symbol_table = symbol_table.new_scope();
                 for ty_arg in &struct_def.ty_args {
-                    resolve_names_typ(ctx, symbol_table.clone(), ty_arg.clone(), true);
+                    resolve_names_polytyp(ctx, symbol_table.clone(), ty_arg.clone(), true);
                 }
                 for field in &struct_def.fields {
                     resolve_names_typ(ctx, symbol_table.clone(), field.ty.clone(), false);
@@ -668,30 +668,7 @@ fn resolve_names_typ(
     match &*typ.kind {
         TypeKind::Bool | TypeKind::Unit | TypeKind::Int | TypeKind::Float | TypeKind::Str => {}
         TypeKind::Poly(polyty) => {
-            // Try to resolve the polymorphic type
-            if let Some(decl @ Declaration::Polytype(_)) =
-                &symbol_table.lookup_declaration(&polyty.name.v)
-            {
-                ctx.resolution_map.insert(polyty.name.id, decl.clone());
-            }
-            // If it hasn't been declared already, then this is a declaration
-            else if introduce_poly {
-                let decl = Declaration::Polytype(polyty.clone());
-                symbol_table.extend_declaration(polyty.name.v.clone(), decl.clone());
-                // it resolves to itself
-                ctx.resolution_map.insert(polyty.name.id, decl);
-            }
-
-            for iface in &polyty.iface_names {
-                if let Some(decl @ Declaration::InterfaceDef { .. }) =
-                    &symbol_table.lookup_declaration(&iface.v)
-                {
-                    ctx.resolution_map.insert(iface.id, decl.clone());
-                } else {
-                    ctx.errors
-                        .push(Error::UnresolvedIdentifier { node: iface.into() });
-                }
-            }
+            resolve_names_polytyp(ctx, symbol_table, polyty.clone(), introduce_poly);
         }
         TypeKind::Named(identifier) => {
             resolve_names_typ_identifier(ctx, symbol_table, identifier, typ.clone().into());
@@ -717,6 +694,37 @@ fn resolve_names_typ(
             for elem in elems {
                 resolve_names_typ(ctx, symbol_table.clone(), elem.clone(), introduce_poly);
             }
+        }
+    }
+}
+
+fn resolve_names_polytyp(
+    ctx: &mut StaticsContext,
+    symbol_table: SymbolTable,
+    polyty: Rc<Polytype>,
+    introduce_poly: bool,
+) {
+    // Try to resolve the polymorphic type
+    if let Some(decl @ Declaration::Polytype(_)) = &symbol_table.lookup_declaration(&polyty.name.v)
+    {
+        ctx.resolution_map.insert(polyty.name.id, decl.clone());
+    }
+    // If it hasn't been declared already, then this is a declaration
+    else if introduce_poly {
+        let decl = Declaration::Polytype(polyty.clone());
+        symbol_table.extend_declaration(polyty.name.v.clone(), decl.clone());
+        // it resolves to itself
+        ctx.resolution_map.insert(polyty.name.id, decl);
+    }
+
+    for iface in &polyty.iface_names {
+        if let Some(decl @ Declaration::InterfaceDef { .. }) =
+            &symbol_table.lookup_declaration(&iface.v)
+        {
+            ctx.resolution_map.insert(iface.id, decl.clone());
+        } else {
+            ctx.errors
+                .push(Error::UnresolvedIdentifier { node: iface.into() });
         }
     }
 }

@@ -770,11 +770,7 @@ fn tyvar_of_declaration(
                     ctx,
                     Prov::InstantiateUdtParam(node.clone(), i as u8),
                 ));
-                // TODO: don't do this silly downcast.
-                // ty_args should just be a Vec<Identifier> most likely
-                let TypeKind::Poly(polyty) = &*enum_def.ty_args[i].kind else {
-                    panic!()
-                };
+                let polyty = &*enum_def.ty_args[i];
                 let decl @ Declaration::Polytype(_) =
                     ctx.resolution_map.get(&polyty.name.id).unwrap()
                 else {
@@ -799,11 +795,7 @@ fn tyvar_of_declaration(
                     ctx,
                     Prov::InstantiateUdtParam(node.clone(), i as u8),
                 ));
-                // TODO: don't do this silly downcast.
-                // ty_args should just be a Vec<Identifier> most likely
-                let TypeKind::Poly(polyty) = &*enum_def.ty_args[i].kind else {
-                    panic!()
-                };
+                let polyty = &*enum_def.ty_args[i];
                 let decl @ Declaration::Polytype(_) =
                     ctx.resolution_map.get(&polyty.name.id).unwrap()
                 else {
@@ -852,11 +844,7 @@ fn tyvar_of_declaration(
                     ctx,
                     Prov::InstantiateUdtParam(node.clone(), i as u8),
                 ));
-                // TODO: don't do this silly downcast.
-                // ty_args should just be a Vec<Identifier> most likely
-                let TypeKind::Poly(polyty) = &*struct_def.ty_args[i].kind else {
-                    panic!()
-                };
+                let polyty = &*struct_def.ty_args[i];
                 let decl @ Declaration::Polytype(_) =
                     ctx.resolution_map.get(&polyty.name.id).unwrap()
                 else {
@@ -2271,11 +2259,7 @@ fn generate_constraints_pat(
                             ctx,
                             Prov::InstantiateUdtParam(pat.clone().into(), i as u8),
                         ));
-                        // TODO: don't do this silly downcast.
-                        // ty_args should just be a Vec<Identifier> most likely
-                        let TypeKind::Poly(polyty) = &*enum_def.ty_args[i].kind else {
-                            panic!()
-                        };
+                        let polyty = &*enum_def.ty_args[i];
                         let decl @ Declaration::Polytype(_) =
                             ctx.resolution_map.get(&polyty.name.id).unwrap()
                         else {
