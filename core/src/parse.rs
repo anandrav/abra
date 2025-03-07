@@ -786,20 +786,23 @@ pub(crate) fn parse_stmt(pair: Pair<Rule>, file_id: FileId) -> Rc<Stmt> {
 
 pub(crate) fn parse_interface_method(pair: Pair<Rule>, file_id: FileId) -> InterfaceMethodDecl {
     let rule = pair.as_rule();
+    let span = pair.as_span();
     let inner: Vec<_> = pair.into_inner().collect();
     match rule {
         Rule::interface_property => {
             let name = inner[0].as_str().to_string();
-            let span = Location::new(file_id, inner[0].as_span());
+            let inner_loc = Location::new(file_id, inner[0].as_span());
             let ty = parse_type_term(inner[1].clone(), file_id);
             InterfaceMethodDecl {
                 name: Identifier {
                     v: name,
-                    loc: span,
+                    loc: inner_loc,
                     id: NodeId::new(),
                 }
                 .into(),
                 ty,
+                id: NodeId::new(),
+                loc: Location::new(file_id, span),
             }
         }
         _ => panic!("unreachable rule {:#?}", rule),

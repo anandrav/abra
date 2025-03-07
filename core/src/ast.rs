@@ -291,7 +291,7 @@ impl AstNode {
             AstNode::Pat(pat) => &pat.loc,
             AstNode::Type(typ) => &typ.loc,
             AstNode::Identifier(identifier) => &identifier.loc,
-            AstNode::InterfaceMethodDecl(interface_method_decl) => &interface_method_decl.ty.loc, // TODO: why return ty's location?
+            AstNode::InterfaceMethodDecl(interface_method_decl) => &interface_method_decl.loc,
             AstNode::Variant(variant) => &variant.loc,
             AstNode::StructField(struct_field) => &struct_field.loc,
         }
@@ -306,7 +306,7 @@ impl AstNode {
             AstNode::Pat(pat) => pat.id,
             AstNode::Type(typ) => typ.id,
             AstNode::Identifier(identifier) => identifier.id,
-            AstNode::InterfaceMethodDecl(interface_method_decl) => interface_method_decl.ty.id,
+            AstNode::InterfaceMethodDecl(interface_method_decl) => interface_method_decl.id,
             AstNode::Variant(variant) => variant.id,
             AstNode::StructField(struct_field) => struct_field.id,
         }
@@ -519,6 +519,8 @@ pub(crate) struct InterfaceDecl {
 pub(crate) struct InterfaceMethodDecl {
     pub(crate) name: Rc<Identifier>,
     pub(crate) ty: Rc<Type>,
+    pub(crate) id: NodeId,
+    pub(crate) loc: Location,
 }
 
 impl Node for InterfaceMethodDecl {
@@ -538,7 +540,7 @@ impl Node for InterfaceMethodDecl {
 pub(crate) struct InterfaceImpl {
     pub(crate) iface: Rc<Identifier>,
     pub(crate) typ: Rc<Type>,
-    pub(crate) methods: Vec<Rc<FuncDef>>, // TODO: Don't use Vec<Stmt>. Use Vec<MethodDef>
+    pub(crate) methods: Vec<Rc<FuncDef>>,
 
     pub(crate) id: NodeId,
 }
