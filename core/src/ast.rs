@@ -281,6 +281,66 @@ pub(crate) enum AstNode {
     StructField(Rc<StructField>),
 }
 
+impl From<Rc<FileAst>> for AstNode {
+    fn from(file_ast: Rc<FileAst>) -> Self {
+        AstNode::FileAst(file_ast)
+    }
+}
+
+impl From<Rc<Item>> for AstNode {
+    fn from(item: Rc<Item>) -> Self {
+        AstNode::Item(item)
+    }
+}
+
+impl From<Rc<Stmt>> for AstNode {
+    fn from(stmt: Rc<Stmt>) -> Self {
+        AstNode::Stmt(stmt)
+    }
+}
+
+impl From<Rc<Expr>> for AstNode {
+    fn from(expr: Rc<Expr>) -> Self {
+        AstNode::Expr(expr)
+    }
+}
+
+impl From<Rc<Pat>> for AstNode {
+    fn from(pat: Rc<Pat>) -> Self {
+        AstNode::Pat(pat)
+    }
+}
+
+impl From<Rc<Type>> for AstNode {
+    fn from(typ: Rc<Type>) -> Self {
+        AstNode::Type(typ)
+    }
+}
+
+impl From<Rc<Identifier>> for AstNode {
+    fn from(identifier: Rc<Identifier>) -> Self {
+        AstNode::Identifier(identifier)
+    }
+}
+
+impl From<Rc<InterfaceMethodDecl>> for AstNode {
+    fn from(interface_method_decl: Rc<InterfaceMethodDecl>) -> Self {
+        AstNode::InterfaceMethodDecl(interface_method_decl)
+    }
+}
+
+impl From<Rc<Variant>> for AstNode {
+    fn from(variant: Rc<Variant>) -> Self {
+        AstNode::Variant(variant)
+    }
+}
+
+impl From<Rc<StructField>> for AstNode {
+    fn from(struct_field: Rc<StructField>) -> Self {
+        AstNode::StructField(struct_field)
+    }
+}
+
 impl AstNode {
     fn location(&self) -> &Location {
         match self {
