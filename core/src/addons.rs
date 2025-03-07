@@ -3,7 +3,7 @@
 use crate::vm::Vm;
 use crate::{
     FileAst, FileData, ItemKind,
-    ast::{FileDatabase, PatKind, Type, TypeDefKind, TypeKind},
+    ast::{FileDatabase, Type, TypeDefKind, TypeKind},
     parse::parse_or_err,
 };
 use core::str;

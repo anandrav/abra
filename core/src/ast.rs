@@ -1,16 +1,23 @@
 use std::collections::HashMap;
 use std::fmt::Display;
+use std::hash::Hasher;
 use std::ops::Range;
 use std::path::PathBuf;
 use std::rc::Rc;
 use std::sync::atomic::{AtomicU32, Ordering};
 
-#[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq)]
 pub(crate) struct Identifier {
     pub(crate) v: String,
 
     pub(crate) loc: Location,
     pub(crate) id: NodeId,
+}
+
+impl std::hash::Hash for Identifier {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.id.hash(state);
+    }
 }
 
 impl Node for Identifier {
@@ -161,7 +168,7 @@ impl<'a> codespan_reporting::files::Files<'a> for FileDatabase {
 
 pub(crate) type PatAnnotated = (Rc<Pat>, Option<Rc<Type>>);
 
-#[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq)]
 pub(crate) struct FileAst {
     pub(crate) items: Vec<Rc<Item>>,
     pub(crate) name: String,
@@ -169,6 +176,12 @@ pub(crate) struct FileAst {
 
     pub(crate) loc: Location,
     pub(crate) id: NodeId,
+}
+
+impl std::hash::Hash for FileAst {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.id.hash(state);
+    }
 }
 
 impl Node for FileAst {
@@ -202,7 +215,7 @@ pub(crate) struct EnumDef {
     pub(crate) variants: Vec<Rc<Variant>>,
 }
 
-#[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq)]
 pub(crate) struct StructDef {
     pub(crate) name: Rc<Identifier>,
     pub(crate) ty_args: Vec<Rc<Type>>,
@@ -211,13 +224,25 @@ pub(crate) struct StructDef {
     pub(crate) id: NodeId,
 }
 
-#[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq, Hash)]
+impl std::hash::Hash for StructDef {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.id.hash(state);
+    }
+}
+
+#[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq)]
 pub(crate) struct Variant {
     pub(crate) ctor: Rc<Identifier>,
     pub(crate) data: Option<Rc<Type>>,
 
     pub(crate) loc: Location,
     pub(crate) id: NodeId,
+}
+
+impl std::hash::Hash for Variant {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.id.hash(state);
+    }
 }
 
 impl Node for Variant {
@@ -236,13 +261,19 @@ impl Node for Variant {
     }
 }
 
-#[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq)]
 pub(crate) struct StructField {
     pub(crate) name: Rc<Identifier>,
     pub(crate) ty: Rc<Type>,
 
     pub(crate) loc: Location,
     pub(crate) id: NodeId,
+}
+
+impl std::hash::Hash for StructField {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.id.hash(state);
+    }
 }
 
 impl Node for StructField {
@@ -437,12 +468,18 @@ pub(crate) trait Node {
     }
 }
 
-#[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq)]
 
 pub(crate) struct Item {
     pub(crate) kind: Rc<ItemKind>,
     pub(crate) loc: Location,
     pub(crate) id: NodeId,
+}
+
+impl std::hash::Hash for Item {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.id.hash(state);
+    }
 }
 
 impl Node for Item {
@@ -539,11 +576,17 @@ pub(crate) enum ItemKind {
     Stmt(Rc<Stmt>),
 }
 
-#[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq)]
 pub(crate) struct Stmt {
     pub(crate) kind: Rc<StmtKind>,
     pub(crate) loc: Location,
     pub(crate) id: NodeId,
+}
+
+impl std::hash::Hash for Stmt {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.id.hash(state);
+    }
 }
 
 impl Node for Stmt {
@@ -625,12 +668,18 @@ pub(crate) struct InterfaceDecl {
     pub(crate) methods: Vec<Rc<InterfaceMethodDecl>>,
 }
 
-#[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq)]
 pub(crate) struct InterfaceMethodDecl {
     pub(crate) name: Rc<Identifier>,
     pub(crate) ty: Rc<Type>,
     pub(crate) id: NodeId,
     pub(crate) loc: Location,
+}
+
+impl std::hash::Hash for InterfaceMethodDecl {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.id.hash(state);
+    }
 }
 
 impl Node for InterfaceMethodDecl {
@@ -646,7 +695,7 @@ impl Node for InterfaceMethodDecl {
     }
 }
 
-#[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq)]
 pub(crate) struct InterfaceImpl {
     pub(crate) iface: Rc<Identifier>,
     pub(crate) typ: Rc<Type>,
@@ -655,11 +704,23 @@ pub(crate) struct InterfaceImpl {
     pub(crate) id: NodeId,
 }
 
-#[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq, Hash)]
+impl std::hash::Hash for InterfaceImpl {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.id.hash(state);
+    }
+}
+
+#[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq)]
 pub(crate) struct Expr {
     pub(crate) kind: Rc<ExprKind>,
     pub(crate) loc: Location,
     pub(crate) id: NodeId,
+}
+
+impl std::hash::Hash for Expr {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.id.hash(state);
+    }
 }
 
 impl Node for Expr {
@@ -786,11 +847,17 @@ pub(crate) struct MatchArm {
     pub(crate) expr: Rc<Expr>,
 }
 
-#[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq)]
 pub(crate) struct Pat {
     pub(crate) kind: Rc<PatKind>,
     pub(crate) loc: Location,
     pub(crate) id: NodeId,
+}
+
+impl std::hash::Hash for Pat {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.id.hash(state);
+    }
 }
 
 impl Node for Pat {
@@ -838,11 +905,17 @@ pub(crate) enum PatKind {
     Tuple(Vec<Rc<Pat>>),
 }
 
-#[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq)]
 pub(crate) struct Type {
     pub(crate) kind: Rc<TypeKind>,
     pub(crate) loc: Location,
     pub(crate) id: NodeId,
+}
+
+impl std::hash::Hash for Type {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.id.hash(state);
+    }
 }
 
 impl Node for Type {
