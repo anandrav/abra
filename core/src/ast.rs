@@ -303,9 +303,7 @@ impl Node for Item {
                 let mut children: Vec<Rc<dyn Node>> = vec![];
                 for (name, annot) in f.args.iter() {
                     children.push(Rc::new(name.clone()) as Rc<dyn Node>);
-                    if let Some(ty) = annot {
-                        children.push(ty.clone())
-                    }
+                    children.push(annot.clone())
                 }
                 children.push(f.ret_type.clone());
                 children
@@ -447,12 +445,13 @@ pub(crate) enum StmtKind {
     Return(Rc<Expr>),
 }
 
-pub(crate) type ArgAnnotated = (Identifier, Option<Rc<Type>>); // TODO: type annotation should not be optional. Create a second type called ArgMaybeAnnotated
+pub(crate) type ArgMaybeAnnotated = (Identifier, Option<Rc<Type>>);
+pub(crate) type ArgAnnotated = (Identifier, Rc<Type>);
 
 #[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq, Hash)]
 pub(crate) struct FuncDef {
     pub(crate) name: Identifier,
-    pub(crate) args: Vec<ArgAnnotated>,
+    pub(crate) args: Vec<ArgMaybeAnnotated>,
     pub(crate) ret_type: Option<Rc<Type>>,
     pub(crate) body: Rc<Expr>,
 }
@@ -460,7 +459,7 @@ pub(crate) struct FuncDef {
 #[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq, Hash)]
 pub(crate) struct ForeignFuncDecl {
     pub(crate) name: Identifier,
-    pub(crate) args: Vec<ArgAnnotated>, // TODO: arg annotations are optional but they should be required.
+    pub(crate) args: Vec<ArgAnnotated>,
     pub(crate) ret_type: Rc<Type>,
 }
 
@@ -589,7 +588,7 @@ pub(crate) enum ExprKind {
     Str(String),
     List(Vec<Rc<Expr>>),
     Array(Vec<Rc<Expr>>),
-    AnonymousFunction(Vec<ArgAnnotated>, Option<Rc<Type>>, Rc<Expr>),
+    AnonymousFunction(Vec<ArgMaybeAnnotated>, Option<Rc<Type>>, Rc<Expr>),
     If(Rc<Expr>, Rc<Expr>, Option<Rc<Expr>>),
     WhileLoop(Rc<Expr>, Rc<Expr>),
     Match(Rc<Expr>, Vec<MatchArm>),

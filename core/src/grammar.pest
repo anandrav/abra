@@ -55,7 +55,7 @@ break_statement = { "break" }
 func_def = { func_keyword ~ identifier ~ func_args ~ func_out_annotation? ~ (block_expression | (op_assign ~ expression)) }
 func_keyword = _{ "fn" }
 
-foreign_func_decl = { "foreign" ~ func_keyword ~ identifier ~ func_args ~ func_out_annotation }
+foreign_func_decl = { "foreign" ~ func_keyword ~ identifier ~ func_args_annotated ~ func_out_annotation }
 
 let_pattern_tuple = { tuple_start ~ (let_pattern_tuple_element ~ ",")+ ~ let_pattern_tuple_element ~ tuple_end }
 let_pattern_tuple_element = _{ let_pattern }
@@ -110,9 +110,10 @@ func_args_start = _{ "(" }
 func_args_end = _{ ")" }
 func_expression_args = _{ func_args | func_arg }
 func_args = _{ func_args_start ~ (func_arg ~ ",")* ~ func_arg? ~ func_args_end }
-func_arg = { identifier ~ (interface_annotation | type_annotation )?}
-
-interface_annotation = { ":" ~ "impl" ~ identifier }
+func_arg = { identifier ~ (type_annotation )? }
+// annotation mandatory
+func_args_annotated = _{ func_args_start ~ (func_arg_annotated ~ ",")* ~ func_arg_annotated? ~ func_args_end }
+func_arg_annotated = { identifier ~ type_annotation }
 
 let_pattern_annotated = { let_pattern ~ type_annotation? }
 

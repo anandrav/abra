@@ -128,7 +128,7 @@ pub(crate) fn get_pairs(source: &str) -> Result<Pairs<Rule>, String> {
     MyParser::parse(Rule::file, source).map_err(|e| e.to_string())
 }
 
-pub(crate) fn parse_func_arg_annotation(pair: Pair<Rule>, file_id: FileId) -> ArgAnnotated {
+pub(crate) fn parse_func_arg_annotation(pair: Pair<Rule>, file_id: FileId) -> ArgMaybeAnnotated {
     let rule = pair.as_rule();
     match rule {
         Rule::func_arg => {
@@ -142,6 +142,28 @@ pub(crate) fn parse_func_arg_annotation(pair: Pair<Rule>, file_id: FileId) -> Ar
             let annot = inner
                 .get(1)
                 .map(|type_pair| parse_type_term(type_pair.clone(), file_id));
+            (ident, annot)
+        }
+        _ => panic!("unreachable rule {:#?}", rule),
+    }
+}
+
+// TODO: RENAME
+pub(crate) fn parse_func_arg_annotation_mandatory(
+    pair: Pair<Rule>,
+    file_id: FileId,
+) -> ArgAnnotated {
+    let rule = pair.as_rule();
+    match rule {
+        Rule::func_arg_annotated => {
+            let inner: Vec<_> = pair.into_inner().collect();
+            let name: Pair<'_, Rule> = inner[0].clone();
+            let ident = Identifier {
+                v: name.as_str().to_string(),
+                loc: Location::new(file_id, name.as_span()),
+                id: NodeId::new(),
+            };
+            let annot = parse_type_term(inner[1].clone(), file_id);
             (ident, annot)
         }
         _ => panic!("unreachable rule {:#?}", rule),
@@ -440,8 +462,8 @@ pub(crate) fn parse_item(pair: Pair<Rule>, file_id: FileId) -> Rc<Item> {
                 id: NodeId::new(),
             };
             n += 1;
-            while let Rule::func_arg = inner[n].as_rule() {
-                let pat_annotated = parse_func_arg_annotation(inner[n].clone(), file_id);
+            while let Rule::func_arg_annotated = inner[n].as_rule() {
+                let pat_annotated = parse_func_arg_annotation_mandatory(inner[n].clone(), file_id);
                 args.push(pat_annotated);
                 n += 1;
             }

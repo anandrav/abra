@@ -517,7 +517,7 @@ fn add_items_from_ast(ast: Rc<FileAst>, output: &mut String) {
                 // get args in reverse order
                 for (name, ty) in f.args.iter().rev() {
                     // TODO: ty shouldn't be optional for foreign fn
-                    let ty = ty.clone().unwrap();
+                    // let ty = ty.clone().unwrap();
                     if matches!(&*ty.kind, TypeKind::Unit) {
                         output.push_str(
                             r#"(vm_funcs.pop_nil)(vm);
@@ -541,7 +541,7 @@ fn add_items_from_ast(ast: Rc<FileAst>, output: &mut String) {
                 ));
                 for (name, typ) in f.args.iter() {
                     // TODO: why is this optional still?
-                    let Some(typ) = typ else { panic!() };
+                    // let Some(typ) = typ else { panic!() };
                     if matches!(&*typ.kind, TypeKind::Unit) {
                         output.push_str("(),");
                     } else {

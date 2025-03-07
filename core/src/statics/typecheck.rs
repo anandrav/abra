@@ -1,6 +1,6 @@
 use crate::ast::{
-    ArgAnnotated, Expr, ExprKind, FileAst, Identifier, ItemKind, Node, NodeId, Pat, PatKind, Stmt,
-    StmtKind, Type as AstType, TypeDefKind, TypeKind,
+    ArgAnnotated, ArgMaybeAnnotated, Expr, ExprKind, FileAst, Identifier, ItemKind, Node, NodeId,
+    Pat, PatKind, Stmt, StmtKind, Type as AstType, TypeDefKind, TypeKind,
 };
 use crate::ast::{BinaryOperator, Item};
 use crate::builtin::Builtin;
@@ -1365,7 +1365,7 @@ fn generate_constraints_item_decls(item: Rc<Item>, ctx: &mut StaticsContext) {
             );
         }
         ItemKind::ForeignFuncDecl(f) => {
-            generate_constraints_func_decl(
+            generate_constraints_func_decl_annotated(
                 ctx,
                 f.name.id,
                 PolyvarScope::empty(),
@@ -1982,7 +1982,7 @@ fn generate_constraints_func_helper(
     ctx: &mut StaticsContext,
     node_id: NodeId,
     polyvar_scope: PolyvarScope,
-    args: &[ArgAnnotated],
+    args: &[ArgMaybeAnnotated],
     out_annot: &Option<Rc<AstType>>,
     body: &Rc<Expr>,
 ) -> TypeVar {
@@ -2040,7 +2040,7 @@ fn generate_constraints_func_decl(
     ctx: &mut StaticsContext,
     node_id: NodeId,
     polyvar_scope: PolyvarScope,
-    args: &[ArgAnnotated],
+    args: &[ArgMaybeAnnotated],
     out_annot: &Option<Rc<AstType>>,
 ) {
     // arguments
@@ -2058,6 +2058,41 @@ fn generate_constraints_func_decl(
                 }
                 None => generate_constraints_fn_arg(Mode::Syn, arg.clone(), ctx),
             }
+            ty_pat
+        })
+        .collect();
+
+    // body
+    let ty_body = TypeVar::fresh(ctx, Prov::FuncOut(node_id));
+
+    if let Some(out_annot) = out_annot {
+        let out_annot = ast_type_to_typevar(ctx, out_annot.clone());
+        polyvar_scope.add_polys(&out_annot);
+        constrain(ctx, ty_body.clone(), out_annot);
+    }
+
+    let ty_func = TypeVar::make_func(ty_args, ty_body, Reason::Node(node_id));
+    let ty_node = TypeVar::from_node(ctx, node_id);
+    constrain(ctx, ty_node, ty_func);
+}
+
+fn generate_constraints_func_decl_annotated(
+    ctx: &mut StaticsContext,
+    node_id: NodeId,
+    polyvar_scope: PolyvarScope,
+    args: &[ArgAnnotated],
+    out_annot: &Option<Rc<AstType>>,
+) {
+    // arguments
+    let ty_args = args
+        .iter()
+        .map(|(arg, arg_annot)| {
+            let ty_pat = TypeVar::from_node(ctx, arg.id);
+            let ty_annot = TypeVar::from_node(ctx, arg_annot.id());
+            let arg_annot = ast_type_to_typevar(ctx, arg_annot.clone());
+            constrain(ctx, ty_annot.clone(), arg_annot.clone());
+            polyvar_scope.add_polys(&arg_annot);
+            generate_constraints_fn_arg(Mode::Ana { expected: ty_annot }, arg.clone(), ctx);
             ty_pat
         })
         .collect();
