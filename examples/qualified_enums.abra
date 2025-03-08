@@ -9,10 +9,10 @@ implement ToString for Color {
     | Color.Red -> "red" // the Color. prefix is unused right now
     | .Blue -> "blue"
     | .Green -> "green"
-    | .Custom(_, _, _) -> "custom"
+    | .Custom(~r, ~g, ~b) -> "custom(" & r & "," & g & "," & b & ")"
   }
 }
 
-let c = Color.Custom(1,2,3) // this only works for variants with no data
+let c = Color.Custom(1,2,3)
 println(c)
 

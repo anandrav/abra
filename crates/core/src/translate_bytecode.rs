@@ -568,243 +568,247 @@ impl Translator {
                 }
             }
             ExprKind::FuncAp(func, args) => {
-                if let ExprKind::Variable(_) = &*func.kind {
-                    for arg in args {
-                        self.translate_expr(arg.clone(), offset_table, monomorph_env.clone(), st);
-                    }
-
-                    let resolution = self
+                for arg in args {
+                    self.translate_expr(arg.clone(), offset_table, monomorph_env.clone(), st);
+                }
+                let resolution = match &*func.kind {
+                    ExprKind::Variable(_) => self
                         .statics
                         .resolution_map
                         .get(&func.id)
                         .unwrap()
-                        .to_bytecode_resolution();
-                    match resolution {
-                        BytecodeResolution::Var(node) => {
-                            // assume it's a function object
-                            let idx = offset_table.get(&node.id()).unwrap();
-                            self.emit(st, Instr::LoadOffset(*idx));
-                            self.emit(st, Instr::CallFuncObj);
-                        }
-                        BytecodeResolution::FreeFunction(f, name) => {
-                            let func_ty = self
-                                .statics
-                                .solution_of_node(f.name.clone().into())
-                                .unwrap();
-                            if !func_ty.is_overloaded() {
-                                self.emit(st, Instr::Call(name.clone()));
-                            } else {
-                                let specific_func_ty =
-                                    self.statics.solution_of_node(func.into()).unwrap();
+                        .to_bytecode_resolution(),
+                    ExprKind::MemberAccess(_prefix, ident) => self
+                        .statics
+                        .resolution_map
+                        .get(&ident.id)
+                        .unwrap()
+                        .to_bytecode_resolution(),
+                    _ => panic!("unrecognized lhs of FuncAp: {:#?}", func),
+                };
+                match resolution {
+                    BytecodeResolution::Var(node) => {
+                        // assume it's a function object
+                        let idx = offset_table.get(&node.id()).unwrap();
+                        self.emit(st, Instr::LoadOffset(*idx));
+                        self.emit(st, Instr::CallFuncObj);
+                    }
+                    BytecodeResolution::FreeFunction(f, name) => {
+                        let func_ty = self
+                            .statics
+                            .solution_of_node(f.name.clone().into())
+                            .unwrap();
+                        if !func_ty.is_overloaded() {
+                            self.emit(st, Instr::Call(name.clone()));
+                        } else {
+                            let specific_func_ty =
+                                self.statics.solution_of_node(func.into()).unwrap();
 
-                                let substituted_ty =
-                                    subst_with_monomorphic_env(monomorph_env, specific_func_ty);
-                                // println!("substituted type: {:?}", substituted_ty);
-
-                                self.handle_overloaded_func(st, substituted_ty, &name, f.clone());
-                            }
-                        }
-                        BytecodeResolution::ForeignFunction {
-                            decl: _decl,
-                            libname,
-                            symbol,
-                        } => {
-                            // TODO: The ids should really be "baked" ahead of time.
-                            match self
-                                .statics
-                                .dylib_to_funcs
-                                .iter()
-                                .flat_map(|(l, symbols)| symbols.iter().map(move |s| (l, s)))
-                                .enumerate()
-                                .find(|(_, (l, s))| **l == libname && **s == symbol)
-                            {
-                                Some((func_id, _)) => {
-                                    // println!("The func id of {} is {}", symbol, func_id);
-                                    self.emit(st, Instr::CallExtern(func_id));
-                                }
-                                _ => {
-                                    panic!("Symbol not found");
-                                }
-                            }
-                            // by this point we should know the name of the .so file that this external function should be located in
-
-                            // then, calling an external function just means
-                            // (1) loading the .so file (preferably do this when the VM starts up)
-                            // (2) locate the external function in this .so file by its symbol (preferably do this when VM starts up)
-                            // (3) invoke the function, which should have signature fn(&mut Vm) -> ()
-
-                            // the bytecode for calling the external function doesn't need to contain the .so name or the method name as a string.
-                            // it just needs to contain an idx into an array of foreign functions
-                        }
-                        BytecodeResolution::InterfaceMethod {
-                            iface_def,
-                            method,
-                            fully_qualified_name,
-                        } => {
-                            let func_ty = self.statics.solution_of_node(func.into()).unwrap();
-                            // println!("func_ty: {}", func_ty);
-                            // println!("monomorphic_env: {}", monomorph_env);
                             let substituted_ty =
-                                subst_with_monomorphic_env(monomorph_env.clone(), func_ty);
-                            // println!("substituted type: {}", substituted_ty);
-                            let method_name = &iface_def.methods[method as usize].name.v;
-                            let impl_list = self
-                                .statics
-                                .interface_impls
-                                .get(&iface_def)
-                                .unwrap()
-                                .clone();
-                            // println!();
+                                subst_with_monomorphic_env(monomorph_env, specific_func_ty);
+                            // println!("substituted type: {:?}", substituted_ty);
 
-                            // TODO: simplify this logic
-                            for imp in impl_list {
-                                for f in &imp.methods {
-                                    if f.name.v == *method_name {
-                                        let unifvar = self
-                                            .statics
-                                            .unifvars
-                                            .get(&TypeProv::Node(f.name.clone().into()))
-                                            .unwrap();
-                                        let interface_impl_ty = unifvar.solution().unwrap();
+                            self.handle_overloaded_func(st, substituted_ty, &name, f.clone());
+                        }
+                    }
+                    BytecodeResolution::ForeignFunction {
+                        decl: _decl,
+                        libname,
+                        symbol,
+                    } => {
+                        // TODO: The ids should really be "baked" ahead of time.
+                        match self
+                            .statics
+                            .dylib_to_funcs
+                            .iter()
+                            .flat_map(|(l, symbols)| symbols.iter().map(move |s| (l, s)))
+                            .enumerate()
+                            .find(|(_, (l, s))| **l == libname && **s == symbol)
+                        {
+                            Some((func_id, _)) => {
+                                // println!("The func id of {} is {}", symbol, func_id);
+                                self.emit(st, Instr::CallExtern(func_id));
+                            }
+                            _ => {
+                                panic!("Symbol not found");
+                            }
+                        }
+                        // by this point we should know the name of the .so file that this external function should be located in
 
-                                        if ty_fits_impl_ty(
-                                            &self.statics,
+                        // then, calling an external function just means
+                        // (1) loading the .so file (preferably do this when the VM starts up)
+                        // (2) locate the external function in this .so file by its symbol (preferably do this when VM starts up)
+                        // (3) invoke the function, which should have signature fn(&mut Vm) -> ()
+
+                        // the bytecode for calling the external function doesn't need to contain the .so name or the method name as a string.
+                        // it just needs to contain an idx into an array of foreign functions
+                    }
+                    BytecodeResolution::InterfaceMethod {
+                        iface_def,
+                        method,
+                        fully_qualified_name,
+                    } => {
+                        let func_ty = self.statics.solution_of_node(func.into()).unwrap();
+                        // println!("func_ty: {}", func_ty);
+                        // println!("monomorphic_env: {}", monomorph_env);
+                        let substituted_ty =
+                            subst_with_monomorphic_env(monomorph_env.clone(), func_ty);
+                        // println!("substituted type: {}", substituted_ty);
+                        let method_name = &iface_def.methods[method as usize].name.v;
+                        let impl_list = self
+                            .statics
+                            .interface_impls
+                            .get(&iface_def)
+                            .unwrap()
+                            .clone();
+                        // println!();
+
+                        // TODO: simplify this logic
+                        for imp in impl_list {
+                            for f in &imp.methods {
+                                if f.name.v == *method_name {
+                                    let unifvar = self
+                                        .statics
+                                        .unifvars
+                                        .get(&TypeProv::Node(f.name.clone().into()))
+                                        .unwrap();
+                                    let interface_impl_ty = unifvar.solution().unwrap();
+
+                                    if ty_fits_impl_ty(
+                                        &self.statics,
+                                        substituted_ty.clone(),
+                                        interface_impl_ty,
+                                    )
+                                    .is_ok()
+                                    {
+                                        self.handle_overloaded_func(
+                                            st,
                                             substituted_ty.clone(),
-                                            interface_impl_ty,
-                                        )
-                                        .is_ok()
-                                        {
-                                            self.handle_overloaded_func(
-                                                st,
-                                                substituted_ty.clone(),
-                                                &fully_qualified_name,
-                                                f.clone(),
-                                            );
-                                        }
+                                            &fully_qualified_name,
+                                            f.clone(),
+                                        );
                                     }
                                 }
                             }
                         }
-                        BytecodeResolution::StructCtor(nargs) => {
+                    }
+                    BytecodeResolution::StructCtor(nargs) => {
+                        self.emit(st, Instr::Construct(nargs));
+                    }
+                    BytecodeResolution::VariantCtor(tag, nargs) => {
+                        if nargs > 1 {
+                            // turn the arguments (associated data) into a tuple
                             self.emit(st, Instr::Construct(nargs));
                         }
-                        BytecodeResolution::VariantCtor(tag, nargs) => {
-                            if nargs > 1 {
-                                // turn the arguments (associated data) into a tuple
-                                self.emit(st, Instr::Construct(nargs));
-                            }
-                            self.emit(st, Instr::ConstructVariant { tag });
-                        }
-                        BytecodeResolution::EnumDef { .. } => {
-                            panic!("can't call enum name as ctor");
-                        }
-                        BytecodeResolution::Builtin(b) => match b {
-                            Builtin::AddInt => {
-                                self.emit(st, Instr::Add);
-                            }
-                            Builtin::SubtractInt => {
-                                self.emit(st, Instr::Subtract);
-                            }
-                            Builtin::MultiplyInt => {
-                                self.emit(st, Instr::Multiply);
-                            }
-                            Builtin::DivideInt => {
-                                self.emit(st, Instr::Divide);
-                            }
-                            Builtin::PowerInt => {
-                                self.emit(st, Instr::Power);
-                            }
-                            Builtin::ModuloInt => {
-                                self.emit(st, Instr::Modulo);
-                            }
-                            Builtin::SqrtInt => {
-                                self.emit(st, Instr::SquareRoot);
-                            }
-                            Builtin::AddFloat => {
-                                self.emit(st, Instr::Add);
-                            }
-                            Builtin::SubtractFloat => {
-                                self.emit(st, Instr::Subtract);
-                            }
-                            Builtin::MultiplyFloat => {
-                                self.emit(st, Instr::Multiply);
-                            }
-                            Builtin::DivideFloat => {
-                                self.emit(st, Instr::Divide);
-                            }
-                            Builtin::ModuloFloat => {
-                                self.emit(st, Instr::Modulo);
-                            }
-                            Builtin::PowerFloat => {
-                                self.emit(st, Instr::Power);
-                            }
-                            Builtin::SqrtFloat => {
-                                self.emit(st, Instr::SquareRoot);
-                            }
-                            Builtin::LessThanInt => {
-                                self.emit(st, Instr::LessThan);
-                            }
-                            Builtin::LessThanOrEqualInt => {
-                                self.emit(st, Instr::LessThanOrEqual);
-                            }
-                            Builtin::GreaterThanInt => {
-                                self.emit(st, Instr::GreaterThan);
-                            }
-                            Builtin::GreaterThanOrEqualInt => {
-                                self.emit(st, Instr::GreaterThanOrEqual);
-                            }
-                            Builtin::EqualInt => {
-                                self.emit(st, Instr::Equal);
-                            }
-                            Builtin::LessThanFloat => {
-                                self.emit(st, Instr::LessThan);
-                            }
-                            Builtin::LessThanOrEqualFloat => {
-                                self.emit(st, Instr::LessThanOrEqual);
-                            }
-                            Builtin::GreaterThanFloat => {
-                                self.emit(st, Instr::GreaterThan);
-                            }
-                            Builtin::GreaterThanOrEqualFloat => {
-                                self.emit(st, Instr::GreaterThanOrEqual);
-                            }
-                            Builtin::EqualFloat => {
-                                self.emit(st, Instr::Equal);
-                            }
-                            Builtin::EqualString => {
-                                self.emit(st, Instr::Equal);
-                            }
-                            Builtin::IntToString => {
-                                self.emit(st, Instr::IntToString);
-                            }
-                            Builtin::FloatToString => {
-                                self.emit(st, Instr::FloatToString);
-                            }
-                            Builtin::ConcatStrings => {
-                                self.emit(st, Instr::ConcatStrings);
-                            }
-                            Builtin::ArrayAppend => {
-                                self.emit(st, Instr::ArrayAppend);
-                            }
-                            Builtin::ArrayLength => {
-                                self.emit(st, Instr::ArrayLength);
-                            }
-                            Builtin::ArrayPop => {
-                                self.emit(st, Instr::ArrayPop);
-                            }
-                            Builtin::Panic => {
-                                self.emit(st, Instr::Panic);
-                            }
-                            Builtin::Newline => {
-                                panic!("not a function");
-                            }
-                        },
-                        BytecodeResolution::Effect(e) => {
-                            self.emit(st, Instr::Effect(e));
-                        }
+                        self.emit(st, Instr::ConstructVariant { tag });
                     }
-                } else {
-                    panic!("unimplemented: {:?}", expr.kind)
+                    BytecodeResolution::EnumDef { .. } => {
+                        panic!("can't call enum name as ctor");
+                    }
+                    BytecodeResolution::Builtin(b) => match b {
+                        Builtin::AddInt => {
+                            self.emit(st, Instr::Add);
+                        }
+                        Builtin::SubtractInt => {
+                            self.emit(st, Instr::Subtract);
+                        }
+                        Builtin::MultiplyInt => {
+                            self.emit(st, Instr::Multiply);
+                        }
+                        Builtin::DivideInt => {
+                            self.emit(st, Instr::Divide);
+                        }
+                        Builtin::PowerInt => {
+                            self.emit(st, Instr::Power);
+                        }
+                        Builtin::ModuloInt => {
+                            self.emit(st, Instr::Modulo);
+                        }
+                        Builtin::SqrtInt => {
+                            self.emit(st, Instr::SquareRoot);
+                        }
+                        Builtin::AddFloat => {
+                            self.emit(st, Instr::Add);
+                        }
+                        Builtin::SubtractFloat => {
+                            self.emit(st, Instr::Subtract);
+                        }
+                        Builtin::MultiplyFloat => {
+                            self.emit(st, Instr::Multiply);
+                        }
+                        Builtin::DivideFloat => {
+                            self.emit(st, Instr::Divide);
+                        }
+                        Builtin::ModuloFloat => {
+                            self.emit(st, Instr::Modulo);
+                        }
+                        Builtin::PowerFloat => {
+                            self.emit(st, Instr::Power);
+                        }
+                        Builtin::SqrtFloat => {
+                            self.emit(st, Instr::SquareRoot);
+                        }
+                        Builtin::LessThanInt => {
+                            self.emit(st, Instr::LessThan);
+                        }
+                        Builtin::LessThanOrEqualInt => {
+                            self.emit(st, Instr::LessThanOrEqual);
+                        }
+                        Builtin::GreaterThanInt => {
+                            self.emit(st, Instr::GreaterThan);
+                        }
+                        Builtin::GreaterThanOrEqualInt => {
+                            self.emit(st, Instr::GreaterThanOrEqual);
+                        }
+                        Builtin::EqualInt => {
+                            self.emit(st, Instr::Equal);
+                        }
+                        Builtin::LessThanFloat => {
+                            self.emit(st, Instr::LessThan);
+                        }
+                        Builtin::LessThanOrEqualFloat => {
+                            self.emit(st, Instr::LessThanOrEqual);
+                        }
+                        Builtin::GreaterThanFloat => {
+                            self.emit(st, Instr::GreaterThan);
+                        }
+                        Builtin::GreaterThanOrEqualFloat => {
+                            self.emit(st, Instr::GreaterThanOrEqual);
+                        }
+                        Builtin::EqualFloat => {
+                            self.emit(st, Instr::Equal);
+                        }
+                        Builtin::EqualString => {
+                            self.emit(st, Instr::Equal);
+                        }
+                        Builtin::IntToString => {
+                            self.emit(st, Instr::IntToString);
+                        }
+                        Builtin::FloatToString => {
+                            self.emit(st, Instr::FloatToString);
+                        }
+                        Builtin::ConcatStrings => {
+                            self.emit(st, Instr::ConcatStrings);
+                        }
+                        Builtin::ArrayAppend => {
+                            self.emit(st, Instr::ArrayAppend);
+                        }
+                        Builtin::ArrayLength => {
+                            self.emit(st, Instr::ArrayLength);
+                        }
+                        Builtin::ArrayPop => {
+                            self.emit(st, Instr::ArrayPop);
+                        }
+                        Builtin::Panic => {
+                            self.emit(st, Instr::Panic);
+                        }
+                        Builtin::Newline => {
+                            panic!("not a function");
+                        }
+                    },
+                    BytecodeResolution::Effect(e) => {
+                        self.emit(st, Instr::Effect(e));
+                    }
                 }
             }
             ExprKind::Block(statements) => {

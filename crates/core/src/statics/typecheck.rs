@@ -1975,32 +1975,14 @@ fn generate_constraints_expr(
          * - ...
          */
         ExprKind::MemberAccess(expr, member_ident) => {
-            if let Some(Declaration::EnumVariant { enum_def, variant }) =
+            if let Some(ref decl @ Declaration::EnumVariant { .. }) =
                 ctx.resolution_map.get(&member_ident.id).cloned()
             {
-                // TODO: This is duplicated and also shouldn't be done manually ugghhhhh
-                let mut substitution: Substitution = HashMap::new();
-                let nparams = enum_def.ty_args.len();
-                let mut params = vec![];
-                for i in 0..nparams {
-                    params.push(TypeVar::fresh(
-                        ctx,
-                        Prov::InstantiateUdtParam(expr.clone().into(), i as u8),
-                    ));
-                    let polyty = &*enum_def.ty_args[i];
-                    let decl @ Declaration::Polytype(_) =
-                        ctx.resolution_map.get(&polyty.name.id).unwrap()
-                    else {
-                        panic!() // TODO: is it valid to panic here?
-                    };
-                    substitution.insert(decl.clone(), params[i].clone());
+                if let Some(ty_of_declaration) = tyvar_of_declaration(ctx, &decl, expr.into()) {
+                    let typ =
+                        ty_of_declaration.instantiate(polyvar_scope, ctx, expr.clone().into());
+                    constrain(ctx, node_ty, typ);
                 }
-                let def_type = TypeVar::make_nominal(
-                    Reason::Node(member_ident.clone().into()),
-                    Nominal::Enum(enum_def.clone()),
-                    params,
-                );
-                constrain(ctx, node_ty, def_type);
             } else {
                 generate_constraints_expr(polyvar_scope, Mode::Syn, expr.clone(), ctx);
                 let ty_expr = TypeVar::from_node(ctx, expr.clone().into());
