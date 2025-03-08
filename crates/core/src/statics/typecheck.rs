@@ -2249,7 +2249,7 @@ fn generate_constraints_pat(
             ctx.string_constants.entry(s.clone()).or_insert(len);
         }
         PatKind::Binding(_) => {}
-        PatKind::Variant(tag, data) => {
+        PatKind::Variant(prefixes, tag, data) => {
             let ty_data = match data {
                 Some(data) => TypeVar::from_node(ctx, data.into()),
                 None => TypeVar::make_unit(Reason::VariantNoData(pat.clone().into())),

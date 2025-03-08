@@ -2,7 +2,7 @@
 
 set -euo pipefail
 
-pushd core > /dev/null
+pushd crates/core > /dev/null
 cargo build
 popd > /dev/null
 

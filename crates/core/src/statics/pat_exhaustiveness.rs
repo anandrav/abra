@@ -313,7 +313,7 @@ impl DeconstructedPat {
                     .collect();
                 Constructor::Product
             }
-            PatKind::Variant(ident, data) => {
+            PatKind::Variant(prefixes, ident, data) => {
                 let Some(Declaration::EnumVariant { enum_def, variant }) =
                     statics.resolution_map.get(&ident.id)
                 else {

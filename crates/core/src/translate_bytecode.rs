@@ -1006,7 +1006,7 @@ impl Translator {
                 _ => panic!("unexpected pattern: {:?}", pat.kind),
             },
             Type::Nominal(_, _) => match &*pat.kind {
-                PatKind::Variant(ctor, inner) => {
+                PatKind::Variant(prefixes, ctor, inner) => {
                     let BytecodeResolution::VariantCtor(tag, _) = self
                         .statics
                         .resolution_map
@@ -1366,7 +1366,7 @@ impl Translator {
                     self.handle_pat_binding(pat.clone(), locals, st);
                 }
             }
-            PatKind::Variant(_, inner) => {
+            PatKind::Variant(prefixes, _, inner) => {
                 if let Some(inner) = inner {
                     // unpack tag and associated data
                     self.emit(st, Instr::Deconstruct);
@@ -1482,10 +1482,10 @@ fn collect_locals_pat(pat: Rc<Pat>, locals: &mut HashSet<NodeId>) {
                 collect_locals_pat(pat.clone(), locals);
             }
         }
-        PatKind::Variant(_, Some(inner)) => {
+        PatKind::Variant(prefixes, _, Some(inner)) => {
             collect_locals_pat(inner.clone(), locals);
         }
-        PatKind::Variant(_, None) => {}
+        PatKind::Variant(prefixes, _, None) => {}
         PatKind::Unit
         | PatKind::Bool(..)
         | PatKind::Int(..)

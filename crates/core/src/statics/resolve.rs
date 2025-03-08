@@ -638,7 +638,7 @@ fn resolve_names_pat(ctx: &mut StaticsContext, symbol_table: SymbolTable, pat: R
         PatKind::Binding(identifier) => {
             symbol_table.extend_declaration(identifier.clone(), Declaration::Var(pat.into()));
         }
-        PatKind::Variant(tag, data) => {
+        PatKind::Variant(prefixes, tag, data) => {
             if let Some(decl @ Declaration::EnumVariant { .. }) =
                 &symbol_table.lookup_declaration(&tag.v)
             {

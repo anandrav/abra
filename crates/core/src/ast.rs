@@ -574,7 +574,7 @@ impl std::hash::Hash for Pat {
 pub(crate) enum PatKind {
     Wildcard,
     Binding(String),
-    Variant(Rc<Identifier>, Option<Rc<Pat>>),
+    Variant(Vec<Rc<Identifier>>, Rc<Identifier>, Option<Rc<Pat>>),
     Unit,
     Int(i64),
     Float(String),
