@@ -42,8 +42,8 @@ type maybe<'y,'n> = yes of ('y) | no of ('n)
 
 // fn unwrap(m: maybe<'y,'n>) -> 'y {
 //     match m {
-//         yes(~y) -> y
-//         no(_) -> panic("could not unwrap")
+//         | yes(~y) -> y
+//         | no(_) -> panic("could not unwrap")
 //     }
 // }
 
@@ -77,11 +77,11 @@ implement Equal for string {
 implement Equal for list<'a Equal> {
     fn equal(a, b) {
         match (a, b) {
-            (nil, nil) -> true
-            (cons (~x, ~xs), cons (~y, ~ys)) -> {
+            | (nil, nil) -> true
+            | (cons (~x, ~xs), cons (~y, ~ys)) -> {
                 equal(x, y) and equal(xs, ys)
             }
-            _ -> false
+            | _ -> false
         }
     }
 }
@@ -179,11 +179,11 @@ implement ToString for list<'a ToString> {
 
 fn list_to_string_helper(xs: list<'a ToString>) -> string {
     match xs {
-        nil -> ""
-        cons (~x, nil) -> {
+        | nil -> ""
+        | cons (~x, nil) -> {
             str(x)
         }
-        cons (~x, ~xs) -> {
+        | cons (~x, ~xs) -> {
             str(x) & ", " & list_to_string_helper(xs)
         }
     }

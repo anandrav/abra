@@ -262,7 +262,7 @@ pub(crate) fn parse_match_pattern(pair: Pair<Rule>, file_id: FileId) -> Rc<Pat> 
                 id: NodeId::new(),
             })
         }
-        Rule::match_pattern_variant => {
+        Rule::match_pattern_variant_qualified => {
             let inner: Vec<_> = pair.into_inner().collect();
 
             let mut n = 0;
@@ -288,6 +288,24 @@ pub(crate) fn parse_match_pattern(pair: Pair<Rule>, file_id: FileId) -> Rc<Pat> 
                 .map(|pair| parse_match_pattern(pair.clone(), file_id));
             Rc::new(Pat {
                 kind: Rc::new(PatKind::Variant(ident_segments, last_ident, pat)),
+                loc: span,
+                id: NodeId::new(),
+            })
+        }
+        Rule::match_pattern_variant_unqualified => {
+            let inner: Vec<_> = pair.into_inner().collect();
+
+            let ident = Rc::new(Identifier {
+                v: inner[0].as_str().to_string(),
+                loc: Location::new(file_id, inner[0].as_span()),
+                id: NodeId::new(),
+            });
+
+            let pat = inner
+                .get(1)
+                .map(|pair| parse_match_pattern(pair.clone(), file_id));
+            Rc::new(Pat {
+                kind: Rc::new(PatKind::Variant(vec![], ident, pat)),
                 loc: span,
                 id: NodeId::new(),
             })

@@ -75,12 +75,13 @@ while_loop_expression = { while_keyword ~ expression ~ expression }
 while_keyword = _{ "while" }
 
 match_expression = { "match" ~ expression ~ "{" ~ match_branch ~ (match_branch)* ~ "}" }
-match_branch = { match_pattern ~ "->" ~ expression }
+match_branch = { "|" ~ match_pattern ~ "->" ~ expression }
 
-match_pattern = { match_pattern_parenthesized | literal | wildcard | match_pattern_tuple | match_pattern_variant | match_pattern_variable }
+match_pattern = { match_pattern_parenthesized | literal | wildcard | match_pattern_tuple | match_pattern_variant_qualified | match_pattern_variant_unqualified | match_pattern_variable }
 match_pattern_tuple = { tuple_start ~ (match_pattern_tuple_element ~ ",")+ ~ match_pattern_tuple_element ~ tuple_end }
 match_pattern_tuple_element = _{ match_pattern }
-match_pattern_variant = { identifier ~ ( "." ~ identifier)* ~ match_pattern_variant_data? }
+match_pattern_variant_qualified = { identifier ~ ( "." ~ identifier)* ~ match_pattern_variant_data? }
+match_pattern_variant_unqualified = { "." ~ identifier ~ match_pattern_variant_data? }
 match_pattern_variant_data = _{ match_pattern }
 match_pattern_variable = @{ "~" ~ (alpha | "_") ~ (alphanumeric | "_")* }
 match_pattern_parenthesized = _{ paren_start ~ match_pattern ~ paren_end }

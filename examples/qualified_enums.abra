@@ -5,9 +5,9 @@ type Color =
 
 implement ToString for Color {
   fn str(c) = match c {
-    Color.Red -> "red"
-    Color.Blue -> "blue"
-    Color.Green -> "green"
+    | Color.Red -> "red"
+    | .Blue -> "blue"
+    | .Green -> "green"
   }
 }
 
