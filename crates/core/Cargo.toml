@@ -1,6 +1,6 @@
 [package]
 name = "abra_core"
-version = "0.1.0"
+version = "0.0.0"
 authors = ["Anand Dukkipati <aRdukkipati@gmail.com>"]
 edition = "2024"
 license = "MPL-2.0"
@@ -19,7 +19,9 @@ disjoint-sets = "0.4.2"
 libloading = "0.8.5"
 pest = "2.5.2"
 pest_derive = "2.5.2"
-strum = { version = "0.26.3", features = ["derive"] } # TODO: try and get rid of this dependency
+strum = { version = "0.26.3", features = [
+  "derive",
+] } # TODO: try and get rid of this dependency
 strum_macros = "0.26.3" # TODO: try and get rid of this
 codespan-reporting = "0.11.1"
 
