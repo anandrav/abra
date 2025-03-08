@@ -62,7 +62,9 @@ pub(crate) fn parse_expr_pratt(pairs: Pairs<Rule>, file_id: FileId) -> Rc<Expr> 
             | Op::infix(Rule::op_division, Assoc::Left)
             | Op::infix(Rule::op_mod, Assoc::Left))
         .op(Op::infix(Rule::op_pow, Assoc::Left))
-        .op(Op::postfix(Rule::member_access) | Op::postfix(Rule::index_access));
+        .op(Op::postfix(Rule::member_access)
+            | Op::postfix(Rule::index_access)
+            | Op::postfix(Rule::func_call));
     pratt
         .map_primary(|t| parse_expr_term(t, file_id))
         .map_prefix(|_op, _rhs| panic!("prefix operator encountered"))
@@ -90,6 +92,20 @@ pub(crate) fn parse_expr_pratt(pairs: Pairs<Rule>, file_id: FileId) -> Rc<Expr> 
                 Rc::new(Expr {
                     kind: Rc::new(ExprKind::MemberAccess(lhs.clone(), ident)),
                     loc,
+                    id: NodeId::new(),
+                })
+            }
+            Rule::func_call => {
+                let f = lhs;
+                let span = Location::new(file_id, op.as_span());
+                let inner: Vec<_> = op.into_inner().collect();
+                let mut args = vec![];
+                for p in &inner[0..] {
+                    args.push(parse_expr_pratt(Pairs::single(p.clone()), file_id));
+                }
+                Rc::new(Expr {
+                    kind: Rc::new(ExprKind::FuncAp(f, args)),
+                    loc: span,
                     id: NodeId::new(),
                 })
             }
@@ -995,20 +1011,6 @@ pub(crate) fn parse_expr_term(pair: Pair<Rule>, file_id: FileId) -> Rc<Expr> {
             let body = parse_expr_pratt(Pairs::single(inner.last().unwrap().clone()), file_id);
             Rc::new(Expr {
                 kind: Rc::new(ExprKind::AnonymousFunction(args, ty_out, body)),
-                loc: span,
-                id: NodeId::new(),
-            })
-        }
-        Rule::func_call_expression => {
-            let inner: Vec<_> = pair.into_inner().collect();
-            let f = parse_expr_pratt(Pairs::single(inner[0].clone()), file_id);
-            let inner: Vec<_> = inner[1].clone().into_inner().collect();
-            let mut args = vec![];
-            for p in &inner[0..] {
-                args.push(parse_expr_pratt(Pairs::single(p.clone()), file_id));
-            }
-            Rc::new(Expr {
-                kind: Rc::new(ExprKind::FuncAp(f, args)),
                 loc: span,
                 id: NodeId::new(),
             })

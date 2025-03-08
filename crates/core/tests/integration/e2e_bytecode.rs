@@ -243,8 +243,8 @@ type Point = {
 }
 
 let snake = Snake([Point(10,10)], 0)
-(snake.body)[0].x <- 20
-(snake.body)[0].x
+snake.body[0].x <- 20
+snake.body[0].x
 "#;
     let sources = source_files_single(src);
 

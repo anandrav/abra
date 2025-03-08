@@ -2,15 +2,17 @@ type Color =
   | Red
   | Blue
   | Green
+  | Custom of (int, int, int)
 
 implement ToString for Color {
   fn str(c) = match c {
     | Color.Red -> "red" // the Color. prefix is unused right now
     | .Blue -> "blue"
     | .Green -> "green"
+    | .Custom(_, _, _) -> "custom"
   }
 }
 
-let c = Color.Red // this only works for variants with no data
+let c = Color.Custom(1,2,3) // this only works for variants with no data
 println(c)
 

@@ -61,8 +61,8 @@ let_pattern_tuple = { tuple_start ~ (let_pattern_tuple_element ~ ",")+ ~ let_pat
 let_pattern_tuple_element = _{ let_pattern }
 
 expression = {  term ~ postfix* ~ (op_binary ~ term ~ postfix* )* }
-term = _{ block_expression | func_expression | func_call_expression | parenthesized_expression | if_else_expression | while_loop_expression | match_expression | tuple_expr | primary_expression }
-postfix = _{ index_access | member_access }
+term = _{ block_expression | func_expression | parenthesized_expression | if_else_expression | while_loop_expression | match_expression | tuple_expr | primary_expression }
+postfix = _{ index_access | member_access | func_call }
 
 index_access = { "[" ~ expression ~ "]" }
 member_access = { "." ~ identifier }
@@ -99,8 +99,8 @@ parenthesized_expression = _{ paren_start ~ expression ~ paren_end }
 paren_start = _{ "(" }
 paren_end = _{ ")" }
 
-func_call_expression = ${ primary_expression ~ func_call_args }
-func_call_args = !{ func_call_args_start ~ (func_call_arg ~ ",")* ~ func_call_arg? ~ func_call_args_end }
+func_call = { func_call_args }
+func_call_args = _{ func_call_args_start ~ (func_call_arg ~ ",")* ~ func_call_arg? ~ func_call_args_end }
 func_call_args_start = _{ "(" }
 func_call_args_end = _{ ")" }
 func_call_arg = _{ expression }
