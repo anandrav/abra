@@ -3,9 +3,8 @@ use abra_core::effects::DefaultEffects;
 use abra_core::effects::EffectTrait;
 use abra_core::source_files_single;
 
-mod utils;
+use crate::utils::unwrap_or_panic;
 use abra_core::FileProviderDefault;
-use utils::inner::unwrap_or_panic;
 
 // POSITIVE TESTS
 // Typechecking should succeed.

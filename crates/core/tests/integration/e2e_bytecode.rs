@@ -5,10 +5,9 @@ use abra_core::prelude::PRELUDE;
 use abra_core::source_files_single;
 use abra_core::vm::Vm;
 
-pub mod utils;
+use crate::utils::unwrap_or_panic;
 use abra_core::FileData;
 use abra_core::FileProviderDefault;
-use utils::inner::unwrap_or_panic;
 
 #[test]
 fn arithmetic() {
