@@ -1978,7 +1978,7 @@ fn generate_constraints_expr(
             if let Some(ref decl @ Declaration::EnumVariant { .. }) =
                 ctx.resolution_map.get(&member_ident.id).cloned()
             {
-                if let Some(ty_of_declaration) = tyvar_of_declaration(ctx, &decl, expr.into()) {
+                if let Some(ty_of_declaration) = tyvar_of_declaration(ctx, decl, expr.into()) {
                     let typ =
                         ty_of_declaration.instantiate(polyvar_scope, ctx, expr.clone().into());
                     constrain(ctx, node_ty, typ);

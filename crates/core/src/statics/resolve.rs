@@ -213,7 +213,7 @@ struct SymbolTable {
 #[derive(Default, Debug, Clone)]
 struct SymbolTableBase {
     declarations: HashMap<String, Declaration>,
-    //namespaces: BTreeMap<String, Rc<Namespace>>,
+    namespaces: HashMap<String, Rc<Namespace>>,
     enclosing: Option<Rc<RefCell<SymbolTableBase>>>,
 }
 
@@ -228,23 +228,23 @@ impl SymbolTableBase {
         }
     }
 
-    // fn lookup_namespace(&self, id: &String) -> Option<Rc<Namespace>> {
-    //     match self.namespaces.get(id) {
-    //         Some(ns) => Some(ns.clone()),
-    //         None => match &self.enclosing {
-    //             Some(enclosing) => enclosing.borrow().lookup_namespace(id),
-    //             None => None,
-    //         },
-    //     }
-    // }
+    fn lookup_namespace(&self, id: &String) -> Option<Rc<Namespace>> {
+        match self.namespaces.get(id) {
+            Some(ns) => Some(ns.clone()),
+            None => match &self.enclosing {
+                Some(enclosing) => enclosing.borrow().lookup_namespace(id),
+                None => None,
+            },
+        }
+    }
 
     fn extend_declaration(&mut self, id: String, decl: Declaration) {
         self.declarations.insert(id, decl);
     }
 
-    // fn extend_namespace(&mut self, id: String, ns: Rc<Namespace>) {
-    //     self.namespaces.insert(id, ns);
-    // }
+    fn extend_namespace(&mut self, id: String, ns: Rc<Namespace>) {
+        self.namespaces.insert(id, ns);
+    }
 }
 
 impl SymbolTable {
@@ -267,17 +267,17 @@ impl SymbolTable {
         self.base.borrow().lookup_declaration(id)
     }
 
-    // pub(crate) fn lookup_namespace(&self, id: &String) -> Option<Rc<Namespace>> {
-    //     self.base.borrow().lookup_namespace(id)
-    // }
+    pub(crate) fn lookup_namespace(&self, id: &String) -> Option<Rc<Namespace>> {
+        self.base.borrow().lookup_namespace(id)
+    }
 
     pub(crate) fn extend_declaration(&self, id: String, decl: Declaration) {
         self.base.borrow_mut().extend_declaration(id, decl);
     }
 
-    // pub(crate) fn extend_namespace(&self, id: String, ns: Rc<Namespace>) {
-    //     self.base.borrow_mut().extend_namespace(id, ns);
-    // }
+    pub(crate) fn extend_namespace(&self, id: String, ns: Rc<Namespace>) {
+        self.base.borrow_mut().extend_namespace(id, ns);
+    }
 }
 
 // TODO: make a custom type to detect collisions
