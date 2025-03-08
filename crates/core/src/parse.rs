@@ -292,7 +292,7 @@ pub(crate) fn parse_match_pattern(pair: Pair<Rule>, file_id: FileId) -> Rc<Pat> 
                 id: NodeId::new(),
             })
         }
-        Rule::match_pattern_variant_unqualified => {
+        Rule::match_pattern_variant_qualifier_inferred => {
             let inner: Vec<_> = pair.into_inner().collect();
 
             let ident = Rc::new(Identifier {

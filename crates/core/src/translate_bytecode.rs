@@ -111,9 +111,7 @@ impl Declaration {
                     fully_qualified_name: fully_qualified_name.clone(),
                 } // TODO: don't use String here, just use iface_def and u16
             }
-            Declaration::Enum(..) => {
-                panic!() // TODO: remove panic
-            }
+            Declaration::Enum(..) => BytecodeResolution::EnumDef,
             Declaration::EnumVariant { enum_def, variant } => {
                 let data = &enum_def.variants[*variant as usize].data;
                 let arity = match data {
@@ -167,6 +165,7 @@ pub(crate) enum BytecodeResolution {
         fully_qualified_name: String,
     },
     StructCtor(u16),
+    EnumDef,
     VariantCtor(u16, u16),
     Builtin(Builtin),
     Effect(u16),
@@ -503,6 +502,9 @@ impl Translator {
                     BytecodeResolution::InterfaceMethod { .. } => {
                         unimplemented!()
                     }
+                    BytecodeResolution::EnumDef { .. } => {
+                        unimplemented!()
+                    }
                 }
             }
             ExprKind::Unit => {
@@ -693,6 +695,9 @@ impl Translator {
                             }
                             self.emit(st, Instr::ConstructVariant { tag });
                         }
+                        BytecodeResolution::EnumDef { .. } => {
+                            panic!("can't call enum name as ctor");
+                        }
                         BytecodeResolution::Builtin(b) => match b {
                             Builtin::AddInt => {
                                 self.emit(st, Instr::Add);
@@ -842,9 +847,19 @@ impl Translator {
                 self.emit(st, Instr::PushNil); // TODO get rid of this unnecessary overhead
             }
             ExprKind::MemberAccess(accessed, field_name) => {
-                self.translate_expr(accessed.clone(), offset_table, monomorph_env.clone(), st);
-                let idx = idx_of_field(&self.statics, accessed.clone(), &field_name.v);
-                self.emit(st, Instr::GetField(idx));
+                if let Some(BytecodeResolution::VariantCtor(tag, _)) = self
+                    .statics
+                    .resolution_map
+                    .get(&field_name.id)
+                    .map(Declaration::to_bytecode_resolution)
+                {
+                    self.emit(st, Instr::PushNil);
+                    self.emit(st, Instr::ConstructVariant { tag });
+                } else {
+                    self.translate_expr(accessed.clone(), offset_table, monomorph_env.clone(), st);
+                    let idx = idx_of_field(&self.statics, accessed.clone(), &field_name.v);
+                    self.emit(st, Instr::GetField(idx));
+                }
             }
             ExprKind::Array(exprs) => {
                 for expr in exprs {

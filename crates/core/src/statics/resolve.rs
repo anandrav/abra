@@ -592,8 +592,55 @@ fn resolve_names_expr(ctx: &mut StaticsContext, symbol_table: SymbolTable, expr:
                 resolve_names_expr(ctx, symbol_table.clone(), expr.clone());
             }
         }
-        ExprKind::MemberAccess(expr, _field) => {
+        ExprKind::MemberAccess(expr, field) => {
             resolve_names_expr(ctx, symbol_table.clone(), expr.clone());
+            if let Some(decl) = ctx.resolution_map.get(&expr.id).cloned() {
+                match decl {
+                    // member access not really valid for these
+                    // TODO: perhaps add another kind of Error for this situation, but play it by ear
+                    Declaration::FreeFunction(..)
+                    | Declaration::_ForeignFunction { .. }
+                    | Declaration::InterfaceMethod { .. }
+                    | Declaration::EnumVariant { .. }
+                    | Declaration::ForeignType(_)
+                    | Declaration::Effect(_)
+                    | Declaration::Polytype(_)
+                    | Declaration::Builtin(_) => {
+                        ctx.errors
+                            .push(Error::UnresolvedIdentifier { node: field.into() });
+                    }
+                    Declaration::InterfaceDef(_) => unimplemented!(),
+                    Declaration::Enum(enum_def) => {
+                        let mut found = false;
+                        for (idx, variant) in enum_def.variants.iter().enumerate() {
+                            if variant.ctor.v == field.v {
+                                let enum_def = enum_def.clone();
+                                ctx.resolution_map.insert(
+                                    field.id,
+                                    Declaration::EnumVariant {
+                                        enum_def,
+                                        variant: idx as u16,
+                                    },
+                                );
+                                found = true;
+                            }
+                        }
+                        if !found {
+                            ctx.errors
+                                .push(Error::UnresolvedIdentifier { node: field.into() });
+                        }
+                    }
+                    Declaration::Struct(_) => unimplemented!(),
+                    Declaration::Array => unimplemented!(),
+                    Declaration::Var(_) => {
+                        // requires further context from typechecker to resolve field
+                        //
+                        // for instance, if type of this Var is determined to be some struct, we can
+                        // attempt to resolve the field of this member access to one of the fields in the
+                        // struct's definition
+                    }
+                }
+            }
         }
         ExprKind::IndexAccess(accessed, index) => {
             resolve_names_expr(ctx, symbol_table.clone(), accessed.clone());
