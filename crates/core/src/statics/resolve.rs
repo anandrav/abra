@@ -94,11 +94,12 @@ fn gather_declarations_item(
 
                 // TODO: in the near future, put enum variants in a namespace named after the enum
                 // and refer to them in code by just writing .Variant
+                let mut enum_namespace = Namespace::new();
                 for (i, v) in e.variants.iter().enumerate() {
                     let variant_name = v.ctor.v.clone();
                     let variant = i as u16;
 
-                    namespace.declarations.insert(
+                    enum_namespace.declarations.insert(
                         variant_name,
                         Declaration::EnumVariant {
                             enum_def: e.clone(),
@@ -106,6 +107,10 @@ fn gather_declarations_item(
                         },
                     );
                 }
+
+                namespace
+                    .namespaces
+                    .insert(e.name.v.clone(), enum_namespace.into());
             }
             TypeDefKind::Struct(s) => {
                 let struct_name = s.name.v.clone();
@@ -280,9 +285,6 @@ impl SymbolTable {
     }
 }
 
-// TODO: make a custom type to detect collisions
-pub type ToplevelDeclarations = HashMap<String, Declaration>;
-
 pub(crate) fn resolve(ctx: &mut StaticsContext, file_asts: &Vec<Rc<FileAst>>) {
     for file in file_asts {
         let env = resolve_imports_file(ctx, file.clone());
@@ -291,10 +293,10 @@ pub(crate) fn resolve(ctx: &mut StaticsContext, file_asts: &Vec<Rc<FileAst>>) {
     }
 }
 
-fn resolve_imports_file(ctx: &mut StaticsContext, file: Rc<FileAst>) -> ToplevelDeclarations {
+fn resolve_imports_file(ctx: &mut StaticsContext, file: Rc<FileAst>) -> Namespace {
     // Return an environment with all identifiers available to this file.
     // That includes identifiers from this file and all imports.
-    let mut env = ToplevelDeclarations::new();
+    let mut env = Namespace::new();
     // add declarations from this file to the environment
     for (name, declaration) in ctx
         .global_namespace
@@ -304,7 +306,18 @@ fn resolve_imports_file(ctx: &mut StaticsContext, file: Rc<FileAst>) -> Toplevel
         .declarations
         .iter()
     {
-        env.insert(name.clone(), declaration.clone());
+        env.declarations.insert(name.clone(), declaration.clone());
+    }
+    // add child namespaces from this file to the environment
+    for (name, namespace) in ctx
+        .global_namespace
+        .namespaces
+        .get(&file.name)
+        .unwrap()
+        .namespaces
+        .iter()
+    {
+        env.namespaces.insert(name.clone(), namespace.clone()); // TODO: cloning namespaces everywhere is expensive
     }
 
     // add declarations from prelude to the environment
@@ -316,14 +329,25 @@ fn resolve_imports_file(ctx: &mut StaticsContext, file: Rc<FileAst>) -> Toplevel
         .declarations
         .iter()
     {
-        env.insert(name.clone(), declaration.clone());
+        env.declarations.insert(name.clone(), declaration.clone());
+    }
+    // add child namespaces from prelude to the environment
+    for (name, namespace) in ctx
+        .global_namespace
+        .namespaces
+        .get("prelude")
+        .unwrap()
+        .namespaces
+        .iter()
+    {
+        env.namespaces.insert(name.clone(), namespace.clone()); // TODO: cloning namespaces everywhere is expensive
     }
     // builtin array type
-    env.insert("array".to_string(), Declaration::Array);
+    env.declarations
+        .insert("array".to_string(), Declaration::Array);
 
     for item in file.items.iter() {
         if let ItemKind::Import(path) = &*item.kind {
-            // dbg!(&ctx.global_namespace.namespaces);
             let Some(import_src) = ctx.global_namespace.namespaces.get(&path.v) else {
                 ctx.errors
                     .push(Error::UnresolvedIdentifier { node: item.into() });
@@ -331,7 +355,11 @@ fn resolve_imports_file(ctx: &mut StaticsContext, file: Rc<FileAst>) -> Toplevel
             };
             // add declarations from this import to the environment
             for (name, declaration) in import_src.declarations.iter() {
-                env.insert(name.clone(), declaration.clone());
+                env.declarations.insert(name.clone(), declaration.clone());
+            }
+            // add child namespaces from this import to the environment
+            for (name, namespace) in import_src.namespaces.iter() {
+                env.namespaces.insert(name.clone(), namespace.clone());
             }
         }
     }
@@ -341,13 +369,16 @@ fn resolve_imports_file(ctx: &mut StaticsContext, file: Rc<FileAst>) -> Toplevel
 
 pub(crate) fn resolve_names_file_decls(
     ctx: &mut StaticsContext,
-    toplevel_declarations: ToplevelDeclarations,
+    toplevel_declarations: Namespace,
     file: Rc<FileAst>,
 ) {
     let symbol_table = SymbolTable::empty();
 
-    for (name, declaration) in toplevel_declarations {
+    for (name, declaration) in toplevel_declarations.declarations {
         symbol_table.extend_declaration(name, declaration);
+    }
+    for (name, namespace) in toplevel_declarations.namespaces {
+        symbol_table.extend_namespace(name, namespace);
     }
 
     for (i, eff) in ctx.effects.iter().enumerate() {
@@ -461,13 +492,17 @@ fn resolve_names_item_decl(ctx: &mut StaticsContext, symbol_table: SymbolTable, 
 
 pub(crate) fn resolve_names_file_stmts(
     ctx: &mut StaticsContext,
-    toplevel_declarations: ToplevelDeclarations,
+    toplevel_declarations: Namespace,
     file: Rc<FileAst>,
 ) {
     let symbol_table = SymbolTable::empty();
 
-    for (name, declaration) in toplevel_declarations {
-        symbol_table.extend_declaration(name, declaration);
+    // TODO: This is super duplicated with the code in resolve_imports_file that builds and returns a Namespace...
+    for (name, declaration) in &toplevel_declarations.declarations {
+        symbol_table.extend_declaration(name.clone(), declaration.clone());
+    }
+    for (name, namespace) in &toplevel_declarations.namespaces {
+        symbol_table.extend_namespace(name.clone(), namespace.clone());
     }
 
     for (i, eff) in ctx.effects.iter().enumerate() {
@@ -686,14 +721,37 @@ fn resolve_names_pat(ctx: &mut StaticsContext, symbol_table: SymbolTable, pat: R
             symbol_table.extend_declaration(identifier.clone(), Declaration::Var(pat.into()));
         }
         PatKind::Variant(prefixes, tag, data) => {
-            if let Some(decl @ Declaration::EnumVariant { .. }) =
-                &symbol_table.lookup_declaration(&tag.v)
-            {
-                ctx.resolution_map.insert(tag.id, decl.clone());
-            } else {
+            let mut final_namespace: Option<Rc<Namespace>> =
+                symbol_table.lookup_namespace(&prefixes[0].v);
+            for prefix in &prefixes[1..] {
+                if let Some(ns) = final_namespace {
+                    final_namespace = ns.namespaces.get(&prefix.v).cloned();
+                }
+            }
+            let mut found = false;
+            if let Some(enum_namespace) = final_namespace {
+                if let Some(ref decl @ Declaration::EnumVariant { .. }) =
+                    enum_namespace.declarations.get(&tag.v).cloned()
+                {
+                    found = true;
+                    ctx.resolution_map.insert(tag.id, decl.clone());
+                }
+            }
+            if !found {
+                println!("not found!");
+                println!("tag: {}", tag.v);
                 ctx.errors
                     .push(Error::UnresolvedIdentifier { node: tag.into() });
             }
+
+            // if let Some(decl @ Declaration::EnumVariant { .. }) =
+            //     &symbol_table.lookup_declaration(&tag.v)
+            // {
+            //     ctx.resolution_map.insert(tag.id, decl.clone());
+            // } else {
+            //     ctx.errors
+            //         .push(Error::UnresolvedIdentifier { node: tag.into() });
+            // }
             if let Some(data) = data {
                 resolve_names_pat(ctx, symbol_table, data.clone())
             };

@@ -28,7 +28,7 @@ type Snake = {
 
 fn main() {
   // println("main")
-  let snake = Snake([Point(12, 10), Point(11, 10), Point(10, 10), Point(9, 10), Point(8, 10)], DirRight)
+  let snake = Snake([Point(12, 10), Point(11, 10), Point(10, 10), Point(9, 10), Point(8, 10)], Direction.DirRight)
   var quit = false
 
   // game loop
@@ -41,17 +41,17 @@ fn main() {
     while poll_key_event() {
       // println("got event")
       match get_key_event() {
-        Left -> { snake.direction <- DirLeft }
-        Char("a") -> { snake.direction <- DirLeft }
-        Right -> { snake.direction <- DirRight }
-        Char("d") -> { snake.direction <- DirRight }
-        Up -> { snake.direction <- DirUp }
-        Char("w") -> { snake.direction <- DirUp }
-        Down -> { snake.direction <- DirDown }
-        Char("s") -> { snake.direction <- DirDown }
-        Char("q") -> { quit <- true }
-        Esc -> { quit <- true }
-        _ -> {}      
+        | KeyCode.Left -> { snake.direction <- Direction.DirLeft }
+        | KeyCode.Char("a") -> { snake.direction <- Direction.DirLeft }
+        | KeyCode.Right -> { snake.direction <- Direction.DirRight }
+        | KeyCode.Char("d") -> { snake.direction <- Direction.DirRight }
+        | KeyCode.Up -> { snake.direction <- Direction.DirUp }
+        | KeyCode.Char("w") -> { snake.direction <- Direction.DirUp }
+        | KeyCode.Down -> { snake.direction <- Direction.DirDown }
+        | KeyCode.Char("s") -> { snake.direction <- Direction.DirDown }
+        | KeyCode.Char("q") -> { quit <- true }
+        | KeyCode.Esc -> { quit <- true }
+        | _ -> {}      
       }
     }
 
@@ -109,10 +109,10 @@ fn update_snake(snake: Snake) {
   
   body[0] <- Point(body[1].x, body[1].y)
   match snake.direction {
-    DirUp -> { body[0].y <- body[0].y - 1 }
-    DirDown -> { body[0].y <- body[0].y + 1 }
-    DirLeft -> { body[0].x <- body[0].x - 1 }
-    DirRight -> { body[0].x <- body[0].x + 1 }
+    | Direction.DirUp -> { body[0].y <- body[0].y - 1 }
+    | Direction.DirDown -> { body[0].y <- body[0].y + 1 }
+    | Direction.DirLeft -> { body[0].x <- body[0].x - 1 }
+    | Direction.DirRight -> { body[0].x <- body[0].x + 1 }
   } 
 }
 

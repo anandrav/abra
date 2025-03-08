@@ -104,6 +104,12 @@ pub(crate) struct Namespace {
     pub(crate) namespaces: HashMap<String, Rc<Namespace>>,
 }
 
+impl Namespace {
+    pub fn new() -> Self {
+        Self::default()
+    }
+}
+
 impl Display for Namespace {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         // indent for each level

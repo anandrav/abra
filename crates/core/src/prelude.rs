@@ -77,8 +77,8 @@ implement Equal for string {
 implement Equal for list<'a Equal> {
     fn equal(a, b) {
         match (a, b) {
-            | (nil, nil) -> true
-            | (cons (~x, ~xs), cons (~y, ~ys)) -> {
+            | (list.nil, list.nil) -> true
+            | (list.cons (~x, ~xs), list.cons (~y, ~ys)) -> {
                 equal(x, y) and equal(xs, ys)
             }
             | _ -> false
@@ -179,11 +179,11 @@ implement ToString for list<'a ToString> {
 
 fn list_to_string_helper(xs: list<'a ToString>) -> string {
     match xs {
-        | nil -> ""
-        | cons (~x, nil) -> {
+        | list.nil -> ""
+        | list.cons (~x, list.nil) -> {
             str(x)
         }
-        | cons (~x, ~xs) -> {
+        | list.cons (~x, ~xs) -> {
             str(x) & ", " & list_to_string_helper(xs)
         }
     }

@@ -472,10 +472,10 @@ match xs {
     | (~x, (~y, ~z)) -> y
 }"#;
     //     let src = r#"
-    // let xs = nil
+    // let xs = list.nil
     // match xs {
-    //     cons(~x, _) -> 9
-    //     nil -> 100
+    //     list.cons(~x, _) -> 9
+    //     list.nil -> 100
     // }"#;
     let sources = source_files_single(src);
     let program = match compile_bytecode(
@@ -497,10 +497,10 @@ match xs {
 #[test]
 fn match_cons_binding() {
     let src = r#"
-let xs = cons(23, nil)
+let xs = list.cons(23, list.nil)
 match xs {
-    | nil -> 100
-    | cons(~x, _) -> x
+    | list.nil -> 100
+    | list.cons(~x, _) -> x
 }"#;
     let sources = source_files_single(src);
     let program = match compile_bytecode(
@@ -522,10 +522,10 @@ match xs {
 #[test]
 fn match_cons_binding_nested() {
     let src = r#"
-let xs = cons(1, cons(2, nil))
+let xs = list.cons(1, list.cons(2, list.nil))
 match xs {
-    | nil -> 100
-    | cons(_, cons(~x, nil)) -> x
+    | list.nil -> 100
+    | list.cons(_, list.cons(~x, list.nil)) -> x
     | _ -> 101
 }"#;
     let sources = source_files_single(src);
@@ -723,8 +723,8 @@ len(arr)
 fn list_literal_head() {
     let src = r#"
 match [| 1, 2, 3 |] {
-  | nil -> 0
-  | cons(~x, _) -> x
+  | list.nil -> 0
+  | list.cons(~x, _) -> x
 }
 "#;
     let sources = source_files_single(src);
@@ -751,8 +751,8 @@ let xs = [| 1, 2, 3 |]
 
 fn total(xs) {
     match xs {
-      | cons(~x, ~xs) -> x + total(xs)
-      | nil -> 0
+      | list.cons(~x, ~xs) -> x + total(xs)
+      | list.nil -> 0
     }
 }
 
@@ -783,8 +783,8 @@ let bools = [| true, false, true, true, false |]
 
 fn list_len(xs: list<'a>) {
     match xs {
-      | cons(_, ~xs) -> 1 + list_len(xs)
-      | nil -> 0
+      | list.cons(_, ~xs) -> 1 + list_len(xs)
+      | list.nil -> 0
     }
 }
 

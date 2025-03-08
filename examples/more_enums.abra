@@ -1,0 +1,6 @@
+let xs = list.cons(23, list.nil)
+let y = match xs {
+    | list.nil -> 100
+    | list.cons(~x, _) -> x
+}
+

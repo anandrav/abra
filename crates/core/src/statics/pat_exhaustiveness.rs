@@ -7,7 +7,7 @@ use std::fmt::{self, Display};
 use std::rc::Rc;
 
 use super::typecheck::{Nominal, ast_type_to_solved_type};
-use super::{Declaration, EnumDef, Error, SolvedType, StaticsContext, TypeKind};
+use super::{_print_node, Declaration, EnumDef, Error, SolvedType, StaticsContext, TypeKind};
 
 pub(crate) fn check_pattern_exhaustiveness_and_usefulness(
     ctx: &mut StaticsContext,
@@ -313,7 +313,7 @@ impl DeconstructedPat {
                     .collect();
                 Constructor::Product
             }
-            PatKind::Variant(prefixes, ident, data) => {
+            PatKind::Variant(_prefixes, ident, data) => {
                 let Some(Declaration::EnumVariant { enum_def, variant }) =
                     statics.resolution_map.get(&ident.id)
                 else {

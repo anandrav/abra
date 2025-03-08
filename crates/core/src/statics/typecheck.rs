@@ -2271,48 +2271,42 @@ fn generate_constraints_pat(
                 None => TypeVar::make_unit(Reason::VariantNoData(pat.clone().into())),
             };
             let mut substitution: Substitution = HashMap::new();
-            let ty_enum_instance = {
-                if let Some(Declaration::EnumVariant { enum_def, variant }) =
-                    ctx.resolution_map.get(&tag.id).cloned()
-                {
-                    let nparams = enum_def.ty_args.len();
-                    let mut params = vec![];
-                    for i in 0..nparams {
-                        params.push(TypeVar::fresh(
-                            ctx,
-                            Prov::InstantiateUdtParam(pat.clone().into(), i as u8),
-                        ));
-                        let polyty = &*enum_def.ty_args[i];
-                        let decl @ Declaration::Polytype(_) =
-                            ctx.resolution_map.get(&polyty.name.id).unwrap()
-                        else {
-                            panic!() // TODO: is it valid to panic here?
-                        };
-                        substitution.insert(decl.clone(), params[i].clone());
-                    }
-                    let def_type = TypeVar::make_nominal(
-                        Reason::Node(pat.clone().into()),
-                        Nominal::Enum(enum_def.clone()),
-                        params,
-                    );
 
-                    let variant_def = &enum_def.variants[variant as usize];
-                    let variant_data_ty = match &variant_def.data {
-                        None => TypeVar::make_unit(Reason::VariantNoData(variant_def.into())),
-                        Some(ty) => ast_type_to_typevar(ctx, ty.clone()),
+            if let Some(Declaration::EnumVariant { enum_def, variant }) =
+                ctx.resolution_map.get(&tag.id).cloned()
+            {
+                let nparams = enum_def.ty_args.len();
+                let mut params = vec![];
+                for i in 0..nparams {
+                    params.push(TypeVar::fresh(
+                        ctx,
+                        Prov::InstantiateUdtParam(pat.clone().into(), i as u8),
+                    ));
+                    let polyty = &*enum_def.ty_args[i];
+                    let decl @ Declaration::Polytype(_) =
+                        ctx.resolution_map.get(&polyty.name.id).unwrap()
+                    else {
+                        panic!() // TODO: is it valid to panic here?
                     };
-                    let variant_data_ty =
-                        variant_data_ty.subst(Prov::Node(pat.clone().into()), &substitution);
-                    constrain(ctx, ty_data.clone(), variant_data_ty);
-
-                    def_type
-                } else {
-                    // TODO: do not panic here!
-                    todo!("variant not found");
+                    substitution.insert(decl.clone(), params[i].clone());
                 }
-            };
+                let def_type = TypeVar::make_nominal(
+                    Reason::Node(pat.clone().into()),
+                    Nominal::Enum(enum_def.clone()),
+                    params,
+                );
 
-            constrain(ctx, ty_pat, ty_enum_instance);
+                let variant_def = &enum_def.variants[variant as usize];
+                let variant_data_ty = match &variant_def.data {
+                    None => TypeVar::make_unit(Reason::VariantNoData(variant_def.into())),
+                    Some(ty) => ast_type_to_typevar(ctx, ty.clone()),
+                };
+                let variant_data_ty =
+                    variant_data_ty.subst(Prov::Node(pat.clone().into()), &substitution);
+                constrain(ctx, ty_data.clone(), variant_data_ty);
+
+                constrain(ctx, ty_pat, def_type);
+            }
 
             if let Some(data) = data {
                 generate_constraints_pat(
