@@ -6,7 +6,7 @@ cargo clippy
 
 cargo test
 
-pushd core
+pushd crates/core
 cargo check --lib --target wasm32-unknown-unknown
 popd
 

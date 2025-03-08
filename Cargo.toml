@@ -1,8 +1,7 @@
 [workspace]
 resolver = "2"
 members = [
-    "./cli",
-    "./core",
-    "./modules/*/rust_project",
-    "./cli/tests/modules/*/rust_project",
+    "crates/*",
+    "modules/*/rust_project",
+    "crates/cli/tests/modules/*/rust_project",
 ]
