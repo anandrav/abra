@@ -584,7 +584,23 @@ impl Translator {
                         .get(&ident.id)
                         .unwrap()
                         .to_bytecode_resolution(),
-                    _ => panic!("unrecognized lhs of FuncAp: {:#?}", func),
+                    ExprKind::Unit
+                    | ExprKind::Int(_)
+                    | ExprKind::Float(_)
+                    | ExprKind::Bool(_)
+                    | ExprKind::Str(_)
+                    | ExprKind::List(_)
+                    | ExprKind::Array(_)
+                    | ExprKind::WhileLoop(..)
+                    | ExprKind::BinOp(..)
+                    | ExprKind::Tuple(..) => panic!("lhs of FuncAp not a function"),
+
+                    ExprKind::If(_expr, _expr1, _expr2) => unimplemented!(),
+                    ExprKind::Match(_expr, _match_armss) => unimplemented!(),
+                    ExprKind::Block(_stmts) => unimplemented!(),
+                    ExprKind::IndexAccess(_expr, _expr1) => unimplemented!(),
+                    ExprKind::FuncAp(_expr, _exprs) => unimplemented!(),
+                    ExprKind::AnonymousFunction(_items, _, _expr) => unimplemented!(),
                 };
                 match resolution {
                     BytecodeResolution::Var(node) => {
