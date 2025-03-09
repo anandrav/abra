@@ -2358,11 +2358,54 @@ fn generate_constraints_pat(
                         ctx.resolution_map.insert(
                             tag.id,
                             Declaration::EnumVariant {
-                                enum_def,
+                                enum_def: enum_def.clone(),
                                 variant: idx,
                             },
                         );
                         can_infer = true;
+
+                        // TODO: SO MUCH DUPLICATED LOGIC :(
+
+                        let nparams = enum_def.ty_args.len();
+                        let mut params = vec![];
+                        for i in 0..nparams {
+                            params.push(TypeVar::fresh(
+                                ctx,
+                                Prov::InstantiateUdtParam(pat.clone().into(), i as u8),
+                            ));
+                            let polyty = &*enum_def.ty_args[i];
+                            let decl @ Declaration::Polytype(_) =
+                                ctx.resolution_map.get(&polyty.name.id).unwrap()
+                            else {
+                                panic!() // TODO: is it valid to panic here?
+                            };
+                            substitution.insert(decl.clone(), params[i].clone());
+                        }
+                        let def_type = TypeVar::make_nominal(
+                            Reason::Node(pat.clone().into()),
+                            Nominal::Enum(enum_def.clone()),
+                            params,
+                        );
+
+                        let variant_def = &enum_def.variants[idx as usize];
+                        let variant_data_ty = match &variant_def.data {
+                            None => TypeVar::make_unit(Reason::VariantNoData(variant_def.into())),
+                            Some(ty) => ast_type_to_typevar(ctx, ty.clone()),
+                        };
+                        let variant_data_ty =
+                            variant_data_ty.subst(Prov::Node(pat.clone().into()), &substitution);
+                        constrain(ctx, ty_data.clone(), variant_data_ty);
+
+                        constrain(ctx, ty_pat.clone(), def_type);
+
+                        if let Some(data) = data {
+                            generate_constraints_pat(
+                                polyvar_scope,
+                                Mode::Ana { expected: ty_data },
+                                data.clone(),
+                                ctx,
+                            )
+                        };
                     }
                 }
 

@@ -9,8 +9,7 @@ implement ToString for Color {
     | .Red -> "red"
     | .Blue -> "blue"
     | .Green -> "green"
-    // TODO: removing the qualifier below breaks it
-    | Color.Custom(r, g, b) -> "custom(" & r & "," & g & "," & b & ")"
+    | .Custom(r, g, b) -> "custom(" & r & "," & g & "," & b & ")"
   }
 }
 
