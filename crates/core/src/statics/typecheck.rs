@@ -2024,6 +2024,7 @@ fn generate_constraints_expr(
                 }
             }
         }
+        ExprKind::MemberAccessInferred(..) => unimplemented!(),
         ExprKind::IndexAccess(accessed, index) => {
             generate_constraints_expr(polyvar_scope.clone(), Mode::Syn, accessed.clone(), ctx);
 

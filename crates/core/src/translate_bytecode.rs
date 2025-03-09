@@ -507,6 +507,7 @@ impl Translator {
                     }
                 }
             }
+            ExprKind::MemberAccessInferred(..) => unimplemented!(),
             ExprKind::Unit => {
                 self.emit(st, Instr::PushNil);
             }
@@ -584,6 +585,8 @@ impl Translator {
                         .get(&ident.id)
                         .unwrap()
                         .to_bytecode_resolution(),
+                    ExprKind::MemberAccessInferred(..) => unimplemented!(),
+
                     ExprKind::Unit
                     | ExprKind::Int(_)
                     | ExprKind::Float(_)
@@ -1480,8 +1483,9 @@ fn collect_locals_expr(expr: &Expr, locals: &mut HashSet<NodeId>) {
                 collect_locals_expr(arg, locals);
             }
         }
-        ExprKind::AnonymousFunction(..) => {}
-        ExprKind::Variable(..)
+        ExprKind::AnonymousFunction(..)
+        | ExprKind::MemberAccessInferred(..)
+        | ExprKind::Variable(..)
         | ExprKind::Unit
         | ExprKind::Int(..)
         | ExprKind::Float(..)

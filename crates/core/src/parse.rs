@@ -1092,6 +1092,20 @@ pub(crate) fn parse_expr_term(pair: Pair<Rule>, file_id: FileId) -> Rc<Expr> {
             loc: span,
             id: NodeId::new(),
         }),
+        Rule::member_access_inferred => {
+            let inner: Vec<_> = pair.into_inner().collect();
+            let ident = Identifier {
+                v: inner[0].as_str().to_string(),
+                loc: Location::new(file_id, inner[0].as_span()),
+                id: NodeId::new(),
+            }
+            .into();
+            Rc::new(Expr {
+                kind: Rc::new(ExprKind::MemberAccessInferred(ident)),
+                loc: span,
+                id: NodeId::new(),
+            })
+        }
         _ => panic!("unreachable rule {:#?}", rule),
     }
 }

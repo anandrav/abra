@@ -133,6 +133,7 @@ fn check_pattern_exhaustiveness_expr(statics: &mut StaticsContext, expr: &Rc<Exp
         ExprKind::MemberAccess(expr, _) => {
             check_pattern_exhaustiveness_expr(statics, expr);
         }
+        ExprKind::MemberAccessInferred(..) => unimplemented!(),
         ExprKind::IndexAccess(expr, index) => {
             check_pattern_exhaustiveness_expr(statics, expr);
             check_pattern_exhaustiveness_expr(statics, index);

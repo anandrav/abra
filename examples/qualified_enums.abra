@@ -7,12 +7,13 @@ type Color =
 implement ToString for Color {
   fn str(c: Color) = match c {
     | .Red -> "red"
-    | Color.Blue -> "blue"
-    | Color.Green -> "green"
+    | .Blue -> "blue"
+    | .Green -> "green"
+    // TODO: removing the qualifier below breaks it
     | Color.Custom(~r, ~g, ~b) -> "custom(" & r & "," & g & "," & b & ")"
   }
 }
 
-let c = Color.Custom(1,2,3)
+let c: Color = .Custom(1,2,3)
 println(c)
 

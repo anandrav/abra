@@ -677,6 +677,7 @@ fn resolve_names_expr(ctx: &mut StaticsContext, symbol_table: SymbolTable, expr:
                 }
             }
         }
+        ExprKind::MemberAccessInferred(..) => unimplemented!(),
         ExprKind::IndexAccess(accessed, index) => {
             resolve_names_expr(ctx, symbol_table.clone(), accessed.clone());
             resolve_names_expr(ctx, symbol_table.clone(), index.clone());
