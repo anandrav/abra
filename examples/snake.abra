@@ -10,15 +10,15 @@ type Point = {
 }
 
 // TODO: need to make enums properly namespaced
-type Direction = 
-  | DirUp
-  | DirDown
-  | DirLeft
-  | DirRight
+type Dir = 
+  | Up
+  | Down
+  | Left
+  | Right
 
 type Snake = {
   body: array<Point>
-  direction: Direction
+  direction: Dir
 }
 
 // game logic
@@ -28,7 +28,7 @@ type Snake = {
 
 fn main() {
   // println("main")
-  let snake = Snake([Point(12, 10), Point(11, 10), Point(10, 10), Point(9, 10), Point(8, 10)], Direction.DirRight)
+  let snake = Snake([Point(12, 10), Point(11, 10), Point(10, 10), Point(9, 10), Point(8, 10)], Dir.Right)
   var quit = false
 
   // game loop
@@ -41,14 +41,14 @@ fn main() {
     while poll_key_event() {
       // println("got event")
       match get_key_event() {
-        | KeyCode.Left -> { snake.direction <- Direction.DirLeft }
-        | KeyCode.Char("a") -> { snake.direction <- Direction.DirLeft }
-        | KeyCode.Right -> { snake.direction <- Direction.DirRight }
-        | KeyCode.Char("d") -> { snake.direction <- Direction.DirRight }
-        | KeyCode.Up -> { snake.direction <- Direction.DirUp }
-        | KeyCode.Char("w") -> { snake.direction <- Direction.DirUp }
-        | KeyCode.Down -> { snake.direction <- Direction.DirDown }
-        | KeyCode.Char("s") -> { snake.direction <- Direction.DirDown }
+        | KeyCode.Left -> { snake.direction <- Dir.Left }
+        | KeyCode.Char("a") -> { snake.direction <- Dir.Left }
+        | KeyCode.Right -> { snake.direction <- Dir.Right }
+        | KeyCode.Char("d") -> { snake.direction <- Dir.Right }
+        | KeyCode.Up -> { snake.direction <- Dir.Up }
+        | KeyCode.Char("w") -> { snake.direction <- Dir.Up }
+        | KeyCode.Down -> { snake.direction <- Dir.Down }
+        | KeyCode.Char("s") -> { snake.direction <- Dir.Down }
         | KeyCode.Char("q") -> { quit <- true }
         | KeyCode.Esc -> { quit <- true }
         | _ -> {}      
@@ -109,10 +109,10 @@ fn update_snake(snake: Snake) {
   
   body[0] <- Point(body[1].x, body[1].y)
   match snake.direction {
-    | Direction.DirUp -> { body[0].y <- body[0].y - 1 }
-    | Direction.DirDown -> { body[0].y <- body[0].y + 1 }
-    | Direction.DirLeft -> { body[0].x <- body[0].x - 1 }
-    | Direction.DirRight -> { body[0].x <- body[0].x + 1 }
+    | Dir.Up -> { body[0].y <- body[0].y - 1 }
+    | Dir.Down -> { body[0].y <- body[0].y + 1 }
+    | Dir.Left -> { body[0].x <- body[0].x - 1 }
+    | Dir.Right -> { body[0].x <- body[0].x + 1 }
   } 
 }
 
