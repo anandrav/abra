@@ -721,37 +721,36 @@ fn resolve_names_pat(ctx: &mut StaticsContext, symbol_table: SymbolTable, pat: R
             symbol_table.extend_declaration(identifier.clone(), Declaration::Var(pat.into()));
         }
         PatKind::Variant(prefixes, tag, data) => {
-            let mut final_namespace: Option<Rc<Namespace>> =
-                symbol_table.lookup_namespace(&prefixes[0].v);
-            for prefix in &prefixes[1..] {
-                if let Some(ns) = final_namespace {
-                    final_namespace = ns.namespaces.get(&prefix.v).cloned();
+            if !prefixes.is_empty() {
+                let mut final_namespace: Option<Rc<Namespace>> =
+                    symbol_table.lookup_namespace(&prefixes[0].v);
+                for prefix in &prefixes[1..] {
+                    if let Some(ns) = final_namespace {
+                        final_namespace = ns.namespaces.get(&prefix.v).cloned();
+                    }
                 }
-            }
-            let mut found = false;
-            if let Some(enum_namespace) = final_namespace {
-                if let Some(ref decl @ Declaration::EnumVariant { .. }) =
-                    enum_namespace.declarations.get(&tag.v).cloned()
-                {
-                    found = true;
-                    ctx.resolution_map.insert(tag.id, decl.clone());
+                let mut found = false;
+                if let Some(enum_namespace) = final_namespace {
+                    if let Some(ref decl @ Declaration::EnumVariant { .. }) =
+                        enum_namespace.declarations.get(&tag.v).cloned()
+                    {
+                        found = true;
+                        ctx.resolution_map.insert(tag.id, decl.clone());
+                    }
                 }
-            }
-            if !found {
-                println!("not found!");
-                println!("tag: {}", tag.v);
-                ctx.errors
-                    .push(Error::UnresolvedIdentifier { node: tag.into() });
+                if !found {
+                    println!("not found!");
+                    println!("tag: {}", tag.v);
+                    ctx.errors
+                        .push(Error::UnresolvedIdentifier { node: tag.into() });
+                }
+            } else {
+                // since there is no prefix to the variant, prefix must be inferred by typechecker
+                // for instance,
+                // let c: Color = .Red
+                //                ^^^^
             }
 
-            // if let Some(decl @ Declaration::EnumVariant { .. }) =
-            //     &symbol_table.lookup_declaration(&tag.v)
-            // {
-            //     ctx.resolution_map.insert(tag.id, decl.clone());
-            // } else {
-            //     ctx.errors
-            //         .push(Error::UnresolvedIdentifier { node: tag.into() });
-            // }
             if let Some(data) = data {
                 resolve_names_pat(ctx, symbol_table, data.clone())
             };

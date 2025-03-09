@@ -1,3 +1,4 @@
+// TODO: There's a bug. Locals aren't calculated properly
 let xs = list.cons(23, list.nil)
 let y = match xs {
     | list.nil -> 100

@@ -5,8 +5,8 @@ type Color =
   | Custom of (int, int, int)
 
 implement ToString for Color {
-  fn str(c) = match c {
-    | Color.Red -> "red" // the Color. prefix is unused right now
+  fn str(c: Color) = match c {
+    | .Red -> "red"
     | Color.Blue -> "blue"
     | Color.Green -> "green"
     | Color.Custom(~r, ~g, ~b) -> "custom(" & r & "," & g & "," & b & ")"

@@ -176,6 +176,9 @@ pub(crate) enum Error {
     MemberAccessNeedsAnnotation {
         node: AstNode,
     },
+    UnqualifiedEnumNeedsAnnotation {
+        node: AstNode,
+    },
     InterfaceNotImplemented {
         ty: SolvedType,
         iface: Rc<InterfaceDecl>,
@@ -388,6 +391,13 @@ impl Error {
             },
             Error::MemberAccessNeedsAnnotation { node } => {
                 diagnostic = diagnostic.with_message("Can't perform member access without knowing type. Try adding a type annotation.");
+                let (file, range) = get_file_and_range(node);
+                labels.push(Label::secondary(file, range));
+            }
+            Error::UnqualifiedEnumNeedsAnnotation { node } => {
+                diagnostic = diagnostic.with_message(
+                    "Can't infer which enum this variant belongs to. Try adding an annotation.",
+                );
                 let (file, range) = get_file_and_range(node);
                 labels.push(Label::secondary(file, range));
             }

@@ -308,7 +308,7 @@ pub(crate) fn parse_match_pattern(pair: Pair<Rule>, file_id: FileId) -> Rc<Pat> 
                 id: NodeId::new(),
             })
         }
-        Rule::match_pattern_variant_qualifier_inferred => {
+        Rule::match_pattern_variant_inferred => {
             let inner: Vec<_> = pair.into_inner().collect();
 
             let ident = Rc::new(Identifier {
@@ -975,11 +975,18 @@ pub(crate) fn parse_expr_term(pair: Pair<Rule>, file_id: FileId) -> Rc<Expr> {
             let inner: Vec<_> = pair.into_inner().collect();
             let expr = parse_expr_pratt(Pairs::single(inner[0].clone()), file_id);
             let mut arms = vec![];
-            fn parse_match_arm(pair: &Pair<Rule>, file_id: FileId) -> MatchArm {
+            fn parse_match_arm(pair: &Pair<Rule>, file_id: FileId) -> Rc<MatchArm> {
+                let span = pair.as_span();
                 let inner: Vec<_> = pair.clone().into_inner().collect();
                 let pat = parse_match_pattern(inner[0].clone(), file_id);
                 let expr = parse_expr_pratt(Pairs::single(inner[1].clone()), file_id);
-                MatchArm { pat, expr }
+                MatchArm {
+                    pat,
+                    expr,
+                    loc: Location::new(file_id, span),
+                    id: NodeId::new(),
+                }
+                .into()
             }
             for pair in &inner[1..] {
                 arms.push(parse_match_arm(pair, file_id));

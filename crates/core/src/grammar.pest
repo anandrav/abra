@@ -77,11 +77,11 @@ while_keyword = _{ "while" }
 match_expression = { "match" ~ expression ~ "{" ~ match_branch ~ (match_branch)* ~ "}" }
 match_branch = { "|" ~ match_pattern ~ "->" ~ expression }
 
-match_pattern = { match_pattern_parenthesized | literal | wildcard | match_pattern_tuple | match_pattern_variant_qualified | match_pattern_variant_qualifier_inferred | match_pattern_variable }
+match_pattern = { match_pattern_parenthesized | literal | wildcard | match_pattern_tuple | match_pattern_variant_qualified | match_pattern_variant_inferred | match_pattern_variable }
 match_pattern_tuple = { tuple_start ~ (match_pattern_tuple_element ~ ",")+ ~ match_pattern_tuple_element ~ tuple_end }
 match_pattern_tuple_element = _{ match_pattern }
 match_pattern_variant_qualified = { identifier ~ "." ~ identifier ~ ( "." ~ identifier)* ~ match_pattern_variant_data? }
-match_pattern_variant_qualifier_inferred = { "." ~ identifier ~ match_pattern_variant_data? }
+match_pattern_variant_inferred = { "." ~ identifier ~ match_pattern_variant_data? }
 match_pattern_variant_data = _{ match_pattern }
 match_pattern_variable = @{ "~" ~ (alpha | "_") ~ (alphanumeric | "_")* }
 match_pattern_parenthesized = _{ paren_start ~ match_pattern ~ paren_end }
@@ -150,7 +150,9 @@ type_literal_string = @{ "string" }
 // type_op_binary = _{ type_op_arrow }
 // type_op_arrow = { "->" }
 
-primary_expression = _{ literal | identifier }
+primary_expression = _{ literal | identifier | member_access_inferred }
+
+member_access_inferred = { "." ~ identifier }
 
 identifier = @{ !(keyword ~ WHITESPACE) ~ ( alpha | "_") ~ (alphanumeric | "_")* }
 alpha = _{ 'a'..'z' | 'A'..'Z' }

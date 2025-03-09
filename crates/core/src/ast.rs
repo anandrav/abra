@@ -242,6 +242,7 @@ pub(crate) enum AstNode {
     InterfaceMethodDecl(Rc<InterfaceMethodDecl>),
     Variant(Rc<Variant>),
     StructField(Rc<StructField>),
+    MatchArm(Rc<MatchArm>),
 }
 
 impl std::hash::Hash for AstNode {
@@ -263,6 +264,7 @@ impl AstNode {
             AstNode::InterfaceMethodDecl(interface_method_decl) => &interface_method_decl.loc,
             AstNode::Variant(variant) => &variant.loc,
             AstNode::StructField(struct_field) => &struct_field.loc,
+            AstNode::MatchArm(match_arm) => &match_arm.loc,
         }
     }
 
@@ -278,6 +280,7 @@ impl AstNode {
             AstNode::InterfaceMethodDecl(interface_method_decl) => interface_method_decl.id,
             AstNode::Variant(variant) => variant.id,
             AstNode::StructField(struct_field) => struct_field.id,
+            AstNode::MatchArm(match_arm) => match_arm.id,
         }
     }
 }
@@ -389,6 +392,17 @@ impl From<Rc<StructField>> for AstNode {
 impl From<&Rc<StructField>> for AstNode {
     fn from(struct_field: &Rc<StructField>) -> Self {
         AstNode::StructField(Rc::clone(struct_field))
+    }
+}
+
+impl From<Rc<MatchArm>> for AstNode {
+    fn from(match_arm: Rc<MatchArm>) -> Self {
+        AstNode::MatchArm(match_arm)
+    }
+}
+impl From<&Rc<MatchArm>> for AstNode {
+    fn from(match_arm: &Rc<MatchArm>) -> Self {
+        AstNode::MatchArm(Rc::clone(match_arm))
     }
 }
 
@@ -520,7 +534,7 @@ pub(crate) enum ExprKind {
     AnonymousFunction(Vec<ArgMaybeAnnotated>, Option<Rc<Type>>, Rc<Expr>),
     If(Rc<Expr>, Rc<Expr>, Option<Rc<Expr>>),
     WhileLoop(Rc<Expr>, Rc<Expr>),
-    Match(Rc<Expr>, Vec<MatchArm>),
+    Match(Rc<Expr>, Vec<Rc<MatchArm>>),
     Block(Vec<Rc<Stmt>>),
     BinOp(Rc<Expr>, BinaryOperator, Rc<Expr>),
     FuncAp(Rc<Expr>, Vec<Rc<Expr>>),
@@ -555,6 +569,9 @@ pub enum BinaryOperator {
 pub(crate) struct MatchArm {
     pub(crate) pat: Rc<Pat>,
     pub(crate) expr: Rc<Expr>,
+
+    pub(crate) loc: Location,
+    pub(crate) id: NodeId,
 }
 
 #[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq)]

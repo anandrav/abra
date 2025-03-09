@@ -32,7 +32,10 @@ pub(crate) struct TypeVar(UnionFindNode<TypeVarData>);
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) struct TypeVarData {
     pub(crate) types: HashMap<TypeKey, PotentialType>,
+    // TODO: add comment explaining this 'locked' flag
     pub(crate) locked: bool,
+    // can't solve the type of an unresolved identifier
+    pub(crate) missing_info: bool,
 }
 
 impl TypeVarData {
@@ -40,6 +43,7 @@ impl TypeVarData {
         Self {
             types: HashMap::new(),
             locked: false,
+            missing_info: false,
         }
     }
 
@@ -49,11 +53,12 @@ impl TypeVarData {
         Self {
             types,
             locked: true,
+            missing_info: false,
         }
     }
 
     fn solution(&self) -> Option<SolvedType> {
-        if self.types.len() == 1 {
+        if self.types.len() == 1 && !self.missing_info {
             self.types.values().next().unwrap().solution()
         } else {
             None
@@ -64,6 +69,7 @@ impl TypeVarData {
         let mut merged_types = Self {
             types: first.types,
             locked: false,
+            missing_info: first.missing_info || second.missing_info,
         };
         for (_key, t) in second.types {
             merged_types.extend(t);
@@ -477,6 +483,10 @@ impl TypeVar {
         self.0.clone_data().types
     }
 
+    fn set_flag_missing_info(&self) {
+        self.0.with_data(|d| d.missing_info = true);
+    }
+
     fn merge(mut tyvar1: TypeVar, mut tyvar2: TypeVar) {
         tyvar1.0.union_with(&mut tyvar2.0, TypeVarData::merge_data);
     }
@@ -560,6 +570,7 @@ impl TypeVar {
         let data_instantiated = TypeVarData {
             types,
             locked: data.locked,
+            missing_info: data.missing_info,
         };
         let tvar = TypeVar(UnionFindNode::new(data_instantiated));
         ctx.unifvars.insert(Prov::Node(node), tvar.clone());
@@ -657,6 +668,7 @@ impl TypeVar {
             let new_data = TypeVarData {
                 types,
                 locked: data.locked,
+                missing_info: data.missing_info,
             };
             TypeVar(UnionFindNode::new(new_data))
         } else {
@@ -2272,50 +2284,96 @@ fn generate_constraints_pat(
             };
             let mut substitution: Substitution = HashMap::new();
 
-            if let Some(Declaration::EnumVariant { enum_def, variant }) =
-                ctx.resolution_map.get(&tag.id).cloned()
-            {
-                let nparams = enum_def.ty_args.len();
-                let mut params = vec![];
-                for i in 0..nparams {
-                    params.push(TypeVar::fresh(
-                        ctx,
-                        Prov::InstantiateUdtParam(pat.clone().into(), i as u8),
-                    ));
-                    let polyty = &*enum_def.ty_args[i];
-                    let decl @ Declaration::Polytype(_) =
-                        ctx.resolution_map.get(&polyty.name.id).unwrap()
-                    else {
-                        panic!() // TODO: is it valid to panic here?
+            if !prefixes.is_empty() {
+                if let Some(Declaration::EnumVariant { enum_def, variant }) =
+                    ctx.resolution_map.get(&tag.id).cloned()
+                {
+                    let nparams = enum_def.ty_args.len();
+                    let mut params = vec![];
+                    for i in 0..nparams {
+                        params.push(TypeVar::fresh(
+                            ctx,
+                            Prov::InstantiateUdtParam(pat.clone().into(), i as u8),
+                        ));
+                        let polyty = &*enum_def.ty_args[i];
+                        let decl @ Declaration::Polytype(_) =
+                            ctx.resolution_map.get(&polyty.name.id).unwrap()
+                        else {
+                            panic!() // TODO: is it valid to panic here?
+                        };
+                        substitution.insert(decl.clone(), params[i].clone());
+                    }
+                    let def_type = TypeVar::make_nominal(
+                        Reason::Node(pat.clone().into()),
+                        Nominal::Enum(enum_def.clone()),
+                        params,
+                    );
+
+                    let variant_def = &enum_def.variants[variant as usize];
+                    let variant_data_ty = match &variant_def.data {
+                        None => TypeVar::make_unit(Reason::VariantNoData(variant_def.into())),
+                        Some(ty) => ast_type_to_typevar(ctx, ty.clone()),
                     };
-                    substitution.insert(decl.clone(), params[i].clone());
+                    let variant_data_ty =
+                        variant_data_ty.subst(Prov::Node(pat.clone().into()), &substitution);
+                    constrain(ctx, ty_data.clone(), variant_data_ty);
+
+                    constrain(ctx, ty_pat, def_type);
+
+                    if let Some(data) = data {
+                        generate_constraints_pat(
+                            polyvar_scope,
+                            Mode::Ana { expected: ty_data },
+                            data.clone(),
+                            ctx,
+                        )
+                    };
+                } else {
+                    ty_pat.set_flag_missing_info();
                 }
-                let def_type = TypeVar::make_nominal(
-                    Reason::Node(pat.clone().into()),
-                    Nominal::Enum(enum_def.clone()),
-                    params,
-                );
+            } else {
+                // must resolve tag here based on inferred type
 
-                let variant_def = &enum_def.variants[variant as usize];
-                let variant_data_ty = match &variant_def.data {
-                    None => TypeVar::make_unit(Reason::VariantNoData(variant_def.into())),
-                    Some(ty) => ast_type_to_typevar(ctx, ty.clone()),
+                let expected_ty = match mode.clone() {
+                    Mode::Syn => None,
+                    Mode::AnaWithReason {
+                        expected,
+                        constraint_reason: _,
+                    }
+                    | Mode::Ana { expected } => Some(expected),
                 };
-                let variant_data_ty =
-                    variant_data_ty.subst(Prov::Node(pat.clone().into()), &substitution);
-                constrain(ctx, ty_data.clone(), variant_data_ty);
 
-                constrain(ctx, ty_pat, def_type);
+                let mut can_infer = false;
+                if let Some(expected_ty) = expected_ty {
+                    if let Some(SolvedType::Nominal(Nominal::Enum(enum_def), _)) =
+                        expected_ty.solution()
+                    {
+                        let mut idx: u16 = 0;
+                        for (i, variant) in enum_def.variants.iter().enumerate() {
+                            if variant.ctor.v == tag.v {
+                                idx = i as u16;
+                            }
+                        }
+                        ctx.resolution_map.insert(
+                            pat.id,
+                            Declaration::EnumVariant {
+                                enum_def,
+                                variant: idx,
+                            },
+                        );
+                        can_infer = true;
+                    }
+                }
+
+                if !can_infer {
+                    println!("could not infer something");
+                    ctx.errors.push(Error::MemberAccessNeedsAnnotation {
+                        node: pat.clone().into(),
+                    });
+
+                    ty_pat.set_flag_missing_info();
+                }
             }
-
-            if let Some(data) = data {
-                generate_constraints_pat(
-                    polyvar_scope,
-                    Mode::Ana { expected: ty_data },
-                    data.clone(),
-                    ctx,
-                )
-            };
         }
         PatKind::Tuple(pats) => {
             let tys_elements = pats

@@ -67,7 +67,18 @@ fn check_pattern_exhaustiveness_stmt(statics: &mut StaticsContext, stmt: &Stmt) 
 
 fn check_pattern_exhaustiveness_expr(statics: &mut StaticsContext, expr: &Rc<Expr>) {
     match &*expr.kind {
-        ExprKind::Match(..) => match_expr_exhaustive_check(statics, expr),
+        ExprKind::Match(scrutiny, arms) => {
+            if statics.solution_of_node(scrutiny.clone().into()).is_none() {
+                return;
+            }
+            for arm in arms {
+                if statics.solution_of_node(arm.clone().into()).is_none() {
+                    return;
+                }
+            }
+
+            match_expr_exhaustive_check(statics, expr);
+        }
 
         ExprKind::Unit
         | ExprKind::Int(_)
@@ -138,7 +149,7 @@ struct Matrix {
 }
 
 impl Matrix {
-    fn new(statics: &StaticsContext, scrutinee_ty: SolvedType, arms: &[MatchArm]) -> Self {
+    fn new(statics: &StaticsContext, scrutinee_ty: SolvedType, arms: &[Rc<MatchArm>]) -> Self {
         let types = vec![scrutinee_ty.clone()];
         let mut rows = Vec::new();
         for (dummy, arm) in arms.iter().enumerate() {
@@ -687,7 +698,7 @@ impl ConstructorSet {
 // identify missing and extra constructors in patterns
 fn match_expr_exhaustive_check(statics: &mut StaticsContext, expr: &Rc<Expr>) {
     let ExprKind::Match(scrutiny, arms) = &*expr.kind else {
-        panic!()
+        panic!() // TODO: just pass this stuff to the function and remove panic
     };
 
     let scrutinee_ty = statics.solution_of_node(scrutiny.into());
