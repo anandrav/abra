@@ -2082,7 +2082,7 @@ fn generate_constraints_expr(
             }
 
             if !can_infer {
-                ctx.errors.push(Error::MemberAccessNeedsAnnotation {
+                ctx.errors.push(Error::UnqualifiedEnumNeedsAnnotation {
                     node: expr.clone().into(),
                 });
 
@@ -2474,7 +2474,7 @@ fn generate_constraints_pat(
                 }
 
                 if !can_infer {
-                    ctx.errors.push(Error::MemberAccessNeedsAnnotation {
+                    ctx.errors.push(Error::UnqualifiedEnumNeedsAnnotation {
                         node: pat.clone().into(),
                     });
 

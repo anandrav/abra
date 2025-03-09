@@ -7,7 +7,7 @@ use std::fmt::{self, Display};
 use std::rc::Rc;
 
 use super::typecheck::{Nominal, ast_type_to_solved_type};
-use super::{_print_node, Declaration, EnumDef, Error, SolvedType, StaticsContext, TypeKind};
+use super::{Declaration, EnumDef, Error, SolvedType, StaticsContext, TypeKind};
 
 pub(crate) fn check_pattern_exhaustiveness_and_usefulness(
     ctx: &mut StaticsContext,

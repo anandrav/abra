@@ -6,7 +6,7 @@ use crate::ast::{FileAst, FileDatabase, NodeId};
 use crate::builtin::Builtin;
 use crate::environment::Environment;
 use crate::statics::typecheck::Nominal;
-use crate::statics::{_print_node, Declaration, TypeProv};
+use crate::statics::{Declaration, TypeProv};
 use crate::statics::{Monotype, Type, ty_fits_impl_ty};
 use crate::vm::{AbraFloat, AbraInt, Instr as VmInstr};
 use crate::{
@@ -1058,7 +1058,7 @@ impl Translator {
                 _ => panic!("unexpected pattern: {:?}", pat.kind),
             },
             Type::Nominal(_, _) => match &*pat.kind {
-                PatKind::Variant(prefixes, ctor, inner) => {
+                PatKind::Variant(_prefixes, ctor, inner) => {
                     let BytecodeResolution::VariantCtor(tag, _) = self
                         .statics
                         .resolution_map
@@ -1418,7 +1418,7 @@ impl Translator {
                     self.handle_pat_binding(pat.clone(), locals, st);
                 }
             }
-            PatKind::Variant(prefixes, _, inner) => {
+            PatKind::Variant(_prefixes, _, inner) => {
                 if let Some(inner) = inner {
                     // unpack tag and associated data
                     self.emit(st, Instr::Deconstruct);
@@ -1535,10 +1535,10 @@ fn collect_locals_pat(pat: Rc<Pat>, locals: &mut HashSet<NodeId>) {
                 collect_locals_pat(pat.clone(), locals);
             }
         }
-        PatKind::Variant(prefixes, _, Some(inner)) => {
+        PatKind::Variant(_prefixes, _, Some(inner)) => {
             collect_locals_pat(inner.clone(), locals);
         }
-        PatKind::Variant(prefixes, _, None) => {}
+        PatKind::Variant(_prefixes, _, None) => {}
         PatKind::Unit
         | PatKind::Bool(..)
         | PatKind::Int(..)
