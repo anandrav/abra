@@ -2355,7 +2355,7 @@ fn generate_constraints_pat(
                             }
                         }
                         ctx.resolution_map.insert(
-                            pat.id,
+                            tag.id,
                             Declaration::EnumVariant {
                                 enum_def,
                                 variant: idx,
@@ -2366,7 +2366,6 @@ fn generate_constraints_pat(
                 }
 
                 if !can_infer {
-                    println!("could not infer something");
                     ctx.errors.push(Error::MemberAccessNeedsAnnotation {
                         node: pat.clone().into(),
                     });

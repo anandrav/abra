@@ -6,7 +6,7 @@ use crate::ast::{FileAst, FileDatabase, NodeId};
 use crate::builtin::Builtin;
 use crate::environment::Environment;
 use crate::statics::typecheck::Nominal;
-use crate::statics::{Declaration, TypeProv};
+use crate::statics::{_print_node, Declaration, TypeProv};
 use crate::statics::{Monotype, Type, ty_fits_impl_ty};
 use crate::vm::{AbraFloat, AbraInt, Instr as VmInstr};
 use crate::{

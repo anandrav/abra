@@ -1,8 +1,8 @@
 // recursive (naive) definition of fibonacci function
 fn fib(x) = match x {
-  0 -> 0
-  1 -> 1
-  _ -> fib(x-1) + fib(x-2)
+  | 0 -> 0
+  | 1 -> 1
+  | _ -> fib(x-1) + fib(x-2)
 }
 
 var i = 0

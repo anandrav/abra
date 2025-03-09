@@ -21,7 +21,6 @@ type Snake = {
 // game logic
 
 fn main() {
-  // println("main")
   let snake = Snake([Point(12, 10), Point(11, 10), Point(10, 10), Point(9, 10), Point(8, 10)], Dir.Right)
   var quit = false
 
@@ -29,22 +28,20 @@ fn main() {
   enable_raw_mode()
   hide_cursor()
   while true {
-    // println("game loop")
     let start_time = get_time()
 
     while poll_key_event() {
-      // println("got event")
       match get_key_event() {
-        | KeyCode.Left -> { snake.direction <- Dir.Left }
-        | KeyCode.Char("a") -> { snake.direction <- Dir.Left }
-        | KeyCode.Right -> { snake.direction <- Dir.Right }
-        | KeyCode.Char("d") -> { snake.direction <- Dir.Right }
-        | KeyCode.Up -> { snake.direction <- Dir.Up }
-        | KeyCode.Char("w") -> { snake.direction <- Dir.Up }
-        | KeyCode.Down -> { snake.direction <- Dir.Down }
-        | KeyCode.Char("s") -> { snake.direction <- Dir.Down }
-        | KeyCode.Char("q") -> { quit <- true }
-        | KeyCode.Esc -> { quit <- true }
+        | .Left -> { snake.direction <- Dir.Left }
+        | .Char("a") -> { snake.direction <- Dir.Left }
+        | .Right -> { snake.direction <- Dir.Right }
+        | .Char("d") -> { snake.direction <- Dir.Right }
+        | .Up -> { snake.direction <- Dir.Up }
+        | .Char("w") -> { snake.direction <- Dir.Up }
+        | .Down -> { snake.direction <- Dir.Down }
+        | .Char("s") -> { snake.direction <- Dir.Down }
+        | .Char("q") -> { quit <- true }
+        | .Esc -> { quit <- true }
         | _ -> {}      
       }
     }
