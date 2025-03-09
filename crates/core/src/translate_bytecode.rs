@@ -507,7 +507,21 @@ impl Translator {
                     }
                 }
             }
-            ExprKind::MemberAccessInferred(..) => unimplemented!(),
+            ExprKind::MemberAccessInferred(ident) => {
+                match self
+                    .statics
+                    .resolution_map
+                    .get(&ident.id)
+                    .unwrap()
+                    .to_bytecode_resolution()
+                {
+                    BytecodeResolution::VariantCtor(tag, _) => {
+                        self.emit(st, Instr::PushNil);
+                        self.emit(st, Instr::ConstructVariant { tag });
+                    }
+                    _ => panic!(),
+                }
+            }
             ExprKind::Unit => {
                 self.emit(st, Instr::PushNil);
             }

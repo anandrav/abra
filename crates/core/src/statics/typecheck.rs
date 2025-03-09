@@ -759,6 +759,7 @@ impl TypeVar {
     }
 }
 
+// TODO: does this every return None?
 fn tyvar_of_declaration(
     ctx: &mut StaticsContext,
     decl: &Declaration,
@@ -1037,22 +1038,22 @@ pub(crate) fn ast_type_to_typevar(ctx: &mut StaticsContext, ast_type: Rc<AstType
                 Some(Declaration::Enum(enum_def)) => TypeVar::make_nominal(
                     Reason::Annotation(ast_type.into()),
                     Nominal::Enum(enum_def.clone()),
-                    vec![],
+                    vec![], // TODO: why is params empty?
                 ),
                 Some(Declaration::Struct(struct_def)) => TypeVar::make_nominal(
                     Reason::Annotation(ast_type.into()),
                     Nominal::Struct(struct_def.clone()),
-                    vec![],
+                    vec![], // TODO: why is params empty?
                 ),
                 Some(Declaration::Array) => TypeVar::make_nominal(
                     Reason::Annotation(ast_type.into()),
                     Nominal::Array,
-                    vec![],
+                    vec![], // TODO: why is params empty?
                 ),
                 Some(Declaration::ForeignType(ident)) => TypeVar::make_nominal(
                     Reason::Annotation(ast_type.into()),
                     Nominal::ForeignType(ident.clone()),
-                    vec![],
+                    vec![], // TODO: why is params empty?
                 ),
                 _ => {
                     // since resolution failed, unconstrained type
@@ -1477,6 +1478,7 @@ fn generate_constraints_stmt(
 
             if let Some(ty_ann) = ty_ann {
                 let ty_ann = ast_type_to_typevar(ctx, ty_ann.clone());
+
                 generate_constraints_pat(
                     polyvar_scope.clone(),
                     Mode::AnaWithReason {
@@ -1490,6 +1492,7 @@ fn generate_constraints_stmt(
                 generate_constraints_pat(polyvar_scope.clone(), Mode::Syn, pat.clone(), ctx)
             };
 
+            // println!("{}", ty_pat.solution().unwrap());
             generate_constraints_expr(
                 polyvar_scope.clone(),
                 Mode::AnaWithReason {
@@ -1503,9 +1506,18 @@ fn generate_constraints_stmt(
         StmtKind::Set(lhs, rhs) => {
             let ty_lhs = TypeVar::from_node(ctx, lhs.into());
             generate_constraints_expr(polyvar_scope.clone(), Mode::Syn, lhs.clone(), ctx);
-            let ty_rhs = TypeVar::from_node(ctx, rhs.into());
-            generate_constraints_expr(polyvar_scope, Mode::Syn, rhs.clone(), ctx);
-            constrain_because(ctx, ty_lhs, ty_rhs, ConstraintReason::LetSetLhsRhs);
+            // let ty_rhs = TypeVar::from_node(ctx, rhs.into());
+            generate_constraints_expr(
+                polyvar_scope,
+                Mode::AnaWithReason {
+                    expected: ty_lhs,
+                    constraint_reason: ConstraintReason::LetSetLhsRhs,
+                },
+                rhs.clone(),
+                ctx,
+            );
+
+            // constrain_because(ctx, ty_lhs, ty_rhs, ConstraintReason::LetSetLhsRhs);
         }
         StmtKind::FuncDef(f) => {
             generate_constraints_fn_def(ctx, polyvar_scope, f, f.name.clone().into());
@@ -1643,6 +1655,7 @@ fn generate_constraints_expr(
             let lookup = ctx.resolution_map.get(&expr.id).cloned();
             if let Some(res) = lookup {
                 if let Some(typ) = tyvar_of_declaration(ctx, &res, expr.clone().into()) {
+                    // TODO: tyvar_of_declaration should probably do the instantiation for you, instead of having to remember
                     let typ = typ.instantiate(polyvar_scope, ctx, expr.clone().into());
                     constrain(ctx, typ, node_ty.clone());
                 }
@@ -2024,7 +2037,58 @@ fn generate_constraints_expr(
                 }
             }
         }
-        ExprKind::MemberAccessInferred(..) => unimplemented!(),
+        ExprKind::MemberAccessInferred(ident) => {
+            let expected_ty = match mode.clone() {
+                Mode::Syn => None,
+                Mode::AnaWithReason {
+                    expected,
+                    constraint_reason: _,
+                }
+                | Mode::Ana { expected } => Some(expected),
+            };
+
+            let mut can_infer = false;
+            if let Some(expected_ty) = expected_ty {
+                if let Some(SolvedType::Nominal(Nominal::Enum(enum_def), _)) =
+                    expected_ty.solution()
+                {
+                    can_infer = true;
+
+                    let mut idx: u16 = 0;
+                    for (i, variant) in enum_def.variants.iter().enumerate() {
+                        if variant.ctor.v == ident.v {
+                            idx = i as u16;
+                        }
+                    }
+
+                    ctx.resolution_map.insert(
+                        ident.id,
+                        Declaration::EnumVariant {
+                            enum_def: enum_def.clone(),
+                            variant: idx,
+                        },
+                    );
+
+                    let enum_ty = tyvar_of_declaration(
+                        ctx,
+                        &Declaration::Enum(enum_def),
+                        expr.clone().into(),
+                    )
+                    .unwrap();
+                    let enum_ty = enum_ty.instantiate(polyvar_scope, ctx, expr.clone().into());
+
+                    constrain(ctx, node_ty.clone(), enum_ty);
+                }
+            }
+
+            if !can_infer {
+                ctx.errors.push(Error::MemberAccessNeedsAnnotation {
+                    node: expr.clone().into(),
+                });
+
+                node_ty.set_flag_missing_info();
+            }
+        }
         ExprKind::IndexAccess(accessed, index) => {
             generate_constraints_expr(polyvar_scope.clone(), Mode::Syn, accessed.clone(), ctx);
 

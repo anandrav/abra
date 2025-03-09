@@ -32,14 +32,14 @@ fn main() {
 
     while poll_key_event() {
       match get_key_event() {
-        | .Left -> { snake.direction <- Dir.Left }
-        | .Char("a") -> { snake.direction <- Dir.Left }
-        | .Right -> { snake.direction <- Dir.Right }
-        | .Char("d") -> { snake.direction <- Dir.Right }
-        | .Up -> { snake.direction <- Dir.Up }
-        | .Char("w") -> { snake.direction <- Dir.Up }
-        | .Down -> { snake.direction <- Dir.Down }
-        | .Char("s") -> { snake.direction <- Dir.Down }
+        | .Left -> { snake.direction <- .Left }
+        | .Char("a") -> { snake.direction <- .Left }
+        | .Right -> { snake.direction <- .Right }
+        | .Char("d") -> { snake.direction <- .Right }
+        | .Up -> { snake.direction <- .Up }
+        | .Char("w") -> { snake.direction <- .Up }
+        | .Down -> { snake.direction <- .Down }
+        | .Char("s") -> { snake.direction <- .Down }
         | .Char("q") -> { quit <- true }
         | .Esc -> { quit <- true }
         | _ -> {}      

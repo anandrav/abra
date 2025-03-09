@@ -677,7 +677,13 @@ fn resolve_names_expr(ctx: &mut StaticsContext, symbol_table: SymbolTable, expr:
                 }
             }
         }
-        ExprKind::MemberAccessInferred(..) => unimplemented!(),
+        ExprKind::MemberAccessInferred(_ident) => {
+            // requires further context from typechecker to resolve field
+            //
+            // for instance, if type of this Var is determined to be some struct, we can
+            // attempt to resolve the field of this member access to one of the fields in the
+            // struct's definition
+        }
         ExprKind::IndexAccess(accessed, index) => {
             resolve_names_expr(ctx, symbol_table.clone(), accessed.clone());
             resolve_names_expr(ctx, symbol_table.clone(), index.clone());
