@@ -2,17 +2,8 @@
 
 set -euo pipefail
 
-pushd crates/core > /dev/null
-cargo build
-popd > /dev/null
-
-for dir in modules/*; do
-  if [ -d "$dir" ] && [ -f "$dir/rust_project/Cargo.toml" ]; then
-    printf "  - building $dir ... "
-    pushd "$dir/rust_project" > /dev/null
-    cargo build
-    popd > /dev/null
-  fi
-done
-
+# Build everything in the project, including native modules
+cargo build --quiet
+# Run debug build of abra cli
 cargo run --bin  abra -- -m modules -s target/debug "$@"
+

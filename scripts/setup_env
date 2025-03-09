@@ -1,0 +1,5 @@
+#!/bin/zsh
+
+export ABRA_REPOSITORY_ROOT=$PWD
+export PATH="$PWD/scripts:$PATH"
+

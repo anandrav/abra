@@ -1,12 +1,18 @@
-#!/bin/bash
+#!/bin/sh
 set -eou pipefail
+
+if [[ -n "${ABRA_REPOSITORY_ROOT-}" ]]; then
+  export WD="$ABRA_REPOSITORY_ROOT"
+else
+  export WD="$PWD"
+fi
 
 cargo fmt
 cargo clippy
 
 cargo test
 
-pushd crates/core
+pushd $WD/crates/core
 cargo check --lib --target wasm32-unknown-unknown
 popd
 
