@@ -48,7 +48,6 @@ pub fn get_key_event() -> KeyCode {
                 _ => break KeyCode::Other,
             }
         };
-        println!("didn't get a key event");
     }
 }
 

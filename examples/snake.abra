@@ -1,15 +1,12 @@
 use term
 use time
 
-//println("hello from snake")
-
 // types
 type Point = {
   x: int
   y: int
 }
 
-// TODO: need to make enums properly namespaced
 type Dir = 
   | Up
   | Down
@@ -22,9 +19,6 @@ type Snake = {
 }
 
 // game logic
-
-// TODO: this causes a crash
-// let snake = Snake([Point(10, 10)], DirRight)
 
 fn main() {
   // println("main")
