@@ -469,12 +469,12 @@ fn pattern_tuples_binding() {
     let src = r#"
 let xs = (1, (2, 3))
 match xs {
-    | (~x, (~y, ~z)) -> y
+    | (x, (y, z)) -> y
 }"#;
     //     let src = r#"
     // let xs = list.nil
     // match xs {
-    //     list.cons(~x, _) -> 9
+    //     list.cons(x, _) -> 9
     //     list.nil -> 100
     // }"#;
     let sources = source_files_single(src);
@@ -500,7 +500,7 @@ fn match_cons_binding() {
 let xs = list.cons(23, list.nil)
 match xs {
     | list.nil -> 100
-    | list.cons(~x, _) -> x
+    | list.cons(x, _) -> x
 }"#;
     let sources = source_files_single(src);
     let program = match compile_bytecode(
@@ -525,7 +525,7 @@ fn match_cons_binding_nested() {
 let xs = list.cons(1, list.cons(2, list.nil))
 match xs {
     | list.nil -> 100
-    | list.cons(_, list.cons(~x, list.nil)) -> x
+    | list.cons(_, list.cons(x, list.nil)) -> x
     | _ -> 101
 }"#;
     let sources = source_files_single(src);
@@ -724,7 +724,7 @@ fn list_literal_head() {
     let src = r#"
 match [| 1, 2, 3 |] {
   | list.nil -> 0
-  | list.cons(~x, _) -> x
+  | list.cons(x, _) -> x
 }
 "#;
     let sources = source_files_single(src);
@@ -751,7 +751,7 @@ let xs = [| 1, 2, 3 |]
 
 fn total(xs) {
     match xs {
-      | list.cons(~x, ~xs) -> x + total(xs)
+      | list.cons(x, xs) -> x + total(xs)
       | list.nil -> 0
     }
 }
@@ -783,7 +783,7 @@ let bools = [| true, false, true, true, false |]
 
 fn list_len(xs: list<'a>) {
     match xs {
-      | list.cons(_, ~xs) -> 1 + list_len(xs)
+      | list.cons(_, xs) -> 1 + list_len(xs)
       | list.nil -> 0
     }
 }

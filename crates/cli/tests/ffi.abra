@@ -11,14 +11,14 @@ println(s.v)
 println(s.s)
 let e = pass_enum(MyEnum.String("yet another"))
 match e {
-    | MyEnum.String(~s) -> println(s)
+    | MyEnum.String(s) -> println(s)
     | _ -> println("<wrong variant>")
 }
 let t = pass_tuple((true, 2, "3"))
 println(t)
 let m = pass_maybe(maybe.yes("yes"))
 match m {
-    | maybe.yes(~s) -> println(s)
+    | maybe.yes(s) -> println(s)
     | _ -> println("wrong variant")
 }
 let a = pass_array([ 1, 2, 3, 4, 5, 6 ])

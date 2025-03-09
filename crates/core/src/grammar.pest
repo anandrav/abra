@@ -83,7 +83,7 @@ match_pattern_tuple_element = _{ match_pattern }
 match_pattern_variant_qualified = { identifier ~ "." ~ identifier ~ ( "." ~ identifier)* ~ match_pattern_variant_data? }
 match_pattern_variant_inferred = { "." ~ identifier ~ match_pattern_variant_data? }
 match_pattern_variant_data = _{ match_pattern }
-match_pattern_variable = @{ "~" ~ (alpha | "_") ~ (alphanumeric | "_")* }
+match_pattern_variable = @{ identifier }
 match_pattern_parenthesized = _{ paren_start ~ match_pattern ~ paren_end }
 
 block_expression = { block_start ~ statement* ~ block_end }

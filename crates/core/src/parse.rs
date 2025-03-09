@@ -262,7 +262,7 @@ pub(crate) fn parse_match_pattern(pair: Pair<Rule>, file_id: FileId) -> Rc<Pat> 
             parse_match_pattern(pair, file_id)
         }
         Rule::match_pattern_variable => Rc::new(Pat {
-            kind: Rc::new(PatKind::Binding(pair.as_str()[1..].to_owned())),
+            kind: Rc::new(PatKind::Binding(pair.as_str().to_owned())),
             loc: span,
             id: NodeId::new(),
         }),
