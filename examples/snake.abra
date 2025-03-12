@@ -100,10 +100,10 @@ fn update_snake(snake: Snake) {
   
   body[0] <- Point(body[1].x, body[1].y)
   match snake.direction {
-    | Dir.Up -> { body[0].y <- body[0].y - 1 }
-    | Dir.Down -> { body[0].y <- body[0].y + 1 }
-    | Dir.Left -> { body[0].x <- body[0].x - 1 }
-    | Dir.Right -> { body[0].x <- body[0].x + 1 }
+    | .Up -> { body[0].y <- body[0].y - 1 }
+    | .Down -> { body[0].y <- body[0].y + 1 }
+    | .Left -> { body[0].x <- body[0].x - 1 }
+    | .Right -> { body[0].x <- body[0].x + 1 }
   } 
 }
 
