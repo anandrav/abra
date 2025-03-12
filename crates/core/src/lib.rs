@@ -1,4 +1,5 @@
 use core::fmt;
+use std::collections::HashMap;
 use std::collections::HashSet;
 use std::collections::VecDeque;
 // use std::error::Error;
@@ -47,7 +48,7 @@ pub fn source_files_single(src: &str) -> Vec<FileData> {
 
 // the first file is the "main" file
 pub fn compile_bytecode(
-    files: Vec<FileData>, // TODO: just pass the main file in the future
+    main_file_name: &str,
     effects: Vec<EffectDesc>,
     file_provider: Box<dyn FileProvider>,
 ) -> Result<CompiledProgram, String> {
@@ -60,9 +61,23 @@ pub fn compile_bytecode(
 
     let mut stack: VecDeque<FileId> = VecDeque::new();
     let mut visited = HashSet::<PathBuf>::new();
-    for file_data in files {
-        visited.insert(file_data.full_path.clone());
-        let id = file_db.add(file_data);
+
+    // main file
+    {
+        let main_file_data = file_provider
+            .search_for_file(Path::new(main_file_name))
+            .unwrap(); // TODO: don't unwrap. Figure out how to return better errors
+        visited.insert(main_file_data.full_path.clone());
+        let id = file_db.add(main_file_data);
+        stack.push_back(id);
+    }
+
+    // prelude
+    {
+        let prelude_file_data =
+            FileData::new("prelude.abra".into(), "prelude.abra".into(), PRELUDE.into());
+        visited.insert(prelude_file_data.full_path.clone());
+        let id = file_db.add(prelude_file_data);
         stack.push_back(id);
     }
 
@@ -91,77 +106,6 @@ pub fn compile_bytecode(
     let mut translator = Translator::new(inference_ctx, file_db, file_asts);
     // println!("successfully translated");
     Ok(translator.translate())
-}
-
-pub trait FileProvider {
-    /// Given a path, return the contents of the file as a String,
-    /// or an error if the file cannot be found.
-    fn search_for_file(&self, path: &Path) -> Result<FileData, Box<dyn std::error::Error>>;
-
-    #[cfg(feature = "ffi")]
-    fn shared_objects_dir(&self) -> &PathBuf;
-}
-
-#[derive(Default, Debug)]
-pub struct FileProviderDefault {
-    main_file_dir: PathBuf,
-    modules: PathBuf,
-    #[cfg(feature = "ffi")]
-    shared_objects_dir: PathBuf,
-}
-
-impl FileProviderDefault {
-    pub fn todo_get_rid_of_this() -> Box<Self> {
-        Box::new(Self {
-            main_file_dir: PathBuf::new(),
-            modules: PathBuf::new(),
-            #[cfg(feature = "ffi")]
-            shared_objects_dir: PathBuf::new(),
-        })
-    }
-
-    pub fn new(
-        main_file_dir: PathBuf,
-        modules: PathBuf,
-        #[cfg(feature = "ffi")] shared_objects_dir: PathBuf,
-    ) -> Box<Self> {
-        Box::new(Self {
-            main_file_dir,
-            modules,
-            #[cfg(feature = "ffi")]
-            shared_objects_dir,
-        })
-    }
-}
-
-impl FileProvider for FileProviderDefault {
-    fn search_for_file(&self, path: &Path) -> Result<FileData, Box<dyn std::error::Error>> {
-        // look in modules first
-        {
-            let desired = self.modules.join(path);
-            if let Ok(contents) = std::fs::read_to_string(&desired) {
-                return Ok(FileData::new(path.to_owned(), desired.clone(), contents));
-            }
-        }
-
-        // then look in dir of main file
-        {
-            let desired = self.main_file_dir.join(path);
-            if let Ok(contents) = std::fs::read_to_string(&desired) {
-                return Ok(FileData::new(path.to_owned(), desired.clone(), contents));
-            }
-        }
-
-        Err(Box::new(MyError(format!(
-            "Could not find desired file: {}",
-            path.display()
-        ))))
-    }
-
-    #[cfg(feature = "ffi")]
-    fn shared_objects_dir(&self) -> &PathBuf {
-        &self.shared_objects_dir
-    }
 }
 
 #[derive(Debug)]
@@ -200,5 +144,119 @@ fn add_imports(
                 }
             }
         }
+    }
+}
+
+pub trait FileProvider {
+    /// Given a path, return the contents of the file as a String,
+    /// or an error if the file cannot be found.
+    fn search_for_file(&self, path: &Path) -> Result<FileData, Box<dyn std::error::Error>>;
+
+    #[cfg(feature = "ffi")]
+    fn shared_objects_dir(&self) -> &PathBuf;
+}
+
+#[derive(Default, Debug)]
+pub struct OsFileProvider {
+    main_file_dir: PathBuf,
+    modules: PathBuf,
+    #[cfg(feature = "ffi")]
+    shared_objects_dir: PathBuf,
+}
+
+impl OsFileProvider {
+    pub fn todo_get_rid_of_this() -> Box<Self> {
+        Box::new(Self {
+            main_file_dir: PathBuf::new(),
+            modules: PathBuf::new(),
+            #[cfg(feature = "ffi")]
+            shared_objects_dir: PathBuf::new(),
+        })
+    }
+
+    pub fn new(
+        main_file_dir: PathBuf,
+        modules: PathBuf,
+        #[cfg(feature = "ffi")] shared_objects_dir: PathBuf,
+    ) -> Box<Self> {
+        Box::new(Self {
+            main_file_dir,
+            modules,
+            #[cfg(feature = "ffi")]
+            shared_objects_dir,
+        })
+    }
+}
+
+impl FileProvider for OsFileProvider {
+    fn search_for_file(&self, path: &Path) -> Result<FileData, Box<dyn std::error::Error>> {
+        // look in modules first
+        {
+            let desired = self.modules.join(path);
+            if let Ok(contents) = std::fs::read_to_string(&desired) {
+                return Ok(FileData::new(path.to_owned(), desired.clone(), contents));
+            }
+        }
+
+        // then look in dir of main file
+        {
+            let desired = self.main_file_dir.join(path);
+            if let Ok(contents) = std::fs::read_to_string(&desired) {
+                return Ok(FileData::new(path.to_owned(), desired.clone(), contents));
+            }
+        }
+
+        Err(Box::new(MyError(format!(
+            "Could not find desired file: {}",
+            path.display()
+        ))))
+    }
+
+    #[cfg(feature = "ffi")]
+    fn shared_objects_dir(&self) -> &PathBuf {
+        &self.shared_objects_dir
+    }
+}
+
+#[derive(Default, Debug)]
+pub struct MockFileProvider {
+    path_to_file: HashMap<PathBuf, String>,
+    _shared_objects_dir: PathBuf,
+}
+
+impl MockFileProvider {
+    pub fn new(mut path_to_file: HashMap<PathBuf, String>) -> Box<Self> {
+        path_to_file.insert(Path::new("prelude.abra").to_path_buf(), PRELUDE.into());
+        Box::new(Self {
+            path_to_file,
+            _shared_objects_dir: PathBuf::new(),
+        })
+    }
+
+    pub fn single_file(contents: &str) -> Box<Self> {
+        let mut path_to_file = HashMap::new();
+        path_to_file.insert(Path::new("prelude.abra").to_path_buf(), PRELUDE.into());
+        path_to_file.insert(Path::new("main.abra").to_path_buf(), contents.into());
+        Box::new(Self {
+            path_to_file,
+            _shared_objects_dir: PathBuf::new(),
+        })
+    }
+}
+
+impl FileProvider for MockFileProvider {
+    fn search_for_file(&self, path: &Path) -> Result<FileData, Box<dyn std::error::Error>> {
+        match self.path_to_file.get(path) {
+            Some(contents) => Ok(FileData::new(path.into(), path.into(), contents.into())),
+            None => Err(Box::new(MyError(format!(
+                "Could not find desired file: {}",
+                path.display()
+            )))),
+        }
+    }
+
+    #[cfg(feature = "ffi")]
+    fn shared_objects_dir(&self) -> &PathBuf {
+        &self._shared_objects_dir // TODO: this unused and only here to satisfy the Trait, but it doesn't really make sense...
     }
 }

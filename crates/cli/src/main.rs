@@ -1,5 +1,5 @@
 use abra_core::FileData;
-use abra_core::FileProviderDefault;
+use abra_core::OsFileProvider;
 use abra_core::effects::EffectTrait;
 use abra_core::effects::FromRepr;
 use abra_core::effects::VariantArray;
@@ -100,10 +100,11 @@ fn main() -> anyhow::Result<()> {
             .unwrap()
             .join(main_file_path.parent().unwrap())
     };
-    let file_provider =
-        FileProviderDefault::new(main_file_dir.into(), modules_dir, shared_objects_dir);
+    let file_provider = OsFileProvider::new(main_file_dir.into(), modules_dir, shared_objects_dir);
 
-    match abra_core::compile_bytecode(source_files, effects, file_provider) {
+    let main_file_name = main_file_path.file_name().unwrap().to_str().unwrap();
+
+    match abra_core::compile_bytecode(main_file_name, effects, file_provider) {
         Ok(program) => {
             let mut vm = abra_core::vm::Vm::new(program);
             loop {

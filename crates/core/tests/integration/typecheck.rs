@@ -1,10 +1,9 @@
+use abra_core::MockFileProvider;
 use abra_core::compile_bytecode;
 use abra_core::effects::DefaultEffects;
 use abra_core::effects::EffectTrait;
-use abra_core::source_files_single;
 
 use crate::utils::unwrap_or_panic;
-use abra_core::FileProviderDefault;
 
 // POSITIVE TESTS
 // Typechecking should succeed.
@@ -19,11 +18,10 @@ let d = c - 1
 let e = d ^ 2
 let f = e mod 3
 "#;
-    let sources = source_files_single(src);
     unwrap_or_panic(compile_bytecode(
-        sources,
+        "main.abra",
         DefaultEffects::enumerate(),
-        FileProviderDefault::todo_get_rid_of_this(),
+        MockFileProvider::single_file(src),
     ));
 }
 
@@ -36,11 +34,10 @@ let c = b / 2.0
 let d = c - 1.0
 let e = d ^ 2.0
 "#;
-    let sources = source_files_single(src);
     unwrap_or_panic(compile_bytecode(
-        sources,
+        "main.abra",
         DefaultEffects::enumerate(),
-        FileProviderDefault::todo_get_rid_of_this(),
+        MockFileProvider::single_file(src),
     ));
 }
 
@@ -52,11 +49,10 @@ let y = false
 let z = x and y
 let w = x or y
 "#;
-    let sources = source_files_single(src);
     unwrap_or_panic(compile_bytecode(
-        sources,
+        "main.abra",
         DefaultEffects::enumerate(),
-        FileProviderDefault::todo_get_rid_of_this(),
+        MockFileProvider::single_file(src),
     ));
 }
 
@@ -77,11 +73,10 @@ let j = 2.0 = 3.0
 
 let k = a and b and c and d and e and f and g and h and i and j
 "#;
-    let sources = source_files_single(src);
     unwrap_or_panic(compile_bytecode(
-        sources,
+        "main.abra",
         DefaultEffects::enumerate(),
-        FileProviderDefault::todo_get_rid_of_this(),
+        MockFileProvider::single_file(src),
     ));
 }
 
@@ -96,11 +91,10 @@ type person = {
 let p = person(33, "Anand")
 p.age
 "#;
-    let sources = source_files_single(src);
     unwrap_or_panic(compile_bytecode(
-        sources,
+        "main.abra",
         DefaultEffects::enumerate(),
-        FileProviderDefault::todo_get_rid_of_this(),
+        MockFileProvider::single_file(src),
     ));
 }
 
@@ -108,11 +102,10 @@ p.age
 // Typechecking should catch an error.
 
 fn should_fail(src: &str) {
-    let sources = source_files_single(src);
     compile_bytecode(
-        sources,
+        "main.abra",
         DefaultEffects::enumerate(),
-        FileProviderDefault::todo_get_rid_of_this(),
+        MockFileProvider::single_file(src),
     )
     .unwrap_err();
 }

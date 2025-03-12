@@ -1,6 +1,7 @@
 use std::time::Duration;
 
-use abra_core::FileProviderDefault;
+use abra_core::MockFileProvider;
+use abra_core::OsFileProvider;
 use abra_core::compile_bytecode;
 use abra_core::effects::DefaultEffects;
 use abra_core::effects::EffectTrait;
@@ -10,11 +11,10 @@ use criterion::{BatchSize, Criterion, black_box, criterion_group, criterion_main
 
 // Generalized function for benchmarking Abra programs
 fn run_benchmark(c: &mut Criterion, name: &str, src: &str) {
-    let sources = source_files_single(src);
     let program = compile_bytecode(
-        sources,
+        "main.abra",
         DefaultEffects::enumerate(),
-        FileProviderDefault::todo_get_rid_of_this(),
+        MockFileProvider::single_file(src),
     )
     .unwrap();
 

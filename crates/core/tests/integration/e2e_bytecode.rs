@@ -1,13 +1,13 @@
+use std::collections::HashMap;
+use std::path::PathBuf;
+
+use abra_core::MockFileProvider;
 use abra_core::compile_bytecode;
 use abra_core::effects::DefaultEffects;
 use abra_core::effects::EffectTrait;
-use abra_core::prelude::PRELUDE;
-use abra_core::source_files_single;
 use abra_core::vm::Vm;
 
 use crate::utils::unwrap_or_panic;
-use abra_core::FileData;
-use abra_core::FileProviderDefault;
 
 #[test]
 fn arithmetic() {
@@ -21,11 +21,10 @@ let z = sub(x, y)
 let h = sub(z, 1)
 h
 "#;
-    let sources = source_files_single(src);
     let program = unwrap_or_panic(compile_bytecode(
-        sources,
+        "main.abra",
         DefaultEffects::enumerate(),
-        FileProviderDefault::todo_get_rid_of_this(),
+        MockFileProvider::single_file(src),
     ));
     let mut vm = Vm::new(program);
     vm.run();
@@ -45,11 +44,10 @@ let p = mk_pair(n)
 let (x, y) = p
 x + y
 "#;
-    let sources = source_files_single(src);
     let program = unwrap_or_panic(compile_bytecode(
-        sources,
+        "main.abra",
         DefaultEffects::enumerate(),
-        FileProviderDefault::todo_get_rid_of_this(),
+        MockFileProvider::single_file(src),
     ));
     let mut vm = Vm::new(program);
     vm.run();
@@ -67,11 +65,10 @@ if false {
   4
 }
 "#;
-    let sources = source_files_single(src);
     let program = unwrap_or_panic(compile_bytecode(
-        sources,
+        "main.abra",
         DefaultEffects::enumerate(),
-        FileProviderDefault::todo_get_rid_of_this(),
+        MockFileProvider::single_file(src),
     ));
     let mut vm = Vm::new(program);
     vm.run();
@@ -89,11 +86,10 @@ if true {
 }
 x
 "#;
-    let sources = source_files_single(src);
     let program = unwrap_or_panic(compile_bytecode(
-        sources,
+        "main.abra",
         DefaultEffects::enumerate(),
-        FileProviderDefault::todo_get_rid_of_this(),
+        MockFileProvider::single_file(src),
     ));
     let mut vm = Vm::new(program);
     vm.run();
@@ -108,11 +104,10 @@ fn print_string() {
 print_string("hello world")
 5
 "#;
-    let sources = source_files_single(src);
     let program = unwrap_or_panic(compile_bytecode(
-        sources,
+        "main.abra",
         DefaultEffects::enumerate(),
-        FileProviderDefault::todo_get_rid_of_this(),
+        MockFileProvider::single_file(src),
     ));
     let mut vm = Vm::new(program);
     vm.run();
@@ -138,12 +133,10 @@ x.name <- "Bob"
 x.age <- 2 * 3 * 6
 x.name
 "#;
-    let sources = source_files_single(src);
-
     let program = unwrap_or_panic(compile_bytecode(
-        sources,
+        "main.abra",
         DefaultEffects::enumerate(),
-        FileProviderDefault::todo_get_rid_of_this(),
+        MockFileProvider::single_file(src),
     ));
     let mut vm = Vm::new(program);
     vm.run();
@@ -163,12 +156,10 @@ x.name <- "Bob"
 x.age <- 2 * 3 * 6
 x.age
 "#;
-    let sources = source_files_single(src);
-
     let program = unwrap_or_panic(compile_bytecode(
-        sources,
+        "main.abra",
         DefaultEffects::enumerate(),
-        FileProviderDefault::todo_get_rid_of_this(),
+        MockFileProvider::single_file(src),
     ));
     let mut vm = Vm::new(program);
     vm.run();
@@ -184,12 +175,10 @@ arr[2]
 arr[2] <- 33
 arr[2]
 "#;
-    let sources = source_files_single(src);
-
     let program = unwrap_or_panic(compile_bytecode(
-        sources,
+        "main.abra",
         DefaultEffects::enumerate(),
-        FileProviderDefault::todo_get_rid_of_this(),
+        MockFileProvider::single_file(src),
     ));
     let mut vm = Vm::new(program);
     vm.run();
@@ -217,12 +206,10 @@ let body = snake.body
 let first = body[0]
 first.x
 "#;
-    let sources = source_files_single(src);
-
     let program = unwrap_or_panic(compile_bytecode(
-        sources,
+        "main.abra",
         DefaultEffects::enumerate(),
-        FileProviderDefault::todo_get_rid_of_this(),
+        MockFileProvider::single_file(src),
     ));
     let mut vm = Vm::new(program);
     vm.run();
@@ -246,12 +233,10 @@ let snake = Snake([Point(10,10)], 0)
 snake.body[0].x <- 20
 snake.body[0].x
 "#;
-    let sources = source_files_single(src);
-
     let program = unwrap_or_panic(compile_bytecode(
-        sources,
+        "main.abra",
         DefaultEffects::enumerate(),
-        FileProviderDefault::todo_get_rid_of_this(),
+        MockFileProvider::single_file(src),
     ));
     let mut vm = Vm::new(program);
     vm.run();
@@ -269,12 +254,10 @@ match n {
   | _ -> 2
 }
 "#;
-    let sources = source_files_single(src);
-
     let program = unwrap_or_panic(compile_bytecode(
-        sources,
+        "main.abra",
         DefaultEffects::enumerate(),
-        FileProviderDefault::todo_get_rid_of_this(),
+        MockFileProvider::single_file(src),
     ));
     let mut vm = Vm::new(program);
     vm.run();
@@ -292,12 +275,10 @@ match n {
   | _ -> 99
 }
 "#;
-    let sources = source_files_single(src);
-
     let program = unwrap_or_panic(compile_bytecode(
-        sources,
+        "main.abra",
         DefaultEffects::enumerate(),
-        FileProviderDefault::todo_get_rid_of_this(),
+        MockFileProvider::single_file(src),
     ));
     let mut vm = Vm::new(program);
     vm.run();
@@ -321,12 +302,10 @@ let two = match b {
 let sum = one + two
 sum
 "#;
-    let sources = source_files_single(src);
-
     let program = unwrap_or_panic(compile_bytecode(
-        sources,
+        "main.abra",
         DefaultEffects::enumerate(),
-        FileProviderDefault::todo_get_rid_of_this(),
+        MockFileProvider::single_file(src),
     ));
     let mut vm = Vm::new(program);
     vm.run();
@@ -343,17 +322,11 @@ match triplet {
     | (1, 2) -> 101
     | _ -> 102
 }"#;
-    let sources = source_files_single(src);
-    let program = match compile_bytecode(
-        sources,
+    let program = unwrap_or_panic(compile_bytecode(
+        "main.abra",
         DefaultEffects::enumerate(),
-        FileProviderDefault::todo_get_rid_of_this(),
-    ) {
-        Ok(vm) => vm,
-        Err(e) => {
-            panic!("{}", e);
-        }
-    };
+        MockFileProvider::single_file(src),
+    ));
     let mut vm = Vm::new(program);
     vm.run();
     let top = vm.top().unwrap();
@@ -369,17 +342,11 @@ match pair {
     | (1, 2) -> 101
     | _ -> 102
 }"#;
-    let sources = source_files_single(src);
-    let program = match compile_bytecode(
-        sources,
+    let program = unwrap_or_panic(compile_bytecode(
+        "main.abra",
         DefaultEffects::enumerate(),
-        FileProviderDefault::todo_get_rid_of_this(),
-    ) {
-        Ok(vm) => vm,
-        Err(e) => {
-            panic!("{}", e);
-        }
-    };
+        MockFileProvider::single_file(src),
+    ));
     let mut vm = Vm::new(program);
     vm.run();
     let top = vm.top().unwrap();
@@ -395,17 +362,11 @@ match pair {
     | (1, 2) -> 101
     | _ -> 102
 }"#;
-    let sources = source_files_single(src);
-    let program = match compile_bytecode(
-        sources,
+    let program = unwrap_or_panic(compile_bytecode(
+        "main.abra",
         DefaultEffects::enumerate(),
-        FileProviderDefault::todo_get_rid_of_this(),
-    ) {
-        Ok(vm) => vm,
-        Err(e) => {
-            panic!("{}", e);
-        }
-    };
+        MockFileProvider::single_file(src),
+    ));
     let mut vm = Vm::new(program);
     vm.run();
     let top = vm.top().unwrap();
@@ -421,17 +382,11 @@ match quintuple {
     | (true, false, true, true, false) -> 101
     | _ -> 102
 }"#;
-    let sources = source_files_single(src);
-    let program = match compile_bytecode(
-        sources,
+    let program = unwrap_or_panic(compile_bytecode(
+        "main.abra",
         DefaultEffects::enumerate(),
-        FileProviderDefault::todo_get_rid_of_this(),
-    ) {
-        Ok(vm) => vm,
-        Err(e) => {
-            panic!("{}", e);
-        }
-    };
+        MockFileProvider::single_file(src),
+    ));
     let mut vm = Vm::new(program);
     vm.run();
     let top = vm.top().unwrap();
@@ -447,17 +402,11 @@ match triplet {
     | (1, (2, 3), 4) -> 101
     | _ -> 102
 }"#;
-    let sources = source_files_single(src);
-    let program = match compile_bytecode(
-        sources,
+    let program = unwrap_or_panic(compile_bytecode(
+        "main.abra",
         DefaultEffects::enumerate(),
-        FileProviderDefault::todo_get_rid_of_this(),
-    ) {
-        Ok(vm) => vm,
-        Err(e) => {
-            panic!("{}", e);
-        }
-    };
+        MockFileProvider::single_file(src),
+    ));
     let mut vm = Vm::new(program);
     vm.run();
     let top = vm.top().unwrap();
@@ -477,17 +426,11 @@ match xs {
     //     list.cons(x, _) -> 9
     //     list.nil -> 100
     // }"#;
-    let sources = source_files_single(src);
-    let program = match compile_bytecode(
-        sources,
+    let program = unwrap_or_panic(compile_bytecode(
+        "main.abra",
         DefaultEffects::enumerate(),
-        FileProviderDefault::todo_get_rid_of_this(),
-    ) {
-        Ok(vm) => vm,
-        Err(e) => {
-            panic!("{}", e);
-        }
-    };
+        MockFileProvider::single_file(src),
+    ));
     let mut vm = Vm::new(program);
     vm.run();
     let top = vm.top().unwrap();
@@ -502,17 +445,11 @@ match xs {
     | list.nil -> 100
     | list.cons(x, _) -> x
 }"#;
-    let sources = source_files_single(src);
-    let program = match compile_bytecode(
-        sources,
+    let program = unwrap_or_panic(compile_bytecode(
+        "main.abra",
         DefaultEffects::enumerate(),
-        FileProviderDefault::todo_get_rid_of_this(),
-    ) {
-        Ok(vm) => vm,
-        Err(e) => {
-            panic!("{}", e);
-        }
-    };
+        MockFileProvider::single_file(src),
+    ));
     let mut vm = Vm::new(program);
     vm.run();
     let top = vm.top().unwrap();
@@ -528,17 +465,11 @@ match xs {
     | list.cons(_, list.cons(x, list.nil)) -> x
     | _ -> 101
 }"#;
-    let sources = source_files_single(src);
-    let program = match compile_bytecode(
-        sources,
+    let program = unwrap_or_panic(compile_bytecode(
+        "main.abra",
         DefaultEffects::enumerate(),
-        FileProviderDefault::todo_get_rid_of_this(),
-    ) {
-        Ok(vm) => vm,
-        Err(e) => {
-            panic!("{}", e);
-        }
-    };
+        MockFileProvider::single_file(src),
+    ));
     let mut vm = Vm::new(program);
     vm.run();
     let top = vm.top().unwrap();
@@ -556,17 +487,11 @@ fn r(n) {
 }
 r(2)
 "#;
-    let sources = source_files_single(src);
-    let program = match compile_bytecode(
-        sources,
+    let program = unwrap_or_panic(compile_bytecode(
+        "main.abra",
         DefaultEffects::enumerate(),
-        FileProviderDefault::todo_get_rid_of_this(),
-    ) {
-        Ok(vm) => vm,
-        Err(e) => {
-            panic!("{}", e);
-        }
-    };
+        MockFileProvider::single_file(src),
+    ));
     let mut vm = Vm::new(program);
     vm.run();
     let top = vm.top().unwrap();
@@ -585,17 +510,11 @@ fn fib(n) {
 }
 fib(10)
 "#;
-    let sources = source_files_single(src);
-    let program = match compile_bytecode(
-        sources,
+    let program = unwrap_or_panic(compile_bytecode(
+        "main.abra",
         DefaultEffects::enumerate(),
-        FileProviderDefault::todo_get_rid_of_this(),
-    ) {
-        Ok(vm) => vm,
-        Err(e) => {
-            panic!("{}", e);
-        }
-    };
+        MockFileProvider::single_file(src),
+    ));
     let mut vm = Vm::new(program);
     vm.run();
     let top = vm.top().unwrap();
@@ -608,17 +527,11 @@ fn lambda1() {
 let double = x -> x + x
 double(5)
 "#;
-    let sources = source_files_single(src);
-    let program = match compile_bytecode(
-        sources,
+    let program = unwrap_or_panic(compile_bytecode(
+        "main.abra",
         DefaultEffects::enumerate(),
-        FileProviderDefault::todo_get_rid_of_this(),
-    ) {
-        Ok(vm) => vm,
-        Err(e) => {
-            panic!("{}", e);
-        }
-    };
+        MockFileProvider::single_file(src),
+    ));
     let mut vm = Vm::new(program);
     vm.run();
     let top = vm.top().unwrap();
@@ -631,17 +544,11 @@ fn lambda2() {
 let add = (x, y) -> x + y
 add(2, 3)
 "#;
-    let sources = source_files_single(src);
-    let program = match compile_bytecode(
-        sources,
+    let program = unwrap_or_panic(compile_bytecode(
+        "main.abra",
         DefaultEffects::enumerate(),
-        FileProviderDefault::todo_get_rid_of_this(),
-    ) {
-        Ok(vm) => vm,
-        Err(e) => {
-            panic!("{}", e);
-        }
-    };
+        MockFileProvider::single_file(src),
+    ));
     let mut vm = Vm::new(program);
     vm.run();
     let top = vm.top().unwrap();
@@ -655,17 +562,11 @@ let f = 4.0
 let g = sqrt_float(f)
 g
 "#;
-    let sources = source_files_single(src);
-    let program = match compile_bytecode(
-        sources,
+    let program = unwrap_or_panic(compile_bytecode(
+        "main.abra",
         DefaultEffects::enumerate(),
-        FileProviderDefault::todo_get_rid_of_this(),
-    ) {
-        Ok(vm) => vm,
-        Err(e) => {
-            panic!("{}", e);
-        }
-    };
+        MockFileProvider::single_file(src),
+    ));
     let mut vm = Vm::new(program);
     vm.run();
     let top = vm.top().unwrap();
@@ -679,17 +580,11 @@ let arr = [1, 2, 3, 4, 5]
 append(arr, 6)
 arr[5]
 "#;
-    let sources = source_files_single(src);
-    let program = match compile_bytecode(
-        sources,
+    let program = unwrap_or_panic(compile_bytecode(
+        "main.abra",
         DefaultEffects::enumerate(),
-        FileProviderDefault::todo_get_rid_of_this(),
-    ) {
-        Ok(vm) => vm,
-        Err(e) => {
-            panic!("{}", e);
-        }
-    };
+        MockFileProvider::single_file(src),
+    ));
     let mut vm = Vm::new(program);
     vm.run();
     let top = vm.top().unwrap();
@@ -702,17 +597,11 @@ fn array_len() {
 let arr = [1, 2, 3, 4, 5]
 len(arr)
 "#;
-    let sources = source_files_single(src);
-    let program = match compile_bytecode(
-        sources,
+    let program = unwrap_or_panic(compile_bytecode(
+        "main.abra",
         DefaultEffects::enumerate(),
-        FileProviderDefault::todo_get_rid_of_this(),
-    ) {
-        Ok(vm) => vm,
-        Err(e) => {
-            panic!("{}", e);
-        }
-    };
+        MockFileProvider::single_file(src),
+    ));
     let mut vm = Vm::new(program);
     vm.run();
     let top = vm.top().unwrap();
@@ -727,17 +616,11 @@ match [| 1, 2, 3 |] {
   | list.cons(x, _) -> x
 }
 "#;
-    let sources = source_files_single(src);
-    let program = match compile_bytecode(
-        sources,
+    let program = unwrap_or_panic(compile_bytecode(
+        "main.abra",
         DefaultEffects::enumerate(),
-        FileProviderDefault::todo_get_rid_of_this(),
-    ) {
-        Ok(vm) => vm,
-        Err(e) => {
-            panic!("{}", e);
-        }
-    };
+        MockFileProvider::single_file(src),
+    ));
     let mut vm = Vm::new(program);
     vm.run();
     let top = vm.top().unwrap();
@@ -758,17 +641,11 @@ fn total(xs) {
 
 total(xs)
 "#;
-    let sources = source_files_single(src);
-    let program = match compile_bytecode(
-        sources,
+    let program = unwrap_or_panic(compile_bytecode(
+        "main.abra",
         DefaultEffects::enumerate(),
-        FileProviderDefault::todo_get_rid_of_this(),
-    ) {
-        Ok(vm) => vm,
-        Err(e) => {
-            panic!("{}", e);
-        }
-    };
+        MockFileProvider::single_file(src),
+    ));
     let mut vm = Vm::new(program);
     vm.run();
     let top = vm.top().unwrap();
@@ -790,17 +667,11 @@ fn list_len(xs: list<'a>) {
 
 list_len(nums) + list_len(bools)
 "#;
-    let sources = source_files_single(src);
-    let program = match compile_bytecode(
-        sources,
+    let program = unwrap_or_panic(compile_bytecode(
+        "main.abra",
         DefaultEffects::enumerate(),
-        FileProviderDefault::todo_get_rid_of_this(),
-    ) {
-        Ok(vm) => vm,
-        Err(e) => {
-            panic!("{}", e);
-        }
-    };
+        MockFileProvider::single_file(src),
+    ));
     let mut vm = Vm::new(program);
     vm.run();
     let top = vm.top().unwrap();
@@ -813,17 +684,11 @@ fn concat_strings() {
 let s = "hello " & "world"
 s
 "#;
-    let sources = source_files_single(src);
-    let program = match compile_bytecode(
-        sources,
+    let program = unwrap_or_panic(compile_bytecode(
+        "main.abra",
         DefaultEffects::enumerate(),
-        FileProviderDefault::todo_get_rid_of_this(),
-    ) {
-        Ok(vm) => vm,
-        Err(e) => {
-            panic!("{}", e);
-        }
-    };
+        MockFileProvider::single_file(src),
+    ));
     let mut vm = Vm::new(program);
     vm.run();
     let top = vm.top().unwrap();
@@ -835,17 +700,11 @@ fn monomorphize_to_string_int() {
     let src = r#"
 str(123)
 "#;
-    let sources = source_files_single(src);
-    let program = match compile_bytecode(
-        sources,
+    let program = unwrap_or_panic(compile_bytecode(
+        "main.abra",
         DefaultEffects::enumerate(),
-        FileProviderDefault::todo_get_rid_of_this(),
-    ) {
-        Ok(vm) => vm,
-        Err(e) => {
-            panic!("{}", e);
-        }
-    };
+        MockFileProvider::single_file(src),
+    ));
     let mut vm = Vm::new(program);
     vm.run();
     let top = vm.top().unwrap();
@@ -858,17 +717,11 @@ fn monomorphize_to_string_float() {
 str(123)
 str(123.456)
 "#;
-    let sources = source_files_single(src);
-    let program = match compile_bytecode(
-        sources,
+    let program = unwrap_or_panic(compile_bytecode(
+        "main.abra",
         DefaultEffects::enumerate(),
-        FileProviderDefault::todo_get_rid_of_this(),
-    ) {
-        Ok(vm) => vm,
-        Err(e) => {
-            panic!("{}", e);
-        }
-    };
+        MockFileProvider::single_file(src),
+    ));
     let mut vm = Vm::new(program);
     vm.run();
     let top = vm.top().unwrap();
@@ -881,17 +734,11 @@ fn monomorphize_to_string_tuple_ints() {
 let nums = (1, 2, 3)
 str(nums)
 "#;
-    let sources = source_files_single(src);
-    let program = match compile_bytecode(
-        sources,
+    let program = unwrap_or_panic(compile_bytecode(
+        "main.abra",
         DefaultEffects::enumerate(),
-        FileProviderDefault::todo_get_rid_of_this(),
-    ) {
-        Ok(vm) => vm,
-        Err(e) => {
-            panic!("{}", e);
-        }
-    };
+        MockFileProvider::single_file(src),
+    ));
     let mut vm = Vm::new(program);
     vm.run();
     let top = vm.top().unwrap();
@@ -905,12 +752,10 @@ str(123)
 println(123)
 5
 "#;
-    let sources = source_files_single(src);
-
     let program = unwrap_or_panic(compile_bytecode(
-        sources,
+        "main.abra",
         DefaultEffects::enumerate(),
-        FileProviderDefault::todo_get_rid_of_this(),
+        MockFileProvider::single_file(src),
     ));
     let mut vm = Vm::new(program);
     vm.run();
@@ -934,12 +779,10 @@ fn local_in_while_scope() {
     }
     5
     "#;
-    let sources = source_files_single(src);
-
     let program = unwrap_or_panic(compile_bytecode(
-        sources,
+        "main.abra",
         DefaultEffects::enumerate(),
-        FileProviderDefault::todo_get_rid_of_this(),
+        MockFileProvider::single_file(src),
     ));
     let mut vm = Vm::new(program);
     vm.run();
@@ -960,12 +803,10 @@ fn continue_and_break() {
     }
     i
 "#;
-    let sources = source_files_single(src);
-
     let program = unwrap_or_panic(compile_bytecode(
-        sources,
+        "main.abra",
         DefaultEffects::enumerate(),
-        FileProviderDefault::todo_get_rid_of_this(),
+        MockFileProvider::single_file(src),
     ));
     let mut vm = Vm::new(program);
     vm.run();
@@ -985,12 +826,10 @@ fn fib(n) {
   
 fib(10)
 "#;
-    let sources = source_files_single(src);
-
     let program = unwrap_or_panic(compile_bytecode(
-        sources,
+        "main.abra",
         DefaultEffects::enumerate(),
-        FileProviderDefault::todo_get_rid_of_this(),
+        MockFileProvider::single_file(src),
     ));
     let mut vm = Vm::new(program);
     vm.run();
@@ -1011,17 +850,11 @@ while i < 10000 {
 }
 x
 "#;
-    let sources = source_files_single(src);
-
-    let vm = compile_bytecode(
-        sources,
+    let program = unwrap_or_panic(compile_bytecode(
+        "main.abra",
         DefaultEffects::enumerate(),
-        FileProviderDefault::todo_get_rid_of_this(),
-    );
-    if let Err(e) = vm {
-        panic!("{}", e);
-    }
-    let program = vm.unwrap();
+        MockFileProvider::single_file(src),
+    ));
     let mut vm = Vm::new(program);
     while !vm.is_done() {
         vm.run_n_steps(1);
@@ -1045,17 +878,11 @@ while i < 10000 {
 }
 x
 "#;
-    let sources = source_files_single(src);
-
-    let vm = compile_bytecode(
-        sources,
+    let program = unwrap_or_panic(compile_bytecode(
+        "main.abra",
         DefaultEffects::enumerate(),
-        FileProviderDefault::todo_get_rid_of_this(),
-    );
-    if let Err(e) = vm {
-        panic!("{}", e);
-    }
-    let program = vm.unwrap();
+        MockFileProvider::single_file(src),
+    ));
     let mut vm = Vm::new(program);
     while !vm.is_done() {
         vm.run_n_steps(1);
@@ -1069,19 +896,18 @@ x
 #[test]
 fn entry_point() {
     let src = r#"
-fn main() {
+fn my_entry_point() {
     print_string("hello world")
 }
 
 5
 "#;
-    let sources = source_files_single(src);
     let program = unwrap_or_panic(compile_bytecode(
-        sources,
+        "main.abra",
         DefaultEffects::enumerate(),
-        FileProviderDefault::todo_get_rid_of_this(),
+        MockFileProvider::single_file(src),
     ));
-    let mut vm = Vm::with_entry_point(program, "test.main".to_owned());
+    let mut vm = Vm::with_entry_point(program, "main.my_entry_point".to_owned());
     vm.run();
     let top = vm.top().unwrap();
     assert_eq!(top.get_string(&vm).unwrap(), "hello world");
@@ -1094,19 +920,18 @@ fn main() {
 #[test]
 fn entry_point_with_args() {
     let src = r#"
-fn main(x, y) {
+fn my_entry_point(x, y) {
     x + y
 }
 
-main(5, 6)
+my_entry_point(5, 6)
 "#;
-    let sources = source_files_single(src);
     let program = unwrap_or_panic(compile_bytecode(
-        sources,
+        "main.abra",
         DefaultEffects::enumerate(),
-        FileProviderDefault::todo_get_rid_of_this(),
+        MockFileProvider::single_file(src),
     ));
-    let mut vm = Vm::with_entry_point(program, "test.main".to_owned());
+    let mut vm = Vm::with_entry_point(program, "main.my_entry_point".to_owned());
     vm.push_int(2);
     vm.push_int(3);
     vm.increment_stack_base(2);
@@ -1131,21 +956,13 @@ fn bar(x: 'a) -> 'a {
 
 foo(2, 2)
 "#;
-    let sources = vec![
-        FileData::new("main.abra".into(), "main.abra".into(), main.to_owned()),
-        FileData::new("util.abra".into(), "util.abra".into(), util.to_owned()),
-        FileData::new(
-            "prelude.abra".into(),
-            "prelude.abra".into(),
-            PRELUDE.to_owned(),
-        ),
-    ];
+    let mut path_to_file: HashMap<PathBuf, String> = HashMap::new();
+    path_to_file.insert("main.abra".into(), main.into());
+    path_to_file.insert("util.abra".into(), util.into());
+    let file_provider = MockFileProvider::new(path_to_file);
+
     let effects = DefaultEffects::enumerate();
-    let program = compile_bytecode(
-        sources,
-        effects,
-        FileProviderDefault::todo_get_rid_of_this(),
-    );
+    let program = compile_bytecode("main.abra", effects, file_provider);
     if let Err(e) = program {
         panic!("{}", e);
     }
@@ -1161,17 +978,11 @@ fn format_append() {
     let src = r#"
 format_append(format_append(123, true), false)
 "#;
-    let sources = source_files_single(src);
-    let program = match compile_bytecode(
-        sources,
+    let program = unwrap_or_panic(compile_bytecode(
+        "main.abra",
         DefaultEffects::enumerate(),
-        FileProviderDefault::todo_get_rid_of_this(),
-    ) {
-        Ok(vm) => vm,
-        Err(e) => {
-            panic!("{}", e);
-        }
-    };
+        MockFileProvider::single_file(src),
+    ));
     let mut vm = Vm::new(program);
     vm.run();
     let top = vm.top().unwrap();
@@ -1183,17 +994,11 @@ fn ampersand() {
     let src = r#"
 123 & true & false
 "#;
-    let sources = source_files_single(src);
-    let program = match compile_bytecode(
-        sources,
+    let program = unwrap_or_panic(compile_bytecode(
+        "main.abra",
         DefaultEffects::enumerate(),
-        FileProviderDefault::todo_get_rid_of_this(),
-    ) {
-        Ok(vm) => vm,
-        Err(e) => {
-            panic!("{}", e);
-        }
-    };
+        MockFileProvider::single_file(src),
+    ));
     let mut vm = Vm::new(program);
     vm.run();
     let top = vm.top().unwrap();
@@ -1208,17 +1013,11 @@ fn comments() {
 /* multi-line
 comment */
 "#;
-    let sources = source_files_single(src);
-    let program = match compile_bytecode(
-        sources,
+    let program = unwrap_or_panic(compile_bytecode(
+        "main.abra",
         DefaultEffects::enumerate(),
-        FileProviderDefault::todo_get_rid_of_this(),
-    ) {
-        Ok(vm) => vm,
-        Err(e) => {
-            panic!("{}", e);
-        }
-    };
+        MockFileProvider::single_file(src),
+    ));
     let mut vm = Vm::new(program);
     vm.run();
     let top = vm.top().unwrap();
