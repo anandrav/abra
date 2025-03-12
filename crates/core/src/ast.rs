@@ -19,6 +19,12 @@ impl std::hash::Hash for Identifier {
     }
 }
 
+impl Identifier {
+    pub fn node(self: &Rc<Identifier>) -> AstNode {
+        AstNode::Identifier(self.clone())
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct FileData {
     pub nominal_path: PathBuf,
@@ -170,6 +176,12 @@ impl std::hash::Hash for FileAst {
     }
 }
 
+impl FileAst {
+    pub fn node(self: &Rc<FileAst>) -> AstNode {
+        AstNode::FileAst(self.clone())
+    }
+}
+
 #[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq, Hash)]
 pub(crate) enum TypeDefKind {
     // Alias(Rc<Identifier>, Rc<AstType>),
@@ -215,6 +227,12 @@ impl std::hash::Hash for Variant {
     }
 }
 
+impl Variant {
+    pub fn node(self: &Rc<Variant>) -> AstNode {
+        AstNode::Variant(self.clone())
+    }
+}
+
 #[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq)]
 pub(crate) struct StructField {
     pub(crate) name: Rc<Identifier>,
@@ -227,6 +245,12 @@ pub(crate) struct StructField {
 impl std::hash::Hash for StructField {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.id.hash(state);
+    }
+}
+
+impl StructField {
+    pub fn node(self: &Rc<StructField>) -> AstNode {
+        AstNode::StructField(self.clone())
     }
 }
 
@@ -420,6 +444,12 @@ impl std::hash::Hash for Item {
     }
 }
 
+impl Item {
+    pub fn node(self: &Rc<Item>) -> AstNode {
+        AstNode::Item(self.clone())
+    }
+}
+
 #[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq, Hash)]
 pub(crate) enum ItemKind {
     ForeignFuncDecl(Rc<ForeignFuncDecl>),
@@ -441,6 +471,12 @@ pub(crate) struct Stmt {
 impl std::hash::Hash for Stmt {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.id.hash(state);
+    }
+}
+
+impl Stmt {
+    pub fn node(self: &Rc<Stmt>) -> AstNode {
+        AstNode::Stmt(self.clone())
     }
 }
 
@@ -493,6 +529,12 @@ impl std::hash::Hash for InterfaceMethodDecl {
     }
 }
 
+impl InterfaceMethodDecl {
+    pub fn node(self: &Rc<InterfaceMethodDecl>) -> AstNode {
+        AstNode::InterfaceMethodDecl(self.clone())
+    }
+}
+
 #[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq)]
 pub(crate) struct InterfaceImpl {
     pub(crate) iface: Rc<Identifier>,
@@ -518,6 +560,12 @@ pub(crate) struct Expr {
 impl std::hash::Hash for Expr {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.id.hash(state);
+    }
+}
+
+impl Expr {
+    pub fn node(self: &Rc<Expr>) -> AstNode {
+        AstNode::Expr(self.clone())
     }
 }
 
@@ -588,6 +636,12 @@ impl std::hash::Hash for Pat {
     }
 }
 
+impl Pat {
+    pub fn node(self: &Rc<Pat>) -> AstNode {
+        AstNode::Pat(self.clone())
+    }
+}
+
 #[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq, Hash)]
 pub(crate) enum PatKind {
     Wildcard,
@@ -611,6 +665,12 @@ pub(crate) struct Type {
 impl std::hash::Hash for Type {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.id.hash(state);
+    }
+}
+
+impl Type {
+    pub fn node(self: &Rc<Type>) -> AstNode {
+        AstNode::Type(self.clone())
     }
 }
 
