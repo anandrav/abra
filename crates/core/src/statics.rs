@@ -185,7 +185,6 @@ pub(crate) enum Error {
         node: AstNode,
     },
     InterfaceImplTypeNotGeneric {
-        ty: SolvedType,
         node: AstNode,
     },
     // break and continue
@@ -413,11 +412,10 @@ impl Error {
                 let (file, range) = get_file_and_range(node);
                 labels.push(Label::secondary(file, range));
             }
-            Error::InterfaceImplTypeNotGeneric { ty, node } => {
-                diagnostic = diagnostic.with_message(format!(
-                    "Interfaces cannot be implemented for `{}`. It must be fully generic.",
-                    ty
-                ));
+            Error::InterfaceImplTypeNotGeneric { node } => {
+                diagnostic = diagnostic.with_message(
+                    "Interface cannot be implemented for this type unless it is fully generic.",
+                );
                 let (file, range) = get_file_and_range(node);
                 labels.push(Label::secondary(file, range));
             }
