@@ -135,9 +135,6 @@ impl Declaration {
                 let nargs = struct_def.fields.len() as u16;
                 BytecodeResolution::StructCtor(nargs)
             }
-            Declaration::ForeignType(_) => {
-                panic!(); // TODO: remove panic
-            }
             Declaration::Array => {
                 panic!(); // TODO: remove panic
             }

@@ -652,22 +652,6 @@ pub(crate) fn parse_item(pair: Pair<Rule>, file_id: FileId) -> Rc<Item> {
                 id,
             })
         }
-        Rule::foreign_type_decl => {
-            let name: String = inner[0].as_str().to_string();
-            let id = NodeId::new();
-            Rc::new(Item {
-                kind: Rc::new(ItemKind::TypeDef(Rc::new(TypeDefKind::Foreign(
-                    Identifier {
-                        v: name,
-                        loc: span.clone(),
-                        id: NodeId::new(),
-                    }
-                    .into(),
-                )))),
-                loc: span,
-                id,
-            })
-        }
         Rule::interface_declaration => {
             let name: String = inner[0].as_str().to_string();
             let mut n = 1;

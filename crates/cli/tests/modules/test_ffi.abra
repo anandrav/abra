@@ -28,6 +28,3 @@ type MyEnum =
     | Bool of bool
     | Void
     | String of string
-
-
-// TODO: foreign type file

@@ -90,7 +90,6 @@ fn main() -> anyhow::Result<()> {
             home_dir.join(".abra/shared_objects")
         }
     };
-    // add_modules_toplevel(modules, &args.file, &mut source_files);
 
     let effects = CliEffects::enumerate();
 
@@ -116,7 +115,7 @@ fn main() -> anyhow::Result<()> {
                     std::process::exit(1);
                 }
                 vm.run();
-                // vm.gc();
+                vm.gc();
                 if let Some(pending_effect) = vm.get_pending_effect() {
                     let effect = CliEffects::from_repr(pending_effect as usize).unwrap();
                     match effect {
@@ -147,7 +146,6 @@ fn main() -> anyhow::Result<()> {
                     }
                     vm.clear_pending_effect();
                 }
-                // vm.gc();
             }
         }
         Err(err) => {
@@ -156,45 +154,6 @@ fn main() -> anyhow::Result<()> {
         }
     }
 }
-
-fn _add_modules_toplevel(include_dir: PathBuf, main_file: &str, source_files: &mut Vec<FileData>) {
-    let dir = std::fs::read_dir(&include_dir).unwrap();
-    for entry in dir {
-        let entry = entry.unwrap();
-        let metadata = entry.metadata().unwrap();
-        let name = entry.file_name();
-        let name = name.to_str().unwrap();
-        if metadata.is_file() && name.ends_with(".abra") && name != main_file {
-            // get the corresponding directory if it exists
-            let _dir_name = &name[0..name.len() - ".abra".len()];
-
-            let contents = std::fs::read_to_string(entry.path()).unwrap();
-            source_files.push(FileData::new(name.into(), include_dir.join(name), contents));
-        } else if metadata.is_dir() {
-            // add_module_dir(include_dir.join(name), source_files);
-        }
-    }
-}
-
-// fn add_module_dir(include_dir: PathBuf, source_files: &mut Vec<SourceFile>) {
-//     let dir = std::fs::read_dir(&include_dir).unwrap();
-//     for entry in dir {
-//         let entry = entry.unwrap();
-//         let metadata = entry.metadata().unwrap();
-//         if !metadata.is_file() {
-//             continue;
-//         }
-//         let name = entry.file_name();
-//         let name = name.to_str().unwrap();
-//         if name == "Cargo.toml" {
-//             let contents = std::fs::read_to_string(entry.path()).unwrap();
-//             source_files.push(SourceFile {
-//                 name: name.to_string(),
-//                 contents,
-//             });
-//         }
-//     }
-// }
 
 #[derive(Debug, Clone, PartialEq, Eq, VariantArray, FromRepr)]
 pub enum CliEffects {

@@ -486,7 +486,6 @@ fn add_items_from_ast(ast: Rc<FileAst>, output: &mut String) {
                     output.push('}');
                     output.push('}');
                 }
-                _ => unimplemented!(),
             },
             ItemKind::ForeignFuncDecl(f) => {
                 output.push_str(

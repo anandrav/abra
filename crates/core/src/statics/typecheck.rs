@@ -188,7 +188,6 @@ pub(crate) enum SolvedType {
 pub enum Nominal {
     Struct(Rc<StructDef>),
     Enum(Rc<EnumDef>),
-    ForeignType(Rc<Identifier>),
     Array,
 }
 
@@ -197,7 +196,6 @@ impl Nominal {
         match self {
             Self::Struct(struct_def) => &struct_def.name.v,
             Self::Enum(enum_def) => &enum_def.name.v,
-            Self::ForeignType(name) => &name.v,
             Self::Array => "array",
         }
     }
@@ -885,11 +883,6 @@ fn tyvar_of_declaration(
                 .collect();
             Some(TypeVar::make_func(fields, def_type, Reason::Node(node)))
         }
-        Declaration::ForeignType(ident) => Some(TypeVar::make_nominal(
-            Reason::Node(node),
-            Nominal::ForeignType(ident.clone()),
-            vec![],
-        )),
         Declaration::Array => {
             let params = vec![TypeVar::fresh(
                 ctx,
@@ -943,10 +936,6 @@ pub(crate) fn ast_type_to_solved_type(
                 Declaration::Enum(enum_def) => {
                     Some(SolvedType::Nominal(Nominal::Enum(enum_def.clone()), vec![]))
                 }
-                Declaration::ForeignType(ident) => Some(SolvedType::Nominal(
-                    Nominal::ForeignType(ident.clone()),
-                    vec![],
-                )),
                 Declaration::_ForeignFunction { .. } => None,
                 Declaration::FreeFunction(_, _)
                 | Declaration::InterfaceDef(_)
@@ -973,10 +962,6 @@ pub(crate) fn ast_type_to_solved_type(
                 Declaration::Enum(enum_def) => {
                     Some(SolvedType::Nominal(Nominal::Enum(enum_def.clone()), sargs))
                 }
-                Declaration::ForeignType(ident) => Some(SolvedType::Nominal(
-                    Nominal::ForeignType(ident.clone()),
-                    vec![],
-                )),
                 Declaration::_ForeignFunction { .. } => None,
                 Declaration::FreeFunction(_, _)
                 | Declaration::InterfaceDef(_)
@@ -1048,11 +1033,6 @@ pub(crate) fn ast_type_to_typevar(ctx: &mut StaticsContext, ast_type: Rc<AstType
                 Some(Declaration::Array) => TypeVar::make_nominal(
                     Reason::Annotation(ast_type.node()),
                     Nominal::Array,
-                    vec![], // TODO: why is params empty?
-                ),
-                Some(Declaration::ForeignType(ident)) => TypeVar::make_nominal(
-                    Reason::Annotation(ast_type.node()),
-                    Nominal::ForeignType(ident.clone()),
                     vec![], // TODO: why is params empty?
                 ),
                 _ => {
@@ -1382,7 +1362,7 @@ fn generate_constraints_item_decls(item: Rc<Item>, ctx: &mut StaticsContext) {
             //     let right = ast_type_to_statics_type(ctx, ty.clone());
             //     constrain(ctx,left, right);
             // }
-            TypeDefKind::Enum(..) | TypeDefKind::Struct(..) | TypeDefKind::Foreign(..) => {}
+            TypeDefKind::Enum(..) | TypeDefKind::Struct(..) => {}
         },
         ItemKind::FuncDef(f) => {
             generate_constraints_func_decl(

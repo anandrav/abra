@@ -8,7 +8,7 @@ MULTI_LINE_COMMENT = _{ "/*" ~ (!"*/" ~ ANY)* ~ "*/" }
 
 file = _{ SOI ~ file_item* ~ EOI }
 
-file_item = _{ func_def | foreign_func_decl | host_func_decl | interface_declaration | interface_implementation | enum_declaration | struct_declaration /*| typealias*/ | foreign_type_decl | import | statement }
+file_item = _{ func_def | foreign_func_decl | host_func_decl | interface_declaration | interface_implementation | enum_declaration | struct_declaration /*| typealias*/ | import | statement }
 
 // typealias = { "type" ~ identifier ~ "=" ~ typ}
 
@@ -29,8 +29,6 @@ packed_data = _{ "of" ~ typ }
 
 struct_declaration = { "type" ~ identifier ~ type_params? ~ "=" ~ "{" ~ struct_field ~ (struct_field)* ~ "}" }
 struct_field = { identifier ~ type_annotation }
-
-foreign_type_decl = { "foreign" ~ "type" ~ identifier }
 
 statement = _{ let_statement | var_statement | set_statement | break_statement | continue_statement | return_statement | expression_statement }
 

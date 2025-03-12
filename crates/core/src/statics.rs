@@ -1,6 +1,6 @@
 use crate::FileProvider;
 use crate::ast::{
-    AstNode, EnumDef, FileAst, FileDatabase, FileId, FuncDecl, FuncDef, Identifier, InterfaceDecl,
+    AstNode, EnumDef, FileAst, FileDatabase, FileId, FuncDecl, FuncDef, InterfaceDecl,
     InterfaceImpl, NodeId, Polytype, StructDef, TypeKind,
 };
 use crate::builtin::Builtin;
@@ -147,7 +147,6 @@ pub(crate) enum Declaration {
         variant: u16,
     },
     Struct(Rc<StructDef>),
-    ForeignType(Rc<Identifier>),
     Array,
     Polytype(Rc<Polytype>),
     Builtin(Builtin),

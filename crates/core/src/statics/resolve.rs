@@ -118,11 +118,6 @@ fn gather_declarations_item(
                     .declarations
                     .insert(struct_name, Declaration::Struct(s.clone()));
             }
-            TypeDefKind::Foreign(name) => {
-                namespace
-                    .declarations
-                    .insert(name.v.clone(), Declaration::ForeignType(name.clone()));
-            }
         },
         ItemKind::FuncDef(f) => {
             let func_name = f.name.v.clone();
@@ -490,7 +485,6 @@ fn resolve_names_item_decl(ctx: &mut StaticsContext, symbol_table: SymbolTable, 
                     resolve_names_typ(ctx, symbol_table.clone(), field.ty.clone(), false);
                 }
             }
-            TypeDefKind::Foreign(_) => {}
         },
         ItemKind::Stmt(..) => {}
     }
@@ -644,7 +638,6 @@ fn resolve_names_expr(ctx: &mut StaticsContext, symbol_table: SymbolTable, expr:
                     | Declaration::_ForeignFunction { .. }
                     | Declaration::InterfaceMethod { .. }
                     | Declaration::EnumVariant { .. }
-                    | Declaration::ForeignType(_)
                     | Declaration::Effect(_)
                     | Declaration::Polytype(_)
                     | Declaration::Builtin(_) => {
@@ -855,12 +848,7 @@ fn resolve_names_typ_identifier(
 ) {
     let lookup = symbol_table.lookup_declaration(identifier);
     match lookup {
-        Some(
-            decl @ (Declaration::Struct(_)
-            | Declaration::Enum(_)
-            | Declaration::Array
-            | Declaration::ForeignType(_)),
-        ) => {
+        Some(decl @ (Declaration::Struct(_) | Declaration::Enum(_) | Declaration::Array)) => {
             ctx.resolution_map.insert(node.id(), decl);
         }
         _ => {
