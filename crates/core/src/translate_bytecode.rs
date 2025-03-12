@@ -368,10 +368,7 @@ impl Translator {
 
                     self.update_function_name_table(st, &f.name.v);
 
-                    let overloaded_func_ty = self
-                        .statics
-                        .solution_of_node(f.name.clone().into())
-                        .unwrap();
+                    let overloaded_func_ty = self.statics.solution_of_node(f.name.node()).unwrap();
                     // println!("overloaded_func_ty = {}", desc.impl_type);
                     let monomorph_env = MonomorphEnv::empty();
                     update_monomorph_env(monomorph_env.clone(), overloaded_func_ty, substituted_ty);
@@ -450,7 +447,7 @@ impl Translator {
         monomorph_env: MonomorphEnv,
         st: &mut TranslatorState,
     ) {
-        self.update_filename_lineno_tables(st, expr.clone().into());
+        self.update_filename_lineno_tables(st, expr.node());
         // println!("translating expr: {:?}", expr.kind);
         match &*expr.kind {
             ExprKind::Variable(_) => {
@@ -564,9 +561,9 @@ impl Translator {
                         };
 
                         // TODO: This is way too much work for translate_bytecode to do
-                        let arg1_ty = self.statics.solution_of_node(left.into()).unwrap();
-                        let arg2_ty = self.statics.solution_of_node(right.into()).unwrap();
-                        let out_ty = self.statics.solution_of_node(expr.into()).unwrap();
+                        let arg1_ty = self.statics.solution_of_node(left.node()).unwrap();
+                        let arg2_ty = self.statics.solution_of_node(right.node()).unwrap();
+                        let out_ty = self.statics.solution_of_node(expr.node()).unwrap();
                         let specific_func_ty =
                             Type::Function(vec![arg1_ty, arg2_ty], out_ty.into());
 
@@ -627,15 +624,12 @@ impl Translator {
                         self.emit(st, Instr::CallFuncObj);
                     }
                     BytecodeResolution::FreeFunction(f, name) => {
-                        let func_ty = self
-                            .statics
-                            .solution_of_node(f.name.clone().into())
-                            .unwrap();
+                        let func_ty = self.statics.solution_of_node(f.name.node()).unwrap();
                         if !func_ty.is_overloaded() {
                             self.emit(st, Instr::Call(name.clone()));
                         } else {
                             let specific_func_ty =
-                                self.statics.solution_of_node(func.into()).unwrap();
+                                self.statics.solution_of_node(func.node()).unwrap();
 
                             let substituted_ty =
                                 subst_with_monomorphic_env(monomorph_env, specific_func_ty);
@@ -681,7 +675,7 @@ impl Translator {
                         method,
                         fully_qualified_name,
                     } => {
-                        let func_ty = self.statics.solution_of_node(func.into()).unwrap();
+                        let func_ty = self.statics.solution_of_node(func.node()).unwrap();
                         // println!("func_ty: {}", func_ty);
                         // println!("monomorphic_env: {}", monomorph_env);
                         let substituted_ty =
@@ -703,7 +697,7 @@ impl Translator {
                                     let unifvar = self
                                         .statics
                                         .unifvars
-                                        .get(&TypeProv::Node(f.name.clone().into()))
+                                        .get(&TypeProv::Node(f.name.node()))
                                         .unwrap();
                                     let interface_impl_ty = unifvar.solution().unwrap();
 
@@ -942,7 +936,7 @@ impl Translator {
                 self.emit(st, Instr::GetIdx);
             }
             ExprKind::Match(expr, arms) => {
-                let ty = self.statics.solution_of_node(expr.into()).unwrap();
+                let ty = self.statics.solution_of_node(expr.node()).unwrap();
 
                 self.translate_expr(expr.clone(), offset_table, monomorph_env.clone(), st);
                 let end_label = make_label("endmatch");
@@ -987,7 +981,7 @@ impl Translator {
                 }
 
                 st.lambdas.insert(
-                    expr.into(),
+                    expr.node(),
                     LambdaData {
                         label: label.clone(),
                         offset_table: lambda_offset_table,
@@ -1078,7 +1072,7 @@ impl Translator {
                     self.emit(st, Instr::JumpIf(tag_fail_label.clone()));
 
                     if let Some(inner) = inner {
-                        let inner_ty = self.statics.solution_of_node(inner.into()).unwrap();
+                        let inner_ty = self.statics.solution_of_node(inner.node()).unwrap();
                         self.translate_pat_comparison(&inner_ty, inner.clone(), st);
                         self.emit(st, Instr::Jump(end_label.clone()));
                     } else {
@@ -1160,10 +1154,7 @@ impl Translator {
                 // (this could be an overloaded function or an interface method)
                 // println!("resolving {}", f.name.v);
                 // self._display_node(f.body.id);
-                let func_ty = self
-                    .statics
-                    .solution_of_node(f.name.clone().into())
-                    .unwrap();
+                let func_ty = self.statics.solution_of_node(f.name.node()).unwrap();
 
                 if func_ty.is_overloaded() // println: 'a ToString -> ()
                 || iface_method
@@ -1231,10 +1222,7 @@ impl Translator {
         iface_method: bool,
     ) {
         {
-            let func_ty = self
-                .statics
-                .solution_of_node(f.name.clone().into())
-                .unwrap();
+            let func_ty = self.statics.solution_of_node(f.name.node()).unwrap();
             let func_name = f.name.v.clone();
 
             if func_ty.is_overloaded() // println: 'a ToString -> ()
@@ -1284,7 +1272,7 @@ impl Translator {
         monomorph_env: MonomorphEnv,
         st: &mut TranslatorState,
     ) {
-        self.update_filename_lineno_tables(st, stmt.clone().into());
+        self.update_filename_lineno_tables(st, stmt.node());
         match &*stmt.kind {
             StmtKind::Let(_, pat, expr) => {
                 self.translate_expr(expr.clone(), locals, monomorph_env.clone(), st);
@@ -1558,7 +1546,7 @@ fn make_label(hint: &str) -> Label {
 }
 
 fn idx_of_field(statics: &StaticsContext, accessed: Rc<Expr>, field: &str) -> u16 {
-    let accessed_ty = statics.solution_of_node(accessed.into()).unwrap();
+    let accessed_ty = statics.solution_of_node(accessed.node()).unwrap();
 
     match accessed_ty {
         Type::Nominal(Nominal::Struct(struct_def), _) => {

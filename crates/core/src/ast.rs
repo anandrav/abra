@@ -309,126 +309,126 @@ impl AstNode {
     }
 }
 
-impl From<Rc<FileAst>> for AstNode {
-    fn from(file_ast: Rc<FileAst>) -> Self {
-        AstNode::FileAst(file_ast)
-    }
-}
-impl From<&Rc<FileAst>> for AstNode {
-    fn from(file_ast: &Rc<FileAst>) -> Self {
-        AstNode::FileAst(Rc::clone(file_ast))
-    }
-}
+// impl From<Rc<FileAst>> for AstNode {
+//     fn from(file_ast: Rc<FileAst>) -> Self {
+//         AstNode::FileAst(file_ast)
+//     }
+// }
+// impl From<&Rc<FileAst>> for AstNode {
+//     fn from(file_ast: &Rc<FileAst>) -> Self {
+//         AstNode::FileAst(Rc::clone(file_ast))
+//     }
+// }
 
-impl From<Rc<Item>> for AstNode {
-    fn from(item: Rc<Item>) -> Self {
-        AstNode::Item(item)
-    }
-}
-impl From<&Rc<Item>> for AstNode {
-    fn from(item: &Rc<Item>) -> Self {
-        AstNode::Item(Rc::clone(item))
-    }
-}
+// impl From<Rc<Item>> for AstNode {
+//     fn from(item: Rc<Item>) -> Self {
+//         AstNode::Item(item)
+//     }
+// }
+// impl From<&Rc<Item>> for AstNode {
+//     fn from(item: &Rc<Item>) -> Self {
+//         AstNode::Item(Rc::clone(item))
+//     }
+// }
 
-impl From<Rc<Stmt>> for AstNode {
-    fn from(stmt: Rc<Stmt>) -> Self {
-        AstNode::Stmt(stmt)
-    }
-}
-impl From<&Rc<Stmt>> for AstNode {
-    fn from(stmt: &Rc<Stmt>) -> Self {
-        AstNode::Stmt(Rc::clone(stmt))
-    }
-}
+// impl From<Rc<Stmt>> for AstNode {
+//     fn from(stmt: Rc<Stmt>) -> Self {
+//         AstNode::Stmt(stmt)
+//     }
+// }
+// impl From<&Rc<Stmt>> for AstNode {
+//     fn from(stmt: &Rc<Stmt>) -> Self {
+//         AstNode::Stmt(Rc::clone(stmt))
+//     }
+// }
 
-impl From<Rc<Expr>> for AstNode {
-    fn from(expr: Rc<Expr>) -> Self {
-        AstNode::Expr(expr)
-    }
-}
-impl From<&Rc<Expr>> for AstNode {
-    fn from(expr: &Rc<Expr>) -> Self {
-        AstNode::Expr(Rc::clone(expr))
-    }
-}
+// impl From<Rc<Expr>> for AstNode {
+//     fn from(expr: Rc<Expr>) -> Self {
+//         AstNode::Expr(expr)
+//     }
+// }
+// impl From<&Rc<Expr>> for AstNode {
+//     fn from(expr: &Rc<Expr>) -> Self {
+//         AstNode::Expr(Rc::clone(expr))
+//     }
+// }
 
-impl From<Rc<Pat>> for AstNode {
-    fn from(pat: Rc<Pat>) -> Self {
-        AstNode::Pat(pat)
-    }
-}
-impl From<&Rc<Pat>> for AstNode {
-    fn from(pat: &Rc<Pat>) -> Self {
-        AstNode::Pat(Rc::clone(pat))
-    }
-}
+// impl From<Rc<Pat>> for AstNode {
+//     fn from(pat: Rc<Pat>) -> Self {
+//         AstNode::Pat(pat)
+//     }
+// }
+// impl From<&Rc<Pat>> for AstNode {
+//     fn from(pat: &Rc<Pat>) -> Self {
+//         AstNode::Pat(Rc::clone(pat))
+//     }
+// }
 
-impl From<Rc<Type>> for AstNode {
-    fn from(typ: Rc<Type>) -> Self {
-        AstNode::Type(typ)
-    }
-}
-impl From<&Rc<Type>> for AstNode {
-    fn from(typ: &Rc<Type>) -> Self {
-        AstNode::Type(Rc::clone(typ))
-    }
-}
+// impl From<Rc<Type>> for AstNode {
+//     fn from(typ: Rc<Type>) -> Self {
+//         AstNode::Type(typ)
+//     }
+// }
+// impl From<&Rc<Type>> for AstNode {
+//     fn from(typ: &Rc<Type>) -> Self {
+//         AstNode::Type(Rc::clone(typ))
+//     }
+// }
 
-impl From<Rc<Identifier>> for AstNode {
-    fn from(identifier: Rc<Identifier>) -> Self {
-        AstNode::Identifier(identifier)
-    }
-}
-impl From<&Rc<Identifier>> for AstNode {
-    fn from(identifier: &Rc<Identifier>) -> Self {
-        AstNode::Identifier(Rc::clone(identifier))
-    }
-}
+// impl From<Rc<Identifier>> for AstNode {
+//     fn from(identifier: Rc<Identifier>) -> Self {
+//         AstNode::Identifier(identifier)
+//     }
+// }
+// impl From<&Rc<Identifier>> for AstNode {
+//     fn from(identifier: &Rc<Identifier>) -> Self {
+//         AstNode::Identifier(Rc::clone(identifier))
+//     }
+// }
 
-impl From<Rc<InterfaceMethodDecl>> for AstNode {
-    fn from(interface_method_decl: Rc<InterfaceMethodDecl>) -> Self {
-        AstNode::InterfaceMethodDecl(interface_method_decl)
-    }
-}
-impl From<&Rc<InterfaceMethodDecl>> for AstNode {
-    fn from(interface_method_decl: &Rc<InterfaceMethodDecl>) -> Self {
-        AstNode::InterfaceMethodDecl(Rc::clone(interface_method_decl))
-    }
-}
+// impl From<Rc<InterfaceMethodDecl>> for AstNode {
+//     fn from(interface_method_decl: Rc<InterfaceMethodDecl>) -> Self {
+//         AstNode::InterfaceMethodDecl(interface_method_decl)
+//     }
+// }
+// impl From<&Rc<InterfaceMethodDecl>> for AstNode {
+//     fn from(interface_method_decl: &Rc<InterfaceMethodDecl>) -> Self {
+//         AstNode::InterfaceMethodDecl(Rc::clone(interface_method_decl))
+//     }
+// }
 
-impl From<Rc<Variant>> for AstNode {
-    fn from(variant: Rc<Variant>) -> Self {
-        AstNode::Variant(variant)
-    }
-}
-impl From<&Rc<Variant>> for AstNode {
-    fn from(variant: &Rc<Variant>) -> Self {
-        AstNode::Variant(Rc::clone(variant))
-    }
-}
+// impl From<Rc<Variant>> for AstNode {
+//     fn from(variant: Rc<Variant>) -> Self {
+//         AstNode::Variant(variant)
+//     }
+// }
+// impl From<&Rc<Variant>> for AstNode {
+//     fn from(variant: &Rc<Variant>) -> Self {
+//         AstNode::Variant(Rc::clone(variant))
+//     }
+// }
 
-impl From<Rc<StructField>> for AstNode {
-    fn from(struct_field: Rc<StructField>) -> Self {
-        AstNode::StructField(struct_field)
-    }
-}
-impl From<&Rc<StructField>> for AstNode {
-    fn from(struct_field: &Rc<StructField>) -> Self {
-        AstNode::StructField(Rc::clone(struct_field))
-    }
-}
+// impl From<Rc<StructField>> for AstNode {
+//     fn from(struct_field: Rc<StructField>) -> Self {
+//         AstNode::StructField(struct_field)
+//     }
+// }
+// impl From<&Rc<StructField>> for AstNode {
+//     fn from(struct_field: &Rc<StructField>) -> Self {
+//         AstNode::StructField(Rc::clone(struct_field))
+//     }
+// }
 
-impl From<Rc<MatchArm>> for AstNode {
-    fn from(match_arm: Rc<MatchArm>) -> Self {
-        AstNode::MatchArm(match_arm)
-    }
-}
-impl From<&Rc<MatchArm>> for AstNode {
-    fn from(match_arm: &Rc<MatchArm>) -> Self {
-        AstNode::MatchArm(Rc::clone(match_arm))
-    }
-}
+// impl From<Rc<MatchArm>> for AstNode {
+//     fn from(match_arm: Rc<MatchArm>) -> Self {
+//         AstNode::MatchArm(match_arm)
+//     }
+// }
+// impl From<&Rc<MatchArm>> for AstNode {
+//     fn from(match_arm: &Rc<MatchArm>) -> Self {
+//         AstNode::MatchArm(Rc::clone(match_arm))
+//     }
+// }
 
 #[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq)]
 
@@ -614,13 +614,25 @@ pub enum BinaryOperator {
     Format,
 }
 
-#[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq)]
 pub(crate) struct MatchArm {
     pub(crate) pat: Rc<Pat>,
     pub(crate) expr: Rc<Expr>,
 
     pub(crate) loc: Location,
     pub(crate) id: NodeId,
+}
+
+impl std::hash::Hash for MatchArm {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.id.hash(state);
+    }
+}
+
+impl MatchArm {
+    pub fn node(self: &Rc<MatchArm>) -> AstNode {
+        AstNode::MatchArm(self.clone())
+    }
 }
 
 #[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq)]

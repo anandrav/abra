@@ -350,7 +350,7 @@ fn resolve_imports_file(ctx: &mut StaticsContext, file: Rc<FileAst>) -> Namespac
         if let ItemKind::Import(path) = &*item.kind {
             let Some(import_src) = ctx.global_namespace.namespaces.get(&path.v) else {
                 ctx.errors
-                    .push(Error::UnresolvedIdentifier { node: item.into() });
+                    .push(Error::UnresolvedIdentifier { node: item.node() });
                 continue;
             };
             // add declarations from this import to the environment
@@ -454,7 +454,7 @@ fn resolve_names_item_decl(ctx: &mut StaticsContext, symbol_table: SymbolTable, 
                 }
             } else {
                 ctx.errors
-                    .push(Error::UnresolvedIdentifier { node: stmt.into() });
+                    .push(Error::UnresolvedIdentifier { node: stmt.node() });
             }
         }
         ItemKind::Import(..) => {}
@@ -580,7 +580,7 @@ fn resolve_names_expr(ctx: &mut StaticsContext, symbol_table: SymbolTable, expr:
                 ctx.resolution_map.insert(expr.id, decl);
             } else {
                 ctx.errors
-                    .push(Error::UnresolvedIdentifier { node: expr.into() });
+                    .push(Error::UnresolvedIdentifier { node: expr.node() });
             }
         }
         ExprKind::BinOp(left, _, right) => {
@@ -642,7 +642,7 @@ fn resolve_names_expr(ctx: &mut StaticsContext, symbol_table: SymbolTable, expr:
                     | Declaration::Polytype(_)
                     | Declaration::Builtin(_) => {
                         ctx.errors
-                            .push(Error::UnresolvedIdentifier { node: field.into() });
+                            .push(Error::UnresolvedIdentifier { node: field.node() });
                     }
                     Declaration::InterfaceDef(_) => unimplemented!(),
                     Declaration::Enum(enum_def) => {
@@ -662,7 +662,7 @@ fn resolve_names_expr(ctx: &mut StaticsContext, symbol_table: SymbolTable, expr:
                         }
                         if !found {
                             ctx.errors
-                                .push(Error::UnresolvedIdentifier { node: field.into() });
+                                .push(Error::UnresolvedIdentifier { node: field.node() });
                         }
                     }
                     Declaration::Struct(_) => unimplemented!(),
@@ -713,7 +713,7 @@ fn resolve_names_func_helper(
 }
 
 fn resolve_names_fn_arg(symbol_table: SymbolTable, arg: &Rc<Identifier>) {
-    symbol_table.extend_declaration(arg.v.clone(), Declaration::Var(arg.into()));
+    symbol_table.extend_declaration(arg.v.clone(), Declaration::Var(arg.node()));
 }
 
 fn resolve_names_pat(ctx: &mut StaticsContext, symbol_table: SymbolTable, pat: Rc<Pat>) {
@@ -725,7 +725,7 @@ fn resolve_names_pat(ctx: &mut StaticsContext, symbol_table: SymbolTable, pat: R
         | PatKind::Bool(_)
         | PatKind::Str(_) => {}
         PatKind::Binding(identifier) => {
-            symbol_table.extend_declaration(identifier.clone(), Declaration::Var(pat.into()));
+            symbol_table.extend_declaration(identifier.clone(), Declaration::Var(pat.node()));
         }
         PatKind::Variant(prefixes, tag, data) => {
             if !prefixes.is_empty() {
@@ -749,7 +749,7 @@ fn resolve_names_pat(ctx: &mut StaticsContext, symbol_table: SymbolTable, pat: R
                     println!("not found!");
                     println!("tag: {}", tag.v);
                     ctx.errors
-                        .push(Error::UnresolvedIdentifier { node: tag.into() });
+                        .push(Error::UnresolvedIdentifier { node: tag.node() });
                 }
             } else {
                 // since there is no prefix to the variant, prefix must be inferred by typechecker
@@ -782,14 +782,14 @@ fn resolve_names_typ(
             resolve_names_polytyp(ctx, symbol_table, polyty.clone(), introduce_poly);
         }
         TypeKind::Named(identifier) => {
-            resolve_names_typ_identifier(ctx, symbol_table, identifier, typ.clone().into());
+            resolve_names_typ_identifier(ctx, symbol_table, identifier, typ.node());
         }
         TypeKind::NamedWithParams(identifier, args) => {
             resolve_names_typ_identifier(
                 ctx,
                 symbol_table.clone(),
                 &identifier.v,
-                identifier.into(),
+                identifier.node(),
             );
             for arg in args {
                 resolve_names_typ(ctx, symbol_table.clone(), arg.clone(), introduce_poly);
@@ -835,7 +835,7 @@ fn resolve_names_polytyp(
             ctx.resolution_map.insert(iface.id, decl.clone());
         } else {
             ctx.errors
-                .push(Error::UnresolvedIdentifier { node: iface.into() });
+                .push(Error::UnresolvedIdentifier { node: iface.node() });
         }
     }
 }

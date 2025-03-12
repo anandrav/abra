@@ -68,11 +68,11 @@ fn check_pattern_exhaustiveness_stmt(statics: &mut StaticsContext, stmt: &Stmt) 
 fn check_pattern_exhaustiveness_expr(statics: &mut StaticsContext, expr: &Rc<Expr>) {
     match &*expr.kind {
         ExprKind::Match(scrutiny, arms) => {
-            if statics.solution_of_node(scrutiny.clone().into()).is_none() {
+            if statics.solution_of_node(scrutiny.node()).is_none() {
                 return;
             }
             for arm in arms {
-                if statics.solution_of_node(arm.clone().into()).is_none() {
+                if statics.solution_of_node(arm.node()).is_none() {
                     return;
                 }
             }
@@ -307,7 +307,7 @@ pub(crate) struct DeconstructedPat {
 
 impl DeconstructedPat {
     fn from_ast_pat(statics: &StaticsContext, pat: Rc<Pat>) -> Self {
-        let ty = statics.solution_of_node(pat.clone().into()).unwrap();
+        let ty = statics.solution_of_node(pat.node()).unwrap();
 
         let mut fields = vec![];
         let ctor = match &*pat.kind {
@@ -702,7 +702,7 @@ fn match_expr_exhaustive_check(statics: &mut StaticsContext, expr: &Rc<Expr>) {
         panic!() // TODO: just pass this stuff to the function and remove panic
     };
 
-    let scrutinee_ty = statics.solution_of_node(scrutiny.into());
+    let scrutinee_ty = statics.solution_of_node(scrutiny.node());
     let Some(scrutinee_ty) = scrutinee_ty else {
         return;
     };
@@ -716,7 +716,7 @@ fn match_expr_exhaustive_check(statics: &mut StaticsContext, expr: &Rc<Expr>) {
     let witness_patterns = witness_matrix.first_column();
     if !witness_patterns.is_empty() {
         statics.errors.push(Error::NonexhaustiveMatch {
-            node: expr.clone().into(),
+            node: expr.node(),
             missing: witness_patterns,
         });
     }
@@ -730,14 +730,14 @@ fn match_expr_exhaustive_check(statics: &mut StaticsContext, expr: &Rc<Expr>) {
     let mut redundant_arms = Vec::new();
     redundant_arms.extend(arms.iter().enumerate().filter_map(|(i, arm)| {
         if useless_indices.contains(&i) {
-            Some(arm.pat.clone().into())
+            Some(arm.pat.node())
         } else {
             None
         }
     }));
     if !redundant_arms.is_empty() {
         statics.errors.push(Error::RedundantArms {
-            node: expr.into(),
+            node: expr.node(),
             redundant_arms,
         })
     }
