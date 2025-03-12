@@ -1,7 +1,7 @@
 use crate::FileProvider;
 use crate::ast::{
-    AstNode, EnumDef, FileAst, FileDatabase, FileId, ForeignFuncDecl, FuncDef, Identifier,
-    InterfaceDecl, InterfaceImpl, NodeId, Polytype, StructDef, TypeKind,
+    AstNode, EnumDef, FileAst, FileDatabase, FileId, FuncDecl, FuncDef, Identifier, InterfaceDecl,
+    InterfaceImpl, NodeId, Polytype, StructDef, TypeKind,
 };
 use crate::builtin::Builtin;
 use crate::effects::EffectDesc;
@@ -131,7 +131,7 @@ impl Display for Namespace {
 pub(crate) enum Declaration {
     FreeFunction(Rc<FuncDef>, String),
     _ForeignFunction {
-        decl: Rc<ForeignFuncDecl>,
+        decl: Rc<FuncDecl>,
         libname: PathBuf,
         symbol: String,
     },

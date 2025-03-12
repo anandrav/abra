@@ -132,6 +132,9 @@ fn gather_declarations_item(
                 Declaration::FreeFunction(f.clone(), fully_qualified_name),
             );
         }
+        ItemKind::HostFuncDecl(..) => {
+            unimplemented!()
+        }
         ItemKind::ForeignFuncDecl(_func_decl) => {
             // TODO: get the lib name using the filesystem, or report error saying why we can't
             // this function -> its file
@@ -404,6 +407,9 @@ fn resolve_names_item_decl(ctx: &mut StaticsContext, symbol_table: SymbolTable, 
             let symbol_table = symbol_table.new_scope();
             resolve_names_func_helper(ctx, symbol_table.clone(), &f.args, &f.body, &f.ret_type);
         }
+        ItemKind::HostFuncDecl(..) => {
+            unimplemented!()
+        }
         ItemKind::ForeignFuncDecl(f) => {
             // TODO: Is this actually necessary? Looking up and then inserting...
             if let Some(decl @ Declaration::_ForeignFunction { .. }) =
@@ -519,6 +525,7 @@ pub(crate) fn resolve_names_file_stmts(
 fn resolve_names_item_stmt(ctx: &mut StaticsContext, symbol_table: SymbolTable, stmt: Rc<Item>) {
     match &*stmt.kind {
         ItemKind::FuncDef(..)
+        | ItemKind::HostFuncDecl(..)
         | ItemKind::ForeignFuncDecl(..)
         | ItemKind::InterfaceDef(..)
         | ItemKind::InterfaceImpl(..)

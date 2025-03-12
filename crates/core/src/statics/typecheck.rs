@@ -1393,6 +1393,9 @@ fn generate_constraints_item_decls(item: Rc<Item>, ctx: &mut StaticsContext) {
                 &f.ret_type,
             );
         }
+        ItemKind::HostFuncDecl(..) => {
+            unimplemented!()
+        }
         ItemKind::ForeignFuncDecl(f) => {
             generate_constraints_func_decl_annotated(
                 ctx,
@@ -1462,7 +1465,7 @@ fn generate_constraints_item_stmts(mode: Mode, stmt: Rc<Item>, ctx: &mut Statics
         ItemKind::FuncDef(f) => {
             generate_constraints_fn_def(ctx, PolyvarScope::empty(), f, f.name.node());
         }
-        ItemKind::ForeignFuncDecl(_) => {}
+        ItemKind::HostFuncDecl(_) | ItemKind::ForeignFuncDecl(_) => {}
     }
 }
 

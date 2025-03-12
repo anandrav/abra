@@ -1,0 +1,5 @@
+
+host fn do_stuff() -> void
+
+println("hello")
+

@@ -30,6 +30,7 @@ fn check_pattern_exhaustiveness_item(statics: &mut StaticsContext, stmt: &Item) 
         ItemKind::InterfaceDef(..) => {}
         ItemKind::TypeDef(..) => {}
         ItemKind::ForeignFuncDecl(..) => {}
+        ItemKind::HostFuncDecl(..) => {}
         ItemKind::InterfaceImpl(iface_impl) => {
             for f in &iface_impl.methods {
                 check_pattern_exhaustiveness_expr(statics, &f.body);

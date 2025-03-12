@@ -152,9 +152,10 @@ impl FileProvider for FileProviderDefault {
             }
         }
 
-        Err(Box::new(MyError(
-            "TODO add a better error message here".to_string(),
-        )))
+        Err(Box::new(MyError(format!(
+            "Could not find desired file: {}",
+            path.display()
+        ))))
     }
 
     #[cfg(feature = "ffi")]

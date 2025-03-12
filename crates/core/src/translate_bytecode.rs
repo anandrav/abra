@@ -1,6 +1,6 @@
 use crate::assembly::{Instr, Label, Line, remove_labels};
 use crate::ast::{
-    AstNode, BinaryOperator, ForeignFuncDecl, FuncDef, InterfaceDecl, Item, ItemKind, TypeKind,
+    AstNode, BinaryOperator, FuncDecl, FuncDef, InterfaceDecl, Item, ItemKind, TypeKind,
 };
 use crate::ast::{FileAst, FileDatabase, NodeId};
 use crate::builtin::Builtin;
@@ -155,7 +155,7 @@ pub(crate) enum BytecodeResolution {
     Var(AstNode),
     FreeFunction(Rc<FuncDef>, String),
     ForeignFunction {
-        decl: Rc<ForeignFuncDecl>,
+        decl: Rc<FuncDecl>,
         libname: PathBuf,
         symbol: String,
     },
@@ -1209,6 +1209,7 @@ impl Translator {
             ItemKind::InterfaceDef(..)
             | ItemKind::TypeDef(..)
             | ItemKind::Import(..)
+            | ItemKind::HostFuncDecl(..)
             | ItemKind::ForeignFuncDecl(..) => {
                 // noop
             }
