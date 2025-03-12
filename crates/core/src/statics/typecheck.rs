@@ -1373,6 +1373,8 @@ fn generate_constraints_item_decls(item: Rc<Item>, ctx: &mut StaticsContext) {
 
                 impl_list.push(iface_impl.clone());
             }
+
+            // todo last here
         }
         ItemKind::TypeDef(typdefkind) => match &**typdefkind {
             // TypeDefKind::Alias(ident, ty) => {
@@ -1418,6 +1420,16 @@ fn generate_constraints_item_stmts(mode: Mode, stmt: Rc<Item>, ctx: &mut Statics
         }
         ItemKind::InterfaceImpl(iface_impl) => {
             let impl_ty = ast_type_to_typevar(ctx, iface_impl.typ.clone());
+
+            if !impl_ty.is_instantiated_nominal() {
+                if let Some(impl_ty) = impl_ty.solution() {
+                    ctx.errors.push(Error::InterfaceImplTypeNotGeneric {
+                        ty: impl_ty,
+
+                        node: stmt.node(),
+                    })
+                }
+            }
 
             let lookup = ctx.resolution_map.get(&iface_impl.iface.id).cloned();
             if let Some(Declaration::InterfaceDef(iface_decl)) = &lookup {

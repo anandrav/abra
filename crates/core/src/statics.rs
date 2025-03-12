@@ -184,6 +184,10 @@ pub(crate) enum Error {
         iface: Rc<InterfaceDecl>,
         node: AstNode,
     },
+    InterfaceImplTypeNotGeneric {
+        ty: SolvedType,
+        node: AstNode,
+    },
     // break and continue
     NotInLoop {
         node: AstNode,
@@ -405,6 +409,14 @@ impl Error {
                 diagnostic = diagnostic.with_message(format!(
                     "Interface `{}` is not implemented for type `{}`",
                     iface.name.v, ty
+                ));
+                let (file, range) = get_file_and_range(node);
+                labels.push(Label::secondary(file, range));
+            }
+            Error::InterfaceImplTypeNotGeneric { ty, node } => {
+                diagnostic = diagnostic.with_message(format!(
+                    "Interfaces cannot be implemented for `{}`. It must be fully generic.",
+                    ty
                 ));
                 let (file, range) = get_file_and_range(node);
                 labels.push(Label::secondary(file, range));

@@ -176,12 +176,6 @@ impl std::hash::Hash for FileAst {
     }
 }
 
-impl FileAst {
-    pub fn node(self: &Rc<FileAst>) -> AstNode {
-        AstNode::FileAst(self.clone())
-    }
-}
-
 #[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq, Hash)]
 pub(crate) enum TypeDefKind {
     // Alias(Rc<Identifier>, Rc<AstType>),
@@ -248,15 +242,9 @@ impl std::hash::Hash for StructField {
     }
 }
 
-impl StructField {
-    pub fn node(self: &Rc<StructField>) -> AstNode {
-        AstNode::StructField(self.clone())
-    }
-}
-
 #[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq)]
 pub(crate) enum AstNode {
-    FileAst(Rc<FileAst>),
+    // FileAst(Rc<FileAst>),
     Item(Rc<Item>),
     Stmt(Rc<Stmt>),
     Expr(Rc<Expr>),
@@ -265,7 +253,7 @@ pub(crate) enum AstNode {
     Identifier(Rc<Identifier>),
     InterfaceMethodDecl(Rc<InterfaceMethodDecl>),
     Variant(Rc<Variant>),
-    StructField(Rc<StructField>),
+    // StructField(Rc<StructField>),
     MatchArm(Rc<MatchArm>),
 }
 
@@ -278,7 +266,6 @@ impl std::hash::Hash for AstNode {
 impl AstNode {
     pub fn location(&self) -> &Location {
         match self {
-            AstNode::FileAst(file_ast) => &file_ast.loc,
             AstNode::Item(item) => &item.loc,
             AstNode::Stmt(stmt) => &stmt.loc,
             AstNode::Expr(expr) => &expr.loc,
@@ -287,14 +274,12 @@ impl AstNode {
             AstNode::Identifier(identifier) => &identifier.loc,
             AstNode::InterfaceMethodDecl(interface_method_decl) => &interface_method_decl.loc,
             AstNode::Variant(variant) => &variant.loc,
-            AstNode::StructField(struct_field) => &struct_field.loc,
             AstNode::MatchArm(match_arm) => &match_arm.loc,
         }
     }
 
     pub fn id(&self) -> NodeId {
         match self {
-            AstNode::FileAst(file_ast) => file_ast.id,
             AstNode::Item(item) => item.id,
             AstNode::Stmt(stmt) => stmt.id,
             AstNode::Expr(expr) => expr.id,
@@ -303,7 +288,6 @@ impl AstNode {
             AstNode::Identifier(identifier) => identifier.id,
             AstNode::InterfaceMethodDecl(interface_method_decl) => interface_method_decl.id,
             AstNode::Variant(variant) => variant.id,
-            AstNode::StructField(struct_field) => struct_field.id,
             AstNode::MatchArm(match_arm) => match_arm.id,
         }
     }
