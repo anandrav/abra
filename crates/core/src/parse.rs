@@ -562,7 +562,7 @@ pub(crate) fn parse_item(pair: Pair<Rule>, file_id: FileId) -> Rc<Item> {
             let ret_type = parse_func_out_annotation(maybe_func_out.clone(), file_id);
 
             Rc::new(Item {
-                kind: Rc::new(ItemKind::ForeignFuncDecl(
+                kind: Rc::new(ItemKind::HostFuncDecl(
                     FuncDecl {
                         name,
                         args,

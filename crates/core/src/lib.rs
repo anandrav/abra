@@ -221,19 +221,26 @@ impl FileProvider for OsFileProvider {
 #[derive(Default, Debug)]
 pub struct MockFileProvider {
     path_to_file: HashMap<PathBuf, String>,
+    _shared_objects_dir: PathBuf,
 }
 
 impl MockFileProvider {
     pub fn new(mut path_to_file: HashMap<PathBuf, String>) -> Box<Self> {
         path_to_file.insert(Path::new("prelude.abra").to_path_buf(), PRELUDE.into());
-        Box::new(Self { path_to_file })
+        Box::new(Self {
+            path_to_file,
+            _shared_objects_dir: PathBuf::new(),
+        })
     }
 
     pub fn single_file(contents: &str) -> Box<Self> {
         let mut path_to_file = HashMap::new();
         path_to_file.insert(Path::new("prelude.abra").to_path_buf(), PRELUDE.into());
         path_to_file.insert(Path::new("main.abra").to_path_buf(), contents.into());
-        Box::new(Self { path_to_file })
+        Box::new(Self {
+            path_to_file,
+            _shared_objects_dir: PathBuf::new(),
+        })
     }
 }
 
@@ -250,6 +257,6 @@ impl FileProvider for MockFileProvider {
 
     #[cfg(feature = "ffi")]
     fn shared_objects_dir(&self) -> &PathBuf {
-        unreachable!()
+        &self._shared_objects_dir
     }
 }

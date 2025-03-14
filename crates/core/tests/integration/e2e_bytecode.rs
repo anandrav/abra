@@ -1023,3 +1023,22 @@ comment */
     let top = vm.top().unwrap();
     assert_eq!(top.get_int(&vm).unwrap(), 4);
 }
+
+#[ignore]
+#[test]
+fn host_function() {
+    let src = r#"
+host fn do_stuff() -> int
+
+do_stuff()
+"#;
+    let program = unwrap_or_panic(compile_bytecode(
+        "main.abra",
+        DefaultEffects::enumerate(),
+        MockFileProvider::single_file(src),
+    ));
+    let mut vm = Vm::new(program);
+    vm.run();
+    let top = vm.top().unwrap();
+    assert_eq!(top.get_int(&vm).unwrap(), 4);
+}

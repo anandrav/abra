@@ -189,7 +189,7 @@ op_or = { "or" }
 // NOTE: When changing this code, make sure you don't have a subset of a word before
 // another word. For example: { "type" | "typeof" } will never match "typeof"
 keyword = @{
-   "and" | "bool" | "break" | "continue" | "else" | "false" | "fn" | "let" | "if" | "int" | "match" | "mod" | "or" | "return" | "set" | "string" | "type" | "nothing" | "true" | "void"
+   "and" | "bool" | "break" | "continue" | "else" | "false" | "fn" | "foreign" | "host" | "let" | "if" | "int" | "match" | "mod" | "or" | "return" | "set" | "string" | "type" | "nothing" | "true" | "void"
 }
 
 semicolon = _{ ";" }
