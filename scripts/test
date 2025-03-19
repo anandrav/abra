@@ -12,7 +12,7 @@ cargo clippy
 
 cargo test
 
-pushd $WD/crates/core
+pushd $WD/abra_core
 cargo check --lib --target wasm32-unknown-unknown
 popd
 

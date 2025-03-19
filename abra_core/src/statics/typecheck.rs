@@ -765,6 +765,7 @@ fn tyvar_of_declaration(
 ) -> Option<TypeVar> {
     match decl {
         Declaration::FreeFunction(f, _) => Some(TypeVar::from_node(ctx, f.name.node())),
+        Declaration::HostFunction(f, _) => Some(TypeVar::from_node(ctx, f.name.node())),
         Declaration::_ForeignFunction { decl, .. } => {
             Some(TypeVar::from_node(ctx, decl.name.node()))
         }
@@ -936,8 +937,9 @@ pub(crate) fn ast_type_to_solved_type(
                 Declaration::Enum(enum_def) => {
                     Some(SolvedType::Nominal(Nominal::Enum(enum_def.clone()), vec![]))
                 }
-                Declaration::_ForeignFunction { .. } => None,
-                Declaration::FreeFunction(_, _)
+                Declaration::_ForeignFunction { .. }
+                | Declaration::FreeFunction(_, _)
+                | Declaration::HostFunction(..)
                 | Declaration::InterfaceDef(_)
                 | Declaration::InterfaceMethod { .. }
                 | Declaration::EnumVariant { .. }
@@ -962,8 +964,9 @@ pub(crate) fn ast_type_to_solved_type(
                 Declaration::Enum(enum_def) => {
                     Some(SolvedType::Nominal(Nominal::Enum(enum_def.clone()), sargs))
                 }
-                Declaration::_ForeignFunction { .. } => None,
-                Declaration::FreeFunction(_, _)
+                Declaration::_ForeignFunction { .. }
+                | Declaration::HostFunction(..)
+                | Declaration::FreeFunction(_, _)
                 | Declaration::InterfaceDef(_)
                 | Declaration::InterfaceMethod { .. }
                 | Declaration::EnumVariant { .. }
@@ -1373,10 +1376,7 @@ fn generate_constraints_item_decls(item: Rc<Item>, ctx: &mut StaticsContext) {
                 &f.ret_type,
             );
         }
-        ItemKind::HostFuncDecl(..) => {
-            unimplemented!()
-        }
-        ItemKind::ForeignFuncDecl(f) => {
+        ItemKind::HostFuncDecl(f) | ItemKind::ForeignFuncDecl(f) => {
             generate_constraints_func_decl_annotated(
                 ctx,
                 f.name.node(),

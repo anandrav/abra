@@ -49,8 +49,9 @@ pub(crate) struct StaticsContext {
     // string constants (for bytecode translation)
     pub(crate) string_constants: HashMap<String, usize>,
     // dylibs (for bytecode translation)
-    // pub(crate) dylibs: BTreeSet<PathBuf>,
-    pub(crate) dylib_to_funcs: BTreeMap<PathBuf, BTreeSet<String>>,
+    pub(crate) dylib_to_funcs: BTreeMap<PathBuf, BTreeSet<String>>, // TODO: don't use a BTreeMap just sort at the end
+    // host functions
+    pub(crate) host_funcs: BTreeMap<String, u32>, // TODO: don't use a BTreeMap just sort at the end
 
     // TYPE CHECKING
 
@@ -80,6 +81,7 @@ impl StaticsContext {
             interface_impls: Default::default(),
             string_constants: Default::default(),
             dylib_to_funcs: Default::default(),
+            host_funcs: Default::default(),
             unifvars: Default::default(),
             unifvars_constrained_to_interfaces: Default::default(),
             errors: Default::default(),
@@ -130,6 +132,7 @@ impl Display for Namespace {
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub(crate) enum Declaration {
     FreeFunction(Rc<FuncDef>, String),
+    HostFunction(Rc<FuncDecl>, String),
     _ForeignFunction {
         decl: Rc<FuncDecl>,
         libname: PathBuf,

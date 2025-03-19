@@ -36,7 +36,7 @@ fn test_ffi() {
         .arg("--modules")
         .arg("tests/modules")
         .arg("--shared-objects")
-        .arg("../../target/debug")
+        .arg("../target/debug")
         .arg("tests/ffi.abra")
         .output()
         .expect("Failed to execute command");

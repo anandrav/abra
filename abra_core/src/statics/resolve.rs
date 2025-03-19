@@ -127,8 +127,13 @@ fn gather_declarations_item(
                 Declaration::FreeFunction(f.clone(), fully_qualified_name),
             );
         }
-        ItemKind::HostFuncDecl(..) => {
-            unimplemented!()
+        ItemKind::HostFuncDecl(func_decl) => {
+            let func_name = func_decl.name.v.clone();
+            let fully_qualified_name = fullname(&qualifiers, &func_name);
+            namespace.declarations.insert(
+                func_name,
+                Declaration::HostFunction(func_decl.clone(), fully_qualified_name),
+            );
         }
         ItemKind::ForeignFuncDecl(_func_decl) => {
             // TODO: get the lib name using the filesystem, or report error saying why we can't
@@ -402,10 +407,25 @@ fn resolve_names_item_decl(ctx: &mut StaticsContext, symbol_table: SymbolTable, 
             let symbol_table = symbol_table.new_scope();
             resolve_names_func_helper(ctx, symbol_table.clone(), &f.args, &f.body, &f.ret_type);
         }
-        ItemKind::HostFuncDecl(..) => {
-            unimplemented!()
+        ItemKind::HostFuncDecl(f) => {
+            // TODO: Is this actually necessary? Looking up and then inserting...
+            if let Some(decl @ Declaration::HostFunction { .. }) =
+                symbol_table.lookup_declaration(&f.name.v)
+            {
+                ctx.resolution_map.insert(f.name.id, decl.clone());
+            }
+            let symbol_table = symbol_table.new_scope();
+            for arg in &f.args {
+                resolve_names_fn_arg(symbol_table.clone(), &arg.0);
+                // if let Some(ty_annot) = &arg.1 {
+                resolve_names_typ(ctx, symbol_table.clone(), arg.1.clone(), true);
+                // }
+            }
+
+            resolve_names_typ(ctx, symbol_table.clone(), f.ret_type.clone(), true);
         }
         ItemKind::ForeignFuncDecl(f) => {
+            // TODO: code almost entirely duplicated with above
             // TODO: Is this actually necessary? Looking up and then inserting...
             if let Some(decl @ Declaration::_ForeignFunction { .. }) =
                 symbol_table.lookup_declaration(&f.name.v)
@@ -635,6 +655,7 @@ fn resolve_names_expr(ctx: &mut StaticsContext, symbol_table: SymbolTable, expr:
                     // member access not really valid for these
                     // TODO: perhaps add another kind of Error for this situation, but play it by ear
                     Declaration::FreeFunction(..)
+                    | Declaration::HostFunction(..)
                     | Declaration::_ForeignFunction { .. }
                     | Declaration::InterfaceMethod { .. }
                     | Declaration::EnumVariant { .. }

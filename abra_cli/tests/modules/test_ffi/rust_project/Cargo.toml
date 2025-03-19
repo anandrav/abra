@@ -8,7 +8,8 @@ license = "MPL-2.0"
 crate-type = ["cdylib"]
 
 [dependencies]
-abra_core = { path = "../../../../../core" }
+abra_core = { path = "../../../../../abra_core" }
+
 
 [build-dependencies]
-abra_core = { path = "../../../../../core" }
+abra_core = { path = "../../../../../abra_core" }

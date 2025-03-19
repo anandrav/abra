@@ -99,6 +99,9 @@ impl Declaration {
                 libname: libname.clone(),
                 symbol: symbol.clone(),
             },
+            Declaration::HostFunction(f, fullname) => {
+                BytecodeResolution::HostFunction(f.clone(), fullname.clone())
+            }
             Declaration::InterfaceDef(_) => panic!(), // TODO: remove panic
             Declaration::InterfaceMethod {
                 iface_def,
@@ -151,6 +154,7 @@ impl Declaration {
 pub(crate) enum BytecodeResolution {
     Var(AstNode),
     FreeFunction(Rc<FuncDef>, String),
+    HostFunction(Rc<FuncDecl>, String),
     ForeignFunction {
         decl: Rc<FuncDecl>,
         libname: PathBuf,
@@ -474,14 +478,6 @@ impl Translator {
                             }
                         }
                     }
-                    BytecodeResolution::Effect(_) => {
-                        // TODO: generate functions for effects
-                        unimplemented!()
-                    }
-                    BytecodeResolution::StructCtor(_) => {
-                        // TODO: generate functions for structs
-                        unimplemented!()
-                    }
                     BytecodeResolution::FreeFunction(_, name) => {
                         self.emit(
                             st,
@@ -490,15 +486,12 @@ impl Translator {
                             },
                         );
                     }
-                    BytecodeResolution::ForeignFunction { .. } => {
-                        unimplemented!()
-                    }
-                    BytecodeResolution::InterfaceMethod { .. } => {
-                        unimplemented!()
-                    }
-                    BytecodeResolution::EnumDef { .. } => {
-                        unimplemented!()
-                    }
+                    BytecodeResolution::Effect(_)
+                    | BytecodeResolution::StructCtor(_)
+                    | BytecodeResolution::ForeignFunction { .. }
+                    | BytecodeResolution::HostFunction(..)
+                    | BytecodeResolution::InterfaceMethod { .. }
+                    | BytecodeResolution::EnumDef { .. } => unimplemented!(),
                 }
             }
             ExprKind::MemberAccessInferred(ident) => {
@@ -635,12 +628,13 @@ impl Translator {
                             self.handle_overloaded_func(st, substituted_ty, &name, f.clone());
                         }
                     }
+                    BytecodeResolution::HostFunction(..) => unimplemented!(),
                     BytecodeResolution::ForeignFunction {
                         decl: _decl,
                         libname,
                         symbol,
                     } => {
-                        // TODO: The ids should really be "baked" ahead of time.
+                        // TODO: The ids should really be "baked" ahead of time. This is slow AF
                         match self
                             .statics
                             .dylib_to_funcs

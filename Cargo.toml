@@ -1,7 +1,8 @@
 [workspace]
 resolver = "2"
 members = [
-    "crates/*",
+    "abra_cli",
+    "abra_core",
+    "abra_cli/tests/modules/*/rust_project",
     "modules/*/rust_project",
-    "crates/cli/tests/modules/*/rust_project",
 ]
