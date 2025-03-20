@@ -12,12 +12,12 @@ crate-type = ["lib"]
 path = "src/lib.rs"
 
 [features]
-ffi = []
+ffi = ["libloading"]
 
 [dependencies]
-disjoint-sets = "0.4.2"
-libloading = "0.8.5"
-pest = "2.5.2"
+disjoint-sets = "0.4.2" # TODO: implement your own disjoint sets
+libloading = { version = "0.8.5", optional = true }
+pest = "2.5.2" # TODO: remove after hand-writing parser
 pest_derive = "2.5.2"
 strum = { version = "0.26.3", features = [
   "derive",
