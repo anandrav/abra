@@ -6,6 +6,7 @@ use abra_core::compile_bytecode;
 use abra_core::effects::DefaultEffects;
 use abra_core::effects::EffectTrait;
 use abra_core::vm::Vm;
+use abra_core::vm::VmStatus;
 
 use crate::utils::unwrap_or_panic;
 
@@ -1024,7 +1025,6 @@ comment */
     assert_eq!(top.get_int(&vm).unwrap(), 4);
 }
 
-#[ignore]
 #[test]
 fn host_function() {
     let src = r#"
@@ -1039,6 +1039,29 @@ do_stuff()
     ));
     let mut vm = Vm::new(program);
     vm.run();
-    let top = vm.top().unwrap();
-    assert_eq!(top.get_int(&vm).unwrap(), 4);
+    let status = vm.status();
+    let VmStatus::PendingEffect(0) = status else {
+        panic!()
+    };
+}
+
+#[test]
+fn host_function2() {
+    let src = r#"
+host fn do_stuff() -> int
+host fn do_stuff2() -> int
+
+do_stuff2()
+"#;
+    let program = unwrap_or_panic(compile_bytecode(
+        "main.abra",
+        DefaultEffects::enumerate(),
+        MockFileProvider::single_file(src),
+    ));
+    let mut vm = Vm::new(program);
+    vm.run();
+    let status = vm.status();
+    let VmStatus::PendingEffect(1) = status else {
+        panic!()
+    };
 }

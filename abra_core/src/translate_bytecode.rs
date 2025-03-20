@@ -628,7 +628,10 @@ impl Translator {
                             self.handle_overloaded_func(st, substituted_ty, &name, f.clone());
                         }
                     }
-                    BytecodeResolution::HostFunction(..) => unimplemented!(),
+                    BytecodeResolution::HostFunction(decl, _) => {
+                        let idx = self.statics.host_funcs[&decl.name.v];
+                        self.emit(st, Instr::Effect(idx));
+                    }
                     BytecodeResolution::ForeignFunction {
                         decl: _decl,
                         libname,

@@ -131,9 +131,12 @@ fn gather_declarations_item(
             let func_name = func_decl.name.v.clone();
             let fully_qualified_name = fullname(&qualifiers, &func_name);
             namespace.declarations.insert(
-                func_name,
+                func_name.clone(),
                 Declaration::HostFunction(func_decl.clone(), fully_qualified_name),
             );
+
+            _ctx.host_funcs
+                .insert(func_name, _ctx.host_funcs.len() as u16);
         }
         ItemKind::ForeignFuncDecl(_func_decl) => {
             // TODO: get the lib name using the filesystem, or report error saying why we can't
