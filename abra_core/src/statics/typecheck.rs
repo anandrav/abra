@@ -181,9 +181,6 @@ pub(crate) enum SolvedType {
     Nominal(Nominal, Vec<SolvedType>),
 }
 
-// TODO: Instead of making this public, just use source files for Effect type declarations similar to foreign func declarations
-// Maybe have a special version of foreign functions that doesn't load a dylib at all
-// that way this doesn't have to be exposed publically
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub(crate) enum Nominal {
     Struct(Rc<StructDef>),
@@ -267,7 +264,7 @@ impl SolvedType {
 // This is the fully instantiated AKA monomorphized type of an interface's implementation
 // subset of SolvedType. SolvedType without poly
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub enum Monotype {
+pub(crate) enum Monotype {
     Unit,
     Int,
     Float,
@@ -2458,37 +2455,37 @@ fn generate_constraints_pat(
     };
 }
 
-pub(crate) fn monotype_to_typevar(ty: Monotype, reason: Reason) -> TypeVar {
-    match ty {
-        Monotype::Unit => TypeVar::make_unit(reason),
-        Monotype::Int => TypeVar::make_int(reason),
-        Monotype::Float => TypeVar::make_float(reason),
-        Monotype::Bool => TypeVar::make_bool(reason),
-        Monotype::String => TypeVar::make_string(reason),
-        Monotype::Tuple(elements) => {
-            let elements = elements
-                .into_iter()
-                .map(|e| monotype_to_typevar(e, reason.clone()))
-                .collect();
-            TypeVar::make_tuple(elements, reason)
-        }
-        Monotype::Function(args, out) => {
-            let args = args
-                .into_iter()
-                .map(|a| monotype_to_typevar(a, reason.clone()))
-                .collect();
-            let out = monotype_to_typevar(*out, reason.clone());
-            TypeVar::make_func(args, out, reason.clone())
-        }
-        Monotype::Nominal(name, params) => {
-            let params = params
-                .into_iter()
-                .map(|p| monotype_to_typevar(p, reason.clone()))
-                .collect();
-            TypeVar::make_nominal(reason, name, params)
-        }
-    }
-}
+// pub(crate) fn monotype_to_typevar(ty: Monotype, reason: Reason) -> TypeVar {
+//     match ty {
+//         Monotype::Unit => TypeVar::make_unit(reason),
+//         Monotype::Int => TypeVar::make_int(reason),
+//         Monotype::Float => TypeVar::make_float(reason),
+//         Monotype::Bool => TypeVar::make_bool(reason),
+//         Monotype::String => TypeVar::make_string(reason),
+//         Monotype::Tuple(elements) => {
+//             let elements = elements
+//                 .into_iter()
+//                 .map(|e| monotype_to_typevar(e, reason.clone()))
+//                 .collect();
+//             TypeVar::make_tuple(elements, reason)
+//         }
+//         Monotype::Function(args, out) => {
+//             let args = args
+//                 .into_iter()
+//                 .map(|a| monotype_to_typevar(a, reason.clone()))
+//                 .collect();
+//             let out = monotype_to_typevar(*out, reason.clone());
+//             TypeVar::make_func(args, out, reason.clone())
+//         }
+//         Monotype::Nominal(name, params) => {
+//             let params = params
+//                 .into_iter()
+//                 .map(|p| monotype_to_typevar(p, reason.clone()))
+//                 .collect();
+//             TypeVar::make_nominal(reason, name, params)
+//         }
+//     }
+// }
 
 pub(crate) fn fmt_conflicting_types(types: &[PotentialType], f: &mut dyn Write) -> fmt::Result {
     writeln!(f)?;

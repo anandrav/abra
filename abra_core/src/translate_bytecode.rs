@@ -5,9 +5,9 @@ use crate::ast::{
 use crate::ast::{FileAst, FileDatabase, NodeId};
 use crate::builtin::Builtin;
 use crate::environment::Environment;
-use crate::statics::typecheck::Nominal;
+use crate::statics::typecheck::{Monotype, Nominal};
 use crate::statics::{Declaration, TypeProv};
-use crate::statics::{Monotype, Type, ty_fits_impl_ty};
+use crate::statics::{Type, ty_fits_impl_ty};
 use crate::vm::{AbraFloat, AbraInt, Instr as VmInstr};
 use crate::{
     ast::{Expr, ExprKind, Pat, PatKind, Stmt, StmtKind},
@@ -43,7 +43,6 @@ pub(crate) struct Translator {
     statics: StaticsContext,
     _files: FileDatabase,
     file_asts: Vec<Rc<FileAst>>,
-    // effects: Vec<EffectDesc>,
 }
 
 #[derive(Debug, Default)]
@@ -175,13 +174,11 @@ impl Translator {
         statics: StaticsContext,
         files: FileDatabase,
         file_asts: Vec<Rc<FileAst>>,
-        // effects: Vec<EffectDesc>,
     ) -> Self {
         Self {
             statics,
             _files: files,
             file_asts,
-            // effects,
         }
     }
 
@@ -618,7 +615,7 @@ impl Translator {
                     }
                     BytecodeResolution::HostFunction(decl, _) => {
                         let idx = self.statics.host_funcs[&decl.name.v];
-                        self.emit(st, Instr::Effect(idx));
+                        self.emit(st, Instr::HostFunc(idx));
                     }
                     BytecodeResolution::ForeignFunction {
                         decl: _decl,

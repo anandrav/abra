@@ -38,7 +38,7 @@ pub struct Vm {
     lineno_table: Vec<(BytecodeIndex, u32)>,
     function_name_table: Vec<(BytecodeIndex, u32)>,
 
-    pending_effect: Option<u16>,
+    pending_host_func: Option<u16>,
     error: Option<Box<VmError>>,
 
     // FFI
@@ -50,7 +50,7 @@ pub struct Vm {
 
 pub enum VmStatus {
     Done,
-    PendingEffect(u16),
+    PendingHostFunc(u16),
     OutOfSteps,
     Error(Box<VmError>),
 }
@@ -122,7 +122,7 @@ impl Vm {
             lineno_table: program.lineno_table,
             function_name_table: program.function_name_table,
 
-            pending_effect: None,
+            pending_host_func: None,
             error: None,
 
             #[cfg(feature = "ffi")]
@@ -150,7 +150,7 @@ impl Vm {
             lineno_table: program.lineno_table,
             function_name_table: program.function_name_table,
 
-            pending_effect: None,
+            pending_host_func: None,
             error: None,
 
             #[cfg(feature = "ffi")]
@@ -161,8 +161,8 @@ impl Vm {
     }
 
     pub fn status(&self) -> VmStatus {
-        if let Some(eff) = self.pending_effect {
-            VmStatus::PendingEffect(eff)
+        if let Some(eff) = self.pending_host_func {
+            VmStatus::PendingHostFunc(eff)
         } else if self.is_done() {
             VmStatus::Done
         } else {
@@ -286,12 +286,12 @@ impl Vm {
         self.stack_base += n;
     }
 
-    pub fn get_pending_effect(&self) -> Option<u16> {
-        self.pending_effect
+    pub fn get_pending_host_func(&self) -> Option<u16> {
+        self.pending_host_func
     }
 
-    pub fn clear_pending_effect(&mut self) {
-        self.pending_effect = None;
+    pub fn clear_pending_host_func(&mut self) {
+        self.pending_host_func = None;
     }
 
     pub fn get_error(&self) -> Option<Box<VmError>> {
@@ -363,7 +363,7 @@ pub enum Instr<Location = ProgramCounter, StringConstant = u16> {
     CallFuncObj,
     CallExtern(usize),
     Return,
-    Effect(u16),
+    HostFunc(u16),
     Panic,
 
     // Data Structures
@@ -439,7 +439,7 @@ impl<L: Display, S: Display> Display for Instr<L, S> {
             Instr::ConcatStrings => write!(f, "concat_strings"),
             Instr::IntToString => write!(f, "int_to_string"),
             Instr::FloatToString => write!(f, "float_to_string"),
-            Instr::Effect(n) => write!(f, "effect {}", n),
+            Instr::HostFunc(n) => write!(f, "call_host {}", n),
 
             Instr::LoadLib => write!(f, "load_lib"),
             Instr::LoadForeignFunc => write!(f, "load_foreign_func"),
@@ -605,13 +605,13 @@ impl Vm {
         //     println!("----------------------------------------");
         // }
 
-        if self.pending_effect.is_some() {
-            panic!("must handle pending effect");
+        if self.pending_host_func.is_some() {
+            panic!("must handle pending host func");
         }
         if self.error.is_some() {
             panic!("forgot to check error on vm");
         }
-        while !self.is_done() && self.pending_effect.is_none() && self.error.is_none() {
+        while !self.is_done() && self.pending_host_func.is_none() && self.error.is_none() {
             match self.step() {
                 Ok(()) => {}
                 Err(err) => self.error = Some(err),
@@ -620,14 +620,17 @@ impl Vm {
     }
 
     pub fn run_n_steps(&mut self, steps: u32) {
-        if self.pending_effect.is_some() {
-            panic!("must handle pending effect");
+        if self.pending_host_func.is_some() {
+            panic!("must handle pending host func");
         }
         if self.error.is_some() {
             panic!("must handle error");
         }
         let mut steps = steps;
-        while steps > 0 && !self.is_done() && self.pending_effect.is_none() && self.error.is_none()
+        while steps > 0
+            && !self.is_done()
+            && self.pending_host_func.is_none()
+            && self.error.is_none()
         {
             match self.step() {
                 Ok(()) => {}
@@ -1070,8 +1073,8 @@ impl Vm {
                 let r = self.heap_reference(self.heap.len() - 1);
                 self.push(r);
             }
-            Instr::Effect(eff) => {
-                self.pending_effect = Some(eff);
+            Instr::HostFunc(eff) => {
+                self.pending_host_func = Some(eff);
             }
             Instr::LoadLib => {
                 if cfg!(not(feature = "ffi")) {

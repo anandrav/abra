@@ -20,13 +20,11 @@ use codespan_reporting::diagnostic::{Diagnostic, Label};
 use codespan_reporting::term;
 use codespan_reporting::term::termcolor::{ColorChoice, StandardStream};
 use pat_exhaustiveness::{DeconstructedPat, check_pattern_exhaustiveness_and_usefulness};
-pub use typecheck::Monotype;
 pub(crate) use typecheck::Prov as TypeProv;
 pub(crate) use typecheck::SolvedType as Type;
 pub(crate) use typecheck::ty_fits_impl_ty;
 
 pub(crate) struct StaticsContext {
-    // effects
     _files: FileDatabase,
     _file_provider: Box<dyn FileProvider>,
 

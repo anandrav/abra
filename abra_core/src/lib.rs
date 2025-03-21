@@ -151,7 +151,7 @@ pub enum HostFunction {
     for (name, i) in &host_funcs {
         output.push_str(&format!("{} => HostFunction::{},", i, name));
     }
-    output.push_str("i => panic!(\"unrecognized effect: {}\", i)");
+    output.push_str("i => panic!(\"unrecognized host func: {}\", i)");
     output.push_str(
         r#"}
     }

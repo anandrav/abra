@@ -161,7 +161,7 @@ fn instr_to_vminstr(
         Instr::ConcatStrings => VmInstr::ConcatStrings,
         Instr::IntToString => VmInstr::IntToString,
         Instr::FloatToString => VmInstr::FloatToString,
-        Instr::Effect(n) => VmInstr::Effect(*n),
+        Instr::HostFunc(n) => VmInstr::HostFunc(*n),
 
         Instr::LoadLib => VmInstr::LoadLib,
         Instr::LoadForeignFunc => VmInstr::LoadForeignFunc,
@@ -243,9 +243,9 @@ fn _assemble_instr_or_label(
             let tag = u16::from_str_radix(words[1], radix).unwrap();
             Instr::ConstructVariant { tag }
         }
-        "effect" => {
+        "call_host" => {
             let n = u16::from_str_radix(words[1], radix).unwrap();
-            Instr::Effect(n)
+            Instr::HostFunc(n)
         }
         _ => panic!("On line {}, unexpected word: {}", lineno, words[0]),
     };

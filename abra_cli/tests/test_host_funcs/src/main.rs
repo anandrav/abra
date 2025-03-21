@@ -17,7 +17,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     let mut vm = Vm::new(program);
     vm.run();
     let status = vm.status();
-    let VmStatus::PendingEffect(i) = status else {
+    let VmStatus::PendingHostFunc(i) = status else {
         panic!()
     };
     let HostFunction::bar = i.into() else {
@@ -27,7 +27,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     let b = vm.pop()?.get_int(&vm)?;
     let ret = a + b;
     vm.push_int(ret);
-    vm.clear_pending_effect();
+    vm.clear_pending_host_func();
     vm.run();
     let top = vm.top().unwrap();
     assert_eq!(top.get_int(&vm).unwrap(), 10);

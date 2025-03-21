@@ -113,8 +113,8 @@ fn main() -> anyhow::Result<()> {
                 }
                 vm.run();
                 vm.gc();
-                if let Some(pending_effect) = vm.get_pending_effect() {
-                    let host_func: HostFunction = pending_effect.into();
+                if let Some(pending_host_func) = vm.get_pending_host_func() {
+                    let host_func: HostFunction = pending_host_func.into();
                     match host_func {
                         HostFunction::print_string => {
                             let s = vm.top()?.get_string(&vm)?;
@@ -140,7 +140,7 @@ fn main() -> anyhow::Result<()> {
                           //     vm.construct_array(args.args.len());
                           // }
                     }
-                    vm.clear_pending_effect();
+                    vm.clear_pending_host_func();
                 }
             }
         }
@@ -150,31 +150,3 @@ fn main() -> anyhow::Result<()> {
         }
     }
 }
-
-// #[derive(Debug, Clone, PartialEq, Eq, VariantArray, FromRepr)]
-// pub enum CliEffects {
-//     PrintString,
-//     ReadLine,
-//     GetArgs,
-// }
-
-// impl EffectTrait for CliEffects {
-//     fn type_signature(&self) -> (Vec<Type>, Type) {
-//         match self {
-//             // print_string: string -> void
-//             CliEffects::PrintString => (vec![Type::String], Type::Unit),
-//             // readline: void -> string
-//             CliEffects::ReadLine => (vec![], Type::String),
-//             // get_args: void -> array<string>
-//             CliEffects::GetArgs => (vec![], Type::Nominal(Nominal::Array, vec![Type::String])),
-//         }
-//     }
-
-//     fn function_name(&self) -> &'static str {
-//         match self {
-//             CliEffects::PrintString => "print_string",
-//             CliEffects::ReadLine => "readline",
-//             CliEffects::GetArgs => "get_args",
-//         }
-//     }
-// }

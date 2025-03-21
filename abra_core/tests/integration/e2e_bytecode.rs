@@ -108,7 +108,7 @@ print_string("hello world")
     assert_eq!(top.get_string(&vm).unwrap(), "hello world");
     vm.pop().unwrap();
     vm.push_nil();
-    vm.clear_pending_effect();
+    vm.clear_pending_host_func();
     vm.run();
     let top = vm.top().unwrap();
     assert_eq!(top.get_int(&vm).unwrap(), 5);
@@ -846,7 +846,7 @@ fn my_entry_point() {
     assert_eq!(top.get_string(&vm).unwrap(), "hello world");
     vm.pop().unwrap();
     vm.push_nil();
-    vm.clear_pending_effect();
+    vm.clear_pending_host_func();
     vm.run();
 }
 
@@ -966,7 +966,7 @@ do_stuff()
     let mut vm = Vm::new(program);
     vm.run();
     let status = vm.status();
-    let VmStatus::PendingEffect(0) = status else {
+    let VmStatus::PendingHostFunc(0) = status else {
         panic!()
     };
 }
@@ -987,11 +987,11 @@ x + x
     let mut vm = Vm::new(program);
     vm.run();
     let status = vm.status();
-    let VmStatus::PendingEffect(1) = status else {
+    let VmStatus::PendingHostFunc(1) = status else {
         panic!()
     };
     vm.push_int(3);
-    vm.clear_pending_effect();
+    vm.clear_pending_host_func();
     vm.run();
     let top = vm.top().unwrap();
     assert_eq!(top.get_int(&vm).unwrap(), 6);
