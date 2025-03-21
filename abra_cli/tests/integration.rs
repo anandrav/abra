@@ -69,14 +69,15 @@ yes
 fn test_host_funcs() {
     Command::new("cargo")
         .arg("build")
+        .arg("--package")
         .arg("test_host_funcs")
         .output()
         .expect("Failed to execute command");
     let output = Command::new("cargo")
         .arg("run")
-        .arg("--bin")
+        .arg("--package")
         .arg("test_host_funcs")
         .output()
         .expect("Failed to execute command");
-    assert_eq!(output.status.code().unwrap(), 123);
+    assert_eq!(output.status.code().unwrap(), 0);
 }

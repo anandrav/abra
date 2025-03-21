@@ -134,9 +134,8 @@ pub fn generate_host_function_enum(
     // TODO: Make have two enums. One that contains the arguments as associated data for each case. One that contains the return value.
     //       The conversion function would also take a &Vm. Using the &Vm, it would get the host function's argument(s) from the stack/put the return value on the stack.
     output.push_str(
-        r#"
-        
-        enum HostFunction {
+        r#"// This is an auto-generated file.
+pub enum HostFunction {
     "#,
     );
     for (name, _) in &host_funcs {
@@ -157,6 +156,7 @@ pub fn generate_host_function_enum(
     for (name, i) in &host_funcs {
         output.push_str(&format!("{} => HostFunction::{},", i, name));
     }
+    output.push_str("i => panic!(\"unrecognized effect: {}\", i)");
     output.push_str(
         r#"}
     }
