@@ -19,6 +19,7 @@ fn test_cli_output() {
     assert_eq!(stdout_str, "hello world\n");
 }
 
+// TODO: move this test to abra_core/ crate. Shouldn't be much more work than drag-and-drop
 #[test]
 fn test_ffi() {
     Command::new("cargo")
@@ -61,4 +62,21 @@ yes
 [ 1, 2, 3, 4, 5, 6 ]
 "#
     );
+}
+
+// TODO: move this test to abra_core/ crate. Shouldn't be much more work than drag-and-drop
+#[test]
+fn test_host_funcs() {
+    Command::new("cargo")
+        .arg("build")
+        .arg("test_host_funcs")
+        .output()
+        .expect("Failed to execute command");
+    let output = Command::new("cargo")
+        .arg("run")
+        .arg("--bin")
+        .arg("test_host_funcs")
+        .output()
+        .expect("Failed to execute command");
+    assert_eq!(output.status.code().unwrap(), 123);
 }

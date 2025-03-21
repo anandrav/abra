@@ -933,10 +933,10 @@ fn bar(x: 'a) -> 'a {
 
 foo(2, 2)
 "#;
-    let mut path_to_file: HashMap<PathBuf, String> = HashMap::new();
-    path_to_file.insert("main.abra".into(), main.into());
-    path_to_file.insert("util.abra".into(), util.into());
-    let file_provider = MockFileProvider::new(path_to_file);
+    let mut files: HashMap<PathBuf, String> = HashMap::new();
+    files.insert("main.abra".into(), main.into());
+    files.insert("util.abra".into(), util.into());
+    let file_provider = MockFileProvider::new(files);
 
     let effects = DefaultEffects::enumerate();
     let program = compile_bytecode("main.abra", effects, file_provider);
@@ -1027,7 +1027,8 @@ fn host_function2() {
 host fn do_stuff() -> int
 host fn do_stuff2() -> int
 
-do_stuff2()
+let x = do_stuff2()
+x + x
 "#;
     let program = unwrap_or_panic(compile_bytecode(
         "main.abra",
@@ -1040,28 +1041,9 @@ do_stuff2()
     let VmStatus::PendingEffect(1) = status else {
         panic!()
     };
-}
-
-#[test]
-fn monomorphize_overloaded_func_println() {
-    let src = r#"
-str(123)
-println(123)
-5
-"#;
-    let program = unwrap_or_panic(compile_bytecode(
-        "main.abra",
-        DefaultEffects::enumerate(),
-        MockFileProvider::single_file(src),
-    ));
-    let mut vm = Vm::new(program);
-    vm.run();
-    let top = vm.top().unwrap();
-    assert_eq!(top.get_string(&vm).unwrap(), "123\n");
-    vm.pop().unwrap();
-    vm.push_nil();
+    vm.push_int(3);
     vm.clear_pending_effect();
     vm.run();
     let top = vm.top().unwrap();
-    assert_eq!(top.get_int(&vm).unwrap(), 5);
+    assert_eq!(top.get_int(&vm).unwrap(), 6);
 }

@@ -1,0 +1,12 @@
+[package]
+name = "test_host_funcs"
+version = "0.0.0"
+edition = "2024"
+license = "MPL-2.0"
+
+[dependencies]
+abra_core = { path = "../../../abra_core" }
+
+[build-dependencies]
+abra_core = { path = "../../../abra_core" }
+

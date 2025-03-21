@@ -3,6 +3,11 @@ resolver = "2"
 members = [
     "abra_cli",
     "abra_core",
-    "abra_cli/tests/modules/*/rust_project",
+
+    # Abra libraries with Rust implementations
     "modules/*/rust_project",
+
+    # integration tests
+    "abra_cli/tests/modules/*/rust_project",
+    "abra_cli/tests/test_host_funcs/",
 ]

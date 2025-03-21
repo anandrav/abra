@@ -126,21 +126,44 @@ pub fn generate_host_function_enum(
     let (file_asts, file_db) = get_files(main_file_name, &file_provider)?;
     let inference_ctx = statics::analyze(&effects, &file_asts, &file_db, file_provider)?;
 
-    let mut output = String::new();
-    output.push_str(
-        r#"enum HostFunction {
-    "#,
-    );
     let mut host_funcs: Vec<_> = inference_ctx.host_funcs.iter().collect(); // TODO: don't clone here
     host_funcs.sort_by_key(|(_, i)| *i);
-    for (name, i) in host_funcs {
+
+    let mut output = String::new();
+    // enum definition
+    // TODO: Make have two enums. One that contains the arguments as associated data for each case. One that contains the return value.
+    //       The conversion function would also take a &Vm. Using the &Vm, it would get the host function's argument(s) from the stack/put the return value on the stack.
+    output.push_str(
+        r#"
+        
+        enum HostFunction {
+    "#,
+    );
+    for (name, _) in &host_funcs {
         output.push_str(&format!("{},", name));
     }
-
     output.push_str(
         r#"
     }"#,
     );
+
+    // conversion from integer
+    output.push_str(
+        r#"impl From<u16> for HostFunction {
+    fn from(item: u16) -> Self {
+        match item {
+"#,
+    );
+    for (name, i) in &host_funcs {
+        output.push_str(&format!("{} => HostFunction::{},", i, name));
+    }
+    output.push_str(
+        r#"}
+    }
+}
+"#,
+    );
+
     std::fs::write(destination, output).unwrap();
     Ok(())
 }
