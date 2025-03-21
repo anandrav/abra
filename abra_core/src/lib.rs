@@ -134,7 +134,8 @@ pub enum HostFunction {
     "#,
     );
     for (name, _) in &host_funcs {
-        output.push_str(&format!("{},", name));
+        let camel_name = heck::AsUpperCamelCase(name).to_string();
+        output.push_str(&format!("{},", camel_name));
     }
     output.push_str(
         r#"
@@ -149,7 +150,8 @@ pub enum HostFunction {
 "#,
     );
     for (name, i) in &host_funcs {
-        output.push_str(&format!("{} => HostFunction::{},", i, name));
+        let camel_name = heck::AsUpperCamelCase(name).to_string();
+        output.push_str(&format!("{} => HostFunction::{},", i, camel_name));
     }
     output.push_str("i => panic!(\"unrecognized host func: {}\", i)");
     output.push_str(

@@ -20,7 +20,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     let VmStatus::PendingHostFunc(i) = status else {
         panic!()
     };
-    let HostFunction::bar = i.into() else {
+    let HostFunction::Bar = i.into() else {
         panic!()
     };
     let a = vm.pop()?.get_int(&vm)?;

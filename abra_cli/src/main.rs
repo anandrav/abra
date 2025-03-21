@@ -116,7 +116,7 @@ fn main() -> anyhow::Result<()> {
                 if let Some(pending_host_func) = vm.get_pending_host_func() {
                     let host_func: HostFunction = pending_host_func.into();
                     match host_func {
-                        HostFunction::print_string => {
+                        HostFunction::PrintString => {
                             let s = vm.top()?.get_string(&vm)?;
                             vm.pop()?;
                             print!("{}", s);
