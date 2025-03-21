@@ -51,7 +51,7 @@ pub(crate) struct StaticsContext {
     // dylibs (for bytecode translation)
     pub(crate) dylib_to_funcs: BTreeMap<PathBuf, BTreeSet<String>>, // TODO: don't use a BTreeMap just sort at the end
     // host functions
-    pub(crate) host_funcs: BTreeMap<String, u16>, // TODO: don't use a BTreeMap just sort at the end
+    pub(crate) host_funcs: BTreeMap<String, u16>, // TODO: don't use a BTreeMap
 
     // TYPE CHECKING
 

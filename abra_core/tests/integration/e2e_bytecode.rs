@@ -747,30 +747,6 @@ str(nums)
 }
 
 #[test]
-fn monomorphize_overloaded_func_println() {
-    let src = r#"
-str(123)
-println(123)
-5
-"#;
-    let program = unwrap_or_panic(compile_bytecode(
-        "main.abra",
-        DefaultEffects::enumerate(),
-        MockFileProvider::single_file(src),
-    ));
-    let mut vm = Vm::new(program);
-    vm.run();
-    let top = vm.top().unwrap();
-    assert_eq!(top.get_string(&vm).unwrap(), "123\n");
-    vm.pop().unwrap();
-    vm.push_nil();
-    vm.clear_pending_effect();
-    vm.run();
-    let top = vm.top().unwrap();
-    assert_eq!(top.get_int(&vm).unwrap(), 5);
-}
-
-#[test]
 fn local_in_while_scope() {
     let src = r#"
     var x = 5
@@ -1064,4 +1040,28 @@ do_stuff2()
     let VmStatus::PendingEffect(1) = status else {
         panic!()
     };
+}
+
+#[test]
+fn monomorphize_overloaded_func_println() {
+    let src = r#"
+str(123)
+println(123)
+5
+"#;
+    let program = unwrap_or_panic(compile_bytecode(
+        "main.abra",
+        DefaultEffects::enumerate(),
+        MockFileProvider::single_file(src),
+    ));
+    let mut vm = Vm::new(program);
+    vm.run();
+    let top = vm.top().unwrap();
+    assert_eq!(top.get_string(&vm).unwrap(), "123\n");
+    vm.pop().unwrap();
+    vm.push_nil();
+    vm.clear_pending_effect();
+    vm.run();
+    let top = vm.top().unwrap();
+    assert_eq!(top.get_int(&vm).unwrap(), 5);
 }

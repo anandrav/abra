@@ -232,7 +232,7 @@ unsafe extern "C" fn abra_vm_array_len(vm: *mut c_void) -> usize {
 
 use std::env::current_dir;
 
-pub fn generate() {
+pub fn generate_bindings_for_crate() {
     let current_dir = current_dir().unwrap();
     let mut package_dir = current_dir.clone();
     package_dir.pop();

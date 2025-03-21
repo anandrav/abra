@@ -8,6 +8,7 @@ use std::path::PathBuf;
 use std::rc::Rc;
 
 use ast::FileAst;
+use ast::FileDatabase;
 use ast::FileId;
 use ast::ItemKind;
 pub use effects::EffectCode;
@@ -46,17 +47,33 @@ pub fn source_files_single(src: &str) -> Vec<FileData> {
     ]
 }
 
-// the first file is the "main" file
+// TODO: don't use String for error in return type
 pub fn compile_bytecode(
     main_file_name: &str,
-    effects: Vec<EffectDesc>,
+    effects: Vec<EffectDesc>, // TODO: remove once host functions work
     file_provider: Box<dyn FileProvider>,
 ) -> Result<CompiledProgram, String> {
+    let (file_asts, file_db) = get_files(main_file_name, &file_provider)?;
+    // println!("time to analyze");
+    let inference_ctx = statics::analyze(&effects, &file_asts, &file_db, file_provider)?;
+
+    // TODO: translator should be immutable
+    // NOTE: It's only mutable right now because of ty_fits_impl_ty calls ast_type_to_statics_type...
+    // println!("time to translate");
+    let mut translator = Translator::new(inference_ctx, file_db, file_asts);
+    // println!("successfully translated");
+    Ok(translator.translate())
+}
+
+fn get_files(
+    main_file_name: &str,
+    file_provider: &Box<dyn FileProvider>,
+) -> Result<(Vec<Rc<FileAst>>, FileDatabase), String> {
     // TODO: these errors aren't actually being used
     let mut errors: Vec<Error> = vec![];
 
     // this is what's passed to Statics
-    let mut file_db = ast::FileDatabase::new();
+    let mut file_db = FileDatabase::new();
     let mut file_asts: Vec<Rc<FileAst>> = vec![];
 
     let mut stack: VecDeque<FileId> = VecDeque::new();
@@ -97,15 +114,35 @@ pub fn compile_bytecode(
         );
     }
 
-    // println!("time to analyze");
+    Ok((file_asts, file_db))
+}
+
+pub fn generate_host_function_enum(
+    main_file_name: &str,
+    effects: Vec<EffectDesc>, // TODO: remove once host functions work
+    file_provider: Box<dyn FileProvider>,
+    destination: &Path,
+) -> Result<(), String> {
+    let (file_asts, file_db) = get_files(main_file_name, &file_provider)?;
     let inference_ctx = statics::analyze(&effects, &file_asts, &file_db, file_provider)?;
 
-    // TODO: translator should be immutable
-    // NOTE: It's only mutable right now because of ty_fits_impl_ty calls ast_type_to_statics_type...
-    // println!("time to translate");
-    let mut translator = Translator::new(inference_ctx, file_db, file_asts);
-    // println!("successfully translated");
-    Ok(translator.translate())
+    let mut output = String::new();
+    output.push_str(
+        r#"enum HostFunction {
+    "#,
+    );
+    let mut host_funcs: Vec<_> = inference_ctx.host_funcs.iter().collect(); // TODO: don't clone here
+    host_funcs.sort_by_key(|(_, i)| *i);
+    for (name, i) in host_funcs {
+        output.push_str(&format!("{},", name));
+    }
+
+    output.push_str(
+        r#"
+    }"#,
+    );
+    std::fs::write(destination, output).unwrap();
+    Ok(())
 }
 
 #[derive(Debug)]
