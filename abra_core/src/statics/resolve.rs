@@ -387,9 +387,6 @@ pub(crate) fn resolve_names_file_decls(
         symbol_table.extend_namespace(name, namespace);
     }
 
-    for (i, eff) in ctx.effects.iter().enumerate() {
-        symbol_table.extend_declaration(eff.name.into(), Declaration::Effect(i as u16));
-    }
     for builtin in Builtin::enumerate().iter() {
         symbol_table.extend_declaration(builtin.name(), Declaration::Builtin(*builtin));
     }
@@ -528,9 +525,6 @@ pub(crate) fn resolve_names_file_stmts(
         symbol_table.extend_namespace(name.clone(), namespace.clone());
     }
 
-    for (i, eff) in ctx.effects.iter().enumerate() {
-        symbol_table.extend_declaration(eff.name.into(), Declaration::Effect(i as u16));
-    }
     for builtin in Builtin::enumerate().iter() {
         symbol_table.extend_declaration(builtin.name(), Declaration::Builtin(*builtin));
     }
@@ -662,7 +656,6 @@ fn resolve_names_expr(ctx: &mut StaticsContext, symbol_table: SymbolTable, expr:
                     | Declaration::_ForeignFunction { .. }
                     | Declaration::InterfaceMethod { .. }
                     | Declaration::EnumVariant { .. }
-                    | Declaration::Effect(_)
                     | Declaration::Polytype(_)
                     | Declaration::Builtin(_) => {
                         ctx.errors

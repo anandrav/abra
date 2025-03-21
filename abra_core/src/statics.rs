@@ -4,7 +4,6 @@ use crate::ast::{
     InterfaceImpl, NodeId, Polytype, StructDef, TypeKind,
 };
 use crate::builtin::Builtin;
-use crate::effects::EffectDesc;
 use resolve::{resolve, scan_declarations};
 use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::fmt::{self, Display, Formatter};
@@ -28,7 +27,6 @@ pub(crate) use typecheck::ty_fits_impl_ty;
 
 pub(crate) struct StaticsContext {
     // effects
-    effects: Vec<EffectDesc>,
     _files: FileDatabase,
     _file_provider: Box<dyn FileProvider>,
 
@@ -65,13 +63,8 @@ pub(crate) struct StaticsContext {
 }
 
 impl StaticsContext {
-    fn new(
-        effects: Vec<EffectDesc>,
-        files: FileDatabase,
-        file_provider: Box<dyn FileProvider>,
-    ) -> Self {
+    fn new(files: FileDatabase, file_provider: Box<dyn FileProvider>) -> Self {
         let mut ctx = Self {
-            effects,
             _files: files,
             _file_provider: file_provider,
             global_namespace: Default::default(),
@@ -153,7 +146,6 @@ pub(crate) enum Declaration {
     Array,
     Polytype(Rc<Polytype>),
     Builtin(Builtin),
-    Effect(u16),
     Var(AstNode),
 }
 
@@ -206,12 +198,11 @@ pub(crate) enum Error {
 
 // main function that performs typechecking (as well as name resolution beforehand)
 pub(crate) fn analyze(
-    effects: &[EffectDesc],
     file_asts: &Vec<Rc<FileAst>>,
     files: &FileDatabase,
     file_provider: Box<dyn FileProvider>,
 ) -> Result<StaticsContext, String> {
-    let mut ctx = StaticsContext::new(effects.to_owned(), files.clone(), file_provider); // TODO: to_owned necessary?
+    let mut ctx = StaticsContext::new(files.clone(), file_provider); // TODO: to_owned necessary?
 
     // scan declarations across all files
     scan_declarations(&mut ctx, file_asts);
@@ -478,9 +469,6 @@ fn handle_reason(
     match reason {
         Reason::Builtin(builtin) => {
             notes.push(format!("the builtin function `{}`", builtin.name()));
-        }
-        Reason::Effect(id) => {
-            notes.push(format!("the effect `{}`", id));
         }
         Reason::Node(id) => {
             let (file, range) = get_file_and_range(id);

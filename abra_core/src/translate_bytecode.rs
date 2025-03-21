@@ -145,7 +145,6 @@ impl Declaration {
                 panic!(); // TODO: remove panic
             }
             Declaration::Builtin(b) => BytecodeResolution::Builtin(*b),
-            Declaration::Effect(e) => BytecodeResolution::Effect(*e),
         }
     }
 }
@@ -169,7 +168,6 @@ pub(crate) enum BytecodeResolution {
     EnumDef,
     VariantCtor(u16, u16),
     Builtin(Builtin),
-    Effect(u16),
 }
 
 impl Translator {
@@ -406,15 +404,6 @@ impl Translator {
                 }
             }
 
-            // Create functions for effects
-            // for (i, effect) in self.effects.iter().enumerate() {
-            // self.update_function_name_table(st, effect.name);
-
-            // self.emit(st, Line::Label(effect.name.into()));
-            // self.emit(st, Instr::Effect(i as u16));
-            // self.emit(st, Instr::Return);
-            // }
-
             for _item in st.lines.iter() {
                 // println!("{}", _item);
             }
@@ -486,8 +475,7 @@ impl Translator {
                             },
                         );
                     }
-                    BytecodeResolution::Effect(_)
-                    | BytecodeResolution::StructCtor(_)
+                    BytecodeResolution::StructCtor(_)
                     | BytecodeResolution::ForeignFunction { .. }
                     | BytecodeResolution::HostFunction(..)
                     | BytecodeResolution::InterfaceMethod { .. }
@@ -827,9 +815,6 @@ impl Translator {
                             panic!("not a function");
                         }
                     },
-                    BytecodeResolution::Effect(e) => {
-                        self.emit(st, Instr::Effect(e));
-                    }
                 }
             }
             ExprKind::Block(statements) => {

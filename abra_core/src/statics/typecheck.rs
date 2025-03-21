@@ -185,7 +185,7 @@ pub(crate) enum SolvedType {
 // Maybe have a special version of foreign functions that doesn't load a dylib at all
 // that way this doesn't have to be exposed publically
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub enum Nominal {
+pub(crate) enum Nominal {
     Struct(Rc<StructDef>),
     Enum(Rc<EnumDef>),
     Array,
@@ -313,7 +313,6 @@ pub(crate) enum Reason {
     Annotation(AstNode),
     Literal(AstNode),
     Builtin(Builtin), // a builtin function or constant, which doesn't exist in the AST
-    Effect(u16),
     BinopLeft(AstNode),
     BinopRight(AstNode),
     BinopOut(AstNode),
@@ -898,13 +897,6 @@ fn tyvar_of_declaration(
             let ty_signature = builtin.type_signature();
             Some(ty_signature)
         }
-        Declaration::Effect(e) => {
-            let effect = &ctx.effects[*e as usize];
-            let ty_signature = &effect.type_signature;
-            let func_type =
-                Monotype::Function(ty_signature.0.clone(), ty_signature.1.clone().into());
-            Some(monotype_to_typevar(func_type, Reason::Effect(*e)))
-        }
         Declaration::Var(node) => Some(TypeVar::from_node(ctx, node.clone())),
     }
 }
@@ -945,7 +937,6 @@ pub(crate) fn ast_type_to_solved_type(
                 | Declaration::EnumVariant { .. }
                 | Declaration::Polytype(_)
                 | Declaration::Builtin(_)
-                | Declaration::Effect(_)
                 | Declaration::Var(_) => None,
             }
         }
@@ -972,7 +963,6 @@ pub(crate) fn ast_type_to_solved_type(
                 | Declaration::EnumVariant { .. }
                 | Declaration::Polytype(_)
                 | Declaration::Builtin(_)
-                | Declaration::Effect(_)
                 | Declaration::Var(_) => None,
             }
         }

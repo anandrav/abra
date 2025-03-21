@@ -1,0 +1,3 @@
+// host fn readline() -> string
+
+// host fn get_args() -> array<string>

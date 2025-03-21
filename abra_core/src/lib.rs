@@ -11,14 +11,11 @@ use ast::FileAst;
 use ast::FileDatabase;
 use ast::FileId;
 use ast::ItemKind;
-pub use effects::EffectCode;
-pub use effects::EffectDesc;
 
 pub mod addons;
 mod assembly;
 pub mod ast;
 mod builtin;
-pub mod effects;
 pub mod environment;
 mod parse;
 pub mod prelude;
@@ -50,12 +47,11 @@ pub fn source_files_single(src: &str) -> Vec<FileData> {
 // TODO: don't use String for error in return type
 pub fn compile_bytecode(
     main_file_name: &str,
-    effects: Vec<EffectDesc>, // TODO: remove once host functions work
     file_provider: Box<dyn FileProvider>,
 ) -> Result<CompiledProgram, String> {
-    let (file_asts, file_db) = get_files(main_file_name, &file_provider)?;
+    let (file_asts, file_db) = get_files(main_file_name, &*file_provider)?;
     // println!("time to analyze");
-    let inference_ctx = statics::analyze(&effects, &file_asts, &file_db, file_provider)?;
+    let inference_ctx = statics::analyze(&file_asts, &file_db, file_provider)?;
 
     // TODO: translator should be immutable
     // NOTE: It's only mutable right now because of ty_fits_impl_ty calls ast_type_to_statics_type...
@@ -67,7 +63,7 @@ pub fn compile_bytecode(
 
 fn get_files(
     main_file_name: &str,
-    file_provider: &Box<dyn FileProvider>,
+    file_provider: &dyn FileProvider,
 ) -> Result<(Vec<Rc<FileAst>>, FileDatabase), String> {
     // TODO: these errors aren't actually being used
     let mut errors: Vec<Error> = vec![];
@@ -107,7 +103,7 @@ fn get_files(
         add_imports(
             file_ast,
             &mut file_db,
-            file_provider.as_ref(),
+            file_provider,
             &mut stack,
             &mut visited,
             &mut errors,
@@ -119,12 +115,11 @@ fn get_files(
 
 pub fn generate_host_function_enum(
     main_file_name: &str,
-    effects: Vec<EffectDesc>, // TODO: remove once host functions work
     file_provider: Box<dyn FileProvider>,
     destination: &Path,
 ) -> Result<(), String> {
-    let (file_asts, file_db) = get_files(main_file_name, &file_provider)?;
-    let inference_ctx = statics::analyze(&effects, &file_asts, &file_db, file_provider)?;
+    let (file_asts, file_db) = get_files(main_file_name, &*file_provider)?;
+    let inference_ctx = statics::analyze(&file_asts, &file_db, file_provider)?;
 
     let mut host_funcs: Vec<_> = inference_ctx.host_funcs.iter().collect(); // TODO: don't clone here
     host_funcs.sort_by_key(|(_, i)| *i);
@@ -234,12 +229,16 @@ impl OsFileProvider {
         })
     }
 
-    pub fn new(main_file_dir: PathBuf, modules: PathBuf, shared_objects_dir: PathBuf) -> Box<Self> {
+    pub fn new(
+        main_file_dir: PathBuf,
+        modules: PathBuf,
+        _shared_objects_dir: PathBuf,
+    ) -> Box<Self> {
         Box::new(Self {
             main_file_dir,
             modules,
             #[cfg(feature = "ffi")]
-            shared_objects_dir,
+            shared_objects_dir: _shared_objects_dir,
         })
     }
 }

@@ -1,4 +1,7 @@
-pub const PRELUDE: &str = r#"fn not(b: bool) = if b false else true
+pub const PRELUDE: &str = r#"
+host fn print_string(s: string) -> void
+
+fn not(b: bool) = if b false else true
 
 interface Num {
     fn add: ('a Num, 'a Num) -> 'a Num

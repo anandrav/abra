@@ -1,7 +1,5 @@
 use abra_core::MockFileProvider;
 use abra_core::compile_bytecode;
-use abra_core::effects::DefaultEffects;
-use abra_core::effects::EffectTrait;
 
 use crate::utils::unwrap_or_panic;
 
@@ -20,7 +18,6 @@ let f = e mod 3
 "#;
     unwrap_or_panic(compile_bytecode(
         "main.abra",
-        DefaultEffects::enumerate(),
         MockFileProvider::single_file(src),
     ));
 }
@@ -36,7 +33,6 @@ let e = d ^ 2.0
 "#;
     unwrap_or_panic(compile_bytecode(
         "main.abra",
-        DefaultEffects::enumerate(),
         MockFileProvider::single_file(src),
     ));
 }
@@ -51,7 +47,6 @@ let w = x or y
 "#;
     unwrap_or_panic(compile_bytecode(
         "main.abra",
-        DefaultEffects::enumerate(),
         MockFileProvider::single_file(src),
     ));
 }
@@ -75,7 +70,6 @@ let k = a and b and c and d and e and f and g and h and i and j
 "#;
     unwrap_or_panic(compile_bytecode(
         "main.abra",
-        DefaultEffects::enumerate(),
         MockFileProvider::single_file(src),
     ));
 }
@@ -93,7 +87,6 @@ p.age
 "#;
     unwrap_or_panic(compile_bytecode(
         "main.abra",
-        DefaultEffects::enumerate(),
         MockFileProvider::single_file(src),
     ));
 }
@@ -102,12 +95,7 @@ p.age
 // Typechecking should catch an error.
 
 fn should_fail(src: &str) {
-    compile_bytecode(
-        "main.abra",
-        DefaultEffects::enumerate(),
-        MockFileProvider::single_file(src),
-    )
-    .unwrap_err();
+    compile_bytecode("main.abra", MockFileProvider::single_file(src)).unwrap_err();
 }
 
 #[test]

@@ -1,12 +1,9 @@
-use std::collections::HashMap;
-use std::path::PathBuf;
-
 use abra_core::MockFileProvider;
 use abra_core::compile_bytecode;
-use abra_core::effects::DefaultEffects;
-use abra_core::effects::EffectTrait;
 use abra_core::vm::Vm;
 use abra_core::vm::VmStatus;
+use std::collections::HashMap;
+use std::path::PathBuf;
 
 use crate::utils::unwrap_or_panic;
 
@@ -24,7 +21,6 @@ h
 "#;
     let program = unwrap_or_panic(compile_bytecode(
         "main.abra",
-        DefaultEffects::enumerate(),
         MockFileProvider::single_file(src),
     ));
     let mut vm = Vm::new(program);
@@ -47,7 +43,6 @@ x + y
 "#;
     let program = unwrap_or_panic(compile_bytecode(
         "main.abra",
-        DefaultEffects::enumerate(),
         MockFileProvider::single_file(src),
     ));
     let mut vm = Vm::new(program);
@@ -68,7 +63,6 @@ if false {
 "#;
     let program = unwrap_or_panic(compile_bytecode(
         "main.abra",
-        DefaultEffects::enumerate(),
         MockFileProvider::single_file(src),
     ));
     let mut vm = Vm::new(program);
@@ -89,7 +83,6 @@ x
 "#;
     let program = unwrap_or_panic(compile_bytecode(
         "main.abra",
-        DefaultEffects::enumerate(),
         MockFileProvider::single_file(src),
     ));
     let mut vm = Vm::new(program);
@@ -107,7 +100,6 @@ print_string("hello world")
 "#;
     let program = unwrap_or_panic(compile_bytecode(
         "main.abra",
-        DefaultEffects::enumerate(),
         MockFileProvider::single_file(src),
     ));
     let mut vm = Vm::new(program);
@@ -136,7 +128,6 @@ x.name
 "#;
     let program = unwrap_or_panic(compile_bytecode(
         "main.abra",
-        DefaultEffects::enumerate(),
         MockFileProvider::single_file(src),
     ));
     let mut vm = Vm::new(program);
@@ -159,7 +150,6 @@ x.age
 "#;
     let program = unwrap_or_panic(compile_bytecode(
         "main.abra",
-        DefaultEffects::enumerate(),
         MockFileProvider::single_file(src),
     ));
     let mut vm = Vm::new(program);
@@ -178,7 +168,6 @@ arr[2]
 "#;
     let program = unwrap_or_panic(compile_bytecode(
         "main.abra",
-        DefaultEffects::enumerate(),
         MockFileProvider::single_file(src),
     ));
     let mut vm = Vm::new(program);
@@ -209,7 +198,6 @@ first.x
 "#;
     let program = unwrap_or_panic(compile_bytecode(
         "main.abra",
-        DefaultEffects::enumerate(),
         MockFileProvider::single_file(src),
     ));
     let mut vm = Vm::new(program);
@@ -236,7 +224,6 @@ snake.body[0].x
 "#;
     let program = unwrap_or_panic(compile_bytecode(
         "main.abra",
-        DefaultEffects::enumerate(),
         MockFileProvider::single_file(src),
     ));
     let mut vm = Vm::new(program);
@@ -257,7 +244,6 @@ match n {
 "#;
     let program = unwrap_or_panic(compile_bytecode(
         "main.abra",
-        DefaultEffects::enumerate(),
         MockFileProvider::single_file(src),
     ));
     let mut vm = Vm::new(program);
@@ -278,7 +264,6 @@ match n {
 "#;
     let program = unwrap_or_panic(compile_bytecode(
         "main.abra",
-        DefaultEffects::enumerate(),
         MockFileProvider::single_file(src),
     ));
     let mut vm = Vm::new(program);
@@ -305,7 +290,6 @@ sum
 "#;
     let program = unwrap_or_panic(compile_bytecode(
         "main.abra",
-        DefaultEffects::enumerate(),
         MockFileProvider::single_file(src),
     ));
     let mut vm = Vm::new(program);
@@ -325,7 +309,6 @@ match triplet {
 }"#;
     let program = unwrap_or_panic(compile_bytecode(
         "main.abra",
-        DefaultEffects::enumerate(),
         MockFileProvider::single_file(src),
     ));
     let mut vm = Vm::new(program);
@@ -345,7 +328,6 @@ match pair {
 }"#;
     let program = unwrap_or_panic(compile_bytecode(
         "main.abra",
-        DefaultEffects::enumerate(),
         MockFileProvider::single_file(src),
     ));
     let mut vm = Vm::new(program);
@@ -365,7 +347,6 @@ match pair {
 }"#;
     let program = unwrap_or_panic(compile_bytecode(
         "main.abra",
-        DefaultEffects::enumerate(),
         MockFileProvider::single_file(src),
     ));
     let mut vm = Vm::new(program);
@@ -385,7 +366,6 @@ match quintuple {
 }"#;
     let program = unwrap_or_panic(compile_bytecode(
         "main.abra",
-        DefaultEffects::enumerate(),
         MockFileProvider::single_file(src),
     ));
     let mut vm = Vm::new(program);
@@ -405,7 +385,6 @@ match triplet {
 }"#;
     let program = unwrap_or_panic(compile_bytecode(
         "main.abra",
-        DefaultEffects::enumerate(),
         MockFileProvider::single_file(src),
     ));
     let mut vm = Vm::new(program);
@@ -429,7 +408,6 @@ match xs {
     // }"#;
     let program = unwrap_or_panic(compile_bytecode(
         "main.abra",
-        DefaultEffects::enumerate(),
         MockFileProvider::single_file(src),
     ));
     let mut vm = Vm::new(program);
@@ -448,7 +426,6 @@ match xs {
 }"#;
     let program = unwrap_or_panic(compile_bytecode(
         "main.abra",
-        DefaultEffects::enumerate(),
         MockFileProvider::single_file(src),
     ));
     let mut vm = Vm::new(program);
@@ -468,7 +445,6 @@ match xs {
 }"#;
     let program = unwrap_or_panic(compile_bytecode(
         "main.abra",
-        DefaultEffects::enumerate(),
         MockFileProvider::single_file(src),
     ));
     let mut vm = Vm::new(program);
@@ -490,7 +466,6 @@ r(2)
 "#;
     let program = unwrap_or_panic(compile_bytecode(
         "main.abra",
-        DefaultEffects::enumerate(),
         MockFileProvider::single_file(src),
     ));
     let mut vm = Vm::new(program);
@@ -513,7 +488,6 @@ fib(10)
 "#;
     let program = unwrap_or_panic(compile_bytecode(
         "main.abra",
-        DefaultEffects::enumerate(),
         MockFileProvider::single_file(src),
     ));
     let mut vm = Vm::new(program);
@@ -530,7 +504,6 @@ double(5)
 "#;
     let program = unwrap_or_panic(compile_bytecode(
         "main.abra",
-        DefaultEffects::enumerate(),
         MockFileProvider::single_file(src),
     ));
     let mut vm = Vm::new(program);
@@ -547,7 +520,6 @@ add(2, 3)
 "#;
     let program = unwrap_or_panic(compile_bytecode(
         "main.abra",
-        DefaultEffects::enumerate(),
         MockFileProvider::single_file(src),
     ));
     let mut vm = Vm::new(program);
@@ -565,7 +537,6 @@ g
 "#;
     let program = unwrap_or_panic(compile_bytecode(
         "main.abra",
-        DefaultEffects::enumerate(),
         MockFileProvider::single_file(src),
     ));
     let mut vm = Vm::new(program);
@@ -583,7 +554,6 @@ arr[5]
 "#;
     let program = unwrap_or_panic(compile_bytecode(
         "main.abra",
-        DefaultEffects::enumerate(),
         MockFileProvider::single_file(src),
     ));
     let mut vm = Vm::new(program);
@@ -600,7 +570,6 @@ len(arr)
 "#;
     let program = unwrap_or_panic(compile_bytecode(
         "main.abra",
-        DefaultEffects::enumerate(),
         MockFileProvider::single_file(src),
     ));
     let mut vm = Vm::new(program);
@@ -619,7 +588,6 @@ match [| 1, 2, 3 |] {
 "#;
     let program = unwrap_or_panic(compile_bytecode(
         "main.abra",
-        DefaultEffects::enumerate(),
         MockFileProvider::single_file(src),
     ));
     let mut vm = Vm::new(program);
@@ -644,7 +612,6 @@ total(xs)
 "#;
     let program = unwrap_or_panic(compile_bytecode(
         "main.abra",
-        DefaultEffects::enumerate(),
         MockFileProvider::single_file(src),
     ));
     let mut vm = Vm::new(program);
@@ -670,7 +637,6 @@ list_len(nums) + list_len(bools)
 "#;
     let program = unwrap_or_panic(compile_bytecode(
         "main.abra",
-        DefaultEffects::enumerate(),
         MockFileProvider::single_file(src),
     ));
     let mut vm = Vm::new(program);
@@ -687,7 +653,6 @@ s
 "#;
     let program = unwrap_or_panic(compile_bytecode(
         "main.abra",
-        DefaultEffects::enumerate(),
         MockFileProvider::single_file(src),
     ));
     let mut vm = Vm::new(program);
@@ -703,7 +668,6 @@ str(123)
 "#;
     let program = unwrap_or_panic(compile_bytecode(
         "main.abra",
-        DefaultEffects::enumerate(),
         MockFileProvider::single_file(src),
     ));
     let mut vm = Vm::new(program);
@@ -720,7 +684,6 @@ str(123.456)
 "#;
     let program = unwrap_or_panic(compile_bytecode(
         "main.abra",
-        DefaultEffects::enumerate(),
         MockFileProvider::single_file(src),
     ));
     let mut vm = Vm::new(program);
@@ -737,7 +700,6 @@ str(nums)
 "#;
     let program = unwrap_or_panic(compile_bytecode(
         "main.abra",
-        DefaultEffects::enumerate(),
         MockFileProvider::single_file(src),
     ));
     let mut vm = Vm::new(program);
@@ -758,7 +720,6 @@ fn local_in_while_scope() {
     "#;
     let program = unwrap_or_panic(compile_bytecode(
         "main.abra",
-        DefaultEffects::enumerate(),
         MockFileProvider::single_file(src),
     ));
     let mut vm = Vm::new(program);
@@ -782,7 +743,6 @@ fn continue_and_break() {
 "#;
     let program = unwrap_or_panic(compile_bytecode(
         "main.abra",
-        DefaultEffects::enumerate(),
         MockFileProvider::single_file(src),
     ));
     let mut vm = Vm::new(program);
@@ -805,7 +765,6 @@ fib(10)
 "#;
     let program = unwrap_or_panic(compile_bytecode(
         "main.abra",
-        DefaultEffects::enumerate(),
         MockFileProvider::single_file(src),
     ));
     let mut vm = Vm::new(program);
@@ -829,7 +788,6 @@ x
 "#;
     let program = unwrap_or_panic(compile_bytecode(
         "main.abra",
-        DefaultEffects::enumerate(),
         MockFileProvider::single_file(src),
     ));
     let mut vm = Vm::new(program);
@@ -857,7 +815,6 @@ x
 "#;
     let program = unwrap_or_panic(compile_bytecode(
         "main.abra",
-        DefaultEffects::enumerate(),
         MockFileProvider::single_file(src),
     ));
     let mut vm = Vm::new(program);
@@ -881,7 +838,6 @@ fn my_entry_point() {
 "#;
     let program = unwrap_or_panic(compile_bytecode(
         "main.abra",
-        DefaultEffects::enumerate(),
         MockFileProvider::single_file(src),
     ));
     let mut vm = Vm::with_entry_point(program, "main.my_entry_point".to_owned());
@@ -905,7 +861,6 @@ my_entry_point(5, 6)
 "#;
     let program = unwrap_or_panic(compile_bytecode(
         "main.abra",
-        DefaultEffects::enumerate(),
         MockFileProvider::single_file(src),
     ));
     let mut vm = Vm::with_entry_point(program, "main.my_entry_point".to_owned());
@@ -938,8 +893,7 @@ foo(2, 2)
     files.insert("util.abra".into(), util.into());
     let file_provider = MockFileProvider::new(files);
 
-    let effects = DefaultEffects::enumerate();
-    let program = compile_bytecode("main.abra", effects, file_provider);
+    let program = compile_bytecode("main.abra", file_provider);
     if let Err(e) = program {
         panic!("{}", e);
     }
@@ -957,7 +911,6 @@ format_append(format_append(123, true), false)
 "#;
     let program = unwrap_or_panic(compile_bytecode(
         "main.abra",
-        DefaultEffects::enumerate(),
         MockFileProvider::single_file(src),
     ));
     let mut vm = Vm::new(program);
@@ -973,7 +926,6 @@ fn ampersand() {
 "#;
     let program = unwrap_or_panic(compile_bytecode(
         "main.abra",
-        DefaultEffects::enumerate(),
         MockFileProvider::single_file(src),
     ));
     let mut vm = Vm::new(program);
@@ -992,7 +944,6 @@ comment */
 "#;
     let program = unwrap_or_panic(compile_bytecode(
         "main.abra",
-        DefaultEffects::enumerate(),
         MockFileProvider::single_file(src),
     ));
     let mut vm = Vm::new(program);
@@ -1010,7 +961,6 @@ do_stuff()
 "#;
     let program = unwrap_or_panic(compile_bytecode(
         "main.abra",
-        DefaultEffects::enumerate(),
         MockFileProvider::single_file(src),
     ));
     let mut vm = Vm::new(program);
@@ -1032,7 +982,6 @@ x + x
 "#;
     let program = unwrap_or_panic(compile_bytecode(
         "main.abra",
-        DefaultEffects::enumerate(),
         MockFileProvider::single_file(src),
     ));
     let mut vm = Vm::new(program);
