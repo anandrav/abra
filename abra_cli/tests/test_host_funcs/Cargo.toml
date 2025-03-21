@@ -6,8 +6,6 @@ license = "MPL-2.0"
 
 [dependencies]
 abra_core = { path = "../../../abra_core" }
-test_host_funcs_helper = { path = "../test_host_funcs_helper" }
 
 [build-dependencies]
 abra_core = { path = "../../../abra_core" }
-test_host_funcs_helper = { path = "../test_host_funcs_helper" }

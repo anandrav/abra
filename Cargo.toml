@@ -10,5 +10,4 @@ members = [
     # integration tests
     "abra_cli/tests/modules/*/rust_project",
     "abra_cli/tests/test_host_funcs/",
-    "abra_cli/tests/test_host_funcs_helper/",
 ]

@@ -1,20 +1,17 @@
-use std::{collections::HashMap, error::Error, path::PathBuf};
+use std::{error::Error, path::PathBuf};
 
 use abra_core::{
-    MockFileProvider,
+    OsFileProvider,
     effects::{DefaultEffects, EffectTrait},
     vm::{Vm, VmStatus},
 };
 use host_funcs::HostFunction;
-use test_host_funcs_helper::*;
 
 mod host_funcs;
 
 fn main() -> Result<(), Box<dyn Error>> {
-    let mut files: HashMap<PathBuf, String> = HashMap::new();
-    files.insert("main.abra".into(), MAIN_ABRA.into());
-    files.insert("util.abra".into(), UTIL_ABRA.into());
-    let file_provider = MockFileProvider::new(files);
+    let abra_src_dir = PathBuf::from(std::env::var("CARGO_MANIFEST_DIR").unwrap()).join("abra_src");
+    let file_provider = OsFileProvider::new(abra_src_dir, PathBuf::new(), PathBuf::new());
 
     let program =
         abra_core::compile_bytecode("main.abra", DefaultEffects::enumerate(), file_provider)?;
@@ -25,7 +22,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     let VmStatus::PendingEffect(i) = status else {
         panic!()
     };
-    let HostFunction::foo = i.into() else {
+    let HostFunction::bar = i.into() else {
         panic!()
     };
     let a = vm.pop()?.get_int(&vm)?;

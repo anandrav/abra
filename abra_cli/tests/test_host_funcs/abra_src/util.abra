@@ -1,0 +1,3 @@
+host fn foo(a: int) -> int
+
+host fn bar(a: int, b: int) -> int
