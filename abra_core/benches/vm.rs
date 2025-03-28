@@ -26,9 +26,9 @@ pub fn fib_benchmark(c: &mut Criterion) {
     let src = r#"
 fn fib(n) {
     match n {
-        0 -> 0
-        1 -> 1
-        _ -> fib(n-1) + fib(n-2)
+      | 0 -> 0
+      | 1 -> 1
+      | _ -> fib(n-1) + fib(n-2)
     }
 }   
 fib(17)

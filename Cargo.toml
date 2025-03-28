@@ -11,3 +11,7 @@ members = [
     "abra_cli/tests/modules/*/rust_project",
     "abra_cli/tests/test_host_funcs/",
 ]
+
+[profile.release]
+lto = true
+
