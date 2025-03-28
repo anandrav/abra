@@ -783,14 +783,14 @@ pub(crate) fn parse_stmt(pair: Pair<Rule>, file_id: FileId) -> Rc<Stmt> {
     let rule = pair.as_rule();
     let inner: Vec<_> = pair.into_inner().collect();
     match rule {
-        Rule::func_def => {
-            let func_def = parse_func_def(inner, file_id);
-            Rc::new(Stmt {
-                kind: Rc::new(StmtKind::FuncDef(func_def.into())),
-                loc: span,
-                id: NodeId::new(),
-            })
-        }
+        // Rule::func_def => {
+        //     let func_def = parse_func_def(inner, file_id);
+        //     Rc::new(Stmt {
+        //         kind: Rc::new(StmtKind::FuncDef(func_def.into())),
+        //         loc: span,
+        //         id: NodeId::new(),
+        //     })
+        // }
         Rule::let_statement => {
             let offset = 0;
             let pat_annotated = parse_annotated_let_pattern(inner[offset].clone(), file_id);

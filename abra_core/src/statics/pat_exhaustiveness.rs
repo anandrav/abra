@@ -53,9 +53,6 @@ fn check_pattern_exhaustiveness_stmt(statics: &mut StaticsContext, stmt: &Stmt) 
         StmtKind::Let(_, _, expr) => {
             check_pattern_exhaustiveness_expr(statics, expr);
         }
-        StmtKind::FuncDef(f) => {
-            check_pattern_exhaustiveness_expr(statics, &f.body);
-        }
         StmtKind::Expr(expr) => {
             check_pattern_exhaustiveness_expr(statics, expr);
         }

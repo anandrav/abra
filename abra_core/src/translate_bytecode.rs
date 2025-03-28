@@ -1301,9 +1301,6 @@ impl Translator {
                     self.emit(st, Instr::Pop);
                 }
             }
-            StmtKind::FuncDef(..) => {
-                // noop -- handled elsewhere
-            }
             // TODO: should continue and break leave a Nil on the stack? Add tests for this!
             StmtKind::Break => {
                 let enclosing_loop = st.loop_stack.last().unwrap();
@@ -1482,7 +1479,7 @@ fn collect_locals_stmt(statements: &[Rc<Stmt>], locals: &mut HashSet<NodeId>) {
             StmtKind::Let(_, pat, _) => {
                 collect_locals_pat(pat.0.clone(), locals);
             }
-            StmtKind::Set(..) | StmtKind::FuncDef(..) | StmtKind::Continue | StmtKind::Break => {}
+            StmtKind::Set(..) | StmtKind::Continue | StmtKind::Break => {}
             StmtKind::Return(expr) => {
                 collect_locals_expr(expr, locals);
             }

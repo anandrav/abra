@@ -323,7 +323,7 @@ fn resolve_imports_file(ctx: &mut StaticsContext, file: Rc<FileAst>) -> Namespac
         .namespaces
         .iter()
     {
-        env.namespaces.insert(name.clone(), namespace.clone()); // TODO: cloning namespaces everywhere is expensive
+        env.namespaces.insert(name.clone(), namespace.clone());
     }
 
     // add declarations from prelude to the environment
@@ -346,7 +346,7 @@ fn resolve_imports_file(ctx: &mut StaticsContext, file: Rc<FileAst>) -> Namespac
         .namespaces
         .iter()
     {
-        env.namespaces.insert(name.clone(), namespace.clone()); // TODO: cloning namespaces everywhere is expensive
+        env.namespaces.insert(name.clone(), namespace.clone());
     }
     // builtin array type
     env.declarations
@@ -550,9 +550,6 @@ fn resolve_names_item_stmt(ctx: &mut StaticsContext, symbol_table: SymbolTable, 
 
 fn resolve_names_stmt(ctx: &mut StaticsContext, symbol_table: SymbolTable, stmt: Rc<Stmt>) {
     match &*stmt.kind {
-        StmtKind::FuncDef(..) => {
-            // TODO: get rid of this. No longer in grammar!
-        }
         StmtKind::Expr(expr) => {
             resolve_names_expr(ctx, symbol_table, expr.clone());
         }

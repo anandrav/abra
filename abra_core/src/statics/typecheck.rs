@@ -1492,9 +1492,6 @@ fn generate_constraints_stmt(
 
             // constrain_because(ctx, ty_lhs, ty_rhs, ConstraintReason::LetSetLhsRhs);
         }
-        StmtKind::FuncDef(f) => {
-            generate_constraints_fn_def(ctx, polyvar_scope, f, f.name.node());
-        }
         StmtKind::Break | StmtKind::Continue => {
             let enclosing_loop = ctx.loop_stack.last();
             match enclosing_loop {
