@@ -5,6 +5,7 @@ use std::collections::VecDeque;
 // use std::error::Error;
 use std::path::Path;
 use std::path::PathBuf;
+use std::process::Command;
 use std::rc::Rc;
 
 use ast::FileAst;
@@ -162,6 +163,12 @@ pub enum HostFunction {
     );
 
     std::fs::write(destination, output).unwrap();
+
+    Command::new("rustfmt")
+        .arg(destination)
+        .status()
+        .map_err(|e| e.to_string())?;
+
     Ok(())
 }
 
