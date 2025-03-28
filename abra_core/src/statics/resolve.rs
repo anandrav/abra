@@ -92,8 +92,6 @@ fn gather_declarations_item(
                     .declarations
                     .insert(e.name.v.clone(), Declaration::Enum(e.clone()));
 
-                // TODO: in the near future, put enum variants in a namespace named after the enum
-                // and refer to them in code by just writing .Variant
                 let mut enum_namespace = Namespace::new();
                 for (i, v) in e.variants.iter().enumerate() {
                     let variant_name = v.ctor.v.clone();
@@ -646,15 +644,15 @@ fn resolve_names_expr(ctx: &mut StaticsContext, symbol_table: SymbolTable, expr:
             resolve_names_expr(ctx, symbol_table.clone(), expr.clone());
             if let Some(decl) = ctx.resolution_map.get(&expr.id).cloned() {
                 match decl {
-                    // member access not really valid for these
-                    // TODO: perhaps add another kind of Error for this situation, but play it by ear
                     Declaration::FreeFunction(..)
                     | Declaration::HostFunction(..)
                     | Declaration::_ForeignFunction { .. }
                     | Declaration::InterfaceMethod { .. }
                     | Declaration::EnumVariant { .. }
                     | Declaration::Polytype(_)
-                    | Declaration::Builtin(_) => {
+                    | Declaration::Builtin(_)
+                    | Declaration::Struct(_)
+                    | Declaration::Array => {
                         ctx.errors
                             .push(Error::UnresolvedIdentifier { node: field.node() });
                     }
@@ -679,8 +677,6 @@ fn resolve_names_expr(ctx: &mut StaticsContext, symbol_table: SymbolTable, expr:
                                 .push(Error::UnresolvedIdentifier { node: field.node() });
                         }
                     }
-                    Declaration::Struct(_) => unimplemented!(),
-                    Declaration::Array => unimplemented!(),
                     Declaration::Var(_) => {
                         // requires further context from typechecker to resolve field
                         //
