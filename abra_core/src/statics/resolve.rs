@@ -71,6 +71,7 @@ fn gather_declarations_item(
 
             // TODO: in the near future, put interface methods in a namespace named after the interface
             // and call interface methods using the dot operator. my_struct.to_string() etc.
+            // or by fully qualifying the method and writing for example ToString.to_string(my_struct)
             for (i, p) in iface.methods.iter().enumerate() {
                 let method_name = p.name.v.clone();
                 let method = i as u16;
@@ -291,9 +292,26 @@ impl SymbolTable {
 
 pub(crate) fn resolve(ctx: &mut StaticsContext, file_asts: &Vec<Rc<FileAst>>) {
     for file in file_asts {
-        let env = resolve_imports_file(ctx, file.clone());
-        resolve_names_file_decls(ctx, env.clone(), file.clone());
-        resolve_names_file_stmts(ctx, env.clone(), file.clone());
+        let toplevel_declarations = resolve_imports_file(ctx, file.clone());
+        let symbol_table = SymbolTable::empty();
+
+        for (name, declaration) in toplevel_declarations.declarations {
+            symbol_table.extend_declaration(name, declaration);
+        }
+        for (name, namespace) in toplevel_declarations.namespaces {
+            symbol_table.extend_namespace(name, namespace);
+        }
+
+        for builtin in Builtin::enumerate().iter() {
+            symbol_table.extend_declaration(builtin.name(), Declaration::Builtin(*builtin));
+        }
+
+        for item in file.items.iter() {
+            resolve_names_item_decl(ctx, symbol_table.clone(), item.clone());
+        }
+        for item in file.items.iter() {
+            resolve_names_item_stmt(ctx, symbol_table.clone(), item.clone());
+        }
     }
 }
 
@@ -369,28 +387,6 @@ fn resolve_imports_file(ctx: &mut StaticsContext, file: Rc<FileAst>) -> Namespac
     }
 
     env
-}
-
-pub(crate) fn resolve_names_file_decls(
-    ctx: &mut StaticsContext,
-    toplevel_declarations: Namespace,
-    file: Rc<FileAst>,
-) {
-    let symbol_table = SymbolTable::empty();
-
-    for (name, declaration) in toplevel_declarations.declarations {
-        symbol_table.extend_declaration(name, declaration);
-    }
-    for (name, namespace) in toplevel_declarations.namespaces {
-        symbol_table.extend_namespace(name, namespace);
-    }
-
-    for builtin in Builtin::enumerate().iter() {
-        symbol_table.extend_declaration(builtin.name(), Declaration::Builtin(*builtin));
-    }
-    for item in file.items.iter() {
-        resolve_names_item_decl(ctx, symbol_table.clone(), item.clone());
-    }
 }
 
 fn resolve_names_item_decl(ctx: &mut StaticsContext, symbol_table: SymbolTable, stmt: Rc<Item>) {
@@ -505,29 +501,6 @@ fn resolve_names_item_decl(ctx: &mut StaticsContext, symbol_table: SymbolTable, 
             }
         },
         ItemKind::Stmt(..) => {}
-    }
-}
-
-pub(crate) fn resolve_names_file_stmts(
-    ctx: &mut StaticsContext,
-    toplevel_declarations: Namespace,
-    file: Rc<FileAst>,
-) {
-    let symbol_table = SymbolTable::empty();
-
-    // TODO: This is super duplicated with the code in resolve_imports_file that builds and returns a Namespace...
-    for (name, declaration) in &toplevel_declarations.declarations {
-        symbol_table.extend_declaration(name.clone(), declaration.clone());
-    }
-    for (name, namespace) in &toplevel_declarations.namespaces {
-        symbol_table.extend_namespace(name.clone(), namespace.clone());
-    }
-
-    for builtin in Builtin::enumerate().iter() {
-        symbol_table.extend_declaration(builtin.name(), Declaration::Builtin(*builtin));
-    }
-    for item in file.items.iter() {
-        resolve_names_item_stmt(ctx, symbol_table.clone(), item.clone());
     }
 }
 
