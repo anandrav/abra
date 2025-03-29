@@ -360,19 +360,13 @@ impl Translator {
                 let mut iteration = Vec::new();
                 mem::swap(&mut (iteration), &mut st.overloaded_methods_to_generate);
                 for (desc, substituted_ty) in iteration {
-                    // println!("generating func {}", desc.name);
-                    // println!("instance ty = {}", desc.impl_type);
-                    // println!("substitued_ty = {}", desc.impl_type);
-                    // println!();
                     let f = desc.func_def.clone();
 
                     self.update_function_name_table(st, &f.name.v);
 
                     let overloaded_func_ty = self.statics.solution_of_node(f.name.node()).unwrap();
-                    // println!("overloaded_func_ty = {}", desc.impl_type);
                     let monomorph_env = MonomorphEnv::empty();
                     update_monomorph_env(monomorph_env.clone(), overloaded_func_ty, substituted_ty);
-                    // println!("monomorph_env: {}", monomorph_env);
 
                     let label = st.overloaded_func_map.get(&desc).unwrap();
                     self.emit(st, Line::Label(label.clone()));
@@ -403,10 +397,6 @@ impl Translator {
 
                     self.emit(st, Instr::Return);
                 }
-            }
-
-            for _item in st.lines.iter() {
-                // println!("{}", _item);
             }
         }
         let (instructions, label_map) = remove_labels(&st.lines, &self.statics.string_constants);
@@ -439,7 +429,6 @@ impl Translator {
         st: &mut TranslatorState,
     ) {
         self.update_filename_lineno_tables(st, expr.node());
-        // println!("translating expr: {:?}", expr.kind);
         match &*expr.kind {
             ExprKind::Variable(_) => {
                 match self
@@ -548,7 +537,6 @@ impl Translator {
 
                         let substituted_ty =
                             subst_with_monomorphic_env(monomorph_env, specific_func_ty);
-                        // println!("substituted type: {:?}", substituted_ty);
 
                         self.handle_overloaded_func(st, substituted_ty, func_name, func.clone());
                     }
@@ -612,7 +600,6 @@ impl Translator {
 
                             let substituted_ty =
                                 subst_with_monomorphic_env(monomorph_env, specific_func_ty);
-                            // println!("substituted type: {:?}", substituted_ty);
 
                             self.handle_overloaded_func(st, substituted_ty, &name, f.clone());
                         }
@@ -636,7 +623,6 @@ impl Translator {
                             .find(|(_, (l, s))| **l == libname && **s == symbol)
                         {
                             Some((func_id, _)) => {
-                                // println!("The func id of {} is {}", symbol, func_id);
                                 self.emit(st, Instr::CallExtern(func_id));
                             }
                             _ => {
@@ -659,11 +645,8 @@ impl Translator {
                         fully_qualified_name,
                     } => {
                         let func_ty = self.statics.solution_of_node(func.node()).unwrap();
-                        // println!("func_ty: {}", func_ty);
-                        // println!("monomorphic_env: {}", monomorph_env);
                         let substituted_ty =
                             subst_with_monomorphic_env(monomorph_env.clone(), func_ty);
-                        // println!("substituted type: {}", substituted_ty);
                         let method_name = &iface_def.methods[method as usize].name.v;
                         let impl_list = self
                             .statics
@@ -671,7 +654,6 @@ impl Translator {
                             .get(&iface_def)
                             .unwrap()
                             .clone();
-                        // println!();
 
                         // TODO: simplify this logic
                         for imp in impl_list {
@@ -1132,8 +1114,6 @@ impl Translator {
 
             ItemKind::FuncDef(f) => {
                 // (this could be an overloaded function or an interface method)
-                // println!("resolving {}", f.name.v);
-                // self._display_node(f.body.id);
                 let func_ty = self.statics.solution_of_node(f.name.node()).unwrap();
 
                 if func_ty.is_overloaded() // println: 'a ToString -> ()
@@ -1153,7 +1133,6 @@ impl Translator {
 
                 let return_label = make_label("return");
 
-                // println!("Generating code for function: {}", func_name);
                 self.emit(st, Line::Label(fully_qualified_name.clone()));
                 let mut locals = HashSet::new();
                 collect_locals_expr(&f.body, &mut locals);
@@ -1215,7 +1194,6 @@ impl Translator {
 
             self.update_function_name_table(st, &func_name);
 
-            // println!("Generating code for function: {}", func_name);
             self.emit(st, Line::Label(func_name));
             let mut locals = HashSet::new();
             collect_locals_expr(&f.body, &mut locals);
@@ -1340,8 +1318,6 @@ impl Translator {
         func_def: Rc<FuncDef>,
     ) {
         let instance_ty = substituted_ty.monotype().unwrap();
-        // println!("instance type: {:?}", &instance_ty);
-
         let entry = st.overloaded_func_map.entry(OverloadedFuncDesc {
             name: func_name.clone(),
             impl_type: instance_ty.clone(),
@@ -1365,7 +1341,6 @@ impl Translator {
                 label
             }
         };
-        // println!("emitting Call of function: {}", label);
         self.emit(st, Instr::Call(label));
     }
 

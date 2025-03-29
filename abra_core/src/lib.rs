@@ -55,14 +55,11 @@ pub fn compile_bytecode(
     file_provider: Box<dyn FileProvider>,
 ) -> Result<CompiledProgram, String> {
     let (file_asts, file_db) = get_files(main_file_name, &*file_provider)?;
-    // println!("time to analyze");
     let inference_ctx = statics::analyze(&file_asts, &file_db, file_provider)?;
 
     // TODO: translator should be immutable
     // NOTE: It's only mutable right now because of ty_fits_impl_ty calls ast_type_to_statics_type...
-    // println!("time to translate");
     let mut translator = Translator::new(inference_ctx, file_db, file_asts);
-    // println!("successfully translated");
     Ok(translator.translate())
 }
 

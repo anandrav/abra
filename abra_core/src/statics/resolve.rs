@@ -153,18 +153,14 @@ fn gather_declarations_item(
                 let func_name = _func_decl.name.v.clone();
 
                 let mut path = _file.path.clone();
-                // println!("{}", path.display());
                 let elems: Vec<_> = _file.name.split(std::path::MAIN_SEPARATOR_STR).collect();
-                // dbg!(&elems);
                 for _ in 0..elems.len() - 1 {
                     path = path.parent().unwrap().to_owned();
                 }
-                // println!("{}", path.display());
                 let mut package_name = path.iter().last().unwrap().to_str().unwrap().to_string();
                 if package_name.ends_with(".abra") {
                     package_name = package_name[..package_name.len() - ".abra".len()].to_string();
                 }
-                // println!("libname={}", libname);
 
                 let filename = format!(
                     "{}{}{}",
@@ -760,8 +756,6 @@ fn resolve_names_pat(ctx: &mut StaticsContext, symbol_table: SymbolTable, pat: R
                     }
                 }
                 if !found {
-                    println!("not found!");
-                    println!("tag: {}", tag.v);
                     ctx.errors
                         .push(Error::UnresolvedIdentifier { node: tag.node() });
                 }

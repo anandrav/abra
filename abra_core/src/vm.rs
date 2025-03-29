@@ -535,8 +535,6 @@ impl Value {
     }
 
     pub fn view_string<'a>(&self, vm: &'a Vm) -> &'a String {
-        // println!("DURING FFI VM: {:#?}", vm);
-
         match self {
             Value::HeapReference(r) => match &vm.heap[r.get().get()].kind {
                 ManagedObjectKind::String(s) => s,
@@ -588,27 +586,6 @@ enum ManagedObjectKind {
 
 impl Vm {
     pub fn run(&mut self) {
-        // for pair in &self.function_name_table {
-        //     let function_name = &self.function_name_arena[pair.1 as usize];
-        //     println!("bytecode[{}]\tfn {}()", pair.0, function_name);
-        // }
-        // println!("------------------------------------------------------");
-        // for pair in &self.lineno_table {
-        //     println!("bytecode[{}]\tline={}", pair.0, pair.1);
-        // }
-        // println!("------------------------------------------------------");
-        // for pair in &self.filename_table {
-        //     let filename = &self.filename_arena[pair.1 as usize];
-        //     println!("bytecode[{}]\tfile '{}'", pair.0, filename);
-        // }
-
-        // if self.pc == 0 {
-        //     for (i, instr) in self.program.iter().enumerate() {
-        //         println!("{}", instr);
-        //     }
-        //     println!("----------------------------------------");
-        // }
-
         if self.pending_host_func.is_some() {
             panic!("must handle pending host func");
         }
@@ -646,14 +623,7 @@ impl Vm {
 
     fn step(&mut self) -> Result<()> {
         let instr = self.program[self.pc];
-        // println!("instr: {}", instr);
-        // let location = self.pc_to_error_location(self.pc);
-        // let func_call = format!("{}()", location.function_name);
-        // let max_width = 30;
-        // println!(
-        //     "    from {:<max_width$} at {}, line {}",
-        //     func_call, location.filename, location.lineno
-        // );
+
         self.pc += 1;
         match instr {
             Instr::PushNil => {
@@ -1114,20 +1084,12 @@ impl Vm {
                         return self.make_error(VmErrorKind::SymbolLoadFailure(symbol_name));
                     };
                     self.foreign_functions.push(*symbol);
-                    // println!(
-                    //     "foreign_functions[{}]={}",
-                    //     self.foreign_functions.len() - 1,
-                    //     symbol_name
-                    // );
                 }
             }
             Instr::CallExtern(_func_id) => {
                 if cfg!(not(feature = "ffi")) {
                     return self.make_error(VmErrorKind::FfiNotEnabled);
                 }
-
-                // println!(">>time to invoke func_id={}", _func_id);
-                // println!("BEFORE FFI VM: {:#?}", &self);
 
                 #[cfg(feature = "ffi")]
                 {
@@ -1138,11 +1100,8 @@ impl Vm {
                         self.foreign_functions[_func_id](vm_ptr, abra_vm_functions_ptr);
                     };
                 }
-
-                // println!("AFTER FFI VM: {:#?}", &self);
             }
         }
-        // println!("{:#?}", self);
         Ok(())
     }
 
@@ -1261,22 +1220,6 @@ impl Vm {
                         }
                     }
                 }
-                // ManagedObjectKind::FunctionObject {
-                //     captured_values,
-                //     func_addr: _,
-                // } => {
-                //     for v in captured_values {
-                //         if let Value::HeapReference(r) = v {
-                //             r.replace(forward(
-                //                 r.get(),
-                //                 &self.heap,
-                //                 new_heap_len,
-                //                 &mut to_add,
-                //                 new_heap_group,
-                //             ));
-                //         }
-                //     }
-                // }
                 ManagedObjectKind::Enum { tag: _, value } => {
                     if let Value::HeapReference(r) = value {
                         r.replace(forward(

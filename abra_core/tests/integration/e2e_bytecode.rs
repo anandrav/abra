@@ -31,7 +31,6 @@ h
     vm.run();
     let top = vm.top().unwrap();
     assert_eq!(top.get_int(&vm).unwrap(), -2);
-    println!("result is {}", top.get_int(&vm).unwrap());
 }
 
 #[test]
@@ -53,7 +52,6 @@ x + y
     vm.run();
     let top = vm.top().unwrap();
     assert_eq!(top.get_int(&vm).unwrap(), 6);
-    println!("result is {}", top.get_int(&vm).unwrap());
 }
 
 #[test]
@@ -73,7 +71,6 @@ if false {
     vm.run();
     let top = vm.top().unwrap();
     assert_eq!(top.get_int(&vm).unwrap(), 4);
-    println!("result is {}", top.get_int(&vm).unwrap());
 }
 
 #[test]
@@ -93,7 +90,6 @@ x
     vm.run();
     let top = vm.top().unwrap();
     assert_eq!(top.get_int(&vm).unwrap(), 6);
-    println!("result is {}", top.get_int(&vm).unwrap());
 }
 
 #[test]
@@ -905,7 +901,6 @@ foo(2, 2)
     vm.run();
     let top = vm.top().unwrap();
     assert_eq!(top.get_int(&vm).unwrap(), 4);
-    println!("result is {}", top.get_int(&vm).unwrap());
 }
 
 #[test]

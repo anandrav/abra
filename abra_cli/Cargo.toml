@@ -21,4 +21,3 @@ strum_macros = "0.26.3"
 
 [build-dependencies]
 abra_core = { path = "../abra_core", features = ["ffi"] }
-

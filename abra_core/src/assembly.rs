@@ -42,33 +42,6 @@ impl Display for Line {
 
 pub type Instr = VmInstr<Label, String>;
 
-// pub(crate) fn _assemble(s: &str) -> CompiledProgram {
-//     let mut instructions: Vec<Line> = vec![];
-//     let mut string_constants: HashMap<String, usize> = HashMap::new();
-//     for (lineno, line) in s.lines().enumerate() {
-//         let words: Vec<_> = line.split_whitespace().collect();
-//         if words.is_empty() {
-//             continue;
-//         }
-//         instructions.push(_assemble_instr_or_label(
-//             words,
-//             lineno,
-//             &mut string_constants,
-//         ));
-//     }
-//     let (instructions, label_map) = remove_labels(&instructions, &string_constants);
-//     let mut string_table: Vec<String> = vec!["".into(); string_constants.len()];
-//     for (s, idx) in string_constants.iter() {
-//         string_table[*idx] = s.clone();
-//     }
-//     CompiledProgram {
-//         instructions,
-//         label_map,
-//         string_table,
-//         filename_table,
-//     }
-// }
-
 pub(crate) fn remove_labels(
     items: &Vec<Line>,
     string_constants: &HashMap<String, usize>,
@@ -255,25 +228,3 @@ fn _assemble_instr_or_label(
     };
     Line::Instr(instr)
 }
-
-// #[cfg(test)]
-// mod tests {
-//     use super::*;
-
-//     #[test]
-//     fn basic() {
-//         let program_str = r#"push_int 3
-// push_int 4
-// subtract
-// push_int 5
-// add
-// "#;
-//         let program = _assemble(program_str);
-//         let instructions = program.instructions;
-//         let mut program_str2 = String::new();
-//         for instr in instructions {
-//             program_str2.push_str(&format!("{}\n", instr));
-//         }
-//         assert_eq!(program_str, program_str2);
-//     }
-// }

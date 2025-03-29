@@ -767,7 +767,6 @@ fn parse_func_def(inner: Vec<Pair<'_, Rule>>, file_id: FileId) -> FuncDef {
     let maybe_func_out = &inner[n];
     let ret_type = match maybe_func_out.as_rule() {
         Rule::func_out_annotation => {
-            // n += 1;
             Some(parse_func_out_annotation(maybe_func_out.clone(), file_id))
         }
         _ => None,
@@ -787,14 +786,6 @@ pub(crate) fn parse_stmt(pair: Pair<Rule>, file_id: FileId) -> Rc<Stmt> {
     let rule = pair.as_rule();
     let inner: Vec<_> = pair.into_inner().collect();
     match rule {
-        // Rule::func_def => {
-        //     let func_def = parse_func_def(inner, file_id);
-        //     Rc::new(Stmt {
-        //         kind: Rc::new(StmtKind::FuncDef(func_def.into())),
-        //         loc: span,
-        //         id: NodeId::new(),
-        //     })
-        // }
         Rule::let_statement => {
             let offset = 0;
             let pat_annotated = parse_annotated_let_pattern(inner[offset].clone(), file_id);
@@ -888,10 +879,6 @@ pub(crate) fn parse_variant(pair: Pair<Rule>, file_id: FileId) -> Rc<Variant> {
             let name = inner[0].as_str().to_string();
             let span_ctor = Location::new(file_id, inner[0].as_span());
             let n = 1;
-            // while let Rule::type_poly = inner[n].as_rule() {
-            //     type_params.push(inner[n].as_str().to_string());
-            //     n += 1;
-            // }
             let data = if let Some(pair) = inner.get(n) {
                 let data = parse_type_term(pair.clone(), file_id);
                 Some(data)
@@ -1030,7 +1017,6 @@ pub(crate) fn parse_expr_term(pair: Pair<Rule>, file_id: FileId) -> Rc<Expr> {
             let maybe_func_out = &inner[n];
             let ty_out = match maybe_func_out.as_rule() {
                 Rule::func_out_annotation => {
-                    // n += 1;
                     Some(parse_func_out_annotation(maybe_func_out.clone(), file_id))
                 }
                 _ => None,

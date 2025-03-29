@@ -93,7 +93,6 @@ unsafe extern "C" fn abra_vm_push_float(vm: *mut c_void, f: f64) {
 unsafe extern "C" fn abra_vm_push_bool(vm: *mut c_void, b: bool) {
     let vm = unsafe { (vm as *mut Vm).as_mut().unwrap() };
     vm.push_bool(b);
-    // println!("pushing bool {}", b);
 }
 
 /// # Safety
@@ -190,7 +189,6 @@ unsafe extern "C" fn abra_vm_view_string(vm: *mut c_void) -> StringView {
 unsafe extern "C" fn abra_vm_push_string(vm: *mut c_void, string_view: StringView) {
     let vm = unsafe { (vm as *mut Vm).as_mut().unwrap() };
     let s = string_view.to_owned();
-    // println!("pushing string to stack: {}", s);
     vm.push_str(s);
 }
 

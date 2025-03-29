@@ -3,6 +3,5 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 pub fn get_var(key: String) -> String {
-    println!("fn get_var({key})");
     std::env::var(key).unwrap_or("".to_string())
 }

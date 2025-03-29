@@ -709,8 +709,6 @@ fn match_expr_exhaustive_check(statics: &mut StaticsContext, expr: &Rc<Expr>) {
         return;
     };
 
-    // println!("scrutinee_ty={}", scrutinee_ty);
-
     let mut matrix = Matrix::new(statics, scrutinee_ty, arms);
 
     let witness_matrix = compute_exhaustiveness_and_usefulness(statics, &mut matrix);

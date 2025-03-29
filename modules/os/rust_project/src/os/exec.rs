@@ -5,8 +5,6 @@
 use std::process::Command;
 
 pub fn command(content: String) -> i64 {
-    println!("fn command({content})");
-
     let content_elems: Vec<_> = content.split(' ').collect();
 
     let mut cmd = Command::new(content_elems[0]);

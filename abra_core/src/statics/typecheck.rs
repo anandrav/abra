@@ -1469,7 +1469,6 @@ fn generate_constraints_stmt(
                 generate_constraints_pat(polyvar_scope.clone(), Mode::Syn, pat.clone(), ctx)
             };
 
-            // println!("{}", ty_pat.solution().unwrap());
             generate_constraints_expr(
                 polyvar_scope.clone(),
                 Mode::AnaWithReason {
@@ -1483,7 +1482,6 @@ fn generate_constraints_stmt(
         StmtKind::Set(lhs, rhs) => {
             let ty_lhs = TypeVar::from_node(ctx, lhs.node());
             generate_constraints_expr(polyvar_scope.clone(), Mode::Syn, lhs.clone(), ctx);
-            // let ty_rhs = TypeVar::from_node(ctx, rhs.into());
             generate_constraints_expr(
                 polyvar_scope,
                 Mode::AnaWithReason {
@@ -1493,8 +1491,6 @@ fn generate_constraints_stmt(
                 rhs.clone(),
                 ctx,
             );
-
-            // constrain_because(ctx, ty_lhs, ty_rhs, ConstraintReason::LetSetLhsRhs);
         }
         StmtKind::Break | StmtKind::Continue => {
             let enclosing_loop = ctx.loop_stack.last();
@@ -2455,38 +2451,6 @@ fn generate_constraints_pat(
         }
     };
 }
-
-// pub(crate) fn monotype_to_typevar(ty: Monotype, reason: Reason) -> TypeVar {
-//     match ty {
-//         Monotype::Unit => TypeVar::make_unit(reason),
-//         Monotype::Int => TypeVar::make_int(reason),
-//         Monotype::Float => TypeVar::make_float(reason),
-//         Monotype::Bool => TypeVar::make_bool(reason),
-//         Monotype::String => TypeVar::make_string(reason),
-//         Monotype::Tuple(elements) => {
-//             let elements = elements
-//                 .into_iter()
-//                 .map(|e| monotype_to_typevar(e, reason.clone()))
-//                 .collect();
-//             TypeVar::make_tuple(elements, reason)
-//         }
-//         Monotype::Function(args, out) => {
-//             let args = args
-//                 .into_iter()
-//                 .map(|a| monotype_to_typevar(a, reason.clone()))
-//                 .collect();
-//             let out = monotype_to_typevar(*out, reason.clone());
-//             TypeVar::make_func(args, out, reason.clone())
-//         }
-//         Monotype::Nominal(name, params) => {
-//             let params = params
-//                 .into_iter()
-//                 .map(|p| monotype_to_typevar(p, reason.clone()))
-//                 .collect();
-//             TypeVar::make_nominal(reason, name, params)
-//         }
-//     }
-// }
 
 pub(crate) fn fmt_conflicting_types(types: &[PotentialType], f: &mut dyn Write) -> fmt::Result {
     writeln!(f)?;
