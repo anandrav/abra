@@ -18,9 +18,7 @@ pub(crate) fn scan_declarations(ctx: &mut StaticsContext, file_asts: &Vec<Rc<Fil
     for file in file_asts {
         let name = file.name.clone();
         let namespace = gather_declarations_file(ctx, file.clone());
-        ctx.global_namespace
-            .namespaces
-            .insert(name, namespace.into());
+        ctx.root_namespace.namespaces.insert(name, namespace.into());
     }
 }
 
@@ -307,10 +305,26 @@ fn resolve_imports_file(ctx: &mut StaticsContext, file: Rc<FileAst>) -> SymbolTa
     // 2. symbols made available via import statements
     // 3. symbols that are always globally available to any file
     let mut effective_namespace = Namespace::new();
-    // add declarations from this file to the environment
-    effective_namespace.add(ctx.global_namespace.namespaces.get(&file.name).unwrap());
-    // add declarations from prelude to the environment
-    effective_namespace.add(ctx.global_namespace.namespaces.get("prelude").unwrap());
+    // add declarations from this file to the effective namespace
+    effective_namespace.add_other(
+        &ctx.root_namespace
+            .namespaces
+            .get(&file.name)
+            .cloned()
+            .unwrap(),
+        ctx,
+    );
+    if file.name != "prelude" {
+        // add declarations from prelude to the effective namespace
+        effective_namespace.add_other(
+            &ctx.root_namespace
+                .namespaces
+                .get("prelude")
+                .cloned()
+                .unwrap(),
+            ctx,
+        );
+    }
     // builtin array type
     effective_namespace
         .declarations
@@ -324,16 +338,55 @@ fn resolve_imports_file(ctx: &mut StaticsContext, file: Rc<FileAst>) -> SymbolTa
 
     for item in file.items.iter() {
         if let ItemKind::Import(path) = &*item.kind {
-            let Some(import_src) = ctx.global_namespace.namespaces.get(&path.v) else {
+            let Some(import_src) = ctx.root_namespace.namespaces.get(&path.v).cloned() else {
                 ctx.errors
                     .push(Error::UnresolvedIdentifier { node: item.node() });
                 continue;
             };
-            effective_namespace.add(import_src);
+            effective_namespace.add_other(&import_src, ctx);
         }
     }
 
     SymbolTable::from_namespace(effective_namespace)
+}
+
+impl Namespace {
+    // add children from another namespace to this namespace
+    pub fn add_other(&mut self, other: &Self, ctx: &mut StaticsContext) {
+        // child declarations
+        for (name, declaration) in other.declarations.iter() {
+            self.add_declaration(name.clone(), declaration, ctx);
+        }
+        // child namespaces
+        for (name, namespace) in other.namespaces.iter() {
+            self.add_namespace(name, namespace, ctx);
+        }
+    }
+
+    pub fn add_declaration(&mut self, name: String, decl: &Declaration, ctx: &mut StaticsContext) {
+        use std::collections::hash_map::*;
+        match self.declarations.entry(name.clone()) {
+            Entry::Occupied(occ) => {
+                ctx.errors.push(Error::AlreadyDeclared {
+                    name,
+                    _original: occ.get().clone(),
+                    _new: decl.clone(),
+                });
+            }
+            Entry::Vacant(vac) => {
+                vac.insert(decl.clone());
+            }
+        }
+    }
+
+    pub fn add_namespace(
+        &mut self,
+        name: &str,
+        namespace: &Rc<Namespace>,
+        _ctx: &mut StaticsContext,
+    ) {
+        self.namespaces.insert(name.to_string(), namespace.clone());
+    }
 }
 
 fn resolve_names_item_decl(ctx: &mut StaticsContext, symbol_table: SymbolTable, stmt: Rc<Item>) {

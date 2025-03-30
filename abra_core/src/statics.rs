@@ -32,7 +32,7 @@ pub(crate) struct StaticsContext {
     _files: FileDatabase,
     _file_provider: Box<dyn FileProvider>,
 
-    pub(crate) global_namespace: Namespace,
+    pub(crate) root_namespace: Namespace,
     // This maps any identifier in the program to the declaration it resolves to.
     pub(crate) resolution_map: HashMap<NodeId, Declaration>,
 
@@ -69,7 +69,7 @@ impl StaticsContext {
         let mut ctx = Self {
             _files: files,
             _file_provider: file_provider,
-            global_namespace: Default::default(),
+            root_namespace: Default::default(),
             resolution_map: Default::default(),
             loop_stack: Default::default(),
             func_ret_stack: Default::default(),
@@ -104,18 +104,6 @@ pub(crate) struct Namespace {
 impl Namespace {
     pub fn new() -> Self {
         Self::default()
-    }
-
-    // add children from another namespace to this namespace
-    pub fn add(&mut self, other: &Self) {
-        // child declarations
-        for (name, declaration) in other.declarations.iter() {
-            self.declarations.insert(name.clone(), declaration.clone());
-        }
-        // child namespaces
-        for (name, namespace) in other.namespaces.iter() {
-            self.namespaces.insert(name.clone(), namespace.clone());
-        }
     }
 }
 
@@ -168,6 +156,11 @@ pub(crate) enum Error {
     // resolution phase
     UnresolvedIdentifier {
         node: AstNode,
+    },
+    AlreadyDeclared {
+        name: String,
+        _original: Declaration,
+        _new: Declaration,
     },
     // typechecking phase
     UnconstrainedUnifvar {
@@ -263,6 +256,16 @@ impl Error {
         };
 
         match self {
+            Error::AlreadyDeclared {
+                name,
+                _original,
+                _new,
+            } => {
+                diagnostic = diagnostic.with_message(format!(
+                    "Name `{}` was already declared somewhere else",
+                    name
+                ));
+            }
             Error::UnresolvedIdentifier { node } => {
                 let (file, range) = get_file_and_range(node);
                 diagnostic = diagnostic.with_message("Could not resolve identifier");

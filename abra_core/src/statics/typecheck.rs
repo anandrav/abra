@@ -1567,7 +1567,7 @@ fn generate_constraints_expr(
             let elem_ty = TypeVar::fresh(ctx, Prov::ListElem(expr.node()));
 
             let list_decl = ctx
-                .global_namespace
+                .root_namespace
                 .namespaces
                 .get("prelude")
                 .and_then(|p| p.declarations.get("list"));
@@ -1640,7 +1640,7 @@ fn generate_constraints_expr(
 
             // TODO: make this a helper function?
             let num_iface_decl = ctx
-                .global_namespace
+                .root_namespace
                 .namespaces
                 .get("prelude")
                 .and_then(|p| p.declarations.get("Num"))
@@ -1651,7 +1651,7 @@ fn generate_constraints_expr(
             };
 
             let equal_iface_decl = ctx
-                .global_namespace
+                .root_namespace
                 .namespaces
                 .get("prelude")
                 .and_then(|p| p.declarations.get("Equal"))
@@ -1662,7 +1662,7 @@ fn generate_constraints_expr(
             };
 
             let tostring_iface_decl = ctx
-                .global_namespace
+                .root_namespace
                 .namespaces
                 .get("prelude")
                 .and_then(|p| p.declarations.get("ToString"))

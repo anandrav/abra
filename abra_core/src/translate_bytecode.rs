@@ -519,7 +519,7 @@ impl Translator {
                         // TODO: translate_bytecode shouldn't have to fish around in statics.global_namespace just for prelude.format_append or similar
                         let format_append_decl = self
                             .statics
-                            .global_namespace
+                            .root_namespace
                             .namespaces
                             .get("prelude")
                             .and_then(|p| p.declarations.get("format_append"))
