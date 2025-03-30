@@ -18,6 +18,7 @@ pub(crate) fn scan_declarations(ctx: &mut StaticsContext, file_asts: &Vec<Rc<Fil
     for file in file_asts {
         let name = file.name.clone();
         let namespace = gather_declarations_file(ctx, file.clone());
+        // TODO: what if there's a conflict here? Could that happen?
         ctx.root_namespace.namespaces.insert(name, namespace.into());
     }
 }
@@ -110,6 +111,7 @@ fn gather_declarations_item(
                     );
                 }
 
+                // TODO: what if there's a conflict here? Could that happen?
                 namespace
                     .namespaces
                     .insert(e.name.v.clone(), enum_namespace.into());
@@ -391,6 +393,7 @@ impl Namespace {
         namespace: &Rc<Namespace>,
         _ctx: &mut StaticsContext,
     ) {
+        // TODO: what if there's a conflict here? Could that happen?
         self.namespaces.insert(name, namespace.clone());
     }
 }
