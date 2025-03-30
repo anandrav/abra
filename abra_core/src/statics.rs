@@ -208,6 +208,8 @@ pub(crate) enum Error {
         node: AstNode,
         redundant_arms: Vec<AstNode>,
     },
+    #[cfg(not(feature = "ffi"))]
+    FfiNotEnabled(AstNode),
 }
 
 // main function that performs typechecking (as well as name resolution beforehand)
@@ -455,6 +457,12 @@ impl Error {
                     let (file, range) = get_file_and_range(pat_id);
                     labels.push(Label::secondary(file, range));
                 }
+            }
+            #[cfg(not(feature = "ffi"))]
+            Error::FfiNotEnabled(node) => {
+                let (file, range) = get_file_and_range(node);
+                diagnostic = diagnostic.with_message("Foreign functions are not enabled");
+                labels.push(Label::secondary(file, range))
             }
         };
 

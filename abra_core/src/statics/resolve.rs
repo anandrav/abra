@@ -198,8 +198,7 @@ fn gather_declarations_item(
             }
             #[cfg(not(feature = "ffi"))]
             {
-                // TODO: error message if foreign function found with no ffi enabled
-                todo!("ffi not enabled, can't use foreign funcs");
+                _ctx.errors.push(Error::FfiNotEnabled(stmt.node()));
             }
         }
         ItemKind::Import(..) => {}
