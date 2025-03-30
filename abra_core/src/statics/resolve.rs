@@ -220,7 +220,7 @@ struct SymbolTableBase {
 }
 
 impl SymbolTableBase {
-    fn lookup_declaration(&self, id: &String) -> Option<Declaration> {
+    fn lookup_declaration(&self, id: &str) -> Option<Declaration> {
         match self.declarations.get(id) {
             Some(item) => Some(item.clone()),
             None => match &self.enclosing {
@@ -230,7 +230,7 @@ impl SymbolTableBase {
         }
     }
 
-    fn lookup_namespace(&self, id: &String) -> Option<Rc<Namespace>> {
+    fn lookup_namespace(&self, id: &str) -> Option<Rc<Namespace>> {
         match self.namespaces.get(id) {
             Some(ns) => Some(ns.clone()),
             None => match &self.enclosing {
@@ -276,11 +276,11 @@ impl SymbolTable {
         }
     }
 
-    pub(crate) fn lookup_declaration(&self, id: &String) -> Option<Declaration> {
+    pub(crate) fn lookup_declaration(&self, id: &str) -> Option<Declaration> {
         self.base.borrow().lookup_declaration(id)
     }
 
-    pub(crate) fn lookup_namespace(&self, id: &String) -> Option<Rc<Namespace>> {
+    pub(crate) fn lookup_namespace(&self, id: &str) -> Option<Rc<Namespace>> {
         self.base.borrow().lookup_namespace(id)
     }
 
@@ -346,44 +346,15 @@ fn resolve_imports_file(ctx: &mut StaticsContext, file: Rc<FileAst>) -> SymbolTa
 fn resolve_names_item_decl(ctx: &mut StaticsContext, symbol_table: SymbolTable, stmt: Rc<Item>) {
     match &*stmt.kind {
         ItemKind::FuncDef(f) => {
-            if let Some(decl @ Declaration::FreeFunction(_, _)) =
-                symbol_table.lookup_declaration(&f.name.v)
-            {
-                ctx.resolution_map.insert(f.name.id, decl.clone());
-            }
+            resolve_identifier(ctx, &symbol_table, &f.name);
             let symbol_table = symbol_table.new_scope();
             resolve_names_func_helper(ctx, symbol_table.clone(), &f.args, &f.body, &f.ret_type);
         }
-        ItemKind::HostFuncDecl(f) => {
-            if let Some(decl @ Declaration::HostFunction { .. }) =
-                symbol_table.lookup_declaration(&f.name.v)
-            {
-                ctx.resolution_map.insert(f.name.id, decl.clone());
-            }
+        ItemKind::HostFuncDecl(f) | ItemKind::ForeignFuncDecl(f) => {
             let symbol_table = symbol_table.new_scope();
             for arg in &f.args {
                 resolve_names_fn_arg(symbol_table.clone(), &arg.0);
-                // if let Some(ty_annot) = &arg.1 {
                 resolve_names_typ(ctx, symbol_table.clone(), arg.1.clone(), true);
-                // }
-            }
-
-            resolve_names_typ(ctx, symbol_table.clone(), f.ret_type.clone(), true);
-        }
-        ItemKind::ForeignFuncDecl(f) => {
-            // TODO: code almost entirely duplicated with above
-            // TODO: Is this actually necessary? Looking up and then inserting...
-            if let Some(decl @ Declaration::_ForeignFunction { .. }) =
-                symbol_table.lookup_declaration(&f.name.v)
-            {
-                ctx.resolution_map.insert(f.name.id, decl.clone());
-            }
-            let symbol_table = symbol_table.new_scope();
-            for arg in &f.args {
-                resolve_names_fn_arg(symbol_table.clone(), &arg.0);
-                // if let Some(ty_annot) = &arg.1 {
-                resolve_names_typ(ctx, symbol_table.clone(), arg.1.clone(), true);
-                // }
             }
 
             resolve_names_typ(ctx, symbol_table.clone(), f.ret_type.clone(), true);
@@ -397,31 +368,19 @@ fn resolve_names_item_decl(ctx: &mut StaticsContext, symbol_table: SymbolTable, 
         ItemKind::InterfaceImpl(iface_impl) => {
             let symbol_table = symbol_table.new_scope();
             resolve_names_typ(ctx, symbol_table.clone(), iface_impl.typ.clone(), true);
-            if let Some(decl @ Declaration::InterfaceDef(_)) =
-                &symbol_table.lookup_declaration(&iface_impl.iface.v)
-            {
-                ctx.resolution_map.insert(iface_impl.iface.id, decl.clone());
-                for f in &iface_impl.methods {
-                    if let Some(decl @ Declaration::InterfaceMethod { .. }) =
-                        symbol_table.lookup_declaration(&f.name.v)
-                    {
-                        ctx.resolution_map.insert(f.name.id, decl.clone());
-                    }
-                    let symbol_table = symbol_table.new_scope();
-                    for arg in &f.args {
-                        resolve_names_fn_arg(symbol_table.clone(), &arg.0);
-                        if let Some(annot) = &arg.1 {
-                            resolve_names_typ(ctx, symbol_table.clone(), annot.clone(), true);
-                        }
-                    }
-                    resolve_names_expr(ctx, symbol_table.clone(), f.body.clone());
-                    if let Some(ret_type) = &f.ret_type {
-                        resolve_names_typ(ctx, symbol_table, ret_type.clone(), true);
+            resolve_identifier(ctx, &symbol_table, &iface_impl.iface);
+            for f in &iface_impl.methods {
+                let symbol_table = symbol_table.new_scope();
+                for arg in &f.args {
+                    resolve_names_fn_arg(symbol_table.clone(), &arg.0);
+                    if let Some(annot) = &arg.1 {
+                        resolve_names_typ(ctx, symbol_table.clone(), annot.clone(), true);
                     }
                 }
-            } else {
-                ctx.errors
-                    .push(Error::UnresolvedIdentifier { node: stmt.node() });
+                resolve_names_expr(ctx, symbol_table.clone(), f.body.clone());
+                if let Some(ret_type) = &f.ret_type {
+                    resolve_names_typ(ctx, symbol_table, ret_type.clone(), true);
+                }
             }
         }
         ItemKind::Import(..) => {}
@@ -495,6 +454,27 @@ fn resolve_names_stmt(ctx: &mut StaticsContext, symbol_table: SymbolTable, stmt:
     }
 }
 
+fn resolve_identifier(
+    ctx: &mut StaticsContext,
+    symbol_table: &SymbolTable,
+    ident: &Rc<Identifier>,
+) {
+    resolve_symbol(ctx, symbol_table, &ident.v, ident.node())
+}
+
+fn resolve_symbol(
+    ctx: &mut StaticsContext,
+    symbol_table: &SymbolTable,
+    symbol: &str,
+    node: AstNode,
+) {
+    if let Some(decl) = symbol_table.lookup_declaration(symbol) {
+        ctx.resolution_map.insert(node.id(), decl.clone());
+    } else {
+        ctx.errors.push(Error::UnresolvedIdentifier { node });
+    }
+}
+
 fn resolve_names_expr(ctx: &mut StaticsContext, symbol_table: SymbolTable, expr: Rc<Expr>) {
     match &*expr.kind {
         ExprKind::Unit
@@ -513,13 +493,7 @@ fn resolve_names_expr(ctx: &mut StaticsContext, symbol_table: SymbolTable, expr:
             }
         }
         ExprKind::Variable(symbol) => {
-            let lookup = symbol_table.lookup_declaration(symbol);
-            if let Some(decl) = lookup {
-                ctx.resolution_map.insert(expr.id, decl);
-            } else {
-                ctx.errors
-                    .push(Error::UnresolvedIdentifier { node: expr.node() });
-            }
+            resolve_symbol(ctx, &symbol_table, symbol, expr.node());
         }
         ExprKind::BinOp(left, _, right) => {
             resolve_names_expr(ctx, symbol_table.clone(), left.clone());
@@ -766,24 +740,17 @@ fn resolve_names_polytyp(
     }
 
     for iface in &polyty.iface_names {
-        if let Some(decl @ Declaration::InterfaceDef { .. }) =
-            &symbol_table.lookup_declaration(&iface.v)
-        {
-            ctx.resolution_map.insert(iface.id, decl.clone());
-        } else {
-            ctx.errors
-                .push(Error::UnresolvedIdentifier { node: iface.node() });
-        }
+        resolve_identifier(ctx, &symbol_table, iface);
     }
 }
 
 fn resolve_names_typ_identifier(
     ctx: &mut StaticsContext,
     symbol_table: SymbolTable,
-    identifier: &String,
+    symbol: &str,
     node: AstNode,
 ) {
-    let lookup = symbol_table.lookup_declaration(identifier);
+    let lookup = symbol_table.lookup_declaration(symbol);
     match lookup {
         Some(decl @ (Declaration::Struct(_) | Declaration::Enum(_) | Declaration::Array)) => {
             ctx.resolution_map.insert(node.id(), decl);
