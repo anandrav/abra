@@ -142,13 +142,6 @@ fn gather_declarations_item(
                 .insert(func_name, _ctx.host_funcs.len() as u16);
         }
         ItemKind::ForeignFuncDecl(_func_decl) => {
-            // TODO: get the lib name using the filesystem, or report error saying why we can't
-            // this function -> its file
-            // some file -> parent directory
-            // parent directory -> child directory with same name as file
-            // child directory -> Cargo.toml
-            // Cargo.toml -> name of .so/dylib/dll file
-
             #[cfg(feature = "ffi")]
             {
                 let func_name = _func_decl.name.v.clone();
