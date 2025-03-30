@@ -264,6 +264,17 @@ impl SymbolTable {
         }
     }
 
+    pub(crate) fn from_namespace(namespace: Namespace) -> Self {
+        let ret = Self::empty();
+        for (name, declaration) in namespace.declarations {
+            ret.extend_declaration(name, declaration);
+        }
+        for (name, namespace) in namespace.namespaces {
+            ret.extend_namespace(name, namespace);
+        }
+        ret
+    }
+
     pub(crate) fn new_scope(&self) -> Self {
         Self {
             base: Rc::new(RefCell::new(SymbolTableBase {
@@ -292,19 +303,7 @@ impl SymbolTable {
 
 pub(crate) fn resolve(ctx: &mut StaticsContext, file_asts: &Vec<Rc<FileAst>>) {
     for file in file_asts {
-        let toplevel_declarations = resolve_imports_file(ctx, file.clone());
-        let symbol_table = SymbolTable::empty();
-
-        for (name, declaration) in toplevel_declarations.declarations {
-            symbol_table.extend_declaration(name, declaration);
-        }
-        for (name, namespace) in toplevel_declarations.namespaces {
-            symbol_table.extend_namespace(name, namespace);
-        }
-
-        for builtin in Builtin::enumerate().iter() {
-            symbol_table.extend_declaration(builtin.name(), Declaration::Builtin(*builtin));
-        }
+        let symbol_table = resolve_imports_file(ctx, file.clone());
 
         for item in file.items.iter() {
             resolve_names_item_decl(ctx, symbol_table.clone(), item.clone());
@@ -315,58 +314,26 @@ pub(crate) fn resolve(ctx: &mut StaticsContext, file_asts: &Vec<Rc<FileAst>>) {
     }
 }
 
-fn resolve_imports_file(ctx: &mut StaticsContext, file: Rc<FileAst>) -> Namespace {
-    // Return an environment with all identifiers available to this file.
-    // That includes identifiers from this file and all imports.
-    let mut env = Namespace::new();
-    // add declarations from this file to the environment
-    for (name, declaration) in ctx
-        .global_namespace
-        .namespaces
-        .get(&file.name)
-        .unwrap()
-        .declarations
-        .iter()
-    {
-        env.declarations.insert(name.clone(), declaration.clone());
-    }
-    // add child namespaces from this file to the environment
-    for (name, namespace) in ctx
-        .global_namespace
-        .namespaces
-        .get(&file.name)
-        .unwrap()
-        .namespaces
-        .iter()
-    {
-        env.namespaces.insert(name.clone(), namespace.clone());
-    }
+// TODO: can this be shortened or simplified? env: Namespace, but isn't SymbolTable also sort of an "environment"?
+// TODO: need to report errors when there are clashing imports
+fn resolve_imports_file(ctx: &mut StaticsContext, file: Rc<FileAst>) -> SymbolTable {
+    // Create a symbol table containing all symbols available to this file
 
+    let mut effective_namespace = Namespace::new();
+    // add declarations from this file to the environment
+    effective_namespace.add(ctx.global_namespace.namespaces.get(&file.name).unwrap());
     // add declarations from prelude to the environment
-    for (name, declaration) in ctx
-        .global_namespace
-        .namespaces
-        .get("prelude")
-        .unwrap()
-        .declarations
-        .iter()
-    {
-        env.declarations.insert(name.clone(), declaration.clone());
-    }
-    // add child namespaces from prelude to the environment
-    for (name, namespace) in ctx
-        .global_namespace
-        .namespaces
-        .get("prelude")
-        .unwrap()
-        .namespaces
-        .iter()
-    {
-        env.namespaces.insert(name.clone(), namespace.clone());
-    }
+    effective_namespace.add(ctx.global_namespace.namespaces.get("prelude").unwrap());
     // builtin array type
-    env.declarations
+    effective_namespace
+        .declarations
         .insert("array".to_string(), Declaration::Array);
+    // builtin operations
+    for builtin in Builtin::enumerate().iter() {
+        effective_namespace
+            .declarations
+            .insert(builtin.name(), Declaration::Builtin(*builtin));
+    }
 
     for item in file.items.iter() {
         if let ItemKind::Import(path) = &*item.kind {
@@ -375,18 +342,11 @@ fn resolve_imports_file(ctx: &mut StaticsContext, file: Rc<FileAst>) -> Namespac
                     .push(Error::UnresolvedIdentifier { node: item.node() });
                 continue;
             };
-            // add declarations from this import to the environment
-            for (name, declaration) in import_src.declarations.iter() {
-                env.declarations.insert(name.clone(), declaration.clone());
-            }
-            // add child namespaces from this import to the environment
-            for (name, namespace) in import_src.namespaces.iter() {
-                env.namespaces.insert(name.clone(), namespace.clone());
-            }
+            effective_namespace.add(import_src);
         }
     }
 
-    env
+    SymbolTable::from_namespace(effective_namespace)
 }
 
 fn resolve_names_item_decl(ctx: &mut StaticsContext, symbol_table: SymbolTable, stmt: Rc<Item>) {

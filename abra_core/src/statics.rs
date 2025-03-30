@@ -105,6 +105,18 @@ impl Namespace {
     pub fn new() -> Self {
         Self::default()
     }
+
+    // add children from another namespace to this namespace
+    pub fn add(&mut self, other: &Self) {
+        // child declarations
+        for (name, declaration) in other.declarations.iter() {
+            self.declarations.insert(name.clone(), declaration.clone());
+        }
+        // child namespaces
+        for (name, namespace) in other.namespaces.iter() {
+            self.namespaces.insert(name.clone(), namespace.clone());
+        }
+    }
 }
 
 impl Display for Namespace {
