@@ -305,26 +305,7 @@ fn resolve_imports_file(ctx: &mut StaticsContext, file: Rc<FileAst>) -> SymbolTa
     // 2. symbols made available via import statements
     // 3. symbols that are always globally available to any file
     let mut effective_namespace = Namespace::new();
-    // add declarations from this file to the effective namespace
-    effective_namespace.add_other(
-        &ctx.root_namespace
-            .namespaces
-            .get(&file.name)
-            .cloned()
-            .unwrap(),
-        ctx,
-    );
-    if file.name != "prelude" {
-        // add declarations from prelude to the effective namespace
-        effective_namespace.add_other(
-            &ctx.root_namespace
-                .namespaces
-                .get("prelude")
-                .cloned()
-                .unwrap(),
-            ctx,
-        );
-    }
+
     // builtin array type
     effective_namespace
         .declarations
@@ -335,6 +316,27 @@ fn resolve_imports_file(ctx: &mut StaticsContext, file: Rc<FileAst>) -> SymbolTa
             .declarations
             .insert(builtin.name(), Declaration::Builtin(*builtin));
     }
+    // always include the prelude (unless this file is the prelude)
+    if file.name != "prelude" {
+        effective_namespace.add_other(
+            &ctx.root_namespace
+                .namespaces
+                .get("prelude")
+                .cloned()
+                .unwrap(),
+            ctx,
+        );
+    }
+
+    // add declarations from this file to the effective namespace
+    effective_namespace.add_other(
+        &ctx.root_namespace
+            .namespaces
+            .get(&file.name)
+            .cloned()
+            .unwrap(),
+        ctx,
+    );
 
     for item in file.items.iter() {
         if let ItemKind::Import(path) = &*item.kind {
@@ -367,10 +369,10 @@ impl Namespace {
         use std::collections::hash_map::*;
         match self.declarations.entry(name.clone()) {
             Entry::Occupied(occ) => {
-                ctx.errors.push(Error::AlreadyDeclared {
+                ctx.errors.push(Error::NameClash {
                     name,
-                    _original: occ.get().clone(),
-                    _new: decl.clone(),
+                    original: occ.get().clone(),
+                    new: decl.clone(),
                 });
             }
             Entry::Vacant(vac) => {

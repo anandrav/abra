@@ -11,6 +11,7 @@ use crate::builtin::Builtin;
 use resolve::{resolve, scan_declarations};
 use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::fmt::{self, Display, Formatter};
+use std::ops::Range;
 use std::path::PathBuf;
 use std::rc::Rc;
 use typecheck::{
@@ -157,10 +158,10 @@ pub(crate) enum Error {
     UnresolvedIdentifier {
         node: AstNode,
     },
-    AlreadyDeclared {
+    NameClash {
         name: String,
-        _original: Declaration,
-        _new: Declaration,
+        original: Declaration,
+        new: Declaration,
     },
     // typechecking phase
     UnconstrainedUnifvar {
@@ -256,23 +257,29 @@ impl Error {
         };
 
         match self {
-            Error::AlreadyDeclared {
+            Error::NameClash {
                 name,
-                _original,
-                _new,
+                original,
+                new,
             } => {
-                diagnostic = diagnostic.with_message(format!(
-                    "Name `{}` was already declared somewhere else",
-                    name
-                ));
+                diagnostic =
+                    diagnostic.with_message(format!("`{}` was declared more than once", name));
+                add_detail_for_decl(
+                    _ctx,
+                    &mut labels,
+                    &mut notes,
+                    original,
+                    "first declared here",
+                );
+                add_detail_for_decl(_ctx, &mut labels, &mut notes, new, "then declared here");
             }
             Error::UnresolvedIdentifier { node } => {
-                let (file, range) = get_file_and_range(node);
+                let (file, range) = node.get_file_and_range();
                 diagnostic = diagnostic.with_message("Could not resolve identifier");
                 labels.push(Label::secondary(file, range))
             }
             Error::UnconstrainedUnifvar { node } => {
-                let (file, range) = get_file_and_range(node);
+                let (file, range) = node.get_file_and_range();
                 diagnostic = diagnostic.with_message("Can't solve type. Try adding an annotation");
                 labels.push(Label::secondary(file, range))
             }
@@ -310,7 +317,7 @@ impl Error {
                 }
                 ConstraintReason::BinaryOperandsMustMatch(node) => {
                     diagnostic = diagnostic.with_message("Operands must have the same type");
-                    let (file, range) = get_file_and_range(node);
+                    let (file, range) = node.get_file_and_range();
                     labels.push(Label::secondary(file, range).with_message("operator"));
 
                     let provs2 = ty2.reasons().borrow();
@@ -362,7 +369,7 @@ impl Error {
                 }
                 ConstraintReason::FuncCall(node) => {
                     diagnostic = diagnostic.with_message("Wrong argument type");
-                    let (file, range) = get_file_and_range(node);
+                    let (file, range) = node.get_file_and_range();
                     labels.push(Label::secondary(file, range).with_message("function call"));
 
                     let provs2 = ty2.reasons().borrow();
@@ -393,7 +400,7 @@ impl Error {
                 ConstraintReason::BinaryOperandBool(node) => {
                     diagnostic = diagnostic
                         .with_message(format!("Operand must be `bool` but got `{}`\n", ty1));
-                    let (file, range) = get_file_and_range(node);
+                    let (file, range) = node.get_file_and_range();
                     labels.push(Label::secondary(file, range).with_message("boolean operator"));
 
                     let provs1 = ty1.reasons().borrow();
@@ -406,14 +413,14 @@ impl Error {
             },
             Error::MemberAccessNeedsAnnotation { node } => {
                 diagnostic = diagnostic.with_message("Can't perform member access without knowing type. Try adding a type annotation.");
-                let (file, range) = get_file_and_range(node);
+                let (file, range) = node.get_file_and_range();
                 labels.push(Label::secondary(file, range));
             }
             Error::UnqualifiedEnumNeedsAnnotation { node } => {
                 diagnostic = diagnostic.with_message(
                     "Can't infer which enum this variant belongs to. Try adding an annotation.",
                 );
-                let (file, range) = get_file_and_range(node);
+                let (file, range) = node.get_file_and_range();
                 labels.push(Label::secondary(file, range));
             }
             Error::InterfaceNotImplemented { ty, iface, node } => {
@@ -421,25 +428,25 @@ impl Error {
                     "Interface `{}` is not implemented for type `{}`",
                     iface.name.v, ty
                 ));
-                let (file, range) = get_file_and_range(node);
+                let (file, range) = node.get_file_and_range();
                 labels.push(Label::secondary(file, range));
             }
             Error::InterfaceImplTypeNotGeneric { node } => {
                 diagnostic = diagnostic.with_message(
                     "Interface cannot be implemented for this type unless it is fully generic.",
                 );
-                let (file, range) = get_file_and_range(node);
+                let (file, range) = node.get_file_and_range();
                 labels.push(Label::secondary(file, range));
             }
             Error::NotInLoop { node } => {
                 diagnostic = diagnostic.with_message("This statement must be in a loop");
-                let (file, range) = get_file_and_range(node);
+                let (file, range) = node.get_file_and_range();
                 labels.push(Label::secondary(file, range));
             }
             Error::NonexhaustiveMatch { node, missing } => {
                 diagnostic =
                     diagnostic.with_message("This match expression doesn't cover every case");
-                let (file, range) = get_file_and_range(node);
+                let (file, range) = node.get_file_and_range();
                 labels.push(Label::secondary(file, range));
 
                 notes.push("The following cases are missing:".to_string());
@@ -452,7 +459,7 @@ impl Error {
                 redundant_arms,
             } => {
                 diagnostic = diagnostic.with_message("This match expression has redundant cases");
-                let (file, range) = get_file_and_range(node);
+                let (file, range) = node.get_file_and_range();
                 labels.push(Label::secondary(file, range));
 
                 notes.push("Try removing these cases:".to_string());
@@ -463,7 +470,7 @@ impl Error {
             }
             #[cfg(not(feature = "ffi"))]
             Error::FfiNotEnabled(node) => {
-                let (file, range) = get_file_and_range(node);
+                let (file, range) = node.get_file_and_range();
                 diagnostic = diagnostic.with_message("Foreign functions are not enabled");
                 labels.push(Label::secondary(file, range))
             }
@@ -485,50 +492,44 @@ fn handle_reason(
     labels: &mut Vec<Label<FileId>>,
     notes: &mut Vec<String>,
 ) {
-    // TODO: this is duplicated
-    let get_file_and_range = |node: &AstNode| {
-        // dbg!(id);
-        let span = node.location();
-        (span.file_id, span.range())
-    };
     match reason {
         Reason::Builtin(builtin) => {
             notes.push(format!("the builtin function `{}`", builtin.name()));
         }
-        Reason::Node(id) => {
-            let (file, range) = get_file_and_range(id);
+        Reason::Node(node) => {
+            let (file, range) = node.get_file_and_range();
             labels.push(Label::secondary(file, range).with_message("the term"));
         }
-        Reason::Annotation(id) => {
-            let (file, range) = get_file_and_range(id);
+        Reason::Annotation(node) => {
+            let (file, range) = node.get_file_and_range();
             labels.push(Label::secondary(file, range).with_message("this type annotation"));
         }
-        Reason::Literal(id) => {
-            let (file, range) = get_file_and_range(id);
+        Reason::Literal(node) => {
+            let (file, range) = node.get_file_and_range();
             labels.push(Label::secondary(file, range).with_message(format!("`{}` literal", ty)));
         }
-        Reason::BinopLeft(id) => {
-            let (file, range) = get_file_and_range(id);
+        Reason::BinopLeft(node) => {
+            let (file, range) = node.get_file_and_range();
             labels.push(Label::secondary(file, range).with_message("the left operand of operator"));
         }
-        Reason::BinopRight(id) => {
-            let (file, range) = get_file_and_range(id);
+        Reason::BinopRight(node) => {
+            let (file, range) = node.get_file_and_range();
             labels
                 .push(Label::secondary(file, range).with_message("the right operand of operator"));
         }
-        Reason::BinopOut(id) => {
-            let (file, range) = get_file_and_range(id);
+        Reason::BinopOut(node) => {
+            let (file, range) = node.get_file_and_range();
             labels.push(Label::secondary(file, range).with_message("the output of operator"));
         }
         Reason::VariantNoData(_prov) => {
             notes.push("the data of some enum variant".to_string());
         }
-        Reason::WhileLoopBody(id) => {
-            let (file, range) = get_file_and_range(id);
+        Reason::WhileLoopBody(node) => {
+            let (file, range) = node.get_file_and_range();
             labels.push(Label::secondary(file, range).with_message("the body of this while loop"));
         }
-        Reason::IfWithoutElse(id) => {
-            let (file, range) = get_file_and_range(id);
+        Reason::IfWithoutElse(node) => {
+            let (file, range) = node.get_file_and_range();
             labels.push(Label::secondary(file, range).with_message("this if expression"));
         }
         Reason::IndexAccess => {
@@ -537,15 +538,75 @@ fn handle_reason(
     }
 }
 
+fn add_detail_for_decl(
+    ctx: &StaticsContext,
+    labels: &mut Vec<Label<u32>>,
+    notes: &mut Vec<String>,
+    decl: &Declaration,
+    message: &str,
+) {
+    if add_detail_for_decl_node(ctx, labels, decl, message) {
+        return;
+    }
+    match decl {
+        Declaration::FreeFunction(..)
+        | Declaration::HostFunction(..)
+        | Declaration::_ForeignFunction { .. }
+        | Declaration::InterfaceDef(..)
+        | Declaration::InterfaceMethod { .. }
+        | Declaration::Enum(_)
+        | Declaration::EnumVariant { .. }
+        | Declaration::Struct(..)
+        | Declaration::Polytype(..)
+        | Declaration::Var(..) => {}
+        Declaration::Builtin(builtin) => notes.push(format!(
+            "`{}` is a builtin operation and cannot be re-declared",
+            builtin.name()
+        )),
+        Declaration::Array => {
+            notes.push("`array` is a builtin type and cannot be re-declared".to_string())
+        }
+    };
+}
+
+fn add_detail_for_decl_node(
+    _ctx: &StaticsContext,
+    labels: &mut Vec<Label<u32>>,
+    decl: &Declaration,
+    message: &str,
+) -> bool {
+    let node = match decl {
+        Declaration::FreeFunction(func_def, _) => func_def.name.node(),
+        Declaration::HostFunction(func_decl, _) => func_decl.name.node(),
+        Declaration::_ForeignFunction { decl, .. } => decl.name.node(),
+        Declaration::InterfaceDef(interface_decl) => interface_decl.name.node(),
+        Declaration::InterfaceMethod { iface_def, .. } => iface_def.name.node(),
+        Declaration::Enum(enum_def) => enum_def.name.node(),
+        Declaration::EnumVariant { enum_def, variant } => {
+            enum_def.variants[*variant as usize].node()
+        }
+        Declaration::Struct(struct_def) => struct_def.name.node(),
+        Declaration::Polytype(polytype) => polytype.name.node(),
+
+        Declaration::Var(ast_node) => ast_node.clone(),
+        Declaration::Builtin(_) | Declaration::Array => return false,
+    };
+    let (file, range) = node.get_file_and_range();
+    labels.push(Label::secondary(file, range).with_message(message));
+    true
+}
+
+impl AstNode {
+    fn get_file_and_range(&self) -> (FileId, Range<usize>) {
+        let loc = self.location();
+        (loc.file_id, loc.range())
+    }
+}
+
 use codespan_reporting::diagnostic::Label as CsLabel;
 // TODO: This is duplicated
 pub(crate) fn _print_node(ctx: &StaticsContext, node: AstNode) {
-    let get_file_and_range = |node: &AstNode| {
-        let span = node.location();
-        (span.file_id, span.range())
-    };
-
-    let (file, range) = get_file_and_range(&node);
+    let (file, range) = node.get_file_and_range();
 
     let diagnostic = Diagnostic::note().with_labels(vec![CsLabel::secondary(file, range)]);
 
