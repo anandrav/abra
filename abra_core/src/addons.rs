@@ -498,13 +498,7 @@ fn add_items_from_ast(ast: Rc<FileAst>, output: &mut String) {
                 // TODO: this code for creating the name delimited by $ is duplicated with code in resolve.rs
                 let elems: Vec<_> = ast.name.split(std::path::MAIN_SEPARATOR_STR).collect();
                 let package_name = elems.last().unwrap().to_string();
-                let mut symbol = "abra_ffi".to_string();
-                for elem in elems {
-                    symbol.push('$');
-                    symbol.push_str(elem);
-                }
-                symbol.push('$');
-                symbol.push_str(&f.name.v);
+                let symbol = make_foreign_func_name(&f.name.v, &elems);
 
                 output.push_str(&format!("#[unsafe(export_name = \"{}\")]", symbol));
                 output.push_str(&format!(
@@ -649,6 +643,17 @@ fn find_abra_files(
         }
     }
     Ok(())
+}
+
+pub(crate) fn make_foreign_func_name(base_name: &str, qualifiers: &[&str]) -> String {
+    let mut symbol = "abra_ffi".to_string();
+    for elem in qualifiers {
+        symbol.push('$');
+        symbol.push_str(elem);
+    }
+    symbol.push('$');
+    symbol.push_str(base_name);
+    symbol
 }
 
 pub trait VmType {

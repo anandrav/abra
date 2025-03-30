@@ -2,17 +2,17 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use std::cell::RefCell;
-use std::collections::HashMap;
-use std::rc::Rc;
-
+use super::{Declaration, Error, Namespace, StaticsContext};
+#[cfg(feature = "ffi")]
+use crate::addons::make_foreign_func_name;
 use crate::ast::{
     ArgMaybeAnnotated, AstNode, Expr, ExprKind, FileAst, Identifier, Item, ItemKind, Pat, PatKind,
     Polytype, Stmt, StmtKind, Type, TypeDefKind, TypeKind,
 };
 use crate::builtin::Builtin;
-
-use super::{Declaration, Error, Namespace, StaticsContext};
+use std::cell::RefCell;
+use std::collections::HashMap;
+use std::rc::Rc;
 
 pub(crate) fn scan_declarations(ctx: &mut StaticsContext, file_asts: &Vec<Rc<FileAst>>) {
     for file in file_asts {
@@ -177,14 +177,7 @@ fn gather_declarations_item(
                     .entry(libname.to_str().unwrap().to_string())
                     .or_insert(len);
 
-                // TODO: duplicated with code in addon.rs
-                let mut symbol = "abra_ffi".to_string();
-                for elem in elems {
-                    symbol.push('$');
-                    symbol.push_str(elem);
-                }
-                symbol.push('$');
-                symbol.push_str(&_func_decl.name.v);
+                let symbol = make_foreign_func_name(&_func_decl.name.v, &elems);
 
                 // add symbol to string constants
                 let len = _ctx.string_constants.len();
@@ -354,7 +347,6 @@ fn resolve_imports_file(ctx: &mut StaticsContext, file: Rc<FileAst>) -> SymbolTa
 fn resolve_names_item_decl(ctx: &mut StaticsContext, symbol_table: SymbolTable, stmt: Rc<Item>) {
     match &*stmt.kind {
         ItemKind::FuncDef(f) => {
-            // TODO: Is this actually necessary? Looking up and then inserting...
             if let Some(decl @ Declaration::FreeFunction(_, _)) =
                 symbol_table.lookup_declaration(&f.name.v)
             {
@@ -364,7 +356,6 @@ fn resolve_names_item_decl(ctx: &mut StaticsContext, symbol_table: SymbolTable, 
             resolve_names_func_helper(ctx, symbol_table.clone(), &f.args, &f.body, &f.ret_type);
         }
         ItemKind::HostFuncDecl(f) => {
-            // TODO: Is this actually necessary? Looking up and then inserting...
             if let Some(decl @ Declaration::HostFunction { .. }) =
                 symbol_table.lookup_declaration(&f.name.v)
             {
