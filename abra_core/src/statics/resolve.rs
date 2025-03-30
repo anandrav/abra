@@ -53,7 +53,7 @@ fn fullname(qualifiers: &[String], unqualified_name: &str) -> String {
 }
 
 fn gather_declarations_item(
-    _ctx: &mut StaticsContext,
+    ctx: &mut StaticsContext,
     namespace: &mut Namespace,
     qualifiers: Vec<String>,
     _file: Rc<FileAst>,
@@ -62,9 +62,10 @@ fn gather_declarations_item(
     match &*stmt.kind {
         ItemKind::Stmt(..) => {}
         ItemKind::InterfaceDef(iface) => {
-            namespace.declarations.insert(
+            namespace.add_declaration(
                 iface.name.v.clone(),
                 Declaration::InterfaceDef(iface.clone()),
+                ctx,
             );
 
             // TODO: in the near future, put interface methods in a namespace named after the interface
@@ -74,13 +75,14 @@ fn gather_declarations_item(
                 let method_name = p.name.v.clone();
                 let method = i as u16;
                 let fully_qualified_name = fullname(&qualifiers, &method_name);
-                namespace.declarations.insert(
+                namespace.add_declaration(
                     method_name,
                     Declaration::InterfaceMethod {
                         iface_def: iface.clone(),
                         method,
                         fully_qualified_name,
                     },
+                    ctx,
                 );
             }
         }
@@ -91,21 +93,20 @@ fn gather_declarations_item(
             //     // actually resolving the alias to the final result will have to be done later.
             // }
             TypeDefKind::Enum(e) => {
-                namespace
-                    .declarations
-                    .insert(e.name.v.clone(), Declaration::Enum(e.clone()));
+                namespace.add_declaration(e.name.v.clone(), Declaration::Enum(e.clone()), ctx);
 
                 let mut enum_namespace = Namespace::new();
                 for (i, v) in e.variants.iter().enumerate() {
                     let variant_name = v.ctor.v.clone();
                     let variant = i as u16;
 
-                    enum_namespace.declarations.insert(
+                    enum_namespace.add_declaration(
                         variant_name,
                         Declaration::EnumVariant {
                             enum_def: e.clone(),
                             variant,
                         },
+                        ctx,
                     );
                 }
 
@@ -123,21 +124,23 @@ fn gather_declarations_item(
         ItemKind::FuncDef(f) => {
             let func_name = f.name.v.clone();
             let fully_qualified_name = fullname(&qualifiers, &func_name);
-            namespace.declarations.insert(
+            namespace.add_declaration(
                 func_name,
                 Declaration::FreeFunction(f.clone(), fully_qualified_name),
+                ctx,
             );
         }
         ItemKind::HostFuncDecl(func_decl) => {
             let func_name = func_decl.name.v.clone();
             let fully_qualified_name = fullname(&qualifiers, &func_name);
-            namespace.declarations.insert(
+            namespace.add_declaration(
                 func_name.clone(),
                 Declaration::HostFunction(func_decl.clone(), fully_qualified_name),
+                ctx,
             );
 
-            _ctx.host_funcs
-                .insert(func_name, _ctx.host_funcs.len() as u16);
+            ctx.host_funcs
+                .insert(func_name, ctx.host_funcs.len() as u16);
         }
         ItemKind::ForeignFuncDecl(_func_decl) => {
             #[cfg(feature = "ffi")]
@@ -160,36 +163,37 @@ fn gather_declarations_item(
                     package_name,
                     std::env::consts::DLL_SUFFIX
                 );
-                let libname = _ctx._file_provider.shared_objects_dir().join(filename);
+                let libname = ctx._file_provider.shared_objects_dir().join(filename);
 
                 // add libname to string constants
-                let len = _ctx.string_constants.len();
-                _ctx.string_constants
+                let len = ctx.string_constants.len();
+                ctx.string_constants
                     .entry(libname.to_str().unwrap().to_string())
                     .or_insert(len);
 
                 let symbol = make_foreign_func_name(&_func_decl.name.v, &elems);
 
                 // add symbol to string constants
-                let len = _ctx.string_constants.len();
-                _ctx.string_constants.entry(symbol.clone()).or_insert(len);
+                let len = ctx.string_constants.len();
+                ctx.string_constants.entry(symbol.clone()).or_insert(len);
 
                 // add symbol to statics ctx
-                let funcs = _ctx.dylib_to_funcs.entry(libname.clone()).or_default();
+                let funcs = ctx.dylib_to_funcs.entry(libname.clone()).or_default();
                 funcs.insert(symbol.clone());
 
-                namespace.declarations.insert(
+                namespace.add_declaration(
                     func_name,
                     Declaration::_ForeignFunction {
                         decl: _func_decl.clone(),
                         libname,
                         symbol,
                     },
+                    ctx,
                 );
             }
             #[cfg(not(feature = "ffi"))]
             {
-                _ctx.errors.push(Error::FfiNotEnabled(stmt.node()));
+                ctx.errors.push(Error::FfiNotEnabled(stmt.node()));
             }
         }
         ItemKind::Import(..) => {}
@@ -356,45 +360,45 @@ impl Namespace {
     // add children from another namespace to this namespace
     pub fn add_other(&mut self, other: &Self, ctx: &mut StaticsContext) {
         // child declarations
-        for (name, declaration) in other.declarations.iter() {
-            self.add_declaration(name.clone(), declaration, ctx);
+        for (name, decl) in other.declarations.iter() {
+            self.add_declaration(name.clone(), decl.clone(), ctx);
         }
         // child namespaces
         for (name, namespace) in other.namespaces.iter() {
-            self.add_namespace(name, namespace, ctx);
+            self.add_namespace(name.clone(), namespace, ctx);
         }
     }
 
-    pub fn add_declaration(&mut self, name: String, decl: &Declaration, ctx: &mut StaticsContext) {
+    pub fn add_declaration(&mut self, name: String, decl: Declaration, ctx: &mut StaticsContext) {
         use std::collections::hash_map::*;
         match self.declarations.entry(name.clone()) {
             Entry::Occupied(occ) => {
                 ctx.errors.push(Error::NameClash {
                     name,
                     original: occ.get().clone(),
-                    new: decl.clone(),
+                    new: decl,
                 });
             }
             Entry::Vacant(vac) => {
-                vac.insert(decl.clone());
+                vac.insert(decl);
             }
         }
     }
 
     pub fn add_namespace(
         &mut self,
-        name: &str,
+        name: String,
         namespace: &Rc<Namespace>,
         _ctx: &mut StaticsContext,
     ) {
-        self.namespaces.insert(name.to_string(), namespace.clone());
+        self.namespaces.insert(name, namespace.clone());
     }
 }
 
 fn resolve_names_item_decl(ctx: &mut StaticsContext, symbol_table: SymbolTable, stmt: Rc<Item>) {
     match &*stmt.kind {
         ItemKind::FuncDef(f) => {
-            resolve_identifier(ctx, &symbol_table, &f.name);
+            resolve_identifier(ctx, &symbol_table, &f.name); // TODO: why is this getting resolved? Does that really make sense? This is done in other places too.
             let symbol_table = symbol_table.new_scope();
             resolve_names_func_helper(ctx, symbol_table.clone(), &f.args, &f.body, &f.ret_type);
         }

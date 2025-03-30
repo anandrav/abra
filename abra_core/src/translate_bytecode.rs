@@ -520,9 +520,7 @@ impl Translator {
                         let format_append_decl = self
                             .statics
                             .root_namespace
-                            .namespaces
-                            .get("prelude")
-                            .and_then(|p| p.declarations.get("format_append"))
+                            .get_declaration("prelude.format_append")
                             .unwrap();
                         let Declaration::FreeFunction(func, func_name) = format_append_decl else {
                             panic!()
@@ -538,7 +536,7 @@ impl Translator {
                         let substituted_ty =
                             subst_with_monomorphic_env(monomorph_env, specific_func_ty);
 
-                        self.handle_overloaded_func(st, substituted_ty, func_name, func.clone());
+                        self.handle_overloaded_func(st, substituted_ty, &func_name, func.clone());
                     }
                     BinaryOperator::Or => self.emit(st, Instr::Or),
                     BinaryOperator::And => self.emit(st, Instr::And),

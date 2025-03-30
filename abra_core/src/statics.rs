@@ -98,13 +98,30 @@ impl StaticsContext {
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub(crate) struct Namespace {
-    pub(crate) declarations: HashMap<String, Declaration>,
-    pub(crate) namespaces: HashMap<String, Rc<Namespace>>,
+    declarations: HashMap<String, Declaration>,
+    namespaces: HashMap<String, Rc<Namespace>>,
 }
 
 impl Namespace {
     pub fn new() -> Self {
         Self::default()
+    }
+
+    pub fn get_declaration(&self, path: &str) -> Option<Declaration> {
+        let segments: Vec<_> = path.split('.').collect();
+        let mut current_namespace: &Namespace = self;
+        for segment in &segments[0..segments.len() - 1] {
+            if let Some(ns) = current_namespace.namespaces.get(*segment) {
+                current_namespace = ns;
+            } else {
+                return None;
+            }
+        }
+
+        current_namespace
+            .declarations
+            .get(*segments.last()?)
+            .cloned()
     }
 }
 
