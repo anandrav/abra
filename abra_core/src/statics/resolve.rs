@@ -314,11 +314,13 @@ pub(crate) fn resolve(ctx: &mut StaticsContext, file_asts: &Vec<Rc<FileAst>>) {
     }
 }
 
-// TODO: can this be shortened or simplified? env: Namespace, but isn't SymbolTable also sort of an "environment"?
 // TODO: need to report errors when there are clashing imports
 fn resolve_imports_file(ctx: &mut StaticsContext, file: Rc<FileAst>) -> SymbolTable {
-    // Create a symbol table containing all symbols available to this file
-
+    // Create a namespace containing all symbols available to this file
+    // That includes
+    // 1. symbols defined in this file
+    // 2. symbols made available via import statements
+    // 3. symbols that are always globally available to any file
     let mut effective_namespace = Namespace::new();
     // add declarations from this file to the environment
     effective_namespace.add(ctx.global_namespace.namespaces.get(&file.name).unwrap());
@@ -611,6 +613,8 @@ fn resolve_names_expr(ctx: &mut StaticsContext, symbol_table: SymbolTable, expr:
                         }
                     }
                     Declaration::Var(_) => {
+                        // do nothing
+                        //
                         // requires further context from typechecker to resolve field
                         //
                         // for instance, if type of this Var is determined to be some struct, we can
@@ -621,6 +625,8 @@ fn resolve_names_expr(ctx: &mut StaticsContext, symbol_table: SymbolTable, expr:
             }
         }
         ExprKind::MemberAccessInferred(_ident) => {
+            // do nothing
+            //
             // requires further context from typechecker to resolve field
             //
             // for instance, if type of this Var is determined to be some struct, we can
