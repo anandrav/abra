@@ -36,7 +36,8 @@ pub(crate) struct TypeVar(UnionFindNode<TypeVarData>);
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) struct TypeVarData {
     pub(crate) types: HashMap<TypeKey, PotentialType>,
-    // TODO: add detailed comment explaining this 'locked' flag
+    // if this flag is true, typevar's "tag" is solved. For instance, it may be solved to int, fn(_) -> _, or tuple(_, _, _)
+    //      its children types may or may not be solved
     pub(crate) locked: bool,
     // if this flag is true, the typevar can't be solved due to an unresolved identifier
     pub(crate) missing_info: bool,
@@ -472,6 +473,8 @@ impl TypeVar {
     }
 
     fn is_locked(&self) -> bool {
+        debug_assert!(self.0.with_data(|d| d.locked != d.types.is_empty()));
+
         self.0.with_data(|d| d.locked)
     }
 
@@ -1131,6 +1134,7 @@ pub(crate) fn constrain_because(
             let potential_ty = tyvar2.0.clone_data().types.into_iter().next().unwrap().1;
             tyvar1.0.with_data(|d| {
                 if d.types.is_empty() {
+                    assert!(!d.locked);
                     d.locked = true
                 }
                 d.extend(potential_ty)
@@ -1140,6 +1144,7 @@ pub(crate) fn constrain_because(
             let potential_ty = tyvar1.0.clone_data().types.into_iter().next().unwrap().1;
             tyvar2.0.with_data(|d| {
                 if d.types.is_empty() {
+                    assert!(!d.locked);
                     d.locked = true
                 }
                 d.extend(potential_ty)
