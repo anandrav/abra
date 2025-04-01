@@ -404,11 +404,6 @@ impl Translator {
             }
         }
         let (instructions, label_map) = remove_labels(&st.lines, &self.statics.string_constants);
-        // let mut string_table: Vec<String> =
-        //     vec!["".to_owned(); self.statics.string_constants.len()];
-        // for (s, idx) in self.statics.string_constants.iter() {
-        //     string_table[*idx] = s.clone();
-        // }
         let string_table: Vec<_> = self.statics.string_constants.clone().into_iter().collect();
         let mut filename_arena = vec![];
         for file_data in self._files.files.iter() {
