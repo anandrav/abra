@@ -36,9 +36,9 @@ pub(crate) struct TypeVar(UnionFindNode<TypeVarData>);
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) struct TypeVarData {
     pub(crate) types: HashMap<TypeKey, PotentialType>,
-    // TODO: add comment explaining this 'locked' flag
+    // TODO: add detailed comment explaining this 'locked' flag
     pub(crate) locked: bool,
-    // can't solve the type of an unresolved identifier
+    // if this flag is true, the typevar can't be solved due to an unresolved identifier
     pub(crate) missing_info: bool,
 }
 
@@ -1314,9 +1314,8 @@ pub(crate) fn check_unifvars(ctx: &mut StaticsContext) {
             }
         }
     }
-    // TODO: cloning sucks here
     for (prov, ifaces) in &ctx.unifvars_constrained_to_interfaces {
-        let ty = ctx.unifvars.get(&prov).unwrap().clone();
+        let ty = ctx.unifvars.get(prov).unwrap().clone();
         if let Some(ty) = ty.solution() {
             for (iface, node) in ifaces.iter().cloned() {
                 if !ty_implements_iface(ctx, ty.clone(), &iface) {

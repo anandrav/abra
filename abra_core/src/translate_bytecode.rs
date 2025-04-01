@@ -152,6 +152,7 @@ impl Declaration {
     }
 }
 
+// TODO: Remove this type and just use Declaration
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub(crate) enum BytecodeResolution {
     Var(AstNode),
