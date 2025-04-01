@@ -727,6 +727,46 @@ impl TypeVar {
         Self::singleton_solved(PotentialType::make_nominal(reason, nominal, params))
     }
 
+    // Make nominal type with skolems substituted for type arguments. Return type and the substitution (mapping from type argument to skolem that replaced it)
+    pub(crate) fn make_nominal_with_substitution(
+        reason: Reason,
+        nominal: Nominal,
+        ctx: &mut StaticsContext,
+        node: AstNode,
+    ) -> (TypeVar, Substitution) {
+        let mut substitution: Substitution = HashMap::new();
+        let mut params: Vec<TypeVar> = vec![];
+
+        let mut helper = |ty_args: &Vec<Rc<Polytype>>| {
+            for i in 0..ty_args.len() {
+                params.push(TypeVar::fresh(
+                    ctx,
+                    Prov::InstantiateUdtParam(node.clone(), i as u8),
+                ));
+                let polyty = &ty_args[i];
+                let Declaration::Polytype(decl) = ctx.resolution_map.get(&polyty.name.id).unwrap()
+                else {
+                    panic!() // TODO: is it valid to panic here?
+                };
+                substitution.insert(PolyDeclaration(decl.clone()), params[i].clone());
+            }
+        };
+
+        match &nominal {
+            Nominal::Struct(struct_def) => helper(&struct_def.ty_args),
+            Nominal::Enum(enum_def) => helper(&enum_def.ty_args),
+            Nominal::Array => {
+                params.push(TypeVar::fresh(
+                    ctx,
+                    Prov::InstantiateUdtParam(node.clone(), 0),
+                ));
+                // substitution is left empty for array because it's not used.
+            }
+        }
+
+        (TypeVar::make_nominal(reason, nominal, params), substitution)
+    }
+
     // return true if the type is a nominal type with at least one parameter instantiated
     // this is used to see if an implementation of an interface is for an instantiated nominal, which is not allowed
     // example: implement ToString for list<int> rather than list<'a>
@@ -771,18 +811,11 @@ fn tyvar_of_declaration(
         Declaration::Enum(enum_def) => {
             let nparams = enum_def.ty_args.len();
             let mut params = vec![];
-            let mut substitution: Substitution = HashMap::new();
             for i in 0..nparams {
                 params.push(TypeVar::fresh(
                     ctx,
                     Prov::InstantiateUdtParam(node.clone(), i as u8),
                 ));
-                let polyty = &*enum_def.ty_args[i];
-                let Declaration::Polytype(poly) = ctx.resolution_map.get(&polyty.name.id).unwrap()
-                else {
-                    panic!() // TODO: is it valid to panic here?
-                };
-                substitution.insert(PolyDeclaration(poly.clone()), params[i].clone());
             }
             Some(TypeVar::make_nominal(
                 Reason::Node(node), // TODO: change to Reason::Declaration
@@ -791,27 +824,11 @@ fn tyvar_of_declaration(
             ))
         }
         Declaration::EnumVariant { enum_def, variant } => {
-            // TODO: The code for making a substitution is duplicated in a lot of places and it looks gross
-            // TODO: hold on how the hell is this "substitution" different from instantiation
-            let nparams = enum_def.ty_args.len();
-            let mut params = vec![];
-            let mut substitution: Substitution = HashMap::new();
-            for i in 0..nparams {
-                params.push(TypeVar::fresh(
-                    ctx,
-                    Prov::InstantiateUdtParam(node.clone(), i as u8),
-                ));
-                let polyty = &*enum_def.ty_args[i];
-                let Declaration::Polytype(decl) = ctx.resolution_map.get(&polyty.name.id).unwrap()
-                else {
-                    panic!() // TODO: is it valid to panic here?
-                };
-                substitution.insert(PolyDeclaration(decl.clone()), params[i].clone());
-            }
-            let def_type = TypeVar::make_nominal(
+            let (def_type, substitution) = TypeVar::make_nominal_with_substitution(
                 Reason::Node(node.clone()),
                 Nominal::Enum(enum_def.clone()),
-                params,
+                ctx,
+                node.clone(),
             );
 
             let the_variant = &enum_def.variants[*variant as usize];
@@ -841,26 +858,13 @@ fn tyvar_of_declaration(
             }
         }
         Declaration::Struct(struct_def) => {
-            let nparams = struct_def.ty_args.len();
-            let mut params = vec![];
-            let mut substitution: Substitution = HashMap::new();
-            for i in 0..nparams {
-                params.push(TypeVar::fresh(
-                    ctx,
-                    Prov::InstantiateUdtParam(node.clone(), i as u8),
-                ));
-                let polyty = &*struct_def.ty_args[i];
-                let Declaration::Polytype(poly) = ctx.resolution_map.get(&polyty.name.id).unwrap()
-                else {
-                    panic!() // TODO: is it valid to panic here?
-                };
-                substitution.insert(PolyDeclaration(poly.clone()), params[i].clone());
-            }
-            let def_type = TypeVar::make_nominal(
+            let (def_type, substitution) = TypeVar::make_nominal_with_substitution(
                 Reason::Node(node.clone()),
                 Nominal::Struct(struct_def.clone()),
-                params,
+                ctx,
+                node.clone(),
             );
+
             let fields = struct_def
                 .fields
                 .iter()
@@ -2275,31 +2279,16 @@ fn generate_constraints_pat(
                 Some(data) => TypeVar::from_node(ctx, data.node()),
                 None => TypeVar::make_unit(Reason::VariantNoData(pat.node())),
             };
-            let mut substitution: Substitution = HashMap::new();
 
             if !prefixes.is_empty() {
                 if let Some(Declaration::EnumVariant { enum_def, variant }) =
                     ctx.resolution_map.get(&tag.id).cloned()
                 {
-                    let nparams = enum_def.ty_args.len();
-                    let mut params = vec![];
-                    for i in 0..nparams {
-                        params.push(TypeVar::fresh(
-                            ctx,
-                            Prov::InstantiateUdtParam(pat.node(), i as u8),
-                        ));
-                        let polyty = &*enum_def.ty_args[i];
-                        let Declaration::Polytype(poly) =
-                            ctx.resolution_map.get(&polyty.name.id).unwrap()
-                        else {
-                            panic!() // TODO: is it valid to panic here?
-                        };
-                        substitution.insert(PolyDeclaration(poly.clone()), params[i].clone());
-                    }
-                    let def_type = TypeVar::make_nominal(
+                    let (def_type, substitution) = TypeVar::make_nominal_with_substitution(
                         Reason::Node(pat.node()),
                         Nominal::Enum(enum_def.clone()),
-                        params,
+                        ctx,
+                        pat.node(),
                     );
 
                     let variant_def = &enum_def.variants[variant as usize];
@@ -2355,27 +2344,11 @@ fn generate_constraints_pat(
                         );
                         can_infer = true;
 
-                        // TODO: SO MUCH DUPLICATED LOGIC :(
-
-                        let nparams = enum_def.ty_args.len();
-                        let mut params = vec![];
-                        for i in 0..nparams {
-                            params.push(TypeVar::fresh(
-                                ctx,
-                                Prov::InstantiateUdtParam(pat.node(), i as u8),
-                            ));
-                            let polyty = &*enum_def.ty_args[i];
-                            let Declaration::Polytype(poly) =
-                                ctx.resolution_map.get(&polyty.name.id).unwrap()
-                            else {
-                                panic!() // TODO: is it valid to panic here?
-                            };
-                            substitution.insert(PolyDeclaration(poly.clone()), params[i].clone());
-                        }
-                        let def_type = TypeVar::make_nominal(
+                        let (def_type, substitution) = TypeVar::make_nominal_with_substitution(
                             Reason::Node(pat.node()),
                             Nominal::Enum(enum_def.clone()),
-                            params,
+                            ctx,
+                            pat.node(),
                         );
 
                         let variant_def = &enum_def.variants[idx as usize];
