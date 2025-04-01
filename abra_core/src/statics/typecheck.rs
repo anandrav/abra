@@ -797,13 +797,22 @@ fn tyvar_of_declaration(
             ))
         }
         Declaration::EnumVariant { enum_def, variant } => {
+            // TODO: The code for making a substitution is duplicated in a lot of places and it looks gross
+            // TODO: hold on how the hell is this "substitution" different from instantiation
             let nparams = enum_def.ty_args.len();
             let mut params = vec![];
+            let mut substitution: Substitution = HashMap::new();
             for i in 0..nparams {
                 params.push(TypeVar::fresh(
                     ctx,
                     Prov::InstantiateUdtParam(node.clone(), i as u8),
                 ));
+                let polyty = &*enum_def.ty_args[i];
+                let Declaration::Polytype(decl) = ctx.resolution_map.get(&polyty.name.id).unwrap()
+                else {
+                    panic!() // TODO: is it valid to panic here?
+                };
+                substitution.insert(PolyDeclaration(decl.clone()), params[i].clone());
             }
             let def_type = TypeVar::make_nominal(
                 Reason::Node(node.clone()),
@@ -821,8 +830,7 @@ fn tyvar_of_declaration(
                             .iter()
                             .map(|e| {
                                 let e = ast_type_to_typevar(ctx, e.clone());
-                                e.clone()
-                                    .instantiate(PolyvarScope::empty(), ctx, node.clone())
+                                e.clone().subst(&substitution, Prov::Node(node.clone()))
                             })
                             .collect();
                         Some(TypeVar::make_func(args, def_type, Reason::Node(node)))
@@ -830,10 +838,7 @@ fn tyvar_of_declaration(
                     _ => {
                         let ty = ast_type_to_typevar(ctx, ty.clone());
                         Some(TypeVar::make_func(
-                            vec![
-                                ty.clone()
-                                    .instantiate(PolyvarScope::empty(), ctx, node.clone()),
-                            ],
+                            vec![ty.clone().subst(&substitution, Prov::Node(node.clone()))],
                             def_type,
                             Reason::Node(node.clone()),
                         ))
@@ -844,11 +849,18 @@ fn tyvar_of_declaration(
         Declaration::Struct(struct_def) => {
             let nparams = struct_def.ty_args.len();
             let mut params = vec![];
+            let mut substitution: Substitution = HashMap::new();
             for i in 0..nparams {
                 params.push(TypeVar::fresh(
                     ctx,
                     Prov::InstantiateUdtParam(node.clone(), i as u8),
                 ));
+                let polyty = &*struct_def.ty_args[i];
+                let Declaration::Polytype(poly) = ctx.resolution_map.get(&polyty.name.id).unwrap()
+                else {
+                    panic!() // TODO: is it valid to panic here?
+                };
+                substitution.insert(PolyDeclaration(poly.clone()), params[i].clone());
             }
             let def_type = TypeVar::make_nominal(
                 Reason::Node(node.clone()),
@@ -860,8 +872,7 @@ fn tyvar_of_declaration(
                 .iter()
                 .map(|f| {
                     let ty = ast_type_to_typevar(ctx, f.ty.clone());
-                    ty.clone()
-                        .instantiate(PolyvarScope::empty(), ctx, node.clone())
+                    ty.clone().subst(&substitution, Prov::Node(node.clone()))
                 })
                 .collect();
             Some(TypeVar::make_func(fields, def_type, Reason::Node(node)))
