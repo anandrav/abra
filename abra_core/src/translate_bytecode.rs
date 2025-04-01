@@ -55,8 +55,8 @@ struct TranslatorState {
     filename_table: Vec<(BytecodeIndex, u32)>,
     lineno_table: Vec<(BytecodeIndex, u32)>,
     function_name_table: Vec<(BytecodeIndex, u32)>,
-    function_name_arena: Vec<String>,
-    function_name_to_arena_idx: HashMap<String, usize>,
+    function_name_arena: Vec<String>, // TODO: use IdSet
+    function_name_to_arena_idx: HashMap<String, usize>, // TODO: use IdSet
     instr_count: usize,
     lambdas: Lambdas,
     overloaded_func_map: OverloadedFuncLabels,
@@ -410,11 +410,12 @@ impl Translator {
             }
         }
         let (instructions, label_map) = remove_labels(&st.lines, &self.statics.string_constants);
-        let mut string_table: Vec<String> =
-            vec!["".to_owned(); self.statics.string_constants.len()];
-        for (s, idx) in self.statics.string_constants.iter() {
-            string_table[*idx] = s.clone();
-        }
+        // let mut string_table: Vec<String> =
+        //     vec!["".to_owned(); self.statics.string_constants.len()];
+        // for (s, idx) in self.statics.string_constants.iter() {
+        //     string_table[*idx] = s.clone();
+        // }
+        let string_table: Vec<_> = self.statics.string_constants.clone().into_iter().collect();
         let mut filename_arena = vec![];
         for file_data in self._files.files.iter() {
             filename_arena.push(file_data.name().to_string());

@@ -7,7 +7,7 @@ use std::{
     fmt::{self, Display, Formatter},
 };
 
-use crate::vm::Instr as VmInstr;
+use crate::{misc_utils::IdSet, vm::Instr as VmInstr};
 
 pub(crate) type Label = String;
 
@@ -44,7 +44,7 @@ pub type Instr = VmInstr<Label, String>;
 
 pub(crate) fn remove_labels(
     items: &Vec<Line>,
-    string_constants: &HashMap<String, usize>,
+    string_constants: &IdSet<String>,
 ) -> (Vec<VmInstr>, LabelMap) {
     let mut instructions: Vec<VmInstr> = vec![];
     let mut offset = 0;
@@ -81,7 +81,7 @@ fn _get_label(s: &str) -> Option<String> {
 fn instr_to_vminstr(
     instr: &Instr,
     label_to_idx: &HashMap<Label, usize>,
-    string_constants: &HashMap<String, usize>,
+    string_constants: &IdSet<String>,
 ) -> VmInstr {
     match instr {
         Instr::Pop => VmInstr::Pop,
@@ -148,7 +148,7 @@ fn instr_to_vminstr(
 fn _assemble_instr_or_label(
     words: Vec<&str>,
     lineno: usize,
-    string_constants: &mut HashMap<String, usize>,
+    string_constants: &mut IdSet<String>,
 ) -> Line {
     if let Some(label) = _get_label(words[0]) {
         return Line::Label(label);
@@ -188,8 +188,7 @@ fn _assemble_instr_or_label(
         "push_string" => {
             // remove quotes
             let s = words[1][1..words[1].len() - 1].to_owned();
-            let len = string_constants.len();
-            string_constants.entry(s.clone()).or_insert(len);
+            string_constants.insert(s.clone());
             Instr::PushString(s)
         }
         "jump" | "jump_if" | "call" => {

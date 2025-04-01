@@ -1556,8 +1556,7 @@ fn generate_constraints_expr(
                 node_ty,
                 TypeVar::make_string(Reason::Literal(expr.node())),
             );
-            let len = ctx.string_constants.len();
-            ctx.string_constants.entry(s.clone()).or_insert(len);
+            ctx.string_constants.insert(s.clone());
         }
         ExprKind::List(exprs) => {
             let elem_ty = TypeVar::fresh(ctx, Prov::ListElem(expr.node()));
@@ -2275,8 +2274,7 @@ fn generate_constraints_pat(
                 ty_pat,
                 TypeVar::make_string(Reason::Literal(pat.node())),
             );
-            let len = ctx.string_constants.len();
-            ctx.string_constants.entry(s.clone()).or_insert(len);
+            ctx.string_constants.insert(s.clone());
         }
         PatKind::Binding(_) => {}
         PatKind::Variant(prefixes, tag, data) => {

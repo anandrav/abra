@@ -163,16 +163,13 @@ fn gather_declarations_item(
                 let libname = ctx._file_provider.shared_objects_dir().join(filename);
 
                 // add libname to string constants
-                let len = ctx.string_constants.len();
                 ctx.string_constants
-                    .entry(libname.to_str().unwrap().to_string())
-                    .or_insert(len);
+                    .insert(libname.to_str().unwrap().to_string());
 
                 let symbol = make_foreign_func_name(&_func_decl.name.v, &elems);
 
                 // add symbol to string constants
-                let len = ctx.string_constants.len();
-                ctx.string_constants.entry(symbol.clone()).or_insert(len);
+                ctx.string_constants.insert(symbol.clone());
 
                 // add symbol to statics ctx
                 let lib_id = ctx.dylibs.insert(libname.clone());

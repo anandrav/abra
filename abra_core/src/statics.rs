@@ -49,7 +49,7 @@ pub(crate) struct StaticsContext {
     pub(crate) interface_impls: HashMap<Rc<InterfaceDecl>, Vec<Rc<InterfaceImpl>>>,
 
     // string constants (for bytecode translation)
-    pub(crate) string_constants: HashMap<String, usize>,
+    pub(crate) string_constants: IdSet<String>,
     // dylibs (for bytecode translation)
     pub(crate) dylibs: IdSet<PathBuf>,
     pub(crate) dylib_to_funcs2: HashMap<u32, IdSet<String>>,
@@ -86,7 +86,7 @@ impl StaticsContext {
             errors: Default::default(),
         };
 
-        ctx.string_constants.entry("\n".into()).or_insert(0);
+        ctx.string_constants.insert("\n".to_string());
         ctx
     }
 
