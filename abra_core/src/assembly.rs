@@ -107,7 +107,7 @@ fn instr_to_vminstr(
         Instr::PushBool(b) => VmInstr::PushBool(*b),
         Instr::PushInt(i) => VmInstr::PushInt(*i),
         Instr::PushFloat(f) => VmInstr::PushFloat(*f),
-        Instr::PushString(s) => VmInstr::PushString(string_constants[s] as u16),
+        Instr::PushString(s) => VmInstr::PushString(string_constants.get_id(s).unwrap() as u16),
         Instr::Jump(label) => VmInstr::Jump(label_to_idx[label]),
         Instr::JumpIf(label) => VmInstr::JumpIf(label_to_idx[label]),
         Instr::Call(label) => VmInstr::Call(
