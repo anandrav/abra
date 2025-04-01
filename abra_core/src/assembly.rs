@@ -2,16 +2,12 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use std::{
-    collections::HashMap,
-    fmt::{self, Display, Formatter},
-};
-
-use crate::{misc_utils::IdSet, vm::Instr as VmInstr};
+use crate::translate_bytecode::LabelMap;
+use crate::utils::hash::HashMap;
+use crate::{utils::id_set::IdSet, vm::Instr as VmInstr};
+use std::fmt::{self, Display, Formatter};
 
 pub(crate) type Label = String;
-
-use crate::translate_bytecode::LabelMap;
 
 #[derive(Debug)]
 pub(crate) enum Line {
@@ -48,7 +44,7 @@ pub(crate) fn remove_labels(
 ) -> (Vec<VmInstr>, LabelMap) {
     let mut instructions: Vec<VmInstr> = vec![];
     let mut offset = 0;
-    let mut label_to_idx: LabelMap = HashMap::new();
+    let mut label_to_idx: LabelMap = HashMap::default();
     for item in items.iter() {
         match item {
             Line::Instr(_) => {

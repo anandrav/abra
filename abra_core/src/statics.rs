@@ -8,9 +8,9 @@ use crate::ast::{
     InterfaceImpl, NodeId, Polytype, StructDef, TypeKind,
 };
 use crate::builtin::Builtin;
-use crate::misc_utils::IdSet;
+use crate::utils::hash::HashMap;
+use crate::utils::id_set::IdSet;
 use resolve::{resolve, scan_declarations};
-use std::collections::HashMap;
 use std::fmt::{self, Display, Formatter};
 use std::ops::Range;
 use std::path::PathBuf;

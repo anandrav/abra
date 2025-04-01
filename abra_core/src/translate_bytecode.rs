@@ -9,16 +9,17 @@ use crate::ast::{
 use crate::ast::{FileAst, FileDatabase, NodeId};
 use crate::builtin::Builtin;
 use crate::environment::Environment;
-use crate::misc_utils::IdSet;
 use crate::statics::typecheck::{Monotype, Nominal};
 use crate::statics::{Declaration, TypeProv};
 use crate::statics::{Type, ty_fits_impl_ty};
+use crate::utils::hash::HashMap;
+use crate::utils::hash::HashSet;
+use crate::utils::id_set::IdSet;
 use crate::vm::{AbraFloat, AbraInt, Instr as VmInstr};
 use crate::{
     ast::{Expr, ExprKind, Pat, PatKind, Stmt, StmtKind},
     statics::StaticsContext,
 };
-use std::collections::{HashMap, HashSet};
 use std::mem;
 use std::path::PathBuf;
 use std::rc::Rc;
@@ -278,7 +279,7 @@ impl Translator {
             // Handle the main function (files)
             if let Some(file) = self.file_asts.first() {
                 let file = file.clone();
-                let mut locals = HashSet::new();
+                let mut locals = HashSet::default();
 
                 // use filename as name of function in this case
                 self.update_function_name_table(st, "<main>");
@@ -296,7 +297,7 @@ impl Translator {
                 for _ in 0..locals.len() {
                     self.emit(st, Instr::PushNil);
                 }
-                let mut offset_table = OffsetTable::new();
+                let mut offset_table = OffsetTable::default();
                 for (i, local) in locals.iter().enumerate() {
                     offset_table.entry(*local).or_insert((i) as i32);
                 }
@@ -324,7 +325,7 @@ impl Translator {
 
             while !st.lambdas.is_empty() || !st.overloaded_methods_to_generate.is_empty() {
                 // Handle lambdas with captures
-                let mut iteration = HashMap::new();
+                let mut iteration = HashMap::default();
                 mem::swap(&mut (iteration), &mut st.lambdas);
                 for (node, data) in iteration {
                     let AstNode::Expr(expr) = node else { panic!() };
@@ -375,13 +376,13 @@ impl Translator {
                     let label = st.overloaded_func_map.get(&desc).unwrap();
                     self.emit(st, Line::Label(label.clone()));
 
-                    let mut locals = HashSet::new();
+                    let mut locals = HashSet::default();
                     collect_locals_expr(&f.body, &mut locals);
                     let locals_count = locals.len();
                     for _ in 0..locals_count {
                         self.emit(st, Instr::PushNil);
                     }
-                    let mut offset_table = OffsetTable::new();
+                    let mut offset_table = OffsetTable::default();
                     for (i, arg) in f.args.iter().rev().enumerate() {
                         offset_table.entry(arg.0.id).or_insert(-(i as i32) - 1);
                     }
@@ -916,11 +917,11 @@ impl Translator {
             ExprKind::AnonymousFunction(args, _, body) => {
                 let label = make_label("lambda");
 
-                let mut locals = HashSet::new();
+                let mut locals = HashSet::default();
                 collect_locals_expr(body, &mut locals);
                 let locals_count = locals.len() as u16;
 
-                let mut lambda_offset_table = OffsetTable::new();
+                let mut lambda_offset_table = OffsetTable::default();
                 for (i, arg) in args.iter().rev().enumerate() {
                     lambda_offset_table
                         .entry(arg.0.id)
@@ -1122,13 +1123,13 @@ impl Translator {
                 let return_label = make_label("return");
 
                 self.emit(st, Line::Label(fully_qualified_name.clone()));
-                let mut locals = HashSet::new();
+                let mut locals = HashSet::default();
                 collect_locals_expr(&f.body, &mut locals);
                 let locals_count = locals.len();
                 for _ in 0..locals_count {
                     self.emit(st, Instr::PushNil);
                 }
-                let mut offset_table = OffsetTable::new();
+                let mut offset_table = OffsetTable::default();
                 for (i, arg) in f.args.iter().rev().enumerate() {
                     offset_table.entry(arg.0.id).or_insert(-(i as i32) - 1);
                 }
@@ -1183,13 +1184,13 @@ impl Translator {
             self.update_function_name_table(st, &func_name);
 
             self.emit(st, Line::Label(func_name));
-            let mut locals = HashSet::new();
+            let mut locals = HashSet::default();
             collect_locals_expr(&f.body, &mut locals);
             let locals_count = locals.len();
             for _ in 0..locals_count {
                 self.emit(st, Instr::PushNil);
             }
-            let mut offset_table = OffsetTable::new();
+            let mut offset_table = OffsetTable::default();
             for (i, arg) in f.args.iter().rev().enumerate() {
                 offset_table.entry(arg.0.id).or_insert(-(i as i32) - 1);
             }

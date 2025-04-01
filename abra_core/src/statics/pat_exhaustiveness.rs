@@ -6,7 +6,7 @@ use crate::ast::{Expr, ExprKind, FileAst, Item, ItemKind, MatchArm, Pat, PatKind
 
 use core::panic;
 
-use std::collections::HashSet;
+use crate::utils::hash::HashSet;
 use std::fmt::{self, Display};
 use std::rc::Rc;
 
@@ -721,7 +721,7 @@ fn match_expr_exhaustive_check(statics: &mut StaticsContext, expr: &Rc<Expr>) {
         });
     }
 
-    let mut useless_indices = HashSet::new();
+    let mut useless_indices = HashSet::default();
     for (i, row) in matrix.rows.iter().enumerate() {
         if !row.useful {
             useless_indices.insert(i);

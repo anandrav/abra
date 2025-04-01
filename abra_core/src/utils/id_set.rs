@@ -1,4 +1,5 @@
-use std::{collections::HashMap, fmt, hash::Hash};
+use crate::utils::hash::HashMap;
+use std::{fmt, hash::Hash};
 
 // elements are unique
 // elements have unique IDs
@@ -53,7 +54,7 @@ impl<T: Hash + Eq> IdSet<T> {
     #[inline]
     pub fn new() -> Self {
         Self {
-            map: HashMap::new(),
+            map: HashMap::default(),
             current_buf: Vec::with_capacity(0),
             old_bufs: Vec::new(),
             id_to_ptr: Vec::new(),

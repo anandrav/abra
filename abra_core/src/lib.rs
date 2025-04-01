@@ -2,13 +2,13 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+use crate::utils::hash::HashMap;
+use crate::utils::hash::HashSet;
 use ast::FileAst;
 use ast::FileDatabase;
 use ast::FileId;
 use ast::ItemKind;
 use core::fmt;
-use std::collections::HashMap;
-use std::collections::HashSet;
 use std::collections::VecDeque;
 use std::path::Path;
 use std::path::PathBuf;
@@ -19,11 +19,11 @@ mod assembly;
 pub mod ast;
 mod builtin;
 pub mod environment;
-mod misc_utils;
 mod parse;
 pub mod prelude;
 pub mod statics;
 mod translate_bytecode;
+mod utils;
 pub mod vm;
 pub use ast::FileData;
 pub use prelude::PRELUDE;
@@ -72,7 +72,7 @@ fn get_files(
     let mut file_asts: Vec<Rc<FileAst>> = vec![];
 
     let mut stack: VecDeque<FileId> = VecDeque::new();
-    let mut visited = HashSet::<PathBuf>::new();
+    let mut visited = HashSet::<PathBuf>::default();
 
     // main file
     {
@@ -293,7 +293,7 @@ impl MockFileProvider {
     }
 
     pub fn single_file(contents: &str) -> Box<Self> {
-        let mut path_to_file = HashMap::new();
+        let mut path_to_file = HashMap::default();
         path_to_file.insert(Path::new("prelude.abra").to_path_buf(), PRELUDE.into());
         path_to_file.insert(Path::new("main.abra").to_path_buf(), contents.into());
         Box::new(Self {

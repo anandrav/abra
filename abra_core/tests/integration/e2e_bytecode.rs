@@ -6,8 +6,10 @@ use abra_core::MockFileProvider;
 use abra_core::compile_bytecode;
 use abra_core::vm::Vm;
 use abra_core::vm::VmStatus;
-use std::collections::HashMap;
+use rustc_hash::FxHashMap;
 use std::path::PathBuf;
+
+type HashMap<K, V> = FxHashMap<K, V>;
 
 use crate::utils::unwrap_or_panic;
 
@@ -888,7 +890,7 @@ fn bar(x: 'a) -> 'a {
 
 foo(2, 2)
 "#;
-    let mut files: HashMap<PathBuf, String> = HashMap::new();
+    let mut files: HashMap<PathBuf, String> = HashMap::default();
     files.insert("main.abra".into(), main.into());
     files.insert("util.abra".into(), util.into());
     let file_provider = MockFileProvider::new(files);

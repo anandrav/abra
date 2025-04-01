@@ -9,10 +9,11 @@ use crate::ast::{
 use crate::ast::{BinaryOperator, Item};
 use crate::builtin::Builtin;
 use crate::environment::Environment;
+use crate::utils::hash::HashMap;
 use core::panic;
 use disjoint_sets::UnionFindNode;
 use std::cell::RefCell;
-use std::collections::{BTreeSet, HashMap};
+use std::collections::BTreeSet;
 use std::fmt::{self, Display, Write};
 use std::rc::Rc;
 
@@ -46,14 +47,14 @@ pub(crate) struct TypeVarData {
 impl TypeVarData {
     fn new() -> Self {
         Self {
-            types: HashMap::new(),
+            types: HashMap::default(),
             locked: false,
             missing_info: false,
         }
     }
 
     fn singleton_solved(potential_type: PotentialType) -> Self {
-        let mut types = HashMap::new();
+        let mut types = HashMap::default();
         types.insert(potential_type.key(), potential_type);
         Self {
             types,
@@ -564,7 +565,7 @@ impl TypeVar {
                 PotentialType::Tuple(provs, elems)
             }
         };
-        let mut types = HashMap::new();
+        let mut types = HashMap::default();
         types.insert(ty.key(), ty);
         let data_instantiated = TypeVarData {
             types,
@@ -655,7 +656,7 @@ impl TypeVar {
                     PotentialType::Tuple(provs, elems)
                 }
             };
-            let mut types = HashMap::new();
+            let mut types = HashMap::default();
             types.insert(ty.key(), ty);
             let new_data = TypeVarData {
                 types,
@@ -737,7 +738,7 @@ impl TypeVar {
         ctx: &mut StaticsContext,
         node: AstNode,
     ) -> (TypeVar, Substitution) {
-        let mut substitution: Substitution = HashMap::new();
+        let mut substitution: Substitution = HashMap::default();
         let mut params: Vec<TypeVar> = vec![];
 
         let mut helper = |ty_args: &Vec<Rc<Polytype>>| {
@@ -747,11 +748,9 @@ impl TypeVar {
                     Prov::InstantiateUdtParam(node.clone(), i as u8),
                 ));
                 let polyty = &ty_args[i];
-                let Declaration::Polytype(decl) = ctx.resolution_map.get(&polyty.name.id).unwrap()
-                else {
-                    panic!() // TODO: is it valid to panic here?
+                if let Some(Declaration::Polytype(decl)) = ctx.resolution_map.get(&polyty.name.id) {
+                    substitution.insert(PolyDeclaration(decl.clone()), params[i].clone());
                 };
-                substitution.insert(PolyDeclaration(decl.clone()), params[i].clone());
             }
         };
 
@@ -1411,7 +1410,7 @@ fn generate_constraints_item_stmts(mode: Mode, stmt: Rc<Item>, ctx: &mut Statics
                         let actual = TypeVar::from_node(ctx, interface_method.node());
                         constrain(ctx, interface_method_ty.clone(), actual);
 
-                        let mut substitution: Substitution = HashMap::new();
+                        let mut substitution: Substitution = HashMap::default();
                         if let Some(poly_decl) =
                             interface_method_ty.clone().get_first_polymorphic_type()
                         {

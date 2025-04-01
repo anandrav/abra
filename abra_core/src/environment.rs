@@ -2,9 +2,9 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+use crate::utils::hash::HashMap;
 use std::cell::RefCell;
 use std::cmp::Eq;
-use std::collections::HashMap;
 use std::fmt;
 use std::fmt::Display;
 use std::hash::Hash;
@@ -19,7 +19,7 @@ impl<Identifier: Eq + Hash, Item: Clone> Environment<Identifier, Item> {
     pub(crate) fn empty() -> Self {
         Self {
             base: Rc::new(RefCell::new(EnvironmentBase {
-                items: HashMap::new(),
+                items: HashMap::default(),
                 enclosing: None,
             })),
         }
@@ -28,7 +28,7 @@ impl<Identifier: Eq + Hash, Item: Clone> Environment<Identifier, Item> {
     pub(crate) fn new_scope(&self) -> Self {
         Self {
             base: Rc::new(RefCell::new(EnvironmentBase {
-                items: HashMap::new(),
+                items: HashMap::default(),
                 enclosing: Some(self.base.clone()),
             })),
         }
