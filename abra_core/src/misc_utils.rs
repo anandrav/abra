@@ -100,6 +100,11 @@ impl<T: Hash + Eq> IdSet<T> {
     }
 
     #[inline]
+    fn try_get_value(&self, id: u32) -> Option<&T> {
+        self.id_to_ptr.get(id as usize).map(|&ptr| unsafe { &*ptr })
+    }
+
+    #[inline]
     pub fn try_get_id(&self, value: &T) -> Option<u32> {
         // SAFETY: the call to .get() will hash and maybe compare value for equality,
         // but the raw pointer to value is discarded after that
@@ -132,6 +137,7 @@ impl<T: Hash + Eq> IdSet<T> {
         self.map.clear();
         self.current_buf.clear();
         self.old_bufs.clear();
+        self.id_to_ptr.clear();
     }
 }
 
@@ -140,16 +146,10 @@ impl<T: Hash + Eq> std::ops::Index<u32> for IdSet<T> {
 
     #[inline]
     fn index(&self, id: u32) -> &Self::Output {
-        self.get_by_id(id).unwrap()
+        self.try_get_value(id).unwrap()
     }
 }
 
-impl<T: Hash + Eq> IdSet<T> {
-    #[inline]
-    fn get_by_id(&self, id: u32) -> Option<&T> {
-        self.id_to_ptr.get(id as usize).map(|&ptr| unsafe { &*ptr })
-    }
-}
 // Iterator
 
 pub struct Iter<'a, T> {
@@ -303,13 +303,15 @@ mod tests {
     #[test]
     fn test_clear() {
         let mut set = IdSet::new();
-        set.insert("a".to_string());
+        let id_a = set.insert("a".to_string());
         set.insert("b".to_string());
+        set.insert("c".to_string());
 
-        assert_eq!(set.len(), 2);
+        assert_eq!(set.len(), 3);
         set.clear();
         assert_eq!(set.len(), 0);
         assert!(set.iter().next().is_none());
+        assert!(set.try_get_value(id_a).is_none());
     }
 
     #[test]
