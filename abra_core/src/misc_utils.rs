@@ -1,5 +1,7 @@
 use std::{collections::HashMap, hash::Hash};
 
+// TODO: If this data structure is useful and convenient, optimize the representation.
+// Currently it's storing TWO copies of T and requires T to implement Clone
 #[derive(Default)]
 pub struct IdSet<T: Hash + Eq + Clone> {
     map: HashMap<T, u32>,

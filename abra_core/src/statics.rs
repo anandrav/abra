@@ -10,7 +10,7 @@ use crate::ast::{
 use crate::builtin::Builtin;
 use crate::misc_utils::IdSet;
 use resolve::{resolve, scan_declarations};
-use std::collections::{BTreeMap, BTreeSet, HashMap};
+use std::collections::HashMap;
 use std::fmt::{self, Display, Formatter};
 use std::ops::Range;
 use std::path::PathBuf;
@@ -51,7 +51,8 @@ pub(crate) struct StaticsContext {
     // string constants (for bytecode translation)
     pub(crate) string_constants: HashMap<String, usize>,
     // dylibs (for bytecode translation)
-    pub(crate) dylib_to_funcs: BTreeMap<PathBuf, BTreeSet<String>>, // TODO: don't use a BTreeMap just sort at the end
+    pub(crate) dylibs: IdSet<PathBuf>,
+    pub(crate) dylib_to_funcs2: HashMap<u32, IdSet<String>>,
     // host functions
     pub(crate) host_funcs: IdSet<String>,
 
@@ -77,7 +78,8 @@ impl StaticsContext {
             func_ret_stack: Default::default(),
             interface_impls: Default::default(),
             string_constants: Default::default(),
-            dylib_to_funcs: Default::default(),
+            dylibs: Default::default(),
+            dylib_to_funcs2: Default::default(),
             host_funcs: Default::default(),
             unifvars: Default::default(),
             unifvars_constrained_to_interfaces: Default::default(),

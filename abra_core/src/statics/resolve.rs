@@ -175,8 +175,11 @@ fn gather_declarations_item(
                 ctx.string_constants.entry(symbol.clone()).or_insert(len);
 
                 // add symbol to statics ctx
-                let funcs = ctx.dylib_to_funcs.entry(libname.clone()).or_default();
-                funcs.insert(symbol.clone());
+                let lib_id = ctx.dylibs.insert(libname.clone());
+                ctx.dylib_to_funcs2
+                    .entry(lib_id)
+                    .or_default()
+                    .insert(symbol.clone());
 
                 namespace.add_declaration(
                     func_name,

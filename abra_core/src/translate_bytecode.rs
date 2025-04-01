@@ -263,10 +263,19 @@ impl Translator {
 
             // Initialization routine before main function (load shared libraries)
             // dbg!(&self.statics.dylib_to_funcs);
-            for (l, symbols) in &self.statics.dylib_to_funcs {
-                self.emit(st, Instr::PushString(l.to_str().unwrap().to_string()));
+            // for (l, symbols) in &self.statics.dylib_to_funcs {
+            //     self.emit(st, Instr::PushString(l.to_str().unwrap().to_string()));
+            //     self.emit(st, Instr::LoadLib);
+            //     for s in symbols {
+            //         self.emit(st, Instr::PushString(s.to_string()));
+            //         self.emit(st, Instr::LoadForeignFunc);
+            //     }
+            // }
+            for (i, lib) in self.statics.dylibs.iter().enumerate() {
+                self.emit(st, Instr::PushString(lib.to_str().unwrap().to_string()));
                 self.emit(st, Instr::LoadLib);
-                for s in symbols {
+                // TODO: &(i as u32) is dumb
+                for s in self.statics.dylib_to_funcs2[&(i as u32)].iter() {
                     self.emit(st, Instr::PushString(s.to_string()));
                     self.emit(st, Instr::LoadForeignFunc);
                 }
@@ -612,31 +621,18 @@ impl Translator {
                         libname,
                         symbol,
                     } => {
-                        // TODO: The ids should really be "baked" ahead of time. This is slow AF
-                        match self
-                            .statics
-                            .dylib_to_funcs
-                            .iter()
-                            .flat_map(|(l, symbols)| symbols.iter().map(move |s| (l, s)))
-                            .enumerate()
-                            .find(|(_, (l, s))| **l == libname && **s == symbol)
-                        {
-                            Some((func_id, _)) => {
-                                self.emit(st, Instr::CallExtern(func_id));
-                            }
-                            _ => {
-                                panic!("Symbol not found");
-                            }
-                        }
                         // by this point we should know the name of the .so file that this external function should be located in
 
-                        // then, calling an external function just means
+                        // calling an external function just means
                         // (1) loading the .so file (preferably do this when the VM starts up)
                         // (2) locate the external function in this .so file by its symbol (preferably do this when VM starts up)
                         // (3) invoke the function, which should have signature fn(&mut Vm) -> ()
 
                         // the bytecode for calling the external function doesn't need to contain the .so name or the method name as a string.
                         // it just needs to contain an idx into an array of foreign functions
+                        let lib_id = self.statics.dylibs[&libname];
+                        let func_id = self.statics.dylib_to_funcs2[&lib_id][&symbol];
+                        self.emit(st, Instr::CallExtern(func_id as usize));
                     }
                     BytecodeResolution::InterfaceMethod {
                         iface_def,
