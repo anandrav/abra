@@ -573,7 +573,7 @@ impl TypeVar {
         tvar
     }
 
-    pub(crate) fn get_first_polymorphic_type(self) -> Option<Declaration> {
+    pub(crate) fn get_first_polymorphic_type(self) -> Option<PolyDeclaration> {
         let data = self.0.clone_data();
         if data.types.len() == 1 {
             let ty = data.types.into_values().next().unwrap();
@@ -584,7 +584,7 @@ impl TypeVar {
                 | PotentialType::Float(_)
                 | PotentialType::Bool(_)
                 | PotentialType::String(_) => None,
-                PotentialType::Poly(_, ref decl) => Some(decl.into()),
+                PotentialType::Poly(_, decl) => Some(decl.clone()),
                 PotentialType::Nominal(_, _, params) => {
                     for param in &params {
                         if let Some(decl) = param.clone().get_first_polymorphic_type() {
@@ -1403,10 +1403,10 @@ fn generate_constraints_item_stmts(mode: Mode, stmt: Rc<Item>, ctx: &mut Statics
                         constrain(ctx, interface_method_ty.clone(), actual);
 
                         let mut substitution: Substitution = HashMap::new();
-                        if let Some(Declaration::Polytype(poly)) =
+                        if let Some(poly_decl) =
                             interface_method_ty.clone().get_first_polymorphic_type()
                         {
-                            substitution.insert(PolyDeclaration(poly.clone()), impl_ty.clone());
+                            substitution.insert(poly_decl, impl_ty.clone());
                         }
 
                         let expected = interface_method_ty.clone().subst(&substitution);
