@@ -229,7 +229,7 @@ pub(crate) fn analyze(
     files: &FileDatabase,
     file_provider: Box<dyn FileProvider>,
 ) -> Result<StaticsContext, String> {
-    let mut ctx = StaticsContext::new(files.clone(), file_provider); // TODO: to_owned necessary?
+    let mut ctx = StaticsContext::new(files.clone(), file_provider);
 
     // scan declarations across all files
     scan_declarations(&mut ctx, file_asts);
@@ -621,7 +621,6 @@ impl AstNode {
 }
 
 use codespan_reporting::diagnostic::Label as CsLabel;
-// TODO: This is duplicated
 pub(crate) fn _print_node(ctx: &StaticsContext, node: AstNode) {
     let (file, range) = node.get_file_and_range();
 
