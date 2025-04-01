@@ -411,7 +411,7 @@ impl Namespace {
 fn resolve_names_item_decl(ctx: &mut StaticsContext, symbol_table: SymbolTable, stmt: Rc<Item>) {
     match &*stmt.kind {
         ItemKind::FuncDef(f) => {
-            resolve_identifier(ctx, &symbol_table, &f.name); // TODO: why is this getting resolved? Does that really make sense? This is done in other places too.
+            resolve_identifier(ctx, &symbol_table, &f.name);
             let symbol_table = symbol_table.new_scope();
             resolve_names_func_helper(ctx, symbol_table.clone(), &f.args, &f.body, &f.ret_type);
         }
@@ -432,8 +432,8 @@ fn resolve_names_item_decl(ctx: &mut StaticsContext, symbol_table: SymbolTable, 
         }
         ItemKind::InterfaceImpl(iface_impl) => {
             let symbol_table = symbol_table.new_scope();
-            resolve_names_typ(ctx, symbol_table.clone(), iface_impl.typ.clone(), true);
             resolve_identifier(ctx, &symbol_table, &iface_impl.iface);
+            resolve_names_typ(ctx, symbol_table.clone(), iface_impl.typ.clone(), true);
             for f in &iface_impl.methods {
                 let symbol_table = symbol_table.new_scope();
                 for arg in &f.args {
@@ -758,15 +758,10 @@ fn resolve_names_typ(
             resolve_names_polytyp(ctx, symbol_table, polyty.clone(), introduce_poly);
         }
         TypeKind::Named(identifier) => {
-            resolve_names_typ_identifier(ctx, symbol_table, identifier, typ.node());
+            resolve_symbol(ctx, &symbol_table, identifier, typ.node());
         }
         TypeKind::NamedWithParams(identifier, args) => {
-            resolve_names_typ_identifier(
-                ctx,
-                symbol_table.clone(),
-                &identifier.v,
-                identifier.node(),
-            );
+            resolve_identifier(ctx, &symbol_table, identifier);
             for arg in args {
                 resolve_names_typ(ctx, symbol_table.clone(), arg.clone(), introduce_poly);
             }
@@ -806,22 +801,5 @@ fn resolve_names_polytyp(
 
     for iface in &polyty.iface_names {
         resolve_identifier(ctx, &symbol_table, iface);
-    }
-}
-
-fn resolve_names_typ_identifier(
-    ctx: &mut StaticsContext,
-    symbol_table: SymbolTable,
-    symbol: &str,
-    node: AstNode,
-) {
-    let lookup = symbol_table.lookup_declaration(symbol);
-    match lookup {
-        Some(decl @ (Declaration::Struct(_) | Declaration::Enum(_) | Declaration::Array)) => {
-            ctx.resolution_map.insert(node.id(), decl);
-        }
-        _ => {
-            ctx.errors.push(Error::UnresolvedIdentifier { node });
-        }
     }
 }

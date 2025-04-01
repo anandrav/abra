@@ -1121,8 +1121,11 @@ impl Translator {
                     return;
                 }
 
-                let Some(Declaration::FreeFunction(_, fully_qualified_name)) =
-                    self.statics.resolution_map.get(&f.name.id)
+                let Some(BytecodeResolution::FreeFunction(_, fully_qualified_name)) = self
+                    .statics
+                    .resolution_map
+                    .get(&f.name.id)
+                    .map(Declaration::to_bytecode_resolution)
                 else {
                     panic!()
                 };
