@@ -15,7 +15,7 @@ use std::{collections::HashMap, fmt, hash::Hash};
 // requirements:
 // - values must be immutable
 #[derive(Default, Clone)]
-pub struct IdSet<T: Hash + PartialEq + Eq> {
+pub struct IdSet<T: Hash + Eq> {
     map: HashMap<Ptr<T>, u32>,
     current_buf: Vec<T>,
     old_bufs: Vec<Vec<T>>,
@@ -24,7 +24,7 @@ pub struct IdSet<T: Hash + PartialEq + Eq> {
 
 // TODO: allow more than just u32 for ID. Maybe u64, usize, and perhaps u16 or u8
 
-#[derive(Copy, Clone)] // TODO: derive more stuff here (actually need to implement it forall T that implement but you get the idea. See std::hash::HashSet)
+#[derive(Copy, Clone)]
 struct Ptr<T: Hash + Eq>(*const T);
 
 impl<T: Hash + Eq> Hash for Ptr<T> {
