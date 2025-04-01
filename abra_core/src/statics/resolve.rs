@@ -18,7 +18,6 @@ pub(crate) fn scan_declarations(ctx: &mut StaticsContext, file_asts: &Vec<Rc<Fil
     for file in file_asts {
         let name = file.name.clone();
         let namespace = gather_declarations_file(ctx, file.clone());
-        // TODO: what if there's a conflict here? Could that happen?
         ctx.root_namespace.namespaces.insert(name, namespace.into());
     }
 }
@@ -300,7 +299,6 @@ pub(crate) fn resolve(ctx: &mut StaticsContext, file_asts: &Vec<Rc<FileAst>>) {
     }
 }
 
-// TODO: need to report errors when there are clashing imports
 fn resolve_imports_file(ctx: &mut StaticsContext, file: Rc<FileAst>) -> SymbolTable {
     // Create a namespace containing all symbols available to this file
     // That includes
