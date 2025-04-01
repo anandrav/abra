@@ -8,6 +8,7 @@ use crate::ast::{
     InterfaceImpl, NodeId, Polytype, StructDef, TypeKind,
 };
 use crate::builtin::Builtin;
+use crate::misc_utils::IdSet;
 use resolve::{resolve, scan_declarations};
 use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::fmt::{self, Display, Formatter};
@@ -52,7 +53,7 @@ pub(crate) struct StaticsContext {
     // dylibs (for bytecode translation)
     pub(crate) dylib_to_funcs: BTreeMap<PathBuf, BTreeSet<String>>, // TODO: don't use a BTreeMap just sort at the end
     // host functions
-    pub(crate) host_funcs: HashMap<String, u16>,
+    pub(crate) host_funcs: IdSet<String>,
 
     // TYPE CHECKING
 

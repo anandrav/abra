@@ -2,32 +2,29 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use core::fmt;
-use std::collections::HashMap;
-use std::collections::HashSet;
-use std::collections::VecDeque;
-// use std::error::Error;
-use std::path::Path;
-use std::path::PathBuf;
-use std::process::Command;
-use std::rc::Rc;
-
 use ast::FileAst;
 use ast::FileDatabase;
 use ast::FileId;
 use ast::ItemKind;
-
+use core::fmt;
+use std::collections::HashMap;
+use std::collections::HashSet;
+use std::collections::VecDeque;
+use std::path::Path;
+use std::path::PathBuf;
+use std::process::Command;
+use std::rc::Rc;
 pub mod addons;
 mod assembly;
 pub mod ast;
 mod builtin;
 pub mod environment;
+mod misc_utils;
 mod parse;
 pub mod prelude;
 pub mod statics;
 mod translate_bytecode;
 pub mod vm;
-
 pub use ast::FileData;
 pub use prelude::PRELUDE;
 use statics::Error;
@@ -123,9 +120,6 @@ pub fn generate_host_function_enum(
     let (file_asts, file_db) = get_files(main_file_name, &*file_provider)?;
     let inference_ctx = statics::analyze(&file_asts, &file_db, file_provider)?;
 
-    let mut host_funcs: Vec<_> = inference_ctx.host_funcs.iter().collect(); // TODO: don't clone here
-    host_funcs.sort_by_key(|(_, i)| *i);
-
     let mut output = String::new();
     // enum definition
     // TODO: Make have two enums. One that contains the arguments as associated data for each case. One that contains the return value.
@@ -135,7 +129,7 @@ pub fn generate_host_function_enum(
 pub enum HostFunction {
     "#,
     );
-    for (name, _) in &host_funcs {
+    for name in &inference_ctx.host_funcs {
         let camel_name = heck::AsUpperCamelCase(name).to_string();
         output.push_str(&format!("{},", camel_name));
     }
@@ -151,7 +145,7 @@ pub enum HostFunction {
         match item {
 "#,
     );
-    for (name, i) in &host_funcs {
+    for (i, name) in inference_ctx.host_funcs.iter().enumerate() {
         let camel_name = heck::AsUpperCamelCase(name).to_string();
         output.push_str(&format!("{} => HostFunction::{},", i, camel_name));
     }

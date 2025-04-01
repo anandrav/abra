@@ -604,7 +604,7 @@ impl Translator {
                         }
                     }
                     BytecodeResolution::HostFunction(decl, _) => {
-                        let idx = self.statics.host_funcs[&decl.name.v];
+                        let idx = self.statics.host_funcs[&decl.name.v] as u16;
                         self.emit(st, Instr::HostFunc(idx));
                     }
                     BytecodeResolution::ForeignFunction {

@@ -137,8 +137,7 @@ fn gather_declarations_item(
                 ctx,
             );
 
-            ctx.host_funcs
-                .insert(func_name, ctx.host_funcs.len() as u16);
+            ctx.host_funcs.insert(func_name);
         }
         ItemKind::ForeignFuncDecl(_func_decl) => {
             #[cfg(feature = "ffi")]
