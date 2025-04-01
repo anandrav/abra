@@ -305,7 +305,6 @@ pub(crate) enum Prov {
     ListElem(AstNode),
 }
 
-// TODO: Most likely none of these should contain Box<Reason>. That's unnecessarily complicated
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub(crate) enum Reason {
     // TODO: get rid of Reason::Node if possible, but no rush
@@ -460,9 +459,8 @@ impl PotentialType {
 }
 
 impl TypeVar {
-    // TODO: does clone_data() really need to be used everywhere? Or can you use with_data(F) in a lot of places?
     pub(crate) fn solution(&self) -> Option<SolvedType> {
-        self.0.clone_data().solution()
+        self.0.with_data(|d| d.solution())
     }
 
     fn is_underdetermined(&self) -> bool {
@@ -478,7 +476,7 @@ impl TypeVar {
     }
 
     fn clone_types(&self) -> HashMap<TypeKey, PotentialType> {
-        self.0.clone_data().types
+        self.0.with_data(|d| d.types.clone())
     }
 
     fn set_flag_missing_info(&self) {
@@ -575,8 +573,7 @@ impl TypeVar {
         tvar
     }
 
-    // TODO: This needs a better name and a descriptive comment ASAP
-    pub(crate) fn get_first_a(self) -> Option<Declaration> {
+    pub(crate) fn get_first_polymorphic_type(self) -> Option<Declaration> {
         let data = self.0.clone_data();
         if data.types.len() == 1 {
             let ty = data.types.into_values().next().unwrap();
@@ -590,7 +587,7 @@ impl TypeVar {
                 PotentialType::Poly(_, ref decl) => Some(decl.into()),
                 PotentialType::Nominal(_, _, params) => {
                     for param in &params {
-                        if let Some(decl) = param.clone().get_first_a() {
+                        if let Some(decl) = param.clone().get_first_polymorphic_type() {
                             return Some(decl);
                         }
                     }
@@ -598,15 +595,15 @@ impl TypeVar {
                 }
                 PotentialType::Function(_, args, out) => {
                     for arg in &args {
-                        if let Some(decl) = arg.clone().get_first_a() {
+                        if let Some(decl) = arg.clone().get_first_polymorphic_type() {
                             return Some(decl);
                         }
                     }
-                    out.get_first_a()
+                    out.get_first_polymorphic_type()
                 }
                 PotentialType::Tuple(_, elems) => {
                     for elem in &elems {
-                        if let Some(decl) = elem.clone().get_first_a() {
+                        if let Some(decl) = elem.clone().get_first_polymorphic_type() {
                             return Some(decl);
                         }
                     }
@@ -757,7 +754,6 @@ impl TypeVar {
     }
 }
 
-// TODO: does this every return None?
 fn tyvar_of_declaration(
     ctx: &mut StaticsContext,
     decl: &Declaration,
@@ -893,7 +889,24 @@ fn tyvar_of_declaration(
                 TypeVar::make_nominal(Reason::Node(node.clone()), Nominal::Array, params);
             Some(TypeVar::make_func(vec![], def_type, Reason::Node(node)))
         }
-        Declaration::Polytype(_) => None,
+        Declaration::Polytype(polytype) => {
+            // TODO: this is duplicated with code elsewhere
+            if let Some(Declaration::Polytype(polyty)) = ctx.resolution_map.get(&polytype.name.id) {
+                let mut interfaces = vec![];
+                for iface_name in &polyty.iface_names {
+                    let lookup = ctx.resolution_map.get(&iface_name.id);
+                    if let Some(Declaration::InterfaceDef(iface_def)) = lookup {
+                        interfaces.push(iface_def.clone());
+                    }
+                }
+                Some(TypeVar::make_poly(
+                    Reason::Annotation(node),
+                    PolyDeclaration(polyty.clone()),
+                ))
+            } else {
+                Some(TypeVar::empty())
+            }
+        }
         Declaration::Builtin(builtin) => {
             let ty_signature = builtin.type_signature();
             Some(ty_signature)
@@ -992,9 +1005,10 @@ pub(crate) fn ast_type_to_solved_type(
     }
 }
 
-pub(crate) fn ast_type_to_typevar(ctx: &mut StaticsContext, ast_type: Rc<AstType>) -> TypeVar {
+pub(crate) fn ast_type_to_typevar(ctx: &StaticsContext, ast_type: Rc<AstType>) -> TypeVar {
     match &*ast_type.kind {
         TypeKind::Poly(polyty) => {
+            // TODO: this is duplicated with code elsewhere
             if let Some(Declaration::Polytype(polyty)) = ctx.resolution_map.get(&polyty.name.id) {
                 let mut interfaces = vec![];
                 for iface_name in &polyty.iface_names {
@@ -1301,7 +1315,7 @@ pub(crate) fn check_unifvars(ctx: &mut StaticsContext) {
         }
     }
     // TODO: cloning sucks here
-    for (prov, ifaces) in ctx.unifvars_constrained_to_interfaces.clone() {
+    for (prov, ifaces) in &ctx.unifvars_constrained_to_interfaces {
         let ty = ctx.unifvars.get(&prov).unwrap().clone();
         if let Some(ty) = ty.solution() {
             for (iface, node) in ifaces.iter().cloned() {
@@ -1415,7 +1429,7 @@ fn generate_constraints_item_stmts(mode: Mode, stmt: Rc<Item>, ctx: &mut Statics
 
                         let mut substitution: Substitution = HashMap::new();
                         if let Some(ref decl @ Declaration::Polytype(_)) =
-                            interface_method_ty.clone().get_first_a()
+                            interface_method_ty.clone().get_first_polymorphic_type()
                         {
                             substitution.insert(decl.clone(), impl_ty.clone());
                         }
@@ -2469,7 +2483,7 @@ pub(crate) fn fmt_conflicting_types(types: &[PotentialType], f: &mut dyn Write) 
 }
 
 pub(crate) fn ty_implements_iface(
-    ctx: &mut StaticsContext,
+    ctx: &StaticsContext,
     ty: SolvedType,
     iface: &Rc<InterfaceDecl>,
 ) -> bool {
@@ -2484,10 +2498,10 @@ pub(crate) fn ty_implements_iface(
             return true;
         }
     }
-    let impl_list = ctx.interface_impls.entry(iface.clone()).or_default();
+    let default = vec![];
+    let impl_list = ctx.interface_impls.get(iface).unwrap_or(&default);
     let mut found = false;
-    // TODO: cloning here sucks
-    for imp in impl_list.clone() {
+    for imp in impl_list {
         let impl_ty = ast_type_to_typevar(ctx, imp.typ.clone());
         if let Some(impl_ty) = impl_ty.solution() {
             if ty_fits_impl_ty(ctx, ty.clone(), impl_ty).is_ok() {
@@ -2498,8 +2512,6 @@ pub(crate) fn ty_implements_iface(
     found
 }
 
-// TODO: there should be a file separate from typecheck that just has stuff pertaining to Types that the whole compiler can use
-// type-utils or just types.rs
 pub(crate) fn ty_fits_impl_ty(
     ctx: &StaticsContext,
     typ: SolvedType,
