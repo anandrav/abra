@@ -340,7 +340,7 @@ pub(crate) enum ConstraintReason {
     IndexAccess,
 }
 
-type Substitution = HashMap<Declaration, TypeVar>;
+type Substitution = HashMap<PolyDeclaration, TypeVar>;
 
 impl PotentialType {
     fn key(&self) -> TypeKey {
@@ -615,7 +615,7 @@ impl TypeVar {
         }
     }
 
-    pub(crate) fn subst(self, prov: Prov, substitution: &HashMap<Declaration, TypeVar>) -> TypeVar {
+    pub(crate) fn subst(self, prov: Prov, substitution: &Substitution) -> TypeVar {
         let data = self.0.clone_data();
         if data.types.len() == 1 {
             let ty = data.types.into_values().next().unwrap();
@@ -629,7 +629,7 @@ impl TypeVar {
                     ty // noop
                 }
                 PotentialType::Poly(_, ref decl) => {
-                    if let Some(new_ty) = substitution.get(&decl.into()) {
+                    if let Some(new_ty) = substitution.get(decl) {
                         return new_ty.clone(); // substitution occurs here
                     } else {
                         ty // noop
@@ -784,12 +784,11 @@ fn tyvar_of_declaration(
                     Prov::InstantiateUdtParam(node.clone(), i as u8),
                 ));
                 let polyty = &*enum_def.ty_args[i];
-                let decl @ Declaration::Polytype(_) =
-                    ctx.resolution_map.get(&polyty.name.id).unwrap()
+                let Declaration::Polytype(poly) = ctx.resolution_map.get(&polyty.name.id).unwrap()
                 else {
                     panic!() // TODO: is it valid to panic here?
                 };
-                substitution.insert(decl.clone(), params[i].clone());
+                substitution.insert(PolyDeclaration(poly.clone()), params[i].clone());
             }
             Some(TypeVar::make_nominal(
                 Reason::Node(node), // TODO: change to Reason::Declaration
@@ -809,12 +808,11 @@ fn tyvar_of_declaration(
                     Prov::InstantiateUdtParam(node.clone(), i as u8),
                 ));
                 let polyty = &*enum_def.ty_args[i];
-                let decl @ Declaration::Polytype(_) =
-                    ctx.resolution_map.get(&polyty.name.id).unwrap()
+                let Declaration::Polytype(decl) = ctx.resolution_map.get(&polyty.name.id).unwrap()
                 else {
                     panic!() // TODO: is it valid to panic here?
                 };
-                substitution.insert(decl.clone(), params[i].clone());
+                substitution.insert(PolyDeclaration(decl.clone()), params[i].clone());
             }
             let def_type = TypeVar::make_nominal(
                 Reason::Node(node.clone()),
@@ -858,12 +856,11 @@ fn tyvar_of_declaration(
                     Prov::InstantiateUdtParam(node.clone(), i as u8),
                 ));
                 let polyty = &*struct_def.ty_args[i];
-                let decl @ Declaration::Polytype(_) =
-                    ctx.resolution_map.get(&polyty.name.id).unwrap()
+                let Declaration::Polytype(poly) = ctx.resolution_map.get(&polyty.name.id).unwrap()
                 else {
                     panic!() // TODO: is it valid to panic here?
                 };
-                substitution.insert(decl.clone(), params[i].clone());
+                substitution.insert(PolyDeclaration(poly.clone()), params[i].clone());
             }
             let def_type = TypeVar::make_nominal(
                 Reason::Node(node.clone()),
@@ -1427,10 +1424,10 @@ fn generate_constraints_item_stmts(mode: Mode, stmt: Rc<Item>, ctx: &mut Statics
                         constrain(ctx, interface_method_ty.clone(), actual);
 
                         let mut substitution: Substitution = HashMap::new();
-                        if let Some(ref decl @ Declaration::Polytype(_)) =
+                        if let Some(Declaration::Polytype(poly)) =
                             interface_method_ty.clone().get_first_polymorphic_type()
                         {
-                            substitution.insert(decl.clone(), impl_ty.clone());
+                            substitution.insert(PolyDeclaration(poly.clone()), impl_ty.clone());
                         }
 
                         let expected = interface_method_ty
@@ -2315,12 +2312,12 @@ fn generate_constraints_pat(
                             Prov::InstantiateUdtParam(pat.node(), i as u8),
                         ));
                         let polyty = &*enum_def.ty_args[i];
-                        let decl @ Declaration::Polytype(_) =
+                        let Declaration::Polytype(poly) =
                             ctx.resolution_map.get(&polyty.name.id).unwrap()
                         else {
                             panic!() // TODO: is it valid to panic here?
                         };
-                        substitution.insert(decl.clone(), params[i].clone());
+                        substitution.insert(PolyDeclaration(poly.clone()), params[i].clone());
                     }
                     let def_type = TypeVar::make_nominal(
                         Reason::Node(pat.node()),
@@ -2392,12 +2389,12 @@ fn generate_constraints_pat(
                                 Prov::InstantiateUdtParam(pat.node(), i as u8),
                             ));
                             let polyty = &*enum_def.ty_args[i];
-                            let decl @ Declaration::Polytype(_) =
+                            let Declaration::Polytype(poly) =
                                 ctx.resolution_map.get(&polyty.name.id).unwrap()
                             else {
                                 panic!() // TODO: is it valid to panic here?
                             };
-                            substitution.insert(decl.clone(), params[i].clone());
+                            substitution.insert(PolyDeclaration(poly.clone()), params[i].clone());
                         }
                         let def_type = TypeVar::make_nominal(
                             Reason::Node(pat.node()),
