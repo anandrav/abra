@@ -1,4 +1,4 @@
-use std::{collections::HashMap, hash::Hash};
+use std::{collections::HashMap, fmt, hash::Hash};
 
 // TODO: If this data structure is useful and convenient, optimize the representation.
 // Currently it's storing TWO copies of T and requires T to implement Clone
@@ -63,5 +63,14 @@ impl<'a, T: Hash + Eq + Clone> IntoIterator for &'a IdSet<T> {
 
     fn into_iter(self) -> Self::IntoIter {
         self.buf.iter()
+    }
+}
+
+impl<T: Hash + Eq + Clone> fmt::Debug for IdSet<T>
+where
+    T: fmt::Debug,
+{
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_set().entries(self.iter()).finish()
     }
 }

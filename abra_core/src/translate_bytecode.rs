@@ -9,6 +9,7 @@ use crate::ast::{
 use crate::ast::{FileAst, FileDatabase, NodeId};
 use crate::builtin::Builtin;
 use crate::environment::Environment;
+use crate::misc_utils::IdSet;
 use crate::statics::typecheck::{Monotype, Nominal};
 use crate::statics::{Declaration, TypeProv};
 use crate::statics::{Type, ty_fits_impl_ty};
@@ -55,8 +56,7 @@ struct TranslatorState {
     filename_table: Vec<(BytecodeIndex, u32)>,
     lineno_table: Vec<(BytecodeIndex, u32)>,
     function_name_table: Vec<(BytecodeIndex, u32)>,
-    function_name_arena: Vec<String>, // TODO: use IdSet
-    function_name_to_arena_idx: HashMap<String, usize>, // TODO: use IdSet
+    function_name_arena: IdSet<String>,
     instr_count: usize,
     lambdas: Lambdas,
     overloaded_func_map: OverloadedFuncLabels,
@@ -234,23 +234,17 @@ impl Translator {
     fn update_function_name_table(&self, st: &mut TranslatorState, name: &str) {
         let bytecode_index = st.instr_count;
 
-        let function_name_id = *st
-            .function_name_to_arena_idx
-            .entry(name.into())
-            .or_insert(st.function_name_arena.len());
-        if function_name_id == st.function_name_arena.len() {
-            st.function_name_arena.push(name.into());
-        }
+        let function_name_id = st.function_name_arena.insert(name.to_string());
 
         let mut redundant = false;
         if let Some(last) = st.function_name_table.last() {
-            if last.1 == function_name_id as u32 {
+            if last.1 == function_name_id {
                 redundant = true;
             }
         }
         if !redundant {
             st.function_name_table
-                .push((bytecode_index as u32, function_name_id as u32));
+                .push((bytecode_index as u32, function_name_id));
         }
     }
 
@@ -425,7 +419,7 @@ impl Translator {
             label_map,
             static_strings: string_table,
             filename_arena,
-            function_name_arena: st.function_name_arena,
+            function_name_arena: st.function_name_arena.into_iter().collect(),
             filename_table: st.filename_table,
             lineno_table: st.lineno_table,
             function_name_table: st.function_name_table,
