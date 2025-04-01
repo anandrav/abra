@@ -615,7 +615,7 @@ impl TypeVar {
         }
     }
 
-    pub(crate) fn subst(self, prov: Prov, substitution: &Substitution) -> TypeVar {
+    pub(crate) fn subst(self, substitution: &Substitution, prov: Prov) -> TypeVar {
         let data = self.0.clone_data();
         if data.types.len() == 1 {
             let ty = data.types.into_values().next().unwrap();
@@ -638,22 +638,22 @@ impl TypeVar {
                 PotentialType::Nominal(provs, ident, params) => {
                     let params = params
                         .into_iter()
-                        .map(|ty| ty.subst(prov.clone(), substitution))
+                        .map(|ty| ty.subst(substitution, prov.clone()))
                         .collect();
                     PotentialType::Nominal(provs, ident, params)
                 }
                 PotentialType::Function(provs, args, out) => {
                     let args = args
                         .into_iter()
-                        .map(|ty| ty.subst(prov.clone(), substitution))
+                        .map(|ty| ty.subst(substitution, prov.clone()))
                         .collect();
-                    let out = out.subst(prov, substitution);
+                    let out = out.subst(substitution, prov.clone());
                     PotentialType::Function(provs, args, out)
                 }
                 PotentialType::Tuple(provs, elems) => {
                     let elems = elems
                         .into_iter()
-                        .map(|ty| ty.subst(prov.clone(), substitution))
+                        .map(|ty| ty.subst(substitution, prov.clone()))
                         .collect();
                     PotentialType::Tuple(provs, elems)
                 }
@@ -830,7 +830,7 @@ fn tyvar_of_declaration(
                             .iter()
                             .map(|e| {
                                 let e = ast_type_to_typevar(ctx, e.clone());
-                                e.clone().subst(Prov::Node(node.clone()), &substitution)
+                                e.clone().subst(&substitution, Prov::Node(node.clone()))
                             })
                             .collect();
                         Some(TypeVar::make_func(args, def_type, Reason::Node(node)))
@@ -838,7 +838,7 @@ fn tyvar_of_declaration(
                     _ => {
                         let ty = ast_type_to_typevar(ctx, ty.clone());
                         Some(TypeVar::make_func(
-                            vec![ty.clone().subst(Prov::Node(node.clone()), &substitution)],
+                            vec![ty.clone().subst(&substitution, Prov::Node(node.clone()))],
                             def_type,
                             Reason::Node(node.clone()),
                         ))
@@ -872,7 +872,7 @@ fn tyvar_of_declaration(
                 .iter()
                 .map(|f| {
                     let ty = ast_type_to_typevar(ctx, f.ty.clone());
-                    ty.clone().subst(Prov::Node(node.clone()), &substitution)
+                    ty.clone().subst(&substitution, Prov::Node(node.clone()))
                 })
                 .collect();
             Some(TypeVar::make_func(fields, def_type, Reason::Node(node)))
@@ -886,24 +886,10 @@ fn tyvar_of_declaration(
                 TypeVar::make_nominal(Reason::Node(node.clone()), Nominal::Array, params);
             Some(TypeVar::make_func(vec![], def_type, Reason::Node(node)))
         }
-        Declaration::Polytype(polytype) => {
-            // TODO: this is duplicated with code elsewhere
-            if let Some(Declaration::Polytype(polyty)) = ctx.resolution_map.get(&polytype.name.id) {
-                let mut interfaces = vec![];
-                for iface_name in &polyty.iface_names {
-                    let lookup = ctx.resolution_map.get(&iface_name.id);
-                    if let Some(Declaration::InterfaceDef(iface_def)) = lookup {
-                        interfaces.push(iface_def.clone());
-                    }
-                }
-                Some(TypeVar::make_poly(
-                    Reason::Annotation(node),
-                    PolyDeclaration(polyty.clone()),
-                ))
-            } else {
-                Some(TypeVar::empty())
-            }
-        }
+        Declaration::Polytype(polytype) => Some(TypeVar::make_poly(
+            Reason::Annotation(node),
+            PolyDeclaration(polytype.clone()),
+        )),
         Declaration::Builtin(builtin) => {
             let ty_signature = builtin.type_signature();
             Some(ty_signature)
@@ -1005,7 +991,6 @@ pub(crate) fn ast_type_to_solved_type(
 pub(crate) fn ast_type_to_typevar(ctx: &StaticsContext, ast_type: Rc<AstType>) -> TypeVar {
     match &*ast_type.kind {
         TypeKind::Poly(polyty) => {
-            // TODO: this is duplicated with code elsewhere
             if let Some(Declaration::Polytype(polyty)) = ctx.resolution_map.get(&polyty.name.id) {
                 let mut interfaces = vec![];
                 for iface_name in &polyty.iface_names {
@@ -1432,7 +1417,7 @@ fn generate_constraints_item_stmts(mode: Mode, stmt: Rc<Item>, ctx: &mut Statics
 
                         let expected = interface_method_ty
                             .clone()
-                            .subst(Prov::Node(stmt.node()), &substitution);
+                            .subst(&substitution, Prov::Node(stmt.node()));
 
                         let actual = TypeVar::from_node(ctx, f.name.node());
                         constrain(ctx, expected, actual);
@@ -2331,7 +2316,7 @@ fn generate_constraints_pat(
                         Some(ty) => ast_type_to_typevar(ctx, ty.clone()),
                     };
                     let variant_data_ty =
-                        variant_data_ty.subst(Prov::Node(pat.node()), &substitution);
+                        variant_data_ty.subst(&substitution, Prov::Node(pat.node()));
                     constrain(ctx, ty_data.clone(), variant_data_ty);
 
                     constrain(ctx, ty_pat, def_type);
@@ -2408,7 +2393,7 @@ fn generate_constraints_pat(
                             Some(ty) => ast_type_to_typevar(ctx, ty.clone()),
                         };
                         let variant_data_ty =
-                            variant_data_ty.subst(Prov::Node(pat.node()), &substitution);
+                            variant_data_ty.subst(&substitution, Prov::Node(pat.node()));
                         constrain(ctx, ty_data.clone(), variant_data_ty);
 
                         constrain(ctx, ty_pat.clone(), def_type);
