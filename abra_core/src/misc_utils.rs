@@ -24,6 +24,7 @@ pub struct IdSet<T: Hash + Eq> {
 
 // TODO: allow more than just u32 for ID. Maybe u64, usize, and perhaps u16 or u8
 
+/// wrapper around *const T w
 #[derive(Copy, Clone)]
 struct Ptr<T: Hash + Eq>(*const T);
 
@@ -99,15 +100,16 @@ impl<T: Hash + Eq> IdSet<T> {
     }
 
     #[inline]
-    pub fn get_id(&self, value: &T) -> Option<u32> {
+    pub fn try_get_id(&self, value: &T) -> Option<u32> {
         // SAFETY: the call to .get() will hash and maybe compare value for equality,
         // but the raw pointer to value is discarded after that
         self.map.get(&Ptr(value as *const T)).cloned()
     }
 
+    // this will panic if value is not found
     #[inline]
-    fn get_by_id(&self, id: u32) -> Option<&T> {
-        self.id_to_ptr.get(id as usize).map(|&ptr| unsafe { &*ptr })
+    pub fn get_id(&self, value: &T) -> u32 {
+        self.try_get_id(value).unwrap()
     }
 
     #[inline]
@@ -122,7 +124,7 @@ impl<T: Hash + Eq> IdSet<T> {
 
     #[inline]
     pub fn contains(&self, value: &T) -> bool {
-        self.get_id(value).is_some()
+        self.try_get_id(value).is_some()
     }
 
     #[inline]
@@ -142,6 +144,12 @@ impl<T: Hash + Eq> std::ops::Index<u32> for IdSet<T> {
     }
 }
 
+impl<T: Hash + Eq> IdSet<T> {
+    #[inline]
+    fn get_by_id(&self, id: u32) -> Option<&T> {
+        self.id_to_ptr.get(id as usize).map(|&ptr| unsafe { &*ptr })
+    }
+}
 // Iterator
 
 pub struct Iter<'a, T> {
@@ -246,8 +254,8 @@ mod tests {
         let id_b = set.insert(b.clone());
 
         assert_ne!(id_a, id_b);
-        assert_eq!(set.get_id(&a), Some(id_a));
-        assert_eq!(set.get_id(&b), Some(id_b));
+        assert_eq!(set.try_get_id(&a), Some(id_a));
+        assert_eq!(set.try_get_id(&b), Some(id_b));
         assert!(set.contains(&a));
         assert!(set.contains(&b));
     }
@@ -318,7 +326,7 @@ mod tests {
         for i in 0..count {
             let val = format!("item{}", i);
             let id = set.insert(val.clone());
-            assert_eq!(set.get_id(&val), Some(id));
+            assert_eq!(set.try_get_id(&val), Some(id));
             assert_eq!(set[id], val);
         }
         assert_eq!(set.len(), count);

@@ -603,7 +603,7 @@ impl Translator {
                         }
                     }
                     BytecodeResolution::HostFunction(decl, _) => {
-                        let idx = self.statics.host_funcs.get_id(&decl.name.v).unwrap() as u16;
+                        let idx = self.statics.host_funcs.get_id(&decl.name.v) as u16;
                         self.emit(st, Instr::HostFunc(idx));
                     }
                     BytecodeResolution::ForeignFunction {
@@ -620,10 +620,8 @@ impl Translator {
 
                         // the bytecode for calling the external function doesn't need to contain the .so name or the method name as a string.
                         // it just needs to contain an idx into an array of foreign functions
-                        let lib_id = self.statics.dylibs.get_id(&libname).unwrap();
-                        let func_id = self.statics.dylib_to_funcs2[&lib_id]
-                            .get_id(&symbol)
-                            .unwrap();
+                        let lib_id = self.statics.dylibs.get_id(&libname);
+                        let func_id = self.statics.dylib_to_funcs2[&lib_id].get_id(&symbol);
                         self.emit(st, Instr::CallExtern(func_id as usize));
                     }
                     BytecodeResolution::InterfaceMethod {
