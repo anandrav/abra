@@ -111,10 +111,7 @@ fn gather_declarations_item(
                     );
                 }
 
-                // TODO: what if there's a conflict here? Could that happen?
-                namespace
-                    .namespaces
-                    .insert(e.name.v.clone(), enum_namespace.into());
+                namespace.add_namespace(e.name.v.clone(), enum_namespace.into(), ctx);
             }
             TypeDefKind::Struct(s) => {
                 let struct_name = s.name.v.clone();
@@ -367,7 +364,7 @@ impl Namespace {
         }
         // child namespaces
         for (name, namespace) in other.namespaces.iter() {
-            self.add_namespace(name.clone(), namespace, ctx);
+            self.add_namespace(name.clone(), namespace.clone(), ctx);
         }
     }
 
@@ -390,11 +387,26 @@ impl Namespace {
     pub fn add_namespace(
         &mut self,
         name: String,
-        namespace: &Rc<Namespace>,
+        namespace: Rc<Namespace>,
         _ctx: &mut StaticsContext,
     ) {
-        // TODO: what if there's a conflict here? Could that happen?
-        self.namespaces.insert(name, namespace.clone());
+        use std::collections::hash_map::*;
+        match self.namespaces.entry(name.clone()) {
+            Entry::Occupied(_) => {
+                // ASSUMPTION: this will never happen
+                // A namespace is only inserted
+                // 1. for structs and enums
+                //     - in this case, their declarations will conflict with each other already, so it's
+                //       OK if we overwrite the namespace of one with the other. The conflict between the
+                //       declarations will be detected in .add_declaration()
+                // 2. for files but ONLY into the root namespace
+                //     - a conflict cannot happen because two files/directories cannot be named the same thing
+                panic!("duplicate key in namespaces");
+            }
+            Entry::Vacant(vac) => {
+                vac.insert(namespace.clone());
+            }
+        }
     }
 }
 
