@@ -257,15 +257,6 @@ impl Translator {
             let monomorph_env = MonomorphEnv::empty();
 
             // Initialization routine before main function (load shared libraries)
-            // dbg!(&self.statics.dylib_to_funcs);
-            // for (l, symbols) in &self.statics.dylib_to_funcs {
-            //     self.emit(st, Instr::PushString(l.to_str().unwrap().to_string()));
-            //     self.emit(st, Instr::LoadLib);
-            //     for s in symbols {
-            //         self.emit(st, Instr::PushString(s.to_string()));
-            //         self.emit(st, Instr::LoadForeignFunc);
-            //     }
-            // }
             for (i, lib) in self.statics.dylibs.iter().enumerate() {
                 self.emit(st, Instr::PushString(lib.to_str().unwrap().to_string()));
                 self.emit(st, Instr::LoadLib);
@@ -621,9 +612,20 @@ impl Translator {
 
                         // the bytecode for calling the external function doesn't need to contain the .so name or the method name as a string.
                         // it just needs to contain an idx into an array of foreign functions
+
                         let lib_id = self.statics.dylibs.get_id(&libname);
-                        let func_id = self.statics.dylib_to_funcs2[&lib_id].get_id(&symbol);
-                        self.emit(st, Instr::CallExtern(func_id as usize));
+
+                        // TODO: don't do this loop for every foreign function call
+                        //      this is a problem that will probably come up again. Foreign functions are
+                        //      assigned unique IDs *per lib*, but then later they get flattened into one big ID space.
+                        let mut offset = 0;
+                        for i in 0..lib_id {
+                            offset += self.statics.dylib_to_funcs2[&i].len();
+                        }
+
+                        let func_id =
+                            offset + self.statics.dylib_to_funcs2[&lib_id].get_id(&symbol) as usize;
+                        self.emit(st, Instr::CallExtern(func_id));
                     }
                     BytecodeResolution::InterfaceMethod {
                         iface_def,

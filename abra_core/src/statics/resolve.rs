@@ -155,8 +155,9 @@ fn gather_declarations_item(
                 }
 
                 let filename = format!(
-                    "{}{}{}",
+                    "{}{}{}{}",
                     std::env::consts::DLL_PREFIX,
+                    "abra_module_",
                     package_name,
                     std::env::consts::DLL_SUFFIX
                 );

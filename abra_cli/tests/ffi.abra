@@ -1,4 +1,4 @@
-use test_ffi
+use test_ffi // TODO: make another native module like "test_ffi2" to make sure IDs are assigned to foreign functions properly
 
 println(pass_int(35))
 println(pass_bool(false))
