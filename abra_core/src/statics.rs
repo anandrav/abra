@@ -432,7 +432,8 @@ impl Error {
                 }
             },
             Error::MemberAccessNeedsAnnotation { node } => {
-                diagnostic = diagnostic.with_message("Can't perform member access without knowing type. Try adding a type annotation.");
+                diagnostic = diagnostic
+                    .with_message("Can't perform member access without knowing type. Try adding a type annotation.");
                 let (file, range) = node.get_file_and_range();
                 labels.push(Label::secondary(file, range));
             }

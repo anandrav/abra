@@ -967,9 +967,7 @@ do_stuff()
     let mut vm = Vm::new(program);
     vm.run();
     let status = vm.status();
-    let VmStatus::PendingHostFunc(0) = status else {
-        panic!()
-    };
+    let VmStatus::PendingHostFunc(0) = status else { panic!() };
 }
 
 #[test]
@@ -988,9 +986,7 @@ x + x
     let mut vm = Vm::new(program);
     vm.run();
     let status = vm.status();
-    let VmStatus::PendingHostFunc(1) = status else {
-        panic!()
-    };
+    let VmStatus::PendingHostFunc(1) = status else { panic!() };
     vm.push_int(3);
     vm.clear_pending_host_func();
     vm.run();

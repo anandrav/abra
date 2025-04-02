@@ -815,9 +815,7 @@ fn ctors_for_ty(ty: &SolvedType) -> ConstructorSet {
     match ty {
         SolvedType::Bool => ConstructorSet::Bool,
         SolvedType::Nominal(nominal, _) => {
-            let Nominal::Enum(enum_def) = nominal else {
-                panic!()
-            };
+            let Nominal::Enum(enum_def) = nominal else { panic!() };
             let variants: Vec<_> = enum_def
                 .variants
                 .iter()

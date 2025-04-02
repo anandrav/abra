@@ -21,12 +21,8 @@ fn main() -> Result<(), Box<dyn Error>> {
     let mut vm = Vm::new(program);
     vm.run();
     let status = vm.status();
-    let VmStatus::PendingHostFunc(i) = status else {
-        panic!()
-    };
-    let HostFunction::Bar = i.into() else {
-        panic!()
-    };
+    let VmStatus::PendingHostFunc(i) = status else { panic!() };
+    let HostFunction::Bar = i.into() else { panic!() };
     let a = vm.pop()?.get_int(&vm)?;
     let b = vm.pop()?.get_int(&vm)?;
     let ret = a + b;
