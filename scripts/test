@@ -12,9 +12,9 @@ cargo clippy
 
 cargo test
 
-pushd $WD/abra_core
+pushd $WD/abra_core > /dev/null
 cargo check --lib --target wasm32-unknown-unknown
-popd
+popd > /dev/null
 
 cargo deny check
 
