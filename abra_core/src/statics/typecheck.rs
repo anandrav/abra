@@ -1560,11 +1560,7 @@ fn generate_constraints_expr(
         ExprKind::List(exprs) => {
             let elem_ty = TypeVar::fresh(ctx, Prov::ListElem(expr.node()));
 
-            let list_decl = ctx
-                .root_namespace
-                .namespaces
-                .get("prelude")
-                .and_then(|p| p.declarations.get("list"));
+            let list_decl = ctx.root_namespace.get_declaration("prelude.list");
 
             if let Some(Declaration::Enum(enum_def)) = list_decl {
                 constrain(
@@ -1579,7 +1575,7 @@ fn generate_constraints_expr(
             } else {
                 dbg!(list_decl);
                 todo!();
-                // TODO: log error? Or panic?
+                // TODO: log error? Or panic? Could this happen due to user error, or is it always due to some internal compiler error
             }
 
             for expr in exprs {
@@ -1633,35 +1629,16 @@ fn generate_constraints_expr(
             let ty_out = node_ty;
 
             // TODO: make this a helper function?
-            let num_iface_decl = ctx
-                .root_namespace
-                .namespaces
-                .get("prelude")
-                .and_then(|p| p.declarations.get("Num"))
-                .unwrap()
-                .clone();
-            let Declaration::InterfaceDef(num_iface_def) = num_iface_decl else {
-                panic!()
-            };
+            let num_iface_decl = ctx.root_namespace.get_declaration("prelude.Num").unwrap();
+            let Declaration::InterfaceDef(num_iface_def) = num_iface_decl else { panic!() };
 
-            let equal_iface_decl = ctx
-                .root_namespace
-                .namespaces
-                .get("prelude")
-                .and_then(|p| p.declarations.get("Equal"))
-                .unwrap()
-                .clone();
-            let Declaration::InterfaceDef(equal_iface_def) = equal_iface_decl else {
-                panic!()
-            };
+            let equal_iface_decl = ctx.root_namespace.get_declaration("prelude.Equal").unwrap();
+            let Declaration::InterfaceDef(equal_iface_def) = equal_iface_decl else { panic!() };
 
             let tostring_iface_decl = ctx
                 .root_namespace
-                .namespaces
-                .get("prelude")
-                .and_then(|p| p.declarations.get("ToString"))
-                .unwrap()
-                .clone();
+                .get_declaration("prelude.ToString")
+                .unwrap();
             let Declaration::InterfaceDef(tostring_iface_def) = tostring_iface_decl else {
                 panic!()
             };
@@ -2492,9 +2469,7 @@ pub(crate) fn ty_fits_impl_ty(
         (SolvedType::Nominal(ident1, tys1), SolvedType::Nominal(ident2, tys2)) => {
             if ident1 == ident2 && tys1.len() == tys2.len() {
                 for (ty1, ty2) in tys1.iter().zip(tys2.iter()) {
-                    let SolvedType::Poly(polyty) = ty2.clone() else {
-                        panic!()
-                    };
+                    let SolvedType::Poly(polyty) = ty2.clone() else { panic!() };
                     // TODO: gross
                     let mut ifaces = BTreeSet::new();
                     for iface_name in &polyty.iface_names {
