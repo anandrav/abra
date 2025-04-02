@@ -29,7 +29,7 @@ fn test_ffi() {
     Command::new("cargo")
         .arg("build")
         .arg("--package")
-        .arg("test_ffi")
+        .arg("abra_module_test_ffi")
         .output()
         .expect("Failed to execute command");
 

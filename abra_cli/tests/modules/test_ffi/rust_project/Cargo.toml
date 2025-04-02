@@ -1,5 +1,5 @@
 [package]
-name = "test_ffi"
+name = "abra_module_test_ffi"
 version = "0.0.0"
 edition = "2024"
 license = "MPL-2.0"
