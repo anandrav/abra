@@ -10,9 +10,9 @@ use crate::ast::{
     Polytype, Stmt, StmtKind, Type, TypeDefKind, TypeKind,
 };
 use crate::builtin::Builtin;
-use crate::utils::hash::HashMap;
 use std::cell::RefCell;
 use std::rc::Rc;
+use utils::hash::HashMap;
 
 pub(crate) fn scan_declarations(ctx: &mut StaticsContext, file_asts: &Vec<Rc<FileAst>>) {
     for file in file_asts {

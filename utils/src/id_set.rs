@@ -1,4 +1,4 @@
-use crate::utils::hash::HashMap;
+use crate::hash::HashMap;
 use std::{fmt, hash::Hash};
 
 // elements are unique

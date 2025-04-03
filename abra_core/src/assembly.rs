@@ -3,9 +3,10 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use crate::translate_bytecode::LabelMap;
-use crate::utils::hash::HashMap;
-use crate::{utils::id_set::IdSet, vm::Instr as VmInstr};
+use crate::vm::Instr as VmInstr;
 use std::fmt::{self, Display, Formatter};
+use utils::hash::HashMap;
+use utils::id_set::IdSet;
 
 pub(crate) type Label = String;
 

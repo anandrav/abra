@@ -6,9 +6,9 @@ use crate::ast::{Expr, ExprKind, FileAst, Item, ItemKind, MatchArm, Pat, PatKind
 
 use core::panic;
 
-use crate::utils::hash::HashSet;
 use std::fmt::{self, Display};
 use std::rc::Rc;
+use utils::hash::HashSet;
 
 use super::typecheck::{Nominal, ast_type_to_solved_type};
 use super::{Declaration, EnumDef, Error, SolvedType, StaticsContext, TypeKind};

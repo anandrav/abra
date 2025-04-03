@@ -2,13 +2,13 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use crate::utils::hash::HashMap;
 use std::cell::RefCell;
 use std::cmp::Eq;
 use std::fmt;
 use std::fmt::Display;
 use std::hash::Hash;
 use std::rc::Rc;
+use utils::hash::HashMap;
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct Environment<Identifier: Hash + Eq, Item: Clone> {

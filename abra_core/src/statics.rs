@@ -8,8 +8,6 @@ use crate::ast::{
     InterfaceImpl, NodeId, Polytype, StructDef, TypeKind,
 };
 use crate::builtin::Builtin;
-use crate::utils::hash::HashMap;
-use crate::utils::id_set::IdSet;
 use resolve::{resolve, scan_declarations};
 use std::fmt::{self, Display, Formatter};
 use std::ops::Range;
@@ -19,6 +17,8 @@ use typecheck::{
     ConstraintReason, PotentialType, Reason, SolvedType, TypeKey, TypeVar, fmt_conflicting_types,
     solve_types,
 };
+use utils::hash::HashMap;
+use utils::id_set::IdSet;
 mod pat_exhaustiveness;
 mod resolve;
 pub(crate) mod typecheck;

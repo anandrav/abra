@@ -9,13 +9,13 @@ use crate::ast::{
 use crate::ast::{BinaryOperator, Item};
 use crate::builtin::Builtin;
 use crate::environment::Environment;
-use crate::utils::hash::HashMap;
 use core::panic;
 use disjoint_sets::UnionFindNode;
 use std::cell::RefCell;
 use std::collections::BTreeSet;
 use std::fmt::{self, Display, Write};
 use std::rc::Rc;
+use utils::hash::HashMap;
 
 use super::{
     Declaration, EnumDef, Error, FuncDef, InterfaceDecl, Polytype, StaticsContext, StructDef,

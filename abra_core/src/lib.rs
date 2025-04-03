@@ -2,8 +2,6 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use crate::utils::hash::HashMap;
-use crate::utils::hash::HashSet;
 use ast::FileAst;
 use ast::FileDatabase;
 use ast::FileId;
@@ -14,6 +12,8 @@ use std::path::Path;
 use std::path::PathBuf;
 use std::process::Command;
 use std::rc::Rc;
+use utils::hash::HashMap;
+use utils::hash::HashSet;
 pub mod addons;
 mod assembly;
 pub mod ast;
@@ -23,7 +23,6 @@ mod parse;
 pub mod prelude;
 pub mod statics;
 mod translate_bytecode;
-mod utils;
 pub mod vm;
 pub use ast::FileData;
 pub use prelude::PRELUDE;

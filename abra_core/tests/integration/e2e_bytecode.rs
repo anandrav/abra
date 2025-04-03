@@ -2,16 +2,13 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+use crate::helper::unwrap_or_panic;
 use abra_core::MockFileProvider;
 use abra_core::compile_bytecode;
 use abra_core::vm::Vm;
 use abra_core::vm::VmStatus;
-use rustc_hash::FxHashMap;
 use std::path::PathBuf;
-
-type HashMap<K, V> = FxHashMap<K, V>;
-
-use crate::utils::unwrap_or_panic;
+use utils::hash::HashMap;
 
 #[test]
 fn arithmetic() {

@@ -1,0 +1,10 @@
+[package]
+name = "utils"
+version = "0.0.0"
+authors = ["Anand Dukkipati <aRdukkipati@gmail.com>"]
+edition = "2024"
+license = "MPL-2.0"
+publish = false
+
+[dependencies]
+rustc-hash = "2.1.1"

@@ -8,9 +8,15 @@ members = [
     "modules/*/rust_project",
 
     # integration tests
-    "abra_cli/tests/modules/*/rust_project",
-    "abra_cli/tests/test_host_funcs/",
+    "abra_core/tests/integration/modules/*/rust_project",
+    "abra_core/tests/integration/test_host_funcs/",
+
+    "utils",
 ]
+
+[workspace.dependencies]
+abra_core = { path = "abra_core" }
+utils = { path = "utils" }
 
 [profile.release]
 lto = true

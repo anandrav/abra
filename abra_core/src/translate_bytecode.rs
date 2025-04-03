@@ -12,9 +12,6 @@ use crate::environment::Environment;
 use crate::statics::typecheck::{Monotype, Nominal};
 use crate::statics::{Declaration, TypeProv};
 use crate::statics::{Type, ty_fits_impl_ty};
-use crate::utils::hash::HashMap;
-use crate::utils::hash::HashSet;
-use crate::utils::id_set::IdSet;
 use crate::vm::{AbraFloat, AbraInt, Instr as VmInstr};
 use crate::{
     ast::{Expr, ExprKind, Pat, PatKind, Stmt, StmtKind},
@@ -24,6 +21,9 @@ use std::mem;
 use std::path::PathBuf;
 use std::rc::Rc;
 use std::sync::atomic::{AtomicUsize, Ordering};
+use utils::hash::HashMap;
+use utils::hash::HashSet;
+use utils::id_set::IdSet;
 
 type OffsetTable = HashMap<NodeId, i32>;
 type Lambdas = HashMap<AstNode, LambdaData>;

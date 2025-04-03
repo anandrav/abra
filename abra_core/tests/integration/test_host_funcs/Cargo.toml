@@ -5,7 +5,7 @@ edition = "2024"
 license = "MPL-2.0"
 
 [dependencies]
-abra_core = { path = "../../../abra_core" }
+abra_core = { workspace = true }
 
 [build-dependencies]
-abra_core = { path = "../../../abra_core" }
+abra_core = { workspace = true }
