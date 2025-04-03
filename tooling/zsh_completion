@@ -1,14 +1,10 @@
-#compdef abra
+#compdef -P abra
 
-_abra() {
-  local -a abra_files
-  abra_files=( *.abra(N) )
+local curcontext="$curcontext" state state_descr line
+typeset -A opt_args
+local -a args
 
-  if (( $#abra_files )); then
-    _values "Abra script" $abra_files
-  else
-    _files -g "*.abra"
-  fi
-}
+_arguments -C -s -S "$args[@]" \
+  '(-)1:file:_files -g "*.abra"' \
+  '*::arguments to pass to the Abra program' && return
 
-_abra "$@"

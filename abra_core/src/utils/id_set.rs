@@ -106,8 +106,13 @@ impl<T: Hash + Eq> IdSet<T> {
     }
 
     #[inline]
+    fn get_value(&self, id: u32) -> &T {
+        self.try_get_value(id).unwrap()
+    }
+
+    #[inline]
     pub fn try_get_id(&self, value: &T) -> Option<u32> {
-        // SAFETY: the call to .get() will hash and maybe compare value for equality,
+        // SAFETY: the call to .get() will hash and maybe compare `value`` for equality,
         // but the raw pointer to value is discarded after that
         self.map.get(&Ptr(value as *const T)).cloned()
     }
@@ -147,7 +152,7 @@ impl<T: Hash + Eq> std::ops::Index<u32> for IdSet<T> {
 
     #[inline]
     fn index(&self, id: u32) -> &Self::Output {
-        self.try_get_value(id).unwrap()
+        self.get_value(id)
     }
 }
 

@@ -27,6 +27,7 @@ fn test_cli_output() {
 #[test]
 fn test_ffi() {
     // TODO: this is such a tiresome way to run commands. Make a wrapper
+    // maybe make a macro so you can write command!("cargo build --package abra_module_test_ffi").unwrap()
     Command::new("cargo")
         .arg("build")
         .arg("--package")

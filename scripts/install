@@ -37,6 +37,8 @@ else
   echo "Vim configuration directory not found. Skipping Vim syntax highlighting installation."
 fi
 
+./scripts/install_zsh_completions
+
 install_abra_vscode_extension() {
   if ! command -v code &> /dev/null; then
     echo "VS Code ('code' command) not found. Skipping Abra VS Code extension installation."
