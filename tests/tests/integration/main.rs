@@ -9,7 +9,6 @@ fn test_ffi() {
     // TODO: this is such a tiresome way to run commands. Make a wrapper
     // maybe make a macro so you can write command!("cargo build --package abra_module_test_ffi").unwrap()
 
-    // TODO: is this rebuilding actually necessary? shouldn't workspace take care of it? Try adding a dev-dependency on abra_module_test_ffi and test_host_funcs
     Command::new("cargo")
         .arg("build")
         .arg("--package")
