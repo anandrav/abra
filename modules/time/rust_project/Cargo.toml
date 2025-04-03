@@ -6,6 +6,7 @@ license = "MPL-2.0"
 
 [lib]
 crate-type = ["cdylib"]
+test = false
 
 [dependencies]
 abra_core = { workspace = true }
