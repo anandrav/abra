@@ -3,18 +3,11 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 // tests/cli.rs
-use std::process::Command;
+use utils::command;
 
 #[test]
 fn test_cli_output() {
-    let output = Command::new("cargo")
-        .arg("run")
-        .arg("--bin")
-        .arg("abra")
-        .arg("--")
-        .arg("tests/hello_world.abra")
-        .output()
-        .expect("Failed to execute command");
+    let output = command!("cargo run --bin abra -- tests/hello_world.abra").unwrap();
 
     let stdout_str = String::from_utf8_lossy(&output.stdout);
     println!("{}", stdout_str);

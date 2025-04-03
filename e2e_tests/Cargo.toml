@@ -3,3 +3,6 @@ name = "integration"
 version = "0.0.0"
 edition = "2024"
 license = "MPL-2.0"
+
+[dependencies]
+utils = { workspace = true }

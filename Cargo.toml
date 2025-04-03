@@ -8,9 +8,9 @@ members = [
     "modules/*/rust_project",
 
     # end-to-end tests
-    "tests",
-    "tests/modules/*/rust_project",
-    "tests/test_host_funcs/",
+    "e2e_tests",
+    "e2e_tests/modules/*/rust_project",
+    "e2e_tests/test_host_funcs/",
 
     "utils",
 ]
