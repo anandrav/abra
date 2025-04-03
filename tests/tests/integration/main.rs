@@ -4,10 +4,6 @@
 
 use std::process::Command;
 
-mod e2e_bytecode;
-mod helper;
-mod typecheck;
-
 #[test]
 fn test_ffi() {
     // TODO: this is such a tiresome way to run commands. Make a wrapper
@@ -29,10 +25,10 @@ fn test_ffi() {
         .arg("abra")
         .arg("--")
         .arg("--modules")
-        .arg("tests/integration/modules")
+        .arg("modules")
         .arg("--shared-objects")
         .arg("../target/debug")
-        .arg("tests/integration/ffi.abra")
+        .arg("ffi.abra")
         .output()
         .expect("Failed to execute command");
 

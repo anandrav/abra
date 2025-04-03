@@ -7,9 +7,10 @@ members = [
     # Abra libraries with Rust implementations
     "modules/*/rust_project",
 
-    # integration tests
-    "abra_core/tests/integration/modules/*/rust_project",
-    "abra_core/tests/integration/test_host_funcs/",
+    # end-to-end tests
+    "tests",
+    "tests/modules/*/rust_project",
+    "tests/test_host_funcs/",
 
     "utils",
 ]
