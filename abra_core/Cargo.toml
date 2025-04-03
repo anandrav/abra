@@ -33,7 +33,6 @@ criterion = { version = "0.5.1", default-features = false, features = [
   "plotters",
   "cargo_bench_support",
 ] }
-
 [target.'cfg(not(target_arch = "wasm32"))'.dev-dependencies]
 criterion = { version = "0.5.1", features = ["rayon"] }
 

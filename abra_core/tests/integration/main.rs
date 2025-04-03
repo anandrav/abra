@@ -8,7 +8,6 @@ mod e2e_bytecode;
 mod helper;
 mod typecheck;
 
-// TODO: move this test to abra_core/ crate. It belongs there. Shouldn't be much more work than drag-and-drop
 #[test]
 fn test_ffi() {
     // TODO: this is such a tiresome way to run commands. Make a wrapper
@@ -58,17 +57,8 @@ yes
     );
 }
 
-// TODO: move this test to abra_core/ crate. Shouldn't be much more work than drag-and-drop
 #[test]
 fn test_host_funcs() {
-    // TODO: is this rebuilding actually necessary? shouldn't workspace take care of it? Try adding a dev-dependency on abra_module_test_ffi and test_host_funcs
-    Command::new("cargo")
-        .arg("build")
-        .arg("--package")
-        .arg("test_host_funcs")
-        .output()
-        .expect("Failed to execute command");
-
     let output = Command::new("cargo")
         .arg("run")
         .arg("--package")
