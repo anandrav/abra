@@ -2384,9 +2384,7 @@ pub(crate) fn ty_implements_iface(
 ) -> bool {
     if let SolvedType::Poly(polyty) = &ty {
         let ifaces = resolved_ifaces(ctx, &polyty.iface_names);
-        if ifaces.contains(iface) {
-            return true;
-        }
+        return ifaces.contains(iface);
     }
     let default = vec![];
     let impl_list = ctx.interface_impls.get(iface).unwrap_or(&default);
@@ -2424,46 +2422,24 @@ pub(crate) fn ty_fits_impl_ty(ctx: &StaticsContext, typ: SolvedType, impl_ty: So
                 && tys1.len() == tys2.len()
                 && tys1.iter().zip(tys2.iter()).all(|(ty1, ty2)| {
                     let SolvedType::Poly(polyty) = ty2.clone() else {
-                        return false;
+                        unreachable!(
+                            "can't implement interfaces for type with concrete type arguments"
+                        )
                     };
                     let ifaces = resolved_ifaces(ctx, &polyty.iface_names);
-                    ty_fits_impl_ty_poly(ctx, ty1.clone(), &ifaces)
+                    ifaces
+                        .iter()
+                        .all(|iface| ty_implements_iface(ctx, ty1.clone(), iface))
                 })
         }
         (_, SolvedType::Poly(polyty)) => {
             let ifaces = resolved_ifaces(ctx, &polyty.iface_names);
-            ty_fits_impl_ty_poly(ctx, typ.clone(), &ifaces)
+            ifaces
+                .iter()
+                .all(|iface: &Rc<InterfaceDecl>| ty_implements_iface(ctx, typ.clone(), iface))
         }
         _ => false,
     }
-}
-
-// TODO: this logic is clearly wrong. The nested for loops and early returns are a bad choice
-fn ty_fits_impl_ty_poly(
-    ctx: &StaticsContext,
-    typ: SolvedType,
-    impl_ty_interfaces: &[Rc<InterfaceDecl>],
-) -> bool {
-    for interface in impl_ty_interfaces {
-        if let SolvedType::Poly(polyty) = &typ {
-            let ifaces = resolved_ifaces(ctx, &polyty.iface_names);
-            if ifaces.contains(interface) {
-                return true;
-            }
-        }
-        if let Some(impl_list) = ctx.interface_impls.get(interface).cloned() {
-            // find at least one implementation of interface that matches the type constrained to the interface
-            for impl_ in impl_list {
-                let impl_ty = ast_type_to_solved_type(ctx, impl_.typ.clone());
-                if let Some(impl_ty) = impl_ty {
-                    if ty_fits_impl_ty(ctx, typ.clone(), impl_ty) {
-                        return true;
-                    }
-                }
-            }
-        }
-    }
-    false
 }
 
 fn resolved_ifaces(ctx: &StaticsContext, identifiers: &[Rc<Identifier>]) -> Vec<Rc<InterfaceDecl>> {
