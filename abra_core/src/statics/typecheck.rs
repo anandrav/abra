@@ -123,20 +123,17 @@ impl TypeVarData {
                     }
                 }
                 PotentialType::Nominal(other_provs, _, other_tys) => {
-                    if let PotentialType::Nominal(_, _, tys) = t {
-                        if tys.len() == other_tys.len() {
-                            for (ty, other_ty) in tys.iter().zip(other_tys.iter()) {
-                                TypeVar::merge(ty.clone(), other_ty.clone());
-                            }
-                        } else {
-                            panic!("should be same length")
-                        }
-                        t.reasons()
-                            .borrow_mut()
-                            .extend(other_provs.borrow().clone());
-                    } else {
-                        panic!("should be Ap")
+                    let PotentialType::Nominal(_, _, tys) = t else {
+                        unreachable!("should be same length")
+                    };
+                    assert_eq!(tys.len(), other_tys.len());
+                    for (ty, other_ty) in tys.iter().zip(other_tys.iter()) {
+                        TypeVar::merge(ty.clone(), other_ty.clone());
                     }
+
+                    t.reasons()
+                        .borrow_mut()
+                        .extend(other_provs.borrow().clone());
                 }
             }
         } else {
@@ -903,18 +900,7 @@ pub(crate) fn ast_type_to_solved_type(
     ast_type: Rc<AstType>,
 ) -> Option<SolvedType> {
     match &*ast_type.kind {
-        TypeKind::Poly(polyty) => {
-            // TODO: gross
-            let mut ifaces = vec![];
-            for iface_name in &polyty.iface_names {
-                let lookup = ctx.resolution_map.get(&iface_name.id);
-                if let Some(Declaration::InterfaceDef(iface_def)) = lookup {
-                    ifaces.push(iface_def.clone());
-                }
-            }
-
-            Some(SolvedType::Poly(polyty.clone()))
-        }
+        TypeKind::Poly(polyty) => Some(SolvedType::Poly(polyty.clone())),
         TypeKind::Named(_) => {
             let lookup = ctx.resolution_map.get(&ast_type.id)?;
             match lookup {
@@ -992,13 +978,6 @@ pub(crate) fn ast_type_to_typevar(ctx: &StaticsContext, ast_type: Rc<AstType>) -
     match &*ast_type.kind {
         TypeKind::Poly(polyty) => {
             if let Some(Declaration::Polytype(polyty)) = ctx.resolution_map.get(&polyty.name.id) {
-                let mut interfaces = vec![];
-                for iface_name in &polyty.iface_names {
-                    let lookup = ctx.resolution_map.get(&iface_name.id);
-                    if let Some(Declaration::InterfaceDef(iface_def)) = lookup {
-                        interfaces.push(iface_def.clone());
-                    }
-                }
                 TypeVar::make_poly(
                     Reason::Annotation(ast_type.node()),
                     PolyDeclaration(polyty.clone()),
@@ -1131,7 +1110,7 @@ pub(crate) fn constrain_because(
         // Since exactly one of the TypeVars is unsolved, its data will be updated with information from the solved TypeVar
         (false, true) => {
             let potential_ty = tyvar2.0.clone_data().types.into_iter().next().unwrap().1;
-            tyvar1.0.with_data(|d| {
+            tyvar1.0.with_data(|d: &mut TypeVarData| {
                 if d.types.is_empty() {
                     assert!(!d.locked);
                     d.locked = true
@@ -1221,8 +1200,6 @@ fn constrain_locked_typevars(
     }
 }
 
-// TODO: Can this be done in resolve() instead?
-// TODO: Don't store Declaration, because it's always Declaration::Polytype. Just store what's within Declaration::Polytype, or create a newtype if you're paranoid about mixing them up
 #[derive(Clone)]
 pub(crate) struct PolyvarScope {
     polyvars_in_scope: Environment<PolyDeclaration, ()>,
@@ -1628,19 +1605,18 @@ fn generate_constraints_expr(
             generate_constraints_expr(polyvar_scope.clone(), Mode::Syn, right.clone(), ctx);
             let ty_out = node_ty;
 
-            // TODO: make this a helper function?
             let num_iface_decl = ctx.root_namespace.get_declaration("prelude.Num").unwrap();
-            let Declaration::InterfaceDef(num_iface_def) = num_iface_decl else { panic!() };
+            let Declaration::InterfaceDef(num_iface) = num_iface_decl else { unreachable!() };
 
             let equal_iface_decl = ctx.root_namespace.get_declaration("prelude.Equal").unwrap();
-            let Declaration::InterfaceDef(equal_iface_def) = equal_iface_decl else { panic!() };
+            let Declaration::InterfaceDef(equal_iface) = equal_iface_decl else { unreachable!() };
 
             let tostring_iface_decl = ctx
                 .root_namespace
                 .get_declaration("prelude.ToString")
                 .unwrap();
-            let Declaration::InterfaceDef(tostring_iface_def) = tostring_iface_decl else {
-                panic!()
+            let Declaration::InterfaceDef(tostring_iface) = tostring_iface_decl else {
+                unreachable!()
             };
 
             let reason_left = Reason::BinopLeft(expr.node());
@@ -1673,8 +1649,8 @@ fn generate_constraints_expr(
                         ty_right.clone(),
                         ConstraintReason::BinaryOperandsMustMatch(expr.node()),
                     );
-                    constrain_to_iface(ctx, ty_left.clone(), left.node(), &num_iface_def);
-                    constrain_to_iface(ctx, ty_right, right.node(), &num_iface_def);
+                    constrain_to_iface(ctx, ty_left.clone(), left.node(), &num_iface);
+                    constrain_to_iface(ctx, ty_right, right.node(), &num_iface);
                     constrain(ctx, ty_left, ty_out);
                 }
                 BinaryOperator::Mod => {
@@ -1702,13 +1678,13 @@ fn generate_constraints_expr(
                         ty_right.clone(),
                         ConstraintReason::BinaryOperandsMustMatch(expr.node()),
                     );
-                    constrain_to_iface(ctx, ty_left, left.node(), &num_iface_def);
-                    constrain_to_iface(ctx, ty_right, right.node(), &num_iface_def);
+                    constrain_to_iface(ctx, ty_left, left.node(), &num_iface);
+                    constrain_to_iface(ctx, ty_right, right.node(), &num_iface);
                     constrain(ctx, ty_out, TypeVar::make_bool(reason_out));
                 }
                 BinaryOperator::Format => {
-                    constrain_to_iface(ctx, ty_left.clone(), left.node(), &tostring_iface_def);
-                    constrain_to_iface(ctx, ty_right.clone(), right.node(), &tostring_iface_def);
+                    constrain_to_iface(ctx, ty_left.clone(), left.node(), &tostring_iface);
+                    constrain_to_iface(ctx, ty_right.clone(), right.node(), &tostring_iface);
                     constrain_because(
                         ctx,
                         ty_out,
@@ -1723,8 +1699,8 @@ fn generate_constraints_expr(
                         ty_right.clone(),
                         ConstraintReason::BinaryOperandsMustMatch(expr.node()),
                     );
-                    constrain_to_iface(ctx, ty_left.clone(), left.node(), &equal_iface_def);
-                    constrain_to_iface(ctx, ty_right.clone(), right.node(), &equal_iface_def);
+                    constrain_to_iface(ctx, ty_left.clone(), left.node(), &equal_iface);
+                    constrain_to_iface(ctx, ty_right.clone(), right.node(), &equal_iface);
                     constrain(ctx, ty_out, TypeVar::make_bool(reason_out));
                 }
             }
@@ -2411,12 +2387,7 @@ pub(crate) fn ty_implements_iface(
     iface: &Rc<InterfaceDecl>,
 ) -> bool {
     if let SolvedType::Poly(polyty) = &ty {
-        let mut ifaces = vec![];
-        for iface_name in &polyty.iface_names {
-            if let Some(Declaration::InterfaceDef(iface)) = ctx.resolution_map.get(&iface_name.id) {
-                ifaces.push(iface.clone());
-            }
-        }
+        let ifaces = resolved_ifaces(ctx, &polyty.iface_names);
         if ifaces.contains(iface) {
             return true;
         }
@@ -2469,17 +2440,10 @@ pub(crate) fn ty_fits_impl_ty(
         (SolvedType::Nominal(ident1, tys1), SolvedType::Nominal(ident2, tys2)) => {
             if ident1 == ident2 && tys1.len() == tys2.len() {
                 for (ty1, ty2) in tys1.iter().zip(tys2.iter()) {
-                    let SolvedType::Poly(polyty) = ty2.clone() else { panic!() };
+                    let SolvedType::Poly(polyty) = ty2.clone() else { panic!() }; // TODO: should this panic be here? Or should an Err be returned?
                     // TODO: gross
-                    let mut ifaces = BTreeSet::new();
-                    for iface_name in &polyty.iface_names {
-                        if let Some(Declaration::InterfaceDef(iface)) =
-                            ctx.resolution_map.get(&iface_name.id)
-                        {
-                            ifaces.insert(iface.clone());
-                        }
-                    }
-                    if !ty_fits_impl_ty_poly(ctx, ty1.clone(), ifaces) {
+                    let ifaces = resolved_ifaces(ctx, &polyty.iface_names);
+                    if !ty_fits_impl_ty_poly(ctx, ty1.clone(), &ifaces) {
                         return Err((typ, impl_ty));
                     }
                 }
@@ -2489,17 +2453,8 @@ pub(crate) fn ty_fits_impl_ty(
             }
         }
         (_, SolvedType::Poly(polyty)) => {
-            // TODO: code duplication with Nominal case above^
-            // TODO: gross
-            let mut ifaces = BTreeSet::new();
-            for iface_name in &polyty.iface_names {
-                if let Some(Declaration::InterfaceDef(iface)) =
-                    ctx.resolution_map.get(&iface_name.id)
-                {
-                    ifaces.insert(iface.clone());
-                }
-            }
-            if !ty_fits_impl_ty_poly(ctx, typ.clone(), ifaces) {
+            let ifaces = resolved_ifaces(ctx, &polyty.iface_names);
+            if !ty_fits_impl_ty_poly(ctx, typ.clone(), &ifaces) {
                 return Err((typ, impl_ty));
             }
             Ok(())
@@ -2508,27 +2463,20 @@ pub(crate) fn ty_fits_impl_ty(
     }
 }
 
+// TODO: this logic is clearly wrong. The nested for loops and early returns are a bad choice
 fn ty_fits_impl_ty_poly(
     ctx: &StaticsContext,
     typ: SolvedType,
-    interfaces: BTreeSet<Rc<InterfaceDecl>>,
+    interfaces: &[Rc<InterfaceDecl>],
 ) -> bool {
     for interface in interfaces {
         if let SolvedType::Poly(polyty) = &typ {
-            // TODO: gross
-            let mut ifaces = Vec::new();
-            for iface_name in &polyty.iface_names {
-                if let Some(Declaration::InterfaceDef(iface)) =
-                    ctx.resolution_map.get(&iface_name.id)
-                {
-                    ifaces.push(iface.clone());
-                }
-            }
-            if ifaces.contains(&interface) {
+            let ifaces = resolved_ifaces(ctx, &polyty.iface_names);
+            if ifaces.contains(interface) {
                 return true;
             }
         }
-        if let Some(impl_list) = ctx.interface_impls.get(&interface).cloned() {
+        if let Some(impl_list) = ctx.interface_impls.get(interface).cloned() {
             // find at least one implementation of interface that matches the type constrained to the interface
             for impl_ in impl_list {
                 let impl_ty = ast_type_to_solved_type(ctx, impl_.typ.clone());
@@ -2541,6 +2489,20 @@ fn ty_fits_impl_ty_poly(
         }
     }
     false
+}
+
+// TODO: memoize this
+fn resolved_ifaces(ctx: &StaticsContext, identifiers: &[Rc<Identifier>]) -> Vec<Rc<InterfaceDecl>> {
+    identifiers
+        .iter()
+        .filter_map(|ident| {
+            if let Some(Declaration::InterfaceDef(iface)) = ctx.resolution_map.get(&ident.id) {
+                Some(iface.clone())
+            } else {
+                None
+            }
+        })
+        .collect()
 }
 
 impl Display for TypeVar {
