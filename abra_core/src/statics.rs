@@ -213,6 +213,10 @@ pub(crate) enum Error {
     NotInLoop {
         node: AstNode,
     },
+    // return
+    CantReturnHere {
+        node: AstNode,
+    },
     // pattern matching exhaustiveness check
     NonexhaustiveMatch {
         node: AstNode,
@@ -461,6 +465,11 @@ impl Error {
             }
             Error::NotInLoop { node } => {
                 diagnostic = diagnostic.with_message("This statement must be in a loop");
+                let (file, range) = node.get_file_and_range();
+                labels.push(Label::secondary(file, range));
+            }
+            Error::CantReturnHere { node } => {
+                diagnostic = diagnostic.with_message("Can't put a return statement here");
                 let (file, range) = node.get_file_and_range();
                 labels.push(Label::secondary(file, range));
             }

@@ -798,14 +798,12 @@ where
     }
 }
 
-// A helper macro to replace a token with an expression (for counting)
 macro_rules! replace_expr {
     ($t:tt, $e:expr_2021) => {
         $e
     };
 }
 
-// Our main macro: for a list of identifiers, implement VmType for the corresponding tuple.
 macro_rules! tuple_impls {
     ( $( $name:ident ),+ $(,)? ) => {
         impl< $($name: VmType),+ > VmType for ( $($name,)+ ) {

@@ -9,7 +9,6 @@ use crate::ast::{
 use crate::ast::{BinaryOperator, Item};
 use crate::builtin::Builtin;
 use crate::environment::Environment;
-use core::panic;
 use disjoint_sets::UnionFindNode;
 use std::cell::RefCell;
 use std::collections::BTreeSet;
@@ -1483,8 +1482,7 @@ fn generate_constraints_stmt(
                     constrain_because(ctx, expr_ty, ret_ty, ConstraintReason::ReturnValue);
                 }
                 None => {
-                    // TODO: emit an error here
-                    todo!()
+                    ctx.errors.push(Error::CantReturnHere { node: stmt.node() });
                 }
             }
         }
@@ -2396,7 +2394,7 @@ pub(crate) fn ty_implements_iface(
     for imp in impl_list {
         let impl_ty = ast_type_to_typevar(ctx, imp.typ.clone());
         if let Some(impl_ty) = impl_ty.solution() {
-            if ty_fits_impl_ty(ctx, ty.clone(), impl_ty).is_ok() {
+            if ty_fits_impl_ty(ctx, ty.clone(), impl_ty) {
                 found = true;
             }
         }
@@ -2404,59 +2402,44 @@ pub(crate) fn ty_implements_iface(
     found
 }
 
-pub(crate) fn ty_fits_impl_ty(
-    ctx: &StaticsContext,
-    typ: SolvedType,
-    impl_ty: SolvedType,
-) -> Result<(), (SolvedType, SolvedType)> {
+pub(crate) fn ty_fits_impl_ty(ctx: &StaticsContext, typ: SolvedType, impl_ty: SolvedType) -> bool {
     match (&typ, &impl_ty) {
         (SolvedType::Int, SolvedType::Int)
         | (SolvedType::Bool, SolvedType::Bool)
         | (SolvedType::Float, SolvedType::Float)
         | (SolvedType::String, SolvedType::String)
-        | (SolvedType::Unit, SolvedType::Unit) => Ok(()),
+        | (SolvedType::Unit, SolvedType::Unit) => true,
         (SolvedType::Tuple(tys1), SolvedType::Tuple(tys2)) => {
-            if tys1.len() == tys2.len() {
-                for (ty1, ty2) in tys1.iter().zip(tys2.iter()) {
-                    ty_fits_impl_ty(ctx, ty1.clone(), ty2.clone())?;
-                }
-                Ok(())
-            } else {
-                Err((typ, impl_ty))
-            }
+            tys1.len() == tys2.len()
+                && tys1
+                    .iter()
+                    .zip(tys2.iter())
+                    .all(|(ty1, ty2)| ty_fits_impl_ty(ctx, ty1.clone(), ty2.clone()))
         }
         (SolvedType::Function(args1, out1), SolvedType::Function(args2, out2)) => {
-            if args1.len() == args2.len() {
-                for (ty1, ty2) in args1.iter().zip(args2.iter()) {
-                    ty_fits_impl_ty(ctx, ty1.clone(), ty2.clone())?;
-                }
-                ty_fits_impl_ty(ctx, *out1.clone(), *out2.clone())
-            } else {
-                Err((typ, impl_ty))
-            }
+            args1.len() == args2.len()
+                && args1
+                    .iter()
+                    .zip(args2.iter())
+                    .all(|(ty1, ty2)| ty_fits_impl_ty(ctx, ty1.clone(), ty2.clone()))
+                && ty_fits_impl_ty(ctx, *out1.clone(), *out2.clone())
         }
         (SolvedType::Nominal(ident1, tys1), SolvedType::Nominal(ident2, tys2)) => {
-            if ident1 == ident2 && tys1.len() == tys2.len() {
-                for (ty1, ty2) in tys1.iter().zip(tys2.iter()) {
-                    let SolvedType::Poly(polyty) = ty2.clone() else { panic!() }; // TODO: should this panic be here? Or should an Err be returned?
+            ident1 == ident2
+                && tys1.len() == tys2.len()
+                && tys1.iter().zip(tys2.iter()).all(|(ty1, ty2)| {
+                    let SolvedType::Poly(polyty) = ty2.clone() else {
+                        return false;
+                    };
                     let ifaces = resolved_ifaces(ctx, &polyty.iface_names);
-                    if !ty_fits_impl_ty_poly(ctx, ty1.clone(), &ifaces) {
-                        return Err((typ, impl_ty));
-                    }
-                }
-                Ok(())
-            } else {
-                Err((typ, impl_ty))
-            }
+                    ty_fits_impl_ty_poly(ctx, ty1.clone(), &ifaces)
+                })
         }
         (_, SolvedType::Poly(polyty)) => {
             let ifaces = resolved_ifaces(ctx, &polyty.iface_names);
-            if !ty_fits_impl_ty_poly(ctx, typ.clone(), &ifaces) {
-                return Err((typ, impl_ty));
-            }
-            Ok(())
+            ty_fits_impl_ty_poly(ctx, typ.clone(), &ifaces)
         }
-        _ => Err((typ, impl_ty)),
+        _ => false,
     }
 }
 
@@ -2478,7 +2461,7 @@ fn ty_fits_impl_ty_poly(
             for impl_ in impl_list {
                 let impl_ty = ast_type_to_solved_type(ctx, impl_.typ.clone());
                 if let Some(impl_ty) = impl_ty {
-                    if ty_fits_impl_ty(ctx, typ.clone(), impl_ty).is_ok() {
+                    if ty_fits_impl_ty(ctx, typ.clone(), impl_ty) {
                         return true;
                     }
                 }

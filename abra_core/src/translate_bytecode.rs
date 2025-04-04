@@ -658,9 +658,7 @@ impl Translator {
                                         &self.statics,
                                         substituted_ty.clone(),
                                         interface_impl_ty,
-                                    )
-                                    .is_ok()
-                                    {
+                                    ) {
                                         self.handle_overloaded_func(
                                             st,
                                             substituted_ty.clone(),
