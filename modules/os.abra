@@ -11,5 +11,3 @@ foreign fn frename(old_path: string, new_path: string) -> void
 foreign fn fcopy(src: string, dest: string) -> void
 
 foreign fn fappend(path: string, contents: string) -> void
-
-// TODO: foreign type file

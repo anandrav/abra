@@ -197,7 +197,7 @@ unsafe extern "C" fn abra_vm_push_string(vm: *mut c_void, string_view: StringVie
 #[unsafe(no_mangle)]
 unsafe extern "C" fn abra_vm_construct_struct(vm: *mut c_void, arity: u16) {
     let vm = unsafe { (vm as *mut Vm).as_mut().unwrap() };
-    vm.construct_struct(arity);
+    vm.construct_struct(arity).unwrap();
 }
 
 /// # Safety
@@ -205,7 +205,7 @@ unsafe extern "C" fn abra_vm_construct_struct(vm: *mut c_void, arity: u16) {
 #[unsafe(no_mangle)]
 unsafe extern "C" fn abra_vm_construct_array(vm: *mut c_void, len: usize) {
     let vm = unsafe { (vm as *mut Vm).as_mut().unwrap() };
-    vm.construct_array(len);
+    vm.construct_array(len).unwrap();
 }
 
 /// # Safety

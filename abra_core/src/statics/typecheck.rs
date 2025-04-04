@@ -992,17 +992,17 @@ pub(crate) fn ast_type_to_typevar(ctx: &StaticsContext, ast_type: Rc<AstType>) -
                 Some(Declaration::Enum(enum_def)) => TypeVar::make_nominal(
                     Reason::Annotation(ast_type.node()),
                     Nominal::Enum(enum_def.clone()),
-                    vec![], // TODO: why is params empty?
+                    vec![], // TODO: emit an error if num params doesn't match?
                 ),
                 Some(Declaration::Struct(struct_def)) => TypeVar::make_nominal(
                     Reason::Annotation(ast_type.node()),
                     Nominal::Struct(struct_def.clone()),
-                    vec![], // TODO: why is params empty?
+                    vec![], // TODO: emit an error if num params doesn't match?
                 ),
                 Some(Declaration::Array) => TypeVar::make_nominal(
                     Reason::Annotation(ast_type.node()),
                     Nominal::Array,
-                    vec![], // TODO: why is params empty?
+                    vec![], // TODO: emit an error if num params doesn't match?
                 ),
                 _ => {
                     // since resolution failed, unconstrained type
@@ -1483,6 +1483,7 @@ fn generate_constraints_stmt(
                     constrain_because(ctx, expr_ty, ret_ty, ConstraintReason::ReturnValue);
                 }
                 None => {
+                    // TODO: emit an error here
                     todo!()
                 }
             }
@@ -1550,9 +1551,7 @@ fn generate_constraints_expr(
                     ),
                 );
             } else {
-                dbg!(list_decl);
-                todo!();
-                // TODO: log error? Or panic? Could this happen due to user error, or is it always due to some internal compiler error
+                unreachable!("prelude.list is not defined to be an Enum")
             }
 
             for expr in exprs {
@@ -1592,7 +1591,6 @@ fn generate_constraints_expr(
             let lookup = ctx.resolution_map.get(&expr.id).cloned();
             if let Some(res) = lookup {
                 if let Some(typ) = tyvar_of_declaration(ctx, &res, expr.node()) {
-                    // TODO: tyvar_of_declaration should probably do the instantiation for you, instead of having to remember
                     let typ = typ.instantiate(polyvar_scope, ctx, expr.node());
                     constrain(ctx, typ, node_ty.clone());
                 }
@@ -2441,7 +2439,6 @@ pub(crate) fn ty_fits_impl_ty(
             if ident1 == ident2 && tys1.len() == tys2.len() {
                 for (ty1, ty2) in tys1.iter().zip(tys2.iter()) {
                     let SolvedType::Poly(polyty) = ty2.clone() else { panic!() }; // TODO: should this panic be here? Or should an Err be returned?
-                    // TODO: gross
                     let ifaces = resolved_ifaces(ctx, &polyty.iface_names);
                     if !ty_fits_impl_ty_poly(ctx, ty1.clone(), &ifaces) {
                         return Err((typ, impl_ty));

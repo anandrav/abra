@@ -191,6 +191,16 @@ impl Vm {
         }
     }
 
+    pub fn pop_n(&mut self, n: usize) -> Result<Vec<Value>> {
+        if n > self.value_stack.len() {
+            return self.make_error(VmErrorKind::Underflow);
+        }
+        Ok(self
+            .value_stack
+            .drain(self.value_stack.len() - n..)
+            .collect())
+    }
+
     pub fn push_int(&mut self, n: AbraInt) {
         self.push(n);
     }
@@ -214,15 +224,8 @@ impl Vm {
         self.push(f);
     }
 
-    pub fn construct_tuple(&mut self, n: u16) {
-        let fields: Vec<_> = self
-            .value_stack
-            .drain(self.value_stack.len() - n as usize..)
-            .collect();
-        self.heap
-            .push(ManagedObject::new(ManagedObjectKind::DynArray(fields)));
-        let r = self.heap_reference(self.heap.len() - 1);
-        self.push(r);
+    pub fn construct_tuple(&mut self, n: u16) -> Result<()> {
+        self.construct_impl(n as usize)
     }
 
     pub fn construct_variant(&mut self, tag: u16) -> Result<()> {
@@ -234,26 +237,21 @@ impl Vm {
         Ok(())
     }
 
-    pub fn construct_struct(&mut self, n: u16) {
-        let fields: Vec<_> = self
-            .value_stack
-            .drain(self.value_stack.len() - n as usize..)
-            .collect();
-        self.heap
-            .push(ManagedObject::new(ManagedObjectKind::DynArray(fields)));
-        let r = self.heap_reference(self.heap.len() - 1);
-        self.push(r);
+    pub fn construct_struct(&mut self, n: u16) -> Result<()> {
+        self.construct_impl(n as usize)
     }
 
-    pub fn construct_array(&mut self, n: usize) {
-        let fields: Vec<_> = self
-            .value_stack
-            .drain(self.value_stack.len() - n..)
-            .collect();
+    pub fn construct_array(&mut self, n: usize) -> Result<()> {
+        self.construct_impl(n)
+    }
+
+    fn construct_impl(&mut self, n: usize) -> Result<()> {
+        let fields = self.pop_n(n)?;
         self.heap
             .push(ManagedObject::new(ManagedObjectKind::DynArray(fields)));
         let r = self.heap_reference(self.heap.len() - 1);
         self.push(r);
+        Ok(())
     }
 
     pub fn deconstruct(&mut self) -> Result<()> {
@@ -900,17 +898,7 @@ impl Vm {
                 let msg = self.pop_string()?;
                 return self.make_error(VmErrorKind::Panic(msg));
             }
-            Instr::Construct(n) => {
-                // TODO this is duplicated in 3 other places
-                let fields: Vec<_> = self
-                    .value_stack
-                    .drain(self.value_stack.len() - n as usize..)
-                    .collect();
-                self.heap
-                    .push(ManagedObject::new(ManagedObjectKind::DynArray(fields)));
-                let r = self.heap_reference(self.heap.len() - 1);
-                self.push(r);
-            }
+            Instr::Construct(n) => self.construct_impl(n as usize)?,
             Instr::Deconstruct => {
                 self.deconstruct()?;
             }
