@@ -2390,16 +2390,11 @@ pub(crate) fn ty_implements_iface(
     }
     let default = vec![];
     let impl_list = ctx.interface_impls.get(iface).unwrap_or(&default);
-    let mut found = false;
-    for imp in impl_list {
+    impl_list.iter().any(|imp| {
         let impl_ty = ast_type_to_typevar(ctx, imp.typ.clone());
-        if let Some(impl_ty) = impl_ty.solution() {
-            if ty_fits_impl_ty(ctx, ty.clone(), impl_ty) {
-                found = true;
-            }
-        }
-    }
-    found
+        let Some(impl_ty) = impl_ty.solution() else { return false };
+        ty_fits_impl_ty(ctx, ty.clone(), impl_ty)
+    })
 }
 
 pub(crate) fn ty_fits_impl_ty(ctx: &StaticsContext, typ: SolvedType, impl_ty: SolvedType) -> bool {
@@ -2447,9 +2442,9 @@ pub(crate) fn ty_fits_impl_ty(ctx: &StaticsContext, typ: SolvedType, impl_ty: So
 fn ty_fits_impl_ty_poly(
     ctx: &StaticsContext,
     typ: SolvedType,
-    interfaces: &[Rc<InterfaceDecl>],
+    impl_ty_interfaces: &[Rc<InterfaceDecl>],
 ) -> bool {
-    for interface in interfaces {
+    for interface in impl_ty_interfaces {
         if let SolvedType::Poly(polyty) = &typ {
             let ifaces = resolved_ifaces(ctx, &polyty.iface_names);
             if ifaces.contains(interface) {
@@ -2471,7 +2466,6 @@ fn ty_fits_impl_ty_poly(
     false
 }
 
-// TODO: memoize this
 fn resolved_ifaces(ctx: &StaticsContext, identifiers: &[Rc<Identifier>]) -> Vec<Rc<InterfaceDecl>> {
     identifiers
         .iter()
