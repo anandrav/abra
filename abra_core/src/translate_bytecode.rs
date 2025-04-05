@@ -321,7 +321,7 @@ impl Translator {
     }
 
     fn translate_expr(
-        &mut self, // TODO: make this immutable, and all other occurrences. It's only mutable right now because of ty_fits_impl_ty calls ast_type_to_statics_type...
+        &self,
         expr: Rc<Expr>,
         offset_table: &OffsetTable,
         monomorph_env: MonomorphEnv,
@@ -722,7 +722,7 @@ impl Translator {
             }
             ExprKind::List(exprs) => {
                 fn translate_list(
-                    translator: &mut Translator,
+                    translator: &Translator,
                     exprs: &[Rc<Expr>],
                     offset_table: &OffsetTable,
                     monomorph_env: MonomorphEnv,
@@ -1080,7 +1080,7 @@ impl Translator {
     }
 
     fn translate_stmt(
-        &mut self,
+        &self,
         stmt: Rc<Stmt>,
         is_last: bool,
         locals: &OffsetTable,
