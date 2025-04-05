@@ -18,7 +18,6 @@ use std::{
     rc::Rc,
 };
 
-// TODO: Move this to a separate crate entirely
 //
 // C-compatible table of function pointers
 //
@@ -495,7 +494,6 @@ fn add_items_from_ast(ast: Rc<FileAst>, output: &mut String) {
                               /// `vm` must be non-null and valid.
                               "#,
                 );
-                // TODO: this code for creating the name delimited by $ is duplicated with code in resolve.rs
                 let elems: Vec<_> = ast.name.split(std::path::MAIN_SEPARATOR_STR).collect();
                 let package_name = elems.last().unwrap().to_string();
                 let symbol = make_foreign_func_name(&f.name.v, &elems);
