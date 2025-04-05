@@ -27,8 +27,6 @@ pub struct IdSet<T: Hash + Eq> {
     id_to_ptr: Vec<*const T>,
 }
 
-// TODO: allow more than just u32 for ID. Maybe u64, usize, and perhaps u16 or u8
-
 /// wrapper around *const T w
 #[derive(Copy, Clone)]
 struct Ptr<T: Hash + Eq>(*const T);
