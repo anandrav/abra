@@ -18,7 +18,6 @@ use crate::{
     statics::StaticsContext,
 };
 use std::mem;
-use std::path::PathBuf;
 use std::rc::Rc;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use utils::hash::HashMap;
@@ -86,92 +85,6 @@ pub struct CompiledProgram {
 }
 
 pub type BytecodeIndex = u32;
-
-impl Declaration {
-    pub fn to_bytecode_resolution(&self) -> BytecodeResolution {
-        match self {
-            Declaration::Var(node) => BytecodeResolution::Var(node.clone()),
-            Declaration::FreeFunction(f, qname) => {
-                BytecodeResolution::FreeFunction(f.clone(), qname.clone())
-            }
-            Declaration::_ForeignFunction {
-                decl,
-                libname,
-                symbol,
-            } => BytecodeResolution::ForeignFunction {
-                decl: decl.clone(),
-                libname: libname.clone(),
-                symbol: symbol.clone(),
-            },
-            Declaration::HostFunction(f, fullname) => {
-                BytecodeResolution::HostFunction(f.clone(), fullname.clone())
-            }
-            Declaration::InterfaceDef(_) => panic!(), // TODO: remove panic
-            Declaration::InterfaceMethod {
-                iface_def,
-                method,
-                fully_qualified_name,
-            } => BytecodeResolution::InterfaceMethod {
-                iface_def: iface_def.clone(),
-                method: *method,
-                fully_qualified_name: fully_qualified_name.clone(),
-            },
-            Declaration::Enum(..) => BytecodeResolution::EnumDef,
-            Declaration::EnumVariant { enum_def, variant } => {
-                let data = &enum_def.variants[*variant as usize].data;
-                let arity = match data {
-                    None => 0,
-                    Some(ty) => match &*ty.kind {
-                        TypeKind::Poly(..)
-                        | TypeKind::Named(_)
-                        | TypeKind::NamedWithParams(..)
-                        | TypeKind::Unit
-                        | TypeKind::Int
-                        | TypeKind::Float
-                        | TypeKind::Bool
-                        | TypeKind::Str
-                        | TypeKind::Function(..) => 1,
-                        TypeKind::Tuple(elems) => elems.len(),
-                    },
-                } as u16;
-                BytecodeResolution::VariantCtor(*variant, arity)
-            }
-            Declaration::Struct(struct_def) => {
-                let nargs = struct_def.fields.len() as u16;
-                BytecodeResolution::StructCtor(nargs)
-            }
-            Declaration::Array => {
-                panic!(); // TODO: remove panic
-            }
-            Declaration::Polytype(_) => {
-                panic!(); // TODO: remove panic
-            }
-            Declaration::Builtin(b) => BytecodeResolution::Builtin(*b),
-        }
-    }
-}
-
-// TODO: Remove this type and just use Declaration
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub(crate) enum BytecodeResolution {
-    Var(AstNode),
-    FreeFunction(Rc<FuncDef>, String),
-    HostFunction(Rc<FuncDecl>, String),
-    ForeignFunction {
-        decl: Rc<FuncDecl>,
-        libname: PathBuf,
-        symbol: String,
-    },
-    InterfaceMethod {
-        iface_def: Rc<InterfaceDecl>,
-        method: u16,
-        fully_qualified_name: String,
-    },
-    StructCtor(u16),
-    EnumDef,
-    VariantCtor(u16, u16),
-    Builtin(Builtin),
-}
 
 impl Translator {
     pub(crate) fn new(
@@ -418,60 +331,48 @@ impl Translator {
     ) {
         self.update_filename_lineno_tables(st, expr.node());
         match &*expr.kind {
-            ExprKind::Variable(_) => {
-                match self
-                    .statics
-                    .resolution_map
-                    .get(&expr.id)
-                    .unwrap()
-                    .to_bytecode_resolution()
-                {
-                    BytecodeResolution::VariantCtor(tag, _) => {
-                        self.emit(st, Instr::PushNil);
-                        self.emit(st, Instr::ConstructVariant { tag });
-                    }
-                    BytecodeResolution::Var(node) => {
-                        let idx = offset_table.get(&node.id()).unwrap();
-                        self.emit(st, Instr::LoadOffset(*idx));
-                    }
-                    BytecodeResolution::Builtin(b) => match b {
-                        Builtin::Newline => {
-                            self.emit(st, Instr::PushString("\n".to_owned()));
-                        }
-                        _ => {
-                            unimplemented!()
-                        }
-                    },
-                    BytecodeResolution::FreeFunction(_, name) => {
-                        self.emit(
-                            st,
-                            Instr::MakeClosure {
-                                func_addr: name.clone(),
-                            },
-                        );
-                    }
-                    BytecodeResolution::StructCtor(_)
-                    | BytecodeResolution::ForeignFunction { .. }
-                    | BytecodeResolution::HostFunction(..)
-                    | BytecodeResolution::InterfaceMethod { .. }
-                    | BytecodeResolution::EnumDef { .. } => unimplemented!(),
+            ExprKind::Variable(_) => match &self.statics.resolution_map[&expr.id] {
+                Declaration::EnumVariant { variant, .. } => {
+                    self.emit(st, Instr::PushNil);
+                    self.emit(st, Instr::ConstructVariant { tag: *variant });
                 }
-            }
-            ExprKind::MemberAccessInferred(ident) => {
-                match self
-                    .statics
-                    .resolution_map
-                    .get(&ident.id)
-                    .unwrap()
-                    .to_bytecode_resolution()
-                {
-                    BytecodeResolution::VariantCtor(tag, _) => {
-                        self.emit(st, Instr::PushNil);
-                        self.emit(st, Instr::ConstructVariant { tag });
-                    }
-                    _ => panic!(),
+                Declaration::Var(node) => {
+                    let idx = offset_table.get(&node.id()).unwrap();
+                    self.emit(st, Instr::LoadOffset(*idx));
                 }
-            }
+                Declaration::Builtin(b) => match b {
+                    Builtin::Newline => {
+                        self.emit(st, Instr::PushString("\n".to_owned()));
+                    }
+                    _ => {
+                        unimplemented!()
+                    }
+                },
+                Declaration::FreeFunction(_, name) => {
+                    self.emit(
+                        st,
+                        Instr::MakeClosure {
+                            func_addr: name.clone(),
+                        },
+                    );
+                }
+                Declaration::Struct(_)
+                | Declaration::_ForeignFunction { .. }
+                | Declaration::HostFunction(..)
+                | Declaration::InterfaceMethod { .. }
+                | Declaration::Enum { .. } => unimplemented!(),
+
+                Declaration::InterfaceDef(_) | Declaration::Array | Declaration::Polytype(_) => {
+                    unreachable!()
+                }
+            },
+            ExprKind::MemberAccessInferred(ident) => match self.statics.resolution_map[&ident.id] {
+                Declaration::EnumVariant { variant, .. } => {
+                    self.emit(st, Instr::PushNil);
+                    self.emit(st, Instr::ConstructVariant { tag: variant });
+                }
+                _ => panic!(),
+            },
             ExprKind::Unit => {
                 self.emit(st, Instr::PushNil);
             }
@@ -532,18 +433,10 @@ impl Translator {
                     self.translate_expr(arg.clone(), offset_table, monomorph_env.clone(), st);
                 }
                 let resolution = match &*func.kind {
-                    ExprKind::Variable(_) => self
-                        .statics
-                        .resolution_map
-                        .get(&func.id)
-                        .unwrap()
-                        .to_bytecode_resolution(),
-                    ExprKind::MemberAccess(_prefix, ident) => self
-                        .statics
-                        .resolution_map
-                        .get(&ident.id)
-                        .unwrap()
-                        .to_bytecode_resolution(),
+                    ExprKind::Variable(_) => &self.statics.resolution_map[&func.id],
+                    ExprKind::MemberAccess(_prefix, ident) => {
+                        &self.statics.resolution_map[&ident.id]
+                    }
                     ExprKind::MemberAccessInferred(..) => unimplemented!(),
 
                     ExprKind::Unit
@@ -565,13 +458,13 @@ impl Translator {
                     ExprKind::AnonymousFunction(_items, _, _expr) => unimplemented!(),
                 };
                 match resolution {
-                    BytecodeResolution::Var(node) => {
+                    Declaration::Var(node) => {
                         // assume it's a function object
                         let idx = offset_table.get(&node.id()).unwrap();
                         self.emit(st, Instr::LoadOffset(*idx));
                         self.emit(st, Instr::CallFuncObj);
                     }
-                    BytecodeResolution::FreeFunction(f, name) => {
+                    Declaration::FreeFunction(f, name) => {
                         let func_ty = self.statics.solution_of_node(f.name.node()).unwrap();
                         if !func_ty.is_overloaded() {
                             self.emit(st, Instr::Call(name.clone()));
@@ -585,11 +478,11 @@ impl Translator {
                             self.handle_overloaded_func(st, substituted_ty, &name, f.clone());
                         }
                     }
-                    BytecodeResolution::HostFunction(decl, _) => {
+                    Declaration::HostFunction(decl, _) => {
                         let idx = self.statics.host_funcs.get_id(&decl.name.v) as u16;
                         self.emit(st, Instr::HostFunc(idx));
                     }
-                    BytecodeResolution::ForeignFunction {
+                    Declaration::_ForeignFunction {
                         decl: _decl,
                         libname,
                         symbol,
@@ -615,7 +508,7 @@ impl Translator {
                             offset + self.statics.dylib_to_funcs[&lib_id].get_id(&symbol) as usize;
                         self.emit(st, Instr::CallExtern(func_id));
                     }
-                    BytecodeResolution::InterfaceMethod {
+                    Declaration::InterfaceMethod {
                         iface_def,
                         method,
                         fully_qualified_name,
@@ -623,13 +516,8 @@ impl Translator {
                         let func_ty = self.statics.solution_of_node(func.node()).unwrap();
                         let substituted_ty =
                             subst_with_monomorphic_env(monomorph_env.clone(), func_ty);
-                        let method_name = &iface_def.methods[method as usize].name.v;
-                        let impl_list = self
-                            .statics
-                            .interface_impls
-                            .get(&iface_def)
-                            .unwrap()
-                            .clone();
+                        let method_name = &iface_def.methods[*method as usize].name.v;
+                        let impl_list = self.statics.interface_impls[iface_def].clone();
 
                         for imp in impl_list {
                             for f in &imp.methods {
@@ -657,20 +545,21 @@ impl Translator {
                             }
                         }
                     }
-                    BytecodeResolution::StructCtor(nargs) => {
-                        self.emit(st, Instr::Construct(nargs));
+                    Declaration::Struct(def) => {
+                        self.emit(st, Instr::Construct(def.fields.len() as u16));
                     }
-                    BytecodeResolution::VariantCtor(tag, nargs) => {
-                        if nargs > 1 {
+                    Declaration::EnumVariant { enum_def, variant } => {
+                        let arity = enum_def.arity(*variant);
+                        if arity > 1 {
                             // turn the arguments (associated data) into a tuple
-                            self.emit(st, Instr::Construct(nargs));
+                            self.emit(st, Instr::Construct(arity));
                         }
-                        self.emit(st, Instr::ConstructVariant { tag });
+                        self.emit(st, Instr::ConstructVariant { tag: *variant });
                     }
-                    BytecodeResolution::EnumDef { .. } => {
+                    Declaration::Enum { .. } => {
                         panic!("can't call enum name as ctor");
                     }
-                    BytecodeResolution::Builtin(b) => match b {
+                    Declaration::Builtin(b) => match b {
                         Builtin::AddInt => {
                             self.emit(st, Instr::Add);
                         }
@@ -771,6 +660,9 @@ impl Translator {
                             panic!("not a function");
                         }
                     },
+                    Declaration::InterfaceDef(_)
+                    | Declaration::Array
+                    | Declaration::Polytype(_) => unreachable!(),
                 }
             }
             ExprKind::Block(statements) => {
@@ -813,14 +705,11 @@ impl Translator {
                 self.emit(st, Instr::PushNil);
             }
             ExprKind::MemberAccess(accessed, field_name) => {
-                if let Some(BytecodeResolution::VariantCtor(tag, _)) = self
-                    .statics
-                    .resolution_map
-                    .get(&field_name.id)
-                    .map(Declaration::to_bytecode_resolution)
+                if let Some(Declaration::EnumVariant { variant, .. }) =
+                    &self.statics.resolution_map.get(&field_name.id)
                 {
                     self.emit(st, Instr::PushNil);
-                    self.emit(st, Instr::ConstructVariant { tag });
+                    self.emit(st, Instr::ConstructVariant { tag: *variant });
                 } else {
                     self.translate_expr(accessed.clone(), offset_table, monomorph_env.clone(), st);
                     let idx = idx_of_field(&self.statics, accessed.clone(), &field_name.v);
@@ -988,12 +877,8 @@ impl Translator {
             },
             Type::Nominal(_, _) => match &*pat.kind {
                 PatKind::Variant(_prefixes, ctor, inner) => {
-                    let BytecodeResolution::VariantCtor(tag, _) = self
-                        .statics
-                        .resolution_map
-                        .get(&ctor.id)
-                        .unwrap()
-                        .to_bytecode_resolution()
+                    let Declaration::EnumVariant { variant, .. } =
+                        &self.statics.resolution_map[&ctor.id]
                     else {
                         panic!("expected variable to be defined in node");
                     };
@@ -1001,7 +886,7 @@ impl Translator {
                     let end_label = make_label("endvariant");
 
                     self.emit(st, Instr::Deconstruct);
-                    self.emit(st, Instr::PushInt(tag as AbraInt));
+                    self.emit(st, Instr::PushInt(*variant as AbraInt));
                     self.emit(st, Instr::Equal);
                     self.emit(st, Instr::Not);
                     self.emit(st, Instr::JumpIf(tag_fail_label.clone()));
@@ -1096,11 +981,8 @@ impl Translator {
                     return;
                 }
 
-                let Some(BytecodeResolution::FreeFunction(_, fully_qualified_name)) = self
-                    .statics
-                    .resolution_map
-                    .get(&f.name.id)
-                    .map(Declaration::to_bytecode_resolution)
+                let Declaration::FreeFunction(_, fully_qualified_name) =
+                    &self.statics.resolution_map[&f.name.id]
                 else {
                     panic!()
                 };
@@ -1220,13 +1102,7 @@ impl Translator {
             StmtKind::Set(expr1, rvalue) => {
                 match &*expr1.kind {
                     ExprKind::Variable(_) => {
-                        let BytecodeResolution::Var(node) = self
-                            .statics
-                            .resolution_map
-                            .get(&expr1.id)
-                            .unwrap()
-                            .to_bytecode_resolution()
-                        else {
+                        let Declaration::Var(node) = &self.statics.resolution_map[&expr1.id] else {
                             panic!("expected variableto be defined in node");
                         };
                         let idx = locals.get(&node.id()).unwrap();
