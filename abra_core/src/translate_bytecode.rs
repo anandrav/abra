@@ -4,7 +4,7 @@
 
 use crate::assembly::{Instr, Label, Line, remove_labels};
 use crate::ast::{
-    AstNode, BinaryOperator, FuncDecl, FuncDef, InterfaceDecl, Item, ItemKind, TypeKind,
+    AstNode, BinaryOperator, FuncDef, Item, ItemKind,
 };
 use crate::ast::{FileAst, FileDatabase, NodeId};
 use crate::builtin::Builtin;
@@ -475,7 +475,7 @@ impl Translator {
                             let substituted_ty =
                                 subst_with_monomorphic_env(monomorph_env, specific_func_ty);
 
-                            self.handle_overloaded_func(st, substituted_ty, &name, f.clone());
+                            self.handle_overloaded_func(st, substituted_ty, name, f.clone());
                         }
                     }
                     Declaration::HostFunction(decl, _) => {
@@ -497,7 +497,7 @@ impl Translator {
                         // the bytecode for calling the external function doesn't need to contain the .so name or the method name as a string.
                         // it just needs to contain an idx into an array of foreign functions
 
-                        let lib_id = self.statics.dylibs.get_id(&libname);
+                        let lib_id = self.statics.dylibs.get_id(libname);
 
                         let mut offset = 0;
                         for i in 0..lib_id {
@@ -505,7 +505,7 @@ impl Translator {
                         }
 
                         let func_id =
-                            offset + self.statics.dylib_to_funcs[&lib_id].get_id(&symbol) as usize;
+                            offset + self.statics.dylib_to_funcs[&lib_id].get_id(symbol) as usize;
                         self.emit(st, Instr::CallExtern(func_id));
                     }
                     Declaration::InterfaceMethod {
@@ -537,7 +537,7 @@ impl Translator {
                                         self.handle_overloaded_func(
                                             st,
                                             substituted_ty.clone(),
-                                            &fully_qualified_name,
+                                            fully_qualified_name,
                                             f.clone(),
                                         );
                                     }
