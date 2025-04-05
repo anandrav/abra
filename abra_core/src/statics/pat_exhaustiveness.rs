@@ -2,7 +2,9 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use crate::ast::{Expr, ExprKind, FileAst, Item, ItemKind, MatchArm, Pat, PatKind, Stmt, StmtKind};
+use crate::ast::{
+    AstNode, Expr, ExprKind, FileAst, Item, ItemKind, MatchArm, Pat, PatKind, Stmt, StmtKind,
+};
 
 use core::panic;
 
@@ -79,7 +81,7 @@ fn check_pattern_exhaustiveness_expr(statics: &mut StaticsContext, expr: &Rc<Exp
                 }
             }
 
-            match_expr_exhaustive_check(statics, expr);
+            match_expr_exhaustive_check(statics, expr.node(), scrutiny, arms);
         }
 
         ExprKind::Unit
@@ -697,11 +699,12 @@ impl ConstructorSet {
 }
 
 // identify missing and extra constructors in patterns
-fn match_expr_exhaustive_check(statics: &mut StaticsContext, expr: &Rc<Expr>) {
-    let ExprKind::Match(scrutiny, arms) = &*expr.kind else {
-        panic!() // TODO: just pass this stuff to the function and remove panic
-    };
-
+fn match_expr_exhaustive_check(
+    statics: &mut StaticsContext,
+    node: AstNode,
+    scrutiny: &Rc<Expr>,
+    arms: &[Rc<MatchArm>],
+) {
     let scrutinee_ty = statics.solution_of_node(scrutiny.node());
     let Some(scrutinee_ty) = scrutinee_ty else {
         return;
@@ -714,7 +717,7 @@ fn match_expr_exhaustive_check(statics: &mut StaticsContext, expr: &Rc<Expr>) {
     let witness_patterns = witness_matrix.first_column();
     if !witness_patterns.is_empty() {
         statics.errors.push(Error::NonexhaustiveMatch {
-            node: expr.node(),
+            node: node.clone(),
             missing: witness_patterns,
         });
     }
@@ -735,7 +738,7 @@ fn match_expr_exhaustive_check(statics: &mut StaticsContext, expr: &Rc<Expr>) {
     }));
     if !redundant_arms.is_empty() {
         statics.errors.push(Error::RedundantArms {
-            node: expr.node(),
+            node,
             redundant_arms,
         })
     }
