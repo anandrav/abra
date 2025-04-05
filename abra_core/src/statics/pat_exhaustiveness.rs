@@ -179,7 +179,7 @@ impl Matrix {
         &self,
         ctor: &Constructor,
         ctor_arity: usize,
-        statics: &mut StaticsContext,
+        statics: &StaticsContext,
     ) -> Matrix {
         let mut new_types = Vec::new();
         match ctor {
@@ -282,7 +282,7 @@ impl MatrixRow {
         other_ctor: &Constructor,
         arity: usize,
         parent_row: usize,
-        statics: &mut StaticsContext,
+        statics: &StaticsContext,
     ) -> MatrixRow {
         if self.pats.is_empty() {
             panic!("no pats in row");
@@ -348,7 +348,7 @@ impl DeconstructedPat {
         &self,
         other_ctor: &Constructor,
         arity: usize,
-        statics: &mut StaticsContext,
+        statics: &StaticsContext,
     ) -> Vec<DeconstructedPat> {
         match &self.ctor {
             Constructor::Wildcard(_) => {
@@ -365,7 +365,7 @@ impl DeconstructedPat {
         }
     }
 
-    fn field_tys(&self, ctor: &Constructor, statics: &mut StaticsContext) -> Vec<SolvedType> {
+    fn field_tys(&self, ctor: &Constructor, statics: &StaticsContext) -> Vec<SolvedType> {
         match &self.ty {
             SolvedType::Int
             | SolvedType::Float
@@ -746,7 +746,7 @@ fn match_expr_exhaustive_check(
 
 // here's where the actual match usefulness algorithm goes
 fn compute_exhaustiveness_and_usefulness(
-    statics: &mut StaticsContext, // TODO: This is only mutable because we're running ast_type_to_statics_type
+    statics: &StaticsContext,
     matrix: &mut Matrix,
 ) -> WitnessMatrix {
     // base case
