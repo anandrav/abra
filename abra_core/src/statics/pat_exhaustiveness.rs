@@ -197,11 +197,10 @@ impl Matrix {
                 let variant = &enum_def.variants[*idx as usize];
                 let variant_data = &variant.data;
                 let data_ty = if let Some(data) = &variant_data {
-                    ast_type_to_solved_type(statics, data.clone())
+                    ast_type_to_solved_type(statics, data.clone()).unwrap()
                 } else {
-                    Some(SolvedType::Unit)
-                }
-                .unwrap();
+                    SolvedType::Unit
+                };
                 match data_ty {
                     SolvedType::Unit => {}
                     SolvedType::Poly(..)
@@ -379,11 +378,10 @@ impl DeconstructedPat {
                     let variant = &enum_def.variants[*idx as usize];
                     let variant_data = &variant.data;
                     let data_ty = if let Some(data) = &variant_data {
-                        ast_type_to_solved_type(statics, data.clone())
+                        ast_type_to_solved_type(statics, data.clone()).unwrap()
                     } else {
-                        Some(SolvedType::Unit)
-                    }
-                    .unwrap();
+                        SolvedType::Unit
+                    };
 
                     if !matches!(data_ty, SolvedType::Unit) {
                         vec![data_ty.clone()]

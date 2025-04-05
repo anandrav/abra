@@ -911,41 +911,26 @@ pub(crate) fn ast_type_to_solved_type(
                 Declaration::Enum(enum_def) => {
                     Some(SolvedType::Nominal(Nominal::Enum(enum_def.clone()), vec![]))
                 }
-                Declaration::_ForeignFunction { .. }
-                | Declaration::FreeFunction(_, _)
-                | Declaration::HostFunction(..)
-                | Declaration::InterfaceDef(_)
-                | Declaration::InterfaceMethod { .. }
-                | Declaration::EnumVariant { .. }
-                | Declaration::Polytype(_)
-                | Declaration::Builtin(_)
-                | Declaration::Var(_) => None,
+                _ => None,
             }
         }
         TypeKind::NamedWithParams(identifier, args) => {
-            let mut sargs = vec![];
-            for arg in args {
-                sargs.push(ast_type_to_solved_type(ctx, arg.clone())?);
-            }
+            let sargs = args
+                .iter()
+                .map(|arg| ast_type_to_solved_type(ctx, arg.clone()))
+                .collect::<Option<Vec<_>>>()?;
+
             let lookup = ctx.resolution_map.get(&identifier.id)?;
             match lookup {
                 Declaration::Array => Some(SolvedType::Nominal(Nominal::Array, sargs)),
                 Declaration::Struct(struct_def) => Some(SolvedType::Nominal(
                     Nominal::Struct(struct_def.clone()),
-                    vec![],
+                    sargs,
                 )),
                 Declaration::Enum(enum_def) => {
                     Some(SolvedType::Nominal(Nominal::Enum(enum_def.clone()), sargs))
                 }
-                Declaration::_ForeignFunction { .. }
-                | Declaration::HostFunction(..)
-                | Declaration::FreeFunction(_, _)
-                | Declaration::InterfaceDef(_)
-                | Declaration::InterfaceMethod { .. }
-                | Declaration::EnumVariant { .. }
-                | Declaration::Polytype(_)
-                | Declaration::Builtin(_)
-                | Declaration::Var(_) => None,
+                _ => None,
             }
         }
         TypeKind::Unit => Some(SolvedType::Unit),
@@ -954,21 +939,21 @@ pub(crate) fn ast_type_to_solved_type(
         TypeKind::Bool => Some(SolvedType::Bool),
         TypeKind::Str => Some(SolvedType::String),
         TypeKind::Function(args, ret) => {
-            let mut sargs = vec![];
-            for arg in args {
-                let sarg = ast_type_to_solved_type(ctx, arg.clone())?;
-                sargs.push(sarg);
-            }
-            let sret = ast_type_to_solved_type(ctx, ret.clone())?;
-            Some(SolvedType::Function(sargs, sret.into()))
+            let args = args
+                .iter()
+                .map(|arg| ast_type_to_solved_type(ctx, arg.clone()))
+                .collect::<Option<Vec<_>>>()?;
+
+            let ret = ast_type_to_solved_type(ctx, ret.clone())?;
+            Some(SolvedType::Function(args, ret.into()))
         }
         TypeKind::Tuple(elems) => {
-            let mut selems = vec![];
-            for elem in elems {
-                let selem = ast_type_to_solved_type(ctx, elem.clone())?;
-                selems.push(selem);
-            }
-            Some(SolvedType::Tuple(selems))
+            let elems = elems
+                .iter()
+                .map(|elem| ast_type_to_solved_type(ctx, elem.clone()))
+                .collect::<Option<Vec<_>>>()?;
+
+            Some(SolvedType::Tuple(elems))
         }
     }
 }
@@ -991,17 +976,17 @@ pub(crate) fn ast_type_to_typevar(ctx: &StaticsContext, ast_type: Rc<AstType>) -
                 Some(Declaration::Enum(enum_def)) => TypeVar::make_nominal(
                     Reason::Annotation(ast_type.node()),
                     Nominal::Enum(enum_def.clone()),
-                    vec![], // TODO: emit an error if num params doesn't match?
+                    vec![],
                 ),
                 Some(Declaration::Struct(struct_def)) => TypeVar::make_nominal(
                     Reason::Annotation(ast_type.node()),
                     Nominal::Struct(struct_def.clone()),
-                    vec![], // TODO: emit an error if num params doesn't match?
+                    vec![],
                 ),
                 Some(Declaration::Array) => TypeVar::make_nominal(
                     Reason::Annotation(ast_type.node()),
                     Nominal::Array,
-                    vec![], // TODO: emit an error if num params doesn't match?
+                    vec![],
                 ),
                 _ => {
                     // since resolution failed, unconstrained type
@@ -1055,11 +1040,11 @@ pub(crate) fn ast_type_to_typevar(ctx: &StaticsContext, ast_type: Rc<AstType>) -
             Reason::Annotation(ast_type.node()),
         ),
         TypeKind::Tuple(types) => {
-            let mut statics_types = Vec::new();
-            for t in types {
-                statics_types.push(ast_type_to_typevar(ctx, t.clone()));
-            }
-            TypeVar::make_tuple(statics_types, Reason::Annotation(ast_type.node()))
+            let types = types
+                .iter()
+                .map(|t| ast_type_to_typevar(ctx, t.clone()))
+                .collect();
+            TypeVar::make_tuple(types, Reason::Annotation(ast_type.node()))
         }
     }
 }
@@ -1320,8 +1305,6 @@ fn generate_constraints_item_decls(item: Rc<Item>, ctx: &mut StaticsContext) {
 
                 impl_list.push(iface_impl.clone());
             }
-
-            // todo last here
         }
         ItemKind::TypeDef(typdefkind) => match &**typdefkind {
             // TypeDefKind::Alias(ident, ty) => {
