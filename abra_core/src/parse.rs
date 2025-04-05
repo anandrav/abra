@@ -15,7 +15,6 @@ use crate::ast::*;
 #[grammar = "grammar.pest"]
 struct MyParser;
 
-// TODO: modify this to just take a single file
 pub(crate) fn parse_or_err(file_id: FileId, file_data: &FileData) -> Result<Rc<FileAst>, String> {
     let pairs = get_pairs(&file_data.source)?;
 
@@ -170,7 +169,6 @@ pub(crate) fn parse_func_arg_annotation(pair: Pair<Rule>, file_id: FileId) -> Ar
     }
 }
 
-// TODO: RENAME
 pub(crate) fn parse_func_arg_annotation_mandatory(
     pair: Pair<Rule>,
     file_id: FileId,

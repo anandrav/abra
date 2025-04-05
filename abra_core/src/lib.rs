@@ -119,7 +119,7 @@ pub fn generate_host_function_enum(
 
     let mut output = String::new();
     // enum definition
-    // TODO: Make have two enums. One that contains the arguments as associated data for each case. One that contains the return value.
+    // TODO: Generate two enums, not one. One that contains the arguments as associated data for each case. One that contains the return value.
     //       The conversion function would also take a &Vm. Using the &Vm, it would get the host function's argument(s) from the stack/put the return value on the stack.
     output.push_str(
         r#"// This is an auto-generated file.
@@ -221,15 +221,6 @@ pub struct OsFileProvider {
 }
 
 impl OsFileProvider {
-    pub fn todo_get_rid_of_this() -> Box<Self> {
-        Box::new(Self {
-            main_file_dir: PathBuf::new(),
-            modules: PathBuf::new(),
-            #[cfg(feature = "ffi")]
-            shared_objects_dir: PathBuf::new(),
-        })
-    }
-
     pub fn new(
         main_file_dir: PathBuf,
         modules: PathBuf,
