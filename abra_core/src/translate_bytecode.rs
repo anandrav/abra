@@ -26,7 +26,7 @@ use utils::hash::HashSet;
 use utils::id_set::IdSet;
 
 type OffsetTable = HashMap<NodeId, i32>;
-type Lambdas = HashMap<AstNode, LambdaData>;
+type Lambdas = HashMap<Rc<Expr>, LambdaData>;
 type OverloadedFuncLabels = HashMap<OverloadedFuncDesc, Label>;
 type MonomorphEnv = Environment<String, Type>;
 pub(crate) type LabelMap = HashMap<Label, usize>;
@@ -111,13 +111,11 @@ impl Declaration {
                 iface_def,
                 method,
                 fully_qualified_name,
-            } => {
-                BytecodeResolution::InterfaceMethod {
-                    iface_def: iface_def.clone(),
-                    method: *method,
-                    fully_qualified_name: fully_qualified_name.clone(),
-                } // TODO: don't use String here, just use iface_def and u16
-            }
+            } => BytecodeResolution::InterfaceMethod {
+                iface_def: iface_def.clone(),
+                method: *method,
+                fully_qualified_name: fully_qualified_name.clone(),
+            },
             Declaration::Enum(..) => BytecodeResolution::EnumDef,
             Declaration::EnumVariant { enum_def, variant } => {
                 let data = &enum_def.variants[*variant as usize].data;
@@ -260,8 +258,7 @@ impl Translator {
             for (i, lib) in self.statics.dylibs.iter().enumerate() {
                 self.emit(st, Instr::PushString(lib.to_str().unwrap().to_string()));
                 self.emit(st, Instr::LoadLib);
-                // TODO: &(i as u32) is dumb
-                for s in self.statics.dylib_to_funcs2[&(i as u32)].iter() {
+                for s in self.statics.dylib_to_funcs[&(i as u32)].iter() {
                     self.emit(st, Instr::PushString(s.to_string()));
                     self.emit(st, Instr::LoadForeignFunc);
                 }
@@ -315,13 +312,12 @@ impl Translator {
             }
 
             while !st.lambdas.is_empty() || !st.overloaded_methods_to_generate.is_empty() {
-                // Handle lambdas with captures
+                // Handle lambdas
                 let mut iteration = HashMap::default();
                 mem::swap(&mut (iteration), &mut st.lambdas);
-                for (node, data) in iteration {
-                    let AstNode::Expr(expr) = node else { panic!() };
+                for (expr, data) in iteration {
                     let ExprKind::AnonymousFunction(args, _, body) = &*expr.kind else {
-                        panic!() // TODO: get rid of this panic
+                        unreachable!()
                     };
 
                     self.update_function_name_table(st, "<anonymous fn>");
@@ -438,17 +434,14 @@ impl Translator {
                         let idx = offset_table.get(&node.id()).unwrap();
                         self.emit(st, Instr::LoadOffset(*idx));
                     }
-                    BytecodeResolution::Builtin(b) => {
-                        match b {
-                            Builtin::Newline => {
-                                self.emit(st, Instr::PushString("\n".to_owned()));
-                            }
-                            _ => {
-                                // TODO: generate functions for builtins
-                                unimplemented!()
-                            }
+                    BytecodeResolution::Builtin(b) => match b {
+                        Builtin::Newline => {
+                            self.emit(st, Instr::PushString("\n".to_owned()));
                         }
-                    }
+                        _ => {
+                            unimplemented!()
+                        }
+                    },
                     BytecodeResolution::FreeFunction(_, name) => {
                         self.emit(
                             st,
@@ -508,17 +501,15 @@ impl Translator {
                     BinaryOperator::LessThanOrEqual => self.emit(st, Instr::LessThanOrEqual),
                     BinaryOperator::Equal => self.emit(st, Instr::Equal),
                     BinaryOperator::Format => {
-                        // TODO: translate_bytecode shouldn't have to fish around in statics.global_namespace just for prelude.format_append or similar
                         let format_append_decl = self
                             .statics
                             .root_namespace
                             .get_declaration("prelude.format_append")
                             .unwrap();
                         let Declaration::FreeFunction(func, func_name) = format_append_decl else {
-                            panic!()
+                            unreachable!()
                         };
 
-                        // TODO: This is way too much work for translate_bytecode to do
                         let arg1_ty = self.statics.solution_of_node(left.node()).unwrap();
                         let arg2_ty = self.statics.solution_of_node(right.node()).unwrap();
                         let out_ty = self.statics.solution_of_node(expr.node()).unwrap();
@@ -615,16 +606,13 @@ impl Translator {
 
                         let lib_id = self.statics.dylibs.get_id(&libname);
 
-                        // TODO: don't do this loop for every foreign function call
-                        //      this is a problem that will probably come up again. Foreign functions are
-                        //      assigned unique IDs *per lib*, but then later they get flattened into one big ID space.
                         let mut offset = 0;
                         for i in 0..lib_id {
-                            offset += self.statics.dylib_to_funcs2[&i].len();
+                            offset += self.statics.dylib_to_funcs[&i].len();
                         }
 
                         let func_id =
-                            offset + self.statics.dylib_to_funcs2[&lib_id].get_id(&symbol) as usize;
+                            offset + self.statics.dylib_to_funcs[&lib_id].get_id(&symbol) as usize;
                         self.emit(st, Instr::CallExtern(func_id));
                     }
                     BytecodeResolution::InterfaceMethod {
@@ -643,7 +631,6 @@ impl Translator {
                             .unwrap()
                             .clone();
 
-                        // TODO: simplify this logic
                         for imp in impl_list {
                             for f in &imp.methods {
                                 if f.name.v == *method_name {
@@ -823,7 +810,7 @@ impl Translator {
                 self.emit(st, Line::Label(then_label));
                 self.translate_expr(then_block.clone(), offset_table, monomorph_env.clone(), st);
                 self.emit(st, Line::Label(end_label));
-                self.emit(st, Instr::PushNil); // TODO get rid of this unnecessary overhead
+                self.emit(st, Instr::PushNil);
             }
             ExprKind::MemberAccess(accessed, field_name) => {
                 if let Some(BytecodeResolution::VariantCtor(tag, _)) = self
@@ -929,7 +916,7 @@ impl Translator {
                 }
 
                 st.lambdas.insert(
-                    expr.node(),
+                    expr.clone(),
                     LambdaData {
                         label: label.clone(),
                         offset_table: lambda_offset_table,
@@ -1008,7 +995,7 @@ impl Translator {
                         .unwrap()
                         .to_bytecode_resolution()
                     else {
-                        panic!("expected variableto be defined in node");
+                        panic!("expected variable to be defined in node");
                     };
                     let tag_fail_label = make_label("tag_fail");
                     let end_label = make_label("endvariant");
@@ -1226,7 +1213,6 @@ impl Translator {
                 self.translate_expr(expr.clone(), locals, monomorph_env.clone(), st);
                 self.handle_pat_binding(pat.0.clone(), locals, st);
 
-                // TODO: again, unnecessary overhead, and bug prone
                 if is_last {
                     self.emit(st, Instr::PushNil);
                 }
@@ -1261,7 +1247,6 @@ impl Translator {
                     }
                     _ => unimplemented!(),
                 }
-                // TODO: again, unnecessary overhead, and bug prone
                 if is_last {
                     self.emit(st, Instr::PushNil);
                 }
@@ -1272,12 +1257,10 @@ impl Translator {
                     self.emit(st, Instr::Pop);
                 }
             }
-            // TODO: should continue and break leave a Nil on the stack? Add tests for this!
             StmtKind::Break => {
                 let enclosing_loop = st.loop_stack.last().unwrap();
                 self.emit(st, Instr::Jump(enclosing_loop.end_label.clone()));
 
-                // TODO: again, unnecessary overhead, and bug prone
                 if is_last {
                     self.emit(st, Instr::PushNil);
                 }
@@ -1286,7 +1269,6 @@ impl Translator {
                 let enclosing_loop = st.loop_stack.last().unwrap();
                 self.emit(st, Instr::Jump(enclosing_loop.start_label.clone()));
 
-                // TODO: again, unnecessary overhead, and bug prone
                 if is_last {
                     self.emit(st, Instr::PushNil);
                 }

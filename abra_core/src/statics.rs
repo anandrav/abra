@@ -52,7 +52,7 @@ pub(crate) struct StaticsContext {
     pub(crate) string_constants: IdSet<String>,
     // dylibs (for bytecode translation)
     pub(crate) dylibs: IdSet<PathBuf>,
-    pub(crate) dylib_to_funcs2: HashMap<u32, IdSet<String>>,
+    pub(crate) dylib_to_funcs: HashMap<u32, IdSet<String>>,
     // host functions
     pub(crate) host_funcs: IdSet<String>,
 
@@ -79,7 +79,7 @@ impl StaticsContext {
             interface_impls: Default::default(),
             string_constants: Default::default(),
             dylibs: Default::default(),
-            dylib_to_funcs2: Default::default(),
+            dylib_to_funcs: Default::default(),
             host_funcs: Default::default(),
             unifvars: Default::default(),
             unifvars_constrained_to_interfaces: Default::default(),

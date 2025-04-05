@@ -174,7 +174,7 @@ fn gather_declarations_item(
 
                 // add symbol to statics ctx
                 let lib_id = ctx.dylibs.insert(libname.clone());
-                ctx.dylib_to_funcs2
+                ctx.dylib_to_funcs
                     .entry(lib_id)
                     .or_default()
                     .insert(symbol.clone());
