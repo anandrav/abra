@@ -158,7 +158,7 @@ impl Translator {
         }
     }
 
-    pub(crate) fn translate(&mut self) -> CompiledProgram {
+    pub(crate) fn translate(&self) -> CompiledProgram {
         let mut st = TranslatorState::default();
         {
             let st = &mut st;
@@ -954,12 +954,7 @@ impl Translator {
         }
     }
 
-    fn translate_item_static(
-        &mut self,
-        stmt: Rc<Item>,
-        st: &mut TranslatorState,
-        iface_method: bool,
-    ) {
+    fn translate_item_static(&self, stmt: Rc<Item>, st: &mut TranslatorState, iface_method: bool) {
         match &*stmt.kind {
             ItemKind::Stmt(_) => {}
             ItemKind::InterfaceImpl(iface_impl) => {
@@ -1032,7 +1027,7 @@ impl Translator {
     }
 
     fn translate_iface_method(
-        &mut self,
+        &self,
         f: &Rc<FuncDef>,
         st: &mut TranslatorState,
         iface_method: bool,
