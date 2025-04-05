@@ -3,9 +3,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use crate::assembly::{Instr, Label, Line, remove_labels};
-use crate::ast::{
-    AstNode, BinaryOperator, FuncDef, Item, ItemKind,
-};
+use crate::ast::{AstNode, BinaryOperator, FuncDef, Item, ItemKind};
 use crate::ast::{FileAst, FileDatabase, NodeId};
 use crate::builtin::Builtin;
 use crate::environment::Environment;
