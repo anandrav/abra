@@ -305,7 +305,6 @@ pub(crate) enum Prov {
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub(crate) enum Reason {
-    // TODO: get rid of Reason::Node if possible, but no rush
     Node(AstNode), // the type of an expression or statement located at NodeId
 
     Annotation(AstNode),
@@ -322,7 +321,7 @@ pub(crate) enum Reason {
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub(crate) enum ConstraintReason {
-    None, // TODO: get rid of None if possible, but no rush
+    None,
 
     BinaryOperandsMustMatch(AstNode),
     IfElseBodies,
@@ -816,7 +815,7 @@ fn tyvar_of_declaration(
                 ));
             }
             Some(TypeVar::make_nominal(
-                Reason::Node(node), // TODO: change to Reason::Declaration
+                Reason::Node(node),
                 Nominal::Enum(enum_def.clone()),
                 params,
             ))
@@ -1057,7 +1056,6 @@ fn reasons_singleton(reason: Reason) -> Reasons {
     RefCell::new(set)
 }
 
-// TODO: is Mode really necessary?
 #[derive(Debug, Clone)]
 pub(crate) enum Mode {
     Syn,
@@ -1070,12 +1068,6 @@ pub(crate) enum Mode {
     },
 }
 
-// TODO: There's a lot of calls to constrain() that should use a different function like init_typevar()
-// which will panic if the typevar is not unconstrained. init_typevar() would not take a ConstraintReason
-// because we're not constraining one type to another.
-
-// TODO: Go through each call to constrain() one-by-one to see if it should be replaced with constrain_because
-// TODO: After that, perhaps ConstraintReason::None should be removed altogether.
 pub(crate) fn constrain(ctx: &mut StaticsContext, tyvar1: TypeVar, tyvar2: TypeVar) {
     constrain_because(ctx, tyvar1, tyvar2, ConstraintReason::None)
 }
@@ -1296,8 +1288,6 @@ fn generate_constraints_item_decls(item: Rc<Item>, ctx: &mut StaticsContext) {
                         break;
                     }
                     let ty_annot = ast_type_to_typevar(ctx, method.ty.clone());
-                    // TODO: Instead of creating an empty TypeVar (node_ty) and then immediately constraining it to a
-                    // typevar created from a type annotation (ast_type_to_typevar(ty_annot)), do both in a single atomic step
                     constrain(ctx, node_ty.clone(), ty_annot.clone());
                 }
 
