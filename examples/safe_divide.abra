@@ -1,0 +1,12 @@
+
+fn divide_safe(x: int, y: int) -> maybe<int, string> {
+  if y = 0 {
+    maybe.no("divide by zero")
+  } else {
+    maybe.yes(x / y)
+  }
+}
+
+let z = divide_safe(35, 7)!
+println(z)
+
