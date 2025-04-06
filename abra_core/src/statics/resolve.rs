@@ -666,6 +666,9 @@ fn resolve_names_expr(ctx: &mut StaticsContext, symbol_table: SymbolTable, expr:
             resolve_names_expr(ctx, symbol_table.clone(), accessed.clone());
             resolve_names_expr(ctx, symbol_table.clone(), index.clone());
         }
+        ExprKind::Unwrap(expr) => {
+            resolve_names_expr(ctx, symbol_table.clone(), expr.clone());
+        }
     }
 }
 

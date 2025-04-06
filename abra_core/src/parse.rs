@@ -67,7 +67,9 @@ pub(crate) fn parse_expr_pratt(pairs: Pairs<Rule>, file_id: FileId) -> Rc<Expr> 
         .op(Op::infix(Rule::op_pow, Assoc::Left))
         .op(Op::postfix(Rule::member_access)
             | Op::postfix(Rule::index_access)
-            | Op::postfix(Rule::func_call));
+            | Op::postfix(Rule::func_call)
+            | Op::postfix(Rule::op_try)
+            | Op::postfix(Rule::op_unwrap));
     pratt
         .map_primary(|t| parse_expr_term(t, file_id))
         .map_prefix(|_op, _rhs| panic!("prefix operator encountered"))
@@ -109,6 +111,14 @@ pub(crate) fn parse_expr_pratt(pairs: Pairs<Rule>, file_id: FileId) -> Rc<Expr> 
                 Rc::new(Expr {
                     kind: Rc::new(ExprKind::FuncAp(f, args)),
                     loc: span,
+                    id: NodeId::new(),
+                })
+            }
+            Rule::op_unwrap => {
+                let loc = Location::new(file_id, op.as_span());
+                Rc::new(Expr {
+                    kind: Rc::new(ExprKind::Unwrap(lhs.clone())),
+                    loc,
                     id: NodeId::new(),
                 })
             }

@@ -66,7 +66,7 @@ let_pattern_tuple_element = _{ let_pattern }
 
 expression = {  term ~ postfix* ~ (op_binary ~ term ~ postfix* )* }
 term = _{ block_expression | func_expression | parenthesized_expression | if_else_expression | while_loop_expression | match_expression | tuple_expr | primary_expression }
-postfix = _{ index_access | member_access | func_call }
+postfix = _{ index_access | member_access | func_call | op_try | op_unwrap }
 
 index_access = { "[" ~ expression ~ "]" }
 member_access = { "." ~ identifier }
@@ -187,6 +187,10 @@ op_concat = { "&" }
 // op_not = { "not" }
 op_and = { "and" }
 op_or = { "or" }
+
+op_unwrap = { "!" }
+op_try = { "?" }
+
 // op_range_inclusive = { "..." }
 // op_range_exclusive = { "..<" }
 

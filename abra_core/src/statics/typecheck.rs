@@ -2008,6 +2008,30 @@ fn generate_constraints_expr(
 
             constrain(ctx, node_ty, elem_ty);
         }
+        ExprKind::Unwrap(expr) => {
+            let Declaration::Enum(maybe_def) =
+                ctx.root_namespace.get_declaration("prelude.maybe").unwrap()
+            else {
+                unreachable!()
+            };
+            let y_poly_decl = PolyDeclaration(maybe_def.ty_args[0].clone());
+            let (maybe_ty, substitution) = TypeVar::make_nominal_with_substitution(
+                Reason::Node(expr.node()),
+                Nominal::Enum(maybe_def),
+                ctx,
+                expr.node(),
+            );
+            let yes_ty = substitution[&y_poly_decl].clone();
+
+            generate_constraints_expr(
+                polyvar_scope.clone(),
+                Mode::Ana { expected: maybe_ty },
+                expr.clone(),
+                ctx,
+            );
+
+            constrain(ctx, node_ty, yes_ty);
+        }
     }
     let node_ty = TypeVar::from_node(ctx, expr.node());
     match mode {

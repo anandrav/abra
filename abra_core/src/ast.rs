@@ -478,6 +478,7 @@ pub(crate) enum ExprKind {
     MemberAccess(Rc<Expr>, Rc<Identifier>),
     MemberAccessInferred(Rc<Identifier>),
     IndexAccess(Rc<Expr>, Rc<Expr>),
+    Unwrap(Rc<Expr>),
 }
 
 #[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq, Hash, Copy)]

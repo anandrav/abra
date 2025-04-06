@@ -142,6 +142,9 @@ fn check_pattern_exhaustiveness_expr(statics: &mut StaticsContext, expr: &Rc<Exp
             check_pattern_exhaustiveness_expr(statics, expr);
             check_pattern_exhaustiveness_expr(statics, index);
         }
+        ExprKind::Unwrap(expr) => {
+            check_pattern_exhaustiveness_expr(statics, expr);
+        }
     }
 }
 

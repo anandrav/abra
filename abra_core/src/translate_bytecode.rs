@@ -448,6 +448,7 @@ impl Translator {
                     | ExprKind::BinOp(..)
                     | ExprKind::Tuple(..) => panic!("lhs of FuncAp not a function"),
 
+                    ExprKind::Unwrap(..) => unimplemented!(),
                     ExprKind::If(_expr, _expr1, _expr2) => unimplemented!(),
                     ExprKind::Match(_expr, _match_armss) => unimplemented!(),
                     ExprKind::Block(_stmts) => unimplemented!(),
@@ -831,6 +832,24 @@ impl Translator {
                 self.emit(st, Instr::Jump(start_label));
                 self.emit(st, Line::Label(end_label));
                 self.emit(st, Instr::PushNil);
+            }
+            ExprKind::Unwrap(expr) => {
+                self.translate_expr(expr.clone(), offset_table, monomorph_env.clone(), st);
+
+                // check if yes or no
+                self.emit(st, Instr::Deconstruct);
+                self.emit(st, Instr::PushInt(1));
+                self.emit(st, Instr::Equal);
+
+                // if no, panic
+                // if yes, inner value
+                let no_label = make_label("no");
+                let yes_label = make_label("endif");
+                self.emit(st, Instr::JumpIf(no_label.clone()));
+                self.emit(st, Instr::Jump(yes_label.clone()));
+                self.emit(st, Line::Label(no_label));
+                self.emit(st, Instr::Panic);
+                self.emit(st, Line::Label(yes_label));
             }
         }
     }
@@ -1268,6 +1287,9 @@ fn collect_locals_expr(expr: &Expr, locals: &mut HashSet<NodeId>) {
         ExprKind::IndexAccess(array, index) => {
             collect_locals_expr(array, locals);
             collect_locals_expr(index, locals);
+        }
+        ExprKind::Unwrap(expr) => {
+            collect_locals_expr(expr, locals);
         }
         ExprKind::FuncAp(func, args) => {
             collect_locals_expr(func, locals);

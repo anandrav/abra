@@ -1,4 +1,3 @@
 let x = maybe.yes("hello")
-let y = unwrap(x)
+let y = x!
 println(y)
-

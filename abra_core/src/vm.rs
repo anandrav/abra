@@ -1343,7 +1343,7 @@ impl Display for VmErrorKind {
                 write!(f, "indexed past the end of an array")
             }
             VmErrorKind::Panic(msg) => {
-                write!(f, "panic: {}", msg)
+                write!(f, "panic! `{}`", msg)
             }
             VmErrorKind::IntegerOverflowUnderflow => {
                 write!(f, "integer overflow/underflow")
