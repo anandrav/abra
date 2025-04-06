@@ -826,21 +826,7 @@ fn tyvar_of_declaration(
             ctx,
             iface_def.methods[*method as usize].node(),
         )),
-        Declaration::Enum(enum_def) => {
-            let nparams = enum_def.ty_args.len();
-            let mut params = vec![];
-            for i in 0..nparams {
-                params.push(TypeVar::fresh(
-                    ctx,
-                    Prov::InstantiateUdtParam(node.clone(), i as u8),
-                ));
-            }
-            Some(TypeVar::make_nominal(
-                Reason::Node(node),
-                Nominal::Enum(enum_def.clone()),
-                params,
-            ))
-        }
+        Declaration::Enum(enum_def) => Some(tyvar_of_enumdef(ctx, enum_def.clone(), node)),
         Declaration::EnumVariant { enum_def, variant } => {
             let (def_type, substitution) = TypeVar::make_nominal_with_substitution(
                 Reason::Node(node.clone()),
@@ -912,6 +898,18 @@ fn tyvar_of_declaration(
         }
         Declaration::Var(node) => Some(TypeVar::from_node(ctx, node.clone())),
     }
+}
+
+fn tyvar_of_enumdef(ctx: &mut StaticsContext, enum_def: Rc<EnumDef>, node: AstNode) -> TypeVar {
+    let nparams = enum_def.ty_args.len();
+    let mut params = vec![];
+    for i in 0..nparams {
+        params.push(TypeVar::fresh(
+            ctx,
+            Prov::InstantiateUdtParam(node.clone(), i as u8),
+        ));
+    }
+    TypeVar::make_nominal(Reason::Node(node), Nominal::Enum(enum_def.clone()), params)
 }
 
 pub(crate) fn ast_type_to_solved_type(
@@ -1842,6 +1840,20 @@ fn generate_constraints_expr(
 
             constrain(ctx, node_ty, ty_func);
         }
+        ExprKind::Tuple(exprs) => {
+            let tys = exprs
+                .iter()
+                .map(|expr| TypeVar::fresh(ctx, Prov::Node(expr.node())))
+                .collect();
+            constrain(
+                ctx,
+                node_ty,
+                TypeVar::make_tuple(tys, Reason::Node(expr.node())),
+            );
+            for expr in exprs {
+                generate_constraints_expr(polyvar_scope.clone(), Mode::Syn, expr.clone(), ctx);
+            }
+        }
         ExprKind::FuncAp(func, args) => {
             generate_constraints_expr(polyvar_scope.clone(), Mode::Syn, func.clone(), ctx);
             let ty_func = TypeVar::from_node(ctx, func.node());
@@ -1878,19 +1890,84 @@ fn generate_constraints_expr(
                 ConstraintReason::FuncCall(expr.node()),
             );
         }
-        ExprKind::MemberFuncAp(..) => unimplemented!(),
-        ExprKind::Tuple(exprs) => {
-            let tys = exprs
-                .iter()
-                .map(|expr| TypeVar::fresh(ctx, Prov::Node(expr.node())))
-                .collect();
-            constrain(
-                ctx,
-                node_ty,
-                TypeVar::make_tuple(tys, Reason::Node(expr.node())),
-            );
-            for expr in exprs {
+        ExprKind::MemberFuncAp(expr, fname, args) => {
+            // check if expr.fname is a qualified enum variant
+            // example: list.cons(5, nil)
+            //          ^^^^^^^^^
+            if let Some(ref decl @ Declaration::EnumVariant { ref enum_def, .. }) =
+                ctx.resolution_map.get(&fname.id).cloned()
+            {
+                let tyvar_from_enum = tyvar_of_enumdef(ctx, enum_def.clone(), expr.node());
+                let typ = tyvar_from_enum.instantiate(polyvar_scope, ctx, expr.node());
+                constrain(ctx, node_ty, typ);
+
+                let ty_fname = TypeVar::from_node(ctx, fname.node());
+                let ty_of_decl = tyvar_of_declaration(ctx, decl, expr.node()).unwrap();
+                constrain(ctx, ty_fname, ty_of_decl);
+            } else {
                 generate_constraints_expr(polyvar_scope.clone(), Mode::Syn, expr.clone(), ctx);
+
+                // check if this is a type with a member function
+                // example: arr.push(6)
+                //          ^^^^^^^^type is `array`, member function is `push`
+                if let Some(SolvedType::Nominal(Nominal::Array, _)) =
+                    TypeVar::from_node(ctx, expr.node()).solution()
+                {
+                    // arguments
+                    let tys_args: Vec<TypeVar> = args
+                        .iter()
+                        .enumerate()
+                        .map(|(n, arg)| {
+                            let unknown = TypeVar::fresh(ctx, Prov::FuncArg(fname.node(), n as u8));
+                            generate_constraints_expr(
+                                polyvar_scope.clone(),
+                                Mode::Ana {
+                                    expected: unknown.clone(),
+                                },
+                                arg.clone(),
+                                ctx,
+                            );
+                            unknown
+                        })
+                        .collect();
+
+                    match fname.v.as_str() {
+                        "len" => {
+                            ctx.resolution_map
+                                .insert(fname.id, Declaration::Builtin(Builtin::ArrayLength));
+
+                            let ty_body: TypeVar = TypeVar::make_int(Reason::Node(fname.node()));
+
+                            let ty_fname = TypeVar::from_node(ctx, fname.node());
+                            let ty_func = TypeVar::make_func(
+                                vec![],
+                                ty_body.clone(),
+                                Reason::Node(fname.node()),
+                            );
+                            constrain(ctx, ty_fname, ty_func.clone());
+
+                            let ty_args_and_body =
+                                TypeVar::make_func(tys_args, node_ty, Reason::Node(expr.node()));
+
+                            constrain(ctx, ty_func, ty_args_and_body);
+                        }
+                        "push" => {
+                            todo!()
+                        }
+                        "pop" => {
+                            todo!()
+                        }
+                        _ => ctx
+                            .errors
+                            .push(Error::UnresolvedIdentifier { node: fname.node() }),
+                    }
+                } else {
+                    // TODO: if type is not array but it is solved this code path is hit which does not make sense
+                    ctx.errors
+                        .push(Error::MemberAccessNeedsAnnotation { node: fname.node() });
+
+                    node_ty.set_flag_missing_info();
+                }
             }
         }
         /*
@@ -2481,7 +2558,7 @@ impl Display for TypeVar {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let types = self.0.clone_data().types;
         match types.len() {
-            0 => write!(f, "?{{}}"),
+            0 => write!(f, "_"),
             1 => write!(f, "{}", types.values().next().unwrap()),
             _ => {
                 write!(f, "!{{")?;
