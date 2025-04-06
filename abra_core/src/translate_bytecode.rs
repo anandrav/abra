@@ -197,8 +197,8 @@ impl Translator {
                     self.emit(st, Instr::PushNil);
                 }
                 let mut offset_table = OffsetTable::default();
-                for (i, local) in locals.iter().enumerate() {
-                    offset_table.entry(*local).or_insert((i) as i32);
+                for (offset, node_id) in locals.iter().enumerate() {
+                    offset_table.entry(*node_id).or_insert((offset) as i32);
                 }
                 for (i, item) in file.items.iter().enumerate() {
                     if let ItemKind::Stmt(stmt) = &*item.kind {
@@ -1185,11 +1185,8 @@ impl Translator {
     }
 
     fn handle_pat_binding(&self, pat: Rc<Pat>, locals: &OffsetTable, st: &mut TranslatorState) {
-        let _ = self; // avoid warning
-
         match &*pat.kind {
             PatKind::Binding(_) => {
-                // self.display_node(pat.id);
                 let idx = locals.get(&pat.id).unwrap();
                 self.emit(st, Instr::StoreOffset(*idx));
             }
@@ -1295,8 +1292,9 @@ fn collect_locals_stmt(statements: &[Rc<Stmt>], locals: &mut HashSet<NodeId>) {
             StmtKind::Expr(expr) => {
                 collect_locals_expr(expr, locals);
             }
-            StmtKind::Let(_, pat, _) => {
+            StmtKind::Let(_, pat, expr) => {
                 collect_locals_pat(pat.0.clone(), locals);
+                collect_locals_expr(expr, locals);
             }
             StmtKind::Set(..) | StmtKind::Continue | StmtKind::Break => {}
             StmtKind::Return(expr) => {
