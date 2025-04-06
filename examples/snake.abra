@@ -87,10 +87,9 @@ fn display_snake(snake: Snake) {
 
 fn update_snake(snake: Snake) {
   let body = snake.body
-  // TODO: if l is named len instead, stack overflow (need occurs check)
-  let l = len(body)
+  let len = len(body)
   
-  var i = l - 2
+  var i = len - 2
   while i >= 0 {
     body[i+1] <- body[i]
     i <- i - 1
