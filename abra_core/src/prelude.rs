@@ -47,12 +47,12 @@ type list<'a> = nil | cons of ('a, list<'a>)
 
 type maybe<'y,'n> = yes of ('y) | no of ('n)
 
-// fn unwrap(m: maybe<'y,'n>) -> 'y {
-//     match m {
-//         | yes(y) -> y
-//         | no(_) -> panic("could not unwrap")
-//     }
-// }
+fn unwrap(m: maybe<'y,'n>) -> 'y {
+    match m {
+        | .yes(y) -> y
+        | .no(_) -> panic("could not unwrap")
+    }
+}
 
 interface Equal {
     fn equal: ('a Equal, 'a Equal) -> bool

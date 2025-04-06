@@ -89,6 +89,7 @@ impl TypeVarData {
         if let Some(t) = self.types.get_mut(&key) {
             match &mut t_other {
                 PotentialType::Unit(other_provs)
+                | PotentialType::Never(other_provs)
                 | PotentialType::Int(other_provs)
                 | PotentialType::Float(other_provs)
                 | PotentialType::Bool(other_provs)
@@ -146,6 +147,7 @@ impl TypeVarData {
 pub(crate) enum PotentialType {
     Poly(Reasons, PolyDeclaration),
     Unit(Reasons),
+    Never(Reasons),
     Int(Reasons),
     Float(Reasons),
     Bool(Reasons),
@@ -174,6 +176,7 @@ impl From<&PolyDeclaration> for Declaration {
 pub(crate) enum SolvedType {
     Poly(Rc<Polytype>), // type name, then list of Interfaces it must match
     Unit,
+    Never,
     Int,
     Float,
     Bool,
@@ -205,6 +208,7 @@ impl SolvedType {
         match self {
             Self::Poly(..) => None,
             Self::Unit => Some(Monotype::Unit),
+            Self::Never => Some(Monotype::Never),
             Self::Int => Some(Monotype::Int),
             Self::Float => Some(Monotype::Float),
             Self::Bool => Some(Monotype::Bool),
@@ -250,6 +254,7 @@ impl SolvedType {
         match self {
             Self::Poly(polyty) => !polyty.iface_names.is_empty(),
             Self::Unit => false,
+            Self::Never => false,
             Self::Int => false,
             Self::Float => false,
             Self::Bool => false,
@@ -268,6 +273,7 @@ impl SolvedType {
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub(crate) enum Monotype {
     Unit,
+    Never,
     Int,
     Float,
     Bool,
@@ -284,6 +290,7 @@ pub(crate) enum TypeKey {
     Poly(PolyDeclaration),
     TyApp(Nominal, u8), // u8 represents the number of type params
     Unit,
+    Never,
     Int,
     Float,
     Bool,
@@ -344,6 +351,7 @@ impl PotentialType {
         match self {
             PotentialType::Poly(_, decl) => TypeKey::Poly(decl.clone()),
             PotentialType::Unit(_) => TypeKey::Unit,
+            PotentialType::Never(_) => TypeKey::Never,
             PotentialType::Int(_) => TypeKey::Int,
             PotentialType::Float(_) => TypeKey::Float,
             PotentialType::Bool(_) => TypeKey::Bool,
@@ -363,6 +371,7 @@ impl PotentialType {
             Self::Float(_) => Some(SolvedType::Float),
             Self::String(_) => Some(SolvedType::String),
             Self::Unit(_) => Some(SolvedType::Unit),
+            Self::Never(_) => Some(SolvedType::Never),
             Self::Poly(_, decl) => {
                 let polyty = &decl.0;
                 Some(SolvedType::Poly(polyty.clone()))
@@ -408,6 +417,7 @@ impl PotentialType {
         match self {
             Self::Poly(provs, _)
             | Self::Unit(provs)
+            | Self::Never(provs)
             | Self::Int(provs)
             | Self::Float(provs)
             | Self::Bool(provs)
@@ -420,6 +430,10 @@ impl PotentialType {
 
     fn make_unit(reason: Reason) -> PotentialType {
         PotentialType::Unit(reasons_singleton(reason))
+    }
+
+    fn make_never(reason: Reason) -> PotentialType {
+        PotentialType::Never(reasons_singleton(reason))
     }
 
     fn make_int(reason: Reason) -> PotentialType {
@@ -509,6 +523,7 @@ impl TypeVar {
         let ty = data.types.into_values().next().unwrap();
         let ty = match ty {
             PotentialType::Unit(_)
+            | PotentialType::Never(_)
             | PotentialType::Int(_)
             | PotentialType::Float(_)
             | PotentialType::Bool(_)
@@ -579,6 +594,7 @@ impl TypeVar {
 
             match ty {
                 PotentialType::Unit(_)
+                | PotentialType::Never(_)
                 | PotentialType::Int(_)
                 | PotentialType::Float(_)
                 | PotentialType::Bool(_)
@@ -621,6 +637,7 @@ impl TypeVar {
 
             let ty = match ty {
                 PotentialType::Unit(_)
+                | PotentialType::Never(_)
                 | PotentialType::Int(_)
                 | PotentialType::Float(_)
                 | PotentialType::Bool(_)
@@ -692,6 +709,10 @@ impl TypeVar {
 
     pub(crate) fn make_unit(reason: Reason) -> TypeVar {
         Self::singleton_solved(PotentialType::make_unit(reason))
+    }
+
+    pub(crate) fn make_never(reason: Reason) -> TypeVar {
+        Self::singleton_solved(PotentialType::make_never(reason))
     }
 
     pub(crate) fn make_int(reason: Reason) -> TypeVar {
@@ -1143,11 +1164,14 @@ fn constrain_locked_typevars(
     let (key1, potential_ty1) = tyvar1.0.clone_data().types.into_iter().next().unwrap();
     let (key2, potential_ty2) = tyvar2.0.clone_data().types.into_iter().next().unwrap();
     if key1 != key2 {
-        ctx.errors.push(Error::TypeConflict {
-            ty1: potential_ty1,
-            ty2: potential_ty2,
-            constraint_reason,
-        })
+        // `never` type does not create conflicts
+        if key1 != TypeKey::Never && key2 != TypeKey::Never {
+            ctx.errors.push(Error::TypeConflict {
+                ty1: potential_ty1,
+                ty2: potential_ty2,
+                constraint_reason,
+            })
+        }
     } else {
         match (potential_ty1, potential_ty2) {
             (PotentialType::Function(_, args1, out1), PotentialType::Function(_, args2, out2)) => {
@@ -2480,6 +2504,7 @@ impl Display for PotentialType {
                 }
             }
             PotentialType::Unit(_) => write!(f, "void"),
+            PotentialType::Never(_) => write!(f, "never"),
             PotentialType::Int(_) => write!(f, "int"),
             PotentialType::Float(_) => write!(f, "float"),
             PotentialType::Bool(_) => write!(f, "bool"),
@@ -2540,6 +2565,7 @@ impl Display for SolvedType {
                 }
             }
             SolvedType::Unit => write!(f, "void"),
+            SolvedType::Never => write!(f, "never"),
             SolvedType::Int => write!(f, "int"),
             SolvedType::Float => write!(f, "float"),
             SolvedType::Bool => write!(f, "bool"),
@@ -2587,6 +2613,7 @@ impl Display for Monotype {
                 }
             }
             Monotype::Unit => write!(f, "void"),
+            Monotype::Never => write!(f, "never"),
             Monotype::Int => write!(f, "int"),
             Monotype::Float => write!(f, "float"),
             Monotype::Bool => write!(f, "bool"),

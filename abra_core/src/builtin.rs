@@ -251,7 +251,7 @@ impl Builtin {
 
             Builtin::Panic => TypeVar::make_func(
                 vec![TypeVar::make_string(reason.clone())],
-                TypeVar::make_unit(reason.clone()),
+                TypeVar::make_never(reason.clone()),
                 reason.clone(),
             ),
 

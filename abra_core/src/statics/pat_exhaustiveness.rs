@@ -193,7 +193,7 @@ impl Matrix {
                     new_types.extend(tys.clone());
                 }
                 SolvedType::Unit => {}
-                _ => panic!("unexpected type for product constructor"),
+                _ => unreachable!(),
             },
             Constructor::Variant((enum_def, idx)) => {
                 let variant = &enum_def.variants[*idx as usize];
@@ -204,6 +204,7 @@ impl Matrix {
                     SolvedType::Unit
                 };
                 match data_ty {
+                    SolvedType::Never => unreachable!(),
                     SolvedType::Unit => {}
                     SolvedType::Poly(..)
                     | SolvedType::Bool
@@ -396,6 +397,7 @@ impl DeconstructedPat {
                 }
                 _ => panic!("unexpected constructor"),
             },
+            SolvedType::Never => unreachable!(),
         }
     }
 
@@ -831,5 +833,7 @@ fn ctors_for_ty(ty: &SolvedType) -> ConstructorSet {
             ConstructorSet::Unlistable
         }
         SolvedType::Poly(..) => ConstructorSet::Unlistable,
+
+        SolvedType::Never => unreachable!(),
     }
 }
