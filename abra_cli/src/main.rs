@@ -47,7 +47,7 @@ struct Args {
     args: Vec<String>,
 }
 
-fn main() -> anyhow::Result<()> {
+fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args = Args::parse();
 
     let mut source_files = Vec::new();
