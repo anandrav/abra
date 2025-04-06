@@ -426,6 +426,7 @@ impl Translator {
                     BinaryOperator::Mod => self.emit(st, Instr::Modulo),
                 }
             }
+            ExprKind::MemberFuncAp(..) => unimplemented!(),
             ExprKind::FuncAp(func, args) => {
                 for arg in args {
                     self.translate_expr(arg.clone(), offset_table, monomorph_env.clone(), st);
@@ -448,6 +449,7 @@ impl Translator {
                     | ExprKind::BinOp(..)
                     | ExprKind::Tuple(..) => panic!("lhs of FuncAp not a function"),
 
+                    ExprKind::MemberFuncAp(..) => unimplemented!(),
                     ExprKind::Unwrap(..) => unimplemented!(),
                     ExprKind::If(_expr, _expr1, _expr2) => unimplemented!(),
                     ExprKind::Match(_expr, _match_armss) => unimplemented!(),
@@ -1293,6 +1295,12 @@ fn collect_locals_expr(expr: &Expr, locals: &mut HashSet<NodeId>) {
         }
         ExprKind::FuncAp(func, args) => {
             collect_locals_expr(func, locals);
+            for arg in args {
+                collect_locals_expr(arg, locals);
+            }
+        }
+        ExprKind::MemberFuncAp(expr, _, args) => {
+            collect_locals_expr(expr, locals);
             for arg in args {
                 collect_locals_expr(arg, locals);
             }

@@ -593,6 +593,7 @@ fn resolve_names_expr(ctx: &mut StaticsContext, symbol_table: SymbolTable, expr:
             let symbol_table = SymbolTable::empty();
             resolve_names_func_helper(ctx, symbol_table.clone(), args, body, out_ty);
         }
+        ExprKind::MemberFuncAp(..) => unimplemented!(),
         ExprKind::FuncAp(func, args) => {
             resolve_names_expr(ctx, symbol_table.clone(), func.clone());
             for arg in args {

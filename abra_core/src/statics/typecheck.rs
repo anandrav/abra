@@ -1878,6 +1878,7 @@ fn generate_constraints_expr(
                 ConstraintReason::FuncCall(expr.node()),
             );
         }
+        ExprKind::MemberFuncAp(..) => unimplemented!(),
         ExprKind::Tuple(exprs) => {
             let tys = exprs
                 .iter()

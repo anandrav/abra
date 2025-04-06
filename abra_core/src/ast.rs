@@ -474,6 +474,7 @@ pub(crate) enum ExprKind {
     Block(Vec<Rc<Stmt>>),
     BinOp(Rc<Expr>, BinaryOperator, Rc<Expr>),
     FuncAp(Rc<Expr>, Vec<Rc<Expr>>),
+    MemberFuncAp(Rc<Expr>, Rc<Identifier>, Vec<Rc<Expr>>),
     Tuple(Vec<Rc<Expr>>),
     MemberAccess(Rc<Expr>, Rc<Identifier>),
     MemberAccessInferred(Rc<Identifier>),
