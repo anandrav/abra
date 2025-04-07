@@ -66,6 +66,7 @@ pub(crate) fn parse_expr_pratt(pairs: Pairs<Rule>, file_id: FileId) -> Rc<Expr> 
             | Op::infix(Rule::op_mod, Assoc::Left))
         .op(Op::infix(Rule::op_pow, Assoc::Left))
         .op(Op::postfix(Rule::member_access)
+            | Op::postfix(Rule::member_func_call)
             | Op::postfix(Rule::index_access)
             | Op::postfix(Rule::func_call)
             | Op::postfix(Rule::op_try)
@@ -97,6 +98,25 @@ pub(crate) fn parse_expr_pratt(pairs: Pairs<Rule>, file_id: FileId) -> Rc<Expr> 
                 Rc::new(Expr {
                     kind: Rc::new(ExprKind::MemberAccess(lhs.clone(), ident)),
                     loc,
+                    id: NodeId::new(),
+                })
+            }
+            Rule::member_func_call => {
+                let span = Location::new(file_id, op.as_span());
+                let inner: Vec<_> = op.into_inner().collect();
+                let fname = Identifier {
+                    v: inner[0].as_str().to_string(),
+                    loc: Location::new(file_id, inner[0].as_span()),
+                    id: NodeId::new(),
+                }
+                .into();
+                let mut args = vec![];
+                for p in &inner[1..] {
+                    args.push(parse_expr_pratt(Pairs::single(p.clone()), file_id));
+                }
+                Rc::new(Expr {
+                    kind: Rc::new(ExprKind::MemberFuncAp(lhs, fname, args)),
+                    loc: span,
                     id: NodeId::new(),
                 })
             }
