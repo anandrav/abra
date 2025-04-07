@@ -419,49 +419,6 @@ let xs = (1, (2, 3))
 match xs {
       (x, (y, z)) -> y
 }"#;
-    //     let src = r#"
-    // let xs = list.nil
-    // match xs {
-    //     list.cons(x, _) -> 9
-    //     list.nil -> 100
-    // }"#;
-    let program = unwrap_or_panic(compile_bytecode(
-        "main.abra",
-        MockFileProvider::single_file(src),
-    ));
-    let mut vm = Vm::new(program);
-    vm.run();
-    let top = vm.top().unwrap();
-    assert_eq!(top.get_int(&vm).unwrap(), 2);
-}
-
-#[test]
-fn match_cons_binding() {
-    let src = r#"
-let xs = list.cons(23, list.nil)
-match xs {
-      list.nil -> 100,
-      list.cons(x, _) -> x
-}"#;
-    let program = unwrap_or_panic(compile_bytecode(
-        "main.abra",
-        MockFileProvider::single_file(src),
-    ));
-    let mut vm = Vm::new(program);
-    vm.run();
-    let top = vm.top().unwrap();
-    assert_eq!(top.get_int(&vm).unwrap(), 23);
-}
-
-#[test]
-fn match_cons_binding_nested() {
-    let src = r#"
-let xs = list.cons(1, list.cons(2, list.nil))
-match xs {
-      list.nil -> 100,
-      list.cons(_, list.cons(x, list.nil)) -> x,
-      _ -> 101
-}"#;
     let program = unwrap_or_panic(compile_bytecode(
         "main.abra",
         MockFileProvider::single_file(src),
@@ -595,73 +552,6 @@ len(arr)
     vm.run();
     let top = vm.top().unwrap();
     assert_eq!(top.get_int(&vm).unwrap(), 5);
-}
-
-#[test]
-fn list_literal_head() {
-    let src = r#"
-match [| 1, 2, 3 |] {
-    list.nil -> 0,
-    list.cons(x, _) -> x
-}
-"#;
-    let program = unwrap_or_panic(compile_bytecode(
-        "main.abra",
-        MockFileProvider::single_file(src),
-    ));
-    let mut vm = Vm::new(program);
-    vm.run();
-    let top = vm.top().unwrap();
-    assert_eq!(top.get_int(&vm).unwrap(), 1);
-}
-
-#[test]
-fn list_literal_total() {
-    let src = r#"
-let xs = [| 1, 2, 3 |]
-
-fn total(xs) {
-    match xs {
-        list.cons(x, xs) -> x + total(xs),
-        list.nil -> 0
-    }
-}
-
-total(xs)
-"#;
-    let program = unwrap_or_panic(compile_bytecode(
-        "main.abra",
-        MockFileProvider::single_file(src),
-    ));
-    let mut vm = Vm::new(program);
-    vm.run();
-    let top = vm.top().unwrap();
-    assert_eq!(top.get_int(&vm).unwrap(), 6);
-}
-
-#[test]
-fn parametric_polymorphic_func() {
-    let src = r#"
-let nums = [| 1, 2, 3 |]
-let bools = [| true, false, true, true, false |]
-
-fn list_len(xs: list<'a>) {
-    match xs {
-        list.cons(_, xs) -> 1 + list_len(xs),
-        list.nil -> 0
-    }
-}
-
-list_len(nums) + list_len(bools)
-"#;
-    let program = unwrap_or_panic(compile_bytecode(
-        "main.abra",
-        MockFileProvider::single_file(src),
-    ));
-    let mut vm = Vm::new(program);
-    vm.run();
-    let top = vm.top().unwrap();
-    assert_eq!(top.get_int(&vm).unwrap(), 8);
 }
 
 #[test]

@@ -553,11 +553,6 @@ fn resolve_names_expr(ctx: &mut StaticsContext, symbol_table: SymbolTable, expr:
         | ExprKind::Float(_)
         | ExprKind::Bool(_)
         | ExprKind::Str(_) => {}
-        ExprKind::List(exprs) => {
-            for expr in exprs {
-                resolve_names_expr(ctx, symbol_table.clone(), expr.clone());
-            }
-        }
         ExprKind::Array(exprs) => {
             for expr in exprs {
                 resolve_names_expr(ctx, symbol_table.clone(), expr.clone());

@@ -43,8 +43,6 @@ implement Num for float {
     fn greater_than_or_equal(a, b) = b < a
 }
 
-type list<'a> = nil | cons of ('a, list<'a>)
-
 type maybe<'y,'n> = yes of ('y) | no of ('n)
 
 fn unwrap(m: maybe<'y,'n>) -> 'y {
@@ -79,18 +77,6 @@ implement Equal for bool {
 }
 implement Equal for string {
     fn equal(a, b) = equal_string(a, b)
-}
-
-implement Equal for list<'a Equal> {
-    fn equal(a, b) {
-        match (a, b) {
-            (list.nil, list.nil) -> true,
-            (list.cons (x, xs), list.cons (y, ys)) -> {
-                equal(x, y) and equal(xs, ys)
-            },
-            _ -> false
-        }
-    }
 }
 
 interface ToString {
@@ -175,24 +161,6 @@ implement ToString for ('a ToString, 'b ToString, 'c ToString, 'd ToString, 'e T
     fn str(p) {
         let (a, b, c, d, e, f, g, h, i, j, k, l) = p
         "(" & str(a) & ", " & str(b) & ", " & str(c) & ", " & str(d) & ", " & str(e) & ", " & str(f) & ", " & str(g) & ", " & str(h) & ", " & str(i) & ", " & str(j) & ", " & str(k) & ", " & str(l) & ")"
-    }
-}
-
-implement ToString for list<'a ToString> {
-    fn str(xs) {
-        "[| " & list_to_string_helper(xs) & " |]"
-    }
-}
-
-fn list_to_string_helper(xs: list<'a ToString>) -> string {
-    match xs {
-        list.nil -> "",
-        list.cons (x, list.nil) -> {
-            str(x)
-        },
-        list.cons (x, xs) -> {
-            str(x) & ", " & list_to_string_helper(xs)
-        }
     }
 }
 

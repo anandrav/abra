@@ -465,7 +465,6 @@ pub(crate) enum ExprKind {
     Float(String), // Float is represented as String to allow Eq and Hash
     Bool(bool),
     Str(String),
-    List(Vec<Rc<Expr>>),
     Array(Vec<Rc<Expr>>),
     AnonymousFunction(Vec<ArgMaybeAnnotated>, Option<Rc<Type>>, Rc<Expr>),
     If(Rc<Expr>, Rc<Expr>, Option<Rc<Expr>>),

@@ -1528,36 +1528,6 @@ fn generate_constraints_expr(
             );
             ctx.string_constants.insert(s.clone());
         }
-        ExprKind::List(exprs) => {
-            let elem_ty = TypeVar::fresh(ctx, Prov::ListElem(expr.node()));
-
-            let list_decl = ctx.root_namespace.get_declaration("prelude.list");
-
-            if let Some(Declaration::Enum(enum_def)) = list_decl {
-                constrain(
-                    ctx,
-                    node_ty,
-                    TypeVar::make_nominal(
-                        Reason::Node(expr.node()),
-                        Nominal::Enum(enum_def.clone()),
-                        vec![elem_ty.clone()],
-                    ),
-                );
-            } else {
-                unreachable!("prelude.list is not defined to be an Enum")
-            }
-
-            for expr in exprs {
-                generate_constraints_expr(
-                    polyvar_scope.clone(),
-                    Mode::Ana {
-                        expected: elem_ty.clone(),
-                    },
-                    expr.clone(),
-                    ctx,
-                );
-            }
-        }
         ExprKind::Array(exprs) => {
             let elem_ty = TypeVar::fresh(ctx, Prov::ListElem(expr.node()));
             constrain(

@@ -456,7 +456,6 @@ impl Translator {
                     | ExprKind::Float(_)
                     | ExprKind::Bool(_)
                     | ExprKind::Str(_)
-                    | ExprKind::List(_)
                     | ExprKind::Array(_)
                     | ExprKind::WhileLoop(..)
                     | ExprKind::BinOp(..)
@@ -536,38 +535,6 @@ impl Translator {
                     self.translate_expr(expr.clone(), offset_table, monomorph_env.clone(), st);
                 }
                 self.emit(st, Instr::Construct(exprs.len() as u16));
-            }
-            ExprKind::List(exprs) => {
-                fn translate_list(
-                    translator: &Translator,
-                    exprs: &[Rc<Expr>],
-                    offset_table: &OffsetTable,
-                    monomorph_env: MonomorphEnv,
-                    st: &mut TranslatorState,
-                ) {
-                    if exprs.is_empty() {
-                        translator.emit(st, Instr::PushNil);
-                        translator.emit(st, Instr::ConstructVariant { tag: 0 });
-                    } else {
-                        translator.translate_expr(
-                            exprs[0].clone(),
-                            offset_table,
-                            monomorph_env.clone(),
-                            st,
-                        );
-                        translate_list(
-                            translator,
-                            &exprs[1..],
-                            offset_table,
-                            monomorph_env.clone(),
-                            st,
-                        );
-                        translator.emit(st, Instr::Construct(2)); // (head, tail)
-                        translator.emit(st, Instr::ConstructVariant { tag: 1 });
-                    }
-                }
-
-                translate_list(self, exprs, offset_table, monomorph_env.clone(), st);
             }
             ExprKind::IndexAccess(array, index) => {
                 self.translate_expr(index.clone(), offset_table, monomorph_env.clone(), st);
@@ -1282,11 +1249,6 @@ fn collect_locals_expr(expr: &Expr, locals: &mut HashSet<NodeId>) {
             }
         }
         ExprKind::Array(exprs) => {
-            for expr in exprs {
-                collect_locals_expr(expr, locals);
-            }
-        }
-        ExprKind::List(exprs) => {
             for expr in exprs {
                 collect_locals_expr(expr, locals);
             }

@@ -1097,18 +1097,6 @@ pub(crate) fn parse_expr_term(pair: Pair<Rule>, file_id: FileId) -> Rc<Expr> {
             loc: span,
             id: NodeId::new(),
         }),
-        Rule::literal_list => {
-            let inner: Vec<_> = pair.into_inner().collect();
-            let mut exprs = vec![];
-            for p in inner {
-                exprs.push(parse_expr_pratt(Pairs::single(p), file_id));
-            }
-            Rc::new(Expr {
-                kind: Rc::new(ExprKind::List(exprs)),
-                loc: span,
-                id: NodeId::new(),
-            })
-        }
         Rule::literal_array => {
             let inner: Vec<_> = pair.into_inner().collect();
             let mut exprs = vec![];
