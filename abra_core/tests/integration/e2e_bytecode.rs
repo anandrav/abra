@@ -77,7 +77,7 @@ fn just_if() {
     let src = r#"
 var x = 3
 if true {
-    x <- x + x
+    x := x + x
 }
 x
 "#;
@@ -121,8 +121,8 @@ type person = {
     age: int
 }
 let x = person("Alice", 30)
-x.name <- "Bob"
-x.age <- 2 * 3 * 6
+x.name := "Bob"
+x.age := 2 * 3 * 6
 x.name
 "#;
     let program = unwrap_or_panic(compile_bytecode(
@@ -143,8 +143,8 @@ type person = {
     age: int
 }
 let x = person("Alice", 30)
-x.name <- "Bob"
-x.age <- 2 * 3 * 6
+x.name := "Bob"
+x.age := 2 * 3 * 6
 x.age
 "#;
     let program = unwrap_or_panic(compile_bytecode(
@@ -162,7 +162,7 @@ fn array_assign_and_access() {
     let src = r#"
 let arr = [ 1, 2, 3, 4 ]
 arr[2]
-arr[2] <- 33
+arr[2] := 33
 arr[2]
 "#;
     let program = unwrap_or_panic(compile_bytecode(
@@ -190,7 +190,7 @@ type Point = {
 let snake = Snake([Point(10,10)], 0)
 let body = snake.body
 let first = body[0]
-first.x <- 20
+first.x := 20
 let body = snake.body
 let first = body[0]
 first.x
@@ -218,7 +218,7 @@ type Point = {
 }
 
 let snake = Snake([Point(10,10)], 0)
-snake.body[0].x <- 20
+snake.body[0].x := 20
 snake.body[0].x
 "#;
     let program = unwrap_or_panic(compile_bytecode(
@@ -733,7 +733,7 @@ fn local_in_while_scope() {
     var x = 5
     while x > 0 {
         let tmp = x
-        x <- tmp - 1
+        x := tmp - 1
     }
     5
     "#;
@@ -753,7 +753,7 @@ fn continue_and_break() {
     var i = 0
     while true {
         if i < 10 {
-            i <- i + 1
+            i := i + 1
             continue
         }
         break
@@ -800,8 +800,8 @@ var x = 3
 while i < 10000 {
     let p = (1, 2, 3)
     let (a, b, c) = p
-    x <- a + b + c
-    i <- i + 1
+    x := a + b + c
+    i := i + 1
 }
 x
 "#;
@@ -827,8 +827,8 @@ var x = 3
 while i < 10000 {
     let p = (1, 2, 3)
     let (a, b, c) = p
-    x <- a + b + c
-    i <- i + 1
+    x := a + b + c
+    i := i + 1
 }
 x
 "#;

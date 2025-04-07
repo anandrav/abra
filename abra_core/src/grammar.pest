@@ -49,7 +49,7 @@ expression_statement = { expression }
 var_statement = { var_keyword ~ let_pattern_annotated ~ op_assign ~ expression }
 var_keyword = _{ "var" }
 
-set_statement = { expression ~ "<-" ~ expression }
+set_statement = { expression ~ ":=" ~ expression }
 
 continue_statement = { "continue" }
 break_statement = { "break" }

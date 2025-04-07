@@ -145,7 +145,7 @@ type person = {
 }
 
 let p = person(25, "Anand")
-p.age <- "25"
+p.age := "25"
 "#,
     );
 }

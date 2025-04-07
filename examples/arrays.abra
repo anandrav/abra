@@ -8,6 +8,6 @@ type Person = {
 let hobbies = ["fishing", "camping", "woodworking"]
 let p = Person("Alan", 38, hobbies)
 
-p.hobbies[0] <- "FISHING"
+p.hobbies[0] := "FISHING"
 println(p.hobbies)
 

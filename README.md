@@ -15,7 +15,7 @@ println("The first 10 fibonacci numbers are:")
 var i = 0
 while i < 10 {
   println(fib(i))
-  i <- i + 1
+  i := i + 1
 }
 ```
 

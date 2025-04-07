@@ -46,8 +46,8 @@ pub fn sum_benchmark(c: &mut Criterion) {
 let sum = 0
 var i = 0
 while i < 10000 {
-    sum <- sum + i
-    i <- i + 1
+    sum := sum + i
+    i := i + 1
 }
 sum
 "#;
@@ -93,18 +93,18 @@ let primes = []
 var i = 0
 while i < limit {
   append(primes, true)
-  i <- i + 1
+  i := i + 1
 }
 var p = 2
 while p * p < limit {
     if primes[p] {
-        i <- p * p
+        i := p * p
         while i < limit {
-            primes[i] <- false
-            i <- i + p
+            primes[i] := false
+            i := i + p
         }
     }
-    p <- p + 1
+    p := p + 1
 }
 "#;
     run_benchmark(c, "sieve_of_eratosthenes", src);
