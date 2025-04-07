@@ -78,8 +78,8 @@ else_keyword = _{ "else" }
 while_loop_expression = { while_keyword ~ expression ~ expression }
 while_keyword = _{ "while" }
 
-match_expression = { "match" ~ expression ~ "{" ~ match_branch ~ (match_branch)* ~ "}" }
-match_branch = { "|" ~ match_pattern ~ "->" ~ expression }
+match_expression = { "match" ~ expression ~ "{" ~ (match_branch ~ ",")* ~ match_branch? ~ "}" }
+match_branch = { match_pattern ~ "->" ~ expression }
 
 match_pattern = { match_pattern_parenthesized | literal | wildcard | match_pattern_tuple | match_pattern_variant_qualified | match_pattern_variant_inferred | match_pattern_variable }
 match_pattern_tuple = { tuple_start ~ (match_pattern_tuple_element ~ ",")+ ~ match_pattern_tuple_element ~ tuple_end }

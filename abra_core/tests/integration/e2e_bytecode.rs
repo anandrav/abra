@@ -236,9 +236,9 @@ fn match_int() {
     let src = r#"
 let n = 1
 match n {
-  | 0 -> 0
-  | 1 -> 1
-  | _ -> 2
+    0 -> 0,
+    1 -> 1,
+    _ -> 2
 }
 "#;
     let program = unwrap_or_panic(compile_bytecode(
@@ -256,9 +256,9 @@ fn match_int_wild() {
     let src = r#"
 let n = 42
 match n {
-  | 0 -> 0
-  | 1 -> 1
-  | _ -> 99
+    0 -> 0,
+    1 -> 1,
+    _ -> 99
 }
 "#;
     let program = unwrap_or_panic(compile_bytecode(
@@ -276,13 +276,13 @@ fn match_two_bools() {
     let src = r#"
 let b = true
 let one = match b {
-  | true -> 1
-  | false -> 2
+    true -> 1,
+    false -> 2
 }
 let b = false
 let two = match b {
-  | true -> 1
-  | false -> 2
+    true -> 1,
+    false -> 2
 }
 let sum = one + two
 sum
@@ -302,9 +302,9 @@ fn match_pair_first_case() {
     let src = r#"
 let triplet = (1, 1)
 match triplet {
-    | (1, 1) -> 100
-    | (1, 2) -> 101
-    | _ -> 102
+      (1, 1) -> 100,
+      (1, 2) -> 101,
+      _ -> 102
 }"#;
     let program = unwrap_or_panic(compile_bytecode(
         "main.abra",
@@ -321,9 +321,9 @@ fn match_pair_second_case() {
     let src = r#"
 let pair = (1, 2)
 match pair {
-    | (1, 1) -> 100
-    | (1, 2) -> 101
-    | _ -> 102
+      (1, 1) -> 100,
+      (1, 2) -> 101,
+      _ -> 102
 }"#;
     let program = unwrap_or_panic(compile_bytecode(
         "main.abra",
@@ -340,9 +340,9 @@ fn match_pair_wild() {
     let src = r#"
 let pair = (2, 1)
 match pair {
-    | (1, 1) -> 100
-    | (1, 2) -> 101
-    | _ -> 102
+      (1, 1) -> 100,
+      (1, 2) -> 101,
+      _ -> 102
 }"#;
     let program = unwrap_or_panic(compile_bytecode(
         "main.abra",
@@ -359,9 +359,9 @@ fn match_quintuple_booleans() {
     let src = r#"
 let quintuple = (true, false, true, true, false)
 match quintuple {
-    | (true, false, true, true, true) -> 100
-    | (true, false, true, true, false) -> 101
-    | _ -> 102
+      (true, false, true, true, true) -> 100,
+      (true, false, true, true, false) -> 101,
+      _ -> 102
 }"#;
     let program = unwrap_or_panic(compile_bytecode(
         "main.abra",
@@ -378,9 +378,9 @@ fn match_nested_tuple() {
     let src = r#"
 let triplet = (1, (2, 3), 4)
 match triplet {
-    | (1, (2, 88), 4) -> 100
-    | (1, (2, 3), 4) -> 101
-    | _ -> 102
+      (1, (2, 88), 4) -> 100,
+      (1, (2, 3), 4) -> 101,
+      _ -> 102
 }"#;
     let program = unwrap_or_panic(compile_bytecode(
         "main.abra",
@@ -397,7 +397,7 @@ fn pattern_tuples_binding() {
     let src = r#"
 let xs = (1, (2, 3))
 match xs {
-    | (x, (y, z)) -> y
+      (x, (y, z)) -> y
 }"#;
     //     let src = r#"
     // let xs = list.nil
@@ -420,8 +420,8 @@ fn match_cons_binding() {
     let src = r#"
 let xs = list.cons(23, list.nil)
 match xs {
-    | list.nil -> 100
-    | list.cons(x, _) -> x
+      list.nil -> 100,
+      list.cons(x, _) -> x
 }"#;
     let program = unwrap_or_panic(compile_bytecode(
         "main.abra",
@@ -438,9 +438,9 @@ fn match_cons_binding_nested() {
     let src = r#"
 let xs = list.cons(1, list.cons(2, list.nil))
 match xs {
-    | list.nil -> 100
-    | list.cons(_, list.cons(x, list.nil)) -> x
-    | _ -> 101
+      list.nil -> 100,
+      list.cons(_, list.cons(x, list.nil)) -> x,
+      _ -> 101
 }"#;
     let program = unwrap_or_panic(compile_bytecode(
         "main.abra",
@@ -457,8 +457,8 @@ fn recursive_identity_function() {
     let src = r#"
 fn r(n) {
     match n {
-        | 0 -> 0
-        | _ -> 1 + r(n-1)
+        0 -> 0,
+        _ -> 1 + r(n-1)
     }
 }
 r(2)
@@ -478,9 +478,9 @@ fn fib_naive() {
     let src = r#"
 fn fib(n) {
     match n {
-        | 0 -> 0
-        | 1 -> 1
-        | _ -> fib(n-1) + fib(n-2)
+        0 -> 0,
+        1 -> 1,
+        _ -> fib(n-1) + fib(n-2)
     }
 }
 fib(10)
@@ -581,8 +581,8 @@ len(arr)
 fn list_literal_head() {
     let src = r#"
 match [| 1, 2, 3 |] {
-  | list.nil -> 0
-  | list.cons(x, _) -> x
+    list.nil -> 0,
+    list.cons(x, _) -> x
 }
 "#;
     let program = unwrap_or_panic(compile_bytecode(
@@ -602,8 +602,8 @@ let xs = [| 1, 2, 3 |]
 
 fn total(xs) {
     match xs {
-      | list.cons(x, xs) -> x + total(xs)
-      | list.nil -> 0
+        list.cons(x, xs) -> x + total(xs),
+        list.nil -> 0
     }
 }
 
@@ -627,8 +627,8 @@ let bools = [| true, false, true, true, false |]
 
 fn list_len(xs: list<'a>) {
     match xs {
-      | list.cons(_, xs) -> 1 + list_len(xs)
-      | list.nil -> 0
+        list.cons(_, xs) -> 1 + list_len(xs),
+        list.nil -> 0
     }
 }
 
