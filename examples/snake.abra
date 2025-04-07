@@ -28,6 +28,10 @@ fn main() {
   enable_raw_mode()
   hide_cursor()
   while true {
+    clear()
+    display_snake(snake)
+    flush()
+
     let start_time = get_time()
 
     while poll_key_event() {
@@ -58,10 +62,6 @@ fn main() {
     if diff > 0.0 {
       sleep(diff)
     }
-
-    clear()
-    display_snake(snake)
-    flush()
   }
   // cleanup
   clear()
