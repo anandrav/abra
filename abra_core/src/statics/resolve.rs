@@ -149,7 +149,7 @@ fn gather_declarations_item(
                 for _ in 0..elems.len() - 1 {
                     path = path.parent().unwrap().to_owned();
                 }
-                let mut package_name = path.iter().last().unwrap().to_str().unwrap().to_string();
+                let mut package_name = path.iter().next_back().unwrap().to_str().unwrap().to_string();
                 if package_name.ends_with(".abra") {
                     package_name = package_name[..package_name.len() - ".abra".len()].to_string();
                 }
