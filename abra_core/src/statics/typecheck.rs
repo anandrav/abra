@@ -1891,6 +1891,24 @@ fn generate_constraints_expr(
             );
         }
         ExprKind::MemberFuncAp(expr, fname, args) => {
+            // arguments
+            let tys_args: Vec<TypeVar> = args
+                .iter()
+                .enumerate()
+                .map(|(n, arg)| {
+                    let unknown = TypeVar::fresh(ctx, Prov::FuncArg(fname.node(), n as u8));
+                    generate_constraints_expr(
+                        polyvar_scope.clone(),
+                        Mode::Ana {
+                            expected: unknown.clone(),
+                        },
+                        arg.clone(),
+                        ctx,
+                    );
+                    unknown
+                })
+                .collect();
+
             // check if expr.fname is a qualified enum variant
             // example: list.cons(5, nil)
             //          ^^^^^^^^^
@@ -1898,12 +1916,16 @@ fn generate_constraints_expr(
                 ctx.resolution_map.get(&fname.id).cloned()
             {
                 let tyvar_from_enum = tyvar_of_enumdef(ctx, enum_def.clone(), expr.node());
-                let typ = tyvar_from_enum.instantiate(polyvar_scope, ctx, expr.node());
-                constrain(ctx, node_ty, typ);
+                let tyvar_from_enum = tyvar_from_enum.instantiate(polyvar_scope, ctx, expr.node());
+                constrain(ctx, node_ty, tyvar_from_enum.clone());
 
                 let ty_fname = TypeVar::from_node(ctx, fname.node());
-                let ty_of_decl = tyvar_of_declaration(ctx, decl, expr.node()).unwrap();
-                constrain(ctx, ty_fname, ty_of_decl);
+                let ty_of_variant_ctor = tyvar_of_declaration(ctx, decl, expr.node()).unwrap();
+                constrain(ctx, ty_fname.clone(), ty_of_variant_ctor);
+
+                let ty_func =
+                    TypeVar::make_func(tys_args, tyvar_from_enum, Reason::Node(expr.node()));
+                constrain(ctx, ty_func, ty_fname);
             } else {
                 generate_constraints_expr(polyvar_scope.clone(), Mode::Syn, expr.clone(), ctx);
 
@@ -1913,24 +1935,6 @@ fn generate_constraints_expr(
                 if let Some(SolvedType::Nominal(Nominal::Array, _)) =
                     TypeVar::from_node(ctx, expr.node()).solution()
                 {
-                    // arguments
-                    let tys_args: Vec<TypeVar> = args
-                        .iter()
-                        .enumerate()
-                        .map(|(n, arg)| {
-                            let unknown = TypeVar::fresh(ctx, Prov::FuncArg(fname.node(), n as u8));
-                            generate_constraints_expr(
-                                polyvar_scope.clone(),
-                                Mode::Ana {
-                                    expected: unknown.clone(),
-                                },
-                                arg.clone(),
-                                ctx,
-                            );
-                            unknown
-                        })
-                        .collect();
-
                     match fname.v.as_str() {
                         "len" => {
                             ctx.resolution_map

@@ -427,7 +427,6 @@ impl Translator {
                 }
             }
             ExprKind::MemberFuncAp(_, fname, args) => {
-                println!("member func ap");
                 for arg in args {
                     self.translate_expr(arg.clone(), offset_table, monomorph_env.clone(), st);
                 }

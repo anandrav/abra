@@ -111,7 +111,7 @@ pub(crate) fn parse_expr_pratt(pairs: Pairs<Rule>, file_id: FileId) -> Rc<Expr> 
                 }
                 .into();
                 let mut args = vec![];
-                for p in inner[1].clone().into_inner() {
+                for p in &inner[1..] {
                     args.push(parse_expr_pratt(Pairs::single(p.clone()), file_id));
                 }
                 Rc::new(Expr {
