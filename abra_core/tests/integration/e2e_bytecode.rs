@@ -272,6 +272,26 @@ match n {
 }
 
 #[test]
+fn match_trailing_comma() {
+    let src = r#"
+let n = 42
+match n {
+    0 -> 0,
+    1 -> 1,
+    _ -> 99,
+}
+"#;
+    let program = unwrap_or_panic(compile_bytecode(
+        "main.abra",
+        MockFileProvider::single_file(src),
+    ));
+    let mut vm = Vm::new(program);
+    vm.run();
+    let top = vm.top().unwrap();
+    assert_eq!(top.get_int(&vm).unwrap(), 99);
+}
+
+#[test]
 fn match_two_bools() {
     let src = r#"
 let b = true
