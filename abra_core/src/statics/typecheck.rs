@@ -1787,14 +1787,22 @@ fn generate_constraints_expr(
                     arm.pat.clone(),
                     ctx,
                 );
-                generate_constraints_expr(
+                generate_constraints_stmt(
                     polyvar_scope.clone(),
                     Mode::Ana {
                         expected: node_ty.clone(),
                     },
-                    arm.expr.clone(),
+                    arm.stmt.clone(),
                     ctx,
                 );
+                if let StmtKind::Expr(..) = &*arm.stmt.kind {
+                } else {
+                    constrain(
+                        ctx,
+                        node_ty.clone(),
+                        TypeVar::make_unit(Reason::Node(expr.node())),
+                    )
+                }
             }
         }
         ExprKind::AnonymousFunction(args, out_annot, body) => {

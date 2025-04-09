@@ -506,7 +506,7 @@ pub enum BinaryOperator {
 #[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq)]
 pub(crate) struct MatchArm {
     pub(crate) pat: Rc<Pat>,
-    pub(crate) expr: Rc<Expr>,
+    pub(crate) stmt: Rc<Stmt>,
 
     pub(crate) loc: Location,
     pub(crate) id: NodeId,

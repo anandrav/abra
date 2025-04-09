@@ -1014,10 +1014,10 @@ pub(crate) fn parse_expr_term(pair: Pair<Rule>, file_id: FileId) -> Rc<Expr> {
                 let span = pair.as_span();
                 let inner: Vec<_> = pair.clone().into_inner().collect();
                 let pat = parse_match_pattern(inner[0].clone(), file_id);
-                let expr = parse_expr_pratt(Pairs::single(inner[1].clone()), file_id);
+                let stmt = parse_stmt(inner[1].clone(), file_id);
                 MatchArm {
                     pat,
-                    expr,
+                    stmt,
                     loc: Location::new(file_id, span),
                     id: NodeId::new(),
                 }

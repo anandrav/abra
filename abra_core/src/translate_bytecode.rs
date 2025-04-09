@@ -565,7 +565,13 @@ impl Translator {
 
                     self.handle_pat_binding(arm.pat.clone(), offset_table, st);
 
-                    self.translate_expr(arm.expr.clone(), offset_table, monomorph_env.clone(), st);
+                    self.translate_stmt(
+                        arm.stmt.clone(),
+                        true,
+                        offset_table,
+                        monomorph_env.clone(),
+                        st,
+                    );
                     if i != arms.len() - 1 {
                         self.emit(st, Instr::Jump(end_label.clone()));
                     }
@@ -1245,7 +1251,7 @@ fn collect_locals_expr(expr: &Expr, locals: &mut HashSet<NodeId>) {
         ExprKind::Match(_, arms) => {
             for arm in arms {
                 collect_locals_pat(arm.pat.clone(), locals);
-                collect_locals_expr(&arm.expr, locals);
+                collect_locals_stmt(&[arm.stmt.clone()], locals);
             }
         }
         ExprKind::Array(exprs) => {
