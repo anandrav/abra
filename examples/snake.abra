@@ -36,17 +36,17 @@ fn main() {
 
     while poll_key_event() {
       match get_key_event() {
-          .Left -> snake.direction := .Left,
-          .Char("a") -> snake.direction := .Left,
-          .Right -> snake.direction := .Right,
-          .Char("d") -> snake.direction := .Right,
-          .Up -> snake.direction := .Up,
-          .Char("w") -> snake.direction := .Up,
-          .Down -> snake.direction := .Down,
-          .Char("s") -> snake.direction := .Down,
-          .Char("q") -> quit := true,
-          .Esc -> quit := true,
-          _ -> {}
+        .Left -> snake.direction := .Left,
+        .Char("a") -> snake.direction := .Left,
+        .Right -> snake.direction := .Right,
+        .Char("d") -> snake.direction := .Right,
+        .Up -> snake.direction := .Up,
+        .Char("w") -> snake.direction := .Up,
+        .Down -> snake.direction := .Down,
+        .Char("s") -> snake.direction := .Down,
+        .Char("q") -> quit := true,
+        .Esc -> quit := true,
+        _ -> {}
       }
     }
 
@@ -97,10 +97,10 @@ fn update_snake(snake: Snake) {
   
   body[0] := Point(body[1].x, body[1].y)
   match snake.direction {
-      .Up -> body[0].y := body[0].y - 1,
-      .Down -> body[0].y := body[0].y + 1,
-      .Left -> body[0].x := body[0].x - 1,
-      .Right -> body[0].x := body[0].x + 1
+    .Up -> body[0].y := body[0].y - 1,
+    .Down -> body[0].y := body[0].y + 1,
+    .Left -> body[0].x := body[0].x - 1,
+    .Right -> body[0].x := body[0].x + 1
   } 
 }
 
