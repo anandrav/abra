@@ -476,7 +476,7 @@ pub(crate) enum ExprKind {
     MemberFuncAp(Rc<Expr>, Rc<Identifier>, Vec<Rc<Expr>>),
     Tuple(Vec<Rc<Expr>>),
     MemberAccess(Rc<Expr>, Rc<Identifier>),
-    MemberAccessInferred(Rc<Identifier>),
+    MemberAccessLeadingDot(Rc<Identifier>),
     IndexAccess(Rc<Expr>, Rc<Expr>),
     Unwrap(Rc<Expr>),
 }

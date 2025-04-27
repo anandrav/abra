@@ -364,7 +364,8 @@ impl Translator {
                     unreachable!()
                 }
             },
-            ExprKind::MemberAccessInferred(ident) => match self.statics.resolution_map[&ident.id] {
+            ExprKind::MemberAccessLeadingDot(ident) => match self.statics.resolution_map[&ident.id]
+            {
                 Declaration::EnumVariant { variant, .. } => {
                     self.emit(st, Instr::PushNil);
                     self.emit(st, Instr::ConstructVariant { tag: variant });
@@ -449,7 +450,7 @@ impl Translator {
                     ExprKind::MemberAccess(_prefix, ident) => {
                         &self.statics.resolution_map[&ident.id]
                     }
-                    ExprKind::MemberAccessInferred(..) => unimplemented!(),
+                    ExprKind::MemberAccessLeadingDot(..) => unimplemented!(),
 
                     ExprKind::Unit
                     | ExprKind::Int(_)
@@ -1302,7 +1303,7 @@ fn collect_locals_expr(expr: &Expr, locals: &mut HashSet<NodeId>) {
             }
         }
         ExprKind::AnonymousFunction(..)
-        | ExprKind::MemberAccessInferred(..)
+        | ExprKind::MemberAccessLeadingDot(..)
         | ExprKind::Variable(..)
         | ExprKind::Unit
         | ExprKind::Int(..)

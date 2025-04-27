@@ -1123,7 +1123,7 @@ pub(crate) fn parse_expr_term(pair: Pair<Rule>, file_id: FileId) -> Rc<Expr> {
             }
             .into();
             Rc::new(Expr {
-                kind: Rc::new(ExprKind::MemberAccessInferred(ident)),
+                kind: Rc::new(ExprKind::MemberAccessLeadingDot(ident)),
                 loc: span,
                 id: NodeId::new(),
             })

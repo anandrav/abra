@@ -1893,6 +1893,7 @@ fn generate_constraints_expr(
             if let Some(ref decl @ Declaration::EnumVariant { ref enum_def, .. }) =
                 ctx.resolution_map.get(&fname.id).cloned()
             {
+                // qualified enum variant with associated data
                 let tyvar_from_enum = tyvar_of_enumdef(ctx, enum_def.clone(), expr.node());
                 let tyvar_from_enum = tyvar_from_enum.instantiate(polyvar_scope, ctx, expr.node());
                 constrain(ctx, node_ty, tyvar_from_enum.clone());
@@ -1907,12 +1908,12 @@ fn generate_constraints_expr(
             } else {
                 generate_constraints_expr(polyvar_scope.clone(), Mode::Syn, expr.clone(), ctx);
 
-                // check if this is a type with a member function
-                // example: arr.push(6)
-                //          ^^^^^^^^type is `array`, member function is `push`
                 if let Some(SolvedType::Nominal(Nominal::Array, _)) =
                     TypeVar::from_node(ctx, expr.node()).solution()
                 {
+                    // member function call
+                    // example: arr.push(6)
+                    //          ^^^^^^^^type is `array`, member function is `push`
                     match fname.v.as_str() {
                         "len" => {
                             ctx.resolution_map
@@ -1944,7 +1945,6 @@ fn generate_constraints_expr(
                             .push(Error::UnresolvedIdentifier { node: fname.node() }),
                     }
                 } else {
-                    // TODO: if type is not array but it is solved this code path is hit which does not make sense
                     ctx.errors
                         .push(Error::MemberAccessNeedsAnnotation { node: fname.node() });
 
@@ -1962,11 +1962,13 @@ fn generate_constraints_expr(
             if let Some(ref decl @ Declaration::EnumVariant { .. }) =
                 ctx.resolution_map.get(&member_ident.id).cloned()
             {
+                // qualified enum with no associated data
                 if let Some(ty_of_declaration) = tyvar_of_declaration(ctx, decl, expr.node()) {
                     let typ = ty_of_declaration.instantiate(polyvar_scope, ctx, expr.node());
                     constrain(ctx, node_ty, typ);
                 }
             } else {
+                // struct field access
                 generate_constraints_expr(polyvar_scope, Mode::Syn, expr.clone(), ctx);
                 let ty_expr = TypeVar::from_node(ctx, expr.node());
                 if ty_expr.underdetermined() {
@@ -1994,7 +1996,7 @@ fn generate_constraints_expr(
                 }
             }
         }
-        ExprKind::MemberAccessInferred(ident) => {
+        ExprKind::MemberAccessLeadingDot(ident) => {
             let expected_ty = match mode.clone() {
                 Mode::Syn => None,
                 Mode::AnaWithReason {

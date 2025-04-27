@@ -713,7 +713,7 @@ fn resolve_names_expr(ctx: &mut StaticsContext, symbol_table: SymbolTable, expr:
                 }
             }
         }
-        ExprKind::MemberAccessInferred(_ident) => {
+        ExprKind::MemberAccessLeadingDot(_ident) => {
             // do nothing
             //
             // requires further context from typechecker to resolve field
