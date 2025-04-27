@@ -522,7 +522,7 @@ g
 }
 
 #[test]
-fn array_append() {
+fn array_append_old() {
     let src = r#"
 let arr = [1, 2, 3, 4, 5]
 append(arr, 6)
@@ -539,7 +539,24 @@ arr[5]
 }
 
 #[test]
-fn array_len() {
+fn array_append() {
+    let src = r#"
+let arr = [1, 2, 3, 4, 5]
+arr.push(6)
+arr[5]
+"#;
+    let program = unwrap_or_panic(compile_bytecode(
+        "main.abra",
+        MockFileProvider::single_file(src),
+    ));
+    let mut vm = Vm::new(program);
+    vm.run();
+    let top = vm.top().unwrap();
+    assert_eq!(top.get_int(&vm).unwrap(), 6);
+}
+
+#[test]
+fn array_len_old() {
     let src = r#"
 let arr = [1, 2, 3, 4, 5]
 len(arr)
@@ -552,6 +569,39 @@ len(arr)
     vm.run();
     let top = vm.top().unwrap();
     assert_eq!(top.get_int(&vm).unwrap(), 5);
+}
+
+#[test]
+fn array_len() {
+    let src = r#"
+let arr = [1, 2, 3, 4, 5]
+arr.len()
+"#;
+    let program = unwrap_or_panic(compile_bytecode(
+        "main.abra",
+        MockFileProvider::single_file(src),
+    ));
+    let mut vm = Vm::new(program);
+    vm.run();
+    let top = vm.top().unwrap();
+    assert_eq!(top.get_int(&vm).unwrap(), 5);
+}
+
+#[test]
+fn array_pop() {
+    let src = r#"
+let arr = [1, 2, 3, 4, 5]
+arr.pop()
+arr.len()
+"#;
+    let program = unwrap_or_panic(compile_bytecode(
+        "main.abra",
+        MockFileProvider::single_file(src),
+    ));
+    let mut vm = Vm::new(program);
+    vm.run();
+    let top = vm.top().unwrap();
+    assert_eq!(top.get_int(&vm).unwrap(), 4);
 }
 
 #[test]

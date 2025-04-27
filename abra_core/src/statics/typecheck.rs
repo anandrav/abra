@@ -1887,13 +1887,12 @@ fn generate_constraints_expr(
                 })
                 .collect();
 
-            // check if expr.fname is a qualified enum variant
-            // example: list.cons(5, nil)
-            //          ^^^^^^^^^
             if let Some(ref decl @ Declaration::EnumVariant { ref enum_def, .. }) =
                 ctx.resolution_map.get(&fname.id).cloned()
             {
-                // qualified enum variant with associated data
+                // qualified enum variant
+                // example: list.cons(5, nil)
+                //          ^^^^^^^^^
                 let tyvar_from_enum = tyvar_of_enumdef(ctx, enum_def.clone(), expr.node());
                 let tyvar_from_enum = tyvar_from_enum.instantiate(polyvar_scope, ctx, expr.node());
                 constrain(ctx, node_ty, tyvar_from_enum.clone());
@@ -1906,14 +1905,17 @@ fn generate_constraints_expr(
                     TypeVar::make_func(tys_args, tyvar_from_enum, Reason::Node(expr.node()));
                 constrain(ctx, ty_func, ty_fname);
             } else {
+                // member function call
+                // example: arr.push(6)
+                //          ^^^^^^^^type is `array`, member function is `push`
                 generate_constraints_expr(polyvar_scope.clone(), Mode::Syn, expr.clone(), ctx);
 
+                // TODO: handling of array member functions is verbose. Once member functions
+                // are supported for structs and enums, re-use that infrastructure instead of
+                // doing below
                 if let Some(SolvedType::Nominal(Nominal::Array, _)) =
                     TypeVar::from_node(ctx, expr.node()).solution()
                 {
-                    // member function call
-                    // example: arr.push(6)
-                    //          ^^^^^^^^type is `array`, member function is `push`
                     match fname.v.as_str() {
                         "len" => {
                             ctx.resolution_map
@@ -1935,16 +1937,50 @@ fn generate_constraints_expr(
                             constrain(ctx, ty_func, ty_args_and_body);
                         }
                         "push" => {
-                            todo!()
+                            // TODO: this is a lot of boilerplate to just say that push: (element: _) -> void
+                            ctx.resolution_map
+                                .insert(fname.id, Declaration::Builtin(Builtin::ArrayAppend));
+
+                            let ty_body: TypeVar = TypeVar::make_unit(Reason::Node(fname.node()));
+
+                            let ty_fname = TypeVar::from_node(ctx, fname.node());
+                            let ty_func = TypeVar::make_func(
+                                vec![TypeVar::empty()],
+                                ty_body.clone(),
+                                Reason::Node(fname.node()),
+                            );
+                            constrain(ctx, ty_fname, ty_func.clone());
+
+                            let ty_args_and_body =
+                                TypeVar::make_func(tys_args, node_ty, Reason::Node(expr.node()));
+
+                            constrain(ctx, ty_func, ty_args_and_body);
                         }
                         "pop" => {
-                            todo!()
+                            ctx.resolution_map
+                                .insert(fname.id, Declaration::Builtin(Builtin::ArrayPop));
+
+                            let ty_body: TypeVar = TypeVar::make_unit(Reason::Node(fname.node()));
+
+                            let ty_fname = TypeVar::from_node(ctx, fname.node());
+                            let ty_func = TypeVar::make_func(
+                                vec![],
+                                ty_body.clone(),
+                                Reason::Node(fname.node()),
+                            );
+                            constrain(ctx, ty_fname, ty_func.clone());
+
+                            let ty_args_and_body =
+                                TypeVar::make_func(tys_args, node_ty, Reason::Node(expr.node()));
+
+                            constrain(ctx, ty_func, ty_args_and_body);
                         }
                         _ => ctx
                             .errors
                             .push(Error::UnresolvedIdentifier { node: fname.node() }),
                     }
                 } else {
+                    // failed to resolve member function
                     ctx.errors
                         .push(Error::MemberAccessNeedsAnnotation { node: fname.node() });
 

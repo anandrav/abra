@@ -357,8 +357,8 @@ impl Translator {
                 Declaration::Struct(_)
                 | Declaration::_ForeignFunction { .. }
                 | Declaration::HostFunction(..)
-                | Declaration::InterfaceMethod { .. }
-                | Declaration::Enum { .. } => unimplemented!(),
+                | Declaration::InterfaceMethod { .. } => unimplemented!(),
+                Declaration::Enum { .. } => {}
 
                 Declaration::InterfaceDef(_) | Declaration::Array | Declaration::Polytype(_) => {
                     unreachable!()
@@ -427,7 +427,8 @@ impl Translator {
                     BinaryOperator::Mod => self.emit(st, Instr::Modulo),
                 }
             }
-            ExprKind::MemberFuncAp(_, fname, args) => {
+            ExprKind::MemberFuncAp(expr, fname, args) => {
+                self.translate_expr(expr.clone(), offset_table, monomorph_env.clone(), st);
                 for arg in args {
                     self.translate_expr(arg.clone(), offset_table, monomorph_env.clone(), st);
                 }

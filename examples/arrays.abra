@@ -11,3 +11,9 @@ let p = Person("Alan", 38, hobbies)
 p.hobbies[0] := "FISHING"
 println(p.hobbies)
 
+hobbies.push("guitar")
+println(p.hobbies)
+
+hobbies.pop()
+println(p.hobbies)
+
