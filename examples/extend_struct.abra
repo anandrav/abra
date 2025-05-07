@@ -1,0 +1,11 @@
+type Person = {
+	first_name: string
+	last_name: string
+	age: int
+}
+
+extend Person {
+	fn fullname() -> string {
+		"todo: concatenate first and last names"
+	}
+}

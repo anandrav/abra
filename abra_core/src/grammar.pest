@@ -12,7 +12,7 @@ MULTI_LINE_COMMENT = _{ "/*" ~ (!"*/" ~ ANY)* ~ "*/" }
 
 file = _{ SOI ~ file_item* ~ EOI }
 
-file_item = _{ func_def | foreign_func_decl | host_func_decl | interface_declaration | interface_implementation | enum_declaration | struct_declaration /*| typealias*/ | import | statement }
+file_item = _{ func_def | foreign_func_decl | host_func_decl | interface_declaration | interface_implementation | extension | enum_declaration | struct_declaration /*| typealias*/ | import | statement }
 
 // typealias = { "type" ~ identifier ~ "=" ~ typ}
 
@@ -25,6 +25,9 @@ interface_property = { func_keyword ~ identifier ~ type_annotation }
 
 interface_implementation = { "implement" ~ identifier ~ "for" ~ typ ~ interface_implementation_body }
 interface_implementation_body = _{ "{" ~ func_def* ~ "}" }
+
+extension = { "extend" ~ identifier ~ extension_body }
+extension_body = _{ "{" ~ func_def* ~ "}" }
 
 enum_declaration = { "type" ~ identifier ~ type_params? ~ "=" ~ ("|")? ~ variant ~ ("|" ~ variant)* }
 type_params = _{ "<" ~ (type_poly ~ ",")* ~ type_poly? ~ ">" }
