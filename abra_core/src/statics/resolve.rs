@@ -460,6 +460,8 @@ fn resolve_names_item_decl(ctx: &mut StaticsContext, symbol_table: SymbolTable, 
         ItemKind::Extension(ext) => {
             let symbol_table = symbol_table.new_scope();
             resolve_identifier(ctx, &symbol_table, &ext.typename);
+            // TODO: add polyvars from struct/enum definition to the scope first before resolving types in the member functions
+            // ex: Person<'a> may have a member function that uses an argument of type 'a
             for f in &ext.methods {
                 let symbol_table = symbol_table.new_scope();
                 for arg in &f.args {

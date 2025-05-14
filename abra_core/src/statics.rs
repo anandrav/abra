@@ -171,6 +171,7 @@ pub(crate) enum Declaration {
         enum_def: Rc<EnumDef>,
         variant: u16,
     },
+    // TODO: maybe combine Enum, Struct, and Array into "Nominal"
     Struct(Rc<StructDef>),
     Array,
     Polytype(Rc<Polytype>),

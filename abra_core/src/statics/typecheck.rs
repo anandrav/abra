@@ -1400,7 +1400,16 @@ fn generate_constraints_item_stmts(mode: Mode, stmt: Rc<Item>, ctx: &mut Statics
                 }
             }
         }
-        ItemKind::Extension(..) => {}
+        ItemKind::Extension(ext) => {
+            let lookup = ctx.resolution_map.get(&ext.typename.id).cloned();
+            if let Some(Declaration::Struct(struct_def)) = &lookup {
+                for f in &ext.methods {
+                    // TODO: add polyvars from struct/enum definition to the scope first.
+                    generate_constraints_fn_def(ctx, PolyvarScope::empty(), f, f.name.node());
+                }
+            }
+            todo!("solve type of member function here (if possible) (report errors if necessary)");
+        }
         ItemKind::TypeDef(_) => {}
         ItemKind::FuncDef(f) => {
             generate_constraints_fn_def(ctx, PolyvarScope::empty(), f, f.name.node());
