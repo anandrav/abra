@@ -47,6 +47,8 @@ pub(crate) struct StaticsContext {
 
     // map from interface name to list of its implementations
     pub(crate) interface_impls: HashMap<Rc<InterfaceDecl>, Vec<Rc<InterfaceImpl>>>,
+    // map from type definition to linked member functions
+    pub(crate) member_functions: HashMap<NodeId, HashMap<String, Rc<FuncDef>>>,
 
     // string constants (for bytecode translation)
     pub(crate) string_constants: IdSet<String>,
@@ -77,6 +79,7 @@ impl StaticsContext {
             loop_stack: Default::default(),
             func_ret_stack: Default::default(),
             interface_impls: Default::default(),
+            member_functions: Default::default(),
             string_constants: Default::default(),
             dylibs: Default::default(),
             dylib_to_funcs: Default::default(),
@@ -160,6 +163,9 @@ pub(crate) enum Declaration {
         method: u16,
         fully_qualified_name: String,
     },
+    MemberFunction {
+        func: Rc<FuncDef>,
+    },
     Enum(Rc<EnumDef>),
     EnumVariant {
         enum_def: Rc<EnumDef>,
@@ -201,6 +207,10 @@ pub(crate) enum Error {
     MemberAccessMustBeStructOrEnum {
         node: AstNode,
         ty: SolvedType,
+    },
+    MustExtendStructOrEnum {
+        node: AstNode,
+        name: String,
     },
     UnqualifiedEnumNeedsAnnotation {
         node: AstNode,
@@ -453,6 +463,14 @@ impl Error {
                 let (file, range) = node.get_file_and_range();
                 labels.push(Label::secondary(file, range));
             }
+            Error::MustExtendStructOrEnum { node, name } => {
+                diagnostic = diagnostic.with_message(format!(
+                    "Can't extend a type which isn't a struct or enum: `{}`",
+                    name
+                ));
+                let (file, range) = node.get_file_and_range();
+                labels.push(Label::secondary(file, range));
+            }
             Error::UnqualifiedEnumNeedsAnnotation { node } => {
                 diagnostic = diagnostic.with_message(
                     "Can't infer which enum this variant belongs to. Try adding an annotation.",
@@ -587,6 +605,7 @@ fn add_detail_for_decl(
     decl: &Declaration,
     message: &str,
 ) {
+    // TODO: this is hacky
     if add_detail_for_decl_node(ctx, labels, decl, message) {
         return;
     }
@@ -596,6 +615,7 @@ fn add_detail_for_decl(
         | Declaration::_ForeignFunction { .. }
         | Declaration::InterfaceDef(..)
         | Declaration::InterfaceMethod { .. }
+        | Declaration::MemberFunction { .. }
         | Declaration::Enum(_)
         | Declaration::EnumVariant { .. }
         | Declaration::Struct(..)
@@ -623,6 +643,7 @@ fn add_detail_for_decl_node(
         Declaration::_ForeignFunction { decl, .. } => decl.name.node(),
         Declaration::InterfaceDef(interface_decl) => interface_decl.name.node(),
         Declaration::InterfaceMethod { iface_def, .. } => iface_def.name.node(),
+        Declaration::MemberFunction { func } => func.name.node(),
         Declaration::Enum(enum_def) => enum_def.name.node(),
         Declaration::EnumVariant { enum_def, variant } => {
             enum_def.variants[*variant as usize].node()

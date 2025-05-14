@@ -87,7 +87,9 @@ fn gather_declarations_item(
             }
         }
         ItemKind::InterfaceImpl(_) => {}
-        ItemKind::Extension(_) => {}
+        ItemKind::Extension(_) => {
+            // defer gathering declarations of member functions until declarations are gathered for type definitions
+        }
         ItemKind::TypeDef(typdefkind) => match &**typdefkind {
             // TypeDefKind::Alias(_ident, _) => {
             //     // At this stage, since we're just gathering declarations,
@@ -455,7 +457,62 @@ fn resolve_names_item_decl(ctx: &mut StaticsContext, symbol_table: SymbolTable, 
                 }
             }
         }
-        ItemKind::Extension(..) => {}
+        ItemKind::Extension(ext) => {
+            let symbol_table = symbol_table.new_scope();
+            resolve_identifier(ctx, &symbol_table, &ext.typename);
+            for f in &ext.methods {
+                let symbol_table = symbol_table.new_scope();
+                for arg in &f.args {
+                    resolve_names_fn_arg(symbol_table.clone(), &arg.0);
+                    if let Some(annot) = &arg.1 {
+                        resolve_names_typ(ctx, symbol_table.clone(), annot.clone(), true);
+                    }
+                }
+                resolve_names_expr(ctx, symbol_table.clone(), f.body.clone());
+                if let Some(ret_type) = &f.ret_type {
+                    resolve_names_typ(ctx, symbol_table, ret_type.clone(), true);
+                }
+            }
+
+            // In this pass, we also gather the declarations of member functions
+            // We don't gather declarations of member functions in the same pass as gathering type definitions, because
+            // the former depends on the latter
+            if let Some(decl) = ctx.resolution_map.get(&ext.typename.id) {
+                match decl {
+                    Declaration::Struct(struct_def) => {
+                        for f in &ext.methods {
+                            match ctx
+                                .member_functions
+                                .entry(struct_def.id)
+                                .or_default()
+                                .entry(f.name.v.clone())
+                            {
+                                std::collections::hash_map::Entry::Occupied(occupied_entry) => {
+                                    ctx.errors.push(Error::NameClash {
+                                        name: f.name.v.clone(),
+                                        original: Declaration::FreeFunction(
+                                            occupied_entry.get().clone(),                // gross
+                                            occupied_entry.get().clone().name.v.clone(), // more gross
+                                        ), // TODO: this is a hack. change Error::NameClash to not require a Declaration or something?
+                                        new: Declaration::FreeFunction(f.clone(), f.name.v.clone()),
+                                    })
+                                }
+                                std::collections::hash_map::Entry::Vacant(vacant_entry) => {
+                                    vacant_entry.insert(f.clone());
+                                }
+                            }
+                        }
+                    }
+                    Declaration::Enum(_) => {
+                        todo!();
+                    }
+                    _ => ctx.errors.push(Error::MustExtendStructOrEnum {
+                        node: ext.typename.node(),
+                        name: ext.typename.v.clone(),
+                    }),
+                }
+            }
+        }
         ItemKind::Import(..) => {}
         ItemKind::TypeDef(tydef) => match &**tydef {
             TypeDefKind::Enum(enum_def) => {
@@ -618,6 +675,7 @@ fn resolve_names_expr(ctx: &mut StaticsContext, symbol_table: SymbolTable, expr:
                     | Declaration::HostFunction(..)
                     | Declaration::_ForeignFunction { .. }
                     | Declaration::InterfaceMethod { .. }
+                    | Declaration::MemberFunction { .. }
                     | Declaration::EnumVariant { .. }
                     | Declaration::Polytype(_)
                     | Declaration::Builtin(_)
@@ -675,6 +733,7 @@ fn resolve_names_expr(ctx: &mut StaticsContext, symbol_table: SymbolTable, expr:
                     | Declaration::HostFunction(..)
                     | Declaration::_ForeignFunction { .. }
                     | Declaration::InterfaceMethod { .. }
+                    | Declaration::MemberFunction { .. }
                     | Declaration::EnumVariant { .. }
                     | Declaration::Polytype(_)
                     | Declaration::Builtin(_)

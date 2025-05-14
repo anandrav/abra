@@ -357,7 +357,8 @@ impl Translator {
                 Declaration::Struct(_)
                 | Declaration::_ForeignFunction { .. }
                 | Declaration::HostFunction(..)
-                | Declaration::InterfaceMethod { .. } => unimplemented!(),
+                | Declaration::InterfaceMethod { .. }
+                | Declaration::MemberFunction { .. } => unimplemented!(),
                 Declaration::Enum { .. } => {}
 
                 Declaration::InterfaceDef(_) | Declaration::Array | Declaration::Polytype(_) => {
@@ -737,6 +738,9 @@ impl Translator {
                         }
                     }
                 }
+            }
+            Declaration::MemberFunction { func } => {
+                todo!();
             }
             Declaration::Struct(def) => {
                 self.emit(st, Instr::Construct(def.fields.len() as u16));

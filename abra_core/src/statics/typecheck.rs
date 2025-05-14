@@ -826,6 +826,7 @@ fn tyvar_of_declaration(
             ctx,
             iface_def.methods[*method as usize].node(),
         )),
+        Declaration::MemberFunction { func } => Some(TypeVar::from_node(ctx, func.name.node())),
         Declaration::Enum(enum_def) => Some(tyvar_of_enumdef(ctx, enum_def.clone(), node)),
         Declaration::EnumVariant { enum_def, variant } => {
             let (def_type, substitution) = TypeVar::make_nominal_with_substitution(
@@ -1915,10 +1916,21 @@ fn generate_constraints_expr(
                 // TODO: handling of array member functions is verbose. Once member functions
                 // are supported for structs and enums, re-use that infrastructure instead of
                 // doing below
-                if let Some(solution) = TypeVar::from_node(ctx, expr.node()).solution() {
-                    match solution {
+                let mut failed_to_resolve_member_function = |ctx: &mut StaticsContext, ty| {
+                    // failed to resolve member function
+                    ctx.errors.push(Error::MemberAccessMustBeStructOrEnum {
+                        node: fname.node(),
+                        ty,
+                    });
+
+                    node_ty.set_flag_missing_info();
+                };
+                if let Some(solved_ty) = TypeVar::from_node(ctx, expr.node()).solution() {
+                    match &solved_ty {
                         SolvedType::Nominal(Nominal::Array, _) => match fname.v.as_str() {
                             "len" => {
+                                // TODO: duplicated
+                                // TODO: this is a lot of boilerplate to just say that push: (element: _) -> void
                                 ctx.resolution_map
                                     .insert(fname.id, Declaration::Builtin(Builtin::ArrayLength));
 
@@ -1942,7 +1954,6 @@ fn generate_constraints_expr(
                                 constrain(ctx, ty_func, ty_args_and_body);
                             }
                             "push" => {
-                                // TODO: this is a lot of boilerplate to just say that push: (element: _) -> void
                                 ctx.resolution_map
                                     .insert(fname.id, Declaration::Builtin(Builtin::ArrayAppend));
 
@@ -1993,17 +2004,47 @@ fn generate_constraints_expr(
                                 .push(Error::UnresolvedIdentifier { node: fname.node() }),
                         },
                         SolvedType::Nominal(Nominal::Struct(struct_def), _) => {
+                            if let Some(func) = ctx
+                                .member_functions
+                                .get(&struct_def.id)
+                                .and_then(|m| m.get(&fname.v))
+                            {
+                                // TODO: duplicated
+                                // TODO: this is a lot of boilerplate
+                                ctx.resolution_map.insert(
+                                    fname.id,
+                                    Declaration::MemberFunction { func: func.clone() },
+                                );
+
+                                todo!();
+
+                                // let ty_body: TypeVar =
+                                //     TypeVar::make_int(Reason::Node(fname.node()));
+
+                                // let ty_fname = TypeVar::from_node(ctx, fname.node());
+                                // let ty_func = TypeVar::make_func(
+                                //     vec![],
+                                //     ty_body.clone(),
+                                //     Reason::Node(fname.node()),
+                                // );
+                                // constrain(ctx, ty_fname, ty_func.clone());
+
+                                // let ty_args_and_body = TypeVar::make_func(
+                                //     tys_args,
+                                //     node_ty,
+                                //     Reason::Node(expr.node()),
+                                // );
+
+                                // constrain(ctx, ty_func, ty_args_and_body);
+                            } else {
+                                failed_to_resolve_member_function(ctx, solved_ty);
+                            }
+                        }
+                        SolvedType::Nominal(Nominal::Enum(enum_def), _) => {
                             todo!()
                         }
-                        SolvedType::Nominal(Nominal::Enum(enum_def), _) => todo!(),
-                        ty => {
-                            // failed to resolve member function
-                            ctx.errors.push(Error::MemberAccessMustBeStructOrEnum {
-                                node: fname.node(),
-                                ty,
-                            });
-
-                            node_ty.set_flag_missing_info();
+                        _ => {
+                            failed_to_resolve_member_function(ctx, solved_ty);
                         }
                     }
                 } else {

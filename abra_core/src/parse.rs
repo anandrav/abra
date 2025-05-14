@@ -760,7 +760,7 @@ pub(crate) fn parse_item(pair: Pair<Rule>, file_id: FileId) -> Rc<Item> {
             Rc::new(Item {
                 kind: ItemKind::Extension(
                     Extension {
-                        typ: Identifier {
+                        typename: Identifier {
                             v: name,
                             loc: name_span,
                             id: NodeId::new(),
