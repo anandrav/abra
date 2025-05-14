@@ -1318,7 +1318,7 @@ fn generate_constraints_item_decls(item: Rc<Item>, ctx: &mut StaticsContext) {
                 impl_list.push(iface_impl.clone());
             }
         }
-        ItemKind::Extension(..) => unimplemented!(),
+        ItemKind::Extension(..) => {}
         ItemKind::TypeDef(typdefkind) => match &**typdefkind {
             // TypeDefKind::Alias(ident, ty) => {
             //     let left = TypeVar::fresh(ctx, Prov::Alias(ident.clone()));
@@ -1399,7 +1399,7 @@ fn generate_constraints_item_stmts(mode: Mode, stmt: Rc<Item>, ctx: &mut Statics
                 }
             }
         }
-        ItemKind::Extension(..) => unimplemented!(),
+        ItemKind::Extension(..) => {}
         ItemKind::TypeDef(_) => {}
         ItemKind::FuncDef(f) => {
             generate_constraints_fn_def(ctx, PolyvarScope::empty(), f, f.name.node());
@@ -1915,71 +1915,96 @@ fn generate_constraints_expr(
                 // TODO: handling of array member functions is verbose. Once member functions
                 // are supported for structs and enums, re-use that infrastructure instead of
                 // doing below
-                if let Some(SolvedType::Nominal(Nominal::Array, _)) =
-                    TypeVar::from_node(ctx, expr.node()).solution()
-                {
-                    match fname.v.as_str() {
-                        "len" => {
-                            ctx.resolution_map
-                                .insert(fname.id, Declaration::Builtin(Builtin::ArrayLength));
+                if let Some(solution) = TypeVar::from_node(ctx, expr.node()).solution() {
+                    match solution {
+                        SolvedType::Nominal(Nominal::Array, _) => match fname.v.as_str() {
+                            "len" => {
+                                ctx.resolution_map
+                                    .insert(fname.id, Declaration::Builtin(Builtin::ArrayLength));
 
-                            let ty_body: TypeVar = TypeVar::make_int(Reason::Node(fname.node()));
+                                let ty_body: TypeVar =
+                                    TypeVar::make_int(Reason::Node(fname.node()));
 
-                            let ty_fname = TypeVar::from_node(ctx, fname.node());
-                            let ty_func = TypeVar::make_func(
-                                vec![],
-                                ty_body.clone(),
-                                Reason::Node(fname.node()),
-                            );
-                            constrain(ctx, ty_fname, ty_func.clone());
+                                let ty_fname = TypeVar::from_node(ctx, fname.node());
+                                let ty_func = TypeVar::make_func(
+                                    vec![],
+                                    ty_body.clone(),
+                                    Reason::Node(fname.node()),
+                                );
+                                constrain(ctx, ty_fname, ty_func.clone());
 
-                            let ty_args_and_body =
-                                TypeVar::make_func(tys_args, node_ty, Reason::Node(expr.node()));
+                                let ty_args_and_body = TypeVar::make_func(
+                                    tys_args,
+                                    node_ty,
+                                    Reason::Node(expr.node()),
+                                );
 
-                            constrain(ctx, ty_func, ty_args_and_body);
+                                constrain(ctx, ty_func, ty_args_and_body);
+                            }
+                            "push" => {
+                                // TODO: this is a lot of boilerplate to just say that push: (element: _) -> void
+                                ctx.resolution_map
+                                    .insert(fname.id, Declaration::Builtin(Builtin::ArrayAppend));
+
+                                let ty_body: TypeVar =
+                                    TypeVar::make_unit(Reason::Node(fname.node()));
+
+                                let ty_fname = TypeVar::from_node(ctx, fname.node());
+                                let ty_func = TypeVar::make_func(
+                                    vec![TypeVar::empty()],
+                                    ty_body.clone(),
+                                    Reason::Node(fname.node()),
+                                );
+                                constrain(ctx, ty_fname, ty_func.clone());
+
+                                let ty_args_and_body = TypeVar::make_func(
+                                    tys_args,
+                                    node_ty,
+                                    Reason::Node(expr.node()),
+                                );
+
+                                constrain(ctx, ty_func, ty_args_and_body);
+                            }
+                            "pop" => {
+                                ctx.resolution_map
+                                    .insert(fname.id, Declaration::Builtin(Builtin::ArrayPop));
+
+                                let ty_body: TypeVar =
+                                    TypeVar::make_unit(Reason::Node(fname.node()));
+
+                                let ty_fname = TypeVar::from_node(ctx, fname.node());
+                                let ty_func = TypeVar::make_func(
+                                    vec![],
+                                    ty_body.clone(),
+                                    Reason::Node(fname.node()),
+                                );
+                                constrain(ctx, ty_fname, ty_func.clone());
+
+                                let ty_args_and_body = TypeVar::make_func(
+                                    tys_args,
+                                    node_ty,
+                                    Reason::Node(expr.node()),
+                                );
+
+                                constrain(ctx, ty_func, ty_args_and_body);
+                            }
+                            _ => ctx
+                                .errors
+                                .push(Error::UnresolvedIdentifier { node: fname.node() }),
+                        },
+                        SolvedType::Nominal(Nominal::Struct(struct_def), _) => {
+                            todo!()
                         }
-                        "push" => {
-                            // TODO: this is a lot of boilerplate to just say that push: (element: _) -> void
-                            ctx.resolution_map
-                                .insert(fname.id, Declaration::Builtin(Builtin::ArrayAppend));
+                        SolvedType::Nominal(Nominal::Enum(enum_def), _) => todo!(),
+                        ty => {
+                            // failed to resolve member function
+                            ctx.errors.push(Error::MemberAccessMustBeStructOrEnum {
+                                node: fname.node(),
+                                ty,
+                            });
 
-                            let ty_body: TypeVar = TypeVar::make_unit(Reason::Node(fname.node()));
-
-                            let ty_fname = TypeVar::from_node(ctx, fname.node());
-                            let ty_func = TypeVar::make_func(
-                                vec![TypeVar::empty()],
-                                ty_body.clone(),
-                                Reason::Node(fname.node()),
-                            );
-                            constrain(ctx, ty_fname, ty_func.clone());
-
-                            let ty_args_and_body =
-                                TypeVar::make_func(tys_args, node_ty, Reason::Node(expr.node()));
-
-                            constrain(ctx, ty_func, ty_args_and_body);
+                            node_ty.set_flag_missing_info();
                         }
-                        "pop" => {
-                            ctx.resolution_map
-                                .insert(fname.id, Declaration::Builtin(Builtin::ArrayPop));
-
-                            let ty_body: TypeVar = TypeVar::make_unit(Reason::Node(fname.node()));
-
-                            let ty_fname = TypeVar::from_node(ctx, fname.node());
-                            let ty_func = TypeVar::make_func(
-                                vec![],
-                                ty_body.clone(),
-                                Reason::Node(fname.node()),
-                            );
-                            constrain(ctx, ty_fname, ty_func.clone());
-
-                            let ty_args_and_body =
-                                TypeVar::make_func(tys_args, node_ty, Reason::Node(expr.node()));
-
-                            constrain(ctx, ty_func, ty_args_and_body);
-                        }
-                        _ => ctx
-                            .errors
-                            .push(Error::UnresolvedIdentifier { node: fname.node() }),
                     }
                 } else {
                     // failed to resolve member function

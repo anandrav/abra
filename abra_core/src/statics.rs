@@ -198,6 +198,10 @@ pub(crate) enum Error {
     MemberAccessNeedsAnnotation {
         node: AstNode,
     },
+    MemberAccessMustBeStructOrEnum {
+        node: AstNode,
+        ty: SolvedType,
+    },
     UnqualifiedEnumNeedsAnnotation {
         node: AstNode,
     },
@@ -438,6 +442,14 @@ impl Error {
             Error::MemberAccessNeedsAnnotation { node } => {
                 diagnostic = diagnostic
                     .with_message("Can't perform member access without knowing type. Try adding a type annotation.");
+                let (file, range) = node.get_file_and_range();
+                labels.push(Label::secondary(file, range));
+            }
+            Error::MemberAccessMustBeStructOrEnum { node, ty } => {
+                diagnostic = diagnostic.with_message(format!(
+                    "Can't perform member access on type which isn't a struct or enum: `{}`",
+                    ty
+                ));
                 let (file, range) = node.get_file_and_range();
                 labels.push(Label::secondary(file, range));
             }

@@ -9,3 +9,7 @@ extend Person {
 		"todo: concatenate first and last names"
 	}
 }
+
+let p: Person = Person("Anand", "Dukkipati", 26)
+p.fullname()
+

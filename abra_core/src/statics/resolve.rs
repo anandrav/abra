@@ -87,7 +87,7 @@ fn gather_declarations_item(
             }
         }
         ItemKind::InterfaceImpl(_) => {}
-        ItemKind::Extension(..) => unimplemented!(),
+        ItemKind::Extension(_) => {}
         ItemKind::TypeDef(typdefkind) => match &**typdefkind {
             // TypeDefKind::Alias(_ident, _) => {
             //     // At this stage, since we're just gathering declarations,
@@ -455,7 +455,7 @@ fn resolve_names_item_decl(ctx: &mut StaticsContext, symbol_table: SymbolTable, 
                 }
             }
         }
-        ItemKind::Extension(..) => unimplemented!(),
+        ItemKind::Extension(..) => {}
         ItemKind::Import(..) => {}
         ItemKind::TypeDef(tydef) => match &**tydef {
             TypeDefKind::Enum(enum_def) => {
