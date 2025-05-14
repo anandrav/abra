@@ -2016,7 +2016,9 @@ fn generate_constraints_expr(
                                     Declaration::MemberFunction { func: func.clone() },
                                 );
 
-                                todo!();
+                                todo!(
+                                    "typecheck the member function. Try to re-use code from typechecking free functions and/or interface methods"
+                                );
 
                                 // let ty_body: TypeVar =
                                 //     TypeVar::make_int(Reason::Node(fname.node()));
