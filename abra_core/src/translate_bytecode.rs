@@ -986,7 +986,7 @@ impl Translator {
                     self.translate_iface_method(f, st, true);
                 }
             }
-
+            ItemKind::Extension(..) => unimplemented!(),
             ItemKind::FuncDef(f) => {
                 // (this could be an overloaded function or an interface method)
                 let func_ty = self.statics.solution_of_node(f.name.node()).unwrap();

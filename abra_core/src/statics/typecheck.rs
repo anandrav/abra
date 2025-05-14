@@ -1318,6 +1318,7 @@ fn generate_constraints_item_decls(item: Rc<Item>, ctx: &mut StaticsContext) {
                 impl_list.push(iface_impl.clone());
             }
         }
+        ItemKind::Extension(..) => unimplemented!(),
         ItemKind::TypeDef(typdefkind) => match &**typdefkind {
             // TypeDefKind::Alias(ident, ty) => {
             //     let left = TypeVar::fresh(ctx, Prov::Alias(ident.clone()));
@@ -1398,6 +1399,7 @@ fn generate_constraints_item_stmts(mode: Mode, stmt: Rc<Item>, ctx: &mut Statics
                 }
             }
         }
+        ItemKind::Extension(..) => unimplemented!(),
         ItemKind::TypeDef(_) => {}
         ItemKind::FuncDef(f) => {
             generate_constraints_fn_def(ctx, PolyvarScope::empty(), f, f.name.node());

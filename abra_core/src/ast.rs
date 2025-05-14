@@ -345,6 +345,7 @@ pub(crate) enum ItemKind {
     TypeDef(Rc<TypeDefKind>),
     InterfaceDef(Rc<InterfaceDecl>),
     InterfaceImpl(Rc<InterfaceImpl>),
+    Extension(Rc<Extension>),
     Import(Rc<Identifier>),
     Stmt(Rc<Stmt>),
 }
@@ -433,6 +434,20 @@ pub(crate) struct InterfaceImpl {
 }
 
 impl std::hash::Hash for InterfaceImpl {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.id.hash(state);
+    }
+}
+
+#[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq)]
+pub(crate) struct Extension {
+    pub(crate) typ: Rc<Identifier>,
+    pub(crate) methods: Vec<Rc<FuncDef>>,
+
+    pub(crate) id: NodeId,
+}
+
+impl std::hash::Hash for Extension {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.id.hash(state);
     }

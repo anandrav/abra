@@ -12,7 +12,7 @@ use std::fmt::{self, Display};
 use std::rc::Rc;
 use utils::hash::HashSet;
 
-use super::typecheck::{Nominal, ast_type_to_solved_type};
+use super::typecheck::{ast_type_to_solved_type, Nominal};
 use super::{Declaration, EnumDef, Error, SolvedType, StaticsContext, TypeKind};
 
 pub(crate) fn check_pattern_exhaustiveness_and_usefulness(
@@ -39,6 +39,11 @@ fn check_pattern_exhaustiveness_item(statics: &mut StaticsContext, stmt: &Item) 
         ItemKind::HostFuncDecl(..) => {}
         ItemKind::InterfaceImpl(iface_impl) => {
             for f in &iface_impl.methods {
+                check_pattern_exhaustiveness_expr(statics, &f.body);
+            }
+        }
+        ItemKind::Extension(ext) => {
+            for f in &ext.methods {
                 check_pattern_exhaustiveness_expr(statics, &f.body);
             }
         }

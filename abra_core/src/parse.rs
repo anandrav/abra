@@ -4,9 +4,9 @@
 
 use std::rc::Rc;
 
+use pest::Parser;
 use pest::iterators::{Pair, Pairs};
 use pest::pratt_parser::{Assoc, Op, PrattParser};
-use pest::Parser;
 use pest_derive::Parser;
 
 use crate::ast::*;
@@ -734,6 +734,38 @@ pub(crate) fn parse_item(pair: Pair<Rule>, file_id: FileId) -> Rc<Item> {
                         }
                         .into(),
                         typ,
+                        methods: func_defs,
+
+                        id: impl_id,
+                    }
+                    .into(),
+                )
+                .into(),
+                loc: span,
+                id: impl_id,
+            })
+        }
+        Rule::extension => {
+            let name = inner[0].as_str().to_string();
+            let name_span = Location::new(file_id, inner[0].as_span());
+            let mut n = 1;
+            let mut func_defs = vec![];
+            while let Some(pair) = inner.get(n) {
+                let inner: Vec<_> = pair.clone().into_inner().collect();
+                let func_def: Rc<FuncDef> = parse_func_def(inner, file_id).into();
+                func_defs.push(func_def);
+                n += 1;
+            }
+            let impl_id = NodeId::new();
+            Rc::new(Item {
+                kind: ItemKind::Extension(
+                    Extension {
+                        typ: Identifier {
+                            v: name,
+                            loc: name_span,
+                            id: NodeId::new(),
+                        }
+                        .into(),
                         methods: func_defs,
 
                         id: impl_id,
