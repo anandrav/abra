@@ -813,7 +813,7 @@ fn tyvar_of_declaration(
 ) -> Option<TypeVar> {
     match decl {
         Declaration::FreeFunction(f) => Some(TypeVar::from_node(ctx, f.name.node())),
-        Declaration::HostFunction(f, _) => Some(TypeVar::from_node(ctx, f.name.node())),
+        Declaration::HostFunction(f) => Some(TypeVar::from_node(ctx, f.name.node())),
         Declaration::_ForeignFunction { f: decl, .. } => {
             Some(TypeVar::from_node(ctx, decl.name.node()))
         }
@@ -821,7 +821,6 @@ fn tyvar_of_declaration(
         Declaration::InterfaceMethod {
             i: iface_def,
             method,
-            fully_qualified_name: _,
         } => Some(TypeVar::from_node(
             ctx,
             iface_def.methods[*method as usize].node(),
@@ -2038,13 +2037,9 @@ fn generate_constraints_expr(
                             {
                                 // TODO: duplicated
                                 // TODO: this is a lot of boilerplate
-                                let fully_qualified_name = func.name.v.clone(); // TODO: this is NOT fully qualified!!!
                                 ctx.resolution_map.insert(
                                     fname.id,
-                                    Declaration::MemberFunction {
-                                        f: func.clone(),
-                                        name: fully_qualified_name,
-                                    },
+                                    Declaration::MemberFunction { f: func.clone() },
                                 );
 
                                 // TODO: the following is duplicated with code for Expr::FuncAp

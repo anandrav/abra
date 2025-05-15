@@ -694,7 +694,7 @@ impl Translator {
                     st,
                 );
             }
-            Declaration::HostFunction(decl, _) => {
+            Declaration::HostFunction(decl) => {
                 let idx = self.statics.host_funcs.get_id(&decl.name.v) as u16;
                 self.emit(st, Instr::HostFunc(idx));
             }
@@ -726,16 +726,15 @@ impl Translator {
             Declaration::InterfaceMethod {
                 i: iface_def,
                 method,
-                fully_qualified_name,
             } => {
                 let func_ty = self.statics.solution_of_node(func_node).unwrap();
                 let substituted_ty = subst_with_monomorphic_env(monomorph_env.clone(), func_ty);
-                let method_name = &iface_def.methods[*method as usize].name.v;
+                let method = &iface_def.methods[*method as usize].name;
                 let impl_list = self.statics.interface_impls[iface_def].clone();
 
                 for imp in impl_list {
                     for f in &imp.methods {
-                        if f.name.v == *method_name {
+                        if f.name.v == *method.v {
                             let unifvar = self
                                 .statics
                                 .unifvars
@@ -748,6 +747,8 @@ impl Translator {
                                 substituted_ty.clone(),
                                 interface_impl_ty,
                             ) {
+                                let fully_qualified_name =
+                                    &self.statics.fully_qualified_names[&method.id];
                                 self.handle_overloaded_func(
                                     st,
                                     substituted_ty.clone(),
@@ -759,7 +760,7 @@ impl Translator {
                     }
                 }
             }
-            Declaration::MemberFunction { f, name: _ } => {
+            Declaration::MemberFunction { f } => {
                 let f_fully_qualified_name = &self.statics.fully_qualified_names[&f.name.id];
                 self.translate_func_ap_helper(
                     f,
@@ -1049,21 +1050,7 @@ impl Translator {
             return;
         }
 
-        // TODO: gross lol. MAKE A BETTER WAY TO GET FULLY QUALIFIED NAMES
-        let fully_qualified_name = {
-            let res = &self.statics.resolution_map[&f.name.id]; // THIS IS JUST RESOLVING IT TO ITSELF. THIS IS FUCKING DUMB
-            if let Declaration::FreeFunction(f) = res {
-                &self.statics.fully_qualified_names[&f.name.id]
-            } else if let Declaration::MemberFunction {
-                name: fully_qualified_name,
-                ..
-            } = res
-            {
-                fully_qualified_name
-            } else {
-                panic!()
-            }
-        };
+        let fully_qualified_name = &self.statics.fully_qualified_names[&f.name.id];
 
         self.update_function_name_table(st, &f.name.v);
 

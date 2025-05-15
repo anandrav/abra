@@ -77,14 +77,13 @@ fn gather_declarations_item(
                 let fully_qualified_name = fullname(&qualifiers, &method_name);
 
                 ctx.fully_qualified_names
-                    .insert(p.name.id, p.name.v.clone());
+                    .insert(p.name.id, fully_qualified_name);
 
                 namespace.add_declaration(
                     method_name,
                     Declaration::InterfaceMethod {
                         i: iface.clone(),
                         method,
-                        fully_qualified_name,
                     },
                     ctx,
                 );
@@ -118,12 +117,20 @@ fn gather_declarations_item(
                 }
 
                 namespace.add_namespace(e.name.v.clone(), enum_namespace.into(), ctx);
+
+                let fully_qualified_name = fullname(&qualifiers, &e.name.v);
+                ctx.fully_qualified_names
+                    .insert(e.name.id, fully_qualified_name);
             }
             TypeDefKind::Struct(s) => {
                 let struct_name = s.name.v.clone();
                 namespace
                     .declarations
-                    .insert(struct_name, Declaration::Struct(s.clone()));
+                    .insert(struct_name.clone(), Declaration::Struct(s.clone()));
+
+                let fully_qualified_name = fullname(&qualifiers, &struct_name);
+                ctx.fully_qualified_names
+                    .insert(s.name.id, fully_qualified_name);
             }
         },
         ItemKind::FuncDef(f) => {
@@ -140,11 +147,11 @@ fn gather_declarations_item(
             let fully_qualified_name = fullname(&qualifiers, &func_name);
 
             ctx.fully_qualified_names
-                .insert(func_decl.name.id, func_decl.name.v.clone());
+                .insert(func_decl.name.id, fully_qualified_name);
 
             namespace.add_declaration(
                 func_name.clone(),
-                Declaration::HostFunction(func_decl.clone(), fully_qualified_name),
+                Declaration::HostFunction(func_decl.clone()),
                 ctx,
             );
 
@@ -497,10 +504,16 @@ fn resolve_names_item_decl(ctx: &mut StaticsContext, symbol_table: SymbolTable, 
             // In this pass, we also gather the declarations of member functions
             // We don't gather declarations of member functions in the same pass as gathering type definitions, because
             // the former depends on the latter
-            if let Some(decl) = ctx.resolution_map.get(&ext.typename.id) {
+            if let Some(decl) = ctx.resolution_map.get(&ext.typename.id).cloned() {
                 match decl {
                     Declaration::Struct(struct_def) => {
                         for f in &ext.methods {
+                            let fully_qualified_type_name =
+                                ctx.fully_qualified_names[&struct_def.name.id].clone();
+                            let fully_qualified_name = fully_qualified_type_name + &f.name.v;
+                            ctx.fully_qualified_names
+                                .insert(f.name.id, fully_qualified_name);
+
                             match ctx
                                 .member_functions
                                 .entry(struct_def.id)

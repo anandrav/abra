@@ -37,8 +37,10 @@ pub(crate) struct StaticsContext {
     pub(crate) root_namespace: Namespace,
     // This maps any identifier in the program to the declaration it resolves to.
     pub(crate) resolution_map: HashMap<NodeId, Declaration>,
-    // This maps some identifiers to their fully qualified name.
-    // Currently it's only used for functions so translate_bytecode can mangle the names
+
+    // This maps some identifiers to their fully qualified name (FQN).
+    // Currently it's only used for functions and types so translate_bytecode can mangle the function names
+    // FQNs of types are needed to determine the FQN of a member function
     pub(crate) fully_qualified_names: HashMap<NodeId, String>,
 
     // BOOKKEEPING
@@ -157,7 +159,7 @@ impl Display for Namespace {
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub(crate) enum Declaration {
     FreeFunction(Rc<FuncDef>),
-    HostFunction(Rc<FuncDecl>, String),
+    HostFunction(Rc<FuncDecl>),
     _ForeignFunction {
         f: Rc<FuncDecl>,
         libname: PathBuf,
@@ -167,11 +169,9 @@ pub(crate) enum Declaration {
     InterfaceMethod {
         i: Rc<InterfaceDecl>,
         method: u16,
-        fully_qualified_name: String,
     },
     MemberFunction {
         f: Rc<FuncDef>,
-        name: String,
     },
     Enum(Rc<EnumDef>),
     EnumVariant {
@@ -648,7 +648,7 @@ fn add_detail_for_decl_node(
 ) -> bool {
     let node = match decl {
         Declaration::FreeFunction(func_def) => func_def.name.node(),
-        Declaration::HostFunction(func_decl, _) => func_decl.name.node(),
+        Declaration::HostFunction(func_decl) => func_decl.name.node(),
         Declaration::_ForeignFunction { f: decl, .. } => decl.name.node(),
         Declaration::InterfaceDef(interface_decl) => interface_decl.name.node(),
         Declaration::InterfaceMethod { i: iface_def, .. } => iface_def.name.node(),
