@@ -6,6 +6,8 @@ use crate::statics::typecheck::Nominal;
 use crate::statics::typecheck::Reason;
 use crate::statics::typecheck::TypeVar;
 
+use heck::ToSnakeCase;
+use strum::AsRefStr;
 use strum::IntoEnumIterator;
 use strum::VariantArray;
 use strum_macros::EnumIter;
@@ -15,7 +17,9 @@ use strum_macros::EnumIter;
 // For instance, the user cannot implement integer addition themselves (if there were no builtins at all)
 // Another example: The user could implement sqrt(), but it's much faster to have it as a builtin
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, EnumIter, VariantArray)]
+#[derive(
+    Debug, Copy, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, EnumIter, VariantArray, AsRefStr,
+)]
 pub enum Builtin {
     AddInt,
     SubtractInt,
@@ -69,50 +73,7 @@ impl Builtin {
 
     // TODO: use derive macro from Strum for this
     pub(crate) fn name(&self) -> String {
-        match self {
-            Builtin::AddInt => "add_int".into(),
-            Builtin::SubtractInt => "subtract_int".into(),
-            Builtin::MultiplyInt => "multiply_int".into(),
-            Builtin::DivideInt => "divide_int".into(),
-            Builtin::ModuloInt => "modulo_int".into(),
-            Builtin::PowerInt => "power_int".into(),
-            Builtin::SqrtInt => "sqrt_int".into(),
-
-            Builtin::AddFloat => "add_float".into(),
-            Builtin::SubtractFloat => "subtract_float".into(),
-            Builtin::MultiplyFloat => "multiply_float".into(),
-            Builtin::DivideFloat => "divide_float".into(),
-            Builtin::ModuloFloat => "modulo_float".into(),
-            Builtin::PowerFloat => "power_float".into(),
-            Builtin::SqrtFloat => "sqrt_float".into(),
-
-            Builtin::LessThanInt => "less_than_int".into(),
-            Builtin::LessThanOrEqualInt => "less_than_or_equal_int".into(),
-            Builtin::GreaterThanInt => "greater_than_int".into(),
-            Builtin::GreaterThanOrEqualInt => "greater_than_or_equal_int".into(),
-
-            Builtin::LessThanFloat => "less_than_float".into(),
-            Builtin::LessThanOrEqualFloat => "less_than_or_equal_float".into(),
-            Builtin::GreaterThanFloat => "greater_than_float".into(),
-            Builtin::GreaterThanOrEqualFloat => "greater_than_or_equal_float".into(),
-
-            Builtin::EqualInt => "equal_int".into(),
-            Builtin::EqualFloat => "equal_float".into(),
-            Builtin::EqualString => "equal_string".into(),
-
-            Builtin::IntToString => "int_to_string".into(),
-            Builtin::FloatToString => "float_to_string".into(),
-
-            Builtin::ConcatStrings => "concat_strings".into(),
-
-            Builtin::ArrayPush => "array_append".into(),
-            Builtin::ArrayLength => "array_length".into(),
-            Builtin::ArrayPop => "array_pop".into(),
-
-            Builtin::Panic => "panic".into(),
-
-            Builtin::Newline => "newline".into(),
-        }
+        self.as_ref().to_snake_case()
     }
 
     pub(crate) fn type_signature(&self) -> TypeVar {

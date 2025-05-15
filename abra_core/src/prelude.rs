@@ -186,7 +186,7 @@ fn len(arr: array<'a>) -> int {
 }
 
 fn append(arr: array<'a>, x: 'a) -> void { 
-    array_append(arr, x)
+    array_push(arr, x)
 }
 
 fn print(x: 'a ToString) { print_string(str(x)) }
