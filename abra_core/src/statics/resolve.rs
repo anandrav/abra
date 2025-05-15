@@ -668,59 +668,10 @@ fn resolve_names_expr(ctx: &mut StaticsContext, symbol_table: SymbolTable, expr:
                 resolve_names_expr(ctx, symbol_table.clone(), arg.clone());
             }
         }
-        ExprKind::MemberFuncAp(expr, _fname, args) => {
+        ExprKind::MemberFuncAp(expr, fname, args) => {
             resolve_names_expr(ctx, symbol_table.clone(), expr.clone());
 
-            // TODO: code duplicated with MemberAccess below
-            if let Some(decl) = ctx.resolution_map.get(&expr.id).cloned() {
-                match decl {
-                    Declaration::FreeFunction(..)
-                    | Declaration::HostFunction(..)
-                    | Declaration::_ForeignFunction { .. }
-                    | Declaration::InterfaceMethod { .. }
-                    | Declaration::MemberFunction { .. }
-                    | Declaration::EnumVariant { .. }
-                    | Declaration::Polytype(_)
-                    | Declaration::Builtin(_)
-                    | Declaration::Struct(_)
-                    | Declaration::Array => {
-                        ctx.errors.push(Error::UnresolvedIdentifier {
-                            node: _fname.node(),
-                        });
-                    }
-                    Declaration::InterfaceDef(_) => unimplemented!(),
-                    Declaration::Enum(enum_def) => {
-                        let mut found = false;
-                        for (idx, variant) in enum_def.variants.iter().enumerate() {
-                            if variant.ctor.v == _fname.v {
-                                let enum_def = enum_def.clone();
-                                ctx.resolution_map.insert(
-                                    _fname.id,
-                                    Declaration::EnumVariant {
-                                        e: enum_def,
-                                        variant: idx as u16,
-                                    },
-                                );
-                                found = true;
-                            }
-                        }
-                        if !found {
-                            ctx.errors.push(Error::UnresolvedIdentifier {
-                                node: _fname.node(),
-                            });
-                        }
-                    }
-                    Declaration::Var(_) => {
-                        // do nothing
-                        //
-                        // requires further context from typechecker to resolve field
-                        //
-                        // for instance, if type of this Var is determined to be some struct, we can
-                        // attempt to resolve the field of this member access to one of the fields in the
-                        // struct's definition
-                    }
-                }
-            }
+            resolve_names_member_helper(ctx, expr.clone(), fname.clone());
 
             for arg in args {
                 resolve_names_expr(ctx, symbol_table.clone(), arg.clone());
@@ -729,54 +680,7 @@ fn resolve_names_expr(ctx: &mut StaticsContext, symbol_table: SymbolTable, expr:
         ExprKind::MemberAccess(expr, field) => {
             resolve_names_expr(ctx, symbol_table.clone(), expr.clone());
 
-            // TODO: code duplicated in MemberFuncAp above
-            if let Some(decl) = ctx.resolution_map.get(&expr.id).cloned() {
-                match decl {
-                    Declaration::FreeFunction(..)
-                    | Declaration::HostFunction(..)
-                    | Declaration::_ForeignFunction { .. }
-                    | Declaration::InterfaceMethod { .. }
-                    | Declaration::MemberFunction { .. }
-                    | Declaration::EnumVariant { .. }
-                    | Declaration::Polytype(_)
-                    | Declaration::Builtin(_)
-                    | Declaration::Struct(_)
-                    | Declaration::Array => {
-                        ctx.errors
-                            .push(Error::UnresolvedIdentifier { node: field.node() });
-                    }
-                    Declaration::InterfaceDef(_) => unimplemented!(),
-                    Declaration::Enum(enum_def) => {
-                        let mut found = false;
-                        for (idx, variant) in enum_def.variants.iter().enumerate() {
-                            if variant.ctor.v == field.v {
-                                let enum_def = enum_def.clone();
-                                ctx.resolution_map.insert(
-                                    field.id,
-                                    Declaration::EnumVariant {
-                                        e: enum_def,
-                                        variant: idx as u16,
-                                    },
-                                );
-                                found = true;
-                            }
-                        }
-                        if !found {
-                            ctx.errors
-                                .push(Error::UnresolvedIdentifier { node: field.node() });
-                        }
-                    }
-                    Declaration::Var(_) => {
-                        // do nothing
-                        //
-                        // requires further context from typechecker to resolve field
-                        //
-                        // for instance, if type of this Var is determined to be some struct, we can
-                        // attempt to resolve the field of this member access to one of the fields in the
-                        // struct's definition
-                    }
-                }
-            }
+            resolve_names_member_helper(ctx, expr.clone(), field.clone());
         }
         ExprKind::MemberAccessLeadingDot(_ident) => {
             // do nothing
@@ -793,6 +697,56 @@ fn resolve_names_expr(ctx: &mut StaticsContext, symbol_table: SymbolTable, expr:
         }
         ExprKind::Unwrap(expr) => {
             resolve_names_expr(ctx, symbol_table.clone(), expr.clone());
+        }
+    }
+}
+
+fn resolve_names_member_helper(ctx: &mut StaticsContext, expr: Rc<Expr>, field: Rc<Identifier>) {
+    if let Some(decl) = ctx.resolution_map.get(&expr.id).cloned() {
+        match decl {
+            Declaration::FreeFunction(..)
+            | Declaration::HostFunction(..)
+            | Declaration::_ForeignFunction { .. }
+            | Declaration::InterfaceMethod { .. }
+            | Declaration::MemberFunction { .. }
+            | Declaration::EnumVariant { .. }
+            | Declaration::Polytype(_)
+            | Declaration::Builtin(_)
+            | Declaration::Struct(_)
+            | Declaration::Array => {
+                ctx.errors
+                    .push(Error::UnresolvedIdentifier { node: field.node() });
+            }
+            Declaration::InterfaceDef(_) => unimplemented!(),
+            Declaration::Enum(enum_def) => {
+                let mut found = false;
+                for (idx, variant) in enum_def.variants.iter().enumerate() {
+                    if variant.ctor.v == field.v {
+                        let enum_def = enum_def.clone();
+                        ctx.resolution_map.insert(
+                            field.id,
+                            Declaration::EnumVariant {
+                                e: enum_def,
+                                variant: idx as u16,
+                            },
+                        );
+                        found = true;
+                    }
+                }
+                if !found {
+                    ctx.errors
+                        .push(Error::UnresolvedIdentifier { node: field.node() });
+                }
+            }
+            Declaration::Var(_) => {
+                // do nothing
+                //
+                // requires further context from typechecker to resolve field
+                //
+                // for instance, if type of this Var is determined to be some struct, we can
+                // attempt to resolve the field of this member access to one of the fields in the
+                // struct's definition
+            }
         }
     }
 }

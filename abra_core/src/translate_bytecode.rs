@@ -653,7 +653,7 @@ impl Translator {
         &self,
         f: &Rc<FuncDef>,
         f_fully_qualified_name: &String,
-        func_node: AstNode, // TODO: why is this argument needed to be threaded through?
+        func_node: AstNode,
         monomorph_env: MonomorphEnv,
         st: &mut TranslatorState,
     ) {
