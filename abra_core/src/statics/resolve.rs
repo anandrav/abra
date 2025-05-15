@@ -420,7 +420,7 @@ impl Namespace {
 fn resolve_names_item_decl(ctx: &mut StaticsContext, symbol_table: SymbolTable, stmt: Rc<Item>) {
     match &*stmt.kind {
         ItemKind::FuncDef(f) => {
-            resolve_identifier(ctx, &symbol_table, &f.name);
+            resolve_identifier(ctx, &symbol_table, &f.name); // THIS IS ONLY USED TO GET THE FULLY QUALIFIED NAME THIS IS FUCKING DUMB
             let symbol_table = symbol_table.new_scope();
             resolve_names_func_helper(ctx, symbol_table.clone(), &f.args, &f.body, &f.ret_type);
         }
@@ -443,6 +443,7 @@ fn resolve_names_item_decl(ctx: &mut StaticsContext, symbol_table: SymbolTable, 
             let symbol_table = symbol_table.new_scope();
             resolve_identifier(ctx, &symbol_table, &iface_impl.iface);
             resolve_names_typ(ctx, symbol_table.clone(), iface_impl.typ.clone(), true);
+            // TODO: there is code duplication with ItemKind::FuncDef and ItemKind::Extension
             for f in &iface_impl.methods {
                 let symbol_table = symbol_table.new_scope();
                 for arg in &f.args {
@@ -460,9 +461,13 @@ fn resolve_names_item_decl(ctx: &mut StaticsContext, symbol_table: SymbolTable, 
         ItemKind::Extension(ext) => {
             let symbol_table = symbol_table.new_scope();
             resolve_identifier(ctx, &symbol_table, &ext.typename);
-            // TODO: add polyvars from struct/enum definition to the scope first before resolving types in the member functions
-            // ex: Person<'a> may have a member function that uses an argument of type 'a
+            // TODO: there is code duplication here with ItemKind::FuncDef and ItemKind::InterfaceImpl
             for f in &ext.methods {
+                // THIS IS ONLY USED TO GET THE FULLY QUALIFIED NAME THIS IS FUCKING DUMB
+                ctx.resolution_map.insert(
+                    f.name.id,
+                    Declaration::FreeFunction(f.clone(), f.name.v.clone()),
+                );
                 let symbol_table = symbol_table.new_scope();
                 for arg in &f.args {
                     resolve_names_fn_arg(symbol_table.clone(), &arg.0);
@@ -494,7 +499,7 @@ fn resolve_names_item_decl(ctx: &mut StaticsContext, symbol_table: SymbolTable, 
                                         name: f.name.v.clone(),
                                         original: Declaration::FreeFunction(
                                             occupied_entry.get().clone(),                // gross
-                                            occupied_entry.get().clone().name.v.clone(), // more gross
+                                            occupied_entry.get().clone().name.v.clone(), // more gross. Also, this should be a fully qualified name technically
                                         ), // TODO: this is a hack. change Error::NameClash to not require a Declaration or something?
                                         new: Declaration::FreeFunction(f.clone(), f.name.v.clone()),
                                     })

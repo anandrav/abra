@@ -826,7 +826,7 @@ fn tyvar_of_declaration(
             ctx,
             iface_def.methods[*method as usize].node(),
         )),
-        Declaration::MemberFunction { func } => Some(TypeVar::from_node(ctx, func.name.node())),
+        Declaration::MemberFunction { func, .. } => Some(TypeVar::from_node(ctx, func.name.node())),
         Declaration::Enum(enum_def) => Some(tyvar_of_enumdef(ctx, enum_def.clone(), node)),
         Declaration::EnumVariant { enum_def, variant } => {
             let (def_type, substitution) = TypeVar::make_nominal_with_substitution(
@@ -1404,11 +1404,19 @@ fn generate_constraints_item_stmts(mode: Mode, stmt: Rc<Item>, ctx: &mut Statics
             let lookup = ctx.resolution_map.get(&ext.typename.id).cloned();
             if let Some(Declaration::Struct(struct_def)) = &lookup {
                 for f in &ext.methods {
-                    // TODO: add polyvars from struct/enum definition to the scope first.
-                    generate_constraints_fn_def(ctx, PolyvarScope::empty(), f, f.name.node());
+                    let ty_func = generate_constraints_func_helper(
+                        ctx,
+                        f.name.node(),
+                        PolyvarScope::empty(),
+                        &f.args,
+                        &f.ret_type,
+                        &f.body,
+                    );
+
+                    let ty_node = TypeVar::from_node(ctx, f.name.node());
+                    constrain(ctx, ty_node, ty_func.clone());
                 }
             }
-            todo!("solve type of member function here (if possible) (report errors if necessary)");
         }
         ItemKind::TypeDef(_) => {}
         ItemKind::FuncDef(f) => {
@@ -1925,7 +1933,7 @@ fn generate_constraints_expr(
                 // TODO: handling of array member functions is verbose. Once member functions
                 // are supported for structs and enums, re-use that infrastructure instead of
                 // doing below
-                let mut failed_to_resolve_member_function = |ctx: &mut StaticsContext, ty| {
+                let failed_to_resolve_member_function = |ctx: &mut StaticsContext, ty| {
                     // failed to resolve member function
                     ctx.errors.push(Error::MemberAccessMustBeStructOrEnum {
                         node: fname.node(),
@@ -2017,36 +2025,60 @@ fn generate_constraints_expr(
                                 .member_functions
                                 .get(&struct_def.id)
                                 .and_then(|m| m.get(&fname.v))
+                                .cloned()
                             {
                                 // TODO: duplicated
                                 // TODO: this is a lot of boilerplate
+                                let fully_qualified_name = func.name.v.clone(); // TODO: this is NOT fully qualified!!!
                                 ctx.resolution_map.insert(
                                     fname.id,
-                                    Declaration::MemberFunction { func: func.clone() },
+                                    Declaration::MemberFunction {
+                                        func: func.clone(),
+                                        name: fully_qualified_name,
+                                    },
                                 );
 
-                                todo!(
-                                    "typecheck the member function. Try to re-use code from typechecking free functions and/or interface methods"
+                                // TODO: the following is duplicated with code for Expr::FuncAp
+                                let ty_func = TypeVar::from_node(ctx, func.name.node());
+
+                                // arguments
+                                let tys_args: Vec<TypeVar> = std::iter::once(expr)
+                                    .chain(args)
+                                    .enumerate()
+                                    .map(|(n, arg)| {
+                                        let unknown = TypeVar::fresh(
+                                            ctx,
+                                            Prov::FuncArg(func.name.node(), n as u8),
+                                        );
+                                        generate_constraints_expr(
+                                            polyvar_scope.clone(),
+                                            Mode::Ana {
+                                                expected: unknown.clone(),
+                                            },
+                                            arg.clone(),
+                                            ctx,
+                                        );
+                                        unknown
+                                    })
+                                    .collect();
+
+                                // body
+                                let ty_body = TypeVar::fresh(ctx, Prov::FuncOut(func.name.node()));
+                                constrain(ctx, ty_body.clone(), node_ty);
+
+                                // function type
+                                let ty_args_and_body = TypeVar::make_func(
+                                    tys_args,
+                                    ty_body,
+                                    Reason::Node(expr.node()),
                                 );
 
-                                // let ty_body: TypeVar =
-                                //     TypeVar::make_int(Reason::Node(fname.node()));
-
-                                // let ty_fname = TypeVar::from_node(ctx, fname.node());
-                                // let ty_func = TypeVar::make_func(
-                                //     vec![],
-                                //     ty_body.clone(),
-                                //     Reason::Node(fname.node()),
-                                // );
-                                // constrain(ctx, ty_fname, ty_func.clone());
-
-                                // let ty_args_and_body = TypeVar::make_func(
-                                //     tys_args,
-                                //     node_ty,
-                                //     Reason::Node(expr.node()),
-                                // );
-
-                                // constrain(ctx, ty_func, ty_args_and_body);
+                                constrain_because(
+                                    ctx,
+                                    ty_args_and_body.clone(),
+                                    ty_func.clone(),
+                                    ConstraintReason::FuncCall(expr.node()),
+                                );
                             } else {
                                 failed_to_resolve_member_function(ctx, solved_ty);
                             }

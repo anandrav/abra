@@ -165,6 +165,7 @@ pub(crate) enum Declaration {
     },
     MemberFunction {
         func: Rc<FuncDef>,
+        name: String,
     },
     Enum(Rc<EnumDef>),
     EnumVariant {
@@ -644,7 +645,7 @@ fn add_detail_for_decl_node(
         Declaration::_ForeignFunction { decl, .. } => decl.name.node(),
         Declaration::InterfaceDef(interface_decl) => interface_decl.name.node(),
         Declaration::InterfaceMethod { iface_def, .. } => iface_def.name.node(),
-        Declaration::MemberFunction { func } => func.name.node(),
+        Declaration::MemberFunction { func, .. } => func.name.node(),
         Declaration::Enum(enum_def) => enum_def.name.node(),
         Declaration::EnumVariant { enum_def, variant } => {
             enum_def.variants[*variant as usize].node()

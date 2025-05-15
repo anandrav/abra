@@ -739,8 +739,19 @@ impl Translator {
                     }
                 }
             }
-            Declaration::MemberFunction { func } => {
-                todo!();
+            Declaration::MemberFunction { func, name } => {
+                // TODO: duplicated with code for Declaration::FreeFunction
+                let func_ty = self.statics.solution_of_node(func.name.node()).unwrap();
+                if !func_ty.is_overloaded() {
+                    self.emit(st, Instr::Call(name.clone()));
+                } else {
+                    let specific_func_ty = self.statics.solution_of_node(func_node).unwrap();
+
+                    let substituted_ty =
+                        subst_with_monomorphic_env(monomorph_env, specific_func_ty);
+
+                    self.handle_overloaded_func(st, substituted_ty, name, func.clone());
+                }
             }
             Declaration::Struct(def) => {
                 self.emit(st, Instr::Construct(def.fields.len() as u16));
@@ -990,59 +1001,13 @@ impl Translator {
                     self.translate_iface_method(f, st, true);
                 }
             }
-            ItemKind::Extension(..) => {}
+            ItemKind::Extension(ext) => {
+                for f in &ext.methods {
+                    self.translate_func_helper(st, iface_method, f);
+                }
+            }
             ItemKind::FuncDef(f) => {
-                // (this could be an overloaded function or an interface method)
-                let func_ty = self.statics.solution_of_node(f.name.node()).unwrap();
-
-                if func_ty.is_overloaded() // println: 'a ToString -> ()
-                || iface_method
-                // to_string: 'a ToString -> String
-                {
-                    return;
-                }
-
-                let Declaration::FreeFunction(_, fully_qualified_name) =
-                    &self.statics.resolution_map[&f.name.id]
-                else {
-                    panic!()
-                };
-
-                self.update_function_name_table(st, &f.name.v);
-
-                let return_label = make_label("return");
-
-                self.emit(st, Line::Label(fully_qualified_name.clone()));
-                let mut locals = HashSet::default();
-                collect_locals_expr(&f.body, &mut locals);
-                let locals_count = locals.len();
-                for _ in 0..locals_count {
-                    self.emit(st, Instr::PushNil);
-                }
-                let mut offset_table = OffsetTable::default();
-                for (i, arg) in f.args.iter().rev().enumerate() {
-                    offset_table.entry(arg.0.id).or_insert(-(i as i32) - 1);
-                }
-                for (i, local) in locals.iter().enumerate() {
-                    offset_table.entry(*local).or_insert((i) as i32);
-                }
-                let nargs = f.args.len();
-
-                st.return_stack.push(return_label.clone());
-                self.translate_expr(f.body.clone(), &offset_table, MonomorphEnv::empty(), st);
-                st.return_stack.pop();
-
-                self.emit(st, return_label);
-
-                if locals_count + nargs > 0 {
-                    // pop all locals and arguments except one. The last one is the return value slot.
-                    self.emit(st, Instr::StoreOffset(-(nargs as i32)));
-                    for _ in 0..(locals_count + nargs - 1) {
-                        self.emit(st, Instr::Pop);
-                    }
-                }
-
-                self.emit(st, Instr::Return);
+                self.translate_func_helper(st, iface_method, f);
             }
             ItemKind::InterfaceDef(..)
             | ItemKind::TypeDef(..)
@@ -1054,6 +1019,71 @@ impl Translator {
         }
     }
 
+    fn translate_func_helper(&self, st: &mut TranslatorState, iface_method: bool, f: &Rc<FuncDef>) {
+        // (this could be an overloaded function or an interface method)
+        let func_ty = self.statics.solution_of_node(f.name.node()).unwrap();
+
+        if func_ty.is_overloaded() // println: 'a ToString -> ()
+                || iface_method
+        // to_string: 'a ToString -> String
+        {
+            return;
+        }
+
+        // TODO: gross lol. MAKE A BETTER WAY TO GET FULLY QUALIFIED NAMES
+        let fully_qualified_name = {
+            let res = &self.statics.resolution_map[&f.name.id]; // THIS IS JUST RESOLVING IT TO ITSELF. THIS IS FUCKING DUMB
+            if let Declaration::FreeFunction(_, fully_qualified_name) = res {
+                fully_qualified_name
+            } else if let Declaration::MemberFunction {
+                name: fully_qualified_name,
+                ..
+            } = res
+            {
+                fully_qualified_name
+            } else {
+                panic!()
+            }
+        };
+
+        self.update_function_name_table(st, &f.name.v);
+
+        let return_label = make_label("return");
+
+        self.emit(st, Line::Label(fully_qualified_name.clone()));
+        let mut locals = HashSet::default();
+        collect_locals_expr(&f.body, &mut locals);
+        let locals_count = locals.len();
+        for _ in 0..locals_count {
+            self.emit(st, Instr::PushNil);
+        }
+        let mut offset_table = OffsetTable::default();
+        for (i, arg) in f.args.iter().rev().enumerate() {
+            offset_table.entry(arg.0.id).or_insert(-(i as i32) - 1);
+        }
+        for (i, local) in locals.iter().enumerate() {
+            offset_table.entry(*local).or_insert((i) as i32);
+        }
+        let nargs = f.args.len();
+
+        st.return_stack.push(return_label.clone());
+        self.translate_expr(f.body.clone(), &offset_table, MonomorphEnv::empty(), st);
+        st.return_stack.pop();
+
+        self.emit(st, return_label);
+
+        if locals_count + nargs > 0 {
+            // pop all locals and arguments except one. The last one is the return value slot.
+            self.emit(st, Instr::StoreOffset(-(nargs as i32)));
+            for _ in 0..(locals_count + nargs - 1) {
+                self.emit(st, Instr::Pop);
+            }
+        }
+
+        self.emit(st, Instr::Return);
+    }
+
+    // TODO: what's different about this function from translate_func_helper() ?
     fn translate_iface_method(
         &self,
         f: &Rc<FuncDef>,

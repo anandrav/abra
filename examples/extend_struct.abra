@@ -5,11 +5,10 @@ type Person = {
 }
 
 extend Person {
-	fn fullname() -> string {
-		"todo: concatenate first and last names"
+	fn fullname(self: Person) -> string {
+		self.first_name & " " & self.last_name
 	}
 }
 
 let p: Person = Person("Anand", "Dukkipati", 26)
-p.fullname()
-
+println(p.fullname())
