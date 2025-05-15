@@ -68,9 +68,10 @@ fn gather_declarations_item(
                 ctx,
             );
 
-            // TODO: in the near future, put interface methods in a namespace named after the interface
+            // TODO: after implementing member functions, put interface methods in a namespace named after the interface
             // and call interface methods using the dot operator. my_struct.to_string() etc.
             // or by fully qualifying the method and writing for example ToString.to_string(my_struct)
+            // Interface methods' FQN would therefore be Path.To.My.Interface.my_method for mangling purposes
             for (i, p) in iface.methods.iter().enumerate() {
                 let method_name = p.name.v.clone();
                 let method = i as u16;
@@ -435,7 +436,6 @@ impl Namespace {
 fn resolve_names_item_decl(ctx: &mut StaticsContext, symbol_table: SymbolTable, stmt: Rc<Item>) {
     match &*stmt.kind {
         ItemKind::FuncDef(f) => {
-            resolve_identifier(ctx, &symbol_table, &f.name); // THIS IS ONLY USED TO GET THE FULLY QUALIFIED NAME THIS IS FUCKING DUMB
             let symbol_table = symbol_table.new_scope();
             resolve_names_func_helper(ctx, symbol_table.clone(), &f.args, &f.body, &f.ret_type);
         }
@@ -458,47 +458,18 @@ fn resolve_names_item_decl(ctx: &mut StaticsContext, symbol_table: SymbolTable, 
             let symbol_table = symbol_table.new_scope();
             resolve_identifier(ctx, &symbol_table, &iface_impl.iface);
             resolve_names_typ(ctx, symbol_table.clone(), iface_impl.typ.clone(), true);
-            // TODO: there is code duplication with ItemKind::FuncDef and ItemKind::Extension
             for f in &iface_impl.methods {
-                let symbol_table = symbol_table.new_scope();
-                for arg in &f.args {
-                    resolve_names_fn_arg(symbol_table.clone(), &arg.0);
-                    if let Some(annot) = &arg.1 {
-                        resolve_names_typ(ctx, symbol_table.clone(), annot.clone(), true);
-                    }
-                }
-                resolve_names_expr(ctx, symbol_table.clone(), f.body.clone());
-                if let Some(ret_type) = &f.ret_type {
-                    resolve_names_typ(ctx, symbol_table, ret_type.clone(), true);
-                }
+                resolve_names_func_helper(ctx, symbol_table.clone(), &f.args, &f.body, &f.ret_type);
             }
         }
         ItemKind::Extension(ext) => {
             let symbol_table = symbol_table.new_scope();
             resolve_identifier(ctx, &symbol_table, &ext.typename);
-            // TODO: there is code duplication here with ItemKind::FuncDef and ItemKind::InterfaceImpl
             for f in &ext.methods {
                 ctx.fully_qualified_names
                     .insert(f.name.id, f.name.v.clone());
-                // THIS IS ONLY USED TO GET THE FULLY QUALIFIED NAME THIS IS FUCKING DUMB
-                // ctx.resolution_map.insert(
-                //     f.name.id,
-                //     Declaration::MemberFunction {
-                //         f: f.clone(),
-                //         name: f.name.v.clone(),
-                //     },
-                // );
-                let symbol_table = symbol_table.new_scope();
-                for arg in &f.args {
-                    resolve_names_fn_arg(symbol_table.clone(), &arg.0);
-                    if let Some(annot) = &arg.1 {
-                        resolve_names_typ(ctx, symbol_table.clone(), annot.clone(), true);
-                    }
-                }
-                resolve_names_expr(ctx, symbol_table.clone(), f.body.clone());
-                if let Some(ret_type) = &f.ret_type {
-                    resolve_names_typ(ctx, symbol_table, ret_type.clone(), true);
-                }
+
+                resolve_names_func_helper(ctx, symbol_table.clone(), &f.args, &f.body, &f.ret_type);
             }
 
             // In this pass, we also gather the declarations of member functions
