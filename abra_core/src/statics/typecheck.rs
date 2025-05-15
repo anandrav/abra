@@ -1913,9 +1913,6 @@ fn generate_constraints_expr(
                 //          ^^^^^^^^type is `array`, member function is `push`
                 generate_constraints_expr(polyvar_scope.clone(), Mode::Syn, expr.clone(), ctx);
 
-                // TODO: handling of array member functions is verbose. Once member functions
-                // are supported for structs and enums, re-use that infrastructure instead of
-                // doing below
                 let failed_to_resolve_member_function = |ctx: &mut StaticsContext, ty| {
                     // failed to resolve member function
                     ctx.errors.push(Error::MemberAccessMustBeStructOrEnum {
@@ -1933,6 +1930,7 @@ fn generate_constraints_expr(
                                     .insert(fname.id, Declaration::Builtin(Builtin::ArrayLength));
 
                                 // TODO: this is a lot of boilerplate to just say that push: (element: _) -> void
+                                // make a helper function? Or should this code not be so long in the first place
                                 let ty_ret: TypeVar = TypeVar::make_int(Reason::Node(fname.node()));
 
                                 let ty_fname = TypeVar::from_node(ctx, fname.node());

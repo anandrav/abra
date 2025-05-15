@@ -71,7 +71,6 @@ impl Builtin {
         Self::iter().collect()
     }
 
-    // TODO: use derive macro from Strum for this
     pub(crate) fn name(&self) -> String {
         self.as_ref().to_snake_case()
     }

@@ -15,14 +15,12 @@ path = "src/lib.rs"
 ffi = ["libloading"]
 
 [dependencies]
-disjoint-sets = "0.4.2" # TODO: implement your own disjoint sets
+disjoint-sets = "0.4.2"                               # TODO: implement your own disjoint sets
 libloading = { version = "0.8.5", optional = true }
-pest = "2.5.2" # TODO: remove after hand-writing parser
+pest = "2.5.2"                                        # TODO: remove after hand-writing parser
 pest_derive = "2.5.2"
-strum = { version = "0.26.3", features = [
-  "derive",
-] } # TODO: try and get rid of this dependency
-strum_macros = "0.26.3" # TODO: try and get rid of this
+strum = { version = "0.26.3", features = ["derive"] }
+strum_macros = "0.26.3"
 codespan-reporting = "0.11.1"
 heck = "0.5.0"
 utils = { workspace = true }
