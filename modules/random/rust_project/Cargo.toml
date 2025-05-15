@@ -9,7 +9,7 @@ crate-type = ["cdylib"]
 test = false
 [dependencies]
 abra_core = { workspace = true }
-rand = "0.9.0"
+rand = "0.9.1"
 
 [build-dependencies]
 abra_core = { workspace = true }
