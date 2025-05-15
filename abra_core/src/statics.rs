@@ -153,26 +153,27 @@ pub(crate) enum Declaration {
     FreeFunction(Rc<FuncDef>, String),
     HostFunction(Rc<FuncDecl>, String),
     _ForeignFunction {
-        decl: Rc<FuncDecl>,
+        f: Rc<FuncDecl>,
         libname: PathBuf,
         symbol: String,
     },
     InterfaceDef(Rc<InterfaceDecl>),
     InterfaceMethod {
-        iface_def: Rc<InterfaceDecl>,
+        i: Rc<InterfaceDecl>,
         method: u16,
         fully_qualified_name: String,
     },
     MemberFunction {
-        func: Rc<FuncDef>,
+        f: Rc<FuncDef>,
         name: String,
     },
     Enum(Rc<EnumDef>),
     EnumVariant {
-        enum_def: Rc<EnumDef>,
+        e: Rc<EnumDef>,
         variant: u16,
     },
-    // TODO: maybe combine Enum, Struct, and Array into "Nominal"
+    // TODO: maybe combine Enum, Struct, and Array into "Nominal". Easier to know if a declaration is a datatype or not.
+    // alternatively, add helper functions to check if it's a data type and to extract the NodeId from the particular declaration
     Struct(Rc<StructDef>),
     Array,
     Polytype(Rc<Polytype>),
@@ -642,14 +643,15 @@ fn add_detail_for_decl_node(
     let node = match decl {
         Declaration::FreeFunction(func_def, _) => func_def.name.node(),
         Declaration::HostFunction(func_decl, _) => func_decl.name.node(),
-        Declaration::_ForeignFunction { decl, .. } => decl.name.node(),
+        Declaration::_ForeignFunction { f: decl, .. } => decl.name.node(),
         Declaration::InterfaceDef(interface_decl) => interface_decl.name.node(),
-        Declaration::InterfaceMethod { iface_def, .. } => iface_def.name.node(),
-        Declaration::MemberFunction { func, .. } => func.name.node(),
+        Declaration::InterfaceMethod { i: iface_def, .. } => iface_def.name.node(),
+        Declaration::MemberFunction { f: func, .. } => func.name.node(),
         Declaration::Enum(enum_def) => enum_def.name.node(),
-        Declaration::EnumVariant { enum_def, variant } => {
-            enum_def.variants[*variant as usize].node()
-        }
+        Declaration::EnumVariant {
+            e: enum_def,
+            variant,
+        } => enum_def.variants[*variant as usize].node(),
         Declaration::Struct(struct_def) => struct_def.name.node(),
         Declaration::Polytype(polytype) => polytype.name.node(),
 

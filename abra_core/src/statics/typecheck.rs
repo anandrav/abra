@@ -814,21 +814,26 @@ fn tyvar_of_declaration(
     match decl {
         Declaration::FreeFunction(f, _) => Some(TypeVar::from_node(ctx, f.name.node())),
         Declaration::HostFunction(f, _) => Some(TypeVar::from_node(ctx, f.name.node())),
-        Declaration::_ForeignFunction { decl, .. } => {
+        Declaration::_ForeignFunction { f: decl, .. } => {
             Some(TypeVar::from_node(ctx, decl.name.node()))
         }
         Declaration::InterfaceDef(..) => None,
         Declaration::InterfaceMethod {
-            iface_def,
+            i: iface_def,
             method,
             fully_qualified_name: _,
         } => Some(TypeVar::from_node(
             ctx,
             iface_def.methods[*method as usize].node(),
         )),
-        Declaration::MemberFunction { func, .. } => Some(TypeVar::from_node(ctx, func.name.node())),
+        Declaration::MemberFunction { f: func, .. } => {
+            Some(TypeVar::from_node(ctx, func.name.node()))
+        }
         Declaration::Enum(enum_def) => Some(tyvar_of_enumdef(ctx, enum_def.clone(), node)),
-        Declaration::EnumVariant { enum_def, variant } => {
+        Declaration::EnumVariant {
+            e: enum_def,
+            variant,
+        } => {
             let (def_type, substitution) = TypeVar::make_nominal_with_substitution(
                 Reason::Node(node.clone()),
                 Nominal::Enum(enum_def.clone()),
@@ -1907,8 +1912,11 @@ fn generate_constraints_expr(
                 })
                 .collect();
 
-            if let Some(ref decl @ Declaration::EnumVariant { ref enum_def, .. }) =
-                ctx.resolution_map.get(&fname.id).cloned()
+            if let Some(
+                ref decl @ Declaration::EnumVariant {
+                    e: ref enum_def, ..
+                },
+            ) = ctx.resolution_map.get(&fname.id).cloned()
             {
                 // qualified enum variant
                 // example: list.cons(5, nil)
@@ -1945,6 +1953,7 @@ fn generate_constraints_expr(
                 if let Some(solved_ty) = TypeVar::from_node(ctx, expr.node()).solution() {
                     match &solved_ty {
                         SolvedType::Nominal(Nominal::Array, _) => match fname.v.as_str() {
+                            // TODO: these are basically builtins. Try to handle this logic similar to builtins. And obviously de-duplicate the code
                             "len" => {
                                 // TODO: duplicated
                                 // TODO: this is a lot of boilerplate to just say that push: (element: _) -> void
@@ -2033,7 +2042,7 @@ fn generate_constraints_expr(
                                 ctx.resolution_map.insert(
                                     fname.id,
                                     Declaration::MemberFunction {
-                                        func: func.clone(),
+                                        f: func.clone(),
                                         name: fully_qualified_name,
                                     },
                                 );
@@ -2170,7 +2179,7 @@ fn generate_constraints_expr(
                     ctx.resolution_map.insert(
                         ident.id,
                         Declaration::EnumVariant {
-                            enum_def: enum_def.clone(),
+                            e: enum_def.clone(),
                             variant: idx,
                         },
                     );
@@ -2462,8 +2471,10 @@ fn generate_constraints_pat(
             };
 
             if !prefixes.is_empty() {
-                if let Some(Declaration::EnumVariant { enum_def, variant }) =
-                    ctx.resolution_map.get(&tag.id).cloned()
+                if let Some(Declaration::EnumVariant {
+                    e: enum_def,
+                    variant,
+                }) = ctx.resolution_map.get(&tag.id).cloned()
                 {
                     let (def_type, substitution) = TypeVar::make_nominal_with_substitution(
                         Reason::Node(pat.node()),
@@ -2519,7 +2530,7 @@ fn generate_constraints_pat(
                         ctx.resolution_map.insert(
                             tag.id,
                             Declaration::EnumVariant {
-                                enum_def: enum_def.clone(),
+                                e: enum_def.clone(),
                                 variant: idx,
                             },
                         );

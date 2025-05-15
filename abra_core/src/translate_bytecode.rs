@@ -646,6 +646,27 @@ impl Translator {
         }
     }
 
+    // used for free functions and member functions
+    fn translate_func_ap_helper(
+        &self,
+        f: &Rc<FuncDef>,
+        f_fully_qualified_name: &String,
+        func_node: AstNode, // TODO: why is this argument needed to be threaded through?
+        monomorph_env: MonomorphEnv,
+        st: &mut TranslatorState,
+    ) {
+        let func_ty = self.statics.solution_of_node(f.name.node()).unwrap();
+        if !func_ty.is_overloaded() {
+            self.emit(st, Instr::Call(f_fully_qualified_name.clone()));
+        } else {
+            let specific_func_ty = self.statics.solution_of_node(func_node).unwrap();
+
+            let substituted_ty = subst_with_monomorphic_env(monomorph_env, specific_func_ty);
+
+            self.handle_overloaded_func(st, substituted_ty, f_fully_qualified_name, f.clone());
+        }
+    }
+
     fn translate_func_ap(
         &self,
         resolution: Declaration,
@@ -661,25 +682,21 @@ impl Translator {
                 self.emit(st, Instr::LoadOffset(*idx));
                 self.emit(st, Instr::CallFuncObj);
             }
-            Declaration::FreeFunction(f, name) => {
-                let func_ty = self.statics.solution_of_node(f.name.node()).unwrap();
-                if !func_ty.is_overloaded() {
-                    self.emit(st, Instr::Call(name.clone()));
-                } else {
-                    let specific_func_ty = self.statics.solution_of_node(func_node).unwrap();
-
-                    let substituted_ty =
-                        subst_with_monomorphic_env(monomorph_env, specific_func_ty);
-
-                    self.handle_overloaded_func(st, substituted_ty, name, f.clone());
-                }
+            Declaration::FreeFunction(f, f_fully_qualified_name) => {
+                self.translate_func_ap_helper(
+                    f,
+                    f_fully_qualified_name,
+                    func_node,
+                    monomorph_env,
+                    st,
+                );
             }
             Declaration::HostFunction(decl, _) => {
                 let idx = self.statics.host_funcs.get_id(&decl.name.v) as u16;
                 self.emit(st, Instr::HostFunc(idx));
             }
             Declaration::_ForeignFunction {
-                decl: _decl,
+                f: _decl,
                 libname,
                 symbol,
             } => {
@@ -704,7 +721,7 @@ impl Translator {
                 self.emit(st, Instr::CallExtern(func_id));
             }
             Declaration::InterfaceMethod {
-                iface_def,
+                i: iface_def,
                 method,
                 fully_qualified_name,
             } => {
@@ -739,24 +756,25 @@ impl Translator {
                     }
                 }
             }
-            Declaration::MemberFunction { func, name } => {
-                // TODO: duplicated with code for Declaration::FreeFunction
-                let func_ty = self.statics.solution_of_node(func.name.node()).unwrap();
-                if !func_ty.is_overloaded() {
-                    self.emit(st, Instr::Call(name.clone()));
-                } else {
-                    let specific_func_ty = self.statics.solution_of_node(func_node).unwrap();
-
-                    let substituted_ty =
-                        subst_with_monomorphic_env(monomorph_env, specific_func_ty);
-
-                    self.handle_overloaded_func(st, substituted_ty, name, func.clone());
-                }
+            Declaration::MemberFunction {
+                f,
+                name: f_fully_qualified_name,
+            } => {
+                self.translate_func_ap_helper(
+                    f,
+                    f_fully_qualified_name,
+                    func_node,
+                    monomorph_env,
+                    st,
+                );
             }
             Declaration::Struct(def) => {
                 self.emit(st, Instr::Construct(def.fields.len() as u16));
             }
-            Declaration::EnumVariant { enum_def, variant } => {
+            Declaration::EnumVariant {
+                e: enum_def,
+                variant,
+            } => {
                 let arity = enum_def.arity(*variant);
                 if arity > 1 {
                     // turn the arguments (associated data) into a tuple

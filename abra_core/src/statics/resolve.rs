@@ -78,7 +78,7 @@ fn gather_declarations_item(
                 namespace.add_declaration(
                     method_name,
                     Declaration::InterfaceMethod {
-                        iface_def: iface.clone(),
+                        i: iface.clone(),
                         method,
                         fully_qualified_name,
                     },
@@ -106,7 +106,7 @@ fn gather_declarations_item(
                     enum_namespace.add_declaration(
                         variant_name,
                         Declaration::EnumVariant {
-                            enum_def: e.clone(),
+                            e: e.clone(),
                             variant,
                         },
                         ctx,
@@ -191,7 +191,7 @@ fn gather_declarations_item(
                 namespace.add_declaration(
                     func_name,
                     Declaration::_ForeignFunction {
-                        decl: _func_decl.clone(),
+                        f: _func_decl.clone(),
                         libname,
                         symbol,
                     },
@@ -701,7 +701,7 @@ fn resolve_names_expr(ctx: &mut StaticsContext, symbol_table: SymbolTable, expr:
                                 ctx.resolution_map.insert(
                                     _fname.id,
                                     Declaration::EnumVariant {
-                                        enum_def,
+                                        e: enum_def,
                                         variant: idx as u16,
                                     },
                                 );
@@ -758,7 +758,7 @@ fn resolve_names_expr(ctx: &mut StaticsContext, symbol_table: SymbolTable, expr:
                                 ctx.resolution_map.insert(
                                     field.id,
                                     Declaration::EnumVariant {
-                                        enum_def,
+                                        e: enum_def,
                                         variant: idx as u16,
                                     },
                                 );
