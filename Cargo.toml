@@ -21,3 +21,5 @@ utils = { path = "utils" }
 
 [profile.release]
 lto = true
+strip = true
+panic = 'abort'
