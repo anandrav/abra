@@ -52,7 +52,7 @@ pub enum Builtin {
 
     ConcatStrings,
 
-    ArrayAppend,
+    ArrayPush,
     ArrayLength,
     ArrayPop,
 
@@ -105,7 +105,7 @@ impl Builtin {
 
             Builtin::ConcatStrings => "concat_strings".into(),
 
-            Builtin::ArrayAppend => "array_append".into(),
+            Builtin::ArrayPush => "array_append".into(),
             Builtin::ArrayLength => "array_length".into(),
             Builtin::ArrayPop => "array_pop".into(),
 
@@ -211,7 +211,7 @@ impl Builtin {
                 reason.clone(),
             ),
 
-            Builtin::ArrayAppend => {
+            Builtin::ArrayPush => {
                 let a = TypeVar::empty();
                 TypeVar::make_func(
                     vec![

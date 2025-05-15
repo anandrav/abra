@@ -872,7 +872,7 @@ impl Translator {
                 Builtin::ConcatStrings => {
                     self.emit(st, Instr::ConcatStrings);
                 }
-                Builtin::ArrayAppend => {
+                Builtin::ArrayPush => {
                     self.emit(st, Instr::ArrayAppend);
                 }
                 Builtin::ArrayLength => {

@@ -1858,38 +1858,14 @@ fn generate_constraints_expr(
         }
         ExprKind::FuncAp(func, args) => {
             generate_constraints_expr(polyvar_scope.clone(), Mode::Syn, func.clone(), ctx);
-            let ty_func = TypeVar::from_node(ctx, func.node());
 
-            // arguments
-            let tys_args: Vec<TypeVar> = args
-                .iter()
-                .enumerate()
-                .map(|(n, arg)| {
-                    let unknown = TypeVar::fresh(ctx, Prov::FuncArg(func.node(), n as u8));
-                    generate_constraints_expr(
-                        polyvar_scope.clone(),
-                        Mode::Ana {
-                            expected: unknown.clone(),
-                        },
-                        arg.clone(),
-                        ctx,
-                    );
-                    unknown
-                })
-                .collect();
-
-            // body
-            let ty_body = TypeVar::fresh(ctx, Prov::FuncOut(func.node()));
-            constrain(ctx, ty_body.clone(), node_ty);
-
-            // function type
-            let ty_args_and_body = TypeVar::make_func(tys_args, ty_body, Reason::Node(expr.node()));
-
-            constrain_because(
+            generate_constraints_expr_funcap_helper(
+                polyvar_scope.clone(),
                 ctx,
-                ty_args_and_body.clone(),
-                ty_func.clone(),
-                ConstraintReason::FuncCall(expr.node()),
+                args.iter().cloned(),
+                func.node(),
+                expr.node(),
+                node_ty,
             );
         }
         ExprKind::MemberFuncAp(expr, fname, args) => {
@@ -1952,20 +1928,17 @@ fn generate_constraints_expr(
                 if let Some(solved_ty) = TypeVar::from_node(ctx, expr.node()).solution() {
                     match &solved_ty {
                         SolvedType::Nominal(Nominal::Array, _) => match fname.v.as_str() {
-                            // TODO: these are basically builtins. Try to handle this logic similar to builtins. And obviously de-duplicate the code
                             "len" => {
-                                // TODO: duplicated
-                                // TODO: this is a lot of boilerplate to just say that push: (element: _) -> void
                                 ctx.resolution_map
                                     .insert(fname.id, Declaration::Builtin(Builtin::ArrayLength));
 
-                                let ty_body: TypeVar =
-                                    TypeVar::make_int(Reason::Node(fname.node()));
+                                // TODO: this is a lot of boilerplate to just say that push: (element: _) -> void
+                                let ty_ret: TypeVar = TypeVar::make_int(Reason::Node(fname.node()));
 
                                 let ty_fname = TypeVar::from_node(ctx, fname.node());
                                 let ty_func = TypeVar::make_func(
                                     vec![],
-                                    ty_body.clone(),
+                                    ty_ret.clone(),
                                     Reason::Node(fname.node()),
                                 );
                                 constrain(ctx, ty_fname, ty_func.clone());
@@ -1980,15 +1953,15 @@ fn generate_constraints_expr(
                             }
                             "push" => {
                                 ctx.resolution_map
-                                    .insert(fname.id, Declaration::Builtin(Builtin::ArrayAppend));
+                                    .insert(fname.id, Declaration::Builtin(Builtin::ArrayPush));
 
-                                let ty_body: TypeVar =
+                                let ty_ret: TypeVar =
                                     TypeVar::make_unit(Reason::Node(fname.node()));
 
                                 let ty_fname = TypeVar::from_node(ctx, fname.node());
                                 let ty_func = TypeVar::make_func(
                                     vec![TypeVar::empty()],
-                                    ty_body.clone(),
+                                    ty_ret.clone(),
                                     Reason::Node(fname.node()),
                                 );
                                 constrain(ctx, ty_fname, ty_func.clone());
@@ -2005,13 +1978,13 @@ fn generate_constraints_expr(
                                 ctx.resolution_map
                                     .insert(fname.id, Declaration::Builtin(Builtin::ArrayPop));
 
-                                let ty_body: TypeVar =
+                                let ty_ret: TypeVar =
                                     TypeVar::make_unit(Reason::Node(fname.node()));
 
                                 let ty_fname = TypeVar::from_node(ctx, fname.node());
                                 let ty_func = TypeVar::make_func(
                                     vec![],
-                                    ty_body.clone(),
+                                    ty_ret.clone(),
                                     Reason::Node(fname.node()),
                                 );
                                 constrain(ctx, ty_fname, ty_func.clone());
@@ -2035,53 +2008,18 @@ fn generate_constraints_expr(
                                 .and_then(|m| m.get(&fname.v))
                                 .cloned()
                             {
-                                // TODO: duplicated
-                                // TODO: this is a lot of boilerplate
                                 ctx.resolution_map.insert(
                                     fname.id,
                                     Declaration::MemberFunction { f: func.clone() },
                                 );
 
-                                // TODO: the following is duplicated with code for Expr::FuncAp
-                                let ty_func = TypeVar::from_node(ctx, func.name.node());
-
-                                // arguments
-                                let tys_args: Vec<TypeVar> = std::iter::once(expr)
-                                    .chain(args)
-                                    .enumerate()
-                                    .map(|(n, arg)| {
-                                        let unknown = TypeVar::fresh(
-                                            ctx,
-                                            Prov::FuncArg(func.name.node(), n as u8),
-                                        );
-                                        generate_constraints_expr(
-                                            polyvar_scope.clone(),
-                                            Mode::Ana {
-                                                expected: unknown.clone(),
-                                            },
-                                            arg.clone(),
-                                            ctx,
-                                        );
-                                        unknown
-                                    })
-                                    .collect();
-
-                                // body
-                                let ty_body = TypeVar::fresh(ctx, Prov::FuncOut(func.name.node()));
-                                constrain(ctx, ty_body.clone(), node_ty);
-
-                                // function type
-                                let ty_args_and_body = TypeVar::make_func(
-                                    tys_args,
-                                    ty_body,
-                                    Reason::Node(expr.node()),
-                                );
-
-                                constrain_because(
+                                generate_constraints_expr_funcap_helper(
+                                    polyvar_scope.clone(),
                                     ctx,
-                                    ty_args_and_body.clone(),
-                                    ty_func.clone(),
-                                    ConstraintReason::FuncCall(expr.node()),
+                                    std::iter::once(expr).chain(args).cloned(),
+                                    func.name.node(),
+                                    expr.node(),
+                                    node_ty,
                                 );
                             } else {
                                 failed_to_resolve_member_function(ctx, solved_ty);
@@ -2255,6 +2193,49 @@ fn generate_constraints_expr(
         } => constrain_because(ctx, node_ty.clone(), expected, constraint_reason),
         Mode::Ana { expected } => constrain(ctx, node_ty.clone(), expected),
     };
+}
+
+fn generate_constraints_expr_funcap_helper(
+    polyvar_scope: PolyvarScope,
+    ctx: &mut StaticsContext,
+
+    args: impl std::iter::Iterator<Item = Rc<Expr>>,
+    func_node: AstNode,
+    expr_node: AstNode,
+    node_ty: TypeVar,
+) {
+    let ty_func = TypeVar::from_node(ctx, func_node.clone());
+
+    // arguments
+    let tys_args: Vec<TypeVar> = args
+        .enumerate()
+        .map(|(n, arg)| {
+            let unknown = TypeVar::fresh(ctx, Prov::FuncArg(func_node.clone(), n as u8));
+            generate_constraints_expr(
+                polyvar_scope.clone(),
+                Mode::Ana {
+                    expected: unknown.clone(),
+                },
+                arg.clone(),
+                ctx,
+            );
+            unknown
+        })
+        .collect();
+
+    // body
+    let ty_body = TypeVar::fresh(ctx, Prov::FuncOut(func_node));
+    constrain(ctx, ty_body.clone(), node_ty);
+
+    // function type
+    let ty_args_and_body = TypeVar::make_func(tys_args, ty_body, Reason::Node(expr_node.clone()));
+
+    constrain_because(
+        ctx,
+        ty_args_and_body.clone(),
+        ty_func.clone(),
+        ConstraintReason::FuncCall(expr_node),
+    );
 }
 
 fn generate_constraints_func_helper(
