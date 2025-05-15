@@ -75,6 +75,10 @@ fn gather_declarations_item(
                 let method_name = p.name.v.clone();
                 let method = i as u16;
                 let fully_qualified_name = fullname(&qualifiers, &method_name);
+
+                ctx.fully_qualified_names
+                    .insert(p.name.id, p.name.v.clone());
+
                 namespace.add_declaration(
                     method_name,
                     Declaration::InterfaceMethod {
@@ -125,15 +129,19 @@ fn gather_declarations_item(
         ItemKind::FuncDef(f) => {
             let func_name = f.name.v.clone();
             let fully_qualified_name = fullname(&qualifiers, &func_name);
-            namespace.add_declaration(
-                func_name,
-                Declaration::FreeFunction(f.clone(), fully_qualified_name),
-                ctx,
-            );
+
+            ctx.fully_qualified_names
+                .insert(f.name.id, fully_qualified_name);
+
+            namespace.add_declaration(func_name, Declaration::FreeFunction(f.clone()), ctx);
         }
         ItemKind::HostFuncDecl(func_decl) => {
             let func_name = func_decl.name.v.clone();
             let fully_qualified_name = fullname(&qualifiers, &func_name);
+
+            ctx.fully_qualified_names
+                .insert(func_decl.name.id, func_decl.name.v.clone());
+
             namespace.add_declaration(
                 func_name.clone(),
                 Declaration::HostFunction(func_decl.clone(), fully_qualified_name),
@@ -463,11 +471,16 @@ fn resolve_names_item_decl(ctx: &mut StaticsContext, symbol_table: SymbolTable, 
             resolve_identifier(ctx, &symbol_table, &ext.typename);
             // TODO: there is code duplication here with ItemKind::FuncDef and ItemKind::InterfaceImpl
             for f in &ext.methods {
+                ctx.fully_qualified_names
+                    .insert(f.name.id, f.name.v.clone());
                 // THIS IS ONLY USED TO GET THE FULLY QUALIFIED NAME THIS IS FUCKING DUMB
-                ctx.resolution_map.insert(
-                    f.name.id,
-                    Declaration::FreeFunction(f.clone(), f.name.v.clone()),
-                );
+                // ctx.resolution_map.insert(
+                //     f.name.id,
+                //     Declaration::MemberFunction {
+                //         f: f.clone(),
+                //         name: f.name.v.clone(),
+                //     },
+                // );
                 let symbol_table = symbol_table.new_scope();
                 for arg in &f.args {
                     resolve_names_fn_arg(symbol_table.clone(), &arg.0);
@@ -498,10 +511,9 @@ fn resolve_names_item_decl(ctx: &mut StaticsContext, symbol_table: SymbolTable, 
                                     ctx.errors.push(Error::NameClash {
                                         name: f.name.v.clone(),
                                         original: Declaration::FreeFunction(
-                                            occupied_entry.get().clone(),                // gross
-                                            occupied_entry.get().clone().name.v.clone(), // more gross. Also, this should be a fully qualified name technically
-                                        ), // TODO: this is a hack. change Error::NameClash to not require a Declaration or something?
-                                        new: Declaration::FreeFunction(f.clone(), f.name.v.clone()),
+                                            occupied_entry.get().clone(), // gross
+                                        ),
+                                        new: Declaration::FreeFunction(f.clone()),
                                     })
                                 }
                                 std::collections::hash_map::Entry::Vacant(vacant_entry) => {

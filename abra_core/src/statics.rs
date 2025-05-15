@@ -37,6 +37,9 @@ pub(crate) struct StaticsContext {
     pub(crate) root_namespace: Namespace,
     // This maps any identifier in the program to the declaration it resolves to.
     pub(crate) resolution_map: HashMap<NodeId, Declaration>,
+    // This maps some identifiers to their fully qualified name.
+    // Currently it's only used for functions so translate_bytecode can mangle the names
+    pub(crate) fully_qualified_names: HashMap<NodeId, String>,
 
     // BOOKKEEPING
 
@@ -76,6 +79,8 @@ impl StaticsContext {
             _file_provider: file_provider,
             root_namespace: Default::default(),
             resolution_map: Default::default(),
+            fully_qualified_names: Default::default(),
+
             loop_stack: Default::default(),
             func_ret_stack: Default::default(),
             interface_impls: Default::default(),
@@ -84,6 +89,7 @@ impl StaticsContext {
             dylibs: Default::default(),
             dylib_to_funcs: Default::default(),
             host_funcs: Default::default(),
+
             unifvars: Default::default(),
             unifvars_constrained_to_interfaces: Default::default(),
             errors: Default::default(),
@@ -150,7 +156,7 @@ impl Display for Namespace {
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub(crate) enum Declaration {
-    FreeFunction(Rc<FuncDef>, String),
+    FreeFunction(Rc<FuncDef>),
     HostFunction(Rc<FuncDecl>, String),
     _ForeignFunction {
         f: Rc<FuncDecl>,
@@ -641,7 +647,7 @@ fn add_detail_for_decl_node(
     message: &str,
 ) -> bool {
     let node = match decl {
-        Declaration::FreeFunction(func_def, _) => func_def.name.node(),
+        Declaration::FreeFunction(func_def) => func_def.name.node(),
         Declaration::HostFunction(func_decl, _) => func_decl.name.node(),
         Declaration::_ForeignFunction { f: decl, .. } => decl.name.node(),
         Declaration::InterfaceDef(interface_decl) => interface_decl.name.node(),

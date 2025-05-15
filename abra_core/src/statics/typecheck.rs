@@ -812,7 +812,7 @@ fn tyvar_of_declaration(
     node: AstNode,
 ) -> Option<TypeVar> {
     match decl {
-        Declaration::FreeFunction(f, _) => Some(TypeVar::from_node(ctx, f.name.node())),
+        Declaration::FreeFunction(f) => Some(TypeVar::from_node(ctx, f.name.node())),
         Declaration::HostFunction(f, _) => Some(TypeVar::from_node(ctx, f.name.node())),
         Declaration::_ForeignFunction { f: decl, .. } => {
             Some(TypeVar::from_node(ctx, decl.name.node()))

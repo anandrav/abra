@@ -346,7 +346,8 @@ impl Translator {
                         unimplemented!()
                     }
                 },
-                Declaration::FreeFunction(_, name) => {
+                Declaration::FreeFunction(f) => {
+                    let name = &self.statics.fully_qualified_names[&f.name.id];
                     self.emit(
                         st,
                         Instr::MakeClosure {
@@ -407,9 +408,10 @@ impl Translator {
                             .root_namespace
                             .get_declaration("prelude.format_append")
                             .unwrap();
-                        let Declaration::FreeFunction(func, func_name) = format_append_decl else {
+                        let Declaration::FreeFunction(func) = format_append_decl else {
                             unreachable!()
                         };
+                        let func_name = &self.statics.fully_qualified_names[&func.name.id];
 
                         let arg1_ty = self.statics.solution_of_node(left.node()).unwrap();
                         let arg2_ty = self.statics.solution_of_node(right.node()).unwrap();
@@ -420,7 +422,7 @@ impl Translator {
                         let substituted_ty =
                             subst_with_monomorphic_env(monomorph_env, specific_func_ty);
 
-                        self.handle_overloaded_func(st, substituted_ty, &func_name, func.clone());
+                        self.handle_overloaded_func(st, substituted_ty, func_name, func.clone());
                     }
                     BinaryOperator::Or => self.emit(st, Instr::Or),
                     BinaryOperator::And => self.emit(st, Instr::And),
@@ -682,7 +684,8 @@ impl Translator {
                 self.emit(st, Instr::LoadOffset(*idx));
                 self.emit(st, Instr::CallFuncObj);
             }
-            Declaration::FreeFunction(f, f_fully_qualified_name) => {
+            Declaration::FreeFunction(f) => {
+                let f_fully_qualified_name = &self.statics.fully_qualified_names[&f.name.id];
                 self.translate_func_ap_helper(
                     f,
                     f_fully_qualified_name,
@@ -756,10 +759,8 @@ impl Translator {
                     }
                 }
             }
-            Declaration::MemberFunction {
-                f,
-                name: f_fully_qualified_name,
-            } => {
+            Declaration::MemberFunction { f, name: _ } => {
+                let f_fully_qualified_name = &self.statics.fully_qualified_names[&f.name.id];
                 self.translate_func_ap_helper(
                     f,
                     f_fully_qualified_name,
@@ -1051,8 +1052,8 @@ impl Translator {
         // TODO: gross lol. MAKE A BETTER WAY TO GET FULLY QUALIFIED NAMES
         let fully_qualified_name = {
             let res = &self.statics.resolution_map[&f.name.id]; // THIS IS JUST RESOLVING IT TO ITSELF. THIS IS FUCKING DUMB
-            if let Declaration::FreeFunction(_, fully_qualified_name) = res {
-                fully_qualified_name
+            if let Declaration::FreeFunction(f) = res {
+                &self.statics.fully_qualified_names[&f.name.id]
             } else if let Declaration::MemberFunction {
                 name: fully_qualified_name,
                 ..
