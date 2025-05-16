@@ -9,7 +9,7 @@ crate-type = ["cdylib"]
 test = false
 [dependencies]
 abra_core = { workspace = true }
-crossterm = "0.28.1"
+crossterm = "0.29.0"
 
 [build-dependencies]
 abra_core = { workspace = true }
