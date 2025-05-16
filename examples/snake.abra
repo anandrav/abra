@@ -73,7 +73,7 @@ fn main() {
       break
     }
 
-    update_snake(snake, fruit)
+    update(snake, fruit)
 
     let now = get_time()
     let end_time = start_time + 200.0 / 1000.0
@@ -112,11 +112,8 @@ extend Fruit {
   }
 }
 
-fn update_snake(snake: Snake, fruit: Fruit) {
-  let body = snake.body
-  let len = len(body)
-
-  let new_head = clone(body[0])
+fn update(snake: Snake, fruit: Fruit) {
+  let new_head = clone(snake.body[0])
   match snake.direction {
     .Up -> new_head.y := new_head.y - 1,
     .Down -> new_head.y := new_head.y + 1,
@@ -124,13 +121,25 @@ fn update_snake(snake: Snake, fruit: Fruit) {
     .Right -> new_head.x := new_head.x + 1
   }
 
-  if new_head = fruit.location {
-    // the fruit is eaten, so the snake gets longer and the fruit must change location
+  let fruit_was_eaten = new_head = fruit.location
+  println("fruit_was_eaten: " & fruit_was_eaten)
+  println(new_head.x)
+  println(new_head.y)
+  println(fruit.location.x)
+  println(fruit.location.y)
+  println(new_head.x = fruit.location.x)
+  println(new_head.y = fruit.location.y)
+  println((new_head.x = fruit.location.x) and (new_head.y = fruit.location.y))
 
-    // TODO
-  }
+  let body = snake.body
+  let len = len(body)
   
-  var i = len - 2
+  var i = if fruit_was_eaten {
+    body.push(Point(0,0))
+    len - 1
+  } else {
+    len - 2 
+  }
   while i >= 0 {
     body[i+1] := body[i]
     i := i - 1

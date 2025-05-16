@@ -855,11 +855,18 @@ impl Vm {
                             (ManagedObjectKind::String(a), ManagedObjectKind::String(b)) => {
                                 self.push(a == b)
                             }
-                            _ => self.push(false),
+                            _ => {
+                                return self.make_error(VmErrorKind::InternalError(
+                                    "Can't compare equal".into(),
+                                ));
+                            }
                         }
                     }
                     (Value::Nil, Value::Nil) => self.push(true),
-                    _ => panic!("cannot compare equal"),
+                    _ => {
+                        return self
+                            .make_error(VmErrorKind::InternalError("Can't compare equal".into()));
+                    }
                 }
             }
             Instr::Jump(target) => {

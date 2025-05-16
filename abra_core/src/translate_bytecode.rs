@@ -393,7 +393,7 @@ impl Translator {
                 self.translate_expr(left.clone(), offset_table, monomorph_env.clone(), st);
                 self.translate_expr(right.clone(), offset_table, monomorph_env.clone(), st);
                 match op {
-                    BinaryOperator::Add => self.emit(st, Instr::Add),
+                    BinaryOperator::Add => self.emit(st, Instr::Add), // TODO: is this actually being used?? it shouldn't be. BinOps are overloaded functions
                     BinaryOperator::Subtract => self.emit(st, Instr::Subtract),
                     BinaryOperator::Multiply => self.emit(st, Instr::Multiply),
                     BinaryOperator::Divide => self.emit(st, Instr::Divide),
@@ -401,7 +401,57 @@ impl Translator {
                     BinaryOperator::LessThan => self.emit(st, Instr::LessThan),
                     BinaryOperator::GreaterThanOrEqual => self.emit(st, Instr::GreaterThanOrEqual),
                     BinaryOperator::LessThanOrEqual => self.emit(st, Instr::LessThanOrEqual),
-                    BinaryOperator::Equal => self.emit(st, Instr::Equal),
+                    BinaryOperator::Equal => {
+                        // TODO: duplicated with code above! and below
+                        let iface_method = self
+                            .statics
+                            .root_namespace
+                            .get_declaration("prelude.equal")
+                            .unwrap();
+                        let Declaration::InterfaceMethod {
+                            method,
+                            i: iface_def,
+                        } = iface_method
+                        else {
+                            unreachable!()
+                        };
+                        let arg1_ty = self.statics.solution_of_node(left.node()).unwrap();
+                        let arg2_ty = self.statics.solution_of_node(right.node()).unwrap();
+                        let out_ty = self.statics.solution_of_node(expr.node()).unwrap();
+                        let func_ty = Type::Function(vec![arg1_ty, arg2_ty], out_ty.into());
+                        let substituted_ty =
+                            subst_with_monomorphic_env(monomorph_env.clone(), func_ty);
+                        let method = &iface_def.methods[method as usize].name;
+                        let impl_list = self.statics.interface_impls[&iface_def].clone();
+
+                        for imp in impl_list {
+                            for f in &imp.methods {
+                                if f.name.v == *method.v {
+                                    let unifvar = self
+                                        .statics
+                                        .unifvars
+                                        .get(&TypeProv::Node(f.name.node()))
+                                        .unwrap();
+                                    let interface_impl_ty = unifvar.solution().unwrap();
+
+                                    if ty_fits_impl_ty(
+                                        &self.statics,
+                                        substituted_ty.clone(),
+                                        interface_impl_ty,
+                                    ) {
+                                        let fully_qualified_name =
+                                            &self.statics.fully_qualified_names[&method.id];
+                                        self.handle_overloaded_func(
+                                            st,
+                                            substituted_ty.clone(),
+                                            fully_qualified_name,
+                                            f.clone(),
+                                        );
+                                    }
+                                }
+                            }
+                        }
+                    }
                     BinaryOperator::Format => {
                         let format_append_decl = self
                             .statics

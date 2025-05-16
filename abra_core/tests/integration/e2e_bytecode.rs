@@ -998,3 +998,33 @@ blah.len()
     let top = vm.top().unwrap();
     assert_eq!(top.get_int(&vm).unwrap(), 5);
 }
+
+#[test]
+fn equality_struct() {
+    let src = r#"
+// types
+type Point = {
+  x: int
+  y: int
+}
+
+implement Equal for Point {
+  fn equal(p1: Point, p2: Point) {
+    (p1.x = p2.x) and (p1.y = p2.y)
+  }
+}
+
+let p1 = Point(2, 3)
+let p2 = Point(2, 3)
+p1 = p2
+
+"#;
+    let program = unwrap_or_panic(compile_bytecode(
+        "main.abra",
+        MockFileProvider::single_file(src),
+    ));
+    let mut vm = Vm::new(program);
+    vm.run();
+    let top = vm.top().unwrap();
+    assert!(top.get_bool(&vm).unwrap())
+}
