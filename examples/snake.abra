@@ -7,7 +7,7 @@ type Point = {
   y: int
 }
 
-type Dir = 
+type Dir =
   | Up
   | Down
   | Left

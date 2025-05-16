@@ -79,6 +79,36 @@ implement Equal for string {
     fn equal(a, b) = equal_string(a, b)
 }
 
+interface Clone {
+    fn clone: 'a Clone -> 'a Clone
+}
+implement Clone for array<'a Clone> {
+    fn clone(arr: array<'a Clone>) {
+        let new: array<'a> = []
+        var i = 0
+        while i < arr.len() {
+            new.push(clone(arr[i]))
+            i := i + 1
+        }
+        new
+    }
+}
+implement Clone for void {
+    fn clone(x) = x
+}
+implement Clone for int {
+    fn clone(x) = x
+}
+implement Clone for float {
+    fn clone(x) = x
+}
+implement Clone for bool {
+    fn clone(x) = x
+}
+implement Clone for string {
+    fn clone(x) = x
+}
+
 interface ToString {
     fn str: 'a ToString -> string
 }

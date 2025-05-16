@@ -1,0 +1,9 @@
+let blah = [1, 2, 3, 4, 5]
+let blerp = clone(blah)
+
+blerp.pop()
+blerp.pop()
+
+println(blah)
+println(blerp)
+

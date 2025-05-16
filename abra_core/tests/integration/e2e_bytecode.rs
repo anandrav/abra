@@ -977,3 +977,24 @@ p.fullname() & " " & c.shout()
     let top = vm.top().unwrap();
     assert_eq!(top.get_string(&vm).unwrap(), "Anand Dukkipati red!");
 }
+
+#[test]
+fn clone_array() {
+    let src = r#"
+let blah = [1, 2, 3, 4, 5]
+let blerp = clone(blah)
+
+blerp.pop()
+blerp.pop()
+
+blah.len()
+"#;
+    let program = unwrap_or_panic(compile_bytecode(
+        "main.abra",
+        MockFileProvider::single_file(src),
+    ));
+    let mut vm = Vm::new(program);
+    vm.run();
+    let top = vm.top().unwrap();
+    assert_eq!(top.get_int(&vm).unwrap(), 5);
+}
