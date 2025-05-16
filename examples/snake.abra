@@ -7,6 +7,18 @@ type Point = {
   y: int
 }
 
+implement Clone for Point {
+  fn clone(p: Point) {
+    Point(p.x, p.y)
+  }
+}
+
+implement Equal for Point {
+  fn equal(p1: Point, p2: Point) {
+    (p1.x = p2.x) and (p1.y = p2.y)
+  }
+}
+
 type Dir =
   | Up
   | Down
@@ -103,6 +115,20 @@ extend Fruit {
 fn update_snake(snake: Snake, fruit: Fruit) {
   let body = snake.body
   let len = len(body)
+
+  let new_head = clone(body[0])
+  match snake.direction {
+    .Up -> new_head.y := new_head.y - 1,
+    .Down -> new_head.y := new_head.y + 1,
+    .Left -> new_head.x := new_head.x - 1,
+    .Right -> new_head.x := new_head.x + 1
+  }
+
+  if new_head = fruit.location {
+    // the fruit is eaten, so the snake gets longer and the fruit must change location
+
+    // TODO
+  }
   
   var i = len - 2
   while i >= 0 {
@@ -110,13 +136,7 @@ fn update_snake(snake: Snake, fruit: Fruit) {
     i := i - 1
   }
   
-  body[0] := Point(body[1].x, body[1].y)
-  match snake.direction {
-    .Up -> body[0].y := body[0].y - 1,
-    .Down -> body[0].y := body[0].y + 1,
-    .Left -> body[0].x := body[0].x - 1,
-    .Right -> body[0].x := body[0].x + 1
-  } 
+  body[0] := new_head
 }
 
 main()
