@@ -393,40 +393,47 @@ impl Translator {
             ExprKind::BinOp(left, op, right) => {
                 self.translate_expr(left.clone(), offset_table, monomorph_env.clone(), st);
                 self.translate_expr(right.clone(), offset_table, monomorph_env.clone(), st);
-                match op {
-                    BinaryOperator::Add => self.emit(st, Instr::Add), // TODO: is this actually being used?? it shouldn't be. BinOps are overloaded functions
-                    BinaryOperator::Subtract => self.emit(st, Instr::Subtract),
-                    BinaryOperator::Multiply => self.emit(st, Instr::Multiply),
-                    BinaryOperator::Divide => self.emit(st, Instr::Divide),
-                    BinaryOperator::GreaterThan => self.emit(st, Instr::GreaterThan),
-                    BinaryOperator::LessThan => self.emit(st, Instr::LessThan),
-                    BinaryOperator::GreaterThanOrEqual => self.emit(st, Instr::GreaterThanOrEqual),
-                    BinaryOperator::LessThanOrEqual => self.emit(st, Instr::LessThanOrEqual),
-                    BinaryOperator::Equal => {
-                        let iface_method = self
-                            .statics
-                            .root_namespace
-                            .get_declaration("prelude.equal")
-                            .unwrap();
-                        let Declaration::InterfaceMethod {
-                            method,
-                            i: iface_def,
-                        } = iface_method
-                        else {
-                            unreachable!()
-                        };
-                        let arg1_ty = self.statics.solution_of_node(left.node()).unwrap();
-                        let arg2_ty = self.statics.solution_of_node(right.node()).unwrap();
-                        let out_ty = self.statics.solution_of_node(expr.node()).unwrap();
-                        let func_ty = Type::Function(vec![arg1_ty, arg2_ty], out_ty.into());
+                let mut helper = |monomorph_env, method_name: &str| {
+                    let iface_method = self
+                        .statics
+                        .root_namespace
+                        .get_declaration(method_name)
+                        .unwrap();
+                    let Declaration::InterfaceMethod {
+                        method,
+                        i: iface_def,
+                    } = iface_method
+                    else {
+                        unreachable!()
+                    };
+                    let arg1_ty = self.statics.solution_of_node(left.node()).unwrap();
+                    let arg2_ty = self.statics.solution_of_node(right.node()).unwrap();
+                    let out_ty = self.statics.solution_of_node(expr.node()).unwrap();
+                    let func_ty = Type::Function(vec![arg1_ty, arg2_ty], out_ty.into());
 
-                        self.translate_overloaded_func_ap_helper(
-                            st,
-                            monomorph_env,
-                            iface_def,
-                            method,
-                            func_ty,
-                        );
+                    self.translate_overloaded_func_ap_helper(
+                        st,
+                        monomorph_env,
+                        iface_def,
+                        method,
+                        func_ty,
+                    );
+                };
+                match op {
+                    BinaryOperator::Add => helper(monomorph_env, "prelude.add"),
+                    BinaryOperator::Subtract => helper(monomorph_env, "prelude.subtract"),
+                    BinaryOperator::Multiply => helper(monomorph_env, "prelude.multiply"),
+                    BinaryOperator::Divide => helper(monomorph_env, "prelude.divide"),
+                    BinaryOperator::GreaterThan => helper(monomorph_env, "prelude.greater_than"),
+                    BinaryOperator::LessThan => helper(monomorph_env, "prelude.less_than"),
+                    BinaryOperator::GreaterThanOrEqual => {
+                        helper(monomorph_env, "prelude.greater_than_or_equal")
+                    }
+                    BinaryOperator::LessThanOrEqual => {
+                        helper(monomorph_env, "prelude.less_than_or_equal")
+                    }
+                    BinaryOperator::Equal => {
+                        helper(monomorph_env, "prelude.equal");
                     }
                     BinaryOperator::Format => {
                         let format_append_decl = self
@@ -452,7 +459,7 @@ impl Translator {
                     }
                     BinaryOperator::Or => self.emit(st, Instr::Or),
                     BinaryOperator::And => self.emit(st, Instr::And),
-                    BinaryOperator::Pow => self.emit(st, Instr::Power),
+                    BinaryOperator::Pow => helper(monomorph_env, "prelude.power"),
                     BinaryOperator::Mod => self.emit(st, Instr::Modulo),
                 }
             }
