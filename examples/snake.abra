@@ -18,10 +18,16 @@ type Snake = {
   direction: Dir
 }
 
+type Fruit = {
+  location: Point
+}
+
 // game logic
 
 fn main() {
   let snake = Snake([Point(12, 10), Point(11, 10), Point(10, 10), Point(9, 10), Point(8, 10)], Dir.Right)
+  let fruit = Fruit(Point(4, 5))
+
   var quit = false
 
   // game loop
@@ -29,7 +35,8 @@ fn main() {
   hide_cursor()
   while true {
     clear()
-    display_snake(snake)
+    snake.display()
+    fruit.display()
     flush()
 
     let start_time = get_time()
@@ -54,7 +61,7 @@ fn main() {
       break
     }
 
-    update_snake(snake)
+    update_snake(snake, fruit)
 
     let now = get_time()
     let end_time = start_time + 200.0 / 1000.0
@@ -70,22 +77,30 @@ fn main() {
   flush()
 }
 
-main()
-
 // helper functions
-fn display_snake(snake: Snake) {
-  var i = 0
-  while i < len(snake.body) {
-    let x = snake.body[i].x
-    let y = snake.body[i].y
+extend Snake {
+  fn display(self) {
+    var i = 0
+    while i < len(self.body) {
+      let x = self.body[i].x
+      let y = self.body[i].y
 
-    mark("O", x, y)
+      mark("O", x, y)
 
-    i := i + 1
+      i := i + 1
+    }
   }
 }
 
-fn update_snake(snake: Snake) {
+extend Fruit {
+  fn display(self) {
+    let x = self.location.x
+    let y = self.location.y
+    mark("*", x, y)
+  }
+}
+
+fn update_snake(snake: Snake, fruit: Fruit) {
   let body = snake.body
   let len = len(body)
   
@@ -104,3 +119,4 @@ fn update_snake(snake: Snake) {
   } 
 }
 
+main()
