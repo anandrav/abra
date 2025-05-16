@@ -6,8 +6,8 @@ use super::{Declaration, Error, Namespace, StaticsContext};
 #[cfg(feature = "ffi")]
 use crate::addons::make_foreign_func_name;
 use crate::ast::{
-    ArgMaybeAnnotated, AstNode, Expr, ExprKind, FileAst, Identifier, Item, ItemKind, Pat, PatKind,
-    Polytype, Stmt, StmtKind, Type, TypeDefKind, TypeKind,
+    ArgMaybeAnnotated, AstNode, Expr, ExprKind, FileAst, Identifier, Item, ItemKind, NodeId, Pat,
+    PatKind, Polytype, Stmt, StmtKind, Type, TypeDefKind, TypeKind,
 };
 use crate::builtin::Builtin;
 use std::cell::RefCell;
@@ -475,39 +475,41 @@ fn resolve_names_item_decl(ctx: &mut StaticsContext, symbol_table: SymbolTable, 
             // In this pass, we also gather the declarations of member functions
             // We don't gather declarations of member functions in the same pass as gathering type definitions, because
             // the former depends on the latter
+            let mut gather_declarations_memberfuncs_helper = |id: NodeId, name_id: NodeId| {
+                for f in &ext.methods {
+                    let fully_qualified_type_name = ctx.fully_qualified_names[&name_id].clone();
+                    let fully_qualified_name = fully_qualified_type_name + &f.name.v;
+                    ctx.fully_qualified_names
+                        .insert(f.name.id, fully_qualified_name);
+
+                    match ctx
+                        .member_functions
+                        .entry(id)
+                        .or_default()
+                        .entry(f.name.v.clone())
+                    {
+                        std::collections::hash_map::Entry::Occupied(occupied_entry) => {
+                            ctx.errors.push(Error::NameClash {
+                                name: f.name.v.clone(),
+                                original: Declaration::FreeFunction(
+                                    occupied_entry.get().clone(), // gross
+                                ),
+                                new: Declaration::FreeFunction(f.clone()),
+                            })
+                        }
+                        std::collections::hash_map::Entry::Vacant(vacant_entry) => {
+                            vacant_entry.insert(f.clone());
+                        }
+                    }
+                }
+            };
             if let Some(decl) = ctx.resolution_map.get(&ext.typename.id).cloned() {
                 match decl {
                     Declaration::Struct(struct_def) => {
-                        for f in &ext.methods {
-                            let fully_qualified_type_name =
-                                ctx.fully_qualified_names[&struct_def.name.id].clone();
-                            let fully_qualified_name = fully_qualified_type_name + &f.name.v;
-                            ctx.fully_qualified_names
-                                .insert(f.name.id, fully_qualified_name);
-
-                            match ctx
-                                .member_functions
-                                .entry(struct_def.id)
-                                .or_default()
-                                .entry(f.name.v.clone())
-                            {
-                                std::collections::hash_map::Entry::Occupied(occupied_entry) => {
-                                    ctx.errors.push(Error::NameClash {
-                                        name: f.name.v.clone(),
-                                        original: Declaration::FreeFunction(
-                                            occupied_entry.get().clone(), // gross
-                                        ),
-                                        new: Declaration::FreeFunction(f.clone()),
-                                    })
-                                }
-                                std::collections::hash_map::Entry::Vacant(vacant_entry) => {
-                                    vacant_entry.insert(f.clone());
-                                }
-                            }
-                        }
+                        gather_declarations_memberfuncs_helper(struct_def.id, struct_def.name.id)
                     }
-                    Declaration::Enum(_) => {
-                        todo!();
+                    Declaration::Enum(enum_def) => {
+                        gather_declarations_memberfuncs_helper(enum_def.id, enum_def.name.id)
                     }
                     _ => ctx.errors.push(Error::MustExtendStructOrEnum {
                         node: ext.typename.node(),
@@ -717,7 +719,7 @@ fn resolve_names_member_helper(ctx: &mut StaticsContext, expr: Rc<Expr>, field: 
                 ctx.errors
                     .push(Error::UnresolvedIdentifier { node: field.node() });
             }
-            Declaration::InterfaceDef(_) => unimplemented!(),
+            Declaration::InterfaceDef(_) => unimplemented!(), // TODO: why is this unimplemented?
             Declaration::Enum(enum_def) => {
                 let mut found = false;
                 for (idx, variant) in enum_def.variants.iter().enumerate() {

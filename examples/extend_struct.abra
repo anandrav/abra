@@ -4,11 +4,29 @@ type Person = {
 	age: int
 }
 
+type Color =
+| Red
+| Blue
+| Green
+
 extend Person {
 	fn fullname(self) -> string {
 		self.first_name & " " & self.last_name
 	}
 }
 
+extend Color {
+  fn shout(self) {
+    match self {
+      .Red -> println("red!"),
+      _ -> println("not red!"),
+    }
+  }
+}
+
 let p: Person = Person("Anand", "Dukkipati", 26)
 println(p.fullname())
+
+let c: Color = Color.Red
+c.shout()
+

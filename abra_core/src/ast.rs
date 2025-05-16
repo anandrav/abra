@@ -192,6 +192,7 @@ pub(crate) struct EnumDef {
     pub(crate) name: Rc<Identifier>,
     pub(crate) ty_args: Vec<Rc<Polytype>>,
     pub(crate) variants: Vec<Rc<Variant>>,
+    pub(crate) id: NodeId,
 }
 
 impl EnumDef {

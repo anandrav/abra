@@ -631,6 +631,7 @@ pub(crate) fn parse_item(pair: Pair<Rule>, file_id: FileId) -> Rc<Item> {
                 variants.push(variant);
                 n += 1;
             }
+            let id = NodeId::new();
             Rc::new(Item {
                 kind: Rc::new(ItemKind::TypeDef(Rc::new(TypeDefKind::Enum(
                     EnumDef {
@@ -642,6 +643,7 @@ pub(crate) fn parse_item(pair: Pair<Rule>, file_id: FileId) -> Rc<Item> {
                         .into(),
                         ty_args,
                         variants,
+                        id,
                     }
                     .into(),
                 )))),

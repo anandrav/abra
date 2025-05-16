@@ -1406,14 +1406,15 @@ fn generate_constraints_item_stmts(mode: Mode, stmt: Rc<Item>, ctx: &mut Statics
             }
         }
         ItemKind::Extension(ext) => {
-            let lookup = ctx.resolution_map.get(&ext.typename.id).cloned();
-            if let Some(Declaration::Struct(struct_def)) = &lookup {
+            let Some(lookup) = ctx.resolution_map.get(&ext.typename.id).cloned() else { return };
+
+            let mut helper = |nominal: Nominal| {
                 for f in &ext.methods {
                     if let Some((first_arg_identifier, _)) = f.args.first() {
                         if first_arg_identifier.v == "self" {
                             let (struct_ty, _) = TypeVar::make_nominal_with_substitution(
                                 Reason::MemberFunctionType(ext.typename.node()),
-                                Nominal::Struct(struct_def.clone()),
+                                nominal.clone(),
                                 ctx,
                                 stmt.node(),
                             );
@@ -1434,6 +1435,17 @@ fn generate_constraints_item_stmts(mode: Mode, stmt: Rc<Item>, ctx: &mut Statics
                     let ty_node = TypeVar::from_node(ctx, f.name.node());
                     constrain(ctx, ty_node, ty_func.clone());
                 }
+            };
+            match &lookup {
+                Declaration::Struct(struct_def) => {
+                    let nominal: Nominal = Nominal::Struct(struct_def.clone());
+                    helper(nominal);
+                }
+                Declaration::Enum(enum_def) => {
+                    let nominal: Nominal = Nominal::Enum(enum_def.clone());
+                    helper(nominal);
+                }
+                _ => {}
             }
         }
         ItemKind::TypeDef(_) => {}
@@ -1936,6 +1948,29 @@ fn generate_constraints_expr(
 
                     node_ty.set_flag_missing_info();
                 };
+                let generate_constraints_expr_memberfunc_helper =
+                    |ctx: &mut StaticsContext, node_ty, id, solved_ty| {
+                        if let Some(func) = ctx
+                            .member_functions
+                            .get(id)
+                            .and_then(|m| m.get(&fname.v))
+                            .cloned()
+                        {
+                            ctx.resolution_map
+                                .insert(fname.id, Declaration::MemberFunction { f: func.clone() });
+
+                            generate_constraints_expr_funcap_helper(
+                                polyvar_scope.clone(),
+                                ctx,
+                                std::iter::once(expr).chain(args).cloned(),
+                                func.name.node(),
+                                expr.node(),
+                                node_ty,
+                            );
+                        } else {
+                            failed_to_resolve_member_function(ctx, solved_ty);
+                        }
+                    };
                 if let Some(solved_ty) = TypeVar::from_node(ctx, expr.node()).solution() {
                     match &solved_ty {
                         SolvedType::Nominal(Nominal::Array, _) => match fname.v.as_str() {
@@ -2014,31 +2049,20 @@ fn generate_constraints_expr(
                                 .push(Error::UnresolvedIdentifier { node: fname.node() }),
                         },
                         SolvedType::Nominal(Nominal::Struct(struct_def), _) => {
-                            if let Some(func) = ctx
-                                .member_functions
-                                .get(&struct_def.id)
-                                .and_then(|m| m.get(&fname.v))
-                                .cloned()
-                            {
-                                ctx.resolution_map.insert(
-                                    fname.id,
-                                    Declaration::MemberFunction { f: func.clone() },
-                                );
-
-                                generate_constraints_expr_funcap_helper(
-                                    polyvar_scope.clone(),
-                                    ctx,
-                                    std::iter::once(expr).chain(args).cloned(),
-                                    func.name.node(),
-                                    expr.node(),
-                                    node_ty,
-                                );
-                            } else {
-                                failed_to_resolve_member_function(ctx, solved_ty);
-                            }
+                            generate_constraints_expr_memberfunc_helper(
+                                ctx,
+                                node_ty.clone(),
+                                &struct_def.id,
+                                solved_ty.clone(),
+                            );
                         }
                         SolvedType::Nominal(Nominal::Enum(enum_def), _) => {
-                            todo!()
+                            generate_constraints_expr_memberfunc_helper(
+                                ctx,
+                                node_ty.clone(),
+                                &enum_def.id,
+                                solved_ty.clone(),
+                            );
                         }
                         _ => {
                             failed_to_resolve_member_function(ctx, solved_ty);
