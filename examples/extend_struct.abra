@@ -5,7 +5,7 @@ type Person = {
 }
 
 extend Person {
-	fn fullname(self: Person) -> string {
+	fn fullname(self) -> string {
 		self.first_name & " " & self.last_name
 	}
 }

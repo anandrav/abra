@@ -324,6 +324,7 @@ pub(crate) enum Reason {
     VariantNoData(AstNode), // the type of the data of a variant with no data, always Unit.
     WhileLoopBody(AstNode),
     IfWithoutElse(AstNode),
+    MemberFunctionType(AstNode),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
@@ -1408,6 +1409,19 @@ fn generate_constraints_item_stmts(mode: Mode, stmt: Rc<Item>, ctx: &mut Statics
             let lookup = ctx.resolution_map.get(&ext.typename.id).cloned();
             if let Some(Declaration::Struct(struct_def)) = &lookup {
                 for f in &ext.methods {
+                    if let Some((first_arg_identifier, _)) = f.args.first() {
+                        if first_arg_identifier.v == "self" {
+                            let (struct_ty, _) = TypeVar::make_nominal_with_substitution(
+                                Reason::MemberFunctionType(ext.typename.node()),
+                                Nominal::Struct(struct_def.clone()),
+                                ctx,
+                                stmt.node(),
+                            );
+                            let ty_arg = TypeVar::from_node(ctx, first_arg_identifier.node());
+                            constrain(ctx, ty_arg, struct_ty);
+                        }
+                    }
+
                     let ty_func = generate_constraints_func_helper(
                         ctx,
                         f.name.node(),
