@@ -3,10 +3,11 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use crate::assembly::{Instr, Label, Line, remove_labels};
-use crate::ast::{AstNode, BinaryOperator, FuncDef, Item, ItemKind};
+use crate::ast::{AstNode, BinaryOperator, FuncDef, InterfaceDecl, Item, ItemKind};
 use crate::ast::{FileAst, FileDatabase, NodeId};
 use crate::builtin::Builtin;
 use crate::environment::Environment;
+use crate::statics::typecheck::SolvedType;
 use crate::statics::typecheck::{Monotype, Nominal};
 use crate::statics::{Declaration, TypeProv};
 use crate::statics::{Type, ty_fits_impl_ty};
@@ -402,7 +403,6 @@ impl Translator {
                     BinaryOperator::GreaterThanOrEqual => self.emit(st, Instr::GreaterThanOrEqual),
                     BinaryOperator::LessThanOrEqual => self.emit(st, Instr::LessThanOrEqual),
                     BinaryOperator::Equal => {
-                        // TODO: duplicated with code above! and below
                         let iface_method = self
                             .statics
                             .root_namespace
@@ -419,38 +419,14 @@ impl Translator {
                         let arg2_ty = self.statics.solution_of_node(right.node()).unwrap();
                         let out_ty = self.statics.solution_of_node(expr.node()).unwrap();
                         let func_ty = Type::Function(vec![arg1_ty, arg2_ty], out_ty.into());
-                        let substituted_ty =
-                            subst_with_monomorphic_env(monomorph_env.clone(), func_ty);
-                        let method = &iface_def.methods[method as usize].name;
-                        let impl_list = self.statics.interface_impls[&iface_def].clone();
 
-                        for imp in impl_list {
-                            for f in &imp.methods {
-                                if f.name.v == *method.v {
-                                    let unifvar = self
-                                        .statics
-                                        .unifvars
-                                        .get(&TypeProv::Node(f.name.node()))
-                                        .unwrap();
-                                    let interface_impl_ty = unifvar.solution().unwrap();
-
-                                    if ty_fits_impl_ty(
-                                        &self.statics,
-                                        substituted_ty.clone(),
-                                        interface_impl_ty,
-                                    ) {
-                                        let fully_qualified_name =
-                                            &self.statics.fully_qualified_names[&method.id];
-                                        self.handle_overloaded_func(
-                                            st,
-                                            substituted_ty.clone(),
-                                            fully_qualified_name,
-                                            f.clone(),
-                                        );
-                                    }
-                                }
-                            }
-                        }
+                        self.translate_overloaded_func_ap_helper(
+                            st,
+                            monomorph_env,
+                            iface_def,
+                            method,
+                            func_ty,
+                        );
                     }
                     BinaryOperator::Format => {
                         let format_append_decl = self
@@ -719,6 +695,43 @@ impl Translator {
         }
     }
 
+    // used for overloaded functions (interface methods)
+    fn translate_overloaded_func_ap_helper(
+        &self,
+        st: &mut TranslatorState,
+        monomorph_env: MonomorphEnv,
+        iface_def: Rc<InterfaceDecl>,
+        method: u16,
+        func_ty: SolvedType,
+    ) {
+        let substituted_ty = subst_with_monomorphic_env(monomorph_env.clone(), func_ty);
+        let method = &iface_def.methods[method as usize].name;
+        let impl_list = self.statics.interface_impls[&iface_def].clone();
+
+        for imp in impl_list {
+            for f in &imp.methods {
+                if f.name.v == *method.v {
+                    let unifvar = self
+                        .statics
+                        .unifvars
+                        .get(&TypeProv::Node(f.name.node()))
+                        .unwrap();
+                    let interface_impl_ty = unifvar.solution().unwrap();
+
+                    if ty_fits_impl_ty(&self.statics, substituted_ty.clone(), interface_impl_ty) {
+                        let fully_qualified_name = &self.statics.fully_qualified_names[&method.id];
+                        self.handle_overloaded_func(
+                            st,
+                            substituted_ty.clone(),
+                            fully_qualified_name,
+                            f.clone(),
+                        );
+                    }
+                }
+            }
+        }
+    }
+
     fn translate_func_ap(
         &self,
         resolution: Declaration,
@@ -778,37 +791,13 @@ impl Translator {
                 method,
             } => {
                 let func_ty = self.statics.solution_of_node(func_node).unwrap();
-                let substituted_ty = subst_with_monomorphic_env(monomorph_env.clone(), func_ty);
-                let method = &iface_def.methods[*method as usize].name;
-                let impl_list = self.statics.interface_impls[iface_def].clone();
-
-                for imp in impl_list {
-                    for f in &imp.methods {
-                        if f.name.v == *method.v {
-                            let unifvar = self
-                                .statics
-                                .unifvars
-                                .get(&TypeProv::Node(f.name.node()))
-                                .unwrap();
-                            let interface_impl_ty = unifvar.solution().unwrap();
-
-                            if ty_fits_impl_ty(
-                                &self.statics,
-                                substituted_ty.clone(),
-                                interface_impl_ty,
-                            ) {
-                                let fully_qualified_name =
-                                    &self.statics.fully_qualified_names[&method.id];
-                                self.handle_overloaded_func(
-                                    st,
-                                    substituted_ty.clone(),
-                                    fully_qualified_name,
-                                    f.clone(),
-                                );
-                            }
-                        }
-                    }
-                }
+                self.translate_overloaded_func_ap_helper(
+                    st,
+                    monomorph_env,
+                    iface_def.clone(),
+                    *method,
+                    func_ty,
+                );
             }
             Declaration::MemberFunction { f } => {
                 let f_fully_qualified_name = &self.statics.fully_qualified_names[&f.name.id];
