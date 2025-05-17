@@ -101,7 +101,7 @@ extend Snake {
       let x = self.body[i].x
       let y = self.body[i].y
 
-      mark("O", x, y)
+      mark("O", x+1, y+1)
 
       i := i + 1
     }
@@ -112,7 +112,7 @@ extend Fruit {
   fn display(self) {
     let x = self.location.x
     let y = self.location.y
-    mark("*", x, y)
+    mark("*", x+1, y+1)
   }
 }
 
@@ -175,14 +175,16 @@ fn index_to_point(index: int, width: int, height: int) -> Point {
 
 fn draw_border(width: int, height: int) {
   var i = 0
-  while i < width+1 {
-    mark("X", i, height)
+  while i < width+2 {
+    mark("X", i, height+1)
+    mark("X", i, 0)
     i := i + 1
   }
 
   var i = 0
-  while i < height+1 {
-    mark("X", width, i)
+  while i < height+2 {
+    mark("X", width+1, i)
+    mark("X", 0, i)
     i := i + 1
   }
 }
