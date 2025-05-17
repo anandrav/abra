@@ -167,6 +167,11 @@ fn update(st: State) {
     .Right -> new_head.x := new_head.x + 1
   }
 
+  if out_of_bounds(new_head, width, height) {
+    st.status := Status.Lost
+    return ()
+  }
+
   let fruit_was_eaten = new_head = fruit.location
 
   let body = snake.body
@@ -215,6 +220,10 @@ fn index_to_point(index: int, width: int, height: int) -> Point {
   Point(x, y)
 }
 
+fn out_of_bounds(p: Point, width, height) -> bool {
+  (p.x < 0) or (p.x >= width) or (p.y < 0) or (p.y >= height)
+}
+
 fn draw_border(st: State) {
   let width = st.width
   let height = st.height
@@ -234,7 +243,7 @@ fn draw_border(st: State) {
 }
 
 fn display_game_over() {
-  mark("GAME OVER", 5, 5)
+  mark("GAME OVER", 6, 5)
 }
 
 fn display_win_screen() {
