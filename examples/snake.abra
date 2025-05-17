@@ -35,29 +35,64 @@ type Fruit = {
   location: Point
 }
 
+type Status =
+  | Playing
+  | Lost
+  | Won
+
+implement Equal for Status {
+  fn equal(s1: Status, s2: Status) {
+    match (s1, s2) {
+      (Status.Playing, Status.Playing) -> true,
+      (Status.Lost, Status.Lost) -> true,
+      (Status.Won, Status.Won) -> true,
+      _ -> false,
+    }
+  }
+}
+
+type State = {
+  width: int
+  height: int
+  snake: Snake
+  fruit: Fruit
+  status: Status
+  quit: bool
+}
+
 // game logic
 
 fn main() {
-  let width = 20
-  let height = 20
-  let snake = Snake([Point(12, 10), Point(11, 10), Point(10, 10), Point(9, 10), Point(8, 10)], Dir.Right)
-  let fruit = Fruit(Point(4, 5))
-
-  var quit = false
+  let st = State(20, 20, 
+                    Snake([Point(12, 10), Point(11, 10), Point(10, 10), Point(9, 10), Point(8, 10)], Dir.Right), 
+                    Fruit(Point(4, 5)), 
+                    Status.Playing, 
+                    false)
 
   // game loop
   enable_raw_mode()
   hide_cursor()
   while true {
     clear()
-    draw_border(width, height)
-    snake.display()
-    fruit.display()
+    draw_border(st)
+    match st.status {
+      .Playing -> {
+        st.snake.display()
+        st.fruit.display()
+      },
+      .Lost -> {
+        display_game_over()
+      },
+      .Won -> {
+        display_win_screen()
+      },
+    }
     flush()
 
     let start_time = get_time()
 
     while poll_key_event() {
+      let snake = st.snake
       match get_key_event() {
         .Left -> snake.direction := .Left,
         .Char("a") -> snake.direction := .Left,
@@ -67,17 +102,19 @@ fn main() {
         .Char("w") -> snake.direction := .Up,
         .Down -> snake.direction := .Down,
         .Char("s") -> snake.direction := .Down,
-        .Char("q") -> quit := true,
-        .Esc -> quit := true,
+        .Char("q") -> st.quit := true,
+        .Esc -> st.quit := true,
         _ -> {}
       }
     }
 
-    if quit {
+    if st.quit {
       break
     }
 
-    update(snake, fruit, width, height)
+    if st.status = Status.Playing {
+      update(st)
+    }
 
     let now = get_time()
     let end_time = start_time + 200.0 / 1000.0
@@ -116,7 +153,12 @@ extend Fruit {
   }
 }
 
-fn update(snake: Snake, fruit: Fruit, width, height) {
+fn update(st: State) {
+  let snake = st.snake
+  let fruit = st.fruit
+  let width = st.width
+  let height = st.height
+
   let new_head = clone(snake.body[0])
   match snake.direction {
     .Up -> new_head.y := new_head.y - 1,
@@ -173,7 +215,9 @@ fn index_to_point(index: int, width: int, height: int) -> Point {
   Point(x, y)
 }
 
-fn draw_border(width: int, height: int) {
+fn draw_border(st: State) {
+  let width = st.width
+  let height = st.height
   var i = 0
   while i < width+2 {
     mark("X", i, height+1)
@@ -187,6 +231,14 @@ fn draw_border(width: int, height: int) {
     mark("X", 0, i)
     i := i + 1
   }
+}
+
+fn display_game_over() {
+  mark("GAME OVER", 5, 5)
+}
+
+fn display_win_screen() {
+  mark("YOU WIN", 5, 5)
 }
 
 main()
