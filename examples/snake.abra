@@ -1,5 +1,6 @@
 use term
 use time
+use random
 
 // types
 type Point = {
@@ -37,6 +38,8 @@ type Fruit = {
 // game logic
 
 fn main() {
+  let width = 20
+  let height = 20
   let snake = Snake([Point(12, 10), Point(11, 10), Point(10, 10), Point(9, 10), Point(8, 10)], Dir.Right)
   let fruit = Fruit(Point(4, 5))
 
@@ -47,6 +50,7 @@ fn main() {
   hide_cursor()
   while true {
     clear()
+    draw_border(width, height)
     snake.display()
     fruit.display()
     flush()
@@ -73,7 +77,7 @@ fn main() {
       break
     }
 
-    update(snake, fruit)
+    update(snake, fruit, width, height)
 
     let now = get_time()
     let end_time = start_time + 200.0 / 1000.0
@@ -112,7 +116,7 @@ extend Fruit {
   }
 }
 
-fn update(snake: Snake, fruit: Fruit) {
+fn update(snake: Snake, fruit: Fruit, width, height) {
   let new_head = clone(snake.body[0])
   match snake.direction {
     .Up -> new_head.y := new_head.y - 1,
@@ -122,14 +126,6 @@ fn update(snake: Snake, fruit: Fruit) {
   }
 
   let fruit_was_eaten = new_head = fruit.location
-  println("fruit_was_eaten: " & fruit_was_eaten)
-  println(new_head.x)
-  println(new_head.y)
-  println(fruit.location.x)
-  println(fruit.location.y)
-  println(new_head.x = fruit.location.x)
-  println(new_head.y = fruit.location.y)
-  println((new_head.x = fruit.location.x) and (new_head.y = fruit.location.y))
 
   let body = snake.body
   let len = len(body)
@@ -146,6 +142,49 @@ fn update(snake: Snake, fruit: Fruit) {
   }
   
   body[0] := new_head
+
+  if fruit_was_eaten {
+    let num_valid_locations = width * height - snake.body.len()
+    var found = false
+    var point = Point(0, 0)
+    while not(found) {
+      let index = random_int(0, num_valid_locations)
+      point := index_to_point(index, width, height)
+
+      var in_snake = false
+      var i = 0
+      while i < snake.body.len() {
+        if snake.body[i] = point {
+          in_snake := true
+        }
+        i := i + 1
+      }
+
+      found := not(in_snake)
+    }
+
+    fruit.location := point
+  }
+}
+
+fn index_to_point(index: int, width: int, height: int) -> Point {
+  let x = index mod width
+  let y = index / width
+  Point(x, y)
+}
+
+fn draw_border(width: int, height: int) {
+  var i = 0
+  while i < width+1 {
+    mark("X", i, height)
+    i := i + 1
+  }
+
+  var i = 0
+  while i < height+1 {
+    mark("X", width, i)
+    i := i + 1
+  }
 }
 
 main()
