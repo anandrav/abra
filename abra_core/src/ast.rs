@@ -442,7 +442,7 @@ impl std::hash::Hash for InterfaceImpl {
 
 #[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq)]
 pub(crate) struct Extension {
-    pub(crate) typename: Rc<Identifier>,
+    pub(crate) typ: Rc<Type>,
     pub(crate) methods: Vec<Rc<FuncDef>>,
 
     pub(crate) id: NodeId,

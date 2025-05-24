@@ -26,13 +26,14 @@ interface_property = { func_keyword ~ identifier ~ type_annotation }
 interface_implementation = { "implement" ~ identifier ~ "for" ~ typ ~ interface_implementation_body }
 interface_implementation_body = _{ "{" ~ func_def* ~ "}" }
 
-extension = { "extend" ~ identifier ~ extension_body }
+extension = { "extend" ~ typ ~ extension_body }
 extension_body = _{ "{" ~ func_def* ~ "}" }
 
 enum_declaration = { "type" ~ identifier ~ type_params? ~ "=" ~ ("|")? ~ variant ~ ("|" ~ variant)* }
 type_params = _{ "<" ~ (type_poly ~ ",")* ~ type_poly? ~ ">" }
 variant = { identifier ~ packed_data? }
 packed_data = _{ "of" ~ typ }
+
 
 struct_declaration = { "type" ~ identifier ~ type_params? ~ "=" ~ "{" ~ struct_field ~ (struct_field)* ~ "}" }
 struct_field = { identifier ~ type_annotation }
@@ -201,7 +202,7 @@ op_try = { "?" }
 // NOTE: When changing this code, make sure you don't have a subset of a word before
 // another word. For example: { "type" | "typeof" } will never match "typeof"
 keyword = @{
-   "and" | "bool" | "break" | "continue" | "else" | "false" | "fn" | "foreign" | "host" | "let" | "if" | "int" | "match" | "mod" | "or" | "return" | "set" | "string" | "type" | "nothing" | "true" | "void"
+   "and" | "bool" | "break" | "continue" | "else" | "extend" | "false" | "fn" | "foreign" | "host" | "let" | "if" | "int" | "match" | "mod" | "or" | "return" | "set" | "string" | "type" | "nothing" | "true" | "void"
 }
 
 semicolon = _{ ";" }

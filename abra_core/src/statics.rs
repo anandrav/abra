@@ -53,7 +53,7 @@ pub(crate) struct StaticsContext {
     // map from interface name to list of its implementations
     pub(crate) interface_impls: HashMap<Rc<InterfaceDecl>, Vec<Rc<InterfaceImpl>>>,
     // map from type definition to linked member functions
-    pub(crate) member_functions: HashMap<NodeId, HashMap<String, Rc<FuncDef>>>,
+    pub(crate) member_functions: HashMap<Nominal, HashMap<String, Rc<FuncDef>>>,
 
     // string constants (for bytecode translation)
     pub(crate) string_constants: IdSet<String>,
@@ -193,6 +193,10 @@ pub(crate) enum Error {
     UnresolvedIdentifier {
         node: AstNode,
     },
+    UnresolvedMemberFunction {
+        node: AstNode,
+        ty: SolvedType,
+    },
     NameClash {
         name: String,
         original: Declaration,
@@ -219,7 +223,9 @@ pub(crate) enum Error {
     },
     MustExtendStructOrEnum {
         node: AstNode,
-        name: String,
+    },
+    MemberFunctionMissingFirstSelfArgument {
+        node: AstNode,
     },
     UnqualifiedEnumNeedsAnnotation {
         node: AstNode,
@@ -323,6 +329,14 @@ impl Error {
             Error::UnresolvedIdentifier { node } => {
                 let (file, range) = node.get_file_and_range();
                 diagnostic = diagnostic.with_message("Could not resolve identifier");
+                labels.push(Label::secondary(file, range))
+            }
+            Error::UnresolvedMemberFunction { node, ty } => {
+                let (file, range) = node.get_file_and_range();
+                diagnostic = diagnostic.with_message(format!(
+                    "Could not resolve member function for type: {}",
+                    ty
+                ));
                 labels.push(Label::secondary(file, range))
             }
             Error::UnconstrainedUnifvar { node } => {
@@ -472,11 +486,15 @@ impl Error {
                 let (file, range) = node.get_file_and_range();
                 labels.push(Label::secondary(file, range));
             }
-            Error::MustExtendStructOrEnum { node, name } => {
-                diagnostic = diagnostic.with_message(format!(
-                    "Can't extend a type which isn't a struct or enum: `{}`",
-                    name
-                ));
+            Error::MustExtendStructOrEnum { node } => {
+                diagnostic = diagnostic
+                    .with_message("Can't extend a type which isn't a struct or enum".to_string());
+                let (file, range) = node.get_file_and_range();
+                labels.push(Label::secondary(file, range));
+            }
+            Error::MemberFunctionMissingFirstSelfArgument { node } => {
+                diagnostic = diagnostic
+                    .with_message("First argument of member function must be `self`".to_string());
                 let (file, range) = node.get_file_and_range();
                 labels.push(Label::secondary(file, range));
             }
@@ -567,7 +585,7 @@ fn handle_reason(
         }
         Reason::Node(node) => {
             let (file, range) = node.get_file_and_range();
-            labels.push(Label::secondary(file, range).with_message("the term"));
+            labels.push(Label::secondary(file, range).with_message(format!("`{}`", ty)));
         }
         Reason::Annotation(node) => {
             let (file, range) = node.get_file_and_range();
@@ -680,7 +698,9 @@ impl AstNode {
     }
 }
 
+use crate::statics::typecheck::Nominal;
 use codespan_reporting::diagnostic::Label as CsLabel;
+
 pub(crate) fn _print_node(ctx: &StaticsContext, node: AstNode) {
     let (file, range) = node.get_file_and_range();
 

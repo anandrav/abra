@@ -9,7 +9,7 @@ use crate::builtin::Builtin;
 use crate::environment::Environment;
 use crate::statics::typecheck::SolvedType;
 use crate::statics::typecheck::{Monotype, Nominal};
-use crate::statics::{Declaration, TypeProv};
+use crate::statics::{_print_node, Declaration, TypeProv};
 use crate::statics::{Type, ty_fits_impl_ty};
 use crate::vm::{AbraFloat, AbraInt, Instr as VmInstr};
 use crate::{
@@ -1086,7 +1086,8 @@ impl Translator {
     }
 
     fn translate_func_helper(&self, st: &mut TranslatorState, iface_method: bool, f: &Rc<FuncDef>) {
-        // (this could be an overloaded function or an interface method)
+        // (this could be an overloaded function or an interface method)'
+        // _print_node(&self.statics, f.name.node());
         let func_ty = self.statics.solution_of_node(f.name.node()).unwrap();
 
         if func_ty.is_overloaded() // println: 'a ToString -> ()

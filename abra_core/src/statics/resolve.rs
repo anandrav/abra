@@ -10,6 +10,7 @@ use crate::ast::{
     PatKind, Polytype, Stmt, StmtKind, Type, TypeDefKind, TypeKind,
 };
 use crate::builtin::Builtin;
+use crate::statics::typecheck::Nominal;
 use std::cell::RefCell;
 use std::rc::Rc;
 use utils::hash::HashMap;
@@ -464,7 +465,7 @@ fn resolve_names_item_decl(ctx: &mut StaticsContext, symbol_table: SymbolTable, 
         }
         ItemKind::Extension(ext) => {
             let symbol_table = symbol_table.new_scope();
-            resolve_identifier(ctx, &symbol_table, &ext.typename);
+            resolve_names_typ(ctx, symbol_table.clone(), ext.typ.clone(), true);
             for f in &ext.methods {
                 ctx.fully_qualified_names
                     .insert(f.name.id, f.name.v.clone());
@@ -475,47 +476,65 @@ fn resolve_names_item_decl(ctx: &mut StaticsContext, symbol_table: SymbolTable, 
             // In this pass, we also gather the declarations of member functions
             // We don't gather declarations of member functions in the same pass as gathering type definitions, because
             // the former depends on the latter
-            let mut gather_declarations_memberfuncs_helper = |id: NodeId, name_id: NodeId| {
-                for f in &ext.methods {
-                    let fully_qualified_type_name = ctx.fully_qualified_names[&name_id].clone();
-                    let fully_qualified_name = fully_qualified_type_name + &f.name.v;
-                    ctx.fully_qualified_names
-                        .insert(f.name.id, fully_qualified_name);
+            let gather_declarations_memberfuncs_helper =
+                |ctx: &mut StaticsContext, nom: Nominal| {
+                    for f in &ext.methods {
+                        // let fully_qualified_type_name = ctx.fully_qualified_names[&name_id].clone();
+                        // let fully_qualified_name = fully_qualified_type_name + &f.name.v;
+                        // ctx.fully_qualified_names
+                        //     .insert(f.name.id, fully_qualified_name);
 
-                    match ctx
-                        .member_functions
-                        .entry(id)
-                        .or_default()
-                        .entry(f.name.v.clone())
-                    {
-                        std::collections::hash_map::Entry::Occupied(occupied_entry) => {
-                            ctx.errors.push(Error::NameClash {
-                                name: f.name.v.clone(),
-                                original: Declaration::FreeFunction(
-                                    occupied_entry.get().clone(), // gross
-                                ),
-                                new: Declaration::FreeFunction(f.clone()),
-                            })
+                        match ctx
+                            .member_functions
+                            .entry(nom.clone())
+                            .or_default()
+                            .entry(f.name.v.clone())
+                        {
+                            std::collections::hash_map::Entry::Occupied(occupied_entry) => {
+                                ctx.errors.push(Error::NameClash {
+                                    name: f.name.v.clone(),
+                                    original: Declaration::FreeFunction(
+                                        occupied_entry.get().clone(), // gross
+                                    ),
+                                    new: Declaration::FreeFunction(f.clone()),
+                                })
+                            }
+                            std::collections::hash_map::Entry::Vacant(vacant_entry) => {
+                                vacant_entry.insert(f.clone());
+                            }
                         }
-                        std::collections::hash_map::Entry::Vacant(vacant_entry) => {
-                            vacant_entry.insert(f.clone());
+                    }
+                };
+            let helper = |ctx: &mut StaticsContext, id| {
+                if let Some(decl) = ctx.resolution_map.get(&id).cloned() {
+                    match decl {
+                        Declaration::Struct(struct_def) => {
+                            gather_declarations_memberfuncs_helper(ctx, Nominal::Struct(struct_def))
                         }
+                        Declaration::Enum(enum_def) => {
+                            gather_declarations_memberfuncs_helper(ctx, Nominal::Enum(enum_def))
+                        }
+                        Declaration::Array => {
+                            gather_declarations_memberfuncs_helper(ctx, Nominal::Array)
+                        }
+                        _ => ctx.errors.push(Error::MustExtendStructOrEnum {
+                            node: ext.typ.node(),
+                        }),
                     }
                 }
             };
-            if let Some(decl) = ctx.resolution_map.get(&ext.typename.id).cloned() {
-                match decl {
-                    Declaration::Struct(struct_def) => {
-                        gather_declarations_memberfuncs_helper(struct_def.id, struct_def.name.id)
-                    }
-                    Declaration::Enum(enum_def) => {
-                        gather_declarations_memberfuncs_helper(enum_def.id, enum_def.name.id)
-                    }
-                    _ => ctx.errors.push(Error::MustExtendStructOrEnum {
-                        node: ext.typename.node(),
-                        name: ext.typename.v.clone(),
-                    }),
+            match &*ext.typ.kind {
+                TypeKind::Named(_) => {
+                    let id = ext.typ.id;
+                    helper(ctx, id)
                 }
+                TypeKind::NamedWithParams(ident, _) => {
+                    let id = ident.id;
+                    helper(ctx, id);
+                }
+                _ => ctx.errors.push(Error::MustExtendStructOrEnum {
+                    node: ext.typ.node(),
+                }),
             }
         }
         ItemKind::Import(..) => {}

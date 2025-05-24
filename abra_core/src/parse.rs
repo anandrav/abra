@@ -748,8 +748,7 @@ pub(crate) fn parse_item(pair: Pair<Rule>, file_id: FileId) -> Rc<Item> {
             })
         }
         Rule::extension => {
-            let name = inner[0].as_str().to_string();
-            let name_span = Location::new(file_id, inner[0].as_span());
+            let typ = parse_type_term(inner[0].clone(), file_id);
             let mut n = 1;
             let mut func_defs = vec![];
             while let Some(pair) = inner.get(n) {
@@ -762,12 +761,7 @@ pub(crate) fn parse_item(pair: Pair<Rule>, file_id: FileId) -> Rc<Item> {
             Rc::new(Item {
                 kind: ItemKind::Extension(
                     Extension {
-                        typename: Identifier {
-                            v: name,
-                            loc: name_span,
-                            id: NodeId::new(),
-                        }
-                        .into(),
+                        typ: typ,
                         methods: func_defs,
 
                         id: impl_id,

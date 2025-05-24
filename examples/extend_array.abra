@@ -1,0 +1,9 @@
+extend array<'a> {
+	fn find(self: array<'a>) -> int {
+		-1
+	}
+}
+
+let a = [1, 2, 3, 4, 5]
+let index = a.find(3)
+println(index)

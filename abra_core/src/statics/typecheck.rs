@@ -1406,34 +1406,56 @@ fn generate_constraints_item_stmts(mode: Mode, stmt: Rc<Item>, ctx: &mut Statics
             }
         }
         ItemKind::Extension(ext) => {
-            let Some(lookup) = ctx.resolution_map.get(&ext.typename.id).cloned() else { return };
+            // TODO: this logic of extracting the ID from the Named or the NamedWithParams is strange
+            // TODO: this logic of extracting the ID is duplicated in resolve.rs
+            let id_lookup_typ = match &*ext.typ.kind {
+                TypeKind::Named(_) => ext.typ.id,
+                TypeKind::NamedWithParams(ident, _) => ident.id,
+                _ => {
+                    ctx.errors.push(Error::MustExtendStructOrEnum {
+                        node: ext.typ.node(),
+                    });
+                    return;
+                }
+            };
+            let Some(lookup) = ctx.resolution_map.get(&id_lookup_typ).cloned() else { return };
 
             let mut helper = |nominal: Nominal| {
                 for f in &ext.methods {
+                    let err = |ctx: &mut StaticsContext| {
+                        ctx.errors
+                            .push(Error::MemberFunctionMissingFirstSelfArgument {
+                                node: f.name.node(),
+                            });
+                    };
                     if let Some((first_arg_identifier, _)) = f.args.first() {
                         if first_arg_identifier.v == "self" {
-                            let (struct_ty, _) = TypeVar::make_nominal_with_substitution(
-                                Reason::MemberFunctionType(ext.typename.node()),
+                            let (struct_ty, substitution) = TypeVar::make_nominal_with_substitution(
+                                Reason::MemberFunctionType(ext.typ.node()),
                                 nominal.clone(),
                                 ctx,
                                 stmt.node(),
                             );
                             let ty_arg = TypeVar::from_node(ctx, first_arg_identifier.node());
                             constrain(ctx, ty_arg, struct_ty);
+
+                            let ty_func = generate_constraints_func_helper(
+                                ctx,
+                                f.name.node(),
+                                PolyvarScope::empty(),
+                                &f.args,
+                                &f.ret_type,
+                                &f.body,
+                            );
+
+                            let ty_node = TypeVar::from_node(ctx, f.name.node());
+                            constrain(ctx, ty_node, ty_func.clone());
+                        } else {
+                            err(ctx);
                         }
+                    } else {
+                        err(ctx);
                     }
-
-                    let ty_func = generate_constraints_func_helper(
-                        ctx,
-                        f.name.node(),
-                        PolyvarScope::empty(),
-                        &f.args,
-                        &f.ret_type,
-                        &f.body,
-                    );
-
-                    let ty_node = TypeVar::from_node(ctx, f.name.node());
-                    constrain(ctx, ty_node, ty_func.clone());
                 }
             };
             match &lookup {
@@ -1443,6 +1465,10 @@ fn generate_constraints_item_stmts(mode: Mode, stmt: Rc<Item>, ctx: &mut Statics
                 }
                 Declaration::Enum(enum_def) => {
                     let nominal: Nominal = Nominal::Enum(enum_def.clone());
+                    helper(nominal);
+                }
+                Declaration::Array => {
+                    let nominal = Nominal::Array;
                     helper(nominal);
                 }
                 _ => {}
@@ -1941,7 +1967,7 @@ fn generate_constraints_expr(
 
                 let failed_to_resolve_member_function = |ctx: &mut StaticsContext, ty| {
                     // failed to resolve member function
-                    ctx.errors.push(Error::MemberAccessMustBeStructOrEnum {
+                    ctx.errors.push(Error::UnresolvedMemberFunction {
                         node: fname.node(),
                         ty,
                     });
@@ -1949,10 +1975,10 @@ fn generate_constraints_expr(
                     node_ty.set_flag_missing_info();
                 };
                 let generate_constraints_expr_memberfunc_helper =
-                    |ctx: &mut StaticsContext, node_ty, id, solved_ty| {
+                    |ctx: &mut StaticsContext, node_ty, nom, solved_ty| {
                         if let Some(func) = ctx
                             .member_functions
-                            .get(id)
+                            .get(nom)
                             .and_then(|m| m.get(&fname.v))
                             .cloned()
                         {
@@ -1973,94 +1999,103 @@ fn generate_constraints_expr(
                     };
                 if let Some(solved_ty) = TypeVar::from_node(ctx, expr.node()).solution() {
                     match &solved_ty {
-                        SolvedType::Nominal(Nominal::Array, _) => match fname.v.as_str() {
-                            "len" => {
-                                ctx.resolution_map
-                                    .insert(fname.id, Declaration::Builtin(Builtin::ArrayLength));
-
-                                // TODO: this is a lot of boilerplate to just say that push: (element: _) -> void
-                                // make a helper function? Or should this code not be so long in the first place
-                                let ty_ret: TypeVar = TypeVar::make_int(Reason::Node(fname.node()));
-
-                                let ty_fname = TypeVar::from_node(ctx, fname.node());
-                                let ty_func = TypeVar::make_func(
-                                    vec![],
-                                    ty_ret.clone(),
-                                    Reason::Node(fname.node()),
-                                );
-                                constrain(ctx, ty_fname, ty_func.clone());
-
-                                let ty_args_and_body = TypeVar::make_func(
-                                    tys_args,
-                                    node_ty,
-                                    Reason::Node(expr.node()),
-                                );
-
-                                constrain(ctx, ty_func, ty_args_and_body);
-                            }
-                            "push" => {
-                                ctx.resolution_map
-                                    .insert(fname.id, Declaration::Builtin(Builtin::ArrayPush));
-
-                                let ty_ret: TypeVar =
-                                    TypeVar::make_unit(Reason::Node(fname.node()));
-
-                                let ty_fname = TypeVar::from_node(ctx, fname.node());
-                                let ty_func = TypeVar::make_func(
-                                    vec![TypeVar::empty()],
-                                    ty_ret.clone(),
-                                    Reason::Node(fname.node()),
-                                );
-                                constrain(ctx, ty_fname, ty_func.clone());
-
-                                let ty_args_and_body = TypeVar::make_func(
-                                    tys_args,
-                                    node_ty,
-                                    Reason::Node(expr.node()),
-                                );
-
-                                constrain(ctx, ty_func, ty_args_and_body);
-                            }
-                            "pop" => {
-                                ctx.resolution_map
-                                    .insert(fname.id, Declaration::Builtin(Builtin::ArrayPop));
-
-                                let ty_ret: TypeVar =
-                                    TypeVar::make_unit(Reason::Node(fname.node()));
-
-                                let ty_fname = TypeVar::from_node(ctx, fname.node());
-                                let ty_func = TypeVar::make_func(
-                                    vec![],
-                                    ty_ret.clone(),
-                                    Reason::Node(fname.node()),
-                                );
-                                constrain(ctx, ty_fname, ty_func.clone());
-
-                                let ty_args_and_body = TypeVar::make_func(
-                                    tys_args,
-                                    node_ty,
-                                    Reason::Node(expr.node()),
-                                );
-
-                                constrain(ctx, ty_func, ty_args_and_body);
-                            }
-                            _ => ctx
-                                .errors
-                                .push(Error::UnresolvedIdentifier { node: fname.node() }),
-                        },
-                        SolvedType::Nominal(Nominal::Struct(struct_def), _) => {
+                        SolvedType::Nominal(nom @ Nominal::Array, _) => {
                             generate_constraints_expr_memberfunc_helper(
                                 ctx,
                                 node_ty.clone(),
-                                &struct_def.id,
+                                nom,
                                 solved_ty.clone(),
                             );
                         }
-                        SolvedType::Nominal(Nominal::Enum(enum_def), _) => {
+                        //     match fname.v.as_str() {
+                        //     "len" => {
+                        //         ctx.resolution_map
+                        //             .insert(fname.id, Declaration::Builtin(Builtin::ArrayLength));
+                        //
+                        //         // TODO: this is a lot of boilerplate to just say that push: (element: _) -> void
+                        //         // make a helper function? Or should this code not be so long in the first place
+                        //         let ty_ret: TypeVar = TypeVar::make_int(Reason::Node(fname.node()));
+                        //
+                        //         let ty_fname = TypeVar::from_node(ctx, fname.node());
+                        //         let ty_func = TypeVar::make_func(
+                        //             vec![],
+                        //             ty_ret.clone(),
+                        //             Reason::Node(fname.node()),
+                        //         );
+                        //         constrain(ctx, ty_fname, ty_func.clone());
+                        //
+                        //         let ty_args_and_body = TypeVar::make_func(
+                        //             tys_args,
+                        //             node_ty,
+                        //             Reason::Node(expr.node()),
+                        //         );
+                        //
+                        //         constrain(ctx, ty_func, ty_args_and_body);
+                        //     }
+                        //     "push" => {
+                        //         ctx.resolution_map
+                        //             .insert(fname.id, Declaration::Builtin(Builtin::ArrayPush));
+                        //
+                        //         let ty_ret: TypeVar =
+                        //             TypeVar::make_unit(Reason::Node(fname.node()));
+                        //
+                        //         let ty_fname = TypeVar::from_node(ctx, fname.node());
+                        //         let ty_func = TypeVar::make_func(
+                        //             vec![TypeVar::empty()],
+                        //             ty_ret.clone(),
+                        //             Reason::Node(fname.node()),
+                        //         );
+                        //         constrain(ctx, ty_fname, ty_func.clone());
+                        //
+                        //         let ty_args_and_body = TypeVar::make_func(
+                        //             tys_args,
+                        //             node_ty,
+                        //             Reason::Node(expr.node()),
+                        //         );
+                        //
+                        //         constrain(ctx, ty_func, ty_args_and_body);
+                        //     }
+                        //     "pop" => {
+                        //         ctx.resolution_map
+                        //             .insert(fname.id, Declaration::Builtin(Builtin::ArrayPop));
+                        //
+                        //         let ty_ret: TypeVar =
+                        //             TypeVar::make_unit(Reason::Node(fname.node()));
+                        //
+                        //         let ty_fname = TypeVar::from_node(ctx, fname.node());
+                        //         let ty_func = TypeVar::make_func(
+                        //             vec![],
+                        //             ty_ret.clone(),
+                        //             Reason::Node(fname.node()),
+                        //         );
+                        //         constrain(ctx, ty_fname, ty_func.clone());
+                        //
+                        //         let ty_args_and_body = TypeVar::make_func(
+                        //             tys_args,
+                        //             node_ty,
+                        //             Reason::Node(expr.node()),
+                        //         );
+                        //
+                        //         constrain(ctx, ty_func, ty_args_and_body);
+                        //     }
+                        //     // TODO here
+                        //     _ => ctx
+                        //         .errors
+                        //         .push(Error::UnresolvedIdentifier { node: fname.node() }),
+                        // },
+                        SolvedType::Nominal(nom @ Nominal::Struct(struct_def), _) => {
                             generate_constraints_expr_memberfunc_helper(
                                 ctx,
                                 node_ty.clone(),
-                                &enum_def.id,
+                                nom,
+                                solved_ty.clone(),
+                            );
+                        }
+                        SolvedType::Nominal(nom @ Nominal::Enum(enum_def), _) => {
+                            generate_constraints_expr_memberfunc_helper(
+                                ctx,
+                                node_ty.clone(),
+                                nom,
                                 solved_ty.clone(),
                             );
                         }
@@ -2235,7 +2270,7 @@ fn generate_constraints_expr_funcap_helper(
     polyvar_scope: PolyvarScope,
     ctx: &mut StaticsContext,
 
-    args: impl std::iter::Iterator<Item = Rc<Expr>>,
+    args: impl Iterator<Item = Rc<Expr>>,
     func_node: AstNode,
     expr_node: AstNode,
     node_ty: TypeVar,

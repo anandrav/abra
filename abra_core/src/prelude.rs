@@ -82,12 +82,25 @@ implement Equal for string {
 interface Clone {
     fn clone: 'a Clone -> 'a Clone
 }
+extend array<'a> {
+    fn len(self: array<'a>) -> int {
+        array_length(self)
+    }
+
+    fn push(self: array<'a>, x: 'a) -> void {
+        array_push(self, x)
+    }
+
+    fn pop(self: array<'a>) -> void {
+        array_pop(self)
+    }
+}
 implement Clone for array<'a Clone> {
-    fn clone(arr: array<'a Clone>) {
+    fn clone(arr: array<'a Clone>) -> array<'a Clone> {
         let new: array<'a> = []
         var i = 0
         while i < arr.len() {
-            new.push(clone(arr[i]))
+            array_push(new, clone(arr[i]))
             i := i + 1
         }
         new
@@ -209,14 +222,6 @@ fn array_to_string_helper(arr: array<'a ToString>, idx: int) {
     } else {
         str(arr[idx]) & ", " & array_to_string_helper(arr, idx + 1)
     }
-}
-
-fn len(arr: array<'a>) -> int { 
-    array_length(arr)
-}
-
-fn append(arr: array<'a>, x: 'a) -> void { 
-    array_push(arr, x)
 }
 
 fn print(x: 'a ToString) { print_string(str(x)) }
