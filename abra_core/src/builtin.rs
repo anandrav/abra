@@ -2,16 +2,15 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use crate::statics::typecheck::Nominal;
 use crate::statics::typecheck::Reason;
 use crate::statics::typecheck::TypeVar;
+use crate::statics::typecheck::{Nominal, PolyDeclaration};
 
 use heck::ToSnakeCase;
 use strum::AsRefStr;
 use strum::IntoEnumIterator;
 use strum::VariantArray;
 use strum_macros::EnumIter;
-
 // A Builtin is a function or constant built into the language
 // It should either be something the user can't define themselves, or something that would be too expensive to express in the language
 // For instance, the user cannot implement integer addition themselves (if there were no builtins at all)

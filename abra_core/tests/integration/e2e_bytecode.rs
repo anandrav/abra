@@ -114,6 +114,29 @@ print_string("hello world")
 }
 
 #[test]
+fn basic_polymorphism() {
+    let src = r#"
+fn first(p: ('a, 'a)) -> 'a {
+    let (one, two) = p
+    one
+}
+
+let one = first((1, 2))
+let one = str(one)
+let two = first(("one", "two"))
+one & two
+"#;
+    let program = unwrap_or_panic(compile_bytecode(
+        "main.abra",
+        MockFileProvider::single_file(src),
+    ));
+    let mut vm = Vm::new(program);
+    vm.run();
+    let top = vm.top().unwrap();
+    assert_eq!(top.get_string(&vm).unwrap(), "1one");
+}
+
+#[test]
 fn struct_assign_and_access1() {
     let src = r#"
 type person = {
@@ -542,7 +565,7 @@ arr[5]
 fn array_len_old() {
     let src = r#"
 let arr = [1, 2, 3, 4, 5]
-len(arr)
+array_length(arr)
 "#;
     let program = unwrap_or_panic(compile_bytecode(
         "main.abra",

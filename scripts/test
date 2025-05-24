@@ -10,7 +10,7 @@ fi
 cargo fmt
 cargo clippy
 
-cargo test
+cargo test "$@"
 
 pushd $WD/abra_core > /dev/null
 cargo check --lib --target wasm32-unknown-unknown

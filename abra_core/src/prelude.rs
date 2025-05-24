@@ -99,7 +99,7 @@ implement Clone for array<'a Clone> {
     fn clone(arr: array<'a Clone>) -> array<'a Clone> {
         let new: array<'a> = []
         var i = 0
-        while i < arr.len() {
+        while i < array_length(arr) {
             array_push(new, clone(arr[i]))
             i := i + 1
         }
