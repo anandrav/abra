@@ -1325,6 +1325,152 @@ fn generate_constraints_item_decls(item: Rc<Item>, ctx: &mut StaticsContext) {
             }
         }
         ItemKind::Extension(ext) => {
+            // TODO: there is a lot of code duplication with generate_constraints_item_stmts ( ItemKind::Extension case in match expression )
+            // TODO: this logic of extracting the ID from the Named or the NamedWithParams is strange
+            // TODO: this logic of extracting the ID is duplicated in resolve.rs
+            let id_lookup_typ = match &*ext.typ.kind {
+                TypeKind::Named(_) => ext.typ.id,
+                TypeKind::NamedWithParams(ident, _) => ident.id,
+                _ => {
+                    ctx.errors.push(Error::MustExtendStructOrEnum {
+                        node: ext.typ.node(),
+                    });
+                    return;
+                }
+            };
+            let Some(lookup) = ctx.resolution_map.get(&id_lookup_typ).cloned() else { return };
+
+            let mut helper = |nominal: Nominal| {
+                for f in &ext.methods {
+                    let err = |ctx: &mut StaticsContext| {
+                        ctx.errors
+                            .push(Error::MemberFunctionMissingFirstSelfArgument {
+                                node: f.name.node(),
+                            });
+                    };
+                    if let Some((first_arg_identifier, _)) = f.args.first() {
+                        if first_arg_identifier.v == "self" {
+                            let (struct_ty, substitution) = TypeVar::make_nominal_with_substitution(
+                                Reason::MemberFunctionType(ext.typ.node()),
+                                nominal.clone(),
+                                ctx,
+                                item.node(),
+                            );
+                            let ty_arg = TypeVar::from_node(ctx, first_arg_identifier.node());
+                            constrain(ctx, ty_arg, struct_ty);
+
+                            generate_constraints_func_decl(
+                                ctx,
+                                f.name.node(),
+                                PolyvarScope::empty(),
+                                &f.args,
+                                &f.ret_type,
+                            );
+                        } else {
+                            err(ctx);
+                        }
+                    } else {
+                        err(ctx);
+                    }
+                }
+            };
+            match &lookup {
+                Declaration::Struct(struct_def) => {
+                    let nominal: Nominal = Nominal::Struct(struct_def.clone());
+                    helper(nominal);
+                }
+                Declaration::Enum(enum_def) => {
+                    let nominal: Nominal = Nominal::Enum(enum_def.clone());
+                    helper(nominal);
+                }
+                Declaration::Array => {
+                    let nominal = Nominal::Array;
+                    helper(nominal);
+                }
+                _ => {}
+            }
+        }
+        ItemKind::TypeDef(typdefkind) => match &**typdefkind {
+            // TypeDefKind::Alias(ident, ty) => {
+            //     let left = TypeVar::fresh(ctx, Prov::Alias(ident.clone()));
+            //     let right = ast_type_to_statics_type(ctx, ty.clone());
+            //     constrain(ctx,left, right);
+            // }
+            TypeDefKind::Enum(..) | TypeDefKind::Struct(..) => {}
+        },
+        ItemKind::FuncDef(f) => {
+            generate_constraints_func_decl(
+                ctx,
+                f.name.node(),
+                PolyvarScope::empty(),
+                &f.args,
+                &f.ret_type,
+            );
+        }
+        ItemKind::HostFuncDecl(f) | ItemKind::ForeignFuncDecl(f) => {
+            generate_constraints_func_decl_annotated(
+                ctx,
+                f.name.node(),
+                PolyvarScope::empty(),
+                &f.args,
+                &Some(f.ret_type.clone()),
+            );
+        }
+    }
+}
+
+pub(crate) fn generate_constraints_file_stmts(file: Rc<FileAst>, ctx: &mut StaticsContext) {
+    for items in file.items.iter() {
+        generate_constraints_item_stmts(Mode::Syn, items.clone(), ctx);
+    }
+}
+
+fn generate_constraints_item_stmts(mode: Mode, item: Rc<Item>, ctx: &mut StaticsContext) {
+    match &*item.kind {
+        ItemKind::InterfaceDef(..) => {}
+        ItemKind::Import(..) => {}
+        ItemKind::Stmt(stmt) => {
+            generate_constraints_stmt(PolyvarScope::empty(), mode, stmt.clone(), ctx)
+        }
+        ItemKind::InterfaceImpl(iface_impl) => {
+            let impl_ty = ast_type_to_typevar(ctx, iface_impl.typ.clone());
+
+            if impl_ty.is_instantiated_nominal() {
+                ctx.errors.push(Error::InterfaceImplTypeNotGeneric {
+                    node: iface_impl.typ.node(),
+                })
+            }
+
+            let lookup = ctx.resolution_map.get(&iface_impl.iface.id).cloned();
+            if let Some(Declaration::InterfaceDef(iface_decl)) = &lookup {
+                for f in &iface_impl.methods {
+                    let method_name = f.name.v.clone();
+                    if let Some(interface_method) =
+                        iface_decl.methods.iter().find(|m| m.name.v == method_name)
+                    {
+                        let interface_method_ty =
+                            ast_type_to_typevar(ctx, interface_method.ty.clone());
+                        let actual = TypeVar::from_node(ctx, interface_method.node());
+                        constrain(ctx, interface_method_ty.clone(), actual);
+
+                        let mut substitution: Substitution = HashMap::default();
+                        if let Some(poly_decl) =
+                            interface_method_ty.clone().get_first_polymorphic_type()
+                        {
+                            substitution.insert(poly_decl, impl_ty.clone());
+                        }
+
+                        let expected = interface_method_ty.clone().subst(&substitution);
+
+                        let actual = TypeVar::from_node(ctx, f.name.node());
+                        constrain(ctx, expected, actual);
+
+                        generate_constraints_fn_def(ctx, PolyvarScope::empty(), f, f.name.node());
+                    }
+                }
+            }
+        }
+        ItemKind::Extension(ext) => {
             // TODO: this logic of extracting the ID from the Named or the NamedWithParams is strange
             // TODO: this logic of extracting the ID is duplicated in resolve.rs
             let id_lookup_typ = match &*ext.typ.kind {
@@ -1393,87 +1539,6 @@ fn generate_constraints_item_decls(item: Rc<Item>, ctx: &mut StaticsContext) {
                 _ => {}
             }
         }
-        ItemKind::TypeDef(typdefkind) => match &**typdefkind {
-            // TypeDefKind::Alias(ident, ty) => {
-            //     let left = TypeVar::fresh(ctx, Prov::Alias(ident.clone()));
-            //     let right = ast_type_to_statics_type(ctx, ty.clone());
-            //     constrain(ctx,left, right);
-            // }
-            TypeDefKind::Enum(..) | TypeDefKind::Struct(..) => {}
-        },
-        ItemKind::FuncDef(f) => {
-            generate_constraints_func_decl(
-                ctx,
-                f.name.node(),
-                PolyvarScope::empty(),
-                &f.args,
-                &f.ret_type,
-            );
-        }
-        ItemKind::HostFuncDecl(f) | ItemKind::ForeignFuncDecl(f) => {
-            generate_constraints_func_decl_annotated(
-                ctx,
-                f.name.node(),
-                PolyvarScope::empty(),
-                &f.args,
-                &Some(f.ret_type.clone()),
-            );
-        }
-    }
-}
-
-pub(crate) fn generate_constraints_file_stmts(file: Rc<FileAst>, ctx: &mut StaticsContext) {
-    for items in file.items.iter() {
-        generate_constraints_item_stmts(Mode::Syn, items.clone(), ctx);
-    }
-}
-
-fn generate_constraints_item_stmts(mode: Mode, stmt: Rc<Item>, ctx: &mut StaticsContext) {
-    match &*stmt.kind {
-        ItemKind::InterfaceDef(..) => {}
-        ItemKind::Import(..) => {}
-        ItemKind::Stmt(stmt) => {
-            generate_constraints_stmt(PolyvarScope::empty(), mode, stmt.clone(), ctx)
-        }
-        ItemKind::InterfaceImpl(iface_impl) => {
-            let impl_ty = ast_type_to_typevar(ctx, iface_impl.typ.clone());
-
-            if impl_ty.is_instantiated_nominal() {
-                ctx.errors.push(Error::InterfaceImplTypeNotGeneric {
-                    node: iface_impl.typ.node(),
-                })
-            }
-
-            let lookup = ctx.resolution_map.get(&iface_impl.iface.id).cloned();
-            if let Some(Declaration::InterfaceDef(iface_decl)) = &lookup {
-                for f in &iface_impl.methods {
-                    let method_name = f.name.v.clone();
-                    if let Some(interface_method) =
-                        iface_decl.methods.iter().find(|m| m.name.v == method_name)
-                    {
-                        let interface_method_ty =
-                            ast_type_to_typevar(ctx, interface_method.ty.clone());
-                        let actual = TypeVar::from_node(ctx, interface_method.node());
-                        constrain(ctx, interface_method_ty.clone(), actual);
-
-                        let mut substitution: Substitution = HashMap::default();
-                        if let Some(poly_decl) =
-                            interface_method_ty.clone().get_first_polymorphic_type()
-                        {
-                            substitution.insert(poly_decl, impl_ty.clone());
-                        }
-
-                        let expected = interface_method_ty.clone().subst(&substitution);
-
-                        let actual = TypeVar::from_node(ctx, f.name.node());
-                        constrain(ctx, expected, actual);
-
-                        generate_constraints_fn_def(ctx, PolyvarScope::empty(), f, f.name.node());
-                    }
-                }
-            }
-        }
-        ItemKind::Extension(ext) => {}
         ItemKind::TypeDef(_) => {}
         ItemKind::FuncDef(f) => {
             generate_constraints_fn_def(ctx, PolyvarScope::empty(), f, f.name.node());
@@ -2632,11 +2697,12 @@ pub(crate) fn ty_implements_iface(
     }
     let default = vec![];
     let impl_list = ctx.interface_impls.get(iface).unwrap_or(&default);
-    impl_list.iter().any(|imp| {
+    let ret = impl_list.iter().any(|imp| {
         let impl_ty = ast_type_to_typevar(ctx, imp.typ.clone());
         let Some(impl_ty) = impl_ty.solution() else { return false };
         ty_fits_impl_ty(ctx, ty.clone(), impl_ty)
-    })
+    });
+    ret
 }
 
 pub(crate) fn ty_fits_impl_ty(ctx: &StaticsContext, typ: SolvedType, impl_ty: SolvedType) -> bool {
