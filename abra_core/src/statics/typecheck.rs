@@ -827,7 +827,6 @@ fn tyvar_of_declaration(
             iface_def.methods[*method as usize].node(),
         )),
         Declaration::MemberFunction { f: func, .. } => {
-            println!("here2");
             Some(TypeVar::from_node(ctx, func.name.node()))
         }
         Declaration::Enum(enum_def) => Some(tyvar_of_enumdef(ctx, enum_def.clone(), node)),
@@ -1176,7 +1175,6 @@ fn constrain_locked_typevars(
                 ty2: potential_ty2,
                 constraint_reason,
             });
-            println!("TYPE CONFLICT. {} and {}", tyvar1, tyvar2);
         }
     } else {
         match (potential_ty1, potential_ty2) {
@@ -1357,9 +1355,7 @@ fn generate_constraints_item_decls(item: Rc<Item>, ctx: &mut StaticsContext) {
                                 ctx,
                                 item.node(),
                             );
-                            println!("struct_ty: {}", struct_ty);
                             let ty_arg = TypeVar::from_node(ctx, first_arg_identifier.node());
-                            println!("ty_arg: {}", ty_arg);
                             constrain(ctx, ty_arg, struct_ty);
 
                             let ty_func = generate_constraints_func_helper(
@@ -1370,12 +1366,9 @@ fn generate_constraints_item_decls(item: Rc<Item>, ctx: &mut StaticsContext) {
                                 &f.ret_type,
                                 &f.body,
                             );
-                            println!("ty_func: {}", ty_func);
 
                             let ty_node = TypeVar::from_node(ctx, f.name.node());
-                            println!("ty_node is {}", &ty_node);
                             constrain(ctx, ty_node.clone(), ty_func.clone());
-                            println!("type of {} is {}", &f.name.v, &ty_node);
                         } else {
                             err(ctx);
                         }
@@ -1638,9 +1631,7 @@ fn generate_constraints_expr(
             if let Some(res) = lookup {
                 if let Some(typ) = tyvar_of_declaration(ctx, &res, expr.node()) {
                     let typ = typ.instantiate(polyvar_scope, ctx, expr.node());
-                    println!("type of the variable is {}", typ);
                     constrain(ctx, typ, node_ty.clone());
-                    println!("and the node_ty is {}", node_ty);
                 }
             }
         }
@@ -1930,8 +1921,6 @@ fn generate_constraints_expr(
             );
         }
         ExprKind::MemberFuncAp(receiver_expr, fname, args) => {
-            println!("now analyzing memfn {}", fname.v);
-
             if let Some(
                 ref decl @ Declaration::EnumVariant {
                     e: ref enum_def, ..
@@ -1985,11 +1974,6 @@ fn generate_constraints_expr(
                     ctx,
                 );
 
-                println!(
-                    "ty of receiver_expr is {}",
-                    TypeVar::from_node(ctx, receiver_expr.node())
-                );
-
                 let failed_to_resolve_member_function = |ctx: &mut StaticsContext, ty| {
                     // failed to resolve member function
                     ctx.errors.push(Error::UnresolvedMemberFunction {
@@ -2014,11 +1998,9 @@ fn generate_constraints_expr(
                             let memfn_decl = Declaration::MemberFunction { f: func.clone() };
                             ctx.resolution_map.insert(fname.id, memfn_decl.clone());
                             let memfn_node_ty = TypeVar::from_node(ctx, fname.node());
-                            println!("here1");
                             if let Some(memfn_decl_ty) =
                                 tyvar_of_declaration(ctx, &memfn_decl, fname.node())
                             {
-                                println!("memfn_decl_ty: {}", memfn_decl_ty);
                                 // TODO: It is really easy to mess up and pass the wrong node
                                 // to this function. The third argument, I mean.
                                 // fname.node() must be passed to both tyvar_of_declaration
@@ -2031,11 +2013,8 @@ fn generate_constraints_expr(
                                     ctx,
                                     fname.node(),
                                 );
-                                println!("memfn_decl_ty: {}", memfn_decl_ty);
                                 constrain(ctx, memfn_node_ty.clone(), memfn_decl_ty);
                             }
-
-                            println!("memfn_node_ty: {}", memfn_node_ty);
 
                             generate_constraints_expr_funcap_helper(
                                 polyvar_scope.clone(),
@@ -2045,12 +2024,6 @@ fn generate_constraints_expr(
                                 expr.node(),
                                 node_ty.clone(),
                             );
-
-                            println!(
-                                "after all that, type of fname is {}",
-                                TypeVar::from_node(ctx, fname.node())
-                            );
-                            println!("node_ty: {}", node_ty);
                         } else {
                             failed_to_resolve_member_function(ctx, solved_ty);
                         }
@@ -2264,12 +2237,7 @@ fn generate_constraints_expr_funcap_helper(
         .enumerate()
         .map(|(n, arg)| {
             let unknown = TypeVar::fresh(ctx, Prov::FuncArg(func_node.clone(), n as u8));
-            println!("unknown is {}", unknown);
-            println!("red");
-            println!(
-                "type of arg before is {}",
-                TypeVar::from_node(ctx, arg.node())
-            );
+
             generate_constraints_expr(
                 polyvar_scope.clone(),
                 Mode::Ana {
@@ -2278,14 +2246,9 @@ fn generate_constraints_expr_funcap_helper(
                 arg.clone(),
                 ctx,
             );
-            println!("arg #{} is {}", n, unknown);
             unknown
         })
         .collect();
-    println!("tys_args in funcap_helper");
-    for x in &tys_args {
-        println!("\t- {}", x);
-    }
 
     // body
     let ty_body = TypeVar::fresh(ctx, Prov::FuncOut(func_node));
@@ -2294,17 +2257,12 @@ fn generate_constraints_expr_funcap_helper(
     // function type
     let ty_args_and_body = TypeVar::make_func(tys_args, ty_body, Reason::Node(expr_node.clone()));
 
-    println!("tyargs_and_body in helper: {}", ty_args_and_body);
-    println!("ty_func: {}", ty_func);
-
     constrain_because(
         ctx,
         ty_args_and_body.clone(),
         ty_func.clone(),
         ConstraintReason::FuncCall(expr_node),
     );
-
-    println!("now ty_func is: {}", ty_func);
 }
 
 fn generate_constraints_func_helper(
