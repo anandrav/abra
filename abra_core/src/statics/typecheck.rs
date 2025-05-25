@@ -1387,7 +1387,11 @@ fn generate_constraints_item_decls(item: Rc<Item>, ctx: &mut StaticsContext) {
                     let nominal = Nominal::Array;
                     helper(nominal);
                 }
-                _ => {}
+                _ => {
+                    ctx.errors.push(Error::MustExtendStructOrEnum {
+                        node: ext.typ.node(),
+                    });
+                }
             }
         }
         ItemKind::TypeDef(typdefkind) => match &**typdefkind {
@@ -1536,7 +1540,11 @@ fn generate_constraints_item_stmts(mode: Mode, item: Rc<Item>, ctx: &mut Statics
                     let nominal = Nominal::Array;
                     helper(nominal);
                 }
-                _ => {}
+                _ => {
+                    ctx.errors.push(Error::MustExtendStructOrEnum {
+                        node: ext.typ.node(),
+                    });
+                }
             }
         }
         ItemKind::TypeDef(_) => {}
@@ -2120,7 +2128,10 @@ fn generate_constraints_expr(
                             );
                         }
                         _ => {
-                            failed_to_resolve_member_function(ctx, solved_ty);
+                            ctx.errors.push(Error::MemberFuncApMustBeStructOrEnum {
+                                node: fname.node(),
+                                ty: solved_ty,
+                            });
                         }
                     }
                 } else {
@@ -2697,7 +2708,7 @@ pub(crate) fn ty_implements_iface(
     }
     let default = vec![];
     let impl_list = ctx.interface_impls.get(iface).unwrap_or(&default);
-    
+
     impl_list.iter().any(|imp| {
         let impl_ty = ast_type_to_typevar(ctx, imp.typ.clone());
         let Some(impl_ty) = impl_ty.solution() else { return false };

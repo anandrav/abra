@@ -217,7 +217,7 @@ pub(crate) enum Error {
     MemberAccessNeedsAnnotation {
         node: AstNode,
     },
-    MemberAccessMustBeStructOrEnum {
+    MemberFuncApMustBeStructOrEnum {
         node: AstNode,
         ty: SolvedType,
     },
@@ -478,7 +478,7 @@ impl Error {
                 let (file, range) = node.get_file_and_range();
                 labels.push(Label::secondary(file, range));
             }
-            Error::MemberAccessMustBeStructOrEnum { node, ty } => {
+            Error::MemberFuncApMustBeStructOrEnum { node, ty } => {
                 diagnostic = diagnostic.with_message(format!(
                     "Can't perform member access on type which isn't a struct or enum: `{}`",
                     ty
