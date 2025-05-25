@@ -9,7 +9,7 @@ use crate::builtin::Builtin;
 use crate::environment::Environment;
 use crate::statics::typecheck::SolvedType;
 use crate::statics::typecheck::{Monotype, Nominal};
-use crate::statics::{_print_node, Declaration, TypeProv};
+use crate::statics::{Declaration, TypeProv};
 use crate::statics::{Type, ty_fits_impl_ty};
 use crate::vm::{AbraFloat, AbraInt, Instr as VmInstr};
 use crate::{

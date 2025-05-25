@@ -6,7 +6,7 @@ use super::{Declaration, Error, Namespace, StaticsContext};
 #[cfg(feature = "ffi")]
 use crate::addons::make_foreign_func_name;
 use crate::ast::{
-    ArgMaybeAnnotated, AstNode, Expr, ExprKind, FileAst, Identifier, Item, ItemKind, NodeId, Pat,
+    ArgMaybeAnnotated, AstNode, Expr, ExprKind, FileAst, Identifier, Item, ItemKind, Pat,
     PatKind, Polytype, Stmt, StmtKind, Type, TypeDefKind, TypeKind,
 };
 use crate::builtin::Builtin;

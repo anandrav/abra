@@ -2697,12 +2697,12 @@ pub(crate) fn ty_implements_iface(
     }
     let default = vec![];
     let impl_list = ctx.interface_impls.get(iface).unwrap_or(&default);
-    let ret = impl_list.iter().any(|imp| {
+    
+    impl_list.iter().any(|imp| {
         let impl_ty = ast_type_to_typevar(ctx, imp.typ.clone());
         let Some(impl_ty) = impl_ty.solution() else { return false };
         ty_fits_impl_ty(ctx, ty.clone(), impl_ty)
-    });
-    ret
+    })
 }
 
 pub(crate) fn ty_fits_impl_ty(ctx: &StaticsContext, typ: SolvedType, impl_ty: SolvedType) -> bool {

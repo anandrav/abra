@@ -4,7 +4,7 @@
 
 use crate::statics::typecheck::Reason;
 use crate::statics::typecheck::TypeVar;
-use crate::statics::typecheck::{Nominal, PolyDeclaration};
+use crate::statics::typecheck::Nominal;
 
 use heck::ToSnakeCase;
 use strum::AsRefStr;
