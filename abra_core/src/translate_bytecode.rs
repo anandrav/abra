@@ -219,7 +219,7 @@ impl Translator {
             let files = self.file_asts.clone();
             for file in files {
                 for item in &file.items {
-                    self.translate_item_static(item.clone(), st, false);
+                    self.translate_item_static(item.clone(), st);
                 }
             }
 
@@ -1059,7 +1059,7 @@ impl Translator {
         }
     }
 
-    fn translate_item_static(&self, stmt: Rc<Item>, st: &mut TranslatorState, iface_method: bool) {
+    fn translate_item_static(&self, stmt: Rc<Item>, st: &mut TranslatorState) {
         match &*stmt.kind {
             ItemKind::Stmt(_) => {}
             ItemKind::InterfaceImpl(iface_impl) => {
@@ -1069,11 +1069,11 @@ impl Translator {
             }
             ItemKind::Extension(ext) => {
                 for f in &ext.methods {
-                    self.translate_func_helper(st, iface_method, f);
+                    self.translate_func_helper(st, f);
                 }
             }
             ItemKind::FuncDef(f) => {
-                self.translate_func_helper(st, iface_method, f);
+                self.translate_func_helper(st, f);
             }
             ItemKind::InterfaceDef(..)
             | ItemKind::TypeDef(..)
@@ -1085,13 +1085,13 @@ impl Translator {
         }
     }
 
-    fn translate_func_helper(&self, st: &mut TranslatorState, iface_method: bool, f: &Rc<FuncDef>) {
+    fn translate_func_helper(&self, st: &mut TranslatorState, f: &Rc<FuncDef>) {
         // (this could be an overloaded function or an interface method)'
         // _print_node(&self.statics, f.name.node());
         let func_ty = self.statics.solution_of_node(f.name.node()).unwrap();
 
-        if func_ty.is_overloaded() // println: 'a ToString -> ()
-                || iface_method
+        if func_ty.is_overloaded()
+        // println: 'a ToString -> ()
         // to_string: 'a ToString -> String
         {
             return;
