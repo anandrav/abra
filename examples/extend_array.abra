@@ -1,6 +1,6 @@
 extend array<'a> {
-	fn find(self: array<'a>) -> int {
-		-1
+	fn find(self: array<'a>, x: 'a) -> int {
+		
 	}
 }
 

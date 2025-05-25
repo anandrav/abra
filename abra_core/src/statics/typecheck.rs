@@ -1175,7 +1175,8 @@ fn constrain_locked_typevars(
                 ty1: potential_ty1,
                 ty2: potential_ty2,
                 constraint_reason,
-            })
+            });
+            println!("TYPE CONFLICT. {} and {}", tyvar1, tyvar2);
         }
     } else {
         match (potential_ty1, potential_ty2) {
@@ -1637,7 +1638,9 @@ fn generate_constraints_expr(
             if let Some(res) = lookup {
                 if let Some(typ) = tyvar_of_declaration(ctx, &res, expr.node()) {
                     let typ = typ.instantiate(polyvar_scope, ctx, expr.node());
+                    println!("type of the variable is {}", typ);
                     constrain(ctx, typ, node_ty.clone());
+                    println!("and the node_ty is {}", node_ty);
                 }
             }
         }
@@ -1926,27 +1929,8 @@ fn generate_constraints_expr(
                 node_ty,
             );
         }
-        ExprKind::MemberFuncAp(expr, fname, args) => {
+        ExprKind::MemberFuncAp(receiver_expr, fname, args) => {
             println!("now analyzing memfn {}", fname.v);
-            // arguments
-            let tys_args: Vec<TypeVar> = args
-                .iter()
-                .enumerate()
-                .map(|(n, arg)| {
-                    let unknown = TypeVar::fresh(ctx, Prov::FuncArg(fname.node(), n as u8));
-                    generate_constraints_expr(
-                        polyvar_scope.clone(),
-                        Mode::Ana {
-                            expected: unknown.clone(),
-                        },
-                        arg.clone(),
-                        ctx,
-                    );
-                    unknown
-                })
-                .collect();
-
-            println!("tys_args: {:?}", tys_args);
 
             if let Some(
                 ref decl @ Declaration::EnumVariant {
@@ -1957,22 +1941,54 @@ fn generate_constraints_expr(
                 // qualified enum variant
                 // example: list.cons(5, nil)
                 //          ^^^^^^^^^
-                let tyvar_from_enum = tyvar_of_enumdef(ctx, enum_def.clone(), expr.node());
-                let tyvar_from_enum = tyvar_from_enum.instantiate(polyvar_scope, ctx, expr.node());
+                // arguments
+                let tys_args: Vec<TypeVar> = args
+                    .iter()
+                    .enumerate()
+                    .map(|(n, arg)| {
+                        let unknown = TypeVar::fresh(ctx, Prov::FuncArg(fname.node(), n as u8));
+                        generate_constraints_expr(
+                            polyvar_scope.clone(),
+                            Mode::Ana {
+                                expected: unknown.clone(),
+                            },
+                            arg.clone(),
+                            ctx,
+                        );
+                        unknown
+                    })
+                    .collect();
+                let tyvar_from_enum = tyvar_of_enumdef(ctx, enum_def.clone(), receiver_expr.node());
+                let tyvar_from_enum =
+                    tyvar_from_enum.instantiate(polyvar_scope, ctx, receiver_expr.node());
                 constrain(ctx, node_ty, tyvar_from_enum.clone());
 
                 let ty_fname = TypeVar::from_node(ctx, fname.node());
-                let ty_of_variant_ctor = tyvar_of_declaration(ctx, decl, expr.node()).unwrap();
+                let ty_of_variant_ctor =
+                    tyvar_of_declaration(ctx, decl, receiver_expr.node()).unwrap();
                 constrain(ctx, ty_fname.clone(), ty_of_variant_ctor);
 
-                let ty_func =
-                    TypeVar::make_func(tys_args, tyvar_from_enum, Reason::Node(expr.node()));
+                let ty_func = TypeVar::make_func(
+                    tys_args,
+                    tyvar_from_enum,
+                    Reason::Node(receiver_expr.node()),
+                );
                 constrain(ctx, ty_func, ty_fname);
             } else {
                 // member function call
                 // example: arr.push(6)
                 //          ^^^^^^^^type is `array`, member function is `push`
-                generate_constraints_expr(polyvar_scope.clone(), Mode::Syn, expr.clone(), ctx);
+                generate_constraints_expr(
+                    polyvar_scope.clone(),
+                    Mode::Syn,
+                    receiver_expr.clone(),
+                    ctx,
+                );
+
+                println!(
+                    "ty of receiver_expr is {}",
+                    TypeVar::from_node(ctx, receiver_expr.node())
+                );
 
                 let failed_to_resolve_member_function = |ctx: &mut StaticsContext, ty| {
                     // failed to resolve member function
@@ -1984,7 +2000,7 @@ fn generate_constraints_expr(
                     node_ty.set_flag_missing_info();
                 };
                 let generate_constraints_expr_memberfunc_helper =
-                    |ctx: &mut StaticsContext, node_ty, nom, solved_ty| {
+                    |ctx: &mut StaticsContext, node_ty: TypeVar, nom, solved_ty| {
                         if let Some(func) = ctx
                             .member_functions
                             .get(nom)
@@ -2003,10 +2019,17 @@ fn generate_constraints_expr(
                                 tyvar_of_declaration(ctx, &memfn_decl, fname.node())
                             {
                                 println!("memfn_decl_ty: {}", memfn_decl_ty);
+                                // TODO: It is really easy to mess up and pass the wrong node
+                                // to this function. The third argument, I mean.
+                                // fname.node() must be passed to both tyvar_of_declaration
+                                // as well as .instantiate(). It would be better if you only
+                                // had to specify it once. Maybe just make tyvar_of_declaration()
+                                // always instantiate. What's the harm? Why does .instantiate()
+                                // need a node passed anyway? Is this necessary?? Maybe rethink it
                                 let memfn_decl_ty = memfn_decl_ty.instantiate(
                                     polyvar_scope.clone(),
                                     ctx,
-                                    expr.node(),
+                                    fname.node(),
                                 );
                                 println!("memfn_decl_ty: {}", memfn_decl_ty);
                                 constrain(ctx, memfn_node_ty.clone(), memfn_decl_ty);
@@ -2017,16 +2040,22 @@ fn generate_constraints_expr(
                             generate_constraints_expr_funcap_helper(
                                 polyvar_scope.clone(),
                                 ctx,
-                                std::iter::once(expr).chain(args).cloned(),
+                                std::iter::once(receiver_expr).chain(args).cloned(),
                                 fname.node(),
                                 expr.node(),
-                                node_ty,
+                                node_ty.clone(),
                             );
+
+                            println!(
+                                "after all that, type of fname is {}",
+                                TypeVar::from_node(ctx, fname.node())
+                            );
+                            println!("node_ty: {}", node_ty);
                         } else {
                             failed_to_resolve_member_function(ctx, solved_ty);
                         }
                     };
-                if let Some(solved_ty) = TypeVar::from_node(ctx, expr.node()).solution() {
+                if let Some(solved_ty) = TypeVar::from_node(ctx, receiver_expr.node()).solution() {
                     match &solved_ty {
                         SolvedType::Nominal(nom @ Nominal::Array, _) => {
                             generate_constraints_expr_memberfunc_helper(
@@ -2235,6 +2264,12 @@ fn generate_constraints_expr_funcap_helper(
         .enumerate()
         .map(|(n, arg)| {
             let unknown = TypeVar::fresh(ctx, Prov::FuncArg(func_node.clone(), n as u8));
+            println!("unknown is {}", unknown);
+            println!("red");
+            println!(
+                "type of arg before is {}",
+                TypeVar::from_node(ctx, arg.node())
+            );
             generate_constraints_expr(
                 polyvar_scope.clone(),
                 Mode::Ana {
@@ -2243,9 +2278,14 @@ fn generate_constraints_expr_funcap_helper(
                 arg.clone(),
                 ctx,
             );
+            println!("arg #{} is {}", n, unknown);
             unknown
         })
         .collect();
+    println!("tys_args in funcap_helper");
+    for x in &tys_args {
+        println!("\t- {}", x);
+    }
 
     // body
     let ty_body = TypeVar::fresh(ctx, Prov::FuncOut(func_node));
@@ -2254,12 +2294,17 @@ fn generate_constraints_expr_funcap_helper(
     // function type
     let ty_args_and_body = TypeVar::make_func(tys_args, ty_body, Reason::Node(expr_node.clone()));
 
+    println!("tyargs_and_body in helper: {}", ty_args_and_body);
+    println!("ty_func: {}", ty_func);
+
     constrain_because(
         ctx,
         ty_args_and_body.clone(),
         ty_func.clone(),
         ConstraintReason::FuncCall(expr_node),
     );
+
+    println!("now ty_func is: {}", ty_func);
 }
 
 fn generate_constraints_func_helper(
