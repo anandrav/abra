@@ -1630,6 +1630,20 @@ fn generate_constraints_stmt(
                 }
             }
         }
+        StmtKind::WhileLoop(cond, expr) => {
+            generate_constraints_expr(
+                polyvar_scope.clone(),
+                Mode::AnaWithReason {
+                    expected: TypeVar::make_bool(Reason::Node(cond.node())),
+                    constraint_reason: ConstraintReason::Condition,
+                },
+                cond.clone(),
+                ctx,
+            );
+            ctx.loop_stack.push(Some(expr.id));
+            generate_constraints_expr(polyvar_scope, Mode::Syn, expr.clone(), ctx);
+            ctx.loop_stack.pop();
+        }
     }
 }
 
@@ -1896,25 +1910,6 @@ fn generate_constraints_expr(
                     )
                 }
             }
-        }
-        ExprKind::WhileLoop(cond, expr) => {
-            generate_constraints_expr(
-                polyvar_scope.clone(),
-                Mode::AnaWithReason {
-                    expected: TypeVar::make_bool(Reason::Node(cond.node())),
-                    constraint_reason: ConstraintReason::Condition,
-                },
-                cond.clone(),
-                ctx,
-            );
-            ctx.loop_stack.push(Some(expr.id));
-            generate_constraints_expr(polyvar_scope, Mode::Syn, expr.clone(), ctx);
-            ctx.loop_stack.pop();
-            constrain(
-                ctx,
-                node_ty,
-                TypeVar::make_unit(Reason::WhileLoopBody(expr.node())),
-            )
         }
         ExprKind::Match(scrut, arms) => {
             let ty_scrutiny = TypeVar::from_node(ctx, scrut.node());

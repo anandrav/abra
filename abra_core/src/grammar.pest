@@ -38,7 +38,7 @@ packed_data = _{ "of" ~ typ }
 struct_declaration = { "type" ~ identifier ~ type_params? ~ "=" ~ "{" ~ struct_field ~ (struct_field)* ~ "}" }
 struct_field = { identifier ~ type_annotation }
 
-statement = _{ let_statement | var_statement | set_statement | break_statement | continue_statement | return_statement | expression_statement }
+statement = _{ let_statement | var_statement | set_statement | break_statement | continue_statement | return_statement | while_statement | expression_statement }
 
 let_statement = { let_keyword ~ let_pattern_annotated ~ op_assign ~ expression }
 let_keyword = _{ "let" }
@@ -69,7 +69,7 @@ let_pattern_tuple = { tuple_start ~ (let_pattern_tuple_element ~ ",")+ ~ let_pat
 let_pattern_tuple_element = _{ let_pattern }
 
 expression = {  term ~ postfix* ~ (op_binary ~ term ~ postfix* )* }
-term = _{ block_expression | func_expression | parenthesized_expression | if_else_expression | while_loop_expression | match_expression | tuple_expr | primary_expression }
+term = _{ block_expression | func_expression | parenthesized_expression | if_else_expression | match_expression | tuple_expr | primary_expression }
 postfix = _{ member_func_call | index_access | member_access | func_call | op_try | op_unwrap }
 
 index_access = { "[" ~ expression ~ "]" }
@@ -79,8 +79,7 @@ if_else_expression = { if_keyword ~ expression ~ expression ~ (else_keyword ~ ex
 if_keyword = _{ "if" }
 else_keyword = _{ "else" }
 
-while_loop_expression = { while_keyword ~ expression ~ expression }
-while_keyword = _{ "while" }
+while_statement = { "while" ~ expression ~ expression }
 
 match_expression = { "match" ~ expression ~ "{" ~ (match_branch ~ ",")* ~ match_branch? ~ "}" }
 match_branch = { match_pattern ~ "->" ~ statement }

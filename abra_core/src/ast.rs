@@ -379,6 +379,7 @@ pub(crate) enum StmtKind {
     Continue,
     Break,
     Return(Rc<Expr>),
+    WhileLoop(Rc<Expr>, Rc<Expr>),
 }
 
 pub(crate) type ArgMaybeAnnotated = (Rc<Identifier>, Option<Rc<Type>>);
@@ -484,7 +485,6 @@ pub(crate) enum ExprKind {
     Array(Vec<Rc<Expr>>),
     AnonymousFunction(Vec<ArgMaybeAnnotated>, Option<Rc<Type>>, Rc<Expr>),
     If(Rc<Expr>, Rc<Expr>, Option<Rc<Expr>>),
-    WhileLoop(Rc<Expr>, Rc<Expr>),
     Match(Rc<Expr>, Vec<Rc<MatchArm>>),
     Block(Vec<Rc<Stmt>>),
     BinOp(Rc<Expr>, BinaryOperator, Rc<Expr>),

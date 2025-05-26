@@ -495,7 +495,6 @@ impl Translator {
                     | ExprKind::Bool(_)
                     | ExprKind::Str(_)
                     | ExprKind::Array(_)
-                    | ExprKind::WhileLoop(..)
                     | ExprKind::BinOp(..)
                     | ExprKind::Tuple(..) => panic!("lhs of FuncAp not a function"),
 
@@ -640,25 +639,6 @@ impl Translator {
                 );
 
                 self.emit(st, Instr::MakeClosure { func_addr: label });
-            }
-            ExprKind::WhileLoop(cond, body) => {
-                let start_label = make_label("while_start");
-                let end_label = make_label("while_end");
-
-                self.emit(st, Line::Label(start_label.clone()));
-                self.translate_expr(cond.clone(), offset_table, monomorph_env.clone(), st);
-                self.emit(st, Instr::Not);
-                self.emit(st, Instr::JumpIf(end_label.clone()));
-                st.loop_stack.push(EnclosingLoop {
-                    start_label: start_label.clone(),
-                    end_label: end_label.clone(),
-                });
-                self.translate_expr(body.clone(), offset_table, monomorph_env.clone(), st);
-                st.loop_stack.pop();
-                self.emit(st, Instr::Pop);
-                self.emit(st, Instr::Jump(start_label));
-                self.emit(st, Line::Label(end_label));
-                self.emit(st, Instr::PushNil);
             }
             ExprKind::Unwrap(expr) => {
                 self.translate_expr(expr.clone(), offset_table, monomorph_env.clone(), st);
@@ -1189,15 +1169,15 @@ impl Translator {
         &self,
         stmt: Rc<Stmt>,
         is_last: bool,
-        locals: &OffsetTable,
+        offset_table: &OffsetTable,
         monomorph_env: MonomorphEnv,
         st: &mut TranslatorState,
     ) {
         self.update_filename_lineno_tables(st, stmt.node());
         match &*stmt.kind {
             StmtKind::Let(_, pat, expr) => {
-                self.translate_expr(expr.clone(), locals, monomorph_env.clone(), st);
-                self.handle_pat_binding(pat.0.clone(), locals, st);
+                self.translate_expr(expr.clone(), offset_table, monomorph_env.clone(), st);
+                self.handle_pat_binding(pat.0.clone(), offset_table, st);
 
                 if is_last {
                     self.emit(st, Instr::PushNil);
@@ -1209,20 +1189,40 @@ impl Translator {
                         let Declaration::Var(node) = &self.statics.resolution_map[&expr1.id] else {
                             panic!("expected variableto be defined in node");
                         };
-                        let idx = locals.get(&node.id()).unwrap();
-                        self.translate_expr(rvalue.clone(), locals, monomorph_env.clone(), st);
+                        let idx = offset_table.get(&node.id()).unwrap();
+                        self.translate_expr(
+                            rvalue.clone(),
+                            offset_table,
+                            monomorph_env.clone(),
+                            st,
+                        );
                         self.emit(st, Instr::StoreOffset(*idx));
                     }
                     ExprKind::MemberAccess(accessed, field_name) => {
-                        self.translate_expr(rvalue.clone(), locals, monomorph_env.clone(), st);
-                        self.translate_expr(accessed.clone(), locals, monomorph_env.clone(), st);
+                        self.translate_expr(
+                            rvalue.clone(),
+                            offset_table,
+                            monomorph_env.clone(),
+                            st,
+                        );
+                        self.translate_expr(
+                            accessed.clone(),
+                            offset_table,
+                            monomorph_env.clone(),
+                            st,
+                        );
                         let idx = idx_of_field(&self.statics, accessed.clone(), &field_name.v);
                         self.emit(st, Instr::SetField(idx));
                     }
                     ExprKind::IndexAccess(array, index) => {
-                        self.translate_expr(rvalue.clone(), locals, monomorph_env.clone(), st);
-                        self.translate_expr(index.clone(), locals, monomorph_env.clone(), st);
-                        self.translate_expr(array.clone(), locals, monomorph_env.clone(), st);
+                        self.translate_expr(
+                            rvalue.clone(),
+                            offset_table,
+                            monomorph_env.clone(),
+                            st,
+                        );
+                        self.translate_expr(index.clone(), offset_table, monomorph_env.clone(), st);
+                        self.translate_expr(array.clone(), offset_table, monomorph_env.clone(), st);
                         self.emit(st, Instr::SetIdx);
                     }
                     _ => unimplemented!(),
@@ -1232,7 +1232,7 @@ impl Translator {
                 }
             }
             StmtKind::Expr(expr) => {
-                self.translate_expr(expr.clone(), locals, monomorph_env.clone(), st);
+                self.translate_expr(expr.clone(), offset_table, monomorph_env.clone(), st);
                 if !is_last {
                     self.emit(st, Instr::Pop);
                 }
@@ -1254,9 +1254,28 @@ impl Translator {
                 }
             }
             StmtKind::Return(expr) => {
-                self.translate_expr(expr.clone(), locals, monomorph_env.clone(), st);
+                self.translate_expr(expr.clone(), offset_table, monomorph_env.clone(), st);
                 let return_label = st.return_stack.last().unwrap();
                 self.emit(st, Instr::Jump(return_label.clone()));
+            }
+            StmtKind::WhileLoop(cond, body) => {
+                let start_label = make_label("while_start");
+                let end_label = make_label("while_end");
+
+                self.emit(st, Line::Label(start_label.clone()));
+                self.translate_expr(cond.clone(), offset_table, monomorph_env.clone(), st);
+                self.emit(st, Instr::Not);
+                self.emit(st, Instr::JumpIf(end_label.clone()));
+                st.loop_stack.push(EnclosingLoop {
+                    start_label: start_label.clone(),
+                    end_label: end_label.clone(),
+                });
+                self.translate_expr(body.clone(), offset_table, monomorph_env.clone(), st);
+                st.loop_stack.pop();
+                self.emit(st, Instr::Pop);
+                self.emit(st, Instr::Jump(start_label));
+                self.emit(st, Line::Label(end_label));
+                self.emit(st, Instr::PushNil);
             }
         }
     }
@@ -1360,10 +1379,6 @@ fn collect_locals_expr(expr: &Expr, locals: &mut HashSet<NodeId>) {
                 collect_locals_expr(else_block, locals);
             }
         }
-        ExprKind::WhileLoop(cond, body) => {
-            collect_locals_expr(cond, locals);
-            collect_locals_expr(body, locals);
-        }
         ExprKind::BinOp(left, _, right) => {
             collect_locals_expr(left, locals);
             collect_locals_expr(right, locals);
@@ -1414,6 +1429,10 @@ fn collect_locals_stmt(statements: &[Rc<Stmt>], locals: &mut HashSet<NodeId>) {
             StmtKind::Set(..) | StmtKind::Continue | StmtKind::Break => {}
             StmtKind::Return(expr) => {
                 collect_locals_expr(expr, locals);
+            }
+            StmtKind::WhileLoop(cond, body) => {
+                collect_locals_expr(cond, locals);
+                collect_locals_expr(body, locals);
             }
         }
     }

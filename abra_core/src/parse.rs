@@ -792,6 +792,7 @@ pub(crate) fn parse_item(pair: Pair<Rule>, file_id: FileId) -> Rc<Item> {
         Rule::let_statement
         | Rule::var_statement
         | Rule::set_statement
+        | Rule::while_statement
         | Rule::expression_statement => {
             let stmt = parse_stmt(pair, file_id);
             Rc::new(Item {
@@ -893,6 +894,15 @@ pub(crate) fn parse_stmt(pair: Pair<Rule>, file_id: FileId) -> Rc<Stmt> {
             let expr = parse_expr_pratt(Pairs::single(inner[0].clone()), file_id);
             Rc::new(Stmt {
                 kind: Rc::new(StmtKind::Return(expr)),
+                loc: span,
+                id: NodeId::new(),
+            })
+        }
+        Rule::while_statement => {
+            let cond = parse_expr_pratt(Pairs::single(inner[0].clone()), file_id);
+            let e = parse_expr_pratt(Pairs::single(inner[1].clone()), file_id);
+            Rc::new(Stmt {
+                kind: Rc::new(StmtKind::WhileLoop(cond, e)),
                 loc: span,
                 id: NodeId::new(),
             })
@@ -1020,16 +1030,6 @@ pub(crate) fn parse_expr_term(pair: Pair<Rule>, file_id: FileId) -> Rc<Expr> {
             };
             Rc::new(Expr {
                 kind: Rc::new(ExprKind::If(cond, e1, e2)),
-                loc: span,
-                id: NodeId::new(),
-            })
-        }
-        Rule::while_loop_expression => {
-            let inner: Vec<_> = pair.into_inner().collect();
-            let cond = parse_expr_pratt(Pairs::single(inner[0].clone()), file_id);
-            let e = parse_expr_pratt(Pairs::single(inner[1].clone()), file_id);
-            Rc::new(Expr {
-                kind: Rc::new(ExprKind::WhileLoop(cond, e)),
                 loc: span,
                 id: NodeId::new(),
             })

@@ -606,6 +606,10 @@ fn resolve_names_stmt(ctx: &mut StaticsContext, symbol_table: SymbolTable, stmt:
         StmtKind::Return(expr) => {
             resolve_names_expr(ctx, symbol_table.clone(), expr.clone());
         }
+        StmtKind::WhileLoop(cond, expr) => {
+            resolve_names_expr(ctx, symbol_table.clone(), cond.clone());
+            resolve_names_expr(ctx, symbol_table.clone(), expr.clone());
+        }
     }
 }
 
@@ -661,10 +665,6 @@ fn resolve_names_expr(ctx: &mut StaticsContext, symbol_table: SymbolTable, expr:
             if let Some(expr2) = expr2 {
                 resolve_names_expr(ctx, symbol_table.clone(), expr2.clone());
             }
-        }
-        ExprKind::WhileLoop(cond, expr) => {
-            resolve_names_expr(ctx, symbol_table.clone(), cond.clone());
-            resolve_names_expr(ctx, symbol_table.clone(), expr.clone());
         }
         ExprKind::Match(scrut, arms) => {
             resolve_names_expr(ctx, symbol_table.clone(), scrut.clone());
