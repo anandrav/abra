@@ -391,7 +391,6 @@ pub(crate) struct FuncDef {
     pub(crate) args: Vec<ArgMaybeAnnotated>,
     pub(crate) ret_type: Option<Rc<Type>>,
     pub(crate) body: Rc<Expr>,
-    pub(crate) is_member_function: bool, // TODO: this is not used remove it
 }
 
 #[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq, Hash)]
