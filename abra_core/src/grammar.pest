@@ -79,7 +79,7 @@ if_else_expression = { if_keyword ~ expression ~ expression ~ (else_keyword ~ ex
 if_keyword = _{ "if" }
 else_keyword = _{ "else" }
 
-while_statement = { "while" ~ expression ~ expression }
+while_statement = { "while" ~ expression ~ block_expression }
 
 match_expression = { "match" ~ expression ~ "{" ~ (match_branch ~ ",")* ~ match_branch? ~ "}" }
 match_branch = { match_pattern ~ "->" ~ statement }

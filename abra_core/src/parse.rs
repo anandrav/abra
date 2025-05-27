@@ -535,7 +535,7 @@ pub(crate) fn parse_item(pair: Pair<Rule>, file_id: FileId) -> Rc<Item> {
     let inner: Vec<_> = pair.clone().into_inner().collect();
     match rule {
         Rule::func_def => {
-            let func_def = parse_func_def(inner, file_id);
+            let func_def = parse_func_def(inner, file_id, false);
             Rc::new(Item {
                 kind: Rc::new(ItemKind::FuncDef(func_def.into())),
                 loc: span,
@@ -721,7 +721,11 @@ pub(crate) fn parse_item(pair: Pair<Rule>, file_id: FileId) -> Rc<Item> {
             let mut func_defs = vec![];
             while let Some(pair) = inner.get(n) {
                 let inner: Vec<_> = pair.clone().into_inner().collect();
-                let func_def: Rc<FuncDef> = parse_func_def(inner, file_id).into();
+                let func_def: Rc<FuncDef> = parse_func_def(
+                    inner, file_id,
+                    false, /* TODO: these should be considered methods in the future */
+                )
+                .into();
                 func_defs.push(func_def);
                 n += 1;
             }
@@ -753,7 +757,7 @@ pub(crate) fn parse_item(pair: Pair<Rule>, file_id: FileId) -> Rc<Item> {
             let mut func_defs = vec![];
             while let Some(pair) = inner.get(n) {
                 let inner: Vec<_> = pair.clone().into_inner().collect();
-                let func_def: Rc<FuncDef> = parse_func_def(inner, file_id).into();
+                let func_def: Rc<FuncDef> = parse_func_def(inner, file_id, true).into();
                 func_defs.push(func_def);
                 n += 1;
             }
@@ -805,7 +809,11 @@ pub(crate) fn parse_item(pair: Pair<Rule>, file_id: FileId) -> Rc<Item> {
     }
 }
 
-fn parse_func_def(inner: Vec<Pair<'_, Rule>>, file_id: FileId) -> FuncDef {
+fn parse_func_def(
+    inner: Vec<Pair<'_, Rule>>,
+    file_id: FileId,
+    is_member_function: bool,
+) -> FuncDef {
     let mut n = 0;
     let mut args = vec![];
     let name = Identifier {
@@ -835,6 +843,7 @@ fn parse_func_def(inner: Vec<Pair<'_, Rule>>, file_id: FileId) -> FuncDef {
         args,
         ret_type,
         body,
+        is_member_function,
     }
 }
 

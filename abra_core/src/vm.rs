@@ -315,7 +315,6 @@ impl Vm {
     }
 
     fn wrong_type<T>(&self, expected: ValueKind) -> Result<T> {
-        dbg!(self);
         Err(Box::new(VmError {
             kind: VmErrorKind::WrongType { expected },
             location: self.pc_to_error_location(self.pc),
@@ -626,6 +625,7 @@ impl Vm {
     }
 
     fn step(&mut self) -> Result<()> {
+        // dbg!(&self);
         let instr = self.program[self.pc];
 
         self.pc += 1;

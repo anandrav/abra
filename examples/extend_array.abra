@@ -1,17 +1,22 @@
 extend array<'a Equal> {
     fn find(self: array<'a Equal>, x: 'a Equal) -> int {
         var i = 0
+        var ret = -1
         while i < self.len() {
             if self[i] = x {
-                i := i
+                ret := i
+            } else {
+                //println("nah")
             }
             i := i + 1
         }
-        // TODO: it thinks this is while { } - 1 if I try to use -1. While loops should really be statements.
-        42
+        return ret
     }
 }
 
-let a = [1, 2, 999, 4, 5]
-let index = a.find(999)
-println(index)
+let a = [11, 22, 33, 44, 55]
+let index = a.find(33)
+println("index is " & index)
+let index = a.find(99999)
+println("now index is " & index)
+

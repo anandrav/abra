@@ -264,6 +264,7 @@ impl Translator {
                 let mut iteration = Vec::new();
                 mem::swap(&mut (iteration), &mut st.overloaded_methods_to_generate);
                 for (desc, substituted_ty) in iteration {
+                    // TODO: there is so much code duplication here and it needs to be fixed asap
                     let f = desc.func_def.clone();
 
                     self.update_function_name_table(st, &f.name.v);
@@ -271,6 +272,8 @@ impl Translator {
                     let overloaded_func_ty = self.statics.solution_of_node(f.name.node()).unwrap();
                     let monomorph_env = MonomorphEnv::empty();
                     update_monomorph_env(monomorph_env.clone(), overloaded_func_ty, substituted_ty);
+
+                    let return_label = make_label("return");
 
                     let label = st.overloaded_func_map.get(&desc).unwrap();
                     self.emit(st, Line::Label(label.clone()));
@@ -288,8 +291,12 @@ impl Translator {
                     for (i, local) in locals.iter().enumerate() {
                         offset_table.entry(*local).or_insert((i) as i32);
                     }
-                    let nargs = f.args.len();
+                    let nargs = f.args.len(); // TODO: need to take self argument into account at some point
+                    st.return_stack.push(return_label.clone());
                     self.translate_expr(f.body.clone(), &offset_table, monomorph_env.clone(), st);
+                    st.return_stack.pop();
+
+                    self.emit(st, return_label);
 
                     if locals_count + nargs > 0 {
                         // pop all locals and arguments except one. The last one is the return value slot.
@@ -1092,6 +1099,7 @@ impl Translator {
         }
         let mut offset_table = OffsetTable::default();
         for (i, arg) in f.args.iter().rev().enumerate() {
+            // println!("arg {} is {}", i, arg.0.v);
             offset_table.entry(arg.0.id).or_insert(-(i as i32) - 1);
         }
         for (i, local) in locals.iter().enumerate() {
@@ -1275,7 +1283,6 @@ impl Translator {
                 self.emit(st, Instr::Pop);
                 self.emit(st, Instr::Jump(start_label));
                 self.emit(st, Line::Label(end_label));
-                self.emit(st, Instr::PushNil);
             }
         }
     }
