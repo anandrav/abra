@@ -533,6 +533,9 @@ impl Translator {
                         st,
                     );
                 }
+                if statements.is_empty() {
+                    self.emit(st, Instr::PushNil);
+                }
             }
             ExprKind::Tuple(exprs) => {
                 for expr in exprs {

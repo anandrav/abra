@@ -5,8 +5,6 @@ extend array<'a Equal> {
         while i < self.len() {
             if self[i] = x {
                 ret := i
-            } else {
-                //println("nah")
             }
             i := i + 1
         }
