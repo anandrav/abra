@@ -207,6 +207,15 @@ implement ToString for ('a ToString, 'b ToString, 'c ToString, 'd ToString, 'e T
     }
 }
 
+implement ToString for maybe<'y ToString,'n ToString> {
+    fn str(m: maybe<'y ToString, 'n ToString>) {
+        match m {
+            .yes(y) -> "yes(" & y & ")",
+            .no(n) -> "no(" & n & ")"
+        }
+    }
+}
+
 implement ToString for array<'a ToString> {
     fn str(arr) {
         "[ " & array_to_string_helper(arr, 0) & " ]"

@@ -1,13 +1,13 @@
 extend array<'a Equal> {
-    fn find(self: array<'a Equal>, x: 'a Equal) -> int {
+    fn find(self: array<'a Equal>, x: 'a Equal) -> maybe<int, void> {
         var i = 0
         while i < self.len() {
             if self[i] = x {
-                return i 
+                return maybe.yes(i) 
             }
             i := i + 1
         }
-        -1
+        maybe.no(())
     }
 }
 
