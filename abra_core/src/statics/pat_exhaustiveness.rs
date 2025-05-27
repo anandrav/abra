@@ -71,6 +71,10 @@ fn check_pattern_exhaustiveness_stmt(statics: &mut StaticsContext, stmt: &Stmt) 
         StmtKind::Return(expr) => {
             check_pattern_exhaustiveness_expr(statics, expr);
         }
+        StmtKind::If(cond, body) => {
+            check_pattern_exhaustiveness_expr(statics, cond);
+            check_pattern_exhaustiveness_expr(statics, body);
+        }
         StmtKind::WhileLoop(cond, body) => {
             check_pattern_exhaustiveness_expr(statics, cond);
             check_pattern_exhaustiveness_expr(statics, body);
@@ -113,12 +117,10 @@ fn check_pattern_exhaustiveness_expr(statics: &mut StaticsContext, expr: &Rc<Exp
                 check_pattern_exhaustiveness_stmt(statics, statement);
             }
         }
-        ExprKind::If(e1, e2, e3) => {
+        ExprKind::IfElse(e1, e2, e3) => {
             check_pattern_exhaustiveness_expr(statics, e1);
             check_pattern_exhaustiveness_expr(statics, e2);
-            if let Some(e3) = e3 {
-                check_pattern_exhaustiveness_expr(statics, e3);
-            }
+            check_pattern_exhaustiveness_expr(statics, e3);
         }
         ExprKind::AnonymousFunction(_args, _out_annot, body) => {
             check_pattern_exhaustiveness_expr(statics, body);

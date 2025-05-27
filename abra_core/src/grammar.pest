@@ -38,7 +38,7 @@ packed_data = _{ "of" ~ typ }
 struct_declaration = { "type" ~ identifier ~ type_params? ~ "=" ~ "{" ~ struct_field ~ (struct_field)* ~ "}" }
 struct_field = { identifier ~ type_annotation }
 
-statement = _{ let_statement | var_statement | set_statement | break_statement | continue_statement | return_statement | while_statement | expression_statement }
+statement = _{ let_statement | var_statement | set_statement | break_statement | continue_statement | return_statement | while_statement | expression_statement | if_statement }
 
 let_statement = { let_keyword ~ let_pattern_annotated ~ op_assign ~ expression }
 let_keyword = _{ "let" }
@@ -75,9 +75,9 @@ postfix = _{ member_func_call | index_access | member_access | func_call | op_tr
 index_access = { "[" ~ expression ~ "]" }
 member_access = { "." ~ identifier }
 
-if_else_expression = { if_keyword ~ expression ~ expression ~ (else_keyword ~ expression)? }
-if_keyword = _{ "if" }
-else_keyword = _{ "else" }
+if_else_expression = { "if" ~ expression ~ expression ~ "else" ~ expression }
+
+if_statement = { "if" ~ expression ~ block_expression }
 
 while_statement = { "while" ~ expression ~ block_expression }
 

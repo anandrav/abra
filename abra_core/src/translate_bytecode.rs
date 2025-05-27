@@ -507,7 +507,7 @@ impl Translator {
 
                     ExprKind::MemberFuncAp(..) => unimplemented!(),
                     ExprKind::Unwrap(..) => unimplemented!(),
-                    ExprKind::If(_expr, _expr1, _expr2) => unimplemented!(),
+                    ExprKind::IfElse(_expr, _expr1, _expr2) => unimplemented!(),
                     ExprKind::Match(_expr, _match_armss) => unimplemented!(),
                     ExprKind::Block(_stmts) => unimplemented!(),
                     ExprKind::IndexAccess(_expr, _expr1) => unimplemented!(),
@@ -543,7 +543,7 @@ impl Translator {
                 }
                 self.emit(st, Instr::Construct(exprs.len() as u16));
             }
-            ExprKind::If(cond, then_block, Some(else_block)) => {
+            ExprKind::IfElse(cond, then_block, else_block) => {
                 self.translate_expr(cond.clone(), offset_table, monomorph_env.clone(), st);
                 let then_label = make_label("then");
                 let end_label = make_label("endif");
@@ -553,17 +553,6 @@ impl Translator {
                 self.emit(st, Line::Label(then_label));
                 self.translate_expr(then_block.clone(), offset_table, monomorph_env.clone(), st);
                 self.emit(st, Line::Label(end_label));
-            }
-            ExprKind::If(cond, then_block, None) => {
-                self.translate_expr(cond.clone(), offset_table, monomorph_env.clone(), st);
-                let then_label = make_label("then");
-                let end_label = make_label("endif");
-                self.emit(st, Instr::JumpIf(then_label.clone()));
-                self.emit(st, Instr::Jump(end_label.clone()));
-                self.emit(st, Line::Label(then_label));
-                self.translate_expr(then_block.clone(), offset_table, monomorph_env.clone(), st);
-                self.emit(st, Line::Label(end_label));
-                self.emit(st, Instr::PushNil);
             }
             ExprKind::MemberAccess(accessed, field_name) => {
                 if let Some(Declaration::EnumVariant { variant, .. }) =
@@ -1269,6 +1258,17 @@ impl Translator {
                 let return_label = st.return_stack.last().unwrap();
                 self.emit(st, Instr::Jump(return_label.clone()));
             }
+            StmtKind::If(cond, then_block) => {
+                self.translate_expr(cond.clone(), offset_table, monomorph_env.clone(), st);
+                let then_label = make_label("then");
+                let end_label = make_label("endif");
+                self.emit(st, Instr::JumpIf(then_label.clone()));
+                self.emit(st, Instr::Jump(end_label.clone()));
+                self.emit(st, Line::Label(then_label));
+                self.translate_expr(then_block.clone(), offset_table, monomorph_env.clone(), st);
+                self.emit(st, Instr::Pop);
+                self.emit(st, Line::Label(end_label));
+            }
             StmtKind::WhileLoop(cond, body) => {
                 let start_label = make_label("while_start");
                 let end_label = make_label("while_end");
@@ -1382,12 +1382,10 @@ fn collect_locals_expr(expr: &Expr, locals: &mut HashSet<NodeId>) {
                 collect_locals_expr(expr, locals);
             }
         }
-        ExprKind::If(cond, then_block, else_block) => {
+        ExprKind::IfElse(cond, then_block, else_block) => {
             collect_locals_expr(cond, locals);
             collect_locals_expr(then_block, locals);
-            if let Some(else_block) = else_block {
-                collect_locals_expr(else_block, locals);
-            }
+            collect_locals_expr(else_block, locals);
         }
         ExprKind::BinOp(left, _, right) => {
             collect_locals_expr(left, locals);
@@ -1439,6 +1437,10 @@ fn collect_locals_stmt(statements: &[Rc<Stmt>], locals: &mut HashSet<NodeId>) {
             StmtKind::Set(..) | StmtKind::Continue | StmtKind::Break => {}
             StmtKind::Return(expr) => {
                 collect_locals_expr(expr, locals);
+            }
+            StmtKind::If(cond, body) => {
+                collect_locals_expr(cond, locals);
+                collect_locals_expr(body, locals);
             }
             StmtKind::WhileLoop(cond, body) => {
                 collect_locals_expr(cond, locals);

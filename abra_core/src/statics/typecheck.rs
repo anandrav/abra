@@ -1630,6 +1630,18 @@ fn generate_constraints_stmt(
                 }
             }
         }
+        StmtKind::If(cond, body) => {
+            generate_constraints_expr(
+                polyvar_scope.clone(),
+                Mode::AnaWithReason {
+                    expected: TypeVar::make_bool(Reason::Node(cond.node())),
+                    constraint_reason: ConstraintReason::Condition,
+                },
+                cond.clone(),
+                ctx,
+            );
+            generate_constraints_expr(polyvar_scope, Mode::Syn, body.clone(), ctx);
+        }
         StmtKind::WhileLoop(cond, expr) => {
             generate_constraints_expr(
                 polyvar_scope.clone(),
@@ -1852,6 +1864,7 @@ fn generate_constraints_expr(
                     statements.last().unwrap().clone(),
                     ctx,
                 );
+                constrain(ctx, node_ty, TypeVar::make_unit(Reason::Node(expr.node())))
             } else {
                 generate_constraints_stmt(
                     polyvar_scope,
@@ -1862,7 +1875,7 @@ fn generate_constraints_expr(
                 constrain(ctx, node_ty, TypeVar::make_unit(Reason::Node(expr.node())))
             }
         }
-        ExprKind::If(cond, expr1, expr2) => {
+        ExprKind::IfElse(cond, expr1, expr2) => {
             generate_constraints_expr(
                 polyvar_scope.clone(),
                 Mode::AnaWithReason {
@@ -1872,44 +1885,41 @@ fn generate_constraints_expr(
                 cond.clone(),
                 ctx,
             );
-            match &expr2 {
-                // if-else
-                Some(expr2) => {
-                    generate_constraints_expr(
-                        polyvar_scope.clone(),
-                        Mode::Ana {
-                            expected: node_ty.clone(),
-                        },
-                        expr1.clone(),
-                        ctx,
-                    );
-                    generate_constraints_expr(
-                        polyvar_scope.clone(),
-                        Mode::AnaWithReason {
-                            expected: node_ty.clone(),
-                            constraint_reason: ConstraintReason::IfElseBodies,
-                        },
-                        expr2.clone(),
-                        ctx,
-                    );
-                }
-                // just if
-                None => {
-                    generate_constraints_expr(
-                        polyvar_scope,
-                        Mode::Ana {
-                            expected: TypeVar::make_unit(Reason::IfWithoutElse(expr.node())),
-                        },
-                        expr1.clone(),
-                        ctx,
-                    );
-                    constrain(
-                        ctx,
-                        node_ty,
-                        TypeVar::make_unit(Reason::IfWithoutElse(expr.node())),
-                    )
-                }
-            }
+
+            generate_constraints_expr(
+                polyvar_scope.clone(),
+                Mode::Ana {
+                    expected: node_ty.clone(),
+                },
+                expr1.clone(),
+                ctx,
+            );
+            generate_constraints_expr(
+                polyvar_scope.clone(),
+                Mode::AnaWithReason {
+                    expected: node_ty.clone(),
+                    constraint_reason: ConstraintReason::IfElseBodies,
+                },
+                expr2.clone(),
+                ctx,
+            );
+
+            // just if
+            // None => {
+            //     generate_constraints_expr(
+            //         polyvar_scope,
+            //         Mode::Ana {
+            //             expected: TypeVar::make_unit(Reason::IfWithoutElse(expr.node())),
+            //         },
+            //         expr1.clone(),
+            //         ctx,
+            //     );
+            //     constrain(
+            //         ctx,
+            //         node_ty,
+            //         TypeVar::make_unit(Reason::IfWithoutElse(expr.node())),
+            //     )
+            // }
         }
         ExprKind::Match(scrut, arms) => {
             let ty_scrutiny = TypeVar::from_node(ctx, scrut.node());

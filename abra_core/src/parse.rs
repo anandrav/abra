@@ -898,6 +898,15 @@ pub(crate) fn parse_stmt(pair: Pair<Rule>, file_id: FileId) -> Rc<Stmt> {
                 id: NodeId::new(),
             })
         }
+        Rule::if_statement => {
+            let cond = parse_expr_pratt(Pairs::single(inner[0].clone()), file_id);
+            let e1 = parse_expr_pratt(Pairs::single(inner[1].clone()), file_id);
+            Rc::new(Stmt {
+                kind: Rc::new(StmtKind::If(cond, e1)),
+                loc: span,
+                id: NodeId::new(),
+            })
+        }
         Rule::while_statement => {
             let cond = parse_expr_pratt(Pairs::single(inner[0].clone()), file_id);
             let e = parse_expr_pratt(Pairs::single(inner[1].clone()), file_id);
@@ -1023,13 +1032,9 @@ pub(crate) fn parse_expr_term(pair: Pair<Rule>, file_id: FileId) -> Rc<Expr> {
             let inner: Vec<_> = pair.into_inner().collect();
             let cond = parse_expr_pratt(Pairs::single(inner[0].clone()), file_id);
             let e1 = parse_expr_pratt(Pairs::single(inner[1].clone()), file_id);
-            let e2 = if inner.len() == 3 {
-                Some(parse_expr_pratt(Pairs::single(inner[2].clone()), file_id))
-            } else {
-                None
-            };
+            let e2 = parse_expr_pratt(Pairs::single(inner[2].clone()), file_id);
             Rc::new(Expr {
-                kind: Rc::new(ExprKind::If(cond, e1, e2)),
+                kind: Rc::new(ExprKind::IfElse(cond, e1, e2)),
                 loc: span,
                 id: NodeId::new(),
             })

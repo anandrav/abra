@@ -1,16 +1,13 @@
 extend array<'a Equal> {
     fn find(self: array<'a Equal>, x: 'a Equal) -> int {
         var i = 0
-        var ret = -1
         while i < self.len() {
             if self[i] = x {
-                ret := i
+                return i 
             }
-            ret := 12345
             i := i + 1
         }
-        println("about to return " & ret)
-        return ret
+        -1
     }
 }
 
