@@ -1864,7 +1864,7 @@ fn generate_constraints_expr(
                     statements.last().unwrap().clone(),
                     ctx,
                 );
-                constrain(ctx, node_ty, TypeVar::make_unit(Reason::Node(expr.node())))
+                constrain(ctx, node_ty, TypeVar::make_never(Reason::Node(expr.node())))
             } else {
                 generate_constraints_stmt(
                     polyvar_scope,

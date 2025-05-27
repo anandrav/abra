@@ -793,6 +793,7 @@ pub(crate) fn parse_item(pair: Pair<Rule>, file_id: FileId) -> Rc<Item> {
         | Rule::var_statement
         | Rule::set_statement
         | Rule::while_statement
+        | Rule::if_statement
         | Rule::expression_statement => {
             let stmt = parse_stmt(pair, file_id);
             Rc::new(Item {
