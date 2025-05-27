@@ -6,8 +6,10 @@ extend array<'a Equal> {
             if self[i] = x {
                 ret := i
             }
+            ret := 12345
             i := i + 1
         }
+        println("about to return " & ret)
         return ret
     }
 }
