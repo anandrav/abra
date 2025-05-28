@@ -16,7 +16,7 @@ ffi = ["libloading"]
 
 [dependencies]
 disjoint-sets = "0.4.2"                               # TODO: implement your own disjoint sets
-libloading = { version = "0.8.7", optional = true }
+libloading = { version = "0.8.8", optional = true }
 pest = "2.8.0"                                        # TODO: remove after hand-writing parser
 pest_derive = "2.8.0"
 strum = { version = "0.27.1", features = ["derive"] }

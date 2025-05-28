@@ -3,4 +3,6 @@ target/
 Cargo.lock
 **/*.rs.bk
 
-nocommit
+.cargo/
+vendor/
+
