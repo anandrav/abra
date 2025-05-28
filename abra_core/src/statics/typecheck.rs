@@ -322,8 +322,6 @@ pub(crate) enum Reason {
     BinopOut(AstNode),
     IndexAccess,
     VariantNoData(AstNode), // the type of the data of a variant with no data, always Unit.
-    WhileLoopBody(AstNode),
-    IfWithoutElse(AstNode),
     MemberFunctionType(AstNode),
 }
 

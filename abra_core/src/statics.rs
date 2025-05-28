@@ -611,14 +611,6 @@ fn handle_reason(
         Reason::VariantNoData(_prov) => {
             notes.push("the data of some enum variant".to_string());
         }
-        Reason::WhileLoopBody(node) => {
-            let (file, range) = node.get_file_and_range();
-            labels.push(Label::secondary(file, range).with_message("the body of this while loop"));
-        }
-        Reason::IfWithoutElse(node) => {
-            let (file, range) = node.get_file_and_range();
-            labels.push(Label::secondary(file, range).with_message("this if expression"));
-        }
         Reason::IndexAccess => {
             notes.push("array index access".to_string());
         }
