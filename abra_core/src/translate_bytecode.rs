@@ -1041,11 +1041,7 @@ impl Translator {
     fn translate_item_static(&self, stmt: Rc<Item>, st: &mut TranslatorState) {
         match &*stmt.kind {
             ItemKind::Stmt(_) => {}
-            ItemKind::InterfaceImpl(iface_impl) => {
-                for f in &iface_impl.methods {
-                    self.translate_iface_method(f, st, true);
-                }
-            }
+            ItemKind::InterfaceImpl(iface_impl) => {}
             ItemKind::Extension(ext) => {
                 for f in &ext.methods {
                     self.translate_func_helper(st, f);
@@ -1068,21 +1064,19 @@ impl Translator {
         // (this could be an overloaded function or an interface method)'
         // _print_node(&self.statics, f.name.node());
         let func_ty = self.statics.solution_of_node(f.name.node()).unwrap();
-
         if func_ty.is_overloaded()
         // println: 'a ToString -> ()
         // to_string: 'a ToString -> String
         {
             return;
         }
-
         let fully_qualified_name = &self.statics.fully_qualified_names[&f.name.id];
-
         self.update_function_name_table(st, &f.name.v);
 
         let return_label = make_label("return");
 
         self.emit(st, Line::Label(fully_qualified_name.clone()));
+
         let mut locals = HashSet::default();
         collect_locals_expr(&f.body, &mut locals);
         let locals_count = locals.len();
@@ -1098,7 +1092,6 @@ impl Translator {
             offset_table.entry(*local).or_insert((i) as i32);
         }
         let nargs = f.args.len();
-
         st.return_stack.push(return_label.clone());
         self.translate_expr(f.body.clone(), &offset_table, MonomorphEnv::empty(), st);
         st.return_stack.pop();
@@ -1114,55 +1107,6 @@ impl Translator {
         }
 
         self.emit(st, Instr::Return);
-    }
-
-    // TODO: what's different about this function from translate_func_helper() ?
-    fn translate_iface_method(
-        &self,
-        f: &Rc<FuncDef>,
-        st: &mut TranslatorState,
-        iface_method: bool,
-    ) {
-        {
-            let func_ty = self.statics.solution_of_node(f.name.node()).unwrap();
-            let func_name = f.name.v.clone();
-
-            if func_ty.is_overloaded() // println: 'a ToString -> ()
-                || iface_method
-            // to_string: 'a ToString -> String
-            {
-                return;
-            }
-
-            self.update_function_name_table(st, &func_name);
-
-            self.emit(st, Line::Label(func_name));
-            let mut locals = HashSet::default();
-            collect_locals_expr(&f.body, &mut locals);
-            let locals_count = locals.len();
-            for _ in 0..locals_count {
-                self.emit(st, Instr::PushNil);
-            }
-            let mut offset_table = OffsetTable::default();
-            for (i, arg) in f.args.iter().rev().enumerate() {
-                offset_table.entry(arg.0.id).or_insert(-(i as i32) - 1);
-            }
-            for (i, local) in locals.iter().enumerate() {
-                offset_table.entry(*local).or_insert((i) as i32);
-            }
-            let nargs = f.args.len();
-            self.translate_expr(f.body.clone(), &offset_table, MonomorphEnv::empty(), st);
-
-            if locals_count + nargs > 0 {
-                // pop all locals and arguments except one. The last one is the return value slot.
-                self.emit(st, Instr::StoreOffset(-(nargs as i32)));
-                for _ in 0..(locals_count + nargs - 1) {
-                    self.emit(st, Instr::Pop);
-                }
-            }
-
-            self.emit(st, Instr::Return);
-        }
     }
 
     fn translate_stmt(
