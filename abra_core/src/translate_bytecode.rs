@@ -31,9 +31,8 @@ pub(crate) type LabelMap = HashMap<Label, usize>;
 
 #[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq, Hash)]
 struct OverloadedFuncDesc {
-    name: String,
-    impl_type: Monotype,
     func_def: Rc<FuncDef>,
+    impl_type: Monotype,
 }
 
 #[derive(Debug, Clone)]
@@ -1243,18 +1242,16 @@ impl Translator {
     ) {
         let instance_ty = substituted_ty.monotype().unwrap();
         let entry = st.overloaded_func_map.entry(OverloadedFuncDesc {
-            name: func_name.clone(),
-            impl_type: instance_ty.clone(),
             func_def: func_def.clone(),
+            impl_type: instance_ty.clone(),
         });
         let label = match entry {
             std::collections::hash_map::Entry::Occupied(o) => o.get().clone(),
             std::collections::hash_map::Entry::Vacant(v) => {
                 st.overloaded_methods_to_generate.push((
                     OverloadedFuncDesc {
-                        name: func_name.clone(),
-                        impl_type: instance_ty.clone(),
                         func_def: func_def.clone(),
+                        impl_type: instance_ty.clone(),
                     },
                     substituted_ty,
                 ));
