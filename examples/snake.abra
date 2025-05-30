@@ -134,7 +134,7 @@ fn main() {
 extend Snake {
   fn display(self) {
     var i = 0
-    while i < len(self.body) {
+    while i < self.body.len() {
       let x = self.body[i].x
       let y = self.body[i].y
 
@@ -175,7 +175,7 @@ fn update(st: State) {
   let fruit_was_eaten = new_head = fruit.location
 
   let body = snake.body
-  let len = len(body)
+  let len = body.len()
   
   var i = if fruit_was_eaten {
     body.push(Point(0,0))

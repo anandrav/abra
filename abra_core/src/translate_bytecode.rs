@@ -692,6 +692,7 @@ impl Translator {
     ) {
         let func_ty = self.statics.solution_of_node(f.name.node()).unwrap();
         if !func_ty.is_overloaded() {
+            // println!("f_fully_qualified_name: {}", f_fully_qualified_name);
             self.emit(st, Instr::Call(f_fully_qualified_name.clone()));
         } else {
             let specific_func_ty = self.statics.solution_of_node(func_node).unwrap();
