@@ -1185,17 +1185,17 @@ impl Translator {
                 let enclosing_loop = st.loop_stack.last().unwrap();
                 self.emit(st, Instr::Jump(enclosing_loop.end_label.clone()));
 
-                if is_last {
-                    self.emit(st, Instr::PushNil);
-                }
+                // if is_last {
+                //     self.emit(st, Instr::PushNil);
+                // }
             }
             StmtKind::Continue => {
                 let enclosing_loop = st.loop_stack.last().unwrap();
                 self.emit(st, Instr::Jump(enclosing_loop.start_label.clone()));
 
-                if is_last {
-                    self.emit(st, Instr::PushNil);
-                }
+                // if is_last {
+                //     self.emit(st, Instr::PushNil);
+                // }
             }
             StmtKind::Return(expr) => {
                 self.translate_expr(expr.clone(), offset_table, monomorph_env.clone(), st);
@@ -1212,6 +1212,10 @@ impl Translator {
                 self.translate_expr(then_block.clone(), offset_table, monomorph_env.clone(), st);
                 self.emit(st, Instr::Pop);
                 self.emit(st, Line::Label(end_label));
+
+                if is_last {
+                    self.emit(st, Instr::PushNil);
+                }
             }
             StmtKind::WhileLoop(cond, body) => {
                 let start_label = make_label("while_start");
@@ -1230,6 +1234,10 @@ impl Translator {
                 self.emit(st, Instr::Pop);
                 self.emit(st, Instr::Jump(start_label));
                 self.emit(st, Line::Label(end_label));
+
+                if is_last {
+                    self.emit(st, Instr::PushNil);
+                }
             }
         }
     }
