@@ -466,9 +466,26 @@ fn resolve_names_item_decl(ctx: &mut StaticsContext, symbol_table: SymbolTable, 
         ItemKind::Extension(ext) => {
             let symbol_table = symbol_table.new_scope();
             resolve_names_typ(ctx, symbol_table.clone(), ext.typ.clone(), true);
+
+            // TODO: this logic is duplicated in typecheck and also just generally sucks
+            // TODO: at the every least, make a helper function
+            let id_lookup_typ = match &*ext.typ.kind {
+                TypeKind::Named(_) => ext.typ.id,
+                TypeKind::NamedWithParams(ident, _) => ident.id,
+                _ => {
+                    ctx.errors.push(Error::MustExtendStructOrEnum {
+                        node: ext.typ.node(),
+                    });
+                    return;
+                }
+            };
+            let fqn_type = fqn_of_type(ctx, id_lookup_typ);
             for f in &ext.methods {
-                ctx.fully_qualified_names
-                    .insert(f.name.id, f.name.v.clone());
+                if let Some(fqn_type) = &fqn_type {
+                    let fully_qualified_name = format!("{}.{}", fqn_type, f.name.v.clone());
+                    ctx.fully_qualified_names
+                        .insert(f.name.id, fully_qualified_name);
+                }
 
                 resolve_names_func_helper(ctx, symbol_table.clone(), &f.args, &f.body, &f.ret_type);
             }
@@ -867,6 +884,7 @@ fn resolve_names_typ(
         }
         TypeKind::NamedWithParams(identifier, args) => {
             resolve_identifier(ctx, &symbol_table, identifier);
+
             for arg in args {
                 resolve_names_typ(ctx, symbol_table.clone(), arg.clone(), introduce_poly);
             }
@@ -906,5 +924,24 @@ fn resolve_names_polytyp(
 
     for iface in &polyty.iface_names {
         resolve_identifier(ctx, &symbol_table, iface);
+    }
+}
+
+fn fqn_of_type(ctx: &StaticsContext, lookup_id: NodeId) -> Option<String> {
+    let decl = ctx.resolution_map.get(&lookup_id)?;
+    match decl {
+        Declaration::FreeFunction(_) => None,
+        Declaration::HostFunction(_) => None,
+        Declaration::_ForeignFunction { .. } => None,
+        Declaration::InterfaceDef(_) => None,
+        Declaration::InterfaceMethod { .. } => None,
+        Declaration::MemberFunction { .. } => None,
+        Declaration::Enum(e) => ctx.fully_qualified_names.get(&e.name.id).cloned(),
+        Declaration::Struct(s) => ctx.fully_qualified_names.get(&s.name.id).cloned(),
+        Declaration::EnumVariant { .. } => None,
+        Declaration::Array => Some("array".into()),
+        Declaration::Polytype(_) => None,
+        Declaration::Builtin(_) => None,
+        Declaration::Var(_) => None,
     }
 }
