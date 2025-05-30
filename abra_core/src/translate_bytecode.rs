@@ -1184,18 +1184,10 @@ impl Translator {
             StmtKind::Break => {
                 let enclosing_loop = st.loop_stack.last().unwrap();
                 self.emit(st, Instr::Jump(enclosing_loop.end_label.clone()));
-
-                // if is_last {
-                //     self.emit(st, Instr::PushNil);
-                // }
             }
             StmtKind::Continue => {
                 let enclosing_loop = st.loop_stack.last().unwrap();
                 self.emit(st, Instr::Jump(enclosing_loop.start_label.clone()));
-
-                // if is_last {
-                //     self.emit(st, Instr::PushNil);
-                // }
             }
             StmtKind::Return(expr) => {
                 self.translate_expr(expr.clone(), offset_table, monomorph_env.clone(), st);
