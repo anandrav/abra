@@ -827,7 +827,15 @@ fn tyvar_of_declaration(
         Declaration::MemberFunction { f: func, .. } => {
             Some(TypeVar::from_node(ctx, func.name.node()))
         }
-        Declaration::Enum(enum_def) => Some(tyvar_of_enumdef(ctx, enum_def.clone(), node)),
+        Declaration::Enum(enum_def) => {
+            let (def_type, _) = TypeVar::make_nominal_with_substitution(
+                Reason::Node(node.clone()),
+                Nominal::Enum(enum_def.clone()),
+                ctx,
+                node.clone(),
+            );
+            Some(def_type)
+        }
         Declaration::EnumVariant {
             e: enum_def,
             variant,
@@ -883,15 +891,7 @@ fn tyvar_of_declaration(
                 .collect();
             Some(TypeVar::make_func(fields, def_type, Reason::Node(node)))
         }
-        Declaration::Array => {
-            let params = vec![TypeVar::fresh(
-                ctx,
-                Prov::InstantiateUdtParam(node.clone(), 0),
-            )];
-            let def_type =
-                TypeVar::make_nominal(Reason::Node(node.clone()), Nominal::Array, params);
-            Some(TypeVar::make_func(vec![], def_type, Reason::Node(node)))
-        }
+        Declaration::Array => None,
         Declaration::Polytype(polytype) => Some(TypeVar::make_poly(
             Reason::Annotation(node),
             PolyDeclaration(polytype.clone()),
@@ -902,18 +902,6 @@ fn tyvar_of_declaration(
         }
         Declaration::Var(node) => Some(TypeVar::from_node(ctx, node.clone())),
     }
-}
-
-fn tyvar_of_enumdef(ctx: &mut StaticsContext, enum_def: Rc<EnumDef>, node: AstNode) -> TypeVar {
-    let nparams = enum_def.ty_args.len();
-    let mut params = vec![];
-    for i in 0..nparams {
-        params.push(TypeVar::fresh(
-            ctx,
-            Prov::InstantiateUdtParam(node.clone(), i as u8),
-        ));
-    }
-    TypeVar::make_nominal(Reason::Node(node), Nominal::Enum(enum_def.clone()), params)
 }
 
 pub(crate) fn ast_type_to_solved_type(
@@ -1952,14 +1940,20 @@ fn generate_constraints_expr(
                         unknown
                     })
                     .collect();
-                let tyvar_from_enum = tyvar_of_enumdef(ctx, enum_def.clone(), receiver_expr.node());
-                let tyvar_from_enum =
-                    tyvar_from_enum.instantiate(polyvar_scope, ctx, receiver_expr.node());
+                let (tyvar_from_enum, _) = TypeVar::make_nominal_with_substitution(
+                    Reason::Node(receiver_expr.node()),
+                    Nominal::Enum(enum_def.clone()),
+                    ctx,
+                    receiver_expr.node(),
+                );
+
                 constrain(ctx, node_ty, tyvar_from_enum.clone());
 
                 let ty_fname = TypeVar::from_node(ctx, fname.node());
                 let ty_of_variant_ctor =
                     tyvar_of_declaration(ctx, decl, receiver_expr.node()).unwrap();
+                let ty_of_variant_ctor =
+                    ty_of_variant_ctor.instantiate(polyvar_scope, ctx, receiver_expr.node());
                 constrain(ctx, ty_fname.clone(), ty_of_variant_ctor);
 
                 let ty_func = TypeVar::make_func(
@@ -2008,6 +2002,7 @@ fn generate_constraints_expr(
                                 if let Some(memfn_decl_ty) =
                                     tyvar_of_declaration(ctx, &memfn_decl, fname.node())
                                 {
+                                    // TODO: maybe make a wrapper function called instantiated_tyvar_of_declaration() ?
                                     // TODO: It is really easy to mess up and pass the wrong node
                                     // to this function. The third argument, I mean.
                                     // fname.node() must be passed to both tyvar_of_declaration
