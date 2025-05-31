@@ -1,7 +1,6 @@
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
-
 use std::rc::Rc;
 
 use pest::Parser;
@@ -775,6 +774,31 @@ pub(crate) fn parse_item(pair: Pair<Rule>, file_id: FileId) -> Rc<Item> {
         }
         Rule::import => {
             let name = inner[0].as_str().to_string();
+            let mut import_list = None;
+            if inner.len() > 1 {
+                let pair = inner[1].clone();
+
+                let inner = pair.clone().into_inner();
+
+                let mut list = vec![];
+                for pair in inner {
+                    list.push(Identifier {
+                        v: pair.as_str().to_string(),
+                        loc: span.clone(),
+                        id: NodeId::new(),
+                    });
+                }
+
+                match pair.as_rule() {
+                    Rule::import_inclusion_list => {
+                        import_list = Some(ImportList::Inclusion(list));
+                    }
+                    Rule::import_exclusion_list => {
+                        import_list = Some(ImportList::Exclusion(list));
+                    }
+                    _ => unreachable!(),
+                }
+            }
             Rc::new(Item {
                 kind: ItemKind::Import(
                     Identifier {
@@ -783,6 +807,7 @@ pub(crate) fn parse_item(pair: Pair<Rule>, file_id: FileId) -> Rc<Item> {
                         id: NodeId::new(),
                     }
                     .into(),
+                    import_list,
                 )
                 .into(),
                 loc: span,

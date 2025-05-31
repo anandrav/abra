@@ -1,0 +1,9 @@
+
+fn foo() {
+  println("my_lib foo")
+}
+
+fn bar() {
+  println("my_lib bar")
+}
+

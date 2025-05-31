@@ -16,7 +16,10 @@ file_item = _{ func_def | foreign_func_decl | host_func_decl | interface_declara
 
 // typealias = { "type" ~ identifier ~ "=" ~ typ}
 
-import = { "use" ~ path }
+import = { "use" ~ path ~ ( import_inclusion_list | import_exclusion_list )? }
+import_inclusion_list = { "." ~ import_group_or_singleton }
+import_exclusion_list = { "except" ~ import_group_or_singleton }
+import_group_or_singleton = _{ identifier | "(" ~ (identifier ~ ",")* ~ identifier ~ ")" }
 path = @{ identifier ~ ("/" ~ identifier)* }
 
 interface_declaration = { "interface" ~ identifier ~ interface_body }

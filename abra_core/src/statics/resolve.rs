@@ -6,8 +6,8 @@ use super::{Declaration, Error, Namespace, StaticsContext};
 #[cfg(feature = "ffi")]
 use crate::addons::make_foreign_func_name;
 use crate::ast::{
-    ArgMaybeAnnotated, AstNode, Expr, ExprKind, FileAst, Identifier, Item, ItemKind, NodeId, Pat,
-    PatKind, Polytype, Stmt, StmtKind, Type, TypeDefKind, TypeKind,
+    ArgMaybeAnnotated, AstNode, Expr, ExprKind, FileAst, Identifier, ImportList, Item, ItemKind,
+    NodeId, Pat, PatKind, Polytype, Stmt, StmtKind, Type, TypeDefKind, TypeKind,
 };
 use crate::builtin::Builtin;
 use crate::statics::typecheck::Nominal;
@@ -366,13 +366,24 @@ fn resolve_imports_file(ctx: &mut StaticsContext, file: Rc<FileAst>) -> SymbolTa
     );
 
     for item in file.items.iter() {
-        if let ItemKind::Import(path) = &*item.kind {
+        if let ItemKind::Import(path, import_list) = &*item.kind {
             let Some(import_src) = ctx.root_namespace.namespaces.get(&path.v).cloned() else {
                 ctx.errors
                     .push(Error::UnresolvedIdentifier { node: item.node() });
                 continue;
             };
-            effective_namespace.add_other(&import_src, ctx);
+            let import_list = import_list.clone();
+            let pred: Box<dyn Fn(&String) -> bool> = match import_list {
+                None => Box::new(|_s: &String| true),
+                Some(ImportList::Inclusion(list)) => {
+                    Box::new(move |s: &String| list.iter().any(|ident| ident.v == *s))
+                }
+                Some(ImportList::Exclusion(list)) => {
+                    Box::new(move |s: &String| !list.iter().any(|ident| ident.v == *s))
+                }
+            };
+
+            effective_namespace.add_other_pred(&import_src, pred, ctx);
         }
     }
 
@@ -382,13 +393,27 @@ fn resolve_imports_file(ctx: &mut StaticsContext, file: Rc<FileAst>) -> SymbolTa
 impl Namespace {
     // add children from another namespace to this namespace
     pub fn add_other(&mut self, other: &Self, ctx: &mut StaticsContext) {
+        self.add_other_pred(other, Box::new(|_| true), ctx);
+    }
+
+    // add children from another namespace to this namespace, under a condition
+    pub fn add_other_pred(
+        &mut self,
+        other: &Self,
+        pred: Box<dyn Fn(&String) -> bool>,
+        ctx: &mut StaticsContext,
+    ) {
         // child declarations
         for (name, decl) in other.declarations.iter() {
-            self.add_declaration(name.clone(), decl.clone(), ctx);
+            if pred(name) {
+                self.add_declaration(name.clone(), decl.clone(), ctx);
+            }
         }
         // child namespaces
         for (name, namespace) in other.namespaces.iter() {
-            self.add_namespace(name.clone(), namespace.clone(), ctx);
+            if pred(name) {
+                self.add_namespace(name.clone(), namespace.clone(), ctx);
+            }
         }
     }
 

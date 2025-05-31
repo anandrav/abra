@@ -841,7 +841,7 @@ my_entry_point(5, 6)
 }
 
 #[test]
-fn namespaced_files() {
+fn import_all() {
     let util = r#"
 fn foo(a: int, b) {
   a + b
@@ -869,6 +869,158 @@ foo(2, 2)
     vm.run();
     let top = vm.top().unwrap();
     assert_eq!(top.get_int(&vm).unwrap(), 4);
+}
+
+#[test]
+fn import_single() {
+    let util = r#"
+fn foo(a: int, b) {
+  a * b
+}
+
+fn bar(a: int, b) {
+  a + b
+}
+"#;
+    let main = r#"
+use util.foo
+
+fn bar(a: int, b) {
+  a + b
+}
+
+foo(6, 7)
+"#;
+    let mut files: HashMap<PathBuf, String> = HashMap::default();
+    files.insert("main.abra".into(), main.into());
+    files.insert("util.abra".into(), util.into());
+    let file_provider = MockFileProvider::new(files);
+
+    let program = compile_bytecode("main.abra", file_provider);
+    if let Err(e) = program {
+        panic!("{}", e);
+    }
+    let mut vm = Vm::new(program.unwrap());
+    vm.run();
+    let top = vm.top().unwrap();
+    assert_eq!(top.get_int(&vm).unwrap(), 42);
+}
+
+#[test]
+fn import_except() {
+    let util = r#"
+fn foo(a: int, b) {
+  a * b
+}
+
+fn bar(a: int, b) {
+  a + b
+}
+"#;
+    let main = r#"
+use util except bar
+
+fn bar(a: int, b) {
+  a + b
+}
+
+foo(6, 7)
+"#;
+    let mut files: HashMap<PathBuf, String> = HashMap::default();
+    files.insert("main.abra".into(), main.into());
+    files.insert("util.abra".into(), util.into());
+    let file_provider = MockFileProvider::new(files);
+
+    let program = compile_bytecode("main.abra", file_provider);
+    if let Err(e) = program {
+        panic!("{}", e);
+    }
+    let mut vm = Vm::new(program.unwrap());
+    vm.run();
+    let top = vm.top().unwrap();
+    assert_eq!(top.get_int(&vm).unwrap(), 42);
+}
+
+#[test]
+fn import_single_plural() {
+    let util = r#"
+fn foo(a: int, b) {
+  a * b
+}
+
+fn foo2(a: int, b) {
+  a * b
+}
+
+fn bar(a: int, b) {
+  a + b
+}
+"#;
+    let main = r#"
+use util.(foo, foo2)
+
+fn bar(a: int, b) {
+  a + b
+}
+
+foo(6, 7) + foo2(6, 7)
+"#;
+    let mut files: HashMap<PathBuf, String> = HashMap::default();
+    files.insert("main.abra".into(), main.into());
+    files.insert("util.abra".into(), util.into());
+    let file_provider = MockFileProvider::new(files);
+
+    let program = compile_bytecode("main.abra", file_provider);
+    if let Err(e) = program {
+        panic!("{}", e);
+    }
+    let mut vm = Vm::new(program.unwrap());
+    vm.run();
+    let top = vm.top().unwrap();
+    assert_eq!(top.get_int(&vm).unwrap(), 84);
+}
+
+#[test]
+fn import_except_plural() {
+    let util = r#"
+fn foo(a: int, b) {
+  a * b
+}
+
+fn bar(a: int, b) {
+  a + b
+}
+
+fn bar2(a: int, b) {
+  a + b
+}
+"#;
+    let main = r#"
+use util except (bar, bar2)
+
+fn bar(a: int, b) {
+  a + b
+}
+
+fn bar2(a: int, b) {
+  a + b
+}
+
+foo(6, 7)
+"#;
+    let mut files: HashMap<PathBuf, String> = HashMap::default();
+    files.insert("main.abra".into(), main.into());
+    files.insert("util.abra".into(), util.into());
+    let file_provider = MockFileProvider::new(files);
+
+    let program = compile_bytecode("main.abra", file_provider);
+    if let Err(e) = program {
+        panic!("{}", e);
+    }
+    let mut vm = Vm::new(program.unwrap());
+    vm.run();
+    let top = vm.top().unwrap();
+    assert_eq!(top.get_int(&vm).unwrap(), 42);
 }
 
 #[test]

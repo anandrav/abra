@@ -1,0 +1,9 @@
+use my_lib.bar
+
+fn foo() {
+  println("foo")
+}
+
+foo()
+bar()
+

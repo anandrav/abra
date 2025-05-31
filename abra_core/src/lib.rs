@@ -185,7 +185,7 @@ fn add_imports(
     errors: &mut Vec<Error>,
 ) {
     for item in file_ast.items.iter() {
-        if let ItemKind::Import(ident) = &*item.kind {
+        if let ItemKind::Import(ident, _) = &*item.kind {
             let path = PathBuf::from(format!("{}.abra", ident.v));
             if !visited.contains(&path) {
                 visited.insert(path.clone());
