@@ -3,14 +3,12 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use crate::assembly::{Instr, Label, Line, remove_labels};
-use crate::ast::{
-    ArgMaybeAnnotated, AstNode, BinaryOperator, FuncDef, InterfaceDecl, Item, ItemKind,
-};
+use crate::ast::{AstNode, BinaryOperator, FuncDef, InterfaceDecl, ItemKind};
 use crate::ast::{FileAst, FileDatabase, NodeId};
 use crate::builtin::Builtin;
 use crate::environment::Environment;
+use crate::statics::typecheck::Nominal;
 use crate::statics::typecheck::SolvedType;
-use crate::statics::typecheck::{Monotype, Nominal};
 use crate::statics::{Declaration, TypeProv};
 use crate::statics::{Type, ty_fits_impl_ty};
 use crate::vm::{AbraFloat, AbraInt, Instr as VmInstr};
@@ -41,13 +39,6 @@ enum FuncKind {
     AnonymousFunc(Rc<Expr>),
 }
 
-#[derive(Debug, Clone)]
-struct LambdaData {
-    label: Label,
-    offset_table: OffsetTable,
-    nlocals: u16,
-}
-
 pub(crate) struct Translator {
     statics: StaticsContext,
     _files: FileDatabase,
@@ -62,7 +53,6 @@ struct TranslatorState {
     function_name_table: Vec<(BytecodeIndex, u32)>,
     function_name_arena: IdSet<String>,
     instr_count: usize,
-    lambdas: HashMap<Rc<Expr>, LambdaData>,
     func_map: HashMap<FuncDesc, Label>,
     funcs_to_generate: Vec<FuncDesc>,
     loop_stack: Vec<EnclosingLoop>,
@@ -220,51 +210,11 @@ impl Translator {
                 self.emit(st, Instr::Return);
             }
 
-            // TODO: the logic for lambdas is super duplicated too
-            while !st.lambdas.is_empty() || !st.funcs_to_generate.is_empty() {
-                // Generate code for lambda bodies
-                let mut iteration = HashMap::default();
-                mem::swap(&mut (iteration), &mut st.lambdas);
-                for (expr, data) in iteration {
-                    let ExprKind::AnonymousFunction(args, _, body) = &*expr.kind else {
-                        unreachable!()
-                    };
-
-                    self.update_function_name_table(st, "<anonymous fn>");
-
-                    self.emit(st, Line::Label(data.label));
-
-                    for _ in 0..data.nlocals {
-                        self.emit(st, Instr::PushNil);
-                    }
-
-                    self.translate_expr(
-                        body.clone(),
-                        &data.offset_table,
-                        monomorph_env.clone(),
-                        st,
-                    );
-
-                    let nlocals = data.nlocals;
-                    let nargs = args.len() as u16;
-                    if nlocals + nargs > 0 {
-                        // pop all locals and arguments except one. The last one is the return value slot.
-                        self.emit(st, Instr::StoreOffset(-(nargs as i32)));
-                        for _ in 0..(nlocals + nargs - 1) {
-                            self.emit(st, Instr::Pop);
-                        }
-                    }
-
-                    self.emit(st, Instr::Return);
-                }
-
+            while !st.funcs_to_generate.is_empty() {
                 // Generate bytecode for function bodies
                 let mut iteration = Vec::new();
                 mem::swap(&mut (iteration), &mut st.funcs_to_generate);
                 for desc in iteration {
-                    // TODO: there is so much code duplication here and it needs to be fixed asap
-                    let f = desc.kind.clone();
-
                     if let FuncKind::NamedFunc(f) = &desc.kind {
                         self.update_function_name_table(st, &f.name.v);
                     }
@@ -629,31 +579,7 @@ impl Translator {
                 }
                 self.emit(st, Line::Label(end_label));
             }
-            ExprKind::AnonymousFunction(args, _, body) => {
-                // // TODO: reuse func_map and funcs_to_generate
-                // // TODO: and remember to handle the overloaded case. lambdas can be overloaded too
-                // let label = make_label("lambda");
-                //
-                // let mut locals = HashSet::default();
-                // collect_locals_expr(body, &mut locals);
-                // let locals_count = locals.len() as u16;
-                //
-                // let mut lambda_offset_table = OffsetTable::default();
-                // for (i, arg) in args.iter().rev().enumerate() {
-                //     lambda_offset_table
-                //         .entry(arg.0.id)
-                //         .or_insert(-(i as i32) - 1);
-                // }
-                //
-                // st.lambdas.insert(
-                //     expr.clone(),
-                //     LambdaData {
-                //         label: label.clone(),
-                //         offset_table: lambda_offset_table,
-                //         nlocals: locals_count,
-                //     },
-                // );
-                //
+            ExprKind::AnonymousFunction(..) => {
                 // TODO: some of this is duplicated
                 let func_ty = self.statics.solution_of_node(expr.node()).unwrap();
                 let overload_ty = if !func_ty.is_overloaded() {
@@ -675,6 +601,7 @@ impl Translator {
                     std::collections::hash_map::Entry::Occupied(o) => o.get().clone(),
                     std::collections::hash_map::Entry::Vacant(v) => {
                         st.funcs_to_generate.push(desc);
+                        // TODO: this is duplicated
                         let label: String = match overload_ty {
                             None => func_name.clone(),
                             Some(overload_ty) => {
