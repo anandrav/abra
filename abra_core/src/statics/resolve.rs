@@ -64,9 +64,9 @@ fn gather_declarations_item(
         ItemKind::Stmt(..) => {}
         ItemKind::InterfaceDef(iface) => {
             namespace.add_declaration(
+                ctx,
                 iface.name.v.clone(),
                 Declaration::InterfaceDef(iface.clone()),
-                ctx,
             );
 
             // TODO: after implementing member functions, put interface methods in a namespace named after the interface
@@ -82,12 +82,12 @@ fn gather_declarations_item(
                     .insert(p.name.id, fully_qualified_name);
 
                 namespace.add_declaration(
+                    ctx,
                     method_name,
                     Declaration::InterfaceMethod {
                         i: iface.clone(),
                         method,
                     },
-                    ctx,
                 );
             }
         }
@@ -101,7 +101,7 @@ fn gather_declarations_item(
             //     // actually resolving the alias to the final result will have to be done later.
             // }
             TypeDefKind::Enum(e) => {
-                namespace.add_declaration(e.name.v.clone(), Declaration::Enum(e.clone()), ctx);
+                namespace.add_declaration(ctx, e.name.v.clone(), Declaration::Enum(e.clone()));
 
                 let mut enum_namespace = Namespace::new();
                 for (i, v) in e.variants.iter().enumerate() {
@@ -109,16 +109,16 @@ fn gather_declarations_item(
                     let variant = i as u16;
 
                     enum_namespace.add_declaration(
+                        ctx,
                         variant_name,
                         Declaration::EnumVariant {
                             e: e.clone(),
                             variant,
                         },
-                        ctx,
                     );
                 }
 
-                namespace.add_namespace(e.name.v.clone(), enum_namespace.into(), ctx);
+                namespace.add_namespace(e.name.v.clone(), enum_namespace.into());
 
                 let fully_qualified_name = fullname(&qualifiers, &e.name.v);
                 ctx.fully_qualified_names
@@ -142,7 +142,7 @@ fn gather_declarations_item(
             ctx.fully_qualified_names
                 .insert(f.name.id, fully_qualified_name);
 
-            namespace.add_declaration(func_name, Declaration::FreeFunction(f.clone()), ctx);
+            namespace.add_declaration(ctx, func_name, Declaration::FreeFunction(f.clone()));
         }
         ItemKind::HostFuncDecl(func_decl) => {
             let func_name = func_decl.name.v.clone();
@@ -152,9 +152,9 @@ fn gather_declarations_item(
                 .insert(func_decl.name.id, fully_qualified_name);
 
             namespace.add_declaration(
+                ctx,
                 func_name.clone(),
                 Declaration::HostFunction(func_decl.clone()),
-                ctx,
             );
 
             ctx.host_funcs.insert(func_name);
@@ -206,13 +206,13 @@ fn gather_declarations_item(
                     .insert(symbol.clone());
 
                 namespace.add_declaration(
+                    ctx,
                     func_name,
                     Declaration::_ForeignFunction {
                         f: _func_decl.clone(),
                         libname,
                         symbol,
                     },
-                    ctx,
                 );
             }
             #[cfg(not(feature = "ffi"))]
@@ -346,23 +346,23 @@ fn resolve_imports_file(ctx: &mut StaticsContext, file: Rc<FileAst>) -> SymbolTa
     // always include the prelude (unless this file is the prelude)
     if file.name != "prelude" {
         effective_namespace.add_other(
+            ctx,
             &ctx.root_namespace
                 .namespaces
                 .get("prelude")
                 .cloned()
                 .unwrap(),
-            ctx,
         );
     }
 
     // add declarations from this file to the effective namespace
     effective_namespace.add_other(
+        ctx,
         &ctx.root_namespace
             .namespaces
             .get(&file.name)
             .cloned()
             .unwrap(),
-        ctx,
     );
 
     for item in file.items.iter() {
@@ -383,7 +383,7 @@ fn resolve_imports_file(ctx: &mut StaticsContext, file: Rc<FileAst>) -> SymbolTa
                 }
             };
 
-            effective_namespace.add_other_pred(&import_src, pred, ctx);
+            effective_namespace.add_other_pred(ctx, &import_src, pred);
         }
     }
 
@@ -392,32 +392,32 @@ fn resolve_imports_file(ctx: &mut StaticsContext, file: Rc<FileAst>) -> SymbolTa
 
 impl Namespace {
     // add children from another namespace to this namespace
-    pub fn add_other(&mut self, other: &Self, ctx: &mut StaticsContext) {
-        self.add_other_pred(other, Box::new(|_| true), ctx);
+    pub fn add_other(&mut self, ctx: &mut StaticsContext, other: &Self) {
+        self.add_other_pred(ctx, other, Box::new(|_| true));
     }
 
     // add children from another namespace to this namespace, under a condition
     pub fn add_other_pred(
         &mut self,
+        ctx: &mut StaticsContext,
         other: &Self,
         pred: Box<dyn Fn(&String) -> bool>,
-        ctx: &mut StaticsContext,
     ) {
         // child declarations
         for (name, decl) in other.declarations.iter() {
             if pred(name) {
-                self.add_declaration(name.clone(), decl.clone(), ctx);
+                self.add_declaration(ctx, name.clone(), decl.clone());
             }
         }
         // child namespaces
         for (name, namespace) in other.namespaces.iter() {
             if pred(name) {
-                self.add_namespace(name.clone(), namespace.clone(), ctx);
+                self.add_namespace(name.clone(), namespace.clone());
             }
         }
     }
 
-    pub fn add_declaration(&mut self, name: String, decl: Declaration, ctx: &mut StaticsContext) {
+    pub fn add_declaration(&mut self, ctx: &mut StaticsContext, name: String, decl: Declaration) {
         use std::collections::hash_map::*;
         match self.declarations.entry(name.clone()) {
             Entry::Occupied(occ) => {
@@ -433,12 +433,7 @@ impl Namespace {
         }
     }
 
-    pub fn add_namespace(
-        &mut self,
-        name: String,
-        namespace: Rc<Namespace>,
-        _ctx: &mut StaticsContext,
-    ) {
+    pub fn add_namespace(&mut self, name: String, namespace: Rc<Namespace>) {
         use std::collections::hash_map::*;
         match self.namespaces.entry(name.clone()) {
             Entry::Occupied(_) => {
