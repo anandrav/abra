@@ -256,7 +256,7 @@ impl Translator {
                     for (i, local) in locals.iter().enumerate() {
                         offset_table.entry(*local).or_insert((i) as i32);
                     }
-                    let nargs = args.len(); // TODO: need to take self argument into account at some point
+                    let nargs = args.len();
                     st.return_stack.push(return_label.clone());
                     self.translate_expr(body.clone(), &offset_table, monomorph_env.clone(), st);
                     st.return_stack.pop();

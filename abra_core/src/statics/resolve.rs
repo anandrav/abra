@@ -467,8 +467,6 @@ fn resolve_names_item_decl(ctx: &mut StaticsContext, symbol_table: SymbolTable, 
             let symbol_table = symbol_table.new_scope();
             resolve_names_typ(ctx, symbol_table.clone(), ext.typ.clone(), true);
 
-            // TODO: this logic is duplicated in typecheck and also just generally sucks
-            // TODO: at the every least, make a helper function
             let id_lookup_typ = match &*ext.typ.kind {
                 TypeKind::Named(_) => ext.typ.id,
                 TypeKind::NamedWithParams(ident, _) => ident.id,
@@ -757,7 +755,7 @@ fn resolve_names_member_helper(ctx: &mut StaticsContext, expr: Rc<Expr>, field: 
                 ctx.errors
                     .push(Error::UnresolvedIdentifier { node: field.node() });
             }
-            Declaration::InterfaceDef(_) => unimplemented!(), // TODO: why is this unimplemented?
+            Declaration::InterfaceDef(_) => unimplemented!(), // TODO: interface methods should be member functions at some point
             Declaration::Enum(enum_def) => {
                 let mut found = false;
                 for (idx, variant) in enum_def.variants.iter().enumerate() {

@@ -1323,18 +1323,10 @@ fn generate_constraints_item_decls(item: Rc<Item>, ctx: &mut StaticsContext) {
             }
         }
         ItemKind::Extension(ext) => {
-            // TODO: there is a lot of code duplication with generate_constraints_item_stmts ( ItemKind::Extension case in match expression )
-            // TODO: this logic of extracting the ID from the Named or the NamedWithParams is strange
-            // TODO: this logic of extracting the ID is duplicated in resolve.rs
             let id_lookup_typ = match &*ext.typ.kind {
                 TypeKind::Named(_) => ext.typ.id,
                 TypeKind::NamedWithParams(ident, _) => ident.id,
-                _ => {
-                    ctx.errors.push(Error::MustExtendStructOrEnum {
-                        node: ext.typ.node(),
-                    });
-                    return;
-                }
+                _ => return,
             };
             let Some(lookup) = ctx.resolution_map.get(&id_lookup_typ).cloned() else { return };
 
@@ -1349,7 +1341,6 @@ fn generate_constraints_item_decls(item: Rc<Item>, ctx: &mut StaticsContext) {
                     if let Some((first_arg_identifier, _)) = f.args.first() {
                         if first_arg_identifier.v == "self" {
                             let (nominal_ty, _) = TypeVar::make_nominal_with_substitution(
-                                // LOCATION 1
                                 Reason::MemberFunctionType(ext.typ.node()),
                                 nominal.clone(),
                                 ctx,
@@ -1467,18 +1458,6 @@ fn generate_constraints_item_stmts(mode: Mode, item: Rc<Item>, ctx: &mut Statics
             }
         }
         ItemKind::Extension(ext) => {
-            // TODO: this logic of extracting the ID from the Named or the NamedWithParams is strange
-            // TODO: this logic of extracting the ID is duplicated in resolve.rs
-            let id_lookup_typ = match &*ext.typ.kind {
-                TypeKind::Named(_) => ext.typ.id,
-                TypeKind::NamedWithParams(ident, _) => ident.id,
-                _ => {
-                    ctx.errors.push(Error::MustExtendStructOrEnum {
-                        node: ext.typ.node(),
-                    });
-                    return;
-                }
-            };
             for f in &ext.methods {
                 if f.args.first().is_some_and(|p| p.0.v == "self") {
                     let ty_func = generate_constraints_func_helper(
