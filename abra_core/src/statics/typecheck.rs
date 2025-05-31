@@ -1375,22 +1375,15 @@ fn generate_constraints_item_decls(item: Rc<Item>, ctx: &mut StaticsContext) {
             };
             match &lookup {
                 Declaration::Struct(struct_def) => {
-                    let nominal: Nominal = Nominal::Struct(struct_def.clone());
-                    helper(nominal);
+                    helper(Nominal::Struct(struct_def.clone()));
                 }
                 Declaration::Enum(enum_def) => {
-                    let nominal: Nominal = Nominal::Enum(enum_def.clone());
-                    helper(nominal);
+                    helper(Nominal::Enum(enum_def.clone()));
                 }
                 Declaration::Array => {
-                    let nominal = Nominal::Array;
-                    helper(nominal);
+                    helper(Nominal::Array);
                 }
-                _ => {
-                    ctx.errors.push(Error::MustExtendStructOrEnum {
-                        node: ext.typ.node(),
-                    });
-                }
+                _ => {}
             }
         }
         ItemKind::TypeDef(typdefkind) => match &**typdefkind {
@@ -1486,50 +1479,20 @@ fn generate_constraints_item_stmts(mode: Mode, item: Rc<Item>, ctx: &mut Statics
                     return;
                 }
             };
-            let Some(lookup) = ctx.resolution_map.get(&id_lookup_typ).cloned() else { return };
+            for f in &ext.methods {
+                if f.args.first().is_some_and(|p| p.0.v == "self") {
+                    let ty_func = generate_constraints_func_helper(
+                        ctx,
+                        f.name.node(),
+                        PolyvarScope::empty(),
+                        &f.args,
+                        &f.ret_type,
+                        &f.body,
+                    );
 
-            let mut helper = |nominal: Nominal| {
-                for f in &ext.methods {
-                    if let Some((first_arg_identifier, _)) = f.args.first() {
-                        if first_arg_identifier.v == "self" {
-                            let (struct_ty, substitution) = TypeVar::make_nominal_with_substitution(
-                                Reason::MemberFunctionType(ext.typ.node()),
-                                nominal.clone(),
-                                ctx,
-                                item.node(),
-                            );
-                            let ty_arg = TypeVar::from_node(ctx, first_arg_identifier.node());
-                            constrain(ctx, ty_arg, struct_ty);
-
-                            let ty_func = generate_constraints_func_helper(
-                                ctx,
-                                f.name.node(),
-                                PolyvarScope::empty(),
-                                &f.args,
-                                &f.ret_type,
-                                &f.body,
-                            );
-
-                            let ty_node = TypeVar::from_node(ctx, f.name.node());
-                            constrain(ctx, ty_node.clone(), ty_func.clone());
-                        }
-                    }
+                    let ty_node = TypeVar::from_node(ctx, f.name.node());
+                    constrain(ctx, ty_node.clone(), ty_func.clone());
                 }
-            };
-            match &lookup {
-                Declaration::Struct(struct_def) => {
-                    let nominal: Nominal = Nominal::Struct(struct_def.clone());
-                    helper(nominal);
-                }
-                Declaration::Enum(enum_def) => {
-                    let nominal: Nominal = Nominal::Enum(enum_def.clone());
-                    helper(nominal);
-                }
-                Declaration::Array => {
-                    let nominal = Nominal::Array;
-                    helper(nominal);
-                }
-                _ => {}
             }
         }
         ItemKind::TypeDef(_) => {}
