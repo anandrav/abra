@@ -172,7 +172,7 @@ impl From<&PolyDeclaration> for Declaration {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub(crate) enum SolvedType {
     Poly(Rc<Polytype>), // type name, then list of Interfaces it must match
     Unit,

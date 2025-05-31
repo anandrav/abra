@@ -141,6 +141,7 @@ impl Vm {
     }
 
     pub fn with_entry_point(program: CompiledProgram, entry_point: String) -> Self {
+        dbg!(&entry_point);
         Self {
             program: program.instructions,
             pc: program.label_map[&entry_point],

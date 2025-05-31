@@ -799,6 +799,9 @@ fn my_entry_point() {
     print_string("hello world")
 }
 
+my_entry_point()
+my_entry_point()
+
 5
 "#;
     let program = unwrap_or_panic(compile_bytecode(
