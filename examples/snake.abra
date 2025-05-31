@@ -235,6 +235,8 @@ fn draw_border(st: State) {
     i := i + 1
   }
   mark("SCORE: " & st.score, 0, height+2)
+
+  mark("HIT 'Q' TO QUIT", 0, height+3)
 }
 
 fn display_game_over() {
