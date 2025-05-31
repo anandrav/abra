@@ -6,4 +6,4 @@ Cargo.lock
 .cargo/
 vendor/
 
-scratch/
+temp/
