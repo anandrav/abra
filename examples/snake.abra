@@ -166,12 +166,12 @@ fn update(st: State) {
     .Right -> new_head.x := new_head.x + 1
   }
 
-  if out_of_bounds(new_head, width, height) {
+  if out_of_bounds(new_head, width, height) or snake.body.contains(new_head) {
     st.status := Status.Lost
     return ()
   }
 
-  let fruit_was_eaten = new_head = fruit.location
+  let fruit_was_eaten = (new_head = fruit.location)
 
   let body = snake.body
   let len = body.len()
@@ -197,16 +197,7 @@ fn update(st: State) {
       let index = random_int(0, num_valid_locations)
       point := index_to_point(index, width, height)
 
-      var in_snake = false
-      var i = 0
-      while i < snake.body.len() {
-        if snake.body[i] = point {
-          in_snake := true
-        }
-        i := i + 1
-      }
-
-      found := not(in_snake)
+      found := not(snake.body.contains(point))
     }
 
     fruit.location := point
@@ -259,6 +250,13 @@ extend array<'a Equal> {
             i := i + 1
         }
         maybe.no(())
+    }
+
+    fn contains(self: array<'a Equal>, x: 'a Equal) -> bool {
+        match self.find(x) {
+            maybe.yes(_) -> true,
+            maybe.no(_) -> false,
+        }
     }
 }
 
