@@ -3,7 +3,9 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use crate::assembly::{Instr, Label, Line, remove_labels};
-use crate::ast::{AstNode, BinaryOperator, FuncDef, InterfaceDecl, Item, ItemKind};
+use crate::ast::{
+    ArgMaybeAnnotated, AstNode, BinaryOperator, FuncDef, InterfaceDecl, Item, ItemKind,
+};
 use crate::ast::{FileAst, FileDatabase, NodeId};
 use crate::builtin::Builtin;
 use crate::environment::Environment;
@@ -29,8 +31,14 @@ pub(crate) type LabelMap = HashMap<Label, usize>;
 
 #[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq, Hash)]
 struct FuncDesc {
-    func_def: Rc<FuncDef>,
+    kind: FuncKind,
     overload_ty: Option<SolvedType>,
+}
+
+#[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq, Hash)]
+enum FuncKind {
+    NamedFunc(Rc<FuncDef>),
+    AnonymousFunc(Rc<Expr>),
 }
 
 #[derive(Debug, Clone)]
@@ -255,18 +263,29 @@ impl Translator {
                 mem::swap(&mut (iteration), &mut st.funcs_to_generate);
                 for desc in iteration {
                     // TODO: there is so much code duplication here and it needs to be fixed asap
-                    let f = desc.func_def.clone();
+                    let f = desc.kind.clone();
 
-                    self.update_function_name_table(st, &f.name.v);
+                    if let FuncKind::NamedFunc(f) = &desc.kind {
+                        self.update_function_name_table(st, &f.name.v);
+                    }
 
-                    let overloaded_func_ty = self.statics.solution_of_node(f.name.node()).unwrap();
+                    let (func_ty, args, body) = match &desc.kind {
+                        FuncKind::NamedFunc(f) => (
+                            self.statics.solution_of_node(f.name.node()).unwrap(),
+                            &f.args,
+                            &f.body,
+                        ),
+                        FuncKind::AnonymousFunc(e) => {
+                            let ExprKind::AnonymousFunction(args, _, body) = &*e.kind else {
+                                unreachable!()
+                            };
+                            (self.statics.solution_of_node(e.node()).unwrap(), args, body)
+                        }
+                    };
+
                     let monomorph_env = MonomorphEnv::empty();
                     if let Some(overload_ty) = &desc.overload_ty {
-                        update_monomorph_env(
-                            monomorph_env.clone(),
-                            overloaded_func_ty,
-                            overload_ty.clone(),
-                        );
+                        update_monomorph_env(monomorph_env.clone(), func_ty, overload_ty.clone());
                     }
 
                     let return_label = make_label("return");
@@ -275,21 +294,21 @@ impl Translator {
                     self.emit(st, Line::Label(label.clone()));
 
                     let mut locals = HashSet::default();
-                    collect_locals_expr(&f.body, &mut locals);
+                    collect_locals_expr(body, &mut locals);
                     let locals_count = locals.len();
                     for _ in 0..locals_count {
                         self.emit(st, Instr::PushNil);
                     }
                     let mut offset_table = OffsetTable::default();
-                    for (i, arg) in f.args.iter().rev().enumerate() {
+                    for (i, arg) in args.iter().rev().enumerate() {
                         offset_table.entry(arg.0.id).or_insert(-(i as i32) - 1);
                     }
                     for (i, local) in locals.iter().enumerate() {
                         offset_table.entry(*local).or_insert((i) as i32);
                     }
-                    let nargs = f.args.len(); // TODO: need to take self argument into account at some point
+                    let nargs = args.len(); // TODO: need to take self argument into account at some point
                     st.return_stack.push(return_label.clone());
-                    self.translate_expr(f.body.clone(), &offset_table, monomorph_env.clone(), st);
+                    self.translate_expr(body.clone(), &offset_table, monomorph_env.clone(), st);
                     st.return_stack.pop();
 
                     self.emit(st, return_label);
@@ -1166,15 +1185,16 @@ impl Translator {
         func_name: &String,
         func_def: Rc<FuncDef>,
     ) {
+        // TODO: code duplication for FuncDesc
         let entry = st.func_map.entry(FuncDesc {
-            func_def: func_def.clone(),
+            kind: FuncKind::NamedFunc(func_def.clone()),
             overload_ty: overload_ty.clone(),
         });
         let label = match entry {
             std::collections::hash_map::Entry::Occupied(o) => o.get().clone(),
             std::collections::hash_map::Entry::Vacant(v) => {
                 st.funcs_to_generate.push(FuncDesc {
-                    func_def: func_def.clone(),
+                    kind: FuncKind::NamedFunc(func_def.clone()),
                     overload_ty: overload_ty.clone(),
                 });
                 let label = match overload_ty {
