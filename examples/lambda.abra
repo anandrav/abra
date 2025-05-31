@@ -1,6 +1,0 @@
-
-let one = 1
-let inc = (x) -> x + one
-
-let y = inc(3)
-println(y)

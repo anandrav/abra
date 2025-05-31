@@ -1,3 +1,0 @@
-let x = maybe.yes("hello")
-let y = x!
-println(y)

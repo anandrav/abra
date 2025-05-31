@@ -739,6 +739,37 @@ fib(10)
 }
 
 #[test]
+fn unwrap_good() {
+    let src = r#"
+let m: maybe<int, bool> = maybe.yes(3)
+m!
+"#;
+    let program = unwrap_or_panic(compile_bytecode(
+        "main.abra",
+        MockFileProvider::single_file(src),
+    ));
+    let mut vm = Vm::new(program);
+    vm.run();
+    let top = vm.top().unwrap();
+    assert_eq!(top.get_int(&vm).unwrap(), 3);
+}
+
+#[test]
+fn unwrap_bad() {
+    let src = r#"
+let m: maybe<int, bool> = maybe.no(false)
+m!
+"#;
+    let program = unwrap_or_panic(compile_bytecode(
+        "main.abra",
+        MockFileProvider::single_file(src),
+    ));
+    let mut vm = Vm::new(program);
+    vm.run();
+    let VmStatus::Error(_) = vm.status() else { panic!() };
+}
+
+#[test]
 fn garbage_collection_once() {
     let src = r#"
 var i = 0

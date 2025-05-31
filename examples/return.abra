@@ -1,8 +1,0 @@
-fn inc(n) {
-  return n + 1
-}
-
-let x = 1
-println(x)
-let y = inc(x)
-println(y)

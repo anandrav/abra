@@ -1,8 +1,0 @@
-
-var i = 2
-while true {
-  i := i * i
-}
-
-1 / 0
-

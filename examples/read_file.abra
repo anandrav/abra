@@ -1,8 +1,0 @@
-use os
-use os/exec
-use os/time
-
-let path = "examples/read_file.abra"
-let contents = fread(path)
-print(contents)
-

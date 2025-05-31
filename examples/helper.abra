@@ -1,6 +1,0 @@
-
-use helper2
-
-fn foo(x) {
-  bar(x)
-}

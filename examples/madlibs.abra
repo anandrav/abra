@@ -1,3 +1,0 @@
-println("Enter an adjective: ")
-let adj = readline()
-println("Abra is a " & adj & " programming language!")
