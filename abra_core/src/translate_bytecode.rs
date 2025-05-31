@@ -24,8 +24,6 @@ use utils::hash::HashSet;
 use utils::id_set::IdSet;
 
 type OffsetTable = HashMap<NodeId, i32>;
-type Lambdas = HashMap<Rc<Expr>, LambdaData>;
-type OverloadedFuncLabels = HashMap<FuncDesc, Label>;
 type MonomorphEnv = Environment<String, Type>;
 pub(crate) type LabelMap = HashMap<Label, usize>;
 
@@ -56,8 +54,8 @@ struct TranslatorState {
     function_name_table: Vec<(BytecodeIndex, u32)>,
     function_name_arena: IdSet<String>,
     instr_count: usize,
-    lambdas: Lambdas,
-    func_map: OverloadedFuncLabels,
+    lambdas: HashMap<Rc<Expr>, LambdaData>,
+    func_map: HashMap<FuncDesc, Label>,
     funcs_to_generate: Vec<FuncDesc>,
     loop_stack: Vec<EnclosingLoop>,
     return_stack: Vec<String>,
@@ -214,10 +212,9 @@ impl Translator {
                 self.emit(st, Instr::Return);
             }
 
-            // TODO: can't lambdas be overloaded though??
             // TODO: the logic for lambdas is super duplicated too
             while !st.lambdas.is_empty() || !st.funcs_to_generate.is_empty() {
-                // Handle lambdas
+                // Generate code for lambda bodies
                 let mut iteration = HashMap::default();
                 mem::swap(&mut (iteration), &mut st.lambdas);
                 for (expr, data) in iteration {
@@ -253,7 +250,7 @@ impl Translator {
                     self.emit(st, Instr::Return);
                 }
 
-                // Handle overloaded interface methods
+                // Generate bytecode for function bodies
                 let mut iteration = Vec::new();
                 mem::swap(&mut (iteration), &mut st.funcs_to_generate);
                 for desc in iteration {
@@ -614,6 +611,8 @@ impl Translator {
                 self.emit(st, Line::Label(end_label));
             }
             ExprKind::AnonymousFunction(args, _, body) => {
+                // TODO: reuse func_map and funcs_to_generate
+                // TODO: and remember to handle the overloaded case. lambdas can be overloaded too
                 let label = make_label("lambda");
 
                 let mut locals = HashSet::default();
@@ -1033,60 +1032,6 @@ impl Translator {
             },
             _ => unimplemented!(),
         }
-    }
-
-    fn translate_func_helper(
-        &self,
-        st: &mut TranslatorState,
-        f: &Rc<FuncDef>,
-        overload_ty: Option<Type>,
-        label: Label,
-    ) {
-        // (this could be an overloaded function or an interface method)'
-        // _print_node(&self.statics, f.name.node());
-        let func_ty = self.statics.solution_of_node(f.name.node()).unwrap();
-        if func_ty.is_overloaded()
-        // println: 'a ToString -> ()
-        // to_string: 'a ToString -> String
-        {
-            return;
-        }
-        self.update_function_name_table(st, &f.name.v);
-
-        let return_label = make_label("return");
-
-        self.emit(st, label);
-
-        let mut locals = HashSet::default();
-        collect_locals_expr(&f.body, &mut locals);
-        let locals_count = locals.len();
-        for _ in 0..locals_count {
-            self.emit(st, Instr::PushNil);
-        }
-        let mut offset_table = OffsetTable::default();
-        for (i, arg) in f.args.iter().rev().enumerate() {
-            // println!("arg {} is {}", i, arg.0.v);
-            offset_table.entry(arg.0.id).or_insert(-(i as i32) - 1);
-        }
-        for (i, local) in locals.iter().enumerate() {
-            offset_table.entry(*local).or_insert((i) as i32);
-        }
-        let nargs = f.args.len();
-        st.return_stack.push(return_label.clone());
-        self.translate_expr(f.body.clone(), &offset_table, MonomorphEnv::empty(), st);
-        st.return_stack.pop();
-
-        self.emit(st, return_label);
-
-        if locals_count + nargs > 0 {
-            // pop all locals and arguments except one. The last one is the return value slot.
-            self.emit(st, Instr::StoreOffset(-(nargs as i32)));
-            for _ in 0..(locals_count + nargs - 1) {
-                self.emit(st, Instr::Pop);
-            }
-        }
-
-        self.emit(st, Instr::Return);
     }
 
     fn translate_stmt(
