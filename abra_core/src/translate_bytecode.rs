@@ -630,29 +630,64 @@ impl Translator {
                 self.emit(st, Line::Label(end_label));
             }
             ExprKind::AnonymousFunction(args, _, body) => {
-                // TODO: reuse func_map and funcs_to_generate
-                // TODO: and remember to handle the overloaded case. lambdas can be overloaded too
-                let label = make_label("lambda");
+                // // TODO: reuse func_map and funcs_to_generate
+                // // TODO: and remember to handle the overloaded case. lambdas can be overloaded too
+                // let label = make_label("lambda");
+                //
+                // let mut locals = HashSet::default();
+                // collect_locals_expr(body, &mut locals);
+                // let locals_count = locals.len() as u16;
+                //
+                // let mut lambda_offset_table = OffsetTable::default();
+                // for (i, arg) in args.iter().rev().enumerate() {
+                //     lambda_offset_table
+                //         .entry(arg.0.id)
+                //         .or_insert(-(i as i32) - 1);
+                // }
+                //
+                // st.lambdas.insert(
+                //     expr.clone(),
+                //     LambdaData {
+                //         label: label.clone(),
+                //         offset_table: lambda_offset_table,
+                //         nlocals: locals_count,
+                //     },
+                // );
+                //
+                // TODO: some of this is duplicated
+                let func_ty = self.statics.solution_of_node(expr.node()).unwrap();
+                let overload_ty = if !func_ty.is_overloaded() {
+                    None
+                } else {
+                    let specific_func_ty = self.statics.solution_of_node(expr.node()).unwrap(); // TODO duplicated with above
+                    let substituted_ty =
+                        subst_with_monomorphic_env(monomorph_env, specific_func_ty);
+                    Some(substituted_ty)
+                };
 
-                let mut locals = HashSet::default();
-                collect_locals_expr(body, &mut locals);
-                let locals_count = locals.len() as u16;
-
-                let mut lambda_offset_table = OffsetTable::default();
-                for (i, arg) in args.iter().rev().enumerate() {
-                    lambda_offset_table
-                        .entry(arg.0.id)
-                        .or_insert(-(i as i32) - 1);
-                }
-
-                st.lambdas.insert(
-                    expr.clone(),
-                    LambdaData {
-                        label: label.clone(),
-                        offset_table: lambda_offset_table,
-                        nlocals: locals_count,
-                    },
-                );
+                let func_name = "lambda".to_string();
+                let desc = FuncDesc {
+                    kind: FuncKind::AnonymousFunc(expr.clone()),
+                    overload_ty: overload_ty.clone(),
+                };
+                let entry = st.func_map.entry(desc.clone());
+                let label = match entry {
+                    std::collections::hash_map::Entry::Occupied(o) => o.get().clone(),
+                    std::collections::hash_map::Entry::Vacant(v) => {
+                        st.funcs_to_generate.push(desc);
+                        let label: String = match overload_ty {
+                            None => func_name.clone(),
+                            Some(overload_ty) => {
+                                let monoty = overload_ty.monotype().unwrap();
+                                let mut label_hint = format!("{}__{}", func_name, monoty);
+                                label_hint.retain(|c| !c.is_whitespace());
+                                make_label(&label_hint)
+                            }
+                        };
+                        v.insert(label.clone());
+                        label
+                    }
+                };
 
                 self.emit(st, Instr::MakeClosure { func_addr: label });
             }
@@ -1186,17 +1221,15 @@ impl Translator {
         func_def: Rc<FuncDef>,
     ) {
         // TODO: code duplication for FuncDesc
-        let entry = st.func_map.entry(FuncDesc {
+        let desc = FuncDesc {
             kind: FuncKind::NamedFunc(func_def.clone()),
             overload_ty: overload_ty.clone(),
-        });
+        };
+        let entry = st.func_map.entry(desc.clone());
         let label = match entry {
             std::collections::hash_map::Entry::Occupied(o) => o.get().clone(),
             std::collections::hash_map::Entry::Vacant(v) => {
-                st.funcs_to_generate.push(FuncDesc {
-                    kind: FuncKind::NamedFunc(func_def.clone()),
-                    overload_ty: overload_ty.clone(),
-                });
+                st.funcs_to_generate.push(desc);
                 let label = match overload_ty {
                     None => func_name.clone(),
                     Some(overload_ty) => {
