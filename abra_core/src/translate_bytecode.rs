@@ -383,7 +383,7 @@ impl Translator {
                     let out_ty = self.statics.solution_of_node(expr.node()).unwrap();
                     let func_ty = Type::Function(vec![arg1_ty, arg2_ty], out_ty.into());
 
-                    self.translate_overloaded_func_ap_helper(
+                    self.translate_iface_method_ap_helper(
                         st,
                         monomorph_env,
                         iface_def,
@@ -580,14 +580,11 @@ impl Translator {
                 self.emit(st, Line::Label(end_label));
             }
             ExprKind::AnonymousFunction(..) => {
-                // TODO: some of this is duplicated
                 let func_ty = self.statics.solution_of_node(expr.node()).unwrap();
                 let overload_ty = if !func_ty.is_overloaded() {
                     None
                 } else {
-                    let specific_func_ty = self.statics.solution_of_node(expr.node()).unwrap(); // TODO duplicated with above
-                    let substituted_ty =
-                        subst_with_monomorphic_env(monomorph_env, specific_func_ty);
+                    let substituted_ty = subst_with_monomorphic_env(monomorph_env, func_ty);
                     Some(substituted_ty)
                 };
 
@@ -596,25 +593,8 @@ impl Translator {
                     kind: FuncKind::AnonymousFunc(expr.clone()),
                     overload_ty: overload_ty.clone(),
                 };
-                let entry = st.func_map.entry(desc.clone());
-                let label = match entry {
-                    std::collections::hash_map::Entry::Occupied(o) => o.get().clone(),
-                    std::collections::hash_map::Entry::Vacant(v) => {
-                        st.funcs_to_generate.push(desc);
-                        // TODO: this is duplicated
-                        let label: String = match overload_ty {
-                            None => func_name.clone(),
-                            Some(overload_ty) => {
-                                let monoty = overload_ty.monotype().unwrap();
-                                let mut label_hint = format!("{}__{}", func_name, monoty);
-                                label_hint.retain(|c| !c.is_whitespace());
-                                make_label(&label_hint)
-                            }
-                        };
-                        v.insert(label.clone());
-                        label
-                    }
-                };
+
+                let label = self.get_func_label(st, desc, overload_ty, &func_name);
 
                 self.emit(st, Instr::MakeClosure { func_addr: label });
             }
@@ -658,8 +638,8 @@ impl Translator {
         }
     }
 
-    // used for overloaded functions (interface methods)
-    fn translate_overloaded_func_ap_helper(
+    // used for interface methods
+    fn translate_iface_method_ap_helper(
         &self,
         st: &mut TranslatorState,
         monomorph_env: MonomorphEnv,
@@ -754,7 +734,7 @@ impl Translator {
                 method,
             } => {
                 let func_ty = self.statics.solution_of_node(func_node).unwrap();
-                self.translate_overloaded_func_ap_helper(
+                self.translate_iface_method_ap_helper(
                     st,
                     monomorph_env,
                     iface_def.clone(),
@@ -1147,13 +1127,23 @@ impl Translator {
         func_name: &String,
         func_def: Rc<FuncDef>,
     ) {
-        // TODO: code duplication for FuncDesc
         let desc = FuncDesc {
             kind: FuncKind::NamedFunc(func_def.clone()),
             overload_ty: overload_ty.clone(),
         };
+        let label = self.get_func_label(st, desc, overload_ty, func_name);
+        self.emit(st, Instr::Call(label));
+    }
+
+    fn get_func_label(
+        &self,
+        st: &mut TranslatorState,
+        desc: FuncDesc,
+        overload_ty: Option<Type>,
+        func_name: &String,
+    ) -> Label {
         let entry = st.func_map.entry(desc.clone());
-        let label = match entry {
+        match entry {
             std::collections::hash_map::Entry::Occupied(o) => o.get().clone(),
             std::collections::hash_map::Entry::Vacant(v) => {
                 st.funcs_to_generate.push(desc);
@@ -1169,8 +1159,7 @@ impl Translator {
                 v.insert(label.clone());
                 label
             }
-        };
-        self.emit(st, Instr::Call(label));
+        }
     }
 
     fn handle_pat_binding(&self, pat: Rc<Pat>, locals: &OffsetTable, st: &mut TranslatorState) {
