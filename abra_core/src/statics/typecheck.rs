@@ -1348,14 +1348,15 @@ fn generate_constraints_item_decls(item: Rc<Item>, ctx: &mut StaticsContext) {
                     };
                     if let Some((first_arg_identifier, _)) = f.args.first() {
                         if first_arg_identifier.v == "self" {
-                            let (struct_ty, substitution) = TypeVar::make_nominal_with_substitution(
+                            let (nominal_ty, _) = TypeVar::make_nominal_with_substitution(
+                                // LOCATION 1
                                 Reason::MemberFunctionType(ext.typ.node()),
                                 nominal.clone(),
                                 ctx,
                                 item.node(),
                             );
                             let ty_arg = TypeVar::from_node(ctx, first_arg_identifier.node());
-                            constrain(ctx, ty_arg, struct_ty);
+                            constrain(ctx, ty_arg, nominal_ty);
 
                             generate_constraints_func_decl(
                                 ctx,
@@ -1489,12 +1490,6 @@ fn generate_constraints_item_stmts(mode: Mode, item: Rc<Item>, ctx: &mut Statics
 
             let mut helper = |nominal: Nominal| {
                 for f in &ext.methods {
-                    let err = |ctx: &mut StaticsContext| {
-                        ctx.errors
-                            .push(Error::MemberFunctionMissingFirstSelfArgument {
-                                node: f.name.node(),
-                            });
-                    };
                     if let Some((first_arg_identifier, _)) = f.args.first() {
                         if first_arg_identifier.v == "self" {
                             let (struct_ty, substitution) = TypeVar::make_nominal_with_substitution(
@@ -1517,11 +1512,7 @@ fn generate_constraints_item_stmts(mode: Mode, item: Rc<Item>, ctx: &mut Statics
 
                             let ty_node = TypeVar::from_node(ctx, f.name.node());
                             constrain(ctx, ty_node.clone(), ty_func.clone());
-                        } else {
-                            err(ctx);
                         }
-                    } else {
-                        err(ctx);
                     }
                 }
             };
@@ -1538,11 +1529,7 @@ fn generate_constraints_item_stmts(mode: Mode, item: Rc<Item>, ctx: &mut Statics
                     let nominal = Nominal::Array;
                     helper(nominal);
                 }
-                _ => {
-                    ctx.errors.push(Error::MustExtendStructOrEnum {
-                        node: ext.typ.node(),
-                    });
-                }
+                _ => {}
             }
         }
         ItemKind::TypeDef(_) => {}
@@ -2114,7 +2101,7 @@ fn generate_constraints_expr(
                                 solved_ty.clone(),
                             );
                         }
-                        SolvedType::Nominal(nom @ Nominal::Struct(struct_def), _) => {
+                        SolvedType::Nominal(nom @ Nominal::Struct(_), _) => {
                             generate_constraints_expr_memberfunc_helper(
                                 ctx,
                                 node_ty.clone(),
@@ -2122,7 +2109,7 @@ fn generate_constraints_expr(
                                 solved_ty.clone(),
                             );
                         }
-                        SolvedType::Nominal(nom @ Nominal::Enum(enum_def), _) => {
+                        SolvedType::Nominal(nom @ Nominal::Enum(_), _) => {
                             generate_constraints_expr_memberfunc_helper(
                                 ctx,
                                 node_ty.clone(),
