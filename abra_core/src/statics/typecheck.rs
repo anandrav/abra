@@ -808,6 +808,7 @@ impl TypeVar {
 fn tyvar_of_declaration(
     ctx: &mut StaticsContext,
     decl: &Declaration,
+    polyvar_scope: PolyvarScope,
     node: AstNode,
 ) -> Option<TypeVar> {
     match decl {
@@ -860,7 +861,11 @@ fn tyvar_of_declaration(
                                 e.clone().subst(&substitution)
                             })
                             .collect();
-                        Some(TypeVar::make_func(args, def_type, Reason::Node(node)))
+                        Some(TypeVar::make_func(
+                            args,
+                            def_type,
+                            Reason::Node(node.clone()),
+                        ))
                     }
                     _ => {
                         let ty = ast_type_to_typevar(ctx, ty.clone());
@@ -889,19 +894,21 @@ fn tyvar_of_declaration(
                     ty.clone().subst(&substitution)
                 })
                 .collect();
-            Some(TypeVar::make_func(fields, def_type, Reason::Node(node)))
+            Some(TypeVar::make_func(
+                fields,
+                def_type,
+                Reason::Node(node.clone()),
+            ))
         }
         Declaration::Array => None,
-        Declaration::Polytype(polytype) => Some(TypeVar::make_poly(
-            Reason::Annotation(node),
-            PolyDeclaration(polytype.clone()),
-        )),
+        Declaration::Polytype(_) => None,
         Declaration::Builtin(builtin) => {
             let ty_signature = builtin.type_signature();
             Some(ty_signature)
         }
         Declaration::Var(node) => Some(TypeVar::from_node(ctx, node.clone())),
     }
+    .map(|tyvar| tyvar.instantiate(polyvar_scope, ctx, node))
 }
 
 pub(crate) fn ast_type_to_solved_type(
@@ -1643,8 +1650,9 @@ fn generate_constraints_expr(
         ExprKind::Variable(_) => {
             let lookup = ctx.resolution_map.get(&expr.id).cloned();
             if let Some(res) = lookup {
-                if let Some(typ) = tyvar_of_declaration(ctx, &res, expr.node()) {
-                    let typ = typ.instantiate(polyvar_scope, ctx, expr.node());
+                if let Some(typ) =
+                    tyvar_of_declaration(ctx, &res, polyvar_scope.clone(), expr.node())
+                {
                     constrain(ctx, typ, node_ty.clone());
                 }
             }
@@ -1951,9 +1959,8 @@ fn generate_constraints_expr(
 
                 let ty_fname = TypeVar::from_node(ctx, fname.node());
                 let ty_of_variant_ctor =
-                    tyvar_of_declaration(ctx, decl, receiver_expr.node()).unwrap();
-                let ty_of_variant_ctor =
-                    ty_of_variant_ctor.instantiate(polyvar_scope, ctx, receiver_expr.node());
+                    tyvar_of_declaration(ctx, decl, polyvar_scope.clone(), receiver_expr.node())
+                        .unwrap();
                 constrain(ctx, ty_fname.clone(), ty_of_variant_ctor);
 
                 let ty_func = TypeVar::make_func(
@@ -1999,22 +2006,12 @@ fn generate_constraints_expr(
                                 let memfn_decl = Declaration::MemberFunction { f: func.clone() };
                                 ctx.resolution_map.insert(fname.id, memfn_decl.clone());
                                 let memfn_node_ty = TypeVar::from_node(ctx, fname.node());
-                                if let Some(memfn_decl_ty) =
-                                    tyvar_of_declaration(ctx, &memfn_decl, fname.node())
-                                {
-                                    // TODO: maybe make a wrapper function called instantiated_tyvar_of_declaration() ?
-                                    // TODO: It is really easy to mess up and pass the wrong node
-                                    // to this function. The third argument, I mean.
-                                    // fname.node() must be passed to both tyvar_of_declaration
-                                    // as well as .instantiate(). It would be better if you only
-                                    // had to specify it once. Maybe just make tyvar_of_declaration()
-                                    // always instantiate. What's the harm? Why does .instantiate()
-                                    // need a node passed anyway? Is this necessary?? Maybe rethink it
-                                    let memfn_decl_ty = memfn_decl_ty.instantiate(
-                                        polyvar_scope.clone(),
-                                        ctx,
-                                        fname.node(),
-                                    );
+                                if let Some(memfn_decl_ty) = tyvar_of_declaration(
+                                    ctx,
+                                    &memfn_decl,
+                                    polyvar_scope.clone(),
+                                    fname.node(),
+                                ) {
                                     constrain(ctx, memfn_node_ty.clone(), memfn_decl_ty);
                                 }
 
@@ -2057,9 +2054,10 @@ fn generate_constraints_expr(
                 ctx.resolution_map.get(&member_ident.id).cloned()
             {
                 // qualified enum with no associated data
-                if let Some(ty_of_declaration) = tyvar_of_declaration(ctx, decl, expr.node()) {
-                    let typ = ty_of_declaration.instantiate(polyvar_scope, ctx, expr.node());
-                    constrain(ctx, node_ty, typ);
+                if let Some(ty_of_declaration) =
+                    tyvar_of_declaration(ctx, decl, polyvar_scope.clone(), expr.node())
+                {
+                    constrain(ctx, node_ty, ty_of_declaration);
                 }
             } else {
                 // struct field access
@@ -2122,10 +2120,13 @@ fn generate_constraints_expr(
                         },
                     );
 
-                    let enum_ty =
-                        tyvar_of_declaration(ctx, &Declaration::Enum(enum_def), expr.node())
-                            .unwrap();
-                    let enum_ty = enum_ty.instantiate(polyvar_scope, ctx, expr.node());
+                    let enum_ty = tyvar_of_declaration(
+                        ctx,
+                        &Declaration::Enum(enum_def),
+                        polyvar_scope.clone(),
+                        expr.node(),
+                    )
+                    .unwrap();
 
                     constrain(ctx, node_ty.clone(), enum_ty);
                 }
