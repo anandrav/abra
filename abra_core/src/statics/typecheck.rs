@@ -1988,76 +1988,52 @@ fn generate_constraints_expr(
 
                     node_ty.set_flag_missing_info();
                 };
-                let generate_constraints_expr_memberfunc_helper =
-                    |ctx: &mut StaticsContext, node_ty: TypeVar, nom, solved_ty| {
-                        if let Some(func) = ctx
-                            .member_functions
-                            .get(nom)
-                            .and_then(|m| m.get(&fname.v))
-                            .cloned()
-                        {
-                            // TODO: the following block of code is strange and hard to read
-                            // it's basically creating the type of the member function using
-                            // the member function declaration, then constraining that to the
-                            // type of the AST node for the identifier in this MemberFuncAp
-                            let memfn_decl = Declaration::MemberFunction { f: func.clone() };
-                            ctx.resolution_map.insert(fname.id, memfn_decl.clone());
-                            let memfn_node_ty = TypeVar::from_node(ctx, fname.node());
-                            if let Some(memfn_decl_ty) =
-                                tyvar_of_declaration(ctx, &memfn_decl, fname.node())
-                            {
-                                // TODO: It is really easy to mess up and pass the wrong node
-                                // to this function. The third argument, I mean.
-                                // fname.node() must be passed to both tyvar_of_declaration
-                                // as well as .instantiate(). It would be better if you only
-                                // had to specify it once. Maybe just make tyvar_of_declaration()
-                                // always instantiate. What's the harm? Why does .instantiate()
-                                // need a node passed anyway? Is this necessary?? Maybe rethink it
-                                let memfn_decl_ty = memfn_decl_ty.instantiate(
-                                    polyvar_scope.clone(),
-                                    ctx,
-                                    fname.node(),
-                                );
-                                constrain(ctx, memfn_node_ty.clone(), memfn_decl_ty);
-                            }
 
-                            generate_constraints_expr_funcap_helper(
-                                polyvar_scope.clone(),
-                                ctx,
-                                std::iter::once(receiver_expr).chain(args).cloned(),
-                                fname.node(),
-                                expr.node(),
-                                node_ty.clone(),
-                            );
-                        } else {
-                            failed_to_resolve_member_function(ctx, solved_ty);
-                        }
-                    };
                 if let Some(solved_ty) = TypeVar::from_node(ctx, receiver_expr.node()).solution() {
                     match &solved_ty {
-                        SolvedType::Nominal(nom @ Nominal::Array, _) => {
-                            generate_constraints_expr_memberfunc_helper(
-                                ctx,
-                                node_ty.clone(),
-                                nom,
-                                solved_ty.clone(),
-                            );
-                        }
-                        SolvedType::Nominal(nom @ Nominal::Struct(_), _) => {
-                            generate_constraints_expr_memberfunc_helper(
-                                ctx,
-                                node_ty.clone(),
-                                nom,
-                                solved_ty.clone(),
-                            );
-                        }
-                        SolvedType::Nominal(nom @ Nominal::Enum(_), _) => {
-                            generate_constraints_expr_memberfunc_helper(
-                                ctx,
-                                node_ty.clone(),
-                                nom,
-                                solved_ty.clone(),
-                            );
+                        SolvedType::Nominal(nom, _) => {
+                            if let Some(func) = ctx
+                                .member_functions
+                                .get(nom)
+                                .and_then(|m| m.get(&fname.v))
+                                .cloned()
+                            {
+                                // TODO: the following block of code is strange and hard to read
+                                // it's basically creating the type of the member function using
+                                // the member function declaration, then constraining that to the
+                                // type of the AST node for the identifier in this MemberFuncAp
+                                let memfn_decl = Declaration::MemberFunction { f: func.clone() };
+                                ctx.resolution_map.insert(fname.id, memfn_decl.clone());
+                                let memfn_node_ty = TypeVar::from_node(ctx, fname.node());
+                                if let Some(memfn_decl_ty) =
+                                    tyvar_of_declaration(ctx, &memfn_decl, fname.node())
+                                {
+                                    // TODO: It is really easy to mess up and pass the wrong node
+                                    // to this function. The third argument, I mean.
+                                    // fname.node() must be passed to both tyvar_of_declaration
+                                    // as well as .instantiate(). It would be better if you only
+                                    // had to specify it once. Maybe just make tyvar_of_declaration()
+                                    // always instantiate. What's the harm? Why does .instantiate()
+                                    // need a node passed anyway? Is this necessary?? Maybe rethink it
+                                    let memfn_decl_ty = memfn_decl_ty.instantiate(
+                                        polyvar_scope.clone(),
+                                        ctx,
+                                        fname.node(),
+                                    );
+                                    constrain(ctx, memfn_node_ty.clone(), memfn_decl_ty);
+                                }
+
+                                generate_constraints_expr_funcap_helper(
+                                    polyvar_scope.clone(),
+                                    ctx,
+                                    std::iter::once(receiver_expr).chain(args).cloned(),
+                                    fname.node(),
+                                    expr.node(),
+                                    node_ty.clone(),
+                                );
+                            } else {
+                                failed_to_resolve_member_function(ctx, solved_ty);
+                            }
                         }
                         _ => {
                             ctx.errors.push(Error::MemberFuncApMustBeStructOrEnum {
