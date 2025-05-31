@@ -470,6 +470,7 @@ impl Translator {
                     | ExprKind::BinOp(..)
                     | ExprKind::Tuple(..) => panic!("lhs of FuncAp not a function"),
 
+                    // TODO: shouldn't these all just be treated like a function object?
                     ExprKind::MemberFuncAp(..) => unimplemented!(),
                     ExprKind::Unwrap(..) => unimplemented!(),
                     ExprKind::IfElse(_expr, _expr1, _expr2) => unimplemented!(),
