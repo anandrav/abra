@@ -1930,123 +1930,139 @@ fn generate_constraints_expr(
             );
         }
         ExprKind::MemberFuncAp(receiver_expr, fname, args) => {
-            if let Some(Declaration::EnumVariant {
-                e: ref enum_def, ..
-            }) = ctx.resolution_map.get(&fname.id).cloned()
-            {
-                // qualified enum variant
-                // example: list.cons(5, nil)
-                //          ^^^^^^^^^
-                let (tyvar_from_enum, _) = TypeVar::make_nominal_with_substitution(
-                    ctx,
-                    Reason::Node(receiver_expr.node()),
-                    Nominal::Enum(enum_def.clone()),
-                    receiver_expr.node(),
-                );
-                constrain(ctx, node_ty.clone(), tyvar_from_enum.clone());
+            let receiver_is_namespace = matches!(
+                ctx.resolution_map.get(&receiver_expr.id),
+                Some(Declaration::Struct(_))
+                    | Some(Declaration::Enum(_))
+                    | Some(Declaration::Array)
+                    | Some(Declaration::InterfaceDef(_))
+            );
+            match ctx.resolution_map.get(&fname.id).cloned() {
+                Some(Declaration::EnumVariant {
+                    e: ref enum_def, ..
+                }) => {
+                    // qualified enum variant
+                    // example: list.cons(5, nil)
+                    //          ^^^^^^^^^
+                    let (tyvar_from_enum, _) = TypeVar::make_nominal_with_substitution(
+                        ctx,
+                        Reason::Node(receiver_expr.node()),
+                        Nominal::Enum(enum_def.clone()),
+                        receiver_expr.node(),
+                    );
+                    constrain(ctx, node_ty.clone(), tyvar_from_enum.clone());
 
-                generate_constraints_expr_funcap_helper(
-                    ctx,
-                    polyvar_scope.clone(),
-                    std::iter::once(receiver_expr).chain(args).cloned(),
-                    fname.node(),
-                    expr.node(),
-                    node_ty.clone(),
-                );
-            } else if let Some(
-                ref
-                decl @ (Declaration::InterfaceMethod { .. } | Declaration::MemberFunction { .. }),
-            ) = ctx.resolution_map.get(&fname.id).cloned()
-            {
-                // fully qualified interface/struct/enum method
-                // example: Clone.clone(my_struct)
-                //          ^^^^^
-                let fn_node_ty = TypeVar::from_node(ctx, fname.node());
-                if let Some(tyvar_from_iface_method) =
-                    tyvar_of_declaration(ctx, decl, polyvar_scope.clone(), fname.node())
-                {
-                    constrain(ctx, fn_node_ty, tyvar_from_iface_method.clone());
+                    generate_constraints_expr_funcap_helper(
+                        ctx,
+                        polyvar_scope.clone(),
+                        std::iter::once(receiver_expr).chain(args).cloned(),
+                        fname.node(),
+                        expr.node(),
+                        node_ty.clone(),
+                    );
                 }
+                Some(ref decl @ Declaration::InterfaceMethod { .. })
+                | Some(ref decl @ Declaration::MemberFunction { .. })
+                    if receiver_is_namespace =>
+                {
+                    // fully qualified interface/struct/enum method
+                    // example: Clone.clone(my_struct)
+                    //          ^^^^^
+                    let fn_node_ty = TypeVar::from_node(ctx, fname.node());
+                    if let Some(tyvar_from_iface_method) =
+                        tyvar_of_declaration(ctx, decl, polyvar_scope.clone(), fname.node())
+                    {
+                        constrain(ctx, fn_node_ty, tyvar_from_iface_method.clone());
+                    }
 
-                generate_constraints_expr_funcap_helper(
-                    ctx,
-                    polyvar_scope.clone(),
-                    args.iter().cloned(),
-                    fname.node(),
-                    expr.node(),
-                    node_ty.clone(),
-                );
-            } else {
-                // member function call
-                // example: arr.push(6)
-                //          ^^^^^^^^type is `array`, member function is `push`
-                generate_constraints_expr(
-                    ctx,
-                    polyvar_scope.clone(),
-                    Mode::Syn,
-                    receiver_expr.clone(),
-                );
+                    generate_constraints_expr_funcap_helper(
+                        ctx,
+                        polyvar_scope.clone(),
+                        args.iter().cloned(),
+                        fname.node(),
+                        expr.node(),
+                        node_ty.clone(),
+                    );
+                }
+                // Some(_) => {
+                //     todo!();
+                // }
+                // None => {
+                _ => {
+                    // member function call
+                    // example: arr.push(6)
+                    //          ^^^^^^^^type is `array`, member function is `push`
+                    generate_constraints_expr(
+                        ctx,
+                        polyvar_scope.clone(),
+                        Mode::Syn,
+                        receiver_expr.clone(),
+                    );
 
-                let failed_to_resolve_member_function = |ctx: &mut StaticsContext, ty| {
-                    // failed to resolve member function
-                    ctx.errors.push(Error::UnresolvedMemberFunction {
-                        node: fname.node(),
-                        ty,
-                    });
+                    let failed_to_resolve_member_function = |ctx: &mut StaticsContext, ty| {
+                        // failed to resolve member function
+                        ctx.errors.push(Error::UnresolvedMemberFunction {
+                            node: fname.node(),
+                            ty,
+                        });
 
-                    node_ty.set_flag_missing_info();
-                };
+                        node_ty.set_flag_missing_info();
+                    };
 
-                if let Some(solved_ty) = TypeVar::from_node(ctx, receiver_expr.node()).solution() {
-                    match &solved_ty {
-                        SolvedType::Nominal(nom, _) => {
-                            if let Some(func) = ctx
-                                .member_functions
-                                .get(nom)
-                                .and_then(|m| m.get(&fname.v))
-                                .cloned()
-                            {
-                                // TODO: the following block of code is strange and hard to read
-                                // it's basically creating the type of the member function using
-                                // the member function declaration, then constraining that to the
-                                // type of the AST node for the identifier in this MemberFuncAp
-                                let memfn_decl = Declaration::MemberFunction { f: func.clone() };
-                                ctx.resolution_map.insert(fname.id, memfn_decl.clone());
-                                let memfn_node_ty = TypeVar::from_node(ctx, fname.node());
-                                if let Some(memfn_decl_ty) = tyvar_of_declaration(
-                                    ctx,
-                                    &memfn_decl,
-                                    polyvar_scope.clone(),
-                                    fname.node(),
-                                ) {
-                                    constrain(ctx, memfn_node_ty.clone(), memfn_decl_ty);
+                    if let Some(solved_ty) =
+                        TypeVar::from_node(ctx, receiver_expr.node()).solution()
+                    {
+                        match &solved_ty {
+                            SolvedType::Nominal(nom, _) => {
+                                if let Some(func) = ctx
+                                    .member_functions
+                                    .get(nom)
+                                    .and_then(|m| m.get(&fname.v))
+                                    .cloned()
+                                {
+                                    // TODO: the following block of code is strange and hard to read
+                                    // it's basically creating the type of the member function using
+                                    // the member function declaration, then constraining that to the
+                                    // type of the AST node for the identifier in this MemberFuncAp
+                                    let memfn_decl =
+                                        Declaration::MemberFunction { f: func.clone() };
+                                    ctx.resolution_map.insert(fname.id, memfn_decl.clone());
+                                    let memfn_node_ty = TypeVar::from_node(ctx, fname.node());
+                                    if let Some(memfn_decl_ty) = tyvar_of_declaration(
+                                        ctx,
+                                        &memfn_decl,
+                                        polyvar_scope.clone(),
+                                        fname.node(),
+                                    ) {
+                                        constrain(ctx, memfn_node_ty.clone(), memfn_decl_ty);
+                                    }
+
+                                    generate_constraints_expr_funcap_helper(
+                                        ctx,
+                                        polyvar_scope.clone(),
+                                        std::iter::once(receiver_expr).chain(args).cloned(),
+                                        fname.node(),
+                                        expr.node(),
+                                        node_ty.clone(),
+                                    );
+                                } else {
+                                    failed_to_resolve_member_function(ctx, solved_ty);
                                 }
-
-                                generate_constraints_expr_funcap_helper(
-                                    ctx,
-                                    polyvar_scope.clone(),
-                                    std::iter::once(receiver_expr).chain(args).cloned(),
-                                    fname.node(),
-                                    expr.node(),
-                                    node_ty.clone(),
-                                );
-                            } else {
-                                failed_to_resolve_member_function(ctx, solved_ty);
+                            }
+                            _ => {
+                                ctx.errors.push(Error::MemberFuncApMustBeStructOrEnum {
+                                    node: fname.node(),
+                                    ty: solved_ty,
+                                });
                             }
                         }
-                        _ => {
-                            ctx.errors.push(Error::MemberFuncApMustBeStructOrEnum {
-                                node: fname.node(),
-                                ty: solved_ty,
-                            });
-                        }
-                    }
-                } else {
-                    // failed to resolve member function
-                    ctx.errors
-                        .push(Error::MemberAccessNeedsAnnotation { node: fname.node() });
+                    } else {
+                        // failed to resolve member function
+                        ctx.errors
+                            .push(Error::MemberAccessNeedsAnnotation { node: fname.node() });
 
-                    node_ty.set_flag_missing_info();
+                        node_ty.set_flag_missing_info();
+                    }
                 }
             }
         }
