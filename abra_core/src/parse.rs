@@ -194,7 +194,7 @@ pub(crate) fn parse_func_arg_annotation(pair: Pair<Rule>, file_id: FileId) -> Ar
                 .map(|type_pair| parse_type_term(type_pair.clone(), file_id));
             (ident, annot)
         }
-        _ => panic!("unreachable rule {:#?}", rule),
+        _ => panic!("unreachable rule {rule:#?}"),
     }
 }
 
@@ -216,7 +216,7 @@ pub(crate) fn parse_func_arg_annotation_mandatory(
             let annot = parse_type_term(inner[1].clone(), file_id);
             (ident, annot)
         }
-        _ => panic!("unreachable rule {:#?}", rule),
+        _ => panic!("unreachable rule {rule:#?}"),
     }
 }
 
@@ -232,7 +232,7 @@ pub(crate) fn parse_annotated_let_pattern(pair: Pair<Rule>, file_id: FileId) -> 
                 .map(|type_pair| parse_type_term(type_pair.clone(), file_id));
             (pat, ty)
         }
-        _ => panic!("unreachable rule {:#?}", rule),
+        _ => panic!("unreachable rule {rule:#?}"),
     }
 }
 
@@ -244,7 +244,7 @@ pub(crate) fn parse_func_out_annotation(pair: Pair<Rule>, file_id: FileId) -> Rc
             let type_pair = inner[0].clone();
             parse_type_term(type_pair, file_id)
         }
-        _ => panic!("unreachable rule {:#?}", rule),
+        _ => panic!("unreachable rule {rule:#?}"),
     }
 }
 
@@ -279,7 +279,7 @@ pub(crate) fn parse_let_pattern(pair: Pair<Rule>, file_id: FileId) -> Rc<Pat> {
                 id: NodeId::new(),
             })
         }
-        _ => panic!("unreachable rule {:#?}", rule),
+        _ => panic!("unreachable rule {rule:#?}"),
     }
 }
 
@@ -391,7 +391,7 @@ pub(crate) fn parse_match_pattern(pair: Pair<Rule>, file_id: FileId) -> Rc<Pat> 
             loc: span,
             id: NodeId::new(),
         }),
-        _ => panic!("unreachable rule {:#?}", rule),
+        _ => panic!("unreachable rule {rule:#?}"),
     }
 }
 
@@ -488,7 +488,7 @@ pub(crate) fn parse_type_term(pair: Pair<Rule>, file_id: FileId) -> Rc<Type> {
                 id: NodeId::new(),
             })
         }
-        _ => panic!("unreachable rule {:#?}", pair),
+        _ => panic!("unreachable rule {pair:#?}"),
     }
 }
 
@@ -524,7 +524,7 @@ pub(crate) fn parse_type_poly(pair: Pair<Rule>, file_id: FileId) -> Rc<Polytype>
             }
             .into()
         }
-        _ => panic!("unreachable rule {:#?}", pair),
+        _ => panic!("unreachable rule {pair:#?}"),
     }
 }
 
@@ -827,7 +827,7 @@ pub(crate) fn parse_item(pair: Pair<Rule>, file_id: FileId) -> Rc<Item> {
                 id: NodeId::new(),
             })
         }
-        _ => panic!("unreachable rule {:#?}", rule),
+        _ => panic!("unreachable rule {rule:#?}"),
     }
 }
 
@@ -942,7 +942,7 @@ pub(crate) fn parse_stmt(pair: Pair<Rule>, file_id: FileId) -> Rc<Stmt> {
                 id: NodeId::new(),
             })
         }
-        _ => panic!("unreachable rule {:#?}", rule),
+        _ => panic!("unreachable rule {rule:#?}"),
     }
 }
 
@@ -967,7 +967,7 @@ pub(crate) fn parse_interface_method(pair: Pair<Rule>, file_id: FileId) -> Inter
                 loc: Location::new(file_id, span),
             }
         }
-        _ => panic!("unreachable rule {:#?}", rule),
+        _ => panic!("unreachable rule {rule:#?}"),
     }
 }
 
@@ -998,7 +998,7 @@ pub(crate) fn parse_variant(pair: Pair<Rule>, file_id: FileId) -> Rc<Variant> {
                 id: NodeId::new(),
             })
         }
-        _ => panic!("unreachable rule {:#?}", rule),
+        _ => panic!("unreachable rule {rule:#?}"),
     }
 }
 
@@ -1023,7 +1023,7 @@ pub(crate) fn parse_struct_field(pair: Pair<Rule>, file_id: FileId) -> StructFie
                 id: NodeId::new(),
             }
         }
-        _ => panic!("unreachable rule {:#?}", rule),
+        _ => panic!("unreachable rule {rule:#?}"),
     }
 }
 
@@ -1187,6 +1187,6 @@ pub(crate) fn parse_expr_term(pair: Pair<Rule>, file_id: FileId) -> Rc<Expr> {
                 id: NodeId::new(),
             })
         }
-        _ => panic!("unreachable rule {:#?}", rule),
+        _ => panic!("unreachable rule {rule:#?}"),
     }
 }

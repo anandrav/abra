@@ -49,7 +49,7 @@ pub mod ffi {
                             (vm_funcs.pop_nil)(vm);
                             KeyCode::Other
                         }
-                        _ => panic!("unexpected tag encountered: {}", tag),
+                        _ => panic!("unexpected tag encountered: {tag}"),
                     }
                 }
             }

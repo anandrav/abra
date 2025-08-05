@@ -31,8 +31,8 @@ impl From<Label> for Line {
 impl Display for Line {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
-            Line::Instr(instr) => write!(f, "{}", instr),
-            Line::Label(label) => write!(f, "{}:", label),
+            Line::Instr(instr) => write!(f, "{instr}"),
+            Line::Label(label) => write!(f, "{label}:"),
         }
     }
 }
@@ -110,7 +110,7 @@ fn instr_to_vminstr(
         Instr::Call(label) => VmInstr::Call(
             *label_to_idx
                 .get(label)
-                .unwrap_or_else(|| panic!("Could not find label: {}", label)),
+                .unwrap_or_else(|| panic!("Could not find label: {label}")),
         ),
         Instr::CallExtern(func_id) => VmInstr::CallExtern(*func_id),
         Instr::CallFuncObj => VmInstr::CallFuncObj,

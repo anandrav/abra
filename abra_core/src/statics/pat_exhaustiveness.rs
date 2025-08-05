@@ -266,7 +266,7 @@ impl Display for Matrix {
                 if i != 0 {
                     write!(f, ", ")?;
                 }
-                write!(f, "{}", pat)?;
+                write!(f, "{pat}")?;
             }
             writeln!(f)?;
         }
@@ -438,30 +438,30 @@ impl Display for DeconstructedPat {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match &self.ctor {
             Constructor::Wildcard(_) => write!(f, "_"),
-            Constructor::Bool(b) => write!(f, "{}", b),
-            Constructor::Int(i) => write!(f, "{}", i),
-            Constructor::Float(fl) => write!(f, "{}", fl),
-            Constructor::String(s) => write!(f, "{}", s),
+            Constructor::Bool(b) => write!(f, "{b}"),
+            Constructor::Int(i) => write!(f, "{i}"),
+            Constructor::Float(fl) => write!(f, "{fl}"),
+            Constructor::String(s) => write!(f, "{s}"),
             Constructor::Product => {
                 write!(f, "(")?;
                 for (i, field) in self.fields.iter().enumerate() {
                     if i != 0 {
                         write!(f, ", ")?;
                     }
-                    write!(f, "{}", field)?;
+                    write!(f, "{field}")?;
                 }
                 write!(f, ")")
             }
             Constructor::Variant((enum_def, idx)) => {
                 let variant_name = &enum_def.variants[*idx as usize].ctor.v;
-                write!(f, "{}", variant_name)?;
+                write!(f, "{variant_name}")?;
                 if !self.fields.is_empty() {
                     write!(f, " of ")?;
                     for (i, field) in self.fields.iter().enumerate() {
                         if i != 0 {
                             write!(f, ", ")?;
                         }
-                        write!(f, "{}", field)?;
+                        write!(f, "{field}")?;
                     }
                 }
                 Ok(())
@@ -618,7 +618,7 @@ impl Display for WitnessMatrix {
                 if i != 0 {
                     write!(f, ", ")?;
                 }
-                write!(f, "{}", pat)?;
+                write!(f, "{pat}")?;
             }
             if row.len() > 1 {
                 write!(f, ")")?;

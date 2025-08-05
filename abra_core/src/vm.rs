@@ -400,8 +400,8 @@ impl<L: Display, S: Display> Display for Instr<L, S> {
         match self {
             Instr::Pop => write!(f, "pop"),
             Instr::Duplicate => write!(f, "duplicate"),
-            Instr::LoadOffset(n) => write!(f, "loadOffset {}", n),
-            Instr::StoreOffset(n) => write!(f, "storeOffset {}", n),
+            Instr::LoadOffset(n) => write!(f, "loadOffset {n}"),
+            Instr::StoreOffset(n) => write!(f, "storeOffset {n}"),
             Instr::Add => write!(f, "add"),
             Instr::Subtract => write!(f, "subtract"),
             Instr::Multiply => write!(f, "multiply"),
@@ -418,28 +418,28 @@ impl<L: Display, S: Display> Display for Instr<L, S> {
             Instr::GreaterThanOrEqual => write!(f, "greater_than_or_equal"),
             Instr::Equal => write!(f, "equal"),
             Instr::PushNil => write!(f, "push_nil"),
-            Instr::PushBool(b) => write!(f, "push_bool {}", b),
-            Instr::PushInt(n) => write!(f, "push_int {}", n),
-            Instr::PushFloat(n) => write!(f, "push_float {}", n),
-            Instr::PushString(s) => write!(f, "push_string {}", s),
-            Instr::Jump(loc) => write!(f, "jump {}", loc),
-            Instr::JumpIf(loc) => write!(f, "jump_if {}", loc),
-            Instr::Call(loc) => write!(f, "call {}", loc),
-            Instr::CallExtern(func_id) => write!(f, "call_extern {}", func_id),
+            Instr::PushBool(b) => write!(f, "push_bool {b}"),
+            Instr::PushInt(n) => write!(f, "push_int {n}"),
+            Instr::PushFloat(n) => write!(f, "push_float {n}"),
+            Instr::PushString(s) => write!(f, "push_string {s}"),
+            Instr::Jump(loc) => write!(f, "jump {loc}"),
+            Instr::JumpIf(loc) => write!(f, "jump_if {loc}"),
+            Instr::Call(loc) => write!(f, "call {loc}"),
+            Instr::CallExtern(func_id) => write!(f, "call_extern {func_id}"),
             Instr::CallFuncObj => write!(f, "call_func_obj"),
             Instr::Return => write!(f, "return"),
             Instr::Panic => write!(f, "panic"),
-            Instr::Construct(n) => write!(f, "construct {}", n),
+            Instr::Construct(n) => write!(f, "construct {n}"),
             Instr::Deconstruct => write!(f, "deconstruct"),
-            Instr::GetField(n) => write!(f, "get_field {}", n),
-            Instr::SetField(n) => write!(f, "set_field {}", n),
+            Instr::GetField(n) => write!(f, "get_field {n}"),
+            Instr::SetField(n) => write!(f, "set_field {n}"),
             Instr::GetIdx => write!(f, "get_index"),
             Instr::SetIdx => write!(f, "set_index"),
             Instr::ConstructVariant { tag } => {
-                write!(f, "construct_variant {}", tag)
+                write!(f, "construct_variant {tag}")
             }
             Instr::MakeClosure { func_addr } => {
-                write!(f, "make_closure {}", func_addr)
+                write!(f, "make_closure {func_addr}")
             }
             Instr::ArrayAppend => write!(f, "array_append"),
             Instr::ArrayLength => write!(f, "array_len"),
@@ -447,7 +447,7 @@ impl<L: Display, S: Display> Display for Instr<L, S> {
             Instr::ConcatStrings => write!(f, "concat_strings"),
             Instr::IntToString => write!(f, "int_to_string"),
             Instr::FloatToString => write!(f, "float_to_string"),
-            Instr::HostFunc(n) => write!(f, "call_host {}", n),
+            Instr::HostFunc(n) => write!(f, "call_host {n}"),
 
             Instr::LoadLib => write!(f, "load_lib"),
             Instr::LoadForeignFunc => write!(f, "load_foreign_func"),
@@ -662,8 +662,7 @@ impl Vm {
                     Some(idx) => idx,
                     None => {
                         return self.make_error(VmErrorKind::InternalError(format!(
-                            "overflow when calculating load offset ({})",
-                            n
+                            "overflow when calculating load offset ({n})"
                         )));
                     }
                 };
@@ -684,8 +683,7 @@ impl Vm {
                     Some(idx) => idx,
                     None => {
                         return self.make_error(VmErrorKind::InternalError(format!(
-                            "overflow when calculating store offset ({})",
-                            n
+                            "overflow when calculating store offset ({n})"
                         )));
                     }
                 };
@@ -1351,7 +1349,7 @@ impl Display for VmErrorKind {
                 write!(f, "indexed past the end of an array")
             }
             VmErrorKind::Panic(msg) => {
-                write!(f, "panic! `{}`", msg)
+                write!(f, "panic! `{msg}`")
             }
             VmErrorKind::IntegerOverflowUnderflow => {
                 write!(f, "integer overflow/underflow")
@@ -1364,16 +1362,16 @@ impl Display for VmErrorKind {
                 write!(f, "stack underflow")
             }
             VmErrorKind::WrongType { expected } => {
-                write!(f, "wrong type on top of stack, expected: {:?}", expected)
+                write!(f, "wrong type on top of stack, expected: {expected:?}")
             }
             VmErrorKind::FfiNotEnabled => {
                 write!(f, "ffi is not enabled")
             }
             VmErrorKind::LibLoadFailure(s) => {
-                write!(f, "failed to load shared library: {}", s)
+                write!(f, "failed to load shared library: {s}")
             }
             VmErrorKind::SymbolLoadFailure(s) => {
-                write!(f, "failed to load symbol: {}", s)
+                write!(f, "failed to load symbol: {s}")
             }
             VmErrorKind::InternalError(s) => {
                 write!(f, "internal error: {s}")

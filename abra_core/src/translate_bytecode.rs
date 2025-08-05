@@ -559,7 +559,7 @@ impl Translator {
                 let arm_labels = arms
                     .iter()
                     .enumerate()
-                    .map(|(i, _)| make_label(&format!("arm{}", i)))
+                    .map(|(i, _)| make_label(&format!("arm{i}")))
                     .collect::<Vec<_>>();
                 for (i, arm) in arms.iter().enumerate() {
                     let arm_label = arm_labels[i].clone();
@@ -1159,7 +1159,7 @@ impl Translator {
                     None => func_name.clone(),
                     Some(overload_ty) => {
                         let monoty = overload_ty.monotype().unwrap();
-                        let mut label_hint = format!("{}__{}", func_name, monoty);
+                        let mut label_hint = format!("{func_name}__{monoty}");
                         label_hint.retain(|c| !c.is_whitespace());
                         make_label(&label_hint)
                     }
@@ -1325,7 +1325,7 @@ fn make_label(hint: &str) -> Label {
     }
     static ID_COUNTER: AtomicUsize = AtomicUsize::new(1);
     let id = ID_COUNTER.fetch_add(1, Ordering::Relaxed);
-    format!("{}__#{:X}", hint, id)
+    format!("{hint}__#{id:X}")
 }
 
 fn idx_of_field(statics: &StaticsContext, accessed: Rc<Expr>, field: &str) -> u16 {

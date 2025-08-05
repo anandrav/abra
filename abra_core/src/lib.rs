@@ -128,7 +128,7 @@ pub enum HostFunction {
     );
     for name in &inference_ctx.host_funcs {
         let camel_name = heck::AsUpperCamelCase(name).to_string();
-        output.push_str(&format!("{},", camel_name));
+        output.push_str(&format!("{camel_name},"));
     }
     output.push_str(
         r#"
@@ -144,9 +144,9 @@ pub enum HostFunction {
     );
     for (i, name) in inference_ctx.host_funcs.iter().enumerate() {
         let camel_name = heck::AsUpperCamelCase(name).to_string();
-        output.push_str(&format!("{} => HostFunction::{},", i, camel_name));
+        output.push_str(&format!("{i} => HostFunction::{camel_name},"));
     }
-    output.push_str("i => panic!(\"unrecognized host func: {}\", i)");
+    output.push_str("i => panic!(\"unrecognized host func: {i}\")");
     output.push_str(
         r#"}
     }

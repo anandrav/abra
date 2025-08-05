@@ -87,7 +87,7 @@ impl<Identifier: Eq + Hash + Display, Item: Display> Display for EnvironmentBase
 impl<Identifier: Eq + Hash + Display, Item: Display> EnvironmentBase<Identifier, Item> {
     fn display_helper(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         for (key, value) in &self.items {
-            writeln!(f, "{}: {}", key, value)?;
+            writeln!(f, "{key}: {value}")?;
         }
         match &self.enclosing {
             Some(env) => env.borrow().display_helper(f),

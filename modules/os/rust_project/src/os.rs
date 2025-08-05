@@ -40,5 +40,5 @@ pub fn fappend(path: String, content: String) {
         .unwrap();
 
     // Write the text followed by a newline.
-    writeln!(file, "{}", content).unwrap();
+    writeln!(file, "{content}").unwrap();
 }

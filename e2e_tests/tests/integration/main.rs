@@ -10,7 +10,7 @@ fn test_ffi() {
     let output = command!("cargo run --package abra_cli --bin abra -- --modules modules --shared-objects ../target/debug ffi.abra").unwrap();
 
     let stdout_str = String::from_utf8_lossy(&output.stdout);
-    println!("{}", stdout_str);
+    println!("{stdout_str}");
     println!("{}", String::from_utf8(output.stderr).unwrap());
     assert_eq!(
         stdout_str,
@@ -34,7 +34,7 @@ yes
 fn test_host_funcs() {
     let output = command!("cargo run --package test_host_funcs").unwrap();
     let stdout_str = String::from_utf8_lossy(&output.stdout);
-    println!("{}", stdout_str);
+    println!("{stdout_str}");
     println!("{}", String::from_utf8(output.stderr).unwrap());
     assert_eq!(output.status.code().unwrap(), 0);
 }

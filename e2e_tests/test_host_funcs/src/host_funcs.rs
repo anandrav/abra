@@ -10,7 +10,7 @@ impl From<u16> for HostFunction {
             0 => HostFunction::PrintString,
             1 => HostFunction::Foo,
             2 => HostFunction::Bar,
-            i => panic!("unrecognized host func: {}", i),
+            i => panic!("unrecognized host func: {i}"),
         }
     }
 }

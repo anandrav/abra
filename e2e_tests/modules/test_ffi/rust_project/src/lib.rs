@@ -160,7 +160,7 @@ pub mod ffi {
                             let value: String = <String>::from_vm(vm, vm_funcs);
                             MyEnum::String(value)
                         }
-                        _ => panic!("unexpected tag encountered: {}", tag),
+                        _ => panic!("unexpected tag encountered: {tag}"),
                     }
                 }
             }

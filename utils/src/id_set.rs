@@ -334,7 +334,7 @@ mod tests {
         let mut set = IdSet::new();
         let count = 1000;
         for i in 0..count {
-            let val = format!("item{}", i);
+            let val = format!("item{i}");
             let id = set.insert(val.clone());
             assert_eq!(set.try_get_id(&val), Some(id));
             assert_eq!(set[id], val);

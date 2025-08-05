@@ -1930,11 +1930,9 @@ fn generate_constraints_expr(
             );
         }
         ExprKind::MemberFuncAp(receiver_expr, fname, args) => {
-            if let Some(
-                ref decl @ Declaration::EnumVariant {
-                    e: ref enum_def, ..
-                },
-            ) = ctx.resolution_map.get(&fname.id).cloned()
+            if let Some(Declaration::EnumVariant {
+                e: ref enum_def, ..
+            }) = ctx.resolution_map.get(&fname.id).cloned()
             {
                 // qualified enum variant
                 // example: list.cons(5, nil)
@@ -1963,7 +1961,7 @@ fn generate_constraints_expr(
                 //          ^^^^^^^^^
                 let fn_node_ty = TypeVar::from_node(ctx, fname.node());
                 if let Some(tyvar_from_iface_method) =
-                    tyvar_of_declaration(ctx, &decl, polyvar_scope.clone(), fname.node())
+                    tyvar_of_declaration(ctx, decl, polyvar_scope.clone(), fname.node())
                 {
                     constrain(ctx, fn_node_ty, tyvar_from_iface_method.clone());
                 }
@@ -2699,7 +2697,7 @@ impl Display for TypeVar {
                     if i > 0 {
                         write!(f, "/ ")?;
                     }
-                    write!(f, "{}", ty)?;
+                    write!(f, "{ty}")?;
                 }
                 write!(f, "}}")
             }
@@ -2731,7 +2729,7 @@ impl Display for PotentialType {
                         if i != 0 {
                             write!(f, ", ")?;
                         }
-                        write!(f, "{}", param)?;
+                        write!(f, "{param}")?;
                     }
                     write!(f, ">")
                 } else {
@@ -2761,7 +2759,7 @@ impl Display for PotentialType {
                     if i > 0 {
                         write!(f, ", ")?;
                     }
-                    write!(f, "{}", elem)?;
+                    write!(f, "{elem}")?;
                 }
                 write!(f, ")")
             }
@@ -2792,7 +2790,7 @@ impl Display for SolvedType {
                         if i != 0 {
                             write!(f, ", ")?;
                         }
-                        write!(f, "{}", param)?;
+                        write!(f, "{param}")?;
                     }
                     write!(f, ">")
                 } else {
@@ -2822,7 +2820,7 @@ impl Display for SolvedType {
                     if i > 0 {
                         write!(f, ", ")?;
                     }
-                    write!(f, "{}", elem)?;
+                    write!(f, "{elem}")?;
                 }
                 write!(f, ")")
             }
@@ -2840,7 +2838,7 @@ impl Display for Monotype {
                         if i != 0 {
                             write!(f, ", ")?;
                         }
-                        write!(f, "{}", param)?;
+                        write!(f, "{param}")?;
                     }
                     write!(f, ">")
                 } else {
@@ -2870,7 +2868,7 @@ impl Display for Monotype {
                     if i > 0 {
                         write!(f, ", ")?;
                     }
-                    write!(f, "{}", elem)?;
+                    write!(f, "{elem}")?;
                 }
                 write!(f, ")")
             }

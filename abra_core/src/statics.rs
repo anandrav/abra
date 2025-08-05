@@ -315,7 +315,7 @@ impl Error {
                 new,
             } => {
                 diagnostic =
-                    diagnostic.with_message(format!("`{}` was declared more than once", name));
+                    diagnostic.with_message(format!("`{name}` was declared more than once"));
                 add_detail_for_decl(
                     _ctx,
                     &mut labels,
@@ -332,10 +332,8 @@ impl Error {
             }
             Error::UnresolvedMemberFunction { node, ty } => {
                 let (file, range) = node.get_file_and_range();
-                diagnostic = diagnostic.with_message(format!(
-                    "Could not resolve member function for type: {}",
-                    ty
-                ));
+                diagnostic = diagnostic
+                    .with_message(format!("Could not resolve member function for type: {ty}"));
                 labels.push(Label::secondary(file, range))
             }
             Error::UnconstrainedUnifvar { node } => {
@@ -365,8 +363,8 @@ impl Error {
                 constraint_reason,
             } => match constraint_reason {
                 ConstraintReason::None => {
-                    diagnostic = diagnostic
-                        .with_message(format!("Conflicting types `{}` and `{}`", ty2, ty1));
+                    diagnostic =
+                        diagnostic.with_message(format!("Conflicting types `{ty2}` and `{ty1}`"));
 
                     let provs2 = ty2.reasons().borrow();
                     let reason2 = provs2.iter().next().unwrap();
@@ -417,8 +415,7 @@ impl Error {
                 }
                 ConstraintReason::MatchScrutinyAndPattern => {
                     diagnostic = diagnostic.with_message(format!(
-                        "Match expression input has type `{}`, but case has type `{}`",
-                        ty1, ty2
+                        "Match expression input has type `{ty1}`, but case has type `{ty2}`"
                     ));
                     let provs2 = ty2.reasons().borrow();
                     let reason2 = provs2.iter().next().unwrap();
@@ -451,7 +448,7 @@ impl Error {
                 }
                 ConstraintReason::Condition => {
                     diagnostic = diagnostic
-                        .with_message(format!("Condition must be a `bool` but got `{}`\n", ty1));
+                        .with_message(format!("Condition must be a `bool` but got `{ty1}`\n"));
 
                     let provs1 = ty1.reasons().borrow();
                     let reason1 = provs1.iter().next().unwrap();
@@ -459,7 +456,7 @@ impl Error {
                 }
                 ConstraintReason::BinaryOperandBool(node) => {
                     diagnostic = diagnostic
-                        .with_message(format!("Operand must be `bool` but got `{}`\n", ty1));
+                        .with_message(format!("Operand must be `bool` but got `{ty1}`\n"));
                     let (file, range) = node.get_file_and_range();
                     labels.push(Label::secondary(file, range).with_message("boolean operator"));
 
@@ -479,8 +476,7 @@ impl Error {
             }
             Error::MemberFuncApMustBeStructOrEnum { node, ty } => {
                 diagnostic = diagnostic.with_message(format!(
-                    "Can't perform member access on type which isn't a struct or enum: `{}`",
-                    ty
+                    "Can't perform member access on type which isn't a struct or enum: `{ty}`"
                 ));
                 let (file, range) = node.get_file_and_range();
                 labels.push(Label::secondary(file, range));
@@ -584,7 +580,7 @@ fn handle_reason(
         }
         Reason::Node(node) => {
             let (file, range) = node.get_file_and_range();
-            labels.push(Label::secondary(file, range).with_message(format!("`{}`", ty)));
+            labels.push(Label::secondary(file, range).with_message(format!("`{ty}`")));
         }
         Reason::Annotation(node) => {
             let (file, range) = node.get_file_and_range();
@@ -592,7 +588,7 @@ fn handle_reason(
         }
         Reason::Literal(node) => {
             let (file, range) = node.get_file_and_range();
-            labels.push(Label::secondary(file, range).with_message(format!("`{}` literal", ty)));
+            labels.push(Label::secondary(file, range).with_message(format!("`{ty}` literal")));
         }
         Reason::BinopLeft(node) => {
             let (file, range) = node.get_file_and_range();

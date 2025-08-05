@@ -112,7 +112,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     return Ok(());
                 }
                 if let Some(error) = vm.get_error() {
-                    eprintln!("{}", error);
+                    eprintln!("{error}");
                     std::process::exit(1);
                 }
                 vm.run();
@@ -123,7 +123,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                         HostFunction::PrintString => {
                             let s = vm.top()?.get_string(&vm)?;
                             vm.pop()?;
-                            print!("{}", s);
+                            print!("{s}");
                             vm.push_nil();
                         } // HostFunction::readline => {
                           //     let mut input = String::new();
@@ -149,7 +149,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             }
         }
         Err(err) => {
-            eprintln!("{}", err);
+            eprintln!("{err}");
             std::process::exit(1);
         }
     }

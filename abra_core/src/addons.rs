@@ -245,7 +245,7 @@ pub fn generate_bindings_for_crate() {
         .to_string();
     let mut toplevel_abra_file = package_dir.clone();
     toplevel_abra_file.pop();
-    toplevel_abra_file = toplevel_abra_file.join(format!("{}.abra", package_name));
+    toplevel_abra_file = toplevel_abra_file.join(format!("{package_name}.abra"));
 
     let mut output = String::new();
 
@@ -257,7 +257,7 @@ pub fn generate_bindings_for_crate() {
     {
         let source = read_to_string(&toplevel_abra_file).unwrap();
         let file_data = FileData::new(
-            format!("{}.abra", package_name).into(),
+            format!("{package_name}.abra").into(),
             toplevel_abra_file,
             source,
         );
@@ -292,7 +292,7 @@ pub fn generate_bindings_for_crate() {
         .expect("failed to run rustfmt");
 
     if !status.success() {
-        panic!("rustfmt failed on {:?}", output_path);
+        panic!("rustfmt failed on {output_path:?}");
     }
 }
 
@@ -300,14 +300,13 @@ fn write_header(output: &mut String, package_name: &str) {
     output.push_str(&format!(
         r#"// This is an auto-generated file.
         
-        mod {};
+        mod {package_name};
         pub mod ffi {{
-            pub mod {} {{
-            use crate::{};
+            pub mod {package_name} {{
+            use crate::{package_name};
             use abra_core::addons::*;
             use std::ffi::c_void;
-            "#,
-        package_name, package_name, package_name
+            "#
     ));
 }
 
@@ -436,13 +435,12 @@ fn add_items_from_ast(ast: Rc<FileAst>, output: &mut String) {
                     output.push_str("let tag = (vm_funcs.pop_int)(vm);");
                     output.push_str("match tag {");
                     for (i, variant) in e.variants.iter().enumerate() {
-                        output.push_str(&format!("{} => {{", i));
+                        output.push_str(&format!("{i} => {{"));
                         if let Some(ty) = &variant.data {
                             let tyname = name_of_ty(ty.clone());
                             output.push_str(&format!(
-                                r#"let value: {} = <{}>::from_vm(vm, vm_funcs);
-                            "#,
-                                tyname, tyname
+                                r#"let value: {tyname} = <{tyname}>::from_vm(vm, vm_funcs);
+                            "#
                             ));
                             output.push_str(&format!("{}::{}(value)", e.name.v, variant.ctor.v));
                         } else {
@@ -451,7 +449,7 @@ fn add_items_from_ast(ast: Rc<FileAst>, output: &mut String) {
                         }
                         output.push('}');
                     }
-                    output.push_str(r#"_ => panic!("unexpected tag encountered: {}", tag)"#);
+                    output.push_str(r#"_ => panic!("unexpected tag encountered: {tag}")"#);
 
                     output.push('}');
                     output.push('}');
@@ -472,11 +470,11 @@ fn add_items_from_ast(ast: Rc<FileAst>, output: &mut String) {
                                 e.name.v, variant.ctor.v
                             ));
                             output.push_str("value.to_vm(vm, vm_funcs);");
-                            output.push_str(&format!("(vm_funcs.construct_variant)(vm, {});", i));
+                            output.push_str(&format!("(vm_funcs.construct_variant)(vm, {i});"));
                         } else {
                             output.push_str(&format!("{}::{} => {{", e.name.v, variant.ctor.v));
                             output.push_str("(vm_funcs.push_nil)(vm);");
-                            output.push_str(&format!("(vm_funcs.construct_variant)(vm, {});", i));
+                            output.push_str(&format!("(vm_funcs.construct_variant)(vm, {i});"));
                         }
                         output.push('}');
                     }
@@ -498,7 +496,7 @@ fn add_items_from_ast(ast: Rc<FileAst>, output: &mut String) {
                 let package_name = elems.last().unwrap().to_string();
                 let symbol = make_foreign_func_name(&f.name.v, &elems);
 
-                output.push_str(&format!("#[unsafe(export_name = \"{}\")]", symbol));
+                output.push_str(&format!("#[unsafe(export_name = \"{symbol}\")]"));
                 output.push_str(&format!(
                     "pub unsafe extern \"C\" fn {}(vm: *mut c_void, vm_funcs: *const AbraVmFunctions) {{",
                     f.name.v,
@@ -615,12 +613,11 @@ fn find_abra_files(
                 crate_import.push_str(no_extension);
 
                 output.push_str(&format!(
-                    r#" pub mod {} {{
-                        use crate::{};
+                    r#" pub mod {no_extension} {{
+                        use crate::{crate_import};
                         use abra_core::addons::*;
                         use std::ffi::c_void;
-                        "#,
-                    no_extension, crate_import
+                        "#
                 ));
 
                 let source = read_to_string(&path).unwrap();
@@ -628,7 +625,7 @@ fn find_abra_files(
                 for prefix in prefixes.iter() {
                     nominal_path = nominal_path.join(prefix);
                 }
-                nominal_path = nominal_path.join(format!("{}.abra", no_extension));
+                nominal_path = nominal_path.join(format!("{no_extension}.abra"));
                 let file_data = FileData::new(nominal_path, path.clone(), source);
                 let file_id = file_db.add(file_data);
                 let file_data = file_db.get(file_id).unwrap();
@@ -748,7 +745,7 @@ where
                     let e = E::from_vm(vm, vm_funcs);
                     Err(e)
                 }
-                _ => panic!("unexpected tag for Result type {}", tag),
+                _ => panic!("unexpected tag for Result type {tag}"),
             }
         }
     }
