@@ -1932,43 +1932,23 @@ fn generate_constraints_expr(
                 // example: list.cons(5, nil)
                 //          ^^^^^^^^^
                 // arguments
-                let tys_args: Vec<TypeVar> = args
-                    .iter()
-                    .enumerate()
-                    .map(|(n, arg)| {
-                        let unknown = TypeVar::fresh(ctx, Prov::FuncArg(fname.node(), n as u8));
-                        generate_constraints_expr(
-                            ctx,
-                            polyvar_scope.clone(),
-                            Mode::Ana {
-                                expected: unknown.clone(),
-                            },
-                            arg.clone(),
-                        );
-                        unknown
-                    })
-                    .collect();
                 let (tyvar_from_enum, _) = TypeVar::make_nominal_with_substitution(
                     ctx,
                     Reason::Node(receiver_expr.node()),
                     Nominal::Enum(enum_def.clone()),
                     receiver_expr.node(),
                 );
+                // TODO: ^use tyvar_of_declaration here?? idk
+                constrain(ctx, node_ty.clone(), tyvar_from_enum.clone());
 
-                constrain(ctx, node_ty, tyvar_from_enum.clone());
-
-                let ty_fname = TypeVar::from_node(ctx, fname.node());
-                let ty_of_variant_ctor =
-                    tyvar_of_declaration(ctx, decl, polyvar_scope.clone(), receiver_expr.node())
-                        .unwrap();
-                constrain(ctx, ty_fname.clone(), ty_of_variant_ctor);
-
-                let ty_func = TypeVar::make_func(
-                    tys_args,
-                    tyvar_from_enum,
-                    Reason::Node(receiver_expr.node()),
+                generate_constraints_expr_funcap_helper(
+                    ctx,
+                    polyvar_scope.clone(),
+                    std::iter::once(receiver_expr).chain(args).cloned(),
+                    fname.node(),
+                    expr.node(),
+                    node_ty.clone(),
                 );
-                constrain(ctx, ty_func, ty_fname);
             } else if let Some(Declaration::InterfaceMethod { i, method }) =
                 ctx.resolution_map.get(&fname.id).cloned()
             {
