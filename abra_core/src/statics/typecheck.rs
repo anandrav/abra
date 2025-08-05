@@ -1984,14 +1984,11 @@ fn generate_constraints_expr(
                         node_ty.clone(),
                     );
                 }
-                // Some(_) => {
-                //     todo!();
-                // }
-                // None => {
                 _ => {
-                    // member function call
+                    // potentially a member function call.
+                    // Attempt to perform type-directed resolution
                     // example: arr.push(6)
-                    //          ^^^^^^^^type is `array`, member function is `push`
+                    //          ^^^^^^^^type is `array`, therefore member function is `array.push`
                     generate_constraints_expr(
                         ctx,
                         polyvar_scope.clone(),
