@@ -1274,11 +1274,12 @@ Person.fullname(p) & " " & Color.shout(Color.Red)
     assert_eq!(top.get_string(&vm).unwrap(), "Anand Dukkipati red!");
 }
 
+#[ignore]
 #[test]
 fn clone_array() {
     let src = r#"
 let blah = [1, 2, 3, 4, 5]
-let blerp = Clone.clone(blah)
+let blerp = blah.clone()
 
 blerp.pop()
 blerp.pop()

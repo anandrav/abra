@@ -505,17 +505,13 @@ fn resolve_names_item_decl(ctx: &mut StaticsContext, symbol_table: SymbolTable, 
                 resolve_names_func_helper(ctx, symbol_table.clone(), &f.args, &f.body, &f.ret_type);
             }
 
+            // TODO: THIS LOGIC NEEDS TO BE REUSED FOR INTERFACE METHODS, WHICH WILL ALSO BE MEMBER FUNCTIONS
             // In this pass, we also gather the declarations of member functions
             // We don't gather declarations of member functions in the same pass as gathering type definitions, because
             // the former depends on the latter
             let gather_declarations_memberfuncs_helper =
                 |ctx: &mut StaticsContext, nom: Nominal| {
                     for f in &ext.methods {
-                        // let fully_qualified_type_name = ctx.fully_qualified_names[&name_id].clone();
-                        // let fully_qualified_name = fully_qualified_type_name + &f.name.v;
-                        // ctx.fully_qualified_names
-                        //     .insert(f.name.id, fully_qualified_name);
-
                         match ctx
                             .member_functions
                             .entry(nom.clone())
