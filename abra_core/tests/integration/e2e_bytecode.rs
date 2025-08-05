@@ -1235,7 +1235,7 @@ p.fullname() & " " & c.fullname()
 fn clone_array() {
     let src = r#"
 let blah = [1, 2, 3, 4, 5]
-let blerp = clone(blah)
+let blerp = Clone.clone(blah)
 
 blerp.pop()
 blerp.pop()

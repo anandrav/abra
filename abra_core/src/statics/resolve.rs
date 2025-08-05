@@ -775,7 +775,25 @@ fn resolve_names_member_helper(ctx: &mut StaticsContext, expr: Rc<Expr>, field: 
                 ctx.errors
                     .push(Error::UnresolvedIdentifier { node: field.node() });
             }
-            Declaration::InterfaceDef(_) => unimplemented!(), // TODO: interface methods should be member functions at some point
+            Declaration::InterfaceDef(iface_def) => {
+                let mut found = false;
+                for (idx, method) in iface_def.methods.iter().enumerate() {
+                    if method.name.v == field.v {
+                        ctx.resolution_map.insert(
+                            field.id,
+                            Declaration::InterfaceMethod {
+                                i: iface_def.clone(),
+                                method: idx as u16,
+                            },
+                        );
+                        found = true;
+                    }
+                }
+                if !found {
+                    ctx.errors
+                        .push(Error::UnresolvedIdentifier { node: field.node() });
+                }
+            }
             Declaration::Enum(enum_def) => {
                 let mut found = false;
                 for (idx, variant) in enum_def.variants.iter().enumerate() {

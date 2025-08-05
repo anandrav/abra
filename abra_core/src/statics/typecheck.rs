@@ -1969,6 +1969,10 @@ fn generate_constraints_expr(
                     Reason::Node(receiver_expr.node()),
                 );
                 constrain(ctx, ty_func, ty_fname);
+            } else if let Some(Declaration::InterfaceMethod { i, method }) =
+                ctx.resolution_map.get(&fname.id).cloned()
+            {
+                todo!();
             } else {
                 // member function call
                 // example: arr.push(6)
