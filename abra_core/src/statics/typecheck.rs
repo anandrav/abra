@@ -1953,12 +1953,14 @@ fn generate_constraints_expr(
                     expr.node(),
                     node_ty.clone(),
                 );
-            } else if let Some(ref decl @ Declaration::InterfaceMethod { .. }) =
-                ctx.resolution_map.get(&fname.id).cloned()
+            } else if let Some(
+                ref
+                decl @ (Declaration::InterfaceMethod { .. } | Declaration::MemberFunction { .. }),
+            ) = ctx.resolution_map.get(&fname.id).cloned()
             {
-                // qualified interface method
+                // fully qualified interface/struct/enum method
                 // example: Clone.clone(my_struct)
-                //          ^^^^^^^^^
+                //          ^^^^^
                 let fn_node_ty = TypeVar::from_node(ctx, fname.node());
                 if let Some(tyvar_from_iface_method) =
                     tyvar_of_declaration(ctx, decl, polyvar_scope.clone(), fname.node())
@@ -1970,29 +1972,6 @@ fn generate_constraints_expr(
                     ctx,
                     polyvar_scope.clone(),
                     args.iter().cloned(),
-                    // std::iter::once(receiver_expr).chain(args).cloned(),
-                    fname.node(),
-                    expr.node(),
-                    node_ty.clone(),
-                );
-            } else if let Some(ref decl @ Declaration::MemberFunction { .. }) =
-                ctx.resolution_map.get(&fname.id).cloned()
-            {
-                // qualified struct/enum method
-                // example: Person.fullname(my_person)
-                //          ^^^^^^^^^
-                let fn_node_ty = TypeVar::from_node(ctx, fname.node());
-                if let Some(tyvar_from_iface_method) =
-                    tyvar_of_declaration(ctx, decl, polyvar_scope.clone(), fname.node())
-                {
-                    constrain(ctx, fn_node_ty, tyvar_from_iface_method.clone());
-                }
-
-                generate_constraints_expr_funcap_helper(
-                    ctx,
-                    polyvar_scope.clone(),
-                    args.iter().cloned(),
-                    // std::iter::once(receiver_expr).chain(args).cloned(),
                     fname.node(),
                     expr.node(),
                     node_ty.clone(),
