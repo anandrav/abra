@@ -1317,6 +1317,7 @@ fn generate_constraints_item_decls(ctx: &mut StaticsContext, item: Rc<Item>) {
                     }
                     let ty_annot = ast_type_to_typevar(ctx, method.ty.clone());
                     constrain(ctx, node_ty.clone(), ty_annot.clone());
+                    // println!("node_ty: {}", node_ty);
                 }
 
                 let impl_list = ctx.interface_impls.entry(iface_decl.clone()).or_default();
@@ -1960,16 +1961,18 @@ fn generate_constraints_expr(
                 // qualified interface method
                 // example: Clone.clone(my_struct)
                 //          ^^^^^^^^^
+                let fn_node_ty = TypeVar::from_node(ctx, fname.node());
                 if let Some(tyvar_from_iface_method) =
-                    tyvar_of_declaration(ctx, &decl, polyvar_scope.clone(), expr.node())
+                    tyvar_of_declaration(ctx, &decl, polyvar_scope.clone(), fname.node())
                 {
-                    constrain(ctx, node_ty.clone(), tyvar_from_iface_method.clone());
+                    constrain(ctx, fn_node_ty, tyvar_from_iface_method.clone());
                 }
 
                 generate_constraints_expr_funcap_helper(
                     ctx,
                     polyvar_scope.clone(),
-                    std::iter::once(receiver_expr).chain(args).cloned(),
+                    args.iter().cloned(),
+                    // std::iter::once(receiver_expr).chain(args).cloned(),
                     fname.node(),
                     expr.node(),
                     node_ty.clone(),

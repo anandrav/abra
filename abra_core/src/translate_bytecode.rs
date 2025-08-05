@@ -335,7 +335,14 @@ impl Translator {
                 | Declaration::MemberFunction { .. } => unimplemented!(),
                 Declaration::Enum { .. } => {}
 
-                Declaration::InterfaceDef(_) | Declaration::Array | Declaration::Polytype(_) => {
+                Declaration::InterfaceDef(_) => {
+                    // noop, does not exist at runtime
+                    //
+                    // Clone.clone(my_array)
+                    // ^^^^^
+                }
+
+                Declaration::Array | Declaration::Polytype(_) => {
                     unreachable!()
                 }
             },
