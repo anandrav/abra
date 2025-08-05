@@ -122,7 +122,7 @@ fn first(p: ('a, 'a)) -> 'a {
 }
 
 let one = first((1, 2))
-let one = str(one)
+let one = ToString.str(one)
 let two = first(("one", "two"))
 one & two
 "#;
@@ -629,7 +629,7 @@ s
 #[test]
 fn monomorphize_to_string_int() {
     let src = r#"
-str(123)
+ToString.str(123)
 "#;
     let program = unwrap_or_panic(compile_bytecode(
         "main.abra",
@@ -644,8 +644,8 @@ str(123)
 #[test]
 fn monomorphize_to_string_float() {
     let src = r#"
-str(123)
-str(123.456)
+ToString.str(123)
+ToString.str(123.456)
 "#;
     let program = unwrap_or_panic(compile_bytecode(
         "main.abra",
@@ -661,7 +661,7 @@ str(123.456)
 fn monomorphize_to_string_tuple_ints() {
     let src = r#"
 let nums = (1, 2, 3)
-str(nums)
+ToString.str(nums)
 "#;
     let program = unwrap_or_panic(compile_bytecode(
         "main.abra",

@@ -100,7 +100,7 @@ implement Clone for array<'a Clone> {
         let new: array<'a> = []
         var i = 0
         while i < array_length(arr) {
-            array_push(new, clone(arr[i]))
+            array_push(new, Clone.clone(arr[i]))
             i := i + 1
         }
         new
@@ -143,67 +143,67 @@ implement ToString for float {
 implement ToString for ('a ToString, 'b ToString) {
     fn str(p) {
         let (a, b) = p
-        "(" & str(a) & ", " & str(b) & ")"
+        "(" & ToString.str(a) & ", " & ToString.str(b) & ")"
     }
 }
 implement ToString for ('a ToString, 'b ToString, 'c ToString) {
     fn str(p) {
         let (a, b, c) = p
-        "(" & str(a) & ", " & str(b) & ", " & str(c) & ")"
+        "(" & ToString.str(a) & ", " & ToString.str(b) & ", " & ToString.str(c) & ")"
     }
 }
 implement ToString for ('a ToString, 'b ToString, 'c ToString, 'd ToString) {
     fn str(p) {
         let (a, b, c, d) = p
-        "(" & str(a) & ", " & str(b) & ", " & str(c) & ", " & str(d) & ")"
+        "(" & ToString.str(a) & ", " & ToString.str(b) & ", " & ToString.str(c) & ", " & ToString.str(d) & ")"
     }
 }
 implement ToString for ('a ToString, 'b ToString, 'c ToString, 'd ToString, 'e ToString) {
     fn str(p) {
         let (a, b, c, d, e) = p
-        "(" & str(a) & ", " & str(b) & ", " & str(c) & ", " & str(d) & ", " & str(e) & ")"
+        "(" & ToString.str(a) & ", " & ToString.str(b) & ", " & ToString.str(c) & ", " & ToString.str(d) & ", " & ToString.str(e) & ")"
     }
 }
 implement ToString for ('a ToString, 'b ToString, 'c ToString, 'd ToString, 'e ToString, 'f ToString) {
     fn str(p) {
         let (a, b, c, d, e, f) = p
-        "(" & str(a) & ", " & str(b) & ", " & str(c) & ", " & str(d) & ", " & str(e) & ", " & str(f) & ")"
+        "(" & ToString.str(a) & ", " & ToString.str(b) & ", " & ToString.str(c) & ", " & ToString.str(d) & ", " & ToString.str(e) & ", " & ToString.str(f) & ")"
     }
 }
 implement ToString for ('a ToString, 'b ToString, 'c ToString, 'd ToString, 'e ToString, 'f ToString, 'g ToString) {
     fn str(p) {
         let (a, b, c, d, e, f, g) = p
-        "(" & str(a) & ", " & str(b) & ", " & str(c) & ", " & str(d) & ", " & str(e) & ", " & str(f) & ", " & str(g) & ")"
+        "(" & ToString.str(a) & ", " & ToString.str(b) & ", " & ToString.str(c) & ", " & ToString.str(d) & ", " & ToString.str(e) & ", " & ToString.str(f) & ", " & ToString.str(g) & ")"
     }
 }
 implement ToString for ('a ToString, 'b ToString, 'c ToString, 'd ToString, 'e ToString, 'f ToString, 'g ToString, 'h ToString) {
     fn str(p) {
         let (a, b, c, d, e, f, g, h) = p
-        "(" & str(a) & ", " & str(b) & ", " & str(c) & ", " & str(d) & ", " & str(e) & ", " & str(f) & ", " & str(g) & ", " & str(h) & ")"
+        "(" & ToString.str(a) & ", " & ToString.str(b) & ", " & ToString.str(c) & ", " & ToString.str(d) & ", " & ToString.str(e) & ", " & ToString.str(f) & ", " & ToString.str(g) & ", " & ToString.str(h) & ")"
     }
 }
 implement ToString for ('a ToString, 'b ToString, 'c ToString, 'd ToString, 'e ToString, 'f ToString, 'g ToString, 'h ToString, 'i ToString) {
     fn str(p) {
         let (a, b, c, d, e, f, g, h, i) = p
-        "(" & str(a) & ", " & str(b) & ", " & str(c) & ", " & str(d) & ", " & str(e) & ", " & str(f) & ", " & str(g) & ", " & str(h) & ", " & str(i) & ")"
+        "(" & ToString.str(a) & ", " & ToString.str(b) & ", " & ToString.str(c) & ", " & ToString.str(d) & ", " & ToString.str(e) & ", " & ToString.str(f) & ", " & ToString.str(g) & ", " & ToString.str(h) & ", " & ToString.str(i) & ")"
     }
 }
 implement ToString for ('a ToString, 'b ToString, 'c ToString, 'd ToString, 'e ToString, 'f ToString, 'g ToString, 'h ToString, 'i ToString, 'j ToString) {
     fn str(p) {
         let (a, b, c, d, e, f, g, h, i, j) = p
-        "(" & str(a) & ", " & str(b) & ", " & str(c) & ", " & str(d) & ", " & str(e) & ", " & str(f) & ", " & str(g) & ", " & str(h) & ", " & str(i) & ", " & str(j) & ")"
+        "(" & ToString.str(a) & ", " & ToString.str(b) & ", " & ToString.str(c) & ", " & ToString.str(d) & ", " & ToString.str(e) & ", " & ToString.str(f) & ", " & ToString.str(g) & ", " & ToString.str(h) & ", " & ToString.str(i) & ", " & ToString.str(j) & ")"
     }
 }
 implement ToString for ('a ToString, 'b ToString, 'c ToString, 'd ToString, 'e ToString, 'f ToString, 'g ToString, 'h ToString, 'i ToString, 'j ToString, 'k ToString) {
     fn str(p) {
         let (a, b, c, d, e, f, g, h, i, j, k) = p
-        "(" & str(a) & ", " & str(b) & ", " & str(c) & ", " & str(d) & ", " & str(e) & ", " & str(f) & ", " & str(g) & ", " & str(h) & ", " & str(i) & ", " & str(j) & ", " & str(k) & ")"
+        "(" & ToString.str(a) & ", " & ToString.str(b) & ", " & ToString.str(c) & ", " & ToString.str(d) & ", " & ToString.str(e) & ", " & ToString.str(f) & ", " & ToString.str(g) & ", " & ToString.str(h) & ", " & ToString.str(i) & ", " & ToString.str(j) & ", " & ToString.str(k) & ")"
     }
 }
 implement ToString for ('a ToString, 'b ToString, 'c ToString, 'd ToString, 'e ToString, 'f ToString, 'g ToString, 'h ToString, 'i ToString, 'j ToString, 'k ToString, 'l ToString) {
     fn str(p) {
         let (a, b, c, d, e, f, g, h, i, j, k, l) = p
-        "(" & str(a) & ", " & str(b) & ", " & str(c) & ", " & str(d) & ", " & str(e) & ", " & str(f) & ", " & str(g) & ", " & str(h) & ", " & str(i) & ", " & str(j) & ", " & str(k) & ", " & str(l) & ")"
+        "(" & ToString.str(a) & ", " & ToString.str(b) & ", " & ToString.str(c) & ", " & ToString.str(d) & ", " & ToString.str(e) & ", " & ToString.str(f) & ", " & ToString.str(g) & ", " & ToString.str(h) & ", " & ToString.str(i) & ", " & ToString.str(j) & ", " & ToString.str(k) & ", " & ToString.str(l) & ")"
     }
 }
 
@@ -227,20 +227,20 @@ fn array_to_string_helper(arr: array<'a ToString>, idx: int) {
     if idx = l {
         ""
     } else if idx = l - 1 {
-        str(arr[idx])
+        ToString.str(arr[idx])
     } else {
-        str(arr[idx]) & ", " & array_to_string_helper(arr, idx + 1)
+        ToString.str(arr[idx]) & ", " & array_to_string_helper(arr, idx + 1)
     }
 }
 
-fn print(x: 'a ToString) { print_string(str(x)) }
+fn print(x: 'a ToString) { print_string(ToString.str(x)) }
 fn println(x: 'a ToString) {
-    print_string(str(x) & newline)
+    print_string(ToString.str(x) & newline)
 }
 
 fn format_append(s1: 'a ToString, s2: 'b ToString) {
-    let s3 = str(s1)
-    let s4 = str(s2)
+    let s3 = ToString.str(s1)
+    let s4 = ToString.str(s2)
     concat_strings(s3, s4)
 }
 

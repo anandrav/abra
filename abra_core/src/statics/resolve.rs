@@ -41,12 +41,9 @@ fn gather_declarations_file(ctx: &mut StaticsContext, file: Rc<FileAst>) -> Name
 }
 
 fn fullname(qualifiers: &[String], unqualified_name: &str) -> String {
-    if qualifiers.is_empty() {
-        return unqualified_name.to_string();
-    }
     let mut fullname = String::new();
-    for _ in 0..qualifiers.len() {
-        fullname.push_str(&qualifiers[0]);
+    for qualifier in qualifiers {
+        fullname.push_str(qualifier);
         fullname.push('.');
     }
     fullname.push_str(unqualified_name);
@@ -56,7 +53,7 @@ fn fullname(qualifiers: &[String], unqualified_name: &str) -> String {
 fn gather_declarations_item(
     ctx: &mut StaticsContext,
     namespace: &mut Namespace,
-    qualifiers: Vec<String>,
+    mut qualifiers: Vec<String>,
     _file: Rc<FileAst>,
     stmt: Rc<Item>,
 ) {
@@ -68,11 +65,9 @@ fn gather_declarations_item(
                 iface.name.v.clone(),
                 Declaration::InterfaceDef(iface.clone()),
             );
+            let mut iface_namespace = Namespace::new();
 
-            // TODO: after implementing member functions, put interface methods in a namespace named after the interface
-            // and call interface methods using the dot operator. my_struct.to_string() etc.
-            // or by fully qualifying the method and writing for example ToString.to_string(my_struct)
-            // Interface methods' FQN would therefore be Path.To.My.Interface.my_method for mangling purposes
+            qualifiers.push(iface.name.v.clone());
             for (i, p) in iface.methods.iter().enumerate() {
                 let method_name = p.name.v.clone();
                 let method = i as u16;
@@ -81,7 +76,7 @@ fn gather_declarations_item(
                 ctx.fully_qualified_names
                     .insert(p.name.id, fully_qualified_name);
 
-                namespace.add_declaration(
+                iface_namespace.add_declaration(
                     ctx,
                     method_name,
                     Declaration::InterfaceMethod {
@@ -90,6 +85,8 @@ fn gather_declarations_item(
                     },
                 );
             }
+
+            namespace.add_namespace(iface.name.v.clone(), iface_namespace.into());
         }
         ItemKind::InterfaceImpl(_) => {}
         ItemKind::Extension(_) => {

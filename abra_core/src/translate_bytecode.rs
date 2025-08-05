@@ -402,20 +402,22 @@ impl Translator {
                     );
                 };
                 match op {
-                    BinaryOperator::Add => helper(monomorph_env, "prelude.add"),
-                    BinaryOperator::Subtract => helper(monomorph_env, "prelude.subtract"),
-                    BinaryOperator::Multiply => helper(monomorph_env, "prelude.multiply"),
-                    BinaryOperator::Divide => helper(monomorph_env, "prelude.divide"),
-                    BinaryOperator::GreaterThan => helper(monomorph_env, "prelude.greater_than"),
-                    BinaryOperator::LessThan => helper(monomorph_env, "prelude.less_than"),
+                    BinaryOperator::Add => helper(monomorph_env, "prelude.Num.add"),
+                    BinaryOperator::Subtract => helper(monomorph_env, "prelude.Num.subtract"),
+                    BinaryOperator::Multiply => helper(monomorph_env, "prelude.Num.multiply"),
+                    BinaryOperator::Divide => helper(monomorph_env, "prelude.Num.divide"),
+                    BinaryOperator::GreaterThan => {
+                        helper(monomorph_env, "prelude.Num.greater_than")
+                    }
+                    BinaryOperator::LessThan => helper(monomorph_env, "prelude.Num.less_than"),
                     BinaryOperator::GreaterThanOrEqual => {
-                        helper(monomorph_env, "prelude.greater_than_or_equal")
+                        helper(monomorph_env, "prelude.Num.greater_than_or_equal")
                     }
                     BinaryOperator::LessThanOrEqual => {
-                        helper(monomorph_env, "prelude.less_than_or_equal")
+                        helper(monomorph_env, "prelude.Num.less_than_or_equal")
                     }
                     BinaryOperator::Equal => {
-                        helper(monomorph_env, "prelude.equal");
+                        helper(monomorph_env, "prelude.Equal.equal");
                     }
                     BinaryOperator::Format => {
                         let format_append_decl = self
@@ -441,7 +443,7 @@ impl Translator {
                     }
                     BinaryOperator::Or => self.emit(st, Instr::Or),
                     BinaryOperator::And => self.emit(st, Instr::And),
-                    BinaryOperator::Pow => helper(monomorph_env, "prelude.power"),
+                    BinaryOperator::Pow => helper(monomorph_env, "prelude.Num.power"),
                     BinaryOperator::Mod => self.emit(st, Instr::Modulo),
                 }
             }
