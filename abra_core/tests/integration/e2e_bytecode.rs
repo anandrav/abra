@@ -1246,8 +1246,22 @@ extend Person {
 	}
 }
 
+type Color =
+| Red
+| Blue
+| Green
+
+extend Color {
+  fn shout(self) -> string {
+    match self {
+      .Red -> "red!",
+      _ -> "not red!",
+    }
+  }
+}
+
 let p: Person = Person("Anand", "Dukkipati", 26)
-Person.fullname(p)
+Person.fullname(p) & " " & Color.shout(Color.Red)
 
 "#;
     let program = unwrap_or_panic(compile_bytecode(
@@ -1257,7 +1271,7 @@ Person.fullname(p)
     let mut vm = Vm::new(program);
     vm.run();
     let top = vm.top().unwrap();
-    assert_eq!(top.get_string(&vm).unwrap(), "Anand Dukkipati");
+    assert_eq!(top.get_string(&vm).unwrap(), "Anand Dukkipati red!");
 }
 
 #[test]

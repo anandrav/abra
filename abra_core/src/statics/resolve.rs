@@ -812,8 +812,18 @@ fn resolve_names_member_helper(ctx: &mut StaticsContext, expr: Rc<Expr>, field: 
                 }
             }
             Declaration::Enum(enum_def) => {
-                // TODO: handle member functions like structs above
                 let mut found = false;
+                if let Some(member_functions) =
+                    ctx.member_functions.get(&Nominal::Enum(enum_def.clone()))
+                {
+                    for (name, def) in member_functions {
+                        if *name == field.v {
+                            ctx.resolution_map
+                                .insert(field.id, Declaration::MemberFunction { f: def.clone() });
+                            found = true;
+                        }
+                    }
+                }
                 for (idx, variant) in enum_def.variants.iter().enumerate() {
                     if variant.ctor.v == field.v {
                         let enum_def = enum_def.clone();
