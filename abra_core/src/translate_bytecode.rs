@@ -328,16 +328,19 @@ impl Translator {
                         },
                     );
                 }
-                Declaration::Struct(_)
-                | Declaration::_ForeignFunction { .. }
+
+                Declaration::_ForeignFunction { .. }
                 | Declaration::HostFunction(..)
                 | Declaration::InterfaceMethod { .. }
                 | Declaration::MemberFunction { .. } => unimplemented!(),
-                Declaration::Enum { .. } => {}
 
-                Declaration::InterfaceDef(_) => {
+                Declaration::Struct(_)
+                | Declaration::Enum { .. }
+                | Declaration::InterfaceDef(_) => {
                     // noop, does not exist at runtime
                     //
+                    // Person.fullname(my_person)
+                    // ^^^^^
                     // Clone.clone(my_array)
                     // ^^^^^
                 }

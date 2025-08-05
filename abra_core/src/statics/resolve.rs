@@ -770,7 +770,6 @@ fn resolve_names_member_helper(ctx: &mut StaticsContext, expr: Rc<Expr>, field: 
             | Declaration::EnumVariant { .. }
             | Declaration::Polytype(_)
             | Declaration::Builtin(_)
-            | Declaration::Struct(_)
             | Declaration::Array => {
                 ctx.errors
                     .push(Error::UnresolvedIdentifier { node: field.node() });
@@ -794,7 +793,26 @@ fn resolve_names_member_helper(ctx: &mut StaticsContext, expr: Rc<Expr>, field: 
                         .push(Error::UnresolvedIdentifier { node: field.node() });
                 }
             }
+            Declaration::Struct(struct_def) => {
+                let mut found = false;
+                if let Some(member_functions) =
+                    ctx.member_functions.get(&Nominal::Struct(struct_def))
+                {
+                    for (name, def) in member_functions {
+                        if *name == field.v {
+                            ctx.resolution_map
+                                .insert(field.id, Declaration::MemberFunction { f: def.clone() });
+                            found = true;
+                        }
+                    }
+                }
+                if !found {
+                    ctx.errors
+                        .push(Error::UnresolvedIdentifier { node: field.node() });
+                }
+            }
             Declaration::Enum(enum_def) => {
+                // TODO: handle member functions like structs above
                 let mut found = false;
                 for (idx, variant) in enum_def.variants.iter().enumerate() {
                     if variant.ctor.v == field.v {

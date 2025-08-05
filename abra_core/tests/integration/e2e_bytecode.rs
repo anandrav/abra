@@ -1232,6 +1232,35 @@ p.fullname() & " " & c.fullname()
 }
 
 #[test]
+fn member_function_fully_qualified() {
+    let src = r#"
+type Person = {
+	first_name: string
+	last_name: string
+	age: int
+}
+
+extend Person {
+	fn fullname(self) -> string {
+		self.first_name & " " & self.last_name
+	}
+}
+
+let p: Person = Person("Anand", "Dukkipati", 26)
+Person.fullname(p)
+
+"#;
+    let program = unwrap_or_panic(compile_bytecode(
+        "main.abra",
+        MockFileProvider::single_file(src),
+    ));
+    let mut vm = Vm::new(program);
+    vm.run();
+    let top = vm.top().unwrap();
+    assert_eq!(top.get_string(&vm).unwrap(), "Anand Dukkipati");
+}
+
+#[test]
 fn clone_array() {
     let src = r#"
 let blah = [1, 2, 3, 4, 5]
