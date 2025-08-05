@@ -850,32 +850,39 @@ fn tyvar_of_declaration(
 
             let the_variant = &enum_def.variants[*variant as usize];
             match &the_variant.data {
-                None => Some(def_type),
-                Some(ty) => match &*ty.kind {
-                    TypeKind::Unit => Some(def_type),
-                    TypeKind::Tuple(elems) => {
-                        let args = elems
-                            .iter()
-                            .map(|e| {
-                                let e = ast_type_to_typevar(ctx, e.clone());
-                                e.clone().subst(&substitution)
-                            })
-                            .collect();
-                        Some(TypeVar::make_func(
-                            args,
-                            def_type,
-                            Reason::Node(node.clone()),
-                        ))
+                None => {
+                    // TODO: only this path is used. does it make sense to have the dead code below?
+                    Some(def_type)
+                }
+                Some(ty) => {
+                    // TODO: this path is never taken by the unit tests.
+                    match &*ty.kind {
+                        TypeKind::Unit => Some(def_type),
+                        TypeKind::Tuple(elems) => {
+                            let args = elems
+                                .iter()
+                                .map(|e| {
+                                    let e = ast_type_to_typevar(ctx, e.clone());
+                                    e.clone().subst(&substitution)
+                                })
+                                .collect();
+                            Some(TypeVar::make_func(
+                                args,
+                                def_type,
+                                Reason::Node(node.clone()),
+                            ))
+                        }
+                        _ => {
+                            // TODO: this path is never taken by the unit tests.
+                            let ty = ast_type_to_typevar(ctx, ty.clone());
+                            Some(TypeVar::make_func(
+                                vec![ty.clone().subst(&substitution)],
+                                def_type,
+                                Reason::Node(node.clone()),
+                            ))
+                        }
                     }
-                    _ => {
-                        let ty = ast_type_to_typevar(ctx, ty.clone());
-                        Some(TypeVar::make_func(
-                            vec![ty.clone().subst(&substitution)],
-                            def_type,
-                            Reason::Node(node.clone()),
-                        ))
-                    }
-                },
+                }
             }
         }
         Declaration::Struct(struct_def) => {
@@ -1931,14 +1938,12 @@ fn generate_constraints_expr(
                 // qualified enum variant
                 // example: list.cons(5, nil)
                 //          ^^^^^^^^^
-                // arguments
                 let (tyvar_from_enum, _) = TypeVar::make_nominal_with_substitution(
                     ctx,
                     Reason::Node(receiver_expr.node()),
                     Nominal::Enum(enum_def.clone()),
                     receiver_expr.node(),
                 );
-                // TODO: ^use tyvar_of_declaration here?? idk
                 constrain(ctx, node_ty.clone(), tyvar_from_enum.clone());
 
                 generate_constraints_expr_funcap_helper(
@@ -1949,10 +1954,26 @@ fn generate_constraints_expr(
                     expr.node(),
                     node_ty.clone(),
                 );
-            } else if let Some(Declaration::InterfaceMethod { i, method }) =
+            } else if let Some(ref decl @ Declaration::InterfaceMethod { .. }) =
                 ctx.resolution_map.get(&fname.id).cloned()
             {
-                todo!();
+                // qualified interface method
+                // example: Clone.clone(my_struct)
+                //          ^^^^^^^^^
+                if let Some(tyvar_from_iface_method) =
+                    tyvar_of_declaration(ctx, &decl, polyvar_scope.clone(), expr.node())
+                {
+                    constrain(ctx, node_ty.clone(), tyvar_from_iface_method.clone());
+                }
+
+                generate_constraints_expr_funcap_helper(
+                    ctx,
+                    polyvar_scope.clone(),
+                    std::iter::once(receiver_expr).chain(args).cloned(),
+                    fname.node(),
+                    expr.node(),
+                    node_ty.clone(),
+                );
             } else {
                 // member function call
                 // example: arr.push(6)
