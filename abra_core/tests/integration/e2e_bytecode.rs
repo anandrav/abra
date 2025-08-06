@@ -1275,6 +1275,39 @@ Person.fullname(p) & " " & Color.shout(Color.Red)
 }
 
 #[test]
+fn interface_method_fully_qualified() {
+    let src = r#"
+let blah = 12345
+ToString.str(blah)
+"#;
+    let program = unwrap_or_panic(compile_bytecode(
+        "main.abra",
+        MockFileProvider::single_file(src),
+    ));
+    let mut vm = Vm::new(program);
+    vm.run();
+    let top = vm.top().unwrap();
+    assert_eq!(top.get_string(&vm).unwrap(), "12345");
+}
+
+#[ignore]
+#[test]
+fn interface_method_dot_syntax() {
+    let src = r#"
+let blah = 12345
+blah.str()
+"#;
+    let program = unwrap_or_panic(compile_bytecode(
+        "main.abra",
+        MockFileProvider::single_file(src),
+    ));
+    let mut vm = Vm::new(program);
+    vm.run();
+    let top = vm.top().unwrap();
+    assert_eq!(top.get_string(&vm).unwrap(), "12345");
+}
+
+#[test]
 fn clone_array() {
     let src = r#"
 let blah = [1, 2, 3, 4, 5]
