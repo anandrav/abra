@@ -160,7 +160,7 @@ fn update(st: State) {
   let width = st.width
   let height = st.height
 
-  let new_head = Clone.clone(snake.body[0])
+  let new_head = snake.body[0].clone()
   match snake.direction {
     .Up -> new_head.y := new_head.y - 1,
     .Down -> new_head.y := new_head.y + 1,

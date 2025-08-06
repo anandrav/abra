@@ -6,8 +6,8 @@ use super::{Declaration, Error, Namespace, StaticsContext};
 #[cfg(feature = "ffi")]
 use crate::addons::make_foreign_func_name;
 use crate::ast::{
-    ArgMaybeAnnotated, AstNode, Expr, ExprKind, FileAst, Identifier, ImportList, Item, ItemKind,
-    NodeId, Pat, PatKind, Polytype, Stmt, StmtKind, Type, TypeDefKind, TypeKind,
+    ArgMaybeAnnotated, AstNode, Expr, ExprKind, FileAst, FuncDef, Identifier, ImportList, Item,
+    ItemKind, NodeId, Pat, PatKind, Polytype, Stmt, StmtKind, Type, TypeDefKind, TypeKind,
 };
 use crate::builtin::Builtin;
 use crate::statics::typecheck::Nominal;
@@ -497,23 +497,7 @@ fn resolve_names_item_decl(ctx: &mut StaticsContext, symbol_table: SymbolTable, 
                             i: iface_decl.clone(),
                             method: m as u16,
                         };
-                        match ctx
-                            .member_functions
-                            .entry(nom.clone())
-                            .or_default()
-                            .entry(f.name.v.clone())
-                        {
-                            std::collections::hash_map::Entry::Occupied(occupied_entry) => {
-                                ctx.errors.push(Error::NameClash {
-                                    name: f.name.v.clone(),
-                                    original: occupied_entry.get().clone(),
-                                    new: method_decl,
-                                })
-                            }
-                            std::collections::hash_map::Entry::Vacant(vacant_entry) => {
-                                vacant_entry.insert(method_decl);
-                            }
-                        }
+                        try_add_member_function(ctx, nom.clone(), f.clone(), method_decl);
                     }
                 };
             let helper = |ctx: &mut StaticsContext, id| {
@@ -578,23 +562,7 @@ fn resolve_names_item_decl(ctx: &mut StaticsContext, symbol_table: SymbolTable, 
                 |ctx: &mut StaticsContext, nom: Nominal| {
                     for f in &ext.methods {
                         let method_decl = Declaration::MemberFunction { f: f.clone() };
-                        match ctx
-                            .member_functions
-                            .entry(nom.clone())
-                            .or_default()
-                            .entry(f.name.v.clone())
-                        {
-                            std::collections::hash_map::Entry::Occupied(occupied_entry) => {
-                                ctx.errors.push(Error::NameClash {
-                                    name: f.name.v.clone(),
-                                    original: occupied_entry.get().clone(),
-                                    new: method_decl,
-                                })
-                            }
-                            std::collections::hash_map::Entry::Vacant(vacant_entry) => {
-                                vacant_entry.insert(method_decl);
-                            }
-                        }
+                        try_add_member_function(ctx, nom.clone(), f.clone(), method_decl);
                     }
                 };
             let helper = |ctx: &mut StaticsContext, id| {
@@ -658,6 +626,31 @@ fn resolve_names_item_decl(ctx: &mut StaticsContext, symbol_table: SymbolTable, 
             }
         },
         ItemKind::Stmt(..) => {}
+    }
+}
+
+fn try_add_member_function(
+    ctx: &mut StaticsContext,
+    nom: Nominal,
+    f: Rc<FuncDef>,
+    method_decl: Declaration,
+) {
+    match ctx
+        .member_functions
+        .entry(nom)
+        .or_default()
+        .entry(f.name.v.clone())
+    {
+        std::collections::hash_map::Entry::Occupied(occupied_entry) => {
+            ctx.errors.push(Error::NameClash {
+                name: f.name.v.clone(),
+                original: occupied_entry.get().clone(),
+                new: method_decl,
+            })
+        }
+        std::collections::hash_map::Entry::Vacant(vacant_entry) => {
+            vacant_entry.insert(method_decl);
+        }
     }
 }
 
