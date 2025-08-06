@@ -53,7 +53,7 @@ pub(crate) struct StaticsContext {
     // map from interface name to list of its implementations
     pub(crate) interface_impls: HashMap<Rc<InterfaceDecl>, Vec<Rc<InterfaceImpl>>>,
     // map from type definition to linked member functions
-    pub(crate) member_functions: HashMap<Nominal, HashMap<String, Rc<FuncDef>>>,
+    pub(crate) member_functions: HashMap<Nominal, HashMap<String, Declaration>>,
 
     // string constants (for bytecode translation)
     pub(crate) string_constants: IdSet<String>,

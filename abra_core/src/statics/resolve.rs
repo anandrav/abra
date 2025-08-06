@@ -479,6 +479,72 @@ fn resolve_names_item_decl(ctx: &mut StaticsContext, symbol_table: SymbolTable, 
             for f in &iface_impl.methods {
                 resolve_names_func_helper(ctx, symbol_table.clone(), &f.args, &f.body, &f.ret_type);
             }
+
+            // TODO: heavily duplicated with the logic below for Extension
+            // In this pass, we also gather the declarations of member functions
+            // We don't gather declarations of member functions in the same pass as gathering type definitions, because
+            // the former depends on the latter
+            let Some(Declaration::InterfaceDef(iface_decl)) =
+                ctx.resolution_map.get(&iface_impl.iface.id).cloned()
+            else {
+                // TODO: log error when implementee is not an Interface
+                return;
+            };
+            let gather_declarations_memberfuncs_helper =
+                |ctx: &mut StaticsContext, nom: Nominal| {
+                    for (m, f) in iface_impl.methods.iter().enumerate() {
+                        let method_decl = Declaration::InterfaceMethod {
+                            i: iface_decl.clone(),
+                            method: m as u16,
+                        };
+                        match ctx
+                            .member_functions
+                            .entry(nom.clone())
+                            .or_default()
+                            .entry(f.name.v.clone())
+                        {
+                            std::collections::hash_map::Entry::Occupied(occupied_entry) => {
+                                ctx.errors.push(Error::NameClash {
+                                    name: f.name.v.clone(),
+                                    original: occupied_entry.get().clone(),
+                                    new: method_decl,
+                                })
+                            }
+                            std::collections::hash_map::Entry::Vacant(vacant_entry) => {
+                                vacant_entry.insert(method_decl);
+                            }
+                        }
+                    }
+                };
+            let helper = |ctx: &mut StaticsContext, id| {
+                if let Some(decl) = ctx.resolution_map.get(&id).cloned() {
+                    match decl {
+                        Declaration::Struct(struct_def) => {
+                            gather_declarations_memberfuncs_helper(ctx, Nominal::Struct(struct_def))
+                        }
+                        Declaration::Enum(enum_def) => {
+                            gather_declarations_memberfuncs_helper(ctx, Nominal::Enum(enum_def))
+                        }
+                        Declaration::Array => {
+                            gather_declarations_memberfuncs_helper(ctx, Nominal::Array)
+                        }
+                        _ => ctx.errors.push(Error::MustExtendStructOrEnum {
+                            node: iface_impl.typ.node(),
+                        }),
+                    }
+                }
+            };
+            match &*iface_impl.typ.kind {
+                TypeKind::Named(_) => {
+                    let id = iface_impl.typ.id;
+                    helper(ctx, id)
+                }
+                TypeKind::NamedWithParams(ident, _) => {
+                    let id = ident.id;
+                    helper(ctx, id);
+                }
+                _ => {}
+            }
         }
         ItemKind::Extension(ext) => {
             let symbol_table = symbol_table.new_scope();
@@ -505,13 +571,13 @@ fn resolve_names_item_decl(ctx: &mut StaticsContext, symbol_table: SymbolTable, 
                 resolve_names_func_helper(ctx, symbol_table.clone(), &f.args, &f.body, &f.ret_type);
             }
 
-            // TODO: THIS LOGIC NEEDS TO BE REUSED FOR INTERFACE METHODS, WHICH WILL ALSO BE MEMBER FUNCTIONS
             // In this pass, we also gather the declarations of member functions
             // We don't gather declarations of member functions in the same pass as gathering type definitions, because
             // the former depends on the latter
             let gather_declarations_memberfuncs_helper =
                 |ctx: &mut StaticsContext, nom: Nominal| {
                     for f in &ext.methods {
+                        let method_decl = Declaration::MemberFunction { f: f.clone() };
                         match ctx
                             .member_functions
                             .entry(nom.clone())
@@ -521,14 +587,12 @@ fn resolve_names_item_decl(ctx: &mut StaticsContext, symbol_table: SymbolTable, 
                             std::collections::hash_map::Entry::Occupied(occupied_entry) => {
                                 ctx.errors.push(Error::NameClash {
                                     name: f.name.v.clone(),
-                                    original: Declaration::FreeFunction(
-                                        occupied_entry.get().clone(), // gross
-                                    ),
-                                    new: Declaration::FreeFunction(f.clone()),
+                                    original: occupied_entry.get().clone(),
+                                    new: method_decl,
                                 })
                             }
                             std::collections::hash_map::Entry::Vacant(vacant_entry) => {
-                                vacant_entry.insert(f.clone());
+                                vacant_entry.insert(method_decl);
                             }
                         }
                     }
@@ -793,8 +857,7 @@ fn resolve_names_member_helper(ctx: &mut StaticsContext, expr: Rc<Expr>, field: 
                 {
                     for (name, def) in member_functions {
                         if *name == field.v {
-                            ctx.resolution_map
-                                .insert(field.id, Declaration::MemberFunction { f: def.clone() });
+                            ctx.resolution_map.insert(field.id, def.clone());
                             found = true;
                         }
                     }
@@ -811,8 +874,7 @@ fn resolve_names_member_helper(ctx: &mut StaticsContext, expr: Rc<Expr>, field: 
                 {
                     for (name, def) in member_functions {
                         if *name == field.v {
-                            ctx.resolution_map
-                                .insert(field.id, Declaration::MemberFunction { f: def.clone() });
+                            ctx.resolution_map.insert(field.id, def.clone());
                             found = true;
                         }
                     }

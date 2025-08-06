@@ -2011,7 +2011,7 @@ fn generate_constraints_expr(
                     {
                         match &solved_ty {
                             SolvedType::Nominal(nom, _) => {
-                                if let Some(func) = ctx
+                                if let Some(memfn_decl) = ctx
                                     .member_functions
                                     .get(nom)
                                     .and_then(|m| m.get(&fname.v))
@@ -2021,8 +2021,6 @@ fn generate_constraints_expr(
                                     // it's basically creating the type of the member function using
                                     // the member function declaration, then constraining that to the
                                     // type of the AST node for the identifier in this MemberFuncAp
-                                    let memfn_decl =
-                                        Declaration::MemberFunction { f: func.clone() };
                                     ctx.resolution_map.insert(fname.id, memfn_decl.clone());
                                     let memfn_node_ty = TypeVar::from_node(ctx, fname.node());
                                     if let Some(memfn_decl_ty) = tyvar_of_declaration(
