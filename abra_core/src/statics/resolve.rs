@@ -490,29 +490,22 @@ fn resolve_names_item_decl(ctx: &mut StaticsContext, symbol_table: SymbolTable, 
                 // TODO: log error when implementee is not an Interface
                 todo!();
             };
-            let gather_declarations_memberfuncs_helper =
-                |ctx: &mut StaticsContext, type_key: TypeKey| {
-                    for (m, f) in iface_impl.methods.iter().enumerate() {
-                        let method_decl = Declaration::InterfaceMethod {
-                            i: iface_decl.clone(),
-                            method: m as u16,
-                        };
-                        try_add_member_function(ctx, type_key.clone(), f.clone(), method_decl);
-                    }
-                };
-            let helper = |ctx: &mut StaticsContext, id| {
-                if let Some(decl) = ctx.resolution_map.get(&id).cloned() {
-                    match &decl.to_type_key() {
-                        Some(type_key) => {
-                            gather_declarations_memberfuncs_helper(ctx, type_key.clone())
+            if let Some(decl) = ctx.resolution_map.get(&iface_impl.typ.id).cloned() {
+                match &decl.to_type_key() {
+                    Some(type_key) => {
+                        for (m, f) in iface_impl.methods.iter().enumerate() {
+                            let method_decl = Declaration::InterfaceMethod {
+                                i: iface_decl.clone(),
+                                method: m as u16,
+                            };
+                            try_add_member_function(ctx, type_key.clone(), f.clone(), method_decl);
                         }
-                        _ => ctx.errors.push(Error::MustExtendType {
-                            node: iface_impl.typ.node(),
-                        }),
                     }
+                    _ => ctx.errors.push(Error::MustExtendType {
+                        node: iface_impl.typ.node(),
+                    }),
                 }
-            };
-            helper(ctx, iface_impl.typ.id)
+            }
         }
         ItemKind::Extension(ext) => {
             let symbol_table = symbol_table.new_scope();
@@ -542,26 +535,19 @@ fn resolve_names_item_decl(ctx: &mut StaticsContext, symbol_table: SymbolTable, 
             // In this pass, we also gather the declarations of member functions
             // We don't gather declarations of member functions in the same pass as gathering type definitions, because
             // the former depends on the latter
-            let gather_declarations_memberfuncs_helper =
-                |ctx: &mut StaticsContext, type_key: TypeKey| {
-                    for f in &ext.methods {
-                        let method_decl = Declaration::MemberFunction { f: f.clone() };
-                        try_add_member_function(ctx, type_key.clone(), f.clone(), method_decl);
-                    }
-                };
-            let helper = |ctx: &mut StaticsContext, id| {
-                if let Some(decl) = ctx.resolution_map.get(&id).cloned() {
-                    match &decl.to_type_key() {
-                        Some(type_key) => {
-                            gather_declarations_memberfuncs_helper(ctx, type_key.clone())
+            if let Some(decl) = ctx.resolution_map.get(&ext.typ.id).cloned() {
+                match &decl.to_type_key() {
+                    Some(type_key) => {
+                        for f in &ext.methods {
+                            let method_decl = Declaration::MemberFunction { f: f.clone() };
+                            try_add_member_function(ctx, type_key.clone(), f.clone(), method_decl);
                         }
-                        _ => ctx.errors.push(Error::MustExtendType {
-                            node: ext.typ.node(),
-                        }),
                     }
+                    _ => ctx.errors.push(Error::MustExtendType {
+                        node: ext.typ.node(),
+                    }),
                 }
-            };
-            helper(ctx, ext.typ.id)
+            }
         }
         ItemKind::Import(..) => {}
         ItemKind::TypeDef(tydef) => match &**tydef {
