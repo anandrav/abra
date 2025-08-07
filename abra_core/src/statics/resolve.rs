@@ -512,16 +512,7 @@ fn resolve_names_item_decl(ctx: &mut StaticsContext, symbol_table: SymbolTable, 
                     }
                 }
             };
-            match &*iface_impl.typ.kind {
-                TypeKind::NamedWithParams(ident, _) => {
-                    let id = ident.id;
-                    helper(ctx, id);
-                }
-                _ => {
-                    let id = iface_impl.typ.id;
-                    helper(ctx, id)
-                } // _ => {}
-            }
+            helper(ctx, iface_impl.typ.id)
         }
         ItemKind::Extension(ext) => {
             let symbol_table = symbol_table.new_scope();
@@ -570,19 +561,7 @@ fn resolve_names_item_decl(ctx: &mut StaticsContext, symbol_table: SymbolTable, 
                     }
                 }
             };
-            match &*ext.typ.kind {
-                TypeKind::Named(_) => {
-                    let id = ext.typ.id;
-                    helper(ctx, id)
-                }
-                TypeKind::NamedWithParams(ident, _) => {
-                    let id = ident.id;
-                    helper(ctx, id);
-                }
-                _ => ctx.errors.push(Error::MustExtendType {
-                    node: ext.typ.node(),
-                }),
-            }
+            helper(ctx, ext.typ.id)
         }
         ItemKind::Import(..) => {}
         ItemKind::TypeDef(tydef) => match &**tydef {
@@ -990,6 +969,8 @@ fn resolve_names_typ(
             resolve_symbol(ctx, &symbol_table, identifier, typ.node());
         }
         TypeKind::NamedWithParams(identifier, args) => {
+            // the Type node and the Identifier node should both resolve to the same thing
+            resolve_symbol(ctx, &symbol_table, &identifier.v, typ.node());
             resolve_identifier(ctx, &symbol_table, identifier);
 
             for arg in args {
