@@ -254,7 +254,7 @@ interface Iterate {
 interface Iterator {
     associatedtype Item
 
-    fn next: () -> Maybe<Item,void>
+    fn next: () -> maybe<Item,void>
 }
 
 // implement Iterate for array<'T> {
