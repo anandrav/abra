@@ -689,10 +689,43 @@ pub(crate) fn parse_item(pair: Pair<Rule>, file_id: FileId) -> Rc<Item> {
             let name: String = inner[0].as_str().to_string();
             let mut n = 1;
             let mut props = vec![];
+            let mut associated_types = vec![];
             while let Some(pair) = inner.get(n) {
-                let method = parse_interface_method(pair.clone(), file_id);
-                props.push(Rc::new(method));
-                n += 1;
+                let rule = pair.as_rule();
+                let span = pair.as_span();
+                let inner: Vec<_> = pair.clone().into_inner().collect();
+                match rule {
+                    Rule::interface_method => {
+                        let name = inner[0].as_str().to_string();
+                        let inner_loc = Location::new(file_id, inner[0].as_span());
+                        let ty = parse_type_term(inner[1].clone(), file_id);
+                        let method = InterfaceMethodDecl {
+                            name: Identifier {
+                                v: name,
+                                loc: inner_loc,
+                                id: NodeId::new(),
+                            }
+                            .into(),
+                            ty,
+                            id: NodeId::new(),
+                            loc: Location::new(file_id, span),
+                        };
+                        props.push(Rc::new(method));
+                        n += 1;
+                    }
+                    Rule::associated_type_decl => {
+                        let name = inner[0].as_str().to_string();
+                        let inner_loc = Location::new(file_id, inner[0].as_span());
+                        let associatedtype = Identifier {
+                            v: name,
+                            loc: inner_loc,
+                            id: NodeId::new(),
+                        };
+                        associated_types.push(Rc::new(associatedtype));
+                        n += 1;
+                    }
+                    _ => unreachable!("unreachable rule {rule:#?}"),
+                }
             }
             Rc::new(Item {
                 kind: ItemKind::InterfaceDef(
@@ -704,6 +737,7 @@ pub(crate) fn parse_item(pair: Pair<Rule>, file_id: FileId) -> Rc<Item> {
                         }
                         .into(),
                         methods: props,
+                        associated_types,
                     }
                     .into(),
                 )
@@ -941,31 +975,6 @@ pub(crate) fn parse_stmt(pair: Pair<Rule>, file_id: FileId) -> Rc<Stmt> {
                 loc: span,
                 id: NodeId::new(),
             })
-        }
-        _ => panic!("unreachable rule {rule:#?}"),
-    }
-}
-
-pub(crate) fn parse_interface_method(pair: Pair<Rule>, file_id: FileId) -> InterfaceMethodDecl {
-    let rule = pair.as_rule();
-    let span = pair.as_span();
-    let inner: Vec<_> = pair.into_inner().collect();
-    match rule {
-        Rule::interface_property => {
-            let name = inner[0].as_str().to_string();
-            let inner_loc = Location::new(file_id, inner[0].as_span());
-            let ty = parse_type_term(inner[1].clone(), file_id);
-            InterfaceMethodDecl {
-                name: Identifier {
-                    v: name,
-                    loc: inner_loc,
-                    id: NodeId::new(),
-                }
-                .into(),
-                ty,
-                id: NodeId::new(),
-                loc: Location::new(file_id, span),
-            }
         }
         _ => panic!("unreachable rule {rule:#?}"),
     }

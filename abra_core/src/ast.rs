@@ -344,7 +344,7 @@ pub(crate) enum ItemKind {
     HostFuncDecl(Rc<FuncDecl>),
     FuncDef(Rc<FuncDef>),
     TypeDef(Rc<TypeDefKind>),
-    InterfaceDef(Rc<InterfaceDecl>),
+    InterfaceDef(Rc<InterfaceDecl>), // TODO: change names to match
     InterfaceImpl(Rc<InterfaceImpl>),
     Extension(Rc<Extension>),
     Import(Rc<Identifier>, Option<ImportList>),
@@ -411,6 +411,7 @@ pub(crate) struct FuncDecl {
 pub(crate) struct InterfaceDecl {
     pub(crate) name: Rc<Identifier>,
     pub(crate) methods: Vec<Rc<InterfaceMethodDecl>>,
+    pub(crate) associated_types: Vec<Rc<Identifier>>,
 }
 
 #[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq)]
@@ -484,7 +485,7 @@ impl Expr {
 #[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq, Hash)]
 pub(crate) enum ExprKind {
     Variable(String),
-    Unit,
+    Unit, // TODO: rename to Void
     Int(i64),
     Float(String), // Float is represented as String to allow Eq and Hash
     Bool(bool),

@@ -244,6 +244,36 @@ fn format_append(s1: 'a ToString, s2: 'b ToString) {
     concat_strings(s3, s4)
 }
 
+interface Iterate {
+    associatedtype Item
+    associatedtype MyIterator // impl Iterator<Item=Item>
+
+    fn make_iterator: () -> MyIterator
+}
+
+interface Iterator {
+    associatedtype Item
+
+    fn next: () -> Item
+}
+
+// implement Iterate for array<'T> {
+//     fn make_iterator(self) -> ArrayIterator<T> {
+//         ArrayIterator(self, 0)
+//     }
+// }
+
+// type ArrayIterator<'T> {
+//     arr: array<T>
+//     i: int
+// }
+//
+// implement Iterator for ArrayIterator<'T> {
+//     fn next(self) -> ArrayIterator<T> {
+//         self.i := self.i + 1
+//     }
+// }
+
 extend array<'a Equal> {
     fn find(self: array<'a Equal>, x: 'a Equal) -> maybe<int, void> {
         var i = 0

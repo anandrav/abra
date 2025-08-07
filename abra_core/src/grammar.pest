@@ -24,7 +24,9 @@ path = @{ identifier ~ ("/" ~ identifier)* }
 
 interface_declaration = { "interface" ~ identifier ~ interface_body }
 interface_body = _{ "{" ~ interface_property* ~ "}" }
-interface_property = { func_keyword ~ identifier ~ type_annotation }
+interface_property = _{ interface_method | associated_type_decl }
+interface_method = { "fn" ~ identifier ~ type_annotation }
+associated_type_decl = { "associatedtype" ~ identifier }
 
 interface_implementation = { "implement" ~ identifier ~ "for" ~ typ ~ interface_implementation_body }
 interface_implementation_body = _{ "{" ~ func_def* ~ "}" }
@@ -36,7 +38,6 @@ enum_declaration = { "type" ~ identifier ~ type_params? ~ "=" ~ ("|")? ~ variant
 type_params = _{ "<" ~ (type_poly ~ ",")* ~ type_poly? ~ ">" }
 variant = { identifier ~ packed_data? }
 packed_data = _{ "of" ~ typ }
-
 
 struct_declaration = { "type" ~ identifier ~ type_params? ~ "=" ~ "{" ~ struct_field ~ (struct_field)* ~ "}" }
 struct_field = { identifier ~ type_annotation }
@@ -61,12 +62,11 @@ set_statement = { expression ~ ":=" ~ expression }
 continue_statement = { "continue" }
 break_statement = { "break" }
 
-func_def = { func_keyword ~ identifier ~ func_args ~ func_out_annotation? ~ (block_expression | (op_assign ~ expression)) }
-func_keyword = _{ "fn" }
+func_def = { "fn" ~ identifier ~ func_args ~ func_out_annotation? ~ (block_expression | (op_assign ~ expression)) }
 
-foreign_func_decl = { "foreign" ~ func_keyword ~ identifier ~ func_args_annotated ~ func_out_annotation }
+foreign_func_decl = { "foreign fn" ~ identifier ~ func_args_annotated ~ func_out_annotation }
 
-host_func_decl = { "host" ~ func_keyword ~ identifier ~ func_args_annotated ~ func_out_annotation }
+host_func_decl = { "host fn" ~ identifier ~ func_args_annotated ~ func_out_annotation }
 
 let_pattern_tuple = { tuple_start ~ (let_pattern_tuple_element ~ ",")+ ~ let_pattern_tuple_element ~ tuple_end }
 let_pattern_tuple_element = _{ let_pattern }
@@ -133,18 +133,18 @@ let_pattern_annotated = { let_pattern ~ type_annotation? }
 type_annotation = _{ ":" ~ typ }
 // typ = { type_term ~ (type_op_binary ~ type_term)* }
 // type_term = _{ type_parenthesized | type_ap | tuple_type | type_literal }
-typ = _{ type_parenthesized | type_ap | func_type | tuple_type | type_literal }
+typ = _{ func_type | type_ap | type_parenthesized | tuple_type | type_literal }
 typ_not_func = _{ type_parenthesized | type_ap | tuple_type | type_literal }
 
 type_parenthesized = _{ paren_start ~ typ ~ paren_end }
 
 func_type = { func_type_args ~ "->" ~ typ }
 func_type_args = _{ func_type_arg_list | typ_not_func }
-func_type_arg_list = _{ "(" ~ (func_type_arg_single ~ ",")* ~ func_type_arg_single ~ ")" }
+func_type_arg_list = _{ "(" ~ (func_type_arg_single ~ ",")* ~ func_type_arg_single? ~ ")" }
 func_type_arg_single = _{ typ }
 
 type_ap = { identifier ~ type_args }
-type_args = _{ "<" ~ (typ ~ ",")* ~ typ? ~ ">" }
+type_args = _{ "<" ~ (typ ~ ",")* ~ typ ~ ">" }
 
 tuple_type = { tuple_start ~ (tuple_type_element ~ ",")+ ~ tuple_type_element ~ tuple_end }
 tuple_type_element = _{ typ }
