@@ -7,7 +7,7 @@ use crate::ast::{
     AstNode, EnumDef, FileAst, FileDatabase, FileId, FuncDecl, FuncDef, InterfaceDecl,
     InterfaceImpl, NodeId, Polytype, StructDef, TypeKind,
 };
-use crate::builtin::BuiltinOperation;
+use crate::builtin::{BuiltinOperation, BuiltinType};
 use resolve::{resolve, scan_declarations};
 use std::fmt::{self, Display, Formatter};
 use std::ops::Range;
@@ -52,7 +52,7 @@ pub(crate) struct StaticsContext {
 
     // map from interface name to list of its implementations
     pub(crate) interface_impls: HashMap<Rc<InterfaceDecl>, Vec<Rc<InterfaceImpl>>>,
-    // map from (type, member function name) -> function declaration
+    // map from (type declaration, member function name) -> function declaration
     pub(crate) member_functions: HashMap<(TypeKey, String), Declaration>,
 
     // string constants (for bytecode translation)
@@ -184,8 +184,32 @@ pub(crate) enum Declaration {
     Array,
     // BuiltinType(BuiltinType),
     Builtin(BuiltinOperation),
+    BuiltinType(BuiltinType),
     Var(AstNode),
     Polytype(Rc<Polytype>),
+}
+
+impl Declaration {
+    pub fn to_type_key(self: &Declaration) -> Option<TypeKey> {
+        match self {
+            Declaration::FreeFunction(_)
+            | Declaration::HostFunction(_)
+            | Declaration::_ForeignFunction { .. }
+            | Declaration::InterfaceDef(_)
+            | Declaration::InterfaceMethod { .. }
+            | Declaration::MemberFunction { .. }
+            | Declaration::Builtin(_)
+            | Declaration::Var(_)
+            | Declaration::Polytype(_)
+            | Declaration::EnumVariant { .. } => None,
+            Declaration::Enum(enum_def) => Some(TypeKey::TyApp(Nominal::Enum(enum_def.clone()))),
+            Declaration::Struct(struct_def) => {
+                Some(TypeKey::TyApp(Nominal::Struct(struct_def.clone())))
+            }
+            Declaration::Array => Some(TypeKey::TyApp(Nominal::Array)),
+            Declaration::BuiltinType(builtin_type) => Some(builtin_type.to_type_key()),
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -218,7 +242,7 @@ pub(crate) enum Error {
     MemberAccessNeedsAnnotation {
         node: AstNode,
     },
-    MustExtendStructOrEnum {
+    MustExtendType {
         node: AstNode,
     },
     MemberFunctionMissingFirstSelfArgument {
@@ -471,9 +495,8 @@ impl Error {
                 let (file, range) = node.get_file_and_range();
                 labels.push(Label::secondary(file, range));
             }
-            Error::MustExtendStructOrEnum { node } => {
-                diagnostic = diagnostic
-                    .with_message("Can't extend a type which isn't a struct or enum".to_string());
+            Error::MustExtendType { node } => {
+                diagnostic = diagnostic.with_message("Must extend a type.".to_string());
                 let (file, range) = node.get_file_and_range();
                 labels.push(Label::secondary(file, range));
             }
@@ -633,8 +656,8 @@ fn add_detail_for_decl(
             "`{}` is a builtin operation and cannot be re-declared",
             builtin.name()
         )),
-        Declaration::Array => {
-            notes.push("`array` is a builtin type and cannot be re-declared".to_string())
+        Declaration::Array | Declaration::BuiltinType(_) => {
+            notes.push("cannot redeclare a builtin type".to_string())
         }
     };
 }
@@ -661,7 +684,7 @@ fn add_detail_for_decl_node(
         Declaration::Polytype(polytype) => polytype.name.node(),
 
         Declaration::Var(ast_node) => ast_node.clone(),
-        Declaration::Builtin(_) | Declaration::Array => return false,
+        Declaration::Builtin(_) | Declaration::BuiltinType(_) | Declaration::Array => return false,
     };
     let (file, range) = node.get_file_and_range();
     labels.push(Label::secondary(file, range).with_message(message));
@@ -675,6 +698,7 @@ impl AstNode {
     }
 }
 
+use crate::statics::typecheck::Nominal;
 use codespan_reporting::diagnostic::Label as CsLabel;
 
 pub(crate) fn _print_node(ctx: &StaticsContext, node: AstNode) {

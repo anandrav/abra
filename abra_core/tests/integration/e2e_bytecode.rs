@@ -1290,7 +1290,6 @@ ToString.str(blah)
     assert_eq!(top.get_string(&vm).unwrap(), "12345");
 }
 
-#[ignore]
 #[test]
 fn interface_method_dot_syntax() {
     let src = r#"

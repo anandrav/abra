@@ -9,7 +9,7 @@ use crate::ast::{
     ArgMaybeAnnotated, AstNode, Expr, ExprKind, FileAst, FuncDef, Identifier, ImportList, Item,
     ItemKind, NodeId, Pat, PatKind, Polytype, Stmt, StmtKind, Type, TypeDefKind, TypeKind,
 };
-use crate::builtin::BuiltinOperation;
+use crate::builtin::{BuiltinOperation, BuiltinType};
 use crate::statics::typecheck::{Nominal, TypeKey};
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -488,46 +488,39 @@ fn resolve_names_item_decl(ctx: &mut StaticsContext, symbol_table: SymbolTable, 
                 ctx.resolution_map.get(&iface_impl.iface.id).cloned()
             else {
                 // TODO: log error when implementee is not an Interface
-                return;
+                todo!();
             };
             let gather_declarations_memberfuncs_helper =
-                |ctx: &mut StaticsContext, nom: Nominal| {
+                |ctx: &mut StaticsContext, type_key: TypeKey| {
                     for (m, f) in iface_impl.methods.iter().enumerate() {
                         let method_decl = Declaration::InterfaceMethod {
                             i: iface_decl.clone(),
                             method: m as u16,
                         };
-                        try_add_member_function(ctx, nom.clone(), f.clone(), method_decl);
+                        try_add_member_function(ctx, type_key.clone(), f.clone(), method_decl);
                     }
                 };
             let helper = |ctx: &mut StaticsContext, id| {
                 if let Some(decl) = ctx.resolution_map.get(&id).cloned() {
-                    match decl {
-                        Declaration::Struct(struct_def) => {
-                            gather_declarations_memberfuncs_helper(ctx, Nominal::Struct(struct_def))
+                    match &decl.to_type_key() {
+                        Some(type_key) => {
+                            gather_declarations_memberfuncs_helper(ctx, type_key.clone())
                         }
-                        Declaration::Enum(enum_def) => {
-                            gather_declarations_memberfuncs_helper(ctx, Nominal::Enum(enum_def))
-                        }
-                        Declaration::Array => {
-                            gather_declarations_memberfuncs_helper(ctx, Nominal::Array)
-                        }
-                        _ => ctx.errors.push(Error::MustExtendStructOrEnum {
+                        _ => ctx.errors.push(Error::MustExtendType {
                             node: iface_impl.typ.node(),
                         }),
                     }
                 }
             };
             match &*iface_impl.typ.kind {
-                TypeKind::Named(_) => {
-                    let id = iface_impl.typ.id;
-                    helper(ctx, id)
-                }
                 TypeKind::NamedWithParams(ident, _) => {
                     let id = ident.id;
                     helper(ctx, id);
                 }
-                _ => {}
+                _ => {
+                    let id = iface_impl.typ.id;
+                    helper(ctx, id)
+                } // _ => {}
             }
         }
         ItemKind::Extension(ext) => {
@@ -538,7 +531,7 @@ fn resolve_names_item_decl(ctx: &mut StaticsContext, symbol_table: SymbolTable, 
                 TypeKind::Named(_) => ext.typ.id,
                 TypeKind::NamedWithParams(ident, _) => ident.id,
                 _ => {
-                    ctx.errors.push(Error::MustExtendStructOrEnum {
+                    ctx.errors.push(Error::MustExtendType {
                         node: ext.typ.node(),
                     });
                     return;
@@ -559,25 +552,19 @@ fn resolve_names_item_decl(ctx: &mut StaticsContext, symbol_table: SymbolTable, 
             // We don't gather declarations of member functions in the same pass as gathering type definitions, because
             // the former depends on the latter
             let gather_declarations_memberfuncs_helper =
-                |ctx: &mut StaticsContext, nom: Nominal| {
+                |ctx: &mut StaticsContext, type_key: TypeKey| {
                     for f in &ext.methods {
                         let method_decl = Declaration::MemberFunction { f: f.clone() };
-                        try_add_member_function(ctx, nom.clone(), f.clone(), method_decl);
+                        try_add_member_function(ctx, type_key.clone(), f.clone(), method_decl);
                     }
                 };
             let helper = |ctx: &mut StaticsContext, id| {
                 if let Some(decl) = ctx.resolution_map.get(&id).cloned() {
-                    match decl {
-                        Declaration::Struct(struct_def) => {
-                            gather_declarations_memberfuncs_helper(ctx, Nominal::Struct(struct_def))
+                    match &decl.to_type_key() {
+                        Some(type_key) => {
+                            gather_declarations_memberfuncs_helper(ctx, type_key.clone())
                         }
-                        Declaration::Enum(enum_def) => {
-                            gather_declarations_memberfuncs_helper(ctx, Nominal::Enum(enum_def))
-                        }
-                        Declaration::Array => {
-                            gather_declarations_memberfuncs_helper(ctx, Nominal::Array)
-                        }
-                        _ => ctx.errors.push(Error::MustExtendStructOrEnum {
+                        _ => ctx.errors.push(Error::MustExtendType {
                             node: ext.typ.node(),
                         }),
                     }
@@ -592,7 +579,7 @@ fn resolve_names_item_decl(ctx: &mut StaticsContext, symbol_table: SymbolTable, 
                     let id = ident.id;
                     helper(ctx, id);
                 }
-                _ => ctx.errors.push(Error::MustExtendStructOrEnum {
+                _ => ctx.errors.push(Error::MustExtendType {
                     node: ext.typ.node(),
                 }),
             }
@@ -631,14 +618,11 @@ fn resolve_names_item_decl(ctx: &mut StaticsContext, symbol_table: SymbolTable, 
 
 fn try_add_member_function(
     ctx: &mut StaticsContext,
-    nom: Nominal,
+    ty_key: TypeKey,
     f: Rc<FuncDef>,
     method_decl: Declaration,
 ) {
-    match ctx
-        .member_functions
-        .entry((TypeKey::TyApp(nom), f.name.v.clone()))
-    {
+    match ctx.member_functions.entry((ty_key, f.name.v.clone())) {
         std::collections::hash_map::Entry::Occupied(occupied_entry) => {
             ctx.errors.push(Error::NameClash {
                 name: f.name.v.clone(),
@@ -817,10 +801,12 @@ fn resolve_names_member_helper(ctx: &mut StaticsContext, expr: Rc<Expr>, field: 
             | Declaration::MemberFunction { .. }
             | Declaration::EnumVariant { .. }
             | Declaration::Polytype(_)
-            | Declaration::Builtin(_)
-            | Declaration::Array => {
+            | Declaration::Builtin(_) => {
                 ctx.errors
                     .push(Error::UnresolvedIdentifier { node: field.node() });
+            }
+            Declaration::BuiltinType(_) | Declaration::Array => {
+                todo!()
             }
             Declaration::InterfaceDef(iface_def) => {
                 let mut found = false;
@@ -860,8 +846,7 @@ fn resolve_names_member_helper(ctx: &mut StaticsContext, expr: Rc<Expr>, field: 
                 )) {
                     ctx.resolution_map.insert(field.id, def.clone());
                     found = true;
-                }
-                if !found {
+                } else {
                     for (idx, variant) in enum_def.variants.iter().enumerate() {
                         if variant.ctor.v == field.v {
                             let enum_def = enum_def.clone();
@@ -978,7 +963,26 @@ fn resolve_names_typ(
     introduce_poly: bool,
 ) {
     match &*typ.kind {
-        TypeKind::Bool | TypeKind::Unit | TypeKind::Int | TypeKind::Float | TypeKind::Str => {}
+        TypeKind::Bool => {
+            ctx.resolution_map
+                .insert(typ.id, Declaration::BuiltinType(BuiltinType::Bool));
+        }
+        TypeKind::Unit => {
+            ctx.resolution_map
+                .insert(typ.id, Declaration::BuiltinType(BuiltinType::Unit));
+        }
+        TypeKind::Int => {
+            ctx.resolution_map
+                .insert(typ.id, Declaration::BuiltinType(BuiltinType::Int));
+        }
+        TypeKind::Float => {
+            ctx.resolution_map
+                .insert(typ.id, Declaration::BuiltinType(BuiltinType::Float));
+        }
+        TypeKind::Str => {
+            ctx.resolution_map
+                .insert(typ.id, Declaration::BuiltinType(BuiltinType::String));
+        }
         TypeKind::Poly(polyty) => {
             resolve_names_polytyp(ctx, symbol_table, polyty.clone(), introduce_poly);
         }
@@ -999,6 +1003,11 @@ fn resolve_names_typ(
             resolve_names_typ(ctx, symbol_table.clone(), out.clone(), introduce_poly);
         }
         TypeKind::Tuple(elems) => {
+            ctx.resolution_map.insert(
+                typ.id,
+                Declaration::BuiltinType(BuiltinType::Tuple(elems.len() as u8)),
+            );
+
             for elem in elems {
                 resolve_names_typ(ctx, symbol_table.clone(), elem.clone(), introduce_poly);
             }
@@ -1043,6 +1052,7 @@ fn fqn_of_type(ctx: &StaticsContext, lookup_id: NodeId) -> Option<String> {
         Declaration::Struct(s) => ctx.fully_qualified_names.get(&s.name.id).cloned(),
         Declaration::EnumVariant { .. } => None,
         Declaration::Array => Some("array".into()),
+        Declaration::BuiltinType(builtin_type) => Some(builtin_type.name().to_string()),
         Declaration::Polytype(_) => None,
         Declaration::Builtin(_) => None,
         Declaration::Var(_) => None,

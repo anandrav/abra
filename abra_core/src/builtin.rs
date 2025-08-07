@@ -2,9 +2,9 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use crate::statics::typecheck::Nominal;
 use crate::statics::typecheck::Reason;
 use crate::statics::typecheck::TypeVar;
+use crate::statics::typecheck::{Nominal, TypeKey};
 
 use heck::ToSnakeCase;
 use strum::AsRefStr;
@@ -216,6 +216,40 @@ impl BuiltinOperation {
             ),
 
             BuiltinOperation::Newline => TypeVar::make_string(reason.clone()),
+        }
+    }
+}
+
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
+pub enum BuiltinType {
+    Int,
+    Bool,
+    Float,
+    Unit,
+    String,
+    Tuple(u8),
+}
+
+impl BuiltinType {
+    pub fn name(&self) -> &str {
+        match self {
+            Self::Int => "int",
+            Self::Bool => "bool",
+            Self::Float => "float",
+            Self::Unit => "void",
+            Self::String => "string",
+            Self::Tuple(_) => "tuple",
+        }
+    }
+
+    pub fn to_type_key(self) -> TypeKey {
+        match self {
+            Self::Int => TypeKey::Int,
+            Self::Bool => TypeKey::Bool,
+            Self::Float => TypeKey::Float,
+            Self::Unit => TypeKey::Unit,
+            Self::String => TypeKey::String,
+            Self::Tuple(arity) => TypeKey::Tuple(arity),
         }
     }
 }

@@ -818,7 +818,7 @@ impl TypeVar {
     }
 }
 
-fn tyvar_of_declaration(
+fn tyvar_of_symbol(
     ctx: &mut StaticsContext,
     decl: &Declaration,
     polyvar_scope: PolyvarScope,
@@ -920,7 +920,7 @@ fn tyvar_of_declaration(
                 Reason::Node(node.clone()),
             ))
         }
-        Declaration::Array => None, // TODO: why is this None? Shouldn't it be the same as Struct case?
+        Declaration::Array | Declaration::BuiltinType(_) => None,
         Declaration::Polytype(_) => None,
         Declaration::Builtin(builtin) => {
             let ty_signature = builtin.type_signature();
@@ -1671,9 +1671,7 @@ fn generate_constraints_expr(
         ExprKind::Variable(_) => {
             let lookup = ctx.resolution_map.get(&expr.id).cloned();
             if let Some(res) = lookup {
-                if let Some(typ) =
-                    tyvar_of_declaration(ctx, &res, polyvar_scope.clone(), expr.node())
-                {
+                if let Some(typ) = tyvar_of_symbol(ctx, &res, polyvar_scope.clone(), expr.node()) {
                     constrain(ctx, typ, node_ty.clone());
                 }
             }
@@ -1983,7 +1981,7 @@ fn generate_constraints_expr(
                     //          ^^^^^
                     let fn_node_ty = TypeVar::from_node(ctx, fname.node());
                     if let Some(tyvar_from_iface_method) =
-                        tyvar_of_declaration(ctx, decl, polyvar_scope.clone(), fname.node())
+                        tyvar_of_symbol(ctx, decl, polyvar_scope.clone(), fname.node())
                     {
                         constrain(ctx, fn_node_ty, tyvar_from_iface_method.clone());
                     }
@@ -2035,7 +2033,7 @@ fn generate_constraints_expr(
                             // type of the AST node for the identifier in this MemberFuncAp
                             ctx.resolution_map.insert(fname.id, memfn_decl.clone());
                             let memfn_node_ty = TypeVar::from_node(ctx, fname.node());
-                            if let Some(memfn_decl_ty) = tyvar_of_declaration(
+                            if let Some(memfn_decl_ty) = tyvar_of_symbol(
                                 ctx,
                                 &memfn_decl,
                                 polyvar_scope.clone(),
@@ -2077,7 +2075,7 @@ fn generate_constraints_expr(
             {
                 // qualified enum with no associated data
                 if let Some(ty_of_declaration) =
-                    tyvar_of_declaration(ctx, decl, polyvar_scope.clone(), expr.node())
+                    tyvar_of_symbol(ctx, decl, polyvar_scope.clone(), expr.node())
                 {
                     constrain(ctx, node_ty, ty_of_declaration);
                 }
@@ -2142,7 +2140,7 @@ fn generate_constraints_expr(
                         },
                     );
 
-                    let enum_ty = tyvar_of_declaration(
+                    let enum_ty = tyvar_of_symbol(
                         ctx,
                         &Declaration::Enum(enum_def),
                         polyvar_scope.clone(),
