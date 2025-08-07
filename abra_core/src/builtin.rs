@@ -19,7 +19,7 @@ use strum_macros::EnumIter;
 #[derive(
     Debug, Copy, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, EnumIter, VariantArray, AsRefStr,
 )]
-pub enum Builtin {
+pub enum BuiltinOperation {
     AddInt,
     SubtractInt,
     MultiplyInt,
@@ -62,10 +62,11 @@ pub enum Builtin {
     Panic,
 
     // TODO: add support for "\n" in source, then remove this
+    // TODO: also, this isn't even an operation
     Newline,
 }
 
-impl Builtin {
+impl BuiltinOperation {
     pub(crate) fn enumerate() -> Vec<Self> {
         Self::iter().collect()
     }
@@ -77,12 +78,12 @@ impl Builtin {
     pub(crate) fn type_signature(&self) -> TypeVar {
         let reason = Reason::Builtin(*self);
         match self {
-            Builtin::AddInt
-            | Builtin::SubtractInt
-            | Builtin::MultiplyInt
-            | Builtin::DivideInt
-            | Builtin::ModuloInt
-            | Builtin::PowerInt => TypeVar::make_func(
+            BuiltinOperation::AddInt
+            | BuiltinOperation::SubtractInt
+            | BuiltinOperation::MultiplyInt
+            | BuiltinOperation::DivideInt
+            | BuiltinOperation::ModuloInt
+            | BuiltinOperation::PowerInt => TypeVar::make_func(
                 vec![
                     TypeVar::make_int(reason.clone()),
                     TypeVar::make_int(reason.clone()),
@@ -90,18 +91,18 @@ impl Builtin {
                 TypeVar::make_int(reason.clone()),
                 reason.clone(),
             ),
-            Builtin::SqrtInt => TypeVar::make_func(
+            BuiltinOperation::SqrtInt => TypeVar::make_func(
                 vec![TypeVar::make_int(reason.clone())],
                 TypeVar::make_int(reason.clone()),
                 reason.clone(),
             ),
 
-            Builtin::AddFloat
-            | Builtin::SubtractFloat
-            | Builtin::MultiplyFloat
-            | Builtin::DivideFloat
-            | Builtin::ModuloFloat
-            | Builtin::PowerFloat => TypeVar::make_func(
+            BuiltinOperation::AddFloat
+            | BuiltinOperation::SubtractFloat
+            | BuiltinOperation::MultiplyFloat
+            | BuiltinOperation::DivideFloat
+            | BuiltinOperation::ModuloFloat
+            | BuiltinOperation::PowerFloat => TypeVar::make_func(
                 vec![
                     TypeVar::make_float(reason.clone()),
                     TypeVar::make_float(reason.clone()),
@@ -109,17 +110,17 @@ impl Builtin {
                 TypeVar::make_float(reason.clone()),
                 reason.clone(),
             ),
-            Builtin::SqrtFloat => TypeVar::make_func(
+            BuiltinOperation::SqrtFloat => TypeVar::make_func(
                 vec![TypeVar::make_float(reason.clone())],
                 TypeVar::make_float(reason.clone()),
                 reason.clone(),
             ),
 
-            Builtin::LessThanInt
-            | Builtin::LessThanOrEqualInt
-            | Builtin::GreaterThanInt
-            | Builtin::GreaterThanOrEqualInt
-            | Builtin::EqualInt => TypeVar::make_func(
+            BuiltinOperation::LessThanInt
+            | BuiltinOperation::LessThanOrEqualInt
+            | BuiltinOperation::GreaterThanInt
+            | BuiltinOperation::GreaterThanOrEqualInt
+            | BuiltinOperation::EqualInt => TypeVar::make_func(
                 vec![
                     TypeVar::make_int(reason.clone()),
                     TypeVar::make_int(reason.clone()),
@@ -128,11 +129,11 @@ impl Builtin {
                 reason.clone(),
             ),
 
-            Builtin::LessThanFloat
-            | Builtin::LessThanOrEqualFloat
-            | Builtin::GreaterThanFloat
-            | Builtin::GreaterThanOrEqualFloat
-            | Builtin::EqualFloat => TypeVar::make_func(
+            BuiltinOperation::LessThanFloat
+            | BuiltinOperation::LessThanOrEqualFloat
+            | BuiltinOperation::GreaterThanFloat
+            | BuiltinOperation::GreaterThanOrEqualFloat
+            | BuiltinOperation::EqualFloat => TypeVar::make_func(
                 vec![
                     TypeVar::make_float(reason.clone()),
                     TypeVar::make_float(reason.clone()),
@@ -141,7 +142,7 @@ impl Builtin {
                 reason.clone(),
             ),
 
-            Builtin::EqualString => TypeVar::make_func(
+            BuiltinOperation::EqualString => TypeVar::make_func(
                 vec![
                     TypeVar::make_string(reason.clone()),
                     TypeVar::make_string(reason.clone()),
@@ -150,18 +151,18 @@ impl Builtin {
                 reason.clone(),
             ),
 
-            Builtin::IntToString => TypeVar::make_func(
+            BuiltinOperation::IntToString => TypeVar::make_func(
                 vec![TypeVar::make_int(reason.clone())],
                 TypeVar::make_string(reason.clone()),
                 reason.clone(),
             ),
-            Builtin::FloatToString => TypeVar::make_func(
+            BuiltinOperation::FloatToString => TypeVar::make_func(
                 vec![TypeVar::make_float(reason.clone())],
                 TypeVar::make_string(reason.clone()),
                 reason.clone(),
             ),
 
-            Builtin::ConcatStrings => TypeVar::make_func(
+            BuiltinOperation::ConcatStrings => TypeVar::make_func(
                 vec![
                     TypeVar::make_string(reason.clone()),
                     TypeVar::make_string(reason.clone()),
@@ -170,7 +171,7 @@ impl Builtin {
                 reason.clone(),
             ),
 
-            Builtin::ArrayPush => {
+            BuiltinOperation::ArrayPush => {
                 let a = TypeVar::empty();
                 TypeVar::make_func(
                     vec![
@@ -182,7 +183,7 @@ impl Builtin {
                 )
             }
 
-            Builtin::ArrayLength => {
+            BuiltinOperation::ArrayLength => {
                 let a = TypeVar::empty();
                 TypeVar::make_func(
                     vec![TypeVar::make_nominal(
@@ -195,7 +196,7 @@ impl Builtin {
                 )
             }
 
-            Builtin::ArrayPop => {
+            BuiltinOperation::ArrayPop => {
                 let a = TypeVar::empty();
                 TypeVar::make_func(
                     vec![TypeVar::make_nominal(
@@ -208,13 +209,13 @@ impl Builtin {
                 )
             }
 
-            Builtin::Panic => TypeVar::make_func(
+            BuiltinOperation::Panic => TypeVar::make_func(
                 vec![TypeVar::make_string(reason.clone())],
                 TypeVar::make_never(reason.clone()),
                 reason.clone(),
             ),
 
-            Builtin::Newline => TypeVar::make_string(reason.clone()),
+            BuiltinOperation::Newline => TypeVar::make_string(reason.clone()),
         }
     }
 }

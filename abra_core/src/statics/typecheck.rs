@@ -7,7 +7,7 @@ use crate::ast::{
     PatKind, Stmt, StmtKind, Type as AstType, TypeDefKind, TypeKind,
 };
 use crate::ast::{BinaryOperator, Item};
-use crate::builtin::Builtin;
+use crate::builtin::BuiltinOperation;
 use crate::environment::Environment;
 use disjoint_sets::UnionFindNode;
 use std::cell::RefCell;
@@ -250,6 +250,21 @@ impl SolvedType {
         }
     }
 
+    fn key(&self) -> TypeKey {
+        match self {
+            SolvedType::Poly(poly_decl) => TypeKey::Poly(PolyDeclaration(poly_decl.clone())),
+            SolvedType::Unit => TypeKey::Unit,
+            SolvedType::Never => TypeKey::Never,
+            SolvedType::Int => TypeKey::Int,
+            SolvedType::Float => TypeKey::Float,
+            SolvedType::Bool => TypeKey::Bool,
+            SolvedType::String => TypeKey::String,
+            SolvedType::Function(args, _) => TypeKey::Function(args.len() as u8),
+            SolvedType::Tuple(elems) => TypeKey::Tuple(elems.len() as u8),
+            SolvedType::Nominal(ident, _) => TypeKey::TyApp(ident.clone()),
+        }
+    }
+
     pub(crate) fn is_overloaded(&self) -> bool {
         match self {
             Self::Poly(polyty) => !polyty.iface_names.is_empty(),
@@ -288,7 +303,7 @@ pub(crate) enum Monotype {
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub(crate) enum TypeKey {
     Poly(PolyDeclaration),
-    TyApp(Nominal, u8), // u8 represents the number of type params
+    TyApp(Nominal),
     Unit,
     Never,
     Int,
@@ -316,7 +331,7 @@ pub(crate) enum Reason {
 
     Annotation(AstNode),
     Literal(AstNode),
-    Builtin(Builtin), // a builtin function or constant, which doesn't exist in the AST
+    Builtin(BuiltinOperation), // a builtin function or constant, which doesn't exist in the AST
     BinopLeft(AstNode),
     BinopRight(AstNode),
     BinopOut(AstNode),
@@ -357,9 +372,7 @@ impl PotentialType {
             PotentialType::String(_) => TypeKey::String,
             PotentialType::Function(_, args, _) => TypeKey::Function(args.len() as u8),
             PotentialType::Tuple(_, elems) => TypeKey::Tuple(elems.len() as u8),
-            PotentialType::Nominal(_, ident, params) => {
-                TypeKey::TyApp(ident.clone(), params.len() as u8)
-            }
+            PotentialType::Nominal(_, ident, _) => TypeKey::TyApp(ident.clone()),
         }
     }
 
@@ -907,7 +920,7 @@ fn tyvar_of_declaration(
                 Reason::Node(node.clone()),
             ))
         }
-        Declaration::Array => None,
+        Declaration::Array => None, // TODO: why is this None? Shouldn't it be the same as Struct case?
         Declaration::Polytype(_) => None,
         Declaration::Builtin(builtin) => {
             let ty_signature = builtin.type_signature();
@@ -2009,47 +2022,38 @@ fn generate_constraints_expr(
                     if let Some(solved_ty) =
                         TypeVar::from_node(ctx, receiver_expr.node()).solution()
                     {
-                        match &solved_ty {
-                            SolvedType::Nominal(nom, _) => {
-                                if let Some(memfn_decl) = ctx
-                                    .member_functions
-                                    .get(nom)
-                                    .and_then(|m| m.get(&fname.v))
-                                    .cloned()
-                                {
-                                    // TODO: the following block of code is strange and hard to read
-                                    // it's basically creating the type of the member function using
-                                    // the member function declaration, then constraining that to the
-                                    // type of the AST node for the identifier in this MemberFuncAp
-                                    ctx.resolution_map.insert(fname.id, memfn_decl.clone());
-                                    let memfn_node_ty = TypeVar::from_node(ctx, fname.node());
-                                    if let Some(memfn_decl_ty) = tyvar_of_declaration(
-                                        ctx,
-                                        &memfn_decl,
-                                        polyvar_scope.clone(),
-                                        fname.node(),
-                                    ) {
-                                        constrain(ctx, memfn_node_ty.clone(), memfn_decl_ty);
-                                    }
+                        let ty_key = solved_ty.key();
 
-                                    generate_constraints_expr_funcap_helper(
-                                        ctx,
-                                        polyvar_scope.clone(),
-                                        std::iter::once(receiver_expr).chain(args).cloned(),
-                                        fname.node(),
-                                        expr.node(),
-                                        node_ty.clone(),
-                                    );
-                                } else {
-                                    failed_to_resolve_member_function(ctx, solved_ty);
-                                }
+                        if let Some(memfn_decl) = ctx
+                            .member_functions
+                            .get(&(ty_key, fname.v.clone()))
+                            .cloned()
+                        {
+                            // TODO: the following block of code is strange and hard to read
+                            // it's basically creating the type of the member function using
+                            // the member function declaration, then constraining that to the
+                            // type of the AST node for the identifier in this MemberFuncAp
+                            ctx.resolution_map.insert(fname.id, memfn_decl.clone());
+                            let memfn_node_ty = TypeVar::from_node(ctx, fname.node());
+                            if let Some(memfn_decl_ty) = tyvar_of_declaration(
+                                ctx,
+                                &memfn_decl,
+                                polyvar_scope.clone(),
+                                fname.node(),
+                            ) {
+                                constrain(ctx, memfn_node_ty.clone(), memfn_decl_ty);
                             }
-                            _ => {
-                                ctx.errors.push(Error::MemberFuncApMustBeStructOrEnum {
-                                    node: fname.node(),
-                                    ty: solved_ty,
-                                });
-                            }
+
+                            generate_constraints_expr_funcap_helper(
+                                ctx,
+                                polyvar_scope.clone(),
+                                std::iter::once(receiver_expr).chain(args).cloned(),
+                                fname.node(),
+                                expr.node(),
+                                node_ty.clone(),
+                            );
+                        } else {
+                            failed_to_resolve_member_function(ctx, solved_ty);
                         }
                     } else {
                         // failed to resolve member function

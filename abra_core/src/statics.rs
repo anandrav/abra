@@ -7,7 +7,7 @@ use crate::ast::{
     AstNode, EnumDef, FileAst, FileDatabase, FileId, FuncDecl, FuncDef, InterfaceDecl,
     InterfaceImpl, NodeId, Polytype, StructDef, TypeKind,
 };
-use crate::builtin::Builtin;
+use crate::builtin::BuiltinOperation;
 use resolve::{resolve, scan_declarations};
 use std::fmt::{self, Display, Formatter};
 use std::ops::Range;
@@ -52,8 +52,8 @@ pub(crate) struct StaticsContext {
 
     // map from interface name to list of its implementations
     pub(crate) interface_impls: HashMap<Rc<InterfaceDecl>, Vec<Rc<InterfaceImpl>>>,
-    // map from type definition to linked member functions
-    pub(crate) member_functions: HashMap<Nominal, HashMap<String, Declaration>>,
+    // map from (type, member function name) -> function declaration
+    pub(crate) member_functions: HashMap<(TypeKey, String), Declaration>,
 
     // string constants (for bytecode translation)
     pub(crate) string_constants: IdSet<String>,
@@ -182,9 +182,10 @@ pub(crate) enum Declaration {
     // alternatively, add helper functions to check if it's a data type and to extract the NodeId from the particular declaration
     Struct(Rc<StructDef>),
     Array,
-    Polytype(Rc<Polytype>),
-    Builtin(Builtin),
+    // BuiltinType(BuiltinType),
+    Builtin(BuiltinOperation),
     Var(AstNode),
+    Polytype(Rc<Polytype>),
 }
 
 #[derive(Debug)]
@@ -216,10 +217,6 @@ pub(crate) enum Error {
     },
     MemberAccessNeedsAnnotation {
         node: AstNode,
-    },
-    MemberFuncApMustBeStructOrEnum {
-        node: AstNode,
-        ty: SolvedType,
     },
     MustExtendStructOrEnum {
         node: AstNode,
@@ -474,13 +471,6 @@ impl Error {
                 let (file, range) = node.get_file_and_range();
                 labels.push(Label::secondary(file, range));
             }
-            Error::MemberFuncApMustBeStructOrEnum { node, ty } => {
-                diagnostic = diagnostic.with_message(format!(
-                    "Can't perform member access on type which isn't a struct or enum: `{ty}`"
-                ));
-                let (file, range) = node.get_file_and_range();
-                labels.push(Label::secondary(file, range));
-            }
             Error::MustExtendStructOrEnum { node } => {
                 diagnostic = diagnostic
                     .with_message("Can't extend a type which isn't a struct or enum".to_string());
@@ -685,7 +675,6 @@ impl AstNode {
     }
 }
 
-use crate::statics::typecheck::Nominal;
 use codespan_reporting::diagnostic::Label as CsLabel;
 
 pub(crate) fn _print_node(ctx: &StaticsContext, node: AstNode) {

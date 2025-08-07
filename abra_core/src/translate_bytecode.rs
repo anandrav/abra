@@ -5,7 +5,7 @@
 use crate::assembly::{Instr, Label, Line, remove_labels};
 use crate::ast::{AstNode, BinaryOperator, FuncDef, InterfaceDecl, ItemKind};
 use crate::ast::{FileAst, FileDatabase, NodeId};
-use crate::builtin::Builtin;
+use crate::builtin::BuiltinOperation;
 use crate::environment::Environment;
 use crate::statics::typecheck::Nominal;
 use crate::statics::typecheck::SolvedType;
@@ -312,7 +312,7 @@ impl Translator {
                     self.emit(st, Instr::LoadOffset(*idx));
                 }
                 Declaration::Builtin(b) => match b {
-                    Builtin::Newline => {
+                    BuiltinOperation::Newline => {
                         self.emit(st, Instr::PushString("\n".to_owned()));
                     }
                     _ => {
@@ -783,103 +783,103 @@ impl Translator {
                 panic!("can't call enum name as ctor");
             }
             Declaration::Builtin(b) => match b {
-                Builtin::AddInt => {
+                BuiltinOperation::AddInt => {
                     self.emit(st, Instr::Add);
                 }
-                Builtin::SubtractInt => {
+                BuiltinOperation::SubtractInt => {
                     self.emit(st, Instr::Subtract);
                 }
-                Builtin::MultiplyInt => {
+                BuiltinOperation::MultiplyInt => {
                     self.emit(st, Instr::Multiply);
                 }
-                Builtin::DivideInt => {
+                BuiltinOperation::DivideInt => {
                     self.emit(st, Instr::Divide);
                 }
-                Builtin::PowerInt => {
+                BuiltinOperation::PowerInt => {
                     self.emit(st, Instr::Power);
                 }
-                Builtin::ModuloInt => {
+                BuiltinOperation::ModuloInt => {
                     self.emit(st, Instr::Modulo);
                 }
-                Builtin::SqrtInt => {
+                BuiltinOperation::SqrtInt => {
                     self.emit(st, Instr::SquareRoot);
                 }
-                Builtin::AddFloat => {
+                BuiltinOperation::AddFloat => {
                     self.emit(st, Instr::Add);
                 }
-                Builtin::SubtractFloat => {
+                BuiltinOperation::SubtractFloat => {
                     self.emit(st, Instr::Subtract);
                 }
-                Builtin::MultiplyFloat => {
+                BuiltinOperation::MultiplyFloat => {
                     self.emit(st, Instr::Multiply);
                 }
-                Builtin::DivideFloat => {
+                BuiltinOperation::DivideFloat => {
                     self.emit(st, Instr::Divide);
                 }
-                Builtin::ModuloFloat => {
+                BuiltinOperation::ModuloFloat => {
                     self.emit(st, Instr::Modulo);
                 }
-                Builtin::PowerFloat => {
+                BuiltinOperation::PowerFloat => {
                     self.emit(st, Instr::Power);
                 }
-                Builtin::SqrtFloat => {
+                BuiltinOperation::SqrtFloat => {
                     self.emit(st, Instr::SquareRoot);
                 }
-                Builtin::LessThanInt => {
+                BuiltinOperation::LessThanInt => {
                     self.emit(st, Instr::LessThan);
                 }
-                Builtin::LessThanOrEqualInt => {
+                BuiltinOperation::LessThanOrEqualInt => {
                     self.emit(st, Instr::LessThanOrEqual);
                 }
-                Builtin::GreaterThanInt => {
+                BuiltinOperation::GreaterThanInt => {
                     self.emit(st, Instr::GreaterThan);
                 }
-                Builtin::GreaterThanOrEqualInt => {
+                BuiltinOperation::GreaterThanOrEqualInt => {
                     self.emit(st, Instr::GreaterThanOrEqual);
                 }
-                Builtin::EqualInt => {
+                BuiltinOperation::EqualInt => {
                     self.emit(st, Instr::Equal);
                 }
-                Builtin::LessThanFloat => {
+                BuiltinOperation::LessThanFloat => {
                     self.emit(st, Instr::LessThan);
                 }
-                Builtin::LessThanOrEqualFloat => {
+                BuiltinOperation::LessThanOrEqualFloat => {
                     self.emit(st, Instr::LessThanOrEqual);
                 }
-                Builtin::GreaterThanFloat => {
+                BuiltinOperation::GreaterThanFloat => {
                     self.emit(st, Instr::GreaterThan);
                 }
-                Builtin::GreaterThanOrEqualFloat => {
+                BuiltinOperation::GreaterThanOrEqualFloat => {
                     self.emit(st, Instr::GreaterThanOrEqual);
                 }
-                Builtin::EqualFloat => {
+                BuiltinOperation::EqualFloat => {
                     self.emit(st, Instr::Equal);
                 }
-                Builtin::EqualString => {
+                BuiltinOperation::EqualString => {
                     self.emit(st, Instr::Equal);
                 }
-                Builtin::IntToString => {
+                BuiltinOperation::IntToString => {
                     self.emit(st, Instr::IntToString);
                 }
-                Builtin::FloatToString => {
+                BuiltinOperation::FloatToString => {
                     self.emit(st, Instr::FloatToString);
                 }
-                Builtin::ConcatStrings => {
+                BuiltinOperation::ConcatStrings => {
                     self.emit(st, Instr::ConcatStrings);
                 }
-                Builtin::ArrayPush => {
+                BuiltinOperation::ArrayPush => {
                     self.emit(st, Instr::ArrayAppend);
                 }
-                Builtin::ArrayLength => {
+                BuiltinOperation::ArrayLength => {
                     self.emit(st, Instr::ArrayLength);
                 }
-                Builtin::ArrayPop => {
+                BuiltinOperation::ArrayPop => {
                     self.emit(st, Instr::ArrayPop);
                 }
-                Builtin::Panic => {
+                BuiltinOperation::Panic => {
                     self.emit(st, Instr::Panic);
                 }
-                Builtin::Newline => {
+                BuiltinOperation::Newline => {
                     panic!("not a function");
                 }
             },

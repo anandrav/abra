@@ -9,8 +9,8 @@ use crate::ast::{
     ArgMaybeAnnotated, AstNode, Expr, ExprKind, FileAst, FuncDef, Identifier, ImportList, Item,
     ItemKind, NodeId, Pat, PatKind, Polytype, Stmt, StmtKind, Type, TypeDefKind, TypeKind,
 };
-use crate::builtin::Builtin;
-use crate::statics::typecheck::Nominal;
+use crate::builtin::BuiltinOperation;
+use crate::statics::typecheck::{Nominal, TypeKey};
 use std::cell::RefCell;
 use std::rc::Rc;
 use utils::hash::HashMap;
@@ -335,7 +335,7 @@ fn resolve_imports_file(ctx: &mut StaticsContext, file: Rc<FileAst>) -> SymbolTa
         .declarations
         .insert("array".to_string(), Declaration::Array);
     // builtin operations
-    for builtin in Builtin::enumerate().iter() {
+    for builtin in BuiltinOperation::enumerate().iter() {
         effective_namespace
             .declarations
             .insert(builtin.name(), Declaration::Builtin(*builtin));
@@ -637,9 +637,7 @@ fn try_add_member_function(
 ) {
     match ctx
         .member_functions
-        .entry(nom)
-        .or_default()
-        .entry(f.name.v.clone())
+        .entry((TypeKey::TyApp(nom), f.name.v.clone()))
     {
         std::collections::hash_map::Entry::Occupied(occupied_entry) => {
             ctx.errors.push(Error::NameClash {
@@ -844,45 +842,38 @@ fn resolve_names_member_helper(ctx: &mut StaticsContext, expr: Rc<Expr>, field: 
                 }
             }
             Declaration::Struct(struct_def) => {
-                let mut found = false;
-                if let Some(member_functions) =
-                    ctx.member_functions.get(&Nominal::Struct(struct_def))
+                if let Some(def) = ctx
+                    .member_functions
+                    .get(&(TypeKey::TyApp(Nominal::Struct(struct_def)), field.v.clone()))
                 {
-                    for (name, def) in member_functions {
-                        if *name == field.v {
-                            ctx.resolution_map.insert(field.id, def.clone());
-                            found = true;
-                        }
-                    }
-                }
-                if !found {
+                    ctx.resolution_map.insert(field.id, def.clone());
+                } else {
                     ctx.errors
                         .push(Error::UnresolvedIdentifier { node: field.node() });
                 }
             }
             Declaration::Enum(enum_def) => {
                 let mut found = false;
-                if let Some(member_functions) =
-                    ctx.member_functions.get(&Nominal::Enum(enum_def.clone()))
-                {
-                    for (name, def) in member_functions {
-                        if *name == field.v {
-                            ctx.resolution_map.insert(field.id, def.clone());
+                if let Some(def) = ctx.member_functions.get(&(
+                    TypeKey::TyApp(Nominal::Enum(enum_def.clone())),
+                    field.v.clone(),
+                )) {
+                    ctx.resolution_map.insert(field.id, def.clone());
+                    found = true;
+                }
+                if !found {
+                    for (idx, variant) in enum_def.variants.iter().enumerate() {
+                        if variant.ctor.v == field.v {
+                            let enum_def = enum_def.clone();
+                            ctx.resolution_map.insert(
+                                field.id,
+                                Declaration::EnumVariant {
+                                    e: enum_def,
+                                    variant: idx as u16,
+                                },
+                            );
                             found = true;
                         }
-                    }
-                }
-                for (idx, variant) in enum_def.variants.iter().enumerate() {
-                    if variant.ctor.v == field.v {
-                        let enum_def = enum_def.clone();
-                        ctx.resolution_map.insert(
-                            field.id,
-                            Declaration::EnumVariant {
-                                e: enum_def,
-                                variant: idx as u16,
-                            },
-                        );
-                        found = true;
                     }
                 }
                 if !found {
