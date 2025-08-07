@@ -246,15 +246,15 @@ fn format_append(s1: 'a ToString, s2: 'b ToString) {
 
 interface Iterate {
     associatedtype Item
-    associatedtype MyIterator // impl Iterator<Item=Item>
+    associatedtype TheIterator impl Iterator // <Item=Item>
 
-    fn make_iterator: () -> MyIterator
+    fn make_iterator: () -> TheIterator
 }
 
 interface Iterator {
     associatedtype Item
 
-    fn next: () -> Item
+    fn next: () -> Maybe<Item,void>
 }
 
 // implement Iterate for array<'T> {

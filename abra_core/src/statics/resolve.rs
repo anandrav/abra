@@ -480,7 +480,6 @@ fn resolve_names_item_decl(ctx: &mut StaticsContext, symbol_table: SymbolTable, 
                 resolve_names_func_helper(ctx, symbol_table.clone(), &f.args, &f.body, &f.ret_type);
             }
 
-            // TODO: heavily duplicated with the logic below for Extension
             // In this pass, we also gather the declarations of member functions
             // We don't gather declarations of member functions in the same pass as gathering type definitions, because
             // the former depends on the latter
