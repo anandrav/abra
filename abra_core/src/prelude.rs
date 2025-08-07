@@ -244,4 +244,24 @@ fn format_append(s1: 'a ToString, s2: 'b ToString) {
     concat_strings(s3, s4)
 }
 
+extend array<'a Equal> {
+    fn find(self: array<'a Equal>, x: 'a Equal) -> maybe<int, void> {
+        var i = 0
+        while i < self.len() {
+            if self[i] = x {
+                return maybe.yes(i)
+            }
+            i := i + 1
+        }
+        maybe.no(())
+    }
+
+    fn contains(self: array<'a Equal>, x: 'a Equal) -> bool {
+        match self.find(x) {
+            maybe.yes(_) -> true,
+            maybe.no(_) -> false,
+        }
+    }
+}
+
 "#;
