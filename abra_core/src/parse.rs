@@ -504,7 +504,7 @@ pub(crate) fn parse_type_poly(pair: Pair<Rule>, file_id: FileId) -> Rc<Polytype>
     match rule {
         Rule::type_poly => {
             let inner: Vec<_> = pair.into_inner().collect();
-            let ty_name = inner[0].as_str()[1..].to_owned();
+            let ty_name = inner[0].as_str().to_owned();
             // println!("tyname: {}", ty_name);
             let ty_span = Location::new(file_id, inner[0].as_span());
             let mut interfaces: Vec<Rc<Interface>> = vec![];

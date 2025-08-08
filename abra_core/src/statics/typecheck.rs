@@ -1025,7 +1025,6 @@ pub(crate) fn ast_type_to_typevar(ctx: &StaticsContext, ast_type: Rc<AstType>) -
                         .map(|param| ast_type_to_typevar(ctx, param.clone()))
                         .collect(),
                 ),
-                Some(Declaration::Polytype(_)) => unreachable!("this is a bug"),
                 _ => {
                     // println!("gets an empty typevar: {}", ident.v);
 
@@ -2686,7 +2685,7 @@ impl Display for PotentialType {
         match self {
             PotentialType::Poly(_, decl) => {
                 let polyty = &decl.0;
-                write!(f, "'{}", polyty.name.v)?;
+                write!(f, "{}", polyty.name.v)?;
                 if !polyty.interfaces.is_empty() {
                     write!(f, " ")?;
                     for (i, interface) in polyty.interfaces.iter().enumerate() {
@@ -2747,7 +2746,7 @@ impl Display for SolvedType {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             SolvedType::Poly(polyty) => {
-                write!(f, "'{}", polyty.name.v)?;
+                write!(f, "{}", polyty.name.v)?;
                 if !polyty.interfaces.is_empty() {
                     write!(f, " ")?;
                     for (i, interface) in polyty.interfaces.iter().enumerate() {
