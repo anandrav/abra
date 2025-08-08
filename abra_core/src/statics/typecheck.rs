@@ -2119,6 +2119,11 @@ fn generate_constraints_expr(
                             ) {
                                 constrain(ctx, memfn_node_ty.clone(), memfn_decl_ty);
                             }
+                            println!(
+                                "receiver ty: {}",
+                                TypeVar::from_node(ctx, receiver_expr.node())
+                            );
+                            println!("memfn ty before analysis: {}", memfn_node_ty);
 
                             generate_constraints_expr_funcap_helper(
                                 ctx,
@@ -2128,6 +2133,9 @@ fn generate_constraints_expr(
                                 expr.node(),
                                 node_ty.clone(),
                             );
+                            println!("memfn ty after analysis: {}", memfn_node_ty);
+
+                            println!("overall node_ty is {}", node_ty);
                         } else {
                             failed_to_resolve_member_function(ctx, solved_ty);
                         }
@@ -2135,7 +2143,10 @@ fn generate_constraints_expr(
                         // failed to resolve member function
                         ctx.errors
                             .push(Error::MemberAccessNeedsAnnotation { node: fname.node() });
-                        // println!("tyvar: {}", TypeVar::from_node(ctx, receiver_expr.node()));
+                        // println!(
+                        //     "not solved??: {}",
+                        //     TypeVar::from_node(ctx, receiver_expr.node())
+                        // );
 
                         node_ty.set_flag_missing_info();
                     }
