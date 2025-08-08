@@ -337,7 +337,6 @@ pub(crate) enum Reason {
     BinopOut(AstNode),
     IndexAccess,
     VariantNoData(AstNode), // the type of the data of a variant with no data, always Void.
-    MemberFunctionType(AstNode),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
@@ -1415,8 +1414,8 @@ fn generate_constraints_item_decls(ctx: &mut StaticsContext, item: Rc<Item>) {
         ItemKind::Stmt(_) => {}
         ItemKind::InterfaceImpl(iface_impl) => {
             let lookup = ctx.resolution_map.get(&iface_impl.iface.id).cloned();
-            if let Some(Declaration::InterfaceDef(iface_decl)) = &lookup {
-                for method in &iface_decl.methods {
+            if let Some(Declaration::InterfaceDef(iface_def)) = &lookup {
+                for method in &iface_def.methods {
                     let node_ty = TypeVar::from_node(ctx, method.node());
                     if node_ty.is_locked() {
                         // Interface declaration method types have already been computed.
@@ -1427,7 +1426,7 @@ fn generate_constraints_item_decls(ctx: &mut StaticsContext, item: Rc<Item>) {
                     // println!("node_ty: {}", node_ty);
                 }
 
-                let impl_list = ctx.interface_impls.entry(iface_decl.clone()).or_default();
+                let impl_list = ctx.interface_impls.entry(iface_def.clone()).or_default();
 
                 impl_list.push(iface_impl.clone());
             }
@@ -1521,11 +1520,11 @@ fn generate_constraints_item_stmts(ctx: &mut StaticsContext, mode: Mode, item: R
             // dbg!(&polyvar_scope);
 
             let lookup = ctx.resolution_map.get(&iface_impl.iface.id).cloned();
-            if let Some(Declaration::InterfaceDef(iface_decl)) = &lookup {
+            if let Some(Declaration::InterfaceDef(iface_def)) = &lookup {
                 for f in &iface_impl.methods {
                     let method_name = f.name.v.clone();
                     if let Some(interface_method) =
-                        iface_decl.methods.iter().find(|m| m.name.v == method_name)
+                        iface_def.methods.iter().find(|m| m.name.v == method_name)
                     {
                         let interface_method_ty =
                             ast_type_to_typevar(ctx, interface_method.ty.clone());
@@ -1762,17 +1761,17 @@ fn generate_constraints_expr(
             generate_constraints_expr(ctx, polyvar_scope.clone(), Mode::Syn, right.clone());
             let ty_out = node_ty;
 
-            let num_iface_decl = ctx.root_namespace.get_declaration("prelude.Num").unwrap();
-            let Declaration::InterfaceDef(num_iface) = num_iface_decl else { unreachable!() };
+            let num_iface_def = ctx.root_namespace.get_declaration("prelude.Num").unwrap();
+            let Declaration::InterfaceDef(num_iface) = num_iface_def else { unreachable!() };
 
-            let equal_iface_decl = ctx.root_namespace.get_declaration("prelude.Equal").unwrap();
-            let Declaration::InterfaceDef(equal_iface) = equal_iface_decl else { unreachable!() };
+            let equal_iface_def = ctx.root_namespace.get_declaration("prelude.Equal").unwrap();
+            let Declaration::InterfaceDef(equal_iface) = equal_iface_def else { unreachable!() };
 
-            let tostring_iface_decl = ctx
+            let tostring_iface_def = ctx
                 .root_namespace
                 .get_declaration("prelude.ToString")
                 .unwrap();
-            let Declaration::InterfaceDef(tostring_iface) = tostring_iface_decl else {
+            let Declaration::InterfaceDef(tostring_iface) = tostring_iface_def else {
                 unreachable!()
             };
 

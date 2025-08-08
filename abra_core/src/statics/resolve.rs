@@ -502,7 +502,7 @@ fn resolve_names_item_decl(ctx: &mut StaticsContext, symbol_table: SymbolTable, 
             // In this pass, we also gather the declarations of member functions
             // We don't gather declarations of member functions in the same pass as gathering type definitions, because
             // the former depends on the latter
-            let Some(Declaration::InterfaceDef(iface_decl)) =
+            let Some(Declaration::InterfaceDef(iface_def)) =
                 ctx.resolution_map.get(&iface_impl.iface.id).cloned()
             else {
                 // TODO: log error when implementee is not an Interface
@@ -513,7 +513,7 @@ fn resolve_names_item_decl(ctx: &mut StaticsContext, symbol_table: SymbolTable, 
                     Some(type_key) => {
                         for (m, f) in iface_impl.methods.iter().enumerate() {
                             let method_decl = Declaration::InterfaceMethod {
-                                i: iface_decl.clone(),
+                                i: iface_def.clone(),
                                 method: m as u16,
                             };
                             try_add_member_function(ctx, type_key.clone(), f.clone(), method_decl);

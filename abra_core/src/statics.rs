@@ -634,10 +634,6 @@ fn handle_reason(
         Reason::IndexAccess => {
             notes.push("array index access".to_string());
         }
-        Reason::MemberFunctionType(node) => {
-            let (file, range) = node.get_file_and_range();
-            labels.push(Label::secondary(file, range).with_message("member function of this type"));
-        }
     }
 }
 
