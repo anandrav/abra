@@ -859,54 +859,7 @@ fn tyvar_of_variable(
             );
             Some(def_type)
         }
-        Declaration::EnumVariant {
-            e: enum_def,
-            variant,
-        } => {
-            let (def_type, substitution) = TypeVar::make_nominal_with_substitution(
-                ctx,
-                Reason::Node(node.clone()),
-                Nominal::Enum(enum_def.clone()),
-                node.clone(),
-            );
-
-            let the_variant = &enum_def.variants[*variant as usize];
-            match &the_variant.data {
-                None => {
-                    // TODO: only this path is used. does it make sense to have the dead code below?
-                    Some(def_type)
-                }
-                Some(ty) => {
-                    // TODO: this path is never taken by the unit tests.
-                    match &*ty.kind {
-                        TypeKind::Void => Some(def_type),
-                        TypeKind::Tuple(elems) => {
-                            let args = elems
-                                .iter()
-                                .map(|e| {
-                                    let e = ast_type_to_typevar(ctx, e.clone());
-                                    e.clone().subst(&substitution)
-                                })
-                                .collect();
-                            Some(TypeVar::make_func(
-                                args,
-                                def_type,
-                                Reason::Node(node.clone()),
-                            ))
-                        }
-                        _ => {
-                            // TODO: this path is never taken by the unit tests.
-                            let ty = ast_type_to_typevar(ctx, ty.clone());
-                            Some(TypeVar::make_func(
-                                vec![ty.clone().subst(&substitution)],
-                                def_type,
-                                Reason::Node(node.clone()),
-                            ))
-                        }
-                    }
-                }
-            }
-        }
+        Declaration::EnumVariant { .. } => None,
         Declaration::Struct(struct_def) => {
             let (def_type, substitution) = TypeVar::make_nominal_with_substitution(
                 ctx,
@@ -2164,15 +2117,19 @@ fn generate_constraints_expr(
          * - ...
          */
         ExprKind::MemberAccess(expr, member_ident) => {
-            if let Some(ref decl @ Declaration::EnumVariant { .. }) =
-                ctx.resolution_map.get(&member_ident.id).cloned()
+            if let Some(Declaration::EnumVariant {
+                e: enum_def,
+                variant: _,
+            }) = ctx.resolution_map.get(&member_ident.id).cloned()
             {
                 // qualified enum with no associated data
-                if let Some(ty_of_declaration) =
-                    tyvar_of_variable(ctx, decl, polyvar_scope.clone(), expr.node())
-                {
-                    constrain(ctx, node_ty, ty_of_declaration);
-                }
+                let (def_type, _) = TypeVar::make_nominal_with_substitution(
+                    ctx,
+                    Reason::Node(expr.node()),
+                    Nominal::Enum(enum_def.clone()),
+                    expr.node(),
+                );
+                constrain(ctx, node_ty, def_type);
             } else {
                 // struct field access
                 generate_constraints_expr(ctx, polyvar_scope, Mode::Syn, expr.clone());
