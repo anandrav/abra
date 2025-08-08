@@ -1357,7 +1357,7 @@ p1 = p2
     assert!(top.get_bool(&vm).unwrap())
 }
 
-#[ignore]
+// #[ignore]
 #[test]
 fn iterate() {
     let src = r#"
@@ -1367,7 +1367,7 @@ let it: ArrayIterator<int> = arr.make_iterator()
 while true {
   match it.next() {
     maybe.yes(n) -> sum := sum + n,
-    maybe.no(_) -> (),
+    maybe.no(_) -> break,
   }
 }
 

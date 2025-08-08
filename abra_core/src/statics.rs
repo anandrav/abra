@@ -310,7 +310,9 @@ pub(crate) fn analyze(
 
     // pattern exhaustiveness and usefulness checking
     check_pattern_exhaustiveness_and_usefulness(&mut ctx, file_asts);
+    // println!("finished checking pattern exhaustivenss and usefulenss");
     check_errors(&ctx, files)?;
+    // println!("finished checking errors");
 
     Ok(ctx)
 }

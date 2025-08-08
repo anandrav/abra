@@ -21,13 +21,17 @@ use super::{
 };
 
 pub(crate) fn solve_types(ctx: &mut StaticsContext, file_asts: &Vec<Rc<FileAst>>) {
+    // println!("solve_types()");
     for file in file_asts {
         generate_constraints_file_decls(ctx, file.clone());
     }
+    // println!("done doing decls");
     for file in file_asts {
         generate_constraints_file_stmts(ctx, file.clone());
     }
+    // println!("done doing stmts");
     check_unifvars(ctx);
+    // println!("done checking unifvars");
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -1427,8 +1431,55 @@ fn generate_constraints_item_decls(ctx: &mut StaticsContext, item: Rc<Item>) {
                 }
 
                 let impl_list = ctx.interface_impls.entry(iface_def.clone()).or_default();
-
                 impl_list.push(iface_impl.clone());
+
+                // BELOW IS WHAT WAS MOVED
+                let impl_ty = ast_type_to_typevar(ctx, iface_impl.typ.clone());
+                if impl_ty.is_instantiated_nominal() {
+                    ctx.errors.push(Error::InterfaceImplTypeNotGeneric {
+                        node: iface_impl.typ.node(),
+                    })
+                }
+                let polyvar_scope = PolyvarScope::empty();
+                // dbg!(&iface_impl.typ);
+                polyvar_scope.add_polys(&impl_ty);
+                // dbg!(&polyvar_scope);
+
+                for f in &iface_impl.methods {
+                    let method_name = f.name.v.clone();
+                    if let Some(interface_method) =
+                        iface_def.methods.iter().find(|m| m.name.v == method_name)
+                    {
+                        let interface_method_ty =
+                            ast_type_to_typevar(ctx, interface_method.ty.clone());
+                        let actual = TypeVar::from_node(ctx, interface_method.node());
+                        // println!("interface_method_ty: {}", interface_method_ty);
+                        // println!("actual: {}", actual);
+                        constrain(ctx, interface_method_ty.clone(), actual);
+
+                        let mut substitution: Substitution = HashMap::default();
+                        if let Some(poly_decl) =
+                            interface_method_ty.clone().get_first_polymorphic_type()
+                        {
+                            substitution.insert(poly_decl, impl_ty.clone());
+                        }
+
+                        let expected = interface_method_ty.clone().subst(&substitution);
+
+                        let actual = TypeVar::from_node(ctx, f.name.node());
+                        constrain(ctx, expected.clone(), actual);
+                        // println!("(1) method {}: {}", method_name, expected);
+
+                        generate_constraints_func_decl(
+                            ctx,
+                            f.name.node(),
+                            polyvar_scope.clone(),
+                            &f.args,
+                            &f.ret_type,
+                        );
+                        // println!("(2) method {}: {}", method_name, expected);
+                    }
+                }
             }
         }
         ItemKind::Extension(ext) => {
@@ -1504,50 +1555,16 @@ fn generate_constraints_item_stmts(ctx: &mut StaticsContext, mode: Mode, item: R
             generate_constraints_stmt(ctx, PolyvarScope::empty(), mode, stmt.clone())
         }
         ItemKind::InterfaceImpl(iface_impl) => {
-            // LAST HERE
             let impl_ty = ast_type_to_typevar(ctx, iface_impl.typ.clone());
-
             if impl_ty.is_instantiated_nominal() {
-                ctx.errors.push(Error::InterfaceImplTypeNotGeneric {
-                    node: iface_impl.typ.node(),
-                })
+                return;
             }
-
             let polyvar_scope = PolyvarScope::empty();
             // dbg!(&iface_impl.typ);
-            let tyvar = ast_type_to_typevar(ctx, iface_impl.typ.clone());
-            polyvar_scope.add_polys(&tyvar);
-            // dbg!(&polyvar_scope);
+            polyvar_scope.add_polys(&impl_ty);
 
-            let lookup = ctx.resolution_map.get(&iface_impl.iface.id).cloned();
-            if let Some(Declaration::InterfaceDef(iface_def)) = &lookup {
-                for f in &iface_impl.methods {
-                    let method_name = f.name.v.clone();
-                    if let Some(interface_method) =
-                        iface_def.methods.iter().find(|m| m.name.v == method_name)
-                    {
-                        let interface_method_ty =
-                            ast_type_to_typevar(ctx, interface_method.ty.clone());
-                        let actual = TypeVar::from_node(ctx, interface_method.node());
-                        // println!("interface_method_ty: {}", interface_method_ty);
-                        // println!("actual: {}", actual);
-                        constrain(ctx, interface_method_ty.clone(), actual);
-
-                        let mut substitution: Substitution = HashMap::default();
-                        if let Some(poly_decl) =
-                            interface_method_ty.clone().get_first_polymorphic_type()
-                        {
-                            substitution.insert(poly_decl, impl_ty.clone());
-                        }
-
-                        let expected = interface_method_ty.clone().subst(&substitution);
-
-                        let actual = TypeVar::from_node(ctx, f.name.node());
-                        constrain(ctx, expected, actual);
-
-                        generate_constraints_fn_def(ctx, polyvar_scope.clone(), f, f.name.node());
-                    }
-                }
+            for f in &iface_impl.methods {
+                generate_constraints_fn_def(ctx, polyvar_scope.clone(), f, f.name.node());
             }
         }
         ItemKind::Extension(ext) => {
@@ -2725,17 +2742,10 @@ pub(crate) fn ty_fits_impl_ty(ctx: &StaticsContext, typ: SolvedType, impl_ty: So
         (SolvedType::Nominal(ident1, tys1), SolvedType::Nominal(ident2, tys2)) => {
             ident1 == ident2
                 && tys1.len() == tys2.len()
-                && tys1.iter().zip(tys2.iter()).all(|(ty1, ty2)| {
-                    let SolvedType::Poly(polyty) = ty2.clone() else {
-                        unreachable!(
-                            "can't implement interfaces for type with concrete type arguments"
-                        )
-                    };
-                    let ifaces = resolved_ifaces(ctx, &polyty.interfaces);
-                    ifaces
-                        .iter()
-                        .all(|iface| ty_implements_iface(ctx, ty1.clone(), iface))
-                })
+                && tys1
+                    .iter()
+                    .zip(tys2.iter())
+                    .all(|(ty1, ty2)| ty_fits_impl_ty(ctx, ty1.clone(), ty2.clone()))
         }
         (_, SolvedType::Poly(polyty)) => {
             let ifaces = resolved_ifaces(ctx, &polyty.interfaces);
