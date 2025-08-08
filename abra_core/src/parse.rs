@@ -173,7 +173,7 @@ pub(crate) fn parse_expr_pratt(pairs: Pairs<Rule>, file_id: FileId) -> Rc<Expr> 
         .parse(pairs)
 }
 
-pub(crate) fn get_pairs(source: &str) -> Result<Pairs<Rule>, String> {
+pub(crate) fn get_pairs(source: &str) -> Result<Pairs<'_, Rule>, String> {
     MyParser::parse(Rule::file, source).map_err(|e| e.to_string())
 }
 
@@ -315,16 +315,16 @@ pub(crate) fn parse_match_pattern(pair: Pair<Rule>, file_id: FileId) -> Rc<Pat> 
             let mut n = 0;
             let mut ident_segments = vec![];
             loop {
-                if n < inner.len() {
-                    if let Rule::identifier = inner[n].as_rule() {
-                        ident_segments.push(Rc::new(Identifier {
-                            v: inner[n].as_str().to_string(),
-                            loc: Location::new(file_id, inner[n].as_span()),
-                            id: NodeId::new(),
-                        }));
-                        n += 1;
-                        continue;
-                    }
+                if n < inner.len()
+                    && let Rule::identifier = inner[n].as_rule()
+                {
+                    ident_segments.push(Rc::new(Identifier {
+                        v: inner[n].as_str().to_string(),
+                        loc: Location::new(file_id, inner[n].as_span()),
+                        id: NodeId::new(),
+                    }));
+                    n += 1;
+                    continue;
                 }
                 break;
             }

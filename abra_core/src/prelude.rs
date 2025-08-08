@@ -7,6 +7,7 @@ host fn print_string(s: string) -> void
 
 fn not(b: bool) = if b false else true
 
+// TODO: really need ability to just write Self instead of 'a Num implicitly being the principled type
 interface Num {
     fn add: ('a Num, 'a Num) -> 'a Num
     fn subtract: ('a Num, 'a Num) -> 'a Num
@@ -248,7 +249,7 @@ interface Iterate {
     associatedtype Item
     associatedtype TheIterator impl Iterator<Item=Item>
 
-    fn make_iterator: () -> TheIterator
+    fn make_iterator: ('a Iterate) -> TheIterator
 }
 
 interface Iterator {
@@ -257,16 +258,16 @@ interface Iterator {
     fn next: () -> maybe<Item,void>
 }
 
-// implement Iterate for array<'T> {
-//     fn make_iterator(self) -> ArrayIterator<'T> {
-//         ArrayIterator(self, 0)
-//     }
-// }
+implement Iterate for array<'T> {
+    fn make_iterator(self) -> ArrayIterator<'T> {
+        ArrayIterator(self, 0)
+    }
+}
 
-// type ArrayIterator<'T> {
-//     arr: array<T>
-//     i: int
-// }
+type ArrayIterator<'T> = {
+    arr: array<T>
+    i: int
+}
 //
 // implement Iterator for ArrayIterator<'T> {
 //     fn next(self) -> maybe<'T,void> {

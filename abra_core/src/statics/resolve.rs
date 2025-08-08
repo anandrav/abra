@@ -910,13 +910,12 @@ fn resolve_names_pat(ctx: &mut StaticsContext, symbol_table: SymbolTable, pat: R
                     }
                 }
                 let mut found = false;
-                if let Some(enum_namespace) = final_namespace {
-                    if let Some(ref decl @ Declaration::EnumVariant { .. }) =
+                if let Some(enum_namespace) = final_namespace
+                    && let Some(ref decl @ Declaration::EnumVariant { .. }) =
                         enum_namespace.declarations.get(&tag.v).cloned()
-                    {
-                        found = true;
-                        ctx.resolution_map.insert(tag.id, decl.clone());
-                    }
+                {
+                    found = true;
+                    ctx.resolution_map.insert(tag.id, decl.clone());
                 }
                 if !found {
                     ctx.errors

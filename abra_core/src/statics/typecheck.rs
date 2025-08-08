@@ -1248,11 +1248,11 @@ pub(crate) fn check_unifvars(ctx: &mut StaticsContext) {
                     types: type_suggestions,
                 });
             }
-        } else if tyvar.is_underdetermined() {
-            if let Prov::Node(id) = prov {
-                ctx.errors
-                    .push(Error::UnconstrainedUnifvar { node: id.clone() });
-            }
+        } else if tyvar.is_underdetermined()
+            && let Prov::Node(id) = prov
+        {
+            ctx.errors
+                .push(Error::UnconstrainedUnifvar { node: id.clone() });
         }
     }
     for (prov, ifaces) in &ctx.unifvars_constrained_to_interfaces {
@@ -1632,11 +1632,10 @@ fn generate_constraints_expr(
         }
         ExprKind::Variable(_) => {
             let lookup = ctx.resolution_map.get(&expr.id).cloned();
-            if let Some(res) = lookup {
-                if let Some(typ) = tyvar_of_symbol(ctx, &res, polyvar_scope.clone(), expr.node()) {
+            if let Some(res) = lookup
+                && let Some(typ) = tyvar_of_symbol(ctx, &res, polyvar_scope.clone(), expr.node()) {
                     constrain(ctx, typ, node_ty.clone());
                 }
-            }
         }
         ExprKind::BinOp(left, op, right) => {
             let ty_left = TypeVar::from_node(ctx, left.node());
@@ -2064,8 +2063,8 @@ fn generate_constraints_expr(
             };
 
             let mut can_infer = false;
-            if let Some(expected_ty) = expected_ty {
-                if let Some(SolvedType::Nominal(Nominal::Enum(enum_def), _)) =
+            if let Some(expected_ty) = expected_ty
+                && let Some(SolvedType::Nominal(Nominal::Enum(enum_def), _)) =
                     expected_ty.solution()
                 {
                     can_infer = true;
@@ -2095,7 +2094,6 @@ fn generate_constraints_expr(
 
                     constrain(ctx, node_ty.clone(), enum_ty);
                 }
-            }
 
             if !can_infer {
                 ctx.errors
@@ -2464,8 +2462,8 @@ fn generate_constraints_pat(
                 };
 
                 let mut can_infer = false;
-                if let Some(expected_ty) = expected_ty {
-                    if let Some(SolvedType::Nominal(Nominal::Enum(enum_def), _)) =
+                if let Some(expected_ty) = expected_ty
+                    && let Some(SolvedType::Nominal(Nominal::Enum(enum_def), _)) =
                         expected_ty.solution()
                     {
                         let mut idx: u16 = 0;
@@ -2509,7 +2507,6 @@ fn generate_constraints_pat(
                             )
                         };
                     }
-                }
 
                 if !can_infer {
                     ctx.errors

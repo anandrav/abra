@@ -113,10 +113,10 @@ impl Translator {
         let bytecode_index = st.instr_count;
         {
             let mut redundant = false;
-            if let Some(last) = st.filename_table.last() {
-                if last.1 == file_id {
-                    redundant = true;
-                }
+            if let Some(last) = st.filename_table.last()
+                && last.1 == file_id
+            {
+                redundant = true;
             }
             if !redundant {
                 st.filename_table.push((bytecode_index as u32, file_id));
@@ -125,10 +125,10 @@ impl Translator {
 
         {
             let mut redundant = false;
-            if let Some(last) = st.lineno_table.last() {
-                if last.1 == line_no as u32 {
-                    redundant = true;
-                }
+            if let Some(last) = st.lineno_table.last()
+                && last.1 == line_no as u32
+            {
+                redundant = true;
             }
             if !redundant {
                 st.lineno_table
@@ -143,10 +143,10 @@ impl Translator {
         let function_name_id = st.function_name_arena.insert(name.to_string());
 
         let mut redundant = false;
-        if let Some(last) = st.function_name_table.last() {
-            if last.1 == function_name_id {
-                redundant = true;
-            }
+        if let Some(last) = st.function_name_table.last()
+            && last.1 == function_name_id
+        {
+            redundant = true;
         }
         if !redundant {
             st.function_name_table
@@ -1219,13 +1219,13 @@ fn collect_locals_expr(expr: &Expr, locals: &mut HashSet<NodeId>) {
     match &*expr.kind {
         ExprKind::Block(statements) => {
             for statement in statements {
-                collect_locals_stmt(&[statement.clone()], locals);
+                collect_locals_stmt(std::slice::from_ref(statement), locals);
             }
         }
         ExprKind::Match(_, arms) => {
             for arm in arms {
                 collect_locals_pat(arm.pat.clone(), locals);
-                collect_locals_stmt(&[arm.stmt.clone()], locals);
+                collect_locals_stmt(std::slice::from_ref(&arm.stmt), locals);
             }
         }
         ExprKind::Array(exprs) => {
