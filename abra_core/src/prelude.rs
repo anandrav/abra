@@ -258,7 +258,7 @@ interface Iterator {
 }
 
 // implement Iterate for array<'T> {
-//     fn make_iterator(self) -> ArrayIterator<T> {
+//     fn make_iterator(self) -> ArrayIterator<'T> {
 //         ArrayIterator(self, 0)
 //     }
 // }
@@ -269,7 +269,7 @@ interface Iterator {
 // }
 //
 // implement Iterator for ArrayIterator<'T> {
-//     fn next(self) -> ArrayIterator<T> {
+//     fn next(self) -> maybe<'T,void> {
 //         self.i := self.i + 1
 //     }
 // }

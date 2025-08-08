@@ -380,7 +380,6 @@ pub(crate) enum StmtKind {
     Let(bool, PatAnnotated, Rc<Expr>), // bool is whether it's mutable
     Set(Rc<Expr>, Rc<Expr>),
     Expr(Rc<Expr>),
-    // FuncDef(Rc<FuncDef>),
     Continue,
     Break,
     Return(Rc<Expr>),
