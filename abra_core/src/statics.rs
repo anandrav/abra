@@ -4,8 +4,8 @@
 
 use crate::FileProvider;
 use crate::ast::{
-    AstNode, EnumDef, FileAst, FileDatabase, FileId, FuncDecl, FuncDef, InterfaceDecl,
-    InterfaceImpl, NodeId, Polytype, StructDef, TypeKind,
+    AssociatedType, AstNode, EnumDef, FileAst, FileDatabase, FileId, FuncDecl, FuncDef,
+    InterfaceDecl, InterfaceImpl, NodeId, Polytype, StructDef, TypeKind,
 };
 use crate::builtin::{BuiltinOperation, BuiltinType};
 use resolve::{resolve, scan_declarations};
@@ -42,6 +42,11 @@ pub(crate) struct StaticsContext {
     // Currently it's only used for functions and types so translate_bytecode can mangle the function names
     // FQNs of types are needed to determine the FQN of a member function
     pub(crate) fully_qualified_names: HashMap<NodeId, String>,
+
+    // This maps from some interface to its namespace. Used to resolve associated types, which are
+    // declared in the Interface's body, elsewhere in the body such as a function signature, in an
+    // order-independent manner.
+    pub(crate) interface_namespaces: HashMap<Rc<InterfaceDecl>, Rc<Namespace>>,
 
     // BOOKKEEPING
 
@@ -82,6 +87,7 @@ impl StaticsContext {
             root_namespace: Default::default(),
             resolution_map: Default::default(),
             fully_qualified_names: Default::default(),
+            interface_namespaces: Default::default(),
 
             loop_stack: Default::default(),
             func_ret_stack: Default::default(),
@@ -170,6 +176,10 @@ pub(crate) enum Declaration {
         i: Rc<InterfaceDecl>,
         method: u16,
     },
+    AssociatedType {
+        i: Rc<InterfaceDecl>,
+        at: Rc<AssociatedType>,
+    },
     MemberFunction {
         f: Rc<FuncDef>,
     },
@@ -202,6 +212,7 @@ impl Declaration {
             | Declaration::Var(_)
             | Declaration::Polytype(_)
             | Declaration::EnumVariant { .. } => None,
+            Declaration::AssociatedType { .. } => unimplemented!(),
             Declaration::Enum(enum_def) => Some(TypeKey::TyApp(Nominal::Enum(enum_def.clone()))),
             Declaration::Struct(struct_def) => {
                 Some(TypeKey::TyApp(Nominal::Struct(struct_def.clone())))
@@ -652,6 +663,7 @@ fn add_detail_for_decl(
         | Declaration::Struct(..)
         | Declaration::Polytype(..)
         | Declaration::Var(..) => {}
+        Declaration::AssociatedType { .. } => unimplemented!(),
         Declaration::Builtin(builtin) => notes.push(format!(
             "`{}` is a builtin operation and cannot be re-declared",
             builtin.name()
@@ -684,6 +696,7 @@ fn add_detail_for_decl_node(
         Declaration::Polytype(polytype) => polytype.name.node(),
 
         Declaration::Var(ast_node) => ast_node.clone(),
+        Declaration::AssociatedType { .. } => unimplemented!(),
         Declaration::Builtin(_) | Declaration::BuiltinType(_) | Declaration::Array => return false,
     };
     let (file, range) = node.get_file_and_range();

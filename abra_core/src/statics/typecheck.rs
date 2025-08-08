@@ -841,6 +841,7 @@ fn tyvar_of_symbol(
         Declaration::MemberFunction { f: func, .. } => {
             Some(TypeVar::from_node(ctx, func.name.node()))
         }
+        Declaration::AssociatedType { .. } => unimplemented!(),
         Declaration::Enum(enum_def) => {
             let (def_type, _) = TypeVar::make_nominal_with_substitution(
                 ctx,

@@ -541,7 +541,7 @@ pub(crate) fn parse_type_poly(pair: Pair<Rule>, file_id: FileId) -> Rc<Polytype>
                 interfaces.push(interface);
             }
 
-            let ret = Polytype {
+            Polytype {
                 name: Identifier {
                     v: ty_name,
                     loc: ty_span,
@@ -550,8 +550,7 @@ pub(crate) fn parse_type_poly(pair: Pair<Rule>, file_id: FileId) -> Rc<Polytype>
                 .into(),
                 interfaces,
             }
-            .into();
-            ret
+            .into()
         }
         _ => panic!("unreachable rule {pair:#?}"),
     }
@@ -751,6 +750,8 @@ pub(crate) fn parse_item(pair: Pair<Rule>, file_id: FileId) -> Rc<Item> {
                         .into();
                         let mut interfaces: Vec<Rc<Interface>> = vec![];
                         let mut n = 1;
+                        // TODO code duplication
+                        // TODO: also this code is hard to read. Manually incrementing n sloppy. Use Rules to create more structure
                         while n < inner.len() {
                             let iface_name = Identifier {
                                 v: inner[n].as_str().to_string(),

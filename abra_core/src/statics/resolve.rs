@@ -85,12 +85,27 @@ fn gather_declarations_item(
                     },
                 );
             }
+            for associated_type in iface.associated_types.iter() {
+                let name = associated_type.name.v.clone();
+                iface_namespace.add_declaration(
+                    ctx,
+                    name,
+                    Declaration::AssociatedType {
+                        i: iface.clone(),
+                        at: associated_type.clone(),
+                    },
+                );
+            }
 
-            namespace.add_namespace(iface.name.v.clone(), iface_namespace.into());
+            let iface_namespace = Rc::new(iface_namespace);
+            namespace.add_namespace(iface.name.v.clone(), iface_namespace.clone());
+            ctx.interface_namespaces
+                .insert(iface.clone(), iface_namespace);
         }
         ItemKind::InterfaceImpl(_) => {}
         ItemKind::Extension(_) => {
             // defer gathering declarations of member functions until declarations are gathered for type definitions
+            // (the type being extended must be resolved before proceeding)
         }
         ItemKind::TypeDef(typdefkind) => match &**typdefkind {
             // TypeDefKind::Alias(_ident, _) => {
@@ -467,6 +482,10 @@ fn resolve_names_item_decl(ctx: &mut StaticsContext, symbol_table: SymbolTable, 
             resolve_names_typ(ctx, symbol_table.clone(), f.ret_type.clone(), true);
         }
         ItemKind::InterfaceDef(iface_def) => {
+            let ns = &ctx.interface_namespaces[iface_def];
+            for (name, decl) in ns.declarations.iter() {
+                symbol_table.extend_declaration(name.clone(), decl.clone());
+            }
             for prop in &iface_def.methods {
                 let symbol_table = symbol_table.new_scope();
                 resolve_names_typ(ctx, symbol_table.clone(), prop.ty.clone(), true);
@@ -762,13 +781,16 @@ fn resolve_names_member_helper(ctx: &mut StaticsContext, expr: Rc<Expr>, field: 
             | Declaration::_ForeignFunction { .. }
             | Declaration::InterfaceMethod { .. }
             | Declaration::MemberFunction { .. }
+            | Declaration::AssociatedType { .. }
             | Declaration::EnumVariant { .. }
             | Declaration::Polytype(_)
             | Declaration::Builtin(_) => {
+                // TODO: need more descriptive error message
                 ctx.errors
                     .push(Error::UnresolvedIdentifier { node: field.node() });
             }
             Declaration::BuiltinType(_) | Declaration::Array => {
+                // TODO: calling member functions on types like doing `array.len(my_array)` or `int.str(23)`
                 todo!()
             }
             Declaration::InterfaceDef(iface_def) => {
@@ -923,7 +945,7 @@ fn resolve_names_typ(
     ctx: &mut StaticsContext,
     symbol_table: SymbolTable,
     typ: Rc<Type>,
-    introduce_poly: bool,
+    introduce_poly: bool, // TODO: is this actually needed. I hate passing bool flags like this
 ) {
     match &*typ.kind {
         TypeKind::Bool => {
@@ -1011,6 +1033,7 @@ fn fqn_of_type(ctx: &StaticsContext, lookup_id: NodeId) -> Option<String> {
         Declaration::InterfaceDef(_) => None,
         Declaration::InterfaceMethod { .. } => None,
         Declaration::MemberFunction { .. } => None,
+        Declaration::AssociatedType { .. } => None,
         Declaration::Enum(e) => ctx.fully_qualified_names.get(&e.name.id).cloned(),
         Declaration::Struct(s) => ctx.fully_qualified_names.get(&s.name.id).cloned(),
         Declaration::EnumVariant { .. } => None,

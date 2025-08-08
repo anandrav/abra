@@ -319,7 +319,7 @@ impl Translator {
                         unimplemented!()
                     }
                 },
-                Declaration::BuiltinType(_) => unreachable!(),
+                Declaration::AssociatedType { .. } | Declaration::BuiltinType(_) => unreachable!(),
                 Declaration::FreeFunction(f) => {
                     let name = &self.statics.fully_qualified_names[&f.name.id];
                     self.emit(
@@ -884,7 +884,8 @@ impl Translator {
                     panic!("not a function");
                 }
             },
-            Declaration::InterfaceDef(_)
+            Declaration::AssociatedType { .. }
+            | Declaration::InterfaceDef(_)
             | Declaration::Array
             | Declaration::Polytype(_)
             | Declaration::BuiltinType(_) => {
