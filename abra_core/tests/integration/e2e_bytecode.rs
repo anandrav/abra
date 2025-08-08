@@ -1356,3 +1356,30 @@ p1 = p2
     let top = vm.top().unwrap();
     assert!(top.get_bool(&vm).unwrap())
 }
+
+#[ignore]
+#[test]
+fn iterate() {
+    let src = r#"
+let arr = [1, 2, 3]
+var sum = 0
+let it: ArrayIterator<int> = arr.make_iterator()
+while true {
+  match it.next() {
+    maybe.yes(n) -> sum := sum + n,
+    maybe.no(_) -> (),
+  }
+}
+
+sum
+
+"#;
+    let program = unwrap_or_panic(compile_bytecode(
+        "main.abra",
+        MockFileProvider::single_file(src),
+    ));
+    let mut vm = Vm::new(program);
+    vm.run();
+    let top = vm.top().unwrap();
+    assert_eq!(top.get_int(&vm).unwrap(), 6)
+}

@@ -259,7 +259,7 @@ interface Iterator {
 }
 
 implement Iterate for array<'T> {
-    fn make_iterator(self) -> ArrayIterator<'T> {
+    fn make_iterator(self: array<'T>) -> ArrayIterator<'T> {
         ArrayIterator(self, 0)
     }
 }
