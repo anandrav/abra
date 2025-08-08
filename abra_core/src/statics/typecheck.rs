@@ -941,7 +941,7 @@ fn tyvar_of_variable(
     .map(|tyvar| tyvar.instantiate(ctx, polyvar_scope, node))
 }
 
-// If an identifier resolves
+// If a type
 fn tyvar_of_type_declaration(
     ctx: &mut StaticsContext,
     decl: &Declaration,
@@ -1133,6 +1133,7 @@ pub(crate) fn ast_type_to_typevar(ctx: &StaticsContext, ast_type: Rc<AstType>) -
                         .map(|param| ast_type_to_typevar(ctx, param.clone()))
                         .collect(),
                 ),
+
                 Some(Declaration::Struct(struct_def)) => TypeVar::make_nominal(
                     Reason::Annotation(ast_type.node()),
                     Nominal::Struct(struct_def.clone()),
@@ -1433,53 +1434,32 @@ fn generate_constraints_item_decls(ctx: &mut StaticsContext, item: Rc<Item>) {
         }
         ItemKind::Extension(ext) => {
             // TODO: LAST HERE
-            let Some(lookup) = ctx.resolution_map.get(&ext.typ.id).cloned() else { return };
+            for f in &ext.methods {
+                let err = |ctx: &mut StaticsContext| {
+                    ctx.errors
+                        .push(Error::MemberFunctionMissingFirstSelfArgument {
+                            node: f.name.node(),
+                        });
+                };
+                if let Some((first_arg_identifier, _)) = f.args.first() {
+                    if first_arg_identifier.v == "self" {
+                        let nominal_ty = ast_type_to_typevar(ctx, ext.typ.clone());
+                        let ty_arg = TypeVar::from_node(ctx, first_arg_identifier.node());
+                        constrain(ctx, ty_arg, nominal_ty);
 
-            let mut helper = |nominal: Nominal| {
-                for f in &ext.methods {
-                    let err = |ctx: &mut StaticsContext| {
-                        ctx.errors
-                            .push(Error::MemberFunctionMissingFirstSelfArgument {
-                                node: f.name.node(),
-                            });
-                    };
-                    if let Some((first_arg_identifier, _)) = f.args.first() {
-                        if first_arg_identifier.v == "self" {
-                            let (nominal_ty, _) = TypeVar::make_nominal_with_substitution(
-                                ctx,
-                                Reason::MemberFunctionType(ext.typ.node()),
-                                nominal.clone(),
-                                item.node(),
-                            );
-                            let ty_arg = TypeVar::from_node(ctx, first_arg_identifier.node());
-                            constrain(ctx, ty_arg, nominal_ty);
-
-                            generate_constraints_func_decl(
-                                ctx,
-                                f.name.node(),
-                                PolyvarScope::empty(),
-                                &f.args,
-                                &f.ret_type,
-                            );
-                        } else {
-                            err(ctx);
-                        }
+                        generate_constraints_func_decl(
+                            ctx,
+                            f.name.node(),
+                            PolyvarScope::empty(),
+                            &f.args,
+                            &f.ret_type,
+                        );
                     } else {
                         err(ctx);
                     }
+                } else {
+                    err(ctx);
                 }
-            };
-            match &lookup {
-                Declaration::Struct(struct_def) => {
-                    helper(Nominal::Struct(struct_def.clone()));
-                }
-                Declaration::Enum(enum_def) => {
-                    helper(Nominal::Enum(enum_def.clone()));
-                }
-                Declaration::Array => {
-                    helper(Nominal::Array);
-                }
-                _ => {}
             }
         }
         ItemKind::TypeDef(typdefkind) => match &**typdefkind {
