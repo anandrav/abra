@@ -97,7 +97,7 @@ fn check_pattern_exhaustiveness_expr(statics: &mut StaticsContext, expr: &Rc<Exp
             match_expr_exhaustive_check(statics, expr.node(), scrutiny, arms);
         }
 
-        ExprKind::Unit
+        ExprKind::Void
         | ExprKind::Int(_)
         | ExprKind::Float(_)
         | ExprKind::Bool(_)
@@ -203,7 +203,7 @@ impl Matrix {
                 SolvedType::Tuple(tys) => {
                     new_types.extend(tys.clone());
                 }
-                SolvedType::Unit => {}
+                SolvedType::Void => {}
                 _ => unreachable!(),
             },
             Constructor::Variant((enum_def, idx)) => {
@@ -212,11 +212,11 @@ impl Matrix {
                 let data_ty = if let Some(data) = &variant_data {
                     ast_type_to_solved_type(statics, data.clone()).unwrap()
                 } else {
-                    SolvedType::Unit
+                    SolvedType::Void
                 };
                 match data_ty {
                     SolvedType::Never => unreachable!(),
-                    SolvedType::Unit => {}
+                    SolvedType::Void => {}
                     SolvedType::Poly(..)
                     | SolvedType::Bool
                     | SolvedType::Int
@@ -332,7 +332,7 @@ impl DeconstructedPat {
             PatKind::Int(i) => Constructor::Int(*i),
             PatKind::Float(f) => Constructor::Float(f.clone()),
             PatKind::Str(s) => Constructor::String(s.clone()),
-            PatKind::Unit => Constructor::Product,
+            PatKind::Void => Constructor::Product,
             PatKind::Tuple(elems) => {
                 fields = elems
                     .iter()
@@ -385,7 +385,7 @@ impl DeconstructedPat {
             | SolvedType::Float
             | SolvedType::String
             | SolvedType::Bool
-            | SolvedType::Unit
+            | SolvedType::Void
             | SolvedType::Poly(..)
             | SolvedType::Function(..) => vec![],
             SolvedType::Tuple(tys) => tys.clone(),
@@ -396,10 +396,10 @@ impl DeconstructedPat {
                     let data_ty = if let Some(data) = &variant_data {
                         ast_type_to_solved_type(statics, data.clone()).unwrap()
                     } else {
-                        SolvedType::Unit
+                        SolvedType::Void
                     };
 
-                    if !matches!(data_ty, SolvedType::Unit) {
+                    if !matches!(data_ty, SolvedType::Void) {
                         vec![data_ty.clone()]
                     } else {
                         vec![]
@@ -520,7 +520,7 @@ impl Constructor {
             | Constructor::Wildcard(..) => 0,
             Constructor::Product => match &matrix_tys[0] {
                 SolvedType::Tuple(tys) => tys.len(),
-                SolvedType::Unit => 0,
+                SolvedType::Void => 0,
                 _ => panic!("unexpected type for product constructor: {}", matrix_tys[0]),
             },
             Constructor::Variant((enum_def, idx)) => {
@@ -528,7 +528,7 @@ impl Constructor {
                 match &variant.data {
                     None => 0,
                     Some(ty) => match &*ty.kind {
-                        TypeKind::Unit => 0,
+                        TypeKind::Void => 0,
                         _ => 1,
                     },
                 }
@@ -841,7 +841,7 @@ fn ctors_for_ty(ty: &SolvedType) -> ConstructorSet {
             ConstructorSet::EnumVariants(variants)
         }
         SolvedType::Tuple(..) => ConstructorSet::Product,
-        SolvedType::Unit => ConstructorSet::Product,
+        SolvedType::Void => ConstructorSet::Product,
         SolvedType::Int | SolvedType::Float | SolvedType::String | SolvedType::Function(..) => {
             ConstructorSet::Unlistable
         }

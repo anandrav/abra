@@ -689,7 +689,7 @@ fn resolve_symbol(
 
 fn resolve_names_expr(ctx: &mut StaticsContext, symbol_table: SymbolTable, expr: Rc<Expr>) {
     match &*expr.kind {
-        ExprKind::Unit
+        ExprKind::Void
         | ExprKind::Int(_)
         | ExprKind::Float(_)
         | ExprKind::Bool(_)
@@ -892,7 +892,7 @@ fn resolve_names_fn_arg(symbol_table: SymbolTable, arg: &Rc<Identifier>) {
 fn resolve_names_pat(ctx: &mut StaticsContext, symbol_table: SymbolTable, pat: Rc<Pat>) {
     match &*pat.kind {
         PatKind::Wildcard => (),
-        PatKind::Unit
+        PatKind::Void
         | PatKind::Int(_)
         | PatKind::Float(_)
         | PatKind::Bool(_)
@@ -952,9 +952,9 @@ fn resolve_names_typ(
             ctx.resolution_map
                 .insert(typ.id, Declaration::BuiltinType(BuiltinType::Bool));
         }
-        TypeKind::Unit => {
+        TypeKind::Void => {
             ctx.resolution_map
-                .insert(typ.id, Declaration::BuiltinType(BuiltinType::Unit));
+                .insert(typ.id, Declaration::BuiltinType(BuiltinType::Void));
         }
         TypeKind::Int => {
             ctx.resolution_map

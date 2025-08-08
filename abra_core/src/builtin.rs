@@ -178,7 +178,7 @@ impl BuiltinOperation {
                         TypeVar::make_nominal(reason.clone(), Nominal::Array, vec![a.clone()]),
                         a.clone(),
                     ],
-                    TypeVar::make_unit(reason.clone()),
+                    TypeVar::make_void(reason.clone()),
                     reason.clone(),
                 )
             }
@@ -204,7 +204,7 @@ impl BuiltinOperation {
                         Nominal::Array,
                         vec![a.clone()],
                     )],
-                    TypeVar::make_unit(reason.clone()),
+                    TypeVar::make_void(reason.clone()),
                     reason.clone(),
                 )
             }
@@ -225,7 +225,7 @@ pub enum BuiltinType {
     Int,
     Bool,
     Float,
-    Unit,
+    Void,
     String,
     Tuple(u8),
 }
@@ -236,7 +236,7 @@ impl BuiltinType {
             Self::Int => "int",
             Self::Bool => "bool",
             Self::Float => "float",
-            Self::Unit => "void",
+            Self::Void => "void",
             Self::String => "string",
             Self::Tuple(_) => "tuple",
         }
@@ -247,7 +247,7 @@ impl BuiltinType {
             Self::Int => TypeKey::Int,
             Self::Bool => TypeKey::Bool,
             Self::Float => TypeKey::Float,
-            Self::Unit => TypeKey::Unit,
+            Self::Void => TypeKey::Void,
             Self::String => TypeKey::String,
             Self::Tuple(arity) => TypeKey::Tuple(arity),
         }

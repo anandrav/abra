@@ -17,7 +17,7 @@ use std::rc::Rc;
 use utils::hash::HashMap;
 
 use super::{
-    Declaration, EnumDef, Error, FuncDef, InterfaceDecl, Polytype, StaticsContext, StructDef,
+    Declaration, EnumDef, Error, FuncDef, InterfaceDef, Polytype, StaticsContext, StructDef,
 };
 
 pub(crate) fn solve_types(ctx: &mut StaticsContext, file_asts: &Vec<Rc<FileAst>>) {
@@ -88,7 +88,7 @@ impl TypeVarData {
         // accumulate provenances and constrain children to each other if applicable
         if let Some(t) = self.types.get_mut(&key) {
             match &mut t_other {
-                PotentialType::Unit(other_provs)
+                PotentialType::Void(other_provs)
                 | PotentialType::Never(other_provs)
                 | PotentialType::Int(other_provs)
                 | PotentialType::Float(other_provs)
@@ -146,7 +146,7 @@ impl TypeVarData {
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub(crate) enum PotentialType {
     Poly(Reasons, PolyDeclaration),
-    Unit(Reasons),
+    Void(Reasons),
     Never(Reasons),
     Int(Reasons),
     Float(Reasons),
@@ -175,7 +175,7 @@ impl From<&PolyDeclaration> for Declaration {
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub(crate) enum SolvedType {
     Poly(Rc<Polytype>), // type name, then list of Interfaces it must match
-    Unit,
+    Void,
     Never,
     Int,
     Float,
@@ -207,7 +207,7 @@ impl SolvedType {
     pub(crate) fn monotype(&self) -> Option<Monotype> {
         match self {
             Self::Poly(..) => None,
-            Self::Unit => Some(Monotype::Unit),
+            Self::Void => Some(Monotype::Void),
             Self::Never => Some(Monotype::Never),
             Self::Int => Some(Monotype::Int),
             Self::Float => Some(Monotype::Float),
@@ -253,7 +253,7 @@ impl SolvedType {
     fn key(&self) -> TypeKey {
         match self {
             SolvedType::Poly(poly_decl) => TypeKey::Poly(PolyDeclaration(poly_decl.clone())),
-            SolvedType::Unit => TypeKey::Unit,
+            SolvedType::Void => TypeKey::Void,
             SolvedType::Never => TypeKey::Never,
             SolvedType::Int => TypeKey::Int,
             SolvedType::Float => TypeKey::Float,
@@ -268,7 +268,7 @@ impl SolvedType {
     pub(crate) fn is_overloaded(&self) -> bool {
         match self {
             Self::Poly(polyty) => !polyty.interfaces.is_empty(),
-            Self::Unit => false,
+            Self::Void => false,
             Self::Never => false,
             Self::Int => false,
             Self::Float => false,
@@ -287,7 +287,7 @@ impl SolvedType {
 // subset of SolvedType. SolvedType without poly
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub(crate) enum Monotype {
-    Unit,
+    Void,
     Never,
     Int,
     Float,
@@ -304,7 +304,7 @@ pub(crate) enum Monotype {
 pub(crate) enum TypeKey {
     Poly(PolyDeclaration),
     TyApp(Nominal),
-    Unit,
+    Void,
     Never,
     Int,
     Float,
@@ -336,7 +336,7 @@ pub(crate) enum Reason {
     BinopRight(AstNode),
     BinopOut(AstNode),
     IndexAccess,
-    VariantNoData(AstNode), // the type of the data of a variant with no data, always Unit.
+    VariantNoData(AstNode), // the type of the data of a variant with no data, always Void.
     MemberFunctionType(AstNode),
 }
 
@@ -364,7 +364,7 @@ impl PotentialType {
     fn key(&self) -> TypeKey {
         match self {
             PotentialType::Poly(_, decl) => TypeKey::Poly(decl.clone()),
-            PotentialType::Unit(_) => TypeKey::Unit,
+            PotentialType::Void(_) => TypeKey::Void,
             PotentialType::Never(_) => TypeKey::Never,
             PotentialType::Int(_) => TypeKey::Int,
             PotentialType::Float(_) => TypeKey::Float,
@@ -382,7 +382,7 @@ impl PotentialType {
             Self::Int(_) => Some(SolvedType::Int),
             Self::Float(_) => Some(SolvedType::Float),
             Self::String(_) => Some(SolvedType::String),
-            Self::Unit(_) => Some(SolvedType::Unit),
+            Self::Void(_) => Some(SolvedType::Void),
             Self::Never(_) => Some(SolvedType::Never),
             Self::Poly(_, decl) => {
                 let polyty = &decl.0;
@@ -428,7 +428,7 @@ impl PotentialType {
     pub(crate) fn reasons(&self) -> &Reasons {
         match self {
             Self::Poly(provs, _)
-            | Self::Unit(provs)
+            | Self::Void(provs)
             | Self::Never(provs)
             | Self::Int(provs)
             | Self::Float(provs)
@@ -440,8 +440,8 @@ impl PotentialType {
         }
     }
 
-    fn make_unit(reason: Reason) -> PotentialType {
-        PotentialType::Unit(reasons_singleton(reason))
+    fn make_void(reason: Reason) -> PotentialType {
+        PotentialType::Void(reasons_singleton(reason))
     }
 
     fn make_never(reason: Reason) -> PotentialType {
@@ -534,7 +534,7 @@ impl TypeVar {
         }
         let ty = data.types.into_values().next().unwrap();
         let ty = match ty {
-            PotentialType::Unit(_)
+            PotentialType::Void(_)
             | PotentialType::Never(_)
             | PotentialType::Int(_)
             | PotentialType::Float(_)
@@ -547,7 +547,7 @@ impl TypeVar {
                     let polyty = &decl.0;
                     let prov = Prov::InstantiatePoly(node.clone(), polyty.clone());
                     let ret = TypeVar::fresh(ctx, prov.clone());
-                    let mut extension: Vec<(Rc<InterfaceDecl>, AstNode)> = Vec::new();
+                    let mut extension: Vec<(Rc<InterfaceDef>, AstNode)> = Vec::new();
                     for i in &polyty.interfaces {
                         if let Some(Declaration::InterfaceDef(iface)) =
                             ctx.resolution_map.get(&i.name.id)
@@ -605,7 +605,7 @@ impl TypeVar {
             let ty = data.types.into_values().next().unwrap();
 
             match ty {
-                PotentialType::Unit(_)
+                PotentialType::Void(_)
                 | PotentialType::Never(_)
                 | PotentialType::Int(_)
                 | PotentialType::Float(_)
@@ -648,7 +648,7 @@ impl TypeVar {
             let ty = data.types.into_values().next().unwrap();
 
             let ty = match ty {
-                PotentialType::Unit(_)
+                PotentialType::Void(_)
                 | PotentialType::Never(_)
                 | PotentialType::Int(_)
                 | PotentialType::Float(_)
@@ -719,8 +719,8 @@ impl TypeVar {
         )))
     }
 
-    pub(crate) fn make_unit(reason: Reason) -> TypeVar {
-        Self::singleton_solved(PotentialType::make_unit(reason))
+    pub(crate) fn make_void(reason: Reason) -> TypeVar {
+        Self::singleton_solved(PotentialType::make_void(reason))
     }
 
     pub(crate) fn make_never(reason: Reason) -> TypeVar {
@@ -871,7 +871,7 @@ fn tyvar_of_symbol(
                 Some(ty) => {
                     // TODO: this path is never taken by the unit tests.
                     match &*ty.kind {
-                        TypeKind::Unit => Some(def_type),
+                        TypeKind::Void => Some(def_type),
                         TypeKind::Tuple(elems) => {
                             let args = elems
                                 .iter()
@@ -957,7 +957,7 @@ pub(crate) fn ast_type_to_solved_type(
                 _ => None,
             }
         }
-        TypeKind::Unit => Some(SolvedType::Unit),
+        TypeKind::Void => Some(SolvedType::Void),
         TypeKind::Int => Some(SolvedType::Int),
         TypeKind::Float => Some(SolvedType::Float),
         TypeKind::Bool => Some(SolvedType::Bool),
@@ -1027,7 +1027,7 @@ pub(crate) fn ast_type_to_typevar(ctx: &StaticsContext, ast_type: Rc<AstType>) -
                 }
             }
         }
-        TypeKind::Unit => TypeVar::make_unit(Reason::Annotation(ast_type.node())),
+        TypeKind::Void => TypeVar::make_void(Reason::Annotation(ast_type.node())),
         TypeKind::Int => TypeVar::make_int(Reason::Annotation(ast_type.node())),
         TypeKind::Float => TypeVar::make_float(Reason::Annotation(ast_type.node())),
         TypeKind::Bool => TypeVar::make_bool(Reason::Annotation(ast_type.node())),
@@ -1116,7 +1116,7 @@ pub(crate) fn constrain_to_iface(
     ctx: &mut StaticsContext,
     tyvar: TypeVar,
     node: AstNode,
-    iface: &Rc<InterfaceDecl>,
+    iface: &Rc<InterfaceDef>,
 ) {
     if let Some(ty) = tyvar.solution() {
         if !ty_implements_iface(ctx, ty.clone(), iface) {
@@ -1572,11 +1572,11 @@ fn generate_constraints_expr(
 ) {
     let node_ty = TypeVar::from_node(ctx, expr.node());
     match &*expr.kind {
-        ExprKind::Unit => {
+        ExprKind::Void => {
             constrain(
                 ctx,
                 node_ty,
-                TypeVar::make_unit(Reason::Literal(expr.node())),
+                TypeVar::make_void(Reason::Literal(expr.node())),
             );
         }
         ExprKind::Int(_) => {
@@ -1747,7 +1747,7 @@ fn generate_constraints_expr(
         }
         ExprKind::Block(statements) => {
             if statements.is_empty() {
-                constrain(ctx, node_ty, TypeVar::make_unit(Reason::Node(expr.node())));
+                constrain(ctx, node_ty, TypeVar::make_void(Reason::Node(expr.node())));
                 return;
             }
             for statement in statements[..statements.len() - 1].iter() {
@@ -1776,7 +1776,7 @@ fn generate_constraints_expr(
                     Mode::Syn,
                     statements.last().unwrap().clone(),
                 );
-                constrain(ctx, node_ty, TypeVar::make_unit(Reason::Node(expr.node())))
+                constrain(ctx, node_ty, TypeVar::make_void(Reason::Node(expr.node())))
             }
         }
         ExprKind::IfElse(cond, expr1, expr2) => {
@@ -1807,23 +1807,6 @@ fn generate_constraints_expr(
                 },
                 expr2.clone(),
             );
-
-            // just if
-            // None => {
-            //     generate_constraints_expr(
-            //         polyvar_scope,
-            //         Mode::Ana {
-            //             expected: TypeVar::make_unit(Reason::IfWithoutElse(expr.node())),
-            //         },
-            //         expr1.clone(),
-            //         ctx,
-            //     );
-            //     constrain(
-            //         ctx,
-            //         node_ty,
-            //         TypeVar::make_unit(Reason::IfWithoutElse(expr.node())),
-            //     )
-            // }
         }
         ExprKind::Match(scrut, arms) => {
             let ty_scrutiny = TypeVar::from_node(ctx, scrut.node());
@@ -1858,7 +1841,7 @@ fn generate_constraints_expr(
                     constrain(
                         ctx,
                         node_ty.clone(),
-                        TypeVar::make_unit(Reason::Node(expr.node())),
+                        TypeVar::make_void(Reason::Node(expr.node())),
                     )
                 }
             }
@@ -2403,8 +2386,8 @@ fn generate_constraints_pat(
     let ty_pat = TypeVar::from_node(ctx, pat.node());
     match &*pat.kind {
         PatKind::Wildcard => (),
-        PatKind::Unit => {
-            constrain(ctx, ty_pat, TypeVar::make_unit(Reason::Literal(pat.node())));
+        PatKind::Void => {
+            constrain(ctx, ty_pat, TypeVar::make_void(Reason::Literal(pat.node())));
         }
         PatKind::Int(_) => {
             constrain(ctx, ty_pat, TypeVar::make_int(Reason::Literal(pat.node())));
@@ -2431,7 +2414,7 @@ fn generate_constraints_pat(
         PatKind::Variant(prefixes, tag, data) => {
             let ty_data = match data {
                 Some(data) => TypeVar::from_node(ctx, data.node()),
-                None => TypeVar::make_unit(Reason::VariantNoData(pat.node())),
+                None => TypeVar::make_void(Reason::VariantNoData(pat.node())),
             };
 
             if !prefixes.is_empty() {
@@ -2449,7 +2432,7 @@ fn generate_constraints_pat(
 
                     let variant_def = &enum_def.variants[variant as usize];
                     let variant_data_ty = match &variant_def.data {
-                        None => TypeVar::make_unit(Reason::VariantNoData(variant_def.node())),
+                        None => TypeVar::make_void(Reason::VariantNoData(variant_def.node())),
                         Some(ty) => ast_type_to_typevar(ctx, ty.clone()),
                     };
                     let variant_data_ty = variant_data_ty.subst(&substitution);
@@ -2509,7 +2492,7 @@ fn generate_constraints_pat(
 
                         let variant_def = &enum_def.variants[idx as usize];
                         let variant_data_ty = match &variant_def.data {
-                            None => TypeVar::make_unit(Reason::VariantNoData(variant_def.node())),
+                            None => TypeVar::make_void(Reason::VariantNoData(variant_def.node())),
                             Some(ty) => ast_type_to_typevar(ctx, ty.clone()),
                         };
                         let variant_data_ty = variant_data_ty.subst(&substitution);
@@ -2585,7 +2568,7 @@ pub(crate) fn fmt_conflicting_types(types: &[PotentialType], f: &mut dyn Write) 
 pub(crate) fn ty_implements_iface(
     ctx: &StaticsContext,
     ty: SolvedType,
-    iface: &Rc<InterfaceDecl>,
+    iface: &Rc<InterfaceDef>,
 ) -> bool {
     if let SolvedType::Poly(polyty) = &ty {
         let ifaces = resolved_ifaces(ctx, &polyty.interfaces);
@@ -2607,7 +2590,7 @@ pub(crate) fn ty_fits_impl_ty(ctx: &StaticsContext, typ: SolvedType, impl_ty: So
         | (SolvedType::Bool, SolvedType::Bool)
         | (SolvedType::Float, SolvedType::Float)
         | (SolvedType::String, SolvedType::String)
-        | (SolvedType::Unit, SolvedType::Unit) => true,
+        | (SolvedType::Void, SolvedType::Void) => true,
         (SolvedType::Tuple(tys1), SolvedType::Tuple(tys2)) => {
             tys1.len() == tys2.len()
                 && tys1
@@ -2642,13 +2625,13 @@ pub(crate) fn ty_fits_impl_ty(ctx: &StaticsContext, typ: SolvedType, impl_ty: So
             let ifaces = resolved_ifaces(ctx, &polyty.interfaces);
             ifaces
                 .iter()
-                .all(|iface: &Rc<InterfaceDecl>| ty_implements_iface(ctx, typ.clone(), iface))
+                .all(|iface: &Rc<InterfaceDef>| ty_implements_iface(ctx, typ.clone(), iface))
         }
         _ => false,
     }
 }
 
-fn resolved_ifaces(ctx: &StaticsContext, identifiers: &[Rc<Interface>]) -> Vec<Rc<InterfaceDecl>> {
+fn resolved_ifaces(ctx: &StaticsContext, identifiers: &[Rc<Interface>]) -> Vec<Rc<InterfaceDef>> {
     identifiers
         .iter()
         .filter_map(|ident| {
@@ -2712,7 +2695,7 @@ impl Display for PotentialType {
                     write!(f, "{}", nominal.name())
                 }
             }
-            PotentialType::Unit(_) => write!(f, "void"),
+            PotentialType::Void(_) => write!(f, "void"),
             PotentialType::Never(_) => write!(f, "never"),
             PotentialType::Int(_) => write!(f, "int"),
             PotentialType::Float(_) => write!(f, "float"),
@@ -2773,7 +2756,7 @@ impl Display for SolvedType {
                     write!(f, "{}", nominal.name())
                 }
             }
-            SolvedType::Unit => write!(f, "void"),
+            SolvedType::Void => write!(f, "void"),
             SolvedType::Never => write!(f, "never"),
             SolvedType::Int => write!(f, "int"),
             SolvedType::Float => write!(f, "float"),
@@ -2821,7 +2804,7 @@ impl Display for Monotype {
                     write!(f, "{}", nominal.name())
                 }
             }
-            Monotype::Unit => write!(f, "void"),
+            Monotype::Void => write!(f, "void"),
             Monotype::Never => write!(f, "never"),
             Monotype::Int => write!(f, "int"),
             Monotype::Float => write!(f, "float"),

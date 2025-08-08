@@ -5,7 +5,7 @@
 use crate::FileProvider;
 use crate::ast::{
     AssociatedType, AstNode, EnumDef, FileAst, FileDatabase, FileId, FuncDecl, FuncDef,
-    InterfaceDecl, InterfaceImpl, NodeId, Polytype, StructDef, TypeKind,
+    InterfaceDef, InterfaceImpl, NodeId, Polytype, StructDef, TypeKind,
 };
 use crate::builtin::{BuiltinOperation, BuiltinType};
 use resolve::{resolve, scan_declarations};
@@ -46,7 +46,7 @@ pub(crate) struct StaticsContext {
     // This maps from some interface to its namespace. Used to resolve associated types, which are
     // declared in the Interface's body, elsewhere in the body such as a function signature, in an
     // order-independent manner.
-    pub(crate) interface_namespaces: HashMap<Rc<InterfaceDecl>, Rc<Namespace>>,
+    pub(crate) interface_namespaces: HashMap<Rc<InterfaceDef>, Rc<Namespace>>,
 
     // BOOKKEEPING
 
@@ -56,7 +56,7 @@ pub(crate) struct StaticsContext {
     pub(crate) func_ret_stack: Vec<TypeProv>,
 
     // map from interface name to list of its implementations
-    pub(crate) interface_impls: HashMap<Rc<InterfaceDecl>, Vec<Rc<InterfaceImpl>>>,
+    pub(crate) interface_impls: HashMap<Rc<InterfaceDef>, Vec<Rc<InterfaceImpl>>>,
     // map from (type declaration, member function name) -> function declaration
     pub(crate) member_functions: HashMap<(TypeKey, String), Declaration>,
 
@@ -73,7 +73,7 @@ pub(crate) struct StaticsContext {
     // unification variables (skolems) which must be solved
     pub(crate) unifvars: HashMap<TypeProv, TypeVar>,
     pub(crate) unifvars_constrained_to_interfaces:
-        HashMap<TypeProv, Vec<(Rc<InterfaceDecl>, AstNode)>>,
+        HashMap<TypeProv, Vec<(Rc<InterfaceDef>, AstNode)>>,
 
     // ERRORS
     errors: Vec<Error>,
@@ -171,13 +171,13 @@ pub(crate) enum Declaration {
         libname: PathBuf,
         symbol: String,
     },
-    InterfaceDef(Rc<InterfaceDecl>),
+    InterfaceDef(Rc<InterfaceDef>),
     InterfaceMethod {
-        i: Rc<InterfaceDecl>,
+        i: Rc<InterfaceDef>,
         method: u16,
     },
     AssociatedType {
-        i: Rc<InterfaceDecl>,
+        i: Rc<InterfaceDef>,
         at: Rc<AssociatedType>,
     },
     MemberFunction {
@@ -264,7 +264,7 @@ pub(crate) enum Error {
     },
     InterfaceNotImplemented {
         ty: SolvedType,
-        iface: Rc<InterfaceDecl>,
+        iface: Rc<InterfaceDef>,
         node: AstNode,
     },
     InterfaceImplTypeNotGeneric {

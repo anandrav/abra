@@ -362,8 +362,8 @@ pub(crate) fn parse_match_pattern(pair: Pair<Rule>, file_id: FileId) -> Rc<Pat> 
             loc: span,
             id: NodeId::new(),
         }),
-        Rule::literal_unit => Rc::new(Pat {
-            kind: Rc::new(PatKind::Unit),
+        Rule::literal_void => Rc::new(Pat {
+            kind: Rc::new(PatKind::Void),
             loc: span,
             id: NodeId::new(),
         }),
@@ -419,8 +419,8 @@ pub(crate) fn parse_type_term(pair: Pair<Rule>, file_id: FileId) -> Rc<Type> {
                 id: NodeId::new(),
             })
         }
-        Rule::type_literal_unit => Rc::new(Type {
-            kind: Rc::new(TypeKind::Unit),
+        Rule::type_literal_void => Rc::new(Type {
+            kind: Rc::new(TypeKind::Void),
             loc: span,
             id: NodeId::new(),
         }),
@@ -794,7 +794,7 @@ pub(crate) fn parse_item(pair: Pair<Rule>, file_id: FileId) -> Rc<Item> {
             }
             Rc::new(Item {
                 kind: ItemKind::InterfaceDef(
-                    InterfaceDecl {
+                    InterfaceDef {
                         name: Identifier {
                             v: name,
                             loc: span.clone(),
@@ -1201,8 +1201,8 @@ pub(crate) fn parse_expr_term(pair: Pair<Rule>, file_id: FileId) -> Rc<Expr> {
                 id: NodeId::new(),
             })
         }
-        Rule::literal_unit => Rc::new(Expr {
-            kind: Rc::new(ExprKind::Unit),
+        Rule::literal_void => Rc::new(Expr {
+            kind: Rc::new(ExprKind::Void),
             loc: span,
             id: NodeId::new(),
         }),

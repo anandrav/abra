@@ -342,7 +342,7 @@ fn add_items_from_ast(ast: Rc<FileAst>, output: &mut String) {
                     output.push_str("unsafe {");
                     output.push_str("(vm_funcs.deconstruct)(vm);");
                     for field in s.fields.iter() {
-                        if matches!(&*field.ty.kind, TypeKind::Unit) {
+                        if matches!(&*field.ty.kind, TypeKind::Void) {
                             output.push_str(
                                 r#"(vm_funcs.pop_nil)(vm);
                             "#,
@@ -361,7 +361,7 @@ fn add_items_from_ast(ast: Rc<FileAst>, output: &mut String) {
                     "#,
                     );
                     for field in &s.fields {
-                        if matches!(&*field.ty.kind, TypeKind::Unit) {
+                        if matches!(&*field.ty.kind, TypeKind::Void) {
                             output.push_str(&format!("{}: (),", field.name.v));
                         } else {
                             output.push_str(&format!("{},", field.name.v));
@@ -378,7 +378,7 @@ fn add_items_from_ast(ast: Rc<FileAst>, output: &mut String) {
                     );
                     output.push_str("unsafe {");
                     for field in s.fields.iter() {
-                        if matches!(&*field.ty.kind, TypeKind::Unit) {
+                        if matches!(&*field.ty.kind, TypeKind::Void) {
                             output.push_str("(vm_funcs.push_nil)(vm);");
                         } else {
                             output.push_str(&format!(
@@ -506,7 +506,7 @@ fn add_items_from_ast(ast: Rc<FileAst>, output: &mut String) {
                 output.push_str("let vm_funcs: &AbraVmFunctions = &*vm_funcs;");
                 // get args in reverse order
                 for (name, ty) in f.args.iter().rev() {
-                    if matches!(&*ty.kind, TypeKind::Unit) {
+                    if matches!(&*ty.kind, TypeKind::Void) {
                         output.push_str(
                             r#"(vm_funcs.pop_nil)(vm);
                         "#,
@@ -528,7 +528,7 @@ fn add_items_from_ast(ast: Rc<FileAst>, output: &mut String) {
                     out_ty_name, package_name, f.name.v
                 ));
                 for (name, typ) in f.args.iter() {
-                    if matches!(&*typ.kind, TypeKind::Unit) {
+                    if matches!(&*typ.kind, TypeKind::Void) {
                         output.push_str("(),");
                     } else {
                         output.push_str(&format!("{},", name.v));
@@ -551,7 +551,7 @@ fn name_of_ty(ty: Rc<Type>) -> String {
         TypeKind::Float => "f64".to_string(),
         TypeKind::Int => "i64".to_string(),
         TypeKind::Str => "String".to_string(),
-        TypeKind::Unit => "()".to_string(),
+        TypeKind::Void => "()".to_string(),
         TypeKind::Tuple(elems) => {
             let mut s = "(".to_string();
             for elem in elems {

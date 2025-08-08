@@ -203,7 +203,7 @@ impl EnumDef {
             Some(ty) => match &*ty.kind {
                 TypeKind::Poly(..)
                 | TypeKind::NamedWithParams(..)
-                | TypeKind::Unit
+                | TypeKind::Void
                 | TypeKind::Int
                 | TypeKind::Float
                 | TypeKind::Bool
@@ -343,7 +343,7 @@ pub(crate) enum ItemKind {
     HostFuncDecl(Rc<FuncDecl>),
     FuncDef(Rc<FuncDef>),
     TypeDef(Rc<TypeDefKind>),
-    InterfaceDef(Rc<InterfaceDecl>), // TODO: change names to match
+    InterfaceDef(Rc<InterfaceDef>), // TODO: change names to match
     InterfaceImpl(Rc<InterfaceImpl>),
     Extension(Rc<Extension>),
     Import(Rc<Identifier>, Option<ImportList>),
@@ -406,7 +406,7 @@ pub(crate) struct FuncDecl {
 }
 
 #[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq, Hash)]
-pub(crate) struct InterfaceDecl {
+pub(crate) struct InterfaceDef {
     pub(crate) name: Rc<Identifier>,
     pub(crate) methods: Vec<Rc<InterfaceMethodDecl>>,
     pub(crate) associated_types: Vec<Rc<AssociatedType>>,
@@ -489,7 +489,7 @@ impl Expr {
 #[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq, Hash)]
 pub(crate) enum ExprKind {
     Variable(String),
-    Unit, // TODO: rename to Void
+    Void,
     Int(i64),
     Float(String), // Float is represented as String to allow Eq and Hash
     Bool(bool),
@@ -576,7 +576,7 @@ pub(crate) enum PatKind {
     Wildcard,
     Binding(String),
     Variant(Vec<Rc<Identifier>>, Rc<Identifier>, Option<Rc<Pat>>),
-    Unit,
+    Void,
     Int(i64),
     Float(String),
     Bool(bool),
@@ -607,7 +607,7 @@ impl Type {
 pub(crate) enum TypeKind {
     Poly(Rc<Polytype>),
     NamedWithParams(Rc<Identifier>, Vec<Rc<Type>>),
-    Unit,
+    Void,
     Int,
     Float,
     Bool,

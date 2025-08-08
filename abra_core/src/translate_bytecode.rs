@@ -3,7 +3,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use crate::assembly::{Instr, Label, Line, remove_labels};
-use crate::ast::{AstNode, BinaryOperator, FuncDef, InterfaceDecl, ItemKind};
+use crate::ast::{AstNode, BinaryOperator, FuncDef, InterfaceDef, ItemKind};
 use crate::ast::{FileAst, FileDatabase, NodeId};
 use crate::builtin::BuiltinOperation;
 use crate::environment::Environment;
@@ -358,7 +358,7 @@ impl Translator {
                 }
                 _ => panic!(),
             },
-            ExprKind::Unit => {
+            ExprKind::Void => {
                 self.emit(st, Instr::PushNil);
             }
             ExprKind::Bool(b) => {
@@ -474,7 +474,7 @@ impl Translator {
                     }
                     ExprKind::MemberAccessLeadingDot(..) => unimplemented!(),
 
-                    ExprKind::Unit
+                    ExprKind::Void
                     | ExprKind::Int(_)
                     | ExprKind::Float(_)
                     | ExprKind::Bool(_)
@@ -657,7 +657,7 @@ impl Translator {
         &self,
         st: &mut TranslatorState,
         monomorph_env: MonomorphEnv,
-        iface_def: Rc<InterfaceDecl>,
+        iface_def: Rc<InterfaceDef>,
         method: u16,
         func_ty: SolvedType,
     ) {
@@ -902,7 +902,7 @@ impl Translator {
         st: &mut TranslatorState,
     ) {
         match &*pat.kind {
-            PatKind::Wildcard | PatKind::Binding(_) | PatKind::Unit => {
+            PatKind::Wildcard | PatKind::Binding(_) | PatKind::Void => {
                 self.emit(st, Instr::Pop);
                 self.emit(st, Instr::PushBool(true));
                 return;
@@ -1203,7 +1203,7 @@ impl Translator {
                     self.emit(st, Instr::Pop);
                 }
             }
-            PatKind::Unit
+            PatKind::Void
             | PatKind::Bool(..)
             | PatKind::Int(..)
             | PatKind::Float(..)
@@ -1272,7 +1272,7 @@ fn collect_locals_expr(expr: &Expr, locals: &mut HashSet<NodeId>) {
         ExprKind::AnonymousFunction(..)
         | ExprKind::MemberAccessLeadingDot(..)
         | ExprKind::Variable(..)
-        | ExprKind::Unit
+        | ExprKind::Void
         | ExprKind::Int(..)
         | ExprKind::Float(..)
         | ExprKind::Bool(..)
@@ -1320,7 +1320,7 @@ fn collect_locals_pat(pat: Rc<Pat>, locals: &mut HashSet<NodeId>) {
             collect_locals_pat(inner.clone(), locals);
         }
         PatKind::Variant(_prefixes, _, None) => {}
-        PatKind::Unit
+        PatKind::Void
         | PatKind::Bool(..)
         | PatKind::Int(..)
         | PatKind::Float(..)
