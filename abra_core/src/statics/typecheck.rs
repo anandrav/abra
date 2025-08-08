@@ -1633,9 +1633,10 @@ fn generate_constraints_expr(
         ExprKind::Variable(_) => {
             let lookup = ctx.resolution_map.get(&expr.id).cloned();
             if let Some(res) = lookup
-                && let Some(typ) = tyvar_of_symbol(ctx, &res, polyvar_scope.clone(), expr.node()) {
-                    constrain(ctx, typ, node_ty.clone());
-                }
+                && let Some(typ) = tyvar_of_symbol(ctx, &res, polyvar_scope.clone(), expr.node())
+            {
+                constrain(ctx, typ, node_ty.clone());
+            }
         }
         ExprKind::BinOp(left, op, right) => {
             let ty_left = TypeVar::from_node(ctx, left.node());
@@ -2066,34 +2067,34 @@ fn generate_constraints_expr(
             if let Some(expected_ty) = expected_ty
                 && let Some(SolvedType::Nominal(Nominal::Enum(enum_def), _)) =
                     expected_ty.solution()
-                {
-                    can_infer = true;
+            {
+                can_infer = true;
 
-                    let mut idx: u16 = 0;
-                    for (i, variant) in enum_def.variants.iter().enumerate() {
-                        if variant.ctor.v == ident.v {
-                            idx = i as u16;
-                        }
+                let mut idx: u16 = 0;
+                for (i, variant) in enum_def.variants.iter().enumerate() {
+                    if variant.ctor.v == ident.v {
+                        idx = i as u16;
                     }
-
-                    ctx.resolution_map.insert(
-                        ident.id,
-                        Declaration::EnumVariant {
-                            e: enum_def.clone(),
-                            variant: idx,
-                        },
-                    );
-
-                    let enum_ty = tyvar_of_symbol(
-                        ctx,
-                        &Declaration::Enum(enum_def),
-                        polyvar_scope.clone(),
-                        expr.node(),
-                    )
-                    .unwrap();
-
-                    constrain(ctx, node_ty.clone(), enum_ty);
                 }
+
+                ctx.resolution_map.insert(
+                    ident.id,
+                    Declaration::EnumVariant {
+                        e: enum_def.clone(),
+                        variant: idx,
+                    },
+                );
+
+                let enum_ty = tyvar_of_symbol(
+                    ctx,
+                    &Declaration::Enum(enum_def),
+                    polyvar_scope.clone(),
+                    expr.node(),
+                )
+                .unwrap();
+
+                constrain(ctx, node_ty.clone(), enum_ty);
+            }
 
             if !can_infer {
                 ctx.errors
@@ -2465,48 +2466,48 @@ fn generate_constraints_pat(
                 if let Some(expected_ty) = expected_ty
                     && let Some(SolvedType::Nominal(Nominal::Enum(enum_def), _)) =
                         expected_ty.solution()
-                    {
-                        let mut idx: u16 = 0;
-                        for (i, variant) in enum_def.variants.iter().enumerate() {
-                            if variant.ctor.v == tag.v {
-                                idx = i as u16;
-                            }
+                {
+                    let mut idx: u16 = 0;
+                    for (i, variant) in enum_def.variants.iter().enumerate() {
+                        if variant.ctor.v == tag.v {
+                            idx = i as u16;
                         }
-                        ctx.resolution_map.insert(
-                            tag.id,
-                            Declaration::EnumVariant {
-                                e: enum_def.clone(),
-                                variant: idx,
-                            },
-                        );
-                        can_infer = true;
-
-                        let (def_type, substitution) = TypeVar::make_nominal_with_substitution(
-                            ctx,
-                            Reason::Node(pat.node()),
-                            Nominal::Enum(enum_def.clone()),
-                            pat.node(),
-                        );
-
-                        let variant_def = &enum_def.variants[idx as usize];
-                        let variant_data_ty = match &variant_def.data {
-                            None => TypeVar::make_void(Reason::VariantNoData(variant_def.node())),
-                            Some(ty) => ast_type_to_typevar(ctx, ty.clone()),
-                        };
-                        let variant_data_ty = variant_data_ty.subst(&substitution);
-                        constrain(ctx, ty_data.clone(), variant_data_ty);
-
-                        constrain(ctx, ty_pat.clone(), def_type);
-
-                        if let Some(data) = data {
-                            generate_constraints_pat(
-                                ctx,
-                                polyvar_scope,
-                                Mode::Ana { expected: ty_data },
-                                data.clone(),
-                            )
-                        };
                     }
+                    ctx.resolution_map.insert(
+                        tag.id,
+                        Declaration::EnumVariant {
+                            e: enum_def.clone(),
+                            variant: idx,
+                        },
+                    );
+                    can_infer = true;
+
+                    let (def_type, substitution) = TypeVar::make_nominal_with_substitution(
+                        ctx,
+                        Reason::Node(pat.node()),
+                        Nominal::Enum(enum_def.clone()),
+                        pat.node(),
+                    );
+
+                    let variant_def = &enum_def.variants[idx as usize];
+                    let variant_data_ty = match &variant_def.data {
+                        None => TypeVar::make_void(Reason::VariantNoData(variant_def.node())),
+                        Some(ty) => ast_type_to_typevar(ctx, ty.clone()),
+                    };
+                    let variant_data_ty = variant_data_ty.subst(&substitution);
+                    constrain(ctx, ty_data.clone(), variant_data_ty);
+
+                    constrain(ctx, ty_pat.clone(), def_type);
+
+                    if let Some(data) = data {
+                        generate_constraints_pat(
+                            ctx,
+                            polyvar_scope,
+                            Mode::Ana { expected: ty_data },
+                            data.clone(),
+                        )
+                    };
+                }
 
                 if !can_infer {
                     ctx.errors
