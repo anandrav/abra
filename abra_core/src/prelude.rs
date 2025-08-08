@@ -255,7 +255,7 @@ interface Iterate {
 interface Iterator {
     associatedtype Item
 
-    fn next: () -> maybe<Item,void>
+    fn next: ('a Iterator) -> maybe<Item,void>
 }
 
 implement Iterate for array<'T> {
@@ -265,15 +265,24 @@ implement Iterate for array<'T> {
 }
 
 type ArrayIterator<'T> = {
-    arr: array<T>
+    arr: array<'T>
     i: int
 }
-//
-// implement Iterator for ArrayIterator<'T> {
-//     fn next(self) -> maybe<'T,void> {
-//         self.i := self.i + 1
-//     }
-// }
+
+// TODO: remove the need to prefix polytypes with '
+// it's actually hard to read, and it's confusing when it's optional or not
+// TODO: 'T and T are seen as the same by the resolver, even though they are different!!! (one is a Polytype, the other is a NamedParam)
+implement Iterator for ArrayIterator<'T> {
+    fn next(self: ArrayIterator<'T>) -> maybe<'T,void> {
+        if self.i = self.arr.len() {
+            maybe.no(())
+        } else {
+            let ret = maybe.yes(self.arr[self.i])
+            self.i := self.i + 1
+            ret
+        }
+    }
+}
 
 extend array<'a Equal> {
     fn find(self: array<'a Equal>, x: 'a Equal) -> maybe<int, void> {

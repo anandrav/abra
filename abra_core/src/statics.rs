@@ -327,6 +327,7 @@ pub(crate) fn check_errors(ctx: &StaticsContext, files: &FileDatabase) -> Result
     Err("Failed to compile.".to_string())
 }
 
+// TODO: move this error stuff to statics/error_reporting.rs or something like that. it's half the file
 impl Error {
     fn show(&self, _ctx: &StaticsContext, files: &FileDatabase) {
         // dbg!(self);

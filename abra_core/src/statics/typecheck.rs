@@ -927,7 +927,11 @@ fn tyvar_of_symbol(
             let ty_signature = builtin.type_signature();
             Some(ty_signature)
         }
-        Declaration::Var(node) => Some(TypeVar::from_node(ctx, node.clone())),
+        Declaration::Var(node) => {
+            let tyvar = TypeVar::from_node(ctx, node.clone());
+            // println!("tyvar beforehand is {}", tyvar);
+            Some(tyvar)
+        }
     }
     .map(|tyvar| tyvar.instantiate(ctx, polyvar_scope, node))
 }
@@ -1021,7 +1025,10 @@ pub(crate) fn ast_type_to_typevar(ctx: &StaticsContext, ast_type: Rc<AstType>) -
                         .map(|param| ast_type_to_typevar(ctx, param.clone()))
                         .collect(),
                 ),
+                Some(Declaration::Polytype(_)) => unreachable!("this is a bug"),
                 _ => {
+                    // println!("gets an empty typevar: {}", ident.v);
+
                     // since resolution failed, unconstrained type
                     TypeVar::empty()
                 }
@@ -1180,7 +1187,7 @@ fn constrain_locked_typevars(
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub(crate) struct PolyvarScope {
     polyvars_in_scope: Environment<PolyDeclaration, ()>,
 }
@@ -1398,6 +1405,7 @@ fn generate_constraints_item_stmts(ctx: &mut StaticsContext, mode: Mode, item: R
             generate_constraints_stmt(ctx, PolyvarScope::empty(), mode, stmt.clone())
         }
         ItemKind::InterfaceImpl(iface_impl) => {
+            // LAST HERE
             let impl_ty = ast_type_to_typevar(ctx, iface_impl.typ.clone());
 
             if impl_ty.is_instantiated_nominal() {
@@ -1405,6 +1413,12 @@ fn generate_constraints_item_stmts(ctx: &mut StaticsContext, mode: Mode, item: R
                     node: iface_impl.typ.node(),
                 })
             }
+
+            let polyvar_scope = PolyvarScope::empty();
+            // dbg!(&iface_impl.typ);
+            let tyvar = ast_type_to_typevar(ctx, iface_impl.typ.clone());
+            polyvar_scope.add_polys(&tyvar);
+            // dbg!(&polyvar_scope);
 
             let lookup = ctx.resolution_map.get(&iface_impl.iface.id).cloned();
             if let Some(Declaration::InterfaceDef(iface_decl)) = &lookup {
@@ -1416,6 +1430,8 @@ fn generate_constraints_item_stmts(ctx: &mut StaticsContext, mode: Mode, item: R
                         let interface_method_ty =
                             ast_type_to_typevar(ctx, interface_method.ty.clone());
                         let actual = TypeVar::from_node(ctx, interface_method.node());
+                        // println!("interface_method_ty: {}", interface_method_ty);
+                        // println!("actual: {}", actual);
                         constrain(ctx, interface_method_ty.clone(), actual);
 
                         let mut substitution: Substitution = HashMap::default();
@@ -1430,7 +1446,7 @@ fn generate_constraints_item_stmts(ctx: &mut StaticsContext, mode: Mode, item: R
                         let actual = TypeVar::from_node(ctx, f.name.node());
                         constrain(ctx, expected, actual);
 
-                        generate_constraints_fn_def(ctx, PolyvarScope::empty(), f, f.name.node());
+                        generate_constraints_fn_def(ctx, polyvar_scope.clone(), f, f.name.node());
                     }
                 }
             }
@@ -1635,6 +1651,7 @@ fn generate_constraints_expr(
             if let Some(res) = lookup
                 && let Some(typ) = tyvar_of_symbol(ctx, &res, polyvar_scope.clone(), expr.node())
             {
+                // println!("node_ty: {}, typ: {}", node_ty, typ);
                 constrain(ctx, typ, node_ty.clone());
             }
         }
@@ -2002,6 +2019,7 @@ fn generate_constraints_expr(
                         // failed to resolve member function
                         ctx.errors
                             .push(Error::MemberAccessNeedsAnnotation { node: fname.node() });
+                        // println!("tyvar: {}", TypeVar::from_node(ctx, receiver_expr.node()));
 
                         node_ty.set_flag_missing_info();
                     }
@@ -2028,6 +2046,7 @@ fn generate_constraints_expr(
                 // struct field access
                 generate_constraints_expr(ctx, polyvar_scope, Mode::Syn, expr.clone());
                 let ty_expr = TypeVar::from_node(ctx, expr.node());
+
                 if ty_expr.underdetermined() {
                     ctx.errors
                         .push(Error::MemberAccessNeedsAnnotation { node: expr.node() });
