@@ -551,7 +551,6 @@ fn name_of_ty(ty: Rc<Type>) -> String {
         TypeKind::Float => "f64".to_string(),
         TypeKind::Int => "i64".to_string(),
         TypeKind::Str => "String".to_string(),
-        TypeKind::Named(s) => s.clone(),
         TypeKind::Unit => "()".to_string(),
         TypeKind::Tuple(elems) => {
             let mut s = "(".to_string();
