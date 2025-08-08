@@ -131,8 +131,8 @@ func_arg_annotated = { identifier ~ type_annotation }
 let_pattern_annotated = { let_pattern ~ type_annotation? }
 
 type_annotation = _{ ":" ~ typ }
-typ = _{ func_type | type_parenthesized | tuple_type | type_ap | type_literal }
-typ_not_func = _{ type_parenthesized | tuple_type | type_ap | type_literal }
+typ = _{ func_type | type_parenthesized | tuple_type | type_literal | type_ap }
+typ_not_func = _{ type_parenthesized | tuple_type | type_literal | type_ap } // TODO: what the heck is typ_not_func
 
 type_parenthesized = _{ paren_start ~ typ ~ paren_end }
 
@@ -141,26 +141,24 @@ func_type_args = _{ func_type_arg_list | typ_not_func }
 func_type_arg_list = _{ "(" ~ (func_type_arg_single ~ ",")* ~ func_type_arg_single? ~ ")" }
 func_type_arg_single = _{ typ }
 
-type_ap = { identifier ~ type_args }
-type_args = _{ "<" ~ (typ ~ ",")* ~ typ ~ ">" }
+type_ap = { identifier ~ type_args? }
+type_args = _{ "<" ~ (typ ~ ",")* ~ typ? ~ ">" }
 
 tuple_type = { tuple_start ~ (tuple_type_element ~ ",")+ ~ tuple_type_element ~ tuple_end }
 tuple_type_element = _{ typ }
 
-type_literal = _{ type_literal_unit | type_literal_int | type_literal_float | type_literal_bool | type_literal_string | type_poly | identifier }
+type_literal = _{ type_literal_unit | type_literal_int | type_literal_float | type_literal_bool | type_literal_string | type_poly }
 type_literal_unit = @{ "void" }
 type_literal_int = @{ "int" }
 type_literal_float = @{ "float" }
 type_literal_bool = @{ "bool" }
 type_literal_string = @{ "string" }
+
 type_poly = { type_poly_ident ~ interface_constraint* }
 type_poly_ident = @{ "'" ~ (alpha | "_") ~ (alphanumeric | "_")* } // 'a, 'b, 'c, etc.
 interface_constraint = _{ identifier ~ interface_constraint_params? }
 interface_constraint_params = _{ "<" ~ (associated_type_binding ~ ",")* ~ associated_type_binding? ~ ">" }
 associated_type_binding = _{ identifier ~ "=" ~ typ }
-
-// type_op_binary = _{ type_op_arrow }
-// type_op_arrow = { "->" }
 
 primary_expression = _{ literal | identifier | member_access_inferred }
 
