@@ -1433,11 +1433,7 @@ fn generate_constraints_item_decls(ctx: &mut StaticsContext, item: Rc<Item>) {
         }
         ItemKind::Extension(ext) => {
             // TODO: LAST HERE
-            let id_lookup_typ = match &*ext.typ.kind {
-                TypeKind::NamedWithParams(ident, _) => ident.id,
-                _ => todo!("an error should be logged here right?"),
-            };
-            let Some(lookup) = ctx.resolution_map.get(&id_lookup_typ).cloned() else { return };
+            let Some(lookup) = ctx.resolution_map.get(&ext.typ.id).cloned() else { return };
 
             let mut helper = |nominal: Nominal| {
                 for f in &ext.methods {
