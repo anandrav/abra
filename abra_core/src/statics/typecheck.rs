@@ -2058,8 +2058,10 @@ fn generate_constraints_expr(
                     // example: Clone.clone(my_struct)
                     //          ^^^^^
                     let fn_node_ty = TypeVar::from_node(ctx, fname.node());
+                    // TODO(123): this shouldn't use tyvar_of_variable
                     if let Some(tyvar_from_iface_method) =
                         tyvar_of_variable(ctx, decl, polyvar_scope.clone(), fname.node())
+                    // TODO: in the case of InterfaceMethod, need to take the implementation type (type of first argument) into account
                     {
                         constrain(ctx, fn_node_ty, tyvar_from_iface_method.clone());
                     }
@@ -2111,7 +2113,9 @@ fn generate_constraints_expr(
                             // type of the AST node for the identifier in this MemberFuncAp
                             ctx.resolution_map.insert(fname.id, memfn_decl.clone());
                             let memfn_node_ty = TypeVar::from_node(ctx, fname.node());
+                            // TODO(123): this shouldn't use tyvar_of_variable
                             if let Some(memfn_decl_ty) = tyvar_of_variable(
+                                // TODO: in the case of InterfaceMethod, need to take the implementation type (type of first argument) into account
                                 ctx,
                                 &memfn_decl,
                                 polyvar_scope.clone(),
@@ -2119,11 +2123,11 @@ fn generate_constraints_expr(
                             ) {
                                 constrain(ctx, memfn_node_ty.clone(), memfn_decl_ty);
                             }
-                            println!(
-                                "receiver ty: {}",
-                                TypeVar::from_node(ctx, receiver_expr.node())
-                            );
-                            println!("memfn ty before analysis: {}", memfn_node_ty);
+                            // println!(
+                            //     "receiver ty: {}",
+                            //     TypeVar::from_node(ctx, receiver_expr.node())
+                            // );
+                            // println!("memfn ty before analysis: {}", memfn_node_ty);
 
                             generate_constraints_expr_funcap_helper(
                                 ctx,
@@ -2133,9 +2137,9 @@ fn generate_constraints_expr(
                                 expr.node(),
                                 node_ty.clone(),
                             );
-                            println!("memfn ty after analysis: {}", memfn_node_ty);
-
-                            println!("overall node_ty is {}", node_ty);
+                            // println!("memfn ty after analysis: {}", memfn_node_ty);
+                            //
+                            // println!("overall node_ty is {}", node_ty);
                         } else {
                             failed_to_resolve_member_function(ctx, solved_ty);
                         }
@@ -2231,6 +2235,7 @@ fn generate_constraints_expr(
                     },
                 );
 
+                // TODO(123): this shouldn't use tyvar_of_variable
                 let enum_ty = tyvar_of_variable(
                     ctx,
                     &Declaration::Enum(enum_def),
