@@ -410,7 +410,13 @@ pub(crate) struct FuncDecl {
 pub(crate) struct InterfaceDecl {
     pub(crate) name: Rc<Identifier>,
     pub(crate) methods: Vec<Rc<InterfaceMethodDecl>>,
-    pub(crate) associated_types: Vec<Rc<Identifier>>,
+    pub(crate) associated_types: Vec<Rc<AssociatedType>>,
+}
+
+#[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq, Hash)]
+pub(crate) struct AssociatedType {
+    pub(crate) name: Rc<Identifier>,
+    pub(crate) interfaces: Vec<Rc<Interface>>,
 }
 
 #[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq)]

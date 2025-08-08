@@ -505,7 +505,7 @@ pub(crate) fn parse_type_poly(pair: Pair<Rule>, file_id: FileId) -> Rc<Polytype>
         Rule::type_poly => {
             let inner: Vec<_> = pair.into_inner().collect();
             let ty_name = inner[0].as_str()[1..].to_owned();
-            println!("tyname: {}", ty_name);
+            // println!("tyname: {}", ty_name);
             let ty_span = Location::new(file_id, inner[0].as_span());
             let mut interfaces: Vec<Rc<Interface>> = vec![];
             let mut n = 1;
@@ -551,7 +551,6 @@ pub(crate) fn parse_type_poly(pair: Pair<Rule>, file_id: FileId) -> Rc<Polytype>
                 interfaces,
             }
             .into();
-            dbg!(&ret);
             ret
         }
         _ => panic!("unreachable rule {pair:#?}"),
@@ -717,10 +716,9 @@ pub(crate) fn parse_item(pair: Pair<Rule>, file_id: FileId) -> Rc<Item> {
         }
         Rule::interface_declaration => {
             let name: String = inner[0].as_str().to_string();
-            let mut n = 1;
             let mut props = vec![];
             let mut associated_types = vec![];
-            while let Some(pair) = inner.get(n) {
+            for pair in inner.iter().skip(1) {
                 let rule = pair.as_rule();
                 let span = pair.as_span();
                 let inner: Vec<_> = pair.clone().into_inner().collect();
@@ -741,18 +739,54 @@ pub(crate) fn parse_item(pair: Pair<Rule>, file_id: FileId) -> Rc<Item> {
                             loc: Location::new(file_id, span),
                         };
                         props.push(Rc::new(method));
-                        n += 1;
                     }
                     Rule::associated_type_decl => {
                         let name = inner[0].as_str().to_string();
                         let inner_loc = Location::new(file_id, inner[0].as_span());
-                        let associatedtype = Identifier {
+                        let name = Identifier {
                             v: name,
                             loc: inner_loc,
                             id: NodeId::new(),
-                        };
+                        }
+                        .into();
+                        let mut interfaces: Vec<Rc<Interface>> = vec![];
+                        let mut n = 1;
+                        while n < inner.len() {
+                            let iface_name = Identifier {
+                                v: inner[n].as_str().to_string(),
+                                loc: Location::new(file_id, inner[n].as_span()),
+                                id: NodeId::new(),
+                            }
+                            .into();
+                            n += 1;
+
+                            let mut args = vec![];
+                            while n < inner.len()
+                                && inner[n].as_rule() == Rule::associated_type_binding
+                            {
+                                let inner: Vec<_> = inner[n].clone().into_inner().collect();
+                                args.push((
+                                    Identifier {
+                                        v: inner[0].as_str().to_string(),
+                                        loc: Location::new(file_id, inner[0].as_span()),
+                                        id: NodeId::new(),
+                                    }
+                                    .into(),
+                                    parse_type_term(inner[1].clone(), file_id),
+                                ));
+                                n += 1;
+                            }
+
+                            let interface = Interface {
+                                name: iface_name,
+                                arguments: args,
+                            }
+                            .into();
+                            interfaces.push(interface);
+                        }
+                        let associatedtype = AssociatedType { name, interfaces };
+                        // dbg!(&associatedtype);
                         associated_types.push(Rc::new(associatedtype));
-                        n += 1;
                     }
                     _ => unreachable!("unreachable rule {rule:#?}"),
                 }
