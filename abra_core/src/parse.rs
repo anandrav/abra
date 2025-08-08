@@ -405,9 +405,16 @@ pub(crate) fn parse_type_term(pair: Pair<Rule>, file_id: FileId) -> Rc<Type> {
             id: NodeId::new(),
         }),
         Rule::identifier => {
-            let ident = pair.as_str().to_owned();
+            let name = pair.as_str().to_owned();
+            let ident_span = Location::new(file_id, pair.as_span());
+            let ident = Identifier {
+                v: name,
+                loc: ident_span,
+                id: NodeId::new(),
+            }
+            .into();
             Rc::new(Type {
-                kind: Rc::new(TypeKind::Named(ident)),
+                kind: Rc::new(TypeKind::NamedWithParams(ident, vec![])),
                 loc: span,
                 id: NodeId::new(),
             })

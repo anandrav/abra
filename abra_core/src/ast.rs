@@ -202,7 +202,6 @@ impl EnumDef {
             None => 0,
             Some(ty) => match &*ty.kind {
                 TypeKind::Poly(..)
-                | TypeKind::Named(_)
                 | TypeKind::NamedWithParams(..)
                 | TypeKind::Unit
                 | TypeKind::Int
@@ -602,7 +601,6 @@ impl Type {
 #[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq, Hash)]
 pub(crate) enum TypeKind {
     Poly(Rc<Polytype>),
-    Named(String),
     NamedWithParams(Rc<Identifier>, Vec<Rc<Type>>),
     Unit,
     Int,

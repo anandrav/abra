@@ -937,20 +937,6 @@ pub(crate) fn ast_type_to_solved_type(
 ) -> Option<SolvedType> {
     match &*ast_type.kind {
         TypeKind::Poly(polyty) => Some(SolvedType::Poly(polyty.clone())),
-        TypeKind::Named(_) => {
-            let lookup = ctx.resolution_map.get(&ast_type.id)?;
-            match lookup {
-                Declaration::Array => Some(SolvedType::Nominal(Nominal::Array, vec![])),
-                Declaration::Struct(struct_def) => Some(SolvedType::Nominal(
-                    Nominal::Struct(struct_def.clone()),
-                    vec![],
-                )),
-                Declaration::Enum(enum_def) => {
-                    Some(SolvedType::Nominal(Nominal::Enum(enum_def.clone()), vec![]))
-                }
-                _ => None,
-            }
-        }
         TypeKind::NamedWithParams(identifier, args) => {
             let sargs = args
                 .iter()
@@ -1005,30 +991,6 @@ pub(crate) fn ast_type_to_typevar(ctx: &StaticsContext, ast_type: Rc<AstType>) -
                 )
             } else {
                 TypeVar::empty()
-            }
-        }
-        TypeKind::Named(_) => {
-            let lookup = ctx.resolution_map.get(&ast_type.id);
-            match lookup {
-                Some(Declaration::Enum(enum_def)) => TypeVar::make_nominal(
-                    Reason::Annotation(ast_type.node()),
-                    Nominal::Enum(enum_def.clone()),
-                    vec![],
-                ),
-                Some(Declaration::Struct(struct_def)) => TypeVar::make_nominal(
-                    Reason::Annotation(ast_type.node()),
-                    Nominal::Struct(struct_def.clone()),
-                    vec![],
-                ),
-                Some(Declaration::Array) => TypeVar::make_nominal(
-                    Reason::Annotation(ast_type.node()),
-                    Nominal::Array,
-                    vec![],
-                ),
-                _ => {
-                    // since resolution failed, unconstrained type
-                    TypeVar::empty()
-                }
             }
         }
         TypeKind::NamedWithParams(ident, params) => {
@@ -1340,7 +1302,6 @@ fn generate_constraints_item_decls(ctx: &mut StaticsContext, item: Rc<Item>) {
         }
         ItemKind::Extension(ext) => {
             let id_lookup_typ = match &*ext.typ.kind {
-                TypeKind::Named(_) => ext.typ.id,
                 TypeKind::NamedWithParams(ident, _) => ident.id,
                 _ => return,
             };

@@ -511,7 +511,6 @@ fn resolve_names_item_decl(ctx: &mut StaticsContext, symbol_table: SymbolTable, 
             resolve_names_typ(ctx, symbol_table.clone(), ext.typ.clone(), true);
 
             let id_lookup_typ = match &*ext.typ.kind {
-                TypeKind::Named(_) => ext.typ.id,
                 TypeKind::NamedWithParams(ident, _) => ident.id,
                 _ => {
                     ctx.errors.push(Error::MustExtendType {
@@ -949,9 +948,6 @@ fn resolve_names_typ(
         }
         TypeKind::Poly(polyty) => {
             resolve_names_polytyp(ctx, symbol_table, polyty.clone(), introduce_poly);
-        }
-        TypeKind::Named(identifier) => {
-            resolve_symbol(ctx, &symbol_table, identifier, typ.node());
         }
         TypeKind::NamedWithParams(identifier, args) => {
             // the Type node and the Identifier node should both resolve to the same thing
