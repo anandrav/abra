@@ -818,7 +818,131 @@ impl TypeVar {
     }
 }
 
-fn tyvar_of_symbol(
+// If a variable resolves to some declaration, give its type var.
+// For instance, a variable may resolve to a function, so give that function's type.
+// Or, a variable may resolve to a variable defined by a let statement.
+// Or it may resolve to the name of a struct or an enum variant, in which case its type
+// would be the constructor.
+fn tyvar_of_variable(
+    ctx: &mut StaticsContext,
+    decl: &Declaration,
+    polyvar_scope: PolyvarScope,
+    node: AstNode,
+) -> Option<TypeVar> {
+    match decl {
+        Declaration::FreeFunction(f) => Some(TypeVar::from_node(ctx, f.name.node())),
+        Declaration::HostFunction(f) => Some(TypeVar::from_node(ctx, f.name.node())),
+        Declaration::_ForeignFunction { f: decl, .. } => {
+            Some(TypeVar::from_node(ctx, decl.name.node()))
+        }
+        Declaration::InterfaceDef(..) => None,
+        Declaration::InterfaceMethod {
+            i: iface_def,
+            method,
+        } => Some(TypeVar::from_node(
+            ctx,
+            iface_def.methods[*method as usize].node(),
+        )),
+        Declaration::MemberFunction { f: func, .. } => {
+            Some(TypeVar::from_node(ctx, func.name.node()))
+        }
+        Declaration::AssociatedType { .. } => unimplemented!(),
+        Declaration::Enum(enum_def) => {
+            let (def_type, _) = TypeVar::make_nominal_with_substitution(
+                ctx,
+                Reason::Node(node.clone()),
+                Nominal::Enum(enum_def.clone()),
+                node.clone(),
+            );
+            Some(def_type)
+        }
+        Declaration::EnumVariant {
+            e: enum_def,
+            variant,
+        } => {
+            let (def_type, substitution) = TypeVar::make_nominal_with_substitution(
+                ctx,
+                Reason::Node(node.clone()),
+                Nominal::Enum(enum_def.clone()),
+                node.clone(),
+            );
+
+            let the_variant = &enum_def.variants[*variant as usize];
+            match &the_variant.data {
+                None => {
+                    // TODO: only this path is used. does it make sense to have the dead code below?
+                    Some(def_type)
+                }
+                Some(ty) => {
+                    // TODO: this path is never taken by the unit tests.
+                    match &*ty.kind {
+                        TypeKind::Void => Some(def_type),
+                        TypeKind::Tuple(elems) => {
+                            let args = elems
+                                .iter()
+                                .map(|e| {
+                                    let e = ast_type_to_typevar(ctx, e.clone());
+                                    e.clone().subst(&substitution)
+                                })
+                                .collect();
+                            Some(TypeVar::make_func(
+                                args,
+                                def_type,
+                                Reason::Node(node.clone()),
+                            ))
+                        }
+                        _ => {
+                            // TODO: this path is never taken by the unit tests.
+                            let ty = ast_type_to_typevar(ctx, ty.clone());
+                            Some(TypeVar::make_func(
+                                vec![ty.clone().subst(&substitution)],
+                                def_type,
+                                Reason::Node(node.clone()),
+                            ))
+                        }
+                    }
+                }
+            }
+        }
+        Declaration::Struct(struct_def) => {
+            let (def_type, substitution) = TypeVar::make_nominal_with_substitution(
+                ctx,
+                Reason::Node(node.clone()),
+                Nominal::Struct(struct_def.clone()),
+                node.clone(),
+            );
+
+            let fields = struct_def
+                .fields
+                .iter()
+                .map(|f| {
+                    let ty = ast_type_to_typevar(ctx, f.ty.clone());
+                    ty.clone().subst(&substitution)
+                })
+                .collect();
+            Some(TypeVar::make_func(
+                fields,
+                def_type,
+                Reason::Node(node.clone()),
+            ))
+        }
+        Declaration::Array | Declaration::BuiltinType(_) => None,
+        Declaration::Polytype(_) => None,
+        Declaration::Builtin(builtin) => {
+            let ty_signature = builtin.type_signature();
+            Some(ty_signature)
+        }
+        Declaration::Var(node) => {
+            let tyvar = TypeVar::from_node(ctx, node.clone());
+            // println!("tyvar beforehand is {}", tyvar);
+            Some(tyvar)
+        }
+    }
+    .map(|tyvar| tyvar.instantiate(ctx, polyvar_scope, node))
+}
+
+// If an identifier resolves
+fn tyvar_of_type_declaration(
     ctx: &mut StaticsContext,
     decl: &Declaration,
     polyvar_scope: PolyvarScope,
@@ -1308,9 +1432,10 @@ fn generate_constraints_item_decls(ctx: &mut StaticsContext, item: Rc<Item>) {
             }
         }
         ItemKind::Extension(ext) => {
+            // TODO: LAST HERE
             let id_lookup_typ = match &*ext.typ.kind {
                 TypeKind::NamedWithParams(ident, _) => ident.id,
-                _ => return,
+                _ => todo!("an error should be logged here right?"),
             };
             let Some(lookup) = ctx.resolution_map.get(&id_lookup_typ).cloned() else { return };
 
@@ -1648,7 +1773,7 @@ fn generate_constraints_expr(
         ExprKind::Variable(_) => {
             let lookup = ctx.resolution_map.get(&expr.id).cloned();
             if let Some(res) = lookup
-                && let Some(typ) = tyvar_of_symbol(ctx, &res, polyvar_scope.clone(), expr.node())
+                && let Some(typ) = tyvar_of_variable(ctx, &res, polyvar_scope.clone(), expr.node())
             {
                 // println!("node_ty: {}, typ: {}", node_ty, typ);
                 constrain(ctx, typ, node_ty.clone());
@@ -1942,7 +2067,7 @@ fn generate_constraints_expr(
                     //          ^^^^^
                     let fn_node_ty = TypeVar::from_node(ctx, fname.node());
                     if let Some(tyvar_from_iface_method) =
-                        tyvar_of_symbol(ctx, decl, polyvar_scope.clone(), fname.node())
+                        tyvar_of_variable(ctx, decl, polyvar_scope.clone(), fname.node())
                     {
                         constrain(ctx, fn_node_ty, tyvar_from_iface_method.clone());
                     }
@@ -1994,7 +2119,7 @@ fn generate_constraints_expr(
                             // type of the AST node for the identifier in this MemberFuncAp
                             ctx.resolution_map.insert(fname.id, memfn_decl.clone());
                             let memfn_node_ty = TypeVar::from_node(ctx, fname.node());
-                            if let Some(memfn_decl_ty) = tyvar_of_symbol(
+                            if let Some(memfn_decl_ty) = tyvar_of_variable(
                                 ctx,
                                 &memfn_decl,
                                 polyvar_scope.clone(),
@@ -2037,7 +2162,7 @@ fn generate_constraints_expr(
             {
                 // qualified enum with no associated data
                 if let Some(ty_of_declaration) =
-                    tyvar_of_symbol(ctx, decl, polyvar_scope.clone(), expr.node())
+                    tyvar_of_variable(ctx, decl, polyvar_scope.clone(), expr.node())
                 {
                     constrain(ctx, node_ty, ty_of_declaration);
                 }
@@ -2103,7 +2228,7 @@ fn generate_constraints_expr(
                     },
                 );
 
-                let enum_ty = tyvar_of_symbol(
+                let enum_ty = tyvar_of_variable(
                     ctx,
                     &Declaration::Enum(enum_def),
                     polyvar_scope.clone(),
