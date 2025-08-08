@@ -996,8 +996,9 @@ fn resolve_names_polytyp(
         ctx.resolution_map.insert(polyty.name.id, decl);
     }
 
-    for iface in &polyty.iface_names {
-        resolve_identifier(ctx, &symbol_table, iface);
+    for iface in &polyty.interfaces {
+        resolve_identifier(ctx, &symbol_table, &iface.name);
+        // TODO: resolve arguments
     }
 }
 

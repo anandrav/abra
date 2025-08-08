@@ -246,7 +246,7 @@ fn format_append(s1: 'a ToString, s2: 'b ToString) {
 
 interface Iterate {
     associatedtype Item
-    associatedtype TheIterator impl Iterator // <Item=Item>
+    associatedtype TheIterator impl Iterator<Item=Item>
 
     fn make_iterator: () -> TheIterator
 }

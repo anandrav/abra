@@ -3,8 +3,8 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use crate::ast::{
-    ArgAnnotated, ArgMaybeAnnotated, AstNode, Expr, ExprKind, FileAst, Identifier, ItemKind, Pat,
-    PatKind, Stmt, StmtKind, Type as AstType, TypeDefKind, TypeKind,
+    ArgAnnotated, ArgMaybeAnnotated, AstNode, Expr, ExprKind, FileAst, Identifier, Interface,
+    ItemKind, Pat, PatKind, Stmt, StmtKind, Type as AstType, TypeDefKind, TypeKind,
 };
 use crate::ast::{BinaryOperator, Item};
 use crate::builtin::BuiltinOperation;
@@ -267,7 +267,7 @@ impl SolvedType {
 
     pub(crate) fn is_overloaded(&self) -> bool {
         match self {
-            Self::Poly(polyty) => !polyty.iface_names.is_empty(),
+            Self::Poly(polyty) => !polyty.interfaces.is_empty(),
             Self::Unit => false,
             Self::Never => false,
             Self::Int => false,
@@ -548,9 +548,9 @@ impl TypeVar {
                     let prov = Prov::InstantiatePoly(node.clone(), polyty.clone());
                     let ret = TypeVar::fresh(ctx, prov.clone());
                     let mut extension: Vec<(Rc<InterfaceDecl>, AstNode)> = Vec::new();
-                    for i in &polyty.iface_names {
+                    for i in &polyty.interfaces {
                         if let Some(Declaration::InterfaceDef(iface)) =
-                            ctx.resolution_map.get(&i.id)
+                            ctx.resolution_map.get(&i.name.id)
                         {
                             extension.push((iface.clone(), node.clone()));
                         }
@@ -2587,7 +2587,7 @@ pub(crate) fn ty_implements_iface(
     iface: &Rc<InterfaceDecl>,
 ) -> bool {
     if let SolvedType::Poly(polyty) = &ty {
-        let ifaces = resolved_ifaces(ctx, &polyty.iface_names);
+        let ifaces = resolved_ifaces(ctx, &polyty.interfaces);
         return ifaces.contains(iface);
     }
     let default = vec![];
@@ -2631,14 +2631,14 @@ pub(crate) fn ty_fits_impl_ty(ctx: &StaticsContext, typ: SolvedType, impl_ty: So
                             "can't implement interfaces for type with concrete type arguments"
                         )
                     };
-                    let ifaces = resolved_ifaces(ctx, &polyty.iface_names);
+                    let ifaces = resolved_ifaces(ctx, &polyty.interfaces);
                     ifaces
                         .iter()
                         .all(|iface| ty_implements_iface(ctx, ty1.clone(), iface))
                 })
         }
         (_, SolvedType::Poly(polyty)) => {
-            let ifaces = resolved_ifaces(ctx, &polyty.iface_names);
+            let ifaces = resolved_ifaces(ctx, &polyty.interfaces);
             ifaces
                 .iter()
                 .all(|iface: &Rc<InterfaceDecl>| ty_implements_iface(ctx, typ.clone(), iface))
@@ -2647,11 +2647,11 @@ pub(crate) fn ty_fits_impl_ty(ctx: &StaticsContext, typ: SolvedType, impl_ty: So
     }
 }
 
-fn resolved_ifaces(ctx: &StaticsContext, identifiers: &[Rc<Identifier>]) -> Vec<Rc<InterfaceDecl>> {
+fn resolved_ifaces(ctx: &StaticsContext, identifiers: &[Rc<Interface>]) -> Vec<Rc<InterfaceDecl>> {
     identifiers
         .iter()
         .filter_map(|ident| {
-            if let Some(Declaration::InterfaceDef(iface)) = ctx.resolution_map.get(&ident.id) {
+            if let Some(Declaration::InterfaceDef(iface)) = ctx.resolution_map.get(&ident.name.id) {
                 Some(iface.clone())
             } else {
                 None
@@ -2686,13 +2686,13 @@ impl Display for PotentialType {
             PotentialType::Poly(_, decl) => {
                 let polyty = &decl.0;
                 write!(f, "'{}", polyty.name.v)?;
-                if !polyty.iface_names.is_empty() {
+                if !polyty.interfaces.is_empty() {
                     write!(f, " ")?;
-                    for (i, interface) in polyty.iface_names.iter().enumerate() {
+                    for (i, interface) in polyty.interfaces.iter().enumerate() {
                         if i != 0 {
                             write!(f, " + ")?;
                         }
-                        write!(f, "{}", interface.v)?;
+                        write!(f, "{}", interface.name.v)?;
                     }
                 }
                 Ok(())
@@ -2747,13 +2747,13 @@ impl Display for SolvedType {
         match self {
             SolvedType::Poly(polyty) => {
                 write!(f, "'{}", polyty.name.v)?;
-                if !polyty.iface_names.is_empty() {
+                if !polyty.interfaces.is_empty() {
                     write!(f, " ")?;
-                    for (i, interface) in polyty.iface_names.iter().enumerate() {
+                    for (i, interface) in polyty.interfaces.iter().enumerate() {
                         if i != 0 {
                             write!(f, " + ")?;
                         }
-                        write!(f, "{}", interface.v)?;
+                        write!(f, "{}", interface.name.v)?;
                     }
                 }
                 Ok(())

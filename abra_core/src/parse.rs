@@ -505,31 +505,54 @@ pub(crate) fn parse_type_poly(pair: Pair<Rule>, file_id: FileId) -> Rc<Polytype>
         Rule::type_poly => {
             let inner: Vec<_> = pair.into_inner().collect();
             let ty_name = inner[0].as_str()[1..].to_owned();
+            println!("tyname: {}", ty_name);
             let ty_span = Location::new(file_id, inner[0].as_span());
-            let mut interfaces: Vec<Rc<Identifier>> = vec![];
-            for (i, pair) in inner.iter().enumerate() {
-                if i == 0 {
-                    continue;
-                }
-                let interface = Identifier {
-                    v: pair.as_str().to_owned(),
-                    loc: Location::new(file_id, pair.as_span()),
+            let mut interfaces: Vec<Rc<Interface>> = vec![];
+            let mut n = 1;
+            while n < inner.len() {
+                let iface_name = Identifier {
+                    v: inner[n].as_str().to_string(),
+                    loc: Location::new(file_id, inner[n].as_span()),
                     id: NodeId::new(),
+                }
+                .into();
+                n += 1;
+
+                let mut args = vec![];
+                while n < inner.len() && inner[n].as_rule() == Rule::associated_type_binding {
+                    let inner: Vec<_> = inner[n].clone().into_inner().collect();
+                    args.push((
+                        Identifier {
+                            v: inner[0].as_str().to_string(),
+                            loc: Location::new(file_id, inner[0].as_span()),
+                            id: NodeId::new(),
+                        }
+                        .into(),
+                        parse_type_term(inner[1].clone(), file_id),
+                    ));
+                    n += 1;
+                }
+
+                let interface = Interface {
+                    name: iface_name,
+                    arguments: args,
                 }
                 .into();
                 interfaces.push(interface);
             }
 
-            Polytype {
+            let ret = Polytype {
                 name: Identifier {
                     v: ty_name,
                     loc: ty_span,
                     id: NodeId::new(),
                 }
                 .into(),
-                iface_names: interfaces,
+                interfaces,
             }
-            .into()
+            .into();
+            dbg!(&ret);
+            ret
         }
         _ => panic!("unreachable rule {pair:#?}"),
     }

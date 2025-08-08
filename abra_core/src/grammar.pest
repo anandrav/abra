@@ -158,7 +158,7 @@ type_poly = { type_poly_ident ~ interface_constraint* }
 type_poly_ident = @{ "'" ~ (alpha | "_") ~ (alphanumeric | "_")* } // 'a, 'b, 'c, etc.
 interface_constraint = _{ identifier ~ interface_constraint_params? }
 interface_constraint_params = _{ "<" ~ (associated_type_binding ~ ",")* ~ associated_type_binding? ~ ">" }
-associated_type_binding = _{ identifier ~ "=" ~ typ }
+associated_type_binding = { identifier ~ "=" ~ typ }
 
 primary_expression = _{ literal | identifier | member_access_inferred }
 

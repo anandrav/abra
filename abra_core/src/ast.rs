@@ -614,7 +614,13 @@ pub(crate) enum TypeKind {
 #[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq, Hash)]
 pub(crate) struct Polytype {
     pub(crate) name: Rc<Identifier>,
-    pub(crate) iface_names: Vec<Rc<Identifier>>,
+    pub(crate) interfaces: Vec<Rc<Interface>>,
+}
+
+#[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq, Hash)]
+pub(crate) struct Interface {
+    pub(crate) name: Rc<Identifier>,
+    pub(crate) arguments: Vec<(Rc<Identifier>, Rc<Type>)>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
