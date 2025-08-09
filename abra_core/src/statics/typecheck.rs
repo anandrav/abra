@@ -1486,7 +1486,34 @@ fn generate_constraints_stmt(
             ctx.loop_stack.pop();
         }
         StmtKind::ForLoop(pat, iterable, body) => {
-            todo!()
+            todo!();
+            // TODO: below is not correct. It's more complex.
+            // iterable must implement Iterable interface
+            // its implementation will have an associated type TheIterator that implements Iterator
+            // TheIterator must implement Iterator
+            // its implementation will have an associated type Item
+            // Item is what is constrained to the pattern.
+
+            // generate_constraints_expr(
+            //     ctx,
+            //     polyvar_scope.clone(),
+            //     Mode::Syn,
+            //     iterable.clone(),
+            // );
+            // generate_constraints_pat(
+            //     ctx,
+            //     polyvar_scope.clone(),
+            //     Mode::Ana {
+            //         expected: item_ty,
+            //     },
+            //     pat.clone(),
+            // );
+            // generate_constraints_expr(
+            //     ctx,
+            //     polyvar_scope.clone(),
+            //     Mode::Syn,
+            //     body.clone(),
+            // );
         }
     }
 }
