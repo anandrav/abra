@@ -124,6 +124,16 @@ impl StaticsContext {
             None => None,
         }
     }
+
+    pub(crate) fn get_interface_declaration(&self, name: &str) -> Rc<InterfaceDef> {
+        if let Some(Declaration::InterfaceDef(iface_def)) =
+            self.root_namespace.get_declaration(name)
+        {
+            iface_def.clone()
+        } else {
+            unreachable!()
+        }
+    }
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
