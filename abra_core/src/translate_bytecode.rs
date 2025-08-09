@@ -1155,6 +1155,7 @@ impl Translator {
                     self.emit(st, Instr::PushNil);
                 }
             }
+            StmtKind::ForLoop(..) => todo!(),
         }
     }
 
@@ -1322,6 +1323,7 @@ fn collect_locals_stmt(statements: &[Rc<Stmt>], locals: &mut HashSet<NodeId>) {
                 collect_locals_expr(cond, locals);
                 collect_locals_expr(body, locals);
             }
+            StmtKind::ForLoop(..) => todo!(),
         }
     }
 }

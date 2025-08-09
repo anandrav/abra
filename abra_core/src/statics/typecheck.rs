@@ -1485,6 +1485,9 @@ fn generate_constraints_stmt(
             generate_constraints_expr(ctx, polyvar_scope, Mode::Syn, expr.clone());
             ctx.loop_stack.pop();
         }
+        StmtKind::ForLoop(pat, iterable, body) => {
+            todo!()
+        }
     }
 }
 

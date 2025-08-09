@@ -79,6 +79,10 @@ fn check_pattern_exhaustiveness_stmt(statics: &mut StaticsContext, stmt: &Stmt) 
             check_pattern_exhaustiveness_expr(statics, cond);
             check_pattern_exhaustiveness_expr(statics, body);
         }
+        StmtKind::ForLoop(_, iterable, body) => {
+            check_pattern_exhaustiveness_expr(statics, iterable);
+            check_pattern_exhaustiveness_expr(statics, body);
+        }
     }
 }
 

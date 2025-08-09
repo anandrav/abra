@@ -663,6 +663,11 @@ fn resolve_names_stmt(ctx: &mut StaticsContext, symbol_table: SymbolTable, stmt:
             resolve_names_expr(ctx, symbol_table.clone(), cond.clone());
             resolve_names_expr(ctx, symbol_table.clone(), expr.clone());
         }
+        StmtKind::ForLoop(pat, iterable, body) => {
+            resolve_names_expr(ctx, symbol_table.clone(), iterable.clone());
+            resolve_names_pat(ctx, symbol_table.clone(), pat.clone());
+            resolve_names_expr(ctx, symbol_table.clone(), body.clone());
+        }
     }
 }
 

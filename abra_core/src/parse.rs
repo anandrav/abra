@@ -92,7 +92,7 @@ pub(crate) fn parse_expr_pratt(pairs: Pairs<Rule>, file_id: FileId) -> Rc<Expr> 
                     loc: Location::new(file_id, inner[0].as_span()),
                     id: NodeId::new(),
                 }
-                .into();
+                    .into();
 
                 Rc::new(Expr {
                     kind: Rc::new(ExprKind::MemberAccess(lhs.clone(), ident)),
@@ -108,7 +108,7 @@ pub(crate) fn parse_expr_pratt(pairs: Pairs<Rule>, file_id: FileId) -> Rc<Expr> 
                     loc: Location::new(file_id, inner[0].as_span()),
                     id: NodeId::new(),
                 }
-                .into();
+                    .into();
                 let mut args = vec![];
                 for p in &inner[1..] {
                     args.push(parse_expr_pratt(Pairs::single(p.clone()), file_id));
@@ -188,7 +188,7 @@ pub(crate) fn parse_func_arg_annotation(pair: Pair<Rule>, file_id: FileId) -> Ar
                 loc: Location::new(file_id, name.as_span()),
                 id: NodeId::new(),
             }
-            .into();
+                .into();
             let annot = inner
                 .get(1)
                 .map(|type_pair| parse_type_term(type_pair.clone(), file_id));
@@ -212,7 +212,7 @@ pub(crate) fn parse_func_arg_annotation_mandatory(
                 loc: Location::new(file_id, name.as_span()),
                 id: NodeId::new(),
             }
-            .into();
+                .into();
             let annot = parse_type_term(inner[1].clone(), file_id);
             (ident, annot)
         }
@@ -412,7 +412,7 @@ pub(crate) fn parse_type_term(pair: Pair<Rule>, file_id: FileId) -> Rc<Type> {
                 loc: ident_span,
                 id: NodeId::new(),
             }
-            .into();
+                .into();
             Rc::new(Type {
                 kind: Rc::new(TypeKind::NamedWithParams(ident, vec![])),
                 loc: span,
@@ -472,7 +472,7 @@ pub(crate) fn parse_type_term(pair: Pair<Rule>, file_id: FileId) -> Rc<Type> {
                         loc: ident_span,
                         id: NodeId::new(),
                     }
-                    .into(),
+                        .into(),
                     types,
                 )),
                 loc: span,
@@ -515,7 +515,7 @@ pub(crate) fn parse_type_poly(pair: Pair<Rule>, file_id: FileId) -> Rc<Polytype>
                     loc: Location::new(file_id, inner[n].as_span()),
                     id: NodeId::new(),
                 }
-                .into();
+                    .into();
                 n += 1;
 
                 let mut args = vec![];
@@ -527,7 +527,7 @@ pub(crate) fn parse_type_poly(pair: Pair<Rule>, file_id: FileId) -> Rc<Polytype>
                             loc: Location::new(file_id, inner[0].as_span()),
                             id: NodeId::new(),
                         }
-                        .into(),
+                            .into(),
                         parse_type_term(inner[1].clone(), file_id),
                     ));
                     n += 1;
@@ -537,7 +537,7 @@ pub(crate) fn parse_type_poly(pair: Pair<Rule>, file_id: FileId) -> Rc<Polytype>
                     name: iface_name,
                     arguments: args,
                 }
-                .into();
+                    .into();
                 interfaces.push(interface);
             }
 
@@ -547,10 +547,10 @@ pub(crate) fn parse_type_poly(pair: Pair<Rule>, file_id: FileId) -> Rc<Polytype>
                     loc: ty_span,
                     id: NodeId::new(),
                 }
-                .into(),
+                    .into(),
                 interfaces,
             }
-            .into()
+                .into()
         }
         _ => panic!("unreachable rule {pair:#?}"),
     }
@@ -577,7 +577,7 @@ pub(crate) fn parse_item(pair: Pair<Rule>, file_id: FileId) -> Rc<Item> {
                 loc: Location::new(file_id, inner[0].as_span()),
                 id: NodeId::new(),
             }
-            .into();
+                .into();
             n += 1;
             while let Rule::func_arg_annotated = inner[n].as_rule() {
                 let pat_annotated = parse_func_arg_annotation_mandatory(inner[n].clone(), file_id);
@@ -595,7 +595,7 @@ pub(crate) fn parse_item(pair: Pair<Rule>, file_id: FileId) -> Rc<Item> {
                         args,
                         ret_type,
                     }
-                    .into(),
+                        .into(),
                 )),
                 loc: span,
                 id: NodeId::new(),
@@ -609,7 +609,7 @@ pub(crate) fn parse_item(pair: Pair<Rule>, file_id: FileId) -> Rc<Item> {
                 loc: Location::new(file_id, inner[0].as_span()),
                 id: NodeId::new(),
             }
-            .into();
+                .into();
             n += 1;
             while let Rule::func_arg_annotated = inner[n].as_rule() {
                 let pat_annotated = parse_func_arg_annotation_mandatory(inner[n].clone(), file_id);
@@ -627,7 +627,7 @@ pub(crate) fn parse_item(pair: Pair<Rule>, file_id: FileId) -> Rc<Item> {
                         args,
                         ret_type,
                     }
-                    .into(),
+                        .into(),
                 )),
                 loc: span,
                 id: NodeId::new(),
@@ -667,12 +667,12 @@ pub(crate) fn parse_item(pair: Pair<Rule>, file_id: FileId) -> Rc<Item> {
                             loc: span.clone(),
                             id: NodeId::new(),
                         }
-                        .into(),
+                            .into(),
                         ty_args,
                         variants,
                         id,
                     }
-                    .into(),
+                        .into(),
                 )))),
                 loc: span,
                 id: NodeId::new(),
@@ -702,12 +702,12 @@ pub(crate) fn parse_item(pair: Pair<Rule>, file_id: FileId) -> Rc<Item> {
                             loc: span.clone(),
                             id: NodeId::new(),
                         }
-                        .into(),
+                            .into(),
                         ty_args,
                         fields,
                         id,
                     }
-                    .into(),
+                        .into(),
                 )))),
                 loc: span,
                 id,
@@ -732,7 +732,7 @@ pub(crate) fn parse_item(pair: Pair<Rule>, file_id: FileId) -> Rc<Item> {
                                 loc: inner_loc,
                                 id: NodeId::new(),
                             }
-                            .into(),
+                                .into(),
                             ty,
                             id: NodeId::new(),
                             loc: Location::new(file_id, span),
@@ -747,7 +747,7 @@ pub(crate) fn parse_item(pair: Pair<Rule>, file_id: FileId) -> Rc<Item> {
                             loc: inner_loc,
                             id: NodeId::new(),
                         }
-                        .into();
+                            .into();
                         let mut interfaces: Vec<Rc<Interface>> = vec![];
                         let mut n = 1;
                         // TODO code duplication
@@ -758,7 +758,7 @@ pub(crate) fn parse_item(pair: Pair<Rule>, file_id: FileId) -> Rc<Item> {
                                 loc: Location::new(file_id, inner[n].as_span()),
                                 id: NodeId::new(),
                             }
-                            .into();
+                                .into();
                             n += 1;
 
                             let mut args = vec![];
@@ -772,7 +772,7 @@ pub(crate) fn parse_item(pair: Pair<Rule>, file_id: FileId) -> Rc<Item> {
                                         loc: Location::new(file_id, inner[0].as_span()),
                                         id: NodeId::new(),
                                     }
-                                    .into(),
+                                        .into(),
                                     parse_type_term(inner[1].clone(), file_id),
                                 ));
                                 n += 1;
@@ -782,7 +782,7 @@ pub(crate) fn parse_item(pair: Pair<Rule>, file_id: FileId) -> Rc<Item> {
                                 name: iface_name,
                                 arguments: args,
                             }
-                            .into();
+                                .into();
                             interfaces.push(interface);
                         }
                         let associatedtype = AssociatedType { name, interfaces };
@@ -800,13 +800,13 @@ pub(crate) fn parse_item(pair: Pair<Rule>, file_id: FileId) -> Rc<Item> {
                             loc: span.clone(),
                             id: NodeId::new(),
                         }
-                        .into(),
+                            .into(),
                         methods: props,
                         associated_types,
                     }
-                    .into(),
+                        .into(),
                 )
-                .into(),
+                    .into(),
                 loc: span,
                 id: NodeId::new(),
             })
@@ -832,15 +832,15 @@ pub(crate) fn parse_item(pair: Pair<Rule>, file_id: FileId) -> Rc<Item> {
                             loc: name_span,
                             id: NodeId::new(),
                         }
-                        .into(),
+                            .into(),
                         typ,
                         methods: func_defs,
 
                         id: impl_id,
                     }
-                    .into(),
+                        .into(),
                 )
-                .into(),
+                    .into(),
                 loc: span,
                 id: impl_id,
             })
@@ -864,9 +864,9 @@ pub(crate) fn parse_item(pair: Pair<Rule>, file_id: FileId) -> Rc<Item> {
 
                         id: impl_id,
                     }
-                    .into(),
+                        .into(),
                 )
-                .into(),
+                    .into(),
                 loc: span,
                 id: impl_id,
             })
@@ -905,10 +905,10 @@ pub(crate) fn parse_item(pair: Pair<Rule>, file_id: FileId) -> Rc<Item> {
                         loc: span.clone(),
                         id: NodeId::new(),
                     }
-                    .into(),
+                        .into(),
                     import_list,
                 )
-                .into(),
+                    .into(),
                 loc: span,
                 id: NodeId::new(),
             })
@@ -917,6 +917,7 @@ pub(crate) fn parse_item(pair: Pair<Rule>, file_id: FileId) -> Rc<Item> {
         | Rule::var_statement
         | Rule::set_statement
         | Rule::while_statement
+        | Rule::for_loop_statement
         | Rule::if_statement
         | Rule::expression_statement => {
             let stmt = parse_stmt(pair, file_id);
@@ -938,7 +939,7 @@ fn parse_func_def(inner: Vec<Pair<'_, Rule>>, file_id: FileId) -> FuncDef {
         loc: Location::new(file_id, inner[0].as_span()),
         id: NodeId::new(),
     }
-    .into();
+        .into();
     n += 1;
     while let Rule::func_arg = inner[n].as_rule() {
         let pat_annotated = parse_func_arg_annotation(inner[n].clone(), file_id);
@@ -1041,6 +1042,16 @@ pub(crate) fn parse_stmt(pair: Pair<Rule>, file_id: FileId) -> Rc<Stmt> {
                 id: NodeId::new(),
             })
         }
+        Rule::for_loop_statement => {
+            let pat = parse_let_pattern(inner[0].clone(), file_id);
+            let iterable = parse_expr_pratt(Pairs::single(inner[1].clone()), file_id);
+            let e = parse_expr_pratt(Pairs::single(inner[2].clone()), file_id);
+            Rc::new(Stmt {
+                kind: Rc::new(StmtKind::ForLoop(pat, iterable, e)),
+                loc: span,
+                id: NodeId::new(),
+            })
+        }
         _ => panic!("unreachable rule {rule:#?}"),
     }
 }
@@ -1066,7 +1077,7 @@ pub(crate) fn parse_variant(pair: Pair<Rule>, file_id: FileId) -> Rc<Variant> {
                     loc: span_ctor,
                     id: NodeId::new(),
                 }
-                .into(),
+                    .into(),
                 data,
                 loc: span,
                 id: NodeId::new(),
@@ -1091,7 +1102,7 @@ pub(crate) fn parse_struct_field(pair: Pair<Rule>, file_id: FileId) -> StructFie
                     loc: span_field,
                     id: NodeId::new(),
                 }
-                .into(),
+                    .into(),
                 ty,
                 loc: span,
                 id: NodeId::new(),
@@ -1154,7 +1165,7 @@ pub(crate) fn parse_expr_term(pair: Pair<Rule>, file_id: FileId) -> Rc<Expr> {
                     loc: Location::new(file_id, span),
                     id: NodeId::new(),
                 }
-                .into()
+                    .into()
             }
             for pair in &inner[1..] {
                 arms.push(parse_match_arm(pair, file_id));
@@ -1254,7 +1265,7 @@ pub(crate) fn parse_expr_term(pair: Pair<Rule>, file_id: FileId) -> Rc<Expr> {
                 loc: Location::new(file_id, inner[0].as_span()),
                 id: NodeId::new(),
             }
-            .into();
+                .into();
             Rc::new(Expr {
                 kind: Rc::new(ExprKind::MemberAccessLeadingDot(ident)),
                 loc: span,
