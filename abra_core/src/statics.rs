@@ -174,7 +174,7 @@ pub(crate) enum Declaration {
     InterfaceDef(Rc<InterfaceDef>),
     InterfaceMethod {
         i: Rc<InterfaceDef>,
-        method: u16,
+        method: u16, // TODO: just use a usize lol
     },
     AssociatedType {
         i: Rc<InterfaceDef>,
@@ -186,7 +186,7 @@ pub(crate) enum Declaration {
     Enum(Rc<EnumDef>),
     EnumVariant {
         e: Rc<EnumDef>,
-        variant: u16,
+        variant: u16, // TODO: just use a usize lol
     },
     // TODO: maybe combine Enum, Struct, and Array into "Nominal". Easier to know if a declaration is a datatype or not.
     // alternatively, add helper functions to check if it's a data type and to extract the NodeId from the particular declaration
