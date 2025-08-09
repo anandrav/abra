@@ -843,7 +843,11 @@ fn tyvar_of_iface_method(
             return TypeVar::from_node(ctx, f.name.node()).instantiate(ctx, polyvar_scope, node);
         }
     }
-    panic!("not found"); // TODO fix this
+    TypeVar::from_node(ctx, iface_def.methods[method as usize].node()).instantiate(
+        ctx,
+        polyvar_scope.clone(),
+        node,
+    )
 }
 
 pub(crate) fn ast_type_to_solved_type(
@@ -1888,7 +1892,7 @@ fn generate_constraints_expr(
                     // fully qualified interface/struct/enum method
                     // example: Clone.clone(my_struct)
                     //          ^^^^^
-                    let fn_node_ty = TypeVar::from_node(ctx, fname.node());
+                    let memfn_node_ty = TypeVar::from_node(ctx, fname.node());
                     let impl_ty = match args.get(0) {
                         Some(arg) => {
                             generate_constraints_expr(
@@ -1905,11 +1909,23 @@ fn generate_constraints_expr(
                         }
                     };
                     // TODO: in the case of InterfaceMethod, need to take the implementation type (type of first argument) into account
-                    let tyvar_from_iface_method =
-                        TypeVar::from_node(ctx, iface_def.methods[method as usize].node())
-                            .instantiate(ctx, polyvar_scope.clone(), fname.node());
+                    // let tyvar_from_iface_method =
+                    //     TypeVar::from_node(ctx, iface_def.methods[method as usize].node())
+                    //         .instantiate(ctx, polyvar_scope.clone(), fname.node());
 
-                    constrain(ctx, fn_node_ty, tyvar_from_iface_method.clone());
+                    // constrain(ctx, fn_node_ty, tyvar_from_iface_method.clone());
+
+                    // println!("impl_ty: {}", impl_ty);
+                    let memfn_decl_ty = tyvar_of_iface_method(
+                        ctx,
+                        iface_def.clone(),
+                        method,
+                        impl_ty,
+                        polyvar_scope.clone(),
+                        fname.node(), // TODO: why do you have ot pass fname.node() to instantiate(), this is so confusing and bug-prone
+                    );
+                    // println!("memfn_decl_ty: {}", memfn_decl_ty.clone());
+                    constrain(ctx, memfn_node_ty.clone(), memfn_decl_ty.clone());
 
                     generate_constraints_expr_funcap_helper(
                         ctx,
