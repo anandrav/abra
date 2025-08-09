@@ -1198,23 +1198,24 @@ impl Translator {
                     0,
                     fn_next_ty,
                 );
-                // LAST HERE
+                // check return value of iterator.next() and branch
                 self.emit(st, Instr::Deconstruct);
                 self.emit(st, Instr::PushInt(0 as AbraInt));
                 self.emit(st, Instr::Equal);
                 self.emit(st, Instr::Not);
                 self.emit(st, Instr::JumpIf(end_label.clone()));
+                let idx = offset_table.get(&pat.id).unwrap();
+                self.emit(st, Instr::StoreOffset(*idx));
                 st.loop_stack.push(EnclosingLoop {
                     start_label: start_label.clone(),
                     end_label: end_label.clone(),
                 });
-                let idx = offset_table.get(&pat.id).unwrap();
-                self.emit(st, Instr::StoreOffset(*idx));
                 self.translate_expr(body.clone(), offset_table, monomorph_env.clone(), st);
                 st.loop_stack.pop();
                 self.emit(st, Instr::Pop);
                 self.emit(st, Instr::Jump(start_label));
                 self.emit(st, Line::Label(end_label));
+                self.emit(st, Instr::Pop);
 
                 if is_last {
                     self.emit(st, Instr::PushNil);

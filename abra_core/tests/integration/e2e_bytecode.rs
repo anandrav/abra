@@ -1392,7 +1392,6 @@ var sum = 0
 for n in arr {
     sum := sum + n
 }
-
 sum
 
 "#;
