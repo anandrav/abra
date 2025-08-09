@@ -1,12 +1,6 @@
 let arr = [1, 2, 3] // array<int>
 var sum = 0 // int
-let it = Iterate.make_iterator(arr)
-//let it = arr.make_iterator()
-// arr has type array<int>
-// make_iterator has type array<'T> -> ArrayIterator<'T>
-// the type of make_iterator should be instantiated to array<_> -> ArrayIterator<_>
-// since the first argument passed `arr` has type array<int>, this particular instance of make_iterator would get solved to array<int> -> ArrayIterator<int>
-// and therefore it would have the output type which is ArrayIterator<int>
+let it = arr.make_iterator()
 
 while true {
   match it.next() {

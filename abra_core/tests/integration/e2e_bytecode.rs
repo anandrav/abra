@@ -1363,7 +1363,7 @@ fn iterate() {
     let src = r#"
 let arr = [1, 2, 3]
 var sum = 0
-let it: ArrayIterator<int> = arr.make_iterator()
+let it = arr.make_iterator()
 while true {
   match it.next() {
     maybe.yes(n) -> sum := sum + n,
