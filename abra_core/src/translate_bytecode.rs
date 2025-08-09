@@ -1204,8 +1204,7 @@ impl Translator {
                 self.emit(st, Instr::Equal);
                 self.emit(st, Instr::Not);
                 self.emit(st, Instr::JumpIf(end_label.clone()));
-                let idx = offset_table.get(&pat.id).unwrap();
-                self.emit(st, Instr::StoreOffset(*idx));
+                self.handle_pat_binding(pat.clone(), offset_table, st);
                 st.loop_stack.push(EnclosingLoop {
                     start_label: start_label.clone(),
                     end_label: end_label.clone(),
