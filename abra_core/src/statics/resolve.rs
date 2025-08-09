@@ -70,7 +70,7 @@ fn gather_declarations_item(
             qualifiers.push(iface.name.v.clone());
             for (i, p) in iface.methods.iter().enumerate() {
                 let method_name = p.name.v.clone();
-                let method = i as u16;
+                let method = i;
                 let fully_qualified_name = fullname(&qualifiers, &method_name);
 
                 ctx.fully_qualified_names
@@ -118,7 +118,7 @@ fn gather_declarations_item(
                 let mut enum_namespace = Namespace::new();
                 for (i, v) in e.variants.iter().enumerate() {
                     let variant_name = v.ctor.v.clone();
-                    let variant = i as u16;
+                    let variant = i;
 
                     enum_namespace.add_declaration(
                         ctx,
@@ -514,7 +514,7 @@ fn resolve_names_item_decl(ctx: &mut StaticsContext, symbol_table: SymbolTable, 
                         for (m, f) in iface_impl.methods.iter().enumerate() {
                             let method_decl = Declaration::InterfaceMethod {
                                 i: iface_def.clone(),
-                                method: m as u16,
+                                method: m,
                             };
                             try_add_member_function(ctx, type_key.clone(), f.clone(), method_decl);
                         }
@@ -801,7 +801,7 @@ fn resolve_names_member_helper(ctx: &mut StaticsContext, expr: Rc<Expr>, field: 
                             field.id,
                             Declaration::InterfaceMethod {
                                 i: iface_def.clone(),
-                                method: idx as u16,
+                                method: idx,
                             },
                         );
                         found = true;
@@ -839,7 +839,7 @@ fn resolve_names_member_helper(ctx: &mut StaticsContext, expr: Rc<Expr>, field: 
                                 field.id,
                                 Declaration::EnumVariant {
                                     e: enum_def,
-                                    variant: idx as u16,
+                                    variant: idx,
                                 },
                             );
                             found = true;

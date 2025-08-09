@@ -628,7 +628,7 @@ impl Display for WitnessMatrix {
     }
 }
 
-type EnumVariant = (Rc<EnumDef>, u16);
+type EnumVariant = (Rc<EnumDef>, usize);
 
 #[derive(Debug, Clone)]
 enum ConstructorSet {
@@ -836,7 +836,7 @@ fn ctors_for_ty(ty: &SolvedType) -> ConstructorSet {
                 .variants
                 .iter()
                 .enumerate()
-                .map(|(i, _)| (enum_def.clone(), i as u16))
+                .map(|(i, _)| (enum_def.clone(), i))
                 .collect();
             ConstructorSet::EnumVariants(variants)
         }

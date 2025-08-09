@@ -305,7 +305,12 @@ impl Translator {
             ExprKind::Variable(_) => match &self.statics.resolution_map[&expr.id] {
                 Declaration::EnumVariant { variant, .. } => {
                     self.emit(st, Instr::PushNil);
-                    self.emit(st, Instr::ConstructVariant { tag: *variant });
+                    self.emit(
+                        st,
+                        Instr::ConstructVariant {
+                            tag: *variant as u16,
+                        },
+                    );
                 }
                 Declaration::Var(node) => {
                     let idx = offset_table.get(&node.id()).unwrap();
@@ -354,7 +359,12 @@ impl Translator {
             {
                 Declaration::EnumVariant { variant, .. } => {
                     self.emit(st, Instr::PushNil);
-                    self.emit(st, Instr::ConstructVariant { tag: variant });
+                    self.emit(
+                        st,
+                        Instr::ConstructVariant {
+                            tag: variant as u16,
+                        },
+                    );
                 }
                 _ => panic!(),
             },
@@ -398,7 +408,7 @@ impl Translator {
                         st,
                         monomorph_env,
                         iface_def,
-                        method,
+                        method as u16,
                         func_ty,
                     );
                 };
@@ -538,7 +548,12 @@ impl Translator {
                     &self.statics.resolution_map.get(&field_name.id)
                 {
                     self.emit(st, Instr::PushNil);
-                    self.emit(st, Instr::ConstructVariant { tag: *variant });
+                    self.emit(
+                        st,
+                        Instr::ConstructVariant {
+                            tag: *variant as u16,
+                        },
+                    );
                 } else {
                     self.translate_expr(accessed.clone(), offset_table, monomorph_env.clone(), st);
                     let idx = idx_of_field(&self.statics, accessed.clone(), &field_name.v);
@@ -752,7 +767,7 @@ impl Translator {
                     st,
                     monomorph_env,
                     iface_def.clone(),
-                    *method,
+                    *method as u16,
                     func_ty,
                 );
             }
@@ -773,12 +788,17 @@ impl Translator {
                 e: enum_def,
                 variant,
             } => {
-                let arity = enum_def.arity(*variant);
+                let arity = enum_def.arity(*variant as u16);
                 if arity > 1 {
                     // turn the arguments (associated data) into a tuple
                     self.emit(st, Instr::Construct(arity));
                 }
-                self.emit(st, Instr::ConstructVariant { tag: *variant });
+                self.emit(
+                    st,
+                    Instr::ConstructVariant {
+                        tag: *variant as u16,
+                    },
+                );
             }
             Declaration::Enum { .. } => {
                 panic!("can't call enum name as ctor");
