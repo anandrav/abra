@@ -1850,7 +1850,6 @@ fn generate_constraints_expr(
             );
         }
         ExprKind::MemberFuncAp(receiver_expr, fname, args) => {
-            // TODO: is this flag correct and is it needed everywhere?
             let receiver_is_namespace = matches!(
                 ctx.resolution_map.get(&receiver_expr.id),
                 Some(Declaration::Struct(_))
@@ -1885,7 +1884,7 @@ fn generate_constraints_expr(
                 Some(Declaration::InterfaceMethod {
                          i: iface_def,
                          method,
-                     }) if receiver_is_namespace => {
+                     }) => {
                     // fully qualified interface/struct/enum method
                     // example: Clone.clone(my_struct)
                     //          ^^^^^
