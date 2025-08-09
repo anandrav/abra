@@ -4,7 +4,7 @@
 
 use crate::ast::{
     ArgAnnotated, ArgMaybeAnnotated, AstNode, Expr, ExprKind, FileAst, Identifier, Interface,
-    ItemKind, Pat, PatKind, Stmt, StmtKind, Type as AstType, TypeDefKind, TypeKind,
+    ItemKind, NodeId, Pat, PatKind, Stmt, StmtKind, Type as AstType, TypeDefKind, TypeKind,
 };
 use crate::ast::{BinaryOperator, Item};
 use crate::builtin::BuiltinOperation;
@@ -851,6 +851,7 @@ fn tyvar_of_iface_method(
         && let Some(impl_list) = ctx.interface_impls.get(&iface_def)
         && let Some(desired_impl_ty) = desired_impl_ty.solution()
     {
+        // TODO: this logic is duplicated elsewhere
         for imp in impl_list {
             if let Some(impl_ty) = ast_type_to_solved_type(ctx, imp.typ.clone())
                 && ty_fits_impl_ty(ctx, desired_impl_ty.clone(), impl_ty.clone())
@@ -1486,36 +1487,137 @@ fn generate_constraints_stmt(
             ctx.loop_stack.pop();
         }
         StmtKind::ForLoop(pat, iterable, body) => {
-            todo!();
             // TODO: below is not correct. It's more complex.
             // iterable must implement Iterable interface
             // its implementation will have an associated type TheIterator that implements Iterator
             // TheIterator must implement Iterator
-            // its implementation will have an associated type Item
-            // Item is what is constrained to the pattern.
+            // its implementation will have an associated type Item (this is the return type of the next() method)
+            // Item is what is constrained to the let pattern.
 
-            // generate_constraints_expr(
-            //     ctx,
-            //     polyvar_scope.clone(),
-            //     Mode::Syn,
-            //     iterable.clone(),
-            // );
-            // generate_constraints_pat(
-            //     ctx,
-            //     polyvar_scope.clone(),
-            //     Mode::Ana {
-            //         expected: item_ty,
-            //     },
-            //     pat.clone(),
-            // );
-            // generate_constraints_expr(
-            //     ctx,
-            //     polyvar_scope.clone(),
-            //     Mode::Syn,
-            //     body.clone(),
-            // );
+            // TODO: handle case where iterable: 'a Iterable
+            // in this situation, it's impossible to determine what the item type is, so you cannot
+            // iterate over it. Will need an error message for that. For now, just panic with unimplemented!()
+
+            generate_constraints_expr(ctx, polyvar_scope.clone(), Mode::Syn, iterable.clone());
+            let iterable_ty = TypeVar::from_node(ctx, iterable.node());
+            match extract_item_type_from_iterable_type(ctx, iterable_ty, stmt.id, stmt.node()) {
+                Some(item_ty) => {
+                    generate_constraints_pat(
+                        ctx,
+                        polyvar_scope.clone(),
+                        Mode::Ana { expected: item_ty },
+                        pat.clone(),
+                    );
+                }
+                None => {
+                    // TODO: need to log an error
+                    todo!();
+                    generate_constraints_pat(ctx, polyvar_scope.clone(), Mode::Syn, pat.clone());
+                }
+            }
+            generate_constraints_expr(ctx, polyvar_scope.clone(), Mode::Syn, body.clone())
         }
     }
+}
+
+fn extract_item_type_from_iterable_type(
+    ctx: &mut StaticsContext,
+    iterable_ty: TypeVar,
+    stmt_id: NodeId,
+    node: AstNode,
+) -> Option<TypeVar> {
+    let Some(Declaration::InterfaceDef(iterable_iface_def)) =
+        ctx.root_namespace.get_declaration("prelude.Iterable")
+    else {
+        unreachable!()
+    };
+    let Some(Declaration::InterfaceDef(iterator_iface_def)) =
+        ctx.root_namespace.get_declaration("prelude.Iterator")
+    else {
+        unreachable!()
+    };
+    let Some(Declaration::Enum(maybe_enum_def)) =
+        ctx.root_namespace.get_declaration("prelude.maybe")
+    else {
+        unreachable!()
+    };
+
+    // println!("iterable_ty: {}", iterable_ty);
+
+    // TODO: need to log errors before returning None instead of just silently returning None.
+    // TODO: don't log errors for *everything* though. Some of it will be caught by typechecker. Just need the user to understand why for loop won't work
+    let impl_list = ctx.interface_impls.get(&iterable_iface_def)?.clone();
+    let iterable_ty_solved = iterable_ty.solution()?;
+    let imp = impl_list.iter().find(|i| {
+        if let Some(impl_ty) = ast_type_to_solved_type(ctx, i.typ.clone()) {
+            ty_fits_impl_ty(ctx, iterable_ty_solved.clone(), impl_ty.clone())
+        } else {
+            false
+        }
+    })?;
+    let make_iterator_method = imp.methods.iter().find(|m| m.name.v == "make_iterator")?;
+    let ret_type = make_iterator_method.ret_type.clone()?;
+    let iterator_ty = ast_type_to_solved_type(ctx, ret_type)?;
+
+    let impl_list = ctx.interface_impls.get(&iterator_iface_def)?.clone();
+    let imp = impl_list.iter().find(|i| {
+        if let Some(impl_ty) = ast_type_to_solved_type(ctx, i.typ.clone()) {
+            ty_fits_impl_ty(ctx, iterator_ty.clone(), impl_ty.clone())
+        } else {
+            false
+        }
+    })?;
+    let next_method = imp.methods.iter().find(|m| m.name.v == "next")?;
+    let ret_type = next_method.ret_type.clone()?;
+    let TypeKind::NamedWithParams(_, params) = &*ret_type.kind else {
+        return None;
+    };
+    let first_arg = params.first()?;
+    let item_ty = TypeVar::from_node(ctx, first_arg.node());
+    // let ret_type = ast_type_to_solved_type(ctx, ret_type)?;
+    // let SolvedType::Nominal(nom, args) = ret_type else { return None };
+    // let Nominal::Enum(enum_def) = nom else { return None };
+    // if enum_def != maybe_enum_def { return None; }
+    // let first_arg = args.first()?;
+
+    // None
+    let make_iterator_type = TypeVar::from_node(ctx, make_iterator_method.name.node()).instantiate(
+        ctx,
+        PolyvarScope::empty(),
+        node.clone(),
+    );
+    // println!("make_iterator_type: {}", make_iterator_type);
+    let data = make_iterator_type.clone_types();
+    let PotentialType::Function(_, args, make_iterator_out_ty) =
+        data[&TypeKey::Function(1)].clone()
+    else {
+        panic!()
+    };
+    // println!("first arg ty: {}", args[0].clone());
+    // println!("item ty: {}", item_ty);
+    constrain(ctx, args[0].clone(), iterable_ty.clone());
+    // println!("make_iterator_type after constrain: {}", make_iterator_type);
+    ctx.for_loop_make_iterator_types
+        .insert(stmt_id, make_iterator_type.solution().unwrap()); // needed for translation
+
+    let next_type = TypeVar::from_node(ctx, next_method.name.node()).instantiate(
+        ctx,
+        PolyvarScope::empty(),
+        node,
+    );
+    // println!("next_type: {}", next_type);
+    let data = next_type.clone_types();
+    let PotentialType::Function(_, args, _) = data[&TypeKey::Function(1)].clone() else {
+        panic!()
+    };
+    // println!("first arg ty: {}", args[0].clone());
+    // println!("make_iterator_out_ty: {}", make_iterator_out_ty);
+    constrain(ctx, args[0].clone(), make_iterator_out_ty.clone());
+    // println!("make_iterator_type after constrain: {}", make_iterator_type);
+    ctx.for_loop_next_types
+        .insert(stmt_id, next_type.solution().unwrap()); // needed for translation
+
+    Some(item_ty)
 }
 
 fn generate_constraints_expr(

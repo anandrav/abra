@@ -245,11 +245,11 @@ fn format_append(s1: 'a ToString, s2: 'b ToString) {
     concat_strings(s3, s4)
 }
 
-interface Iterate {
+interface Iterable {
     associatedtype Item
-    associatedtype TheIterator impl Iterator<Item=Item>
+    associatedtype Iter impl Iterator<Item=Item>
 
-    fn make_iterator: ('a Iterate) -> TheIterator
+    fn make_iterator: ('a Iterable) -> Iter
 }
 
 interface Iterator {
@@ -258,7 +258,7 @@ interface Iterator {
     fn next: ('a Iterator) -> maybe<Item,void>
 }
 
-implement Iterate for array<'T> {
+implement Iterable for array<'T> {
     fn make_iterator(self: array<'T>) -> ArrayIterator<'T> {
         ArrayIterator(self, 0)
     }

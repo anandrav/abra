@@ -5,7 +5,7 @@
 use crate::FileProvider;
 use crate::ast::{
     AssociatedType, AstNode, EnumDef, FileAst, FileDatabase, FileId, FuncDecl, FuncDef,
-    InterfaceDef, InterfaceImpl, NodeId, Polytype, StructDef, TypeKind,
+    InterfaceDef, InterfaceImpl, NodeId, Polytype, Stmt, StructDef, TypeKind,
 };
 use crate::builtin::{BuiltinOperation, BuiltinType};
 use resolve::{resolve, scan_declarations};
@@ -60,6 +60,12 @@ pub(crate) struct StaticsContext {
     // map from (type declaration, member function name) -> function declaration
     pub(crate) member_functions: HashMap<(TypeKey, String), Declaration>,
 
+    // for loop function types. used by translator when desugaring for loop to calls
+    // of Iterable.make_iterator() and Iterator.next(), which requires knowing the concrete
+    // types of the methods
+    pub(crate) for_loop_make_iterator_types: HashMap<NodeId, SolvedType>,
+    pub(crate) for_loop_next_types: HashMap<NodeId, SolvedType>,
+
     // string constants (for bytecode translation)
     pub(crate) string_constants: IdSet<String>,
     // dylibs (for bytecode translation)
@@ -93,6 +99,10 @@ impl StaticsContext {
             func_ret_stack: Default::default(),
             interface_impls: Default::default(),
             member_functions: Default::default(),
+
+            for_loop_make_iterator_types: Default::default(),
+            for_loop_next_types: Default::default(),
+
             string_constants: Default::default(),
             dylibs: Default::default(),
             dylib_to_funcs: Default::default(),

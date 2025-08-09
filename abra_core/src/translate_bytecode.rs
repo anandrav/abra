@@ -3,12 +3,12 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use crate::assembly::{Instr, Label, Line, remove_labels};
-use crate::ast::{AstNode, BinaryOperator, FuncDef, InterfaceDef, ItemKind};
+use crate::ast::{AstNode, BinaryOperator, FuncDef, InterfaceDef, ItemKind, TypeKind};
 use crate::ast::{FileAst, FileDatabase, NodeId};
 use crate::builtin::BuiltinOperation;
 use crate::environment::Environment;
-use crate::statics::typecheck::Nominal;
 use crate::statics::typecheck::SolvedType;
+use crate::statics::typecheck::{Nominal, TypeVar, ast_type_to_solved_type};
 use crate::statics::{Declaration, TypeProv};
 use crate::statics::{Type, ty_fits_impl_ty};
 use crate::vm::{AbraFloat, AbraInt, Instr as VmInstr};
@@ -1155,7 +1155,71 @@ impl Translator {
                     self.emit(st, Instr::PushNil);
                 }
             }
-            StmtKind::ForLoop(..) => todo!(),
+            StmtKind::ForLoop(pat, iterable, body) => {
+                self.translate_expr(iterable.clone(), offset_table, monomorph_env.clone(), st);
+                // iterable.make_iterator()
+                let Some(Declaration::InterfaceDef(iterable_iface_def)) = self
+                    .statics
+                    .root_namespace
+                    .get_declaration("prelude.Iterable")
+                else {
+                    unreachable!()
+                };
+                let iterable_ty = self.statics.solution_of_node(iterable.node()).unwrap();
+                let fn_make_iterator_ty =
+                    self.statics.for_loop_make_iterator_types[&stmt.id].clone();
+                // println!("iterable_ty: {}", iterable_ty);
+                // println!("fn_make_iterator_ty: {}", fn_make_iterator_ty);
+                self.translate_iface_method_ap_helper(
+                    st,
+                    monomorph_env.clone(),
+                    iterable_iface_def.clone(),
+                    0,
+                    fn_make_iterator_ty,
+                );
+                // while loop:
+                let start_label = make_label("for_start");
+                let end_label = make_label("for_end");
+                self.emit(st, Line::Label(start_label.clone()));
+                // iterator.next()
+                self.emit(st, Instr::Duplicate);
+                let Some(Declaration::InterfaceDef(iterator_iface_def)) = self
+                    .statics
+                    .root_namespace
+                    .get_declaration("prelude.Iterator")
+                else {
+                    unreachable!()
+                };
+                let fn_next_ty = self.statics.for_loop_next_types[&stmt.id].clone();
+                self.translate_iface_method_ap_helper(
+                    st,
+                    monomorph_env.clone(),
+                    iterator_iface_def.clone(),
+                    0,
+                    fn_next_ty,
+                );
+                // LAST HERE
+                self.emit(st, Instr::Deconstruct);
+                self.emit(st, Instr::PushInt(0 as AbraInt));
+                self.emit(st, Instr::Equal);
+                self.emit(st, Instr::Not);
+                self.emit(st, Instr::JumpIf(end_label.clone()));
+                st.loop_stack.push(EnclosingLoop {
+                    start_label: start_label.clone(),
+                    end_label: end_label.clone(),
+                });
+                let idx = offset_table.get(&pat.id).unwrap();
+                self.emit(st, Instr::StoreOffset(*idx));
+                self.translate_expr(body.clone(), offset_table, monomorph_env.clone(), st);
+                st.loop_stack.pop();
+                self.emit(st, Instr::Pop);
+                self.emit(st, Instr::Jump(start_label));
+                self.emit(st, Line::Label(end_label));
+
+                if is_last {
+                    self.emit(st, Instr::PushNil);
+                }
+            }
         }
     }
 
@@ -1189,6 +1253,7 @@ impl Translator {
                 let label = match overload_ty {
                     None => func_name.clone(),
                     Some(overload_ty) => {
+                        // println!("overload_ty {}, name {}", overload_ty, func_name);
                         let monoty = overload_ty.monotype().unwrap();
                         let mut label_hint = format!("{func_name}__{monoty}");
                         label_hint.retain(|c| !c.is_whitespace());
@@ -1323,7 +1388,11 @@ fn collect_locals_stmt(statements: &[Rc<Stmt>], locals: &mut HashSet<NodeId>) {
                 collect_locals_expr(cond, locals);
                 collect_locals_expr(body, locals);
             }
-            StmtKind::ForLoop(..) => todo!(),
+            StmtKind::ForLoop(pat, iterable, body) => {
+                collect_locals_expr(iterable, locals);
+                collect_locals_pat(pat.clone(), locals);
+                collect_locals_expr(body, locals);
+            }
         }
     }
 }
