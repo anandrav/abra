@@ -17,7 +17,8 @@ use std::rc::Rc;
 use utils::hash::HashMap;
 
 use super::{
-    Declaration, EnumDef, Error, FuncDef, InterfaceDef, Polytype, StaticsContext, StructDef,
+    _print_node, Declaration, EnumDef, Error, FuncDef, InterfaceDef, Polytype, StaticsContext,
+    StructDef,
 };
 
 pub(crate) fn solve_types(ctx: &mut StaticsContext, file_asts: &Vec<Rc<FileAst>>) {
@@ -827,15 +828,22 @@ fn tyvar_of_iface_method(
     ctx: &mut StaticsContext,
     iface_def: Rc<InterfaceDef>,
     method: u16,
-    impl_ty: TypeVar,
+    desired_impl_ty: TypeVar,
     polyvar_scope: PolyvarScope,
     node: AstNode,
 ) -> TypeVar {
-    TypeVar::from_node(ctx, iface_def.methods[method as usize].node()).instantiate(
-        ctx,
-        polyvar_scope,
-        node,
-    )
+    let Some(impl_list) = ctx.interface_impls.get(&iface_def) else { unimplemented!() }; // TODO: remove unwrap, report error
+    // println!("desired impl ty {}", desired_impl_ty);
+    let Some(desired_impl_ty) = desired_impl_ty.solution() else { unimplemented!() };
+    for imp in impl_list {
+        let impl_ty = ast_type_to_solved_type(ctx, imp.typ.clone()).unwrap(); // TODO: remove unwrap, report error
+        // println!("desired: {}, actual: {}", desired_impl_ty, impl_ty);
+        if ty_fits_impl_ty(ctx, desired_impl_ty.clone(), impl_ty) {
+            let f = &imp.methods[method as usize];
+            return TypeVar::from_node(ctx, f.name.node()).instantiate(ctx, polyvar_scope, node);
+        }
+    }
+    panic!("not found"); // TODO fix this
 }
 
 pub(crate) fn ast_type_to_solved_type(
@@ -1882,21 +1890,25 @@ fn generate_constraints_expr(
                     //          ^^^^^
                     let fn_node_ty = TypeVar::from_node(ctx, fname.node());
                     let impl_ty = match args.get(0) {
-                        Some(arg) => TypeVar::from_node(ctx, arg.node()),
+                        Some(arg) => {
+                            generate_constraints_expr(
+                                ctx,
+                                polyvar_scope.clone(),
+                                Mode::Syn,
+                                arg.clone(),
+                            );
+                            TypeVar::from_node(ctx, arg.node())
+                        }
                         None => {
                             unimplemented!()
                             // TODO: report an error
                         }
                     };
-                    let tyvar_from_iface_method = tyvar_of_iface_method(
-                        ctx,
-                        iface_def.clone(),
-                        method,
-                        impl_ty,
-                        polyvar_scope.clone(),
-                        fname.node(),
-                    );
                     // TODO: in the case of InterfaceMethod, need to take the implementation type (type of first argument) into account
+                    let tyvar_from_iface_method =
+                        TypeVar::from_node(ctx, iface_def.methods[method as usize].node())
+                            .instantiate(ctx, polyvar_scope.clone(), fname.node());
+
                     constrain(ctx, fn_node_ty, tyvar_from_iface_method.clone());
 
                     generate_constraints_expr_funcap_helper(
@@ -1942,21 +1954,14 @@ fn generate_constraints_expr(
                         Mode::Syn,
                         receiver_expr.clone(),
                     );
-
-                    let failed_to_resolve_member_function = |ctx: &mut StaticsContext, ty| {
-                        // failed to resolve member function
-                        ctx.errors.push(Error::UnresolvedMemberFunction {
-                            node: fname.node(),
-                            ty,
-                        });
-
-                        node_ty.set_flag_missing_info();
-                    };
+                    // println!("method name is {}", fname.v);
 
                     if let Some(solved_ty) =
                         TypeVar::from_node(ctx, receiver_expr.node()).solution()
                     {
+                        // println!("receiver type is {}", solved_ty);
                         let ty_key = solved_ty.key();
+                        // println!("ty_key is {:?}", ty_key);
 
                         if let Some(memfn_decl) = ctx
                             .member_functions
@@ -1968,24 +1973,27 @@ fn generate_constraints_expr(
                             match memfn_decl {
                                 Declaration::MemberFunction { f: func } => {
                                     let memfn_ty = TypeVar::from_node(ctx, func.name.node())
-                                        .instantiate(ctx, polyvar_scope.clone(), fname.node());
-                                    constrain(ctx, memfn_node_ty, memfn_ty.clone());
+                                        .instantiate(ctx, polyvar_scope.clone(), fname.node()); // TODO: why do you have ot pass fname.node() to instantiate(), this is so confusing and bug-prone
+                                    constrain(ctx, memfn_node_ty.clone(), memfn_ty.clone());
                                 }
                                 // TODO: in the case of InterfaceMethod, need to use signature from the interface implementation!
                                 Declaration::InterfaceMethod {
                                     i: iface_def,
                                     method,
                                 } => {
-                                    let impl_ty_key = TypeVar::from_node(ctx, receiver_expr.node());
+                                    let impl_ty = TypeVar::from_node(ctx, receiver_expr.node());
+                                    // println!("impl_ty: {}", impl_ty);
                                     let memfn_decl_ty = tyvar_of_iface_method(
                                         ctx,
                                         iface_def.clone(),
                                         method,
-                                        impl_ty_key,
+                                        impl_ty,
                                         polyvar_scope.clone(),
-                                        fname.node(),
+                                        fname.node(), // TODO: why do you have ot pass fname.node() to instantiate(), this is so confusing and bug-prone
                                     );
-                                    constrain(ctx, memfn_node_ty.clone(), memfn_decl_ty);
+                                    // println!("memfn_decl_ty: {}", memfn_decl_ty.clone());
+                                    constrain(ctx, memfn_node_ty.clone(), memfn_decl_ty.clone());
+                                    // println!("memfn_decl_ty after consrain: {}", memfn_decl_ty);
                                 }
                                 _ => panic!(),
                             }
@@ -1993,7 +2001,7 @@ fn generate_constraints_expr(
                             //     "receiver ty: {}",
                             //     TypeVar::from_node(ctx, receiver_expr.node())
                             // );
-                            // println!("memfn ty before analysis: {}", memfn_node_ty);
+                            // println!("memfn ty before analysis: {}", memfn_node_ty.clone());
 
                             generate_constraints_expr_funcap_helper(
                                 ctx,
@@ -2004,10 +2012,16 @@ fn generate_constraints_expr(
                                 node_ty.clone(),
                             );
                             // println!("memfn ty after analysis: {}", memfn_node_ty);
-                            //
+
                             // println!("overall node_ty is {}", node_ty);
                         } else {
-                            failed_to_resolve_member_function(ctx, solved_ty);
+                            // failed to resolve member function
+                            ctx.errors.push(Error::UnresolvedMemberFunction {
+                                node: receiver_expr.node(),
+                                ty: solved_ty,
+                            });
+
+                            node_ty.set_flag_missing_info();
                         }
                     } else {
                         // failed to resolve member function
