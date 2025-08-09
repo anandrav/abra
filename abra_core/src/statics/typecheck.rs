@@ -823,23 +823,18 @@ impl TypeVar {
 
 // TODO: get rid of this function. Don't pass a decl, it doesn't work for Interface methods.
 // just make a helper function for handling interface methods. MemberFunction can be handled inline because it's so short
-fn tyvar_of_memfn(
+fn tyvar_of_iface_method(
     ctx: &mut StaticsContext,
-    decl: &Declaration,
+    iface_def: Rc<InterfaceDef>,
+    method: u16,
     polyvar_scope: PolyvarScope,
     node: AstNode,
-) -> Option<TypeVar> {
-    match decl {
-        Declaration::InterfaceMethod {
-            i: iface_def,
-            method,
-        } => Some(TypeVar::from_node(
-            ctx,
-            iface_def.methods[*method as usize].node(),
-        )),
-        _ => panic!(),
-    }
-    .map(|tyvar| tyvar.instantiate(ctx, polyvar_scope, node))
+) -> TypeVar {
+    TypeVar::from_node(ctx, iface_def.methods[method as usize].node()).instantiate(
+        ctx,
+        polyvar_scope,
+        node,
+    )
 }
 
 pub(crate) fn ast_type_to_solved_type(
@@ -1877,18 +1872,23 @@ fn generate_constraints_expr(
                         node_ty.clone(),
                     );
                 }
-                Some(ref decl @ Declaration::InterfaceMethod { .. }) if receiver_is_namespace => {
+                Some(Declaration::InterfaceMethod {
+                    i: iface_def,
+                    method,
+                }) if receiver_is_namespace => {
                     // fully qualified interface/struct/enum method
                     // example: Clone.clone(my_struct)
                     //          ^^^^^
                     let fn_node_ty = TypeVar::from_node(ctx, fname.node());
-                    // TODO(123): this shouldn't use tyvar_of_variable
-                    if let Some(tyvar_from_iface_method) =
-                        tyvar_of_memfn(ctx, decl, polyvar_scope.clone(), fname.node())
+                    let tyvar_from_iface_method = tyvar_of_iface_method(
+                        ctx,
+                        iface_def.clone(),
+                        method,
+                        polyvar_scope.clone(),
+                        fname.node(),
+                    );
                     // TODO: in the case of InterfaceMethod, need to take the implementation type (type of first argument) into account
-                    {
-                        constrain(ctx, fn_node_ty, tyvar_from_iface_method.clone());
-                    }
+                    constrain(ctx, fn_node_ty, tyvar_from_iface_method.clone());
 
                     generate_constraints_expr_funcap_helper(
                         ctx,
@@ -1963,15 +1963,18 @@ fn generate_constraints_expr(
                                     constrain(ctx, memfn_node_ty, memfn_ty.clone());
                                 }
                                 // TODO: in the case of InterfaceMethod, need to use signature from the interface implementation!
-                                Declaration::InterfaceMethod { .. } => {
-                                    if let Some(memfn_decl_ty) = tyvar_of_memfn(
+                                Declaration::InterfaceMethod {
+                                    i: iface_def,
+                                    method,
+                                } => {
+                                    let memfn_decl_ty = tyvar_of_iface_method(
                                         ctx,
-                                        &memfn_decl,
+                                        iface_def.clone(),
+                                        method,
                                         polyvar_scope.clone(),
                                         fname.node(),
-                                    ) {
-                                        constrain(ctx, memfn_node_ty.clone(), memfn_decl_ty);
-                                    }
+                                    );
+                                    constrain(ctx, memfn_node_ty.clone(), memfn_decl_ty);
                                 }
                                 _ => panic!(),
                             }
