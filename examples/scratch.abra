@@ -1,0 +1,10 @@
+extend array<'a> {
+    fn get(self: array<'a>, i: int) -> 'a {
+        self[i] 
+    }
+}
+
+let arr = [1, 2, 3, 4]
+let n = arr.get(0)
+println(n)
+
