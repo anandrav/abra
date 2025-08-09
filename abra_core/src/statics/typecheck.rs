@@ -827,6 +827,7 @@ fn tyvar_of_iface_method(
     ctx: &mut StaticsContext,
     iface_def: Rc<InterfaceDef>,
     method: u16,
+    impl_ty: TypeVar,
     polyvar_scope: PolyvarScope,
     node: AstNode,
 ) -> TypeVar {
@@ -1880,10 +1881,18 @@ fn generate_constraints_expr(
                     // example: Clone.clone(my_struct)
                     //          ^^^^^
                     let fn_node_ty = TypeVar::from_node(ctx, fname.node());
+                    let impl_ty = match args.get(0) {
+                        Some(arg) => TypeVar::from_node(ctx, arg.node()),
+                        None => {
+                            unimplemented!()
+                            // TODO: report an error
+                        }
+                    };
                     let tyvar_from_iface_method = tyvar_of_iface_method(
                         ctx,
                         iface_def.clone(),
                         method,
+                        impl_ty,
                         polyvar_scope.clone(),
                         fname.node(),
                     );
@@ -1967,10 +1976,12 @@ fn generate_constraints_expr(
                                     i: iface_def,
                                     method,
                                 } => {
+                                    let impl_ty_key = TypeVar::from_node(ctx, receiver_expr.node());
                                     let memfn_decl_ty = tyvar_of_iface_method(
                                         ctx,
                                         iface_def.clone(),
                                         method,
+                                        impl_ty_key,
                                         polyvar_scope.clone(),
                                         fname.node(),
                                     );
