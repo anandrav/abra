@@ -690,7 +690,7 @@ fn add_detail_for_decl_node(
         Declaration::EnumVariant {
             e: enum_def,
             variant,
-        } => enum_def.variants[*variant as usize].node(),
+        } => enum_def.variants[*variant].node(),
         Declaration::Struct(struct_def) => struct_def.name.node(),
         Declaration::Polytype(polytype) => polytype.name.node(),
 

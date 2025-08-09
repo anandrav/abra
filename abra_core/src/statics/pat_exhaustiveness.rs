@@ -207,7 +207,7 @@ impl Matrix {
                 _ => unreachable!(),
             },
             Constructor::Variant((enum_def, idx)) => {
-                let variant = &enum_def.variants[*idx as usize];
+                let variant = &enum_def.variants[*idx];
                 let variant_data = &variant.data;
                 let data_ty = if let Some(data) = &variant_data {
                     ast_type_to_solved_type(statics, data.clone()).unwrap()
@@ -391,7 +391,7 @@ impl DeconstructedPat {
             SolvedType::Tuple(tys) => tys.clone(),
             SolvedType::Nominal(_, _) => match ctor {
                 Constructor::Variant((enum_def, idx)) => {
-                    let variant = &enum_def.variants[*idx as usize];
+                    let variant = &enum_def.variants[*idx];
                     let variant_data = &variant.data;
                     let data_ty = if let Some(data) = &variant_data {
                         ast_type_to_solved_type(statics, data.clone()).unwrap()
@@ -453,7 +453,7 @@ impl Display for DeconstructedPat {
                 write!(f, ")")
             }
             Constructor::Variant((enum_def, idx)) => {
-                let variant_name = &enum_def.variants[*idx as usize].ctor.v;
+                let variant_name = &enum_def.variants[*idx].ctor.v;
                 write!(f, "{variant_name}")?;
                 if !self.fields.is_empty() {
                     write!(f, " of ")?;
@@ -524,7 +524,7 @@ impl Constructor {
                 _ => panic!("unexpected type for product constructor: {}", matrix_tys[0]),
             },
             Constructor::Variant((enum_def, idx)) => {
-                let variant = &enum_def.variants[*idx as usize];
+                let variant = &enum_def.variants[*idx];
                 match &variant.data {
                     None => 0,
                     Some(ty) => match &*ty.kind {

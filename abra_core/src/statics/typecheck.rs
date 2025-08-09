@@ -839,7 +839,7 @@ fn tyvar_of_iface_method(
             let impl_ty = ast_type_to_solved_type(ctx, imp.typ.clone()).unwrap(); // TODO: remove unwrap, report error
             // println!("desired: {}, actual: {}", desired_impl_ty, impl_ty);
             if ty_fits_impl_ty(ctx, desired_impl_ty.clone(), impl_ty) {
-                let f = &imp.methods[method as usize];
+                let f = &imp.methods[method];
                 return TypeVar::from_node(ctx, f.name.node()).instantiate(
                     ctx,
                     polyvar_scope,
@@ -848,7 +848,7 @@ fn tyvar_of_iface_method(
             }
         }
     }
-    TypeVar::from_node(ctx, iface_def.methods[method as usize].node()).instantiate(
+    TypeVar::from_node(ctx, iface_def.methods[method].node()).instantiate(
         ctx,
         polyvar_scope.clone(),
         node,
@@ -2480,7 +2480,7 @@ fn generate_constraints_pat(
                         pat.node(),
                     );
 
-                    let variant_def = &enum_def.variants[variant as usize];
+                    let variant_def = &enum_def.variants[variant];
                     let variant_data_ty = match &variant_def.data {
                         None => TypeVar::make_void(Reason::VariantNoData(variant_def.node())),
                         Some(ty) => ast_type_to_typevar(ctx, ty.clone()),
@@ -2540,7 +2540,7 @@ fn generate_constraints_pat(
                         pat.node(),
                     );
 
-                    let variant_def = &enum_def.variants[idx as usize];
+                    let variant_def = &enum_def.variants[idx];
                     let variant_data_ty = match &variant_def.data {
                         None => TypeVar::make_void(Reason::VariantNoData(variant_def.node())),
                         Some(ty) => ast_type_to_typevar(ctx, ty.clone()),
