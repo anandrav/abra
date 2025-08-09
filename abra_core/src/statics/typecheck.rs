@@ -821,58 +821,15 @@ impl TypeVar {
     }
 }
 
-// If a variable resolves to some declaration, give its type var.
-// For instance, a variable may resolve to a function, so give that function's type.
-// Or, a variable may resolve to a variable defined by a let statement.
-// Or it may resolve to the name of a struct or an enum variant, in which case its type
-// would be the constructor.
-// TODO: the unreachable!() invocations are incorrect -- they are totally reachable if the user accidentally names
-// a variable the same as, for instance, an Interface or some Enum. It is not possible to typecheck in that case,
-// but an error should be reported.
-fn tyvar_of_variable(
+// TODO: get rid of this function. Don't pass a decl, it doesn't work for Interface methods.
+// just make a helper function for handling interface methods. MemberFunction can be handled inline because it's so short
+fn tyvar_of_memfn(
     ctx: &mut StaticsContext,
     decl: &Declaration,
     polyvar_scope: PolyvarScope,
     node: AstNode,
 ) -> Option<TypeVar> {
     match decl {
-        Declaration::Var(node) => {
-            let tyvar = TypeVar::from_node(ctx, node.clone());
-            Some(tyvar)
-        }
-        Declaration::FreeFunction(f) => Some(TypeVar::from_node(ctx, f.name.node())),
-        Declaration::HostFunction(f) => Some(TypeVar::from_node(ctx, f.name.node())),
-        Declaration::_ForeignFunction { f: decl, .. } => {
-            Some(TypeVar::from_node(ctx, decl.name.node()))
-        }
-        Declaration::Builtin(builtin) => {
-            let ty_signature = builtin.type_signature();
-            Some(ty_signature)
-        }
-        // struct constructor.
-        Declaration::Struct(struct_def) => {
-            let (def_type, substitution) = TypeVar::make_nominal_with_substitution(
-                ctx,
-                Reason::Node(node.clone()),
-                Nominal::Struct(struct_def.clone()),
-                node.clone(),
-            );
-
-            let fields = struct_def
-                .fields
-                .iter()
-                .map(|f| {
-                    let ty = ast_type_to_typevar(ctx, f.ty.clone());
-                    ty.clone().subst(&substitution)
-                })
-                .collect();
-            Some(TypeVar::make_func(
-                fields,
-                def_type,
-                Reason::Node(node.clone()),
-            ))
-        }
-        // TODO: this is next on the chopping block. And the source of our current bug.
         Declaration::InterfaceMethod {
             i: iface_def,
             method,
@@ -883,12 +840,7 @@ fn tyvar_of_variable(
         Declaration::MemberFunction { f: func, .. } => {
             Some(TypeVar::from_node(ctx, func.name.node()))
         }
-        Declaration::InterfaceDef(..) => unimplemented!("report an error"),
-        Declaration::AssociatedType { .. } => unimplemented!("report an error"),
-        Declaration::Enum(_) => unimplemented!("report an error"),
-        Declaration::EnumVariant { .. } => unreachable!(),
-        Declaration::Array | Declaration::BuiltinType(_) => unimplemented!("report an error"),
-        Declaration::Polytype(_) => unimplemented!("report an error"),
+        _ => panic!(),
     }
     .map(|tyvar| tyvar.instantiate(ctx, polyvar_scope, node))
 }
@@ -1594,8 +1546,56 @@ fn generate_constraints_expr(
         }
         ExprKind::Variable(_) => {
             let lookup = ctx.resolution_map.get(&expr.id).cloned();
-            if let Some(res) = lookup
-                && let Some(typ) = tyvar_of_variable(ctx, &res, polyvar_scope.clone(), expr.node())
+            if let Some(decl) = lookup
+                && let Some(typ) = match decl {
+                    Declaration::Var(node) => {
+                        let tyvar = TypeVar::from_node(ctx, node.clone());
+                        Some(tyvar)
+                    }
+                    Declaration::FreeFunction(f) => Some(TypeVar::from_node(ctx, f.name.node())),
+                    Declaration::HostFunction(f) => Some(TypeVar::from_node(ctx, f.name.node())),
+                    Declaration::_ForeignFunction { f: decl, .. } => {
+                        Some(TypeVar::from_node(ctx, decl.name.node()))
+                    }
+                    Declaration::Builtin(builtin) => {
+                        let ty_signature = builtin.type_signature();
+                        Some(ty_signature)
+                    }
+                    // struct constructor.
+                    Declaration::Struct(struct_def) => {
+                        let (def_type, substitution) = TypeVar::make_nominal_with_substitution(
+                            ctx,
+                            Reason::Node(expr.node()),
+                            Nominal::Struct(struct_def.clone()),
+                            expr.node(),
+                        );
+
+                        let fields = struct_def
+                            .fields
+                            .iter()
+                            .map(|f| {
+                                let ty = ast_type_to_typevar(ctx, f.ty.clone());
+                                ty.clone().subst(&substitution)
+                            })
+                            .collect();
+                        Some(TypeVar::make_func(
+                            fields,
+                            def_type,
+                            Reason::Node(expr.node()),
+                        ))
+                    }
+                    Declaration::InterfaceDef(..) => unimplemented!("report an error"),
+                    Declaration::AssociatedType { .. } => unimplemented!("report an error"),
+                    Declaration::Enum(_) => unimplemented!("report an error"),
+                    Declaration::Array | Declaration::BuiltinType(_) => {
+                        unimplemented!("report an error")
+                    }
+                    Declaration::Polytype(_) => unimplemented!("report an error"),
+                    Declaration::EnumVariant { .. } => unreachable!(),
+                    Declaration::InterfaceMethod { .. } => unreachable!(),
+                    Declaration::MemberFunction { .. } => unreachable!(),
+                }
+                .map(|tyvar| tyvar.instantiate(ctx, polyvar_scope, expr.node()))
             {
                 // println!("node_ty: {}, typ: {}", node_ty, typ);
                 constrain(ctx, typ, node_ty.clone());
@@ -1890,7 +1890,7 @@ fn generate_constraints_expr(
                     let fn_node_ty = TypeVar::from_node(ctx, fname.node());
                     // TODO(123): this shouldn't use tyvar_of_variable
                     if let Some(tyvar_from_iface_method) =
-                        tyvar_of_variable(ctx, decl, polyvar_scope.clone(), fname.node())
+                        tyvar_of_memfn(ctx, decl, polyvar_scope.clone(), fname.node())
                     // TODO: in the case of InterfaceMethod, need to take the implementation type (type of first argument) into account
                     {
                         constrain(ctx, fn_node_ty, tyvar_from_iface_method.clone());
@@ -1944,7 +1944,7 @@ fn generate_constraints_expr(
                             ctx.resolution_map.insert(fname.id, memfn_decl.clone());
                             let memfn_node_ty = TypeVar::from_node(ctx, fname.node());
                             // TODO(123): this shouldn't use tyvar_of_variable
-                            if let Some(memfn_decl_ty) = tyvar_of_variable(
+                            if let Some(memfn_decl_ty) = tyvar_of_memfn(
                                 // TODO: in the case of InterfaceMethod, need to take the implementation type (type of first argument) into account
                                 ctx,
                                 &memfn_decl,
