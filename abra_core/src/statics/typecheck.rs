@@ -22,17 +22,13 @@ use super::{
 };
 
 pub(crate) fn solve_types(ctx: &mut StaticsContext, file_asts: &Vec<Rc<FileAst>>) {
-    // println!("solve_types()");
     for file in file_asts {
         generate_constraints_file_decls(ctx, file.clone());
     }
-    // println!("done doing decls");
     for file in file_asts {
         generate_constraints_file_stmts(ctx, file.clone());
     }
-    // println!("done doing stmts");
     check_unifvars(ctx);
-    // println!("done checking unifvars");
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -966,8 +962,6 @@ pub(crate) fn ast_type_to_typevar(ctx: &StaticsContext, ast_type: Rc<AstType>) -
                         .collect(),
                 ),
                 _ => {
-                    // println!("gets an empty typevar: {}", ident.v);
-
                     // since resolution failed, unconstrained type
                     TypeVar::empty()
                 }
@@ -1239,7 +1233,6 @@ fn generate_constraints_item_decls(ctx: &mut StaticsContext, item: Rc<Item>) {
                     }
                     let ty_annot = ast_type_to_typevar(ctx, method.ty.clone());
                     constrain(ctx, node_ty.clone(), ty_annot.clone());
-                    // println!("node_ty: {}", node_ty);
                 }
 
                 let impl_list = ctx.interface_impls.entry(iface_def.clone()).or_default();
@@ -1253,9 +1246,7 @@ fn generate_constraints_item_decls(ctx: &mut StaticsContext, item: Rc<Item>) {
                     })
                 }
                 let polyvar_scope = PolyvarScope::empty();
-                // dbg!(&iface_impl.typ);
                 polyvar_scope.add_polys(&impl_ty);
-                // dbg!(&polyvar_scope);
 
                 for f in &iface_impl.methods {
                     let method_name = f.name.v.clone();
@@ -1265,8 +1256,6 @@ fn generate_constraints_item_decls(ctx: &mut StaticsContext, item: Rc<Item>) {
                         let interface_method_ty =
                             ast_type_to_typevar(ctx, interface_method.ty.clone());
                         let actual = TypeVar::from_node(ctx, interface_method.node());
-                        // println!("interface_method_ty: {}", interface_method_ty);
-                        // println!("actual: {}", actual);
                         constrain(ctx, interface_method_ty.clone(), actual);
 
                         let mut substitution: Substitution = HashMap::default();
@@ -1280,7 +1269,6 @@ fn generate_constraints_item_decls(ctx: &mut StaticsContext, item: Rc<Item>) {
 
                         let actual = TypeVar::from_node(ctx, f.name.node());
                         constrain(ctx, expected.clone(), actual);
-                        // println!("(1) method {}: {}", method_name, expected);
 
                         generate_constraints_func_decl(
                             ctx,
@@ -1289,7 +1277,6 @@ fn generate_constraints_item_decls(ctx: &mut StaticsContext, item: Rc<Item>) {
                             &f.args,
                             &f.ret_type,
                         );
-                        // println!("(2) method {}: {}", method_name, expected);
                     }
                 }
             }
@@ -1366,7 +1353,6 @@ fn generate_constraints_item_stmts(ctx: &mut StaticsContext, mode: Mode, item: R
                 return;
             }
             let polyvar_scope = PolyvarScope::empty();
-            // dbg!(&iface_impl.typ);
             polyvar_scope.add_polys(&impl_ty);
 
             for f in &iface_impl.methods {
@@ -1608,20 +1594,23 @@ fn generate_constraints_expr(
                         Reason::Node(expr.node()),
                     ))
                 }
-                Declaration::InterfaceDef(..) => unimplemented!("report an error"),
-                Declaration::AssociatedType { .. } => unimplemented!("report an error"),
-                Declaration::Enum(_) => unimplemented!("report an error"),
-                Declaration::Array | Declaration::BuiltinType(_) => {
-                    unimplemented!("report an error")
+                Declaration::InterfaceDef(..)
+                | Declaration::AssociatedType { .. }
+                | Declaration::Enum(_)
+                | Declaration::Array
+                | Declaration::BuiltinType(_)
+                | Declaration::Polytype(_)
+                | Declaration::EnumVariant { .. }
+                | Declaration::InterfaceMethod { .. }
+                | Declaration::MemberFunction { .. } => {
+                    // a variable expression should not resolve to the above
+                    ctx.errors
+                        .push(Error::UnresolvedIdentifier { node: expr.node() });
+                    None
                 }
-                Declaration::Polytype(_) => unimplemented!("report an error"),
-                Declaration::EnumVariant { .. } => unreachable!(),
-                Declaration::InterfaceMethod { .. } => unreachable!(),
-                Declaration::MemberFunction { .. } => unreachable!(),
             }
                 .map(|tyvar| tyvar.instantiate(ctx, polyvar_scope, expr.node()))
             {
-                // println!("node_ty: {}, typ: {}", node_ty, typ);
                 constrain(ctx, typ, node_ty.clone());
             }
         }
@@ -1930,7 +1919,7 @@ fn generate_constraints_expr(
                         method,
                         impl_ty,
                         polyvar_scope.clone(),
-                        fname.node(), // TODO: why do you have ot pass fname.node() to instantiate(), this is so confusing and bug-prone
+                        fname.node(),
                     );
                     constrain(ctx, memfn_node_ty.clone(), memfn_decl_ty.clone());
 
@@ -1943,29 +1932,27 @@ fn generate_constraints_expr(
                         node_ty.clone(),
                     );
                 }
-                Some(Declaration::MemberFunction { f: func }) if receiver_is_namespace =>
-                // TODO: double-check how necessary receiver_is_namespace is
-                    {
-                        // fully qualified interface/struct/enum method
-                        // example: Clone.clone(my_struct)
-                        //          ^^^^^
-                        let fn_node_ty = TypeVar::from_node(ctx, fname.node());
-                        let memfn_ty = TypeVar::from_node(ctx, func.name.node()).instantiate(
-                            ctx,
-                            polyvar_scope.clone(),
-                            fname.node(),
-                        );
-                        constrain(ctx, fn_node_ty, memfn_ty.clone());
+                Some(Declaration::MemberFunction { f: func }) if receiver_is_namespace => {
+                    // fully qualified interface/struct/enum method
+                    // example: Clone.clone(my_struct)
+                    //          ^^^^^
+                    let fn_node_ty = TypeVar::from_node(ctx, fname.node());
+                    let memfn_ty = TypeVar::from_node(ctx, func.name.node()).instantiate(
+                        ctx,
+                        polyvar_scope.clone(),
+                        fname.node(),
+                    );
+                    constrain(ctx, fn_node_ty, memfn_ty.clone());
 
-                        generate_constraints_expr_funcap_helper(
-                            ctx,
-                            polyvar_scope.clone(),
-                            args.iter().cloned(),
-                            fname.node(),
-                            expr.node(),
-                            node_ty.clone(),
-                        );
-                    }
+                    generate_constraints_expr_funcap_helper(
+                        ctx,
+                        polyvar_scope.clone(),
+                        args.iter().cloned(),
+                        fname.node(),
+                        expr.node(),
+                        node_ty.clone(),
+                    );
+                }
                 _ => {
                     // potentially a member function call.
                     // Attempt to perform type-directed resolution
