@@ -14,6 +14,7 @@ use std::cell::RefCell;
 use std::collections::BTreeSet;
 use std::fmt::{self, Display, Write};
 use std::rc::Rc;
+use std::sync::atomic::{AtomicU32, Ordering};
 use utils::hash::HashMap;
 
 use super::{
@@ -323,10 +324,23 @@ pub(crate) enum TypeKey {
 pub(crate) enum Prov {
     Node(AstNode), // the type of an expression or statement located at NodeId
     InstantiateUdtParam(AstNode, u8),
-    InstantiatePoly(AstNode, Rc<Polytype>),
+    InstantiatePoly(PolyInstantiationId, Rc<Polytype>),
     FuncArg(AstNode, u8), // u8 represents the index of the argument
     FuncOut(AstNode),     // u8 represents how many arguments before this output
     ListElem(AstNode),
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub(crate) struct PolyInstantiationId {
+    pub(crate) id: u32,
+}
+
+impl PolyInstantiationId {
+    pub(crate) fn new() -> Self {
+        static ID_COUNTER: std::sync::atomic::AtomicU32 = AtomicU32::new(1);
+        let id = ID_COUNTER.fetch_add(1, Ordering::Relaxed);
+        Self { id }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
@@ -531,6 +545,16 @@ impl TypeVar {
         polyvar_scope: PolyvarScope,
         node: AstNode,
     ) -> TypeVar {
+        let id = PolyInstantiationId::new();
+        self.instantiate_(ctx, polyvar_scope, node, id)
+    }
+    fn instantiate_(
+        self,
+        ctx: &mut StaticsContext,
+        polyvar_scope: PolyvarScope,
+        node: AstNode,
+        id: PolyInstantiationId,
+    ) -> TypeVar {
         let data = self.0.clone_data();
         if data.types.len() != 1 {
             return self;
@@ -548,7 +572,7 @@ impl TypeVar {
             PotentialType::Poly(_, ref decl) => {
                 if !polyvar_scope.lookup_poly(decl) {
                     let polyty = &decl.0;
-                    let prov = Prov::InstantiatePoly(node.clone(), polyty.clone());
+                    let prov = Prov::InstantiatePoly(id, polyty.clone());
                     let ret = TypeVar::fresh(ctx, prov.clone());
                     let mut extension: Vec<(Rc<InterfaceDef>, AstNode)> = Vec::new();
                     for i in &polyty.interfaces {
@@ -570,22 +594,22 @@ impl TypeVar {
             PotentialType::Nominal(provs, ident, params) => {
                 let params = params
                     .into_iter()
-                    .map(|ty| ty.instantiate(ctx, polyvar_scope.clone(), node.clone()))
+                    .map(|ty| ty.instantiate_(ctx, polyvar_scope.clone(), node.clone(), id))
                     .collect();
                 PotentialType::Nominal(provs, ident, params)
             }
             PotentialType::Function(provs, args, out) => {
                 let args = args
                     .into_iter()
-                    .map(|ty| ty.instantiate(ctx, polyvar_scope.clone(), node.clone()))
+                    .map(|ty| ty.instantiate_(ctx, polyvar_scope.clone(), node.clone(), id))
                     .collect();
-                let out = out.instantiate(ctx, polyvar_scope.clone(), node.clone());
+                let out = out.instantiate_(ctx, polyvar_scope.clone(), node, id);
                 PotentialType::Function(provs, args, out)
             }
             PotentialType::Tuple(provs, elems) => {
                 let elems = elems
                     .into_iter()
-                    .map(|ty| ty.instantiate(ctx, polyvar_scope.clone(), node.clone()))
+                    .map(|ty| ty.instantiate_(ctx, polyvar_scope.clone(), node.clone(), id))
                     .collect();
                 PotentialType::Tuple(provs, elems)
             }
@@ -597,9 +621,7 @@ impl TypeVar {
             locked: data.locked,
             missing_info: data.missing_info,
         };
-        let tvar = TypeVar(UnionFindNode::new(data_instantiated));
-        ctx.unifvars.insert(Prov::Node(node), tvar.clone());
-        tvar
+        TypeVar(UnionFindNode::new(data_instantiated))
     }
 
     pub(crate) fn get_first_polymorphic_type(self) -> Option<PolyDeclaration> {
@@ -1931,7 +1953,7 @@ fn generate_constraints_expr(
                         let memfn_ty = TypeVar::from_node(ctx, func.name.node()).instantiate(
                             ctx,
                             polyvar_scope.clone(),
-                            fname.node(), // TODO: why do you have ot pass fname.node() to instantiate(), this is so confusing and bug-prone
+                            fname.node(),
                         );
                         constrain(ctx, fn_node_ty, memfn_ty.clone());
 
@@ -1970,7 +1992,7 @@ fn generate_constraints_expr(
                             match memfn_decl {
                                 Declaration::MemberFunction { f: func } => {
                                     let memfn_ty = TypeVar::from_node(ctx, func.name.node())
-                                        .instantiate(ctx, polyvar_scope.clone(), fname.node()); // TODO: why do you have ot pass fname.node() to instantiate(), this is so confusing and bug-prone
+                                        .instantiate(ctx, polyvar_scope.clone(), fname.node());
                                     constrain(ctx, memfn_node_ty.clone(), memfn_ty.clone());
                                 }
                                 Declaration::InterfaceMethod {
@@ -1984,7 +2006,7 @@ fn generate_constraints_expr(
                                         method,
                                         Some(impl_ty),
                                         polyvar_scope.clone(),
-                                        fname.node(), // TODO: why do you have ot pass fname.node() to instantiate(), this is so confusing and bug-prone
+                                        fname.node(),
                                     );
                                     constrain(ctx, memfn_node_ty.clone(), memfn_decl_ty.clone());
                                 }
