@@ -837,9 +837,6 @@ fn tyvar_of_memfn(
             ctx,
             iface_def.methods[*method as usize].node(),
         )),
-        Declaration::MemberFunction { f: func, .. } => {
-            Some(TypeVar::from_node(ctx, func.name.node()))
-        }
         _ => panic!(),
     }
     .map(|tyvar| tyvar.instantiate(ctx, polyvar_scope, node))
@@ -1880,10 +1877,7 @@ fn generate_constraints_expr(
                         node_ty.clone(),
                     );
                 }
-                Some(ref decl @ Declaration::InterfaceMethod { .. })
-                | Some(ref decl @ Declaration::MemberFunction { .. })
-                    if receiver_is_namespace =>
-                {
+                Some(ref decl @ Declaration::InterfaceMethod { .. }) if receiver_is_namespace => {
                     // fully qualified interface/struct/enum method
                     // example: Clone.clone(my_struct)
                     //          ^^^^^
@@ -1895,6 +1889,29 @@ fn generate_constraints_expr(
                     {
                         constrain(ctx, fn_node_ty, tyvar_from_iface_method.clone());
                     }
+
+                    generate_constraints_expr_funcap_helper(
+                        ctx,
+                        polyvar_scope.clone(),
+                        args.iter().cloned(),
+                        fname.node(),
+                        expr.node(),
+                        node_ty.clone(),
+                    );
+                }
+                Some(Declaration::MemberFunction { f: func }) if receiver_is_namespace =>
+                // TODO: double-check how necessary receiver_is_namespace is
+                {
+                    // fully qualified interface/struct/enum method
+                    // example: Clone.clone(my_struct)
+                    //          ^^^^^
+                    let fn_node_ty = TypeVar::from_node(ctx, fname.node());
+                    let memfn_ty = TypeVar::from_node(ctx, func.name.node()).instantiate(
+                        ctx,
+                        polyvar_scope.clone(),
+                        fname.node(),
+                    );
+                    constrain(ctx, fn_node_ty, memfn_ty.clone());
 
                     generate_constraints_expr_funcap_helper(
                         ctx,
@@ -1937,21 +1954,26 @@ fn generate_constraints_expr(
                             .get(&(ty_key, fname.v.clone()))
                             .cloned()
                         {
-                            // TODO: the following block of code is strange and hard to read
-                            // it's basically creating the type of the member function using
-                            // the member function declaration, then constraining that to the
-                            // type of the AST node for the identifier in this MemberFuncAp
                             ctx.resolution_map.insert(fname.id, memfn_decl.clone());
                             let memfn_node_ty = TypeVar::from_node(ctx, fname.node());
-                            // TODO(123): this shouldn't use tyvar_of_variable
-                            if let Some(memfn_decl_ty) = tyvar_of_memfn(
-                                // TODO: in the case of InterfaceMethod, need to take the implementation type (type of first argument) into account
-                                ctx,
-                                &memfn_decl,
-                                polyvar_scope.clone(),
-                                fname.node(),
-                            ) {
-                                constrain(ctx, memfn_node_ty.clone(), memfn_decl_ty);
+                            match memfn_decl {
+                                Declaration::MemberFunction { f: func } => {
+                                    let memfn_ty = TypeVar::from_node(ctx, func.name.node())
+                                        .instantiate(ctx, polyvar_scope.clone(), fname.node());
+                                    constrain(ctx, memfn_node_ty, memfn_ty.clone());
+                                }
+                                // TODO: in the case of InterfaceMethod, need to use signature from the interface implementation!
+                                Declaration::InterfaceMethod { .. } => {
+                                    if let Some(memfn_decl_ty) = tyvar_of_memfn(
+                                        ctx,
+                                        &memfn_decl,
+                                        polyvar_scope.clone(),
+                                        fname.node(),
+                                    ) {
+                                        constrain(ctx, memfn_node_ty.clone(), memfn_decl_ty);
+                                    }
+                                }
+                                _ => panic!(),
                             }
                             // println!(
                             //     "receiver ty: {}",
