@@ -3,12 +3,12 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use crate::assembly::{Instr, Label, Line, remove_labels};
-use crate::ast::{AstNode, BinaryOperator, FuncDef, InterfaceDef, ItemKind, TypeKind};
+use crate::ast::{AstNode, BinaryOperator, FuncDef, InterfaceDef, ItemKind};
 use crate::ast::{FileAst, FileDatabase, NodeId};
 use crate::builtin::BuiltinOperation;
 use crate::environment::Environment;
+use crate::statics::typecheck::Nominal;
 use crate::statics::typecheck::SolvedType;
-use crate::statics::typecheck::{Nominal, TypeVar, ast_type_to_solved_type};
 use crate::statics::{Declaration, TypeProv};
 use crate::statics::{Type, ty_fits_impl_ty};
 use crate::vm::{AbraFloat, AbraInt, Instr as VmInstr};
@@ -1165,7 +1165,6 @@ impl Translator {
                 else {
                     unreachable!()
                 };
-                let iterable_ty = self.statics.solution_of_node(iterable.node()).unwrap();
                 let fn_make_iterator_ty =
                     self.statics.for_loop_make_iterator_types[&stmt.id].clone();
                 // println!("iterable_ty: {}", iterable_ty);

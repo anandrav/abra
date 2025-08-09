@@ -1512,7 +1512,7 @@ fn generate_constraints_stmt(
                 None => {
                     // TODO: need to log an error
                     todo!();
-                    generate_constraints_pat(ctx, polyvar_scope.clone(), Mode::Syn, pat.clone());
+                    // generate_constraints_pat(ctx, polyvar_scope.clone(), Mode::Syn, pat.clone());
                 }
             }
             generate_constraints_expr(ctx, polyvar_scope.clone(), Mode::Syn, body.clone())
@@ -1536,13 +1536,6 @@ fn extract_item_type_from_iterable_type(
     else {
         unreachable!()
     };
-    let Some(Declaration::Enum(maybe_enum_def)) =
-        ctx.root_namespace.get_declaration("prelude.maybe")
-    else {
-        unreachable!()
-    };
-
-    // println!("iterable_ty: {}", iterable_ty);
 
     // TODO: need to log errors before returning None instead of just silently returning None.
     // TODO: don't log errors for *everything* though. Some of it will be caught by typechecker. Just need the user to understand why for loop won't work

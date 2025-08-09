@@ -5,7 +5,7 @@
 use crate::FileProvider;
 use crate::ast::{
     AssociatedType, AstNode, EnumDef, FileAst, FileDatabase, FileId, FuncDecl, FuncDef,
-    InterfaceDef, InterfaceImpl, NodeId, Polytype, Stmt, StructDef, TypeKind,
+    InterfaceDef, InterfaceImpl, NodeId, Polytype, StructDef, TypeKind,
 };
 use crate::builtin::{BuiltinOperation, BuiltinType};
 use resolve::{resolve, scan_declarations};
