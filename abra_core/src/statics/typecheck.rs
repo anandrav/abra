@@ -1931,7 +1931,7 @@ fn generate_constraints_expr(
                         let memfn_ty = TypeVar::from_node(ctx, func.name.node()).instantiate(
                             ctx,
                             polyvar_scope.clone(),
-                            fname.node(),
+                            fname.node(), // TODO: why do you have ot pass fname.node() to instantiate(), this is so confusing and bug-prone
                         );
                         constrain(ctx, fn_node_ty, memfn_ty.clone());
 
