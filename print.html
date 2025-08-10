@@ -180,19 +180,36 @@
                 <div id="content" class="content">
                     <main>
                         <h1 id="about-abra"><a class="header" href="#about-abra">About Abra</a></h1>
-<p>Abra aims to be the most <strong>user-friendly</strong> programming language.</p>
+<p>The primary goal of Abra is to be the most <strong>user-friendly</strong> programming language.</p>
 <p>More specifically, Abra is optimized for these use cases:</p>
 <ol>
-<li>Giving beginners a gentle introduction to programming</li>
+<li>Giving beginner programmers a gentle introduction to writing code</li>
 <li>Allowing experienced programmers to prototype quickly</li>
 </ol>
-<p>Some noteworthy features that support these use cases include:</p>
-<h3 id="hindley-milner-type-system"><a class="header" href="#hindley-milner-type-system">Hindley-Milner Type System</a></h3>
-<p>Abra is a statically-typed language with Hindley-Milner type inference. Types help programmers avoid bugs by catching errors at compile time. At the same time, type inference saves programmers time by removing the need for type annotations everywhere.</p>
-<h3 id="garbage-collection"><a class="header" href="#garbage-collection">Garbage Collection</a></h3>
-<p>Abra is garbage-collected, so programmers don't have to manually manage memory themselves, and they can save brainpower for other aspects of their program instead.</p>
-<h3 id="adhoc-polymorphism"><a class="header" href="#adhoc-polymorphism">Adhoc Polymorphism</a></h3>
-<p>In addition, Abra has a concept of "interfaces" which is very similar to "traits" in Rust or "typeclasses" in Haskell. These enable programmers to use the '+' operator on both integers and floats, or print several kinds of datatypes without having to use separate functions for each (print() as opposed to print_string(), print_int(), print_float() etc.)</p>
+<p>Abra does this through the combination of these features:</p>
+<ul>
+<li>a strong static type system with error messages that guide the user</li>
+<li>a garbage collector to remove the mental overhead of manually freeing memory or passing around allocators or writing
+lifetime annotations</li>
+</ul>
+<p>Abra is not the only language to have a type system and a garbage collector. Some others include:</p>
+<ul>
+<li>OCaml</li>
+<li>Haskell</li>
+<li>TypeScript</li>
+<li>Java</li>
+<li>C#</li>
+</ul>
+<p>However, Abra is distinct from more mainstream choices like TypeScript, Java, C# because it has powerful
+Hindley-Milner-style type inference.
+Abra is distinct from OCaml because it has ad-hoc polymorphism.
+Abra is distinct from Haskell because it is not a pure, lazy functional language with monadic IO.</p>
+<p>Abra is not optimized for these use cases and does not aim to be:</p>
+<ul>
+<li>graphics</li>
+<li>operating systems</li>
+<li>embedded systems</li>
+</ul>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="installation"><a class="header" href="#installation">Installation</a></h1>
 <p>To install Abra, download the repository from https://github.com/anandrav/abra.
 Then, run the script located at /scripts/install</p>
@@ -214,11 +231,13 @@ Options:
   -V, --version              Print version
 
 </code></pre>
-<h2 id="requirements"><a class="header" href="#requirements">Requirements</a></h2>
-<h3 id="cargo"><a class="header" href="#cargo">Cargo</a></h3>
-<p>Cargo, the Rust package manager, is required to run the install script. The best way to install Cargo is by using <a href="https://www.rust-lang.org/tools/install">rustup</a>.</p>
-<h3 id="node"><a class="header" href="#node">Node</a></h3>
-<p>If you're using Visual Studio Code and want to install the Abra extension, you'll want to <a href="https://nodejs.org/en/download/package-manager">install Node</a> as well before running the install script.</p>
+<h3 id="requirements"><a class="header" href="#requirements">Requirements</a></h3>
+<h4 id="cargo"><a class="header" href="#cargo">Cargo</a></h4>
+<p>Cargo, the Rust package manager, is required to run the install script. The best way to install Cargo is by
+using <a href="https://www.rust-lang.org/tools/install">rustup</a>.</p>
+<h4 id="node"><a class="header" href="#node">Node</a></h4>
+<p>If you're using Visual Studio Code and want to install the Abra extension, you'll want
+to <a href="https://nodejs.org/en/download/package-manager">install Node</a> as well before running the install script.</p>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="hello-world"><a class="header" href="#hello-world">Hello World</a></h1>
 <p>To make a simple hello world program, create a file called <code>hello.abra</code>.</p>
 <p>Inside the file, write</p>
@@ -311,7 +330,7 @@ let y: float = 3.14
 let p: (int, int) = (1, 2)
 </code></pre>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="control-flow"><a class="header" href="#control-flow">Control Flow</a></h1>
-<h2 id="if-else"><a class="header" href="#if-else">If-Else</a></h2>
+<h3 id="if-else"><a class="header" href="#if-else">If-Else</a></h3>
 <p>If-else expressions are used to choose between two pieces of code.
 A boolean expression is given as an input. If the boolean value is true, the first piece of code is executed. If the
 boolean value is false, then the second piece of code is executed.</p>
@@ -341,7 +360,7 @@ if is_morning {
 <p>If-else expressions always return a value.</p>
 <pre><code>let x = if true { 1 } else { 0 }    // x = 1
 </code></pre>
-<h2 id="match"><a class="header" href="#match">Match</a></h2>
+<h3 id="match"><a class="header" href="#match">Match</a></h3>
 <p>Match expressions test an expression against a set of patterns.
 The first pattern that matches will have its corresponding</p>
 <pre><code>let n = 2
@@ -355,7 +374,7 @@ let s = match n {
 // s = "two"
 
 </code></pre>
-<h2 id="while-loops"><a class="header" href="#while-loops">While loops</a></h2>
+<h3 id="while-loops"><a class="header" href="#while-loops">While loops</a></h3>
 <pre><code>// this code prints
 // "hellohellohello"
 
@@ -365,7 +384,7 @@ while n &gt; 0 {
     n := n - 1
 }
 </code></pre>
-<h2 id="for-loops"><a class="header" href="#for-loops">For loops</a></h2>
+<h3 id="for-loops"><a class="header" href="#for-loops">For loops</a></h3>
 <pre><code>// this code prints "15"
 
 let arr = [1, 2, 3, 4, 5]
@@ -590,6 +609,32 @@ interface Iterator {
 
     fn next: ('a Iterator) -&gt; maybe&lt;Item,void&gt;
 }
+</code></pre>
+<div style="break-before: page; page-break-before: always;"></div><h2 id="error-handling"><a class="header" href="#error-handling">Error Handling</a></h2>
+<p>It is recommended to use the <code>maybe</code> type defined in the standard library as a return type for functions that can fail.
+The <code>maybe</code> type is the same as the <code>Result</code> type in Rust or the <code>Either</code> type in Haskell.</p>
+<pre><code>type maybe&lt;'T,'E&gt; =
+  | yes('T)
+  | no('E)
+</code></pre>
+<pre><code>fn safe_divide(a: float, b: float) -&gt; maybe&lt;float, void&gt; {
+    if b = 0.0 {
+        .no(())
+    } else {
+        .yes(a / b)
+    }
+}
+</code></pre>
+<p>For convenience, you can use the unwrap operator <code>!</code> to forcibly get the value from the <code>yes</code> case, or invoke <code>panic()</code>
+if it's the <code>no</code> case. This is useful if you know that the result is guaranteed to be a success.
+The <code>!</code> operator is syntactic sugar for calling <code>.unwrap()</code> on some value.</p>
+<pre><code>// assume string_to_int: string -&gt; maybe&lt;int, void&gt;
+
+let a = string_to_int("10")!
+let b = string_to_int("5")!
+println(a + b)
+
+// prints "15"
 </code></pre>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="namespaces"><a class="header" href="#namespaces">Namespaces</a></h1>
 <p>Each Abra file has its own namespace determined by the name of the file and its parent directories (relative to the

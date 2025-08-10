@@ -179,19 +179,36 @@
                 <div id="content" class="content">
                     <main>
                         <h1 id="about-abra"><a class="header" href="#about-abra">About Abra</a></h1>
-<p>Abra aims to be the most <strong>user-friendly</strong> programming language.</p>
+<p>The primary goal of Abra is to be the most <strong>user-friendly</strong> programming language.</p>
 <p>More specifically, Abra is optimized for these use cases:</p>
 <ol>
-<li>Giving beginners a gentle introduction to programming</li>
+<li>Giving beginner programmers a gentle introduction to writing code</li>
 <li>Allowing experienced programmers to prototype quickly</li>
 </ol>
-<p>Some noteworthy features that support these use cases include:</p>
-<h3 id="hindley-milner-type-system"><a class="header" href="#hindley-milner-type-system">Hindley-Milner Type System</a></h3>
-<p>Abra is a statically-typed language with Hindley-Milner type inference. Types help programmers avoid bugs by catching errors at compile time. At the same time, type inference saves programmers time by removing the need for type annotations everywhere.</p>
-<h3 id="garbage-collection"><a class="header" href="#garbage-collection">Garbage Collection</a></h3>
-<p>Abra is garbage-collected, so programmers don't have to manually manage memory themselves, and they can save brainpower for other aspects of their program instead.</p>
-<h3 id="adhoc-polymorphism"><a class="header" href="#adhoc-polymorphism">Adhoc Polymorphism</a></h3>
-<p>In addition, Abra has a concept of "interfaces" which is very similar to "traits" in Rust or "typeclasses" in Haskell. These enable programmers to use the '+' operator on both integers and floats, or print several kinds of datatypes without having to use separate functions for each (print() as opposed to print_string(), print_int(), print_float() etc.)</p>
+<p>Abra does this through the combination of these features:</p>
+<ul>
+<li>a strong static type system with error messages that guide the user</li>
+<li>a garbage collector to remove the mental overhead of manually freeing memory or passing around allocators or writing
+lifetime annotations</li>
+</ul>
+<p>Abra is not the only language to have a type system and a garbage collector. Some others include:</p>
+<ul>
+<li>OCaml</li>
+<li>Haskell</li>
+<li>TypeScript</li>
+<li>Java</li>
+<li>C#</li>
+</ul>
+<p>However, Abra is distinct from more mainstream choices like TypeScript, Java, C# because it has powerful
+Hindley-Milner-style type inference.
+Abra is distinct from OCaml because it has ad-hoc polymorphism.
+Abra is distinct from Haskell because it is not a pure, lazy functional language with monadic IO.</p>
+<p>Abra is not optimized for these use cases and does not aim to be:</p>
+<ul>
+<li>graphics</li>
+<li>operating systems</li>
+<li>embedded systems</li>
+</ul>
 
                     </main>
 
