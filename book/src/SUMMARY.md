@@ -17,5 +17,6 @@
 - [Enums](./language_reference/enums.md)
 - [Member Functions](./language_reference/member_functions.md)
 - [Interfaces](./language_reference/interfaces.md)
+- [Error Handling](./language_reference/error_handling.md)
 - [Namespaces](./language_reference/namespaces.md)
 - [Foreign Functions](./language_reference/foreign_functions.md)

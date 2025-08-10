@@ -10,6 +10,7 @@ cd abra
 ```
 
 After, you should be able to run Abra from the command line
+
 ```
 % abra --help
 Usage: abra [OPTIONS] <FILE> [ARGS]...
@@ -25,8 +26,14 @@ Options:
 
 ```
 
-## Requirements
-### Cargo
-Cargo, the Rust package manager, is required to run the install script. The best way to install Cargo is by using [rustup](https://www.rust-lang.org/tools/install).
-### Node
-If you're using Visual Studio Code and want to install the Abra extension, you'll want to [install Node](https://nodejs.org/en/download/package-manager) as well before running the install script.
+### Requirements
+
+#### Cargo
+
+Cargo, the Rust package manager, is required to run the install script. The best way to install Cargo is by
+using [rustup](https://www.rust-lang.org/tools/install).
+
+#### Node
+
+If you're using Visual Studio Code and want to install the Abra extension, you'll want
+to [install Node](https://nodejs.org/en/download/package-manager) as well before running the install script.

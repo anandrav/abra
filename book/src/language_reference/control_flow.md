@@ -1,6 +1,6 @@
 # Control Flow
 
-## If-Else
+### If-Else
 
 If-else expressions are used to choose between two pieces of code.
 A boolean expression is given as an input. If the boolean value is true, the first piece of code is executed. If the
@@ -40,7 +40,7 @@ If-else expressions always return a value.
 let x = if true { 1 } else { 0 }    // x = 1
 ```
 
-## Match
+### Match
 
 Match expressions test an expression against a set of patterns.
 The first pattern that matches will have its corresponding
@@ -58,7 +58,7 @@ let s = match n {
 
 ```
 
-## While loops
+### While loops
 
 ```
 // this code prints
@@ -71,7 +71,7 @@ while n > 0 {
 }
 ```
 
-## For loops
+### For loops
 
 ```
 // this code prints "15"
