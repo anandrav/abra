@@ -1,6 +1,7 @@
 # Structs
 
 Define a `struct` to group together related pieces of data.
+
 ```
 type Person = {
     first_name: string,
@@ -9,13 +10,25 @@ type Person = {
 }
 ```
 
-Create an instance of a struct by calling the struct as a function.
+Create an instance of a struct by calling its constructor, which is a function that shares the same name as the struct.
+
 ```
 let frank = Person("Frank", "Smith", 34)
 ```
 
-Access members of a struct and modify them by using dot `.` syntax.
+Access the fields of a struct and modify them by using dot `.` syntax.
+
 ```
 let fullname = frank.first_name & " " & frank.last_name
-frank.age = frank.age + 1
+// fullname = "Frank Smith"
+frank.age := frank.age + 1
+// age = 35
+```
+
+Structs can have generic type arguments.
+
+```
+type Ref<'T> = {
+    value: 'T
+}
 ```

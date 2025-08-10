@@ -1,15 +1,36 @@
 # Functions
 
-A function takes 0 or more arguments and returns a single value.
+A function is a piece of code that takes zero or more inputs and has a single output.
 
 ```
-fn increment_if_true(n: int, condition: boolean) -> int {
-    if condition {
-        n + 1
-    } else {
+fn distance(x1: float, x2: float, x2: float, y2: float) -> float {
+    sqrt((x2 - x1) ^ 2 + (y2 - y1) ^ 2)
+}
+```
+
+Functions can be recursive.
+
+```
+fn fibonacci(n: int) -> int {
+    if n <= 1 {
         n
+    } else {
+        fib(n-2) + fib(n-1)
     }
 }
 ```
 
-A function always returns the value of its body. If the body of a function is a block of statements, the last statement/expression of the block is the return value of the function. There are no explicit return statements and therefore no early return statements.
+The last expression in the body of the function is the return value. You can also return early from a function.
+
+```
+fn fibonacci(n: int) -> int {
+    if n <= 1 {
+        return n        // early return
+    }
+    fib(n-2) + fib(n-1) // last expression is return value
+}
+```
+
+A function always returns the value of its body.
+If the body of a function is a block of statements, then the last expression of the block is the return value of the
+function.
