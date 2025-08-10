@@ -15,6 +15,7 @@ jobs:
         run: |
           cargo install --locked cargo-udeps || true
           cargo install --locked cargo-deny || true
+          cargo install mdbook
           rustup target add wasm32-unknown-unknown
           rustup component add --toolchain nightly-x86_64-unknown-linux-gnu rustfmt
           ./scripts/test
