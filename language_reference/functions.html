@@ -179,22 +179,37 @@
                 <div id="content" class="content">
                     <main>
                         <h1 id="functions"><a class="header" href="#functions">Functions</a></h1>
-<p>A function takes 0 or more arguments and returns a single value.</p>
-<pre><code>fn increment_if_true(n: int, condition: boolean) -&gt; int {
-    if condition {
-        n + 1
-    } else {
+<p>A function is a piece of code that takes zero or more inputs and has a single output.</p>
+<pre><code>fn distance(x1: float, x2: float, x2: float, y2: float) -&gt; float {
+    sqrt((x2 - x1) ^ 2 + (y2 - y1) ^ 2)
+}
+</code></pre>
+<p>Functions can be recursive.</p>
+<pre><code>fn fibonacci(n: int) -&gt; int {
+    if n &lt;= 1 {
         n
+    } else {
+        fib(n-2) + fib(n-1)
     }
 }
 </code></pre>
-<p>A function always returns the value of its body. If the body of a function is a block of statements, the last statement/expression of the block is the return value of the function. There are no explicit return statements and therefore no early return statements.</p>
+<p>The last expression in the body of the function is the return value. You can also return early from a function.</p>
+<pre><code>fn fibonacci(n: int) -&gt; int {
+    if n &lt;= 1 {
+        return n        // early return
+    }
+    fib(n-2) + fib(n-1) // last expression is return value
+}
+</code></pre>
+<p>A function always returns the value of its body.
+If the body of a function is a block of statements, then the last expression of the block is the return value of the
+function.</p>
 
                     </main>
 
                     <nav class="nav-wrapper" aria-label="Page navigation">
                         <!-- Mobile navigation buttons -->
-                            <a rel="prev" href="../language_reference/primitive_types.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                            <a rel="prev" href="../language_reference/control_flow.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                                 <i class="fa fa-angle-left"></i>
                             </a>
 
@@ -208,7 +223,7 @@
             </div>
 
             <nav class="nav-wide-wrapper" aria-label="Page navigation">
-                    <a rel="prev" href="../language_reference/primitive_types.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                    <a rel="prev" href="../language_reference/control_flow.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                         <i class="fa fa-angle-left"></i>
                     </a>
 

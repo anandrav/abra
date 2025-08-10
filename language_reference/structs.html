@@ -186,12 +186,19 @@
     age: int,
 }
 </code></pre>
-<p>Create an instance of a struct by calling the struct as a function.</p>
+<p>Create an instance of a struct by calling its constructor, which is a function that shares the same name as the struct.</p>
 <pre><code>let frank = Person("Frank", "Smith", 34)
 </code></pre>
-<p>Access members of a struct and modify them by using dot <code>.</code> syntax.</p>
+<p>Access the fields of a struct and modify them by using dot <code>.</code> syntax.</p>
 <pre><code>let fullname = frank.first_name &amp; " " &amp; frank.last_name
-frank.age = frank.age + 1
+// fullname = "Frank Smith"
+frank.age := frank.age + 1
+// age = 35
+</code></pre>
+<p>Structs can have generic type arguments.</p>
+<pre><code>type Ref&lt;'T&gt; = {
+    value: 'T
+}
 </code></pre>
 
                     </main>

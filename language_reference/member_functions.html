@@ -3,7 +3,7 @@
     <head>
         <!-- Book generated using mdBook -->
         <meta charset="UTF-8">
-        <title>Primitive Types - The Abra Programming Language</title>
+        <title>Member Functions - The Abra Programming Language</title>
 
 
         <!-- Custom HTML head -->
@@ -178,27 +178,66 @@
 
                 <div id="content" class="content">
                     <main>
-                        <h1 id="primitive-types"><a class="header" href="#primitive-types">Primitive Types</a></h1>
-<h3 id="int"><a class="header" href="#int">int</a></h3>
-<p>A 64-bit signed integer.</p>
-<h3 id="float"><a class="header" href="#float">float</a></h3>
-<p>A 64-bit floating point decimal number.</p>
-<h3 id="boolean"><a class="header" href="#boolean">boolean</a></h3>
-<p>Either <code>true</code> or <code>false</code>.</p>
-<h3 id="string"><a class="header" href="#string">string</a></h3>
-<p>Garbage-collected unicode text data.</p>
-<h3 id="void"><a class="header" href="#void">void</a></h3>
-<p>Represents nothing and only has one value -- void. Equivalent to the unit type <code>()</code> in Rust.</p>
+                        <h2 id="member-functions"><a class="header" href="#member-functions">Member Functions</a></h2>
+<p>For convenience, you can define member functions on both user-defined and built-in types.</p>
+<pre><code>type Person = {
+    first_name: string,
+    last_name: string,
+    age: int,
+}
+
+extend Person {
+    fn fullname(self) -&gt; string {
+        self.first_name &amp; self.last_name
+    }
+}
+
+...
+
+let p = Person("Arthur", "Pendragon", 15)
+let name = p.fullname() // "Arthur Pendragon"
+</code></pre>
+<pre><code>extend array&lt;'T&gt; {
+    fn len(self: array&lt;'T&gt;) -&gt; int {
+        array_length(self)
+    }
+
+    fn push(self: array&lt;'T&gt;, x: 'T) -&gt; void {
+        array_push(self, x)
+    }
+
+    fn pop(self: array&lt;'T&gt;) -&gt; void {
+        array_pop(self)
+    }
+}
+
+...
+
+let arr = [0, 1, 2, 3, 4]
+arr.push(5)
+let l = arr.len() // 6
+</code></pre>
+<p>In the examples above, a member function is invoked on a variable using the dot <code>.</code> operator.
+The variable is passed as the first argument to the member function.</p>
+<p>Member functions can also be invoked on the type itself.
+In that case, the first argument to the function is passed in the parentheses.</p>
+<pre><code>let p = Person("Arthur", "Pendragon", 15)
+let name = Person.fullname(p)
+
+let arr = [1, 2, 3, 4]
+array.push(arr)
+let l = array.len(arr) // 6
+</code></pre>
 
                     </main>
 
                     <nav class="nav-wrapper" aria-label="Page navigation">
                         <!-- Mobile navigation buttons -->
-                            <a rel="prev" href="../user_guide/helloworld.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                            <a rel="prev" href="../language_reference/enums.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                                 <i class="fa fa-angle-left"></i>
                             </a>
 
-                            <a rel="next prefetch" href="../language_reference/functions.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                            <a rel="next prefetch" href="../language_reference/interfaces.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                                 <i class="fa fa-angle-right"></i>
                             </a>
 
@@ -208,11 +247,11 @@
             </div>
 
             <nav class="nav-wide-wrapper" aria-label="Page navigation">
-                    <a rel="prev" href="../user_guide/helloworld.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                    <a rel="prev" href="../language_reference/enums.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                         <i class="fa fa-angle-left"></i>
                     </a>
 
-                    <a rel="next prefetch" href="../language_reference/functions.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                    <a rel="next prefetch" href="../language_reference/interfaces.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                         <i class="fa fa-angle-right"></i>
                     </a>
             </nav>

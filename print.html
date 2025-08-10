@@ -224,29 +224,185 @@ Options:
 <p>Inside the file, write</p>
 <pre><code>print("hello world")
 </code></pre>
-<p>Then run the file with the command <code>abra hello.abra</code></p>
-<div style="break-before: page; page-break-before: always;"></div><h1 id="primitive-types"><a class="header" href="#primitive-types">Primitive Types</a></h1>
+<p>Then run the file using the command <code>abra hello.abra</code></p>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="built-in-types"><a class="header" href="#built-in-types">Built-in Types</a></h1>
 <h3 id="int"><a class="header" href="#int">int</a></h3>
-<p>A 64-bit signed integer.</p>
+<p>A 64-bit signed integer.
+Supports addition, subtraction, multiplication, division, and exponentiation operators.</p>
+<pre><code>let a = 5
+let b = 2 + 2   // 4
+let c = 2 * 3   // 6
+let d = 5 - 2   // 3
+let e = 12 / 3  // 4
+let f = 13 / 3  // also 4
+let g = 2 ^ 3   // 8
+
+let n = (a + c / d) ^ 2 // 49
+</code></pre>
 <h3 id="float"><a class="header" href="#float">float</a></h3>
-<p>A 64-bit floating point decimal number.</p>
+<p>A 64-bit signed floating point decimal number.
+Supports addition, subtraction, multiplication, division, and exponentiation operators.</p>
+<pre><code>let pi = 3.14159
+let e = 2.71828
+</code></pre>
 <h3 id="boolean"><a class="header" href="#boolean">boolean</a></h3>
-<p>Either <code>true</code> or <code>false</code>.</p>
+<pre><code>let shield_is_equipped = true
+let sword_is_equipped = false
+</code></pre>
 <h3 id="string"><a class="header" href="#string">string</a></h3>
-<p>Garbage-collected unicode text data.</p>
+<p>Garbage-collected unicode text data.
+Strings can be concatenated together using the <code>&amp;</code> operator.</p>
+<pre><code>let name = "Merlin"
+let message = name &amp; " is a wizard." // "Merlin is a wizard."
+</code></pre>
+<h3 id="arrayt"><a class="header" href="#arrayt">array&lt;'T&gt;</a></h3>
+<p>A built-in dynamic array data structure. Supports random access (zero-indexed), pushing, and popping elements.
+Arrays are homogenous; elements of the array must have the same type i.e. an array cannot mix <code>int</code> and <code>float</code>
+elements, for instance.</p>
+<pre><code>let arr = [1, 2, 3, 4]  // create an array with some numbers
+arr.push(5)             // arr = [1, 2, 3, 4, 5]
+let n = arr.len()       // 5
+let n = arr[2]          // 3
+arr[2] := 49
+let n = arr[2]          // 49
+arr.pop()               // arr = [1, 2, 3, 4]
+</code></pre>
+<h3 id="tuples"><a class="header" href="#tuples">tuples</a></h3>
+<ul>
+<li><code>('T, 'U)</code></li>
+<li><code>('T, 'U, 'V)</code></li>
+<li>and so on...</li>
+</ul>
+<p>A tuple is 2 or more values grouped together.
+It is sometimes useful to group related values together.
+For instance, a tuple of three floats could be used to represent a coordinate in 3d space.
+Unlike arrays, tuples can have elements of different types.
+Unlike arrays, tuples cannot have elements added or removed.</p>
+<pre><code>let pair_of_ints = (1, 2)
+let coordinate_3d = (1.0, 2.0, -3.0)
+let name_and_age = ("Lancelot", 19)
+</code></pre>
 <h3 id="void"><a class="header" href="#void">void</a></h3>
-<p>Represents nothing and only has one value -- void. Equivalent to the unit type <code>()</code> in Rust.</p>
+<p>Represents nothing and only has one value -- <code>()</code>.
+This is useful as a return type for functions that don't return anything.
+This is sometimes referred to as the "unit type" in other languages because it has a single value.</p>
+<h3 id="never"><a class="header" href="#never">never</a></h3>
+<p>The never type has zero values.
+This is useful as a return type for a function which should never return.
+For instance, the built-in <code>panic()</code> function, used to terminate the program in the case of an unrecoverable error, does
+not return a value.</p>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="variables"><a class="header" href="#variables">Variables</a></h1>
+<p>Variables can be created using the <code>let</code> keyword.</p>
+<pre><code>let x = 5
+let y = 8
+</code></pre>
+<p>Mutable variables can be created using the <code>var</code> keyword.
+Their value can be updated using the assignment <code>:=</code> operator.</p>
+<pre><code>var x = 5       // x = 5
+x := 6          // x = 6
+let y = x + x   // y = 12
+</code></pre>
+<p>Variables can be given type annotations. For convenience, they are often not required.</p>
+<p>In some situations, type annotations are required, for instance when writing code with generic types, invoking member
+functions, or accessing struct fields. They also help the compiler give more tailored error messages in case you make a
+mistake.</p>
+<pre><code>let x: int = 2
+let y: float = 3.14
+let p: (int, int) = (1, 2)
+</code></pre>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="control-flow"><a class="header" href="#control-flow">Control Flow</a></h1>
+<h2 id="if-else"><a class="header" href="#if-else">If-Else</a></h2>
+<p>If-else expressions are used to choose between two pieces of code.
+A boolean expression is given as an input. If the boolean value is true, the first piece of code is executed. If the
+boolean value is false, then the second piece of code is executed.</p>
+<pre><code>// this code prints "hello"
+
+let is_arriving = true
+if is_arriving {
+    println("hello")
+} else {
+    println("good bye")
+}
+
+</code></pre>
+<p>If-else expressions can be chained in succession to check multiple conditions.</p>
+<pre><code>// this code prints "good night"
+
+let is_morning = false
+let is_afternoon = false
+if is_morning {
+    println("good morning")
+} else if is_afternoon {
+    println("good afternoon")
+} else {
+    println("good night")
+}
+</code></pre>
+<p>If-else expressions always return a value.</p>
+<pre><code>let x = if true { 1 } else { 0 }    // x = 1
+</code></pre>
+<h2 id="match"><a class="header" href="#match">Match</a></h2>
+<p>Match expressions test an expression against a set of patterns.
+The first pattern that matches will have its corresponding</p>
+<pre><code>let n = 2
+let s = match n {
+    0 -&gt; "zero"
+    1 -&gt; "one"
+    2 -&gt; "two"
+    3 -&gt; "three"
+    _ -&gt; "something else"
+}
+// s = "two"
+
+</code></pre>
+<h2 id="while-loops"><a class="header" href="#while-loops">While loops</a></h2>
+<pre><code>// this code prints
+// "hellohellohello"
+
+var n = 3
+while n &gt; 0 {
+    print("hello")
+    n := n - 1
+}
+</code></pre>
+<h2 id="for-loops"><a class="header" href="#for-loops">For loops</a></h2>
+<pre><code>// this code prints "15"
+
+let arr = [1, 2, 3, 4, 5]
+var sum = 0
+
+for n in arr {
+    sum := sum + n
+}
+
+println(sum)
+</code></pre>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="functions"><a class="header" href="#functions">Functions</a></h1>
-<p>A function takes 0 or more arguments and returns a single value.</p>
-<pre><code>fn increment_if_true(n: int, condition: boolean) -&gt; int {
-    if condition {
-        n + 1
-    } else {
+<p>A function is a piece of code that takes zero or more inputs and has a single output.</p>
+<pre><code>fn distance(x1: float, x2: float, x2: float, y2: float) -&gt; float {
+    sqrt((x2 - x1) ^ 2 + (y2 - y1) ^ 2)
+}
+</code></pre>
+<p>Functions can be recursive.</p>
+<pre><code>fn fibonacci(n: int) -&gt; int {
+    if n &lt;= 1 {
         n
+    } else {
+        fib(n-2) + fib(n-1)
     }
 }
 </code></pre>
-<p>A function always returns the value of its body. If the body of a function is a block of statements, the last statement/expression of the block is the return value of the function. There are no explicit return statements and therefore no early return statements.</p>
+<p>The last expression in the body of the function is the return value. You can also return early from a function.</p>
+<pre><code>fn fibonacci(n: int) -&gt; int {
+    if n &lt;= 1 {
+        return n        // early return
+    }
+    fib(n-2) + fib(n-1) // last expression is return value
+}
+</code></pre>
+<p>A function always returns the value of its body.
+If the body of a function is a block of statements, then the last expression of the block is the return value of the
+function.</p>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="structs"><a class="header" href="#structs">Structs</a></h1>
 <p>Define a <code>struct</code> to group together related pieces of data.</p>
 <pre><code>type Person = {
@@ -255,42 +411,101 @@ Options:
     age: int,
 }
 </code></pre>
-<p>Create an instance of a struct by calling the struct as a function.</p>
+<p>Create an instance of a struct by calling its constructor, which is a function that shares the same name as the struct.</p>
 <pre><code>let frank = Person("Frank", "Smith", 34)
 </code></pre>
-<p>Access members of a struct and modify them by using dot <code>.</code> syntax.</p>
+<p>Access the fields of a struct and modify them by using dot <code>.</code> syntax.</p>
 <pre><code>let fullname = frank.first_name &amp; " " &amp; frank.last_name
-frank.age = frank.age + 1
+// fullname = "Frank Smith"
+frank.age := frank.age + 1
+// age = 35
+</code></pre>
+<p>Structs can have generic type arguments.</p>
+<pre><code>type Ref&lt;'T&gt; = {
+    value: 'T
+}
 </code></pre>
 <div style="break-before: page; page-break-before: always;"></div><h2 id="enums"><a class="header" href="#enums">Enums</a></h2>
-<p>Define an <code>enum</code> to represent a set of possibilities.</p>
+<p>Enums are useful for modeling data as a set of possible variants.</p>
 <pre><code>type Color =
-    Red
+  | Red
   | Blue
   | Green
 </code></pre>
-<p>Data can optionally be associated with each variant of an enum type.</p>
+<p>Data can be associated with each variant of an enum</p>
 <pre><code>type Shape =
     | Circle(float)
     | Rectangle(float, float)
     | Triangle(float, float)
+    
+let circle = Shape.Circle(5.0)
+let rect = Shape.Rectangle(2.0, 4.0)
 </code></pre>
-<p>Given an enum, its value can be inspected by using a match expression.
-The associated data for a variant can be bound to a variable using the <code>~</code> syntax.</p>
-<pre><code>let c = Circle(5.2)
+<p>Match expressions are used to handle each possible case of an enum.</p>
+<pre><code>let c = Shape.Circle(5.2)
 let area = match c {
-    Circle(~radius) -&gt; radius * radius * pi,
-    Rectangle(~width, ~height) -&gt; width * height,
-    Triangle(~width, ~height) -&gt; width * height * 0.5,
+    .Circle(radius) -&gt; radius * radius * pi,
+    .Rectangle(width, height) -&gt; width * height,
+    .Triangle(width, height) -&gt; width * height * 0.5,
 }
 </code></pre>
+<div style="break-before: page; page-break-before: always;"></div><h2 id="member-functions"><a class="header" href="#member-functions">Member Functions</a></h2>
+<p>For convenience, you can define member functions on both user-defined and built-in types.</p>
+<pre><code>type Person = {
+    first_name: string,
+    last_name: string,
+    age: int,
+}
+
+extend Person {
+    fn fullname(self) -&gt; string {
+        self.first_name &amp; self.last_name
+    }
+}
+
+...
+
+let p = Person("Arthur", "Pendragon", 15)
+let name = p.fullname() // "Arthur Pendragon"
+</code></pre>
+<pre><code>extend array&lt;'T&gt; {
+    fn len(self: array&lt;'T&gt;) -&gt; int {
+        array_length(self)
+    }
+
+    fn push(self: array&lt;'T&gt;, x: 'T) -&gt; void {
+        array_push(self, x)
+    }
+
+    fn pop(self: array&lt;'T&gt;) -&gt; void {
+        array_pop(self)
+    }
+}
+
+...
+
+let arr = [0, 1, 2, 3, 4]
+arr.push(5)
+let l = arr.len() // 6
+</code></pre>
+<p>In the examples above, a member function is invoked on a variable using the dot <code>.</code> operator.
+The variable is passed as the first argument to the member function.</p>
+<p>Member functions can also be invoked on the type itself.
+In that case, the first argument to the function is passed in the parentheses.</p>
+<pre><code>let p = Person("Arthur", "Pendragon", 15)
+let name = Person.fullname(p)
+
+let arr = [1, 2, 3, 4]
+array.push(arr)
+let l = array.len(arr) // 6
+</code></pre>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="interfaces"><a class="header" href="#interfaces">Interfaces</a></h1>
-<p>An interface is a collection of functions that operate on a type named <code>self</code>.
-An interface can be implemented for multiple types.
-For instance, the <code>Number</code> interface supports the add, subtract, multiply, and divide operations.
-The Number interface is implemented for both <code>int</code> and <code>float</code> type. The Number could be implemented for a user-defined type.</p>
-<p>Example: Implementing the ToString interface for the Person struct</p>
-<pre><code>interface ToString {
+<p>An interface is a set of operations supported by some type named <code>self</code>.</p>
+<p>A type implements an interface if it supports all its operations.
+As an example, the <code>Num</code> interface supports the <code>add()</code>, <code>subtract()</code>, <code>multiply()</code>, and <code>divide()</code> operations.
+The Number interface is implemented by both the <code>int</code> and <code>float</code> built-in types.</p>
+<pre><code>// support conversion to string
+interface ToString {
     fn to_string(x: self) -&gt; string
 }
 
@@ -300,11 +515,18 @@ type Person = {
     age: int,
 }
 
+// support conversion to string for the Person type
 impl ToString for Person {
     fn to_string(x: Person) -&gt; string {
         x.first_name &amp; " " &amp; x.last_name &amp; ", " x.age &amp; " years old."
     }
 }
+
+...
+
+let p = Person("Arthur", "Pendragon", 15)
+let s = p.to_string() // "Arthur Pendragon 15"
+
 </code></pre>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="namespaces"><a class="header" href="#namespaces">Namespaces</a></h1>
 <p>Each Abra file has its own namespace. In order to use functions from another file, the <code>use</code> keyword must be used to bring them into scope.</p>

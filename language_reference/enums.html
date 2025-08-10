@@ -179,25 +179,27 @@
                 <div id="content" class="content">
                     <main>
                         <h2 id="enums"><a class="header" href="#enums">Enums</a></h2>
-<p>Define an <code>enum</code> to represent a set of possibilities.</p>
+<p>Enums are useful for modeling data as a set of possible variants.</p>
 <pre><code>type Color =
-    Red
+  | Red
   | Blue
   | Green
 </code></pre>
-<p>Data can optionally be associated with each variant of an enum type.</p>
+<p>Data can be associated with each variant of an enum</p>
 <pre><code>type Shape =
     | Circle(float)
     | Rectangle(float, float)
     | Triangle(float, float)
+    
+let circle = Shape.Circle(5.0)
+let rect = Shape.Rectangle(2.0, 4.0)
 </code></pre>
-<p>Given an enum, its value can be inspected by using a match expression.
-The associated data for a variant can be bound to a variable using the <code>~</code> syntax.</p>
-<pre><code>let c = Circle(5.2)
+<p>Match expressions are used to handle each possible case of an enum.</p>
+<pre><code>let c = Shape.Circle(5.2)
 let area = match c {
-    Circle(~radius) -&gt; radius * radius * pi,
-    Rectangle(~width, ~height) -&gt; width * height,
-    Triangle(~width, ~height) -&gt; width * height * 0.5,
+    .Circle(radius) -&gt; radius * radius * pi,
+    .Rectangle(width, height) -&gt; width * height,
+    .Triangle(width, height) -&gt; width * height * 0.5,
 }
 </code></pre>
 
@@ -209,7 +211,7 @@ let area = match c {
                                 <i class="fa fa-angle-left"></i>
                             </a>
 
-                            <a rel="next prefetch" href="../language_reference/interfaces.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                            <a rel="next prefetch" href="../language_reference/member_functions.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                                 <i class="fa fa-angle-right"></i>
                             </a>
 
@@ -223,7 +225,7 @@ let area = match c {
                         <i class="fa fa-angle-left"></i>
                     </a>
 
-                    <a rel="next prefetch" href="../language_reference/interfaces.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                    <a rel="next prefetch" href="../language_reference/member_functions.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                         <i class="fa fa-angle-right"></i>
                     </a>
             </nav>
