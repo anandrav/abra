@@ -63,16 +63,24 @@ arr2.pop()
 
 #### Equal
 
-- todo
+The equal interface is used to compare values for equality.
+Types which implement the Equal interface can be compared for equality using the `=` operator.
 
 #### Num
 
-- todo
+The Num interface is used for `int` and `float`.
+Types which implement the Num interface can use the arithmetic operators.
 
 #### Iterable
 
-- todo
+The Iterable interface is implemented for container types in order to iterate through their values.
+Types which implement the Iterable interface can be used in a for loop.
 
 #### Iterable
 
-- todo
+Types which implement the Iterable interface, such as `array<'T>`, have an associated type which implements
+the Iterator interface. In the case of `array<'T>`, that type is `ArrayIterator<'T>`
+
+### Associated types
+
+- TODO
