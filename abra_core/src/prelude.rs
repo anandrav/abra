@@ -8,6 +8,7 @@ host fn print_string(s: string) -> void
 fn not(b: bool) = if b false else true
 
 // TODO: really need ability to just write Self instead of 'a Num implicitly being the principled type
+// 'a shouldn't be assumed to be the principled type; it could just be another generic created by the user.
 interface Num {
     fn add: ('a Num, 'a Num) -> 'a Num
     fn subtract: ('a Num, 'a Num) -> 'a Num
@@ -282,6 +283,15 @@ implement Iterator for ArrayIterator<'T> {
         }
     }
 }
+
+// fn range(lo: int, hi: int) -> array<int> {
+//     let ret: array<int> = [] // TODO: shouldn't need this type annotation here
+//     while lo < hi {
+//         ret.push(lo)
+//         lo := lo + 1
+//     }
+//     ret
+// }
 
 extend array<'a Equal> {
     fn find(self: array<'a Equal>, x: 'a Equal) -> maybe<int, void> {
