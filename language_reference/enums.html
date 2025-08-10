@@ -202,6 +202,11 @@ let area = match c {
     .Triangle(width, height) -&gt; width * height * 0.5,
 }
 </code></pre>
+<p>Enums can have generic type arguments.</p>
+<pre><code>type option&lt;'T&gt; =
+  | some('T)
+  | none
+</code></pre>
 
                     </main>
 

@@ -449,6 +449,11 @@ let area = match c {
     .Triangle(width, height) -&gt; width * height * 0.5,
 }
 </code></pre>
+<p>Enums can have generic type arguments.</p>
+<pre><code>type option&lt;'T&gt; =
+  | some('T)
+  | none
+</code></pre>
 <div style="break-before: page; page-break-before: always;"></div><h2 id="member-functions"><a class="header" href="#member-functions">Member Functions</a></h2>
 <p>For convenience, you can define member functions on both user-defined and built-in types.</p>
 <pre><code>type Person = {
