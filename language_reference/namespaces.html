@@ -179,17 +179,81 @@
                 <div id="content" class="content">
                     <main>
                         <h1 id="namespaces"><a class="header" href="#namespaces">Namespaces</a></h1>
-<p>Each Abra file has its own namespace. In order to use functions from another file, the <code>use</code> keyword must be used to bring them into scope.</p>
-<p>cat.abra</p>
-<pre><code>fn meow() -&gt; string {
-    "nyan nyan nyan"
+<p>Each Abra file has its own namespace determined by the name of the file and its parent directories (relative to the
+entry point of the program).</p>
+<p>For instance, if the entry point is <code>main.abra</code> and beside that main file, there is a <code>hat.abra</code> and a
+<code>weapons/sword.abra</code>, like so:</p>
+<pre><code>- main.abra
+- hat.abra
+- [weapons]
+    - sword.abra
+    - spear.abra
+</code></pre>
+<p>and if the contents of those files are as follows</p>
+<pre><code>// hat.abra
+fn wear() {
+    println("you are wearing the hat")
+}
+
+fn pull_out_rabbit() {
+    println("pulled a white rabbit out of the hat")
 }
 </code></pre>
-<p>main.abra</p>
-<pre><code>use cat
-
-meow()
+<pre><code>// sword.abra
+fn swing() {
+    println("SWOOSH")
+}
 </code></pre>
+<pre><code>// halberd.abra
+fn swing() {
+    println("SWOOSH")
+}
+
+fn stab() {
+    println("SWOOSH")
+}
+</code></pre>
+<p>Then the fully qualified names of those functions would be <code>hat.wear</code>, <code>weapons.sword.swing</code>, and
+<code>weapons.halberd.swing</code> respectively.</p>
+<p>By default, the functions in <code>hat.abra</code>, <code>sword.abra</code>, and <code>halberd.abra</code> are not accessible to <code>main.abra</code>.
+In order to use functions from another file, the <code>use</code> keyword must be used to bring them into scope.</p>
+<pre><code>// main.abra
+
+use hat
+use weapons/sword
+
+wear()
+swing()
+</code></pre>
+<p>By default, the <code>use</code> keyword makes all symbols visible.
+This is a convenient default, but it leads to name clashes in large projects.
+To avoid name clashes, users can either:</p>
+<ol>
+<li>
+<p>Use the <code>use</code> keyword with the <code>except</code> keyword to exclude an unwanted symbol</p>
+<pre><code>use weapons/sword
+use weapons/halberd except swing
+
+swing()         // sword.swing
+stab()          // halberd.stab
+</code></pre>
+</li>
+<li>
+<p>Explicitly import individual symbols</p>
+<pre><code>use weapons/sword.swing
+use weapons/halberd.stab
+
+swing()         // sword.swing
+stab()          // halberd.stab
+</code></pre>
+<p>Note: multiple symbols can be imported from a namespace like this:</p>
+<pre><code>use weapons/halberd.(swing,stab)
+
+swing()         // halberd.swing
+stab()          // halberd.stab
+</code></pre>
+</li>
+</ol>
 
                     </main>
 

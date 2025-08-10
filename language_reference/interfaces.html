@@ -228,21 +228,43 @@ arr2.pop()
 // arr = [1, 2, 3] and arr = []
 </code></pre>
 <h4 id="equal"><a class="header" href="#equal">Equal</a></h4>
-<p>The equal interface is used to compare values for equality.
-Types which implement the Equal interface can be compared for equality using the <code>=</code> operator.</p>
+<p>The <code>Equal</code> interface is used to compare values for equality.
+Types which implement the <code>Equal</code> interface can be compared for equality using the <code>=</code> operator.</p>
 <h4 id="num"><a class="header" href="#num">Num</a></h4>
-<p>The Num interface is used for <code>int</code> and <code>float</code>.
-Types which implement the Num interface can use the arithmetic operators.</p>
+<p>The <code>Num</code> interface is used for <code>int</code> and <code>float</code>.
+Types which implement the <code>Num</code> interface can use the arithmetic operators.</p>
+<h4 id="iterator"><a class="header" href="#iterator">Iterator</a></h4>
+<p>The <code>Iterator</code> interface is implemented by types which traverse over some data structure's elements.
+The <code>Iterator</code> interface is used by the <code>Iterable</code> interface, but <code>Iterator</code> can also be used on its own.</p>
 <h4 id="iterable"><a class="header" href="#iterable">Iterable</a></h4>
-<p>The Iterable interface is implemented for container types in order to iterate through their values.
-Types which implement the Iterable interface can be used in a for loop.</p>
-<h4 id="iterable-1"><a class="header" href="#iterable-1">Iterable</a></h4>
-<p>Types which implement the Iterable interface, such as <code>array&lt;'T&gt;</code>, have an associated type which implements
-the Iterator interface. In the case of <code>array&lt;'T&gt;</code>, that type is <code>ArrayIterator&lt;'T&gt;</code></p>
+<p>The <code>Iterable</code> interface is implemented for container types in order to iterate through their values.
+Types which implement the Iterable interface can be used in a for loop. Types which implement the <code>Iterable</code> interface,
+such as <code>array&lt;'T&gt;</code>, have an <em>associated type</em> which implements
+the <code>Iterator</code> interface. In the case of <code>array&lt;'T&gt;</code>, that iterator type is <code>ArrayIterator&lt;'T&gt;</code>.</p>
 <h3 id="associated-types"><a class="header" href="#associated-types">Associated types</a></h3>
-<ul>
-<li>TODO</li>
-</ul>
+<p>Associated types are used when the output of an interface's operations are determined by the type of the input.
+For instance, when implementing the <code>Iterable</code> interface, different container types will be associated with different
+iterator types.
+For example, <code>array&lt;'T&gt;</code> returns an <code>ArrayIterator&lt;'T&gt;</code>, whereas a <code>hashmap&lt;'K,'V&gt;</code> would return a
+<code>HashmapIterator&lt;'K,'V&gt;</code>, which is a completely different struct.
+Similarly, a <code>StringIterator</code>, when implementing the <code>Iterator</code> interface, would always return a <code>maybe&lt;char,void&gt;</code>, so
+<code>Item</code> = <code>char</code> in that case.</p>
+<p>Without associated types, interfaces like <code>Iterable</code> would have to be parameterized over <code>Item</code> and <code>Iter</code>,
+which would require much more type annotations. This would also impede language features like operator overloading and
+the <code>for-in</code> loop, which lean on interfaces in the prelude such as <code>Iterable</code> and <code>Iterator</code>.</p>
+<pre><code>interface Iterable {
+    associatedtype Item
+    associatedtype Iter impl Iterator&lt;Item=Item&gt;
+
+    fn make_iterator: ('a Iterable) -&gt; Iter
+}
+
+interface Iterator {
+    associatedtype Item
+
+    fn next: ('a Iterator) -&gt; maybe&lt;Item,void&gt;
+}
+</code></pre>
 
                     </main>
 

@@ -554,41 +554,158 @@ arr2.pop()
 // arr = [1, 2, 3] and arr = []
 </code></pre>
 <h4 id="equal"><a class="header" href="#equal">Equal</a></h4>
-<p>The equal interface is used to compare values for equality.
-Types which implement the Equal interface can be compared for equality using the <code>=</code> operator.</p>
+<p>The <code>Equal</code> interface is used to compare values for equality.
+Types which implement the <code>Equal</code> interface can be compared for equality using the <code>=</code> operator.</p>
 <h4 id="num"><a class="header" href="#num">Num</a></h4>
-<p>The Num interface is used for <code>int</code> and <code>float</code>.
-Types which implement the Num interface can use the arithmetic operators.</p>
+<p>The <code>Num</code> interface is used for <code>int</code> and <code>float</code>.
+Types which implement the <code>Num</code> interface can use the arithmetic operators.</p>
+<h4 id="iterator"><a class="header" href="#iterator">Iterator</a></h4>
+<p>The <code>Iterator</code> interface is implemented by types which traverse over some data structure's elements.
+The <code>Iterator</code> interface is used by the <code>Iterable</code> interface, but <code>Iterator</code> can also be used on its own.</p>
 <h4 id="iterable"><a class="header" href="#iterable">Iterable</a></h4>
-<p>The Iterable interface is implemented for container types in order to iterate through their values.
-Types which implement the Iterable interface can be used in a for loop.</p>
-<h4 id="iterable-1"><a class="header" href="#iterable-1">Iterable</a></h4>
-<p>Types which implement the Iterable interface, such as <code>array&lt;'T&gt;</code>, have an associated type which implements
-the Iterator interface. In the case of <code>array&lt;'T&gt;</code>, that type is <code>ArrayIterator&lt;'T&gt;</code></p>
+<p>The <code>Iterable</code> interface is implemented for container types in order to iterate through their values.
+Types which implement the Iterable interface can be used in a for loop. Types which implement the <code>Iterable</code> interface,
+such as <code>array&lt;'T&gt;</code>, have an <em>associated type</em> which implements
+the <code>Iterator</code> interface. In the case of <code>array&lt;'T&gt;</code>, that iterator type is <code>ArrayIterator&lt;'T&gt;</code>.</p>
 <h3 id="associated-types"><a class="header" href="#associated-types">Associated types</a></h3>
-<ul>
-<li>TODO</li>
-</ul>
-<div style="break-before: page; page-break-before: always;"></div><h1 id="namespaces"><a class="header" href="#namespaces">Namespaces</a></h1>
-<p>Each Abra file has its own namespace. In order to use functions from another file, the <code>use</code> keyword must be used to bring them into scope.</p>
-<p>cat.abra</p>
-<pre><code>fn meow() -&gt; string {
-    "nyan nyan nyan"
+<p>Associated types are used when the output of an interface's operations are determined by the type of the input.
+For instance, when implementing the <code>Iterable</code> interface, different container types will be associated with different
+iterator types.
+For example, <code>array&lt;'T&gt;</code> returns an <code>ArrayIterator&lt;'T&gt;</code>, whereas a <code>hashmap&lt;'K,'V&gt;</code> would return a
+<code>HashmapIterator&lt;'K,'V&gt;</code>, which is a completely different struct.
+Similarly, a <code>StringIterator</code>, when implementing the <code>Iterator</code> interface, would always return a <code>maybe&lt;char,void&gt;</code>, so
+<code>Item</code> = <code>char</code> in that case.</p>
+<p>Without associated types, interfaces like <code>Iterable</code> would have to be parameterized over <code>Item</code> and <code>Iter</code>,
+which would require much more type annotations. This would also impede language features like operator overloading and
+the <code>for-in</code> loop, which lean on interfaces in the prelude such as <code>Iterable</code> and <code>Iterator</code>.</p>
+<pre><code>interface Iterable {
+    associatedtype Item
+    associatedtype Iter impl Iterator&lt;Item=Item&gt;
+
+    fn make_iterator: ('a Iterable) -&gt; Iter
+}
+
+interface Iterator {
+    associatedtype Item
+
+    fn next: ('a Iterator) -&gt; maybe&lt;Item,void&gt;
 }
 </code></pre>
-<p>main.abra</p>
-<pre><code>use cat
-
-meow()
+<div style="break-before: page; page-break-before: always;"></div><h1 id="namespaces"><a class="header" href="#namespaces">Namespaces</a></h1>
+<p>Each Abra file has its own namespace determined by the name of the file and its parent directories (relative to the
+entry point of the program).</p>
+<p>For instance, if the entry point is <code>main.abra</code> and beside that main file, there is a <code>hat.abra</code> and a
+<code>weapons/sword.abra</code>, like so:</p>
+<pre><code>- main.abra
+- hat.abra
+- [weapons]
+    - sword.abra
+    - spear.abra
 </code></pre>
+<p>and if the contents of those files are as follows</p>
+<pre><code>// hat.abra
+fn wear() {
+    println("you are wearing the hat")
+}
+
+fn pull_out_rabbit() {
+    println("pulled a white rabbit out of the hat")
+}
+</code></pre>
+<pre><code>// sword.abra
+fn swing() {
+    println("SWOOSH")
+}
+</code></pre>
+<pre><code>// halberd.abra
+fn swing() {
+    println("SWOOSH")
+}
+
+fn stab() {
+    println("SWOOSH")
+}
+</code></pre>
+<p>Then the fully qualified names of those functions would be <code>hat.wear</code>, <code>weapons.sword.swing</code>, and
+<code>weapons.halberd.swing</code> respectively.</p>
+<p>By default, the functions in <code>hat.abra</code>, <code>sword.abra</code>, and <code>halberd.abra</code> are not accessible to <code>main.abra</code>.
+In order to use functions from another file, the <code>use</code> keyword must be used to bring them into scope.</p>
+<pre><code>// main.abra
+
+use hat
+use weapons/sword
+
+wear()
+swing()
+</code></pre>
+<p>By default, the <code>use</code> keyword makes all symbols visible.
+This is a convenient default, but it leads to name clashes in large projects.
+To avoid name clashes, users can either:</p>
+<ol>
+<li>
+<p>Use the <code>use</code> keyword with the <code>except</code> keyword to exclude an unwanted symbol</p>
+<pre><code>use weapons/sword
+use weapons/halberd except swing
+
+swing()         // sword.swing
+stab()          // halberd.stab
+</code></pre>
+</li>
+<li>
+<p>Explicitly import individual symbols</p>
+<pre><code>use weapons/sword.swing
+use weapons/halberd.stab
+
+swing()         // sword.swing
+stab()          // halberd.stab
+</code></pre>
+<p>Note: multiple symbols can be imported from a namespace like this:</p>
+<pre><code>use weapons/halberd.(swing,stab)
+
+swing()         // halberd.swing
+stab()          // halberd.stab
+</code></pre>
+</li>
+</ol>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="foreign-functions"><a class="header" href="#foreign-functions">Foreign Functions</a></h1>
-<p>Functions defined in Rust can be called from Abra. Foreign functions must be declared ahead of time, so that their types are known. The corresponding Rust function definitions use the Abra VM API to pop arguments from the stack and push a return value to the stack.</p>
+<p>Functions implemented in Rust can be called from Abra.
+Foreign functions must be declared ahead of time in an Abra file, so that the compiler knows they exist.
+The compiler will search for a directory with the same name as the Abra file which contains a Rust project.
+That Rust project should use crate-type "cdylib" so that it can be loaded at runtime. It must take <code>abra_core</code> as a
+dependency. It is recommended to take <code>abra_core</code> as a build-dependency as well and to invoke
+<code>generate_bindings_for_crate()</code> in the project's <code>build.rs</code>. This will automatically generate the necessary unsafe glue
+code that corresponds with the foreign function declarations. Then, you can implement those foreign functions using safe
+Rust.</p>
+<p>In order to avoid creating a Rust project (and therefore a cdylib) for every Abra file with a foreign function
+declaration, there should be a
+single Rust project for every toplevel namespace that contains foreign function declarations.
+For example, implementing a foreign function in <code>os.abra</code> (os is under the root namespace) should be done in
+<code>os/rust_project/src/os.rs</code>.
+Implementing a foreign function in <code>os/exec.abra</code>, which is under the os/ namespace, should be done in
+<code>os/rust_project/src/os/exec.abra</code> -- the same Rust project.</p>
 <p>os.abra</p>
 <pre><code>foreign fn fread(path: string) -&gt; string
 
 foreign fn fwrite(path: string, contents: string) -&gt; string
 </code></pre>
-<p>os/src/lib.rs</p>
+<p>os/rust_project/Cargo.toml</p>
+<pre><code>[package]
+name = "abra_module_os"
+
+[lib]
+crate-type = ["cdylib"]
+[dependencies]
+abra_core = { workspace = true }
+
+[build-dependencies]
+abra_core = { workspace = true }
+</code></pre>
+<p>os/rust_project/build.rs</p>
+<pre><code>fn main() {
+    abra_core::addons::generate_bindings_for_crate();
+}
+</code></pre>
+<p>os/rust_project/src/lib.rs (automatically generated)</p>
 <pre><code>use abra_core::vm::Vm;
 use std::fs;
 
@@ -615,6 +732,18 @@ pub unsafe extern "C" fn fwrite(vm: *mut Vm) {
     let path = string_view.to_owned();
     vm_pop(vm);
 
+    fs::write(path, content).expect("Unable to write to file");
+}
+</code></pre>
+<p>os/rust_project/src/os.rs</p>
+<pre><code>use std::fs::self;
+use std::io::Write;
+
+pub fn fread(path: String) -&gt; Result&lt;String, String&gt; {
+    fs::read_to_string(path).map_err(|e| e.to_string())
+}
+
+pub fn fwrite(path: String, content: String) {
     fs::write(path, content).expect("Unable to write to file");
 }
 </code></pre>

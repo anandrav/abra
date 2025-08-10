@@ -179,13 +179,44 @@
                 <div id="content" class="content">
                     <main>
                         <h1 id="foreign-functions"><a class="header" href="#foreign-functions">Foreign Functions</a></h1>
-<p>Functions defined in Rust can be called from Abra. Foreign functions must be declared ahead of time, so that their types are known. The corresponding Rust function definitions use the Abra VM API to pop arguments from the stack and push a return value to the stack.</p>
+<p>Functions implemented in Rust can be called from Abra.
+Foreign functions must be declared ahead of time in an Abra file, so that the compiler knows they exist.
+The compiler will search for a directory with the same name as the Abra file which contains a Rust project.
+That Rust project should use crate-type "cdylib" so that it can be loaded at runtime. It must take <code>abra_core</code> as a
+dependency. It is recommended to take <code>abra_core</code> as a build-dependency as well and to invoke
+<code>generate_bindings_for_crate()</code> in the project's <code>build.rs</code>. This will automatically generate the necessary unsafe glue
+code that corresponds with the foreign function declarations. Then, you can implement those foreign functions using safe
+Rust.</p>
+<p>In order to avoid creating a Rust project (and therefore a cdylib) for every Abra file with a foreign function
+declaration, there should be a
+single Rust project for every toplevel namespace that contains foreign function declarations.
+For example, implementing a foreign function in <code>os.abra</code> (os is under the root namespace) should be done in
+<code>os/rust_project/src/os.rs</code>.
+Implementing a foreign function in <code>os/exec.abra</code>, which is under the os/ namespace, should be done in
+<code>os/rust_project/src/os/exec.abra</code> -- the same Rust project.</p>
 <p>os.abra</p>
 <pre><code>foreign fn fread(path: string) -&gt; string
 
 foreign fn fwrite(path: string, contents: string) -&gt; string
 </code></pre>
-<p>os/src/lib.rs</p>
+<p>os/rust_project/Cargo.toml</p>
+<pre><code>[package]
+name = "abra_module_os"
+
+[lib]
+crate-type = ["cdylib"]
+[dependencies]
+abra_core = { workspace = true }
+
+[build-dependencies]
+abra_core = { workspace = true }
+</code></pre>
+<p>os/rust_project/build.rs</p>
+<pre><code>fn main() {
+    abra_core::addons::generate_bindings_for_crate();
+}
+</code></pre>
+<p>os/rust_project/src/lib.rs (automatically generated)</p>
 <pre><code>use abra_core::vm::Vm;
 use std::fs;
 
@@ -212,6 +243,18 @@ pub unsafe extern "C" fn fwrite(vm: *mut Vm) {
     let path = string_view.to_owned();
     vm_pop(vm);
 
+    fs::write(path, content).expect("Unable to write to file");
+}
+</code></pre>
+<p>os/rust_project/src/os.rs</p>
+<pre><code>use std::fs::self;
+use std::io::Write;
+
+pub fn fread(path: String) -&gt; Result&lt;String, String&gt; {
+    fs::read_to_string(path).map_err(|e| e.to_string())
+}
+
+pub fn fwrite(path: String, content: String) {
     fs::write(path, content).expect("Unable to write to file");
 }
 </code></pre>
