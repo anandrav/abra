@@ -185,7 +185,7 @@ As an example, the <code>Num</code> interface supports the <code>add()</code>, <
 The Number interface is implemented by both the <code>int</code> and <code>float</code> built-in types.</p>
 <pre><code>// support conversion to string
 interface ToString {
-    fn to_string(x: self) -&gt; string
+    fn str(x: self) -&gt; string
 }
 
 type Person = {
@@ -196,7 +196,7 @@ type Person = {
 
 // support conversion to string for the Person type
 impl ToString for Person {
-    fn to_string(x: Person) -&gt; string {
+    fn str(x: Person) -&gt; string {
         x.first_name &amp; " " &amp; x.last_name &amp; ", " x.age &amp; " years old."
     }
 }
@@ -204,9 +204,45 @@ impl ToString for Person {
 ...
 
 let p = Person("Arthur", "Pendragon", 15)
-let s = p.to_string() // "Arthur Pendragon 15"
+let s = p.str() // "Arthur Pendragon 15"
 
 </code></pre>
+<h3 id="standard-library-interfaces"><a class="header" href="#standard-library-interfaces">Standard library interfaces</a></h3>
+<h4 id="tostring"><a class="header" href="#tostring">ToString</a></h4>
+<p>The ToString interface allows you to convert some type to a string.
+Any type which implements the ToString interface can be passed as an argument to the <code>&amp;</code> operator.</p>
+<pre><code>let arr = [1, 2, 3]
+let arr_str = arr.str()         // arr_str = "[1, 2, 3]"
+let age = 23
+let name = "John"
+println(name &amp; " is " &amp; age)    // prints "John is 23"
+</code></pre>
+<h4 id="clone"><a class="header" href="#clone">Clone</a></h4>
+<p>The clone interface allows you to create a deep copy of some data structure.
+For instance, cloning an array allows you to manipulate its copy without manipulating the original.</p>
+<pre><code>let arr = [1, 2, 3]
+let arr2 = arr.clone()
+arr2.pop()
+arr2.pop()
+arr2.pop()
+// arr = [1, 2, 3] and arr = []
+</code></pre>
+<h4 id="equal"><a class="header" href="#equal">Equal</a></h4>
+<ul>
+<li>todo</li>
+</ul>
+<h4 id="num"><a class="header" href="#num">Num</a></h4>
+<ul>
+<li>todo</li>
+</ul>
+<h4 id="iterable"><a class="header" href="#iterable">Iterable</a></h4>
+<ul>
+<li>todo</li>
+</ul>
+<h4 id="iterable-1"><a class="header" href="#iterable-1">Iterable</a></h4>
+<ul>
+<li>todo</li>
+</ul>
 
                     </main>
 
