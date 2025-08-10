@@ -18,3 +18,9 @@ popd > /dev/null
 
 cargo deny check
 
+mdbook build book
+
+GREEN='\033[0;32m'
+NC='\033[0m' # No Color
+printf "${GREEN}PASSED${NC}\n"
+

@@ -271,7 +271,6 @@ type ArrayIterator<'T> = {
 
 // TODO: remove the need to prefix polytypes with '
 // it's actually hard to read, and it's confusing when it's optional or not
-// TODO: 'T and T are seen as the same by the resolver, even though they are different!!! (one is a Polytype, the other is a NamedParam)
 implement Iterator for ArrayIterator<'T> {
     fn next(self: ArrayIterator<'T>) -> maybe<'T,void> {
         if self.i = self.arr.len() {
