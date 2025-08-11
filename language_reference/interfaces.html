@@ -239,28 +239,28 @@ The <code>Iterator</code> interface is used by the <code>Iterable</code> interfa
 <h4 id="iterable"><a class="header" href="#iterable">Iterable</a></h4>
 <p>The <code>Iterable</code> interface is implemented for container types in order to iterate through their values.
 Types which implement the Iterable interface can be used in a for loop. Types which implement the <code>Iterable</code> interface,
-such as <code>array&lt;'T&gt;</code>, have an <em>associated type</em> which implements
+such as <code>array&lt;'T&gt;</code>, have an <em>output type</em> which implements
 the <code>Iterator</code> interface. In the case of <code>array&lt;'T&gt;</code>, that iterator type is <code>ArrayIterator&lt;'T&gt;</code>.</p>
-<h3 id="associated-types"><a class="header" href="#associated-types">Associated types</a></h3>
-<p>Associated types are used when the output of an interface's operations are determined by the type of the input.
-For instance, when implementing the <code>Iterable</code> interface, different container types will be associated with different
+<h3 id="output-types"><a class="header" href="#output-types">Output types</a></h3>
+<p>Output types are used when the output of an interface's operations are determined by the type of the input.
+For instance, when implementing the <code>Iterable</code> interface, different container types will output different
 iterator types.
 For example, <code>array&lt;'T&gt;</code> returns an <code>ArrayIterator&lt;'T&gt;</code>, whereas a <code>hashmap&lt;'K,'V&gt;</code> would return a
 <code>HashmapIterator&lt;'K,'V&gt;</code>, which is a completely different struct.
 Similarly, a <code>StringIterator</code>, when implementing the <code>Iterator</code> interface, would always return a <code>maybe&lt;char,void&gt;</code>, so
 <code>Item</code> = <code>char</code> in that case.</p>
-<p>Without associated types, interfaces like <code>Iterable</code> would have to be parameterized over <code>Item</code> and <code>Iter</code>,
+<p>Without output types, interfaces like <code>Iterable</code> would have to be parameterized over <code>Item</code> and <code>Iter</code>,
 which would require much more type annotations. This would also impede language features like operator overloading and
 the <code>for-in</code> loop, which lean on interfaces in the prelude such as <code>Iterable</code> and <code>Iterator</code>.</p>
 <pre><code>interface Iterable {
-    associatedtype Item
-    associatedtype Iter impl Iterator&lt;Item=Item&gt;
+    outputtype Item
+    outputtype Iter impl Iterator&lt;Item=Item&gt;
 
     fn make_iterator: ('a Iterable) -&gt; Iter
 }
 
 interface Iterator {
-    associatedtype Item
+    outputtype Item
 
     fn next: ('a Iterator) -&gt; maybe&lt;Item,void&gt;
 }
