@@ -43,7 +43,7 @@ pub(crate) struct StaticsContext {
     // FQNs of types are needed to determine the FQN of a member function
     pub(crate) fully_qualified_names: HashMap<NodeId, String>,
 
-    // This maps from some interface to its namespace. Used to resolve associated types, which are
+    // This maps from some interface to its namespace. Used to resolve output types, which are
     // declared in the Interface's body, elsewhere in the body such as a function signature, in an
     // order-independent manner.
     pub(crate) interface_namespaces: HashMap<Rc<InterfaceDef>, Rc<Namespace>>,
@@ -196,7 +196,7 @@ pub(crate) enum Declaration {
         i: Rc<InterfaceDef>,
         method: usize,
     },
-    AssociatedType {
+    OutputType {
         i: Rc<InterfaceDef>,
         at: Rc<OutputType>,
     },
@@ -232,7 +232,7 @@ impl Declaration {
             | Declaration::Var(_)
             | Declaration::Polytype(_)
             | Declaration::EnumVariant { .. } => None,
-            Declaration::AssociatedType { .. } => unimplemented!(),
+            Declaration::OutputType { .. } => unimplemented!(),
             Declaration::Enum(enum_def) => Some(TypeKey::TyApp(Nominal::Enum(enum_def.clone()))),
             Declaration::Struct(struct_def) => {
                 Some(TypeKey::TyApp(Nominal::Struct(struct_def.clone())))
@@ -682,7 +682,7 @@ fn add_detail_for_decl(
         | Declaration::Struct(..)
         | Declaration::Polytype(..)
         | Declaration::Var(..) => {}
-        Declaration::AssociatedType { .. } => unimplemented!(),
+        Declaration::OutputType { .. } => unimplemented!(),
         Declaration::Builtin(builtin) => notes.push(format!(
             "`{}` is a builtin operation and cannot be re-declared",
             builtin.name()
@@ -715,7 +715,7 @@ fn add_detail_for_decl_node(
         Declaration::Polytype(polytype) => polytype.name.node(),
 
         Declaration::Var(ast_node) => ast_node.clone(),
-        Declaration::AssociatedType { .. } => unimplemented!(),
+        Declaration::OutputType { .. } => unimplemented!(),
         Declaration::Builtin(_) | Declaration::BuiltinType(_) | Declaration::Array => return false,
     };
     let (file, range) = node.get_file_and_range();

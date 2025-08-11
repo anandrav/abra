@@ -85,14 +85,14 @@ fn gather_declarations_item(
                     },
                 );
             }
-            for associated_type in iface.output_types.iter() {
-                let name = associated_type.name.v.clone();
+            for output_type in iface.output_types.iter() {
+                let name = output_type.name.v.clone();
                 iface_namespace.add_declaration(
                     ctx,
                     name,
-                    Declaration::AssociatedType {
+                    Declaration::OutputType {
                         i: iface.clone(),
-                        at: associated_type.clone(),
+                        at: output_type.clone(),
                     },
                 );
             }
@@ -574,13 +574,8 @@ fn resolve_names_item_decl(ctx: &mut StaticsContext, symbol_table: SymbolTable, 
                     resolve_names_polytyp(ctx, symbol_table.clone(), ty_arg.clone(), true);
                 }
                 for variant in &enum_def.variants {
-                    if let Some(associated_data_ty) = &variant.data {
-                        resolve_names_typ(
-                            ctx,
-                            symbol_table.clone(),
-                            associated_data_ty.clone(),
-                            false,
-                        );
+                    if let Some(data_ty) = &variant.data {
+                        resolve_names_typ(ctx, symbol_table.clone(), data_ty.clone(), false);
                     }
                 }
             }
@@ -786,7 +781,7 @@ fn resolve_names_member_helper(ctx: &mut StaticsContext, expr: Rc<Expr>, field: 
             | Declaration::_ForeignFunction { .. }
             | Declaration::InterfaceMethod { .. }
             | Declaration::MemberFunction { .. }
-            | Declaration::AssociatedType { .. }
+            | Declaration::OutputType { .. }
             | Declaration::EnumVariant { .. }
             | Declaration::Polytype(_)
             | Declaration::Builtin(_) => {
@@ -1037,7 +1032,7 @@ fn fqn_of_type(ctx: &StaticsContext, lookup_id: NodeId) -> Option<String> {
         Declaration::InterfaceDef(_) => None,
         Declaration::InterfaceMethod { .. } => None,
         Declaration::MemberFunction { .. } => None,
-        Declaration::AssociatedType { .. } => None,
+        Declaration::OutputType { .. } => None,
         Declaration::Enum(e) => ctx.fully_qualified_names.get(&e.name.id).cloned(),
         Declaration::Struct(s) => ctx.fully_qualified_names.get(&s.name.id).cloned(),
         Declaration::EnumVariant { .. } => None,

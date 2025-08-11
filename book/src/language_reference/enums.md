@@ -9,7 +9,7 @@ type Color =
   | Green
 ```
 
-Data can be associated with each variant of an enum
+Data can be attached to each variant of an enum.
 
 ```
 type Shape =

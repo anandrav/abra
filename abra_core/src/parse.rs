@@ -785,7 +785,7 @@ pub(crate) fn parse_item(pair: Pair<Rule>, file_id: FileId) -> Rc<Item> {
                             interfaces.push(interface);
                         }
                         let outputtype = OutputType { name, interfaces };
-                        // dbg!(&associatedtype);
+                        // dbg!(&outputtype);
                         output_types.push(Rc::new(outputtype));
                     }
                     _ => unreachable!("unreachable rule {rule:#?}"),
@@ -801,7 +801,7 @@ pub(crate) fn parse_item(pair: Pair<Rule>, file_id: FileId) -> Rc<Item> {
                         }
                         .into(),
                         methods: props,
-                        output_types: output_types,
+                        output_types,
                     }
                     .into(),
                 )

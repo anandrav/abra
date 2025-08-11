@@ -1689,7 +1689,7 @@ fn generate_constraints_expr(
                         ))
                     }
                     Declaration::InterfaceDef(..)
-                    | Declaration::AssociatedType { .. }
+                    | Declaration::OutputType { .. }
                     | Declaration::Enum(_)
                     | Declaration::Array
                     | Declaration::BuiltinType(_)
