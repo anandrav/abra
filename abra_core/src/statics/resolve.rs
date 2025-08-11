@@ -85,7 +85,7 @@ fn gather_declarations_item(
                     },
                 );
             }
-            for associated_type in iface.associated_types.iter() {
+            for associated_type in iface.output_types.iter() {
                 let name = associated_type.name.v.clone();
                 iface_namespace.add_declaration(
                     ctx,

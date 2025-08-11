@@ -247,14 +247,14 @@ fn format_append(s1: 'a ToString, s2: 'b ToString) {
 }
 
 interface Iterable {
-    associatedtype Item
-    associatedtype Iter impl Iterator<Item=Item>
+    outputtype Item
+    outputtype Iter impl Iterator<Item=Item>
 
     fn make_iterator: ('a Iterable) -> Iter
 }
 
 interface Iterator {
-    associatedtype Item
+    outputtype Item
 
     fn next: ('a Iterator) -> maybe<Item,void>
 }

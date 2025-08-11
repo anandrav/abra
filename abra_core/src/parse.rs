@@ -519,7 +519,7 @@ pub(crate) fn parse_type_poly(pair: Pair<Rule>, file_id: FileId) -> Rc<Polytype>
                 n += 1;
 
                 let mut args = vec![];
-                while n < inner.len() && inner[n].as_rule() == Rule::associated_type_binding {
+                while n < inner.len() && inner[n].as_rule() == Rule::output_type_binding {
                     let inner: Vec<_> = inner[n].clone().into_inner().collect();
                     args.push((
                         Identifier {
@@ -716,7 +716,7 @@ pub(crate) fn parse_item(pair: Pair<Rule>, file_id: FileId) -> Rc<Item> {
         Rule::interface_declaration => {
             let name: String = inner[0].as_str().to_string();
             let mut props = vec![];
-            let mut associated_types = vec![];
+            let mut output_types = vec![];
             for pair in inner.iter().skip(1) {
                 let rule = pair.as_rule();
                 let span = pair.as_span();
@@ -739,7 +739,7 @@ pub(crate) fn parse_item(pair: Pair<Rule>, file_id: FileId) -> Rc<Item> {
                         };
                         props.push(Rc::new(method));
                     }
-                    Rule::associated_type_decl => {
+                    Rule::output_type_decl => {
                         let name = inner[0].as_str().to_string();
                         let inner_loc = Location::new(file_id, inner[0].as_span());
                         let name = Identifier {
@@ -762,8 +762,7 @@ pub(crate) fn parse_item(pair: Pair<Rule>, file_id: FileId) -> Rc<Item> {
                             n += 1;
 
                             let mut args = vec![];
-                            while n < inner.len()
-                                && inner[n].as_rule() == Rule::associated_type_binding
+                            while n < inner.len() && inner[n].as_rule() == Rule::output_type_binding
                             {
                                 let inner: Vec<_> = inner[n].clone().into_inner().collect();
                                 args.push((
@@ -785,9 +784,9 @@ pub(crate) fn parse_item(pair: Pair<Rule>, file_id: FileId) -> Rc<Item> {
                             .into();
                             interfaces.push(interface);
                         }
-                        let associatedtype = AssociatedType { name, interfaces };
+                        let outputtype = OutputType { name, interfaces };
                         // dbg!(&associatedtype);
-                        associated_types.push(Rc::new(associatedtype));
+                        output_types.push(Rc::new(outputtype));
                     }
                     _ => unreachable!("unreachable rule {rule:#?}"),
                 }
@@ -802,7 +801,7 @@ pub(crate) fn parse_item(pair: Pair<Rule>, file_id: FileId) -> Rc<Item> {
                         }
                         .into(),
                         methods: props,
-                        associated_types,
+                        output_types: output_types,
                     }
                     .into(),
                 )

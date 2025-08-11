@@ -80,33 +80,33 @@ The `Iterator` interface is used by the `Iterable` interface, but `Iterator` can
 
 The `Iterable` interface is implemented for container types in order to iterate through their values.
 Types which implement the Iterable interface can be used in a for loop. Types which implement the `Iterable` interface,
-such as `array<'T>`, have an _associated type_ which implements
+such as `array<'T>`, have an _output type_ which implements
 the `Iterator` interface. In the case of `array<'T>`, that iterator type is `ArrayIterator<'T>`.
 
-### Associated types
+### Output types
 
-Associated types are used when the output of an interface's operations are determined by the type of the input.
-For instance, when implementing the `Iterable` interface, different container types will be associated with different
+Output types are used when the output of an interface's operations are determined by the type of the input.
+For instance, when implementing the `Iterable` interface, different container types will output different
 iterator types.
 For example, `array<'T>` returns an `ArrayIterator<'T>`, whereas a `hashmap<'K,'V>` would return a
 `HashmapIterator<'K,'V>`, which is a completely different struct.
 Similarly, a `StringIterator`, when implementing the `Iterator` interface, would always return a `maybe<char,void>`, so
 `Item` = `char` in that case.
 
-Without associated types, interfaces like `Iterable` would have to be parameterized over `Item` and `Iter`,
+Without output types, interfaces like `Iterable` would have to be parameterized over `Item` and `Iter`,
 which would require much more type annotations. This would also impede language features like operator overloading and
 the `for-in` loop, which lean on interfaces in the prelude such as `Iterable` and `Iterator`.
 
 ```
 interface Iterable {
-    associatedtype Item
-    associatedtype Iter impl Iterator<Item=Item>
+    outputtype Item
+    outputtype Iter impl Iterator<Item=Item>
 
     fn make_iterator: ('a Iterable) -> Iter
 }
 
 interface Iterator {
-    associatedtype Item
+    outputtype Item
 
     fn next: ('a Iterator) -> maybe<Item,void>
 }

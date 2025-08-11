@@ -24,9 +24,9 @@ path = @{ identifier ~ ("/" ~ identifier)* }
 
 interface_declaration = { "interface" ~ identifier ~ interface_body }
 interface_body = _{ "{" ~ interface_property* ~ "}" }
-interface_property = _{ interface_method | associated_type_decl }
+interface_property = _{ interface_method | output_type_decl }
 interface_method = { "fn" ~ identifier ~ type_annotation }
-associated_type_decl = { "associatedtype" ~ identifier ~ ("impl" ~ interface_constraint*)? }
+output_type_decl = { "outputtype" ~ identifier ~ ("impl" ~ interface_constraint*)? }
 
 interface_implementation = { "implement" ~ identifier ~ "for" ~ typ ~ interface_implementation_body }
 interface_implementation_body = _{ "{" ~ func_def* ~ "}" }
@@ -158,8 +158,8 @@ type_literal_string = @{ "string" }
 type_poly = { type_poly_ident ~ interface_constraint* }
 type_poly_ident = @{ "'" ~ (alpha | "_") ~ (alphanumeric | "_")* } // 'a, 'b, 'c, etc.
 interface_constraint = _{ identifier ~ interface_constraint_params? }
-interface_constraint_params = _{ "<" ~ (associated_type_binding ~ ",")* ~ associated_type_binding? ~ ">" }
-associated_type_binding = { identifier ~ "=" ~ typ }
+interface_constraint_params = _{ "<" ~ (output_type_binding ~ ",")* ~ output_type_binding? ~ ">" }
+output_type_binding = { identifier ~ "=" ~ typ }
 
 primary_expression = _{ literal | identifier | member_access_inferred }
 
