@@ -611,24 +611,23 @@ interface Iterator {
 }
 </code></pre>
 <div style="break-before: page; page-break-before: always;"></div><h2 id="error-handling"><a class="header" href="#error-handling">Error Handling</a></h2>
-<p>It is recommended to use the <code>maybe</code> type defined in the standard library as a return type for functions that can fail.
-The <code>maybe</code> type is the same as the <code>Result</code> type in Rust or the <code>Either</code> type in Haskell.</p>
-<pre><code>type maybe&lt;'T,'E&gt; =
-  | yes('T)
-  | no('E)
+<p>It is recommended to use the <code>option</code> type defined in the standard library as a return type for functions that can fail.</p>
+<pre><code>type option&lt;'T&gt; =
+  | some of 'T
+  | none
 </code></pre>
-<pre><code>fn safe_divide(a: float, b: float) -&gt; maybe&lt;float, void&gt; {
+<pre><code>fn safe_divide(a: float, b: float) -&gt; option&lt;float&gt; {
     if b = 0.0 {
-        .no(())
+        .none
     } else {
-        .yes(a / b)
+        .some(a / b)
     }
 }
 </code></pre>
-<p>For convenience, you can use the unwrap operator <code>!</code> to forcibly get the value from the <code>yes</code> case, or invoke <code>panic()</code>
-if it's the <code>no</code> case. This is useful if you know that the result is guaranteed to be a success.
+<p>For convenience, you can use the unwrap operator <code>!</code> to forcibly get the value from the <code>some</code> case, or invoke <code>panic()</code>
+if it's the <code>none</code> case. This is useful if you know that the result is guaranteed to be a success.
 The <code>!</code> operator is syntactic sugar for calling <code>.unwrap()</code> on some value.</p>
-<pre><code>// assume string_to_int: string -&gt; maybe&lt;int, void&gt;
+<pre><code>// assume string_to_int: string -&gt; option&lt;int&gt;
 
 let a = string_to_int("10")!
 let b = string_to_int("5")!
