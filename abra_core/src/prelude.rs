@@ -7,18 +7,18 @@ host fn print_string(s: string) -> void
 
 fn not(b: bool) = if b false else true
 
-// TODO: really need ability to just write Self instead of 'a Num implicitly being the principled type
+// TODO: really need ability to just write Self instead of Self implicitly being the principled type
 // 'a shouldn't be assumed to be the principled type; it could just be another generic created by the user.
 interface Num {
-    fn add: ('a Num, 'a Num) -> 'a Num
-    fn subtract: ('a Num, 'a Num) -> 'a Num
-    fn multiply: ('a Num, 'a Num) -> 'a Num
-    fn divide: ('a Num, 'a Num) -> 'a Num
-    fn power: ('a Num, 'a Num) -> 'a Num
-    fn less_than: ('a Num, 'a Num) -> bool
-    fn less_than_or_equal: ('a Num, 'a Num) -> bool
-    fn greater_than: ('a Num, 'a Num) -> bool
-    fn greater_than_or_equal: ('a Num, 'a Num) -> bool
+    fn add: (Self, Self) -> Self
+    fn subtract: (Self, Self) -> Self
+    fn multiply: (Self, Self) -> Self
+    fn divide: (Self, Self) -> Self
+    fn power: (Self, Self) -> Self
+    fn less_than: (Self, Self) -> bool
+    fn less_than_or_equal: (Self, Self) -> bool
+    fn greater_than: (Self, Self) -> bool
+    fn greater_than_or_equal: (Self, Self) -> bool
 }
 
 implement Num for int {
@@ -55,7 +55,7 @@ fn unwrap(m: maybe<'y,'n>) -> 'y {
 }
 
 interface Equal {
-    fn equal: ('a Equal, 'a Equal) -> bool
+    fn equal: (Self, Self) -> bool
 }
 implement Equal for void {
     fn equal(a, b) = true
@@ -82,7 +82,7 @@ implement Equal for string {
 }
 
 interface Clone {
-    fn clone: 'a Clone -> 'a Clone
+    fn clone: Self -> Self
 }
 extend array<'a> {
     fn len(self: array<'a>) -> int {
@@ -125,7 +125,7 @@ implement Clone for string {
 }
 
 interface ToString {
-    fn str: 'a ToString -> string
+    fn str: Self -> string
 }
 implement ToString for string {
 	fn str(s) = s
@@ -250,13 +250,13 @@ interface Iterable {
     outputtype Item
     outputtype Iter impl Iterator<Item=Item>
 
-    fn make_iterator: ('a Iterable) -> Iter
+    fn make_iterator: (Self) -> Iter
 }
 
 interface Iterator {
     outputtype Item
 
-    fn next: ('a Iterator) -> maybe<Item,void>
+    fn next: (Self) -> maybe<Item,void>
 }
 
 implement Iterable for array<'T> {

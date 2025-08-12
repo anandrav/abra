@@ -3,8 +3,8 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use crate::ast::{
-    ArgAnnotated, ArgMaybeAnnotated, AstNode, Expr, ExprKind, FileAst, Identifier, Interface,
-    ItemKind, NodeId, Pat, PatKind, Stmt, StmtKind, Type as AstType, TypeDefKind, TypeKind,
+    ArgAnnotated, ArgMaybeAnnotated, AstNode, Expr, ExprKind, FileAst, Identifier, ItemKind,
+    NodeId, Pat, PatKind, Stmt, StmtKind, Type as AstType, TypeDefKind, TypeKind,
 };
 use crate::ast::{BinaryOperator, Item};
 use crate::builtin::BuiltinOperation;
@@ -614,6 +614,7 @@ impl TypeVar {
         TypeVar(UnionFindNode::new(data_instantiated))
     }
 
+    // TODO: this should become get_interface_self_type()
     pub(crate) fn get_first_polymorphic_type(self) -> Option<PolytypeDeclaration> {
         let data = self.0.clone_data();
         if data.types.len() == 1 {
@@ -894,6 +895,7 @@ pub(crate) fn ast_type_to_solved_type(
                 Declaration::Enum(enum_def) => {
                     Some(SolvedType::Nominal(Nominal::Enum(enum_def.clone()), sargs))
                 }
+                Declaration::Polytype(poly_decl) => Some(SolvedType::Poly(poly_decl.clone())),
                 _ => None,
             }
         }
@@ -960,6 +962,9 @@ pub(crate) fn ast_type_to_typevar(ctx: &StaticsContext, ast_type: Rc<AstType>) -
                         .map(|param| ast_type_to_typevar(ctx, param.clone()))
                         .collect(),
                 ),
+                Some(Declaration::Polytype(poly_decl)) => {
+                    TypeVar::make_poly(Reason::Annotation(ast_type.node()), poly_decl.clone())
+                }
                 _ => {
                     // since resolution failed, unconstrained type
                     TypeVar::empty()
@@ -1264,7 +1269,9 @@ fn generate_constraints_item_decls(ctx: &mut StaticsContext, item: Rc<Item>) {
                             substitution.insert(poly_decl, impl_ty.clone());
                         }
 
+                        // println!("iface method ty before: {}", interface_method_ty);
                         let expected = interface_method_ty.clone().subst(&substitution);
+                        // println!("iface method ty after: {}", expected);
 
                         let actual = TypeVar::from_node(ctx, f.name.node());
                         constrain(ctx, expected.clone(), actual);
