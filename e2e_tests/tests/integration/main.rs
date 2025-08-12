@@ -24,7 +24,7 @@ true
 another
 yet another
 (true, 2, 3)
-yes
+some
 [ 1, 2, 3, 4, 5, 6 ]
 "#
     );

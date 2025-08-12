@@ -32,8 +32,8 @@ pub fn pass_tuple(t: (bool, i64, String)) -> (bool, i64, String) {
     t
 }
 
-pub fn pass_maybe(m: Result<String, i64>) -> Result<String, i64> {
-    m
+pub fn pass_option(o: Option<String>) -> Option<String> {
+    o
 }
 
 pub fn pass_array(a: Vec<i64>) -> Vec<i64> {

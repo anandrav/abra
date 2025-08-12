@@ -564,8 +564,8 @@ fn name_of_ty(ty: Rc<Type>) -> String {
         TypeKind::NamedWithParams(ident, params) => {
             // special-case
             let mut s = ident.v.clone();
-            if s == "maybe" {
-                s = "Result".into();
+            if s == "option" {
+                s = "Option".into();
             } else if s == "array" {
                 s = "Vec".into();
             }
@@ -722,6 +722,41 @@ impl VmType for String {
         unsafe {
             let string_view = StringView::from_string(&self);
             (vm_funcs.push_string)(vm, string_view);
+        }
+    }
+}
+
+impl<T> VmType for Option<T>
+where
+    T: VmType,
+{
+    unsafe fn from_vm(vm: *mut c_void, vm_funcs: &AbraVmFunctions) -> Self {
+        unsafe {
+            (vm_funcs.deconstruct)(vm);
+            let tag = (vm_funcs.pop_int)(vm);
+            match tag {
+                0 => {
+                    let t = T::from_vm(vm, vm_funcs);
+                    Some(t)
+                }
+                1 => None,
+                _ => panic!("unexpected tag for Option type {tag}"),
+            }
+        }
+    }
+
+    unsafe fn to_vm(self, vm: *mut c_void, vm_funcs: &AbraVmFunctions) {
+        unsafe {
+            match self {
+                Some(t) => {
+                    t.to_vm(vm, vm_funcs);
+                    (vm_funcs.construct_variant)(vm, 0);
+                }
+                None => {
+                    ().to_vm(vm, vm_funcs);
+                    (vm_funcs.construct_variant)(vm, 1);
+                }
+            }
         }
     }
 }

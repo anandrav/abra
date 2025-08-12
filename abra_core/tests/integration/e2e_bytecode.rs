@@ -741,7 +741,7 @@ fib(10)
 #[test]
 fn unwrap_good() {
     let src = r#"
-let m: maybe<int, bool> = maybe.yes(3)
+let m: option<int> = option.some(3)
 m!
 "#;
     let program = unwrap_or_panic(compile_bytecode(
@@ -757,7 +757,7 @@ m!
 #[test]
 fn unwrap_bad() {
     let src = r#"
-let m: maybe<int, bool> = maybe.no(false)
+let m: option<int> = option.none
 m!
 "#;
     let program = unwrap_or_panic(compile_bytecode(
@@ -1365,8 +1365,8 @@ var sum = 0
 let it = arr.make_iterator()
 while true {
   match it.next() {
-    maybe.yes(n) -> sum := sum + n,
-    maybe.no(_) -> break,
+    option.some(n) -> sum := sum + n,
+    option.none -> break,
   }
 }
 

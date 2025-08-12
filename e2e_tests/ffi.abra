@@ -16,9 +16,9 @@ match e {
 }
 let t = pass_tuple((true, 2, "3"))
 println(t)
-let m = pass_maybe(maybe.yes("yes"))
-match m {
-    maybe.yes(s) -> println(s),
+let o = pass_option(option.some("some"))
+match o {
+    option.some(s) -> println(s),
     _ -> println("wrong variant")
 }
 let a = pass_array([ 1, 2, 3, 4, 5, 6 ])

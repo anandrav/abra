@@ -2243,16 +2243,18 @@ fn generate_constraints_expr(
             constrain(ctx, node_ty, elem_ty);
         }
         ExprKind::Unwrap(expr) => {
-            let Declaration::Enum(maybe_def) =
-                ctx.root_namespace.get_declaration("prelude.maybe").unwrap()
+            let Declaration::Enum(option_def) = ctx
+                .root_namespace
+                .get_declaration("prelude.option")
+                .unwrap()
             else {
                 unreachable!()
             };
-            let y_poly_decl = PolytypeDeclaration::Ordinary(maybe_def.ty_args[0].clone());
+            let y_poly_decl = PolytypeDeclaration::Ordinary(option_def.ty_args[0].clone());
             let (maybe_ty, substitution) = TypeVar::make_nominal_with_substitution(
                 ctx,
                 Reason::Node(expr.node()),
-                Nominal::Enum(maybe_def),
+                Nominal::Enum(option_def),
                 expr.node(),
             );
             let yes_ty = substitution[&y_poly_decl].clone();

@@ -8,8 +8,8 @@ pub mod exec;
 use std::fs::{self, OpenOptions};
 use std::io::Write;
 
-pub fn fread(path: String) -> Result<String, String> {
-    fs::read_to_string(path).map_err(|e| e.to_string())
+pub fn fread(path: String) -> Option<String> {
+    fs::read_to_string(path).ok()
 }
 
 pub fn fwrite(path: String, content: String) {

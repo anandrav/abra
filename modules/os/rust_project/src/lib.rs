@@ -13,7 +13,7 @@ pub mod ffi {
             unsafe {
                 let vm_funcs: &AbraVmFunctions = &*vm_funcs;
                 let path = <String>::from_vm(vm, vm_funcs);
-                let ret: Result<String, String> = os::fread(path);
+                let ret: Option<String> = os::fread(path);
                 ret.to_vm(vm, vm_funcs);
             }
         }

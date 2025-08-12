@@ -45,9 +45,9 @@ implement Num for float {
     fn greater_than_or_equal(a, b) = b < a
 }
 
-type maybe<'y,'n> = yes of ('y) | no of ('n)
+type option<'T> = some of ('T) | none
 
-fn unwrap(m: maybe<'y,'n>) -> 'y {
+fn unwrap(m: option<'T>) -> 'T {
     match m {
         .yes(y) -> y,
         .no(_) -> panic("could not unwrap")
@@ -209,11 +209,11 @@ implement ToString for ('a ToString, 'b ToString, 'c ToString, 'd ToString, 'e T
     }
 }
 
-implement ToString for maybe<'y ToString,'n ToString> {
-    fn str(m: maybe<'y ToString, 'n ToString>) {
+implement ToString for option<'T ToString> {
+    fn str(m: option<'T ToString>) {
         match m {
-            .yes(y) -> "yes(" & y & ")",
-            .no(n) -> "no(" & n & ")"
+            .some(x) -> "some(" & x & ")",
+            .none -> "none"
         }
     }
 }
@@ -256,7 +256,7 @@ interface Iterable {
 interface Iterator {
     outputtype Item
 
-    fn next: (Self) -> maybe<Item,void>
+    fn next: (Self) -> option<Item>
 }
 
 implement Iterable for array<'T> {
@@ -273,11 +273,11 @@ type ArrayIterator<'T> = {
 // TODO: remove the need to prefix polytypes with '
 // it's actually hard to read, and it's confusing when it's optional or not
 implement Iterator for ArrayIterator<'T> {
-    fn next(self: ArrayIterator<'T>) -> maybe<'T,void> {
+    fn next(self: ArrayIterator<'T>) -> option<'T> {
         if self.i = self.arr.len() {
-            maybe.no(())
+            option.none
         } else {
-            let ret = maybe.yes(self.arr[self.i])
+            let ret = option.some(self.arr[self.i])
             self.i := self.i + 1
             ret
         }
@@ -294,21 +294,21 @@ implement Iterator for ArrayIterator<'T> {
 // }
 
 extend array<'a Equal> {
-    fn find(self: array<'a Equal>, x: 'a Equal) -> maybe<int, void> {
+    fn find(self: array<'a Equal>, x: 'a Equal) -> option<int> {
         var i = 0
         while i < self.len() {
             if self[i] = x {
-                return maybe.yes(i)
+                return option.some(i)
             }
             i := i + 1
         }
-        maybe.no(())
+        option.none
     }
 
     fn contains(self: array<'a Equal>, x: 'a Equal) -> bool {
         match self.find(x) {
-            maybe.yes(_) -> true,
-            maybe.no(_) -> false,
+            option.some(_) -> true,
+            option.none -> false,
         }
     }
 }
