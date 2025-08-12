@@ -7,8 +7,6 @@ host fn print_string(s: string) -> void
 
 fn not(b: bool) = if b false else true
 
-// TODO: really need ability to just write Self instead of Self implicitly being the principled type
-// 'a shouldn't be assumed to be the principled type; it could just be another generic created by the user.
 interface Num {
     fn add: (Self, Self) -> Self
     fn subtract: (Self, Self) -> Self
@@ -45,7 +43,7 @@ implement Num for float {
     fn greater_than_or_equal(a, b) = b < a
 }
 
-type option<'T> = some of ('T) | none
+type option<'T> = some of 'T | none
 
 fn unwrap(m: option<'T>) -> 'T {
     match m {
@@ -84,19 +82,7 @@ implement Equal for string {
 interface Clone {
     fn clone: Self -> Self
 }
-extend array<'a> {
-    fn len(self: array<'a>) -> int {
-        array_length(self)
-    }
 
-    fn push(self: array<'a>, x: 'a) -> void {
-        array_push(self, x)
-    }
-
-    fn pop(self: array<'a>) -> void {
-        array_pop(self)
-    }
-}
 implement Clone for array<'a Clone> {
     fn clone(arr: array<'a Clone>) -> array<'a Clone> {
         let new: array<'a> = []
@@ -260,7 +246,7 @@ interface Iterator {
 }
 
 implement Iterable for array<'T> {
-    fn make_iterator(self: array<'T>) -> ArrayIterator<'T> {
+    fn make_iterator(self) -> ArrayIterator<'T> {
         ArrayIterator(self, 0)
     }
 }
@@ -273,7 +259,7 @@ type ArrayIterator<'T> = {
 // TODO: remove the need to prefix polytypes with '
 // it's actually hard to read, and it's confusing when it's optional or not
 implement Iterator for ArrayIterator<'T> {
-    fn next(self: ArrayIterator<'T>) -> option<'T> {
+    fn next(self) -> option<'T> {
         if self.i = self.arr.len() {
             option.none
         } else {
@@ -293,8 +279,23 @@ implement Iterator for ArrayIterator<'T> {
 //     ret
 // }
 
+// TODO: shouldn't need to annotate `self` argument as array<'a>, that should be inferred
+extend array<'a> {
+    fn len(self) -> int {
+        array_length(self)
+    }
+
+    fn push(self, x: 'a) -> void {
+        array_push(self, x)
+    }
+
+    fn pop(self) -> void {
+        array_pop(self)
+    }
+}
+
 extend array<'a Equal> {
-    fn find(self: array<'a Equal>, x: 'a Equal) -> option<int> {
+    fn find(self, x: 'a Equal) -> option<int> {
         var i = 0
         while i < self.len() {
             if self[i] = x {
@@ -305,7 +306,7 @@ extend array<'a Equal> {
         option.none
     }
 
-    fn contains(self: array<'a Equal>, x: 'a Equal) -> bool {
+    fn contains(self, x: 'a Equal) -> bool {
         match self.find(x) {
             option.some(_) -> true,
             option.none -> false,
