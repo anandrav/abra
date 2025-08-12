@@ -216,7 +216,32 @@ pub(crate) enum Declaration {
     Builtin(BuiltinOperation),
     BuiltinType(BuiltinType),
     Var(AstNode),
-    Polytype(Rc<Polytype>),
+    Polytype(PolytypeDeclaration),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
+pub(crate) enum PolytypeDeclaration {
+    InterfaceSelf(Rc<InterfaceDef>), // `Self`
+    Ordinary(Rc<Polytype>),
+}
+
+impl PolytypeDeclaration {
+    fn interfaces(&self, ctx: &StaticsContext) -> Vec<Rc<InterfaceDef>> {
+        match self {
+            PolytypeDeclaration::InterfaceSelf(iface) => vec![iface.clone()],
+            PolytypeDeclaration::Ordinary(polyty) => {
+                let mut ifaces = vec![];
+                for i in &polyty.interfaces {
+                    if let Some(Declaration::InterfaceDef(iface)) =
+                        ctx.resolution_map.get(&i.name.id)
+                    {
+                        ifaces.push(iface.clone());
+                    }
+                }
+                ifaces
+            }
+        }
+    }
 }
 
 impl Declaration {
@@ -712,7 +737,10 @@ fn add_detail_for_decl_node(
             variant,
         } => enum_def.variants[*variant].node(),
         Declaration::Struct(struct_def) => struct_def.name.node(),
-        Declaration::Polytype(polytype) => polytype.name.node(),
+        Declaration::Polytype(polytype_decl) => match polytype_decl {
+            PolytypeDeclaration::Ordinary(polyty) => polyty.name.node(),
+            PolytypeDeclaration::InterfaceSelf(iface_def) => iface_def.name.node(), // TODO: this will not result in a good error message
+        },
 
         Declaration::Var(ast_node) => ast_node.clone(),
         Declaration::OutputType { .. } => unimplemented!(),

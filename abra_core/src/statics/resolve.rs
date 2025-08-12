@@ -2,7 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use super::{Declaration, Error, Namespace, StaticsContext};
+use super::{Declaration, Error, Namespace, PolytypeDeclaration, StaticsContext};
 #[cfg(feature = "ffi")]
 use crate::addons::make_foreign_func_name;
 use crate::ast::{
@@ -486,6 +486,10 @@ fn resolve_names_item_decl(ctx: &mut StaticsContext, symbol_table: SymbolTable, 
             for (name, decl) in ns.declarations.iter() {
                 symbol_table.extend_declaration(name.clone(), decl.clone());
             }
+            symbol_table.extend_declaration(
+                "Self".to_string(),
+                Declaration::Polytype(PolytypeDeclaration::InterfaceSelf(iface_def.clone())),
+            );
             for prop in &iface_def.methods {
                 let symbol_table = symbol_table.new_scope();
                 resolve_names_typ(ctx, symbol_table.clone(), prop.ty.clone(), true);
@@ -1013,7 +1017,7 @@ fn resolve_names_polytyp(
     }
     // If it hasn't been declared already, then this is a declaration
     else if introduce_poly {
-        let decl = Declaration::Polytype(polyty.clone());
+        let decl = Declaration::Polytype(PolytypeDeclaration::Ordinary(polyty.clone()));
         symbol_table.extend_declaration(polyty.name.v.clone(), decl.clone());
         // it resolves to itself
         ctx.resolution_map.insert(polyty.name.id, decl);

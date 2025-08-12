@@ -9,7 +9,7 @@ use crate::builtin::BuiltinOperation;
 use crate::environment::Environment;
 use crate::statics::typecheck::Nominal;
 use crate::statics::typecheck::SolvedType;
-use crate::statics::{Declaration, TypeProv};
+use crate::statics::{Declaration, PolytypeDeclaration, TypeProv};
 use crate::statics::{Type, ty_fits_impl_ty};
 use crate::vm::{AbraFloat, AbraInt, Instr as VmInstr};
 use crate::{
@@ -24,7 +24,7 @@ use utils::hash::HashSet;
 use utils::id_set::IdSet;
 
 type OffsetTable = HashMap<NodeId, i32>;
-type MonomorphEnv = Environment<String, Type>;
+type MonomorphEnv = Environment<PolytypeDeclaration, Type>;
 pub(crate) type LabelMap = HashMap<Label, usize>;
 
 #[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq, Hash)]
@@ -1460,7 +1460,7 @@ fn update_monomorph_env(monomorph_env: MonomorphEnv, overloaded_ty: Type, monomo
             }
         }
         (Type::Poly(polyty), _) => {
-            monomorph_env.extend(polyty.name.v.clone(), monomorphic_ty);
+            monomorph_env.extend(polyty, monomorphic_ty);
         }
         (Type::Tuple(elems1), Type::Tuple(elems2)) => {
             for i in 0..elems1.len() {
@@ -1489,7 +1489,7 @@ fn subst_with_monomorphic_env(monomorphic_env: MonomorphEnv, ty: Type) -> Type {
             Type::Nominal(ident, new_params)
         }
         Type::Poly(ref polyty) => {
-            if let Some(monomorphic_ty) = monomorphic_env.lookup(&polyty.name.v) {
+            if let Some(monomorphic_ty) = monomorphic_env.lookup(polyty) {
                 monomorphic_ty
             } else {
                 ty
