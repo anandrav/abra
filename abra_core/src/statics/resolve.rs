@@ -1017,6 +1017,10 @@ fn resolve_names_polytyp(
         symbol_table.extend_declaration(polyty.name.v.clone(), decl.clone());
         // it resolves to itself
         ctx.resolution_map.insert(polyty.name.id, decl);
+    } else {
+        ctx.errors.push(Error::UnresolvedIdentifier {
+            node: polyty.name.node(),
+        });
     }
 
     for iface in &polyty.interfaces {
