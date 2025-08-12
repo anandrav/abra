@@ -972,8 +972,10 @@ fn resolve_names_typ(
         }
         TypeKind::NamedWithParams(identifier, args) => {
             // the Type node and the Identifier node should both resolve to the same thing
-            resolve_symbol(ctx, &symbol_table, &identifier.v, typ.node());
             resolve_identifier(ctx, &symbol_table, identifier);
+            if let Some(decl) = ctx.resolution_map.get(&identifier.id) {
+                ctx.resolution_map.insert(typ.id, decl.clone());
+            }
 
             for arg in args {
                 resolve_names_typ(ctx, symbol_table.clone(), arg.clone(), introduce_poly);
