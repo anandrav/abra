@@ -614,8 +614,7 @@ impl TypeVar {
         TypeVar(UnionFindNode::new(data_instantiated))
     }
 
-    // TODO: this should become get_interface_self_type()
-    pub(crate) fn get_first_polymorphic_type(self) -> Option<PolytypeDeclaration> {
+    pub(crate) fn get_interface_self_type(self) -> Option<PolytypeDeclaration> {
         let data = self.0.clone_data();
         if data.types.len() == 1 {
             let ty = data.types.into_values().next().unwrap();
@@ -627,10 +626,13 @@ impl TypeVar {
                 | PotentialType::Float(_)
                 | PotentialType::Bool(_)
                 | PotentialType::String(_) => None,
-                PotentialType::Poly(_, decl) => Some(decl.clone()),
+                PotentialType::Poly(_, decl) => match decl {
+                    PolytypeDeclaration::InterfaceSelf(_) => Some(decl.clone()),
+                    _ => None,
+                },
                 PotentialType::Nominal(_, _, params) => {
                     for param in &params {
-                        if let Some(decl) = param.clone().get_first_polymorphic_type() {
+                        if let Some(decl) = param.clone().get_interface_self_type() {
                             return Some(decl);
                         }
                     }
@@ -638,15 +640,15 @@ impl TypeVar {
                 }
                 PotentialType::Function(_, args, out) => {
                     for arg in &args {
-                        if let Some(decl) = arg.clone().get_first_polymorphic_type() {
+                        if let Some(decl) = arg.clone().get_interface_self_type() {
                             return Some(decl);
                         }
                     }
-                    out.get_first_polymorphic_type()
+                    out.get_interface_self_type()
                 }
                 PotentialType::Tuple(_, elems) => {
                     for elem in &elems {
-                        if let Some(decl) = elem.clone().get_first_polymorphic_type() {
+                        if let Some(decl) = elem.clone().get_interface_self_type() {
                             return Some(decl);
                         }
                     }
@@ -1264,14 +1266,12 @@ fn generate_constraints_item_decls(ctx: &mut StaticsContext, item: Rc<Item>) {
 
                         let mut substitution: Substitution = HashMap::default();
                         if let Some(poly_decl) =
-                            interface_method_ty.clone().get_first_polymorphic_type()
+                            interface_method_ty.clone().get_interface_self_type()
                         {
                             substitution.insert(poly_decl, impl_ty.clone());
                         }
 
-                        // println!("iface method ty before: {}", interface_method_ty);
                         let expected = interface_method_ty.clone().subst(&substitution);
-                        // println!("iface method ty after: {}", expected);
 
                         let actual = TypeVar::from_node(ctx, f.name.node());
                         constrain(ctx, expected.clone(), actual);
