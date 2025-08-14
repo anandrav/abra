@@ -61,13 +61,13 @@ let a = 2 < 3
 let b = 2 <= 3
 let c = 2 > 3
 let d = 2 >= 3
-let e = 2 = 3
+let e = 2 == 3
 
 let f = 2.0 < 3.0
 let g = 2.0 <= 3.0
 let h = 2.0 > 3.0
 let i = 2.0 >= 3.0
-let j = 2.0 = 3.0
+let j = 2.0 == 3.0
 
 let k = a and b and c and d and e and f and g and h and i and j
 "#;

@@ -16,7 +16,7 @@ implement Clone for Point {
 
 implement Equal for Point {
   fn equal(p1: Point, p2: Point) {
-    (p1.x = p2.x) and (p1.y = p2.y)
+    (p1.x == p2.x) and (p1.y == p2.y)
   }
 }
 
@@ -96,15 +96,15 @@ fn main() {
     while poll_key_event() {
       let snake = st.snake
       match get_key_event() {
-        .Left -> snake.direction := .Left,
-        .Char("a") -> snake.direction := .Left, .Right -> snake.direction := .Right,
-        .Char("d") -> snake.direction := .Right,
-        .Up -> snake.direction := .Up,
-        .Char("w") -> snake.direction := .Up,
-        .Down -> snake.direction := .Down,
-        .Char("s") -> snake.direction := .Down,
-        .Char("q") -> st.quit := true,
-        .Esc -> st.quit := true,
+        .Left -> snake.direction = .Left,
+        .Char("a") -> snake.direction = .Left, .Right -> snake.direction = .Right,
+        .Char("d") -> snake.direction = .Right,
+        .Up -> snake.direction = .Up,
+        .Char("w") -> snake.direction = .Up,
+        .Down -> snake.direction = .Down,
+        .Char("s") -> snake.direction = .Down,
+        .Char("q") -> st.quit = true,
+        .Esc -> st.quit = true,
         _ -> {}
       }
     }
@@ -113,7 +113,7 @@ fn main() {
       break
     }
 
-    if st.status = Status.Playing {
+    if st.status == Status.Playing {
       update(st)
     }
 
@@ -141,7 +141,7 @@ extend Snake {
 
       mark("O", x+1, y+1)
 
-      i := i + 1
+      i = i + 1
     }
   }
 }
@@ -162,18 +162,18 @@ fn update(st: State) {
 
   let new_head = snake.body[0].clone()
   match snake.direction {
-    .Up -> new_head.y := new_head.y - 1,
-    .Down -> new_head.y := new_head.y + 1,
-    .Left -> new_head.x := new_head.x - 1,
-    .Right -> new_head.x := new_head.x + 1
+    .Up -> new_head.y = new_head.y - 1,
+    .Down -> new_head.y = new_head.y + 1,
+    .Left -> new_head.x = new_head.x - 1,
+    .Right -> new_head.x = new_head.x + 1
   }
 
   if out_of_bounds(new_head, width, height) or snake.body.contains(new_head) {
-    st.status := Status.Lost
+    st.status = Status.Lost
     return ()
   }
 
-  let fruit_was_eaten = (new_head = fruit.location)
+  let fruit_was_eaten = (new_head == fruit.location)
 
   let body = snake.body
   let len = body.len()
@@ -185,26 +185,26 @@ fn update(st: State) {
     len - 2 
   }
   while i >= 0 {
-    body[i+1] := body[i]
-    i := i - 1
+    body[i+1] = body[i]
+    i = i - 1
   }
   
-  body[0] := new_head
+  body[0] = new_head
 
   if fruit_was_eaten {
-    st.score := st.score + 1
+    st.score = st.score + 1
 
     let num_valid_locations = width * height - snake.body.len()
     var found = false
     var point = Point(0, 0)
     while not(found) {
       let index = random_int(0, num_valid_locations)
-      point := index_to_point(index, width, height)
+      point = index_to_point(index, width, height)
 
-      found := not(snake.body.contains(point))
+      found = not(snake.body.contains(point))
     }
 
-    fruit.location := point
+    fruit.location = point
   }
 }
 
@@ -225,14 +225,14 @@ fn draw_border(st: State) {
   while i < width+2 {
     mark("X", i, height+1)
     mark("X", i, 0)
-    i := i + 1
+    i = i + 1
   }
 
   var i = 0
   while i < height+2 {
     mark("X", width+1, i)
     mark("X", 0, i)
-    i := i + 1
+    i = i + 1
   }
   mark("SCORE: " & st.score, 0, height+2)
 

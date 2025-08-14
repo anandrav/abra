@@ -57,7 +57,7 @@ expression_statement = { expression }
 var_statement = { var_keyword ~ let_pattern_annotated ~ op_assign ~ expression }
 var_keyword = _{ "var" }
 
-set_statement = { expression ~ ":=" ~ expression }
+set_statement = { expression ~ "=" ~ expression }
 
 continue_statement = { "continue" }
 break_statement = { "break" }
@@ -178,7 +178,7 @@ literal_bool = @{ "true" | "false" }
 literal_array = { "[" ~ (expression ~ ",")* ~ expression? ~ "]" }
 
 op_binary = _{op_eq | op_gte | op_lte | op_gt | op_lt | op_addition | op_subtraction | op_multiplication | op_division | op_pow | op_and | op_or | op_mod | op_concat }
-op_eq = { "=" }
+op_eq = { "==" }
 op_gt = { ">" }
 op_lt = { "<" }
 op_gte = { ">=" }

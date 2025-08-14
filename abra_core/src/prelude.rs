@@ -26,8 +26,8 @@ implement Num for int {
     fn divide(a, b) = divide_int(a, b)
     fn power(a, b) = power_int(a, b)
     fn less_than(a, b) = less_than_int(a, b)
-    fn less_than_or_equal(a, b) = (a < b) or (a = b)
-    fn greater_than(a, b) = not(a < b) and not(a = b)
+    fn less_than_or_equal(a, b) = (a < b) or (a == b)
+    fn greater_than(a, b) = not(a < b) and not(a == b)
     fn greater_than_or_equal(a, b) = not(a < b)
 }
 
@@ -89,7 +89,7 @@ implement Clone for array<'a Clone> {
         var i = 0
         while i < array_length(arr) {
             array_push(new, Clone.clone(arr[i]))
-            i := i + 1
+            i = i + 1
         }
         new
     }
@@ -212,9 +212,9 @@ implement ToString for array<'a ToString> {
 
 fn array_to_string_helper(arr: array<'a ToString>, idx: int) {
     let l = array_length(arr)
-    if idx = l {
+    if idx == l {
         ""
-    } else if idx = l - 1 {
+    } else if idx == l - 1 {
         ToString.str(arr[idx])
     } else {
         ToString.str(arr[idx]) & ", " & array_to_string_helper(arr, idx + 1)
@@ -260,11 +260,11 @@ type ArrayIterator<'T> = {
 // it's actually hard to read, and it's confusing when it's optional or not
 implement Iterator for ArrayIterator<'T> {
     fn next(self) -> option<'T> {
-        if self.i = self.arr.len() {
+        if self.i == self.arr.len() {
             option.none
         } else {
             let ret = option.some(self.arr[self.i])
-            self.i := self.i + 1
+            self.i = self.i + 1
             ret
         }
     }
@@ -274,7 +274,7 @@ implement Iterator for ArrayIterator<'T> {
 //     let ret: array<int> = [] // TODO: shouldn't need this type annotation here
 //     while lo < hi {
 //         ret.push(lo)
-//         lo := lo + 1
+//         lo = lo + 1
 //     }
 //     ret
 // }
@@ -298,10 +298,10 @@ extend array<'a Equal> {
     fn find(self, x: 'a Equal) -> option<int> {
         var i = 0
         while i < self.len() {
-            if self[i] = x {
+            if self[i] == x {
                 return option.some(i)
             }
-            i := i + 1
+            i = i + 1
         }
         option.none
     }
