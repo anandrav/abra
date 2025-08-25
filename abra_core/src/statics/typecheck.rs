@@ -507,6 +507,13 @@ impl PotentialType {
         PotentialType::Poly(reasons_singleton(reason), decl)
     }
 
+    fn make_iface_output(
+        reason: Reason,
+        iface_output_type: Rc<InterfaceOutputType>,
+    ) -> PotentialType {
+        PotentialType::InterfaceOutput(reasons_singleton(reason), iface_output_type)
+    }
+
     fn make_nominal(reason: Reason, nominal: Nominal, params: Vec<TypeVar>) -> PotentialType {
         PotentialType::Nominal(reasons_singleton(reason), nominal, params)
     }
@@ -796,6 +803,13 @@ impl TypeVar {
         Self::singleton_solved(PotentialType::make_poly(reason, decl))
     }
 
+    pub(crate) fn make_iface_output(
+        reason: Reason,
+        output_type: Rc<InterfaceOutputType>,
+    ) -> TypeVar {
+        Self::singleton_solved(PotentialType::make_iface_output(reason, output_type))
+    }
+
     pub(crate) fn make_nominal(reason: Reason, nominal: Nominal, params: Vec<TypeVar>) -> TypeVar {
         Self::singleton_solved(PotentialType::make_nominal(reason, nominal, params))
     }
@@ -950,11 +964,12 @@ pub(crate) fn ast_type_to_solved_type(
 }
 
 pub(crate) fn ast_type_to_typevar(ctx: &StaticsContext, ast_type: Rc<AstType>) -> TypeVar {
+    let reason = Reason::Annotation(ast_type.node());
     match &*ast_type.kind {
         TypeKind::Poly(polyty) => {
             if let Some(Declaration::Polytype(poly_decl)) = ctx.resolution_map.get(&polyty.name.id)
             {
-                TypeVar::make_poly(Reason::Annotation(ast_type.node()), poly_decl.clone())
+                TypeVar::make_poly(reason, poly_decl.clone())
             } else {
                 TypeVar::empty()
             }
@@ -963,7 +978,7 @@ pub(crate) fn ast_type_to_typevar(ctx: &StaticsContext, ast_type: Rc<AstType>) -
             let lookup = ctx.resolution_map.get(&ident.id);
             match lookup {
                 Some(Declaration::Enum(enum_def)) => TypeVar::make_nominal(
-                    Reason::Annotation(ast_type.node()),
+                    reason,
                     Nominal::Enum(enum_def.clone()),
                     params
                         .iter()
@@ -972,7 +987,7 @@ pub(crate) fn ast_type_to_typevar(ctx: &StaticsContext, ast_type: Rc<AstType>) -
                 ),
 
                 Some(Declaration::Struct(struct_def)) => TypeVar::make_nominal(
-                    Reason::Annotation(ast_type.node()),
+                    reason,
                     Nominal::Struct(struct_def.clone()),
                     params
                         .iter()
@@ -980,7 +995,7 @@ pub(crate) fn ast_type_to_typevar(ctx: &StaticsContext, ast_type: Rc<AstType>) -
                         .collect(),
                 ),
                 Some(Declaration::Array) => TypeVar::make_nominal(
-                    Reason::Annotation(ast_type.node()),
+                    reason,
                     Nominal::Array,
                     params
                         .iter()
@@ -988,11 +1003,10 @@ pub(crate) fn ast_type_to_typevar(ctx: &StaticsContext, ast_type: Rc<AstType>) -
                         .collect(),
                 ),
                 Some(Declaration::Polytype(poly_decl)) => {
-                    TypeVar::make_poly(Reason::Annotation(ast_type.node()), poly_decl.clone())
+                    TypeVar::make_poly(reason, poly_decl.clone())
                 }
                 Some(Declaration::OutputType { i, at }) => {
-                    // TODO!
-                    TypeVar::empty()
+                    TypeVar::make_iface_output(reason, at.clone())
                 }
                 _ => {
                     // since resolution failed, unconstrained type
@@ -1000,24 +1014,24 @@ pub(crate) fn ast_type_to_typevar(ctx: &StaticsContext, ast_type: Rc<AstType>) -
                 }
             }
         }
-        TypeKind::Void => TypeVar::make_void(Reason::Annotation(ast_type.node())),
-        TypeKind::Int => TypeVar::make_int(Reason::Annotation(ast_type.node())),
-        TypeKind::Float => TypeVar::make_float(Reason::Annotation(ast_type.node())),
-        TypeKind::Bool => TypeVar::make_bool(Reason::Annotation(ast_type.node())),
-        TypeKind::Str => TypeVar::make_string(Reason::Annotation(ast_type.node())),
+        TypeKind::Void => TypeVar::make_void(reason),
+        TypeKind::Int => TypeVar::make_int(reason),
+        TypeKind::Float => TypeVar::make_float(reason),
+        TypeKind::Bool => TypeVar::make_bool(reason),
+        TypeKind::Str => TypeVar::make_string(reason),
         TypeKind::Function(lhs, rhs) => TypeVar::make_func(
             lhs.iter()
                 .map(|t| ast_type_to_typevar(ctx, t.clone()))
                 .collect(),
             ast_type_to_typevar(ctx, rhs.clone()),
-            Reason::Annotation(ast_type.node()),
+            reason,
         ),
         TypeKind::Tuple(types) => {
             let types = types
                 .iter()
                 .map(|t| ast_type_to_typevar(ctx, t.clone()))
                 .collect();
-            TypeVar::make_tuple(types, Reason::Annotation(ast_type.node()))
+            TypeVar::make_tuple(types, reason)
         }
     }
 }
