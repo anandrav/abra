@@ -335,6 +335,7 @@ pub(crate) enum Prov {
     Node(AstNode), // the type of an expression or statement located at NodeId
     InstantiateUdtParam(AstNode, u8),
     InstantiatePoly(PolyInstantiationId, PolytypeDeclaration),
+    InstantiateInterfaceOutputType(PolyInstantiationId, Rc<InterfaceOutputType>),
     FuncArg(AstNode, u8), // u8 represents the index of the argument
     FuncOut(AstNode),     // u8 represents how many arguments before this output
     ListElem(AstNode),
@@ -739,6 +740,79 @@ impl TypeVar {
         } else {
             self // noop
         }
+    }
+
+    // Creates a clone of a Type with polymorphic variables not in scope replaced with fresh unifvars
+    fn instantiate_iface_output_types(self, ctx: &mut StaticsContext, node: AstNode) -> TypeVar {
+        let id = PolyInstantiationId::new();
+        self.instantiate_iface_output_types_(ctx, node, id)
+    }
+    fn instantiate_iface_output_types_(
+        self,
+        ctx: &mut StaticsContext,
+        node: AstNode,
+        id: PolyInstantiationId,
+    ) -> TypeVar {
+        let data = self.0.clone_data();
+        if data.types.len() != 1 {
+            return self;
+        }
+        let ty = data.types.into_values().next().unwrap();
+        let ty = match ty {
+            PotentialType::Void(_)
+            | PotentialType::Never(_)
+            | PotentialType::Int(_)
+            | PotentialType::Float(_)
+            | PotentialType::Bool(_)
+            | PotentialType::String(_)
+            | PotentialType::Poly(_, _) => {
+                ty // noop
+            }
+            PotentialType::InterfaceOutput(ref provs, ref output_type) => {
+                let prov = Prov::InstantiateInterfaceOutputType(id, output_type.clone());
+                let ret = TypeVar::fresh(ctx, prov.clone());
+                let mut extension: Vec<(Rc<InterfaceDef>, AstNode)> = Vec::new();
+                let ifaces = &output_type.interfaces(ctx);
+                for i in ifaces {
+                    extension.push((i.clone(), node.clone()));
+                }
+                ctx.unifvars_constrained_to_interfaces
+                    .entry(prov)
+                    .or_default()
+                    .extend(extension);
+                return ret; // instantiation occurs here
+            }
+            PotentialType::Nominal(provs, ident, params) => {
+                let params = params
+                    .into_iter()
+                    .map(|ty| ty.instantiate_iface_output_types_(ctx, node.clone(), id))
+                    .collect();
+                PotentialType::Nominal(provs, ident, params)
+            }
+            PotentialType::Function(provs, args, out) => {
+                let args = args
+                    .into_iter()
+                    .map(|ty| ty.instantiate_iface_output_types_(ctx, node.clone(), id))
+                    .collect();
+                let out = out.instantiate_iface_output_types_(ctx, node, id);
+                PotentialType::Function(provs, args, out)
+            }
+            PotentialType::Tuple(provs, elems) => {
+                let elems = elems
+                    .into_iter()
+                    .map(|ty| ty.instantiate_iface_output_types_(ctx, node.clone(), id))
+                    .collect();
+                PotentialType::Tuple(provs, elems)
+            }
+        };
+        let mut types = HashMap::default();
+        types.insert(ty.key(), ty);
+        let data_instantiated = TypeVarData {
+            types,
+            locked: data.locked,
+            missing_info: data.missing_info,
+        };
+        TypeVar(UnionFindNode::new(data_instantiated))
     }
 
     pub(crate) fn from_node(ctx: &mut StaticsContext, node: AstNode) -> TypeVar {
@@ -1281,9 +1355,6 @@ fn generate_constraints_item_decls(ctx: &mut StaticsContext, item: Rc<Item>) {
                     let ty_annot = ast_type_to_typevar(ctx, method.ty.clone());
                     constrain(ctx, node_ty.clone(), ty_annot.clone());
                 }
-                for output_type in &iface_def.output_types {
-                    // TODO!
-                }
 
                 let impl_list = ctx.interface_impls.entry(iface_def.clone()).or_default();
                 impl_list.push(iface_impl.clone());
@@ -1316,6 +1387,11 @@ fn generate_constraints_item_decls(ctx: &mut StaticsContext, item: Rc<Item>) {
                         }
 
                         let expected = interface_method_ty.clone().subst(&substitution);
+                        // TODO: need to subst or instantiate or something similar
+                        // println!("iface method ty: {}", expected);
+                        let expected =
+                            expected.instantiate_iface_output_types(ctx, interface_method.node());
+                        // println!("instantiated iface method ty: {}", expected);
 
                         let actual = TypeVar::from_node(ctx, f.name.node());
                         constrain(ctx, expected.clone(), actual);

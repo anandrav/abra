@@ -244,6 +244,18 @@ impl PolytypeDeclaration {
     }
 }
 
+impl InterfaceOutputType {
+    fn interfaces(&self, ctx: &StaticsContext) -> Vec<Rc<InterfaceDef>> {
+        let mut ifaces = vec![];
+        for i in &self.interfaces {
+            if let Some(Declaration::InterfaceDef(iface)) = ctx.resolution_map.get(&i.name.id) {
+                ifaces.push(iface.clone());
+            }
+        }
+        ifaces
+    }
+}
+
 impl Declaration {
     pub fn to_type_key(self: &Declaration) -> Option<TypeKey> {
         match self {
