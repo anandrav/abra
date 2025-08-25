@@ -220,6 +220,7 @@ impl Matrix {
                 };
                 match data_ty {
                     SolvedType::Never => unreachable!(),
+                    SolvedType::InterfaceOutput(..) => unreachable!(),
                     SolvedType::Void => {}
                     SolvedType::Poly(..)
                     | SolvedType::Bool
@@ -391,6 +392,7 @@ impl DeconstructedPat {
             | SolvedType::Bool
             | SolvedType::Void
             | SolvedType::Poly(..)
+            | SolvedType::InterfaceOutput(..)
             | SolvedType::Function(..) => vec![],
             SolvedType::Tuple(tys) => tys.clone(),
             SolvedType::Nominal(_, _) => match ctor {
@@ -852,5 +854,6 @@ fn ctors_for_ty(ty: &SolvedType) -> ConstructorSet {
         SolvedType::Poly(..) => ConstructorSet::Unlistable,
 
         SolvedType::Never => unreachable!(),
+        SolvedType::InterfaceOutput(..) => unreachable!(),
     }
 }

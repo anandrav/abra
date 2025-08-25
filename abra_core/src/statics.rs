@@ -5,7 +5,7 @@
 use crate::FileProvider;
 use crate::ast::{
     AstNode, EnumDef, FileAst, FileDatabase, FileId, FuncDecl, FuncDef, InterfaceDef,
-    InterfaceImpl, NodeId, OutputType, Polytype, StructDef, TypeKind,
+    InterfaceImpl, InterfaceOutputType, NodeId, Polytype, StructDef, TypeKind,
 };
 use crate::builtin::{BuiltinOperation, BuiltinType};
 use resolve::{resolve, scan_declarations};
@@ -198,7 +198,7 @@ pub(crate) enum Declaration {
     },
     OutputType {
         i: Rc<InterfaceDef>,
-        at: Rc<OutputType>,
+        at: Rc<InterfaceOutputType>,
     },
     MemberFunction {
         f: Rc<FuncDef>,

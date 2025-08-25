@@ -410,11 +410,11 @@ pub(crate) struct FuncDecl {
 pub(crate) struct InterfaceDef {
     pub(crate) name: Rc<Identifier>,
     pub(crate) methods: Vec<Rc<InterfaceMethodDecl>>,
-    pub(crate) output_types: Vec<Rc<OutputType>>,
+    pub(crate) output_types: Vec<Rc<InterfaceOutputType>>,
 }
 
 #[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq, Hash)]
-pub(crate) struct OutputType {
+pub(crate) struct InterfaceOutputType {
     pub(crate) name: Rc<Identifier>,
     pub(crate) interfaces: Vec<Rc<Interface>>,
 }

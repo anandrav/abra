@@ -3,8 +3,9 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use crate::ast::{
-    ArgAnnotated, ArgMaybeAnnotated, AstNode, Expr, ExprKind, FileAst, Identifier, ItemKind,
-    NodeId, Pat, PatKind, Stmt, StmtKind, Type as AstType, TypeDefKind, TypeKind,
+    ArgAnnotated, ArgMaybeAnnotated, AstNode, Expr, ExprKind, FileAst, Identifier,
+    InterfaceOutputType, ItemKind, NodeId, Pat, PatKind, Stmt, StmtKind, Type as AstType,
+    TypeDefKind, TypeKind,
 };
 use crate::ast::{BinaryOperator, Item};
 use crate::builtin::BuiltinOperation;
@@ -90,23 +91,27 @@ impl TypeVarData {
         // accumulate provenances and constrain children to each other if applicable
         if let Some(t) = self.types.get_mut(&key) {
             match &mut t_other {
-                PotentialType::Void(other_provs)
-                | PotentialType::Never(other_provs)
-                | PotentialType::Int(other_provs)
-                | PotentialType::Float(other_provs)
-                | PotentialType::Bool(other_provs)
-                | PotentialType::String(other_provs) => t
+                PotentialType::Void(other_reasons)
+                | PotentialType::Never(other_reasons)
+                | PotentialType::Int(other_reasons)
+                | PotentialType::Float(other_reasons)
+                | PotentialType::Bool(other_reasons)
+                | PotentialType::String(other_reasons) => t
                     .reasons()
                     .borrow_mut()
-                    .extend(other_provs.borrow().clone()),
-                PotentialType::Poly(other_provs, _) => t
+                    .extend(other_reasons.borrow().clone()),
+                PotentialType::Poly(other_reasons, _) => t
                     .reasons()
                     .borrow_mut()
-                    .extend(other_provs.borrow().clone()),
-                PotentialType::Function(other_provs, args1, out1) => {
+                    .extend(other_reasons.borrow().clone()),
+                PotentialType::InterfaceOutput(other_reasons, _) => t
+                    .reasons()
+                    .borrow_mut()
+                    .extend(other_reasons.borrow().clone()),
+                PotentialType::Function(other_reasons, args1, out1) => {
                     t.reasons()
                         .borrow_mut()
-                        .extend(other_provs.borrow().clone());
+                        .extend(other_reasons.borrow().clone());
                     if let PotentialType::Function(_, args2, out2) = t {
                         for (arg, arg2) in args1.iter().zip(args2.iter()) {
                             TypeVar::merge(arg.clone(), arg2.clone());
@@ -114,17 +119,17 @@ impl TypeVarData {
                         TypeVar::merge(out1.clone(), out2.clone());
                     }
                 }
-                PotentialType::Tuple(other_provs, elems1) => {
+                PotentialType::Tuple(other_reasons, elems1) => {
                     t.reasons()
                         .borrow_mut()
-                        .extend(other_provs.borrow().clone());
+                        .extend(other_reasons.borrow().clone());
                     if let PotentialType::Tuple(_, elems2) = t {
                         for (elem, elem2) in elems1.iter().zip(elems2.iter()) {
                             TypeVar::merge(elem.clone(), elem2.clone());
                         }
                     }
                 }
-                PotentialType::Nominal(other_provs, _, other_tys) => {
+                PotentialType::Nominal(other_reasons, _, other_tys) => {
                     let PotentialType::Nominal(_, _, tys) = t else {
                         unreachable!("should be same length")
                     };
@@ -135,7 +140,7 @@ impl TypeVarData {
 
                     t.reasons()
                         .borrow_mut()
-                        .extend(other_provs.borrow().clone());
+                        .extend(other_reasons.borrow().clone());
                 }
             }
         } else {
@@ -148,6 +153,7 @@ impl TypeVarData {
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub(crate) enum PotentialType {
     Poly(Reasons, PolytypeDeclaration),
+    InterfaceOutput(Reasons, Rc<InterfaceOutputType>),
     Void(Reasons),
     Never(Reasons),
     Int(Reasons),
@@ -174,6 +180,7 @@ impl From<&PolytypeDeclaration> for Declaration {
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub(crate) enum SolvedType {
     Poly(PolytypeDeclaration), // type name, then list of Interfaces it must match
+    InterfaceOutput(Rc<InterfaceOutputType>),
     Void,
     Never,
     Int,
@@ -206,6 +213,7 @@ impl SolvedType {
     pub(crate) fn monotype(&self) -> Option<Monotype> {
         match self {
             Self::Poly(..) => None,
+            Self::InterfaceOutput(_) => None,
             Self::Void => Some(Monotype::Void),
             Self::Never => Some(Monotype::Never),
             Self::Int => Some(Monotype::Int),
@@ -252,6 +260,9 @@ impl SolvedType {
     fn key(&self) -> TypeKey {
         match self {
             SolvedType::Poly(poly_decl) => TypeKey::Poly(poly_decl.clone()),
+            SolvedType::InterfaceOutput(output_type) => {
+                TypeKey::InterfaceOutput(output_type.clone())
+            }
             SolvedType::Void => TypeKey::Void,
             SolvedType::Never => TypeKey::Never,
             SolvedType::Int => TypeKey::Int,
@@ -270,6 +281,7 @@ impl SolvedType {
                 PolytypeDeclaration::InterfaceSelf(_) => true,
                 PolytypeDeclaration::Ordinary(p) => !p.interfaces.is_empty(),
             },
+            Self::InterfaceOutput(output_type) => !output_type.interfaces.is_empty(),
             Self::Void => false,
             Self::Never => false,
             Self::Int => false,
@@ -305,6 +317,7 @@ pub(crate) enum Monotype {
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub(crate) enum TypeKey {
     Poly(PolytypeDeclaration),
+    InterfaceOutput(Rc<InterfaceOutputType>),
     TyApp(Nominal),
     Void,
     Never,
@@ -378,6 +391,9 @@ impl PotentialType {
     fn key(&self) -> TypeKey {
         match self {
             PotentialType::Poly(_, decl) => TypeKey::Poly(decl.clone()),
+            PotentialType::InterfaceOutput(_, output_type) => {
+                TypeKey::InterfaceOutput(output_type.clone())
+            }
             PotentialType::Void(_) => TypeKey::Void,
             PotentialType::Never(_) => TypeKey::Never,
             PotentialType::Int(_) => TypeKey::Int,
@@ -399,6 +415,9 @@ impl PotentialType {
             Self::Void(_) => Some(SolvedType::Void),
             Self::Never(_) => Some(SolvedType::Never),
             Self::Poly(_, decl) => Some(SolvedType::Poly(decl.clone())),
+            Self::InterfaceOutput(_, output_type) => {
+                Some(SolvedType::InterfaceOutput(output_type.clone()))
+            }
             Self::Function(_, args, out) => {
                 let mut args2: Vec<SolvedType> = vec![];
                 for arg in args {
@@ -438,16 +457,17 @@ impl PotentialType {
 
     pub(crate) fn reasons(&self) -> &Reasons {
         match self {
-            Self::Poly(provs, _)
-            | Self::Void(provs)
-            | Self::Never(provs)
-            | Self::Int(provs)
-            | Self::Float(provs)
-            | Self::Bool(provs)
-            | Self::String(provs)
-            | Self::Function(provs, _, _)
-            | Self::Tuple(provs, _)
-            | Self::Nominal(provs, _, _) => provs,
+            Self::Poly(reasons, _)
+            | Self::InterfaceOutput(reasons, _)
+            | Self::Void(reasons)
+            | Self::Never(reasons)
+            | Self::Int(reasons)
+            | Self::Float(reasons)
+            | Self::Bool(reasons)
+            | Self::String(reasons)
+            | Self::Function(reasons, _, _)
+            | Self::Tuple(reasons, _)
+            | Self::Nominal(reasons, _, _) => reasons,
         }
     }
 
@@ -581,6 +601,7 @@ impl TypeVar {
                     ty // noop
                 }
             }
+            PotentialType::InterfaceOutput(..) => todo!(),
             PotentialType::Nominal(provs, ident, params) => {
                 let params = params
                     .into_iter()
@@ -625,7 +646,8 @@ impl TypeVar {
                 | PotentialType::Int(_)
                 | PotentialType::Float(_)
                 | PotentialType::Bool(_)
-                | PotentialType::String(_) => None,
+                | PotentialType::String(_)
+                | PotentialType::InterfaceOutput(..) => None,
                 PotentialType::Poly(_, decl) => match decl {
                     PolytypeDeclaration::InterfaceSelf(_) => Some(decl.clone()),
                     _ => None,
@@ -671,7 +693,8 @@ impl TypeVar {
                 | PotentialType::Int(_)
                 | PotentialType::Float(_)
                 | PotentialType::Bool(_)
-                | PotentialType::String(_) => {
+                | PotentialType::String(_)
+                | PotentialType::InterfaceOutput(..) => {
                     ty // noop
                 }
                 PotentialType::Poly(_, ref decl) => {
@@ -967,6 +990,10 @@ pub(crate) fn ast_type_to_typevar(ctx: &StaticsContext, ast_type: Rc<AstType>) -
                 Some(Declaration::Polytype(poly_decl)) => {
                     TypeVar::make_poly(Reason::Annotation(ast_type.node()), poly_decl.clone())
                 }
+                Some(Declaration::OutputType { i, at }) => {
+                    // TODO!
+                    TypeVar::empty()
+                }
                 _ => {
                     // since resolution failed, unconstrained type
                     TypeVar::empty()
@@ -1239,6 +1266,9 @@ fn generate_constraints_item_decls(ctx: &mut StaticsContext, item: Rc<Item>) {
                     }
                     let ty_annot = ast_type_to_typevar(ctx, method.ty.clone());
                     constrain(ctx, node_ty.clone(), ty_annot.clone());
+                }
+                for output_type in &iface_def.output_types {
+                    // TODO!
                 }
 
                 let impl_list = ctx.interface_impls.entry(iface_def.clone()).or_default();
@@ -2779,6 +2809,9 @@ impl Display for PotentialType {
 
                 Ok(())
             }
+            PotentialType::InterfaceOutput(_, output_type) => {
+                write!(f, "{}", output_type.name.v)
+            }
             PotentialType::Nominal(_, nominal, params) => {
                 if !params.is_empty() {
                     write!(f, "{}<", nominal.name())?;
@@ -2847,6 +2880,9 @@ impl Display for SolvedType {
                 }
 
                 Ok(())
+            }
+            SolvedType::InterfaceOutput(output_type) => {
+                write!(f, "{}", output_type.name.v)
             }
             SolvedType::Nominal(nominal, params) => {
                 if !params.is_empty() {

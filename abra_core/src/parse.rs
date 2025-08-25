@@ -784,7 +784,7 @@ pub(crate) fn parse_item(pair: Pair<Rule>, file_id: FileId) -> Rc<Item> {
                             .into();
                             interfaces.push(interface);
                         }
-                        let outputtype = OutputType { name, interfaces };
+                        let outputtype = InterfaceOutputType { name, interfaces };
                         // dbg!(&outputtype);
                         output_types.push(Rc::new(outputtype));
                     }

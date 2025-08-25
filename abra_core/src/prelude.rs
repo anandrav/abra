@@ -279,7 +279,6 @@ implement Iterator for ArrayIterator<'T> {
 //     ret
 // }
 
-// TODO: shouldn't need to annotate `self` argument as array<'a>, that should be inferred
 extend array<'a> {
     fn len(self) -> int {
         array_length(self)
