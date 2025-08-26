@@ -3,7 +3,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use crate::ast::{
-    ArgAnnotated, ArgMaybeAnnotated, AstNode, Expr, ExprKind, FileAst, Identifier,
+    ArgAnnotated, ArgMaybeAnnotated, AstNode, Expr, ExprKind, FileAst, Identifier, InterfaceImpl,
     InterfaceOutputType, ItemKind, NodeId, Pat, PatKind, Stmt, StmtKind, Type as AstType,
     TypeDefKind, TypeKind,
 };
@@ -19,7 +19,7 @@ use std::sync::atomic::{AtomicU32, Ordering};
 use utils::hash::HashMap;
 
 use super::{
-    Declaration, EnumDef, Error, FuncDef, InterfaceDef, Polytype, PolytypeDeclaration,
+    _print_node, Declaration, EnumDef, Error, FuncDef, InterfaceDef, Polytype, PolytypeDeclaration,
     StaticsContext, StructDef,
 };
 
@@ -335,7 +335,7 @@ pub(crate) enum Prov {
     Node(AstNode), // the type of an expression or statement located at NodeId
     InstantiateUdtParam(AstNode, u8),
     InstantiatePoly(PolyInstantiationId, PolytypeDeclaration),
-    InstantiateInterfaceOutputType(PolyInstantiationId, Rc<InterfaceOutputType>),
+    InstantiateInterfaceOutputType(Rc<InterfaceImpl>, Rc<InterfaceOutputType>), // some Interface implementation's instance of an output type
     FuncArg(AstNode, u8), // u8 represents the index of the argument
     FuncOut(AstNode),     // u8 represents how many arguments before this output
     ListElem(AstNode),
@@ -743,14 +743,20 @@ impl TypeVar {
     }
 
     // Creates a clone of a Type with polymorphic variables not in scope replaced with fresh unifvars
-    fn instantiate_iface_output_types(self, ctx: &mut StaticsContext, node: AstNode) -> TypeVar {
-        let id = PolyInstantiationId::new();
-        self.instantiate_iface_output_types_(ctx, node, id)
+    fn instantiate_iface_output_types(
+        self,
+        ctx: &mut StaticsContext,
+        node: AstNode,
+        imp: Rc<InterfaceImpl>,
+    ) -> TypeVar {
+        let id = PolyInstantiationId::new(); // TODO: don't need the InstantationId. Remove it
+        self.instantiate_iface_output_types_(ctx, node, imp, id)
     }
     fn instantiate_iface_output_types_(
         self,
         ctx: &mut StaticsContext,
         node: AstNode,
+        imp: Rc<InterfaceImpl>,
         id: PolyInstantiationId,
     ) -> TypeVar {
         let data = self.0.clone_data();
@@ -769,7 +775,7 @@ impl TypeVar {
                 ty // noop
             }
             PotentialType::InterfaceOutput(ref provs, ref output_type) => {
-                let prov = Prov::InstantiateInterfaceOutputType(id, output_type.clone());
+                let prov = Prov::InstantiateInterfaceOutputType(imp, output_type.clone());
                 let ret = TypeVar::fresh(ctx, prov.clone());
                 let mut extension: Vec<(Rc<InterfaceDef>, AstNode)> = Vec::new();
                 let ifaces = &output_type.interfaces(ctx);
@@ -785,22 +791,28 @@ impl TypeVar {
             PotentialType::Nominal(provs, ident, params) => {
                 let params = params
                     .into_iter()
-                    .map(|ty| ty.instantiate_iface_output_types_(ctx, node.clone(), id))
+                    .map(|ty| {
+                        ty.instantiate_iface_output_types_(ctx, node.clone(), imp.clone(), id)
+                    })
                     .collect();
                 PotentialType::Nominal(provs, ident, params)
             }
             PotentialType::Function(provs, args, out) => {
                 let args = args
                     .into_iter()
-                    .map(|ty| ty.instantiate_iface_output_types_(ctx, node.clone(), id))
+                    .map(|ty| {
+                        ty.instantiate_iface_output_types_(ctx, node.clone(), imp.clone(), id)
+                    })
                     .collect();
-                let out = out.instantiate_iface_output_types_(ctx, node, id);
+                let out = out.instantiate_iface_output_types_(ctx, node, imp, id);
                 PotentialType::Function(provs, args, out)
             }
             PotentialType::Tuple(provs, elems) => {
                 let elems = elems
                     .into_iter()
-                    .map(|ty| ty.instantiate_iface_output_types_(ctx, node.clone(), id))
+                    .map(|ty| {
+                        ty.instantiate_iface_output_types_(ctx, node.clone(), imp.clone(), id)
+                    })
                     .collect();
                 PotentialType::Tuple(provs, elems)
             }
@@ -1388,9 +1400,12 @@ fn generate_constraints_item_decls(ctx: &mut StaticsContext, item: Rc<Item>) {
 
                         let expected = interface_method_ty.clone().subst(&substitution);
                         // TODO: need to subst or instantiate or something similar
-                        // println!("iface method ty: {}", expected);
-                        let expected =
-                            expected.instantiate_iface_output_types(ctx, interface_method.node());
+                        // println!("iface method ty: {}", expe cted);
+                        let expected = expected.instantiate_iface_output_types(
+                            ctx,
+                            interface_method.node(),
+                            iface_impl.clone(),
+                        );
                         // println!("instantiated iface method ty: {}", expected);
 
                         let actual = TypeVar::from_node(ctx, f.name.node());
@@ -1614,6 +1629,50 @@ fn generate_constraints_stmt(
         StmtKind::ForLoop(pat, iterable, body) => {
             generate_constraints_expr(ctx, polyvar_scope.clone(), Mode::Syn, iterable.clone());
             let iterable_ty = TypeVar::from_node(ctx, iterable.node());
+            let Some(iterable_ty_solved) = iterable_ty.clone().solution() else {
+                ctx.errors.push(Error::Generic {
+                    msg: "Cannot typecheck for loop because type of container is not known."
+                        .to_string(),
+                    node: iterable.node(),
+                });
+                return;
+            };
+            let iterable_iface_def = ctx.get_interface_declaration("prelude.Iterable");
+            let impl_list = ctx
+                .interface_impls
+                .get(&iterable_iface_def)
+                .cloned()
+                .unwrap_or_default();
+            let Some(imp) = impl_list.iter().find(|i| {
+                if let Some(impl_ty) = ast_type_to_solved_type(ctx, i.typ.clone()) {
+                    ty_fits_impl_ty(ctx, iterable_ty_solved.clone(), impl_ty.clone())
+                } else {
+                    false
+                }
+            }) else {
+                ctx.errors.push(Error::Generic {
+                    msg: "For loop container does not implement `Iterable` interface.".to_string(),
+                    node: iterable.node(),
+                });
+                return;
+            };
+            let output_type = iterable_iface_def
+                .output_types
+                .iter()
+                .find(|ot| ot.name.v == "Item")
+                .unwrap();
+            // TODO: last here!
+            // let item_ty = ctx.unifvars.get(&Prov::InstantiateInterfaceOutputType(imp.clone(), output_type.clone())).unwrap();
+            // generate_constraints_pat(
+            //     ctx,
+            //     polyvar_scope.clone(),
+            //     Mode::Ana { expected: item_ty.clone() },
+            //     pat.clone(),
+            // );
+
+            // type must implement interface Iterable
+            // get the implementation (Rc<InterfaceImpl>)
+            // Get the associated Item type.
             match extract_item_type_from_iterable_type(ctx, iterable_ty, stmt.id, stmt.node()) {
                 Some(item_ty) => {
                     generate_constraints_pat(

@@ -282,6 +282,10 @@ impl Declaration {
 
 #[derive(Debug)]
 pub(crate) enum Error {
+    Generic {
+        msg: String,
+        node: AstNode,
+    },
     // resolution phase
     UnresolvedIdentifier {
         node: AstNode,
@@ -401,6 +405,11 @@ impl Error {
         };
 
         match self {
+            Error::Generic { msg, node } => {
+                let (file, range) = node.get_file_and_range();
+                diagnostic = diagnostic.with_message(msg);
+                labels.push(Label::secondary(file, range))
+            }
             Error::NameClash {
                 name,
                 original,
