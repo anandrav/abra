@@ -1383,7 +1383,6 @@ fn generate_constraints_item_decls(ctx: &mut StaticsContext, item: Rc<Item>) {
                         }
 
                         let expected = interface_method_ty.clone().subst(&substitution);
-                        // TODO: need to subst or instantiate or something similar
                         // println!("iface method ty: {}", expe cted);
                         let expected = expected.instantiate_iface_output_types(
                             ctx,
@@ -1646,7 +1645,13 @@ fn generate_constraints_stmt(
                 .find(|ot| ot.name.v == "Item")
                 .unwrap();
             // TODO: last here!
-            // let item_ty = ctx.unifvars.get(&Prov::InstantiateInterfaceOutputType(imp.clone(), output_type.clone())).unwrap();
+            // let item_ty = ctx
+            //     .unifvars
+            //     .get(&Prov::InstantiateInterfaceOutputType(
+            //         imp.clone(),
+            //         output_type.clone(),
+            //     ))
+            //     .unwrap();
             // generate_constraints_pat(
             //     ctx,
             //     polyvar_scope.clone(),
