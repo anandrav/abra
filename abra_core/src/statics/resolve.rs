@@ -6,8 +6,9 @@ use super::{Declaration, Error, Namespace, PolytypeDeclaration, StaticsContext};
 #[cfg(feature = "ffi")]
 use crate::addons::make_foreign_func_name;
 use crate::ast::{
-    ArgMaybeAnnotated, AstNode, Expr, ExprKind, FileAst, FuncDef, Identifier, ImportList, Item,
-    ItemKind, NodeId, Pat, PatKind, Polytype, Stmt, StmtKind, Type, TypeDefKind, TypeKind,
+    ArgMaybeAnnotated, AstNode, Expr, ExprKind, FileAst, FuncDef, Identifier, ImportList,
+    InterfaceDef, Item, ItemKind, NodeId, Pat, PatKind, Polytype, Stmt, StmtKind, Type,
+    TypeDefKind, TypeKind,
 };
 use crate::builtin::{BuiltinOperation, BuiltinType};
 use crate::statics::typecheck::{Nominal, TypeKey};
@@ -493,6 +494,17 @@ fn resolve_names_item_decl(ctx: &mut StaticsContext, symbol_table: SymbolTable, 
             for prop in &iface_def.methods {
                 let symbol_table = symbol_table.new_scope();
                 resolve_names_typ(ctx, symbol_table.clone(), prop.ty.clone(), true);
+            }
+            for output_type in &iface_def.output_types {
+                for iface in &output_type.interfaces {
+                    resolve_identifier(ctx, &symbol_table, &iface.name);
+                    resolve_iface_arguments(
+                        ctx,
+                        &symbol_table,
+                        &iface.arguments,
+                        iface_def.clone(),
+                    );
+                }
             }
         }
         ItemKind::InterfaceImpl(iface_impl) => {
@@ -1029,7 +1041,27 @@ fn resolve_names_polytyp(
 
     for iface in &polyty.interfaces {
         resolve_identifier(ctx, &symbol_table, &iface.name);
-        // TODO: resolve arguments
+        if let Some(Declaration::InterfaceDef(iface_def)) = ctx.resolution_map.get(&iface.name.id) {
+            resolve_iface_arguments(ctx, &symbol_table, &iface.arguments, iface_def.clone());
+        }
+    }
+}
+
+fn resolve_iface_arguments(
+    ctx: &mut StaticsContext,
+    symbol_table: &SymbolTable,
+    arguments: &[(Rc<Identifier>, Rc<Type>)],
+    iface_def: Rc<InterfaceDef>,
+) {
+    for (arg_name, arg_val) in arguments {
+        resolve_names_typ(ctx, symbol_table.clone(), arg_val.clone(), false);
+
+        let iface_symbol_table = SymbolTable::empty();
+        let ns = &ctx.interface_namespaces[&iface_def];
+        for (name, decl) in ns.declarations.iter() {
+            iface_symbol_table.extend_declaration(name.clone(), decl.clone());
+        }
+        resolve_identifier(ctx, &iface_symbol_table, arg_name);
     }
 }
 

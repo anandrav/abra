@@ -749,16 +749,6 @@ impl TypeVar {
         node: AstNode,
         imp: Rc<InterfaceImpl>,
     ) -> TypeVar {
-        let id = PolyInstantiationId::new(); // TODO: don't need the InstantationId. Remove it
-        self.instantiate_iface_output_types_(ctx, node, imp, id)
-    }
-    fn instantiate_iface_output_types_(
-        self,
-        ctx: &mut StaticsContext,
-        node: AstNode,
-        imp: Rc<InterfaceImpl>,
-        id: PolyInstantiationId,
-    ) -> TypeVar {
         let data = self.0.clone_data();
         if data.types.len() != 1 {
             return self;
@@ -791,28 +781,22 @@ impl TypeVar {
             PotentialType::Nominal(provs, ident, params) => {
                 let params = params
                     .into_iter()
-                    .map(|ty| {
-                        ty.instantiate_iface_output_types_(ctx, node.clone(), imp.clone(), id)
-                    })
+                    .map(|ty| ty.instantiate_iface_output_types(ctx, node.clone(), imp.clone()))
                     .collect();
                 PotentialType::Nominal(provs, ident, params)
             }
             PotentialType::Function(provs, args, out) => {
                 let args = args
                     .into_iter()
-                    .map(|ty| {
-                        ty.instantiate_iface_output_types_(ctx, node.clone(), imp.clone(), id)
-                    })
+                    .map(|ty| ty.instantiate_iface_output_types(ctx, node.clone(), imp.clone()))
                     .collect();
-                let out = out.instantiate_iface_output_types_(ctx, node, imp, id);
+                let out = out.instantiate_iface_output_types(ctx, node, imp);
                 PotentialType::Function(provs, args, out)
             }
             PotentialType::Tuple(provs, elems) => {
                 let elems = elems
                     .into_iter()
-                    .map(|ty| {
-                        ty.instantiate_iface_output_types_(ctx, node.clone(), imp.clone(), id)
-                    })
+                    .map(|ty| ty.instantiate_iface_output_types(ctx, node.clone(), imp.clone()))
                     .collect();
                 PotentialType::Tuple(provs, elems)
             }
