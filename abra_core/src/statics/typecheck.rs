@@ -3,9 +3,9 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use crate::ast::{
-    ArgAnnotated, ArgMaybeAnnotated, AstNode, Expr, ExprKind, FileAst, Identifier, InterfaceImpl,
-    InterfaceOutputType, ItemKind, NodeId, Pat, PatKind, Stmt, StmtKind, Type as AstType,
-    TypeDefKind, TypeKind,
+    ArgAnnotated, ArgMaybeAnnotated, AstNode, Expr, ExprKind, FileAst, Identifier, Interface,
+    InterfaceImpl, InterfaceOutputType, ItemKind, NodeId, Pat, PatKind, Stmt, StmtKind,
+    Type as AstType, TypeDefKind, TypeKind,
 };
 use crate::ast::{BinaryOperator, Item};
 use crate::builtin::BuiltinOperation;
@@ -772,7 +772,7 @@ impl TypeVar {
                     Vec::new();
                 let ifaces = &output_type.interfaces(ctx);
                 for (iface, args) in ifaces {
-                    extension.push((iface.clone(), args.clone(), node.clone())); // TODO: arguments
+                    extension.push((iface.clone(), args.clone(), node.clone()));
                 }
                 ctx.unifvars_constrained_to_interfaces
                     .entry(prov)
@@ -948,32 +948,30 @@ impl TypeVar {
 impl PolytypeDeclaration {
     fn interfaces(&self, ctx: &StaticsContext) -> Vec<(Rc<InterfaceDef>, InterfaceArguments)> {
         match self {
-            PolytypeDeclaration::InterfaceSelf(iface) => vec![(iface.clone(), vec![])], // TODO: arguments?
-            PolytypeDeclaration::Ordinary(polyty) => {
-                let mut ifaces = vec![];
-                for i in &polyty.interfaces {
-                    if let Some(Declaration::InterfaceDef(iface)) =
-                        ctx.resolution_map.get(&i.name.id)
-                    {
-                        ifaces.push((iface.clone(), vec![])); // TODO: arguments
-                    }
-                }
-                ifaces
-            }
+            PolytypeDeclaration::InterfaceSelf(iface) => vec![(iface.clone(), vec![])],
+            PolytypeDeclaration::Ordinary(polyty) => interfaces_helper(ctx, &polyty.interfaces),
         }
     }
 }
 
 impl InterfaceOutputType {
     fn interfaces(&self, ctx: &StaticsContext) -> Vec<(Rc<InterfaceDef>, InterfaceArguments)> {
-        let mut ifaces = vec![];
-        for i in &self.interfaces {
-            if let Some(Declaration::InterfaceDef(iface)) = ctx.resolution_map.get(&i.name.id) {
-                ifaces.push((iface.clone(), vec![]));
-            }
-        }
-        ifaces
+        interfaces_helper(ctx, &self.interfaces)
     }
+}
+
+fn interfaces_helper(
+    ctx: &StaticsContext,
+    ast_ifaces: &[Rc<Interface>],
+) -> Vec<(Rc<InterfaceDef>, InterfaceArguments)> {
+    let mut ifaces = vec![];
+    for i in ast_ifaces {
+        let Some(Declaration::InterfaceDef(iface)) = ctx.resolution_map.get(&i.name.id) else {
+            continue;
+        };
+        ifaces.push((iface.clone(), vec![])); // TODO: arguments
+    }
+    ifaces
 }
 
 fn tyvar_of_iface_method(
@@ -1705,8 +1703,6 @@ fn generate_constraints_stmt(
                     );
                 }
                 None => {
-                    // TODO: need to log an error
-                    todo!("reminder to log helpful errors in extract_item_type_from_iterable_type");
                     // generate_constraints_pat(ctx, polyvar_scope.clone(), Mode::Syn, pat.clone());
                 }
             }
@@ -1715,8 +1711,7 @@ fn generate_constraints_stmt(
     }
 }
 
-// TODO: This function looks scary but it's not that complicated.
-// that means it's too much effort to do simple things like create, manipulate, and convert types
+// TODO: This function looks scary but it's not that complicated. That means it's too much effort to do simple things like create, manipulate, and convert types
 fn extract_item_type_from_iterable_type(
     ctx: &mut StaticsContext,
     iterable_ty: TypeVar,
