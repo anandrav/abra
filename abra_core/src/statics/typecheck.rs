@@ -19,8 +19,8 @@ use std::sync::atomic::{AtomicU32, Ordering};
 use utils::hash::HashMap;
 
 use super::{
-    _print_node, Declaration, EnumDef, Error, FuncDef, InterfaceDef, Polytype, PolytypeDeclaration,
-    StaticsContext, StructDef,
+    _print_node, Declaration, EnumDef, Error, FuncDef, InterfaceArguments, InterfaceDef, Polytype,
+    PolytypeDeclaration, StaticsContext, StructDef,
 };
 
 pub(crate) fn solve_types(ctx: &mut StaticsContext, file_asts: &Vec<Rc<FileAst>>) {
@@ -595,10 +595,11 @@ impl TypeVar {
                 if !polyvar_scope.lookup_poly(decl) {
                     let prov = Prov::InstantiatePoly(id, decl.clone());
                     let ret = TypeVar::fresh(ctx, prov.clone());
-                    let mut extension: Vec<(Rc<InterfaceDef>, AstNode)> = Vec::new();
+                    let mut extension: Vec<(Rc<InterfaceDef>, InterfaceArguments, AstNode)> =
+                        Vec::new();
                     let ifaces = decl.interfaces(ctx);
-                    for i in ifaces {
-                        extension.push((i.clone(), node.clone()));
+                    for (i, args) in ifaces {
+                        extension.push((i, args, node.clone()));
                     }
                     ctx.unifvars_constrained_to_interfaces
                         .entry(prov)
@@ -767,10 +768,11 @@ impl TypeVar {
             PotentialType::InterfaceOutput(ref provs, ref output_type) => {
                 let prov = Prov::InstantiateInterfaceOutputType(imp, output_type.clone());
                 let ret = TypeVar::fresh(ctx, prov.clone());
-                let mut extension: Vec<(Rc<InterfaceDef>, AstNode)> = Vec::new();
+                let mut extension: Vec<(Rc<InterfaceDef>, InterfaceArguments, AstNode)> =
+                    Vec::new();
                 let ifaces = &output_type.interfaces(ctx);
-                for i in ifaces {
-                    extension.push((i.clone(), node.clone()));
+                for (iface, args) in ifaces {
+                    extension.push((iface.clone(), args.clone(), node.clone())); // TODO: arguments
                 }
                 ctx.unifvars_constrained_to_interfaces
                     .entry(prov)
@@ -940,6 +942,37 @@ impl TypeVar {
 
     fn underdetermined(&self) -> bool {
         self.0.with_data(|data| data.types.is_empty())
+    }
+}
+
+impl PolytypeDeclaration {
+    fn interfaces(&self, ctx: &StaticsContext) -> Vec<(Rc<InterfaceDef>, InterfaceArguments)> {
+        match self {
+            PolytypeDeclaration::InterfaceSelf(iface) => vec![(iface.clone(), vec![])], // TODO: arguments?
+            PolytypeDeclaration::Ordinary(polyty) => {
+                let mut ifaces = vec![];
+                for i in &polyty.interfaces {
+                    if let Some(Declaration::InterfaceDef(iface)) =
+                        ctx.resolution_map.get(&i.name.id)
+                    {
+                        ifaces.push((iface.clone(), vec![])); // TODO: arguments
+                    }
+                }
+                ifaces
+            }
+        }
+    }
+}
+
+impl InterfaceOutputType {
+    fn interfaces(&self, ctx: &StaticsContext) -> Vec<(Rc<InterfaceDef>, InterfaceArguments)> {
+        let mut ifaces = vec![];
+        for i in &self.interfaces {
+            if let Some(Declaration::InterfaceDef(iface)) = ctx.resolution_map.get(&i.name.id) {
+                ifaces.push((iface.clone(), vec![]));
+            }
+        }
+        ifaces
     }
 }
 
@@ -1188,7 +1221,7 @@ pub(crate) fn constrain_to_iface(
             .unifvars_constrained_to_interfaces
             .entry(Prov::Node(node.clone()))
             .or_default();
-        ifaces.push((iface.clone(), node));
+        ifaces.push((iface.clone(), vec![], node));
     }
 }
 
@@ -1315,7 +1348,7 @@ pub(crate) fn check_unifvars(ctx: &mut StaticsContext) {
     for (prov, ifaces) in &ctx.unifvars_constrained_to_interfaces {
         let ty = ctx.unifvars.get(prov).unwrap().clone();
         if let Some(ty) = ty.solution() {
-            for (iface, node) in ifaces.iter().cloned() {
+            for (iface, args, node) in ifaces.iter().cloned() {
                 if !ty_implements_iface(ctx, ty.clone(), &iface) {
                     ctx.errors.push(Error::InterfaceNotImplemented {
                         ty: ty.clone(),
@@ -2853,7 +2886,7 @@ pub(crate) fn ty_implements_iface(
 ) -> bool {
     if let SolvedType::Poly(poly_decl) = &ty {
         let ifaces = poly_decl.interfaces(ctx);
-        return ifaces.contains(iface);
+        return ifaces.iter().find(|(i, _)| i == iface).is_some();
     }
     let default = vec![];
     let impl_list = ctx.interface_impls.get(iface).unwrap_or(&default);
@@ -2899,7 +2932,7 @@ pub(crate) fn ty_fits_impl_ty(ctx: &StaticsContext, typ: SolvedType, impl_ty: So
             let ifaces = poly_decl.interfaces(ctx);
             ifaces
                 .iter()
-                .all(|iface: &Rc<InterfaceDef>| ty_implements_iface(ctx, typ.clone(), iface))
+                .all(|(iface, _)| ty_implements_iface(ctx, typ.clone(), iface))
         }
         _ => false,
     }

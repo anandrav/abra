@@ -79,7 +79,7 @@ pub(crate) struct StaticsContext {
     // unification variables (skolems) which must be solved
     pub(crate) unifvars: HashMap<TypeProv, TypeVar>,
     pub(crate) unifvars_constrained_to_interfaces:
-        HashMap<TypeProv, Vec<(Rc<InterfaceDef>, AstNode)>>,
+        HashMap<TypeProv, Vec<(Rc<InterfaceDef>, InterfaceArguments, AstNode)>>,
 
     // ERRORS
     errors: Vec<Error>,
@@ -225,36 +225,7 @@ pub(crate) enum PolytypeDeclaration {
     Ordinary(Rc<Polytype>),
 }
 
-impl PolytypeDeclaration {
-    fn interfaces(&self, ctx: &StaticsContext) -> Vec<Rc<InterfaceDef>> {
-        match self {
-            PolytypeDeclaration::InterfaceSelf(iface) => vec![iface.clone()],
-            PolytypeDeclaration::Ordinary(polyty) => {
-                let mut ifaces = vec![];
-                for i in &polyty.interfaces {
-                    if let Some(Declaration::InterfaceDef(iface)) =
-                        ctx.resolution_map.get(&i.name.id)
-                    {
-                        ifaces.push(iface.clone());
-                    }
-                }
-                ifaces
-            }
-        }
-    }
-}
-
-impl InterfaceOutputType {
-    fn interfaces(&self, ctx: &StaticsContext) -> Vec<Rc<InterfaceDef>> {
-        let mut ifaces = vec![];
-        for i in &self.interfaces {
-            if let Some(Declaration::InterfaceDef(iface)) = ctx.resolution_map.get(&i.name.id) {
-                ifaces.push(iface.clone());
-            }
-        }
-        ifaces
-    }
-}
+type InterfaceArguments = Vec<(Rc<InterfaceOutputType>, SolvedType)>;
 
 impl Declaration {
     pub fn to_type_key(self: &Declaration) -> Option<TypeKey> {
