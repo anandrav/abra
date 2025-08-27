@@ -3,7 +3,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use super::{
-    _print_node, Declaration, EnumDef, Error, FuncDef, InterfaceArguments, InterfaceDef, Polytype,
+    Declaration, EnumDef, Error, FuncDef, InterfaceArguments, InterfaceDef, Polytype,
     PolytypeDeclaration, StaticsContext, StructDef,
 };
 use crate::ast::{
@@ -14,7 +14,6 @@ use crate::ast::{
 use crate::ast::{BinaryOperator, Item};
 use crate::builtin::BuiltinOperation;
 use crate::environment::Environment;
-use crate::statics::Type::Int;
 use disjoint_sets::UnionFindNode;
 use std::cell::RefCell;
 use std::collections::BTreeSet;
@@ -49,13 +48,19 @@ pub(crate) struct TypeVarData {
     pub(crate) iface_constraints: InterfaceConstraints,
 }
 
-type InterfaceConstraints = HashMap<
-    (
-        Rc<crate::ast::InterfaceDef>,
-        crate::statics::InterfaceArguments,
-    ),
-    Vec<AstNode>,
->;
+pub(crate) type InterfaceConstraints = HashMap<InterfaceConstraint, Vec<AstNode>>;
+
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub(crate) struct InterfaceConstraint {
+    iface: Rc<InterfaceDef>,
+    args: InterfaceArguments,
+}
+
+impl InterfaceConstraint {
+    fn new(iface: Rc<InterfaceDef>, args: InterfaceArguments) -> Self {
+        Self { iface, args }
+    }
+}
 
 impl TypeVarData {
     fn new() -> Self {
@@ -624,10 +629,10 @@ impl TypeVar {
                     let ret = TypeVar::fresh(ctx, prov.clone());
 
                     let ifaces = decl.interfaces(ctx);
-                    for (i, args) in ifaces {
+                    for constraint in ifaces {
                         ret.0.with_data(|d| {
                             d.iface_constraints
-                                .entry((i.clone(), args.clone()))
+                                .entry(constraint)
                                 .or_default()
                                 .push(node.clone())
                         });
@@ -638,27 +643,27 @@ impl TypeVar {
                 }
             }
             PotentialType::InterfaceOutput(..) => todo!(),
-            PotentialType::Nominal(provs, ident, params) => {
+            PotentialType::Nominal(reasons, ident, params) => {
                 let params = params
                     .into_iter()
                     .map(|ty| ty.instantiate_(ctx, polyvar_scope.clone(), node.clone(), id))
                     .collect();
-                PotentialType::Nominal(provs, ident, params)
+                PotentialType::Nominal(reasons, ident, params)
             }
-            PotentialType::Function(provs, args, out) => {
+            PotentialType::Function(reasons, args, out) => {
                 let args = args
                     .into_iter()
                     .map(|ty| ty.instantiate_(ctx, polyvar_scope.clone(), node.clone(), id))
                     .collect();
                 let out = out.instantiate_(ctx, polyvar_scope.clone(), node, id);
-                PotentialType::Function(provs, args, out)
+                PotentialType::Function(reasons, args, out)
             }
-            PotentialType::Tuple(provs, elems) => {
+            PotentialType::Tuple(reasons, elems) => {
                 let elems = elems
                     .into_iter()
                     .map(|ty| ty.instantiate_(ctx, polyvar_scope.clone(), node.clone(), id))
                     .collect();
-                PotentialType::Tuple(provs, elems)
+                PotentialType::Tuple(reasons, elems)
             }
         };
         let mut types = HashMap::default();
@@ -741,21 +746,21 @@ impl TypeVar {
                         ty // noop
                     }
                 }
-                PotentialType::Nominal(provs, ident, params) => {
+                PotentialType::Nominal(reasons, ident, params) => {
                     let params = params
                         .into_iter()
                         .map(|ty| ty.subst(substitution))
                         .collect();
-                    PotentialType::Nominal(provs, ident, params)
+                    PotentialType::Nominal(reasons, ident, params)
                 }
-                PotentialType::Function(provs, args, out) => {
+                PotentialType::Function(reasons, args, out) => {
                     let args = args.into_iter().map(|ty| ty.subst(substitution)).collect();
                     let out = out.subst(substitution);
-                    PotentialType::Function(provs, args, out)
+                    PotentialType::Function(reasons, args, out)
                 }
-                PotentialType::Tuple(provs, elems) => {
+                PotentialType::Tuple(reasons, elems) => {
                     let elems = elems.into_iter().map(|ty| ty.subst(substitution)).collect();
-                    PotentialType::Tuple(provs, elems)
+                    PotentialType::Tuple(reasons, elems)
                 }
             };
             let mut types = HashMap::default();
@@ -783,7 +788,6 @@ impl TypeVar {
         if data.types.len() != 1 {
             return self;
         }
-        let mut iface_constraints = InterfaceConstraints::default();
         let ty = data.types.into_values().next().unwrap();
         let ty = match ty {
             PotentialType::Void(_)
@@ -795,42 +799,42 @@ impl TypeVar {
             | PotentialType::Poly(_, _) => {
                 ty // noop
             }
-            PotentialType::InterfaceOutput(ref provs, ref output_type) => {
+            PotentialType::InterfaceOutput(_, ref output_type) => {
                 // TODO: some code duplication around here
                 let prov = Prov::InstantiateInterfaceOutputType(imp, output_type.clone());
                 let ret = TypeVar::fresh(ctx, prov.clone());
-                let ifaces = &output_type.interfaces(ctx);
-                for (i, args) in ifaces {
+                let ifaces = output_type.interfaces(ctx);
+                for constraint in ifaces {
                     ret.0.with_data(|d| {
                         d.iface_constraints
-                            .entry((i.clone(), args.clone()))
+                            .entry(constraint)
                             .or_default()
                             .push(node.clone())
                     });
                 }
                 return ret; // instantiation occurs here
             }
-            PotentialType::Nominal(provs, ident, params) => {
+            PotentialType::Nominal(reasons, ident, params) => {
                 let params = params
                     .into_iter()
                     .map(|ty| ty.instantiate_iface_output_types(ctx, node.clone(), imp.clone()))
                     .collect();
-                PotentialType::Nominal(provs, ident, params)
+                PotentialType::Nominal(reasons, ident, params)
             }
-            PotentialType::Function(provs, args, out) => {
+            PotentialType::Function(reasons, args, out) => {
                 let args = args
                     .into_iter()
                     .map(|ty| ty.instantiate_iface_output_types(ctx, node.clone(), imp.clone()))
                     .collect();
                 let out = out.instantiate_iface_output_types(ctx, node, imp);
-                PotentialType::Function(provs, args, out)
+                PotentialType::Function(reasons, args, out)
             }
-            PotentialType::Tuple(provs, elems) => {
+            PotentialType::Tuple(reasons, elems) => {
                 let elems = elems
                     .into_iter()
                     .map(|ty| ty.instantiate_iface_output_types(ctx, node.clone(), imp.clone()))
                     .collect();
-                PotentialType::Tuple(provs, elems)
+                PotentialType::Tuple(reasons, elems)
             }
         };
         let mut types = HashMap::default();
@@ -839,10 +843,7 @@ impl TypeVar {
             types,
             locked: data.locked,
             missing_info: data.missing_info,
-            iface_constraints: TypeVarData::merge_iface_constraints(
-                data.iface_constraints,
-                iface_constraints,
-            ),
+            iface_constraints: data.iface_constraints,
         };
         TypeVar(UnionFindNode::new(data_instantiated))
     }
@@ -980,16 +981,18 @@ impl TypeVar {
 }
 
 impl PolytypeDeclaration {
-    fn interfaces(&self, ctx: &StaticsContext) -> Vec<(Rc<InterfaceDef>, InterfaceArguments)> {
+    fn interfaces(&self, ctx: &StaticsContext) -> Vec<InterfaceConstraint> {
         match self {
-            PolytypeDeclaration::InterfaceSelf(iface) => vec![(iface.clone(), vec![])],
+            PolytypeDeclaration::InterfaceSelf(iface) => {
+                vec![InterfaceConstraint::new(iface.clone(), vec![])]
+            }
             PolytypeDeclaration::Ordinary(polyty) => interfaces_helper(ctx, &polyty.interfaces),
         }
     }
 }
 
 impl InterfaceOutputType {
-    fn interfaces(&self, ctx: &StaticsContext) -> Vec<(Rc<InterfaceDef>, InterfaceArguments)> {
+    fn interfaces(&self, ctx: &StaticsContext) -> Vec<InterfaceConstraint> {
         interfaces_helper(ctx, &self.interfaces)
     }
 }
@@ -997,7 +1000,7 @@ impl InterfaceOutputType {
 fn interfaces_helper(
     ctx: &StaticsContext,
     ast_ifaces: &[Rc<Interface>],
-) -> Vec<(Rc<InterfaceDef>, InterfaceArguments)> {
+) -> Vec<InterfaceConstraint> {
     let mut ifaces = vec![];
     for i in ast_ifaces {
         let Some(Declaration::InterfaceDef(iface)) = ctx.resolution_map.get(&i.name.id) else {
@@ -1005,7 +1008,8 @@ fn interfaces_helper(
         };
         let mut args: InterfaceArguments = vec![];
         for (name, val) in &i.arguments {
-            let Some(Declaration::OutputType { i, at }) = ctx.resolution_map.get(&name.id) else {
+            let Some(Declaration::OutputType { i: _, at }) = ctx.resolution_map.get(&name.id)
+            else {
                 continue;
             };
             let Some(val) = ast_type_to_solved_type(ctx, val.clone()) else {
@@ -1013,7 +1017,7 @@ fn interfaces_helper(
             }; // TODO: should report an error here?
             args.push((at.clone(), val));
         }
-        ifaces.push((iface.clone(), args));
+        ifaces.push(InterfaceConstraint::new(iface.clone(), args));
     }
     ifaces
 }
@@ -1150,7 +1154,7 @@ pub(crate) fn ast_type_to_typevar(ctx: &StaticsContext, ast_type: Rc<AstType>) -
                 Some(Declaration::Polytype(poly_decl)) => {
                     TypeVar::make_poly(reason, poly_decl.clone())
                 }
-                Some(Declaration::OutputType { i, at }) => {
+                Some(Declaration::OutputType { i: _, at }) => {
                     TypeVar::make_iface_output(reason, at.clone())
                 }
                 _ => {
@@ -1262,7 +1266,7 @@ pub(crate) fn constrain_to_iface(
         // TODO: make a helper function for this to hide the ugliness. tyvar.constrain_to_iface()
         tyvar.0.with_data(|d| {
             d.iface_constraints
-                .entry((iface.clone(), vec![]))
+                .entry(InterfaceConstraint::new(iface.clone(), vec![]))
                 .or_default()
                 .push(node)
         });
@@ -1390,7 +1394,7 @@ pub(crate) fn check_unifvars(ctx: &mut StaticsContext) {
         } else if let Some(ty) = tyvar.solution() {
             tyvar.0.with_data(|d| {
                 for (constraint, nodes) in &d.iface_constraints {
-                    let iface = &constraint.0;
+                    let iface = &constraint.iface;
                     if !ty_implements_iface(ctx, ty.clone(), iface) {
                         ctx.errors.push(Error::InterfaceNotImplemented {
                             ty: ty.clone(),
@@ -2922,11 +2926,11 @@ pub(crate) fn fmt_conflicting_types(types: &[PotentialType], f: &mut dyn Write) 
 pub(crate) fn ty_implements_iface(
     ctx: &StaticsContext,
     ty: SolvedType,
-    iface: &Rc<InterfaceDef>,
+    iface: &Rc<InterfaceDef>, // TODO: this needs to take the generic arguments and associated types to the interface into account
 ) -> bool {
     if let SolvedType::Poly(poly_decl) = &ty {
         let ifaces = poly_decl.interfaces(ctx);
-        return ifaces.iter().find(|(i, _)| i == iface).is_some();
+        return ifaces.iter().any(|constraint| &constraint.iface == iface);
     }
     let default = vec![];
     let impl_list = ctx.interface_impls.get(iface).unwrap_or(&default);
@@ -2972,7 +2976,7 @@ pub(crate) fn ty_fits_impl_ty(ctx: &StaticsContext, typ: SolvedType, impl_ty: So
             let ifaces = poly_decl.interfaces(ctx);
             ifaces
                 .iter()
-                .all(|(iface, _)| ty_implements_iface(ctx, typ.clone(), iface))
+                .all(|constraint| ty_implements_iface(ctx, typ.clone(), &constraint.iface))
         }
         _ => false,
     }
