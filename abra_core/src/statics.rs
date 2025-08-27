@@ -78,8 +78,6 @@ pub(crate) struct StaticsContext {
 
     // unification variables (skolems) which must be solved
     pub(crate) unifvars: HashMap<TypeProv, TypeVar>,
-    pub(crate) unifvars_constrained_to_interfaces:
-        HashMap<TypeProv, Vec<(Rc<InterfaceDef>, InterfaceArguments, AstNode)>>,
 
     // ERRORS
     errors: Vec<Error>,
@@ -109,7 +107,6 @@ impl StaticsContext {
             host_funcs: Default::default(),
 
             unifvars: Default::default(),
-            unifvars_constrained_to_interfaces: Default::default(),
             errors: Default::default(),
         };
 
