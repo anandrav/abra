@@ -59,6 +59,8 @@ pub(crate) struct StaticsContext {
     pub(crate) interface_impls: HashMap<Rc<InterfaceDef>, Vec<Rc<InterfaceImpl>>>,
     // has interface impl already been type analyzed
     pub(crate) interface_impl_analyzed: HashSet<Rc<InterfaceImpl>>,
+    // has interface decl already been type analyzed
+    pub(crate) interface_def_analyzed: HashSet<Rc<InterfaceDef>>,
     // map from (type declaration, member function name) -> function declaration
     pub(crate) member_functions: HashMap<(TypeKey, String), Declaration>,
 
@@ -90,6 +92,7 @@ impl StaticsContext {
         let mut ctx = Self {
             _files: files,
             _file_provider: file_provider,
+
             root_namespace: Default::default(),
             resolution_map: Default::default(),
             fully_qualified_names: Default::default(),
@@ -97,8 +100,10 @@ impl StaticsContext {
 
             loop_stack: Default::default(),
             func_ret_stack: Default::default(),
+
             interface_impls: Default::default(),
             interface_impl_analyzed: Default::default(),
+            interface_def_analyzed: Default::default(),
             member_functions: Default::default(),
 
             for_loop_make_iterator_types: Default::default(),

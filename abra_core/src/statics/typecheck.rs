@@ -1484,22 +1484,13 @@ fn generate_constraints_item_decls(ctx: &mut StaticsContext, item: Rc<Item>) {
 
 fn generate_constraints_iface_impl(ctx: &mut StaticsContext, iface_impl: Rc<InterfaceImpl>) {
     {
-        if ctx.interface_impl_analyzed.contains(&iface_impl) {
+        if !ctx.interface_impl_analyzed.insert(iface_impl.clone()) {
             return;
         }
-        ctx.interface_impl_analyzed.insert(iface_impl.clone());
 
         let lookup = ctx.resolution_map.get(&iface_impl.iface.id).cloned();
         if let Some(Declaration::InterfaceDef(iface_def)) = &lookup {
-            for method in &iface_def.methods {
-                let node_ty = TypeVar::from_node(ctx, method.node());
-                if node_ty.is_locked() {
-                    // Interface declaration method types have already been computed.
-                    break;
-                }
-                let ty_annot = ast_type_to_typevar(ctx, method.ty.clone());
-                constrain(ctx, node_ty.clone(), ty_annot.clone());
-            }
+            generate_constraints_iface_def(ctx, iface_def.clone());
 
             let impl_list = ctx.interface_impls.entry(iface_def.clone()).or_default();
             impl_list.push(iface_impl.clone());
@@ -1551,6 +1542,21 @@ fn generate_constraints_iface_impl(ctx: &mut StaticsContext, iface_impl: Rc<Inte
                 }
             }
         }
+    }
+}
+fn generate_constraints_iface_def(ctx: &mut StaticsContext, iface_def: Rc<InterfaceDef>) {
+    if !ctx.interface_def_analyzed.insert(iface_def.clone()) {
+        return;
+    }
+
+    for method in &iface_def.methods {
+        let node_ty = TypeVar::from_node(ctx, method.node());
+        if node_ty.is_locked() {
+            // Interface declaration method types have already been computed.
+            break;
+        }
+        let ty_annot = ast_type_to_typevar(ctx, method.ty.clone());
+        constrain(ctx, node_ty.clone(), ty_annot.clone());
     }
 }
 
