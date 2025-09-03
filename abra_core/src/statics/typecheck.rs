@@ -1239,14 +1239,7 @@ pub(crate) fn constrain_because(
             });
         }
         (true, false) => {
-            let potential_ty = tyvar1.0.clone_data().types.into_iter().next().unwrap().1;
-            tyvar2.0.with_data(|d| {
-                if d.types.is_empty() {
-                    assert!(!d.locked);
-                    d.locked = true
-                }
-                d.extend(potential_ty)
-            });
+            constrain_because(ctx, tyvar2, tyvar1, constraint_reason);
         }
         // Since both TypeVars are unsolved, they are unioned and their data is merged
         (false, false) => {
@@ -1487,6 +1480,7 @@ fn generate_constraints_iface_impl(ctx: &mut StaticsContext, iface_impl: Rc<Inte
         if !ctx.interface_impl_analyzed.insert(iface_impl.clone()) {
             return;
         }
+        // println!("analyzing {}", iface_impl.iface.v);
 
         let lookup = ctx.resolution_map.get(&iface_impl.iface.id).cloned();
         if let Some(Declaration::InterfaceDef(iface_def)) = &lookup {
