@@ -324,7 +324,9 @@ impl Translator {
                         unimplemented!()
                     }
                 },
-                Declaration::OutputType { .. } | Declaration::BuiltinType(_) => unreachable!(),
+                Declaration::InterfaceOutputType { .. } | Declaration::BuiltinType(_) => {
+                    unreachable!()
+                }
                 Declaration::FreeFunction(f) => {
                     let name = &self.statics.fully_qualified_names[&f.name.id];
                     self.emit(
@@ -394,7 +396,7 @@ impl Translator {
                         .unwrap();
                     let Declaration::InterfaceMethod {
                         method,
-                        i: iface_def,
+                        iface: iface_def,
                     } = iface_method
                     else {
                         unreachable!()
@@ -759,7 +761,7 @@ impl Translator {
                 self.emit(st, Instr::CallExtern(func_id));
             }
             Declaration::InterfaceMethod {
-                i: iface_def,
+                iface: iface_def,
                 method,
             } => {
                 let func_ty = self.statics.solution_of_node(func_node).unwrap();
@@ -904,7 +906,7 @@ impl Translator {
                     panic!("not a function");
                 }
             },
-            Declaration::OutputType { .. }
+            Declaration::InterfaceOutputType { .. }
             | Declaration::InterfaceDef(_)
             | Declaration::Array
             | Declaration::Polytype(_)

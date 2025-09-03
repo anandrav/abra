@@ -81,7 +81,7 @@ fn gather_declarations_item(
                     ctx,
                     method_name,
                     Declaration::InterfaceMethod {
-                        i: iface.clone(),
+                        iface: iface.clone(),
                         method,
                     },
                 );
@@ -91,9 +91,9 @@ fn gather_declarations_item(
                 iface_namespace.add_declaration(
                     ctx,
                     name,
-                    Declaration::OutputType {
-                        i: iface.clone(),
-                        at: output_type.clone(),
+                    Declaration::InterfaceOutputType {
+                        iface: iface.clone(),
+                        ty: output_type.clone(),
                     },
                 );
             }
@@ -529,7 +529,7 @@ fn resolve_names_item_decl(ctx: &mut StaticsContext, symbol_table: SymbolTable, 
                     Some(type_key) => {
                         for (m, f) in iface_impl.methods.iter().enumerate() {
                             let method_decl = Declaration::InterfaceMethod {
-                                i: iface_def.clone(),
+                                iface: iface_def.clone(),
                                 method: m,
                             };
                             try_add_member_function(ctx, type_key.clone(), f.clone(), method_decl);
@@ -797,7 +797,7 @@ fn resolve_names_member_helper(ctx: &mut StaticsContext, expr: Rc<Expr>, field: 
             | Declaration::_ForeignFunction { .. }
             | Declaration::InterfaceMethod { .. }
             | Declaration::MemberFunction { .. }
-            | Declaration::OutputType { .. }
+            | Declaration::InterfaceOutputType { .. }
             | Declaration::EnumVariant { .. }
             | Declaration::Polytype(_)
             | Declaration::Builtin(_) => {
@@ -816,7 +816,7 @@ fn resolve_names_member_helper(ctx: &mut StaticsContext, expr: Rc<Expr>, field: 
                         ctx.resolution_map.insert(
                             field.id,
                             Declaration::InterfaceMethod {
-                                i: iface_def.clone(),
+                                iface: iface_def.clone(),
                                 method: idx,
                             },
                         );
@@ -1074,7 +1074,7 @@ fn fqn_of_type(ctx: &StaticsContext, lookup_id: NodeId) -> Option<String> {
         Declaration::InterfaceDef(_) => None,
         Declaration::InterfaceMethod { .. } => None,
         Declaration::MemberFunction { .. } => None,
-        Declaration::OutputType { .. } => None,
+        Declaration::InterfaceOutputType { .. } => None,
         Declaration::Enum(e) => ctx.fully_qualified_names.get(&e.name.id).cloned(),
         Declaration::Struct(s) => ctx.fully_qualified_names.get(&s.name.id).cloned(),
         Declaration::EnumVariant { .. } => None,

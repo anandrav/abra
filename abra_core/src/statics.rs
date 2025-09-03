@@ -190,12 +190,12 @@ pub(crate) enum Declaration {
     },
     InterfaceDef(Rc<InterfaceDef>),
     InterfaceMethod {
-        i: Rc<InterfaceDef>,
+        iface: Rc<InterfaceDef>,
         method: usize,
     },
-    OutputType {
-        i: Rc<InterfaceDef>,
-        at: Rc<InterfaceOutputType>,
+    InterfaceOutputType {
+        iface: Rc<InterfaceDef>,
+        ty: Rc<InterfaceOutputType>,
     },
     MemberFunction {
         f: Rc<FuncDef>,
@@ -237,7 +237,7 @@ impl Declaration {
             | Declaration::Var(_)
             | Declaration::Polytype(_)
             | Declaration::EnumVariant { .. } => None,
-            Declaration::OutputType { .. } => unimplemented!(),
+            Declaration::InterfaceOutputType { .. } => unimplemented!(),
             Declaration::Enum(enum_def) => Some(TypeKey::TyApp(Nominal::Enum(enum_def.clone()))),
             Declaration::Struct(struct_def) => {
                 Some(TypeKey::TyApp(Nominal::Struct(struct_def.clone())))
@@ -696,7 +696,7 @@ fn add_detail_for_decl(
         | Declaration::Struct(..)
         | Declaration::Polytype(..)
         | Declaration::Var(..) => {}
-        Declaration::OutputType { .. } => unimplemented!(),
+        Declaration::InterfaceOutputType { .. } => unimplemented!(),
         Declaration::Builtin(builtin) => notes.push(format!(
             "`{}` is a builtin operation and cannot be re-declared",
             builtin.name()
@@ -718,7 +718,9 @@ fn add_detail_for_decl_node(
         Declaration::HostFunction(func_decl) => func_decl.name.node(),
         Declaration::_ForeignFunction { f: decl, .. } => decl.name.node(),
         Declaration::InterfaceDef(interface_decl) => interface_decl.name.node(),
-        Declaration::InterfaceMethod { i: iface_def, .. } => iface_def.name.node(),
+        Declaration::InterfaceMethod {
+            iface: iface_def, ..
+        } => iface_def.name.node(),
         Declaration::MemberFunction { f: func, .. } => func.name.node(),
         Declaration::Enum(enum_def) => enum_def.name.node(),
         Declaration::EnumVariant {
@@ -732,7 +734,7 @@ fn add_detail_for_decl_node(
         },
 
         Declaration::Var(ast_node) => ast_node.clone(),
-        Declaration::OutputType { .. } => unimplemented!(),
+        Declaration::InterfaceOutputType { .. } => unimplemented!(),
         Declaration::Builtin(_) | Declaration::BuiltinType(_) | Declaration::Array => return false,
     };
     let (file, range) = node.get_file_and_range();
