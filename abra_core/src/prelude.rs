@@ -232,34 +232,22 @@ fn format_append(s1: 'a ToString, s2: 'b ToString) {
     concat_strings(s3, s4)
 }
 
-interface Iterable {
-    outputtype Item
-    outputtype Iter impl Iterator<Item=Item>
-
-    fn make_iterator: (Self) -> Iter
-}
-
+// TODO: put Iterator, ArrayIterator<'T> and impl Iterator for ArrayIterator<'T> AFTER Iterable and impl Iterable for array<'T> and it should still work. Requires demand-based analysis
 interface Iterator {
     outputtype Item
 
     fn next: (Self) -> option<Item>
 }
 
-implement Iterable for array<'T> {
-    fn make_iterator(self) -> ArrayIterator<'T> {
-        ArrayIterator(self, 0)
-    }
-}
-
-type ArrayIterator<'T> = {
-    arr: array<'T>
+type ArrayIterator<'U> = {
+    arr: array<'U>
     i: int
 }
 
 // TODO: remove the need to prefix polytypes with '
 // it's actually hard to read, and it's confusing when it's optional or not
-implement Iterator for ArrayIterator<'T> {
-    fn next(self) -> option<'T> {
+implement Iterator for ArrayIterator<'U> {
+    fn next(self) -> option<'U> {
         if self.i == self.arr.len() {
             option.none
         } else {
@@ -267,6 +255,19 @@ implement Iterator for ArrayIterator<'T> {
             self.i = self.i + 1
             ret
         }
+    }
+}
+
+interface Iterable {
+    outputtype Item
+    outputtype Iter impl Iterator<Item=Item>
+
+    fn make_iterator: (Self) -> Iter
+}
+
+implement Iterable for array<'T> {
+    fn make_iterator(self) -> ArrayIterator<'T> {
+        ArrayIterator(self, 0)
     }
 }
 
