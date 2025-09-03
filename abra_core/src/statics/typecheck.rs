@@ -1427,71 +1427,7 @@ fn generate_constraints_item_decls(ctx: &mut StaticsContext, item: Rc<Item>) {
         ItemKind::Import(..) => {}
         ItemKind::Stmt(_) => {}
         ItemKind::InterfaceImpl(iface_impl) => {
-            let lookup = ctx.resolution_map.get(&iface_impl.iface.id).cloned();
-            if let Some(Declaration::InterfaceDef(iface_def)) = &lookup {
-                for method in &iface_def.methods {
-                    let node_ty = TypeVar::from_node(ctx, method.node());
-                    if node_ty.is_locked() {
-                        // Interface declaration method types have already been computed.
-                        break;
-                    }
-                    let ty_annot = ast_type_to_typevar(ctx, method.ty.clone());
-                    constrain(ctx, node_ty.clone(), ty_annot.clone());
-                }
-
-                let impl_list = ctx.interface_impls.entry(iface_def.clone()).or_default();
-                impl_list.push(iface_impl.clone());
-
-                // BELOW IS WHAT WAS MOVED
-                let impl_ty = ast_type_to_typevar(ctx, iface_impl.typ.clone());
-                if impl_ty.is_instantiated_nominal() {
-                    ctx.errors.push(Error::InterfaceImplTypeNotGeneric {
-                        node: iface_impl.typ.node(),
-                    })
-                }
-                let polyvar_scope = PolyvarScope::empty();
-                polyvar_scope.add_polys(&impl_ty);
-
-                for f in &iface_impl.methods {
-                    let method_name = f.name.v.clone();
-                    if let Some(interface_method) =
-                        iface_def.methods.iter().find(|m| m.name.v == method_name)
-                    {
-                        let interface_method_ty =
-                            ast_type_to_typevar(ctx, interface_method.ty.clone());
-                        let actual = TypeVar::from_node(ctx, interface_method.node());
-                        constrain(ctx, interface_method_ty.clone(), actual);
-
-                        let mut substitution: Substitution = HashMap::default();
-                        if let Some(poly_decl) =
-                            interface_method_ty.clone().get_interface_self_type()
-                        {
-                            substitution.insert(poly_decl, impl_ty.clone());
-                        }
-
-                        let expected = interface_method_ty.clone().subst(&substitution);
-                        // println!("iface method ty: {}", expected);
-                        let expected = expected.instantiate_iface_output_types(
-                            ctx,
-                            interface_method.node(),
-                            iface_impl.clone(),
-                        );
-                        // println!("instantiated iface method ty: {}", expected);
-
-                        let actual = TypeVar::from_node(ctx, f.name.node());
-                        constrain(ctx, expected.clone(), actual);
-
-                        generate_constraints_func_decl(
-                            ctx,
-                            f.name.node(),
-                            polyvar_scope.clone(),
-                            &f.args,
-                            &f.ret_type,
-                        );
-                        // println!("instantiated iface method ty with func decl: {}", expected);
-                    }
-                }
-            }
+            generate_constraints_iface_impl(ctx, iface_impl.clone());
         }
         ItemKind::Extension(ext) => {
             for f in &ext.methods {
@@ -1542,6 +1478,78 @@ fn generate_constraints_item_decls(ctx: &mut StaticsContext, item: Rc<Item>) {
                 &f.args,
                 &Some(f.ret_type.clone()),
             );
+        }
+    }
+}
+
+fn generate_constraints_iface_impl(ctx: &mut StaticsContext, iface_impl: Rc<InterfaceImpl>) {
+    {
+        if ctx.interface_impl_analyzed.contains(&iface_impl) {
+            return;
+        }
+        ctx.interface_impl_analyzed.insert(iface_impl.clone());
+
+        let lookup = ctx.resolution_map.get(&iface_impl.iface.id).cloned();
+        if let Some(Declaration::InterfaceDef(iface_def)) = &lookup {
+            for method in &iface_def.methods {
+                let node_ty = TypeVar::from_node(ctx, method.node());
+                if node_ty.is_locked() {
+                    // Interface declaration method types have already been computed.
+                    break;
+                }
+                let ty_annot = ast_type_to_typevar(ctx, method.ty.clone());
+                constrain(ctx, node_ty.clone(), ty_annot.clone());
+            }
+
+            let impl_list = ctx.interface_impls.entry(iface_def.clone()).or_default();
+            impl_list.push(iface_impl.clone());
+
+            // BELOW IS WHAT WAS MOVED
+            let impl_ty = ast_type_to_typevar(ctx, iface_impl.typ.clone());
+            if impl_ty.is_instantiated_nominal() {
+                ctx.errors.push(Error::InterfaceImplTypeNotGeneric {
+                    node: iface_impl.typ.node(),
+                })
+            }
+            let polyvar_scope = PolyvarScope::empty();
+            polyvar_scope.add_polys(&impl_ty);
+
+            for f in &iface_impl.methods {
+                let method_name = f.name.v.clone();
+                if let Some(interface_method) =
+                    iface_def.methods.iter().find(|m| m.name.v == method_name)
+                {
+                    let interface_method_ty = ast_type_to_typevar(ctx, interface_method.ty.clone());
+                    let actual = TypeVar::from_node(ctx, interface_method.node());
+                    constrain(ctx, interface_method_ty.clone(), actual);
+
+                    let mut substitution: Substitution = HashMap::default();
+                    if let Some(poly_decl) = interface_method_ty.clone().get_interface_self_type() {
+                        substitution.insert(poly_decl, impl_ty.clone());
+                    }
+
+                    let expected = interface_method_ty.clone().subst(&substitution);
+                    // println!("iface method ty: {}", expected);
+                    let expected = expected.instantiate_iface_output_types(
+                        ctx,
+                        interface_method.node(),
+                        iface_impl.clone(),
+                    );
+                    // println!("instantiated iface method ty: {}", expected);
+
+                    let actual = TypeVar::from_node(ctx, f.name.node());
+                    constrain(ctx, expected.clone(), actual);
+
+                    generate_constraints_func_decl(
+                        ctx,
+                        f.name.node(),
+                        polyvar_scope.clone(),
+                        &f.args,
+                        &f.ret_type,
+                    );
+                    // println!("instantiated iface method ty with func decl: {}", expected);
+                }
+            }
         }
     }
 }

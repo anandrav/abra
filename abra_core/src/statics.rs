@@ -17,7 +17,7 @@ use typecheck::{
     ConstraintReason, PotentialType, Reason, SolvedType, TypeKey, TypeVar, fmt_conflicting_types,
     solve_types,
 };
-use utils::hash::HashMap;
+use utils::hash::{HashMap, HashSet};
 use utils::id_set::IdSet;
 mod pat_exhaustiveness;
 mod resolve;
@@ -57,6 +57,8 @@ pub(crate) struct StaticsContext {
 
     // map from interface name to list of its implementations
     pub(crate) interface_impls: HashMap<Rc<InterfaceDef>, Vec<Rc<InterfaceImpl>>>,
+    // has interface impl already been type analyzed
+    pub(crate) interface_impl_analyzed: HashSet<Rc<InterfaceImpl>>,
     // map from (type declaration, member function name) -> function declaration
     pub(crate) member_functions: HashMap<(TypeKey, String), Declaration>,
 
@@ -96,6 +98,7 @@ impl StaticsContext {
             loop_stack: Default::default(),
             func_ret_stack: Default::default(),
             interface_impls: Default::default(),
+            interface_impl_analyzed: Default::default(),
             member_functions: Default::default(),
 
             for_loop_make_iterator_types: Default::default(),
