@@ -85,7 +85,7 @@ impl TypeVarData {
 
     fn solution(&self) -> Option<SolvedType> {
         if self.types.len() == 1 && !self.missing_info {
-            self.types.values().next().unwrap().solution()
+            self.types.values().next()?.solution()
         } else {
             None
         }
@@ -609,11 +609,10 @@ impl TypeVar {
         node: AstNode,
         id: PolyInstantiationId,
     ) -> TypeVar {
-        let data = self.0.clone_data();
-        if data.types.len() != 1 {
+        let Some(ty) = self.single() else {
             return self;
-        }
-        let ty = data.types.into_values().next().unwrap();
+        };
+        let data = self.0.clone_data();
         let ty = match ty {
             PotentialType::Void(_)
             | PotentialType::Never(_)
@@ -678,103 +677,95 @@ impl TypeVar {
     }
 
     pub(crate) fn get_interface_self_type(self) -> Option<PolytypeDeclaration> {
-        let data = self.0.clone_data();
-        if data.types.len() == 1 {
-            let ty = data.types.into_values().next().unwrap();
-
-            match ty {
-                PotentialType::Void(_)
-                | PotentialType::Never(_)
-                | PotentialType::Int(_)
-                | PotentialType::Float(_)
-                | PotentialType::Bool(_)
-                | PotentialType::String(_)
-                | PotentialType::InterfaceOutput(..) => None,
-                PotentialType::Poly(_, decl) => match decl {
-                    PolytypeDeclaration::InterfaceSelf(_) => Some(decl.clone()),
-                    _ => None,
-                },
-                PotentialType::Nominal(_, _, params) => {
-                    for param in &params {
-                        if let Some(decl) = param.clone().get_interface_self_type() {
-                            return Some(decl);
-                        }
+        let ty = self.single()?;
+        match ty {
+            PotentialType::Void(_)
+            | PotentialType::Never(_)
+            | PotentialType::Int(_)
+            | PotentialType::Float(_)
+            | PotentialType::Bool(_)
+            | PotentialType::String(_)
+            | PotentialType::InterfaceOutput(..) => None,
+            PotentialType::Poly(_, decl) => match decl {
+                PolytypeDeclaration::InterfaceSelf(_) => Some(decl.clone()),
+                _ => None,
+            },
+            PotentialType::Nominal(_, _, params) => {
+                for param in &params {
+                    if let Some(decl) = param.clone().get_interface_self_type() {
+                        return Some(decl);
                     }
-                    None
                 }
-                PotentialType::Function(_, args, out) => {
-                    for arg in &args {
-                        if let Some(decl) = arg.clone().get_interface_self_type() {
-                            return Some(decl);
-                        }
-                    }
-                    out.get_interface_self_type()
-                }
-                PotentialType::Tuple(_, elems) => {
-                    for elem in &elems {
-                        if let Some(decl) = elem.clone().get_interface_self_type() {
-                            return Some(decl);
-                        }
-                    }
-                    None
-                }
+                None
             }
-        } else {
-            None
+            PotentialType::Function(_, args, out) => {
+                for arg in &args {
+                    if let Some(decl) = arg.clone().get_interface_self_type() {
+                        return Some(decl);
+                    }
+                }
+                out.get_interface_self_type()
+            }
+            PotentialType::Tuple(_, elems) => {
+                for elem in &elems {
+                    if let Some(decl) = elem.clone().get_interface_self_type() {
+                        return Some(decl);
+                    }
+                }
+                None
+            }
         }
     }
 
     pub(crate) fn subst(self, substitution: &Substitution) -> TypeVar {
+        let Some(ty) = self.single() else {
+            return self;
+        };
         let data = self.0.clone_data();
-        if data.types.len() == 1 {
-            let ty = data.types.into_values().next().unwrap();
 
-            let ty = match ty {
-                PotentialType::Void(_)
-                | PotentialType::Never(_)
-                | PotentialType::Int(_)
-                | PotentialType::Float(_)
-                | PotentialType::Bool(_)
-                | PotentialType::String(_)
-                | PotentialType::InterfaceOutput(..) => {
+        let ty = match ty {
+            PotentialType::Void(_)
+            | PotentialType::Never(_)
+            | PotentialType::Int(_)
+            | PotentialType::Float(_)
+            | PotentialType::Bool(_)
+            | PotentialType::String(_)
+            | PotentialType::InterfaceOutput(..) => {
+                ty // noop
+            }
+            PotentialType::Poly(_, ref decl) => {
+                if let Some(new_ty) = substitution.get(decl) {
+                    return new_ty.clone(); // substitution occurs here
+                } else {
                     ty // noop
                 }
-                PotentialType::Poly(_, ref decl) => {
-                    if let Some(new_ty) = substitution.get(decl) {
-                        return new_ty.clone(); // substitution occurs here
-                    } else {
-                        ty // noop
-                    }
-                }
-                PotentialType::Nominal(reasons, ident, params) => {
-                    let params = params
-                        .into_iter()
-                        .map(|ty| ty.subst(substitution))
-                        .collect();
-                    PotentialType::Nominal(reasons, ident, params)
-                }
-                PotentialType::Function(reasons, args, out) => {
-                    let args = args.into_iter().map(|ty| ty.subst(substitution)).collect();
-                    let out = out.subst(substitution);
-                    PotentialType::Function(reasons, args, out)
-                }
-                PotentialType::Tuple(reasons, elems) => {
-                    let elems = elems.into_iter().map(|ty| ty.subst(substitution)).collect();
-                    PotentialType::Tuple(reasons, elems)
-                }
-            };
-            let mut types = HashMap::default();
-            types.insert(ty.key(), ty);
-            let new_data = TypeVarData {
-                types,
-                locked: data.locked,
-                missing_info: data.missing_info,
-                iface_constraints: data.iface_constraints,
-            };
-            TypeVar(UnionFindNode::new(new_data))
-        } else {
-            self // noop
-        }
+            }
+            PotentialType::Nominal(reasons, ident, params) => {
+                let params = params
+                    .into_iter()
+                    .map(|ty| ty.subst(substitution))
+                    .collect();
+                PotentialType::Nominal(reasons, ident, params)
+            }
+            PotentialType::Function(reasons, args, out) => {
+                let args = args.into_iter().map(|ty| ty.subst(substitution)).collect();
+                let out = out.subst(substitution);
+                PotentialType::Function(reasons, args, out)
+            }
+            PotentialType::Tuple(reasons, elems) => {
+                let elems = elems.into_iter().map(|ty| ty.subst(substitution)).collect();
+                PotentialType::Tuple(reasons, elems)
+            }
+        };
+        let mut types = HashMap::default();
+        types.insert(ty.key(), ty);
+        let new_data = TypeVarData {
+            types,
+            locked: data.locked,
+            missing_info: data.missing_info,
+            iface_constraints: data.iface_constraints,
+        };
+        TypeVar(UnionFindNode::new(new_data))
     }
 
     // Creates a clone of a Type with polymorphic variables not in scope replaced with fresh unifvars
@@ -784,11 +775,11 @@ impl TypeVar {
         node: AstNode,
         imp: Rc<InterfaceImpl>,
     ) -> TypeVar {
-        let data = self.0.clone_data();
-        if data.types.len() != 1 {
+        let Some(ty) = self.single() else {
             return self;
-        }
-        let ty = data.types.into_values().next().unwrap();
+        };
+        let data = self.0.clone_data();
+
         let ty = match ty {
             PotentialType::Void(_)
             | PotentialType::Never(_)
@@ -1225,7 +1216,7 @@ pub(crate) fn constrain_because(
         }
         // Since exactly one of the TypeVars is unsolved, its data will be updated with information from the solved TypeVar
         (false, true) => {
-            let potential_ty = tyvar2.0.clone_data().types.into_iter().next().unwrap().1;
+            let potential_ty = tyvar2.single().unwrap();
             tyvar1.0.with_data(|d: &mut TypeVarData| {
                 if d.types.is_empty() {
                     assert!(!d.locked);
@@ -1572,10 +1563,7 @@ fn constrain_iface_arguments_in_tyvar(
     iface_method_node: AstNode,
 ) {
     let d = ty.0.clone_data();
-    let Some((_, potential_ty)) = d.types.iter().next() else {
-        panic!();
-        return;
-    };
+    let potential_ty = ty.single().unwrap(); // TODO: don't unwrap
     let Some(solved_ty) = ty.solution() else {
         panic!();
         return;
@@ -1614,7 +1602,7 @@ fn constrain_iface_arguments_in_tyvar(
             // the substitution would be { U = T }
             // then call .subst() on the output_type_tyvar
             let mut subst = Substitution::default();
-            if let PotentialType::Nominal(_, _, params) = potential_ty {
+            if let PotentialType::Nominal(_, _, params) = &potential_ty {
                 let mut args: Vec<PolytypeDeclaration> = vec![];
                 let TypeKind::NamedWithParams(_, imp_args) = &*imp.typ.kind else {
                     panic!();
@@ -1633,7 +1621,6 @@ fn constrain_iface_arguments_in_tyvar(
                     };
                     args.push(poly_decl.clone());
                 }
-                let params = params;
                 if args.len() != params.len() {
                     panic!();
                     return;
@@ -1914,7 +1901,7 @@ fn generate_constraints_stmt(
             // TODO: code duplication! and so much work for something simple!
             let mut subst = Substitution::default();
             let d = iterable_ty.0.clone_data();
-            let (_, potential_ty) = d.types.iter().next().unwrap();
+            let potential_ty = iterable_ty.single().unwrap();
             if let PotentialType::Nominal(_, _, params) = potential_ty {
                 let mut args: Vec<PolytypeDeclaration> = vec![];
                 let TypeKind::NamedWithParams(_, imp_args) = &*imp.typ.kind else {
@@ -1934,7 +1921,6 @@ fn generate_constraints_stmt(
                     };
                     args.push(poly_decl.clone());
                 }
-                let params = params;
                 if args.len() != params.len() {
                     panic!();
                     return;
@@ -2004,7 +1990,7 @@ fn generate_constraints_stmt(
             };
             let mut subst2 = Substitution::default();
             let d = iter_output_type.0.clone_data();
-            let (_, potential_ty) = d.types.iter().next().unwrap();
+            let potential_ty = iter_output_type.single().unwrap();
             if let PotentialType::Nominal(_, _, params) = potential_ty {
                 let mut args: Vec<PolytypeDeclaration> = vec![];
                 let TypeKind::NamedWithParams(_, imp_args) = &*iterator_imp.typ.kind else {
@@ -3204,7 +3190,7 @@ impl Display for TypeVar {
         let types = self.0.clone_data().types;
         match types.len() {
             0 => write!(f, "_"),
-            1 => write!(f, "{}", types.values().next().unwrap()),
+            1 => write!(f, "{}", self.single().unwrap()),
             _ => {
                 write!(f, "!{{")?;
                 for (i, ty) in types.values().enumerate() {
