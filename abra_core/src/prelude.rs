@@ -232,25 +232,6 @@ fn format_append(s1: 'a ToString, s2: 'b ToString) {
     concat_strings(s3, s4)
 }
 
-type ArrayIterator<'U> = {
-    arr: array<'U>
-    i: int
-}
-
-// TODO: remove the need to prefix polytypes with '
-// it's actually hard to read, and it's confusing when it's optional or not
-implement Iterator for ArrayIterator<'U> {
-    fn next(self) -> option<'U> {
-        if self.i == self.arr.len() {
-            option.none
-        } else {
-            let ret = option.some(self.arr[self.i])
-            self.i = self.i + 1
-            ret
-        }
-    }
-}
-
 interface Iterable {
     outputtype IterableItem
     outputtype Iter impl Iterator<IteratorItem=IterableItem>
@@ -269,6 +250,25 @@ interface Iterator {
     outputtype IteratorItem
 
     fn next: (Self) -> option<IteratorItem>
+}
+
+type ArrayIterator<'U> = {
+    arr: array<'U>
+    i: int
+}
+
+// TODO: remove the need to prefix polytypes with '
+// it's actually hard to read, and it's confusing when it's optional or not
+implement Iterator for ArrayIterator<'U> {
+    fn next(self) -> option<'U> {
+        if self.i == self.arr.len() {
+            option.none
+        } else {
+            let ret = option.some(self.arr[self.i])
+            self.i = self.i + 1
+            ret
+        }
+    }
 }
 
 // fn range(lo: int, hi: int) -> array<int> {

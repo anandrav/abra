@@ -1604,8 +1604,7 @@ fn constrain_iface_arguments_in_tyvar(
                 parent_impl.clone(),
             );
 
-            // TODO: uncomment this to make logic order-independent
-            // generate_constraints_iface_impl(ctx, imp.clone());
+            generate_constraints_iface_impl(ctx, imp.clone());
 
             let prov = Prov::InstantiateInterfaceOutputType(imp.clone(), output_type.clone());
             let output_type_tyvar = TypeVar::fresh(ctx, prov.clone());
