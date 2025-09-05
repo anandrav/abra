@@ -1404,3 +1404,24 @@ sum
     let top = vm.top().unwrap();
     assert_eq!(top.get_int(&vm).unwrap(), 6)
 }
+
+#[test]
+fn range() {
+    let src = r#"
+var sum = 0
+
+for n in range(4) {
+    sum = sum + n
+}
+sum
+
+"#;
+    let program = unwrap_or_panic(compile_bytecode(
+        "main.abra",
+        MockFileProvider::single_file(src),
+    ));
+    let mut vm = Vm::new(program);
+    vm.run();
+    let top = vm.top().unwrap();
+    assert_eq!(top.get_int(&vm).unwrap(), 6)
+}
