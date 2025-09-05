@@ -228,7 +228,6 @@ pub(crate) enum Declaration {
 pub(crate) enum PolytypeDeclaration {
     InterfaceSelf(Rc<InterfaceDef>), // `Self`
     Ordinary(Rc<Polytype>),
-    ArrayArg, // the 'T in array<'T>
 }
 
 // TODO: this is weird
@@ -743,9 +742,6 @@ fn add_detail_for_decl_node(
         Declaration::Polytype(polytype_decl) => match polytype_decl {
             PolytypeDeclaration::Ordinary(polyty) => polyty.name.node(),
             PolytypeDeclaration::InterfaceSelf(iface_def) => iface_def.name.node(), // TODO: this will not result in a good error message
-            PolytypeDeclaration::ArrayArg => {
-                todo!();
-            }
         },
 
         Declaration::Var(ast_node) => ast_node.clone(),
