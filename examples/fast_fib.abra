@@ -11,8 +11,6 @@ fn fib(n) {
   x
 }
 
-var i = 0
-while i <= 32 {
+for i in range(32) {
   println(i & ": " & fib(i))
-  i = i + 1
 }

@@ -12,10 +12,8 @@ fn fib(n) {
 
 
 println("The first 10 fibonacci numbers are:")
-var i = 0
-while i < 10 {
+for i in range(10) { 
   println(fib(i))
-  i = i + 1
 }
 ```
 
