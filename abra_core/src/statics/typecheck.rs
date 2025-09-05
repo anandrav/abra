@@ -252,7 +252,7 @@ impl Nominal {
             Self::Array => {
                 return vec![PolytypeDeclaration::ArrayArg];
             }
-            _ => todo!() // TODO
+            _ => todo!(), // TODO
         }
     }
 }
@@ -822,8 +822,6 @@ impl TypeVar {
                 let ret = TypeVar::fresh(ctx, prov.clone());
                 let ifaces = output_type.interfaces(ctx);
                 for constraint in ifaces {
-                    // println!("constraint name = {}", constraint.iface.name.v);
-                    // println!("nargs = {}", constraint.args.len());
                     ret.0.with_data(|d| {
                         d.iface_constraints
                             .entry(constraint)
@@ -1518,7 +1516,6 @@ fn generate_constraints_iface_impl(ctx: &mut StaticsContext, iface_impl: Rc<Inte
         if !ctx.interface_impl_analyzed.insert(iface_impl.clone()) {
             return;
         }
-        println!("NOW ANALYZING {}", iface_impl.iface.v);
 
         let lookup = ctx.resolution_map.get(&iface_impl.iface.id).cloned();
         if let Some(Declaration::InterfaceDef(iface_def)) = &lookup {
@@ -1536,7 +1533,8 @@ fn generate_constraints_iface_impl(ctx: &mut StaticsContext, iface_impl: Rc<Inte
 
             // ensure typevars for output types are initialized
             for output_ty in &iface_def.output_types {
-                let prov = Prov::InstantiateInterfaceOutputType(iface_impl.clone(), output_ty.clone());
+                let prov =
+                    Prov::InstantiateInterfaceOutputType(iface_impl.clone(), output_ty.clone());
                 TypeVar::fresh(ctx, prov.clone());
             }
 
@@ -1555,13 +1553,11 @@ fn generate_constraints_iface_impl(ctx: &mut StaticsContext, iface_impl: Rc<Inte
                     }
 
                     let expected = interface_method_ty.clone().subst(&substitution);
-                    println!("iface method ty: {}", expected);
                     let expected = expected.instantiate_iface_output_types(
                         ctx,
                         interface_method.node(),
                         iface_impl.clone(),
                     );
-                    println!("instantiated iface method ty: {}", expected);
 
                     let actual = TypeVar::from_node(ctx, f.name.node());
                     constrain(ctx, expected.clone(), actual);
@@ -1573,22 +1569,31 @@ fn generate_constraints_iface_impl(ctx: &mut StaticsContext, iface_impl: Rc<Inte
                         &f.args,
                         &f.ret_type,
                     );
-                    println!("instantiated iface method ty with func decl: {}", expected);
 
-                    constrain_iface_arguments_in_tyvar(ctx, expected, iface_impl.clone(), interface_method.node());
+                    constrain_iface_arguments_in_tyvar(
+                        ctx,
+                        expected,
+                        iface_impl.clone(),
+                        interface_method.node(),
+                    );
                 }
             }
 
             for output_ty in &iface_def.output_types {
-                let prov = Prov::InstantiateInterfaceOutputType(iface_impl.clone(), output_ty.clone());
+                let prov =
+                    Prov::InstantiateInterfaceOutputType(iface_impl.clone(), output_ty.clone());
                 let tyvar = TypeVar::fresh(ctx, prov.clone());
-                println!("output_ty id={} {}={}", output_ty.id, output_ty.name.v, tyvar);
             }
         }
     }
 }
 
-fn constrain_iface_arguments_in_tyvar(ctx: &mut StaticsContext, ty: TypeVar, parent_impl: Rc<InterfaceImpl>, iface_method_node: AstNode) {
+fn constrain_iface_arguments_in_tyvar(
+    ctx: &mut StaticsContext,
+    ty: TypeVar,
+    parent_impl: Rc<InterfaceImpl>,
+    iface_method_node: AstNode,
+) {
     let d = ty.0.clone_data();
     let Some((_, potential_ty)) = d.types.iter().next() else {
         panic!();
@@ -1599,7 +1604,6 @@ fn constrain_iface_arguments_in_tyvar(ctx: &mut StaticsContext, ty: TypeVar, par
         return;
     };
     for (iface_constraint, _) in d.iface_constraints {
-        println!("iface constraint name {}", iface_constraint.iface.name.v);
         let Some(impl_list) = ctx.interface_impls.get(&iface_constraint.iface).cloned() else {
             panic!();
             return;
@@ -1609,11 +1613,7 @@ fn constrain_iface_arguments_in_tyvar(ctx: &mut StaticsContext, ty: TypeVar, par
                 panic!();
                 return false;
             };
-            let ret = ty_fits_impl_ty(ctx, solved_ty.clone(), impl_ty.clone());
-            if ret {
-                println!("found impl for {}", impl_ty);
-            }
-            ret
+            ty_fits_impl_ty(ctx, solved_ty.clone(), impl_ty.clone())
         }) else {
             panic!();
             return;
@@ -1621,7 +1621,11 @@ fn constrain_iface_arguments_in_tyvar(ctx: &mut StaticsContext, ty: TypeVar, par
 
         for (output_type, val, _) in iface_constraint.args {
             let val = ast_type_to_typevar(ctx, val);
-            let val = val.instantiate_iface_output_types(ctx, iface_method_node.clone(), parent_impl.clone());
+            let val = val.instantiate_iface_output_types(
+                ctx,
+                iface_method_node.clone(),
+                parent_impl.clone(),
+            );
 
             // TODO: uncomment this to make logic order-independent
             // generate_constraints_iface_impl(ctx, imp.clone());
@@ -1635,7 +1639,6 @@ fn constrain_iface_arguments_in_tyvar(ctx: &mut StaticsContext, ty: TypeVar, par
             // then call .subst() on the output_type_tyvar
             let mut subst = Substitution::default();
             if let PotentialType::Nominal(_, nom, params) = potential_ty {
-                println!("nom name: {}", nom.name());
                 let mut args: Vec<PolytypeDeclaration> = vec![];
                 let TypeKind::NamedWithParams(_, imp_args) = &*imp.typ.kind else {
                     panic!();
@@ -1646,7 +1649,9 @@ fn constrain_iface_arguments_in_tyvar(ctx: &mut StaticsContext, ty: TypeVar, par
                         panic!();
                         return;
                     };
-                    let Some(Declaration::Polytype(poly_decl)) = &ctx.resolution_map.get(&poly.name.id) else {
+                    let Some(Declaration::Polytype(poly_decl)) =
+                        &ctx.resolution_map.get(&poly.name.id)
+                    else {
                         panic!();
                         return;
                     };
@@ -1661,10 +1666,7 @@ fn constrain_iface_arguments_in_tyvar(ctx: &mut StaticsContext, ty: TypeVar, par
                     subst.insert(arg.clone(), param.clone());
                 }
             }
-            dbg!(&subst);
-            println!("output_type_tyvar before subst: id={} {}={}", output_type.id, output_type.name.v, output_type_tyvar);
             let output_type_tyvar = output_type_tyvar.subst(&subst);
-            println!("output_type_tyvar after subst: id={} {}={}", output_type.id, output_type.name.v, output_type_tyvar);
 
             // constrain that T to tyvar for substitution (which is output type from array Iterable impl)
             constrain(ctx, output_type_tyvar.clone(), val);
@@ -1676,29 +1678,46 @@ fn constrain_iface_arguments_in_tyvar(ctx: &mut StaticsContext, ty: TypeVar, par
         | PotentialType::Int(_)
         | PotentialType::Float(_)
         | PotentialType::Bool(_)
-        | PotentialType::String(_) |
-        PotentialType::Poly(_, _) |
-        PotentialType::InterfaceOutput(..) => {
+        | PotentialType::String(_)
+        | PotentialType::Poly(_, _)
+        | PotentialType::InterfaceOutput(..) => {
             //noop
         }
         PotentialType::Nominal(reasons, ident, params) => {
-            params
-                .into_iter()
-                .for_each(|ty| constrain_iface_arguments_in_tyvar(ctx, ty.clone(), parent_impl.clone(), iface_method_node.clone()));
-            ;
+            params.into_iter().for_each(|ty| {
+                constrain_iface_arguments_in_tyvar(
+                    ctx,
+                    ty.clone(),
+                    parent_impl.clone(),
+                    iface_method_node.clone(),
+                )
+            });
         }
         PotentialType::Function(reasons, args, out) => {
-            args
-                .into_iter()
-                .for_each(|ty| constrain_iface_arguments_in_tyvar(ctx, ty.clone(), parent_impl.clone(), iface_method_node.clone()));
-            ;
-            constrain_iface_arguments_in_tyvar(ctx, out.clone(), parent_impl.clone(), iface_method_node.clone());
+            args.into_iter().for_each(|ty| {
+                constrain_iface_arguments_in_tyvar(
+                    ctx,
+                    ty.clone(),
+                    parent_impl.clone(),
+                    iface_method_node.clone(),
+                )
+            });
+            constrain_iface_arguments_in_tyvar(
+                ctx,
+                out.clone(),
+                parent_impl.clone(),
+                iface_method_node.clone(),
+            );
         }
         PotentialType::Tuple(reasons, elems) => {
-            elems
-                .into_iter()
-                .for_each(|ty| constrain_iface_arguments_in_tyvar(ctx, ty.clone(), parent_impl.clone(), iface_method_node.clone()));
-            ;
+            elems.into_iter().for_each(|ty| {
+                constrain_iface_arguments_in_tyvar(
+                    ctx,
+                    ty.clone(),
+                    parent_impl.clone(),
+                    iface_method_node.clone(),
+                )
+            });
         }
     };
 }
@@ -1881,7 +1900,6 @@ fn generate_constraints_stmt(
                 });
                 return;
             };
-            println!("iterable solved ty is {}", iterable_ty_solved);
             let iterable_iface_def = ctx.get_interface_declaration("prelude.Iterable");
             let iterator_iface_def = ctx.get_interface_declaration("prelude.Iterator");
             let impl_list = ctx
@@ -1892,7 +1910,6 @@ fn generate_constraints_stmt(
             // TODO: this is duplicated somewhere
             let Some(imp) = impl_list.iter().find(|i| {
                 if let Some(impl_ty) = ast_type_to_solved_type(ctx, i.typ.clone()) {
-                    println!("impl_ty is {}", impl_ty);
                     ty_fits_impl_ty(ctx, iterable_ty_solved.clone(), impl_ty.clone())
                 } else {
                     false
@@ -1915,15 +1932,14 @@ fn generate_constraints_stmt(
                     imp.clone(),
                     output_type.clone(),
                 ))
-                .unwrap().clone();
-            println!("item_ty is {}", item_ty);
+                .unwrap()
+                .clone();
             // TODO: substitute { T = int } here
             // TODO: code duplication! and so much work for something simple!
             let mut subst = Substitution::default();
             let d = iterable_ty.0.clone_data();
             let (_, potential_ty) = d.types.iter().next().unwrap();
             if let PotentialType::Nominal(_, nom, params) = potential_ty {
-                println!("nom name: {}", nom.name());
                 let mut args: Vec<PolytypeDeclaration> = vec![];
                 let TypeKind::NamedWithParams(_, imp_args) = &*imp.typ.kind else {
                     panic!();
@@ -1934,7 +1950,9 @@ fn generate_constraints_stmt(
                         panic!();
                         return;
                     };
-                    let Some(Declaration::Polytype(poly_decl)) = &ctx.resolution_map.get(&poly.name.id) else {
+                    let Some(Declaration::Polytype(poly_decl)) =
+                        &ctx.resolution_map.get(&poly.name.id)
+                    else {
                         panic!();
                         return;
                     };
@@ -1949,18 +1967,14 @@ fn generate_constraints_stmt(
                     subst.insert(arg.clone(), param.clone());
                 }
             }
-            println!("SUBST");
-            for (key, val) in &subst {
-                println!("{:?} = {}", key, val);
-            }
-            println!();
 
             let item_ty = item_ty.subst(&subst);
-            println!("item_ty after subst is {}", item_ty);
             generate_constraints_pat(
                 ctx,
                 polyvar_scope.clone(),
-                Mode::Ana { expected: item_ty.clone() },
+                Mode::Ana {
+                    expected: item_ty.clone(),
+                },
                 pat.clone(),
             );
 
@@ -1968,13 +1982,15 @@ fn generate_constraints_stmt(
 
             // update bookkeeping for code generation
             // make_iterator type
-            let make_iterator_method = imp.methods.iter().find(|m| m.name.v == "make_iterator").unwrap();
-            let make_iterator_type = TypeVar::from_node(ctx, make_iterator_method.name.node()).subst(
-                &subst
-            );
+            let make_iterator_method = imp
+                .methods
+                .iter()
+                .find(|m| m.name.v == "make_iterator")
+                .unwrap();
+            let make_iterator_type =
+                TypeVar::from_node(ctx, make_iterator_method.name.node()).subst(&subst);
             ctx.for_loop_make_iterator_types
                 .insert(stmt.id, make_iterator_type.solution().unwrap());
-            println!("make_iterator_type is {}", make_iterator_type);
 
             // Iter::next type
             let iter_output_type = iterable_iface_def
@@ -1988,7 +2004,8 @@ fn generate_constraints_stmt(
                     imp.clone(),
                     iter_output_type.clone(),
                 ))
-                .unwrap().clone();
+                .unwrap()
+                .clone();
             let impl_list = ctx
                 .interface_impls
                 .get(&iterator_iface_def)
@@ -1998,7 +2015,6 @@ fn generate_constraints_stmt(
             // TODO: this is duplicated somewhere
             let Some(iterator_imp) = impl_list.iter().find(|i| {
                 if let Some(impl_ty) = ast_type_to_solved_type(ctx, i.typ.clone()) {
-                    // println!("impl_ty is {}", impl_ty);
                     ty_fits_impl_ty(ctx, iter_output_type_solved.clone(), impl_ty.clone())
                 } else {
                     false
@@ -2011,23 +2027,22 @@ fn generate_constraints_stmt(
                 return;
             };
             let mut subst2 = Substitution::default();
-            println!("iter_output_type: {}", iter_output_type);
             let d = iter_output_type.0.clone_data();
             let (_, potential_ty) = d.types.iter().next().unwrap();
             if let PotentialType::Nominal(_, nom, params) = potential_ty {
-                println!("nom name: {}", nom.name());
                 let mut args: Vec<PolytypeDeclaration> = vec![];
                 let TypeKind::NamedWithParams(_, imp_args) = &*iterator_imp.typ.kind else {
                     panic!();
                     return;
                 };
-                println!("imp_args len {}", imp_args.len());
                 for arg in imp_args {
                     let TypeKind::Poly(poly) = &*arg.kind else {
                         panic!();
                         return;
                     };
-                    let Some(Declaration::Polytype(poly_decl)) = &ctx.resolution_map.get(&poly.name.id) else {
+                    let Some(Declaration::Polytype(poly_decl)) =
+                        &ctx.resolution_map.get(&poly.name.id)
+                    else {
                         panic!();
                         return;
                     };
@@ -2042,22 +2057,15 @@ fn generate_constraints_stmt(
                     subst2.insert(arg.clone(), param.clone());
                 }
             }
-            println!("SUBST2");
-            for (key, val) in &subst2 {
-                println!("{:?} = {}", key, val);
-            }
-            println!();
-            let next_method = iterator_imp.methods.iter().find(|m| m.name.v == "next").unwrap();
+
+            let next_method = iterator_imp
+                .methods
+                .iter()
+                .find(|m| m.name.v == "next")
+                .unwrap();
             let next_method_typ = TypeVar::from_node(ctx, next_method.name.node());
-            println!("next_method_typ is {}", next_method_typ);
-            let next_method_typ = next_method_typ.subst(
-                &subst2
-            );
-            println!("next_method_typ is {}", next_method_typ);
-            let next_method_typ = next_method_typ.subst(
-                &subst
-            );
-            println!("next_method_typ is {}", next_method_typ);
+            let next_method_typ = next_method_typ.subst(&subst2);
+            let next_method_typ = next_method_typ.subst(&subst);
             ctx.for_loop_next_types
                 .insert(stmt.id, next_method_typ.solution().unwrap());
         }
@@ -2134,57 +2142,57 @@ fn generate_constraints_expr(
             let lookup = ctx.resolution_map.get(&expr.id).cloned();
             if let Some(decl) = lookup
                 && let Some(typ) = match decl {
-                Declaration::Var(node) => {
-                    let tyvar = TypeVar::from_node(ctx, node.clone());
-                    Some(tyvar)
-                }
-                Declaration::FreeFunction(f) => Some(TypeVar::from_node(ctx, f.name.node())),
-                Declaration::HostFunction(f) => Some(TypeVar::from_node(ctx, f.name.node())),
-                Declaration::_ForeignFunction { f: decl, .. } => {
-                    Some(TypeVar::from_node(ctx, decl.name.node()))
-                }
-                Declaration::Builtin(builtin) => {
-                    let ty_signature = builtin.type_signature();
-                    Some(ty_signature)
-                }
-                // struct constructor.
-                Declaration::Struct(struct_def) => {
-                    let (def_type, substitution) = TypeVar::make_nominal_with_substitution(
-                        ctx,
-                        Reason::Node(expr.node()),
-                        Nominal::Struct(struct_def.clone()),
-                        expr.node(),
-                    );
+                    Declaration::Var(node) => {
+                        let tyvar = TypeVar::from_node(ctx, node.clone());
+                        Some(tyvar)
+                    }
+                    Declaration::FreeFunction(f) => Some(TypeVar::from_node(ctx, f.name.node())),
+                    Declaration::HostFunction(f) => Some(TypeVar::from_node(ctx, f.name.node())),
+                    Declaration::_ForeignFunction { f: decl, .. } => {
+                        Some(TypeVar::from_node(ctx, decl.name.node()))
+                    }
+                    Declaration::Builtin(builtin) => {
+                        let ty_signature = builtin.type_signature();
+                        Some(ty_signature)
+                    }
+                    // struct constructor.
+                    Declaration::Struct(struct_def) => {
+                        let (def_type, substitution) = TypeVar::make_nominal_with_substitution(
+                            ctx,
+                            Reason::Node(expr.node()),
+                            Nominal::Struct(struct_def.clone()),
+                            expr.node(),
+                        );
 
-                    let fields = struct_def
-                        .fields
-                        .iter()
-                        .map(|f| {
-                            let ty = ast_type_to_typevar(ctx, f.ty.clone());
-                            ty.clone().subst(&substitution)
-                        })
-                        .collect();
-                    Some(TypeVar::make_func(
-                        fields,
-                        def_type,
-                        Reason::Node(expr.node()),
-                    ))
+                        let fields = struct_def
+                            .fields
+                            .iter()
+                            .map(|f| {
+                                let ty = ast_type_to_typevar(ctx, f.ty.clone());
+                                ty.clone().subst(&substitution)
+                            })
+                            .collect();
+                        Some(TypeVar::make_func(
+                            fields,
+                            def_type,
+                            Reason::Node(expr.node()),
+                        ))
+                    }
+                    Declaration::InterfaceDef(..)
+                    | Declaration::InterfaceOutputType { .. }
+                    | Declaration::Enum(_)
+                    | Declaration::Array
+                    | Declaration::BuiltinType(_)
+                    | Declaration::Polytype(_)
+                    | Declaration::EnumVariant { .. }
+                    | Declaration::InterfaceMethod { .. }
+                    | Declaration::MemberFunction { .. } => {
+                        // a variable expression should not resolve to the above
+                        ctx.errors
+                            .push(Error::UnresolvedIdentifier { node: expr.node() });
+                        None
+                    }
                 }
-                Declaration::InterfaceDef(..)
-                | Declaration::InterfaceOutputType { .. }
-                | Declaration::Enum(_)
-                | Declaration::Array
-                | Declaration::BuiltinType(_)
-                | Declaration::Polytype(_)
-                | Declaration::EnumVariant { .. }
-                | Declaration::InterfaceMethod { .. }
-                | Declaration::MemberFunction { .. } => {
-                    // a variable expression should not resolve to the above
-                    ctx.errors
-                        .push(Error::UnresolvedIdentifier { node: expr.node() });
-                    None
-                }
-            }
                 .map(|tyvar| tyvar.instantiate(ctx, polyvar_scope, expr.node()))
             {
                 constrain(ctx, typ, node_ty.clone());
@@ -2378,7 +2386,8 @@ fn generate_constraints_expr(
                     },
                     arm.stmt.clone(),
                 );
-                if let StmtKind::Expr(..) = &*arm.stmt.kind {} else {
+                if let StmtKind::Expr(..) = &*arm.stmt.kind {
+                } else {
                     constrain(
                         ctx,
                         node_ty.clone(),
@@ -2436,8 +2445,8 @@ fn generate_constraints_expr(
             );
             match ctx.resolution_map.get(&fname.id).cloned() {
                 Some(Declaration::EnumVariant {
-                         e: ref enum_def, ..
-                     }) => {
+                    e: ref enum_def, ..
+                }) => {
                     // qualified enum variant
                     // example: list.cons(5, nil)
                     //          ^^^^^^^^^
@@ -2459,9 +2468,9 @@ fn generate_constraints_expr(
                     );
                 }
                 Some(Declaration::InterfaceMethod {
-                         iface: iface_def,
-                         method,
-                     }) => {
+                    iface: iface_def,
+                    method,
+                }) => {
                     // fully qualified interface/struct/enum method
                     // example: Clone.clone(my_struct)
                     //          ^^^^^
@@ -2601,9 +2610,9 @@ fn generate_constraints_expr(
          */
         ExprKind::MemberAccess(expr, member_ident) => {
             if let Some(Declaration::EnumVariant {
-                            e: enum_def,
-                            variant: _,
-                        }) = ctx.resolution_map.get(&member_ident.id).cloned()
+                e: enum_def,
+                variant: _,
+            }) = ctx.resolution_map.get(&member_ident.id).cloned()
             {
                 // qualified enum with no associated data
                 let (def_type, _) = TypeVar::make_nominal_with_substitution(
@@ -2656,7 +2665,7 @@ fn generate_constraints_expr(
             let mut can_infer = false;
             if let Some(expected_ty) = expected_ty
                 && let Some(SolvedType::Nominal(Nominal::Enum(enum_def), _)) =
-                expected_ty.solution()
+                    expected_ty.solution()
             {
                 can_infer = true;
 
@@ -2759,7 +2768,7 @@ fn generate_constraints_expr(
 fn generate_constraints_expr_funcap_helper(
     ctx: &mut StaticsContext,
     polyvar_scope: PolyvarScope,
-    args: impl Iterator<Item=Rc<Expr>>,
+    args: impl Iterator<Item = Rc<Expr>>,
     func_node: AstNode,
     expr_node: AstNode,
     node_ty: TypeVar,
@@ -3009,9 +3018,9 @@ fn generate_constraints_pat(
 
             if !prefixes.is_empty() {
                 if let Some(Declaration::EnumVariant {
-                                e: enum_def,
-                                variant,
-                            }) = ctx.resolution_map.get(&tag.id).cloned()
+                    e: enum_def,
+                    variant,
+                }) = ctx.resolution_map.get(&tag.id).cloned()
                 {
                     let (enum_ty, substitution) = TypeVar::make_nominal_with_substitution(
                         ctx,
@@ -3056,7 +3065,7 @@ fn generate_constraints_pat(
                 let mut can_infer = false;
                 if let Some(expected_ty) = expected_ty
                     && let Some(SolvedType::Nominal(Nominal::Enum(enum_def), _)) =
-                    expected_ty.solution()
+                        expected_ty.solution()
                 {
                     let mut idx = 0;
                     for (i, variant) in enum_def.variants.iter().enumerate() {
@@ -3184,25 +3193,25 @@ pub(crate) fn ty_fits_impl_ty(ctx: &StaticsContext, typ: SolvedType, impl_ty: So
         (SolvedType::Tuple(tys1), SolvedType::Tuple(tys2)) => {
             tys1.len() == tys2.len()
                 && tys1
-                .iter()
-                .zip(tys2.iter())
-                .all(|(ty1, ty2)| ty_fits_impl_ty(ctx, ty1.clone(), ty2.clone()))
+                    .iter()
+                    .zip(tys2.iter())
+                    .all(|(ty1, ty2)| ty_fits_impl_ty(ctx, ty1.clone(), ty2.clone()))
         }
         (SolvedType::Function(args1, out1), SolvedType::Function(args2, out2)) => {
             args1.len() == args2.len()
                 && args1
-                .iter()
-                .zip(args2.iter())
-                .all(|(ty1, ty2)| ty_fits_impl_ty(ctx, ty1.clone(), ty2.clone()))
+                    .iter()
+                    .zip(args2.iter())
+                    .all(|(ty1, ty2)| ty_fits_impl_ty(ctx, ty1.clone(), ty2.clone()))
                 && ty_fits_impl_ty(ctx, *out1.clone(), *out2.clone())
         }
         (SolvedType::Nominal(ident1, tys1), SolvedType::Nominal(ident2, tys2)) => {
             ident1 == ident2
                 && tys1.len() == tys2.len()
                 && tys1
-                .iter()
-                .zip(tys2.iter())
-                .all(|(ty1, ty2)| ty_fits_impl_ty(ctx, ty1.clone(), ty2.clone()))
+                    .iter()
+                    .zip(tys2.iter())
+                    .all(|(ty1, ty2)| ty_fits_impl_ty(ctx, ty1.clone(), ty2.clone()))
         }
         (_, SolvedType::Poly(poly_decl)) => {
             let ifaces = poly_decl.interfaces(ctx);
