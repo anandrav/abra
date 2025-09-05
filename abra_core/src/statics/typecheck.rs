@@ -1027,9 +1027,7 @@ fn tyvar_of_iface_method(
     {
         // TODO: this logic is duplicated elsewhere
         for imp in impl_list {
-            if let Some(impl_ty) = ast_type_to_solved_type(ctx, imp.typ.clone())
-                && ty_fits_impl_ty(ctx, desired_impl_ty.clone(), impl_ty.clone())
-            {
+            if ty_fits_impl(ctx, desired_impl_ty.clone(), imp.clone()) {
                 let f = &imp.methods[method];
                 return TypeVar::from_node(ctx, f.name.node()).instantiate(
                     ctx,
@@ -1573,13 +1571,10 @@ fn constrain_iface_arguments_in_tyvar(
             panic!();
             return;
         };
-        let Some(imp) = impl_list.iter().find(|i| {
-            let Some(impl_ty) = ast_type_to_solved_type(ctx, i.typ.clone()) else {
-                panic!();
-                return false;
-            };
-            ty_fits_impl_ty(ctx, solved_ty.clone(), impl_ty.clone())
-        }) else {
+        let Some(imp) = impl_list
+            .iter()
+            .find(|imp| ty_fits_impl(ctx, solved_ty.clone(), (*imp).clone()))
+        else {
             panic!();
             return;
         };
@@ -1871,13 +1866,10 @@ fn generate_constraints_stmt(
                 .cloned()
                 .unwrap_or_default();
             // TODO: this is duplicated somewhere
-            let Some(imp) = impl_list.iter().find(|i| {
-                if let Some(impl_ty) = ast_type_to_solved_type(ctx, i.typ.clone()) {
-                    ty_fits_impl_ty(ctx, iterable_ty_solved.clone(), impl_ty.clone())
-                } else {
-                    false
-                }
-            }) else {
+            let Some(imp) = impl_list
+                .iter()
+                .find(|imp| ty_fits_impl(ctx, iterable_ty_solved.clone(), (*imp).clone()))
+            else {
                 ctx.errors.push(Error::Generic {
                     msg: "For loop container does not implement `Iterable` interface.".to_string(),
                     node: iterable.node(),
@@ -1974,13 +1966,10 @@ fn generate_constraints_stmt(
                 .unwrap_or_default();
             let Some(iter_output_type_solved) = iter_output_type.solution() else { panic!() };
             // TODO: this is duplicated somewhere
-            let Some(iterator_imp) = impl_list.iter().find(|i| {
-                if let Some(impl_ty) = ast_type_to_solved_type(ctx, i.typ.clone()) {
-                    ty_fits_impl_ty(ctx, iter_output_type_solved.clone(), impl_ty.clone())
-                } else {
-                    false
-                }
-            }) else {
+            let Some(iterator_imp) = impl_list
+                .iter()
+                .find(|imp| ty_fits_impl(ctx, iter_output_type_solved.clone(), (*imp).clone()))
+            else {
                 ctx.errors.push(Error::Generic {
                     msg: "For loop container does not implement `Iterable` interface.".to_string(),
                     node: iterable.node(),
@@ -3135,12 +3124,14 @@ pub(crate) fn ty_implements_iface(
     let default = vec![];
     let impl_list = ctx.interface_impls.get(iface).unwrap_or(&default);
 
-    impl_list.iter().any(|imp| {
-        // TODO: always have to convert ast type to typevar before calling ty_fits_impl_ty, kind of a waste of energy and duplicated in other places.
-        let impl_ty = ast_type_to_typevar(ctx, imp.typ.clone());
-        let Some(impl_ty) = impl_ty.solution() else { return false };
-        ty_fits_impl_ty(ctx, ty.clone(), impl_ty)
-    })
+    impl_list
+        .iter()
+        .any(|imp| ty_fits_impl(ctx, ty.clone(), imp.clone()))
+}
+
+pub(crate) fn ty_fits_impl(ctx: &StaticsContext, typ: SolvedType, imp: Rc<InterfaceImpl>) -> bool {
+    let Some(impl_ty) = ast_type_to_solved_type(ctx, imp.typ.clone()) else { return false };
+    ty_fits_impl_ty(ctx, typ, impl_ty)
 }
 
 pub(crate) fn ty_fits_impl_ty(ctx: &StaticsContext, typ: SolvedType, impl_ty: SolvedType) -> bool {
