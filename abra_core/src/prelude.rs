@@ -271,14 +271,17 @@ implement Iterator for ArrayIterator<'U> {
     }
 }
 
-// fn range(lo: int, hi: int) -> array<int> {
-//     let ret: array<int> = [] // TODO: shouldn't need this type annotation here
-//     while lo < hi {
-//         ret.push(lo)
-//         lo = lo + 1
-//     }
-//     ret
-// }
+fn range(hi: int) -> array<int> {
+    // TODO: shouldn't need this type annotation here. Probably member access won't work because at this point it's an array<?> which is unsolved.
+    // but that's enough info for member access (it's array.push)
+    let ret: array<int> = []
+    var lo = 0
+    while lo < hi {
+        ret.push(lo)
+        lo = lo + 1
+    }
+    ret
+}
 
 extend array<'a> {
     fn len(self) -> int {

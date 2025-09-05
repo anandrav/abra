@@ -8,8 +8,8 @@ use super::{
 };
 use crate::ast::{
     ArgAnnotated, ArgMaybeAnnotated, AstNode, Expr, ExprKind, FileAst, Identifier, Interface,
-    InterfaceImpl, InterfaceOutputType, ItemKind, NodeId, Pat, PatKind, Stmt, StmtKind,
-    Type as AstType, TypeDefKind, TypeKind,
+    InterfaceImpl, InterfaceOutputType, ItemKind, Pat, PatKind, Stmt, StmtKind, Type as AstType,
+    TypeDefKind, TypeKind,
 };
 use crate::ast::{BinaryOperator, Item};
 use crate::builtin::BuiltinOperation;
@@ -1900,7 +1900,6 @@ fn generate_constraints_stmt(
             // TODO: substitute { T = int } here
             // TODO: code duplication! and so much work for something simple!
             let mut subst = Substitution::default();
-            let d = iterable_ty.0.clone_data();
             let potential_ty = iterable_ty.single().unwrap();
             if let PotentialType::Nominal(_, _, params) = potential_ty {
                 let mut args: Vec<PolytypeDeclaration> = vec![];
@@ -1989,7 +1988,6 @@ fn generate_constraints_stmt(
                 return;
             };
             let mut subst2 = Substitution::default();
-            let d = iter_output_type.0.clone_data();
             let potential_ty = iter_output_type.single().unwrap();
             if let PotentialType::Nominal(_, _, params) = potential_ty {
                 let mut args: Vec<PolytypeDeclaration> = vec![];
