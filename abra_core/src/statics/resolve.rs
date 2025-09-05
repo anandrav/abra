@@ -498,12 +498,14 @@ fn resolve_names_item_decl(ctx: &mut StaticsContext, symbol_table: SymbolTable, 
             for output_type in &iface_def.output_types {
                 for iface in &output_type.interfaces {
                     resolve_identifier(ctx, &symbol_table, &iface.name);
-                    resolve_iface_arguments(
-                        ctx,
-                        &symbol_table,
-                        &iface.arguments,
-                        iface_def.clone(),
-                    );
+                    if let Some(Declaration::InterfaceDef(iface_def)) = ctx.resolution_map.get(&iface.name.id) {
+                        resolve_iface_arguments(
+                            ctx,
+                            &symbol_table,
+                            &iface.arguments,
+                            iface_def.clone(),
+                        );
+                    }
                 }
             }
         }
@@ -928,7 +930,7 @@ fn resolve_names_pat(ctx: &mut StaticsContext, symbol_table: SymbolTable, pat: R
                 let mut found = false;
                 if let Some(enum_namespace) = final_namespace
                     && let Some(ref decl @ Declaration::EnumVariant { .. }) =
-                        enum_namespace.declarations.get(&tag.v).cloned()
+                    enum_namespace.declarations.get(&tag.v).cloned()
                 {
                     found = true;
                     ctx.resolution_map.insert(tag.id, decl.clone());
@@ -1039,6 +1041,7 @@ fn resolve_names_polytyp(
         });
     }
 
+    // TODO: code duplication
     for iface in &polyty.interfaces {
         resolve_identifier(ctx, &symbol_table, &iface.name);
         if let Some(Declaration::InterfaceDef(iface_def)) = ctx.resolution_map.get(&iface.name.id) {

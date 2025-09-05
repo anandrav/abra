@@ -38,7 +38,7 @@ pub struct FileData {
     line_starts: Vec<usize>,
 }
 
-pub fn line_starts(source: &str) -> impl '_ + Iterator<Item = usize> {
+pub fn line_starts(source: &str) -> impl '_ + Iterator<Item=usize> {
     std::iter::once(0).chain(source.match_indices('\n').map(|(i, _)| i + 1))
 }
 
@@ -417,6 +417,8 @@ pub(crate) struct InterfaceDef {
 pub(crate) struct InterfaceOutputType {
     pub(crate) name: Rc<Identifier>,
     pub(crate) interfaces: Vec<Rc<Interface>>,
+
+    pub(crate) id: NodeId,
 }
 
 #[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq)]

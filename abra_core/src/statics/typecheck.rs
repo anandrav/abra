@@ -239,6 +239,22 @@ impl Nominal {
             Self::Array => "array",
         }
     }
+
+    fn get_poly_args(&self) -> Vec<PolytypeDeclaration> {
+        match self {
+            Self::Struct(struct_def) => {
+                let mut ret = vec![];
+                for arg in &struct_def.ty_args {
+                    ret.push(PolytypeDeclaration::Ordinary(arg.clone()));
+                }
+                return ret;
+            }
+            Self::Array => {
+                return vec![PolytypeDeclaration::ArrayArg];
+            }
+            _ => todo!() // TODO
+        }
+    }
 }
 
 impl SolvedType {
@@ -311,6 +327,7 @@ impl SolvedType {
         match self {
             Self::Poly(polyty) => match polyty {
                 PolytypeDeclaration::InterfaceSelf(_) => true,
+                PolytypeDeclaration::ArrayArg => false,
                 PolytypeDeclaration::Ordinary(p) => !p.interfaces.is_empty(),
             },
             Self::InterfaceOutput(output_type) => !output_type.interfaces.is_empty(),
@@ -989,6 +1006,7 @@ impl PolytypeDeclaration {
                 vec![InterfaceConstraint::new(iface.clone(), vec![])]
             }
             PolytypeDeclaration::Ordinary(polyty) => interfaces_helper(ctx, &polyty.interfaces),
+            PolytypeDeclaration::ArrayArg => vec![],
         }
     }
 }
@@ -1015,10 +1033,8 @@ fn interfaces_helper(
             else {
                 continue;
             };
-            if let Some(val) = ast_type_to_solved_type(ctx, val.clone()) {
-                args.push((at.clone(), val));
-            } else {
-                todo!() // need to report error
+            if let Some(solved_ty) = ast_type_to_solved_type(ctx, val.clone()) {
+                args.push((at.clone(), val.clone(), solved_ty));
             }
         }
         ifaces.push(InterfaceConstraint::new(iface.clone(), args));
@@ -1409,8 +1425,30 @@ pub(crate) fn check_unifvars(ctx: &mut StaticsContext) {
 }
 
 pub(crate) fn generate_constraints_file_decls(ctx: &mut StaticsContext, file: Rc<FileAst>) {
-    for items in file.items.iter() {
-        generate_constraints_item_decls(ctx, items.clone());
+    for item in file.items.iter() {
+        generate_constraints_item_decls0(ctx, item.clone());
+    }
+    for item in file.items.iter() {
+        generate_constraints_item_decls(ctx, item.clone());
+    }
+}
+
+fn generate_constraints_item_decls0(ctx: &mut StaticsContext, item: Rc<Item>) {
+    match &*item.kind {
+        ItemKind::InterfaceDef(..) => {}
+        ItemKind::Import(..) => {}
+        ItemKind::Stmt(_) => {}
+        ItemKind::InterfaceImpl(iface_impl) => {
+            let lookup = ctx.resolution_map.get(&iface_impl.iface.id).cloned();
+            if let Some(Declaration::InterfaceDef(iface_def)) = &lookup {
+                let impl_list = ctx.interface_impls.entry(iface_def.clone()).or_default();
+                impl_list.push(iface_impl.clone());
+            }
+        }
+        ItemKind::Extension(ext) => {}
+        ItemKind::TypeDef(typdefkind) => {}
+        ItemKind::FuncDef(f) => {}
+        ItemKind::HostFuncDecl(f) | ItemKind::ForeignFuncDecl(f) => {}
     }
 }
 
@@ -1480,14 +1518,11 @@ fn generate_constraints_iface_impl(ctx: &mut StaticsContext, iface_impl: Rc<Inte
         if !ctx.interface_impl_analyzed.insert(iface_impl.clone()) {
             return;
         }
-        // println!("analyzing {}", iface_impl.iface.v);
+        println!("NOW ANALYZING {}", iface_impl.iface.v);
 
         let lookup = ctx.resolution_map.get(&iface_impl.iface.id).cloned();
         if let Some(Declaration::InterfaceDef(iface_def)) = &lookup {
             generate_constraints_iface_def(ctx, iface_def.clone());
-
-            let impl_list = ctx.interface_impls.entry(iface_def.clone()).or_default();
-            impl_list.push(iface_impl.clone());
 
             // BELOW IS WHAT WAS MOVED
             let impl_ty = ast_type_to_typevar(ctx, iface_impl.typ.clone());
@@ -1540,33 +1575,132 @@ fn generate_constraints_iface_impl(ctx: &mut StaticsContext, iface_impl: Rc<Inte
                     );
                     println!("instantiated iface method ty with func decl: {}", expected);
 
-                    constrain_iface_arguments_in_tyvar(ctx, expected);
+                    constrain_iface_arguments_in_tyvar(ctx, expected, iface_impl.clone(), interface_method.node());
                 }
+            }
+
+            for output_ty in &iface_def.output_types {
+                let prov = Prov::InstantiateInterfaceOutputType(iface_impl.clone(), output_ty.clone());
+                let tyvar = TypeVar::fresh(ctx, prov.clone());
+                println!("output_ty id={} {}={}", output_ty.id, output_ty.name.v, tyvar);
             }
         }
     }
 }
 
-// TODO LAST HERE
-fn constrain_iface_arguments_in_tyvar(ctx: &mut StaticsContext, ty: TypeVar) {
+fn constrain_iface_arguments_in_tyvar(ctx: &mut StaticsContext, ty: TypeVar, parent_impl: Rc<InterfaceImpl>, iface_method_node: AstNode) {
     let d = ty.0.clone_data();
-    let Some(solved_ty) = ty.solution() else { return; };
+    let Some((_, potential_ty)) = d.types.iter().next() else {
+        panic!();
+        return;
+    };
+    let Some(solved_ty) = ty.solution() else {
+        panic!();
+        return;
+    };
     for (iface_constraint, _) in d.iface_constraints {
-        let Some(impl_list) = ctx.interface_impls.get(&iface_constraint.iface).cloned() else { return; };
+        println!("iface constraint name {}", iface_constraint.iface.name.v);
+        let Some(impl_list) = ctx.interface_impls.get(&iface_constraint.iface).cloned() else {
+            panic!();
+            return;
+        };
         let Some(imp) = impl_list.iter().find(|i| {
-            let Some(impl_ty) = ast_type_to_solved_type(ctx, i.typ.clone()) else { return false; };
-            ty_fits_impl_ty(ctx, solved_ty.clone(), impl_ty)
-        }) else { return; };
+            let Some(impl_ty) = ast_type_to_solved_type(ctx, i.typ.clone()) else {
+                panic!();
+                return false;
+            };
+            let ret = ty_fits_impl_ty(ctx, solved_ty.clone(), impl_ty.clone());
+            if ret {
+                println!("found impl for {}", impl_ty);
+            }
+            ret
+        }) else {
+            panic!();
+            return;
+        };
 
-        for (output_type, substitution) in iface_constraint.args {
+        for (output_type, val, _) in iface_constraint.args {
+            let val = ast_type_to_typevar(ctx, val);
+            let val = val.instantiate_iface_output_types(ctx, iface_method_node.clone(), parent_impl.clone());
+
+            // TODO: uncomment this to make logic order-independent
+            // generate_constraints_iface_impl(ctx, imp.clone());
+
             let prov = Prov::InstantiateInterfaceOutputType(imp.clone(), output_type.clone());
             let output_type_tyvar = TypeVar::fresh(ctx, prov.clone());
 
             // TODO susbtitute T for U so to speak
+            // so if impl's ty is ArrayIterator<U> but the solved_ty is ArrayIterator<T>,
+            // the substitution would be { U = T }
+            // then call .subst() on the output_type_tyvar
+            let mut subst = Substitution::default();
+            if let PotentialType::Nominal(_, nom, params) = potential_ty {
+                println!("nom name: {}", nom.name());
+                let mut args: Vec<PolytypeDeclaration> = vec![];
+                let TypeKind::NamedWithParams(_, imp_args) = &*imp.typ.kind else {
+                    panic!();
+                    return;
+                };
+                for arg in imp_args {
+                    let TypeKind::Poly(poly) = &*arg.kind else {
+                        panic!();
+                        return;
+                    };
+                    let Some(Declaration::Polytype(poly_decl)) = &ctx.resolution_map.get(&poly.name.id) else {
+                        panic!();
+                        return;
+                    };
+                    args.push(poly_decl.clone());
+                }
+                let params = params;
+                if args.len() != params.len() {
+                    panic!();
+                    return;
+                }
+                for (arg, param) in args.iter().zip(params) {
+                    subst.insert(arg.clone(), param.clone());
+                }
+            }
+            dbg!(&subst);
+            println!("output_type_tyvar before subst: id={} {}={}", output_type.id, output_type.name.v, output_type_tyvar);
+            let output_type_tyvar = output_type_tyvar.subst(&subst);
+            println!("output_type_tyvar after subst: id={} {}={}", output_type.id, output_type.name.v, output_type_tyvar);
 
             // constrain that T to tyvar for substitution (which is output type from array Iterable impl)
+            constrain(ctx, output_type_tyvar.clone(), val);
         }
     }
+    match potential_ty {
+        PotentialType::Void(_)
+        | PotentialType::Never(_)
+        | PotentialType::Int(_)
+        | PotentialType::Float(_)
+        | PotentialType::Bool(_)
+        | PotentialType::String(_) |
+        PotentialType::Poly(_, _) |
+        PotentialType::InterfaceOutput(..) => {
+            //noop
+        }
+        PotentialType::Nominal(reasons, ident, params) => {
+            params
+                .into_iter()
+                .for_each(|ty| constrain_iface_arguments_in_tyvar(ctx, ty.clone(), parent_impl.clone(), iface_method_node.clone()));
+            ;
+        }
+        PotentialType::Function(reasons, args, out) => {
+            args
+                .into_iter()
+                .for_each(|ty| constrain_iface_arguments_in_tyvar(ctx, ty.clone(), parent_impl.clone(), iface_method_node.clone()));
+            ;
+            constrain_iface_arguments_in_tyvar(ctx, out.clone(), parent_impl.clone(), iface_method_node.clone());
+        }
+        PotentialType::Tuple(reasons, elems) => {
+            elems
+                .into_iter()
+                .for_each(|ty| constrain_iface_arguments_in_tyvar(ctx, ty.clone(), parent_impl.clone(), iface_method_node.clone()));
+            ;
+        }
+    };
 }
 
 fn generate_constraints_iface_def(ctx: &mut StaticsContext, iface_def: Rc<InterfaceDef>) {
@@ -1747,14 +1881,18 @@ fn generate_constraints_stmt(
                 });
                 return;
             };
+            println!("iterable solved ty is {}", iterable_ty_solved);
             let iterable_iface_def = ctx.get_interface_declaration("prelude.Iterable");
+            let iterator_iface_def = ctx.get_interface_declaration("prelude.Iterator");
             let impl_list = ctx
                 .interface_impls
                 .get(&iterable_iface_def)
                 .cloned()
                 .unwrap_or_default();
+            // TODO: this is duplicated somewhere
             let Some(imp) = impl_list.iter().find(|i| {
                 if let Some(impl_ty) = ast_type_to_solved_type(ctx, i.typ.clone()) {
+                    println!("impl_ty is {}", impl_ty);
                     ty_fits_impl_ty(ctx, iterable_ty_solved.clone(), impl_ty.clone())
                 } else {
                     false
@@ -1769,7 +1907,7 @@ fn generate_constraints_stmt(
             let output_type = iterable_iface_def
                 .output_types
                 .iter()
-                .find(|ot| ot.name.v == "Item")
+                .find(|ot| ot.name.v == "IterableItem")
                 .unwrap();
             let item_ty = ctx
                 .unifvars
@@ -1777,7 +1915,48 @@ fn generate_constraints_stmt(
                     imp.clone(),
                     output_type.clone(),
                 ))
-                .unwrap();
+                .unwrap().clone();
+            println!("item_ty is {}", item_ty);
+            // TODO: substitute { T = int } here
+            // TODO: code duplication! and so much work for something simple!
+            let mut subst = Substitution::default();
+            let d = iterable_ty.0.clone_data();
+            let (_, potential_ty) = d.types.iter().next().unwrap();
+            if let PotentialType::Nominal(_, nom, params) = potential_ty {
+                println!("nom name: {}", nom.name());
+                let mut args: Vec<PolytypeDeclaration> = vec![];
+                let TypeKind::NamedWithParams(_, imp_args) = &*imp.typ.kind else {
+                    panic!();
+                    return;
+                };
+                for arg in imp_args {
+                    let TypeKind::Poly(poly) = &*arg.kind else {
+                        panic!();
+                        return;
+                    };
+                    let Some(Declaration::Polytype(poly_decl)) = &ctx.resolution_map.get(&poly.name.id) else {
+                        panic!();
+                        return;
+                    };
+                    args.push(poly_decl.clone());
+                }
+                let params = params;
+                if args.len() != params.len() {
+                    panic!();
+                    return;
+                }
+                for (arg, param) in args.iter().zip(params) {
+                    subst.insert(arg.clone(), param.clone());
+                }
+            }
+            println!("SUBST");
+            for (key, val) in &subst {
+                println!("{:?} = {}", key, val);
+            }
+            println!();
+
+            let item_ty = item_ty.subst(&subst);
+            println!("item_ty after subst is {}", item_ty);
             generate_constraints_pat(
                 ctx,
                 polyvar_scope.clone(),
@@ -1785,81 +1964,104 @@ fn generate_constraints_stmt(
                 pat.clone(),
             );
 
-            generate_constraints_expr(ctx, polyvar_scope.clone(), Mode::Syn, body.clone())
+            generate_constraints_expr(ctx, polyvar_scope.clone(), Mode::Syn, body.clone());
+
+            // update bookkeeping for code generation
+            // make_iterator type
+            let make_iterator_method = imp.methods.iter().find(|m| m.name.v == "make_iterator").unwrap();
+            let make_iterator_type = TypeVar::from_node(ctx, make_iterator_method.name.node()).subst(
+                &subst
+            );
+            ctx.for_loop_make_iterator_types
+                .insert(stmt.id, make_iterator_type.solution().unwrap());
+            println!("make_iterator_type is {}", make_iterator_type);
+
+            // Iter::next type
+            let iter_output_type = iterable_iface_def
+                .output_types
+                .iter()
+                .find(|ot| ot.name.v == "Iter")
+                .unwrap();
+            let iter_output_type = ctx
+                .unifvars
+                .get(&Prov::InstantiateInterfaceOutputType(
+                    imp.clone(),
+                    iter_output_type.clone(),
+                ))
+                .unwrap().clone();
+            let impl_list = ctx
+                .interface_impls
+                .get(&iterator_iface_def)
+                .cloned()
+                .unwrap_or_default();
+            let Some(iter_output_type_solved) = iter_output_type.solution() else { panic!() };
+            // TODO: this is duplicated somewhere
+            let Some(iterator_imp) = impl_list.iter().find(|i| {
+                if let Some(impl_ty) = ast_type_to_solved_type(ctx, i.typ.clone()) {
+                    // println!("impl_ty is {}", impl_ty);
+                    ty_fits_impl_ty(ctx, iter_output_type_solved.clone(), impl_ty.clone())
+                } else {
+                    false
+                }
+            }) else {
+                ctx.errors.push(Error::Generic {
+                    msg: "For loop container does not implement `Iterable` interface.".to_string(),
+                    node: iterable.node(),
+                });
+                return;
+            };
+            let mut subst2 = Substitution::default();
+            println!("iter_output_type: {}", iter_output_type);
+            let d = iter_output_type.0.clone_data();
+            let (_, potential_ty) = d.types.iter().next().unwrap();
+            if let PotentialType::Nominal(_, nom, params) = potential_ty {
+                println!("nom name: {}", nom.name());
+                let mut args: Vec<PolytypeDeclaration> = vec![];
+                let TypeKind::NamedWithParams(_, imp_args) = &*iterator_imp.typ.kind else {
+                    panic!();
+                    return;
+                };
+                println!("imp_args len {}", imp_args.len());
+                for arg in imp_args {
+                    let TypeKind::Poly(poly) = &*arg.kind else {
+                        panic!();
+                        return;
+                    };
+                    let Some(Declaration::Polytype(poly_decl)) = &ctx.resolution_map.get(&poly.name.id) else {
+                        panic!();
+                        return;
+                    };
+                    args.push(poly_decl.clone());
+                }
+                let params = params;
+                if args.len() != params.len() {
+                    panic!();
+                    return;
+                }
+                for (arg, param) in args.iter().zip(params) {
+                    subst2.insert(arg.clone(), param.clone());
+                }
+            }
+            println!("SUBST2");
+            for (key, val) in &subst2 {
+                println!("{:?} = {}", key, val);
+            }
+            println!();
+            let next_method = iterator_imp.methods.iter().find(|m| m.name.v == "next").unwrap();
+            let next_method_typ = TypeVar::from_node(ctx, next_method.name.node());
+            println!("next_method_typ is {}", next_method_typ);
+            let next_method_typ = next_method_typ.subst(
+                &subst2
+            );
+            println!("next_method_typ is {}", next_method_typ);
+            let next_method_typ = next_method_typ.subst(
+                &subst
+            );
+            println!("next_method_typ is {}", next_method_typ);
+            ctx.for_loop_next_types
+                .insert(stmt.id, next_method_typ.solution().unwrap());
         }
     }
-}
-
-// TODO: This function looks scary but it's not that complicated. That means it's too much effort to do simple things like create, manipulate, and convert types
-fn extract_item_type_from_iterable_type(
-    ctx: &mut StaticsContext,
-    iterable_ty: TypeVar,
-    stmt_id: NodeId,
-    node: AstNode,
-) -> Option<TypeVar> {
-    let iterable_iface_def = ctx.get_interface_declaration("prelude.Iterable");
-    let iterator_iface_def = ctx.get_interface_declaration("prelude.Iterator");
-
-    // TODO: need to log errors before returning None instead of just silently returning None.
-    // TODO: don't log errors for *everything* though. Some of it will be caught by typechecker. Just need the user to understand why for loop won't work
-    let impl_list = ctx.interface_impls.get(&iterable_iface_def)?.clone();
-    let iterable_ty_solved = iterable_ty.solution()?;
-    let imp = impl_list.iter().find(|i| {
-        if let Some(impl_ty) = ast_type_to_solved_type(ctx, i.typ.clone()) {
-            ty_fits_impl_ty(ctx, iterable_ty_solved.clone(), impl_ty.clone())
-        } else {
-            false
-        }
-    })?;
-    let make_iterator_method = imp.methods.iter().find(|m| m.name.v == "make_iterator")?;
-    let ret_type = make_iterator_method.ret_type.clone()?;
-    let iterator_ty = ast_type_to_solved_type(ctx, ret_type)?;
-
-    let impl_list = ctx.interface_impls.get(&iterator_iface_def)?.clone();
-    let imp = impl_list.iter().find(|i| {
-        if let Some(impl_ty) = ast_type_to_solved_type(ctx, i.typ.clone()) {
-            ty_fits_impl_ty(ctx, iterator_ty.clone(), impl_ty.clone())
-        } else {
-            false
-        }
-    })?;
-    let next_method = imp.methods.iter().find(|m| m.name.v == "next")?;
-    let ret_type = next_method.ret_type.clone()?;
-    let TypeKind::NamedWithParams(_, params) = &*ret_type.kind else {
-        return None;
-    };
-    let first_arg = params.first()?;
-    let item_ty = TypeVar::from_node(ctx, first_arg.node());
-
-    let make_iterator_type = TypeVar::from_node(ctx, make_iterator_method.name.node()).instantiate(
-        ctx,
-        PolyvarScope::empty(),
-        node.clone(),
-    );
-    let data = make_iterator_type.clone_types();
-    let PotentialType::Function(_, args, make_iterator_out_ty) =
-        data[&TypeKey::Function(1)].clone()
-    else {
-        panic!()
-    };
-    constrain(ctx, args[0].clone(), iterable_ty.clone());
-    ctx.for_loop_make_iterator_types
-        .insert(stmt_id, make_iterator_type.solution().unwrap()); // needed for translation
-
-    let next_type = TypeVar::from_node(ctx, next_method.name.node()).instantiate(
-        ctx,
-        PolyvarScope::empty(),
-        node,
-    );
-    let data = next_type.clone_types();
-    let PotentialType::Function(_, args, _) = data[&TypeKey::Function(1)].clone() else {
-        panic!()
-    };
-    constrain(ctx, args[0].clone(), make_iterator_out_ty.clone());
-    ctx.for_loop_next_types
-        .insert(stmt_id, next_type.solution().unwrap()); // needed for translation
-
-    Some(item_ty)
 }
 
 fn generate_constraints_expr(
@@ -3038,7 +3240,7 @@ impl Display for TypeVar {
             write!(f, "{}", constraint.iface.name.v)?;
             if !constraint.args.is_empty() {
                 write!(f, "<")?;
-                for (i, (output_type, val)) in constraint.args.iter().enumerate() {
+                for (i, (output_type, _, val)) in constraint.args.iter().enumerate() {
                     if i > 0 {
                         write!(f, ", ")?;
                     }
@@ -3057,6 +3259,7 @@ impl Display for PotentialType {
             PotentialType::Poly(_, decl) => {
                 match decl {
                     PolytypeDeclaration::Ordinary(polyty) => {
+                        write!(f, "{}", polyty.name.id)?;
                         write!(f, "{}", polyty.name.v)?;
                         if !polyty.interfaces.is_empty() {
                             write!(f, " ")?;
@@ -3069,6 +3272,7 @@ impl Display for PotentialType {
                         }
                     }
                     PolytypeDeclaration::InterfaceSelf(_) => write!(f, "Self")?,
+                    PolytypeDeclaration::ArrayArg => write!(f, "'T")?,
                 }
 
                 Ok(())
@@ -3127,6 +3331,7 @@ impl Display for SolvedType {
             SolvedType::Poly(polyty) => {
                 match polyty {
                     PolytypeDeclaration::Ordinary(polyty) => {
+                        write!(f, "{}", polyty.name.id)?;
                         write!(f, "{}", polyty.name.v)?;
                         if !polyty.interfaces.is_empty() {
                             write!(f, " ")?;
@@ -3140,6 +3345,9 @@ impl Display for SolvedType {
                     }
                     PolytypeDeclaration::InterfaceSelf(_) => {
                         write!(f, "Self")?;
+                    }
+                    PolytypeDeclaration::ArrayArg => {
+                        write!(f, "'T")?; // TODO: this and other is duplicated. Use helpre function for displaying Polytype? Or just implement Display for it.
                     }
                 }
 

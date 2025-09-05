@@ -232,26 +232,6 @@ fn format_append(s1: 'a ToString, s2: 'b ToString) {
     concat_strings(s3, s4)
 }
 
-interface Iterable {
-    outputtype Item
-    outputtype Iter impl Iterator<Item=Item>
-
-    fn make_iterator: (Self) -> Iter
-}
-
-implement Iterable for array<'T> {
-    fn make_iterator(self) -> ArrayIterator<'T> {
-        ArrayIterator(self, 0)
-    }
-}
-
-// TODO: put Iterator, ArrayIterator<'T> and impl Iterator for ArrayIterator<'T> AFTER Iterable and impl Iterable for array<'T> and it should still work. Requires demand-based analysis
-interface Iterator {
-    outputtype Item
-
-    fn next: (Self) -> option<Item>
-}
-
 type ArrayIterator<'U> = {
     arr: array<'U>
     i: int
@@ -269,6 +249,26 @@ implement Iterator for ArrayIterator<'U> {
             ret
         }
     }
+}
+
+interface Iterable {
+    outputtype IterableItem
+    outputtype Iter impl Iterator<IteratorItem=IterableItem>
+
+    fn make_iterator: (Self) -> Iter
+}
+
+implement Iterable for array<'T> {
+    fn make_iterator(self) -> ArrayIterator<'T> {
+        ArrayIterator(self, 0)
+    }
+}
+
+// TODO: put Iterator, ArrayIterator<'T> and impl Iterator for ArrayIterator<'T> AFTER Iterable and impl Iterable for array<'T> and it should still work. Requires demand-based analysis
+interface Iterator {
+    outputtype IteratorItem
+
+    fn next: (Self) -> option<IteratorItem>
 }
 
 // fn range(lo: int, hi: int) -> array<int> {

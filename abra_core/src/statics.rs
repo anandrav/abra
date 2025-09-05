@@ -5,7 +5,7 @@
 use crate::FileProvider;
 use crate::ast::{
     AstNode, EnumDef, FileAst, FileDatabase, FileId, FuncDecl, FuncDef, InterfaceDef,
-    InterfaceImpl, InterfaceOutputType, NodeId, Polytype, StructDef, TypeKind,
+    InterfaceImpl, InterfaceOutputType, NodeId, Polytype, StructDef, TypeKind, Type as AstType,
 };
 use crate::builtin::{BuiltinOperation, BuiltinType};
 use resolve::{resolve, scan_declarations};
@@ -228,9 +228,13 @@ pub(crate) enum Declaration {
 pub(crate) enum PolytypeDeclaration {
     InterfaceSelf(Rc<InterfaceDef>), // `Self`
     Ordinary(Rc<Polytype>),
+    ArrayArg, // the 'T in array<'T>
 }
 
-type InterfaceArguments = Vec<(Rc<InterfaceOutputType>, SolvedType)>;
+// TODO: this is weird
+// AstType is used because TypeVar has internal mutability and can't be stored in a hashmap
+// SolvedType is used so that Display knows how to display the argument.
+type InterfaceArguments = Vec<(Rc<InterfaceOutputType>, Rc<AstType>, SolvedType)>;
 
 impl Declaration {
     pub fn to_type_key(self: &Declaration) -> Option<TypeKey> {
@@ -739,6 +743,9 @@ fn add_detail_for_decl_node(
         Declaration::Polytype(polytype_decl) => match polytype_decl {
             PolytypeDeclaration::Ordinary(polyty) => polyty.name.node(),
             PolytypeDeclaration::InterfaceSelf(iface_def) => iface_def.name.node(), // TODO: this will not result in a good error message
+            PolytypeDeclaration::ArrayArg => {
+                todo!();
+            }
         },
 
         Declaration::Var(ast_node) => ast_node.clone(),
