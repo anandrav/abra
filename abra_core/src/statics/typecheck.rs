@@ -791,7 +791,7 @@ impl TypeVar {
                 ty // noop
             }
             PotentialType::InterfaceOutput(_, ref output_type) => {
-                // TODO: some code duplication around here
+                // TODO: some code duplication around here when constraining to ifaces
                 let prov = Prov::InstantiateInterfaceOutputType(imp, output_type.clone());
                 let ret = TypeVar::fresh(ctx, prov.clone());
                 let ifaces = output_type.interfaces(ctx);
@@ -1584,34 +1584,7 @@ fn constrain_iface_arguments_in_tyvar(
             // so if impl's ty is ArrayIterator<U> but the solved_ty is ArrayIterator<T>,
             // the substitution would be { U = T }
             // then call .subst() on the output_type_tyvar
-            let mut subst = Substitution::default();
-            if let PotentialType::Nominal(_, _, params) = &potential_ty {
-                let mut args: Vec<PolytypeDeclaration> = vec![];
-                let TypeKind::NamedWithParams(_, imp_args) = &*imp.typ.kind else {
-                    panic!();
-                    return;
-                };
-                for arg in imp_args {
-                    let TypeKind::Poly(poly) = &*arg.kind else {
-                        panic!();
-                        return;
-                    };
-                    let Some(Declaration::Polytype(poly_decl)) =
-                        &ctx.resolution_map.get(&poly.name.id)
-                    else {
-                        panic!();
-                        return;
-                    };
-                    args.push(poly_decl.clone());
-                }
-                if args.len() != params.len() {
-                    panic!();
-                    return;
-                }
-                for (arg, param) in args.iter().zip(params) {
-                    subst.insert(arg.clone(), param.clone());
-                }
-            }
+            let subst = get_substitution_of_typ(ctx, &imp.typ, &ty);
             let output_type_tyvar = output_type_tyvar.subst(&subst);
 
             // constrain that T to tyvar for substitution (which is output type from array Iterable impl)
@@ -1666,6 +1639,37 @@ fn constrain_iface_arguments_in_tyvar(
             });
         }
     };
+}
+
+fn get_substitution_of_typ(ctx: &StaticsContext, original: &Rc<AstType>, with_params: &TypeVar) -> Substitution {
+    let mut subst = Substitution::default();
+    let Some(potential_ty) = with_params.single() else {
+        return subst;
+    };
+    if let PotentialType::Nominal(_, _, params) = &potential_ty {
+        let mut args: Vec<PolytypeDeclaration> = vec![];
+        let TypeKind::NamedWithParams(_, imp_args) = &*original.kind else {
+            return subst;
+        };
+        for arg in imp_args {
+            let TypeKind::Poly(poly) = &*arg.kind else {
+                continue;
+            };
+            let Some(Declaration::Polytype(poly_decl)) =
+                &ctx.resolution_map.get(&poly.name.id)
+            else {
+                continue;
+            };
+            args.push(poly_decl.clone());
+        }
+        if args.len() != params.len() {
+            return subst;
+        }
+        for (arg, param) in args.iter().zip(params) {
+            subst.insert(arg.clone(), param.clone());
+        }
+    }
+    subst
 }
 
 fn generate_constraints_iface_def(ctx: &mut StaticsContext, iface_def: Rc<InterfaceDef>) {
@@ -1870,37 +1874,7 @@ fn generate_constraints_stmt(
                 .unwrap()
                 .clone();
             // substitute { T = int } here
-            // TODO: code duplication! and so much work for something simple!
-            let mut subst = Substitution::default();
-            let potential_ty = iterable_ty.single().unwrap();
-            if let PotentialType::Nominal(_, _, params) = potential_ty {
-                let mut args: Vec<PolytypeDeclaration> = vec![];
-                let TypeKind::NamedWithParams(_, imp_args) = &*imp.typ.kind else {
-                    panic!();
-                    return;
-                };
-                for arg in imp_args {
-                    let TypeKind::Poly(poly) = &*arg.kind else {
-                        panic!();
-                        return;
-                    };
-                    let Some(Declaration::Polytype(poly_decl)) =
-                        &ctx.resolution_map.get(&poly.name.id)
-                    else {
-                        panic!();
-                        return;
-                    };
-                    args.push(poly_decl.clone());
-                }
-                if args.len() != params.len() {
-                    panic!();
-                    return;
-                }
-                for (arg, param) in args.iter().zip(params) {
-                    subst.insert(arg.clone(), param.clone());
-                }
-            }
-
+            let subst = get_substitution_of_typ(ctx, &imp.typ, &iterable_ty);
             let item_ty = item_ty.subst(&subst);
             generate_constraints_pat(
                 ctx,
@@ -1945,36 +1919,7 @@ fn generate_constraints_stmt(
             else {
                 return;
             };
-            let mut subst2 = Substitution::default();
-            let potential_ty = iter_output_type.single().unwrap();
-            if let PotentialType::Nominal(_, _, params) = potential_ty {
-                let mut args: Vec<PolytypeDeclaration> = vec![];
-                let TypeKind::NamedWithParams(_, imp_args) = &*iterator_imp.typ.kind else {
-                    panic!();
-                    return;
-                };
-                for arg in imp_args {
-                    let TypeKind::Poly(poly) = &*arg.kind else {
-                        panic!();
-                        return;
-                    };
-                    let Some(Declaration::Polytype(poly_decl)) =
-                        &ctx.resolution_map.get(&poly.name.id)
-                    else {
-                        panic!();
-                        return;
-                    };
-                    args.push(poly_decl.clone());
-                }
-                if args.len() != params.len() {
-                    panic!();
-                    return;
-                }
-                for (arg, param) in args.iter().zip(params) {
-                    subst2.insert(arg.clone(), param.clone());
-                }
-            }
-
+            let subst2 = get_substitution_of_typ(ctx, &iterator_imp.typ, &iter_output_type);
             let next_method = iterator_imp
                 .methods
                 .iter()
@@ -3099,7 +3044,8 @@ pub(crate) fn get_iface_impl_for_ty(
     let impl_list = ctx.interface_impls.get(iface).cloned()?;
     impl_list
         .iter()
-        .find(|&imp| ty_fits_impl(ctx, ty.clone(), imp.clone())).cloned()
+        .find(|&imp| ty_fits_impl(ctx, ty.clone(), imp.clone()))
+        .cloned()
 }
 
 pub(crate) fn ty_fits_impl(ctx: &StaticsContext, typ: SolvedType, imp: Rc<InterfaceImpl>) -> bool {
