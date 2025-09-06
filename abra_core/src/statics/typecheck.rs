@@ -3097,9 +3097,7 @@ pub(crate) fn get_iface_impl_for_ty(
     ty: SolvedType,
     iface: &Rc<InterfaceDef>,
 ) -> Option<Rc<InterfaceImpl>> {
-    let Some(impl_list) = ctx.interface_impls.get(iface).cloned() else {
-        return None;
-    };
+    let impl_list = ctx.interface_impls.get(iface).cloned()?;
     impl_list
         .iter()
         .find(|&imp| ty_fits_impl(ctx, ty.clone(), imp.clone())).cloned()
