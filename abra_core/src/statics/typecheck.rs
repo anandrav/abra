@@ -793,7 +793,6 @@ impl TypeVar {
                 ty // noop
             }
             PotentialType::InterfaceOutput(_, ref output_type) => {
-                // TODO: some code duplication around here when constraining to ifaces
                 let prov = Prov::InstantiateInterfaceOutputType(imp, output_type.clone());
                 let ret = TypeVar::fresh(ctx, prov.clone());
                 let ifaces = output_type.interfaces(ctx);
@@ -1366,12 +1365,12 @@ pub(crate) fn check_unifvars(ctx: &mut StaticsContext) {
         } else if let Some(ty) = tyvar.solution() {
             tyvar.0.with_data(|d| {
                 for (constraint, nodes) in &d.iface_constraints {
-                    let iface = &constraint.iface;
+                    let iface = &constraint.iface; // TODO: the args of the iface constraint must be used too
                     if !ty_implements_iface(ctx, ty.clone(), iface) {
                         ctx.errors.push(Error::InterfaceNotImplemented {
                             ty: ty.clone(),
                             iface: iface.clone(),
-                            node: nodes.first().unwrap().clone(), // TODO: maybe use more nodes in error message
+                            node: nodes.first().unwrap().clone(),
                         });
                     }
                 }
@@ -1385,11 +1384,25 @@ pub(crate) fn generate_constraints_file_decls(ctx: &mut StaticsContext, file: Rc
         generate_constraints_item_decls0(ctx, item.clone());
     }
     for item in file.items.iter() {
-        generate_constraints_item_decls(ctx, item.clone());
+        generate_constraints_item_decls1(ctx, item.clone());
     }
 }
 
-// TODO: is this extra pass necessary?
+fn generate_constraints_item_decls1(ctx: &mut StaticsContext, item: Rc<Item>) {
+    match &*item.kind {
+        ItemKind::InterfaceDef(..) => {}
+        ItemKind::Import(..) => {}
+        ItemKind::Stmt(_) => {}
+        ItemKind::InterfaceImpl(iface_impl) => {
+            generate_constraints_iface_impl(ctx, iface_impl.clone());
+        }
+        ItemKind::Extension(_) => {}
+        ItemKind::TypeDef(_) => {}
+        ItemKind::FuncDef(_) => {}
+        ItemKind::HostFuncDecl(_) | ItemKind::ForeignFuncDecl(_) => {}
+    }
+}
+
 fn generate_constraints_item_decls0(ctx: &mut StaticsContext, item: Rc<Item>) {
     match &*item.kind {
         ItemKind::InterfaceDef(..) => {}
@@ -1401,21 +1414,6 @@ fn generate_constraints_item_decls0(ctx: &mut StaticsContext, item: Rc<Item>) {
                 let impl_list = ctx.interface_impls.entry(iface_def.clone()).or_default();
                 impl_list.push(iface_impl.clone());
             }
-        }
-        ItemKind::Extension(_) => {}
-        ItemKind::TypeDef(_) => {}
-        ItemKind::FuncDef(_) => {}
-        ItemKind::HostFuncDecl(_) | ItemKind::ForeignFuncDecl(_) => {}
-    }
-}
-
-fn generate_constraints_item_decls(ctx: &mut StaticsContext, item: Rc<Item>) {
-    match &*item.kind {
-        ItemKind::InterfaceDef(..) => {}
-        ItemKind::Import(..) => {}
-        ItemKind::Stmt(_) => {}
-        ItemKind::InterfaceImpl(iface_impl) => {
-            generate_constraints_iface_impl(ctx, iface_impl.clone());
         }
         ItemKind::Extension(ext) => {
             for f in &ext.methods {
@@ -1541,7 +1539,6 @@ fn generate_constraints_iface_impl(ctx: &mut StaticsContext, iface_impl: Rc<Inte
     }
 }
 
-// TODO: remove the panics. Maybe report errors instead of just returning.
 fn constrain_iface_arguments_in_tyvar(
     ctx: &mut StaticsContext,
     ty: TypeVar,
@@ -3028,7 +3025,7 @@ pub(crate) fn fmt_conflicting_types(types: &[PotentialType], f: &mut dyn Write) 
 pub(crate) fn ty_implements_iface(
     ctx: &StaticsContext,
     ty: SolvedType,
-    iface: &Rc<InterfaceDef>, // TODO: this needs to take the associated types to the interface into account right?
+    iface: &Rc<InterfaceDef>,
 ) -> bool {
     if let SolvedType::Poly(poly_decl) = &ty {
         let ifaces = poly_decl.interfaces(ctx);
