@@ -619,7 +619,8 @@ impl TypeVar {
             | PotentialType::Int(_)
             | PotentialType::Float(_)
             | PotentialType::Bool(_)
-            | PotentialType::String(_) => {
+            | PotentialType::String(_)
+            | PotentialType::InterfaceOutput(..) => {
                 ty // noop
             }
             PotentialType::Poly(_, ref decl) => {
@@ -641,7 +642,6 @@ impl TypeVar {
                     ty // noop
                 }
             }
-            PotentialType::InterfaceOutput(..) => todo!(),
             PotentialType::Nominal(reasons, ident, params) => {
                 let params = params
                     .into_iter()
@@ -1248,7 +1248,6 @@ pub(crate) fn constrain_to_iface(
             });
         }
     } else {
-        // TODO: make a helper function for this to hide the ugliness. tyvar.constrain_to_iface()
         tyvar.0.with_data(|d| {
             d.iface_constraints
                 .entry(InterfaceConstraint::new(iface.clone(), vec![]))
@@ -1554,6 +1553,7 @@ fn generate_constraints_iface_impl(ctx: &mut StaticsContext, iface_impl: Rc<Inte
     }
 }
 
+// TODO: remove the panics. Maybe report errors instead of just returning.
 fn constrain_iface_arguments_in_tyvar(
     ctx: &mut StaticsContext,
     ty: TypeVar,
@@ -1561,7 +1561,10 @@ fn constrain_iface_arguments_in_tyvar(
     iface_method_node: AstNode,
 ) {
     let d = ty.0.clone_data();
-    let potential_ty = ty.single().unwrap(); // TODO: don't unwrap
+    let Some(potential_ty) = ty.single() else {
+        panic!();
+        return;
+    };
     let Some(solved_ty) = ty.solution() else {
         panic!();
         return;
@@ -1592,7 +1595,7 @@ fn constrain_iface_arguments_in_tyvar(
             let prov = Prov::InstantiateInterfaceOutputType(imp.clone(), output_type.clone());
             let output_type_tyvar = TypeVar::fresh(ctx, prov.clone());
 
-            // TODO susbtitute T for U so to speak
+            // susbtitute T for U so to speak
             // so if impl's ty is ArrayIterator<U> but the solved_ty is ArrayIterator<T>,
             // the substitution would be { U = T }
             // then call .subst() on the output_type_tyvar
@@ -1889,7 +1892,7 @@ fn generate_constraints_stmt(
                 ))
                 .unwrap()
                 .clone();
-            // TODO: substitute { T = int } here
+            // substitute { T = int } here
             // TODO: code duplication! and so much work for something simple!
             let mut subst = Substitution::default();
             let potential_ty = iterable_ty.single().unwrap();
@@ -3115,18 +3118,27 @@ pub(crate) fn fmt_conflicting_types(types: &[PotentialType], f: &mut dyn Write) 
 pub(crate) fn ty_implements_iface(
     ctx: &StaticsContext,
     ty: SolvedType,
-    iface: &Rc<InterfaceDef>, // TODO: this needs to take the associated types to the interface into account
+    iface: &Rc<InterfaceDef>, // TODO: this needs to take the associated types to the interface into account right?
 ) -> bool {
     if let SolvedType::Poly(poly_decl) = &ty {
         let ifaces = poly_decl.interfaces(ctx);
         return ifaces.iter().any(|constraint| &constraint.iface == iface);
     }
-    let default = vec![];
-    let impl_list = ctx.interface_impls.get(iface).unwrap_or(&default);
+    get_iface_impl_for_ty(ctx, ty, iface).is_some()
+}
 
+pub(crate) fn get_iface_impl_for_ty(
+    ctx: &StaticsContext,
+    ty: SolvedType,
+    iface: &Rc<InterfaceDef>,
+) -> Option<Rc<InterfaceImpl>> {
+    let Some(impl_list) = ctx.interface_impls.get(iface).cloned() else {
+        return None;
+    };
     impl_list
         .iter()
-        .any(|imp| ty_fits_impl(ctx, ty.clone(), imp.clone()))
+        .cloned()
+        .find(|imp| ty_fits_impl(ctx, ty.clone(), imp.clone()))
 }
 
 pub(crate) fn ty_fits_impl(ctx: &StaticsContext, typ: SolvedType, imp: Rc<InterfaceImpl>) -> bool {
