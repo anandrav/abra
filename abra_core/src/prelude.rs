@@ -245,7 +245,6 @@ implement Iterable for array<'T> {
     }
 }
 
-// TODO: put Iterator, ArrayIterator<'T> and impl Iterator for ArrayIterator<'T> AFTER Iterable and impl Iterable for array<'T> and it should still work. Requires demand-based analysis
 interface Iterator {
     outputtype IteratorItem
 
