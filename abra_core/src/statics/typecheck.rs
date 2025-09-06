@@ -1966,7 +1966,6 @@ fn generate_constraints_stmt(
                     };
                     args.push(poly_decl.clone());
                 }
-                let params = params;
                 if args.len() != params.len() {
                     panic!();
                     return;
