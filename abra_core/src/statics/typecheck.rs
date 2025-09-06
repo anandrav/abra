@@ -637,12 +637,7 @@ impl TypeVar {
 
                     let ifaces = decl.interfaces(ctx);
                     for constraint in ifaces {
-                        ret.0.with_data(|d| {
-                            d.iface_constraints
-                                .entry(constraint)
-                                .or_default()
-                                .push(node.clone())
-                        });
+                        constrain_to_iface(ctx, &ret, node.clone(), &constraint);
                     }
                     return ret; // instantiation occurs here
                 } else {
