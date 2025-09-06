@@ -60,6 +60,13 @@ impl InterfaceConstraint {
     fn new(iface: Rc<InterfaceDef>, args: InterfaceArguments) -> Self {
         Self { iface, args }
     }
+
+    fn no_args(iface: Rc<InterfaceDef>) -> Self {
+        Self {
+            iface,
+            args: vec![],
+        }
+    }
 }
 
 impl TypeVarData {
@@ -795,13 +802,8 @@ impl TypeVar {
                 let prov = Prov::InstantiateInterfaceOutputType(imp, output_type.clone());
                 let ret = TypeVar::fresh(ctx, prov.clone());
                 let ifaces = output_type.interfaces(ctx);
-                for constraint in ifaces {
-                    ret.0.with_data(|d| {
-                        d.iface_constraints
-                            .entry(constraint)
-                            .or_default()
-                            .push(node.clone())
-                    });
+                for constraint in &ifaces {
+                    constrain_to_iface(ctx, &ret, node.clone(), constraint);
                 }
                 return ret; // instantiation occurs here
             }
@@ -1226,22 +1228,22 @@ pub(crate) fn constrain_because(
 
 pub(crate) fn constrain_to_iface(
     ctx: &mut StaticsContext,
-    tyvar: TypeVar,
+    tyvar: &TypeVar,
     node: AstNode,
-    iface: &Rc<InterfaceDef>,
+    constraint: &InterfaceConstraint,
 ) {
     if let Some(ty) = tyvar.solution() {
-        if !ty_implements_iface(ctx, ty.clone(), iface) {
+        if !ty_implements_iface(ctx, ty.clone(), &constraint.iface) {
             ctx.errors.push(Error::InterfaceNotImplemented {
                 ty: ty.clone(),
-                iface: iface.clone(),
+                iface: constraint.iface.clone(),
                 node,
             });
         }
     } else {
         tyvar.0.with_data(|d| {
             d.iface_constraints
-                .entry(InterfaceConstraint::new(iface.clone(), vec![]))
+                .entry(constraint.clone())
                 .or_default()
                 .push(node)
         });
@@ -2067,9 +2069,12 @@ fn generate_constraints_expr(
             generate_constraints_expr(ctx, polyvar_scope.clone(), Mode::Syn, right.clone());
             let ty_out = node_ty;
 
-            let num_iface = ctx.get_interface_declaration("prelude.Num");
-            let equal_iface = ctx.get_interface_declaration("prelude.Equal");
-            let tostring_iface = ctx.get_interface_declaration("prelude.ToString");
+            let num_iface =
+                InterfaceConstraint::no_args(ctx.get_interface_declaration("prelude.Num"));
+            let equal_iface =
+                InterfaceConstraint::no_args(ctx.get_interface_declaration("prelude.Equal"));
+            let tostring_iface =
+                InterfaceConstraint::no_args(ctx.get_interface_declaration("prelude.ToString"));
 
             let reason_left = Reason::BinopLeft(expr.node());
             let reason_right = Reason::BinopRight(expr.node());
@@ -2101,8 +2106,8 @@ fn generate_constraints_expr(
                         ty_right.clone(),
                         ConstraintReason::BinaryOperandsMustMatch(expr.node()),
                     );
-                    constrain_to_iface(ctx, ty_left.clone(), left.node(), &num_iface);
-                    constrain_to_iface(ctx, ty_right, right.node(), &num_iface);
+                    constrain_to_iface(ctx, &ty_left, left.node(), &num_iface);
+                    constrain_to_iface(ctx, &ty_right, right.node(), &num_iface);
                     constrain(ctx, ty_left, ty_out);
                 }
                 BinaryOperator::Mod => {
@@ -2130,13 +2135,13 @@ fn generate_constraints_expr(
                         ty_right.clone(),
                         ConstraintReason::BinaryOperandsMustMatch(expr.node()),
                     );
-                    constrain_to_iface(ctx, ty_left, left.node(), &num_iface);
-                    constrain_to_iface(ctx, ty_right, right.node(), &num_iface);
+                    constrain_to_iface(ctx, &ty_left, left.node(), &num_iface);
+                    constrain_to_iface(ctx, &ty_right, right.node(), &num_iface);
                     constrain(ctx, ty_out, TypeVar::make_bool(reason_out));
                 }
                 BinaryOperator::Format => {
-                    constrain_to_iface(ctx, ty_left.clone(), left.node(), &tostring_iface);
-                    constrain_to_iface(ctx, ty_right.clone(), right.node(), &tostring_iface);
+                    constrain_to_iface(ctx, &ty_left, left.node(), &tostring_iface);
+                    constrain_to_iface(ctx, &ty_right, right.node(), &tostring_iface);
                     constrain_because(
                         ctx,
                         ty_out,
@@ -2151,8 +2156,8 @@ fn generate_constraints_expr(
                         ty_right.clone(),
                         ConstraintReason::BinaryOperandsMustMatch(expr.node()),
                     );
-                    constrain_to_iface(ctx, ty_left.clone(), left.node(), &equal_iface);
-                    constrain_to_iface(ctx, ty_right.clone(), right.node(), &equal_iface);
+                    constrain_to_iface(ctx, &ty_left, left.node(), &equal_iface);
+                    constrain_to_iface(ctx, &ty_right, right.node(), &equal_iface);
                     constrain(ctx, ty_out, TypeVar::make_bool(reason_out));
                 }
             }
