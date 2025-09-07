@@ -2921,17 +2921,11 @@ fn generate_constraints_pat(
                     | Mode::Ana { expected } => Some(expected),
                 };
 
-                let mut can_infer = false;
                 if let Some(expected_ty) = expected_ty
                     && let Some(SolvedType::Nominal(Nominal::Enum(enum_def), _)) =
                         expected_ty.solution()
+                    && let Some(idx) = enum_def.variants.iter().position(|v| v.ctor.v == tag.v)
                 {
-                    let mut idx = 0;
-                    for (i, variant) in enum_def.variants.iter().enumerate() {
-                        if variant.ctor.v == tag.v {
-                            idx = i;
-                        }
-                    }
                     ctx.resolution_map.insert(
                         tag.id,
                         Declaration::EnumVariant {
@@ -2939,7 +2933,6 @@ fn generate_constraints_pat(
                             variant: idx,
                         },
                     );
-                    can_infer = true;
 
                     let (def_type, substitution) = TypeVar::make_nominal_with_substitution(
                         ctx,
@@ -2966,9 +2959,7 @@ fn generate_constraints_pat(
                             data.clone(),
                         )
                     };
-                }
-
-                if !can_infer {
+                } else {
                     ctx.errors
                         .push(Error::UnqualifiedEnumNeedsAnnotation { node: pat.node() });
 
