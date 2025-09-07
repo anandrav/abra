@@ -45,7 +45,7 @@ implement Num for float {
 
 type option<T> = some of 'T | none
 
-fn unwrap(m: option<'T>) -> 'T {
+fn unwrap(m: option<T>) -> 'T {
     match m {
         .yes(y) -> y,
         .no(_) -> panic("could not unwrap")

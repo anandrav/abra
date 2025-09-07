@@ -157,8 +157,8 @@ type_literal_string = @{ "string" }
 
 type_poly = { type_poly_ident ~ interface_constraint* }
 type_poly_ident = @{ type_poly_ident1 | type_poly_ident2 }
-type_poly_ident1 = _{ "'" ~ (alpha | "_") ~ (alphanumeric | "_")* } // 'T, 'Item, 'Element
-type_poly_ident2 = _{ ASCII_ALPHA_UPPER ~ ASCII_DIGIT* } // just T, T2, T123 etc.
+type_poly_ident1 = @{ "'" ~ (alpha | "_") ~ (alphanumeric | "_")* } // 'T, 'Item, 'Element
+type_poly_ident2 = @{ ASCII_ALPHA_UPPER ~ ASCII_DIGIT* } // just T, T2, T123 etc.
 interface_constraint = _{ identifier ~ interface_constraint_params? }
 interface_constraint_params = _{ "<" ~ (output_type_binding ~ ",")* ~ output_type_binding? ~ ">" }
 output_type_binding = { identifier ~ "=" ~ typ }
@@ -167,7 +167,7 @@ primary_expression = _{ literal | identifier | member_access_inferred }
 
 member_access_inferred = { "." ~ identifier }
 
-identifier = @{ !(keyword ~ WHITESPACE) ~ ( alpha | "_") ~ (alphanumeric | "_")* }
+identifier = @{ !((keyword ~ WHITESPACE) | (type_poly_ident2 ~ !alphanumeric)) ~ ( alpha | "_") ~ (alphanumeric | "_")* }
 alpha = _{ 'a'..'z' | 'A'..'Z' }
 alphanumeric = _{ alpha | '0'..'9' }
 
