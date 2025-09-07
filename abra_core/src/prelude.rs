@@ -85,9 +85,11 @@ interface Clone {
 
 implement Clone for array<T Clone> {
     fn clone(arr: array<T Clone>) -> array<T Clone> {
-        let new: array<T> = [] // TODO: should not need this annotation
-        for x in arr {
-            new.push(Clone.clone(x)) // TODO: should be able to do x.clone() here
+        let new: array<T> = []
+        var i = 0
+        while i < array_length(arr) {
+            array_push(new, Clone.clone(arr[i]))
+            i = i + 1
         }
         new
     }
@@ -294,10 +296,12 @@ extend array<T> {
 
 extend array<T Equal> {
     fn find(self, x: T Equal) -> option<int> {
-        for i in range(self.len()) {
+        var i = 0
+        while i < self.len() {
             if self[i] == x {
                 return option.some(i)
             }
+            i = i + 1
         }
         option.none
     }
