@@ -2521,13 +2521,10 @@ fn generate_constraints_expr(
                 | Mode::Ana { expected } => Some(expected),
             };
 
-            let mut can_infer = false;
             if let Some(expected_ty) = expected_ty
                 && let Some(SolvedType::Nominal(Nominal::Enum(enum_def), _)) =
                     expected_ty.solution()
             {
-                can_infer = true;
-
                 let mut idx = 0;
                 for (i, variant) in enum_def.variants.iter().enumerate() {
                     if variant.ctor.v == ident.v {
@@ -2551,9 +2548,7 @@ fn generate_constraints_expr(
                 );
 
                 constrain(ctx, node_ty.clone(), enum_ty);
-            }
-
-            if !can_infer {
+            } else {
                 ctx.errors
                     .push(Error::UnqualifiedEnumNeedsAnnotation { node: expr.node() });
 
