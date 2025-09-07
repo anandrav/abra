@@ -13,9 +13,11 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     let destination = this_dir.join("src").join("host_funcs.rs");
 
-    match abra_core::generate_host_function_enum("host_funcs.abra", file_provider, &destination) {
-        Err(s) => panic!("{}", s),
-        _ => {}
+    if let Err(s) =
+        abra_core::generate_host_function_enum("host_funcs.abra", file_provider, &destination)
+    {
+        panic!("{}", s)
     }
+
     Ok(())
 }
