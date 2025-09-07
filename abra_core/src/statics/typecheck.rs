@@ -2826,12 +2826,8 @@ fn generate_constraints_fn_arg(ctx: &mut StaticsContext, mode: Mode, arg: Rc<Ide
         Mode::AnaWithReason {
             expected,
             constraint_reason,
-        } => {
-            constrain_because(ctx, expected, ty_arg.clone(), constraint_reason);
-        }
-        Mode::Ana { expected } => {
-            constrain(ctx, expected, ty_arg.clone());
-        }
+        } => constrain_because(ctx, expected, ty_arg.clone(), constraint_reason),
+        Mode::Ana { expected } => constrain(ctx, expected, ty_arg.clone()),
     };
 }
 
@@ -2988,12 +2984,8 @@ fn generate_constraints_pat(
         Mode::AnaWithReason {
             expected,
             constraint_reason,
-        } => {
-            constrain_because(ctx, expected, ty_pat.clone(), constraint_reason);
-        }
-        Mode::Ana { expected } => {
-            constrain(ctx, expected, ty_pat.clone());
-        }
+        } => constrain_because(ctx, expected, ty_pat.clone(), constraint_reason),
+        Mode::Ana { expected } => constrain(ctx, expected, ty_pat.clone()),
     };
 }
 
