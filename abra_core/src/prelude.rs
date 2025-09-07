@@ -43,7 +43,7 @@ implement Num for float {
     fn greater_than_or_equal(a, b) = b < a
 }
 
-type option<'T> = some of 'T | none
+type option<T> = some of 'T | none
 
 fn unwrap(m: option<'T>) -> 'T {
     match m {
