@@ -42,10 +42,10 @@ type Status =
 
 implement Equal for Status {
   fn equal(s1: Status, s2: Status) {
-    match (s1, s2) {
-      (Status.Playing, Status.Playing) -> true,
-      (Status.Lost, Status.Lost) -> true,
-      (Status.Won, Status.Won) -> true,
+    match (s1, s2) { // TODO: shouldn't have to qualify
+      (.Playing, .Playing) -> true,
+      (.Lost, .Lost) -> true,
+      (.Won, .Won) -> true,
       _ -> false,
     }
   }
@@ -65,10 +65,10 @@ type State = {
 
 fn main() {
   let st = State(20, 20, 
-                    Snake([Point(12, 10), Point(11, 10), Point(10, 10), Point(9, 10), Point(8, 10)], Dir.Right), 
+                    Snake([Point(12, 10), Point(11, 10), Point(10, 10), Point(9, 10), Point(8, 10)], Dir.Right),  // TODO: shouldn't have to qualify
                     Fruit(Point(4, 5)), 
                     0,
-                    Status.Playing, 
+                    Status.Playing, // TODO: shouldn't have to qualify
                     false)
 
   // game loop
@@ -113,7 +113,7 @@ fn main() {
       break
     }
 
-    if st.status == Status.Playing {
+    if st.status == Status.Playing { // TODO: shouldn't have to qualify
       update(st)
     }
 
@@ -163,7 +163,7 @@ fn update(st: State) {
   }
 
   if out_of_bounds(new_head, width, height) or snake.body.contains(new_head) {
-    st.status = Status.Lost
+    st.status = Status.Lost // TODO: shouldn't have to qualify
     return ()
   }
 

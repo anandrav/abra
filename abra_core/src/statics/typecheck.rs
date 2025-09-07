@@ -2968,8 +2968,46 @@ fn generate_constraints_pat(
                 ty_pat,
                 TypeVar::make_tuple(tys_elements, Reason::Node(pat.node())),
             );
-            for pat in pats {
-                generate_constraints_pat(ctx, polyvar_scope.clone(), Mode::Syn, pat.clone())
+
+            // TODO: combine AnaWithReason and Ana into one enum case. Make constraint_reason Option<>
+            // TODO: can this be more concise?
+            // TODO: Where does this need to be replicated?
+            match &mode {
+                Mode::Syn => {
+                    for pat in pats {
+                        generate_constraints_pat(ctx, polyvar_scope.clone(), Mode::Syn, pat.clone())
+                    }
+                }
+                Mode::AnaWithReason {
+                    constraint_reason,
+                    expected,
+                } => {
+                    if let Some(PotentialType::Tuple(_, elems)) = expected.single() {
+                        for (pat, expected) in pats.iter().zip(elems) {
+                            generate_constraints_pat(
+                                ctx,
+                                polyvar_scope.clone(),
+                                Mode::AnaWithReason {
+                                    expected,
+                                    constraint_reason: constraint_reason.clone(),
+                                },
+                                pat.clone(),
+                            )
+                        }
+                    }
+                }
+                Mode::Ana { expected } => {
+                    if let Some(PotentialType::Tuple(_, elems)) = expected.single() {
+                        for (pat, expected) in pats.iter().zip(elems) {
+                            generate_constraints_pat(
+                                ctx,
+                                polyvar_scope.clone(),
+                                Mode::Ana { expected },
+                                pat.clone(),
+                            )
+                        }
+                    }
+                }
             }
         }
     }
