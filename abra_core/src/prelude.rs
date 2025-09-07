@@ -47,7 +47,7 @@ type option<T> = some of T | none
 
 fn unwrap(m: option<T>) -> T {
     match m {
-        .yes(y) -> y,
+        .yes(y) -> y,   // TODO: this error is not getting caught at all! .yes and .no are not valid variants of option
         .no(_) -> panic("could not unwrap")
     }
 }
