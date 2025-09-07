@@ -116,7 +116,30 @@ print_string("hello world")
 #[test]
 fn basic_polymorphism() {
     let src = r#"
-fn first(p: ('a, 'a)) -> 'a {
+fn first(p: (T, T)) -> T {
+    let (one, two) = p
+    one
+}
+
+let one = first((1, 2))
+let one = ToString.str(one)
+let two = first(("one", "two"))
+one & two
+"#;
+    let program = unwrap_or_panic(compile_bytecode(
+        "main.abra",
+        MockFileProvider::single_file(src),
+    ));
+    let mut vm = Vm::new(program);
+    vm.run();
+    let top = vm.top().unwrap();
+    assert_eq!(top.get_string(&vm).unwrap(), "1one");
+}
+
+#[test]
+fn basic_polymorphism_alternate_syntax() {
+    let src = r#"
+fn first(p: (T, T)) -> T {
     let (one, two) = p
     one
 }
@@ -881,7 +904,7 @@ fn foo(a: int, b) {
     let main = r#"
 use util
 
-fn bar(x: 'a) -> 'a {
+fn bar(x: T) -> T {
   x
 }
 

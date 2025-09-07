@@ -43,9 +43,9 @@ implement Num for float {
     fn greater_than_or_equal(a, b) = b < a
 }
 
-type option<T> = some of 'T | none
+type option<T> = some of T | none
 
-fn unwrap(m: option<T>) -> 'T {
+fn unwrap(m: option<T>) -> T {
     match m {
         .yes(y) -> y,
         .no(_) -> panic("could not unwrap")
@@ -83,9 +83,9 @@ interface Clone {
     fn clone: Self -> Self
 }
 
-implement Clone for array<'a Clone> {
-    fn clone(arr: array<'a Clone>) -> array<'a Clone> {
-        let new: array<'a> = []
+implement Clone for array<T Clone> {
+    fn clone(arr: array<T Clone>) -> array<T Clone> {
+        let new: array<T> = []
         var i = 0
         while i < array_length(arr) {
             array_push(new, Clone.clone(arr[i]))
@@ -128,75 +128,75 @@ implement ToString for bool {
 implement ToString for float {
     fn str(f) = float_to_string(f)
 }
-implement ToString for ('a ToString, 'b ToString) {
+implement ToString for (T1 ToString, T2 ToString) {
     fn str(p) {
         let (a, b) = p
         "(" & ToString.str(a) & ", " & ToString.str(b) & ")"
     }
 }
-implement ToString for ('a ToString, 'b ToString, 'c ToString) {
+implement ToString for (T1 ToString, T2 ToString, T3 ToString) {
     fn str(p) {
         let (a, b, c) = p
         "(" & ToString.str(a) & ", " & ToString.str(b) & ", " & ToString.str(c) & ")"
     }
 }
-implement ToString for ('a ToString, 'b ToString, 'c ToString, 'd ToString) {
+implement ToString for (T1 ToString, T2 ToString, T3 ToString, T4 ToString) {
     fn str(p) {
         let (a, b, c, d) = p
         "(" & ToString.str(a) & ", " & ToString.str(b) & ", " & ToString.str(c) & ", " & ToString.str(d) & ")"
     }
 }
-implement ToString for ('a ToString, 'b ToString, 'c ToString, 'd ToString, 'e ToString) {
+implement ToString for (T1 ToString, T2 ToString, T3 ToString, T4 ToString, T5 ToString) {
     fn str(p) {
         let (a, b, c, d, e) = p
         "(" & ToString.str(a) & ", " & ToString.str(b) & ", " & ToString.str(c) & ", " & ToString.str(d) & ", " & ToString.str(e) & ")"
     }
 }
-implement ToString for ('a ToString, 'b ToString, 'c ToString, 'd ToString, 'e ToString, 'f ToString) {
+implement ToString for (T1 ToString, T2 ToString, T3 ToString, T4 ToString, T5 ToString, T6 ToString) {
     fn str(p) {
         let (a, b, c, d, e, f) = p
         "(" & ToString.str(a) & ", " & ToString.str(b) & ", " & ToString.str(c) & ", " & ToString.str(d) & ", " & ToString.str(e) & ", " & ToString.str(f) & ")"
     }
 }
-implement ToString for ('a ToString, 'b ToString, 'c ToString, 'd ToString, 'e ToString, 'f ToString, 'g ToString) {
+implement ToString for (T1 ToString, T2 ToString, T3 ToString, T4 ToString, T5 ToString, T6 ToString, T7 ToString) {
     fn str(p) {
         let (a, b, c, d, e, f, g) = p
         "(" & ToString.str(a) & ", " & ToString.str(b) & ", " & ToString.str(c) & ", " & ToString.str(d) & ", " & ToString.str(e) & ", " & ToString.str(f) & ", " & ToString.str(g) & ")"
     }
 }
-implement ToString for ('a ToString, 'b ToString, 'c ToString, 'd ToString, 'e ToString, 'f ToString, 'g ToString, 'h ToString) {
+implement ToString for (T1 ToString, T2 ToString, T3 ToString, T4 ToString, T5 ToString, T6 ToString, T7 ToString, T8 ToString) {
     fn str(p) {
         let (a, b, c, d, e, f, g, h) = p
         "(" & ToString.str(a) & ", " & ToString.str(b) & ", " & ToString.str(c) & ", " & ToString.str(d) & ", " & ToString.str(e) & ", " & ToString.str(f) & ", " & ToString.str(g) & ", " & ToString.str(h) & ")"
     }
 }
-implement ToString for ('a ToString, 'b ToString, 'c ToString, 'd ToString, 'e ToString, 'f ToString, 'g ToString, 'h ToString, 'i ToString) {
+implement ToString for (T1 ToString, T2 ToString, T3 ToString, T4 ToString, T5 ToString, T6 ToString, T7 ToString, T8 ToString, T9 ToString) {
     fn str(p) {
         let (a, b, c, d, e, f, g, h, i) = p
         "(" & ToString.str(a) & ", " & ToString.str(b) & ", " & ToString.str(c) & ", " & ToString.str(d) & ", " & ToString.str(e) & ", " & ToString.str(f) & ", " & ToString.str(g) & ", " & ToString.str(h) & ", " & ToString.str(i) & ")"
     }
 }
-implement ToString for ('a ToString, 'b ToString, 'c ToString, 'd ToString, 'e ToString, 'f ToString, 'g ToString, 'h ToString, 'i ToString, 'j ToString) {
+implement ToString for (T1 ToString, T2 ToString, T3 ToString, T4 ToString, T5 ToString, T6 ToString, T7 ToString, T8 ToString, T9 ToString, T10 ToString) {
     fn str(p) {
         let (a, b, c, d, e, f, g, h, i, j) = p
         "(" & ToString.str(a) & ", " & ToString.str(b) & ", " & ToString.str(c) & ", " & ToString.str(d) & ", " & ToString.str(e) & ", " & ToString.str(f) & ", " & ToString.str(g) & ", " & ToString.str(h) & ", " & ToString.str(i) & ", " & ToString.str(j) & ")"
     }
 }
-implement ToString for ('a ToString, 'b ToString, 'c ToString, 'd ToString, 'e ToString, 'f ToString, 'g ToString, 'h ToString, 'i ToString, 'j ToString, 'k ToString) {
+implement ToString for (T1 ToString, T2 ToString, T3 ToString, T4 ToString, T5 ToString, T6 ToString, T7 ToString, T8 ToString, T9 ToString, T10 ToString, T11 ToString) {
     fn str(p) {
         let (a, b, c, d, e, f, g, h, i, j, k) = p
         "(" & ToString.str(a) & ", " & ToString.str(b) & ", " & ToString.str(c) & ", " & ToString.str(d) & ", " & ToString.str(e) & ", " & ToString.str(f) & ", " & ToString.str(g) & ", " & ToString.str(h) & ", " & ToString.str(i) & ", " & ToString.str(j) & ", " & ToString.str(k) & ")"
     }
 }
-implement ToString for ('a ToString, 'b ToString, 'c ToString, 'd ToString, 'e ToString, 'f ToString, 'g ToString, 'h ToString, 'i ToString, 'j ToString, 'k ToString, 'l ToString) {
+implement ToString for (T1 ToString, T2 ToString, T3 ToString, T4 ToString, T5 ToString, T6 ToString, T7 ToString, T8 ToString, T9 ToString, T10 ToString, T11 ToString, T12 ToString) {
     fn str(p) {
         let (a, b, c, d, e, f, g, h, i, j, k, l) = p
         "(" & ToString.str(a) & ", " & ToString.str(b) & ", " & ToString.str(c) & ", " & ToString.str(d) & ", " & ToString.str(e) & ", " & ToString.str(f) & ", " & ToString.str(g) & ", " & ToString.str(h) & ", " & ToString.str(i) & ", " & ToString.str(j) & ", " & ToString.str(k) & ", " & ToString.str(l) & ")"
     }
 }
 
-implement ToString for option<'T ToString> {
-    fn str(m: option<'T ToString>) {
+implement ToString for option<T ToString> {
+    fn str(m: option<T ToString>) {
         match m {
             .some(x) -> "some(" & x & ")",
             .none -> "none"
@@ -204,13 +204,13 @@ implement ToString for option<'T ToString> {
     }
 }
 
-implement ToString for array<'a ToString> {
+implement ToString for array<T ToString> {
     fn str(arr) {
         "[ " & array_to_string_helper(arr, 0) & " ]"
     }
 }
 
-fn array_to_string_helper(arr: array<'a ToString>, idx: int) {
+fn array_to_string_helper(arr: array<T ToString>, idx: int) {
     let l = array_length(arr)
     if idx == l {
         ""
@@ -221,12 +221,12 @@ fn array_to_string_helper(arr: array<'a ToString>, idx: int) {
     }
 }
 
-fn print(x: 'a ToString) { print_string(ToString.str(x)) }
-fn println(x: 'a ToString) {
+fn print(x: T ToString) { print_string(ToString.str(x)) }
+fn println(x: T ToString) {
     print_string(ToString.str(x) & newline)
 }
 
-fn format_append(s1: 'a ToString, s2: 'b ToString) {
+fn format_append(s1: T1 ToString, s2: T2 ToString) {
     let s3 = ToString.str(s1)
     let s4 = ToString.str(s2)
     concat_strings(s3, s4)
@@ -239,8 +239,8 @@ interface Iterable {
     fn make_iterator: (Self) -> Iter
 }
 
-implement Iterable for array<'T> {
-    fn make_iterator(self) -> ArrayIterator<'T> {
+implement Iterable for array<T> {
+    fn make_iterator(self) -> ArrayIterator<T> {
         ArrayIterator(self, 0)
     }
 }
@@ -251,15 +251,13 @@ interface Iterator {
     fn next: (Self) -> option<IteratorItem>
 }
 
-type ArrayIterator<'U> = {
-    arr: array<'U>
+type ArrayIterator<U> = {
+    arr: array<U>
     i: int
 }
 
-// TODO: remove the need to prefix polytypes with '
-// it's actually hard to read, and it's confusing when it's optional or not
-implement Iterator for ArrayIterator<'U> {
-    fn next(self) -> option<'U> {
+implement Iterator for ArrayIterator<U> {
+    fn next(self) -> option<U> {
         if self.i == self.arr.len() {
             option.none
         } else {
@@ -282,12 +280,12 @@ fn range(hi: int) -> array<int> {
     ret
 }
 
-extend array<'a> {
+extend array<T> {
     fn len(self) -> int {
         array_length(self)
     }
 
-    fn push(self, x: 'a) -> void {
+    fn push(self, x: T) -> void {
         array_push(self, x)
     }
 
@@ -296,8 +294,8 @@ extend array<'a> {
     }
 }
 
-extend array<'a Equal> {
-    fn find(self, x: 'a Equal) -> option<int> {
+extend array<T Equal> {
+    fn find(self, x: T Equal) -> option<int> {
         var i = 0
         while i < self.len() {
             if self[i] == x {
@@ -308,7 +306,7 @@ extend array<'a Equal> {
         option.none
     }
 
-    fn contains(self, x: 'a Equal) -> bool {
+    fn contains(self, x: T Equal) -> bool {
         match self.find(x) {
             option.some(_) -> true,
             option.none -> false,
