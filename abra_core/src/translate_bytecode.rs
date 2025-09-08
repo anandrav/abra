@@ -632,20 +632,21 @@ impl Translator {
             ExprKind::Unwrap(expr) => {
                 self.translate_expr(expr.clone(), offset_table, monomorph_env.clone(), st);
 
-                // check if yes or no
-                self.emit(st, Instr::Deconstruct);
-                self.emit(st, Instr::PushInt(1));
-                self.emit(st, Instr::Equal);
-
-                // if no, panic
-                // if yes, inner value
-                let no_label = make_label("no");
-                let yes_label = make_label("endif");
-                self.emit(st, Instr::JumpIf(no_label.clone()));
-                self.emit(st, Instr::Jump(yes_label.clone()));
-                self.emit(st, Line::Label(no_label));
-                self.emit(st, Instr::Panic);
-                self.emit(st, Line::Label(yes_label));
+                let decl @ Declaration::FreeFunction(f) = &self
+                    .statics
+                    .root_namespace
+                    .get_declaration("prelude.unwrap")
+                    .unwrap()
+                else {
+                    panic!();
+                };
+                self.translate_func_ap(
+                    decl.clone(),
+                    f.name.node(),
+                    offset_table,
+                    monomorph_env.clone(),
+                    st,
+                );
             }
         }
     }

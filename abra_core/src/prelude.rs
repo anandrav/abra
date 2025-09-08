@@ -48,7 +48,7 @@ type option<T> = some of T | none
 fn unwrap(m: option<T>) -> T {
     match m {
         .some(x) -> x,
-        .none -> panic("could not unwrap")
+        .none -> panic("cannot unwrap option.none")
     }
 }
 

@@ -311,7 +311,7 @@ impl Vm {
         Err(Box::new(VmError {
             kind,
             location: self.pc_to_error_location(self.pc),
-            trace: self.make_trace(),
+            trace: self.make_stack_trace(),
         }))
     }
 
@@ -319,7 +319,7 @@ impl Vm {
         Err(Box::new(VmError {
             kind: VmErrorKind::WrongType { expected },
             location: self.pc_to_error_location(self.pc),
-            trace: self.make_trace(),
+            trace: self.make_stack_trace(),
         }))
     }
 
@@ -1146,7 +1146,7 @@ impl Vm {
         }
     }
 
-    fn make_trace(&self) -> Vec<VmErrorLocation> {
+    fn make_stack_trace(&self) -> Vec<VmErrorLocation> {
         let mut ret = vec![];
         for frame in &self.call_stack {
             ret.push(self.pc_to_error_location(frame.pc));
@@ -1324,18 +1324,19 @@ impl Error for VmError {}
 
 impl Display for VmError {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        writeln!(f, "error: {}", self.kind)?;
-        let max_width = std::iter::once(&self.location)
+        writeln!(f, "{}", self.kind)?;
+        let width = std::iter::once(&self.location)
             .chain(self.trace.iter())
-            .map(|loc| loc.function_name.len() + "()".len())
+            .map(|loc| loc.filename.len() + /*colon*/ 1 + loc.lineno.to_string().len()) // todo count digits of lineno w/out converting to string
             .max()
             .unwrap_or(10);
+        writeln!(f, "[traceback]")?;
         for location in std::iter::once(&self.location).chain(self.trace.iter().rev()) {
-            let func_call = format!("{}()", location.function_name);
+            let file_and_line = format!("{}:{}", location.filename, location.lineno);
             writeln!(
                 f,
-                "    from {:<max_width$} at {}, line {}",
-                func_call, location.filename, location.lineno
+                "    {:width$} in `{}`",
+                file_and_line, location.function_name
             )?
         }
         Ok(())
@@ -1346,23 +1347,16 @@ impl Display for VmErrorKind {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self {
             VmErrorKind::ArrayOutOfBounds => {
-                write!(f, "indexed past the end of an array")
+                write!(f, "error: indexed past the end of an array")
             }
             VmErrorKind::Panic(msg) => {
-                write!(f, "panic! `{msg}`")
+                write!(f, "panic: `{msg}`")
             }
             VmErrorKind::IntegerOverflowUnderflow => {
-                write!(f, "integer overflow/underflow")
+                write!(f, "error: integer overflow/underflow")
             }
             VmErrorKind::DivisionByZero => {
-                write!(f, "division by zero")
-            }
-
-            VmErrorKind::Underflow => {
-                write!(f, "stack underflow")
-            }
-            VmErrorKind::WrongType { expected } => {
-                write!(f, "wrong type on top of stack, expected: {expected:?}")
+                write!(f, "error: division by zero")
             }
             VmErrorKind::FfiNotEnabled => {
                 write!(f, "ffi is not enabled")
@@ -1375,6 +1369,15 @@ impl Display for VmErrorKind {
             }
             VmErrorKind::InternalError(s) => {
                 write!(f, "internal error: {s}")
+            }
+            VmErrorKind::WrongType { expected } => {
+                write!(
+                    f,
+                    "internal error: wrong type on top of stack, expected: {expected:?}"
+                )
+            }
+            VmErrorKind::Underflow => {
+                write!(f, "internal error: stack underflow")
             }
         }
     }
