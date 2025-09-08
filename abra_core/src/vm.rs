@@ -51,7 +51,7 @@ pub struct Vm {
     #[cfg(feature = "ffi")]
     foreign_functions: Vec<unsafe extern "C" fn(*mut c_void, *const AbraVmFunctions) -> ()>,
     #[cfg(feature = "ffi")]
-    abra_vm_functions: AbraVmFunctions,
+    pub abra_vm_functions: AbraVmFunctions,
 }
 
 pub enum VmStatus {
@@ -1249,7 +1249,7 @@ impl Vm {
         self.value_stack.push(x.into());
     }
 
-    fn pop_int(&mut self) -> Result<AbraInt> {
+    pub fn pop_int(&mut self) -> Result<AbraInt> {
         self.pop()?.get_int(self)
     }
 

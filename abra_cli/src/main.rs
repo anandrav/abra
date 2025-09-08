@@ -118,32 +118,39 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 vm.run();
                 vm.gc();
                 if let Some(pending_host_func) = vm.get_pending_host_func() {
-                    let host_func: HostFunction = pending_host_func.into();
-                    match host_func {
-                        HostFunction::PrintString => {
-                            let s = vm.top()?.get_string(&vm)?;
-                            vm.pop()?;
+                    let host_func_args: HostFunctionArgs = HostFunctionArgs::from_vm(&mut vm, pending_host_func);
+                    match host_func_args {
+                        HostFunctionArgs::PrintString(s) => {
                             print!("{s}");
-                            vm.push_nil();
-                        } // HostFunction::readline => {
-                          //     let mut input = String::new();
-                          //     std::io::stdin().read_line(&mut input).unwrap();
-                          //     // remove trailing newline
-                          //     if input.ends_with('\n') {
-                          //         input.pop();
-                          //         if input.ends_with('\r') {
-                          //             input.pop();
-                          //         }
-                          //     }
-                          //     vm.push_str(input);
-                          // }
-                          // HostFunction::get_args => {
-                          //     for arg in &args.args {
-                          //         vm.push_str(arg.clone());
-                          //     }
-                          //     vm.construct_array(args.args.len());
-                          // }
+                            HostFunctionRet::PrintString.to_vm(&mut vm);
+                        }
                     }
+                    // let host_func: HostFunction = pending_host_func.into();
+                    // match host_func {
+                    //     HostFunction::PrintString => {
+                    //         let s = vm.top()?.get_string(&vm)?;
+                    //         vm.pop()?;
+                    //         print!("{s}");
+                    //         vm.push_nil();
+                    //     } // HostFunction::readline => {
+                    //       //     let mut input = String::new();
+                    //       //     std::io::stdin().read_line(&mut input).unwrap();
+                    //       //     // remove trailing newline
+                    //       //     if input.ends_with('\n') {
+                    //       //         input.pop();
+                    //       //         if input.ends_with('\r') {
+                    //       //             input.pop();
+                    //       //         }
+                    //       //     }
+                    //       //     vm.push_str(input);
+                    //       // }
+                    //       // HostFunction::get_args => {
+                    //       //     for arg in &args.args {
+                    //       //         vm.push_str(arg.clone());
+                    //       //     }
+                    //       //     vm.construct_array(args.args.len());
+                    //       // }
+                    // }
                     vm.clear_pending_host_func();
                 }
             }

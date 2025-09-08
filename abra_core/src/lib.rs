@@ -120,12 +120,16 @@ pub fn generate_host_function_enum(
     let inference_ctx = statics::analyze(&file_asts, &file_db, file_provider)?;
 
     let mut output = String::new();
+    output.push_str(r#"// This is an auto-generated file.
+use abra_core::vm::*;
+use abra_core::addons::*;
+use std::ffi::c_void;
+"#);
     // enum definition
     // TODO: Generate two enums, not one. One that contains the arguments as associated data for each case. One that contains the return value.
     //       The conversion function would also take a &Vm. Using the &Vm, it would get the host function's argument(s) from the stack/put the return value on the stack.
     output.push_str(
-        r#"// This is an auto-generated file.
-pub enum HostFunction {
+        r#"pub enum HostFunction {
     "#,
     );
     for f in &inference_ctx.host_funcs {
@@ -164,11 +168,53 @@ pub enum HostFunction {
     }
     output.push_str(
         r#"
-    }"#,
+    }
+    "#,
     );
 
     output.push_str(
-        r#"pub enum HostFunctionRet {
+        r#"impl HostFunctionArgs {
+                    "#
+    );
+    output.push_str(
+        r#"pub(crate) fn from_vm(vm: &mut Vm, pending_effect: u16) -> Self {
+                        "#,
+    );
+    output.push_str("let vm_funcs = &AbraVmFunctions::new();");
+    output.push_str("match pending_effect {");
+    for (i, f) in inference_ctx.host_funcs.iter().enumerate() {
+        output.push_str(&format!("{i} => {{"));
+        let camel_name = heck::AsUpperCamelCase(&f.name.v).to_string();
+        for (i, arg) in f.args.iter().enumerate() {
+            let ty = arg.1.clone().unwrap();
+            let tyname = name_of_ty(&ty);
+            output.push_str(&format!(
+                r#"let arg{}: {tyname} = unsafe {{ <{tyname}>::from_vm(vm as *mut Vm as *mut c_void, vm_funcs) }};
+                            "#, i
+            ));
+        }
+        let mut args = String::new();
+        if f.args.len() > 0 {
+            args.push('(');
+            for i in 0..f.args.len() {
+                if i != 0 {
+                    args.push_str(", ");
+                }
+                args.push_str(&format!("arg{}", i));
+            }
+            args.push(')');
+        }
+        output.push_str(&format!("HostFunctionArgs::{camel_name}{args}"));
+        output.push('}');
+    }
+    output.push_str(r#"_ => panic!("unexpected tag encountered: {pending_effect}")"#);
+    output.push('}');
+    output.push('}');
+    output.push('}');
+
+    output.push_str(
+        r#"
+pub enum HostFunctionRet {
     "#,
     );
     for f in &inference_ctx.host_funcs {
@@ -185,6 +231,7 @@ pub enum HostFunction {
                         }
                         s.push_str(&name_of_ty(&ty));
                     }
+                    s.push(')');
                     s
                 }
                 _ => {
@@ -198,6 +245,84 @@ pub enum HostFunction {
         r#"
     }"#,
     );
+
+    output.push_str(
+        r#"impl HostFunctionRet {
+                    "#
+    );
+    output.push_str(
+        r#"pub(crate) fn to_vm(self, vm: &mut Vm,) {
+                        "#,
+    );
+    output.push_str("let vm_funcs = &AbraVmFunctions::new();");
+    output.push_str("match self {");
+    for (i, f) in inference_ctx.host_funcs.iter().enumerate() {
+        let camel_name = heck::AsUpperCamelCase(&f.name.v).to_string();
+        let out = {
+            match &*f.ret_type.kind {
+                TypeKind::Void => "".to_string(),
+                // TODO: code duplication with HostFunctionArgs and also the _ case could use same logic
+                TypeKind::Tuple(elems) => {
+                    let mut s = "(".to_string();
+                    for (i, ty) in elems.iter().enumerate() {
+                        if i != 0 {
+                            s.push_str(", ");
+                        }
+                        s.push_str(&format!("elem{}", i));
+                    }
+                    s.push(')');
+                    s
+                }
+                _ => {
+                    format!("({})", name_of_ty(&f.ret_type))
+                }
+            }
+        };
+        output.push_str(&format!("HostFunctionRet::{}{out} => {{", camel_name));
+        // TODO: code duplication? verbose?
+        let out_val = {
+            match &*f.ret_type.kind {
+                TypeKind::Void => "()".to_string(),
+                TypeKind::Tuple(elems) => {
+                    let mut s = "(".to_string();
+                    for (i, ty) in elems.iter().enumerate() {
+                        if i != 0 {
+                            s.push_str(", ");
+                        }
+                        s.push_str(&format!("elem{}", i));
+                    }
+                    s.push(')');
+                    s
+                }
+                _ => {
+                    format!("({})", name_of_ty(&f.ret_type))
+                }
+            }
+        };
+        output.push_str(&format!(
+            r#"unsafe {{ {out_val}.to_vm(vm as *mut Vm as *mut c_void, vm_funcs) }};
+                            "#
+        ));
+
+        // let mut args = String::new();
+        // if f.args.len() > 0 {
+        //     args.push('(');
+        //     for i in 0..f.args.len() {
+        //         if i != 0 {
+        //             args.push_str(", ");
+        //         }
+        //         args.push_str(&format!("arg{}", i));
+        //     }
+        //     args.push(')');
+        // }
+        // output.push_str(&format!("HostFunctionArgs::{camel_name}{args}"));
+        output.push('}');
+        output.push_str(",");
+    }
+    // output.push_str(r#"_ => panic!("unexpected tag encountered: {pending_effect}")"#);
+    output.push('}');
+    output.push('}');
+    output.push('}');
 
     // conversion from integer
     output.push_str(
