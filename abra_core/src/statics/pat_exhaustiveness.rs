@@ -130,7 +130,9 @@ fn check_pattern_exhaustiveness_expr(statics: &mut StaticsContext, expr: &Rc<Exp
             check_pattern_exhaustiveness_expr(statics, body);
         }
         ExprKind::MemberFuncAp(expr, _, args) => {
-            check_pattern_exhaustiveness_expr(statics, expr);
+            if let Some(expr) = expr {
+                check_pattern_exhaustiveness_expr(statics, expr);
+            }
             for arg in args {
                 check_pattern_exhaustiveness_expr(statics, arg);
             }

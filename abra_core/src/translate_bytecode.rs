@@ -461,7 +461,9 @@ impl Translator {
                 }
             }
             ExprKind::MemberFuncAp(expr, fname, args) => {
-                self.translate_expr(expr.clone(), offset_table, monomorph_env.clone(), st);
+                if let Some(expr) = expr {
+                    self.translate_expr(expr.clone(), offset_table, monomorph_env.clone(), st);
+                }
                 for arg in args {
                     self.translate_expr(arg.clone(), offset_table, monomorph_env.clone(), st);
                 }
@@ -1353,7 +1355,9 @@ fn collect_locals_expr(expr: &Expr, locals: &mut HashSet<NodeId>) {
             }
         }
         ExprKind::MemberFuncAp(expr, _, args) => {
-            collect_locals_expr(expr, locals);
+            if let Some(expr) = expr {
+                collect_locals_expr(expr, locals);
+            }
             for arg in args {
                 collect_locals_expr(arg, locals);
             }
