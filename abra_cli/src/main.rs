@@ -1,10 +1,11 @@
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
-
 use abra_core::FileData;
 use abra_core::OsFileProvider;
 use clap::Parser;
+use std::io;
+use std::io::Write;
 use std::path::PathBuf;
 use std::process::exit;
 mod host_funcs;
@@ -123,6 +124,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     match host_func_args {
                         HostFunctionArgs::PrintString(s) => {
                             print!("{s}");
+                            io::stdout().flush().unwrap();
                             HostFunctionRet::PrintString.into_vm(&mut vm);
                         }
                         HostFunctionArgs::Readline => {
