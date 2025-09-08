@@ -2134,12 +2134,9 @@ fn generate_constraints_expr(
             }
             // if last statement is an expression, the block will have that expression's type
             if let StmtKind::Expr(terminal_expr) = &*statements.last().unwrap().kind {
-                generate_constraints_expr(
-                    ctx,
-                    polyvar_scope,
-                    Mode::ana(node_ty),
-                    terminal_expr.clone(),
-                )
+                generate_constraints_expr(ctx, polyvar_scope, mode.clone(), terminal_expr.clone());
+                let expr_ty = TypeVar::from_node(ctx, terminal_expr.node());
+                constrain(ctx, expr_ty, node_ty);
             } else if let StmtKind::Return(_) = &*statements.last().unwrap().kind {
                 generate_constraints_stmt(
                     ctx,
