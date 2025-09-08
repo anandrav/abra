@@ -5,9 +5,14 @@ pub enum HostFunction {
     Bar,
 }
 pub enum HostFunctionArgs {
+    PrintString(String),
+    Foo(i64),
+    Bar(i64, i64),
+}
+pub enum HostFunctionRet {
     PrintString,
-    Foo,
-    Bar,
+    Foo(i64),
+    Bar(i64),
 }
 impl From<u16> for HostFunction {
     fn from(item: u16) -> Self {

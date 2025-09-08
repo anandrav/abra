@@ -3,6 +3,9 @@ pub enum HostFunction {
     PrintString,
 }
 pub enum HostFunctionArgs {
+    PrintString(String),
+}
+pub enum HostFunctionRet {
     PrintString,
 }
 impl From<u16> for HostFunction {

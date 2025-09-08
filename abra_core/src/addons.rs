@@ -320,7 +320,7 @@ fn add_items_from_ast(ast: Rc<FileAst>, output: &mut String) {
                         s.name.v
                     ));
                     for field in &s.fields {
-                        let tyname = name_of_ty(field.ty.clone());
+                        let tyname = name_of_ty(&field.ty);
                         output.push_str(&format!(
                             r#"pub {}: {},
                         "#,
@@ -347,7 +347,7 @@ fn add_items_from_ast(ast: Rc<FileAst>, output: &mut String) {
                             "#,
                             );
                         } else {
-                            let tyname = name_of_ty(field.ty.clone());
+                            let tyname = name_of_ty(&field.ty);
                             output.push_str(&format!(
                                 r#"let {} = <{}>::from_vm(vm, vm_funcs);
                             "#,
@@ -412,7 +412,7 @@ fn add_items_from_ast(ast: Rc<FileAst>, output: &mut String) {
                         ));
                         if let Some(ty) = &variant.data {
                             output.push('(');
-                            output.push_str(&name_of_ty(ty.clone()));
+                            output.push_str(&name_of_ty(ty));
                             output.push(')');
                         }
                         output.push(',');
@@ -436,7 +436,7 @@ fn add_items_from_ast(ast: Rc<FileAst>, output: &mut String) {
                     for (i, variant) in e.variants.iter().enumerate() {
                         output.push_str(&format!("{i} => {{"));
                         if let Some(ty) = &variant.data {
-                            let tyname = name_of_ty(ty.clone());
+                            let tyname = name_of_ty(ty);
                             output.push_str(&format!(
                                 r#"let value: {tyname} = <{tyname}>::from_vm(vm, vm_funcs);
                             "#
@@ -512,7 +512,7 @@ fn add_items_from_ast(ast: Rc<FileAst>, output: &mut String) {
                         "#,
                         );
                     } else {
-                        let tyname = name_of_ty(ty.clone());
+                        let tyname = name_of_ty(ty);
                         output.push_str(&format!(
                             r#"let {} = <{}>::from_vm(vm, vm_funcs);
                         "#,
@@ -522,7 +522,7 @@ fn add_items_from_ast(ast: Rc<FileAst>, output: &mut String) {
                 }
                 // call the user's implementation
                 let out_ty = &f.ret_type;
-                let out_ty_name = name_of_ty(out_ty.clone());
+                let out_ty_name = name_of_ty(out_ty);
                 output.push_str(&format!(
                     "let ret: {} = {}::{}(",
                     out_ty_name, package_name, f.name.v
@@ -546,7 +546,7 @@ fn add_items_from_ast(ast: Rc<FileAst>, output: &mut String) {
     }
 }
 
-fn name_of_ty(ty: Rc<Type>) -> String {
+pub(crate) fn name_of_ty(ty: &Rc<Type>) -> String {
     match &*ty.kind {
         TypeKind::Bool => "bool".to_string(),
         TypeKind::Float => "f64".to_string(),
@@ -556,7 +556,7 @@ fn name_of_ty(ty: Rc<Type>) -> String {
         TypeKind::Tuple(elems) => {
             let mut s = "(".to_string();
             for elem in elems {
-                s.push_str(&name_of_ty(elem.clone()));
+                s.push_str(&name_of_ty(elem));
                 s.push(',');
             }
             s.push(')');
@@ -572,7 +572,7 @@ fn name_of_ty(ty: Rc<Type>) -> String {
             }
             s.push('<');
             for param in params {
-                s.push_str(&name_of_ty(param.clone()));
+                s.push_str(&name_of_ty(param));
                 s.push(',');
             }
             s.push('>');

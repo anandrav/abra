@@ -3,3 +3,5 @@
 // host fn readline() -> string
 
 // host fn get_args() -> array<string>
+
+// host fn test(s1: string, s2: string) -> (string, string)

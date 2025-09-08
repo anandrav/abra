@@ -24,6 +24,8 @@ pub mod prelude;
 pub mod statics;
 mod translate_bytecode;
 pub mod vm;
+use crate::ast::TypeKind;
+use addons::*;
 pub use ast::FileData;
 pub use prelude::PRELUDE;
 use statics::Error;
@@ -142,7 +144,55 @@ pub enum HostFunction {
     );
     for f in &inference_ctx.host_funcs {
         let camel_name = heck::AsUpperCamelCase(&f.name.v).to_string();
-        output.push_str(&format!("{camel_name},"));
+        let args = {
+            if f.args.is_empty() {
+                "".to_string()
+            } else {
+                let mut s = "(".to_string();
+                for (i, arg) in f.args.iter().enumerate() {
+                    let ty = arg.1.clone().unwrap();
+                    if i != 0 {
+                        s.push_str(", ");
+                    }
+                    s.push_str(&name_of_ty(&ty));
+                }
+                s.push(')');
+                s
+            }
+        };
+        output.push_str(&format!("{camel_name}{args},"));
+    }
+    output.push_str(
+        r#"
+    }"#,
+    );
+
+    output.push_str(
+        r#"pub enum HostFunctionRet {
+    "#,
+    );
+    for f in &inference_ctx.host_funcs {
+        let camel_name = heck::AsUpperCamelCase(&f.name.v).to_string();
+        let out = {
+            match &*f.ret_type.kind {
+                TypeKind::Void => "".to_string(),
+                // TODO: code duplication with HostFunctionArgs and also the _ case could use same logic
+                TypeKind::Tuple(elems) => {
+                    let mut s = "(".to_string();
+                    for (i, ty) in elems.iter().enumerate() {
+                        if i != 0 {
+                            s.push_str(", ");
+                        }
+                        s.push_str(&name_of_ty(&ty));
+                    }
+                    s
+                }
+                _ => {
+                    format!("({})", name_of_ty(&f.ret_type))
+                }
+            }
+        };
+        output.push_str(&format!("{camel_name}{out},"));
     }
     output.push_str(
         r#"
