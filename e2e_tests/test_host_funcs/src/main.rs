@@ -8,7 +8,7 @@ use abra_core::{
     OsFileProvider,
     vm::{Vm, VmStatus},
 };
-use host_funcs::HostFunction;
+use host_funcs::*;
 
 mod host_funcs;
 
@@ -22,11 +22,23 @@ fn main() -> Result<(), Box<dyn Error>> {
     vm.run();
     let status = vm.status();
     let VmStatus::PendingHostFunc(i) = status else { panic!() };
-    let HostFunction::Bar = i.into() else { panic!() };
-    let a = vm.pop()?.get_int(&vm)?;
-    let b = vm.pop()?.get_int(&vm)?;
-    let ret = a + b;
-    vm.push_int(ret);
+    let host_func_args: HostFunctionArgs = HostFunctionArgs::from_vm(&mut vm, i);
+    // TODO: flesh this out a bit more.
+    // test single argument, multiple argument, no arguments
+    // test void return value, single return value, tuple return value
+    match host_func_args {
+        HostFunctionArgs::PrintString(_s) => {
+            let _ = HostFunctionRet::PrintString;
+            panic!()
+        }
+        HostFunctionArgs::Foo(_n) => {
+            let _ = HostFunctionRet::Foo(0);
+            panic!()
+        }
+        HostFunctionArgs::Bar(n1, n2) => {
+            HostFunctionRet::Bar(n1 * 2, n2 * 2).into_vm(&mut vm);
+        }
+    }
     vm.clear_pending_host_func();
     vm.run();
     let top = vm.top().unwrap();

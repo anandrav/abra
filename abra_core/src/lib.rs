@@ -120,26 +120,13 @@ pub fn generate_host_function_enum(
     let inference_ctx = statics::analyze(&file_asts, &file_db, file_provider)?;
 
     let mut output = String::new();
-    output.push_str(r#"// This is an auto-generated file.
+    output.push_str(
+        r#"// This is an auto-generated file.
+
 use abra_core::vm::*;
 use abra_core::addons::*;
 use std::ffi::c_void;
-"#);
-    // enum definition
-    // TODO: Generate two enums, not one. One that contains the arguments as associated data for each case. One that contains the return value.
-    //       The conversion function would also take a &Vm. Using the &Vm, it would get the host function's argument(s) from the stack/put the return value on the stack.
-    output.push_str(
-        r#"pub enum HostFunction {
-    "#,
-    );
-    for f in &inference_ctx.host_funcs {
-        let camel_name = heck::AsUpperCamelCase(&f.name.v).to_string();
-        output.push_str(&format!("{camel_name},"));
-    }
-    output.push_str(
-        r#"
-    }
-    "#,
+"#,
     );
 
     output.push_str(
@@ -174,7 +161,7 @@ use std::ffi::c_void;
 
     output.push_str(
         r#"impl HostFunctionArgs {
-                    "#
+                    "#,
     );
     output.push_str(
         r#"pub(crate) fn from_vm(vm: &mut Vm, pending_effect: u16) -> Self {
@@ -194,7 +181,7 @@ use std::ffi::c_void;
             ));
         }
         let mut args = String::new();
-        if f.args.len() > 0 {
+        if !f.args.is_empty() {
             args.push('(');
             for i in 0..f.args.len() {
                 if i != 0 {
@@ -229,7 +216,7 @@ pub enum HostFunctionRet {
                         if i != 0 {
                             s.push_str(", ");
                         }
-                        s.push_str(&name_of_ty(&ty));
+                        s.push_str(&name_of_ty(ty));
                     }
                     s.push(')');
                     s
@@ -248,15 +235,15 @@ pub enum HostFunctionRet {
 
     output.push_str(
         r#"impl HostFunctionRet {
-                    "#
+                    "#,
     );
     output.push_str(
-        r#"pub(crate) fn to_vm(self, vm: &mut Vm,) {
+        r#"pub(crate) fn into_vm(self, vm: &mut Vm,) {
                         "#,
     );
     output.push_str("let vm_funcs = &AbraVmFunctions::new();");
     output.push_str("match self {");
-    for (i, f) in inference_ctx.host_funcs.iter().enumerate() {
+    for f in inference_ctx.host_funcs.iter() {
         let camel_name = heck::AsUpperCamelCase(&f.name.v).to_string();
         let out = {
             match &*f.ret_type.kind {
@@ -264,7 +251,7 @@ pub enum HostFunctionRet {
                 // TODO: code duplication with HostFunctionArgs and also the _ case could use same logic
                 TypeKind::Tuple(elems) => {
                     let mut s = "(".to_string();
-                    for (i, ty) in elems.iter().enumerate() {
+                    for i in 0..elems.len() {
                         if i != 0 {
                             s.push_str(", ");
                         }
@@ -285,7 +272,7 @@ pub enum HostFunctionRet {
                 TypeKind::Void => "()".to_string(),
                 TypeKind::Tuple(elems) => {
                     let mut s = "(".to_string();
-                    for (i, ty) in elems.iter().enumerate() {
+                    for i in 0..elems.len() {
                         if i != 0 {
                             s.push_str(", ");
                         }
@@ -303,45 +290,12 @@ pub enum HostFunctionRet {
             r#"unsafe {{ {out_val}.to_vm(vm as *mut Vm as *mut c_void, vm_funcs) }};
                             "#
         ));
-
-        // let mut args = String::new();
-        // if f.args.len() > 0 {
-        //     args.push('(');
-        //     for i in 0..f.args.len() {
-        //         if i != 0 {
-        //             args.push_str(", ");
-        //         }
-        //         args.push_str(&format!("arg{}", i));
-        //     }
-        //     args.push(')');
-        // }
-        // output.push_str(&format!("HostFunctionArgs::{camel_name}{args}"));
         output.push('}');
-        output.push_str(",");
+        output.push(',');
     }
-    // output.push_str(r#"_ => panic!("unexpected tag encountered: {pending_effect}")"#);
     output.push('}');
     output.push('}');
     output.push('}');
-
-    // conversion from integer
-    output.push_str(
-        r#"impl From<u16> for HostFunction {
-    fn from(item: u16) -> Self {
-        match item {
-"#,
-    );
-    for (i, f) in inference_ctx.host_funcs.iter().enumerate() {
-        let camel_name = heck::AsUpperCamelCase(&f.name.v).to_string();
-        output.push_str(&format!("{i} => HostFunction::{camel_name},"));
-    }
-    output.push_str("i => panic!(\"unrecognized host func: {i}\")");
-    output.push_str(
-        r#"}
-    }
-}
-"#,
-    );
 
     std::fs::write(destination, output).unwrap();
 
@@ -367,7 +321,7 @@ impl std::error::Error for MyError {}
 
 fn add_imports(
     file_ast: Rc<FileAst>,
-    file_db: &mut ast::FileDatabase,
+    file_db: &mut FileDatabase,
     file_provider: &dyn FileProvider,
     stack: &mut VecDeque<FileId>,
     visited: &mut HashSet<PathBuf>,

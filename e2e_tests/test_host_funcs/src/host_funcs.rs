@@ -1,12 +1,8 @@
 // This is an auto-generated file.
+
 use abra_core::addons::*;
 use abra_core::vm::*;
 use std::ffi::c_void;
-pub enum HostFunction {
-    PrintString,
-    Foo,
-    Bar,
-}
 pub enum HostFunctionArgs {
     PrintString(String),
     Foo(i64),
@@ -37,10 +33,10 @@ impl HostFunctionArgs {
 pub enum HostFunctionRet {
     PrintString,
     Foo(i64),
-    Bar(i64),
+    Bar(i64, i64),
 }
 impl HostFunctionRet {
-    pub(crate) fn to_vm(self, vm: &mut Vm) {
+    pub(crate) fn into_vm(self, vm: &mut Vm) {
         let vm_funcs = &AbraVmFunctions::new();
         match self {
             HostFunctionRet::PrintString => {
@@ -49,19 +45,9 @@ impl HostFunctionRet {
             HostFunctionRet::Foo(i64) => {
                 unsafe { (i64).to_vm(vm as *mut Vm as *mut c_void, vm_funcs) };
             }
-            HostFunctionRet::Bar(i64) => {
-                unsafe { (i64).to_vm(vm as *mut Vm as *mut c_void, vm_funcs) };
+            HostFunctionRet::Bar(elem0, elem1) => {
+                unsafe { (elem0, elem1).to_vm(vm as *mut Vm as *mut c_void, vm_funcs) };
             }
-        }
-    }
-}
-impl From<u16> for HostFunction {
-    fn from(item: u16) -> Self {
-        match item {
-            0 => HostFunction::PrintString,
-            1 => HostFunction::Foo,
-            2 => HostFunction::Bar,
-            i => panic!("unrecognized host func: {i}"),
         }
     }
 }
