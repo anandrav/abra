@@ -163,7 +163,7 @@ fn update(st: State) {
   }
 
   if out_of_bounds(new_head, width, height) or snake.body.contains(new_head) {
-    st.status = Status.Lost // TODO: shouldn't have to qualify
+    st.status = .Lost
     return ()
   }
 
