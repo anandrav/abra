@@ -192,12 +192,12 @@
 <p>Access the fields of a struct and modify them by using dot <code>.</code> syntax.</p>
 <pre><code>let fullname = frank.first_name &amp; " " &amp; frank.last_name
 // fullname = "Frank Smith"
-frank.age := frank.age + 1
+frank.age = frank.age + 1
 // age = 35
 </code></pre>
 <p>Structs can have generic type arguments.</p>
-<pre><code>type Ref&lt;'T&gt; = {
-    value: 'T
+<pre><code>type Ref&lt;T&gt; = {
+    value: T
 }
 </code></pre>
 

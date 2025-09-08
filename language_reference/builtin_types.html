@@ -208,7 +208,7 @@ Strings can be concatenated together using the <code>&amp;</code> operator.</p>
 <pre><code>let name = "Merlin"
 let message = name &amp; " is a wizard." // "Merlin is a wizard."
 </code></pre>
-<h3 id="arrayt"><a class="header" href="#arrayt">array&lt;'T&gt;</a></h3>
+<h3 id="array"><a class="header" href="#array">array<T></a></h3>
 <p>A built-in dynamic array data structure. Supports random access (zero-indexed), pushing, and popping elements.
 Arrays are homogenous; elements of the array must have the same type i.e. an array cannot mix <code>int</code> and <code>float</code>
 elements, for instance.</p>
@@ -222,8 +222,8 @@ arr.pop()               // arr = [1, 2, 3, 4]
 </code></pre>
 <h3 id="tuples"><a class="header" href="#tuples">tuples</a></h3>
 <ul>
-<li><code>('T, 'U)</code></li>
-<li><code>('T, 'U, 'V)</code></li>
+<li><code>(T, U)</code></li>
+<li><code>(T, U, V)</code></li>
 <li>and so on...</li>
 </ul>
 <p>A tuple is 2 or more values grouped together.
@@ -237,7 +237,7 @@ let name_and_age = ("Lancelot", 19)
 </code></pre>
 <h3 id="void"><a class="header" href="#void">void</a></h3>
 <p>Represents nothing and only has one value -- <code>()</code>.
-This is useful as a return type for functions that don't return anything.
+This is useful as a return type for functions that donT return anything.
 This is sometimes referred to as the "unit type" in other languages because it has a single value.</p>
 <h3 id="never"><a class="header" href="#never">never</a></h3>
 <p>The never type has zero values.
