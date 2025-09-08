@@ -1470,7 +1470,7 @@ fn generate_constraints_item_decls0(ctx: &mut StaticsContext, item: Rc<Item>) {
             );
         }
         ItemKind::HostFuncDecl(f) | ItemKind::ForeignFuncDecl(f) => {
-            generate_constraints_func_decl_annotated(
+            generate_constraints_func_decl(
                 ctx,
                 f.name.node(),
                 PolyvarScope::empty(),
@@ -2737,30 +2737,6 @@ fn generate_constraints_func_args(
             ty_pat
         })
         .collect()
-}
-
-fn generate_constraints_func_decl_annotated(
-    ctx: &mut StaticsContext,
-    node: AstNode,
-    polyvar_scope: PolyvarScope,
-    args: &[ArgMaybeAnnotated],
-    out_annot: &Option<Rc<AstType>>,
-) {
-    // arguments
-    let ty_args = generate_constraints_func_args(ctx, polyvar_scope.clone(), args);
-
-    // body
-    let ty_body = TypeVar::fresh(ctx, Prov::FuncOut(node.clone()));
-
-    if let Some(out_annot) = out_annot {
-        let out_annot = ast_type_to_typevar(ctx, out_annot.clone());
-        polyvar_scope.add_polys(&out_annot);
-        constrain(ctx, ty_body.clone(), out_annot);
-    }
-
-    let ty_func = TypeVar::make_func(ty_args, ty_body, Reason::Node(node.clone()));
-    let ty_node = TypeVar::from_node(ctx, node);
-    constrain(ctx, ty_node, ty_func);
 }
 
 fn generate_constraints_fn_def(
