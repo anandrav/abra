@@ -397,31 +397,40 @@ for n in arr {
 println(sum)
 </code></pre>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="functions"><a class="header" href="#functions">Functions</a></h1>
-<p>A function is a piece of code that takes zero or more inputs and has a single output.</p>
-<pre><code>fn distance(x1: float, x2: float, x2: float, y2: float) -&gt; float {
+<p>A function is a reusable piece of code that takes zero or more inputs and has a single output.</p>
+<pre><code>fn distance(x1, x2, x2, y2) {
     sqrt((x2 - x1) ^ 2 + (y2 - y1) ^ 2)
 }
 </code></pre>
 <p>Functions can be recursive.</p>
 <pre><code>fn fibonacci(n: int) -&gt; int {
-    if n &lt;= 1 {
+    if n &lt; 2 {
         n
     } else {
-        fib(n-2) + fib(n-1)
+        fibonacci(n-2) + fibonacci(n-1) // recursive calls to fibonacci()
     }
 }
 </code></pre>
-<p>The last expression in the body of the function is the return value. You can also return early from a function.</p>
+<p>The last expression in the body of the function is the return value. You can also return early from a function.
+If a function's body doesn't have a last expression, the function returns <code>void</code>, which is nothing.</p>
 <pre><code>fn fibonacci(n: int) -&gt; int {
     if n &lt;= 1 {
-        return n        // early return
+        return n            // early return
     }
-    fib(n-2) + fib(n-1) // last expression is return value
+    fib(n-2) + fib(n-1)     // last expression is return value
+}
+
+fn display_message() -&gt; void {
+    for n in range(5) {     // last statement is a for loop. No return value
+        println(n)
+    }
 }
 </code></pre>
-<p>A function always returns the value of its body.
-If the body of a function is a block of statements, then the last expression of the block is the return value of the
-function.</p>
+<p>For convenience, if a function body is just a single expression, the body can be written after an equal sign <code>=</code> instead
+of
+being wrapped in a curly brace block:</p>
+<pre><code>fn distance(x1, x2, x2, y2) = sqrt((x2 - x1) ^ 2 + (y2 - y1) ^ 2)
+</code></pre>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="structs"><a class="header" href="#structs">Structs</a></h1>
 <p>Define a <code>struct</code> to group together related pieces of data.</p>
 <pre><code>type Person = {
