@@ -1195,6 +1195,13 @@ impl Mode {
             constraint_reason: Some(constraint_reason),
         }
     }
+
+    fn get_expected(&self) -> Option<TypeVar> {
+        match self {
+            Mode::Syn => None,
+            Mode::Ana { expected, .. } => Some(expected.clone()),
+        }
+    }
 }
 
 pub(crate) fn constrain(ctx: &mut StaticsContext, tyvar1: TypeVar, tyvar2: TypeVar) {
@@ -2468,25 +2475,7 @@ fn generate_constraints_expr(
                 // unqualfied enum variant
                 // example: .some(3)
                 //          ^^^^^^^^^
-                // TODO: code duplication!
-                let expected_ty = match mode.clone() {
-                    Mode::Syn => None,
-                    Mode::Ana { expected, .. } => Some(expected),
-                };
-
-                if let Some(expected_ty) = expected_ty
-                    && let Some(PotentialType::Nominal(_, Nominal::Enum(enum_def), _)) =
-                        expected_ty.single()
-                {
-                    // TODO: don't use mut idx, use find. Also, this is done in other places too so
-                    // TODO: code duplication!
-                    let mut idx = 0;
-                    for (i, variant) in enum_def.variants.iter().enumerate() {
-                        if variant.ctor.v == fname.v {
-                            idx = i;
-                        }
-                    }
-
+                if let Some((enum_def, idx)) = infer_enum(&mode, &fname.v) {
                     ctx.resolution_map.insert(
                         fname.id,
                         Declaration::EnumVariant {
@@ -2598,16 +2587,7 @@ fn generate_constraints_expr(
             }
         }
         ExprKind::MemberAccessLeadingDot(ident) => {
-            let expected_ty = match mode.clone() {
-                Mode::Syn => None,
-                Mode::Ana { expected, .. } => Some(expected),
-            };
-
-            if let Some(expected_ty) = expected_ty
-                && let Some(SolvedType::Nominal(Nominal::Enum(enum_def), _)) =
-                    expected_ty.solution()
-                && let Some(idx) = enum_def.variants.iter().position(|v| v.ctor.v == ident.v)
-            {
+            if let Some((enum_def, idx)) = infer_enum(&mode, &ident.v) {
                 ctx.resolution_map.insert(
                     ident.id,
                     Declaration::EnumVariant {
@@ -2686,6 +2666,21 @@ fn generate_constraints_expr(
     }
     let node_ty = TypeVar::from_node(ctx, expr.node());
     handle_ana(ctx, mode, node_ty);
+}
+
+fn infer_enum(mode: &Mode, variant_name: &str) -> Option<(Rc<EnumDef>, usize)> {
+    let expected_ty = mode.get_expected();
+    if let Some(expected_ty) = expected_ty
+        && let Some(PotentialType::Nominal(_, Nominal::Enum(enum_def), _)) = expected_ty.single()
+        && let Some(idx) = enum_def
+            .variants
+            .iter()
+            .position(|v| v.ctor.v == variant_name)
+    {
+        Some((enum_def, idx))
+    } else {
+        None
+    }
 }
 
 fn generate_constraints_func_decl(
@@ -2917,17 +2912,7 @@ fn generate_constraints_pat(
                 }
             } else {
                 // must resolve tag here based on inferred type
-
-                let expected_ty = match mode.clone() {
-                    Mode::Syn => None,
-                    Mode::Ana { expected, .. } => Some(expected),
-                };
-
-                if let Some(expected_ty) = expected_ty
-                    && let Some(SolvedType::Nominal(Nominal::Enum(enum_def), _)) =
-                        expected_ty.solution()
-                    && let Some(idx) = enum_def.variants.iter().position(|v| v.ctor.v == tag.v)
-                {
+                if let Some((enum_def, idx)) = infer_enum(&mode, &tag.v) {
                     ctx.resolution_map.insert(
                         tag.id,
                         Declaration::EnumVariant {
