@@ -2269,8 +2269,27 @@ fn generate_constraints_expr(
                 node_ty,
                 TypeVar::make_tuple(tys, Reason::Node(expr.node())),
             );
-            for expr in exprs {
-                generate_constraints_expr(ctx, polyvar_scope.clone(), Mode::Syn, expr.clone());
+            if let Mode::Ana {
+                constraint_reason,
+                expected,
+            } = &mode
+                && let Some(PotentialType::Tuple(_, elems)) = expected.single()
+            {
+                for (expr, expected) in exprs.iter().zip(elems) {
+                    generate_constraints_expr(
+                        ctx,
+                        polyvar_scope.clone(),
+                        Mode::Ana {
+                            expected,
+                            constraint_reason: constraint_reason.clone(),
+                        },
+                        expr.clone(),
+                    )
+                }
+            } else {
+                for expr in exprs {
+                    generate_constraints_expr(ctx, polyvar_scope.clone(), Mode::Syn, expr.clone())
+                }
             }
         }
         ExprKind::FuncAp(func, args) => {
@@ -2577,7 +2596,7 @@ fn generate_constraints_expr(
                 unreachable!()
             };
             let y_poly_decl = PolytypeDeclaration::Ordinary(option_def.ty_args[0].clone());
-            let (maybe_ty, substitution) = TypeVar::make_nominal_with_substitution(
+            let (option_ty, substitution) = TypeVar::make_nominal_with_substitution(
                 ctx,
                 Reason::Node(expr.node()),
                 Nominal::Enum(option_def),
@@ -2588,7 +2607,7 @@ fn generate_constraints_expr(
             generate_constraints_expr(
                 ctx,
                 polyvar_scope.clone(),
-                Mode::ana(maybe_ty), // TODO: rename to option
+                Mode::ana(option_ty),
                 expr.clone(),
             );
 
@@ -2950,33 +2969,26 @@ fn generate_constraints_pat(
                 ty_pat,
                 TypeVar::make_tuple(tys_elements, Reason::Node(pat.node())),
             );
-
-            // TODO: combine Ana and Ana into one enum case. Make constraint_reason Option<>
-            // TODO: can this be more concise?
-            // TODO: Where does this need to be replicated? Certainly in expr related code. But maybe other patterns/expressions with nested elements!
-            match &mode {
-                Mode::Syn => {
-                    for pat in pats {
-                        generate_constraints_pat(ctx, polyvar_scope.clone(), Mode::Syn, pat.clone())
-                    }
+            if let Mode::Ana {
+                constraint_reason,
+                expected,
+            } = &mode
+                && let Some(PotentialType::Tuple(_, elems)) = expected.single()
+            {
+                for (pat, expected) in pats.iter().zip(elems) {
+                    generate_constraints_pat(
+                        ctx,
+                        polyvar_scope.clone(),
+                        Mode::Ana {
+                            expected,
+                            constraint_reason: constraint_reason.clone(),
+                        },
+                        pat.clone(),
+                    )
                 }
-                Mode::Ana {
-                    constraint_reason,
-                    expected,
-                } => {
-                    if let Some(PotentialType::Tuple(_, elems)) = expected.single() {
-                        for (pat, expected) in pats.iter().zip(elems) {
-                            generate_constraints_pat(
-                                ctx,
-                                polyvar_scope.clone(),
-                                Mode::Ana {
-                                    expected,
-                                    constraint_reason: constraint_reason.clone(),
-                                },
-                                pat.clone(),
-                            )
-                        }
-                    }
+            } else {
+                for pat in pats {
+                    generate_constraints_pat(ctx, polyvar_scope.clone(), Mode::Syn, pat.clone())
                 }
             }
         }
