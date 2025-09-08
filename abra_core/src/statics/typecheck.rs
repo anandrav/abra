@@ -2264,7 +2264,7 @@ fn generate_constraints_expr(
             generate_constraints_expr_funcap_helper(
                 ctx,
                 polyvar_scope.clone(),
-                args.iter().cloned(),
+                args,
                 func.node(),
                 expr.node(),
                 node_ty,
@@ -2280,12 +2280,13 @@ fn generate_constraints_expr(
             );
             match ctx.resolution_map.get(&fname.id).cloned() {
                 Some(Declaration::EnumVariant {
-                    e: ref enum_def, ..
+                    e: ref enum_def,
+                    variant,
                 }) => {
                     // qualified enum variant
                     // example: list.cons(5, nil)
                     //          ^^^^^^^^^
-                    let (tyvar_from_enum, _) = TypeVar::make_nominal_with_substitution(
+                    let (tyvar_from_enum, subst) = TypeVar::make_nominal_with_substitution(
                         ctx,
                         Reason::Node(receiver_expr.node()),
                         Nominal::Enum(enum_def.clone()),
@@ -2293,10 +2294,32 @@ fn generate_constraints_expr(
                     );
                     constrain(ctx, node_ty.clone(), tyvar_from_enum.clone());
 
+                    let variant = &enum_def.variants[variant];
+                    let tys_args = match &variant.data {
+                        None => vec![],
+                        Some(data) => match &*data.kind {
+                            TypeKind::Tuple(elems) => elems
+                                .iter()
+                                .map(|e| ast_type_to_typevar(ctx, e.clone()))
+                                .collect(),
+                            _ => {
+                                vec![ast_type_to_typevar(ctx, data.clone())]
+                            }
+                        },
+                    };
+                    let tys_args = tys_args.iter().cloned().map(|t| t.subst(&subst)).collect();
+                    let func_ty = TypeVar::make_func(
+                        tys_args,
+                        node_ty.clone(),
+                        Reason::Node(receiver_expr.node()),
+                    );
+                    let func_node_ty = TypeVar::from_node(ctx, fname.node());
+                    constrain(ctx, func_ty, func_node_ty);
+
                     generate_constraints_expr_funcap_helper(
                         ctx,
                         polyvar_scope.clone(),
-                        args.iter().cloned(),
+                        args,
                         fname.node(),
                         expr.node(),
                         node_ty.clone(),
@@ -2336,7 +2359,7 @@ fn generate_constraints_expr(
                     generate_constraints_expr_funcap_helper(
                         ctx,
                         polyvar_scope.clone(),
-                        args.iter().cloned(),
+                        args,
                         fname.node(),
                         expr.node(),
                         node_ty.clone(),
@@ -2357,7 +2380,7 @@ fn generate_constraints_expr(
                     generate_constraints_expr_funcap_helper(
                         ctx,
                         polyvar_scope.clone(),
-                        args.iter().cloned(),
+                        args,
                         fname.node(),
                         expr.node(),
                         node_ty.clone(),
@@ -2413,7 +2436,10 @@ fn generate_constraints_expr(
                             generate_constraints_expr_funcap_helper(
                                 ctx,
                                 polyvar_scope.clone(),
-                                std::iter::once(receiver_expr).chain(args).cloned(),
+                                &std::iter::once(receiver_expr)
+                                    .chain(args)
+                                    .cloned()
+                                    .collect(),
                                 fname.node(),
                                 expr.node(),
                                 node_ty.clone(),
@@ -2684,25 +2710,27 @@ fn generate_constraints_func_args(
 fn generate_constraints_expr_funcap_helper(
     ctx: &mut StaticsContext,
     polyvar_scope: PolyvarScope,
-    args: impl Iterator<Item = Rc<Expr>>,
+    args: &Vec<Rc<Expr>>,
     func_node: AstNode,
     expr_node: AstNode,
     node_ty: TypeVar,
 ) {
     let ty_func = TypeVar::from_node(ctx, func_node.clone());
 
+    if let Some(PotentialType::Function(_, func_ty_args, _)) = ty_func.single() {
+        args.iter().zip(func_ty_args).for_each(|(arg, expected)| {
+            generate_constraints_expr(ctx, polyvar_scope.clone(), Mode::ana(expected), arg.clone());
+        });
+    };
+
     // arguments
     let tys_args: Vec<TypeVar> = args
+        .iter()
         .enumerate()
         .map(|(n, arg)| {
             let unknown = TypeVar::fresh(ctx, Prov::FuncArg(func_node.clone(), n as u8));
-
-            generate_constraints_expr(
-                ctx,
-                polyvar_scope.clone(),
-                Mode::ana(unknown.clone()),
-                arg.clone(),
-            );
+            let arg_ty = TypeVar::from_node(ctx, arg.node());
+            constrain(ctx, unknown.clone(), arg_ty);
             unknown
         })
         .collect();

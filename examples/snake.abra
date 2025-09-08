@@ -42,7 +42,7 @@ type Status =
 
 implement Equal for Status {
   fn equal(s1: Status, s2: Status) {
-    match (s1, s2) { // TODO: shouldn't have to qualify
+    match (s1, s2) {
       (.Playing, .Playing) -> true,
       (.Lost, .Lost) -> true,
       (.Won, .Won) -> true,
@@ -65,10 +65,10 @@ type State = {
 
 fn main() {
   let st = State(20, 20, 
-                    Snake([Point(12, 10), Point(11, 10), Point(10, 10), Point(9, 10), Point(8, 10)], Dir.Right),  // TODO: shouldn't have to qualify
+                    Snake([Point(12, 10), Point(11, 10), Point(10, 10), Point(9, 10), Point(8, 10)], .Right),
                     Fruit(Point(4, 5)), 
                     0,
-                    Status.Playing, // TODO: shouldn't have to qualify
+                    .Playing,
                     false)
 
   // game loop
