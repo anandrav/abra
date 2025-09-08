@@ -260,9 +260,7 @@ pub enum HostFunctionRet {
                     s.push(')');
                     s
                 }
-                _ => {
-                    format!("({})", name_of_ty(&f.ret_type))
-                }
+                _ => "(elem0)".into(),
             }
         };
         output.push_str(&format!("HostFunctionRet::{}{out} => {{", camel_name));
@@ -282,7 +280,8 @@ pub enum HostFunctionRet {
                     s
                 }
                 _ => {
-                    format!("({})", name_of_ty(&f.ret_type))
+                    // TODO: minor code duplication
+                    "(elem0)".into()
                 }
             }
         };

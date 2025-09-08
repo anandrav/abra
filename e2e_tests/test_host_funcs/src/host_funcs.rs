@@ -5,6 +5,7 @@ use abra_core::vm::*;
 use std::ffi::c_void;
 pub enum HostFunctionArgs {
     PrintString(String),
+    Readline,
     Foo(i64),
     Bar(i64, i64),
 }
@@ -17,11 +18,12 @@ impl HostFunctionArgs {
                     unsafe { <String>::from_vm(vm as *mut Vm as *mut c_void, vm_funcs) };
                 HostFunctionArgs::PrintString(arg0)
             }
-            1 => {
+            1 => HostFunctionArgs::Readline,
+            2 => {
                 let arg0: i64 = unsafe { <i64>::from_vm(vm as *mut Vm as *mut c_void, vm_funcs) };
                 HostFunctionArgs::Foo(arg0)
             }
-            2 => {
+            3 => {
                 let arg0: i64 = unsafe { <i64>::from_vm(vm as *mut Vm as *mut c_void, vm_funcs) };
                 let arg1: i64 = unsafe { <i64>::from_vm(vm as *mut Vm as *mut c_void, vm_funcs) };
                 HostFunctionArgs::Bar(arg0, arg1)
@@ -32,6 +34,7 @@ impl HostFunctionArgs {
 }
 pub enum HostFunctionRet {
     PrintString,
+    Readline(String),
     Foo(i64),
     Bar(i64, i64),
 }
@@ -42,8 +45,11 @@ impl HostFunctionRet {
             HostFunctionRet::PrintString => {
                 unsafe { ().to_vm(vm as *mut Vm as *mut c_void, vm_funcs) };
             }
-            HostFunctionRet::Foo(i64) => {
-                unsafe { (i64).to_vm(vm as *mut Vm as *mut c_void, vm_funcs) };
+            HostFunctionRet::Readline(elem0) => {
+                unsafe { (elem0).to_vm(vm as *mut Vm as *mut c_void, vm_funcs) };
+            }
+            HostFunctionRet::Foo(elem0) => {
+                unsafe { (elem0).to_vm(vm as *mut Vm as *mut c_void, vm_funcs) };
             }
             HostFunctionRet::Bar(elem0, elem1) => {
                 unsafe { (elem0, elem1).to_vm(vm as *mut Vm as *mut c_void, vm_funcs) };

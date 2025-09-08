@@ -1,5 +1,1 @@
-// TODO: get rid of this soon it's empty but needed to compile
-
-// host fn readline() -> string
-
-// host fn get_args() -> array<string>
+// TODO: get rid of this, it should be optional.

@@ -4,6 +4,8 @@
 
 pub const PRELUDE: &str = r#"
 host fn print_string(s: string) -> void
+host fn readline() -> string
+//host fn get_args() -> array<string>
 
 fn not(b: bool) = if b false else true
 

@@ -31,6 +31,10 @@ fn main() -> Result<(), Box<dyn Error>> {
             let _ = HostFunctionRet::PrintString;
             panic!()
         }
+        HostFunctionArgs::Readline => {
+            let _ = HostFunctionRet::Readline("".into());
+            panic!()
+        }
         HostFunctionArgs::Foo(_n) => {
             let _ = HostFunctionRet::Foo(0);
             panic!()

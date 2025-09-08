@@ -125,6 +125,18 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                             print!("{s}");
                             HostFunctionRet::PrintString.into_vm(&mut vm);
                         }
+                        HostFunctionArgs::Readline => {
+                            let mut input = String::new();
+                            std::io::stdin().read_line(&mut input).unwrap();
+                            // remove trailing newline
+                            if input.ends_with('\n') {
+                                input.pop();
+                                if input.ends_with('\r') {
+                                    input.pop();
+                                }
+                            }
+                            HostFunctionRet::Readline(input).into_vm(&mut vm);
+                        }
                     }
                     vm.clear_pending_host_func();
                 }
