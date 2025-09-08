@@ -163,9 +163,10 @@ interface_constraint = _{ identifier ~ interface_constraint_params? }
 interface_constraint_params = _{ "<" ~ (output_type_binding ~ ",")* ~ output_type_binding? ~ ">" }
 output_type_binding = { identifier ~ "=" ~ typ }
 
-primary_expression = _{ literal | identifier | member_access_inferred }
+primary_expression = _{ literal | identifier | enum_constructor_inferred | member_access_inferred }
 
-member_access_inferred = { "." ~ identifier }
+member_access_inferred = { "." ~ identifier } // TODO: these need better names. this is only used for enums. not used for struct member access at all
+enum_constructor_inferred = { "." ~ identifier ~ func_call_args }
 
 identifier = @{ !((keyword ~ WHITESPACE) | (type_poly_ident2 ~ !alphanumeric)) ~ ( alpha | "_") ~ (alphanumeric | "_")* }
 alpha = _{ 'a'..'z' | 'A'..'Z' }
