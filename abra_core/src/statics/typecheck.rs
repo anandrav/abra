@@ -387,7 +387,7 @@ pub(crate) struct PolyInstantiationId {
 
 impl PolyInstantiationId {
     pub(crate) fn new() -> Self {
-        static ID_COUNTER: std::sync::atomic::AtomicU32 = AtomicU32::new(1);
+        static ID_COUNTER: AtomicU32 = AtomicU32::new(1);
         let id = ID_COUNTER.fetch_add(1, Ordering::Relaxed);
         Self { id }
     }
@@ -2024,7 +2024,32 @@ fn generate_constraints_expr(
             let ty_left = TypeVar::from_node(ctx, left.node());
             let ty_right = TypeVar::from_node(ctx, right.node());
             generate_constraints_expr(ctx, polyvar_scope.clone(), Mode::Syn, left.clone());
-            generate_constraints_expr(ctx, polyvar_scope.clone(), Mode::Syn, right.clone());
+            match op {
+                BinaryOperator::Equal
+                | BinaryOperator::LessThan
+                | BinaryOperator::LessThanOrEqual
+                | BinaryOperator::GreaterThan
+                | BinaryOperator::GreaterThanOrEqual
+                | BinaryOperator::Add
+                | BinaryOperator::Subtract
+                | BinaryOperator::Multiply
+                | BinaryOperator::Divide
+                | BinaryOperator::Mod
+                | BinaryOperator::Pow => {
+                    generate_constraints_expr(
+                        ctx,
+                        polyvar_scope.clone(),
+                        Mode::ana_reason(
+                            ty_left.clone(),
+                            ConstraintReason::BinaryOperandsMustMatch(expr.node()),
+                        ),
+                        right.clone(),
+                    );
+                }
+                BinaryOperator::And | BinaryOperator::Or | BinaryOperator::Format => {
+                    generate_constraints_expr(ctx, polyvar_scope.clone(), Mode::Syn, right.clone());
+                }
+            }
             let ty_out = node_ty;
 
             let num_iface =
@@ -2041,7 +2066,7 @@ fn generate_constraints_expr(
                 BinaryOperator::And | BinaryOperator::Or => {
                     constrain_because(
                         ctx,
-                        ty_left,
+                        ty_left.clone(),
                         TypeVar::make_bool(reason_left),
                         ConstraintReason::BinaryOperandBool(expr.node()),
                     );
@@ -2058,41 +2083,19 @@ fn generate_constraints_expr(
                 | BinaryOperator::Multiply
                 | BinaryOperator::Divide
                 | BinaryOperator::Pow => {
-                    constrain_because(
-                        ctx,
-                        ty_left.clone(),
-                        ty_right.clone(),
-                        ConstraintReason::BinaryOperandsMustMatch(expr.node()),
-                    );
                     constrain_to_iface(ctx, &ty_left, left.node(), &num_iface);
                     constrain_to_iface(ctx, &ty_right, right.node(), &num_iface);
-                    constrain(ctx, ty_left, ty_out);
+                    constrain(ctx, ty_left.clone(), ty_out);
                 }
                 BinaryOperator::Mod => {
-                    constrain_because(
-                        ctx,
-                        ty_left,
-                        TypeVar::make_int(reason_left),
-                        ConstraintReason::BinaryOperandsMustMatch(expr.node()),
-                    );
-                    constrain_because(
-                        ctx,
-                        ty_right,
-                        TypeVar::make_int(reason_right),
-                        ConstraintReason::BinaryOperandsMustMatch(expr.node()),
-                    );
+                    constrain(ctx, ty_left.clone(), TypeVar::make_int(reason_left));
+                    constrain(ctx, ty_right, TypeVar::make_int(reason_right));
                     constrain(ctx, ty_out, TypeVar::make_int(reason_out));
                 }
                 BinaryOperator::LessThan
                 | BinaryOperator::GreaterThan
                 | BinaryOperator::LessThanOrEqual
                 | BinaryOperator::GreaterThanOrEqual => {
-                    constrain_because(
-                        ctx,
-                        ty_left.clone(),
-                        ty_right.clone(),
-                        ConstraintReason::BinaryOperandsMustMatch(expr.node()),
-                    );
                     constrain_to_iface(ctx, &ty_left, left.node(), &num_iface);
                     constrain_to_iface(ctx, &ty_right, right.node(), &num_iface);
                     constrain(ctx, ty_out, TypeVar::make_bool(reason_out));
@@ -2108,12 +2111,6 @@ fn generate_constraints_expr(
                     );
                 }
                 BinaryOperator::Equal => {
-                    constrain_because(
-                        ctx,
-                        ty_left.clone(),
-                        ty_right.clone(),
-                        ConstraintReason::BinaryOperandsMustMatch(expr.node()),
-                    );
                     constrain_to_iface(ctx, &ty_left, left.node(), &equal_iface);
                     constrain_to_iface(ctx, &ty_right, right.node(), &equal_iface);
                     constrain(ctx, ty_out, TypeVar::make_bool(reason_out));
@@ -2439,7 +2436,7 @@ fn generate_constraints_expr(
                                 &std::iter::once(receiver_expr)
                                     .chain(args)
                                     .cloned()
-                                    .collect(),
+                                    .collect::<Vec<_>>(),
                                 fname.node(),
                                 expr.node(),
                                 node_ty.clone(),
@@ -2710,7 +2707,7 @@ fn generate_constraints_func_args(
 fn generate_constraints_expr_funcap_helper(
     ctx: &mut StaticsContext,
     polyvar_scope: PolyvarScope,
-    args: &Vec<Rc<Expr>>,
+    args: &[Rc<Expr>],
     func_node: AstNode,
     expr_node: AstNode,
     node_ty: TypeVar,
