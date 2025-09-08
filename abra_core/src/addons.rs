@@ -506,6 +506,7 @@ fn add_items_from_ast(ast: Rc<FileAst>, output: &mut String) {
                 output.push_str("let vm_funcs: &AbraVmFunctions = &*vm_funcs;");
                 // get args in reverse order
                 for (name, ty) in f.args.iter().rev() {
+                    let Some(ty) = ty else { panic!() };
                     if matches!(&*ty.kind, TypeKind::Void) {
                         output.push_str(
                             r#"(vm_funcs.pop_nil)(vm);
@@ -528,6 +529,7 @@ fn add_items_from_ast(ast: Rc<FileAst>, output: &mut String) {
                     out_ty_name, package_name, f.name.v
                 ));
                 for (name, typ) in f.args.iter() {
+                    let Some(typ) = typ else { panic!() };
                     if matches!(&*typ.kind, TypeKind::Void) {
                         output.push_str("(),");
                     } else {

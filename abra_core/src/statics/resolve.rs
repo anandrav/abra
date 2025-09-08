@@ -477,7 +477,9 @@ fn resolve_names_item_decl(ctx: &mut StaticsContext, symbol_table: SymbolTable, 
             let symbol_table = symbol_table.new_scope();
             for arg in &f.args {
                 resolve_names_fn_arg(symbol_table.clone(), &arg.0);
-                resolve_names_typ(ctx, symbol_table.clone(), arg.1.clone(), true);
+                if let Some(annot) = &arg.1 {
+                    resolve_names_typ(ctx, symbol_table.clone(), annot.clone(), true);
+                }
             }
 
             resolve_names_typ(ctx, symbol_table.clone(), f.ret_type.clone(), true);

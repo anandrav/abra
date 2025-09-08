@@ -389,7 +389,6 @@ pub(crate) enum StmtKind {
 }
 
 pub(crate) type ArgMaybeAnnotated = (Rc<Identifier>, Option<Rc<Type>>);
-pub(crate) type ArgAnnotated = (Rc<Identifier>, Rc<Type>);
 
 #[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq, Hash)]
 pub(crate) struct FuncDef {
@@ -402,7 +401,7 @@ pub(crate) struct FuncDef {
 #[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq, Hash)]
 pub(crate) struct FuncDecl {
     pub(crate) name: Rc<Identifier>,
-    pub(crate) args: Vec<ArgAnnotated>,
+    pub(crate) args: Vec<ArgMaybeAnnotated>,
     pub(crate) ret_type: Rc<Type>,
 }
 

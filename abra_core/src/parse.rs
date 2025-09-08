@@ -201,7 +201,7 @@ pub(crate) fn parse_func_arg_annotation(pair: Pair<Rule>, file_id: FileId) -> Ar
 pub(crate) fn parse_func_arg_annotation_mandatory(
     pair: Pair<Rule>,
     file_id: FileId,
-) -> ArgAnnotated {
+) -> ArgMaybeAnnotated {
     let rule = pair.as_rule();
     match rule {
         Rule::func_arg_annotated => {
@@ -214,7 +214,7 @@ pub(crate) fn parse_func_arg_annotation_mandatory(
             }
             .into();
             let annot = parse_type_term(inner[1].clone(), file_id);
-            (ident, annot)
+            (ident, Some(annot))
         }
         _ => panic!("unreachable rule {rule:#?}"),
     }
