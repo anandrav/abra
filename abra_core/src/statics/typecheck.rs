@@ -2671,23 +2671,7 @@ fn generate_constraints_func_helper(
     let polyvar_scope = polyvar_scope.new_scope();
 
     // arguments
-    let ty_args = args
-        .iter()
-        .map(|(arg, arg_annot)| {
-            let ty_pat = TypeVar::from_node(ctx, arg.node());
-            match arg_annot {
-                Some(arg_annot) => {
-                    let ty_annot = TypeVar::from_node(ctx, arg_annot.node());
-                    let arg_annot = ast_type_to_typevar(ctx, arg_annot.clone());
-                    constrain(ctx, ty_annot.clone(), arg_annot.clone());
-                    polyvar_scope.add_polys(&arg_annot);
-                    generate_constraints_fn_arg(ctx, Mode::ana(ty_annot), arg.clone())
-                }
-                None => generate_constraints_fn_arg(ctx, Mode::Syn, arg.clone()),
-            }
-            ty_pat
-        })
-        .collect();
+    let ty_args = generate_constraints_func_args(ctx, polyvar_scope.clone(), args);
 
     // body
     ctx.func_ret_stack.push(Prov::FuncOut(node.clone()));
@@ -2716,23 +2700,7 @@ fn generate_constraints_func_decl(
     out_annot: &Option<Rc<AstType>>,
 ) {
     // arguments
-    let ty_args = args
-        .iter()
-        .map(|(arg, arg_annot)| {
-            let ty_pat = TypeVar::from_node(ctx, arg.node());
-            match arg_annot {
-                Some(arg_annot) => {
-                    let ty_annot = TypeVar::from_node(ctx, arg_annot.node());
-                    let arg_annot = ast_type_to_typevar(ctx, arg_annot.clone());
-                    constrain(ctx, ty_annot.clone(), arg_annot.clone());
-                    polyvar_scope.add_polys(&arg_annot);
-                    generate_constraints_fn_arg(ctx, Mode::ana(ty_annot), arg.clone())
-                }
-                None => generate_constraints_fn_arg(ctx, Mode::Syn, arg.clone()),
-            }
-            ty_pat
-        })
-        .collect();
+    let ty_args = generate_constraints_func_args(ctx, polyvar_scope.clone(), args);
 
     // body
     let ty_body = TypeVar::fresh(ctx, Prov::FuncOut(node.clone()));
@@ -2748,6 +2716,29 @@ fn generate_constraints_func_decl(
     constrain(ctx, ty_node, ty_func);
 }
 
+fn generate_constraints_func_args(
+    ctx: &mut StaticsContext,
+    polyvar_scope: PolyvarScope,
+    args: &[ArgMaybeAnnotated],
+) -> Vec<TypeVar> {
+    args.iter()
+        .map(|(arg, arg_annot)| {
+            let ty_pat = TypeVar::from_node(ctx, arg.node());
+            match arg_annot {
+                Some(arg_annot) => {
+                    let ty_annot = TypeVar::from_node(ctx, arg_annot.node());
+                    let arg_annot = ast_type_to_typevar(ctx, arg_annot.clone());
+                    constrain(ctx, ty_annot.clone(), arg_annot.clone());
+                    polyvar_scope.add_polys(&arg_annot);
+                    generate_constraints_fn_arg(ctx, Mode::ana(ty_annot), arg.clone())
+                }
+                None => generate_constraints_fn_arg(ctx, Mode::Syn, arg.clone()),
+            }
+            ty_pat
+        })
+        .collect()
+}
+
 fn generate_constraints_func_decl_annotated(
     ctx: &mut StaticsContext,
     node: AstNode,
@@ -2755,6 +2746,7 @@ fn generate_constraints_func_decl_annotated(
     args: &[ArgAnnotated],
     out_annot: &Option<Rc<AstType>>,
 ) {
+    // TODO: code duplication.
     // arguments
     let ty_args = args
         .iter()
@@ -2802,7 +2794,6 @@ fn generate_constraints_fn_def(
     constrain(ctx, ty_node, ty_func.clone());
 }
 
-// TODO: what is this lol
 fn generate_constraints_fn_arg(ctx: &mut StaticsContext, mode: Mode, arg: Rc<Identifier>) {
     let ty_arg = TypeVar::from_node(ctx, arg.node());
     handle_ana(ctx, mode, ty_arg);
