@@ -35,7 +35,7 @@ let area = match c {
 Enums can have generic type arguments.
 
 ```
-type option<'T> =
-  | some('T)
+type option<T> =
+  | some of T
   | none
 ```

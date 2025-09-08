@@ -80,16 +80,16 @@ The `Iterator` interface is used by the `Iterable` interface, but `Iterator` can
 
 The `Iterable` interface is implemented for container types in order to iterate through their values.
 Types which implement the Iterable interface can be used in a for loop. Types which implement the `Iterable` interface,
-such as `array<'T>`, have an _output type_ which implements
-the `Iterator` interface. In the case of `array<'T>`, that iterator type is `ArrayIterator<'T>`.
+such as `array<T>`, have an _output type_ which implements
+the `Iterator` interface. In the case of `array<T>`, that iterator type is `ArrayIterator<T>`.
 
 ### Output types
 
 Output types are used when the output of an interface's operations are determined by the type of the input.
 For instance, when implementing the `Iterable` interface, different container types will output different
 iterator types.
-For example, `array<'T>` returns an `ArrayIterator<'T>`, whereas a `hashmap<'K,'V>` would return a
-`HashmapIterator<'K,'V>`, which is a completely different struct.
+For example, `array<T>` returns an `ArrayIterator<T>`, whereas a `hashmap<K,V>` would return a
+`HashmapIterator<K,V>`, which is a completely different struct.
 Similarly, a `StringIterator`, when implementing the `Iterator` interface, would always return a `maybe<char,void>`, so
 `Item` = `char` in that case.
 
@@ -102,12 +102,12 @@ interface Iterable {
     outputtype Item
     outputtype Iter impl Iterator<Item=Item>
 
-    fn make_iterator: ('a Iterable) -> Iter
+    fn make_iterator: (Self) -> Iter
 }
 
 interface Iterator {
     outputtype Item
 
-    fn next: ('a Iterator) -> maybe<Item,void>
+    fn next: (Self) -> maybe<Item,void>
 }
 ```

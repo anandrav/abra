@@ -21,14 +21,14 @@ Access the fields of a struct and modify them by using dot `.` syntax.
 ```
 let fullname = frank.first_name & " " & frank.last_name
 // fullname = "Frank Smith"
-frank.age := frank.age + 1
+frank.age = frank.age + 1
 // age = 35
 ```
 
 Structs can have generic type arguments.
 
 ```
-type Ref<'T> = {
-    value: 'T
+type Ref<T> = {
+    value: T
 }
 ```

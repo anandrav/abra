@@ -67,7 +67,7 @@ let s = match n {
 var n = 3
 while n > 0 {
     print("hello")
-    n := n - 1
+    n = n - 1
 }
 ```
 
@@ -80,7 +80,7 @@ let arr = [1, 2, 3, 4, 5]
 var sum = 0
 
 for n in arr {
-    sum := sum + n
+    sum = sum + n
 }
 
 println(sum)

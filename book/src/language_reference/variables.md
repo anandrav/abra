@@ -12,7 +12,7 @@ Their value can be updated using the assignment `:=` operator.
 
 ```
 var x = 5       // x = 5
-x := 6          // x = 6
+x = 6          // x = 6
 let y = x + x   // y = 12
 ```
 

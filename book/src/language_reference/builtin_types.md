@@ -44,7 +44,7 @@ let name = "Merlin"
 let message = name & " is a wizard." // "Merlin is a wizard."
 ```
 
-### array<'T>
+### array<T>
 
 A built-in dynamic array data structure. Supports random access (zero-indexed), pushing, and popping elements.
 Arrays are homogenous; elements of the array must have the same type i.e. an array cannot mix `int` and `float`
@@ -62,8 +62,8 @@ arr.pop()               // arr = [1, 2, 3, 4]
 
 ### tuples
 
-- `('T, 'U)`
-- `('T, 'U, 'V)`
+- `(T, U)`
+- `(T, U, V)`
 - and so on...
 
 A tuple is 2 or more values grouped together.
@@ -81,7 +81,7 @@ let name_and_age = ("Lancelot", 19)
 ### void
 
 Represents nothing and only has one value -- `()`.
-This is useful as a return type for functions that don't return anything.
+This is useful as a return type for functions that donT return anything.
 This is sometimes referred to as the "unit type" in other languages because it has a single value.
 
 ### never
