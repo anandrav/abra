@@ -1217,6 +1217,7 @@ impl Translator {
                 self.emit(st, Instr::Jump(start_label));
                 self.emit(st, Line::Label(end_label));
                 self.emit(st, Instr::Pop);
+                self.emit(st, Instr::Pop);
 
                 if is_last {
                     self.emit(st, Instr::PushNil);
