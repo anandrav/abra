@@ -271,7 +271,7 @@ pub(crate) enum Error {
     },
     UnresolvedMemberFunction {
         node: AstNode,
-        ty: SolvedType,
+        ty: PotentialType,
     },
     NameClash {
         name: String,

@@ -296,23 +296,23 @@ impl SolvedType {
         }
     }
 
-    fn key(&self) -> TypeKey {
-        match self {
-            SolvedType::Poly(poly_decl) => TypeKey::Poly(poly_decl.clone()),
-            SolvedType::InterfaceOutput(output_type) => {
-                TypeKey::InterfaceOutput(output_type.clone())
-            }
-            SolvedType::Void => TypeKey::Void,
-            SolvedType::Never => TypeKey::Never,
-            SolvedType::Int => TypeKey::Int,
-            SolvedType::Float => TypeKey::Float,
-            SolvedType::Bool => TypeKey::Bool,
-            SolvedType::String => TypeKey::String,
-            SolvedType::Function(args, _) => TypeKey::Function(args.len() as u8),
-            SolvedType::Tuple(elems) => TypeKey::Tuple(elems.len() as u8),
-            SolvedType::Nominal(ident, _) => TypeKey::TyApp(ident.clone()),
-        }
-    }
+    // fn key(&self) -> TypeKey {
+    //     match self {
+    //         SolvedType::Poly(poly_decl) => TypeKey::Poly(poly_decl.clone()),
+    //         SolvedType::InterfaceOutput(output_type) => {
+    //             TypeKey::InterfaceOutput(output_type.clone())
+    //         }
+    //         SolvedType::Void => TypeKey::Void,
+    //         SolvedType::Never => TypeKey::Never,
+    //         SolvedType::Int => TypeKey::Int,
+    //         SolvedType::Float => TypeKey::Float,
+    //         SolvedType::Bool => TypeKey::Bool,
+    //         SolvedType::String => TypeKey::String,
+    //         SolvedType::Function(args, _) => TypeKey::Function(args.len() as u8),
+    //         SolvedType::Tuple(elems) => TypeKey::Tuple(elems.len() as u8),
+    //         SolvedType::Nominal(ident, _) => TypeKey::TyApp(ident.clone()),
+    //     }
+    // }
 
     pub(crate) fn is_overloaded(&self) -> bool {
         match self {
@@ -2301,7 +2301,7 @@ fn generate_constraints_expr(
                              iface: iface_def,
                              method,
                          }) => {
-                        // fully qualified interface/struct/enum method
+                        // fully qualified interface method
                         // example: Clone.clone(my_struct)
                         //          ^^^^^
                         let memfn_node_ty = TypeVar::from_node(ctx, fname.node());
@@ -2338,8 +2338,8 @@ fn generate_constraints_expr(
                         );
                     }
                     Some(Declaration::MemberFunction { f: func }) if receiver_is_namespace => {
-                        // fully qualified interface/struct/enum method
-                        // example: Clone.clone(my_struct)
+                        // fully qualified struct/enum method
+                        // example: Person.fullname(my_person)
                         //          ^^^^^
                         let fn_node_ty = TypeVar::from_node(ctx, fname.node());
                         let memfn_ty = TypeVar::from_node(ctx, func.name.node()).instantiate(
@@ -2370,10 +2370,10 @@ fn generate_constraints_expr(
                             receiver_expr.clone(),
                         );
 
-                        if let Some(solved_ty) =
-                            TypeVar::from_node(ctx, receiver_expr.node()).solution()
+                        if let Some(potential_ty) =
+                            TypeVar::from_node(ctx, receiver_expr.node()).single()
                         {
-                            let ty_key = solved_ty.key();
+                            let ty_key = potential_ty.key();
                             if let Some(memfn_decl) = ctx
                                 .member_functions
                                 .get(&(ty_key, fname.v.clone()))
@@ -2424,7 +2424,7 @@ fn generate_constraints_expr(
                                 // failed to resolve member function
                                 ctx.errors.push(Error::UnresolvedMemberFunction {
                                     node: receiver_expr.node(),
-                                    ty: solved_ty,
+                                    ty: potential_ty,
                                 });
 
                                 node_ty.set_flag_missing_info();
@@ -2624,14 +2624,12 @@ fn enum_ctor_helper(
     func_node: AstNode,
     funcap_node: AstNode,
 ) {
-    let (tyvar_from_enum, subst) = TypeVar::make_nominal_with_substitution(
+    let (node_ty, subst) = TypeVar::make_nominal_with_substitution(
         ctx,
         Reason::Node(func_node.clone()),
         Nominal::Enum(enum_def.clone()),
         funcap_node.clone(),
     );
-    let node_ty = TypeVar::from_node(ctx, funcap_node.clone());
-    // constrain(ctx, node_ty.clone(), tyvar_from_enum.clone());
 
     let variant = &enum_def.variants[variant];
     let tys_args = match &variant.data {

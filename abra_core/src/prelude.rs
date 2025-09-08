@@ -85,7 +85,7 @@ interface Clone {
 
 implement Clone for array<T Clone> {
     fn clone(arr: array<T Clone>) -> array<T Clone> {
-        let new: array<T> = [] // TODO: should not need this annotation
+        let new = []
         for x in arr {
             new.push(Clone.clone(x)) // TODO: should be able to do x.clone() here
         }
@@ -267,9 +267,7 @@ implement Iterator for ArrayIterator<U> {
 }
 
 fn range(hi: int) -> array<int> {
-    // TODO: shouldn't need this type annotation here. Probably member access won't work because at this point it's an array<?> which is unsolved.
-    // but that's enough info for member access (it's array.push)
-    let ret: array<int> = []
+    let ret = []
     var lo = 0
     while lo < hi {
         ret.push(lo)
