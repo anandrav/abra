@@ -112,7 +112,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     return Ok(());
                 }
                 if let Some(error) = vm.get_error() {
-                    eprintln!("{error}");
+                    eprint!("{error}");
                     std::process::exit(1);
                 }
                 vm.run();
