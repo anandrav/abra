@@ -76,7 +76,7 @@ pub(crate) struct StaticsContext {
     pub(crate) dylibs: IdSet<PathBuf>,
     pub(crate) dylib_to_funcs: HashMap<u32, IdSet<String>>,
     // host functions
-    pub(crate) host_funcs: IdSet<String>,
+    pub(crate) host_funcs: IdSet<Rc<FuncDecl>>,
 
     // TYPE CHECKING
 
@@ -112,7 +112,7 @@ impl StaticsContext {
             string_constants: Default::default(),
             dylibs: Default::default(),
             dylib_to_funcs: Default::default(),
-            host_funcs: Default::default(),
+            host_funcs: IdSet::new(),
 
             unifvars: Default::default(),
             errors: Default::default(),

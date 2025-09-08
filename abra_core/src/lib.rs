@@ -126,8 +126,22 @@ pub fn generate_host_function_enum(
 pub enum HostFunction {
     "#,
     );
-    for name in &inference_ctx.host_funcs {
-        let camel_name = heck::AsUpperCamelCase(name).to_string();
+    for f in &inference_ctx.host_funcs {
+        let camel_name = heck::AsUpperCamelCase(&f.name.v).to_string();
+        output.push_str(&format!("{camel_name},"));
+    }
+    output.push_str(
+        r#"
+    }
+    "#,
+    );
+
+    output.push_str(
+        r#"pub enum HostFunctionArgs {
+    "#,
+    );
+    for f in &inference_ctx.host_funcs {
+        let camel_name = heck::AsUpperCamelCase(&f.name.v).to_string();
         output.push_str(&format!("{camel_name},"));
     }
     output.push_str(
@@ -142,8 +156,8 @@ pub enum HostFunction {
         match item {
 "#,
     );
-    for (i, name) in inference_ctx.host_funcs.iter().enumerate() {
-        let camel_name = heck::AsUpperCamelCase(name).to_string();
+    for (i, f) in inference_ctx.host_funcs.iter().enumerate() {
+        let camel_name = heck::AsUpperCamelCase(&f.name.v).to_string();
         output.push_str(&format!("{i} => HostFunction::{camel_name},"));
     }
     output.push_str("i => panic!(\"unrecognized host func: {i}\")");

@@ -170,7 +170,7 @@ fn gather_declarations_item(
                 Declaration::HostFunction(func_decl.clone()),
             );
 
-            ctx.host_funcs.insert(func_name);
+            ctx.host_funcs.insert(func_decl.clone());
         }
         ItemKind::ForeignFuncDecl(_func_decl) => {
             #[cfg(feature = "ffi")]

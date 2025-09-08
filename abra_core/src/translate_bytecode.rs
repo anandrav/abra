@@ -735,7 +735,7 @@ impl Translator {
                 );
             }
             Declaration::HostFunction(decl) => {
-                let idx = self.statics.host_funcs.get_id(&decl.name.v) as u16;
+                let idx = self.statics.host_funcs.get_id(decl) as u16;
                 self.emit(st, Instr::HostFunc(idx));
             }
             Declaration::_ForeignFunction {

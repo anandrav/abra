@@ -2,6 +2,9 @@
 pub enum HostFunction {
     PrintString,
 }
+pub enum HostFunctionArgs {
+    PrintString,
+}
 impl From<u16> for HostFunction {
     fn from(item: u16) -> Self {
         match item {

@@ -126,23 +126,23 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                             print!("{s}");
                             vm.push_nil();
                         } // HostFunction::readline => {
-                        //     let mut input = String::new();
-                        //     std::io::stdin().read_line(&mut input).unwrap();
-                        //     // remove trailing newline
-                        //     if input.ends_with('\n') {
-                        //         input.pop();
-                        //         if input.ends_with('\r') {
-                        //             input.pop();
-                        //         }
-                        //     }
-                        //     vm.push_str(input);
-                        // }
-                        // HostFunction::get_args => {
-                        //     for arg in &args.args {
-                        //         vm.push_str(arg.clone());
-                        //     }
-                        //     vm.construct_array(args.args.len());
-                        // }
+                          //     let mut input = String::new();
+                          //     std::io::stdin().read_line(&mut input).unwrap();
+                          //     // remove trailing newline
+                          //     if input.ends_with('\n') {
+                          //         input.pop();
+                          //         if input.ends_with('\r') {
+                          //             input.pop();
+                          //         }
+                          //     }
+                          //     vm.push_str(input);
+                          // }
+                          // HostFunction::get_args => {
+                          //     for arg in &args.args {
+                          //         vm.push_str(arg.clone());
+                          //     }
+                          //     vm.construct_array(args.args.len());
+                          // }
                     }
                     vm.clear_pending_host_func();
                 }
