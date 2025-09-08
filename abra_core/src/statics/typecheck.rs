@@ -2615,19 +2615,7 @@ fn generate_constraints_expr(
         }
     }
     let node_ty = TypeVar::from_node(ctx, expr.node());
-    match mode {
-        Mode::Syn => (),
-        Mode::Ana {
-            expected,
-            constraint_reason,
-        } => {
-            if let Some(constraint_reason) = constraint_reason {
-                constrain_because(ctx, node_ty.clone(), expected, constraint_reason)
-            } else {
-                constrain(ctx, node_ty.clone(), expected)
-            }
-        }
-    };
+    handle_ana(ctx, mode, node_ty);
 }
 
 fn generate_constraints_expr_funcap_helper(
@@ -2814,21 +2802,10 @@ fn generate_constraints_fn_def(
     constrain(ctx, ty_node, ty_func.clone());
 }
 
+// TODO: what is this lol
 fn generate_constraints_fn_arg(ctx: &mut StaticsContext, mode: Mode, arg: Rc<Identifier>) {
     let ty_arg = TypeVar::from_node(ctx, arg.node());
-    match mode {
-        Mode::Syn => (),
-        Mode::Ana {
-            expected,
-            constraint_reason,
-        } => {
-            if let Some(constraint_reason) = constraint_reason {
-                constrain_because(ctx, expected, ty_arg.clone(), constraint_reason)
-            } else {
-                constrain(ctx, expected, ty_arg.clone())
-            }
-        }
-    };
+    handle_ana(ctx, mode, ty_arg);
 }
 
 fn generate_constraints_pat(
@@ -2993,8 +2970,11 @@ fn generate_constraints_pat(
             }
         }
     }
-    // TODO: code duplication
     let ty_pat = TypeVar::from_node(ctx, pat.node());
+    handle_ana(ctx, mode, ty_pat);
+}
+
+fn handle_ana(ctx: &mut StaticsContext, mode: Mode, node_ty: TypeVar) {
     match mode {
         Mode::Syn => (),
         Mode::Ana {
@@ -3002,9 +2982,9 @@ fn generate_constraints_pat(
             constraint_reason,
         } => {
             if let Some(constraint_reason) = constraint_reason {
-                constrain_because(ctx, expected, ty_pat.clone(), constraint_reason)
+                constrain_because(ctx, expected, node_ty.clone(), constraint_reason)
             } else {
-                constrain(ctx, expected, ty_pat.clone())
+                constrain(ctx, expected, node_ty.clone())
             }
         }
     };
