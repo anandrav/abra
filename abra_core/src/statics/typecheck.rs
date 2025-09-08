@@ -2285,49 +2285,20 @@ fn generate_constraints_expr(
                 );
                 match ctx.resolution_map.get(&fname.id).cloned() {
                     Some(Declaration::EnumVariant {
-                        e: ref enum_def,
+                        e: enum_def,
                         variant,
                     }) => {
                         // qualified enum variant
                         // example: list.cons(5, nil)
                         //          ^^^^^^^^^
-                        let (tyvar_from_enum, subst) = TypeVar::make_nominal_with_substitution(
+                        enum_ctor_helper(
                             ctx,
-                            Reason::Node(receiver_expr.node()),
-                            Nominal::Enum(enum_def.clone()),
-                            receiver_expr.node(),
-                        );
-                        constrain(ctx, node_ty.clone(), tyvar_from_enum.clone());
-
-                        let variant = &enum_def.variants[variant];
-                        let tys_args = match &variant.data {
-                            None => vec![],
-                            Some(data) => match &*data.kind {
-                                TypeKind::Tuple(elems) => elems
-                                    .iter()
-                                    .map(|e| ast_type_to_typevar(ctx, e.clone()))
-                                    .collect(),
-                                _ => {
-                                    vec![ast_type_to_typevar(ctx, data.clone())]
-                                }
-                            },
-                        };
-                        let tys_args = tys_args.iter().cloned().map(|t| t.subst(&subst)).collect();
-                        let func_ty = TypeVar::make_func(
-                            tys_args,
-                            node_ty.clone(),
-                            Reason::Node(receiver_expr.node()),
-                        );
-                        let func_node_ty = TypeVar::from_node(ctx, fname.node());
-                        constrain(ctx, func_ty, func_node_ty);
-
-                        generate_constraints_expr_funcap_helper(
-                            ctx,
-                            polyvar_scope.clone(),
+                            polyvar_scope,
+                            enum_def,
+                            variant,
                             args,
                             fname.node(),
                             expr.node(),
-                            node_ty.clone(),
                         );
                     }
                     Some(Declaration::InterfaceMethod {
@@ -2475,59 +2446,24 @@ fn generate_constraints_expr(
                 // unqualfied enum variant
                 // example: .some(3)
                 //          ^^^^^^^^^
-                if let Some((enum_def, idx)) = infer_enum(&mode, &fname.v) {
+                if let Some((enum_def, variant)) = infer_enum(&mode, &fname.v) {
                     ctx.resolution_map.insert(
                         fname.id,
                         Declaration::EnumVariant {
                             e: enum_def.clone(),
-                            variant: idx,
+                            variant,
                         },
                     );
 
-                    let (tyvar_from_enum, subst) = TypeVar::make_nominal_with_substitution(
+                    enum_ctor_helper(
                         ctx,
-                        Reason::Node(fname.node()),
-                        Nominal::Enum(enum_def.clone()),
-                        expr.node(),
-                    );
-                    constrain(ctx, node_ty.clone(), tyvar_from_enum.clone());
-
-                    let variant = &enum_def.variants[idx];
-                    let tys_args = match &variant.data {
-                        None => vec![],
-                        Some(data) => match &*data.kind {
-                            TypeKind::Tuple(elems) => elems
-                                .iter()
-                                .map(|e| ast_type_to_typevar(ctx, e.clone()))
-                                .collect(),
-                            _ => {
-                                vec![ast_type_to_typevar(ctx, data.clone())]
-                            }
-                        },
-                    };
-                    let tys_args = tys_args.iter().cloned().map(|t| t.subst(&subst)).collect();
-                    let func_ty =
-                        TypeVar::make_func(tys_args, node_ty.clone(), Reason::Node(fname.node()));
-                    let func_node_ty = TypeVar::from_node(ctx, fname.node());
-                    constrain(ctx, func_ty, func_node_ty);
-
-                    generate_constraints_expr_funcap_helper(
-                        ctx,
-                        polyvar_scope.clone(),
+                        polyvar_scope,
+                        enum_def,
+                        variant,
                         args,
                         fname.node(),
                         expr.node(),
-                        node_ty.clone(),
                     );
-
-                    // let (enum_ty, _) = TypeVar::make_nominal_with_substitution(
-                    //     ctx,
-                    //     Reason::Node(expr.node()),
-                    //     Nominal::Enum(enum_def.clone()),
-                    //     expr.node(),
-                    // );
-                    //
-                    // constrain(ctx, node_ty.clone(), enum_ty);
                 } else {
                     ctx.errors
                         .push(Error::UnqualifiedEnumNeedsAnnotation { node: expr.node() });
@@ -2681,6 +2617,52 @@ fn infer_enum(mode: &Mode, variant_name: &str) -> Option<(Rc<EnumDef>, usize)> {
     } else {
         None
     }
+}
+
+fn enum_ctor_helper(
+    ctx: &mut StaticsContext,
+    polyvar_scope: PolyvarScope,
+    enum_def: Rc<EnumDef>,
+    variant: usize,
+    args: &[Rc<Expr>],
+    func_node: AstNode,
+    funcap_node: AstNode,
+) {
+    let (tyvar_from_enum, subst) = TypeVar::make_nominal_with_substitution(
+        ctx,
+        Reason::Node(func_node.clone()),
+        Nominal::Enum(enum_def.clone()),
+        funcap_node.clone(),
+    );
+    let node_ty = TypeVar::from_node(ctx, funcap_node.clone());
+    // constrain(ctx, node_ty.clone(), tyvar_from_enum.clone());
+
+    let variant = &enum_def.variants[variant];
+    let tys_args = match &variant.data {
+        None => vec![],
+        Some(data) => match &*data.kind {
+            TypeKind::Tuple(elems) => elems
+                .iter()
+                .map(|e| ast_type_to_typevar(ctx, e.clone()))
+                .collect(),
+            _ => {
+                vec![ast_type_to_typevar(ctx, data.clone())]
+            }
+        },
+    };
+    let tys_args = tys_args.iter().cloned().map(|t| t.subst(&subst)).collect();
+    let func_ty = TypeVar::make_func(tys_args, node_ty.clone(), Reason::Node(func_node.clone()));
+    let func_node_ty = TypeVar::from_node(ctx, func_node.clone());
+    constrain(ctx, func_ty, func_node_ty);
+
+    generate_constraints_expr_funcap_helper(
+        ctx,
+        polyvar_scope.clone(),
+        args,
+        func_node,
+        funcap_node,
+        node_ty.clone(),
+    );
 }
 
 fn generate_constraints_func_decl(
