@@ -640,7 +640,7 @@ impl Error {
 
     pub fn to_string(&self, files: &FileDatabase) -> String {
         let diagnostic = self.make_diagnostic();
-        let mut buffer = Buffer::no_color(); // color? ansi?
+        let mut buffer = Buffer::no_color();
         let config = term::Config::default();
 
         term::emit(&mut buffer, &config, files, &diagnostic).unwrap();
