@@ -11,21 +11,23 @@ pub enum HostFunctionArgs {
 }
 impl HostFunctionArgs {
     pub(crate) fn from_vm(vm: &mut Vm, pending_effect: u16) -> Self {
-        let vm_funcs = &AbraVmFunctions::new();
         match pending_effect {
             0 => {
                 let arg0: String =
-                    unsafe { <String>::from_vm(vm as *mut Vm as *mut c_void, vm_funcs) };
+                    unsafe { <String>::from_vm(vm as *mut Vm as *mut c_void, &ABRA_VM_FUNCS) };
                 HostFunctionArgs::PrintString(arg0)
             }
             1 => HostFunctionArgs::Readline,
             2 => {
-                let arg0: i64 = unsafe { <i64>::from_vm(vm as *mut Vm as *mut c_void, vm_funcs) };
+                let arg0: i64 =
+                    unsafe { <i64>::from_vm(vm as *mut Vm as *mut c_void, &ABRA_VM_FUNCS) };
                 HostFunctionArgs::Foo(arg0)
             }
             3 => {
-                let arg0: i64 = unsafe { <i64>::from_vm(vm as *mut Vm as *mut c_void, vm_funcs) };
-                let arg1: i64 = unsafe { <i64>::from_vm(vm as *mut Vm as *mut c_void, vm_funcs) };
+                let arg0: i64 =
+                    unsafe { <i64>::from_vm(vm as *mut Vm as *mut c_void, &ABRA_VM_FUNCS) };
+                let arg1: i64 =
+                    unsafe { <i64>::from_vm(vm as *mut Vm as *mut c_void, &ABRA_VM_FUNCS) };
                 HostFunctionArgs::Bar(arg0, arg1)
             }
             _ => panic!("unexpected tag encountered: {pending_effect}"),
@@ -40,19 +42,18 @@ pub enum HostFunctionRet {
 }
 impl HostFunctionRet {
     pub(crate) fn into_vm(self, vm: &mut Vm) {
-        let vm_funcs = &AbraVmFunctions::new();
         match self {
             HostFunctionRet::PrintString => {
-                unsafe { ().to_vm(vm as *mut Vm as *mut c_void, vm_funcs) };
+                unsafe { ().to_vm(vm as *mut Vm as *mut c_void, &ABRA_VM_FUNCS) };
             }
-            HostFunctionRet::Readline(elem0) => {
-                unsafe { (elem0).to_vm(vm as *mut Vm as *mut c_void, vm_funcs) };
+            HostFunctionRet::Readline(out) => {
+                unsafe { out.to_vm(vm as *mut Vm as *mut c_void, &ABRA_VM_FUNCS) };
             }
-            HostFunctionRet::Foo(elem0) => {
-                unsafe { (elem0).to_vm(vm as *mut Vm as *mut c_void, vm_funcs) };
+            HostFunctionRet::Foo(out) => {
+                unsafe { out.to_vm(vm as *mut Vm as *mut c_void, &ABRA_VM_FUNCS) };
             }
-            HostFunctionRet::Bar(elem0, elem1) => {
-                unsafe { (elem0, elem1).to_vm(vm as *mut Vm as *mut c_void, vm_funcs) };
+            HostFunctionRet::Bar(out0, out1) => {
+                unsafe { (out0, out1).to_vm(vm as *mut Vm as *mut c_void, &ABRA_VM_FUNCS) };
             }
         }
     }

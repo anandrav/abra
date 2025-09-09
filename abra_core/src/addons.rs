@@ -41,34 +41,24 @@ pub struct AbraVmFunctions {
     pub array_len: unsafe extern "C" fn(vm: *mut c_void) -> usize,
 }
 
-impl AbraVmFunctions {
-    pub fn new() -> Self {
-        AbraVmFunctions {
-            push_int: abra_vm_push_int,
-            push_float: abra_vm_push_float,
-            push_bool: abra_vm_push_bool,
-            push_nil: abra_vm_push_nil,
-            pop_nil: abra_vm_pop_nil,
-            pop_int: abra_vm_pop_int,
-            pop_float: abra_vm_pop_float,
-            pop_bool: abra_vm_pop_bool,
-            pop: abra_vm_pop,
-            view_string: abra_vm_view_string,
-            push_string: abra_vm_push_string,
-            construct_struct: abra_vm_construct_struct,
-            construct_array: abra_vm_construct_array,
-            construct_variant: abra_vm_construct_variant,
-            deconstruct: abra_vm_deconstruct,
-            array_len: abra_vm_array_len,
-        }
-    }
-}
-
-impl Default for AbraVmFunctions {
-    fn default() -> Self {
-        Self::new()
-    }
-}
+pub const ABRA_VM_FUNCS: AbraVmFunctions = AbraVmFunctions {
+    push_int: abra_vm_push_int,
+    push_float: abra_vm_push_float,
+    push_bool: abra_vm_push_bool,
+    push_nil: abra_vm_push_nil,
+    pop_nil: abra_vm_pop_nil,
+    pop_int: abra_vm_pop_int,
+    pop_float: abra_vm_pop_float,
+    pop_bool: abra_vm_pop_bool,
+    pop: abra_vm_pop,
+    view_string: abra_vm_view_string,
+    push_string: abra_vm_push_string,
+    construct_struct: abra_vm_construct_struct,
+    construct_array: abra_vm_construct_array,
+    construct_variant: abra_vm_construct_variant,
+    deconstruct: abra_vm_deconstruct,
+    array_len: abra_vm_array_len,
+};
 
 /// # Safety
 /// vm: *mut c_void must be valid and non-null

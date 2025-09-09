@@ -24,7 +24,7 @@ pub mod prelude;
 pub mod statics;
 mod translate_bytecode;
 pub mod vm;
-use crate::ast::TypeKind;
+use crate::ast::{Type, TypeKind};
 use addons::*;
 pub use ast::FileData;
 pub use prelude::PRELUDE;
@@ -167,7 +167,6 @@ use std::ffi::c_void;
         r#"pub(crate) fn from_vm(vm: &mut Vm, pending_effect: u16) -> Self {
                         "#,
     );
-    output.push_str("let vm_funcs = &AbraVmFunctions::new();");
     output.push_str("match pending_effect {");
     for (i, f) in inference_ctx.host_funcs.iter().enumerate() {
         output.push_str(&format!("{i} => {{"));
@@ -176,7 +175,7 @@ use std::ffi::c_void;
             let ty = arg.1.clone().unwrap();
             let tyname = name_of_ty(&ty);
             output.push_str(&format!(
-                r#"let arg{}: {tyname} = unsafe {{ <{tyname}>::from_vm(vm as *mut Vm as *mut c_void, vm_funcs) }};
+                r#"let arg{}: {tyname} = unsafe {{ <{tyname}>::from_vm(vm as *mut Vm as *mut c_void, &ABRA_VM_FUNCS) }};
                             "#, i
             ));
         }
@@ -241,26 +240,26 @@ pub enum HostFunctionRet {
         r#"pub(crate) fn into_vm(self, vm: &mut Vm,) {
                         "#,
     );
-    output.push_str("let vm_funcs = &AbraVmFunctions::new();");
     output.push_str("match self {");
     for f in inference_ctx.host_funcs.iter() {
         let camel_name = heck::AsUpperCamelCase(&f.name.v).to_string();
+        let tuple_helper = |elems: &Vec<Rc<Type>>| {
+            let mut s = "(".to_string();
+            for i in 0..elems.len() {
+                if i != 0 {
+                    s.push_str(", ");
+                }
+                s.push_str(&format!("out{}", i));
+            }
+            s.push(')');
+            s
+        };
         let out = {
             match &*f.ret_type.kind {
                 TypeKind::Void => "".to_string(),
                 // TODO: code duplication with HostFunctionArgs and also the _ case could use same logic
-                TypeKind::Tuple(elems) => {
-                    let mut s = "(".to_string();
-                    for i in 0..elems.len() {
-                        if i != 0 {
-                            s.push_str(", ");
-                        }
-                        s.push_str(&format!("elem{}", i));
-                    }
-                    s.push(')');
-                    s
-                }
-                _ => "(elem0)".into(),
+                TypeKind::Tuple(elems) => tuple_helper(elems),
+                _ => "(out)".into(),
             }
         };
         output.push_str(&format!("HostFunctionRet::{}{out} => {{", camel_name));
@@ -268,25 +267,12 @@ pub enum HostFunctionRet {
         let out_val = {
             match &*f.ret_type.kind {
                 TypeKind::Void => "()".to_string(),
-                TypeKind::Tuple(elems) => {
-                    let mut s = "(".to_string();
-                    for i in 0..elems.len() {
-                        if i != 0 {
-                            s.push_str(", ");
-                        }
-                        s.push_str(&format!("elem{}", i));
-                    }
-                    s.push(')');
-                    s
-                }
-                _ => {
-                    // TODO: minor code duplication
-                    "(elem0)".into()
-                }
+                TypeKind::Tuple(elems) => tuple_helper(elems),
+                _ => "out".into(),
             }
         };
         output.push_str(&format!(
-            r#"unsafe {{ {out_val}.to_vm(vm as *mut Vm as *mut c_void, vm_funcs) }};
+            r#"unsafe {{ {out_val}.to_vm(vm as *mut Vm as *mut c_void, &ABRA_VM_FUNCS) }};
                             "#
         ));
         output.push('}');

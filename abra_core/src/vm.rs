@@ -7,6 +7,8 @@ pub type AbraInt = i64;
 pub type AbraFloat = f64;
 
 #[cfg(feature = "ffi")]
+use crate::addons::ABRA_VM_FUNCS;
+#[cfg(feature = "ffi")]
 use crate::addons::AbraVmFunctions;
 use crate::translate_bytecode::{BytecodeIndex, CompiledProgram};
 use core::fmt;
@@ -50,8 +52,6 @@ pub struct Vm {
     libs: Vec<Library>,
     #[cfg(feature = "ffi")]
     foreign_functions: Vec<unsafe extern "C" fn(*mut c_void, *const AbraVmFunctions) -> ()>,
-    #[cfg(feature = "ffi")]
-    pub abra_vm_functions: AbraVmFunctions,
 }
 
 pub enum VmStatus {
@@ -135,8 +135,6 @@ impl Vm {
             libs: Vec::new(),
             #[cfg(feature = "ffi")]
             foreign_functions: Vec::new(),
-            #[cfg(feature = "ffi")]
-            abra_vm_functions: AbraVmFunctions::new(),
         }
     }
 
@@ -166,8 +164,6 @@ impl Vm {
             libs: Vec::new(),
             #[cfg(feature = "ffi")]
             foreign_functions: Vec::new(),
-            #[cfg(feature = "ffi")]
-            abra_vm_functions: AbraVmFunctions::new(),
         }
     }
 
@@ -1095,8 +1091,7 @@ impl Vm {
                 {
                     unsafe {
                         let vm_ptr = self as *mut Vm as *mut c_void;
-                        let abra_vm_functions_ptr =
-                            &self.abra_vm_functions as *const AbraVmFunctions;
+                        let abra_vm_functions_ptr = &ABRA_VM_FUNCS as *const AbraVmFunctions;
                         self.foreign_functions[_func_id](vm_ptr, abra_vm_functions_ptr);
                     };
                 }
