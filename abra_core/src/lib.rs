@@ -131,6 +131,39 @@ use std::ffi::c_void;
     );
 
     output.push_str(
+        r#"
+#[allow(dead_code)]
+pub enum HostFunction {
+    "#,
+    );
+    for f in inference_ctx.host_funcs.iter() {
+        let camel_name = heck::AsUpperCamelCase(&f.name.v).to_string();
+        swrite!(output, "{camel_name},");
+    }
+    output.push_str(
+        r#"
+    }"#,
+    );
+
+    // conversion from integer
+    output.push_str(
+        r#"impl From<u16> for HostFunction {
+    fn from(item: u16) -> Self {
+        match item {
+"#,
+    );
+    for (i, f) in inference_ctx.host_funcs.iter().enumerate() {
+        let camel_name = heck::AsUpperCamelCase(&f.name.v).to_string();
+        swrite!(output, "{i} => HostFunction::{camel_name},");
+    }
+    output.push_str("i => panic!(\"unrecognized host func: {i}\")");
+    output.push_str(
+        r#"}
+    }}
+"#,
+    );
+
+    output.push_str(
         r#"pub enum HostFunctionArgs {
     "#,
     );
@@ -182,14 +215,14 @@ use std::ffi::c_void;
                 i
             );
         }
-        let mut args = String::new();
+        let args = &mut String::new();
         if !f.args.is_empty() {
             args.push('(');
             for i in 0..f.args.len() {
                 if i != 0 {
                     args.push_str(", ");
                 }
-                args.push_str(&format!("arg{}", i));
+                swrite!(args, "arg{}", i);
             }
             args.push(')');
         }

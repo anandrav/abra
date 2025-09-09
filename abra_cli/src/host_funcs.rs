@@ -3,6 +3,21 @@
 use abra_core::addons::*;
 use abra_core::vm::*;
 use std::ffi::c_void;
+
+#[allow(dead_code)]
+pub enum HostFunction {
+    PrintString,
+    Readline,
+}
+impl From<u16> for HostFunction {
+    fn from(item: u16) -> Self {
+        match item {
+            0 => HostFunction::PrintString,
+            1 => HostFunction::Readline,
+            i => panic!("unrecognized host func: {i}"),
+        }
+    }
+}
 pub enum HostFunctionArgs {
     PrintString(String),
     Readline,
