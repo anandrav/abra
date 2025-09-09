@@ -238,9 +238,9 @@ pub fn generate_bindings_for_crate() {
     toplevel_abra_file.pop();
     toplevel_abra_file = toplevel_abra_file.join(format!("{package_name}.abra"));
 
-    let mut output = String::new();
+    let output = &mut String::new();
 
-    write_header(&mut output, &package_name);
+    write_header(output, &package_name);
 
     let mut file_db = FileDatabase::new();
 
@@ -256,12 +256,12 @@ pub fn generate_bindings_for_crate() {
         let file_data = file_db.get(file_id).unwrap();
         let ast = parse_or_err(file_id, file_data).unwrap();
 
-        add_items_from_ast(ast, &mut output);
+        add_items_from_ast(ast, output);
     }
 
     // handle all other .abra files
     let mut prefixes = vec![package_name.clone()];
-    find_abra_files(&package_dir, &mut prefixes, &mut file_db, &mut output).unwrap();
+    find_abra_files(&package_dir, &mut prefixes, &mut file_db, output).unwrap();
 
     // write_footer
     {
