@@ -1003,14 +1003,7 @@ impl Vm {
                 self.push_nil();
             }
             Instr::ArrayLength => {
-                let obj = self.pop()?;
-                let len = match &obj {
-                    Value::HeapReference(r) => match &self.heap[r.get().get()].kind {
-                        ManagedObjectKind::DynArray(fields) => fields.len(),
-                        _ => return self.wrong_type(ValueKind::Array),
-                    },
-                    _ => return self.wrong_type(ValueKind::Array),
-                };
+                let len = self.array_len()?;
                 self.push_int(len as AbraInt);
             }
             Instr::ArrayPop => {
