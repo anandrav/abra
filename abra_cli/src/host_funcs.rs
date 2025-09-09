@@ -8,15 +8,15 @@ pub enum HostFunctionArgs {
     Readline,
 }
 impl HostFunctionArgs {
-    pub(crate) fn from_vm(vm: &mut Vm, pending_effect: u16) -> Self {
-        match pending_effect {
+    pub(crate) fn from_vm(vm: &mut Vm, pending_host_func: u16) -> Self {
+        match pending_host_func {
             0 => {
                 let arg0: String =
                     unsafe { <String>::from_vm(vm as *mut Vm as *mut c_void, &ABRA_VM_FUNCS) };
                 HostFunctionArgs::PrintString(arg0)
             }
             1 => HostFunctionArgs::Readline,
-            _ => panic!("unexpected tag encountered: {pending_effect}"),
+            _ => panic!("unexpected tag encountered: {pending_host_func}"),
         }
     }
 }

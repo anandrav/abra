@@ -164,10 +164,10 @@ use std::ffi::c_void;
                     "#,
     );
     output.push_str(
-        r#"pub(crate) fn from_vm(vm: &mut Vm, pending_effect: u16) -> Self {
+        r#"pub(crate) fn from_vm(vm: &mut Vm, pending_host_func: u16) -> Self {
                         "#,
     );
-    output.push_str("match pending_effect {");
+    output.push_str("match pending_host_func {");
     for (i, f) in inference_ctx.host_funcs.iter().enumerate() {
         output.push_str(&format!("{i} => {{"));
         let camel_name = heck::AsUpperCamelCase(&f.name.v).to_string();
@@ -193,7 +193,7 @@ use std::ffi::c_void;
         output.push_str(&format!("HostFunctionArgs::{camel_name}{args}"));
         output.push('}');
     }
-    output.push_str(r#"_ => panic!("unexpected tag encountered: {pending_effect}")"#);
+    output.push_str(r#"_ => panic!("unexpected tag encountered: {pending_host_func}")"#);
     output.push('}');
     output.push('}');
     output.push('}');

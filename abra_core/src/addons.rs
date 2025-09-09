@@ -17,6 +17,7 @@ use std::{
     path::{Path, PathBuf},
     rc::Rc,
 };
+use utils::swrite;
 
 //
 // C-compatible table of function pointers
@@ -286,7 +287,8 @@ pub fn generate_bindings_for_crate() {
 }
 
 fn write_header(output: &mut String, package_name: &str) {
-    output.push_str(&format!(
+    swrite!(
+        output,
         r#"// This is an auto-generated file.
         
         mod {package_name};
@@ -296,7 +298,7 @@ fn write_header(output: &mut String, package_name: &str) {
             use abra_core::addons::*;
             use std::ffi::c_void;
             "#
-    ));
+    )
 }
 
 fn add_items_from_ast(ast: Rc<FileAst>, output: &mut String) {

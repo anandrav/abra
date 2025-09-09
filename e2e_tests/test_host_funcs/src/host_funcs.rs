@@ -10,8 +10,8 @@ pub enum HostFunctionArgs {
     Bar(i64, i64),
 }
 impl HostFunctionArgs {
-    pub(crate) fn from_vm(vm: &mut Vm, pending_effect: u16) -> Self {
-        match pending_effect {
+    pub(crate) fn from_vm(vm: &mut Vm, pending_host_func: u16) -> Self {
+        match pending_host_func {
             0 => {
                 let arg0: String =
                     unsafe { <String>::from_vm(vm as *mut Vm as *mut c_void, &ABRA_VM_FUNCS) };
@@ -30,7 +30,7 @@ impl HostFunctionArgs {
                     unsafe { <i64>::from_vm(vm as *mut Vm as *mut c_void, &ABRA_VM_FUNCS) };
                 HostFunctionArgs::Bar(arg0, arg1)
             }
-            _ => panic!("unexpected tag encountered: {pending_effect}"),
+            _ => panic!("unexpected tag encountered: {pending_host_func}"),
         }
     }
 }
