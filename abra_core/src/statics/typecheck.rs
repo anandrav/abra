@@ -1771,13 +1771,16 @@ fn generate_constraints_stmt(
             }
         }
         StmtKind::Return(expr) => {
-            let expr_ty = TypeVar::from_node(ctx, expr.node());
-            generate_constraints_expr(ctx, polyvar_scope, mode, expr.clone());
             let enclosing_func_ret = ctx.func_ret_stack.last();
             match enclosing_func_ret {
                 Some(prov) => {
                     let ret_ty = TypeVar::fresh(ctx, prov.clone());
-                    constrain_because(ctx, expr_ty, ret_ty, ConstraintReason::ReturnValue);
+                    generate_constraints_expr(
+                        ctx,
+                        polyvar_scope,
+                        Mode::ana_reason(ret_ty, ConstraintReason::ReturnValue),
+                        expr.clone(),
+                    );
                 }
                 None => {
                     ctx.errors.push(Error::CantReturnHere { node: stmt.node() });

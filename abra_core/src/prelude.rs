@@ -296,7 +296,7 @@ extend array<T Equal> {
     fn find(self, x: T Equal) -> option<int> {
         for i in range(self.len()) {
             if self[i] == x {
-                return option.some(i) // todo remove qualifier
+                return .some(i)
             }
         }
         .none
