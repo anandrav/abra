@@ -261,7 +261,7 @@ implement Iterator for ArrayIterator<U> {
         if self.i == self.arr.len() {
             .none
         } else {
-            let ret = option.some(self.arr[self.i]) // todo remove qualifier
+            let ret = option.some(self.arr[self.i])
             self.i = self.i + 1
             ret
         }
