@@ -291,13 +291,13 @@ fn write_header(output: &mut String, package_name: &str) {
         output,
         r#"// This is an auto-generated file.
         
-        mod {package_name};
-        pub mod ffi {{
-            pub mod {package_name} {{
-            use crate::{package_name};
-            use abra_core::addons::*;
-            use std::ffi::c_void;
-            "#
+mod {package_name};
+pub mod ffi {{
+    pub mod {package_name} {{
+    use crate::{package_name};
+    use abra_core::addons::*;
+    use std::ffi::c_void;
+    "#
     )
 }
 
@@ -306,29 +306,33 @@ fn add_items_from_ast(ast: Rc<FileAst>, output: &mut String) {
         match &*item.kind {
             ItemKind::TypeDef(tydef) => match &**tydef {
                 TypeDefKind::Struct(s) => {
-                    output.push_str(&format!(
+                    swrite!(
+                        output,
                         r#"pub struct {} {{
-                    "#,
+"#,
                         s.name.v
-                    ));
+                    );
                     for field in &s.fields {
                         let tyname = name_of_ty(&field.ty);
-                        output.push_str(&format!(
+                        swrite!(
+                            output,
                             r#"pub {}: {},
-                        "#,
-                            field.name.v, tyname
-                        ));
+"#,
+                            field.name.v,
+                            tyname
+                        );
                     }
                     output.push('}');
 
-                    output.push_str(&format!(
+                    swrite!(
+                        output,
                         r#"impl VmType for {} {{
-                    "#,
+"#,
                         s.name.v
-                    ));
+                    );
                     output.push_str(
                         r#"unsafe fn from_vm(vm: *mut c_void, vm_funcs: &AbraVmFunctions) -> Self {
-                        "#,
+"#,
                     );
                     output.push_str("unsafe {");
                     output.push_str("(vm_funcs.deconstruct)(vm);");
@@ -336,26 +340,28 @@ fn add_items_from_ast(ast: Rc<FileAst>, output: &mut String) {
                         if matches!(&*field.ty.kind, TypeKind::Void) {
                             output.push_str(
                                 r#"(vm_funcs.pop_nil)(vm);
-                            "#,
+"#,
                             );
                         } else {
                             let tyname = name_of_ty(&field.ty);
-                            output.push_str(&format!(
+                            swrite!(
+                                output,
                                 r#"let {} = <{}>::from_vm(vm, vm_funcs);
-                            "#,
-                                field.name.v, tyname
-                            ));
+"#,
+                                field.name.v,
+                                tyname
+                            );
                         }
                     }
                     output.push_str(
                         r#"Self {
-                    "#,
+"#,
                     );
                     for field in &s.fields {
                         if matches!(&*field.ty.kind, TypeKind::Void) {
-                            output.push_str(&format!("{}: (),", field.name.v));
+                            swrite!(output, "{}: (),", field.name.v);
                         } else {
-                            output.push_str(&format!("{},", field.name.v));
+                            swrite!(output, "{},", field.name.v);
                         }
                     }
                     output.push('}');
@@ -365,25 +371,27 @@ fn add_items_from_ast(ast: Rc<FileAst>, output: &mut String) {
 
                     output.push_str(
                         r#"unsafe fn to_vm(self, vm: *mut c_void, vm_funcs: &AbraVmFunctions) {
-                        "#,
+"#,
                     );
                     output.push_str("unsafe {");
                     for field in s.fields.iter() {
                         if matches!(&*field.ty.kind, TypeKind::Void) {
                             output.push_str("(vm_funcs.push_nil)(vm);");
                         } else {
-                            output.push_str(&format!(
+                            swrite!(
+                                output,
                                 r#"self.{}.to_vm(vm, vm_funcs);
-                            "#,
+"#,
                                 field.name.v
-                            ));
+                            );
                         }
                     }
 
-                    output.push_str(&format!(
+                    swrite!(
+                        output,
                         "(vm_funcs.construct_struct)(vm, {});",
                         s.fields.len()
-                    ));
+                    );
 
                     output.push('}');
 
@@ -391,17 +399,14 @@ fn add_items_from_ast(ast: Rc<FileAst>, output: &mut String) {
                     output.push('}');
                 }
                 TypeDefKind::Enum(e) => {
-                    output.push_str(&format!(
+                    swrite!(
+                        output,
                         r#"pub enum {} {{
-                    "#,
+"#,
                         e.name.v
-                    ));
+                    );
                     for variant in &e.variants {
-                        output.push_str(&format!(
-                            r#"{}
-                        "#,
-                            variant.ctor.v
-                        ));
+                        swrite!(output, "{}", variant.ctor.v);
                         if let Some(ty) = &variant.data {
                             output.push('(');
                             output.push_str(&name_of_ty(ty));
@@ -411,14 +416,15 @@ fn add_items_from_ast(ast: Rc<FileAst>, output: &mut String) {
                     }
                     output.push('}');
 
-                    output.push_str(&format!(
+                    swrite!(
+                        output,
                         r#"impl VmType for {} {{
-                    "#,
+"#,
                         e.name.v
-                    ));
+                    );
                     output.push_str(
                         r#"unsafe fn from_vm(vm: *mut c_void, vm_funcs: &AbraVmFunctions) -> Self {
-                        "#,
+"#,
                     );
 
                     output.push_str("unsafe {");
@@ -429,14 +435,15 @@ fn add_items_from_ast(ast: Rc<FileAst>, output: &mut String) {
                         output.push_str(&format!("{i} => {{"));
                         if let Some(ty) = &variant.data {
                             let tyname = name_of_ty(ty);
-                            output.push_str(&format!(
+                            swrite!(
+                                output,
                                 r#"let value: {tyname} = <{tyname}>::from_vm(vm, vm_funcs);
-                            "#
-                            ));
-                            output.push_str(&format!("{}::{}(value)", e.name.v, variant.ctor.v));
+"#
+                            );
+                            swrite!(output, "{}::{}(value)", e.name.v, variant.ctor.v);
                         } else {
                             output.push_str("(vm_funcs.pop_nil)(vm);");
-                            output.push_str(&format!("{}::{}", e.name.v, variant.ctor.v));
+                            swrite!(output, "{}::{}", e.name.v, variant.ctor.v);
                         }
                         output.push('}');
                     }
@@ -449,23 +456,20 @@ fn add_items_from_ast(ast: Rc<FileAst>, output: &mut String) {
 
                     output.push_str(
                         r#"unsafe fn to_vm(self, vm: *mut c_void, vm_funcs: &AbraVmFunctions) {
-                        "#,
+"#,
                     );
                     output.push_str("unsafe {");
 
                     output.push_str("match self {");
                     for (i, variant) in e.variants.iter().enumerate() {
                         if variant.data.is_some() {
-                            output.push_str(&format!(
-                                "{}::{}(value) => {{",
-                                e.name.v, variant.ctor.v
-                            ));
+                            swrite!(output, "{}::{}(value) => {{", e.name.v, variant.ctor.v);
                             output.push_str("value.to_vm(vm, vm_funcs);");
-                            output.push_str(&format!("(vm_funcs.construct_variant)(vm, {i});"));
+                            swrite!(output, "(vm_funcs.construct_variant)(vm, {i});");
                         } else {
-                            output.push_str(&format!("{}::{} => {{", e.name.v, variant.ctor.v));
+                            swrite!(output, "{}::{} => {{", e.name.v, variant.ctor.v);
                             output.push_str("(vm_funcs.push_nil)(vm);");
-                            output.push_str(&format!("(vm_funcs.construct_variant)(vm, {i});"));
+                            swrite!(output, "(vm_funcs.construct_variant)(vm, {i});");
                         }
                         output.push('}');
                     }
@@ -487,11 +491,12 @@ fn add_items_from_ast(ast: Rc<FileAst>, output: &mut String) {
                 let package_name = elems.last().unwrap().to_string();
                 let symbol = make_foreign_func_name(&f.name.v, &elems);
 
-                output.push_str(&format!("#[unsafe(export_name = \"{symbol}\")]"));
-                output.push_str(&format!(
+                swrite!(output, "#[unsafe(export_name = \"{symbol}\")]");
+                swrite!(
+                    output,
                     "pub unsafe extern \"C\" fn {}(vm: *mut c_void, vm_funcs: *const AbraVmFunctions) {{",
                     f.name.v,
-                ));
+                );
                 output.push_str("unsafe {");
 
                 output.push_str("let vm_funcs: &AbraVmFunctions = &*vm_funcs;");
@@ -501,30 +506,35 @@ fn add_items_from_ast(ast: Rc<FileAst>, output: &mut String) {
                     if matches!(&*ty.kind, TypeKind::Void) {
                         output.push_str(
                             r#"(vm_funcs.pop_nil)(vm);
-                        "#,
+"#,
                         );
                     } else {
                         let tyname = name_of_ty(ty);
-                        output.push_str(&format!(
+                        swrite!(
+                            output,
                             r#"let {} = <{}>::from_vm(vm, vm_funcs);
-                        "#,
-                            name.v, tyname
-                        ));
+"#,
+                            name.v,
+                            tyname
+                        );
                     }
                 }
                 // call the user's implementation
                 let out_ty = &f.ret_type;
                 let out_ty_name = name_of_ty(out_ty);
-                output.push_str(&format!(
+                swrite!(
+                    output,
                     "let ret: {} = {}::{}(",
-                    out_ty_name, package_name, f.name.v
-                ));
+                    out_ty_name,
+                    package_name,
+                    f.name.v
+                );
                 for (name, typ) in f.args.iter() {
                     let Some(typ) = typ else { panic!() };
                     if matches!(&*typ.kind, TypeKind::Void) {
                         output.push_str("(),");
                     } else {
-                        output.push_str(&format!("{},", name.v));
+                        swrite!(output, "{},", name.v);
                     }
                 }
                 output.push_str(");");

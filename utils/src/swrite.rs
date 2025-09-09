@@ -15,7 +15,6 @@
 /// swrite!(s, ", number: {}", 123);
 /// assert_eq!(s, "Hello world, number: 123");
 /// ```
-
 #[macro_export]
 macro_rules! swrite {
     ($s:expr, $($arg:tt)*) => {{

@@ -31,6 +31,7 @@ pub use prelude::PRELUDE;
 use statics::Error;
 use translate_bytecode::CompiledProgram;
 use translate_bytecode::Translator;
+use utils::swrite;
 
 pub fn abra_hello_world() {
     println!("Hello, world!");
@@ -119,7 +120,7 @@ pub fn generate_host_function_enum(
     let (file_asts, file_db) = get_files(main_file_name, &*file_provider)?;
     let inference_ctx = statics::analyze(&file_asts, &file_db, file_provider)?;
 
-    let mut output = String::new();
+    let output = &mut String::new();
     output.push_str(
         r#"// This is an auto-generated file.
 
@@ -151,7 +152,7 @@ use std::ffi::c_void;
                 s
             }
         };
-        output.push_str(&format!("{camel_name}{args},"));
+        swrite!(output, "{camel_name}{args},");
     }
     output.push_str(
         r#"
@@ -169,15 +170,17 @@ use std::ffi::c_void;
     );
     output.push_str("match pending_host_func {");
     for (i, f) in inference_ctx.host_funcs.iter().enumerate() {
-        output.push_str(&format!("{i} => {{"));
+        swrite!(output, "{i} => {{");
         let camel_name = heck::AsUpperCamelCase(&f.name.v).to_string();
         for (i, arg) in f.args.iter().enumerate() {
             let ty = arg.1.clone().unwrap();
             let tyname = name_of_ty(&ty);
-            output.push_str(&format!(
+            swrite!(
+                output,
                 r#"let arg{}: {tyname} = unsafe {{ <{tyname}>::from_vm(vm as *mut Vm as *mut c_void, &ABRA_VM_FUNCS) }};
-                            "#, i
-            ));
+                            "#,
+                i
+            );
         }
         let mut args = String::new();
         if !f.args.is_empty() {
@@ -190,7 +193,7 @@ use std::ffi::c_void;
             }
             args.push(')');
         }
-        output.push_str(&format!("HostFunctionArgs::{camel_name}{args}"));
+        swrite!(output, "HostFunctionArgs::{camel_name}{args}");
         output.push('}');
     }
     output.push_str(r#"_ => panic!("unexpected tag encountered: {pending_host_func}")"#);
@@ -224,7 +227,7 @@ pub enum HostFunctionRet {
                 }
             }
         };
-        output.push_str(&format!("{camel_name}{out},"));
+        swrite!(output, "{camel_name}{out},");
     }
     output.push_str(
         r#"
@@ -260,7 +263,7 @@ pub enum HostFunctionRet {
                 _ => "(out)".into(),
             }
         };
-        output.push_str(&format!("HostFunctionRet::{}{out} => {{", camel_name));
+        swrite!(output, "HostFunctionRet::{}{out} => {{", camel_name);
         let out_val = {
             match &*f.ret_type.kind {
                 TypeKind::Void => "()".to_string(),
@@ -268,10 +271,11 @@ pub enum HostFunctionRet {
                 _ => "out".into(),
             }
         };
-        output.push_str(&format!(
+        swrite!(
+            output,
             r#"unsafe {{ {out_val}.to_vm(vm as *mut Vm as *mut c_void, &ABRA_VM_FUNCS) }};
                             "#
-        ));
+        );
         output.push('}');
         output.push(',');
     }
