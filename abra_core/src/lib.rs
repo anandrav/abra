@@ -208,7 +208,6 @@ pub enum HostFunctionRet {
         let out = {
             match &*f.ret_type.kind {
                 TypeKind::Void => "".to_string(),
-                // TODO: code duplication with HostFunctionArgs and also the _ case could use same logic
                 TypeKind::Tuple(elems) => {
                     let mut s = "(".to_string();
                     for (i, ty) in elems.iter().enumerate() {
@@ -257,13 +256,11 @@ pub enum HostFunctionRet {
         let out = {
             match &*f.ret_type.kind {
                 TypeKind::Void => "".to_string(),
-                // TODO: code duplication with HostFunctionArgs and also the _ case could use same logic
                 TypeKind::Tuple(elems) => tuple_helper(elems),
                 _ => "(out)".into(),
             }
         };
         output.push_str(&format!("HostFunctionRet::{}{out} => {{", camel_name));
-        // TODO: code duplication? verbose?
         let out_val = {
             match &*f.ret_type.kind {
                 TypeKind::Void => "()".to_string(),
