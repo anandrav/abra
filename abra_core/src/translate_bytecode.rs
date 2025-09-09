@@ -264,11 +264,7 @@ impl Translator {
                     self.emit(st, return_label);
 
                     if locals_count + nargs > 0 {
-                        // pop all locals and arguments except one. The last one is the return value slot.
                         self.emit(st, Instr::StoreOffset(-(nargs as i32)));
-                        for _ in 0..(locals_count + nargs - 1) {
-                            self.emit(st, Instr::Pop);
-                        }
                     }
 
                     self.emit(st, Instr::Return);
@@ -719,9 +715,15 @@ impl Translator {
     ) {
         match &resolution {
             Declaration::Var(node) => {
+                let Some(SolvedType::Function(args, _)) =
+                    self.statics.solution_of_node(node.clone())
+                else {
+                    unreachable!()
+                };
                 // assume it's a function object
                 let idx = offset_table.get(&node.id()).unwrap();
                 self.emit(st, Instr::LoadOffset(*idx));
+                self.emit(st, Instr::PushInt(args.len() as AbraInt));
                 self.emit(st, Instr::CallFuncObj);
             }
             Declaration::FreeFunction(f) => {
@@ -1240,6 +1242,7 @@ impl Translator {
             overload_ty: overload_ty.clone(),
         };
         let label = self.get_func_label(st, desc, overload_ty, func_name);
+        self.emit(st, Instr::PushInt(func_def.args.len() as AbraInt));
         self.emit(st, Instr::Call(label));
     }
 

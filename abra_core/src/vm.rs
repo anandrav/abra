@@ -140,12 +140,17 @@ impl Vm {
 
     pub fn with_entry_point(program: CompiledProgram, entry_point: String) -> Self {
         dbg!(&entry_point);
+        let end = program.instructions.len();
         Self {
             program: program.instructions,
             pc: program.label_map[&entry_point],
             stack_base: 0,
             value_stack: Vec::new(),
-            call_stack: Vec::new(),
+            call_stack: vec![CallFrame {
+                pc: end,
+                stack_base: 0,
+                stack_size: 1,
+            }],
             heap: Vec::new(),
             heap_group: HeapGroup::One,
 
@@ -556,6 +561,7 @@ impl Value {
 struct CallFrame {
     pc: ProgramCounter,
     stack_base: usize,
+    stack_size: usize,
 }
 
 // ReferenceType
@@ -874,18 +880,22 @@ impl Vm {
                 }
             }
             Instr::Call(target) => {
+                let nargs = self.pop_int()?;
                 self.call_stack.push(CallFrame {
                     pc: self.pc,
                     stack_base: self.stack_base,
+                    stack_size: self.value_stack.len() - nargs as usize + 1,
                 });
                 self.pc = target;
                 self.stack_base = self.value_stack.len();
             }
             Instr::CallFuncObj => {
+                let nargs = self.pop_int()?;
                 let addr = self.pop_addr()?;
                 self.call_stack.push(CallFrame {
                     pc: self.pc,
                     stack_base: self.stack_base,
+                    stack_size: self.value_stack.len() - nargs as usize + 1,
                 });
                 self.pc = addr;
                 self.stack_base = self.value_stack.len();
@@ -900,6 +910,9 @@ impl Vm {
                     };
                     self.pc = frame.pc;
                     self.stack_base = frame.stack_base;
+                    while self.value_stack.len() > frame.stack_size {
+                        self.pop()?;
+                    }
                 }
             }
             Instr::Panic => {
