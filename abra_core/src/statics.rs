@@ -638,9 +638,13 @@ impl Error {
         term::emit(&mut writer.lock(), &config, files, &diagnostic).unwrap();
     }
 
-    pub fn to_string(&self, files: &FileDatabase) -> String {
+    pub fn to_string(&self, files: &FileDatabase, ansi: bool) -> String {
         let diagnostic = self.make_diagnostic();
-        let mut buffer = Buffer::no_color();
+        let mut buffer = if ansi {
+            Buffer::ansi()
+        } else {
+            Buffer::no_color()
+        };
         let config = term::Config::default();
 
         term::emit(&mut buffer, &config, files, &diagnostic).unwrap();

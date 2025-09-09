@@ -4,14 +4,13 @@
 
 // functions used for testing
 
-use std::fmt::Display;
+use abra_core::ErrorSummary;
 
-pub fn unwrap_or_panic<T, E: Display>(result: Result<T, E>) -> T {
+pub fn unwrap_or_panic<T>(result: Result<T, ErrorSummary>) -> T {
     match result {
         Ok(value) => value,
         Err(e) => {
-            eprintln!("Error: {e}");
-            panic!("Exiting due to error.");
+            panic!("{}", e.to_string_ansi());
         }
     }
 }

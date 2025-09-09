@@ -81,6 +81,17 @@ impl ErrorSummary {
             }
         }
     }
+
+    pub fn to_string_ansi(&self) -> String {
+        let mut s = String::new();
+        s.push_str(&self.msg);
+        if let Some((file_db, errors)) = &self.more {
+            for error in errors {
+                s.push_str(&error.to_string(file_db, true));
+            }
+        }
+        s
+    }
 }
 
 impl Display for ErrorSummary {
@@ -88,7 +99,7 @@ impl Display for ErrorSummary {
         writeln!(f, "{}", self.msg)?;
         if let Some((file_db, errors)) = &self.more {
             for error in errors {
-                writeln!(f, "{}", error.to_string(file_db))?;
+                writeln!(f, "{}", error.to_string(file_db, false))?;
             }
         }
         Ok(())
