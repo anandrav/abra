@@ -2166,18 +2166,17 @@ fn generate_constraints_expr(
                 cond.clone(),
             );
 
-            generate_constraints_expr(
+            generate_constraints_expr(ctx, polyvar_scope.clone(), mode.clone(), expr1.clone());
+            generate_constraints_expr(ctx, polyvar_scope.clone(), mode.clone(), expr2.clone());
+            let expr1_ty = TypeVar::from_node(ctx, expr1.node());
+            let expr2_ty = TypeVar::from_node(ctx, expr2.node());
+            constrain_because(
                 ctx,
-                polyvar_scope.clone(),
-                Mode::ana(node_ty.clone()),
-                expr1.clone(),
+                expr1_ty.clone(),
+                expr2_ty,
+                ConstraintReason::IfElseBodies,
             );
-            generate_constraints_expr(
-                ctx,
-                polyvar_scope.clone(),
-                Mode::ana_reason(node_ty.clone(), ConstraintReason::IfElseBodies),
-                expr2.clone(),
-            );
+            constrain(ctx, expr1_ty, node_ty);
         }
         ExprKind::Match(scrut, arms) => {
             let ty_scrutiny = TypeVar::from_node(ctx, scrut.node());

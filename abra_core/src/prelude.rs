@@ -259,9 +259,9 @@ type ArrayIterator<U> = {
 implement Iterator for ArrayIterator<U> {
     fn next(self) -> option<U> {
         if self.i == self.arr.len() {
-            option.none
+            .none
         } else {
-            let ret = option.some(self.arr[self.i])
+            let ret = option.some(self.arr[self.i]) // todo remove qualifier
             self.i = self.i + 1
             ret
         }
@@ -296,16 +296,16 @@ extend array<T Equal> {
     fn find(self, x: T Equal) -> option<int> {
         for i in range(self.len()) {
             if self[i] == x {
-                return option.some(i)
+                return option.some(i) // todo remove qualifier
             }
         }
-        option.none
+        .none
     }
 
     fn contains(self, x: T Equal) -> bool {
         match self.find(x) {
-            option.some(_) -> true,
-            option.none -> false,
+            .some(_) -> true,
+            .none -> false,
         }
     }
 }
