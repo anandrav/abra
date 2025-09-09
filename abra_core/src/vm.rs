@@ -910,9 +910,7 @@ impl Vm {
                     };
                     self.pc = frame.pc;
                     self.stack_base = frame.stack_base;
-                    while self.value_stack.len() > frame.stack_size {
-                        self.pop()?;
-                    }
+                    self.value_stack.truncate(frame.stack_size);
                 }
             }
             Instr::Panic => {
