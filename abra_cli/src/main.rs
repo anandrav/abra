@@ -144,7 +144,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             }
         }
         Err(err) => {
-            eprintln!("{err}");
+            err.emit();
             exit(1);
         }
     }

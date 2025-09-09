@@ -8,6 +8,7 @@ use ast::FileId;
 use ast::ItemKind;
 use core::fmt;
 use std::collections::VecDeque;
+use std::fmt::{Display, Formatter};
 use std::path::Path;
 use std::path::PathBuf;
 use std::process::Command;
@@ -52,13 +53,49 @@ pub fn source_files_single(src: &str) -> Vec<FileData> {
 pub fn compile_bytecode(
     main_file_name: &str,
     file_provider: Box<dyn FileProvider>,
-) -> Result<CompiledProgram, String> {
-    let (file_asts, file_db) = get_files(main_file_name, &*file_provider)?;
+) -> Result<CompiledProgram, ErrorSummary> {
+    let (file_asts, file_db) =
+        get_files(main_file_name, &*file_provider).map_err(ErrorSummary::msg)?;
     let inference_ctx = statics::analyze(&file_asts, &file_db, file_provider)?;
 
     let translator = Translator::new(inference_ctx, file_db, file_asts);
     Ok(translator.translate())
 }
+
+#[derive(Debug)]
+pub struct ErrorSummary {
+    msg: String,
+    more: Option<(FileDatabase, Vec<Error>)>,
+}
+
+impl ErrorSummary {
+    fn msg(msg: String) -> Self {
+        Self { msg, more: None }
+    }
+
+    pub fn emit(&self) {
+        eprintln!("{}", self.msg);
+        if let Some((file_db, errors)) = &self.more {
+            for error in errors {
+                error.emit(file_db);
+            }
+        }
+    }
+}
+
+impl Display for ErrorSummary {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        writeln!(f, "{}", self.msg)?;
+        if let Some((file_db, errors)) = &self.more {
+            for error in errors {
+                writeln!(f, "{}", error.to_string(file_db))?;
+            }
+        }
+        Ok(())
+    }
+}
+
+impl std::error::Error for ErrorSummary {}
 
 fn get_files(
     main_file_name: &str,
@@ -116,8 +153,9 @@ pub fn generate_host_function_enum(
     main_file_name: &str,
     file_provider: Box<dyn FileProvider>,
     destination: &Path,
-) -> Result<(), String> {
-    let (file_asts, file_db) = get_files(main_file_name, &*file_provider)?;
+) -> Result<(), ErrorSummary> {
+    let (file_asts, file_db) =
+        get_files(main_file_name, &*file_provider).map_err(ErrorSummary::msg)?;
     let inference_ctx = statics::analyze(&file_asts, &file_db, file_provider)?;
 
     let output = &mut String::new();
@@ -322,7 +360,8 @@ pub enum HostFunctionRet {
     Command::new("rustfmt")
         .arg(destination)
         .status()
-        .map_err(|e| e.to_string())?;
+        .map_err(|e| e.to_string())
+        .map_err(ErrorSummary::msg)?;
 
     Ok(())
 }

@@ -2,12 +2,12 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use crate::FileProvider;
 use crate::ast::{
     AstNode, EnumDef, FileAst, FileDatabase, FileId, FuncDecl, FuncDef, InterfaceDef,
     InterfaceImpl, InterfaceOutputType, NodeId, Polytype, StructDef, Type as AstType, TypeKind,
 };
 use crate::builtin::{BuiltinOperation, BuiltinType};
+use crate::{ErrorSummary, FileProvider};
 use resolve::{resolve, scan_declarations};
 use std::fmt::{self, Display, Formatter};
 use std::ops::Range;
@@ -24,7 +24,7 @@ mod resolve;
 pub(crate) mod typecheck;
 use codespan_reporting::diagnostic::{Diagnostic, Label};
 use codespan_reporting::term;
-use codespan_reporting::term::termcolor::{ColorChoice, StandardStream};
+use codespan_reporting::term::termcolor::{Buffer, ColorChoice, StandardStream};
 use pat_exhaustiveness::{DeconstructedPat, check_pattern_exhaustiveness_and_usefulness};
 pub(crate) use typecheck::Prov as TypeProv;
 pub(crate) use typecheck::SolvedType as Type;
@@ -259,7 +259,7 @@ impl Declaration {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub(crate) enum Error {
     Generic {
         msg: String,
@@ -336,7 +336,7 @@ pub(crate) fn analyze(
     file_asts: &Vec<Rc<FileAst>>,
     files: &FileDatabase,
     file_provider: Box<dyn FileProvider>,
-) -> Result<StaticsContext, String> {
+) -> Result<StaticsContext, ErrorSummary> {
     let mut ctx = StaticsContext::new(files.clone(), file_provider);
 
     // scan declarations across all files
@@ -357,21 +357,21 @@ pub(crate) fn analyze(
     Ok(ctx)
 }
 
-pub(crate) fn check_errors(ctx: &StaticsContext, files: &FileDatabase) -> Result<(), String> {
+pub(crate) fn check_errors(ctx: &StaticsContext, files: &FileDatabase) -> Result<(), ErrorSummary> {
     if ctx.errors.is_empty() {
         return Ok(());
     }
 
-    for error in &ctx.errors {
-        error.show(ctx, files);
-    }
-
-    Err("Failed to compile.".to_string())
+    // TODO: don't clone files and errors
+    Err(ErrorSummary {
+        msg: "".to_string(),
+        more: Some((files.clone(), ctx.errors.clone())),
+    })
 }
 
 // TODO: move this error stuff to statics/error_reporting.rs or something like that. it's half the file
 impl Error {
-    fn show(&self, _ctx: &StaticsContext, files: &FileDatabase) {
+    fn make_diagnostic(&self) -> Diagnostic<FileId> {
         // dbg!(self);
         let mut diagnostic = Diagnostic::error();
         let mut labels = Vec::new();
@@ -396,14 +396,8 @@ impl Error {
             } => {
                 diagnostic =
                     diagnostic.with_message(format!("`{name}` was declared more than once"));
-                add_detail_for_decl(
-                    _ctx,
-                    &mut labels,
-                    &mut notes,
-                    original,
-                    "first declared here",
-                );
-                add_detail_for_decl(_ctx, &mut labels, &mut notes, new, "then declared here");
+                add_detail_for_decl(&mut labels, &mut notes, original, "first declared here");
+                add_detail_for_decl(&mut labels, &mut notes, new, "then declared here");
             }
             Error::UnresolvedIdentifier { node } => {
                 let (file, range) = node.get_file_and_range();
@@ -633,10 +627,24 @@ impl Error {
         diagnostic = diagnostic.with_labels(labels);
         diagnostic = diagnostic.with_notes(notes);
 
+        diagnostic
+    }
+
+    pub fn emit(&self, files: &FileDatabase) {
+        let diagnostic = self.make_diagnostic();
         let writer = StandardStream::stderr(ColorChoice::Always);
-        let config = codespan_reporting::term::Config::default();
+        let config = term::Config::default();
 
         term::emit(&mut writer.lock(), &config, files, &diagnostic).unwrap();
+    }
+
+    pub fn to_string(&self, files: &FileDatabase) -> String {
+        let diagnostic = self.make_diagnostic();
+        let mut buffer = Buffer::no_color(); // color? ansi?
+        let config = term::Config::default();
+
+        term::emit(&mut buffer, &config, files, &diagnostic).unwrap();
+        String::from_utf8(buffer.into_inner()).unwrap()
     }
 }
 
@@ -685,14 +693,13 @@ fn handle_reason(
 }
 
 fn add_detail_for_decl(
-    ctx: &StaticsContext,
     labels: &mut Vec<Label<u32>>,
     notes: &mut Vec<String>,
     decl: &Declaration,
     message: &str,
 ) {
     // TODO: this is hacky
-    if add_detail_for_decl_node(ctx, labels, decl, message) {
+    if add_detail_for_decl_node(labels, decl, message) {
         return;
     }
     match decl {
@@ -719,7 +726,6 @@ fn add_detail_for_decl(
 }
 
 fn add_detail_for_decl_node(
-    _ctx: &StaticsContext,
     labels: &mut Vec<Label<u32>>,
     decl: &Declaration,
     message: &str,
