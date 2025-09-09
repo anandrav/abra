@@ -129,7 +129,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                         }
                         HostFunctionArgs::Readline => {
                             let mut input = String::new();
-                            std::io::stdin().read_line(&mut input).unwrap();
+                            io::stdin().read_line(&mut input).unwrap();
                             // remove trailing newline
                             if input.ends_with('\n') {
                                 input.pop();
@@ -145,7 +145,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
         Err(err) => {
             eprintln!("{err}");
-            std::process::exit(1);
+            exit(1);
         }
     }
 }
