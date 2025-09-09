@@ -2,13 +2,13 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
- WHITESPACE = _{ space | tab | NEWLINE | COMMENT }
+WHITESPACE = _{ space | tab | NEWLINE | COMMENT | shebang }
 space = { " " }
 tab = { "\t" }
-
 COMMENT = _{ LINE_COMMENT | MULTI_LINE_COMMENT }
 LINE_COMMENT = _{ "//" ~ (!NEWLINE ~ ANY)* ~ NEWLINE? }
 MULTI_LINE_COMMENT = _{ "/*" ~ (!"*/" ~ ANY)* ~ "*/" }
+shebang = _{ "#!" ~ (!NEWLINE ~ ANY)* ~ NEWLINE? }
 
 file = _{ SOI ~ file_item* ~ EOI }
 
