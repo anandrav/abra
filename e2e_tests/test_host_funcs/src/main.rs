@@ -43,7 +43,6 @@ fn main() -> Result<(), Box<dyn Error>> {
             HostFunctionRet::Bar(n1 * 2, n2 * 2).into_vm(&mut vm);
         }
     }
-    vm.clear_pending_host_func();
     vm.run();
     let top = vm.top().unwrap();
     assert_eq!(top.get_int(&vm).unwrap(), 10);

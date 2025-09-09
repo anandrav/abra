@@ -75,5 +75,6 @@ impl HostFunctionRet {
                 unsafe { (out0, out1).to_vm(vm as *mut Vm as *mut c_void, &ABRA_VM_FUNCS) };
             }
         }
+        vm.clear_pending_host_func()
     }
 }

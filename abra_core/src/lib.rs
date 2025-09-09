@@ -313,6 +313,7 @@ pub enum HostFunctionRet {
         output.push(',');
     }
     output.push('}');
+    output.push_str("vm.clear_pending_host_func()");
     output.push('}');
     output.push('}');
 

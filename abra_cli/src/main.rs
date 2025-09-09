@@ -140,7 +140,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                             HostFunctionRet::Readline(input).into_vm(&mut vm);
                         }
                     }
-                    vm.clear_pending_host_func();
                 }
             }
         }
