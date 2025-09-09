@@ -104,7 +104,7 @@ print_string("hello world")
     let mut vm = Vm::new(program);
     vm.run();
     let top = vm.top().unwrap();
-    assert_eq!(top.get_string(&vm).unwrap(), "hello world");
+    assert_eq!(top.view_string(&vm).unwrap(), "hello world");
     vm.pop().unwrap();
     vm.push_nil();
     vm.clear_pending_host_func();
@@ -133,7 +133,7 @@ one & two
     let mut vm = Vm::new(program);
     vm.run();
     let top = vm.top().unwrap();
-    assert_eq!(top.get_string(&vm).unwrap(), "1one");
+    assert_eq!(top.view_string(&vm).unwrap(), "1one");
 }
 
 #[test]
@@ -156,7 +156,7 @@ one & two
     let mut vm = Vm::new(program);
     vm.run();
     let top = vm.top().unwrap();
-    assert_eq!(top.get_string(&vm).unwrap(), "1one");
+    assert_eq!(top.view_string(&vm).unwrap(), "1one");
 }
 
 #[test]
@@ -178,7 +178,7 @@ x.name
     let mut vm = Vm::new(program);
     vm.run();
     let top = vm.top().unwrap();
-    assert_eq!(top.get_string(&vm).unwrap(), "Bob");
+    assert_eq!(top.view_string(&vm).unwrap(), "Bob");
 }
 
 #[test]
@@ -646,7 +646,7 @@ s
     let mut vm = Vm::new(program);
     vm.run();
     let top = vm.top().unwrap();
-    assert_eq!(top.get_string(&vm).unwrap(), "hello world");
+    assert_eq!(top.view_string(&vm).unwrap(), "hello world");
 }
 
 #[test]
@@ -661,7 +661,7 @@ ToString.str(123)
     let mut vm = Vm::new(program);
     vm.run();
     let top = vm.top().unwrap();
-    assert_eq!(top.get_string(&vm).unwrap(), "123");
+    assert_eq!(top.view_string(&vm).unwrap(), "123");
 }
 
 #[test]
@@ -677,7 +677,7 @@ ToString.str(123.456)
     let mut vm = Vm::new(program);
     vm.run();
     let top = vm.top().unwrap();
-    assert_eq!(top.get_string(&vm).unwrap(), "123.456");
+    assert_eq!(top.view_string(&vm).unwrap(), "123.456");
 }
 
 #[test]
@@ -693,7 +693,7 @@ ToString.str(nums)
     let mut vm = Vm::new(program);
     vm.run();
     let top = vm.top().unwrap();
-    assert_eq!(top.get_string(&vm).unwrap(), "(1, 2, 3)");
+    assert_eq!(top.view_string(&vm).unwrap(), "(1, 2, 3)");
 }
 
 #[test]
@@ -865,7 +865,7 @@ my_entry_point()
     let mut vm = Vm::with_entry_point(program, "main.my_entry_point".to_owned());
     vm.run();
     let top = vm.top().unwrap();
-    assert_eq!(top.get_string(&vm).unwrap(), "hello world");
+    assert_eq!(top.view_string(&vm).unwrap(), "hello world");
     vm.pop().unwrap();
     vm.push_nil();
     vm.clear_pending_host_func();
@@ -1089,7 +1089,7 @@ format_append(format_append(123, true), false)
     let mut vm = Vm::new(program);
     vm.run();
     let top = vm.top().unwrap();
-    assert_eq!(top.get_string(&vm).unwrap(), "123truefalse");
+    assert_eq!(top.view_string(&vm).unwrap(), "123truefalse");
 }
 
 #[test]
@@ -1104,7 +1104,7 @@ fn ampersand() {
     let mut vm = Vm::new(program);
     vm.run();
     let top = vm.top().unwrap();
-    assert_eq!(top.get_string(&vm).unwrap(), "123truefalse");
+    assert_eq!(top.view_string(&vm).unwrap(), "123truefalse");
 }
 
 #[test]
@@ -1207,7 +1207,7 @@ p.fullname() & " " & c.shout()
     let mut vm = Vm::new(program);
     vm.run();
     let top = vm.top().unwrap();
-    assert_eq!(top.get_string(&vm).unwrap(), "Anand Dukkipati red!");
+    assert_eq!(top.view_string(&vm).unwrap(), "Anand Dukkipati red!");
 }
 
 #[test]
@@ -1251,7 +1251,7 @@ p.fullname() & " " & c.fullname()
     let mut vm = Vm::new(program);
     vm.run();
     let top = vm.top().unwrap();
-    assert_eq!(top.get_string(&vm).unwrap(), "Anand Dukkipati red!");
+    assert_eq!(top.view_string(&vm).unwrap(), "Anand Dukkipati red!");
 }
 
 #[test]
@@ -1294,7 +1294,7 @@ Person.fullname(p) & " " & Color.shout(Color.Red)
     let mut vm = Vm::new(program);
     vm.run();
     let top = vm.top().unwrap();
-    assert_eq!(top.get_string(&vm).unwrap(), "Anand Dukkipati red!");
+    assert_eq!(top.view_string(&vm).unwrap(), "Anand Dukkipati red!");
 }
 
 #[test]
@@ -1310,7 +1310,7 @@ ToString.str(blah)
     let mut vm = Vm::new(program);
     vm.run();
     let top = vm.top().unwrap();
-    assert_eq!(top.get_string(&vm).unwrap(), "12345");
+    assert_eq!(top.view_string(&vm).unwrap(), "12345");
 }
 
 #[test]
@@ -1326,7 +1326,7 @@ blah.str()
     let mut vm = Vm::new(program);
     vm.run();
     let top = vm.top().unwrap();
-    assert_eq!(top.get_string(&vm).unwrap(), "12345");
+    assert_eq!(top.view_string(&vm).unwrap(), "12345");
 }
 
 #[test]

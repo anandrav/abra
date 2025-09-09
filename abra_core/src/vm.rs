@@ -524,28 +524,13 @@ impl Value {
         }
     }
 
-    pub fn get_string(&self, vm: &Vm) -> Result<String> {
-        match self {
-            Value::HeapReference(r) => {
-                assert_eq!(r.get().group, vm.heap_group);
-                match &vm.heap[r.get().get()].kind {
-                    ManagedObjectKind::String(s) => Ok(s.clone()),
-                    _ => vm.make_error(VmErrorKind::WrongType {
-                        expected: ValueKind::String,
-                    }),
-                }
-            }
-            _ => vm.wrong_type(ValueKind::String),
-        }
-    }
-
-    pub fn view_string<'a>(&self, vm: &'a Vm) -> &'a String {
+    pub fn view_string<'a>(&self, vm: &'a Vm) -> Result<&'a String> {
         match self {
             Value::HeapReference(r) => match &vm.heap[r.get().get()].kind {
-                ManagedObjectKind::String(s) => s,
-                _ => panic!("not a string"),
+                ManagedObjectKind::String(s) => Ok(s),
+                _ => vm.wrong_type(ValueKind::String),
             },
-            _ => panic!("not a string"),
+            _ => vm.wrong_type(ValueKind::String),
         }
     }
 
@@ -914,8 +899,8 @@ impl Vm {
                 }
             }
             Instr::Panic => {
-                let msg = self.pop_string()?;
-                return self.make_error(VmErrorKind::Panic(msg));
+                let msg = self.pop()?.view_string(self)?;
+                return self.make_error(VmErrorKind::Panic(msg.clone()));
             }
             Instr::Construct(n) => self.construct_impl(n as usize)?,
             Instr::Deconstruct => {
@@ -1023,11 +1008,13 @@ impl Vm {
             Instr::ConcatStrings => {
                 let b = self.pop()?;
                 let a = self.pop()?;
-                let mut a_str = a.get_string(self)?;
-                let b_str = b.get_string(self)?;
-                a_str.push_str(&b_str);
+                let a_str = a.view_string(self)?;
+                let b_str = b.view_string(self)?;
+                let mut new_str = String::new();
+                new_str.push_str(a_str);
+                new_str.push_str(b_str);
                 self.heap
-                    .push(ManagedObject::new(ManagedObjectKind::String(a_str)));
+                    .push(ManagedObject::new(ManagedObjectKind::String(new_str)));
                 let r = self.heap_reference(self.heap.len() - 1);
                 self.push(r);
             }
@@ -1059,10 +1046,10 @@ impl Vm {
                 {
                     // pop libname from stack
                     // load the library with a certain name and add it to the Vm's Vec of libs
-                    let libname: String = self.pop_string()?;
-                    let lib = unsafe { Library::new(&libname) };
+                    let libname = self.pop()?.view_string(self)?;
+                    let lib = unsafe { Library::new(libname) };
                     let Ok(lib) = lib else {
-                        return self.make_error(VmErrorKind::LibLoadFailure(libname));
+                        return self.make_error(VmErrorKind::LibLoadFailure(libname.clone()));
                     };
                     self.libs.push(lib);
                 }
@@ -1076,12 +1063,13 @@ impl Vm {
                 {
                     // pop foreign func name from stack
                     // load symbol from the last library loaded
-                    let symbol_name = self.pop_string()?;
+                    let symbol_name = self.pop()?.view_string(self)?;
                     let lib = self.libs.last().expect("no libraries have been loaded");
                     let symbol /*: Result<libloading::Symbol<unsafe extern "C" fn(*mut Vm) -> ()>, _>*/ =
                         unsafe { lib.get(symbol_name.as_bytes()) };
                     let Ok(symbol) = symbol else {
-                        return self.make_error(VmErrorKind::SymbolLoadFailure(symbol_name));
+                        return self
+                            .make_error(VmErrorKind::SymbolLoadFailure(symbol_name.clone()));
                     };
                     self.foreign_functions.push(*symbol);
                 }
@@ -1258,10 +1246,6 @@ impl Vm {
 
     fn pop_bool(&mut self) -> Result<bool> {
         self.pop()?.get_bool(self)
-    }
-
-    fn pop_string(&mut self) -> Result<String> {
-        self.pop()?.get_string(self)
     }
 }
 

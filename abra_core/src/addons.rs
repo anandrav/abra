@@ -166,7 +166,7 @@ impl StringView {
 #[unsafe(no_mangle)]
 unsafe extern "C" fn abra_vm_view_string(vm: *mut c_void) -> StringView {
     let vm = unsafe { (vm as *mut Vm).as_mut().unwrap() };
-    let top = vm.top().unwrap().view_string(vm);
+    let top = vm.top().unwrap().view_string(vm).unwrap();
     StringView {
         ptr: top.as_ptr() as *const c_char,
         len: top.len(),
