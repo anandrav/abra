@@ -64,12 +64,13 @@ type State = {
 // game logic
 
 fn main() {
-  let st = State(20, 20, 
-                    Snake([Point(12, 10), Point(11, 10), Point(10, 10), Point(9, 10), Point(8, 10)], .Right),
-                    Fruit(Point(4, 5)), 
-                    0,
-                    .Playing,
-                    false)
+  let st = State(
+    20, 20,
+    Snake([Point(12, 10), Point(11, 10), Point(10, 10), Point(9, 10), Point(8, 10)], .Right),
+    Fruit(Point(4, 5)),
+    0,
+    .Playing,
+    false)
 
   // game loop
   enable_raw_mode()
@@ -97,7 +98,8 @@ fn main() {
       let snake = st.snake
       match get_key_event() {
         .Left -> snake.direction = .Left,
-        .Char("a") -> snake.direction = .Left, .Right -> snake.direction = .Right,
+        .Char("a") -> snake.direction = .Left,
+        .Right -> snake.direction = .Right,
         .Char("d") -> snake.direction = .Right,
         .Up -> snake.direction = .Up,
         .Char("w") -> snake.direction = .Up,
@@ -113,7 +115,7 @@ fn main() {
       break
     }
 
-    if st.status == .Playing { // TODO: shouldn't have to qualify
+    if st.status == .Playing {
       update(st)
     }
 
