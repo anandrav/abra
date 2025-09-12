@@ -3,11 +3,11 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use std::time::Duration;
-
+use std::hint::black_box;
 use abra_core::MockFileProvider;
 use abra_core::compile_bytecode;
 use abra_core::vm::Vm;
-use criterion::{BatchSize, Criterion, black_box, criterion_group, criterion_main};
+use criterion::{BatchSize, Criterion, criterion_group, criterion_main};
 
 // Generalized function for benchmarking Abra programs
 fn run_benchmark(c: &mut Criterion, name: &str, src: &str) {
@@ -24,6 +24,8 @@ fn run_benchmark(c: &mut Criterion, name: &str, src: &str) {
         );
     });
 }
+
+// TODO: These aren't tested by CI at all, even to see if they just compile
 
 // Fibonacci (Recursive)
 pub fn fib_benchmark(c: &mut Criterion) {
@@ -93,18 +95,18 @@ let primes = []
 var i = 0
 while i < limit {
   append(primes, true)
-  i := i + 1
+  i = i + 1
 }
 var p = 2
 while p * p < limit {
     if primes[p] {
-        i := p * p
+        i = p * p
         while i < limit {
             primes[i] := false
-            i := i + p
+            i = i + p
         }
     }
-    p := p + 1
+    p = p + 1
 }
 "#;
     run_benchmark(c, "sieve_of_eratosthenes", src);
