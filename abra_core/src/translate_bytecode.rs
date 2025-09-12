@@ -851,31 +851,31 @@ impl Translator {
                     self.emit(st, Instr::SquareRoot);
                 }
                 BuiltinOperation::LessThanInt => {
-                    self.emit(st, Instr::LessThan);
+                    self.emit(st, Instr::LessThanInt);
                 }
                 BuiltinOperation::LessThanOrEqualInt => {
-                    self.emit(st, Instr::LessThanOrEqual);
+                    self.emit(st, Instr::LessThanOrEqualInt);
                 }
                 BuiltinOperation::GreaterThanInt => {
-                    self.emit(st, Instr::GreaterThan);
+                    self.emit(st, Instr::GreaterThanInt);
                 }
                 BuiltinOperation::GreaterThanOrEqualInt => {
-                    self.emit(st, Instr::GreaterThanOrEqual);
+                    self.emit(st, Instr::GreaterThanOrEqualInt);
                 }
                 BuiltinOperation::EqualInt => {
                     self.emit(st, Instr::Equal);
                 }
                 BuiltinOperation::LessThanFloat => {
-                    self.emit(st, Instr::LessThan);
+                    self.emit(st, Instr::LessThanFloat);
                 }
                 BuiltinOperation::LessThanOrEqualFloat => {
-                    self.emit(st, Instr::LessThanOrEqual);
+                    self.emit(st, Instr::LessThanOrEqualFloat);
                 }
                 BuiltinOperation::GreaterThanFloat => {
-                    self.emit(st, Instr::GreaterThan);
+                    self.emit(st, Instr::GreaterThanFloat);
                 }
                 BuiltinOperation::GreaterThanOrEqualFloat => {
-                    self.emit(st, Instr::GreaterThanOrEqual);
+                    self.emit(st, Instr::GreaterThanOrEqualFloat);
                 }
                 BuiltinOperation::EqualFloat => {
                     self.emit(st, Instr::Equal);

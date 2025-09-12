@@ -100,10 +100,14 @@ fn instr_to_vminstr(
         Instr::Not => VmInstr::Not,
         Instr::And => VmInstr::And,
         Instr::Or => VmInstr::Or,
-        Instr::LessThan => VmInstr::LessThan,
-        Instr::LessThanOrEqual => VmInstr::LessThanOrEqual,
-        Instr::GreaterThan => VmInstr::GreaterThan,
-        Instr::GreaterThanOrEqual => VmInstr::GreaterThanOrEqual,
+        Instr::LessThanInt => VmInstr::LessThanInt,
+        Instr::LessThanOrEqualInt => VmInstr::LessThanOrEqualInt,
+        Instr::GreaterThanInt => VmInstr::GreaterThanInt,
+        Instr::GreaterThanOrEqualInt => VmInstr::GreaterThanOrEqualInt,
+        Instr::LessThanFloat => VmInstr::LessThanFloat,
+        Instr::LessThanOrEqualFloat => VmInstr::LessThanOrEqualFloat,
+        Instr::GreaterThanFloat => VmInstr::GreaterThanFloat,
+        Instr::GreaterThanOrEqualFloat => VmInstr::GreaterThanOrEqualFloat,
         Instr::Equal => VmInstr::Equal,
         Instr::PushNil => VmInstr::PushNil,
         Instr::PushBool(b) => VmInstr::PushBool(*b),
@@ -147,86 +151,85 @@ fn instr_to_vminstr(
     }
 }
 
-// TODO: this is dead code. Need to add automated tests for it or just get rid of it
-fn _assemble_instr_or_label(
-    words: Vec<&str>,
-    lineno: usize,
-    string_constants: &mut IdSet<String>,
-) -> Line {
-    if let Some(label) = _get_label(words[0]) {
-        return Line::Label(label);
-    }
-    let radix = 10;
-    let instr = match words[0] {
-        "pop" => Instr::Pop,
-        "loadoffset" => {
-            let n = i32::from_str_radix(words[1], radix).unwrap();
-            Instr::LoadOffset(n)
-        }
-        "storeoffset" => {
-            let n = i32::from_str_radix(words[1], radix).unwrap();
-            Instr::StoreOffset(n)
-        }
-        "add_int" => Instr::AddInt,
-        "subtract_int" => Instr::SubtractInt,
-        "multiply_int" => Instr::MultiplyInt,
-        "divide_int" => Instr::DivideInt,
-        "not" => Instr::Not,
-        "return" => Instr::Return,
-        "push_nil" => Instr::PushNil,
-        "push_bool" => {
-            let b = if words[1] == "true" {
-                true
-            } else if words[1] == "false" {
-                false
-            } else {
-                panic!("On line {}, could not parse bool: {}", lineno, words[1]);
-            };
-            Instr::PushBool(b)
-        }
-        "push_int" => {
-            let n = i64::from_str_radix(words[1], radix).unwrap();
-            Instr::PushInt(n)
-        }
-        "push_string" => {
-            // remove quotes
-            let s = words[1][1..words[1].len() - 1].to_owned();
-            string_constants.insert(s.clone());
-            Instr::PushString(s)
-        }
-        "jump" | "jump_if" | "call" => {
-            let loc = words[1].into();
-            match words[0] {
-                "jump" => Instr::Jump(loc),
-                "jumpif" => Instr::JumpIf(loc),
-                "call" => Instr::Call(loc),
-                _ => unreachable!(),
-            }
-        }
-        "construct" => {
-            let n = u16::from_str_radix(words[1], radix).unwrap();
-            Instr::Construct(n)
-        }
-        "deconstruct" => Instr::Deconstruct,
-        "get_field" => {
-            let n = u16::from_str_radix(words[1], radix).unwrap();
-            Instr::GetField(n)
-        }
-        "set_field" => {
-            let n = u16::from_str_radix(words[1], radix).unwrap();
-            Instr::SetField(n)
-        }
-        "get_index" => Instr::GetIdx,
-        "set_index" => Instr::SetIdx,
-        "construct_variant" => {
-            let tag = u16::from_str_radix(words[1], radix).unwrap();
-            Instr::ConstructVariant { tag }
-        }
-        "call_host" => {
-            let n = u16::from_str_radix(words[1], radix).unwrap();
-            Instr::HostFunc(n)
-        }
-        _ => panic!("On line {}, unexpected word: {}", lineno, words[0]),
-    };
-    Line::Instr(instr)
-}
+// fn _assemble_instr_or_label(
+//     words: Vec<&str>,
+//     lineno: usize,
+//     string_constants: &mut IdSet<String>,
+// ) -> Line {
+//     if let Some(label) = _get_label(words[0]) {
+//         return Line::Label(label);
+//     }
+//     let radix = 10;
+//     let instr = match words[0] {
+//         "pop" => Instr::Pop,
+//         "loadoffset" => {
+//             let n = i32::from_str_radix(words[1], radix).unwrap();
+//             Instr::LoadOffset(n)
+//         }
+//         "storeoffset" => {
+//             let n = i32::from_str_radix(words[1], radix).unwrap();
+//             Instr::StoreOffset(n)
+//         }
+//         "add_int" => Instr::AddInt,
+//         "subtract_int" => Instr::SubtractInt,
+//         "multiply_int" => Instr::MultiplyInt,
+//         "divide_int" => Instr::DivideInt,
+//         "not" => Instr::Not,
+//         "return" => Instr::Return,
+//         "push_nil" => Instr::PushNil,
+//         "push_bool" => {
+//             let b = if words[1] == "true" {
+//                 true
+//             } else if words[1] == "false" {
+//                 false
+//             } else {
+//                 panic!("On line {}, could not parse bool: {}", lineno, words[1]);
+//             };
+//             Instr::PushBool(b)
+//         }
+//         "push_int" => {
+//             let n = i64::from_str_radix(words[1], radix).unwrap();
+//             Instr::PushInt(n)
+//         }
+//         "push_string" => {
+//             // remove quotes
+//             let s = words[1][1..words[1].len() - 1].to_owned();
+//             string_constants.insert(s.clone());
+//             Instr::PushString(s)
+//         }
+//         "jump" | "jump_if" | "call" => {
+//             let loc = words[1].into();
+//             match words[0] {
+//                 "jump" => Instr::Jump(loc),
+//                 "jumpif" => Instr::JumpIf(loc),
+//                 "call" => Instr::Call(loc),
+//                 _ => unreachable!(),
+//             }
+//         }
+//         "construct" => {
+//             let n = u16::from_str_radix(words[1], radix).unwrap();
+//             Instr::Construct(n)
+//         }
+//         "deconstruct" => Instr::Deconstruct,
+//         "get_field" => {
+//             let n = u16::from_str_radix(words[1], radix).unwrap();
+//             Instr::GetField(n)
+//         }
+//         "set_field" => {
+//             let n = u16::from_str_radix(words[1], radix).unwrap();
+//             Instr::SetField(n)
+//         }
+//         "get_index" => Instr::GetIdx,
+//         "set_index" => Instr::SetIdx,
+//         "construct_variant" => {
+//             let tag = u16::from_str_radix(words[1], radix).unwrap();
+//             Instr::ConstructVariant { tag }
+//         }
+//         "call_host" => {
+//             let n = u16::from_str_radix(words[1], radix).unwrap();
+//             Instr::HostFunc(n)
+//         }
+//         _ => panic!("On line {}, unexpected word: {}", lineno, words[0]),
+//     };
+//     Line::Instr(instr)
+// }
