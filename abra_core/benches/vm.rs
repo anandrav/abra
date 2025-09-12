@@ -2,12 +2,12 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use std::time::Duration;
-use std::hint::black_box;
 use abra_core::MockFileProvider;
 use abra_core::compile_bytecode;
 use abra_core::vm::Vm;
 use criterion::{BatchSize, Criterion, criterion_group, criterion_main};
+use std::hint::black_box;
+use std::time::Duration;
 
 // Generalized function for benchmarking Abra programs
 fn run_benchmark(c: &mut Criterion, name: &str, src: &str) {
