@@ -101,7 +101,7 @@ pub enum HostFunction {
     for (i, f) in inference_ctx.host_funcs.iter().enumerate() {
         swrite!(output, "{i} => {{");
         let camel_name = heck::AsUpperCamelCase(&f.name.v).to_string();
-        for (i, arg) in f.args.iter().enumerate() {
+        for (i, arg) in f.args.iter().enumerate().rev() {
             let ty = arg.1.clone().unwrap();
             let tyname = name_of_ty(&ty);
             swrite!(

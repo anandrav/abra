@@ -336,6 +336,14 @@ pub(crate) fn resolve(ctx: &mut StaticsContext, file_asts: &Vec<Rc<FileAst>>) {
             resolve_names_item_stmt(ctx, symbol_table.clone(), item.clone());
         }
     }
+
+    // sort host funcs by name
+    let mut vec: Vec<_> = ctx.host_funcs.iter().cloned().collect();
+    vec.sort_by(|a, b| a.name.v.cmp(&b.name.v));
+    ctx.host_funcs.clear();
+    for item in vec {
+        ctx.host_funcs.insert(item);
+    }
 }
 
 fn resolve_imports_file(ctx: &mut StaticsContext, file: Rc<FileAst>) -> SymbolTable {
