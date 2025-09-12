@@ -345,13 +345,20 @@ pub enum Instr<Location = ProgramCounter, StringConstant = u16> {
     PushString(StringConstant),
 
     // Arithmetic
-    Add,
-    Subtract,
-    Multiply,
-    Divide,
-    SquareRoot,
-    Power,
+    AddInt,
+    SubtractInt,
+    MultiplyInt,
+    DivideInt,
+    PowerInt,
     Modulo,
+
+    AddFloat,
+    SubtractFloat,
+    MultiplyFloat,
+    DivideFloat,
+    PowerFloat,
+
+    SquareRoot,
 
     // Logical
     Not,
@@ -403,13 +410,18 @@ impl<L: Display, S: Display> Display for Instr<L, S> {
             Instr::Duplicate => write!(f, "duplicate"),
             Instr::LoadOffset(n) => write!(f, "loadOffset {n}"),
             Instr::StoreOffset(n) => write!(f, "storeOffset {n}"),
-            Instr::Add => write!(f, "add"),
-            Instr::Subtract => write!(f, "subtract"),
-            Instr::Multiply => write!(f, "multiply"),
-            Instr::Divide => write!(f, "divide"),
-            Instr::SquareRoot => write!(f, "square_root"),
-            Instr::Power => write!(f, "power"),
+            Instr::AddInt => write!(f, "add_int"),
+            Instr::SubtractInt => write!(f, "subtract_int"),
+            Instr::MultiplyInt => write!(f, "multiply_int"),
+            Instr::DivideInt => write!(f, "divide_int"),
+            Instr::PowerInt => write!(f, "power_int"),
             Instr::Modulo => write!(f, "modulo"),
+            Instr::AddFloat => write!(f, "add_float"),
+            Instr::SubtractFloat => write!(f, "subtract_float"),
+            Instr::MultiplyFloat => write!(f, "multiply_float"),
+            Instr::DivideFloat => write!(f, "divide_float"),
+            Instr::PowerFloat => write!(f, "power_float"),
+            Instr::SquareRoot => write!(f, "square_root"),
             Instr::Not => write!(f, "not"),
             Instr::And => write!(f, "and"),
             Instr::Or => write!(f, "or"),
@@ -686,7 +698,7 @@ impl Vm {
                     )));
                 }
             }
-            Instr::Add => {
+            Instr::AddInt => {
                 let b = self.pop()?;
                 let a = self.pop()?;
                 match (a, b) {
@@ -698,7 +710,7 @@ impl Vm {
                     _ => return self.wrong_type(ValueKind::Number),
                 }
             }
-            Instr::Subtract => {
+            Instr::SubtractInt => {
                 let b = self.pop()?;
                 let a = self.pop()?;
                 match (a, b) {
@@ -710,7 +722,7 @@ impl Vm {
                     _ => return self.wrong_type(ValueKind::Number),
                 }
             }
-            Instr::Multiply => {
+            Instr::MultiplyInt => {
                 let b = self.pop()?;
                 let a = self.pop()?;
                 match (a, b) {
@@ -722,7 +734,7 @@ impl Vm {
                     _ => return self.wrong_type(ValueKind::Number),
                 }
             }
-            Instr::Divide => {
+            Instr::DivideInt => {
                 let b = self.pop()?;
                 let a = self.pop()?;
                 match (a, b) {
@@ -744,14 +756,7 @@ impl Vm {
                     _ => return self.wrong_type(ValueKind::Number),
                 }
             }
-            Instr::SquareRoot => {
-                let v = self.pop()?;
-                match v {
-                    Value::Float(f) => self.push(f.sqrt()),
-                    _ => return self.wrong_type(ValueKind::Float),
-                }
-            }
-            Instr::Power => {
+            Instr::PowerInt => {
                 let b = self.pop()?;
                 let a = self.pop()?;
                 match (a, b) {
@@ -767,6 +772,80 @@ impl Vm {
                     (Value::Int(a), Value::Int(b)) => self.push(a % b),
                     (Value::Float(a), Value::Float(b)) => self.push(a % b),
                     _ => return self.wrong_type(ValueKind::Number),
+                }
+            }
+            Instr::AddFloat => {
+                let b = self.pop()?;
+                let a = self.pop()?;
+                match (a, b) {
+                    (Value::Int(a), Value::Int(b)) => match a.checked_add(b) {
+                        Some(n) => self.push(n),
+                        None => return self.make_error(VmErrorKind::IntegerOverflowUnderflow),
+                    },
+                    (Value::Float(a), Value::Float(b)) => self.push(a + b),
+                    _ => return self.wrong_type(ValueKind::Number),
+                }
+            }
+            Instr::SubtractFloat => {
+                let b = self.pop()?;
+                let a = self.pop()?;
+                match (a, b) {
+                    (Value::Int(a), Value::Int(b)) => match a.checked_sub(b) {
+                        Some(n) => self.push(n),
+                        None => return self.make_error(VmErrorKind::IntegerOverflowUnderflow),
+                    },
+                    (Value::Float(a), Value::Float(b)) => self.push(a - b),
+                    _ => return self.wrong_type(ValueKind::Number),
+                }
+            }
+            Instr::MultiplyFloat => {
+                let b = self.pop()?;
+                let a = self.pop()?;
+                match (a, b) {
+                    (Value::Int(a), Value::Int(b)) => match a.checked_mul(b) {
+                        Some(n) => self.push(n),
+                        None => return self.make_error(VmErrorKind::IntegerOverflowUnderflow),
+                    },
+                    (Value::Float(a), Value::Float(b)) => self.push(a * b),
+                    _ => return self.wrong_type(ValueKind::Number),
+                }
+            }
+            Instr::DivideFloat => {
+                let b = self.pop()?;
+                let a = self.pop()?;
+                match (a, b) {
+                    (Value::Int(a), Value::Int(b)) => {
+                        if b == 0 {
+                            return self.make_error(VmErrorKind::DivisionByZero);
+                        }
+                        match a.checked_div(b) {
+                            Some(n) => self.push(n),
+                            None => return self.make_error(VmErrorKind::IntegerOverflowUnderflow),
+                        }
+                    }
+                    (Value::Float(a), Value::Float(b)) => {
+                        if b == 0.0 {
+                            return self.make_error(VmErrorKind::DivisionByZero);
+                        }
+                        self.push(a / b)
+                    }
+                    _ => return self.wrong_type(ValueKind::Number),
+                }
+            }
+            Instr::PowerFloat => {
+                let b = self.pop()?;
+                let a = self.pop()?;
+                match (a, b) {
+                    (Value::Int(a), Value::Int(b)) => self.push(a.pow(b as u32)),
+                    (Value::Float(a), Value::Float(b)) => self.push(a.powf(b)),
+                    _ => return self.wrong_type(ValueKind::Number),
+                }
+            }
+            Instr::SquareRoot => {
+                let v = self.pop()?;
+                match v {
+                    Value::Float(f) => self.push(f.sqrt()),
+                    _ => return self.wrong_type(ValueKind::Float),
                 }
             }
             Instr::Not => {

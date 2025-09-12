@@ -812,43 +812,40 @@ impl Translator {
             }
             Declaration::Builtin(b) => match b {
                 BuiltinOperation::AddInt => {
-                    self.emit(st, Instr::Add);
+                    self.emit(st, Instr::AddInt);
                 }
                 BuiltinOperation::SubtractInt => {
-                    self.emit(st, Instr::Subtract);
+                    self.emit(st, Instr::SubtractInt);
                 }
                 BuiltinOperation::MultiplyInt => {
-                    self.emit(st, Instr::Multiply);
+                    self.emit(st, Instr::MultiplyInt);
                 }
                 BuiltinOperation::DivideInt => {
-                    self.emit(st, Instr::Divide);
+                    self.emit(st, Instr::DivideInt);
                 }
                 BuiltinOperation::PowerInt => {
-                    self.emit(st, Instr::Power);
+                    self.emit(st, Instr::PowerInt);
                 }
-                BuiltinOperation::ModuloInt => {
+                BuiltinOperation::Modulo => {
                     self.emit(st, Instr::Modulo);
                 }
                 BuiltinOperation::SqrtInt => {
                     self.emit(st, Instr::SquareRoot);
                 }
                 BuiltinOperation::AddFloat => {
-                    self.emit(st, Instr::Add);
+                    self.emit(st, Instr::AddFloat);
                 }
                 BuiltinOperation::SubtractFloat => {
-                    self.emit(st, Instr::Subtract);
+                    self.emit(st, Instr::SubtractFloat);
                 }
                 BuiltinOperation::MultiplyFloat => {
-                    self.emit(st, Instr::Multiply);
+                    self.emit(st, Instr::MultiplyFloat);
                 }
                 BuiltinOperation::DivideFloat => {
-                    self.emit(st, Instr::Divide);
-                }
-                BuiltinOperation::ModuloFloat => {
-                    self.emit(st, Instr::Modulo);
+                    self.emit(st, Instr::DivideFloat);
                 }
                 BuiltinOperation::PowerFloat => {
-                    self.emit(st, Instr::Power);
+                    self.emit(st, Instr::PowerFloat);
                 }
                 BuiltinOperation::SqrtFloat => {
                     self.emit(st, Instr::SquareRoot);

@@ -85,13 +85,18 @@ fn instr_to_vminstr(
         Instr::Duplicate => VmInstr::Duplicate,
         Instr::LoadOffset(i) => VmInstr::LoadOffset(*i),
         Instr::StoreOffset(i) => VmInstr::StoreOffset(*i),
-        Instr::Add => VmInstr::Add,
-        Instr::Subtract => VmInstr::Subtract,
-        Instr::Multiply => VmInstr::Multiply,
-        Instr::Divide => VmInstr::Divide,
-        Instr::SquareRoot => VmInstr::SquareRoot,
-        Instr::Power => VmInstr::Power,
+        Instr::AddInt => VmInstr::AddInt,
+        Instr::SubtractInt => VmInstr::SubtractInt,
+        Instr::MultiplyInt => VmInstr::MultiplyInt,
+        Instr::DivideInt => VmInstr::DivideInt,
+        Instr::PowerInt => VmInstr::PowerInt,
         Instr::Modulo => VmInstr::Modulo,
+        Instr::AddFloat => VmInstr::AddFloat,
+        Instr::SubtractFloat => VmInstr::SubtractFloat,
+        Instr::MultiplyFloat => VmInstr::MultiplyFloat,
+        Instr::DivideFloat => VmInstr::DivideFloat,
+        Instr::PowerFloat => VmInstr::PowerFloat,
+        Instr::SquareRoot => VmInstr::SquareRoot,
         Instr::Not => VmInstr::Not,
         Instr::And => VmInstr::And,
         Instr::Or => VmInstr::Or,
@@ -142,6 +147,7 @@ fn instr_to_vminstr(
     }
 }
 
+// TODO: this is dead code. Need to add automated tests for it or just get rid of it
 fn _assemble_instr_or_label(
     words: Vec<&str>,
     lineno: usize,
@@ -161,10 +167,10 @@ fn _assemble_instr_or_label(
             let n = i32::from_str_radix(words[1], radix).unwrap();
             Instr::StoreOffset(n)
         }
-        "add" => Instr::Add,
-        "subtract" => Instr::Subtract,
-        "multiply" => Instr::Multiply,
-        "divide" => Instr::Divide,
+        "add_int" => Instr::AddInt,
+        "subtract_int" => Instr::SubtractInt,
+        "multiply_int" => Instr::MultiplyInt,
+        "divide_int" => Instr::DivideInt,
         "not" => Instr::Not,
         "return" => Instr::Return,
         "push_nil" => Instr::PushNil,

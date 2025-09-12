@@ -24,15 +24,14 @@ pub enum BuiltinOperation {
     SubtractInt,
     MultiplyInt,
     DivideInt,
-    ModuloInt,
     PowerInt,
     SqrtInt,
+    Modulo,
 
     AddFloat,
     SubtractFloat,
     MultiplyFloat,
     DivideFloat,
-    ModuloFloat,
     PowerFloat,
     SqrtFloat,
 
@@ -82,7 +81,7 @@ impl BuiltinOperation {
             | BuiltinOperation::SubtractInt
             | BuiltinOperation::MultiplyInt
             | BuiltinOperation::DivideInt
-            | BuiltinOperation::ModuloInt
+            | BuiltinOperation::Modulo
             | BuiltinOperation::PowerInt => TypeVar::make_func(
                 vec![
                     TypeVar::make_int(reason.clone()),
@@ -101,7 +100,6 @@ impl BuiltinOperation {
             | BuiltinOperation::SubtractFloat
             | BuiltinOperation::MultiplyFloat
             | BuiltinOperation::DivideFloat
-            | BuiltinOperation::ModuloFloat
             | BuiltinOperation::PowerFloat => TypeVar::make_func(
                 vec![
                     TypeVar::make_float(reason.clone()),
