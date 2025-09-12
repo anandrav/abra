@@ -12,9 +12,9 @@ pub mod ffi {
         pub unsafe extern "C" fn pass_int(vm: *mut c_void, vm_funcs: *const AbraVmFunctions) {
             unsafe {
                 let vm_funcs: &AbraVmFunctions = &*vm_funcs;
-                let i = <i64>::from_vm(vm, vm_funcs);
+                let i = <i64>::from_vm_unsafe(vm, vm_funcs);
                 let ret: i64 = test_ffi::pass_int(i);
-                ret.to_vm(vm, vm_funcs);
+                ret.to_vm_unsafe(vm, vm_funcs);
             }
         }
         /// # Safety
@@ -23,9 +23,9 @@ pub mod ffi {
         pub unsafe extern "C" fn pass_bool(vm: *mut c_void, vm_funcs: *const AbraVmFunctions) {
             unsafe {
                 let vm_funcs: &AbraVmFunctions = &*vm_funcs;
-                let i = <bool>::from_vm(vm, vm_funcs);
+                let i = <bool>::from_vm_unsafe(vm, vm_funcs);
                 let ret: bool = test_ffi::pass_bool(i);
-                ret.to_vm(vm, vm_funcs);
+                ret.to_vm_unsafe(vm, vm_funcs);
             }
         }
         /// # Safety
@@ -36,7 +36,7 @@ pub mod ffi {
                 let vm_funcs: &AbraVmFunctions = &*vm_funcs;
                 (vm_funcs.pop_nil)(vm);
                 let ret: () = test_ffi::pass_void(());
-                ret.to_vm(vm, vm_funcs);
+                ret.to_vm_unsafe(vm, vm_funcs);
             }
         }
         /// # Safety
@@ -45,9 +45,9 @@ pub mod ffi {
         pub unsafe extern "C" fn pass_string(vm: *mut c_void, vm_funcs: *const AbraVmFunctions) {
             unsafe {
                 let vm_funcs: &AbraVmFunctions = &*vm_funcs;
-                let s = <String>::from_vm(vm, vm_funcs);
+                let s = <String>::from_vm_unsafe(vm, vm_funcs);
                 let ret: String = test_ffi::pass_string(s);
-                ret.to_vm(vm, vm_funcs);
+                ret.to_vm_unsafe(vm, vm_funcs);
             }
         }
         /// # Safety
@@ -56,9 +56,9 @@ pub mod ffi {
         pub unsafe extern "C" fn pass_struct(vm: *mut c_void, vm_funcs: *const AbraVmFunctions) {
             unsafe {
                 let vm_funcs: &AbraVmFunctions = &*vm_funcs;
-                let s = <MyStruct>::from_vm(vm, vm_funcs);
+                let s = <MyStruct>::from_vm_unsafe(vm, vm_funcs);
                 let ret: MyStruct = test_ffi::pass_struct(s);
-                ret.to_vm(vm, vm_funcs);
+                ret.to_vm_unsafe(vm, vm_funcs);
             }
         }
         /// # Safety
@@ -67,9 +67,9 @@ pub mod ffi {
         pub unsafe extern "C" fn pass_enum(vm: *mut c_void, vm_funcs: *const AbraVmFunctions) {
             unsafe {
                 let vm_funcs: &AbraVmFunctions = &*vm_funcs;
-                let e = <MyEnum>::from_vm(vm, vm_funcs);
+                let e = <MyEnum>::from_vm_unsafe(vm, vm_funcs);
                 let ret: MyEnum = test_ffi::pass_enum(e);
-                ret.to_vm(vm, vm_funcs);
+                ret.to_vm_unsafe(vm, vm_funcs);
             }
         }
         /// # Safety
@@ -78,9 +78,9 @@ pub mod ffi {
         pub unsafe extern "C" fn pass_tuple(vm: *mut c_void, vm_funcs: *const AbraVmFunctions) {
             unsafe {
                 let vm_funcs: &AbraVmFunctions = &*vm_funcs;
-                let e = <(bool, i64, String)>::from_vm(vm, vm_funcs);
+                let e = <(bool, i64, String)>::from_vm_unsafe(vm, vm_funcs);
                 let ret: (bool, i64, String) = test_ffi::pass_tuple(e);
-                ret.to_vm(vm, vm_funcs);
+                ret.to_vm_unsafe(vm, vm_funcs);
             }
         }
         /// # Safety
@@ -89,9 +89,9 @@ pub mod ffi {
         pub unsafe extern "C" fn pass_option(vm: *mut c_void, vm_funcs: *const AbraVmFunctions) {
             unsafe {
                 let vm_funcs: &AbraVmFunctions = &*vm_funcs;
-                let o = <Option<String>>::from_vm(vm, vm_funcs);
+                let o = <Option<String>>::from_vm_unsafe(vm, vm_funcs);
                 let ret: Option<String> = test_ffi::pass_option(o);
-                ret.to_vm(vm, vm_funcs);
+                ret.to_vm_unsafe(vm, vm_funcs);
             }
         }
         /// # Safety
@@ -100,9 +100,9 @@ pub mod ffi {
         pub unsafe extern "C" fn pass_array(vm: *mut c_void, vm_funcs: *const AbraVmFunctions) {
             unsafe {
                 let vm_funcs: &AbraVmFunctions = &*vm_funcs;
-                let a = <Vec<i64>>::from_vm(vm, vm_funcs);
+                let a = <Vec<i64>>::from_vm_unsafe(vm, vm_funcs);
                 let ret: Vec<i64> = test_ffi::pass_array(a);
-                ret.to_vm(vm, vm_funcs);
+                ret.to_vm_unsafe(vm, vm_funcs);
             }
         }
         pub struct MyStruct {
@@ -111,23 +111,23 @@ pub mod ffi {
             pub v: (),
             pub s: String,
         }
-        impl VmType for MyStruct {
-            unsafe fn from_vm(vm: *mut c_void, vm_funcs: &AbraVmFunctions) -> Self {
+        impl VmFfiType for MyStruct {
+            unsafe fn from_vm_unsafe(vm: *mut c_void, vm_funcs: &AbraVmFunctions) -> Self {
                 unsafe {
                     (vm_funcs.deconstruct)(vm);
-                    let i = <i64>::from_vm(vm, vm_funcs);
-                    let b = <bool>::from_vm(vm, vm_funcs);
+                    let i = <i64>::from_vm_unsafe(vm, vm_funcs);
+                    let b = <bool>::from_vm_unsafe(vm, vm_funcs);
                     (vm_funcs.pop_nil)(vm);
-                    let s = <String>::from_vm(vm, vm_funcs);
+                    let s = <String>::from_vm_unsafe(vm, vm_funcs);
                     Self { i, b, v: (), s }
                 }
             }
-            unsafe fn to_vm(self, vm: *mut c_void, vm_funcs: &AbraVmFunctions) {
+            unsafe fn to_vm_unsafe(self, vm: *mut c_void, vm_funcs: &AbraVmFunctions) {
                 unsafe {
-                    self.i.to_vm(vm, vm_funcs);
-                    self.b.to_vm(vm, vm_funcs);
+                    self.i.to_vm_unsafe(vm, vm_funcs);
+                    self.b.to_vm_unsafe(vm, vm_funcs);
                     (vm_funcs.push_nil)(vm);
-                    self.s.to_vm(vm, vm_funcs);
+                    self.s.to_vm_unsafe(vm, vm_funcs);
                     (vm_funcs.construct_struct)(vm, 4);
                 }
             }
@@ -138,18 +138,18 @@ pub mod ffi {
             Void,
             String(String),
         }
-        impl VmType for MyEnum {
-            unsafe fn from_vm(vm: *mut c_void, vm_funcs: &AbraVmFunctions) -> Self {
+        impl VmFfiType for MyEnum {
+            unsafe fn from_vm_unsafe(vm: *mut c_void, vm_funcs: &AbraVmFunctions) -> Self {
                 unsafe {
                     (vm_funcs.deconstruct)(vm);
                     let tag = (vm_funcs.pop_int)(vm);
                     match tag {
                         0 => {
-                            let value: i64 = <i64>::from_vm(vm, vm_funcs);
+                            let value: i64 = <i64>::from_vm_unsafe(vm, vm_funcs);
                             MyEnum::Int(value)
                         }
                         1 => {
-                            let value: bool = <bool>::from_vm(vm, vm_funcs);
+                            let value: bool = <bool>::from_vm_unsafe(vm, vm_funcs);
                             MyEnum::Bool(value)
                         }
                         2 => {
@@ -157,22 +157,22 @@ pub mod ffi {
                             MyEnum::Void
                         }
                         3 => {
-                            let value: String = <String>::from_vm(vm, vm_funcs);
+                            let value: String = <String>::from_vm_unsafe(vm, vm_funcs);
                             MyEnum::String(value)
                         }
                         _ => panic!("unexpected tag encountered: {tag}"),
                     }
                 }
             }
-            unsafe fn to_vm(self, vm: *mut c_void, vm_funcs: &AbraVmFunctions) {
+            unsafe fn to_vm_unsafe(self, vm: *mut c_void, vm_funcs: &AbraVmFunctions) {
                 unsafe {
                     match self {
                         MyEnum::Int(value) => {
-                            value.to_vm(vm, vm_funcs);
+                            value.to_vm_unsafe(vm, vm_funcs);
                             (vm_funcs.construct_variant)(vm, 0);
                         }
                         MyEnum::Bool(value) => {
-                            value.to_vm(vm, vm_funcs);
+                            value.to_vm_unsafe(vm, vm_funcs);
                             (vm_funcs.construct_variant)(vm, 1);
                         }
                         MyEnum::Void => {
@@ -180,7 +180,7 @@ pub mod ffi {
                             (vm_funcs.construct_variant)(vm, 2);
                         }
                         MyEnum::String(value) => {
-                            value.to_vm(vm, vm_funcs);
+                            value.to_vm_unsafe(vm, vm_funcs);
                             (vm_funcs.construct_variant)(vm, 3);
                         }
                     }

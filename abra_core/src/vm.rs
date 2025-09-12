@@ -140,6 +140,7 @@ impl Vm {
 
     pub fn with_entry_point(program: CompiledProgram, entry_point: String) -> Self {
         dbg!(&entry_point);
+        dbg!(&program.label_map);
         let end = program.instructions.len();
         Self {
             program: program.instructions,
@@ -377,7 +378,7 @@ pub enum Instr<Location = ProgramCounter, StringConstant = u16> {
     EqualInt,
     EqualFloat,
     EqualBool,
-    EqualString, // TODO: this is O(N). Must use smaller instructions
+    EqualString, // TODO: this is O(N). Must use smaller instructions. Or compare character-by-character and save progress in state of Vm
 
     // Control Flow
     Jump(Location),
@@ -402,7 +403,7 @@ pub enum Instr<Location = ProgramCounter, StringConstant = u16> {
     ArrayAppend,
     ArrayLength,
     ArrayPop,
-    ConcatStrings, // TODO: this is O(N). Must use smaller instructions
+    ConcatStrings, // TODO: this is O(N). Must use smaller instructions. Or concat character-by-character and save progress in Vm
     IntToString,
     FloatToString,
 
@@ -1258,7 +1259,7 @@ impl Vm {
         self.pop()?.get_addr(self)
     }
 
-    fn pop_bool(&mut self) -> Result<bool> {
+    pub(crate) fn pop_bool(&mut self) -> Result<bool> {
         self.pop()?.get_bool(self)
     }
 }

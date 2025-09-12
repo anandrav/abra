@@ -15,8 +15,8 @@ pub mod ffi {
             Esc,
             Other,
         }
-        impl VmType for KeyCode {
-            unsafe fn from_vm(vm: *mut c_void, vm_funcs: &AbraVmFunctions) -> Self {
+        impl VmFfiType for KeyCode {
+            unsafe fn from_vm_unsafe(vm: *mut c_void, vm_funcs: &AbraVmFunctions) -> Self {
                 unsafe {
                     (vm_funcs.deconstruct)(vm);
                     let tag = (vm_funcs.pop_int)(vm);
@@ -38,7 +38,7 @@ pub mod ffi {
                             KeyCode::Down
                         }
                         4 => {
-                            let value: String = <String>::from_vm(vm, vm_funcs);
+                            let value: String = <String>::from_vm_unsafe(vm, vm_funcs);
                             KeyCode::Char(value)
                         }
                         5 => {
@@ -53,7 +53,7 @@ pub mod ffi {
                     }
                 }
             }
-            unsafe fn to_vm(self, vm: *mut c_void, vm_funcs: &AbraVmFunctions) {
+            unsafe fn to_vm_unsafe(self, vm: *mut c_void, vm_funcs: &AbraVmFunctions) {
                 unsafe {
                     match self {
                         KeyCode::Left => {
@@ -73,7 +73,7 @@ pub mod ffi {
                             (vm_funcs.construct_variant)(vm, 3);
                         }
                         KeyCode::Char(value) => {
-                            value.to_vm(vm, vm_funcs);
+                            value.to_vm_unsafe(vm, vm_funcs);
                             (vm_funcs.construct_variant)(vm, 4);
                         }
                         KeyCode::Esc => {
@@ -98,7 +98,7 @@ pub mod ffi {
             unsafe {
                 let vm_funcs: &AbraVmFunctions = &*vm_funcs;
                 let ret: () = term::enable_raw_mode();
-                ret.to_vm(vm, vm_funcs);
+                ret.to_vm_unsafe(vm, vm_funcs);
             }
         }
         /// # Safety
@@ -111,7 +111,7 @@ pub mod ffi {
             unsafe {
                 let vm_funcs: &AbraVmFunctions = &*vm_funcs;
                 let ret: () = term::disable_raw_mode();
-                ret.to_vm(vm, vm_funcs);
+                ret.to_vm_unsafe(vm, vm_funcs);
             }
         }
         /// # Safety
@@ -121,7 +121,7 @@ pub mod ffi {
             unsafe {
                 let vm_funcs: &AbraVmFunctions = &*vm_funcs;
                 let ret: bool = term::poll_key_event();
-                ret.to_vm(vm, vm_funcs);
+                ret.to_vm_unsafe(vm, vm_funcs);
             }
         }
         /// # Safety
@@ -131,7 +131,7 @@ pub mod ffi {
             unsafe {
                 let vm_funcs: &AbraVmFunctions = &*vm_funcs;
                 let ret: KeyCode = term::get_key_event();
-                ret.to_vm(vm, vm_funcs);
+                ret.to_vm_unsafe(vm, vm_funcs);
             }
         }
         /// # Safety
@@ -141,7 +141,7 @@ pub mod ffi {
             unsafe {
                 let vm_funcs: &AbraVmFunctions = &*vm_funcs;
                 let ret: () = term::clear();
-                ret.to_vm(vm, vm_funcs);
+                ret.to_vm_unsafe(vm, vm_funcs);
             }
         }
         /// # Safety
@@ -151,7 +151,7 @@ pub mod ffi {
             unsafe {
                 let vm_funcs: &AbraVmFunctions = &*vm_funcs;
                 let ret: () = term::hide_cursor();
-                ret.to_vm(vm, vm_funcs);
+                ret.to_vm_unsafe(vm, vm_funcs);
             }
         }
         /// # Safety
@@ -161,7 +161,7 @@ pub mod ffi {
             unsafe {
                 let vm_funcs: &AbraVmFunctions = &*vm_funcs;
                 let ret: () = term::show_cursor();
-                ret.to_vm(vm, vm_funcs);
+                ret.to_vm_unsafe(vm, vm_funcs);
             }
         }
         /// # Safety
@@ -170,11 +170,11 @@ pub mod ffi {
         pub unsafe extern "C" fn mark(vm: *mut c_void, vm_funcs: *const AbraVmFunctions) {
             unsafe {
                 let vm_funcs: &AbraVmFunctions = &*vm_funcs;
-                let y = <i64>::from_vm(vm, vm_funcs);
-                let x = <i64>::from_vm(vm, vm_funcs);
-                let s = <String>::from_vm(vm, vm_funcs);
+                let y = <i64>::from_vm_unsafe(vm, vm_funcs);
+                let x = <i64>::from_vm_unsafe(vm, vm_funcs);
+                let s = <String>::from_vm_unsafe(vm, vm_funcs);
                 let ret: () = term::mark(s, x, y);
-                ret.to_vm(vm, vm_funcs);
+                ret.to_vm_unsafe(vm, vm_funcs);
             }
         }
         /// # Safety
@@ -184,7 +184,7 @@ pub mod ffi {
             unsafe {
                 let vm_funcs: &AbraVmFunctions = &*vm_funcs;
                 let ret: () = term::flush();
-                ret.to_vm(vm, vm_funcs);
+                ret.to_vm_unsafe(vm, vm_funcs);
             }
         }
     }

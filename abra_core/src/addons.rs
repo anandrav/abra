@@ -326,12 +326,12 @@ fn add_items_from_ast(ast: Rc<FileAst>, output: &mut String) {
 
                     swrite!(
                         output,
-                        r#"impl VmType for {} {{
+                        r#"impl VmFfiType for {} {{
 "#,
                         s.name.v
                     );
                     output.push_str(
-                        r#"unsafe fn from_vm(vm: *mut c_void, vm_funcs: &AbraVmFunctions) -> Self {
+                        r#"unsafe fn from_vm_unsafe(vm: *mut c_void, vm_funcs: &AbraVmFunctions) -> Self {
 "#,
                     );
                     output.push_str("unsafe {");
@@ -346,7 +346,7 @@ fn add_items_from_ast(ast: Rc<FileAst>, output: &mut String) {
                             let tyname = name_of_ty(&field.ty);
                             swrite!(
                                 output,
-                                r#"let {} = <{}>::from_vm(vm, vm_funcs);
+                                r#"let {} = <{}>::from_vm_unsafe(vm, vm_funcs);
 "#,
                                 field.name.v,
                                 tyname
@@ -370,7 +370,7 @@ fn add_items_from_ast(ast: Rc<FileAst>, output: &mut String) {
                     output.push('}');
 
                     output.push_str(
-                        r#"unsafe fn to_vm(self, vm: *mut c_void, vm_funcs: &AbraVmFunctions) {
+                        r#"unsafe fn to_vm_unsafe(self, vm: *mut c_void, vm_funcs: &AbraVmFunctions) {
 "#,
                     );
                     output.push_str("unsafe {");
@@ -380,7 +380,7 @@ fn add_items_from_ast(ast: Rc<FileAst>, output: &mut String) {
                         } else {
                             swrite!(
                                 output,
-                                r#"self.{}.to_vm(vm, vm_funcs);
+                                r#"self.{}.to_vm_unsafe(vm, vm_funcs);
 "#,
                                 field.name.v
                             );
@@ -418,12 +418,12 @@ fn add_items_from_ast(ast: Rc<FileAst>, output: &mut String) {
 
                     swrite!(
                         output,
-                        r#"impl VmType for {} {{
+                        r#"impl VmFfiType for {} {{
 "#,
                         e.name.v
                     );
                     output.push_str(
-                        r#"unsafe fn from_vm(vm: *mut c_void, vm_funcs: &AbraVmFunctions) -> Self {
+                        r#"unsafe fn from_vm_unsafe(vm: *mut c_void, vm_funcs: &AbraVmFunctions) -> Self {
 "#,
                     );
 
@@ -437,7 +437,7 @@ fn add_items_from_ast(ast: Rc<FileAst>, output: &mut String) {
                             let tyname = name_of_ty(ty);
                             swrite!(
                                 output,
-                                r#"let value: {tyname} = <{tyname}>::from_vm(vm, vm_funcs);
+                                r#"let value: {tyname} = <{tyname}>::from_vm_unsafe(vm, vm_funcs);
 "#
                             );
                             swrite!(output, "{}::{}(value)", e.name.v, variant.ctor.v);
@@ -455,7 +455,7 @@ fn add_items_from_ast(ast: Rc<FileAst>, output: &mut String) {
                     output.push('}');
 
                     output.push_str(
-                        r#"unsafe fn to_vm(self, vm: *mut c_void, vm_funcs: &AbraVmFunctions) {
+                        r#"unsafe fn to_vm_unsafe(self, vm: *mut c_void, vm_funcs: &AbraVmFunctions) {
 "#,
                     );
                     output.push_str("unsafe {");
@@ -464,7 +464,7 @@ fn add_items_from_ast(ast: Rc<FileAst>, output: &mut String) {
                     for (i, variant) in e.variants.iter().enumerate() {
                         if variant.data.is_some() {
                             swrite!(output, "{}::{}(value) => {{", e.name.v, variant.ctor.v);
-                            output.push_str("value.to_vm(vm, vm_funcs);");
+                            output.push_str("value.to_vm_unsafe(vm, vm_funcs);");
                             swrite!(output, "(vm_funcs.construct_variant)(vm, {i});");
                         } else {
                             swrite!(output, "{}::{} => {{", e.name.v, variant.ctor.v);
@@ -512,7 +512,7 @@ fn add_items_from_ast(ast: Rc<FileAst>, output: &mut String) {
                         let tyname = name_of_ty(ty);
                         swrite!(
                             output,
-                            r#"let {} = <{}>::from_vm(vm, vm_funcs);
+                            r#"let {} = <{}>::from_vm_unsafe(vm, vm_funcs);
 "#,
                             name.v,
                             tyname
@@ -539,7 +539,7 @@ fn add_items_from_ast(ast: Rc<FileAst>, output: &mut String) {
                 }
                 output.push_str(");");
                 // push return value
-                output.push_str("ret.to_vm(vm, vm_funcs);");
+                output.push_str("ret.to_vm_unsafe(vm, vm_funcs);");
                 output.push('}');
                 output.push('}');
             }
@@ -653,66 +653,66 @@ pub(crate) fn make_foreign_func_name(base_name: &str, qualifiers: &[&str]) -> St
     symbol
 }
 
-pub trait VmType {
+pub trait VmFfiType {
     /// # Safety
     /// vm is non-null and valid
-    unsafe fn from_vm(vm: *mut c_void, vm_funcs: &AbraVmFunctions) -> Self;
+    unsafe fn from_vm_unsafe(vm: *mut c_void, vm_funcs: &AbraVmFunctions) -> Self;
 
     /// # Safety
     /// vm is non-null and valid
-    unsafe fn to_vm(self, vm: *mut c_void, vm_funcs: &AbraVmFunctions);
+    unsafe fn to_vm_unsafe(self, vm: *mut c_void, vm_funcs: &AbraVmFunctions);
 }
 
-impl VmType for i64 {
-    unsafe fn from_vm(vm: *mut c_void, vm_funcs: &AbraVmFunctions) -> Self {
+impl VmFfiType for i64 {
+    unsafe fn from_vm_unsafe(vm: *mut c_void, vm_funcs: &AbraVmFunctions) -> Self {
         unsafe { (vm_funcs.pop_int)(vm) }
     }
 
-    unsafe fn to_vm(self, vm: *mut c_void, vm_funcs: &AbraVmFunctions) {
+    unsafe fn to_vm_unsafe(self, vm: *mut c_void, vm_funcs: &AbraVmFunctions) {
         unsafe {
             (vm_funcs.push_int)(vm, self);
         }
     }
 }
 
-impl VmType for f64 {
-    unsafe fn from_vm(vm: *mut c_void, vm_funcs: &AbraVmFunctions) -> Self {
+impl VmFfiType for f64 {
+    unsafe fn from_vm_unsafe(vm: *mut c_void, vm_funcs: &AbraVmFunctions) -> Self {
         unsafe { (vm_funcs.pop_float)(vm) }
     }
 
-    unsafe fn to_vm(self, vm: *mut c_void, vm_funcs: &AbraVmFunctions) {
+    unsafe fn to_vm_unsafe(self, vm: *mut c_void, vm_funcs: &AbraVmFunctions) {
         unsafe {
             (vm_funcs.push_float)(vm, self);
         }
     }
 }
 
-impl VmType for () {
-    unsafe fn from_vm(vm: *mut c_void, vm_funcs: &AbraVmFunctions) -> Self {
+impl VmFfiType for () {
+    unsafe fn from_vm_unsafe(vm: *mut c_void, vm_funcs: &AbraVmFunctions) -> Self {
         unsafe { (vm_funcs.pop)(vm) }
     }
 
-    unsafe fn to_vm(self, vm: *mut c_void, vm_funcs: &AbraVmFunctions) {
+    unsafe fn to_vm_unsafe(self, vm: *mut c_void, vm_funcs: &AbraVmFunctions) {
         unsafe {
             (vm_funcs.push_nil)(vm);
         }
     }
 }
 
-impl VmType for bool {
-    unsafe fn from_vm(vm: *mut c_void, vm_funcs: &AbraVmFunctions) -> Self {
+impl VmFfiType for bool {
+    unsafe fn from_vm_unsafe(vm: *mut c_void, vm_funcs: &AbraVmFunctions) -> Self {
         unsafe { (vm_funcs.pop_bool)(vm) }
     }
 
-    unsafe fn to_vm(self, vm: *mut c_void, vm_funcs: &AbraVmFunctions) {
+    unsafe fn to_vm_unsafe(self, vm: *mut c_void, vm_funcs: &AbraVmFunctions) {
         unsafe {
             (vm_funcs.push_bool)(vm, self);
         }
     }
 }
 
-impl VmType for String {
-    unsafe fn from_vm(vm: *mut c_void, vm_funcs: &AbraVmFunctions) -> Self {
+impl VmFfiType for String {
+    unsafe fn from_vm_unsafe(vm: *mut c_void, vm_funcs: &AbraVmFunctions) -> Self {
         unsafe {
             let string_view = (vm_funcs.view_string)(vm);
             let content = string_view.to_owned();
@@ -721,7 +721,7 @@ impl VmType for String {
         }
     }
 
-    unsafe fn to_vm(self, vm: *mut c_void, vm_funcs: &AbraVmFunctions) {
+    unsafe fn to_vm_unsafe(self, vm: *mut c_void, vm_funcs: &AbraVmFunctions) {
         unsafe {
             let string_view = StringView::from_string(&self);
             (vm_funcs.push_string)(vm, string_view);
@@ -729,17 +729,17 @@ impl VmType for String {
     }
 }
 
-impl<T> VmType for Option<T>
+impl<T> VmFfiType for Option<T>
 where
-    T: VmType,
+    T: VmFfiType,
 {
-    unsafe fn from_vm(vm: *mut c_void, vm_funcs: &AbraVmFunctions) -> Self {
+    unsafe fn from_vm_unsafe(vm: *mut c_void, vm_funcs: &AbraVmFunctions) -> Self {
         unsafe {
             (vm_funcs.deconstruct)(vm);
             let tag = (vm_funcs.pop_int)(vm);
             match tag {
                 0 => {
-                    let t = T::from_vm(vm, vm_funcs);
+                    let t = T::from_vm_unsafe(vm, vm_funcs);
                     Some(t)
                 }
                 1 => None,
@@ -748,15 +748,15 @@ where
         }
     }
 
-    unsafe fn to_vm(self, vm: *mut c_void, vm_funcs: &AbraVmFunctions) {
+    unsafe fn to_vm_unsafe(self, vm: *mut c_void, vm_funcs: &AbraVmFunctions) {
         unsafe {
             match self {
                 Some(t) => {
-                    t.to_vm(vm, vm_funcs);
+                    t.to_vm_unsafe(vm, vm_funcs);
                     (vm_funcs.construct_variant)(vm, 0);
                 }
                 None => {
-                    ().to_vm(vm, vm_funcs);
+                    ().to_vm_unsafe(vm, vm_funcs);
                     (vm_funcs.construct_variant)(vm, 1);
                 }
             }
@@ -764,22 +764,22 @@ where
     }
 }
 
-impl<T, E> VmType for Result<T, E>
+impl<T, E> VmFfiType for Result<T, E>
 where
-    T: VmType,
-    E: VmType,
+    T: VmFfiType,
+    E: VmFfiType,
 {
-    unsafe fn from_vm(vm: *mut c_void, vm_funcs: &AbraVmFunctions) -> Self {
+    unsafe fn from_vm_unsafe(vm: *mut c_void, vm_funcs: &AbraVmFunctions) -> Self {
         unsafe {
             (vm_funcs.deconstruct)(vm);
             let tag = (vm_funcs.pop_int)(vm);
             match tag {
                 0 => {
-                    let t = T::from_vm(vm, vm_funcs);
+                    let t = T::from_vm_unsafe(vm, vm_funcs);
                     Ok(t)
                 }
                 1 => {
-                    let e = E::from_vm(vm, vm_funcs);
+                    let e = E::from_vm_unsafe(vm, vm_funcs);
                     Err(e)
                 }
                 _ => panic!("unexpected tag for Result type {tag}"),
@@ -787,15 +787,15 @@ where
         }
     }
 
-    unsafe fn to_vm(self, vm: *mut c_void, vm_funcs: &AbraVmFunctions) {
+    unsafe fn to_vm_unsafe(self, vm: *mut c_void, vm_funcs: &AbraVmFunctions) {
         unsafe {
             match self {
                 Ok(t) => {
-                    t.to_vm(vm, vm_funcs);
+                    t.to_vm_unsafe(vm, vm_funcs);
                     (vm_funcs.construct_variant)(vm, 0);
                 }
                 Err(e) => {
-                    e.to_vm(vm, vm_funcs);
+                    e.to_vm_unsafe(vm, vm_funcs);
                     (vm_funcs.construct_variant)(vm, 1);
                 }
             }
@@ -803,27 +803,27 @@ where
     }
 }
 
-impl<T> VmType for Vec<T>
+impl<T> VmFfiType for Vec<T>
 where
-    T: VmType,
+    T: VmFfiType,
 {
-    unsafe fn from_vm(vm: *mut c_void, vm_funcs: &AbraVmFunctions) -> Self {
+    unsafe fn from_vm_unsafe(vm: *mut c_void, vm_funcs: &AbraVmFunctions) -> Self {
         unsafe {
             let len = (vm_funcs.array_len)(vm);
             (vm_funcs.deconstruct)(vm);
             let mut ret = vec![];
             for _ in 0..len {
-                let val = <T>::from_vm(vm, vm_funcs);
+                let val = <T>::from_vm_unsafe(vm, vm_funcs);
                 ret.push(val);
             }
             ret
         }
     }
-    unsafe fn to_vm(self, vm: *mut c_void, vm_funcs: &AbraVmFunctions) {
+    unsafe fn to_vm_unsafe(self, vm: *mut c_void, vm_funcs: &AbraVmFunctions) {
         unsafe {
             let len = self.len();
             for elem in self.into_iter() {
-                elem.to_vm(vm, vm_funcs);
+                elem.to_vm_unsafe(vm, vm_funcs);
             }
             (vm_funcs.construct_array)(vm, len);
         }
@@ -838,21 +838,21 @@ macro_rules! replace_expr {
 
 macro_rules! tuple_impls {
     ( $( $name:ident ),+ $(,)? ) => {
-        impl< $($name: VmType),+ > VmType for ( $($name,)+ ) {
-            unsafe fn from_vm(vm: *mut c_void, vm_funcs: &AbraVmFunctions) -> Self { unsafe {
+        impl< $($name: VmFfiType),+ > VmFfiType for ( $($name,)+ ) {
+            unsafe fn from_vm_unsafe(vm: *mut c_void, vm_funcs: &AbraVmFunctions) -> Self { unsafe {
                 // Deconstruct the tuple on the VM.
                 (vm_funcs.deconstruct)(vm);
                 // Pop values in normal order.
                 #[allow(non_snake_case)]
-                let ($($name,)+) = ($( $name::from_vm(vm, vm_funcs), )+);
+                let ($($name,)+) = ($( $name::from_vm_unsafe(vm, vm_funcs), )+);
                 ($($name,)+)
             }}
-            unsafe fn to_vm(self, vm: *mut c_void, vm_funcs: &AbraVmFunctions) { unsafe {
+            unsafe fn to_vm_unsafe(self, vm: *mut c_void, vm_funcs: &AbraVmFunctions) { unsafe {
                 // Destructure the tuple.
                 #[allow(non_snake_case)]
                 let ($($name,)+) = self;
                 // Push each element onto the VM in order.
-                $( $name.to_vm(vm, vm_funcs); )+
+                $( $name.to_vm_unsafe(vm, vm_funcs); )+
                 // Count the number of elements in the tuple.
                 let count: usize = [$( replace_expr!($name, 1) ),+].len();
                 // Reconstruct the tuple on the VM.

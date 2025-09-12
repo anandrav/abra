@@ -7,8 +7,8 @@ use abra_core::MockFileProvider;
 use abra_core::compile_bytecode;
 use abra_core::vm::Vm;
 use abra_core::vm::VmStatus;
+use std::collections::HashMap;
 use std::path::PathBuf;
-use utils::hash::HashMap;
 
 #[test]
 fn arithmetic() {
@@ -885,6 +885,7 @@ my_entry_point(5, 6)
         "main.abra",
         MockFileProvider::single_file(src),
     ));
+    dbg!(&program.label_map);
     let mut vm = Vm::with_entry_point(program, "main.my_entry_point".to_owned());
     vm.push_int(2);
     vm.push_int(3);
