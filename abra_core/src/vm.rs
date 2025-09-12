@@ -798,92 +798,44 @@ impl Vm {
                 self.push(a || b);
             }
             Instr::LessThanInt => {
-                let b = self.pop()?;
-                let a = self.pop()?;
-                match (a, b) {
-                    (Value::Int(a), Value::Int(b)) => self.push(a < b),
-                    (Value::Float(a), Value::Float(b)) => self.push(a < b),
-                    _ => {
-                        return self.wrong_type(ValueKind::String);
-                    }
-                }
+                let b = self.pop_int()?;
+                let a = self.pop_int()?;
+                self.push(a < b);
             }
             Instr::LessThanOrEqualInt => {
-                let b = self.pop()?;
-                let a = self.pop()?;
-                match (a, b) {
-                    (Value::Int(a), Value::Int(b)) => self.push(a <= b),
-                    (Value::Float(a), Value::Float(b)) => self.push(a <= b),
-                    _ => {
-                        return self.wrong_type(ValueKind::Number);
-                    }
-                }
+                let b = self.pop_int()?;
+                let a = self.pop_int()?;
+                self.push(a <= b);
             }
             Instr::GreaterThanInt => {
-                let b = self.pop()?;
-                let a = self.pop()?;
-                match (a, b) {
-                    (Value::Int(a), Value::Int(b)) => self.push(a > b),
-                    (Value::Float(a), Value::Float(b)) => self.push(a > b),
-                    _ => {
-                        return self.wrong_type(ValueKind::Number);
-                    }
-                }
+                let b = self.pop_int()?;
+                let a = self.pop_int()?;
+                self.push(a > b);
             }
             Instr::GreaterThanOrEqualInt => {
-                let b = self.pop()?;
-                let a = self.pop()?;
-                match (a, b) {
-                    (Value::Int(a), Value::Int(b)) => self.push(a >= b),
-                    (Value::Float(a), Value::Float(b)) => self.push(a >= b),
-                    _ => {
-                        return self.wrong_type(ValueKind::Number);
-                    }
-                }
+                let b = self.pop_int()?;
+                let a = self.pop_int()?;
+                self.push(a >= b);
             }
             Instr::LessThanFloat => {
-                let b = self.pop()?;
-                let a = self.pop()?;
-                match (a, b) {
-                    (Value::Int(a), Value::Int(b)) => self.push(a < b),
-                    (Value::Float(a), Value::Float(b)) => self.push(a < b),
-                    _ => {
-                        return self.wrong_type(ValueKind::String);
-                    }
-                }
+                let b = self.pop_float()?;
+                let a = self.pop_float()?;
+                self.push(a < b);
             }
             Instr::LessThanOrEqualFloat => {
-                let b = self.pop()?;
-                let a = self.pop()?;
-                match (a, b) {
-                    (Value::Int(a), Value::Int(b)) => self.push(a <= b),
-                    (Value::Float(a), Value::Float(b)) => self.push(a <= b),
-                    _ => {
-                        return self.wrong_type(ValueKind::Number);
-                    }
-                }
+                let b = self.pop_float()?;
+                let a = self.pop_float()?;
+                self.push(a <= b);
             }
             Instr::GreaterThanFloat => {
-                let b = self.pop()?;
-                let a = self.pop()?;
-                match (a, b) {
-                    (Value::Int(a), Value::Int(b)) => self.push(a > b),
-                    (Value::Float(a), Value::Float(b)) => self.push(a > b),
-                    _ => {
-                        return self.wrong_type(ValueKind::Number);
-                    }
-                }
+                let b = self.pop_float()?;
+                let a = self.pop_float()?;
+                self.push(a > b);
             }
             Instr::GreaterThanOrEqualFloat => {
-                let b = self.pop()?;
-                let a = self.pop()?;
-                match (a, b) {
-                    (Value::Int(a), Value::Int(b)) => self.push(a >= b),
-                    (Value::Float(a), Value::Float(b)) => self.push(a >= b),
-                    _ => {
-                        return self.wrong_type(ValueKind::Number);
-                    }
-                }
+                let b = self.pop_float()?;
+                let a = self.pop_float()?;
+                self.push(a >= b);
             }
             Instr::Equal => {
                 let b = self.pop()?;
