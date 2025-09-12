@@ -374,7 +374,10 @@ pub enum Instr<Location = ProgramCounter, StringConstant = u16> {
     LessThanOrEqualFloat,
     GreaterThanFloat,
     GreaterThanOrEqualFloat,
-    Equal,
+    EqualInt,
+    EqualFloat,
+    EqualBool,
+    EqualString, // TODO: this is O(N). Must use smaller instructions
 
     // Control Flow
     Jump(Location),
@@ -399,7 +402,7 @@ pub enum Instr<Location = ProgramCounter, StringConstant = u16> {
     ArrayAppend,
     ArrayLength,
     ArrayPop,
-    ConcatStrings,
+    ConcatStrings, // TODO: this is O(N). Must use smaller instructions
     IntToString,
     FloatToString,
 
@@ -437,7 +440,10 @@ impl<L: Display, S: Display> Display for Instr<L, S> {
             Instr::LessThanOrEqualFloat => write!(f, "less_than_or_equal_float"),
             Instr::GreaterThanFloat => write!(f, "greater_than_float"),
             Instr::GreaterThanOrEqualFloat => write!(f, "greater_than_or_equal_float"),
-            Instr::Equal => write!(f, "equal"),
+            Instr::EqualInt => write!(f, "equal_int"),
+            Instr::EqualFloat => write!(f, "equal_float"),
+            Instr::EqualBool => write!(f, "equal_bool"),
+            Instr::EqualString => write!(f, "equal_string"),
             Instr::PushNil => write!(f, "push_nil"),
             Instr::PushBool(b) => write!(f, "push_bool {b}"),
             Instr::PushInt(n) => write!(f, "push_int {n}"),
@@ -837,7 +843,88 @@ impl Vm {
                 let a = self.pop_float()?;
                 self.push(a >= b);
             }
-            Instr::Equal => {
+            Instr::EqualInt => {
+                let b = self.pop()?;
+                let a = self.pop()?;
+                match (a, b) {
+                    (Value::Int(a), Value::Int(b)) => self.push(a == b),
+                    (Value::Float(a), Value::Float(b)) => self.push(a == b),
+                    (Value::Bool(a), Value::Bool(b)) => self.push(a == b),
+                    (Value::HeapReference(a), Value::HeapReference(b)) => {
+                        let a_idx = a.get().get();
+                        let b_idx = b.get().get();
+                        match (&self.heap[a_idx].kind, &self.heap[b_idx].kind) {
+                            (ManagedObjectKind::String(a), ManagedObjectKind::String(b)) => {
+                                self.push(a == b)
+                            }
+                            _ => {
+                                return self.make_error(VmErrorKind::InternalError(
+                                    "Can't compare equal".into(),
+                                ));
+                            }
+                        }
+                    }
+                    _ => {
+                        return self
+                            .make_error(VmErrorKind::InternalError("Can't compare equal".into()));
+                    }
+                }
+            }
+            Instr::EqualFloat => {
+                let b = self.pop()?;
+                let a = self.pop()?;
+                match (a, b) {
+                    (Value::Int(a), Value::Int(b)) => self.push(a == b),
+                    (Value::Float(a), Value::Float(b)) => self.push(a == b),
+                    (Value::Bool(a), Value::Bool(b)) => self.push(a == b),
+                    (Value::HeapReference(a), Value::HeapReference(b)) => {
+                        let a_idx = a.get().get();
+                        let b_idx = b.get().get();
+                        match (&self.heap[a_idx].kind, &self.heap[b_idx].kind) {
+                            (ManagedObjectKind::String(a), ManagedObjectKind::String(b)) => {
+                                self.push(a == b)
+                            }
+                            _ => {
+                                return self.make_error(VmErrorKind::InternalError(
+                                    "Can't compare equal".into(),
+                                ));
+                            }
+                        }
+                    }
+                    _ => {
+                        return self
+                            .make_error(VmErrorKind::InternalError("Can't compare equal".into()));
+                    }
+                }
+            }
+            Instr::EqualBool => {
+                let b = self.pop()?;
+                let a = self.pop()?;
+                match (a, b) {
+                    (Value::Int(a), Value::Int(b)) => self.push(a == b),
+                    (Value::Float(a), Value::Float(b)) => self.push(a == b),
+                    (Value::Bool(a), Value::Bool(b)) => self.push(a == b),
+                    (Value::HeapReference(a), Value::HeapReference(b)) => {
+                        let a_idx = a.get().get();
+                        let b_idx = b.get().get();
+                        match (&self.heap[a_idx].kind, &self.heap[b_idx].kind) {
+                            (ManagedObjectKind::String(a), ManagedObjectKind::String(b)) => {
+                                self.push(a == b)
+                            }
+                            _ => {
+                                return self.make_error(VmErrorKind::InternalError(
+                                    "Can't compare equal".into(),
+                                ));
+                            }
+                        }
+                    }
+                    _ => {
+                        return self
+                            .make_error(VmErrorKind::InternalError("Can't compare equal".into()));
+                    }
+                }
+            }
+            Instr::EqualString => {
                 let b = self.pop()?;
                 let a = self.pop()?;
                 match (a, b) {

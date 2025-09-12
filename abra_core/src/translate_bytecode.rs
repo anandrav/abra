@@ -863,7 +863,7 @@ impl Translator {
                     self.emit(st, Instr::GreaterThanOrEqualInt);
                 }
                 BuiltinOperation::EqualInt => {
-                    self.emit(st, Instr::Equal);
+                    self.emit(st, Instr::EqualInt);
                 }
                 BuiltinOperation::LessThanFloat => {
                     self.emit(st, Instr::LessThanFloat);
@@ -878,10 +878,10 @@ impl Translator {
                     self.emit(st, Instr::GreaterThanOrEqualFloat);
                 }
                 BuiltinOperation::EqualFloat => {
-                    self.emit(st, Instr::Equal);
+                    self.emit(st, Instr::EqualFloat);
                 }
                 BuiltinOperation::EqualString => {
-                    self.emit(st, Instr::Equal);
+                    self.emit(st, Instr::EqualString);
                 }
                 BuiltinOperation::IntToString => {
                     self.emit(st, Instr::IntToString);
@@ -938,21 +938,21 @@ impl Translator {
             Type::Int => match &*pat.kind {
                 PatKind::Int(i) => {
                     self.emit(st, Instr::PushInt(*i));
-                    self.emit(st, Instr::Equal);
+                    self.emit(st, Instr::EqualInt);
                 }
                 _ => panic!("unexpected pattern: {:?}", pat.kind),
             },
             Type::Bool => match &*pat.kind {
                 PatKind::Bool(b) => {
                     self.emit(st, Instr::PushBool(*b));
-                    self.emit(st, Instr::Equal);
+                    self.emit(st, Instr::EqualBool);
                 }
                 _ => panic!("unexpected pattern: {:?}", pat.kind),
             },
             Type::String => match &*pat.kind {
                 PatKind::Str(s) => {
                     self.emit(st, Instr::PushString(s.clone()));
-                    self.emit(st, Instr::Equal);
+                    self.emit(st, Instr::EqualString);
                 }
                 _ => panic!("unexpected pattern: {:?}", pat.kind),
             },
@@ -968,7 +968,7 @@ impl Translator {
 
                     self.emit(st, Instr::Deconstruct);
                     self.emit(st, Instr::PushInt(*variant as AbraInt));
-                    self.emit(st, Instr::Equal);
+                    self.emit(st, Instr::EqualInt);
                     self.emit(st, Instr::Not);
                     self.emit(st, Instr::JumpIf(tag_fail_label.clone()));
 
@@ -1204,7 +1204,7 @@ impl Translator {
                 // check return value of iterator.next() and branch
                 self.emit(st, Instr::Deconstruct);
                 self.emit(st, Instr::PushInt(0 as AbraInt));
-                self.emit(st, Instr::Equal);
+                self.emit(st, Instr::EqualInt);
                 self.emit(st, Instr::Not);
                 self.emit(st, Instr::JumpIf(end_label.clone()));
                 self.handle_pat_binding(pat.clone(), offset_table, st);
