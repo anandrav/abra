@@ -699,154 +699,81 @@ impl Vm {
                 }
             }
             Instr::AddInt => {
-                let b = self.pop()?;
-                let a = self.pop()?;
-                match (a, b) {
-                    (Value::Int(a), Value::Int(b)) => match a.checked_add(b) {
-                        Some(n) => self.push(n),
-                        None => return self.make_error(VmErrorKind::IntegerOverflowUnderflow),
-                    },
-                    (Value::Float(a), Value::Float(b)) => self.push(a + b),
-                    _ => return self.wrong_type(ValueKind::Number),
+                let b = self.pop_int()?;
+                let a = self.pop_int()?;
+                match a.checked_add(b) {
+                    Some(n) => self.push(n),
+                    None => return self.make_error(VmErrorKind::IntegerOverflowUnderflow),
                 }
             }
             Instr::SubtractInt => {
-                let b = self.pop()?;
-                let a = self.pop()?;
-                match (a, b) {
-                    (Value::Int(a), Value::Int(b)) => match a.checked_sub(b) {
-                        Some(n) => self.push(n),
-                        None => return self.make_error(VmErrorKind::IntegerOverflowUnderflow),
-                    },
-                    (Value::Float(a), Value::Float(b)) => self.push(a - b),
-                    _ => return self.wrong_type(ValueKind::Number),
+                let b = self.pop_int()?;
+                let a = self.pop_int()?;
+                match a.checked_sub(b) {
+                    Some(n) => self.push(n),
+                    None => return self.make_error(VmErrorKind::IntegerOverflowUnderflow),
                 }
             }
             Instr::MultiplyInt => {
-                let b = self.pop()?;
-                let a = self.pop()?;
-                match (a, b) {
-                    (Value::Int(a), Value::Int(b)) => match a.checked_mul(b) {
-                        Some(n) => self.push(n),
-                        None => return self.make_error(VmErrorKind::IntegerOverflowUnderflow),
-                    },
-                    (Value::Float(a), Value::Float(b)) => self.push(a * b),
-                    _ => return self.wrong_type(ValueKind::Number),
+                let b = self.pop_int()?;
+                let a = self.pop_int()?;
+                match a.checked_mul(b) {
+                    Some(n) => self.push(n),
+                    None => return self.make_error(VmErrorKind::IntegerOverflowUnderflow),
                 }
             }
             Instr::DivideInt => {
-                let b = self.pop()?;
-                let a = self.pop()?;
-                match (a, b) {
-                    (Value::Int(a), Value::Int(b)) => {
-                        if b == 0 {
-                            return self.make_error(VmErrorKind::DivisionByZero);
-                        }
-                        match a.checked_div(b) {
-                            Some(n) => self.push(n),
-                            None => return self.make_error(VmErrorKind::IntegerOverflowUnderflow),
-                        }
-                    }
-                    (Value::Float(a), Value::Float(b)) => {
-                        if b == 0.0 {
-                            return self.make_error(VmErrorKind::DivisionByZero);
-                        }
-                        self.push(a / b)
-                    }
-                    _ => return self.wrong_type(ValueKind::Number),
+                let b = self.pop_int()?;
+                let a = self.pop_int()?;
+                if b == 0 {
+                    return self.make_error(VmErrorKind::DivisionByZero);
+                }
+                match a.checked_div(b) {
+                    Some(n) => self.push(n),
+                    None => return self.make_error(VmErrorKind::IntegerOverflowUnderflow),
                 }
             }
             Instr::PowerInt => {
-                let b = self.pop()?;
-                let a = self.pop()?;
-                match (a, b) {
-                    (Value::Int(a), Value::Int(b)) => self.push(a.pow(b as u32)),
-                    (Value::Float(a), Value::Float(b)) => self.push(a.powf(b)),
-                    _ => return self.wrong_type(ValueKind::Number),
-                }
+                let b = self.pop_int()?;
+                let a = self.pop_int()?;
+                self.push(a.pow(b as u32));
             }
             Instr::Modulo => {
-                let b = self.pop()?;
-                let a = self.pop()?;
-                match (a, b) {
-                    (Value::Int(a), Value::Int(b)) => self.push(a % b),
-                    (Value::Float(a), Value::Float(b)) => self.push(a % b),
-                    _ => return self.wrong_type(ValueKind::Number),
-                }
+                let b = self.pop_int()?;
+                let a = self.pop_int()?;
+                self.push(a % b);
             }
             Instr::AddFloat => {
-                let b = self.pop()?;
-                let a = self.pop()?;
-                match (a, b) {
-                    (Value::Int(a), Value::Int(b)) => match a.checked_add(b) {
-                        Some(n) => self.push(n),
-                        None => return self.make_error(VmErrorKind::IntegerOverflowUnderflow),
-                    },
-                    (Value::Float(a), Value::Float(b)) => self.push(a + b),
-                    _ => return self.wrong_type(ValueKind::Number),
-                }
+                let b = self.pop_float()?;
+                let a = self.pop_float()?;
+                self.push(a + b);
             }
             Instr::SubtractFloat => {
-                let b = self.pop()?;
-                let a = self.pop()?;
-                match (a, b) {
-                    (Value::Int(a), Value::Int(b)) => match a.checked_sub(b) {
-                        Some(n) => self.push(n),
-                        None => return self.make_error(VmErrorKind::IntegerOverflowUnderflow),
-                    },
-                    (Value::Float(a), Value::Float(b)) => self.push(a - b),
-                    _ => return self.wrong_type(ValueKind::Number),
-                }
+                let b = self.pop_float()?;
+                let a = self.pop_float()?;
+                self.push(a - b);
             }
             Instr::MultiplyFloat => {
-                let b = self.pop()?;
-                let a = self.pop()?;
-                match (a, b) {
-                    (Value::Int(a), Value::Int(b)) => match a.checked_mul(b) {
-                        Some(n) => self.push(n),
-                        None => return self.make_error(VmErrorKind::IntegerOverflowUnderflow),
-                    },
-                    (Value::Float(a), Value::Float(b)) => self.push(a * b),
-                    _ => return self.wrong_type(ValueKind::Number),
-                }
+                let b = self.pop_float()?;
+                let a = self.pop_float()?;
+                self.push(a * b);
             }
             Instr::DivideFloat => {
-                let b = self.pop()?;
-                let a = self.pop()?;
-                match (a, b) {
-                    (Value::Int(a), Value::Int(b)) => {
-                        if b == 0 {
-                            return self.make_error(VmErrorKind::DivisionByZero);
-                        }
-                        match a.checked_div(b) {
-                            Some(n) => self.push(n),
-                            None => return self.make_error(VmErrorKind::IntegerOverflowUnderflow),
-                        }
-                    }
-                    (Value::Float(a), Value::Float(b)) => {
-                        if b == 0.0 {
-                            return self.make_error(VmErrorKind::DivisionByZero);
-                        }
-                        self.push(a / b)
-                    }
-                    _ => return self.wrong_type(ValueKind::Number),
+                let b = self.pop_float()?;
+                let a = self.pop_float()?;
+                if b == 0.0 {
+                    return self.make_error(VmErrorKind::DivisionByZero);
                 }
+                self.push(a / b);
             }
             Instr::PowerFloat => {
-                let b = self.pop()?;
-                let a = self.pop()?;
-                match (a, b) {
-                    (Value::Int(a), Value::Int(b)) => self.push(a.pow(b as u32)),
-                    (Value::Float(a), Value::Float(b)) => self.push(a.powf(b)),
-                    _ => return self.wrong_type(ValueKind::Number),
-                }
+                let b = self.pop_float()?;
+                let a = self.pop_float()?;
+                self.push(a.powf(b));
             }
             Instr::SquareRoot => {
-                let v = self.pop()?;
-                match v {
-                    Value::Float(f) => self.push(f.sqrt()),
-                    _ => return self.wrong_type(ValueKind::Float),
-                }
+                let v = self.pop_float()?;
+                self.push(v.sqrt());
             }
             Instr::Not => {
                 let v = self.pop_bool()?;
@@ -1317,6 +1244,10 @@ impl Vm {
 
     pub fn pop_int(&mut self) -> Result<AbraInt> {
         self.pop()?.get_int(self)
+    }
+
+    pub fn pop_float(&mut self) -> Result<AbraFloat> {
+        self.pop()?.get_float(self)
     }
 
     fn pop_addr(&mut self) -> Result<usize> {
