@@ -861,23 +861,9 @@ impl Vm {
             Instr::EqualString => {
                 let b = self.pop()?;
                 let a = self.pop()?;
-                match (a, b) {
-                    (Value::HeapReference(a), Value::HeapReference(b)) => {
-                        let a_idx = a.get().get();
-                        let b_idx = b.get().get();
-                        match (&self.heap[a_idx].kind, &self.heap[b_idx].kind) {
-                            (ManagedObjectKind::String(a), ManagedObjectKind::String(b)) => {
-                                self.push(a == b)
-                            }
-                            _ => {
-                                return self.wrong_type(ValueKind::String);
-                            }
-                        }
-                    }
-                    _ => {
-                        return self.wrong_type(ValueKind::String);
-                    }
-                }
+                let b = b.view_string(self)?;
+                let a = a.view_string(self)?;
+                self.push(a == b);
             }
             Instr::Jump(target) => {
                 self.pc = target;
