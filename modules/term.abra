@@ -3,7 +3,7 @@ type KeyCode =
     | Right
     | Up
     | Down
-    | Char of string
+    | Char(string)
     | Esc
     | Other
 

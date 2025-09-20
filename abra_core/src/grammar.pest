@@ -37,7 +37,7 @@ extension_body = _{ "{" ~ func_def* ~ "}" }
 enum_declaration = { "type" ~ identifier ~ type_params? ~ "=" ~ ("|")? ~ variant ~ ("|" ~ variant)* }
 type_params = _{ "<" ~ (type_poly ~ ",")* ~ type_poly? ~ ">" }
 variant = { identifier ~ packed_data? }
-packed_data = _{ "of" ~ typ }
+packed_data = _{ ("(" ~ typ ~ ")") | typ }
 
 struct_declaration = { "type" ~ identifier ~ type_params? ~ "=" ~ "{" ~ struct_field ~ (struct_field)* ~ "}" }
 struct_field = { identifier ~ type_annotation }

@@ -24,7 +24,7 @@ type MyStruct = {
 }
 
 type MyEnum =
-    | Int of int
-    | Bool of bool
+    | Int(int)
+    | Bool(bool)
     | Void
-    | String of string
+    | String(string)

@@ -36,6 +36,6 @@ Enums can have generic type arguments.
 
 ```
 type option<T> =
-  | some of T
+  | some(T)
   | none
 ```
