@@ -48,7 +48,6 @@ pub fn source_files_single(src: &str) -> Vec<FileData> {
     ]
 }
 
-// TODO: don't use String for error in return type
 pub fn compile_bytecode(
     main_file_name: &str,
     file_provider: Box<dyn FileProvider>,
