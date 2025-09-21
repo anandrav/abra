@@ -13,17 +13,14 @@ use std::fmt::{self, Display, Formatter};
 use std::ops::Range;
 use std::path::PathBuf;
 use std::rc::Rc;
-use typecheck::{
-    ConstraintReason, PotentialType, SolvedType, TypeKey, TypeVar,
-    solve_types,
-};
+use typecheck::{ConstraintReason, PotentialType, SolvedType, TypeKey, TypeVar, solve_types};
 use utils::hash::{HashMap, HashSet};
 use utils::id_set::IdSet;
+mod error;
 mod pat_exhaustiveness;
 mod resolve;
-mod error;
 pub(crate) mod typecheck;
-use codespan_reporting::diagnostic::{Diagnostic};
+use codespan_reporting::diagnostic::Diagnostic;
 use codespan_reporting::term;
 use codespan_reporting::term::termcolor::{ColorChoice, StandardStream};
 use pat_exhaustiveness::{DeconstructedPat, check_pattern_exhaustiveness_and_usefulness};
@@ -369,7 +366,6 @@ pub(crate) fn check_errors(ctx: &StaticsContext, files: &FileDatabase) -> Result
         more: Some((files.clone(), ctx.errors.clone())),
     })
 }
-
 
 use crate::statics::typecheck::Nominal;
 use codespan_reporting::diagnostic::Label as CsLabel;

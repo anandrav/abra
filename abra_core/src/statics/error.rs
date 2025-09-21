@@ -1,15 +1,11 @@
-use crate::ast::{
-    AstNode, FileDatabase, FileId,
-};
-use crate::statics::typecheck::{
-    ConstraintReason, PotentialType, Reason, fmt_conflicting_types,
-};
+use super::Declaration;
+use super::Error;
+use super::PolytypeDeclaration;
+use crate::ast::{AstNode, FileDatabase, FileId};
+use crate::statics::typecheck::{ConstraintReason, PotentialType, Reason, fmt_conflicting_types};
 use codespan_reporting::diagnostic::{Diagnostic, Label};
 use codespan_reporting::term;
 use codespan_reporting::term::termcolor::{Buffer, ColorChoice, StandardStream};
-use super::Error;
-use super::Declaration;
-use super::PolytypeDeclaration;
 
 impl Error {
     fn make_diagnostic(&self) -> Diagnostic<FileId> {

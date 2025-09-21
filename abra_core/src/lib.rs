@@ -52,8 +52,27 @@ pub fn compile_bytecode(
     main_file_name: &str,
     file_provider: Box<dyn FileProvider>,
 ) -> Result<CompiledProgram, ErrorSummary> {
-    let (file_asts, file_db) =
-        get_files(main_file_name, &*file_provider).map_err(ErrorSummary::msg)?;
+    compile_bytecode_(main_file_name, None, file_provider)
+}
+
+pub fn compile_bytecode_with_host_funcs(
+    main_file_name: &str,
+    main_host_func_file_name: &str,
+    file_provider: Box<dyn FileProvider>,
+) -> Result<CompiledProgram, ErrorSummary> {
+    compile_bytecode_(main_file_name, Some(main_host_func_file_name), file_provider)
+}
+
+fn compile_bytecode_(
+    main_file_name: &str,
+    main_host_func_file_name: Option<&str>,
+    file_provider: Box<dyn FileProvider>,
+) -> Result<CompiledProgram, ErrorSummary> {
+    let mut roots = vec![main_file_name];
+    if let Some(host) = main_host_func_file_name {
+        roots.push(host);
+    }
+    let (file_asts, file_db) = get_files(&roots, &*file_provider).map_err(ErrorSummary::msg)?;
     let inference_ctx = statics::analyze(&file_asts, &file_db, file_provider)?;
 
     let translator = Translator::new(inference_ctx, file_db, file_asts);
@@ -107,7 +126,7 @@ impl Display for ErrorSummary {
 impl std::error::Error for ErrorSummary {}
 
 fn get_files(
-    main_file_name: &str,
+    roots: &[&str],
     file_provider: &dyn FileProvider,
 ) -> Result<(Vec<Rc<FileAst>>, FileDatabase), String> {
     // TODO: these errors aren't actually being used
@@ -121,10 +140,8 @@ fn get_files(
     let mut visited = HashSet::<PathBuf>::default();
 
     // main file
-    {
-        let main_file_data = file_provider
-            .search_for_file(Path::new(main_file_name))
-            .unwrap(); // TODO: don't unwrap. Figure out how to return better errors
+    for root in roots {
+        let main_file_data = file_provider.search_for_file(Path::new(root)).unwrap(); // TODO: don't unwrap. Figure out how to return better errors
         visited.insert(main_file_data.full_path.clone());
         let id = file_db.add(main_file_data);
         stack.push_back(id);

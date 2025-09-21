@@ -9,12 +9,12 @@ use utils::swrite;
 
 // TODO: all this crap doesn't belong in lib.rs move it to addons.rs or somewhere else
 pub fn generate_host_function_enum(
-    main_file_name: &str,
+    main_host_func_file_name: &str,
     file_provider: Box<dyn FileProvider>,
     destination: &Path,
 ) -> Result<(), ErrorSummary> {
     let (file_asts, file_db) =
-        get_files(main_file_name, &*file_provider).map_err(ErrorSummary::msg)?;
+        get_files(&[main_host_func_file_name], &*file_provider).map_err(ErrorSummary::msg)?;
     let inference_ctx = statics::analyze(&file_asts, &file_db, file_provider)?;
 
     let output = &mut String::new();
