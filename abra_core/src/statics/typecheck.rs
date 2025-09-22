@@ -2426,7 +2426,8 @@ fn generate_constraints_expr(
                             } else {
                                 // failed to resolve member function
                                 ctx.errors.push(Error::UnresolvedMemberFunction {
-                                    node: receiver_expr.node(),
+                                    receiver_node: receiver_expr.node(),
+                                    memfn_node: fname.node(),
                                     ty: potential_ty,
                                 });
 

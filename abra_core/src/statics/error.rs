@@ -41,10 +41,16 @@ impl Error {
                 diagnostic = diagnostic.with_message("Could not resolve identifier");
                 labels.push(Label::secondary(file, range))
             }
-            Error::UnresolvedMemberFunction { node, ty } => {
-                let (file, range) = node.get_file_and_range();
+            Error::UnresolvedMemberFunction {
+                receiver_node,
+                memfn_node,
+                ty,
+            } => {
                 diagnostic = diagnostic
                     .with_message(format!("Could not resolve member function for type: {ty}"));
+                let (file, range) = receiver_node.get_file_and_range();
+                labels.push(Label::secondary(file, range));
+                let (file, range) = memfn_node.get_file_and_range();
                 labels.push(Label::secondary(file, range))
             }
             Error::UnconstrainedUnifvar { node } => {

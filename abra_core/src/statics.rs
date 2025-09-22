@@ -268,7 +268,8 @@ pub(crate) enum Error {
         node: AstNode,
     },
     UnresolvedMemberFunction {
-        node: AstNode,
+        receiver_node: AstNode,
+        memfn_node: AstNode,
         ty: PotentialType,
     },
     NameClash {

@@ -1,4 +1,4 @@
-use crate::addons::{name_of_ty};
+use crate::addons::name_of_ty;
 use crate::ast::{FileAst, ItemKind, Type, TypeDefKind, TypeKind};
 use crate::vm::Vm;
 use crate::{ErrorSummary, FileProvider, get_files, statics};
@@ -232,29 +232,29 @@ fn add_items_from_ast(ast: Rc<FileAst>, output: &mut String) {
             match &**tydef {
                 TypeDefKind::Struct(s) => {
                     swrite!(
-                    output,
-                    r#"pub struct {} {{
+                        output,
+                        r#"pub struct {} {{
 "#,
-                    s.name.v
-                );
+                        s.name.v
+                    );
                     for field in &s.fields {
                         let tyname = name_of_ty(&field.ty);
                         swrite!(
-                        output,
-                        r#"pub {}: {},
+                            output,
+                            r#"pub {}: {},
 "#,
-                        field.name.v,
-                        tyname
-                    );
+                            field.name.v,
+                            tyname
+                        );
                     }
                     output.push('}');
 
                     swrite!(
-                    output,
-                    r#"impl VmType for {} {{
+                        output,
+                        r#"impl VmType for {} {{
 "#,
-                    s.name.v
-                );
+                        s.name.v
+                    );
                     output.push_str(
                         r#"fn from_vm(vm: &mut Vm) -> Self {
 "#,
@@ -270,12 +270,12 @@ fn add_items_from_ast(ast: Rc<FileAst>, output: &mut String) {
                         } else {
                             let tyname = name_of_ty(&field.ty);
                             swrite!(
-                            output,
-                            r#"let {} = <{}>::from_vm(vm);
+                                output,
+                                r#"let {} = <{}>::from_vm(vm);
 "#,
-                            field.name.v,
-                            tyname
-                        );
+                                field.name.v,
+                                tyname
+                            );
                         }
                     }
                     output.push_str(
@@ -304,19 +304,19 @@ fn add_items_from_ast(ast: Rc<FileAst>, output: &mut String) {
                             output.push_str("(vm_funcs.push_nil)(vm);");
                         } else {
                             swrite!(
-                            output,
-                            r#"self.{}.to_vm(vm, vm_funcs);
+                                output,
+                                r#"self.{}.to_vm(vm, vm_funcs);
 "#,
-                            field.name.v
-                        );
+                                field.name.v
+                            );
                         }
                     }
 
                     swrite!(
-                    output,
-                    "(vm_funcs.construct_struct)(vm, {});",
-                    s.fields.len()
-                );
+                        output,
+                        "(vm_funcs.construct_struct)(vm, {});",
+                        s.fields.len()
+                    );
 
                     output.push('}');
 
@@ -325,11 +325,11 @@ fn add_items_from_ast(ast: Rc<FileAst>, output: &mut String) {
                 }
                 TypeDefKind::Enum(e) => {
                     swrite!(
-                    output,
-                    r#"pub enum {} {{
+                        output,
+                        r#"pub enum {} {{
 "#,
-                    e.name.v
-                );
+                        e.name.v
+                    );
                     for variant in &e.variants {
                         swrite!(output, "{}", variant.ctor.v);
                         if let Some(ty) = &variant.data {
@@ -342,11 +342,11 @@ fn add_items_from_ast(ast: Rc<FileAst>, output: &mut String) {
                     output.push('}');
 
                     swrite!(
-                    output,
-                    r#"impl VmType for {} {{
+                        output,
+                        r#"impl VmType for {} {{
 "#,
-                    e.name.v
-                );
+                        e.name.v
+                    );
                     output.push_str(
                         r#"fn from_vm(vm: &mut Vm) -> Self {
 "#,
@@ -361,10 +361,10 @@ fn add_items_from_ast(ast: Rc<FileAst>, output: &mut String) {
                         if let Some(ty) = &variant.data {
                             let tyname = name_of_ty(ty);
                             swrite!(
-                            output,
-                            r#"let value: {tyname} = <{tyname}>::from_vm(vm);
+                                output,
+                                r#"let value: {tyname} = <{tyname}>::from_vm(vm);
 "#
-                        );
+                            );
                             swrite!(output, "{}::{}(value)", e.name.v, variant.ctor.v);
                         } else {
                             output.push_str("vm.pop().unwrap();");
