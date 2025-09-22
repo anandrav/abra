@@ -1,0 +1,6 @@
+let now = get_time()
+println("the time is " & now)
+println("going to sleep for 1 second")
+sleep(1.0)
+println("done!")
+
