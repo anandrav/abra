@@ -213,6 +213,8 @@ pub enum HostFunctionRet {
     output.push('}');
     output.push('}');
 
+    // TODO: this only adds from the root effects file. Need to add all types in the tree of files
+    // Also, the types need to be namespaced or scoped properly if they're in child files
     add_items_from_ast(file_asts[0].clone(), output);
 
     std::fs::write(destination, output).unwrap();
