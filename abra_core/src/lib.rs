@@ -60,7 +60,11 @@ pub fn compile_bytecode_with_host_funcs(
     main_host_func_file_name: &str,
     file_provider: Box<dyn FileProvider>,
 ) -> Result<CompiledProgram, ErrorSummary> {
-    compile_bytecode_(main_file_name, Some(main_host_func_file_name), file_provider)
+    compile_bytecode_(
+        main_file_name,
+        Some(main_host_func_file_name),
+        file_provider,
+    )
 }
 
 fn compile_bytecode_(

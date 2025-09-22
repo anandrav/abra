@@ -74,3 +74,49 @@ impl HostFunctionRet {
         vm.clear_pending_host_func()
     }
 }
+pub enum Color {
+    Red,
+    Blue,
+    Green,
+}
+impl VmType for Color {
+    fn from_vm(vm: &mut Vm) -> Self {
+        {
+            vm.deconstruct().unwrap();
+            let tag = vm.pop_int().unwrap();
+            match tag {
+                0 => {
+                    vm.pop().unwrap();
+                    Color::Red
+                }
+                1 => {
+                    vm.pop().unwrap();
+                    Color::Blue
+                }
+                2 => {
+                    vm.pop().unwrap();
+                    Color::Green
+                }
+                _ => panic!("unexpected tag encountered: {tag}"),
+            }
+        }
+    }
+    fn to_vm(self, vm: &mut Vm) {
+        {
+            match self {
+                Color::Red => {
+                    vm.push_nil();
+                    vm.construct_variant(0).unwrap();
+                }
+                Color::Blue => {
+                    vm.push_nil();
+                    vm.construct_variant(1).unwrap();
+                }
+                Color::Green => {
+                    vm.push_nil();
+                    vm.construct_variant(2).unwrap();
+                }
+            }
+        }
+    }
+}

@@ -1,5 +1,5 @@
-use crate::addons::name_of_ty;
-use crate::ast::{Type, TypeKind};
+use crate::addons::{name_of_ty};
+use crate::ast::{FileAst, ItemKind, Type, TypeDefKind, TypeKind};
 use crate::vm::Vm;
 use crate::{ErrorSummary, FileProvider, get_files, statics};
 use std::path::Path;
@@ -213,6 +213,8 @@ pub enum HostFunctionRet {
     output.push('}');
     output.push('}');
 
+    add_items_from_ast(file_asts[0].clone(), output);
+
     std::fs::write(destination, output).unwrap();
 
     Command::new("rustfmt")
@@ -222,6 +224,190 @@ pub enum HostFunctionRet {
         .map_err(ErrorSummary::msg)?;
 
     Ok(())
+}
+
+fn add_items_from_ast(ast: Rc<FileAst>, output: &mut String) {
+    for item in ast.items.iter() {
+        if let ItemKind::TypeDef(tydef) = &*item.kind {
+            match &**tydef {
+                TypeDefKind::Struct(s) => {
+                    swrite!(
+                    output,
+                    r#"pub struct {} {{
+"#,
+                    s.name.v
+                );
+                    for field in &s.fields {
+                        let tyname = name_of_ty(&field.ty);
+                        swrite!(
+                        output,
+                        r#"pub {}: {},
+"#,
+                        field.name.v,
+                        tyname
+                    );
+                    }
+                    output.push('}');
+
+                    swrite!(
+                    output,
+                    r#"impl VmType for {} {{
+"#,
+                    s.name.v
+                );
+                    output.push_str(
+                        r#"fn from_vm(vm: &mut Vm) -> Self {
+"#,
+                    );
+                    output.push('{');
+                    output.push_str("vm.deconstruct();");
+                    for field in s.fields.iter() {
+                        if matches!(&*field.ty.kind, TypeKind::Void) {
+                            output.push_str(
+                                r#"vm.pop().unwrap();
+"#,
+                            );
+                        } else {
+                            let tyname = name_of_ty(&field.ty);
+                            swrite!(
+                            output,
+                            r#"let {} = <{}>::from_vm(vm);
+"#,
+                            field.name.v,
+                            tyname
+                        );
+                        }
+                    }
+                    output.push_str(
+                        r#"Self {
+"#,
+                    );
+                    for field in &s.fields {
+                        if matches!(&*field.ty.kind, TypeKind::Void) {
+                            swrite!(output, "{}: (),", field.name.v);
+                        } else {
+                            swrite!(output, "{},", field.name.v);
+                        }
+                    }
+                    output.push('}');
+                    output.push('}');
+
+                    output.push('}');
+
+                    output.push_str(
+                        r#"fn to_vm(self, vm: &mut Vm) {
+"#,
+                    );
+                    output.push('{');
+                    for field in s.fields.iter() {
+                        if matches!(&*field.ty.kind, TypeKind::Void) {
+                            output.push_str("(vm_funcs.push_nil)(vm);");
+                        } else {
+                            swrite!(
+                            output,
+                            r#"self.{}.to_vm(vm, vm_funcs);
+"#,
+                            field.name.v
+                        );
+                        }
+                    }
+
+                    swrite!(
+                    output,
+                    "(vm_funcs.construct_struct)(vm, {});",
+                    s.fields.len()
+                );
+
+                    output.push('}');
+
+                    output.push('}');
+                    output.push('}');
+                }
+                TypeDefKind::Enum(e) => {
+                    swrite!(
+                    output,
+                    r#"pub enum {} {{
+"#,
+                    e.name.v
+                );
+                    for variant in &e.variants {
+                        swrite!(output, "{}", variant.ctor.v);
+                        if let Some(ty) = &variant.data {
+                            output.push('(');
+                            output.push_str(&name_of_ty(ty));
+                            output.push(')');
+                        }
+                        output.push(',');
+                    }
+                    output.push('}');
+
+                    swrite!(
+                    output,
+                    r#"impl VmType for {} {{
+"#,
+                    e.name.v
+                );
+                    output.push_str(
+                        r#"fn from_vm(vm: &mut Vm) -> Self {
+"#,
+                    );
+
+                    output.push('{');
+                    output.push_str("vm.deconstruct().unwrap();");
+                    output.push_str("let tag = vm.pop_int().unwrap();");
+                    output.push_str("match tag {");
+                    for (i, variant) in e.variants.iter().enumerate() {
+                        output.push_str(&format!("{i} => {{"));
+                        if let Some(ty) = &variant.data {
+                            let tyname = name_of_ty(ty);
+                            swrite!(
+                            output,
+                            r#"let value: {tyname} = <{tyname}>::from_vm(vm);
+"#
+                        );
+                            swrite!(output, "{}::{}(value)", e.name.v, variant.ctor.v);
+                        } else {
+                            output.push_str("vm.pop().unwrap();");
+                            swrite!(output, "{}::{}", e.name.v, variant.ctor.v);
+                        }
+                        output.push('}');
+                    }
+                    output.push_str(r#"_ => panic!("unexpected tag encountered: {tag}")"#);
+
+                    output.push('}');
+                    output.push('}');
+
+                    output.push('}');
+
+                    output.push_str(
+                        r#"fn to_vm(self, vm: &mut Vm) {
+"#,
+                    );
+                    output.push('{');
+
+                    output.push_str("match self {");
+                    for (i, variant) in e.variants.iter().enumerate() {
+                        if variant.data.is_some() {
+                            swrite!(output, "{}::{}(value) => {{", e.name.v, variant.ctor.v);
+                            output.push_str("value.to_vm(vm);");
+                            swrite!(output, "vm.construct_variant({i}).unwrap();");
+                        } else {
+                            swrite!(output, "{}::{} => {{", e.name.v, variant.ctor.v);
+                            output.push_str("vm.push_nil();");
+                            swrite!(output, "vm.construct_variant({i}).unwrap();");
+                        }
+                        output.push('}');
+                    }
+                    output.push('}');
+
+                    output.push('}');
+
+                    output.push('}');
+                    output.push('}');
+                }
+            }
+        }
+    }
 }
 
 pub trait VmType {

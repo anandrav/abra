@@ -1264,6 +1264,11 @@ pub(crate) fn parse_expr_term(pair: Pair<Rule>, file_id: FileId) -> Rc<Expr> {
             loc: span,
             id: NodeId::new(),
         }),
+        Rule::udt_identifier => Rc::new(Expr {
+            kind: Rc::new(ExprKind::Variable(pair.as_str().to_owned())),
+            loc: span,
+            id: NodeId::new(),
+        }),
         Rule::member_access_inferred => {
             let inner: Vec<_> = pair.into_inner().collect();
             let ident = Identifier {

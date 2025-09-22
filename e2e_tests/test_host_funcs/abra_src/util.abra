@@ -1,3 +1,8 @@
 host fn foo(a: int, b: string) -> int
 
 host fn bar(a: int, b: int) -> (int, int)
+
+type Color =
+    | Red
+    | Blue
+    | Green

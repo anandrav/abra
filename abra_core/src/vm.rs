@@ -1246,7 +1246,7 @@ impl Vm {
     fn push(&mut self, x: impl Into<Value>) {
         self.value_stack.push(x.into());
     }
-
+    
     pub fn pop_int(&mut self) -> Result<AbraInt> {
         self.pop()?.get_int(self)
     }

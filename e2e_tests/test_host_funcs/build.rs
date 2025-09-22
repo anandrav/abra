@@ -13,7 +13,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     let this_dir = std::env::var("CARGO_MANIFEST_DIR").unwrap();
     let destination = PathBuf::from(this_dir).join("src").join("host_funcs.rs");
 
-    if let Err(s) = abra_core::generate_host_function_enum("main.abra", file_provider, &destination)
+    if let Err(s) = abra_core::generate_host_function_enum("util.abra", file_provider, &destination)
     {
         panic!("{}", s)
     }
