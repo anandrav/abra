@@ -709,7 +709,7 @@ impl Translator {
                         .unwrap();
                     let interface_impl_ty = unifvar.solution().unwrap();
 
-                    if ty_fits_impl_ty(&self.statics, substituted_ty.clone(), interface_impl_ty) {
+                    if ty_fits_impl_ty(&self.statics, &substituted_ty, &interface_impl_ty) {
                         let fully_qualified_name = &self.statics.fully_qualified_names[&method.id];
                         self.handle_func_call(
                             st,

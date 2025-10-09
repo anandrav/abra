@@ -3029,10 +3029,10 @@ pub(crate) fn get_iface_impl_for_ty(
 
 pub(crate) fn ty_fits_impl(ctx: &StaticsContext, typ: SolvedType, imp: Rc<InterfaceImpl>) -> bool {
     let Some(impl_ty) = ast_type_to_solved_type(ctx, &imp.typ) else { return false };
-    ty_fits_impl_ty(ctx, typ, impl_ty)
+    ty_fits_impl_ty(ctx, &typ, &impl_ty)
 }
 
-pub(crate) fn ty_fits_impl_ty(ctx: &StaticsContext, typ: SolvedType, impl_ty: SolvedType) -> bool {
+pub(crate) fn ty_fits_impl_ty(ctx: &StaticsContext, typ: &SolvedType, impl_ty: &SolvedType) -> bool {
     match (&typ, &impl_ty) {
         (SolvedType::Int, SolvedType::Int)
         | (SolvedType::Bool, SolvedType::Bool)
@@ -3044,15 +3044,15 @@ pub(crate) fn ty_fits_impl_ty(ctx: &StaticsContext, typ: SolvedType, impl_ty: So
                 && tys1
                 .iter()
                 .zip(tys2.iter())
-                .all(|(ty1, ty2)| ty_fits_impl_ty(ctx, ty1.clone(), ty2.clone()))
+                .all(|(ty1, ty2)| ty_fits_impl_ty(ctx, ty1, ty2))
         }
         (SolvedType::Function(args1, out1), SolvedType::Function(args2, out2)) => {
             args1.len() == args2.len()
                 && args1
                 .iter()
                 .zip(args2.iter())
-                .all(|(ty1, ty2)| ty_fits_impl_ty(ctx, ty1.clone(), ty2.clone()))
-                && ty_fits_impl_ty(ctx, *out1.clone(), *out2.clone())
+                .all(|(ty1, ty2)| ty_fits_impl_ty(ctx, ty1, ty2))
+                && ty_fits_impl_ty(ctx, out1, out2)
         }
         (SolvedType::Nominal(ident1, tys1), SolvedType::Nominal(ident2, tys2)) => {
             ident1 == ident2
@@ -3060,7 +3060,7 @@ pub(crate) fn ty_fits_impl_ty(ctx: &StaticsContext, typ: SolvedType, impl_ty: So
                 && tys1
                 .iter()
                 .zip(tys2.iter())
-                .all(|(ty1, ty2)| ty_fits_impl_ty(ctx, ty1.clone(), ty2.clone()))
+                .all(|(ty1, ty2)| ty_fits_impl_ty(ctx, ty1, ty2))
         }
         (_, SolvedType::Poly(poly_decl)) => {
             let ifaces = poly_decl.interfaces(ctx);
