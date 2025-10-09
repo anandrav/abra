@@ -22,7 +22,7 @@ use std::{fmt, hash::Hash};
 #[derive(Default, Clone)]
 pub struct IdSet<T: Hash + Eq> {
     map: HashMap<Ptr<T>, u32>,
-    current_buf: Vec<T>,
+    current_buf: Vec<T>, // TODO: instead of using Vec<T> for a buffer, maybe use a [MaybeUninit<T>], or even a raw buffer of bytes...
     old_bufs: Vec<Vec<T>>,
     id_to_ptr: Vec<*mut T>,
 }
@@ -57,7 +57,7 @@ impl<T: Hash + Eq> IdSet<T> {
     pub fn new() -> Self {
         Self {
             map: HashMap::default(),
-            current_buf: Vec::with_capacity(0),
+            current_buf: Vec::with_capacity(0), // TODO: just call Vec::new()
             old_bufs: Vec::new(),
             id_to_ptr: Vec::new(),
         }

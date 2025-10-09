@@ -4,50 +4,72 @@
 
 // this is experimental
 
-use crate::id_set::IdSet;
-use std::hash::Hash;
+use std::cell::UnsafeCell;
+use std::cmp::Ordering;
+use std::fmt;
+use std::fmt::{Debug, Formatter};
 use std::marker::PhantomData;
 use std::ops::{Deref, DerefMut};
 
 pub struct Arena<T> {
-    data: Vec<T>,
+    current_buf: UnsafeCell<Vec<T>>,
+    old_bufs: UnsafeCell<Vec<Vec<T>>>,
 }
 
 impl<T> Arena<T> {
     pub fn new() -> Self {
-        Self { data: Vec::new() }
+        Self { current_buf: Vec::new().into(), old_bufs: Vec::new().into() }
     }
 
-    pub fn add(&mut self, value: T) -> Ar<'_, T> {
-        self.data.push(value);
-        let ptr = self.data.last_mut().unwrap() as *mut T;
-        Ar {
-            ptr,
-            _marker: PhantomData,
+    pub fn add(&self, value: T) -> Ar<'_, T> {
+        let current_buf = unsafe { &mut *self.current_buf.get() };
+        let old_bufs = unsafe { &mut *self.old_bufs.get() };
+
+        let capacity = current_buf.capacity();
+        if current_buf.len() + 1 > capacity {
+            let new_capacity = capacity.max(1) * 2;
+            let new_buf = Vec::with_capacity(new_capacity);
+
+            let old_buf = std::mem::replace(current_buf, new_buf);
+            old_bufs.push(old_buf);
         }
-    }
 
-    pub fn get(&self, index: usize) -> &T {
-        &self.data[index]
+        // SAFETY: Since value_ref points to a T in current_buf, and current_buf is never re-allocated,
+        // only moved, value_ref will always be valid as long as current_buf is not de-allocated.
+        // Therefore, value_ref is always valid if it has the same lifetime as current_buf, which it does.
+        current_buf.push(value);
+        let index = current_buf.len() - 1;
+        let value_ref: *mut T = &mut current_buf[index];
+        Ar::new(value_ref)
     }
-
-    pub fn get_mut(&mut self, index: usize) -> &mut T {
-        &mut self.data[index]
-    }
+    //
+    // pub fn get(&self, index: usize) -> &T {
+    //     &self.data[index]
+    // }
+    //
+    // pub fn get_mut(&mut self, index: usize) -> &mut T {
+    //     &mut self.data[index]
+    // }
 }
 
-impl<T: Hash + Eq> std::ops::Index<usize> for Arena<T> {
-    type Output = T;
-
-    #[inline]
-    fn index(&self, id: usize) -> &Self::Output {
-        self.get(id)
-    }
-}
+// impl<T: Hash + Eq> std::ops::Index<usize> for Arena<T> {
+//     type Output = T;
+//
+//     #[inline]
+//     fn index(&self, id: usize) -> &Self::Output {
+//         self.get(id)
+//     }
+// }
 
 pub struct Ar<'a, T> {
     ptr: *mut T,
     _marker: PhantomData<&'a mut T>,
+}
+
+impl<'a, T> Ar<'a, T> {
+    fn new(ptr: *mut T) -> Self {
+        Self { ptr, _marker: PhantomData }
+    }
 }
 
 impl<'a, T> Deref for Ar<'a, T> {
@@ -60,5 +82,85 @@ impl<'a, T> Deref for Ar<'a, T> {
 impl<'a, T> DerefMut for Ar<'a, T> {
     fn deref_mut(&mut self) -> &mut T {
         unsafe { &mut *self.ptr }
+    }
+}
+
+impl<'a, T> PartialEq for Ar<'a, T>
+where
+    T: PartialEq,
+{
+    #[inline]
+    fn eq(&self, other: &Self) -> bool {
+        PartialEq::eq(&**self, &**other)
+    }
+}
+
+impl<'a, T> PartialOrd for Ar<'a, T>
+where
+    T: PartialOrd,
+{
+    #[inline]
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        PartialOrd::partial_cmp(&**self, &**other)
+    }
+    #[inline]
+    fn lt(&self, other: &Self) -> bool {
+        PartialOrd::lt(&**self, &**other)
+    }
+    #[inline]
+    fn le(&self, other: &Self) -> bool {
+        PartialOrd::le(&**self, &**other)
+    }
+    #[inline]
+    fn gt(&self, other: &Self) -> bool {
+        PartialOrd::gt(&**self, &**other)
+    }
+    #[inline]
+    fn ge(&self, other: &Self) -> bool {
+        PartialOrd::ge(&**self, &**other)
+    }
+}
+
+impl<'a, T> Eq for Ar<'a, T>
+where
+    T: Eq,
+{}
+
+impl<'a, T> Debug for Ar<'a, T> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        fmt::Pointer::fmt(&self.ptr, f)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_multiple_inserts() {
+        let arena = Arena::new();
+        let a = arena.add("apple".to_string());
+        let b = arena.add("banana".to_string());
+
+        assert_eq!(*a, "apple");
+        assert_eq!(*b, "banana");
+    }
+
+    #[test]
+    fn test_ref_eq() {
+        let arena = Arena::new();
+        let a = arena.add("apple".to_string());
+        let b = arena.add("apple".to_string());
+
+        assert_eq!(a, b);
+    }
+
+    #[test]
+    fn test_ref_mutation() {
+        let arena = Arena::new();
+        let mut a = arena.add("apple".to_string());
+        *a = "hello".to_string();
+
+        assert_eq!(*a, "hello");
     }
 }
