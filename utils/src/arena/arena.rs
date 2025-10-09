@@ -17,7 +17,6 @@ struct ArenaInner {
     current_buf: Box<[MaybeUninit<u8>]>,
     old_bufs: Vec<Box<[MaybeUninit<u8>]>>,
     offset: usize,
-    buf_capacity: usize,
 }
 
 impl Arena {
@@ -32,7 +31,6 @@ impl Arena {
                 current_buf: buf,
                 old_bufs: Vec::new(),
                 offset: 0,
-                buf_capacity: capacity,
             }),
         }
     }
@@ -45,15 +43,14 @@ impl Arena {
         let padding = (align - inner.offset % align) % align;
         let new_offset = inner.offset + padding + size;
 
-        if new_offset > inner.buf_capacity {
+        if new_offset > inner.current_buf.len() {
             // double previous capacity
-            let new_capacity = inner.buf_capacity * 2;
+            let new_capacity = inner.current_buf.len() * 2;
             // and make sure capacity is enough to hold at least a single T
             let new_capacity = new_capacity.max(size);
             let new_buf: Box<[MaybeUninit<u8>]> = Box::new_uninit_slice(new_capacity);
             let old_buf = std::mem::replace(&mut inner.current_buf, new_buf);
             inner.old_bufs.push(old_buf);
-            inner.buf_capacity = new_capacity;
         }
 
         let start = inner.offset + padding;
