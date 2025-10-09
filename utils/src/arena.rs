@@ -182,13 +182,13 @@ mod tests {
     #[test]
     fn test_multiple_inserts() {
         let arena = Arena::new();
-        let a = arena.add("apple".to_string());
-        let b = arena.add("banana".to_string());
-        let c = arena.add(123);
+        let a = arena.add(123);
+        let b = arena.add(456);
+        let c = arena.add(true);
 
-        assert_eq!(*a, "apple");
-        assert_eq!(*b, "banana");
-        assert_eq!(*c, 123);
+        assert_eq!(*a, 123);
+        assert_eq!(*b, 456);
+        assert_eq!(*c, true);
     }
 
     #[test]
@@ -207,5 +207,16 @@ mod tests {
         *a = "hello".to_string();
 
         assert_eq!(*a, "hello");
+    }
+
+    #[test]
+    fn test_storing_refs() {
+        let arena = Arena::new();
+        let a = arena.add(123);
+
+        let mut my_refs = vec![];
+        my_refs.push(a);
+
+        assert_eq!(*my_refs[0], 123);
     }
 }
