@@ -425,7 +425,7 @@ impl Translator {
                         monomorph_env,
                         &iface_def,
                         method as u16,
-                        func_ty,
+                        &func_ty,
                     );
                 };
                 match op {
@@ -464,7 +464,7 @@ impl Translator {
                             Type::Function(vec![arg1_ty, arg2_ty], out_ty.into());
 
                         let substituted_ty =
-                            subst_with_monomorphic_env(monomorph_env, specific_func_ty);
+                            specific_func_ty.subst(&monomorph_env);
 
                         self.handle_func_call(st, Some(substituted_ty), func_name, &func);
                     }
@@ -631,7 +631,7 @@ impl Translator {
                 let overload_ty = if !func_ty.is_overloaded() {
                     None
                 } else {
-                    let substituted_ty = subst_with_monomorphic_env(monomorph_env, func_ty);
+                    let substituted_ty = func_ty.subst(&monomorph_env);
                     Some(substituted_ty)
                 };
 
@@ -681,7 +681,7 @@ impl Translator {
             self.handle_func_call(st, None, f_fully_qualified_name, f);
         } else {
             let specific_func_ty = self.statics.solution_of_node(func_node).unwrap();
-            let substituted_ty = subst_with_monomorphic_env(monomorph_env, specific_func_ty);
+            let substituted_ty = specific_func_ty.subst(&monomorph_env);
             self.handle_func_call(st, Some(substituted_ty), f_fully_qualified_name, f);
         }
     }
@@ -693,9 +693,9 @@ impl Translator {
         monomorph_env: MonomorphEnv,
         iface_def: &Rc<InterfaceDef>,
         method: u16,
-        func_ty: SolvedType,
+        func_ty: &SolvedType,
     ) {
-        let substituted_ty = subst_with_monomorphic_env(monomorph_env.clone(), func_ty);
+        let substituted_ty = func_ty.subst(&monomorph_env);
         let method = &iface_def.methods[method as usize].name;
         let impl_list = self.statics.interface_impls[iface_def].clone();
 
@@ -793,7 +793,7 @@ impl Translator {
                     monomorph_env,
                     iface_def,
                     *method as u16,
-                    func_ty,
+                    &func_ty,
                 );
             }
             Declaration::MemberFunction { f } => {
@@ -1188,7 +1188,7 @@ impl Translator {
                     unreachable!()
                 };
                 let fn_make_iterator_ty =
-                    self.statics.for_loop_make_iterator_types[&stmt.id].clone();
+                    &self.statics.for_loop_make_iterator_types[&stmt.id];
                 // println!("iterable_ty: {}", iterable_ty);
                 // println!("fn_make_iterator_ty: {}", fn_make_iterator_ty);
                 self.translate_iface_method_ap_helper(
@@ -1211,7 +1211,7 @@ impl Translator {
                 else {
                     unreachable!()
                 };
-                let fn_next_ty = self.statics.for_loop_next_types[&stmt.id].clone();
+                let fn_next_ty = &self.statics.for_loop_next_types[&stmt.id];
                 self.translate_iface_method_ap_helper(
                     st,
                     monomorph_env.clone(),
@@ -1497,37 +1497,39 @@ fn update_monomorph_env(monomorph_env: MonomorphEnv, overloaded_ty: Type, monomo
     }
 }
 
-fn subst_with_monomorphic_env(monomorphic_env: MonomorphEnv, ty: Type) -> Type {
-    match ty {
-        Type::Function(args, out) => {
-            let new_args = args
-                .iter()
-                .map(|arg| subst_with_monomorphic_env(monomorphic_env.clone(), arg.clone()))
-                .collect();
-            let new_out = subst_with_monomorphic_env(monomorphic_env, *out);
-            Type::Function(new_args, Box::new(new_out))
-        }
-        Type::Nominal(ident, params) => {
-            let new_params = params
-                .iter()
-                .map(|param| subst_with_monomorphic_env(monomorphic_env.clone(), param.clone()))
-                .collect();
-            Type::Nominal(ident, new_params)
-        }
-        Type::Poly(ref polyty) => {
-            if let Some(monomorphic_ty) = monomorphic_env.lookup(polyty) {
-                monomorphic_ty
-            } else {
-                ty
+impl Type {
+    fn subst(&self, monomorphic_env: &MonomorphEnv) -> Type {
+        match self {
+            Type::Function(args, out) => {
+                let new_args = args
+                    .iter()
+                    .map(|arg| arg.subst(monomorphic_env))
+                    .collect();
+                let new_out = out.subst(monomorphic_env);
+                Type::Function(new_args, Box::new(new_out))
             }
+            Type::Nominal(ident, params) => {
+                let new_params = params
+                    .iter()
+                    .map(|param| param.subst(monomorphic_env))
+                    .collect();
+                Type::Nominal(ident.clone(), new_params)
+            }
+            Type::Poly(polyty) => {
+                if let Some(monomorphic_ty) = monomorphic_env.lookup(polyty) {
+                    monomorphic_ty
+                } else {
+                    self.clone()
+                }
+            }
+            Type::Tuple(elems) => {
+                let new_elems = elems
+                    .iter()
+                    .map(|elem| elem.subst(monomorphic_env))
+                    .collect();
+                Type::Tuple(new_elems)
+            }
+            _ => self.clone(),
         }
-        Type::Tuple(elems) => {
-            let new_elems = elems
-                .iter()
-                .map(|elem| subst_with_monomorphic_env(monomorphic_env.clone(), elem.clone()))
-                .collect();
-            Type::Tuple(new_elems)
-        }
-        _ => ty,
     }
 }
