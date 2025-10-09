@@ -5,7 +5,7 @@
 // this is experimental
 
 use std::cell::UnsafeCell;
-use std::cmp::Ordering;
+use std::cmp::{max, Ordering};
 use std::fmt;
 use std::fmt::{Debug, Display, Formatter};
 use std::hash::{Hash, Hasher};
@@ -19,23 +19,26 @@ pub struct Arena {
 }
 
 struct ArenaInner {
-    current_buf: Vec<u8>,
-    old_bufs: Vec<Vec<u8>>,
+    current_buf: Box<[u8]>,
+    old_bufs: Vec<Box<[u8]>>,
     offset: usize,
+    buf_capacity: usize,
 }
 
 impl Arena {
     pub fn new() -> Self {
+        let buf = vec![0u8; 0].into_boxed_slice();
         Self {
             inner: UnsafeCell::new(ArenaInner {
-                current_buf: Vec::with_capacity(0),
+                current_buf: buf,
                 old_bufs: Vec::new(),
                 offset: 0,
+                buf_capacity: 0,
             }),
         }
     }
 
-    pub fn add<T>(&self, value: T) -> Ar<'_, T> {
+    pub fn add<T>(&self, value: T) -> &mut T {
         let inner = unsafe { &mut *self.inner.get() };
         let align = align_of::<T>();
         let size = size_of::<T>();
@@ -44,35 +47,32 @@ impl Arena {
         let padding = (align - inner.offset % align) % align;
         let total_size = padding + size;
 
-        // If buffer is too small, allocate a new one
-        if inner.offset + total_size > inner.current_buf.capacity() {
-            let new_capacity = inner.current_buf.capacity().max(1) * 2;
-            let new_buf = Vec::with_capacity(new_capacity);
+        if inner.offset + total_size > inner.buf_capacity {
+            // allocate new buffer, double previous size
+            let new_capacity = max(inner.buf_capacity * 2, size);
+            let new_buf = vec![0u8; new_capacity].into_boxed_slice();
             let old_buf = std::mem::replace(&mut inner.current_buf, new_buf);
             inner.old_bufs.push(old_buf);
             inner.offset = 0;
+            inner.buf_capacity = new_capacity;
         }
 
-        // Ensure the buffer has enough len to hold the new data
         let start = inner.offset + padding;
-        if inner.current_buf.len() < start + size {
-            inner.current_buf.resize(start + size, 0);
-        }
+        let ptr = inner.current_buf[start..].as_ptr() as *mut T;
 
-        let ptr = inner.current_buf[start..].as_mut_ptr() as *mut T;
         unsafe {
             ptr::write(ptr, value);
         }
 
         inner.offset = start + size;
 
-        Ar::new(ptr)
+        unsafe { &mut *ptr }
     }
 }
 
 impl Default for Arena {
     fn default() -> Self {
-        Self::new()
+        Arena::new()
     }
 }
 
