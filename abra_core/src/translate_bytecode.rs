@@ -7,10 +7,10 @@ use crate::ast::{AstNode, BinaryOperator, FuncDef, InterfaceDef, ItemKind};
 use crate::ast::{FileAst, FileDatabase, NodeId};
 use crate::builtin::BuiltinOperation;
 use crate::environment::Environment;
+use crate::statics::Type;
 use crate::statics::typecheck::Nominal;
 use crate::statics::typecheck::SolvedType;
 use crate::statics::{Declaration, PolytypeDeclaration, TypeProv};
-use crate::statics::{Type, ty_fits_impl_ty};
 use crate::vm::{AbraFloat, AbraInt, Instr as VmInstr};
 use crate::{
     ast::{Expr, ExprKind, Pat, PatKind, Stmt, StmtKind},
@@ -684,7 +684,7 @@ impl Translator {
                         .unwrap();
                     let interface_impl_ty = unifvar.solution().unwrap();
 
-                    if ty_fits_impl_ty(&self.statics, &substituted_ty, &interface_impl_ty) {
+                    if substituted_ty.fits_impl_ty(&self.statics, &interface_impl_ty) {
                         let fully_qualified_name = &self.statics.fully_qualified_names[&method.id];
                         self.handle_func_call(
                             st,

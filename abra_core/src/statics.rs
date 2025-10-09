@@ -26,7 +26,6 @@ use codespan_reporting::term::termcolor::{ColorChoice, StandardStream};
 use pat_exhaustiveness::{DeconstructedPat, check_pattern_exhaustiveness_and_usefulness};
 pub(crate) use typecheck::Prov as TypeProv;
 pub(crate) use typecheck::SolvedType as Type;
-pub(crate) use typecheck::ty_fits_impl_ty;
 
 pub(crate) struct StaticsContext {
     _files: FileDatabase,

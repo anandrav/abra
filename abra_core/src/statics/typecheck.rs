@@ -1019,7 +1019,7 @@ fn tyvar_of_iface_method(
 ) -> TypeVar {
     if let Some(desired_impl_ty) = desired_impl_ty
         && let Some(desired_impl_ty) = desired_impl_ty.solution()
-        && let Some(imp) = get_iface_impl_for_ty(ctx, desired_impl_ty, iface_def)
+        && let Some(imp) = desired_impl_ty.get_iface_impls(ctx, iface_def)
     {
         let f = &imp.methods[method];
         return TypeVar::from_node(ctx, f.name.node()).instantiate(ctx, polyvar_scope, node);
@@ -1242,7 +1242,7 @@ pub(crate) fn constrain_to_iface(
     constraint: &InterfaceConstraint,
 ) {
     if let Some(ty) = tyvar.solution() {
-        if !ty_implements_iface(ctx, ty.clone(), &constraint.iface) {
+        if !ty.implements_iface(ctx, &constraint.iface) {
             ctx.errors.push(Error::InterfaceNotImplemented {
                 ty: ty.clone(),
                 iface: constraint.iface.clone(),
@@ -1381,7 +1381,7 @@ pub(crate) fn check_unifvars(ctx: &mut StaticsContext) {
             tyvar.0.with_data(|d| {
                 for (constraint, nodes) in &d.iface_constraints {
                     let iface = &constraint.iface; // TODO: the args of the iface constraint must be used too
-                    if !ty_implements_iface(ctx, ty.clone(), iface) {
+                    if !ty.implements_iface(ctx, iface) {
                         ctx.errors.push(Error::InterfaceNotImplemented {
                             ty: ty.clone(),
                             iface: iface.clone(),
@@ -1544,8 +1544,7 @@ fn constrain_iface_arguments_in_tyvar(
         return;
     };
     for (iface_constraint, _) in d.iface_constraints {
-        let Some(imp) = get_iface_impl_for_ty(ctx, solved_ty.clone(), &iface_constraint.iface)
-        else {
+        let Some(imp) = solved_ty.get_iface_impls(ctx, &iface_constraint.iface) else {
             continue;
         };
 
@@ -1816,8 +1815,7 @@ fn generate_constraints_stmt(
             };
             let iterable_iface_def = ctx.get_interface_declaration("prelude.Iterable");
             let iterator_iface_def = ctx.get_interface_declaration("prelude.Iterator");
-            let Some(imp) = get_iface_impl_for_ty(ctx, iterable_ty_solved, &iterable_iface_def)
-            else {
+            let Some(imp) = iterable_ty_solved.get_iface_impls(ctx, &iterable_iface_def) else {
                 ctx.errors.push(Error::Generic {
                     msg: "For loop container does not implement `Iterable` interface.".to_string(),
                     node: iterable.node(),
@@ -1872,7 +1870,7 @@ fn generate_constraints_stmt(
                 .clone();
             let Some(iter_output_type_solved) = iter_output_type.solution() else { panic!() };
             let Some(iterator_imp) =
-                get_iface_impl_for_ty(ctx, iter_output_type_solved.clone(), &iterator_iface_def)
+                iter_output_type_solved.get_iface_impls(ctx, &iterator_iface_def)
             else {
                 return;
             };
@@ -2961,76 +2959,70 @@ pub(crate) fn fmt_conflicting_types(types: &[PotentialType], f: &mut dyn Write) 
     Ok(())
 }
 
-pub(crate) fn ty_implements_iface(
-    ctx: &StaticsContext,
-    ty: SolvedType,
-    iface: &Rc<InterfaceDef>,
-) -> bool {
-    if let SolvedType::Poly(poly_decl) = &ty {
-        let ifaces = poly_decl.interfaces(ctx);
-        return ifaces.iter().any(|constraint| &constraint.iface == iface);
-    }
-    get_iface_impl_for_ty(ctx, ty, iface).is_some()
-}
-
-pub(crate) fn get_iface_impl_for_ty(
-    ctx: &StaticsContext,
-    ty: SolvedType,
-    iface: &Rc<InterfaceDef>,
-) -> Option<Rc<InterfaceImpl>> {
-    let impl_list = ctx.interface_impls.get(iface).cloned()?;
-    impl_list
-        .iter()
-        .find(|&imp| ty_fits_impl(ctx, ty.clone(), imp))
-        .cloned()
-}
-
-pub(crate) fn ty_fits_impl(ctx: &StaticsContext, typ: SolvedType, imp: &Rc<InterfaceImpl>) -> bool {
-    let Some(impl_ty) = imp.typ.to_solved_type(ctx) else { return false };
-    ty_fits_impl_ty(ctx, &typ, &impl_ty)
-}
-
-pub(crate) fn ty_fits_impl_ty(
-    ctx: &StaticsContext,
-    typ: &SolvedType,
-    impl_ty: &SolvedType,
-) -> bool {
-    match (&typ, &impl_ty) {
-        (SolvedType::Int, SolvedType::Int)
-        | (SolvedType::Bool, SolvedType::Bool)
-        | (SolvedType::Float, SolvedType::Float)
-        | (SolvedType::String, SolvedType::String)
-        | (SolvedType::Void, SolvedType::Void) => true,
-        (SolvedType::Tuple(tys1), SolvedType::Tuple(tys2)) => {
-            tys1.len() == tys2.len()
-                && tys1
-                    .iter()
-                    .zip(tys2.iter())
-                    .all(|(ty1, ty2)| ty_fits_impl_ty(ctx, ty1, ty2))
-        }
-        (SolvedType::Function(args1, out1), SolvedType::Function(args2, out2)) => {
-            args1.len() == args2.len()
-                && args1
-                    .iter()
-                    .zip(args2.iter())
-                    .all(|(ty1, ty2)| ty_fits_impl_ty(ctx, ty1, ty2))
-                && ty_fits_impl_ty(ctx, out1, out2)
-        }
-        (SolvedType::Nominal(ident1, tys1), SolvedType::Nominal(ident2, tys2)) => {
-            ident1 == ident2
-                && tys1.len() == tys2.len()
-                && tys1
-                    .iter()
-                    .zip(tys2.iter())
-                    .all(|(ty1, ty2)| ty_fits_impl_ty(ctx, ty1, ty2))
-        }
-        (_, SolvedType::Poly(poly_decl)) => {
+impl SolvedType {
+    pub(crate) fn implements_iface(&self, ctx: &StaticsContext, iface: &Rc<InterfaceDef>) -> bool {
+        if let SolvedType::Poly(poly_decl) = &self {
             let ifaces = poly_decl.interfaces(ctx);
-            ifaces
-                .iter()
-                .all(|constraint| ty_implements_iface(ctx, typ.clone(), &constraint.iface))
+            return ifaces.iter().any(|constraint| &constraint.iface == iface);
         }
-        _ => false,
+        self.get_iface_impls(ctx, iface).is_some()
+    }
+
+    pub(crate) fn get_iface_impls(
+        &self,
+        ctx: &StaticsContext,
+        iface: &Rc<InterfaceDef>,
+    ) -> Option<Rc<InterfaceImpl>> {
+        let impl_list = ctx.interface_impls.get(iface).cloned()?;
+        impl_list
+            .iter()
+            .find(|&imp| self.fits_impl(ctx, imp))
+            .cloned()
+    }
+
+    pub(crate) fn fits_impl(&self, ctx: &StaticsContext, imp: &Rc<InterfaceImpl>) -> bool {
+        let Some(impl_ty) = imp.typ.to_solved_type(ctx) else { return false };
+        self.fits_impl_ty(ctx, &impl_ty)
+    }
+
+    pub(crate) fn fits_impl_ty(&self, ctx: &StaticsContext, impl_ty: &SolvedType) -> bool {
+        match (self, &impl_ty) {
+            (SolvedType::Int, SolvedType::Int)
+            | (SolvedType::Bool, SolvedType::Bool)
+            | (SolvedType::Float, SolvedType::Float)
+            | (SolvedType::String, SolvedType::String)
+            | (SolvedType::Void, SolvedType::Void) => true,
+            (SolvedType::Tuple(tys1), SolvedType::Tuple(tys2)) => {
+                tys1.len() == tys2.len()
+                    && tys1
+                        .iter()
+                        .zip(tys2.iter())
+                        .all(|(ty1, ty2)| ty1.fits_impl_ty(ctx, ty2))
+            }
+            (SolvedType::Function(args1, out1), SolvedType::Function(args2, out2)) => {
+                args1.len() == args2.len()
+                    && args1
+                        .iter()
+                        .zip(args2.iter())
+                        .all(|(ty1, ty2)| ty1.fits_impl_ty(ctx, ty2))
+                    && out1.fits_impl_ty(ctx, out2)
+            }
+            (SolvedType::Nominal(ident1, tys1), SolvedType::Nominal(ident2, tys2)) => {
+                ident1 == ident2
+                    && tys1.len() == tys2.len()
+                    && tys1
+                        .iter()
+                        .zip(tys2.iter())
+                        .all(|(ty1, ty2)| ty1.fits_impl_ty(ctx, ty2))
+            }
+            (_, SolvedType::Poly(poly_decl)) => {
+                let ifaces = poly_decl.interfaces(ctx);
+                ifaces
+                    .iter()
+                    .all(|constraint| self.implements_iface(ctx, &constraint.iface))
+            }
+            _ => false,
+        }
     }
 }
 
