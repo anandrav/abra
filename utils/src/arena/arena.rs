@@ -53,12 +53,11 @@ impl Arena {
             let new_buf: Box<[MaybeUninit<u8>]> = Box::new_uninit_slice(new_capacity);
             let old_buf = std::mem::replace(&mut inner.current_buf, new_buf);
             inner.old_bufs.push(old_buf);
-            inner.offset = 0;
             inner.buf_capacity = new_capacity;
         }
 
         let start = inner.offset + padding;
-        let ptr = inner.current_buf[start..].as_ptr() as *mut T;
+        let ptr = unsafe { inner.current_buf.as_mut_ptr().add(start) as *mut T };
 
         unsafe {
             ptr::write(ptr, value);
