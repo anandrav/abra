@@ -42,7 +42,7 @@ impl Arena {
         }
     }
 
-    pub fn add<T>(&self, value: T) -> Ar<'_, T> {
+    pub fn alloc<T>(&self, value: T) -> Ar<'_, T> {
         let inner = unsafe { &mut *self.inner.get() };
         let align = align_of::<T>();
         let size = size_of::<T>();
@@ -79,7 +79,6 @@ impl Default for Arena {
         Arena::new()
     }
 }
-
 
 pub struct Ar<'a, T> {
     ptr: *mut T,
@@ -187,9 +186,9 @@ mod tests {
     #[test]
     fn test_multiple_inserts() {
         let arena = Arena::new();
-        let a = arena.add(123);
-        let b = arena.add(456);
-        let c = arena.add(true);
+        let a = arena.alloc(123);
+        let b = arena.alloc(456);
+        let c = arena.alloc(true);
 
         assert_eq!(*a, 123);
         assert_eq!(*b, 456);
@@ -199,8 +198,8 @@ mod tests {
     #[test]
     fn test_ref_eq() {
         let arena = Arena::new();
-        let a = arena.add("apple".to_string());
-        let b = arena.add("apple".to_string());
+        let a = arena.alloc("apple".to_string());
+        let b = arena.alloc("apple".to_string());
 
         assert_eq!(a, b);
     }
@@ -208,7 +207,7 @@ mod tests {
     #[test]
     fn test_ref_mutation() {
         let arena = Arena::new();
-        let mut a = arena.add("apple".to_string());
+        let mut a = arena.alloc("apple".to_string());
         *a = "hello".to_string();
 
         assert_eq!(*a, "hello");
@@ -217,7 +216,7 @@ mod tests {
     #[test]
     fn test_storing_refs() {
         let arena = Arena::new();
-        let a = arena.add(123);
+        let a = arena.alloc(123);
 
         let mut my_refs = vec![];
         my_refs.push(a);
