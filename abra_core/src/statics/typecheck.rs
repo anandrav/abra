@@ -689,7 +689,7 @@ impl TypeVar {
             }
             PotentialType::Function(_, args, out) => {
                 for arg in &args {
-                    if let Some(decl) = arg.clone().get_interface_self_type() {
+                    if let Some(decl) = arg.get_interface_self_type() {
                         return Some(decl);
                     }
                 }
@@ -697,7 +697,7 @@ impl TypeVar {
             }
             PotentialType::Tuple(_, elems) => {
                 for elem in &elems {
-                    if let Some(decl) = elem.clone().get_interface_self_type() {
+                    if let Some(decl) = elem.get_interface_self_type() {
                         return Some(decl);
                     }
                 }
@@ -1197,16 +1197,22 @@ impl Mode {
     }
 }
 
-pub(crate) fn constrain(ctx: &mut StaticsContext, tyvar1: TypeVar, tyvar2: TypeVar) {
+pub(crate) fn constrain(
+    ctx: &mut StaticsContext,
+    tyvar1: impl Borrow<TypeVar>,
+    tyvar2: impl Borrow<TypeVar>,
+) {
     constrain_because(ctx, tyvar1, tyvar2, ConstraintReason::None)
 }
 
 pub(crate) fn constrain_because(
     ctx: &mut StaticsContext,
-    tyvar1: TypeVar,
-    tyvar2: TypeVar,
+    tyvar1: impl Borrow<TypeVar>,
+    tyvar2: impl Borrow<TypeVar>,
     constraint_reason: ConstraintReason,
 ) {
+    let tyvar1 = tyvar1.borrow();
+    let tyvar2 = tyvar2.borrow();
     match (tyvar1.is_locked(), tyvar2.is_locked()) {
         // Since both TypeVars are already locked, an error is logged if their data do not match
         (true, true) => {
@@ -1228,7 +1234,7 @@ pub(crate) fn constrain_because(
         }
         // Since both TypeVars are unsolved, they are unioned and their data is merged
         (false, false) => {
-            TypeVar::merge(tyvar1, tyvar2);
+            TypeVar::merge(tyvar1.clone(), tyvar2.clone());
         }
     }
 }
@@ -1259,8 +1265,8 @@ pub(crate) fn constrain_to_iface(
 
 fn constrain_locked_typevars(
     ctx: &mut StaticsContext,
-    tyvar1: TypeVar,
-    tyvar2: TypeVar,
+    tyvar1: &TypeVar,
+    tyvar2: &TypeVar,
     constraint_reason: ConstraintReason,
 ) {
     let (key1, potential_ty1) = tyvar1.0.clone_data().types.into_iter().next().unwrap();
@@ -1278,23 +1284,18 @@ fn constrain_locked_typevars(
         match (potential_ty1, potential_ty2) {
             (PotentialType::Function(_, args1, out1), PotentialType::Function(_, args2, out2)) => {
                 for (arg1, arg2) in args1.iter().zip(args2.iter()) {
-                    constrain_because(ctx, arg1.clone(), arg2.clone(), constraint_reason.clone());
+                    constrain_because(ctx, arg1, arg2, constraint_reason.clone());
                 }
                 constrain_because(ctx, out1, out2, constraint_reason);
             }
             (PotentialType::Tuple(_, elems1), PotentialType::Tuple(_, elems2)) => {
                 for (elem1, elem2) in elems1.iter().zip(elems2.iter()) {
-                    constrain_because(ctx, elem1.clone(), elem2.clone(), constraint_reason.clone());
+                    constrain_because(ctx, elem1, elem2, constraint_reason.clone());
                 }
             }
             (PotentialType::Nominal(_, _, tyvars1), PotentialType::Nominal(_, _, tyvars2)) => {
                 for (tyvar1, tyvar2) in tyvars1.iter().zip(tyvars2.iter()) {
-                    constrain_because(
-                        ctx,
-                        tyvar1.clone(),
-                        tyvar2.clone(),
-                        constraint_reason.clone(),
-                    );
+                    constrain_because(ctx, tyvar1, tyvar2, constraint_reason.clone());
                 }
             }
             _ => {}
@@ -1364,8 +1365,8 @@ pub(crate) fn check_unifvars(ctx: &mut StaticsContext) {
         if tyvar.is_conflicted() {
             let type_suggestions = tyvar.clone_types();
             if !type_conflicts.contains(&type_suggestions) {
+                // TODO: this doesn't seem very performant...
                 type_conflicts.push(type_suggestions.clone());
-
                 ctx.errors.push(Error::ConflictingUnifvar {
                     types: type_suggestions,
                 });
@@ -1442,7 +1443,12 @@ fn generate_constraints_item_decls0(ctx: &mut StaticsContext, item: &Rc<Item>) {
                         let ty_arg = TypeVar::from_node(ctx, first_arg_identifier.node());
                         constrain(ctx, ty_arg, nominal_ty);
 
-                        generate_constraints_func_decl(ctx, f.name.node(), &f.args, &f.ret_type);
+                        generate_constraints_func_decl(
+                            ctx,
+                            f.name.node(),
+                            &f.args,
+                            f.ret_type.as_ref(),
+                        );
                     } else {
                         err(ctx);
                     }
@@ -1455,10 +1461,10 @@ fn generate_constraints_item_decls0(ctx: &mut StaticsContext, item: &Rc<Item>) {
             TypeDefKind::Enum(..) | TypeDefKind::Struct(..) => {}
         },
         ItemKind::FuncDef(f) => {
-            generate_constraints_func_decl(ctx, f.name.node(), &f.args, &f.ret_type);
+            generate_constraints_func_decl(ctx, f.name.node(), &f.args, f.ret_type.as_ref());
         }
         ItemKind::HostFuncDecl(f) | ItemKind::ForeignFuncDecl(f) => {
-            generate_constraints_func_decl(ctx, f.name.node(), &f.args, &Some(f.ret_type.clone()));
+            generate_constraints_func_decl(ctx, f.name.node(), &f.args, Some(&f.ret_type));
         }
     }
 }
@@ -1497,10 +1503,10 @@ fn generate_constraints_iface_impl(ctx: &mut StaticsContext, iface_impl: &Rc<Int
                 {
                     let interface_method_ty = interface_method.ty.to_typevar(ctx);
                     let actual = TypeVar::from_node(ctx, interface_method.node());
-                    constrain(ctx, interface_method_ty.clone(), actual);
+                    constrain(ctx, &interface_method_ty, actual);
 
                     let mut substitution: Substitution = HashMap::default();
-                    if let Some(poly_decl) = interface_method_ty.clone().get_interface_self_type() {
+                    if let Some(poly_decl) = interface_method_ty.get_interface_self_type() {
                         substitution.insert(poly_decl, impl_ty.clone());
                     }
 
@@ -1512,9 +1518,14 @@ fn generate_constraints_iface_impl(ctx: &mut StaticsContext, iface_impl: &Rc<Int
                     );
 
                     let actual = TypeVar::from_node(ctx, f.name.node());
-                    constrain(ctx, expected.clone(), actual);
+                    constrain(ctx, &expected, actual);
 
-                    generate_constraints_func_decl(ctx, f.name.node(), &f.args, &f.ret_type);
+                    generate_constraints_func_decl(
+                        ctx,
+                        f.name.node(),
+                        &f.args,
+                        f.ret_type.as_ref(),
+                    );
 
                     constrain_iface_arguments_in_tyvar(
                         ctx,
@@ -1564,7 +1575,7 @@ fn constrain_iface_arguments_in_tyvar(
             let output_type_tyvar = output_type_tyvar.subst(&subst);
 
             // constrain that T to tyvar for substitution (which is output type from array Iterable impl)
-            constrain(ctx, output_type_tyvar.clone(), val);
+            constrain(ctx, output_type_tyvar, val);
         }
     }
     match potential_ty {
@@ -1663,7 +1674,7 @@ fn generate_constraints_iface_def(ctx: &mut StaticsContext, iface_def: &Rc<Inter
             break;
         }
         let ty_annot = method.ty.to_typevar(ctx);
-        constrain(ctx, node_ty.clone(), ty_annot.clone());
+        constrain(ctx, node_ty, ty_annot);
     }
 }
 
@@ -1802,7 +1813,7 @@ fn generate_constraints_stmt(
         StmtKind::ForLoop(pat, iterable, body) => {
             generate_constraints_expr(ctx, polyvar_scope, Mode::Syn, iterable);
             let iterable_ty = TypeVar::from_node(ctx, iterable.node());
-            let Some(iterable_ty_solved) = iterable_ty.clone().solution() else {
+            let Some(iterable_ty_solved) = iterable_ty.solution() else {
                 ctx.errors.push(Error::Generic {
                     msg: "Cannot typecheck for loop because type of container is not known."
                         .to_string(),
@@ -1976,7 +1987,7 @@ fn generate_constraints_expr(
                             .iter()
                             .map(|f| {
                                 let ty = f.ty.to_typevar(ctx);
-                                ty.clone().subst(&substitution)
+                                ty.subst(&substitution)
                             })
                             .collect();
                         Some(TypeVar::make_func(
@@ -2070,10 +2081,10 @@ fn generate_constraints_expr(
                 | BinaryOperator::Pow => {
                     constrain_to_iface(ctx, &ty_left, left.node(), &num_iface);
                     constrain_to_iface(ctx, &ty_right, right.node(), &num_iface);
-                    constrain(ctx, ty_left.clone(), ty_out);
+                    constrain(ctx, ty_left, ty_out);
                 }
                 BinaryOperator::Mod => {
-                    constrain(ctx, ty_left.clone(), TypeVar::make_int(reason_left));
+                    constrain(ctx, ty_left, TypeVar::make_int(reason_left));
                     constrain(ctx, ty_right, TypeVar::make_int(reason_right));
                     constrain(ctx, ty_out, TypeVar::make_int(reason_out));
                 }
@@ -2148,12 +2159,7 @@ fn generate_constraints_expr(
             generate_constraints_expr(ctx, polyvar_scope, mode.clone(), expr2);
             let expr1_ty = TypeVar::from_node(ctx, expr1.node());
             let expr2_ty = TypeVar::from_node(ctx, expr2.node());
-            constrain_because(
-                ctx,
-                expr1_ty.clone(),
-                expr2_ty,
-                ConstraintReason::IfElseBodies,
-            );
+            constrain_because(ctx, &expr1_ty, expr2_ty, ConstraintReason::IfElseBodies);
             constrain(ctx, expr1_ty, node_ty);
         }
         ExprKind::Match(scrut, arms) => {
@@ -2285,7 +2291,7 @@ fn generate_constraints_expr(
                             polyvar_scope,
                             fname.node(),
                         );
-                        constrain(ctx, memfn_node_ty.clone(), memfn_decl_ty.clone());
+                        constrain(ctx, memfn_node_ty, memfn_decl_ty);
 
                         generate_constraints_expr_funcap_helper(
                             ctx,
@@ -2306,7 +2312,7 @@ fn generate_constraints_expr(
                             polyvar_scope,
                             fname.node(),
                         );
-                        constrain(ctx, fn_node_ty, memfn_ty.clone());
+                        constrain(ctx, fn_node_ty, memfn_ty);
 
                         generate_constraints_expr_funcap_helper(
                             ctx,
@@ -2339,7 +2345,7 @@ fn generate_constraints_expr(
                                     Declaration::MemberFunction { f: func } => {
                                         let memfn_ty = TypeVar::from_node(ctx, func.name.node())
                                             .instantiate(ctx, polyvar_scope, fname.node());
-                                        constrain(ctx, memfn_node_ty.clone(), memfn_ty.clone());
+                                        constrain(ctx, memfn_node_ty, memfn_ty);
                                     }
                                     Declaration::InterfaceMethod {
                                         iface: iface_def,
@@ -2354,11 +2360,7 @@ fn generate_constraints_expr(
                                             polyvar_scope,
                                             fname.node(),
                                         );
-                                        constrain(
-                                            ctx,
-                                            memfn_node_ty.clone(),
-                                            memfn_decl_ty.clone(),
-                                        );
+                                        constrain(ctx, memfn_node_ty, memfn_decl_ty);
                                     }
                                     _ => unreachable!(),
                                 }
@@ -2461,7 +2463,7 @@ fn generate_constraints_expr(
                     for field in &struct_def.fields {
                         if field.name.v == *member_ident.v {
                             let ty_field = field.ty.to_typevar(ctx);
-                            constrain(ctx, node_ty.clone(), ty_field);
+                            constrain(ctx, &node_ty, ty_field);
                             resolved = true;
                         }
                     }
@@ -2490,7 +2492,7 @@ fn generate_constraints_expr(
                     expr.node(),
                 );
 
-                constrain(ctx, node_ty.clone(), enum_ty);
+                constrain(ctx, node_ty, enum_ty);
             } else {
                 ctx.errors
                     .push(Error::UnqualifiedEnumNeedsAnnotation { node: expr.node() });
@@ -2610,7 +2612,7 @@ fn generate_constraints_func_decl(
     ctx: &mut StaticsContext,
     node: AstNode,
     args: &[ArgMaybeAnnotated],
-    out_annot: &Option<Rc<AstType>>,
+    out_annot: Option<&Rc<AstType>>,
 ) {
     // arguments
     let ty_args = generate_constraints_func_args(ctx, &PolyvarScope::empty(), args);
@@ -2620,7 +2622,7 @@ fn generate_constraints_func_decl(
 
     if let Some(out_annot) = out_annot {
         let out_annot = out_annot.to_typevar(ctx);
-        constrain(ctx, ty_body.clone(), out_annot);
+        constrain(ctx, &ty_body, out_annot);
     }
 
     let ty_func = TypeVar::make_func(ty_args, ty_body, Reason::Node(node.clone()));
@@ -2650,7 +2652,7 @@ fn generate_constraints_func_def_helper(
         polyvar_scope.add_polys(&out_annot);
 
         generate_constraints_expr(ctx, &polyvar_scope, Mode::ana(&out_annot), body);
-        constrain(ctx, ty_body.clone(), out_annot);
+        constrain(ctx, &ty_body, out_annot);
     } else {
         generate_constraints_expr(ctx, &polyvar_scope, Mode::ana(&ty_body), body);
     }
@@ -2675,7 +2677,7 @@ fn generate_constraints_func_def(
     );
 
     let ty_node = TypeVar::from_node(ctx, node.clone());
-    constrain(ctx, ty_node, ty_func.clone());
+    constrain(ctx, ty_node, ty_func);
 }
 
 fn generate_constraints_func_args(
@@ -2690,7 +2692,7 @@ fn generate_constraints_func_args(
                 Some(arg_annot) => {
                     let ty_annot = TypeVar::from_node(ctx, arg_annot.node());
                     let arg_annot = arg_annot.to_typevar(ctx);
-                    constrain(ctx, ty_annot.clone(), arg_annot.clone());
+                    constrain(ctx, &ty_annot, &arg_annot);
                     polyvar_scope.add_polys(&arg_annot);
                     generate_constraints_fn_arg(ctx, Mode::ana(ty_annot), arg)
                 }
@@ -2724,22 +2726,22 @@ fn generate_constraints_expr_funcap_helper(
         .map(|(n, arg)| {
             let unknown = TypeVar::fresh(ctx, Prov::FuncArg(func_node.clone(), n as u8));
             let arg_ty = TypeVar::from_node(ctx, arg.node());
-            constrain(ctx, unknown.clone(), arg_ty);
+            constrain(ctx, &unknown, arg_ty);
             unknown
         })
         .collect();
 
     // body
     let ty_body = TypeVar::fresh(ctx, Prov::FuncOut(func_node));
-    constrain(ctx, ty_body.clone(), node_ty);
+    constrain(ctx, &ty_body, node_ty);
 
     // function type
     let ty_args_and_body = TypeVar::make_func(tys_args, ty_body, Reason::Node(expr_node.clone()));
 
     constrain_because(
         ctx,
-        ty_args_and_body.clone(),
-        ty_func.clone(),
+        ty_args_and_body,
+        ty_func,
         ConstraintReason::FuncCall(expr_node),
     );
 }
@@ -2803,7 +2805,7 @@ fn generate_constraints_pat(ctx: &mut StaticsContext, mode: Mode, pat: &Rc<Pat>)
                         Some(ty) => ty.to_typevar(ctx),
                     };
                     let variant_data_ty = variant_data_ty.subst(&substitution);
-                    constrain(ctx, ty_data.clone(), variant_data_ty);
+                    constrain(ctx, &ty_data, variant_data_ty);
 
                     constrain(ctx, ty_pat, enum_ty);
 
@@ -2837,7 +2839,7 @@ fn generate_constraints_pat(ctx: &mut StaticsContext, mode: Mode, pat: &Rc<Pat>)
                         Some(ty) => ty.to_typevar(ctx),
                     };
                     let variant_data_ty = variant_data_ty.subst(&substitution);
-                    constrain(ctx, ty_data.clone(), variant_data_ty);
+                    constrain(ctx, &ty_data, variant_data_ty);
 
                     constrain(ctx, ty_pat, def_type);
 
@@ -2897,9 +2899,9 @@ fn handle_ana(ctx: &mut StaticsContext, mode: Mode, node_ty: TypeVar) {
             constraint_reason,
         } => {
             if let Some(constraint_reason) = constraint_reason {
-                constrain_because(ctx, expected, node_ty.clone(), constraint_reason)
+                constrain_because(ctx, expected, node_ty, constraint_reason)
             } else {
-                constrain(ctx, expected, node_ty.clone())
+                constrain(ctx, expected, node_ty)
             }
         }
     };
