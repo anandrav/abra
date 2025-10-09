@@ -1000,7 +1000,7 @@ fn interfaces_helper(
             else {
                 continue;
             };
-            if let Some(solved_ty) = ast_type_to_solved_type(ctx, val) {
+            if let Some(solved_ty) = val.to_solved_type(ctx) {
                 args.push((at.clone(), val.clone(), solved_ty));
             }
         }
@@ -1031,62 +1031,61 @@ fn tyvar_of_iface_method(
     )
 }
 
-pub(crate) fn ast_type_to_solved_type(
-    ctx: &StaticsContext,
-    ast_type: &Rc<AstType>,
-) -> Option<SolvedType> {
-    match &*ast_type.kind {
-        TypeKind::Poly(polyty) => {
-            if let Declaration::Polytype(poly_decl) = ctx.resolution_map.get(&polyty.name.id)? {
-                Some(SolvedType::Poly(poly_decl.clone()))
-            } else {
-                None
-            }
-        }
-        TypeKind::NamedWithParams(identifier, args) => {
-            let sargs = args
-                .iter()
-                .map(|arg| ast_type_to_solved_type(ctx, arg))
-                .collect::<Option<Vec<_>>>()?;
-
-            let lookup = ctx.resolution_map.get(&identifier.id)?;
-            match lookup {
-                Declaration::Array => Some(SolvedType::Nominal(Nominal::Array, sargs)),
-                Declaration::Struct(struct_def) => Some(SolvedType::Nominal(
-                    Nominal::Struct(struct_def.clone()),
-                    sargs,
-                )),
-                Declaration::Enum(enum_def) => {
-                    Some(SolvedType::Nominal(Nominal::Enum(enum_def.clone()), sargs))
+impl AstType {
+    pub(crate) fn to_solved_type(self: &Rc<Self>, ctx: &StaticsContext) -> Option<SolvedType> {
+        match &*self.kind {
+            TypeKind::Poly(polyty) => {
+                if let Declaration::Polytype(poly_decl) = ctx.resolution_map.get(&polyty.name.id)? {
+                    Some(SolvedType::Poly(poly_decl.clone()))
+                } else {
+                    None
                 }
-                Declaration::Polytype(poly_decl) => Some(SolvedType::Poly(poly_decl.clone())),
-                Declaration::InterfaceOutputType { iface: _, ty: at } => {
-                    Some(SolvedType::InterfaceOutput(at.clone()))
-                }
-                _ => None,
             }
-        }
-        TypeKind::Void => Some(SolvedType::Void),
-        TypeKind::Int => Some(SolvedType::Int),
-        TypeKind::Float => Some(SolvedType::Float),
-        TypeKind::Bool => Some(SolvedType::Bool),
-        TypeKind::Str => Some(SolvedType::String),
-        TypeKind::Function(args, ret) => {
-            let args = args
-                .iter()
-                .map(|arg| ast_type_to_solved_type(ctx, arg))
-                .collect::<Option<Vec<_>>>()?;
+            TypeKind::NamedWithParams(identifier, args) => {
+                let sargs = args
+                    .iter()
+                    .map(|arg| arg.to_solved_type(ctx))
+                    .collect::<Option<Vec<_>>>()?;
 
-            let ret = ast_type_to_solved_type(ctx, ret)?;
-            Some(SolvedType::Function(args, ret.into()))
-        }
-        TypeKind::Tuple(elems) => {
-            let elems = elems
-                .iter()
-                .map(|elem| ast_type_to_solved_type(ctx, elem))
-                .collect::<Option<Vec<_>>>()?;
+                let lookup = ctx.resolution_map.get(&identifier.id)?;
+                match lookup {
+                    Declaration::Array => Some(SolvedType::Nominal(Nominal::Array, sargs)),
+                    Declaration::Struct(struct_def) => Some(SolvedType::Nominal(
+                        Nominal::Struct(struct_def.clone()),
+                        sargs,
+                    )),
+                    Declaration::Enum(enum_def) => {
+                        Some(SolvedType::Nominal(Nominal::Enum(enum_def.clone()), sargs))
+                    }
+                    Declaration::Polytype(poly_decl) => Some(SolvedType::Poly(poly_decl.clone())),
+                    Declaration::InterfaceOutputType { iface: _, ty: at } => {
+                        Some(SolvedType::InterfaceOutput(at.clone()))
+                    }
+                    _ => None,
+                }
+            }
+            TypeKind::Void => Some(SolvedType::Void),
+            TypeKind::Int => Some(SolvedType::Int),
+            TypeKind::Float => Some(SolvedType::Float),
+            TypeKind::Bool => Some(SolvedType::Bool),
+            TypeKind::Str => Some(SolvedType::String),
+            TypeKind::Function(args, ret) => {
+                let args = args
+                    .iter()
+                    .map(|arg| arg.to_solved_type(ctx))
+                    .collect::<Option<Vec<_>>>()?;
 
-            Some(SolvedType::Tuple(elems))
+                let ret = ret.to_solved_type(ctx)?;
+                Some(SolvedType::Function(args, ret.into()))
+            }
+            TypeKind::Tuple(elems) => {
+                let elems = elems
+                    .iter()
+                    .map(|elem| elem.to_solved_type(ctx))
+                    .collect::<Option<Vec<_>>>()?;
+
+                Some(SolvedType::Tuple(elems))
+            }
         }
     }
 }
@@ -2987,7 +2986,7 @@ pub(crate) fn get_iface_impl_for_ty(
 }
 
 pub(crate) fn ty_fits_impl(ctx: &StaticsContext, typ: SolvedType, imp: &Rc<InterfaceImpl>) -> bool {
-    let Some(impl_ty) = ast_type_to_solved_type(ctx, &imp.typ) else { return false };
+    let Some(impl_ty) = imp.typ.to_solved_type(ctx) else { return false };
     ty_fits_impl_ty(ctx, &typ, &impl_ty)
 }
 

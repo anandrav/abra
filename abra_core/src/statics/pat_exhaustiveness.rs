@@ -12,7 +12,7 @@ use std::fmt::{self, Display};
 use std::rc::Rc;
 use utils::hash::HashSet;
 
-use super::typecheck::{Nominal, ast_type_to_solved_type};
+use super::typecheck::Nominal;
 use super::{Declaration, EnumDef, Error, SolvedType, StaticsContext, TypeKind};
 
 pub(crate) fn check_pattern_exhaustiveness_and_usefulness(
@@ -216,7 +216,7 @@ impl Matrix {
                 let variant = &enum_def.variants[*idx];
                 let variant_data = &variant.data;
                 let data_ty = if let Some(data) = &variant_data {
-                    ast_type_to_solved_type(statics, data).unwrap()
+                    data.to_solved_type(statics).unwrap()
                 } else {
                     SolvedType::Void
                 };
@@ -402,7 +402,7 @@ impl DeconstructedPat {
                     let variant = &enum_def.variants[*idx];
                     let variant_data = &variant.data;
                     let data_ty = if let Some(data) = &variant_data {
-                        ast_type_to_solved_type(statics, data).unwrap()
+                        data.to_solved_type(statics).unwrap()
                     } else {
                         SolvedType::Void
                     };
