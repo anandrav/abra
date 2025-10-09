@@ -88,30 +88,6 @@ impl<'a, T> DerefMut for Ar<'a, T> {
     }
 }
 
-impl<'a, T> Borrow<T> for Ar<'a, T> {
-    fn borrow(&self) -> &T {
-        self
-    }
-}
-
-impl<'a, T> BorrowMut<T> for Ar<'a, T> {
-    fn borrow_mut(&mut self) -> &mut T {
-        self
-    }
-}
-
-impl<'a, T> AsRef<T> for Ar<'a, T> {
-    fn as_ref(&self) -> &T {
-        self
-    }
-}
-
-impl<'a, T> AsMut<T> for Ar<'a, T> {
-    fn as_mut(&mut self) -> &mut T {
-        self
-    }
-}
-
 impl<'a, T> PartialEq for Ar<'a, T>
 where
     T: PartialEq,
