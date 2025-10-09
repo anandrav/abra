@@ -1432,7 +1432,7 @@ impl MonomorphEnv {
                 for i in 0..args.len() {
                     self.update(&args[i], &args2[i]);
                 }
-                self.update(out, &*out2);
+                self.update(out, out2);
             }
             (Type::Nominal(ident, params), Type::Nominal(ident2, params2)) => {
                 assert_eq!(ident, ident2);

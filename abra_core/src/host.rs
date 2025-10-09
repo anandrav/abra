@@ -215,7 +215,7 @@ pub enum HostFunctionRet {
 
     // TODO: this only adds from the root effects file. Need to add all types in the tree of files
     // Also, the types need to be namespaced or scoped properly if they're in child files
-    add_items_from_ast(file_asts[0].clone(), output);
+    add_items_from_ast(&file_asts[0], output);
 
     std::fs::write(destination, output).unwrap();
 
@@ -228,7 +228,7 @@ pub enum HostFunctionRet {
     Ok(())
 }
 
-fn add_items_from_ast(ast: Rc<FileAst>, output: &mut String) {
+fn add_items_from_ast(ast: &Rc<FileAst>, output: &mut String) {
     for item in ast.items.iter() {
         if let ItemKind::TypeDef(tydef) = &*item.kind {
             match &**tydef {
