@@ -4,10 +4,12 @@
 
 // this is experimental
 
+use std::borrow::{Borrow, BorrowMut};
 use std::cell::UnsafeCell;
 use std::cmp::Ordering;
 use std::fmt;
-use std::fmt::{Debug, Formatter};
+use std::fmt::{Debug, Display, Formatter};
+use std::hash::{Hash, Hasher};
 use std::marker::PhantomData;
 use std::ops::{Deref, DerefMut};
 
@@ -23,7 +25,11 @@ struct ArenaInner<T> {
 impl<T> Arena<T> {
     pub fn new() -> Self {
         Self {
-            inner: ArenaInner { current_buf: Vec::new(), old_bufs: Vec::new() }.into(),
+            inner: ArenaInner {
+                current_buf: Vec::new(),
+                old_bufs: Vec::new(),
+            }
+                .into(),
         }
     }
 
@@ -47,24 +53,13 @@ impl<T> Arena<T> {
         let value_ref: *mut T = &mut inner.current_buf[index];
         Ar::new(value_ref)
     }
-    //
-    // pub fn get(&self, index: usize) -> &T {
-    //     &self.data[index]
-    // }
-    //
-    // pub fn get_mut(&mut self, index: usize) -> &mut T {
-    //     &mut self.data[index]
-    // }
 }
 
-// impl<T: Hash + Eq> std::ops::Index<usize> for Arena<T> {
-//     type Output = T;
-//
-//     #[inline]
-//     fn index(&self, id: usize) -> &Self::Output {
-//         self.get(id)
-//     }
-// }
+impl<T> Default for Arena<T> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
 
 pub struct Ar<'a, T> {
     ptr: *mut T,
@@ -73,7 +68,10 @@ pub struct Ar<'a, T> {
 
 impl<'a, T> Ar<'a, T> {
     fn new(ptr: *mut T) -> Self {
-        Self { ptr, _marker: PhantomData }
+        Self {
+            ptr,
+            _marker: PhantomData,
+        }
     }
 }
 
@@ -87,6 +85,30 @@ impl<'a, T> Deref for Ar<'a, T> {
 impl<'a, T> DerefMut for Ar<'a, T> {
     fn deref_mut(&mut self) -> &mut T {
         unsafe { &mut *self.ptr }
+    }
+}
+
+impl<'a, T> Borrow<T> for Ar<'a, T> {
+    fn borrow(&self) -> &T {
+        self
+    }
+}
+
+impl<'a, T> BorrowMut<T> for Ar<'a, T> {
+    fn borrow_mut(&mut self) -> &mut T {
+        self
+    }
+}
+
+impl<'a, T> AsRef<T> for Ar<'a, T> {
+    fn as_ref(&self) -> &T {
+        self
+    }
+}
+
+impl<'a, T> AsMut<T> for Ar<'a, T> {
+    fn as_mut(&mut self) -> &mut T {
+        self
     }
 }
 
@@ -126,10 +148,35 @@ where
     }
 }
 
-impl<'a, T> Eq for Ar<'a, T>
+impl<'a, T> Ord for Ar<'a, T>
 where
-    T: Eq,
-{}
+    T: Ord,
+{
+    #[inline]
+    fn cmp(&self, other: &Self) -> Ordering {
+        Ord::cmp(&**self, &**other)
+    }
+}
+
+impl<'a, T> Eq for Ar<'a, T> where T: Eq {}
+
+impl<'a, T> Hash for Ar<'a, T>
+where
+    T: Hash,
+{
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        (**self).hash(state);
+    }
+}
+
+impl<'a, T> Display for Ar<'a, T>
+where
+    T: Display,
+{
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        Display::fmt(&**self, f)
+    }
+}
 
 impl<'a, T> Debug for Ar<'a, T> {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {

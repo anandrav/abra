@@ -1,11 +1,12 @@
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+extern crate core;
 
 pub mod command;
 pub mod hash;
 pub mod id_set;
 
-mod arena;
+pub mod arena;
 pub mod swrite;
-mod union_find;
+pub mod union_find;
