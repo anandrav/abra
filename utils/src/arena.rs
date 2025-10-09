@@ -38,7 +38,7 @@ impl Arena {
         }
     }
 
-    pub fn add<T>(&self, value: T) -> &mut T {
+    pub fn add<T>(&self, value: T) -> Ar<'_, T> {
         let inner = unsafe { &mut *self.inner.get() };
         let align = align_of::<T>();
         let size = size_of::<T>();
@@ -65,8 +65,7 @@ impl Arena {
         }
 
         inner.offset = start + size;
-
-        unsafe { &mut *ptr }
+        Ar::new(ptr)
     }
 }
 
