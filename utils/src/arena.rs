@@ -5,13 +5,13 @@
 // this is experimental
 
 use std::cell::UnsafeCell;
-use std::cmp::{max, Ordering};
+use std::cmp::Ordering;
 use std::fmt;
 use std::fmt::{Debug, Display, Formatter};
 use std::hash::{Hash, Hasher};
 use std::marker::PhantomData;
 use std::ops::{Deref, DerefMut};
-use std::mem::{align_of, size_of};
+use std::mem::{align_of, size_of, MaybeUninit};
 use std::ptr::{self};
 
 pub struct Arena {
@@ -19,21 +19,25 @@ pub struct Arena {
 }
 
 struct ArenaInner {
-    current_buf: Box<[u8]>,
-    old_bufs: Vec<Box<[u8]>>,
+    current_buf: Box<[MaybeUninit<u8>]>,
+    old_bufs: Vec<Box<[MaybeUninit<u8>]>>,
     offset: usize,
     buf_capacity: usize,
 }
 
 impl Arena {
     pub fn new() -> Self {
-        let buf = vec![0u8; 0].into_boxed_slice();
+        Self::with_capacity(0)
+    }
+
+    pub fn with_capacity(capacity: usize) -> Self {
+        let buf = Box::new_uninit_slice(capacity);
         Self {
             inner: UnsafeCell::new(ArenaInner {
                 current_buf: buf,
                 old_bufs: Vec::new(),
                 offset: 0,
-                buf_capacity: 0,
+                buf_capacity: capacity,
             }),
         }
     }
@@ -43,14 +47,15 @@ impl Arena {
         let align = align_of::<T>();
         let size = size_of::<T>();
 
-        // Align the current offset
         let padding = (align - inner.offset % align) % align;
-        let total_size = padding + size;
+        let new_offset = inner.offset + padding + size;
 
-        if inner.offset + total_size > inner.buf_capacity {
-            // allocate new buffer, double previous size
-            let new_capacity = max(inner.buf_capacity * 2, size);
-            let new_buf = vec![0u8; new_capacity].into_boxed_slice();
+        if new_offset > inner.buf_capacity {
+            // double previous capacity
+            let new_capacity = inner.buf_capacity * 2;
+            // and make sure capacity is enough to hold at least a single T
+            let new_capacity = new_capacity.max(size);
+            let new_buf: Box<[MaybeUninit<u8>]> = Box::new_uninit_slice(new_capacity);
             let old_buf = std::mem::replace(&mut inner.current_buf, new_buf);
             inner.old_bufs.push(old_buf);
             inner.offset = 0;
