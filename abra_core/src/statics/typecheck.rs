@@ -1,7 +1,6 @@
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
-
 use super::{
     Declaration, EnumDef, Error, FuncDef, InterfaceArguments, InterfaceDef, Polytype,
     PolytypeDeclaration, StaticsContext, StructDef,
@@ -15,6 +14,7 @@ use crate::ast::{BinaryOperator, Item};
 use crate::builtin::BuiltinOperation;
 use crate::environment::Environment;
 use disjoint_sets::UnionFindNode;
+use std::borrow::Borrow;
 use std::cell::RefCell;
 use std::collections::BTreeSet;
 use std::fmt::{self, Display, Write};
@@ -1175,16 +1175,16 @@ pub(crate) enum Mode {
 }
 
 impl Mode {
-    fn ana(expected: TypeVar) -> Self {
+    fn ana(expected: impl Borrow<TypeVar>) -> Self {
         Mode::Ana {
-            expected,
+            expected: expected.borrow().clone(),
             constraint_reason: None,
         }
     }
 
-    fn ana_reason(expected: TypeVar, constraint_reason: ConstraintReason) -> Self {
+    fn ana_reason(expected: impl Borrow<TypeVar>, constraint_reason: ConstraintReason) -> Self {
         Mode::Ana {
-            expected,
+            expected: expected.borrow().clone(),
             constraint_reason: Some(constraint_reason),
         }
     }
@@ -1835,7 +1835,7 @@ fn generate_constraints_stmt(
             // substitute { T = int } here
             let subst = get_substitution_of_typ(ctx, &imp.typ, &iterable_ty);
             let item_ty = item_ty.subst(&subst);
-            generate_constraints_pat(ctx, Mode::ana(item_ty.clone()), pat);
+            generate_constraints_pat(ctx, Mode::ana(item_ty), pat);
 
             generate_constraints_expr(ctx, polyvar_scope, Mode::Syn, body);
 
@@ -2025,7 +2025,7 @@ fn generate_constraints_expr(
                         ctx,
                         polyvar_scope,
                         Mode::ana_reason(
-                            ty_left.clone(),
+                            &ty_left,
                             ConstraintReason::BinaryOperandsMustMatch(expr.node()),
                         ),
                         right,
@@ -2051,7 +2051,7 @@ fn generate_constraints_expr(
                 BinaryOperator::And | BinaryOperator::Or => {
                     constrain_because(
                         ctx,
-                        ty_left.clone(),
+                        ty_left,
                         TypeVar::make_bool(reason_left),
                         ConstraintReason::BinaryOperandBool(expr.node()),
                     );
@@ -2158,22 +2158,14 @@ fn generate_constraints_expr(
         }
         ExprKind::Match(scrut, arms) => {
             let ty_scrutiny = TypeVar::from_node(ctx, scrut.node());
-            generate_constraints_expr(ctx, polyvar_scope, Mode::ana(ty_scrutiny.clone()), scrut);
+            generate_constraints_expr(ctx, polyvar_scope, Mode::ana(&ty_scrutiny), scrut);
             for arm in arms {
                 generate_constraints_pat(
                     ctx,
-                    Mode::ana_reason(
-                        ty_scrutiny.clone(),
-                        ConstraintReason::MatchScrutinyAndPattern,
-                    ),
+                    Mode::ana_reason(&ty_scrutiny, ConstraintReason::MatchScrutinyAndPattern),
                     &arm.pat,
                 );
-                generate_constraints_stmt(
-                    ctx,
-                    polyvar_scope,
-                    Mode::ana(node_ty.clone()),
-                    &arm.stmt,
-                );
+                generate_constraints_stmt(ctx, polyvar_scope, Mode::ana(&node_ty), &arm.stmt);
                 if let StmtKind::Expr(..) = &*arm.stmt.kind {
                 } else {
                     constrain(
@@ -2657,10 +2649,10 @@ fn generate_constraints_func_def_helper(
         let out_annot = out_annot.to_typevar(ctx);
         polyvar_scope.add_polys(&out_annot);
 
-        generate_constraints_expr(ctx, &polyvar_scope, Mode::ana(out_annot.clone()), body);
+        generate_constraints_expr(ctx, &polyvar_scope, Mode::ana(&out_annot), body);
         constrain(ctx, ty_body.clone(), out_annot);
     } else {
-        generate_constraints_expr(ctx, &polyvar_scope, Mode::ana(ty_body.clone()), body);
+        generate_constraints_expr(ctx, &polyvar_scope, Mode::ana(&ty_body), body);
     }
     ctx.func_ret_stack.pop();
 
