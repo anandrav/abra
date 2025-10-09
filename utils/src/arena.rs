@@ -12,34 +12,39 @@ use std::marker::PhantomData;
 use std::ops::{Deref, DerefMut};
 
 pub struct Arena<T> {
-    current_buf: UnsafeCell<Vec<T>>,
-    old_bufs: UnsafeCell<Vec<Vec<T>>>,
+    inner: UnsafeCell<ArenaInner<T>>,
+}
+
+struct ArenaInner<T> {
+    current_buf: Vec<T>,
+    old_bufs: Vec<Vec<T>>,
 }
 
 impl<T> Arena<T> {
     pub fn new() -> Self {
-        Self { current_buf: Vec::new().into(), old_bufs: Vec::new().into() }
+        Self {
+            inner: ArenaInner { current_buf: Vec::new(), old_bufs: Vec::new() }.into(),
+        }
     }
 
     pub fn add(&self, value: T) -> Ar<'_, T> {
-        let current_buf = unsafe { &mut *self.current_buf.get() };
-        let old_bufs = unsafe { &mut *self.old_bufs.get() };
+        let inner = unsafe { &mut *self.inner.get() };
 
-        let capacity = current_buf.capacity();
-        if current_buf.len() + 1 > capacity {
+        let capacity = inner.current_buf.capacity();
+        if inner.current_buf.len() + 1 > capacity {
             let new_capacity = capacity.max(1) * 2;
             let new_buf = Vec::with_capacity(new_capacity);
 
-            let old_buf = std::mem::replace(current_buf, new_buf);
-            old_bufs.push(old_buf);
+            let old_buf = std::mem::replace(&mut inner.current_buf, new_buf);
+            inner.old_bufs.push(old_buf);
         }
 
         // SAFETY: Since value_ref points to a T in current_buf, and current_buf is never re-allocated,
         // only moved, value_ref will always be valid as long as current_buf is not de-allocated.
         // Therefore, value_ref is always valid if it has the same lifetime as current_buf, which it does.
-        current_buf.push(value);
-        let index = current_buf.len() - 1;
-        let value_ref: *mut T = &mut current_buf[index];
+        inner.current_buf.push(value);
+        let index = inner.current_buf.len() - 1;
+        let value_ref: *mut T = &mut inner.current_buf[index];
         Ar::new(value_ref)
     }
     //
