@@ -482,9 +482,9 @@ impl Translator {
                     self.translate_expr(arg, offset_table, monomorph_env, st);
                 }
 
-                let resolution = &self.statics.resolution_map[&fname.id];
+                let decl = &self.statics.resolution_map[&fname.id];
                 self.translate_func_ap(
-                    resolution.clone(),
+                    decl,
                     fname.node(),
                     offset_table,
                     monomorph_env,
@@ -495,7 +495,7 @@ impl Translator {
                 for arg in args {
                     self.translate_expr(arg, offset_table, monomorph_env, st);
                 }
-                let resolution = match &*func.kind {
+                let decl = match &*func.kind {
                     ExprKind::Variable(_) => &self.statics.resolution_map[&func.id],
                     ExprKind::MemberAccess(_prefix, ident) => {
                         &self.statics.resolution_map[&ident.id]
@@ -523,7 +523,7 @@ impl Translator {
                 };
 
                 self.translate_func_ap(
-                    resolution.clone(),
+                    decl,
                     func.node(),
                     offset_table,
                     monomorph_env,
@@ -657,7 +657,7 @@ impl Translator {
                     panic!();
                 };
                 self.translate_func_ap(
-                    decl.clone(),
+                    decl,
                     f.name.node(),
                     offset_table,
                     monomorph_env,
@@ -725,13 +725,13 @@ impl Translator {
 
     fn translate_func_ap(
         &self,
-        resolution: Declaration,
+        decl: &Declaration,
         func_node: AstNode,
         offset_table: &OffsetTable,
         monomorph_env: &MonomorphEnv,
         st: &mut TranslatorState,
     ) {
-        match &resolution {
+        match decl {
             Declaration::Var(node) => {
                 let Some(SolvedType::Function(args, _)) =
                     self.statics.solution_of_node(node.clone())
