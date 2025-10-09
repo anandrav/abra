@@ -144,16 +144,16 @@ impl TypeVarData {
                     t.reasons().extend(other_reasons);
                     if let PotentialType::Function(_, args2, out2) = t {
                         for (arg, arg2) in args1.iter().zip(args2.iter()) {
-                            TypeVar::merge(arg.clone(), arg2.clone());
+                            TypeVar::merge(arg, arg2);
                         }
-                        TypeVar::merge(out1.clone(), out2.clone());
+                        TypeVar::merge(&out1, out2);
                     }
                 }
                 PotentialType::Tuple(other_reasons, elems1) => {
                     t.reasons().extend(other_reasons);
                     if let PotentialType::Tuple(_, elems2) = t {
                         for (elem, elem2) in elems1.iter().zip(elems2.iter()) {
-                            TypeVar::merge(elem.clone(), elem2.clone());
+                            TypeVar::merge(elem, elem2);
                         }
                     }
                 }
@@ -163,7 +163,7 @@ impl TypeVarData {
                     };
                     assert_eq!(tys.len(), other_tys.len());
                     for (ty, other_ty) in tys.iter().zip(other_tys.iter()) {
-                        TypeVar::merge(ty.clone(), other_ty.clone());
+                        TypeVar::merge(ty, other_ty);
                     }
 
                     t.reasons().extend(other_reasons);
@@ -573,7 +573,9 @@ impl TypeVar {
         self.0.with_data(|d| d.missing_info = true);
     }
 
-    fn merge(mut tyvar1: TypeVar, mut tyvar2: TypeVar) {
+    fn merge(tyvar1: &TypeVar, tyvar2: &TypeVar) {
+        let mut tyvar1 = tyvar1.clone();
+        let mut tyvar2 = tyvar2.clone();
         tyvar1.0.union_with(&mut tyvar2.0, TypeVarData::merge_data);
     }
 
@@ -1228,7 +1230,7 @@ pub(crate) fn constrain_because(
         }
         // Since both TypeVars are unsolved, they are unioned and their data is merged
         (false, false) => {
-            TypeVar::merge(tyvar1.clone(), tyvar2.clone());
+            TypeVar::merge(tyvar1, tyvar2);
         }
     }
 }
@@ -1504,7 +1506,7 @@ fn generate_constraints_iface_impl(ctx: &mut StaticsContext, iface_impl: &Rc<Int
                         substitution.insert(poly_decl, impl_ty.clone());
                     }
 
-                    let expected = interface_method_ty.clone().subst(&substitution);
+                    let expected = interface_method_ty.subst(&substitution);
                     let expected = expected.instantiate_iface_output_types(
                         ctx,
                         interface_method.node(),
