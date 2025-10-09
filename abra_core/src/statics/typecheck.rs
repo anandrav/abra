@@ -1197,22 +1197,16 @@ impl Mode {
     }
 }
 
-pub(crate) fn constrain(
-    ctx: &mut StaticsContext,
-    tyvar1: impl Borrow<TypeVar>,
-    tyvar2: impl Borrow<TypeVar>,
-) {
+pub(crate) fn constrain(ctx: &mut StaticsContext, tyvar1: &TypeVar, tyvar2: &TypeVar) {
     constrain_because(ctx, tyvar1, tyvar2, ConstraintReason::None)
 }
 
 pub(crate) fn constrain_because(
     ctx: &mut StaticsContext,
-    tyvar1: impl Borrow<TypeVar>,
-    tyvar2: impl Borrow<TypeVar>,
+    tyvar1: &TypeVar,
+    tyvar2: &TypeVar,
     constraint_reason: ConstraintReason,
 ) {
-    let tyvar1 = tyvar1.borrow();
-    let tyvar2 = tyvar2.borrow();
     match (tyvar1.is_locked(), tyvar2.is_locked()) {
         // Since both TypeVars are already locked, an error is logged if their data do not match
         (true, true) => {
@@ -1286,7 +1280,7 @@ fn constrain_locked_typevars(
                 for (arg1, arg2) in args1.iter().zip(args2.iter()) {
                     constrain_because(ctx, arg1, arg2, constraint_reason.clone());
                 }
-                constrain_because(ctx, out1, out2, constraint_reason);
+                constrain_because(ctx, &out1, &out2, constraint_reason);
             }
             (PotentialType::Tuple(_, elems1), PotentialType::Tuple(_, elems2)) => {
                 for (elem1, elem2) in elems1.iter().zip(elems2.iter()) {
@@ -1441,7 +1435,7 @@ fn generate_constraints_item_decls0(ctx: &mut StaticsContext, item: &Rc<Item>) {
                     if first_arg_identifier.v == "self" {
                         let nominal_ty = ext.typ.to_typevar(ctx);
                         let ty_arg = TypeVar::from_node(ctx, first_arg_identifier.node());
-                        constrain(ctx, ty_arg, nominal_ty);
+                        constrain(ctx, &ty_arg, &nominal_ty);
 
                         generate_constraints_func_decl(
                             ctx,
@@ -1503,7 +1497,7 @@ fn generate_constraints_iface_impl(ctx: &mut StaticsContext, iface_impl: &Rc<Int
                 {
                     let interface_method_ty = interface_method.ty.to_typevar(ctx);
                     let actual = TypeVar::from_node(ctx, interface_method.node());
-                    constrain(ctx, &interface_method_ty, actual);
+                    constrain(ctx, &interface_method_ty, &actual);
 
                     let mut substitution: Substitution = HashMap::default();
                     if let Some(poly_decl) = interface_method_ty.get_interface_self_type() {
@@ -1518,7 +1512,7 @@ fn generate_constraints_iface_impl(ctx: &mut StaticsContext, iface_impl: &Rc<Int
                     );
 
                     let actual = TypeVar::from_node(ctx, f.name.node());
-                    constrain(ctx, &expected, actual);
+                    constrain(ctx, &expected, &actual);
 
                     generate_constraints_func_decl(
                         ctx,
@@ -1575,7 +1569,7 @@ fn constrain_iface_arguments_in_tyvar(
             let output_type_tyvar = output_type_tyvar.subst(&subst);
 
             // constrain that T to tyvar for substitution (which is output type from array Iterable impl)
-            constrain(ctx, output_type_tyvar, val);
+            constrain(ctx, &output_type_tyvar, &val);
         }
     }
     match potential_ty {
@@ -1674,7 +1668,7 @@ fn generate_constraints_iface_def(ctx: &mut StaticsContext, iface_def: &Rc<Inter
             break;
         }
         let ty_annot = method.ty.to_typevar(ctx);
-        constrain(ctx, node_ty, ty_annot);
+        constrain(ctx, &node_ty, &ty_annot);
     }
 }
 
@@ -1908,36 +1902,36 @@ fn generate_constraints_expr(
         ExprKind::Void => {
             constrain(
                 ctx,
-                node_ty,
-                TypeVar::make_void(Reason::Literal(expr.node())),
+                &node_ty,
+                &TypeVar::make_void(Reason::Literal(expr.node())),
             );
         }
         ExprKind::Int(_) => {
             constrain(
                 ctx,
-                node_ty,
-                TypeVar::make_int(Reason::Literal(expr.node())),
+                &node_ty,
+                &TypeVar::make_int(Reason::Literal(expr.node())),
             );
         }
         ExprKind::Float(_) => {
             constrain(
                 ctx,
-                node_ty,
-                TypeVar::make_float(Reason::Literal(expr.node())),
+                &node_ty,
+                &TypeVar::make_float(Reason::Literal(expr.node())),
             );
         }
         ExprKind::Bool(_) => {
             constrain(
                 ctx,
-                node_ty,
-                TypeVar::make_bool(Reason::Literal(expr.node())),
+                &node_ty,
+                &TypeVar::make_bool(Reason::Literal(expr.node())),
             );
         }
         ExprKind::Str(s) => {
             constrain(
                 ctx,
-                node_ty,
-                TypeVar::make_string(Reason::Literal(expr.node())),
+                &node_ty,
+                &TypeVar::make_string(Reason::Literal(expr.node())),
             );
             ctx.string_constants.insert(s.clone());
         }
@@ -1945,8 +1939,8 @@ fn generate_constraints_expr(
             let elem_ty = TypeVar::fresh(ctx, Prov::ListElem(expr.node()));
             constrain(
                 ctx,
-                node_ty,
-                TypeVar::make_nominal(
+                &node_ty,
+                &TypeVar::make_nominal(
                     Reason::Node(expr.node()),
                     Nominal::Array,
                     vec![elem_ty.clone()],
@@ -2013,7 +2007,7 @@ fn generate_constraints_expr(
                 }
                 .map(|tyvar| tyvar.instantiate(ctx, polyvar_scope, expr.node()))
             {
-                constrain(ctx, typ, node_ty.clone());
+                constrain(ctx, &typ, &node_ty);
             }
         }
         ExprKind::BinOp(left, op, right) => {
@@ -2062,17 +2056,17 @@ fn generate_constraints_expr(
                 BinaryOperator::And | BinaryOperator::Or => {
                     constrain_because(
                         ctx,
-                        ty_left,
-                        TypeVar::make_bool(reason_left),
+                        &ty_left,
+                        &TypeVar::make_bool(reason_left),
                         ConstraintReason::BinaryOperandBool(expr.node()),
                     );
                     constrain_because(
                         ctx,
-                        ty_right,
-                        TypeVar::make_bool(reason_right),
+                        &ty_right,
+                        &TypeVar::make_bool(reason_right),
                         ConstraintReason::BinaryOperandBool(expr.node()),
                     );
-                    constrain(ctx, ty_out, TypeVar::make_bool(reason_out));
+                    constrain(ctx, &ty_out, &TypeVar::make_bool(reason_out));
                 }
                 BinaryOperator::Add
                 | BinaryOperator::Subtract
@@ -2081,12 +2075,12 @@ fn generate_constraints_expr(
                 | BinaryOperator::Pow => {
                     constrain_to_iface(ctx, &ty_left, left.node(), &num_iface);
                     constrain_to_iface(ctx, &ty_right, right.node(), &num_iface);
-                    constrain(ctx, ty_left, ty_out);
+                    constrain(ctx, &ty_left, &ty_out);
                 }
                 BinaryOperator::Mod => {
-                    constrain(ctx, ty_left, TypeVar::make_int(reason_left));
-                    constrain(ctx, ty_right, TypeVar::make_int(reason_right));
-                    constrain(ctx, ty_out, TypeVar::make_int(reason_out));
+                    constrain(ctx, &ty_left, &TypeVar::make_int(reason_left));
+                    constrain(ctx, &ty_right, &TypeVar::make_int(reason_right));
+                    constrain(ctx, &ty_out, &TypeVar::make_int(reason_out));
                 }
                 BinaryOperator::LessThan
                 | BinaryOperator::GreaterThan
@@ -2094,28 +2088,32 @@ fn generate_constraints_expr(
                 | BinaryOperator::GreaterThanOrEqual => {
                     constrain_to_iface(ctx, &ty_left, left.node(), &num_iface);
                     constrain_to_iface(ctx, &ty_right, right.node(), &num_iface);
-                    constrain(ctx, ty_out, TypeVar::make_bool(reason_out));
+                    constrain(ctx, &ty_out, &TypeVar::make_bool(reason_out));
                 }
                 BinaryOperator::Format => {
                     constrain_to_iface(ctx, &ty_left, left.node(), &tostring_iface);
                     constrain_to_iface(ctx, &ty_right, right.node(), &tostring_iface);
                     constrain_because(
                         ctx,
-                        ty_out,
-                        TypeVar::make_string(reason_out),
+                        &ty_out,
+                        &TypeVar::make_string(reason_out),
                         ConstraintReason::BinaryOperandsMustMatch(expr.node()),
                     );
                 }
                 BinaryOperator::Equal => {
                     constrain_to_iface(ctx, &ty_left, left.node(), &equal_iface);
                     constrain_to_iface(ctx, &ty_right, right.node(), &equal_iface);
-                    constrain(ctx, ty_out, TypeVar::make_bool(reason_out));
+                    constrain(ctx, &ty_out, &TypeVar::make_bool(reason_out));
                 }
             }
         }
         ExprKind::Block(statements) => {
             if statements.is_empty() {
-                constrain(ctx, node_ty, TypeVar::make_void(Reason::Node(expr.node())));
+                constrain(
+                    ctx,
+                    &node_ty,
+                    &TypeVar::make_void(Reason::Node(expr.node())),
+                );
                 return;
             }
             for statement in statements[..statements.len() - 1].iter() {
@@ -2125,7 +2123,7 @@ fn generate_constraints_expr(
             if let StmtKind::Expr(terminal_expr) = &*statements.last().unwrap().kind {
                 generate_constraints_expr(ctx, polyvar_scope, mode.clone(), terminal_expr);
                 let expr_ty = TypeVar::from_node(ctx, terminal_expr.node());
-                constrain(ctx, expr_ty, node_ty);
+                constrain(ctx, &expr_ty, &node_ty);
             } else if let StmtKind::Return(_) = &*statements.last().unwrap().kind {
                 generate_constraints_stmt(
                     ctx,
@@ -2133,7 +2131,11 @@ fn generate_constraints_expr(
                     mode.clone(),
                     statements.last().unwrap(),
                 );
-                constrain(ctx, node_ty, TypeVar::make_never(Reason::Node(expr.node())))
+                constrain(
+                    ctx,
+                    &node_ty,
+                    &TypeVar::make_never(Reason::Node(expr.node())),
+                )
             } else {
                 generate_constraints_stmt(
                     ctx,
@@ -2141,7 +2143,11 @@ fn generate_constraints_expr(
                     Mode::Syn,
                     statements.last().unwrap(),
                 );
-                constrain(ctx, node_ty, TypeVar::make_void(Reason::Node(expr.node())))
+                constrain(
+                    ctx,
+                    &node_ty,
+                    &TypeVar::make_void(Reason::Node(expr.node())),
+                )
             }
         }
         ExprKind::IfElse(cond, expr1, expr2) => {
@@ -2159,8 +2165,8 @@ fn generate_constraints_expr(
             generate_constraints_expr(ctx, polyvar_scope, mode.clone(), expr2);
             let expr1_ty = TypeVar::from_node(ctx, expr1.node());
             let expr2_ty = TypeVar::from_node(ctx, expr2.node());
-            constrain_because(ctx, &expr1_ty, expr2_ty, ConstraintReason::IfElseBodies);
-            constrain(ctx, expr1_ty, node_ty);
+            constrain_because(ctx, &expr1_ty, &expr2_ty, ConstraintReason::IfElseBodies);
+            constrain(ctx, &expr1_ty, &node_ty);
         }
         ExprKind::Match(scrut, arms) => {
             let ty_scrutiny = TypeVar::from_node(ctx, scrut.node());
@@ -2176,8 +2182,8 @@ fn generate_constraints_expr(
                 } else {
                     constrain(
                         ctx,
-                        node_ty.clone(),
-                        TypeVar::make_void(Reason::Node(expr.node())),
+                        &node_ty,
+                        &TypeVar::make_void(Reason::Node(expr.node())),
                     )
                 }
             }
@@ -2193,7 +2199,7 @@ fn generate_constraints_expr(
                 body,
             );
 
-            constrain(ctx, node_ty, ty_func);
+            constrain(ctx, &node_ty, &ty_func);
         }
         ExprKind::Tuple(exprs) => {
             let tys = exprs
@@ -2202,8 +2208,8 @@ fn generate_constraints_expr(
                 .collect();
             constrain(
                 ctx,
-                node_ty,
-                TypeVar::make_tuple(tys, Reason::Node(expr.node())),
+                &node_ty,
+                &TypeVar::make_tuple(tys, Reason::Node(expr.node())),
             );
             if let Mode::Ana {
                 constraint_reason,
@@ -2291,7 +2297,7 @@ fn generate_constraints_expr(
                             polyvar_scope,
                             fname.node(),
                         );
-                        constrain(ctx, memfn_node_ty, memfn_decl_ty);
+                        constrain(ctx, &memfn_node_ty, &memfn_decl_ty);
 
                         generate_constraints_expr_funcap_helper(
                             ctx,
@@ -2312,7 +2318,7 @@ fn generate_constraints_expr(
                             polyvar_scope,
                             fname.node(),
                         );
-                        constrain(ctx, fn_node_ty, memfn_ty);
+                        constrain(ctx, &fn_node_ty, &memfn_ty);
 
                         generate_constraints_expr_funcap_helper(
                             ctx,
@@ -2345,7 +2351,7 @@ fn generate_constraints_expr(
                                     Declaration::MemberFunction { f: func } => {
                                         let memfn_ty = TypeVar::from_node(ctx, func.name.node())
                                             .instantiate(ctx, polyvar_scope, fname.node());
-                                        constrain(ctx, memfn_node_ty, memfn_ty);
+                                        constrain(ctx, &memfn_node_ty, &memfn_ty);
                                     }
                                     Declaration::InterfaceMethod {
                                         iface: iface_def,
@@ -2360,7 +2366,7 @@ fn generate_constraints_expr(
                                             polyvar_scope,
                                             fname.node(),
                                         );
-                                        constrain(ctx, memfn_node_ty, memfn_decl_ty);
+                                        constrain(ctx, &memfn_node_ty, &memfn_decl_ty);
                                     }
                                     _ => unreachable!(),
                                 }
@@ -2444,7 +2450,7 @@ fn generate_constraints_expr(
                     Nominal::Enum(enum_def.clone()),
                     expr.node(),
                 );
-                constrain(ctx, node_ty, def_type);
+                constrain(ctx, &node_ty, &def_type);
             } else {
                 // struct field access
                 generate_constraints_expr(ctx, polyvar_scope, Mode::Syn, expr);
@@ -2463,7 +2469,7 @@ fn generate_constraints_expr(
                     for field in &struct_def.fields {
                         if field.name.v == *member_ident.v {
                             let ty_field = field.ty.to_typevar(ctx);
-                            constrain(ctx, &node_ty, ty_field);
+                            constrain(ctx, &node_ty, &ty_field);
                             resolved = true;
                         }
                     }
@@ -2492,7 +2498,7 @@ fn generate_constraints_expr(
                     expr.node(),
                 );
 
-                constrain(ctx, node_ty, enum_ty);
+                constrain(ctx, &node_ty, &enum_ty);
             } else {
                 ctx.errors
                     .push(Error::UnqualifiedEnumNeedsAnnotation { node: expr.node() });
@@ -2507,8 +2513,8 @@ fn generate_constraints_expr(
             let accessed_ty = TypeVar::from_node(ctx, accessed.node());
             constrain(
                 ctx,
-                accessed_ty,
-                TypeVar::make_nominal(
+                &accessed_ty,
+                &TypeVar::make_nominal(
                     Reason::Node(accessed.node()),
                     Nominal::Array,
                     vec![elem_ty.clone()],
@@ -2524,7 +2530,7 @@ fn generate_constraints_expr(
                 index,
             );
 
-            constrain(ctx, node_ty, elem_ty);
+            constrain(ctx, &node_ty, &elem_ty);
         }
         ExprKind::Unwrap(expr) => {
             let Declaration::Enum(option_def) = ctx
@@ -2545,7 +2551,7 @@ fn generate_constraints_expr(
 
             generate_constraints_expr(ctx, polyvar_scope, Mode::ana(option_ty), expr);
 
-            constrain(ctx, node_ty, yes_ty);
+            constrain(ctx, &node_ty, &yes_ty);
         }
     }
     let node_ty = TypeVar::from_node(ctx, expr.node());
@@ -2596,7 +2602,7 @@ fn enum_ctor_helper(
     let tys_args = tys_args.iter().cloned().map(|t| t.subst(&subst)).collect();
     let func_ty = TypeVar::make_func(tys_args, node_ty.clone(), Reason::Node(func_node.clone()));
     let func_node_ty = TypeVar::from_node(ctx, func_node.clone());
-    constrain(ctx, func_ty, func_node_ty);
+    constrain(ctx, &func_ty, &func_node_ty);
 
     generate_constraints_expr_funcap_helper(
         ctx,
@@ -2622,12 +2628,12 @@ fn generate_constraints_func_decl(
 
     if let Some(out_annot) = out_annot {
         let out_annot = out_annot.to_typevar(ctx);
-        constrain(ctx, &ty_body, out_annot);
+        constrain(ctx, &ty_body, &out_annot);
     }
 
     let ty_func = TypeVar::make_func(ty_args, ty_body, Reason::Node(node.clone()));
     let ty_node = TypeVar::from_node(ctx, node);
-    constrain(ctx, ty_node, ty_func);
+    constrain(ctx, &ty_node, &ty_func);
 }
 
 fn generate_constraints_func_def_helper(
@@ -2652,7 +2658,7 @@ fn generate_constraints_func_def_helper(
         polyvar_scope.add_polys(&out_annot);
 
         generate_constraints_expr(ctx, &polyvar_scope, Mode::ana(&out_annot), body);
-        constrain(ctx, &ty_body, out_annot);
+        constrain(ctx, &ty_body, &out_annot);
     } else {
         generate_constraints_expr(ctx, &polyvar_scope, Mode::ana(&ty_body), body);
     }
@@ -2677,7 +2683,7 @@ fn generate_constraints_func_def(
     );
 
     let ty_node = TypeVar::from_node(ctx, node.clone());
-    constrain(ctx, ty_node, ty_func);
+    constrain(ctx, &ty_node, &ty_func);
 }
 
 fn generate_constraints_func_args(
@@ -2726,22 +2732,22 @@ fn generate_constraints_expr_funcap_helper(
         .map(|(n, arg)| {
             let unknown = TypeVar::fresh(ctx, Prov::FuncArg(func_node.clone(), n as u8));
             let arg_ty = TypeVar::from_node(ctx, arg.node());
-            constrain(ctx, &unknown, arg_ty);
+            constrain(ctx, &unknown, &arg_ty);
             unknown
         })
         .collect();
 
     // body
     let ty_body = TypeVar::fresh(ctx, Prov::FuncOut(func_node));
-    constrain(ctx, &ty_body, node_ty);
+    constrain(ctx, &ty_body, &node_ty);
 
     // function type
     let ty_args_and_body = TypeVar::make_func(tys_args, ty_body, Reason::Node(expr_node.clone()));
 
     constrain_because(
         ctx,
-        ty_args_and_body,
-        ty_func,
+        &ty_args_and_body,
+        &ty_func,
         ConstraintReason::FuncCall(expr_node),
     );
 }
@@ -2756,26 +2762,38 @@ fn generate_constraints_pat(ctx: &mut StaticsContext, mode: Mode, pat: &Rc<Pat>)
     match &*pat.kind {
         PatKind::Wildcard => (),
         PatKind::Void => {
-            constrain(ctx, ty_pat, TypeVar::make_void(Reason::Literal(pat.node())));
+            constrain(
+                ctx,
+                &ty_pat,
+                &TypeVar::make_void(Reason::Literal(pat.node())),
+            );
         }
         PatKind::Int(_) => {
-            constrain(ctx, ty_pat, TypeVar::make_int(Reason::Literal(pat.node())));
+            constrain(
+                ctx,
+                &ty_pat,
+                &TypeVar::make_int(Reason::Literal(pat.node())),
+            );
         }
         PatKind::Float(_) => {
             constrain(
                 ctx,
-                ty_pat,
-                TypeVar::make_float(Reason::Literal(pat.node())),
+                &ty_pat,
+                &TypeVar::make_float(Reason::Literal(pat.node())),
             );
         }
         PatKind::Bool(_) => {
-            constrain(ctx, ty_pat, TypeVar::make_bool(Reason::Literal(pat.node())));
+            constrain(
+                ctx,
+                &ty_pat,
+                &TypeVar::make_bool(Reason::Literal(pat.node())),
+            );
         }
         PatKind::Str(s) => {
             constrain(
                 ctx,
-                ty_pat,
-                TypeVar::make_string(Reason::Literal(pat.node())),
+                &ty_pat,
+                &TypeVar::make_string(Reason::Literal(pat.node())),
             );
             ctx.string_constants.insert(s.clone());
         }
@@ -2805,9 +2823,9 @@ fn generate_constraints_pat(ctx: &mut StaticsContext, mode: Mode, pat: &Rc<Pat>)
                         Some(ty) => ty.to_typevar(ctx),
                     };
                     let variant_data_ty = variant_data_ty.subst(&substitution);
-                    constrain(ctx, &ty_data, variant_data_ty);
+                    constrain(ctx, &ty_data, &variant_data_ty);
 
-                    constrain(ctx, ty_pat, enum_ty);
+                    constrain(ctx, &ty_pat, &enum_ty);
 
                     if let Some(data) = data {
                         generate_constraints_pat(ctx, Mode::ana(ty_data), data)
@@ -2839,9 +2857,9 @@ fn generate_constraints_pat(ctx: &mut StaticsContext, mode: Mode, pat: &Rc<Pat>)
                         Some(ty) => ty.to_typevar(ctx),
                     };
                     let variant_data_ty = variant_data_ty.subst(&substitution);
-                    constrain(ctx, &ty_data, variant_data_ty);
+                    constrain(ctx, &ty_data, &variant_data_ty);
 
-                    constrain(ctx, ty_pat, def_type);
+                    constrain(ctx, &ty_pat, &def_type);
 
                     if let Some(data) = data {
                         generate_constraints_pat(ctx, Mode::ana(ty_data), data)
@@ -2861,8 +2879,8 @@ fn generate_constraints_pat(ctx: &mut StaticsContext, mode: Mode, pat: &Rc<Pat>)
                 .collect();
             constrain(
                 ctx,
-                ty_pat,
-                TypeVar::make_tuple(tys_elements, Reason::Node(pat.node())),
+                &ty_pat,
+                &TypeVar::make_tuple(tys_elements, Reason::Node(pat.node())),
             );
             if let Mode::Ana {
                 constraint_reason,
@@ -2899,9 +2917,9 @@ fn handle_ana(ctx: &mut StaticsContext, mode: Mode, node_ty: TypeVar) {
             constraint_reason,
         } => {
             if let Some(constraint_reason) = constraint_reason {
-                constrain_because(ctx, expected, node_ty, constraint_reason)
+                constrain_because(ctx, &expected, &node_ty, constraint_reason)
             } else {
-                constrain(ctx, expected, node_ty)
+                constrain(ctx, &expected, &node_ty)
             }
         }
     };
