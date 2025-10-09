@@ -501,11 +501,11 @@ fn resolve_names_item_decl(ctx: &mut StaticsContext, symbol_table: &SymbolTable,
             }
             for output_type in &iface_def.output_types {
                 for iface in output_type.interfaces.iter() {
-                    resolve_identifier(ctx, &symbol_table, &iface.name);
+                    resolve_identifier(ctx, symbol_table, &iface.name);
                     if let Some(Declaration::InterfaceDef(iface_def)) =
                         ctx.resolution_map.get(&iface.name.id).cloned()
                     {
-                        resolve_iface_arguments(ctx, &symbol_table, &iface.arguments, &iface_def);
+                        resolve_iface_arguments(ctx, symbol_table, &iface.arguments, &iface_def);
                     }
                 }
             }
@@ -719,7 +719,7 @@ fn resolve_names_expr(ctx: &mut StaticsContext, symbol_table: &SymbolTable, expr
             }
         }
         ExprKind::Variable(symbol) => {
-            resolve_symbol(ctx, &symbol_table, symbol, expr.node());
+            resolve_symbol(ctx, symbol_table, symbol, expr.node());
         }
         ExprKind::BinOp(left, _, right) => {
             resolve_names_expr(ctx, symbol_table, left);
@@ -992,7 +992,7 @@ fn resolve_names_typ(
         }
         TypeKind::NamedWithParams(identifier, args) => {
             // the Type node and the Identifier node should both resolve to the same thing
-            resolve_identifier(ctx, &symbol_table, identifier);
+            resolve_identifier(ctx, symbol_table, identifier);
             if let Some(decl) = ctx.resolution_map.get(&identifier.id) {
                 ctx.resolution_map.insert(typ.id, decl.clone());
             }
@@ -1045,11 +1045,11 @@ fn resolve_names_polytyp(
 
     // TODO: code duplication
     for iface in &polyty.interfaces {
-        resolve_identifier(ctx, &symbol_table, &iface.name);
+        resolve_identifier(ctx, symbol_table, &iface.name);
         if let Some(Declaration::InterfaceDef(iface_def)) =
             ctx.resolution_map.get(&iface.name.id).cloned()
         {
-            resolve_iface_arguments(ctx, &symbol_table, &iface.arguments, &iface_def);
+            resolve_iface_arguments(ctx, symbol_table, &iface.arguments, &iface_def);
         }
     }
 }

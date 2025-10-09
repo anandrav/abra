@@ -172,10 +172,10 @@ struct Matrix {
 
 impl Matrix {
     fn new(statics: &StaticsContext, scrutinee_ty: SolvedType, arms: &[Rc<MatchArm>]) -> Self {
-        let types = vec![scrutinee_ty.clone()];
+        let types = vec![scrutinee_ty];
         let mut rows = Vec::new();
         for (dummy, arm) in arms.iter().enumerate() {
-            let pats = vec![DeconstructedPat::from_ast_pat(statics, arm.pat.clone())];
+            let pats = vec![DeconstructedPat::from_ast_pat(statics, &arm.pat)];
             rows.push(MatrixRow {
                 pats,
                 parent_row: dummy,
@@ -216,7 +216,7 @@ impl Matrix {
                 let variant = &enum_def.variants[*idx];
                 let variant_data = &variant.data;
                 let data_ty = if let Some(data) = &variant_data {
-                    ast_type_to_solved_type(statics, data.clone()).unwrap()
+                    ast_type_to_solved_type(statics, data).unwrap()
                 } else {
                     SolvedType::Void
                 };
@@ -328,7 +328,7 @@ pub(crate) struct DeconstructedPat {
 }
 
 impl DeconstructedPat {
-    fn from_ast_pat(statics: &StaticsContext, pat: Rc<Pat>) -> Self {
+    fn from_ast_pat(statics: &StaticsContext, pat: &Rc<Pat>) -> Self {
         let ty = statics.solution_of_node(pat.node()).unwrap();
 
         let mut fields = vec![];
@@ -343,21 +343,21 @@ impl DeconstructedPat {
             PatKind::Tuple(elems) => {
                 fields = elems
                     .iter()
-                    .map(|pat| DeconstructedPat::from_ast_pat(statics, pat.clone()))
+                    .map(|pat| DeconstructedPat::from_ast_pat(statics, pat))
                     .collect();
                 Constructor::Product
             }
             PatKind::Variant(_prefixes, ident, data) => {
                 let Some(Declaration::EnumVariant {
-                    e: enum_def,
-                    variant,
-                }) = statics.resolution_map.get(&ident.id)
+                             e: enum_def,
+                             variant,
+                         }) = statics.resolution_map.get(&ident.id)
                 else {
                     panic!()
                 };
                 fields = data
                     .iter()
-                    .map(|pat| DeconstructedPat::from_ast_pat(statics, pat.clone()))
+                    .map(|pat| DeconstructedPat::from_ast_pat(statics, pat))
                     .collect();
                 Constructor::Variant((enum_def.clone(), *variant))
             }
@@ -402,7 +402,7 @@ impl DeconstructedPat {
                     let variant = &enum_def.variants[*idx];
                     let variant_data = &variant.data;
                     let data_ty = if let Some(data) = &variant_data {
-                        ast_type_to_solved_type(statics, data.clone()).unwrap()
+                        ast_type_to_solved_type(statics, data).unwrap()
                     } else {
                         SolvedType::Void
                     };
