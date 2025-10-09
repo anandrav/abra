@@ -234,7 +234,7 @@ pub(crate) enum PolytypeDeclaration {
 type InterfaceArguments = Vec<(Rc<InterfaceOutputType>, Rc<AstType>, SolvedType)>;
 
 impl Declaration {
-    pub fn to_type_key(self: &Declaration) -> Option<TypeKey> {
+    pub fn into_type_key(self: Declaration) -> Option<TypeKey> {
         match self {
             Declaration::FreeFunction(_)
             | Declaration::HostFunction(_)
@@ -247,9 +247,9 @@ impl Declaration {
             | Declaration::Polytype(_)
             | Declaration::EnumVariant { .. } => None,
             Declaration::InterfaceOutputType { .. } => unimplemented!(),
-            Declaration::Enum(enum_def) => Some(TypeKey::TyApp(Nominal::Enum(enum_def.clone()))),
+            Declaration::Enum(enum_def) => Some(TypeKey::TyApp(Nominal::Enum(enum_def))),
             Declaration::Struct(struct_def) => {
-                Some(TypeKey::TyApp(Nominal::Struct(struct_def.clone())))
+                Some(TypeKey::TyApp(Nominal::Struct(struct_def)))
             }
             Declaration::Array => Some(TypeKey::TyApp(Nominal::Array)),
             Declaration::BuiltinType(builtin_type) => Some(builtin_type.to_type_key()),

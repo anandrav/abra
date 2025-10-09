@@ -19,12 +19,12 @@ use utils::hash::HashMap;
 pub(crate) fn scan_declarations(ctx: &mut StaticsContext, file_asts: &Vec<Rc<FileAst>>) {
     for file in file_asts {
         let name = file.name.clone();
-        let namespace = gather_declarations_file(ctx, file.clone());
+        let namespace = gather_declarations_file(ctx, file);
         ctx.root_namespace.namespaces.insert(name, namespace.into());
     }
 }
 
-fn gather_declarations_file(ctx: &mut StaticsContext, file: Rc<FileAst>) -> Namespace {
+fn gather_declarations_file(ctx: &mut StaticsContext, file: &Rc<FileAst>) -> Namespace {
     let mut namespace = Namespace::default();
 
     let qualifiers = vec![file.name.clone()];
@@ -33,8 +33,8 @@ fn gather_declarations_file(ctx: &mut StaticsContext, file: Rc<FileAst>) -> Name
             ctx,
             &mut namespace,
             qualifiers.clone(),
-            file.clone(),
-            item.clone(),
+            file,
+            item,
         );
     }
 
@@ -55,8 +55,8 @@ fn gather_declarations_item(
     ctx: &mut StaticsContext,
     namespace: &mut Namespace,
     mut qualifiers: Vec<String>,
-    _file: Rc<FileAst>,
-    stmt: Rc<Item>,
+    _file: &Rc<FileAst>,
+    stmt: &Rc<Item>,
 ) {
     match &*stmt.kind {
         ItemKind::Stmt(..) => {}
@@ -327,13 +327,13 @@ impl SymbolTable {
 
 pub(crate) fn resolve(ctx: &mut StaticsContext, file_asts: &Vec<Rc<FileAst>>) {
     for file in file_asts {
-        let symbol_table = resolve_imports_file(ctx, file.clone());
+        let symbol_table = resolve_imports_file(ctx, file);
 
         for item in file.items.iter() {
-            resolve_names_item_decl(ctx, symbol_table.clone(), item.clone());
+            resolve_names_item_decl(ctx, symbol_table.clone(), item);
         }
         for item in file.items.iter() {
-            resolve_names_item_stmt(ctx, symbol_table.clone(), item.clone());
+            resolve_names_item_stmt(ctx, symbol_table.clone(), item);
         }
     }
 
@@ -346,7 +346,7 @@ pub(crate) fn resolve(ctx: &mut StaticsContext, file_asts: &Vec<Rc<FileAst>>) {
     }
 }
 
-fn resolve_imports_file(ctx: &mut StaticsContext, file: Rc<FileAst>) -> SymbolTable {
+fn resolve_imports_file(ctx: &mut StaticsContext, file: &Rc<FileAst>) -> SymbolTable {
     // Create a namespace containing all symbols available to this file
     // That includes
     // 1. symbols defined in this file
@@ -475,7 +475,7 @@ impl Namespace {
     }
 }
 
-fn resolve_names_item_decl(ctx: &mut StaticsContext, symbol_table: SymbolTable, stmt: Rc<Item>) {
+fn resolve_names_item_decl(ctx: &mut StaticsContext, symbol_table: SymbolTable, stmt: &Rc<Item>) {
     match &*stmt.kind {
         ItemKind::FuncDef(f) => {
             let symbol_table = symbol_table.new_scope();
@@ -486,11 +486,11 @@ fn resolve_names_item_decl(ctx: &mut StaticsContext, symbol_table: SymbolTable, 
             for arg in &f.args {
                 resolve_names_fn_arg(symbol_table.clone(), &arg.0);
                 if let Some(annot) = &arg.1 {
-                    resolve_names_typ(ctx, symbol_table.clone(), annot.clone(), true);
+                    resolve_names_typ(ctx, symbol_table.clone(), annot, true);
                 }
             }
 
-            resolve_names_typ(ctx, symbol_table.clone(), f.ret_type.clone(), true);
+            resolve_names_typ(ctx, symbol_table.clone(), &f.ret_type, true);
         }
         ItemKind::InterfaceDef(iface_def) => {
             let ns = &ctx.interface_namespaces[iface_def];
@@ -503,19 +503,19 @@ fn resolve_names_item_decl(ctx: &mut StaticsContext, symbol_table: SymbolTable, 
             );
             for prop in &iface_def.methods {
                 let symbol_table = symbol_table.new_scope();
-                resolve_names_typ(ctx, symbol_table.clone(), prop.ty.clone(), true);
+                resolve_names_typ(ctx, symbol_table.clone(), &prop.ty, true);
             }
             for output_type in &iface_def.output_types {
-                for iface in &output_type.interfaces {
+                for iface in output_type.interfaces.iter() {
                     resolve_identifier(ctx, &symbol_table, &iface.name);
                     if let Some(Declaration::InterfaceDef(iface_def)) =
-                        ctx.resolution_map.get(&iface.name.id)
+                        ctx.resolution_map.get(&iface.name.id).cloned()
                     {
                         resolve_iface_arguments(
                             ctx,
                             &symbol_table,
                             &iface.arguments,
-                            iface_def.clone(),
+                            &iface_def,
                         );
                     }
                 }
@@ -524,7 +524,7 @@ fn resolve_names_item_decl(ctx: &mut StaticsContext, symbol_table: SymbolTable, 
         ItemKind::InterfaceImpl(iface_impl) => {
             let symbol_table = symbol_table.new_scope();
             resolve_identifier(ctx, &symbol_table, &iface_impl.iface);
-            resolve_names_typ(ctx, symbol_table.clone(), iface_impl.typ.clone(), true);
+            resolve_names_typ(ctx, symbol_table.clone(), &iface_impl.typ, true);
             for f in &iface_impl.methods {
                 resolve_names_func_helper(ctx, symbol_table.clone(), &f.args, &f.body, &f.ret_type);
             }
@@ -539,14 +539,14 @@ fn resolve_names_item_decl(ctx: &mut StaticsContext, symbol_table: SymbolTable, 
                 todo!();
             };
             if let Some(decl) = ctx.resolution_map.get(&iface_impl.typ.id).cloned() {
-                match &decl.to_type_key() {
+                match decl.into_type_key() {
                     Some(type_key) => {
                         for (m, f) in iface_impl.methods.iter().enumerate() {
                             let method_decl = Declaration::InterfaceMethod {
                                 iface: iface_def.clone(),
                                 method: m,
                             };
-                            try_add_member_function(ctx, type_key.clone(), f.clone(), method_decl);
+                            try_add_member_function(ctx, type_key.clone(), f, method_decl);
                         }
                     }
                     _ => ctx.errors.push(Error::MustExtendType {
@@ -557,7 +557,7 @@ fn resolve_names_item_decl(ctx: &mut StaticsContext, symbol_table: SymbolTable, 
         }
         ItemKind::Extension(ext) => {
             let symbol_table = symbol_table.new_scope();
-            resolve_names_typ(ctx, symbol_table.clone(), ext.typ.clone(), true);
+            resolve_names_typ(ctx, symbol_table.clone(), &ext.typ, true);
 
             let id_lookup_typ = match &*ext.typ.kind {
                 TypeKind::NamedWithParams(ident, _) => ident.id,
@@ -583,11 +583,11 @@ fn resolve_names_item_decl(ctx: &mut StaticsContext, symbol_table: SymbolTable, 
             // We don't gather declarations of member functions in the same pass as gathering type definitions, because
             // the former depends on the latter
             if let Some(decl) = ctx.resolution_map.get(&ext.typ.id).cloned() {
-                match &decl.to_type_key() {
+                match decl.into_type_key() {
                     Some(type_key) => {
                         for f in &ext.methods {
                             let method_decl = Declaration::MemberFunction { f: f.clone() };
-                            try_add_member_function(ctx, type_key.clone(), f.clone(), method_decl);
+                            try_add_member_function(ctx, type_key.clone(), f, method_decl);
                         }
                     }
                     _ => ctx.errors.push(Error::MustExtendType {
@@ -601,21 +601,21 @@ fn resolve_names_item_decl(ctx: &mut StaticsContext, symbol_table: SymbolTable, 
             TypeDefKind::Enum(enum_def) => {
                 let symbol_table = symbol_table.new_scope();
                 for ty_arg in &enum_def.ty_args {
-                    resolve_names_polytyp(ctx, symbol_table.clone(), ty_arg.clone(), true);
+                    resolve_names_polytyp(ctx, symbol_table.clone(), ty_arg, true);
                 }
                 for variant in &enum_def.variants {
                     if let Some(data_ty) = &variant.data {
-                        resolve_names_typ(ctx, symbol_table.clone(), data_ty.clone(), false);
+                        resolve_names_typ(ctx, symbol_table.clone(), data_ty, false);
                     }
                 }
             }
             TypeDefKind::Struct(struct_def) => {
                 let symbol_table = symbol_table.new_scope();
                 for ty_arg in &struct_def.ty_args {
-                    resolve_names_polytyp(ctx, symbol_table.clone(), ty_arg.clone(), true);
+                    resolve_names_polytyp(ctx, symbol_table.clone(), ty_arg, true);
                 }
                 for field in &struct_def.fields {
-                    resolve_names_typ(ctx, symbol_table.clone(), field.ty.clone(), false);
+                    resolve_names_typ(ctx, symbol_table.clone(), &field.ty, false);
                 }
             }
         },
@@ -626,7 +626,7 @@ fn resolve_names_item_decl(ctx: &mut StaticsContext, symbol_table: SymbolTable, 
 fn try_add_member_function(
     ctx: &mut StaticsContext,
     ty_key: TypeKey,
-    f: Rc<FuncDef>,
+    f: &Rc<FuncDef>,
     method_decl: Declaration,
 ) {
     match ctx.member_functions.entry((ty_key, f.name.v.clone())) {
@@ -643,7 +643,7 @@ fn try_add_member_function(
     }
 }
 
-fn resolve_names_item_stmt(ctx: &mut StaticsContext, symbol_table: SymbolTable, stmt: Rc<Item>) {
+fn resolve_names_item_stmt(ctx: &mut StaticsContext, symbol_table: SymbolTable, stmt: &Rc<Item>) {
     match &*stmt.kind {
         ItemKind::FuncDef(..)
         | ItemKind::HostFuncDecl(..)
@@ -654,44 +654,44 @@ fn resolve_names_item_stmt(ctx: &mut StaticsContext, symbol_table: SymbolTable, 
         | ItemKind::Import(..)
         | ItemKind::TypeDef(..) => {}
         ItemKind::Stmt(stmt) => {
-            resolve_names_stmt(ctx, symbol_table, stmt.clone());
+            resolve_names_stmt(ctx, symbol_table, stmt);
         }
     }
 }
 
-fn resolve_names_stmt(ctx: &mut StaticsContext, symbol_table: SymbolTable, stmt: Rc<Stmt>) {
+fn resolve_names_stmt(ctx: &mut StaticsContext, symbol_table: SymbolTable, stmt: &Rc<Stmt>) {
     match &*stmt.kind {
         StmtKind::Expr(expr) => {
-            resolve_names_expr(ctx, symbol_table, expr.clone());
+            resolve_names_expr(ctx, symbol_table, expr);
         }
         StmtKind::Let(_mutable, (pat, ty), expr) => {
-            resolve_names_expr(ctx, symbol_table.clone(), expr.clone());
+            resolve_names_expr(ctx, symbol_table.clone(), expr);
 
-            resolve_names_pat(ctx, symbol_table.clone(), pat.clone());
+            resolve_names_pat(ctx, symbol_table.clone(), pat);
             if let Some(ty_annot) = &ty {
-                resolve_names_typ(ctx, symbol_table.clone(), ty_annot.clone(), false);
+                resolve_names_typ(ctx, symbol_table.clone(), ty_annot, false);
             }
         }
         StmtKind::Set(lhs, rhs) => {
-            resolve_names_expr(ctx, symbol_table.clone(), lhs.clone());
-            resolve_names_expr(ctx, symbol_table.clone(), rhs.clone());
+            resolve_names_expr(ctx, symbol_table.clone(), lhs);
+            resolve_names_expr(ctx, symbol_table.clone(), rhs);
         }
         StmtKind::Continue | StmtKind::Break => {}
         StmtKind::Return(expr) => {
-            resolve_names_expr(ctx, symbol_table.clone(), expr.clone());
+            resolve_names_expr(ctx, symbol_table.clone(), expr);
         }
         StmtKind::If(cond, body) => {
-            resolve_names_expr(ctx, symbol_table.clone(), cond.clone());
-            resolve_names_expr(ctx, symbol_table.clone(), body.clone());
+            resolve_names_expr(ctx, symbol_table.clone(), cond);
+            resolve_names_expr(ctx, symbol_table.clone(), body);
         }
         StmtKind::WhileLoop(cond, expr) => {
-            resolve_names_expr(ctx, symbol_table.clone(), cond.clone());
-            resolve_names_expr(ctx, symbol_table.clone(), expr.clone());
+            resolve_names_expr(ctx, symbol_table.clone(), cond);
+            resolve_names_expr(ctx, symbol_table.clone(), expr);
         }
         StmtKind::ForLoop(pat, iterable, body) => {
-            resolve_names_expr(ctx, symbol_table.clone(), iterable.clone());
-            resolve_names_pat(ctx, symbol_table.clone(), pat.clone());
-            resolve_names_expr(ctx, symbol_table.clone(), body.clone());
+            resolve_names_expr(ctx, symbol_table.clone(), iterable);
+            resolve_names_pat(ctx, symbol_table.clone(), pat);
+            resolve_names_expr(ctx, symbol_table.clone(), body);
         }
     }
 }
@@ -717,7 +717,7 @@ fn resolve_symbol(
     }
 }
 
-fn resolve_names_expr(ctx: &mut StaticsContext, symbol_table: SymbolTable, expr: Rc<Expr>) {
+fn resolve_names_expr(ctx: &mut StaticsContext, symbol_table: SymbolTable, expr: &Rc<Expr>) {
     match &*expr.kind {
         ExprKind::Void
         | ExprKind::Int(_)
@@ -726,33 +726,33 @@ fn resolve_names_expr(ctx: &mut StaticsContext, symbol_table: SymbolTable, expr:
         | ExprKind::Str(_) => {}
         ExprKind::Array(exprs) => {
             for expr in exprs {
-                resolve_names_expr(ctx, symbol_table.clone(), expr.clone());
+                resolve_names_expr(ctx, symbol_table.clone(), expr);
             }
         }
         ExprKind::Variable(symbol) => {
             resolve_symbol(ctx, &symbol_table, symbol, expr.node());
         }
         ExprKind::BinOp(left, _, right) => {
-            resolve_names_expr(ctx, symbol_table.clone(), left.clone());
-            resolve_names_expr(ctx, symbol_table, right.clone());
+            resolve_names_expr(ctx, symbol_table.clone(), left);
+            resolve_names_expr(ctx, symbol_table, right);
         }
         ExprKind::Block(statements) => {
             let symbol_table = symbol_table.new_scope();
             for statement in statements.iter() {
-                resolve_names_stmt(ctx, symbol_table.clone(), statement.clone());
+                resolve_names_stmt(ctx, symbol_table.clone(), statement);
             }
         }
         ExprKind::IfElse(cond, expr1, expr2) => {
-            resolve_names_expr(ctx, symbol_table.clone(), cond.clone());
-            resolve_names_expr(ctx, symbol_table.clone(), expr1.clone());
-            resolve_names_expr(ctx, symbol_table.clone(), expr2.clone());
+            resolve_names_expr(ctx, symbol_table.clone(), cond);
+            resolve_names_expr(ctx, symbol_table.clone(), expr1);
+            resolve_names_expr(ctx, symbol_table.clone(), expr2);
         }
         ExprKind::Match(scrut, arms) => {
-            resolve_names_expr(ctx, symbol_table.clone(), scrut.clone());
+            resolve_names_expr(ctx, symbol_table.clone(), scrut);
             for arm in arms {
                 let symbol_table = symbol_table.new_scope();
-                resolve_names_pat(ctx, symbol_table.clone(), arm.pat.clone());
-                resolve_names_stmt(ctx, symbol_table.clone(), arm.stmt.clone());
+                resolve_names_pat(ctx, symbol_table.clone(), &arm.pat);
+                resolve_names_stmt(ctx, symbol_table.clone(), &arm.stmt);
             }
         }
         ExprKind::AnonymousFunction(args, out_ty, body) => {
@@ -761,29 +761,29 @@ fn resolve_names_expr(ctx: &mut StaticsContext, symbol_table: SymbolTable, expr:
         }
         ExprKind::Tuple(exprs) => {
             for expr in exprs {
-                resolve_names_expr(ctx, symbol_table.clone(), expr.clone());
+                resolve_names_expr(ctx, symbol_table.clone(), expr);
             }
         }
         ExprKind::FuncAp(func, args) => {
-            resolve_names_expr(ctx, symbol_table.clone(), func.clone());
+            resolve_names_expr(ctx, symbol_table.clone(), func);
             for arg in args {
-                resolve_names_expr(ctx, symbol_table.clone(), arg.clone());
+                resolve_names_expr(ctx, symbol_table.clone(), arg);
             }
         }
         ExprKind::MemberFuncAp(expr, fname, args) => {
             if let Some(expr) = expr {
-                resolve_names_expr(ctx, symbol_table.clone(), expr.clone());
-                resolve_names_member_helper(ctx, expr.clone(), fname.clone());
+                resolve_names_expr(ctx, symbol_table.clone(), expr);
+                resolve_names_member_helper(ctx, expr, fname);
             }
 
             for arg in args {
-                resolve_names_expr(ctx, symbol_table.clone(), arg.clone());
+                resolve_names_expr(ctx, symbol_table.clone(), arg);
             }
         }
         ExprKind::MemberAccess(expr, field) => {
-            resolve_names_expr(ctx, symbol_table.clone(), expr.clone());
+            resolve_names_expr(ctx, symbol_table.clone(), expr);
 
-            resolve_names_member_helper(ctx, expr.clone(), field.clone());
+            resolve_names_member_helper(ctx, expr, field);
         }
         ExprKind::MemberAccessLeadingDot(_ident) => {
             // do nothing
@@ -795,16 +795,16 @@ fn resolve_names_expr(ctx: &mut StaticsContext, symbol_table: SymbolTable, expr:
             // struct's definition
         }
         ExprKind::IndexAccess(accessed, index) => {
-            resolve_names_expr(ctx, symbol_table.clone(), accessed.clone());
-            resolve_names_expr(ctx, symbol_table.clone(), index.clone());
+            resolve_names_expr(ctx, symbol_table.clone(), accessed);
+            resolve_names_expr(ctx, symbol_table.clone(), index);
         }
         ExprKind::Unwrap(expr) => {
-            resolve_names_expr(ctx, symbol_table.clone(), expr.clone());
+            resolve_names_expr(ctx, symbol_table.clone(), expr);
         }
     }
 }
 
-fn resolve_names_member_helper(ctx: &mut StaticsContext, expr: Rc<Expr>, field: Rc<Identifier>) {
+fn resolve_names_member_helper(ctx: &mut StaticsContext, expr: &Rc<Expr>, field: &Rc<Identifier>) {
     if let Some(decl) = ctx.resolution_map.get(&expr.id).cloned() {
         match decl {
             Declaration::FreeFunction(..)
@@ -905,14 +905,14 @@ fn resolve_names_func_helper(
     for arg in args {
         resolve_names_fn_arg(symbol_table.clone(), &arg.0);
         if let Some(ty_annot) = &arg.1 {
-            resolve_names_typ(ctx, symbol_table.clone(), ty_annot.clone(), true);
+            resolve_names_typ(ctx, symbol_table.clone(), ty_annot, true);
         }
     }
 
-    resolve_names_expr(ctx, symbol_table.clone(), body.clone());
+    resolve_names_expr(ctx, symbol_table.clone(), body);
 
     if let Some(ty_annot) = ret_type {
-        resolve_names_typ(ctx, symbol_table.clone(), ty_annot.clone(), true);
+        resolve_names_typ(ctx, symbol_table.clone(), ty_annot, true);
     }
 }
 
@@ -920,7 +920,7 @@ fn resolve_names_fn_arg(symbol_table: SymbolTable, arg: &Rc<Identifier>) {
     symbol_table.extend_declaration(arg.v.clone(), Declaration::Var(arg.node()));
 }
 
-fn resolve_names_pat(ctx: &mut StaticsContext, symbol_table: SymbolTable, pat: Rc<Pat>) {
+fn resolve_names_pat(ctx: &mut StaticsContext, symbol_table: SymbolTable, pat: &Rc<Pat>) {
     match &*pat.kind {
         PatKind::Wildcard => (),
         PatKind::Void
@@ -943,7 +943,7 @@ fn resolve_names_pat(ctx: &mut StaticsContext, symbol_table: SymbolTable, pat: R
                 let mut found = false;
                 if let Some(enum_namespace) = final_namespace
                     && let Some(ref decl @ Declaration::EnumVariant { .. }) =
-                        enum_namespace.declarations.get(&tag.v).cloned()
+                    enum_namespace.declarations.get(&tag.v).cloned()
                 {
                     found = true;
                     ctx.resolution_map.insert(tag.id, decl.clone());
@@ -960,12 +960,12 @@ fn resolve_names_pat(ctx: &mut StaticsContext, symbol_table: SymbolTable, pat: R
             }
 
             if let Some(data) = data {
-                resolve_names_pat(ctx, symbol_table, data.clone())
+                resolve_names_pat(ctx, symbol_table, data)
             };
         }
         PatKind::Tuple(pats) => {
             for pat in pats {
-                resolve_names_pat(ctx, symbol_table.clone(), pat.clone());
+                resolve_names_pat(ctx, symbol_table.clone(), pat);
             }
         }
     }
@@ -974,7 +974,7 @@ fn resolve_names_pat(ctx: &mut StaticsContext, symbol_table: SymbolTable, pat: R
 fn resolve_names_typ(
     ctx: &mut StaticsContext,
     symbol_table: SymbolTable,
-    typ: Rc<Type>,
+    typ: &Rc<Type>,
     introduce_poly: bool, // TODO: is this actually needed. I hate passing bool flags like this
 ) {
     match &*typ.kind {
@@ -999,7 +999,7 @@ fn resolve_names_typ(
                 .insert(typ.id, Declaration::BuiltinType(BuiltinType::String));
         }
         TypeKind::Poly(polyty) => {
-            resolve_names_polytyp(ctx, symbol_table, polyty.clone(), introduce_poly);
+            resolve_names_polytyp(ctx, symbol_table, polyty, introduce_poly);
         }
         TypeKind::NamedWithParams(identifier, args) => {
             // the Type node and the Identifier node should both resolve to the same thing
@@ -1009,14 +1009,14 @@ fn resolve_names_typ(
             }
 
             for arg in args {
-                resolve_names_typ(ctx, symbol_table.clone(), arg.clone(), introduce_poly);
+                resolve_names_typ(ctx, symbol_table.clone(), arg, introduce_poly);
             }
         }
         TypeKind::Function(args, out) => {
             for arg in args {
-                resolve_names_typ(ctx, symbol_table.clone(), arg.clone(), introduce_poly);
+                resolve_names_typ(ctx, symbol_table.clone(), arg, introduce_poly);
             }
-            resolve_names_typ(ctx, symbol_table.clone(), out.clone(), introduce_poly);
+            resolve_names_typ(ctx, symbol_table.clone(), out, introduce_poly);
         }
         TypeKind::Tuple(elems) => {
             ctx.resolution_map.insert(
@@ -1025,7 +1025,7 @@ fn resolve_names_typ(
             );
 
             for elem in elems {
-                resolve_names_typ(ctx, symbol_table.clone(), elem.clone(), introduce_poly);
+                resolve_names_typ(ctx, symbol_table.clone(), elem, introduce_poly);
             }
         }
     }
@@ -1034,7 +1034,7 @@ fn resolve_names_typ(
 fn resolve_names_polytyp(
     ctx: &mut StaticsContext,
     symbol_table: SymbolTable,
-    polyty: Rc<Polytype>,
+    polyty: &Rc<Polytype>,
     introduce_poly: bool,
 ) {
     // Try to resolve the polymorphic type
@@ -1057,8 +1057,8 @@ fn resolve_names_polytyp(
     // TODO: code duplication
     for iface in &polyty.interfaces {
         resolve_identifier(ctx, &symbol_table, &iface.name);
-        if let Some(Declaration::InterfaceDef(iface_def)) = ctx.resolution_map.get(&iface.name.id) {
-            resolve_iface_arguments(ctx, &symbol_table, &iface.arguments, iface_def.clone());
+        if let Some(Declaration::InterfaceDef(iface_def)) = ctx.resolution_map.get(&iface.name.id).cloned() {
+            resolve_iface_arguments(ctx, &symbol_table, &iface.arguments, &iface_def);
         }
     }
 }
@@ -1067,13 +1067,13 @@ fn resolve_iface_arguments(
     ctx: &mut StaticsContext,
     symbol_table: &SymbolTable,
     arguments: &[(Rc<Identifier>, Rc<Type>)],
-    iface_def: Rc<InterfaceDef>,
+    iface_def: &Rc<InterfaceDef>,
 ) {
     for (arg_name, arg_val) in arguments {
-        resolve_names_typ(ctx, symbol_table.clone(), arg_val.clone(), false);
+        resolve_names_typ(ctx, symbol_table.clone(), arg_val, false);
 
         let iface_symbol_table = SymbolTable::empty();
-        let ns = &ctx.interface_namespaces[&iface_def];
+        let ns = &ctx.interface_namespaces[iface_def];
         for (name, decl) in ns.declarations.iter() {
             iface_symbol_table.extend_declaration(name.clone(), decl.clone());
         }
