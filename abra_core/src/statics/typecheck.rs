@@ -46,6 +46,24 @@ pub(crate) struct TypeVarData {
     pub(crate) missing_info: bool,
 
     pub(crate) iface_constraints: InterfaceConstraints,
+
+    // used to uniquely identify TypeVarData and detect if a connected component has already been visited
+    // cannot put TypeVarData in a HashSet because it uses interior mutability, but these Ids are fine.
+    pub(crate) id: TypeVarDataId,
+}
+
+// TODO: make a macro for defining these Id structs and put it in utils.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub(crate) struct TypeVarDataId {
+    pub(crate) id: u32,
+}
+
+impl TypeVarDataId {
+    pub(crate) fn new() -> Self {
+        static ID_COUNTER: AtomicU32 = AtomicU32::new(1);
+        let id = ID_COUNTER.fetch_add(1, Ordering::Relaxed);
+        Self { id }
+    }
 }
 
 pub(crate) type InterfaceConstraints = HashMap<InterfaceConstraint, Vec<AstNode>>;
@@ -76,6 +94,7 @@ impl TypeVarData {
             locked: false,
             missing_info: false,
             iface_constraints: HashMap::default(),
+            id: TypeVarDataId::new(),
         }
     }
 
@@ -87,6 +106,7 @@ impl TypeVarData {
             locked: true,
             missing_info: false,
             iface_constraints: HashMap::default(),
+            id: TypeVarDataId::new(),
         }
     }
 
@@ -107,6 +127,7 @@ impl TypeVarData {
                 first.iface_constraints,
                 second.iface_constraints,
             ),
+            id: first.id,
         };
         for (_key, t) in second.types {
             merged_types.extend(t);
@@ -663,6 +684,7 @@ impl TypeVar {
             locked: data.locked,
             missing_info: data.missing_info,
             iface_constraints: data.iface_constraints,
+            id: data.id,
         };
         TypeVar(UnionFindNode::new(data_instantiated))
     }
@@ -755,6 +777,7 @@ impl TypeVar {
             locked: data.locked,
             missing_info: data.missing_info,
             iface_constraints: data.iface_constraints,
+            id: data.id,
         };
         TypeVar(UnionFindNode::new(new_data))
     }
@@ -820,6 +843,7 @@ impl TypeVar {
             locked: data.locked,
             missing_info: data.missing_info,
             iface_constraints: data.iface_constraints,
+            id: data.id,
         };
         TypeVar(UnionFindNode::new(data_instantiated))
     }
@@ -1358,7 +1382,7 @@ pub(crate) fn check_unifvars(ctx: &mut StaticsContext) {
     // get list of type conflicts
     let mut visited_tyvars = HashSet::default();
     for (prov, tyvar) in ctx.unifvars.clone().iter() {
-        let repr = tyvar.0.find();
+        let repr = tyvar.0.find().with_data(|d| d.id);
         if visited_tyvars.contains(&repr) {
             continue;
         }
