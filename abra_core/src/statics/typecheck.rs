@@ -20,7 +20,7 @@ use std::collections::BTreeSet;
 use std::fmt::{self, Display, Write};
 use std::rc::Rc;
 use std::sync::atomic::{AtomicU32, Ordering};
-use utils::hash::HashMap;
+use utils::hash::{HashMap, HashSet};
 
 pub(crate) fn solve_types(ctx: &mut StaticsContext, file_asts: &Vec<Rc<FileAst>>) {
     for file in file_asts {
@@ -1356,17 +1356,19 @@ pub(crate) fn check_unifvars(ctx: &mut StaticsContext) {
         return;
     }
     // get list of type conflicts
-    let mut type_conflicts = Vec::new();
+    let mut visited_tyvars = HashSet::default();
     for (prov, tyvar) in ctx.unifvars.clone().iter() {
+        let repr = tyvar.0.find();
+        if visited_tyvars.contains(&repr) {
+            continue;
+        }
+        visited_tyvars.insert(repr);
+
         if tyvar.is_conflicted() {
             let type_suggestions = tyvar.clone_types();
-            if !type_conflicts.contains(&type_suggestions) {
-                // TODO: this doesn't seem very performant...
-                type_conflicts.push(type_suggestions.clone());
-                ctx.errors.push(Error::ConflictingUnifvar {
-                    types: type_suggestions,
-                });
-            }
+            ctx.errors.push(Error::ConflictingUnifvar {
+                types: type_suggestions,
+            });
         } else if tyvar.is_underdetermined()
             && let Prov::Node(id) = prov
         {
