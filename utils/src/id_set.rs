@@ -24,12 +24,12 @@ pub struct IdSet<T: Hash + Eq> {
     map: HashMap<Ptr<T>, u32>,
     current_buf: Vec<T>,
     old_bufs: Vec<Vec<T>>,
-    id_to_ptr: Vec<*const T>,
+    id_to_ptr: Vec<*mut T>,
 }
 
 /// wrapper around *const T w
 #[derive(Copy, Clone)]
-struct Ptr<T: Hash + Eq>(*const T);
+struct Ptr<T: Hash + Eq>(*mut T);
 
 impl<T: Hash + Eq> Hash for Ptr<T> {
     #[inline]
@@ -81,7 +81,8 @@ impl<T: Hash + Eq> IdSet<T> {
         // only moved, value_ref will always be valid as long as current_buf is not de-allocated.
         // Therefore, value_ref is always valid if it has the same lifetime as current_buf, which it does.
         self.current_buf.push(value);
-        let value_ref: *const T = &self.current_buf[self.current_buf.len() - 1];
+        let index = self.current_buf.len() - 1;
+        let value_ref: *mut T = &mut self.current_buf[index];
         let ptr = Ptr(value_ref);
 
         use std::collections::hash_map::Entry;
@@ -108,15 +109,27 @@ impl<T: Hash + Eq> IdSet<T> {
     }
 
     #[inline]
+    fn try_get_value_mut(&mut self, id: u32) -> Option<&mut T> {
+        self.id_to_ptr
+            .get(id as usize)
+            .map(|&ptr| unsafe { &mut *ptr })
+    }
+
+    #[inline]
     fn get_value(&self, id: u32) -> &T {
         self.try_get_value(id).unwrap()
+    }
+
+    #[inline]
+    fn get_value_mut(&mut self, id: u32) -> &mut T {
+        self.try_get_value_mut(id).unwrap()
     }
 
     #[inline]
     pub fn try_get_id(&self, value: &T) -> Option<u32> {
         // SAFETY: the call to .get() will hash and maybe compare `value`` for equality,
         // but the raw pointer to value is discarded after that
-        self.map.get(&Ptr(value as *const T)).cloned()
+        self.map.get(&Ptr(value as *const T as *mut T)).cloned()
     }
 
     // this will panic if value is not found
@@ -155,6 +168,13 @@ impl<T: Hash + Eq> std::ops::Index<u32> for IdSet<T> {
     #[inline]
     fn index(&self, id: u32) -> &Self::Output {
         self.get_value(id)
+    }
+}
+
+impl<T: Hash + Eq> std::ops::IndexMut<u32> for IdSet<T> {
+    #[inline]
+    fn index_mut(&mut self, id: u32) -> &mut T {
+        self.get_value_mut(id)
     }
 }
 
