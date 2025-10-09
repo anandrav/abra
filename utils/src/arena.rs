@@ -4,10 +4,11 @@
 
 // this is experimental
 
+pub mod arena_ref;
+use arena_ref::Ar;
 use std::cell::UnsafeCell;
-use std::mem::{align_of, size_of, MaybeUninit};
+use std::mem::{MaybeUninit, align_of, size_of};
 use std::ptr::{self};
-use crate::arena::Ar;
 
 pub struct Arena {
     inner: UnsafeCell<ArenaInner>,

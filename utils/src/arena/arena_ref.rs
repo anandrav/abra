@@ -3,7 +3,7 @@ use std::fmt;
 use std::fmt::{Debug, Display, Formatter};
 use std::hash::{Hash, Hasher};
 use std::marker::PhantomData;
-use std::ops::{Deref};
+use std::ops::Deref;
 
 #[derive(Copy, Clone)]
 pub struct Ar<'a, T> {
