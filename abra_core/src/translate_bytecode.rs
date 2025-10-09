@@ -423,7 +423,7 @@ impl Translator {
                     self.translate_iface_method_ap_helper(
                         st,
                         monomorph_env,
-                        iface_def,
+                        &iface_def,
                         method as u16,
                         func_ty,
                     );
@@ -466,7 +466,7 @@ impl Translator {
                         let substituted_ty =
                             subst_with_monomorphic_env(monomorph_env, specific_func_ty);
 
-                        self.handle_func_call(st, Some(substituted_ty), func_name, func.clone());
+                        self.handle_func_call(st, Some(substituted_ty), func_name, &func);
                     }
                     BinaryOperator::Or => self.emit(st, Instr::Or),
                     BinaryOperator::And => self.emit(st, Instr::And),
@@ -611,7 +611,7 @@ impl Translator {
                 for (i, arm) in arms.iter().enumerate() {
                     self.emit(st, Line::Label(arm_labels[i].clone()));
 
-                    self.handle_pat_binding(arm.pat.clone(), offset_table, st);
+                    self.handle_pat_binding(&arm.pat, offset_table, st);
 
                     self.translate_stmt(
                         &arm.stmt,
@@ -678,11 +678,11 @@ impl Translator {
     ) {
         let func_ty = self.statics.solution_of_node(f.name.node()).unwrap();
         if !func_ty.is_overloaded() {
-            self.handle_func_call(st, None, f_fully_qualified_name, f.clone());
+            self.handle_func_call(st, None, f_fully_qualified_name, f);
         } else {
             let specific_func_ty = self.statics.solution_of_node(func_node).unwrap();
             let substituted_ty = subst_with_monomorphic_env(monomorph_env, specific_func_ty);
-            self.handle_func_call(st, Some(substituted_ty), f_fully_qualified_name, f.clone());
+            self.handle_func_call(st, Some(substituted_ty), f_fully_qualified_name, f);
         }
     }
 
@@ -691,13 +691,13 @@ impl Translator {
         &self,
         st: &mut TranslatorState,
         monomorph_env: MonomorphEnv,
-        iface_def: Rc<InterfaceDef>,
+        iface_def: &Rc<InterfaceDef>,
         method: u16,
         func_ty: SolvedType,
     ) {
         let substituted_ty = subst_with_monomorphic_env(monomorph_env.clone(), func_ty);
         let method = &iface_def.methods[method as usize].name;
-        let impl_list = self.statics.interface_impls[&iface_def].clone();
+        let impl_list = self.statics.interface_impls[iface_def].clone();
 
         for imp in impl_list {
             for f in &imp.methods {
@@ -715,7 +715,7 @@ impl Translator {
                             st,
                             Some(substituted_ty.clone()),
                             fully_qualified_name,
-                            f.clone(),
+                            f,
                         );
                     }
                 }
@@ -791,7 +791,7 @@ impl Translator {
                 self.translate_iface_method_ap_helper(
                     st,
                     monomorph_env,
-                    iface_def.clone(),
+                    iface_def,
                     *method as u16,
                     func_ty,
                 );
@@ -1067,7 +1067,7 @@ impl Translator {
         match &*stmt.kind {
             StmtKind::Let(_, pat, expr) => {
                 self.translate_expr(expr, offset_table, monomorph_env.clone(), st);
-                self.handle_pat_binding(pat.0.clone(), offset_table, st);
+                self.handle_pat_binding(&pat.0, offset_table, st);
 
                 if is_last {
                     self.emit(st, Instr::PushNil);
@@ -1194,7 +1194,7 @@ impl Translator {
                 self.translate_iface_method_ap_helper(
                     st,
                     monomorph_env.clone(),
-                    iterable_iface_def.clone(),
+                    &iterable_iface_def,
                     0,
                     fn_make_iterator_ty,
                 );
@@ -1215,7 +1215,7 @@ impl Translator {
                 self.translate_iface_method_ap_helper(
                     st,
                     monomorph_env.clone(),
-                    iterator_iface_def.clone(),
+                    &iterator_iface_def,
                     0,
                     fn_next_ty,
                 );
@@ -1225,7 +1225,7 @@ impl Translator {
                 self.emit(st, Instr::EqualInt);
                 self.emit(st, Instr::Not);
                 self.emit(st, Instr::JumpIf(end_label.clone()));
-                self.handle_pat_binding(pat.clone(), offset_table, st);
+                self.handle_pat_binding(pat, offset_table, st);
                 st.loop_stack.push(EnclosingLoop {
                     start_label: start_label.clone(),
                     end_label: end_label.clone(),
@@ -1250,7 +1250,7 @@ impl Translator {
         st: &mut TranslatorState,
         overload_ty: Option<Type>,
         func_name: &String,
-        func_def: Rc<FuncDef>,
+        func_def: &Rc<FuncDef>,
     ) {
         let desc = FuncDesc {
             kind: FuncKind::NamedFunc(func_def.clone()),
@@ -1289,7 +1289,7 @@ impl Translator {
         }
     }
 
-    fn handle_pat_binding(&self, pat: Rc<Pat>, locals: &OffsetTable, st: &mut TranslatorState) {
+    fn handle_pat_binding(&self, pat: &Rc<Pat>, locals: &OffsetTable, st: &mut TranslatorState) {
         match &*pat.kind {
             PatKind::Binding(_) => {
                 let idx = locals.get(&pat.id).unwrap();
@@ -1298,7 +1298,7 @@ impl Translator {
             PatKind::Tuple(pats) => {
                 self.emit(st, Instr::Deconstruct);
                 for pat in pats.iter() {
-                    self.handle_pat_binding(pat.clone(), locals, st);
+                    self.handle_pat_binding(pat, locals, st);
                 }
             }
             PatKind::Variant(_prefixes, _, inner) => {
@@ -1307,7 +1307,7 @@ impl Translator {
                     self.emit(st, Instr::Deconstruct);
                     // pop tag
                     self.emit(st, Instr::Pop);
-                    self.handle_pat_binding(inner.clone(), locals, st);
+                    self.handle_pat_binding(inner, locals, st);
                 } else {
                     self.emit(st, Instr::Pop);
                 }
@@ -1333,7 +1333,7 @@ fn collect_locals_expr(expr: &Expr, locals: &mut HashSet<NodeId>) {
         }
         ExprKind::Match(_, arms) => {
             for arm in arms {
-                collect_locals_pat(arm.pat.clone(), locals);
+                collect_locals_pat(&arm.pat, locals);
                 collect_locals_stmt(std::slice::from_ref(&arm.stmt), locals);
             }
         }
@@ -1398,7 +1398,7 @@ fn collect_locals_stmt(statements: &[Rc<Stmt>], locals: &mut HashSet<NodeId>) {
                 collect_locals_expr(expr, locals);
             }
             StmtKind::Let(_, pat, expr) => {
-                collect_locals_pat(pat.0.clone(), locals);
+                collect_locals_pat(&pat.0, locals);
                 collect_locals_expr(expr, locals);
             }
             StmtKind::Set(..) | StmtKind::Continue | StmtKind::Break => {}
@@ -1415,25 +1415,25 @@ fn collect_locals_stmt(statements: &[Rc<Stmt>], locals: &mut HashSet<NodeId>) {
             }
             StmtKind::ForLoop(pat, iterable, body) => {
                 collect_locals_expr(iterable, locals);
-                collect_locals_pat(pat.clone(), locals);
+                collect_locals_pat(pat, locals);
                 collect_locals_expr(body, locals);
             }
         }
     }
 }
 
-fn collect_locals_pat(pat: Rc<Pat>, locals: &mut HashSet<NodeId>) {
+fn collect_locals_pat(pat: &Rc<Pat>, locals: &mut HashSet<NodeId>) {
     match &*pat.kind {
         PatKind::Binding(_) => {
             locals.insert(pat.id);
         }
         PatKind::Tuple(pats) => {
             for pat in pats {
-                collect_locals_pat(pat.clone(), locals);
+                collect_locals_pat(pat, locals);
             }
         }
         PatKind::Variant(_prefixes, _, Some(inner)) => {
-            collect_locals_pat(inner.clone(), locals);
+            collect_locals_pat(inner, locals);
         }
         PatKind::Variant(_prefixes, _, None) => {}
         PatKind::Void
