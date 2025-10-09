@@ -62,15 +62,15 @@ impl Error {
                 diagnostic = diagnostic.with_message("Conflicting types during inference");
 
                 let mut type_conflict: Vec<PotentialType> = types.values().cloned().collect();
-                type_conflict.sort_by_key(|ty| ty.reasons().borrow().len());
+                type_conflict.sort_by_key(|ty| ty.reasons().len());
 
                 let mut conflicting_types_str = String::new();
                 fmt_conflicting_types(&type_conflict, &mut conflicting_types_str).unwrap();
                 notes.push(conflicting_types_str);
                 for ty in type_conflict {
-                    let reasons = ty.reasons().borrow();
+                    let reasons = ty.reasons().inner.borrow();
                     for reason in reasons.iter() {
-                        handle_reason(&ty, reason, &mut labels, &mut notes);
+                        handle_reason(&ty, reason.clone(), &mut labels, &mut notes);
                     }
                 }
             }
@@ -83,11 +83,9 @@ impl Error {
                     diagnostic =
                         diagnostic.with_message(format!("Conflicting types `{ty2}` and `{ty1}`"));
 
-                    let provs2 = ty2.reasons().borrow();
-                    let reason2 = provs2.iter().next().unwrap();
+                    let reason2 = ty2.reasons().first();
                     handle_reason(ty2, reason2, &mut labels, &mut notes);
-                    let provs1 = ty1.reasons().borrow();
-                    let reason1 = provs1.iter().next().unwrap();
+                    let reason1 = ty1.reasons().first();
                     handle_reason(ty1, reason1, &mut labels, &mut notes);
                 }
                 ConstraintReason::BinaryOperandsMustMatch(node) => {
@@ -95,50 +93,40 @@ impl Error {
                     let (file, range) = node.get_file_and_range();
                     labels.push(Label::secondary(file, range).with_message("operator"));
 
-                    let provs2 = ty2.reasons().borrow();
-                    let reason2 = provs2.iter().next().unwrap();
+                    let reason2 = ty2.reasons().first();
                     handle_reason(ty2, reason2, &mut labels, &mut notes);
-                    let provs1 = ty1.reasons().borrow();
-                    let reason1 = provs1.iter().next().unwrap();
+                    let reason1 = ty1.reasons().first();
                     handle_reason(ty1, reason1, &mut labels, &mut notes);
                 }
                 ConstraintReason::IfElseBodies => {
                     diagnostic =
                         diagnostic.with_message("Branches of if-else expression do not match");
-                    let provs2 = ty2.reasons().borrow();
-                    let reason2 = provs2.iter().next().unwrap();
+                    let reason2 = ty2.reasons().first();
                     handle_reason(ty2, reason2, &mut labels, &mut notes);
-                    let provs1 = ty1.reasons().borrow();
-                    let reason1 = provs1.iter().next().unwrap();
+                    let reason1 = ty1.reasons().first();
                     handle_reason(ty1, reason1, &mut labels, &mut notes);
                 }
                 ConstraintReason::LetStmtAnnotation => {
                     diagnostic = diagnostic.with_message("Variable and annotation do not match");
-                    let provs2 = ty2.reasons().borrow();
-                    let reason2 = provs2.iter().next().unwrap();
+                    let reason2 = ty2.reasons().first();
                     handle_reason(ty2, reason2, &mut labels, &mut notes);
-                    let provs1 = ty1.reasons().borrow();
-                    let reason1 = provs1.iter().next().unwrap();
+                    let reason1 = ty1.reasons().first();
                     handle_reason(ty1, reason1, &mut labels, &mut notes);
                 }
                 ConstraintReason::LetSetLhsRhs => {
                     diagnostic = diagnostic.with_message("Variable and assignment do not match");
-                    let provs2 = ty2.reasons().borrow();
-                    let reason2 = provs2.iter().next().unwrap();
+                    let reason2 = ty2.reasons().first();
                     handle_reason(ty2, reason2, &mut labels, &mut notes);
-                    let provs1 = ty1.reasons().borrow();
-                    let reason1 = provs1.iter().next().unwrap();
+                    let reason1 = ty1.reasons().first();
                     handle_reason(ty1, reason1, &mut labels, &mut notes);
                 }
                 ConstraintReason::MatchScrutinyAndPattern => {
                     diagnostic = diagnostic.with_message(format!(
                         "Match expression input has type `{ty1}`, but case has type `{ty2}`"
                     ));
-                    let provs2 = ty2.reasons().borrow();
-                    let reason2 = provs2.iter().next().unwrap();
+                    let reason2 = ty2.reasons().first();
                     handle_reason(ty2, reason2, &mut labels, &mut notes);
-                    let provs1 = ty1.reasons().borrow();
-                    let reason1 = provs1.iter().next().unwrap();
+                    let reason1 = ty1.reasons().first();
                     handle_reason(ty1, reason1, &mut labels, &mut notes);
                 }
                 ConstraintReason::FuncCall(node) => {
@@ -146,29 +134,24 @@ impl Error {
                     let (file, range) = node.get_file_and_range();
                     labels.push(Label::secondary(file, range).with_message("function call"));
 
-                    let provs2 = ty2.reasons().borrow();
-                    let reason2 = provs2.iter().next().unwrap();
+                    let reason2 = ty2.reasons().first();
                     handle_reason(ty2, reason2, &mut labels, &mut notes);
-                    let provs1 = ty1.reasons().borrow();
-                    let reason1 = provs1.iter().next().unwrap();
+                    let reason1 = ty1.reasons().first();
                     handle_reason(ty1, reason1, &mut labels, &mut notes);
                 }
                 ConstraintReason::ReturnValue => {
                     diagnostic = diagnostic.with_message("Return value has wrong type");
 
-                    let provs2 = ty2.reasons().borrow();
-                    let reason2 = provs2.iter().next().unwrap();
+                    let reason2 = ty2.reasons().first();
                     handle_reason(ty2, reason2, &mut labels, &mut notes);
-                    let provs1 = ty1.reasons().borrow();
-                    let reason1 = provs1.iter().next().unwrap();
+                    let reason1 = ty1.reasons().first();
                     handle_reason(ty1, reason1, &mut labels, &mut notes);
                 }
                 ConstraintReason::Condition => {
                     diagnostic = diagnostic
                         .with_message(format!("Condition must be a `bool` but got `{ty1}`\n"));
 
-                    let provs1 = ty1.reasons().borrow();
-                    let reason1 = provs1.iter().next().unwrap();
+                    let reason1 = ty1.reasons().first();
                     handle_reason(ty1, reason1, &mut labels, &mut notes);
                 }
                 ConstraintReason::BinaryOperandBool(node) => {
@@ -177,8 +160,7 @@ impl Error {
                     let (file, range) = node.get_file_and_range();
                     labels.push(Label::secondary(file, range).with_message("boolean operator"));
 
-                    let provs1 = ty1.reasons().borrow();
-                    let reason1 = provs1.iter().next().unwrap();
+                    let reason1 = ty1.reasons().first();
                     handle_reason(ty1, reason1, &mut labels, &mut notes);
                 }
                 ConstraintReason::IndexAccess => {
@@ -297,7 +279,7 @@ impl Error {
 
 fn handle_reason(
     ty: &PotentialType,
-    reason: &Reason,
+    reason: Reason,
     labels: &mut Vec<Label<FileId>>,
     notes: &mut Vec<String>,
 ) {

@@ -124,33 +124,24 @@ impl TypeVarData {
         first
     }
 
-    fn extend(&mut self, mut t_other: PotentialType) {
+    fn extend(&mut self, t_other: PotentialType) {
         let key = t_other.key();
 
         // accumulate provenances and constrain children to each other if applicable
         if let Some(t) = self.types.get_mut(&key) {
-            match &mut t_other {
+            match t_other {
                 PotentialType::Void(other_reasons)
                 | PotentialType::Never(other_reasons)
                 | PotentialType::Int(other_reasons)
                 | PotentialType::Float(other_reasons)
                 | PotentialType::Bool(other_reasons)
-                | PotentialType::String(other_reasons) => t
-                    .reasons()
-                    .borrow_mut()
-                    .extend(other_reasons.borrow().clone()),
-                PotentialType::Poly(other_reasons, _) => t
-                    .reasons()
-                    .borrow_mut()
-                    .extend(other_reasons.borrow().clone()),
-                PotentialType::InterfaceOutput(other_reasons, _) => t
-                    .reasons()
-                    .borrow_mut()
-                    .extend(other_reasons.borrow().clone()),
+                | PotentialType::String(other_reasons) => t.reasons().extend(other_reasons),
+                PotentialType::Poly(other_reasons, _) => t.reasons().extend(other_reasons),
+                PotentialType::InterfaceOutput(other_reasons, _) => {
+                    t.reasons().extend(other_reasons)
+                }
                 PotentialType::Function(other_reasons, args1, out1) => {
-                    t.reasons()
-                        .borrow_mut()
-                        .extend(other_reasons.borrow().clone());
+                    t.reasons().extend(other_reasons);
                     if let PotentialType::Function(_, args2, out2) = t {
                         for (arg, arg2) in args1.iter().zip(args2.iter()) {
                             TypeVar::merge(arg.clone(), arg2.clone());
@@ -159,9 +150,7 @@ impl TypeVarData {
                     }
                 }
                 PotentialType::Tuple(other_reasons, elems1) => {
-                    t.reasons()
-                        .borrow_mut()
-                        .extend(other_reasons.borrow().clone());
+                    t.reasons().extend(other_reasons);
                     if let PotentialType::Tuple(_, elems2) = t {
                         for (elem, elem2) in elems1.iter().zip(elems2.iter()) {
                             TypeVar::merge(elem.clone(), elem2.clone());
@@ -177,9 +166,7 @@ impl TypeVarData {
                         TypeVar::merge(ty.clone(), other_ty.clone());
                     }
 
-                    t.reasons()
-                        .borrow_mut()
-                        .extend(other_reasons.borrow().clone());
+                    t.reasons().extend(other_reasons);
                 }
             }
         } else {
@@ -512,50 +499,50 @@ impl PotentialType {
     }
 
     fn make_void(reason: Reason) -> PotentialType {
-        PotentialType::Void(reasons_singleton(reason))
+        PotentialType::Void(Reasons::single(reason))
     }
 
     fn make_never(reason: Reason) -> PotentialType {
-        PotentialType::Never(reasons_singleton(reason))
+        PotentialType::Never(Reasons::single(reason))
     }
 
     fn make_int(reason: Reason) -> PotentialType {
-        PotentialType::Int(reasons_singleton(reason))
+        PotentialType::Int(Reasons::single(reason))
     }
 
     fn make_float(reason: Reason) -> PotentialType {
-        PotentialType::Float(reasons_singleton(reason))
+        PotentialType::Float(Reasons::single(reason))
     }
 
     fn make_bool(reason: Reason) -> PotentialType {
-        PotentialType::Bool(reasons_singleton(reason))
+        PotentialType::Bool(Reasons::single(reason))
     }
 
     fn make_string(reason: Reason) -> PotentialType {
-        PotentialType::String(reasons_singleton(reason))
+        PotentialType::String(Reasons::single(reason))
     }
 
     pub(crate) fn make_func(args: Vec<TypeVar>, out: TypeVar, reason: Reason) -> PotentialType {
-        PotentialType::Function(reasons_singleton(reason), args, out)
+        PotentialType::Function(Reasons::single(reason), args, out)
     }
 
     fn make_tuple(elems: Vec<TypeVar>, reason: Reason) -> PotentialType {
-        PotentialType::Tuple(reasons_singleton(reason), elems)
+        PotentialType::Tuple(Reasons::single(reason), elems)
     }
 
     fn make_poly(reason: Reason, decl: PolytypeDeclaration) -> PotentialType {
-        PotentialType::Poly(reasons_singleton(reason), decl)
+        PotentialType::Poly(Reasons::single(reason), decl)
     }
 
     fn make_iface_output(
         reason: Reason,
         iface_output_type: Rc<InterfaceOutputType>,
     ) -> PotentialType {
-        PotentialType::InterfaceOutput(reasons_singleton(reason), iface_output_type)
+        PotentialType::InterfaceOutput(Reasons::single(reason), iface_output_type)
     }
 
     fn make_nominal(reason: Reason, nominal: Nominal, params: Vec<TypeVar>) -> PotentialType {
-        PotentialType::Nominal(reasons_singleton(reason), nominal, params)
+        PotentialType::Nominal(Reasons::single(reason), nominal, params)
     }
 }
 
@@ -1155,12 +1142,34 @@ pub(crate) fn ast_type_to_typevar(ctx: &StaticsContext, ast_type: &Rc<AstType>) 
     }
 }
 
-pub(crate) type Reasons = RefCell<BTreeSet<Reason>>;
+// TODO: this needs a touch up
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+pub(crate) struct Reasons {
+    pub(crate) inner: RefCell<BTreeSet<Reason>>,
+}
 
-fn reasons_singleton(reason: Reason) -> Reasons {
-    let mut set = BTreeSet::new();
-    set.insert(reason);
-    RefCell::new(set)
+impl Reasons {
+    pub(crate) fn single(reason: Reason) -> Reasons {
+        let mut set = BTreeSet::new();
+        set.insert(reason);
+        Self {
+            inner: RefCell::new(set),
+        }
+    }
+
+    pub(crate) fn extend(&self, reasons: Reasons) {
+        self.inner
+            .borrow_mut()
+            .extend(reasons.inner.borrow_mut().iter().cloned());
+    }
+
+    pub(crate) fn first(&self) -> Reason {
+        self.inner.borrow_mut().first().cloned().unwrap()
+    }
+
+    pub(crate) fn len(&self) -> usize {
+        self.inner.borrow().len()
+    }
 }
 
 #[derive(Debug, Clone)]
