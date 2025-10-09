@@ -932,7 +932,7 @@ fn resolve_names_pat(ctx: &mut StaticsContext, symbol_table: &SymbolTable, pat: 
                 let mut found = false;
                 if let Some(enum_namespace) = final_namespace
                     && let Some(decl @ Declaration::EnumVariant { .. }) =
-                    enum_namespace.declarations.get(&tag.v).cloned()
+                        enum_namespace.declarations.get(&tag.v).cloned()
                 {
                     found = true;
                     ctx.resolution_map.insert(tag.id, decl);
