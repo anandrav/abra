@@ -7,12 +7,12 @@ use std::ops::{Deref};
 
 #[derive(Copy, Clone)]
 pub struct Ar<'a, T> {
-    ptr: *mut T,
-    _marker: PhantomData<&'a mut T>,
+    ptr: *const T,
+    _marker: PhantomData<&'a T>,
 }
 
 impl<'a, T> Ar<'a, T> {
-    pub(crate) fn new(ptr: *mut T) -> Self {
+    pub(crate) fn new(ptr: *const T) -> Self {
         Self {
             ptr,
             _marker: PhantomData,
@@ -98,5 +98,3 @@ impl<'a, T> Debug for Ar<'a, T> {
         fmt::Pointer::fmt(&self.ptr, f)
     }
 }
-
-// Exclusive reference which supports mutation
