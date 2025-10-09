@@ -202,7 +202,7 @@ impl Translator {
                             stmt,
                             i == file.items.len() - 1,
                             &offset_table,
-                            monomorph_env.clone(),
+                            &monomorph_env,
                             st,
                         );
                     }
@@ -253,7 +253,7 @@ impl Translator {
 
                     let monomorph_env = MonomorphEnv::empty();
                     if let Some(overload_ty) = &desc.overload_ty {
-                        update_monomorph_env(monomorph_env.clone(), func_ty, overload_ty.clone());
+                        monomorph_env.update(func_ty, overload_ty.clone());
                     }
 
                     let return_label = make_label("return");
@@ -276,7 +276,7 @@ impl Translator {
                     }
                     let nargs = args.len();
                     st.return_stack.push(return_label.clone());
-                    self.translate_expr(body, &offset_table, monomorph_env.clone(), st);
+                    self.translate_expr(body, &offset_table, &monomorph_env, st);
                     st.return_stack.pop();
 
                     self.emit(st, return_label);
@@ -311,7 +311,7 @@ impl Translator {
         &self,
         expr: &Rc<Expr>,
         offset_table: &OffsetTable,
-        monomorph_env: MonomorphEnv,
+        monomorph_env: &MonomorphEnv,
         st: &mut TranslatorState,
     ) {
         self.update_filename_lineno_tables(st, expr.node());
@@ -400,9 +400,9 @@ impl Translator {
                 self.emit(st, Instr::PushString(s.clone()));
             }
             ExprKind::BinOp(left, op, right) => {
-                self.translate_expr(left, offset_table, monomorph_env.clone(), st);
-                self.translate_expr(right, offset_table, monomorph_env.clone(), st);
-                let mut helper = |monomorph_env, method_name: &str| {
+                self.translate_expr(left, offset_table, monomorph_env, st);
+                self.translate_expr(right, offset_table, monomorph_env, st);
+                let mut helper = |monomorph_env: &MonomorphEnv, method_name: &str| {
                     let iface_method = self
                         .statics
                         .root_namespace
@@ -464,7 +464,7 @@ impl Translator {
                             Type::Function(vec![arg1_ty, arg2_ty], out_ty.into());
 
                         let substituted_ty =
-                            specific_func_ty.subst(&monomorph_env);
+                            specific_func_ty.subst(monomorph_env);
 
                         self.handle_func_call(st, Some(substituted_ty), func_name, &func);
                     }
@@ -476,10 +476,10 @@ impl Translator {
             }
             ExprKind::MemberFuncAp(expr, fname, args) => {
                 if let Some(expr) = expr {
-                    self.translate_expr(expr, offset_table, monomorph_env.clone(), st);
+                    self.translate_expr(expr, offset_table, monomorph_env, st);
                 }
                 for arg in args {
-                    self.translate_expr(arg, offset_table, monomorph_env.clone(), st);
+                    self.translate_expr(arg, offset_table, monomorph_env, st);
                 }
 
                 let resolution = &self.statics.resolution_map[&fname.id];
@@ -493,7 +493,7 @@ impl Translator {
             }
             ExprKind::FuncAp(func, args) => {
                 for arg in args {
-                    self.translate_expr(arg, offset_table, monomorph_env.clone(), st);
+                    self.translate_expr(arg, offset_table, monomorph_env, st);
                 }
                 let resolution = match &*func.kind {
                     ExprKind::Variable(_) => &self.statics.resolution_map[&func.id],
@@ -536,7 +536,7 @@ impl Translator {
                         statement,
                         i == statements.len() - 1,
                         offset_table,
-                        monomorph_env.clone(),
+                        monomorph_env,
                         st,
                     );
                 }
@@ -546,19 +546,19 @@ impl Translator {
             }
             ExprKind::Tuple(exprs) => {
                 for expr in exprs {
-                    self.translate_expr(expr, offset_table, monomorph_env.clone(), st);
+                    self.translate_expr(expr, offset_table, monomorph_env, st);
                 }
                 self.emit(st, Instr::Construct(exprs.len() as u16));
             }
             ExprKind::IfElse(cond, then_block, else_block) => {
-                self.translate_expr(cond, offset_table, monomorph_env.clone(), st);
+                self.translate_expr(cond, offset_table, monomorph_env, st);
                 let then_label = make_label("then");
                 let end_label = make_label("endif");
                 self.emit(st, Instr::JumpIf(then_label.clone()));
-                self.translate_expr(else_block, offset_table, monomorph_env.clone(), st);
+                self.translate_expr(else_block, offset_table, monomorph_env, st);
                 self.emit(st, Instr::Jump(end_label.clone()));
                 self.emit(st, Line::Label(then_label));
-                self.translate_expr(then_block, offset_table, monomorph_env.clone(), st);
+                self.translate_expr(then_block, offset_table, monomorph_env, st);
                 self.emit(st, Line::Label(end_label));
             }
             ExprKind::MemberAccess(accessed, field_name) => {
@@ -573,26 +573,26 @@ impl Translator {
                         },
                     );
                 } else {
-                    self.translate_expr(accessed, offset_table, monomorph_env.clone(), st);
+                    self.translate_expr(accessed, offset_table, monomorph_env, st);
                     let idx = idx_of_field(&self.statics, accessed, &field_name.v);
                     self.emit(st, Instr::GetField(idx));
                 }
             }
             ExprKind::Array(exprs) => {
                 for expr in exprs {
-                    self.translate_expr(expr, offset_table, monomorph_env.clone(), st);
+                    self.translate_expr(expr, offset_table, monomorph_env, st);
                 }
                 self.emit(st, Instr::Construct(exprs.len() as u16));
             }
             ExprKind::IndexAccess(array, index) => {
-                self.translate_expr(index, offset_table, monomorph_env.clone(), st);
-                self.translate_expr(array, offset_table, monomorph_env.clone(), st);
+                self.translate_expr(index, offset_table, monomorph_env, st);
+                self.translate_expr(array, offset_table, monomorph_env, st);
                 self.emit(st, Instr::GetIdx);
             }
             ExprKind::Match(expr, arms) => {
                 let ty = self.statics.solution_of_node(expr.node()).unwrap();
 
-                self.translate_expr(expr, offset_table, monomorph_env.clone(), st);
+                self.translate_expr(expr, offset_table, monomorph_env, st);
                 let end_label = make_label("endmatch");
                 // Check scrutinee against each arm's pattern
                 let arm_labels = arms
@@ -617,7 +617,7 @@ impl Translator {
                         &arm.stmt,
                         true,
                         offset_table,
-                        monomorph_env.clone(),
+                        monomorph_env,
                         st,
                     );
                     if i != arms.len() - 1 {
@@ -631,7 +631,7 @@ impl Translator {
                 let overload_ty = if !func_ty.is_overloaded() {
                     None
                 } else {
-                    let substituted_ty = func_ty.subst(&monomorph_env);
+                    let substituted_ty = func_ty.subst(monomorph_env);
                     Some(substituted_ty)
                 };
 
@@ -646,7 +646,7 @@ impl Translator {
                 self.emit(st, Instr::MakeClosure { func_addr: label });
             }
             ExprKind::Unwrap(expr) => {
-                self.translate_expr(expr, offset_table, monomorph_env.clone(), st);
+                self.translate_expr(expr, offset_table, monomorph_env, st);
 
                 let decl @ Declaration::FreeFunction(f) = &self
                     .statics
@@ -660,7 +660,7 @@ impl Translator {
                     decl.clone(),
                     f.name.node(),
                     offset_table,
-                    monomorph_env.clone(),
+                    monomorph_env,
                     st,
                 );
             }
@@ -673,7 +673,7 @@ impl Translator {
         f: &Rc<FuncDef>,
         f_fully_qualified_name: &String,
         func_node: AstNode,
-        monomorph_env: MonomorphEnv,
+        monomorph_env: &MonomorphEnv,
         st: &mut TranslatorState,
     ) {
         let func_ty = self.statics.solution_of_node(f.name.node()).unwrap();
@@ -681,7 +681,7 @@ impl Translator {
             self.handle_func_call(st, None, f_fully_qualified_name, f);
         } else {
             let specific_func_ty = self.statics.solution_of_node(func_node).unwrap();
-            let substituted_ty = specific_func_ty.subst(&monomorph_env);
+            let substituted_ty = specific_func_ty.subst(monomorph_env);
             self.handle_func_call(st, Some(substituted_ty), f_fully_qualified_name, f);
         }
     }
@@ -690,12 +690,12 @@ impl Translator {
     fn translate_iface_method_ap_helper(
         &self,
         st: &mut TranslatorState,
-        monomorph_env: MonomorphEnv,
+        monomorph_env: &MonomorphEnv,
         iface_def: &Rc<InterfaceDef>,
         method: u16,
         func_ty: &SolvedType,
     ) {
-        let substituted_ty = func_ty.subst(&monomorph_env);
+        let substituted_ty = func_ty.subst(monomorph_env);
         let method = &iface_def.methods[method as usize].name;
         let impl_list = self.statics.interface_impls[iface_def].clone();
 
@@ -728,7 +728,7 @@ impl Translator {
         resolution: Declaration,
         func_node: AstNode,
         offset_table: &OffsetTable,
-        monomorph_env: MonomorphEnv,
+        monomorph_env: &MonomorphEnv,
         st: &mut TranslatorState,
     ) {
         match &resolution {
@@ -1060,13 +1060,13 @@ impl Translator {
         stmt: &Rc<Stmt>,
         is_last: bool,
         offset_table: &OffsetTable,
-        monomorph_env: MonomorphEnv,
+        monomorph_env: &MonomorphEnv,
         st: &mut TranslatorState,
     ) {
         self.update_filename_lineno_tables(st, stmt.node());
         match &*stmt.kind {
             StmtKind::Let(_, pat, expr) => {
-                self.translate_expr(expr, offset_table, monomorph_env.clone(), st);
+                self.translate_expr(expr, offset_table, monomorph_env, st);
                 self.handle_pat_binding(&pat.0, offset_table, st);
 
                 if is_last {
@@ -1083,7 +1083,7 @@ impl Translator {
                         self.translate_expr(
                             rvalue,
                             offset_table,
-                            monomorph_env.clone(),
+                            monomorph_env,
                             st,
                         );
                         self.emit(st, Instr::StoreOffset(*idx));
@@ -1092,13 +1092,13 @@ impl Translator {
                         self.translate_expr(
                             rvalue,
                             offset_table,
-                            monomorph_env.clone(),
+                            monomorph_env,
                             st,
                         );
                         self.translate_expr(
                             accessed,
                             offset_table,
-                            monomorph_env.clone(),
+                            monomorph_env,
                             st,
                         );
                         let idx = idx_of_field(&self.statics, accessed, &field_name.v);
@@ -1108,11 +1108,11 @@ impl Translator {
                         self.translate_expr(
                             rvalue,
                             offset_table,
-                            monomorph_env.clone(),
+                            monomorph_env,
                             st,
                         );
-                        self.translate_expr(index, offset_table, monomorph_env.clone(), st);
-                        self.translate_expr(array, offset_table, monomorph_env.clone(), st);
+                        self.translate_expr(index, offset_table, monomorph_env, st);
+                        self.translate_expr(array, offset_table, monomorph_env, st);
                         self.emit(st, Instr::SetIdx);
                     }
                     _ => unimplemented!(),
@@ -1122,7 +1122,7 @@ impl Translator {
                 }
             }
             StmtKind::Expr(expr) => {
-                self.translate_expr(expr, offset_table, monomorph_env.clone(), st);
+                self.translate_expr(expr, offset_table, monomorph_env, st);
                 if !is_last {
                     self.emit(st, Instr::Pop);
                 }
@@ -1136,18 +1136,18 @@ impl Translator {
                 self.emit(st, Instr::Jump(enclosing_loop.start_label.clone()));
             }
             StmtKind::Return(expr) => {
-                self.translate_expr(expr, offset_table, monomorph_env.clone(), st);
+                self.translate_expr(expr, offset_table, monomorph_env, st);
                 let return_label = st.return_stack.last().unwrap();
                 self.emit(st, Instr::Jump(return_label.clone()));
             }
             StmtKind::If(cond, then_block) => {
-                self.translate_expr(cond, offset_table, monomorph_env.clone(), st);
+                self.translate_expr(cond, offset_table, monomorph_env, st);
                 let then_label = make_label("then");
                 let end_label = make_label("endif");
                 self.emit(st, Instr::JumpIf(then_label.clone()));
                 self.emit(st, Instr::Jump(end_label.clone()));
                 self.emit(st, Line::Label(then_label));
-                self.translate_expr(then_block, offset_table, monomorph_env.clone(), st);
+                self.translate_expr(then_block, offset_table, monomorph_env, st);
                 self.emit(st, Instr::Pop);
                 self.emit(st, Line::Label(end_label));
 
@@ -1160,14 +1160,14 @@ impl Translator {
                 let end_label = make_label("while_end");
 
                 self.emit(st, Line::Label(start_label.clone()));
-                self.translate_expr(cond, offset_table, monomorph_env.clone(), st);
+                self.translate_expr(cond, offset_table, monomorph_env, st);
                 self.emit(st, Instr::Not);
                 self.emit(st, Instr::JumpIf(end_label.clone()));
                 st.loop_stack.push(EnclosingLoop {
                     start_label: start_label.clone(),
                     end_label: end_label.clone(),
                 });
-                self.translate_expr(body, offset_table, monomorph_env.clone(), st);
+                self.translate_expr(body, offset_table, monomorph_env, st);
                 st.loop_stack.pop();
                 self.emit(st, Instr::Pop);
                 self.emit(st, Instr::Jump(start_label));
@@ -1178,7 +1178,7 @@ impl Translator {
                 }
             }
             StmtKind::ForLoop(pat, iterable, body) => {
-                self.translate_expr(iterable, offset_table, monomorph_env.clone(), st);
+                self.translate_expr(iterable, offset_table, monomorph_env, st);
                 // iterable.make_iterator()
                 let Some(Declaration::InterfaceDef(iterable_iface_def)) = self
                     .statics
@@ -1193,7 +1193,7 @@ impl Translator {
                 // println!("fn_make_iterator_ty: {}", fn_make_iterator_ty);
                 self.translate_iface_method_ap_helper(
                     st,
-                    monomorph_env.clone(),
+                    monomorph_env,
                     &iterable_iface_def,
                     0,
                     fn_make_iterator_ty,
@@ -1214,7 +1214,7 @@ impl Translator {
                 let fn_next_ty = &self.statics.for_loop_next_types[&stmt.id];
                 self.translate_iface_method_ap_helper(
                     st,
-                    monomorph_env.clone(),
+                    monomorph_env,
                     &iterator_iface_def,
                     0,
                     fn_next_ty,
@@ -1230,7 +1230,7 @@ impl Translator {
                     start_label: start_label.clone(),
                     end_label: end_label.clone(),
                 });
-                self.translate_expr(body, offset_table, monomorph_env.clone(), st);
+                self.translate_expr(body, offset_table, monomorph_env, st);
                 st.loop_stack.pop();
                 self.emit(st, Instr::Pop);
                 self.emit(st, Instr::Jump(start_label));
@@ -1470,30 +1470,32 @@ fn idx_of_field(statics: &StaticsContext, accessed: &Rc<Expr>, field: &str) -> u
     }
 }
 
-fn update_monomorph_env(monomorph_env: MonomorphEnv, overloaded_ty: Type, monomorphic_ty: Type) {
-    match (overloaded_ty, monomorphic_ty.clone()) {
-        // recurse
-        (Type::Function(args, out), Type::Function(args2, out2)) => {
-            for i in 0..args.len() {
-                update_monomorph_env(monomorph_env.clone(), args[i].clone(), args2[i].clone());
+impl MonomorphEnv {
+    fn update(&self, overloaded_ty: Type, monomorphic_ty: Type) {
+        match (overloaded_ty, monomorphic_ty.clone()) {
+            // recurse
+            (Type::Function(args, out), Type::Function(args2, out2)) => {
+                for i in 0..args.len() {
+                    self.update(args[i].clone(), args2[i].clone());
+                }
+                self.update(*out, *out2);
             }
-            update_monomorph_env(monomorph_env, *out, *out2);
-        }
-        (Type::Nominal(ident, params), Type::Nominal(ident2, params2)) => {
-            assert_eq!(ident, ident2);
-            for i in 0..params.len() {
-                update_monomorph_env(monomorph_env.clone(), params[i].clone(), params2[i].clone());
+            (Type::Nominal(ident, params), Type::Nominal(ident2, params2)) => {
+                assert_eq!(ident, ident2);
+                for i in 0..params.len() {
+                    self.update(params[i].clone(), params2[i].clone());
+                }
             }
-        }
-        (Type::Poly(polyty), _) => {
-            monomorph_env.extend(polyty, monomorphic_ty);
-        }
-        (Type::Tuple(elems1), Type::Tuple(elems2)) => {
-            for i in 0..elems1.len() {
-                update_monomorph_env(monomorph_env.clone(), elems1[i].clone(), elems2[i].clone());
+            (Type::Poly(polyty), _) => {
+                self.extend(polyty, monomorphic_ty);
             }
+            (Type::Tuple(elems1), Type::Tuple(elems2)) => {
+                for i in 0..elems1.len() {
+                    self.update(elems1[i].clone(), elems2[i].clone());
+                }
+            }
+            _ => {}
         }
-        _ => {}
     }
 }
 
