@@ -248,9 +248,7 @@ impl Declaration {
             | Declaration::EnumVariant { .. } => None,
             Declaration::InterfaceOutputType { .. } => unimplemented!(),
             Declaration::Enum(enum_def) => Some(TypeKey::TyApp(Nominal::Enum(enum_def))),
-            Declaration::Struct(struct_def) => {
-                Some(TypeKey::TyApp(Nominal::Struct(struct_def)))
-            }
+            Declaration::Struct(struct_def) => Some(TypeKey::TyApp(Nominal::Struct(struct_def))),
             Declaration::Array => Some(TypeKey::TyApp(Nominal::Array)),
             Declaration::BuiltinType(builtin_type) => Some(builtin_type.to_type_key()),
         }
