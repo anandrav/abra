@@ -4,7 +4,6 @@
 
 // this is experimental
 
-use std::borrow::{Borrow, BorrowMut};
 use std::cell::UnsafeCell;
 use std::cmp::Ordering;
 use std::fmt;
@@ -12,54 +11,71 @@ use std::fmt::{Debug, Display, Formatter};
 use std::hash::{Hash, Hasher};
 use std::marker::PhantomData;
 use std::ops::{Deref, DerefMut};
+use std::mem::{align_of, size_of};
+use std::ptr::{self};
 
-pub struct Arena<T> {
-    inner: UnsafeCell<ArenaInner<T>>,
+pub struct Arena {
+    inner: UnsafeCell<ArenaInner>,
 }
 
-struct ArenaInner<T> {
-    current_buf: Vec<T>,
-    old_bufs: Vec<Vec<T>>,
+struct ArenaInner {
+    current_buf: Vec<u8>,
+    old_bufs: Vec<Vec<u8>>,
+    offset: usize,
 }
 
-impl<T> Arena<T> {
+impl Arena {
     pub fn new() -> Self {
         Self {
-            inner: ArenaInner {
-                current_buf: Vec::new(),
+            inner: UnsafeCell::new(ArenaInner {
+                current_buf: Vec::with_capacity(0),
                 old_bufs: Vec::new(),
-            }
-                .into(),
+                offset: 0,
+            }),
         }
     }
 
-    pub fn add(&self, value: T) -> Ar<'_, T> {
+    pub fn add<T>(&self, value: T) -> Ar<'_, T> {
         let inner = unsafe { &mut *self.inner.get() };
+        let align = align_of::<T>();
+        let size = size_of::<T>();
 
-        let capacity = inner.current_buf.capacity();
-        if inner.current_buf.len() + 1 > capacity {
-            let new_capacity = capacity.max(1) * 2;
+        // Align the current offset
+        let padding = (align - inner.offset % align) % align;
+        let total_size = padding + size;
+
+        // If buffer is too small, allocate a new one
+        if inner.offset + total_size > inner.current_buf.capacity() {
+            let new_capacity = inner.current_buf.capacity().max(1) * 2;
             let new_buf = Vec::with_capacity(new_capacity);
-
             let old_buf = std::mem::replace(&mut inner.current_buf, new_buf);
             inner.old_bufs.push(old_buf);
+            inner.offset = 0;
         }
 
-        // SAFETY: Since value_ref points to a T in current_buf, and current_buf is never re-allocated,
-        // only moved, value_ref will always be valid as long as current_buf is not de-allocated.
-        // Therefore, value_ref is always valid if it has the same lifetime as current_buf, which it does.
-        inner.current_buf.push(value);
-        let index = inner.current_buf.len() - 1;
-        let value_ref: *mut T = &mut inner.current_buf[index];
-        Ar::new(value_ref)
+        // Ensure the buffer has enough len to hold the new data
+        let start = inner.offset + padding;
+        if inner.current_buf.len() < start + size {
+            inner.current_buf.resize(start + size, 0);
+        }
+
+        let ptr = inner.current_buf[start..].as_mut_ptr() as *mut T;
+        unsafe {
+            ptr::write(ptr, value);
+        }
+
+        inner.offset = start + size;
+
+        Ar::new(ptr)
     }
 }
 
-impl<T> Default for Arena<T> {
+impl Default for Arena {
     fn default() -> Self {
         Self::new()
     }
 }
+
 
 pub struct Ar<'a, T> {
     ptr: *mut T,
@@ -169,9 +185,11 @@ mod tests {
         let arena = Arena::new();
         let a = arena.add("apple".to_string());
         let b = arena.add("banana".to_string());
+        let c = arena.add(123);
 
         assert_eq!(*a, "apple");
         assert_eq!(*b, "banana");
+        assert_eq!(*c, 123);
     }
 
     #[test]
