@@ -862,7 +862,7 @@ my_entry_point()
         "main.abra",
         MockFileProvider::single_file(src),
     ));
-    let mut vm = Vm::with_entry_point(program, "main.my_entry_point".to_owned());
+    let mut vm = Vm::with_entry_point(program, "main.my_entry_point".to_owned()).unwrap();
     vm.run();
     let top = vm.top().unwrap();
     assert_eq!(top.view_string(&vm).unwrap(), "hello world");
@@ -886,7 +886,7 @@ my_entry_point(5, 6)
         MockFileProvider::single_file(src),
     ));
     dbg!(&program.label_map);
-    let mut vm = Vm::with_entry_point(program, "main.my_entry_point".to_owned());
+    let mut vm = Vm::with_entry_point(program, "main.my_entry_point".to_owned()).unwrap();
     vm.push_int(2);
     vm.push_int(3);
     vm.increment_stack_base(2);

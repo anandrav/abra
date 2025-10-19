@@ -138,13 +138,14 @@ impl Vm {
         }
     }
 
-    pub fn with_entry_point(program: CompiledProgram, entry_point: String) -> Self {
+    pub fn with_entry_point(program: CompiledProgram, entry_point: String) -> Option<Self> {
         dbg!(&entry_point);
         dbg!(&program.label_map);
+        let pc = *program.label_map.get(&entry_point)?;
         let end = program.instructions.len();
-        Self {
+        Some(Self {
             program: program.instructions,
-            pc: program.label_map[&entry_point],
+            pc,
             stack_base: 0,
             value_stack: Vec::new(),
             call_stack: vec![CallFrame {
@@ -170,7 +171,7 @@ impl Vm {
             libs: Vec::new(),
             #[cfg(feature = "ffi")]
             foreign_functions: Vec::new(),
-        }
+        })
     }
 
     pub fn status(&self) -> VmStatus {
