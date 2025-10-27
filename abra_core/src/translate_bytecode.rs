@@ -206,6 +206,8 @@ impl Translator {
                         );
                     }
                 }
+
+                self.emit(st, Instr::StoreOffset(-1));
                 self.emit(st, Instr::Return);
             }
 

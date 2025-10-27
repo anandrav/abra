@@ -114,8 +114,8 @@ impl Vm {
         Self {
             program: program.instructions,
             pc: 0,
-            stack_base: 0,
-            value_stack: Vec::new(),
+            stack_base: 1,                 // stack[0] is return value from main
+            value_stack: vec![Value::Nil], // Nil is placeholder for return value from main
             call_stack: Vec::new(),
             heap: Vec::new(),
             heap_group: HeapGroup::One,
@@ -142,17 +142,12 @@ impl Vm {
         dbg!(&entry_point);
         dbg!(&program.label_map);
         let pc = *program.label_map.get(&entry_point)?;
-        let end = program.instructions.len();
         Some(Self {
             program: program.instructions,
             pc,
             stack_base: 0,
             value_stack: Vec::new(),
-            call_stack: vec![CallFrame {
-                pc: end,
-                stack_base: 0,
-                stack_size: 1,
-            }],
+            call_stack: Vec::new(),
             heap: Vec::new(),
             heap_group: HeapGroup::One,
 
@@ -900,6 +895,7 @@ impl Vm {
             Instr::Return => {
                 if self.call_stack.is_empty() {
                     self.pc = self.program.len();
+                    self.value_stack.truncate(1);
                 } else {
                     let frame = self.call_stack.pop();
                     let Some(frame) = frame else {
