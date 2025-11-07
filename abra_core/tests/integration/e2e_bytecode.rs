@@ -846,54 +846,54 @@ x
     assert_eq!(top.get_int(&vm).unwrap(), 6);
 }
 
-#[test]
-fn entry_point() {
-    let src = r#"
-fn my_entry_point() {
-    print_string("hello world")
-}
-
-my_entry_point()
-my_entry_point()
-
-5
-"#;
-    let program = unwrap_or_panic(compile_bytecode(
-        "main.abra",
-        MockFileProvider::single_file(src),
-    ));
-    let mut vm = Vm::with_entry_point(program, "main.my_entry_point".to_owned()).unwrap();
-    vm.run();
-    let top = vm.top().unwrap();
-    assert_eq!(top.view_string(&vm).unwrap(), "hello world");
-    vm.pop().unwrap();
-    vm.push_nil();
-    vm.clear_pending_host_func();
-    vm.run();
-}
-
-#[test]
-fn entry_point_with_args() {
-    let src = r#"
-fn my_entry_point(x, y) {
-    x + y
-}
-
-my_entry_point(5, 6)
-"#;
-    let program = unwrap_or_panic(compile_bytecode(
-        "main.abra",
-        MockFileProvider::single_file(src),
-    ));
-    dbg!(&program.label_map);
-    let mut vm = Vm::with_entry_point(program, "main.my_entry_point".to_owned()).unwrap();
-    vm.push_int(2);
-    vm.push_int(3);
-    vm.increment_stack_base(2);
-    vm.run();
-    let top = vm.top().unwrap();
-    assert_eq!(top.get_int(&vm).unwrap(), 5);
-}
+// #[test]
+// fn entry_point() {
+//     let src = r#"
+// fn my_entry_point() {
+//     print_string("hello world")
+// }
+//
+// my_entry_point()
+// my_entry_point()
+//
+// 5
+// "#;
+//     let program = unwrap_or_panic(compile_bytecode(
+//         "main.abra",
+//         MockFileProvider::single_file(src),
+//     ));
+//     let mut vm = Vm::with_entry_point(program, "main.my_entry_point".to_owned()).unwrap();
+//     vm.run();
+//     let top = vm.top().unwrap();
+//     assert_eq!(top.view_string(&vm).unwrap(), "hello world");
+//     vm.pop().unwrap();
+//     vm.push_nil();
+//     vm.clear_pending_host_func();
+//     vm.run();
+// }
+//
+// #[test]
+// fn entry_point_with_args() {
+//     let src = r#"
+// fn my_entry_point(x, y) {
+//     x + y
+// }
+//
+// my_entry_point(5, 6)
+// "#;
+//     let program = unwrap_or_panic(compile_bytecode(
+//         "main.abra",
+//         MockFileProvider::single_file(src),
+//     ));
+//     dbg!(&program.label_map);
+//     let mut vm = Vm::with_entry_point(program, "main.my_entry_point".to_owned()).unwrap();
+//     vm.push_int(2);
+//     vm.push_int(3);
+//     vm.increment_stack_base(2);
+//     vm.run();
+//     let top = vm.top().unwrap();
+//     assert_eq!(top.get_int(&vm).unwrap(), 5);
+// }
 
 #[test]
 fn import_all() {

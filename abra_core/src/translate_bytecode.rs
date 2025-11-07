@@ -68,7 +68,6 @@ struct EnclosingLoop {
 #[derive(Debug, Clone)]
 pub struct CompiledProgram {
     pub(crate) instructions: Vec<VmInstr>,
-    pub label_map: LabelMap, // TODO: make pub(crate)
     pub(crate) static_strings: Vec<String>,
     // debug data
     pub(crate) filename_arena: Vec<String>,
@@ -291,7 +290,7 @@ impl Translator {
                 }
             }
         }
-        let (instructions, label_map) = remove_labels(&st.lines, &self.statics.string_constants);
+        let (instructions, _) = remove_labels(&st.lines, &self.statics.string_constants);
         let string_table: Vec<_> = self.statics.string_constants.clone().into_iter().collect();
         let mut filename_arena = vec![];
         for file_data in self._files.files.iter() {
@@ -299,7 +298,6 @@ impl Translator {
         }
         CompiledProgram {
             instructions,
-            label_map, // TODO: this label map doesn't just have entry points, it has everything!
             static_strings: string_table,
             filename_arena,
             function_name_arena: st.function_name_arena.into_iter().collect(),
