@@ -210,25 +210,6 @@ impl Translator {
                 self.emit(st, Instr::Return);
             }
 
-            // TODO: temporarily disabled tree-shaking, or else entry points don't work. Should re-enable later and add a test!!
-            // TODO: need a way for user to specify that function is "external" or an entry point. But "extern" keyword feels too complicated
-            // TODO: maybe any function in the root file is exposed. Everything else isn't. That way don't need an extra keyword
-            for ast in &self.file_asts {
-                for item in &ast.items {
-                    if let ItemKind::FuncDef(f) = &*item.kind {
-                        let ty = self.statics.solution_of_node(f.name.node()).unwrap();
-                        if ty.is_overloaded() {
-                            continue;
-                        }
-                        let desc = FuncDesc {
-                            kind: FuncKind::NamedFunc(f.clone()),
-                            overload_ty: None,
-                        };
-                        self.get_func_label(st, desc, None, &f.name.v);
-                    }
-                }
-            }
-
             while !st.funcs_to_generate.is_empty() {
                 // Generate bytecode for function bodies
                 let mut iteration = Vec::new();
