@@ -283,6 +283,10 @@ extend array<T> {
         array_length(self)
     }
 
+    fn is_empty(self) -> bool {
+        self.len() == 0
+    }
+
     fn push(self, x: T) -> void {
         array_push(self, x)
     }
