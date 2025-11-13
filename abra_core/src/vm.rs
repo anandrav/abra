@@ -185,6 +185,7 @@ impl<Value: ValueTrait> Vm<Value> {
         }
     }
 
+    #[inline(always)]
     pub fn top(&self) -> &Value {
         match self.value_stack.last() {
             Some(v) => v,
@@ -192,6 +193,7 @@ impl<Value: ValueTrait> Vm<Value> {
         }
     }
 
+    #[inline(always)]
     pub fn pop(&mut self) -> Value {
         match self.value_stack.pop() {
             Some(v) => v,
@@ -199,6 +201,7 @@ impl<Value: ValueTrait> Vm<Value> {
         }
     }
 
+    #[inline(always)]
     pub fn pop_n(&mut self, n: usize) -> Vec<Value> {
         if n > self.value_stack.len() {
             panic!("underflow")
@@ -208,10 +211,12 @@ impl<Value: ValueTrait> Vm<Value> {
             .collect()
     }
 
+    #[inline(always)]
     pub fn push_int(&mut self, n: AbraInt) {
         self.push(n);
     }
 
+    #[inline(always)]
     pub fn push_str(&mut self, s: String) {
         self.heap
             .push(ManagedObject::new(ManagedObjectKind::String(s)));
@@ -219,22 +224,27 @@ impl<Value: ValueTrait> Vm<Value> {
         self.push(r);
     }
 
+    #[inline(always)]
     pub fn push_nil(&mut self) {
         self.push(Value::make_nil());
     }
 
+    #[inline(always)]
     pub fn push_bool(&mut self, b: bool) {
         self.push(b);
     }
 
+    #[inline(always)]
     pub fn push_float(&mut self, f: AbraFloat) {
         self.push(f);
     }
 
+    #[inline(always)]
     pub fn construct_tuple(&mut self, n: u16) {
         self.construct_impl(n as usize)
     }
 
+    #[inline(always)]
     pub fn construct_variant(&mut self, tag: u16) {
         let value = self.pop();
         self.heap
@@ -243,14 +253,17 @@ impl<Value: ValueTrait> Vm<Value> {
         self.value_stack.push(r);
     }
 
+    #[inline(always)]
     pub fn construct_struct(&mut self, n: u16) {
         self.construct_impl(n as usize)
     }
 
+    #[inline(always)]
     pub fn construct_array(&mut self, n: usize) {
         self.construct_impl(n)
     }
 
+    #[inline(always)]
     fn construct_impl(&mut self, n: usize) {
         let fields = self.pop_n(n);
         self.heap
@@ -259,6 +272,7 @@ impl<Value: ValueTrait> Vm<Value> {
         self.push(r);
     }
 
+    #[inline(always)]
     pub fn deconstruct_struct(&mut self) {
         let obj = self.pop();
         let heap_index = obj.get_heap_index(self, ValueKind::Struct);
@@ -270,6 +284,7 @@ impl<Value: ValueTrait> Vm<Value> {
         }
     }
 
+    #[inline(always)]
     pub fn deconstruct_array(&mut self) {
         let obj = self.pop();
         let heap_index = obj.get_heap_index(self, ValueKind::Struct);
@@ -281,6 +296,7 @@ impl<Value: ValueTrait> Vm<Value> {
         }
     }
 
+    #[inline(always)]
     pub fn deconstruct_variant(&mut self) {
         let obj = self.pop();
         let heap_index = obj.get_heap_index(self, ValueKind::Enum);
@@ -293,6 +309,7 @@ impl<Value: ValueTrait> Vm<Value> {
         }
     }
 
+    #[inline(always)]
     pub fn array_len(&mut self) -> usize {
         let obj = self.top();
         let index = obj.get_heap_index(self, ValueKind::Array);
@@ -318,6 +335,7 @@ impl<Value: ValueTrait> Vm<Value> {
         self.error.clone()
     }
 
+    #[inline(always)]
     fn fail(&self, kind: VmErrorKind) -> ! {
         panic!(
             "{}",
@@ -329,6 +347,7 @@ impl<Value: ValueTrait> Vm<Value> {
         )
     }
 
+    #[inline(always)]
     fn make_error(&self, kind: VmErrorKind) -> VmError {
         VmError {
             kind,
@@ -337,6 +356,7 @@ impl<Value: ValueTrait> Vm<Value> {
         }
     }
 
+    #[inline(always)]
     fn fail_wrong_type(&self, expected: ValueKind) -> ! {
         panic!(
             "{}",
@@ -577,6 +597,7 @@ impl HeapReference {
     const GROUP_BIT: u64 = 1 << 63;
     const INDEX_MASK: u64 = !Self::GROUP_BIT;
 
+    #[inline(always)]
     fn new(index: usize, heap_group: HeapGroup) -> Self {
         debug_assert!(index as u64 <= Self::INDEX_MASK);
         let mut repr = index as u64;
@@ -588,10 +609,11 @@ impl HeapReference {
         }
         HeapReference(repr)
     }
+    #[inline(always)]
     fn get_index(&self) -> usize {
         (self.0 & Self::INDEX_MASK) as usize
     }
-
+    #[inline(always)]
     fn get_group(&self) -> HeapGroup {
         if self.0 & Self::GROUP_BIT == 0 {
             HeapGroup::One
@@ -608,40 +630,47 @@ enum HeapGroup {
 }
 
 impl From<bool> for TaggedValue {
+    #[inline(always)]
     fn from(b: bool) -> Self {
         Self::Bool(b)
     }
 }
 
 impl From<AbraInt> for TaggedValue {
+    #[inline(always)]
     fn from(n: AbraInt) -> Self {
         Self::Int(n)
     }
 }
 
 impl From<AbraFloat> for TaggedValue {
+    #[inline(always)]
     fn from(n: AbraFloat) -> Self {
         Self::Float(n)
     }
 }
 
 impl From<ProgramCounter> for TaggedValue {
+    #[inline(always)]
     fn from(n: ProgramCounter) -> Self {
         Self::FuncAddr(n.0)
     }
 }
 
 impl From<HeapReference> for TaggedValue {
+    #[inline(always)]
     fn from(n: HeapReference) -> Self {
         Self::HeapReference(n)
     }
 }
 
 impl ValueTrait for TaggedValue {
+    #[inline(always)]
     fn make_nil() -> Self {
         TaggedValue::Nil
     }
 
+    #[inline(always)]
     fn get_int(&self, vm: &Vm<Self>) -> AbraInt {
         match self {
             TaggedValue::Int(i) => *i,
@@ -649,6 +678,7 @@ impl ValueTrait for TaggedValue {
         }
     }
 
+    #[inline(always)]
     fn get_float(&self, vm: &Vm<Self>) -> AbraFloat {
         match self {
             TaggedValue::Float(f) => *f,
@@ -656,6 +686,7 @@ impl ValueTrait for TaggedValue {
         }
     }
 
+    #[inline(always)]
     fn get_bool(&self, vm: &Vm<Self>) -> bool {
         match self {
             TaggedValue::Bool(b) => *b,
@@ -663,10 +694,12 @@ impl ValueTrait for TaggedValue {
         }
     }
 
+    #[inline(always)]
     fn is_heap_ref(&self) -> bool {
         matches!(self, TaggedValue::HeapReference(..))
     }
 
+    #[inline(always)]
     fn get_heap_ref(&self, vm: &Vm<Self>, expected_value_kind: ValueKind) -> HeapReference
     where
         Self: Sized,
@@ -677,6 +710,7 @@ impl ValueTrait for TaggedValue {
         }
     }
 
+    #[inline(always)]
     fn get_heap_index(&self, vm: &Vm<Self>, expected_value_kind: ValueKind) -> usize {
         match self {
             TaggedValue::HeapReference(r) => r.get_index(),
@@ -684,6 +718,7 @@ impl ValueTrait for TaggedValue {
         }
     }
 
+    #[inline(always)]
     fn view_string<'a>(&self, vm: &'a Vm<Self>) -> &'a String {
         let index = self.get_heap_index(vm, ValueKind::String);
         match &vm.heap[index].kind {
@@ -692,6 +727,7 @@ impl ValueTrait for TaggedValue {
         }
     }
 
+    #[inline(always)]
     fn get_addr(&self, vm: &Vm<Self>) -> usize {
         match self {
             TaggedValue::FuncAddr(addr) => *addr,
@@ -701,56 +737,67 @@ impl ValueTrait for TaggedValue {
 }
 
 impl From<bool> for PackedValue {
+    #[inline(always)]
     fn from(b: bool) -> Self {
         Self(if b { 1 } else { 0 }, false)
     }
 }
 
 impl From<AbraInt> for PackedValue {
+    #[inline(always)]
     fn from(n: AbraInt) -> Self {
         Self(n as u64, false)
     }
 }
 
 impl From<AbraFloat> for PackedValue {
+    #[inline(always)]
     fn from(n: AbraFloat) -> Self {
         Self(AbraFloat::to_bits(n), false)
     }
 }
 
 impl From<ProgramCounter> for PackedValue {
+    #[inline(always)]
     fn from(n: ProgramCounter) -> Self {
         Self(n.0 as u64, false)
     }
 }
 
 impl From<HeapReference> for PackedValue {
+    #[inline(always)]
     fn from(n: HeapReference) -> Self {
         Self(n.0, true)
     }
 }
 
 impl ValueTrait for PackedValue {
+    #[inline(always)]
     fn make_nil() -> Self {
         Self(0, false)
     }
 
+    #[inline(always)]
     fn get_int(&self, _vm: &Vm<Self>) -> AbraInt {
         self.0 as AbraInt
     }
 
+    #[inline(always)]
     fn get_float(&self, _vm: &Vm<Self>) -> AbraFloat {
         AbraFloat::from_bits(self.0)
     }
 
+    #[inline(always)]
     fn get_bool(&self, _vm: &Vm<Self>) -> bool {
         self.0 != 0
     }
 
+    #[inline(always)]
     fn is_heap_ref(&self) -> bool {
         self.1
     }
 
+    #[inline(always)]
     fn get_heap_ref(&self, _vm: &Vm<Self>, _expected_value_kind: ValueKind) -> HeapReference
     where
         Self: Sized,
@@ -758,11 +805,13 @@ impl ValueTrait for PackedValue {
         HeapReference(self.0)
     }
 
+    #[inline(always)]
     fn get_heap_index(&self, _vm: &Vm<Self>, _expected_value_kind: ValueKind) -> usize {
         let heap_ref = HeapReference(self.0);
         heap_ref.get_index()
     }
 
+    #[inline(always)]
     fn view_string<'a>(&self, vm: &'a Vm<Self>) -> &'a String {
         let index = self.get_heap_index(vm, ValueKind::String);
         match &vm.heap[index].kind {
@@ -771,6 +820,7 @@ impl ValueTrait for PackedValue {
         }
     }
 
+    #[inline(always)]
     fn get_addr(&self, _vm: &Vm<Self>) -> usize {
         self.0 as usize
     }
@@ -793,6 +843,7 @@ struct ManagedObject<Value: ValueTrait> {
 }
 
 impl<Value: ValueTrait> ManagedObject<Value> {
+    #[inline(always)]
     fn new(kind: ManagedObjectKind<Value>) -> Self {
         Self {
             kind,
@@ -1297,6 +1348,7 @@ impl<Value: ValueTrait> Vm<Value> {
         }
     }
 
+    #[inline(always)]
     fn make_stack_trace(&self) -> Vec<VmErrorLocation> {
         let mut ret = vec![];
         for frame in &self.call_stack {
@@ -1305,6 +1357,7 @@ impl<Value: ValueTrait> Vm<Value> {
         ret
     }
 
+    #[inline(always)]
     fn heap_reference(&mut self, idx: usize) -> Value {
         Value::from(HeapReference::new(idx, self.heap_group))
     }
@@ -1391,22 +1444,27 @@ impl<Value: ValueTrait> Vm<Value> {
         // self.compact();
     }
 
+    #[inline(always)]
     fn push(&mut self, x: impl Into<Value>) {
         self.value_stack.push(x.into());
     }
 
+    #[inline(always)]
     pub fn pop_int(&mut self) -> AbraInt {
         self.pop().get_int(self)
     }
 
+    #[inline(always)]
     pub fn pop_float(&mut self) -> AbraFloat {
         self.pop().get_float(self)
     }
 
+    #[inline(always)]
     fn pop_addr(&mut self) -> usize {
         self.pop().get_addr(self)
     }
 
+    #[inline(always)]
     pub(crate) fn pop_bool(&mut self) -> bool {
         self.pop().get_bool(self)
     }
