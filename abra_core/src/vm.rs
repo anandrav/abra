@@ -121,8 +121,8 @@ impl Vm {
             // the first call frame is a dummy and should not be in the stack trace
             call_stack: vec![CallFrame {
                 pc: ProgramCounter(end),
-                stack_base: 0,
-                stack_size: 1,
+                stack_base: 0, // TODO this correct?
+                nargs: 1,      // TODO this correct?
             }],
             heap: Vec::new(),
             heap_group: HeapGroup::One,
@@ -784,7 +784,7 @@ impl ValueTrait for PackedValue {
 struct CallFrame {
     pc: ProgramCounter,
     stack_base: usize,
-    stack_size: usize,
+    nargs: u8,
 }
 
 // ReferenceType
@@ -1053,7 +1053,7 @@ impl<Value: ValueTrait> Vm<Value> {
                 self.call_stack.push(CallFrame {
                     pc: self.pc,
                     stack_base: self.stack_base,
-                    stack_size: self.value_stack.len() - nargs as usize + 1,
+                    nargs,
                 });
                 self.pc = target;
                 self.stack_base = self.value_stack.len();
@@ -1064,8 +1064,9 @@ impl<Value: ValueTrait> Vm<Value> {
                 self.call_stack.push(CallFrame {
                     pc: self.pc,
                     stack_base: self.stack_base,
-                    stack_size: self.value_stack.len() - nargs as usize + 1,
+                    nargs: nargs as u8,
                 });
+
                 self.pc.0 = addr;
                 self.stack_base = self.value_stack.len();
             }
@@ -1073,8 +1074,10 @@ impl<Value: ValueTrait> Vm<Value> {
                 let frame = self.call_stack.pop();
                 let Some(frame) = frame else { self.fail(VmErrorKind::Underflow) };
                 self.pc = frame.pc;
+                let old_stack_base = self.stack_base;
                 self.stack_base = frame.stack_base;
-                self.value_stack.truncate(frame.stack_size);
+                self.value_stack
+                    .truncate(old_stack_base - (frame.nargs as usize) + 1);
             }
             Instr::Panic => {
                 let msg = self.pop().view_string(self);
