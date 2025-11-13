@@ -1078,7 +1078,7 @@ impl<Value: ValueTrait> Vm<Value> {
             }
             Instr::Panic => {
                 let msg = self.pop().view_string(self);
-                self.error = Some(Box::new(self.make_error(VmErrorKind::Panic(msg.clone())))); // TODO: rename soon!
+                self.error = Some(Box::new(self.make_error(VmErrorKind::Panic(msg.clone()))));
             }
             Instr::Construct(n) => self.construct_impl(n as usize),
             Instr::DeconstructStruct => {
