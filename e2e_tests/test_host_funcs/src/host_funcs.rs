@@ -82,19 +82,19 @@ pub enum Color {
 impl<Value: ValueTrait> VmType<Value> for Color {
     fn from_vm(vm: &mut Vm<Value>) -> Self {
         {
-            vm.deconstruct_variant().unwrap();
-            let tag = vm.pop_int().unwrap();
+            vm.deconstruct_variant();
+            let tag = vm.pop_int();
             match tag {
                 0 => {
-                    vm.pop().unwrap();
+                    vm.pop();
                     Color::Red
                 }
                 1 => {
-                    vm.pop().unwrap();
+                    vm.pop();
                     Color::Blue
                 }
                 2 => {
-                    vm.pop().unwrap();
+                    vm.pop();
                     Color::Green
                 }
                 _ => panic!("unexpected tag encountered: {tag}"),
@@ -106,15 +106,15 @@ impl<Value: ValueTrait> VmType<Value> for Color {
             match self {
                 Color::Red => {
                     vm.push_nil();
-                    vm.construct_variant(0).unwrap();
+                    vm.construct_variant(0);
                 }
                 Color::Blue => {
                     vm.push_nil();
-                    vm.construct_variant(1).unwrap();
+                    vm.construct_variant(1);
                 }
                 Color::Green => {
                     vm.push_nil();
-                    vm.construct_variant(2).unwrap();
+                    vm.construct_variant(2);
                 }
             }
         }

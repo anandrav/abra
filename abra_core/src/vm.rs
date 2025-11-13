@@ -26,7 +26,6 @@ use std::{
 };
 
 pub type VmResult<T> = std::result::Result<T, Box<VmError>>;
-type Result<T> = VmResult<T>;
 
 pub struct Vm<Value: ValueTrait = PackedValue> {
     program: Vec<Instr>,
@@ -143,7 +142,7 @@ impl<Value: ValueTrait> Vm<Value> {
     // pub fn with_entry_point(program: CompiledProgram, entry_point: String) -> Option<Self> {
     //     dbg!(&entry_point);
     //     dbg!(&program.label_map);
-    //     let pc = *program.label_map.get(&entry_point)?;
+    //     let pc = *program.label_map.get(&entry_point);
     //     Some(Self {
     //         program: program.instructions,
     //         pc,
@@ -184,28 +183,27 @@ impl<Value: ValueTrait> Vm<Value> {
         }
     }
 
-    pub fn top(&self) -> Result<&Value> {
+    pub fn top(&self) -> &Value {
         match self.value_stack.last() {
-            Some(v) => Ok(v),
-            None => self.make_error(VmErrorKind::Underflow),
+            Some(v) => v,
+            None => panic!("stack is empty"),
         }
     }
 
-    pub fn pop(&mut self) -> Result<Value> {
+    pub fn pop(&mut self) -> Value {
         match self.value_stack.pop() {
-            Some(v) => Ok(v),
-            None => self.make_error(VmErrorKind::Underflow),
+            Some(v) => v,
+            None => panic!("underflow"),
         }
     }
 
-    pub fn pop_n(&mut self, n: usize) -> Result<Vec<Value>> {
+    pub fn pop_n(&mut self, n: usize) -> Vec<Value> {
         if n > self.value_stack.len() {
-            return self.make_error(VmErrorKind::Underflow);
+            panic!("underflow")
         }
-        Ok(self
-            .value_stack
+        self.value_stack
             .drain(self.value_stack.len() - n..)
-            .collect())
+            .collect()
     }
 
     pub fn push_int(&mut self, n: AbraInt) {
@@ -231,81 +229,75 @@ impl<Value: ValueTrait> Vm<Value> {
         self.push(f);
     }
 
-    pub fn construct_tuple(&mut self, n: u16) -> Result<()> {
+    pub fn construct_tuple(&mut self, n: u16) {
         self.construct_impl(n as usize)
     }
 
-    pub fn construct_variant(&mut self, tag: u16) -> Result<()> {
-        let value = self.pop()?;
+    pub fn construct_variant(&mut self, tag: u16) {
+        let value = self.pop();
         self.heap
             .push(ManagedObject::new(ManagedObjectKind::Enum { tag, value }));
         let r = self.heap_reference(self.heap.len() - 1);
         self.value_stack.push(r);
-        Ok(())
     }
 
-    pub fn construct_struct(&mut self, n: u16) -> Result<()> {
+    pub fn construct_struct(&mut self, n: u16) {
         self.construct_impl(n as usize)
     }
 
-    pub fn construct_array(&mut self, n: usize) -> Result<()> {
+    pub fn construct_array(&mut self, n: usize) {
         self.construct_impl(n)
     }
 
-    fn construct_impl(&mut self, n: usize) -> Result<()> {
-        let fields = self.pop_n(n)?;
+    fn construct_impl(&mut self, n: usize) {
+        let fields = self.pop_n(n);
         self.heap
             .push(ManagedObject::new(ManagedObjectKind::DynArray(fields)));
         let r = self.heap_reference(self.heap.len() - 1);
         self.push(r);
-        Ok(())
     }
 
-    pub fn deconstruct_struct(&mut self) -> Result<()> {
-        let obj = self.pop()?;
-        let heap_index = obj.get_heap_index(self, ValueKind::Struct)?;
+    pub fn deconstruct_struct(&mut self) {
+        let obj = self.pop();
+        let heap_index = obj.get_heap_index(self, ValueKind::Struct);
         match &self.heap[heap_index].kind {
             ManagedObjectKind::DynArray(fields) => {
                 self.value_stack.extend(fields.iter().rev().cloned());
             }
-            _ => return self.wrong_type(ValueKind::Struct),
+            _ => self.fail_wrong_type(ValueKind::Struct),
         }
-        Ok(())
     }
 
-    pub fn deconstruct_array(&mut self) -> Result<()> {
-        let obj = self.pop()?;
-        let heap_index = obj.get_heap_index(self, ValueKind::Struct)?;
+    pub fn deconstruct_array(&mut self) {
+        let obj = self.pop();
+        let heap_index = obj.get_heap_index(self, ValueKind::Struct);
         match &self.heap[heap_index].kind {
             ManagedObjectKind::DynArray(fields) => {
                 self.value_stack.extend(fields.iter().rev().cloned());
             }
-            _ => return self.wrong_type(ValueKind::Array),
+            _ => self.fail_wrong_type(ValueKind::Array),
         }
-        Ok(())
     }
 
-    pub fn deconstruct_variant(&mut self) -> Result<()> {
-        let obj = self.pop()?;
-        let heap_index = obj.get_heap_index(self, ValueKind::Enum)?;
+    pub fn deconstruct_variant(&mut self) {
+        let obj = self.pop();
+        let heap_index = obj.get_heap_index(self, ValueKind::Enum);
         match &self.heap[heap_index].kind {
             ManagedObjectKind::Enum { tag, value } => {
                 self.value_stack.push(value.clone());
                 self.push_int(*tag as AbraInt);
             }
-            _ => return self.wrong_type(ValueKind::Enum),
+            _ => self.fail_wrong_type(ValueKind::Enum),
         }
-        Ok(())
     }
 
-    pub fn array_len(&mut self) -> Result<usize> {
-        let obj = self.top()?;
-        let index = obj.get_heap_index(self, ValueKind::Array)?;
-        let len = match &self.heap[index].kind {
+    pub fn array_len(&mut self) -> usize {
+        let obj = self.top();
+        let index = obj.get_heap_index(self, ValueKind::Array);
+        match &self.heap[index].kind {
             ManagedObjectKind::DynArray(fields) => fields.len(),
-            _ => return self.wrong_type(ValueKind::Array),
-        };
-        Ok(len)
+            _ => self.fail_wrong_type(ValueKind::Array),
+        }
     }
 
     pub fn increment_stack_base(&mut self, n: usize) {
@@ -324,20 +316,34 @@ impl<Value: ValueTrait> Vm<Value> {
         self.error.clone()
     }
 
-    fn make_error<T>(&self, kind: VmErrorKind) -> Result<T> {
-        Err(Box::new(VmError {
+    fn fail(&self, kind: VmErrorKind) -> ! {
+        panic!(
+            "{}",
+            VmError {
+                kind,
+                location: self.pc_to_error_location(self.pc),
+                trace: self.make_stack_trace(),
+            }
+        )
+    }
+
+    fn make_error(&self, kind: VmErrorKind) -> VmError {
+        VmError {
             kind,
             location: self.pc_to_error_location(self.pc),
             trace: self.make_stack_trace(),
-        }))
+        }
     }
 
-    fn wrong_type<T>(&self, expected: ValueKind) -> Result<T> {
-        Err(Box::new(VmError {
-            kind: VmErrorKind::WrongType { expected },
-            location: self.pc_to_error_location(self.pc),
-            trace: self.make_stack_trace(),
-        }))
+    fn fail_wrong_type(&self, expected: ValueKind) -> ! {
+        panic!(
+            "{}",
+            VmError {
+                kind: VmErrorKind::WrongType { expected },
+                location: self.pc_to_error_location(self.pc),
+                trace: self.make_stack_trace(),
+            }
+        )
     }
 
     pub fn is_done(&self) -> bool {
@@ -514,15 +520,15 @@ pub trait ValueTrait:
 {
     fn make_nil() -> Self;
 
-    fn get_int(&self, vm: &Vm<Self>) -> Result<AbraInt>
+    fn get_int(&self, vm: &Vm<Self>) -> AbraInt
     where
         Self: Sized;
 
-    fn get_float(&self, vm: &Vm<Self>) -> Result<AbraFloat>
+    fn get_float(&self, vm: &Vm<Self>) -> AbraFloat
     where
         Self: Sized;
 
-    fn get_bool(&self, vm: &Vm<Self>) -> Result<bool>
+    fn get_bool(&self, vm: &Vm<Self>) -> bool
     where
         Self: Sized;
 
@@ -530,19 +536,19 @@ pub trait ValueTrait:
     where
         Self: Sized;
 
-    fn get_heap_ref(&self, vm: &Vm<Self>, expected_value_kind: ValueKind) -> Result<HeapReference>
+    fn get_heap_ref(&self, vm: &Vm<Self>, expected_value_kind: ValueKind) -> HeapReference
     where
         Self: Sized;
 
-    fn get_heap_index(&self, vm: &Vm<Self>, expected_value_kind: ValueKind) -> Result<usize>
+    fn get_heap_index(&self, vm: &Vm<Self>, expected_value_kind: ValueKind) -> usize
     where
         Self: Sized;
 
-    fn view_string<'a>(&self, vm: &'a Vm<Self>) -> Result<&'a String>
+    fn view_string<'a>(&self, vm: &'a Vm<Self>) -> &'a String
     where
         Self: Sized;
 
-    fn get_addr(&self, vm: &Vm<Self>) -> Result<usize>
+    fn get_addr(&self, vm: &Vm<Self>) -> usize
     where
         Self: Sized;
 }
@@ -632,24 +638,24 @@ impl ValueTrait for TaggedValue {
         TaggedValue::Nil
     }
 
-    fn get_int(&self, vm: &Vm<Self>) -> Result<AbraInt> {
+    fn get_int(&self, vm: &Vm<Self>) -> AbraInt {
         match self {
-            TaggedValue::Int(i) => Ok(*i),
-            _ => vm.wrong_type(ValueKind::Int),
+            TaggedValue::Int(i) => *i,
+            _ => vm.fail_wrong_type(ValueKind::Int),
         }
     }
 
-    fn get_float(&self, vm: &Vm<Self>) -> Result<AbraFloat> {
+    fn get_float(&self, vm: &Vm<Self>) -> AbraFloat {
         match self {
-            TaggedValue::Float(f) => Ok(*f),
-            _ => vm.wrong_type(ValueKind::Int),
+            TaggedValue::Float(f) => *f,
+            _ => vm.fail_wrong_type(ValueKind::Int),
         }
     }
 
-    fn get_bool(&self, vm: &Vm<Self>) -> Result<bool> {
+    fn get_bool(&self, vm: &Vm<Self>) -> bool {
         match self {
-            TaggedValue::Bool(b) => Ok(*b),
-            _ => vm.wrong_type(ValueKind::Bool),
+            TaggedValue::Bool(b) => *b,
+            _ => vm.fail_wrong_type(ValueKind::Bool),
         }
     }
 
@@ -657,35 +663,35 @@ impl ValueTrait for TaggedValue {
         matches!(self, TaggedValue::HeapReference(..))
     }
 
-    fn get_heap_ref(&self, vm: &Vm<Self>, expected_value_kind: ValueKind) -> Result<HeapReference>
+    fn get_heap_ref(&self, vm: &Vm<Self>, expected_value_kind: ValueKind) -> HeapReference
     where
         Self: Sized,
     {
         match self {
-            TaggedValue::HeapReference(r) => Ok(r.get()),
-            _ => vm.wrong_type(expected_value_kind),
+            TaggedValue::HeapReference(r) => r.get(),
+            _ => vm.fail_wrong_type(expected_value_kind),
         }
     }
 
-    fn get_heap_index(&self, vm: &Vm<Self>, expected_value_kind: ValueKind) -> Result<usize> {
+    fn get_heap_index(&self, vm: &Vm<Self>, expected_value_kind: ValueKind) -> usize {
         match self {
-            TaggedValue::HeapReference(r) => Ok(r.get().get_index()),
-            _ => vm.wrong_type(expected_value_kind),
+            TaggedValue::HeapReference(r) => r.get().get_index(),
+            _ => vm.fail_wrong_type(expected_value_kind),
         }
     }
 
-    fn view_string<'a>(&self, vm: &'a Vm<Self>) -> Result<&'a String> {
-        let index = self.get_heap_index(vm, ValueKind::String)?;
+    fn view_string<'a>(&self, vm: &'a Vm<Self>) -> &'a String {
+        let index = self.get_heap_index(vm, ValueKind::String);
         match &vm.heap[index].kind {
-            ManagedObjectKind::String(s) => Ok(s),
-            _ => vm.wrong_type(ValueKind::String),
+            ManagedObjectKind::String(s) => s,
+            _ => vm.fail_wrong_type(ValueKind::String),
         }
     }
 
-    fn get_addr(&self, vm: &Vm<Self>) -> Result<usize> {
+    fn get_addr(&self, vm: &Vm<Self>) -> usize {
         match self {
-            TaggedValue::FuncAddr(addr) => Ok(*addr),
-            _ => vm.wrong_type(ValueKind::Int),
+            TaggedValue::FuncAddr(addr) => *addr,
+            _ => vm.fail_wrong_type(ValueKind::Int),
         }
     }
 }
@@ -725,45 +731,44 @@ impl ValueTrait for PackedValue {
         Self(0, false)
     }
 
-    fn get_int(&self, _vm: &Vm<Self>) -> Result<AbraInt> {
-        Ok(self.0 as AbraInt)
+    fn get_int(&self, _vm: &Vm<Self>) -> AbraInt {
+        self.0 as AbraInt
     }
 
-    fn get_float(&self, _vm: &Vm<Self>) -> Result<AbraFloat> {
-        Ok(AbraFloat::from_bits(self.0))
+    fn get_float(&self, _vm: &Vm<Self>) -> AbraFloat {
+        AbraFloat::from_bits(self.0)
     }
 
-    fn get_bool(&self, _vm: &Vm<Self>) -> Result<bool> {
-        Ok(self.0 != 0)
+    fn get_bool(&self, _vm: &Vm<Self>) -> bool {
+        self.0 != 0
     }
 
     fn is_heap_ref(&self) -> bool {
         self.1
     }
 
-    fn get_heap_ref(&self, _vm: &Vm<Self>, _expected_value_kind: ValueKind) -> Result<HeapReference>
+    fn get_heap_ref(&self, _vm: &Vm<Self>, _expected_value_kind: ValueKind) -> HeapReference
     where
         Self: Sized,
     {
-        let heap_ref = HeapReference(self.0);
-        Ok(heap_ref)
+        HeapReference(self.0)
     }
 
-    fn get_heap_index(&self, _vm: &Vm<Self>, _expected_value_kind: ValueKind) -> Result<usize> {
+    fn get_heap_index(&self, _vm: &Vm<Self>, _expected_value_kind: ValueKind) -> usize {
         let heap_ref = HeapReference(self.0);
-        Ok(heap_ref.get_index())
+        heap_ref.get_index()
     }
 
-    fn view_string<'a>(&self, vm: &'a Vm<Self>) -> Result<&'a String> {
-        let index = self.get_heap_index(vm, ValueKind::String)?;
+    fn view_string<'a>(&self, vm: &'a Vm<Self>) -> &'a String {
+        let index = self.get_heap_index(vm, ValueKind::String);
         match &vm.heap[index].kind {
-            ManagedObjectKind::String(s) => Ok(s),
-            _ => vm.wrong_type(ValueKind::String),
+            ManagedObjectKind::String(s) => s,
+            _ => vm.fail_wrong_type(ValueKind::String),
         }
     }
 
-    fn get_addr(&self, _vm: &Vm<Self>) -> Result<usize> {
-        Ok(self.0 as usize)
+    fn get_addr(&self, _vm: &Vm<Self>) -> usize {
+        self.0 as usize
     }
 }
 
@@ -809,10 +814,7 @@ impl<Value: ValueTrait> Vm<Value> {
             panic!("forgot to check error on vm");
         }
         while !self.is_done() && self.pending_host_func.is_none() && self.error.is_none() {
-            match self.step() {
-                Ok(()) => {}
-                Err(err) => self.error = Some(err),
-            }
+            self.step()
         }
     }
 
@@ -829,15 +831,12 @@ impl<Value: ValueTrait> Vm<Value> {
             && self.pending_host_func.is_none()
             && self.error.is_none()
         {
-            match self.step() {
-                Ok(()) => {}
-                Err(err) => self.error = Some(err),
-            }
+            self.step();
             steps -= 1;
         }
     }
 
-    fn step(&mut self) -> Result<()> {
+    fn step(&mut self) {
         // dbg!(&self);
         let instr = self.program[self.pc.0];
 
@@ -863,10 +862,10 @@ impl<Value: ValueTrait> Vm<Value> {
                 self.value_stack.push(r);
             }
             Instr::Pop => {
-                self.pop()?;
+                self.pop();
             }
             Instr::Duplicate => {
-                let v = self.top()?;
+                let v = self.top();
                 self.push(v.clone());
             }
             Instr::LoadOffset(n) => {
@@ -875,7 +874,7 @@ impl<Value: ValueTrait> Vm<Value> {
                     let idx = match self.stack_base.checked_add_signed(n as isize) {
                         Some(idx) => idx,
                         None => {
-                            return self.make_error(VmErrorKind::InternalError(format!(
+                            self.fail(VmErrorKind::InternalError(format!(
                                 "overflow when calculating load offset ({n})"
                             )));
                         }
@@ -883,7 +882,7 @@ impl<Value: ValueTrait> Vm<Value> {
                     let v = if idx < self.value_stack.len() {
                         self.value_stack[idx].clone()
                     } else {
-                        return self.make_error(VmErrorKind::InternalError(format!(
+                        self.fail(VmErrorKind::InternalError(format!(
                             "load offset ({}) out of bounds. idx={}, len={}",
                             n,
                             idx,
@@ -905,16 +904,16 @@ impl<Value: ValueTrait> Vm<Value> {
                     let idx = match self.stack_base.checked_add_signed(n as isize) {
                         Some(idx) => idx,
                         None => {
-                            return self.make_error(VmErrorKind::InternalError(format!(
+                            self.fail(VmErrorKind::InternalError(format!(
                                 "overflow when calculating store offset ({n})"
                             )));
                         }
                     };
-                    let v = self.pop()?;
+                    let v = self.pop();
                     if idx < self.value_stack.len() {
                         self.value_stack[idx] = v;
                     } else {
-                        return self.make_error(VmErrorKind::InternalError(format!(
+                        self.fail(VmErrorKind::InternalError(format!(
                             "store offset ({}) out of bounds. idx={}, len={}",
                             n,
                             idx,
@@ -925,175 +924,175 @@ impl<Value: ValueTrait> Vm<Value> {
                 #[cfg(not(feature = "debug_vm"))]
                 {
                     let idx = self.stack_base.wrapping_add_signed(n as isize);
-                    let v = self.pop()?;
+                    let v = self.pop();
                     self.value_stack[idx] = v;
                 }
             }
             Instr::AddInt => {
-                let b = self.pop_int()?;
-                let a = self.pop_int()?;
+                let b = self.pop_int();
+                let a = self.pop_int();
                 match a.checked_add(b) {
                     Some(n) => self.push(n),
-                    None => return self.make_error(VmErrorKind::IntegerOverflowUnderflow), // TODO: instead of bubbling up error, just set it and then bail.
+                    None => self.fail(VmErrorKind::IntegerOverflowUnderflow),
                 }
             }
             Instr::SubtractInt => {
-                let b = self.pop_int()?;
-                let a = self.pop_int()?;
+                let b = self.pop_int();
+                let a = self.pop_int();
                 match a.checked_sub(b) {
                     Some(n) => self.push(n),
-                    None => return self.make_error(VmErrorKind::IntegerOverflowUnderflow),
+                    None => self.fail(VmErrorKind::IntegerOverflowUnderflow),
                 }
             }
             Instr::MultiplyInt => {
-                let b = self.pop_int()?;
-                let a = self.pop_int()?;
+                let b = self.pop_int();
+                let a = self.pop_int();
                 match a.checked_mul(b) {
                     Some(n) => self.push(n),
-                    None => return self.make_error(VmErrorKind::IntegerOverflowUnderflow),
+                    None => self.fail(VmErrorKind::IntegerOverflowUnderflow),
                 }
             }
             Instr::DivideInt => {
-                let b = self.pop_int()?;
-                let a = self.pop_int()?;
+                let b = self.pop_int();
+                let a = self.pop_int();
                 if b == 0 {
-                    return self.make_error(VmErrorKind::DivisionByZero);
+                    self.fail(VmErrorKind::DivisionByZero);
                 }
                 match a.checked_div(b) {
                     // TODO: isn't this redundant with the above check for b == 0?
                     Some(n) => self.push(n),
-                    None => return self.make_error(VmErrorKind::IntegerOverflowUnderflow),
+                    None => self.fail(VmErrorKind::IntegerOverflowUnderflow),
                 }
             }
             Instr::PowerInt => {
-                let b = self.pop_int()?;
-                let a = self.pop_int()?;
+                let b = self.pop_int();
+                let a = self.pop_int();
                 self.push(a.pow(b as u32));
             }
             Instr::Modulo => {
-                let b = self.pop_int()?;
-                let a = self.pop_int()?;
+                let b = self.pop_int();
+                let a = self.pop_int();
                 self.push(a % b);
             }
             Instr::AddFloat => {
-                let b = self.pop_float()?;
-                let a = self.pop_float()?;
+                let b = self.pop_float();
+                let a = self.pop_float();
                 self.push(a + b);
             }
             Instr::SubtractFloat => {
-                let b = self.pop_float()?;
-                let a = self.pop_float()?;
+                let b = self.pop_float();
+                let a = self.pop_float();
                 self.push(a - b);
             }
             Instr::MultiplyFloat => {
-                let b = self.pop_float()?;
-                let a = self.pop_float()?;
+                let b = self.pop_float();
+                let a = self.pop_float();
                 self.push(a * b);
             }
             Instr::DivideFloat => {
-                let b = self.pop_float()?;
-                let a = self.pop_float()?;
+                let b = self.pop_float();
+                let a = self.pop_float();
                 if b == 0.0 {
-                    return self.make_error(VmErrorKind::DivisionByZero);
+                    self.fail(VmErrorKind::DivisionByZero);
                 }
                 self.push(a / b);
             }
             Instr::PowerFloat => {
-                let b = self.pop_float()?;
-                let a = self.pop_float()?;
+                let b = self.pop_float();
+                let a = self.pop_float();
                 self.push(a.powf(b));
             }
             Instr::SquareRoot => {
-                let v = self.pop_float()?;
+                let v = self.pop_float();
                 self.push(v.sqrt());
             }
             Instr::Not => {
-                let v = self.pop_bool()?;
+                let v = self.pop_bool();
                 self.push(!v);
             }
             Instr::And => {
-                let b = self.pop_bool()?;
-                let a = self.pop_bool()?;
+                let b = self.pop_bool();
+                let a = self.pop_bool();
                 self.push(a && b);
             }
             Instr::Or => {
-                let b = self.pop_bool()?;
-                let a = self.pop_bool()?;
+                let b = self.pop_bool();
+                let a = self.pop_bool();
                 self.push(a || b);
             }
             Instr::LessThanInt => {
-                let b = self.pop_int()?;
-                let a = self.pop_int()?;
+                let b = self.pop_int();
+                let a = self.pop_int();
                 self.push(a < b);
             }
             Instr::LessThanOrEqualInt => {
-                let b = self.pop_int()?;
-                let a = self.pop_int()?;
+                let b = self.pop_int();
+                let a = self.pop_int();
                 self.push(a <= b);
             }
             Instr::GreaterThanInt => {
-                let b = self.pop_int()?;
-                let a = self.pop_int()?;
+                let b = self.pop_int();
+                let a = self.pop_int();
                 self.push(a > b);
             }
             Instr::GreaterThanOrEqualInt => {
-                let b = self.pop_int()?;
-                let a = self.pop_int()?;
+                let b = self.pop_int();
+                let a = self.pop_int();
                 self.push(a >= b);
             }
             Instr::LessThanFloat => {
-                let b = self.pop_float()?;
-                let a = self.pop_float()?;
+                let b = self.pop_float();
+                let a = self.pop_float();
                 self.push(a < b);
             }
             Instr::LessThanOrEqualFloat => {
-                let b = self.pop_float()?;
-                let a = self.pop_float()?;
+                let b = self.pop_float();
+                let a = self.pop_float();
                 self.push(a <= b);
             }
             Instr::GreaterThanFloat => {
-                let b = self.pop_float()?;
-                let a = self.pop_float()?;
+                let b = self.pop_float();
+                let a = self.pop_float();
                 self.push(a > b);
             }
             Instr::GreaterThanOrEqualFloat => {
-                let b = self.pop_float()?;
-                let a = self.pop_float()?;
+                let b = self.pop_float();
+                let a = self.pop_float();
                 self.push(a >= b);
             }
             Instr::EqualInt => {
-                let b = self.pop_int()?;
-                let a = self.pop_int()?;
+                let b = self.pop_int();
+                let a = self.pop_int();
                 self.push(a == b);
             }
             Instr::EqualFloat => {
-                let b = self.pop_float()?;
-                let a = self.pop_float()?;
+                let b = self.pop_float();
+                let a = self.pop_float();
                 self.push(a == b);
             }
             Instr::EqualBool => {
-                let b = self.pop_bool()?;
-                let a = self.pop_bool()?;
+                let b = self.pop_bool();
+                let a = self.pop_bool();
                 self.push(a == b);
             }
             Instr::EqualString => {
-                let b = self.pop()?;
-                let a = self.pop()?;
-                let b = b.view_string(self)?;
-                let a = a.view_string(self)?;
+                let b = self.pop();
+                let a = self.pop();
+                let b = b.view_string(self);
+                let a = a.view_string(self);
                 self.push(a == b);
             }
             Instr::Jump(target) => {
                 self.pc = target;
             }
             Instr::JumpIf(target) => {
-                let v = self.pop_bool()?;
+                let v = self.pop_bool();
                 if v {
                     self.pc = target;
                 }
             }
             Instr::Call(target) => {
-                let nargs = self.pop_int()?;
+                let nargs = self.pop_int();
                 self.call_stack.push(CallFrame {
                     pc: self.pc,
                     stack_base: self.stack_base,
@@ -1103,8 +1102,8 @@ impl<Value: ValueTrait> Vm<Value> {
                 self.stack_base = self.value_stack.len();
             }
             Instr::CallFuncObj => {
-                let nargs = self.pop_int()?;
-                let addr = self.pop_addr()?;
+                let nargs = self.pop_int();
+                let addr = self.pop_addr();
                 self.call_stack.push(CallFrame {
                     pc: self.pc,
                     stack_base: self.stack_base,
@@ -1119,116 +1118,114 @@ impl<Value: ValueTrait> Vm<Value> {
                     self.value_stack.truncate(1);
                 } else {
                     let frame = self.call_stack.pop();
-                    let Some(frame) = frame else {
-                        return self.make_error(VmErrorKind::Underflow);
-                    };
+                    let Some(frame) = frame else { self.fail(VmErrorKind::Underflow) };
                     self.pc = frame.pc;
                     self.stack_base = frame.stack_base;
                     self.value_stack.truncate(frame.stack_size);
                 }
             }
             Instr::Panic => {
-                let msg = self.pop()?.view_string(self)?;
-                return self.make_error(VmErrorKind::Panic(msg.clone()));
+                let msg = self.pop().view_string(self);
+                self.error = Some(Box::new(self.make_error(VmErrorKind::Panic(msg.clone())))); // TODO: rename soon!
             }
-            Instr::Construct(n) => self.construct_impl(n as usize)?,
+            Instr::Construct(n) => self.construct_impl(n as usize),
             Instr::DeconstructStruct => {
-                self.deconstruct_struct()?;
+                self.deconstruct_struct();
             }
             Instr::DeconstructArray => {
-                self.deconstruct_array()?;
+                self.deconstruct_array();
             }
             Instr::DeconstructVariant => {
-                self.deconstruct_variant()?;
+                self.deconstruct_variant();
             }
             Instr::GetField(index) => {
-                let obj = self.pop()?;
-                let heap_index = obj.get_heap_index(self, ValueKind::Struct)?;
+                let obj = self.pop();
+                let heap_index = obj.get_heap_index(self, ValueKind::Struct);
                 let field = match &self.heap[heap_index].kind {
                     ManagedObjectKind::DynArray(fields) => fields[index as usize].clone(),
-                    _ => return self.wrong_type(ValueKind::Struct),
+                    _ => self.fail_wrong_type(ValueKind::Struct),
                 };
                 self.push(field);
             }
             Instr::SetField(index) => {
-                let obj = self.pop()?;
-                let rvalue = self.pop()?;
-                let heap_index = obj.get_heap_index(self, ValueKind::Struct)?;
+                let obj = self.pop();
+                let rvalue = self.pop();
+                let heap_index = obj.get_heap_index(self, ValueKind::Struct);
                 match &mut self.heap[heap_index].kind {
                     ManagedObjectKind::DynArray(fields) => {
                         fields[index as usize] = rvalue;
                     }
-                    _ => return self.wrong_type(ValueKind::Struct),
+                    _ => self.fail_wrong_type(ValueKind::Struct),
                 }
             }
             Instr::GetIdx => {
-                let obj = self.pop()?;
-                let idx = self.pop_int()?;
-                let heap_index = obj.get_heap_index(self, ValueKind::Array)?;
+                let obj = self.pop();
+                let idx = self.pop_int();
+                let heap_index = obj.get_heap_index(self, ValueKind::Array);
                 match &self.heap[heap_index].kind {
                     ManagedObjectKind::DynArray(fields) => {
                         if idx as usize >= fields.len() || idx < 0 {
-                            return self.make_error(VmErrorKind::ArrayOutOfBounds);
+                            self.fail(VmErrorKind::ArrayOutOfBounds);
                         }
                         let field = fields[idx as usize].clone();
                         self.push(field);
                     }
-                    _ => return self.wrong_type(ValueKind::Array),
+                    _ => self.fail_wrong_type(ValueKind::Array),
                 }
             }
             Instr::SetIdx => {
-                let obj = self.pop()?;
-                let idx = self.pop_int()?;
-                let rvalue = self.pop()?;
-                let heap_index = obj.get_heap_index(self, ValueKind::Array)?;
+                let obj = self.pop();
+                let idx = self.pop_int();
+                let rvalue = self.pop();
+                let heap_index = obj.get_heap_index(self, ValueKind::Array);
                 match &mut self.heap[heap_index].kind {
                     ManagedObjectKind::DynArray(fields) => {
                         if idx as usize >= fields.len() || idx < 0 {
-                            return self.make_error(VmErrorKind::ArrayOutOfBounds);
+                            self.fail(VmErrorKind::ArrayOutOfBounds);
                         }
                         fields[idx as usize] = rvalue;
                     }
-                    _ => return self.wrong_type(ValueKind::Array),
+                    _ => self.fail_wrong_type(ValueKind::Array),
                 }
             }
             Instr::ConstructVariant { tag } => {
-                self.construct_variant(tag)?;
+                self.construct_variant(tag);
             }
             Instr::MakeClosure { func_addr } => {
                 self.value_stack.push(Value::from(func_addr));
             }
             Instr::ArrayAppend => {
-                let rvalue = self.pop()?;
-                let obj = self.pop()?;
-                let heap_index = obj.get_heap_index(self, ValueKind::Array)?;
+                let rvalue = self.pop();
+                let obj = self.pop();
+                let heap_index = obj.get_heap_index(self, ValueKind::Array);
                 match &mut self.heap[heap_index].kind {
                     ManagedObjectKind::DynArray(fields) => {
                         fields.push(rvalue);
                     }
-                    _ => return self.wrong_type(ValueKind::Array),
+                    _ => self.fail_wrong_type(ValueKind::Array),
                 }
                 self.push_nil();
             }
             Instr::ArrayLength => {
-                let len = self.array_len()?;
+                let len = self.array_len();
                 self.push_int(len as AbraInt);
             }
             Instr::ArrayPop => {
-                let obj = self.pop()?;
-                let heap_index = obj.get_heap_index(self, ValueKind::Array)?;
+                let obj = self.pop();
+                let heap_index = obj.get_heap_index(self, ValueKind::Array);
                 match &mut self.heap[heap_index].kind {
                     ManagedObjectKind::DynArray(fields) => {
                         let rvalue = fields.pop().expect("array underflow");
                         self.push(rvalue);
                     }
-                    _ => return self.wrong_type(ValueKind::Array),
+                    _ => self.fail_wrong_type(ValueKind::Array),
                 }
             }
             Instr::ConcatStrings => {
-                let b = self.pop()?;
-                let a = self.pop()?;
-                let a_str = a.view_string(self)?;
-                let b_str = b.view_string(self)?;
+                let b = self.pop();
+                let a = self.pop();
+                let a_str = a.view_string(self);
+                let b_str = b.view_string(self);
                 let mut new_str = String::new();
                 new_str.push_str(a_str);
                 new_str.push_str(b_str);
@@ -1238,7 +1235,7 @@ impl<Value: ValueTrait> Vm<Value> {
                 self.push(r);
             }
             Instr::IntToString => {
-                let n = self.pop_int()?;
+                let n = self.pop_int();
                 let s = n.to_string();
                 self.heap
                     .push(ManagedObject::new(ManagedObjectKind::String(s)));
@@ -1246,7 +1243,7 @@ impl<Value: ValueTrait> Vm<Value> {
                 self.push(r);
             }
             Instr::FloatToString => {
-                let f = self.pop()?.get_float(self)?;
+                let f = self.pop().get_float(self);
                 let s = f.to_string();
                 self.heap
                     .push(ManagedObject::new(ManagedObjectKind::String(s)));
@@ -1258,44 +1255,43 @@ impl<Value: ValueTrait> Vm<Value> {
             }
             Instr::LoadLib => {
                 if cfg!(not(feature = "ffi")) {
-                    return self.make_error(VmErrorKind::FfiNotEnabled);
+                    self.fail(VmErrorKind::FfiNotEnabled);
                 }
 
                 #[cfg(feature = "ffi")]
                 {
                     // pop libname from stack
                     // load the library with a certain name and add it to the Vm's Vec of libs
-                    let libname = self.pop()?.view_string(self)?;
+                    let libname = self.pop().view_string(self);
                     let lib = unsafe { Library::new(libname) };
                     let Ok(lib) = lib else {
-                        return self.make_error(VmErrorKind::LibLoadFailure(libname.clone()));
+                        self.fail(VmErrorKind::LibLoadFailure(libname.clone()))
                     };
                     self.libs.push(lib);
                 }
             }
             Instr::LoadForeignFunc => {
                 if cfg!(not(feature = "ffi")) {
-                    return self.make_error(VmErrorKind::FfiNotEnabled);
+                    self.fail(VmErrorKind::FfiNotEnabled);
                 }
 
                 #[cfg(feature = "ffi")]
                 {
                     // pop foreign func name from stack
                     // load symbol from the last library loaded
-                    let symbol_name = self.pop()?.view_string(self)?;
+                    let symbol_name = self.pop().view_string(self);
                     let lib = self.libs.last().expect("no libraries have been loaded");
                     let symbol /*: Result<libloading::Symbol<unsafe extern "C" fn(*mut Vm) -> ()>, _>*/ =
                         unsafe { lib.get(symbol_name.as_bytes()) };
                     let Ok(symbol) = symbol else {
-                        return self
-                            .make_error(VmErrorKind::SymbolLoadFailure(symbol_name.clone()));
+                        self.fail(VmErrorKind::SymbolLoadFailure(symbol_name.clone()));
                     };
                     self.foreign_functions.push(*symbol);
                 }
             }
             Instr::CallExtern(_func_id) => {
                 if cfg!(not(feature = "ffi")) {
-                    return self.make_error(VmErrorKind::FfiNotEnabled);
+                    self.fail(VmErrorKind::FfiNotEnabled);
                 }
 
                 #[cfg(feature = "ffi")]
@@ -1308,7 +1304,6 @@ impl<Value: ValueTrait> Vm<Value> {
                 }
             }
         }
-        Ok(())
     }
 
     fn pc_to_error_location(&self, pc: ProgramCounter) -> VmErrorLocation {
@@ -1394,7 +1389,7 @@ impl<Value: ValueTrait> Vm<Value> {
         for i in 0..self.value_stack.len() {
             let v = &self.value_stack[i];
             if v.is_heap_ref() {
-                let r = v.get_heap_ref(self, ValueKind::HeapObject).unwrap(); // TODO: remove unwrap
+                let r = v.get_heap_ref(self, ValueKind::HeapObject);
                 let v = &mut self.value_stack[i];
                 *v = Value::from(forward(r, &self.heap, 0, &mut new_heap, new_heap_group));
             }
@@ -1409,7 +1404,7 @@ impl<Value: ValueTrait> Vm<Value> {
                 ManagedObjectKind::DynArray(fields) => {
                     for v in fields {
                         if v.is_heap_ref() {
-                            let r = v.get_heap_ref(self, ValueKind::HeapObject).unwrap(); // TODO: remove unwrap
+                            let r = v.get_heap_ref(self, ValueKind::HeapObject);
                             *v = Value::from(forward(
                                 r,
                                 &self.heap,
@@ -1422,7 +1417,7 @@ impl<Value: ValueTrait> Vm<Value> {
                 }
                 ManagedObjectKind::Enum { tag: _, value: v } => {
                     if v.is_heap_ref() {
-                        let r = v.get_heap_ref(self, ValueKind::HeapObject).unwrap(); // TODO: remove unwrap
+                        let r = v.get_heap_ref(self, ValueKind::HeapObject);
                         *v = Value::from(forward(
                             r,
                             &self.heap,
@@ -1450,20 +1445,20 @@ impl<Value: ValueTrait> Vm<Value> {
         self.value_stack.push(x.into());
     }
 
-    pub fn pop_int(&mut self) -> Result<AbraInt> {
-        self.pop()?.get_int(self)
+    pub fn pop_int(&mut self) -> AbraInt {
+        self.pop().get_int(self)
     }
 
-    pub fn pop_float(&mut self) -> Result<AbraFloat> {
-        self.pop()?.get_float(self)
+    pub fn pop_float(&mut self) -> AbraFloat {
+        self.pop().get_float(self)
     }
 
-    fn pop_addr(&mut self) -> Result<usize> {
-        self.pop()?.get_addr(self)
+    fn pop_addr(&mut self) -> usize {
+        self.pop().get_addr(self)
     }
 
-    pub(crate) fn pop_bool(&mut self) -> Result<bool> {
-        self.pop()?.get_bool(self)
+    pub(crate) fn pop_bool(&mut self) -> bool {
+        self.pop().get_bool(self)
     }
 }
 

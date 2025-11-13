@@ -266,7 +266,7 @@ fn add_items_from_ast(ast: &Rc<FileAst>, output: &mut String) {
                     for field in s.fields.iter() {
                         if matches!(&*field.ty.kind, TypeKind::Void) {
                             output.push_str(
-                                r#"vm.pop().unwrap();
+                                r#"vm.pop();
 "#,
                             );
                         } else {
@@ -355,8 +355,8 @@ fn add_items_from_ast(ast: &Rc<FileAst>, output: &mut String) {
                     );
 
                     output.push('{');
-                    output.push_str("vm.deconstruct_variant().unwrap();");
-                    output.push_str("let tag = vm.pop_int().unwrap();");
+                    output.push_str("vm.deconstruct_variant();");
+                    output.push_str("let tag = vm.pop_int();");
                     output.push_str("match tag {");
                     for (i, variant) in e.variants.iter().enumerate() {
                         output.push_str(&format!("{i} => {{"));
@@ -369,7 +369,7 @@ fn add_items_from_ast(ast: &Rc<FileAst>, output: &mut String) {
                             );
                             swrite!(output, "{}::{}(value)", e.name.v, variant.ctor.v);
                         } else {
-                            output.push_str("vm.pop().unwrap();");
+                            output.push_str("vm.pop();");
                             swrite!(output, "{}::{}", e.name.v, variant.ctor.v);
                         }
                         output.push('}');
@@ -392,11 +392,11 @@ fn add_items_from_ast(ast: &Rc<FileAst>, output: &mut String) {
                         if variant.data.is_some() {
                             swrite!(output, "{}::{}(value) => {{", e.name.v, variant.ctor.v);
                             output.push_str("value.to_vm(vm);");
-                            swrite!(output, "vm.construct_variant({i}).unwrap();");
+                            swrite!(output, "vm.construct_variant({i});");
                         } else {
                             swrite!(output, "{}::{} => {{", e.name.v, variant.ctor.v);
                             output.push_str("vm.push_nil();");
-                            swrite!(output, "vm.construct_variant({i}).unwrap();");
+                            swrite!(output, "vm.construct_variant({i});");
                         }
                         output.push('}');
                     }
@@ -424,7 +424,7 @@ pub trait VmType<Value: ValueTrait> {
 
 impl<Value: ValueTrait> VmType<Value> for i64 {
     fn from_vm(vm: &mut Vm<Value>) -> Self {
-        vm.pop_int().unwrap()
+        vm.pop_int()
     }
 
     fn to_vm(self, vm: &mut Vm<Value>) {
@@ -434,7 +434,7 @@ impl<Value: ValueTrait> VmType<Value> for i64 {
 
 impl<Value: ValueTrait> VmType<Value> for f64 {
     fn from_vm(vm: &mut Vm<Value>) -> Self {
-        vm.pop_float().unwrap()
+        vm.pop_float()
     }
 
     fn to_vm(self, vm: &mut Vm<Value>) {
@@ -444,7 +444,7 @@ impl<Value: ValueTrait> VmType<Value> for f64 {
 
 impl<Value: ValueTrait> VmType<Value> for () {
     fn from_vm(vm: &mut Vm<Value>) -> Self {
-        vm.pop().unwrap();
+        vm.pop();
     }
 
     fn to_vm(self, vm: &mut Vm<Value>) {
@@ -454,7 +454,7 @@ impl<Value: ValueTrait> VmType<Value> for () {
 
 impl<Value: ValueTrait> VmType<Value> for bool {
     fn from_vm(vm: &mut Vm<Value>) -> Self {
-        vm.pop_bool().unwrap()
+        vm.pop_bool()
     }
 
     fn to_vm(self, vm: &mut Vm<Value>) {
@@ -464,7 +464,7 @@ impl<Value: ValueTrait> VmType<Value> for bool {
 
 impl<Value: ValueTrait> VmType<Value> for String {
     fn from_vm(vm: &mut Vm<Value>) -> Self {
-        vm.pop().unwrap().view_string(vm).unwrap().to_string() // TODO: is this clone necessary?
+        vm.pop().view_string(vm).to_string()
     }
 
     fn to_vm(self, vm: &mut Vm<Value>) {
@@ -477,8 +477,8 @@ where
     T: VmType<Value>,
 {
     fn from_vm(vm: &mut Vm<Value>) -> Self {
-        vm.deconstruct_variant().unwrap(); // TODO: remove unwraps and make return type vm::Result
-        let tag = vm.pop_int().unwrap();
+        vm.deconstruct_variant();
+        let tag = vm.pop_int();
         match tag {
             0 => {
                 let t = T::from_vm(vm);
@@ -494,11 +494,11 @@ where
             match self {
                 Some(t) => {
                     t.to_vm(vm);
-                    vm.construct_variant(0).unwrap();
+                    vm.construct_variant(0);
                 }
                 None => {
                     ().to_vm(vm);
-                    vm.construct_variant(1).unwrap();
+                    vm.construct_variant(1);
                 }
             }
         }
@@ -511,8 +511,8 @@ where
     E: VmType<Value>,
 {
     fn from_vm(vm: &mut Vm<Value>) -> Self {
-        vm.deconstruct_variant().unwrap();
-        let tag = vm.pop_int().unwrap();
+        vm.deconstruct_variant();
+        let tag = vm.pop_int();
         match tag {
             0 => {
                 let t = T::from_vm(vm);
@@ -531,11 +531,11 @@ where
             match self {
                 Ok(t) => {
                     t.to_vm(vm);
-                    vm.construct_variant(0).unwrap();
+                    vm.construct_variant(0);
                 }
                 Err(e) => {
                     e.to_vm(vm);
-                    vm.construct_variant(1).unwrap();
+                    vm.construct_variant(1);
                 }
             }
         }
@@ -548,8 +548,8 @@ where
 {
     fn from_vm(vm: &mut Vm<Value>) -> Self {
         {
-            let len = vm.array_len().unwrap();
-            vm.deconstruct_array().unwrap();
+            let len = vm.array_len();
+            vm.deconstruct_array();
             let mut ret = vec![];
             for _ in 0..len {
                 let val = <T>::from_vm(vm);
@@ -564,7 +564,7 @@ where
             for elem in self.into_iter() {
                 elem.to_vm(vm);
             }
-            vm.construct_array(len).unwrap();
+            vm.construct_array(len);
         }
     }
 }
@@ -580,7 +580,7 @@ macro_rules! tuple_impls {
         impl< Value: ValueTrait, $($name: VmType<Value>),+ > VmType<Value> for ( $($name,)+ ) {
             fn from_vm(vm: &mut Vm<Value>) -> Self {
                 // Deconstruct the tuple on the VM.
-                vm.deconstruct_struct().unwrap();
+                vm.deconstruct_struct();
                 // Pop values in normal order.
                 #[allow(non_snake_case)]
                 let ($($name,)+) = ($( $name::from_vm(vm), )+);
@@ -595,7 +595,7 @@ macro_rules! tuple_impls {
                 // Count the number of elements in the tuple.
                 let count: usize = [$( replace_expr!($name, 1) ),+].len();
                 // Reconstruct the tuple on the VM.
-                vm.construct_struct(count as u16).unwrap();
+                vm.construct_struct(count as u16);
             }
         }
     };

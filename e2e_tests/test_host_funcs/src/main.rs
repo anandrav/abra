@@ -46,8 +46,8 @@ fn main() -> Result<(), Box<dyn Error>> {
     }
     let _ = Color::Red;
     vm.run();
-    let top = vm.top().unwrap();
-    assert_eq!(top.get_int(&vm).unwrap(), 10);
+    let top = vm.top();
+    assert_eq!(top.get_int(&vm), 10);
 
     Ok(())
 }

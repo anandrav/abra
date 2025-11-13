@@ -102,7 +102,7 @@ unsafe extern "C" fn abra_vm_push_nil(vm: *mut c_void) {
 #[unsafe(no_mangle)]
 unsafe extern "C" fn abra_vm_pop_nil(vm: *mut c_void) {
     let vm = unsafe { (vm as *mut Vm<PackedValue>).as_mut().unwrap() };
-    vm.pop().unwrap();
+    vm.pop();
 }
 
 /// # Safety
@@ -110,8 +110,8 @@ unsafe extern "C" fn abra_vm_pop_nil(vm: *mut c_void) {
 #[unsafe(no_mangle)]
 unsafe extern "C" fn abra_vm_pop_int(vm: *mut c_void) -> i64 {
     let vm = unsafe { (vm as *mut Vm<PackedValue>).as_mut().unwrap() };
-    let top = vm.top().unwrap().get_int(vm).unwrap();
-    vm.pop().unwrap();
+    let top = vm.top().get_int(vm);
+    vm.pop();
     top
 }
 
@@ -120,8 +120,8 @@ unsafe extern "C" fn abra_vm_pop_int(vm: *mut c_void) -> i64 {
 #[unsafe(no_mangle)]
 unsafe extern "C" fn abra_vm_pop_float(vm: *mut c_void) -> f64 {
     let vm = unsafe { (vm as *mut Vm<PackedValue>).as_mut().unwrap() };
-    let top = vm.top().unwrap().get_float(vm).unwrap();
-    vm.pop().unwrap();
+    let top = vm.top().get_float(vm);
+    vm.pop();
     top
 }
 
@@ -130,8 +130,8 @@ unsafe extern "C" fn abra_vm_pop_float(vm: *mut c_void) -> f64 {
 #[unsafe(no_mangle)]
 unsafe extern "C" fn abra_vm_pop_bool(vm: *mut c_void) -> bool {
     let vm = unsafe { (vm as *mut Vm<PackedValue>).as_mut().unwrap() };
-    let top = vm.top().unwrap().get_bool(vm).unwrap();
-    vm.pop().unwrap();
+    let top = vm.top().get_bool(vm);
+    vm.pop();
     top
 }
 
@@ -140,7 +140,7 @@ unsafe extern "C" fn abra_vm_pop_bool(vm: *mut c_void) -> bool {
 #[unsafe(no_mangle)]
 unsafe extern "C" fn abra_vm_pop(vm: *mut c_void) {
     let vm = unsafe { (vm as *mut Vm<PackedValue>).as_mut().unwrap() };
-    vm.pop().unwrap();
+    vm.pop();
 }
 
 #[repr(C)]
@@ -170,7 +170,7 @@ impl StringView {
 #[unsafe(no_mangle)]
 unsafe extern "C" fn abra_vm_view_string(vm: *mut c_void) -> StringView {
     let vm = unsafe { (vm as *mut Vm<PackedValue>).as_mut().unwrap() };
-    let top = vm.top().unwrap().view_string(vm).unwrap();
+    let top = vm.top().view_string(vm);
     StringView {
         ptr: top.as_ptr() as *const c_char,
         len: top.len(),
@@ -191,7 +191,7 @@ unsafe extern "C" fn abra_vm_push_string(vm: *mut c_void, string_view: StringVie
 #[unsafe(no_mangle)]
 unsafe extern "C" fn abra_vm_construct_struct(vm: *mut c_void, arity: u16) {
     let vm = unsafe { (vm as *mut Vm<PackedValue>).as_mut().unwrap() };
-    vm.construct_struct(arity).unwrap();
+    vm.construct_struct(arity);
 }
 
 /// # Safety
@@ -199,7 +199,7 @@ unsafe extern "C" fn abra_vm_construct_struct(vm: *mut c_void, arity: u16) {
 #[unsafe(no_mangle)]
 unsafe extern "C" fn abra_vm_construct_array(vm: *mut c_void, len: usize) {
     let vm = unsafe { (vm as *mut Vm<PackedValue>).as_mut().unwrap() };
-    vm.construct_array(len).unwrap();
+    vm.construct_array(len);
 }
 
 /// # Safety
@@ -207,7 +207,7 @@ unsafe extern "C" fn abra_vm_construct_array(vm: *mut c_void, len: usize) {
 #[unsafe(no_mangle)]
 unsafe extern "C" fn abra_vm_construct_variant(vm: *mut c_void, tag: u16) {
     let vm = unsafe { (vm as *mut Vm<PackedValue>).as_mut().unwrap() };
-    vm.construct_variant(tag).unwrap();
+    vm.construct_variant(tag);
 }
 
 /// # Safety
@@ -215,7 +215,7 @@ unsafe extern "C" fn abra_vm_construct_variant(vm: *mut c_void, tag: u16) {
 #[unsafe(no_mangle)]
 unsafe extern "C" fn abra_vm_deconstruct_struct(vm: *mut c_void) {
     let vm = unsafe { (vm as *mut Vm<PackedValue>).as_mut().unwrap() };
-    vm.deconstruct_struct().unwrap();
+    vm.deconstruct_struct();
 }
 
 /// # Safety
@@ -223,7 +223,7 @@ unsafe extern "C" fn abra_vm_deconstruct_struct(vm: *mut c_void) {
 #[unsafe(no_mangle)]
 unsafe extern "C" fn abra_vm_deconstruct_enum(vm: *mut c_void) {
     let vm = unsafe { (vm as *mut Vm<PackedValue>).as_mut().unwrap() };
-    vm.deconstruct_variant().unwrap();
+    vm.deconstruct_variant();
 }
 
 /// # Safety
@@ -231,7 +231,7 @@ unsafe extern "C" fn abra_vm_deconstruct_enum(vm: *mut c_void) {
 #[unsafe(no_mangle)]
 unsafe extern "C" fn abra_vm_array_len(vm: *mut c_void) -> usize {
     let vm = unsafe { (vm as *mut Vm<PackedValue>).as_mut().unwrap() };
-    vm.array_len().unwrap()
+    vm.array_len()
 }
 
 use std::env::current_dir;
