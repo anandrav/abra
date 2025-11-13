@@ -526,6 +526,10 @@ pub trait ValueTrait:
     where
         Self: Sized;
 
+    fn is_heap_ref(&self) -> bool
+    where
+        Self: Sized;
+
     fn get_heap_ref(&self, vm: &Vm<Self>, expected_value_kind: ValueKind) -> Result<HeapReference>
     where
         Self: Sized;
@@ -544,7 +548,7 @@ pub trait ValueTrait:
 }
 
 #[derive(Debug, Clone)]
-pub struct PackedValue(u64);
+pub struct PackedValue(u64, /*is_pointer*/ bool);
 
 #[derive(Debug, Clone)]
 pub enum TaggedValue {
@@ -649,6 +653,10 @@ impl ValueTrait for TaggedValue {
         }
     }
 
+    fn is_heap_ref(&self) -> bool {
+        matches!(self, TaggedValue::HeapReference(..))
+    }
+
     fn get_heap_ref(&self, vm: &Vm<Self>, expected_value_kind: ValueKind) -> Result<HeapReference>
     where
         Self: Sized,
@@ -684,41 +692,37 @@ impl ValueTrait for TaggedValue {
 
 impl From<bool> for PackedValue {
     fn from(b: bool) -> Self {
-        Self {
-            0: if b { 1 } else { 0 },
-        }
+        Self(if b { 1 } else { 0 }, false)
     }
 }
 
 impl From<AbraInt> for PackedValue {
     fn from(n: AbraInt) -> Self {
-        Self { 0: n as u64 }
+        Self(n as u64, false)
     }
 }
 
 impl From<AbraFloat> for PackedValue {
     fn from(n: AbraFloat) -> Self {
-        Self {
-            0: AbraFloat::to_bits(n),
-        }
+        Self(AbraFloat::to_bits(n), false)
     }
 }
 
 impl From<ProgramCounter> for PackedValue {
     fn from(n: ProgramCounter) -> Self {
-        Self(n.0 as u64)
+        Self(n.0 as u64, false)
     }
 }
 
 impl From<HeapReference> for PackedValue {
     fn from(n: HeapReference) -> Self {
-        Self(n.0)
+        Self(n.0, true)
     }
 }
 
 impl ValueTrait for PackedValue {
     fn make_nil() -> Self {
-        Self { 0: 0 }
+        Self(0, false)
     }
 
     fn get_int(&self, _vm: &Vm<Self>) -> Result<AbraInt> {
@@ -733,7 +737,11 @@ impl ValueTrait for PackedValue {
         Ok(self.0 != 0)
     }
 
-    fn get_heap_ref(&self, vm: &Vm<Self>, expected_value_kind: ValueKind) -> Result<HeapReference>
+    fn is_heap_ref(&self) -> bool {
+        self.1
+    }
+
+    fn get_heap_ref(&self, _vm: &Vm<Self>, _expected_value_kind: ValueKind) -> Result<HeapReference>
     where
         Self: Sized,
     {
@@ -1366,9 +1374,11 @@ impl<Value: ValueTrait> Vm<Value> {
         // roots
         for i in 0..self.value_stack.len() {
             let v = &self.value_stack[i];
-            let r = v.get_heap_ref(self, ValueKind::HeapObject).unwrap(); // TODO: remove unwrap
-            let v = &mut self.value_stack[i];
-            *v = Value::from(forward(r, &self.heap, 0, &mut new_heap, new_heap_group));
+            if v.is_heap_ref() {
+                let r = v.get_heap_ref(self, ValueKind::HeapObject).unwrap(); // TODO: remove unwrap
+                let v = &mut self.value_stack[i];
+                *v = Value::from(forward(r, &self.heap, 0, &mut new_heap, new_heap_group));
+            }
         }
 
         let mut i = 0;
@@ -1379,6 +1389,20 @@ impl<Value: ValueTrait> Vm<Value> {
             match &mut obj.kind {
                 ManagedObjectKind::DynArray(fields) => {
                     for v in fields {
+                        if v.is_heap_ref() {
+                            let r = v.get_heap_ref(self, ValueKind::HeapObject).unwrap(); // TODO: remove unwrap
+                            *v = Value::from(forward(
+                                r,
+                                &self.heap,
+                                new_heap_len,
+                                &mut to_add,
+                                new_heap_group,
+                            ));
+                        }
+                    }
+                }
+                ManagedObjectKind::Enum { tag: _, value: v } => {
+                    if v.is_heap_ref() {
                         let r = v.get_heap_ref(self, ValueKind::HeapObject).unwrap(); // TODO: remove unwrap
                         *v = Value::from(forward(
                             r,
@@ -1388,16 +1412,6 @@ impl<Value: ValueTrait> Vm<Value> {
                             new_heap_group,
                         ));
                     }
-                }
-                ManagedObjectKind::Enum { tag: _, value } => {
-                    let r = value.get_heap_ref(self, ValueKind::HeapObject).unwrap(); // TODO: remove unwrap
-                    *value = Value::from(forward(
-                        r,
-                        &self.heap,
-                        new_heap_len,
-                        &mut to_add,
-                        new_heap_group,
-                    ));
                 }
                 ManagedObjectKind::String(_) => {}
             }
