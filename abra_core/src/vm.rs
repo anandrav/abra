@@ -2,7 +2,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-type ProgramCounter = usize;
+#[derive(Copy, Clone, Debug)]
+struct ProgramCounter(usize);
 pub type AbraInt = i64;
 pub type AbraFloat = f64;
 
@@ -27,13 +28,13 @@ use std::{
 pub type VmResult<T> = std::result::Result<T, Box<VmError>>;
 type Result<T> = VmResult<T>;
 
-pub struct Vm {
+pub struct Vm<Value: ValueTrait> {
     program: Vec<Instr>,
     pc: ProgramCounter,
     stack_base: usize,
-    value_stack: Vec<TaggedValue>,
+    value_stack: Vec<Value>,
     call_stack: Vec<CallFrame>,
-    heap: Vec<ManagedObject>,
+    heap: Vec<ManagedObject<Value>>,
     heap_group: HeapGroup,
 
     static_strings: Vec<String>,
@@ -107,13 +108,13 @@ pub enum ValueKind {
 
 pub type ErrorLocation = (String, u32);
 
-impl Vm {
+impl<Value: ValueTrait> Vm<Value> {
     pub fn new(program: CompiledProgram) -> Self {
         Self {
             program: program.instructions,
-            pc: 0,
-            stack_base: 1,                       // stack[0] is return value from main
-            value_stack: vec![TaggedValue::Nil], // Nil is placeholder for return value from main
+            pc: ProgramCounter(0),
+            stack_base: 1,                        // stack[0] is return value from main
+            value_stack: vec![Value::make_nil()], // Nil is placeholder for return value from main
             call_stack: Vec::new(),
             heap: Vec::new(),
             heap_group: HeapGroup::One,
@@ -180,21 +181,21 @@ impl Vm {
         }
     }
 
-    pub fn top(&self) -> Result<&TaggedValue> {
+    pub fn top(&self) -> Result<&Value> {
         match self.value_stack.last() {
             Some(v) => Ok(v),
             None => self.make_error(VmErrorKind::Underflow),
         }
     }
 
-    pub fn pop(&mut self) -> Result<TaggedValue> {
+    pub fn pop(&mut self) -> Result<Value> {
         match self.value_stack.pop() {
             Some(v) => Ok(v),
             None => self.make_error(VmErrorKind::Underflow),
         }
     }
 
-    pub fn pop_n(&mut self, n: usize) -> Result<Vec<TaggedValue>> {
+    pub fn pop_n(&mut self, n: usize) -> Result<Vec<Value>> {
         if n > self.value_stack.len() {
             return self.make_error(VmErrorKind::Underflow);
         }
@@ -216,7 +217,7 @@ impl Vm {
     }
 
     pub fn push_nil(&mut self) {
-        self.push(TaggedValue::Nil);
+        self.push(Value::make_nil());
     }
 
     pub fn push_bool(&mut self, b: bool) {
@@ -337,7 +338,7 @@ impl Vm {
     }
 
     pub fn is_done(&self) -> bool {
-        self.pc >= self.program.len()
+        self.pc.0 >= self.program.len()
     }
 }
 
@@ -498,20 +499,44 @@ impl<L: Display, S: Display> Display for Instr<L, S> {
     }
 }
 
-pub trait ValueTrait {
-    fn get_int(&self, vm: &Vm) -> Result<AbraInt>;
+// TODO: is Clone necessary?
+pub trait ValueTrait:
+    Clone
+    + Debug
+    + From<AbraInt>
+    + From<AbraFloat>
+    + From<bool>
+    + From<ProgramCounter>
+    + From<HeapReference>
+{
+    fn make_nil() -> Self;
 
-    fn get_float(&self, vm: &Vm) -> Result<AbraFloat>;
+    fn get_int(&self, vm: &Vm<Self>) -> Result<AbraInt>
+    where
+        Self: Sized;
 
-    fn get_bool(&self, vm: &Vm) -> Result<bool>;
+    fn get_float(&self, vm: &Vm<Self>) -> Result<AbraFloat>
+    where
+        Self: Sized;
 
-    fn get_heap_index(&self, vm: &Vm, expected_value_kind: ValueKind) -> Result<usize>;
+    fn get_bool(&self, vm: &Vm<Self>) -> Result<bool>
+    where
+        Self: Sized;
 
-    fn view_string<'a>(&self, vm: &'a Vm) -> Result<&'a String>;
+    fn get_heap_index(&self, vm: &Vm<Self>, expected_value_kind: ValueKind) -> Result<usize>
+    where
+        Self: Sized;
 
-    fn get_addr(&self, vm: &Vm) -> Result<usize>;
+    fn view_string<'a>(&self, vm: &'a Vm<Self>) -> Result<&'a String>
+    where
+        Self: Sized;
+
+    fn get_addr(&self, vm: &Vm<Self>) -> Result<usize>
+    where
+        Self: Sized;
 }
 
+#[derive(Debug, Clone)]
 pub struct PackedValue(u64);
 
 #[derive(Debug, Clone)]
@@ -562,53 +587,69 @@ enum HeapGroup {
 }
 
 impl From<bool> for TaggedValue {
-    fn from(b: bool) -> TaggedValue {
-        TaggedValue::Bool(b)
+    fn from(b: bool) -> Self {
+        Self::Bool(b)
     }
 }
 
 impl From<AbraInt> for TaggedValue {
-    fn from(n: AbraInt) -> TaggedValue {
-        TaggedValue::Int(n)
+    fn from(n: AbraInt) -> Self {
+        Self::Int(n)
     }
 }
 
 impl From<AbraFloat> for TaggedValue {
-    fn from(n: AbraFloat) -> TaggedValue {
-        TaggedValue::Float(n)
+    fn from(n: AbraFloat) -> Self {
+        Self::Float(n)
+    }
+}
+
+impl From<ProgramCounter> for TaggedValue {
+    fn from(n: ProgramCounter) -> Self {
+        Self::FuncAddr(n.0)
+    }
+}
+
+impl From<HeapReference> for TaggedValue {
+    fn from(n: HeapReference) -> Self {
+        Self::HeapReference(n.into())
     }
 }
 
 impl ValueTrait for TaggedValue {
-    fn get_int(&self, vm: &Vm) -> Result<AbraInt> {
+    fn make_nil() -> Self {
+        TaggedValue::Nil
+    }
+
+    fn get_int(&self, vm: &Vm<Self>) -> Result<AbraInt> {
         match self {
             TaggedValue::Int(i) => Ok(*i),
             _ => vm.wrong_type(ValueKind::Int),
         }
     }
 
-    fn get_float(&self, vm: &Vm) -> Result<AbraFloat> {
+    fn get_float(&self, vm: &Vm<Self>) -> Result<AbraFloat> {
         match self {
             TaggedValue::Float(f) => Ok(*f),
             _ => vm.wrong_type(ValueKind::Int),
         }
     }
 
-    fn get_bool(&self, vm: &Vm) -> Result<bool> {
+    fn get_bool(&self, vm: &Vm<Self>) -> Result<bool> {
         match self {
             TaggedValue::Bool(b) => Ok(*b),
             _ => vm.wrong_type(ValueKind::Bool),
         }
     }
 
-    fn get_heap_index(&self, vm: &Vm, expected_value_kind: ValueKind) -> Result<usize> {
+    fn get_heap_index(&self, vm: &Vm<Self>, expected_value_kind: ValueKind) -> Result<usize> {
         match self {
             TaggedValue::HeapReference(r) => Ok(r.get().get_index()),
             _ => vm.wrong_type(expected_value_kind),
         }
     }
 
-    fn view_string<'a>(&self, vm: &'a Vm) -> Result<&'a String> {
+    fn view_string<'a>(&self, vm: &'a Vm<Self>) -> Result<&'a String> {
         let index = self.get_heap_index(vm, ValueKind::String)?;
         match &vm.heap[index].kind {
             ManagedObjectKind::String(s) => Ok(s),
@@ -616,7 +657,7 @@ impl ValueTrait for TaggedValue {
         }
     }
 
-    fn get_addr(&self, vm: &Vm) -> Result<usize> {
+    fn get_addr(&self, vm: &Vm<Self>) -> Result<usize> {
         match self {
             TaggedValue::FuncAddr(addr) => Ok(*addr),
             _ => vm.wrong_type(ValueKind::Int),
@@ -624,25 +665,63 @@ impl ValueTrait for TaggedValue {
     }
 }
 
+impl From<bool> for PackedValue {
+    fn from(b: bool) -> Self {
+        Self {
+            0: if b { 1 } else { 0 },
+        }
+    }
+}
+
+impl From<AbraInt> for PackedValue {
+    fn from(n: AbraInt) -> Self {
+        Self { 0: n as u64 }
+    }
+}
+
+impl From<AbraFloat> for PackedValue {
+    fn from(n: AbraFloat) -> Self {
+        Self {
+            0: AbraFloat::to_bits(n),
+        }
+    }
+}
+
+impl From<ProgramCounter> for PackedValue {
+    fn from(n: ProgramCounter) -> Self {
+        Self(n.0 as u64)
+    }
+}
+
+impl From<HeapReference> for PackedValue {
+    fn from(n: HeapReference) -> Self {
+        Self(n.0)
+    }
+}
+
 impl ValueTrait for PackedValue {
-    fn get_int(&self, _vm: &Vm) -> Result<AbraInt> {
+    fn make_nil() -> Self {
+        Self { 0: 0 }
+    }
+
+    fn get_int(&self, _vm: &Vm<Self>) -> Result<AbraInt> {
         Ok(self.0 as AbraInt)
     }
 
-    fn get_float(&self, _vm: &Vm) -> Result<AbraFloat> {
+    fn get_float(&self, _vm: &Vm<Self>) -> Result<AbraFloat> {
         Ok(AbraFloat::from_bits(self.0))
     }
 
-    fn get_bool(&self, _vm: &Vm) -> Result<bool> {
+    fn get_bool(&self, _vm: &Vm<Self>) -> Result<bool> {
         Ok(self.0 != 0)
     }
 
-    fn get_heap_index(&self, _vm: &Vm, _expected_value_kind: ValueKind) -> Result<usize> {
+    fn get_heap_index(&self, _vm: &Vm<Self>, _expected_value_kind: ValueKind) -> Result<usize> {
         let heap_ref = HeapReference(self.0);
         Ok(heap_ref.get_index())
     }
 
-    fn view_string<'a>(&self, vm: &'a Vm) -> Result<&'a String> {
+    fn view_string<'a>(&self, vm: &'a Vm<Self>) -> Result<&'a String> {
         let index = self.get_heap_index(vm, ValueKind::String)?;
         match &vm.heap[index].kind {
             ManagedObjectKind::String(s) => Ok(s),
@@ -650,7 +729,7 @@ impl ValueTrait for PackedValue {
         }
     }
 
-    fn get_addr(&self, _vm: &Vm) -> Result<usize> {
+    fn get_addr(&self, _vm: &Vm<Self>) -> Result<usize> {
         Ok(self.0 as usize)
     }
 }
@@ -665,14 +744,14 @@ struct CallFrame {
 // ReferenceType
 
 #[derive(Debug, Clone)]
-struct ManagedObject {
-    kind: ManagedObjectKind,
+struct ManagedObject<Value: ValueTrait> {
+    kind: ManagedObjectKind<Value>,
 
     forwarding_pointer: Cell<Option<usize>>,
 }
 
-impl ManagedObject {
-    fn new(kind: ManagedObjectKind) -> Self {
+impl<Value: ValueTrait> ManagedObject<Value> {
+    fn new(kind: ManagedObjectKind<Value>) -> Self {
         Self {
             kind,
             forwarding_pointer: Cell::new(None),
@@ -681,14 +760,14 @@ impl ManagedObject {
 }
 
 #[derive(Debug, Clone)]
-enum ManagedObjectKind {
-    Enum { tag: u16, value: TaggedValue },
+enum ManagedObjectKind<Value: ValueTrait> {
+    Enum { tag: u16, value: Value },
     // DynArray is also used for tuples and structs
-    DynArray(Vec<TaggedValue>),
+    DynArray(Vec<Value>),
     String(String),
 }
 
-impl Vm {
+impl<Value: ValueTrait> Vm<Value> {
     pub fn run(&mut self) {
         if self.pending_host_func.is_some() {
             panic!("must handle pending host func");
@@ -727,12 +806,12 @@ impl Vm {
 
     fn step(&mut self) -> Result<()> {
         // dbg!(&self);
-        let instr = self.program[self.pc];
+        let instr = self.program[self.pc.0];
 
-        self.pc += 1;
+        self.pc.0 += 1;
         match instr {
             Instr::PushNil => {
-                self.push(TaggedValue::Nil);
+                self.push(Value::make_nil());
             }
             Instr::PushInt(n) => {
                 self.push(n);
@@ -979,12 +1058,12 @@ impl Vm {
                     stack_base: self.stack_base,
                     stack_size: self.value_stack.len() - nargs as usize + 1,
                 });
-                self.pc = addr;
+                self.pc.0 = addr;
                 self.stack_base = self.value_stack.len();
             }
             Instr::Return => {
                 if self.call_stack.is_empty() {
-                    self.pc = self.program.len();
+                    self.pc.0 = self.program.len();
                     self.value_stack.truncate(1);
                 } else {
                     let frame = self.call_stack.pop();
@@ -1064,7 +1143,7 @@ impl Vm {
                 self.construct_variant(tag)?;
             }
             Instr::MakeClosure { func_addr } => {
-                self.value_stack.push(TaggedValue::FuncAddr(func_addr));
+                self.value_stack.push(Value::from(func_addr));
             }
             Instr::ArrayAppend => {
                 let rvalue = self.pop()?;
@@ -1170,7 +1249,7 @@ impl Vm {
                 #[cfg(feature = "ffi")]
                 {
                     unsafe {
-                        let vm_ptr = self as *mut Vm as *mut c_void;
+                        let vm_ptr = self as *mut Vm<Value> as *mut c_void;
                         let abra_vm_functions_ptr = &ABRA_VM_FUNCS as *const AbraVmFunctions;
                         self.foreign_functions[_func_id](vm_ptr, abra_vm_functions_ptr);
                     };
@@ -1180,10 +1259,10 @@ impl Vm {
         Ok(())
     }
 
-    fn pc_to_error_location(&self, pc: usize) -> VmErrorLocation {
+    fn pc_to_error_location(&self, pc: ProgramCounter) -> VmErrorLocation {
         let file_id = match self
             .filename_table
-            .binary_search_by_key(&(pc as u32), |pair| pair.0)
+            .binary_search_by_key(&(pc.0 as u32), |pair| pair.0)
         {
             Ok(idx) | Err(idx) => {
                 let idx = if idx >= 1 { idx - 1 } else { idx };
@@ -1193,7 +1272,7 @@ impl Vm {
 
         let lineno = match self
             .lineno_table
-            .binary_search_by_key(&(pc as u32), |pair| pair.0)
+            .binary_search_by_key(&(pc.0 as u32), |pair| pair.0)
         {
             Ok(idx) | Err(idx) => {
                 let idx = if idx >= 1 { idx - 1 } else { idx };
@@ -1203,7 +1282,7 @@ impl Vm {
 
         let function_name_id = match self
             .function_name_table
-            .binary_search_by_key(&(pc as u32), |pair| pair.0)
+            .binary_search_by_key(&(pc.0 as u32), |pair| pair.0)
         {
             Ok(idx) | Err(idx) => {
                 let idx = if idx >= 1 { idx - 1 } else { idx };
@@ -1229,8 +1308,8 @@ impl Vm {
         ret
     }
 
-    fn heap_reference(&mut self, idx: usize) -> TaggedValue {
-        TaggedValue::HeapReference(Cell::new(HeapReference::new(idx, self.heap_group)))
+    fn heap_reference(&mut self, idx: usize) -> Value {
+        Value::from(HeapReference::new(idx, self.heap_group))
     }
 
     pub fn compact(&mut self) {
@@ -1240,20 +1319,20 @@ impl Vm {
 
     pub fn nbytes(&self) -> usize {
         let mut n = self.program.len() * size_of::<Instr>()
-            + self.value_stack.len() * size_of::<TaggedValue>()
+            + self.value_stack.len() * size_of::<Value>()
             + self.call_stack.len() * size_of::<CallFrame>()
-            + self.heap.len() * size_of::<ManagedObject>();
+            + self.heap.len() * size_of::<ManagedObject<Value>>();
 
         n += self.static_strings.iter().map(|s| s.len()).sum::<usize>();
         n
     }
 
     pub fn heap_size(&self) -> usize {
-        self.heap.len() * size_of::<ManagedObject>()
+        self.heap.len() * size_of::<ManagedObject<Value>>()
     }
 
     pub fn gc(&mut self) {
-        let mut new_heap = Vec::<ManagedObject>::new();
+        let mut new_heap = Vec::<ManagedObject<Value>>::new();
         let new_heap_group = match self.heap_group {
             HeapGroup::One => HeapGroup::Two,
             HeapGroup::Two => HeapGroup::One,
@@ -1262,7 +1341,7 @@ impl Vm {
         // roots
         for i in 0..self.value_stack.len() {
             let v = &mut self.value_stack[i];
-            if let TaggedValue::HeapReference(r) = v {
+            if let Value::HeapReference(r) = v {
                 r.replace(forward(
                     r.get(),
                     &self.heap,
@@ -1281,7 +1360,7 @@ impl Vm {
             match &obj.kind {
                 ManagedObjectKind::DynArray(fields) => {
                     for v in fields {
-                        if let TaggedValue::HeapReference(r) = v {
+                        if let Value::HeapReference(r) = v {
                             r.replace(forward(
                                 r.get(),
                                 &self.heap,
@@ -1293,7 +1372,7 @@ impl Vm {
                     }
                 }
                 ManagedObjectKind::Enum { tag: _, value } => {
-                    if let TaggedValue::HeapReference(r) = value {
+                    if let Value::HeapReference(r) = value {
                         r.replace(forward(
                             r.get(),
                             &self.heap,
@@ -1317,7 +1396,7 @@ impl Vm {
         // self.compact();
     }
 
-    fn push(&mut self, x: impl Into<TaggedValue>) {
+    fn push(&mut self, x: impl Into<Value>) {
         self.value_stack.push(x.into());
     }
 
@@ -1338,11 +1417,11 @@ impl Vm {
     }
 }
 
-fn forward(
+fn forward<Value: ValueTrait>(
     r: HeapReference,
-    old_heap: &[ManagedObject],
+    old_heap: &[ManagedObject<Value>],
     new_heap_len: usize,
-    to_add: &mut Vec<ManagedObject>,
+    to_add: &mut Vec<ManagedObject<Value>>,
     new_heap_group: HeapGroup,
 ) -> HeapReference {
     if r.get_group() != new_heap_group {
@@ -1373,7 +1452,7 @@ fn forward(
     }
 }
 
-impl Debug for Vm {
+impl<Value: ValueTrait> Debug for Vm<Value> {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         f.debug_struct("Vm")
             .field("pc", &self.pc)
