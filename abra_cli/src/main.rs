@@ -109,6 +109,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         Ok(program) => {
             let mut vm = abra_core::vm::Vm::new(program);
             loop {
+                vm.run();
+                vm.gc();
                 if vm.is_done() {
                     return Ok(());
                 }
@@ -116,8 +118,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     eprint!("{error}");
                     exit(1);
                 }
-                vm.run();
-                vm.gc();
                 if let Some(pending_host_func) = vm.get_pending_host_func() {
                     let host_func_args: HostFunctionArgs =
                         HostFunctionArgs::from_vm(&mut vm, pending_host_func);

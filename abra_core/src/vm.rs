@@ -42,7 +42,6 @@ pub struct Vm<Value: ValueTrait = PackedValue> {
     lineno_table: Vec<(BytecodeIndex, u32)>,
     function_name_table: Vec<(BytecodeIndex, u32)>,
 
-    should_continue: bool,
     pending_host_func: Option<u16>,
     error: Option<Box<VmError>>,
 
@@ -134,7 +133,6 @@ impl Vm {
             lineno_table: program.lineno_table,
             function_name_table: program.function_name_table,
 
-            should_continue: false,
             pending_host_func: None,
             error: None,
 
@@ -817,42 +815,28 @@ enum ManagedObjectKind<Value: ValueTrait> {
 
 impl<Value: ValueTrait> Vm<Value> {
     pub fn run(&mut self) {
+        self.validate();
+        while self.step() {}
+    }
+
+    pub fn run_n_steps(&mut self, mut steps: u32) {
+        self.validate();
+        while steps > 0 && self.step() {
+            steps -= 1;
+        }
+    }
+
+    fn validate(&self) {
         if self.pending_host_func.is_some() {
             panic!("must handle pending host func");
         }
         if self.error.is_some() {
             panic!("forgot to check error on vm");
         }
-        self.should_continue = true;
-        while self.should_continue {
-            self.step()
-        }
     }
 
-    pub fn run_n_steps(&mut self, steps: u32) {
-        if self.pending_host_func.is_some() {
-            panic!("must handle pending host func");
-        }
-        if self.error.is_some() {
-            panic!("must handle error");
-        }
-        let mut steps = steps;
-        while steps > 0
-            && !self.is_done()
-            && self.pending_host_func.is_none()
-            && self.error.is_none()
-        {
-            self.step();
-            steps -= 1;
-        }
-    }
-
-    fn step(&mut self) {
-        // dbg!(&self);
-        // if self.pc.0 >= self.program.len() {
-        //     self.should_continue = false; // TODO: add an Exit instruction to remove need for this
-        //     return;
-        // }
+    #[inline(always)]
+    fn step(&mut self) -> bool {
         let instr = self.program[self.pc.0];
 
         self.pc.0 += 1;
@@ -1095,13 +1079,13 @@ impl<Value: ValueTrait> Vm<Value> {
                 self.stack_base = frame.stack_base;
                 self.value_stack
                     .truncate(old_stack_base - (frame.nargs as usize) + 1);
-                self.should_continue = false;
                 self.pc.0 = self.program.len(); // TODO: necessary? maybe use a more explicit flag instead of relying on this for .is_done()
+                return false;
             }
             Instr::Panic => {
                 let msg = self.pop().view_string(self);
                 self.error = Some(Box::new(self.make_error(VmErrorKind::Panic(msg.clone()))));
-                self.should_continue = false;
+                return false;
             }
             Instr::Construct(n) => self.construct_impl(n as usize),
             Instr::DeconstructStruct => {
@@ -1227,7 +1211,7 @@ impl<Value: ValueTrait> Vm<Value> {
             }
             Instr::HostFunc(eff) => {
                 self.pending_host_func = Some(eff);
-                self.should_continue = false;
+                return false;
             }
             Instr::LoadLib => {
                 if cfg!(not(feature = "ffi")) {
@@ -1280,6 +1264,7 @@ impl<Value: ValueTrait> Vm<Value> {
                 }
             }
         }
+        true
     }
 
     fn pc_to_error_location(&self, pc: ProgramCounter) -> VmErrorLocation {
