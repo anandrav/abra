@@ -31,7 +31,7 @@ pub struct Vm {
     program: Vec<Instr>,
     pc: ProgramCounter,
     stack_base: usize,
-    value_stack: Vec<Value>,
+    value_stack: Vec<TaggedValue>,
     call_stack: Vec<CallFrame>,
     heap: Vec<ManagedObject>,
     heap_group: HeapGroup,
@@ -112,8 +112,8 @@ impl Vm {
         Self {
             program: program.instructions,
             pc: 0,
-            stack_base: 1,                 // stack[0] is return value from main
-            value_stack: vec![Value::Nil], // Nil is placeholder for return value from main
+            stack_base: 1,                       // stack[0] is return value from main
+            value_stack: vec![TaggedValue::Nil], // Nil is placeholder for return value from main
             call_stack: Vec::new(),
             heap: Vec::new(),
             heap_group: HeapGroup::One,
@@ -180,21 +180,21 @@ impl Vm {
         }
     }
 
-    pub fn top(&self) -> Result<&Value> {
+    pub fn top(&self) -> Result<&TaggedValue> {
         match self.value_stack.last() {
             Some(v) => Ok(v),
             None => self.make_error(VmErrorKind::Underflow),
         }
     }
 
-    pub fn pop(&mut self) -> Result<Value> {
+    pub fn pop(&mut self) -> Result<TaggedValue> {
         match self.value_stack.pop() {
             Some(v) => Ok(v),
             None => self.make_error(VmErrorKind::Underflow),
         }
     }
 
-    pub fn pop_n(&mut self, n: usize) -> Result<Vec<Value>> {
+    pub fn pop_n(&mut self, n: usize) -> Result<Vec<TaggedValue>> {
         if n > self.value_stack.len() {
             return self.make_error(VmErrorKind::Underflow);
         }
@@ -216,7 +216,7 @@ impl Vm {
     }
 
     pub fn push_nil(&mut self) {
-        self.push(Value::Nil);
+        self.push(TaggedValue::Nil);
     }
 
     pub fn push_bool(&mut self, b: bool) {
@@ -498,12 +498,24 @@ impl<L: Display, S: Display> Display for Instr<L, S> {
     }
 }
 
-// #[cfg(not(feature = "debug_vm"))]
-// pub struct Value(u64);
+pub trait Value {
+    fn get_int(&self, vm: &Vm) -> Result<AbraInt>;
 
-// #[cfg(feature = "debug_vm")]
+    fn get_float(&self, vm: &Vm) -> Result<AbraFloat>;
+
+    fn get_bool(&self, vm: &Vm) -> Result<bool>;
+
+    fn get_heap_index(&self, vm: &Vm, expected_value_kind: ValueKind) -> Result<usize>;
+
+    fn view_string<'a>(&self, vm: &'a Vm) -> Result<&'a String>;
+
+    fn get_addr(&self, vm: &Vm) -> Result<usize>;
+}
+
+pub struct PackedValue(u64);
+
 #[derive(Debug, Clone)]
-pub enum Value {
+pub enum TaggedValue {
     Nil,
     Bool(bool),
     Int(AbraInt),
@@ -549,54 +561,54 @@ enum HeapGroup {
     Two,
 }
 
-impl From<bool> for Value {
-    fn from(b: bool) -> Value {
-        Value::Bool(b)
+impl From<bool> for TaggedValue {
+    fn from(b: bool) -> TaggedValue {
+        TaggedValue::Bool(b)
     }
 }
 
-impl From<AbraInt> for Value {
-    fn from(n: AbraInt) -> Value {
-        Value::Int(n)
+impl From<AbraInt> for TaggedValue {
+    fn from(n: AbraInt) -> TaggedValue {
+        TaggedValue::Int(n)
     }
 }
 
-impl From<AbraFloat> for Value {
-    fn from(n: AbraFloat) -> Value {
-        Value::Float(n)
+impl From<AbraFloat> for TaggedValue {
+    fn from(n: AbraFloat) -> TaggedValue {
+        TaggedValue::Float(n)
     }
 }
 
-impl Value {
-    pub fn get_int(&self, vm: &Vm) -> Result<AbraInt> {
+impl Value for TaggedValue {
+    fn get_int(&self, vm: &Vm) -> Result<AbraInt> {
         match self {
-            Value::Int(i) => Ok(*i),
+            TaggedValue::Int(i) => Ok(*i),
             _ => vm.wrong_type(ValueKind::Int),
         }
     }
 
-    pub fn get_float(&self, vm: &Vm) -> Result<AbraFloat> {
+    fn get_float(&self, vm: &Vm) -> Result<AbraFloat> {
         match self {
-            Value::Float(f) => Ok(*f),
+            TaggedValue::Float(f) => Ok(*f),
             _ => vm.wrong_type(ValueKind::Int),
         }
     }
 
-    pub fn get_bool(&self, vm: &Vm) -> Result<bool> {
+    fn get_bool(&self, vm: &Vm) -> Result<bool> {
         match self {
-            Value::Bool(b) => Ok(*b),
+            TaggedValue::Bool(b) => Ok(*b),
             _ => vm.wrong_type(ValueKind::Bool),
         }
     }
 
-    pub fn get_heap_index(&self, vm: &Vm, expected_value_kind: ValueKind) -> Result<usize> {
+    fn get_heap_index(&self, vm: &Vm, expected_value_kind: ValueKind) -> Result<usize> {
         match self {
-            Value::HeapReference(r) => Ok(r.get().get_index()),
+            TaggedValue::HeapReference(r) => Ok(r.get().get_index()),
             _ => vm.wrong_type(expected_value_kind),
         }
     }
 
-    pub fn view_string<'a>(&self, vm: &'a Vm) -> Result<&'a String> {
+    fn view_string<'a>(&self, vm: &'a Vm) -> Result<&'a String> {
         let index = self.get_heap_index(vm, ValueKind::String)?;
         match &vm.heap[index].kind {
             ManagedObjectKind::String(s) => Ok(s),
@@ -604,11 +616,42 @@ impl Value {
         }
     }
 
-    pub fn get_addr(&self, vm: &Vm) -> Result<usize> {
+    fn get_addr(&self, vm: &Vm) -> Result<usize> {
         match self {
-            Value::FuncAddr(addr) => Ok(*addr),
+            TaggedValue::FuncAddr(addr) => Ok(*addr),
             _ => vm.wrong_type(ValueKind::Int),
         }
+    }
+}
+
+impl Value for PackedValue {
+    fn get_int(&self, _vm: &Vm) -> Result<AbraInt> {
+        Ok(self.0 as AbraInt)
+    }
+
+    fn get_float(&self, _vm: &Vm) -> Result<AbraFloat> {
+        Ok(AbraFloat::from_bits(self.0))
+    }
+
+    fn get_bool(&self, _vm: &Vm) -> Result<bool> {
+        Ok(self.0 != 0)
+    }
+
+    fn get_heap_index(&self, _vm: &Vm, _expected_value_kind: ValueKind) -> Result<usize> {
+        let heap_ref = HeapReference(self.0);
+        Ok(heap_ref.get_index())
+    }
+
+    fn view_string<'a>(&self, vm: &'a Vm) -> Result<&'a String> {
+        let index = self.get_heap_index(vm, ValueKind::String)?;
+        match &vm.heap[index].kind {
+            ManagedObjectKind::String(s) => Ok(s),
+            _ => vm.wrong_type(ValueKind::String),
+        }
+    }
+
+    fn get_addr(&self, _vm: &Vm) -> Result<usize> {
+        Ok(self.0 as usize)
     }
 }
 
@@ -639,9 +682,9 @@ impl ManagedObject {
 
 #[derive(Debug, Clone)]
 enum ManagedObjectKind {
-    Enum { tag: u16, value: Value },
+    Enum { tag: u16, value: TaggedValue },
     // DynArray is also used for tuples and structs
-    DynArray(Vec<Value>),
+    DynArray(Vec<TaggedValue>),
     String(String),
 }
 
@@ -689,7 +732,7 @@ impl Vm {
         self.pc += 1;
         match instr {
             Instr::PushNil => {
-                self.push(Value::Nil);
+                self.push(TaggedValue::Nil);
             }
             Instr::PushInt(n) => {
                 self.push(n);
@@ -1021,7 +1064,7 @@ impl Vm {
                 self.construct_variant(tag)?;
             }
             Instr::MakeClosure { func_addr } => {
-                self.value_stack.push(Value::FuncAddr(func_addr));
+                self.value_stack.push(TaggedValue::FuncAddr(func_addr));
             }
             Instr::ArrayAppend => {
                 let rvalue = self.pop()?;
@@ -1186,8 +1229,8 @@ impl Vm {
         ret
     }
 
-    fn heap_reference(&mut self, idx: usize) -> Value {
-        Value::HeapReference(Cell::new(HeapReference::new(idx, self.heap_group)))
+    fn heap_reference(&mut self, idx: usize) -> TaggedValue {
+        TaggedValue::HeapReference(Cell::new(HeapReference::new(idx, self.heap_group)))
     }
 
     pub fn compact(&mut self) {
@@ -1197,7 +1240,7 @@ impl Vm {
 
     pub fn nbytes(&self) -> usize {
         let mut n = self.program.len() * size_of::<Instr>()
-            + self.value_stack.len() * size_of::<Value>()
+            + self.value_stack.len() * size_of::<TaggedValue>()
             + self.call_stack.len() * size_of::<CallFrame>()
             + self.heap.len() * size_of::<ManagedObject>();
 
@@ -1219,7 +1262,7 @@ impl Vm {
         // roots
         for i in 0..self.value_stack.len() {
             let v = &mut self.value_stack[i];
-            if let Value::HeapReference(r) = v {
+            if let TaggedValue::HeapReference(r) = v {
                 r.replace(forward(
                     r.get(),
                     &self.heap,
@@ -1238,7 +1281,7 @@ impl Vm {
             match &obj.kind {
                 ManagedObjectKind::DynArray(fields) => {
                     for v in fields {
-                        if let Value::HeapReference(r) = v {
+                        if let TaggedValue::HeapReference(r) = v {
                             r.replace(forward(
                                 r.get(),
                                 &self.heap,
@@ -1250,7 +1293,7 @@ impl Vm {
                     }
                 }
                 ManagedObjectKind::Enum { tag: _, value } => {
-                    if let Value::HeapReference(r) = value {
+                    if let TaggedValue::HeapReference(r) = value {
                         r.replace(forward(
                             r.get(),
                             &self.heap,
@@ -1274,7 +1317,7 @@ impl Vm {
         // self.compact();
     }
 
-    fn push(&mut self, x: impl Into<Value>) {
+    fn push(&mut self, x: impl Into<TaggedValue>) {
         self.value_stack.push(x.into());
     }
 

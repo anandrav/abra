@@ -1,6 +1,6 @@
 use crate::addons::name_of_ty;
 use crate::ast::{FileAst, ItemKind, Type, TypeDefKind, TypeKind};
-use crate::vm::Vm;
+use crate::vm::{Value, Vm};
 use crate::{ErrorSummary, FileProvider, get_files, statics};
 use std::path::Path;
 use std::process::Command;

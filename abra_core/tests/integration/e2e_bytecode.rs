@@ -5,8 +5,8 @@
 use crate::helper::unwrap_or_panic;
 use abra_core::MockFileProvider;
 use abra_core::compile_bytecode;
-use abra_core::vm::Vm;
 use abra_core::vm::VmStatus;
+use abra_core::vm::{Value, Vm};
 use std::collections::HashMap;
 use std::path::PathBuf;
 
