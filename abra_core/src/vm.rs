@@ -870,45 +870,63 @@ impl<Value: ValueTrait> Vm<Value> {
                 self.push(v.clone());
             }
             Instr::LoadOffset(n) => {
-                let idx = match self.stack_base.checked_add_signed(n as isize) {
-                    Some(idx) => idx,
-                    None => {
+                #[cfg(feature = "debug_vm")]
+                {
+                    let idx = match self.stack_base.checked_add_signed(n as isize) {
+                        Some(idx) => idx,
+                        None => {
+                            return self.make_error(VmErrorKind::InternalError(format!(
+                                "overflow when calculating load offset ({n})"
+                            )));
+                        }
+                    };
+                    let v = if idx < self.value_stack.len() {
+                        self.value_stack[idx].clone()
+                    } else {
                         return self.make_error(VmErrorKind::InternalError(format!(
-                            "overflow when calculating load offset ({n})"
+                            "load offset ({}) out of bounds. idx={}, len={}",
+                            n,
+                            idx,
+                            self.value_stack.len()
                         )));
-                    }
-                };
-                let v = if idx < self.value_stack.len() {
-                    self.value_stack[idx].clone()
-                } else {
-                    return self.make_error(VmErrorKind::InternalError(format!(
-                        "load offset ({}) out of bounds. idx={}, len={}",
-                        n,
-                        idx,
-                        self.value_stack.len()
-                    )));
-                };
-                self.push(v);
+                    };
+                    self.push(v);
+                }
+                #[cfg(not(feature = "debug_vm"))]
+                {
+                    let idx = self.stack_base.wrapping_add_signed(n as isize);
+                    let v = self.value_stack[idx].clone();
+                    self.push(v);
+                }
             }
             Instr::StoreOffset(n) => {
-                let idx = match self.stack_base.checked_add_signed(n as isize) {
-                    Some(idx) => idx,
-                    None => {
+                #[cfg(feature = "debug_vm")]
+                {
+                    let idx = match self.stack_base.checked_add_signed(n as isize) {
+                        Some(idx) => idx,
+                        None => {
+                            return self.make_error(VmErrorKind::InternalError(format!(
+                                "overflow when calculating store offset ({n})"
+                            )));
+                        }
+                    };
+                    let v = self.pop()?;
+                    if idx < self.value_stack.len() {
+                        self.value_stack[idx] = v;
+                    } else {
                         return self.make_error(VmErrorKind::InternalError(format!(
-                            "overflow when calculating store offset ({n})"
+                            "store offset ({}) out of bounds. idx={}, len={}",
+                            n,
+                            idx,
+                            self.value_stack.len()
                         )));
                     }
-                };
-                let v = self.pop()?;
-                if idx < self.value_stack.len() {
+                }
+                #[cfg(not(feature = "debug_vm"))]
+                {
+                    let idx = self.stack_base.wrapping_add_signed(n as isize);
+                    let v = self.pop()?;
                     self.value_stack[idx] = v;
-                } else {
-                    return self.make_error(VmErrorKind::InternalError(format!(
-                        "store offset ({}) out of bounds. idx={}, len={}",
-                        n,
-                        idx,
-                        self.value_stack.len()
-                    )));
                 }
             }
             Instr::AddInt => {
@@ -916,7 +934,7 @@ impl<Value: ValueTrait> Vm<Value> {
                 let a = self.pop_int()?;
                 match a.checked_add(b) {
                     Some(n) => self.push(n),
-                    None => return self.make_error(VmErrorKind::IntegerOverflowUnderflow),
+                    None => return self.make_error(VmErrorKind::IntegerOverflowUnderflow), // TODO: instead of bubbling up error, just set it and then bail.
                 }
             }
             Instr::SubtractInt => {
@@ -942,6 +960,7 @@ impl<Value: ValueTrait> Vm<Value> {
                     return self.make_error(VmErrorKind::DivisionByZero);
                 }
                 match a.checked_div(b) {
+                    // TODO: isn't this redundant with the above check for b == 0?
                     Some(n) => self.push(n),
                     None => return self.make_error(VmErrorKind::IntegerOverflowUnderflow),
                 }
