@@ -44,6 +44,7 @@ pub struct Vm<Value: ValueTrait = PackedValue> {
 
     pending_host_func: Option<u16>,
     error: Option<Box<VmError>>,
+    done: bool,
 
     // FFI
     #[cfg(feature = "ffi")]
@@ -108,7 +109,6 @@ pub type ErrorLocation = (String, u32);
 
 impl Vm {
     pub fn new(program: CompiledProgram) -> Self {
-        let end = program.instructions.len();
         Self {
             program: program.instructions,
             pc: ProgramCounter(0),
@@ -116,12 +116,7 @@ impl Vm {
             stack_base: 1,
             // the nil is placeholder for return value from main
             value_stack: vec![PackedValue::make_nil()],
-            // the first call frame is a dummy and should not be in the stack trace
-            call_stack: vec![CallFrame {
-                pc: ProgramCounter(end),
-                stack_base: 0, // TODO this correct?
-                nargs: 1,      // TODO this correct?
-            }],
+            call_stack: Vec::new(),
             heap: Vec::new(),
             heap_group: HeapGroup::One,
 
@@ -135,6 +130,7 @@ impl Vm {
 
             pending_host_func: None,
             error: None,
+            done: false,
 
             #[cfg(feature = "ffi")]
             libs: Vec::new(),
@@ -353,7 +349,7 @@ impl<Value: ValueTrait> Vm<Value> {
     }
 
     pub fn is_done(&self) -> bool {
-        self.pc.0 >= self.program.len()
+        self.done
     }
 }
 
@@ -1071,15 +1067,8 @@ impl<Value: ValueTrait> Vm<Value> {
                     .truncate(old_stack_base - (frame.nargs as usize) + 1);
             }
             Instr::Stop => {
-                // TODO: remove the dummy callstack frame, Stop doesn't need it.
-                let frame = self.call_stack.pop();
-                let Some(frame) = frame else { self.fail(VmErrorKind::Underflow) };
-                self.pc = frame.pc;
-                let old_stack_base = self.stack_base;
-                self.stack_base = frame.stack_base;
-                self.value_stack
-                    .truncate(old_stack_base - (frame.nargs as usize) + 1);
-                self.pc.0 = self.program.len(); // TODO: necessary? maybe use a more explicit flag instead of relying on this for .is_done()
+                self.value_stack.truncate(1);
+                self.done = true;
                 return false;
             }
             Instr::Panic => {
@@ -1310,8 +1299,7 @@ impl<Value: ValueTrait> Vm<Value> {
 
     fn make_stack_trace(&self) -> Vec<VmErrorLocation> {
         let mut ret = vec![];
-        // the first call frame is a dummy and should not be in the stack trace
-        for frame in &self.call_stack[1..] {
+        for frame in &self.call_stack {
             ret.push(self.pc_to_error_location(frame.pc));
         }
         ret
