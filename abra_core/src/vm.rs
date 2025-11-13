@@ -260,7 +260,7 @@ impl Vm {
     pub fn deconstruct_struct(&mut self) -> Result<()> {
         let obj = self.pop()?;
         match &obj {
-            Value::HeapReference(r) => match &self.heap[r.get().get()].kind {
+            Value::HeapReference(r) => match &self.heap[r.get().get_index()].kind {
                 ManagedObjectKind::DynArray(fields) => {
                     self.value_stack.extend(fields.iter().rev().cloned());
                 }
@@ -274,7 +274,7 @@ impl Vm {
     pub fn deconstruct_array(&mut self) -> Result<()> {
         let obj = self.pop()?;
         match &obj {
-            Value::HeapReference(r) => match &self.heap[r.get().get()].kind {
+            Value::HeapReference(r) => match &self.heap[r.get().get_index()].kind {
                 ManagedObjectKind::DynArray(fields) => {
                     self.value_stack.extend(fields.iter().rev().cloned());
                 }
@@ -288,7 +288,7 @@ impl Vm {
     pub fn deconstruct_variant(&mut self) -> Result<()> {
         let obj = self.pop()?;
         match &obj {
-            Value::HeapReference(r) => match &self.heap[r.get().get()].kind {
+            Value::HeapReference(r) => match &self.heap[r.get().get_index()].kind {
                 ManagedObjectKind::Enum { tag, value } => {
                     self.value_stack.push(value.clone());
                     self.push_int(*tag as AbraInt);
@@ -303,7 +303,7 @@ impl Vm {
     pub fn array_len(&mut self) -> Result<usize> {
         let obj = self.top()?;
         let len = match &obj {
-            Value::HeapReference(r) => match &self.heap[r.get().get()].kind {
+            Value::HeapReference(r) => match &self.heap[r.get().get_index()].kind {
                 ManagedObjectKind::DynArray(fields) => fields.len(),
                 _ => return self.wrong_type(ValueKind::Array),
             },
@@ -517,14 +517,33 @@ pub enum Value {
 }
 
 #[derive(Debug, Copy, Clone)]
-pub struct HeapReference {
-    idx: u32,
-    group: HeapGroup,
-}
+pub struct HeapReference(u64);
 
 impl HeapReference {
-    fn get(&self) -> usize {
-        self.idx as usize
+    const GROUP_BIT: u64 = 1 << 63;
+    const INDEX_MASK: u64 = !Self::GROUP_BIT;
+
+    fn new(index: usize, heap_group: HeapGroup) -> Self {
+        debug_assert!(index as u64 <= Self::INDEX_MASK);
+        let mut repr = index as u64;
+        match heap_group {
+            HeapGroup::One => {}
+            HeapGroup::Two => {
+                repr |= Self::GROUP_BIT;
+            }
+        }
+        HeapReference(repr)
+    }
+    fn get_index(&self) -> usize {
+        (self.0 & Self::INDEX_MASK) as usize
+    }
+
+    fn get_group(&self) -> HeapGroup {
+        if self.0 & Self::GROUP_BIT == 0 {
+            HeapGroup::One
+        } else {
+            HeapGroup::Two
+        }
     }
 }
 
@@ -586,7 +605,7 @@ impl Value {
 
     pub fn view_string<'a>(&self, vm: &'a Vm) -> Result<&'a String> {
         match self {
-            Value::HeapReference(r) => match &vm.heap[r.get().get()].kind {
+            Value::HeapReference(r) => match &vm.heap[r.get().get_index()].kind {
                 ManagedObjectKind::String(s) => Ok(s),
                 _ => vm.wrong_type(ValueKind::String),
             },
@@ -960,7 +979,7 @@ impl Vm {
             Instr::GetField(index) => {
                 let obj = self.pop()?;
                 let field = match &obj {
-                    Value::HeapReference(r) => match &self.heap[r.get().get()].kind {
+                    Value::HeapReference(r) => match &self.heap[r.get().get_index()].kind {
                         ManagedObjectKind::DynArray(fields) => fields[index as usize].clone(),
                         _ => return self.wrong_type(ValueKind::Struct),
                     },
@@ -972,7 +991,7 @@ impl Vm {
                 let obj = self.pop()?;
                 let rvalue = self.pop()?;
                 let obj_id = match obj {
-                    Value::HeapReference(r) => r.get().get(),
+                    Value::HeapReference(r) => r.get().get_index(),
                     _ => return self.wrong_type(ValueKind::Struct),
                 };
                 match &mut self.heap[obj_id].kind {
@@ -986,7 +1005,7 @@ impl Vm {
                 let obj = self.pop()?;
                 let idx = self.pop_int()?;
                 match &obj {
-                    Value::HeapReference(r) => match &self.heap[r.get().get()].kind {
+                    Value::HeapReference(r) => match &self.heap[r.get().get_index()].kind {
                         ManagedObjectKind::DynArray(fields) => {
                             if idx as usize >= fields.len() || idx < 0 {
                                 return self.make_error(VmErrorKind::ArrayOutOfBounds);
@@ -1004,7 +1023,7 @@ impl Vm {
                 let idx = self.pop_int()?;
                 let rvalue = self.pop()?;
                 let obj_id = match obj {
-                    Value::HeapReference(r) => r.get().get(),
+                    Value::HeapReference(r) => r.get().get_index(),
                     _ => return self.wrong_type(ValueKind::Array),
                 };
                 match &mut self.heap[obj_id].kind {
@@ -1027,7 +1046,7 @@ impl Vm {
                 let rvalue = self.pop()?;
                 let obj = self.pop()?;
                 let obj_id = match &obj {
-                    Value::HeapReference(r) => r.get().get(),
+                    Value::HeapReference(r) => r.get().get_index(),
                     _ => return self.wrong_type(ValueKind::Array),
                 };
                 match &mut self.heap[obj_id].kind {
@@ -1045,7 +1064,7 @@ impl Vm {
             Instr::ArrayPop => {
                 let obj = self.pop()?;
                 let obj_id = match obj {
-                    Value::HeapReference(r) => r.get().get(),
+                    Value::HeapReference(r) => r.get().get_index(),
                     _ => return self.wrong_type(ValueKind::Array),
                 };
                 match &mut self.heap[obj_id].kind {
@@ -1193,10 +1212,7 @@ impl Vm {
     }
 
     fn heap_reference(&mut self, idx: usize) -> Value {
-        Value::HeapReference(Cell::new(HeapReference {
-            idx: idx as u32,
-            group: self.heap_group,
-        }))
+        Value::HeapReference(Cell::new(HeapReference::new(idx, self.heap_group)))
     }
 
     pub fn compact(&mut self) {
@@ -1311,16 +1327,13 @@ fn forward(
     to_add: &mut Vec<ManagedObject>,
     new_heap_group: HeapGroup,
 ) -> HeapReference {
-    if r.group != new_heap_group {
+    if r.get_group() != new_heap_group {
         // from space
-        let old_obj = &old_heap[r.get()];
+        let old_obj = &old_heap[r.get_index()];
         match old_obj.forwarding_pointer.get() {
             Some(f) => {
                 // return f
-                HeapReference {
-                    idx: f as u32,
-                    group: new_heap_group,
-                }
+                HeapReference::new(f, new_heap_group)
             }
             None => {
                 // copy to new heap and install forwarding pointer in old heap object
@@ -1332,10 +1345,7 @@ fn forward(
 
                 old_obj.forwarding_pointer.replace(Some(new_idx));
 
-                HeapReference {
-                    idx: new_idx as u32,
-                    group: new_heap_group,
-                }
+                HeapReference::new(new_idx, new_heap_group)
             }
         }
     } else {
