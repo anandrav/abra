@@ -284,7 +284,7 @@ impl<Value: ValueTrait> Vm<Value> {
         let heap_index = obj.get_heap_index(self, ValueKind::Enum);
         match &self.heap[heap_index].kind {
             ManagedObjectKind::Enum { tag, value } => {
-                self.value_stack.push(value.clone());
+                self.value_stack.push(*value);
                 self.push_int(*tag as AbraInt);
             }
             _ => self.fail_wrong_type(ValueKind::Enum),
@@ -508,9 +508,9 @@ impl<L: Display, S: Display> Display for Instr<L, S> {
     }
 }
 
-// TODO: is Clone necessary?
 pub trait ValueTrait:
-    Clone
+    Copy
+    + Clone
     + Debug
     + From<AbraInt>
     + From<AbraFloat>
@@ -553,17 +553,17 @@ pub trait ValueTrait:
         Self: Sized;
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 pub struct PackedValue(u64, /*is_pointer*/ bool);
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 pub enum TaggedValue {
     Nil,
     Bool(bool),
     Int(AbraInt),
     Float(AbraFloat),
     FuncAddr(usize),
-    HeapReference(Cell<HeapReference>),
+    HeapReference(HeapReference),
 }
 
 #[derive(Debug, Copy, Clone)]
@@ -629,7 +629,7 @@ impl From<ProgramCounter> for TaggedValue {
 
 impl From<HeapReference> for TaggedValue {
     fn from(n: HeapReference) -> Self {
-        Self::HeapReference(n.into())
+        Self::HeapReference(n)
     }
 }
 
@@ -668,14 +668,14 @@ impl ValueTrait for TaggedValue {
         Self: Sized,
     {
         match self {
-            TaggedValue::HeapReference(r) => r.get(),
+            TaggedValue::HeapReference(r) => *r,
             _ => vm.fail_wrong_type(expected_value_kind),
         }
     }
 
     fn get_heap_index(&self, vm: &Vm<Self>, expected_value_kind: ValueKind) -> usize {
         match self {
-            TaggedValue::HeapReference(r) => r.get().get_index(),
+            TaggedValue::HeapReference(r) => r.get_index(),
             _ => vm.fail_wrong_type(expected_value_kind),
         }
     }
@@ -866,11 +866,11 @@ impl<Value: ValueTrait> Vm<Value> {
             }
             Instr::Duplicate => {
                 let v = self.top();
-                self.push(v.clone());
+                self.push(*v);
             }
             Instr::LoadOffset(n) => {
                 let idx = self.stack_base.wrapping_add_signed(n as isize);
-                let v = self.value_stack[idx].clone();
+                let v = self.value_stack[idx];
                 self.push(v);
             }
             Instr::StoreOffset(n) => {
@@ -1092,7 +1092,7 @@ impl<Value: ValueTrait> Vm<Value> {
                 let obj = self.pop();
                 let heap_index = obj.get_heap_index(self, ValueKind::Struct);
                 let field = match &self.heap[heap_index].kind {
-                    ManagedObjectKind::DynArray(fields) => fields[index as usize].clone(),
+                    ManagedObjectKind::DynArray(fields) => fields[index as usize],
                     _ => self.fail_wrong_type(ValueKind::Struct),
                 };
                 self.push(field);
@@ -1117,7 +1117,7 @@ impl<Value: ValueTrait> Vm<Value> {
                         if idx as usize >= fields.len() || idx < 0 {
                             self.fail(VmErrorKind::ArrayOutOfBounds);
                         }
-                        let field = fields[idx as usize].clone();
+                        let field = fields[idx as usize];
                         self.push(field);
                     }
                     _ => self.fail_wrong_type(ValueKind::Array),
