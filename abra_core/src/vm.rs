@@ -25,8 +25,6 @@ use std::{
     mem,
 };
 
-pub type VmResult<T> = std::result::Result<T, Box<VmError>>;
-
 pub struct Vm<Value: ValueTrait = PackedValue> {
     program: Vec<Instr>,
     pc: ProgramCounter,
