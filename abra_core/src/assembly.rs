@@ -31,7 +31,7 @@ impl From<Label> for Line {
 impl Display for Line {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
-            Line::Instr(instr) => write!(f, "{instr}"),
+            Line::Instr(instr) => write!(f, "\t{instr}"),
             Line::Label(label) => write!(f, "{label}:"),
         }
     }

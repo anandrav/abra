@@ -271,6 +271,22 @@ impl Translator {
                 }
             }
         }
+        // let func_name = "main".to_string();
+        // for (i, line) in st.lines.iter().enumerate() {
+        //     // let function_name_id = match st
+        //     //     .function_name_table
+        //     //     .binary_search_by_key(&(i as u32), |pair| pair.0)
+        //     // {
+        //     //     Ok(idx) | Err(idx) => {
+        //     //         let idx = if idx >= 1 { idx - 1 } else { idx };
+        //     //         self.function_name_table[idx].1
+        //     //     }
+        //     // };
+        //     // let function_name = self.function_name_arena[function_name_id as usize].clone();
+        //
+        //     println!("{}", line);
+        // }
+        // panic!();
         let (instructions, _) = remove_labels(&st.lines, &self.statics.string_constants);
         let string_table: Vec<_> = self.statics.string_constants.clone().into_iter().collect();
         let mut filename_arena = vec![];
