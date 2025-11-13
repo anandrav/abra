@@ -203,9 +203,6 @@ impl<Value: ValueTrait> Vm<Value> {
 
     #[inline(always)]
     pub fn pop_n(&mut self, n: usize) -> Vec<Value> {
-        if n > self.value_stack.len() {
-            panic!("underflow")
-        }
         self.value_stack
             .drain(self.value_stack.len() - n..)
             .collect()
@@ -240,11 +237,6 @@ impl<Value: ValueTrait> Vm<Value> {
     }
 
     #[inline(always)]
-    pub fn construct_tuple(&mut self, n: u16) {
-        self.construct_impl(n as usize)
-    }
-
-    #[inline(always)]
     pub fn construct_variant(&mut self, tag: u16) {
         let value = self.pop();
         self.heap
@@ -254,17 +246,22 @@ impl<Value: ValueTrait> Vm<Value> {
     }
 
     #[inline(always)]
+    pub fn construct_tuple(&mut self, n: u8) {
+        self.construct_struct(n as u16)
+    }
+
+    #[inline(always)]
     pub fn construct_struct(&mut self, n: u16) {
-        self.construct_impl(n as usize)
+        let fields = self.pop_n(n as usize);
+        let fields = fields.into_boxed_slice();
+        self.heap
+            .push(ManagedObject::new(ManagedObjectKind::Struct(fields)));
+        let r = self.heap_reference(self.heap.len() - 1);
+        self.push(r);
     }
 
     #[inline(always)]
     pub fn construct_array(&mut self, n: usize) {
-        self.construct_impl(n)
-    }
-
-    #[inline(always)]
-    fn construct_impl(&mut self, n: usize) {
         let fields = self.pop_n(n);
         self.heap
             .push(ManagedObject::new(ManagedObjectKind::DynArray(fields)));
@@ -857,6 +854,7 @@ enum ManagedObjectKind<Value: ValueTrait> {
     Enum { tag: u16, value: Value },
     // DynArray is also used for tuples and structs
     DynArray(Vec<Value>),
+    Struct(Box<[Value]>),
     // TODO: use Box<[Value]> for tuples and structs
     String(String), // TODO: use Box<str> ?
 }
@@ -1128,7 +1126,7 @@ impl<Value: ValueTrait> Vm<Value> {
                 self.error = Some(Box::new(self.make_error(VmErrorKind::Panic(msg.clone()))));
                 return false;
             }
-            Instr::Construct(n) => self.construct_impl(n as usize),
+            Instr::Construct(n) => self.construct_array(n as usize), // TODO: need more instructions
             Instr::DeconstructStruct => {
                 self.deconstruct_struct();
             }
@@ -1406,6 +1404,21 @@ impl<Value: ValueTrait> Vm<Value> {
             let mut to_add: Vec<ManagedObject<Value>> = vec![];
             match &mut obj.kind {
                 ManagedObjectKind::DynArray(fields) => {
+                    for v in fields {
+                        if v.is_heap_ref() {
+                            let r = v.get_heap_ref(self, ValueKind::HeapObject);
+                            *v = Value::from(forward(
+                                r,
+                                &self.heap,
+                                new_heap_len,
+                                &mut to_add,
+                                new_heap_group,
+                            ));
+                        }
+                    }
+                }
+                ManagedObjectKind::Struct(fields) => {
+                    // TODO: code duplication
                     for v in fields {
                         if v.is_heap_ref() {
                             let r = v.get_heap_ref(self, ValueKind::HeapObject);
