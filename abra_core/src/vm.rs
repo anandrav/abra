@@ -274,7 +274,7 @@ impl<Value: ValueTrait> Vm<Value> {
         let obj = self.pop();
         let heap_index = obj.get_heap_index(self, ValueKind::Struct);
         match &self.heap[heap_index].kind {
-            ManagedObjectKind::DynArray(fields) => {
+            ManagedObjectKind::Struct(fields) => {
                 self.value_stack.extend(fields.iter().rev().cloned());
             }
             _ => self.fail_wrong_type(ValueKind::Struct),
@@ -432,7 +432,9 @@ pub enum Instr<Location = ProgramCounter, StringConstant = u16> {
     Panic,
 
     // Data Structures
-    Construct(u16),
+    ConstructStruct(u16),
+    ConstructArray(usize),
+    ConstructVariant { tag: u16 },
     DeconstructStruct,
     DeconstructArray,
     DeconstructVariant,
@@ -440,7 +442,6 @@ pub enum Instr<Location = ProgramCounter, StringConstant = u16> {
     SetField(u16),
     GetIdx,
     SetIdx,
-    ConstructVariant { tag: u16 },
     MakeClosure { func_addr: Location },
 
     ArrayAppend,
@@ -501,7 +502,11 @@ impl<L: Display, S: Display> Display for Instr<L, S> {
             Instr::Return => write!(f, "return"),
             Instr::Stop => write!(f, "stop"),
             Instr::Panic => write!(f, "panic"),
-            Instr::Construct(n) => write!(f, "construct {n}"),
+            Instr::ConstructStruct(n) => write!(f, "construct_struct {n}"),
+            Instr::ConstructArray(n) => write!(f, "construct_array {n}"),
+            Instr::ConstructVariant { tag } => {
+                write!(f, "construct_variant {tag}")
+            }
             Instr::DeconstructStruct => write!(f, "deconstruct_struct"),
             Instr::DeconstructArray => write!(f, "deconstruct_array"),
             Instr::DeconstructVariant => write!(f, "deconstruct_variant"),
@@ -509,9 +514,6 @@ impl<L: Display, S: Display> Display for Instr<L, S> {
             Instr::SetField(n) => write!(f, "set_field {n}"),
             Instr::GetIdx => write!(f, "get_index"),
             Instr::SetIdx => write!(f, "set_index"),
-            Instr::ConstructVariant { tag } => {
-                write!(f, "construct_variant {tag}")
-            }
             Instr::MakeClosure { func_addr } => {
                 write!(f, "make_closure {func_addr}")
             }
@@ -851,11 +853,9 @@ impl<Value: ValueTrait> ManagedObject<Value> {
 
 #[derive(Debug, Clone)]
 enum ManagedObjectKind<Value: ValueTrait> {
-    Enum { tag: u16, value: Value },
-    // DynArray is also used for tuples and structs
+    Enum { tag: u16, value: Value }, // TODO: Use Box<[Value]> instead of Value (which is a tuple). Reduce indirection
     DynArray(Vec<Value>),
     Struct(Box<[Value]>),
-    // TODO: use Box<[Value]> for tuples and structs
     String(String), // TODO: use Box<str> ?
 }
 
@@ -1126,7 +1126,8 @@ impl<Value: ValueTrait> Vm<Value> {
                 self.error = Some(Box::new(self.make_error(VmErrorKind::Panic(msg.clone()))));
                 return false;
             }
-            Instr::Construct(n) => self.construct_array(n as usize), // TODO: need more instructions
+            Instr::ConstructStruct(n) => self.construct_struct(n),
+            Instr::ConstructArray(n) => self.construct_array(n),
             Instr::DeconstructStruct => {
                 self.deconstruct_struct();
             }
@@ -1140,7 +1141,7 @@ impl<Value: ValueTrait> Vm<Value> {
                 let obj = self.pop();
                 let heap_index = obj.get_heap_index(self, ValueKind::Struct);
                 let field = match &self.heap[heap_index].kind {
-                    ManagedObjectKind::DynArray(fields) => fields[index as usize],
+                    ManagedObjectKind::Struct(fields) => fields[index as usize],
                     _ => self.fail_wrong_type(ValueKind::Struct),
                 };
                 self.push(field);
@@ -1150,7 +1151,7 @@ impl<Value: ValueTrait> Vm<Value> {
                 let rvalue = self.pop();
                 let heap_index = obj.get_heap_index(self, ValueKind::Struct);
                 match &mut self.heap[heap_index].kind {
-                    ManagedObjectKind::DynArray(fields) => {
+                    ManagedObjectKind::Struct(fields) => {
                         fields[index as usize] = rvalue;
                     }
                     _ => self.fail_wrong_type(ValueKind::Struct),

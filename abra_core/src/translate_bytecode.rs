@@ -569,7 +569,7 @@ impl Translator {
                 for expr in exprs {
                     self.translate_expr(expr, offset_table, monomorph_env, st);
                 }
-                self.emit(st, Instr::Construct(exprs.len() as u16));
+                self.emit(st, Instr::ConstructStruct(exprs.len() as u16));
             }
             ExprKind::IfElse(cond, then_block, else_block) => {
                 self.translate_expr(cond, offset_table, monomorph_env, st);
@@ -603,7 +603,7 @@ impl Translator {
                 for expr in exprs {
                     self.translate_expr(expr, offset_table, monomorph_env, st);
                 }
-                self.emit(st, Instr::Construct(exprs.len() as u16));
+                self.emit(st, Instr::ConstructArray(exprs.len()));
             }
             ExprKind::IndexAccess(array, index) => {
                 self.translate_expr(index, offset_table, monomorph_env, st);
@@ -816,7 +816,7 @@ impl Translator {
                 );
             }
             Declaration::Struct(def) => {
-                self.emit(st, Instr::Construct(def.fields.len() as u16));
+                self.emit(st, Instr::ConstructStruct(def.fields.len() as u16));
             }
             Declaration::EnumVariant {
                 e: enum_def,
@@ -825,7 +825,7 @@ impl Translator {
                 let arity = enum_def.arity(*variant as u16);
                 if arity > 1 {
                     // turn the arguments (associated data) into a tuple
-                    self.emit(st, Instr::Construct(arity));
+                    self.emit(st, Instr::ConstructStruct(arity));
                 }
                 self.emit(
                     st,
