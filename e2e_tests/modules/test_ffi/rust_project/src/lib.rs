@@ -114,7 +114,7 @@ pub mod ffi {
         impl VmFfiType for MyStruct {
             unsafe fn from_vm_unsafe(vm: *mut c_void, vm_funcs: &AbraVmFunctions) -> Self {
                 unsafe {
-                    (vm_funcs.deconstruct)(vm);
+                    (vm_funcs.deconstruct_struct)(vm);
                     let i = <i64>::from_vm_unsafe(vm, vm_funcs);
                     let b = <bool>::from_vm_unsafe(vm, vm_funcs);
                     (vm_funcs.pop_nil)(vm);
@@ -141,7 +141,7 @@ pub mod ffi {
         impl VmFfiType for MyEnum {
             unsafe fn from_vm_unsafe(vm: *mut c_void, vm_funcs: &AbraVmFunctions) -> Self {
                 unsafe {
-                    (vm_funcs.deconstruct)(vm);
+                    (vm_funcs.deconstruct_variant)(vm);
                     let tag = (vm_funcs.pop_int)(vm);
                     match tag {
                         0 => {

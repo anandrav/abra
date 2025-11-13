@@ -38,7 +38,9 @@ pub struct AbraVmFunctions {
     pub construct_struct: unsafe extern "C" fn(vm: *mut c_void, arity: u16),
     pub construct_array: unsafe extern "C" fn(vm: *mut c_void, len: usize),
     pub construct_variant: unsafe extern "C" fn(vm: *mut c_void, tag: u16),
-    pub deconstruct: unsafe extern "C" fn(vm: *mut c_void),
+    pub deconstruct_struct: unsafe extern "C" fn(vm: *mut c_void),
+    pub deconstruct_array: unsafe extern "C" fn(vm: *mut c_void),
+    pub deconstruct_variant: unsafe extern "C" fn(vm: *mut c_void),
     pub array_len: unsafe extern "C" fn(vm: *mut c_void) -> usize,
 }
 
@@ -57,7 +59,9 @@ pub const ABRA_VM_FUNCS: AbraVmFunctions = AbraVmFunctions {
     construct_struct: abra_vm_construct_struct,
     construct_array: abra_vm_construct_array,
     construct_variant: abra_vm_construct_variant,
-    deconstruct: abra_vm_deconstruct,
+    deconstruct_struct: abra_vm_deconstruct_struct,
+    deconstruct_array: abra_vm_deconstruct_struct,
+    deconstruct_variant: abra_vm_deconstruct_enum,
     array_len: abra_vm_array_len,
 };
 
@@ -209,9 +213,17 @@ unsafe extern "C" fn abra_vm_construct_variant(vm: *mut c_void, tag: u16) {
 /// # Safety
 /// vm: *mut c_void must be valid and non-null
 #[unsafe(no_mangle)]
-unsafe extern "C" fn abra_vm_deconstruct(vm: *mut c_void) {
+unsafe extern "C" fn abra_vm_deconstruct_struct(vm: *mut c_void) {
     let vm = unsafe { (vm as *mut Vm).as_mut().unwrap() };
-    vm.deconstruct().unwrap();
+    vm.deconstruct_struct().unwrap();
+}
+
+/// # Safety
+/// vm: *mut c_void must be valid and non-null
+#[unsafe(no_mangle)]
+unsafe extern "C" fn abra_vm_deconstruct_enum(vm: *mut c_void) {
+    let vm = unsafe { (vm as *mut Vm).as_mut().unwrap() };
+    vm.deconstruct_variant().unwrap();
 }
 
 /// # Safety
@@ -335,7 +347,7 @@ fn add_items_from_ast(ast: Rc<FileAst>, output: &mut String) {
 "#,
                     );
                     output.push_str("unsafe {");
-                    output.push_str("(vm_funcs.deconstruct)(vm);");
+                    output.push_str("(vm_funcs.deconstruct_struct)(vm);");
                     for field in s.fields.iter() {
                         if matches!(&*field.ty.kind, TypeKind::Void) {
                             output.push_str(
@@ -428,7 +440,7 @@ fn add_items_from_ast(ast: Rc<FileAst>, output: &mut String) {
                     );
 
                     output.push_str("unsafe {");
-                    output.push_str("(vm_funcs.deconstruct)(vm);");
+                    output.push_str("(vm_funcs.deconstruct_variant)(vm);");
                     output.push_str("let tag = (vm_funcs.pop_int)(vm);");
                     output.push_str("match tag {");
                     for (i, variant) in e.variants.iter().enumerate() {
@@ -734,7 +746,7 @@ where
 {
     unsafe fn from_vm_unsafe(vm: *mut c_void, vm_funcs: &AbraVmFunctions) -> Self {
         unsafe {
-            (vm_funcs.deconstruct)(vm);
+            (vm_funcs.deconstruct_variant)(vm);
             let tag = (vm_funcs.pop_int)(vm);
             match tag {
                 0 => {
@@ -770,7 +782,7 @@ where
 {
     unsafe fn from_vm_unsafe(vm: *mut c_void, vm_funcs: &AbraVmFunctions) -> Self {
         unsafe {
-            (vm_funcs.deconstruct)(vm);
+            (vm_funcs.deconstruct_variant)(vm);
             let tag = (vm_funcs.pop_int)(vm);
             match tag {
                 0 => {
@@ -809,7 +821,7 @@ where
     unsafe fn from_vm_unsafe(vm: *mut c_void, vm_funcs: &AbraVmFunctions) -> Self {
         unsafe {
             let len = (vm_funcs.array_len)(vm);
-            (vm_funcs.deconstruct)(vm);
+            (vm_funcs.deconstruct_array)(vm);
             let mut ret = vec![];
             for _ in 0..len {
                 let val = <T>::from_vm_unsafe(vm, vm_funcs);
@@ -840,7 +852,7 @@ macro_rules! tuple_impls {
         impl< $($name: VmFfiType),+ > VmFfiType for ( $($name,)+ ) {
             unsafe fn from_vm_unsafe(vm: *mut c_void, vm_funcs: &AbraVmFunctions) -> Self { unsafe {
                 // Deconstruct the tuple on the VM.
-                (vm_funcs.deconstruct)(vm);
+                (vm_funcs.deconstruct_struct)(vm);
                 // Pop values in normal order.
                 #[allow(non_snake_case)]
                 let ($($name,)+) = ($( $name::from_vm_unsafe(vm, vm_funcs), )+);

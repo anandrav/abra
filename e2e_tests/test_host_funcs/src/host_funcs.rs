@@ -82,7 +82,7 @@ pub enum Color {
 impl VmType for Color {
     fn from_vm(vm: &mut Vm) -> Self {
         {
-            vm.deconstruct().unwrap();
+            vm.deconstruct_variant().unwrap();
             let tag = vm.pop_int().unwrap();
             match tag {
                 0 => {

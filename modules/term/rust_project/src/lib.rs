@@ -18,7 +18,7 @@ pub mod ffi {
         impl VmFfiType for KeyCode {
             unsafe fn from_vm_unsafe(vm: *mut c_void, vm_funcs: &AbraVmFunctions) -> Self {
                 unsafe {
-                    (vm_funcs.deconstruct)(vm);
+                    (vm_funcs.deconstruct_variant)(vm);
                     let tag = (vm_funcs.pop_int)(vm);
                     match tag {
                         0 => {

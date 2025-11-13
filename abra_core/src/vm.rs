@@ -97,13 +97,11 @@ pub enum ValueKind {
     Nil,
     Int,
     Float,
-    Number, // TODO: make int and float specific instructions then remove this
     Bool,
     String,
     Array,
     Enum,
     Struct,
-    Object, // TODO: make array, enum, struct specific instructions then remove this
     FunctionObject,
 }
 
@@ -259,20 +257,45 @@ impl Vm {
         Ok(())
     }
 
-    pub fn deconstruct(&mut self) -> Result<()> {
+    pub fn deconstruct_struct(&mut self) -> Result<()> {
         let obj = self.pop()?;
         match &obj {
             Value::HeapReference(r) => match &self.heap[r.get().get()].kind {
                 ManagedObjectKind::DynArray(fields) => {
                     self.value_stack.extend(fields.iter().rev().cloned());
                 }
+                _ => return self.wrong_type(ValueKind::Struct),
+            },
+            _ => return self.wrong_type(ValueKind::Struct),
+        };
+        Ok(())
+    }
+
+    pub fn deconstruct_array(&mut self) -> Result<()> {
+        let obj = self.pop()?;
+        match &obj {
+            Value::HeapReference(r) => match &self.heap[r.get().get()].kind {
+                ManagedObjectKind::DynArray(fields) => {
+                    self.value_stack.extend(fields.iter().rev().cloned());
+                }
+                _ => return self.wrong_type(ValueKind::Array),
+            },
+            _ => return self.wrong_type(ValueKind::Array),
+        };
+        Ok(())
+    }
+
+    pub fn deconstruct_variant(&mut self) -> Result<()> {
+        let obj = self.pop()?;
+        match &obj {
+            Value::HeapReference(r) => match &self.heap[r.get().get()].kind {
                 ManagedObjectKind::Enum { tag, value } => {
                     self.value_stack.push(value.clone());
                     self.push_int(*tag as AbraInt);
                 }
-                _ => return self.wrong_type(ValueKind::Object),
+                _ => return self.wrong_type(ValueKind::Enum),
             },
-            _ => return self.wrong_type(ValueKind::Object),
+            _ => return self.wrong_type(ValueKind::Enum),
         };
         Ok(())
     }
@@ -388,7 +411,9 @@ pub enum Instr<Location = ProgramCounter, StringConstant = u16> {
 
     // Data Structures
     Construct(u16),
-    Deconstruct,
+    DeconstructStruct,
+    DeconstructArray,
+    DeconstructVariant,
     GetField(u16),
     SetField(u16),
     GetIdx,
@@ -454,7 +479,9 @@ impl<L: Display, S: Display> Display for Instr<L, S> {
             Instr::Return => write!(f, "return"),
             Instr::Panic => write!(f, "panic"),
             Instr::Construct(n) => write!(f, "construct {n}"),
-            Instr::Deconstruct => write!(f, "deconstruct"),
+            Instr::DeconstructStruct => write!(f, "deconstruct_struct"),
+            Instr::DeconstructArray => write!(f, "deconstruct_array"),
+            Instr::DeconstructVariant => write!(f, "deconstruct_variant"),
             Instr::GetField(n) => write!(f, "get_field {n}"),
             Instr::SetField(n) => write!(f, "set_field {n}"),
             Instr::GetIdx => write!(f, "get_index"),
@@ -911,8 +938,14 @@ impl Vm {
                 return self.make_error(VmErrorKind::Panic(msg.clone()));
             }
             Instr::Construct(n) => self.construct_impl(n as usize)?,
-            Instr::Deconstruct => {
-                self.deconstruct()?;
+            Instr::DeconstructStruct => {
+                self.deconstruct_struct()?;
+            }
+            Instr::DeconstructArray => {
+                self.deconstruct_array()?;
+            }
+            Instr::DeconstructVariant => {
+                self.deconstruct_variant()?;
             }
             Instr::GetField(index) => {
                 let obj = self.pop()?;

@@ -262,7 +262,7 @@ fn add_items_from_ast(ast: &Rc<FileAst>, output: &mut String) {
 "#,
                     );
                     output.push('{');
-                    output.push_str("vm.deconstruct();");
+                    output.push_str("vm.deconstruct_struct();");
                     for field in s.fields.iter() {
                         if matches!(&*field.ty.kind, TypeKind::Void) {
                             output.push_str(
@@ -355,7 +355,7 @@ fn add_items_from_ast(ast: &Rc<FileAst>, output: &mut String) {
                     );
 
                     output.push('{');
-                    output.push_str("vm.deconstruct().unwrap();");
+                    output.push_str("vm.deconstruct_variant().unwrap();");
                     output.push_str("let tag = vm.pop_int().unwrap();");
                     output.push_str("match tag {");
                     for (i, variant) in e.variants.iter().enumerate() {
@@ -477,7 +477,7 @@ where
     T: VmType,
 {
     fn from_vm(vm: &mut Vm) -> Self {
-        vm.deconstruct().unwrap(); // TODO: remove unwraps and make return type vm::Result
+        vm.deconstruct_variant().unwrap(); // TODO: remove unwraps and make return type vm::Result
         let tag = vm.pop_int().unwrap();
         match tag {
             0 => {
@@ -511,7 +511,7 @@ where
     E: VmType,
 {
     fn from_vm(vm: &mut Vm) -> Self {
-        vm.deconstruct().unwrap();
+        vm.deconstruct_variant().unwrap();
         let tag = vm.pop_int().unwrap();
         match tag {
             0 => {
@@ -549,7 +549,7 @@ where
     fn from_vm(vm: &mut Vm) -> Self {
         {
             let len = vm.array_len().unwrap();
-            vm.deconstruct().unwrap();
+            vm.deconstruct_array().unwrap();
             let mut ret = vec![];
             for _ in 0..len {
                 let val = <T>::from_vm(vm);
@@ -580,7 +580,7 @@ macro_rules! tuple_impls {
         impl< $($name: VmType),+ > VmType for ( $($name,)+ ) {
             fn from_vm(vm: &mut Vm) -> Self {
                 // Deconstruct the tuple on the VM.
-                vm.deconstruct().unwrap();
+                vm.deconstruct_struct().unwrap();
                 // Pop values in normal order.
                 #[allow(non_snake_case)]
                 let ($($name,)+) = ($( $name::from_vm(vm), )+);

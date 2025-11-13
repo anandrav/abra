@@ -940,7 +940,7 @@ impl Translator {
                     let tag_fail_label = make_label("tag_fail");
                     let end_label = make_label("endvariant");
 
-                    self.emit(st, Instr::Deconstruct);
+                    self.emit(st, Instr::DeconstructVariant);
                     self.emit(st, Instr::PushInt(*variant as AbraInt));
                     self.emit(st, Instr::EqualInt);
                     self.emit(st, Instr::Not);
@@ -971,7 +971,7 @@ impl Translator {
                     let final_element_success_label = make_label("tuple_success");
                     let end_label = make_label("endtuple");
                     // spill tuple elements onto stack
-                    self.emit(st, Instr::Deconstruct);
+                    self.emit(st, Instr::DeconstructStruct);
                     // for each element of tuple pattern, compare to TOS
                     // if the comparison fails, pop all remaining tuple elements and jump to the next arm
                     // if it makes it through each tuple element, jump to the arm's expression
@@ -1155,7 +1155,7 @@ impl Translator {
                     fn_next_ty,
                 );
                 // check return value of iterator.next() and branch
-                self.emit(st, Instr::Deconstruct);
+                self.emit(st, Instr::DeconstructVariant);
                 self.emit(st, Instr::PushInt(0 as AbraInt));
                 self.emit(st, Instr::EqualInt);
                 self.emit(st, Instr::Not);
@@ -1231,7 +1231,7 @@ impl Translator {
                 self.emit(st, Instr::StoreOffset(*idx));
             }
             PatKind::Tuple(pats) => {
-                self.emit(st, Instr::Deconstruct);
+                self.emit(st, Instr::DeconstructStruct);
                 for pat in pats.iter() {
                     self.handle_pat_binding(pat, locals, st);
                 }
@@ -1239,7 +1239,7 @@ impl Translator {
             PatKind::Variant(_prefixes, _, inner) => {
                 if let Some(inner) = inner {
                     // unpack tag and associated data
-                    self.emit(st, Instr::Deconstruct);
+                    self.emit(st, Instr::DeconstructVariant);
                     // pop tag
                     self.emit(st, Instr::Pop);
                     self.handle_pat_binding(inner, locals, st);
