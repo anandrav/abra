@@ -1,0 +1,19 @@
+let limit = 1000000
+let primes = []
+var i = 0
+while i < limit {
+  primes.push(true) 
+  i = i + 1
+}
+var p = 2
+while p * p < limit {
+    if primes[p] {
+        i = p * p
+        while i < limit {
+            primes[i] = false
+            i = i + p
+        }
+    }
+    p = p + 1
+}
+println("p = " & p)

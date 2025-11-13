@@ -110,12 +110,20 @@ pub type ErrorLocation = (String, u32);
 
 impl Vm {
     pub fn new(program: CompiledProgram) -> Self {
+        let end = program.instructions.len();
         Self {
             program: program.instructions,
             pc: ProgramCounter(0),
-            stack_base: 1, // stack[0] is return value from main
-            value_stack: vec![PackedValue::make_nil()], // Nil is placeholder for return value from main
-            call_stack: Vec::new(),
+            // stack[0] is return value from main
+            stack_base: 1,
+            // the nil is placeholder for return value from main
+            value_stack: vec![PackedValue::make_nil()],
+            // the first call frame is a dummy and should not be in the stack trace
+            call_stack: vec![CallFrame {
+                pc: ProgramCounter(end),
+                stack_base: 0,
+                stack_size: 1,
+            }],
             heap: Vec::new(),
             heap_group: HeapGroup::One,
 
@@ -1062,16 +1070,11 @@ impl<Value: ValueTrait> Vm<Value> {
                 self.stack_base = self.value_stack.len();
             }
             Instr::Return => {
-                if self.call_stack.is_empty() {
-                    self.pc.0 = self.program.len();
-                    self.value_stack.truncate(1);
-                } else {
-                    let frame = self.call_stack.pop();
-                    let Some(frame) = frame else { self.fail(VmErrorKind::Underflow) };
-                    self.pc = frame.pc;
-                    self.stack_base = frame.stack_base;
-                    self.value_stack.truncate(frame.stack_size);
-                }
+                let frame = self.call_stack.pop();
+                let Some(frame) = frame else { self.fail(VmErrorKind::Underflow) };
+                self.pc = frame.pc;
+                self.stack_base = frame.stack_base;
+                self.value_stack.truncate(frame.stack_size);
             }
             Instr::Panic => {
                 let msg = self.pop().view_string(self);
@@ -1298,7 +1301,8 @@ impl<Value: ValueTrait> Vm<Value> {
 
     fn make_stack_trace(&self) -> Vec<VmErrorLocation> {
         let mut ret = vec![];
-        for frame in &self.call_stack {
+        // the first call frame is a dummy and should not be in the stack trace
+        for frame in &self.call_stack[1..] {
             ret.push(self.pc_to_error_location(frame.pc));
         }
         ret
