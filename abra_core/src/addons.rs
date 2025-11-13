@@ -4,7 +4,7 @@
 
 // Rust addon API
 
-use crate::vm::{Value, Vm};
+use crate::vm::{ValueTrait, Vm};
 use crate::{
     FileAst, FileData, ItemKind,
     ast::{FileDatabase, Type, TypeDefKind, TypeKind},

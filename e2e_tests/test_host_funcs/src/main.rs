@@ -4,7 +4,7 @@
 
 use std::{error::Error, path::PathBuf};
 
-use abra_core::vm::Value;
+use abra_core::vm::ValueTrait;
 use abra_core::{
     OsFileProvider,
     vm::{Vm, VmStatus},

@@ -498,7 +498,7 @@ impl<L: Display, S: Display> Display for Instr<L, S> {
     }
 }
 
-pub trait Value {
+pub trait ValueTrait {
     fn get_int(&self, vm: &Vm) -> Result<AbraInt>;
 
     fn get_float(&self, vm: &Vm) -> Result<AbraFloat>;
@@ -579,7 +579,7 @@ impl From<AbraFloat> for TaggedValue {
     }
 }
 
-impl Value for TaggedValue {
+impl ValueTrait for TaggedValue {
     fn get_int(&self, vm: &Vm) -> Result<AbraInt> {
         match self {
             TaggedValue::Int(i) => Ok(*i),
@@ -624,7 +624,7 @@ impl Value for TaggedValue {
     }
 }
 
-impl Value for PackedValue {
+impl ValueTrait for PackedValue {
     fn get_int(&self, _vm: &Vm) -> Result<AbraInt> {
         Ok(self.0 as AbraInt)
     }
