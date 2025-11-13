@@ -574,6 +574,16 @@ impl Value {
         }
     }
 
+    // pub fn get_heapref(&self, vm: &Vm) -> Result<u64> {
+    //     match self {
+    //         Value::HeapReference(r) => match &vm.heap[r.get().get()].kind {
+    //             ManagedObjectKind::String(s) => Ok(s),
+    //             _ => vm.wrong_type(ValueKind::String),
+    //         },
+    //         _ => vm.wrong_type(ValueKind::String),
+    //     }
+    // }
+
     pub fn view_string<'a>(&self, vm: &'a Vm) -> Result<&'a String> {
         match self {
             Value::HeapReference(r) => match &vm.heap[r.get().get()].kind {
