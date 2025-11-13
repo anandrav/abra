@@ -383,5 +383,5 @@ pub(crate) fn _print_node(ctx: &StaticsContext, node: AstNode) {
     let writer = StandardStream::stderr(ColorChoice::Always);
     let config = codespan_reporting::term::Config::default();
 
-    term::emit(&mut writer.lock(), &config, &ctx._files, &diagnostic).unwrap();
+    term::emit_to_io_write(&mut writer.lock(), &config, &ctx._files, &diagnostic).unwrap();
 }

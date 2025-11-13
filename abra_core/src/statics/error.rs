@@ -260,7 +260,7 @@ impl Error {
         let writer = StandardStream::stderr(ColorChoice::Always);
         let config = term::Config::default();
 
-        term::emit(&mut writer.lock(), &config, files, &diagnostic).unwrap();
+        term::emit_to_io_write(&mut writer.lock(), &config, files, &diagnostic).unwrap();
     }
 
     pub fn to_string(&self, files: &FileDatabase, ansi: bool) -> String {
@@ -272,7 +272,7 @@ impl Error {
         };
         let config = term::Config::default();
 
-        term::emit(&mut buffer, &config, files, &diagnostic).unwrap();
+        term::emit_to_io_write(&mut buffer, &config, files, &diagnostic).unwrap();
         String::from_utf8(buffer.into_inner()).unwrap()
     }
 }
