@@ -1244,8 +1244,7 @@ impl Translator {
             overload_ty: overload_ty.clone(),
         };
         let label = self.get_func_label(st, desc, overload_ty, func_name);
-        self.emit(st, Instr::PushInt(func_def.args.len() as AbraInt));
-        self.emit(st, Instr::Call(label));
+        self.emit(st, Instr::Call(func_def.args.len() as u8, label));
     }
 
     fn get_func_label(

@@ -119,11 +119,14 @@ fn instr_to_vminstr(
         Instr::PushString(s) => VmInstr::PushString(string_constants.try_get_id(s).unwrap() as u16),
         Instr::Jump(label) => VmInstr::Jump(ProgramCounter(label_to_idx[label])),
         Instr::JumpIf(label) => VmInstr::JumpIf(ProgramCounter(label_to_idx[label])),
-        Instr::Call(label) => VmInstr::Call(ProgramCounter(
-            *label_to_idx
-                .get(label)
-                .unwrap_or_else(|| panic!("Could not find label: {label}")),
-        )),
+        Instr::Call(nargs, label) => VmInstr::Call(
+            *nargs,
+            ProgramCounter(
+                *label_to_idx
+                    .get(label)
+                    .unwrap_or_else(|| panic!("Could not find label: {label}")),
+            ),
+        ),
         Instr::CallExtern(func_id) => VmInstr::CallExtern(*func_id),
         Instr::CallFuncObj => VmInstr::CallFuncObj,
         Instr::Return => VmInstr::Return,

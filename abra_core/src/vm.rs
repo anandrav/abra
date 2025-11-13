@@ -404,7 +404,7 @@ pub enum Instr<Location = ProgramCounter, StringConstant = u16> {
     // Control Flow
     Jump(Location),
     JumpIf(Location),
-    Call(Location),
+    Call(u8, Location),
     CallFuncObj,
     CallExtern(usize),
     Return,
@@ -475,7 +475,7 @@ impl<L: Display, S: Display> Display for Instr<L, S> {
             Instr::PushString(s) => write!(f, "push_string {s}"),
             Instr::Jump(loc) => write!(f, "jump {loc}"),
             Instr::JumpIf(loc) => write!(f, "jump_if {loc}"),
-            Instr::Call(loc) => write!(f, "call {loc}"),
+            Instr::Call(nargs, loc) => write!(f, "call {nargs} {loc}"),
             Instr::CallExtern(func_id) => write!(f, "call_extern {func_id}"),
             Instr::CallFuncObj => write!(f, "call_func_obj"),
             Instr::Return => write!(f, "return"),
@@ -1041,8 +1041,7 @@ impl<Value: ValueTrait> Vm<Value> {
                     self.pc = target;
                 }
             }
-            Instr::Call(target) => {
-                let nargs = self.pop_int();
+            Instr::Call(nargs, target) => {
                 self.call_stack.push(CallFrame {
                     pc: self.pc,
                     stack_base: self.stack_base,
