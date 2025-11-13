@@ -259,54 +259,46 @@ impl Vm {
 
     pub fn deconstruct_struct(&mut self) -> Result<()> {
         let obj = self.pop()?;
-        match &obj {
-            Value::HeapReference(r) => match &self.heap[r.get().get_index()].kind {
-                ManagedObjectKind::DynArray(fields) => {
-                    self.value_stack.extend(fields.iter().rev().cloned());
-                }
-                _ => return self.wrong_type(ValueKind::Struct),
-            },
+        let heap_index = obj.get_heap_index(self, ValueKind::Struct)?;
+        match &self.heap[heap_index].kind {
+            ManagedObjectKind::DynArray(fields) => {
+                self.value_stack.extend(fields.iter().rev().cloned());
+            }
             _ => return self.wrong_type(ValueKind::Struct),
-        };
+        }
         Ok(())
     }
 
     pub fn deconstruct_array(&mut self) -> Result<()> {
         let obj = self.pop()?;
-        match &obj {
-            Value::HeapReference(r) => match &self.heap[r.get().get_index()].kind {
-                ManagedObjectKind::DynArray(fields) => {
-                    self.value_stack.extend(fields.iter().rev().cloned());
-                }
-                _ => return self.wrong_type(ValueKind::Array),
-            },
+        let heap_index = obj.get_heap_index(self, ValueKind::Struct)?;
+        match &self.heap[heap_index].kind {
+            ManagedObjectKind::DynArray(fields) => {
+                self.value_stack.extend(fields.iter().rev().cloned());
+            }
             _ => return self.wrong_type(ValueKind::Array),
-        };
+        }
         Ok(())
     }
 
     pub fn deconstruct_variant(&mut self) -> Result<()> {
         let obj = self.pop()?;
-        match &obj {
-            Value::HeapReference(r) => match &self.heap[r.get().get_index()].kind {
-                ManagedObjectKind::Enum { tag, value } => {
-                    self.value_stack.push(value.clone());
-                    self.push_int(*tag as AbraInt);
-                }
-                _ => return self.wrong_type(ValueKind::Enum),
-            },
+        let heap_index = obj.get_heap_index(self, ValueKind::Enum)?;
+        match &self.heap[heap_index].kind {
+            ManagedObjectKind::Enum { tag, value } => {
+                self.value_stack.push(value.clone());
+                self.push_int(*tag as AbraInt);
+            }
             _ => return self.wrong_type(ValueKind::Enum),
-        };
+        }
         Ok(())
     }
 
     pub fn array_len(&mut self) -> Result<usize> {
         let obj = self.top()?;
-        let len = match &obj {
-            Value::HeapReference(r) => match &self.heap[r.get().get_index()].kind {
-                ManagedObjectKind::DynArray(fields) => fields.len(),
-                _ => return self.wrong_type(ValueKind::Array),
-            },
+        let index = obj.get_heap_index(self, ValueKind::Array)?;
+        let len = match &self.heap[index].kind {
+            ManagedObjectKind::DynArray(fields) => fields.len(),
             _ => return self.wrong_type(ValueKind::Array),
         };
         Ok(len)
@@ -506,6 +498,10 @@ impl<L: Display, S: Display> Display for Instr<L, S> {
     }
 }
 
+// #[cfg(not(feature = "debug_vm"))]
+// pub struct Value(u64);
+
+// #[cfg(feature = "debug_vm")]
 #[derive(Debug, Clone)]
 pub enum Value {
     Nil,
@@ -593,22 +589,17 @@ impl Value {
         }
     }
 
-    // pub fn get_heapref(&self, vm: &Vm) -> Result<u64> {
-    //     match self {
-    //         Value::HeapReference(r) => match &vm.heap[r.get().get()].kind {
-    //             ManagedObjectKind::String(s) => Ok(s),
-    //             _ => vm.wrong_type(ValueKind::String),
-    //         },
-    //         _ => vm.wrong_type(ValueKind::String),
-    //     }
-    // }
+    pub fn get_heap_index(&self, vm: &Vm, expected_value_kind: ValueKind) -> Result<usize> {
+        match self {
+            Value::HeapReference(r) => Ok(r.get().get_index()),
+            _ => vm.wrong_type(expected_value_kind),
+        }
+    }
 
     pub fn view_string<'a>(&self, vm: &'a Vm) -> Result<&'a String> {
-        match self {
-            Value::HeapReference(r) => match &vm.heap[r.get().get_index()].kind {
-                ManagedObjectKind::String(s) => Ok(s),
-                _ => vm.wrong_type(ValueKind::String),
-            },
+        let index = self.get_heap_index(vm, ValueKind::String)?;
+        match &vm.heap[index].kind {
+            ManagedObjectKind::String(s) => Ok(s),
             _ => vm.wrong_type(ValueKind::String),
         }
     }
@@ -978,11 +969,9 @@ impl Vm {
             }
             Instr::GetField(index) => {
                 let obj = self.pop()?;
-                let field = match &obj {
-                    Value::HeapReference(r) => match &self.heap[r.get().get_index()].kind {
-                        ManagedObjectKind::DynArray(fields) => fields[index as usize].clone(),
-                        _ => return self.wrong_type(ValueKind::Struct),
-                    },
+                let heap_index = obj.get_heap_index(self, ValueKind::Struct)?;
+                let field = match &self.heap[heap_index].kind {
+                    ManagedObjectKind::DynArray(fields) => fields[index as usize].clone(),
                     _ => return self.wrong_type(ValueKind::Struct),
                 };
                 self.push(field);
@@ -990,11 +979,8 @@ impl Vm {
             Instr::SetField(index) => {
                 let obj = self.pop()?;
                 let rvalue = self.pop()?;
-                let obj_id = match obj {
-                    Value::HeapReference(r) => r.get().get_index(),
-                    _ => return self.wrong_type(ValueKind::Struct),
-                };
-                match &mut self.heap[obj_id].kind {
+                let heap_index = obj.get_heap_index(self, ValueKind::Struct)?;
+                match &mut self.heap[heap_index].kind {
                     ManagedObjectKind::DynArray(fields) => {
                         fields[index as usize] = rvalue;
                     }
@@ -1004,29 +990,24 @@ impl Vm {
             Instr::GetIdx => {
                 let obj = self.pop()?;
                 let idx = self.pop_int()?;
-                match &obj {
-                    Value::HeapReference(r) => match &self.heap[r.get().get_index()].kind {
-                        ManagedObjectKind::DynArray(fields) => {
-                            if idx as usize >= fields.len() || idx < 0 {
-                                return self.make_error(VmErrorKind::ArrayOutOfBounds);
-                            }
-                            let field = fields[idx as usize].clone();
-                            self.push(field);
+                let heap_index = obj.get_heap_index(self, ValueKind::Array)?;
+                match &self.heap[heap_index].kind {
+                    ManagedObjectKind::DynArray(fields) => {
+                        if idx as usize >= fields.len() || idx < 0 {
+                            return self.make_error(VmErrorKind::ArrayOutOfBounds);
                         }
-                        _ => return self.wrong_type(ValueKind::Array),
-                    },
+                        let field = fields[idx as usize].clone();
+                        self.push(field);
+                    }
                     _ => return self.wrong_type(ValueKind::Array),
-                };
+                }
             }
             Instr::SetIdx => {
                 let obj = self.pop()?;
                 let idx = self.pop_int()?;
                 let rvalue = self.pop()?;
-                let obj_id = match obj {
-                    Value::HeapReference(r) => r.get().get_index(),
-                    _ => return self.wrong_type(ValueKind::Array),
-                };
-                match &mut self.heap[obj_id].kind {
+                let heap_index = obj.get_heap_index(self, ValueKind::Array)?;
+                match &mut self.heap[heap_index].kind {
                     ManagedObjectKind::DynArray(fields) => {
                         if idx as usize >= fields.len() || idx < 0 {
                             return self.make_error(VmErrorKind::ArrayOutOfBounds);
@@ -1045,11 +1026,8 @@ impl Vm {
             Instr::ArrayAppend => {
                 let rvalue = self.pop()?;
                 let obj = self.pop()?;
-                let obj_id = match &obj {
-                    Value::HeapReference(r) => r.get().get_index(),
-                    _ => return self.wrong_type(ValueKind::Array),
-                };
-                match &mut self.heap[obj_id].kind {
+                let heap_index = obj.get_heap_index(self, ValueKind::Array)?;
+                match &mut self.heap[heap_index].kind {
                     ManagedObjectKind::DynArray(fields) => {
                         fields.push(rvalue);
                     }
@@ -1063,11 +1041,8 @@ impl Vm {
             }
             Instr::ArrayPop => {
                 let obj = self.pop()?;
-                let obj_id = match obj {
-                    Value::HeapReference(r) => r.get().get_index(),
-                    _ => return self.wrong_type(ValueKind::Array),
-                };
-                match &mut self.heap[obj_id].kind {
+                let heap_index = obj.get_heap_index(self, ValueKind::Array)?;
+                match &mut self.heap[heap_index].kind {
                     ManagedObjectKind::DynArray(fields) => {
                         let rvalue = fields.pop().expect("array underflow");
                         self.push(rvalue);

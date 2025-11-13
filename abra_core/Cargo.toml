@@ -13,6 +13,7 @@ path = "src/lib.rs"
 
 [features]
 ffi = ["libloading"]
+debug_vm = []
 
 [dependencies]
 disjoint-sets = "0.4.2"                               # TODO: implement your own disjoint sets
