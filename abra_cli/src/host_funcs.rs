@@ -22,7 +22,7 @@ pub enum HostFunctionArgs {
     Readline,
 }
 impl HostFunctionArgs {
-    pub(crate) fn from_vm(vm: &mut Vm, pending_host_func: u16) -> Self {
+    pub(crate) fn from_vm<Value: ValueTrait>(vm: &mut Vm<Value>, pending_host_func: u16) -> Self {
         match pending_host_func {
             0 => {
                 let arg0: String = <String>::from_vm(vm);
@@ -38,7 +38,7 @@ pub enum HostFunctionRet {
     Readline(String),
 }
 impl HostFunctionRet {
-    pub(crate) fn into_vm(self, vm: &mut Vm) {
+    pub(crate) fn into_vm<Value: ValueTrait>(self, vm: &mut Vm<Value>) {
         match self {
             HostFunctionRet::PrintString => {
                 ().to_vm(vm);

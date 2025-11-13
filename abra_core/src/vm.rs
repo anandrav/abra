@@ -3,7 +3,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 #[derive(Copy, Clone, Debug)]
-struct ProgramCounter(usize);
+pub struct ProgramCounter(pub usize);
 pub type AbraInt = i64;
 pub type AbraFloat = f64;
 
@@ -28,7 +28,7 @@ use std::{
 pub type VmResult<T> = std::result::Result<T, Box<VmError>>;
 type Result<T> = VmResult<T>;
 
-pub struct Vm<Value: ValueTrait> {
+pub struct Vm<Value: ValueTrait = PackedValue> {
     program: Vec<Instr>,
     pc: ProgramCounter,
     stack_base: usize,
@@ -103,18 +103,19 @@ pub enum ValueKind {
     Array,
     Enum,
     Struct,
+    HeapObject,
     FunctionObject,
 }
 
 pub type ErrorLocation = (String, u32);
 
-impl<Value: ValueTrait> Vm<Value> {
+impl Vm {
     pub fn new(program: CompiledProgram) -> Self {
         Self {
             program: program.instructions,
             pc: ProgramCounter(0),
-            stack_base: 1,                        // stack[0] is return value from main
-            value_stack: vec![Value::make_nil()], // Nil is placeholder for return value from main
+            stack_base: 1, // stack[0] is return value from main
+            value_stack: vec![PackedValue::make_nil()], // Nil is placeholder for return value from main
             call_stack: Vec::new(),
             heap: Vec::new(),
             heap_group: HeapGroup::One,
@@ -136,7 +137,9 @@ impl<Value: ValueTrait> Vm<Value> {
             foreign_functions: Vec::new(),
         }
     }
+}
 
+impl<Value: ValueTrait> Vm<Value> {
     // pub fn with_entry_point(program: CompiledProgram, entry_point: String) -> Option<Self> {
     //     dbg!(&entry_point);
     //     dbg!(&program.label_map);
@@ -523,6 +526,10 @@ pub trait ValueTrait:
     where
         Self: Sized;
 
+    fn get_heap_ref(&self, vm: &Vm<Self>, expected_value_kind: ValueKind) -> Result<HeapReference>
+    where
+        Self: Sized;
+
     fn get_heap_index(&self, vm: &Vm<Self>, expected_value_kind: ValueKind) -> Result<usize>
     where
         Self: Sized;
@@ -642,6 +649,16 @@ impl ValueTrait for TaggedValue {
         }
     }
 
+    fn get_heap_ref(&self, vm: &Vm<Self>, expected_value_kind: ValueKind) -> Result<HeapReference>
+    where
+        Self: Sized,
+    {
+        match self {
+            TaggedValue::HeapReference(r) => Ok(r.get()),
+            _ => vm.wrong_type(expected_value_kind),
+        }
+    }
+
     fn get_heap_index(&self, vm: &Vm<Self>, expected_value_kind: ValueKind) -> Result<usize> {
         match self {
             TaggedValue::HeapReference(r) => Ok(r.get().get_index()),
@@ -714,6 +731,14 @@ impl ValueTrait for PackedValue {
 
     fn get_bool(&self, _vm: &Vm<Self>) -> Result<bool> {
         Ok(self.0 != 0)
+    }
+
+    fn get_heap_ref(&self, vm: &Vm<Self>, expected_value_kind: ValueKind) -> Result<HeapReference>
+    where
+        Self: Sized,
+    {
+        let heap_ref = HeapReference(self.0);
+        Ok(heap_ref)
     }
 
     fn get_heap_index(&self, _vm: &Vm<Self>, _expected_value_kind: ValueKind) -> Result<usize> {
@@ -1340,47 +1365,39 @@ impl<Value: ValueTrait> Vm<Value> {
 
         // roots
         for i in 0..self.value_stack.len() {
+            let v = &self.value_stack[i];
+            let r = v.get_heap_ref(self, ValueKind::HeapObject).unwrap(); // TODO: remove unwrap
             let v = &mut self.value_stack[i];
-            if let Value::HeapReference(r) = v {
-                r.replace(forward(
-                    r.get(),
-                    &self.heap,
-                    0,
-                    &mut new_heap,
-                    new_heap_group,
-                ));
-            }
+            *v = Value::from(forward(r, &self.heap, 0, &mut new_heap, new_heap_group));
         }
 
         let mut i = 0;
         while i < new_heap.len() {
-            let obj = &new_heap[i];
-            let mut to_add: Vec<ManagedObject> = vec![];
             let new_heap_len = new_heap.len();
-            match &obj.kind {
+            let obj = &mut new_heap[i];
+            let mut to_add: Vec<ManagedObject<Value>> = vec![];
+            match &mut obj.kind {
                 ManagedObjectKind::DynArray(fields) => {
                     for v in fields {
-                        if let Value::HeapReference(r) = v {
-                            r.replace(forward(
-                                r.get(),
-                                &self.heap,
-                                new_heap_len,
-                                &mut to_add,
-                                new_heap_group,
-                            ));
-                        }
-                    }
-                }
-                ManagedObjectKind::Enum { tag: _, value } => {
-                    if let Value::HeapReference(r) = value {
-                        r.replace(forward(
-                            r.get(),
+                        let r = v.get_heap_ref(self, ValueKind::HeapObject).unwrap(); // TODO: remove unwrap
+                        *v = Value::from(forward(
+                            r,
                             &self.heap,
                             new_heap_len,
                             &mut to_add,
                             new_heap_group,
                         ));
                     }
+                }
+                ManagedObjectKind::Enum { tag: _, value } => {
+                    let r = value.get_heap_ref(self, ValueKind::HeapObject).unwrap(); // TODO: remove unwrap
+                    *value = Value::from(forward(
+                        r,
+                        &self.heap,
+                        new_heap_len,
+                        &mut to_add,
+                        new_heap_group,
+                    ));
                 }
                 ManagedObjectKind::String(_) => {}
             }

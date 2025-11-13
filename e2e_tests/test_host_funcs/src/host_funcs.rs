@@ -28,7 +28,7 @@ pub enum HostFunctionArgs {
     Readline,
 }
 impl HostFunctionArgs {
-    pub(crate) fn from_vm(vm: &mut Vm, pending_host_func: u16) -> Self {
+    pub(crate) fn from_vm<Value: ValueTrait>(vm: &mut Vm<Value>, pending_host_func: u16) -> Self {
         match pending_host_func {
             0 => {
                 let arg1: i64 = <i64>::from_vm(vm);
@@ -56,7 +56,7 @@ pub enum HostFunctionRet {
     Readline(String),
 }
 impl HostFunctionRet {
-    pub(crate) fn into_vm(self, vm: &mut Vm) {
+    pub(crate) fn into_vm<Value: ValueTrait>(self, vm: &mut Vm<Value>) {
         match self {
             HostFunctionRet::Bar(out0, out1) => {
                 (out0, out1).to_vm(vm);
@@ -79,8 +79,8 @@ pub enum Color {
     Blue,
     Green,
 }
-impl VmType for Color {
-    fn from_vm(vm: &mut Vm) -> Self {
+impl<Value: ValueTrait> VmType<Value> for Color {
+    fn from_vm(vm: &mut Vm<Value>) -> Self {
         {
             vm.deconstruct_variant().unwrap();
             let tag = vm.pop_int().unwrap();
@@ -101,7 +101,7 @@ impl VmType for Color {
             }
         }
     }
-    fn to_vm(self, vm: &mut Vm) {
+    fn to_vm(self, vm: &mut Vm<Value>) {
         {
             match self {
                 Color::Red => {

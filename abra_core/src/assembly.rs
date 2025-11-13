@@ -3,7 +3,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use crate::translate_bytecode::LabelMap;
-use crate::vm::Instr as VmInstr;
+use crate::vm::{Instr as VmInstr, ProgramCounter};
 use std::fmt::{self, Display, Formatter};
 use utils::hash::HashMap;
 use utils::id_set::IdSet;
@@ -117,13 +117,13 @@ fn instr_to_vminstr(
         Instr::PushInt(i) => VmInstr::PushInt(*i),
         Instr::PushFloat(f) => VmInstr::PushFloat(*f),
         Instr::PushString(s) => VmInstr::PushString(string_constants.try_get_id(s).unwrap() as u16),
-        Instr::Jump(label) => VmInstr::Jump(label_to_idx[label]),
-        Instr::JumpIf(label) => VmInstr::JumpIf(label_to_idx[label]),
-        Instr::Call(label) => VmInstr::Call(
+        Instr::Jump(label) => VmInstr::Jump(ProgramCounter(label_to_idx[label])),
+        Instr::JumpIf(label) => VmInstr::JumpIf(ProgramCounter(label_to_idx[label])),
+        Instr::Call(label) => VmInstr::Call(ProgramCounter(
             *label_to_idx
                 .get(label)
                 .unwrap_or_else(|| panic!("Could not find label: {label}")),
-        ),
+        )),
         Instr::CallExtern(func_id) => VmInstr::CallExtern(*func_id),
         Instr::CallFuncObj => VmInstr::CallFuncObj,
         Instr::Return => VmInstr::Return,
@@ -140,7 +140,7 @@ fn instr_to_vminstr(
         Instr::MakeClosure { func_addr } => {
             // dbg!(func_addr);
             VmInstr::MakeClosure {
-                func_addr: label_to_idx[func_addr],
+                func_addr: ProgramCounter(label_to_idx[func_addr]),
             }
         }
         Instr::ArrayAppend => VmInstr::ArrayAppend,
