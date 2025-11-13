@@ -425,24 +425,62 @@ impl Translator {
                         &func_ty,
                     );
                 };
+                let arg1_ty = self.statics.solution_of_node(left.node()).unwrap();
                 match op {
-                    BinaryOperator::Add => helper(monomorph_env, "prelude.Num.add"),
-                    BinaryOperator::Subtract => helper(monomorph_env, "prelude.Num.subtract"),
-                    BinaryOperator::Multiply => helper(monomorph_env, "prelude.Num.multiply"),
-                    BinaryOperator::Divide => helper(monomorph_env, "prelude.Num.divide"),
-                    BinaryOperator::GreaterThan => {
-                        helper(monomorph_env, "prelude.Num.greater_than")
-                    }
-                    BinaryOperator::LessThan => helper(monomorph_env, "prelude.Num.less_than"),
-                    BinaryOperator::GreaterThanOrEqual => {
-                        helper(monomorph_env, "prelude.Num.greater_than_or_equal")
-                    }
-                    BinaryOperator::LessThanOrEqual => {
-                        helper(monomorph_env, "prelude.Num.less_than_or_equal")
-                    }
-                    BinaryOperator::Equal => {
-                        helper(monomorph_env, "prelude.Equal.equal");
-                    }
+                    BinaryOperator::Add => match arg1_ty {
+                        SolvedType::Int => self.emit(st, Instr::AddInt),
+                        SolvedType::Float => self.emit(st, Instr::AddFloat),
+                        _ => unreachable!(),
+                    },
+                    BinaryOperator::Subtract => match arg1_ty {
+                        SolvedType::Int => self.emit(st, Instr::SubtractInt),
+                        SolvedType::Float => self.emit(st, Instr::SubtractFloat),
+                        _ => unreachable!(),
+                    },
+                    BinaryOperator::Multiply => match arg1_ty {
+                        SolvedType::Int => self.emit(st, Instr::MultiplyInt),
+                        SolvedType::Float => self.emit(st, Instr::MultiplyFloat),
+                        _ => unreachable!(),
+                    },
+                    BinaryOperator::Divide => match arg1_ty {
+                        SolvedType::Int => self.emit(st, Instr::DivideInt),
+                        SolvedType::Float => self.emit(st, Instr::DivideFloat),
+                        _ => unreachable!(),
+                    },
+                    BinaryOperator::GreaterThan => match arg1_ty {
+                        SolvedType::Int => self.emit(st, Instr::GreaterThanInt),
+                        SolvedType::Float => self.emit(st, Instr::GreaterThanFloat),
+                        _ => unreachable!(),
+                    },
+                    BinaryOperator::LessThan => match arg1_ty {
+                        SolvedType::Int => self.emit(st, Instr::LessThanInt),
+                        SolvedType::Float => self.emit(st, Instr::LessThanFloat),
+                        _ => unreachable!(),
+                    },
+                    BinaryOperator::GreaterThanOrEqual => match arg1_ty {
+                        SolvedType::Int => self.emit(st, Instr::GreaterThanOrEqualInt),
+                        SolvedType::Float => self.emit(st, Instr::GreaterThanOrEqualFloat),
+                        _ => unreachable!(),
+                    },
+                    BinaryOperator::LessThanOrEqual => match arg1_ty {
+                        SolvedType::Int => self.emit(st, Instr::LessThanOrEqualInt),
+                        SolvedType::Float => self.emit(st, Instr::LessThanOrEqualFloat),
+                        _ => unreachable!(),
+                    },
+                    BinaryOperator::Equal => match arg1_ty {
+                        SolvedType::Int => self.emit(st, Instr::EqualInt),
+                        SolvedType::Float => self.emit(st, Instr::EqualFloat),
+                        SolvedType::Bool => self.emit(st, Instr::EqualBool),
+                        SolvedType::String => self.emit(st, Instr::EqualString),
+                        _ => {
+                            helper(monomorph_env, "prelude.Equal.equal");
+                        }
+                    },
+                    BinaryOperator::Pow => match arg1_ty {
+                        SolvedType::Int => self.emit(st, Instr::PowerInt),
+                        SolvedType::Float => self.emit(st, Instr::PowerFloat),
+                        _ => unreachable!(),
+                    },
                     BinaryOperator::Format => {
                         let format_append_decl = self
                             .statics
@@ -454,7 +492,6 @@ impl Translator {
                         };
                         let func_name = &self.statics.fully_qualified_names[&func.name.id];
 
-                        let arg1_ty = self.statics.solution_of_node(left.node()).unwrap();
                         let arg2_ty = self.statics.solution_of_node(right.node()).unwrap();
                         let out_ty = self.statics.solution_of_node(expr.node()).unwrap();
                         let specific_func_ty =
@@ -466,7 +503,6 @@ impl Translator {
                     }
                     BinaryOperator::Or => self.emit(st, Instr::Or),
                     BinaryOperator::And => self.emit(st, Instr::And),
-                    BinaryOperator::Pow => helper(monomorph_env, "prelude.Num.power"),
                     BinaryOperator::Mod => self.emit(st, Instr::Modulo),
                 }
             }
