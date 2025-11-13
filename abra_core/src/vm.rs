@@ -31,7 +31,7 @@ pub struct Vm<Value: ValueTrait = PackedValue> {
     stack_base: usize,
     value_stack: Vec<Value>,
     call_stack: Vec<CallFrame>,
-    heap: Vec<ManagedObject<Value>>,
+    heap: Vec<ManagedObject<Value>>, // TODO: replace with bump-allocated arena(s)
     heap_group: HeapGroup,
 
     static_strings: Vec<String>,
@@ -857,7 +857,8 @@ enum ManagedObjectKind<Value: ValueTrait> {
     Enum { tag: u16, value: Value },
     // DynArray is also used for tuples and structs
     DynArray(Vec<Value>),
-    String(String),
+    // TODO: use Box<[Value]> for tuples and structs
+    String(String), // TODO: use Box<str> ?
 }
 
 impl<Value: ValueTrait> Vm<Value> {
@@ -1225,7 +1226,7 @@ impl<Value: ValueTrait> Vm<Value> {
                 let a = self.pop();
                 let a_str = a.view_string(self);
                 let b_str = b.view_string(self);
-                let mut new_str = String::new();
+                let mut new_str = String::with_capacity(a_str.len() + b_str.len());
                 new_str.push_str(a_str);
                 new_str.push_str(b_str);
                 self.heap
