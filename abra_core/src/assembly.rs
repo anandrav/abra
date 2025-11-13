@@ -130,6 +130,7 @@ fn instr_to_vminstr(
         Instr::CallExtern(func_id) => VmInstr::CallExtern(*func_id),
         Instr::CallFuncObj => VmInstr::CallFuncObj,
         Instr::Return => VmInstr::Return,
+        Instr::Stop => VmInstr::Stop,
         Instr::Panic => VmInstr::Panic,
         Instr::Construct(n) => VmInstr::Construct(*n),
         Instr::DeconstructStruct => VmInstr::DeconstructStruct,

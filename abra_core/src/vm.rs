@@ -42,6 +42,7 @@ pub struct Vm<Value: ValueTrait = PackedValue> {
     lineno_table: Vec<(BytecodeIndex, u32)>,
     function_name_table: Vec<(BytecodeIndex, u32)>,
 
+    should_continue: bool,
     pending_host_func: Option<u16>,
     error: Option<Box<VmError>>,
 
@@ -133,6 +134,7 @@ impl Vm {
             lineno_table: program.lineno_table,
             function_name_table: program.function_name_table,
 
+            should_continue: false,
             pending_host_func: None,
             error: None,
 
@@ -414,6 +416,7 @@ pub enum Instr<Location = ProgramCounter, StringConstant = u16> {
     CallFuncObj,
     CallExtern(usize),
     Return,
+    Stop, // used when returning from main function
     HostFunc(u16),
     Panic,
 
@@ -485,6 +488,7 @@ impl<L: Display, S: Display> Display for Instr<L, S> {
             Instr::CallExtern(func_id) => write!(f, "call_extern {func_id}"),
             Instr::CallFuncObj => write!(f, "call_func_obj"),
             Instr::Return => write!(f, "return"),
+            Instr::Stop => write!(f, "stop"),
             Instr::Panic => write!(f, "panic"),
             Instr::Construct(n) => write!(f, "construct {n}"),
             Instr::DeconstructStruct => write!(f, "deconstruct_struct"),
@@ -819,7 +823,8 @@ impl<Value: ValueTrait> Vm<Value> {
         if self.error.is_some() {
             panic!("forgot to check error on vm");
         }
-        while !self.is_done() && self.pending_host_func.is_none() && self.error.is_none() {
+        self.should_continue = true;
+        while self.should_continue {
             self.step()
         }
     }
@@ -844,6 +849,10 @@ impl<Value: ValueTrait> Vm<Value> {
 
     fn step(&mut self) {
         // dbg!(&self);
+        // if self.pc.0 >= self.program.len() {
+        //     self.should_continue = false; // TODO: add an Exit instruction to remove need for this
+        //     return;
+        // }
         let instr = self.program[self.pc.0];
 
         self.pc.0 += 1;
@@ -1077,9 +1086,22 @@ impl<Value: ValueTrait> Vm<Value> {
                 self.value_stack
                     .truncate(old_stack_base - (frame.nargs as usize) + 1);
             }
+            Instr::Stop => {
+                // TODO: remove the dummy callstack frame, Stop doesn't need it.
+                let frame = self.call_stack.pop();
+                let Some(frame) = frame else { self.fail(VmErrorKind::Underflow) };
+                self.pc = frame.pc;
+                let old_stack_base = self.stack_base;
+                self.stack_base = frame.stack_base;
+                self.value_stack
+                    .truncate(old_stack_base - (frame.nargs as usize) + 1);
+                self.should_continue = false;
+                self.pc.0 = self.program.len(); // TODO: necessary? maybe use a more explicit flag instead of relying on this for .is_done()
+            }
             Instr::Panic => {
                 let msg = self.pop().view_string(self);
                 self.error = Some(Box::new(self.make_error(VmErrorKind::Panic(msg.clone()))));
+                self.should_continue = false;
             }
             Instr::Construct(n) => self.construct_impl(n as usize),
             Instr::DeconstructStruct => {
@@ -1205,6 +1227,7 @@ impl<Value: ValueTrait> Vm<Value> {
             }
             Instr::HostFunc(eff) => {
                 self.pending_host_func = Some(eff);
+                self.should_continue = false;
             }
             Instr::LoadLib => {
                 if cfg!(not(feature = "ffi")) {

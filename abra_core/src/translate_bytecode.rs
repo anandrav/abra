@@ -207,7 +207,7 @@ impl Translator {
                 }
 
                 self.emit(st, Instr::StoreOffset(-1));
-                self.emit(st, Instr::Return);
+                self.emit(st, Instr::Stop);
             }
 
             while !st.funcs_to_generate.is_empty() {
@@ -271,6 +271,7 @@ impl Translator {
                 }
             }
         }
+
         // let func_name = "main".to_string();
         // for (i, line) in st.lines.iter().enumerate() {
         //     // let function_name_id = match st
