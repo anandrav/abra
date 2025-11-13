@@ -869,64 +869,14 @@ impl<Value: ValueTrait> Vm<Value> {
                 self.push(v.clone());
             }
             Instr::LoadOffset(n) => {
-                #[cfg(feature = "debug_vm")]
-                {
-                    let idx = match self.stack_base.checked_add_signed(n as isize) {
-                        Some(idx) => idx,
-                        None => {
-                            self.fail(VmErrorKind::InternalError(format!(
-                                "overflow when calculating load offset ({n})"
-                            )));
-                        }
-                    };
-                    let v = if idx < self.value_stack.len() {
-                        self.value_stack[idx].clone()
-                    } else {
-                        self.fail(VmErrorKind::InternalError(format!(
-                            "load offset ({}) out of bounds. idx={}, len={}",
-                            n,
-                            idx,
-                            self.value_stack.len()
-                        )));
-                    };
-                    self.push(v);
-                }
-                #[cfg(not(feature = "debug_vm"))]
-                {
-                    let idx = self.stack_base.wrapping_add_signed(n as isize);
-                    let v = self.value_stack[idx].clone();
-                    self.push(v);
-                }
+                let idx = self.stack_base.wrapping_add_signed(n as isize);
+                let v = self.value_stack[idx].clone();
+                self.push(v);
             }
             Instr::StoreOffset(n) => {
-                #[cfg(feature = "debug_vm")]
-                {
-                    let idx = match self.stack_base.checked_add_signed(n as isize) {
-                        Some(idx) => idx,
-                        None => {
-                            self.fail(VmErrorKind::InternalError(format!(
-                                "overflow when calculating store offset ({n})"
-                            )));
-                        }
-                    };
-                    let v = self.pop();
-                    if idx < self.value_stack.len() {
-                        self.value_stack[idx] = v;
-                    } else {
-                        self.fail(VmErrorKind::InternalError(format!(
-                            "store offset ({}) out of bounds. idx={}, len={}",
-                            n,
-                            idx,
-                            self.value_stack.len()
-                        )));
-                    }
-                }
-                #[cfg(not(feature = "debug_vm"))]
-                {
-                    let idx = self.stack_base.wrapping_add_signed(n as isize);
-                    let v = self.pop();
-                    self.value_stack[idx] = v;
-                }
+                let idx = self.stack_base.wrapping_add_signed(n as isize);
+                let v = self.pop();
+                self.value_stack[idx] = v;
             }
             Instr::AddInt => {
                 let b = self.pop_int();
