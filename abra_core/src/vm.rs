@@ -413,8 +413,10 @@ pub enum Instr {
 
     // Arithmetic
     AddInt,
+    AddIntReg(i16, i16),
     SubtractInt,
     MultiplyInt,
+    MultiplyIntReg(i16, i16),
     DivideInt,
     PowerInt,
     Modulo,
@@ -915,6 +917,13 @@ impl<Value: ValueTrait> Vm<Value> {
                 let a = self.top().get_int(self);
                 self.set_top(a.wrapping_add(b));
             }
+            Instr::AddIntReg(reg1, reg2) => {
+                let idx = self.stack_base.wrapping_add_signed(reg1 as isize); // TODO: don't use wrapping_add_signed, we want it to panic on debug builds
+                let a = self.value_stack[idx].get_int(self);
+                let idx = self.stack_base.wrapping_add_signed(reg2 as isize); // TODO: don't use wrapping_add_signed, we want it to panic on debug builds
+                let b = self.value_stack[idx].get_int(self);
+                self.push(a.wrapping_add(b));
+            }
             Instr::SubtractInt => {
                 let b = self.pop_int();
                 let a = self.top().get_int(self);
@@ -924,6 +933,13 @@ impl<Value: ValueTrait> Vm<Value> {
                 let b = self.pop_int();
                 let a = self.top().get_int(self);
                 self.set_top(a.wrapping_mul(b));
+            }
+            Instr::MultiplyIntReg(reg1, reg2) => {
+                let idx = self.stack_base.wrapping_add_signed(reg1 as isize); // TODO: don't use wrapping_add_signed, we want it to panic on debug builds
+                let a = self.value_stack[idx].get_int(self);
+                let idx = self.stack_base.wrapping_add_signed(reg2 as isize); // TODO: don't use wrapping_add_signed, we want it to panic on debug builds
+                let b = self.value_stack[idx].get_int(self);
+                self.push(a.wrapping_mul(b));
             }
             Instr::DivideInt => {
                 let b = self.pop_int();
