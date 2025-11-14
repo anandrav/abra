@@ -10,7 +10,7 @@ use utils::id_set::IdSet;
 
 pub(crate) type Label = String;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub(crate) enum Line {
     Instr {
         instr: Instr,

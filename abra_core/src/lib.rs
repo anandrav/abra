@@ -20,6 +20,7 @@ pub mod ast;
 mod builtin;
 pub mod environment;
 pub mod host;
+mod optimize_bytecode;
 mod parse;
 pub mod prelude;
 pub mod statics;

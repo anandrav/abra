@@ -7,6 +7,7 @@ use crate::ast::{AstNode, BinaryOperator, FuncDef, InterfaceDef, ItemKind};
 use crate::ast::{FileAst, FileDatabase, NodeId};
 use crate::builtin::BuiltinOperation;
 use crate::environment::Environment;
+use crate::optimize_bytecode::peephole;
 use crate::statics::Type;
 use crate::statics::typecheck::Nominal;
 use crate::statics::typecheck::SolvedType;
@@ -295,6 +296,8 @@ impl Translator {
         }
 
         // RUN OPTIMIZATIONS HERE
+
+        st.lines = peephole(st.lines);
 
         self.create_source_location_tables(&mut st);
 
