@@ -261,11 +261,13 @@ impl<Value: ValueTrait> Vm<Value> {
 
     #[inline(always)]
     pub fn construct_variant(&mut self, tag: u16) {
-        let value = self.pop();
-        self.heap
-            .push(ManagedObject::new(ManagedObjectKind::Enum { tag, value }));
+        let value = self.top();
+        self.heap.push(ManagedObject::new(ManagedObjectKind::Enum {
+            tag,
+            value: *value,
+        }));
         let r = self.heap_reference(self.heap.len() - 1);
-        self.value_stack.push(r);
+        self.set_top(r);
     }
 
     #[inline(always)]
@@ -1043,11 +1045,9 @@ impl<Value: ValueTrait> Vm<Value> {
                 self.set_top(a == b);
             }
             Instr::EqualString => {
-                let b = self.pop();
-                let a = self.pop();
-                let b = b.view_string(self);
-                let a = a.view_string(self);
-                self.push(a == b);
+                let b = self.pop().view_string(self);
+                let a = self.top().view_string(self);
+                self.set_top(a == b);
             }
             Instr::Jump(target) => {
                 self.pc = target;
@@ -1070,7 +1070,7 @@ impl<Value: ValueTrait> Vm<Value> {
                 self.stack_base = self.value_stack.len();
             }
             Instr::CallFuncObj => {
-                let nargs = self.pop_int();
+                let nargs = self.pop_int(); // TODO: put nargs in the instruction itself
                 let addr = self.pop_addr();
                 self.call_stack.push(CallFrame {
                     pc: self.pc,
@@ -1085,8 +1085,8 @@ impl<Value: ValueTrait> Vm<Value> {
                 if nargs != 0 {
                     // TODO make a separate instruction for when nargs == 0
                     let idx = self.stack_base.wrapping_add_signed(-(nargs as isize));
-                    let v = self.pop();
-                    self.value_stack[idx] = v;
+                    let v = self.top();
+                    self.value_stack[idx] = *v;
                 }
 
                 let frame = self.call_stack.pop();
