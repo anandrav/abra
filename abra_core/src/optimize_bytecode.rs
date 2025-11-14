@@ -189,7 +189,7 @@ pub(crate) fn peephole3(lines: Vec<Line>) -> Vec<Line> {
                     && let Line::Instr { instr: instr3, .. } = &lines[index + 2]
                 {
                     match (instr1, instr2, instr3) {
-                        // LOAD LOAD ADD
+                        // LOAD LOAD ADD_INT
                         (Instr::LoadOffset(reg1), Instr::LoadOffset(reg2), Instr::AddInt) => {
                             ret.push(Line::Instr {
                                 instr: Instr::AddIntReg(reg1, *reg2),
@@ -199,10 +199,20 @@ pub(crate) fn peephole3(lines: Vec<Line>) -> Vec<Line> {
                             });
                             index += 3;
                         }
-                        // LOAD LOAD MUL
+                        // LOAD LOAD MUL_INT
                         (Instr::LoadOffset(reg1), Instr::LoadOffset(reg2), Instr::MultiplyInt) => {
                             ret.push(Line::Instr {
                                 instr: Instr::MultiplyIntReg(reg1, *reg2),
+                                lineno,
+                                file_id,
+                                func_id,
+                            });
+                            index += 3;
+                        }
+                        // LOAD LOAD LT_INT
+                        (Instr::LoadOffset(reg1), Instr::LoadOffset(reg2), Instr::LessThanInt) => {
+                            ret.push(Line::Instr {
+                                instr: Instr::LessThanIntReg(reg1, *reg2),
                                 lineno,
                                 file_id,
                                 func_id,
