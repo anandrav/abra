@@ -32,7 +32,36 @@ pub(crate) fn peephole(lines: Vec<Line>) -> Vec<Line> {
                 file_id,
                 func_id,
             } => {
-                if index + 1 < lines.len()
+                let mut noop = |index: &mut usize| {
+                    ret.push(curr.clone());
+                    *index += 1;
+                };
+                // WINDOW SIZE 3
+                if index + 2 < lines.len()
+                    && let Line::Instr { instr: instr2, .. } = &lines[index + 1]
+                    && let Line::Instr { instr: instr3, .. } = &lines[index + 2]
+                {
+                    match (instr1, instr2, instr3) {
+                        // FOLD FLOAT DIVISION
+                        (Instr::PushFloat(a), Instr::PushFloat(b), Instr::DivideFloat) => {
+                            let a = a.parse::<f64>().unwrap();
+                            let b = b.parse::<f64>().unwrap();
+                            let c = a / b;
+                            ret.push(Line::Instr {
+                                instr: Instr::PushFloat(c.to_string()),
+                                lineno,
+                                file_id,
+                                func_id,
+                            });
+                            index += 3;
+                        }
+                        _ => {
+                            noop(&mut index);
+                        }
+                    }
+                }
+                // WINDOW SIZE 2
+                else if index + 1 < lines.len()
                     && let Line::Instr { instr: instr2, .. } = &lines[index + 1]
                 {
                     match (instr1, instr2) {
@@ -73,15 +102,11 @@ pub(crate) fn peephole(lines: Vec<Line>) -> Vec<Line> {
                             index += 2;
                         }
                         _ => {
-                            // noop
-                            ret.push(curr.clone());
-                            index += 1;
+                            noop(&mut index);
                         }
                     }
                 } else {
-                    // noop
-                    ret.push(curr.clone());
-                    index += 1;
+                    noop(&mut index);
                 }
             }
         }
