@@ -961,6 +961,9 @@ impl Translator {
                 BuiltinOperation::GreaterThanOrEqualFloat => {
                     self.emit(st, Instr::GreaterThanOrEqualFloat);
                 }
+                BuiltinOperation::Not => {
+                    self.emit(st, Instr::Not);
+                }
                 BuiltinOperation::EqualFloat => {
                     self.emit(st, Instr::EqualFloat);
                 }

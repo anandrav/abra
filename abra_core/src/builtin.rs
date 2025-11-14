@@ -45,6 +45,8 @@ pub enum BuiltinOperation {
     GreaterThanFloat,
     GreaterThanOrEqualFloat,
 
+    Not,
+
     EqualInt,
     EqualFloat,
     EqualString,
@@ -136,6 +138,12 @@ impl BuiltinOperation {
                     TypeVar::make_float(reason.clone()),
                     TypeVar::make_float(reason.clone()),
                 ],
+                TypeVar::make_bool(reason.clone()),
+                reason.clone(),
+            ),
+
+            BuiltinOperation::Not => TypeVar::make_func(
+                vec![TypeVar::make_bool(reason.clone())],
                 TypeVar::make_bool(reason.clone()),
                 reason.clone(),
             ),

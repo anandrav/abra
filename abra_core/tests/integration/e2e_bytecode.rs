@@ -634,6 +634,22 @@ arr.len()
 }
 
 #[test]
+fn not() {
+    let src = r#"
+let b = true
+not(b)
+"#;
+    let program = unwrap_or_panic(compile_bytecode(
+        "main.abra",
+        MockFileProvider::single_file(src),
+    ));
+    let mut vm = Vm::new(program);
+    vm.run();
+    let top = vm.top();
+    assert_eq!(top.get_bool(&vm), false);
+}
+
+#[test]
 fn concat_strings() {
     let src = r#"
 let s = "hello " & "world"
