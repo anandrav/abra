@@ -106,8 +106,17 @@ pub(crate) fn peephole2(lines: Vec<Line>) -> Vec<Line> {
                         (Instr::Duplicate, Instr::Pop) => {
                             index += 2;
                         }
+                        // NOT JUMP_IF -> JUMP_IF_FALSE
+                        (Instr::Not, Instr::JumpIf(label)) => {
+                            ret.push(Line::Instr {
+                                instr: Instr::JumpIfFalse(label.clone()),
+                                lineno,
+                                file_id,
+                                func_id,
+                            });
+                            index += 2;
+                        }
                         // PUSH TRUE JUMP IF
-                        // BOOLEAN FLIP
                         (Instr::PushBool(true), Instr::JumpIf(label)) => {
                             ret.push(Line::Instr {
                                 instr: Instr::Jump(label.clone()),
