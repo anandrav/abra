@@ -217,6 +217,11 @@ impl<Value: ValueTrait> Vm<Value> {
     }
 
     #[inline(always)]
+    pub fn load_offset(&self, offset: i16) -> &Value {
+        &self.value_stack[self.stack_base.wrapping_add_signed(offset as isize)]
+    }
+
+    #[inline(always)]
     pub fn pop(&mut self) -> Value {
         match self.value_stack.pop() {
             Some(v) => v,
@@ -905,9 +910,8 @@ impl<Value: ValueTrait> Vm<Value> {
                 self.push(*v);
             }
             Instr::LoadOffset(n) => {
-                let idx = self.stack_base.wrapping_add_signed(n as isize);
-                let v = self.value_stack[idx];
-                self.push(v);
+                let v = self.load_offset(n);
+                self.push(*v);
             }
             Instr::StoreOffset(n) => {
                 let idx = self.stack_base.wrapping_add_signed(n as isize);
@@ -920,10 +924,8 @@ impl<Value: ValueTrait> Vm<Value> {
                 self.set_top(a.wrapping_add(b));
             }
             Instr::AddIntReg(reg1, reg2) => {
-                let idx = self.stack_base.wrapping_add_signed(reg1 as isize); // TODO: don't use wrapping_add_signed, we want it to panic on debug builds
-                let a = self.value_stack[idx].get_int(self);
-                let idx = self.stack_base.wrapping_add_signed(reg2 as isize); // TODO: don't use wrapping_add_signed, we want it to panic on debug builds
-                let b = self.value_stack[idx].get_int(self);
+                let a = self.load_offset(reg1).get_int(self);
+                let b = self.load_offset(reg2).get_int(self);
                 self.push(a.wrapping_add(b));
             }
             Instr::SubtractInt => {
@@ -937,10 +939,8 @@ impl<Value: ValueTrait> Vm<Value> {
                 self.set_top(a.wrapping_mul(b));
             }
             Instr::MultiplyIntReg(reg1, reg2) => {
-                let idx = self.stack_base.wrapping_add_signed(reg1 as isize); // TODO: don't use wrapping_add_signed, we want it to panic on debug builds
-                let a = self.value_stack[idx].get_int(self);
-                let idx = self.stack_base.wrapping_add_signed(reg2 as isize); // TODO: don't use wrapping_add_signed, we want it to panic on debug builds
-                let b = self.value_stack[idx].get_int(self);
+                let a = self.load_offset(reg1).get_int(self);
+                let b = self.load_offset(reg2).get_int(self);
                 self.push(a.wrapping_mul(b));
             }
             Instr::DivideInt => {
@@ -1015,10 +1015,8 @@ impl<Value: ValueTrait> Vm<Value> {
                 self.set_top(a < b);
             }
             Instr::LessThanIntReg(reg1, reg2) => {
-                let idx = self.stack_base.wrapping_add_signed(reg1 as isize); // TODO: MAKE THIS PATTERN AN INLINED HELPER FUNCTION. self.get_offset(reg1)
-                let a = self.value_stack[idx].get_int(self);
-                let idx = self.stack_base.wrapping_add_signed(reg2 as isize); // TODO: don't use wrapping_add_signed, we want it to panic on debug builds
-                let b = self.value_stack[idx].get_int(self);
+                let a = self.load_offset(reg1).get_int(self);
+                let b = self.load_offset(reg2).get_int(self);
                 self.push(a < b);
             }
             Instr::LessThanOrEqualInt => {

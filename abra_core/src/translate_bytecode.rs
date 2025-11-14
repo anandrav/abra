@@ -323,7 +323,7 @@ impl Translator {
 
         self.create_source_location_tables(&mut st);
         let constants = gather_constants(&st.lines);
-        // for line in st.lines.iter ) {
+        // for line in st.lines.iter() {
         //     println!("{}", line);
         // }
         // panic!();
