@@ -445,7 +445,7 @@ pub enum Instr {
     Call(CallData),
     CallFuncObj,
     CallExtern(u32),
-    Return,
+    Return(u32),
     Stop, // used when returning from main function
     HostFunc(u16),
     Panic,
@@ -1075,7 +1075,14 @@ impl<Value: ValueTrait> Vm<Value> {
                 self.pc = addr;
                 self.stack_base = self.value_stack.len();
             }
-            Instr::Return => {
+            Instr::Return(nargs) => {
+                if nargs != 0 {
+                    // TODO make a separate instruction for when nargs == 0
+                    let idx = self.stack_base.wrapping_add_signed(-(nargs as isize));
+                    let v = self.pop();
+                    self.value_stack[idx] = v;
+                }
+
                 let frame = self.call_stack.pop();
                 let Some(frame) = frame else { self.fail(VmErrorKind::Underflow) };
                 self.pc = frame.pc;
