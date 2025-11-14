@@ -221,7 +221,8 @@ fn array_to_string_helper(arr: array<T ToString>, idx: int) {
 
 fn print(x: T ToString) { print_string(ToString.str(x)) }
 fn println(x: T ToString) {
-    print_string(ToString.str(x) & newline)
+    print_string(ToString.str(x))
+    print_string(newline)
 }
 
 fn format_append(s1: T1 ToString, s2: T2 ToString) {

@@ -323,18 +323,7 @@ impl Translator {
 
         self.create_source_location_tables(&mut st);
         let constants = gather_constants(&st.lines);
-        // let func_name = "main".to_string();
-        // for (i, line) in st.lines.iter().enumerate() {
-        //     // let function_name_id = match st
-        //     //     .function_name_table
-        //     //     .binary_search_by_key(&(i as u32), |pair| pair.0)
-        //     // {
-        //     //     Ok(idx) | Err(idx) => {
-        //     //         let idx = if idx >= 1 { idx - 1 } else { idx };
-        //     //         self.function_name_table[idx].1
-        //     //     }
-        //     // };
-        //     // let function_name = self.function_name_arena[function_name_id as usize].clone();
+        // for line in st.lines.iter() {
         //
         //     println!("{}", line);
         // }
@@ -1309,7 +1298,31 @@ impl Translator {
             ("array.push", _) => self.emit(st, Instr::ArrayAppend),
             ("array.len", _) => self.emit(st, Instr::ArrayLength),
             ("array.pop", _) => self.emit(st, Instr::ArrayPop),
-            ("prelude.ToString.str", Some(SolvedType::String)) => { /* noop */ }
+            ("prelude.ToString.str", ty)
+                if ty
+                    == Some(SolvedType::Function(
+                        vec![SolvedType::String],
+                        SolvedType::String.into(),
+                    )) =>
+            { /* noop */ }
+            ("prelude.ToString.str", ty)
+                if ty
+                    == Some(SolvedType::Function(
+                        vec![SolvedType::Int],
+                        SolvedType::String.into(),
+                    )) =>
+            {
+                self.emit(st, Instr::IntToString);
+            }
+            ("prelude.ToString.str", ty)
+                if ty
+                    == Some(SolvedType::Function(
+                        vec![SolvedType::Float],
+                        SolvedType::String.into(),
+                    )) =>
+            {
+                self.emit(st, Instr::FloatToString);
+            }
             _ => {
                 self.emit(st, Instr::Call(func_def.args.len(), label));
             }
