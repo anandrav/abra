@@ -2,7 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use crate::translate_bytecode::LabelMap;
+use crate::translate_bytecode::{LabelMap, Translator, TranslatorState};
 use crate::vm::{Instr as VmInstr, ProgramCounter};
 use std::fmt::{self, Display, Formatter};
 use utils::hash::HashMap;
@@ -12,26 +12,46 @@ pub(crate) type Label = String;
 
 #[derive(Debug)]
 pub(crate) enum Line {
-    Instr(Instr),
+    Instr {
+        instr: Instr,
+        lineno: usize,
+        file: u32,
+        func: u32,
+    },
     Label(Label),
 }
 
-impl From<Instr> for Line {
-    fn from(instr: Instr) -> Self {
-        Line::Instr(instr)
+pub(crate) trait LineVariant {
+    fn to_line(self, translator: &Translator, translator_state: &TranslatorState) -> Line;
+}
+
+impl LineVariant for Line {
+    fn to_line(self, _translator: &Translator, _st: &TranslatorState) -> Line {
+        self
     }
 }
 
-impl From<Label> for Line {
-    fn from(label: Label) -> Self {
-        Line::Label(label)
+impl LineVariant for Label {
+    fn to_line(self, _translator: &Translator, _st: &TranslatorState) -> Line {
+        Line::Label(self)
+    }
+}
+
+impl LineVariant for Instr {
+    fn to_line(self, translator: &Translator, st: &TranslatorState) -> Line {
+        Line::Instr {
+            instr: self,
+            lineno: 0,
+            file: 0,
+            func: 0,
+        }
     }
 }
 
 impl Display for Line {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
-            Line::Instr(instr) => write!(f, "\t{instr}"),
+            Line::Instr { instr, .. } => write!(f, "\t{instr}"),
             Line::Label(label) => write!(f, "{label}:"),
         }
     }
@@ -48,7 +68,7 @@ pub(crate) fn remove_labels(
     let mut label_to_idx: LabelMap = HashMap::default();
     for item in items.iter() {
         match item {
-            Line::Instr(_) => {
+            Line::Instr { .. } => {
                 offset += 1;
             }
             Line::Label(label) => {
@@ -59,7 +79,7 @@ pub(crate) fn remove_labels(
     // dbg!(&label_to_idx);
 
     for item in items {
-        if let Line::Instr(instr) = item {
+        if let Line::Instr { instr, .. } = item {
             instructions.push(instr_to_vminstr(instr, &label_to_idx, string_constants));
         }
     }

@@ -2,7 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use crate::assembly::{Instr, Label, Line, remove_labels};
+use crate::assembly::{Instr, Label, Line, LineVariant, remove_labels};
 use crate::ast::{AstNode, BinaryOperator, FuncDef, InterfaceDef, ItemKind};
 use crate::ast::{FileAst, FileDatabase, NodeId};
 use crate::builtin::BuiltinOperation;
@@ -46,7 +46,7 @@ pub(crate) struct Translator {
 }
 
 #[derive(Debug, Default)]
-struct TranslatorState {
+pub(crate) struct TranslatorState {
     lines: Vec<Line>,
     filename_table: Vec<(BytecodeIndex, u32)>,
     lineno_table: Vec<(BytecodeIndex, u32)>,
@@ -92,10 +92,10 @@ impl Translator {
         }
     }
 
-    fn emit(&self, st: &mut TranslatorState, i: impl Into<Line>) {
-        let l: Line = i.into();
+    fn emit(&self, st: &mut TranslatorState, i: impl LineVariant) {
+        let l: Line = i.to_line(self, st);
 
-        if let Line::Instr(_) = &l {
+        if let Line::Instr { .. } = &l {
             st.instr_count += 1;
         }
 
