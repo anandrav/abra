@@ -211,6 +211,12 @@ impl<Value: ValueTrait> Vm<Value> {
     }
 
     #[inline(always)]
+    fn set_top(&mut self, val: impl Into<Value>) {
+        let len = self.value_stack.len();
+        self.value_stack[len - 1] = val.into();
+    }
+
+    #[inline(always)]
     pub fn pop(&mut self) -> Value {
         match self.value_stack.pop() {
             Some(v) => v,
@@ -902,139 +908,139 @@ impl<Value: ValueTrait> Vm<Value> {
             }
             Instr::AddInt => {
                 let b = self.pop_int();
-                let a = self.pop_int();
-                self.push(a.wrapping_add(b));
+                let a = self.top().get_int(self);
+                self.set_top(a.wrapping_add(b));
             }
             Instr::SubtractInt => {
                 let b = self.pop_int();
-                let a = self.pop_int();
-                self.push_int(a.wrapping_sub(b));
+                let a = self.top().get_int(self);
+                self.set_top(a.wrapping_sub(b));
             }
             Instr::MultiplyInt => {
                 let b = self.pop_int();
-                let a = self.pop_int();
-                self.push(a.wrapping_mul(b));
+                let a = self.top().get_int(self);
+                self.set_top(a.wrapping_mul(b));
             }
             Instr::DivideInt => {
                 let b = self.pop_int();
-                let a = self.pop_int();
+                let a = self.top().get_int(self);
                 if b == 0 {
                     self.error = Some(Box::new(self.make_error(VmErrorKind::DivisionByZero))); // TODO: why is this boxed
                     return false;
                 }
-                self.push(a.wrapping_div(b));
+                self.set_top(a.wrapping_div(b));
             }
             Instr::PowerInt => {
                 let b = self.pop_int();
-                let a = self.pop_int();
-                self.push(a.wrapping_pow(b as u32));
+                let a = self.top().get_int(self);
+                self.set_top(a.wrapping_pow(b as u32));
             }
             Instr::Modulo => {
                 let b = self.pop_int();
-                let a = self.pop_int();
-                self.push(a % b);
+                let a = self.top().get_int(self);
+                self.set_top(a % b);
             }
             Instr::AddFloat => {
                 let b = self.pop_float();
-                let a = self.pop_float();
-                self.push(a + b);
+                let a = self.top().get_float(self);
+                self.set_top(a + b);
             }
             Instr::SubtractFloat => {
                 let b = self.pop_float();
-                let a = self.pop_float();
-                self.push(a - b);
+                let a = self.top().get_float(self);
+                self.set_top(a - b);
             }
             Instr::MultiplyFloat => {
                 let b = self.pop_float();
-                let a = self.pop_float();
-                self.push(a * b);
+                let a = self.top().get_float(self);
+                self.set_top(a * b);
             }
             Instr::DivideFloat => {
                 let b = self.pop_float();
-                let a = self.pop_float();
+                let a = self.top().get_float(self);
                 if b == 0.0 {
                     self.error = Some(Box::new(self.make_error(VmErrorKind::DivisionByZero))); // TODO: why is this boxed
                     return false;
                 }
-                self.push(a / b);
+                self.set_top(a / b);
             }
             Instr::PowerFloat => {
                 let b = self.pop_float();
-                let a = self.pop_float();
-                self.push(a.powf(b));
+                let a = self.top().get_float(self);
+                self.set_top(a.powf(b));
             }
             Instr::SquareRoot => {
-                let v = self.pop_float();
-                self.push(v.sqrt());
+                let a = self.top().get_float(self);
+                self.set_top(a.sqrt());
             }
             Instr::Not => {
-                let v = self.pop_bool();
-                self.push(!v);
+                let a = self.top().get_bool(self);
+                self.set_top(!a);
             }
             Instr::And => {
                 let b = self.pop_bool();
-                let a = self.pop_bool();
-                self.push(a && b);
+                let a = self.top().get_bool(self);
+                self.set_top(a && b);
             }
             Instr::Or => {
                 let b = self.pop_bool();
-                let a = self.pop_bool();
-                self.push(a || b);
+                let a = self.top().get_bool(self);
+                self.set_top(a || b);
             }
             Instr::LessThanInt => {
                 let b = self.pop_int();
-                let a = self.pop_int();
-                self.push(a < b);
+                let a = self.top().get_int(self);
+                self.set_top(a < b);
             }
             Instr::LessThanOrEqualInt => {
                 let b = self.pop_int();
-                let a = self.pop_int();
-                self.push(a <= b);
+                let a = self.top().get_int(self);
+                self.set_top(a <= b);
             }
             Instr::GreaterThanInt => {
                 let b = self.pop_int();
-                let a = self.pop_int();
-                self.push(a > b);
+                let a = self.top().get_int(self);
+                self.set_top(a > b);
             }
             Instr::GreaterThanOrEqualInt => {
                 let b = self.pop_int();
-                let a = self.pop_int();
-                self.push(a >= b);
+                let a = self.top().get_int(self);
+                self.set_top(a >= b);
             }
             Instr::LessThanFloat => {
                 let b = self.pop_float();
-                let a = self.pop_float();
-                self.push(a < b);
+                let a = self.top().get_float(self);
+                self.set_top(a < b);
             }
             Instr::LessThanOrEqualFloat => {
                 let b = self.pop_float();
-                let a = self.pop_float();
-                self.push(a <= b);
+                let a = self.top().get_float(self);
+                self.set_top(a <= b);
             }
             Instr::GreaterThanFloat => {
                 let b = self.pop_float();
-                let a = self.pop_float();
-                self.push(a > b);
+                let a = self.top().get_float(self);
+                self.set_top(a > b);
             }
             Instr::GreaterThanOrEqualFloat => {
                 let b = self.pop_float();
-                let a = self.pop_float();
-                self.push(a >= b);
+                let a = self.top().get_float(self);
+                self.set_top(a >= b);
             }
             Instr::EqualInt => {
                 let b = self.pop_int();
-                let a = self.pop_int();
-                self.push(a == b);
+                let a = self.top().get_int(self);
+                self.set_top(a == b);
             }
             Instr::EqualFloat => {
                 let b = self.pop_float();
-                let a = self.pop_float();
-                self.push(a == b);
+                let a = self.top().get_float(self);
+                self.set_top(a == b);
             }
             Instr::EqualBool => {
                 let b = self.pop_bool();
-                let a = self.pop_bool();
-                self.push(a == b);
+                let a = self.top().get_bool(self);
+                self.set_top(a == b);
             }
             Instr::EqualString => {
                 let b = self.pop();

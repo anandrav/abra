@@ -312,10 +312,6 @@ impl Translator {
 
                     self.emit(st, return_label);
 
-                    // if locals_count + nargs > 0 {
-                    //     self.emit(st, Instr::StoreOffset(-(nargs as i32)));
-                    // }
-
                     self.emit(st, Instr::Return(nargs as u32));
                 }
             }
