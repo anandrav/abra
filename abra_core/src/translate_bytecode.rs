@@ -833,7 +833,7 @@ impl Translator {
                 }
 
                 let func_id = offset + self.statics.dylib_to_funcs[&lib_id].get_id(symbol) as usize;
-                self.emit(st, Instr::CallExtern(func_id));
+                self.emit(st, Instr::CallExtern(func_id as u32));
             }
             Declaration::InterfaceMethod {
                 iface: iface_def,
@@ -1294,7 +1294,7 @@ impl Translator {
             ("array.pop", _) => self.emit(st, Instr::ArrayPop),
             ("prelude.ToString.str", Some(SolvedType::String)) => { /* noop */ }
             _ => {
-                self.emit(st, Instr::Call(func_def.args.len() as u8, label));
+                self.emit(st, Instr::Call(func_def.args.len(), label));
             }
         }
     }

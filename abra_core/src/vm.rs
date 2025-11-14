@@ -12,6 +12,11 @@ impl ProgramCounter {
         self.0 as usize
     }
 }
+impl Display for ProgramCounter {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
 pub type AbraInt = i64;
 pub type AbraFloat = f64;
 
@@ -383,12 +388,7 @@ impl<Value: ValueTrait> Vm<Value> {
 }
 
 #[derive(Debug, Copy, Clone)]
-pub enum Instr<
-    Location = ProgramCounter,
-    IntConstant = u32,
-    FloatConstant = u32,
-    StringConstant = u16,
-> {
+pub enum Instr {
     // Stack manipulation
     Pop,
     Duplicate,
@@ -398,9 +398,9 @@ pub enum Instr<
     // Constants
     PushNil(u16),
     PushBool(bool),
-    PushInt(IntConstant),
-    PushFloat(FloatConstant),
-    PushString(StringConstant),
+    PushInt(u32),
+    PushFloat(u32),
+    PushString(u32),
 
     // Arithmetic
     AddInt,
@@ -438,11 +438,11 @@ pub enum Instr<
     EqualString, // TODO: this is O(N). Must use smaller instructions. Or compare character-by-character and save progress in state of Vm
 
     // Control Flow
-    Jump(Location),
-    JumpIf(Location),
-    Call(u8, Location),
+    Jump(ProgramCounter),
+    JumpIf(ProgramCounter),
+    Call(CallData),
     CallFuncObj,
-    CallExtern(usize),
+    CallExtern(u32),
     Return,
     Stop, // used when returning from main function
     HostFunc(u16),
@@ -459,7 +459,7 @@ pub enum Instr<
     SetField(u16),
     GetIdx,
     SetIdx,
-    MakeClosure { func_addr: Location },
+    MakeClosure { func_addr: ProgramCounter },
 
     ArrayAppend,
     ArrayLength,
@@ -472,7 +472,37 @@ pub enum Instr<
     LoadForeignFunc,
 }
 
-impl<L: Display, I: Display, F: Display, S: Display + Debug> Display for Instr<L, I, F, S> {
+#[derive(Debug, Copy, Clone)]
+pub struct CallData(u32);
+
+impl Display for CallData {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "nargs={}, addr={}", self.get_nargs(), self.get_addr())
+    }
+}
+
+impl CallData {
+    const NARGS_BITS: u32 = 0b11111 << (32 - 5);
+    const ADDR_MASK: u32 = !Self::NARGS_BITS;
+
+    #[inline(always)]
+    pub(crate) fn new(nargs: u32, addr: u32) -> Self {
+        debug_assert!(addr <= Self::ADDR_MASK);
+        let mut repr = addr;
+        repr |= nargs << (32 - 5);
+        CallData(repr)
+    }
+    #[inline(always)]
+    fn get_addr(&self) -> u32 {
+        self.0 & Self::ADDR_MASK
+    }
+    #[inline(always)]
+    fn get_nargs(&self) -> u32 {
+        self.0 >> (32 - 5)
+    }
+}
+
+impl Display for Instr {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
             Instr::Pop => write!(f, "pop"),
@@ -513,7 +543,9 @@ impl<L: Display, I: Display, F: Display, S: Display + Debug> Display for Instr<L
             Instr::PushString(s) => write!(f, "push_string {:?}", s),
             Instr::Jump(loc) => write!(f, "jump {loc}"),
             Instr::JumpIf(loc) => write!(f, "jump_if {loc}"),
-            Instr::Call(nargs, loc) => write!(f, "call {nargs} {loc}"),
+            Instr::Call(call_data) => {
+                write!(f, "call {} {}", call_data.get_nargs(), call_data.get_addr())
+            }
             Instr::CallExtern(func_id) => write!(f, "call_extern {func_id}"),
             Instr::CallFuncObj => write!(f, "call_func_obj"),
             Instr::Return => write!(f, "return"),
@@ -1094,13 +1126,15 @@ impl<Value: ValueTrait> Vm<Value> {
                     self.pc = target;
                 }
             }
-            Instr::Call(nargs, target) => {
+            Instr::Call(call_data) => {
+                let nargs = call_data.get_nargs();
+                let target = call_data.get_addr();
                 self.call_stack.push(CallFrame {
                     pc: self.pc,
                     stack_base: self.stack_base,
-                    nargs,
+                    nargs: nargs as u8,
                 });
-                self.pc = target;
+                self.pc = ProgramCounter(target);
                 self.stack_base = self.value_stack.len();
             }
             Instr::CallFuncObj => {
@@ -1308,7 +1342,7 @@ impl<Value: ValueTrait> Vm<Value> {
                     unsafe {
                         let vm_ptr = self as *mut Vm<Value> as *mut c_void;
                         let abra_vm_functions_ptr = &ABRA_VM_FUNCS as *const AbraVmFunctions;
-                        self.foreign_functions[_func_id](vm_ptr, abra_vm_functions_ptr);
+                        self.foreign_functions[_func_id as usize](vm_ptr, abra_vm_functions_ptr);
                     };
                 }
             }

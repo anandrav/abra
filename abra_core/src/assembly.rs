@@ -3,8 +3,9 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use crate::translate_bytecode::{LabelMap, Translator, TranslatorState};
-use crate::vm::{Instr as VmInstr, ProgramCounter};
+use crate::vm::{CallData, Instr as VmInstr, ProgramCounter};
 use std::fmt::{self, Display, Formatter};
+use strum_macros::Display;
 use utils::hash::HashMap;
 use utils::id_set::IdSet;
 
@@ -58,7 +59,90 @@ impl Display for Line {
     }
 }
 
-pub type Instr = VmInstr<Label, i64, String, String>;
+#[derive(Debug, Clone, Display)]
+pub enum Instr {
+    // Stack manipulation
+    Pop,
+    Duplicate,
+    LoadOffset(i32),
+    StoreOffset(i32),
+
+    // Constants
+    PushNil(u16),
+    PushBool(bool),
+    PushInt(i64),
+    PushFloat(String),
+    PushString(String),
+
+    // Arithmetic
+    AddInt,
+    SubtractInt,
+    MultiplyInt,
+    DivideInt,
+    PowerInt,
+    Modulo,
+
+    AddFloat,
+    SubtractFloat,
+    MultiplyFloat,
+    DivideFloat,
+    PowerFloat,
+
+    SquareRoot,
+
+    // Logical
+    Not,
+    And,
+    Or,
+
+    // Comparison
+    LessThanInt,
+    LessThanOrEqualInt,
+    GreaterThanInt,
+    GreaterThanOrEqualInt,
+    LessThanFloat,
+    LessThanOrEqualFloat,
+    GreaterThanFloat,
+    GreaterThanOrEqualFloat,
+    EqualInt,
+    EqualFloat,
+    EqualBool,
+    EqualString, // TODO: this is O(N). Must use smaller instructions. Or compare character-by-character and save progress in state of Vm
+
+    // Control Flow
+    Jump(Label),
+    JumpIf(Label),
+    Call(usize, Label),
+    CallFuncObj,
+    CallExtern(u32),
+    Return,
+    Stop, // used when returning from main function
+    HostFunc(u16),
+    Panic,
+
+    // Data Structures
+    ConstructStruct(u16),
+    ConstructArray(usize),
+    ConstructVariant { tag: u16 },
+    DeconstructStruct,
+    DeconstructArray,
+    DeconstructVariant,
+    GetField(u16),
+    SetField(u16),
+    GetIdx,
+    SetIdx,
+    MakeClosure { func_addr: Label },
+
+    ArrayAppend,
+    ArrayLength,
+    ArrayPop,
+    ConcatStrings, // TODO: this is O(N). Must use smaller instructions. Or concat character-by-character and save progress in Vm
+    IntToString,
+    FloatToString,
+
+    LoadLib,
+    LoadForeignFunc,
+}
 
 pub(crate) fn remove_labels(
     items: &Vec<Line>,
@@ -147,17 +231,15 @@ fn instr_to_vminstr(
         Instr::PushBool(b) => VmInstr::PushBool(*b),
         Instr::PushInt(i) => VmInstr::PushInt(int_constants.try_get_id(i).unwrap()),
         Instr::PushFloat(f) => VmInstr::PushFloat(float_constants.try_get_id(f).unwrap()),
-        Instr::PushString(s) => VmInstr::PushString(string_constants.try_get_id(s).unwrap() as u16),
+        Instr::PushString(s) => VmInstr::PushString(string_constants.try_get_id(s).unwrap()),
         Instr::Jump(label) => VmInstr::Jump(ProgramCounter::new(label_to_idx[label])),
         Instr::JumpIf(label) => VmInstr::JumpIf(ProgramCounter::new(label_to_idx[label])),
-        Instr::Call(nargs, label) => VmInstr::Call(
-            *nargs,
-            ProgramCounter::new(
-                *label_to_idx
-                    .get(label)
-                    .unwrap_or_else(|| panic!("Could not find label: {label}")),
-            ),
-        ),
+        Instr::Call(nargs, label) => VmInstr::Call(CallData::new(
+            *nargs as u32,
+            *label_to_idx
+                .get(label)
+                .unwrap_or_else(|| panic!("Could not find label: {label}")) as u32,
+        )),
         Instr::CallExtern(func_id) => VmInstr::CallExtern(*func_id),
         Instr::CallFuncObj => VmInstr::CallFuncObj,
         Instr::Return => VmInstr::Return,
