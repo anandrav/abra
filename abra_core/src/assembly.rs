@@ -5,7 +5,6 @@
 use crate::translate_bytecode::{LabelMap, Translator, TranslatorState};
 use crate::vm::{CallData, Instr as VmInstr, ProgramCounter};
 use std::fmt::{self, Display, Formatter};
-use strum_macros::Display;
 use utils::hash::HashMap;
 use utils::id_set::IdSet;
 
@@ -59,7 +58,7 @@ impl Display for Line {
     }
 }
 
-#[derive(Debug, Clone, Display)]
+#[derive(Debug, Clone)]
 pub enum Instr {
     // Stack manipulation
     Pop,
@@ -141,6 +140,83 @@ pub enum Instr {
 
     LoadLib,
     LoadForeignFunc,
+}
+
+impl Display for Instr {
+    fn fmt(&self, f: &mut Formatter) -> core::fmt::Result {
+        match self {
+            Instr::Pop => write!(f, "pop"),
+            Instr::Duplicate => write!(f, "duplicate"),
+            Instr::LoadOffset(n) => write!(f, "load_offset {n}"),
+            Instr::StoreOffset(n) => write!(f, "store_offset {n}"),
+            Instr::AddInt => write!(f, "add_int"),
+            Instr::SubtractInt => write!(f, "subtract_int"),
+            Instr::MultiplyInt => write!(f, "multiply_int"),
+            Instr::DivideInt => write!(f, "divide_int"),
+            Instr::PowerInt => write!(f, "power_int"),
+            Instr::Modulo => write!(f, "modulo"),
+            Instr::AddFloat => write!(f, "add_float"),
+            Instr::SubtractFloat => write!(f, "subtract_float"),
+            Instr::MultiplyFloat => write!(f, "multiply_float"),
+            Instr::DivideFloat => write!(f, "divide_float"),
+            Instr::PowerFloat => write!(f, "power_float"),
+            Instr::SquareRoot => write!(f, "square_root"),
+            Instr::Not => write!(f, "not"),
+            Instr::And => write!(f, "and"),
+            Instr::Or => write!(f, "or"),
+            Instr::LessThanInt => write!(f, "less_than_int"),
+            Instr::LessThanOrEqualInt => write!(f, "less_than_or_equal_int"),
+            Instr::GreaterThanInt => write!(f, "greater_than_int"),
+            Instr::GreaterThanOrEqualInt => write!(f, "greater_than_or_equal_int"),
+            Instr::LessThanFloat => write!(f, "less_than_float"),
+            Instr::LessThanOrEqualFloat => write!(f, "less_than_or_equal_float"),
+            Instr::GreaterThanFloat => write!(f, "greater_than_float"),
+            Instr::GreaterThanOrEqualFloat => write!(f, "greater_than_or_equal_float"),
+            Instr::EqualInt => write!(f, "equal_int"),
+            Instr::EqualFloat => write!(f, "equal_float"),
+            Instr::EqualBool => write!(f, "equal_bool"),
+            Instr::EqualString => write!(f, "equal_string"),
+            Instr::PushNil(n) => write!(f, "push_nil {n}"),
+            Instr::PushBool(b) => write!(f, "push_bool {b}"),
+            Instr::PushInt(n) => write!(f, "push_int {n}"),
+            Instr::PushFloat(n) => write!(f, "push_float {n}"),
+            Instr::PushString(s) => write!(f, "push_string {:?}", s),
+            Instr::Jump(loc) => write!(f, "jump {loc}"),
+            Instr::JumpIf(loc) => write!(f, "jump_if {loc}"),
+            Instr::Call(nargs, addr) => {
+                write!(f, "call {} {}", nargs, addr)
+            }
+            Instr::CallExtern(func_id) => write!(f, "call_extern {func_id}"),
+            Instr::CallFuncObj => write!(f, "call_func_obj"),
+            Instr::Return => write!(f, "return"),
+            Instr::Stop => write!(f, "stop"),
+            Instr::Panic => write!(f, "panic"),
+            Instr::ConstructStruct(n) => write!(f, "construct_struct {n}"),
+            Instr::ConstructArray(n) => write!(f, "construct_array {n}"),
+            Instr::ConstructVariant { tag } => {
+                write!(f, "construct_variant {tag}")
+            }
+            Instr::DeconstructStruct => write!(f, "deconstruct_struct"),
+            Instr::DeconstructVariant => write!(f, "deconstruct_variant"),
+            Instr::GetField(n) => write!(f, "get_field {n}"),
+            Instr::SetField(n) => write!(f, "set_field {n}"),
+            Instr::GetIdx => write!(f, "get_index"),
+            Instr::SetIdx => write!(f, "set_index"),
+            Instr::MakeClosure { func_addr } => {
+                write!(f, "make_closure {func_addr}")
+            }
+            Instr::ArrayAppend => write!(f, "array_append"),
+            Instr::ArrayLength => write!(f, "array_len"),
+            Instr::ArrayPop => write!(f, "array_pop"),
+            Instr::ConcatStrings => write!(f, "concat_strings"),
+            Instr::IntToString => write!(f, "int_to_string"),
+            Instr::FloatToString => write!(f, "float_to_string"),
+            Instr::HostFunc(n) => write!(f, "call_host {n}"),
+
+            Instr::LoadLib => write!(f, "load_lib"),
+            Instr::LoadForeignFunc => write!(f, "load_foreign_func"),
+        }
+    }
 }
 
 pub(crate) fn remove_labels(
