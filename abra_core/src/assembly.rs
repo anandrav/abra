@@ -15,13 +15,12 @@ pub(crate) enum Line {
     Instr {
         instr: Instr,
         lineno: usize,
-        file: u32,
-        func: u32,
+        file_id: u32,
+        func_id: u32,
     },
     Label(Label),
 }
 
-// TODO: just move this crap to translate_bytecode
 pub(crate) trait LineVariant {
     fn to_line(self, translator: &Translator, translator_state: &TranslatorState) -> Line;
 }
@@ -44,8 +43,8 @@ impl LineVariant for Instr {
         Line::Instr {
             instr: self,
             lineno: st.curr_lineno,
-            file: st.curr_file,
-            func: st.curr_func,
+            file_id: st.curr_file,
+            func_id: st.curr_func,
         }
     }
 }

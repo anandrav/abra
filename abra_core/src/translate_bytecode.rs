@@ -112,20 +112,20 @@ impl Translator {
             if let Line::Instr {
                 instr: _,
                 lineno,
-                file,
-                func,
+                file_id,
+                func_id,
             } = line
             {
                 // file
                 {
                     let mut redundant = false;
                     if let Some(last) = st.filename_table.last()
-                        && last.1 == *file
+                        && last.1 == *file_id
                     {
                         redundant = true;
                     }
                     if !redundant {
-                        st.filename_table.push((bytecode_index as u32, *file));
+                        st.filename_table.push((bytecode_index as u32, *file_id));
                     }
                 }
                 // lineno
@@ -145,12 +145,13 @@ impl Translator {
                 {
                     let mut redundant = false;
                     if let Some(last) = st.function_name_table.last()
-                        && last.1 == *func
+                        && last.1 == *func_id
                     {
                         redundant = true;
                     }
                     if !redundant {
-                        st.function_name_table.push((bytecode_index as u32, *func));
+                        st.function_name_table
+                            .push((bytecode_index as u32, *func_id));
                     }
                 }
 
@@ -159,7 +160,7 @@ impl Translator {
         }
     }
 
-    fn update_filename_lineno_tables(&self, st: &mut TranslatorState, node: AstNode) {
+    fn update_current_file_and_lineno(&self, st: &mut TranslatorState, node: AstNode) {
         let location = node.location();
         let file_id = location.file_id;
 
@@ -167,50 +168,11 @@ impl Translator {
         let line_no = file.line_number_for_index(location.lo as usize);
         st.curr_file = file_id;
         st.curr_lineno = line_no;
-
-        // let bytecode_index = st.instr_count;
-        // {
-        //     let mut redundant = false;
-        //     if let Some(last) = st.filename_table.last()
-        //         && last.1 == file_id
-        //     {
-        //         redundant = true;
-        //     }
-        //     if !redundant {
-        //         st.filename_table.push((bytecode_index as u32, file_id));
-        //     }
-        // }
-        //
-        // {
-        //     let mut redundant = false;
-        //     if let Some(last) = st.lineno_table.last()
-        //         && last.1 == line_no as u32
-        //     {
-        //         redundant = true;
-        //     }
-        //     if !redundant {
-        //         st.lineno_table
-        //             .push((bytecode_index as u32, line_no as u32));
-        //     }
-        // }
     }
 
-    fn update_function_name_table(&self, st: &mut TranslatorState, name: &str) {
-        // let bytecode_index = st.instr_count;
-
+    fn update_curr_function(&self, st: &mut TranslatorState, name: &str) {
         let function_name_id = st.function_name_arena.insert(name.to_string());
         st.curr_func = function_name_id;
-
-        // let mut redundant = false;
-        // if let Some(last) = st.function_name_table.last()
-        //     && last.1 == function_name_id
-        // {
-        //     redundant = true;
-        // }
-        // if !redundant {
-        //     st.function_name_table
-        //         .push((bytecode_index as u32, function_name_id));
-        // }
     }
 
     pub(crate) fn translate(&self) -> CompiledProgram {
@@ -235,7 +197,7 @@ impl Translator {
                 let mut locals = HashSet::default();
 
                 // use filename as name of function in this case
-                self.update_function_name_table(st, "<main>");
+                self.update_curr_function(st, "<main>");
 
                 let stmts: Vec<_> = file
                     .items
@@ -276,7 +238,7 @@ impl Translator {
                 mem::swap(&mut (iteration), &mut st.funcs_to_generate);
                 for desc in iteration {
                     if let FuncKind::NamedFunc(f) = &desc.kind {
-                        self.update_function_name_table(st, &f.name.v);
+                        self.update_curr_function(st, &f.name.v);
                     }
 
                     let (func_ty, args, body) = match &desc.kind {
@@ -376,7 +338,7 @@ impl Translator {
         monomorph_env: &MonomorphEnv,
         st: &mut TranslatorState,
     ) {
-        self.update_filename_lineno_tables(st, expr.node());
+        self.update_current_file_and_lineno(st, expr.node());
         match &*expr.kind {
             ExprKind::Variable(_) => match &self.statics.resolution_map[&expr.id] {
                 Declaration::EnumVariant { variant, .. } => {
@@ -1136,7 +1098,7 @@ impl Translator {
         monomorph_env: &MonomorphEnv,
         st: &mut TranslatorState,
     ) {
-        self.update_filename_lineno_tables(st, stmt.node());
+        self.update_current_file_and_lineno(st, stmt.node());
         match &*stmt.kind {
             StmtKind::Let(_, pat, expr) => {
                 self.translate_expr(expr, offset_table, monomorph_env, st);
