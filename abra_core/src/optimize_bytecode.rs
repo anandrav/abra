@@ -5,11 +5,6 @@ pub(crate) fn optimize(lines: Vec<Line>) -> Vec<Line> {
     let mut ret = lines;
     loop {
         ret = peephole2(ret);
-        if ret.len() < len {
-            len = ret.len();
-        } else {
-            break;
-        }
         ret = peephole3(ret);
         if ret.len() < len {
             len = ret.len();
@@ -135,11 +130,63 @@ pub(crate) fn peephole3(lines: Vec<Line>) -> Vec<Line> {
                     && let Line::Instr { instr: instr3, .. } = &lines[index + 2]
                 {
                     match (instr1, instr2, instr3) {
+                        // FOLD FLOAT ADDITION
+                        (Instr::PushFloat(a), Instr::PushFloat(b), Instr::AddFloat) => {
+                            let a = a.parse::<f64>().unwrap();
+                            let b = b.parse::<f64>().unwrap();
+                            let c = a + b;
+                            ret.push(Line::Instr {
+                                instr: Instr::PushFloat(c.to_string()),
+                                lineno,
+                                file_id,
+                                func_id,
+                            });
+                            index += 3;
+                        }
+                        // FOLD FLOAT SUBTRACTION
+                        (Instr::PushFloat(a), Instr::PushFloat(b), Instr::SubtractFloat) => {
+                            let a = a.parse::<f64>().unwrap();
+                            let b = b.parse::<f64>().unwrap();
+                            let c = a - b;
+                            ret.push(Line::Instr {
+                                instr: Instr::PushFloat(c.to_string()),
+                                lineno,
+                                file_id,
+                                func_id,
+                            });
+                            index += 3;
+                        }
+                        // FOLD FLOAT MULTIPLICATION
+                        (Instr::PushFloat(a), Instr::PushFloat(b), Instr::MultiplyFloat) => {
+                            let a = a.parse::<f64>().unwrap();
+                            let b = b.parse::<f64>().unwrap();
+                            let c = a * b;
+                            ret.push(Line::Instr {
+                                instr: Instr::PushFloat(c.to_string()),
+                                lineno,
+                                file_id,
+                                func_id,
+                            });
+                            index += 3;
+                        }
                         // FOLD FLOAT DIVISION
                         (Instr::PushFloat(a), Instr::PushFloat(b), Instr::DivideFloat) => {
                             let a = a.parse::<f64>().unwrap();
                             let b = b.parse::<f64>().unwrap();
                             let c = a / b;
+                            ret.push(Line::Instr {
+                                instr: Instr::PushFloat(c.to_string()),
+                                lineno,
+                                file_id,
+                                func_id,
+                            });
+                            index += 3;
+                        }
+                        // FOLD FLOAT EXPONENTIATION
+                        (Instr::PushFloat(a), Instr::PushFloat(b), Instr::PowerFloat) => {
+                            let a = a.parse::<f64>().unwrap();
+                            let b = b.parse::<f64>().unwrap();
+                            let c = a.powf(b);
                             ret.push(Line::Instr {
                                 instr: Instr::PushFloat(c.to_string()),
                                 lineno,
