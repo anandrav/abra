@@ -3,7 +3,15 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 #[derive(Copy, Clone, Debug)]
-pub struct ProgramCounter(pub usize);
+pub struct ProgramCounter(pub u32);
+impl ProgramCounter {
+    pub(crate) fn new(n: usize) -> Self {
+        ProgramCounter(n as u32)
+    }
+    pub(crate) fn get(self) -> usize {
+        self.0 as usize
+    }
+}
 pub type AbraInt = i64;
 pub type AbraFloat = f64;
 
@@ -571,7 +579,7 @@ pub trait ValueTrait:
     where
         Self: Sized;
 
-    fn get_addr(&self, vm: &Vm<Self>) -> usize
+    fn get_addr(&self, vm: &Vm<Self>) -> ProgramCounter
     where
         Self: Sized;
 }
@@ -585,7 +593,7 @@ pub enum TaggedValue {
     Bool(bool),
     Int(AbraInt),
     Float(AbraFloat),
-    FuncAddr(usize),
+    FuncAddr(ProgramCounter),
     HeapReference(HeapReference),
 }
 
@@ -652,7 +660,7 @@ impl From<AbraFloat> for TaggedValue {
 impl From<ProgramCounter> for TaggedValue {
     #[inline(always)]
     fn from(n: ProgramCounter) -> Self {
-        Self::FuncAddr(n.0)
+        Self::FuncAddr(n)
     }
 }
 
@@ -727,7 +735,7 @@ impl ValueTrait for TaggedValue {
     }
 
     #[inline(always)]
-    fn get_addr(&self, vm: &Vm<Self>) -> usize {
+    fn get_addr(&self, vm: &Vm<Self>) -> ProgramCounter {
         match self {
             TaggedValue::FuncAddr(addr) => *addr,
             _ => vm.fail_wrong_type(ValueKind::Int),
@@ -820,8 +828,8 @@ impl ValueTrait for PackedValue {
     }
 
     #[inline(always)]
-    fn get_addr(&self, _vm: &Vm<Self>) -> usize {
-        self.0 as usize
+    fn get_addr(&self, _vm: &Vm<Self>) -> ProgramCounter {
+        ProgramCounter(self.0 as u32)
     }
 }
 
@@ -883,7 +891,7 @@ impl<Value: ValueTrait> Vm<Value> {
 
     #[inline(always)]
     fn step(&mut self) -> bool {
-        let instr = self.program[self.pc.0];
+        let instr = self.program[self.pc.get()];
 
         self.pc.0 += 1;
         match instr {
@@ -1095,7 +1103,7 @@ impl<Value: ValueTrait> Vm<Value> {
                     nargs: nargs as u8,
                 });
 
-                self.pc.0 = addr;
+                self.pc = addr;
                 self.stack_base = self.value_stack.len();
             }
             Instr::Return => {
@@ -1467,7 +1475,7 @@ impl<Value: ValueTrait> Vm<Value> {
     }
 
     #[inline(always)]
-    fn pop_addr(&mut self) -> usize {
+    fn pop_addr(&mut self) -> ProgramCounter {
         self.pop().get_addr(self)
     }
 

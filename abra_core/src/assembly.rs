@@ -138,11 +138,11 @@ fn instr_to_vminstr(
         Instr::PushInt(i) => VmInstr::PushInt(*i),
         Instr::PushFloat(f) => VmInstr::PushFloat(*f),
         Instr::PushString(s) => VmInstr::PushString(string_constants.try_get_id(s).unwrap() as u16),
-        Instr::Jump(label) => VmInstr::Jump(ProgramCounter(label_to_idx[label])),
-        Instr::JumpIf(label) => VmInstr::JumpIf(ProgramCounter(label_to_idx[label])),
+        Instr::Jump(label) => VmInstr::Jump(ProgramCounter::new(label_to_idx[label])),
+        Instr::JumpIf(label) => VmInstr::JumpIf(ProgramCounter::new(label_to_idx[label])),
         Instr::Call(nargs, label) => VmInstr::Call(
             *nargs,
-            ProgramCounter(
+            ProgramCounter::new(
                 *label_to_idx
                     .get(label)
                     .unwrap_or_else(|| panic!("Could not find label: {label}")),
@@ -166,7 +166,7 @@ fn instr_to_vminstr(
         Instr::MakeClosure { func_addr } => {
             // dbg!(func_addr);
             VmInstr::MakeClosure {
-                func_addr: ProgramCounter(label_to_idx[func_addr]),
+                func_addr: ProgramCounter::new(label_to_idx[func_addr]),
             }
         }
         Instr::ArrayAppend => VmInstr::ArrayAppend,
