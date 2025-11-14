@@ -35,7 +35,7 @@ pub struct AbraVmFunctions {
     pub pop: unsafe extern "C" fn(vm: *mut c_void),
     pub view_string: unsafe extern "C" fn(vm: *mut c_void) -> StringView,
     pub push_string: unsafe extern "C" fn(vm: *mut c_void, string_view: StringView),
-    pub construct_struct: unsafe extern "C" fn(vm: *mut c_void, arity: u16),
+    pub construct_struct: unsafe extern "C" fn(vm: *mut c_void, arity: usize),
     pub construct_array: unsafe extern "C" fn(vm: *mut c_void, len: usize),
     pub construct_variant: unsafe extern "C" fn(vm: *mut c_void, tag: u16),
     pub deconstruct_struct: unsafe extern "C" fn(vm: *mut c_void),
@@ -189,7 +189,7 @@ unsafe extern "C" fn abra_vm_push_string(vm: *mut c_void, string_view: StringVie
 /// # Safety
 /// vm: *mut c_void must be valid and non-null
 #[unsafe(no_mangle)]
-unsafe extern "C" fn abra_vm_construct_struct(vm: *mut c_void, arity: u16) {
+unsafe extern "C" fn abra_vm_construct_struct(vm: *mut c_void, arity: usize) {
     let vm = unsafe { (vm as *mut Vm<PackedValue>).as_mut().unwrap() };
     vm.construct_struct(arity);
 }
@@ -875,7 +875,7 @@ macro_rules! tuple_impls {
                 // Count the number of elements in the tuple.
                 let count: usize = [$( replace_expr!($name, 1) ),+].len();
                 // Reconstruct the tuple on the VM.
-                (vm_funcs.construct_struct)(vm, count as u16);
+                (vm_funcs.construct_struct)(vm, count);
             }}
         }
     };

@@ -196,7 +196,7 @@ pub(crate) struct EnumDef {
 }
 
 impl EnumDef {
-    pub(crate) fn arity(&self, variant: u16) -> u16 {
+    pub(crate) fn arity(&self, variant: u16) -> usize {
         let data = &self.variants[variant as usize].data;
         match data {
             None => 0,
@@ -209,7 +209,7 @@ impl EnumDef {
                 | TypeKind::Bool
                 | TypeKind::Str
                 | TypeKind::Function(..) => 1,
-                TypeKind::Tuple(elems) => elems.len() as u16,
+                TypeKind::Tuple(elems) => elems.len(),
             },
         }
     }

@@ -119,7 +119,7 @@ pub enum Instr {
     Panic,
 
     // Data Structures
-    ConstructStruct(u16),
+    ConstructStruct(usize),
     ConstructArray(usize),
     ConstructVariant { tag: u16 },
     DeconstructStruct,
@@ -311,7 +311,7 @@ fn instr_to_vminstr(
         Instr::Return(nargs) => VmInstr::Return(*nargs),
         Instr::Stop => VmInstr::Stop,
         Instr::Panic => VmInstr::Panic,
-        Instr::ConstructStruct(n) => VmInstr::ConstructStruct(*n),
+        Instr::ConstructStruct(n) => VmInstr::ConstructStruct(*n as u32),
         Instr::ConstructArray(n) => VmInstr::ConstructArray(*n as u32),
         Instr::DeconstructStruct => VmInstr::DeconstructStruct,
         Instr::DeconstructVariant => VmInstr::DeconstructVariant,

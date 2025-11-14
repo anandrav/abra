@@ -595,7 +595,7 @@ macro_rules! tuple_impls {
                 // Count the number of elements in the tuple.
                 let count: usize = [$( replace_expr!($name, 1) ),+].len();
                 // Reconstruct the tuple on the VM.
-                vm.construct_struct(count as u16);
+                vm.construct_struct(count);
             }
         }
     };

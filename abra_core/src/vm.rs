@@ -271,13 +271,13 @@ impl<Value: ValueTrait> Vm<Value> {
     }
 
     #[inline(always)]
-    pub fn construct_tuple(&mut self, n: u8) {
-        self.construct_struct(n as u16)
+    pub fn construct_tuple(&mut self, n: usize) {
+        self.construct_struct(n)
     }
 
     #[inline(always)]
-    pub fn construct_struct(&mut self, n: u16) {
-        let fields = self.pop_n(n as usize);
+    pub fn construct_struct(&mut self, n: usize) {
+        let fields = self.pop_n(n);
         let fields = fields.into_boxed_slice();
         self.heap
             .push(ManagedObject::new(ManagedObjectKind::Struct(fields)));
@@ -458,7 +458,7 @@ pub enum Instr {
     Panic,
 
     // Data Structures
-    ConstructStruct(u16),
+    ConstructStruct(u32),
     ConstructArray(u32),
     ConstructVariant { tag: u16 },
     DeconstructStruct,
@@ -1106,7 +1106,7 @@ impl<Value: ValueTrait> Vm<Value> {
                 self.error = Some(Box::new(self.make_error(VmErrorKind::Panic(msg.clone()))));
                 return false;
             }
-            Instr::ConstructStruct(n) => self.construct_struct(n),
+            Instr::ConstructStruct(n) => self.construct_struct(n as usize),
             Instr::ConstructArray(n) => self.construct_array(n as usize),
             Instr::DeconstructStruct => {
                 self.deconstruct_struct();

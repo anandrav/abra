@@ -626,7 +626,7 @@ impl Translator {
                 for expr in exprs {
                     self.translate_expr(expr, offset_table, monomorph_env, st);
                 }
-                self.emit(st, Instr::ConstructStruct(exprs.len() as u16));
+                self.emit(st, Instr::ConstructStruct(exprs.len()));
             }
             ExprKind::IfElse(cond, then_block, else_block) => {
                 self.translate_expr(cond, offset_table, monomorph_env, st);
@@ -873,7 +873,7 @@ impl Translator {
                 );
             }
             Declaration::Struct(def) => {
-                self.emit(st, Instr::ConstructStruct(def.fields.len() as u16));
+                self.emit(st, Instr::ConstructStruct(def.fields.len()));
             }
             Declaration::EnumVariant {
                 e: enum_def,
