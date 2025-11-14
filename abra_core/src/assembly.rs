@@ -113,6 +113,7 @@ pub enum Instr {
     // Control Flow
     Jump(Label),
     JumpIf(Label),
+    JumpIfFalse(Label),
     Call(usize, Label),
     CallFuncObj,
     CallExtern(u32),
@@ -190,6 +191,7 @@ impl Display for Instr {
             Instr::PushString(s) => write!(f, "push_string {:?}", s),
             Instr::Jump(loc) => write!(f, "jump {loc}"),
             Instr::JumpIf(loc) => write!(f, "jump_if {loc}"),
+            Instr::JumpIfFalse(loc) => write!(f, "jump_if_false {loc}"),
             Instr::Call(nargs, addr) => {
                 write!(f, "call {} {}", nargs, addr)
             }
@@ -313,6 +315,7 @@ fn instr_to_vminstr(
         }
         Instr::Jump(label) => VmInstr::Jump(ProgramCounter::new(label_to_idx[label])),
         Instr::JumpIf(label) => VmInstr::JumpIf(ProgramCounter::new(label_to_idx[label])),
+        Instr::JumpIfFalse(label) => VmInstr::JumpIfFalse(ProgramCounter::new(label_to_idx[label])),
         Instr::Call(nargs, label) => VmInstr::Call(CallData::new(
             *nargs as u32,
             *label_to_idx

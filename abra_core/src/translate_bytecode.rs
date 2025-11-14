@@ -1044,8 +1044,7 @@ impl Translator {
                     self.emit(st, Instr::DeconstructVariant);
                     self.emit(st, Instr::PushInt(*variant as AbraInt));
                     self.emit(st, Instr::EqualInt);
-                    self.emit(st, Instr::Not);
-                    self.emit(st, Instr::JumpIf(tag_fail_label.clone()));
+                    self.emit(st, Instr::JumpIfFalse(tag_fail_label.clone()));
 
                     if let Some(inner) = inner {
                         let inner_ty = self.statics.solution_of_node(inner.node()).unwrap();
@@ -1083,8 +1082,7 @@ impl Translator {
                         let ty = &types[i];
                         self.translate_pat_comparison(ty, pat, st);
                         let is_last = i == pats.len() - 1;
-                        self.emit(st, Instr::Not);
-                        self.emit(st, Instr::JumpIf(failure_labels[i].clone()));
+                        self.emit(st, Instr::JumpIfFalse(failure_labels[i].clone()));
                         // SUCCESS
                         if is_last {
                             self.emit(st, Instr::Jump(final_element_success_label.clone()));
@@ -1198,8 +1196,7 @@ impl Translator {
 
                 self.emit(st, Line::Label(start_label.clone()));
                 self.translate_expr(cond, offset_table, monomorph_env, st);
-                self.emit(st, Instr::Not);
-                self.emit(st, Instr::JumpIf(end_label.clone()));
+                self.emit(st, Instr::JumpIfFalse(end_label.clone()));
                 st.loop_stack.push(EnclosingLoop {
                     start_label: start_label.clone(),
                     end_label: end_label.clone(),
@@ -1259,8 +1256,7 @@ impl Translator {
                 self.emit(st, Instr::DeconstructVariant);
                 self.emit(st, Instr::PushInt(0 as AbraInt));
                 self.emit(st, Instr::EqualInt);
-                self.emit(st, Instr::Not);
-                self.emit(st, Instr::JumpIf(end_label.clone()));
+                self.emit(st, Instr::JumpIfFalse(end_label.clone()));
                 self.handle_pat_binding(pat, offset_table, st);
                 st.loop_stack.push(EnclosingLoop {
                     start_label: start_label.clone(),

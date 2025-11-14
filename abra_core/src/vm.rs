@@ -452,6 +452,7 @@ pub enum Instr {
     // Control Flow
     Jump(ProgramCounter),
     JumpIf(ProgramCounter),
+    JumpIfFalse(ProgramCounter),
     Call(CallData),
     CallFuncObj,
     CallExtern(u32),
@@ -1081,6 +1082,12 @@ impl<Value: ValueTrait> Vm<Value> {
             Instr::JumpIf(target) => {
                 let v = self.pop_bool();
                 if v {
+                    self.pc = target;
+                }
+            }
+            Instr::JumpIfFalse(target) => {
+                let v = self.pop_bool();
+                if !v {
                     self.pc = target;
                 }
             }
