@@ -31,7 +31,7 @@ pub struct Vm<Value: ValueTrait = PackedValue> {
     stack_base: usize,
     value_stack: Vec<Value>,
     call_stack: Vec<CallFrame>,
-    heap: Vec<ManagedObject<Value>>, // TODO: replace with bump-allocated arena(s)
+    heap: Vec<ManagedObject<Value>>,
     heap_group: HeapGroup,
 
     static_strings: Vec<String>,
@@ -853,10 +853,10 @@ impl<Value: ValueTrait> ManagedObject<Value> {
 
 #[derive(Debug, Clone)]
 enum ManagedObjectKind<Value: ValueTrait> {
-    Enum { tag: u16, value: Value }, // TODO: Use Box<[Value]> instead of Value (which is a tuple). Reduce indirection
+    Enum { tag: u16, value: Value },
     DynArray(Vec<Value>),
     Struct(Box<[Value]>),
-    String(String), // TODO: use Box<str> ?
+    String(String),
 }
 
 impl<Value: ValueTrait> Vm<Value> {
@@ -926,43 +926,31 @@ impl<Value: ValueTrait> Vm<Value> {
             Instr::AddInt => {
                 let b = self.pop_int();
                 let a = self.pop_int();
-                match a.checked_add(b) {
-                    Some(n) => self.push(n),
-                    None => self.fail(VmErrorKind::IntegerOverflowUnderflow),
-                }
+                self.push(a.wrapping_add(b));
             }
             Instr::SubtractInt => {
                 let b = self.pop_int();
                 let a = self.pop_int();
-                match a.checked_sub(b) {
-                    Some(n) => self.push(n),
-                    None => self.fail(VmErrorKind::IntegerOverflowUnderflow),
-                }
+                self.push_int(a.wrapping_sub(b));
             }
             Instr::MultiplyInt => {
                 let b = self.pop_int();
                 let a = self.pop_int();
-                match a.checked_mul(b) {
-                    Some(n) => self.push(n),
-                    None => self.fail(VmErrorKind::IntegerOverflowUnderflow),
-                }
+                self.push(a.wrapping_mul(b));
             }
             Instr::DivideInt => {
                 let b = self.pop_int();
                 let a = self.pop_int();
                 if b == 0 {
-                    self.fail(VmErrorKind::DivisionByZero);
+                    self.error = Some(Box::new(self.make_error(VmErrorKind::DivisionByZero))); // TODO: why is this boxed
+                    return false;
                 }
-                match a.checked_div(b) {
-                    // TODO: isn't this redundant with the above check for b == 0?
-                    Some(n) => self.push(n),
-                    None => self.fail(VmErrorKind::IntegerOverflowUnderflow),
-                }
+                self.push(a.wrapping_div(b));
             }
             Instr::PowerInt => {
                 let b = self.pop_int();
                 let a = self.pop_int();
-                self.push(a.pow(b as u32));
+                self.push(a.wrapping_pow(b as u32));
             }
             Instr::Modulo => {
                 let b = self.pop_int();
@@ -988,7 +976,8 @@ impl<Value: ValueTrait> Vm<Value> {
                 let b = self.pop_float();
                 let a = self.pop_float();
                 if b == 0.0 {
-                    self.fail(VmErrorKind::DivisionByZero);
+                    self.error = Some(Box::new(self.make_error(VmErrorKind::DivisionByZero))); // TODO: why is this boxed
+                    return false;
                 }
                 self.push(a / b);
             }
