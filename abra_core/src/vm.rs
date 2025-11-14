@@ -455,7 +455,7 @@ pub enum Instr<Location = ProgramCounter, StringConstant = u16> {
     LoadForeignFunc,
 }
 
-impl<L: Display, S: Display> Display for Instr<L, S> {
+impl<L: Display, S: Display + Debug> Display for Instr<L, S> {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
             Instr::Pop => write!(f, "pop"),
@@ -493,7 +493,7 @@ impl<L: Display, S: Display> Display for Instr<L, S> {
             Instr::PushBool(b) => write!(f, "push_bool {b}"),
             Instr::PushInt(n) => write!(f, "push_int {n}"),
             Instr::PushFloat(n) => write!(f, "push_float {n}"),
-            Instr::PushString(s) => write!(f, "push_string {s}"),
+            Instr::PushString(s) => write!(f, "push_string {:?}", s),
             Instr::Jump(loc) => write!(f, "jump {loc}"),
             Instr::JumpIf(loc) => write!(f, "jump_if {loc}"),
             Instr::Call(nargs, loc) => write!(f, "call {nargs} {loc}"),
