@@ -401,8 +401,8 @@ pub enum Instr {
     // Stack manipulation
     Pop,
     Duplicate,
-    LoadOffset(i32),
-    StoreOffset(i32),
+    LoadOffset(i16),
+    StoreOffset(i16),
 
     // Constants
     PushNil(u16),
@@ -465,7 +465,9 @@ pub enum Instr {
     DeconstructArray,
     DeconstructVariant,
     GetField(u16),
+    GetFieldOffset(u16, i16),
     SetField(u16),
+    SetFieldOffset(u16, i16),
     GetIdx,
     SetIdx,
     MakeClosure { func_addr: ProgramCounter },
@@ -1126,8 +1128,30 @@ impl<Value: ValueTrait> Vm<Value> {
                 };
                 self.set_top(field);
             }
+            Instr::GetFieldOffset(index, offset) => {
+                let idx = self.stack_base.wrapping_add_signed(offset as isize); // TODO: don't use wrapping_add_signed, we want it to panic on debug builds
+                let obj = self.value_stack[idx];
+                let heap_index = obj.get_heap_index(self, ValueKind::Struct);
+                let field = match &self.heap[heap_index].kind {
+                    ManagedObjectKind::Struct(fields) => fields[index as usize],
+                    _ => self.fail_wrong_type(ValueKind::Struct),
+                };
+                self.push(field);
+            }
             Instr::SetField(index) => {
                 let obj = self.pop();
+                let rvalue = self.pop();
+                let heap_index = obj.get_heap_index(self, ValueKind::Struct);
+                match &mut self.heap[heap_index].kind {
+                    ManagedObjectKind::Struct(fields) => {
+                        fields[index as usize] = rvalue;
+                    }
+                    _ => self.fail_wrong_type(ValueKind::Struct),
+                }
+            }
+            Instr::SetFieldOffset(index, offset) => {
+                let idx = self.stack_base.wrapping_add_signed(offset as isize); // TODO: don't use wrapping_add_signed, we want it to panic on debug builds. Same for LoadOffset etc
+                let obj = self.value_stack[idx];
                 let rvalue = self.pop();
                 let heap_index = obj.get_heap_index(self, ValueKind::Struct);
                 match &mut self.heap[heap_index].kind {

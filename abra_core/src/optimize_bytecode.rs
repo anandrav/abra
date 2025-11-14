@@ -1,3 +1,6 @@
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 use crate::assembly::{Instr, Line};
 
 pub(crate) fn optimize(lines: Vec<Line>) -> Vec<Line> {
@@ -82,6 +85,26 @@ pub(crate) fn peephole2(lines: Vec<Line>) -> Vec<Line> {
                         (Instr::PushBool(b), Instr::Not) => {
                             ret.push(Line::Instr {
                                 instr: Instr::PushBool(!b),
+                                lineno,
+                                file_id,
+                                func_id,
+                            });
+                            index += 2;
+                        }
+                        // // LOADOFFSET GETFIELD
+                        (Instr::LoadOffset(offset), Instr::GetField(field)) => {
+                            ret.push(Line::Instr {
+                                instr: Instr::GetFieldOffset(*field, offset),
+                                lineno,
+                                file_id,
+                                func_id,
+                            });
+                            index += 2;
+                        }
+                        // LOADOFFSET SETFIELD
+                        (Instr::LoadOffset(offset), Instr::SetField(field)) => {
+                            ret.push(Line::Instr {
+                                instr: Instr::SetFieldOffset(*field, offset),
                                 lineno,
                                 file_id,
                                 func_id,
@@ -267,18 +290,3 @@ pub(crate) fn peephole3(lines: Vec<Line>) -> Vec<Line> {
 
     ret
 }
-
-/*
-   main:
-   addint
-   push
-   pop
-   fib:
-   push 32
-   pushnil
-   pop
-   branch
-   foo:
-   panic
-
-*/
