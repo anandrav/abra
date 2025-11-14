@@ -491,14 +491,15 @@ impl Display for CallData {
 }
 
 impl CallData {
-    const NARGS_BITS: u32 = 0b11111 << (32 - 5);
-    const ADDR_MASK: u32 = !Self::NARGS_BITS;
+    const NARGS_NBITS: u32 = 5;
+    const NARGS_SHIFT: u32 = 32 - Self::NARGS_NBITS;
+    const NARGS_MASK: u32 = 0b11111 << Self::NARGS_SHIFT;
+    const ADDR_MASK: u32 = !Self::NARGS_MASK;
 
     #[inline(always)]
     pub(crate) fn new(nargs: u32, addr: u32) -> Self {
         debug_assert!(addr <= Self::ADDR_MASK);
-        let mut repr = addr;
-        repr |= nargs << (32 - 5);
+        let repr = addr | nargs << Self::NARGS_SHIFT;
         CallData(repr)
     }
     #[inline(always)]
@@ -507,7 +508,7 @@ impl CallData {
     }
     #[inline(always)]
     fn get_nargs(&self) -> u32 {
-        self.0 >> (32 - 5)
+        self.0 >> Self::NARGS_SHIFT
     }
 }
 
@@ -1088,8 +1089,7 @@ impl<Value: ValueTrait> Vm<Value> {
                     self.value_stack[idx] = *v;
                 }
 
-                let frame = self.call_stack.pop();
-                let Some(frame) = frame else { self.fail(VmErrorKind::Underflow) };
+                let frame = self.call_stack.pop().unwrap();
                 self.pc = frame.pc;
                 let old_stack_base = self.stack_base;
                 self.stack_base = frame.stack_base;
