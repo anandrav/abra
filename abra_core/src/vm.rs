@@ -320,15 +320,14 @@ impl<Value: ValueTrait> Vm<Value> {
 
     #[inline(always)]
     pub fn deconstruct_variant(&mut self) {
-        let obj = self.pop();
+        let obj = self.top();
         let heap_index = obj.get_heap_index(self, ValueKind::Enum);
-        match &self.heap[heap_index].kind {
-            ManagedObjectKind::Enum { tag, value } => {
-                self.value_stack.push(*value);
-                self.push_int(*tag as AbraInt);
-            }
+        let (value, tag) = match &self.heap[heap_index].kind {
+            ManagedObjectKind::Enum { tag, value } => (*value, *tag),
             _ => self.fail_wrong_type(ValueKind::Enum),
-        }
+        };
+        self.set_top(value);
+        self.push(tag as AbraInt);
     }
 
     #[inline(always)]
@@ -1119,13 +1118,13 @@ impl<Value: ValueTrait> Vm<Value> {
                 self.deconstruct_variant();
             }
             Instr::GetField(index) => {
-                let obj = self.pop();
+                let obj = self.top();
                 let heap_index = obj.get_heap_index(self, ValueKind::Struct);
                 let field = match &self.heap[heap_index].kind {
                     ManagedObjectKind::Struct(fields) => fields[index as usize],
                     _ => self.fail_wrong_type(ValueKind::Struct),
                 };
-                self.push(field);
+                self.set_top(field);
             }
             Instr::SetField(index) => {
                 let obj = self.pop();
@@ -1140,7 +1139,7 @@ impl<Value: ValueTrait> Vm<Value> {
             }
             Instr::GetIdx => {
                 let obj = self.pop();
-                let idx = self.pop_int();
+                let idx = self.top().get_int(self);
                 let heap_index = obj.get_heap_index(self, ValueKind::Array);
                 match &self.heap[heap_index].kind {
                     ManagedObjectKind::DynArray(fields) => {
@@ -1148,7 +1147,7 @@ impl<Value: ValueTrait> Vm<Value> {
                             self.fail(VmErrorKind::ArrayOutOfBounds);
                         }
                         let field = fields[idx as usize];
-                        self.push(field);
+                        self.set_top(field);
                     }
                     _ => self.fail_wrong_type(ValueKind::Array),
                 }
@@ -1176,7 +1175,7 @@ impl<Value: ValueTrait> Vm<Value> {
             }
             Instr::ArrayAppend => {
                 let rvalue = self.pop();
-                let obj = self.pop();
+                let obj = self.top();
                 let heap_index = obj.get_heap_index(self, ValueKind::Array);
                 match &mut self.heap[heap_index].kind {
                     ManagedObjectKind::DynArray(fields) => {
@@ -1184,27 +1183,26 @@ impl<Value: ValueTrait> Vm<Value> {
                     }
                     _ => self.fail_wrong_type(ValueKind::Array),
                 }
-                self.push_nil();
+                self.set_top(Value::make_nil());
             }
             Instr::ArrayLength => {
                 let len = self.array_len();
-                self.pop();
-                self.push_int(len as AbraInt);
+                self.set_top(len as AbraInt);
             }
             Instr::ArrayPop => {
-                let obj = self.pop();
+                let obj = self.top();
                 let heap_index = obj.get_heap_index(self, ValueKind::Array);
                 match &mut self.heap[heap_index].kind {
                     ManagedObjectKind::DynArray(fields) => {
                         let rvalue = fields.pop().expect("array underflow");
-                        self.push(rvalue);
+                        self.set_top(rvalue);
                     }
                     _ => self.fail_wrong_type(ValueKind::Array),
                 }
             }
             Instr::ConcatStrings => {
                 let b = self.pop();
-                let a = self.pop();
+                let a = self.top();
                 let a_str = a.view_string(self);
                 let b_str = b.view_string(self);
                 let mut new_str = String::with_capacity(a_str.len() + b_str.len());
@@ -1213,23 +1211,23 @@ impl<Value: ValueTrait> Vm<Value> {
                 self.heap
                     .push(ManagedObject::new(ManagedObjectKind::String(new_str)));
                 let r = self.heap_reference(self.heap.len() - 1);
-                self.push(r);
+                self.set_top(r);
             }
             Instr::IntToString => {
-                let n = self.pop_int();
+                let n = self.top().get_int(self);
                 let s = n.to_string();
                 self.heap
                     .push(ManagedObject::new(ManagedObjectKind::String(s)));
                 let r = self.heap_reference(self.heap.len() - 1);
-                self.push(r);
+                self.set_top(r);
             }
             Instr::FloatToString => {
-                let f = self.pop().get_float(self);
+                let f = self.top().get_float(self);
                 let s = f.to_string();
                 self.heap
                     .push(ManagedObject::new(ManagedObjectKind::String(s)));
                 let r = self.heap_reference(self.heap.len() - 1);
-                self.push(r);
+                self.set_top(r);
             }
             Instr::HostFunc(eff) => {
                 self.pending_host_func = Some(eff);
