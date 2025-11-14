@@ -50,6 +50,18 @@ pub(crate) fn peephole(lines: Vec<Line>) -> Vec<Line> {
                             });
                             index += 2;
                         }
+                        (
+                            Instr::PushBool(_)
+                            | Instr::PushFloat(_)
+                            | Instr::PushInt(_)
+                            | Instr::PushString(_),
+                            Instr::Pop,
+                        ) => {
+                            index += 2;
+                        }
+                        (Instr::Duplicate, Instr::Pop) => {
+                            index += 2;
+                        }
                         // BOOLEAN FLIP
                         (Instr::PushBool(b), Instr::Not) => {
                             ret.push(Line::Instr {
