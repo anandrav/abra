@@ -60,7 +60,7 @@ pub const ABRA_VM_FUNCS: AbraVmFunctions = AbraVmFunctions {
     construct_array: abra_vm_construct_array,
     construct_variant: abra_vm_construct_variant,
     deconstruct_struct: abra_vm_deconstruct_struct,
-    deconstruct_array: abra_vm_deconstruct_struct,
+    deconstruct_array: abra_vm_deconstruct_array,
     deconstruct_variant: abra_vm_deconstruct_enum,
     array_len: abra_vm_array_len,
 };
@@ -216,6 +216,14 @@ unsafe extern "C" fn abra_vm_construct_variant(vm: *mut c_void, tag: u16) {
 unsafe extern "C" fn abra_vm_deconstruct_struct(vm: *mut c_void) {
     let vm = unsafe { (vm as *mut Vm<PackedValue>).as_mut().unwrap() };
     vm.deconstruct_struct();
+}
+
+/// # Safety
+/// vm: *mut c_void must be valid and non-null
+#[unsafe(no_mangle)]
+unsafe extern "C" fn abra_vm_deconstruct_array(vm: *mut c_void) {
+    let vm = unsafe { (vm as *mut Vm<PackedValue>).as_mut().unwrap() };
+    vm.deconstruct_array();
 }
 
 /// # Safety
