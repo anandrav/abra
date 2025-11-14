@@ -838,9 +838,9 @@ impl Translator {
                 let f_fully_qualified_name = &self.statics.fully_qualified_names[&f.name.id];
                 // println!("{}", f_fully_qualified_name);
                 match f_fully_qualified_name.as_str() {
-                    // "array.push" => self.emit(st, Instr::ArrayAppend),
+                    "array.push" => self.emit(st, Instr::ArrayAppend),
                     "array.len" => self.emit(st, Instr::ArrayLength),
-                    // "array.pop" => self.emit(st, Instr::ArrayPop),
+                    "array.pop" => self.emit(st, Instr::ArrayPop),
                     _ => {
                         self.translate_func_ap_helper(
                             f,
