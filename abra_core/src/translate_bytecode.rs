@@ -836,13 +836,20 @@ impl Translator {
             }
             Declaration::MemberFunction { f } => {
                 let f_fully_qualified_name = &self.statics.fully_qualified_names[&f.name.id];
-                self.translate_func_ap_helper(
-                    f,
-                    f_fully_qualified_name,
-                    func_node,
-                    monomorph_env,
-                    st,
-                );
+                match f_fully_qualified_name.as_str() {
+                    "prelude.array.push" => self.emit(st, Instr::ArrayAppend),
+                    "prelude.array.len" => self.emit(st, Instr::ArrayLength),
+                    "prelude.array.pop" => self.emit(st, Instr::ArrayPop),
+                    _ => {
+                        self.translate_func_ap_helper(
+                            f,
+                            f_fully_qualified_name,
+                            func_node,
+                            monomorph_env,
+                            st,
+                        );
+                    }
+                }
             }
             Declaration::Struct(def) => {
                 self.emit(st, Instr::ConstructStruct(def.fields.len() as u16));
