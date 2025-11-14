@@ -130,6 +130,65 @@ pub(crate) fn peephole3(lines: Vec<Line>) -> Vec<Line> {
                     && let Line::Instr { instr: instr3, .. } = &lines[index + 2]
                 {
                     match (instr1, instr2, instr3) {
+                        // FOLD INT ADDITION
+                        (Instr::PushInt(a), Instr::PushInt(b), Instr::AddInt) => {
+                            let c = a.wrapping_add(*b);
+                            ret.push(Line::Instr {
+                                instr: Instr::PushInt(c),
+                                lineno,
+                                file_id,
+                                func_id,
+                            });
+                            index += 3;
+                        }
+                        // FOLD INT SUBTRACTION
+                        (Instr::PushInt(a), Instr::PushInt(b), Instr::SubtractInt) => {
+                            let c = a.wrapping_sub(*b);
+                            ret.push(Line::Instr {
+                                instr: Instr::PushInt(c),
+                                lineno,
+                                file_id,
+                                func_id,
+                            });
+                            index += 3;
+                        }
+                        // FOLD INT MULTIPLICATION
+                        (Instr::PushInt(a), Instr::PushInt(b), Instr::MultiplyInt) => {
+                            let c = a.wrapping_mul(*b);
+                            ret.push(Line::Instr {
+                                instr: Instr::PushInt(c),
+                                lineno,
+                                file_id,
+                                func_id,
+                            });
+                            index += 3;
+                        }
+                        // FOLD INT DIVISION
+                        (Instr::PushInt(a), Instr::PushInt(b), Instr::DivideInt) => {
+                            if *b == 0 {
+                                noop(&mut index);
+                            } else {
+                                let c = a.wrapping_div(*b);
+                                ret.push(Line::Instr {
+                                    instr: Instr::PushInt(c),
+                                    lineno,
+                                    file_id,
+                                    func_id,
+                                });
+                                index += 3;
+                            }
+                        }
+                        // FOLD INT EXPONENTIATION
+                        (Instr::PushInt(a), Instr::PushInt(b), Instr::PowerInt) => {
+                            let c = a.wrapping_pow(*b as u32);
+                            ret.push(Line::Instr {
+                                instr: Instr::PushInt(c),
+                                lineno,
+                                file_id,
+                                func_id,
+                            });
+                            index += 3;
+                        }
                         // FOLD FLOAT ADDITION
                         (Instr::PushFloat(a), Instr::PushFloat(b), Instr::AddFloat) => {
                             let a = a.parse::<f64>().unwrap();
