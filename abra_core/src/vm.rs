@@ -373,7 +373,7 @@ impl<Value: ValueTrait> Vm<Value> {
 #[derive(Debug, Copy, Clone)]
 pub enum Instr<Location = ProgramCounter, StringConstant = u16> {
     // Stack manipulation
-    Pop,
+    Pop(u16),
     Duplicate,
     LoadOffset(i32),
     StoreOffset(i32),
@@ -381,8 +381,8 @@ pub enum Instr<Location = ProgramCounter, StringConstant = u16> {
     // Constants
     PushNil(u16),
     PushBool(bool),
-    PushInt(AbraInt),
-    PushFloat(AbraFloat),
+    PushInt(AbraInt), // TODO: this instruction could be smaller by keeping constant ints similar to strings
+    PushFloat(AbraFloat), // TODO: this instruction could be smaller by keeping constant floats similar to strings
     PushString(StringConstant),
 
     // Arithmetic
@@ -421,11 +421,11 @@ pub enum Instr<Location = ProgramCounter, StringConstant = u16> {
     EqualString, // TODO: this is O(N). Must use smaller instructions. Or compare character-by-character and save progress in state of Vm
 
     // Control Flow
-    Jump(Location),
-    JumpIf(Location),
-    Call(u8, Location),
+    Jump(Location), // TODO: this instruction could be smaller if a signed relative offset were used. ****Or just use u32 for Location/ProgramCounter****
+    JumpIf(Location), // TODO: this instruction could be smaller if a signed relative offset were used
+    Call(u8, Location), // TODO: this instruction could be smaller if a signed relative offset were used. Reserve leading byte of the offset
     CallFuncObj,
-    CallExtern(usize),
+    CallExtern(usize), // TODO: this instruction could be smaller if a u32 were used for extern functions
     Return,
     Stop, // used when returning from main function
     HostFunc(u16),
@@ -458,7 +458,7 @@ pub enum Instr<Location = ProgramCounter, StringConstant = u16> {
 impl<L: Display, S: Display + Debug> Display for Instr<L, S> {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
-            Instr::Pop => write!(f, "pop"),
+            Instr::Pop(n) => write!(f, "pop {n}"),
             Instr::Duplicate => write!(f, "duplicate"),
             Instr::LoadOffset(n) => write!(f, "loadOffset {n}"),
             Instr::StoreOffset(n) => write!(f, "storeOffset {n}"),
@@ -908,8 +908,8 @@ impl<Value: ValueTrait> Vm<Value> {
                 let r = self.heap_reference(self.heap.len() - 1);
                 self.value_stack.push(r);
             }
-            Instr::Pop => {
-                self.pop();
+            Instr::Pop(n) => {
+                self.pop_n(n as usize);
             }
             Instr::Duplicate => {
                 let v = self.top();

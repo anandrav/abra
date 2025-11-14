@@ -983,7 +983,7 @@ impl Translator {
     ) {
         match &*pat.kind {
             PatKind::Wildcard | PatKind::Binding(_) | PatKind::Void => {
-                self.emit(st, Instr::Pop);
+                self.emit(st, Instr::Pop(1));
                 self.emit(st, Instr::PushBool(true));
                 return;
             }
@@ -1033,14 +1033,14 @@ impl Translator {
                         self.translate_pat_comparison(&inner_ty, inner, st);
                         self.emit(st, Instr::Jump(end_label.clone()));
                     } else {
-                        self.emit(st, Instr::Pop);
+                        self.emit(st, Instr::Pop(1));
                         self.emit(st, Instr::PushBool(true));
                         self.emit(st, Instr::Jump(end_label.clone()));
                     }
 
                     // FAILURE
                     self.emit(st, Line::Label(tag_fail_label));
-                    self.emit(st, Instr::Pop);
+                    self.emit(st, Instr::Pop(1));
 
                     self.emit(st, Instr::PushBool(false));
 
@@ -1080,7 +1080,7 @@ impl Translator {
                     // clean up the remaining tuple elements before yielding false
                     self.emit(st, Line::Label(failure_labels[0].clone()));
                     for label in &failure_labels[1..] {
-                        self.emit(st, Instr::Pop);
+                        self.emit(st, Instr::Pop(1));
                         self.emit(st, Line::Label(label.clone()));
                     }
                     self.emit(st, Instr::PushBool(false));
@@ -1142,7 +1142,7 @@ impl Translator {
             StmtKind::Expr(expr) => {
                 self.translate_expr(expr, offset_table, monomorph_env, st);
                 if !is_last {
-                    self.emit(st, Instr::Pop);
+                    self.emit(st, Instr::Pop(1));
                 }
             }
             StmtKind::Break => {
@@ -1166,7 +1166,7 @@ impl Translator {
                 self.emit(st, Instr::Jump(end_label.clone()));
                 self.emit(st, Line::Label(then_label));
                 self.translate_expr(then_block, offset_table, monomorph_env, st);
-                self.emit(st, Instr::Pop);
+                self.emit(st, Instr::Pop(1));
                 self.emit(st, Line::Label(end_label));
 
                 if is_last {
@@ -1187,7 +1187,7 @@ impl Translator {
                 });
                 self.translate_expr(body, offset_table, monomorph_env, st);
                 st.loop_stack.pop();
-                self.emit(st, Instr::Pop);
+                self.emit(st, Instr::Pop(1));
                 self.emit(st, Instr::Jump(start_label));
                 self.emit(st, Line::Label(end_label));
 
@@ -1249,11 +1249,10 @@ impl Translator {
                 });
                 self.translate_expr(body, offset_table, monomorph_env, st);
                 st.loop_stack.pop();
-                self.emit(st, Instr::Pop);
+                self.emit(st, Instr::Pop(1));
                 self.emit(st, Instr::Jump(start_label));
                 self.emit(st, Line::Label(end_label));
-                self.emit(st, Instr::Pop);
-                self.emit(st, Instr::Pop);
+                self.emit(st, Instr::Pop(2));
 
                 if is_last {
                     self.emit(st, Instr::PushNil(1));
@@ -1330,10 +1329,10 @@ impl Translator {
                     // unpack tag and associated data
                     self.emit(st, Instr::DeconstructVariant);
                     // pop tag
-                    self.emit(st, Instr::Pop);
+                    self.emit(st, Instr::Pop(1));
                     self.handle_pat_binding(inner, locals, st);
                 } else {
-                    self.emit(st, Instr::Pop);
+                    self.emit(st, Instr::Pop(1));
                 }
             }
             PatKind::Void
@@ -1342,7 +1341,7 @@ impl Translator {
             | PatKind::Float(..)
             | PatKind::Str(..)
             | PatKind::Wildcard => {
-                self.emit(st, Instr::Pop);
+                self.emit(st, Instr::Pop(1));
             }
         }
     }

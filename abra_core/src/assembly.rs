@@ -102,7 +102,7 @@ fn instr_to_vminstr(
     string_constants: &IdSet<String>,
 ) -> VmInstr {
     match instr {
-        Instr::Pop => VmInstr::Pop,
+        Instr::Pop(n) => VmInstr::Pop(*n),
         Instr::Duplicate => VmInstr::Duplicate,
         Instr::LoadOffset(i) => VmInstr::LoadOffset(*i),
         Instr::StoreOffset(i) => VmInstr::StoreOffset(*i),
