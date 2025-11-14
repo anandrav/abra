@@ -32,15 +32,6 @@ pub(crate) fn peephole(lines: Vec<Line>) -> Vec<Line> {
                             });
                             index += 2;
                         }
-                        (Instr::Pop(a), Instr::Pop(b)) => {
-                            ret.push(Line::Instr {
-                                instr: Instr::Pop(a + b),
-                                lineno,
-                                file_id,
-                                func_id,
-                            });
-                            index += 2;
-                        }
                         _ => {
                             // noop
                             ret.push(curr.clone());
