@@ -210,9 +210,7 @@ impl Translator {
                     .collect();
                 collect_locals_stmt(&stmts, &mut locals);
 
-                for _ in 0..locals.len() {
-                    self.emit(st, Instr::PushNil);
-                }
+                self.emit(st, Instr::PushNil(locals.len() as u16));
                 let mut offset_table = OffsetTable::default();
                 for (offset, node_id) in locals.iter().enumerate() {
                     offset_table.entry(*node_id).or_insert((offset) as i32);
@@ -269,9 +267,7 @@ impl Translator {
                     let mut locals = HashSet::default();
                     collect_locals_expr(body, &mut locals);
                     let locals_count = locals.len();
-                    for _ in 0..locals_count {
-                        self.emit(st, Instr::PushNil);
-                    }
+                    self.emit(st, Instr::PushNil(locals_count as u16));
                     let mut offset_table = OffsetTable::default();
                     for (i, arg) in args.iter().rev().enumerate() {
                         offset_table.entry(arg.0.id).or_insert(-(i as i32) - 1);
@@ -345,7 +341,7 @@ impl Translator {
         match &*expr.kind {
             ExprKind::Variable(_) => match &self.statics.resolution_map[&expr.id] {
                 Declaration::EnumVariant { variant, .. } => {
-                    self.emit(st, Instr::PushNil);
+                    self.emit(st, Instr::PushNil(1));
                     self.emit(
                         st,
                         Instr::ConstructVariant {
@@ -401,7 +397,7 @@ impl Translator {
             ExprKind::MemberAccessLeadingDot(ident) => match self.statics.resolution_map[&ident.id]
             {
                 Declaration::EnumVariant { variant, .. } => {
-                    self.emit(st, Instr::PushNil);
+                    self.emit(st, Instr::PushNil(1));
                     self.emit(
                         st,
                         Instr::ConstructVariant {
@@ -412,7 +408,7 @@ impl Translator {
                 _ => panic!(),
             },
             ExprKind::Void => {
-                self.emit(st, Instr::PushNil);
+                self.emit(st, Instr::PushNil(1));
             }
             ExprKind::Bool(b) => {
                 self.emit(st, Instr::PushBool(*b));
@@ -591,7 +587,7 @@ impl Translator {
                     );
                 }
                 if statements.is_empty() {
-                    self.emit(st, Instr::PushNil);
+                    self.emit(st, Instr::PushNil(1));
                 }
             }
             ExprKind::Tuple(exprs) => {
@@ -615,7 +611,7 @@ impl Translator {
                 if let Some(Declaration::EnumVariant { variant, .. }) =
                     &self.statics.resolution_map.get(&field_name.id)
                 {
-                    self.emit(st, Instr::PushNil);
+                    self.emit(st, Instr::PushNil(1));
                     self.emit(
                         st,
                         Instr::ConstructVariant {
@@ -1108,7 +1104,7 @@ impl Translator {
                 self.handle_pat_binding(&pat.0, offset_table, st);
 
                 if is_last {
-                    self.emit(st, Instr::PushNil);
+                    self.emit(st, Instr::PushNil(1));
                 }
             }
             StmtKind::Set(expr1, rvalue) => {
@@ -1136,7 +1132,7 @@ impl Translator {
                     _ => unimplemented!(),
                 }
                 if is_last {
-                    self.emit(st, Instr::PushNil);
+                    self.emit(st, Instr::PushNil(1));
                 }
             }
             StmtKind::Expr(expr) => {
@@ -1170,7 +1166,7 @@ impl Translator {
                 self.emit(st, Line::Label(end_label));
 
                 if is_last {
-                    self.emit(st, Instr::PushNil);
+                    self.emit(st, Instr::PushNil(1));
                 }
             }
             StmtKind::WhileLoop(cond, body) => {
@@ -1192,7 +1188,7 @@ impl Translator {
                 self.emit(st, Line::Label(end_label));
 
                 if is_last {
-                    self.emit(st, Instr::PushNil);
+                    self.emit(st, Instr::PushNil(1));
                 }
             }
             StmtKind::ForLoop(pat, iterable, body) => {
@@ -1256,7 +1252,7 @@ impl Translator {
                 self.emit(st, Instr::Pop);
 
                 if is_last {
-                    self.emit(st, Instr::PushNil);
+                    self.emit(st, Instr::PushNil(1));
                 }
             }
         }

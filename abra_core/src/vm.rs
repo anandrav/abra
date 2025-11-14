@@ -379,7 +379,7 @@ pub enum Instr<Location = ProgramCounter, StringConstant = u16> {
     StoreOffset(i32),
 
     // Constants
-    PushNil,
+    PushNil(u16),
     PushBool(bool),
     PushInt(AbraInt),
     PushFloat(AbraFloat),
@@ -489,7 +489,7 @@ impl<L: Display, S: Display> Display for Instr<L, S> {
             Instr::EqualFloat => write!(f, "equal_float"),
             Instr::EqualBool => write!(f, "equal_bool"),
             Instr::EqualString => write!(f, "equal_string"),
-            Instr::PushNil => write!(f, "push_nil"),
+            Instr::PushNil(n) => write!(f, "push_nil {n}"),
             Instr::PushBool(b) => write!(f, "push_bool {b}"),
             Instr::PushInt(n) => write!(f, "push_int {n}"),
             Instr::PushFloat(n) => write!(f, "push_float {n}"),
@@ -887,8 +887,10 @@ impl<Value: ValueTrait> Vm<Value> {
 
         self.pc.0 += 1;
         match instr {
-            Instr::PushNil => {
-                self.push(Value::make_nil());
+            Instr::PushNil(n) => {
+                for _ in 0..n {
+                    self.push(Value::make_nil());
+                }
             }
             Instr::PushInt(n) => {
                 self.push(n);

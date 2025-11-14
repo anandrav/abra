@@ -133,7 +133,7 @@ fn instr_to_vminstr(
         Instr::EqualFloat => VmInstr::EqualFloat,
         Instr::EqualBool => VmInstr::EqualBool,
         Instr::EqualString => VmInstr::EqualString,
-        Instr::PushNil => VmInstr::PushNil,
+        Instr::PushNil(n) => VmInstr::PushNil(*n),
         Instr::PushBool(b) => VmInstr::PushBool(*b),
         Instr::PushInt(i) => VmInstr::PushInt(*i),
         Instr::PushFloat(f) => VmInstr::PushFloat(*f),
