@@ -2,11 +2,10 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use crate::translate_bytecode::{LabelMap, Translator, TranslatorState};
+use crate::translate_bytecode::{ConstantsHolder, LabelMap, Translator, TranslatorState};
 use crate::vm::{CallData, Instr as VmInstr, ProgramCounter};
 use std::fmt::{self, Display, Formatter};
 use utils::hash::HashMap;
-use utils::id_set::IdSet;
 
 pub(crate) type Label = String;
 
@@ -221,9 +220,7 @@ impl Display for Instr {
 
 pub(crate) fn remove_labels(
     items: &Vec<Line>,
-    int_constants: &IdSet<i64>,
-    float_constants: &IdSet<String>,
-    string_constants: &IdSet<String>,
+    constants: &ConstantsHolder,
 ) -> (Vec<VmInstr>, LabelMap) {
     let mut instructions: Vec<VmInstr> = vec![];
     let mut offset = 0;
@@ -242,13 +239,7 @@ pub(crate) fn remove_labels(
 
     for item in items {
         if let Line::Instr { instr, .. } = item {
-            instructions.push(instr_to_vminstr(
-                instr,
-                &label_to_idx,
-                int_constants,
-                float_constants,
-                string_constants,
-            ));
+            instructions.push(instr_to_vminstr(instr, &label_to_idx, constants));
         }
     }
 
@@ -266,9 +257,7 @@ fn _get_label(s: &str) -> Option<String> {
 fn instr_to_vminstr(
     instr: &Instr,
     label_to_idx: &HashMap<Label, usize>,
-    int_constants: &IdSet<i64>,
-    float_constants: &IdSet<String>,
-    string_constants: &IdSet<String>,
+    constants: &ConstantsHolder,
 ) -> VmInstr {
     match instr {
         Instr::Pop => VmInstr::Pop,
@@ -304,9 +293,11 @@ fn instr_to_vminstr(
         Instr::EqualString => VmInstr::EqualString,
         Instr::PushNil(n) => VmInstr::PushNil(*n),
         Instr::PushBool(b) => VmInstr::PushBool(*b),
-        Instr::PushInt(i) => VmInstr::PushInt(int_constants.try_get_id(i).unwrap()),
-        Instr::PushFloat(f) => VmInstr::PushFloat(float_constants.try_get_id(f).unwrap()),
-        Instr::PushString(s) => VmInstr::PushString(string_constants.try_get_id(s).unwrap()),
+        Instr::PushInt(i) => VmInstr::PushInt(constants.int_constants.try_get_id(i).unwrap()),
+        Instr::PushFloat(f) => VmInstr::PushFloat(constants.float_constants.try_get_id(f).unwrap()),
+        Instr::PushString(s) => {
+            VmInstr::PushString(constants.string_constants.try_get_id(s).unwrap())
+        }
         Instr::Jump(label) => VmInstr::Jump(ProgramCounter::new(label_to_idx[label])),
         Instr::JumpIf(label) => VmInstr::JumpIf(ProgramCounter::new(label_to_idx[label])),
         Instr::Call(nargs, label) => VmInstr::Call(CallData::new(

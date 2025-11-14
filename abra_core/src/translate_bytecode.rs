@@ -70,6 +70,34 @@ struct EnclosingLoop {
     end_label: String,
 }
 
+#[derive(Default)]
+pub(crate) struct ConstantsHolder {
+    pub(crate) int_constants: IdSet<i64>,
+    pub(crate) float_constants: IdSet<String>,
+    pub(crate) string_constants: IdSet<String>,
+}
+
+fn gather_constants(lines: &Vec<Line>) -> ConstantsHolder {
+    let mut constants = ConstantsHolder::default();
+    for line in lines {
+        if let Line::Instr { instr, .. } = line {
+            match instr {
+                Instr::PushInt(i) => {
+                    constants.int_constants.insert(*i);
+                }
+                Instr::PushFloat(f) => {
+                    constants.float_constants.insert(f.clone());
+                }
+                Instr::PushString(s) => {
+                    constants.string_constants.insert(s.clone());
+                }
+                _ => {}
+            }
+        }
+    }
+    constants
+}
+
 #[derive(Debug, Clone)]
 pub struct CompiledProgram {
     pub(crate) instructions: Vec<VmInstr>,
@@ -298,7 +326,7 @@ impl Translator {
         st.lines = optimize(st.lines);
 
         self.create_source_location_tables(&mut st);
-
+        let constants = gather_constants(&st.lines);
         // let func_name = "main".to_string();
         // for (i, line) in st.lines.iter().enumerate() {
         //     // let function_name_id = match st
@@ -315,27 +343,21 @@ impl Translator {
         //     println!("{}", line);
         // }
         // panic!();
-        let (instructions, _) = remove_labels(
-            &st.lines,
-            &self.statics.int_constants,
-            &self.statics.float_constants,
-            &self.statics.string_constants,
-        );
+        let (instructions, _) = remove_labels(&st.lines, &constants);
         let mut filename_arena = vec![];
         for file_data in self._files.files.iter() {
             filename_arena.push(file_data.name().to_string());
         }
         CompiledProgram {
             instructions,
-            int_constants: self.statics.int_constants.clone().into_iter().collect(),
-            float_constants: self
-                .statics
+            int_constants: constants.int_constants.into_iter().collect(),
+            float_constants: constants
                 .float_constants
                 .clone()
                 .into_iter()
                 .map(|s| s.parse::<f64>().unwrap())
                 .collect(),
-            static_strings: self.statics.string_constants.clone().into_iter().collect(),
+            static_strings: constants.string_constants.clone().into_iter().collect(),
             filename_arena,
             function_name_arena: st.function_name_arena.into_iter().collect(),
             filename_table: st.filename_table,

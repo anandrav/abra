@@ -68,9 +68,9 @@ pub(crate) struct StaticsContext {
     pub(crate) for_loop_next_types: HashMap<NodeId, SolvedType>,
 
     // string constants (for bytecode translation)
-    pub(crate) int_constants: IdSet<i64>,
-    pub(crate) float_constants: IdSet<String>,
-    pub(crate) string_constants: IdSet<String>,
+    // pub(crate) int_constants: IdSet<i64>,
+    // pub(crate) float_constants: IdSet<String>,
+    // pub(crate) string_constants: IdSet<String>,
     // dylibs (for bytecode translation)
     pub(crate) dylibs: IdSet<PathBuf>,
     pub(crate) dylib_to_funcs: HashMap<u32, IdSet<String>>,
@@ -88,7 +88,7 @@ pub(crate) struct StaticsContext {
 
 impl StaticsContext {
     fn new(files: FileDatabase, file_provider: Box<dyn FileProvider>) -> Self {
-        let mut ctx = Self {
+        Self {
             _files: files,
             _file_provider: file_provider,
 
@@ -108,19 +108,16 @@ impl StaticsContext {
             for_loop_make_iterator_types: Default::default(),
             for_loop_next_types: Default::default(),
 
-            int_constants: Default::default(),
-            float_constants: Default::default(),
-            string_constants: Default::default(),
+            // int_constants: Default::default(),
+            // float_constants: Default::default(),
+            // string_constants: Default::default(),
             dylibs: Default::default(),
             dylib_to_funcs: Default::default(),
             host_funcs: IdSet::new(),
 
             unifvars: Default::default(),
             errors: Default::default(),
-        };
-
-        ctx.string_constants.insert("\n".to_string());
-        ctx
+        }
     }
 
     pub(crate) fn solution_of_node(&self, node: AstNode) -> Option<SolvedType> {

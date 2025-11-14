@@ -197,13 +197,13 @@ fn gather_declarations_item(
                 let libname = ctx._file_provider.shared_objects_dir().join(filename);
 
                 // add libname to string constants
-                ctx.string_constants
-                    .insert(libname.to_str().unwrap().to_string());
+                // ctx.string_constants
+                //     .insert(libname.to_str().unwrap().to_string());
 
                 let symbol = make_foreign_func_name(&_func_decl.name.v, &elems);
 
                 // add symbol to string constants
-                ctx.string_constants.insert(symbol.clone());
+                // ctx.string_constants.insert(symbol.clone());
 
                 // add symbol to statics ctx
                 let lib_id = ctx.dylibs.insert(libname.clone());
@@ -708,13 +708,11 @@ fn resolve_symbol(
 
 fn resolve_names_expr(ctx: &mut StaticsContext, symbol_table: &SymbolTable, expr: &Rc<Expr>) {
     match &*expr.kind {
-        ExprKind::Int(i) => {
-            ctx.int_constants.insert(*i);
-        }
-        ExprKind::Float(f) => {
-            ctx.float_constants.insert(f.clone());
-        }
-        ExprKind::Void | ExprKind::Bool(_) | ExprKind::Str(_) => {}
+        ExprKind::Int(_)
+        | ExprKind::Float(_)
+        | ExprKind::Void
+        | ExprKind::Bool(_)
+        | ExprKind::Str(_) => {}
         ExprKind::Array(exprs) => {
             for expr in exprs {
                 resolve_names_expr(ctx, symbol_table, expr);
@@ -913,13 +911,7 @@ fn resolve_names_fn_arg(symbol_table: &SymbolTable, arg: &Rc<Identifier>) {
 
 fn resolve_names_pat(ctx: &mut StaticsContext, symbol_table: &SymbolTable, pat: &Rc<Pat>) {
     match &*pat.kind {
-        PatKind::Int(i) => {
-            ctx.int_constants.insert(*i);
-        }
-        PatKind::Float(f) => {
-            ctx.float_constants.insert(f.clone());
-        }
-        PatKind::Wildcard => (),
+        PatKind::Int(_) | PatKind::Float(_) | PatKind::Wildcard => (),
         PatKind::Void | PatKind::Bool(_) | PatKind::Str(_) => {}
         PatKind::Binding(identifier) => {
             symbol_table.extend_declaration(identifier.clone(), Declaration::Var(pat.node()));

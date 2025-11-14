@@ -1955,13 +1955,12 @@ fn generate_constraints_expr(
                 &TypeVar::make_bool(Reason::Literal(expr.node())),
             );
         }
-        ExprKind::Str(s) => {
+        ExprKind::Str(_) => {
             constrain(
                 ctx,
                 &node_ty,
                 &TypeVar::make_string(Reason::Literal(expr.node())),
             );
-            ctx.string_constants.insert(s.clone());
         }
         ExprKind::Array(exprs) => {
             let elem_ty = TypeVar::fresh(ctx, Prov::ListElem(expr.node()));
@@ -2817,13 +2816,12 @@ fn generate_constraints_pat(ctx: &mut StaticsContext, mode: Mode, pat: &Rc<Pat>)
                 &TypeVar::make_bool(Reason::Literal(pat.node())),
             );
         }
-        PatKind::Str(s) => {
+        PatKind::Str(_) => {
             constrain(
                 ctx,
                 &ty_pat,
                 &TypeVar::make_string(Reason::Literal(pat.node())),
             );
-            ctx.string_constants.insert(s.clone());
         }
         PatKind::Binding(_) => {}
         PatKind::Variant(prefixes, tag, data) => {
