@@ -12,7 +12,7 @@ use crate::statics::Type;
 use crate::statics::typecheck::Nominal;
 use crate::statics::typecheck::SolvedType;
 use crate::statics::{Declaration, PolytypeDeclaration, TypeProv};
-use crate::vm::{AbraFloat, AbraInt, Instr as VmInstr};
+use crate::vm::{AbraInt, Instr as VmInstr};
 use crate::{
     ast::{Expr, ExprKind, Pat, PatKind, Stmt, StmtKind},
     statics::StaticsContext,
@@ -73,6 +73,8 @@ struct EnclosingLoop {
 #[derive(Debug, Clone)]
 pub struct CompiledProgram {
     pub(crate) instructions: Vec<VmInstr>,
+    pub(crate) int_constants: Vec<i64>,
+    pub(crate) float_constants: Vec<f64>,
     pub(crate) static_strings: Vec<String>,
     // debug data
     pub(crate) filename_arena: Vec<String>,
@@ -317,15 +319,27 @@ impl Translator {
         //     println!("{}", line);
         // }
         // panic!();
-        let (instructions, _) = remove_labels(&st.lines, &self.statics.string_constants);
-        let string_table: Vec<_> = self.statics.string_constants.clone().into_iter().collect();
+        let (instructions, _) = remove_labels(
+            &st.lines,
+            &self.statics.int_constants,
+            &self.statics.float_constants,
+            &self.statics.string_constants,
+        );
         let mut filename_arena = vec![];
         for file_data in self._files.files.iter() {
             filename_arena.push(file_data.name().to_string());
         }
         CompiledProgram {
             instructions,
-            static_strings: string_table,
+            int_constants: self.statics.int_constants.clone().into_iter().collect(),
+            float_constants: self
+                .statics
+                .float_constants
+                .clone()
+                .into_iter()
+                .map(|s| s.parse::<f64>().unwrap())
+                .collect(),
+            static_strings: self.statics.string_constants.clone().into_iter().collect(),
             filename_arena,
             function_name_arena: st.function_name_arena.into_iter().collect(),
             filename_table: st.filename_table,
@@ -421,7 +435,7 @@ impl Translator {
                 self.emit(st, Instr::PushInt(*i));
             }
             ExprKind::Float(f) => {
-                self.emit(st, Instr::PushFloat(f.parse::<AbraFloat>().unwrap()));
+                self.emit(st, Instr::PushFloat(f.clone()));
             }
             ExprKind::Str(s) => {
                 self.emit(st, Instr::PushString(s.clone()));

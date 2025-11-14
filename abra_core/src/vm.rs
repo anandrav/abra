@@ -42,6 +42,8 @@ pub struct Vm<Value: ValueTrait = PackedValue> {
     heap: Vec<ManagedObject<Value>>,
     heap_group: HeapGroup,
 
+    int_constants: Vec<i64>,
+    float_constants: Vec<f64>,
     static_strings: Vec<String>,
     filename_arena: Vec<String>,
     function_name_arena: Vec<String>,
@@ -128,6 +130,8 @@ impl Vm {
             heap: Vec::new(),
             heap_group: HeapGroup::One,
 
+            int_constants: program.int_constants.into_iter().collect(),
+            float_constants: program.float_constants.into_iter().collect(),
             static_strings: program.static_strings.into_iter().collect(),
             filename_arena: program.filename_arena.into_iter().collect(),
             function_name_arena: program.function_name_arena.into_iter().collect(),
@@ -379,7 +383,12 @@ impl<Value: ValueTrait> Vm<Value> {
 }
 
 #[derive(Debug, Copy, Clone)]
-pub enum Instr<Location = ProgramCounter, StringConstant = u16> {
+pub enum Instr<
+    Location = ProgramCounter,
+    IntConstant = u32,
+    FloatConstant = u32,
+    StringConstant = u16,
+> {
     // Stack manipulation
     Pop,
     Duplicate,
@@ -389,8 +398,8 @@ pub enum Instr<Location = ProgramCounter, StringConstant = u16> {
     // Constants
     PushNil(u16),
     PushBool(bool),
-    PushInt(AbraInt),
-    PushFloat(AbraFloat),
+    PushInt(IntConstant),
+    PushFloat(FloatConstant),
     PushString(StringConstant),
 
     // Arithmetic
@@ -463,7 +472,7 @@ pub enum Instr<Location = ProgramCounter, StringConstant = u16> {
     LoadForeignFunc,
 }
 
-impl<L: Display, S: Display + Debug> Display for Instr<L, S> {
+impl<L: Display, I: Display, F: Display, S: Display + Debug> Display for Instr<L, I, F, S> {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
             Instr::Pop => write!(f, "pop"),
@@ -901,10 +910,10 @@ impl<Value: ValueTrait> Vm<Value> {
                 }
             }
             Instr::PushInt(n) => {
-                self.push(n);
+                self.push(self.int_constants[n as usize]);
             }
             Instr::PushFloat(f) => {
-                self.push(f);
+                self.push(self.float_constants[f as usize]);
             }
             Instr::PushBool(b) => {
                 self.push(b);
@@ -1310,7 +1319,7 @@ impl<Value: ValueTrait> Vm<Value> {
     fn pc_to_error_location(&self, pc: ProgramCounter) -> VmErrorLocation {
         let file_id = match self
             .filename_table
-            .binary_search_by_key(&(pc.0 as u32), |pair| pair.0)
+            .binary_search_by_key(&(pc.0), |pair| pair.0)
         {
             Ok(idx) | Err(idx) => {
                 let idx = if idx >= 1 { idx - 1 } else { idx };
@@ -1320,7 +1329,7 @@ impl<Value: ValueTrait> Vm<Value> {
 
         let lineno = match self
             .lineno_table
-            .binary_search_by_key(&(pc.0 as u32), |pair| pair.0)
+            .binary_search_by_key(&(pc.0), |pair| pair.0)
         {
             Ok(idx) | Err(idx) => {
                 let idx = if idx >= 1 { idx - 1 } else { idx };
@@ -1330,7 +1339,7 @@ impl<Value: ValueTrait> Vm<Value> {
 
         let function_name_id = match self
             .function_name_table
-            .binary_search_by_key(&(pc.0 as u32), |pair| pair.0)
+            .binary_search_by_key(&(pc.0), |pair| pair.0)
         {
             Ok(idx) | Err(idx) => {
                 let idx = if idx >= 1 { idx - 1 } else { idx };

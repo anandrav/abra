@@ -708,11 +708,13 @@ fn resolve_symbol(
 
 fn resolve_names_expr(ctx: &mut StaticsContext, symbol_table: &SymbolTable, expr: &Rc<Expr>) {
     match &*expr.kind {
-        ExprKind::Void
-        | ExprKind::Int(_)
-        | ExprKind::Float(_)
-        | ExprKind::Bool(_)
-        | ExprKind::Str(_) => {}
+        ExprKind::Int(i) => {
+            ctx.int_constants.insert(*i);
+        }
+        ExprKind::Float(f) => {
+            ctx.float_constants.insert(f.clone());
+        }
+        ExprKind::Void | ExprKind::Bool(_) | ExprKind::Str(_) => {}
         ExprKind::Array(exprs) => {
             for expr in exprs {
                 resolve_names_expr(ctx, symbol_table, expr);
@@ -911,12 +913,14 @@ fn resolve_names_fn_arg(symbol_table: &SymbolTable, arg: &Rc<Identifier>) {
 
 fn resolve_names_pat(ctx: &mut StaticsContext, symbol_table: &SymbolTable, pat: &Rc<Pat>) {
     match &*pat.kind {
+        PatKind::Int(i) => {
+            ctx.int_constants.insert(*i);
+        }
+        PatKind::Float(f) => {
+            ctx.float_constants.insert(f.clone());
+        }
         PatKind::Wildcard => (),
-        PatKind::Void
-        | PatKind::Int(_)
-        | PatKind::Float(_)
-        | PatKind::Bool(_)
-        | PatKind::Str(_) => {}
+        PatKind::Void | PatKind::Bool(_) | PatKind::Str(_) => {}
         PatKind::Binding(identifier) => {
             symbol_table.extend_declaration(identifier.clone(), Declaration::Var(pat.node()));
         }

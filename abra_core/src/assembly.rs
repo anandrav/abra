@@ -58,10 +58,12 @@ impl Display for Line {
     }
 }
 
-pub type Instr = VmInstr<Label, String>;
+pub type Instr = VmInstr<Label, i64, String, String>;
 
 pub(crate) fn remove_labels(
     items: &Vec<Line>,
+    int_constants: &IdSet<i64>,
+    float_constants: &IdSet<String>,
     string_constants: &IdSet<String>,
 ) -> (Vec<VmInstr>, LabelMap) {
     let mut instructions: Vec<VmInstr> = vec![];
@@ -81,7 +83,13 @@ pub(crate) fn remove_labels(
 
     for item in items {
         if let Line::Instr { instr, .. } = item {
-            instructions.push(instr_to_vminstr(instr, &label_to_idx, string_constants));
+            instructions.push(instr_to_vminstr(
+                instr,
+                &label_to_idx,
+                int_constants,
+                float_constants,
+                string_constants,
+            ));
         }
     }
 
@@ -99,6 +107,8 @@ fn _get_label(s: &str) -> Option<String> {
 fn instr_to_vminstr(
     instr: &Instr,
     label_to_idx: &HashMap<Label, usize>,
+    int_constants: &IdSet<i64>,
+    float_constants: &IdSet<String>,
     string_constants: &IdSet<String>,
 ) -> VmInstr {
     match instr {
@@ -135,8 +145,8 @@ fn instr_to_vminstr(
         Instr::EqualString => VmInstr::EqualString,
         Instr::PushNil(n) => VmInstr::PushNil(*n),
         Instr::PushBool(b) => VmInstr::PushBool(*b),
-        Instr::PushInt(i) => VmInstr::PushInt(*i),
-        Instr::PushFloat(f) => VmInstr::PushFloat(*f),
+        Instr::PushInt(i) => VmInstr::PushInt(int_constants.try_get_id(i).unwrap()),
+        Instr::PushFloat(f) => VmInstr::PushFloat(float_constants.try_get_id(f).unwrap()),
         Instr::PushString(s) => VmInstr::PushString(string_constants.try_get_id(s).unwrap() as u16),
         Instr::Jump(label) => VmInstr::Jump(ProgramCounter::new(label_to_idx[label])),
         Instr::JumpIf(label) => VmInstr::JumpIf(ProgramCounter::new(label_to_idx[label])),
