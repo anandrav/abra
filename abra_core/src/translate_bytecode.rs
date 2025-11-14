@@ -836,21 +836,13 @@ impl Translator {
             }
             Declaration::MemberFunction { f } => {
                 let f_fully_qualified_name = &self.statics.fully_qualified_names[&f.name.id];
-                // println!("{}", f_fully_qualified_name);
-                match f_fully_qualified_name.as_str() {
-                    "array.push" => self.emit(st, Instr::ArrayAppend),
-                    "array.len" => self.emit(st, Instr::ArrayLength),
-                    "array.pop" => self.emit(st, Instr::ArrayPop),
-                    _ => {
-                        self.translate_func_ap_helper(
-                            f,
-                            f_fully_qualified_name,
-                            func_node,
-                            monomorph_env,
-                            st,
-                        );
-                    }
-                }
+                self.translate_func_ap_helper(
+                    f,
+                    f_fully_qualified_name,
+                    func_node,
+                    monomorph_env,
+                    st,
+                );
             }
             Declaration::Struct(def) => {
                 self.emit(st, Instr::ConstructStruct(def.fields.len() as u16));
@@ -1281,8 +1273,16 @@ impl Translator {
             kind: FuncKind::NamedFunc(func_def.clone()),
             overload_ty: overload_ty.clone(),
         };
-        let label = self.get_func_label(st, desc, overload_ty, func_name);
-        self.emit(st, Instr::Call(func_def.args.len() as u8, label));
+        let label = self.get_func_label(st, desc, overload_ty.clone(), func_name);
+        match (func_name.as_str(), overload_ty) {
+            ("array.push", _) => self.emit(st, Instr::ArrayAppend),
+            ("array.len", _) => self.emit(st, Instr::ArrayLength),
+            ("array.pop", _) => self.emit(st, Instr::ArrayPop),
+            ("prelude.ToString.str", Some(SolvedType::String)) => { /* noop */ }
+            _ => {
+                self.emit(st, Instr::Call(func_def.args.len() as u8, label));
+            }
+        }
     }
 
     fn get_func_label(
