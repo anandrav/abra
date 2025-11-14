@@ -1198,6 +1198,7 @@ impl<Value: ValueTrait> Vm<Value> {
             }
             Instr::ArrayLength => {
                 let len = self.array_len();
+                self.pop();
                 self.push_int(len as AbraInt);
             }
             Instr::ArrayPop => {
