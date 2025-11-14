@@ -21,11 +21,13 @@ pub(crate) enum Line {
     Label(Label),
 }
 
+// TODO: just move this crap to translate_bytecode
 pub(crate) trait LineVariant {
     fn to_line(self, translator: &Translator, translator_state: &TranslatorState) -> Line;
 }
 
 impl LineVariant for Line {
+    // TODO: remove translator argument if not needed
     fn to_line(self, _translator: &Translator, _st: &TranslatorState) -> Line {
         self
     }
@@ -38,12 +40,12 @@ impl LineVariant for Label {
 }
 
 impl LineVariant for Instr {
-    fn to_line(self, translator: &Translator, st: &TranslatorState) -> Line {
+    fn to_line(self, _translator: &Translator, st: &TranslatorState) -> Line {
         Line::Instr {
             instr: self,
-            lineno: 0,
-            file: 0,
-            func: 0,
+            lineno: st.curr_lineno,
+            file: st.curr_file,
+            func: st.curr_func,
         }
     }
 }

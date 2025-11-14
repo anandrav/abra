@@ -1,0 +1,16 @@
+fn alpha() {
+  println("alpha")
+  beta()
+}
+
+fn beta() {
+  println("beta")
+  gamma()
+}
+
+fn gamma() {
+  panic("oh noooo")
+}
+
+alpha()
+

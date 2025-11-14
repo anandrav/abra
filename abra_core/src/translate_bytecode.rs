@@ -57,6 +57,10 @@ pub(crate) struct TranslatorState {
     funcs_to_generate: Vec<FuncDesc>,
     loop_stack: Vec<EnclosingLoop>,
     return_stack: Vec<String>,
+
+    pub(crate) curr_file: u32,
+    pub(crate) curr_func: u32,
+    pub(crate) curr_lineno: usize,
 }
 
 #[derive(Debug, Default)]
@@ -102,55 +106,111 @@ impl Translator {
         st.lines.push(l);
     }
 
+    fn create_source_location_tables(&self, st: &mut TranslatorState) {
+        let mut bytecode_index = 0;
+        for line in &st.lines {
+            if let Line::Instr {
+                instr: _,
+                lineno,
+                file,
+                func,
+            } = line
+            {
+                // file
+                {
+                    let mut redundant = false;
+                    if let Some(last) = st.filename_table.last()
+                        && last.1 == *file
+                    {
+                        redundant = true;
+                    }
+                    if !redundant {
+                        st.filename_table.push((bytecode_index as u32, *file));
+                    }
+                }
+                // lineno
+                {
+                    let mut redundant = false;
+                    if let Some(last) = st.lineno_table.last()
+                        && last.1 == *lineno as u32
+                    {
+                        redundant = true;
+                    }
+                    if !redundant {
+                        st.lineno_table
+                            .push((bytecode_index as u32, *lineno as u32));
+                    }
+                }
+                // func
+                {
+                    let mut redundant = false;
+                    if let Some(last) = st.function_name_table.last()
+                        && last.1 == *func
+                    {
+                        redundant = true;
+                    }
+                    if !redundant {
+                        st.function_name_table.push((bytecode_index as u32, *func));
+                    }
+                }
+
+                bytecode_index += 1;
+            }
+        }
+    }
+
     fn update_filename_lineno_tables(&self, st: &mut TranslatorState, node: AstNode) {
         let location = node.location();
         let file_id = location.file_id;
 
         let file = self._files.get(file_id).unwrap();
         let line_no = file.line_number_for_index(location.lo as usize);
+        st.curr_file = file_id;
+        st.curr_lineno = line_no;
 
-        let bytecode_index = st.instr_count;
-        {
-            let mut redundant = false;
-            if let Some(last) = st.filename_table.last()
-                && last.1 == file_id
-            {
-                redundant = true;
-            }
-            if !redundant {
-                st.filename_table.push((bytecode_index as u32, file_id));
-            }
-        }
-
-        {
-            let mut redundant = false;
-            if let Some(last) = st.lineno_table.last()
-                && last.1 == line_no as u32
-            {
-                redundant = true;
-            }
-            if !redundant {
-                st.lineno_table
-                    .push((bytecode_index as u32, line_no as u32));
-            }
-        }
+        // let bytecode_index = st.instr_count;
+        // {
+        //     let mut redundant = false;
+        //     if let Some(last) = st.filename_table.last()
+        //         && last.1 == file_id
+        //     {
+        //         redundant = true;
+        //     }
+        //     if !redundant {
+        //         st.filename_table.push((bytecode_index as u32, file_id));
+        //     }
+        // }
+        //
+        // {
+        //     let mut redundant = false;
+        //     if let Some(last) = st.lineno_table.last()
+        //         && last.1 == line_no as u32
+        //     {
+        //         redundant = true;
+        //     }
+        //     if !redundant {
+        //         st.lineno_table
+        //             .push((bytecode_index as u32, line_no as u32));
+        //     }
+        // }
     }
 
     fn update_function_name_table(&self, st: &mut TranslatorState, name: &str) {
-        let bytecode_index = st.instr_count;
+        // let bytecode_index = st.instr_count;
 
         let function_name_id = st.function_name_arena.insert(name.to_string());
+        st.curr_func = function_name_id;
 
-        let mut redundant = false;
-        if let Some(last) = st.function_name_table.last()
-            && last.1 == function_name_id
-        {
-            redundant = true;
-        }
-        if !redundant {
-            st.function_name_table
-                .push((bytecode_index as u32, function_name_id));
-        }
+        // let mut redundant = false;
+        // if let Some(last) = st.function_name_table.last()
+        //     && last.1 == function_name_id
+        // {
+        //     redundant = true;
+        // }
+        // if !redundant {
+        //     st.function_name_table
+        //         .push((bytecode_index as u32, function_name_id));
+        // }
     }
 
     pub(crate) fn translate(&self) -> CompiledProgram {
@@ -271,6 +331,10 @@ impl Translator {
                 }
             }
         }
+
+        // RUN OPTIMIZATIONS HERE
+
+        self.create_source_location_tables(&mut st);
 
         // let func_name = "main".to_string();
         // for (i, line) in st.lines.iter().enumerate() {
