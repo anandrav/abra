@@ -36,6 +36,20 @@ pub(crate) fn peephole(lines: Vec<Line>) -> Vec<Line> {
                     && let Line::Instr { instr: instr2, .. } = &lines[index + 1]
                 {
                     match (instr1, instr2) {
+                        // PUSH 0
+                        (Instr::PushNil(0), _) => {
+                            index += 1;
+                        }
+                        // PUSH POP
+                        (Instr::PushNil(n), Instr::Pop) => {
+                            ret.push(Line::Instr {
+                                instr: Instr::PushNil(n - 1),
+                                lineno,
+                                file_id,
+                                func_id,
+                            });
+                            index += 2;
+                        }
                         // BOOLEAN FLIP
                         (Instr::PushBool(b), Instr::Not) => {
                             ret.push(Line::Instr {

@@ -212,9 +212,7 @@ impl Translator {
                     .collect();
                 collect_locals_stmt(&stmts, &mut locals);
 
-                if !locals.is_empty() {
-                    self.emit(st, Instr::PushNil(locals.len() as u16));
-                }
+                self.emit(st, Instr::PushNil(locals.len() as u16));
                 let mut offset_table = OffsetTable::default();
                 for (offset, node_id) in locals.iter().enumerate() {
                     offset_table.entry(*node_id).or_insert((offset) as i32);
@@ -271,9 +269,7 @@ impl Translator {
                     let mut locals = HashSet::default();
                     collect_locals_expr(body, &mut locals);
                     let locals_count = locals.len();
-                    if locals_count > 0 {
-                        self.emit(st, Instr::PushNil(locals_count as u16));
-                    }
+                    self.emit(st, Instr::PushNil(locals_count as u16));
                     let mut offset_table = OffsetTable::default();
                     for (i, arg) in args.iter().rev().enumerate() {
                         offset_table.entry(arg.0.id).or_insert(-(i as i32) - 1);
