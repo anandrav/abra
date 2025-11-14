@@ -246,7 +246,7 @@ fn instr_to_vminstr(
         Instr::Stop => VmInstr::Stop,
         Instr::Panic => VmInstr::Panic,
         Instr::ConstructStruct(n) => VmInstr::ConstructStruct(*n),
-        Instr::ConstructArray(n) => VmInstr::ConstructArray(*n),
+        Instr::ConstructArray(n) => VmInstr::ConstructArray(*n as u32),
         Instr::DeconstructStruct => VmInstr::DeconstructStruct,
         Instr::DeconstructArray => VmInstr::DeconstructArray,
         Instr::DeconstructVariant => VmInstr::DeconstructVariant,

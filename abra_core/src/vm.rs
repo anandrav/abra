@@ -450,7 +450,7 @@ pub enum Instr {
 
     // Data Structures
     ConstructStruct(u16),
-    ConstructArray(usize),
+    ConstructArray(u32),
     ConstructVariant { tag: u16 },
     DeconstructStruct,
     DeconstructArray,
@@ -1169,7 +1169,7 @@ impl<Value: ValueTrait> Vm<Value> {
                 return false;
             }
             Instr::ConstructStruct(n) => self.construct_struct(n),
-            Instr::ConstructArray(n) => self.construct_array(n),
+            Instr::ConstructArray(n) => self.construct_array(n as usize),
             Instr::DeconstructStruct => {
                 self.deconstruct_struct();
             }

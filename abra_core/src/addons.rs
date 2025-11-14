@@ -199,7 +199,7 @@ unsafe extern "C" fn abra_vm_construct_struct(vm: *mut c_void, arity: u16) {
 #[unsafe(no_mangle)]
 unsafe extern "C" fn abra_vm_construct_array(vm: *mut c_void, len: usize) {
     let vm = unsafe { (vm as *mut Vm<PackedValue>).as_mut().unwrap() };
-    vm.construct_array(len);
+    vm.construct_array(len); // TODO: annoying conversions everywhere
 }
 
 /// # Safety
