@@ -387,6 +387,8 @@ impl<Value: ValueTrait> Vm<Value> {
     }
 }
 
+// Instr is 8 bytes
+const _: [(); 8] = [(); size_of::<Instr>()];
 #[derive(Debug, Copy, Clone)]
 pub enum Instr {
     // Stack manipulation
@@ -625,6 +627,8 @@ pub trait ValueTrait:
         Self: Sized;
 }
 
+// PackedValue is 16 bytes
+const _: [(); 16] = [(); size_of::<PackedValue>()];
 #[derive(Debug, Clone, Copy)]
 pub struct PackedValue(u64, /*is_pointer*/ bool);
 
