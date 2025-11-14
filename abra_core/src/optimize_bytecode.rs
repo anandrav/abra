@@ -1,5 +1,19 @@
 use crate::assembly::{Instr, Line};
 
+pub(crate) fn optimize(lines: Vec<Line>) -> Vec<Line> {
+    let mut len = lines.len();
+    let mut ret = lines;
+    loop {
+        ret = peephole(ret);
+        if ret.len() < len {
+            len = ret.len();
+        } else {
+            break;
+        }
+    }
+    ret
+}
+
 pub(crate) fn peephole(lines: Vec<Line>) -> Vec<Line> {
     let mut ret: Vec<Line> = vec![];
 
