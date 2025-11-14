@@ -6,17 +6,32 @@ pub(crate) fn peephole(lines: Vec<Line>) -> Vec<Line> {
     let mut index = 0;
     while index < lines.len() {
         let curr = &lines[index];
-        match &lines[index] {
+        match lines[index].clone() {
             Line::Label(_) => {
                 // noop
                 ret.push(curr.clone());
                 index += 1;
             }
-            Line::Instr { instr: instr1, .. } => {
+            Line::Instr {
+                instr: instr1,
+                lineno,
+                file_id,
+                func_id,
+            } => {
                 if index + 1 < lines.len()
                     && let Line::Instr { instr: instr2, .. } = &lines[index + 1]
                 {
                     match (instr1, instr2) {
+                        // BOOLEAN FLIP
+                        (Instr::PushBool(b), Instr::Not) => {
+                            ret.push(Line::Instr {
+                                instr: Instr::PushBool(!b),
+                                lineno,
+                                file_id,
+                                func_id,
+                            });
+                            index += 2;
+                        }
                         _ => {
                             // noop
                             ret.push(curr.clone());
