@@ -424,7 +424,7 @@ pub enum Instr {
     // Arithmetic
     AddInt,
     AddIntReg(i16, i16),
-    IncrementOffset(i16, i16),
+    IncrementRegImm(i16, i16),
     SubtractInt,
     MultiplyInt,
     MultiplyIntReg(i16, i16),
@@ -935,7 +935,7 @@ impl<Value: ValueTrait> Vm<Value> {
                 let b = self.load_offset(reg2).get_int(self);
                 self.push(a.wrapping_add(b));
             }
-            Instr::IncrementOffset(reg, n) => {
+            Instr::IncrementRegImm(reg, n) => {
                 let a = self.load_offset(reg).get_int(self);
                 self.store_offset(reg, a.wrapping_add(n as i64));
             }

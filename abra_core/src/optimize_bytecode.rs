@@ -404,7 +404,7 @@ fn peephole4_helper(lines: &[Line], index: &mut usize, ret: &mut Vec<Line>) -> b
                         Instr::StoreOffset(reg2),
                     ) if reg1 == *reg2 && *n <= (i16::MAX as i64) => {
                         ret.push(Line::Instr {
-                            instr: Instr::IncrementOffset(reg1, *n as i16),
+                            instr: Instr::IncrementRegImm(reg1, *n as i16),
                             lineno,
                             file_id,
                             func_id,
@@ -420,7 +420,7 @@ fn peephole4_helper(lines: &[Line], index: &mut usize, ret: &mut Vec<Line>) -> b
                         Instr::StoreOffset(reg2),
                     ) if reg1 == *reg2 && (-*n) >= (i16::MIN as i64) => {
                         ret.push(Line::Instr {
-                            instr: Instr::IncrementOffset(reg1, -(*n as i16)),
+                            instr: Instr::IncrementRegImm(reg1, -(*n as i16)),
                             lineno,
                             file_id,
                             func_id,
