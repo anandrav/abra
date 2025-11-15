@@ -396,18 +396,31 @@ fn peephole4_helper(lines: &[Line], index: &mut usize, ret: &mut Vec<Line>) -> b
                 && let Line::Instr { instr: instr4, .. } = &lines[*index + 3]
             {
                 match (instr1, instr2, instr3, instr4) {
-                    // TODO: this is a nice optimization for i = i + 1, but would be nice if it worked for i = i + 2 or i = i - 1
-                    // TODO: Generalize it, perhaps for numbers up to 10. IncrementOffset can take the numeric constant as another argument
-
-                    // LOAD(X) PUSH(1) ADD_INT STORE(X) -> INCR(X)
+                    // LOAD(X) PUSH(n) ADD_INT STORE(X) -> INCR(X)
                     (
                         Instr::LoadOffset(reg1),
                         Instr::PushInt(n),
                         Instr::AddInt,
                         Instr::StoreOffset(reg2),
-                    ) if reg1 == *reg2 && *n < (i16::MAX as i64) => {
+                    ) if reg1 == *reg2 && *n <= (i16::MAX as i64) => {
                         ret.push(Line::Instr {
                             instr: Instr::IncrementOffset(reg1, *n as i16),
+                            lineno,
+                            file_id,
+                            func_id,
+                        });
+                        *index += 4;
+                        true
+                    }
+                    // LOAD(X) PUSH(n) SUB_INT STORE(X) -> INCR(X)
+                    (
+                        Instr::LoadOffset(reg1),
+                        Instr::PushInt(n),
+                        Instr::SubtractInt,
+                        Instr::StoreOffset(reg2),
+                    ) if reg1 == *reg2 && (-*n) >= (i16::MIN as i64) => {
+                        ret.push(Line::Instr {
+                            instr: Instr::IncrementOffset(reg1, -(*n as i16)),
                             lineno,
                             file_id,
                             func_id,
