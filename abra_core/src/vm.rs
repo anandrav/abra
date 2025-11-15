@@ -1291,6 +1291,8 @@ impl<Value: ValueTrait> Vm<Value> {
                     _ => self.fail_wrong_type(ValueKind::Array),
                 }
             }
+            // TODO: it would be better if ConcatString operation extended the LHS with the RHS. Would have to modify how format_append and & work
+            // Perhaps LHS of & operator should be some sort of "StringBuilder". Though this is suspiciously similar to cout in C++
             Instr::ConcatStrings => {
                 let b = self.pop();
                 let a = self.top();
