@@ -1125,7 +1125,7 @@ impl<Value: ValueTrait> Vm<Value> {
             }
             Instr::Return(nargs) => {
                 if nargs != 0 {
-                    // TODO make a separate instruction for when nargs == 0
+                    // TODO make a separate instruction for when nargs == 0 to avoid this branch!
                     let idx = self.stack_base.wrapping_add_signed(-(nargs as isize));
                     let v = self.top();
                     self.value_stack[idx] = *v;
@@ -1477,46 +1477,35 @@ impl<Value: ValueTrait> Vm<Value> {
             let new_heap_len = new_heap.len();
             let obj = &mut new_heap[i];
             let mut to_add: Vec<ManagedObject<Value>> = vec![];
+
+            let mut helper = |v: &mut Value| {
+                let r = v.get_heap_ref(self, ValueKind::HeapObject);
+                *v = Value::from(forward(
+                    r,
+                    &self.heap,
+                    new_heap_len,
+                    &mut to_add,
+                    new_heap_group,
+                ));
+            };
             match &mut obj.kind {
                 ManagedObjectKind::DynArray(fields) => {
                     for v in fields {
                         if v.is_heap_ref() {
-                            let r = v.get_heap_ref(self, ValueKind::HeapObject);
-                            *v = Value::from(forward(
-                                r,
-                                &self.heap,
-                                new_heap_len,
-                                &mut to_add,
-                                new_heap_group,
-                            ));
+                            helper(v);
                         }
                     }
                 }
                 ManagedObjectKind::Struct(fields) => {
-                    // TODO: code duplication
                     for v in fields {
                         if v.is_heap_ref() {
-                            let r = v.get_heap_ref(self, ValueKind::HeapObject);
-                            *v = Value::from(forward(
-                                r,
-                                &self.heap,
-                                new_heap_len,
-                                &mut to_add,
-                                new_heap_group,
-                            ));
+                            helper(v);
                         }
                     }
                 }
                 ManagedObjectKind::Enum { tag: _, value: v } => {
                     if v.is_heap_ref() {
-                        let r = v.get_heap_ref(self, ValueKind::HeapObject);
-                        *v = Value::from(forward(
-                            r,
-                            &self.heap,
-                            new_heap_len,
-                            &mut to_add,
-                            new_heap_group,
-                        ));
+                        helper(v);
                     }
                 }
                 ManagedObjectKind::String(_) => {}
