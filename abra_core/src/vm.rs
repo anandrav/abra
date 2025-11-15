@@ -222,6 +222,11 @@ impl<Value: ValueTrait> Vm<Value> {
     }
 
     #[inline(always)]
+    pub fn store_offset(&mut self, offset: i16, v: Value) {
+        self.value_stack[self.stack_base.wrapping_add_signed(offset as isize)] = v;
+    }
+
+    #[inline(always)]
     pub fn pop(&mut self) -> Value {
         match self.value_stack.pop() {
             Some(v) => v,
@@ -917,9 +922,8 @@ impl<Value: ValueTrait> Vm<Value> {
                 self.push(*v);
             }
             Instr::StoreOffset(n) => {
-                let idx = self.stack_base.wrapping_add_signed(n as isize);
                 let v = self.pop();
-                self.value_stack[idx] = v;
+                self.store_offset(n, v);
             }
             Instr::AddInt => {
                 let b = self.pop_int();
