@@ -226,9 +226,7 @@ fn println(x: T ToString) {
 }
 
 fn format_append(s1: T1 ToString, s2: T2 ToString) {
-    let s3 = ToString.str(s1)
-    let s4 = ToString.str(s2)
-    concat_strings(s3, s4)
+    concat_strings(ToString.str(s1), ToString.str(s2))
 }
 
 interface Iterable {
