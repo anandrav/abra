@@ -24,16 +24,16 @@ fn optimization_pass(lines: Vec<Line>) -> Vec<Line> {
     while index < lines.len() {
         let curr = &lines[index];
 
-        if (peephole4_helper(&lines, &mut index, &mut ret)) {
+        if peephole4_helper(&lines, &mut index, &mut ret) {
             continue;
         }
-        if (peephole3_helper(&lines, &mut index, &mut ret)) {
+        if peephole3_helper(&lines, &mut index, &mut ret) {
             continue;
         }
-        if (peephole2_helper(&lines, &mut index, &mut ret)) {
+        if peephole2_helper(&lines, &mut index, &mut ret) {
             continue;
         }
-        if (peephole1_helper(&lines, &mut index, &mut ret)) {
+        if peephole1_helper(&lines, &mut index, &mut ret) {
             continue;
         }
 
