@@ -44,7 +44,7 @@ fn optimization_pass(lines: Vec<Line>) -> Vec<Line> {
     ret
 }
 
-fn peephole1_helper(lines: &Vec<Line>, index: &mut usize, _ret: &mut Vec<Line>) -> bool {
+fn peephole1_helper(lines: &[Line], index: &mut usize, _ret: &mut Vec<Line>) -> bool {
     match lines[*index].clone() {
         Line::Label(_) => false,
         Line::Instr {
@@ -65,7 +65,7 @@ fn peephole1_helper(lines: &Vec<Line>, index: &mut usize, _ret: &mut Vec<Line>) 
     }
 }
 
-fn peephole2_helper(lines: &Vec<Line>, index: &mut usize, ret: &mut Vec<Line>) -> bool {
+fn peephole2_helper(lines: &[Line], index: &mut usize, ret: &mut Vec<Line>) -> bool {
     match lines[*index].clone() {
         Line::Label(_) => false,
         Line::Instr {
@@ -167,7 +167,7 @@ fn peephole2_helper(lines: &Vec<Line>, index: &mut usize, ret: &mut Vec<Line>) -
     }
 }
 
-fn peephole3_helper(lines: &Vec<Line>, index: &mut usize, ret: &mut Vec<Line>) -> bool {
+fn peephole3_helper(lines: &[Line], index: &mut usize, ret: &mut Vec<Line>) -> bool {
     match lines[*index].clone() {
         Line::Label(_) => false,
         Line::Instr {
@@ -380,7 +380,7 @@ fn peephole3_helper(lines: &Vec<Line>, index: &mut usize, ret: &mut Vec<Line>) -
     }
 }
 
-fn peephole4_helper(lines: &Vec<Line>, index: &mut usize, ret: &mut Vec<Line>) -> bool {
+fn peephole4_helper(lines: &[Line], index: &mut usize, ret: &mut Vec<Line>) -> bool {
     match lines[*index].clone() {
         Line::Label(_) => false,
         Line::Instr {
