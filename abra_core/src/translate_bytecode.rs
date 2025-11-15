@@ -472,6 +472,7 @@ impl Translator {
                     );
                 };
                 let arg1_ty = self.statics.solution_of_node(left.node()).unwrap();
+                // inline primitive operations instead of performing a function call
                 match op {
                     BinaryOperator::Add => match arg1_ty {
                         SolvedType::Int => self.emit(st, Instr::AddInt),
@@ -514,6 +515,10 @@ impl Translator {
                         _ => unreachable!(),
                     },
                     BinaryOperator::Equal => match arg1_ty {
+                        SolvedType::Void => {
+                            self.emit(st, Instr::Pop);
+                            self.emit(st, Instr::PushNil(1));
+                        }
                         SolvedType::Int => self.emit(st, Instr::EqualInt),
                         SolvedType::Float => self.emit(st, Instr::EqualFloat),
                         SolvedType::Bool => self.emit(st, Instr::EqualBool),
@@ -1288,35 +1293,33 @@ impl Translator {
             overload_ty: overload_ty.clone(),
         };
         let label = self.get_func_label(st, desc, overload_ty.clone(), func_name);
+        let is_func = |ty: &Option<SolvedType>, arg: SolvedType, out: SolvedType| {
+            *ty == Some(SolvedType::Function(vec![arg], out.into()))
+        };
+        let is_ident_func = |ty: &Option<SolvedType>, arg: SolvedType| {
+            *ty == Some(SolvedType::Function(vec![arg.clone()], arg.into()))
+        };
         match (func_name.as_str(), overload_ty) {
+            // inline basic/fundamental operations instead of performing function call
             ("array.push", _) => self.emit(st, Instr::ArrayAppend),
             ("array.len", _) => self.emit(st, Instr::ArrayLength),
             ("array.pop", _) => self.emit(st, Instr::ArrayPop),
             ("prelude.ToString.str", ty)
-                if ty
-                    == Some(SolvedType::Function(
-                        vec![SolvedType::String],
-                        SolvedType::String.into(),
-                    )) =>
+                if is_func(&ty, SolvedType::String, SolvedType::String) =>
             { /* noop */ }
-            ("prelude.ToString.str", ty)
-                if ty
-                    == Some(SolvedType::Function(
-                        vec![SolvedType::Int],
-                        SolvedType::String.into(),
-                    )) =>
-            {
+            ("prelude.ToString.str", ty) if is_func(&ty, SolvedType::Int, SolvedType::String) => {
                 self.emit(st, Instr::IntToString);
             }
-            ("prelude.ToString.str", ty)
-                if ty
-                    == Some(SolvedType::Function(
-                        vec![SolvedType::Float],
-                        SolvedType::String.into(),
-                    )) =>
-            {
+            ("prelude.ToString.str", ty) if is_func(&ty, SolvedType::Float, SolvedType::String) => {
                 self.emit(st, Instr::FloatToString);
             }
+            ("prelude.Clone.clone", ty)
+                if is_ident_func(&ty, SolvedType::Int)
+                    || is_ident_func(&ty, SolvedType::Float)
+                    || is_ident_func(&ty, SolvedType::Bool)
+                    || is_ident_func(&ty, SolvedType::Void)
+                    || is_ident_func(&ty, SolvedType::String) =>
+            { /* noop */ }
             _ => {
                 self.emit(st, Instr::Call(func_def.args.len(), label));
             }
