@@ -222,8 +222,8 @@ impl<Value: ValueTrait> Vm<Value> {
     }
 
     #[inline(always)]
-    pub fn store_offset(&mut self, offset: i16, v: Value) {
-        self.value_stack[self.stack_base.wrapping_add_signed(offset as isize)] = v;
+    pub fn store_offset(&mut self, offset: i16, v: impl Into<Value>) {
+        self.value_stack[self.stack_base.wrapping_add_signed(offset as isize)] = v.into();
     }
 
     #[inline(always)]
@@ -937,8 +937,7 @@ impl<Value: ValueTrait> Vm<Value> {
             }
             Instr::IncrementOffset(reg) => {
                 let a = self.load_offset(reg).get_int(self);
-                todo!("store_offset(reg, a.wrapping_add(1))")
-                // self.set_top(a.wrapping_add(1));
+                self.store_offset(reg, a.wrapping_add(1));
             }
             Instr::SubtractInt => {
                 let b = self.pop_int();

@@ -75,6 +75,7 @@ pub enum Instr {
     // Arithmetic
     AddInt,
     AddIntReg(i32, i32),
+    IncrementOffset(i32),
     SubtractInt,
     MultiplyInt,
     MultiplyIntReg(i32, i32),
@@ -158,6 +159,7 @@ impl Display for Instr {
             Instr::StoreOffset(n) => write!(f, "store_offset {n}"),
             Instr::AddInt => write!(f, "add_int"),
             Instr::AddIntReg(reg1, reg2) => write!(f, "add_int_reg {reg1} {reg2}"),
+            Instr::IncrementOffset(reg) => write!(f, "incr_int_reg {reg}"), // TODO: make naming consistent
             Instr::SubtractInt => write!(f, "subtract_int"),
             Instr::MultiplyInt => write!(f, "multiply_int"),
             Instr::MultiplyIntReg(reg1, reg2) => write!(f, "multiply_int_reg {reg1} {reg2}"),
@@ -282,6 +284,7 @@ fn instr_to_vminstr(
         Instr::StoreOffset(i) => VmInstr::StoreOffset(*i as i16),
         Instr::AddInt => VmInstr::AddInt,
         Instr::AddIntReg(reg1, reg2) => VmInstr::AddIntReg(*reg1 as i16, *reg2 as i16),
+        Instr::IncrementOffset(reg) => VmInstr::IncrementOffset(*reg as i16),
         Instr::SubtractInt => VmInstr::SubtractInt,
         Instr::MultiplyInt => VmInstr::MultiplyInt,
         Instr::MultiplyIntReg(reg1, reg2) => VmInstr::MultiplyIntReg(*reg1 as i16, *reg2 as i16),

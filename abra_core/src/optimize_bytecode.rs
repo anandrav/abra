@@ -8,6 +8,7 @@ pub(crate) fn optimize(lines: Vec<Line>) -> Vec<Line> {
     let mut ret = lines;
     loop {
         // TODO: combine these into a sigle peephole function. Have a bias for larger windows (3 then 2 then 1)
+        ret = peephole4(ret);
         ret = peephole3(ret);
         ret = peephole2(ret);
         ret = peephole1(ret);
@@ -372,6 +373,67 @@ pub(crate) fn peephole3(lines: Vec<Line>) -> Vec<Line> {
                                 func_id,
                             });
                             index += 3;
+                        }
+                        _ => {
+                            noop(&mut index);
+                        }
+                    }
+                } else {
+                    noop(&mut index);
+                }
+            }
+        }
+    }
+
+    ret
+}
+
+pub(crate) fn peephole4(lines: Vec<Line>) -> Vec<Line> {
+    let mut ret: Vec<Line> = vec![];
+
+    let mut index = 0;
+    while index < lines.len() {
+        let curr = &lines[index];
+        match lines[index].clone() {
+            Line::Label(_) => {
+                // noop
+                ret.push(curr.clone());
+                index += 1;
+            }
+            Line::Instr {
+                instr: instr1,
+                lineno,
+                file_id,
+                func_id,
+            } => {
+                let mut noop = |index: &mut usize| {
+                    ret.push(curr.clone());
+                    *index += 1;
+                };
+                // WINDOW SIZE 4
+                if index + 3 < lines.len()
+                    && let Line::Instr { instr: instr2, .. } = &lines[index + 1]
+                    && let Line::Instr { instr: instr3, .. } = &lines[index + 2]
+                    && let Line::Instr { instr: instr4, .. } = &lines[index + 3]
+                {
+                    match (instr1, instr2, instr3, instr4) {
+                        // TODO: this is a nice optimization for i = i + 1, but would be nice if it worked for i = i + 2 or i = i - 1
+                        // TODO: Generalize it, perhaps for numbers up to 10. IncrementOffset can take the numeric constant as another argument
+
+                        // LOAD(X) PUSH(1) ADD_INT STORE(X) -> INCR(X)
+                        (
+                            Instr::LoadOffset(reg1),
+                            Instr::PushInt(1),
+                            Instr::AddInt,
+                            Instr::StoreOffset(reg2),
+                        ) if reg1 == *reg2 => {
+                            ret.push(Line::Instr {
+                                instr: Instr::IncrementOffset(reg1),
+                                lineno,
+                                file_id,
+                                func_id,
+                            });
+                            index += 4;
                         }
                         _ => {
                             noop(&mut index);
