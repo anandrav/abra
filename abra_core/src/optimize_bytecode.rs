@@ -402,12 +402,12 @@ fn peephole4_helper(lines: &[Line], index: &mut usize, ret: &mut Vec<Line>) -> b
                     // LOAD(X) PUSH(1) ADD_INT STORE(X) -> INCR(X)
                     (
                         Instr::LoadOffset(reg1),
-                        Instr::PushInt(1),
+                        Instr::PushInt(n),
                         Instr::AddInt,
                         Instr::StoreOffset(reg2),
-                    ) if reg1 == *reg2 => {
+                    ) if reg1 == *reg2 && *n < (i16::MAX as i64) => {
                         ret.push(Line::Instr {
-                            instr: Instr::IncrementOffset(reg1),
+                            instr: Instr::IncrementOffset(reg1, *n as i16),
                             lineno,
                             file_id,
                             func_id,
