@@ -419,6 +419,7 @@ pub enum Instr {
     // Arithmetic
     AddInt,
     AddIntReg(i16, i16),
+    IncrementOffset(i16),
     SubtractInt,
     MultiplyInt,
     MultiplyIntReg(i16, i16),
@@ -478,7 +479,9 @@ pub enum Instr {
     SetField(u16),
     SetFieldOffset(u16, i16),
     GetIdx,
+    GetIdxOffset(i16, i16),
     SetIdx,
+    SetIdxOffset(i16, i16),
     MakeClosure { func_addr: ProgramCounter },
 
     ArrayAppend,
@@ -928,6 +931,11 @@ impl<Value: ValueTrait> Vm<Value> {
                 let b = self.load_offset(reg2).get_int(self);
                 self.push(a.wrapping_add(b));
             }
+            Instr::IncrementOffset(reg) => {
+                let a = self.load_offset(reg).get_int(self);
+                todo!("store_offset(reg, a.wrapping_add(1))")
+                // self.set_top(a.wrapping_add(1));
+            }
             Instr::SubtractInt => {
                 let b = self.pop_int();
                 let a = self.top().get_int(self);
@@ -1205,9 +1213,39 @@ impl<Value: ValueTrait> Vm<Value> {
                     _ => self.fail_wrong_type(ValueKind::Array),
                 }
             }
+            Instr::GetIdxOffset(reg1, reg2) => {
+                let obj = self.load_offset(reg2);
+                let idx = self.load_offset(reg1).get_int(self);
+                let heap_index = obj.get_heap_index(self, ValueKind::Array);
+                match &self.heap[heap_index].kind {
+                    ManagedObjectKind::DynArray(fields) => {
+                        if idx as usize >= fields.len() || idx < 0 {
+                            self.fail(VmErrorKind::ArrayOutOfBounds);
+                        }
+                        let field = fields[idx as usize];
+                        self.push(field);
+                    }
+                    _ => self.fail_wrong_type(ValueKind::Array),
+                }
+            }
             Instr::SetIdx => {
                 let obj = self.pop();
                 let idx = self.pop_int();
+                let rvalue = self.pop();
+                let heap_index = obj.get_heap_index(self, ValueKind::Array);
+                match &mut self.heap[heap_index].kind {
+                    ManagedObjectKind::DynArray(fields) => {
+                        if idx as usize >= fields.len() || idx < 0 {
+                            self.fail(VmErrorKind::ArrayOutOfBounds);
+                        }
+                        fields[idx as usize] = rvalue;
+                    }
+                    _ => self.fail_wrong_type(ValueKind::Array),
+                }
+            }
+            Instr::SetIdxOffset(reg1, reg2) => {
+                let obj = *self.load_offset(reg2);
+                let idx = self.load_offset(reg1).get_int(self);
                 let rvalue = self.pop();
                 let heap_index = obj.get_heap_index(self, ValueKind::Array);
                 match &mut self.heap[heap_index].kind {

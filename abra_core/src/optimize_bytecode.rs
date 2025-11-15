@@ -7,9 +7,10 @@ pub(crate) fn optimize(lines: Vec<Line>) -> Vec<Line> {
     let mut len = lines.len();
     let mut ret = lines;
     loop {
-        ret = peephole1(ret);
-        ret = peephole2(ret);
+        // TODO: combine these into a sigle peephole function. Have a bias for larger windows (3 then 2 then 1)
         ret = peephole3(ret);
+        ret = peephole2(ret);
+        ret = peephole1(ret);
         if ret.len() < len {
             len = ret.len();
         } else {
@@ -222,6 +223,26 @@ pub(crate) fn peephole3(lines: Vec<Line>) -> Vec<Line> {
                         (Instr::LoadOffset(reg1), Instr::LoadOffset(reg2), Instr::LessThanInt) => {
                             ret.push(Line::Instr {
                                 instr: Instr::LessThanIntReg(reg1, *reg2),
+                                lineno,
+                                file_id,
+                                func_id,
+                            });
+                            index += 3;
+                        }
+                        // LOAD LOAD GET_INDEX
+                        (Instr::LoadOffset(reg1), Instr::LoadOffset(reg2), Instr::GetIdx) => {
+                            ret.push(Line::Instr {
+                                instr: Instr::GetIdxOffset(reg1, *reg2),
+                                lineno,
+                                file_id,
+                                func_id,
+                            });
+                            index += 3;
+                        }
+                        // LOAD LOAD SET_INDEX
+                        (Instr::LoadOffset(reg1), Instr::LoadOffset(reg2), Instr::SetIdx) => {
+                            ret.push(Line::Instr {
+                                instr: Instr::SetIdxOffset(reg1, *reg2),
                                 lineno,
                                 file_id,
                                 func_id,

@@ -133,7 +133,9 @@ pub enum Instr {
     SetField(u16),
     SetFieldOffset(u16, i32),
     GetIdx,
+    GetIdxOffset(i32, i32),
     SetIdx,
+    SetIdxOffset(i32, i32),
     MakeClosure { func_addr: Label },
 
     ArrayAppend,
@@ -212,7 +214,9 @@ impl Display for Instr {
             Instr::SetField(n) => write!(f, "set_field {n}"),
             Instr::SetFieldOffset(index, offset) => write!(f, "set_field_offset {index} {offset}"),
             Instr::GetIdx => write!(f, "get_index"),
+            Instr::GetIdxOffset(reg1, reg2) => write!(f, "get_index_offset {reg1} {reg2}"),
             Instr::SetIdx => write!(f, "set_index"),
+            Instr::SetIdxOffset(reg1, reg2) => write!(f, "set_index_offset {reg1} {reg2}"),
             Instr::MakeClosure { func_addr } => {
                 write!(f, "make_closure {func_addr}")
             }
@@ -336,7 +340,9 @@ fn instr_to_vminstr(
         Instr::SetField(idx) => VmInstr::SetField(*idx),
         Instr::SetFieldOffset(idx, offset) => VmInstr::SetFieldOffset(*idx, *offset as i16),
         Instr::GetIdx => VmInstr::GetIdx,
+        Instr::GetIdxOffset(reg1, reg2) => VmInstr::GetIdxOffset(*reg1 as i16, *reg2 as i16),
         Instr::SetIdx => VmInstr::SetIdx,
+        Instr::SetIdxOffset(reg1, reg2) => VmInstr::SetIdxOffset(*reg1 as i16, *reg2 as i16),
         Instr::ConstructVariant { tag } => VmInstr::ConstructVariant { tag: *tag },
         Instr::MakeClosure { func_addr } => {
             // dbg!(func_addr);
