@@ -1123,12 +1123,9 @@ impl<Value: ValueTrait> Vm<Value> {
                 self.stack_base = self.value_stack.len();
             }
             Instr::Return(nargs) => {
-                if nargs != 0 {
-                    // TODO make a separate instruction for when nargs == 0 to avoid this branch!
-                    let idx = self.stack_base.wrapping_add_signed(-(nargs as isize));
-                    let v = self.top();
-                    self.value_stack[idx] = *v;
-                }
+                let idx = self.stack_base.wrapping_add_signed(-(nargs as isize));
+                let v = self.top();
+                self.value_stack[idx] = *v;
 
                 let frame = self.call_stack.pop().unwrap();
                 self.pc = frame.pc;
