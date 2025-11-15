@@ -465,7 +465,7 @@ pub enum Instr {
     JumpIf(ProgramCounter),
     JumpIfFalse(ProgramCounter),
     Call(CallData),
-    CallFuncObj,
+    CallFuncObj(u32),
     CallExtern(u32),
     Return(u32),
     Stop, // used when returning from main function
@@ -1111,8 +1111,7 @@ impl<Value: ValueTrait> Vm<Value> {
                 self.pc = ProgramCounter(target);
                 self.stack_base = self.value_stack.len();
             }
-            Instr::CallFuncObj => {
-                let nargs = self.pop_int(); // TODO: put nargs in the instruction itself
+            Instr::CallFuncObj(nargs) => {
                 let addr = self.pop_addr();
                 self.call_stack.push(CallFrame {
                     pc: self.pc,

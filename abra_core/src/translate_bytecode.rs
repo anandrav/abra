@@ -795,8 +795,7 @@ impl Translator {
                 // assume it's a function object
                 let idx = offset_table.get(&node.id()).unwrap();
                 self.emit(st, Instr::LoadOffset(*idx));
-                self.emit(st, Instr::PushInt(args.len() as AbraInt));
-                self.emit(st, Instr::CallFuncObj);
+                self.emit(st, Instr::CallFuncObj(args.len() as u32));
             }
             Declaration::FreeFunction(f) => {
                 let f_fully_qualified_name = &self.statics.fully_qualified_names[&f.name.id];

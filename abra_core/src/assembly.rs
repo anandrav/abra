@@ -116,7 +116,7 @@ pub enum Instr {
     JumpIf(Label),
     JumpIfFalse(Label),
     Call(usize, Label),
-    CallFuncObj,
+    CallFuncObj(u32),
     CallExtern(u32),
     Return(u32),
     Stop, // used when returning from main function
@@ -200,7 +200,7 @@ impl Display for Instr {
                 write!(f, "call {} {}", nargs, addr)
             }
             Instr::CallExtern(func_id) => write!(f, "call_extern {func_id}"),
-            Instr::CallFuncObj => write!(f, "call_func_obj"),
+            Instr::CallFuncObj(nargs) => write!(f, "call_func_obj {nargs}"),
             Instr::Return(nargs) => write!(f, "return {nargs}"),
             Instr::Stop => write!(f, "stop"),
             Instr::Panic => write!(f, "panic"),
@@ -330,7 +330,7 @@ fn instr_to_vminstr(
                 .unwrap_or_else(|| panic!("Could not find label: {label}")) as u32,
         )),
         Instr::CallExtern(func_id) => VmInstr::CallExtern(*func_id),
-        Instr::CallFuncObj => VmInstr::CallFuncObj,
+        Instr::CallFuncObj(nargs) => VmInstr::CallFuncObj(*nargs),
         Instr::Return(nargs) => VmInstr::Return(*nargs),
         Instr::Stop => VmInstr::Stop,
         Instr::Panic => VmInstr::Panic,
