@@ -958,7 +958,7 @@ impl<Value: ValueTrait> Vm<Value> {
                 let b = self.pop_int();
                 let a = self.top().get_int(self);
                 if b == 0 {
-                    self.error = Some(Box::new(self.make_error(VmErrorKind::DivisionByZero))); // TODO: why is this boxed
+                    self.error = Some(self.make_error(VmErrorKind::DivisionByZero).into());
                     return false;
                 }
                 self.set_top(a.wrapping_div(b));
@@ -992,7 +992,7 @@ impl<Value: ValueTrait> Vm<Value> {
                 let b = self.pop_float();
                 let a = self.top().get_float(self);
                 if b == 0.0 {
-                    self.error = Some(Box::new(self.make_error(VmErrorKind::DivisionByZero))); // TODO: why is this boxed
+                    self.error = Some(self.make_error(VmErrorKind::DivisionByZero).into());
                     return false;
                 }
                 self.set_top(a / b);
