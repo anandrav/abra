@@ -3,15 +3,12 @@ resolver = "2"
 members = [
     "abra_cli",
     "abra_core",
-
     # Abra libraries with Rust implementations
     "modules/*/rust_project",
-
     # end-to-end tests
     "e2e_tests",
     "e2e_tests/modules/*/rust_project",
     "e2e_tests/test_host_funcs/",
-
     "utils",
 ]
 
@@ -23,3 +20,4 @@ utils = { path = "utils" }
 lto = true
 strip = true
 panic = 'abort'
+codegen-units = 1
