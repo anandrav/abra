@@ -42,21 +42,25 @@ use std::{
 pub struct Vm {
     program: Vec<Instr>,
     pc: ProgramCounter,
+    // stack
     stack_base: usize,
     value_stack: Vec<Value>,
     call_stack: Vec<CallFrame>,
-    // heap: Vec<ManagedObject>,
-    // heap_group: HeapGroup,
+    // heap
+    heap: Vec<*mut ManagedObjectHeader>,
+    gray_stack: Vec<*mut ManagedObjectHeader>,
+    // gc_state: GcState,
+    // constants
     int_constants: Vec<i64>,
     float_constants: Vec<f64>,
     static_strings: Vec<String>,
     filename_arena: Vec<String>,
     function_name_arena: Vec<String>,
-
+    // source map
     filename_table: Vec<(BytecodeIndex, u32)>,
     lineno_table: Vec<(BytecodeIndex, u32)>,
     function_name_table: Vec<(BytecodeIndex, u32)>,
-
+    // status
     pending_host_func: Option<u16>,
     error: Option<Box<VmError>>,
     done: bool,
@@ -132,6 +136,8 @@ impl Vm {
             // the nil is placeholder for return value from main
             value_stack: vec![().into()],
             call_stack: Vec::new(),
+            heap: vec![],
+            gray_stack: vec![],
             // heap: Vec::new(),
             // heap_group: HeapGroup::One,
             int_constants: program.int_constants.into_iter().collect(),
@@ -247,7 +253,7 @@ impl Vm {
 
     #[inline(always)]
     pub fn push_str(&mut self, s: String) {
-        let s = StringObject::new(s);
+        let s = StringObject::new(s, &mut self.heap);
         let r = Value::from(s);
         self.push(r);
     }
@@ -270,7 +276,7 @@ impl Vm {
     #[inline(always)]
     pub fn construct_variant(&mut self, tag: u16) {
         let value = self.top();
-        let variant = EnumObject::new(tag, value);
+        let variant = EnumObject::new(tag, value, &mut self.heap);
         let r = Value::from(variant);
         self.set_top(r);
     }
@@ -283,14 +289,14 @@ impl Vm {
     #[inline(always)]
     pub fn construct_struct(&mut self, n: usize) {
         let fields = self.pop_n(n);
-        let ptr = StructObject::new(fields);
+        let ptr = StructObject::new(fields, &mut self.heap);
         self.push(ptr);
     }
 
     #[inline(always)]
     pub fn construct_array(&mut self, n: usize) {
         let fields = self.pop_n(n);
-        let ptr = ArrayObject::new(fields);
+        let ptr = ArrayObject::new(fields, &mut self.heap);
         self.push(ptr);
     }
 
@@ -636,10 +642,31 @@ struct CallFrame {
 
 // NEW reference types
 
+enum GcState {
+    Idle,
+    Marking,
+    Sweeping { index: usize },
+}
+
 #[repr(C)]
 struct ManagedObjectHeader {
     kind: ManagedObjectKind,
     color: Cell<GcColor>,
+}
+
+#[repr(C)]
+enum ManagedObjectKind {
+    Enum,
+    Array,
+    Struct,
+    String,
+}
+
+#[repr(u8)]
+enum GcColor {
+    White,
+    Gray,
+    Black,
 }
 
 #[repr(C)]
@@ -650,7 +677,7 @@ struct StructObject {
 }
 
 impl StructObject {
-    fn new(data: Vec<Value>) -> *mut StructObject {
+    fn new(data: Vec<Value>, heaplist: &mut Vec<*mut ManagedObjectHeader>) -> *mut StructObject {
         let len = data.len();
 
         let prefix_size = size_of::<StructObject>();
@@ -685,6 +712,8 @@ impl StructObject {
                 ptr::write(base.add(i), ptr::read(src.add(i)));
             }
 
+            heaplist.push(obj as *mut ManagedObjectHeader);
+
             obj
         }
     }
@@ -713,8 +742,10 @@ mod tests {
         // Some example PackedValues
         let values = vec![Value(1, false), Value(2, true), Value(3, false)];
 
+        let mut heaplist = vec![];
+
         // Allocate the StructObject
-        let ptr = StructObject::new(values.clone());
+        let ptr = StructObject::new(values.clone(), &mut heaplist);
 
         // SAFETY: object was just allocated
         let obj = unsafe { &*ptr };
@@ -745,7 +776,7 @@ struct ArrayObject {
 }
 
 impl ArrayObject {
-    fn new(data: Vec<Value>) -> *mut ArrayObject {
+    fn new(data: Vec<Value>, heaplist: &mut Vec<*mut ManagedObjectHeader>) -> *mut ArrayObject {
         let header = ManagedObjectHeader {
             kind: ManagedObjectKind::Array,
             color: Cell::new(GcColor::White),
@@ -754,7 +785,9 @@ impl ArrayObject {
             header,
             elems: data,
         });
-        Box::leak(b)
+        let ptr = Box::leak(b);
+        heaplist.push(ptr as *mut ArrayObject as *mut ManagedObjectHeader);
+        ptr
     }
 }
 
@@ -766,13 +799,15 @@ struct EnumObject {
 }
 
 impl EnumObject {
-    fn new(tag: u16, val: Value) -> *mut EnumObject {
+    fn new(tag: u16, val: Value, heaplist: &mut Vec<*mut ManagedObjectHeader>) -> *mut EnumObject {
         let header = ManagedObjectHeader {
             kind: ManagedObjectKind::Enum,
             color: Cell::new(GcColor::White),
         };
         let b = Box::new(EnumObject { header, tag, val });
-        Box::leak(b)
+        let ptr = Box::leak(b);
+        heaplist.push(ptr as *mut EnumObject as *mut ManagedObjectHeader);
+        ptr
     }
 }
 
@@ -783,29 +818,16 @@ struct StringObject {
 }
 
 impl StringObject {
-    fn new(str: String) -> *mut StringObject {
+    fn new(str: String, heaplist: &mut Vec<*mut ManagedObjectHeader>) -> *mut StringObject {
         let header = ManagedObjectHeader {
             kind: ManagedObjectKind::String,
             color: Cell::new(GcColor::White),
         };
         let b = Box::new(StringObject { header, str });
-        Box::leak(b)
+        let ptr = Box::leak(b);
+        heaplist.push(ptr as *mut StringObject as *mut ManagedObjectHeader);
+        ptr
     }
-}
-
-#[repr(C)]
-enum ManagedObjectKind {
-    Enum,
-    Array,
-    Struct,
-    String,
-}
-
-#[repr(u8)]
-enum GcColor {
-    White,
-    Gray,
-    Black,
 }
 
 impl Vm {
@@ -853,7 +875,7 @@ impl Vm {
             Instr::PushString(idx) => {
                 // TODO: copying string every time is not good ...
                 let s = &self.static_strings[idx as usize];
-                let s = StringObject::new(s.clone());
+                let s = StringObject::new(s.clone(), &mut self.heap);
                 self.push(s);
             }
             Instr::Pop => {
@@ -1198,21 +1220,21 @@ impl Vm {
                 let mut new_str = String::with_capacity(a_str.len() + b_str.len());
                 new_str.push_str(a_str);
                 new_str.push_str(b_str);
-                let s = StringObject::new(new_str);
+                let s = StringObject::new(new_str, &mut self.heap);
                 let r = Value::from(s);
                 self.set_top(r);
             }
             Instr::IntToString => {
                 let n = self.top().get_int(self);
                 let s = n.to_string();
-                let s = StringObject::new(s);
+                let s = StringObject::new(s, &mut self.heap);
                 let r = Value::from(s);
                 self.set_top(r);
             }
             Instr::FloatToString => {
                 let f = self.top().get_float(self);
                 let s = f.to_string();
-                let s = StringObject::new(s);
+                let s = StringObject::new(s, &mut self.heap);
                 let r = Value::from(s);
                 self.set_top(r);
             }
@@ -1324,11 +1346,6 @@ impl Vm {
         ret
     }
 
-    // #[inline(always)]
-    // fn heap_reference(&mut self, idx: usize) -> Value {
-    //     PackedValue::from(HeapReference::new(idx, self.heap_group))
-    // }
-
     pub fn compact(&mut self) {
         self.value_stack.shrink_to_fit();
         self.call_stack.shrink_to_fit();
@@ -1339,82 +1356,10 @@ impl Vm {
             + self.value_stack.len() * size_of::<Value>()
             + self.call_stack.len() * size_of::<CallFrame>();
         // TODO: must incorporate heap into calculation;
-        // + self.heap.len() * size_of::<ManagedObject>();
 
         n += self.static_strings.iter().map(|s| s.len()).sum::<usize>();
         n
     }
-
-    // pub fn heap_size(&self) -> usize {
-    //     self.heap.len() * size_of::<ManagedObject>()
-    // }
-    //
-    // pub fn gc(&mut self) {
-    //     let mut new_heap = Vec::<ManagedObject>::new();
-    //     let new_heap_group = match self.heap_group {
-    //         HeapGroup::One => HeapGroup::Two,
-    //         HeapGroup::Two => HeapGroup::One,
-    //     };
-    //
-    //     // roots
-    //     for i in 0..self.value_stack.len() {
-    //         let v = &self.value_stack[i];
-    //         if v.is_heap_ref() {
-    //             let r = v.get_heap_ref(self, ValueKind::HeapObject);
-    //             let v = &mut self.value_stack[i];
-    //             *v = PackedValue::from(forward(r, &self.heap, 0, &mut new_heap, new_heap_group));
-    //         }
-    //     }
-    //
-    //     let mut i = 0;
-    //     while i < new_heap.len() {
-    //         let new_heap_len = new_heap.len();
-    //         let obj = &mut new_heap[i];
-    //         let mut to_add: Vec<ManagedObject> = vec![];
-    //
-    //         let mut helper = |v: &mut Value| {
-    //             let r = v.get_heap_ref(self, ValueKind::HeapObject);
-    //             *v = PackedValue::from(forward(
-    //                 r,
-    //                 &self.heap,
-    //                 new_heap_len,
-    //                 &mut to_add,
-    //                 new_heap_group,
-    //             ));
-    //         };
-    //         match &mut obj.kind {
-    //             ManagedObjectKind::DynArray(fields) => {
-    //                 for v in fields {
-    //                     if v.is_heap_ref() {
-    //                         helper(v);
-    //                     }
-    //                 }
-    //             }
-    //             ManagedObjectKind::Struct(fields) => {
-    //                 for v in fields {
-    //                     if v.is_heap_ref() {
-    //                         helper(v);
-    //                     }
-    //                 }
-    //             }
-    //             ManagedObjectKind::Enum { tag: _, value: v } => {
-    //                 if v.is_heap_ref() {
-    //                     helper(v);
-    //                 }
-    //             }
-    //             ManagedObjectKind::String(_) => {}
-    //         }
-    //
-    //         new_heap.extend(to_add);
-    //
-    //         i += 1;
-    //     }
-    //
-    //     mem::swap(&mut self.heap, &mut new_heap);
-    //     self.heap_group = new_heap_group;
-    //
-    //     // self.compact();
-    // }
 
     #[inline(always)]
     fn push(&mut self, x: impl Into<Value>) {
@@ -1441,41 +1386,6 @@ impl Vm {
         self.pop().get_bool(self)
     }
 }
-
-// fn forward(
-//     r: HeapReference,
-//     old_heap: &[ManagedObject],
-//     new_heap_len: usize,
-//     to_add: &mut Vec<ManagedObject>,
-//     new_heap_group: HeapGroup,
-// ) -> HeapReference {
-//     if r.get_group() != new_heap_group {
-//         // from space
-//         let old_obj = &old_heap[r.get_index()];
-//         match old_obj.forwarding_pointer.get() {
-//             Some(f) => {
-//                 // return f
-//                 HeapReference::new(f, new_heap_group)
-//             }
-//             None => {
-//                 // copy to new heap and install forwarding pointer in old heap object
-//                 let new_idx = to_add.len() + new_heap_len;
-//
-//                 let new_obj = old_obj.clone();
-//                 new_obj.forwarding_pointer.replace(None);
-//                 to_add.push(new_obj);
-//
-//                 old_obj.forwarding_pointer.replace(Some(new_idx));
-//
-//                 HeapReference::new(new_idx, new_heap_group)
-//             }
-//         }
-//     } else {
-//         // to space
-//         // this reference already points to the new heap
-//         r
-//     }
-// }
 
 impl Debug for Vm {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
