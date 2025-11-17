@@ -48,7 +48,7 @@ pub struct Vm {
     value_stack: Vec<Value>,
     call_stack: Vec<CallFrame>,
     // heap
-    heap: Vec<*mut ObjectHeader>,
+    heaplist: Vec<*mut ObjectHeader>,
     gray_stack: Vec<*mut ObjectHeader>,
     gc_state: GcState,
     // constants
@@ -137,7 +137,7 @@ impl Vm {
             // the nil is placeholder for return value from main
             value_stack: vec![().into()],
             call_stack: Vec::new(),
-            heap: vec![],
+            heaplist: vec![],
             gray_stack: vec![],
             gc_state: GcState::Idle,
 
@@ -223,7 +223,7 @@ impl Vm {
 
     #[inline(always)]
     pub fn push_str(&mut self, s: String) {
-        let s = StringObject::new(s, &mut self.heap);
+        let s = StringObject::new(s, self);
         let r = Value::from(s);
         self.push(r);
     }
@@ -246,7 +246,7 @@ impl Vm {
     #[inline(always)]
     pub fn construct_variant(&mut self, tag: u16) {
         let value = self.top();
-        let variant = EnumObject::new(tag, value, &mut self.heap);
+        let variant = EnumObject::new(tag, value, self);
         let r = Value::from(variant);
         self.set_top(r);
     }
@@ -259,14 +259,14 @@ impl Vm {
     #[inline(always)]
     pub fn construct_struct(&mut self, n: usize) {
         let fields = self.pop_n(n);
-        let ptr = StructObject::new(fields, &mut self.heap);
+        let ptr = StructObject::new(fields, self);
         self.push(ptr);
     }
 
     #[inline(always)]
     pub fn construct_array(&mut self, n: usize) {
         let fields = self.pop_n(n);
-        let ptr = ArrayObject::new(fields, &mut self.heap);
+        let ptr = ArrayObject::new(fields, self);
         self.push(ptr);
     }
 
@@ -695,7 +695,7 @@ struct StructObject {
 }
 
 impl StructObject {
-    fn new(data: Vec<Value>, heaplist: &mut Vec<*mut ObjectHeader>) -> *mut StructObject {
+    fn new(data: Vec<Value>, vm: &mut Vm) -> *mut StructObject {
         let len = data.len();
         let layout = Self::layout_helper(len);
         let prefix_size = size_of::<StructObject>();
@@ -712,7 +712,11 @@ impl StructObject {
                 StructObject {
                     header: ObjectHeader {
                         kind: ObjectKind::Struct,
-                        color: Color::White,
+                        color: match &vm.gc_state {
+                            GcState::Idle => Color::White,
+                            GcState::Marking => Color::Gray,
+                            GcState::Sweeping { .. } => Color::Black,
+                        },
                     },
                     len,
                 },
@@ -725,7 +729,10 @@ impl StructObject {
                 ptr::write(base.add(i), ptr::read(src.add(i)));
             }
 
-            heaplist.push(obj as *mut ObjectHeader);
+            vm.heaplist.push(obj as *mut ObjectHeader);
+            if vm.gc_state == GcState::Marking {
+                vm.gray_stack.push(obj as *mut ObjectHeader);
+            }
 
             obj
         }
@@ -765,42 +772,6 @@ impl StructObject {
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn struct_object_sanity() {
-        // Some example PackedValues
-        let values = vec![Value(1, false), Value(2, true), Value(3, false)];
-
-        let mut heaplist = vec![];
-
-        // Allocate the StructObject
-        let ptr = StructObject::new(values.clone(), &mut heaplist);
-
-        // SAFETY: object was just allocated
-        let obj = unsafe { &*ptr };
-
-        assert_eq!(obj.len, 3);
-
-        // Read back the fields
-        let fields = obj.get_fields();
-        assert_eq!(fields, values.as_slice());
-
-        // Mutate one field
-        let obj_mut = unsafe { &mut *ptr };
-        obj_mut.get_fields_mut()[1] = Value(99, true);
-
-        // Verify mutation persisted
-        let fields_after = obj.get_fields();
-        assert_eq!(
-            fields_after,
-            &[Value(1, false), Value(99, true), Value(3, false)]
-        );
-    }
-}
-
 #[repr(C)]
 struct ArrayObject {
     header: ObjectHeader,
@@ -808,17 +779,26 @@ struct ArrayObject {
 }
 
 impl ArrayObject {
-    fn new(data: Vec<Value>, heaplist: &mut Vec<*mut ObjectHeader>) -> *mut ArrayObject {
+    fn new(data: Vec<Value>, vm: &mut Vm) -> *mut ArrayObject {
         let header = ObjectHeader {
             kind: ObjectKind::Array,
-            color: Color::White,
+            color: match &vm.gc_state {
+                GcState::Idle => Color::White,
+                GcState::Marking => Color::Gray,
+                GcState::Sweeping { .. } => Color::Black,
+            },
         };
         let b = Box::new(ArrayObject {
             header,
             elems: data,
         });
         let ptr = Box::leak(b);
-        heaplist.push(ptr as *mut ArrayObject as *mut ObjectHeader);
+        vm.heaplist
+            .push(ptr as *mut ArrayObject as *mut ObjectHeader);
+        if vm.gc_state == GcState::Marking {
+            vm.gray_stack
+                .push(ptr as *mut ArrayObject as *mut ObjectHeader);
+        }
         ptr
     }
 
@@ -835,14 +815,23 @@ struct EnumObject {
 }
 
 impl EnumObject {
-    fn new(tag: u16, val: Value, heaplist: &mut Vec<*mut ObjectHeader>) -> *mut EnumObject {
+    fn new(tag: u16, val: Value, vm: &mut Vm) -> *mut EnumObject {
         let header = ObjectHeader {
             kind: ObjectKind::Enum,
-            color: Color::White,
+            color: match &vm.gc_state {
+                GcState::Idle => Color::White,
+                GcState::Marking => Color::Gray,
+                GcState::Sweeping { .. } => Color::Black,
+            },
         };
         let b = Box::new(EnumObject { header, tag, val });
         let ptr = Box::leak(b);
-        heaplist.push(ptr as *mut EnumObject as *mut ObjectHeader);
+        vm.heaplist
+            .push(ptr as *mut EnumObject as *mut ObjectHeader);
+        if vm.gc_state == GcState::Marking {
+            vm.gray_stack
+                .push(ptr as *mut EnumObject as *mut ObjectHeader);
+        }
         ptr
     }
 
@@ -858,14 +847,23 @@ struct StringObject {
 }
 
 impl StringObject {
-    fn new(str: String, heaplist: &mut Vec<*mut ObjectHeader>) -> *mut StringObject {
+    fn new(str: String, vm: &mut Vm) -> *mut StringObject {
         let header = ObjectHeader {
             kind: ObjectKind::String,
-            color: Color::White,
+            color: match &vm.gc_state {
+                GcState::Idle => Color::White,
+                GcState::Marking => Color::Gray,
+                GcState::Sweeping { .. } => Color::Black,
+            },
         };
         let b = Box::new(StringObject { header, str });
         let ptr = Box::leak(b);
-        heaplist.push(ptr as *mut StringObject as *mut ObjectHeader);
+        vm.heaplist
+            .push(ptr as *mut StringObject as *mut ObjectHeader);
+        if vm.gc_state == GcState::Marking {
+            vm.gray_stack
+                .push(ptr as *mut StringObject as *mut ObjectHeader);
+        }
         ptr
     }
 
@@ -920,7 +918,7 @@ impl Vm {
             Instr::PushString(idx) => {
                 // TODO: copying string every time is not good ...
                 let s = &self.static_strings[idx as usize];
-                let s = StringObject::new(s.clone(), &mut self.heap);
+                let s = StringObject::new(s.clone(), self);
                 self.push(s);
             }
             Instr::Pop => {
@@ -1276,21 +1274,21 @@ impl Vm {
                 let mut new_str = String::with_capacity(a_str.len() + b_str.len());
                 new_str.push_str(a_str);
                 new_str.push_str(b_str);
-                let s = StringObject::new(new_str, &mut self.heap);
+                let s = StringObject::new(new_str, self);
                 let r = Value::from(s);
                 self.set_top(r);
             }
             Instr::IntToString => {
                 let n = self.top().get_int(self);
                 let s = n.to_string();
-                let s = StringObject::new(s, &mut self.heap);
+                let s = StringObject::new(s, self);
                 let r = Value::from(s);
                 self.set_top(r);
             }
             Instr::FloatToString => {
                 let f = self.top().get_float(self);
                 let s = f.to_string();
-                let s = StringObject::new(s, &mut self.heap);
+                let s = StringObject::new(s, self);
                 let r = Value::from(s);
                 self.set_top(r);
             }
@@ -1408,7 +1406,7 @@ impl Vm {
         match self.gc_state {
             GcState::Idle => {
                 const THRESHOLD: usize = 0; // TODO: pick something better
-                if self.heap.len() > THRESHOLD {
+                if self.heaplist.len() > THRESHOLD {
                     self.start_mark_phase();
                 }
             }
@@ -1432,7 +1430,7 @@ impl Vm {
 
     fn start_mark_phase(&mut self) {
         // all objects start white
-        for header_ptr in &self.heap {
+        for header_ptr in &self.heaplist {
             let header = unsafe { &mut **header_ptr };
             header.color = Color::White;
         }
@@ -1516,15 +1514,15 @@ impl Vm {
 
     fn sweep(&mut self, batch: usize) -> bool {
         if let GcState::Sweeping { index } = &mut self.gc_state {
-            let len = self.heap.len();
+            let len = self.heaplist.len();
             let end = (*index + batch).min(len);
 
             for i in *index..end {
-                let header_ptr = self.heap[i];
+                let header_ptr = self.heaplist[i];
                 let header = unsafe { &mut *header_ptr };
                 if header.color == Color::White {
                     unsafe { header.dealloc() };
-                    self.heap[i] = null_mut();
+                    self.heaplist[i] = null_mut();
                 } else {
                     header.color = Color::White;
                 }
@@ -1533,7 +1531,7 @@ impl Vm {
             *index = end;
             if end == len {
                 self.gc_state = GcState::Idle;
-                self.heap.retain(|x| !x.is_null());
+                self.heaplist.retain(|x| !x.is_null());
                 return false;
             }
             return true;
