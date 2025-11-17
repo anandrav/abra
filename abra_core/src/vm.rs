@@ -780,9 +780,6 @@ impl EnumObject {
 struct StringObject {
     header: ManagedObjectHeader,
     str: String,
-    // TODO: switch to below since strings are immutable
-    // len: usize,     // number of u8's that are actually valid
-    // data: [u8],
 }
 
 impl StringObject {
