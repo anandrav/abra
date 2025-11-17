@@ -1633,8 +1633,8 @@ impl Vm {
     pub fn nbytes(&self) -> usize {
         let mut n = self.program.len() * size_of::<Instr>()
             + self.value_stack.len() * size_of::<Value>()
-            + self.call_stack.len() * size_of::<CallFrame>();
-        // TODO: must incorporate heap into calculation;
+            + self.call_stack.len() * size_of::<CallFrame>()
+            + self.heap_size;
 
         n += self.static_strings.iter().map(|s| s.len()).sum::<usize>();
         n
