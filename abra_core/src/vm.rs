@@ -291,8 +291,7 @@ impl Vm {
     pub fn construct_array(&mut self, n: usize) {
         let fields = self.pop_n(n);
         let ptr = ArrayObject::new(fields);
-        let r = Value::from(ptr); // TODO: this is unnecessary. Remove here and other places
-        self.push(r);
+        self.push(ptr);
     }
 
     #[inline(always)]
@@ -694,38 +693,11 @@ struct CallFrame {
     nargs: u8,
 }
 
-// ReferenceType
-
-#[derive(Debug, Clone)]
-struct ManagedObject {
-    kind: ManagedObjectKind,
-
-    forwarding_pointer: Cell<Option<usize>>,
-}
-
-impl ManagedObject {
-    #[inline(always)]
-    fn new(kind: ManagedObjectKind) -> Self {
-        Self {
-            kind,
-            forwarding_pointer: Cell::new(None),
-        }
-    }
-}
-
-#[derive(Debug, Clone)]
-enum ManagedObjectKind {
-    Enum { tag: u16, value: Value },
-    DynArray(Vec<Value>),
-    Struct(Box<[Value]>),
-    String(String),
-}
-
 // NEW reference types
 
 #[repr(C)]
 struct ManagedObjectHeader {
-    kind: ManagedObjectKind2,
+    kind: ManagedObjectKind,
     color: Cell<GcColor>,
 }
 
@@ -758,7 +730,7 @@ impl StructObject {
                 obj,
                 StructObject {
                     header: ManagedObjectHeader {
-                        kind: ManagedObjectKind2::Struct,
+                        kind: ManagedObjectKind::Struct,
                         color: Cell::new(GcColor::White),
                     },
                     len,
@@ -834,7 +806,7 @@ struct ArrayObject {
 impl ArrayObject {
     fn new(data: Vec<Value>) -> *mut ArrayObject {
         let header = ManagedObjectHeader {
-            kind: ManagedObjectKind2::DynArray,
+            kind: ManagedObjectKind::Array,
             color: Cell::new(GcColor::White),
         };
         let b = Box::new(ArrayObject {
@@ -855,7 +827,7 @@ struct EnumObject {
 impl EnumObject {
     fn new(tag: u16, val: Value) -> *mut EnumObject {
         let header = ManagedObjectHeader {
-            kind: ManagedObjectKind2::Enum,
+            kind: ManagedObjectKind::Enum,
             color: Cell::new(GcColor::White),
         };
         let b = Box::new(EnumObject { header, tag, val });
@@ -869,14 +841,13 @@ struct StringObject {
     str: String,
     // TODO: switch to below since strings are immutable
     // len: usize,     // number of u8's that are actually valid
-    // capacity: usize, // number of u8's that follow
     // data: [u8],
 }
 
 impl StringObject {
     fn new(str: String) -> *mut StringObject {
         let header = ManagedObjectHeader {
-            kind: ManagedObjectKind2::String,
+            kind: ManagedObjectKind::String,
             color: Cell::new(GcColor::White),
         };
         let b = Box::new(StringObject { header, str });
@@ -885,9 +856,9 @@ impl StringObject {
 }
 
 #[repr(C)]
-enum ManagedObjectKind2 {
+enum ManagedObjectKind {
     Enum,
-    DynArray, // TODO: rename to just Array
+    Array,
     Struct,
     String,
 }
@@ -945,8 +916,7 @@ impl Vm {
                 // TODO: copying string every time is not good ...
                 let s = &self.static_strings[idx as usize];
                 let s = StringObject::new(s.clone());
-                let r = Value::from(s);
-                self.value_stack.push(r);
+                self.push(s);
             }
             Instr::Pop => {
                 self.pop();
@@ -1261,7 +1231,7 @@ impl Vm {
                 self.construct_variant(tag);
             }
             Instr::MakeClosure { func_addr } => {
-                self.value_stack.push(Value::from(func_addr));
+                self.push(func_addr);
             }
             Instr::ArrayAppend => {
                 let rvalue = self.pop();
@@ -1298,7 +1268,7 @@ impl Vm {
                 let n = self.top().get_int(self);
                 let s = n.to_string();
                 let s = StringObject::new(s);
-                let r = Value::from(s); // TODO: Value::from here and other places is unnecessary
+                let r = Value::from(s);
                 self.set_top(r);
             }
             Instr::FloatToString => {
