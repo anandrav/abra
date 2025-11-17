@@ -28,13 +28,14 @@ use crate::translate_bytecode::{BytecodeIndex, CompiledProgram};
 use core::fmt;
 #[cfg(feature = "ffi")]
 use libloading::Library;
-use std::alloc::{Layout, alloc};
+use std::alloc::{Layout, alloc, dealloc};
+use std::cmp::PartialEq;
 use std::error::Error;
 #[cfg(feature = "ffi")]
 use std::ffi::c_void;
 use std::fmt::Debug;
+use std::ptr::null_mut;
 use std::{
-    cell::Cell,
     fmt::{Display, Formatter},
     mem, ptr,
 };
@@ -47,9 +48,9 @@ pub struct Vm {
     value_stack: Vec<Value>,
     call_stack: Vec<CallFrame>,
     // heap
-    heap: Vec<*mut ManagedObjectHeader>,
-    gray_stack: Vec<*mut ManagedObjectHeader>,
-    // gc_state: GcState,
+    heap: Vec<*mut ObjectHeader>,
+    gray_stack: Vec<*mut ObjectHeader>,
+    gc_state: GcState,
     // constants
     int_constants: Vec<i64>,
     float_constants: Vec<f64>,
@@ -138,8 +139,8 @@ impl Vm {
             call_stack: Vec::new(),
             heap: vec![],
             gray_stack: vec![],
-            // heap: Vec::new(),
-            // heap_group: HeapGroup::One,
+            gc_state: GcState::Idle,
+
             int_constants: program.int_constants.into_iter().collect(),
             float_constants: program.float_constants.into_iter().collect(),
             static_strings: program.static_strings.into_iter().collect(),
@@ -523,6 +524,73 @@ const _: [(); 16] = [(); size_of::<Value>()];
 pub struct Value(u64, /*is_pointer*/ bool);
 // TODO: get rid of is_pointer using separate bitvec
 
+impl Value {
+    #[inline(always)]
+    pub fn get_int(&self, _vm: &Vm) -> AbraInt {
+        self.0 as AbraInt
+    }
+
+    #[inline(always)]
+    pub fn get_float(&self, _vm: &Vm) -> AbraFloat {
+        AbraFloat::from_bits(self.0)
+    }
+
+    #[inline(always)]
+    pub fn get_bool(&self, _vm: &Vm) -> bool {
+        self.0 != 0
+    }
+
+    #[inline(always)]
+    unsafe fn get_object_header<'a>(&self) -> &'a mut ObjectHeader {
+        unsafe { &mut *(self.0 as *mut ObjectHeader) }
+    }
+
+    #[inline(always)]
+    fn get_struct<'a>(&self, _vm: &mut Vm) -> &'a StructObject {
+        unsafe { &*(self.0 as *const StructObject) }
+    }
+
+    #[inline(always)]
+    unsafe fn get_struct_mut<'a>(&self, _vm: &mut Vm) -> &'a mut StructObject {
+        unsafe { &mut *(self.0 as *mut StructObject) }
+    }
+
+    #[inline(always)]
+    fn get_array<'a>(&self, _vm: &mut Vm) -> &'a ArrayObject
+    where
+        Self: Sized,
+    {
+        unsafe { &*(self.0 as *const ArrayObject) }
+    }
+
+    #[inline(always)]
+    unsafe fn get_array_mut<'a>(&self, _vm: &mut Vm) -> &'a mut ArrayObject
+    where
+        Self: Sized,
+    {
+        unsafe { &mut *(self.0 as *mut ArrayObject) }
+    }
+
+    #[inline(always)]
+    fn get_variant<'a>(&self, _vm: &Vm) -> &'a EnumObject
+    where
+        Self: Sized,
+    {
+        unsafe { &mut *(self.0 as *mut EnumObject) }
+    }
+
+    #[inline(always)]
+    pub fn view_string<'a>(&self, _vm: &Vm) -> &'a String {
+        let so = unsafe { &*(self.0 as *const StringObject) };
+        &so.str
+    }
+
+    #[inline(always)]
+    fn get_addr(&self, _vm: &Vm) -> ProgramCounter {
+        ProgramCounter(self.0 as u32)
+    }
+}
+
 impl From<()> for Value {
     #[inline(always)]
     fn from(_: ()) -> Self {
@@ -586,53 +654,6 @@ impl From<*mut StringObject> for Value {
     }
 }
 
-impl Value {
-    #[inline(always)]
-    pub fn get_int(&self, _vm: &Vm) -> AbraInt {
-        self.0 as AbraInt
-    }
-
-    #[inline(always)]
-    pub fn get_float(&self, _vm: &Vm) -> AbraFloat {
-        AbraFloat::from_bits(self.0)
-    }
-
-    #[inline(always)]
-    pub fn get_bool(&self, _vm: &Vm) -> bool {
-        self.0 != 0
-    }
-
-    #[inline(always)]
-    fn get_struct<'a>(&self, _vm: &mut Vm) -> &'a mut StructObject {
-        unsafe { &mut *(self.0 as *mut StructObject) }
-    }
-
-    fn get_array<'a>(&self, _vm: &mut Vm) -> &'a mut ArrayObject
-    where
-        Self: Sized,
-    {
-        unsafe { &mut *(self.0 as *mut ArrayObject) }
-    }
-
-    fn get_variant<'a>(&self, _vm: &Vm) -> &'a EnumObject
-    where
-        Self: Sized,
-    {
-        unsafe { &mut *(self.0 as *mut EnumObject) }
-    }
-
-    #[inline(always)]
-    pub fn view_string<'a>(&self, _vm: &Vm) -> &'a String {
-        let so = unsafe { &*(self.0 as *const StringObject) };
-        &so.str
-    }
-
-    #[inline(always)]
-    fn get_addr(&self, _vm: &Vm) -> ProgramCounter {
-        ProgramCounter(self.0 as u32)
-    }
-}
-
 #[derive(Debug)]
 struct CallFrame {
     pc: ProgramCounter,
@@ -642,6 +663,7 @@ struct CallFrame {
 
 // NEW reference types
 
+#[derive(PartialEq, Eq)]
 enum GcState {
     Idle,
     Marking,
@@ -649,21 +671,48 @@ enum GcState {
 }
 
 #[repr(C)]
-struct ManagedObjectHeader {
-    kind: ManagedObjectKind,
-    color: Cell<GcColor>,
+struct ObjectHeader {
+    kind: ObjectKind,
+    color: Color,
 }
 
+impl ObjectHeader {
+    unsafe fn dealloc(&mut self) {
+        let kind = self.kind;
+        match kind {
+            ObjectKind::String => {
+                let obj = unsafe { self as *mut Self as *mut StringObject };
+                let _ = unsafe { Box::from_raw(obj) };
+            }
+            ObjectKind::Enum => {
+                let obj = unsafe { self as *mut Self as *mut EnumObject };
+                let _ = unsafe { Box::from_raw(obj) };
+            }
+            ObjectKind::Struct => {
+                let obj = unsafe { &*(self as *mut Self as *mut StructObject) };
+                let layout = obj.layout();
+                unsafe { dealloc(self as *mut ObjectHeader as *mut u8, layout) };
+            }
+            ObjectKind::Array => {
+                let obj = unsafe { self as *mut Self as *mut ArrayObject };
+                let _ = unsafe { Box::from_raw(obj) };
+            }
+        }
+    }
+}
+
+#[derive(Copy, Clone)]
 #[repr(C)]
-enum ManagedObjectKind {
+enum ObjectKind {
     Enum,
     Array,
     Struct,
     String,
 }
 
+#[derive(PartialEq, Eq)]
 #[repr(u8)]
-enum GcColor {
+enum Color {
     White,
     Gray,
     Black,
@@ -671,21 +720,16 @@ enum GcColor {
 
 #[repr(C)]
 struct StructObject {
-    header: ManagedObjectHeader,
+    header: ObjectHeader,
     len: usize,
     // data: [PackedValue],
 }
 
 impl StructObject {
-    fn new(data: Vec<Value>, heaplist: &mut Vec<*mut ManagedObjectHeader>) -> *mut StructObject {
+    fn new(data: Vec<Value>, heaplist: &mut Vec<*mut ObjectHeader>) -> *mut StructObject {
         let len = data.len();
-
+        let layout = Self::layout_helper(len);
         let prefix_size = size_of::<StructObject>();
-        let value_size = size_of::<Value>();
-        let align = align_of::<StructObject>().max(align_of::<Value>());
-
-        let total_size = prefix_size + len * value_size;
-        let layout = Layout::from_size_align(total_size, align).unwrap();
 
         unsafe {
             let raw = alloc(layout);
@@ -697,9 +741,9 @@ impl StructObject {
             ptr::write(
                 obj,
                 StructObject {
-                    header: ManagedObjectHeader {
-                        kind: ManagedObjectKind::Struct,
-                        color: Cell::new(GcColor::White),
+                    header: ObjectHeader {
+                        kind: ObjectKind::Struct,
+                        color: Color::White,
                     },
                     len,
                 },
@@ -712,17 +756,36 @@ impl StructObject {
                 ptr::write(base.add(i), ptr::read(src.add(i)));
             }
 
-            heaplist.push(obj as *mut ManagedObjectHeader);
+            heaplist.push(obj as *mut ObjectHeader);
 
             obj
         }
     }
 
-    pub fn get_fields(&self) -> &[Value] {
+    fn header_ptr(self: &mut StructObject) -> *mut ObjectHeader {
+        self as *mut Self as *mut ObjectHeader
+    }
+
+    fn layout(&self) -> Layout {
+        Self::layout_helper(self.len)
+    }
+
+    fn layout_helper(len: usize) -> Layout {
+        let len = len;
+
+        let prefix_size = size_of::<StructObject>();
+        let value_size = size_of::<Value>();
+        let align = align_of::<StructObject>().max(align_of::<Value>());
+
+        let total_size = prefix_size + len * value_size;
+        Layout::from_size_align(total_size, align).unwrap()
+    }
+
+    fn get_fields(&self) -> &[Value] {
         unsafe { std::slice::from_raw_parts(self.data_ptr(), self.len) }
     }
 
-    pub fn get_fields_mut(&mut self) -> &mut [Value] {
+    fn get_fields_mut(&mut self) -> &mut [Value] {
         unsafe { std::slice::from_raw_parts_mut(self.data_ptr(), self.len) }
     }
 
@@ -771,62 +834,74 @@ mod tests {
 
 #[repr(C)]
 struct ArrayObject {
-    header: ManagedObjectHeader,
+    header: ObjectHeader,
     elems: Vec<Value>,
 }
 
 impl ArrayObject {
-    fn new(data: Vec<Value>, heaplist: &mut Vec<*mut ManagedObjectHeader>) -> *mut ArrayObject {
-        let header = ManagedObjectHeader {
-            kind: ManagedObjectKind::Array,
-            color: Cell::new(GcColor::White),
+    fn new(data: Vec<Value>, heaplist: &mut Vec<*mut ObjectHeader>) -> *mut ArrayObject {
+        let header = ObjectHeader {
+            kind: ObjectKind::Array,
+            color: Color::White,
         };
         let b = Box::new(ArrayObject {
             header,
             elems: data,
         });
         let ptr = Box::leak(b);
-        heaplist.push(ptr as *mut ArrayObject as *mut ManagedObjectHeader);
+        heaplist.push(ptr as *mut ArrayObject as *mut ObjectHeader);
         ptr
+    }
+
+    fn header_ptr(self: &mut Self) -> *mut ObjectHeader {
+        self as *mut Self as *mut ObjectHeader
     }
 }
 
 #[repr(C)]
 struct EnumObject {
-    header: ManagedObjectHeader,
+    header: ObjectHeader,
     tag: u16,
     val: Value,
 }
 
 impl EnumObject {
-    fn new(tag: u16, val: Value, heaplist: &mut Vec<*mut ManagedObjectHeader>) -> *mut EnumObject {
-        let header = ManagedObjectHeader {
-            kind: ManagedObjectKind::Enum,
-            color: Cell::new(GcColor::White),
+    fn new(tag: u16, val: Value, heaplist: &mut Vec<*mut ObjectHeader>) -> *mut EnumObject {
+        let header = ObjectHeader {
+            kind: ObjectKind::Enum,
+            color: Color::White,
         };
         let b = Box::new(EnumObject { header, tag, val });
         let ptr = Box::leak(b);
-        heaplist.push(ptr as *mut EnumObject as *mut ManagedObjectHeader);
+        heaplist.push(ptr as *mut EnumObject as *mut ObjectHeader);
         ptr
+    }
+
+    fn header_ptr(self: &mut Self) -> *mut ObjectHeader {
+        self as *mut Self as *mut ObjectHeader
     }
 }
 
 #[repr(C)]
 struct StringObject {
-    header: ManagedObjectHeader,
-    str: String,
+    header: ObjectHeader,
+    str: String, // TODO: inline the string's contents. Make helper functions for writing to the end of string.
 }
 
 impl StringObject {
-    fn new(str: String, heaplist: &mut Vec<*mut ManagedObjectHeader>) -> *mut StringObject {
-        let header = ManagedObjectHeader {
-            kind: ManagedObjectKind::String,
-            color: Cell::new(GcColor::White),
+    fn new(str: String, heaplist: &mut Vec<*mut ObjectHeader>) -> *mut StringObject {
+        let header = ObjectHeader {
+            kind: ObjectKind::String,
+            color: Color::White,
         };
         let b = Box::new(StringObject { header, str });
         let ptr = Box::leak(b);
-        heaplist.push(ptr as *mut StringObject as *mut ManagedObjectHeader);
+        heaplist.push(ptr as *mut StringObject as *mut ObjectHeader);
         ptr
+    }
+
+    fn header_ptr(self: &mut Self) -> *mut ObjectHeader {
+        self as *mut Self as *mut ObjectHeader
     }
 }
 
@@ -854,6 +929,7 @@ impl Vm {
 
     #[inline(always)]
     fn step(&mut self) -> bool {
+        self.maybe_gc(); // TODO: is it bad to run this every step...?
         let instr = self.program[self.pc.get()];
 
         self.pc.0 += 1;
@@ -1138,14 +1214,22 @@ impl Vm {
             Instr::SetField(index) => {
                 let val = self.pop();
                 let rvalue = self.pop();
-                let s = val.get_struct(self);
-                s.get_fields_mut()[index as usize] = rvalue;
+                let s = unsafe { val.get_struct_mut(self) };
+
+                self.write_barrier(s.header_ptr(), rvalue);
+                unsafe {
+                    s.get_fields_mut()[index as usize] = rvalue;
+                }
             }
             Instr::SetFieldOffset(index, offset) => {
                 let val = self.load_offset(offset);
                 let rvalue = self.pop();
-                let s = val.get_struct(self);
-                s.get_fields_mut()[index as usize] = rvalue;
+                let s = unsafe { val.get_struct_mut(self) };
+
+                self.write_barrier(s.header_ptr(), rvalue);
+                unsafe {
+                    s.get_fields_mut()[index as usize] = rvalue;
+                }
             }
             Instr::GetIdx => {
                 let val = self.pop();
@@ -1171,20 +1255,22 @@ impl Vm {
                 let val = self.pop();
                 let idx = self.pop_int();
                 let rvalue = self.pop();
-                let arr = val.get_array(self);
+                let arr = unsafe { val.get_array_mut(self) };
                 if idx as usize >= arr.elems.len() || idx < 0 {
                     self.fail(VmErrorKind::ArrayOutOfBounds);
                 }
+                self.write_barrier(arr.header_ptr(), rvalue);
                 arr.elems[idx as usize] = rvalue;
             }
             Instr::SetIdxOffset(reg1, reg2) => {
                 let val = self.load_offset(reg2);
                 let idx = self.load_offset(reg1).get_int(self);
                 let rvalue = self.pop();
-                let arr = val.get_array(self);
+                let arr = unsafe { val.get_array_mut(self) };
                 if idx as usize >= arr.elems.len() || idx < 0 {
                     self.fail(VmErrorKind::ArrayOutOfBounds);
                 }
+                self.write_barrier(arr.header_ptr(), rvalue);
                 arr.elems[idx as usize] = rvalue;
             }
             Instr::ConstructVariant { tag } => {
@@ -1196,7 +1282,8 @@ impl Vm {
             Instr::ArrayAppend => {
                 let rvalue = self.pop();
                 let val = self.top();
-                let arr = val.get_array(self);
+                let arr = unsafe { val.get_array_mut(self) };
+                self.write_barrier(arr.header_ptr(), rvalue);
                 arr.elems.push(rvalue);
                 self.set_top(());
             }
@@ -1206,9 +1293,9 @@ impl Vm {
             }
             Instr::ArrayPop => {
                 let val = self.top();
-                let arr = val.get_array(self);
-                let rvalue = arr.elems.pop().expect("array underflow");
-                self.set_top(rvalue);
+                let arr = unsafe { val.get_array_mut(self) };
+                let lvalue = arr.elems.pop().unwrap();
+                self.set_top(lvalue);
             }
             // TODO: it would be better if ConcatString operation extended the LHS with the RHS. Would have to modify how format_append and & work
             // Perhaps LHS of & operator should be some sort of "StringBuilder". Though this is suspiciously similar to cout in C++
@@ -1344,6 +1431,151 @@ impl Vm {
             ret.push(self.pc_to_error_location(frame.pc));
         }
         ret
+    }
+
+    // GARBAGE COLLECTION
+
+    fn maybe_gc(&mut self) {
+        match self.gc_state {
+            GcState::Idle => {
+                const THRESHOLD: usize = 0; // TODO: pick something better
+                if self.heap.len() > THRESHOLD {
+                    self.start_mark_phase();
+                }
+            }
+            GcState::Marking => {
+                // process a few gray nodes
+                const GC_MARK_SLICE: usize = 4; // TODO: why 4?
+                for _ in 0..GC_MARK_SLICE {
+                    self.process_gray();
+                    if self.gray_stack.is_empty() {
+                        self.gc_state = GcState::Sweeping { index: 0 };
+                        break;
+                    }
+                }
+            }
+            GcState::Sweeping { .. } => {
+                const GC_SWEEP_SLICE: usize = 8; // TODO: why 8?
+                self.sweep(GC_SWEEP_SLICE);
+            }
+        }
+    }
+
+    fn start_mark_phase(&mut self) {
+        // all objects start white
+        for header_ptr in &self.heap {
+            let header = unsafe { &mut **header_ptr };
+            header.color = Color::White;
+        }
+
+        // mark roots gray
+        for v in self.value_stack.iter().cloned() {
+            Self::mark(v, &mut self.gray_stack);
+        }
+
+        self.gc_state = GcState::Marking;
+    }
+
+    fn visit_roots(&mut self, mut f: impl FnMut(Value)) {
+        for v in &self.value_stack {
+            f(*v);
+        }
+    }
+
+    fn mark(v: Value, gray_stack: &mut Vec<*mut ObjectHeader>) {
+        // if v is not a pointer
+        if !v.1 {
+            return;
+        }
+
+        let header = unsafe { v.get_object_header() };
+        if header.color != Color::White {
+            return;
+        }
+
+        header.color = Color::Gray;
+        gray_stack.push(header)
+    }
+
+    fn process_gray(&mut self) {
+        while let Some(header_ptr) = self.gray_stack.pop() {
+            {
+                let header = unsafe { &mut *header_ptr };
+                header.color = Color::Black;
+            }
+
+            let kind = {
+                let header = unsafe { &mut *header_ptr };
+                header.kind
+            };
+
+            match kind {
+                ObjectKind::String => {}
+                ObjectKind::Enum => {
+                    let obj = unsafe { &*(header_ptr as *const EnumObject) };
+                    Self::mark(obj.val, &mut self.gray_stack);
+                }
+                ObjectKind::Struct => {
+                    let obj = unsafe { &*(header_ptr as *const StructObject) };
+                    for field in obj.get_fields() {
+                        Self::mark(*field, &mut self.gray_stack);
+                    }
+                }
+                ObjectKind::Array => {
+                    let obj = unsafe { &*(header_ptr as *const ArrayObject) };
+                    for elem in &obj.elems {
+                        Self::mark(*elem, &mut self.gray_stack);
+                    }
+                }
+            }
+        }
+    }
+
+    fn write_barrier(&mut self, parent: impl Into<*mut ObjectHeader>, child: Value) {
+        if self.gc_state != GcState::Marking {
+            return;
+        }
+        // if child is not a pointer
+        if !child.1 {
+            return;
+        }
+
+        let parent: *mut ObjectHeader = parent.into();
+        let parent = unsafe { &mut *parent };
+        if parent.color == Color::Black {
+            let header = unsafe { child.get_object_header() };
+            if header.color == Color::White {
+                header.color = Color::Gray;
+                self.gray_stack.push(header);
+            }
+        }
+    }
+
+    fn sweep(&mut self, batch: usize) -> bool {
+        if let GcState::Sweeping { index } = &mut self.gc_state {
+            let len = self.heap.len();
+            let end = (*index + batch).min(len);
+
+            for i in *index..end {
+                let header_ptr = self.heap[i];
+                let header = unsafe { &mut *header_ptr };
+                if header.color == Color::White {
+                    unsafe { header.dealloc() };
+                    self.heap[i] = null_mut();
+                } else {
+                    header.color = Color::White;
+                }
+            }
+
+            *index = end;
+            if end == len {
+                self.gc_state = GcState::Idle;
+                self.heap.retain(|x| !x.is_null());
+                return false;
+            }
+            return true;
+        }
+        false
     }
 
     pub fn compact(&mut self) {
