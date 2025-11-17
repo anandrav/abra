@@ -1581,7 +1581,6 @@ impl Vm {
                     *index += 1;
                 }
 
-                // TODO: this is duplicated and verbose
                 let kind = header.kind;
                 match kind {
                     ObjectKind::String => {
