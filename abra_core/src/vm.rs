@@ -297,21 +297,16 @@ impl Vm {
     #[inline(always)]
     pub fn deconstruct_struct(&mut self) {
         let val = self.pop();
-        let fields = {
-            let s = val.get_struct(self);
-            s.get_fields().iter().rev().cloned().collect::<Vec<_>>() // TODO: unnecessary collect(). Vec allocation is costly
-        };
-        self.value_stack.extend(fields);
+        let s = val.get_struct(self);
+        let fields = s.get_fields();
+        self.value_stack.extend(fields.iter().rev());
     }
 
     #[inline(always)]
     pub fn deconstruct_array(&mut self) {
         let val = self.pop();
-        let elems = {
-            let arr = val.get_array(self);
-            arr.elems.iter().rev().cloned().collect::<Vec<_>>() // TODO: unnecessary collect(). Vec allocation is costly
-        };
-        self.value_stack.extend(elems);
+        let arr = val.get_array(self);
+        self.value_stack.extend(arr.elems.iter().rev());
     }
 
     #[inline(always)]
@@ -602,18 +597,18 @@ impl Value {
     }
 
     #[inline(always)]
-    fn get_struct<'a>(&self, _vm: &'a mut Vm) -> &'a mut StructObject {
+    fn get_struct<'a>(&self, _vm: &mut Vm) -> &'a mut StructObject {
         unsafe { &mut *(self.0 as *mut StructObject) }
     }
 
-    fn get_array<'a>(&self, _vm: &'a mut Vm) -> &'a mut ArrayObject
+    fn get_array<'a>(&self, _vm: &mut Vm) -> &'a mut ArrayObject
     where
         Self: Sized,
     {
         unsafe { &mut *(self.0 as *mut ArrayObject) }
     }
 
-    fn get_variant(&self, _vm: &Vm) -> &EnumObject
+    fn get_variant<'a>(&self, _vm: &Vm) -> &'a EnumObject
     where
         Self: Sized,
     {
@@ -621,7 +616,7 @@ impl Value {
     }
 
     #[inline(always)]
-    pub fn view_string<'a>(&self, _vm: &'a Vm) -> &'a String {
+    pub fn view_string<'a>(&self, _vm: &Vm) -> &'a String {
         let so = unsafe { &*(self.0 as *const StringObject) };
         &so.str
     }
