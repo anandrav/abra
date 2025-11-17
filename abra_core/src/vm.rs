@@ -37,7 +37,7 @@ use std::fmt::Debug;
 use std::ptr::null_mut;
 use std::{
     fmt::{Display, Formatter},
-    mem, ptr,
+    ptr,
 };
 
 pub struct Vm {
@@ -341,7 +341,7 @@ impl Vm {
     }
 
     #[inline(always)]
-    fn fail_wrong_type(&self, expected: ValueKind) -> ! {
+    fn _fail_wrong_type(&self, expected: ValueKind) -> ! {
         panic!(
             "{}",
             VmError {
@@ -650,11 +650,11 @@ impl ObjectHeader {
         let kind = self.kind;
         match kind {
             ObjectKind::String => {
-                let obj = unsafe { self as *mut Self as *mut StringObject };
+                let obj = self as *mut Self as *mut StringObject;
                 let _ = unsafe { Box::from_raw(obj) };
             }
             ObjectKind::Enum => {
-                let obj = unsafe { self as *mut Self as *mut EnumObject };
+                let obj = self as *mut Self as *mut EnumObject;
                 let _ = unsafe { Box::from_raw(obj) };
             }
             ObjectKind::Struct => {
@@ -663,7 +663,7 @@ impl ObjectHeader {
                 unsafe { dealloc(self as *mut ObjectHeader as *mut u8, layout) };
             }
             ObjectKind::Array => {
-                let obj = unsafe { self as *mut Self as *mut ArrayObject };
+                let obj = self as *mut Self as *mut ArrayObject;
                 let _ = unsafe { Box::from_raw(obj) };
             }
         }
@@ -747,8 +747,6 @@ impl StructObject {
     }
 
     fn layout_helper(len: usize) -> Layout {
-        let len = len;
-
         let prefix_size = size_of::<StructObject>();
         let value_size = size_of::<Value>();
         let align = align_of::<StructObject>().max(align_of::<Value>());
@@ -802,7 +800,7 @@ impl ArrayObject {
         ptr
     }
 
-    fn header_ptr(self: &mut Self) -> *mut ObjectHeader {
+    fn header_ptr(&mut self) -> *mut ObjectHeader {
         self as *mut Self as *mut ObjectHeader
     }
 }
@@ -834,10 +832,6 @@ impl EnumObject {
         }
         ptr
     }
-
-    fn header_ptr(self: &mut Self) -> *mut ObjectHeader {
-        self as *mut Self as *mut ObjectHeader
-    }
 }
 
 #[repr(C)]
@@ -865,10 +859,6 @@ impl StringObject {
                 .push(ptr as *mut StringObject as *mut ObjectHeader);
         }
         ptr
-    }
-
-    fn header_ptr(self: &mut Self) -> *mut ObjectHeader {
-        self as *mut Self as *mut ObjectHeader
     }
 }
 
@@ -1184,9 +1174,7 @@ impl Vm {
                 let s = unsafe { val.get_struct_mut(self) };
 
                 self.write_barrier(s.header_ptr(), rvalue);
-                unsafe {
-                    s.get_fields_mut()[index as usize] = rvalue;
-                }
+                s.get_fields_mut()[index as usize] = rvalue;
             }
             Instr::SetFieldOffset(index, offset) => {
                 let val = self.load_offset(offset);
@@ -1194,9 +1182,7 @@ impl Vm {
                 let s = unsafe { val.get_struct_mut(self) };
 
                 self.write_barrier(s.header_ptr(), rvalue);
-                unsafe {
-                    s.get_fields_mut()[index as usize] = rvalue;
-                }
+                s.get_fields_mut()[index as usize] = rvalue;
             }
             Instr::GetIdx => {
                 let val = self.pop();
