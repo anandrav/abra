@@ -1420,7 +1420,7 @@ impl Vm {
             }
             GcState::Marking => {
                 // process a few gray nodes
-                const GC_MARK_SLICE: usize = 32;
+                const GC_MARK_SLICE: usize = 32; // TODO: this should be in bytes not number of objects
                 for _ in 0..GC_MARK_SLICE {
                     self.process_gray();
                     if self.gray_stack.is_empty() {
@@ -1430,7 +1430,7 @@ impl Vm {
                 }
             }
             GcState::Sweeping { .. } => {
-                const GC_SWEEP_SLICE: usize = 64;
+                const GC_SWEEP_SLICE: usize = 64; // TODO: this should be in bytes not number of objects
                 self.sweep(GC_SWEEP_SLICE);
             }
         }
