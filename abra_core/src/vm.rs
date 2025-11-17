@@ -50,6 +50,7 @@ pub struct Vm {
     heaplist: Vec<*mut ObjectHeader>,
     gray_stack: Vec<*mut ObjectHeader>,
     gc_state: GcState,
+    heap_size: usize,
     // constants
     int_constants: Vec<i64>,
     float_constants: Vec<f64>,
@@ -139,6 +140,7 @@ impl Vm {
             heaplist: vec![],
             gray_stack: vec![],
             gc_state: GcState::Idle,
+            heap_size: 0,
 
             int_constants: program.int_constants.into_iter().collect(),
             float_constants: program.float_constants.into_iter().collect(),
@@ -281,7 +283,7 @@ impl Vm {
     pub fn deconstruct_array(&mut self) {
         let val = self.pop();
         let arr = val.get_array(self);
-        self.value_stack.extend(arr.elems.iter().rev());
+        self.value_stack.extend(arr.data.iter().rev());
     }
 
     #[inline(always)]
@@ -299,7 +301,7 @@ impl Vm {
     pub fn array_len(&mut self) -> usize {
         let val = self.top();
         let arr = val.get_array(self);
-        arr.elems.len()
+        arr.data.len()
     }
 
     pub fn increment_stack_base(&mut self, n: usize) {
@@ -444,7 +446,7 @@ pub enum Instr {
     SetIdxOffset(i16, i16),
     MakeClosure { func_addr: ProgramCounter },
 
-    ArrayAppend,
+    ArrayPush,
     ArrayLength,
     ArrayPop,
     ConcatStrings, // TODO: this is O(N). Must use smaller instructions. Or concat character-by-character and save progress in Vm
@@ -645,25 +647,32 @@ struct ObjectHeader {
 }
 
 impl ObjectHeader {
-    unsafe fn dealloc(&mut self) {
+    unsafe fn dealloc(&mut self, heap_size: &mut usize) {
         let kind = self.kind;
         match kind {
             ObjectKind::String => {
-                let obj = self as *mut Self as *mut StringObject;
-                let _ = unsafe { Box::from_raw(obj) };
+                let ptr = self as *mut Self as *mut StringObject;
+                let obj = unsafe { &mut *ptr };
+                *heap_size -= obj.nbytes();
+                let _ = unsafe { Box::from_raw(ptr) };
             }
             ObjectKind::Enum => {
-                let obj = self as *mut Self as *mut EnumObject;
-                let _ = unsafe { Box::from_raw(obj) };
+                let ptr = self as *mut Self as *mut EnumObject;
+                let obj = unsafe { &mut *ptr };
+                *heap_size -= obj.nbytes();
+                let _ = unsafe { Box::from_raw(ptr) };
             }
             ObjectKind::Struct => {
                 let obj = unsafe { &*(self as *mut Self as *mut StructObject) };
                 let layout = obj.layout();
+                *heap_size -= obj.nbytes();
                 unsafe { dealloc(self as *mut ObjectHeader as *mut u8, layout) };
             }
             ObjectKind::Array => {
-                let obj = self as *mut Self as *mut ArrayObject;
-                let _ = unsafe { Box::from_raw(obj) };
+                let ptr = self as *mut Self as *mut ArrayObject;
+                let obj = unsafe { &mut *ptr };
+                *heap_size -= obj.nbytes();
+                let _ = unsafe { Box::from_raw(ptr) };
             }
         }
     }
@@ -732,6 +741,7 @@ impl StructObject {
             if vm.gc_state == GcState::Marking {
                 vm.gray_stack.push(obj as *mut ObjectHeader);
             }
+            vm.heap_size += layout.size();
 
             obj
         }
@@ -743,6 +753,10 @@ impl StructObject {
 
     fn layout(&self) -> Layout {
         Self::layout_helper(self.len)
+    }
+
+    fn nbytes(&self) -> usize {
+        self.layout().size()
     }
 
     fn layout_helper(len: usize) -> Layout {
@@ -772,7 +786,7 @@ impl StructObject {
 #[repr(C)]
 struct ArrayObject {
     header: ObjectHeader,
-    elems: Vec<Value>,
+    data: Vec<Value>,
 }
 
 impl ArrayObject {
@@ -785,22 +799,26 @@ impl ArrayObject {
                 GcState::Sweeping { .. } => Color::Black,
             },
         };
-        let b = Box::new(ArrayObject {
-            header,
-            elems: data,
-        });
-        let ptr = Box::leak(b);
+        let b = Box::new(ArrayObject { header, data: data });
+        let arr = Box::leak(b);
+
         vm.heaplist
-            .push(ptr as *mut ArrayObject as *mut ObjectHeader);
+            .push(arr as *mut ArrayObject as *mut ObjectHeader);
         if vm.gc_state == GcState::Marking {
             vm.gray_stack
-                .push(ptr as *mut ArrayObject as *mut ObjectHeader);
+                .push(arr as *mut ArrayObject as *mut ObjectHeader);
         }
-        ptr
+        vm.heap_size += arr.nbytes();
+
+        arr
     }
 
     fn header_ptr(&mut self) -> *mut ObjectHeader {
         self as *mut Self as *mut ObjectHeader
+    }
+
+    fn nbytes(&self) -> usize {
+        size_of::<Self>() + self.data.capacity() * size_of::<Value>()
     }
 }
 
@@ -822,14 +840,21 @@ impl EnumObject {
             },
         };
         let b = Box::new(EnumObject { header, tag, val });
-        let ptr = Box::leak(b);
+        let variant = Box::leak(b);
+
         vm.heaplist
-            .push(ptr as *mut EnumObject as *mut ObjectHeader);
+            .push(variant as *mut EnumObject as *mut ObjectHeader);
         if vm.gc_state == GcState::Marking {
             vm.gray_stack
-                .push(ptr as *mut EnumObject as *mut ObjectHeader);
+                .push(variant as *mut EnumObject as *mut ObjectHeader);
         }
-        ptr
+        vm.heap_size += variant.nbytes();
+
+        variant
+    }
+
+    fn nbytes(&self) -> usize {
+        size_of::<Self>()
     }
 }
 
@@ -850,14 +875,21 @@ impl StringObject {
             },
         };
         let b = Box::new(StringObject { header, str });
-        let ptr = Box::leak(b);
+        let str = Box::leak(b);
+
         vm.heaplist
-            .push(ptr as *mut StringObject as *mut ObjectHeader);
+            .push(str as *mut StringObject as *mut ObjectHeader);
         if vm.gc_state == GcState::Marking {
             vm.gray_stack
-                .push(ptr as *mut StringObject as *mut ObjectHeader);
+                .push(str as *mut StringObject as *mut ObjectHeader);
         }
-        ptr
+        vm.heap_size += str.nbytes();
+
+        str
+    }
+
+    fn nbytes(&self) -> usize {
+        size_of::<StringObject>() + self.str.capacity()
     }
 }
 
@@ -1210,20 +1242,20 @@ impl Vm {
                 let val = self.pop();
                 let idx = self.top().get_int(self);
                 let arr = val.get_array(self);
-                if idx as usize >= arr.elems.len() || idx < 0 {
+                if idx as usize >= arr.data.len() || idx < 0 {
                     self.fail(VmErrorKind::ArrayOutOfBounds);
                 }
-                let field = arr.elems[idx as usize];
+                let field = arr.data[idx as usize];
                 self.set_top(field);
             }
             Instr::GetIdxOffset(reg1, reg2) => {
                 let val = self.load_offset(reg2);
                 let idx = self.load_offset(reg1).get_int(self);
                 let arr = val.get_array(self);
-                if idx as usize >= arr.elems.len() || idx < 0 {
+                if idx as usize >= arr.data.len() || idx < 0 {
                     self.fail(VmErrorKind::ArrayOutOfBounds);
                 }
-                let field = arr.elems[idx as usize];
+                let field = arr.data[idx as usize];
                 self.push(field);
             }
             Instr::SetIdx => {
@@ -1231,22 +1263,22 @@ impl Vm {
                 let idx = self.pop_int();
                 let rvalue = self.pop();
                 let arr = unsafe { val.get_array_mut(self) };
-                if idx as usize >= arr.elems.len() || idx < 0 {
+                if idx as usize >= arr.data.len() || idx < 0 {
                     self.fail(VmErrorKind::ArrayOutOfBounds);
                 }
                 self.write_barrier(arr.header_ptr(), rvalue);
-                arr.elems[idx as usize] = rvalue;
+                arr.data[idx as usize] = rvalue;
             }
             Instr::SetIdxOffset(reg1, reg2) => {
                 let val = self.load_offset(reg2);
                 let idx = self.load_offset(reg1).get_int(self);
                 let rvalue = self.pop();
                 let arr = unsafe { val.get_array_mut(self) };
-                if idx as usize >= arr.elems.len() || idx < 0 {
+                if idx as usize >= arr.data.len() || idx < 0 {
                     self.fail(VmErrorKind::ArrayOutOfBounds);
                 }
                 self.write_barrier(arr.header_ptr(), rvalue);
-                arr.elems[idx as usize] = rvalue;
+                arr.data[idx as usize] = rvalue;
             }
             Instr::ConstructVariant { tag } => {
                 self.construct_variant(tag);
@@ -1254,12 +1286,16 @@ impl Vm {
             Instr::MakeClosure { func_addr } => {
                 self.push(func_addr);
             }
-            Instr::ArrayAppend => {
+            Instr::ArrayPush => {
                 let rvalue = self.pop();
                 let val = self.top();
                 let arr = unsafe { val.get_array_mut(self) };
+
+                let cap1 = arr.data.capacity();
                 self.write_barrier(arr.header_ptr(), rvalue);
-                arr.elems.push(rvalue);
+                arr.data.push(rvalue);
+                let cap2 = arr.data.capacity();
+                self.heap_size += (cap2 - cap1) * size_of::<Value>();
                 self.set_top(());
             }
             Instr::ArrayLength => {
@@ -1269,7 +1305,7 @@ impl Vm {
             Instr::ArrayPop => {
                 let val = self.top();
                 let arr = unsafe { val.get_array_mut(self) };
-                let lvalue = arr.elems.pop().unwrap();
+                let lvalue = arr.data.pop().unwrap();
                 self.set_top(lvalue);
             }
             // TODO: it would be better if ConcatString operation extended the LHS with the RHS. Would have to modify how format_append and & work
@@ -1420,7 +1456,7 @@ impl Vm {
             }
             GcState::Marking => {
                 // process a few gray nodes
-                const GC_MARK_SLICE: usize = 32; // TODO: this should be in bytes not number of objects
+                const GC_MARK_SLICE: usize = 8192;
                 for _ in 0..GC_MARK_SLICE {
                     self.process_gray();
                     if self.gray_stack.is_empty() {
@@ -1430,7 +1466,7 @@ impl Vm {
                 }
             }
             GcState::Sweeping { .. } => {
-                const GC_SWEEP_SLICE: usize = 64; // TODO: this should be in bytes not number of objects
+                const GC_SWEEP_SLICE: usize = 8192;
                 self.sweep(GC_SWEEP_SLICE);
             }
         }
@@ -1492,7 +1528,7 @@ impl Vm {
                 }
                 ObjectKind::Array => {
                     let obj = unsafe { &*(header_ptr as *const ArrayObject) };
-                    for elem in &obj.elems {
+                    for elem in &obj.data {
                         Self::mark(*elem, &mut self.gray_stack);
                     }
                 }
@@ -1529,7 +1565,7 @@ impl Vm {
                 let header = unsafe { &mut *header_ptr };
 
                 if header.color == Color::White {
-                    unsafe { header.dealloc() };
+                    unsafe { header.dealloc(&mut self.heap_size) };
 
                     self.heaplist.swap_remove(*index);
                 } else {
