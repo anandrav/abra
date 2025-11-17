@@ -895,7 +895,7 @@ impl StringObject {
     }
 }
 
-const MAYBE_GC_PERIOD: u32 = 75;
+const MAYBE_GC_PERIOD: u32 = 1;
 
 impl Vm {
     pub fn run(&mut self) {
