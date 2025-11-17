@@ -164,37 +164,6 @@ impl Vm {
 }
 
 impl Vm {
-    // pub fn with_entry_point(program: CompiledProgram, entry_point: String) -> Option {
-    //     dbg!(&entry_point);
-    //     dbg!(&program.label_map);
-    //     let pc = *program.label_map.get(&entry_point);
-    //     Some(Self {
-    //         program: program.instructions,
-    //         pc,
-    //         stack_base: 0,
-    //         value_stack: Vec::new(),
-    //         call_stack: Vec::new(),
-    //         heap: Vec::new(),
-    //         heap_group: HeapGroup::One,
-    //
-    //         static_strings: program.static_strings.into_iter().collect(),
-    //         filename_arena: program.filename_arena.into_iter().collect(),
-    //         function_name_arena: program.function_name_arena.into_iter().collect(),
-    //
-    //         filename_table: program.filename_table,
-    //         lineno_table: program.lineno_table,
-    //         function_name_table: program.function_name_table,
-    //
-    //         pending_host_func: None,
-    //         error: None,
-    //
-    //         #[cfg(feature = "ffi")]
-    //         libs: Vec::new(),
-    //         #[cfg(feature = "ffi")]
-    //         foreign_functions: Vec::new(),
-    //     })
-    // }
-
     pub fn status(&self) -> VmStatus {
         if let Some(eff) = self.pending_host_func {
             VmStatus::PendingHostFunc(eff)
