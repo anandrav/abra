@@ -1476,12 +1476,6 @@ impl Vm {
         self.gc_state = GcState::Marking;
     }
 
-    fn visit_roots(&mut self, mut f: impl FnMut(Value)) {
-        for v in &self.value_stack {
-            f(*v);
-        }
-    }
-
     fn mark(v: Value, gray_stack: &mut Vec<*mut ObjectHeader>) {
         // if v is not a pointer
         if !v.1 {
