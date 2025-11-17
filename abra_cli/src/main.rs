@@ -110,7 +110,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             let mut vm = abra_core::vm::Vm::new(program);
             loop {
                 vm.run();
-                vm.gc();
+                // vm.gc();
                 if vm.is_done() {
                     return Ok(());
                 }

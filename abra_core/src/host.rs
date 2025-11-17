@@ -1,6 +1,6 @@
 use crate::addons::name_of_ty;
 use crate::ast::{FileAst, ItemKind, Type, TypeDefKind, TypeKind};
-use crate::vm::{ValueTrait, Vm};
+use crate::vm::Vm;
 use crate::{ErrorSummary, FileProvider, get_files, statics};
 use std::path::Path;
 use std::process::Command;
@@ -94,7 +94,7 @@ pub enum HostFunction {
                     "#,
     );
     output.push_str(
-        r#"pub(crate) fn from_vm<Value: ValueTrait>(vm: &mut Vm<Value>, pending_host_func: u16) -> Self {
+        r#"pub(crate) fn from_vm(vm: &mut Vm, pending_host_func: u16) -> Self {
                         "#,
     );
     output.push_str("match pending_host_func {");
@@ -168,7 +168,7 @@ pub enum HostFunctionRet {
                     "#,
     );
     output.push_str(
-        r#"pub(crate) fn into_vm<Value: ValueTrait>(self, vm: &mut Vm<Value>,) {
+        r#"pub(crate) fn into_vm(self, vm: &mut Vm,) {
                         "#,
     );
     output.push_str("match self {");
@@ -253,12 +253,12 @@ fn add_items_from_ast(ast: &Rc<FileAst>, output: &mut String) {
 
                     swrite!(
                         output,
-                        r#"impl<Value: ValueTrait> VmType<Value> for {} {{
+                        r#"impl VmType for {} {{
 "#,
                         s.name.v
                     );
                     output.push_str(
-                        r#"fn from_vm<Value: ValueTrait>(vm: &mut Vm<Value>) -> Self {
+                        r#"fn from_vm(vm: &mut Vm) -> Self {
 "#,
                     );
                     output.push('{');
@@ -297,7 +297,7 @@ fn add_items_from_ast(ast: &Rc<FileAst>, output: &mut String) {
                     output.push('}');
 
                     output.push_str(
-                        r#"fn to_vm(self, vm: &mut Vm<Value>) {
+                        r#"fn to_vm(self, vm: &mut Vm) {
 "#,
                     );
                     output.push('{');
@@ -345,12 +345,12 @@ fn add_items_from_ast(ast: &Rc<FileAst>, output: &mut String) {
 
                     swrite!(
                         output,
-                        r#"impl<Value: ValueTrait> VmType<Value> for {} {{
+                        r#"impl VmType for {} {{
 "#,
                         e.name.v
                     );
                     output.push_str(
-                        r#"fn from_vm(vm: &mut Vm<Value>) -> Self {
+                        r#"fn from_vm(vm: &mut Vm) -> Self {
 "#,
                     );
 
@@ -382,7 +382,7 @@ fn add_items_from_ast(ast: &Rc<FileAst>, output: &mut String) {
                     output.push('}');
 
                     output.push_str(
-                        r#"fn to_vm(self, vm: &mut Vm<Value>) {
+                        r#"fn to_vm(self, vm: &mut Vm) {
 "#,
                     );
                     output.push('{');
@@ -412,71 +412,71 @@ fn add_items_from_ast(ast: &Rc<FileAst>, output: &mut String) {
     }
 }
 
-pub trait VmType<Value: ValueTrait> {
+pub trait VmType {
     /// # Safety
     /// vm is non-null and valid
-    fn from_vm(vm: &mut Vm<Value>) -> Self;
+    fn from_vm(vm: &mut Vm) -> Self;
 
     /// # Safety
     /// vm is non-null and valid
-    fn to_vm(self, vm: &mut Vm<Value>);
+    fn to_vm(self, vm: &mut Vm);
 }
 
-impl<Value: ValueTrait> VmType<Value> for i64 {
-    fn from_vm(vm: &mut Vm<Value>) -> Self {
+impl VmType for i64 {
+    fn from_vm(vm: &mut Vm) -> Self {
         vm.pop_int()
     }
 
-    fn to_vm(self, vm: &mut Vm<Value>) {
+    fn to_vm(self, vm: &mut Vm) {
         vm.push_int(self);
     }
 }
 
-impl<Value: ValueTrait> VmType<Value> for f64 {
-    fn from_vm(vm: &mut Vm<Value>) -> Self {
+impl VmType for f64 {
+    fn from_vm(vm: &mut Vm) -> Self {
         vm.pop_float()
     }
 
-    fn to_vm(self, vm: &mut Vm<Value>) {
+    fn to_vm(self, vm: &mut Vm) {
         vm.push_float(self);
     }
 }
 
-impl<Value: ValueTrait> VmType<Value> for () {
-    fn from_vm(vm: &mut Vm<Value>) -> Self {
+impl VmType for () {
+    fn from_vm(vm: &mut Vm) -> Self {
         vm.pop();
     }
 
-    fn to_vm(self, vm: &mut Vm<Value>) {
+    fn to_vm(self, vm: &mut Vm) {
         vm.push_nil();
     }
 }
 
-impl<Value: ValueTrait> VmType<Value> for bool {
-    fn from_vm(vm: &mut Vm<Value>) -> Self {
+impl VmType for bool {
+    fn from_vm(vm: &mut Vm) -> Self {
         vm.pop_bool()
     }
 
-    fn to_vm(self, vm: &mut Vm<Value>) {
+    fn to_vm(self, vm: &mut Vm) {
         vm.push_bool(self);
     }
 }
 
-impl<Value: ValueTrait> VmType<Value> for String {
-    fn from_vm(vm: &mut Vm<Value>) -> Self {
+impl VmType for String {
+    fn from_vm(vm: &mut Vm) -> Self {
         vm.pop().view_string(vm).to_string()
     }
 
-    fn to_vm(self, vm: &mut Vm<Value>) {
+    fn to_vm(self, vm: &mut Vm) {
         vm.push_str(self);
     }
 }
 
-impl<T, Value: ValueTrait> VmType<Value> for Option<T>
+impl<T> VmType for Option<T>
 where
-    T: VmType<Value>,
+    T: VmType,
 {
-    fn from_vm(vm: &mut Vm<Value>) -> Self {
+    fn from_vm(vm: &mut Vm) -> Self {
         vm.deconstruct_variant();
         let tag = vm.pop_int();
         match tag {
@@ -489,7 +489,7 @@ where
         }
     }
 
-    fn to_vm(self, vm: &mut Vm<Value>) {
+    fn to_vm(self, vm: &mut Vm) {
         {
             match self {
                 Some(t) => {
@@ -505,12 +505,12 @@ where
     }
 }
 
-impl<T, E, Value: ValueTrait> VmType<Value> for Result<T, E>
+impl<T, E> VmType for Result<T, E>
 where
-    T: VmType<Value>,
-    E: VmType<Value>,
+    T: VmType,
+    E: VmType,
 {
-    fn from_vm(vm: &mut Vm<Value>) -> Self {
+    fn from_vm(vm: &mut Vm) -> Self {
         vm.deconstruct_variant();
         let tag = vm.pop_int();
         match tag {
@@ -526,7 +526,7 @@ where
         }
     }
 
-    fn to_vm(self, vm: &mut Vm<Value>) {
+    fn to_vm(self, vm: &mut Vm) {
         {
             match self {
                 Ok(t) => {
@@ -542,11 +542,11 @@ where
     }
 }
 
-impl<T, Value: ValueTrait> VmType<Value> for Vec<T>
+impl<T> VmType for Vec<T>
 where
-    T: VmType<Value>,
+    T: VmType,
 {
-    fn from_vm(vm: &mut Vm<Value>) -> Self {
+    fn from_vm(vm: &mut Vm) -> Self {
         {
             let len = vm.array_len();
             vm.deconstruct_array();
@@ -558,7 +558,7 @@ where
             ret
         }
     }
-    fn to_vm(self, vm: &mut Vm<Value>) {
+    fn to_vm(self, vm: &mut Vm) {
         {
             let len = self.len();
             for elem in self.into_iter() {
@@ -577,8 +577,8 @@ macro_rules! replace_expr {
 
 macro_rules! tuple_impls {
     ( $( $name:ident ),+ $(,)? ) => {
-        impl< Value: ValueTrait, $($name: VmType<Value>),+ > VmType<Value> for ( $($name,)+ ) {
-            fn from_vm(vm: &mut Vm<Value>) -> Self {
+        impl<$($name: VmType),+ > VmType for ( $($name,)+ ) {
+            fn from_vm(vm: &mut Vm) -> Self {
                 // Deconstruct the tuple on the VM.
                 vm.deconstruct_struct();
                 // Pop values in normal order.
@@ -586,7 +586,7 @@ macro_rules! tuple_impls {
                 let ($($name,)+) = ($( $name::from_vm(vm), )+);
                 ($($name,)+)
             }
-            fn to_vm(self, vm: &mut Vm<Value>) {
+            fn to_vm(self, vm: &mut Vm) {
                 // Destructure the tuple.
                 #[allow(non_snake_case)]
                 let ($($name,)+) = self;

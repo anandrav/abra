@@ -28,6 +28,7 @@ use crate::translate_bytecode::{BytecodeIndex, CompiledProgram};
 use core::fmt;
 #[cfg(feature = "ffi")]
 use libloading::Library;
+use std::alloc::{Layout, alloc};
 use std::error::Error;
 #[cfg(feature = "ffi")]
 use std::ffi::c_void;
@@ -35,18 +36,17 @@ use std::fmt::Debug;
 use std::{
     cell::Cell,
     fmt::{Display, Formatter},
-    mem,
+    mem, ptr,
 };
 
-pub struct Vm<Value: ValueTrait = PackedValue> {
+pub struct Vm {
     program: Vec<Instr>,
     pc: ProgramCounter,
     stack_base: usize,
     value_stack: Vec<Value>,
     call_stack: Vec<CallFrame>,
-    heap: Vec<ManagedObject<Value>>,
-    heap_group: HeapGroup,
-
+    // heap: Vec<ManagedObject>,
+    // heap_group: HeapGroup,
     int_constants: Vec<i64>,
     float_constants: Vec<f64>,
     static_strings: Vec<String>,
@@ -130,11 +130,10 @@ impl Vm {
             // stack[0] is return value from main
             stack_base: 1,
             // the nil is placeholder for return value from main
-            value_stack: vec![PackedValue::make_nil()],
+            value_stack: vec![().into()],
             call_stack: Vec::new(),
-            heap: Vec::new(),
-            heap_group: HeapGroup::One,
-
+            // heap: Vec::new(),
+            // heap_group: HeapGroup::One,
             int_constants: program.int_constants.into_iter().collect(),
             float_constants: program.float_constants.into_iter().collect(),
             static_strings: program.static_strings.into_iter().collect(),
@@ -157,8 +156,8 @@ impl Vm {
     }
 }
 
-impl<Value: ValueTrait> Vm<Value> {
-    // pub fn with_entry_point(program: CompiledProgram, entry_point: String) -> Option<Self> {
+impl Vm {
+    // pub fn with_entry_point(program: CompiledProgram, entry_point: String) -> Option {
     //     dbg!(&entry_point);
     //     dbg!(&program.label_map);
     //     let pc = *program.label_map.get(&entry_point);
@@ -203,9 +202,9 @@ impl<Value: ValueTrait> Vm<Value> {
     }
 
     #[inline(always)]
-    pub fn top(&self) -> &Value {
+    pub fn top(&self) -> Value {
         match self.value_stack.last() {
-            Some(v) => v,
+            Some(v) => *v,
             None => panic!("stack is empty"),
         }
     }
@@ -217,8 +216,8 @@ impl<Value: ValueTrait> Vm<Value> {
     }
 
     #[inline(always)]
-    pub fn load_offset(&self, offset: i16) -> &Value {
-        &self.value_stack[self.stack_base.wrapping_add_signed(offset as isize)]
+    pub fn load_offset(&self, offset: i16) -> Value {
+        self.value_stack[self.stack_base.wrapping_add_signed(offset as isize)]
     }
 
     #[inline(always)]
@@ -248,15 +247,14 @@ impl<Value: ValueTrait> Vm<Value> {
 
     #[inline(always)]
     pub fn push_str(&mut self, s: String) {
-        self.heap
-            .push(ManagedObject::new(ManagedObjectKind::String(s)));
-        let r = self.heap_reference(self.heap.len() - 1);
+        let s = StringObject::new(s);
+        let r = Value::from(s);
         self.push(r);
     }
 
     #[inline(always)]
     pub fn push_nil(&mut self) {
-        self.push(Value::make_nil());
+        self.push(());
     }
 
     #[inline(always)]
@@ -272,11 +270,8 @@ impl<Value: ValueTrait> Vm<Value> {
     #[inline(always)]
     pub fn construct_variant(&mut self, tag: u16) {
         let value = self.top();
-        self.heap.push(ManagedObject::new(ManagedObjectKind::Enum {
-            tag,
-            value: *value,
-        }));
-        let r = self.heap_reference(self.heap.len() - 1);
+        let variant = EnumObject::new(tag, value);
+        let r = Value::from(variant);
         self.set_top(r);
     }
 
@@ -288,66 +283,54 @@ impl<Value: ValueTrait> Vm<Value> {
     #[inline(always)]
     pub fn construct_struct(&mut self, n: usize) {
         let fields = self.pop_n(n);
-        let fields = fields.into_boxed_slice();
-        self.heap
-            .push(ManagedObject::new(ManagedObjectKind::Struct(fields)));
-        let r = self.heap_reference(self.heap.len() - 1);
-        self.push(r);
+        let ptr = StructObject::new(fields);
+        self.push(ptr);
     }
 
     #[inline(always)]
     pub fn construct_array(&mut self, n: usize) {
         let fields = self.pop_n(n);
-        self.heap
-            .push(ManagedObject::new(ManagedObjectKind::DynArray(fields)));
-        let r = self.heap_reference(self.heap.len() - 1);
+        let ptr = ArrayObject::new(fields);
+        let r = Value::from(ptr); // TODO: this is unnecessary. Remove here and other places
         self.push(r);
     }
 
     #[inline(always)]
     pub fn deconstruct_struct(&mut self) {
         let obj = self.pop();
-        let heap_index = obj.get_heap_index(self, ValueKind::Struct);
-        match &self.heap[heap_index].kind {
-            ManagedObjectKind::Struct(fields) => {
-                self.value_stack.extend(fields.iter().rev().cloned());
-            }
-            _ => self.fail_wrong_type(ValueKind::Struct),
-        }
+        let fields = {
+            let s = obj.get_struct(self);
+            s.get_fields().iter().rev().cloned().collect::<Vec<_>>() // TODO: unnecessary collect(). Vec allocation is costly
+        };
+        self.value_stack.extend(fields);
     }
 
     #[inline(always)]
     pub fn deconstruct_array(&mut self) {
-        let obj = self.pop();
-        let heap_index = obj.get_heap_index(self, ValueKind::Struct);
-        match &self.heap[heap_index].kind {
-            ManagedObjectKind::DynArray(fields) => {
-                self.value_stack.extend(fields.iter().rev().cloned());
-            }
-            _ => self.fail_wrong_type(ValueKind::Array),
-        }
+        let obj = self.pop(); // TODO: rename to val here and other places
+        let elems = {
+            let arr = obj.get_array(self);
+            arr.elems.iter().rev().cloned().collect::<Vec<_>>() // TODO: unnecessary collect(). Vec allocation is costly
+        };
+        self.value_stack.extend(elems);
     }
 
     #[inline(always)]
     pub fn deconstruct_variant(&mut self) {
         let obj = self.top();
-        let heap_index = obj.get_heap_index(self, ValueKind::Enum);
-        let (value, tag) = match &self.heap[heap_index].kind {
-            ManagedObjectKind::Enum { tag, value } => (*value, *tag),
-            _ => self.fail_wrong_type(ValueKind::Enum),
+        let (val, tag) = {
+            let variant = obj.get_variant(self);
+            (variant.val, variant.tag)
         };
-        self.set_top(value);
+        self.set_top(val);
         self.push(tag as AbraInt);
     }
 
     #[inline(always)]
     pub fn array_len(&mut self) -> usize {
         let obj = self.top();
-        let index = obj.get_heap_index(self, ValueKind::Array);
-        match &self.heap[index].kind {
-            ManagedObjectKind::DynArray(fields) => fields.len(),
-            _ => self.fail_wrong_type(ValueKind::Array),
-        }
+        let arr = obj.get_array(self);
+        arr.elems.len()
     }
 
     pub fn increment_stack_base(&mut self, n: usize) {
@@ -475,6 +458,9 @@ pub enum Instr {
     // Data Structures
     ConstructStruct(u32),
     ConstructArray(u32),
+    // TODO: it's a shame that simple enums like Red | Blue | Green aren't just represented as an int.
+    // TODO: there should be two types of enums: primitive and object enums. Primitive enums are basically just ints and don't require allocations
+    // TODO: pattern matching with primitive enums should also be much much faster, equivalent to a switch.
     ConstructVariant { tag: u16 },
     DeconstructStruct,
     DeconstructArray,
@@ -531,65 +517,10 @@ impl CallData {
     }
 }
 
-pub trait ValueTrait:
-    Copy
-    + Clone
-    + Debug
-    + From<AbraInt>
-    + From<AbraFloat>
-    + From<bool>
-    + From<ProgramCounter>
-    + From<HeapReference>
-{
-    fn make_nil() -> Self;
-
-    fn get_int(&self, vm: &Vm<Self>) -> AbraInt
-    where
-        Self: Sized;
-
-    fn get_float(&self, vm: &Vm<Self>) -> AbraFloat
-    where
-        Self: Sized;
-
-    fn get_bool(&self, vm: &Vm<Self>) -> bool
-    where
-        Self: Sized;
-
-    fn is_heap_ref(&self) -> bool
-    where
-        Self: Sized;
-
-    fn get_heap_ref(&self, vm: &Vm<Self>, expected_value_kind: ValueKind) -> HeapReference
-    where
-        Self: Sized;
-
-    fn get_heap_index(&self, vm: &Vm<Self>, expected_value_kind: ValueKind) -> usize
-    where
-        Self: Sized;
-
-    fn view_string<'a>(&self, vm: &'a Vm<Self>) -> &'a String
-    where
-        Self: Sized;
-
-    fn get_addr(&self, vm: &Vm<Self>) -> ProgramCounter
-    where
-        Self: Sized;
-}
-
-// PackedValue is 16 bytes
-const _: [(); 16] = [(); size_of::<PackedValue>()];
-#[derive(Debug, Clone, Copy)]
-pub struct PackedValue(u64, /*is_pointer*/ bool);
-
-#[derive(Debug, Clone, Copy)]
-pub enum TaggedValue {
-    Nil,
-    Bool(bool),
-    Int(AbraInt),
-    Float(AbraFloat),
-    FuncAddr(ProgramCounter),
-    HeapReference(HeapReference),
-}
+// PackedValue is 16 bytes currently
+const _: [(); 16] = [(); size_of::<Value>()];
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Value(u64, /*is_pointer*/ bool);
 
 #[derive(Debug, Copy, Clone)]
 pub struct HeapReference(u64);
@@ -630,199 +561,128 @@ enum HeapGroup {
     Two,
 }
 
-impl From<bool> for TaggedValue {
+impl From<()> for Value {
     #[inline(always)]
-    fn from(b: bool) -> Self {
-        Self::Bool(b)
+    fn from(_: ()) -> Self {
+        Self(0, false)
     }
 }
 
-impl From<AbraInt> for TaggedValue {
-    #[inline(always)]
-    fn from(n: AbraInt) -> Self {
-        Self::Int(n)
-    }
-}
-
-impl From<AbraFloat> for TaggedValue {
-    #[inline(always)]
-    fn from(n: AbraFloat) -> Self {
-        Self::Float(n)
-    }
-}
-
-impl From<ProgramCounter> for TaggedValue {
-    #[inline(always)]
-    fn from(n: ProgramCounter) -> Self {
-        Self::FuncAddr(n)
-    }
-}
-
-impl From<HeapReference> for TaggedValue {
-    #[inline(always)]
-    fn from(n: HeapReference) -> Self {
-        Self::HeapReference(n)
-    }
-}
-
-impl ValueTrait for TaggedValue {
-    #[inline(always)]
-    fn make_nil() -> Self {
-        TaggedValue::Nil
-    }
-
-    #[inline(always)]
-    fn get_int(&self, vm: &Vm<Self>) -> AbraInt {
-        match self {
-            TaggedValue::Int(i) => *i,
-            _ => vm.fail_wrong_type(ValueKind::Int),
-        }
-    }
-
-    #[inline(always)]
-    fn get_float(&self, vm: &Vm<Self>) -> AbraFloat {
-        match self {
-            TaggedValue::Float(f) => *f,
-            _ => vm.fail_wrong_type(ValueKind::Int),
-        }
-    }
-
-    #[inline(always)]
-    fn get_bool(&self, vm: &Vm<Self>) -> bool {
-        match self {
-            TaggedValue::Bool(b) => *b,
-            _ => vm.fail_wrong_type(ValueKind::Bool),
-        }
-    }
-
-    #[inline(always)]
-    fn is_heap_ref(&self) -> bool {
-        matches!(self, TaggedValue::HeapReference(..))
-    }
-
-    #[inline(always)]
-    fn get_heap_ref(&self, vm: &Vm<Self>, expected_value_kind: ValueKind) -> HeapReference
-    where
-        Self: Sized,
-    {
-        match self {
-            TaggedValue::HeapReference(r) => *r,
-            _ => vm.fail_wrong_type(expected_value_kind),
-        }
-    }
-
-    #[inline(always)]
-    fn get_heap_index(&self, vm: &Vm<Self>, expected_value_kind: ValueKind) -> usize {
-        match self {
-            TaggedValue::HeapReference(r) => r.get_index(),
-            _ => vm.fail_wrong_type(expected_value_kind),
-        }
-    }
-
-    #[inline(always)]
-    fn view_string<'a>(&self, vm: &'a Vm<Self>) -> &'a String {
-        let index = self.get_heap_index(vm, ValueKind::String);
-        match &vm.heap[index].kind {
-            ManagedObjectKind::String(s) => s,
-            _ => vm.fail_wrong_type(ValueKind::String),
-        }
-    }
-
-    #[inline(always)]
-    fn get_addr(&self, vm: &Vm<Self>) -> ProgramCounter {
-        match self {
-            TaggedValue::FuncAddr(addr) => *addr,
-            _ => vm.fail_wrong_type(ValueKind::Int),
-        }
-    }
-}
-
-impl From<bool> for PackedValue {
+impl From<bool> for Value {
     #[inline(always)]
     fn from(b: bool) -> Self {
         Self(if b { 1 } else { 0 }, false)
     }
 }
 
-impl From<AbraInt> for PackedValue {
+impl From<AbraInt> for Value {
     #[inline(always)]
     fn from(n: AbraInt) -> Self {
         Self(n as u64, false)
     }
 }
 
-impl From<AbraFloat> for PackedValue {
+impl From<AbraFloat> for Value {
     #[inline(always)]
     fn from(n: AbraFloat) -> Self {
         Self(AbraFloat::to_bits(n), false)
     }
 }
 
-impl From<ProgramCounter> for PackedValue {
+impl From<ProgramCounter> for Value {
     #[inline(always)]
     fn from(n: ProgramCounter) -> Self {
         Self(n.0 as u64, false)
     }
 }
 
-impl From<HeapReference> for PackedValue {
+impl From<*mut ArrayObject> for Value {
+    #[inline(always)]
+    fn from(ptr: *mut ArrayObject) -> Self {
+        Self(ptr as u64, true)
+    }
+}
+
+impl From<*mut StructObject> for Value {
+    #[inline(always)]
+    fn from(ptr: *mut StructObject) -> Self {
+        Self(ptr as u64, true)
+    }
+}
+
+impl From<*mut EnumObject> for Value {
+    #[inline(always)]
+    fn from(ptr: *mut EnumObject) -> Self {
+        Self(ptr as u64, true)
+    }
+}
+
+impl From<*mut StringObject> for Value {
+    #[inline(always)]
+    fn from(ptr: *mut StringObject) -> Self {
+        Self(ptr as u64, true)
+    }
+}
+
+impl From<HeapReference> for Value {
     #[inline(always)]
     fn from(n: HeapReference) -> Self {
         Self(n.0, true)
     }
 }
 
-impl ValueTrait for PackedValue {
+impl Value {
     #[inline(always)]
-    fn make_nil() -> Self {
-        Self(0, false)
-    }
-
-    #[inline(always)]
-    fn get_int(&self, _vm: &Vm<Self>) -> AbraInt {
+    pub fn get_int(&self, _vm: &Vm) -> AbraInt {
         self.0 as AbraInt
     }
 
     #[inline(always)]
-    fn get_float(&self, _vm: &Vm<Self>) -> AbraFloat {
+    pub fn get_float(&self, _vm: &Vm) -> AbraFloat {
         AbraFloat::from_bits(self.0)
     }
 
     #[inline(always)]
-    fn get_bool(&self, _vm: &Vm<Self>) -> bool {
+    pub fn get_bool(&self, _vm: &Vm) -> bool {
         self.0 != 0
     }
 
     #[inline(always)]
-    fn is_heap_ref(&self) -> bool {
-        self.1
+    fn get_object_header(
+        &self,
+        _vm: &mut Vm,
+        _expected_value_kind: ValueKind,
+    ) -> *mut ManagedObjectHeader {
+        self.0 as *mut ManagedObjectHeader
     }
 
     #[inline(always)]
-    fn get_heap_ref(&self, _vm: &Vm<Self>, _expected_value_kind: ValueKind) -> HeapReference
+    fn get_struct<'a>(&self, _vm: &'a mut Vm) -> &'a mut StructObject {
+        unsafe { &mut *(self.0 as *mut StructObject) }
+    }
+
+    fn get_array<'a>(&self, _vm: &'a mut Vm) -> &'a mut ArrayObject
     where
         Self: Sized,
     {
-        HeapReference(self.0)
+        unsafe { &mut *(self.0 as *mut ArrayObject) }
+    }
+
+    fn get_variant(&self, _vm: &Vm) -> &EnumObject
+    where
+        Self: Sized,
+    {
+        unsafe { &mut *(self.0 as *mut EnumObject) }
     }
 
     #[inline(always)]
-    fn get_heap_index(&self, _vm: &Vm<Self>, _expected_value_kind: ValueKind) -> usize {
-        let heap_ref = HeapReference(self.0);
-        heap_ref.get_index()
+    pub fn view_string<'a>(&self, vm: &'a Vm) -> &'a String {
+        let so = unsafe { &*(self.0 as *const StringObject) };
+        &so.str
     }
 
     #[inline(always)]
-    fn view_string<'a>(&self, vm: &'a Vm<Self>) -> &'a String {
-        let index = self.get_heap_index(vm, ValueKind::String);
-        match &vm.heap[index].kind {
-            ManagedObjectKind::String(s) => s,
-            _ => vm.fail_wrong_type(ValueKind::String),
-        }
-    }
-
-    #[inline(always)]
-    fn get_addr(&self, _vm: &Vm<Self>) -> ProgramCounter {
+    fn get_addr(&self, _vm: &Vm) -> ProgramCounter {
         ProgramCounter(self.0 as u32)
     }
 }
@@ -837,15 +697,15 @@ struct CallFrame {
 // ReferenceType
 
 #[derive(Debug, Clone)]
-struct ManagedObject<Value: ValueTrait> {
-    kind: ManagedObjectKind<Value>,
+struct ManagedObject {
+    kind: ManagedObjectKind,
 
     forwarding_pointer: Cell<Option<usize>>,
 }
 
-impl<Value: ValueTrait> ManagedObject<Value> {
+impl ManagedObject {
     #[inline(always)]
-    fn new(kind: ManagedObjectKind<Value>) -> Self {
+    fn new(kind: ManagedObjectKind) -> Self {
         Self {
             kind,
             forwarding_pointer: Cell::new(None),
@@ -854,14 +714,192 @@ impl<Value: ValueTrait> ManagedObject<Value> {
 }
 
 #[derive(Debug, Clone)]
-enum ManagedObjectKind<Value: ValueTrait> {
+enum ManagedObjectKind {
     Enum { tag: u16, value: Value },
     DynArray(Vec<Value>),
     Struct(Box<[Value]>),
     String(String),
 }
 
-impl<Value: ValueTrait> Vm<Value> {
+// NEW reference types
+
+#[repr(C)]
+struct ManagedObjectHeader {
+    kind: ManagedObjectKind2,
+    color: Cell<GcColor>,
+}
+
+#[repr(C)]
+struct StructObject {
+    header: ManagedObjectHeader,
+    len: usize,
+    // data: [PackedValue],
+}
+
+impl StructObject {
+    fn new(data: Vec<Value>) -> *mut StructObject {
+        let len = data.len();
+
+        let prefix_size = size_of::<StructObject>();
+        let value_size = size_of::<Value>();
+        let align = align_of::<StructObject>().max(align_of::<Value>());
+
+        let total_size = prefix_size + len * value_size;
+        let layout = Layout::from_size_align(total_size, align).unwrap();
+
+        unsafe {
+            let raw = alloc(layout);
+            if raw.is_null() {
+                std::alloc::handle_alloc_error(layout);
+            }
+
+            let obj = raw as *mut StructObject;
+            ptr::write(
+                obj,
+                StructObject {
+                    header: ManagedObjectHeader {
+                        kind: ManagedObjectKind2::Struct,
+                        color: Cell::new(GcColor::White),
+                    },
+                    len,
+                },
+            );
+
+            let base = raw.add(prefix_size) as *mut Value;
+            let src = data.as_ptr();
+
+            for i in 0..len {
+                ptr::write(base.add(i), ptr::read(src.add(i)));
+            }
+
+            obj
+        }
+    }
+
+    pub fn get_fields(&self) -> &[Value] {
+        unsafe { std::slice::from_raw_parts(self.data_ptr(), self.len) }
+    }
+
+    pub fn get_fields_mut(&mut self) -> &mut [Value] {
+        unsafe { std::slice::from_raw_parts_mut(self.data_ptr(), self.len) }
+    }
+
+    fn data_ptr(&self) -> *mut Value {
+        unsafe {
+            (self as *const StructObject as *mut u8).add(size_of::<StructObject>()) as *mut Value
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn struct_object_sanity() {
+        // Some example PackedValues
+        let values = vec![Value(1, false), Value(2, true), Value(3, false)];
+
+        // Allocate the StructObject
+        let ptr = StructObject::new(values.clone());
+
+        // SAFETY: object was just allocated
+        let obj = unsafe { &*ptr };
+
+        assert_eq!(obj.len, 3);
+
+        // Read back the fields
+        let fields = obj.get_fields();
+        assert_eq!(fields, values.as_slice());
+
+        // Mutate one field
+        let obj_mut = unsafe { &mut *ptr };
+        obj_mut.get_fields_mut()[1] = Value(99, true);
+
+        // Verify mutation persisted
+        let fields_after = obj.get_fields();
+        assert_eq!(
+            fields_after,
+            &[Value(1, false), Value(99, true), Value(3, false)]
+        );
+    }
+}
+
+#[repr(C)]
+struct ArrayObject {
+    header: ManagedObjectHeader,
+    elems: Vec<Value>,
+}
+
+impl ArrayObject {
+    fn new(data: Vec<Value>) -> *mut ArrayObject {
+        let header = ManagedObjectHeader {
+            kind: ManagedObjectKind2::DynArray,
+            color: Cell::new(GcColor::White),
+        };
+        let b = Box::new(ArrayObject {
+            header,
+            elems: data,
+        });
+        Box::leak(b)
+    }
+}
+
+#[repr(C)]
+struct EnumObject {
+    header: ManagedObjectHeader,
+    tag: u16,
+    val: Value,
+}
+
+impl EnumObject {
+    fn new(tag: u16, val: Value) -> *mut EnumObject {
+        let header = ManagedObjectHeader {
+            kind: ManagedObjectKind2::Enum,
+            color: Cell::new(GcColor::White),
+        };
+        let b = Box::new(EnumObject { header, tag, val });
+        Box::leak(b)
+    }
+}
+
+#[repr(C)]
+struct StringObject {
+    header: ManagedObjectHeader,
+    str: String,
+    // TODO: switch to below since strings are immutable
+    // len: usize,     // number of u8's that are actually valid
+    // capacity: usize, // number of u8's that follow
+    // data: [u8],
+}
+
+impl StringObject {
+    fn new(str: String) -> *mut StringObject {
+        let header = ManagedObjectHeader {
+            kind: ManagedObjectKind2::String,
+            color: Cell::new(GcColor::White),
+        };
+        let b = Box::new(StringObject { header, str });
+        Box::leak(b)
+    }
+}
+
+#[repr(C)]
+enum ManagedObjectKind2 {
+    Enum,
+    DynArray, // TODO: rename to just Array
+    Struct,
+    String,
+}
+
+#[repr(u8)]
+enum GcColor {
+    White,
+    Gray,
+    Black,
+}
+
+impl Vm {
     pub fn run(&mut self) {
         self.validate();
         while self.step() {}
@@ -891,7 +929,7 @@ impl<Value: ValueTrait> Vm<Value> {
         match instr {
             Instr::PushNil(n) => {
                 for _ in 0..n {
-                    self.push(Value::make_nil());
+                    self.push(());
                 }
             }
             Instr::PushInt(n) => {
@@ -904,10 +942,10 @@ impl<Value: ValueTrait> Vm<Value> {
                 self.push(b);
             }
             Instr::PushString(idx) => {
+                // TODO: copying string every time is not good ...
                 let s = &self.static_strings[idx as usize];
-                self.heap
-                    .push(ManagedObject::new(ManagedObjectKind::String(s.clone())));
-                let r = self.heap_reference(self.heap.len() - 1);
+                let s = StringObject::new(s.clone());
+                let r = Value::from(s);
                 self.value_stack.push(r);
             }
             Instr::Pop => {
@@ -915,11 +953,11 @@ impl<Value: ValueTrait> Vm<Value> {
             }
             Instr::Duplicate => {
                 let v = self.top();
-                self.push(*v);
+                self.push(v);
             }
             Instr::LoadOffset(n) => {
                 let v = self.load_offset(n);
-                self.push(*v);
+                self.push(v);
             }
             Instr::StoreOffset(n) => {
                 let v = self.pop();
@@ -1125,7 +1163,7 @@ impl<Value: ValueTrait> Vm<Value> {
             Instr::Return(nargs) => {
                 let idx = self.stack_base.wrapping_add_signed(-(nargs as isize));
                 let v = self.top();
-                self.value_stack[idx] = *v;
+                self.value_stack[idx] = v;
 
                 let frame = self.call_stack.pop().unwrap();
                 self.pc = frame.pc;
@@ -1157,103 +1195,67 @@ impl<Value: ValueTrait> Vm<Value> {
             }
             Instr::GetField(index) => {
                 let obj = self.top();
-                let heap_index = obj.get_heap_index(self, ValueKind::Struct);
-                let field = match &self.heap[heap_index].kind {
-                    ManagedObjectKind::Struct(fields) => fields[index as usize],
-                    _ => self.fail_wrong_type(ValueKind::Struct),
-                };
+                let s = obj.get_struct(self);
+                let field = s.get_fields()[index as usize];
                 self.set_top(field);
             }
             Instr::GetFieldOffset(index, offset) => {
-                let obj = *self.load_offset(offset);
-                let heap_index = obj.get_heap_index(self, ValueKind::Struct);
-                let field = match &self.heap[heap_index].kind {
-                    ManagedObjectKind::Struct(fields) => fields[index as usize],
-                    _ => self.fail_wrong_type(ValueKind::Struct),
-                };
+                let obj = self.load_offset(offset);
+                let s = obj.get_struct(self);
+                let field = s.get_fields()[index as usize];
                 self.push(field);
             }
             Instr::SetField(index) => {
                 let obj = self.pop();
                 let rvalue = self.pop();
-                let heap_index = obj.get_heap_index(self, ValueKind::Struct);
-                match &mut self.heap[heap_index].kind {
-                    ManagedObjectKind::Struct(fields) => {
-                        fields[index as usize] = rvalue;
-                    }
-                    _ => self.fail_wrong_type(ValueKind::Struct),
-                }
+                let s = obj.get_struct(self);
+                s.get_fields_mut()[index as usize] = rvalue;
             }
             Instr::SetFieldOffset(index, offset) => {
-                let obj = *self.load_offset(offset);
+                let obj = self.load_offset(offset);
                 let rvalue = self.pop();
-                let heap_index = obj.get_heap_index(self, ValueKind::Struct);
-                match &mut self.heap[heap_index].kind {
-                    ManagedObjectKind::Struct(fields) => {
-                        fields[index as usize] = rvalue;
-                    }
-                    _ => self.fail_wrong_type(ValueKind::Struct),
-                }
+                let s = obj.get_struct(self);
+                s.get_fields_mut()[index as usize] = rvalue;
             }
             Instr::GetIdx => {
                 let obj = self.pop();
                 let idx = self.top().get_int(self);
-                let heap_index = obj.get_heap_index(self, ValueKind::Array);
-                match &self.heap[heap_index].kind {
-                    ManagedObjectKind::DynArray(fields) => {
-                        if idx as usize >= fields.len() || idx < 0 {
-                            self.fail(VmErrorKind::ArrayOutOfBounds);
-                        }
-                        let field = fields[idx as usize];
-                        self.set_top(field);
-                    }
-                    _ => self.fail_wrong_type(ValueKind::Array),
+                let arr = obj.get_array(self);
+                if idx as usize >= arr.elems.len() || idx < 0 {
+                    self.fail(VmErrorKind::ArrayOutOfBounds);
                 }
+                let field = arr.elems[idx as usize];
+                self.set_top(field);
             }
             Instr::GetIdxOffset(reg1, reg2) => {
                 let obj = self.load_offset(reg2);
                 let idx = self.load_offset(reg1).get_int(self);
-                let heap_index = obj.get_heap_index(self, ValueKind::Array);
-                match &self.heap[heap_index].kind {
-                    ManagedObjectKind::DynArray(fields) => {
-                        if idx as usize >= fields.len() || idx < 0 {
-                            self.fail(VmErrorKind::ArrayOutOfBounds);
-                        }
-                        let field = fields[idx as usize];
-                        self.push(field);
-                    }
-                    _ => self.fail_wrong_type(ValueKind::Array),
+                let arr = obj.get_array(self);
+                if idx as usize >= arr.elems.len() || idx < 0 {
+                    self.fail(VmErrorKind::ArrayOutOfBounds);
                 }
+                let field = arr.elems[idx as usize];
+                self.push(field);
             }
             Instr::SetIdx => {
                 let obj = self.pop();
                 let idx = self.pop_int();
                 let rvalue = self.pop();
-                let heap_index = obj.get_heap_index(self, ValueKind::Array);
-                match &mut self.heap[heap_index].kind {
-                    ManagedObjectKind::DynArray(fields) => {
-                        if idx as usize >= fields.len() || idx < 0 {
-                            self.fail(VmErrorKind::ArrayOutOfBounds);
-                        }
-                        fields[idx as usize] = rvalue;
-                    }
-                    _ => self.fail_wrong_type(ValueKind::Array),
+                let arr = obj.get_array(self);
+                if idx as usize >= arr.elems.len() || idx < 0 {
+                    self.fail(VmErrorKind::ArrayOutOfBounds);
                 }
+                arr.elems[idx as usize] = rvalue;
             }
             Instr::SetIdxOffset(reg1, reg2) => {
-                let obj = *self.load_offset(reg2);
+                let obj = self.load_offset(reg2);
                 let idx = self.load_offset(reg1).get_int(self);
                 let rvalue = self.pop();
-                let heap_index = obj.get_heap_index(self, ValueKind::Array);
-                match &mut self.heap[heap_index].kind {
-                    ManagedObjectKind::DynArray(fields) => {
-                        if idx as usize >= fields.len() || idx < 0 {
-                            self.fail(VmErrorKind::ArrayOutOfBounds);
-                        }
-                        fields[idx as usize] = rvalue;
-                    }
-                    _ => self.fail_wrong_type(ValueKind::Array),
+                let arr = obj.get_array(self);
+                if idx as usize >= arr.elems.len() || idx < 0 {
+                    self.fail(VmErrorKind::ArrayOutOfBounds);
                 }
+                arr.elems[idx as usize] = rvalue;
             }
             Instr::ConstructVariant { tag } => {
                 self.construct_variant(tag);
@@ -1264,14 +1266,9 @@ impl<Value: ValueTrait> Vm<Value> {
             Instr::ArrayAppend => {
                 let rvalue = self.pop();
                 let obj = self.top();
-                let heap_index = obj.get_heap_index(self, ValueKind::Array);
-                match &mut self.heap[heap_index].kind {
-                    ManagedObjectKind::DynArray(fields) => {
-                        fields.push(rvalue);
-                    }
-                    _ => self.fail_wrong_type(ValueKind::Array),
-                }
-                self.set_top(Value::make_nil());
+                let arr = obj.get_array(self);
+                arr.elems.push(rvalue);
+                self.set_top(());
             }
             Instr::ArrayLength => {
                 let len = self.array_len();
@@ -1279,14 +1276,9 @@ impl<Value: ValueTrait> Vm<Value> {
             }
             Instr::ArrayPop => {
                 let obj = self.top();
-                let heap_index = obj.get_heap_index(self, ValueKind::Array);
-                match &mut self.heap[heap_index].kind {
-                    ManagedObjectKind::DynArray(fields) => {
-                        let rvalue = fields.pop().expect("array underflow");
-                        self.set_top(rvalue);
-                    }
-                    _ => self.fail_wrong_type(ValueKind::Array),
-                }
+                let arr = obj.get_array(self);
+                let rvalue = arr.elems.pop().expect("array underflow");
+                self.set_top(rvalue);
             }
             // TODO: it would be better if ConcatString operation extended the LHS with the RHS. Would have to modify how format_append and & work
             // Perhaps LHS of & operator should be some sort of "StringBuilder". Though this is suspiciously similar to cout in C++
@@ -1298,25 +1290,22 @@ impl<Value: ValueTrait> Vm<Value> {
                 let mut new_str = String::with_capacity(a_str.len() + b_str.len());
                 new_str.push_str(a_str);
                 new_str.push_str(b_str);
-                self.heap
-                    .push(ManagedObject::new(ManagedObjectKind::String(new_str)));
-                let r = self.heap_reference(self.heap.len() - 1);
+                let s = StringObject::new(new_str);
+                let r = Value::from(s);
                 self.set_top(r);
             }
             Instr::IntToString => {
                 let n = self.top().get_int(self);
                 let s = n.to_string();
-                self.heap
-                    .push(ManagedObject::new(ManagedObjectKind::String(s)));
-                let r = self.heap_reference(self.heap.len() - 1);
+                let s = StringObject::new(s);
+                let r = Value::from(s); // TODO: Value::from here and other places is unnecessary
                 self.set_top(r);
             }
             Instr::FloatToString => {
                 let f = self.top().get_float(self);
                 let s = f.to_string();
-                self.heap
-                    .push(ManagedObject::new(ManagedObjectKind::String(s)));
-                let r = self.heap_reference(self.heap.len() - 1);
+                let s = StringObject::new(s);
+                let r = Value::from(s);
                 self.set_top(r);
             }
             Instr::HostFunc(eff) => {
@@ -1367,7 +1356,7 @@ impl<Value: ValueTrait> Vm<Value> {
                 #[cfg(feature = "ffi")]
                 {
                     unsafe {
-                        let vm_ptr = self as *mut Vm<Value> as *mut c_void;
+                        let vm_ptr = self as *mut Vm as *mut c_void;
                         let abra_vm_functions_ptr = &ABRA_VM_FUNCS as *const AbraVmFunctions;
                         self.foreign_functions[_func_id as usize](vm_ptr, abra_vm_functions_ptr);
                     };
@@ -1427,10 +1416,10 @@ impl<Value: ValueTrait> Vm<Value> {
         ret
     }
 
-    #[inline(always)]
-    fn heap_reference(&mut self, idx: usize) -> Value {
-        Value::from(HeapReference::new(idx, self.heap_group))
-    }
+    // #[inline(always)]
+    // fn heap_reference(&mut self, idx: usize) -> Value {
+    //     PackedValue::from(HeapReference::new(idx, self.heap_group))
+    // }
 
     pub fn compact(&mut self) {
         self.value_stack.shrink_to_fit();
@@ -1440,83 +1429,84 @@ impl<Value: ValueTrait> Vm<Value> {
     pub fn nbytes(&self) -> usize {
         let mut n = self.program.len() * size_of::<Instr>()
             + self.value_stack.len() * size_of::<Value>()
-            + self.call_stack.len() * size_of::<CallFrame>()
-            + self.heap.len() * size_of::<ManagedObject<Value>>();
+            + self.call_stack.len() * size_of::<CallFrame>();
+        // TODO: must incorporate heap into calculation;
+        // + self.heap.len() * size_of::<ManagedObject>();
 
         n += self.static_strings.iter().map(|s| s.len()).sum::<usize>();
         n
     }
 
-    pub fn heap_size(&self) -> usize {
-        self.heap.len() * size_of::<ManagedObject<Value>>()
-    }
-
-    pub fn gc(&mut self) {
-        let mut new_heap = Vec::<ManagedObject<Value>>::new();
-        let new_heap_group = match self.heap_group {
-            HeapGroup::One => HeapGroup::Two,
-            HeapGroup::Two => HeapGroup::One,
-        };
-
-        // roots
-        for i in 0..self.value_stack.len() {
-            let v = &self.value_stack[i];
-            if v.is_heap_ref() {
-                let r = v.get_heap_ref(self, ValueKind::HeapObject);
-                let v = &mut self.value_stack[i];
-                *v = Value::from(forward(r, &self.heap, 0, &mut new_heap, new_heap_group));
-            }
-        }
-
-        let mut i = 0;
-        while i < new_heap.len() {
-            let new_heap_len = new_heap.len();
-            let obj = &mut new_heap[i];
-            let mut to_add: Vec<ManagedObject<Value>> = vec![];
-
-            let mut helper = |v: &mut Value| {
-                let r = v.get_heap_ref(self, ValueKind::HeapObject);
-                *v = Value::from(forward(
-                    r,
-                    &self.heap,
-                    new_heap_len,
-                    &mut to_add,
-                    new_heap_group,
-                ));
-            };
-            match &mut obj.kind {
-                ManagedObjectKind::DynArray(fields) => {
-                    for v in fields {
-                        if v.is_heap_ref() {
-                            helper(v);
-                        }
-                    }
-                }
-                ManagedObjectKind::Struct(fields) => {
-                    for v in fields {
-                        if v.is_heap_ref() {
-                            helper(v);
-                        }
-                    }
-                }
-                ManagedObjectKind::Enum { tag: _, value: v } => {
-                    if v.is_heap_ref() {
-                        helper(v);
-                    }
-                }
-                ManagedObjectKind::String(_) => {}
-            }
-
-            new_heap.extend(to_add);
-
-            i += 1;
-        }
-
-        mem::swap(&mut self.heap, &mut new_heap);
-        self.heap_group = new_heap_group;
-
-        // self.compact();
-    }
+    // pub fn heap_size(&self) -> usize {
+    //     self.heap.len() * size_of::<ManagedObject>()
+    // }
+    //
+    // pub fn gc(&mut self) {
+    //     let mut new_heap = Vec::<ManagedObject>::new();
+    //     let new_heap_group = match self.heap_group {
+    //         HeapGroup::One => HeapGroup::Two,
+    //         HeapGroup::Two => HeapGroup::One,
+    //     };
+    //
+    //     // roots
+    //     for i in 0..self.value_stack.len() {
+    //         let v = &self.value_stack[i];
+    //         if v.is_heap_ref() {
+    //             let r = v.get_heap_ref(self, ValueKind::HeapObject);
+    //             let v = &mut self.value_stack[i];
+    //             *v = PackedValue::from(forward(r, &self.heap, 0, &mut new_heap, new_heap_group));
+    //         }
+    //     }
+    //
+    //     let mut i = 0;
+    //     while i < new_heap.len() {
+    //         let new_heap_len = new_heap.len();
+    //         let obj = &mut new_heap[i];
+    //         let mut to_add: Vec<ManagedObject> = vec![];
+    //
+    //         let mut helper = |v: &mut Value| {
+    //             let r = v.get_heap_ref(self, ValueKind::HeapObject);
+    //             *v = PackedValue::from(forward(
+    //                 r,
+    //                 &self.heap,
+    //                 new_heap_len,
+    //                 &mut to_add,
+    //                 new_heap_group,
+    //             ));
+    //         };
+    //         match &mut obj.kind {
+    //             ManagedObjectKind::DynArray(fields) => {
+    //                 for v in fields {
+    //                     if v.is_heap_ref() {
+    //                         helper(v);
+    //                     }
+    //                 }
+    //             }
+    //             ManagedObjectKind::Struct(fields) => {
+    //                 for v in fields {
+    //                     if v.is_heap_ref() {
+    //                         helper(v);
+    //                     }
+    //                 }
+    //             }
+    //             ManagedObjectKind::Enum { tag: _, value: v } => {
+    //                 if v.is_heap_ref() {
+    //                     helper(v);
+    //                 }
+    //             }
+    //             ManagedObjectKind::String(_) => {}
+    //         }
+    //
+    //         new_heap.extend(to_add);
+    //
+    //         i += 1;
+    //     }
+    //
+    //     mem::swap(&mut self.heap, &mut new_heap);
+    //     self.heap_group = new_heap_group;
+    //
+    //     // self.compact();
+    // }
 
     #[inline(always)]
     fn push(&mut self, x: impl Into<Value>) {
@@ -1544,49 +1534,49 @@ impl<Value: ValueTrait> Vm<Value> {
     }
 }
 
-fn forward<Value: ValueTrait>(
-    r: HeapReference,
-    old_heap: &[ManagedObject<Value>],
-    new_heap_len: usize,
-    to_add: &mut Vec<ManagedObject<Value>>,
-    new_heap_group: HeapGroup,
-) -> HeapReference {
-    if r.get_group() != new_heap_group {
-        // from space
-        let old_obj = &old_heap[r.get_index()];
-        match old_obj.forwarding_pointer.get() {
-            Some(f) => {
-                // return f
-                HeapReference::new(f, new_heap_group)
-            }
-            None => {
-                // copy to new heap and install forwarding pointer in old heap object
-                let new_idx = to_add.len() + new_heap_len;
+// fn forward(
+//     r: HeapReference,
+//     old_heap: &[ManagedObject],
+//     new_heap_len: usize,
+//     to_add: &mut Vec<ManagedObject>,
+//     new_heap_group: HeapGroup,
+// ) -> HeapReference {
+//     if r.get_group() != new_heap_group {
+//         // from space
+//         let old_obj = &old_heap[r.get_index()];
+//         match old_obj.forwarding_pointer.get() {
+//             Some(f) => {
+//                 // return f
+//                 HeapReference::new(f, new_heap_group)
+//             }
+//             None => {
+//                 // copy to new heap and install forwarding pointer in old heap object
+//                 let new_idx = to_add.len() + new_heap_len;
+//
+//                 let new_obj = old_obj.clone();
+//                 new_obj.forwarding_pointer.replace(None);
+//                 to_add.push(new_obj);
+//
+//                 old_obj.forwarding_pointer.replace(Some(new_idx));
+//
+//                 HeapReference::new(new_idx, new_heap_group)
+//             }
+//         }
+//     } else {
+//         // to space
+//         // this reference already points to the new heap
+//         r
+//     }
+// }
 
-                let new_obj = old_obj.clone();
-                new_obj.forwarding_pointer.replace(None);
-                to_add.push(new_obj);
-
-                old_obj.forwarding_pointer.replace(Some(new_idx));
-
-                HeapReference::new(new_idx, new_heap_group)
-            }
-        }
-    } else {
-        // to space
-        // this reference already points to the new heap
-        r
-    }
-}
-
-impl<Value: ValueTrait> Debug for Vm<Value> {
+impl Debug for Vm {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         f.debug_struct("Vm")
             .field("pc", &self.pc)
             .field("stack_base", &self.stack_base)
             .field("value_stack", &format!("{:?}", self.value_stack))
             .field("call_stack", &format!("{:?}", self.call_stack))
-            .field("heap", &format!("{:?}", self.heap))
+            // .field("heap", &format!("{:?}", self.heap))
             // .field("program", &format!("{:?}", self.program))
             .finish()
     }

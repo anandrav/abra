@@ -18,7 +18,7 @@ fn run_benchmark(c: &mut Criterion, name: &str, src: &str) {
             || Vm::new(program.clone()), // Prepare a new VM instance
             |mut vm| {
                 vm.run();
-                black_box(vm.top().unwrap());
+                black_box(vm.top());
             },
             BatchSize::SmallInput, // Reasonable batch size
         );

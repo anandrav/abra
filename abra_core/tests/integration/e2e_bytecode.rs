@@ -5,8 +5,8 @@
 use crate::helper::unwrap_or_panic;
 use abra_core::MockFileProvider;
 use abra_core::compile_bytecode;
+use abra_core::vm::Vm;
 use abra_core::vm::VmStatus;
-use abra_core::vm::{ValueTrait, Vm};
 use std::collections::HashMap;
 use std::path::PathBuf;
 
@@ -829,8 +829,8 @@ x
     while !vm.is_done() {
         vm.run_n_steps(1);
     }
-    vm.gc();
-    assert!(vm.nbytes() < 10000);
+    // vm.gc();
+    assert!(vm.nbytes() < 10000); // TODO: this test never fails!
     let top = vm.top();
     assert_eq!(top.get_int(&vm), 6);
 }
@@ -855,8 +855,8 @@ x
     let mut vm = Vm::new(program);
     while !vm.is_done() {
         vm.run_n_steps(1);
-        vm.gc();
-        assert!(vm.nbytes() < 10000);
+        // vm.gc();
+        assert!(vm.nbytes() < 10000); // TODO: this test never fails!
     }
     let top = vm.top();
     assert_eq!(top.get_int(&vm), 6);

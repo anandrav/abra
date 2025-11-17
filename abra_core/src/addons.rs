@@ -4,7 +4,7 @@
 
 // Rust addon API
 
-use crate::vm::{PackedValue, ValueTrait, Vm};
+use crate::vm::Vm;
 use crate::{
     FileAst, FileData, ItemKind,
     ast::{FileDatabase, Type, TypeDefKind, TypeKind},
@@ -69,7 +69,7 @@ pub const ABRA_VM_FUNCS: AbraVmFunctions = AbraVmFunctions {
 /// vm: *mut c_void must be valid and non-null
 #[unsafe(no_mangle)]
 unsafe extern "C" fn abra_vm_push_int(vm: *mut c_void, n: i64) {
-    let vm = unsafe { (vm as *mut Vm<PackedValue>).as_mut().unwrap() };
+    let vm = unsafe { (vm as *mut Vm).as_mut().unwrap() };
     vm.push_int(n);
 }
 
@@ -77,7 +77,7 @@ unsafe extern "C" fn abra_vm_push_int(vm: *mut c_void, n: i64) {
 /// vm: *mut c_void must be valid and non-null
 #[unsafe(no_mangle)]
 unsafe extern "C" fn abra_vm_push_float(vm: *mut c_void, f: f64) {
-    let vm = unsafe { (vm as *mut Vm<PackedValue>).as_mut().unwrap() };
+    let vm = unsafe { (vm as *mut Vm).as_mut().unwrap() };
     vm.push_float(f);
 }
 
@@ -85,7 +85,7 @@ unsafe extern "C" fn abra_vm_push_float(vm: *mut c_void, f: f64) {
 /// vm: *mut c_void must be valid and non-null
 #[unsafe(no_mangle)]
 unsafe extern "C" fn abra_vm_push_bool(vm: *mut c_void, b: bool) {
-    let vm = unsafe { (vm as *mut Vm<PackedValue>).as_mut().unwrap() };
+    let vm = unsafe { (vm as *mut Vm).as_mut().unwrap() };
     vm.push_bool(b);
 }
 
@@ -93,7 +93,7 @@ unsafe extern "C" fn abra_vm_push_bool(vm: *mut c_void, b: bool) {
 /// vm: *mut c_void must be valid and non-null
 #[unsafe(no_mangle)]
 unsafe extern "C" fn abra_vm_push_nil(vm: *mut c_void) {
-    let vm = unsafe { (vm as *mut Vm<PackedValue>).as_mut().unwrap() };
+    let vm = unsafe { (vm as *mut Vm).as_mut().unwrap() };
     vm.push_nil();
 }
 
@@ -101,7 +101,7 @@ unsafe extern "C" fn abra_vm_push_nil(vm: *mut c_void) {
 /// vm: *mut c_void must be valid and non-null
 #[unsafe(no_mangle)]
 unsafe extern "C" fn abra_vm_pop_nil(vm: *mut c_void) {
-    let vm = unsafe { (vm as *mut Vm<PackedValue>).as_mut().unwrap() };
+    let vm = unsafe { (vm as *mut Vm).as_mut().unwrap() };
     vm.pop();
 }
 
@@ -109,7 +109,7 @@ unsafe extern "C" fn abra_vm_pop_nil(vm: *mut c_void) {
 /// vm: *mut c_void must be valid and non-null
 #[unsafe(no_mangle)]
 unsafe extern "C" fn abra_vm_pop_int(vm: *mut c_void) -> i64 {
-    let vm = unsafe { (vm as *mut Vm<PackedValue>).as_mut().unwrap() };
+    let vm = unsafe { (vm as *mut Vm).as_mut().unwrap() };
     let top = vm.top().get_int(vm);
     vm.pop();
     top
@@ -119,7 +119,7 @@ unsafe extern "C" fn abra_vm_pop_int(vm: *mut c_void) -> i64 {
 /// vm: *mut c_void must be valid and non-null
 #[unsafe(no_mangle)]
 unsafe extern "C" fn abra_vm_pop_float(vm: *mut c_void) -> f64 {
-    let vm = unsafe { (vm as *mut Vm<PackedValue>).as_mut().unwrap() };
+    let vm = unsafe { (vm as *mut Vm).as_mut().unwrap() };
     let top = vm.top().get_float(vm);
     vm.pop();
     top
@@ -129,7 +129,7 @@ unsafe extern "C" fn abra_vm_pop_float(vm: *mut c_void) -> f64 {
 /// vm: *mut c_void must be valid and non-null
 #[unsafe(no_mangle)]
 unsafe extern "C" fn abra_vm_pop_bool(vm: *mut c_void) -> bool {
-    let vm = unsafe { (vm as *mut Vm<PackedValue>).as_mut().unwrap() };
+    let vm = unsafe { (vm as *mut Vm).as_mut().unwrap() };
     let top = vm.top().get_bool(vm);
     vm.pop();
     top
@@ -139,7 +139,7 @@ unsafe extern "C" fn abra_vm_pop_bool(vm: *mut c_void) -> bool {
 /// vm: *mut c_void must be valid and non-null
 #[unsafe(no_mangle)]
 unsafe extern "C" fn abra_vm_pop(vm: *mut c_void) {
-    let vm = unsafe { (vm as *mut Vm<PackedValue>).as_mut().unwrap() };
+    let vm = unsafe { (vm as *mut Vm).as_mut().unwrap() };
     vm.pop();
 }
 
@@ -169,7 +169,7 @@ impl StringView {
 /// vm: *mut c_void must be valid and non-null
 #[unsafe(no_mangle)]
 unsafe extern "C" fn abra_vm_view_string(vm: *mut c_void) -> StringView {
-    let vm = unsafe { (vm as *mut Vm<PackedValue>).as_mut().unwrap() };
+    let vm = unsafe { (vm as *mut Vm).as_mut().unwrap() };
     let top = vm.top().view_string(vm);
     StringView {
         ptr: top.as_ptr() as *const c_char,
@@ -181,7 +181,7 @@ unsafe extern "C" fn abra_vm_view_string(vm: *mut c_void) -> StringView {
 /// vm: *mut c_void must be valid and non-null
 #[unsafe(no_mangle)]
 unsafe extern "C" fn abra_vm_push_string(vm: *mut c_void, string_view: StringView) {
-    let vm = unsafe { (vm as *mut Vm<PackedValue>).as_mut().unwrap() };
+    let vm = unsafe { (vm as *mut Vm).as_mut().unwrap() };
     let s = string_view.to_owned();
     vm.push_str(s);
 }
@@ -190,7 +190,7 @@ unsafe extern "C" fn abra_vm_push_string(vm: *mut c_void, string_view: StringVie
 /// vm: *mut c_void must be valid and non-null
 #[unsafe(no_mangle)]
 unsafe extern "C" fn abra_vm_construct_struct(vm: *mut c_void, arity: usize) {
-    let vm = unsafe { (vm as *mut Vm<PackedValue>).as_mut().unwrap() };
+    let vm = unsafe { (vm as *mut Vm).as_mut().unwrap() };
     vm.construct_struct(arity);
 }
 
@@ -198,7 +198,7 @@ unsafe extern "C" fn abra_vm_construct_struct(vm: *mut c_void, arity: usize) {
 /// vm: *mut c_void must be valid and non-null
 #[unsafe(no_mangle)]
 unsafe extern "C" fn abra_vm_construct_array(vm: *mut c_void, len: usize) {
-    let vm = unsafe { (vm as *mut Vm<PackedValue>).as_mut().unwrap() };
+    let vm = unsafe { (vm as *mut Vm).as_mut().unwrap() };
     vm.construct_array(len); // TODO: annoying conversions everywhere
 }
 
@@ -206,7 +206,7 @@ unsafe extern "C" fn abra_vm_construct_array(vm: *mut c_void, len: usize) {
 /// vm: *mut c_void must be valid and non-null
 #[unsafe(no_mangle)]
 unsafe extern "C" fn abra_vm_construct_variant(vm: *mut c_void, tag: u16) {
-    let vm = unsafe { (vm as *mut Vm<PackedValue>).as_mut().unwrap() };
+    let vm = unsafe { (vm as *mut Vm).as_mut().unwrap() };
     vm.construct_variant(tag);
 }
 
@@ -214,7 +214,7 @@ unsafe extern "C" fn abra_vm_construct_variant(vm: *mut c_void, tag: u16) {
 /// vm: *mut c_void must be valid and non-null
 #[unsafe(no_mangle)]
 unsafe extern "C" fn abra_vm_deconstruct_struct(vm: *mut c_void) {
-    let vm = unsafe { (vm as *mut Vm<PackedValue>).as_mut().unwrap() };
+    let vm = unsafe { (vm as *mut Vm).as_mut().unwrap() };
     vm.deconstruct_struct();
 }
 
@@ -222,7 +222,7 @@ unsafe extern "C" fn abra_vm_deconstruct_struct(vm: *mut c_void) {
 /// vm: *mut c_void must be valid and non-null
 #[unsafe(no_mangle)]
 unsafe extern "C" fn abra_vm_deconstruct_array(vm: *mut c_void) {
-    let vm = unsafe { (vm as *mut Vm<PackedValue>).as_mut().unwrap() };
+    let vm = unsafe { (vm as *mut Vm).as_mut().unwrap() };
     vm.deconstruct_array();
 }
 
@@ -230,7 +230,7 @@ unsafe extern "C" fn abra_vm_deconstruct_array(vm: *mut c_void) {
 /// vm: *mut c_void must be valid and non-null
 #[unsafe(no_mangle)]
 unsafe extern "C" fn abra_vm_deconstruct_enum(vm: *mut c_void) {
-    let vm = unsafe { (vm as *mut Vm<PackedValue>).as_mut().unwrap() };
+    let vm = unsafe { (vm as *mut Vm).as_mut().unwrap() };
     vm.deconstruct_variant();
 }
 
@@ -238,7 +238,7 @@ unsafe extern "C" fn abra_vm_deconstruct_enum(vm: *mut c_void) {
 /// vm: *mut c_void must be valid and non-null
 #[unsafe(no_mangle)]
 unsafe extern "C" fn abra_vm_array_len(vm: *mut c_void) -> usize {
-    let vm = unsafe { (vm as *mut Vm<PackedValue>).as_mut().unwrap() };
+    let vm = unsafe { (vm as *mut Vm).as_mut().unwrap() };
     vm.array_len()
 }
 
