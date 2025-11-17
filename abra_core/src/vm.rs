@@ -926,13 +926,13 @@ impl StringObject {
     }
 }
 
-const MAYBE_GC_PERIOD: u32 = 1;
+const GC_COARSEN_FACTOR: usize = 100;
 
 impl Vm {
     pub fn run(&mut self) {
         self.validate();
         loop {
-            for _ in 0..MAYBE_GC_PERIOD {
+            for _ in 0..GC_COARSEN_FACTOR {
                 if !self.step() {
                     return;
                 }
@@ -946,7 +946,7 @@ impl Vm {
         self.validate();
         let mut gc = false;
         loop {
-            for _ in 0..MAYBE_GC_PERIOD {
+            for _ in 0..GC_COARSEN_FACTOR {
                 if !self.step() {
                     if !gc {
                         self.maybe_gc();
@@ -1491,12 +1491,12 @@ impl Vm {
             }
             GcState::Marking => {
                 // process a few gray nodes
-                let mut slice = 2 * self.gc_debt;
+                let mut slice = 2 * self.gc_debt * GC_COARSEN_FACTOR;
                 // println!("slice={}", slice);
                 self.process_gray(&mut slice);
             }
             GcState::Sweeping { .. } => {
-                let slice = 2 * self.gc_debt;
+                let slice = 2 * self.gc_debt * GC_COARSEN_FACTOR;
                 self.sweep(slice);
             }
         }
