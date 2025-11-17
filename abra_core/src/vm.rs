@@ -2,24 +2,6 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#[derive(Copy, Clone, Debug)]
-pub struct ProgramCounter(pub u32);
-impl ProgramCounter {
-    pub(crate) fn new(n: usize) -> Self {
-        ProgramCounter(n as u32)
-    }
-    pub(crate) fn get(self) -> usize {
-        self.0 as usize
-    }
-}
-impl Display for ProgramCounter {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.0)
-    }
-}
-pub type AbraInt = i64;
-pub type AbraFloat = f64;
-
 #[cfg(feature = "ffi")]
 use crate::addons::ABRA_VM_FUNCS;
 #[cfg(feature = "ffi")]
@@ -38,6 +20,13 @@ use std::{
     fmt::{Display, Formatter},
     ptr,
 };
+
+pub type AbraInt = i64;
+pub type AbraFloat = f64;
+
+const GC_COARSEN_FACTOR: usize = 100;
+const GC_PAUSE_FACTOR: usize = 2;
+const GC_STEP_FACTOR: usize = 2;
 
 pub struct Vm {
     program: Vec<Instr>,
@@ -73,6 +62,22 @@ pub struct Vm {
     libs: Vec<Library>,
     #[cfg(feature = "ffi")]
     foreign_functions: Vec<unsafe extern "C" fn(*mut c_void, *const AbraVmFunctions) -> ()>,
+}
+
+#[derive(Copy, Clone, Debug)]
+pub struct ProgramCounter(pub u32);
+impl ProgramCounter {
+    pub(crate) fn new(n: usize) -> Self {
+        ProgramCounter(n as u32)
+    }
+    pub(crate) fn get(self) -> usize {
+        self.0 as usize
+    }
+}
+impl Display for ProgramCounter {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.0)
+    }
 }
 
 pub enum VmStatus {
@@ -926,8 +931,6 @@ impl StringObject {
     }
 }
 
-const GC_COARSEN_FACTOR: usize = 100;
-
 impl Vm {
     pub fn run(&mut self) {
         self.validate();
@@ -1483,20 +1486,18 @@ impl Vm {
     pub fn maybe_gc(&mut self) {
         match self.gc_state {
             GcState::Idle => {
-                let threshold = self.last_gc_heap_size * 2;
+                let threshold = self.last_gc_heap_size * GC_PAUSE_FACTOR;
                 if self.heap_size > threshold {
-                    // println!("heap_size={}  >  threshold={}", self.heap_size, threshold);
                     self.start_mark_phase();
                 }
             }
             GcState::Marking => {
                 // process a few gray nodes
-                let mut slice = 2 * self.gc_debt * GC_COARSEN_FACTOR;
-                // println!("slice={}", slice);
+                let mut slice = GC_STEP_FACTOR * self.gc_debt * GC_COARSEN_FACTOR;
                 self.process_gray(&mut slice);
             }
             GcState::Sweeping { .. } => {
-                let slice = 2 * self.gc_debt * GC_COARSEN_FACTOR;
+                let slice = GC_STEP_FACTOR * self.gc_debt * GC_COARSEN_FACTOR;
                 self.sweep(slice);
             }
         }
