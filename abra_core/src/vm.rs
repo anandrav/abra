@@ -51,6 +51,7 @@ pub struct Vm {
     gray_stack: Vec<*mut ObjectHeader>,
     gc_state: GcState,
     heap_size: usize,
+    gc_debt: usize,
     last_gc_heap_size: usize,
     // constants
     int_constants: Vec<i64>,
@@ -142,6 +143,7 @@ impl Vm {
             gray_stack: vec![],
             gc_state: GcState::Idle,
             heap_size: 0,
+            gc_debt: 0,
             last_gc_heap_size: 0,
 
             int_constants: program.int_constants.into_iter().collect(),
@@ -678,6 +680,31 @@ impl ObjectHeader {
             }
         }
     }
+
+    fn nbytes(&self) -> usize {
+        let kind = self.kind;
+        match kind {
+            ObjectKind::String => {
+                let ptr = self as *const Self as *const StringObject;
+                let obj = unsafe { &*ptr };
+                obj.nbytes()
+            }
+            ObjectKind::Enum => {
+                let ptr = self as *const Self as *const EnumObject;
+                let obj = unsafe { &*ptr };
+                obj.nbytes()
+            }
+            ObjectKind::Struct => {
+                let obj = unsafe { &*(self as *const Self as *const StructObject) };
+                obj.nbytes()
+            }
+            ObjectKind::Array => {
+                let ptr = self as *const Self as *const ArrayObject;
+                let obj = unsafe { &*ptr };
+                obj.nbytes()
+            }
+        }
+    }
 }
 
 #[derive(Copy, Clone)]
@@ -744,6 +771,7 @@ impl StructObject {
                 vm.gray_stack.push(obj as *mut ObjectHeader);
             }
             vm.heap_size += layout.size();
+            vm.gc_debt += layout.size();
 
             obj
         }
@@ -811,6 +839,7 @@ impl ArrayObject {
                 .push(arr as *mut ArrayObject as *mut ObjectHeader);
         }
         vm.heap_size += arr.nbytes();
+        vm.gc_debt += arr.nbytes();
 
         arr
     }
@@ -851,6 +880,7 @@ impl EnumObject {
                 .push(variant as *mut EnumObject as *mut ObjectHeader);
         }
         vm.heap_size += variant.nbytes();
+        vm.gc_debt += variant.nbytes();
 
         variant
     }
@@ -886,6 +916,7 @@ impl StringObject {
                 .push(str as *mut StringObject as *mut ObjectHeader);
         }
         vm.heap_size += str.nbytes();
+        vm.gc_debt += str.nbytes();
 
         str
     }
@@ -1298,6 +1329,7 @@ impl Vm {
                 arr.data.push(rvalue);
                 let cap2 = arr.data.capacity();
                 self.heap_size += (cap2 - cap1) * size_of::<Value>();
+                self.gc_debt += (cap2 - cap1) * size_of::<Value>();
                 self.set_top(());
             }
             Instr::ArrayLength => {
@@ -1452,17 +1484,19 @@ impl Vm {
         match self.gc_state {
             GcState::Idle => {
                 let threshold = self.last_gc_heap_size * 2;
-                if self.heaplist.len() > threshold {
+                if self.heap_size > threshold {
+                    // println!("heap_size={}  >  threshold={}", self.heap_size, threshold);
                     self.start_mark_phase();
                 }
             }
             GcState::Marking => {
                 // process a few gray nodes
-                let mut slice = 2 * (self.heap_size - self.last_gc_heap_size);
+                let mut slice = 2 * self.gc_debt;
+                // println!("slice={}", slice);
                 self.process_gray(&mut slice);
             }
             GcState::Sweeping { .. } => {
-                let slice = 2 * (self.heap_size - self.last_gc_heap_size);
+                let slice = 2 * self.gc_debt;
                 self.sweep(slice);
             }
         }
@@ -1581,28 +1615,7 @@ impl Vm {
                     *index += 1;
                 }
 
-                let kind = header.kind;
-                match kind {
-                    ObjectKind::String => {
-                        let ptr = header_ptr as *mut StringObject;
-                        let obj = unsafe { &mut *ptr };
-                        work_done += obj.nbytes();
-                    }
-                    ObjectKind::Enum => {
-                        let ptr = header_ptr as *mut EnumObject;
-                        let obj = unsafe { &mut *ptr };
-                        work_done += obj.nbytes();
-                    }
-                    ObjectKind::Struct => {
-                        let obj = unsafe { &*(header_ptr as *mut StructObject) };
-                        work_done += obj.nbytes();
-                    }
-                    ObjectKind::Array => {
-                        let ptr = header_ptr as *mut ArrayObject;
-                        let obj = unsafe { &mut *ptr };
-                        work_done += obj.nbytes();
-                    }
-                }
+                work_done += header.nbytes();
             }
 
             if *index >= self.heaplist.len() {
