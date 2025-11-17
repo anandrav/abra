@@ -441,6 +441,7 @@ pub enum Instr {
     // TODO: it's a shame that simple enums like Red | Blue | Green aren't just represented as an int.
     // TODO: there should be two types of enums: primitive and object enums. Primitive enums are basically just ints and don't require allocations
     // TODO: pattern matching with primitive enums should also be much much faster, equivalent to a switch.
+    // TODO: and equality comparison should be as cheap as int comparison
     ConstructVariant { tag: u16 },
     DeconstructStruct,
     DeconstructArray,
