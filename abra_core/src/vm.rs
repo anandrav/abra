@@ -36,7 +36,7 @@ pub struct Vm {
     value_stack: Vec<Value>,
     call_stack: Vec<CallFrame>,
     // heap
-    heaplist: Vec<*mut ObjectHeader>,
+    heap_list: Vec<*mut ObjectHeader>,
     gray_stack: Vec<*mut ObjectHeader>,
     gc_state: GcState,
     heap_size: usize,
@@ -144,7 +144,7 @@ impl Vm {
             // the nil is placeholder for return value from main
             value_stack: vec![().into()],
             call_stack: Vec::new(),
-            heaplist: vec![],
+            heap_list: vec![],
             gray_stack: vec![],
             gc_state: GcState::Idle,
             heap_size: 0,
@@ -771,7 +771,7 @@ impl StructObject {
                 ptr::write(base.add(i), ptr::read(src.add(i)));
             }
 
-            vm.heaplist.push(obj as *mut ObjectHeader);
+            vm.heap_list.push(obj as *mut ObjectHeader);
             if vm.gc_state == GcState::Marking {
                 vm.gray_stack.push(obj as *mut ObjectHeader);
             }
@@ -837,7 +837,7 @@ impl ArrayObject {
         let b = Box::new(ArrayObject { header, data });
         let arr = Box::leak(b);
 
-        vm.heaplist
+        vm.heap_list
             .push(arr as *mut ArrayObject as *mut ObjectHeader);
         if vm.gc_state == GcState::Marking {
             vm.gray_stack
@@ -878,7 +878,7 @@ impl EnumObject {
         let b = Box::new(EnumObject { header, tag, val });
         let variant = Box::leak(b);
 
-        vm.heaplist
+        vm.heap_list
             .push(variant as *mut EnumObject as *mut ObjectHeader);
         if vm.gc_state == GcState::Marking {
             vm.gray_stack
@@ -914,7 +914,7 @@ impl StringObject {
         let b = Box::new(StringObject { header, str });
         let str = Box::leak(b);
 
-        vm.heaplist
+        vm.heap_list
             .push(str as *mut StringObject as *mut ObjectHeader);
         if vm.gc_state == GcState::Marking {
             vm.gray_stack
@@ -1505,7 +1505,7 @@ impl Vm {
 
     fn start_mark_phase(&mut self) {
         // all objects start white
-        for header_ptr in &self.heaplist {
+        for header_ptr in &self.heap_list {
             let header = unsafe { &mut **header_ptr };
             header.color = Color::White;
         }
@@ -1602,15 +1602,15 @@ impl Vm {
         if let GcState::Sweeping { index } = &mut self.gc_state {
             let mut work_done = 0;
 
-            while work_done < batch && *index < self.heaplist.len() {
-                let header_ptr = self.heaplist[*index];
+            while work_done < batch && *index < self.heap_list.len() {
+                let header_ptr = self.heap_list[*index];
                 let header = unsafe { &mut *header_ptr };
                 work_done += header.nbytes();
 
                 if header.color == Color::White {
                     unsafe { header.dealloc(&mut self.heap_size) };
 
-                    self.heaplist.swap_remove(*index);
+                    self.heap_list.swap_remove(*index);
                 } else {
                     // object is alive. reset to white for next cycle
                     header.color = Color::White;
@@ -1618,7 +1618,7 @@ impl Vm {
                 }
             }
 
-            if *index >= self.heaplist.len() {
+            if *index >= self.heap_list.len() {
                 self.gc_state = GcState::Idle;
                 self.last_gc_heap_size = self.heap_size;
             }
@@ -1639,7 +1639,18 @@ impl Vm {
         n += self.static_strings.iter().map(|s| s.len()).sum::<usize>();
         n
     }
+}
 
+impl Drop for Vm {
+    fn drop(&mut self) {
+        for header_ptr in &self.heap_list {
+            let header = unsafe { &mut **header_ptr };
+            unsafe { header.dealloc(&mut self.heap_size) };
+        }
+    }
+}
+
+impl Vm {
     #[inline(always)]
     fn push(&mut self, x: impl Into<Value>) {
         self.value_stack.push(x.into());
@@ -1656,13 +1667,13 @@ impl Vm {
     }
 
     #[inline(always)]
-    fn pop_addr(&mut self) -> ProgramCounter {
-        self.pop().get_addr(self)
+    pub(crate) fn pop_bool(&mut self) -> bool {
+        self.pop().get_bool(self)
     }
 
     #[inline(always)]
-    pub(crate) fn pop_bool(&mut self) -> bool {
-        self.pop().get_bool(self)
+    fn pop_addr(&mut self) -> ProgramCounter {
+        self.pop().get_addr(self)
     }
 }
 
