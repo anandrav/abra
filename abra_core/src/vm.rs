@@ -296,9 +296,9 @@ impl Vm {
 
     #[inline(always)]
     pub fn deconstruct_struct(&mut self) {
-        let obj = self.pop();
+        let val = self.pop();
         let fields = {
-            let s = obj.get_struct(self);
+            let s = val.get_struct(self);
             s.get_fields().iter().rev().cloned().collect::<Vec<_>>() // TODO: unnecessary collect(). Vec allocation is costly
         };
         self.value_stack.extend(fields);
@@ -306,9 +306,9 @@ impl Vm {
 
     #[inline(always)]
     pub fn deconstruct_array(&mut self) {
-        let obj = self.pop(); // TODO: rename to val here and other places
+        let val = self.pop();
         let elems = {
-            let arr = obj.get_array(self);
+            let arr = val.get_array(self);
             arr.elems.iter().rev().cloned().collect::<Vec<_>>() // TODO: unnecessary collect(). Vec allocation is costly
         };
         self.value_stack.extend(elems);
@@ -316,9 +316,9 @@ impl Vm {
 
     #[inline(always)]
     pub fn deconstruct_variant(&mut self) {
-        let obj = self.top();
+        let val = self.top();
         let (val, tag) = {
-            let variant = obj.get_variant(self);
+            let variant = val.get_variant(self);
             (variant.val, variant.tag)
         };
         self.set_top(val);
@@ -327,8 +327,8 @@ impl Vm {
 
     #[inline(always)]
     pub fn array_len(&mut self) -> usize {
-        let obj = self.top();
-        let arr = obj.get_array(self);
+        let val = self.top();
+        let arr = val.get_array(self);
         arr.elems.len()
     }
 
@@ -520,45 +520,7 @@ impl CallData {
 const _: [(); 16] = [(); size_of::<Value>()];
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Value(u64, /*is_pointer*/ bool);
-
-#[derive(Debug, Copy, Clone)]
-pub struct HeapReference(u64);
-
-impl HeapReference {
-    const GROUP_BIT: u64 = 1 << 63;
-    const INDEX_MASK: u64 = !Self::GROUP_BIT;
-
-    #[inline(always)]
-    fn new(index: usize, heap_group: HeapGroup) -> Self {
-        debug_assert!(index as u64 <= Self::INDEX_MASK);
-        let mut repr = index as u64;
-        match heap_group {
-            HeapGroup::One => {}
-            HeapGroup::Two => {
-                repr |= Self::GROUP_BIT;
-            }
-        }
-        HeapReference(repr)
-    }
-    #[inline(always)]
-    fn get_index(&self) -> usize {
-        (self.0 & Self::INDEX_MASK) as usize
-    }
-    #[inline(always)]
-    fn get_group(&self) -> HeapGroup {
-        if self.0 & Self::GROUP_BIT == 0 {
-            HeapGroup::One
-        } else {
-            HeapGroup::Two
-        }
-    }
-}
-
-#[derive(Debug, Copy, Clone, PartialEq, Eq)]
-enum HeapGroup {
-    One,
-    Two,
-}
+// TODO: get rid of is_pointer using separate bitvec
 
 impl From<()> for Value {
     #[inline(always)]
@@ -623,13 +585,6 @@ impl From<*mut StringObject> for Value {
     }
 }
 
-impl From<HeapReference> for Value {
-    #[inline(always)]
-    fn from(n: HeapReference) -> Self {
-        Self(n.0, true)
-    }
-}
-
 impl Value {
     #[inline(always)]
     pub fn get_int(&self, _vm: &Vm) -> AbraInt {
@@ -644,15 +599,6 @@ impl Value {
     #[inline(always)]
     pub fn get_bool(&self, _vm: &Vm) -> bool {
         self.0 != 0
-    }
-
-    #[inline(always)]
-    fn get_object_header(
-        &self,
-        _vm: &mut Vm,
-        _expected_value_kind: ValueKind,
-    ) -> *mut ManagedObjectHeader {
-        self.0 as *mut ManagedObjectHeader
     }
 
     #[inline(always)]
@@ -675,7 +621,7 @@ impl Value {
     }
 
     #[inline(always)]
-    pub fn view_string<'a>(&self, vm: &'a Vm) -> &'a String {
+    pub fn view_string<'a>(&self, _vm: &'a Vm) -> &'a String {
         let so = unsafe { &*(self.0 as *const StringObject) };
         &so.str
     }
@@ -1164,33 +1110,33 @@ impl Vm {
                 self.deconstruct_variant();
             }
             Instr::GetField(index) => {
-                let obj = self.top();
-                let s = obj.get_struct(self);
+                let val = self.top();
+                let s = val.get_struct(self);
                 let field = s.get_fields()[index as usize];
                 self.set_top(field);
             }
             Instr::GetFieldOffset(index, offset) => {
-                let obj = self.load_offset(offset);
-                let s = obj.get_struct(self);
+                let val = self.load_offset(offset);
+                let s = val.get_struct(self);
                 let field = s.get_fields()[index as usize];
                 self.push(field);
             }
             Instr::SetField(index) => {
-                let obj = self.pop();
+                let val = self.pop();
                 let rvalue = self.pop();
-                let s = obj.get_struct(self);
+                let s = val.get_struct(self);
                 s.get_fields_mut()[index as usize] = rvalue;
             }
             Instr::SetFieldOffset(index, offset) => {
-                let obj = self.load_offset(offset);
+                let val = self.load_offset(offset);
                 let rvalue = self.pop();
-                let s = obj.get_struct(self);
+                let s = val.get_struct(self);
                 s.get_fields_mut()[index as usize] = rvalue;
             }
             Instr::GetIdx => {
-                let obj = self.pop();
+                let val = self.pop();
                 let idx = self.top().get_int(self);
-                let arr = obj.get_array(self);
+                let arr = val.get_array(self);
                 if idx as usize >= arr.elems.len() || idx < 0 {
                     self.fail(VmErrorKind::ArrayOutOfBounds);
                 }
@@ -1198,9 +1144,9 @@ impl Vm {
                 self.set_top(field);
             }
             Instr::GetIdxOffset(reg1, reg2) => {
-                let obj = self.load_offset(reg2);
+                let val = self.load_offset(reg2);
                 let idx = self.load_offset(reg1).get_int(self);
-                let arr = obj.get_array(self);
+                let arr = val.get_array(self);
                 if idx as usize >= arr.elems.len() || idx < 0 {
                     self.fail(VmErrorKind::ArrayOutOfBounds);
                 }
@@ -1208,20 +1154,20 @@ impl Vm {
                 self.push(field);
             }
             Instr::SetIdx => {
-                let obj = self.pop();
+                let val = self.pop();
                 let idx = self.pop_int();
                 let rvalue = self.pop();
-                let arr = obj.get_array(self);
+                let arr = val.get_array(self);
                 if idx as usize >= arr.elems.len() || idx < 0 {
                     self.fail(VmErrorKind::ArrayOutOfBounds);
                 }
                 arr.elems[idx as usize] = rvalue;
             }
             Instr::SetIdxOffset(reg1, reg2) => {
-                let obj = self.load_offset(reg2);
+                let val = self.load_offset(reg2);
                 let idx = self.load_offset(reg1).get_int(self);
                 let rvalue = self.pop();
-                let arr = obj.get_array(self);
+                let arr = val.get_array(self);
                 if idx as usize >= arr.elems.len() || idx < 0 {
                     self.fail(VmErrorKind::ArrayOutOfBounds);
                 }
@@ -1235,8 +1181,8 @@ impl Vm {
             }
             Instr::ArrayAppend => {
                 let rvalue = self.pop();
-                let obj = self.top();
-                let arr = obj.get_array(self);
+                let val = self.top();
+                let arr = val.get_array(self);
                 arr.elems.push(rvalue);
                 self.set_top(());
             }
@@ -1245,8 +1191,8 @@ impl Vm {
                 self.set_top(len as AbraInt);
             }
             Instr::ArrayPop => {
-                let obj = self.top();
-                let arr = obj.get_array(self);
+                let val = self.top();
+                let arr = val.get_array(self);
                 let rvalue = arr.elems.pop().expect("array underflow");
                 self.set_top(rvalue);
             }
