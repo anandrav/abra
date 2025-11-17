@@ -51,6 +51,7 @@ pub struct Vm {
     gray_stack: Vec<*mut ObjectHeader>,
     gc_state: GcState,
     heap_size: usize,
+    last_gc_heap_size: usize,
     // constants
     int_constants: Vec<i64>,
     float_constants: Vec<f64>,
@@ -141,6 +142,7 @@ impl Vm {
             gray_stack: vec![],
             gc_state: GcState::Idle,
             heap_size: 0,
+            last_gc_heap_size: 0,
 
             int_constants: program.int_constants.into_iter().collect(),
             float_constants: program.float_constants.into_iter().collect(),
@@ -799,7 +801,7 @@ impl ArrayObject {
                 GcState::Sweeping { .. } => Color::Black,
             },
         };
-        let b = Box::new(ArrayObject { header, data: data });
+        let b = Box::new(ArrayObject { header, data });
         let arr = Box::leak(b);
 
         vm.heaplist
@@ -1449,25 +1451,19 @@ impl Vm {
     pub fn maybe_gc(&mut self) {
         match self.gc_state {
             GcState::Idle => {
-                const THRESHOLD: usize = 4096; // TODO: pick something better like 2 * nbytes last collection
-                if self.heaplist.len() > THRESHOLD {
+                let threshold = self.last_gc_heap_size * 2;
+                if self.heaplist.len() > threshold {
                     self.start_mark_phase();
                 }
             }
             GcState::Marking => {
                 // process a few gray nodes
-                const GC_MARK_SLICE: usize = 8192;
-                for _ in 0..GC_MARK_SLICE {
-                    self.process_gray();
-                    if self.gray_stack.is_empty() {
-                        self.gc_state = GcState::Sweeping { index: 0 };
-                        break;
-                    }
-                }
+                let mut slice = 2 * (self.heap_size - self.last_gc_heap_size);
+                self.process_gray(&mut slice);
             }
             GcState::Sweeping { .. } => {
-                const GC_SWEEP_SLICE: usize = 8192;
-                self.sweep(GC_SWEEP_SLICE);
+                let slice = 2 * (self.heap_size - self.last_gc_heap_size);
+                self.sweep(slice);
             }
         }
     }
@@ -1502,8 +1498,10 @@ impl Vm {
         gray_stack.push(header)
     }
 
-    fn process_gray(&mut self) {
-        if let Some(header_ptr) = self.gray_stack.pop() {
+    fn process_gray(&mut self, batch: &mut usize) {
+        while *batch > 0
+            && let Some(header_ptr) = self.gray_stack.pop()
+        {
             {
                 let header = unsafe { &mut *header_ptr };
                 header.color = Color::Black;
@@ -1515,24 +1513,33 @@ impl Vm {
             };
 
             match kind {
-                ObjectKind::String => {}
+                ObjectKind::String => {
+                    let obj = unsafe { &*(header_ptr as *const StringObject) };
+                    *batch -= obj.nbytes();
+                }
                 ObjectKind::Enum => {
                     let obj = unsafe { &*(header_ptr as *const EnumObject) };
+                    *batch -= obj.nbytes();
                     Self::mark(obj.val, &mut self.gray_stack);
                 }
                 ObjectKind::Struct => {
                     let obj = unsafe { &*(header_ptr as *const StructObject) };
+                    *batch -= obj.nbytes();
                     for field in obj.get_fields() {
                         Self::mark(*field, &mut self.gray_stack);
                     }
                 }
                 ObjectKind::Array => {
                     let obj = unsafe { &*(header_ptr as *const ArrayObject) };
+                    *batch -= obj.nbytes();
                     for elem in &obj.data {
                         Self::mark(*elem, &mut self.gray_stack);
                     }
                 }
             }
+        }
+        if self.gray_stack.is_empty() {
+            self.gc_state = GcState::Sweeping { index: 0 };
         }
     }
 
@@ -1574,11 +1581,34 @@ impl Vm {
                     *index += 1;
                 }
 
-                work_done += 1;
+                // TODO: this is duplicated and verbose
+                let kind = header.kind;
+                match kind {
+                    ObjectKind::String => {
+                        let ptr = header_ptr as *mut StringObject;
+                        let obj = unsafe { &mut *ptr };
+                        work_done += obj.nbytes();
+                    }
+                    ObjectKind::Enum => {
+                        let ptr = header_ptr as *mut EnumObject;
+                        let obj = unsafe { &mut *ptr };
+                        work_done += obj.nbytes();
+                    }
+                    ObjectKind::Struct => {
+                        let obj = unsafe { &*(header_ptr as *mut StructObject) };
+                        work_done += obj.nbytes();
+                    }
+                    ObjectKind::Array => {
+                        let ptr = header_ptr as *mut ArrayObject;
+                        let obj = unsafe { &mut *ptr };
+                        work_done += obj.nbytes();
+                    }
+                }
             }
 
             if *index >= self.heaplist.len() {
                 self.gc_state = GcState::Idle;
+                self.last_gc_heap_size = self.heap_size;
             }
         }
     }
