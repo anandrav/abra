@@ -34,7 +34,6 @@ use std::error::Error;
 #[cfg(feature = "ffi")]
 use std::ffi::c_void;
 use std::fmt::Debug;
-use std::ptr::null_mut;
 use std::{
     fmt::{Display, Formatter},
     ptr,
@@ -1445,7 +1444,7 @@ impl Vm {
     }
 
     fn process_gray(&mut self) {
-        while let Some(header_ptr) = self.gray_stack.pop() {
+        if let Some(header_ptr) = self.gray_stack.pop() {
             {
                 let header = unsafe { &mut *header_ptr };
                 header.color = Color::Black;
@@ -1498,31 +1497,31 @@ impl Vm {
         }
     }
 
-    fn sweep(&mut self, batch: usize) -> bool {
+    fn sweep(&mut self, batch: usize) {
         if let GcState::Sweeping { index } = &mut self.gc_state {
-            let len = self.heaplist.len();
-            let end = (*index + batch).min(len);
+            let mut work_done = 0;
 
-            for i in *index..end {
-                let header_ptr = self.heaplist[i];
+            while work_done < batch && *index < self.heaplist.len() {
+                let header_ptr = self.heaplist[*index];
                 let header = unsafe { &mut *header_ptr };
+
                 if header.color == Color::White {
                     unsafe { header.dealloc() };
-                    self.heaplist[i] = null_mut();
+
+                    self.heaplist.swap_remove(*index);
                 } else {
+                    // object is alive. reset to white for next cycle
                     header.color = Color::White;
+                    *index += 1;
                 }
+
+                work_done += 1;
             }
 
-            *index = end;
-            if end == len {
+            if *index >= self.heaplist.len() {
                 self.gc_state = GcState::Idle;
-                self.heaplist.retain(|x| !x.is_null());
-                return false;
             }
-            return true;
         }
-        false
     }
 
     pub fn compact(&mut self) {
