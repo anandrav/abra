@@ -861,16 +861,40 @@ impl StringObject {
     }
 }
 
+const MAYBE_GC_PERIOD: u32 = 75;
+
 impl Vm {
     pub fn run(&mut self) {
         self.validate();
-        while self.step() {}
+        loop {
+            for _ in 0..MAYBE_GC_PERIOD {
+                if !self.step() {
+                    return;
+                }
+            }
+            self.maybe_gc();
+        }
     }
 
+    // for better performance, pass at least MAYBE_GC_PERIOD steps
     pub fn run_n_steps(&mut self, mut steps: u32) {
         self.validate();
-        while steps > 0 && self.step() {
-            steps -= 1;
+        let mut gc = false;
+        loop {
+            for _ in 0..MAYBE_GC_PERIOD {
+                if !self.step() {
+                    if !gc {
+                        self.maybe_gc();
+                    }
+                    return;
+                }
+                steps -= 1;
+                if steps == 0 {
+                    return;
+                }
+            }
+            self.maybe_gc();
+            gc = true;
         }
     }
 
@@ -885,7 +909,6 @@ impl Vm {
 
     #[inline(always)]
     fn step(&mut self) -> bool {
-        self.maybe_gc(); // TODO: is it bad to run this every step...?
         let instr = self.program[self.pc.get()];
 
         self.pc.0 += 1;
@@ -1387,17 +1410,17 @@ impl Vm {
 
     // GARBAGE COLLECTION
 
-    fn maybe_gc(&mut self) {
+    pub fn maybe_gc(&mut self) {
         match self.gc_state {
             GcState::Idle => {
-                const THRESHOLD: usize = 0; // TODO: pick something better
+                const THRESHOLD: usize = 4096; // TODO: pick something better like 2 * nbytes last collection
                 if self.heaplist.len() > THRESHOLD {
                     self.start_mark_phase();
                 }
             }
             GcState::Marking => {
                 // process a few gray nodes
-                const GC_MARK_SLICE: usize = 4; // TODO: why 4?
+                const GC_MARK_SLICE: usize = 32;
                 for _ in 0..GC_MARK_SLICE {
                     self.process_gray();
                     if self.gray_stack.is_empty() {
@@ -1407,7 +1430,7 @@ impl Vm {
                 }
             }
             GcState::Sweeping { .. } => {
-                const GC_SWEEP_SLICE: usize = 8; // TODO: why 8?
+                const GC_SWEEP_SLICE: usize = 64;
                 self.sweep(GC_SWEEP_SLICE);
             }
         }
