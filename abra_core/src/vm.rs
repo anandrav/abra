@@ -1605,6 +1605,7 @@ impl Vm {
             while work_done < batch && *index < self.heaplist.len() {
                 let header_ptr = self.heaplist[*index];
                 let header = unsafe { &mut *header_ptr };
+                work_done += header.nbytes();
 
                 if header.color == Color::White {
                     unsafe { header.dealloc(&mut self.heap_size) };
@@ -1615,8 +1616,6 @@ impl Vm {
                     header.color = Color::White;
                     *index += 1;
                 }
-
-                work_done += header.nbytes();
             }
 
             if *index >= self.heaplist.len() {
