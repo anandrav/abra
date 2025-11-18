@@ -603,7 +603,7 @@ impl From<*mut StringObject> for Value {
 struct CallFrame {
     pc: ProgramCounter,
     stack_base: usize,
-    nargs: u8,
+    nargs: u32,
 }
 
 // NEW reference types
@@ -1209,7 +1209,7 @@ impl Vm {
                 self.call_stack.push(CallFrame {
                     pc: self.pc,
                     stack_base: self.stack_base,
-                    nargs: nargs as u8,
+                    nargs,
                 });
                 self.pc = ProgramCounter(target);
                 self.stack_base = self.value_stack.len();
@@ -1219,7 +1219,7 @@ impl Vm {
                 self.call_stack.push(CallFrame {
                     pc: self.pc,
                     stack_base: self.stack_base,
-                    nargs: nargs as u8,
+                    nargs,
                 });
 
                 self.pc = addr;
@@ -1232,6 +1232,7 @@ impl Vm {
 
                 let frame = self.call_stack.pop().unwrap();
                 self.pc = frame.pc;
+                // TODO: old_stack_base temp variable not needed
                 let old_stack_base = self.stack_base;
                 self.stack_base = frame.stack_base;
                 self.value_stack
