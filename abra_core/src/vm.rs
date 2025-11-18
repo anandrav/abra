@@ -352,6 +352,7 @@ impl Vm {
     }
 }
 
+// TODO: make Instr 4 bytes
 // Instr is 8 bytes
 const _: [(); 8] = [(); size_of::<Instr>()];
 #[derive(Debug, Copy, Clone)]
@@ -1225,7 +1226,7 @@ impl Vm {
                 self.stack_base = self.value_stack.len();
             }
             Instr::Return(nargs) => {
-                let idx = self.stack_base.wrapping_add_signed(-(nargs as isize));
+                let idx = self.stack_base - nargs as usize;
                 let v = self.top();
                 self.value_stack[idx] = v;
 
