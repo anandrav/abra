@@ -129,74 +129,74 @@ implement ToString for float {
 implement ToString for (T1 ToString, T2 ToString) {
     fn str(p) {
         let (a, b) = p
-        "(" & ToString.str(a) & ", " & ToString.str(b) & ")"
+        "(" .. ToString.str(a) .. ", " .. ToString.str(b) .. ")"
     }
 }
 implement ToString for (T1 ToString, T2 ToString, T3 ToString) {
     fn str(p) {
         let (a, b, c) = p
-        "(" & ToString.str(a) & ", " & ToString.str(b) & ", " & ToString.str(c) & ")"
+        "(" .. ToString.str(a) .. ", " .. ToString.str(b) .. ", " .. ToString.str(c) .. ")"
     }
 }
 implement ToString for (T1 ToString, T2 ToString, T3 ToString, T4 ToString) {
     fn str(p) {
         let (a, b, c, d) = p
-        "(" & ToString.str(a) & ", " & ToString.str(b) & ", " & ToString.str(c) & ", " & ToString.str(d) & ")"
+        "(" .. ToString.str(a) .. ", " .. ToString.str(b) .. ", " .. ToString.str(c) .. ", " .. ToString.str(d) .. ")"
     }
 }
 implement ToString for (T1 ToString, T2 ToString, T3 ToString, T4 ToString, T5 ToString) {
     fn str(p) {
         let (a, b, c, d, e) = p
-        "(" & ToString.str(a) & ", " & ToString.str(b) & ", " & ToString.str(c) & ", " & ToString.str(d) & ", " & ToString.str(e) & ")"
+        "(" .. ToString.str(a) .. ", " .. ToString.str(b) .. ", " .. ToString.str(c) .. ", " .. ToString.str(d) .. ", " .. ToString.str(e) .. ")"
     }
 }
 implement ToString for (T1 ToString, T2 ToString, T3 ToString, T4 ToString, T5 ToString, T6 ToString) {
     fn str(p) {
         let (a, b, c, d, e, f) = p
-        "(" & ToString.str(a) & ", " & ToString.str(b) & ", " & ToString.str(c) & ", " & ToString.str(d) & ", " & ToString.str(e) & ", " & ToString.str(f) & ")"
+        "(" .. ToString.str(a) .. ", " .. ToString.str(b) .. ", " .. ToString.str(c) .. ", " .. ToString.str(d) .. ", " .. ToString.str(e) .. ", " .. ToString.str(f) .. ")"
     }
 }
 implement ToString for (T1 ToString, T2 ToString, T3 ToString, T4 ToString, T5 ToString, T6 ToString, T7 ToString) {
     fn str(p) {
         let (a, b, c, d, e, f, g) = p
-        "(" & ToString.str(a) & ", " & ToString.str(b) & ", " & ToString.str(c) & ", " & ToString.str(d) & ", " & ToString.str(e) & ", " & ToString.str(f) & ", " & ToString.str(g) & ")"
+        "(" .. ToString.str(a) .. ", " .. ToString.str(b) .. ", " .. ToString.str(c) .. ", " .. ToString.str(d) .. ", " .. ToString.str(e) .. ", " .. ToString.str(f) .. ", " .. ToString.str(g) .. ")"
     }
 }
 implement ToString for (T1 ToString, T2 ToString, T3 ToString, T4 ToString, T5 ToString, T6 ToString, T7 ToString, T8 ToString) {
     fn str(p) {
         let (a, b, c, d, e, f, g, h) = p
-        "(" & ToString.str(a) & ", " & ToString.str(b) & ", " & ToString.str(c) & ", " & ToString.str(d) & ", " & ToString.str(e) & ", " & ToString.str(f) & ", " & ToString.str(g) & ", " & ToString.str(h) & ")"
+        "(" .. ToString.str(a) .. ", " .. ToString.str(b) .. ", " .. ToString.str(c) .. ", " .. ToString.str(d) .. ", " .. ToString.str(e) .. ", " .. ToString.str(f) .. ", " .. ToString.str(g) .. ", " .. ToString.str(h) .. ")"
     }
 }
 implement ToString for (T1 ToString, T2 ToString, T3 ToString, T4 ToString, T5 ToString, T6 ToString, T7 ToString, T8 ToString, T9 ToString) {
     fn str(p) {
         let (a, b, c, d, e, f, g, h, i) = p
-        "(" & ToString.str(a) & ", " & ToString.str(b) & ", " & ToString.str(c) & ", " & ToString.str(d) & ", " & ToString.str(e) & ", " & ToString.str(f) & ", " & ToString.str(g) & ", " & ToString.str(h) & ", " & ToString.str(i) & ")"
+        "(" .. ToString.str(a) .. ", " .. ToString.str(b) .. ", " .. ToString.str(c) .. ", " .. ToString.str(d) .. ", " .. ToString.str(e) .. ", " .. ToString.str(f) .. ", " .. ToString.str(g) .. ", " .. ToString.str(h) .. ", " .. ToString.str(i) .. ")"
     }
 }
 implement ToString for (T1 ToString, T2 ToString, T3 ToString, T4 ToString, T5 ToString, T6 ToString, T7 ToString, T8 ToString, T9 ToString, T10 ToString) {
     fn str(p) {
         let (a, b, c, d, e, f, g, h, i, j) = p
-        "(" & ToString.str(a) & ", " & ToString.str(b) & ", " & ToString.str(c) & ", " & ToString.str(d) & ", " & ToString.str(e) & ", " & ToString.str(f) & ", " & ToString.str(g) & ", " & ToString.str(h) & ", " & ToString.str(i) & ", " & ToString.str(j) & ")"
+        "(" .. ToString.str(a) .. ", " .. ToString.str(b) .. ", " .. ToString.str(c) .. ", " .. ToString.str(d) .. ", " .. ToString.str(e) .. ", " .. ToString.str(f) .. ", " .. ToString.str(g) .. ", " .. ToString.str(h) .. ", " .. ToString.str(i) .. ", " .. ToString.str(j) .. ")"
     }
 }
 implement ToString for (T1 ToString, T2 ToString, T3 ToString, T4 ToString, T5 ToString, T6 ToString, T7 ToString, T8 ToString, T9 ToString, T10 ToString, T11 ToString) {
     fn str(p) {
         let (a, b, c, d, e, f, g, h, i, j, k) = p
-        "(" & ToString.str(a) & ", " & ToString.str(b) & ", " & ToString.str(c) & ", " & ToString.str(d) & ", " & ToString.str(e) & ", " & ToString.str(f) & ", " & ToString.str(g) & ", " & ToString.str(h) & ", " & ToString.str(i) & ", " & ToString.str(j) & ", " & ToString.str(k) & ")"
+        "(" .. ToString.str(a) .. ", " .. ToString.str(b) .. ", " .. ToString.str(c) .. ", " .. ToString.str(d) .. ", " .. ToString.str(e) .. ", " .. ToString.str(f) .. ", " .. ToString.str(g) .. ", " .. ToString.str(h) .. ", " .. ToString.str(i) .. ", " .. ToString.str(j) .. ", " .. ToString.str(k) .. ")"
     }
 }
 implement ToString for (T1 ToString, T2 ToString, T3 ToString, T4 ToString, T5 ToString, T6 ToString, T7 ToString, T8 ToString, T9 ToString, T10 ToString, T11 ToString, T12 ToString) {
     fn str(p) {
         let (a, b, c, d, e, f, g, h, i, j, k, l) = p
-        "(" & ToString.str(a) & ", " & ToString.str(b) & ", " & ToString.str(c) & ", " & ToString.str(d) & ", " & ToString.str(e) & ", " & ToString.str(f) & ", " & ToString.str(g) & ", " & ToString.str(h) & ", " & ToString.str(i) & ", " & ToString.str(j) & ", " & ToString.str(k) & ", " & ToString.str(l) & ")"
+        "(" .. ToString.str(a) .. ", " .. ToString.str(b) .. ", " .. ToString.str(c) .. ", " .. ToString.str(d) .. ", " .. ToString.str(e) .. ", " .. ToString.str(f) .. ", " .. ToString.str(g) .. ", " .. ToString.str(h) .. ", " .. ToString.str(i) .. ", " .. ToString.str(j) .. ", " .. ToString.str(k) .. ", " .. ToString.str(l) .. ")"
     }
 }
 
 implement ToString for option<T ToString> {
     fn str(m: option<T ToString>) {
         match m {
-            .some(x) -> "some(" & x & ")",
+            .some(x) -> "some(" .. x .. ")",
             .none -> "none"
         }
     }
@@ -204,7 +204,7 @@ implement ToString for option<T ToString> {
 
 implement ToString for array<T ToString> {
     fn str(arr) {
-        "[ " & array_to_string_helper(arr, 0) & " ]"
+        "[ " .. array_to_string_helper(arr, 0) .. " ]"
     }
 }
 
@@ -215,7 +215,7 @@ fn array_to_string_helper(arr: array<T ToString>, idx: int) {
     } else if idx == l - 1 {
         ToString.str(arr[idx])
     } else {
-        ToString.str(arr[idx]) & ", " & array_to_string_helper(arr, idx + 1)
+        ToString.str(arr[idx]) .. ", " .. array_to_string_helper(arr, idx + 1)
     }
 }
 

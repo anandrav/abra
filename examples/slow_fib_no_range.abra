@@ -7,6 +7,6 @@ fn fib(x) = match x {
 
 var i = 0
 while i < 32 {
-  println(i & ": " & fib(i))
+  println(i .. ": " .. fib(i))
   i = i + 1
 }

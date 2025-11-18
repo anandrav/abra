@@ -567,7 +567,7 @@ impl Value {
     }
 
     #[inline(always)]
-    pub fn view_string<'a>(&self, _vm: &Vm) -> &'a String {
+    pub fn view_string<'a>(&self, _vm: &Vm) -> &'a str {
         let so = unsafe { &*(self.0 as *const StringObject) };
         &so.str
     }
@@ -1287,7 +1287,9 @@ impl Vm {
             }
             Instr::Panic => {
                 let msg = self.pop().view_string(self);
-                self.error = Some(Box::new(self.make_error(VmErrorKind::Panic(msg.clone()))));
+                self.error = Some(Box::new(
+                    self.make_error(VmErrorKind::Panic(msg.to_string())),
+                ));
                 return false;
             }
             Instr::ConstructStruct(n) => self.construct_struct(n as usize),
@@ -1444,7 +1446,7 @@ impl Vm {
                     let libname = self.pop().view_string(self);
                     let lib = unsafe { Library::new(libname) };
                     let Ok(lib) = lib else {
-                        self.fail(VmErrorKind::LibLoadFailure(libname.clone()))
+                        self.fail(VmErrorKind::LibLoadFailure(libname.to_string()))
                     };
                     self.libs.push(lib);
                 }
@@ -1463,7 +1465,7 @@ impl Vm {
                     let symbol /*: Result<libloading::Symbol<unsafe extern "C" fn(*mut Vm) -> ()>, _>*/ =
                         unsafe { lib.get(symbol_name.as_bytes()) };
                     let Ok(symbol) = symbol else {
-                        self.fail(VmErrorKind::SymbolLoadFailure(symbol_name.clone()));
+                        self.fail(VmErrorKind::SymbolLoadFailure(symbol_name.to_string()));
                     };
                     self.foreign_functions.push(*symbol);
                 }

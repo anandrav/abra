@@ -124,7 +124,7 @@ fn first(p: (T, T)) -> T {
 let one = first((1, 2))
 let one = ToString.str(one)
 let two = first(("one", "two"))
-one & two
+one .. two
 "#;
     let program = unwrap_or_panic(compile_bytecode(
         "main.abra",
@@ -147,7 +147,7 @@ fn first(p: (T, T)) -> T {
 let one = first((1, 2))
 let one = ToString.str(one)
 let two = first(("one", "two"))
-one & two
+one .. two
 "#;
     let program = unwrap_or_panic(compile_bytecode(
         "main.abra",
@@ -652,7 +652,7 @@ not(b)
 #[test]
 fn concat_strings() {
     let src = r#"
-let s = "hello " & "world"
+let s = "hello " .. "world"
 s
 "#;
     let program = unwrap_or_panic(compile_bytecode(
@@ -1116,7 +1116,7 @@ format_append(format_append(123, true), false)
 #[test]
 fn ampersand() {
     let src = r#"
-123 & true & false
+123 .. true .. false
 "#;
     let program = unwrap_or_panic(compile_bytecode(
         "main.abra",
@@ -1203,7 +1203,7 @@ type Color =
 
 extend Person {
 	fn fullname(self) -> string {
-		self.first_name & " " & self.last_name
+		self.first_name .. " " .. self.last_name
 	}
 }
 
@@ -1218,7 +1218,7 @@ extend Color {
 
 let p: Person = Person("Anand", "Dukkipati", 26)
 let c: Color = Color.Red
-p.fullname() & " " & c.shout()
+p.fullname() .. " " .. c.shout()
 
 "#;
     let program = unwrap_or_panic(compile_bytecode(
@@ -1247,7 +1247,7 @@ type Color =
 
 extend Person {
 	fn fullname(self) -> string {
-		self.first_name & " " & self.last_name
+		self.first_name .. " " .. self.last_name
 	}
 }
 
@@ -1262,7 +1262,7 @@ extend Color {
 
 let p: Person = Person("Anand", "Dukkipati", 26)
 let c: Color = Color.Red
-p.fullname() & " " & c.fullname()
+p.fullname() .. " " .. c.fullname()
 
 "#;
     let program = unwrap_or_panic(compile_bytecode(
@@ -1286,7 +1286,7 @@ type Person = {
 
 extend Person {
 	fn fullname(self) -> string {
-		self.first_name & " " & self.last_name
+		self.first_name .. " " .. self.last_name
 	}
 }
 
@@ -1305,7 +1305,7 @@ extend Color {
 }
 
 let p: Person = Person("Anand", "Dukkipati", 26)
-Person.fullname(p) & " " & Color.shout(Color.Red)
+Person.fullname(p) .. " " .. Color.shout(Color.Red)
 
 "#;
     let program = unwrap_or_panic(compile_bytecode(

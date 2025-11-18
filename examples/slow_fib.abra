@@ -6,5 +6,5 @@ fn fib(x) = match x {
 }
 
 for i in range(32) {
-  println(i & ": " & fib(i))
+  println(i .. ": " .. fib(i))
 }

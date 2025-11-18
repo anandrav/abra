@@ -16,4 +16,4 @@ while p * p < limit {
     }
     p = p + 1
 }
-println("p = " & p)
+println("p = " .. p)

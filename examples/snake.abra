@@ -226,7 +226,7 @@ fn draw_border(st: State) {
     mark("X", width+1, i)
     mark("X", 0, i)
   }
-  mark("SCORE: " & st.score, 0, height+2)
+  mark("SCORE: " .. st.score, 0, height+2)
 
   mark("HIT 'Q' TO QUIT", 0, height+3)
 }
