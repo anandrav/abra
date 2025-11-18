@@ -372,7 +372,7 @@ pub enum Instr {
 
     // Arithmetic
     AddInt,
-    AddIntReg(i8, u8, i8, u8),
+    AddIntReg(i8, u8, i8, u8), // TODO: the u8's only need 1 bit technically
     IncrementRegImm(i16, i16),
     IncrementRegImmStk(i16, i16),
     SubtractInt,
@@ -397,7 +397,7 @@ pub enum Instr {
 
     // Comparison
     LessThanInt,
-    LessThanIntReg(i16, i16),
+    LessThanIntReg(i8, u8, i8, u8),
     LessThanOrEqualInt,
     GreaterThanInt,
     GreaterThanOrEqualInt,
@@ -1155,9 +1155,15 @@ impl Vm {
                 let a = self.top().get_int(self);
                 self.set_top(a < b);
             }
-            Instr::LessThanIntReg(reg1, reg2) => {
-                let a = self.load_offset(reg1).get_int(self);
-                let b = self.load_offset(reg2).get_int(self);
+            Instr::LessThanIntReg(reg1, use_stack1, reg2, use_stack2) => {
+                let b = self.stack_base.wrapping_add_signed(reg2 as isize)
+                    + ((self.value_stack.len() - 1) * (use_stack2 as usize))
+                    - (self.stack_base * use_stack2 as usize);
+                let b = self.value_stack[b].get_int(self);
+                let a = self.stack_base.wrapping_add_signed(reg1 as isize)
+                    + ((self.value_stack.len() - 1) * (use_stack1 as usize))
+                    - (self.stack_base * use_stack1 as usize);
+                let a = self.value_stack[a].get_int(self);
                 self.push(a < b);
             }
             Instr::LessThanOrEqualInt => {

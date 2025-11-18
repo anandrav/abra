@@ -99,7 +99,7 @@ pub enum Instr {
 
     // Comparison
     LessThanInt,
-    LessThanIntReg(i16, i16),
+    LessThanIntReg(i8, u8, i8, u8),
     LessThanOrEqualInt,
     GreaterThanInt,
     GreaterThanOrEqualInt,
@@ -203,7 +203,19 @@ impl Display for Instr {
             Instr::And => write!(f, "and"),
             Instr::Or => write!(f, "or"),
             Instr::LessThanInt => write!(f, "less_than_int"),
-            Instr::LessThanIntReg(reg1, reg2) => write!(f, "less_than_int_reg {reg1} {reg2}"),
+            Instr::LessThanIntReg(reg1, use_stack1, reg2, use_stack2) => {
+                write!(f, "add_int_reg ")?;
+                if *use_stack1 == 1 {
+                    write!(f, "top")?;
+                } else {
+                    write!(f, "{}", reg1)?;
+                }
+                if *use_stack2 == 1 {
+                    write!(f, "top")
+                } else {
+                    write!(f, "{}", reg2)
+                }
+            }
             Instr::LessThanOrEqualInt => write!(f, "less_than_or_equal_int"),
             Instr::GreaterThanInt => write!(f, "greater_than_int"),
             Instr::GreaterThanOrEqualInt => write!(f, "greater_than_or_equal_int"),
@@ -330,7 +342,7 @@ fn instr_to_vminstr(
         Instr::And => VmInstr::And,
         Instr::Or => VmInstr::Or,
         Instr::LessThanInt => VmInstr::LessThanInt,
-        Instr::LessThanIntReg(reg1, reg2) => VmInstr::LessThanIntReg(*reg1, *reg2),
+        Instr::LessThanIntReg(a, b, c, d) => VmInstr::LessThanIntReg(*a, *b, *c, *d),
         Instr::LessThanOrEqualInt => VmInstr::LessThanOrEqualInt,
         Instr::GreaterThanInt => VmInstr::GreaterThanInt,
         Instr::GreaterThanOrEqualInt => VmInstr::GreaterThanOrEqualInt,

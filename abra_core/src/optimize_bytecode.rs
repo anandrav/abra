@@ -244,7 +244,7 @@ fn peephole3_helper(lines: &[Line], index: &mut usize, ret: &mut Vec<Line>) -> b
                     // LOAD LOAD LT_INT
                     (Instr::LoadOffset(reg1), Instr::LoadOffset(reg2), Instr::LessThanInt) => {
                         ret.push(Line::Instr {
-                            instr: Instr::LessThanIntReg(reg1, *reg2),
+                            instr: Instr::LessThanIntReg(reg1 as i8, 0, *reg2 as i8, 0),
                             lineno,
                             file_id,
                             func_id,
