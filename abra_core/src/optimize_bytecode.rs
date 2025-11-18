@@ -115,7 +115,7 @@ fn peephole2_helper(lines: &[Line], index: &mut usize, ret: &mut Vec<Line>) -> b
                         true
                     }
                     // LESS_THAN_INT JUMPIF -> JUMP_IF_LESS_THAN
-                    (Instr::LessThanIntReg(_, 1, _, 1), Instr::JumpIf(label)) => {
+                    (Instr::LessThanIntReg(Reg::Top, Reg::Top), Instr::JumpIf(label)) => {
                         ret.push(Line::Instr {
                             instr: Instr::JumpIfLessThan(label.clone()),
                             lineno,
@@ -243,10 +243,13 @@ fn peephole3_helper(lines: &[Line], index: &mut usize, ret: &mut Vec<Line>) -> b
                     (
                         Instr::LoadOffset(reg1),
                         Instr::LoadOffset(reg2),
-                        Instr::MultiplyIntReg(_, 1, _, 1),
+                        Instr::MultiplyIntReg(Reg::Top, Reg::Top),
                     ) => {
                         ret.push(Line::Instr {
-                            instr: Instr::MultiplyIntReg(reg1 as i8, 0, *reg2 as i8, 0),
+                            instr: Instr::MultiplyIntReg(
+                                Reg::Offset(reg1 as i8),
+                                Reg::Offset(*reg2 as i8),
+                            ),
                             lineno,
                             file_id,
                             func_id,
@@ -258,10 +261,13 @@ fn peephole3_helper(lines: &[Line], index: &mut usize, ret: &mut Vec<Line>) -> b
                     (
                         Instr::LoadOffset(reg1),
                         Instr::LoadOffset(reg2),
-                        Instr::LessThanIntReg(_, 1, _, 1),
+                        Instr::LessThanIntReg(Reg::Top, Reg::Top),
                     ) => {
                         ret.push(Line::Instr {
-                            instr: Instr::LessThanIntReg(reg1 as i8, 0, *reg2 as i8, 0),
+                            instr: Instr::LessThanIntReg(
+                                Reg::Offset(reg1 as i8),
+                                Reg::Offset(*reg2 as i8),
+                            ),
                             lineno,
                             file_id,
                             func_id,
@@ -320,7 +326,11 @@ fn peephole3_helper(lines: &[Line], index: &mut usize, ret: &mut Vec<Line>) -> b
                         true
                     }
                     // FOLD INT MULTIPLICATION
-                    (Instr::PushInt(a), Instr::PushInt(b), Instr::MultiplyIntReg(_, 1, _, 1)) => {
+                    (
+                        Instr::PushInt(a),
+                        Instr::PushInt(b),
+                        Instr::MultiplyIntReg(Reg::Top, Reg::Top),
+                    ) => {
                         let c = a.wrapping_mul(*b);
                         ret.push(Line::Instr {
                             instr: Instr::PushInt(c),

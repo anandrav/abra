@@ -481,7 +481,7 @@ impl Translator {
                         _ => unreachable!(),
                     },
                     BinaryOperator::Multiply => match arg1_ty {
-                        SolvedType::Int => self.emit(st, Instr::MultiplyIntReg(0, 1, 0, 1)),
+                        SolvedType::Int => self.emit(st, Instr::MultiplyIntReg(Reg::Top, Reg::Top)),
                         SolvedType::Float => self.emit(st, Instr::MultiplyFloat),
                         _ => unreachable!(),
                     },
@@ -496,7 +496,7 @@ impl Translator {
                         _ => unreachable!(),
                     },
                     BinaryOperator::LessThan => match arg1_ty {
-                        SolvedType::Int => self.emit(st, Instr::LessThanIntReg(0, 1, 0, 1)),
+                        SolvedType::Int => self.emit(st, Instr::LessThanIntReg(Reg::Top, Reg::Top)),
                         SolvedType::Float => self.emit(st, Instr::LessThanFloat),
                         _ => unreachable!(),
                     },
@@ -890,7 +890,7 @@ impl Translator {
                     self.emit(st, Instr::SubtractInt);
                 }
                 BuiltinOperation::MultiplyInt => {
-                    self.emit(st, Instr::MultiplyIntReg(0, 1, 0, 1));
+                    self.emit(st, Instr::MultiplyIntReg(Reg::Top, Reg::Top));
                 }
                 BuiltinOperation::DivideInt => {
                     self.emit(st, Instr::DivideInt);
@@ -923,7 +923,7 @@ impl Translator {
                     self.emit(st, Instr::SquareRoot);
                 }
                 BuiltinOperation::LessThanInt => {
-                    self.emit(st, Instr::LessThanIntReg(0, 1, 0, 1));
+                    self.emit(st, Instr::LessThanIntReg(Reg::Top, Reg::Top));
                 }
                 BuiltinOperation::LessThanOrEqualInt => {
                     self.emit(st, Instr::LessThanOrEqualInt);

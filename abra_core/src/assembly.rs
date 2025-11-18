@@ -77,7 +77,7 @@ pub enum Instr {
     IncrementRegImm(i16, i16),
     IncrementRegImmStk(i16, i16),
     SubtractInt,
-    MultiplyIntReg(i8, u8, i8, u8),
+    MultiplyIntReg(Reg, Reg),
     DivideInt,
     PowerInt,
     Modulo,
@@ -96,7 +96,7 @@ pub enum Instr {
     Or,
 
     // Comparison
-    LessThanIntReg(i8, u8, i8, u8),
+    LessThanIntReg(Reg, Reg),
     LessThanOrEqualInt,
     GreaterThanInt,
     GreaterThanOrEqualInt,
@@ -192,18 +192,8 @@ impl Display for Instr {
             Instr::IncrementRegImm(reg, n) => write!(f, "incr_int_reg {reg} {n}"),
             Instr::IncrementRegImmStk(reg, n) => write!(f, "incr_int_reg_stk {reg} {n}"),
             Instr::SubtractInt => write!(f, "subtract_int"),
-            Instr::MultiplyIntReg(reg1, use_stack1, reg2, use_stack2) => {
-                write!(f, "multiply_int_reg ")?;
-                if *use_stack1 == 1 {
-                    write!(f, "top")?;
-                } else {
-                    write!(f, "{}", reg1)?;
-                }
-                if *use_stack2 == 1 {
-                    write!(f, " top")
-                } else {
-                    write!(f, " {}", reg2)
-                }
+            Instr::MultiplyIntReg(reg1, reg2) => {
+                write!(f, "multiply_int_reg {reg1} {reg2}")
             }
             Instr::DivideInt => write!(f, "divide_int"),
             Instr::PowerInt => write!(f, "power_int"),
@@ -217,18 +207,8 @@ impl Display for Instr {
             Instr::Not => write!(f, "not"),
             Instr::And => write!(f, "and"),
             Instr::Or => write!(f, "or"),
-            Instr::LessThanIntReg(reg1, use_stack1, reg2, use_stack2) => {
-                write!(f, "less_than_int_reg ")?;
-                if *use_stack1 == 1 {
-                    write!(f, "top")?;
-                } else {
-                    write!(f, "{}", reg1)?;
-                }
-                if *use_stack2 == 1 {
-                    write!(f, " top")
-                } else {
-                    write!(f, " {}", reg2)
-                }
+            Instr::LessThanIntReg(reg1, reg2) => {
+                write!(f, "less_than_int_reg {reg1} {reg2}")
             }
             Instr::LessThanOrEqualInt => write!(f, "less_than_or_equal_int"),
             Instr::GreaterThanInt => write!(f, "greater_than_int"),
@@ -345,7 +325,12 @@ fn instr_to_vminstr(
         Instr::IncrementRegImm(reg, n) => VmInstr::IncrementRegImm(*reg, *n),
         Instr::IncrementRegImmStk(reg, n) => VmInstr::IncrementRegImmStk(*reg, *n),
         Instr::SubtractInt => VmInstr::SubtractInt,
-        Instr::MultiplyIntReg(a, b, c, d) => VmInstr::MultiplyIntReg(*a, *b, *c, *d),
+        Instr::MultiplyIntReg(reg1, reg2) => VmInstr::MultiplyIntReg(
+            reg1.offset(),
+            reg1.use_stack(),
+            reg2.offset(),
+            reg2.use_stack(),
+        ),
         Instr::DivideInt => VmInstr::DivideInt,
         Instr::PowerInt => VmInstr::PowerInt,
         Instr::Modulo => VmInstr::Modulo,
@@ -358,7 +343,12 @@ fn instr_to_vminstr(
         Instr::Not => VmInstr::Not,
         Instr::And => VmInstr::And,
         Instr::Or => VmInstr::Or,
-        Instr::LessThanIntReg(a, b, c, d) => VmInstr::LessThanIntReg(*a, *b, *c, *d),
+        Instr::LessThanIntReg(reg1, reg2) => VmInstr::LessThanIntReg(
+            reg1.offset(),
+            reg1.use_stack(),
+            reg2.offset(),
+            reg2.use_stack(),
+        ),
         Instr::LessThanOrEqualInt => VmInstr::LessThanOrEqualInt,
         Instr::GreaterThanInt => VmInstr::GreaterThanInt,
         Instr::GreaterThanOrEqualInt => VmInstr::GreaterThanOrEqualInt,
