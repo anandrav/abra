@@ -372,12 +372,12 @@ pub enum Instr {
 
     // Arithmetic
     AddInt,
-    AddIntReg(i16, i16),
+    AddIntReg(i8, u8, i8, u8),
     IncrementRegImm(i16, i16),
     IncrementRegImmStk(i16, i16),
     SubtractInt,
     MultiplyInt,
-    MultiplyIntReg(i16, i16),
+    MultiplyIntReg(i8, u8, i8, u8),
     DivideInt,
     PowerInt,
     Modulo,
@@ -993,9 +993,24 @@ impl Vm {
                 };
                 self.set_top(c);
             }
-            Instr::AddIntReg(reg1, reg2) => {
-                let a = self.load_offset(reg1).get_int(self);
-                let b = self.load_offset(reg2).get_int(self);
+            Instr::AddIntReg(reg1, use_stack1, reg2, use_stack2) => {
+                // assert_eq!(use_stack1, 0);
+                // assert_eq!(use_stack2, 0);
+                // println!(
+                //     "stack_len = {}, stack_base = {}, reg2 = {}, reg1 = {}",
+                //     self.value_stack.len(),
+                //     self.stack_base,
+                //     reg2,
+                //     reg1
+                // );
+                let b = self.stack_base.wrapping_add_signed(reg2 as isize)
+                    + ((self.value_stack.len() - 1) * (use_stack2 as usize))
+                    - (self.stack_base * use_stack2 as usize) * use_stack2 as usize;
+                let b = self.value_stack[b].get_int(self);
+                let a = self.stack_base.wrapping_add_signed(reg1 as isize)
+                    + ((self.value_stack.len() - 1) * (use_stack1 as usize))
+                    - (self.stack_base * use_stack1 as usize) * use_stack1 as usize;
+                let a = self.value_stack[a].get_int(self);
                 let Some(c) = a.checked_add(b) else {
                     self.error = Some(
                         self.make_error(VmErrorKind::IntegerOverflowUnderflow)
@@ -1037,9 +1052,15 @@ impl Vm {
                 };
                 self.set_top(c);
             }
-            Instr::MultiplyIntReg(reg1, reg2) => {
-                let a = self.load_offset(reg1).get_int(self);
-                let b = self.load_offset(reg2).get_int(self);
+            Instr::MultiplyIntReg(reg1, use_stack1, reg2, use_stack2) => {
+                let b = self.stack_base.wrapping_add_signed(reg2 as isize)
+                    + ((self.value_stack.len() - 1) * (use_stack2 as usize))
+                    - (self.stack_base * use_stack2 as usize) * use_stack2 as usize;
+                let b = self.value_stack[b].get_int(self);
+                let a = self.stack_base.wrapping_add_signed(reg1 as isize)
+                    + ((self.value_stack.len() - 1) * (use_stack1 as usize))
+                    - (self.stack_base * use_stack1 as usize) * use_stack1 as usize;
+                let a = self.value_stack[a].get_int(self);
                 let Some(c) = a.checked_mul(b) else {
                     self.error = Some(
                         self.make_error(VmErrorKind::IntegerOverflowUnderflow)
