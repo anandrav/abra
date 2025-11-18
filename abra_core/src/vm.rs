@@ -372,6 +372,7 @@ pub enum Instr {
     Duplicate,
     LoadOffset(i8),
     StoreOffset(i8),
+    StoreOffsetImm(i8, i16),
 
     // Constants
     PushNil(u16),
@@ -988,6 +989,10 @@ impl Vm {
             Instr::StoreOffset(n) => {
                 let v = self.pop();
                 self.store_offset(n, v);
+            }
+            Instr::StoreOffsetImm(n, imm) => {
+                let imm = AbraInt::from(imm as i64);
+                self.store_offset(n, imm);
             }
             Instr::AddInt(reg1, use_stack1, reg2, use_stack2) => {
                 let b = self.load_offset_or_top(reg2, use_stack2).get_int(self);

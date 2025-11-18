@@ -169,6 +169,17 @@ fn peephole2_helper(lines: &[Line], index: &mut usize, ret: &mut Vec<Line>) -> b
                         *index += 2;
                         true
                     }
+                    // PUSHINT STORE -> STORE IMM
+                    (Instr::PushInt(n), Instr::StoreOffset(offset)) if fits_imm(n) => {
+                        ret.push(Line::Instr {
+                            instr: Instr::StoreOffsetImm(*offset, as_imm(n)),
+                            lineno,
+                            file_id,
+                            func_id,
+                        });
+                        *index += 2;
+                        true
+                    }
                     _ => false,
                 }
             } else {

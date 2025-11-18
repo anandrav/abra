@@ -64,6 +64,7 @@ pub enum Instr {
     Duplicate,
     LoadOffset(i8),
     StoreOffset(i8),
+    StoreOffsetImm(i8, i16),
 
     // Constants
     PushNil(u16),
@@ -186,6 +187,7 @@ impl Display for Instr {
             Instr::Duplicate => write!(f, "duplicate"),
             Instr::LoadOffset(n) => write!(f, "load_offset {n}"),
             Instr::StoreOffset(n) => write!(f, "store_offset {n}"),
+            Instr::StoreOffsetImm(n, imm) => write!(f, "store_offset_imm {n} {imm}"),
             Instr::AddInt(reg1, reg2) => {
                 write!(f, "add_int {reg1} {reg2}")
             }
@@ -316,6 +318,7 @@ fn instr_to_vminstr(
         Instr::Duplicate => VmInstr::Duplicate,
         Instr::LoadOffset(i) => VmInstr::LoadOffset(*i),
         Instr::StoreOffset(i) => VmInstr::StoreOffset(*i),
+        Instr::StoreOffsetImm(i, imm) => VmInstr::StoreOffsetImm(*i, *imm),
         Instr::AddInt(reg1, reg2) => VmInstr::AddInt(
             reg1.offset(),
             reg1.use_stack(),
