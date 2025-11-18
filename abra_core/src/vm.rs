@@ -45,13 +45,13 @@ pub struct Vm {
     // constants
     int_constants: Vec<i64>,
     float_constants: Vec<f64>,
-    static_strings: Vec<String>,
-    filename_arena: Vec<String>,
-    function_name_arena: Vec<String>,
+    static_strings: Vec<*mut StringObject>,
     // source map
     filename_table: Vec<(BytecodeIndex, u32)>,
     lineno_table: Vec<(BytecodeIndex, u32)>,
     function_name_table: Vec<(BytecodeIndex, u32)>,
+    filename_arena: Vec<String>,
+    function_name_arena: Vec<String>,
     // status
     pending_host_func: Option<u16>,
     error: Option<Box<VmError>>,
@@ -136,7 +136,7 @@ pub type ErrorLocation = (String, u32);
 
 impl Vm {
     pub fn new(program: CompiledProgram) -> Self {
-        Self {
+        let mut vm = Self {
             program: program.instructions,
             pc: ProgramCounter(0),
             // stack[0] is return value from main
@@ -153,7 +153,7 @@ impl Vm {
 
             int_constants: program.int_constants.into_iter().collect(),
             float_constants: program.float_constants.into_iter().collect(),
-            static_strings: program.static_strings.into_iter().collect(),
+            static_strings: vec![],
             filename_arena: program.filename_arena.into_iter().collect(),
             function_name_arena: program.function_name_arena.into_iter().collect(),
 
@@ -169,7 +169,14 @@ impl Vm {
             libs: Vec::new(),
             #[cfg(feature = "ffi")]
             foreign_functions: Vec::new(),
+        };
+
+        for s in program.static_strings {
+            let s_obj = StringObject::new(s, &mut vm);
+            vm.static_strings.push(s_obj);
         }
+
+        vm
     }
 }
 
@@ -997,9 +1004,7 @@ impl Vm {
                 self.push(b);
             }
             Instr::PushString(idx) => {
-                // TODO: copying string every time is not good ...
-                let s = &self.static_strings[idx as usize];
-                let s = StringObject::new(s.clone(), self);
+                let s = self.static_strings[idx as usize];
                 self.push(s);
             }
             Instr::Pop => {
@@ -1515,6 +1520,9 @@ impl Vm {
         for v in self.value_stack.iter().cloned() {
             Self::mark(v, &mut self.gray_stack);
         }
+        for s_ptr in self.static_strings.iter().cloned() {
+            Self::mark(Value::from(s_ptr), &mut self.gray_stack);
+        }
 
         self.gc_state = GcState::Marking;
     }
@@ -1632,13 +1640,11 @@ impl Vm {
     }
 
     pub fn nbytes(&self) -> usize {
-        let mut n = self.program.len() * size_of::<Instr>()
+        // TODO: should anything else be taken into account?
+        self.program.len() * size_of::<Instr>()
             + self.value_stack.len() * size_of::<Value>()
             + self.call_stack.len() * size_of::<CallFrame>()
-            + self.heap_size;
-
-        n += self.static_strings.iter().map(|s| s.len()).sum::<usize>();
-        n
+            + self.heap_size
     }
 }
 
