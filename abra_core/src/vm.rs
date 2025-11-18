@@ -1232,11 +1232,9 @@ impl Vm {
 
                 let frame = self.call_stack.pop().unwrap();
                 self.pc = frame.pc;
-                // TODO: old_stack_base temp variable not needed
-                let old_stack_base = self.stack_base;
-                self.stack_base = frame.stack_base;
                 self.value_stack
-                    .truncate(old_stack_base - (frame.nargs as usize) + 1);
+                    .truncate(self.stack_base - (frame.nargs as usize) + 1);
+                self.stack_base = frame.stack_base;
             }
             Instr::Stop => {
                 self.value_stack.truncate(1);
