@@ -1025,12 +1025,26 @@ impl Vm {
             Instr::AddInt => {
                 let b = self.pop_int();
                 let a = self.top().get_int(self);
-                self.set_top(a.wrapping_add(b));
+                let Some(c) = a.checked_add(b) else {
+                    self.error = Some(
+                        self.make_error(VmErrorKind::IntegerOverflowUnderflow)
+                            .into(),
+                    );
+                    return false;
+                };
+                self.set_top(c);
             }
             Instr::AddIntReg(reg1, reg2) => {
                 let a = self.load_offset(reg1).get_int(self);
                 let b = self.load_offset(reg2).get_int(self);
-                self.push(a.wrapping_add(b));
+                let Some(c) = a.checked_add(b) else {
+                    self.error = Some(
+                        self.make_error(VmErrorKind::IntegerOverflowUnderflow)
+                            .into(),
+                    );
+                    return false;
+                };
+                self.push(c);
             }
             Instr::IncrementRegImm(reg, n) => {
                 let a = self.load_offset(reg).get_int(self);
@@ -1039,17 +1053,38 @@ impl Vm {
             Instr::SubtractInt => {
                 let b = self.pop_int();
                 let a = self.top().get_int(self);
-                self.set_top(a.wrapping_sub(b));
+                let Some(c) = a.checked_sub(b) else {
+                    self.error = Some(
+                        self.make_error(VmErrorKind::IntegerOverflowUnderflow)
+                            .into(),
+                    );
+                    return false;
+                };
+                self.set_top(c);
             }
             Instr::MultiplyInt => {
                 let b = self.pop_int();
                 let a = self.top().get_int(self);
-                self.set_top(a.wrapping_mul(b));
+                let Some(c) = a.checked_mul(b) else {
+                    self.error = Some(
+                        self.make_error(VmErrorKind::IntegerOverflowUnderflow)
+                            .into(),
+                    );
+                    return false;
+                };
+                self.set_top(c);
             }
             Instr::MultiplyIntReg(reg1, reg2) => {
                 let a = self.load_offset(reg1).get_int(self);
                 let b = self.load_offset(reg2).get_int(self);
-                self.push(a.wrapping_mul(b));
+                let Some(c) = a.checked_mul(b) else {
+                    self.error = Some(
+                        self.make_error(VmErrorKind::IntegerOverflowUnderflow)
+                            .into(),
+                    );
+                    return false;
+                };
+                self.push(c);
             }
             Instr::DivideInt => {
                 let b = self.pop_int();
@@ -1058,12 +1093,26 @@ impl Vm {
                     self.error = Some(self.make_error(VmErrorKind::DivisionByZero).into());
                     return false;
                 }
-                self.set_top(a.wrapping_div(b));
+                let Some(c) = a.checked_div(b) else {
+                    self.error = Some(
+                        self.make_error(VmErrorKind::IntegerOverflowUnderflow)
+                            .into(),
+                    );
+                    return false;
+                };
+                self.set_top(c);
             }
             Instr::PowerInt => {
                 let b = self.pop_int();
                 let a = self.top().get_int(self);
-                self.set_top(a.wrapping_pow(b as u32));
+                let Some(c) = a.checked_pow(b as u32) else {
+                    self.error = Some(
+                        self.make_error(VmErrorKind::IntegerOverflowUnderflow)
+                            .into(),
+                    );
+                    return false;
+                };
+                self.set_top(c);
             }
             Instr::Modulo => {
                 let b = self.pop_int();
