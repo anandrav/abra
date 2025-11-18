@@ -62,8 +62,8 @@ pub enum Instr {
     // Stack manipulation
     Pop,
     Duplicate,
-    LoadOffset(i16),
-    StoreOffset(i16),
+    LoadOffset(i8),
+    StoreOffset(i8),
 
     // Constants
     PushNil(u16),
@@ -74,8 +74,8 @@ pub enum Instr {
 
     // Arithmetic
     AddIntReg(Reg, Reg),
-    IncrementRegImm(i16, i16),
-    IncrementRegImmStk(i16, i16),
+    IncrementRegImm(i8, i16),
+    IncrementRegImmStk(i8, i16),
     SubtractInt,
     MultiplyIntReg(Reg, Reg),
     DivideInt,
@@ -129,13 +129,13 @@ pub enum Instr {
     DeconstructStruct,
     DeconstructVariant,
     GetField(u16),
-    GetFieldOffset(u16, i16),
+    GetFieldOffset(u16, i8),
     SetField(u16),
-    SetFieldOffset(u16, i16),
+    SetFieldOffset(u16, i8),
     GetIdx,
-    GetIdxOffset(i16, i16),
+    GetIdxOffset(i8, i8),
     SetIdx,
-    SetIdxOffset(i16, i16),
+    SetIdxOffset(i8, i8),
     MakeClosure { func_addr: Label },
 
     ArrayPush,

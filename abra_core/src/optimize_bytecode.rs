@@ -228,10 +228,7 @@ fn peephole3_helper(lines: &[Line], index: &mut usize, ret: &mut Vec<Line>) -> b
                         Instr::AddIntReg(Reg::Top, Reg::Top),
                     ) => {
                         ret.push(Line::Instr {
-                            instr: Instr::AddIntReg(
-                                Reg::Offset(reg1 as i8),
-                                Reg::Offset(*reg2 as i8),
-                            ), // TODO: just make all offsets i8
+                            instr: Instr::AddIntReg(Reg::Offset(reg1), Reg::Offset(*reg2)),
                             lineno,
                             file_id,
                             func_id,
@@ -246,10 +243,7 @@ fn peephole3_helper(lines: &[Line], index: &mut usize, ret: &mut Vec<Line>) -> b
                         Instr::MultiplyIntReg(Reg::Top, Reg::Top),
                     ) => {
                         ret.push(Line::Instr {
-                            instr: Instr::MultiplyIntReg(
-                                Reg::Offset(reg1 as i8),
-                                Reg::Offset(*reg2 as i8),
-                            ),
+                            instr: Instr::MultiplyIntReg(Reg::Offset(reg1), Reg::Offset(*reg2)),
                             lineno,
                             file_id,
                             func_id,
@@ -264,10 +258,7 @@ fn peephole3_helper(lines: &[Line], index: &mut usize, ret: &mut Vec<Line>) -> b
                         Instr::LessThanIntReg(Reg::Top, Reg::Top),
                     ) => {
                         ret.push(Line::Instr {
-                            instr: Instr::LessThanIntReg(
-                                Reg::Offset(reg1 as i8),
-                                Reg::Offset(*reg2 as i8),
-                            ),
+                            instr: Instr::LessThanIntReg(Reg::Offset(reg1), Reg::Offset(*reg2)),
                             lineno,
                             file_id,
                             func_id,
@@ -503,4 +494,9 @@ fn peephole4_helper(lines: &[Line], index: &mut usize, ret: &mut Vec<Line>) -> b
             }
         }
     }
+}
+
+// TODO: use this helper
+fn as_imm(n: i64) -> Option<i16> {
+    n.try_into().ok()
 }

@@ -206,7 +206,7 @@ impl Vm {
         self.value_stack[len - 1] = val.into();
     }
 
-    pub fn load_offset(&self, offset: i16) -> Value {
+    pub fn load_offset(&self, offset: i8) -> Value {
         self.value_stack[self.stack_base.wrapping_add_signed(offset as isize)]
     }
 
@@ -220,7 +220,7 @@ impl Vm {
         ret
     }
 
-    pub fn store_offset(&mut self, offset: i16, v: impl Into<Value>) {
+    pub fn store_offset(&mut self, offset: i8, v: impl Into<Value>) {
         self.value_stack[self.stack_base.wrapping_add_signed(offset as isize)] = v.into();
     }
 
@@ -370,8 +370,8 @@ pub enum Instr {
     // Stack manipulation
     Pop,
     Duplicate,
-    LoadOffset(i16),
-    StoreOffset(i16),
+    LoadOffset(i8),
+    StoreOffset(i8),
 
     // Constants
     PushNil(u16),
@@ -381,9 +381,9 @@ pub enum Instr {
     PushString(u32),
 
     // Arithmetic
-    AddIntReg(i8, u8, i8, u8), // TODO: the u8's only need 1 bit technically
-    IncrementRegImm(i16, i16),
-    IncrementRegImmStk(i16, i16),
+    AddIntReg(i8, u8, i8, u8), // TODO: the u8's only need 1 bit technically FYI.
+    IncrementRegImm(i8, i16),
+    IncrementRegImmStk(i8, i16),
     SubtractInt,
     MultiplyInt,
     MultiplyIntReg(i8, u8, i8, u8),
@@ -444,13 +444,13 @@ pub enum Instr {
     DeconstructArray,
     DeconstructVariant,
     GetField(u16),
-    GetFieldOffset(u16, i16),
+    GetFieldOffset(u16, i8),
     SetField(u16),
-    SetFieldOffset(u16, i16),
+    SetFieldOffset(u16, i8),
     GetIdx,
-    GetIdxOffset(i16, i16),
+    GetIdxOffset(i8, i8),
     SetIdx,
-    SetIdxOffset(i16, i16),
+    SetIdxOffset(i8, i8),
     MakeClosure { func_addr: ProgramCounter },
 
     ArrayPush,
