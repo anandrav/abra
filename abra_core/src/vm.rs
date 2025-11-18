@@ -194,7 +194,6 @@ impl Vm {
         }
     }
 
-    #[inline(always)]
     pub fn top(&self) -> Value {
         match self.value_stack.last() {
             Some(v) => *v,
@@ -202,23 +201,19 @@ impl Vm {
         }
     }
 
-    #[inline(always)]
     fn set_top(&mut self, val: impl Into<Value>) {
         let len = self.value_stack.len();
         self.value_stack[len - 1] = val.into();
     }
 
-    #[inline(always)]
     pub fn load_offset(&self, offset: i16) -> Value {
         self.value_stack[self.stack_base.wrapping_add_signed(offset as isize)]
     }
 
-    #[inline(always)]
     pub fn store_offset(&mut self, offset: i16, v: impl Into<Value>) {
         self.value_stack[self.stack_base.wrapping_add_signed(offset as isize)] = v.into();
     }
 
-    #[inline(always)]
     pub fn pop(&mut self) -> Value {
         match self.value_stack.pop() {
             Some(v) => v,
@@ -226,41 +221,34 @@ impl Vm {
         }
     }
 
-    #[inline(always)]
     pub fn pop_n(&mut self, n: usize) -> Vec<Value> {
         self.value_stack
             .drain(self.value_stack.len() - n..)
             .collect()
     }
 
-    #[inline(always)]
     pub fn push_int(&mut self, n: AbraInt) {
         self.push(n);
     }
 
-    #[inline(always)]
     pub fn push_str(&mut self, s: String) {
         let s = StringObject::new(s, self);
         let r = Value::from(s);
         self.push(r);
     }
 
-    #[inline(always)]
     pub fn push_nil(&mut self) {
         self.push(());
     }
 
-    #[inline(always)]
     pub fn push_bool(&mut self, b: bool) {
         self.push(b);
     }
 
-    #[inline(always)]
     pub fn push_float(&mut self, f: AbraFloat) {
         self.push(f);
     }
 
-    #[inline(always)]
     pub fn construct_variant(&mut self, tag: u16) {
         let value = self.top();
         let variant = EnumObject::new(tag, value, self);
@@ -268,26 +256,22 @@ impl Vm {
         self.set_top(r);
     }
 
-    #[inline(always)]
     pub fn construct_tuple(&mut self, n: usize) {
         self.construct_struct(n)
     }
 
-    #[inline(always)]
     pub fn construct_struct(&mut self, n: usize) {
         let fields = self.pop_n(n);
         let ptr = StructObject::new(fields, self);
         self.push(ptr);
     }
 
-    #[inline(always)]
     pub fn construct_array(&mut self, n: usize) {
         let fields = self.pop_n(n);
         let ptr = ArrayObject::new(fields, self);
         self.push(ptr);
     }
 
-    #[inline(always)]
     pub fn deconstruct_struct(&mut self) {
         let val = self.pop();
         let s = val.get_struct(self);
@@ -295,14 +279,12 @@ impl Vm {
         self.value_stack.extend(fields.iter().rev());
     }
 
-    #[inline(always)]
     pub fn deconstruct_array(&mut self) {
         let val = self.pop();
         let arr = val.get_array(self);
         self.value_stack.extend(arr.data.iter().rev());
     }
 
-    #[inline(always)]
     pub fn deconstruct_variant(&mut self) {
         let val = self.top();
         let (val, tag) = {
@@ -313,7 +295,6 @@ impl Vm {
         self.push(tag as AbraInt);
     }
 
-    #[inline(always)]
     pub fn array_len(&mut self) -> usize {
         let val = self.top();
         let arr = val.get_array(self);
@@ -336,7 +317,6 @@ impl Vm {
         self.error.clone()
     }
 
-    #[inline(always)]
     fn fail(&self, kind: VmErrorKind) -> ! {
         panic!(
             "{}",
@@ -348,7 +328,6 @@ impl Vm {
         )
     }
 
-    #[inline(always)]
     fn make_error(&self, kind: VmErrorKind) -> VmError {
         VmError {
             kind,
@@ -357,7 +336,6 @@ impl Vm {
         }
     }
 
-    #[inline(always)]
     fn _fail_wrong_type(&self, expected: ValueKind) -> ! {
         panic!(
             "{}",
@@ -489,17 +467,16 @@ impl CallData {
     const NARGS_MASK: u32 = 0b11111 << Self::NARGS_SHIFT;
     const ADDR_MASK: u32 = !Self::NARGS_MASK;
 
-    #[inline(always)]
     pub(crate) fn new(nargs: u32, addr: u32) -> Self {
         debug_assert!(addr <= Self::ADDR_MASK);
         let repr = addr | nargs << Self::NARGS_SHIFT;
         CallData(repr)
     }
-    #[inline(always)]
+
     fn get_addr(&self) -> u32 {
         self.0 & Self::ADDR_MASK
     }
-    #[inline(always)]
+
     fn get_nargs(&self) -> u32 {
         self.0 >> Self::NARGS_SHIFT
     }
@@ -512,37 +489,30 @@ pub struct Value(u64, /*is_pointer*/ bool);
 // TODO: get rid of is_pointer using separate bitvec
 
 impl Value {
-    #[inline(always)]
     pub fn get_int(&self, _vm: &Vm) -> AbraInt {
         self.0 as AbraInt
     }
 
-    #[inline(always)]
     pub fn get_float(&self, _vm: &Vm) -> AbraFloat {
         AbraFloat::from_bits(self.0)
     }
 
-    #[inline(always)]
     pub fn get_bool(&self, _vm: &Vm) -> bool {
         self.0 != 0
     }
 
-    #[inline(always)]
     unsafe fn get_object_header<'a>(&self) -> &'a mut ObjectHeader {
         unsafe { &mut *(self.0 as *mut ObjectHeader) }
     }
 
-    #[inline(always)]
     fn get_struct<'a>(&self, _vm: &mut Vm) -> &'a StructObject {
         unsafe { &*(self.0 as *const StructObject) }
     }
 
-    #[inline(always)]
     unsafe fn get_struct_mut<'a>(&self, _vm: &mut Vm) -> &'a mut StructObject {
         unsafe { &mut *(self.0 as *mut StructObject) }
     }
 
-    #[inline(always)]
     fn get_array<'a>(&self, _vm: &mut Vm) -> &'a ArrayObject
     where
         Self: Sized,
@@ -550,7 +520,6 @@ impl Value {
         unsafe { &*(self.0 as *const ArrayObject) }
     }
 
-    #[inline(always)]
     unsafe fn get_array_mut<'a>(&self, _vm: &mut Vm) -> &'a mut ArrayObject
     where
         Self: Sized,
@@ -558,7 +527,6 @@ impl Value {
         unsafe { &mut *(self.0 as *mut ArrayObject) }
     }
 
-    #[inline(always)]
     fn get_variant<'a>(&self, _vm: &Vm) -> &'a EnumObject
     where
         Self: Sized,
@@ -566,76 +534,65 @@ impl Value {
         unsafe { &mut *(self.0 as *mut EnumObject) }
     }
 
-    #[inline(always)]
     pub fn view_string<'a>(&self, _vm: &Vm) -> &'a str {
         let so = unsafe { &*(self.0 as *const StringObject) };
         &so.str
     }
 
-    #[inline(always)]
     fn get_addr(&self, _vm: &Vm) -> ProgramCounter {
         ProgramCounter(self.0 as u32)
     }
 }
 
 impl From<()> for Value {
-    #[inline(always)]
     fn from(_: ()) -> Self {
         Self(0, false)
     }
 }
 
 impl From<bool> for Value {
-    #[inline(always)]
     fn from(b: bool) -> Self {
         Self(if b { 1 } else { 0 }, false)
     }
 }
 
 impl From<AbraInt> for Value {
-    #[inline(always)]
     fn from(n: AbraInt) -> Self {
         Self(n as u64, false)
     }
 }
 
 impl From<AbraFloat> for Value {
-    #[inline(always)]
     fn from(n: AbraFloat) -> Self {
         Self(AbraFloat::to_bits(n), false)
     }
 }
 
 impl From<ProgramCounter> for Value {
-    #[inline(always)]
     fn from(n: ProgramCounter) -> Self {
         Self(n.0 as u64, false)
     }
 }
 
 impl From<*mut ArrayObject> for Value {
-    #[inline(always)]
     fn from(ptr: *mut ArrayObject) -> Self {
         Self(ptr as u64, true)
     }
 }
 
 impl From<*mut StructObject> for Value {
-    #[inline(always)]
     fn from(ptr: *mut StructObject) -> Self {
         Self(ptr as u64, true)
     }
 }
 
 impl From<*mut EnumObject> for Value {
-    #[inline(always)]
     fn from(ptr: *mut EnumObject) -> Self {
         Self(ptr as u64, true)
     }
 }
 
 impl From<*mut StringObject> for Value {
-    #[inline(always)]
     fn from(ptr: *mut StringObject) -> Self {
         Self(ptr as u64, true)
     }
@@ -983,7 +940,6 @@ impl Vm {
         }
     }
 
-    #[inline(always)]
     fn step(&mut self) -> bool {
         let instr = self.program[self.pc.get()];
 
@@ -1529,7 +1485,6 @@ impl Vm {
         }
     }
 
-    #[inline(always)]
     fn make_stack_trace(&self) -> Vec<VmErrorLocation> {
         let mut ret = vec![];
         for frame in &self.call_stack {
@@ -1709,27 +1664,22 @@ impl Drop for Vm {
 }
 
 impl Vm {
-    #[inline(always)]
     fn push(&mut self, x: impl Into<Value>) {
         self.value_stack.push(x.into());
     }
 
-    #[inline(always)]
     pub fn pop_int(&mut self) -> AbraInt {
         self.pop().get_int(self)
     }
 
-    #[inline(always)]
     pub fn pop_float(&mut self) -> AbraFloat {
         self.pop().get_float(self)
     }
 
-    #[inline(always)]
     pub(crate) fn pop_bool(&mut self) -> bool {
         self.pop().get_bool(self)
     }
 
-    #[inline(always)]
     fn pop_addr(&mut self) -> ProgramCounter {
         self.pop().get_addr(self)
     }
