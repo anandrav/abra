@@ -96,7 +96,6 @@ pub enum Instr {
     Or,
 
     // Comparison
-    LessThanInt,
     LessThanIntReg(i8, u8, i8, u8),
     LessThanOrEqualInt,
     GreaterThanInt,
@@ -198,7 +197,6 @@ impl Display for Instr {
             Instr::Not => write!(f, "not"),
             Instr::And => write!(f, "and"),
             Instr::Or => write!(f, "or"),
-            Instr::LessThanInt => write!(f, "less_than_int"),
             Instr::LessThanIntReg(reg1, use_stack1, reg2, use_stack2) => {
                 write!(f, "add_int_reg ")?;
                 if *use_stack1 == 1 {
@@ -335,7 +333,6 @@ fn instr_to_vminstr(
         Instr::Not => VmInstr::Not,
         Instr::And => VmInstr::And,
         Instr::Or => VmInstr::Or,
-        Instr::LessThanInt => VmInstr::LessThanInt,
         Instr::LessThanIntReg(a, b, c, d) => VmInstr::LessThanIntReg(*a, *b, *c, *d),
         Instr::LessThanOrEqualInt => VmInstr::LessThanOrEqualInt,
         Instr::GreaterThanInt => VmInstr::GreaterThanInt,

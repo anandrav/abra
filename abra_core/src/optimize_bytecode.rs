@@ -115,7 +115,7 @@ fn peephole2_helper(lines: &[Line], index: &mut usize, ret: &mut Vec<Line>) -> b
                         true
                     }
                     // LESS_THAN_INT JUMPIF -> JUMP_IF_LESS_THAN
-                    (Instr::LessThanInt, Instr::JumpIf(label)) => {
+                    (Instr::LessThanIntReg(_, 1, _, 1), Instr::JumpIf(label)) => {
                         ret.push(Line::Instr {
                             instr: Instr::JumpIfLessThan(label.clone()),
                             lineno,
@@ -250,7 +250,11 @@ fn peephole3_helper(lines: &[Line], index: &mut usize, ret: &mut Vec<Line>) -> b
                         true
                     }
                     // LOAD LOAD LT_INT
-                    (Instr::LoadOffset(reg1), Instr::LoadOffset(reg2), Instr::LessThanInt) => {
+                    (
+                        Instr::LoadOffset(reg1),
+                        Instr::LoadOffset(reg2),
+                        Instr::LessThanIntReg(_, 1, _, 1),
+                    ) => {
                         ret.push(Line::Instr {
                             instr: Instr::LessThanIntReg(reg1 as i8, 0, *reg2 as i8, 0),
                             lineno,
