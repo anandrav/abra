@@ -210,6 +210,16 @@ impl Vm {
         self.value_stack[self.stack_base.wrapping_add_signed(offset as isize)]
     }
 
+    pub fn load_offset_or_top(&mut self, offset: i8, use_stack: u8) -> Value {
+        let b = self.stack_base.wrapping_add_signed(offset as isize)
+            + ((self.value_stack.len() - 1) * (use_stack as usize))
+            - (self.stack_base * use_stack as usize);
+        let ret = self.value_stack[b];
+        self.value_stack
+            .truncate(self.value_stack.len() - (use_stack as usize));
+        ret
+    }
+
     pub fn store_offset(&mut self, offset: i16, v: impl Into<Value>) {
         self.value_stack[self.stack_base.wrapping_add_signed(offset as isize)] = v.into();
     }
@@ -981,27 +991,8 @@ impl Vm {
                 self.store_offset(n, v);
             }
             Instr::AddIntReg(reg1, use_stack1, reg2, use_stack2) => {
-                // assert_eq!(use_stack1, 0);
-                // assert_eq!(use_stack2, 0);
-                // println!(
-                //     "stack_len = {}, stack_base = {}, reg2 = {}, reg1 = {}",
-                //     self.value_stack.len(),
-                //     self.stack_base,
-                //     reg2,
-                //     reg1
-                // );
-                let b = self.stack_base.wrapping_add_signed(reg2 as isize)
-                    + ((self.value_stack.len() - 1) * (use_stack2 as usize))
-                    - (self.stack_base * use_stack2 as usize);
-                let b = self.value_stack[b].get_int(self);
-                self.value_stack
-                    .truncate(self.value_stack.len() - (use_stack2 as usize));
-                let a = self.stack_base.wrapping_add_signed(reg1 as isize)
-                    + ((self.value_stack.len() - 1) * (use_stack1 as usize))
-                    - (self.stack_base * use_stack1 as usize);
-                let a = self.value_stack[a].get_int(self);
-                self.value_stack
-                    .truncate(self.value_stack.len() - (use_stack1 as usize));
+                let b = self.load_offset_or_top(reg2, use_stack2).get_int(self);
+                let a = self.load_offset_or_top(reg1, use_stack1).get_int(self);
                 let Some(c) = a.checked_add(b) else {
                     self.error = Some(
                         self.make_error(VmErrorKind::IntegerOverflowUnderflow)
@@ -1044,18 +1035,8 @@ impl Vm {
                 self.set_top(c);
             }
             Instr::MultiplyIntReg(reg1, use_stack1, reg2, use_stack2) => {
-                let b = self.stack_base.wrapping_add_signed(reg2 as isize)
-                    + ((self.value_stack.len() - 1) * (use_stack2 as usize))
-                    - (self.stack_base * use_stack2 as usize);
-                let b = self.value_stack[b].get_int(self);
-                self.value_stack
-                    .truncate(self.value_stack.len() - (use_stack2 as usize));
-                let a = self.stack_base.wrapping_add_signed(reg1 as isize)
-                    + ((self.value_stack.len() - 1) * (use_stack1 as usize))
-                    - (self.stack_base * use_stack1 as usize);
-                let a = self.value_stack[a].get_int(self);
-                self.value_stack
-                    .truncate(self.value_stack.len() - (use_stack1 as usize));
+                let b = self.load_offset_or_top(reg2, use_stack2).get_int(self);
+                let a = self.load_offset_or_top(reg1, use_stack1).get_int(self);
                 let Some(c) = a.checked_mul(b) else {
                     self.error = Some(
                         self.make_error(VmErrorKind::IntegerOverflowUnderflow)
@@ -1151,18 +1132,8 @@ impl Vm {
                 self.set_top(a < b);
             }
             Instr::LessThanIntReg(reg1, use_stack1, reg2, use_stack2) => {
-                let b = self.stack_base.wrapping_add_signed(reg2 as isize)
-                    + ((self.value_stack.len() - 1) * (use_stack2 as usize))
-                    - (self.stack_base * use_stack2 as usize);
-                let b = self.value_stack[b].get_int(self);
-                self.value_stack
-                    .truncate(self.value_stack.len() - (use_stack2 as usize));
-                let a = self.stack_base.wrapping_add_signed(reg1 as isize)
-                    + ((self.value_stack.len() - 1) * (use_stack1 as usize))
-                    - (self.stack_base * use_stack1 as usize);
-                let a = self.value_stack[a].get_int(self);
-                self.value_stack
-                    .truncate(self.value_stack.len() - (use_stack1 as usize));
+                let b = self.load_offset_or_top(reg2, use_stack2).get_int(self);
+                let a = self.load_offset_or_top(reg1, use_stack1).get_int(self);
                 self.push(a < b);
             }
             Instr::LessThanOrEqualInt => {
