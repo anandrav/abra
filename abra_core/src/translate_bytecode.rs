@@ -471,7 +471,7 @@ impl Translator {
                 // inline primitive operations instead of performing a function call
                 match op {
                     BinaryOperator::Add => match arg1_ty {
-                        SolvedType::Int => self.emit(st, Instr::AddInt),
+                        SolvedType::Int => self.emit(st, Instr::AddIntReg(0, 1, 0, 1)),
                         SolvedType::Float => self.emit(st, Instr::AddFloat),
                         _ => unreachable!(),
                     },
@@ -884,7 +884,7 @@ impl Translator {
             }
             Declaration::Builtin(b) => match b {
                 BuiltinOperation::AddInt => {
-                    self.emit(st, Instr::AddInt);
+                    self.emit(st, Instr::AddIntReg(0, 1, 0, 1));
                 }
                 BuiltinOperation::SubtractInt => {
                     self.emit(st, Instr::SubtractInt);

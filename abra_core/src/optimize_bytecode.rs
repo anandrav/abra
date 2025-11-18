@@ -194,7 +194,7 @@ fn peephole3_helper(lines: &[Line], index: &mut usize, ret: &mut Vec<Line>) -> b
             {
                 match (instr1, instr2, instr3) {
                     // LOAD(X) PUSH(n) ADD_INT STORE(X) -> INCR_STK(X)
-                    (Instr::LoadOffset(reg1), Instr::PushInt(n), Instr::AddInt)
+                    (Instr::LoadOffset(reg1), Instr::PushInt(n), Instr::AddIntReg(_, 1, _, 1))
                         if *n <= (i16::MAX as i64) =>
                     {
                         ret.push(Line::Instr {
@@ -220,7 +220,11 @@ fn peephole3_helper(lines: &[Line], index: &mut usize, ret: &mut Vec<Line>) -> b
                         true
                     }
                     // LOAD LOAD ADD_INT
-                    (Instr::LoadOffset(reg1), Instr::LoadOffset(reg2), Instr::AddInt) => {
+                    (
+                        Instr::LoadOffset(reg1),
+                        Instr::LoadOffset(reg2),
+                        Instr::AddIntReg(_, 1, _, 1),
+                    ) => {
                         ret.push(Line::Instr {
                             instr: Instr::AddIntReg(reg1 as i8, 0, *reg2 as i8, 0),
                             lineno,
@@ -275,7 +279,7 @@ fn peephole3_helper(lines: &[Line], index: &mut usize, ret: &mut Vec<Line>) -> b
                         true
                     }
                     // FOLD INT ADDITION
-                    (Instr::PushInt(a), Instr::PushInt(b), Instr::AddInt) => {
+                    (Instr::PushInt(a), Instr::PushInt(b), Instr::AddIntReg(_, 1, _, 1)) => {
                         let c = a.wrapping_add(*b); // TODO: checked_add here and everywhere else
                         ret.push(Line::Instr {
                             instr: Instr::PushInt(c),
@@ -437,7 +441,7 @@ fn peephole4_helper(lines: &[Line], index: &mut usize, ret: &mut Vec<Line>) -> b
                     (
                         Instr::LoadOffset(reg1),
                         Instr::PushInt(n),
-                        Instr::AddInt,
+                        Instr::AddIntReg(_, 1, _, 1),
                         Instr::StoreOffset(reg2),
                     ) if reg1 == *reg2 && *n <= (i16::MAX as i64) => {
                         ret.push(Line::Instr {

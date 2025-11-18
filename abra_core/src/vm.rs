@@ -371,7 +371,6 @@ pub enum Instr {
     PushString(u32),
 
     // Arithmetic
-    AddInt,
     AddIntReg(i8, u8, i8, u8), // TODO: the u8's only need 1 bit technically
     IncrementRegImm(i16, i16),
     IncrementRegImmStk(i16, i16),
@@ -981,18 +980,6 @@ impl Vm {
                 let v = self.pop();
                 self.store_offset(n, v);
             }
-            Instr::AddInt => {
-                let b = self.pop_int();
-                let a = self.top().get_int(self);
-                let Some(c) = a.checked_add(b) else {
-                    self.error = Some(
-                        self.make_error(VmErrorKind::IntegerOverflowUnderflow)
-                            .into(),
-                    );
-                    return false;
-                };
-                self.set_top(c);
-            }
             Instr::AddIntReg(reg1, use_stack1, reg2, use_stack2) => {
                 // assert_eq!(use_stack1, 0);
                 // assert_eq!(use_stack2, 0);
@@ -1007,10 +994,14 @@ impl Vm {
                     + ((self.value_stack.len() - 1) * (use_stack2 as usize))
                     - (self.stack_base * use_stack2 as usize);
                 let b = self.value_stack[b].get_int(self);
+                self.value_stack
+                    .truncate(self.value_stack.len() - (use_stack2 as usize));
                 let a = self.stack_base.wrapping_add_signed(reg1 as isize)
                     + ((self.value_stack.len() - 1) * (use_stack1 as usize))
                     - (self.stack_base * use_stack1 as usize);
                 let a = self.value_stack[a].get_int(self);
+                self.value_stack
+                    .truncate(self.value_stack.len() - (use_stack1 as usize));
                 let Some(c) = a.checked_add(b) else {
                     self.error = Some(
                         self.make_error(VmErrorKind::IntegerOverflowUnderflow)

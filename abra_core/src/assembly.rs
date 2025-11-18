@@ -73,8 +73,7 @@ pub enum Instr {
     PushString(String),
 
     // Arithmetic
-    AddInt,
-    AddIntReg(i8, u8, i8, u8),
+    AddIntReg(i8, u8, i8, u8), // TODO: use an enum intead of (i8, u8). Either Register(i8) | StackTop
     IncrementRegImm(i16, i16),
     IncrementRegImmStk(i16, i16),
     SubtractInt,
@@ -159,7 +158,6 @@ impl Display for Instr {
             Instr::Duplicate => write!(f, "duplicate"),
             Instr::LoadOffset(n) => write!(f, "load_offset {n}"),
             Instr::StoreOffset(n) => write!(f, "store_offset {n}"),
-            Instr::AddInt => write!(f, "add_int"),
             Instr::AddIntReg(reg1, use_stack1, reg2, use_stack2) => {
                 write!(f, "add_int_reg ")?;
                 if *use_stack1 == 1 {
@@ -322,7 +320,6 @@ fn instr_to_vminstr(
         Instr::Duplicate => VmInstr::Duplicate,
         Instr::LoadOffset(i) => VmInstr::LoadOffset(*i),
         Instr::StoreOffset(i) => VmInstr::StoreOffset(*i),
-        Instr::AddInt => VmInstr::AddInt,
         Instr::AddIntReg(a, b, c, d) => VmInstr::AddIntReg(*a, *b, *c, *d),
         Instr::IncrementRegImm(reg, n) => VmInstr::IncrementRegImm(*reg, *n),
         Instr::IncrementRegImmStk(reg, n) => VmInstr::IncrementRegImmStk(*reg, *n),
