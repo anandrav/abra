@@ -164,25 +164,25 @@ impl Display for Instr {
                     write!(f, "{}", reg1)?;
                 }
                 if *use_stack2 == 1 {
-                    write!(f, "top")
+                    write!(f, " top")
                 } else {
-                    write!(f, "{}", reg2)
+                    write!(f, " {}", reg2)
                 }
             }
             Instr::IncrementRegImm(reg, n) => write!(f, "incr_int_reg {reg} {n}"),
             Instr::IncrementRegImmStk(reg, n) => write!(f, "incr_int_reg_stk {reg} {n}"),
             Instr::SubtractInt => write!(f, "subtract_int"),
             Instr::MultiplyIntReg(reg1, use_stack1, reg2, use_stack2) => {
-                write!(f, "add_int_reg ")?;
+                write!(f, "multiply_int_reg ")?;
                 if *use_stack1 == 1 {
                     write!(f, "top")?;
                 } else {
                     write!(f, "{}", reg1)?;
                 }
                 if *use_stack2 == 1 {
-                    write!(f, "top")
+                    write!(f, " top")
                 } else {
-                    write!(f, "{}", reg2)
+                    write!(f, " {}", reg2)
                 }
             }
             Instr::DivideInt => write!(f, "divide_int"),
@@ -198,16 +198,16 @@ impl Display for Instr {
             Instr::And => write!(f, "and"),
             Instr::Or => write!(f, "or"),
             Instr::LessThanIntReg(reg1, use_stack1, reg2, use_stack2) => {
-                write!(f, "add_int_reg ")?;
+                write!(f, "less_than_int_reg ")?;
                 if *use_stack1 == 1 {
                     write!(f, "top")?;
                 } else {
                     write!(f, "{}", reg1)?;
                 }
                 if *use_stack2 == 1 {
-                    write!(f, "top")
+                    write!(f, " top")
                 } else {
-                    write!(f, "{}", reg2)
+                    write!(f, " {}", reg2)
                 }
             }
             Instr::LessThanOrEqualInt => write!(f, "less_than_or_equal_int"),
