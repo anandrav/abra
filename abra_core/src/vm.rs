@@ -1005,11 +1005,11 @@ impl Vm {
                 // );
                 let b = self.stack_base.wrapping_add_signed(reg2 as isize)
                     + ((self.value_stack.len() - 1) * (use_stack2 as usize))
-                    - (self.stack_base * use_stack2 as usize) * use_stack2 as usize;
+                    - (self.stack_base * use_stack2 as usize);
                 let b = self.value_stack[b].get_int(self);
                 let a = self.stack_base.wrapping_add_signed(reg1 as isize)
                     + ((self.value_stack.len() - 1) * (use_stack1 as usize))
-                    - (self.stack_base * use_stack1 as usize) * use_stack1 as usize;
+                    - (self.stack_base * use_stack1 as usize);
                 let a = self.value_stack[a].get_int(self);
                 let Some(c) = a.checked_add(b) else {
                     self.error = Some(
@@ -1055,11 +1055,11 @@ impl Vm {
             Instr::MultiplyIntReg(reg1, use_stack1, reg2, use_stack2) => {
                 let b = self.stack_base.wrapping_add_signed(reg2 as isize)
                     + ((self.value_stack.len() - 1) * (use_stack2 as usize))
-                    - (self.stack_base * use_stack2 as usize) * use_stack2 as usize;
+                    - (self.stack_base * use_stack2 as usize);
                 let b = self.value_stack[b].get_int(self);
                 let a = self.stack_base.wrapping_add_signed(reg1 as isize)
                     + ((self.value_stack.len() - 1) * (use_stack1 as usize))
-                    - (self.stack_base * use_stack1 as usize) * use_stack1 as usize;
+                    - (self.stack_base * use_stack1 as usize);
                 let a = self.value_stack[a].get_int(self);
                 let Some(c) = a.checked_mul(b) else {
                     self.error = Some(
