@@ -374,6 +374,7 @@ pub enum Instr {
     AddInt,
     AddIntReg(i16, i16),
     IncrementRegImm(i16, i16),
+    IncrementRegImmStk(i16, i16),
     SubtractInt,
     MultiplyInt,
     MultiplyIntReg(i16, i16),
@@ -1005,7 +1006,11 @@ impl Vm {
             }
             Instr::IncrementRegImm(reg, n) => {
                 let a = self.load_offset(reg).get_int(self);
-                self.store_offset(reg, a.wrapping_add(n as i64));
+                self.store_offset(reg, a.wrapping_add(n as i64)); // TODO: checked_add
+            }
+            Instr::IncrementRegImmStk(reg, n) => {
+                let a = self.load_offset(reg).get_int(self);
+                self.push(a.wrapping_add(n as i64)); // TODO: checked_add
             }
             Instr::SubtractInt => {
                 let b = self.pop_int();

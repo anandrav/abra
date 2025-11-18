@@ -182,6 +182,32 @@ fn peephole3_helper(lines: &[Line], index: &mut usize, ret: &mut Vec<Line>) -> b
                 && let Line::Instr { instr: instr3, .. } = &lines[*index + 2]
             {
                 match (instr1, instr2, instr3) {
+                    // LOAD(X) PUSH(n) ADD_INT STORE(X) -> INCR(X)
+                    (Instr::LoadOffset(reg1), Instr::PushInt(n), Instr::AddInt)
+                        if *n <= (i16::MAX as i64) =>
+                    {
+                        ret.push(Line::Instr {
+                            instr: Instr::IncrementRegImmStk(reg1, *n as i16),
+                            lineno,
+                            file_id,
+                            func_id,
+                        });
+                        *index += 3;
+                        true
+                    }
+                    // LOAD(X) PUSH(n) SUB_INT STORE(X) -> INCR(X)
+                    (Instr::LoadOffset(reg1), Instr::PushInt(n), Instr::SubtractInt)
+                        if (-*n) >= (i16::MIN as i64) =>
+                    {
+                        ret.push(Line::Instr {
+                            instr: Instr::IncrementRegImmStk(reg1, -(*n as i16)),
+                            lineno,
+                            file_id,
+                            func_id,
+                        });
+                        *index += 3;
+                        true
+                    }
                     // LOAD LOAD ADD_INT
                     (Instr::LoadOffset(reg1), Instr::LoadOffset(reg2), Instr::AddInt) => {
                         ret.push(Line::Instr {
@@ -239,7 +265,7 @@ fn peephole3_helper(lines: &[Line], index: &mut usize, ret: &mut Vec<Line>) -> b
                     }
                     // FOLD INT ADDITION
                     (Instr::PushInt(a), Instr::PushInt(b), Instr::AddInt) => {
-                        let c = a.wrapping_add(*b);
+                        let c = a.wrapping_add(*b); // TODO: checked_add here and everywhere else
                         ret.push(Line::Instr {
                             instr: Instr::PushInt(c),
                             lineno,
