@@ -12,11 +12,8 @@ path = "src/main.rs"
 
 [dependencies]
 abra_core = { workspace = true, features = ["ffi"] }
-clap = { version = "4.5.51", features = ["derive"] }
+lexopt = "0.3.1"
 home = "0.5.12"
-libloading = "0.9.0"
-strum = { version = "0.27.2", features = ["derive"] }
-strum_macros = "0.27.2"
 utils = { workspace = true }
 
 [build-dependencies]

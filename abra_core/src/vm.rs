@@ -381,12 +381,12 @@ pub enum Instr {
     PushString(u32),
 
     // Arithmetic
-    AddIntReg(i8, u8, i8, u8), // TODO: the u8's only need 1 bit technically FYI.
+    AddInt(i8, u8, i8, u8), // TODO: the u8's only need 1 bit technically FYI.
     IncrementRegImm(i8, i16),
     IncrementRegImmStk(i8, i16),
     SubtractInt,
     MultiplyInt,
-    MultiplyIntReg(i8, u8, i8, u8),
+    MulInt(i8, u8, i8, u8),
     DivideInt,
     PowerInt,
     Modulo,
@@ -405,8 +405,7 @@ pub enum Instr {
     Or,
 
     // Comparison
-    LessThanInt,
-    LessThanIntReg(i8, u8, i8, u8),
+    LessThanInt(i8, u8, i8, u8),
     LessThanOrEqualInt,
     GreaterThanInt,
     GreaterThanOrEqualInt,
@@ -990,7 +989,7 @@ impl Vm {
                 let v = self.pop();
                 self.store_offset(n, v);
             }
-            Instr::AddIntReg(reg1, use_stack1, reg2, use_stack2) => {
+            Instr::AddInt(reg1, use_stack1, reg2, use_stack2) => {
                 let b = self.load_offset_or_top(reg2, use_stack2).get_int(self);
                 let a = self.load_offset_or_top(reg1, use_stack1).get_int(self);
                 let Some(c) = a.checked_add(b) else {
@@ -1034,7 +1033,7 @@ impl Vm {
                 };
                 self.set_top(c);
             }
-            Instr::MultiplyIntReg(reg1, use_stack1, reg2, use_stack2) => {
+            Instr::MulInt(reg1, use_stack1, reg2, use_stack2) => {
                 let b = self.load_offset_or_top(reg2, use_stack2).get_int(self);
                 let a = self.load_offset_or_top(reg1, use_stack1).get_int(self);
                 let Some(c) = a.checked_mul(b) else {
@@ -1126,12 +1125,7 @@ impl Vm {
                 let a = self.top().get_bool(self);
                 self.set_top(a || b);
             }
-            Instr::LessThanInt => {
-                let b = self.pop_int();
-                let a = self.top().get_int(self);
-                self.set_top(a < b);
-            }
-            Instr::LessThanIntReg(reg1, use_stack1, reg2, use_stack2) => {
+            Instr::LessThanInt(reg1, use_stack1, reg2, use_stack2) => {
                 let b = self.load_offset_or_top(reg2, use_stack2).get_int(self);
                 let a = self.load_offset_or_top(reg1, use_stack1).get_int(self);
                 self.push(a < b);

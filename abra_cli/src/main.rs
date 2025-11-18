@@ -3,53 +3,91 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 use abra_core::FileData;
 use abra_core::OsFileProvider;
-use clap::Parser;
 use std::io;
 use std::io::Write;
 use std::path::PathBuf;
 use std::process::exit;
+
 mod host_funcs;
 use host_funcs::*;
 
-#[derive(Parser, Debug)]
-#[command(author, version, about, long_about = None, arg_required_else_help = true)]
 struct Args {
-    /// File to run
-    #[arg(
-        help = "The main Abra file to compile and execute",
-        value_name = "FILE"
-    )]
     file: String,
-
-    /// Directory containing Abra modules
-    #[arg(
-        short,
-        long,
-        value_name = "DIRECTORY",
-        help = "Override the default module directory (~/.abra/modules)."
-    )]
     modules: Option<String>,
-
-    /// Directory containing compiled shared objects from Abra modules
-    #[arg(
-        short,
-        long,
-        value_name = "DIRECTORY",
-        help = "Override the default shared objects directory (~/.abra/shared_objects)."
-    )]
     shared_objects: Option<String>,
+    _args: Vec<String>,
+}
 
-    /// Additional arguments to pass to the Abra program
-    #[arg(
-        help = "Arguments to pass to the Abra program",
-        value_name = "ARGS",
-        trailing_var_arg = true
-    )]
-    args: Vec<String>,
+impl Args {
+    fn parse() -> Result<Self, lexopt::Error> {
+        use lexopt::prelude::*;
+
+        let mut file = None;
+        let mut modules = None;
+        let mut shared_objects = None;
+        let mut args = Vec::new();
+        let mut parser = lexopt::Parser::from_env();
+
+        while let Some(arg) = parser.next()? {
+            match arg {
+                Short('m') | Long("modules") => {
+                    modules = Some(parser.value()?.parse()?);
+                }
+                Short('s') | Long("shared-objects") => {
+                    shared_objects = Some(parser.value()?.parse()?);
+                }
+                Short('h') | Long("help") => {
+                    print_help();
+                    exit(0);
+                }
+                Value(val) => {
+                    if file.is_none() {
+                        file = Some(val.parse()?);
+                    } else {
+                        // If file is already found, everything else is a trailing arg
+                        args.push(val.parse()?);
+                    }
+                }
+                _ => return Err(arg.unexpected()),
+            }
+        }
+
+        let file = file.ok_or("Missing required argument: FILE")?;
+
+        Ok(Args {
+            file,
+            modules,
+            shared_objects,
+            _args: args,
+        })
+    }
+}
+
+fn print_help() {
+    println!(
+        "Usage: abra [OPTIONS] <FILE> [ARGS]...
+
+Arguments:
+    <FILE>    The main Abra file to compile and execute
+    [ARGS]    Arguments to pass to the Abra program
+
+Options:
+    -m, --modules <DIRECTORY>          Override the default module directory
+    -s, --shared-objects <DIRECTORY>   Override the default shared objects directory
+    -h, --help                         Print help"
+    );
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let args = Args::parse();
+    // Parse args using lexopt logic
+    let args = match Args::parse() {
+        Ok(a) => a,
+        Err(err) => {
+            eprintln!("Error: {}", err);
+            print_help();
+            exit(1);
+        }
+    };
 
     let mut source_files = Vec::new();
 
@@ -60,6 +98,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             exit(1);
         }
     };
+
     let main_file_path: PathBuf = args.file.clone().into();
     source_files.push(FileData::new(
         main_file_path.clone(),
@@ -69,7 +108,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     source_files.push(FileData::new(
         "prelude.abra".into(),
-        "prelude.abra".into(), // TODO: does full_path really make sense in this context? Should path be optional?
+        "prelude.abra".into(),
         abra_core::prelude::PRELUDE.to_string(),
     ));
 
@@ -83,6 +122,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             home_dir.join(".abra/modules")
         }
     };
+
     let shared_objects_dir: PathBuf = match args.shared_objects {
         Some(shared_objects_dir) => {
             let current_dir = std::env::current_dir().expect("Can't get current directory.");
@@ -129,7 +169,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                         HostFunctionArgs::Readline => {
                             let mut input = String::new();
                             io::stdin().read_line(&mut input).unwrap();
-                            // remove trailing newline
                             if input.ends_with('\n') {
                                 input.pop();
                                 if input.ends_with('\r') {
