@@ -116,6 +116,7 @@ pub enum Instr {
     Jump(Label),
     JumpIf(Label),
     JumpIfFalse(Label),
+    JumpIfLessThan(Label),
     Call(usize, Label),
     CallFuncObj(u32),
     CallExtern(u32),
@@ -198,6 +199,7 @@ impl Display for Instr {
             Instr::Jump(loc) => write!(f, "jump {loc}"),
             Instr::JumpIf(loc) => write!(f, "jump_if {loc}"),
             Instr::JumpIfFalse(loc) => write!(f, "jump_if_false {loc}"),
+            Instr::JumpIfLessThan(loc) => write!(f, "jump_if_less_than {loc}"),
             Instr::Call(nargs, addr) => {
                 write!(f, "call {} {}", nargs, addr)
             }
@@ -326,6 +328,9 @@ fn instr_to_vminstr(
         Instr::Jump(label) => VmInstr::Jump(ProgramCounter::new(label_to_idx[label])),
         Instr::JumpIf(label) => VmInstr::JumpIf(ProgramCounter::new(label_to_idx[label])),
         Instr::JumpIfFalse(label) => VmInstr::JumpIfFalse(ProgramCounter::new(label_to_idx[label])),
+        Instr::JumpIfLessThan(label) => {
+            VmInstr::JumpIfLessThan(ProgramCounter::new(label_to_idx[label]))
+        }
         Instr::Call(nargs, label) => VmInstr::Call(CallData::new(
             *nargs as u32,
             *label_to_idx

@@ -57,7 +57,7 @@ pub(crate) struct TranslatorState {
     func_map: HashMap<FuncDesc, Label>,
     funcs_to_generate: Vec<FuncDesc>,
     loop_stack: Vec<EnclosingLoop>,
-    return_stack: Vec<String>,
+    return_stack: Vec<u32>,
 
     pub(crate) curr_file: u32,
     pub(crate) curr_func: u32,
@@ -289,8 +289,6 @@ impl Translator {
                         monomorph_env.update(&func_ty, overload_ty);
                     }
 
-                    let return_label = make_label("return");
-
                     let label = st.func_map.get(&desc).unwrap();
                     self.emit(st, Line::Label(label.clone()));
 
@@ -306,11 +304,9 @@ impl Translator {
                         offset_table.entry(*local).or_insert(i as i16);
                     }
                     let nargs = args.len();
-                    st.return_stack.push(return_label.clone());
+                    st.return_stack.push(nargs as u32);
                     self.translate_expr(body, &offset_table, &monomorph_env, st);
                     st.return_stack.pop();
-
-                    self.emit(st, return_label);
 
                     self.emit(st, Instr::Return(nargs as u32));
                 }
@@ -1176,8 +1172,8 @@ impl Translator {
             }
             StmtKind::Return(expr) => {
                 self.translate_expr(expr, offset_table, monomorph_env, st);
-                let return_label = st.return_stack.last().unwrap();
-                self.emit(st, Instr::Jump(return_label.clone()));
+                let return_nargs = st.return_stack.last().unwrap();
+                self.emit(st, Instr::Return(*return_nargs));
             }
             StmtKind::If(cond, then_block) => {
                 self.translate_expr(cond, offset_table, monomorph_env, st);

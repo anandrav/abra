@@ -414,6 +414,7 @@ pub enum Instr {
     Jump(ProgramCounter),
     JumpIf(ProgramCounter),
     JumpIfFalse(ProgramCounter),
+    JumpIfLessThan(ProgramCounter),
     Call(CallData),
     CallFuncObj(u32),
     CallExtern(u32),
@@ -1205,6 +1206,13 @@ impl Vm {
             Instr::JumpIfFalse(target) => {
                 let v = self.pop_bool();
                 if !v {
+                    self.pc = target;
+                }
+            }
+            Instr::JumpIfLessThan(target) => {
+                let b = self.pop_int();
+                let a = self.pop_int();
+                if a < b {
                     self.pc = target;
                 }
             }

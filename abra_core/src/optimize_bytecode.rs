@@ -114,6 +114,17 @@ fn peephole2_helper(lines: &[Line], index: &mut usize, ret: &mut Vec<Line>) -> b
                         *index += 2;
                         true
                     }
+                    // LESS_THAN_INT JUMPIF -> JUMP_IF_LESS_THAN
+                    (Instr::LessThanInt, Instr::JumpIf(label)) => {
+                        ret.push(Line::Instr {
+                            instr: Instr::JumpIfLessThan(label.clone()),
+                            lineno,
+                            file_id,
+                            func_id,
+                        });
+                        *index += 2;
+                        true
+                    }
                     // PUSH TRUE JUMP IF
                     (Instr::PushBool(true), Instr::JumpIf(label)) => {
                         ret.push(Line::Instr {
@@ -182,7 +193,7 @@ fn peephole3_helper(lines: &[Line], index: &mut usize, ret: &mut Vec<Line>) -> b
                 && let Line::Instr { instr: instr3, .. } = &lines[*index + 2]
             {
                 match (instr1, instr2, instr3) {
-                    // LOAD(X) PUSH(n) ADD_INT STORE(X) -> INCR(X)
+                    // LOAD(X) PUSH(n) ADD_INT STORE(X) -> INCR_STK(X)
                     (Instr::LoadOffset(reg1), Instr::PushInt(n), Instr::AddInt)
                         if *n <= (i16::MAX as i64) =>
                     {
@@ -195,7 +206,7 @@ fn peephole3_helper(lines: &[Line], index: &mut usize, ret: &mut Vec<Line>) -> b
                         *index += 3;
                         true
                     }
-                    // LOAD(X) PUSH(n) SUB_INT STORE(X) -> INCR(X)
+                    // LOAD(X) PUSH(n) SUB_INT STORE(X) -> INCR_STK(X)
                     (Instr::LoadOffset(reg1), Instr::PushInt(n), Instr::SubtractInt)
                         if (-*n) >= (i16::MIN as i64) =>
                     {
