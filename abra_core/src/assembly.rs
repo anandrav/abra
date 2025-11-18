@@ -77,7 +77,6 @@ pub enum Instr {
     IncrementRegImm(i16, i16),
     IncrementRegImmStk(i16, i16),
     SubtractInt,
-    MultiplyInt,
     MultiplyIntReg(i8, u8, i8, u8),
     DivideInt,
     PowerInt,
@@ -174,7 +173,6 @@ impl Display for Instr {
             Instr::IncrementRegImm(reg, n) => write!(f, "incr_int_reg {reg} {n}"),
             Instr::IncrementRegImmStk(reg, n) => write!(f, "incr_int_reg_stk {reg} {n}"),
             Instr::SubtractInt => write!(f, "subtract_int"),
-            Instr::MultiplyInt => write!(f, "multiply_int"),
             Instr::MultiplyIntReg(reg1, use_stack1, reg2, use_stack2) => {
                 write!(f, "add_int_reg ")?;
                 if *use_stack1 == 1 {
@@ -324,7 +322,6 @@ fn instr_to_vminstr(
         Instr::IncrementRegImm(reg, n) => VmInstr::IncrementRegImm(*reg, *n),
         Instr::IncrementRegImmStk(reg, n) => VmInstr::IncrementRegImmStk(*reg, *n),
         Instr::SubtractInt => VmInstr::SubtractInt,
-        Instr::MultiplyInt => VmInstr::MultiplyInt,
         Instr::MultiplyIntReg(a, b, c, d) => VmInstr::MultiplyIntReg(*a, *b, *c, *d),
         Instr::DivideInt => VmInstr::DivideInt,
         Instr::PowerInt => VmInstr::PowerInt,

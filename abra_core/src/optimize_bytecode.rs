@@ -235,7 +235,11 @@ fn peephole3_helper(lines: &[Line], index: &mut usize, ret: &mut Vec<Line>) -> b
                         true
                     }
                     // LOAD LOAD MUL_INT
-                    (Instr::LoadOffset(reg1), Instr::LoadOffset(reg2), Instr::MultiplyInt) => {
+                    (
+                        Instr::LoadOffset(reg1),
+                        Instr::LoadOffset(reg2),
+                        Instr::MultiplyIntReg(_, 1, _, 1),
+                    ) => {
                         ret.push(Line::Instr {
                             instr: Instr::MultiplyIntReg(reg1 as i8, 0, *reg2 as i8, 0),
                             lineno,
@@ -303,7 +307,7 @@ fn peephole3_helper(lines: &[Line], index: &mut usize, ret: &mut Vec<Line>) -> b
                         true
                     }
                     // FOLD INT MULTIPLICATION
-                    (Instr::PushInt(a), Instr::PushInt(b), Instr::MultiplyInt) => {
+                    (Instr::PushInt(a), Instr::PushInt(b), Instr::MultiplyIntReg(_, 1, _, 1)) => {
                         let c = a.wrapping_mul(*b);
                         ret.push(Line::Instr {
                             instr: Instr::PushInt(c),

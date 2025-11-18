@@ -481,7 +481,7 @@ impl Translator {
                         _ => unreachable!(),
                     },
                     BinaryOperator::Multiply => match arg1_ty {
-                        SolvedType::Int => self.emit(st, Instr::MultiplyInt),
+                        SolvedType::Int => self.emit(st, Instr::MultiplyIntReg(0, 1, 0, 1)),
                         SolvedType::Float => self.emit(st, Instr::MultiplyFloat),
                         _ => unreachable!(),
                     },
@@ -890,7 +890,7 @@ impl Translator {
                     self.emit(st, Instr::SubtractInt);
                 }
                 BuiltinOperation::MultiplyInt => {
-                    self.emit(st, Instr::MultiplyInt);
+                    self.emit(st, Instr::MultiplyIntReg(0, 1, 0, 1));
                 }
                 BuiltinOperation::DivideInt => {
                     self.emit(st, Instr::DivideInt);
