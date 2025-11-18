@@ -2,7 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use crate::assembly::{Instr, Label, Line, LineVariant, remove_labels};
+use crate::assembly::{Instr, Label, Line, LineVariant, Reg, remove_labels};
 use crate::ast::{AstNode, BinaryOperator, FuncDef, InterfaceDef, ItemKind};
 use crate::ast::{FileAst, FileDatabase, NodeId};
 use crate::builtin::BuiltinOperation;
@@ -471,7 +471,7 @@ impl Translator {
                 // inline primitive operations instead of performing a function call
                 match op {
                     BinaryOperator::Add => match arg1_ty {
-                        SolvedType::Int => self.emit(st, Instr::AddIntReg(0, 1, 0, 1)),
+                        SolvedType::Int => self.emit(st, Instr::AddIntReg(Reg::Top, Reg::Top)),
                         SolvedType::Float => self.emit(st, Instr::AddFloat),
                         _ => unreachable!(),
                     },
@@ -884,7 +884,7 @@ impl Translator {
             }
             Declaration::Builtin(b) => match b {
                 BuiltinOperation::AddInt => {
-                    self.emit(st, Instr::AddIntReg(0, 1, 0, 1));
+                    self.emit(st, Instr::AddIntReg(Reg::Top, Reg::Top));
                 }
                 BuiltinOperation::SubtractInt => {
                     self.emit(st, Instr::SubtractInt);

@@ -73,7 +73,7 @@ pub enum Instr {
     PushString(String),
 
     // Arithmetic
-    AddIntReg(i8, u8, i8, u8), // TODO: use an enum intead of (i8, u8). Either Register(i8) | StackTop
+    AddIntReg(Reg, Reg),
     IncrementRegImm(i16, i16),
     IncrementRegImmStk(i16, i16),
     SubtractInt,
@@ -149,6 +149,36 @@ pub enum Instr {
     LoadForeignFunc,
 }
 
+#[derive(Debug, Clone)]
+pub enum Reg {
+    Offset(i8),
+    Top,
+}
+
+impl Reg {
+    fn offset(&self) -> i8 {
+        match self {
+            Self::Offset(offs) => *offs,
+            Self::Top => 0,
+        }
+    }
+    fn use_stack(&self) -> u8 {
+        match self {
+            Self::Offset(_) => 0,
+            Self::Top => 1,
+        }
+    }
+}
+
+impl Display for Reg {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        match self {
+            Reg::Offset(offs) => write!(f, "{}", offs),
+            Reg::Top => write!(f, "top"),
+        }
+    }
+}
+
 impl Display for Instr {
     fn fmt(&self, f: &mut Formatter) -> core::fmt::Result {
         match self {
@@ -156,18 +186,8 @@ impl Display for Instr {
             Instr::Duplicate => write!(f, "duplicate"),
             Instr::LoadOffset(n) => write!(f, "load_offset {n}"),
             Instr::StoreOffset(n) => write!(f, "store_offset {n}"),
-            Instr::AddIntReg(reg1, use_stack1, reg2, use_stack2) => {
-                write!(f, "add_int_reg ")?;
-                if *use_stack1 == 1 {
-                    write!(f, "top")?;
-                } else {
-                    write!(f, "{}", reg1)?;
-                }
-                if *use_stack2 == 1 {
-                    write!(f, " top")
-                } else {
-                    write!(f, " {}", reg2)
-                }
+            Instr::AddIntReg(reg1, reg2) => {
+                write!(f, "add_int_reg {reg1} {reg2}")
             }
             Instr::IncrementRegImm(reg, n) => write!(f, "incr_int_reg {reg} {n}"),
             Instr::IncrementRegImmStk(reg, n) => write!(f, "incr_int_reg_stk {reg} {n}"),
@@ -316,7 +336,12 @@ fn instr_to_vminstr(
         Instr::Duplicate => VmInstr::Duplicate,
         Instr::LoadOffset(i) => VmInstr::LoadOffset(*i),
         Instr::StoreOffset(i) => VmInstr::StoreOffset(*i),
-        Instr::AddIntReg(a, b, c, d) => VmInstr::AddIntReg(*a, *b, *c, *d),
+        Instr::AddIntReg(reg1, reg2) => VmInstr::AddIntReg(
+            reg1.offset(),
+            reg1.use_stack(),
+            reg2.offset(),
+            reg2.use_stack(),
+        ),
         Instr::IncrementRegImm(reg, n) => VmInstr::IncrementRegImm(*reg, *n),
         Instr::IncrementRegImmStk(reg, n) => VmInstr::IncrementRegImmStk(*reg, *n),
         Instr::SubtractInt => VmInstr::SubtractInt,

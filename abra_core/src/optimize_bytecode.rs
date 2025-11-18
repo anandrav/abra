@@ -1,7 +1,7 @@
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
-use crate::assembly::{Instr, Line};
+use crate::assembly::{Instr, Line, Reg};
 
 pub(crate) fn optimize(lines: Vec<Line>) -> Vec<Line> {
     let mut len = lines.len();
@@ -194,9 +194,11 @@ fn peephole3_helper(lines: &[Line], index: &mut usize, ret: &mut Vec<Line>) -> b
             {
                 match (instr1, instr2, instr3) {
                     // LOAD(X) PUSH(n) ADD_INT STORE(X) -> INCR_STK(X)
-                    (Instr::LoadOffset(reg1), Instr::PushInt(n), Instr::AddIntReg(_, 1, _, 1))
-                        if *n <= (i16::MAX as i64) =>
-                    {
+                    (
+                        Instr::LoadOffset(reg1),
+                        Instr::PushInt(n),
+                        Instr::AddIntReg(Reg::Top, Reg::Top),
+                    ) if *n <= (i16::MAX as i64) => {
                         ret.push(Line::Instr {
                             instr: Instr::IncrementRegImmStk(reg1, *n as i16),
                             lineno,
@@ -223,10 +225,13 @@ fn peephole3_helper(lines: &[Line], index: &mut usize, ret: &mut Vec<Line>) -> b
                     (
                         Instr::LoadOffset(reg1),
                         Instr::LoadOffset(reg2),
-                        Instr::AddIntReg(_, 1, _, 1),
+                        Instr::AddIntReg(Reg::Top, Reg::Top),
                     ) => {
                         ret.push(Line::Instr {
-                            instr: Instr::AddIntReg(reg1 as i8, 0, *reg2 as i8, 0),
+                            instr: Instr::AddIntReg(
+                                Reg::Offset(reg1 as i8),
+                                Reg::Offset(*reg2 as i8),
+                            ), // TODO: just make all offsets i8
                             lineno,
                             file_id,
                             func_id,
@@ -287,7 +292,11 @@ fn peephole3_helper(lines: &[Line], index: &mut usize, ret: &mut Vec<Line>) -> b
                         true
                     }
                     // FOLD INT ADDITION
-                    (Instr::PushInt(a), Instr::PushInt(b), Instr::AddIntReg(_, 1, _, 1)) => {
+                    (
+                        Instr::PushInt(a),
+                        Instr::PushInt(b),
+                        Instr::AddIntReg(Reg::Top, Reg::Top),
+                    ) => {
                         let c = a.wrapping_add(*b); // TODO: checked_add here and everywhere else
                         ret.push(Line::Instr {
                             instr: Instr::PushInt(c),
@@ -449,7 +458,7 @@ fn peephole4_helper(lines: &[Line], index: &mut usize, ret: &mut Vec<Line>) -> b
                     (
                         Instr::LoadOffset(reg1),
                         Instr::PushInt(n),
-                        Instr::AddIntReg(_, 1, _, 1),
+                        Instr::AddIntReg(Reg::Top, Reg::Top),
                         Instr::StoreOffset(reg2),
                     ) if reg1 == *reg2 && *n <= (i16::MAX as i64) => {
                         ret.push(Line::Instr {
