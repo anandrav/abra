@@ -1048,10 +1048,14 @@ impl Vm {
                     + ((self.value_stack.len() - 1) * (use_stack2 as usize))
                     - (self.stack_base * use_stack2 as usize);
                 let b = self.value_stack[b].get_int(self);
+                self.value_stack
+                    .truncate(self.value_stack.len() - (use_stack2 as usize));
                 let a = self.stack_base.wrapping_add_signed(reg1 as isize)
                     + ((self.value_stack.len() - 1) * (use_stack1 as usize))
                     - (self.stack_base * use_stack1 as usize);
                 let a = self.value_stack[a].get_int(self);
+                self.value_stack
+                    .truncate(self.value_stack.len() - (use_stack1 as usize));
                 let Some(c) = a.checked_mul(b) else {
                     self.error = Some(
                         self.make_error(VmErrorKind::IntegerOverflowUnderflow)
@@ -1151,10 +1155,14 @@ impl Vm {
                     + ((self.value_stack.len() - 1) * (use_stack2 as usize))
                     - (self.stack_base * use_stack2 as usize);
                 let b = self.value_stack[b].get_int(self);
+                self.value_stack
+                    .truncate(self.value_stack.len() - (use_stack2 as usize));
                 let a = self.stack_base.wrapping_add_signed(reg1 as isize)
                     + ((self.value_stack.len() - 1) * (use_stack1 as usize))
                     - (self.stack_base * use_stack1 as usize);
                 let a = self.value_stack[a].get_int(self);
+                self.value_stack
+                    .truncate(self.value_stack.len() - (use_stack1 as usize));
                 self.push(a < b);
             }
             Instr::LessThanOrEqualInt => {
