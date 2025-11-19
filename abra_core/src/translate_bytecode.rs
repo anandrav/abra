@@ -3,9 +3,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use crate::assembly::{Instr, Label, Line, LineVariant, Reg, remove_labels};
-use crate::ast::{
-    ArgMaybeAnnotated, AstNode, BinaryOperator, FuncDef, InterfaceDef, ItemKind, TypeKind,
-};
+use crate::ast::{ArgMaybeAnnotated, AstNode, BinaryOperator, FuncDef, InterfaceDef, ItemKind};
 use crate::ast::{FileAst, FileDatabase, NodeId};
 use crate::builtin::BuiltinOperation;
 use crate::environment::Environment;
@@ -928,7 +926,6 @@ impl Translator {
             }
             Declaration::Struct(def) => {
                 let mut nargs = 0;
-                // TODO: this doesn't work if struct type is generic and void was substituted for one of the field types
                 for field in &*def.fields {
                     // TODO: duplicated logic
                     let field_ty = field
@@ -946,21 +943,24 @@ impl Translator {
                 e: enum_def,
                 variant,
             } => {
-                // TODO: this doesn't work if enum type is generic and void was substituted for one of the types
                 let nargs = match &enum_def.variants[*variant].data {
                     Some(data_ty) => {
-                        match &*data_ty.kind {
-                            TypeKind::Tuple(elems) => {
+                        let data_ty = data_ty
+                            .to_solved_type(&self.statics)
+                            .unwrap()
+                            .subst(monomorph_env);
+                        match data_ty {
+                            SolvedType::Tuple(elems) => {
                                 // TODO: duplicated logic
                                 let mut nargs = 0;
                                 for elem in elems {
-                                    if *elem.kind != TypeKind::Void {
+                                    if elem != SolvedType::Void {
                                         nargs += 1;
                                     }
                                 }
                                 nargs
                             }
-                            TypeKind::Void => 0,
+                            SolvedType::Void => 0,
                             _ => 1,
                         }
                     }
@@ -1720,6 +1720,7 @@ fn idx_of_field(
     match accessed_ty {
         Type::Nominal(Nominal::Struct(struct_def), _) => {
             let mut index = 0;
+            // TODO duplicated logic
             for field in &*struct_def.fields {
                 if field.name.v == field_name {
                     return index as u16;
