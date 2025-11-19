@@ -57,6 +57,19 @@ pub fn compile_bytecode(
     compile_bytecode_(main_file_name, None, file_provider)
 }
 
+pub fn compile_and_dump_assembly(
+    main_file_name: &str,
+    file_provider: Box<dyn FileProvider>,
+) -> Result<(), ErrorSummary> {
+    let roots = vec![main_file_name];
+    let (file_asts, file_db) = get_files(&roots, &*file_provider).map_err(ErrorSummary::msg)?;
+    let inference_ctx = statics::analyze(&file_asts, &file_db, file_provider)?;
+
+    let translator = Translator::new(inference_ctx, file_db, file_asts);
+    translator.dump_assembly();
+    Ok(())
+}
+
 pub fn compile_bytecode_with_host_funcs(
     main_file_name: &str,
     main_host_func_file_name: &str,

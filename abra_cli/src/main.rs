@@ -15,6 +15,7 @@ struct Args {
     file: String,
     modules: Option<String>,
     shared_objects: Option<String>,
+    assembly: bool,
     _args: Vec<String>,
 }
 
@@ -25,6 +26,7 @@ impl Args {
         let mut file = None;
         let mut modules = None;
         let mut shared_objects = None;
+        let mut assembly = false;
         let mut args = Vec::new();
         let mut parser = lexopt::Parser::from_env();
 
@@ -35,6 +37,9 @@ impl Args {
                 }
                 Short('s') | Long("shared-objects") => {
                     shared_objects = Some(parser.value()?.parse()?);
+                }
+                Short('a') | Long("assembly") => {
+                    assembly = true;
                 }
                 Short('h') | Long("help") => {
                     print_help();
@@ -58,6 +63,7 @@ impl Args {
             file,
             modules,
             shared_objects,
+            assembly,
             _args: args,
         })
     }
@@ -144,6 +150,16 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let file_provider = OsFileProvider::new(main_file_dir.into(), modules_dir, shared_objects_dir);
 
     let main_file_name = main_file_path.file_name().unwrap().to_str().unwrap();
+
+    if args.assembly {
+        match abra_core::compile_and_dump_assembly(main_file_name, file_provider) {
+            Ok(_) => return Ok(()),
+            Err(err) => {
+                err.emit();
+                exit(1);
+            }
+        }
+    }
 
     match abra_core::compile_bytecode(main_file_name, file_provider) {
         Ok(program) => {

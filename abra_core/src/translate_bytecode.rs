@@ -207,6 +207,45 @@ impl Translator {
     }
 
     pub(crate) fn translate(&self) -> CompiledProgram {
+        let mut st = self.translate_to_assembly();
+
+        self.create_source_location_tables(&mut st);
+        let constants = gather_constants(&st.lines);
+        // for line in st.lines.iter() {
+        //     println!("{}", line);
+        // }
+        // panic!();
+        let (instructions, _) = remove_labels(&st.lines, &constants);
+        let mut filename_arena = vec![];
+        for file_data in self._files.files.iter() {
+            filename_arena.push(file_data.name().to_string());
+        }
+        CompiledProgram {
+            instructions,
+            int_constants: constants.int_constants.into_iter().collect(),
+            float_constants: constants
+                .float_constants
+                .clone()
+                .into_iter()
+                .map(|s| s.parse::<f64>().unwrap())
+                .collect(),
+            static_strings: constants.string_constants.clone().into_iter().collect(),
+            filename_arena,
+            function_name_arena: st.function_name_arena.into_iter().collect(),
+            filename_table: st.filename_table,
+            lineno_table: st.lineno_table,
+            function_name_table: st.function_name_table,
+        }
+    }
+
+    pub(crate) fn dump_assembly(&self) {
+        let st = self.translate_to_assembly();
+        for line in st.lines.iter() {
+            println!("{}", line);
+        }
+    }
+
+    fn translate_to_assembly(&self) -> TranslatorState {
         let mut st = TranslatorState::default();
         {
             let st = &mut st;
@@ -342,33 +381,7 @@ impl Translator {
 
         st.lines = optimize(st.lines);
 
-        self.create_source_location_tables(&mut st);
-        let constants = gather_constants(&st.lines);
-        // for line in st.lines.iter() {
-        //     println!("{}", line);
-        // }
-        // panic!();
-        let (instructions, _) = remove_labels(&st.lines, &constants);
-        let mut filename_arena = vec![];
-        for file_data in self._files.files.iter() {
-            filename_arena.push(file_data.name().to_string());
-        }
-        CompiledProgram {
-            instructions,
-            int_constants: constants.int_constants.into_iter().collect(),
-            float_constants: constants
-                .float_constants
-                .clone()
-                .into_iter()
-                .map(|s| s.parse::<f64>().unwrap())
-                .collect(),
-            static_strings: constants.string_constants.clone().into_iter().collect(),
-            filename_arena,
-            function_name_arena: st.function_name_arena.into_iter().collect(),
-            filename_table: st.filename_table,
-            lineno_table: st.lineno_table,
-            function_name_table: st.function_name_table,
-        }
+        st
     }
 
     fn translate_expr(
