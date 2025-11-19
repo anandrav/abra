@@ -1041,9 +1041,14 @@ pub(crate) fn parse_stmt(pair: Pair<Rule>, file_id: FileId) -> Rc<Stmt> {
         }
         Rule::while_statement => {
             let cond = parse_expr_pratt(Pairs::single(inner[0].clone()), file_id);
-            let e = parse_expr_pratt(Pairs::single(inner[1].clone()), file_id);
+
+            let inner = inner[1].clone().into_inner();
+            let mut statements: Vec<Rc<Stmt>> = Vec::new();
+            for pair in inner {
+                statements.push(parse_stmt(pair, file_id));
+            }
             Rc::new(Stmt {
-                kind: Rc::new(StmtKind::WhileLoop(cond, e)),
+                kind: Rc::new(StmtKind::WhileLoop(cond, statements)),
                 loc: span,
                 id: NodeId::new(),
             })

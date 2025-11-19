@@ -673,9 +673,11 @@ fn resolve_names_stmt(ctx: &mut StaticsContext, symbol_table: &SymbolTable, stmt
             resolve_names_expr(ctx, symbol_table, cond);
             resolve_names_expr(ctx, symbol_table, body);
         }
-        StmtKind::WhileLoop(cond, expr) => {
+        StmtKind::WhileLoop(cond, statements) => {
             resolve_names_expr(ctx, symbol_table, cond);
-            resolve_names_expr(ctx, symbol_table, expr);
+            for statement in statements.iter() {
+                resolve_names_stmt(ctx, &symbol_table, statement);
+            }
         }
         StmtKind::ForLoop(pat, iterable, body) => {
             resolve_names_expr(ctx, symbol_table, iterable);

@@ -1818,7 +1818,7 @@ fn generate_constraints_stmt(
             );
             generate_constraints_expr(ctx, polyvar_scope, Mode::Syn, body);
         }
-        StmtKind::WhileLoop(cond, expr) => {
+        StmtKind::WhileLoop(cond, statements) => {
             generate_constraints_expr(
                 ctx,
                 polyvar_scope,
@@ -1828,8 +1828,10 @@ fn generate_constraints_stmt(
                 ),
                 cond,
             );
-            ctx.loop_stack.push(Some(expr.id));
-            generate_constraints_expr(ctx, polyvar_scope, Mode::Syn, expr);
+            ctx.loop_stack.push(Some(stmt.id));
+            for statement in statements.iter() {
+                generate_constraints_stmt(ctx, polyvar_scope, Mode::Syn, statement);
+            }
             ctx.loop_stack.pop();
         }
         StmtKind::ForLoop(pat, iterable, body) => {
