@@ -98,7 +98,6 @@ pub mod ffi {
             unsafe {
                 let vm_funcs: &AbraVmFunctions = &*vm_funcs;
                 let ret: () = term::enable_raw_mode();
-                ret.to_vm_unsafe(vm, vm_funcs);
             }
         }
         /// # Safety
@@ -111,7 +110,6 @@ pub mod ffi {
             unsafe {
                 let vm_funcs: &AbraVmFunctions = &*vm_funcs;
                 let ret: () = term::disable_raw_mode();
-                ret.to_vm_unsafe(vm, vm_funcs);
             }
         }
         /// # Safety
@@ -141,7 +139,6 @@ pub mod ffi {
             unsafe {
                 let vm_funcs: &AbraVmFunctions = &*vm_funcs;
                 let ret: () = term::clear();
-                ret.to_vm_unsafe(vm, vm_funcs);
             }
         }
         /// # Safety
@@ -151,7 +148,6 @@ pub mod ffi {
             unsafe {
                 let vm_funcs: &AbraVmFunctions = &*vm_funcs;
                 let ret: () = term::hide_cursor();
-                ret.to_vm_unsafe(vm, vm_funcs);
             }
         }
         /// # Safety
@@ -161,7 +157,6 @@ pub mod ffi {
             unsafe {
                 let vm_funcs: &AbraVmFunctions = &*vm_funcs;
                 let ret: () = term::show_cursor();
-                ret.to_vm_unsafe(vm, vm_funcs);
             }
         }
         /// # Safety
@@ -174,7 +169,6 @@ pub mod ffi {
                 let x = <i64>::from_vm_unsafe(vm, vm_funcs);
                 let s = <String>::from_vm_unsafe(vm, vm_funcs);
                 let ret: () = term::mark(s, x, y);
-                ret.to_vm_unsafe(vm, vm_funcs);
             }
         }
         /// # Safety
@@ -184,7 +178,6 @@ pub mod ffi {
             unsafe {
                 let vm_funcs: &AbraVmFunctions = &*vm_funcs;
                 let ret: () = term::flush();
-                ret.to_vm_unsafe(vm, vm_funcs);
             }
         }
     }

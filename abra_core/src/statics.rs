@@ -224,8 +224,9 @@ pub(crate) enum Declaration {
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub(crate) enum PolytypeDeclaration {
-    InterfaceSelf(Rc<InterfaceDef>), // `Self`
-    Ordinary(Rc<Polytype>),
+    InterfaceSelf(Rc<InterfaceDef>),   // `Self`
+    Ordinary(Rc<Polytype>),            // `a`
+    Builtin(BuiltinOperation, String), // `a` in array_push: array<a> -> void
 }
 
 // TODO: this is weird

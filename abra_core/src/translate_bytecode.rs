@@ -8,9 +8,9 @@ use crate::ast::{FileAst, FileDatabase, NodeId};
 use crate::builtin::BuiltinOperation;
 use crate::environment::Environment;
 use crate::optimize_bytecode::optimize;
-use crate::statics::Type;
 use crate::statics::typecheck::Nominal;
 use crate::statics::typecheck::SolvedType;
+use crate::statics::{_print_node, Type};
 use crate::statics::{Declaration, PolytypeDeclaration, TypeProv};
 use crate::vm::{AbraInt, Instr as VmInstr};
 use crate::{
@@ -245,19 +245,39 @@ impl Translator {
                 for (offset, node_id) in locals.iter().enumerate() {
                     offset_table.entry(*node_id).or_insert(offset as i8);
                 }
-                for (i, item) in file.items.iter().enumerate() {
-                    if let ItemKind::Stmt(stmt) = &*item.kind {
-                        self.translate_stmt(
-                            stmt,
-                            i == file.items.len() - 1,
-                            &offset_table,
-                            &monomorph_env,
-                            st,
-                        );
-                    }
-                }
 
+                let statements = file
+                    .items
+                    .iter()
+                    .filter_map(|item| match &*item.kind {
+                        ItemKind::Stmt(stmt) => Some(stmt),
+                        _ => None,
+                    })
+                    .collect::<Vec<_>>();
+                for (i, stmt) in statements.iter().enumerate() {
+                    self.translate_stmt(
+                        stmt,
+                        i == statements.len() - 1,
+                        &offset_table,
+                        &monomorph_env,
+                        st,
+                    );
+                }
+                // TODO: this is hacky
+                if statements.is_empty() || {
+                    let last = *statements.last().unwrap();
+                    if let StmtKind::Expr(expr) = &*last.kind {
+                        let ty = self.statics.solution_of_node(expr.node()).unwrap();
+                        ty == SolvedType::Void
+                    } else {
+                        false
+                    }
+                } {
+                    self.emit(st, Instr::PushNil(1));
+                }
+                // TODO: this is hacky
                 self.emit(st, Instr::StoreOffset(-1));
+
                 self.emit(st, Instr::Stop);
             }
 
@@ -308,7 +328,12 @@ impl Translator {
                     self.translate_expr(body, &offset_table, &monomorph_env, st);
                     st.return_stack.pop();
 
-                    self.emit(st, Instr::Return(nargs as u32));
+                    let SolvedType::Function(_, out_ty) = func_ty else { unreachable!() };
+                    if *out_ty == SolvedType::Void {
+                        self.emit(st, Instr::ReturnVoid);
+                    } else {
+                        self.emit(st, Instr::Return(nargs as u32));
+                    }
                 }
             }
         }
@@ -1157,8 +1182,27 @@ impl Translator {
                 }
             }
             StmtKind::Expr(expr) => {
+                let ret_ty = match &*expr.kind {
+                    ExprKind::FuncAp(func_expr, _) => {
+                        // _print_node(&self.statics, func_expr.node());
+                        Some(self.statics.solution_of_node(expr.node()).unwrap())
+                    }
+                    ExprKind::MemberFuncAp(_, func_ident, _) => {
+                        // self.statics.resolution_map[func_ident]
+                        Some(self.statics.solution_of_node(expr.node()).unwrap())
+                    }
+                    _ => None,
+                };
+                // let ret_ty = match func_ty {
+                //     Some(func_ty) => {
+                //         let SolvedType::Function(_, ret_ty) = func_ty else { unreachable!() };
+                //         Some(*ret_ty)
+                //     }
+                //     None => None
+                // };
+                let void_func_call = ret_ty == Some(SolvedType::Void);
                 self.translate_expr(expr, offset_table, monomorph_env, st);
-                if !is_last {
+                if !is_last && !void_func_call {
                     self.emit(st, Instr::Pop);
                 }
             }
@@ -1172,8 +1216,13 @@ impl Translator {
             }
             StmtKind::Return(expr) => {
                 self.translate_expr(expr, offset_table, monomorph_env, st);
-                let return_nargs = st.return_stack.last().unwrap();
-                self.emit(st, Instr::Return(*return_nargs));
+                let ret_ty = self.statics.solution_of_node(expr.node()).unwrap();
+                if ret_ty == SolvedType::Void {
+                    self.emit(st, Instr::ReturnVoid);
+                } else {
+                    let return_nargs = st.return_stack.last().unwrap();
+                    self.emit(st, Instr::Return(*return_nargs));
+                }
             }
             StmtKind::If(cond, statements) => {
                 self.translate_expr(cond, offset_table, monomorph_env, st);

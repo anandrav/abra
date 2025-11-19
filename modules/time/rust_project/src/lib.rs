@@ -24,7 +24,6 @@ pub mod ffi {
                 let vm_funcs: &AbraVmFunctions = &*vm_funcs;
                 let seconds = <f64>::from_vm_unsafe(vm, vm_funcs);
                 let ret: () = time::sleep(seconds);
-                ret.to_vm_unsafe(vm, vm_funcs);
             }
         }
     }

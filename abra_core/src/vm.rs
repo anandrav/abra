@@ -1354,7 +1354,7 @@ impl Vm {
             }
             Instr::ArrayPush => {
                 let rvalue = self.pop();
-                let val = self.top();
+                let val = self.pop();
                 let arr = unsafe { val.get_array_mut(self) };
 
                 let cap1 = arr.data.capacity();
@@ -1363,7 +1363,6 @@ impl Vm {
                 let cap2 = arr.data.capacity();
                 self.heap_size += (cap2 - cap1) * size_of::<Value>();
                 self.gc_debt += (cap2 - cap1) * size_of::<Value>();
-                self.set_top(());
             }
             Instr::ArrayLength => {
                 let len = self.array_len();

@@ -559,7 +559,9 @@ fn add_items_from_ast(ast: Rc<FileAst>, output: &mut String) {
                 }
                 output.push_str(");");
                 // push return value
-                output.push_str("ret.to_vm_unsafe(vm, vm_funcs);");
+                if *out_ty.kind != TypeKind::Void {
+                    output.push_str("ret.to_vm_unsafe(vm, vm_funcs);");
+                }
                 output.push('}');
                 output.push('}');
             }

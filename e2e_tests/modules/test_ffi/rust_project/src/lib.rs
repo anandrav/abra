@@ -36,7 +36,6 @@ pub mod ffi {
                 let vm_funcs: &AbraVmFunctions = &*vm_funcs;
                 (vm_funcs.pop_nil)(vm);
                 let ret: () = test_ffi::pass_void(());
-                ret.to_vm_unsafe(vm, vm_funcs);
             }
         }
         /// # Safety

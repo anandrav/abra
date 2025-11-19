@@ -326,6 +326,7 @@ impl SolvedType {
         match self {
             Self::Poly(polyty) => match polyty {
                 PolytypeDeclaration::InterfaceSelf(_) => true,
+                PolytypeDeclaration::Builtin(_, _) => false, // array_push, array_length, array_pop are not overloaded
                 PolytypeDeclaration::Ordinary(p) => !p.interfaces.is_empty(),
             },
             Self::InterfaceOutput(output_type) => !output_type.interfaces.is_empty(),
@@ -986,6 +987,7 @@ impl PolytypeDeclaration {
             PolytypeDeclaration::InterfaceSelf(iface) => {
                 vec![InterfaceConstraint::new(iface.clone(), vec![])]
             }
+            PolytypeDeclaration::Builtin(_, _) => vec![],
             PolytypeDeclaration::Ordinary(polyty) => interfaces_helper(ctx, &polyty.interfaces),
         }
     }
@@ -3096,6 +3098,7 @@ impl Display for PotentialType {
                             }
                         }
                     }
+                    PolytypeDeclaration::Builtin(_, name) => write!(f, "{}", name)?,
                     PolytypeDeclaration::InterfaceSelf(_) => write!(f, "Self")?,
                 }
 
@@ -3154,7 +3157,9 @@ impl Display for SolvedType {
         match self {
             SolvedType::Poly(polyty) => {
                 match polyty {
+                    // TODO: this is duplicated right above. Maybe implement Dispaly for PolytypeDeclaration
                     PolytypeDeclaration::Ordinary(polyty) => {
+                        // TODO: why is this here?
                         write!(f, "{}", polyty.name.id)?;
                         write!(f, "{}", polyty.name.v)?;
                         if !polyty.interfaces.is_empty() {
@@ -3167,6 +3172,7 @@ impl Display for SolvedType {
                             }
                         }
                     }
+                    PolytypeDeclaration::Builtin(_, name) => write!(f, "{}", name)?,
                     PolytypeDeclaration::InterfaceSelf(_) => {
                         write!(f, "Self")?;
                     }

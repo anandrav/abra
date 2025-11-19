@@ -376,6 +376,7 @@ fn add_detail_for_decl_node(
         Declaration::Struct(struct_def) => struct_def.name.node(),
         Declaration::Polytype(polytype_decl) => match polytype_decl {
             PolytypeDeclaration::Ordinary(polyty) => polyty.name.node(),
+            PolytypeDeclaration::Builtin(..) => return false,
             PolytypeDeclaration::InterfaceSelf(iface_def) => iface_def.name.node(), // TODO: this will not result in a good error message
         },
 

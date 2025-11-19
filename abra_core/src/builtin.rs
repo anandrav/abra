@@ -6,6 +6,7 @@ use crate::statics::typecheck::Reason;
 use crate::statics::typecheck::TypeVar;
 use crate::statics::typecheck::{Nominal, TypeKey};
 
+use crate::statics::PolytypeDeclaration;
 use heck::ToSnakeCase;
 use strum::AsRefStr;
 use strum::IntoEnumIterator;
@@ -178,7 +179,10 @@ impl BuiltinOperation {
             ),
 
             BuiltinOperation::ArrayPush => {
-                let a = TypeVar::empty();
+                let a = TypeVar::make_poly(
+                    reason.clone(),
+                    PolytypeDeclaration::Builtin(*self, "a".to_string()),
+                );
                 TypeVar::make_func(
                     vec![
                         TypeVar::make_nominal(reason.clone(), Nominal::Array, vec![a.clone()]),
@@ -190,7 +194,10 @@ impl BuiltinOperation {
             }
 
             BuiltinOperation::ArrayLength => {
-                let a = TypeVar::empty();
+                let a = TypeVar::make_poly(
+                    reason.clone(),
+                    PolytypeDeclaration::Builtin(*self, "a".to_string()),
+                );
                 TypeVar::make_func(
                     vec![TypeVar::make_nominal(
                         reason.clone(),
@@ -203,7 +210,10 @@ impl BuiltinOperation {
             }
 
             BuiltinOperation::ArrayPop => {
-                let a = TypeVar::empty();
+                let a = TypeVar::make_poly(
+                    reason.clone(),
+                    PolytypeDeclaration::Builtin(*self, "a".to_string()),
+                );
                 TypeVar::make_func(
                     vec![TypeVar::make_nominal(
                         reason.clone(),

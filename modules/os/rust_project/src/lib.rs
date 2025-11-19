@@ -26,7 +26,6 @@ pub mod ffi {
                 let contents = <String>::from_vm_unsafe(vm, vm_funcs);
                 let path = <String>::from_vm_unsafe(vm, vm_funcs);
                 let ret: () = os::fwrite(path, contents);
-                ret.to_vm_unsafe(vm, vm_funcs);
             }
         }
         /// # Safety
@@ -48,7 +47,6 @@ pub mod ffi {
                 let vm_funcs: &AbraVmFunctions = &*vm_funcs;
                 let path = <String>::from_vm_unsafe(vm, vm_funcs);
                 let ret: () = os::fremove(path);
-                ret.to_vm_unsafe(vm, vm_funcs);
             }
         }
         /// # Safety
@@ -60,7 +58,6 @@ pub mod ffi {
                 let new_path = <String>::from_vm_unsafe(vm, vm_funcs);
                 let old_path = <String>::from_vm_unsafe(vm, vm_funcs);
                 let ret: () = os::frename(old_path, new_path);
-                ret.to_vm_unsafe(vm, vm_funcs);
             }
         }
         /// # Safety
@@ -72,7 +69,6 @@ pub mod ffi {
                 let dest = <String>::from_vm_unsafe(vm, vm_funcs);
                 let src = <String>::from_vm_unsafe(vm, vm_funcs);
                 let ret: () = os::fcopy(src, dest);
-                ret.to_vm_unsafe(vm, vm_funcs);
             }
         }
         /// # Safety
@@ -84,7 +80,6 @@ pub mod ffi {
                 let contents = <String>::from_vm_unsafe(vm, vm_funcs);
                 let path = <String>::from_vm_unsafe(vm, vm_funcs);
                 let ret: () = os::fappend(path, contents);
-                ret.to_vm_unsafe(vm, vm_funcs);
             }
         }
         pub mod exec {

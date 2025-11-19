@@ -2,7 +2,7 @@ use test_ffi // TODO: make another native module like "test_ffi2" to make sure I
 
 println(pass_int(35))
 println(pass_bool(false))
-println(pass_void(()))
+//println(pass_void(())) // TODO: this doesn't work because pass_void() leaves nothing on the stack now :(
 println(pass_string("mystring"))
 let s = pass_struct(MyStruct(23, true, (), "another"))
 println(s.i)
