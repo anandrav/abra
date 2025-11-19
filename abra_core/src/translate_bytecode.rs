@@ -1219,7 +1219,7 @@ impl Translator {
     fn translate_stmt(
         &self,
         stmt: &Rc<Stmt>,
-        is_last: bool,
+        is_last_in_block_expression: bool,
         offset_table: &OffsetTable,
         monomorph_env: &MonomorphEnv,
         st: &mut TranslatorState,
@@ -1229,10 +1229,6 @@ impl Translator {
             StmtKind::Let(_, pat, expr) => {
                 self.translate_expr(expr, offset_table, monomorph_env, st);
                 self.handle_pat_binding(&pat.0, offset_table, st, monomorph_env);
-
-                if is_last {
-                    self.emit(st, Instr::PushNil(1));
-                }
             }
             StmtKind::Set(expr1, rvalue) => {
                 let rvalue_ty = self
@@ -1270,9 +1266,6 @@ impl Translator {
                         _ => unimplemented!(),
                     }
                 }
-                if is_last {
-                    self.emit(st, Instr::PushNil(1));
-                }
             }
             StmtKind::Expr(expr) => {
                 // let ret_ty = match &*expr.kind {
@@ -1301,7 +1294,7 @@ impl Translator {
                     .subst(monomorph_env);
                 let is_void = expr_ty == SolvedType::Void;
                 self.translate_expr(expr, offset_table, monomorph_env, st);
-                if !is_last && !is_void {
+                if !is_last_in_block_expression && !is_void {
                     self.emit(st, Instr::Pop);
                 }
             }
@@ -1334,10 +1327,6 @@ impl Translator {
                     self.translate_stmt(statement, false, offset_table, monomorph_env, st);
                 }
                 self.emit(st, Line::Label(end_label));
-
-                if is_last {
-                    self.emit(st, Instr::PushNil(1));
-                }
             }
             StmtKind::WhileLoop(cond, statements) => {
                 let start_label = make_label("while_start");
@@ -1356,10 +1345,6 @@ impl Translator {
                 st.loop_stack.pop();
                 self.emit(st, Instr::Jump(start_label));
                 self.emit(st, Line::Label(end_label));
-
-                if is_last {
-                    self.emit(st, Instr::PushNil(1));
-                }
             }
             StmtKind::ForLoop(pat, iterable, statements) => {
                 self.translate_expr(iterable, offset_table, monomorph_env, st);
@@ -1420,10 +1405,6 @@ impl Translator {
                 self.emit(st, Line::Label(end_label));
                 self.emit(st, Instr::Pop);
                 self.emit(st, Instr::Pop);
-
-                if is_last {
-                    self.emit(st, Instr::PushNil(1));
-                }
             }
         }
     }

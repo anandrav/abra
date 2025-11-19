@@ -73,6 +73,27 @@ if false {
 }
 
 #[test]
+fn if_else_no_result() {
+    let src = r#"
+var x = 0
+if false {
+  x = 1
+} else {
+  x = 2
+}
+x
+"#;
+    let program = unwrap_or_panic(compile_bytecode(
+        "main.abra",
+        MockFileProvider::single_file(src),
+    ));
+    let mut vm = Vm::new(program);
+    vm.run();
+    let top = vm.top();
+    assert_eq!(top.get_int(&vm), 2);
+}
+
+#[test]
 fn just_if() {
     let src = r#"
 var x = 3
