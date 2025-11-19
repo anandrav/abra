@@ -516,12 +516,12 @@ fn add_items_from_ast(ast: Rc<FileAst>, output: &mut String) {
                 swrite!(output, "#[unsafe(export_name = \"{symbol}\")]");
                 swrite!(
                     output,
-                    "pub unsafe extern \"C\" fn {}(vm: *mut c_void, vm_funcs: *const AbraVmFunctions) {{",
+                    "pub unsafe extern \"C\" fn {}(_vm: *mut c_void, vm_funcs: *const AbraVmFunctions) {{",
                     f.name.v,
                 );
                 output.push_str("unsafe {");
 
-                output.push_str("let vm_funcs: &AbraVmFunctions = &*vm_funcs;");
+                output.push_str("let _vm_funcs: &AbraVmFunctions = &*vm_funcs;");
                 // get args in reverse order
                 for (name, ty) in f.args.iter().rev() {
                     let Some(ty) = ty else { panic!() };
@@ -534,7 +534,7 @@ fn add_items_from_ast(ast: Rc<FileAst>, output: &mut String) {
                         let tyname = name_of_ty(ty);
                         swrite!(
                             output,
-                            r#"let {} = <{}>::from_vm_unsafe(vm, vm_funcs);
+                            r#"let {} = <{}>::from_vm_unsafe(_vm, _vm_funcs);
 "#,
                             name.v,
                             tyname
@@ -544,13 +544,18 @@ fn add_items_from_ast(ast: Rc<FileAst>, output: &mut String) {
                 // call the user's implementation
                 let out_ty = &f.ret_type;
                 let out_ty_name = name_of_ty(out_ty);
-                swrite!(
-                    output,
-                    "let ret: {} = {}::{}(",
-                    out_ty_name,
-                    package_name,
-                    f.name.v
-                );
+                if matches!(&*out_ty.kind, TypeKind::Void) {
+                    swrite!(output, "{}::{}(", package_name, f.name.v);
+                } else {
+                    swrite!(
+                        output,
+                        "let ret: {} = {}::{}(",
+                        out_ty_name,
+                        package_name,
+                        f.name.v
+                    );
+                }
+
                 for (name, typ) in f.args.iter() {
                     let Some(typ) = typ else { panic!() };
                     if matches!(&*typ.kind, TypeKind::Void) {
@@ -562,7 +567,7 @@ fn add_items_from_ast(ast: Rc<FileAst>, output: &mut String) {
                 output.push_str(");");
                 // push return value
                 if *out_ty.kind != TypeKind::Void {
-                    output.push_str("ret.to_vm_unsafe(vm, vm_funcs);");
+                    output.push_str("ret.to_vm_unsafe(_vm, _vm_funcs);");
                 }
                 output.push('}');
                 output.push('}');

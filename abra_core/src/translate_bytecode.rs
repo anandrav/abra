@@ -10,9 +10,9 @@ use crate::ast::{FileAst, FileDatabase, NodeId};
 use crate::builtin::BuiltinOperation;
 use crate::environment::Environment;
 use crate::optimize_bytecode::optimize;
+use crate::statics::Type;
 use crate::statics::typecheck::Nominal;
 use crate::statics::typecheck::SolvedType;
-use crate::statics::{_print_node, Type};
 use crate::statics::{Declaration, PolytypeDeclaration, TypeProv};
 use crate::vm::{AbraInt, Instr as VmInstr};
 use crate::{
@@ -1510,7 +1510,7 @@ impl Translator {
         monomorph_env: &MonomorphEnv,
     ) {
         match &*pat.kind {
-            PatKind::Binding(s) => {
+            PatKind::Binding(_) => {
                 let pat_ty = self.statics.solution_of_node(pat.node()).unwrap();
                 let pat_ty = pat_ty.subst(monomorph_env);
 

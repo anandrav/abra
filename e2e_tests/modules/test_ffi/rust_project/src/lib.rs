@@ -9,98 +9,98 @@ pub mod ffi {
         /// # Safety
         /// `vm` must be non-null and valid.
         #[unsafe(export_name = "abra_ffi$test_ffi$pass_int")]
-        pub unsafe extern "C" fn pass_int(vm: *mut c_void, vm_funcs: *const AbraVmFunctions) {
+        pub unsafe extern "C" fn pass_int(_vm: *mut c_void, vm_funcs: *const AbraVmFunctions) {
             unsafe {
-                let vm_funcs: &AbraVmFunctions = &*vm_funcs;
-                let i = <i64>::from_vm_unsafe(vm, vm_funcs);
+                let _vm_funcs: &AbraVmFunctions = &*vm_funcs;
+                let i = <i64>::from_vm_unsafe(_vm, _vm_funcs);
                 let ret: i64 = test_ffi::pass_int(i);
-                ret.to_vm_unsafe(vm, vm_funcs);
+                ret.to_vm_unsafe(_vm, _vm_funcs);
             }
         }
         /// # Safety
         /// `vm` must be non-null and valid.
         #[unsafe(export_name = "abra_ffi$test_ffi$pass_bool")]
-        pub unsafe extern "C" fn pass_bool(vm: *mut c_void, vm_funcs: *const AbraVmFunctions) {
+        pub unsafe extern "C" fn pass_bool(_vm: *mut c_void, vm_funcs: *const AbraVmFunctions) {
             unsafe {
-                let vm_funcs: &AbraVmFunctions = &*vm_funcs;
-                let i = <bool>::from_vm_unsafe(vm, vm_funcs);
+                let _vm_funcs: &AbraVmFunctions = &*vm_funcs;
+                let i = <bool>::from_vm_unsafe(_vm, _vm_funcs);
                 let ret: bool = test_ffi::pass_bool(i);
-                ret.to_vm_unsafe(vm, vm_funcs);
+                ret.to_vm_unsafe(_vm, _vm_funcs);
             }
         }
         /// # Safety
         /// `vm` must be non-null and valid.
         #[unsafe(export_name = "abra_ffi$test_ffi$pass_void")]
-        pub unsafe extern "C" fn pass_void(vm: *mut c_void, vm_funcs: *const AbraVmFunctions) {
+        pub unsafe extern "C" fn pass_void(_vm: *mut c_void, vm_funcs: *const AbraVmFunctions) {
             unsafe {
-                let vm_funcs: &AbraVmFunctions = &*vm_funcs;
-                let ret: () = test_ffi::pass_void(());
+                let _vm_funcs: &AbraVmFunctions = &*vm_funcs;
+                test_ffi::pass_void(());
             }
         }
         /// # Safety
         /// `vm` must be non-null and valid.
         #[unsafe(export_name = "abra_ffi$test_ffi$pass_string")]
-        pub unsafe extern "C" fn pass_string(vm: *mut c_void, vm_funcs: *const AbraVmFunctions) {
+        pub unsafe extern "C" fn pass_string(_vm: *mut c_void, vm_funcs: *const AbraVmFunctions) {
             unsafe {
-                let vm_funcs: &AbraVmFunctions = &*vm_funcs;
-                let s = <String>::from_vm_unsafe(vm, vm_funcs);
+                let _vm_funcs: &AbraVmFunctions = &*vm_funcs;
+                let s = <String>::from_vm_unsafe(_vm, _vm_funcs);
                 let ret: String = test_ffi::pass_string(s);
-                ret.to_vm_unsafe(vm, vm_funcs);
+                ret.to_vm_unsafe(_vm, _vm_funcs);
             }
         }
         /// # Safety
         /// `vm` must be non-null and valid.
         #[unsafe(export_name = "abra_ffi$test_ffi$pass_struct")]
-        pub unsafe extern "C" fn pass_struct(vm: *mut c_void, vm_funcs: *const AbraVmFunctions) {
+        pub unsafe extern "C" fn pass_struct(_vm: *mut c_void, vm_funcs: *const AbraVmFunctions) {
             unsafe {
-                let vm_funcs: &AbraVmFunctions = &*vm_funcs;
-                let s = <MyStruct>::from_vm_unsafe(vm, vm_funcs);
+                let _vm_funcs: &AbraVmFunctions = &*vm_funcs;
+                let s = <MyStruct>::from_vm_unsafe(_vm, _vm_funcs);
                 let ret: MyStruct = test_ffi::pass_struct(s);
-                ret.to_vm_unsafe(vm, vm_funcs);
+                ret.to_vm_unsafe(_vm, _vm_funcs);
             }
         }
         /// # Safety
         /// `vm` must be non-null and valid.
         #[unsafe(export_name = "abra_ffi$test_ffi$pass_enum")]
-        pub unsafe extern "C" fn pass_enum(vm: *mut c_void, vm_funcs: *const AbraVmFunctions) {
+        pub unsafe extern "C" fn pass_enum(_vm: *mut c_void, vm_funcs: *const AbraVmFunctions) {
             unsafe {
-                let vm_funcs: &AbraVmFunctions = &*vm_funcs;
-                let e = <MyEnum>::from_vm_unsafe(vm, vm_funcs);
+                let _vm_funcs: &AbraVmFunctions = &*vm_funcs;
+                let e = <MyEnum>::from_vm_unsafe(_vm, _vm_funcs);
                 let ret: MyEnum = test_ffi::pass_enum(e);
-                ret.to_vm_unsafe(vm, vm_funcs);
+                ret.to_vm_unsafe(_vm, _vm_funcs);
             }
         }
         /// # Safety
         /// `vm` must be non-null and valid.
         #[unsafe(export_name = "abra_ffi$test_ffi$pass_tuple")]
-        pub unsafe extern "C" fn pass_tuple(vm: *mut c_void, vm_funcs: *const AbraVmFunctions) {
+        pub unsafe extern "C" fn pass_tuple(_vm: *mut c_void, vm_funcs: *const AbraVmFunctions) {
             unsafe {
-                let vm_funcs: &AbraVmFunctions = &*vm_funcs;
-                let e = <(bool, i64, String)>::from_vm_unsafe(vm, vm_funcs);
+                let _vm_funcs: &AbraVmFunctions = &*vm_funcs;
+                let e = <(bool, i64, String)>::from_vm_unsafe(_vm, _vm_funcs);
                 let ret: (bool, i64, String) = test_ffi::pass_tuple(e);
-                ret.to_vm_unsafe(vm, vm_funcs);
+                ret.to_vm_unsafe(_vm, _vm_funcs);
             }
         }
         /// # Safety
         /// `vm` must be non-null and valid.
         #[unsafe(export_name = "abra_ffi$test_ffi$pass_option")]
-        pub unsafe extern "C" fn pass_option(vm: *mut c_void, vm_funcs: *const AbraVmFunctions) {
+        pub unsafe extern "C" fn pass_option(_vm: *mut c_void, vm_funcs: *const AbraVmFunctions) {
             unsafe {
-                let vm_funcs: &AbraVmFunctions = &*vm_funcs;
-                let o = <Option<String>>::from_vm_unsafe(vm, vm_funcs);
+                let _vm_funcs: &AbraVmFunctions = &*vm_funcs;
+                let o = <Option<String>>::from_vm_unsafe(_vm, _vm_funcs);
                 let ret: Option<String> = test_ffi::pass_option(o);
-                ret.to_vm_unsafe(vm, vm_funcs);
+                ret.to_vm_unsafe(_vm, _vm_funcs);
             }
         }
         /// # Safety
         /// `vm` must be non-null and valid.
         #[unsafe(export_name = "abra_ffi$test_ffi$pass_array")]
-        pub unsafe extern "C" fn pass_array(vm: *mut c_void, vm_funcs: *const AbraVmFunctions) {
+        pub unsafe extern "C" fn pass_array(_vm: *mut c_void, vm_funcs: *const AbraVmFunctions) {
             unsafe {
-                let vm_funcs: &AbraVmFunctions = &*vm_funcs;
-                let a = <Vec<i64>>::from_vm_unsafe(vm, vm_funcs);
+                let _vm_funcs: &AbraVmFunctions = &*vm_funcs;
+                let a = <Vec<i64>>::from_vm_unsafe(_vm, _vm_funcs);
                 let ret: Vec<i64> = test_ffi::pass_array(a);
-                ret.to_vm_unsafe(vm, vm_funcs);
+                ret.to_vm_unsafe(_vm, _vm_funcs);
             }
         }
         pub struct MyStruct {

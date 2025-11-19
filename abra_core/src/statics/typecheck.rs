@@ -1989,7 +1989,7 @@ fn generate_constraints_expr(
                 generate_constraints_expr(ctx, polyvar_scope, Mode::ana(elem_ty.clone()), expr);
             }
         }
-        ExprKind::Variable(s) => {
+        ExprKind::Variable(_) => {
             let lookup = ctx.resolution_map.get(&expr.id).cloned();
             if let Some(decl) = lookup
                 && let Some(typ) = match decl {

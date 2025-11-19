@@ -92,92 +92,95 @@ pub mod ffi {
         /// `vm` must be non-null and valid.
         #[unsafe(export_name = "abra_ffi$term$enable_raw_mode")]
         pub unsafe extern "C" fn enable_raw_mode(
-            vm: *mut c_void,
+            _vm: *mut c_void,
             vm_funcs: *const AbraVmFunctions,
         ) {
             unsafe {
-                let vm_funcs: &AbraVmFunctions = &*vm_funcs;
-                let ret: () = term::enable_raw_mode();
+                let _vm_funcs: &AbraVmFunctions = &*vm_funcs;
+                term::enable_raw_mode();
             }
         }
         /// # Safety
         /// `vm` must be non-null and valid.
         #[unsafe(export_name = "abra_ffi$term$disable_raw_mode")]
         pub unsafe extern "C" fn disable_raw_mode(
-            vm: *mut c_void,
+            _vm: *mut c_void,
             vm_funcs: *const AbraVmFunctions,
         ) {
             unsafe {
-                let vm_funcs: &AbraVmFunctions = &*vm_funcs;
-                let ret: () = term::disable_raw_mode();
+                let _vm_funcs: &AbraVmFunctions = &*vm_funcs;
+                term::disable_raw_mode();
             }
         }
         /// # Safety
         /// `vm` must be non-null and valid.
         #[unsafe(export_name = "abra_ffi$term$poll_key_event")]
-        pub unsafe extern "C" fn poll_key_event(vm: *mut c_void, vm_funcs: *const AbraVmFunctions) {
+        pub unsafe extern "C" fn poll_key_event(
+            _vm: *mut c_void,
+            vm_funcs: *const AbraVmFunctions,
+        ) {
             unsafe {
-                let vm_funcs: &AbraVmFunctions = &*vm_funcs;
+                let _vm_funcs: &AbraVmFunctions = &*vm_funcs;
                 let ret: bool = term::poll_key_event();
-                ret.to_vm_unsafe(vm, vm_funcs);
+                ret.to_vm_unsafe(_vm, _vm_funcs);
             }
         }
         /// # Safety
         /// `vm` must be non-null and valid.
         #[unsafe(export_name = "abra_ffi$term$get_key_event")]
-        pub unsafe extern "C" fn get_key_event(vm: *mut c_void, vm_funcs: *const AbraVmFunctions) {
+        pub unsafe extern "C" fn get_key_event(_vm: *mut c_void, vm_funcs: *const AbraVmFunctions) {
             unsafe {
-                let vm_funcs: &AbraVmFunctions = &*vm_funcs;
+                let _vm_funcs: &AbraVmFunctions = &*vm_funcs;
                 let ret: KeyCode = term::get_key_event();
-                ret.to_vm_unsafe(vm, vm_funcs);
+                ret.to_vm_unsafe(_vm, _vm_funcs);
             }
         }
         /// # Safety
         /// `vm` must be non-null and valid.
         #[unsafe(export_name = "abra_ffi$term$clear")]
-        pub unsafe extern "C" fn clear(vm: *mut c_void, vm_funcs: *const AbraVmFunctions) {
+        pub unsafe extern "C" fn clear(_vm: *mut c_void, vm_funcs: *const AbraVmFunctions) {
             unsafe {
-                let vm_funcs: &AbraVmFunctions = &*vm_funcs;
-                let ret: () = term::clear();
+                let _vm_funcs: &AbraVmFunctions = &*vm_funcs;
+                term::clear();
             }
         }
         /// # Safety
         /// `vm` must be non-null and valid.
         #[unsafe(export_name = "abra_ffi$term$hide_cursor")]
-        pub unsafe extern "C" fn hide_cursor(vm: *mut c_void, vm_funcs: *const AbraVmFunctions) {
+        pub unsafe extern "C" fn hide_cursor(_vm: *mut c_void, vm_funcs: *const AbraVmFunctions) {
             unsafe {
-                let vm_funcs: &AbraVmFunctions = &*vm_funcs;
-                let ret: () = term::hide_cursor();
+                let _vm_funcs: &AbraVmFunctions = &*vm_funcs;
+                term::hide_cursor();
             }
         }
         /// # Safety
         /// `vm` must be non-null and valid.
         #[unsafe(export_name = "abra_ffi$term$show_cursor")]
-        pub unsafe extern "C" fn show_cursor(vm: *mut c_void, vm_funcs: *const AbraVmFunctions) {
+        pub unsafe extern "C" fn show_cursor(_vm: *mut c_void, vm_funcs: *const AbraVmFunctions) {
             unsafe {
-                let vm_funcs: &AbraVmFunctions = &*vm_funcs;
-                let ret: () = term::show_cursor();
+                let _vm_funcs: &AbraVmFunctions = &*vm_funcs;
+                term::show_cursor();
             }
         }
         /// # Safety
         /// `vm` must be non-null and valid.
         #[unsafe(export_name = "abra_ffi$term$mark")]
-        pub unsafe extern "C" fn mark(vm: *mut c_void, vm_funcs: *const AbraVmFunctions) {
+        pub unsafe extern "C" fn mark(_vm: *mut c_void, vm_funcs: *const AbraVmFunctions) {
             unsafe {
-                let vm_funcs: &AbraVmFunctions = &*vm_funcs;
-                let y = <i64>::from_vm_unsafe(vm, vm_funcs);
-                let x = <i64>::from_vm_unsafe(vm, vm_funcs);
-                let s = <String>::from_vm_unsafe(vm, vm_funcs);
-                let ret: () = term::mark(s, x, y);
+                let _vm_funcs: &AbraVmFunctions = &*vm_funcs;
+                let y = <i64>::from_vm_unsafe(_vm, _vm_funcs);
+                let x = <i64>::from_vm_unsafe(_vm, _vm_funcs);
+                let s = <String>::from_vm_unsafe(_vm, _vm_funcs);
+                term::mark(s, x, y);
             }
         }
         /// # Safety
         /// `vm` must be non-null and valid.
         #[unsafe(export_name = "abra_ffi$term$flush")]
-        pub unsafe extern "C" fn flush(vm: *mut c_void, vm_funcs: *const AbraVmFunctions) {
+        pub unsafe extern "C" fn flush(_vm: *mut c_void, vm_funcs: *const AbraVmFunctions) {
             unsafe {
-                let vm_funcs: &AbraVmFunctions = &*vm_funcs;
-                let ret: () = term::flush();
+                let _vm_funcs: &AbraVmFunctions = &*vm_funcs;
+                term::flush();
             }
         }
     }
