@@ -1287,6 +1287,7 @@ impl Translator {
                 //     None => None
                 // };
                 // let void_func_call = ret_ty == Some(SolvedType::Void);
+                // _print_node(&self.statics, expr.node());
                 let expr_ty = self
                     .statics
                     .solution_of_node(expr.node())

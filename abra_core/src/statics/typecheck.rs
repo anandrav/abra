@@ -2156,40 +2156,40 @@ fn generate_constraints_expr(
                     &node_ty,
                     &TypeVar::make_void(Reason::Node(expr.node())),
                 );
-                return;
-            }
-            for statement in statements[..statements.len() - 1].iter() {
-                generate_constraints_stmt(ctx, polyvar_scope, Mode::Syn, statement);
-            }
-            // if last statement is an expression, the block will have that expression's type
-            if let StmtKind::Expr(terminal_expr) = &*statements.last().unwrap().kind {
-                generate_constraints_expr(ctx, polyvar_scope, mode.clone(), terminal_expr);
-                let expr_ty = TypeVar::from_node(ctx, terminal_expr.node());
-                constrain(ctx, &expr_ty, &node_ty);
-            } else if let StmtKind::Return(_) = &*statements.last().unwrap().kind {
-                generate_constraints_stmt(
-                    ctx,
-                    polyvar_scope,
-                    mode.clone(),
-                    statements.last().unwrap(),
-                );
-                constrain(
-                    ctx,
-                    &node_ty,
-                    &TypeVar::make_never(Reason::Node(expr.node())),
-                )
             } else {
-                generate_constraints_stmt(
-                    ctx,
-                    polyvar_scope,
-                    Mode::Syn,
-                    statements.last().unwrap(),
-                );
-                constrain(
-                    ctx,
-                    &node_ty,
-                    &TypeVar::make_void(Reason::Node(expr.node())),
-                )
+                for statement in statements[..statements.len() - 1].iter() {
+                    generate_constraints_stmt(ctx, polyvar_scope, Mode::Syn, statement);
+                }
+                // if last statement is an expression, the block will have that expression's type
+                if let StmtKind::Expr(terminal_expr) = &*statements.last().unwrap().kind {
+                    generate_constraints_expr(ctx, polyvar_scope, mode.clone(), terminal_expr);
+                    let expr_ty = TypeVar::from_node(ctx, terminal_expr.node());
+                    constrain(ctx, &expr_ty, &node_ty);
+                } else if let StmtKind::Return(_) = &*statements.last().unwrap().kind {
+                    generate_constraints_stmt(
+                        ctx,
+                        polyvar_scope,
+                        mode.clone(),
+                        statements.last().unwrap(),
+                    );
+                    constrain(
+                        ctx,
+                        &node_ty,
+                        &TypeVar::make_never(Reason::Node(expr.node())),
+                    )
+                } else {
+                    generate_constraints_stmt(
+                        ctx,
+                        polyvar_scope,
+                        Mode::Syn,
+                        statements.last().unwrap(),
+                    );
+                    constrain(
+                        ctx,
+                        &node_ty,
+                        &TypeVar::make_void(Reason::Node(expr.node())),
+                    )
+                }
             }
         }
         ExprKind::IfElse(cond, expr1, expr2) => {
