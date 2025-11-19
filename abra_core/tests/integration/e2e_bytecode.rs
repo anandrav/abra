@@ -1511,6 +1511,27 @@ name ..  " " .. age
 }
 
 #[test]
+fn match_tuple_with_void_field() {
+    let src = r#"
+let person = ("Alice", (), (), (), (), 30)
+let n = match person {
+  ("Bob", (), (), (), (), 50) -> 0,
+  ("Alice", (), (), (), (), 20) -> 0,
+  ("Alice", (), (), (), (), 30) -> 1
+}
+n
+"#;
+    let program = unwrap_or_panic(compile_bytecode(
+        "main.abra",
+        MockFileProvider::single_file(src),
+    ));
+    let mut vm = Vm::new(program);
+    vm.run();
+    let top = vm.top();
+    assert_eq!(top.get_int(&vm), 1);
+}
+
+#[test]
 fn enum_with_void_field() {
     let src = r#"
 type GlibbyGlob =

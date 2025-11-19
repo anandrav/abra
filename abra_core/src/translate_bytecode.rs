@@ -1200,8 +1200,10 @@ impl Translator {
                     // FAILURE CASE
                     // clean up the remaining tuple elements before yielding false
                     self.emit(st, Line::Label(failure_labels[0].clone()));
-                    for label in &failure_labels[1..] {
-                        self.emit(st, Instr::Pop); // TODO: shouldn't pop if tuple element is void
+                    for (i, label) in failure_labels[1..].iter().enumerate() {
+                        if SolvedType::Void != types[i + 1] {
+                            self.emit(st, Instr::Pop);
+                        }
                         self.emit(st, Line::Label(label.clone()));
                     }
                     self.emit(st, Instr::PushBool(false));
@@ -1508,7 +1510,7 @@ impl Translator {
         monomorph_env: &MonomorphEnv,
     ) {
         match &*pat.kind {
-            PatKind::Binding(_) => {
+            PatKind::Binding(s) => {
                 let pat_ty = self.statics.solution_of_node(pat.node()).unwrap();
                 let pat_ty = pat_ty.subst(monomorph_env);
 
@@ -1625,7 +1627,10 @@ fn collect_locals_stmt(statements: &[Rc<Stmt>], locals: &mut HashSet<NodeId>) {
                 collect_locals_pat(&pat.0, locals);
                 collect_locals_expr(expr, locals);
             }
-            StmtKind::Set(..) | StmtKind::Continue | StmtKind::Break => {}
+            StmtKind::Set(_, expr) => {
+                collect_locals_expr(expr, locals);
+            }
+            StmtKind::Continue | StmtKind::Break => {}
             StmtKind::Return(expr) => {
                 collect_locals_expr(expr, locals);
             }
