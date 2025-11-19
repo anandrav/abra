@@ -5,4 +5,10 @@ edition = "2024"
 license = "MPL-2.0"
 
 [dependencies]
+abra_core = { workspace = true }
+abra_module_test_ffi = { path = "modules/test_ffi/rust_project" }
+test_host_funcs = { path = "test_host_funcs" }
 utils = { workspace = true }
+
+[build-dependencies]
+abra_core = { workspace = true }
