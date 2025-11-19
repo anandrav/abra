@@ -2,7 +2,7 @@ use test_ffi // TODO: make another native module like "test_ffi2" to make sure I
 
 println(pass_int(35))
 println(pass_bool(false))
-//println(pass_void(())) // TODO: this doesn't work because pass_void() leaves nothing on the stack now :(
+println(pass_void(()))
 println(pass_string("mystring"))
 let s = pass_struct(MyStruct(23, true, (), "another"))
 println(s.i)
@@ -11,7 +11,7 @@ println(s.v)
 println(s.s)
 let e = pass_enum(MyEnum.String("yet another"))
 match e {
-    MyEnum.String(s) -> println(s),
+    MyEnum.String(s) -> println(s), // TODO: need to test enum containing just (). How does nil erasure effect this?
     _ -> println("<wrong variant>")
 }
 let t = pass_tuple((true, 2, "3"))

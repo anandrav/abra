@@ -221,7 +221,16 @@ impl Vm {
     }
 
     pub fn store_offset(&mut self, offset: i8, v: impl Into<Value>) {
-        self.value_stack[self.stack_base.wrapping_add_signed(offset as isize)] = v.into();
+        let index = self.stack_base.wrapping_add_signed(offset as isize);
+        if index >= self.value_stack.len() {
+            self.fail(VmErrorKind::InternalError(format!(
+                "store_offset({}): index={} >= len={}",
+                offset,
+                index,
+                self.value_stack.len()
+            )));
+        }
+        self.value_stack[index] = v.into();
     }
 
     pub fn pop(&mut self) -> Value {

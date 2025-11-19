@@ -358,10 +358,10 @@ fn add_items_from_ast(ast: Rc<FileAst>, output: &mut String) {
                     output.push_str("(vm_funcs.deconstruct_struct)(vm);");
                     for field in s.fields.iter() {
                         if matches!(&*field.ty.kind, TypeKind::Void) {
-                            output.push_str(
-                                r#"(vm_funcs.pop_nil)(vm);
-"#,
-                            );
+                            //     output.push_str(
+                            //         r#"(vm_funcs.pop_nil)(vm);
+                            // "#,
+                            //     );
                         } else {
                             let tyname = name_of_ty(&field.ty);
                             swrite!(
@@ -396,7 +396,7 @@ fn add_items_from_ast(ast: Rc<FileAst>, output: &mut String) {
                     output.push_str("unsafe {");
                     for field in s.fields.iter() {
                         if matches!(&*field.ty.kind, TypeKind::Void) {
-                            output.push_str("(vm_funcs.push_nil)(vm);");
+                            // output.push_str("(vm_funcs.push_nil)(vm);");
                         } else {
                             swrite!(
                                 output,
@@ -407,11 +407,13 @@ fn add_items_from_ast(ast: Rc<FileAst>, output: &mut String) {
                         }
                     }
 
-                    swrite!(
-                        output,
-                        "(vm_funcs.construct_struct)(vm, {});",
-                        s.fields.len()
-                    );
+                    let mut nfields = 0;
+                    for field in &*s.fields {
+                        if !matches!(*field.ty.kind, TypeKind::Void) {
+                            nfields += 1;
+                        }
+                    }
+                    swrite!(output, "(vm_funcs.construct_struct)(vm, {});", nfields);
 
                     output.push('}');
 
@@ -524,10 +526,10 @@ fn add_items_from_ast(ast: Rc<FileAst>, output: &mut String) {
                 for (name, ty) in f.args.iter().rev() {
                     let Some(ty) = ty else { panic!() };
                     if matches!(&*ty.kind, TypeKind::Void) {
-                        output.push_str(
-                            r#"(vm_funcs.pop_nil)(vm);
-"#,
-                        );
+                        //                         output.push_str(
+                        //                             r#"(vm_funcs.pop_nil)(vm);
+                        // "#,
+                        //                         );
                     } else {
                         let tyname = name_of_ty(ty);
                         swrite!(

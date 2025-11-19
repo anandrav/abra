@@ -546,6 +546,7 @@ fn resolve_names_item_decl(ctx: &mut StaticsContext, symbol_table: &SymbolTable,
         }
         ItemKind::Extension(ext) => {
             let symbol_table = symbol_table.new_scope();
+            // TODO: introduce_poly=true doesn't seem right. Shouldn't the polys in the ext typ reoslve to the original type definition's polys?
             resolve_names_typ(ctx, &symbol_table, &ext.typ, true);
 
             let id_lookup_typ = match &*ext.typ.kind {

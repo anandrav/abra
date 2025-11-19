@@ -16,6 +16,7 @@ fn test_ffi() {
         stdout_str,
         r#"35
 false
+()
 mystring
 23
 true

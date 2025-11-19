@@ -1464,8 +1464,10 @@ fn generate_constraints_item_decls0(ctx: &mut StaticsContext, item: &Rc<Item>) {
                 if let Some((first_arg_identifier, _)) = f.args.first() {
                     if first_arg_identifier.v == "self" {
                         let nominal_ty = ext.typ.to_typevar(ctx);
+                        // println!("type of extension is {}", nominal_ty);
                         let ty_arg = TypeVar::from_node(ctx, first_arg_identifier.node());
                         constrain(ctx, &ty_arg, &nominal_ty);
+                        // println!("ty of first arg is {}", ty_arg);
 
                         generate_constraints_func_decl(
                             ctx,
@@ -1728,7 +1730,10 @@ fn generate_constraints_item_stmts(ctx: &mut StaticsContext, mode: Mode, item: &
         ItemKind::Extension(ext) => {
             for f in &ext.methods {
                 if f.args.first().is_some_and(|p| p.0.v == "self") {
-                    generate_constraints_func_def(ctx, &PolyvarScope::empty(), f, f.name.node());
+                    let polyvar_scope = PolyvarScope::empty();
+                    let first_arg_ty = TypeVar::from_node(ctx, f.args.first().unwrap().0.node());
+                    polyvar_scope.add_polys(&first_arg_ty);
+                    generate_constraints_func_def(ctx, &polyvar_scope, f, f.name.node());
                 }
             }
         }
@@ -1984,12 +1989,13 @@ fn generate_constraints_expr(
                 generate_constraints_expr(ctx, polyvar_scope, Mode::ana(elem_ty.clone()), expr);
             }
         }
-        ExprKind::Variable(_) => {
+        ExprKind::Variable(s) => {
             let lookup = ctx.resolution_map.get(&expr.id).cloned();
             if let Some(decl) = lookup
                 && let Some(typ) = match decl {
                     Declaration::Var(node) => {
                         let tyvar = TypeVar::from_node(ctx, node.clone());
+                        // println!("type of {} is {}", s, tyvar);
                         Some(tyvar)
                     }
                     Declaration::FreeFunction(f) => Some(TypeVar::from_node(ctx, f.name.node())),
@@ -1999,6 +2005,8 @@ fn generate_constraints_expr(
                     }
                     Declaration::Builtin(builtin) => {
                         let ty_signature = builtin.type_signature();
+                        let ty_signature =
+                            ty_signature.instantiate(ctx, polyvar_scope, expr.node());
                         Some(ty_signature)
                     }
                     // struct constructor.

@@ -3,7 +3,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use crate::assembly::{Instr, Label, Line, LineVariant, Reg, remove_labels};
-use crate::ast::{AstNode, BinaryOperator, FuncDef, InterfaceDef, ItemKind};
+use crate::ast::{ArgMaybeAnnotated, AstNode, BinaryOperator, FuncDef, InterfaceDef, ItemKind};
 use crate::ast::{FileAst, FileDatabase, NodeId};
 use crate::builtin::BuiltinOperation;
 use crate::environment::Environment;
@@ -323,7 +323,7 @@ impl Translator {
                     for (i, local) in locals.iter().enumerate() {
                         offset_table.entry(*local).or_insert(i as i8);
                     }
-                    let nargs = args.len();
+                    let nargs = count_args(&self.statics, args, desc.overload_ty);
                     st.return_stack.push(nargs as u32);
                     self.translate_expr(body, &offset_table, &monomorph_env, st);
                     st.return_stack.pop();
@@ -379,6 +379,7 @@ impl Translator {
         st: &mut TranslatorState,
     ) {
         self.update_current_file_and_lineno(st, expr.node());
+
         match &*expr.kind {
             ExprKind::Variable(_) => match &self.statics.resolution_map[&expr.id] {
                 Declaration::EnumVariant { variant, .. } => {
@@ -391,8 +392,16 @@ impl Translator {
                     );
                 }
                 Declaration::Var(node) => {
-                    let idx = offset_table.get(&node.id()).unwrap();
-                    self.emit(st, Instr::LoadOffset(*idx));
+                    // _print_node(&self.statics, expr.node());
+                    let prov = TypeProv::Node(expr.node());
+                    let expr_ty_unsolved = self.statics.unifvars[&prov].clone();
+                    // println!("expr_ty_unsolved: {}", expr_ty_unsolved);
+                    let expr_ty = self.statics.solution_of_node(expr.node()).unwrap();
+                    let expr_ty = expr_ty.subst(monomorph_env);
+                    if expr_ty != SolvedType::Void {
+                        let idx = offset_table.get(&node.id()).unwrap();
+                        self.emit(st, Instr::LoadOffset(*idx));
+                    }
                 }
                 Declaration::Builtin(b) => match b {
                     BuiltinOperation::Newline => {
@@ -449,7 +458,7 @@ impl Translator {
                 _ => panic!(),
             },
             ExprKind::Void => {
-                self.emit(st, Instr::PushNil(1));
+                // self.emit(st, Instr::PushNil(1));
             }
             ExprKind::Bool(b) => {
                 self.emit(st, Instr::PushBool(*b));
@@ -633,14 +642,26 @@ impl Translator {
                     );
                 }
                 if statements.is_empty() {
-                    self.emit(st, Instr::PushNil(1));
+                    self.emit(st, Instr::PushNil(1)); // TODO: get rid of this
                 }
             }
             ExprKind::Tuple(exprs) => {
                 for expr in exprs {
                     self.translate_expr(expr, offset_table, monomorph_env, st);
                 }
-                self.emit(st, Instr::ConstructStruct(exprs.len()));
+                let mut nargs = 0;
+                for expr in exprs {
+                    // TODO: duplicated logic
+                    let expr_ty = self
+                        .statics
+                        .solution_of_node(expr.node())
+                        .unwrap()
+                        .subst(monomorph_env);
+                    if expr_ty != SolvedType::Void {
+                        nargs += 1;
+                    }
+                }
+                self.emit(st, Instr::ConstructStruct(nargs));
             }
             ExprKind::IfElse(cond, then_block, else_block) => {
                 self.translate_expr(cond, offset_table, monomorph_env, st);
@@ -665,9 +686,17 @@ impl Translator {
                         },
                     );
                 } else {
-                    self.translate_expr(accessed, offset_table, monomorph_env, st);
-                    let idx = idx_of_field(&self.statics, accessed, &field_name.v);
-                    self.emit(st, Instr::GetField(idx));
+                    let expr_ty = self
+                        .statics
+                        .solution_of_node(expr.node())
+                        .unwrap()
+                        .subst(monomorph_env);
+                    if expr_ty != SolvedType::Void {
+                        self.translate_expr(accessed, offset_table, monomorph_env, st);
+                        let idx =
+                            idx_of_field(&self.statics, monomorph_env, accessed, &field_name.v);
+                        self.emit(st, Instr::GetField(idx));
+                    }
                 }
             }
             ExprKind::Array(exprs) => {
@@ -821,7 +850,12 @@ impl Translator {
                 // assume it's a function object
                 let idx = offset_table.get(&node.id()).unwrap();
                 self.emit(st, Instr::LoadOffset(*idx));
-                self.emit(st, Instr::CallFuncObj(args.len() as u32));
+                let nargs = args
+                    .iter()
+                    .map(|arg| arg.subst(monomorph_env))
+                    .filter(|arg| *arg != SolvedType::Void)
+                    .count();
+                self.emit(st, Instr::CallFuncObj(nargs as u32));
             }
             Declaration::FreeFunction(f) => {
                 let f_fully_qualified_name = &self.statics.fully_qualified_names[&f.name.id];
@@ -886,7 +920,19 @@ impl Translator {
                 );
             }
             Declaration::Struct(def) => {
-                self.emit(st, Instr::ConstructStruct(def.fields.len()));
+                let mut nargs = 0;
+                for field in &*def.fields {
+                    // TODO: duplicated logic
+                    let field_ty = field
+                        .ty
+                        .to_solved_type(&self.statics)
+                        .unwrap()
+                        .subst(monomorph_env);
+                    if field_ty != SolvedType::Void {
+                        nargs += 1;
+                    }
+                }
+                self.emit(st, Instr::ConstructStruct(nargs));
             }
             Declaration::EnumVariant {
                 e: enum_def,
@@ -1154,45 +1200,57 @@ impl Translator {
                 }
             }
             StmtKind::Set(expr1, rvalue) => {
-                match &*expr1.kind {
-                    ExprKind::Variable(_) => {
-                        let Declaration::Var(node) = &self.statics.resolution_map[&expr1.id] else {
-                            panic!("expected variableto be defined in node");
-                        };
-                        let idx = offset_table.get(&node.id()).unwrap();
-                        self.translate_expr(rvalue, offset_table, monomorph_env, st);
-                        self.emit(st, Instr::StoreOffset(*idx));
+                let rvalue_ty = self
+                    .statics
+                    .solution_of_node(rvalue.node())
+                    .unwrap()
+                    .subst(monomorph_env);
+                if rvalue_ty != SolvedType::Void {
+                    match &*expr1.kind {
+                        // variable assignment
+                        ExprKind::Variable(_) => {
+                            let Declaration::Var(node) = &self.statics.resolution_map[&expr1.id]
+                            else {
+                                panic!("expected variableto be defined in node");
+                            };
+                            let idx = offset_table.get(&node.id()).unwrap();
+                            self.translate_expr(rvalue, offset_table, monomorph_env, st);
+                            self.emit(st, Instr::StoreOffset(*idx));
+                        }
+                        // struct member assignment
+                        ExprKind::MemberAccess(accessed, field_name) => {
+                            self.translate_expr(rvalue, offset_table, monomorph_env, st);
+                            self.translate_expr(accessed, offset_table, monomorph_env, st);
+                            let idx =
+                                idx_of_field(&self.statics, monomorph_env, accessed, &field_name.v);
+                            self.emit(st, Instr::SetField(idx));
+                        }
+                        // array assignment
+                        ExprKind::IndexAccess(array, index) => {
+                            self.translate_expr(rvalue, offset_table, monomorph_env, st);
+                            self.translate_expr(index, offset_table, monomorph_env, st);
+                            self.translate_expr(array, offset_table, monomorph_env, st);
+                            self.emit(st, Instr::SetIdx);
+                        }
+                        _ => unimplemented!(),
                     }
-                    ExprKind::MemberAccess(accessed, field_name) => {
-                        self.translate_expr(rvalue, offset_table, monomorph_env, st);
-                        self.translate_expr(accessed, offset_table, monomorph_env, st);
-                        let idx = idx_of_field(&self.statics, accessed, &field_name.v);
-                        self.emit(st, Instr::SetField(idx));
-                    }
-                    ExprKind::IndexAccess(array, index) => {
-                        self.translate_expr(rvalue, offset_table, monomorph_env, st);
-                        self.translate_expr(index, offset_table, monomorph_env, st);
-                        self.translate_expr(array, offset_table, monomorph_env, st);
-                        self.emit(st, Instr::SetIdx);
-                    }
-                    _ => unimplemented!(),
                 }
                 if is_last {
                     self.emit(st, Instr::PushNil(1));
                 }
             }
             StmtKind::Expr(expr) => {
-                let ret_ty = match &*expr.kind {
-                    ExprKind::FuncAp(func_expr, _) => {
-                        // _print_node(&self.statics, func_expr.node());
-                        Some(self.statics.solution_of_node(expr.node()).unwrap())
-                    }
-                    ExprKind::MemberFuncAp(_, func_ident, _) => {
-                        // self.statics.resolution_map[func_ident]
-                        Some(self.statics.solution_of_node(expr.node()).unwrap())
-                    }
-                    _ => None,
-                };
+                // let ret_ty = match &*expr.kind {
+                //     ExprKind::FuncAp(func_expr, _) => {
+                //         // _print_node(&self.statics, func_expr.node());
+                //         Some(self.statics.solution_of_node(expr.node()).unwrap())
+                //     }
+                //     ExprKind::MemberFuncAp(_, func_ident, _) => {
+                //         // self.statics.resolution_map[func_ident]
+                //         Some(self.statics.solution_of_node(expr.node()).unwrap())
+                //     }
+                //     _ => None,
+                // };
                 // let ret_ty = match func_ty {
                 //     Some(func_ty) => {
                 //         let SolvedType::Function(_, ret_ty) = func_ty else { unreachable!() };
@@ -1200,9 +1258,15 @@ impl Translator {
                 //     }
                 //     None => None
                 // };
-                let void_func_call = ret_ty == Some(SolvedType::Void);
+                // let void_func_call = ret_ty == Some(SolvedType::Void);
+                let expr_ty = self
+                    .statics
+                    .solution_of_node(expr.node())
+                    .unwrap()
+                    .subst(monomorph_env);
+                let is_void = expr_ty == SolvedType::Void;
                 self.translate_expr(expr, offset_table, monomorph_env, st);
-                if !is_last && !void_func_call {
+                if !is_last && !is_void {
                     self.emit(st, Instr::Pop);
                 }
             }
@@ -1368,8 +1432,9 @@ impl Translator {
                     || is_ident_func(&ty, SolvedType::Void)
                     || is_ident_func(&ty, SolvedType::String) =>
             { /* noop */ }
-            _ => {
-                self.emit(st, Instr::Call(func_def.args.len(), label));
+            (_, overload_ty) => {
+                let nargs = count_args(&self.statics, &func_def.args, overload_ty);
+                self.emit(st, Instr::Call(nargs, label));
             }
         }
     }
@@ -1564,6 +1629,26 @@ fn collect_locals_pat(pat: &Rc<Pat>, locals: &mut HashSet<NodeId>) {
     }
 }
 
+fn count_args(
+    ctx: &StaticsContext,
+    args: &[ArgMaybeAnnotated],
+    overload_ty: Option<SolvedType>,
+) -> usize {
+    match overload_ty {
+        Some(overload_ty) => {
+            let SolvedType::Function(args, _) = overload_ty else { unreachable!() };
+            args.iter().filter(|arg| **arg != SolvedType::Void).count()
+        }
+        None => args
+            .iter()
+            .filter(|arg| {
+                let arg_ty = ctx.solution_of_node(arg.0.node()).unwrap();
+                arg_ty != SolvedType::Void
+            })
+            .count(),
+    }
+}
+
 fn make_label(hint: &str) -> Label {
     if hint.contains(" ") {
         panic!("Label hint cannot contain spaces");
@@ -1573,17 +1658,31 @@ fn make_label(hint: &str) -> Label {
     format!("{hint}__#{id:X}")
 }
 
-fn idx_of_field(statics: &StaticsContext, accessed: &Rc<Expr>, field: &str) -> u16 {
+fn idx_of_field(
+    statics: &StaticsContext,
+    monomorph_env: &MonomorphEnv,
+    accessed: &Rc<Expr>,
+    field_name: &str,
+) -> u16 {
     let accessed_ty = statics.solution_of_node(accessed.node()).unwrap();
 
     match accessed_ty {
         Type::Nominal(Nominal::Struct(struct_def), _) => {
-            let field_idx = struct_def
-                .fields
-                .iter()
-                .position(|f| f.name.v == field)
-                .unwrap();
-            field_idx as u16
+            let mut index = 0;
+            for field in &*struct_def.fields {
+                if field.name.v == field_name {
+                    return index as u16;
+                }
+                let field_ty = field
+                    .ty
+                    .to_solved_type(statics)
+                    .unwrap()
+                    .subst(monomorph_env);
+                if field_ty != SolvedType::Void {
+                    index += 1;
+                }
+            }
+            panic!("could not find field")
         }
         _ => panic!("not a udt"),
     }
