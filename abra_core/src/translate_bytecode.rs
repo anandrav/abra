@@ -211,10 +211,6 @@ impl Translator {
 
         self.create_source_location_tables(&mut st);
         let constants = gather_constants(&st.lines);
-        // for line in st.lines.iter() {
-        //     println!("{}", line);
-        // }
-        // panic!();
         let (instructions, _) = remove_labels(&st.lines, &constants);
         let mut filename_arena = vec![];
         for file_data in self._files.files.iter() {
@@ -745,7 +741,7 @@ impl Translator {
                 for (i, arm) in arms.iter().enumerate() {
                     self.emit(st, Line::Label(arm_labels[i].clone()));
 
-                    self.handle_pat_binding(&arm.pat, offset_table, st);
+                    self.handle_pat_binding(&arm.pat, offset_table, st, monomorph_env);
 
                     self.translate_stmt(&arm.stmt, true, offset_table, monomorph_env, st);
                     if i != arms.len() - 1 {
@@ -1206,7 +1202,7 @@ impl Translator {
         match &*stmt.kind {
             StmtKind::Let(_, pat, expr) => {
                 self.translate_expr(expr, offset_table, monomorph_env, st);
-                self.handle_pat_binding(&pat.0, offset_table, st);
+                self.handle_pat_binding(&pat.0, offset_table, st, monomorph_env);
 
                 if is_last {
                     self.emit(st, Instr::PushNil(1));
@@ -1385,7 +1381,7 @@ impl Translator {
                 self.emit(st, Instr::PushInt(0 as AbraInt));
                 self.emit(st, Instr::EqualInt);
                 self.emit(st, Instr::JumpIfFalse(end_label.clone()));
-                self.handle_pat_binding(pat, offset_table, st);
+                self.handle_pat_binding(pat, offset_table, st, monomorph_env);
                 st.loop_stack.push(EnclosingLoop {
                     start_label: start_label.clone(),
                     end_label: end_label.clone(),
@@ -1480,16 +1476,27 @@ impl Translator {
         }
     }
 
-    fn handle_pat_binding(&self, pat: &Rc<Pat>, locals: &OffsetTable, st: &mut TranslatorState) {
+    fn handle_pat_binding(
+        &self,
+        pat: &Rc<Pat>,
+        locals: &OffsetTable,
+        st: &mut TranslatorState,
+        monomorph_env: &MonomorphEnv,
+    ) {
         match &*pat.kind {
             PatKind::Binding(_) => {
-                let idx = locals.get(&pat.id).unwrap();
-                self.emit(st, Instr::StoreOffset(*idx));
+                let pat_ty = self.statics.solution_of_node(pat.node()).unwrap();
+                let pat_ty = pat_ty.subst(monomorph_env);
+
+                if pat_ty != SolvedType::Void {
+                    let idx = locals.get(&pat.id).unwrap();
+                    self.emit(st, Instr::StoreOffset(*idx));
+                }
             }
             PatKind::Tuple(pats) => {
                 self.emit(st, Instr::DeconstructStruct);
                 for pat in pats.iter() {
-                    self.handle_pat_binding(pat, locals, st);
+                    self.handle_pat_binding(pat, locals, st, monomorph_env);
                 }
             }
             PatKind::Variant(_prefixes, _, inner) => {
@@ -1498,13 +1505,15 @@ impl Translator {
                     self.emit(st, Instr::DeconstructVariant);
                     // pop tag
                     self.emit(st, Instr::Pop);
-                    self.handle_pat_binding(inner, locals, st);
+                    self.handle_pat_binding(inner, locals, st, monomorph_env);
                 } else {
                     self.emit(st, Instr::Pop);
                 }
             }
-            PatKind::Void
-            | PatKind::Bool(..)
+            PatKind::Void => {
+                // noop
+            }
+            PatKind::Bool(..)
             | PatKind::Int(..)
             | PatKind::Float(..)
             | PatKind::Str(..)
