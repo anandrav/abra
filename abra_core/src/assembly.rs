@@ -119,6 +119,7 @@ pub enum Instr {
     CallFuncObj(u32),
     CallExtern(u32),
     Return(u32),
+    ReturnVoid,
     Stop, // used when returning from main function
     HostFunc(u16),
     Panic,
@@ -238,6 +239,7 @@ impl Display for Instr {
             Instr::CallExtern(func_id) => write!(f, "call_extern {func_id}"),
             Instr::CallFuncObj(nargs) => write!(f, "call_func_obj {nargs}"),
             Instr::Return(nargs) => write!(f, "return {nargs}"),
+            Instr::ReturnVoid => write!(f, "return"),
             Instr::Stop => write!(f, "stop"),
             Instr::Panic => write!(f, "panic"),
             Instr::ConstructStruct(n) => write!(f, "construct_struct {n}"),
@@ -385,6 +387,7 @@ fn instr_to_vminstr(
         Instr::CallExtern(func_id) => VmInstr::CallExtern(*func_id),
         Instr::CallFuncObj(nargs) => VmInstr::CallFuncObj(*nargs),
         Instr::Return(nargs) => VmInstr::Return(*nargs),
+        Instr::ReturnVoid => VmInstr::ReturnVoid,
         Instr::Stop => VmInstr::Stop,
         Instr::Panic => VmInstr::Panic,
         Instr::ConstructStruct(n) => VmInstr::ConstructStruct(*n as u32),

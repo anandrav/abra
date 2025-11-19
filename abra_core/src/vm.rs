@@ -428,6 +428,7 @@ pub enum Instr {
     CallFuncObj(u32),
     CallExtern(u32),
     Return(u32),
+    ReturnVoid,
     Stop, // used when returning from main function
     HostFunc(u16),
     Panic,
@@ -1243,6 +1244,13 @@ impl Vm {
                 self.pc = frame.pc;
                 self.value_stack
                     .truncate(self.stack_base - (frame.nargs as usize) + 1);
+                self.stack_base = frame.stack_base;
+            }
+            Instr::ReturnVoid => {
+                let frame = self.call_stack.pop().unwrap();
+                self.pc = frame.pc;
+                self.value_stack
+                    .truncate(self.stack_base - (frame.nargs as usize));
                 self.stack_base = frame.stack_base;
             }
             Instr::Stop => {
