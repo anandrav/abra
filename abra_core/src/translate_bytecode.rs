@@ -462,9 +462,7 @@ impl Translator {
                 }
                 _ => panic!(),
             },
-            ExprKind::Void => {
-                // self.emit(st, Instr::PushNil(1));
-            }
+            ExprKind::Void => {}
             ExprKind::Bool(b) => {
                 self.emit(st, Instr::PushBool(*b));
             }
@@ -550,10 +548,6 @@ impl Translator {
                         _ => unreachable!(),
                     },
                     BinaryOperator::Equal => match arg1_ty {
-                        SolvedType::Void => {
-                            self.emit(st, Instr::Pop);
-                            self.emit(st, Instr::PushNil(1));
-                        }
                         SolvedType::Int => self.emit(st, Instr::EqualInt),
                         SolvedType::Float => self.emit(st, Instr::EqualFloat),
                         SolvedType::Bool => self.emit(st, Instr::EqualBool),
@@ -645,9 +639,6 @@ impl Translator {
                         monomorph_env,
                         st,
                     );
-                }
-                if statements.is_empty() {
-                    self.emit(st, Instr::PushNil(1)); // TODO: get rid of this
                 }
             }
             ExprKind::Tuple(exprs) => {
