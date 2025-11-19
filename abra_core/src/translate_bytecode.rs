@@ -1175,15 +1175,16 @@ impl Translator {
                 let return_nargs = st.return_stack.last().unwrap();
                 self.emit(st, Instr::Return(*return_nargs));
             }
-            StmtKind::If(cond, then_block) => {
+            StmtKind::If(cond, statements) => {
                 self.translate_expr(cond, offset_table, monomorph_env, st);
                 let then_label = make_label("then");
                 let end_label = make_label("endif");
                 self.emit(st, Instr::JumpIf(then_label.clone()));
                 self.emit(st, Instr::Jump(end_label.clone()));
                 self.emit(st, Line::Label(then_label));
-                self.translate_expr(then_block, offset_table, monomorph_env, st);
-                self.emit(st, Instr::Pop);
+                for statement in statements.iter() {
+                    self.translate_stmt(statement, false, offset_table, monomorph_env, st);
+                }
                 self.emit(st, Line::Label(end_label));
 
                 if is_last {
@@ -1468,9 +1469,11 @@ fn collect_locals_stmt(statements: &[Rc<Stmt>], locals: &mut HashSet<NodeId>) {
             StmtKind::Return(expr) => {
                 collect_locals_expr(expr, locals);
             }
-            StmtKind::If(cond, body) => {
+            StmtKind::If(cond, body_statements) => {
                 collect_locals_expr(cond, locals);
-                collect_locals_expr(body, locals);
+                for body_statement in body_statements {
+                    collect_locals_stmt(std::slice::from_ref(body_statement), locals);
+                }
             }
             StmtKind::WhileLoop(cond, statements) => {
                 collect_locals_expr(cond, locals);

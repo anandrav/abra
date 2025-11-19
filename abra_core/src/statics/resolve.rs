@@ -669,21 +669,23 @@ fn resolve_names_stmt(ctx: &mut StaticsContext, symbol_table: &SymbolTable, stmt
         StmtKind::Return(expr) => {
             resolve_names_expr(ctx, symbol_table, expr);
         }
-        StmtKind::If(cond, body) => {
+        StmtKind::If(cond, statements) => {
             resolve_names_expr(ctx, symbol_table, cond);
-            resolve_names_expr(ctx, symbol_table, body);
+            for statement in statements.iter() {
+                resolve_names_stmt(ctx, symbol_table, statement);
+            }
         }
         StmtKind::WhileLoop(cond, statements) => {
             resolve_names_expr(ctx, symbol_table, cond);
             for statement in statements.iter() {
-                resolve_names_stmt(ctx, &symbol_table, statement);
+                resolve_names_stmt(ctx, symbol_table, statement);
             }
         }
         StmtKind::ForLoop(pat, iterable, statements) => {
             resolve_names_expr(ctx, symbol_table, iterable);
             resolve_names_pat(ctx, symbol_table, pat);
             for statement in statements.iter() {
-                resolve_names_stmt(ctx, &symbol_table, statement);
+                resolve_names_stmt(ctx, symbol_table, statement);
             }
         }
     }

@@ -1806,7 +1806,7 @@ fn generate_constraints_stmt(
                 }
             }
         }
-        StmtKind::If(cond, body) => {
+        StmtKind::If(cond, statements) => {
             generate_constraints_expr(
                 ctx,
                 polyvar_scope,
@@ -1816,7 +1816,9 @@ fn generate_constraints_stmt(
                 ),
                 cond,
             );
-            generate_constraints_expr(ctx, polyvar_scope, Mode::Syn, body);
+            for statement in statements.iter() {
+                generate_constraints_stmt(ctx, polyvar_scope, Mode::Syn, statement);
+            }
         }
         StmtKind::WhileLoop(cond, statements) => {
             generate_constraints_expr(
