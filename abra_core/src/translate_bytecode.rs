@@ -3,7 +3,9 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use crate::assembly::{Instr, Label, Line, LineVariant, Reg, remove_labels};
-use crate::ast::{ArgMaybeAnnotated, AstNode, BinaryOperator, FuncDef, InterfaceDef, ItemKind};
+use crate::ast::{
+    ArgMaybeAnnotated, AstNode, BinaryOperator, FuncDef, InterfaceDef, ItemKind, TypeKind,
+};
 use crate::ast::{FileAst, FileDatabase, NodeId};
 use crate::builtin::BuiltinOperation;
 use crate::environment::Environment;
@@ -401,10 +403,6 @@ impl Translator {
                     );
                 }
                 Declaration::Var(node) => {
-                    // _print_node(&self.statics, expr.node());
-                    let prov = TypeProv::Node(expr.node());
-                    let expr_ty_unsolved = self.statics.unifvars[&prov].clone();
-                    // println!("expr_ty_unsolved: {}", expr_ty_unsolved);
                     let expr_ty = self.statics.solution_of_node(expr.node()).unwrap();
                     let expr_ty = expr_ty.subst(monomorph_env);
                     if expr_ty != SolvedType::Void {
@@ -735,7 +733,7 @@ impl Translator {
 
                     // duplicate the scrutinee before doing a comparison
                     self.emit(st, Instr::Duplicate);
-                    self.translate_pat_comparison(&ty, &arm.pat, st);
+                    self.translate_pat_comparison(&ty, &arm.pat, st, monomorph_env);
                     self.emit(st, Instr::JumpIf(arm_label));
                 }
                 for (i, arm) in arms.iter().enumerate() {
@@ -930,6 +928,7 @@ impl Translator {
             }
             Declaration::Struct(def) => {
                 let mut nargs = 0;
+                // TODO: this doesn't work if struct type is generic and void was substituted for one of the field types
                 for field in &*def.fields {
                     // TODO: duplicated logic
                     let field_ty = field
@@ -947,11 +946,30 @@ impl Translator {
                 e: enum_def,
                 variant,
             } => {
-                let arity = enum_def.arity(*variant as u16);
-                if arity > 1 {
-                    // turn the arguments (associated data) into a tuple
-                    self.emit(st, Instr::ConstructStruct(arity));
+                // TODO: this doesn't work if enum type is generic and void was substituted for one of the types
+                let nargs = match &enum_def.variants[*variant].data {
+                    Some(data_ty) => {
+                        match &*data_ty.kind {
+                            TypeKind::Tuple(elems) => {
+                                // TODO: duplicated logic
+                                let mut nargs = 0;
+                                for elem in elems {
+                                    if *elem.kind != TypeKind::Void {
+                                        nargs += 1;
+                                    }
+                                }
+                                nargs
+                            }
+                            TypeKind::Void => 0,
+                            _ => 1,
+                        }
+                    }
+                    None => 0,
+                };
+                if nargs > 1 {
+                    self.emit(st, Instr::ConstructStruct(nargs));
                 }
+
                 self.emit(
                     st,
                     Instr::ConstructVariant {
@@ -1079,10 +1097,16 @@ impl Translator {
         scrutinee_ty: &Type,
         pat: &Rc<Pat>,
         st: &mut TranslatorState,
+        monomorph_env: &MonomorphEnv,
     ) {
         match &*pat.kind {
             PatKind::Wildcard | PatKind::Binding(_) | PatKind::Void => {
-                self.emit(st, Instr::Pop);
+                let pat_ty = self.statics.solution_of_node(pat.node()).unwrap();
+                let pat_ty = pat_ty.subst(monomorph_env);
+
+                if pat_ty != SolvedType::Void {
+                    self.emit(st, Instr::Pop);
+                }
                 self.emit(st, Instr::PushBool(true));
                 return;
             }
@@ -1128,7 +1152,7 @@ impl Translator {
 
                     if let Some(inner) = inner {
                         let inner_ty = self.statics.solution_of_node(inner.node()).unwrap();
-                        self.translate_pat_comparison(&inner_ty, inner, st);
+                        self.translate_pat_comparison(&inner_ty, inner, st, monomorph_env);
                         self.emit(st, Instr::Jump(end_label.clone()));
                     } else {
                         self.emit(st, Instr::Pop);
@@ -1160,7 +1184,7 @@ impl Translator {
                         .collect::<Vec<_>>();
                     for (i, pat) in pats.iter().enumerate() {
                         let ty = &types[i];
-                        self.translate_pat_comparison(ty, pat, st);
+                        self.translate_pat_comparison(ty, pat, st, monomorph_env);
                         let is_last = i == pats.len() - 1;
                         self.emit(st, Instr::JumpIfFalse(failure_labels[i].clone()));
                         // SUCCESS
@@ -1177,7 +1201,7 @@ impl Translator {
                     // clean up the remaining tuple elements before yielding false
                     self.emit(st, Line::Label(failure_labels[0].clone()));
                     for label in &failure_labels[1..] {
-                        self.emit(st, Instr::Pop);
+                        self.emit(st, Instr::Pop); // TODO: shouldn't pop if tuple element is void
                         self.emit(st, Line::Label(label.clone()));
                     }
                     self.emit(st, Instr::PushBool(false));

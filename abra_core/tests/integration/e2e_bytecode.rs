@@ -1509,3 +1509,34 @@ name ..  " " .. age
     let top = vm.top();
     assert_eq!(top.view_string(&vm), "Alice 30");
 }
+
+#[test]
+fn enum_with_void_field() {
+    let src = r#"
+type GlibbyGlob =
+| Glob(int, void, int)
+| Glib
+
+let glib = GlibbyGlob.Glib
+let glob = GlibbyGlob.Glob(2, (), 5)
+var n = match glob {
+  GlibbyGlob.Glob(a, blah, c) -> a + c,
+  GlibbyGlob.Glib -> 0
+}
+n = n + match glib {
+  GlibbyGlob.Glob(a, blah, c) -> 0,
+  GlibbyGlob.Glib -> 3,
+}
+
+n
+
+"#;
+    let program = unwrap_or_panic(compile_bytecode(
+        "main.abra",
+        MockFileProvider::single_file(src),
+    ));
+    let mut vm = Vm::new(program);
+    vm.run();
+    let top = vm.top();
+    assert_eq!(top.get_int(&vm), 10);
+}

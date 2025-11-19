@@ -195,26 +195,6 @@ pub(crate) struct EnumDef {
     pub(crate) id: NodeId,
 }
 
-impl EnumDef {
-    pub(crate) fn arity(&self, variant: u16) -> usize {
-        let data = &self.variants[variant as usize].data;
-        match data {
-            None => 0,
-            Some(ty) => match &*ty.kind {
-                TypeKind::Poly(..)
-                | TypeKind::NamedWithParams(..)
-                | TypeKind::Void
-                | TypeKind::Int
-                | TypeKind::Float
-                | TypeKind::Bool
-                | TypeKind::Str
-                | TypeKind::Function(..) => 1,
-                TypeKind::Tuple(elems) => elems.len(),
-            },
-        }
-    }
-}
-
 #[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq)]
 pub(crate) struct StructDef {
     pub(crate) name: Rc<Identifier>,
