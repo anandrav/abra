@@ -1219,7 +1219,7 @@ impl Translator {
                     self.emit(st, Instr::PushNil(1));
                 }
             }
-            StmtKind::ForLoop(pat, iterable, body) => {
+            StmtKind::ForLoop(pat, iterable, statements) => {
                 self.translate_expr(iterable, offset_table, monomorph_env, st);
                 // iterable.make_iterator()
                 let Some(Declaration::InterfaceDef(iterable_iface_def)) = self
@@ -1270,9 +1270,17 @@ impl Translator {
                     start_label: start_label.clone(),
                     end_label: end_label.clone(),
                 });
-                self.translate_expr(body, offset_table, monomorph_env, st);
+                for (i, statement) in statements.iter().enumerate() {
+                    self.translate_stmt(
+                        statement,
+                        i == statements.len() - 1,
+                        offset_table,
+                        monomorph_env,
+                        st,
+                    );
+                }
                 st.loop_stack.pop();
-                self.emit(st, Instr::Pop);
+                self.emit(st, Instr::Pop); // TODO: remove this pop
                 self.emit(st, Instr::Jump(start_label));
                 self.emit(st, Line::Label(end_label));
                 self.emit(st, Instr::Pop);
@@ -1484,10 +1492,12 @@ fn collect_locals_stmt(statements: &[Rc<Stmt>], locals: &mut HashSet<NodeId>) {
                     collect_locals_stmt(std::slice::from_ref(statement), locals);
                 }
             }
-            StmtKind::ForLoop(pat, iterable, body) => {
+            StmtKind::ForLoop(pat, iterable, statements) => {
                 collect_locals_expr(iterable, locals);
                 collect_locals_pat(pat, locals);
-                collect_locals_expr(body, locals);
+                for statement in statements {
+                    collect_locals_stmt(std::slice::from_ref(statement), locals);
+                }
             }
         }
     }

@@ -1056,9 +1056,14 @@ pub(crate) fn parse_stmt(pair: Pair<Rule>, file_id: FileId) -> Rc<Stmt> {
         Rule::for_loop_statement => {
             let pat = parse_let_pattern(inner[0].clone(), file_id);
             let iterable = parse_expr_pratt(Pairs::single(inner[1].clone()), file_id);
-            let e = parse_expr_pratt(Pairs::single(inner[2].clone()), file_id);
+
+            let inner = inner[2].clone().into_inner();
+            let mut statements: Vec<Rc<Stmt>> = Vec::new();
+            for pair in inner {
+                statements.push(parse_stmt(pair, file_id));
+            }
             Rc::new(Stmt {
-                kind: Rc::new(StmtKind::ForLoop(pat, iterable, e)),
+                kind: Rc::new(StmtKind::ForLoop(pat, iterable, statements)),
                 loc: span,
                 id: NodeId::new(),
             })

@@ -385,7 +385,7 @@ pub(crate) enum StmtKind {
     Return(Rc<Expr>),
     If(Rc<Expr>, Rc<Expr>),
     WhileLoop(Rc<Expr>, Vec<Rc<Stmt>>),
-    ForLoop(Rc<Pat>, Rc<Expr>, Rc<Expr>),
+    ForLoop(Rc<Pat>, Rc<Expr>, Vec<Rc<Stmt>>),
 }
 
 pub(crate) type ArgMaybeAnnotated = (Rc<Identifier>, Option<Rc<Type>>);

@@ -1834,7 +1834,7 @@ fn generate_constraints_stmt(
             }
             ctx.loop_stack.pop();
         }
-        StmtKind::ForLoop(pat, iterable, body) => {
+        StmtKind::ForLoop(pat, iterable, statements) => {
             generate_constraints_expr(ctx, polyvar_scope, Mode::Syn, iterable);
             let iterable_ty = TypeVar::from_node(ctx, iterable.node());
             let Some(iterable_ty_solved) = iterable_ty.solution() else {
@@ -1872,8 +1872,9 @@ fn generate_constraints_stmt(
             let item_ty = item_ty.subst(&subst);
             generate_constraints_pat(ctx, Mode::ana(item_ty), pat);
 
-            generate_constraints_expr(ctx, polyvar_scope, Mode::Syn, body);
-
+            for statement in statements.iter() {
+                generate_constraints_stmt(ctx, polyvar_scope, Mode::Syn, statement);
+            }
             // update bookkeeping for code generation
             // make_iterator type
             let make_iterator_method = imp
