@@ -1384,6 +1384,10 @@ pub(crate) fn check_unifvars(ctx: &mut StaticsContext) {
     // get list of type conflicts
     let mut visited_tyvars = HashSet::default();
     for (prov, tyvar) in ctx.unifvars.clone().iter() {
+        let Prov::Node(id) = prov else {
+            continue;
+        };
+
         let repr = tyvar.0.find().with_data(|d| d.id);
         if visited_tyvars.contains(&repr) {
             continue;
@@ -1395,9 +1399,7 @@ pub(crate) fn check_unifvars(ctx: &mut StaticsContext) {
             ctx.errors.push(Error::ConflictingUnifvar {
                 types: type_suggestions,
             });
-        } else if tyvar.is_underdetermined()
-            && let Prov::Node(id) = prov
-        {
+        } else if tyvar.is_underdetermined() {
             ctx.errors
                 .push(Error::UnconstrainedUnifvar { node: id.clone() });
         } else if let Some(ty) = tyvar.solution() {
