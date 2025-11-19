@@ -1201,17 +1201,10 @@ impl Translator {
                     start_label: start_label.clone(),
                     end_label: end_label.clone(),
                 });
-                for (i, statement) in statements.iter().enumerate() {
-                    self.translate_stmt(
-                        statement,
-                        i == statements.len() - 1,
-                        offset_table,
-                        monomorph_env,
-                        st,
-                    );
+                for statement in statements.iter() {
+                    self.translate_stmt(statement, false, offset_table, monomorph_env, st);
                 }
                 st.loop_stack.pop();
-                self.emit(st, Instr::Pop); // TODO: remove this pop
                 self.emit(st, Instr::Jump(start_label));
                 self.emit(st, Line::Label(end_label));
 
@@ -1270,17 +1263,10 @@ impl Translator {
                     start_label: start_label.clone(),
                     end_label: end_label.clone(),
                 });
-                for (i, statement) in statements.iter().enumerate() {
-                    self.translate_stmt(
-                        statement,
-                        i == statements.len() - 1,
-                        offset_table,
-                        monomorph_env,
-                        st,
-                    );
+                for statement in statements.iter() {
+                    self.translate_stmt(statement, false, offset_table, monomorph_env, st);
                 }
                 st.loop_stack.pop();
-                self.emit(st, Instr::Pop); // TODO: remove this pop
                 self.emit(st, Instr::Jump(start_label));
                 self.emit(st, Line::Label(end_label));
                 self.emit(st, Instr::Pop);
