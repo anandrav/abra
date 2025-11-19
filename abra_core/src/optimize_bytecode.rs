@@ -19,6 +19,7 @@ pub(crate) fn optimize(lines: Vec<Line>) -> Vec<Line> {
 
 fn optimization_pass(lines: Vec<Line>) -> Vec<Line> {
     let mut ret: Vec<Line> = vec![];
+    ret.reserve(lines.len());
 
     let mut index = 0;
     while index < lines.len() {
