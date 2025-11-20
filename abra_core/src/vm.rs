@@ -24,7 +24,6 @@ use std::{
 pub type AbraInt = i64;
 pub type AbraFloat = f64;
 
-const GC_COARSEN_FACTOR: usize = 100;
 const GC_PAUSE_FACTOR: usize = 2;
 const GC_STEP_FACTOR: usize = 2;
 
@@ -920,36 +919,22 @@ impl Vm {
     pub fn run(&mut self) {
         self.validate();
         loop {
-            let mut i = 0;
-            while i < GC_COARSEN_FACTOR {
-                if !self.step() {
-                    return;
-                }
-                i += 1;
+            if !self.step() {
+                return;
             }
             self.maybe_gc();
         }
     }
 
-    // for better performance, pass at least MAYBE_GC_PERIOD steps
     pub fn run_n_steps(&mut self, mut steps: u32) {
         self.validate();
-        let mut gc = false;
-        loop {
-            for _ in 0..GC_COARSEN_FACTOR {
-                if !self.step() {
-                    if !gc {
-                        self.maybe_gc();
-                    }
-                    return;
-                }
-                steps -= 1;
-                if steps == 0 {
-                    return;
-                }
-            }
+        while steps > 0 {
             self.maybe_gc();
-            gc = true;
+            if !self.step() {
+                return;
+            }
+
+            steps -= 1;
         }
     }
 
@@ -1529,11 +1514,11 @@ impl Vm {
             }
             GcState::Marking => {
                 // process a few gray nodes
-                let mut slice = GC_STEP_FACTOR * self.gc_debt * GC_COARSEN_FACTOR;
+                let mut slice = GC_STEP_FACTOR * self.gc_debt;
                 self.process_gray(&mut slice);
             }
             GcState::Sweeping { .. } => {
-                let slice = GC_STEP_FACTOR * self.gc_debt * GC_COARSEN_FACTOR;
+                let slice = GC_STEP_FACTOR * self.gc_debt;
                 self.sweep(slice);
             }
         }
