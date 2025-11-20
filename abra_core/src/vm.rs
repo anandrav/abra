@@ -488,7 +488,7 @@ pub enum Instr {
     Or,
 
     // Comparison
-    LessThanInt(i16, u8, i16, u8),
+    LessThanInt(u16, u16, u16),
     LessThanOrEqualInt,
     GreaterThanInt,
     GreaterThanOrEqualInt,
@@ -1201,10 +1201,10 @@ impl Vm {
                 let a = self.top().get_bool(self);
                 self.set_top(a || b);
             }
-            Instr::LessThanInt(reg1, use_stack1, reg2, use_stack2) => {
-                let b = self.load_offset_or_top(reg2, use_stack2).get_int(self);
-                let a = self.load_offset_or_top(reg1, use_stack1).get_int(self);
-                self.push(a < b);
+            Instr::LessThanInt(dest, reg1, reg2) => {
+                let b = self.load_offset_or_top2(reg2).get_int(self);
+                let a = self.load_offset_or_top2(reg1).get_int(self);
+                self.store_offset_or_top(dest, a < b);
             }
             Instr::LessThanOrEqualInt => {
                 let b = self.pop_int();

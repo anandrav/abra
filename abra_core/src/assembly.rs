@@ -97,7 +97,7 @@ pub enum Instr {
     Or,
 
     // Comparison
-    LessThanInt(Reg, Reg),
+    LessThanInt(Reg, Reg, Reg),
     LessThanOrEqualInt,
     GreaterThanInt,
     GreaterThanOrEqualInt,
@@ -187,22 +187,6 @@ impl Reg {
     }
 }
 
-// TODO: remove this soon
-impl Reg {
-    fn offset(&self) -> i16 {
-        match self {
-            Self::Offset(offs) => *offs,
-            Self::Top => 0,
-        }
-    }
-    fn use_stack(&self) -> u8 {
-        match self {
-            Self::Offset(_) => 0,
-            Self::Top => 1,
-        }
-    }
-}
-
 impl Display for Reg {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self {
@@ -241,8 +225,8 @@ impl Display for Instr {
             Instr::Not => write!(f, "not"),
             Instr::And => write!(f, "and"),
             Instr::Or => write!(f, "or"),
-            Instr::LessThanInt(reg1, reg2) => {
-                write!(f, "less_than_int {reg1} {reg2}")
+            Instr::LessThanInt(dest, reg1, reg2) => {
+                write!(f, "less_than_int {dest} {reg1} {reg2}")
             }
             Instr::LessThanOrEqualInt => write!(f, "less_than_or_equal_int"),
             Instr::GreaterThanInt => write!(f, "greater_than_int"),
@@ -373,12 +357,9 @@ fn instr_to_vminstr(
         Instr::Not => VmInstr::Not,
         Instr::And => VmInstr::And,
         Instr::Or => VmInstr::Or,
-        Instr::LessThanInt(reg1, reg2) => VmInstr::LessThanInt(
-            reg1.offset(),
-            reg1.use_stack(),
-            reg2.offset(),
-            reg2.use_stack(),
-        ),
+        Instr::LessThanInt(dest, reg1, reg2) => {
+            VmInstr::LessThanInt(dest.encode(), reg1.encode(), reg2.encode())
+        }
         Instr::LessThanOrEqualInt => VmInstr::LessThanOrEqualInt,
         Instr::GreaterThanInt => VmInstr::GreaterThanInt,
         Instr::GreaterThanOrEqualInt => VmInstr::GreaterThanOrEqualInt,

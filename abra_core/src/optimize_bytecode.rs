@@ -114,8 +114,9 @@ fn peephole2_helper(lines: &[Line], index: &mut usize, ret: &mut Vec<Line>) -> b
                         *index += 2;
                         true
                     }
+                    // TODO: is this optimization worth it? Will it prevent other less than optimizations?
                     // LESS_THAN_INT JUMPIF -> JUMP_IF_LESS_THAN
-                    (Instr::LessThanInt(Reg::Top, Reg::Top), Instr::JumpIf(label)) => {
+                    (Instr::LessThanInt(Reg::Top, Reg::Top, Reg::Top), Instr::JumpIf(label)) => {
                         ret.push(Line::Instr {
                             instr: Instr::JumpIfLessThan(label.clone()),
                             lineno,
@@ -278,10 +279,15 @@ fn peephole3_helper(lines: &[Line], index: &mut usize, ret: &mut Vec<Line>) -> b
                     (
                         Instr::LoadOffset(reg1),
                         Instr::LoadOffset(reg2),
-                        Instr::LessThanInt(Reg::Top, Reg::Top),
+                        // TODO: make this work for any dest not just top
+                        Instr::LessThanInt(Reg::Top, Reg::Top, Reg::Top),
                     ) => {
                         ret.push(Line::Instr {
-                            instr: Instr::LessThanInt(Reg::Offset(reg1), Reg::Offset(*reg2)),
+                            instr: Instr::LessThanInt(
+                                Reg::Top,
+                                Reg::Offset(reg1),
+                                Reg::Offset(*reg2),
+                            ),
                             lineno,
                             file_id,
                             func_id,
