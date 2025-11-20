@@ -80,6 +80,7 @@ Arguments:
 Options:
     -m, --modules <DIRECTORY>          Override the default module directory
     -s, --shared-objects <DIRECTORY>   Override the default shared objects directory
+    -a, --assembly                     Print the assembly for the Abra program
     -h, --help                         Print help"
     );
 }

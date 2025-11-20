@@ -283,6 +283,9 @@ impl Vm {
         // or 'local_idx' if mask is all 0s.
         let final_index = (top_idx & mask) | (local_idx & !mask);
 
+        // TODO: if both arguments were popped from stack, it would be better to modify top of stack in-place.
+        // TODO: pop() pop() push() -> pop()
+        // TODO: don't optimize this until later when all instructions use the new dst reg reg strategy. Then make change using bitmasks and profile
         // push value to top if use_stack = 1
         self.value_stack
             .resize(self.value_stack.len() + use_stack, val);

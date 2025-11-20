@@ -180,6 +180,17 @@ fn peephole2_helper(lines: &[Line], index: &mut usize, ret: &mut Vec<Line>) -> b
                         *index += 2;
                         true
                     }
+                    // ADDINT(TOP, R1, R2) STORE(N) -> ADDINT(N, R1, R2)
+                    (Instr::AddInt(Reg::Top, r1, r2), Instr::StoreOffset(offset)) => {
+                        ret.push(Line::Instr {
+                            instr: Instr::AddInt(Reg::Offset(*offset), r1, r2),
+                            lineno,
+                            file_id,
+                            func_id,
+                        });
+                        *index += 2;
+                        true
+                    }
                     _ => false,
                 }
             } else {
