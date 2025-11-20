@@ -1,11 +1,3 @@
 #!/bin/bash
-set -eou pipefail
 
-bench=$1
-
-if [[ "$OSTYPE" == "darwin"* ]]; then
-    cargo instruments --package abra_core --template "CPU Profiler" --bin ${bench} 
-else
-    echo "unimplemented on this platform"
-fi
-
+cargo instruments --release -t time --bin abra -- "$@"

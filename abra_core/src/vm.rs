@@ -920,10 +920,12 @@ impl Vm {
     pub fn run(&mut self) {
         self.validate();
         loop {
-            for _ in 0..GC_COARSEN_FACTOR {
+            let mut i = 0;
+            while i < GC_COARSEN_FACTOR {
                 if !self.step() {
                     return;
                 }
+                i += 1;
             }
             self.maybe_gc();
         }
