@@ -7,3 +7,4 @@ Cargo.lock
 vendor/
 
 temp/
+flamegraph.svg
