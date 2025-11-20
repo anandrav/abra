@@ -24,7 +24,7 @@ use utils::hash::HashMap;
 use utils::hash::HashSet;
 use utils::id_set::IdSet;
 
-type OffsetTable = HashMap<NodeId, i8>;
+type OffsetTable = HashMap<NodeId, i16>;
 type MonomorphEnv = Environment<PolytypeDeclaration, Type>;
 pub(crate) type LabelMap = HashMap<Label, usize>;
 
@@ -278,7 +278,7 @@ impl Translator {
                 self.emit(st, Instr::PushNil(locals.len() as u16));
                 let mut offset_table = OffsetTable::default();
                 for (offset, node_id) in locals.iter().enumerate() {
-                    offset_table.entry(*node_id).or_insert(offset as i8);
+                    offset_table.entry(*node_id).or_insert(offset as i16);
                 }
 
                 let statements = file
@@ -339,10 +339,10 @@ impl Translator {
                     self.emit(st, Instr::PushNil(locals_count as u16));
                     let mut offset_table = OffsetTable::default();
                     for (i, arg) in args.iter().rev().enumerate() {
-                        offset_table.entry(arg.0.id).or_insert(-(i as i8) - 1);
+                        offset_table.entry(arg.0.id).or_insert(-(i as i16) - 1);
                     }
                     for (i, local) in locals.iter().enumerate() {
-                        offset_table.entry(*local).or_insert(i as i8);
+                        offset_table.entry(*local).or_insert(i as i16);
                     }
                     let nargs = count_args(&self.statics, args, desc.overload_ty);
                     st.return_stack.push(nargs as u32);

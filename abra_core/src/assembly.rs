@@ -62,9 +62,9 @@ pub enum Instr {
     // Stack manipulation
     Pop,
     Duplicate,
-    LoadOffset(i8),
-    StoreOffset(i8),
-    StoreOffsetImm(i8, i16),
+    LoadOffset(i16),
+    StoreOffset(i16),
+    StoreOffsetImm(i16, i16),
 
     // Constants
     PushNil(u16),
@@ -75,8 +75,8 @@ pub enum Instr {
 
     // Arithmetic
     AddInt(Reg, Reg, Reg),
-    IncrementRegImm(i8, i16),
-    IncrementRegImmStk(i8, i16),
+    IncrementRegImm(i16, i16),
+    IncrementRegImmStk(i16, i16),
     SubtractInt,
     MulInt(Reg, Reg),
     DivideInt,
@@ -131,13 +131,13 @@ pub enum Instr {
     DeconstructStruct,
     DeconstructVariant,
     GetField(u16),
-    GetFieldOffset(u16, i8),
+    GetFieldOffset(u16, i16),
     SetField(u16),
-    SetFieldOffset(u16, i8),
+    SetFieldOffset(u16, i16),
     GetIdx,
-    GetIdxOffset(i8, i8),
+    GetIdxOffset(i16, i16),
     SetIdx,
-    SetIdxOffset(i8, i8),
+    SetIdxOffset(i16, i16),
     MakeClosure { func_addr: Label },
 
     ArrayPush,
@@ -153,7 +153,7 @@ pub enum Instr {
 
 #[derive(Debug, Clone)]
 pub enum Reg {
-    Offset(i8),
+    Offset(i16),
     Top,
 }
 
@@ -187,8 +187,9 @@ impl Reg {
     }
 }
 
+// TODO: remove this soon
 impl Reg {
-    fn offset(&self) -> i8 {
+    fn offset(&self) -> i16 {
         match self {
             Self::Offset(offs) => *offs,
             Self::Top => 0,

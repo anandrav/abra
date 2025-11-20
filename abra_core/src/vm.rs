@@ -203,11 +203,12 @@ impl Vm {
         self.value_stack[len - 1] = val.into();
     }
 
-    pub fn load_offset(&self, offset: i8) -> Value {
+    pub fn load_offset(&self, offset: i16) -> Value {
         self.value_stack[self.stack_base.wrapping_add_signed(offset as isize)]
     }
 
-    pub fn load_offset_or_top(&mut self, offset: i8, use_stack: u8) -> Value {
+    // TODO: remove this soon
+    pub fn load_offset_or_top(&mut self, offset: i16, use_stack: u8) -> Value {
         let b = self.stack_base.wrapping_add_signed(offset as isize)
             + ((self.value_stack.len() - 1) * (use_stack as usize))
             - (self.stack_base * use_stack as usize);
@@ -293,7 +294,7 @@ impl Vm {
         self.value_stack[final_index] = val;
     }
 
-    pub fn store_offset(&mut self, offset: i8, v: impl Into<Value>) {
+    pub fn store_offset(&mut self, offset: i16, v: impl Into<Value>) {
         let index = self.stack_base.wrapping_add_signed(offset as isize);
         if index >= self.value_stack.len() {
             self.fail(VmErrorKind::InternalError(format!(
@@ -451,9 +452,9 @@ pub enum Instr {
     // Stack manipulation
     Pop,
     Duplicate,
-    LoadOffset(i8),
-    StoreOffset(i8),
-    StoreOffsetImm(i8, i16),
+    LoadOffset(i16),
+    StoreOffset(i16),
+    StoreOffsetImm(i16, i16),
 
     // Constants
     PushNil(u16),
@@ -464,11 +465,11 @@ pub enum Instr {
 
     // Arithmetic
     AddInt(u16, u16, u16),
-    IncrementRegImm(i8, i16),
-    IncrementRegImmStk(i8, i16),
+    IncrementRegImm(i16, i16),
+    IncrementRegImmStk(i16, i16),
     SubtractInt,
     MultiplyInt,
-    MulInt(i8, u8, i8, u8),
+    MulInt(i16, u8, i16, u8),
     DivideInt,
     PowerInt,
     Modulo,
@@ -487,7 +488,7 @@ pub enum Instr {
     Or,
 
     // Comparison
-    LessThanInt(i8, u8, i8, u8),
+    LessThanInt(i16, u8, i16, u8),
     LessThanOrEqualInt,
     GreaterThanInt,
     GreaterThanOrEqualInt,
@@ -526,13 +527,13 @@ pub enum Instr {
     DeconstructArray,
     DeconstructVariant,
     GetField(u16),
-    GetFieldOffset(u16, i8),
+    GetFieldOffset(u16, i16),
     SetField(u16),
-    SetFieldOffset(u16, i8),
+    SetFieldOffset(u16, i16),
     GetIdx,
-    GetIdxOffset(i8, i8),
+    GetIdxOffset(i16, i16),
     SetIdx,
-    SetIdxOffset(i8, i8),
+    SetIdxOffset(i16, i16),
     MakeClosure { func_addr: ProgramCounter },
 
     ArrayPush,
