@@ -208,7 +208,7 @@ fn peephole3_helper(lines: &[Line], index: &mut usize, ret: &mut Vec<Line>) -> b
                     (
                         Instr::LoadOffset(reg1),
                         Instr::PushInt(n),
-                        Instr::AddInt(Reg::Top, Reg::Top),
+                        Instr::AddInt(Reg::Top, Reg::Top, Reg::Top),
                     ) if fits_imm(*n) => {
                         ret.push(Line::Instr {
                             instr: Instr::IncrementRegImmStk(reg1, as_imm(*n)),
@@ -236,10 +236,10 @@ fn peephole3_helper(lines: &[Line], index: &mut usize, ret: &mut Vec<Line>) -> b
                     (
                         Instr::LoadOffset(reg1),
                         Instr::LoadOffset(reg2),
-                        Instr::AddInt(Reg::Top, Reg::Top),
+                        Instr::AddInt(Reg::Top, Reg::Top, Reg::Top),
                     ) => {
                         ret.push(Line::Instr {
-                            instr: Instr::AddInt(Reg::Offset(reg1), Reg::Offset(*reg2)),
+                            instr: Instr::AddInt(Reg::Top, Reg::Offset(reg1), Reg::Offset(*reg2)),
                             lineno,
                             file_id,
                             func_id,
@@ -300,7 +300,11 @@ fn peephole3_helper(lines: &[Line], index: &mut usize, ret: &mut Vec<Line>) -> b
                         true
                     }
                     // FOLD INT ADDITION
-                    (Instr::PushInt(a), Instr::PushInt(b), Instr::AddInt(Reg::Top, Reg::Top)) => {
+                    (
+                        Instr::PushInt(a),
+                        Instr::PushInt(b),
+                        Instr::AddInt(Reg::Top, Reg::Top, Reg::Top),
+                    ) => {
                         let c = a.wrapping_add(*b); // TODO: checked_add here and everywhere else
                         ret.push(Line::Instr {
                             instr: Instr::PushInt(c),
@@ -462,7 +466,7 @@ fn peephole4_helper(lines: &[Line], index: &mut usize, ret: &mut Vec<Line>) -> b
                     (
                         Instr::LoadOffset(reg1),
                         Instr::PushInt(n),
-                        Instr::AddInt(Reg::Top, Reg::Top),
+                        Instr::AddInt(Reg::Top, Reg::Top, Reg::Top),
                         Instr::StoreOffset(reg2),
                     ) if reg1 == *reg2 && fits_imm(*n) => {
                         ret.push(Line::Instr {

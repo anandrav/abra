@@ -254,6 +254,42 @@ impl Vm {
         ret
     }
 
+    pub fn store_offset_or_top(&mut self, arg: u16, val: impl Into<Value>) {
+        let val = val.into();
+        // 1. Extract the 'use_stack' flag (Bit 15)
+        // Shift right by 15. Result is 1 if top-bit is set, 0 otherwise.
+        let use_stack = (arg >> 15) as usize;
+
+        // 2. Extract the signed offset (Bits 0-14)
+        // We shift left 1 to discard the flag bit, then arithmetic shift right 1
+        // to restore the position and automatically sign-extend the 15-bit number.
+        // This allows negative offsets for your locals.
+        let offset = ((arg << 1) as i16 >> 1) as isize;
+
+        // 3. Branchless Index Calculation
+        // We calculate both potential indices:
+        // A: The stack top (len - 1)
+        // B: The local index (base + offset)
+        let top_idx = self.value_stack.len();
+        let local_idx = self.stack_base.wrapping_add_signed(offset);
+
+        // 4. Branchless Selection (Bitwise Multiplexing)
+        // If use_stack is 1, mask becomes all 1s (usize::MAX).
+        // If use_stack is 0, mask becomes all 0s.
+        let mask = 0usize.wrapping_sub(use_stack);
+
+        // Logic: (top_idx & mask) | (local_idx & !mask)
+        // This selects the bits from 'top_idx' if mask is all 1s,
+        // or 'local_idx' if mask is all 0s.
+        let final_index = (top_idx & mask) | (local_idx & !mask);
+
+        // push value to top if use_stack = 1
+        self.value_stack
+            .resize(self.value_stack.len() + use_stack, val);
+        // assign to stack offset (final_index is stack top if use_stack = 1)
+        self.value_stack[final_index] = val;
+    }
+
     pub fn store_offset(&mut self, offset: i8, v: impl Into<Value>) {
         let index = self.stack_base.wrapping_add_signed(offset as isize);
         if index >= self.value_stack.len() {
@@ -424,7 +460,7 @@ pub enum Instr {
     PushString(u32),
 
     // Arithmetic
-    AddInt(u16, u16),
+    AddInt(u16, u16, u16),
     IncrementRegImm(i8, i16),
     IncrementRegImmStk(i8, i16),
     SubtractInt,
@@ -1025,7 +1061,7 @@ impl Vm {
                 let imm = AbraInt::from(imm as i64);
                 self.store_offset(n, imm);
             }
-            Instr::AddInt(reg1, reg2) => {
+            Instr::AddInt(dest, reg1, reg2) => {
                 let b = self.load_offset_or_top2(reg2).get_int(self);
                 let a = self.load_offset_or_top2(reg1).get_int(self);
                 let Some(c) = a.checked_add(b) else {
@@ -1035,7 +1071,7 @@ impl Vm {
                     );
                     return false;
                 };
-                self.push(c);
+                self.store_offset_or_top(dest, c);
             }
             Instr::IncrementRegImm(reg, n) => {
                 let a = self.load_offset(reg).get_int(self);

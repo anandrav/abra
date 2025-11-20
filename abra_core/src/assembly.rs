@@ -74,7 +74,7 @@ pub enum Instr {
     PushString(String),
 
     // Arithmetic
-    AddInt(Reg, Reg),
+    AddInt(Reg, Reg, Reg),
     IncrementRegImm(i8, i16),
     IncrementRegImmStk(i8, i16),
     SubtractInt,
@@ -219,8 +219,8 @@ impl Display for Instr {
             Instr::LoadOffset(n) => write!(f, "load_offset {n}"),
             Instr::StoreOffset(n) => write!(f, "store_offset {n}"),
             Instr::StoreOffsetImm(n, imm) => write!(f, "store_offset_imm {n} {imm}"),
-            Instr::AddInt(reg1, reg2) => {
-                write!(f, "add_int {reg1} {reg2}")
+            Instr::AddInt(dest, reg1, reg2) => {
+                write!(f, "add_int {dest} {reg1} {reg2}")
             }
             Instr::IncrementRegImm(reg, n) => write!(f, "incr_int_reg {reg} {n}"),
             Instr::IncrementRegImmStk(reg, n) => write!(f, "incr_int_reg_stk {reg} {n}"),
@@ -351,7 +351,9 @@ fn instr_to_vminstr(
         Instr::LoadOffset(i) => VmInstr::LoadOffset(*i),
         Instr::StoreOffset(i) => VmInstr::StoreOffset(*i),
         Instr::StoreOffsetImm(i, imm) => VmInstr::StoreOffsetImm(*i, *imm),
-        Instr::AddInt(reg1, reg2) => VmInstr::AddInt(reg1.encode(), reg2.encode()),
+        Instr::AddInt(dest, reg1, reg2) => {
+            VmInstr::AddInt(dest.encode(), reg1.encode(), reg2.encode())
+        }
         Instr::IncrementRegImm(reg, n) => VmInstr::IncrementRegImm(*reg, *n),
         Instr::IncrementRegImmStk(reg, n) => VmInstr::IncrementRegImmStk(*reg, *n),
         Instr::SubtractInt => VmInstr::SubtractInt,
