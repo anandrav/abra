@@ -139,10 +139,8 @@ impl Vm {
         let mut vm = Self {
             program: program.instructions,
             pc: ProgramCounter(0),
-            // stack[0] is return value from main
-            stack_base: 1,
-            // the nil is placeholder for return value from main
-            value_stack: vec![().into()],
+            stack_base: 0,
+            value_stack: vec![],
             call_stack: Vec::new(),
             heap_list: vec![],
             gray_stack: vec![],
@@ -1263,7 +1261,6 @@ impl Vm {
                 self.stack_base = frame.stack_base;
             }
             Instr::Stop => {
-                self.value_stack.truncate(1);
                 self.done = true;
                 return false;
             }

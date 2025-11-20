@@ -298,20 +298,6 @@ impl Translator {
                         st,
                     );
                 }
-                // TODO: this is hacky
-                if statements.is_empty() || {
-                    let last = *statements.last().unwrap();
-                    if let StmtKind::Expr(expr) = &*last.kind {
-                        let ty = self.statics.solution_of_node(expr.node()).unwrap();
-                        ty == SolvedType::Void
-                    } else {
-                        false
-                    }
-                } {
-                    self.emit(st, Instr::PushNil(1));
-                }
-                // TODO: this is hacky
-                self.emit(st, Instr::StoreOffset(-1));
 
                 self.emit(st, Instr::Stop);
             }
