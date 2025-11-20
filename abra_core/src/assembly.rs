@@ -158,6 +158,36 @@ pub enum Reg {
 }
 
 impl Reg {
+    pub(crate) fn encode(&self) -> u16 {
+        match self {
+            Reg::Top => {
+                // high bit used to indicate stack top
+                0b1000_0000_0000_0000
+            }
+            Reg::Offset(n) => {
+                let n = *n as i16; // TODO: Offset should contain i16
+                // We have 15 bits available to encode a stack offset
+                const MAGNITUDE_BITS: u32 = 14;
+
+                // Max:  16383
+                const I15_MAX: i16 = (1 << MAGNITUDE_BITS) - 1;
+                // Min: -16384
+                const I15_MIN: i16 = -(1 << MAGNITUDE_BITS);
+
+                if n > I15_MAX || n < I15_MIN {
+                    panic!(
+                        "Jump offset {} out of 15-bit range ({} to {})",
+                        n, I15_MIN, I15_MAX
+                    );
+                }
+
+                (n as u16) & 0b0111_1111_1111_1111
+            }
+        }
+    }
+}
+
+impl Reg {
     fn offset(&self) -> i8 {
         match self {
             Self::Offset(offs) => *offs,
@@ -321,12 +351,7 @@ fn instr_to_vminstr(
         Instr::LoadOffset(i) => VmInstr::LoadOffset(*i),
         Instr::StoreOffset(i) => VmInstr::StoreOffset(*i),
         Instr::StoreOffsetImm(i, imm) => VmInstr::StoreOffsetImm(*i, *imm),
-        Instr::AddInt(reg1, reg2) => VmInstr::AddInt(
-            reg1.offset(),
-            reg1.use_stack(),
-            reg2.offset(),
-            reg2.use_stack(),
-        ),
+        Instr::AddInt(reg1, reg2) => VmInstr::AddInt(reg1.encode(), reg2.encode()),
         Instr::IncrementRegImm(reg, n) => VmInstr::IncrementRegImm(*reg, *n),
         Instr::IncrementRegImmStk(reg, n) => VmInstr::IncrementRegImmStk(*reg, *n),
         Instr::SubtractInt => VmInstr::SubtractInt,
