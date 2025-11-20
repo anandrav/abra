@@ -78,7 +78,7 @@ pub enum Instr {
     IncrementRegImm(i16, i16),
     IncrementRegImmStk(i16, i16),
     SubtractInt,
-    MulInt(Reg, Reg),
+    MulInt(Reg, Reg, Reg),
     DivideInt,
     PowerInt,
     Modulo,
@@ -226,8 +226,8 @@ impl Display for Instr {
             Instr::IncrementRegImm(reg, n) => write!(f, "incr_int_reg {reg} {n}"),
             Instr::IncrementRegImmStk(reg, n) => write!(f, "incr_int_reg_stk {reg} {n}"),
             Instr::SubtractInt => write!(f, "subtract_int"),
-            Instr::MulInt(reg1, reg2) => {
-                write!(f, "multiply_int {reg1} {reg2}")
+            Instr::MulInt(dest, reg1, reg2) => {
+                write!(f, "multiply_int {dest} {reg1} {reg2}")
             }
             Instr::DivideInt => write!(f, "divide_int"),
             Instr::PowerInt => write!(f, "power_int"),
@@ -358,12 +358,9 @@ fn instr_to_vminstr(
         Instr::IncrementRegImm(reg, n) => VmInstr::IncrementRegImm(*reg, *n),
         Instr::IncrementRegImmStk(reg, n) => VmInstr::IncrementRegImmStk(*reg, *n),
         Instr::SubtractInt => VmInstr::SubtractInt,
-        Instr::MulInt(reg1, reg2) => VmInstr::MulInt(
-            reg1.offset(),
-            reg1.use_stack(),
-            reg2.offset(),
-            reg2.use_stack(),
-        ),
+        Instr::MulInt(dest, reg1, reg2) => {
+            VmInstr::MulInt(dest.encode(), reg1.encode(), reg2.encode())
+        }
         Instr::DivideInt => VmInstr::DivideInt,
         Instr::PowerInt => VmInstr::PowerInt,
         Instr::Modulo => VmInstr::Modulo,

@@ -469,7 +469,7 @@ pub enum Instr {
     IncrementRegImmStk(i16, i16),
     SubtractInt,
     MultiplyInt,
-    MulInt(i16, u8, i16, u8),
+    MulInt(u16, u16, u16),
     DivideInt,
     PowerInt,
     Modulo,
@@ -1109,9 +1109,9 @@ impl Vm {
                 };
                 self.set_top(c);
             }
-            Instr::MulInt(reg1, use_stack1, reg2, use_stack2) => {
-                let b = self.load_offset_or_top(reg2, use_stack2).get_int(self);
-                let a = self.load_offset_or_top(reg1, use_stack1).get_int(self);
+            Instr::MulInt(dest, reg1, reg2) => {
+                let b = self.load_offset_or_top2(reg2).get_int(self);
+                let a = self.load_offset_or_top2(reg1).get_int(self);
                 let Some(c) = a.checked_mul(b) else {
                     self.error = Some(
                         self.make_error(VmErrorKind::IntegerOverflowUnderflow)
@@ -1119,7 +1119,7 @@ impl Vm {
                     );
                     return false;
                 };
-                self.push(c);
+                self.store_offset_or_top(dest, c);
             }
             Instr::DivideInt => {
                 let b = self.pop_int();

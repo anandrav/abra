@@ -262,10 +262,11 @@ fn peephole3_helper(lines: &[Line], index: &mut usize, ret: &mut Vec<Line>) -> b
                     (
                         Instr::LoadOffset(reg1),
                         Instr::LoadOffset(reg2),
-                        Instr::MulInt(Reg::Top, Reg::Top),
+                        // TODO: change this to work for any dest, not just top. same for other instructions
+                        Instr::MulInt(Reg::Top, Reg::Top, Reg::Top),
                     ) => {
                         ret.push(Line::Instr {
-                            instr: Instr::MulInt(Reg::Offset(reg1), Reg::Offset(*reg2)),
+                            instr: Instr::MulInt(Reg::Top, Reg::Offset(reg1), Reg::Offset(*reg2)),
                             lineno,
                             file_id,
                             func_id,
@@ -339,7 +340,11 @@ fn peephole3_helper(lines: &[Line], index: &mut usize, ret: &mut Vec<Line>) -> b
                         true
                     }
                     // FOLD INT MULTIPLICATION
-                    (Instr::PushInt(a), Instr::PushInt(b), Instr::MulInt(Reg::Top, Reg::Top)) => {
+                    (
+                        Instr::PushInt(a),
+                        Instr::PushInt(b),
+                        Instr::MulInt(Reg::Top, Reg::Top, Reg::Top),
+                    ) => {
                         let c = a.wrapping_mul(*b);
                         ret.push(Line::Instr {
                             instr: Instr::PushInt(c),
