@@ -1306,11 +1306,8 @@ impl Translator {
             }
             StmtKind::If(cond, statements) => {
                 self.translate_expr(cond, offset_table, monomorph_env, st);
-                let then_label = make_label("then");
                 let end_label = make_label("endif");
-                self.emit(st, Instr::JumpIf(then_label.clone()));
-                self.emit(st, Instr::Jump(end_label.clone()));
-                self.emit(st, Line::Label(then_label));
+                self.emit(st, Instr::JumpIfFalse(end_label.clone()));
                 for statement in statements.iter() {
                     self.translate_stmt(statement, false, offset_table, monomorph_env, st);
                 }

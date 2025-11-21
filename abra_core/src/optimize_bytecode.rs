@@ -452,6 +452,7 @@ impl Instr {
             Instr::LessThanInt(_, Reg::Top, Reg::Offset(_)) => true,
             Instr::LessThanIntImm(_, Reg::Top, _) => true,
             Instr::EqualInt(_, Reg::Top, Reg::Offset(_)) => true,
+            Instr::EqualIntImm(_, Reg::Top, _) => true,
             Instr::ArrayPush(Reg::Top, Reg::Offset(_)) => true,
             Instr::ArrayPushImm(Reg::Top, _) => true,
             _ => false,
@@ -468,6 +469,7 @@ impl Instr {
             Instr::LessThanInt(Reg::Top, _, _) => true,
             Instr::LessThanIntImm(Reg::Top, _, _) => true,
             Instr::EqualInt(Reg::Top, _, _) => true,
+            Instr::EqualIntImm(Reg::Top, _, _) => true,
             _ => false,
         }
     }
@@ -482,6 +484,7 @@ impl Instr {
             Instr::LessThanInt(dest, _, r2) => Instr::LessThanInt(dest, r1, r2),
             Instr::LessThanIntImm(dest, _, r2) => Instr::LessThanIntImm(dest, r1, r2),
             Instr::EqualInt(dest, _, r2) => Instr::EqualInt(dest, r1, r2),
+            Instr::EqualIntImm(dest, _, r2) => Instr::EqualIntImm(dest, r1, r2),
             Instr::ArrayPush(_, r2) => Instr::ArrayPush(r1, r2),
             Instr::ArrayPushImm(_, r2) => Instr::ArrayPushImm(r1, r2),
             _ => panic!("can't replace first arg"),
@@ -510,6 +513,7 @@ impl Instr {
             Instr::LessThanInt(_, r1, r2) => Instr::LessThanInt(dest, r1, r2),
             Instr::LessThanIntImm(_, r1, r2) => Instr::LessThanIntImm(dest, r1, r2),
             Instr::EqualInt(_, r1, r2) => Instr::EqualInt(dest, r1, r2),
+            Instr::EqualIntImm(_, r1, r2) => Instr::EqualIntImm(dest, r1, r2),
             _ => panic!("can't replace dest"),
         }
     }
@@ -535,6 +539,7 @@ impl Instr {
             Instr::AddInt(..) => true,
             Instr::SubInt(..) => true,
             Instr::LessThanInt(..) => true,
+            Instr::EqualInt(..) => true,
             Instr::ArrayPush(..) => true,
             _ => false,
         }
@@ -545,6 +550,7 @@ impl Instr {
             Instr::AddInt(dest, r1, _) => Instr::AddIntImm(dest, r1, imm),
             Instr::SubInt(dest, r1, _) => Instr::SubIntImm(dest, r1, imm),
             Instr::LessThanInt(dest, r1, _) => Instr::LessThanIntImm(dest, r1, imm),
+            Instr::EqualInt(dest, r1, _) => Instr::EqualIntImm(dest, r1, imm),
             Instr::ArrayPush(r1, _) => Instr::ArrayPushImm(r1, imm),
             _ => panic!("can't replace second arg with immediate"),
         }
