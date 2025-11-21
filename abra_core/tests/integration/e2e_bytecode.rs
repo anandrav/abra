@@ -33,6 +33,28 @@ h
 }
 
 #[test]
+fn more_arithmetic() {
+    let src = r#"
+let a = 2
+let b = a + 3
+let c = b - 2
+let d = c * 3
+let e = d / 3
+let f = e ^ 3
+let g = f mod 5
+g
+"#;
+    let program = unwrap_or_panic(compile_bytecode(
+        "main.abra",
+        MockFileProvider::single_file(src),
+    ));
+    let mut vm = Vm::new(program);
+    vm.run();
+    let top = vm.top();
+    assert_eq!(top.get_int(&vm), 2);
+}
+
+#[test]
 fn tuples() {
     let src = r#"
 fn mk_pair(a) {

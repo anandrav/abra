@@ -94,6 +94,10 @@ fn gather_constants(lines: &Vec<Line>) -> ConstantsHolder {
                 Instr::StoreOffsetImm(_, imm)
                 | Instr::AddIntImm(_, _, imm)
                 | Instr::SubIntImm(_, _, imm)
+                | Instr::MulIntImm(_, _, imm)
+                | Instr::DivideIntImm(_, _, imm)
+                | Instr::PowerIntImm(_, _, imm)
+                | Instr::ModuloImm(_, _, imm)
                 | Instr::LessThanIntImm(_, _, imm)
                 | Instr::EqualIntImm(_, _, imm)
                 | Instr::ArrayPushIntImm(_, imm) => {
@@ -523,7 +527,9 @@ impl Translator {
                         _ => unreachable!(),
                     },
                     BinaryOperator::Divide => match arg1_ty {
-                        SolvedType::Int => self.emit(st, Instr::DivideInt),
+                        SolvedType::Int => {
+                            self.emit(st, Instr::DivideInt(Reg::Top, Reg::Top, Reg::Top))
+                        }
                         SolvedType::Float => self.emit(st, Instr::DivideFloat),
                         _ => unreachable!(),
                     },
@@ -561,7 +567,9 @@ impl Translator {
                         }
                     },
                     BinaryOperator::Pow => match arg1_ty {
-                        SolvedType::Int => self.emit(st, Instr::PowerInt),
+                        SolvedType::Int => {
+                            self.emit(st, Instr::PowerInt(Reg::Top, Reg::Top, Reg::Top))
+                        }
                         SolvedType::Float => self.emit(st, Instr::PowerFloat),
                         _ => unreachable!(),
                     },
@@ -587,7 +595,9 @@ impl Translator {
                     }
                     BinaryOperator::Or => self.emit(st, Instr::Or),
                     BinaryOperator::And => self.emit(st, Instr::And),
-                    BinaryOperator::Mod => self.emit(st, Instr::Modulo),
+                    BinaryOperator::Mod => {
+                        self.emit(st, Instr::Modulo(Reg::Top, Reg::Top, Reg::Top))
+                    }
                 }
             }
             ExprKind::MemberFuncAp(expr, fname, args) => {
@@ -986,13 +996,13 @@ impl Translator {
                     self.emit(st, Instr::MulInt(Reg::Top, Reg::Top, Reg::Top));
                 }
                 BuiltinOperation::DivideInt => {
-                    self.emit(st, Instr::DivideInt);
+                    self.emit(st, Instr::DivideInt(Reg::Top, Reg::Top, Reg::Top));
                 }
                 BuiltinOperation::PowerInt => {
-                    self.emit(st, Instr::PowerInt);
+                    self.emit(st, Instr::PowerInt(Reg::Top, Reg::Top, Reg::Top));
                 }
                 BuiltinOperation::Modulo => {
-                    self.emit(st, Instr::Modulo);
+                    self.emit(st, Instr::Modulo(Reg::Top, Reg::Top, Reg::Top));
                 }
                 BuiltinOperation::SqrtInt => {
                     self.emit(st, Instr::SquareRoot);
@@ -1050,6 +1060,12 @@ impl Translator {
                 }
                 BuiltinOperation::EqualString => {
                     self.emit(st, Instr::EqualString);
+                }
+                BuiltinOperation::IntToFloat => {
+                    self.emit(st, Instr::IntToFloat);
+                }
+                BuiltinOperation::FloatToInt => {
+                    self.emit(st, Instr::FloatToInt);
                 }
                 BuiltinOperation::IntToString => {
                     self.emit(st, Instr::IntToString);

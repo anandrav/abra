@@ -297,13 +297,13 @@ pub fn generate_bindings_for_crate() {
 
     std::fs::write(&output_path, output).unwrap();
 
-    let status = std::process::Command::new("cargo")
-        .arg("fmt")
-        .status()
-        .expect("failed to run rustfmt");
-    if !status.success() {
-        panic!("rustfmt failed on {output_path:?}");
-    }
+    // let status = std::process::Command::new("rustfmt")
+    //     .arg(&output_path)
+    //     .status()
+    //     .expect("failed to run rustfmt");
+    // if !status.success() {
+    //     panic!("rustfmt failed on {output_path:?}");
+    // }
 }
 
 fn write_header(output: &mut String, package_name: &str) {

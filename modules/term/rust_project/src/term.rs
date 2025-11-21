@@ -13,7 +13,7 @@ use crossterm::{
     event::{Event, KeyCode as CtKeyCode, KeyEvent as CtKeyEvent, poll, read},
     queue,
     style::{self},
-    terminal::{self, Clear, ClearType},
+    terminal::{self, Clear, ClearType, size},
 };
 
 pub fn enable_raw_mode() {
@@ -89,4 +89,11 @@ pub fn mark(s: String, x: i64, y: i64) {
 
 pub fn flush() {
     stdout().flush().unwrap();
+}
+
+pub fn get_size() -> Option<(i64, i64)> {
+    match size() {
+        Ok((columns, rows)) => Some((columns as i64, rows as i64)),
+        Err(_) => None,
+    }
 }

@@ -52,6 +52,8 @@ pub enum BuiltinOperation {
     EqualFloat,
     EqualString,
 
+    IntToFloat,
+    FloatToInt,
     IntToString,
     FloatToString,
 
@@ -158,6 +160,16 @@ impl BuiltinOperation {
                 reason.clone(),
             ),
 
+            BuiltinOperation::IntToFloat => TypeVar::make_func(
+                vec![TypeVar::make_int(reason.clone())],
+                TypeVar::make_float(reason.clone()),
+                reason.clone(),
+            ),
+            BuiltinOperation::FloatToInt => TypeVar::make_func(
+                vec![TypeVar::make_float(reason.clone())],
+                TypeVar::make_int(reason.clone()),
+                reason.clone(),
+            ),
             BuiltinOperation::IntToString => TypeVar::make_func(
                 vec![TypeVar::make_int(reason.clone())],
                 TypeVar::make_string(reason.clone()),

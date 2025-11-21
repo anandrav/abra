@@ -321,7 +321,11 @@ fn peephole3_helper(lines: &[Line], index: &mut usize, ret: &mut Vec<Line>) -> b
                         true
                     }
                     // FOLD INT DIVISION
-                    (Instr::PushInt(a), Instr::PushInt(b), Instr::DivideInt) => {
+                    (
+                        Instr::PushInt(a),
+                        Instr::PushInt(b),
+                        Instr::DivideInt(Reg::Top, Reg::Top, Reg::Top),
+                    ) => {
                         if *b == 0 {
                             false
                         } else {
@@ -337,7 +341,11 @@ fn peephole3_helper(lines: &[Line], index: &mut usize, ret: &mut Vec<Line>) -> b
                         }
                     }
                     // FOLD INT EXPONENTIATION
-                    (Instr::PushInt(a), Instr::PushInt(b), Instr::PowerInt) => {
+                    (
+                        Instr::PushInt(a),
+                        Instr::PushInt(b),
+                        Instr::PowerInt(Reg::Top, Reg::Top, Reg::Top),
+                    ) => {
                         let c = a.wrapping_pow(*b as u32);
                         ret.push(Line::Instr {
                             instr: Instr::PushInt(c),
@@ -438,6 +446,9 @@ impl Instr {
             Instr::AddInt(_, _, Reg::Top)
                 | Instr::SubInt(_, _, Reg::Top)
                 | Instr::MulInt(_, _, Reg::Top)
+                | Instr::DivideInt(_, _, Reg::Top)
+                | Instr::PowerInt(_, _, Reg::Top)
+                | Instr::Modulo(_, _, Reg::Top)
                 | Instr::LessThanInt(_, _, Reg::Top)
                 | Instr::EqualInt(_, _, Reg::Top)
                 | Instr::ArrayPush(_, Reg::Top)
@@ -451,6 +462,13 @@ impl Instr {
                 | Instr::SubInt(_, Reg::Top, Reg::Offset(_))
                 | Instr::SubIntImm(_, Reg::Top, _)
                 | Instr::MulInt(_, Reg::Top, Reg::Offset(_))
+                | Instr::MulIntImm(_, Reg::Top, _)
+                | Instr::DivideInt(_, Reg::Top, Reg::Offset(_))
+                | Instr::DivideIntImm(_, Reg::Top, _)
+                | Instr::PowerInt(_, Reg::Top, Reg::Offset(_))
+                | Instr::PowerIntImm(_, Reg::Top, _)
+                | Instr::Modulo(_, Reg::Top, Reg::Offset(_))
+                | Instr::ModuloImm(_, Reg::Top, _)
                 | Instr::LessThanInt(_, Reg::Top, Reg::Offset(_))
                 | Instr::LessThanIntImm(_, Reg::Top, _)
                 | Instr::EqualInt(_, Reg::Top, Reg::Offset(_))
@@ -468,6 +486,13 @@ impl Instr {
                 | Instr::SubInt(Reg::Top, _, _)
                 | Instr::SubIntImm(Reg::Top, _, _)
                 | Instr::MulInt(Reg::Top, _, _)
+                | Instr::MulIntImm(Reg::Top, _, _)
+                | Instr::DivideInt(Reg::Top, _, _)
+                | Instr::DivideIntImm(Reg::Top, _, _)
+                | Instr::PowerInt(Reg::Top, _, _)
+                | Instr::PowerIntImm(Reg::Top, _, _)
+                | Instr::Modulo(Reg::Top, _, _)
+                | Instr::ModuloImm(Reg::Top, _, _)
                 | Instr::LessThanInt(Reg::Top, _, _)
                 | Instr::LessThanIntImm(Reg::Top, _, _)
                 | Instr::EqualInt(Reg::Top, _, _)
@@ -482,6 +507,13 @@ impl Instr {
             Instr::SubInt(dest, _, r2) => Instr::SubInt(dest, r1, r2),
             Instr::SubIntImm(dest, _, r2) => Instr::SubIntImm(dest, r1, r2),
             Instr::MulInt(dest, _, r2) => Instr::MulInt(dest, r1, r2),
+            Instr::MulIntImm(dest, _, r2) => Instr::MulIntImm(dest, r1, r2),
+            Instr::DivideInt(dest, _, r2) => Instr::DivideInt(dest, r1, r2),
+            Instr::DivideIntImm(dest, _, r2) => Instr::DivideIntImm(dest, r1, r2),
+            Instr::PowerInt(dest, _, r2) => Instr::PowerInt(dest, r1, r2),
+            Instr::PowerIntImm(dest, _, r2) => Instr::PowerIntImm(dest, r1, r2),
+            Instr::Modulo(dest, _, r2) => Instr::Modulo(dest, r1, r2),
+            Instr::ModuloImm(dest, _, r2) => Instr::ModuloImm(dest, r1, r2),
             Instr::LessThanInt(dest, _, r2) => Instr::LessThanInt(dest, r1, r2),
             Instr::LessThanIntImm(dest, _, r2) => Instr::LessThanIntImm(dest, r1, r2),
             Instr::EqualInt(dest, _, r2) => Instr::EqualInt(dest, r1, r2),
@@ -495,8 +527,11 @@ impl Instr {
     fn replace_second_arg(self, r2: Reg) -> Instr {
         match self {
             Instr::AddInt(dest, r1, _) => Instr::AddInt(dest, r1, r2),
-            Instr::MulInt(dest, r1, _) => Instr::MulInt(dest, r1, r2),
             Instr::SubInt(dest, r1, _) => Instr::SubInt(dest, r1, r2),
+            Instr::MulInt(dest, r1, _) => Instr::MulInt(dest, r1, r2),
+            Instr::DivideInt(dest, r1, _) => Instr::DivideInt(dest, r1, r2),
+            Instr::PowerInt(dest, r1, _) => Instr::PowerInt(dest, r1, r2),
+            Instr::Modulo(dest, r1, _) => Instr::Modulo(dest, r1, r2),
             Instr::LessThanInt(dest, r1, _) => Instr::LessThanInt(dest, r1, r2),
             Instr::EqualInt(dest, r1, _) => Instr::EqualInt(dest, r1, r2),
             Instr::ArrayPush(r1, _) => Instr::ArrayPush(r1, r2),
@@ -511,6 +546,13 @@ impl Instr {
             Instr::SubInt(_, r1, r2) => Instr::SubInt(dest, r1, r2),
             Instr::SubIntImm(_, r1, r2) => Instr::SubIntImm(dest, r1, r2),
             Instr::MulInt(_, r1, r2) => Instr::MulInt(dest, r1, r2),
+            Instr::MulIntImm(_, r1, r2) => Instr::MulIntImm(dest, r1, r2),
+            Instr::DivideInt(_, r1, r2) => Instr::DivideInt(dest, r1, r2),
+            Instr::DivideIntImm(_, r1, r2) => Instr::DivideIntImm(dest, r1, r2),
+            Instr::PowerInt(_, r1, r2) => Instr::PowerInt(dest, r1, r2),
+            Instr::PowerIntImm(_, r1, r2) => Instr::PowerIntImm(dest, r1, r2),
+            Instr::Modulo(_, r1, r2) => Instr::Modulo(dest, r1, r2),
+            Instr::ModuloImm(_, r1, r2) => Instr::ModuloImm(dest, r1, r2),
             Instr::LessThanInt(_, r1, r2) => Instr::LessThanInt(dest, r1, r2),
             Instr::LessThanIntImm(_, r1, r2) => Instr::LessThanIntImm(dest, r1, r2),
             Instr::EqualInt(_, r1, r2) => Instr::EqualInt(dest, r1, r2),
@@ -540,6 +582,10 @@ impl Instr {
             self,
             Instr::AddInt(..)
                 | Instr::SubInt(..)
+                | Instr::MulInt(..)
+                | Instr::DivideInt(..)
+                | Instr::PowerInt(..)
+                | Instr::Modulo(..)
                 | Instr::LessThanInt(..)
                 | Instr::EqualInt(..)
                 | Instr::ArrayPush(..)
@@ -550,6 +596,10 @@ impl Instr {
         match self {
             Instr::AddInt(dest, r1, _) => Instr::AddIntImm(dest, r1, imm),
             Instr::SubInt(dest, r1, _) => Instr::SubIntImm(dest, r1, imm),
+            Instr::MulInt(dest, r1, _) => Instr::MulIntImm(dest, r1, imm),
+            Instr::DivideInt(dest, r1, _) => Instr::DivideIntImm(dest, r1, imm),
+            Instr::PowerInt(dest, r1, _) => Instr::PowerIntImm(dest, r1, imm),
+            Instr::Modulo(dest, r1, _) => Instr::ModuloImm(dest, r1, imm),
             Instr::LessThanInt(dest, r1, _) => Instr::LessThanIntImm(dest, r1, imm),
             Instr::EqualInt(dest, r1, _) => Instr::EqualIntImm(dest, r1, imm),
             Instr::ArrayPush(r1, _) => Instr::ArrayPushIntImm(r1, imm),

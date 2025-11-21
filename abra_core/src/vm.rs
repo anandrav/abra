@@ -426,11 +426,14 @@ pub enum Instr {
     AddIntImm(u16, u16, u16),
     SubtractInt(u16, u16, u16),
     SubIntImm(u16, u16, u16),
-    MultiplyInt,
     MulInt(u16, u16, u16),
-    DivideInt,
-    PowerInt,
-    Modulo,
+    MulIntImm(u16, u16, u16),
+    DivideInt(u16, u16, u16),
+    DivideIntImm(u16, u16, u16),
+    PowerInt(u16, u16, u16),
+    PowerIntImm(u16, u16, u16),
+    Modulo(u16, u16, u16),
+    ModuloImm(u16, u16, u16),
 
     AddFloat,
     SubtractFloat,
@@ -505,6 +508,8 @@ pub enum Instr {
     ArrayLength,   // TODO: use register
     ArrayPop,      // TODO: use register
     ConcatStrings, // TODO: this is O(N). Must use smaller instructions. Or concat character-by-character and save progress in Vm
+    IntToFloat,    // TODO: use register
+    FloatToInt,    // TODO: use register
     IntToString,   // TODO: use register
     FloatToString, // TODO: use register
 
@@ -1075,18 +1080,6 @@ impl Vm {
                 };
                 self.store_offset_or_top(dest, c);
             }
-            Instr::MultiplyInt => {
-                let b = self.pop_int();
-                let a = self.top().get_int(self);
-                let Some(c) = a.checked_mul(b) else {
-                    self.error = Some(
-                        self.make_error(VmErrorKind::IntegerOverflowUnderflow)
-                            .into(),
-                    );
-                    return false;
-                };
-                self.set_top(c);
-            }
             Instr::MulInt(dest, reg1, reg2) => {
                 let b = self.load_offset_or_top(reg2).get_int(self);
                 let a = self.load_offset_or_top(reg1).get_int(self);
@@ -1099,9 +1092,20 @@ impl Vm {
                 };
                 self.store_offset_or_top(dest, c);
             }
-            Instr::DivideInt => {
-                let b = self.pop_int();
-                let a = self.top().get_int(self);
+            Instr::MulIntImm(dest, reg1, imm) => {
+                let a = self.load_offset_or_top(reg1).get_int(self);
+                let Some(c) = a.checked_mul(self.int_constants[imm as usize]) else {
+                    self.error = Some(
+                        self.make_error(VmErrorKind::IntegerOverflowUnderflow)
+                            .into(),
+                    );
+                    return false;
+                };
+                self.store_offset_or_top(dest, c);
+            }
+            Instr::DivideInt(dest, reg1, reg2) => {
+                let b = self.load_offset_or_top(reg2).get_int(self);
+                let a = self.load_offset_or_top(reg1).get_int(self);
                 if b == 0 {
                     self.error = Some(self.make_error(VmErrorKind::DivisionByZero).into());
                     return false;
@@ -1113,11 +1117,22 @@ impl Vm {
                     );
                     return false;
                 };
-                self.set_top(c);
+                self.store_offset_or_top(dest, c);
             }
-            Instr::PowerInt => {
-                let b = self.pop_int();
-                let a = self.top().get_int(self);
+            Instr::DivideIntImm(dest, reg1, imm) => {
+                let a = self.load_offset_or_top(reg1).get_int(self);
+                let Some(c) = a.checked_div(self.int_constants[imm as usize]) else {
+                    self.error = Some(
+                        self.make_error(VmErrorKind::IntegerOverflowUnderflow)
+                            .into(),
+                    );
+                    return false;
+                };
+                self.store_offset_or_top(dest, c);
+            }
+            Instr::PowerInt(dest, reg1, reg2) => {
+                let b = self.load_offset_or_top(reg2).get_int(self);
+                let a = self.load_offset_or_top(reg1).get_int(self);
                 let Some(c) = a.checked_pow(b as u32) else {
                     self.error = Some(
                         self.make_error(VmErrorKind::IntegerOverflowUnderflow)
@@ -1125,12 +1140,27 @@ impl Vm {
                     );
                     return false;
                 };
-                self.set_top(c);
+                self.store_offset_or_top(dest, c);
             }
-            Instr::Modulo => {
-                let b = self.pop_int();
-                let a = self.top().get_int(self);
-                self.set_top(a % b);
+            Instr::PowerIntImm(dest, reg1, imm) => {
+                let a = self.load_offset_or_top(reg1).get_int(self);
+                let Some(c) = a.checked_pow(self.int_constants[imm as usize] as u32) else {
+                    self.error = Some(
+                        self.make_error(VmErrorKind::IntegerOverflowUnderflow)
+                            .into(),
+                    );
+                    return false;
+                };
+                self.store_offset_or_top(dest, c);
+            }
+            Instr::Modulo(dest, reg1, reg2) => {
+                let b = self.load_offset_or_top(reg2).get_int(self);
+                let a = self.load_offset_or_top(reg1).get_int(self);
+                self.store_offset_or_top(dest, a % b);
+            }
+            Instr::ModuloImm(dest, reg1, imm) => {
+                let a = self.load_offset_or_top(reg1).get_int(self);
+                self.store_offset_or_top(dest, a % self.int_constants[imm as usize]);
             }
             Instr::AddFloat => {
                 let b = self.pop_float();
@@ -1445,6 +1475,16 @@ impl Vm {
                 let s = StringObject::new(new_str, self);
                 let r = Value::from(s);
                 self.set_top(r);
+            }
+            Instr::IntToFloat => {
+                let n = self.top().get_int(self);
+                let f = n as f64;
+                self.set_top(f);
+            }
+            Instr::FloatToInt => {
+                let f = self.top().get_float(self);
+                let n = f as i64;
+                self.set_top(n);
             }
             Instr::IntToString => {
                 let n = self.top().get_int(self);

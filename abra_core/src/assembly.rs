@@ -79,9 +79,13 @@ pub enum Instr {
     SubInt(Reg, Reg, Reg),
     SubIntImm(Reg, Reg, i64),
     MulInt(Reg, Reg, Reg),
-    DivideInt,
-    PowerInt,
-    Modulo,
+    MulIntImm(Reg, Reg, i64),
+    DivideInt(Reg, Reg, Reg),
+    DivideIntImm(Reg, Reg, i64),
+    PowerInt(Reg, Reg, Reg),
+    PowerIntImm(Reg, Reg, i64),
+    Modulo(Reg, Reg, Reg),
+    ModuloImm(Reg, Reg, i64),
 
     AddFloat,
     SubtractFloat,
@@ -146,6 +150,8 @@ pub enum Instr {
     ArrayLength,
     ArrayPop,
     ConcatStrings, // TODO: this is O(N). Must use smaller instructions. Or concat character-by-character and save progress in Vm
+    IntToFloat,
+    FloatToInt,
     IntToString,
     FloatToString,
 
@@ -220,9 +226,27 @@ impl Display for Instr {
             Instr::MulInt(dest, reg1, reg2) => {
                 write!(f, "multiply_int {dest} {reg1} {reg2}")
             }
-            Instr::DivideInt => write!(f, "divide_int"),
-            Instr::PowerInt => write!(f, "power_int"),
-            Instr::Modulo => write!(f, "modulo"),
+            Instr::MulIntImm(dest, reg1, imm) => {
+                write!(f, "mul_int_imm {dest} {reg1} {imm}")
+            }
+            Instr::DivideInt(dest, reg1, reg2) => {
+                write!(f, "divide_int {dest} {reg1} {reg2}")
+            }
+            Instr::DivideIntImm(dest, reg1, imm) => {
+                write!(f, "div_int_imm {dest} {reg1} {imm}")
+            }
+            Instr::PowerInt(dest, reg1, reg2) => {
+                write!(f, "power_int {dest} {reg1} {reg2}")
+            }
+            Instr::PowerIntImm(dest, reg1, imm) => {
+                write!(f, "power_int_imm {dest} {reg1} {imm}")
+            }
+            Instr::Modulo(dest, reg1, reg2) => {
+                write!(f, "modulo {dest} {reg1} {reg2}")
+            }
+            Instr::ModuloImm(dest, reg1, imm) => {
+                write!(f, "modulo_imm {dest} {reg1} {imm}")
+            }
             Instr::AddFloat => write!(f, "add_float"),
             Instr::SubtractFloat => write!(f, "subtract_float"),
             Instr::MultiplyFloat => write!(f, "multiply_float"),
@@ -290,6 +314,8 @@ impl Display for Instr {
             Instr::ArrayLength => write!(f, "array_len"),
             Instr::ArrayPop => write!(f, "array_pop"),
             Instr::ConcatStrings => write!(f, "concat_strings"),
+            Instr::IntToFloat => write!(f, "int_to_float"),
+            Instr::FloatToInt => write!(f, "float_to_int"),
             Instr::IntToString => write!(f, "int_to_string"),
             Instr::FloatToString => write!(f, "float_to_string"),
             Instr::HostFunc(n) => write!(f, "call_host {n}"),
@@ -368,9 +394,35 @@ fn instr_to_vminstr(
         Instr::MulInt(dest, reg1, reg2) => {
             VmInstr::MulInt(dest.encode(), reg1.encode(), reg2.encode())
         }
-        Instr::DivideInt => VmInstr::DivideInt,
-        Instr::PowerInt => VmInstr::PowerInt,
-        Instr::Modulo => VmInstr::Modulo,
+        Instr::MulIntImm(dest, reg1, imm) => VmInstr::MulIntImm(
+            dest.encode(),
+            reg1.encode(),
+            constants.int_constants.try_get_id(imm).unwrap() as u16,
+        ),
+        Instr::DivideInt(dest, reg1, reg2) => {
+            VmInstr::DivideInt(dest.encode(), reg1.encode(), reg2.encode())
+        }
+        Instr::DivideIntImm(dest, reg1, imm) => VmInstr::DivideIntImm(
+            dest.encode(),
+            reg1.encode(),
+            constants.int_constants.try_get_id(imm).unwrap() as u16,
+        ),
+        Instr::PowerInt(dest, reg1, reg2) => {
+            VmInstr::PowerInt(dest.encode(), reg1.encode(), reg2.encode())
+        }
+        Instr::PowerIntImm(dest, reg1, imm) => VmInstr::PowerIntImm(
+            dest.encode(),
+            reg1.encode(),
+            constants.int_constants.try_get_id(imm).unwrap() as u16,
+        ),
+        Instr::Modulo(dest, reg1, reg2) => {
+            VmInstr::Modulo(dest.encode(), reg1.encode(), reg2.encode())
+        }
+        Instr::ModuloImm(dest, reg1, imm) => VmInstr::ModuloImm(
+            dest.encode(),
+            reg1.encode(),
+            constants.int_constants.try_get_id(imm).unwrap() as u16,
+        ),
         Instr::AddFloat => VmInstr::AddFloat,
         Instr::SubtractFloat => VmInstr::SubtractFloat,
         Instr::MultiplyFloat => VmInstr::MultiplyFloat,
@@ -455,6 +507,8 @@ fn instr_to_vminstr(
         Instr::ArrayLength => VmInstr::ArrayLength,
         Instr::ArrayPop => VmInstr::ArrayPop,
         Instr::ConcatStrings => VmInstr::ConcatStrings,
+        Instr::IntToFloat => VmInstr::IntToFloat,
+        Instr::FloatToInt => VmInstr::FloatToInt,
         Instr::IntToString => VmInstr::IntToString,
         Instr::FloatToString => VmInstr::FloatToString,
         Instr::HostFunc(n) => VmInstr::HostFunc(*n),

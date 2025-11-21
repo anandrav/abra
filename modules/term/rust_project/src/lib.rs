@@ -183,5 +183,15 @@ pub mod ffi {
                 term::flush();
             }
         }
+        /// # Safety
+        /// `vm` must be non-null and valid.
+        #[unsafe(export_name = "abra_ffi$term$get_size")]
+        pub unsafe extern "C" fn get_size(_vm: *mut c_void, vm_funcs: *const AbraVmFunctions) {
+            unsafe {
+                let _vm_funcs: &AbraVmFunctions = &*vm_funcs;
+                let ret: Option<(i64, i64)> = term::get_size();
+                ret.to_vm_unsafe(_vm, _vm_funcs);
+            }
+        }
     }
 }

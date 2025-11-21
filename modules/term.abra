@@ -24,3 +24,5 @@ foreign fn show_cursor() -> void
 foreign fn mark(s: string, x: int, y: int) -> void
 
 foreign fn flush() -> void
+
+foreign fn get_size() -> option<(int, int)>
