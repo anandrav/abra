@@ -111,18 +111,6 @@ fn peephole2_helper(lines: &[Line], index: &mut usize, ret: &mut Vec<Line>) -> b
                         *index += 2;
                         true
                     }
-                    // TODO: is this optimization worth it? Will it prevent other less than optimizations?
-                    // LESS_THAN_INT JUMPIF -> JUMP_IF_LESS_THAN
-                    (Instr::LessThanInt(Reg::Top, Reg::Top, Reg::Top), Instr::JumpIf(label)) => {
-                        ret.push(Line::Instr {
-                            instr: Instr::JumpIfLessThan(label.clone()),
-                            lineno,
-                            file_id,
-                            func_id,
-                        });
-                        *index += 2;
-                        true
-                    }
                     // PUSH TRUE JUMP IF
                     (Instr::PushBool(true), Instr::JumpIf(label)) => {
                         ret.push(Line::Instr {
@@ -456,6 +444,7 @@ impl Instr {
             Instr::SubIntImm(_, Reg::Top, _) => true,
             Instr::MulInt(_, Reg::Top, Reg::Offset(_)) => true,
             Instr::LessThanInt(_, Reg::Top, Reg::Offset(_)) => true,
+            Instr::LessThanIntImm(_, Reg::Top, _) => true,
             _ => false,
         }
     }
@@ -468,6 +457,7 @@ impl Instr {
             Instr::SubIntImm(Reg::Top, _, _) => true,
             Instr::MulInt(Reg::Top, _, _) => true,
             Instr::LessThanInt(Reg::Top, _, _) => true,
+            Instr::LessThanIntImm(Reg::Top, _, _) => true,
             _ => false,
         }
     }
@@ -480,6 +470,7 @@ impl Instr {
             Instr::SubIntImm(dest, _, r2) => Instr::SubIntImm(dest, r1, r2),
             Instr::MulInt(dest, _, r2) => Instr::MulInt(dest, r1, r2),
             Instr::LessThanInt(dest, _, r2) => Instr::LessThanInt(dest, r1, r2),
+            Instr::LessThanIntImm(dest, _, r2) => Instr::LessThanIntImm(dest, r1, r2),
             _ => panic!("can't replace first arg"),
         }
     }
@@ -502,6 +493,7 @@ impl Instr {
             Instr::SubIntImm(_, r1, r2) => Instr::SubIntImm(dest, r1, r2),
             Instr::MulInt(_, r1, r2) => Instr::MulInt(dest, r1, r2),
             Instr::LessThanInt(_, r1, r2) => Instr::LessThanInt(dest, r1, r2),
+            Instr::LessThanIntImm(_, r1, r2) => Instr::LessThanIntImm(dest, r1, r2),
             _ => panic!("can't replace dest"),
         }
     }
@@ -524,6 +516,7 @@ impl Instr {
         match self {
             Instr::AddInt(..) => true,
             Instr::SubInt(..) => true,
+            Instr::LessThanInt(..) => true,
             _ => false,
         }
     }
@@ -532,6 +525,7 @@ impl Instr {
         match self {
             Instr::AddInt(dest, r1, _) => Instr::AddIntImm(dest, r1, imm),
             Instr::SubInt(dest, r1, _) => Instr::SubIntImm(dest, r1, imm),
+            Instr::LessThanInt(dest, r1, _) => Instr::LessThanIntImm(dest, r1, imm),
             _ => panic!("can't replace second arg with immediate"),
         }
     }

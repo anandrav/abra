@@ -98,6 +98,7 @@ pub enum Instr {
 
     // Comparison
     LessThanInt(Reg, Reg, Reg),
+    LessThanIntImm(Reg, Reg, i16),
     LessThanOrEqualInt,
     GreaterThanInt,
     GreaterThanOrEqualInt,
@@ -114,7 +115,6 @@ pub enum Instr {
     Jump(Label),
     JumpIf(Label),
     JumpIfFalse(Label),
-    JumpIfLessThan(Label),
     Call(usize, Label),
     CallFuncObj(u32),
     CallExtern(u32),
@@ -233,6 +233,9 @@ impl Display for Instr {
             Instr::LessThanInt(dest, reg1, reg2) => {
                 write!(f, "less_than_int {dest} {reg1} {reg2}")
             }
+            Instr::LessThanIntImm(dest, reg1, imm) => {
+                write!(f, "less_than_int_imm {dest} {reg1} {imm}")
+            }
             Instr::LessThanOrEqualInt => write!(f, "less_than_or_equal_int"),
             Instr::GreaterThanInt => write!(f, "greater_than_int"),
             Instr::GreaterThanOrEqualInt => write!(f, "greater_than_or_equal_int"),
@@ -252,7 +255,6 @@ impl Display for Instr {
             Instr::Jump(loc) => write!(f, "jump {loc}"),
             Instr::JumpIf(loc) => write!(f, "jump_if {loc}"),
             Instr::JumpIfFalse(loc) => write!(f, "jump_if_false {loc}"),
-            Instr::JumpIfLessThan(loc) => write!(f, "jump_if_less_than {loc}"),
             Instr::Call(nargs, addr) => {
                 write!(f, "call {} {}", nargs, addr)
             }
@@ -367,6 +369,9 @@ fn instr_to_vminstr(
         Instr::LessThanInt(dest, reg1, reg2) => {
             VmInstr::LessThanInt(dest.encode(), reg1.encode(), reg2.encode())
         }
+        Instr::LessThanIntImm(dest, reg1, imm) => {
+            VmInstr::LessThanIntImm(dest.encode(), reg1.encode(), *imm)
+        }
         Instr::LessThanOrEqualInt => VmInstr::LessThanOrEqualInt,
         Instr::GreaterThanInt => VmInstr::GreaterThanInt,
         Instr::GreaterThanOrEqualInt => VmInstr::GreaterThanOrEqualInt,
@@ -388,9 +393,6 @@ fn instr_to_vminstr(
         Instr::Jump(label) => VmInstr::Jump(ProgramCounter::new(label_to_idx[label])),
         Instr::JumpIf(label) => VmInstr::JumpIf(ProgramCounter::new(label_to_idx[label])),
         Instr::JumpIfFalse(label) => VmInstr::JumpIfFalse(ProgramCounter::new(label_to_idx[label])),
-        Instr::JumpIfLessThan(label) => {
-            VmInstr::JumpIfLessThan(ProgramCounter::new(label_to_idx[label]))
-        }
         Instr::Call(nargs, label) => VmInstr::Call(CallData::new(
             *nargs as u32,
             *label_to_idx
