@@ -76,7 +76,8 @@ pub enum Instr {
     // Arithmetic
     AddInt(Reg, Reg, Reg),
     AddIntImm(Reg, Reg, i16),
-    SubtractInt,
+    SubInt(Reg, Reg, Reg),
+    SubIntImm(Reg, Reg, i16),
     MulInt(Reg, Reg, Reg),
     DivideInt,
     PowerInt,
@@ -208,7 +209,12 @@ impl Display for Instr {
             Instr::AddIntImm(dest, reg1, imm) => {
                 write!(f, "add_int_imm {dest} {reg1} {imm}")
             }
-            Instr::SubtractInt => write!(f, "subtract_int"),
+            Instr::SubInt(dest, reg1, reg2) => {
+                write!(f, "sub_int {dest} {reg1} {reg2}")
+            }
+            Instr::SubIntImm(dest, reg1, imm) => {
+                write!(f, "sub_int_imm {dest} {reg1} {imm}")
+            }
             Instr::MulInt(dest, reg1, reg2) => {
                 write!(f, "multiply_int {dest} {reg1} {reg2}")
             }
@@ -339,7 +345,10 @@ fn instr_to_vminstr(
             VmInstr::AddInt(dest.encode(), reg1.encode(), reg2.encode())
         }
         Instr::AddIntImm(dest, reg1, imm) => VmInstr::AddIntImm(dest.encode(), reg1.encode(), *imm),
-        Instr::SubtractInt => VmInstr::SubtractInt,
+        Instr::SubInt(dest, reg1, reg2) => {
+            VmInstr::SubtractInt(dest.encode(), reg1.encode(), reg2.encode())
+        }
+        Instr::SubIntImm(dest, reg1, imm) => VmInstr::SubIntImm(dest.encode(), reg1.encode(), *imm),
         Instr::MulInt(dest, reg1, reg2) => {
             VmInstr::MulInt(dest.encode(), reg1.encode(), reg2.encode())
         }

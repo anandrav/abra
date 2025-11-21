@@ -291,7 +291,11 @@ fn peephole3_helper(lines: &[Line], index: &mut usize, ret: &mut Vec<Line>) -> b
                         true
                     }
                     // FOLD INT SUBTRACTION
-                    (Instr::PushInt(a), Instr::PushInt(b), Instr::SubtractInt) => {
+                    (
+                        Instr::PushInt(a),
+                        Instr::PushInt(b),
+                        Instr::SubInt(Reg::Top, Reg::Top, Reg::Top),
+                    ) => {
                         let c = a.wrapping_sub(*b);
                         ret.push(Line::Instr {
                             instr: Instr::PushInt(c),
@@ -438,6 +442,7 @@ impl Instr {
     fn second_arg_is_top(&self) -> bool {
         match self {
             Instr::AddInt(_, _, Reg::Top) => true,
+            Instr::SubInt(_, _, Reg::Top) => true,
             Instr::MulInt(_, _, Reg::Top) => true,
             Instr::LessThanInt(_, _, Reg::Top) => true,
             _ => false,
@@ -447,6 +452,8 @@ impl Instr {
         match self {
             Instr::AddInt(_, Reg::Top, Reg::Offset(_)) => true,
             Instr::AddIntImm(_, Reg::Top, _) => true,
+            Instr::SubInt(_, Reg::Top, Reg::Offset(_)) => true,
+            Instr::SubIntImm(_, Reg::Top, _) => true,
             Instr::MulInt(_, Reg::Top, Reg::Offset(_)) => true,
             Instr::LessThanInt(_, Reg::Top, Reg::Offset(_)) => true,
             _ => false,
@@ -457,6 +464,8 @@ impl Instr {
         match self {
             Instr::AddInt(Reg::Top, _, _) => true,
             Instr::AddIntImm(Reg::Top, _, _) => true,
+            Instr::SubInt(Reg::Top, _, _) => true,
+            Instr::SubIntImm(Reg::Top, _, _) => true,
             Instr::MulInt(Reg::Top, _, _) => true,
             Instr::LessThanInt(Reg::Top, _, _) => true,
             _ => false,
@@ -467,6 +476,8 @@ impl Instr {
         match self {
             Instr::AddInt(dest, _, r2) => Instr::AddInt(dest, r1, r2),
             Instr::AddIntImm(dest, _, r2) => Instr::AddIntImm(dest, r1, r2),
+            Instr::SubInt(dest, _, r2) => Instr::SubInt(dest, r1, r2),
+            Instr::SubIntImm(dest, _, r2) => Instr::SubIntImm(dest, r1, r2),
             Instr::MulInt(dest, _, r2) => Instr::MulInt(dest, r1, r2),
             Instr::LessThanInt(dest, _, r2) => Instr::LessThanInt(dest, r1, r2),
             _ => panic!("can't replace first arg"),
@@ -477,6 +488,7 @@ impl Instr {
         match self {
             Instr::AddInt(dest, r1, _) => Instr::AddInt(dest, r1, r2),
             Instr::MulInt(dest, r1, _) => Instr::MulInt(dest, r1, r2),
+            Instr::SubInt(dest, r1, _) => Instr::SubInt(dest, r1, r2),
             Instr::LessThanInt(dest, r1, _) => Instr::LessThanInt(dest, r1, r2),
             _ => panic!("can't replace second arg"),
         }
@@ -486,6 +498,8 @@ impl Instr {
         match self {
             Instr::AddInt(_, r1, r2) => Instr::AddInt(dest, r1, r2),
             Instr::AddIntImm(_, r1, r2) => Instr::AddIntImm(dest, r1, r2),
+            Instr::SubInt(_, r1, r2) => Instr::SubInt(dest, r1, r2),
+            Instr::SubIntImm(_, r1, r2) => Instr::SubIntImm(dest, r1, r2),
             Instr::MulInt(_, r1, r2) => Instr::MulInt(dest, r1, r2),
             Instr::LessThanInt(_, r1, r2) => Instr::LessThanInt(dest, r1, r2),
             _ => panic!("can't replace dest"),
@@ -509,6 +523,7 @@ impl Instr {
     fn can_replace_second_arg_with_imm(&self) -> bool {
         match self {
             Instr::AddInt(..) => true,
+            Instr::SubInt(..) => true,
             _ => false,
         }
     }
@@ -516,6 +531,7 @@ impl Instr {
     fn replace_second_arg_imm(self, imm: i16) -> Instr {
         match self {
             Instr::AddInt(dest, r1, _) => Instr::AddIntImm(dest, r1, imm),
+            Instr::SubInt(dest, r1, _) => Instr::SubIntImm(dest, r1, imm),
             _ => panic!("can't replace second arg with immediate"),
         }
     }

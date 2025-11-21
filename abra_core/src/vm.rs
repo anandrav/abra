@@ -466,7 +466,8 @@ pub enum Instr {
     // Arithmetic
     AddInt(u16, u16, u16),
     AddIntImm(u16, u16, i16),
-    SubtractInt,
+    SubtractInt(u16, u16, u16),
+    SubIntImm(u16, u16, i16),
     MultiplyInt,
     MulInt(u16, u16, u16),
     DivideInt,
@@ -1087,9 +1088,9 @@ impl Vm {
                 };
                 self.store_offset_or_top(dest, c);
             }
-            Instr::SubtractInt => {
-                let b = self.pop_int();
-                let a = self.top().get_int(self);
+            Instr::SubtractInt(dest, reg1, reg2) => {
+                let b = self.load_offset_or_top2(reg2).get_int(self);
+                let a = self.load_offset_or_top2(reg1).get_int(self);
                 let Some(c) = a.checked_sub(b) else {
                     self.error = Some(
                         self.make_error(VmErrorKind::IntegerOverflowUnderflow)
@@ -1097,7 +1098,18 @@ impl Vm {
                     );
                     return false;
                 };
-                self.set_top(c);
+                self.store_offset_or_top(dest, c);
+            }
+            Instr::SubIntImm(dest, reg1, imm) => {
+                let a = self.load_offset_or_top2(reg1).get_int(self);
+                let Some(c) = a.checked_sub(imm as i64) else {
+                    self.error = Some(
+                        self.make_error(VmErrorKind::IntegerOverflowUnderflow)
+                            .into(),
+                    );
+                    return false;
+                };
+                self.store_offset_or_top(dest, c);
             }
             Instr::MultiplyInt => {
                 let b = self.pop_int();
