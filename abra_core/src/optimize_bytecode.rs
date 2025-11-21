@@ -143,28 +143,6 @@ fn peephole2_helper(lines: &[Line], index: &mut usize, ret: &mut Vec<Line>) -> b
                         *index += 2;
                         true
                     }
-                    // // LOADOFFSET GETFIELD
-                    (Instr::LoadOffset(offset), Instr::GetField(field)) => {
-                        ret.push(Line::Instr {
-                            instr: Instr::GetFieldOffset(*field, offset),
-                            lineno,
-                            file_id,
-                            func_id,
-                        });
-                        *index += 2;
-                        true
-                    }
-                    // LOADOFFSET SETFIELD
-                    (Instr::LoadOffset(offset), Instr::SetField(field)) => {
-                        ret.push(Line::Instr {
-                            instr: Instr::SetFieldOffset(*field, offset),
-                            lineno,
-                            file_id,
-                            func_id,
-                        });
-                        *index += 2;
-                        true
-                    }
                     // PUSHINT STORE -> STORE IMM
                     (Instr::PushInt(n), Instr::StoreOffset(offset)) => {
                         ret.push(Line::Instr {
@@ -250,28 +228,6 @@ fn peephole3_helper(lines: &[Line], index: &mut usize, ret: &mut Vec<Line>) -> b
                 && let Line::Instr { instr: instr3, .. } = &lines[*index + 2]
             {
                 match (instr1, instr2, instr3) {
-                    // LOAD LOAD GET_INDEX
-                    (Instr::LoadOffset(reg1), Instr::LoadOffset(reg2), Instr::GetIdx) => {
-                        ret.push(Line::Instr {
-                            instr: Instr::GetIdxOffset(reg1, *reg2),
-                            lineno,
-                            file_id,
-                            func_id,
-                        });
-                        *index += 3;
-                        true
-                    }
-                    // LOAD LOAD SET_INDEX
-                    (Instr::LoadOffset(reg1), Instr::LoadOffset(reg2), Instr::SetIdx) => {
-                        ret.push(Line::Instr {
-                            instr: Instr::SetIdxOffset(reg1, *reg2),
-                            lineno,
-                            file_id,
-                            func_id,
-                        });
-                        *index += 3;
-                        true
-                    }
                     // FOLD INT ADDITION
                     (
                         Instr::PushInt(a),
@@ -477,6 +433,10 @@ impl Instr {
                 | Instr::LessThanInt(_, _, Reg::Top)
                 | Instr::EqualInt(_, _, Reg::Top)
                 | Instr::ArrayPush(_, Reg::Top)
+                | Instr::GetIdx(_, Reg::Top)
+                | Instr::SetIdx(_, Reg::Top)
+                | Instr::GetField(_, Reg::Top)
+                | Instr::SetField(_, Reg::Top)
         )
     }
     fn first_arg_is_top_and_second_arg_is_offset_or_imm(&self) -> bool {
@@ -510,6 +470,8 @@ impl Instr {
                 | Instr::EqualIntImm(_, Reg::Top, _)
                 | Instr::ArrayPush(Reg::Top, Reg::Offset(_))
                 | Instr::ArrayPushIntImm(Reg::Top, _)
+                | Instr::GetIdx(Reg::Top, Reg::Offset(_))
+                | Instr::SetIdx(Reg::Top, _)
         )
     }
 
@@ -575,8 +537,12 @@ impl Instr {
             Instr::LessThanIntImm(dest, _, r2) => Instr::LessThanIntImm(dest, r1, r2),
             Instr::EqualInt(dest, _, r2) => Instr::EqualInt(dest, r1, r2),
             Instr::EqualIntImm(dest, _, r2) => Instr::EqualIntImm(dest, r1, r2),
+
             Instr::ArrayPush(_, r2) => Instr::ArrayPush(r1, r2),
             Instr::ArrayPushIntImm(_, r2) => Instr::ArrayPushIntImm(r1, r2),
+            Instr::GetIdx(_, r2) => Instr::GetIdx(r1, r2),
+            Instr::SetIdx(_, r2) => Instr::SetIdx(r1, r2),
+
             _ => panic!("can't replace first arg"),
         }
     }
@@ -599,6 +565,11 @@ impl Instr {
             Instr::LessThanInt(dest, r1, _) => Instr::LessThanInt(dest, r1, r2),
             Instr::EqualInt(dest, r1, _) => Instr::EqualInt(dest, r1, r2),
             Instr::ArrayPush(r1, _) => Instr::ArrayPush(r1, r2),
+            Instr::GetIdx(r1, _) => Instr::GetIdx(r1, r2),
+            Instr::SetIdx(r1, _) => Instr::SetIdx(r1, r2),
+            Instr::GetField(idx, _) => Instr::GetField(idx, r2),
+            Instr::SetField(idx, _) => Instr::SetField(idx, r2),
+
             _ => panic!("can't replace second arg"),
         }
     }

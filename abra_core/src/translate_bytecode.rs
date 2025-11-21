@@ -720,7 +720,7 @@ impl Translator {
                         self.translate_expr(accessed, offset_table, monomorph_env, st);
                         let idx =
                             idx_of_field(&self.statics, monomorph_env, accessed, &field_name.v);
-                        self.emit(st, Instr::GetField(idx));
+                        self.emit(st, Instr::GetField(idx, Reg::Top));
                     }
                 }
             }
@@ -733,7 +733,7 @@ impl Translator {
             ExprKind::IndexAccess(array, index) => {
                 self.translate_expr(index, offset_table, monomorph_env, st);
                 self.translate_expr(array, offset_table, monomorph_env, st);
-                self.emit(st, Instr::GetIdx);
+                self.emit(st, Instr::GetIdx(Reg::Top, Reg::Top));
             }
             ExprKind::Match(expr, arms) => {
                 let ty = self.statics.solution_of_node(expr.node()).unwrap();
@@ -1280,14 +1280,14 @@ impl Translator {
                             self.translate_expr(accessed, offset_table, monomorph_env, st);
                             let idx =
                                 idx_of_field(&self.statics, monomorph_env, accessed, &field_name.v);
-                            self.emit(st, Instr::SetField(idx));
+                            self.emit(st, Instr::SetField(idx, Reg::Top));
                         }
                         // array assignment
                         ExprKind::IndexAccess(array, index) => {
                             self.translate_expr(rvalue, offset_table, monomorph_env, st);
                             self.translate_expr(index, offset_table, monomorph_env, st);
                             self.translate_expr(array, offset_table, monomorph_env, st);
-                            self.emit(st, Instr::SetIdx);
+                            self.emit(st, Instr::SetIdx(Reg::Top, Reg::Top));
                         }
                         _ => unimplemented!(),
                     }

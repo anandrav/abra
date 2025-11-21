@@ -497,14 +497,10 @@ pub enum Instr {
 
     // TODO: these can all be one instruction not two
     // TODO: add immediate versions of these instructions
-    GetField(u16),
-    GetFieldOffset(u16, i16),
-    SetField(u16),
-    SetFieldOffset(u16, i16),
-    GetIdx,
-    GetIdxOffset(i16, i16),
-    SetIdx,
-    SetIdxOffset(i16, i16),
+    GetFieldOffset(u16, u16),
+    SetFieldOffset(u16, u16),
+    GetIdxOffset(u16, u16),
+    SetIdxOffset(u16, u16),
 
     MakeClosure { func_addr: ProgramCounter },
 
@@ -1379,47 +1375,23 @@ impl Vm {
             Instr::DeconstructVariant => {
                 self.deconstruct_variant();
             }
-            Instr::GetField(index) => {
-                let val = self.top();
-                let s = val.get_struct(self);
-                let field = s.get_fields()[index as usize];
-                self.set_top(field);
-            }
             Instr::GetFieldOffset(index, offset) => {
-                let val = self.load_offset(offset);
+                let val = self.load_offset_or_top(offset);
                 let s = val.get_struct(self);
                 let field = s.get_fields()[index as usize];
                 self.push(field);
-            }
-            Instr::SetField(index) => {
-                let val = self.pop();
-                let rvalue = self.pop();
-                let s = unsafe { val.get_struct_mut(self) };
-
-                self.write_barrier(s.header_ptr(), rvalue);
-                s.get_fields_mut()[index as usize] = rvalue;
             }
             Instr::SetFieldOffset(index, offset) => {
-                let val = self.load_offset(offset);
+                let val = self.load_offset_or_top(offset);
                 let rvalue = self.pop();
                 let s = unsafe { val.get_struct_mut(self) };
 
                 self.write_barrier(s.header_ptr(), rvalue);
                 s.get_fields_mut()[index as usize] = rvalue;
             }
-            Instr::GetIdx => {
-                let val = self.pop();
-                let idx = self.top().get_int(self);
-                let arr = val.get_array(self);
-                if idx as usize >= arr.data.len() || idx < 0 {
-                    self.fail(VmErrorKind::ArrayOutOfBounds);
-                }
-                let field = arr.data[idx as usize];
-                self.set_top(field);
-            }
             Instr::GetIdxOffset(reg1, reg2) => {
-                let val = self.load_offset(reg2);
-                let idx = self.load_offset(reg1).get_int(self);
+                let val = self.load_offset_or_top(reg2);
+                let idx = self.load_offset_or_top(reg1).get_int(self);
                 let arr = val.get_array(self);
                 if idx as usize >= arr.data.len() || idx < 0 {
                     self.fail(VmErrorKind::ArrayOutOfBounds);
@@ -1427,20 +1399,9 @@ impl Vm {
                 let field = arr.data[idx as usize];
                 self.push(field);
             }
-            Instr::SetIdx => {
-                let val = self.pop();
-                let idx = self.pop_int();
-                let rvalue = self.pop();
-                let arr = unsafe { val.get_array_mut(self) };
-                if idx as usize >= arr.data.len() || idx < 0 {
-                    self.fail(VmErrorKind::ArrayOutOfBounds);
-                }
-                self.write_barrier(arr.header_ptr(), rvalue);
-                arr.data[idx as usize] = rvalue;
-            }
             Instr::SetIdxOffset(reg1, reg2) => {
-                let val = self.load_offset(reg2);
-                let idx = self.load_offset(reg1).get_int(self);
+                let val = self.load_offset_or_top(reg2);
+                let idx = self.load_offset_or_top(reg1).get_int(self);
                 let rvalue = self.pop();
                 let arr = unsafe { val.get_array_mut(self) };
                 if idx as usize >= arr.data.len() || idx < 0 {
