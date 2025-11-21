@@ -37,7 +37,7 @@ extension_body = _{ "{" ~ func_def* ~ "}" }
 enum_declaration = { "type" ~ udt_identifier ~ type_params? ~ "=" ~ ("|")? ~ variant ~ ("|" ~ variant)* }
 type_params = _{ "<" ~ (type_poly ~ ",")* ~ type_poly? ~ ">" }
 variant = { identifier ~ packed_data? }
-packed_data = _{ ("(" ~ typ ~ ")") | typ }
+packed_data = _{ tuple_type_allow_single }
 
 struct_declaration = { "type" ~ udt_identifier ~ type_params? ~ "=" ~ "{" ~ struct_field ~ (struct_field)* ~ "}" }
 struct_field = { identifier ~ type_annotation }
@@ -145,6 +145,7 @@ func_type_arg_single = _{ typ }
 type_ap = { udt_identifier ~ type_args? }
 type_args = _{ "<" ~ (typ ~ ",")* ~ typ? ~ ">" }
 
+tuple_type_allow_single = { tuple_start ~ (tuple_type_element ~ ",")* ~ tuple_type_element ~ tuple_end }
 tuple_type = { tuple_start ~ (tuple_type_element ~ ",")+ ~ tuple_type_element ~ tuple_end }
 tuple_type_element = _{ typ }
 

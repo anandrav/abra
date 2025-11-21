@@ -456,6 +456,21 @@ pub(crate) fn parse_type_term(pair: Pair<Rule>, file_id: FileId) -> Rc<Type> {
                 id: NodeId::new(),
             })
         }
+        Rule::tuple_type_allow_single => {
+            let inner: Vec<_> = pair.into_inner().collect();
+            if inner.len() == 1 {
+                return parse_type_term(inner[0].clone(), file_id);
+            }
+            let types = inner
+                .into_iter()
+                .map(|t| parse_type_term(t, file_id))
+                .collect();
+            Rc::new(Type {
+                kind: Rc::new(TypeKind::Tuple(types)),
+                loc: span,
+                id: NodeId::new(),
+            })
+        }
         Rule::type_ap => {
             let inner: Vec<_> = pair.into_inner().collect();
             let name = inner[0].as_str().to_owned();
