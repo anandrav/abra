@@ -181,10 +181,34 @@ fn peephole2_helper(lines: &[Line], index: &mut usize, ret: &mut Vec<Line>) -> b
                         *index += 2;
                         true
                     }
-                    // ADDINT(TOP, R1, R2) STORE(N) -> ADDINT(N, R1, R2)
-                    (Instr::AddInt(Reg::Top, r1, r2), Instr::StoreOffset(offset)) => {
+                    // LOAD(X) <ANY>(_, _, TOP) -> __(_, _, X)
+                    (Instr::LoadOffset(offset), instr2) if instr2.second_arg_is_top() => {
                         ret.push(Line::Instr {
-                            instr: Instr::AddInt(Reg::Offset(*offset), r1, r2),
+                            instr: instr2.clone().replace_second_arg(Reg::Offset(offset)),
+                            lineno,
+                            file_id,
+                            func_id,
+                        });
+                        *index += 2;
+                        true
+                    }
+                    // LOAD(X) __(_, TOP, Offset(Y)) -> __(_, X, Offset(Y))
+                    (Instr::LoadOffset(offset), instr2)
+                        if instr2.first_arg_is_top_and_second_arg_is_offset() =>
+                    {
+                        ret.push(Line::Instr {
+                            instr: instr2.clone().replace_first_arg(Reg::Offset(offset)),
+                            lineno,
+                            file_id,
+                            func_id,
+                        });
+                        *index += 2;
+                        true
+                    }
+                    // __(TOP, R1, R2) STORE(N) -> __(N, R1, R2)
+                    (instr1, Instr::StoreOffset(offset)) if instr1.dest_is_top() => {
+                        ret.push(Line::Instr {
+                            instr: instr1.replace_dest(Reg::Offset(*offset)),
                             lineno,
                             file_id,
                             func_id,
@@ -237,21 +261,6 @@ fn peephole3_helper(lines: &[Line], index: &mut usize, ret: &mut Vec<Line>) -> b
                     {
                         ret.push(Line::Instr {
                             instr: Instr::IncrementRegImmStk(reg1, as_imm(-n)),
-                            lineno,
-                            file_id,
-                            func_id,
-                        });
-                        *index += 3;
-                        true
-                    }
-                    // LOAD LOAD ADD_INT
-                    (
-                        Instr::LoadOffset(reg1),
-                        Instr::LoadOffset(reg2),
-                        Instr::AddInt(Reg::Top, Reg::Top, Reg::Top),
-                    ) => {
-                        ret.push(Line::Instr {
-                            instr: Instr::AddInt(Reg::Top, Reg::Offset(reg1), Reg::Offset(*reg2)),
                             lineno,
                             file_id,
                             func_id,
@@ -532,4 +541,47 @@ fn fits_imm(n: i64) -> bool {
 
 fn as_imm(n: i64) -> i16 {
     n.try_into().unwrap()
+}
+
+impl Instr {
+    fn second_arg_is_top(&self) -> bool {
+        match self {
+            Instr::AddInt(_, _, Reg::Top) => true,
+            _ => false,
+        }
+    }
+    fn first_arg_is_top_and_second_arg_is_offset(&self) -> bool {
+        match self {
+            Instr::AddInt(_, Reg::Top, Reg::Offset(_)) => true,
+            _ => false,
+        }
+    }
+
+    fn dest_is_top(&self) -> bool {
+        match self {
+            Instr::AddInt(Reg::Top, _, _) => true,
+            _ => false,
+        }
+    }
+
+    fn replace_first_arg(self, r1: Reg) -> Instr {
+        match self {
+            Instr::AddInt(dest, _, r2) => Instr::AddInt(dest, r1, r2),
+            _ => self,
+        }
+    }
+
+    fn replace_second_arg(self, r2: Reg) -> Instr {
+        match self {
+            Instr::AddInt(dest, r1, _) => Instr::AddInt(dest, r1, r2),
+            _ => self,
+        }
+    }
+
+    fn replace_dest(self, dest: Reg) -> Instr {
+        match self {
+            Instr::AddInt(_, r1, r2) => Instr::AddInt(dest, r1, r2),
+            _ => self,
+        }
+    }
 }
