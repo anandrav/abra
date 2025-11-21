@@ -446,27 +446,27 @@ pub enum Instr {
     PowerFloat(u16, u16, u16),
     PowerFloatImm(u16, u16, u16),
 
-    SquareRoot,
+    SquareRoot, // TODO: use two registers
 
     // Logical
-    Not,
-    And,
-    Or,
+    Not, // TODO: use registers
+    And, // TODO: use registers
+    Or,  // TODO: use registers
 
     // Comparison
     LessThanInt(u16, u16, u16),
     LessThanIntImm(u16, u16, u16),
-    LessThanOrEqualInt,
-    GreaterThanInt,
-    GreaterThanOrEqualInt,
-    LessThanFloat,
-    LessThanOrEqualFloat,
-    GreaterThanFloat,
-    GreaterThanOrEqualFloat,
+    LessThanOrEqualInt,      // TODO: use registers
+    GreaterThanInt,          // TODO: use registers
+    GreaterThanOrEqualInt,   // TODO: use registers
+    LessThanFloat,           // TODO: use registers
+    LessThanOrEqualFloat,    // TODO: use registers
+    GreaterThanFloat,        // TODO: use registers
+    GreaterThanOrEqualFloat, // TODO: use registers
     EqualInt(u16, u16, u16),
     EqualIntImm(u16, u16, u16),
-    EqualFloat,
-    EqualBool,
+    EqualFloat,  // TODO: use registers
+    EqualBool,   // TODO: use registers
     EqualString, // TODO: this is O(N). Must use smaller instructions. Or compare character-by-character and save progress in state of Vm
 
     // Control Flow
