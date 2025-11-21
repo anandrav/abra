@@ -111,7 +111,7 @@ fn peephole2_helper(lines: &[Line], index: &mut usize, ret: &mut Vec<Line>) -> b
                         *index += 2;
                         true
                     }
-                    // PUSH TRUE JUMP IF
+                    // PUSH TRUE JUMP_IF
                     (Instr::PushBool(true), Instr::JumpIf(label)) => {
                         ret.push(Line::Instr {
                             instr: Instr::Jump(label.clone()),
@@ -119,6 +119,11 @@ fn peephole2_helper(lines: &[Line], index: &mut usize, ret: &mut Vec<Line>) -> b
                             file_id,
                             func_id,
                         });
+                        *index += 2;
+                        true
+                    }
+                    // PUSH TRUE JUMP_IF_FALSE
+                    (Instr::PushBool(true), Instr::JumpIfFalse(_)) => {
                         *index += 2;
                         true
                     }
