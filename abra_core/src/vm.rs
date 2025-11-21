@@ -495,8 +495,6 @@ pub enum Instr {
     DeconstructArray,
     DeconstructVariant,
 
-    // TODO: these can all be one instruction not two
-    // TODO: add immediate versions of these instructions
     GetFieldOffset(u16, u16),
     SetFieldOffset(u16, u16),
     GetIdxOffset(u16, u16),
