@@ -1,0 +1,208 @@
+use term
+use time
+use random
+
+type World = {
+  cells: array<int>
+  width: int
+  height: int
+  generation: int
+  paused: bool
+}
+
+fn main() {
+  let (term_w, term_h) = get_size()!
+  
+  // Reserve space for UI
+  let w = term_w
+  let h = term_h - 2
+  if h < 1 { h = 1 }
+
+  // Initialize random world
+  var world = init_world(w, h)
+
+  enable_raw_mode()
+  hide_cursor()
+  clear()
+
+  var quit = false
+  
+  while not(quit) {
+    let start = get_time()
+
+    // 1. Draw
+    draw_world(world)
+    draw_ui(world)
+    flush()
+
+    // 2. Input Handling
+    // We loop to clear the queue, but only process relevant keys once per frame
+    var action_taken = false
+    while poll_key_event() {
+      let key = get_key_event()
+      if not(action_taken) {
+        match key {
+          .Char("q") -> quit = true,
+          .Esc -> quit = true,
+          .Char("p") -> world.paused = not(world.paused),
+          .Char("r") -> world = init_world(w, h), // Reset
+          .Char("c") -> world = clear_world(w, h), // Clear to empty
+          .Char(" ") -> {
+            // Manual step if paused
+            if world.paused {
+               world = next_generation(world)
+            } else {
+               world.paused = true
+            }
+          },
+          _ -> {}
+        }
+        action_taken = true
+      }
+      // If quitting, stop draining events
+      if quit { break }
+    }
+    
+    if quit { break }
+
+    // 3. Update Simulation
+    if not(world.paused) {
+      world = next_generation(world)
+    }
+
+    // 4. Frame Pacing
+    // Don't run too fast, or it's a blur. Target ~15 FPS
+    let now = get_time()
+    let diff = now - start
+    let target = 0.06 // roughly 60ms
+    if diff < target {
+      sleep(target - diff)
+    }
+  }
+
+  clear()
+  disable_raw_mode()
+  show_cursor()
+  flush()
+}
+
+fn init_world(w: int, h: int) -> World {
+  var cells = []
+  let total = w * h
+  
+  for i in range(total) {
+    // 20% chance to start alive
+    if random_int(0, 100) < 20 {
+      cells.push(1)
+    } else {
+      cells.push(0)
+    }
+  }
+  
+  World(cells, w, h, 0, false)
+}
+
+fn clear_world(w: int, h: int) -> World {
+  var cells = []
+  let total = w * h
+  for i in range(total) {
+    cells.push(0)
+  }
+  World(cells, w, h, 0, true)
+}
+
+fn next_generation(old: World) -> World {
+  var new_cells = []
+  let w = old.width
+  let h = old.height
+  let total = w * h
+
+  for i in range(total) {
+    let x = i mod w
+    let y = i / w
+    
+    let neighbors = count_neighbors(old, x, y)
+    let current = old.cells[i]
+    
+    var next_state = 0
+    
+    if current == 1 {
+      // Rule 1 & 2: Underpopulation (<2) or Overpopulation (>3) -> Die
+      // Rule 3: Survival (2 or 3) -> Live
+      if (neighbors == 2) or (neighbors == 3) {
+        next_state = 1
+      }
+    } else {
+      // Rule 4: Reproduction (exactly 3) -> Live
+      if neighbors == 3 {
+        next_state = 1
+      }
+    }
+    
+    new_cells.push(next_state)
+  }
+
+  World(new_cells, w, h, old.generation + 1, old.paused)
+}
+
+fn count_neighbors(world: World, x: int, y: int) -> int {
+  let w = world.width
+  let h = world.height
+  var count = 0
+
+  // Check 8 neighbors
+  // We wrap around edges (toroidal world) for better visuals
+  for dy in range(3) { // 0, 1, 2 -> -1, 0, 1
+    for dx in range(3) {
+      if (dx == 1) and (dy == 1) {
+        // Skip self (1,1 is the center in 0..2 loop)
+      } else {
+        // Calculate wrapped coordinates
+        // add w/h before mod to handle negative numbers correctly
+        let nx = (x + (dx - 1) + w) mod w
+        let ny = (y + (dy - 1) + h) mod h
+        
+        let index = ny * w + nx
+        if world.cells[index] == 1 {
+          count = count + 1
+        }
+      }
+    }
+  }
+  count
+}
+
+fn draw_world(world: World) {
+  let w = world.width
+  let h = world.height
+  
+  // Batch drawing strings for performance
+  for y in range(h) {
+    var line = ""
+    for x in range(w) {
+      let idx = y * w + x
+      if world.cells[idx] == 1 {
+        line = line .. "O"
+      } else {
+        line = line .. " "
+      }
+    }
+    mark(line, 0, y)
+  }
+}
+
+fn draw_ui(world: World) {
+  let y = world.height
+  
+  // Clear UI line
+  mark("                                                                            ", 0, y)
+  
+  var status = "Running"
+  if world.paused { status = "PAUSED" }
+  
+  let info = "Gen: " .. world.generation .. " | " .. status
+  mark(info, 0, y)
+  mark("Controls: [P]ause/Play | [Space] Step | [R]eset | [C]lear | [Q]uit", 0, y + 1)
+}
+
+main()

@@ -5,6 +5,7 @@ type KeyCode =
     | Down
     | Char(string)
     | Esc
+    | Space
     | Other
 
 foreign fn enable_raw_mode() -> void

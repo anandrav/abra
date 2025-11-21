@@ -1,0 +1,128 @@
+use term
+use time
+use random
+
+type Stream = {
+  y: float
+  speed: float
+  len: int
+  char_index: int // To vary the character
+}
+
+fn main() {
+  // 1. Setup Screen
+  let (w, h) = get_size()!
+  
+  // Initialize one stream per column
+  var streams = init_streams(w, h)
+
+  enable_raw_mode()
+  hide_cursor()
+  clear()
+
+  var quit = false
+
+  while not(quit) {
+    let start_time = get_time()
+    let (curr_w, curr_h) = get_size()!
+
+    // Handle Resize
+    if not(curr_w == w) or not(curr_h == h) {
+      clear()
+      w = curr_w
+      h = curr_h
+      streams = init_streams(w, h)
+    }
+
+    // 2. Update & Draw Loop
+    for x in range(w) {
+      // We access the stream directly
+      let s = streams[x]
+
+      // A. Erase the tail (The point 'len' distance behind the head)
+      let tail_y_float = s.y - int_to_float(s.len)
+      let tail_y = float_to_int(tail_y_float)
+
+      if (tail_y >= 0) and (tail_y < h) {
+        mark(" ", x, tail_y)
+      }
+
+      // B. Move the head
+      s.y = s.y + s.speed
+
+      // C. Draw the head
+      let head_y = float_to_int(s.y)
+      
+      if (head_y >= 0) and (head_y < h) {
+        let char = get_matrix_char(s.char_index)
+        mark(char, x, head_y)
+        
+        // Mutate character index for next time to simulate "shifting" code
+        s.char_index = random_int(0, 20)
+      }
+
+      // D. Reset if the entire stream (tail included) is off screen
+      let max_y = h + s.len
+      if tail_y > max_y {
+        // Reset to top with new random properties
+        s.y = int_to_float(random_int(1, 20)) * -1.0 // Start above screen
+        s.speed = int_to_float(random_int(2, 9)) / 10.0 // Speed 0.2 - 0.9
+        s.len = random_int(5, h / 2)
+      }
+    }
+
+    flush()
+
+    // 3. Input Handling
+    while poll_key_event() {
+      let key = get_key_event()
+      match key {
+        .Char("q") -> quit = true,
+        .Esc -> quit = true,
+        _ -> {}
+      }
+    }
+
+    // 4. Frame Pacing
+    let now = get_time()
+    let diff = now - start_time
+    if diff < 0.05 {
+      sleep(0.05 - diff)
+    }
+  }
+
+  clear()
+  disable_raw_mode()
+  show_cursor()
+  flush()
+}
+
+fn init_streams(w: int, h: int) -> array<Stream> {
+  var arr = []
+  for i in range(w) {
+    // Initialize with random negative positions so they "rain" in naturally
+    // Spread them out so they don't all come down as a flat wall
+    let start_y = random_int(0, h) * -1
+    
+    // Random speed between 0.2 and 0.9
+    let speed_int = random_int(2, 9) 
+    let speed = int_to_float(speed_int) / 10.0
+
+    let len = random_int(4, h / 2)
+    
+    arr.push(Stream(int_to_float(start_y), speed, len, 0))
+  }
+  arr
+}
+
+fn get_matrix_char(index: int) -> string {
+  // A mix of tech-looking characters
+  let chars = ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9", 
+               "Z", "X", "Y", "W", "K", "P", ":", ".", "*", "+"]
+  
+  // Safety check mod
+  let safe_index = index mod chars.len()
+  chars[safe_index]
+}
+
+main()

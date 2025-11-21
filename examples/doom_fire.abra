@@ -1,0 +1,137 @@
+use term
+use time
+use random
+
+fn main() {
+  let (term_w, term_h) = get_size()!
+  var w = term_w
+  var h = term_h
+
+  // 1D array representing heat values (0 = cold, 36 = max heat)
+  var fire = init_fire(w, h)
+
+  // Pre-defined palette for performance (Dark -> Light)
+  // We use density characters to simulate brightness
+  let palette = [" ", ".", "-", ":", "^", "*", "%", "S", "#", "@"]
+  let pal_len = palette.len()
+
+  enable_raw_mode()
+  hide_cursor()
+  clear()
+
+  var quit = false
+
+  while not(quit) {
+    let start = get_time()
+    
+    // 1. Resize Check
+    let (curr_w, curr_h) = get_size()!
+    if not(curr_w == w) or not(curr_h == h) {
+        w = curr_w
+        h = curr_h
+        fire = init_fire(w, h)
+        clear()
+    }
+
+    // 2. Update Simulation
+    update_fire(fire, w, h)
+
+    // 3. Draw
+    // We iterate y from 0 to h-1 (skipping the very bottom source row usually looks better)
+    for y in range(h - 1) {
+       var line = ""
+       
+       for x in range(w) {
+          let idx = y * w + x
+          let heat = fire[idx]
+          
+          // Map heat (0..36) to palette index
+          // Formula: index = (heat * pal_len) / 37
+          var char_idx = (heat * pal_len) / 37
+          
+          // Clamp just in case
+          if char_idx >= pal_len { char_idx = pal_len - 1 }
+          if char_idx < 0 { char_idx = 0 }
+          
+          line = line .. palette[char_idx]
+       }
+       mark(line, 0, y)
+    }
+    
+    flush()
+
+    // 4. Input
+    while poll_key_event() {
+      match get_key_event() {
+        .Char("q") -> quit = true,
+        .Esc -> quit = true,
+        _ -> {}
+      }
+    }
+
+    // 5. Pacing (~20 FPS looks best for fire)
+    let now = get_time()
+    let diff = now - start
+    if diff < 0.05 {
+       sleep(0.05 - diff)
+    }
+  }
+
+  clear()
+  disable_raw_mode()
+  show_cursor()
+  flush()
+}
+
+fn init_fire(w: int, h: int) -> array<int> {
+   var arr = []
+   let total = w * h
+   for i in range(total) {
+      arr.push(0)
+   }
+   arr
+}
+
+fn update_fire(fire: array<int>, w: int, h: int) {
+   // 1. Ignite the bottom row (The Source)
+   let start_bottom = (h - 1) * w
+   for x in range(w) {
+      // Set to max heat (36)
+      fire[start_bottom + x] = 36
+   }
+
+   // 2. Propagate Heat
+   // We loop through every pixel and calculate its value based on the pixel BELOW it.
+   for x in range(w) {
+      for y in range(h - 1) {
+         // 'src' is the pixel directly below the current position (y, x)
+         let src_idx = (y + 1) * w + x
+         let heat = fire[src_idx]
+         
+         // Random decay determines how fast the fire cools
+         // 0 = no cooling, 3 = fast cooling
+         let decay = random_int(0, 4) 
+         
+         // Wind Effect:
+         // Instead of heat going straight up, we shift the destination 'x' slightly.
+         // Subtracting decay from x makes the fire blow to the left/right randomly.
+         // (dst_x = x - decay + 1) gives offsets: 1, 0, -1, -2
+         var dst_x = x - decay + 1
+         
+         // Wrap around screen edges
+         if dst_x < 0 { dst_x = w + dst_x }
+         if dst_x >= w { dst_x = dst_x - w }
+         
+         let dst_idx = y * w + dst_x
+         
+         // Calculate new heat
+         var new_heat = heat - decay
+         if new_heat < 0 { new_heat = 0 }
+         
+         // Apply to the destination pixel
+         fire[dst_idx] = new_heat
+      }
+   }
+}
+
+main()

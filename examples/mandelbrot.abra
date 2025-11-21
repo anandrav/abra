@@ -1,0 +1,195 @@
+use term
+use time
+
+type View = {
+  center_re: float
+  center_im: float
+  scale: float
+  max_iter: int
+  width: int
+  height: int
+}
+
+fn main() {
+  let (term_w, term_h) = get_size()!
+
+  let initial_h = term_h - 2
+  if initial_h < 1 { initial_h = 1 }
+  
+  var view = View(
+    -0.7436447860,  // center_re
+    0.1318252536,   // center_im
+    0.05,           // scale
+    150, 
+    term_w,
+    initial_h
+  )
+
+  enable_raw_mode()
+  hide_cursor()
+  clear()
+
+  var needs_redraw = true
+  var quit = false
+
+  while not(quit) {
+    let (curr_w, curr_h) = get_size()!
+    
+    let render_h = curr_h - 2
+    if render_h < 1 { render_h = 1 }
+
+    if not(curr_w == view.width) or not(render_h == view.height) {
+      view.width = curr_w
+      view.height = render_h
+      needs_redraw = true
+      clear() 
+    }
+
+    if needs_redraw {
+      draw_mandelbrot(view)
+      draw_ui(view)
+      flush()
+      needs_redraw = false
+    }
+
+    while poll_key_event() {
+      let key = get_key_event()
+      match key {
+        .Char("q") -> quit = true,
+        .Esc -> quit = true,
+        
+        // Pan keys
+        .Up -> view.center_im = view.center_im - (view.scale * 2.0),
+        .Char("w") -> view.center_im = view.center_im - (view.scale * 2.0),
+        .Down -> view.center_im = view.center_im + (view.scale * 2.0),
+        .Char("s") -> view.center_im = view.center_im + (view.scale * 2.0),
+        .Left -> view.center_re = view.center_re - (view.scale * 2.0),
+        .Char("a") -> view.center_re = view.center_re - (view.scale * 2.0),
+        .Right -> view.center_re = view.center_re + (view.scale * 2.0),
+        .Char("d") -> view.center_re = view.center_re + (view.scale * 2.0),
+
+        // Zoom in
+        .Char("z") -> {
+            view.scale = view.scale * 0.8
+            view.max_iter = view.max_iter + 10 
+        },
+        
+        // Zoom Out
+        .Char("x") -> {
+            view.scale = view.scale * 1.25
+            view.max_iter = view.max_iter - 10
+            if view.max_iter < 50 { view.max_iter = 50 }
+        },
+
+        .Char("]") -> view.max_iter = view.max_iter + 50,
+        .Char("[") -> view.max_iter = view.max_iter - 50,
+        
+        // Reset View
+        .Char("r") -> {
+            view.center_re = -0.7436447860
+            view.center_im = 0.1318252536
+            view.scale = 0.05
+            view.max_iter = 150
+        },
+
+        _ -> {}
+      }
+      
+      if quit { break }
+      needs_redraw = true
+    }
+  }
+
+  clear()
+  disable_raw_mode()
+  show_cursor()
+  flush()
+}
+
+fn draw_mandelbrot(view: View) {
+  let width_f = int_to_float(view.width)
+  let height_f = int_to_float(view.height)
+  
+  let half_width = width_f / 2.0
+  let half_height = height_f / 2.0
+
+  for y in range(view.height) {
+    let y_f = int_to_float(y)
+    
+    let y_offset = y_f - half_height
+    let c_im = view.center_im + (y_offset * view.scale)
+    let c_im2 = c_im * c_im // Pre-calculate y squared
+
+    for x in range(view.width) {
+      let x_f = int_to_float(x)
+      let x_offset = x_f - half_width
+
+      let c_re = view.center_re + (x_offset * view.scale * 0.5)
+
+      // OPTIMIZATION: Cardioid and Bulb Checking
+      // This checks if the point is inside the main heart or the big circle to the left.
+      // If so, we skip the loop entirely.
+      let q = (c_re - 0.25) * (c_re - 0.25) + c_im2
+      var skip = false
+      
+      // Check Cardioid
+      if (q * (q + (c_re - 0.25))) < (0.25 * c_im2) {
+        skip = true
+      } else {
+        // Check Period-2 Bulb (the circle to the left)
+        let temp = (c_re + 1.0) * (c_re + 1.0) + c_im2
+        if temp < 0.0625 {
+          skip = true
+        }
+      }
+
+      var iter = 0
+      
+      if skip {
+        iter = view.max_iter // Force it to be "black" (inside set)
+      } else {
+        var z_re = c_re
+        var z_im = c_im
+        
+        while iter < view.max_iter {
+          let z_re2 = z_re * z_re
+          let z_im2 = z_im * z_im
+          
+          if z_re2 + z_im2 > 4.0 {
+            break
+          }
+
+          z_im = 2.0 * z_re * z_im + c_im
+          z_re = z_re2 - z_im2 + c_re
+          iter = iter + 1
+        }
+      }
+
+      let char = get_ascii_char(iter, view.max_iter)
+      mark(char, x, y)
+    }
+  }
+}
+
+fn draw_ui(view: View) {
+  let ui_y = view.height
+  
+  let blank = "                                                                                "
+  mark(blank, 0, ui_y)
+  mark(blank, 0, ui_y + 1)
+  
+  let info = "Zoom: " .. view.scale .. " | Iterations: " .. view.max_iter
+  mark(info, 0, ui_y)
+  mark("WASD (Move) | Z/X (Zoom) | R (Reset) | Q (Quit)", 0, ui_y + 1)
+}
+
+fn get_ascii_char(iter: int, max: int) -> string {
+  if iter == max {
+    return " "
+  }
+  let chars = [".", ":", "-", "=", "+", "*", "#", "%", "@"]
+  let index = iter mod chars.len()
+  chars[index]
+}
+
+main()
