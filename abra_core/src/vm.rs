@@ -412,7 +412,7 @@ pub enum Instr {
     Duplicate,
     LoadOffset(i16),
     StoreOffset(i16),
-    StoreOffsetImm(i16, i16),
+    StoreOffsetImm(i16, u16),
 
     // Constants
     PushNil(u16),
@@ -423,9 +423,9 @@ pub enum Instr {
 
     // Arithmetic
     AddInt(u16, u16, u16),
-    AddIntImm(u16, u16, i16),
+    AddIntImm(u16, u16, u16),
     SubtractInt(u16, u16, u16),
-    SubIntImm(u16, u16, i16),
+    SubIntImm(u16, u16, u16),
     MultiplyInt,
     MulInt(u16, u16, u16),
     DivideInt,
@@ -447,7 +447,7 @@ pub enum Instr {
 
     // Comparison
     LessThanInt(u16, u16, u16),
-    LessThanIntImm(u16, u16, i16),
+    LessThanIntImm(u16, u16, u16),
     LessThanOrEqualInt,
     GreaterThanInt,
     GreaterThanOrEqualInt,
@@ -456,7 +456,7 @@ pub enum Instr {
     GreaterThanFloat,
     GreaterThanOrEqualFloat,
     EqualInt(u16, u16, u16),
-    EqualIntImm(u16, u16, i16),
+    EqualIntImm(u16, u16, u16),
     EqualFloat,
     EqualBool,
     EqualString, // TODO: this is O(N). Must use smaller instructions. Or compare character-by-character and save progress in state of Vm
@@ -501,7 +501,7 @@ pub enum Instr {
     MakeClosure { func_addr: ProgramCounter },
 
     ArrayPush(u16, u16),
-    ArrayPushImm(u16, i16),
+    ArrayPushIntImm(u16, u16),
     ArrayLength,   // TODO: use register
     ArrayPop,      // TODO: use register
     ConcatStrings, // TODO: this is O(N). Must use smaller instructions. Or concat character-by-character and save progress in Vm
@@ -1027,7 +1027,7 @@ impl Vm {
             }
             Instr::StoreOffsetImm(n, imm) => {
                 let imm = AbraInt::from(imm as i64);
-                self.store_offset(n, imm);
+                self.store_offset(n, self.int_constants[imm as usize]);
             }
             Instr::AddInt(dest, reg1, reg2) => {
                 let b = self.load_offset_or_top(reg2).get_int(self);
@@ -1043,7 +1043,7 @@ impl Vm {
             }
             Instr::AddIntImm(dest, reg1, imm) => {
                 let a = self.load_offset_or_top(reg1).get_int(self);
-                let Some(c) = a.checked_add(imm as i64) else {
+                let Some(c) = a.checked_add(self.int_constants[imm as usize]) else {
                     self.error = Some(
                         self.make_error(VmErrorKind::IntegerOverflowUnderflow)
                             .into(),
@@ -1066,7 +1066,7 @@ impl Vm {
             }
             Instr::SubIntImm(dest, reg1, imm) => {
                 let a = self.load_offset_or_top(reg1).get_int(self);
-                let Some(c) = a.checked_sub(imm as i64) else {
+                let Some(c) = a.checked_sub(self.int_constants[imm as usize]) else {
                     self.error = Some(
                         self.make_error(VmErrorKind::IntegerOverflowUnderflow)
                             .into(),
@@ -1186,7 +1186,7 @@ impl Vm {
             }
             Instr::LessThanIntImm(dest, reg1, imm) => {
                 let a = self.load_offset_or_top(reg1).get_int(self);
-                self.store_offset_or_top(dest, a < imm as i64);
+                self.store_offset_or_top(dest, a < self.int_constants[imm as usize]);
             }
             Instr::LessThanOrEqualInt => {
                 let b = self.pop_int();
@@ -1230,7 +1230,7 @@ impl Vm {
             }
             Instr::EqualIntImm(dest, reg1, imm) => {
                 let a = self.load_offset_or_top(reg1).get_int(self);
-                self.store_offset_or_top(dest, a == (imm as i64));
+                self.store_offset_or_top(dest, a == self.int_constants[imm as usize]);
             }
             Instr::EqualFloat => {
                 let b = self.pop_float();
@@ -1412,12 +1412,12 @@ impl Vm {
                 self.heap_size += (cap2 - cap1) * size_of::<Value>();
                 self.gc_debt += (cap2 - cap1) * size_of::<Value>();
             }
-            Instr::ArrayPushImm(reg1, imm) => {
+            Instr::ArrayPushIntImm(reg1, imm) => {
                 let val = self.load_offset_or_top(reg1);
                 let arr = unsafe { val.get_array_mut(self) };
 
                 let cap1 = arr.data.capacity();
-                arr.data.push(Value::from(imm as i64));
+                arr.data.push(Value::from(self.int_constants[imm as usize]));
                 let cap2 = arr.data.capacity();
                 self.heap_size += (cap2 - cap1) * size_of::<Value>();
                 self.gc_debt += (cap2 - cap1) * size_of::<Value>();

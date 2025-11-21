@@ -156,9 +156,9 @@ fn peephole2_helper(lines: &[Line], index: &mut usize, ret: &mut Vec<Line>) -> b
                         true
                     }
                     // PUSHINT STORE -> STORE IMM
-                    (Instr::PushInt(n), Instr::StoreOffset(offset)) if fits_imm(n) => {
+                    (Instr::PushInt(n), Instr::StoreOffset(offset)) => {
                         ret.push(Line::Instr {
-                            instr: Instr::StoreOffsetImm(*offset, as_imm(n)),
+                            instr: Instr::StoreOffsetImm(*offset, n),
                             lineno,
                             file_id,
                             func_id,
@@ -417,15 +417,6 @@ fn peephole3_helper(lines: &[Line], index: &mut usize, ret: &mut Vec<Line>) -> b
     }
 }
 
-fn fits_imm(n: i64) -> bool {
-    let n: Result<i16, _> = n.try_into();
-    n.is_ok()
-}
-
-fn as_imm(n: i64) -> i16 {
-    n.try_into().unwrap()
-}
-
 // fn as_imm_bool(b: bool) -> i16 {
 //     if b { 1 } else { 0 }
 // }
@@ -455,7 +446,7 @@ impl Instr {
                 | Instr::EqualInt(_, Reg::Top, Reg::Offset(_))
                 | Instr::EqualIntImm(_, Reg::Top, _)
                 | Instr::ArrayPush(Reg::Top, Reg::Offset(_))
-                | Instr::ArrayPushImm(Reg::Top, _)
+                | Instr::ArrayPushIntImm(Reg::Top, _)
         )
     }
 
@@ -486,7 +477,7 @@ impl Instr {
             Instr::EqualInt(dest, _, r2) => Instr::EqualInt(dest, r1, r2),
             Instr::EqualIntImm(dest, _, r2) => Instr::EqualIntImm(dest, r1, r2),
             Instr::ArrayPush(_, r2) => Instr::ArrayPush(r1, r2),
-            Instr::ArrayPushImm(_, r2) => Instr::ArrayPushImm(r1, r2),
+            Instr::ArrayPushIntImm(_, r2) => Instr::ArrayPushIntImm(r1, r2),
             _ => panic!("can't replace first arg"),
         }
     }
@@ -520,15 +511,15 @@ impl Instr {
 
     fn is_push_imm(&self) -> bool {
         match self {
-            Instr::PushInt(n) => fits_imm(*n),
+            Instr::PushInt(_) => true,
             // Instr::PushBool(_) => true,
             _ => false,
         }
     }
 
-    fn get_imm(&self) -> i16 {
+    fn get_imm(&self) -> i64 {
         match self {
-            Instr::PushInt(n) => as_imm(*n),
+            Instr::PushInt(n) => *n,
             // Instr::PushBool(b) => as_imm_bool(*b), // boolean immediates are represented as int immediates
             _ => panic!("can't get immediate"),
         }
@@ -545,13 +536,13 @@ impl Instr {
         )
     }
 
-    fn replace_second_arg_imm(self, imm: i16) -> Instr {
+    fn replace_second_arg_imm(self, imm: i64) -> Instr {
         match self {
             Instr::AddInt(dest, r1, _) => Instr::AddIntImm(dest, r1, imm),
             Instr::SubInt(dest, r1, _) => Instr::SubIntImm(dest, r1, imm),
             Instr::LessThanInt(dest, r1, _) => Instr::LessThanIntImm(dest, r1, imm),
             Instr::EqualInt(dest, r1, _) => Instr::EqualIntImm(dest, r1, imm),
-            Instr::ArrayPush(r1, _) => Instr::ArrayPushImm(r1, imm),
+            Instr::ArrayPush(r1, _) => Instr::ArrayPushIntImm(r1, imm),
             _ => panic!("can't replace second arg with immediate"),
         }
     }

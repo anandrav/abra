@@ -91,6 +91,14 @@ fn gather_constants(lines: &Vec<Line>) -> ConstantsHolder {
                 Instr::PushString(s) => {
                     constants.string_constants.insert(s.clone());
                 }
+                Instr::StoreOffsetImm(_, imm)
+                | Instr::AddIntImm(_, _, imm)
+                | Instr::SubIntImm(_, _, imm)
+                | Instr::LessThanIntImm(_, _, imm)
+                | Instr::EqualIntImm(_, _, imm)
+                | Instr::ArrayPushIntImm(_, imm) => {
+                    constants.int_constants.insert(*imm);
+                }
                 _ => {}
             }
         }

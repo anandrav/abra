@@ -64,7 +64,7 @@ pub enum Instr {
     Duplicate,
     LoadOffset(i16),
     StoreOffset(i16),
-    StoreOffsetImm(i16, i16),
+    StoreOffsetImm(i16, i64),
 
     // Constants
     PushNil(u16),
@@ -75,9 +75,9 @@ pub enum Instr {
 
     // Arithmetic
     AddInt(Reg, Reg, Reg),
-    AddIntImm(Reg, Reg, i16),
+    AddIntImm(Reg, Reg, i64),
     SubInt(Reg, Reg, Reg),
-    SubIntImm(Reg, Reg, i16),
+    SubIntImm(Reg, Reg, i64),
     MulInt(Reg, Reg, Reg),
     DivideInt,
     PowerInt,
@@ -98,7 +98,7 @@ pub enum Instr {
 
     // Comparison
     LessThanInt(Reg, Reg, Reg),
-    LessThanIntImm(Reg, Reg, i16),
+    LessThanIntImm(Reg, Reg, i64),
     LessThanOrEqualInt,
     GreaterThanInt,
     GreaterThanOrEqualInt,
@@ -107,7 +107,7 @@ pub enum Instr {
     GreaterThanFloat,
     GreaterThanOrEqualFloat,
     EqualInt(Reg, Reg, Reg),
-    EqualIntImm(Reg, Reg, i16),
+    EqualIntImm(Reg, Reg, i64),
     EqualFloat,
     EqualBool,
     EqualString, // TODO: this is O(N). Must use smaller instructions. Or compare character-by-character and save progress in state of Vm
@@ -142,7 +142,7 @@ pub enum Instr {
     MakeClosure { func_addr: Label },
 
     ArrayPush(Reg, Reg),
-    ArrayPushImm(Reg, i16),
+    ArrayPushIntImm(Reg, i64),
     ArrayLength,
     ArrayPop,
     ConcatStrings, // TODO: this is O(N). Must use smaller instructions. Or concat character-by-character and save progress in Vm
@@ -286,7 +286,7 @@ impl Display for Instr {
                 write!(f, "make_closure {func_addr}")
             }
             Instr::ArrayPush(reg1, reg2) => write!(f, "array_push {reg1} {reg2}"),
-            Instr::ArrayPushImm(reg1, imm) => write!(f, "array_push_imm {reg1} {imm}"),
+            Instr::ArrayPushIntImm(reg1, imm) => write!(f, "array_push_int_imm {reg1} {imm}"),
             Instr::ArrayLength => write!(f, "array_len"),
             Instr::ArrayPop => write!(f, "array_pop"),
             Instr::ConcatStrings => write!(f, "concat_strings"),
@@ -346,15 +346,25 @@ fn instr_to_vminstr(
         Instr::Duplicate => VmInstr::Duplicate,
         Instr::LoadOffset(i) => VmInstr::LoadOffset(*i),
         Instr::StoreOffset(i) => VmInstr::StoreOffset(*i),
-        Instr::StoreOffsetImm(i, imm) => VmInstr::StoreOffsetImm(*i, *imm),
+        Instr::StoreOffsetImm(i, imm) => {
+            VmInstr::StoreOffsetImm(*i, constants.int_constants.try_get_id(imm).unwrap() as u16)
+        }
         Instr::AddInt(dest, reg1, reg2) => {
             VmInstr::AddInt(dest.encode(), reg1.encode(), reg2.encode())
         }
-        Instr::AddIntImm(dest, reg1, imm) => VmInstr::AddIntImm(dest.encode(), reg1.encode(), *imm),
+        Instr::AddIntImm(dest, reg1, imm) => VmInstr::AddIntImm(
+            dest.encode(),
+            reg1.encode(),
+            constants.int_constants.try_get_id(imm).unwrap() as u16,
+        ),
         Instr::SubInt(dest, reg1, reg2) => {
             VmInstr::SubtractInt(dest.encode(), reg1.encode(), reg2.encode())
         }
-        Instr::SubIntImm(dest, reg1, imm) => VmInstr::SubIntImm(dest.encode(), reg1.encode(), *imm),
+        Instr::SubIntImm(dest, reg1, imm) => VmInstr::SubIntImm(
+            dest.encode(),
+            reg1.encode(),
+            constants.int_constants.try_get_id(imm).unwrap() as u16,
+        ),
         Instr::MulInt(dest, reg1, reg2) => {
             VmInstr::MulInt(dest.encode(), reg1.encode(), reg2.encode())
         }
@@ -373,9 +383,11 @@ fn instr_to_vminstr(
         Instr::LessThanInt(dest, reg1, reg2) => {
             VmInstr::LessThanInt(dest.encode(), reg1.encode(), reg2.encode())
         }
-        Instr::LessThanIntImm(dest, reg1, imm) => {
-            VmInstr::LessThanIntImm(dest.encode(), reg1.encode(), *imm)
-        }
+        Instr::LessThanIntImm(dest, reg1, imm) => VmInstr::LessThanIntImm(
+            dest.encode(),
+            reg1.encode(),
+            constants.int_constants.try_get_id(imm).unwrap() as u16,
+        ),
         Instr::LessThanOrEqualInt => VmInstr::LessThanOrEqualInt,
         Instr::GreaterThanInt => VmInstr::GreaterThanInt,
         Instr::GreaterThanOrEqualInt => VmInstr::GreaterThanOrEqualInt,
@@ -386,9 +398,11 @@ fn instr_to_vminstr(
         Instr::EqualInt(dest, reg1, reg2) => {
             VmInstr::EqualInt(dest.encode(), reg1.encode(), reg2.encode())
         }
-        Instr::EqualIntImm(dest, reg1, imm) => {
-            VmInstr::EqualIntImm(dest.encode(), reg1.encode(), *imm)
-        }
+        Instr::EqualIntImm(dest, reg1, imm) => VmInstr::EqualIntImm(
+            dest.encode(),
+            reg1.encode(),
+            constants.int_constants.try_get_id(imm).unwrap() as u16,
+        ),
         Instr::EqualFloat => VmInstr::EqualFloat,
         Instr::EqualBool => VmInstr::EqualBool,
         Instr::EqualString => VmInstr::EqualString,
@@ -434,7 +448,10 @@ fn instr_to_vminstr(
             }
         }
         Instr::ArrayPush(reg1, reg2) => VmInstr::ArrayPush(reg1.encode(), reg2.encode()),
-        Instr::ArrayPushImm(reg1, imm) => VmInstr::ArrayPushImm(reg1.encode(), *imm),
+        Instr::ArrayPushIntImm(reg1, imm) => VmInstr::ArrayPushIntImm(
+            reg1.encode(),
+            constants.int_constants.try_get_id(imm).unwrap() as u16,
+        ),
         Instr::ArrayLength => VmInstr::ArrayLength,
         Instr::ArrayPop => VmInstr::ArrayPop,
         Instr::ConcatStrings => VmInstr::ConcatStrings,
