@@ -324,7 +324,7 @@ fn peephole3_helper(lines: &[Line], index: &mut usize, ret: &mut Vec<Line>) -> b
                     (
                         Instr::PushInt(a),
                         Instr::PushInt(b),
-                        Instr::DivideInt(Reg::Top, Reg::Top, Reg::Top),
+                        Instr::DivInt(Reg::Top, Reg::Top, Reg::Top),
                     ) => {
                         if *b == 0 {
                             false
@@ -344,7 +344,7 @@ fn peephole3_helper(lines: &[Line], index: &mut usize, ret: &mut Vec<Line>) -> b
                     (
                         Instr::PushInt(a),
                         Instr::PushInt(b),
-                        Instr::PowerInt(Reg::Top, Reg::Top, Reg::Top),
+                        Instr::PowInt(Reg::Top, Reg::Top, Reg::Top),
                     ) => {
                         let c = a.wrapping_pow(*b as u32);
                         ret.push(Line::Instr {
@@ -357,7 +357,11 @@ fn peephole3_helper(lines: &[Line], index: &mut usize, ret: &mut Vec<Line>) -> b
                         true
                     }
                     // FOLD FLOAT ADDITION
-                    (Instr::PushFloat(a), Instr::PushFloat(b), Instr::AddFloat) => {
+                    (
+                        Instr::PushFloat(a),
+                        Instr::PushFloat(b),
+                        Instr::AddFloat(Reg::Top, Reg::Top, Reg::Top),
+                    ) => {
                         let a = a.parse::<f64>().unwrap();
                         let b = b.parse::<f64>().unwrap();
                         let c = a + b;
@@ -371,7 +375,11 @@ fn peephole3_helper(lines: &[Line], index: &mut usize, ret: &mut Vec<Line>) -> b
                         true
                     }
                     // FOLD FLOAT SUBTRACTION
-                    (Instr::PushFloat(a), Instr::PushFloat(b), Instr::SubtractFloat) => {
+                    (
+                        Instr::PushFloat(a),
+                        Instr::PushFloat(b),
+                        Instr::SubFloat(Reg::Top, Reg::Top, Reg::Top),
+                    ) => {
                         let a = a.parse::<f64>().unwrap();
                         let b = b.parse::<f64>().unwrap();
                         let c = a - b;
@@ -385,7 +393,11 @@ fn peephole3_helper(lines: &[Line], index: &mut usize, ret: &mut Vec<Line>) -> b
                         true
                     }
                     // FOLD FLOAT MULTIPLICATION
-                    (Instr::PushFloat(a), Instr::PushFloat(b), Instr::MultiplyFloat) => {
+                    (
+                        Instr::PushFloat(a),
+                        Instr::PushFloat(b),
+                        Instr::MulFloat(Reg::Top, Reg::Top, Reg::Top),
+                    ) => {
                         let a = a.parse::<f64>().unwrap();
                         let b = b.parse::<f64>().unwrap();
                         let c = a * b;
@@ -399,7 +411,11 @@ fn peephole3_helper(lines: &[Line], index: &mut usize, ret: &mut Vec<Line>) -> b
                         true
                     }
                     // FOLD FLOAT DIVISION
-                    (Instr::PushFloat(a), Instr::PushFloat(b), Instr::DivideFloat) => {
+                    (
+                        Instr::PushFloat(a),
+                        Instr::PushFloat(b),
+                        Instr::DivFloat(Reg::Top, Reg::Top, Reg::Top),
+                    ) => {
                         let a = a.parse::<f64>().unwrap();
                         let b = b.parse::<f64>().unwrap();
                         let c = a / b;
@@ -413,7 +429,11 @@ fn peephole3_helper(lines: &[Line], index: &mut usize, ret: &mut Vec<Line>) -> b
                         true
                     }
                     // FOLD FLOAT EXPONENTIATION
-                    (Instr::PushFloat(a), Instr::PushFloat(b), Instr::PowerFloat) => {
+                    (
+                        Instr::PushFloat(a),
+                        Instr::PushFloat(b),
+                        Instr::PowFloat(Reg::Top, Reg::Top, Reg::Top),
+                    ) => {
                         let a = a.parse::<f64>().unwrap();
                         let b = b.parse::<f64>().unwrap();
                         let c = a.powf(b);
@@ -446,9 +466,14 @@ impl Instr {
             Instr::AddInt(_, _, Reg::Top)
                 | Instr::SubInt(_, _, Reg::Top)
                 | Instr::MulInt(_, _, Reg::Top)
-                | Instr::DivideInt(_, _, Reg::Top)
-                | Instr::PowerInt(_, _, Reg::Top)
+                | Instr::DivInt(_, _, Reg::Top)
+                | Instr::PowInt(_, _, Reg::Top)
                 | Instr::Modulo(_, _, Reg::Top)
+                | Instr::AddFloat(_, _, Reg::Top)
+                | Instr::SubFloat(_, _, Reg::Top)
+                | Instr::MulFloat(_, _, Reg::Top)
+                | Instr::DivFloat(_, _, Reg::Top)
+                | Instr::PowFloat(_, _, Reg::Top)
                 | Instr::LessThanInt(_, _, Reg::Top)
                 | Instr::EqualInt(_, _, Reg::Top)
                 | Instr::ArrayPush(_, Reg::Top)
@@ -463,12 +488,17 @@ impl Instr {
                 | Instr::SubIntImm(_, Reg::Top, _)
                 | Instr::MulInt(_, Reg::Top, Reg::Offset(_))
                 | Instr::MulIntImm(_, Reg::Top, _)
-                | Instr::DivideInt(_, Reg::Top, Reg::Offset(_))
-                | Instr::DivideIntImm(_, Reg::Top, _)
-                | Instr::PowerInt(_, Reg::Top, Reg::Offset(_))
-                | Instr::PowerIntImm(_, Reg::Top, _)
+                | Instr::DivInt(_, Reg::Top, Reg::Offset(_))
+                | Instr::DivIntImm(_, Reg::Top, _)
+                | Instr::PowInt(_, Reg::Top, Reg::Offset(_))
+                | Instr::PowIntImm(_, Reg::Top, _)
                 | Instr::Modulo(_, Reg::Top, Reg::Offset(_))
                 | Instr::ModuloImm(_, Reg::Top, _)
+                | Instr::AddFloat(_, Reg::Top, Reg::Offset(_))
+                | Instr::SubFloat(_, Reg::Top, Reg::Offset(_))
+                | Instr::MulFloat(_, Reg::Top, Reg::Offset(_))
+                | Instr::DivFloat(_, Reg::Top, Reg::Offset(_))
+                | Instr::PowFloat(_, Reg::Top, Reg::Offset(_))
                 | Instr::LessThanInt(_, Reg::Top, Reg::Offset(_))
                 | Instr::LessThanIntImm(_, Reg::Top, _)
                 | Instr::EqualInt(_, Reg::Top, Reg::Offset(_))
@@ -487,12 +517,17 @@ impl Instr {
                 | Instr::SubIntImm(Reg::Top, _, _)
                 | Instr::MulInt(Reg::Top, _, _)
                 | Instr::MulIntImm(Reg::Top, _, _)
-                | Instr::DivideInt(Reg::Top, _, _)
-                | Instr::DivideIntImm(Reg::Top, _, _)
-                | Instr::PowerInt(Reg::Top, _, _)
-                | Instr::PowerIntImm(Reg::Top, _, _)
+                | Instr::DivInt(Reg::Top, _, _)
+                | Instr::DivIntImm(Reg::Top, _, _)
+                | Instr::PowInt(Reg::Top, _, _)
+                | Instr::PowIntImm(Reg::Top, _, _)
                 | Instr::Modulo(Reg::Top, _, _)
                 | Instr::ModuloImm(Reg::Top, _, _)
+                | Instr::AddFloat(Reg::Top, _, _)
+                | Instr::SubFloat(Reg::Top, _, _)
+                | Instr::MulFloat(Reg::Top, _, _)
+                | Instr::DivFloat(Reg::Top, _, _)
+                | Instr::PowFloat(Reg::Top, _, _)
                 | Instr::LessThanInt(Reg::Top, _, _)
                 | Instr::LessThanIntImm(Reg::Top, _, _)
                 | Instr::EqualInt(Reg::Top, _, _)
@@ -508,12 +543,19 @@ impl Instr {
             Instr::SubIntImm(dest, _, r2) => Instr::SubIntImm(dest, r1, r2),
             Instr::MulInt(dest, _, r2) => Instr::MulInt(dest, r1, r2),
             Instr::MulIntImm(dest, _, r2) => Instr::MulIntImm(dest, r1, r2),
-            Instr::DivideInt(dest, _, r2) => Instr::DivideInt(dest, r1, r2),
-            Instr::DivideIntImm(dest, _, r2) => Instr::DivideIntImm(dest, r1, r2),
-            Instr::PowerInt(dest, _, r2) => Instr::PowerInt(dest, r1, r2),
-            Instr::PowerIntImm(dest, _, r2) => Instr::PowerIntImm(dest, r1, r2),
+            Instr::DivInt(dest, _, r2) => Instr::DivInt(dest, r1, r2),
+            Instr::DivIntImm(dest, _, r2) => Instr::DivIntImm(dest, r1, r2),
+            Instr::PowInt(dest, _, r2) => Instr::PowInt(dest, r1, r2),
+            Instr::PowIntImm(dest, _, r2) => Instr::PowIntImm(dest, r1, r2),
             Instr::Modulo(dest, _, r2) => Instr::Modulo(dest, r1, r2),
             Instr::ModuloImm(dest, _, r2) => Instr::ModuloImm(dest, r1, r2),
+
+            Instr::AddFloat(dest, _, r2) => Instr::AddFloat(dest, r1, r2),
+            Instr::SubFloat(dest, _, r2) => Instr::SubFloat(dest, r1, r2),
+            Instr::MulFloat(dest, _, r2) => Instr::MulFloat(dest, r1, r2),
+            Instr::DivFloat(dest, _, r2) => Instr::DivFloat(dest, r1, r2),
+            Instr::PowFloat(dest, _, r2) => Instr::PowFloat(dest, r1, r2),
+
             Instr::LessThanInt(dest, _, r2) => Instr::LessThanInt(dest, r1, r2),
             Instr::LessThanIntImm(dest, _, r2) => Instr::LessThanIntImm(dest, r1, r2),
             Instr::EqualInt(dest, _, r2) => Instr::EqualInt(dest, r1, r2),
@@ -529,9 +571,16 @@ impl Instr {
             Instr::AddInt(dest, r1, _) => Instr::AddInt(dest, r1, r2),
             Instr::SubInt(dest, r1, _) => Instr::SubInt(dest, r1, r2),
             Instr::MulInt(dest, r1, _) => Instr::MulInt(dest, r1, r2),
-            Instr::DivideInt(dest, r1, _) => Instr::DivideInt(dest, r1, r2),
-            Instr::PowerInt(dest, r1, _) => Instr::PowerInt(dest, r1, r2),
+            Instr::DivInt(dest, r1, _) => Instr::DivInt(dest, r1, r2),
+            Instr::PowInt(dest, r1, _) => Instr::PowInt(dest, r1, r2),
             Instr::Modulo(dest, r1, _) => Instr::Modulo(dest, r1, r2),
+
+            Instr::AddFloat(dest, r1, _) => Instr::AddFloat(dest, r1, r2),
+            Instr::SubFloat(dest, r1, _) => Instr::SubFloat(dest, r1, r2),
+            Instr::MulFloat(dest, r1, _) => Instr::MulFloat(dest, r1, r2),
+            Instr::DivFloat(dest, r1, _) => Instr::DivFloat(dest, r1, r2),
+            Instr::PowFloat(dest, r1, _) => Instr::PowFloat(dest, r1, r2),
+
             Instr::LessThanInt(dest, r1, _) => Instr::LessThanInt(dest, r1, r2),
             Instr::EqualInt(dest, r1, _) => Instr::EqualInt(dest, r1, r2),
             Instr::ArrayPush(r1, _) => Instr::ArrayPush(r1, r2),
@@ -547,12 +596,19 @@ impl Instr {
             Instr::SubIntImm(_, r1, r2) => Instr::SubIntImm(dest, r1, r2),
             Instr::MulInt(_, r1, r2) => Instr::MulInt(dest, r1, r2),
             Instr::MulIntImm(_, r1, r2) => Instr::MulIntImm(dest, r1, r2),
-            Instr::DivideInt(_, r1, r2) => Instr::DivideInt(dest, r1, r2),
-            Instr::DivideIntImm(_, r1, r2) => Instr::DivideIntImm(dest, r1, r2),
-            Instr::PowerInt(_, r1, r2) => Instr::PowerInt(dest, r1, r2),
-            Instr::PowerIntImm(_, r1, r2) => Instr::PowerIntImm(dest, r1, r2),
+            Instr::DivInt(_, r1, r2) => Instr::DivInt(dest, r1, r2),
+            Instr::DivIntImm(_, r1, r2) => Instr::DivIntImm(dest, r1, r2),
+            Instr::PowInt(_, r1, r2) => Instr::PowInt(dest, r1, r2),
+            Instr::PowIntImm(_, r1, r2) => Instr::PowIntImm(dest, r1, r2),
             Instr::Modulo(_, r1, r2) => Instr::Modulo(dest, r1, r2),
             Instr::ModuloImm(_, r1, r2) => Instr::ModuloImm(dest, r1, r2),
+
+            Instr::AddFloat(_, r1, r2) => Instr::AddFloat(dest, r1, r2),
+            Instr::SubFloat(_, r1, r2) => Instr::SubFloat(dest, r1, r2),
+            Instr::MulFloat(_, r1, r2) => Instr::MulFloat(dest, r1, r2),
+            Instr::DivFloat(_, r1, r2) => Instr::DivFloat(dest, r1, r2),
+            Instr::PowFloat(_, r1, r2) => Instr::PowFloat(dest, r1, r2),
+
             Instr::LessThanInt(_, r1, r2) => Instr::LessThanInt(dest, r1, r2),
             Instr::LessThanIntImm(_, r1, r2) => Instr::LessThanIntImm(dest, r1, r2),
             Instr::EqualInt(_, r1, r2) => Instr::EqualInt(dest, r1, r2),
@@ -583,8 +639,8 @@ impl Instr {
             Instr::AddInt(..)
                 | Instr::SubInt(..)
                 | Instr::MulInt(..)
-                | Instr::DivideInt(..)
-                | Instr::PowerInt(..)
+                | Instr::DivInt(..)
+                | Instr::PowInt(..)
                 | Instr::Modulo(..)
                 | Instr::LessThanInt(..)
                 | Instr::EqualInt(..)
@@ -597,8 +653,8 @@ impl Instr {
             Instr::AddInt(dest, r1, _) => Instr::AddIntImm(dest, r1, imm),
             Instr::SubInt(dest, r1, _) => Instr::SubIntImm(dest, r1, imm),
             Instr::MulInt(dest, r1, _) => Instr::MulIntImm(dest, r1, imm),
-            Instr::DivideInt(dest, r1, _) => Instr::DivideIntImm(dest, r1, imm),
-            Instr::PowerInt(dest, r1, _) => Instr::PowerIntImm(dest, r1, imm),
+            Instr::DivInt(dest, r1, _) => Instr::DivIntImm(dest, r1, imm),
+            Instr::PowInt(dest, r1, _) => Instr::PowIntImm(dest, r1, imm),
             Instr::Modulo(dest, r1, _) => Instr::ModuloImm(dest, r1, imm),
             Instr::LessThanInt(dest, r1, _) => Instr::LessThanIntImm(dest, r1, imm),
             Instr::EqualInt(dest, r1, _) => Instr::EqualIntImm(dest, r1, imm),

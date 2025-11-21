@@ -55,6 +55,27 @@ g
 }
 
 #[test]
+fn more_arithmetic_floats() {
+    let src = r#"
+let a = 2.0
+let b = a + 3.0
+let c = b - 2.0
+let d = c * 3.0
+let e = d / 3.0
+let f = e ^ 3.0
+f
+"#;
+    let program = unwrap_or_panic(compile_bytecode(
+        "main.abra",
+        MockFileProvider::single_file(src),
+    ));
+    let mut vm = Vm::new(program);
+    vm.run();
+    let top = vm.top();
+    assert_eq!(top.get_float(&vm), 27.0);
+}
+
+#[test]
 fn tuples() {
     let src = r#"
 fn mk_pair(a) {

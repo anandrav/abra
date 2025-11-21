@@ -435,11 +435,11 @@ pub enum Instr {
     Modulo(u16, u16, u16),
     ModuloImm(u16, u16, u16),
 
-    AddFloat,
-    SubtractFloat,
-    MultiplyFloat,
-    DivideFloat,
-    PowerFloat,
+    AddFloat(u16, u16, u16),
+    SubFloat(u16, u16, u16),
+    MulFloat(u16, u16, u16),
+    DivFloat(u16, u16, u16),
+    PowerFloat(u16, u16, u16),
 
     SquareRoot,
 
@@ -1162,34 +1162,34 @@ impl Vm {
                 let a = self.load_offset_or_top(reg1).get_int(self);
                 self.store_offset_or_top(dest, a % self.int_constants[imm as usize]);
             }
-            Instr::AddFloat => {
-                let b = self.pop_float();
-                let a = self.top().get_float(self);
-                self.set_top(a + b);
+            Instr::AddFloat(dest, reg1, reg2) => {
+                let b = self.load_offset_or_top(reg2).get_float(self);
+                let a = self.load_offset_or_top(reg1).get_float(self);
+                self.store_offset_or_top(dest, a + b);
             }
-            Instr::SubtractFloat => {
-                let b = self.pop_float();
-                let a = self.top().get_float(self);
-                self.set_top(a - b);
+            Instr::SubFloat(dest, reg1, reg2) => {
+                let b = self.load_offset_or_top(reg2).get_float(self);
+                let a = self.load_offset_or_top(reg1).get_float(self);
+                self.store_offset_or_top(dest, a - b);
             }
-            Instr::MultiplyFloat => {
-                let b = self.pop_float();
-                let a = self.top().get_float(self);
-                self.set_top(a * b);
+            Instr::MulFloat(dest, reg1, reg2) => {
+                let b = self.load_offset_or_top(reg2).get_float(self);
+                let a = self.load_offset_or_top(reg1).get_float(self);
+                self.store_offset_or_top(dest, a * b);
             }
-            Instr::DivideFloat => {
-                let b = self.pop_float();
-                let a = self.top().get_float(self);
+            Instr::DivFloat(dest, reg1, reg2) => {
+                let b = self.load_offset_or_top(reg2).get_float(self);
+                let a = self.load_offset_or_top(reg1).get_float(self);
                 if b == 0.0 {
                     self.error = Some(self.make_error(VmErrorKind::DivisionByZero).into());
                     return false;
                 }
-                self.set_top(a / b);
+                self.store_offset_or_top(dest, a / b);
             }
-            Instr::PowerFloat => {
-                let b = self.pop_float();
-                let a = self.top().get_float(self);
-                self.set_top(a.powf(b));
+            Instr::PowerFloat(dest, reg1, reg2) => {
+                let b = self.load_offset_or_top(reg2).get_float(self);
+                let a = self.load_offset_or_top(reg1).get_float(self);
+                self.store_offset_or_top(dest, a.powf(b));
             }
             Instr::SquareRoot => {
                 let a = self.top().get_float(self);

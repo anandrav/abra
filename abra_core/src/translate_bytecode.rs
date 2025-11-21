@@ -95,8 +95,8 @@ fn gather_constants(lines: &Vec<Line>) -> ConstantsHolder {
                 | Instr::AddIntImm(_, _, imm)
                 | Instr::SubIntImm(_, _, imm)
                 | Instr::MulIntImm(_, _, imm)
-                | Instr::DivideIntImm(_, _, imm)
-                | Instr::PowerIntImm(_, _, imm)
+                | Instr::DivIntImm(_, _, imm)
+                | Instr::PowIntImm(_, _, imm)
                 | Instr::ModuloImm(_, _, imm)
                 | Instr::LessThanIntImm(_, _, imm)
                 | Instr::EqualIntImm(_, _, imm)
@@ -509,28 +509,36 @@ impl Translator {
                         SolvedType::Int => {
                             self.emit(st, Instr::AddInt(Reg::Top, Reg::Top, Reg::Top))
                         }
-                        SolvedType::Float => self.emit(st, Instr::AddFloat),
+                        SolvedType::Float => {
+                            self.emit(st, Instr::AddFloat(Reg::Top, Reg::Top, Reg::Top))
+                        }
                         _ => unreachable!(),
                     },
                     BinaryOperator::Subtract => match arg1_ty {
                         SolvedType::Int => {
                             self.emit(st, Instr::SubInt(Reg::Top, Reg::Top, Reg::Top))
                         }
-                        SolvedType::Float => self.emit(st, Instr::SubtractFloat),
+                        SolvedType::Float => {
+                            self.emit(st, Instr::SubFloat(Reg::Top, Reg::Top, Reg::Top))
+                        }
                         _ => unreachable!(),
                     },
                     BinaryOperator::Multiply => match arg1_ty {
                         SolvedType::Int => {
                             self.emit(st, Instr::MulInt(Reg::Top, Reg::Top, Reg::Top))
                         }
-                        SolvedType::Float => self.emit(st, Instr::MultiplyFloat),
+                        SolvedType::Float => {
+                            self.emit(st, Instr::MulFloat(Reg::Top, Reg::Top, Reg::Top))
+                        }
                         _ => unreachable!(),
                     },
                     BinaryOperator::Divide => match arg1_ty {
                         SolvedType::Int => {
-                            self.emit(st, Instr::DivideInt(Reg::Top, Reg::Top, Reg::Top))
+                            self.emit(st, Instr::DivInt(Reg::Top, Reg::Top, Reg::Top))
                         }
-                        SolvedType::Float => self.emit(st, Instr::DivideFloat),
+                        SolvedType::Float => {
+                            self.emit(st, Instr::DivFloat(Reg::Top, Reg::Top, Reg::Top))
+                        }
                         _ => unreachable!(),
                     },
                     BinaryOperator::GreaterThan => match arg1_ty {
@@ -568,9 +576,11 @@ impl Translator {
                     },
                     BinaryOperator::Pow => match arg1_ty {
                         SolvedType::Int => {
-                            self.emit(st, Instr::PowerInt(Reg::Top, Reg::Top, Reg::Top))
+                            self.emit(st, Instr::PowInt(Reg::Top, Reg::Top, Reg::Top))
                         }
-                        SolvedType::Float => self.emit(st, Instr::PowerFloat),
+                        SolvedType::Float => {
+                            self.emit(st, Instr::PowFloat(Reg::Top, Reg::Top, Reg::Top))
+                        }
                         _ => unreachable!(),
                     },
                     BinaryOperator::Format => {
@@ -996,10 +1006,10 @@ impl Translator {
                     self.emit(st, Instr::MulInt(Reg::Top, Reg::Top, Reg::Top));
                 }
                 BuiltinOperation::DivideInt => {
-                    self.emit(st, Instr::DivideInt(Reg::Top, Reg::Top, Reg::Top));
+                    self.emit(st, Instr::DivInt(Reg::Top, Reg::Top, Reg::Top));
                 }
                 BuiltinOperation::PowerInt => {
-                    self.emit(st, Instr::PowerInt(Reg::Top, Reg::Top, Reg::Top));
+                    self.emit(st, Instr::PowInt(Reg::Top, Reg::Top, Reg::Top));
                 }
                 BuiltinOperation::Modulo => {
                     self.emit(st, Instr::Modulo(Reg::Top, Reg::Top, Reg::Top));
@@ -1008,19 +1018,19 @@ impl Translator {
                     self.emit(st, Instr::SquareRoot);
                 }
                 BuiltinOperation::AddFloat => {
-                    self.emit(st, Instr::AddFloat);
+                    self.emit(st, Instr::AddFloat(Reg::Top, Reg::Top, Reg::Top));
                 }
                 BuiltinOperation::SubtractFloat => {
-                    self.emit(st, Instr::SubtractFloat);
+                    self.emit(st, Instr::SubFloat(Reg::Top, Reg::Top, Reg::Top));
                 }
                 BuiltinOperation::MultiplyFloat => {
-                    self.emit(st, Instr::MultiplyFloat);
+                    self.emit(st, Instr::MulFloat(Reg::Top, Reg::Top, Reg::Top));
                 }
                 BuiltinOperation::DivideFloat => {
-                    self.emit(st, Instr::DivideFloat);
+                    self.emit(st, Instr::DivFloat(Reg::Top, Reg::Top, Reg::Top));
                 }
                 BuiltinOperation::PowerFloat => {
-                    self.emit(st, Instr::PowerFloat);
+                    self.emit(st, Instr::PowFloat(Reg::Top, Reg::Top, Reg::Top));
                 }
                 BuiltinOperation::SqrtFloat => {
                     self.emit(st, Instr::SquareRoot);
