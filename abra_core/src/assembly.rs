@@ -140,7 +140,7 @@ pub enum Instr {
     SetIdxOffset(i16, i16),
     MakeClosure { func_addr: Label },
 
-    ArrayPush,
+    ArrayPush(Reg, Reg),
     ArrayLength,
     ArrayPop,
     ConcatStrings, // TODO: this is O(N). Must use smaller instructions. Or concat character-by-character and save progress in Vm
@@ -282,7 +282,7 @@ impl Display for Instr {
             Instr::MakeClosure { func_addr } => {
                 write!(f, "make_closure {func_addr}")
             }
-            Instr::ArrayPush => write!(f, "array_push"),
+            Instr::ArrayPush(reg1, reg2) => write!(f, "array_push {reg1} {reg2}"),
             Instr::ArrayLength => write!(f, "array_len"),
             Instr::ArrayPop => write!(f, "array_pop"),
             Instr::ConcatStrings => write!(f, "concat_strings"),
@@ -424,7 +424,7 @@ fn instr_to_vminstr(
                 func_addr: ProgramCounter::new(label_to_idx[func_addr]),
             }
         }
-        Instr::ArrayPush => VmInstr::ArrayPush,
+        Instr::ArrayPush(reg1, reg2) => VmInstr::ArrayPush(reg1.encode(), reg2.encode()),
         Instr::ArrayLength => VmInstr::ArrayLength,
         Instr::ArrayPop => VmInstr::ArrayPop,
         Instr::ConcatStrings => VmInstr::ConcatStrings,

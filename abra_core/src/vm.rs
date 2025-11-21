@@ -537,7 +537,7 @@ pub enum Instr {
     SetIdxOffset(i16, i16),
     MakeClosure { func_addr: ProgramCounter },
 
-    ArrayPush,
+    ArrayPush(u16, u16),
     ArrayLength,
     ArrayPop,
     ConcatStrings, // TODO: this is O(N). Must use smaller instructions. Or concat character-by-character and save progress in Vm
@@ -1440,9 +1440,9 @@ impl Vm {
             Instr::MakeClosure { func_addr } => {
                 self.push(func_addr);
             }
-            Instr::ArrayPush => {
-                let rvalue = self.pop();
-                let val = self.pop();
+            Instr::ArrayPush(reg1, reg2) => {
+                let rvalue = self.load_offset_or_top2(reg2);
+                let val = self.load_offset_or_top2(reg1);
                 let arr = unsafe { val.get_array_mut(self) };
 
                 let cap1 = arr.data.capacity();

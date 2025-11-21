@@ -1051,7 +1051,7 @@ impl Translator {
                     self.emit(st, Instr::ConcatStrings);
                 }
                 BuiltinOperation::ArrayPush => {
-                    self.emit(st, Instr::ArrayPush);
+                    self.emit(st, Instr::ArrayPush(Reg::Top, Reg::Top));
                 }
                 BuiltinOperation::ArrayLength => {
                     self.emit(st, Instr::ArrayLength);
@@ -1415,7 +1415,7 @@ impl Translator {
         };
         match (func_name.as_str(), overload_ty) {
             // inline basic/fundamental operations instead of performing function call
-            ("array.push", _) => self.emit(st, Instr::ArrayPush),
+            ("array.push", _) => self.emit(st, Instr::ArrayPush(Reg::Top, Reg::Top)),
             ("array.len", _) => self.emit(st, Instr::ArrayLength),
             ("array.pop", _) => self.emit(st, Instr::ArrayPop),
             ("prelude.ToString.str", ty)
