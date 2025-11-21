@@ -465,6 +465,7 @@ pub enum Instr {
 
     // Arithmetic
     AddInt(u16, u16, u16),
+    AddIntImm(u16, u16, i16),
     IncrementRegImm(i16, i16),
     IncrementRegImmStk(i16, i16),
     SubtractInt,
@@ -1069,6 +1070,17 @@ impl Vm {
                 let b = self.load_offset_or_top2(reg2).get_int(self);
                 let a = self.load_offset_or_top2(reg1).get_int(self);
                 let Some(c) = a.checked_add(b) else {
+                    self.error = Some(
+                        self.make_error(VmErrorKind::IntegerOverflowUnderflow)
+                            .into(),
+                    );
+                    return false;
+                };
+                self.store_offset_or_top(dest, c);
+            }
+            Instr::AddIntImm(dest, reg1, imm) => {
+                let a = self.load_offset_or_top2(reg1).get_int(self);
+                let Some(c) = a.checked_add(imm as i64) else {
                     self.error = Some(
                         self.make_error(VmErrorKind::IntegerOverflowUnderflow)
                             .into(),

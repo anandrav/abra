@@ -268,42 +268,6 @@ fn peephole3_helper(lines: &[Line], index: &mut usize, ret: &mut Vec<Line>) -> b
                         *index += 3;
                         true
                     }
-                    // LOAD LOAD MUL_INT
-                    (
-                        Instr::LoadOffset(reg1),
-                        Instr::LoadOffset(reg2),
-                        // TODO: change this to work for any dest, not just top. same for other instructions
-                        Instr::MulInt(Reg::Top, Reg::Top, Reg::Top),
-                    ) => {
-                        ret.push(Line::Instr {
-                            instr: Instr::MulInt(Reg::Top, Reg::Offset(reg1), Reg::Offset(*reg2)),
-                            lineno,
-                            file_id,
-                            func_id,
-                        });
-                        *index += 3;
-                        true
-                    }
-                    // LOAD LOAD LT_INT
-                    (
-                        Instr::LoadOffset(reg1),
-                        Instr::LoadOffset(reg2),
-                        // TODO: make this work for any dest not just top
-                        Instr::LessThanInt(Reg::Top, Reg::Top, Reg::Top),
-                    ) => {
-                        ret.push(Line::Instr {
-                            instr: Instr::LessThanInt(
-                                Reg::Top,
-                                Reg::Offset(reg1),
-                                Reg::Offset(*reg2),
-                            ),
-                            lineno,
-                            file_id,
-                            func_id,
-                        });
-                        *index += 3;
-                        true
-                    }
                     // LOAD LOAD GET_INDEX
                     (Instr::LoadOffset(reg1), Instr::LoadOffset(reg2), Instr::GetIdx) => {
                         ret.push(Line::Instr {
@@ -547,12 +511,16 @@ impl Instr {
     fn second_arg_is_top(&self) -> bool {
         match self {
             Instr::AddInt(_, _, Reg::Top) => true,
+            Instr::MulInt(_, _, Reg::Top) => true,
+            Instr::LessThanInt(_, _, Reg::Top) => true,
             _ => false,
         }
     }
     fn first_arg_is_top_and_second_arg_is_offset(&self) -> bool {
         match self {
             Instr::AddInt(_, Reg::Top, Reg::Offset(_)) => true,
+            Instr::MulInt(_, Reg::Top, Reg::Offset(_)) => true,
+            Instr::LessThanInt(_, Reg::Top, Reg::Offset(_)) => true,
             _ => false,
         }
     }
@@ -560,6 +528,8 @@ impl Instr {
     fn dest_is_top(&self) -> bool {
         match self {
             Instr::AddInt(Reg::Top, _, _) => true,
+            Instr::MulInt(Reg::Top, _, _) => true,
+            Instr::LessThanInt(Reg::Top, _, _) => true,
             _ => false,
         }
     }
@@ -567,6 +537,8 @@ impl Instr {
     fn replace_first_arg(self, r1: Reg) -> Instr {
         match self {
             Instr::AddInt(dest, _, r2) => Instr::AddInt(dest, r1, r2),
+            Instr::MulInt(dest, _, r2) => Instr::MulInt(dest, r1, r2),
+            Instr::LessThanInt(dest, _, r2) => Instr::LessThanInt(dest, r1, r2),
             _ => self,
         }
     }
@@ -574,6 +546,8 @@ impl Instr {
     fn replace_second_arg(self, r2: Reg) -> Instr {
         match self {
             Instr::AddInt(dest, r1, _) => Instr::AddInt(dest, r1, r2),
+            Instr::MulInt(dest, r1, _) => Instr::MulInt(dest, r1, r2),
+            Instr::LessThanInt(dest, r1, _) => Instr::LessThanInt(dest, r1, r2),
             _ => self,
         }
     }
@@ -581,6 +555,8 @@ impl Instr {
     fn replace_dest(self, dest: Reg) -> Instr {
         match self {
             Instr::AddInt(_, r1, r2) => Instr::AddInt(dest, r1, r2),
+            Instr::MulInt(_, r1, r2) => Instr::MulInt(dest, r1, r2),
+            Instr::LessThanInt(_, r1, r2) => Instr::LessThanInt(dest, r1, r2),
             _ => self,
         }
     }
