@@ -207,70 +207,38 @@ impl Vm {
         self.value_stack[self.stack_base.wrapping_add_signed(offset as isize)]
     }
 
-    pub fn load_offset_or_top2(&mut self, arg: u16) -> Value {
-        // 1. Extract the 'use_stack' flag (Bit 15)
-        // Shift right by 15. Result is 1 if top-bit is set, 0 otherwise.
-        let use_stack = (arg >> 15) as usize;
+    pub fn load_offset_or_top(&mut self, arg: u16) -> Value {
+        // extract the use_top flag from the high bit
+        let use_top = (arg >> 15) as usize;
 
-        // 2. Extract the signed offset (Bits 0-14)
-        // We shift left 1 to discard the flag bit, then arithmetic shift right 1
-        // to restore the position and automatically sign-extend the 15-bit number.
-        // This allows negative offsets for your locals.
+        // extract the signed offset from the lower 15 bits
         let offset = ((arg << 1) as i16 >> 1) as isize;
 
-        // 3. Branchless Index Calculation
-        // We calculate both potential indices:
-        // A: The stack top (len - 1)
-        // B: The local index (base + offset)
         let top_idx = self.value_stack.len().wrapping_sub(1);
         let local_idx = self.stack_base.wrapping_add_signed(offset);
 
-        // 4. Branchless Selection (Bitwise Multiplexing)
-        // If use_stack is 1, mask becomes all 1s (usize::MAX).
-        // If use_stack is 0, mask becomes all 0s.
-        let mask = 0usize.wrapping_sub(use_stack);
-
-        // Logic: (top_idx & mask) | (local_idx & !mask)
-        // This selects the bits from 'top_idx' if mask is all 1s,
-        // or 'local_idx' if mask is all 0s.
+        // if use_top is 1, select the top_idx. if use_top is 0, select the local_idx
+        let mask = 0usize.wrapping_sub(use_top);
         let final_index = (top_idx & mask) | (local_idx & !mask);
 
         let ret = self.value_stack[final_index];
-
-        // Truncate logic remains the same
-        self.value_stack
-            .truncate(self.value_stack.len() - use_stack);
+        // if use_top is 1, pop from the stack
+        self.value_stack.truncate(self.value_stack.len() - use_top);
 
         ret
     }
 
     pub fn store_offset_or_top(&mut self, arg: u16, val: impl Into<Value>) {
         let val = val.into();
-        // 1. Extract the 'use_stack' flag (Bit 15)
-        // Shift right by 15. Result is 1 if top-bit is set, 0 otherwise.
+
         let use_stack = (arg >> 15) as usize;
 
-        // 2. Extract the signed offset (Bits 0-14)
-        // We shift left 1 to discard the flag bit, then arithmetic shift right 1
-        // to restore the position and automatically sign-extend the 15-bit number.
-        // This allows negative offsets for your locals.
         let offset = ((arg << 1) as i16 >> 1) as isize;
 
-        // 3. Branchless Index Calculation
-        // We calculate both potential indices:
-        // A: The stack top (len - 1)
-        // B: The local index (base + offset)
         let top_idx = self.value_stack.len();
         let local_idx = self.stack_base.wrapping_add_signed(offset);
 
-        // 4. Branchless Selection (Bitwise Multiplexing)
-        // If use_stack is 1, mask becomes all 1s (usize::MAX).
-        // If use_stack is 0, mask becomes all 0s.
         let mask = 0usize.wrapping_sub(use_stack);
-
-        // Logic: (top_idx & mask) | (local_idx & !mask)
-        // This selects the bits from 'top_idx' if mask is all 1s,
-        // or 'local_idx' if mask is all 0s.
         let final_index = (top_idx & mask) | (local_idx & !mask);
 
         // TODO: if both arguments were popped from stack, it would be better to modify top of stack in-place.
@@ -280,6 +248,7 @@ impl Vm {
         self.value_stack
             .resize(self.value_stack.len() + use_stack, val);
         // assign to stack offset (final_index is stack top if use_stack = 1)
+        // this is redundant if use_stack = 1, but better than branching
         self.value_stack[final_index] = val;
     }
 
@@ -1061,8 +1030,8 @@ impl Vm {
                 self.store_offset(n, imm);
             }
             Instr::AddInt(dest, reg1, reg2) => {
-                let b = self.load_offset_or_top2(reg2).get_int(self);
-                let a = self.load_offset_or_top2(reg1).get_int(self);
+                let b = self.load_offset_or_top(reg2).get_int(self);
+                let a = self.load_offset_or_top(reg1).get_int(self);
                 let Some(c) = a.checked_add(b) else {
                     self.error = Some(
                         self.make_error(VmErrorKind::IntegerOverflowUnderflow)
@@ -1073,7 +1042,7 @@ impl Vm {
                 self.store_offset_or_top(dest, c);
             }
             Instr::AddIntImm(dest, reg1, imm) => {
-                let a = self.load_offset_or_top2(reg1).get_int(self);
+                let a = self.load_offset_or_top(reg1).get_int(self);
                 let Some(c) = a.checked_add(imm as i64) else {
                     self.error = Some(
                         self.make_error(VmErrorKind::IntegerOverflowUnderflow)
@@ -1084,8 +1053,8 @@ impl Vm {
                 self.store_offset_or_top(dest, c);
             }
             Instr::SubtractInt(dest, reg1, reg2) => {
-                let b = self.load_offset_or_top2(reg2).get_int(self);
-                let a = self.load_offset_or_top2(reg1).get_int(self);
+                let b = self.load_offset_or_top(reg2).get_int(self);
+                let a = self.load_offset_or_top(reg1).get_int(self);
                 let Some(c) = a.checked_sub(b) else {
                     self.error = Some(
                         self.make_error(VmErrorKind::IntegerOverflowUnderflow)
@@ -1096,7 +1065,7 @@ impl Vm {
                 self.store_offset_or_top(dest, c);
             }
             Instr::SubIntImm(dest, reg1, imm) => {
-                let a = self.load_offset_or_top2(reg1).get_int(self);
+                let a = self.load_offset_or_top(reg1).get_int(self);
                 let Some(c) = a.checked_sub(imm as i64) else {
                     self.error = Some(
                         self.make_error(VmErrorKind::IntegerOverflowUnderflow)
@@ -1119,8 +1088,8 @@ impl Vm {
                 self.set_top(c);
             }
             Instr::MulInt(dest, reg1, reg2) => {
-                let b = self.load_offset_or_top2(reg2).get_int(self);
-                let a = self.load_offset_or_top2(reg1).get_int(self);
+                let b = self.load_offset_or_top(reg2).get_int(self);
+                let a = self.load_offset_or_top(reg1).get_int(self);
                 let Some(c) = a.checked_mul(b) else {
                     self.error = Some(
                         self.make_error(VmErrorKind::IntegerOverflowUnderflow)
@@ -1211,12 +1180,12 @@ impl Vm {
                 self.set_top(a || b);
             }
             Instr::LessThanInt(dest, reg1, reg2) => {
-                let b = self.load_offset_or_top2(reg2).get_int(self);
-                let a = self.load_offset_or_top2(reg1).get_int(self);
+                let b = self.load_offset_or_top(reg2).get_int(self);
+                let a = self.load_offset_or_top(reg1).get_int(self);
                 self.store_offset_or_top(dest, a < b);
             }
             Instr::LessThanIntImm(dest, reg1, imm) => {
-                let a = self.load_offset_or_top2(reg1).get_int(self);
+                let a = self.load_offset_or_top(reg1).get_int(self);
                 self.store_offset_or_top(dest, a < imm as i64);
             }
             Instr::LessThanOrEqualInt => {
@@ -1255,12 +1224,12 @@ impl Vm {
                 self.set_top(a >= b);
             }
             Instr::EqualInt(dest, reg1, reg2) => {
-                let b = self.load_offset_or_top2(reg2).get_int(self);
-                let a = self.load_offset_or_top2(reg1).get_int(self);
+                let b = self.load_offset_or_top(reg2).get_int(self);
+                let a = self.load_offset_or_top(reg1).get_int(self);
                 self.store_offset_or_top(dest, a == b);
             }
             Instr::EqualIntImm(dest, reg1, imm) => {
-                let a = self.load_offset_or_top2(reg1).get_int(self);
+                let a = self.load_offset_or_top(reg1).get_int(self);
                 self.store_offset_or_top(dest, a == (imm as i64));
             }
             Instr::EqualFloat => {
@@ -1432,8 +1401,8 @@ impl Vm {
                 self.push(func_addr);
             }
             Instr::ArrayPush(reg1, reg2) => {
-                let rvalue = self.load_offset_or_top2(reg2);
-                let val = self.load_offset_or_top2(reg1);
+                let rvalue = self.load_offset_or_top(reg2);
+                let val = self.load_offset_or_top(reg1);
                 let arr = unsafe { val.get_array_mut(self) };
 
                 let cap1 = arr.data.capacity();
@@ -1444,7 +1413,7 @@ impl Vm {
                 self.gc_debt += (cap2 - cap1) * size_of::<Value>();
             }
             Instr::ArrayPushImm(reg1, imm) => {
-                let val = self.load_offset_or_top2(reg1);
+                let val = self.load_offset_or_top(reg1);
                 let arr = unsafe { val.get_array_mut(self) };
 
                 let cap1 = arr.data.capacity();
