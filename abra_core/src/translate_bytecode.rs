@@ -542,7 +542,9 @@ impl Translator {
                         _ => unreachable!(),
                     },
                     BinaryOperator::Equal => match arg1_ty {
-                        SolvedType::Int => self.emit(st, Instr::EqualInt),
+                        SolvedType::Int => {
+                            self.emit(st, Instr::EqualInt(Reg::Top, Reg::Top, Reg::Top))
+                        }
                         SolvedType::Float => self.emit(st, Instr::EqualFloat),
                         SolvedType::Bool => self.emit(st, Instr::EqualBool),
                         SolvedType::String => self.emit(st, Instr::EqualString),
@@ -1018,7 +1020,7 @@ impl Translator {
                     self.emit(st, Instr::GreaterThanOrEqualInt);
                 }
                 BuiltinOperation::EqualInt => {
-                    self.emit(st, Instr::EqualInt);
+                    self.emit(st, Instr::EqualInt(Reg::Top, Reg::Top, Reg::Top));
                 }
                 BuiltinOperation::LessThanFloat => {
                     self.emit(st, Instr::LessThanFloat);
@@ -1102,7 +1104,7 @@ impl Translator {
             Type::Int => match &*pat.kind {
                 PatKind::Int(i) => {
                     self.emit(st, Instr::PushInt(*i));
-                    self.emit(st, Instr::EqualInt);
+                    self.emit(st, Instr::EqualInt(Reg::Top, Reg::Top, Reg::Top));
                 }
                 _ => panic!("unexpected pattern: {:?}", pat.kind),
             },
@@ -1132,7 +1134,7 @@ impl Translator {
 
                     self.emit(st, Instr::DeconstructVariant);
                     self.emit(st, Instr::PushInt(*variant as AbraInt));
-                    self.emit(st, Instr::EqualInt);
+                    self.emit(st, Instr::EqualInt(Reg::Top, Reg::Top, Reg::Top));
                     self.emit(st, Instr::JumpIfFalse(tag_fail_label.clone()));
 
                     if let Some(inner) = inner {
@@ -1376,7 +1378,7 @@ impl Translator {
                 // check return value of iterator.next() and branch
                 self.emit(st, Instr::DeconstructVariant);
                 self.emit(st, Instr::PushInt(0 as AbraInt));
-                self.emit(st, Instr::EqualInt);
+                self.emit(st, Instr::EqualInt(Reg::Top, Reg::Top, Reg::Top));
                 self.emit(st, Instr::JumpIfFalse(end_label.clone()));
                 self.handle_pat_binding(pat, offset_table, st, monomorph_env);
                 st.loop_stack.push(EnclosingLoop {

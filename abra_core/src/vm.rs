@@ -497,7 +497,7 @@ pub enum Instr {
     LessThanOrEqualFloat,
     GreaterThanFloat,
     GreaterThanOrEqualFloat,
-    EqualInt,
+    EqualInt(u16, u16, u16),
     EqualFloat,
     EqualBool,
     EqualString, // TODO: this is O(N). Must use smaller instructions. Or compare character-by-character and save progress in state of Vm
@@ -1260,10 +1260,10 @@ impl Vm {
                 let a = self.top().get_float(self);
                 self.set_top(a >= b);
             }
-            Instr::EqualInt => {
-                let b = self.pop_int();
-                let a = self.top().get_int(self);
-                self.set_top(a == b);
+            Instr::EqualInt(dest, reg1, reg2) => {
+                let b = self.load_offset_or_top2(reg2).get_int(self);
+                let a = self.load_offset_or_top2(reg1).get_int(self);
+                self.store_offset_or_top(dest, a == b);
             }
             Instr::EqualFloat => {
                 let b = self.pop_float();

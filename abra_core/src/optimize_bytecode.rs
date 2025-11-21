@@ -437,6 +437,7 @@ impl Instr {
             Instr::SubInt(_, _, Reg::Top) => true,
             Instr::MulInt(_, _, Reg::Top) => true,
             Instr::LessThanInt(_, _, Reg::Top) => true,
+            Instr::EqualInt(_, _, Reg::Top) => true,
             Instr::ArrayPush(_, Reg::Top) => true,
             _ => false,
         }
@@ -450,6 +451,7 @@ impl Instr {
             Instr::MulInt(_, Reg::Top, Reg::Offset(_)) => true,
             Instr::LessThanInt(_, Reg::Top, Reg::Offset(_)) => true,
             Instr::LessThanIntImm(_, Reg::Top, _) => true,
+            Instr::EqualInt(_, Reg::Top, Reg::Offset(_)) => true,
             Instr::ArrayPush(Reg::Top, Reg::Offset(_)) => true,
             Instr::ArrayPushImm(Reg::Top, _) => true,
             _ => false,
@@ -465,6 +467,7 @@ impl Instr {
             Instr::MulInt(Reg::Top, _, _) => true,
             Instr::LessThanInt(Reg::Top, _, _) => true,
             Instr::LessThanIntImm(Reg::Top, _, _) => true,
+            Instr::EqualInt(Reg::Top, _, _) => true,
             _ => false,
         }
     }
@@ -478,6 +481,7 @@ impl Instr {
             Instr::MulInt(dest, _, r2) => Instr::MulInt(dest, r1, r2),
             Instr::LessThanInt(dest, _, r2) => Instr::LessThanInt(dest, r1, r2),
             Instr::LessThanIntImm(dest, _, r2) => Instr::LessThanIntImm(dest, r1, r2),
+            Instr::EqualInt(dest, _, r2) => Instr::EqualInt(dest, r1, r2),
             Instr::ArrayPush(_, r2) => Instr::ArrayPush(r1, r2),
             Instr::ArrayPushImm(_, r2) => Instr::ArrayPushImm(r1, r2),
             _ => panic!("can't replace first arg"),
@@ -490,6 +494,7 @@ impl Instr {
             Instr::MulInt(dest, r1, _) => Instr::MulInt(dest, r1, r2),
             Instr::SubInt(dest, r1, _) => Instr::SubInt(dest, r1, r2),
             Instr::LessThanInt(dest, r1, _) => Instr::LessThanInt(dest, r1, r2),
+            Instr::EqualInt(dest, r1, _) => Instr::EqualInt(dest, r1, r2),
             Instr::ArrayPush(r1, _) => Instr::ArrayPush(r1, r2),
             _ => panic!("can't replace second arg"),
         }
@@ -504,6 +509,7 @@ impl Instr {
             Instr::MulInt(_, r1, r2) => Instr::MulInt(dest, r1, r2),
             Instr::LessThanInt(_, r1, r2) => Instr::LessThanInt(dest, r1, r2),
             Instr::LessThanIntImm(_, r1, r2) => Instr::LessThanIntImm(dest, r1, r2),
+            Instr::EqualInt(_, r1, r2) => Instr::EqualInt(dest, r1, r2),
             _ => panic!("can't replace dest"),
         }
     }

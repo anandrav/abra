@@ -106,7 +106,7 @@ pub enum Instr {
     LessThanOrEqualFloat,
     GreaterThanFloat,
     GreaterThanOrEqualFloat,
-    EqualInt,
+    EqualInt(Reg, Reg, Reg),
     EqualFloat,
     EqualBool,
     EqualString, // TODO: this is O(N). Must use smaller instructions. Or compare character-by-character and save progress in state of Vm
@@ -244,7 +244,7 @@ impl Display for Instr {
             Instr::LessThanOrEqualFloat => write!(f, "less_than_or_equal_float"),
             Instr::GreaterThanFloat => write!(f, "greater_than_float"),
             Instr::GreaterThanOrEqualFloat => write!(f, "greater_than_or_equal_float"),
-            Instr::EqualInt => write!(f, "equal_int"),
+            Instr::EqualInt(dest, reg1, reg2) => write!(f, "equal_int {dest} {reg1} {reg2}"),
             Instr::EqualFloat => write!(f, "equal_float"),
             Instr::EqualBool => write!(f, "equal_bool"),
             Instr::EqualString => write!(f, "equal_string"),
@@ -381,7 +381,9 @@ fn instr_to_vminstr(
         Instr::LessThanOrEqualFloat => VmInstr::LessThanOrEqualFloat,
         Instr::GreaterThanFloat => VmInstr::GreaterThanFloat,
         Instr::GreaterThanOrEqualFloat => VmInstr::GreaterThanOrEqualFloat,
-        Instr::EqualInt => VmInstr::EqualInt,
+        Instr::EqualInt(dest, reg1, reg2) => {
+            VmInstr::EqualInt(dest.encode(), reg1.encode(), reg2.encode())
+        }
         Instr::EqualFloat => VmInstr::EqualFloat,
         Instr::EqualBool => VmInstr::EqualBool,
         Instr::EqualString => VmInstr::EqualString,
