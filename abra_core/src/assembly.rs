@@ -141,6 +141,7 @@ pub enum Instr {
     MakeClosure { func_addr: Label },
 
     ArrayPush(Reg, Reg),
+    ArrayPushImm(Reg, i16),
     ArrayLength,
     ArrayPop,
     ConcatStrings, // TODO: this is O(N). Must use smaller instructions. Or concat character-by-character and save progress in Vm
@@ -283,6 +284,7 @@ impl Display for Instr {
                 write!(f, "make_closure {func_addr}")
             }
             Instr::ArrayPush(reg1, reg2) => write!(f, "array_push {reg1} {reg2}"),
+            Instr::ArrayPushImm(reg1, imm) => write!(f, "array_push_imm {reg1} {imm}"),
             Instr::ArrayLength => write!(f, "array_len"),
             Instr::ArrayPop => write!(f, "array_pop"),
             Instr::ConcatStrings => write!(f, "concat_strings"),
@@ -425,6 +427,7 @@ fn instr_to_vminstr(
             }
         }
         Instr::ArrayPush(reg1, reg2) => VmInstr::ArrayPush(reg1.encode(), reg2.encode()),
+        Instr::ArrayPushImm(reg1, imm) => VmInstr::ArrayPushImm(reg1.encode(), *imm),
         Instr::ArrayLength => VmInstr::ArrayLength,
         Instr::ArrayPop => VmInstr::ArrayPop,
         Instr::ConcatStrings => VmInstr::ConcatStrings,

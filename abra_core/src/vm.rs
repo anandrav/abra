@@ -538,6 +538,7 @@ pub enum Instr {
     MakeClosure { func_addr: ProgramCounter },
 
     ArrayPush(u16, u16),
+    ArrayPushImm(u16, i16),
     ArrayLength,
     ArrayPop,
     ConcatStrings, // TODO: this is O(N). Must use smaller instructions. Or concat character-by-character and save progress in Vm
@@ -582,7 +583,6 @@ impl CallData {
 const _: [(); 16] = [(); size_of::<Value>()];
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Value(u64, /*is_pointer*/ bool);
-// TODO: get rid of is_pointer using separate bitvec
 
 impl Value {
     pub fn get_int(&self, _vm: &Vm) -> AbraInt {
@@ -1448,6 +1448,16 @@ impl Vm {
                 let cap1 = arr.data.capacity();
                 self.write_barrier(arr.header_ptr(), rvalue);
                 arr.data.push(rvalue);
+                let cap2 = arr.data.capacity();
+                self.heap_size += (cap2 - cap1) * size_of::<Value>();
+                self.gc_debt += (cap2 - cap1) * size_of::<Value>();
+            }
+            Instr::ArrayPushImm(reg1, imm) => {
+                let val = self.load_offset_or_top2(reg1);
+                let arr = unsafe { val.get_array_mut(self) };
+
+                let cap1 = arr.data.capacity();
+                arr.data.push(Value::from(imm as i64));
                 let cap2 = arr.data.capacity();
                 self.heap_size += (cap2 - cap1) * size_of::<Value>();
                 self.gc_debt += (cap2 - cap1) * size_of::<Value>();

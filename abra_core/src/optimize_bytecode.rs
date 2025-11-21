@@ -426,6 +426,10 @@ fn as_imm(n: i64) -> i16 {
     n.try_into().unwrap()
 }
 
+fn as_imm_bool(b: bool) -> i16 {
+    if b { 1 } else { 0 }
+}
+
 impl Instr {
     fn second_arg_is_top(&self) -> bool {
         match self {
@@ -447,6 +451,7 @@ impl Instr {
             Instr::LessThanInt(_, Reg::Top, Reg::Offset(_)) => true,
             Instr::LessThanIntImm(_, Reg::Top, _) => true,
             Instr::ArrayPush(Reg::Top, Reg::Offset(_)) => true,
+            Instr::ArrayPushImm(Reg::Top, _) => true,
             _ => false,
         }
     }
@@ -474,6 +479,7 @@ impl Instr {
             Instr::LessThanInt(dest, _, r2) => Instr::LessThanInt(dest, r1, r2),
             Instr::LessThanIntImm(dest, _, r2) => Instr::LessThanIntImm(dest, r1, r2),
             Instr::ArrayPush(_, r2) => Instr::ArrayPush(r1, r2),
+            Instr::ArrayPushImm(_, r2) => Instr::ArrayPushImm(r1, r2),
             _ => panic!("can't replace first arg"),
         }
     }
@@ -505,6 +511,7 @@ impl Instr {
     fn is_push_imm(&self) -> bool {
         match self {
             Instr::PushInt(n) => fits_imm(*n),
+            Instr::PushBool(_) => true,
             _ => false,
         }
     }
@@ -512,6 +519,7 @@ impl Instr {
     fn get_imm(&self) -> i16 {
         match self {
             Instr::PushInt(n) => as_imm(*n),
+            Instr::PushBool(b) => as_imm_bool(*b), // boolean immediates are represented as int immediates
             _ => panic!("can't get immediate"),
         }
     }
@@ -521,6 +529,7 @@ impl Instr {
             Instr::AddInt(..) => true,
             Instr::SubInt(..) => true,
             Instr::LessThanInt(..) => true,
+            Instr::ArrayPush(..) => true,
             _ => false,
         }
     }
@@ -530,6 +539,7 @@ impl Instr {
             Instr::AddInt(dest, r1, _) => Instr::AddIntImm(dest, r1, imm),
             Instr::SubInt(dest, r1, _) => Instr::SubIntImm(dest, r1, imm),
             Instr::LessThanInt(dest, r1, _) => Instr::LessThanIntImm(dest, r1, imm),
+            Instr::ArrayPush(r1, _) => Instr::ArrayPushImm(r1, imm),
             _ => panic!("can't replace second arg with immediate"),
         }
     }
