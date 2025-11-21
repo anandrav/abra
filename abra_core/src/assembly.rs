@@ -88,10 +88,15 @@ pub enum Instr {
     ModuloImm(Reg, Reg, i64),
 
     AddFloat(Reg, Reg, Reg),
+    AddFloatImm(Reg, Reg, i64),
     SubFloat(Reg, Reg, Reg),
+    SubFloatImm(Reg, Reg, i64),
     MulFloat(Reg, Reg, Reg),
+    MulFloatImm(Reg, Reg, i64),
     DivFloat(Reg, Reg, Reg),
+    DivFloatImm(Reg, Reg, i64),
     PowFloat(Reg, Reg, Reg),
+    PowFloatImm(Reg, Reg, i64),
 
     SquareRoot,
 
@@ -250,17 +255,32 @@ impl Display for Instr {
             Instr::AddFloat(dest, reg1, reg2) => {
                 write!(f, "add_float {dest} {reg1} {reg2}")
             }
+            Instr::AddFloatImm(dest, reg1, imm) => {
+                write!(f, "add_float_imm {dest} {reg1} {imm}")
+            }
             Instr::SubFloat(dest, reg1, reg2) => {
                 write!(f, "sub_float {dest} {reg1} {reg2}")
+            }
+            Instr::SubFloatImm(dest, reg1, imm) => {
+                write!(f, "sub_float_imm {dest} {reg1} {imm}")
             }
             Instr::MulFloat(dest, reg1, reg2) => {
                 write!(f, "mul_float {dest} {reg1} {reg2}")
             }
+            Instr::MulFloatImm(dest, reg1, imm) => {
+                write!(f, "mul_float_imm {dest} {reg1} {imm}")
+            }
             Instr::DivFloat(dest, reg1, reg2) => {
                 write!(f, "div_float {dest} {reg1} {reg2}")
             }
+            Instr::DivFloatImm(dest, reg1, imm) => {
+                write!(f, "div_float_imm {dest} {reg1} {imm}")
+            }
             Instr::PowFloat(dest, reg1, reg2) => {
                 write!(f, "pow_float {dest} {reg1} {reg2}")
+            }
+            Instr::PowFloatImm(dest, reg1, imm) => {
+                write!(f, "pow_float_imm {dest} {reg1} {imm}")
             }
             Instr::SquareRoot => write!(f, "square_root"),
             Instr::Not => write!(f, "not"),
@@ -436,18 +456,43 @@ fn instr_to_vminstr(
         Instr::AddFloat(dest, reg1, reg2) => {
             VmInstr::AddFloat(dest.encode(), reg1.encode(), reg2.encode())
         }
+        Instr::AddFloatImm(dest, reg1, imm) => VmInstr::AddFloatImm(
+            dest.encode(),
+            reg1.encode(),
+            constants.int_constants.try_get_id(imm).unwrap() as u16,
+        ),
         Instr::SubFloat(dest, reg1, reg2) => {
             VmInstr::SubFloat(dest.encode(), reg1.encode(), reg2.encode())
         }
+        Instr::SubFloatImm(dest, reg1, imm) => VmInstr::SubFloatImm(
+            dest.encode(),
+            reg1.encode(),
+            constants.int_constants.try_get_id(imm).unwrap() as u16,
+        ),
         Instr::MulFloat(dest, reg1, reg2) => {
             VmInstr::MulFloat(dest.encode(), reg1.encode(), reg2.encode())
         }
+        Instr::MulFloatImm(dest, reg1, imm) => VmInstr::MulFloatImm(
+            dest.encode(),
+            reg1.encode(),
+            constants.int_constants.try_get_id(imm).unwrap() as u16,
+        ),
         Instr::DivFloat(dest, reg1, reg2) => {
             VmInstr::DivFloat(dest.encode(), reg1.encode(), reg2.encode())
         }
+        Instr::DivFloatImm(dest, reg1, imm) => VmInstr::DivFloatImm(
+            dest.encode(),
+            reg1.encode(),
+            constants.int_constants.try_get_id(imm).unwrap() as u16,
+        ),
         Instr::PowFloat(dest, reg1, reg2) => {
             VmInstr::PowerFloat(dest.encode(), reg1.encode(), reg2.encode())
         }
+        Instr::PowFloatImm(dest, reg1, imm) => VmInstr::PowerFloatImm(
+            dest.encode(),
+            reg1.encode(),
+            constants.int_constants.try_get_id(imm).unwrap() as u16,
+        ),
         Instr::SquareRoot => VmInstr::SquareRoot,
         Instr::Not => VmInstr::Not,
         Instr::And => VmInstr::And,

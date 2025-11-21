@@ -495,10 +495,15 @@ impl Instr {
                 | Instr::Modulo(_, Reg::Top, Reg::Offset(_))
                 | Instr::ModuloImm(_, Reg::Top, _)
                 | Instr::AddFloat(_, Reg::Top, Reg::Offset(_))
+                | Instr::AddFloatImm(_, Reg::Top, _)
                 | Instr::SubFloat(_, Reg::Top, Reg::Offset(_))
+                | Instr::SubFloatImm(_, Reg::Top, _)
                 | Instr::MulFloat(_, Reg::Top, Reg::Offset(_))
+                | Instr::MulFloatImm(_, Reg::Top, _)
                 | Instr::DivFloat(_, Reg::Top, Reg::Offset(_))
+                | Instr::DivFloatImm(_, Reg::Top, _)
                 | Instr::PowFloat(_, Reg::Top, Reg::Offset(_))
+                | Instr::PowFloat(_, Reg::Top, _)
                 | Instr::LessThanInt(_, Reg::Top, Reg::Offset(_))
                 | Instr::LessThanIntImm(_, Reg::Top, _)
                 | Instr::EqualInt(_, Reg::Top, Reg::Offset(_))
@@ -524,10 +529,15 @@ impl Instr {
                 | Instr::Modulo(Reg::Top, _, _)
                 | Instr::ModuloImm(Reg::Top, _, _)
                 | Instr::AddFloat(Reg::Top, _, _)
+                | Instr::AddFloatImm(Reg::Top, _, _)
                 | Instr::SubFloat(Reg::Top, _, _)
+                | Instr::SubFloatImm(Reg::Top, _, _)
                 | Instr::MulFloat(Reg::Top, _, _)
+                | Instr::MulFloatImm(Reg::Top, _, _)
                 | Instr::DivFloat(Reg::Top, _, _)
+                | Instr::DivFloatImm(Reg::Top, _, _)
                 | Instr::PowFloat(Reg::Top, _, _)
+                | Instr::PowFloatImm(Reg::Top, _, _)
                 | Instr::LessThanInt(Reg::Top, _, _)
                 | Instr::LessThanIntImm(Reg::Top, _, _)
                 | Instr::EqualInt(Reg::Top, _, _)
@@ -551,10 +561,15 @@ impl Instr {
             Instr::ModuloImm(dest, _, r2) => Instr::ModuloImm(dest, r1, r2),
 
             Instr::AddFloat(dest, _, r2) => Instr::AddFloat(dest, r1, r2),
+            Instr::AddFloatImm(dest, _, r2) => Instr::AddFloatImm(dest, r1, r2),
             Instr::SubFloat(dest, _, r2) => Instr::SubFloat(dest, r1, r2),
+            Instr::SubFloatImm(dest, _, r2) => Instr::SubFloatImm(dest, r1, r2),
             Instr::MulFloat(dest, _, r2) => Instr::MulFloat(dest, r1, r2),
+            Instr::MulFloatImm(dest, _, r2) => Instr::MulFloatImm(dest, r1, r2),
             Instr::DivFloat(dest, _, r2) => Instr::DivFloat(dest, r1, r2),
+            Instr::DivFloatImm(dest, _, r2) => Instr::DivFloatImm(dest, r1, r2),
             Instr::PowFloat(dest, _, r2) => Instr::PowFloat(dest, r1, r2),
+            Instr::PowFloatImm(dest, _, r2) => Instr::PowFloatImm(dest, r1, r2),
 
             Instr::LessThanInt(dest, _, r2) => Instr::LessThanInt(dest, r1, r2),
             Instr::LessThanIntImm(dest, _, r2) => Instr::LessThanIntImm(dest, r1, r2),
@@ -604,10 +619,15 @@ impl Instr {
             Instr::ModuloImm(_, r1, r2) => Instr::ModuloImm(dest, r1, r2),
 
             Instr::AddFloat(_, r1, r2) => Instr::AddFloat(dest, r1, r2),
+            Instr::AddFloatImm(_, r1, r2) => Instr::AddFloatImm(dest, r1, r2),
             Instr::SubFloat(_, r1, r2) => Instr::SubFloat(dest, r1, r2),
+            Instr::SubFloatImm(_, r1, r2) => Instr::SubFloatImm(dest, r1, r2),
             Instr::MulFloat(_, r1, r2) => Instr::MulFloat(dest, r1, r2),
+            Instr::MulFloatImm(_, r1, r2) => Instr::MulFloatImm(dest, r1, r2),
             Instr::DivFloat(_, r1, r2) => Instr::DivFloat(dest, r1, r2),
+            Instr::DivFloatImm(_, r1, r2) => Instr::DivFloatImm(dest, r1, r2),
             Instr::PowFloat(_, r1, r2) => Instr::PowFloat(dest, r1, r2),
+            Instr::PowFloatImm(_, r1, r2) => Instr::PowFloatImm(dest, r1, r2),
 
             Instr::LessThanInt(_, r1, r2) => Instr::LessThanInt(dest, r1, r2),
             Instr::LessThanIntImm(_, r1, r2) => Instr::LessThanIntImm(dest, r1, r2),
@@ -642,6 +662,11 @@ impl Instr {
                 | Instr::DivInt(..)
                 | Instr::PowInt(..)
                 | Instr::Modulo(..)
+                | Instr::AddFloat(..)
+                | Instr::SubFloat(..)
+                | Instr::MulFloat(..)
+                | Instr::DivFloat(..)
+                | Instr::PowFloat(..)
                 | Instr::LessThanInt(..)
                 | Instr::EqualInt(..)
                 | Instr::ArrayPush(..)
@@ -656,6 +681,11 @@ impl Instr {
             Instr::DivInt(dest, r1, _) => Instr::DivIntImm(dest, r1, imm),
             Instr::PowInt(dest, r1, _) => Instr::PowIntImm(dest, r1, imm),
             Instr::Modulo(dest, r1, _) => Instr::ModuloImm(dest, r1, imm),
+            Instr::AddFloat(dest, r1, _) => Instr::AddFloatImm(dest, r1, imm),
+            Instr::SubFloat(dest, r1, _) => Instr::SubFloatImm(dest, r1, imm),
+            Instr::MulFloat(dest, r1, _) => Instr::MulFloatImm(dest, r1, imm),
+            Instr::DivFloat(dest, r1, _) => Instr::DivFloatImm(dest, r1, imm),
+            Instr::PowFloat(dest, r1, _) => Instr::PowFloatImm(dest, r1, imm),
             Instr::LessThanInt(dest, r1, _) => Instr::LessThanIntImm(dest, r1, imm),
             Instr::EqualInt(dest, r1, _) => Instr::EqualIntImm(dest, r1, imm),
             Instr::ArrayPush(r1, _) => Instr::ArrayPushIntImm(r1, imm),

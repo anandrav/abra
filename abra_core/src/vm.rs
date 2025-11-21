@@ -436,10 +436,15 @@ pub enum Instr {
     ModuloImm(u16, u16, u16),
 
     AddFloat(u16, u16, u16),
+    AddFloatImm(u16, u16, u16),
     SubFloat(u16, u16, u16),
+    SubFloatImm(u16, u16, u16),
     MulFloat(u16, u16, u16),
+    MulFloatImm(u16, u16, u16),
     DivFloat(u16, u16, u16),
+    DivFloatImm(u16, u16, u16),
     PowerFloat(u16, u16, u16),
+    PowerFloatImm(u16, u16, u16),
 
     SquareRoot,
 
@@ -1167,15 +1172,27 @@ impl Vm {
                 let a = self.load_offset_or_top(reg1).get_float(self);
                 self.store_offset_or_top(dest, a + b);
             }
+            Instr::AddFloatImm(dest, reg1, imm) => {
+                let a = self.load_offset_or_top(reg1).get_float(self);
+                self.store_offset_or_top(dest, a + self.float_constants[imm as usize]);
+            }
             Instr::SubFloat(dest, reg1, reg2) => {
                 let b = self.load_offset_or_top(reg2).get_float(self);
                 let a = self.load_offset_or_top(reg1).get_float(self);
                 self.store_offset_or_top(dest, a - b);
             }
+            Instr::SubFloatImm(dest, reg1, imm) => {
+                let a = self.load_offset_or_top(reg1).get_float(self);
+                self.store_offset_or_top(dest, a - self.float_constants[imm as usize]);
+            }
             Instr::MulFloat(dest, reg1, reg2) => {
                 let b = self.load_offset_or_top(reg2).get_float(self);
                 let a = self.load_offset_or_top(reg1).get_float(self);
                 self.store_offset_or_top(dest, a * b);
+            }
+            Instr::MulFloatImm(dest, reg1, imm) => {
+                let a = self.load_offset_or_top(reg1).get_float(self);
+                self.store_offset_or_top(dest, a * self.float_constants[imm as usize]);
             }
             Instr::DivFloat(dest, reg1, reg2) => {
                 let b = self.load_offset_or_top(reg2).get_float(self);
@@ -1186,10 +1203,18 @@ impl Vm {
                 }
                 self.store_offset_or_top(dest, a / b);
             }
+            Instr::DivFloatImm(dest, reg1, imm) => {
+                let a = self.load_offset_or_top(reg1).get_float(self);
+                self.store_offset_or_top(dest, a / self.float_constants[imm as usize]);
+            }
             Instr::PowerFloat(dest, reg1, reg2) => {
                 let b = self.load_offset_or_top(reg2).get_float(self);
                 let a = self.load_offset_or_top(reg1).get_float(self);
                 self.store_offset_or_top(dest, a.powf(b));
+            }
+            Instr::PowerFloatImm(dest, reg1, imm) => {
+                let a = self.load_offset_or_top(reg1).get_float(self);
+                self.store_offset_or_top(dest, a.powf(self.float_constants[imm as usize]));
             }
             Instr::SquareRoot => {
                 let a = self.top().get_float(self);
