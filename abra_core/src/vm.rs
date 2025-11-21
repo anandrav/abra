@@ -507,7 +507,7 @@ pub enum Instr {
     Jump(ProgramCounter),
     JumpIf(ProgramCounter),
     JumpIfFalse(ProgramCounter),
-    JumpIfLessThan(ProgramCounter),
+    // JumpIfLessThan(ProgramCounter), // TODO: when jumps are relative and only i16, can add this back
     Call(CallData),
     CallFuncObj(u32),
     CallExtern(u32),
@@ -518,8 +518,8 @@ pub enum Instr {
     Panic,
 
     // Data Structures
-    ConstructStruct(u32),
-    ConstructArray(u32),
+    ConstructStruct(u32), // TODO: just use u16
+    ConstructArray(u32),  // TODO: just use u16
     // TODO: it's a shame that simple enums like Red | Blue | Green aren't just represented as an int.
     // TODO: there should be two types of enums: primitive and object enums. Primitive enums are basically just ints and don't require allocations
     // TODO: pattern matching with primitive enums should also be much much faster, equivalent to a switch.
@@ -528,6 +528,9 @@ pub enum Instr {
     DeconstructStruct,
     DeconstructArray,
     DeconstructVariant,
+
+    // TODO: these can all be one instruction not two
+    // TODO: add immediate versions of these instructions
     GetField(u16),
     GetFieldOffset(u16, i16),
     SetField(u16),
@@ -536,15 +539,16 @@ pub enum Instr {
     GetIdxOffset(i16, i16),
     SetIdx,
     SetIdxOffset(i16, i16),
+
     MakeClosure { func_addr: ProgramCounter },
 
     ArrayPush(u16, u16),
     ArrayPushImm(u16, i16),
-    ArrayLength,
-    ArrayPop,
+    ArrayLength,   // TODO: use register
+    ArrayPop,      // TODO: use register
     ConcatStrings, // TODO: this is O(N). Must use smaller instructions. Or concat character-by-character and save progress in Vm
-    IntToString,
-    FloatToString,
+    IntToString,   // TODO: use register
+    FloatToString, // TODO: use register
 
     LoadLib,
     LoadForeignFunc,
@@ -1297,13 +1301,6 @@ impl Vm {
             Instr::JumpIfFalse(target) => {
                 let v = self.pop_bool();
                 if !v {
-                    self.pc = target;
-                }
-            }
-            Instr::JumpIfLessThan(target) => {
-                let b = self.pop_int();
-                let a = self.pop_int();
-                if a < b {
                     self.pc = target;
                 }
             }
