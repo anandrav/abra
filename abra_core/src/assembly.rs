@@ -125,8 +125,8 @@ pub enum Instr {
     Panic,
 
     // Data Structures
-    ConstructStruct(usize),
-    ConstructArray(usize),
+    ConstructStruct(u32),
+    ConstructArray(u32),
     ConstructVariant { tag: u16 },
     DeconstructStruct,
     DeconstructVariant,
@@ -165,7 +165,6 @@ impl Reg {
                 0b1000_0000_0000_0000
             }
             Reg::Offset(n) => {
-                let n = *n as i16; // TODO: Offset should contain i16
                 // We have 15 bits available to encode a stack offset
                 const MAGNITUDE_BITS: u32 = 14;
 
@@ -174,14 +173,14 @@ impl Reg {
                 // Min: -16384
                 const I15_MIN: i16 = -(1 << MAGNITUDE_BITS);
 
-                if n > I15_MAX || n < I15_MIN {
+                if !(I15_MIN..=I15_MAX).contains(n) {
                     panic!(
                         "Jump offset {} out of 15-bit range ({} to {})",
                         n, I15_MIN, I15_MAX
                     );
                 }
 
-                (n as u16) & 0b0111_1111_1111_1111
+                (*n as u16) & 0b0111_1111_1111_1111
             }
         }
     }
@@ -396,8 +395,8 @@ fn instr_to_vminstr(
         Instr::ReturnVoid => VmInstr::ReturnVoid,
         Instr::Stop => VmInstr::Stop,
         Instr::Panic => VmInstr::Panic,
-        Instr::ConstructStruct(n) => VmInstr::ConstructStruct(*n as u32),
-        Instr::ConstructArray(n) => VmInstr::ConstructArray(*n as u32),
+        Instr::ConstructStruct(n) => VmInstr::ConstructStruct(*n),
+        Instr::ConstructArray(n) => VmInstr::ConstructArray(*n),
         Instr::DeconstructStruct => VmInstr::DeconstructStruct,
         Instr::DeconstructVariant => VmInstr::DeconstructVariant,
         Instr::GetField(idx) => VmInstr::GetField(*idx),

@@ -691,7 +691,7 @@ impl Translator {
                 for expr in exprs {
                     self.translate_expr(expr, offset_table, monomorph_env, st);
                 }
-                self.emit(st, Instr::ConstructArray(exprs.len()));
+                self.emit(st, Instr::ConstructArray(exprs.len() as u32));
             }
             ExprKind::IndexAccess(array, index) => {
                 self.translate_expr(index, offset_table, monomorph_env, st);
