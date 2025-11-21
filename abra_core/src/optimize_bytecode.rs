@@ -127,6 +127,11 @@ fn peephole2_helper(lines: &[Line], index: &mut usize, ret: &mut Vec<Line>) -> b
                         *index += 2;
                         true
                     }
+                    // PUSH FALSE JUMP_IF
+                    (Instr::PushBool(false), Instr::JumpIf(_)) => {
+                        *index += 2;
+                        true
+                    }
                     // BOOLEAN FLIP
                     (Instr::PushBool(b), Instr::Not) => {
                         ret.push(Line::Instr {
