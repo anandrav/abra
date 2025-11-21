@@ -2315,6 +2315,7 @@ fn generate_constraints_expr(
                             args,
                             fname.node(),
                             expr.node(),
+                            node_ty,
                         );
                     }
                     Some(Declaration::InterfaceMethod {
@@ -2466,6 +2467,7 @@ fn generate_constraints_expr(
                         args,
                         fname.node(),
                         expr.node(),
+                        node_ty,
                     );
                 } else {
                     ctx.errors
@@ -2625,13 +2627,15 @@ fn enum_ctor_helper(
     args: &[Rc<Expr>],
     func_node: AstNode,
     funcap_node: AstNode,
+    node_ty: TypeVar,
 ) {
-    let (node_ty, subst) = TypeVar::make_nominal_with_substitution(
+    let (def_type, subst) = TypeVar::make_nominal_with_substitution(
         ctx,
         Reason::Node(func_node.clone()),
         Nominal::Enum(enum_def.clone()),
         funcap_node.clone(),
     );
+    constrain(ctx, &node_ty, &def_type);
 
     let variant = &enum_def.variants[variant];
     let tys_args = match &variant.data {
@@ -2644,7 +2648,7 @@ fn enum_ctor_helper(
         },
     };
     let tys_args = tys_args.iter().cloned().map(|t| t.subst(&subst)).collect();
-    let func_ty = TypeVar::make_func(tys_args, node_ty.clone(), Reason::Node(func_node.clone()));
+    let func_ty = TypeVar::make_func(tys_args, def_type.clone(), Reason::Node(func_node.clone()));
     let func_node_ty = TypeVar::from_node(ctx, func_node.clone());
     constrain(ctx, &func_ty, &func_node_ty);
 
@@ -2654,7 +2658,7 @@ fn enum_ctor_helper(
         args,
         func_node,
         funcap_node,
-        node_ty.clone(),
+        def_type.clone(),
     );
 }
 
