@@ -2,8 +2,8 @@
 
 set -euo pipefail
 
-# Build everything in the project, including native modules
-cargo build
+# Only build the CLI (and core), not native modules
+cargo build -p abra_cli
 # Run debug build of abra cli
 cargo run --bin  abra -- -m modules -s target/debug "$@"
 

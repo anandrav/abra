@@ -657,13 +657,13 @@ impl Translator {
             }
             ExprKind::IfElse(cond, then_block, else_block) => {
                 self.translate_expr(cond, offset_table, monomorph_env, st);
-                let then_label = make_label("then");
+                let else_label = make_label("else");
                 let end_label = make_label("endif");
-                self.emit(st, Instr::JumpIf(then_label.clone()));
-                self.translate_expr(else_block, offset_table, monomorph_env, st);
-                self.emit(st, Instr::Jump(end_label.clone()));
-                self.emit(st, Line::Label(then_label));
+                self.emit(st, Instr::JumpIfFalse(else_label.clone()));
                 self.translate_expr(then_block, offset_table, monomorph_env, st);
+                self.emit(st, Instr::Jump(end_label.clone()));
+                self.emit(st, Line::Label(else_label));
+                self.translate_expr(else_block, offset_table, monomorph_env, st);
                 self.emit(st, Line::Label(end_label));
             }
             ExprKind::MemberAccess(accessed, field_name) => {
