@@ -207,17 +207,6 @@ impl Vm {
         self.value_stack[self.stack_base.wrapping_add_signed(offset as isize)]
     }
 
-    // TODO: remove this soon
-    pub fn load_offset_or_top(&mut self, offset: i16, use_stack: u8) -> Value {
-        let b = self.stack_base.wrapping_add_signed(offset as isize)
-            + ((self.value_stack.len() - 1) * (use_stack as usize))
-            - (self.stack_base * use_stack as usize);
-        let ret = self.value_stack[b];
-        self.value_stack
-            .truncate(self.value_stack.len() - (use_stack as usize));
-        ret
-    }
-
     pub fn load_offset_or_top2(&mut self, arg: u16) -> Value {
         // 1. Extract the 'use_stack' flag (Bit 15)
         // Shift right by 15. Result is 1 if top-bit is set, 0 otherwise.
