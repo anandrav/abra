@@ -426,9 +426,9 @@ fn as_imm(n: i64) -> i16 {
     n.try_into().unwrap()
 }
 
-fn as_imm_bool(b: bool) -> i16 {
-    if b { 1 } else { 0 }
-}
+// fn as_imm_bool(b: bool) -> i16 {
+//     if b { 1 } else { 0 }
+// }
 
 impl Instr {
     fn second_arg_is_top(&self) -> bool {
@@ -521,7 +521,7 @@ impl Instr {
     fn is_push_imm(&self) -> bool {
         match self {
             Instr::PushInt(n) => fits_imm(*n),
-            Instr::PushBool(_) => true,
+            // Instr::PushBool(_) => true,
             _ => false,
         }
     }
@@ -529,7 +529,7 @@ impl Instr {
     fn get_imm(&self) -> i16 {
         match self {
             Instr::PushInt(n) => as_imm(*n),
-            Instr::PushBool(b) => as_imm_bool(*b), // boolean immediates are represented as int immediates
+            // Instr::PushBool(b) => as_imm_bool(*b), // boolean immediates are represented as int immediates
             _ => panic!("can't get immediate"),
         }
     }

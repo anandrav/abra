@@ -300,7 +300,7 @@ impl Display for Instr {
     }
 }
 
-pub(crate) fn remove_labels(
+pub(crate) fn remove_labels_and_constants(
     items: &Vec<Line>,
     constants: &ConstantsHolder,
 ) -> (Vec<VmInstr>, LabelMap) {

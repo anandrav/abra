@@ -2,7 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use crate::assembly::{Instr, Label, Line, LineVariant, Reg, remove_labels};
+use crate::assembly::{Instr, Label, Line, LineVariant, Reg, remove_labels_and_constants};
 use crate::ast::{ArgMaybeAnnotated, AstNode, BinaryOperator, FuncDef, InterfaceDef, ItemKind};
 use crate::ast::{FileAst, FileDatabase, NodeId};
 use crate::builtin::BuiltinOperation;
@@ -211,7 +211,7 @@ impl Translator {
 
         self.create_source_location_tables(&mut st);
         let constants = gather_constants(&st.lines);
-        let (instructions, _) = remove_labels(&st.lines, &constants);
+        let (instructions, _) = remove_labels_and_constants(&st.lines, &constants);
         let mut filename_arena = vec![];
         for file_data in self._files.files.iter() {
             filename_arena.push(file_data.name().to_string());
