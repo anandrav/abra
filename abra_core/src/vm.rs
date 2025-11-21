@@ -466,8 +466,6 @@ pub enum Instr {
     // Arithmetic
     AddInt(u16, u16, u16),
     AddIntImm(u16, u16, i16),
-    IncrementRegImm(i16, i16),
-    IncrementRegImmStk(i16, i16),
     SubtractInt,
     MultiplyInt,
     MulInt(u16, u16, u16),
@@ -1088,14 +1086,6 @@ impl Vm {
                     return false;
                 };
                 self.store_offset_or_top(dest, c);
-            }
-            Instr::IncrementRegImm(reg, n) => {
-                let a = self.load_offset(reg).get_int(self);
-                self.store_offset(reg, a.wrapping_add(n as i64)); // TODO: checked_add
-            }
-            Instr::IncrementRegImmStk(reg, n) => {
-                let a = self.load_offset(reg).get_int(self);
-                self.push(a.wrapping_add(n as i64)); // TODO: checked_add
             }
             Instr::SubtractInt => {
                 let b = self.pop_int();

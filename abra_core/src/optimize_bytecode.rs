@@ -24,9 +24,6 @@ fn optimization_pass(lines: Vec<Line>) -> Vec<Line> {
     while index < lines.len() {
         let curr = &lines[index];
 
-        if peephole4_helper(&lines, &mut index, &mut ret) {
-            continue;
-        }
         if peephole3_helper(&lines, &mut index, &mut ret) {
             continue;
         }
@@ -192,9 +189,9 @@ fn peephole2_helper(lines: &[Line], index: &mut usize, ret: &mut Vec<Line>) -> b
                         *index += 2;
                         true
                     }
-                    // LOAD(X) __(_, TOP, Offset(Y)) -> __(_, X, Offset(Y))
+                    // LOAD(X) __(_, TOP, Offset(Y) | Imm) -> __(_, X, Offset(Y) | Imm)
                     (Instr::LoadOffset(offset), instr2)
-                        if instr2.first_arg_is_top_and_second_arg_is_offset() =>
+                        if instr2.first_arg_is_top_and_second_arg_is_offset_or_imm() =>
                     {
                         ret.push(Line::Instr {
                             instr: instr2.clone().replace_first_arg(Reg::Offset(offset)),
@@ -214,6 +211,21 @@ fn peephole2_helper(lines: &[Line], index: &mut usize, ret: &mut Vec<Line>) -> b
                             func_id,
                         });
                         *index += 2;
+                        true
+                    }
+                    // PUSHINT(N) ADD_INT(_, _, TOP) -> ADD_INT_IMM(_, _, N)
+                    (instr1, instr2)
+                        if instr1.is_push_imm()
+                            && instr2.second_arg_is_top()
+                            && instr2.can_replace_second_arg_with_imm() =>
+                    {
+                        ret.push(Line::Instr {
+                            instr: instr2.clone().replace_second_arg_imm(instr1.get_imm()),
+                            lineno,
+                            file_id,
+                            func_id,
+                        });
+                        *index += 2; // TODO: doing + 2 everywhere is redundant and error prone. fix here and in other peephole functions
                         true
                     }
                     _ => false,
@@ -240,34 +252,6 @@ fn peephole3_helper(lines: &[Line], index: &mut usize, ret: &mut Vec<Line>) -> b
                 && let Line::Instr { instr: instr3, .. } = &lines[*index + 2]
             {
                 match (instr1, instr2, instr3) {
-                    // LOAD(X) PUSH(n) ADD_INT STORE(X) -> INCR_STK(X)
-                    (
-                        Instr::LoadOffset(reg1),
-                        Instr::PushInt(n),
-                        Instr::AddInt(Reg::Top, Reg::Top, Reg::Top),
-                    ) if fits_imm(*n) => {
-                        ret.push(Line::Instr {
-                            instr: Instr::IncrementRegImmStk(reg1, as_imm(*n)),
-                            lineno,
-                            file_id,
-                            func_id,
-                        });
-                        *index += 3;
-                        true
-                    }
-                    // LOAD(X) PUSH(n) SUB_INT STORE(X) -> INCR_STK(X)
-                    (Instr::LoadOffset(reg1), Instr::PushInt(n), Instr::SubtractInt)
-                        if fits_imm(-n) =>
-                    {
-                        ret.push(Line::Instr {
-                            instr: Instr::IncrementRegImmStk(reg1, as_imm(-n)),
-                            lineno,
-                            file_id,
-                            func_id,
-                        });
-                        *index += 3;
-                        true
-                    }
                     // LOAD LOAD GET_INDEX
                     (Instr::LoadOffset(reg1), Instr::LoadOffset(reg2), Instr::GetIdx) => {
                         ret.push(Line::Instr {
@@ -441,63 +425,6 @@ fn peephole3_helper(lines: &[Line], index: &mut usize, ret: &mut Vec<Line>) -> b
     }
 }
 
-fn peephole4_helper(lines: &[Line], index: &mut usize, ret: &mut Vec<Line>) -> bool {
-    match lines[*index].clone() {
-        Line::Label(_) => false,
-        Line::Instr {
-            instr: instr1,
-            lineno,
-            file_id,
-            func_id,
-        } => {
-            // WINDOW SIZE 4
-            if *index + 3 < lines.len()
-                && let Line::Instr { instr: instr2, .. } = &lines[*index + 1]
-                && let Line::Instr { instr: instr3, .. } = &lines[*index + 2]
-                && let Line::Instr { instr: instr4, .. } = &lines[*index + 3]
-            {
-                match (instr1, instr2, instr3, instr4) {
-                    // LOAD(X) PUSH(n) ADD_INT STORE(X) -> INCR(X)
-                    (
-                        Instr::LoadOffset(reg1),
-                        Instr::PushInt(n),
-                        Instr::AddInt(Reg::Top, Reg::Top, Reg::Top),
-                        Instr::StoreOffset(reg2),
-                    ) if reg1 == *reg2 && fits_imm(*n) => {
-                        ret.push(Line::Instr {
-                            instr: Instr::IncrementRegImm(reg1, as_imm(*n)),
-                            lineno,
-                            file_id,
-                            func_id,
-                        });
-                        *index += 4;
-                        true
-                    }
-                    // LOAD(X) PUSH(n) SUB_INT STORE(X) -> INCR(X)
-                    (
-                        Instr::LoadOffset(reg1),
-                        Instr::PushInt(n),
-                        Instr::SubtractInt,
-                        Instr::StoreOffset(reg2),
-                    ) if reg1 == *reg2 && fits_imm(-n) => {
-                        ret.push(Line::Instr {
-                            instr: Instr::IncrementRegImm(reg1, as_imm(-n)),
-                            lineno,
-                            file_id,
-                            func_id,
-                        });
-                        *index += 4;
-                        true
-                    }
-                    _ => false,
-                }
-            } else {
-                false
-            }
-        }
-    }
-}
-
 fn fits_imm(n: i64) -> bool {
     let n: Result<i16, _> = n.try_into();
     n.is_ok()
@@ -516,9 +443,10 @@ impl Instr {
             _ => false,
         }
     }
-    fn first_arg_is_top_and_second_arg_is_offset(&self) -> bool {
+    fn first_arg_is_top_and_second_arg_is_offset_or_imm(&self) -> bool {
         match self {
             Instr::AddInt(_, Reg::Top, Reg::Offset(_)) => true,
+            Instr::AddIntImm(_, Reg::Top, _) => true,
             Instr::MulInt(_, Reg::Top, Reg::Offset(_)) => true,
             Instr::LessThanInt(_, Reg::Top, Reg::Offset(_)) => true,
             _ => false,
@@ -528,6 +456,7 @@ impl Instr {
     fn dest_is_top(&self) -> bool {
         match self {
             Instr::AddInt(Reg::Top, _, _) => true,
+            Instr::AddIntImm(Reg::Top, _, _) => true,
             Instr::MulInt(Reg::Top, _, _) => true,
             Instr::LessThanInt(Reg::Top, _, _) => true,
             _ => false,
@@ -537,9 +466,10 @@ impl Instr {
     fn replace_first_arg(self, r1: Reg) -> Instr {
         match self {
             Instr::AddInt(dest, _, r2) => Instr::AddInt(dest, r1, r2),
+            Instr::AddIntImm(dest, _, r2) => Instr::AddIntImm(dest, r1, r2),
             Instr::MulInt(dest, _, r2) => Instr::MulInt(dest, r1, r2),
             Instr::LessThanInt(dest, _, r2) => Instr::LessThanInt(dest, r1, r2),
-            _ => self,
+            _ => panic!("can't replace first arg"),
         }
     }
 
@@ -548,16 +478,45 @@ impl Instr {
             Instr::AddInt(dest, r1, _) => Instr::AddInt(dest, r1, r2),
             Instr::MulInt(dest, r1, _) => Instr::MulInt(dest, r1, r2),
             Instr::LessThanInt(dest, r1, _) => Instr::LessThanInt(dest, r1, r2),
-            _ => self,
+            _ => panic!("can't replace second arg"),
         }
     }
 
     fn replace_dest(self, dest: Reg) -> Instr {
         match self {
             Instr::AddInt(_, r1, r2) => Instr::AddInt(dest, r1, r2),
+            Instr::AddIntImm(_, r1, r2) => Instr::AddIntImm(dest, r1, r2),
             Instr::MulInt(_, r1, r2) => Instr::MulInt(dest, r1, r2),
             Instr::LessThanInt(_, r1, r2) => Instr::LessThanInt(dest, r1, r2),
-            _ => self,
+            _ => panic!("can't replace dest"),
+        }
+    }
+
+    fn is_push_imm(&self) -> bool {
+        match self {
+            Instr::PushInt(n) => fits_imm(*n),
+            _ => false,
+        }
+    }
+
+    fn get_imm(&self) -> i16 {
+        match self {
+            Instr::PushInt(n) => as_imm(*n),
+            _ => panic!("can't get immediate"),
+        }
+    }
+
+    fn can_replace_second_arg_with_imm(&self) -> bool {
+        match self {
+            Instr::AddInt(..) => true,
+            _ => false,
+        }
+    }
+
+    fn replace_second_arg_imm(self, imm: i16) -> Instr {
+        match self {
+            Instr::AddInt(dest, r1, _) => Instr::AddIntImm(dest, r1, imm),
+            _ => panic!("can't replace second arg with immediate"),
         }
     }
 }
