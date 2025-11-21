@@ -432,46 +432,46 @@ fn as_imm(n: i64) -> i16 {
 
 impl Instr {
     fn second_arg_is_top(&self) -> bool {
-        match self {
-            Instr::AddInt(_, _, Reg::Top) => true,
-            Instr::SubInt(_, _, Reg::Top) => true,
-            Instr::MulInt(_, _, Reg::Top) => true,
-            Instr::LessThanInt(_, _, Reg::Top) => true,
-            Instr::EqualInt(_, _, Reg::Top) => true,
-            Instr::ArrayPush(_, Reg::Top) => true,
-            _ => false,
-        }
+        matches!(
+            self,
+            Instr::AddInt(_, _, Reg::Top)
+                | Instr::SubInt(_, _, Reg::Top)
+                | Instr::MulInt(_, _, Reg::Top)
+                | Instr::LessThanInt(_, _, Reg::Top)
+                | Instr::EqualInt(_, _, Reg::Top)
+                | Instr::ArrayPush(_, Reg::Top)
+        )
     }
     fn first_arg_is_top_and_second_arg_is_offset_or_imm(&self) -> bool {
-        match self {
-            Instr::AddInt(_, Reg::Top, Reg::Offset(_)) => true,
-            Instr::AddIntImm(_, Reg::Top, _) => true,
-            Instr::SubInt(_, Reg::Top, Reg::Offset(_)) => true,
-            Instr::SubIntImm(_, Reg::Top, _) => true,
-            Instr::MulInt(_, Reg::Top, Reg::Offset(_)) => true,
-            Instr::LessThanInt(_, Reg::Top, Reg::Offset(_)) => true,
-            Instr::LessThanIntImm(_, Reg::Top, _) => true,
-            Instr::EqualInt(_, Reg::Top, Reg::Offset(_)) => true,
-            Instr::EqualIntImm(_, Reg::Top, _) => true,
-            Instr::ArrayPush(Reg::Top, Reg::Offset(_)) => true,
-            Instr::ArrayPushImm(Reg::Top, _) => true,
-            _ => false,
-        }
+        matches!(
+            self,
+            Instr::AddInt(_, Reg::Top, Reg::Offset(_))
+                | Instr::AddIntImm(_, Reg::Top, _)
+                | Instr::SubInt(_, Reg::Top, Reg::Offset(_))
+                | Instr::SubIntImm(_, Reg::Top, _)
+                | Instr::MulInt(_, Reg::Top, Reg::Offset(_))
+                | Instr::LessThanInt(_, Reg::Top, Reg::Offset(_))
+                | Instr::LessThanIntImm(_, Reg::Top, _)
+                | Instr::EqualInt(_, Reg::Top, Reg::Offset(_))
+                | Instr::EqualIntImm(_, Reg::Top, _)
+                | Instr::ArrayPush(Reg::Top, Reg::Offset(_))
+                | Instr::ArrayPushImm(Reg::Top, _)
+        )
     }
 
     fn dest_is_top(&self) -> bool {
-        match self {
-            Instr::AddInt(Reg::Top, _, _) => true,
-            Instr::AddIntImm(Reg::Top, _, _) => true,
-            Instr::SubInt(Reg::Top, _, _) => true,
-            Instr::SubIntImm(Reg::Top, _, _) => true,
-            Instr::MulInt(Reg::Top, _, _) => true,
-            Instr::LessThanInt(Reg::Top, _, _) => true,
-            Instr::LessThanIntImm(Reg::Top, _, _) => true,
-            Instr::EqualInt(Reg::Top, _, _) => true,
-            Instr::EqualIntImm(Reg::Top, _, _) => true,
-            _ => false,
-        }
+        matches!(
+            self,
+            Instr::AddInt(Reg::Top, _, _)
+                | Instr::AddIntImm(Reg::Top, _, _)
+                | Instr::SubInt(Reg::Top, _, _)
+                | Instr::SubIntImm(Reg::Top, _, _)
+                | Instr::MulInt(Reg::Top, _, _)
+                | Instr::LessThanInt(Reg::Top, _, _)
+                | Instr::LessThanIntImm(Reg::Top, _, _)
+                | Instr::EqualInt(Reg::Top, _, _)
+                | Instr::EqualIntImm(Reg::Top, _, _)
+        )
     }
 
     fn replace_first_arg(self, r1: Reg) -> Instr {
@@ -535,14 +535,14 @@ impl Instr {
     }
 
     fn can_replace_second_arg_with_imm(&self) -> bool {
-        match self {
-            Instr::AddInt(..) => true,
-            Instr::SubInt(..) => true,
-            Instr::LessThanInt(..) => true,
-            Instr::EqualInt(..) => true,
-            Instr::ArrayPush(..) => true,
-            _ => false,
-        }
+        matches!(
+            self,
+            Instr::AddInt(..)
+                | Instr::SubInt(..)
+                | Instr::LessThanInt(..)
+                | Instr::EqualInt(..)
+                | Instr::ArrayPush(..)
+        )
     }
 
     fn replace_second_arg_imm(self, imm: i16) -> Instr {
