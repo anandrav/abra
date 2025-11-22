@@ -2,6 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 use crate::assembly::{Instr, Line, Reg};
+use crate::vm::AbraInt;
 
 pub(crate) fn optimize(lines: Vec<Line>) -> Vec<Line> {
     let mut len = lines.len();
@@ -616,7 +617,7 @@ impl Instr {
         }
     }
 
-    fn get_imm(&self) -> i64 {
+    fn get_imm(&self) -> AbraInt {
         match self {
             Instr::PushInt(n) => *n,
             // Instr::PushBool(b) => as_imm_bool(*b), // boolean immediates are represented as int immediates
@@ -644,7 +645,7 @@ impl Instr {
         )
     }
 
-    fn replace_second_arg_imm(self, imm: i64) -> Instr {
+    fn replace_second_arg_imm(self, imm: AbraInt) -> Instr {
         match self {
             Instr::AddInt(dest, r1, _) => Instr::AddIntImm(dest, r1, imm),
             Instr::SubInt(dest, r1, _) => Instr::SubIntImm(dest, r1, imm),
