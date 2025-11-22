@@ -170,7 +170,6 @@ print_string("hello world")
     let top = vm.top();
     assert_eq!(top.view_string(&vm), "hello world");
     vm.pop();
-    vm.push_nil();
     vm.clear_pending_host_func();
     vm.run();
     let top = vm.top();

@@ -25,19 +25,19 @@ pub mod ffi {
                     let tag = (vm_funcs.pop_int)(vm);
                     match tag {
                         0 => {
-                            (vm_funcs.pop_nil)(vm);
+                            (vm_funcs.pop)(vm);
                             KeyCode::Left
                         }
                         1 => {
-                            (vm_funcs.pop_nil)(vm);
+                            (vm_funcs.pop)(vm);
                             KeyCode::Right
                         }
                         2 => {
-                            (vm_funcs.pop_nil)(vm);
+                            (vm_funcs.pop)(vm);
                             KeyCode::Up
                         }
                         3 => {
-                            (vm_funcs.pop_nil)(vm);
+                            (vm_funcs.pop)(vm);
                             KeyCode::Down
                         }
                         4 => {
@@ -45,15 +45,15 @@ pub mod ffi {
                             KeyCode::Char(value)
                         }
                         5 => {
-                            (vm_funcs.pop_nil)(vm);
+                            (vm_funcs.pop)(vm);
                             KeyCode::Esc
                         }
                         6 => {
-                            (vm_funcs.pop_nil)(vm);
+                            (vm_funcs.pop)(vm);
                             KeyCode::Space
                         }
                         7 => {
-                            (vm_funcs.pop_nil)(vm);
+                            (vm_funcs.pop)(vm);
                             KeyCode::Other
                         }
                         _ => panic!("unexpected tag encountered: {tag}"),
@@ -64,19 +64,19 @@ pub mod ffi {
                 unsafe {
                     match self {
                         KeyCode::Left => {
-                            (vm_funcs.push_nil)(vm);
+                            (vm_funcs.push_int)(vm, 0);
                             (vm_funcs.construct_variant)(vm, 0);
                         }
                         KeyCode::Right => {
-                            (vm_funcs.push_nil)(vm);
+                            (vm_funcs.push_int)(vm, 0);
                             (vm_funcs.construct_variant)(vm, 1);
                         }
                         KeyCode::Up => {
-                            (vm_funcs.push_nil)(vm);
+                            (vm_funcs.push_int)(vm, 0);
                             (vm_funcs.construct_variant)(vm, 2);
                         }
                         KeyCode::Down => {
-                            (vm_funcs.push_nil)(vm);
+                            (vm_funcs.push_int)(vm, 0);
                             (vm_funcs.construct_variant)(vm, 3);
                         }
                         KeyCode::Char(value) => {
@@ -84,15 +84,15 @@ pub mod ffi {
                             (vm_funcs.construct_variant)(vm, 4);
                         }
                         KeyCode::Esc => {
-                            (vm_funcs.push_nil)(vm);
+                            (vm_funcs.push_int)(vm, 0);
                             (vm_funcs.construct_variant)(vm, 5);
                         }
                         KeyCode::Space => {
-                            (vm_funcs.push_nil)(vm);
+                            (vm_funcs.push_int)(vm, 0);
                             (vm_funcs.construct_variant)(vm, 6);
                         }
                         KeyCode::Other => {
-                            (vm_funcs.push_nil)(vm);
+                            (vm_funcs.push_int)(vm, 0);
                             (vm_funcs.construct_variant)(vm, 7);
                         }
                     }

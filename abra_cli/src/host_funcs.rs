@@ -40,9 +40,7 @@ pub enum HostFunctionRet {
 impl HostFunctionRet {
     pub(crate) fn into_vm(self, vm: &mut Vm) {
         match self {
-            HostFunctionRet::PrintString => {
-                ().to_vm(vm);
-            }
+            HostFunctionRet::PrintString => {}
             HostFunctionRet::Readline(out) => {
                 out.to_vm(vm);
             }

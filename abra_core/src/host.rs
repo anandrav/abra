@@ -195,16 +195,17 @@ pub enum HostFunctionRet {
         swrite!(output, "HostFunctionRet::{}{out} => {{", camel_name);
         let out_val = {
             match &*f.ret_type.kind {
-                TypeKind::Void => "()".to_string(),
                 TypeKind::Tuple(elems) => tuple_helper(elems),
                 _ => "out".into(),
             }
         };
-        swrite!(
-            output,
-            r#" {out_val}.to_vm(vm);
+        if *f.ret_type.kind != TypeKind::Void {
+            swrite!(
+                output,
+                r#" {out_val}.to_vm(vm);
                             "#
-        );
+            );
+        }
         output.push('}');
         output.push(',');
     }
@@ -265,10 +266,10 @@ fn add_items_from_ast(ast: &Rc<FileAst>, output: &mut String) {
                     output.push_str("vm.deconstruct_struct();");
                     for field in s.fields.iter() {
                         if matches!(&*field.ty.kind, TypeKind::Void) {
-                            output.push_str(
-                                r#"vm.pop();
-"#,
-                            );
+                            //                             output.push_str(
+                            //                                 r#"vm.pop();
+                            // "#,
+                            //                             );
                         } else {
                             let tyname = name_of_ty(&field.ty);
                             swrite!(
@@ -303,7 +304,7 @@ fn add_items_from_ast(ast: &Rc<FileAst>, output: &mut String) {
                     output.push('{');
                     for field in s.fields.iter() {
                         if matches!(&*field.ty.kind, TypeKind::Void) {
-                            output.push_str("(vm_funcs.push_nil)(vm);");
+                            // output.push_str("(vm_funcs.push_int)(vm, 0);"); // TODO: remove need for this dummy value
                         } else {
                             swrite!(
                                 output,
@@ -395,7 +396,7 @@ fn add_items_from_ast(ast: &Rc<FileAst>, output: &mut String) {
                             swrite!(output, "vm.construct_variant({i});");
                         } else {
                             swrite!(output, "{}::{} => {{", e.name.v, variant.ctor.v);
-                            output.push_str("vm.push_nil();");
+                            output.push_str("vm.push_int(0);"); // TODO: remove need for this dummy value
                             swrite!(output, "vm.construct_variant({i});");
                         }
                         output.push('}');
@@ -439,16 +440,6 @@ impl VmType for f64 {
 
     fn to_vm(self, vm: &mut Vm) {
         vm.push_float(self);
-    }
-}
-
-impl VmType for () {
-    fn from_vm(vm: &mut Vm) -> Self {
-        vm.pop();
-    }
-
-    fn to_vm(self, vm: &mut Vm) {
-        vm.push_nil();
     }
 }
 
@@ -497,7 +488,9 @@ where
                     vm.construct_variant(0);
                 }
                 None => {
-                    ().to_vm(vm);
+                    // TODO: remove need for this dummy value
+                    let nil: AbraInt = 0;
+                    nil.to_vm(vm);
                     vm.construct_variant(1);
                 }
             }

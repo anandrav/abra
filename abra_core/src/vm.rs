@@ -288,10 +288,6 @@ impl Vm {
         self.push(r);
     }
 
-    pub fn push_nil(&mut self) {
-        self.push(());
-    }
-
     pub fn push_bool(&mut self, b: bool) {
         self.push(b);
     }
@@ -604,12 +600,6 @@ impl Value {
 
     fn get_addr(&self, _vm: &Vm) -> ProgramCounter {
         ProgramCounter(self.0 as u32)
-    }
-}
-
-impl From<()> for Value {
-    fn from(_: ()) -> Self {
-        Self(0, false)
     }
 }
 
@@ -998,7 +988,7 @@ impl Vm {
         match instr {
             Instr::PushNil(n) => {
                 for _ in 0..n {
-                    self.push(());
+                    self.push(0);
                 }
             }
             Instr::PushInt(n) => {

@@ -151,7 +151,7 @@ pub mod ffi {
                             MyEnum::Bool(value)
                         }
                         2 => {
-                            (vm_funcs.pop_nil)(vm);
+                            (vm_funcs.pop)(vm);
                             MyEnum::Void
                         }
                         3 => {
@@ -174,7 +174,7 @@ pub mod ffi {
                             (vm_funcs.construct_variant)(vm, 1);
                         }
                         MyEnum::Void => {
-                            (vm_funcs.push_nil)(vm);
+                            (vm_funcs.push_int)(vm, 0);
                             (vm_funcs.construct_variant)(vm, 2);
                         }
                         MyEnum::String(value) => {

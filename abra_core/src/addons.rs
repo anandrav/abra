@@ -27,8 +27,6 @@ pub struct AbraVmFunctions {
     pub push_int: unsafe extern "C" fn(vm: *mut c_void, n: AbraInt),
     pub push_float: unsafe extern "C" fn(vm: *mut c_void, f: f64),
     pub push_bool: unsafe extern "C" fn(vm: *mut c_void, b: bool),
-    pub push_nil: unsafe extern "C" fn(vm: *mut c_void),
-    pub pop_nil: unsafe extern "C" fn(vm: *mut c_void),
     pub pop_int: unsafe extern "C" fn(vm: *mut c_void) -> AbraInt,
     pub pop_float: unsafe extern "C" fn(vm: *mut c_void) -> f64,
     pub pop_bool: unsafe extern "C" fn(vm: *mut c_void) -> bool,
@@ -48,8 +46,6 @@ pub const ABRA_VM_FUNCS: AbraVmFunctions = AbraVmFunctions {
     push_int: abra_vm_push_int,
     push_float: abra_vm_push_float,
     push_bool: abra_vm_push_bool,
-    push_nil: abra_vm_push_nil,
-    pop_nil: abra_vm_pop_nil,
     pop_int: abra_vm_pop_int,
     pop_float: abra_vm_pop_float,
     pop_bool: abra_vm_pop_bool,
@@ -87,22 +83,6 @@ unsafe extern "C" fn abra_vm_push_float(vm: *mut c_void, f: f64) {
 unsafe extern "C" fn abra_vm_push_bool(vm: *mut c_void, b: bool) {
     let vm = unsafe { (vm as *mut Vm).as_mut().unwrap() };
     vm.push_bool(b);
-}
-
-/// # Safety
-/// vm: *mut c_void must be valid and non-null
-#[unsafe(no_mangle)]
-unsafe extern "C" fn abra_vm_push_nil(vm: *mut c_void) {
-    let vm = unsafe { (vm as *mut Vm).as_mut().unwrap() };
-    vm.push_nil();
-}
-
-/// # Safety
-/// vm: *mut c_void must be valid and non-null
-#[unsafe(no_mangle)]
-unsafe extern "C" fn abra_vm_pop_nil(vm: *mut c_void) {
-    let vm = unsafe { (vm as *mut Vm).as_mut().unwrap() };
-    vm.pop();
 }
 
 /// # Safety
@@ -485,7 +465,7 @@ fn add_items_from_ast(ast: Rc<FileAst>, output: &mut String) {
                             );
                             swrite!(output, "{}::{}(value)", e.name.v, variant.ctor.v);
                         } else {
-                            output.push_str("(vm_funcs.pop_nil)(vm);");
+                            output.push_str("(vm_funcs.pop)(vm);");
                             swrite!(output, "{}::{}", e.name.v, variant.ctor.v);
                         }
                         output.push('}');
@@ -511,7 +491,7 @@ fn add_items_from_ast(ast: Rc<FileAst>, output: &mut String) {
                             swrite!(output, "(vm_funcs.construct_variant)(vm, {i});");
                         } else {
                             swrite!(output, "{}::{} => {{", e.name.v, variant.ctor.v);
-                            output.push_str("(vm_funcs.push_nil)(vm);");
+                            output.push_str("(vm_funcs.push_int)(vm, 0);"); // TODO: remove need for this dummy value
                             swrite!(output, "(vm_funcs.construct_variant)(vm, {i});");
                         }
                         output.push('}');
@@ -738,18 +718,6 @@ impl VmFfiType for f64 {
     }
 }
 
-impl VmFfiType for () {
-    unsafe fn from_vm_unsafe(vm: *mut c_void, vm_funcs: &AbraVmFunctions) -> Self {
-        unsafe { (vm_funcs.pop)(vm) }
-    }
-
-    unsafe fn to_vm_unsafe(self, vm: *mut c_void, vm_funcs: &AbraVmFunctions) {
-        unsafe {
-            (vm_funcs.push_nil)(vm);
-        }
-    }
-}
-
 impl VmFfiType for bool {
     unsafe fn from_vm_unsafe(vm: *mut c_void, vm_funcs: &AbraVmFunctions) -> Self {
         unsafe { (vm_funcs.pop_bool)(vm) }
@@ -807,7 +775,9 @@ where
                     (vm_funcs.construct_variant)(vm, 0);
                 }
                 None => {
-                    ().to_vm_unsafe(vm, vm_funcs);
+                    // TODO: remove need for this dummy value
+                    let nil: AbraInt = 0;
+                    nil.to_vm_unsafe(vm, vm_funcs);
                     (vm_funcs.construct_variant)(vm, 1);
                 }
             }

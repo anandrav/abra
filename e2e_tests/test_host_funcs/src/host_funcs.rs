@@ -64,9 +64,7 @@ impl HostFunctionRet {
             HostFunctionRet::Foo(out) => {
                 out.to_vm(vm);
             }
-            HostFunctionRet::PrintString => {
-                ().to_vm(vm);
-            }
+            HostFunctionRet::PrintString => {}
             HostFunctionRet::Readline(out) => {
                 out.to_vm(vm);
             }
@@ -105,15 +103,15 @@ impl VmType for Color {
         {
             match self {
                 Color::Red => {
-                    vm.push_nil();
+                    vm.push_int(0);
                     vm.construct_variant(0);
                 }
                 Color::Blue => {
-                    vm.push_nil();
+                    vm.push_int(0);
                     vm.construct_variant(1);
                 }
                 Color::Green => {
-                    vm.push_nil();
+                    vm.push_int(0);
                     vm.construct_variant(2);
                 }
             }
