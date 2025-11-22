@@ -52,7 +52,7 @@ fn main() {
       needs_redraw = false
     }
 
-    while poll_key_event() {
+    while poll_key_event(1) {
       let key = get_key_event()
       match key {
         .Char("q") -> quit = true,

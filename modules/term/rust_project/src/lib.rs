@@ -13,6 +13,7 @@ pub mod ffi {
             Down,
             Char(String),
             Esc,
+            Space,
             Other,
         }
         impl VmFfiType for KeyCode {
@@ -47,6 +48,10 @@ pub mod ffi {
                         }
                         6 => {
                             (vm_funcs.pop_nil)(vm);
+                            KeyCode::Space
+                        }
+                        7 => {
+                            (vm_funcs.pop_nil)(vm);
                             KeyCode::Other
                         }
                         _ => panic!("unexpected tag encountered: {tag}"),
@@ -80,9 +85,13 @@ pub mod ffi {
                             (vm_funcs.push_nil)(vm);
                             (vm_funcs.construct_variant)(vm, 5);
                         }
-                        KeyCode::Other => {
+                        KeyCode::Space => {
                             (vm_funcs.push_nil)(vm);
                             (vm_funcs.construct_variant)(vm, 6);
+                        }
+                        KeyCode::Other => {
+                            (vm_funcs.push_nil)(vm);
+                            (vm_funcs.construct_variant)(vm, 7);
                         }
                     }
                 }
@@ -121,7 +130,8 @@ pub mod ffi {
         ) {
             unsafe {
                 let _vm_funcs: &AbraVmFunctions = &*vm_funcs;
-                let ret: bool = term::poll_key_event();
+                let milliseconds = <i64>::from_vm_unsafe(_vm, _vm_funcs);
+                let ret: bool = term::poll_key_event(milliseconds);
                 ret.to_vm_unsafe(_vm, _vm_funcs);
             }
         }

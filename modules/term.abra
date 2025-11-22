@@ -12,7 +12,7 @@ foreign fn enable_raw_mode() -> void
 
 foreign fn disable_raw_mode() -> void
 
-foreign fn poll_key_event() -> bool
+foreign fn poll_key_event(milliseconds: int) -> bool
 
 foreign fn get_key_event() -> KeyCode
 

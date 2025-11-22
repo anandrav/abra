@@ -2,19 +2,24 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use std::{
-    io::{Write, stdout},
-    time::Duration,
-};
+use std::io::Write;
+use std::io::stdout;
+use std::time::Duration;
+
+use crossterm::cursor;
+use crossterm::event::Event;
+use crossterm::event::KeyCode as CtKeyCode;
+use crossterm::event::KeyEvent as CtKeyEvent;
+use crossterm::event::poll;
+use crossterm::event::read;
+use crossterm::queue;
+use crossterm::style::{self};
+use crossterm::terminal::Clear;
+use crossterm::terminal::ClearType;
+use crossterm::terminal::size;
+use crossterm::terminal::{self};
 
 use crate::ffi::term::KeyCode;
-use crossterm::{
-    cursor,
-    event::{Event, KeyCode as CtKeyCode, KeyEvent as CtKeyEvent, poll, read},
-    queue,
-    style::{self},
-    terminal::{self, Clear, ClearType, size},
-};
 
 pub fn enable_raw_mode() {
     terminal::enable_raw_mode().unwrap();
@@ -24,9 +29,9 @@ pub fn disable_raw_mode() {
     terminal::disable_raw_mode().unwrap();
 }
 
-pub fn poll_key_event() -> bool {
+pub fn poll_key_event(milliseconds: i64) -> bool {
     let mut ret = false;
-    if poll(Duration::from_millis(0)).unwrap() {
+    if poll(Duration::from_millis(milliseconds as u64)).unwrap() {
         ret = true;
     }
 

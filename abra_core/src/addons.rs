@@ -297,14 +297,33 @@ pub fn generate_bindings_for_crate() {
 
     std::fs::write(&output_path, output).unwrap();
 
-    // let status = std::process::Command::new("rustfmt")
-    //     .arg(&output_path)
-    //     .status()
-    //     .expect("failed to run rustfmt");
-    // if !status.success() {
-    //     panic!("rustfmt failed on {output_path:?}");
-    // }
+    let status = std::process::Command::new("cargo")
+        .arg("+nightly")
+        .arg("fmt")
+        .arg("--")
+        .arg("--unstable-features")
+        .arg("--skip-children")
+        .arg("src/lib.rs")
+        .status();
+    match status {
+        Ok(status) => {
+            if !status.success() {
+                println!(
+                    "cargo:warning=Failed to format src/lib.rs. {}. command: cargo +nightly fmt -- --unstable-features --skip-children src/lib.rs",
+                    status
+                );
+            }
+        }
+        Err(e) => {
+            println!(
+                "cargo:warning=Failed to format src/lib.rs. error={}. command run: cargo +nightly fmt -- --unstable-features --skip-children src/lib.rs",
+                e
+            );
+        }
+    }
 }
+
+pub fn format_bindings_for_crate() {}
 
 fn write_header(output: &mut String, package_name: &str) {
     swrite!(
