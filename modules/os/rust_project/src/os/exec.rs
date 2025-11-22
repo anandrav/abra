@@ -2,9 +2,10 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+use abra_core::vm::AbraInt;
 use std::process::Command;
 
-pub fn command(content: String) -> i64 {
+pub fn command(content: String) -> AbraInt {
     let content_elems: Vec<_> = content.split(' ').collect();
 
     let mut cmd = Command::new(content_elems[0]);
@@ -19,6 +20,6 @@ pub fn command(content: String) -> i64 {
             eprint!("{}", String::from_utf8_lossy(&output.stderr));
             0
         }
-        Err(err) => err.raw_os_error().unwrap() as i64,
+        Err(err) => err.raw_os_error().unwrap() as AbraInt,
     }
 }

@@ -3,7 +3,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use crate::translate_bytecode::{ConstantsHolder, LabelMap, Translator, TranslatorState};
-use crate::vm::{CallData, Instr as VmInstr, ProgramCounter};
+use crate::vm::{AbraInt, CallData, Instr as VmInstr, ProgramCounter};
 use std::fmt::{self, Display, Formatter};
 use utils::hash::HashMap;
 
@@ -64,39 +64,39 @@ pub enum Instr {
     Duplicate,
     LoadOffset(i16),
     StoreOffset(i16),
-    StoreOffsetImm(i16, i64),
+    StoreOffsetImm(i16, AbraInt),
 
     // Constants
     PushNil(u16),
     PushBool(bool),
-    PushInt(i64),
+    PushInt(AbraInt),
     PushFloat(String),
     PushString(String),
 
     // Arithmetic
     AddInt(Reg, Reg, Reg),
-    AddIntImm(Reg, Reg, i64),
+    AddIntImm(Reg, Reg, AbraInt),
     SubInt(Reg, Reg, Reg),
-    SubIntImm(Reg, Reg, i64),
+    SubIntImm(Reg, Reg, AbraInt),
     MulInt(Reg, Reg, Reg),
-    MulIntImm(Reg, Reg, i64),
+    MulIntImm(Reg, Reg, AbraInt),
     DivInt(Reg, Reg, Reg),
-    DivIntImm(Reg, Reg, i64),
+    DivIntImm(Reg, Reg, AbraInt),
     PowInt(Reg, Reg, Reg),
-    PowIntImm(Reg, Reg, i64),
+    PowIntImm(Reg, Reg, AbraInt),
     Modulo(Reg, Reg, Reg),
-    ModuloImm(Reg, Reg, i64),
+    ModuloImm(Reg, Reg, AbraInt),
 
     AddFloat(Reg, Reg, Reg),
-    AddFloatImm(Reg, Reg, i64),
+    AddFloatImm(Reg, Reg, AbraInt),
     SubFloat(Reg, Reg, Reg),
-    SubFloatImm(Reg, Reg, i64),
+    SubFloatImm(Reg, Reg, AbraInt),
     MulFloat(Reg, Reg, Reg),
-    MulFloatImm(Reg, Reg, i64),
+    MulFloatImm(Reg, Reg, AbraInt),
     DivFloat(Reg, Reg, Reg),
-    DivFloatImm(Reg, Reg, i64),
+    DivFloatImm(Reg, Reg, AbraInt),
     PowFloat(Reg, Reg, Reg),
-    PowFloatImm(Reg, Reg, i64),
+    PowFloatImm(Reg, Reg, AbraInt),
 
     SquareRoot,
 
@@ -107,7 +107,7 @@ pub enum Instr {
 
     // Comparison
     LessThanInt(Reg, Reg, Reg),
-    LessThanIntImm(Reg, Reg, i64),
+    LessThanIntImm(Reg, Reg, AbraInt),
     LessThanOrEqualInt,
     GreaterThanInt,
     GreaterThanOrEqualInt,
@@ -116,7 +116,7 @@ pub enum Instr {
     GreaterThanFloat,
     GreaterThanOrEqualFloat,
     EqualInt(Reg, Reg, Reg),
-    EqualIntImm(Reg, Reg, i64),
+    EqualIntImm(Reg, Reg, AbraInt),
     EqualFloat,
     EqualBool,
     EqualString, // TODO: this is O(N). Must use smaller instructions. Or compare character-by-character and save progress in state of Vm
@@ -147,7 +147,7 @@ pub enum Instr {
     MakeClosure { func_addr: Label },
 
     ArrayPush(Reg, Reg),
-    ArrayPushIntImm(Reg, i64),
+    ArrayPushIntImm(Reg, AbraInt),
     ArrayLength,
     ArrayPop,
     ConcatStrings, // TODO: this is O(N). Must use smaller instructions. Or concat character-by-character and save progress in Vm
@@ -608,7 +608,7 @@ fn instr_to_vminstr(
 //             Instr::PushBool(b)
 //         }
 //         "push_int" => {
-//             let n = i64::from_str_radix(words[1], radix).unwrap();
+//             let n = AbraInt::from_str_radix(words[1], radix).unwrap();
 //             Instr::PushInt(n)
 //         }
 //         "push_string" => {

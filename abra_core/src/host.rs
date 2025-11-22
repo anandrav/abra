@@ -1,6 +1,6 @@
 use crate::addons::name_of_ty;
 use crate::ast::{FileAst, ItemKind, Type, TypeDefKind, TypeKind};
-use crate::vm::Vm;
+use crate::vm::{AbraInt, Vm};
 use crate::{ErrorSummary, FileProvider, get_files, statics};
 use std::path::Path;
 use std::process::Command;
@@ -422,7 +422,7 @@ pub trait VmType {
     fn to_vm(self, vm: &mut Vm);
 }
 
-impl VmType for i64 {
+impl VmType for AbraInt {
     fn from_vm(vm: &mut Vm) -> Self {
         vm.pop_int()
     }

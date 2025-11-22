@@ -72,7 +72,7 @@ struct EnclosingLoop {
 
 #[derive(Default)]
 pub(crate) struct ConstantsHolder {
-    pub(crate) int_constants: IdSet<i64>,
+    pub(crate) int_constants: IdSet<AbraInt>,
     pub(crate) float_constants: IdSet<String>,
     pub(crate) string_constants: IdSet<String>,
 }
@@ -118,7 +118,7 @@ fn gather_constants(lines: &Vec<Line>) -> ConstantsHolder {
 #[derive(Debug, Clone)]
 pub struct CompiledProgram {
     pub(crate) instructions: Vec<VmInstr>,
-    pub(crate) int_constants: Vec<i64>,
+    pub(crate) int_constants: Vec<AbraInt>,
     pub(crate) float_constants: Vec<f64>,
     pub(crate) static_strings: Vec<String>,
     // debug data

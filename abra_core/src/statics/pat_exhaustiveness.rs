@@ -8,12 +8,12 @@ use crate::ast::{
 
 use core::panic;
 
+use super::typecheck::Nominal;
+use super::{Declaration, EnumDef, Error, SolvedType, StaticsContext, TypeKind};
+use crate::vm::AbraInt;
 use std::fmt::{self, Display};
 use std::rc::Rc;
 use utils::hash::HashSet;
-
-use super::typecheck::Nominal;
-use super::{Declaration, EnumDef, Error, SolvedType, StaticsContext, TypeKind};
 
 pub(crate) fn check_pattern_exhaustiveness_and_usefulness(
     ctx: &mut StaticsContext,
@@ -488,7 +488,7 @@ impl Display for DeconstructedPat {
 enum Constructor {
     Wildcard(WildcardReason), // user-created wildcard pattern
     Bool(bool),
-    Int(i64),
+    Int(AbraInt),
     Float(String),
     String(String),
     Product, // tuples, including unit

@@ -2,6 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+use crate::vm::AbraInt;
 use std::fmt::Display;
 use std::hash::Hasher;
 use std::ops::Range;
@@ -472,7 +473,7 @@ impl Expr {
 pub(crate) enum ExprKind {
     Variable(String),
     Void,
-    Int(i64),
+    Int(AbraInt),
     Float(String), // Float is represented as String to allow Eq and Hash
     Bool(bool),
     Str(String),
@@ -559,7 +560,7 @@ pub(crate) enum PatKind {
     Binding(String),
     Variant(Vec<Rc<Identifier>>, Rc<Identifier>, Option<Rc<Pat>>),
     Void,
-    Int(i64),
+    Int(AbraInt),
     Float(String),
     Bool(bool),
     Str(String),

@@ -4,7 +4,7 @@
 
 // Rust addon API
 
-use crate::vm::Vm;
+use crate::vm::{AbraInt, Vm};
 use crate::{
     FileAst, FileData, ItemKind,
     ast::{FileDatabase, Type, TypeDefKind, TypeKind},
@@ -24,12 +24,12 @@ use utils::swrite;
 //
 #[repr(C)]
 pub struct AbraVmFunctions {
-    pub push_int: unsafe extern "C" fn(vm: *mut c_void, n: i64),
+    pub push_int: unsafe extern "C" fn(vm: *mut c_void, n: AbraInt),
     pub push_float: unsafe extern "C" fn(vm: *mut c_void, f: f64),
     pub push_bool: unsafe extern "C" fn(vm: *mut c_void, b: bool),
     pub push_nil: unsafe extern "C" fn(vm: *mut c_void),
     pub pop_nil: unsafe extern "C" fn(vm: *mut c_void),
-    pub pop_int: unsafe extern "C" fn(vm: *mut c_void) -> i64,
+    pub pop_int: unsafe extern "C" fn(vm: *mut c_void) -> AbraInt,
     pub pop_float: unsafe extern "C" fn(vm: *mut c_void) -> f64,
     pub pop_bool: unsafe extern "C" fn(vm: *mut c_void) -> bool,
     pub pop: unsafe extern "C" fn(vm: *mut c_void),
@@ -68,7 +68,7 @@ pub const ABRA_VM_FUNCS: AbraVmFunctions = AbraVmFunctions {
 /// # Safety
 /// vm: *mut c_void must be valid and non-null
 #[unsafe(no_mangle)]
-unsafe extern "C" fn abra_vm_push_int(vm: *mut c_void, n: i64) {
+unsafe extern "C" fn abra_vm_push_int(vm: *mut c_void, n: AbraInt) {
     let vm = unsafe { (vm as *mut Vm).as_mut().unwrap() };
     vm.push_int(n);
 }
@@ -108,7 +108,7 @@ unsafe extern "C" fn abra_vm_pop_nil(vm: *mut c_void) {
 /// # Safety
 /// vm: *mut c_void must be valid and non-null
 #[unsafe(no_mangle)]
-unsafe extern "C" fn abra_vm_pop_int(vm: *mut c_void) -> i64 {
+unsafe extern "C" fn abra_vm_pop_int(vm: *mut c_void) -> AbraInt {
     let vm = unsafe { (vm as *mut Vm).as_mut().unwrap() };
     let top = vm.top().get_int(vm);
     vm.pop();
@@ -335,6 +335,8 @@ pub mod ffi {{
     pub mod {package_name} {{
     use crate::{package_name};
     use abra_core::addons::*;
+    #[allow(unused)]
+    use abra_core::vm::AbraInt;
     use std::ffi::c_void;
     "#
     )
@@ -600,7 +602,7 @@ pub(crate) fn name_of_ty(ty: &Rc<Type>) -> String {
     match &*ty.kind {
         TypeKind::Bool => "bool".to_string(),
         TypeKind::Float => "f64".to_string(),
-        TypeKind::Int => "i64".to_string(),
+        TypeKind::Int => "AbraInt".to_string(),
         TypeKind::Str => "String".to_string(),
         TypeKind::Void => "()".to_string(),
         TypeKind::Tuple(elems) => {
@@ -665,6 +667,8 @@ fn find_abra_files(
                     r#" pub mod {no_extension} {{
                         use crate::{crate_import};
                         use abra_core::addons::*;
+                        #[allow(unused)]
+                        use abra_core::vm::AbraInt;
                         use std::ffi::c_void;
                         "#
                 ));
@@ -710,7 +714,7 @@ pub trait VmFfiType {
     unsafe fn to_vm_unsafe(self, vm: *mut c_void, vm_funcs: &AbraVmFunctions);
 }
 
-impl VmFfiType for i64 {
+impl VmFfiType for AbraInt {
     unsafe fn from_vm_unsafe(vm: *mut c_void, vm_funcs: &AbraVmFunctions) -> Self {
         unsafe { (vm_funcs.pop_int)(vm) }
     }

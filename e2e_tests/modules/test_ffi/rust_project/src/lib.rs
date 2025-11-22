@@ -5,6 +5,8 @@ pub mod ffi {
     pub mod test_ffi {
         use crate::test_ffi;
         use abra_core::addons::*;
+        #[allow(unused)]
+        use abra_core::vm::AbraInt;
         use std::ffi::c_void;
         /// # Safety
         /// `vm` must be non-null and valid.
@@ -12,8 +14,8 @@ pub mod ffi {
         pub unsafe extern "C" fn pass_int(_vm: *mut c_void, vm_funcs: *const AbraVmFunctions) {
             unsafe {
                 let _vm_funcs: &AbraVmFunctions = &*vm_funcs;
-                let i = <i64>::from_vm_unsafe(_vm, _vm_funcs);
-                let ret: i64 = test_ffi::pass_int(i);
+                let i = <AbraInt>::from_vm_unsafe(_vm, _vm_funcs);
+                let ret: AbraInt = test_ffi::pass_int(i);
                 ret.to_vm_unsafe(_vm, _vm_funcs);
             }
         }
@@ -76,8 +78,8 @@ pub mod ffi {
         pub unsafe extern "C" fn pass_tuple(_vm: *mut c_void, vm_funcs: *const AbraVmFunctions) {
             unsafe {
                 let _vm_funcs: &AbraVmFunctions = &*vm_funcs;
-                let e = <(bool, i64, String)>::from_vm_unsafe(_vm, _vm_funcs);
-                let ret: (bool, i64, String) = test_ffi::pass_tuple(e);
+                let e = <(bool, AbraInt, String)>::from_vm_unsafe(_vm, _vm_funcs);
+                let ret: (bool, AbraInt, String) = test_ffi::pass_tuple(e);
                 ret.to_vm_unsafe(_vm, _vm_funcs);
             }
         }
@@ -98,13 +100,13 @@ pub mod ffi {
         pub unsafe extern "C" fn pass_array(_vm: *mut c_void, vm_funcs: *const AbraVmFunctions) {
             unsafe {
                 let _vm_funcs: &AbraVmFunctions = &*vm_funcs;
-                let a = <Vec<i64>>::from_vm_unsafe(_vm, _vm_funcs);
-                let ret: Vec<i64> = test_ffi::pass_array(a);
+                let a = <Vec<AbraInt>>::from_vm_unsafe(_vm, _vm_funcs);
+                let ret: Vec<AbraInt> = test_ffi::pass_array(a);
                 ret.to_vm_unsafe(_vm, _vm_funcs);
             }
         }
         pub struct MyStruct {
-            pub i: i64,
+            pub i: AbraInt,
             pub b: bool,
             pub v: (),
             pub s: String,
@@ -113,7 +115,7 @@ pub mod ffi {
             unsafe fn from_vm_unsafe(vm: *mut c_void, vm_funcs: &AbraVmFunctions) -> Self {
                 unsafe {
                     (vm_funcs.deconstruct_struct)(vm);
-                    let i = <i64>::from_vm_unsafe(vm, vm_funcs);
+                    let i = <AbraInt>::from_vm_unsafe(vm, vm_funcs);
                     let b = <bool>::from_vm_unsafe(vm, vm_funcs);
                     let s = <String>::from_vm_unsafe(vm, vm_funcs);
                     Self { i, b, v: (), s }
@@ -129,7 +131,7 @@ pub mod ffi {
             }
         }
         pub enum MyEnum {
-            Int(i64),
+            Int(AbraInt),
             Bool(bool),
             Void,
             String(String),
@@ -141,7 +143,7 @@ pub mod ffi {
                     let tag = (vm_funcs.pop_int)(vm);
                     match tag {
                         0 => {
-                            let value: i64 = <i64>::from_vm_unsafe(vm, vm_funcs);
+                            let value: AbraInt = <AbraInt>::from_vm_unsafe(vm, vm_funcs);
                             MyEnum::Int(value)
                         }
                         1 => {

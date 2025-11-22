@@ -1,10 +1,10 @@
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
-
 use crate::ffi::test_ffi::*;
+use abra_core::vm::AbraInt;
 
-pub fn pass_int(i: i64) -> i64 {
+pub fn pass_int(i: AbraInt) -> AbraInt {
     i
 }
 
@@ -28,7 +28,7 @@ pub fn pass_enum(s: MyEnum) -> MyEnum {
     s
 }
 
-pub fn pass_tuple(t: (bool, i64, String)) -> (bool, i64, String) {
+pub fn pass_tuple(t: (bool, AbraInt, String)) -> (bool, AbraInt, String) {
     t
 }
 
@@ -36,6 +36,6 @@ pub fn pass_option(o: Option<String>) -> Option<String> {
     o
 }
 
-pub fn pass_array(a: Vec<i64>) -> Vec<i64> {
+pub fn pass_array(a: Vec<AbraInt>) -> Vec<AbraInt> {
     a
 }

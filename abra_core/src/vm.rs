@@ -42,7 +42,7 @@ pub struct Vm {
     gc_debt: usize,
     last_gc_heap_size: usize,
     // constants
-    int_constants: Vec<i64>,
+    int_constants: Vec<AbraInt>,
     float_constants: Vec<f64>,
     static_strings: Vec<*mut StringObject>,
     // source map
@@ -1030,7 +1030,7 @@ impl Vm {
                 self.store_offset(n, v);
             }
             Instr::StoreOffsetImm(n, imm) => {
-                let imm = AbraInt::from(imm as i64);
+                let imm = AbraInt::from(imm as AbraInt);
                 self.store_offset(n, self.int_constants[imm as usize]);
             }
             Instr::AddInt(dest, reg1, reg2) => {
@@ -1467,7 +1467,7 @@ impl Vm {
             }
             Instr::FloatToInt => {
                 let f = self.top().get_float(self);
-                let n = f as i64;
+                let n = f as AbraInt;
                 self.set_top(n);
             }
             Instr::IntToString => {

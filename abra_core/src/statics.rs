@@ -67,10 +67,6 @@ pub(crate) struct StaticsContext {
     pub(crate) for_loop_make_iterator_types: HashMap<NodeId, SolvedType>,
     pub(crate) for_loop_next_types: HashMap<NodeId, SolvedType>,
 
-    // string constants (for bytecode translation)
-    // pub(crate) int_constants: IdSet<i64>,
-    // pub(crate) float_constants: IdSet<String>,
-    // pub(crate) string_constants: IdSet<String>,
     // dylibs (for bytecode translation)
     pub(crate) dylibs: IdSet<PathBuf>,
     pub(crate) dylib_to_funcs: HashMap<u32, IdSet<String>>,

@@ -6,6 +6,8 @@ use std::io::Write;
 use std::io::stdout;
 use std::time::Duration;
 
+use crate::ffi::term::KeyCode;
+use abra_core::vm::AbraInt;
 use crossterm::cursor;
 use crossterm::event::Event;
 use crossterm::event::KeyCode as CtKeyCode;
@@ -19,8 +21,6 @@ use crossterm::terminal::ClearType;
 use crossterm::terminal::size;
 use crossterm::terminal::{self};
 
-use crate::ffi::term::KeyCode;
-
 pub fn enable_raw_mode() {
     terminal::enable_raw_mode().unwrap();
 }
@@ -29,7 +29,7 @@ pub fn disable_raw_mode() {
     terminal::disable_raw_mode().unwrap();
 }
 
-pub fn poll_key_event(milliseconds: i64) -> bool {
+pub fn poll_key_event(milliseconds: AbraInt) -> bool {
     let mut ret = false;
     if poll(Duration::from_millis(milliseconds as u64)).unwrap() {
         ret = true;
@@ -75,7 +75,7 @@ pub fn show_cursor() {
     queue!(stdout, cursor::Show).unwrap();
 }
 
-pub fn mark(s: String, x: i64, y: i64) {
+pub fn mark(s: String, x: AbraInt, y: AbraInt) {
     let Ok(x) = u16::try_from(x) else {
         return;
     };
@@ -96,9 +96,9 @@ pub fn flush() {
     stdout().flush().unwrap();
 }
 
-pub fn get_size() -> Option<(i64, i64)> {
+pub fn get_size() -> Option<(AbraInt, AbraInt)> {
     match size() {
-        Ok((columns, rows)) => Some((columns as i64, rows as i64)),
+        Ok((columns, rows)) => Some((columns as AbraInt, rows as AbraInt)),
         Err(_) => None,
     }
 }

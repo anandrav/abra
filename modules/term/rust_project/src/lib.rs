@@ -5,6 +5,8 @@ pub mod ffi {
     pub mod term {
         use crate::term;
         use abra_core::addons::*;
+        #[allow(unused)]
+        use abra_core::vm::AbraInt;
         use std::ffi::c_void;
         pub enum KeyCode {
             Left,
@@ -130,7 +132,7 @@ pub mod ffi {
         ) {
             unsafe {
                 let _vm_funcs: &AbraVmFunctions = &*vm_funcs;
-                let milliseconds = <i64>::from_vm_unsafe(_vm, _vm_funcs);
+                let milliseconds = <AbraInt>::from_vm_unsafe(_vm, _vm_funcs);
                 let ret: bool = term::poll_key_event(milliseconds);
                 ret.to_vm_unsafe(_vm, _vm_funcs);
             }
@@ -178,8 +180,8 @@ pub mod ffi {
         pub unsafe extern "C" fn mark(_vm: *mut c_void, vm_funcs: *const AbraVmFunctions) {
             unsafe {
                 let _vm_funcs: &AbraVmFunctions = &*vm_funcs;
-                let y = <i64>::from_vm_unsafe(_vm, _vm_funcs);
-                let x = <i64>::from_vm_unsafe(_vm, _vm_funcs);
+                let y = <AbraInt>::from_vm_unsafe(_vm, _vm_funcs);
+                let x = <AbraInt>::from_vm_unsafe(_vm, _vm_funcs);
                 let s = <String>::from_vm_unsafe(_vm, _vm_funcs);
                 term::mark(s, x, y);
             }
@@ -199,7 +201,7 @@ pub mod ffi {
         pub unsafe extern "C" fn get_size(_vm: *mut c_void, vm_funcs: *const AbraVmFunctions) {
             unsafe {
                 let _vm_funcs: &AbraVmFunctions = &*vm_funcs;
-                let ret: Option<(i64, i64)> = term::get_size();
+                let ret: Option<(AbraInt, AbraInt)> = term::get_size();
                 ret.to_vm_unsafe(_vm, _vm_funcs);
             }
         }

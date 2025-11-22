@@ -5,6 +5,8 @@ pub mod ffi {
     pub mod os {
         use crate::os;
         use abra_core::addons::*;
+        #[allow(unused)]
+        use abra_core::vm::AbraInt;
         use std::ffi::c_void;
         /// # Safety
         /// `vm` must be non-null and valid.
@@ -85,6 +87,8 @@ pub mod ffi {
         pub mod exec {
             use crate::os::exec;
             use abra_core::addons::*;
+            #[allow(unused)]
+            use abra_core::vm::AbraInt;
             use std::ffi::c_void;
             /// # Safety
             /// `vm` must be non-null and valid.
@@ -93,7 +97,7 @@ pub mod ffi {
                 unsafe {
                     let _vm_funcs: &AbraVmFunctions = &*vm_funcs;
                     let s = <String>::from_vm_unsafe(_vm, _vm_funcs);
-                    let ret: i64 = exec::command(s);
+                    let ret: AbraInt = exec::command(s);
                     ret.to_vm_unsafe(_vm, _vm_funcs);
                 }
             }
@@ -101,6 +105,8 @@ pub mod ffi {
         pub mod env {
             use crate::os::env;
             use abra_core::addons::*;
+            #[allow(unused)]
+            use abra_core::vm::AbraInt;
             use std::ffi::c_void;
             /// # Safety
             /// `vm` must be non-null and valid.

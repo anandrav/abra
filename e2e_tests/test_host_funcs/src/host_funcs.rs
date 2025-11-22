@@ -22,8 +22,8 @@ impl From<u16> for HostFunction {
     }
 }
 pub enum HostFunctionArgs {
-    Bar(i64, i64),
-    Foo(i64, String),
+    Bar(AbraInt, AbraInt),
+    Foo(AbraInt, String),
     PrintString(String),
     Readline,
 }
@@ -31,13 +31,13 @@ impl HostFunctionArgs {
     pub(crate) fn from_vm(vm: &mut Vm, pending_host_func: u16) -> Self {
         match pending_host_func {
             0 => {
-                let arg1: i64 = <i64>::from_vm(vm);
-                let arg0: i64 = <i64>::from_vm(vm);
+                let arg1: AbraInt = <AbraInt>::from_vm(vm);
+                let arg0: AbraInt = <AbraInt>::from_vm(vm);
                 HostFunctionArgs::Bar(arg0, arg1)
             }
             1 => {
                 let arg1: String = <String>::from_vm(vm);
-                let arg0: i64 = <i64>::from_vm(vm);
+                let arg0: AbraInt = <AbraInt>::from_vm(vm);
                 HostFunctionArgs::Foo(arg0, arg1)
             }
             2 => {
@@ -50,8 +50,8 @@ impl HostFunctionArgs {
     }
 }
 pub enum HostFunctionRet {
-    Bar(i64, i64),
-    Foo(i64),
+    Bar(AbraInt, AbraInt),
+    Foo(AbraInt),
     PrintString,
     Readline(String),
 }

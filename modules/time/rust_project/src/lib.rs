@@ -5,6 +5,8 @@ pub mod ffi {
     pub mod time {
         use crate::time;
         use abra_core::addons::*;
+        #[allow(unused)]
+        use abra_core::vm::AbraInt;
         use std::ffi::c_void;
         /// # Safety
         /// `vm` must be non-null and valid.
