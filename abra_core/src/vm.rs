@@ -21,7 +21,7 @@ use std::{
     ptr,
 };
 
-pub type AbraInt = i64;
+pub type AbraInt = i32;
 pub type AbraFloat = f64;
 
 const GC_PAUSE_FACTOR: usize = 2;
@@ -542,10 +542,14 @@ impl CallData {
     }
 }
 
-// PackedValue is 16 bytes currently
-const _: [(); 16] = [(); size_of::<Value>()];
+// Value is 8 bytes
+const _: [(); 8] = [(); size_of::<Value>()];
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct Value(u64, /*is_pointer*/ bool);
+pub struct Value(u64);
+
+const QNAN: u64 = 0x7FFC_0000_0000_0000;
+const HIGH_BIT: u64 = 0x8000_0000_0000_0000;
+const TAG_POINTER: u64 = HIGH_BIT | QNAN;
 
 impl Value {
     pub fn get_int(&self, _vm: &Vm) -> AbraInt {
@@ -560,94 +564,105 @@ impl Value {
         self.0 != 0
     }
 
+    pub fn as_ptr(&self) -> *mut u8 {
+        // mask off the tag to recover the original pointer
+        (self.0 & !TAG_POINTER) as *mut u8
+    }
+
     unsafe fn get_object_header<'a>(&self) -> &'a mut ObjectHeader {
-        unsafe { &mut *(self.0 as *mut ObjectHeader) }
+        unsafe { &mut *(self.as_ptr() as *mut ObjectHeader) }
     }
 
     fn get_struct<'a>(&self, _vm: &mut Vm) -> &'a StructObject {
-        unsafe { &*(self.0 as *const StructObject) }
+        unsafe { &*(self.as_ptr() as *const StructObject) }
     }
 
     unsafe fn get_struct_mut<'a>(&self, _vm: &mut Vm) -> &'a mut StructObject {
-        unsafe { &mut *(self.0 as *mut StructObject) }
+        unsafe { &mut *(self.as_ptr() as *mut StructObject) }
     }
 
     fn get_array<'a>(&self, _vm: &mut Vm) -> &'a ArrayObject
     where
         Self: Sized,
     {
-        unsafe { &*(self.0 as *const ArrayObject) }
+        unsafe { &*(self.as_ptr() as *const ArrayObject) }
     }
 
     unsafe fn get_array_mut<'a>(&self, _vm: &mut Vm) -> &'a mut ArrayObject
     where
         Self: Sized,
     {
-        unsafe { &mut *(self.0 as *mut ArrayObject) }
+        unsafe { &mut *(self.as_ptr() as *mut ArrayObject) }
     }
 
     fn get_variant<'a>(&self, _vm: &Vm) -> &'a EnumObject
     where
         Self: Sized,
     {
-        unsafe { &mut *(self.0 as *mut EnumObject) }
+        unsafe { &mut *(self.as_ptr() as *mut EnumObject) }
     }
 
     pub fn view_string<'a>(&self, _vm: &Vm) -> &'a str {
-        let so = unsafe { &*(self.0 as *const StringObject) };
+        let so = unsafe { &*(self.as_ptr() as *const StringObject) };
         &so.str
     }
 
     fn get_addr(&self, _vm: &Vm) -> ProgramCounter {
         ProgramCounter(self.0 as u32)
     }
+
+    fn is_pointer(&self) -> bool {
+        (self.0 & TAG_POINTER) == TAG_POINTER
+    }
 }
 
 impl From<bool> for Value {
     fn from(b: bool) -> Self {
-        Self(if b { 1 } else { 0 }, false)
+        Self(if b { 1 } else { 0 })
     }
 }
 
 impl From<AbraInt> for Value {
     fn from(n: AbraInt) -> Self {
-        Self(n as u64, false)
+        Self(n as u64)
     }
 }
 
 impl From<AbraFloat> for Value {
     fn from(n: AbraFloat) -> Self {
-        Self(AbraFloat::to_bits(n), false)
+        let bits = AbraFloat::to_bits(n);
+        let bits = if bits & QNAN == QNAN { QNAN } else { bits };
+        Self(bits)
     }
 }
 
 impl From<ProgramCounter> for Value {
     fn from(n: ProgramCounter) -> Self {
-        Self(n.0 as u64, false)
+        Self(n.0 as u64)
     }
 }
 
 impl From<*mut ArrayObject> for Value {
     fn from(ptr: *mut ArrayObject) -> Self {
-        Self(ptr as u64, true)
+        Self(TAG_POINTER | ptr as u64)
     }
 }
 
 impl From<*mut StructObject> for Value {
     fn from(ptr: *mut StructObject) -> Self {
-        Self(ptr as u64, true)
+        Self(TAG_POINTER | ptr as u64)
     }
 }
 
 impl From<*mut EnumObject> for Value {
     fn from(ptr: *mut EnumObject) -> Self {
-        Self(ptr as u64, true)
+        Self(TAG_POINTER | ptr as u64)
     }
 }
 
 impl From<*mut StringObject> for Value {
     fn from(ptr: *mut StringObject) -> Self {
-        Self(ptr as u64, true)
+        Self(TAG_POINTER | ptr as u64)
     }
 }
 
@@ -1623,7 +1638,7 @@ impl Vm {
 
     fn mark(v: Value, gray_stack: &mut Vec<*mut ObjectHeader>) {
         // if v is not a pointer
-        if !v.1 {
+        if !v.is_pointer() {
             return;
         }
 
@@ -1686,7 +1701,7 @@ impl Vm {
             return;
         }
         // if child is not a pointer
-        if !child.1 {
+        if !child.is_pointer() {
             return;
         }
 
