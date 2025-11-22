@@ -521,6 +521,7 @@ impl Display for CallData {
     }
 }
 
+// TODO: this wouldn't be necessary if jumps used i16 offsets
 impl CallData {
     const NARGS_NBITS: u32 = 5;
     const NARGS_SHIFT: u32 = 32 - Self::NARGS_NBITS;
