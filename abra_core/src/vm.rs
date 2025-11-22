@@ -542,7 +542,11 @@ impl CallData {
     }
 }
 
-// PackedValue is 16 bytes currently
+// Value is 16 bytes
+// While this wastes memory, the extra space could be used down the line for
+// - builtin Vec3(f32,f32,f32) type
+// - small-string optimization (inline string inside Value). Especially useful for single char strings
+// - vtable index
 const _: [(); 16] = [(); size_of::<Value>()];
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Value(u64, /*is_pointer*/ bool);
