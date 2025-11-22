@@ -675,7 +675,7 @@ enum GcState {
 #[repr(C)]
 struct ObjectHeader {
     kind: ObjectKind,
-    color: Color,
+    visited: bool,
 }
 
 impl ObjectHeader {
@@ -743,15 +743,6 @@ enum ObjectKind {
     Struct,
     String,
 }
-
-#[derive(PartialEq, Eq)]
-#[repr(u8)]
-enum Color {
-    White,
-    Gray,
-    Black,
-}
-
 #[repr(C)]
 struct StructObject {
     header: ObjectHeader,
@@ -777,10 +768,9 @@ impl StructObject {
                 StructObject {
                     header: ObjectHeader {
                         kind: ObjectKind::Struct,
-                        color: match &vm.gc_state {
-                            GcState::Idle => Color::White,
-                            GcState::Marking => Color::Gray,
-                            GcState::Sweeping { .. } => Color::Black,
+                        visited: match &vm.gc_state {
+                            GcState::Idle => false,
+                            GcState::Marking | GcState::Sweeping { .. } => true,
                         },
                     },
                     len,
@@ -851,10 +841,9 @@ impl ArrayObject {
     fn new(data: Vec<Value>, vm: &mut Vm) -> *mut ArrayObject {
         let header = ObjectHeader {
             kind: ObjectKind::Array,
-            color: match &vm.gc_state {
-                GcState::Idle => Color::White,
-                GcState::Marking => Color::Gray,
-                GcState::Sweeping { .. } => Color::Black,
+            visited: match &vm.gc_state {
+                GcState::Idle => false,
+                GcState::Marking | GcState::Sweeping { .. } => true,
             },
         };
         let b = Box::new(ArrayObject { header, data });
@@ -892,10 +881,9 @@ impl EnumObject {
     fn new(tag: u16, val: Value, vm: &mut Vm) -> *mut EnumObject {
         let header = ObjectHeader {
             kind: ObjectKind::Enum,
-            color: match &vm.gc_state {
-                GcState::Idle => Color::White,
-                GcState::Marking => Color::Gray,
-                GcState::Sweeping { .. } => Color::Black,
+            visited: match &vm.gc_state {
+                GcState::Idle => false,
+                GcState::Marking | GcState::Sweeping { .. } => true,
             },
         };
         let b = Box::new(EnumObject { header, tag, val });
@@ -928,10 +916,9 @@ impl StringObject {
     fn new(str: String, vm: &mut Vm) -> *mut StringObject {
         let header = ObjectHeader {
             kind: ObjectKind::String,
-            color: match &vm.gc_state {
-                GcState::Idle => Color::White,
-                GcState::Marking => Color::Gray,
-                GcState::Sweeping { .. } => Color::Black,
+            visited: match &vm.gc_state {
+                GcState::Idle => false,
+                GcState::Marking | GcState::Sweeping { .. } => true,
             },
         };
         let b = Box::new(StringObject { header, str });
@@ -1610,9 +1597,10 @@ impl Vm {
 
     fn start_mark_phase(&mut self) {
         // all objects start white
+        // TODO: iterating through entire heap list??
         for header_ptr in &self.heap_list {
             let header = unsafe { &mut **header_ptr };
-            header.color = Color::White;
+            header.visited = false;
         }
 
         // mark roots gray
@@ -1633,11 +1621,11 @@ impl Vm {
         }
 
         let header = unsafe { v.get_object_header() };
-        if header.color != Color::White {
+        if header.visited {
             return;
         }
 
-        header.color = Color::Gray;
+        header.visited = true;
         gray_stack.push(header)
     }
 
@@ -1647,7 +1635,7 @@ impl Vm {
         {
             {
                 let header = unsafe { &mut *header_ptr };
-                header.color = Color::Black;
+                header.visited = true;
             }
 
             let kind = {
@@ -1697,10 +1685,10 @@ impl Vm {
 
         let parent: *mut ObjectHeader = parent.into();
         let parent = unsafe { &mut *parent };
-        if parent.color == Color::Black {
+        if parent.visited {
             let header = unsafe { child.get_object_header() };
-            if header.color == Color::White {
-                header.color = Color::Gray;
+            if !header.visited {
+                header.visited = true;
                 self.gray_stack.push(header);
             }
         }
@@ -1715,13 +1703,13 @@ impl Vm {
                 let header = unsafe { &mut *header_ptr };
                 work_done += header.nbytes();
 
-                if header.color == Color::White {
+                if !header.visited {
                     unsafe { header.dealloc(&mut self.heap_size) };
 
                     self.heap_list.swap_remove(*index);
                 } else {
                     // object is alive. reset to white for next cycle
-                    header.color = Color::White;
+                    header.visited = false;
                     *index += 1;
                 }
             }
