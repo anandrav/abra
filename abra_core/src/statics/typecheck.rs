@@ -2315,7 +2315,6 @@ fn generate_constraints_expr(
                             args,
                             fname.node(),
                             expr.node(),
-                            node_ty,
                         );
                     }
                     Some(Declaration::InterfaceMethod {
@@ -2467,7 +2466,6 @@ fn generate_constraints_expr(
                         args,
                         fname.node(),
                         expr.node(),
-                        node_ty,
                     );
                 } else {
                     ctx.errors
@@ -2627,7 +2625,6 @@ fn enum_ctor_helper(
     args: &[Rc<Expr>],
     func_node: AstNode,
     funcap_node: AstNode,
-    node_ty: TypeVar,
 ) {
     let (def_type, subst) = TypeVar::make_nominal_with_substitution(
         ctx,
@@ -2635,6 +2632,7 @@ fn enum_ctor_helper(
         Nominal::Enum(enum_def.clone()),
         funcap_node.clone(),
     );
+    let node_ty = TypeVar::from_node(ctx, funcap_node.clone());
     constrain(ctx, &node_ty, &def_type);
 
     let variant = &enum_def.variants[variant];
