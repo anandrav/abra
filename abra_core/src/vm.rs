@@ -502,7 +502,7 @@ pub enum Instr {
     ArrayPushIntImm(u16, u16),
     ArrayLength,   // TODO: use register
     ArrayPop,      // TODO: use register
-    ConcatStrings, // TODO: this is O(N). Must use smaller instructions. Or concat character-by-character and save progress in Vm
+    ConcatStrings, //TODO: use registers? TODO: this is O(N). Must use smaller instructions. Or concat character-by-character and save progress in Vm
     IntToFloat,    // TODO: use register
     FloatToInt,    // TODO: use register
     IntToString,   // TODO: use register
