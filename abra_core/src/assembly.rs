@@ -108,7 +108,7 @@ pub enum Instr {
     // Comparison
     LessThanInt(Reg, Reg, Reg),
     LessThanIntImm(Reg, Reg, AbraInt),
-    LessThanOrEqualInt,
+    LessThanOrEqualInt(Reg, Reg, Reg),
     GreaterThanInt,
     GreaterThanOrEqualInt,
     LessThanFloat,
@@ -288,7 +288,9 @@ impl Display for Instr {
             Instr::LessThanIntImm(dest, reg1, imm) => {
                 write!(f, "less_than_int_imm {dest} {reg1} {imm}")
             }
-            Instr::LessThanOrEqualInt => write!(f, "less_than_or_equal_int"),
+            Instr::LessThanOrEqualInt(dest, reg1, reg2) => {
+                write!(f, "less_than_or_equal_int {dest} {reg1} {reg2}")
+            }
             Instr::GreaterThanInt => write!(f, "greater_than_int"),
             Instr::GreaterThanOrEqualInt => write!(f, "greater_than_or_equal_int"),
             Instr::LessThanFloat => write!(f, "less_than_float"),
@@ -497,7 +499,9 @@ fn instr_to_vminstr(
             reg1.encode(),
             constants.int_constants.try_get_id(imm).unwrap() as u16,
         ),
-        Instr::LessThanOrEqualInt => VmInstr::LessThanOrEqualInt,
+        Instr::LessThanOrEqualInt(dest, reg1, reg2) => {
+            VmInstr::LessThanOrEqualInt(dest.encode(), reg1.encode(), reg2.encode())
+        }
         Instr::GreaterThanInt => VmInstr::GreaterThanInt,
         Instr::GreaterThanOrEqualInt => VmInstr::GreaterThanOrEqualInt,
         Instr::LessThanFloat => VmInstr::LessThanFloat,

@@ -452,13 +452,13 @@ pub enum Instr {
     // Comparison
     LessThanInt(u16, u16, u16),
     LessThanIntImm(u16, u16, u16),
-    LessThanOrEqualInt,      // TODO: use registers
-    GreaterThanInt,          // TODO: use registers
-    GreaterThanOrEqualInt,   // TODO: use registers
-    LessThanFloat,           // TODO: use registers
-    LessThanOrEqualFloat,    // TODO: use registers
-    GreaterThanFloat,        // TODO: use registers
-    GreaterThanOrEqualFloat, // TODO: use registers
+    LessThanOrEqualInt(u16, u16, u16), // TODO: use registers
+    GreaterThanInt,                    // TODO: use registers
+    GreaterThanOrEqualInt,             // TODO: use registers
+    LessThanFloat,                     // TODO: use registers
+    LessThanOrEqualFloat,              // TODO: use registers
+    GreaterThanFloat,                  // TODO: use registers
+    GreaterThanOrEqualFloat,           // TODO: use registers
     EqualInt(u16, u16, u16),
     EqualIntImm(u16, u16, u16),
     EqualFloat,  // TODO: use registers
@@ -1219,10 +1219,10 @@ impl Vm {
                 let a = self.load_offset_or_top(reg1).get_int(self);
                 self.store_offset_or_top(dest, a < self.int_constants[imm as usize]);
             }
-            Instr::LessThanOrEqualInt => {
-                let b = self.pop_int();
-                let a = self.top().get_int(self);
-                self.set_top(a <= b);
+            Instr::LessThanOrEqualInt(dest, reg1, reg2) => {
+                let b = self.load_offset_or_top(reg2).get_int(self);
+                let a = self.load_offset_or_top(reg1).get_int(self);
+                self.store_offset_or_top(dest, a <= b);
             }
             Instr::GreaterThanInt => {
                 let b = self.pop_int();

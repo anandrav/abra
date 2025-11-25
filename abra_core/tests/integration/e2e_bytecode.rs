@@ -76,6 +76,34 @@ f
 }
 
 #[test]
+fn comparison_operators() {
+    let src = r#"
+let a = 2 < 3
+let b = 2 <= 3
+let c = 3 > 2
+let d = 3 >= 2
+let e = 2 == 2
+
+let f = 2.0 < 3.0
+let g = 2.0 <= 3.0
+let h = 3.0 > 2.0
+let i = 3.0 >= 2.0
+let j = 2.0 == 2.0
+
+let k = a and b and c and d and e and f and g and h and i and j
+k
+"#;
+    let program = unwrap_or_panic(compile_bytecode(
+        "main.abra",
+        MockFileProvider::single_file(src),
+    ));
+    let mut vm = Vm::new(program);
+    vm.run();
+    let top = vm.top();
+    assert_eq!(top.get_bool(&vm), true);
+}
+
+#[test]
 fn tuples() {
     let src = r#"
 fn mk_pair(a) {

@@ -564,7 +564,9 @@ impl Translator {
                         _ => unreachable!(),
                     },
                     BinaryOperator::LessThanOrEqual => match arg1_ty {
-                        SolvedType::Int => self.emit(st, Instr::LessThanOrEqualInt),
+                        SolvedType::Int => {
+                            self.emit(st, Instr::LessThanOrEqualInt(Reg::Top, Reg::Top, Reg::Top))
+                        }
                         SolvedType::Float => self.emit(st, Instr::LessThanOrEqualFloat),
                         _ => unreachable!(),
                     },
@@ -1044,7 +1046,7 @@ impl Translator {
                     self.emit(st, Instr::LessThanInt(Reg::Top, Reg::Top, Reg::Top));
                 }
                 BuiltinOperation::LessThanOrEqualInt => {
-                    self.emit(st, Instr::LessThanOrEqualInt);
+                    self.emit(st, Instr::LessThanOrEqualInt(Reg::Top, Reg::Top, Reg::Top));
                 }
                 BuiltinOperation::GreaterThanInt => {
                     self.emit(st, Instr::GreaterThanInt);
