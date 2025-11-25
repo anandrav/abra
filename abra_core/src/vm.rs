@@ -452,10 +452,11 @@ pub enum Instr {
     // Comparison
     LessThanInt(u16, u16, u16),
     LessThanIntImm(u16, u16, u16),
-    LessThanOrEqualInt(u16, u16, u16),      // TODO: imm
-    GreaterThanInt(u16, u16, u16),          // TODO: imm
-    GreaterThanOrEqualInt(u16, u16, u16),   // TODO: imm
-    LessThanFloat(u16, u16, u16),           // TODO: imm
+    LessThanOrEqualInt(u16, u16, u16),    // TODO: imm
+    GreaterThanInt(u16, u16, u16),        // TODO: imm
+    GreaterThanOrEqualInt(u16, u16, u16), // TODO: imm
+    LessThanFloat(u16, u16, u16),         // TODO: imm
+
     LessThanOrEqualFloat(u16, u16, u16),    // TODO: imm
     GreaterThanFloat(u16, u16, u16),        // TODO: imm
     GreaterThanOrEqualFloat(u16, u16, u16), // TODO: imm
