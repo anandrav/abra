@@ -446,21 +446,21 @@ pub enum Instr {
 
     // Logical
     Not, // TODO: use registers
-    And, // TODO: use registers
-    Or,  // TODO: use registers
+    And, // TODO: use registers? Or just short-circuit...
+    Or,  // TODO: use registers? Or just short-circuit...
 
     // Comparison
     LessThanInt(u16, u16, u16),
     LessThanIntImm(u16, u16, u16),
-    LessThanOrEqualInt(u16, u16, u16),
-    GreaterThanInt(u16, u16, u16),
-    GreaterThanOrEqualInt(u16, u16, u16),
-    LessThanFloat(u16, u16, u16),
-    LessThanOrEqualFloat(u16, u16, u16),
-    GreaterThanFloat(u16, u16, u16),
-    GreaterThanOrEqualFloat(u16, u16, u16),
-    EqualInt(u16, u16, u16),
-    EqualIntImm(u16, u16, u16),
+    LessThanOrEqualInt(u16, u16, u16),      // TODO: imm
+    GreaterThanInt(u16, u16, u16),          // TODO: imm
+    GreaterThanOrEqualInt(u16, u16, u16),   // TODO: imm
+    LessThanFloat(u16, u16, u16),           // TODO: imm
+    LessThanOrEqualFloat(u16, u16, u16),    // TODO: imm
+    GreaterThanFloat(u16, u16, u16),        // TODO: imm
+    GreaterThanOrEqualFloat(u16, u16, u16), // TODO: imm
+    EqualInt(u16, u16, u16),                // TODO: imm
+    EqualIntImm(u16, u16, u16),             // TODO: imm
     EqualFloat(u16, u16, u16),
     EqualBool(u16, u16, u16),
     EqualString, // TODO: use registers? // TODO: this is O(N). Must use smaller instructions. Or compare character-by-character and save progress in state of Vm
