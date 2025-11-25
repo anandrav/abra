@@ -547,35 +547,54 @@ impl Translator {
                         _ => unreachable!(),
                     },
                     BinaryOperator::GreaterThan => match arg1_ty {
-                        SolvedType::Int => self.emit(st, Instr::GreaterThanInt),
-                        SolvedType::Float => self.emit(st, Instr::GreaterThanFloat),
+                        SolvedType::Int => {
+                            self.emit(st, Instr::GreaterThanInt(Reg::Top, Reg::Top, Reg::Top))
+                        }
+                        SolvedType::Float => {
+                            self.emit(st, Instr::GreaterThanFloat(Reg::Top, Reg::Top, Reg::Top))
+                        }
                         _ => unreachable!(),
                     },
                     BinaryOperator::LessThan => match arg1_ty {
                         SolvedType::Int => {
                             self.emit(st, Instr::LessThanInt(Reg::Top, Reg::Top, Reg::Top))
                         }
-                        SolvedType::Float => self.emit(st, Instr::LessThanFloat),
+                        SolvedType::Float => {
+                            self.emit(st, Instr::LessThanFloat(Reg::Top, Reg::Top, Reg::Top))
+                        }
                         _ => unreachable!(),
                     },
                     BinaryOperator::GreaterThanOrEqual => match arg1_ty {
-                        SolvedType::Int => self.emit(st, Instr::GreaterThanOrEqualInt),
-                        SolvedType::Float => self.emit(st, Instr::GreaterThanOrEqualFloat),
+                        SolvedType::Int => self.emit(
+                            st,
+                            Instr::GreaterThanOrEqualInt(Reg::Top, Reg::Top, Reg::Top),
+                        ),
+                        SolvedType::Float => self.emit(
+                            st,
+                            Instr::GreaterThanOrEqualFloat(Reg::Top, Reg::Top, Reg::Top),
+                        ),
                         _ => unreachable!(),
                     },
                     BinaryOperator::LessThanOrEqual => match arg1_ty {
                         SolvedType::Int => {
                             self.emit(st, Instr::LessThanOrEqualInt(Reg::Top, Reg::Top, Reg::Top))
                         }
-                        SolvedType::Float => self.emit(st, Instr::LessThanOrEqualFloat),
+                        SolvedType::Float => self.emit(
+                            st,
+                            Instr::LessThanOrEqualFloat(Reg::Top, Reg::Top, Reg::Top),
+                        ),
                         _ => unreachable!(),
                     },
                     BinaryOperator::Equal => match arg1_ty {
                         SolvedType::Int => {
                             self.emit(st, Instr::EqualInt(Reg::Top, Reg::Top, Reg::Top))
                         }
-                        SolvedType::Float => self.emit(st, Instr::EqualFloat),
-                        SolvedType::Bool => self.emit(st, Instr::EqualBool),
+                        SolvedType::Float => {
+                            self.emit(st, Instr::EqualFloat(Reg::Top, Reg::Top, Reg::Top))
+                        }
+                        SolvedType::Bool => {
+                            self.emit(st, Instr::EqualBool(Reg::Top, Reg::Top, Reg::Top))
+                        }
                         SolvedType::String => self.emit(st, Instr::EqualString),
                         _ => {
                             helper(monomorph_env, "prelude.Equal.equal");
@@ -1049,31 +1068,40 @@ impl Translator {
                     self.emit(st, Instr::LessThanOrEqualInt(Reg::Top, Reg::Top, Reg::Top));
                 }
                 BuiltinOperation::GreaterThanInt => {
-                    self.emit(st, Instr::GreaterThanInt);
+                    self.emit(st, Instr::GreaterThanInt(Reg::Top, Reg::Top, Reg::Top));
                 }
                 BuiltinOperation::GreaterThanOrEqualInt => {
-                    self.emit(st, Instr::GreaterThanOrEqualInt);
+                    self.emit(
+                        st,
+                        Instr::GreaterThanOrEqualInt(Reg::Top, Reg::Top, Reg::Top),
+                    );
                 }
                 BuiltinOperation::EqualInt => {
                     self.emit(st, Instr::EqualInt(Reg::Top, Reg::Top, Reg::Top));
                 }
                 BuiltinOperation::LessThanFloat => {
-                    self.emit(st, Instr::LessThanFloat);
+                    self.emit(st, Instr::LessThanFloat(Reg::Top, Reg::Top, Reg::Top));
                 }
                 BuiltinOperation::LessThanOrEqualFloat => {
-                    self.emit(st, Instr::LessThanOrEqualFloat);
+                    self.emit(
+                        st,
+                        Instr::LessThanOrEqualFloat(Reg::Top, Reg::Top, Reg::Top),
+                    );
                 }
                 BuiltinOperation::GreaterThanFloat => {
-                    self.emit(st, Instr::GreaterThanFloat);
+                    self.emit(st, Instr::GreaterThanFloat(Reg::Top, Reg::Top, Reg::Top));
                 }
                 BuiltinOperation::GreaterThanOrEqualFloat => {
-                    self.emit(st, Instr::GreaterThanOrEqualFloat);
+                    self.emit(
+                        st,
+                        Instr::GreaterThanOrEqualFloat(Reg::Top, Reg::Top, Reg::Top),
+                    );
                 }
                 BuiltinOperation::Not => {
                     self.emit(st, Instr::Not);
                 }
                 BuiltinOperation::EqualFloat => {
-                    self.emit(st, Instr::EqualFloat);
+                    self.emit(st, Instr::EqualFloat(Reg::Top, Reg::Top, Reg::Top));
                 }
                 BuiltinOperation::EqualString => {
                     self.emit(st, Instr::EqualString);
@@ -1152,7 +1180,7 @@ impl Translator {
             Type::Bool => match &*pat.kind {
                 PatKind::Bool(b) => {
                     self.emit(st, Instr::PushBool(*b));
-                    self.emit(st, Instr::EqualBool);
+                    self.emit(st, Instr::EqualBool(Reg::Top, Reg::Top, Reg::Top));
                 }
                 _ => panic!("unexpected pattern: {:?}", pat.kind),
             },

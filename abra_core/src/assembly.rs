@@ -109,16 +109,16 @@ pub enum Instr {
     LessThanInt(Reg, Reg, Reg),
     LessThanIntImm(Reg, Reg, AbraInt),
     LessThanOrEqualInt(Reg, Reg, Reg),
-    GreaterThanInt,
-    GreaterThanOrEqualInt,
-    LessThanFloat,
-    LessThanOrEqualFloat,
-    GreaterThanFloat,
-    GreaterThanOrEqualFloat,
+    GreaterThanInt(Reg, Reg, Reg),
+    GreaterThanOrEqualInt(Reg, Reg, Reg),
+    LessThanFloat(Reg, Reg, Reg),
+    LessThanOrEqualFloat(Reg, Reg, Reg),
+    GreaterThanFloat(Reg, Reg, Reg),
+    GreaterThanOrEqualFloat(Reg, Reg, Reg),
     EqualInt(Reg, Reg, Reg),
     EqualIntImm(Reg, Reg, AbraInt),
-    EqualFloat,
-    EqualBool,
+    EqualFloat(Reg, Reg, Reg),
+    EqualBool(Reg, Reg, Reg),
     EqualString, // TODO: this is O(N). Must use smaller instructions. Or compare character-by-character and save progress in state of Vm
 
     // Control Flow
@@ -291,16 +291,28 @@ impl Display for Instr {
             Instr::LessThanOrEqualInt(dest, reg1, reg2) => {
                 write!(f, "less_than_or_equal_int {dest} {reg1} {reg2}")
             }
-            Instr::GreaterThanInt => write!(f, "greater_than_int"),
-            Instr::GreaterThanOrEqualInt => write!(f, "greater_than_or_equal_int"),
-            Instr::LessThanFloat => write!(f, "less_than_float"),
-            Instr::LessThanOrEqualFloat => write!(f, "less_than_or_equal_float"),
-            Instr::GreaterThanFloat => write!(f, "greater_than_float"),
-            Instr::GreaterThanOrEqualFloat => write!(f, "greater_than_or_equal_float"),
+            Instr::GreaterThanInt(dest, reg1, reg2) => {
+                write!(f, "greater_than_int {dest} {reg1} {reg2}")
+            }
+            Instr::GreaterThanOrEqualInt(dest, reg1, reg2) => {
+                write!(f, "greater_than_or_equal_int {dest} {reg1} {reg2}")
+            }
+            Instr::LessThanFloat(dest, reg1, reg2) => {
+                write!(f, "less_than_float {dest} {reg1} {reg2}")
+            }
+            Instr::LessThanOrEqualFloat(dest, reg1, reg2) => {
+                write!(f, "less_than_or_equal_float {dest} {reg1} {reg2}")
+            }
+            Instr::GreaterThanFloat(dest, reg1, reg2) => {
+                write!(f, "greater_than_float {dest} {reg1} {reg2}")
+            }
+            Instr::GreaterThanOrEqualFloat(dest, reg1, reg2) => {
+                write!(f, "greater_than_or_equal_float {dest} {reg1} {reg2}")
+            }
             Instr::EqualInt(dest, reg1, reg2) => write!(f, "equal_int {dest} {reg1} {reg2}"),
             Instr::EqualIntImm(dest, reg1, imm) => write!(f, "equal_int_imm {dest} {reg1} {imm}"),
-            Instr::EqualFloat => write!(f, "equal_float"),
-            Instr::EqualBool => write!(f, "equal_bool"),
+            Instr::EqualFloat(dest, reg1, reg2) => write!(f, "equal_float {dest} {reg1} {reg2}"),
+            Instr::EqualBool(dest, reg1, reg2) => write!(f, "equal_bool {dest} {reg1} {reg2}"),
             Instr::EqualString => write!(f, "equal_string"),
             Instr::PushNil(n) => write!(f, "push_nil {n}"),
             Instr::PushBool(b) => write!(f, "push_bool {b}"),
@@ -502,12 +514,24 @@ fn instr_to_vminstr(
         Instr::LessThanOrEqualInt(dest, reg1, reg2) => {
             VmInstr::LessThanOrEqualInt(dest.encode(), reg1.encode(), reg2.encode())
         }
-        Instr::GreaterThanInt => VmInstr::GreaterThanInt,
-        Instr::GreaterThanOrEqualInt => VmInstr::GreaterThanOrEqualInt,
-        Instr::LessThanFloat => VmInstr::LessThanFloat,
-        Instr::LessThanOrEqualFloat => VmInstr::LessThanOrEqualFloat,
-        Instr::GreaterThanFloat => VmInstr::GreaterThanFloat,
-        Instr::GreaterThanOrEqualFloat => VmInstr::GreaterThanOrEqualFloat,
+        Instr::GreaterThanInt(dest, reg1, reg2) => {
+            VmInstr::GreaterThanInt(dest.encode(), reg1.encode(), reg2.encode())
+        }
+        Instr::GreaterThanOrEqualInt(dest, reg1, reg2) => {
+            VmInstr::GreaterThanOrEqualInt(dest.encode(), reg1.encode(), reg2.encode())
+        }
+        Instr::LessThanFloat(dest, reg1, reg2) => {
+            VmInstr::LessThanFloat(dest.encode(), reg1.encode(), reg2.encode())
+        }
+        Instr::LessThanOrEqualFloat(dest, reg1, reg2) => {
+            VmInstr::LessThanOrEqualFloat(dest.encode(), reg1.encode(), reg2.encode())
+        }
+        Instr::GreaterThanFloat(dest, reg1, reg2) => {
+            VmInstr::GreaterThanFloat(dest.encode(), reg1.encode(), reg2.encode())
+        }
+        Instr::GreaterThanOrEqualFloat(dest, reg1, reg2) => {
+            VmInstr::GreaterThanOrEqualFloat(dest.encode(), reg1.encode(), reg2.encode())
+        }
         Instr::EqualInt(dest, reg1, reg2) => {
             VmInstr::EqualInt(dest.encode(), reg1.encode(), reg2.encode())
         }
@@ -516,8 +540,12 @@ fn instr_to_vminstr(
             reg1.encode(),
             constants.int_constants.try_get_id(imm).unwrap() as u16,
         ),
-        Instr::EqualFloat => VmInstr::EqualFloat,
-        Instr::EqualBool => VmInstr::EqualBool,
+        Instr::EqualFloat(dest, reg1, reg2) => {
+            VmInstr::EqualFloat(dest.encode(), reg1.encode(), reg2.encode())
+        }
+        Instr::EqualBool(dest, reg1, reg2) => {
+            VmInstr::EqualBool(dest.encode(), reg1.encode(), reg2.encode())
+        }
         Instr::EqualString => VmInstr::EqualString,
         Instr::PushNil(n) => VmInstr::PushNil(*n),
         Instr::PushBool(b) => VmInstr::PushBool(*b),
