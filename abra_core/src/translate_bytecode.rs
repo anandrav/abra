@@ -608,8 +608,8 @@ impl Translator {
 
                         self.handle_func_call(st, Some(substituted_ty), func_name, &func);
                     }
-                    BinaryOperator::Or => self.emit(st, Instr::Or),
-                    BinaryOperator::And => self.emit(st, Instr::And),
+                    BinaryOperator::Or => self.emit(st, Instr::Or), // TODO: short-circuiting (RHS should not be executed if LHS is true)
+                    BinaryOperator::And => self.emit(st, Instr::And), // TODO: short-circuiting (RHS should not be executed if LHS is false)
                     BinaryOperator::Mod => {
                         self.emit(st, Instr::Modulo(Reg::Top, Reg::Top, Reg::Top))
                     }
