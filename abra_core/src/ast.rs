@@ -383,9 +383,33 @@ pub(crate) struct FuncDecl {
     pub(crate) args: Vec<ArgMaybeAnnotated>,
     pub(crate) ret_type: Rc<Type>,
 
-    // TODO: wrap up in an attributes
-    pub(crate) foreign: bool,
-    pub(crate) host: bool,
+    pub(crate) attributes: Vec<Attribute>,
+}
+
+impl FuncDecl {
+    pub(crate) fn is_foreign(&self) -> bool {
+        self.attributes.iter().any(Attribute::is_foreign)
+    }
+
+    pub(crate) fn is_host(&self) -> bool {
+        self.attributes.iter().any(Attribute::is_host)
+    }
+}
+
+#[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq, Hash)]
+pub(crate) struct Attribute {
+    pub(crate) name: Rc<Identifier>,
+    pub(crate) args: Vec<Rc<Identifier>>,
+}
+
+impl Attribute {
+    pub(crate) fn is_foreign(&self) -> bool {
+        self.name.v == "foreign"
+    }
+
+    pub(crate) fn is_host(&self) -> bool {
+        self.name.v == "host"
+    }
 }
 
 #[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq, Hash)]

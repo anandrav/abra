@@ -917,7 +917,12 @@ fn parse_func_decl(pairs: Vec<Pair<'_, Rule>>, file_id: FileId) -> Rc<FuncDecl> 
     let mut attributes = vec![];
     while let Rule::attribute = pairs[n].as_rule() {
         let inner: Vec<_> = pairs[n].clone().into_inner().collect();
-        attributes.push(inner[0].as_str());
+        let name = Rc::new(Identifier {
+            v: inner[0].as_str().to_string(),
+            loc: Location::new(file_id, inner[0].as_span()),
+            id: NodeId::new(),
+        });
+        attributes.push(Attribute { name, args: vec![] });
         n += 1;
     }
     let mut args = vec![];
@@ -941,9 +946,7 @@ fn parse_func_decl(pairs: Vec<Pair<'_, Rule>>, file_id: FileId) -> Rc<FuncDecl> 
         name,
         args,
         ret_type,
-
-        foreign: attributes.contains(&"foreign"),
-        host: attributes.contains(&"host"),
+        attributes,
     })
 }
 

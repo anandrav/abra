@@ -152,8 +152,8 @@ fn gather_declarations_item(
             namespace.add_declaration(ctx, func_name, Declaration::FreeFunction(f.clone()));
         }
         ItemKind::FuncDecl(func_decl) => {
-            let foreign = func_decl.foreign;
-            let host = func_decl.host;
+            let foreign = func_decl.is_foreign();
+            let host = func_decl.is_host();
             if foreign && host {
                 // TODO: consider relaxing this constraint
                 ctx.errors.push(Error::Generic {

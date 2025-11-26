@@ -504,7 +504,7 @@ fn add_items_from_ast(ast: Rc<FileAst>, output: &mut String) {
                     output.push('}');
                 }
             },
-            ItemKind::FuncDecl(f) if f.foreign => {
+            ItemKind::FuncDecl(f) if f.is_foreign() => {
                 output.push_str(
                     r#"/// # Safety
                               /// `vm` must be non-null and valid.
