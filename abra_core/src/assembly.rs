@@ -150,8 +150,8 @@ pub enum Instr {
     DeconstructVariant,
     GetField(u16, Reg),
     SetField(u16, Reg),
-    GetIdx(Reg, Reg),
-    SetIdx(Reg, Reg),
+    GetIndex(Reg, Reg),
+    SetIndex(Reg, Reg),
     MakeClosure { func_addr: Label },
 
     ArrayPush(Reg, Reg),
@@ -369,10 +369,10 @@ impl Display for Instr {
             }
             Instr::DeconstructStruct => write!(f, "deconstruct_struct"),
             Instr::DeconstructVariant => write!(f, "deconstruct_variant"),
-            Instr::GetField(index, offset) => write!(f, "get_field_offset {index} {offset}"),
-            Instr::SetField(index, offset) => write!(f, "set_field_offset {index} {offset}"),
-            Instr::GetIdx(reg1, reg2) => write!(f, "get_index_offset {reg1} {reg2}"),
-            Instr::SetIdx(reg1, reg2) => write!(f, "set_index_offset {reg1} {reg2}"),
+            Instr::GetField(index, offset) => write!(f, "get_field {index} {offset}"),
+            Instr::SetField(index, offset) => write!(f, "set_field {index} {offset}"),
+            Instr::GetIndex(reg1, reg2) => write!(f, "get_index {reg1} {reg2}"),
+            Instr::SetIndex(reg1, reg2) => write!(f, "set_index {reg1} {reg2}"),
             Instr::MakeClosure { func_addr } => {
                 write!(f, "make_closure {func_addr}")
             }
@@ -646,10 +646,10 @@ fn instr_to_vminstr(
         Instr::ConstructArray(n) => VmInstr::ConstructArray(*n),
         Instr::DeconstructStruct => VmInstr::DeconstructStruct,
         Instr::DeconstructVariant => VmInstr::DeconstructVariant,
-        Instr::GetField(idx, offset) => VmInstr::GetFieldOffset(*idx, offset.encode()),
-        Instr::SetField(idx, offset) => VmInstr::SetFieldOffset(*idx, offset.encode()),
-        Instr::GetIdx(reg1, reg2) => VmInstr::GetIdxOffset(reg1.encode(), reg2.encode()),
-        Instr::SetIdx(reg1, reg2) => VmInstr::SetIdxOffset(reg1.encode(), reg2.encode()),
+        Instr::GetField(idx, offset) => VmInstr::GetField(*idx, offset.encode()),
+        Instr::SetField(idx, offset) => VmInstr::SetField(*idx, offset.encode()),
+        Instr::GetIndex(reg1, reg2) => VmInstr::GetIndex(reg1.encode(), reg2.encode()),
+        Instr::SetIndex(reg1, reg2) => VmInstr::SetIndex(reg1.encode(), reg2.encode()),
         Instr::ConstructVariant { tag } => VmInstr::ConstructVariant { tag: *tag },
         Instr::MakeClosure { func_addr } => {
             // dbg!(func_addr);

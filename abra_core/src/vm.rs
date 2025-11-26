@@ -514,10 +514,10 @@ pub enum Instr {
     DeconstructArray,
     DeconstructVariant,
 
-    GetFieldOffset(u16, u16),
-    SetFieldOffset(u16, u16),
-    GetIdxOffset(u16, u16),
-    SetIdxOffset(u16, u16),
+    GetField(u16, u16),
+    SetField(u16, u16),
+    GetIndex(u16, u16),
+    SetIndex(u16, u16),
 
     MakeClosure { func_addr: ProgramCounter },
 
@@ -1429,13 +1429,13 @@ impl Vm {
             Instr::DeconstructVariant => {
                 self.deconstruct_variant();
             }
-            Instr::GetFieldOffset(index, offset) => {
+            Instr::GetField(index, offset) => {
                 let val = self.load_offset_or_top(offset);
                 let s = val.get_struct(self);
                 let field = s.get_fields()[index as usize];
                 self.push(field);
             }
-            Instr::SetFieldOffset(index, offset) => {
+            Instr::SetField(index, offset) => {
                 let val = self.load_offset_or_top(offset);
                 let rvalue = self.pop();
                 let s = unsafe { val.get_struct_mut(self) };
@@ -1443,7 +1443,7 @@ impl Vm {
                 self.write_barrier(s.header_ptr(), rvalue);
                 s.get_fields_mut()[index as usize] = rvalue;
             }
-            Instr::GetIdxOffset(reg1, reg2) => {
+            Instr::GetIndex(reg1, reg2) => {
                 let val = self.load_offset_or_top(reg2);
                 let idx = self.load_offset_or_top(reg1).get_int(self);
                 let arr = val.get_array(self);
@@ -1453,7 +1453,7 @@ impl Vm {
                 let field = arr.data[idx as usize];
                 self.push(field);
             }
-            Instr::SetIdxOffset(reg1, reg2) => {
+            Instr::SetIndex(reg1, reg2) => {
                 let val = self.load_offset_or_top(reg2);
                 let idx = self.load_offset_or_top(reg1).get_int(self);
                 let rvalue = self.pop();

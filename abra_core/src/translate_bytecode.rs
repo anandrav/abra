@@ -791,7 +791,7 @@ impl Translator {
             ExprKind::IndexAccess(array, index) => {
                 self.translate_expr(index, offset_table, monomorph_env, st);
                 self.translate_expr(array, offset_table, monomorph_env, st);
-                self.emit(st, Instr::GetIdx(Reg::Top, Reg::Top));
+                self.emit(st, Instr::GetIndex(Reg::Top, Reg::Top));
             }
             ExprKind::Match(expr, arms) => {
                 let ty = self.statics.solution_of_node(expr.node()).unwrap();
@@ -1353,7 +1353,7 @@ impl Translator {
                             self.translate_expr(rvalue, offset_table, monomorph_env, st);
                             self.translate_expr(index, offset_table, monomorph_env, st);
                             self.translate_expr(array, offset_table, monomorph_env, st);
-                            self.emit(st, Instr::SetIdx(Reg::Top, Reg::Top));
+                            self.emit(st, Instr::SetIndex(Reg::Top, Reg::Top));
                         }
                         _ => unimplemented!(),
                     }

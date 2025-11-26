@@ -437,8 +437,8 @@ impl Instr {
                 | Instr::ArrayPush(_, Reg::Top)
                 | Instr::ArrayLength(_, Reg::Top)
                 | Instr::ArrayPop(_, Reg::Top)
-                | Instr::GetIdx(_, Reg::Top)
-                | Instr::SetIdx(_, Reg::Top)
+                | Instr::GetIndex(_, Reg::Top)
+                | Instr::SetIndex(_, Reg::Top)
                 | Instr::GetField(_, Reg::Top)
                 | Instr::SetField(_, Reg::Top)
         )
@@ -486,8 +486,8 @@ impl Instr {
                 | Instr::EqualFloatImm(_, Reg::Top, _)
                 | Instr::ArrayPush(Reg::Top, Reg::Offset(_))
                 | Instr::ArrayPushIntImm(Reg::Top, _)
-                | Instr::GetIdx(Reg::Top, Reg::Offset(_))
-                | Instr::SetIdx(Reg::Top, _)
+                | Instr::GetIndex(Reg::Top, Reg::Offset(_))
+                | Instr::SetIndex(Reg::Top, _)
         )
     }
 
@@ -607,8 +607,8 @@ impl Instr {
 
             Instr::ArrayPush(_, r2) => Instr::ArrayPush(r1, r2),
             Instr::ArrayPushIntImm(_, r2) => Instr::ArrayPushIntImm(r1, r2),
-            Instr::GetIdx(_, r2) => Instr::GetIdx(r1, r2),
-            Instr::SetIdx(_, r2) => Instr::SetIdx(r1, r2),
+            Instr::GetIndex(_, r2) => Instr::GetIndex(r1, r2),
+            Instr::SetIndex(_, r2) => Instr::SetIndex(r1, r2),
 
             _ => panic!("can't replace first arg"),
         }
@@ -655,8 +655,8 @@ impl Instr {
             Instr::ArrayPush(r1, _) => Instr::ArrayPush(r1, r2),
             Instr::ArrayLength(dest, _) => Instr::ArrayLength(dest, r2),
             Instr::ArrayPop(dest, _) => Instr::ArrayPop(dest, r2),
-            Instr::GetIdx(r1, _) => Instr::GetIdx(r1, r2),
-            Instr::SetIdx(r1, _) => Instr::SetIdx(r1, r2),
+            Instr::GetIndex(r1, _) => Instr::GetIndex(r1, r2),
+            Instr::SetIndex(r1, _) => Instr::SetIndex(r1, r2),
             Instr::GetField(idx, _) => Instr::GetField(idx, r2),
             Instr::SetField(idx, _) => Instr::SetField(idx, r2),
 
