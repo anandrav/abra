@@ -25,13 +25,16 @@ fn optimization_pass(lines: Vec<Line>) -> Vec<Line> {
     while index < lines.len() {
         let curr = &lines[index];
 
-        if peephole3_helper(&lines, &mut index, &mut ret) {
+        if peephole3_helper(&lines, index, &mut ret) {
+            index += 3;
             continue;
         }
-        if peephole2_helper(&lines, &mut index, &mut ret) {
+        if peephole2_helper(&lines, index, &mut ret) {
+            index += 2;
             continue;
         }
-        if peephole1_helper(&lines, &mut index, &mut ret) {
+        if peephole1_helper(&lines, index, &mut ret) {
+            index += 1;
             continue;
         }
 
@@ -42,8 +45,8 @@ fn optimization_pass(lines: Vec<Line>) -> Vec<Line> {
     ret
 }
 
-fn peephole1_helper(lines: &[Line], index: &mut usize, _ret: &mut Vec<Line>) -> bool {
-    match lines[*index].clone() {
+fn peephole1_helper(lines: &[Line], index: usize, _ret: &mut Vec<Line>) -> bool {
+    match lines[index].clone() {
         Line::Label(_) => false,
         Line::Instr {
             instr: instr1,
@@ -53,18 +56,15 @@ fn peephole1_helper(lines: &[Line], index: &mut usize, _ret: &mut Vec<Line>) -> 
         } => {
             match instr1 {
                 // PUSH 0 -> nothing
-                Instr::PushNil(0) => {
-                    *index += 1;
-                    true
-                }
+                Instr::PushNil(0) => true,
                 _ => false,
             }
         }
     }
 }
 
-fn peephole2_helper(lines: &[Line], index: &mut usize, ret: &mut Vec<Line>) -> bool {
-    match lines[*index].clone() {
+fn peephole2_helper(lines: &[Line], index: usize, ret: &mut Vec<Line>) -> bool {
+    match lines[index].clone() {
         Line::Label(_) => false,
         Line::Instr {
             instr: instr1,
@@ -72,8 +72,8 @@ fn peephole2_helper(lines: &[Line], index: &mut usize, ret: &mut Vec<Line>) -> b
             file_id,
             func_id,
         } => {
-            if *index + 1 < lines.len()
-                && let Line::Instr { instr: instr2, .. } = &lines[*index + 1]
+            if index + 1 < lines.len()
+                && let Line::Instr { instr: instr2, .. } = &lines[index + 1]
             {
                 match (instr1, instr2) {
                     // PUSH POP
@@ -84,7 +84,6 @@ fn peephole2_helper(lines: &[Line], index: &mut usize, ret: &mut Vec<Line>) -> b
                             file_id,
                             func_id,
                         });
-                        *index += 2;
                         true
                     }
                     (
@@ -93,14 +92,8 @@ fn peephole2_helper(lines: &[Line], index: &mut usize, ret: &mut Vec<Line>) -> b
                         | Instr::PushInt(_)
                         | Instr::PushString(_),
                         Instr::Pop,
-                    ) => {
-                        *index += 2;
-                        true
-                    }
-                    (Instr::Duplicate, Instr::Pop) => {
-                        *index += 2;
-                        true
-                    }
+                    ) => true,
+                    (Instr::Duplicate, Instr::Pop) => true,
                     // NOT JUMP_IF -> JUMP_IF_FALSE
                     (Instr::Not(Reg::Top, Reg::Top), Instr::JumpIf(label)) => {
                         ret.push(Line::Instr {
@@ -109,7 +102,6 @@ fn peephole2_helper(lines: &[Line], index: &mut usize, ret: &mut Vec<Line>) -> b
                             file_id,
                             func_id,
                         });
-                        *index += 2;
                         true
                     }
                     // PUSH TRUE JUMP_IF
@@ -120,19 +112,12 @@ fn peephole2_helper(lines: &[Line], index: &mut usize, ret: &mut Vec<Line>) -> b
                             file_id,
                             func_id,
                         });
-                        *index += 2;
                         true
                     }
                     // PUSH TRUE JUMP_IF_FALSE
-                    (Instr::PushBool(true), Instr::JumpIfFalse(_)) => {
-                        *index += 2;
-                        true
-                    }
+                    (Instr::PushBool(true), Instr::JumpIfFalse(_)) => true,
                     // PUSH FALSE JUMP_IF
-                    (Instr::PushBool(false), Instr::JumpIf(_)) => {
-                        *index += 2;
-                        true
-                    }
+                    (Instr::PushBool(false), Instr::JumpIf(_)) => true,
                     // BOOLEAN FLIP
                     (Instr::PushBool(b), Instr::Not(Reg::Top, Reg::Top)) => {
                         ret.push(Line::Instr {
@@ -141,7 +126,6 @@ fn peephole2_helper(lines: &[Line], index: &mut usize, ret: &mut Vec<Line>) -> b
                             file_id,
                             func_id,
                         });
-                        *index += 2;
                         true
                     }
                     // PUSHINT STORE -> STORE IMM
@@ -152,7 +136,6 @@ fn peephole2_helper(lines: &[Line], index: &mut usize, ret: &mut Vec<Line>) -> b
                             file_id,
                             func_id,
                         });
-                        *index += 2;
                         true
                     }
                     // LOAD(X) <ANY>(_, _, TOP) -> __(_, _, X)
@@ -163,7 +146,6 @@ fn peephole2_helper(lines: &[Line], index: &mut usize, ret: &mut Vec<Line>) -> b
                             file_id,
                             func_id,
                         });
-                        *index += 2;
                         true
                     }
                     // LOAD(X) __(_, TOP, Offset(Y) | Imm) -> __(_, X, Offset(Y) | Imm)
@@ -176,7 +158,6 @@ fn peephole2_helper(lines: &[Line], index: &mut usize, ret: &mut Vec<Line>) -> b
                             file_id,
                             func_id,
                         });
-                        *index += 2;
                         true
                     }
                     // __(TOP, R1, R2) STORE(N) -> __(N, R1, R2)
@@ -187,7 +168,6 @@ fn peephole2_helper(lines: &[Line], index: &mut usize, ret: &mut Vec<Line>) -> b
                             file_id,
                             func_id,
                         });
-                        *index += 2;
                         true
                     }
                     // PUSHINT(N) ADD_INT(_, _, TOP) -> ADD_INT_IMM(_, _, N)
@@ -203,8 +183,7 @@ fn peephole2_helper(lines: &[Line], index: &mut usize, ret: &mut Vec<Line>) -> b
                             lineno,
                             file_id,
                             func_id,
-                        });
-                        *index += 2; // TODO: doing + 2 everywhere is redundant and error prone. fix here and in other peephole functions
+                        }); // TODO: doing + 2 everywhere is redundant and error prone. fix here and in other peephole functions
                         true
                     }
                     // PUSHFLOAT(N) ADD_FLOAT(_, _, TOP) -> ADD_FLOAT_IMM(_, _, N)
@@ -220,8 +199,7 @@ fn peephole2_helper(lines: &[Line], index: &mut usize, ret: &mut Vec<Line>) -> b
                             lineno,
                             file_id,
                             func_id,
-                        });
-                        *index += 2; // TODO: doing + 2 everywhere is redundant and error prone. fix here and in other peephole functions
+                        }); // TODO: doing + 2 everywhere is redundant and error prone. fix here and in other peephole functions
                         true
                     }
                     _ => false,
@@ -233,8 +211,8 @@ fn peephole2_helper(lines: &[Line], index: &mut usize, ret: &mut Vec<Line>) -> b
     }
 }
 
-fn peephole3_helper(lines: &[Line], index: &mut usize, ret: &mut Vec<Line>) -> bool {
-    match lines[*index].clone() {
+fn peephole3_helper(lines: &[Line], index: usize, ret: &mut Vec<Line>) -> bool {
+    match lines[index].clone() {
         Line::Label(_) => false,
         Line::Instr {
             instr: instr1,
@@ -243,9 +221,9 @@ fn peephole3_helper(lines: &[Line], index: &mut usize, ret: &mut Vec<Line>) -> b
             func_id,
         } => {
             // WINDOW SIZE 3
-            if *index + 2 < lines.len()
-                && let Line::Instr { instr: instr2, .. } = &lines[*index + 1]
-                && let Line::Instr { instr: instr3, .. } = &lines[*index + 2]
+            if index + 2 < lines.len()
+                && let Line::Instr { instr: instr2, .. } = &lines[index + 1]
+                && let Line::Instr { instr: instr3, .. } = &lines[index + 2]
             {
                 match (instr1, instr2, instr3) {
                     // FOLD INT ADDITION
@@ -261,7 +239,6 @@ fn peephole3_helper(lines: &[Line], index: &mut usize, ret: &mut Vec<Line>) -> b
                             file_id,
                             func_id,
                         });
-                        *index += 3;
                         true
                     }
                     // FOLD INT SUBTRACTION
@@ -277,7 +254,6 @@ fn peephole3_helper(lines: &[Line], index: &mut usize, ret: &mut Vec<Line>) -> b
                             file_id,
                             func_id,
                         });
-                        *index += 3;
                         true
                     }
                     // FOLD INT MULTIPLICATION
@@ -293,7 +269,6 @@ fn peephole3_helper(lines: &[Line], index: &mut usize, ret: &mut Vec<Line>) -> b
                             file_id,
                             func_id,
                         });
-                        *index += 3;
                         true
                     }
                     // FOLD INT DIVISION
@@ -312,7 +287,6 @@ fn peephole3_helper(lines: &[Line], index: &mut usize, ret: &mut Vec<Line>) -> b
                                 file_id,
                                 func_id,
                             });
-                            *index += 3;
                             true
                         }
                     }
@@ -329,7 +303,6 @@ fn peephole3_helper(lines: &[Line], index: &mut usize, ret: &mut Vec<Line>) -> b
                             file_id,
                             func_id,
                         });
-                        *index += 3;
                         true
                     }
                     // FOLD FLOAT ADDITION
@@ -347,7 +320,6 @@ fn peephole3_helper(lines: &[Line], index: &mut usize, ret: &mut Vec<Line>) -> b
                             file_id,
                             func_id,
                         });
-                        *index += 3;
                         true
                     }
                     // FOLD FLOAT SUBTRACTION
@@ -365,7 +337,6 @@ fn peephole3_helper(lines: &[Line], index: &mut usize, ret: &mut Vec<Line>) -> b
                             file_id,
                             func_id,
                         });
-                        *index += 3;
                         true
                     }
                     // FOLD FLOAT MULTIPLICATION
@@ -383,7 +354,6 @@ fn peephole3_helper(lines: &[Line], index: &mut usize, ret: &mut Vec<Line>) -> b
                             file_id,
                             func_id,
                         });
-                        *index += 3;
                         true
                     }
                     // FOLD FLOAT DIVISION
@@ -401,7 +371,6 @@ fn peephole3_helper(lines: &[Line], index: &mut usize, ret: &mut Vec<Line>) -> b
                             file_id,
                             func_id,
                         });
-                        *index += 3;
                         true
                     }
                     // FOLD FLOAT EXPONENTIATION
@@ -419,7 +388,6 @@ fn peephole3_helper(lines: &[Line], index: &mut usize, ret: &mut Vec<Line>) -> b
                             file_id,
                             func_id,
                         });
-                        *index += 3;
                         true
                     }
                     _ => false,
