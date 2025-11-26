@@ -1255,7 +1255,8 @@ comment */
 #[test]
 fn host_function() {
     let src = r#"
-host fn do_stuff() -> int
+#host
+fn do_stuff() -> int
 
 do_stuff()
 "#;
@@ -1272,8 +1273,11 @@ do_stuff()
 #[test]
 fn host_function2() {
     let src = r#"
-host fn do_stuff() -> int
-host fn do_stuff2() -> int
+#host
+fn do_stuff() -> int
+
+#host
+fn do_stuff2() -> int
 
 let x = do_stuff2()
 x + x

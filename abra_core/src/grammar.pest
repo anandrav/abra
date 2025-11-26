@@ -64,7 +64,7 @@ break_statement = { "break" }
 
 func_def = { "fn" ~ identifier ~ func_args ~ func_out_annotation? ~ (block_expression | (op_assign ~ expression)) }
 
-foreign_func_decl = { "foreign fn" ~ identifier ~ func_args_annotated ~ func_out_annotation }
+foreign_func_decl = { "#foreign" ~ "fn" ~ identifier ~ func_args_annotated ~ func_out_annotation }
 
 host_func_decl = { "#host" ~ "fn" ~ identifier ~ func_args_annotated ~ func_out_annotation }
 

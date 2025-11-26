@@ -1,20 +1,20 @@
-foreign fn pass_int(i: int) -> int
+#foreign fn pass_int(i: int) -> int
 
-foreign fn pass_bool(i: bool) -> bool
+#foreign fn pass_bool(i: bool) -> bool
 
-foreign fn pass_void(v: void) -> void
+#foreign fn pass_void(v: void) -> void
 
-foreign fn pass_string(s: string) -> string
+#foreign fn pass_string(s: string) -> string
 
-foreign fn pass_struct(s: MyStruct) -> MyStruct
+#foreign fn pass_struct(s: MyStruct) -> MyStruct
 
-foreign fn pass_enum(e: MyEnum) -> MyEnum
+#foreign fn pass_enum(e: MyEnum) -> MyEnum
 
-foreign fn pass_tuple(e: (bool, int, string)) -> (bool, int, string)
+#foreign fn pass_tuple(e: (bool, int, string)) -> (bool, int, string)
 
-foreign fn pass_option(o: option<string>) -> option<string>
+#foreign fn pass_option(o: option<string>) -> option<string>
 
-foreign fn pass_array(a: array<int>) -> array<int>
+#foreign fn pass_array(a: array<int>) -> array<int>
 
 type MyStruct = {
     i: int
