@@ -983,6 +983,7 @@ impl Vm {
         }
     }
 
+    #[inline(always)]
     fn step(&mut self) -> bool {
         let instr = self.program[self.pc.get()];
 
