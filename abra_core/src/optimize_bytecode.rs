@@ -462,6 +462,10 @@ impl Instr {
                 | Instr::GreaterThanOrEqualFloat(_, _, Reg::Top)
                 | Instr::EqualFloat(_, _, Reg::Top)
                 | Instr::Not(_, Reg::Top)
+                | Instr::IntToFloat(_, Reg::Top)
+                | Instr::FloatToInt(_, Reg::Top)
+                | Instr::IntToString(_, Reg::Top)
+                | Instr::FloatToString(_, Reg::Top)
                 | Instr::ArrayPush(_, Reg::Top)
                 | Instr::ArrayLength(_, Reg::Top)
                 | Instr::ArrayPop(_, Reg::Top)
@@ -566,6 +570,10 @@ impl Instr {
                 | Instr::EqualFloat(Reg::Top, _, _)
                 | Instr::EqualFloatImm(Reg::Top, _, _)
                 | Instr::Not(Reg::Top, _)
+                | Instr::IntToFloat(Reg::Top, _)
+                | Instr::FloatToInt(Reg::Top, _)
+                | Instr::IntToString(Reg::Top, _)
+                | Instr::FloatToString(Reg::Top, _)
                 | Instr::ArrayPop(Reg::Top, _)
                 | Instr::ArrayLength(Reg::Top, _)
         )
@@ -671,6 +679,10 @@ impl Instr {
             Instr::EqualFloat(dest, r1, _) => Instr::EqualFloat(dest, r1, r2),
 
             Instr::Not(dest, _) => Instr::Not(dest, r2),
+            Instr::IntToFloat(dest, _) => Instr::IntToFloat(dest, r2),
+            Instr::FloatToInt(dest, _) => Instr::FloatToInt(dest, r2),
+            Instr::IntToString(dest, _) => Instr::IntToString(dest, r2),
+            Instr::FloatToString(dest, _) => Instr::FloatToString(dest, r2),
 
             Instr::ArrayPush(r1, _) => Instr::ArrayPush(r1, r2),
             Instr::ArrayLength(dest, _) => Instr::ArrayLength(dest, r2),
@@ -742,6 +754,10 @@ impl Instr {
             Instr::EqualFloatImm(_, r1, r2) => Instr::EqualFloatImm(dest, r1, r2),
 
             Instr::Not(_, r2) => Instr::Not(dest, r2),
+            Instr::IntToFloat(_, r2) => Instr::IntToFloat(dest, r2),
+            Instr::FloatToInt(_, r2) => Instr::FloatToInt(dest, r2),
+            Instr::IntToString(_, r2) => Instr::IntToString(dest, r2),
+            Instr::FloatToString(_, r2) => Instr::FloatToString(dest, r2),
 
             Instr::ArrayPop(_, r2) => Instr::ArrayPop(dest, r2),
             Instr::ArrayLength(_, r2) => Instr::ArrayLength(dest, r2),

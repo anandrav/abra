@@ -1142,16 +1142,16 @@ impl Translator {
                     self.emit(st, Instr::EqualString);
                 }
                 BuiltinOperation::IntToFloat => {
-                    self.emit(st, Instr::IntToFloat);
+                    self.emit(st, Instr::IntToFloat(Reg::Top, Reg::Top));
                 }
                 BuiltinOperation::FloatToInt => {
-                    self.emit(st, Instr::FloatToInt);
+                    self.emit(st, Instr::FloatToInt(Reg::Top, Reg::Top));
                 }
                 BuiltinOperation::IntToString => {
-                    self.emit(st, Instr::IntToString);
+                    self.emit(st, Instr::IntToString(Reg::Top, Reg::Top));
                 }
                 BuiltinOperation::FloatToString => {
-                    self.emit(st, Instr::FloatToString);
+                    self.emit(st, Instr::FloatToString(Reg::Top, Reg::Top));
                 }
                 BuiltinOperation::ConcatStrings => {
                     self.emit(st, Instr::ConcatStrings);
@@ -1525,10 +1525,10 @@ impl Translator {
                 if is_func(&ty, SolvedType::String, SolvedType::String) =>
             { /* noop */ }
             ("prelude.ToString.str", ty) if is_func(&ty, SolvedType::Int, SolvedType::String) => {
-                self.emit(st, Instr::IntToString);
+                self.emit(st, Instr::IntToString(Reg::Top, Reg::Top));
             }
             ("prelude.ToString.str", ty) if is_func(&ty, SolvedType::Float, SolvedType::String) => {
-                self.emit(st, Instr::FloatToString);
+                self.emit(st, Instr::FloatToString(Reg::Top, Reg::Top));
             }
             ("prelude.Clone.clone", ty)
                 if is_ident_func(&ty, SolvedType::Int)

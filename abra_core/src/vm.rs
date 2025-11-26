@@ -511,10 +511,10 @@ pub enum Instr {
     ArrayLength(u16, u16),
     ArrayPop(u16, u16),
     ConcatStrings, //TODO: use registers? TODO: this is O(N). Must use smaller instructions. Or concat character-by-character and save progress in Vm
-    IntToFloat,    // TODO: use register
-    FloatToInt,    // TODO: use register
-    IntToString,   // TODO: use register
-    FloatToString, // TODO: use register
+    IntToFloat(u16, u16),
+    FloatToInt(u16, u16),
+    IntToString(u16, u16),
+    FloatToString(u16, u16),
 
     LoadLib,
     LoadForeignFunc,
@@ -1484,29 +1484,27 @@ impl Vm {
                 let r = Value::from(s);
                 self.set_top(r);
             }
-            Instr::IntToFloat => {
-                let n = self.top().get_int(self);
+            Instr::IntToFloat(dest, reg) => {
+                let n = self.load_offset_or_top(reg).get_int(self);
                 let f = n as f64;
-                self.set_top(f);
+                self.store_offset_or_top(dest, f);
             }
-            Instr::FloatToInt => {
-                let f = self.top().get_float(self);
+            Instr::FloatToInt(dest, reg) => {
+                let f = self.load_offset_or_top(reg).get_float(self);
                 let n = f as AbraInt;
-                self.set_top(n);
+                self.store_offset_or_top(dest, n);
             }
-            Instr::IntToString => {
-                let n = self.top().get_int(self);
+            Instr::IntToString(dest, reg) => {
+                let n = self.load_offset_or_top(reg).get_int(self);
                 let s = n.to_string();
                 let s = StringObject::new(s, self);
-                let r = Value::from(s);
-                self.set_top(r);
+                self.store_offset_or_top(dest, s);
             }
-            Instr::FloatToString => {
-                let f = self.top().get_float(self);
+            Instr::FloatToString(dest, reg) => {
+                let f = self.load_offset_or_top(reg).get_float(self);
                 let s = f.to_string();
                 let s = StringObject::new(s, self);
-                let r = Value::from(s);
-                self.set_top(r);
+                self.store_offset_or_top(dest, s);
             }
             Instr::HostFunc(eff) => {
                 self.pending_host_func = Some(eff);
