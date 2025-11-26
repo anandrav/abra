@@ -42,7 +42,7 @@ packed_data = _{ tuple_type_allow_single }
 struct_declaration = { "type" ~ udt_identifier ~ type_params? ~ "=" ~ "{" ~ struct_field ~ (struct_field)* ~ "}" }
 struct_field = { identifier ~ type_annotation }
 
-statement = _{ let_statement | var_statement | set_statement | break_statement | continue_statement | return_statement | while_statement | for_loop_statement | expression_statement | if_statement }
+statement = _{ (let_statement | var_statement | set_statement | break_statement | continue_statement | return_statement | while_statement | for_loop_statement | expression_statement | if_statement) ~ (";")?}
 
 let_statement = { let_keyword ~ let_pattern_annotated ~ op_assign ~ expression }
 let_keyword = _{ "let" }

@@ -265,14 +265,31 @@ implement Iterator for ArrayIterator<U> {
     }
 }
 
-fn range(hi: int) -> array<int> {
-    let ret = []
-    var lo = 0
-    while lo < hi {
-        ret.push(lo)
-        lo = lo + 1
+type range = {
+    end: int
+}
+
+implement Iterable for range {
+    fn make_iterator(self) -> RangeIterator {
+        RangeIterator(0, self.end)
     }
-    ret
+}
+
+type RangeIterator = {
+    begin: int
+    end: int
+}
+
+implement Iterator for RangeIterator {
+    fn next(self) -> option<int> {
+        if self.begin == self.end {
+            .none
+        } else {
+            let ret = self.begin
+            self.begin = self.begin + 1;
+            .some(ret)
+        }
+    }
 }
 
 extend array<T> {
