@@ -192,12 +192,31 @@ fn peephole2_helper(lines: &[Line], index: &mut usize, ret: &mut Vec<Line>) -> b
                     }
                     // PUSHINT(N) ADD_INT(_, _, TOP) -> ADD_INT_IMM(_, _, N)
                     (instr1, instr2)
-                        if instr1.is_push_imm()
+                        if instr1.is_push_imm_int()
                             && instr2.second_arg_is_top()
-                            && instr2.can_replace_second_arg_with_imm() =>
+                            && instr2.can_replace_second_arg_with_imm_int() =>
                     {
                         ret.push(Line::Instr {
-                            instr: instr2.clone().replace_second_arg_imm(instr1.get_imm()),
+                            instr: instr2
+                                .clone()
+                                .replace_second_arg_imm_int(instr1.get_imm_int()),
+                            lineno,
+                            file_id,
+                            func_id,
+                        });
+                        *index += 2; // TODO: doing + 2 everywhere is redundant and error prone. fix here and in other peephole functions
+                        true
+                    }
+                    // PUSHFLOAT(N) ADD_FLOAT(_, _, TOP) -> ADD_FLOAT_IMM(_, _, N)
+                    (instr1, instr2)
+                        if instr1.is_push_imm_float()
+                            && instr2.second_arg_is_top()
+                            && instr2.can_replace_second_arg_with_imm_float() =>
+                    {
+                        ret.push(Line::Instr {
+                            instr: instr2
+                                .clone()
+                                .replace_second_arg_imm_float(instr1.get_imm_float()),
                             lineno,
                             file_id,
                             func_id,
@@ -432,7 +451,15 @@ impl Instr {
                 | Instr::DivFloat(_, _, Reg::Top)
                 | Instr::PowFloat(_, _, Reg::Top)
                 | Instr::LessThanInt(_, _, Reg::Top)
+                | Instr::LessThanOrEqualInt(_, _, Reg::Top)
+                | Instr::GreaterThanInt(_, _, Reg::Top)
+                | Instr::GreaterThanOrEqualInt(_, _, Reg::Top)
                 | Instr::EqualInt(_, _, Reg::Top)
+                | Instr::LessThanFloat(_, _, Reg::Top)
+                | Instr::LessThanOrEqualFloat(_, _, Reg::Top)
+                | Instr::GreaterThanFloat(_, _, Reg::Top)
+                | Instr::GreaterThanOrEqualFloat(_, _, Reg::Top)
+                | Instr::EqualFloat(_, _, Reg::Top)
                 | Instr::ArrayPush(_, Reg::Top)
                 | Instr::GetIdx(_, Reg::Top)
                 | Instr::SetIdx(_, Reg::Top)
@@ -467,8 +494,20 @@ impl Instr {
                 | Instr::PowFloat(_, Reg::Top, _)
                 | Instr::LessThanInt(_, Reg::Top, Reg::Offset(_))
                 | Instr::LessThanIntImm(_, Reg::Top, _)
+                | Instr::LessThanOrEqualInt(_, Reg::Top, Reg::Offset(_))
+                | Instr::LessThanOrEqualIntImm(_, Reg::Top, _)
+                | Instr::GreaterThanInt(_, Reg::Top, Reg::Offset(_))
+                | Instr::GreaterThanOrEqualIntImm(_, Reg::Top, _)
                 | Instr::EqualInt(_, Reg::Top, Reg::Offset(_))
                 | Instr::EqualIntImm(_, Reg::Top, _)
+                | Instr::LessThanFloat(_, Reg::Top, Reg::Offset(_))
+                | Instr::LessThanFloatImm(_, Reg::Top, _)
+                | Instr::LessThanOrEqualFloat(_, Reg::Top, Reg::Offset(_))
+                | Instr::LessThanOrEqualFloatImm(_, Reg::Top, _)
+                | Instr::GreaterThanFloat(_, Reg::Top, Reg::Offset(_))
+                | Instr::GreaterThanOrEqualFloatImm(_, Reg::Top, _)
+                | Instr::EqualFloat(_, Reg::Top, Reg::Offset(_))
+                | Instr::EqualFloatImm(_, Reg::Top, _)
                 | Instr::ArrayPush(Reg::Top, Reg::Offset(_))
                 | Instr::ArrayPushIntImm(Reg::Top, _)
                 | Instr::GetIdx(Reg::Top, Reg::Offset(_))
@@ -503,8 +542,24 @@ impl Instr {
                 | Instr::PowFloatImm(Reg::Top, _, _)
                 | Instr::LessThanInt(Reg::Top, _, _)
                 | Instr::LessThanIntImm(Reg::Top, _, _)
+                | Instr::LessThanOrEqualInt(Reg::Top, _, _)
+                | Instr::LessThanOrEqualIntImm(Reg::Top, _, _)
+                | Instr::GreaterThanInt(Reg::Top, _, _)
+                | Instr::GreaterThanIntImm(Reg::Top, _, _)
+                | Instr::GreaterThanOrEqualInt(Reg::Top, _, _)
+                | Instr::GreaterThanOrEqualIntImm(Reg::Top, _, _)
                 | Instr::EqualInt(Reg::Top, _, _)
                 | Instr::EqualIntImm(Reg::Top, _, _)
+                | Instr::LessThanFloat(Reg::Top, _, _)
+                | Instr::LessThanFloatImm(Reg::Top, _, _)
+                | Instr::LessThanOrEqualFloat(Reg::Top, _, _)
+                | Instr::LessThanOrEqualFloatImm(Reg::Top, _, _)
+                | Instr::GreaterThanFloat(Reg::Top, _, _)
+                | Instr::GreaterThanFloatImm(Reg::Top, _, _)
+                | Instr::GreaterThanOrEqualFloat(Reg::Top, _, _)
+                | Instr::GreaterThanOrEqualFloatImm(Reg::Top, _, _)
+                | Instr::EqualFloat(Reg::Top, _, _)
+                | Instr::EqualFloatImm(Reg::Top, _, _)
         )
     }
 
@@ -536,8 +591,35 @@ impl Instr {
 
             Instr::LessThanInt(dest, _, r2) => Instr::LessThanInt(dest, r1, r2),
             Instr::LessThanIntImm(dest, _, r2) => Instr::LessThanIntImm(dest, r1, r2),
+            Instr::LessThanOrEqualInt(dest, _, r2) => Instr::LessThanOrEqualInt(dest, r1, r2),
+            Instr::LessThanOrEqualIntImm(dest, _, r2) => Instr::LessThanOrEqualIntImm(dest, r1, r2),
+            Instr::GreaterThanInt(dest, _, r2) => Instr::GreaterThanInt(dest, r1, r2),
+            Instr::GreaterThanIntImm(dest, _, r2) => Instr::GreaterThanIntImm(dest, r1, r2),
+            Instr::GreaterThanOrEqualInt(dest, _, r2) => Instr::GreaterThanOrEqualInt(dest, r1, r2),
+            Instr::GreaterThanOrEqualIntImm(dest, _, r2) => {
+                Instr::GreaterThanOrEqualIntImm(dest, r1, r2)
+            }
+
             Instr::EqualInt(dest, _, r2) => Instr::EqualInt(dest, r1, r2),
             Instr::EqualIntImm(dest, _, r2) => Instr::EqualIntImm(dest, r1, r2),
+
+            Instr::LessThanFloat(dest, _, r2) => Instr::LessThanFloat(dest, r1, r2),
+            Instr::LessThanFloatImm(dest, _, r2) => Instr::LessThanFloatImm(dest, r1, r2),
+            Instr::LessThanOrEqualFloat(dest, _, r2) => Instr::LessThanOrEqualFloat(dest, r1, r2),
+            Instr::LessThanOrEqualFloatImm(dest, _, r2) => {
+                Instr::LessThanOrEqualFloatImm(dest, r1, r2)
+            }
+            Instr::GreaterThanFloat(dest, _, r2) => Instr::GreaterThanFloat(dest, r1, r2),
+            Instr::GreaterThanFloatImm(dest, _, r2) => Instr::GreaterThanFloatImm(dest, r1, r2),
+            Instr::GreaterThanOrEqualFloat(dest, _, r2) => {
+                Instr::GreaterThanOrEqualFloat(dest, r1, r2)
+            }
+            Instr::GreaterThanOrEqualFloatImm(dest, _, r2) => {
+                Instr::GreaterThanOrEqualFloatImm(dest, r1, r2)
+            }
+
+            Instr::EqualFloat(dest, _, r2) => Instr::EqualFloat(dest, r1, r2),
+            Instr::EqualFloatImm(dest, _, r2) => Instr::EqualFloatImm(dest, r1, r2),
 
             Instr::ArrayPush(_, r2) => Instr::ArrayPush(r1, r2),
             Instr::ArrayPushIntImm(_, r2) => Instr::ArrayPushIntImm(r1, r2),
@@ -564,7 +646,21 @@ impl Instr {
             Instr::PowFloat(dest, r1, _) => Instr::PowFloat(dest, r1, r2),
 
             Instr::LessThanInt(dest, r1, _) => Instr::LessThanInt(dest, r1, r2),
+            Instr::LessThanOrEqualInt(dest, r1, _) => Instr::LessThanOrEqualInt(dest, r1, r2),
+            Instr::GreaterThanInt(dest, r1, _) => Instr::GreaterThanInt(dest, r1, r2),
+            Instr::GreaterThanOrEqualInt(dest, r1, _) => Instr::GreaterThanOrEqualInt(dest, r1, r2),
+
             Instr::EqualInt(dest, r1, _) => Instr::EqualInt(dest, r1, r2),
+
+            Instr::LessThanFloat(dest, r1, _) => Instr::LessThanFloat(dest, r1, r2),
+            Instr::LessThanOrEqualFloat(dest, r1, _) => Instr::LessThanOrEqualFloat(dest, r1, r2),
+            Instr::GreaterThanFloat(dest, r1, _) => Instr::GreaterThanFloat(dest, r1, r2),
+            Instr::GreaterThanOrEqualFloat(dest, r1, _) => {
+                Instr::GreaterThanOrEqualFloat(dest, r1, r2)
+            }
+
+            Instr::EqualFloat(dest, r1, _) => Instr::EqualFloat(dest, r1, r2),
+
             Instr::ArrayPush(r1, _) => Instr::ArrayPush(r1, r2),
             Instr::GetIdx(r1, _) => Instr::GetIdx(r1, r2),
             Instr::SetIdx(r1, _) => Instr::SetIdx(r1, r2),
@@ -603,21 +699,46 @@ impl Instr {
 
             Instr::LessThanInt(_, r1, r2) => Instr::LessThanInt(dest, r1, r2),
             Instr::LessThanIntImm(_, r1, r2) => Instr::LessThanIntImm(dest, r1, r2),
+            Instr::LessThanOrEqualInt(_, r1, r2) => Instr::LessThanOrEqualInt(dest, r1, r2),
+            Instr::LessThanOrEqualIntImm(_, r1, r2) => Instr::LessThanOrEqualIntImm(dest, r1, r2),
+            Instr::GreaterThanInt(_, r1, r2) => Instr::GreaterThanInt(dest, r1, r2),
+            Instr::GreaterThanIntImm(_, r1, r2) => Instr::GreaterThanIntImm(dest, r1, r2),
+            Instr::GreaterThanOrEqualInt(_, r1, r2) => Instr::GreaterThanOrEqualInt(dest, r1, r2),
+            Instr::GreaterThanOrEqualIntImm(_, r1, r2) => {
+                Instr::GreaterThanOrEqualIntImm(dest, r1, r2)
+            }
             Instr::EqualInt(_, r1, r2) => Instr::EqualInt(dest, r1, r2),
             Instr::EqualIntImm(_, r1, r2) => Instr::EqualIntImm(dest, r1, r2),
+
+            Instr::LessThanFloat(_, r1, r2) => Instr::LessThanFloat(dest, r1, r2),
+            Instr::LessThanFloatImm(_, r1, r2) => Instr::LessThanFloatImm(dest, r1, r2),
+            Instr::LessThanOrEqualFloat(_, r1, r2) => Instr::LessThanOrEqualFloat(dest, r1, r2),
+            Instr::LessThanOrEqualFloatImm(_, r1, r2) => {
+                Instr::LessThanOrEqualFloatImm(dest, r1, r2)
+            }
+            Instr::GreaterThanFloat(_, r1, r2) => Instr::GreaterThanFloat(dest, r1, r2),
+            Instr::GreaterThanFloatImm(_, r1, r2) => Instr::GreaterThanFloatImm(dest, r1, r2),
+            Instr::GreaterThanOrEqualFloat(_, r1, r2) => {
+                Instr::GreaterThanOrEqualFloat(dest, r1, r2)
+            }
+            Instr::GreaterThanOrEqualFloatImm(_, r1, r2) => {
+                Instr::GreaterThanOrEqualFloatImm(dest, r1, r2)
+            }
+            Instr::EqualFloat(_, r1, r2) => Instr::EqualFloat(dest, r1, r2),
+            Instr::EqualFloatImm(_, r1, r2) => Instr::EqualFloatImm(dest, r1, r2),
             _ => panic!("can't replace dest"),
         }
     }
 
-    fn is_push_imm(&self) -> bool {
-        match self {
-            Instr::PushInt(_) => true,
-            // Instr::PushBool(_) => true,
-            _ => false,
-        }
+    fn is_push_imm_int(&self) -> bool {
+        matches!(self, Instr::PushInt(_))
     }
 
-    fn get_imm(&self) -> AbraInt {
+    fn is_push_imm_float(&self) -> bool {
+        matches!(self, Instr::PushFloat(_))
+    }
+
+    fn get_imm_int(&self) -> AbraInt {
         match self {
             Instr::PushInt(n) => *n,
             // Instr::PushBool(b) => as_imm_bool(*b), // boolean immediates are represented as int immediates
@@ -625,7 +746,14 @@ impl Instr {
         }
     }
 
-    fn can_replace_second_arg_with_imm(&self) -> bool {
+    fn get_imm_float(&self) -> String {
+        match self {
+            Instr::PushFloat(n) => n.clone(),
+            _ => panic!("can't get immediate"),
+        }
+    }
+
+    fn can_replace_second_arg_with_imm_int(&self) -> bool {
         matches!(
             self,
             Instr::AddInt(..)
@@ -634,18 +762,32 @@ impl Instr {
                 | Instr::DivInt(..)
                 | Instr::PowInt(..)
                 | Instr::Modulo(..)
-                | Instr::AddFloat(..)
-                | Instr::SubFloat(..)
-                | Instr::MulFloat(..)
-                | Instr::DivFloat(..)
-                | Instr::PowFloat(..)
                 | Instr::LessThanInt(..)
+                | Instr::LessThanOrEqualInt(..)
+                | Instr::GreaterThanInt(..)
+                | Instr::GreaterThanOrEqualInt(..)
                 | Instr::EqualInt(..)
                 | Instr::ArrayPush(..)
         )
     }
 
-    fn replace_second_arg_imm(self, imm: AbraInt) -> Instr {
+    fn can_replace_second_arg_with_imm_float(&self) -> bool {
+        matches!(
+            self,
+            Instr::AddFloat(..)
+                | Instr::SubFloat(..)
+                | Instr::MulFloat(..)
+                | Instr::DivFloat(..)
+                | Instr::PowFloat(..)
+                | Instr::LessThanFloat(..)
+                | Instr::LessThanOrEqualFloat(..)
+                | Instr::GreaterThanFloat(..)
+                | Instr::GreaterThanOrEqualFloat(..)
+                | Instr::EqualFloat(..) // | Instr::ArrayPush(..) // TODO: would be nice if worked for floats... and bools...
+        )
+    }
+
+    fn replace_second_arg_imm_int(self, imm: AbraInt) -> Instr {
         match self {
             Instr::AddInt(dest, r1, _) => Instr::AddIntImm(dest, r1, imm),
             Instr::SubInt(dest, r1, _) => Instr::SubIntImm(dest, r1, imm),
@@ -653,15 +795,35 @@ impl Instr {
             Instr::DivInt(dest, r1, _) => Instr::DivIntImm(dest, r1, imm),
             Instr::PowInt(dest, r1, _) => Instr::PowIntImm(dest, r1, imm),
             Instr::Modulo(dest, r1, _) => Instr::ModuloImm(dest, r1, imm),
+            Instr::LessThanInt(dest, r1, _) => Instr::LessThanIntImm(dest, r1, imm),
+            Instr::LessThanOrEqualInt(dest, r1, _) => Instr::LessThanOrEqualIntImm(dest, r1, imm),
+            Instr::GreaterThanInt(dest, r1, _) => Instr::GreaterThanIntImm(dest, r1, imm),
+            Instr::GreaterThanOrEqualInt(dest, r1, _) => {
+                Instr::GreaterThanOrEqualIntImm(dest, r1, imm)
+            }
+            Instr::EqualInt(dest, r1, _) => Instr::EqualIntImm(dest, r1, imm),
+            Instr::ArrayPush(r1, _) => Instr::ArrayPushIntImm(r1, imm),
+            _ => panic!("can't replace second arg with immediate"),
+        }
+    }
+
+    fn replace_second_arg_imm_float(self, imm: String) -> Instr {
+        match self {
             Instr::AddFloat(dest, r1, _) => Instr::AddFloatImm(dest, r1, imm),
             Instr::SubFloat(dest, r1, _) => Instr::SubFloatImm(dest, r1, imm),
             Instr::MulFloat(dest, r1, _) => Instr::MulFloatImm(dest, r1, imm),
             Instr::DivFloat(dest, r1, _) => Instr::DivFloatImm(dest, r1, imm),
             Instr::PowFloat(dest, r1, _) => Instr::PowFloatImm(dest, r1, imm),
-            Instr::LessThanInt(dest, r1, _) => Instr::LessThanIntImm(dest, r1, imm),
-            Instr::EqualInt(dest, r1, _) => Instr::EqualIntImm(dest, r1, imm),
-            Instr::ArrayPush(r1, _) => Instr::ArrayPushIntImm(r1, imm),
-            _ => panic!("can't replace second arg with immediate"),
+            Instr::LessThanFloat(dest, r1, _) => Instr::LessThanFloatImm(dest, r1, imm),
+            Instr::LessThanOrEqualFloat(dest, r1, _) => {
+                Instr::LessThanOrEqualFloatImm(dest, r1, imm)
+            }
+            Instr::GreaterThanFloat(dest, r1, _) => Instr::GreaterThanFloatImm(dest, r1, imm),
+            Instr::GreaterThanOrEqualFloat(dest, r1, _) => {
+                Instr::GreaterThanOrEqualFloatImm(dest, r1, imm)
+            }
+            Instr::EqualFloat(dest, r1, _) => Instr::EqualFloatImm(dest, r1, imm),
+            _ => panic!("can't replace second arg with immediate float"),
         }
     }
 }

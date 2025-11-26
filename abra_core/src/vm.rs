@@ -452,17 +452,26 @@ pub enum Instr {
     // Comparison
     LessThanInt(u16, u16, u16),
     LessThanIntImm(u16, u16, u16),
-    LessThanOrEqualInt(u16, u16, u16),    // TODO: imm
-    GreaterThanInt(u16, u16, u16),        // TODO: imm
-    GreaterThanOrEqualInt(u16, u16, u16), // TODO: imm
-    LessThanFloat(u16, u16, u16),         // TODO: imm
+    LessThanOrEqualInt(u16, u16, u16),
+    LessThanOrEqualIntImm(u16, u16, u16),
+    GreaterThanInt(u16, u16, u16),
+    GreaterThanIntImm(u16, u16, u16),
+    GreaterThanOrEqualInt(u16, u16, u16),
+    GreaterThanOrEqualIntImm(u16, u16, u16),
 
-    LessThanOrEqualFloat(u16, u16, u16),    // TODO: imm
-    GreaterThanFloat(u16, u16, u16),        // TODO: imm
+    LessThanFloat(u16, u16, u16),
+    LessThanFloatImm(u16, u16, u16),
+    LessThanOrEqualFloat(u16, u16, u16), // TODO: imm
+    LessThanOrEqualFloatImm(u16, u16, u16),
+    GreaterThanFloat(u16, u16, u16), // TODO: imm
+    GreaterThanFloatImm(u16, u16, u16),
     GreaterThanOrEqualFloat(u16, u16, u16), // TODO: imm
-    EqualInt(u16, u16, u16),                // TODO: imm
-    EqualIntImm(u16, u16, u16),             // TODO: imm
+    GreaterThanOrEqualFloatImm(u16, u16, u16),
+
+    EqualInt(u16, u16, u16),    // TODO: imm
+    EqualIntImm(u16, u16, u16), // TODO: imm
     EqualFloat(u16, u16, u16),
+    EqualFloatImm(u16, u16, u16),
     EqualBool(u16, u16, u16),
     EqualString, // TODO: use registers? // TODO: this is O(N). Must use smaller instructions. Or compare character-by-character and save progress in state of Vm
 
@@ -1013,7 +1022,6 @@ impl Vm {
                 self.store_offset(n, v);
             }
             Instr::StoreOffsetImm(n, imm) => {
-                let imm = AbraInt::from(imm as AbraInt);
                 self.store_offset(n, self.int_constants[imm as usize]);
             }
             Instr::AddInt(dest, reg1, reg2) => {
@@ -1217,11 +1225,17 @@ impl Vm {
                 self.store_offset_or_top(dest, a < b);
             }
             Instr::LessThanIntImm(dest, reg1, imm) => {
+                let b = self.int_constants[imm as usize];
                 let a = self.load_offset_or_top(reg1).get_int(self);
-                self.store_offset_or_top(dest, a < self.int_constants[imm as usize]);
+                self.store_offset_or_top(dest, a < b);
             }
             Instr::LessThanOrEqualInt(dest, reg1, reg2) => {
                 let b = self.load_offset_or_top(reg2).get_int(self);
+                let a = self.load_offset_or_top(reg1).get_int(self);
+                self.store_offset_or_top(dest, a <= b);
+            }
+            Instr::LessThanOrEqualIntImm(dest, reg1, imm) => {
+                let b = self.int_constants[imm as usize];
                 let a = self.load_offset_or_top(reg1).get_int(self);
                 self.store_offset_or_top(dest, a <= b);
             }
@@ -1230,8 +1244,18 @@ impl Vm {
                 let a = self.load_offset_or_top(reg1).get_int(self);
                 self.store_offset_or_top(dest, a > b);
             }
+            Instr::GreaterThanIntImm(dest, reg1, imm) => {
+                let b = self.int_constants[imm as usize];
+                let a = self.load_offset_or_top(reg1).get_int(self);
+                self.store_offset_or_top(dest, a > b);
+            }
             Instr::GreaterThanOrEqualInt(dest, reg1, reg2) => {
                 let b = self.load_offset_or_top(reg2).get_int(self);
+                let a = self.load_offset_or_top(reg1).get_int(self);
+                self.store_offset_or_top(dest, a >= b);
+            }
+            Instr::GreaterThanOrEqualIntImm(dest, reg1, imm) => {
+                let b = self.int_constants[imm as usize];
                 let a = self.load_offset_or_top(reg1).get_int(self);
                 self.store_offset_or_top(dest, a >= b);
             }
@@ -1240,8 +1264,18 @@ impl Vm {
                 let a = self.load_offset_or_top(reg1).get_float(self);
                 self.store_offset_or_top(dest, a < b);
             }
+            Instr::LessThanFloatImm(dest, reg1, imm) => {
+                let b = self.float_constants[imm as usize];
+                let a = self.load_offset_or_top(reg1).get_float(self);
+                self.store_offset_or_top(dest, a < b);
+            }
             Instr::LessThanOrEqualFloat(dest, reg1, reg2) => {
                 let b = self.load_offset_or_top(reg2).get_float(self);
+                let a = self.load_offset_or_top(reg1).get_float(self);
+                self.store_offset_or_top(dest, a <= b);
+            }
+            Instr::LessThanOrEqualFloatImm(dest, reg1, imm) => {
+                let b = self.float_constants[imm as usize];
                 let a = self.load_offset_or_top(reg1).get_float(self);
                 self.store_offset_or_top(dest, a <= b);
             }
@@ -1250,8 +1284,18 @@ impl Vm {
                 let a = self.load_offset_or_top(reg1).get_float(self);
                 self.store_offset_or_top(dest, a > b);
             }
+            Instr::GreaterThanFloatImm(dest, reg1, imm) => {
+                let b = self.float_constants[imm as usize];
+                let a = self.load_offset_or_top(reg1).get_float(self);
+                self.store_offset_or_top(dest, a > b);
+            }
             Instr::GreaterThanOrEqualFloat(dest, reg1, reg2) => {
                 let b = self.load_offset_or_top(reg2).get_float(self);
+                let a = self.load_offset_or_top(reg1).get_float(self);
+                self.store_offset_or_top(dest, a >= b);
+            }
+            Instr::GreaterThanOrEqualFloatImm(dest, reg1, imm) => {
+                let b = self.float_constants[imm as usize];
                 let a = self.load_offset_or_top(reg1).get_float(self);
                 self.store_offset_or_top(dest, a >= b);
             }
@@ -1261,11 +1305,17 @@ impl Vm {
                 self.store_offset_or_top(dest, a == b);
             }
             Instr::EqualIntImm(dest, reg1, imm) => {
+                let b = self.int_constants[imm as usize];
                 let a = self.load_offset_or_top(reg1).get_int(self);
-                self.store_offset_or_top(dest, a == self.int_constants[imm as usize]);
+                self.store_offset_or_top(dest, a == b);
             }
             Instr::EqualFloat(dest, reg1, reg2) => {
                 let b = self.load_offset_or_top(reg2).get_float(self);
+                let a = self.load_offset_or_top(reg1).get_float(self);
+                self.store_offset_or_top(dest, a == b);
+            }
+            Instr::EqualFloatImm(dest, reg1, imm) => {
+                let b = self.float_constants[imm as usize];
                 let a = self.load_offset_or_top(reg1).get_float(self);
                 self.store_offset_or_top(dest, a == b);
             }
@@ -1410,11 +1460,12 @@ impl Vm {
                 self.gc_debt += (cap2 - cap1) * size_of::<Value>();
             }
             Instr::ArrayPushIntImm(reg1, imm) => {
+                let rvalue = self.int_constants[imm as usize];
                 let val = self.load_offset_or_top(reg1);
                 let arr = unsafe { val.get_array_mut(self) };
 
                 let cap1 = arr.data.capacity();
-                arr.data.push(Value::from(self.int_constants[imm as usize]));
+                arr.data.push(Value::from(rvalue));
                 let cap2 = arr.data.capacity();
                 self.heap_size += (cap2 - cap1) * size_of::<Value>();
                 self.gc_debt += (cap2 - cap1) * size_of::<Value>();

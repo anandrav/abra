@@ -98,15 +98,25 @@ fn gather_constants(lines: &Vec<Line>) -> ConstantsHolder {
                 | Instr::DivIntImm(_, _, imm)
                 | Instr::PowIntImm(_, _, imm)
                 | Instr::ModuloImm(_, _, imm)
-                | Instr::AddFloatImm(_, _, imm)
+                | Instr::LessThanIntImm(_, _, imm)
+                | Instr::LessThanOrEqualIntImm(_, _, imm)
+                | Instr::GreaterThanIntImm(_, _, imm)
+                | Instr::GreaterThanOrEqualIntImm(_, _, imm)
+                | Instr::EqualIntImm(_, _, imm)
+                | Instr::ArrayPushIntImm(_, imm) => {
+                    constants.int_constants.insert(*imm);
+                }
+                Instr::AddFloatImm(_, _, imm)
                 | Instr::SubFloatImm(_, _, imm)
                 | Instr::MulFloatImm(_, _, imm)
                 | Instr::DivFloatImm(_, _, imm)
                 | Instr::PowFloatImm(_, _, imm)
-                | Instr::LessThanIntImm(_, _, imm)
-                | Instr::EqualIntImm(_, _, imm)
-                | Instr::ArrayPushIntImm(_, imm) => {
-                    constants.int_constants.insert(*imm);
+                | Instr::LessThanFloatImm(_, _, imm)
+                | Instr::LessThanOrEqualFloatImm(_, _, imm)
+                | Instr::GreaterThanFloatImm(_, _, imm)
+                | Instr::GreaterThanOrEqualFloatImm(_, _, imm)
+                | Instr::EqualFloatImm(_, _, imm) => {
+                    constants.float_constants.insert(imm.clone());
                 }
                 _ => {}
             }

@@ -88,15 +88,15 @@ pub enum Instr {
     ModuloImm(Reg, Reg, AbraInt),
 
     AddFloat(Reg, Reg, Reg),
-    AddFloatImm(Reg, Reg, AbraInt),
+    AddFloatImm(Reg, Reg, String),
     SubFloat(Reg, Reg, Reg),
-    SubFloatImm(Reg, Reg, AbraInt),
+    SubFloatImm(Reg, Reg, String),
     MulFloat(Reg, Reg, Reg),
-    MulFloatImm(Reg, Reg, AbraInt),
+    MulFloatImm(Reg, Reg, String),
     DivFloat(Reg, Reg, Reg),
-    DivFloatImm(Reg, Reg, AbraInt),
+    DivFloatImm(Reg, Reg, String),
     PowFloat(Reg, Reg, Reg),
-    PowFloatImm(Reg, Reg, AbraInt),
+    PowFloatImm(Reg, Reg, String),
 
     SquareRoot,
 
@@ -109,15 +109,25 @@ pub enum Instr {
     LessThanInt(Reg, Reg, Reg),
     LessThanIntImm(Reg, Reg, AbraInt),
     LessThanOrEqualInt(Reg, Reg, Reg),
+    LessThanOrEqualIntImm(Reg, Reg, AbraInt),
     GreaterThanInt(Reg, Reg, Reg),
+    GreaterThanIntImm(Reg, Reg, AbraInt),
     GreaterThanOrEqualInt(Reg, Reg, Reg),
+    GreaterThanOrEqualIntImm(Reg, Reg, AbraInt),
+
     LessThanFloat(Reg, Reg, Reg),
+    LessThanFloatImm(Reg, Reg, String),
     LessThanOrEqualFloat(Reg, Reg, Reg),
+    LessThanOrEqualFloatImm(Reg, Reg, String),
     GreaterThanFloat(Reg, Reg, Reg),
+    GreaterThanFloatImm(Reg, Reg, String),
     GreaterThanOrEqualFloat(Reg, Reg, Reg),
+    GreaterThanOrEqualFloatImm(Reg, Reg, String),
+
     EqualInt(Reg, Reg, Reg),
     EqualIntImm(Reg, Reg, AbraInt),
     EqualFloat(Reg, Reg, Reg),
+    EqualFloatImm(Reg, Reg, String),
     EqualBool(Reg, Reg, Reg),
     EqualString, // TODO: this is O(N). Must use smaller instructions. Or compare character-by-character and save progress in state of Vm
 
@@ -204,6 +214,7 @@ impl Display for Reg {
     }
 }
 
+// TODO: automate this please for crying out loud
 impl Display for Instr {
     fn fmt(&self, f: &mut Formatter) -> core::fmt::Result {
         match self {
@@ -291,27 +302,51 @@ impl Display for Instr {
             Instr::LessThanOrEqualInt(dest, reg1, reg2) => {
                 write!(f, "less_than_or_equal_int {dest} {reg1} {reg2}")
             }
+            Instr::LessThanOrEqualIntImm(dest, reg1, imm) => {
+                write!(f, "less_than_or_equal_int {dest} {reg1} {imm}")
+            }
             Instr::GreaterThanInt(dest, reg1, reg2) => {
                 write!(f, "greater_than_int {dest} {reg1} {reg2}")
+            }
+            Instr::GreaterThanIntImm(dest, reg1, imm) => {
+                write!(f, "greater_than_int_imm {dest} {reg1} {imm}")
             }
             Instr::GreaterThanOrEqualInt(dest, reg1, reg2) => {
                 write!(f, "greater_than_or_equal_int {dest} {reg1} {reg2}")
             }
+            Instr::GreaterThanOrEqualIntImm(dest, reg1, imm) => {
+                write!(f, "greater_than_or_equal_int_imm {dest} {reg1} {imm}")
+            }
             Instr::LessThanFloat(dest, reg1, reg2) => {
                 write!(f, "less_than_float {dest} {reg1} {reg2}")
+            }
+            Instr::LessThanFloatImm(dest, reg1, imm) => {
+                write!(f, "less_than_float_imm {dest} {reg1} {imm}")
             }
             Instr::LessThanOrEqualFloat(dest, reg1, reg2) => {
                 write!(f, "less_than_or_equal_float {dest} {reg1} {reg2}")
             }
+            Instr::LessThanOrEqualFloatImm(dest, reg1, imm) => {
+                write!(f, "less_than_or_equal_float_imm {dest} {reg1} {imm}")
+            }
             Instr::GreaterThanFloat(dest, reg1, reg2) => {
                 write!(f, "greater_than_float {dest} {reg1} {reg2}")
+            }
+            Instr::GreaterThanFloatImm(dest, reg1, imm) => {
+                write!(f, "greater_than_float_imm {dest} {reg1} {imm}")
             }
             Instr::GreaterThanOrEqualFloat(dest, reg1, reg2) => {
                 write!(f, "greater_than_or_equal_float {dest} {reg1} {reg2}")
             }
+            Instr::GreaterThanOrEqualFloatImm(dest, reg1, imm) => {
+                write!(f, "greater_than_or_equal_float_imm {dest} {reg1} {imm}")
+            }
             Instr::EqualInt(dest, reg1, reg2) => write!(f, "equal_int {dest} {reg1} {reg2}"),
             Instr::EqualIntImm(dest, reg1, imm) => write!(f, "equal_int_imm {dest} {reg1} {imm}"),
             Instr::EqualFloat(dest, reg1, reg2) => write!(f, "equal_float {dest} {reg1} {reg2}"),
+            Instr::EqualFloatImm(dest, reg1, imm) => {
+                write!(f, "equal_float_imm {dest} {reg1} {imm}")
+            }
             Instr::EqualBool(dest, reg1, reg2) => write!(f, "equal_bool {dest} {reg1} {reg2}"),
             Instr::EqualString => write!(f, "equal_string"),
             Instr::PushNil(n) => write!(f, "push_nil {n}"),
@@ -465,7 +500,7 @@ fn instr_to_vminstr(
         Instr::AddFloatImm(dest, reg1, imm) => VmInstr::AddFloatImm(
             dest.encode(),
             reg1.encode(),
-            constants.int_constants.try_get_id(imm).unwrap() as u16,
+            constants.float_constants.try_get_id(imm).unwrap() as u16,
         ),
         Instr::SubFloat(dest, reg1, reg2) => {
             VmInstr::SubFloat(dest.encode(), reg1.encode(), reg2.encode())
@@ -473,7 +508,7 @@ fn instr_to_vminstr(
         Instr::SubFloatImm(dest, reg1, imm) => VmInstr::SubFloatImm(
             dest.encode(),
             reg1.encode(),
-            constants.int_constants.try_get_id(imm).unwrap() as u16,
+            constants.float_constants.try_get_id(imm).unwrap() as u16,
         ),
         Instr::MulFloat(dest, reg1, reg2) => {
             VmInstr::MulFloat(dest.encode(), reg1.encode(), reg2.encode())
@@ -481,7 +516,7 @@ fn instr_to_vminstr(
         Instr::MulFloatImm(dest, reg1, imm) => VmInstr::MulFloatImm(
             dest.encode(),
             reg1.encode(),
-            constants.int_constants.try_get_id(imm).unwrap() as u16,
+            constants.float_constants.try_get_id(imm).unwrap() as u16,
         ),
         Instr::DivFloat(dest, reg1, reg2) => {
             VmInstr::DivFloat(dest.encode(), reg1.encode(), reg2.encode())
@@ -489,7 +524,7 @@ fn instr_to_vminstr(
         Instr::DivFloatImm(dest, reg1, imm) => VmInstr::DivFloatImm(
             dest.encode(),
             reg1.encode(),
-            constants.int_constants.try_get_id(imm).unwrap() as u16,
+            constants.float_constants.try_get_id(imm).unwrap() as u16,
         ),
         Instr::PowFloat(dest, reg1, reg2) => {
             VmInstr::PowerFloat(dest.encode(), reg1.encode(), reg2.encode())
@@ -497,7 +532,7 @@ fn instr_to_vminstr(
         Instr::PowFloatImm(dest, reg1, imm) => VmInstr::PowerFloatImm(
             dest.encode(),
             reg1.encode(),
-            constants.int_constants.try_get_id(imm).unwrap() as u16,
+            constants.float_constants.try_get_id(imm).unwrap() as u16,
         ),
         Instr::SquareRoot => VmInstr::SquareRoot,
         Instr::Not => VmInstr::Not,
@@ -514,24 +549,59 @@ fn instr_to_vminstr(
         Instr::LessThanOrEqualInt(dest, reg1, reg2) => {
             VmInstr::LessThanOrEqualInt(dest.encode(), reg1.encode(), reg2.encode())
         }
+        Instr::LessThanOrEqualIntImm(dest, reg1, imm) => VmInstr::LessThanOrEqualIntImm(
+            dest.encode(),
+            reg1.encode(),
+            constants.int_constants.try_get_id(imm).unwrap() as u16,
+        ),
         Instr::GreaterThanInt(dest, reg1, reg2) => {
             VmInstr::GreaterThanInt(dest.encode(), reg1.encode(), reg2.encode())
         }
+        Instr::GreaterThanIntImm(dest, reg1, imm) => VmInstr::GreaterThanIntImm(
+            dest.encode(),
+            reg1.encode(),
+            constants.int_constants.try_get_id(imm).unwrap() as u16,
+        ),
         Instr::GreaterThanOrEqualInt(dest, reg1, reg2) => {
             VmInstr::GreaterThanOrEqualInt(dest.encode(), reg1.encode(), reg2.encode())
         }
+        Instr::GreaterThanOrEqualIntImm(dest, reg1, imm) => VmInstr::GreaterThanOrEqualIntImm(
+            dest.encode(),
+            reg1.encode(),
+            constants.int_constants.try_get_id(imm).unwrap() as u16,
+        ),
         Instr::LessThanFloat(dest, reg1, reg2) => {
             VmInstr::LessThanFloat(dest.encode(), reg1.encode(), reg2.encode())
         }
+        Instr::LessThanFloatImm(dest, reg1, imm) => VmInstr::LessThanFloatImm(
+            dest.encode(),
+            reg1.encode(),
+            constants.float_constants.try_get_id(imm).unwrap() as u16,
+        ),
         Instr::LessThanOrEqualFloat(dest, reg1, reg2) => {
             VmInstr::LessThanOrEqualFloat(dest.encode(), reg1.encode(), reg2.encode())
         }
+        Instr::LessThanOrEqualFloatImm(dest, reg1, imm) => VmInstr::LessThanOrEqualFloatImm(
+            dest.encode(),
+            reg1.encode(),
+            constants.float_constants.try_get_id(imm).unwrap() as u16,
+        ),
         Instr::GreaterThanFloat(dest, reg1, reg2) => {
             VmInstr::GreaterThanFloat(dest.encode(), reg1.encode(), reg2.encode())
         }
+        Instr::GreaterThanFloatImm(dest, reg1, imm) => VmInstr::GreaterThanFloatImm(
+            dest.encode(),
+            reg1.encode(),
+            constants.float_constants.try_get_id(imm).unwrap() as u16,
+        ),
         Instr::GreaterThanOrEqualFloat(dest, reg1, reg2) => {
             VmInstr::GreaterThanOrEqualFloat(dest.encode(), reg1.encode(), reg2.encode())
         }
+        Instr::GreaterThanOrEqualFloatImm(dest, reg1, imm) => VmInstr::GreaterThanOrEqualFloatImm(
+            dest.encode(),
+            reg1.encode(),
+            constants.float_constants.try_get_id(imm).unwrap() as u16,
+        ),
         Instr::EqualInt(dest, reg1, reg2) => {
             VmInstr::EqualInt(dest.encode(), reg1.encode(), reg2.encode())
         }
@@ -543,6 +613,11 @@ fn instr_to_vminstr(
         Instr::EqualFloat(dest, reg1, reg2) => {
             VmInstr::EqualFloat(dest.encode(), reg1.encode(), reg2.encode())
         }
+        Instr::EqualFloatImm(dest, reg1, imm) => VmInstr::EqualFloatImm(
+            dest.encode(),
+            reg1.encode(),
+            constants.float_constants.try_get_id(imm).unwrap() as u16,
+        ),
         Instr::EqualBool(dest, reg1, reg2) => {
             VmInstr::EqualBool(dest.encode(), reg1.encode(), reg2.encode())
         }
