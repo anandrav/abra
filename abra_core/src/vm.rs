@@ -39,6 +39,7 @@ pub struct Vm {
     heap_list: Vec<*mut ObjectHeader>,
     gray_stack: Vec<*mut ObjectHeader>,
     gc_state: GcState,
+    gc_visited: bool,
     heap_size: usize,
     gc_debt: usize,
     last_gc_heap_size: usize,
@@ -151,6 +152,7 @@ impl Vm {
             heap_list: vec![],
             gray_stack: vec![],
             gc_state: GcState::Idle,
+            gc_visited: true,
             heap_size: 0,
             gc_debt: 0,
             last_gc_heap_size: 0,
@@ -1688,38 +1690,31 @@ impl Vm {
     }
 
     fn start_mark_phase(&mut self) {
-        // all objects start white
-        // TODO: iterating through entire heap list??
-        for header_ptr in &self.heap_list {
-            let header = unsafe { &mut **header_ptr };
-            header.visited = false;
-        }
-
         // mark roots gray
         for v in self.value_stack.iter() {
-            Self::mark(v, &mut self.gray_stack);
+            Self::mark(v, &mut self.gray_stack, self.gc_visited);
         }
         for s_ptr in self.static_strings.iter().cloned() {
-            Self::mark(&Value::from(s_ptr), &mut self.gray_stack);
+            Self::mark(&Value::from(s_ptr), &mut self.gray_stack, self.gc_visited);
         }
-        Self::mark(&self.string_operand1, &mut self.gray_stack);
-        Self::mark(&self.string_operand2, &mut self.gray_stack);
+        Self::mark(&self.string_operand1, &mut self.gray_stack, self.gc_visited);
+        Self::mark(&self.string_operand2, &mut self.gray_stack, self.gc_visited);
 
         self.gc_state = GcState::Marking;
     }
 
-    fn mark(v: &Value, gray_stack: &mut Vec<*mut ObjectHeader>) {
+    fn mark(v: &Value, gray_stack: &mut Vec<*mut ObjectHeader>, gc_visited: bool) {
         // if v is not a pointer
         if !v.1 {
             return;
         }
 
         let header = unsafe { v.get_object_header() };
-        if header.visited {
+        if header.visited == gc_visited {
             return;
         }
 
-        header.visited = true;
+        header.visited = gc_visited;
         gray_stack.push(header)
     }
 
@@ -1729,7 +1724,7 @@ impl Vm {
         {
             {
                 let header = unsafe { &mut *header_ptr };
-                header.visited = true;
+                header.visited = self.gc_visited;
             }
 
             let kind = {
@@ -1745,20 +1740,20 @@ impl Vm {
                 ObjectKind::Enum => {
                     let obj = unsafe { &*(header_ptr as *const EnumObject) };
                     *batch -= obj.nbytes();
-                    Self::mark(&obj.val, &mut self.gray_stack);
+                    Self::mark(&obj.val, &mut self.gray_stack, self.gc_visited);
                 }
                 ObjectKind::Struct => {
                     let obj = unsafe { &*(header_ptr as *const StructObject) };
                     *batch -= obj.nbytes();
                     for field in obj.get_fields() {
-                        Self::mark(field, &mut self.gray_stack);
+                        Self::mark(field, &mut self.gray_stack, self.gc_visited);
                     }
                 }
                 ObjectKind::Array => {
                     let obj = unsafe { &*(header_ptr as *const ArrayObject) };
                     *batch -= obj.nbytes();
                     for elem in &obj.data {
-                        Self::mark(elem, &mut self.gray_stack);
+                        Self::mark(elem, &mut self.gray_stack, self.gc_visited);
                     }
                 }
             }
@@ -1779,10 +1774,10 @@ impl Vm {
 
         let parent: *mut ObjectHeader = parent.into();
         let parent = unsafe { &mut *parent };
-        if parent.visited {
+        if parent.visited == self.gc_visited {
             let header = unsafe { child.get_object_header() };
-            if !header.visited {
-                header.visited = true;
+            if header.visited != self.gc_visited {
+                header.visited = self.gc_visited;
                 self.gray_stack.push(header);
             }
         }
@@ -1797,13 +1792,13 @@ impl Vm {
                 let header = unsafe { &mut *header_ptr };
                 work_done += header.nbytes();
 
-                if !header.visited {
+                if header.visited != self.gc_visited {
                     unsafe { header.dealloc(&mut self.heap_size) };
 
                     self.heap_list.swap_remove(*index);
                 } else {
                     // object is alive. reset to white for next cycle
-                    header.visited = false;
+                    header.visited = !self.gc_visited;
                     *index += 1;
                 }
             }
