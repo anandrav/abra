@@ -158,7 +158,7 @@ pub enum Instr {
 
     ArrayPush(Reg, Reg),
     ArrayPushIntImm(Reg, AbraInt),
-    ArrayLength,
+    ArrayLength(Reg, Reg),
     ArrayPop,
     ConcatStrings, // TODO: this is O(N). Must use smaller instructions. Or concat character-by-character and save progress in Vm
     IntToFloat,
@@ -382,7 +382,7 @@ impl Display for Instr {
             }
             Instr::ArrayPush(reg1, reg2) => write!(f, "array_push {reg1} {reg2}"),
             Instr::ArrayPushIntImm(reg1, imm) => write!(f, "array_push_int_imm {reg1} {imm}"),
-            Instr::ArrayLength => write!(f, "array_len"),
+            Instr::ArrayLength(dest, reg) => write!(f, "array_len {dest} {reg}"),
             Instr::ArrayPop => write!(f, "array_pop"),
             Instr::ConcatStrings => write!(f, "concat_strings"),
             Instr::IntToFloat => write!(f, "int_to_float"),
@@ -664,7 +664,7 @@ fn instr_to_vminstr(
             reg1.encode(),
             constants.int_constants.try_get_id(imm).unwrap() as u16,
         ),
-        Instr::ArrayLength => VmInstr::ArrayLength,
+        Instr::ArrayLength(dest, reg) => VmInstr::ArrayLength(dest.encode(), reg.encode()),
         Instr::ArrayPop => VmInstr::ArrayPop,
         Instr::ConcatStrings => VmInstr::ConcatStrings,
         Instr::IntToFloat => VmInstr::IntToFloat,

@@ -461,15 +461,15 @@ pub enum Instr {
 
     LessThanFloat(u16, u16, u16),
     LessThanFloatImm(u16, u16, u16),
-    LessThanOrEqualFloat(u16, u16, u16), // TODO: imm
+    LessThanOrEqualFloat(u16, u16, u16),
     LessThanOrEqualFloatImm(u16, u16, u16),
-    GreaterThanFloat(u16, u16, u16), // TODO: imm
+    GreaterThanFloat(u16, u16, u16),
     GreaterThanFloatImm(u16, u16, u16),
-    GreaterThanOrEqualFloat(u16, u16, u16), // TODO: imm
+    GreaterThanOrEqualFloat(u16, u16, u16),
     GreaterThanOrEqualFloatImm(u16, u16, u16),
 
-    EqualInt(u16, u16, u16),    // TODO: imm
-    EqualIntImm(u16, u16, u16), // TODO: imm
+    EqualInt(u16, u16, u16),
+    EqualIntImm(u16, u16, u16),
     EqualFloat(u16, u16, u16),
     EqualFloatImm(u16, u16, u16),
     EqualBool(u16, u16, u16),
@@ -510,7 +510,7 @@ pub enum Instr {
 
     ArrayPush(u16, u16),
     ArrayPushIntImm(u16, u16),
-    ArrayLength,   // TODO: use register
+    ArrayLength(u16, u16),
     ArrayPop,      // TODO: use register
     ConcatStrings, //TODO: use registers? TODO: this is O(N). Must use smaller instructions. Or concat character-by-character and save progress in Vm
     IntToFloat,    // TODO: use register
@@ -1470,9 +1470,10 @@ impl Vm {
                 self.heap_size += (cap2 - cap1) * size_of::<Value>();
                 self.gc_debt += (cap2 - cap1) * size_of::<Value>();
             }
-            Instr::ArrayLength => {
-                let len = self.array_len();
-                self.set_top(len as AbraInt);
+            Instr::ArrayLength(dest, reg) => {
+                let val = self.load_offset_or_top(reg);
+                let arr = val.get_array(self);
+                self.store_offset_or_top(dest, arr.data.len() as AbraInt);
             }
             Instr::ArrayPop => {
                 let val = self.top();

@@ -462,6 +462,7 @@ impl Instr {
                 | Instr::GreaterThanOrEqualFloat(_, _, Reg::Top)
                 | Instr::EqualFloat(_, _, Reg::Top)
                 | Instr::ArrayPush(_, Reg::Top)
+                | Instr::ArrayLength(_, Reg::Top)
                 | Instr::GetIdx(_, Reg::Top)
                 | Instr::SetIdx(_, Reg::Top)
                 | Instr::GetField(_, Reg::Top)
@@ -562,6 +563,9 @@ impl Instr {
                 | Instr::GreaterThanOrEqualFloatImm(Reg::Top, _, _)
                 | Instr::EqualFloat(Reg::Top, _, _)
                 | Instr::EqualFloatImm(Reg::Top, _, _)
+                | Instr::ArrayPush(Reg::Top, _)
+                | Instr::ArrayPushIntImm(Reg::Top, _)
+                | Instr::ArrayLength(Reg::Top, _)
         )
     }
 
@@ -665,6 +669,7 @@ impl Instr {
             Instr::EqualFloat(dest, r1, _) => Instr::EqualFloat(dest, r1, r2),
 
             Instr::ArrayPush(r1, _) => Instr::ArrayPush(r1, r2),
+            Instr::ArrayLength(dest, _) => Instr::ArrayLength(dest, r2),
             Instr::GetIdx(r1, _) => Instr::GetIdx(r1, r2),
             Instr::SetIdx(r1, _) => Instr::SetIdx(r1, r2),
             Instr::GetField(idx, _) => Instr::GetField(idx, r2),
@@ -730,6 +735,7 @@ impl Instr {
             }
             Instr::EqualFloat(_, r1, r2) => Instr::EqualFloat(dest, r1, r2),
             Instr::EqualFloatImm(_, r1, r2) => Instr::EqualFloatImm(dest, r1, r2),
+            Instr::ArrayLength(_, r2) => Instr::ArrayLength(dest, r2),
             _ => panic!("can't replace dest"),
         }
     }

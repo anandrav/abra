@@ -1135,7 +1135,7 @@ impl Translator {
                     self.emit(st, Instr::ArrayPush(Reg::Top, Reg::Top));
                 }
                 BuiltinOperation::ArrayLength => {
-                    self.emit(st, Instr::ArrayLength);
+                    self.emit(st, Instr::ArrayLength(Reg::Top, Reg::Top));
                 }
                 BuiltinOperation::ArrayPop => {
                     self.emit(st, Instr::ArrayPop);
@@ -1494,7 +1494,7 @@ impl Translator {
         match (func_name.as_str(), overload_ty) {
             // inline basic/fundamental operations instead of performing function call
             ("array.push", _) => self.emit(st, Instr::ArrayPush(Reg::Top, Reg::Top)),
-            ("array.len", _) => self.emit(st, Instr::ArrayLength),
+            ("array.len", _) => self.emit(st, Instr::ArrayLength(Reg::Top, Reg::Top)),
             ("array.pop", _) => self.emit(st, Instr::ArrayPop),
             ("prelude.ToString.str", ty)
                 if is_func(&ty, SolvedType::String, SolvedType::String) =>
