@@ -256,9 +256,8 @@ pub(crate) enum AstNode {
     Pat(Rc<Pat>),
     Type(Rc<Type>),
     Identifier(Rc<Identifier>),
-    InterfaceMethodDecl(Rc<InterfaceMethodDecl>),
     Variant(Rc<Variant>),
-    // StructField(Rc<StructField>),
+    // FuncDecl(Rc<FuncDecl>),
     MatchArm(Rc<MatchArm>),
 }
 
@@ -277,7 +276,7 @@ impl AstNode {
             AstNode::Pat(pat) => &pat.loc,
             AstNode::Type(typ) => &typ.loc,
             AstNode::Identifier(identifier) => &identifier.loc,
-            AstNode::InterfaceMethodDecl(interface_method_decl) => &interface_method_decl.loc,
+            // AstNode::FuncDecl(decl) => &decl.loc,
             AstNode::Variant(variant) => &variant.loc,
             AstNode::MatchArm(match_arm) => &match_arm.loc,
         }
@@ -291,7 +290,7 @@ impl AstNode {
             AstNode::Pat(pat) => pat.id,
             AstNode::Type(typ) => typ.id,
             AstNode::Identifier(identifier) => identifier.id,
-            AstNode::InterfaceMethodDecl(interface_method_decl) => interface_method_decl.id,
+            // AstNode::FuncDecl(decl) => decl.id,
             AstNode::Variant(variant) => variant.id,
             AstNode::MatchArm(match_arm) => match_arm.id,
         }
@@ -320,11 +319,7 @@ impl Item {
 
 #[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq, Hash)]
 pub(crate) enum ItemKind {
-    FuncDecl {
-        decl: Rc<FuncDecl>,
-        foreign: bool,
-        host: bool,
-    },
+    FuncDecl(Rc<FuncDecl>),
     FuncDef(Rc<FuncDef>),
     TypeDef(Rc<TypeDefKind>),
     InterfaceDef(Rc<InterfaceDef>), // TODO: change names to match
@@ -387,12 +382,16 @@ pub(crate) struct FuncDecl {
     pub(crate) name: Rc<Identifier>,
     pub(crate) args: Vec<ArgMaybeAnnotated>,
     pub(crate) ret_type: Rc<Type>,
+
+    // TODO: wrap up in an attributes
+    pub(crate) foreign: bool,
+    pub(crate) host: bool,
 }
 
 #[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq, Hash)]
 pub(crate) struct InterfaceDef {
     pub(crate) name: Rc<Identifier>,
-    pub(crate) methods: Vec<Rc<InterfaceMethodDecl>>,
+    pub(crate) methods: Vec<Rc<FuncDecl>>,
     pub(crate) output_types: Vec<Rc<InterfaceOutputType>>,
 }
 
@@ -402,26 +401,6 @@ pub(crate) struct InterfaceOutputType {
     pub(crate) interfaces: Vec<Rc<Interface>>,
 
     pub(crate) id: NodeId,
-}
-
-#[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq)]
-pub(crate) struct InterfaceMethodDecl {
-    pub(crate) name: Rc<Identifier>,
-    pub(crate) ty: Rc<Type>,
-    pub(crate) id: NodeId,
-    pub(crate) loc: Location,
-}
-
-impl std::hash::Hash for InterfaceMethodDecl {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        self.id.hash(state);
-    }
-}
-
-impl InterfaceMethodDecl {
-    pub fn node(self: &Rc<InterfaceMethodDecl>) -> AstNode {
-        AstNode::InterfaceMethodDecl(self.clone())
-    }
 }
 
 #[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq)]

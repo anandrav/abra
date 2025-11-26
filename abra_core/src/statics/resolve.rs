@@ -151,12 +151,10 @@ fn gather_declarations_item(
 
             namespace.add_declaration(ctx, func_name, Declaration::FreeFunction(f.clone()));
         }
-        ItemKind::FuncDecl {
-            decl: func_decl,
-            foreign,
-            host,
-        } => {
-            if *foreign && *host {
+        ItemKind::FuncDecl(func_decl) => {
+            let foreign = func_decl.foreign;
+            let host = func_decl.host;
+            if foreign && host {
                 // TODO: consider relaxing this constraint
                 ctx.errors.push(Error::Generic {
                     msg: "function declaration cannot be #host and #foreign".to_string(),
@@ -164,7 +162,7 @@ fn gather_declarations_item(
                 });
                 return;
             }
-            if *host {
+            if host {
                 let func_name = func_decl.name.v.clone();
                 let fully_qualified_name = fullname(&qualifiers, &func_name);
 
@@ -179,7 +177,7 @@ fn gather_declarations_item(
 
                 ctx.host_funcs.insert(func_decl.clone());
             }
-            if *foreign {
+            if foreign {
                 #[cfg(feature = "ffi")]
                 {
                     let func_name = func_decl.name.v.clone();
@@ -483,16 +481,16 @@ fn resolve_names_item_decl(ctx: &mut StaticsContext, symbol_table: &SymbolTable,
             let symbol_table = symbol_table.new_scope();
             resolve_names_func_helper(ctx, &symbol_table, &f.args, &f.body, &f.ret_type);
         }
-        ItemKind::FuncDecl { decl, .. } => {
+        ItemKind::FuncDecl(f) => {
             let symbol_table = symbol_table.new_scope();
-            for arg in &decl.args {
+            for arg in &f.args {
                 resolve_names_fn_arg(&symbol_table, &arg.0);
                 if let Some(annot) = &arg.1 {
                     resolve_names_typ(ctx, &symbol_table, annot, true);
                 }
             }
 
-            resolve_names_typ(ctx, &symbol_table, &decl.ret_type, true);
+            resolve_names_typ(ctx, &symbol_table, &f.ret_type, true);
         }
         ItemKind::InterfaceDef(iface_def) => {
             let ns = &ctx.interface_namespaces[iface_def];
@@ -503,9 +501,16 @@ fn resolve_names_item_decl(ctx: &mut StaticsContext, symbol_table: &SymbolTable,
                 "Self".to_string(),
                 Declaration::Polytype(PolytypeDeclaration::InterfaceSelf(iface_def.clone())),
             );
-            for prop in &iface_def.methods {
+            for f in &iface_def.methods {
                 let symbol_table = symbol_table.new_scope();
-                resolve_names_typ(ctx, &symbol_table, &prop.ty, true);
+                for arg in &f.args {
+                    resolve_names_fn_arg(&symbol_table, &arg.0);
+                    if let Some(annot) = &arg.1 {
+                        resolve_names_typ(ctx, &symbol_table, annot, true);
+                    }
+                }
+
+                resolve_names_typ(ctx, &symbol_table, &f.ret_type, true);
             }
             for output_type in &iface_def.output_types {
                 for iface in output_type.interfaces.iter() {

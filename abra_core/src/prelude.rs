@@ -10,15 +10,15 @@ fn readline() -> string
 //host fn get_args() -> array<string>
 
 interface Num {
-    fn add: (Self, Self) -> Self
-    fn subtract: (Self, Self) -> Self
-    fn multiply: (Self, Self) -> Self
-    fn divide: (Self, Self) -> Self
-    fn power: (Self, Self) -> Self
-    fn less_than: (Self, Self) -> bool
-    fn less_than_or_equal: (Self, Self) -> bool
-    fn greater_than: (Self, Self) -> bool
-    fn greater_than_or_equal: (Self, Self) -> bool
+    fn add(a: Self, b: Self) -> Self
+    fn subtract(a: Self, b: Self) -> Self
+    fn multiply(a: Self, b: Self) -> Self
+    fn divide(a: Self, b: Self) -> Self
+    fn power(a: Self, b: Self) -> Self
+    fn less_than(a: Self, b: Self) -> bool
+    fn less_than_or_equal(a: Self, b: Self) -> bool
+    fn greater_than(a: Self, b: Self) -> bool
+    fn greater_than_or_equal(a: Self, b: Self) -> bool
 }
 
 implement Num for int {
@@ -55,7 +55,7 @@ fn unwrap(m: option<T>) -> T {
 }
 
 interface Equal {
-    fn equal: (Self, Self) -> bool
+    fn equal(a: Self, b: Self) -> bool
 }
 implement Equal for void {
     fn equal(a, b) = true
@@ -82,7 +82,7 @@ implement Equal for string {
 }
 
 interface Clone {
-    fn clone: Self -> Self
+    fn clone(x: Self) -> Self
 }
 
 implement Clone for array<T Clone> {
@@ -111,7 +111,7 @@ implement Clone for string {
 }
 
 interface ToString {
-    fn str: Self -> string
+    fn str(s: Self) -> string
 }
 implement ToString for string {
 	fn str(s) = s
@@ -235,7 +235,7 @@ interface Iterable {
     outputtype IterableItem
     outputtype Iter impl Iterator<IteratorItem=IterableItem>
 
-    fn make_iterator: (Self) -> Iter
+    fn make_iterator(self: Self) -> Iter
 }
 
 implement Iterable for array<T> {
@@ -247,7 +247,7 @@ implement Iterable for array<T> {
 interface Iterator {
     outputtype IteratorItem
 
-    fn next: (Self) -> option<IteratorItem>
+    fn next(self: Self) -> option<IteratorItem>
 }
 
 type ArrayIterator<U> = {

@@ -1039,7 +1039,11 @@ fn tyvar_of_iface_method(
         let f = &imp.methods[method];
         return TypeVar::from_node(ctx, f.name.node()).instantiate(ctx, polyvar_scope, node);
     }
-    TypeVar::from_node(ctx, iface_def.methods[method].node()).instantiate(ctx, polyvar_scope, node)
+    TypeVar::from_node(ctx, iface_def.methods[method].name.node()).instantiate(
+        ctx,
+        polyvar_scope,
+        node,
+    )
 }
 
 impl AstType {
@@ -1491,7 +1495,7 @@ fn generate_constraints_item_decls0(ctx: &mut StaticsContext, item: &Rc<Item>) {
         ItemKind::FuncDef(f) => {
             generate_constraints_func_decl(ctx, f.name.node(), &f.args, f.ret_type.as_ref());
         }
-        ItemKind::FuncDecl { decl, .. } => {
+        ItemKind::FuncDecl(decl) => {
             generate_constraints_func_decl(ctx, decl.name.node(), &decl.args, Some(&decl.ret_type));
         }
     }
@@ -1529,19 +1533,36 @@ fn generate_constraints_iface_impl(ctx: &mut StaticsContext, iface_impl: &Rc<Int
                 if let Some(interface_method) =
                     iface_def.methods.iter().find(|m| m.name.v == method_name)
                 {
-                    let interface_method_ty = interface_method.ty.to_typevar(ctx);
-                    let actual = TypeVar::from_node(ctx, interface_method.node());
-                    constrain(ctx, &interface_method_ty, &actual);
+                    // let interface_method_ty = interface_method.ty.to_typevar(ctx);
+                    // let actual = TypeVar::from_node(ctx, interface_method.node());
+                    // constrain(ctx, &interface_method_ty, &actual);
 
+                    // let mut substitution: Substitution = HashMap::default();
+                    // if let Some(poly_decl) = interface_method_ty.get_interface_self_type() {
+                    //     substitution.insert(poly_decl, impl_ty.clone());
+                    // }
+
+                    // let expected = interface_method_ty.subst(&substitution);
+                    // let expected = expected.instantiate_iface_output_types(
+                    //     ctx,
+                    //     interface_method.node(),
+                    //     iface_impl,
+                    // );
+                    generate_constraints_func_decl(
+                        ctx,
+                        interface_method.name.node(),
+                        &interface_method.args,
+                        Some(&interface_method.ret_type),
+                    );
+                    let interface_method_ty = TypeVar::from_node(ctx, interface_method.name.node());
                     let mut substitution: Substitution = HashMap::default();
                     if let Some(poly_decl) = interface_method_ty.get_interface_self_type() {
                         substitution.insert(poly_decl, impl_ty.clone());
                     }
-
                     let expected = interface_method_ty.subst(&substitution);
                     let expected = expected.instantiate_iface_output_types(
                         ctx,
-                        interface_method.node(),
+                        interface_method.name.node(),
                         iface_impl,
                     );
 
@@ -1559,7 +1580,7 @@ fn generate_constraints_iface_impl(ctx: &mut StaticsContext, iface_impl: &Rc<Int
                         ctx,
                         expected,
                         iface_impl,
-                        interface_method.node(),
+                        interface_method.name.node(),
                     );
                 }
             }
@@ -1696,13 +1717,17 @@ fn generate_constraints_iface_def(ctx: &mut StaticsContext, iface_def: &Rc<Inter
     }
 
     for method in &iface_def.methods {
-        let node_ty = TypeVar::from_node(ctx, method.node());
+        let node_ty = TypeVar::from_node(ctx, method.name.node());
         if node_ty.is_locked() {
             // Interface declaration method types have already been computed.
             break;
         }
-        let ty_annot = method.ty.to_typevar(ctx);
-        constrain(ctx, &node_ty, &ty_annot);
+        generate_constraints_func_decl(
+            ctx,
+            method.name.node(),
+            &method.args,
+            Some(&method.ret_type),
+        );
     }
 }
 

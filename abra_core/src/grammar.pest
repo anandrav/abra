@@ -24,8 +24,7 @@ path = @{ identifier ~ ("/" ~ identifier)* }
 
 interface_declaration = { "interface" ~ identifier ~ interface_body }
 interface_body = _{ "{" ~ interface_property* ~ "}" }
-interface_property = _{ interface_method | output_type_decl }
-interface_method = { "fn" ~ identifier ~ type_annotation }
+interface_property = _{ func_decl | output_type_decl }
 output_type_decl = { "outputtype" ~ identifier ~ ("impl" ~ interface_constraint*)? }
 
 interface_implementation = { "implement" ~ identifier ~ "for" ~ typ ~ interface_implementation_body }
