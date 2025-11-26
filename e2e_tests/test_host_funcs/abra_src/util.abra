@@ -1,6 +1,8 @@
-host fn foo(a: int, b: string) -> int
+#host
+fn foo(a: int, b: string) -> int
 
-host fn bar(a: int, b: int) -> (int, int)
+#host
+fn bar(a: int, b: int) -> (int, int)
 
 type Color =
     | Red

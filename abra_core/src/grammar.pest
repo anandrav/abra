@@ -66,7 +66,7 @@ func_def = { "fn" ~ identifier ~ func_args ~ func_out_annotation? ~ (block_expre
 
 foreign_func_decl = { "foreign fn" ~ identifier ~ func_args_annotated ~ func_out_annotation }
 
-host_func_decl = { "host fn" ~ identifier ~ func_args_annotated ~ func_out_annotation }
+host_func_decl = { "#host" ~ "fn" ~ identifier ~ func_args_annotated ~ func_out_annotation }
 
 let_pattern_tuple = { tuple_start ~ (let_pattern_tuple_element ~ ",")+ ~ let_pattern_tuple_element ~ tuple_end }
 let_pattern_tuple_element = _{ let_pattern }
