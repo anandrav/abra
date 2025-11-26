@@ -102,7 +102,7 @@ fn peephole2_helper(lines: &[Line], index: &mut usize, ret: &mut Vec<Line>) -> b
                         true
                     }
                     // NOT JUMP_IF -> JUMP_IF_FALSE
-                    (Instr::Not, Instr::JumpIf(label)) => {
+                    (Instr::Not(Reg::Top, Reg::Top), Instr::JumpIf(label)) => {
                         ret.push(Line::Instr {
                             instr: Instr::JumpIfFalse(label.clone()),
                             lineno,
@@ -134,7 +134,7 @@ fn peephole2_helper(lines: &[Line], index: &mut usize, ret: &mut Vec<Line>) -> b
                         true
                     }
                     // BOOLEAN FLIP
-                    (Instr::PushBool(b), Instr::Not) => {
+                    (Instr::PushBool(b), Instr::Not(Reg::Top, Reg::Top)) => {
                         ret.push(Line::Instr {
                             instr: Instr::PushBool(!b),
                             lineno,
@@ -461,6 +461,7 @@ impl Instr {
                 | Instr::GreaterThanFloat(_, _, Reg::Top)
                 | Instr::GreaterThanOrEqualFloat(_, _, Reg::Top)
                 | Instr::EqualFloat(_, _, Reg::Top)
+                | Instr::Not(_, Reg::Top)
                 | Instr::ArrayPush(_, Reg::Top)
                 | Instr::ArrayLength(_, Reg::Top)
                 | Instr::ArrayPop(_, Reg::Top)
@@ -564,6 +565,7 @@ impl Instr {
                 | Instr::GreaterThanOrEqualFloatImm(Reg::Top, _, _)
                 | Instr::EqualFloat(Reg::Top, _, _)
                 | Instr::EqualFloatImm(Reg::Top, _, _)
+                | Instr::Not(Reg::Top, _)
                 | Instr::ArrayPop(Reg::Top, _)
                 | Instr::ArrayLength(Reg::Top, _)
         )
@@ -668,6 +670,8 @@ impl Instr {
 
             Instr::EqualFloat(dest, r1, _) => Instr::EqualFloat(dest, r1, r2),
 
+            Instr::Not(dest, _) => Instr::Not(dest, r2),
+
             Instr::ArrayPush(r1, _) => Instr::ArrayPush(r1, r2),
             Instr::ArrayLength(dest, _) => Instr::ArrayLength(dest, r2),
             Instr::ArrayPop(dest, _) => Instr::ArrayPop(dest, r2),
@@ -736,6 +740,9 @@ impl Instr {
             }
             Instr::EqualFloat(_, r1, r2) => Instr::EqualFloat(dest, r1, r2),
             Instr::EqualFloatImm(_, r1, r2) => Instr::EqualFloatImm(dest, r1, r2),
+
+            Instr::Not(_, r2) => Instr::Not(dest, r2),
+
             Instr::ArrayPop(_, r2) => Instr::ArrayPop(dest, r2),
             Instr::ArrayLength(_, r2) => Instr::ArrayLength(dest, r2),
             _ => panic!("can't replace dest"),

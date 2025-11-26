@@ -445,7 +445,7 @@ pub enum Instr {
     SquareRoot(u16, u16),
 
     // Logical
-    Not, // TODO: use registers
+    Not(u16, u16),
 
     // Comparison
     LessThanInt(u16, u16, u16),
@@ -1204,9 +1204,9 @@ impl Vm {
                 let a = self.load_offset_or_top(reg).get_float(self);
                 self.store_offset_or_top(dest, a.sqrt());
             }
-            Instr::Not => {
-                let a = self.top().get_bool(self);
-                self.set_top(!a);
+            Instr::Not(dest, reg) => {
+                let a = self.load_offset_or_top(reg).get_bool(self);
+                self.store_offset_or_top(dest, !a);
             }
             Instr::LessThanInt(dest, reg1, reg2) => {
                 let b = self.load_offset_or_top(reg2).get_int(self);

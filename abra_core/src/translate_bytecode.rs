@@ -1133,7 +1133,7 @@ impl Translator {
                     );
                 }
                 BuiltinOperation::Not => {
-                    self.emit(st, Instr::Not);
+                    self.emit(st, Instr::Not(Reg::Top, Reg::Top));
                 }
                 BuiltinOperation::EqualFloat => {
                     self.emit(st, Instr::EqualFloat(Reg::Top, Reg::Top, Reg::Top));

@@ -101,7 +101,7 @@ pub enum Instr {
     SquareRoot(Reg, Reg),
 
     // Logical
-    Not,
+    Not(Reg, Reg),
 
     // Comparison
     LessThanInt(Reg, Reg, Reg),
@@ -288,7 +288,7 @@ impl Display for Instr {
                 write!(f, "pow_float_imm {dest} {reg1} {imm}")
             }
             Instr::SquareRoot(dest, reg) => write!(f, "square_root {dest} {reg}"),
-            Instr::Not => write!(f, "not"),
+            Instr::Not(dest, reg) => write!(f, "not {dest} {reg}"),
             Instr::LessThanInt(dest, reg1, reg2) => {
                 write!(f, "less_than_int {dest} {reg1} {reg2}")
             }
@@ -531,7 +531,7 @@ fn instr_to_vminstr(
             constants.float_constants.try_get_id(imm).unwrap() as u16,
         ),
         Instr::SquareRoot(dest, reg) => VmInstr::SquareRoot(dest.encode(), reg.encode()),
-        Instr::Not => VmInstr::Not,
+        Instr::Not(dest, reg) => VmInstr::Not(dest.encode(), reg.encode()),
         Instr::LessThanInt(dest, reg1, reg2) => {
             VmInstr::LessThanInt(dest.encode(), reg1.encode(), reg2.encode())
         }
