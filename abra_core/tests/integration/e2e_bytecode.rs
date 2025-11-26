@@ -1220,6 +1220,21 @@ fn ampersand() {
 }
 
 #[test]
+fn equal_string() {
+    let src = r#"
+"helloworld" == "hello" .. "world"
+"#;
+    let program = unwrap_or_panic(compile_bytecode(
+        "main.abra",
+        MockFileProvider::single_file(src),
+    ));
+    let mut vm = Vm::new(program);
+    vm.run();
+    let top = vm.top();
+    assert_eq!(top.get_bool(&vm), true);
+}
+
+#[test]
 fn comments() {
     let src = r#"
 // single-line comment

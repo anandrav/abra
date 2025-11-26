@@ -16,7 +16,6 @@ use std::error::Error;
 #[cfg(feature = "ffi")]
 use std::ffi::c_void;
 use std::fmt::Debug;
-use std::fmt::Write;
 use std::{
     fmt::{Display, Formatter},
     ptr,
@@ -62,7 +61,7 @@ pub struct Vm {
     string_op_index2: usize,
     string_operand1: Value,
     string_operand2: Value,
-    concat_string_builder: String,
+    concat_string_builder: Vec<u8>,
 
     // FFI
     #[cfg(feature = "ffi")]
@@ -175,7 +174,7 @@ impl Vm {
             string_op_index2: 0,
             string_operand1: Value::from(0),
             string_operand2: Value::from(0),
-            concat_string_builder: "".to_string(),
+            concat_string_builder: vec![],
 
             #[cfg(feature = "ffi")]
             libs: Vec::new(),
@@ -1342,8 +1341,7 @@ impl Vm {
                 }
                 // if the strings are different lengths or the ith character is different, false
                 else if a.len() != b.len()
-                    || a.chars().nth(self.string_op_index1).unwrap()
-                        != b.chars().nth(self.string_op_index1).unwrap()
+                    || a.as_bytes()[self.string_op_index1] != b.as_bytes()[self.string_op_index1]
                 {
                     self.store_offset_or_top(dest, false);
                     self.string_op_index1 = 0;
@@ -1505,35 +1503,37 @@ impl Vm {
                 self.store_offset_or_top(dest, lvalue);
             }
             Instr::ConcatStrings(dest, reg1, reg2) => {
-                if self.string_op_index1 == 0 {
+                if self.string_op_index1 == 0 && self.string_op_index2 == 0 {
                     self.string_operand2 = self.load_offset_or_top(reg2);
                     self.string_operand1 = self.load_offset_or_top(reg1);
                     let b = self.string_operand2.view_string(self);
                     let a = self.string_operand1.view_string(self);
-                    self.concat_string_builder = String::with_capacity(a.len() + b.len());
+                    self.concat_string_builder = Vec::with_capacity(a.len() + b.len());
                 }
                 let b = self.string_operand2.view_string(self);
                 let a = self.string_operand1.view_string(self);
                 // if we've already looked at every character, true
                 if self.string_op_index1 == a.len() && self.string_op_index2 == b.len() {
-                    let mut builder = String::new();
+                    let mut builder = vec![];
                     std::mem::swap(&mut builder, &mut self.concat_string_builder);
-                    let s = StringObject::new(builder, self);
+                    let s = String::from_utf8(builder).unwrap();
+                    // println!("s=`{s}`");
+                    let s = StringObject::new(s, self);
                     self.store_offset_or_top(dest, s);
                     self.string_op_index1 = 0;
                     self.string_op_index2 = 0;
                 }
-                // if the strings are different lengths or the ith character is different, false
+                // if there's a character left in string 1, write a character from it
                 else if self.string_op_index1 < a.len() {
                     self.concat_string_builder
-                        .write_char(a.chars().nth(self.string_op_index1).unwrap())
-                        .unwrap();
+                        .push(a.as_bytes()[self.string_op_index1]);
                     self.string_op_index1 += 1;
                     self.pc.0 -= 1;
-                } else if self.string_op_index2 < b.len() {
+                }
+                // if there's a character left in string 2, write a character from it
+                else if self.string_op_index2 < b.len() {
                     self.concat_string_builder
-                        .write_char(b.chars().nth(self.string_op_index2).unwrap())
-                        .unwrap();
+                        .push(b.as_bytes()[self.string_op_index2]);
                     self.string_op_index2 += 1;
                     self.pc.0 -= 1;
                 }
