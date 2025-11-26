@@ -63,7 +63,8 @@ break_statement = { "break" }
 
 func_def = { "fn" ~ identifier ~ func_args ~ func_out_annotation? ~ (block_expression | (op_assign ~ expression)) }
 
-attribute = { "#" ~ identifier }
+attribute = { "#" ~ identifier ~ attribute_args? }
+attribute_args = { "(" ~ (identifier ~ ",")* ~ identifier? ~ ")" }
 func_decl = { attribute* ~ "fn" ~ identifier ~ func_args_annotated ~ func_out_annotation }
 
 let_pattern_tuple = { tuple_start ~ (let_pattern_tuple_element ~ ",")+ ~ let_pattern_tuple_element ~ tuple_end }

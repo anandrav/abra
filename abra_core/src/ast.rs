@@ -399,7 +399,7 @@ impl FuncDecl {
 #[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq, Hash)]
 pub(crate) struct Attribute {
     pub(crate) name: Rc<Identifier>,
-    pub(crate) args: Vec<Rc<Identifier>>,
+    pub(crate) _args: Vec<Rc<Identifier>>, // unused right now
 }
 
 impl Attribute {

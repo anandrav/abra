@@ -922,8 +922,19 @@ fn parse_func_decl(pairs: Vec<Pair<'_, Rule>>, file_id: FileId) -> Rc<FuncDecl> 
             loc: Location::new(file_id, inner[0].as_span()),
             id: NodeId::new(),
         });
-        attributes.push(Attribute { name, args: vec![] });
         n += 1;
+        let mut _args = vec![];
+        if inner.len() > 1 {
+            let inner: Vec<_> = inner[1].clone().into_inner().collect();
+            for pair in inner {
+                _args.push(Rc::new(Identifier {
+                    v: pair.as_str().to_string(),
+                    loc: Location::new(file_id, pair.as_span()),
+                    id: NodeId::new(),
+                }))
+            }
+        }
+        attributes.push(Attribute { name, _args });
     }
     let mut args = vec![];
     let name = Identifier {
