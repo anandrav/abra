@@ -26,9 +26,9 @@ implement Num for int {
     fn divide(a, b) = divide_int(a, b)
     fn power(a, b) = power_int(a, b)
     fn less_than(a, b) = less_than_int(a, b)
-    fn less_than_or_equal(a, b) = (a < b) or (a == b)
-    fn greater_than(a, b) = not(a < b) and not(a == b)
-    fn greater_than_or_equal(a, b) = not(a < b)
+    fn less_than_or_equal(a, b) = less_than_or_equal_int(a, b)
+    fn greater_than(a, b) = greater_than_int(a, b)
+    fn greater_than_or_equal(a, b) = greater_than_or_equal_int(a, b)
 }
 
 implement Num for float {
@@ -38,9 +38,9 @@ implement Num for float {
     fn divide(a, b) = divide_float(a, b)
     fn power(a, b) = power_float(a, b)
     fn less_than(a, b) = less_than_float(a, b)
-    fn less_than_or_equal(a, b) = a < b
-    fn greater_than(a, b) = b < a
-    fn greater_than_or_equal(a, b) = b < a
+    fn less_than_or_equal(a, b) = less_than_or_equal_float(a, b)
+    fn greater_than(a, b) = greater_than_float(a, b)
+    fn greater_than_or_equal(a, b) = greater_than_or_equal_float(a, b)
 }
 
 type option<T> = some(T) | none

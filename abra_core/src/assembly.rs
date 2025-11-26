@@ -102,8 +102,6 @@ pub enum Instr {
 
     // Logical
     Not,
-    And,
-    Or,
 
     // Comparison
     LessThanInt(Reg, Reg, Reg),
@@ -291,8 +289,6 @@ impl Display for Instr {
             }
             Instr::SquareRoot(dest, reg) => write!(f, "square_root {dest} {reg}"),
             Instr::Not => write!(f, "not"),
-            Instr::And => write!(f, "and"),
-            Instr::Or => write!(f, "or"),
             Instr::LessThanInt(dest, reg1, reg2) => {
                 write!(f, "less_than_int {dest} {reg1} {reg2}")
             }
@@ -536,8 +532,6 @@ fn instr_to_vminstr(
         ),
         Instr::SquareRoot(dest, reg) => VmInstr::SquareRoot(dest.encode(), reg.encode()),
         Instr::Not => VmInstr::Not,
-        Instr::And => VmInstr::And,
-        Instr::Or => VmInstr::Or,
         Instr::LessThanInt(dest, reg1, reg2) => {
             VmInstr::LessThanInt(dest.encode(), reg1.encode(), reg2.encode())
         }

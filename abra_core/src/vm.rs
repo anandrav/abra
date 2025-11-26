@@ -446,8 +446,6 @@ pub enum Instr {
 
     // Logical
     Not, // TODO: use registers
-    And, // TODO: use registers? Or just short-circuit...
-    Or,  // TODO: use registers? Or just short-circuit...
 
     // Comparison
     LessThanInt(u16, u16, u16),
@@ -1209,16 +1207,6 @@ impl Vm {
             Instr::Not => {
                 let a = self.top().get_bool(self);
                 self.set_top(!a);
-            }
-            Instr::And => {
-                let b = self.pop_bool();
-                let a = self.top().get_bool(self);
-                self.set_top(a && b);
-            }
-            Instr::Or => {
-                let b = self.pop_bool();
-                let a = self.top().get_bool(self);
-                self.set_top(a || b);
             }
             Instr::LessThanInt(dest, reg1, reg2) => {
                 let b = self.load_offset_or_top(reg2).get_int(self);

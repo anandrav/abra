@@ -490,6 +490,31 @@ impl Translator {
             }
             ExprKind::BinOp(left, op, right) => {
                 self.translate_expr(left, offset_table, monomorph_env, st);
+                match op {
+                    BinaryOperator::Or => {
+                        let short_circuit = make_label("short_circuit_or");
+                        let end_label = make_label("end_or");
+                        self.emit(st, Instr::JumpIf(short_circuit.clone()));
+                        self.translate_expr(right, offset_table, monomorph_env, st);
+                        self.emit(st, Instr::Jump(end_label.clone()));
+                        self.emit(st, short_circuit);
+                        self.emit(st, Instr::PushBool(true));
+                        self.emit(st, end_label);
+                        return;
+                    }
+                    BinaryOperator::And => {
+                        let short_circuit = make_label("short_circuit_and");
+                        let end_label = make_label("end_and");
+                        self.emit(st, Instr::JumpIfFalse(short_circuit.clone()));
+                        self.translate_expr(right, offset_table, monomorph_env, st);
+                        self.emit(st, Instr::Jump(end_label.clone()));
+                        self.emit(st, short_circuit);
+                        self.emit(st, Instr::PushBool(false));
+                        self.emit(st, end_label);
+                        return;
+                    }
+                    _ => {}
+                };
                 self.translate_expr(right, offset_table, monomorph_env, st);
                 let mut helper = |monomorph_env: &MonomorphEnv, method_name: &str| {
                     let iface_method = self
@@ -639,8 +664,8 @@ impl Translator {
 
                         self.handle_func_call(st, Some(substituted_ty), func_name, &func);
                     }
-                    BinaryOperator::Or => self.emit(st, Instr::Or), // TODO: short-circuiting (RHS should not be executed if LHS is true)
-                    BinaryOperator::And => self.emit(st, Instr::And), // TODO: short-circuiting (RHS should not be executed if LHS is false)
+                    BinaryOperator::Or => unreachable!(),
+                    BinaryOperator::And => unreachable!(),
                     BinaryOperator::Mod => {
                         self.emit(st, Instr::Modulo(Reg::Top, Reg::Top, Reg::Top))
                     }
