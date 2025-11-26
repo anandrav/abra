@@ -184,8 +184,9 @@ impl Display for Namespace {
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub(crate) enum Declaration {
     FreeFunction(Rc<FuncDef>),
-    HostFunction(Rc<FuncDecl>),
+    HostFunction(Rc<FuncDecl>), // TODO: this should be flags/optional data inside FreeFunction and MemberFunction
     _ForeignFunction {
+        // TODO: continued... this should be flags/optional data inside FreeFunction and MemberFunction
         f: Rc<FuncDecl>,
         libname: PathBuf,
         symbol: String,
