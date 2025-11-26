@@ -1138,7 +1138,7 @@ impl Translator {
                     self.emit(st, Instr::ArrayLength(Reg::Top, Reg::Top));
                 }
                 BuiltinOperation::ArrayPop => {
-                    self.emit(st, Instr::ArrayPop);
+                    self.emit(st, Instr::ArrayPop(Reg::Top, Reg::Top));
                 }
                 BuiltinOperation::Panic => {
                     self.emit(st, Instr::Panic);
@@ -1495,7 +1495,7 @@ impl Translator {
             // inline basic/fundamental operations instead of performing function call
             ("array.push", _) => self.emit(st, Instr::ArrayPush(Reg::Top, Reg::Top)),
             ("array.len", _) => self.emit(st, Instr::ArrayLength(Reg::Top, Reg::Top)),
-            ("array.pop", _) => self.emit(st, Instr::ArrayPop),
+            ("array.pop", _) => self.emit(st, Instr::ArrayPop(Reg::Top, Reg::Top)),
             ("prelude.ToString.str", ty)
                 if is_func(&ty, SolvedType::String, SolvedType::String) =>
             { /* noop */ }

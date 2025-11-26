@@ -511,7 +511,7 @@ pub enum Instr {
     ArrayPush(u16, u16),
     ArrayPushIntImm(u16, u16),
     ArrayLength(u16, u16),
-    ArrayPop,      // TODO: use register
+    ArrayPop(u16, u16),
     ConcatStrings, //TODO: use registers? TODO: this is O(N). Must use smaller instructions. Or concat character-by-character and save progress in Vm
     IntToFloat,    // TODO: use register
     FloatToInt,    // TODO: use register
@@ -1475,11 +1475,11 @@ impl Vm {
                 let arr = val.get_array(self);
                 self.store_offset_or_top(dest, arr.data.len() as AbraInt);
             }
-            Instr::ArrayPop => {
-                let val = self.top();
+            Instr::ArrayPop(dest, reg) => {
+                let val = self.load_offset_or_top(reg);
                 let arr = unsafe { val.get_array_mut(self) };
                 let lvalue = arr.data.pop().unwrap();
-                self.set_top(lvalue);
+                self.store_offset_or_top(dest, lvalue);
             }
             // TODO: it would be better if ConcatString operation extended the LHS with the RHS. Would have to modify how format_append and & work
             // Perhaps LHS of & operator should be some sort of "StringBuilder". Though this is suspiciously similar to cout in C++
