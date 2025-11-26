@@ -16,6 +16,7 @@ use std::error::Error;
 #[cfg(feature = "ffi")]
 use std::ffi::c_void;
 use std::fmt::Debug;
+use std::fmt::Write;
 use std::{
     fmt::{Display, Formatter},
     ptr,
@@ -55,6 +56,12 @@ pub struct Vm {
     pending_host_func: Option<u16>,
     error: Option<Box<VmError>>,
     done: bool,
+    // string op state
+    string_op_index1: usize,
+    string_op_index2: usize,
+    string_operand1: Value,
+    string_operand2: Value,
+    concat_string_builder: String,
 
     // FFI
     #[cfg(feature = "ffi")]
@@ -161,6 +168,12 @@ impl Vm {
             pending_host_func: None,
             error: None,
             done: false,
+
+            string_op_index1: 0,
+            string_op_index2: 0,
+            string_operand1: Value::from(0),
+            string_operand2: Value::from(0),
+            concat_string_builder: "".to_string(),
 
             #[cfg(feature = "ffi")]
             libs: Vec::new(),
@@ -1314,9 +1327,28 @@ impl Vm {
                 self.store_offset_or_top(dest, a == b);
             }
             Instr::EqualString(dest, reg1, reg2) => {
-                let b = self.load_offset_or_top(reg2).view_string(self);
-                let a = self.load_offset_or_top(reg1).view_string(self);
-                self.store_offset_or_top(dest, a == b);
+                if self.string_op_index1 == 0 {
+                    self.string_operand2 = self.load_offset_or_top(reg2);
+                    self.string_operand1 = self.load_offset_or_top(reg1);
+                }
+                let b = self.string_operand2.view_string(self);
+                let a = self.string_operand1.view_string(self);
+                // if we've already looked at every character, true
+                if self.string_op_index1 == a.len() && self.string_op_index1 == b.len() {
+                    self.store_offset_or_top(dest, true);
+                    self.string_op_index1 = 0;
+                }
+                // if the strings are different lengths or the ith character is different, false
+                else if a.len() != b.len()
+                    || a.chars().nth(self.string_op_index1).unwrap()
+                        != b.chars().nth(self.string_op_index1).unwrap()
+                {
+                    self.store_offset_or_top(dest, false);
+                    self.string_op_index1 = 0;
+                } else {
+                    self.pc.0 -= 1;
+                    self.string_op_index1 += 1;
+                }
             }
             Instr::Jump(target) => {
                 self.pc = target;
@@ -1473,13 +1505,46 @@ impl Vm {
             // TODO: it would be better if ConcatString operation extended the LHS with the RHS. Would have to modify how format_append and & work
             // Perhaps LHS of & operator should be some sort of "StringBuilder". Though this is suspiciously similar to cout in C++
             Instr::ConcatStrings(dest, reg1, reg2) => {
-                let b = self.load_offset_or_top(reg2).view_string(self);
-                let a = self.load_offset_or_top(reg1).view_string(self);
-                let mut new_str = String::with_capacity(a.len() + b.len());
-                new_str.push_str(a);
-                new_str.push_str(b);
-                let s = StringObject::new(new_str, self);
-                self.store_offset_or_top(dest, s);
+                // let b = self.load_offset_or_top(reg2).view_string(self);
+                // let a = self.load_offset_or_top(reg1).view_string(self);
+                // let mut new_str = String::with_capacity(a.len() + b.len());
+                // new_str.push_str(a);
+                // new_str.push_str(b);
+                // let s = StringObject::new(new_str, self);
+                // self.store_offset_or_top(dest, s);
+
+                if self.string_op_index1 == 0 {
+                    self.string_operand2 = self.load_offset_or_top(reg2);
+                    self.string_operand1 = self.load_offset_or_top(reg1);
+                    let b = self.string_operand2.view_string(self);
+                    let a = self.string_operand1.view_string(self);
+                    self.concat_string_builder = String::with_capacity(a.len() + b.len());
+                }
+                let b = self.string_operand2.view_string(self);
+                let a = self.string_operand1.view_string(self);
+                // if we've already looked at every character, true
+                if self.string_op_index1 == a.len() && self.string_op_index2 == b.len() {
+                    let mut builder = String::new();
+                    std::mem::swap(&mut builder, &mut self.concat_string_builder);
+                    let s = StringObject::new(builder, self);
+                    self.store_offset_or_top(dest, s);
+                    self.string_op_index1 = 0;
+                    self.string_op_index2 = 0;
+                }
+                // if the strings are different lengths or the ith character is different, false
+                else if self.string_op_index1 < a.len() {
+                    self.concat_string_builder
+                        .write_char(a.chars().nth(self.string_op_index1).unwrap())
+                        .unwrap();
+                    self.string_op_index1 += 1;
+                    self.pc.0 -= 1;
+                } else if self.string_op_index2 < b.len() {
+                    self.concat_string_builder
+                        .write_char(b.chars().nth(self.string_op_index2).unwrap())
+                        .unwrap();
+                    self.string_op_index2 += 1;
+                    self.pc.0 -= 1;
+                }
             }
             Instr::IntToFloat(dest, reg) => {
                 let n = self.load_offset_or_top(reg).get_int(self);
@@ -1647,6 +1712,8 @@ impl Vm {
         for s_ptr in self.static_strings.iter().cloned() {
             Self::mark(Value::from(s_ptr), &mut self.gray_stack);
         }
+        Self::mark(self.string_operand1, &mut self.gray_stack);
+        Self::mark(self.string_operand2, &mut self.gray_stack);
 
         self.gc_state = GcState::Marking;
     }

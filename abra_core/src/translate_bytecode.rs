@@ -405,7 +405,7 @@ impl Translator {
         match &*expr.kind {
             ExprKind::Variable(_) => match &self.statics.resolution_map[&expr.id] {
                 Declaration::EnumVariant { variant, .. } => {
-                    self.emit(st, Instr::PushNil(1));
+                    self.emit(st, Instr::PushNil(1)); // TODO: optimize this away
                     self.emit(
                         st,
                         Instr::ConstructVariant {
