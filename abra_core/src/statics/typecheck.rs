@@ -1439,7 +1439,7 @@ fn generate_constraints_item_decls1(ctx: &mut StaticsContext, item: &Rc<Item>) {
         ItemKind::Extension(_) => {}
         ItemKind::TypeDef(_) => {}
         ItemKind::FuncDef(_) => {}
-        ItemKind::HostFuncDecl(_) | ItemKind::ForeignFuncDecl(_) => {}
+        ItemKind::FuncDecl { .. } => {}
     }
 }
 
@@ -1491,8 +1491,8 @@ fn generate_constraints_item_decls0(ctx: &mut StaticsContext, item: &Rc<Item>) {
         ItemKind::FuncDef(f) => {
             generate_constraints_func_decl(ctx, f.name.node(), &f.args, f.ret_type.as_ref());
         }
-        ItemKind::HostFuncDecl(f) | ItemKind::ForeignFuncDecl(f) => {
-            generate_constraints_func_decl(ctx, f.name.node(), &f.args, Some(&f.ret_type));
+        ItemKind::FuncDecl { decl, .. } => {
+            generate_constraints_func_decl(ctx, decl.name.node(), &decl.args, Some(&decl.ret_type));
         }
     }
 }
@@ -1743,7 +1743,7 @@ fn generate_constraints_item_stmts(ctx: &mut StaticsContext, mode: Mode, item: &
         ItemKind::FuncDef(f) => {
             generate_constraints_func_def(ctx, &PolyvarScope::empty(), f, f.name.node());
         }
-        ItemKind::HostFuncDecl(_) | ItemKind::ForeignFuncDecl(_) => {}
+        ItemKind::FuncDecl { .. } => {}
     }
 }
 

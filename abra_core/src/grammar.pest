@@ -12,7 +12,7 @@ shebang = _{ "#!" ~ (!NEWLINE ~ ANY)* ~ NEWLINE? }
 
 file = _{ SOI ~ file_item* ~ EOI }
 
-file_item = _{ func_def | foreign_func_decl | host_func_decl | interface_declaration | interface_implementation | extension | enum_declaration | struct_declaration /*| typealias*/ | import | statement }
+file_item = _{ func_def | func_decl | interface_declaration | interface_implementation | extension | enum_declaration | struct_declaration /*| typealias*/ | import | statement }
 
 // typealias = { "type" ~ identifier ~ "=" ~ typ}
 
@@ -64,9 +64,8 @@ break_statement = { "break" }
 
 func_def = { "fn" ~ identifier ~ func_args ~ func_out_annotation? ~ (block_expression | (op_assign ~ expression)) }
 
-foreign_func_decl = { "#foreign" ~ "fn" ~ identifier ~ func_args_annotated ~ func_out_annotation }
-
-host_func_decl = { "#host" ~ "fn" ~ identifier ~ func_args_annotated ~ func_out_annotation }
+attribute = { "#" ~ identifier }
+func_decl = { attribute* ~ "fn" ~ identifier ~ func_args_annotated ~ func_out_annotation }
 
 let_pattern_tuple = { tuple_start ~ (let_pattern_tuple_element ~ ",")+ ~ let_pattern_tuple_element ~ tuple_end }
 let_pattern_tuple_element = _{ let_pattern }
@@ -211,7 +210,7 @@ op_try = { "?" }
 // NOTE: When changing this code, make sure you don't have a subset of a word before
 // another word. For example: { "type" | "typeof" } will never match "typeof"
 keyword = @{
-   "and" | "bool" | "break" | "continue" | "else" | "extend" | "except" | "false" | "fn" | "foreign" | "host" | "let" | "if" | "int" | "implement" | "match" | "mod" | "or" | "return" | "set" | "string" | "type" | "nothing" | "true" | "void"
+   "and" | "bool" | "break" | "continue" | "else" | "extend" | "except" | "false" | "fn" | "let" | "if" | "int" | "implement" | "match" | "mod" | "or" | "return" | "set" | "string" | "type" | "nothing" | "true" | "void"
 }
 
 semicolon = _{ ";" }

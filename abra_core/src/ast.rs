@@ -320,8 +320,11 @@ impl Item {
 
 #[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq, Hash)]
 pub(crate) enum ItemKind {
-    ForeignFuncDecl(Rc<FuncDecl>),
-    HostFuncDecl(Rc<FuncDecl>),
+    FuncDecl {
+        decl: Rc<FuncDecl>,
+        foreign: bool,
+        host: bool,
+    },
     FuncDef(Rc<FuncDef>),
     TypeDef(Rc<TypeDefKind>),
     InterfaceDef(Rc<InterfaceDef>), // TODO: change names to match

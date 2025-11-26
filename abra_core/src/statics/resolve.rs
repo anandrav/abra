@@ -151,80 +151,88 @@ fn gather_declarations_item(
 
             namespace.add_declaration(ctx, func_name, Declaration::FreeFunction(f.clone()));
         }
-        ItemKind::HostFuncDecl(func_decl) => {
-            let func_name = func_decl.name.v.clone();
-            let fully_qualified_name = fullname(&qualifiers, &func_name);
+        ItemKind::FuncDecl {
+            decl: func_decl,
+            foreign,
+            host,
+        } => {
+            if *foreign && *host {
+                // TODO: consider relaxing this constraint
+                ctx.errors.push(Error::Generic {
+                    msg: "function declaration cannot be #host and #foreign".to_string(),
+                    node: stmt.node(),
+                });
+                return;
+            }
+            if *host {
+                let func_name = func_decl.name.v.clone();
+                let fully_qualified_name = fullname(&qualifiers, &func_name);
 
-            ctx.fully_qualified_names
-                .insert(func_decl.name.id, fully_qualified_name);
-
-            namespace.add_declaration(
-                ctx,
-                func_name.clone(),
-                Declaration::HostFunction(func_decl.clone()),
-            );
-
-            ctx.host_funcs.insert(func_decl.clone());
-        }
-        ItemKind::ForeignFuncDecl(_func_decl) => {
-            #[cfg(feature = "ffi")]
-            {
-                let func_name = _func_decl.name.v.clone();
-
-                let mut path = _file.path.clone();
-                let elems: Vec<_> = _file.name.split(std::path::MAIN_SEPARATOR_STR).collect();
-                for _ in 0..elems.len() - 1 {
-                    path = path.parent().unwrap().to_owned();
-                }
-                let mut package_name = path
-                    .iter()
-                    .next_back()
-                    .unwrap()
-                    .to_str()
-                    .unwrap()
-                    .to_string();
-                if package_name.ends_with(".abra") {
-                    package_name = package_name[..package_name.len() - ".abra".len()].to_string();
-                }
-
-                let filename = format!(
-                    "{}{}{}{}",
-                    std::env::consts::DLL_PREFIX,
-                    "abra_module_",
-                    package_name,
-                    std::env::consts::DLL_SUFFIX
-                );
-                let libname = ctx._file_provider.shared_objects_dir().join(filename);
-
-                // add libname to string constants
-                // ctx.string_constants
-                //     .insert(libname.to_str().unwrap().to_string());
-
-                let symbol = make_foreign_func_name(&_func_decl.name.v, &elems);
-
-                // add symbol to string constants
-                // ctx.string_constants.insert(symbol.clone());
-
-                // add symbol to statics ctx
-                let lib_id = ctx.dylibs.insert(libname.clone());
-                ctx.dylib_to_funcs
-                    .entry(lib_id)
-                    .or_default()
-                    .insert(symbol.clone());
+                ctx.fully_qualified_names
+                    .insert(func_decl.name.id, fully_qualified_name);
 
                 namespace.add_declaration(
                     ctx,
-                    func_name,
-                    Declaration::_ForeignFunction {
-                        f: _func_decl.clone(),
-                        libname,
-                        symbol,
-                    },
+                    func_name.clone(),
+                    Declaration::HostFunction(func_decl.clone()),
                 );
+
+                ctx.host_funcs.insert(func_decl.clone());
             }
-            #[cfg(not(feature = "ffi"))]
-            {
-                ctx.errors.push(Error::FfiNotEnabled(stmt.node()));
+            if *foreign {
+                #[cfg(feature = "ffi")]
+                {
+                    let func_name = func_decl.name.v.clone();
+
+                    let mut path = _file.path.clone();
+                    let elems: Vec<_> = _file.name.split(std::path::MAIN_SEPARATOR_STR).collect();
+                    for _ in 0..elems.len() - 1 {
+                        path = path.parent().unwrap().to_owned();
+                    }
+                    let mut package_name = path
+                        .iter()
+                        .next_back()
+                        .unwrap()
+                        .to_str()
+                        .unwrap()
+                        .to_string();
+                    if package_name.ends_with(".abra") {
+                        package_name =
+                            package_name[..package_name.len() - ".abra".len()].to_string();
+                    }
+
+                    let filename = format!(
+                        "{}{}{}{}",
+                        std::env::consts::DLL_PREFIX,
+                        "abra_module_",
+                        package_name,
+                        std::env::consts::DLL_SUFFIX
+                    );
+                    let libname = ctx._file_provider.shared_objects_dir().join(filename);
+
+                    let symbol = make_foreign_func_name(&func_decl.name.v, &elems);
+
+                    // add symbol to statics ctx
+                    let lib_id = ctx.dylibs.insert(libname.clone());
+                    ctx.dylib_to_funcs
+                        .entry(lib_id)
+                        .or_default()
+                        .insert(symbol.clone());
+
+                    namespace.add_declaration(
+                        ctx,
+                        func_name,
+                        Declaration::_ForeignFunction {
+                            f: func_decl.clone(),
+                            libname,
+                            symbol,
+                        },
+                    );
+                }
+                #[cfg(not(feature = "ffi"))]
+                {
+                    ctx.errors.push(Error::FfiNotEnabled(stmt.node()));
+                }
             }
         }
         ItemKind::Import(..) => {}
@@ -475,16 +483,16 @@ fn resolve_names_item_decl(ctx: &mut StaticsContext, symbol_table: &SymbolTable,
             let symbol_table = symbol_table.new_scope();
             resolve_names_func_helper(ctx, &symbol_table, &f.args, &f.body, &f.ret_type);
         }
-        ItemKind::HostFuncDecl(f) | ItemKind::ForeignFuncDecl(f) => {
+        ItemKind::FuncDecl { decl, .. } => {
             let symbol_table = symbol_table.new_scope();
-            for arg in &f.args {
+            for arg in &decl.args {
                 resolve_names_fn_arg(&symbol_table, &arg.0);
                 if let Some(annot) = &arg.1 {
                     resolve_names_typ(ctx, &symbol_table, annot, true);
                 }
             }
 
-            resolve_names_typ(ctx, &symbol_table, &f.ret_type, true);
+            resolve_names_typ(ctx, &symbol_table, &decl.ret_type, true);
         }
         ItemKind::InterfaceDef(iface_def) => {
             let ns = &ctx.interface_namespaces[iface_def];
@@ -636,8 +644,7 @@ fn try_add_member_function(
 fn resolve_names_item_stmt(ctx: &mut StaticsContext, symbol_table: &SymbolTable, stmt: &Rc<Item>) {
     match &*stmt.kind {
         ItemKind::FuncDef(..)
-        | ItemKind::HostFuncDecl(..)
-        | ItemKind::ForeignFuncDecl(..)
+        | ItemKind::FuncDecl { .. }
         | ItemKind::InterfaceDef(..)
         | ItemKind::InterfaceImpl(..)
         | ItemKind::Extension(..)
