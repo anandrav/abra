@@ -630,7 +630,9 @@ impl Translator {
                         SolvedType::Bool => {
                             self.emit(st, Instr::EqualBool(Reg::Top, Reg::Top, Reg::Top))
                         }
-                        SolvedType::String => self.emit(st, Instr::EqualString),
+                        SolvedType::String => {
+                            self.emit(st, Instr::EqualString(Reg::Top, Reg::Top, Reg::Top))
+                        }
                         _ => {
                             helper(monomorph_env, "prelude.Equal.equal");
                         }
@@ -844,11 +846,10 @@ impl Translator {
             ExprKind::Unwrap(expr) => {
                 self.translate_expr(expr, offset_table, monomorph_env, st);
 
-                let decl @ Declaration::FreeFunction(f) = &self
+                let Some(decl @ Declaration::FreeFunction(f)) = &self
                     .statics
                     .root_namespace
                     .get_declaration("prelude.unwrap")
-                    .unwrap()
                 else {
                     panic!();
                 };
@@ -1139,7 +1140,7 @@ impl Translator {
                     self.emit(st, Instr::EqualFloat(Reg::Top, Reg::Top, Reg::Top));
                 }
                 BuiltinOperation::EqualString => {
-                    self.emit(st, Instr::EqualString);
+                    self.emit(st, Instr::EqualString(Reg::Top, Reg::Top, Reg::Top));
                 }
                 BuiltinOperation::IntToFloat => {
                     self.emit(st, Instr::IntToFloat(Reg::Top, Reg::Top));
@@ -1154,7 +1155,7 @@ impl Translator {
                     self.emit(st, Instr::FloatToString(Reg::Top, Reg::Top));
                 }
                 BuiltinOperation::ConcatStrings => {
-                    self.emit(st, Instr::ConcatStrings);
+                    self.emit(st, Instr::ConcatStrings(Reg::Top, Reg::Top, Reg::Top));
                 }
                 BuiltinOperation::ArrayPush => {
                     self.emit(st, Instr::ArrayPush(Reg::Top, Reg::Top));
@@ -1222,7 +1223,7 @@ impl Translator {
             Type::String => match &*pat.kind {
                 PatKind::Str(s) => {
                     self.emit(st, Instr::PushString(s.clone()));
-                    self.emit(st, Instr::EqualString);
+                    self.emit(st, Instr::EqualString(Reg::Top, Reg::Top, Reg::Top));
                 }
                 _ => panic!("unexpected pattern: {:?}", pat.kind),
             },

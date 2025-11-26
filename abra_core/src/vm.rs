@@ -471,7 +471,7 @@ pub enum Instr {
     EqualFloat(u16, u16, u16),
     EqualFloatImm(u16, u16, u16),
     EqualBool(u16, u16, u16),
-    EqualString, // TODO: use registers? // TODO: this is O(N). Must use smaller instructions. Or compare character-by-character and save progress in state of Vm
+    EqualString(u16, u16, u16), // TODO: this is O(N). Must use smaller instructions. Or compare character-by-character and save progress in state of Vm
 
     // Control Flow
     Jump(ProgramCounter),
@@ -510,7 +510,7 @@ pub enum Instr {
     ArrayPushIntImm(u16, u16),
     ArrayLength(u16, u16),
     ArrayPop(u16, u16),
-    ConcatStrings, //TODO: use registers? TODO: this is O(N). Must use smaller instructions. Or concat character-by-character and save progress in Vm
+    ConcatStrings(u16, u16, u16), // TODO: this is O(N). Must use smaller instructions. Or concat character-by-character and save progress in Vm
     IntToFloat(u16, u16),
     FloatToInt(u16, u16),
     IntToString(u16, u16),
@@ -1313,10 +1313,10 @@ impl Vm {
                 let a = self.load_offset_or_top(reg1).get_bool(self);
                 self.store_offset_or_top(dest, a == b);
             }
-            Instr::EqualString => {
-                let b = self.pop().view_string(self);
-                let a = self.top().view_string(self);
-                self.set_top(a == b);
+            Instr::EqualString(dest, reg1, reg2) => {
+                let b = self.load_offset_or_top(reg2).view_string(self);
+                let a = self.load_offset_or_top(reg1).view_string(self);
+                self.store_offset_or_top(dest, a == b);
             }
             Instr::Jump(target) => {
                 self.pc = target;
@@ -1472,17 +1472,14 @@ impl Vm {
             }
             // TODO: it would be better if ConcatString operation extended the LHS with the RHS. Would have to modify how format_append and & work
             // Perhaps LHS of & operator should be some sort of "StringBuilder". Though this is suspiciously similar to cout in C++
-            Instr::ConcatStrings => {
-                let b = self.pop();
-                let a = self.top();
-                let a_str = a.view_string(self);
-                let b_str = b.view_string(self);
-                let mut new_str = String::with_capacity(a_str.len() + b_str.len());
-                new_str.push_str(a_str);
-                new_str.push_str(b_str);
+            Instr::ConcatStrings(dest, reg1, reg2) => {
+                let b = self.load_offset_or_top(reg2).view_string(self);
+                let a = self.load_offset_or_top(reg1).view_string(self);
+                let mut new_str = String::with_capacity(a.len() + b.len());
+                new_str.push_str(a);
+                new_str.push_str(b);
                 let s = StringObject::new(new_str, self);
-                let r = Value::from(s);
-                self.set_top(r);
+                self.store_offset_or_top(dest, s);
             }
             Instr::IntToFloat(dest, reg) => {
                 let n = self.load_offset_or_top(reg).get_int(self);

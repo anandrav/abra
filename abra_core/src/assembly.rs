@@ -127,7 +127,7 @@ pub enum Instr {
     EqualFloat(Reg, Reg, Reg),
     EqualFloatImm(Reg, Reg, String),
     EqualBool(Reg, Reg, Reg),
-    EqualString, // TODO: this is O(N). Must use smaller instructions. Or compare character-by-character and save progress in state of Vm
+    EqualString(Reg, Reg, Reg), // TODO: this is O(N). Must use smaller instructions. Or compare character-by-character and save progress in state of Vm
 
     // Control Flow
     Jump(Label),
@@ -158,7 +158,7 @@ pub enum Instr {
     ArrayPushIntImm(Reg, AbraInt),
     ArrayLength(Reg, Reg),
     ArrayPop(Reg, Reg),
-    ConcatStrings, // TODO: this is O(N). Must use smaller instructions. Or concat character-by-character and save progress in Vm
+    ConcatStrings(Reg, Reg, Reg), // TODO: this is O(N). Must use smaller instructions. Or concat character-by-character and save progress in Vm
     IntToFloat(Reg, Reg),
     FloatToInt(Reg, Reg),
     IntToString(Reg, Reg),
@@ -344,7 +344,7 @@ impl Display for Instr {
                 write!(f, "equal_float_imm {dest} {reg1} {imm}")
             }
             Instr::EqualBool(dest, reg1, reg2) => write!(f, "equal_bool {dest} {reg1} {reg2}"),
-            Instr::EqualString => write!(f, "equal_string"),
+            Instr::EqualString(dest, reg1, reg2) => write!(f, "equal_string {dest} {reg1} {reg2}"),
             Instr::PushNil(n) => write!(f, "push_nil {n}"),
             Instr::PushBool(b) => write!(f, "push_bool {b}"),
             Instr::PushInt(n) => write!(f, "push_int {n}"),
@@ -380,7 +380,9 @@ impl Display for Instr {
             Instr::ArrayPushIntImm(reg1, imm) => write!(f, "array_push_int_imm {reg1} {imm}"),
             Instr::ArrayLength(dest, reg) => write!(f, "array_len {dest} {reg}"),
             Instr::ArrayPop(dest, reg) => write!(f, "array_pop {dest} {reg}"),
-            Instr::ConcatStrings => write!(f, "concat_strings"),
+            Instr::ConcatStrings(dest, reg1, reg2) => {
+                write!(f, "concat_strings {dest} {reg1} {reg2}")
+            }
             Instr::IntToFloat(dest, reg) => write!(f, "int_to_float {dest} {reg}"),
             Instr::FloatToInt(dest, reg) => write!(f, "float_to_int {dest} {reg}"),
             Instr::IntToString(dest, reg) => write!(f, "int_to_string {dest} {reg}"),
@@ -615,7 +617,9 @@ fn instr_to_vminstr(
         Instr::EqualBool(dest, reg1, reg2) => {
             VmInstr::EqualBool(dest.encode(), reg1.encode(), reg2.encode())
         }
-        Instr::EqualString => VmInstr::EqualString,
+        Instr::EqualString(dest, reg1, reg2) => {
+            VmInstr::EqualString(dest.encode(), reg1.encode(), reg2.encode())
+        }
         Instr::PushNil(n) => VmInstr::PushNil(*n),
         Instr::PushBool(b) => VmInstr::PushBool(*b),
         Instr::PushInt(i) => VmInstr::PushInt(constants.int_constants.try_get_id(i).unwrap()),
@@ -660,7 +664,9 @@ fn instr_to_vminstr(
         ),
         Instr::ArrayLength(dest, reg) => VmInstr::ArrayLength(dest.encode(), reg.encode()),
         Instr::ArrayPop(dest, reg) => VmInstr::ArrayPop(dest.encode(), reg.encode()),
-        Instr::ConcatStrings => VmInstr::ConcatStrings,
+        Instr::ConcatStrings(dest, reg1, reg2) => {
+            VmInstr::ConcatStrings(dest.encode(), reg1.encode(), reg2.encode())
+        }
         Instr::IntToFloat(dest, reg) => VmInstr::IntToFloat(dest.encode(), reg.encode()),
         Instr::FloatToInt(dest, reg) => VmInstr::FloatToInt(dest.encode(), reg.encode()),
         Instr::IntToString(dest, reg) => VmInstr::IntToString(dest.encode(), reg.encode()),
