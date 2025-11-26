@@ -442,7 +442,7 @@ pub enum Instr {
     PowerFloat(u16, u16, u16),
     PowerFloatImm(u16, u16, u16),
 
-    SquareRoot, // TODO: use two registers
+    SquareRoot(u16, u16),
 
     // Logical
     Not, // TODO: use registers
@@ -1201,9 +1201,9 @@ impl Vm {
                 let a = self.load_offset_or_top(reg1).get_float(self);
                 self.store_offset_or_top(dest, a.powf(self.float_constants[imm as usize]));
             }
-            Instr::SquareRoot => {
-                let a = self.top().get_float(self);
-                self.set_top(a.sqrt());
+            Instr::SquareRoot(dest, reg) => {
+                let a = self.load_offset_or_top(reg).get_float(self);
+                self.store_offset_or_top(dest, a.sqrt());
             }
             Instr::Not => {
                 let a = self.top().get_bool(self);

@@ -98,7 +98,7 @@ pub enum Instr {
     PowFloat(Reg, Reg, Reg),
     PowFloatImm(Reg, Reg, String),
 
-    SquareRoot,
+    SquareRoot(Reg, Reg),
 
     // Logical
     Not,
@@ -289,7 +289,7 @@ impl Display for Instr {
             Instr::PowFloatImm(dest, reg1, imm) => {
                 write!(f, "pow_float_imm {dest} {reg1} {imm}")
             }
-            Instr::SquareRoot => write!(f, "square_root"),
+            Instr::SquareRoot(dest, reg) => write!(f, "square_root {dest} {reg}"),
             Instr::Not => write!(f, "not"),
             Instr::And => write!(f, "and"),
             Instr::Or => write!(f, "or"),
@@ -534,7 +534,7 @@ fn instr_to_vminstr(
             reg1.encode(),
             constants.float_constants.try_get_id(imm).unwrap() as u16,
         ),
-        Instr::SquareRoot => VmInstr::SquareRoot,
+        Instr::SquareRoot(dest, reg) => VmInstr::SquareRoot(dest.encode(), reg.encode()),
         Instr::Not => VmInstr::Not,
         Instr::And => VmInstr::And,
         Instr::Or => VmInstr::Or,

@@ -1051,7 +1051,7 @@ impl Translator {
                     self.emit(st, Instr::Modulo(Reg::Top, Reg::Top, Reg::Top));
                 }
                 BuiltinOperation::SqrtInt => {
-                    self.emit(st, Instr::SquareRoot);
+                    self.emit(st, Instr::SquareRoot(Reg::Top, Reg::Top));
                 }
                 BuiltinOperation::AddFloat => {
                     self.emit(st, Instr::AddFloat(Reg::Top, Reg::Top, Reg::Top));
@@ -1069,7 +1069,7 @@ impl Translator {
                     self.emit(st, Instr::PowFloat(Reg::Top, Reg::Top, Reg::Top));
                 }
                 BuiltinOperation::SqrtFloat => {
-                    self.emit(st, Instr::SquareRoot);
+                    self.emit(st, Instr::SquareRoot(Reg::Top, Reg::Top));
                 }
                 BuiltinOperation::LessThanInt => {
                     self.emit(st, Instr::LessThanInt(Reg::Top, Reg::Top, Reg::Top));
