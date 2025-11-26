@@ -1517,7 +1517,6 @@ impl Vm {
                     let mut builder = vec![];
                     std::mem::swap(&mut builder, &mut self.concat_string_builder);
                     let s = String::from_utf8(builder).unwrap();
-                    // println!("s=`{s}`");
                     let s = StringObject::new(s, self);
                     self.store_offset_or_top(dest, s);
                     self.string_op_index1 = 0;
