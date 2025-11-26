@@ -484,7 +484,7 @@ pub enum Instr {
     EqualFloat(u16, u16, u16),
     EqualFloatImm(u16, u16, u16),
     EqualBool(u16, u16, u16),
-    EqualString(u16, u16, u16), // TODO: this is O(N). Must use smaller instructions. Or compare character-by-character and save progress in state of Vm
+    EqualString(u16, u16, u16),
 
     // Control Flow
     Jump(ProgramCounter),
@@ -501,8 +501,8 @@ pub enum Instr {
     Panic,
 
     // Data Structures
-    ConstructStruct(u32), // TODO: just use u16
-    ConstructArray(u32),  // TODO: just use u16
+    ConstructStruct(u16),
+    ConstructArray(u16),
     // TODO: it's a shame that simple enums like Red | Blue | Green aren't just represented as an int.
     // TODO: there should be two types of enums: primitive and object enums. Primitive enums are basically just ints and don't require allocations
     // TODO: pattern matching with primitive enums should also be much much faster, equivalent to a switch.
@@ -523,7 +523,7 @@ pub enum Instr {
     ArrayPushIntImm(u16, u16),
     ArrayLength(u16, u16),
     ArrayPop(u16, u16),
-    ConcatStrings(u16, u16, u16), // TODO: this is O(N). Must use smaller instructions. Or concat character-by-character and save progress in Vm
+    ConcatStrings(u16, u16, u16),
     IntToFloat(u16, u16),
     FloatToInt(u16, u16),
     IntToString(u16, u16),
@@ -1502,17 +1502,7 @@ impl Vm {
                 let lvalue = arr.data.pop().unwrap();
                 self.store_offset_or_top(dest, lvalue);
             }
-            // TODO: it would be better if ConcatString operation extended the LHS with the RHS. Would have to modify how format_append and & work
-            // Perhaps LHS of & operator should be some sort of "StringBuilder". Though this is suspiciously similar to cout in C++
             Instr::ConcatStrings(dest, reg1, reg2) => {
-                // let b = self.load_offset_or_top(reg2).view_string(self);
-                // let a = self.load_offset_or_top(reg1).view_string(self);
-                // let mut new_str = String::with_capacity(a.len() + b.len());
-                // new_str.push_str(a);
-                // new_str.push_str(b);
-                // let s = StringObject::new(new_str, self);
-                // self.store_offset_or_top(dest, s);
-
                 if self.string_op_index1 == 0 {
                     self.string_operand2 = self.load_offset_or_top(reg2);
                     self.string_operand1 = self.load_offset_or_top(reg1);
@@ -1706,19 +1696,19 @@ impl Vm {
         }
 
         // mark roots gray
-        for v in self.value_stack.iter().cloned() {
+        for v in self.value_stack.iter() {
             Self::mark(v, &mut self.gray_stack);
         }
         for s_ptr in self.static_strings.iter().cloned() {
-            Self::mark(Value::from(s_ptr), &mut self.gray_stack);
+            Self::mark(&Value::from(s_ptr), &mut self.gray_stack);
         }
-        Self::mark(self.string_operand1, &mut self.gray_stack);
-        Self::mark(self.string_operand2, &mut self.gray_stack);
+        Self::mark(&self.string_operand1, &mut self.gray_stack);
+        Self::mark(&self.string_operand2, &mut self.gray_stack);
 
         self.gc_state = GcState::Marking;
     }
 
-    fn mark(v: Value, gray_stack: &mut Vec<*mut ObjectHeader>) {
+    fn mark(v: &Value, gray_stack: &mut Vec<*mut ObjectHeader>) {
         // if v is not a pointer
         if !v.1 {
             return;
@@ -1755,20 +1745,20 @@ impl Vm {
                 ObjectKind::Enum => {
                     let obj = unsafe { &*(header_ptr as *const EnumObject) };
                     *batch -= obj.nbytes();
-                    Self::mark(obj.val, &mut self.gray_stack);
+                    Self::mark(&obj.val, &mut self.gray_stack);
                 }
                 ObjectKind::Struct => {
                     let obj = unsafe { &*(header_ptr as *const StructObject) };
                     *batch -= obj.nbytes();
                     for field in obj.get_fields() {
-                        Self::mark(*field, &mut self.gray_stack);
+                        Self::mark(field, &mut self.gray_stack);
                     }
                 }
                 ObjectKind::Array => {
                     let obj = unsafe { &*(header_ptr as *const ArrayObject) };
                     *batch -= obj.nbytes();
                     for elem in &obj.data {
-                        Self::mark(*elem, &mut self.gray_stack);
+                        Self::mark(elem, &mut self.gray_stack);
                     }
                 }
             }

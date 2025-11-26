@@ -143,8 +143,8 @@ pub enum Instr {
     Panic,
 
     // Data Structures
-    ConstructStruct(u32),
-    ConstructArray(u32),
+    ConstructStruct(u16),
+    ConstructArray(u16),
     ConstructVariant { tag: u16 },
     DeconstructStruct,
     DeconstructVariant,
