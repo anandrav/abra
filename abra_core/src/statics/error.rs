@@ -332,7 +332,7 @@ fn add_detail_for_decl(
         return;
     }
     match decl {
-        Declaration::FunctionDef { .. }
+        Declaration::Function { .. }
         | Declaration::InterfaceDef(..)
         | Declaration::InterfaceMethod { .. }
         | Declaration::MemberFunction { .. }
@@ -358,9 +358,9 @@ fn add_detail_for_decl_node(
     message: &str,
 ) -> bool {
     let node = match decl {
-        Declaration::FunctionDef(FuncResolutionKind::Ordinary(func_def)) => func_def.name.node(),
-        Declaration::FunctionDef(FuncResolutionKind::Host(func_decl)) => func_decl.name.node(),
-        Declaration::FunctionDef(FuncResolutionKind::_Foreign { decl, .. }) => decl.name.node(),
+        Declaration::Function(FuncResolutionKind::Ordinary(func_def)) => func_def.name.node(),
+        Declaration::Function(FuncResolutionKind::Host(func_decl)) => func_decl.name.node(),
+        Declaration::Function(FuncResolutionKind::_Foreign { decl, .. }) => decl.name.node(),
         Declaration::InterfaceDef(interface_decl) => interface_decl.name.node(),
         Declaration::InterfaceMethod {
             iface: iface_def, ..

@@ -432,7 +432,7 @@ impl Translator {
                 Declaration::InterfaceOutputType { .. } | Declaration::BuiltinType(_) => {
                     unreachable!()
                 }
-                Declaration::FunctionDef(FuncResolutionKind::Ordinary(f)) => {
+                Declaration::Function(FuncResolutionKind::Ordinary(f)) => {
                     let name = &self.statics.fully_qualified_names[&f.name.id];
                     self.emit(
                         st,
@@ -442,7 +442,7 @@ impl Translator {
                     );
                 }
 
-                Declaration::FunctionDef(_)
+                Declaration::Function(_)
                 | Declaration::InterfaceMethod { .. }
                 | Declaration::MemberFunction { .. } => unimplemented!(),
 
@@ -651,7 +651,7 @@ impl Translator {
                             .root_namespace
                             .get_declaration("prelude.format_append")
                             .unwrap();
-                        let Declaration::FunctionDef(FuncResolutionKind::Ordinary(func_def)) =
+                        let Declaration::Function(FuncResolutionKind::Ordinary(func_def)) =
                             format_append_decl
                         else {
                             unreachable!()
@@ -847,7 +847,7 @@ impl Translator {
             ExprKind::Unwrap(expr) => {
                 self.translate_expr(expr, offset_table, monomorph_env, st);
 
-                let Some(decl @ Declaration::FunctionDef(FuncResolutionKind::Ordinary(f))) = &self
+                let Some(decl @ Declaration::Function(FuncResolutionKind::Ordinary(f))) = &self
                     .statics
                     .root_namespace
                     .get_declaration("prelude.unwrap")
@@ -940,7 +940,7 @@ impl Translator {
                     .count();
                 self.emit(st, Instr::CallFuncObj(nargs as u32));
             }
-            Declaration::FunctionDef(FuncResolutionKind::Ordinary(f)) => {
+            Declaration::Function(FuncResolutionKind::Ordinary(f)) => {
                 let f_fully_qualified_name = &self.statics.fully_qualified_names[&f.name.id];
                 self.translate_func_ap_helper(
                     f,
@@ -950,11 +950,11 @@ impl Translator {
                     st,
                 );
             }
-            Declaration::FunctionDef(FuncResolutionKind::Host(decl)) => {
+            Declaration::Function(FuncResolutionKind::Host(decl)) => {
                 let idx = self.statics.host_funcs.get_id(decl) as u16;
                 self.emit(st, Instr::HostFunc(idx));
             }
-            Declaration::FunctionDef(FuncResolutionKind::_Foreign {
+            Declaration::Function(FuncResolutionKind::_Foreign {
                 decl: _decl,
                 libname,
                 symbol,
