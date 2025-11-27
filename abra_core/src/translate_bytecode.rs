@@ -155,7 +155,7 @@ impl Translator {
     }
 
     fn emit(&self, st: &mut TranslatorState, i: impl LineVariant) {
-        let l: Line = i.to_line(self, st);
+        let l: Line = i.to_line(st);
 
         if let Line::Instr { .. } = &l {
             st.instr_count += 1;

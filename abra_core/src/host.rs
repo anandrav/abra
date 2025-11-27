@@ -7,7 +7,6 @@ use std::process::Command;
 use std::rc::Rc;
 use utils::swrite;
 
-// TODO: all this crap doesn't belong in lib.rs move it to addons.rs or somewhere else
 pub fn generate_host_function_enum(
     main_host_func_file_name: &str,
     file_provider: Box<dyn FileProvider>,

@@ -543,8 +543,11 @@ fn resolve_names_item_decl(ctx: &mut StaticsContext, symbol_table: &SymbolTable,
             let Some(Declaration::InterfaceDef(iface_def)) =
                 ctx.resolution_map.get(&iface_impl.iface.id).cloned()
             else {
-                // TODO: log error when implementee is not an Interface
-                todo!();
+                ctx.errors.push(Error::Generic {
+                    msg: "Must implement an interface".to_string(),
+                    node: iface_impl.iface.node(),
+                });
+                return;
             };
             if let Some(decl) = ctx.resolution_map.get(&iface_impl.typ.id).cloned() {
                 match decl.into_type_key() {

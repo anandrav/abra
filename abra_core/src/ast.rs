@@ -322,7 +322,7 @@ pub(crate) enum ItemKind {
     FuncDecl(Rc<FuncDecl>),
     FuncDef(Rc<FuncDef>),
     TypeDef(Rc<TypeDefKind>),
-    InterfaceDef(Rc<InterfaceDef>), // TODO: change names to match
+    InterfaceDef(Rc<InterfaceDef>),
     InterfaceImpl(Rc<InterfaceImpl>),
     Extension(Rc<Extension>),
     Import(Rc<Identifier>, Option<ImportList>),

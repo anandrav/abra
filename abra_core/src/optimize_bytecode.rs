@@ -183,7 +183,7 @@ fn peephole2_helper(lines: &[Line], index: usize, ret: &mut Vec<Line>) -> bool {
                             lineno,
                             file_id,
                             func_id,
-                        }); // TODO: doing + 2 everywhere is redundant and error prone. fix here and in other peephole functions
+                        });
                         true
                     }
                     // PUSHFLOAT(N) ADD_FLOAT(_, _, TOP) -> ADD_FLOAT_IMM(_, _, N)
@@ -199,7 +199,7 @@ fn peephole2_helper(lines: &[Line], index: usize, ret: &mut Vec<Line>) -> bool {
                             lineno,
                             file_id,
                             func_id,
-                        }); // TODO: doing + 2 everywhere is redundant and error prone. fix here and in other peephole functions
+                        });
                         true
                     }
                     _ => false,

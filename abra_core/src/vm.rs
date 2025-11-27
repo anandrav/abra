@@ -931,7 +931,7 @@ impl EnumObject {
 #[repr(C)]
 struct StringObject {
     header: ObjectHeader,
-    str: String, // TODO: inline the string's contents. Make helper functions for writing to the end of string.
+    str: String,
 }
 
 impl StringObject {

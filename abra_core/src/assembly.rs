@@ -2,7 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use crate::translate_bytecode::{ConstantsHolder, LabelMap, Translator, TranslatorState};
+use crate::translate_bytecode::{ConstantsHolder, LabelMap, TranslatorState};
 use crate::vm::{AbraInt, CallData, Instr as VmInstr, ProgramCounter};
 use std::fmt::{self, Display, Formatter};
 use utils::hash::HashMap;
@@ -21,24 +21,23 @@ pub(crate) enum Line {
 }
 
 pub(crate) trait LineVariant {
-    fn to_line(self, translator: &Translator, translator_state: &TranslatorState) -> Line;
+    fn to_line(self, translator_state: &TranslatorState) -> Line;
 }
 
 impl LineVariant for Line {
-    // TODO: remove translator argument if not needed
-    fn to_line(self, _translator: &Translator, _st: &TranslatorState) -> Line {
+    fn to_line(self, _st: &TranslatorState) -> Line {
         self
     }
 }
 
 impl LineVariant for Label {
-    fn to_line(self, _translator: &Translator, _st: &TranslatorState) -> Line {
+    fn to_line(self, _st: &TranslatorState) -> Line {
         Line::Label(self)
     }
 }
 
 impl LineVariant for Instr {
-    fn to_line(self, _translator: &Translator, st: &TranslatorState) -> Line {
+    fn to_line(self, st: &TranslatorState) -> Line {
         Line::Instr {
             instr: self,
             lineno: st.curr_lineno,
@@ -127,7 +126,7 @@ pub enum Instr {
     EqualFloat(Reg, Reg, Reg),
     EqualFloatImm(Reg, Reg, String),
     EqualBool(Reg, Reg, Reg),
-    EqualString(Reg, Reg, Reg), // TODO: this is O(N). Must use smaller instructions. Or compare character-by-character and save progress in state of Vm
+    EqualString(Reg, Reg, Reg),
 
     // Control Flow
     Jump(Label),
@@ -158,7 +157,7 @@ pub enum Instr {
     ArrayPushIntImm(Reg, AbraInt),
     ArrayLength(Reg, Reg),
     ArrayPop(Reg, Reg),
-    ConcatStrings(Reg, Reg, Reg), // TODO: this is O(N). Must use smaller instructions. Or concat character-by-character and save progress in Vm
+    ConcatStrings(Reg, Reg, Reg),
     IntToFloat(Reg, Reg),
     FloatToInt(Reg, Reg),
     IntToString(Reg, Reg),

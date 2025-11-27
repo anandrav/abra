@@ -199,7 +199,6 @@ pub(crate) enum Declaration {
         e: Rc<EnumDef>,
         variant: usize,
     },
-    // TODO: maybe combine Enum, Struct, and Array into "Nominal". Easier to know if a declaration is a datatype or not.
     // alternatively, add helper functions to check if it's a data type and to extract the NodeId from the particular declaration
     Struct(Rc<StructDef>),
     Array,
