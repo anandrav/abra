@@ -432,7 +432,7 @@ impl Translator {
                 Declaration::InterfaceOutputType { .. } | Declaration::BuiltinType(_) => {
                     unreachable!()
                 }
-                Declaration::FreeFunction(f) => {
+                Declaration::FreeFunction { func_def: f } => {
                     let name = &self.statics.fully_qualified_names[&f.name.id];
                     self.emit(
                         st,
@@ -652,10 +652,10 @@ impl Translator {
                             .root_namespace
                             .get_declaration("prelude.format_append")
                             .unwrap();
-                        let Declaration::FreeFunction(func) = format_append_decl else {
+                        let Declaration::FreeFunction { func_def } = format_append_decl else {
                             unreachable!()
                         };
-                        let func_name = &self.statics.fully_qualified_names[&func.name.id];
+                        let func_name = &self.statics.fully_qualified_names[&func_def.name.id];
 
                         let arg2_ty = self.statics.solution_of_node(right.node()).unwrap();
                         let out_ty = self.statics.solution_of_node(expr.node()).unwrap();
@@ -664,7 +664,7 @@ impl Translator {
 
                         let substituted_ty = specific_func_ty.subst(monomorph_env);
 
-                        self.handle_func_call(st, Some(substituted_ty), func_name, &func);
+                        self.handle_func_call(st, Some(substituted_ty), func_name, &func_def);
                     }
                     BinaryOperator::Or => unreachable!(),
                     BinaryOperator::And => unreachable!(),
@@ -846,7 +846,7 @@ impl Translator {
             ExprKind::Unwrap(expr) => {
                 self.translate_expr(expr, offset_table, monomorph_env, st);
 
-                let Some(decl @ Declaration::FreeFunction(f)) = &self
+                let Some(decl @ Declaration::FreeFunction { func_def: f }) = &self
                     .statics
                     .root_namespace
                     .get_declaration("prelude.unwrap")
@@ -939,7 +939,7 @@ impl Translator {
                     .count();
                 self.emit(st, Instr::CallFuncObj(nargs as u32));
             }
-            Declaration::FreeFunction(f) => {
+            Declaration::FreeFunction { func_def: f } => {
                 let f_fully_qualified_name = &self.statics.fully_qualified_names[&f.name.id];
                 self.translate_func_ap_helper(
                     f,

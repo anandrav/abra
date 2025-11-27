@@ -183,7 +183,9 @@ impl Display for Namespace {
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub(crate) enum Declaration {
-    FreeFunction(Rc<FuncDef>),
+    FreeFunction {
+        func_def: Rc<FuncDef>,
+    },
     HostFunction(Rc<FuncDecl>), // TODO: this should be flags/optional data inside FreeFunction and MemberFunction
     _ForeignFunction {
         // TODO: continued... this should be flags/optional data inside FreeFunction and MemberFunction
@@ -234,7 +236,7 @@ type InterfaceArguments = Vec<(Rc<InterfaceOutputType>, Rc<AstType>, SolvedType)
 impl Declaration {
     pub fn into_type_key(self: Declaration) -> Option<TypeKey> {
         match self {
-            Declaration::FreeFunction(_)
+            Declaration::FreeFunction { .. }
             | Declaration::HostFunction(_)
             | Declaration::_ForeignFunction { .. }
             | Declaration::InterfaceDef(_)

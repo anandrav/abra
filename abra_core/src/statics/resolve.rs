@@ -149,7 +149,13 @@ fn gather_declarations_item(
             ctx.fully_qualified_names
                 .insert(f.name.id, fully_qualified_name);
 
-            namespace.add_declaration(ctx, func_name, Declaration::FreeFunction(f.clone()));
+            namespace.add_declaration(
+                ctx,
+                func_name,
+                Declaration::FreeFunction {
+                    func_def: f.clone(),
+                },
+            );
         }
         ItemKind::FuncDecl(func_decl) => {
             let foreign = func_decl.is_foreign();
@@ -815,7 +821,7 @@ fn resolve_names_expr(ctx: &mut StaticsContext, symbol_table: &SymbolTable, expr
 fn resolve_names_member_helper(ctx: &mut StaticsContext, expr: &Rc<Expr>, field: &Rc<Identifier>) {
     if let Some(decl) = ctx.resolution_map.get(&expr.id).cloned() {
         match decl {
-            Declaration::FreeFunction(..)
+            Declaration::FreeFunction { .. }
             | Declaration::HostFunction(..)
             | Declaration::_ForeignFunction { .. }
             | Declaration::InterfaceMethod { .. }
@@ -1090,7 +1096,7 @@ fn resolve_iface_arguments(
 fn fqn_of_type(ctx: &StaticsContext, lookup_id: NodeId) -> Option<String> {
     let decl = ctx.resolution_map.get(&lookup_id)?;
     match decl {
-        Declaration::FreeFunction(_) => None,
+        Declaration::FreeFunction { .. } => None,
         Declaration::HostFunction(_) => None,
         Declaration::_ForeignFunction { .. } => None,
         Declaration::InterfaceDef(_) => None,
