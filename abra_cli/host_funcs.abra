@@ -1,1 +1,1 @@
-// TODO: get rid of this, it should be optional.
+// Abra CLI currently has no host functions (other than those in the prelude)
