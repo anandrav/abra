@@ -2025,13 +2025,13 @@ fn generate_constraints_expr(
                         // println!("type of {} is {}", s, tyvar);
                         Some(tyvar)
                     }
-                    Declaration::Function(FuncResolutionKind::Ordinary(func_def)) => {
+                    Declaration::FreeFunction(FuncResolutionKind::Ordinary(func_def)) => {
                         Some(TypeVar::from_node(ctx, func_def.name.node()))
                     }
-                    Declaration::Function(FuncResolutionKind::Host(f)) => {
+                    Declaration::FreeFunction(FuncResolutionKind::Host(f)) => {
                         Some(TypeVar::from_node(ctx, f.name.node()))
                     }
-                    Declaration::Function(FuncResolutionKind::_Foreign { decl, .. }) => {
+                    Declaration::FreeFunction(FuncResolutionKind::_Foreign { decl, .. }) => {
                         Some(TypeVar::from_node(ctx, decl.name.node()))
                     }
                     Declaration::Builtin(builtin) => {

@@ -183,7 +183,7 @@ impl Display for Namespace {
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub(crate) enum Declaration {
-    Function(FuncResolutionKind),
+    FreeFunction(FuncResolutionKind),
     MemberFunction(FuncResolutionKind),
     InterfaceDef(Rc<InterfaceDef>),
     InterfaceMethod {
@@ -236,7 +236,7 @@ type InterfaceArguments = Vec<(Rc<InterfaceOutputType>, Rc<AstType>, SolvedType)
 impl Declaration {
     pub fn into_type_key(self: Declaration) -> Option<TypeKey> {
         match self {
-            Declaration::Function(..)
+            Declaration::FreeFunction(..)
             | Declaration::InterfaceDef(_)
             | Declaration::InterfaceMethod { .. }
             | Declaration::MemberFunction { .. }
