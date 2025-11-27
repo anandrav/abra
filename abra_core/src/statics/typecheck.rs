@@ -2381,9 +2381,7 @@ fn generate_constraints_expr(
                             node_ty.clone(),
                         );
                     }
-                    Some(Declaration::MemberFunction(FuncResolutionKind::Ordinary(func)))
-                        if receiver_is_namespace =>
-                    {
+                    Some(Declaration::MemberFunction(func)) if receiver_is_namespace => {
                         // fully qualified struct/enum method
                         // example: Person.fullname(my_person)
                         //          ^^^^^
@@ -2403,16 +2401,6 @@ fn generate_constraints_expr(
                             expr.node(),
                             node_ty.clone(),
                         );
-                    }
-                    Some(Declaration::MemberFunction(FuncResolutionKind::Host(_)))
-                        if receiver_is_namespace =>
-                    {
-                        todo!()
-                    }
-                    Some(Declaration::MemberFunction(FuncResolutionKind::_Foreign { .. }))
-                        if receiver_is_namespace =>
-                    {
-                        todo!()
                     }
                     _ => {
                         // potentially a member function call.
@@ -2434,9 +2422,7 @@ fn generate_constraints_expr(
                                 let memfn_node_ty = TypeVar::from_node(ctx, fname.node());
                                 match memfn_decl {
                                     // TODO: this only works for ordinary, not host or FFI
-                                    Declaration::MemberFunction(FuncResolutionKind::Ordinary(
-                                        func,
-                                    )) => {
+                                    Declaration::MemberFunction(func) => {
                                         let memfn_ty = TypeVar::from_node(ctx, func.name.node())
                                             .instantiate(ctx, polyvar_scope, fname.node());
                                         constrain(ctx, &memfn_node_ty, &memfn_ty);

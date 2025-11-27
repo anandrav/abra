@@ -595,9 +595,7 @@ fn resolve_names_item_decl(ctx: &mut StaticsContext, symbol_table: &SymbolTable,
                 match decl.into_type_key() {
                     Some(type_key) => {
                         for f in &ext.methods {
-                            let method_decl = Declaration::MemberFunction(
-                                FuncResolutionKind::Ordinary(f.clone()),
-                            );
+                            let method_decl = Declaration::MemberFunction(f.clone());
                             try_add_member_function(ctx, type_key.clone(), f, method_decl);
                         }
                     }

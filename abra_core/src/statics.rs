@@ -184,7 +184,7 @@ impl Display for Namespace {
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub(crate) enum Declaration {
     FreeFunction(FuncResolutionKind),
-    MemberFunction(FuncResolutionKind),
+    MemberFunction(Rc<FuncDef>),
     InterfaceDef(Rc<InterfaceDef>),
     InterfaceMethod {
         iface: Rc<InterfaceDef>,
